@@ -472,9 +472,14 @@ import tempfile
 import threading
 import time
 import tomllib
-from collections.abc import Iterator
+from collections.abc import Generator, Sequence
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+
+if TYPE_CHECKING:
+    from lem_board_model import Model
 
 # The one place that says where the state is, shared with the scripts that cannot import this file.
 sys.dont_write_bytecode = True
@@ -1049,20 +1054,21 @@ def committed_settings(main: Path) -> dict | None:
         if text is None:
             continue
         named = names(text) or start
+        base = start
         if named != start:
             other = shown(named)
             if other is None:
                 raise SettingsError(
                     f"{start}:{SETTINGS} names {named!r} as branch.base, and {named} holds no {SETTINGS}: the base branch's own file is the one Lem reads"
                 )
-            start, text = named, other
+            base, text = named, other
         commit = subprocess.run(
-            ["git", "-C", str(main), "rev-parse", f"refs/heads/{start}"],
+            ["git", "-C", str(main), "rev-parse", f"refs/heads/{base}"],
             capture_output=True,
             text=True,
             check=False,
         ).stdout.strip()
-        return {"text": text, "branch": start, "commit": commit}
+        return {"text": text, "branch": base, "commit": commit}
     return None
 
 
@@ -1107,6 +1113,7 @@ def parse_seat(
     agents: tuple[str, ...],
     why: str,
     example: str,
+    *,
     whole: bool = False,
 ) -> dict:
     """One seat, `agent/model:effort`, as its parts: the agent, the model and the effort, each None
@@ -1180,7 +1187,12 @@ def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
     if given is None:
         return None
     return parse_seat(
-        given, f"{name}: seats.{which}", agents, why, example, which in WHOLE_SEATS
+        given,
+        f"{name}: seats.{which}",
+        agents,
+        why,
+        example,
+        whole=which in WHOLE_SEATS,
     )
 
 
@@ -1196,7 +1208,11 @@ def places_of(local: dict, raw: dict, home: dict) -> list[tuple[dict, Path]]:
     return [(local, LOCAL), (raw, SETTINGS), (home, Path(home_name()))]
 
 
-def first_of(found: list[tuple[object, Path]]) -> tuple[object, str]:
+# A value one of the places gives (`first_of`).
+Given = TypeVar("Given")
+
+
+def first_of(found: Sequence[tuple[Given | None, Path]]) -> tuple[Given | None, str]:
     """The first value a place gives, with that place's name as `from`; else None, from Lem's default."""
     for value, name in found:
         if value is not None:
@@ -1214,8 +1230,10 @@ def seat_of(which: str, local: dict, raw: dict, home: dict) -> dict:
     ]
     chosen, place = first_of(found)
     if chosen is None:
-        chosen = seat(
-            {"seats": {which: DEFAULT_SEATS[which]}}, Path(DEFAULT_FROM), which
+        # Lem's own default names the seat, so it gives one
+        chosen = cast(
+            "dict",
+            seat({"seats": {which: DEFAULT_SEATS[which]}}, Path(DEFAULT_FROM), which),
         )
     return {**chosen, "from": place}
 
@@ -1228,7 +1246,11 @@ def experts_from(local: dict, raw: dict, home: dict) -> list[dict]:
     ]
     chosen, place = first_of(found)
     if chosen is None:
-        chosen = experts_of({"seats": {"experts": list(EXPERTS)}}, Path(DEFAULT_FROM))
+        # Lem's own default names the experts, so it gives them
+        chosen = cast(
+            "list[dict]",
+            experts_of({"seats": {"experts": list(EXPERTS)}}, Path(DEFAULT_FROM)),
+        )
     return [{**expert, "from": place} for expert in chosen]
 
 
@@ -1259,7 +1281,7 @@ def fallback_of(raw: dict, name: Path) -> dict | None:
         REVIEWERS,
         "the agents Lem can start in a seat's place",
         FALLBACK,
-        True,
+        whole=True,
     )
 
 
@@ -1272,7 +1294,11 @@ def fallback_from(local: dict, raw: dict, home: dict) -> dict:
     ]
     chosen, place = first_of(found)
     if chosen is None:
-        chosen = fallback_of({"seats": {"fallback": FALLBACK}}, Path(DEFAULT_FROM))
+        # Lem's own default names the fallback, so it gives one
+        chosen = cast(
+            "dict",
+            fallback_of({"seats": {"fallback": FALLBACK}}, Path(DEFAULT_FROM)),
+        )
     return {**chosen, "from": place}
 
 
@@ -1301,11 +1327,11 @@ def experts_of(raw: dict, name: Path) -> list[dict] | None:
                 REVIEWERS,
                 "the agents the harness starts an expert with",
                 EXPERTS[number],
-                True,
+                whole=True,
             ),
             "place": place,
         }
-        for number, (one, place) in enumerate(zip(given, EXPERT_PLACES))
+        for number, (one, place) in enumerate(zip(given, EXPERT_PLACES, strict=False))
     ]
     return [{**expert, "here": agent_here(expert["agent"])} for expert in found]
 
@@ -1667,7 +1693,7 @@ def cmd_plan_file(settings: dict, slug: str, day: str | None) -> None:
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
     day = day or datetime.now(UTC).strftime("%Y-%m-%d")
     try:
-        datetime.strptime(day, "%Y-%m-%d")
+        datetime.strptime(day, "%Y-%m-%d").replace(tzinfo=UTC)
     except ValueError as error:
         raise SettingsError(f"--date {day!r} is not a day as YYYY-MM-DD") from error
     pattern = settings["paths"]["plan_file"]["pattern"]
@@ -1858,9 +1884,13 @@ def set_value(scope: str, name: str, value: str) -> object:
             )
         return False
     if name == "fallback":
-        # `true` is refused as the settings refuse it, with the line to leave out
-        return fallback_of(
-            {"seats": {"fallback": True if value == "true" else value}}, where
+        # `true` is refused as the settings refuse it, with the line to leave out; a fallback named
+        # here gives a seat
+        return cast(
+            "dict",
+            fallback_of(
+                {"seats": {"fallback": True if value == "true" else value}}, where
+            ),
         )["seat"]
     if name == "experts":
         parts = [part.strip() for part in value.split(",")]
@@ -1879,7 +1909,7 @@ def set_value(scope: str, name: str, value: str) -> object:
         agents,
         why,
         example if name in WHOLE_SEATS else DEFAULT_SEATS[name],
-        True,
+        whole=True,
     )["seat"]
 
 
@@ -2165,7 +2195,7 @@ def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
             "rules needs the files a change touches: name them, or pass --range BASE..TIP"
         )
     folder = Path(settings["root"]).resolve() / PLACES["rules"]
-    rules = []
+    rules: list[dict] = []
     for file in rule_files(folder):
         shown = (
             file.relative_to(root).as_posix()
@@ -2432,7 +2462,7 @@ def held_ticket(
     tasks: list[dict],
     kind: str | None,
     succeeds: str | None = None,
-) -> Iterator[None]:
+) -> Generator[None, None, None]:
     """Take TICKET for the task SLUG (`claim_ticket`) for the rest of an opening, `task-dir`'s or
     `resume`'s: a refusal raised in the block gives back the mark this claim made, to the dropped
     task SUCCEEDS when the claim took it from that one, so that no mark names a task that never opened."""
@@ -2462,9 +2492,10 @@ def link_mark(mark: Path, slug: str) -> bool:
     fresh.write_text(slug + "\n", encoding="utf-8")
     try:
         os.link(fresh, mark)
-        return True
     except FileExistsError:
         return False
+    else:
+        return True
     finally:
         fresh.unlink(missing_ok=True)
 
@@ -2474,7 +2505,7 @@ def unmark(mark: Path, holder: str) -> str | None:
     open took in the meantime goes back. Returns the task that mark named, else None (removed, or no mark)."""
     aside = mark.with_name(f"{mark.name}.{os.getpid()}.gone")
     try:
-        os.rename(mark, aside)
+        mark.rename(aside)
     except FileNotFoundError:
         return None
     moved = text_of(aside).strip()
@@ -2891,7 +2922,7 @@ def worktree_setup(root: Path, settings: dict, slug: str, place: Path) -> list[d
         for command in settings["checks"]["setup"]:
             out.write(f"$ {command}\n")
             out.flush()
-            code = subprocess.run(
+            code = subprocess.run(  # noqa: S602 - checks.setup is the project's own shell line, which runs as written
                 command,
                 shell=True,
                 cwd=place,
@@ -3000,7 +3031,7 @@ def task_worktree(root: Path, settings: dict, slug: str) -> dict:
 
 
 def parked_refusal(
-    slug: str, now: str | None, status: str, resumed: bool = False
+    slug: str, now: str | None, status: str, *, resumed: bool = False
 ) -> str | None:
     """Why `state` refuses STATUS over a task whose newest status is NOW, for the park: a parked task
     leaves `parked` only by a drop or by `resume`, and only a task no agent works on is parked."""
@@ -3033,7 +3064,7 @@ LOCKS_HELD: set[tuple[int, Path]] = set()
 
 
 @contextlib.contextmanager
-def state_locked(directory: Path) -> Iterator[None]:
+def state_locked(directory: Path) -> Generator[None, None, None]:
     """Hold the lock of one task's state.md (STATE_LOCK in its directory), or go on under it when this
     thread holds it already."""
     mine = (threading.get_ident(), directory)
@@ -3054,6 +3085,7 @@ def cmd_state(
     slug: str,
     status: str,
     lines: list[str],
+    *,
     start_over: bool = False,
     resumed: bool = False,
     again: bool = False,
@@ -3110,7 +3142,7 @@ def cmd_state(
                 f"the task {slug!r} is {now}: it is with its landing, and a reply or a message about {slug} that comes now is a stale wake-up, "
                 f"and no state is written for it; what the landing needs, land.py says itself",
             )
-        refused = parked_refusal(slug, now, status, resumed)
+        refused = parked_refusal(slug, now, status, resumed=resumed)
         if refused:
             raise SettingsError(refused)
         if now == "blocked" and status == "open" and not again:
@@ -3305,7 +3337,7 @@ def cmd_seat(root: Path, slug: str, which: str) -> dict:
         agents,
         why,
         example,
-        which in WHOLE_SEATS,
+        whole=which in WHOLE_SEATS,
     )
     return {
         "task": slug,
@@ -3367,7 +3399,7 @@ def cmd_seat_failed(
             "(the program is not on the Mac, no login, no tokens, an unknown model). A slow agent is no error: wait for it"
         )
     agents, why, example = SEATS[which]
-    parse_seat(line, "--seat", agents, why, example, which in WHOLE_SEATS)
+    parse_seat(line, "--seat", agents, why, example, whole=which in WHOLE_SEATS)
     if said is not None and (not said.strip() or "\n" in said):
         raise SettingsError(
             "--said is the agent's own line of the error, one line of text"
@@ -3466,7 +3498,7 @@ def cmd_seat_again(root: Path, slug: str) -> dict:
         # the lines of the block before, without the lines of an earlier go on, which this one's replace
         kept = [line for line in before["lines"] if not line.startswith(GO_ON)]
         written = cmd_state(root, slug, before["status"], [*lines, *kept], again=True)
-        for which, said in zip(seats, lines):
+        for which, said in zip(seats, lines, strict=True):
             append_event(root, "seat.again", slug, {"seat": which, "say": said})
     return {
         "task": slug,
@@ -3556,7 +3588,7 @@ def summarized_refusal(log: list[dict], slug: str, ask: str) -> None:
         )
 
 
-def resumed_files(names: list[str], notes: bool) -> list[str]:
+def resumed_files(names: list[str], *, notes: bool) -> list[str]:
     """Of NAMES, the files of a dropped task's directory, the ones its resume copies into the new task:
     RESUMED_FILES and RESUMED_GLOBS, or with NOTES, for a task the release stop blocked, the
     documents and the ticket alone (RESUMED_NOTES)."""
@@ -3573,19 +3605,22 @@ def write_resumed(
     target: Path,
     carried: dict[str, tuple[bytes, os.stat_result]],
     folders: list[str],
+    *,
     notes: bool,
 ) -> None:
     """Write into TARGET what `resumed_files` chooses of the files a resume read (`resumed_reads`), and the
     pictures of `media/` with its folders, each file as it was read, with its mode and its times, as a
     copy keeps them."""
-    chosen = set(resumed_files([path for path in carried if "/" not in path], notes))
+    chosen = set(
+        resumed_files([path for path in carried if "/" not in path], notes=notes)
+    )
     for folder in folders:
         (target / folder).mkdir(parents=True, exist_ok=True)
     for path, (data, facts) in carried.items():
         if path not in chosen and not path.startswith("media/"):
             continue
         (target / path).write_bytes(data)
-        os.chmod(target / path, stat.S_IMODE(facts.st_mode))
+        (target / path).chmod(stat.S_IMODE(facts.st_mode))
         os.utime(target / path, ns=(facts.st_atime_ns, facts.st_mtime_ns))
 
 
@@ -3706,7 +3741,7 @@ def resume_as_request(
     exists = has_branch(main, old)
     # the type of the old branch's name (`fix/invoice-totals`), since the old state's type line is a
     # record of a release two back; the new session takes the type anew, and keeps this branch
-    first = old.split("/", 1)[0] if exists and "/" in old else None
+    first = old.split("/", 1)[0] if exists and old is not None and "/" in old else None
     branch = f"{first if first in TYPES else 'feat'}/{new}" if exists else None
     ticket = (
         text_of(directory / "ticket.txt").strip()
@@ -4107,7 +4142,7 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
         raise SettingsError(
             f"{event} is written by `lem project owner` and `task-dir --night` only: the owner's status is his words, kept in the machine's mark and never in a repository's log, and a night's mark is the night's"
         )
-    fields: dict[str, object] = {}
+    fields: dict[str, Any] = {}
     for pair in pairs:
         key, separator, raw = pair.partition("=")
         typed = key.endswith(":")
@@ -4135,6 +4170,11 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
     if event == "investigation":
         investigation_form(fields)
     print(json.dumps(append_event(root, event, slug, fields)))
+
+
+# A cast has two personas or more, and a split is between two model families.
+LEAST_PERSONAS = 2
+SPLIT_FAMILIES = 2
 
 
 def read_form(fields: dict) -> None:
@@ -4195,7 +4235,7 @@ def read_form(fields: dict) -> None:
             f"{form}: digest is the twelve characters `lem criteria digest` prints for the criteria that were read"
         )
     # every project's cast has two people or more
-    if fields["asked"] < 2:
+    if fields["asked"] < LEAST_PERSONAS:
         raise SettingsError(f"{form}: a read asks two personas at the least")
     if fields["answered"] > fields["asked"]:
         raise SettingsError(
@@ -4221,7 +4261,7 @@ def read_form(fields: dict) -> None:
         raise SettingsError(
             f"{form}: a read has one criterion at the least, and no more criteria flagged than it read"
         )
-    if fields["split"] and len(families) < 2:
+    if fields["split"] and len(families) < SPLIT_FAMILIES:
         raise SettingsError(
             f"{form}: a split is between two model families, and families names one"
         )
@@ -4381,7 +4421,7 @@ def talk_form(fields: dict) -> None:
     turns, questions = fields["turns"], fields["questions"]
     # A floor against an empty record, not a measure of a good talk. A reviewer that found nothing
     # says so in its first turn, and the defender closes: a talk of no question has those two turns.
-    if turns < 2:
+    if turns < TURNS_AROUND:
         raise SettingsError(
             f"{form}: a talk has two turns at the least: the reviewer's list, which may be empty, and the close"
         )
@@ -4463,8 +4503,9 @@ def proposal(directory: Path) -> dict | None:
     # asked, on the head Lem pushed: null when nothing asked, the forge did not know, or the head moved since.
     forge = kept.get("forge") if isinstance(kept.get("forge"), dict) else {}
     pushed = kept.get("pushed") or kept.get("proposed")
+    conflicting: dict[object, bool] = {"CONFLICTING": True, "MERGEABLE": False}
     conflict = (
-        {"CONFLICTING": True, "MERGEABLE": False}.get(forge.get("mergeable"))
+        conflicting.get(forge.get("mergeable"))
         if pushed and forge.get("head") == pushed
         else None
     )
@@ -4510,7 +4551,7 @@ def events_named(root: Path, *events: str) -> list[dict]:
     return found
 
 
-def newest_events(root: Path, event: str) -> dict[str, dict]:
+def newest_events(root: Path, event: str) -> dict[str | None, dict]:
     """Each task's newest event of one name in the event log. A task's lead closes the plan talk's
     pair, and a builder leads the build of a careful or large plan, only on the newest `plan.talk`,
     never on a line that says so; a task's session takes a bug's next path on the newest
@@ -4530,11 +4571,11 @@ OWNER = "owner"
 SUMMARY = "task.summary"
 
 
-def nights(modes: list[dict]) -> dict[str, str]:
+def nights(modes: list[dict]) -> dict[str | None, str]:
     """The night that opened each task, as its date, from the first `task.mode` event Lem wrote in
     the night's words, or from the task's summary, which keeps that date. The owner's "back" later
     takes neither the date nor the night's span away."""
-    found: dict[str, str] = {}
+    found: dict[str | None, str] = {}
     for record in modes:
         if record.get("event") == SUMMARY and isinstance(record.get("night"), str):
             found.setdefault(record.get("task"), record["night"])
@@ -4580,7 +4621,7 @@ def owner_records() -> list[dict]:
     return found
 
 
-def append_owner(root: Path, away: bool, words: str) -> dict:
+def append_owner(root: Path, *, away: bool, words: str) -> dict:
     """Append one record of the owner's status to the machine's mark, made with its folder when it
     is absent. One short line in one write with O_APPEND: two repositories that write at once each
     add their own line whole, so no lock is kept beside it."""
@@ -4665,10 +4706,7 @@ def runs_without_owner(slug: str, records: list[dict], first: str | None) -> lis
         if record.get("event") == "task.mode" and record.get("task") == slug:
             own = own or record
         elif record.get("event") == OWNER and record.get("task") is None:
-            if record.get("away"):
-                away = away or record
-            else:
-                away = None
+            away = (away or record) if record.get("away") else None
         else:
             continue
         start = own or away
@@ -4734,13 +4772,12 @@ def track_of(text: str) -> str | None:
     for line in text.splitlines():
         found = STATE_LINE.fullmatch(line.strip())
         said = found["text"] if found else line.strip()
-        if said == FAST_BUILDER or said == FAST_WAIT:
+        if said in (FAST_BUILDER, FAST_WAIT):
             return "fast"
         if (
             FAST_GREW.search(said)
             or LEAD_LINE.match(said)
-            or said.startswith(CRITERIA_WAIT)
-            or said.startswith(INTERVIEW_WAIT)
+            or said.startswith((CRITERIA_WAIT, INTERVIEW_WAIT))
         ):
             return "standard"
     return None
@@ -4805,7 +4842,7 @@ def fixed_form(line: str) -> None:
         )
 
 
-def correction(fast: bool, task: str | None) -> str:
+def correction(*, fast: bool, task: str | None) -> str:
     """The commands that correct the read, the fast track's two or the standard track's one. In the
     task's own session they need no task; in another session (`task`) each names it."""
     named = f" {task}" if task else ""
@@ -4857,6 +4894,11 @@ def criterion_of(text: str) -> str | None:
     return None
 
 
+# A few words: a bold run of no more opens a paragraph as its label, and a paragraph or a sentence of
+# no more is no outcome.
+FEW_WORDS = 3
+
+
 def outcome_of(text: str) -> str | None:
     """The first sentence of prose under `## Outcome` in a task.md, or None: a numbered story, a list,
     a chart or a bold label (a few words, or any that ends in a colon: "Today:") is no sentence to
@@ -4881,7 +4923,7 @@ def outcome_of(text: str) -> str | None:
         bold = bool(re.match(r"\*\*[^*\s]", line)) and not (
             label
             and (
-                len(label[1].split()) <= 3
+                len(label[1].split()) <= FEW_WORDS
                 or label[1].rstrip().endswith(":")
                 or label[2]
             )
@@ -4894,11 +4936,11 @@ def outcome_of(text: str) -> str | None:
         if prose:
             paragraph.append(line)
             continue
-        if paragraph and len(" ".join(paragraph).split()) > 3:
+        if paragraph and len(" ".join(paragraph).split()) > FEW_WORDS:
             break
         paragraph = []
     said = BOLD_RUN.sub(lambda run: run[1] or run[2], " ".join(paragraph))
-    return first_sentence(said) if len(said.split()) > 3 else None
+    return first_sentence(said) if len(said.split()) > FEW_WORDS else None
 
 
 def opening_line_facts(
@@ -5074,13 +5116,13 @@ def compose_opening_line(facts: dict, task: str | None = None) -> str:
                 else "Nothing waits for you but the pull request, which calls you: you did not approve its criterion."
             )
         steps = "Then the f" + FAST_STEPS[1:] if waiting else FAST_STEPS
-        words += [steps, nothing, correction(True, task)]
+        words += [steps, nothing, correction(fast=True, task=task)]
     elif path == "interview":
         now = "" if waiting else " now"
         words += [
             f"{standard} an interview {here}{now}, then acceptance criteria for your yes.",
             then,
-            correction(False, task),
+            correction(fast=False, task=task),
         ]
     elif path == "complete":
         read = (
@@ -5091,7 +5133,7 @@ def compose_opening_line(facts: dict, task: str | None = None) -> str:
         words += [
             f"{standard.rstrip(':')}, with no interview, since {facts['stands_in']} says what is wanted: {read}",
             then,
-            correction(False, task),
+            correction(fast=False, task=task),
         ]
     else:
         investigator = "Then an investigator" if waiting else "An investigator"
@@ -5144,6 +5186,7 @@ def opening_line_of(
     lines: list[str],
     older: str,
     branch: str | None,
+    *,
     night: bool,
     task: str | None = None,
 ) -> str | None:
@@ -5176,12 +5219,12 @@ def opening_line(
         return None
     night = bool(nights(events_named(root, "task.mode")).get(slug))
     main = main_checkout(root)
-    say = opening_line_of(directory, main, status, lines, older, branch, night)
+    say = opening_line_of(directory, main, status, lines, older, branch, night=night)
     return (
         {
             "say": say,
             "say_named": opening_line_of(
-                directory, main, status, lines, older, branch, night, slug
+                directory, main, status, lines, older, branch, night=night, task=slug
             ),
         }
         if say
@@ -5192,14 +5235,14 @@ def opening_line(
 def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
     """Every task of the repository as its state files say now. `settings` is `load(root)` when the
     caller read it already; only a task with a ticket needs them."""
-    tasks = []
+    tasks: list[dict] = []
     talks = newest_events(root, "plan.talk")
     investigations = newest_events(root, "investigation")
     # each task's own mark and its first and newest state, from the repository's log; a task whose
     # events became its summary has both times and its night's date there, and no mark of its own
     presence = events_named(root, "task.mode", "task.state", SUMMARY)
-    opened: dict[str, str] = {}
-    newest: dict[str, str] = {}
+    opened: dict[str | None, str] = {}
+    newest: dict[str | None, str] = {}
     for record in presence:
         if record.get("event") == SUMMARY:
             if record.get("opened"):
@@ -5223,9 +5266,11 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
         written = text_of(state) if state.is_file() else ""
         block = written.strip().split("\n\n")[0] if written.strip() else None
         first = STATE_LINE.fullmatch(block.splitlines()[0]) if block else None
-        known = first is not None and first["status"] in STATES
+        known = first if first is not None and first["status"] in STATES else None
         # an ended task ran without the owner only up to its last event: an "away" after it is no span of it
-        ended = known and first["status"] in ENDED and directory.name in newest
+        ended = (
+            known is not None and known["status"] in ENDED and directory.name in newest
+        )
         spans = runs_without_owner(
             directory.name,
             [record for record in presence if record["ts"] <= newest[directory.name]]
@@ -5255,8 +5300,8 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
                 "ticket_held_by": None,
                 "ticket_owed": [],
                 # null when no block was written through `project.py state`: nobody can tell who acts next
-                "status": first["status"] if known else None,
-                "since": first["since"] if known else None,
+                "status": known["status"] if known else None,
+                "since": known["since"] if known else None,
                 "state": block,
                 # what the landing proposed to the owner, for the status and the board: where, and green or why not
                 "proposal": proposal(directory),
@@ -5475,7 +5520,7 @@ def waiting_brief(task: dict) -> dict:
     }
 
 
-def waiting_model(root: Path, settings: dict):
+def waiting_model(root: Path, settings: dict) -> "tuple[Model, str | None]":
     """The board's model of the repository as the board server builds it (`lem_board_model`), for
     `waiting`: the event log, the owner's mark, the demo mark (board.py `meta_of`), the forge's last look
     that the server wrote (`lem_board_model.FORGE_LOOK`), and the task sessions, which it asks `lem session
@@ -5510,7 +5555,7 @@ def waiting_model(root: Path, settings: dict):
 
 
 def waiting_sessions(
-    root: Path, settings: dict, model, bm
+    root: Path, settings: dict, model: "Model", bm: ModuleType
 ) -> tuple[dict | None, str | None]:
     """The task sessions as the board server knows them (`lem_board_model.sessions_of`): what `lem session
     list` says, with the ended tasks whose worktree is still there; and None with why, when the list
@@ -5588,7 +5633,7 @@ def cmd_waiting(root: Path) -> dict:
         )
     pending = json.loads(asked.stdout)
 
-    def brief(row: dict, **more) -> dict:
+    def brief(row: dict, **more: object) -> dict:
         task = tasks[row["t"].slug]
         return {**waiting_brief(task), "line": first_line_of(task), **more}
 
@@ -5640,7 +5685,7 @@ def cmd_waiting(root: Path) -> dict:
         }
 
     marks = owner_records()
-    found = {
+    found: dict[str, Any] = {
         # whether the owner said he is away, since when and in which words, from the machine's mark: the list
         # says it first; `seen` is the number of records in the mark, from which a watch of it starts
         "owner": {**owner_now(marks), "seen": len(marks)},
@@ -5699,7 +5744,7 @@ def cmd_waiting(root: Path) -> dict:
         "forge": {"looked": (bm.forge_look(state_root(root)) or {}).get("looked")},
     }
     # the report of last night: a night writes it under the day it started, so today's or yesterday's
-    today = datetime.now().date()
+    today = datetime.now().date()  # noqa: DTZ005 - the list looks for the report of today and of yesterday by the local day
     recent = [
         (state_root(root) / NIGHTS / f"{day.isoformat()}.md")
         for day in (today, today - timedelta(days=1))
@@ -5868,7 +5913,7 @@ def write_whole(file: Path, text: str) -> None:
     file.parent.mkdir(parents=True, exist_ok=True)
     staging = file.with_name(f"{file.name}.{os.getpid()}.new")
     staging.write_text(text, encoding="utf-8")
-    os.replace(staging, file)
+    staging.replace(file)
 
 
 def write_record(file: Path, data: dict) -> None:
@@ -5876,7 +5921,7 @@ def write_record(file: Path, data: dict) -> None:
 
 
 @contextlib.contextmanager
-def proposals_lock(state: Path) -> Iterator[None]:
+def proposals_lock(state: Path) -> Generator[None, None, None]:
     with (state / PROPOSALS_LOCK).open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         yield
@@ -5891,7 +5936,8 @@ def records_of(state: Path) -> list[tuple[str, Path, dict]]:
                 raise SettingsError(
                     f"{file}: a record of proposals is named by its day, YYYY-MM-DD.json; rename it or move it out of {folder}/"
                 )
-            found.append((kind, file, read_record(file, kind)))
+            # the file was listed just now, so it gives a record
+            found.append((kind, file, cast("dict", read_record(file, kind))))
     return sorted(found, key=lambda one: (one[2]["date"], one[0]))
 
 
@@ -5960,7 +6006,7 @@ def cmd_proposals_add(
         }
         first = len(record["proposals"]) + 1
         numbers = list(range(first, first + len(proposals)))
-        for number, proposal in zip(numbers, proposals):
+        for number, proposal in zip(numbers, proposals, strict=True):
             record["proposals"].append(
                 {
                     "number": number,
@@ -6076,7 +6122,10 @@ def item_text(
         "",
     ]
     for name, proposal in entries:
-        kind, day, number = PROPOSAL_NAME.fullmatch(name).groups()
+        # each name had its verdict read in this form
+        kind, day, number = cast(
+            "re.Match[str]", PROPOSAL_NAME.fullmatch(name)
+        ).groups()
         lines += [
             f"## {proposal['move']}",
             "",
@@ -6122,7 +6171,7 @@ def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:
                 not isinstance(verdict, dict)
                 or "proposal" not in verdict
                 or len(set(verdict) & {"refuted", "passed"}) != 1
-                or len(verdict) != 2
+                or not set(verdict) <= {"proposal", "refuted", "passed"}
             ):
                 raise SettingsError(
                     f'verdict {n} is not {{"proposal": "retro of DATE #N", "refuted": REASON}} or {{"proposal": ..., "passed": AREA}}'
@@ -6209,7 +6258,8 @@ def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:
         for item in items.values():
             write_whole(item["file"], item["text"])
         for name, kind, word, verdict, _proposal in judged:
-            found = PROPOSAL_NAME.fullmatch(name)
+            # each name had its verdict read in this form
+            found = cast("re.Match[str]", PROPOSAL_NAME.fullmatch(name))
             record = records[(kind, found[2])][1]
             number = int(found[3])
             if word == "refuted":
@@ -6375,9 +6425,12 @@ def cmd_proposals_drop(state: Path, given: str, today: str) -> dict:
                 "only `lem project proposals verdict` writes the reviewer's items; remove a file it did not write by hand",
                 {"dropped": False, "item": item, "held_by": None},
             )
-        records: dict[tuple[str, str], tuple[Path, dict]] = {}
+        records: dict[tuple[str, str], tuple[Path, dict | None]] = {}
         for name in names:
-            kind, day, number = PROPOSAL_NAME.fullmatch(name).groups()
+            # item_proposals gives the names of this form only
+            kind, day, number = cast(
+                "re.Match[str]", PROPOSAL_NAME.fullmatch(name)
+            ).groups()
             number = int(number)
             if (kind, day) not in records:
                 record_path = record_file(state, kind, day)
@@ -6403,7 +6456,8 @@ def cmd_proposals_drop(state: Path, given: str, today: str) -> dict:
                     }
                 )
         for record_path, record in records.values():
-            write_record(record_path, record)
+            # a name whose record is missing was refused above
+            write_record(record_path, cast("dict", record))
         file.unlink()
     return {"dropped": True, "item": item, "proposals": names, "day": today}
 
@@ -6444,7 +6498,7 @@ def cmd_owner(root: Path, status: str, words: str | None) -> dict:
     ]
     if now["away"] == away:
         return {**now, "written": False, "tasks": without if away else []}
-    record = append_owner(root, away, words.strip())
+    record = append_owner(root, away=away, words=words.strip())
     after = [
         task["slug"]
         for task in read_tasks(root)
@@ -6616,7 +6670,7 @@ def cmd_serial(root: Path, words: list[str]) -> int:
         handle.seek(0)
         handle.truncate()
         handle.write(
-            f"pid {os.getpid()}, since {datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}, in {os.getcwd()}: {shown}\n"
+            f"pid {os.getpid()}, since {datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}, in {Path.cwd()}: {shown}\n"
         )
         handle.flush()
         proc: subprocess.Popen | None = None
@@ -6693,6 +6747,8 @@ def cmd_may_nap(root: Path) -> None:
         kept.append((when, entry))
     marker = folder / ASLEEP
     asleep = None
+    # both are read only while a nap is asleep, which sets them
+    since, started = now, ""
     if marker.is_file():
         try:
             asleep = json.loads(text_of(marker))
@@ -6706,7 +6762,7 @@ def cmd_may_nap(root: Path) -> None:
             raise SettingsError(
                 f"{marker} is not the record may-nap writes ({error}); remove the file, and the next call writes it again"
             ) from error
-    answer = {
+    answer: dict[str, Any] = {
         "may": False,
         "why": "",
         "folder": str(folder),
@@ -6758,7 +6814,7 @@ def cmd_may_nap(root: Path) -> None:
             # written whole under another name first, so that a reader never finds half of it
             staging = folder / f"{ASLEEP}.{os.getpid()}"
             staging.write_text(json.dumps(record) + "\n", encoding="utf-8")
-            os.replace(staging, marker)
+            staging.replace(marker)
     print(json.dumps(answer, indent=2))
 
 
@@ -6800,7 +6856,11 @@ def task_calls(found: list[dict], events: list[dict], cutoff: datetime) -> list[
     calls = []
     for task in found:
         slug, text = task["slug"], task["state"]
-        call = {"task": slug, "status": None, "last_event": newest.get(slug)}
+        call: dict[str, Any] = {
+            "task": slug,
+            "status": None,
+            "last_event": newest.get(slug),
+        }
         if text is None or not text.strip():
             calls.append({**call, "call": "open"})
             continue
@@ -6859,7 +6919,7 @@ class Remover:
     never removed: it is named in `skipped`. Each removal that fails is named in `failed`, and the others
     go on."""
 
-    def __init__(self, top: Path, dry: bool) -> None:
+    def __init__(self, top: Path, *, dry: bool) -> None:
         self.top = top.resolve()
         self.dry = dry
         self.skipped: list[dict] = []
@@ -6916,7 +6976,7 @@ class Remover:
         """Remove the folders under FOLDER that hold nothing now, deepest first; FOLDER itself stays."""
         if self.dry:
             return
-        for at, folders, names in os.walk(folder, topdown=False):
+        for at, folders, _ in os.walk(folder, topdown=False):
             for name in folders:
                 path = Path(at) / name
                 try:
@@ -7137,7 +7197,7 @@ def summary_of(slug: str, records: list[dict], now: int) -> dict:
 
 
 def summaries(
-    records: list[dict | None], calls: list[dict], now: int
+    records: Sequence[dict | None], calls: list[dict], now: int
 ) -> dict[str, tuple[dict, int]]:
     """The summary of each task that `task_calls` calls `old`, by its slug, with how many lines of
     the log it replaces, from RECORDS, the log's records in its order (None for a line that is no
@@ -7231,8 +7291,8 @@ def rewrite_log(
                 out.write(summarized_log(lines, made))
                 out.flush()
                 os.fsync(out.fileno())
-            os.chmod(name, stat.S_IMODE(os.fstat(handle.fileno()).st_mode))
-            os.replace(name, log)
+            Path(name).chmod(stat.S_IMODE(os.fstat(handle.fileno()).st_mode))
+            Path(name).replace(log)
         except BaseException:
             Path(name).unlink(missing_ok=True)
             raise
@@ -7244,7 +7304,7 @@ def rewrite_log(
     return calls, made
 
 
-def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
+def cmd_prune(root: Path, *, dry: bool, days: int | None) -> tuple[dict, int]:
     """Remove what the state folder no longer needs, older than `state.keep_days` (or, in a dry run,
     --days): the events of each task that ended, which become its one summary event (`rewrite_log`),
     then every file of that task's folder but its small record (`lem_artifacts.outside_record`) and
@@ -7271,7 +7331,7 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
         raise SettingsError(
             f"{state} is a link, and prune removes nothing through a link: make the state folder a folder of the main checkout"
         )
-    remover = Remover(state, dry)
+    remover = Remover(state, dry=dry)
     now = datetime.now(UTC)
     cutoff = now - timedelta(days=keep)
     tasks_folder = state / "tasks"
@@ -7331,7 +7391,8 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
         {"task": slug, "status": summary["status"], "events": count}
         for slug, (summary, count) in made.items()
     ]
-    pruned_tasks, counts = [], {"open": 0, "young": 0, "old": 0}
+    pruned_tasks: list[dict] = []
+    counts = {"open": 0, "young": 0, "old": 0}
     for call in calls:
         if call["call"] in counts:
             counts[call["call"]] += 1
@@ -7372,7 +7433,7 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
                     "kept_bytes": kept,
                 }
             )
-    folders = []
+    folders: list[dict] = []
     for kind, name, dated, day_named in PRUNED:
         top = state / name
         if top.is_symlink():
@@ -7744,7 +7805,13 @@ def main(argv: list[str] | None = None) -> None:
         if args.command == "state":
             print(
                 json.dumps(
-                    cmd_state(root, args.slug, args.status, args.lines, args.start_over)
+                    cmd_state(
+                        root,
+                        args.slug,
+                        args.status,
+                        args.lines,
+                        start_over=args.start_over,
+                    )
                 )
             )
             return
@@ -7811,7 +7878,7 @@ def main(argv: list[str] | None = None) -> None:
             cmd_may_nap(root)
             return
         if args.command == "prune":
-            answer, code = cmd_prune(root, args.dry_run, args.days)
+            answer, code = cmd_prune(root, dry=args.dry_run, days=args.days)
             print(json.dumps(answer, indent=2))
             if code:
                 sys.exit(code)
