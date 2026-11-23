@@ -127,7 +127,8 @@ object per line: `ts` (UTC to the second), `event`, `task`, then the event's fie
 (`lem serve`) reads it as it grows, and whole again when it is a new file. Each writer appends under
 the log's one lock (`lem_state.events_lock`). Only `prune` shortens it: past `state.keep_days`, all
 the events of a task that ended become one `task.summary` (`summary_of`) in the place of its newest,
-with the facts the board and `tasks` read of an ended task, and the new log replaces the old one
+with the facts the board and `tasks` read of an ended task and the paths of its transcripts, which
+`lem_tokens` reads, and the new log replaces the old one
 under the same lock. `log` refuses a `task.summary`. `state` writes `task.state` with the status, the lines, the ask and
 the branch and newest commit of the task's worktree, so the board needs no agent to remember a
 second command, and for the block that names a day's task's path with its type, the task's first
@@ -3820,7 +3821,10 @@ def summary_of(slug: str, records: list[dict], now: int) -> dict:
     `derive`, then `settle` for the newest block, `since`, `first` and `last`, `pr_of`, the card's
     `type`, `criteria_size` for the track, `lead_of`, `careful_of`, `proposal` and `investigation`, and whether a plan talk ended
     before the newest block, which `said_of` reads), `read_tasks` for `opened` and `newest` (the first
-    and newest `task.mode` or `task.state`), and `nights` for `night`. `ts` is the time of the task's
+    and newest `task.mode` or `task.state`), `nights` for `night`, and `lem_tokens` for `transcripts`,
+    the path of each `session.transcript` of the task, each once in the log's order, which it reads by
+    each transcript's first prompt, so that a fork of an open task's session logged under this one still
+    counts for that task. `ts` is the time of the task's
     newest event, which `prune` dates the task by. A task whose events hold its summary and newer
     events gets one new summary: the old one is the task's past, a newer fact replaces its old one,
     and `events` adds the old count to the newer events."""
@@ -3848,6 +3852,11 @@ def summary_of(slug: str, records: list[dict], now: int) -> dict:
     times = [record["ts"] for record in rest if record.get("event") in ("task.mode", "task.state") and isinstance(record.get("ts"), str)]
     proposal = task.proposal if task else None
     investigation = task.investigation if task else None
+    transcripts = [path for path in past.get("transcripts") or [] if isinstance(path, str)]
+    for record in rest:
+        path = record.get("transcript")
+        if record.get("event") == "session.transcript" and isinstance(path, str) and path and path not in transcripts:
+            transcripts.append(path)
     return {
         "ts": max(record["ts"] for record in records if isinstance(record.get("ts"), str)), "event": SUMMARY, "task": slug,
         "status": facts["status"], "text": facts["text"], "lines": facts["lines"], "since": facts["since"], "first": facts["first"], "last": facts["last"],
@@ -3862,6 +3871,7 @@ def summary_of(slug: str, records: list[dict], now: int) -> dict:
         "investigation": newer({**investigation, "ts": stamp_ms(investigation["ts"])} if investigation else None, "investigation"),
         "talked": facts["talked"],
         "night": nights(records).get(slug),
+        "transcripts": transcripts,
         "events": int(past.get("events") or 0) + len(rest),
     }
 

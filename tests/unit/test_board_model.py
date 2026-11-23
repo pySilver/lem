@@ -1036,6 +1036,22 @@ class Summary(unittest.TestCase):
         t = model(*log, state(40, "landed", "main: pull request 12 is merged, and the session cleaned up", task="report-dates")).by_slug["report-dates"]
         self.assertEqual((t.status, t.since, t.first, bm.pr_of(t)["n"]), ("landed", bm.at(ev(15, "x")["ts"]), bm.at(ev(1, "x")["ts"]), "12"))
 
+    def test_a_summary_keeps_the_path_of_each_transcript_of_the_task_once_in_the_logs_order(self):
+        # lem_tokens reads them by each transcript's first prompt, so a fork of another task logged here still counts for that task
+        project = importlib.import_module("project")
+
+        def logged(minute, name, task="report-dates"):
+            return ev(minute, "session.transcript", task, claude=name, transcript=f"/t/{name}.jsonl", source="startup")
+
+        events = [state(1, "building", "lead: builder", task="report-dates"), logged(2, "c1"), logged(3, "6fe214ec"), logged(4, "c1"),
+                  state(5, "landed", "main: pull request 12 is merged", task="report-dates")]
+        summary = project.summary_of("report-dates", events, NOW)
+        self.assertEqual(summary["transcripts"], ["/t/c1.jsonl", "/t/6fe214ec.jsonl"])
+        # a summary with newer events: the old summary's paths first, then each newer one not yet named
+        again = project.summary_of("report-dates", [summary, logged(6, "6fe214ec"), logged(7, "c2"),
+                                                    state(8, "landed", "main: pull request 12 is merged", task="report-dates")], NOW)
+        self.assertEqual(again["transcripts"], ["/t/c1.jsonl", "/t/6fe214ec.jsonl", "/t/c2.jsonl"])
+
     def test_the_reader_reads_a_log_that_prune_replaced_once_and_whole(self):
         import os
         from unittest import mock
