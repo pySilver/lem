@@ -352,6 +352,50 @@ class WaitStacks(unittest.TestCase):
         self.assertEqual(bm.wait_stacks([]), [])
 
 
+class WaitingByTask(unittest.TestCase):
+    """`lem project waiting` groups the things of one task under that task (`tasks`), in the order of the
+    board's stacks, and counts each task once (criterion 5 of
+    docs/plans/2026-11-23-one-row-for-a-merge-call.md)."""
+
+    SLUGS = ("board-answers-a-card", "logo-eyes", "board-card")
+
+    def waiting(self, m) -> dict:
+        project = importlib.import_module("project")
+        tasks = [{"slug": slug, "ask": f"the ask of {slug}", "since": "2026-11-23T09:00:00Z", "night": None,
+                  "state": f"## 2026-11-23 09:00 · open\n\n{slug}'s line", "status": "open", "proposal": None} for slug in self.SLUGS]
+        pending = mock.Mock(returncode=0, stdout=json.dumps({"waiting": [], "ended": []}))
+        with tempfile.TemporaryDirectory() as folder, \
+             mock.patch.object(project, "load", return_value={}), mock.patch.object(project, "read_tasks", return_value=tasks), \
+             mock.patch.object(project, "waiting_model", return_value=(m, None)), mock.patch.object(project.subprocess, "run", return_value=pending), \
+             mock.patch.object(project, "owner_records", return_value=[]), mock.patch.object(project, "state_root", return_value=Path(folder)), \
+             mock.patch.object(project, "first_line_of", side_effect=lambda task: f"{task['slug']}'s line"):
+            return project.cmd_waiting(Path("/lem-unit/repo"))
+
+    def test_a_task_whose_merge_review_calls_the_owner_is_one_entry_of_its_two_things_and_counts_once(self):
+        # the interview of board-answers-a-card, then the logo's merge review, board-card's merge and the logo's merge
+        m = model(state(0, "held", "the interview waits for the owner", task="board-answers-a-card"), *WaitStacks.calls("logo-eyes", 10, 73),
+                  state(5, "open", "pull request https://github.com/acme/shop/pull/42", "green", task="board-card"))
+        found = self.waiting(m)
+        self.assertEqual([r["key"] for r in found["rows"]], ["held:board-answers-a-card", "review:logo-eyes", "merge:board-card", "merge:logo-eyes"])
+        self.assertEqual(found["tasks"], [
+            {"task": "board-answers-a-card", "ask": "the ask of board-answers-a-card", "since": "2026-11-23T09:00:00Z", "night": None,
+             "line": "board-answers-a-card's line",
+             "things": [{"key": "held:board-answers-a-card", "kind": "held", "verb": "The interview waits for you"}]},
+            {"task": "logo-eyes", "ask": "the ask of logo-eyes", "since": "2026-11-23T09:00:00Z", "night": None, "line": "logo-eyes's line",
+             "things": [{"key": "review:logo-eyes", "kind": "review", "verb": "Read the merge review"},
+                        {"key": "merge:logo-eyes", "kind": "merge", "verb": "Merge the pull request #73"}]},
+            {"task": "board-card", "ask": "the ask of board-card", "since": "2026-11-23T09:00:00Z", "night": None, "line": "board-card's line",
+             "things": [{"key": "merge:board-card", "kind": "merge", "verb": "Merge the pull request #42"}]},
+        ])
+        # three tasks wait, though four things do; the groups of each kind keep one entry for each thing
+        self.assertEqual(found["count"], 3)
+        self.assertEqual(([e["task"] for e in found["reviews"]], [e["task"] for e in found["pull_requests"]]), (["logo-eyes"], ["board-card", "logo-eyes"]))
+
+    def test_nothing_waits_no_task_and_a_count_of_0(self):
+        found = self.waiting(model(state(0, "building", "lead: builder", task="logo-eyes")))
+        self.assertEqual((found["tasks"], found["rows"], found["count"]), ([], [], 0))
+
+
 class Acts(unittest.TestCase):
     """What the board offers the owner to do on a task (serve.py's acts)."""
 

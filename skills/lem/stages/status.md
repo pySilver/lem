@@ -32,9 +32,16 @@ lem project waiting
 While `owner` says that he is away, the list's first line says so and since when, in his clock,
 and that it holds for the whole machine, since he may have said it in another repository: "You
 are away since 14:05, in every repository on this machine; the tasks go on without you until /lem im-back."
-Then it gives the board's own rows of "Waits for you", in the board's order (`rows`, each with its
-`kind` and its task), and you say them so, in plain names and never in task codes, one line each,
-with each kind's entry under its key, and leave out a kind that has none:
+Then it gives the board's own entries of "Waits for you", in the board's order (`tasks`): one for
+each task, with each of its things in its order (`things`, each with its `key`, its `kind` and its
+`verb`, the board's words for it). You say them so, in plain names and never in task codes. A task
+of one thing is one line, as the board's plain row. A task of two or more is one line with the
+task's name, as the board's stack, and under it one line for each of its things, in its words:
+"Refund line on receipt", then "read the merge review" and "merge the pull request #44".
+Each thing's line carries the facts of its kind, from the entry of the same task in the group of
+that kind (`breaker` in `breakers`, `session` in `no_session`, `plan` in `plans`, `review` in
+`reviews`, `merge` in `pull_requests`, and every other kind in the group of its own name), as the
+list below gives them:
 
 1. `breakers`: each breaker of a task that waits for him: the task and the document's title;
 2. `no_session`: each task whose session is gone (`need: gone`) or does not answer a wake-up

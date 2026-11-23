@@ -75,18 +75,21 @@ else
   fail "the main listener's Host: $foreign"
 fi
 
-# lem project waiting lists the rows of the board's Waits for you, one for each thing, in their order, each by its key.
+# lem project waiting lists the rows of the board's Waits for you, one for each thing, in their order, each by its key,
+# and the same things grouped by task as the board's stacks, which it counts as /api/workspaces does.
 waiting=$(project --repo "$DEMO" waiting)
 rows=$(got "$BASE/waits" | "$PY" -c 'import re, sys; print(re.findall(r"<article class=\"wrow [^\"]*\" id=\"wait-([a-z0-9-]+)\"", sys.stdin.read()))')
 # the rows inside the stack of refund-line-on-receipt, whose merge review calls the owner and whose merge waits for him
 stacked=$(got "$BASE/waits" | "$PY" -c 'import re, sys; m = re.search(r"(?s)<details class=\"wstack[^\"]*\" id=\"wait-stack-refund-line-on-receipt\".*?</details>", sys.stdin.read())
 print(re.findall(r"<article class=\"wrow [^\"]*\" id=\"wait-([a-z0-9-]+)\"", m[0]) if m else "no stack")')
-if [ "$(field '[r["key"].replace(":", "-") for r in d["rows"]]' <<<"$waiting")" = "$rows" ] && [ "$(field 'd["count"]' <<<"$waiting")" = 5 ] \
+if [ "$(field '[r["key"].replace(":", "-") for r in d["rows"]]' <<<"$waiting")" = "$rows" ] && [ "$(field 'len(d["rows"])' <<<"$waiting")" = 5 ] \
+  && [ "$(field 'd["count"]' <<<"$waiting")" = 4 ] && [ "$(field 'd["count"]' <<<"$waiting")" = "$(field 'd[0]["waits"]' <<<"$listed")" ] \
+  && [ "$(field '[[t["kind"] for t in e["things"]] for e in d["tasks"] if e["task"] == "refund-line-on-receipt"]' <<<"$waiting")" = "[['review', 'merge']]" ] \
   && [ "$stacked" = "['review-refund-line-on-receipt', 'merge-refund-line-on-receipt']" ] \
   && [ "$(field '(d["sessions"]["known"], len(d["breakers"]), len(d["criteria"]))' <<<"$waiting")" = "(True, 1, 1)" ]; then
-  pass "lem project waiting lists the rows of the board's Waits for you in their order, five things, refund-line-on-receipt's two inside its stack"
+  pass "lem project waiting lists the rows of the board's Waits for you in their order, five things, refund-line-on-receipt's two inside its stack and under its one entry of tasks, and counts four tasks, the count /api/workspaces gives"
 else
-  fail "waiting and the board: $(field 'd["rows"]' <<<"$waiting") / $rows / the stack: $stacked"
+  fail "waiting and the board: $(field '(d["rows"], d["tasks"], d["count"])' <<<"$waiting") / $rows / the stack: $stacked"
 fi
 
 T=$BASE/tasks/order-date-on-invoice
