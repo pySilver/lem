@@ -36,10 +36,16 @@ flowchart TD
 1. **The second refused answer on a base that did not move calls the owner** (criteria 1, 2 and 3).
    In `skills/lem/scripts/land.py`, `cmd_merge_review`: on a base that did not move, the second answer
    for one tip and base that gives no verdict is written down as `merge-review.md` and as the kept
-   `merge_review`, with `verdict` null, `calls` true and a `why` in plain words: the merge agent
-   twice put another line above its verdict, and, when a line lower down in its answer gives
-   `Verdict: merge.` or `Verdict: call.`, which verdict that line gives. That lower line never
-   becomes the verdict: the owner decides. Its `next` is the one of a review that calls the owner. The first such answer is refused as today, and
+   `merge_review`, with `verdict` null, `calls` true and a `why` in plain words, from what the two
+   answers are known to hold: the first only as one with no verdict on its first line, the second
+   whole. So the `why` says that the merge agent twice gave no verdict on its first line, and of the
+   last answer: when a line lower down gives `Verdict: merge.` or `Verdict: call.`, that it put
+   another line above its verdict, and which verdict that line gives (in criterion 1's case: "the
+   merge agent twice gave no verdict on its first line; its last answer puts another line above
+   its verdict, `Verdict: merge.`"); when no line does, that it gives no verdict at all. It never
+   says what the first answer held beyond that. When `merger_refusal` names a reason too (the
+   settings, a careful or not green request), that reason follows after a semicolon. That lower
+   line never becomes the verdict: the owner decides. Its `next` is the one of a review that calls the owner. The first such answer is refused as today, and
    the moved base keeps its rule. A test in `tests/unit/test_land.py` for the rule where it can be a
    call of a function, and a check in `tests/lem-land-shop.sh` beside the check of the first refused
    answer (near line 127) for the journey: two answers with no verdict on a base that did not move,
