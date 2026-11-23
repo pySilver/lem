@@ -124,9 +124,11 @@ stateDiagram-v2
    not there, with "the item was dropped: read the backlog again". A file of `retros/` in the
    form of the question page, such as `.lem/state/retros/2026-11-23.json` of this repository, is
    refused with the fix: the maintaining session converts it by hand into the new form, its
-   proposals with no verdict, in each repository of `workspaces.json` that uses Lem, at the
-   plugin's update that brings this change (`AGENTS.md`, "Lem is not released"), and the next
-   reviewer reads them as proposals with no verdict. `lem project waiting` no longer lists the
+   proposals with no verdict, in every repository on this machine that uses Lem (each project
+   path of `~/.claude/plugins/installed_plugins.json`, each repository of `workspaces.json`, and
+   each repository under the owner's project folders with a `.lem/state/retros/` folder), at the
+   plugin's update that brings this change (`AGENTS.md`, "Lem is not released"; decision 6 of
+   the task), and the next reviewer reads them as proposals with no verdict. `lem project waiting` no longer lists the
    retros and no longer counts their proposals. `lem project prune` keeps `retros/`, `night/` and
    `backlog/` of the state folder. A retro file with no proposal is valid. Unit tests in
    `tests/unit/`, and the checks of `tests/lem-decisions.sh` that read `retros` and `count` change
@@ -214,7 +216,13 @@ stateDiagram-v2
 8. **The try of `claude -p`, the owner's direction.** After task 5, a builder runs one retro under
    `claude -p "/lem retro"`, with this worktree as `--plugin-dir`, in a throwaway repository it
    makes in the task directory (onboarded, with a few task records, a nap's waking note and one
-   night file in task 1's form), as `tests/lib.sh` makes its throwaway repositories. Its report
+   night file in task 1's form), as `tests/lib.sh` makes its throwaway repositories. First, one
+   `claude -p` call there prints the `root` of `lem version`: Lem is installed at user scope on
+   this machine too, and `AGENTS.md` records that the installed `lem` wins on the `PATH` (the
+   lem-scratch case, 2026-11-21). The builder may try one documented way to keep the installed
+   plugin out of that one process. When the root is still not this worktree, the retro does not
+   run, and the report and the pull request say that the try could not run the new code under the
+   installed Lem (decision 7 of the task). Its report
    says, each with the command and its last line of output: whether the retro ran to its end,
    whether the day's file holds the run, whether the reviewer it started (a subagent) finished
    before the process ended and wrote its verdicts and items, and what task 4's close answered.
@@ -241,6 +249,7 @@ The reviewer's list, as it gave it:
    without acts shows the terminal line, and Drop is an act (`backlog_item` in
    `lem_board_pages.py`), so the input is two acts of one person on two devices at one moment, not
    realistic. Held a second time: **a design choice**, for the ladder (`stages/plan.md`, step 5).
+   The ladder: the gate took the kept decision, as cheap (decision 8 of the task).
 2. **A second retro on the same day.** Repair: task 1's add appends a run's proposals with the next
    numbers and never rewrites a verdict, a drop or a number; each run keeps its time. The reviewer
    held: an add and a drop that read the file at one moment lose one write. The defender's
@@ -268,17 +277,22 @@ The reviewer's list, as it gave it:
    The reviewer held: the owner can start `claude "/lem retro"` in a session he keeps for more work,
    and its arguments match. The defender's refutation: such a session was started for that one run,
    which the ask wants closed, and the close waits while he looks and is undoable (`cmd_close`,
-   `--undoable`). Held a second time: **a design choice**, for the ladder.
+   `--undoable`). Held a second time: **a design choice**, for the ladder. The ladder: the gate
+   took the kept decision, as cheap (decision 9 of the task).
 7. **The retro files of the old form.** Repair: the reader refuses them with the fix, and the
    maintaining session converts each file of the repositories in `workspaces.json` by hand. The
    reviewer held: a project outside `workspaces.json` (a retro before its first task) keeps an old
    file, whose refusal stops its first review. The defender's refutation: the refusal fails loudly
    with the fix, the repository's rule for an old form (`AGENTS.md`, "Lem is not released"). Held a
-   second time: **a design choice**, for the ladder.
+   second time: **a design choice**, for the ladder. The ladder: the gate decided it by a ruling
+   ("No word and no form of a Lem before is kept") and `AGENTS.md`, which names every repository
+   that uses Lem: the conversion list in task 1 grew to all of them (decision 6 of the task).
 8. **What a correction record of a proposal means.** Repair: a new verdict, `proposed`, read by the
    retro as a lesson in no file yet. The reviewer held: once a task lands the lesson in a rule
    file, the record still says `proposed`, and the retro no longer checks that lesson. The defender
-   had no refutation. **A design choice**, for the ladder.
+   had no refutation. **A design choice**, for the ladder. The ladder: the gate took the kept
+   decision, as cheap (decision 10 of the task): a landed lesson stays unchecked by the retro
+   until a later change of the retro's text.
 9. **Which ruling holds for the new night of Lem's repository.** Repair: task 6 changes the words of
    the bullet "The lessons, the retro and Jev stay; a night run ends as a pull request; naps are
    not shown". **Settled**, settled by the two, not checked by the review.
@@ -287,7 +301,8 @@ The reviewer's list, as it gave it:
     here (0.3.0), so the try's `lem` is the installed one (`AGENTS.md`, the lem-scratch case of
     2026-11-21), and the inherited `AGTERM_SESSION_ID` points the close at the builder's parent.
     The defender refuted the second (task 4 refuses a task's session) and had no refutation of the
-    first. **A design choice**, for the ladder.
+    first. **A design choice**, for the ladder. The ladder: the gate found it checkable by a probe
+    of `lem version`'s root, which task 8 now runs first (decision 7 of the task).
 
 The mechanisms the repairs added, with the decision each sits on and the reviewer's word:
 
