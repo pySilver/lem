@@ -137,7 +137,7 @@ owner's standing merge (question 1).
 - **Out of scope: a merge agent that gives no answer twice on a base that did not move.** It leaves no
   record, so the board still says that the merge agent reads the task. That is a neighbor of this
   defect with another cause (no answer file, so nothing for `merge-review` to read); the builder
-  files it as a backlog item when it confirms it in the code.
+  lists it as an outside defect when it confirms it in the code, and the polish pass files it.
 
 ## What it will not verify
 
