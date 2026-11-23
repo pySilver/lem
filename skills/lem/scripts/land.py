@@ -5068,7 +5068,9 @@ def cmd_clean(task: Task) -> dict:
         removed["branch"] = branch
         return {"task": task.slug, **removed}
     # A pull request that the forge merged as one commit, or as a merge commit, leaves no such
-    # proof in git: there the proof is that the branch's tip is the commit the forge merged.
+    # proof in git: there the proof is that the branch's tip is the commit the forge merged, or, when
+    # the landing rebased the branch after Lem's last push, that its tip holds that head's change
+    # (`after_push`).
     kept = task.kept()
     if not on_base and not (kept.get("merged") and tip == kept.get("merged_head")):
         after = ""
