@@ -111,6 +111,25 @@ def write_whole(path: Path, data: bytes) -> None:
         fresh.unlink(missing_ok=True)
 
 
+def link_whole(target: Path, data: bytes) -> bool:
+    """Write DATA as TARGET only when no file of that name is there, as `link_mark` in `project.py` makes a
+    mark: whole under a name unique to its writer (the PID, the thread and a random token), then linked to
+    TARGET, which fails when the name is there. True when this call made TARGET, False when another writer
+    had. A reader never sees a part of it, and a writer that stops leaves no empty name. The one end of a
+    card (`end`) and the record of a row's answer (lem_answers) are written so."""
+    target.parent.mkdir(exist_ok=True)
+    fresh = target.with_name(f"{target.name}.{os.getpid()}.{threading.get_ident()}.{secrets.token_hex(8)}.new")
+    try:
+        with open(fresh, "xb") as file:
+            file.write(data)
+        os.link(fresh, target)
+    except FileExistsError:
+        return False
+    finally:
+        fresh.unlink(missing_ok=True)
+    return True
+
+
 def keep(task: Path, page: str, html: bytes, spec: dict, session: str | None) -> dict:
     """Keep the card PAGE of the task's folder TASK: the page's bytes and what it asks; log `card.asked`."""
     (task / CARDS).mkdir(exist_ok=True)
@@ -154,19 +173,11 @@ def end(task: Path, page: str, status: str, source: str, answer: dict | None = N
         raise CardError("an answered card's end holds the answer, and only an answered one's")
     record = {"page": page, "status": status, "from": source, "at": now(), **({"answer": answer} if answer is not None else {}), **more}
     target = end_file(task, page)
-    target.parent.mkdir(exist_ok=True)
-    fresh = target.with_name(f"{target.name}.{os.getpid()}.{threading.get_ident()}.{secrets.token_hex(8)}.new")
-    try:
-        with open(fresh, "x", encoding="utf-8") as file:
-            file.write(json.dumps(record, ensure_ascii=False, indent=1) + "\n")
-        os.link(fresh, target)
-    except FileExistsError:
+    if not link_whole(target, (json.dumps(record, ensure_ascii=False, indent=1) + "\n").encode("utf-8")):
         on_record = ended(task, page)
         if on_record is None:
-            raise CardError(f"{target} was there and is gone: something removed the end of a card") from None
+            raise CardError(f"{target} was there and is gone: something removed the end of a card")
         return False, on_record
-    finally:
-        fresh.unlink(missing_ok=True)
     fields = {"page": page, "from": source, **({"status": status} if status != "answered" else {}),
               **{key: more[key] for key in ("via", "device") if key in more}}
     log(task, "card.answered" if status == "answered" else "card.closed", fields)
