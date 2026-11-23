@@ -2948,13 +2948,15 @@ def stop() -> dict:
 def configure(args) -> dict:
     """Write the machine's `[serve]` from the flags given, end a server on a port it no longer serves,
     make sure the server runs the new way, and take Lem's tailnet entry out where the door closed."""
-    # A file that does not read, or holds a table that is not valid there, is refused here, before any
-    # server stops: `write_machine` would refuse it after the stop, and the board would stay down.
-    lem_state.machine_tables()
+    # What `write_machine` would refuse (a file that does not read, another table or key that is not
+    # valid there, a value of the wrong type in another table) is refused here, before any server stops:
+    # refused after the stop, it would leave the board down.
+    lem_state.kept_tables("serve")
     try:
         before = serve_settings()
-    except ServeError:
-        # a [serve] with a number that is no port, or one port twice, is written again whole from the flags and the defaults
+    except (ServeError, lem_state.StateError):
+        # a [serve] with an unknown key, a value of the wrong type, a number that is no port or one port
+        # twice is written again whole from the flags and the defaults, as its refusal's fix says
         before = {"tailscale": False, "port": PORT, "tailscale_port": TAILNET_PORT}
     after = dict(before)
     if args.port is not None:

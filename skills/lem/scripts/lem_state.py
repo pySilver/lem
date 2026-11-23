@@ -282,19 +282,28 @@ def machine_table(name: str) -> dict:
     return checked_table(machine_tables(), name)
 
 
+def kept_tables(name: str) -> dict:
+    """The tables of the machine's file that a write of table `name` keeps: every other one, its keys
+    checked. A file that does not read, or whose other tables hold a table or a key that is not valid
+    there, is refused with the file and the fix; table `name` itself is not checked, since the write
+    replaces it. A caller that must not act on a write that would be refused (`serve.py` `configure`,
+    before it stops a server) calls this first."""
+    found = machine_tables()
+    return {table: dict(checked_table(found, table)) for table in found if table != name}
+
+
 def write_machine(name: str, values: dict | None) -> None:
     """Write table `name` of the machine's file as `values`, or take it out with None, and keep every
     other table as it reads. It writes over nothing it cannot keep: the whole file is read and each of
-    its tables checked first, and a file that does not read, or that holds a table or a key that is not
-    valid there, is refused with the file and the fix, and stays as it is. The file is written whole: a
-    temporary file beside it, then a rename over it, under the lock of MACHINE_LOCK from the read to
-    the rename, so that two writers at one moment each keep the other's table. With no table left, the
-    file goes."""
+    its other tables checked first (`kept_tables`), and a file that does not read, or whose other tables
+    hold a table or a key that is not valid there, is refused with the file and the fix, and stays as it
+    is; table `name` is written over whatever it held. The file is written whole: a temporary file
+    beside it, then a rename over it, under the lock of MACHINE_LOCK from the read to the rename, so that
+    two writers at one moment each keep the other's table. With no table left, the file goes."""
     import tempfile
     file = machine_file()
     with machine_lock():
-        found = machine_tables()
-        tables = {table: dict(checked_table(found, table)) for table in found if table != name}
+        tables = kept_tables(name)
         if values is not None:
             tables[name] = values
         if not tables:

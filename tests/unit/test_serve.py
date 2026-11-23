@@ -1035,5 +1035,55 @@ class LogLook(unittest.TestCase):
             self.assertEqual(look.version(), bm.log_version(log.stat().st_ino, 3))
 
 
+class Configure(unittest.TestCase):
+    """`lem serve --port N` (`configure`): what the machine's file holds decides whether it stops the
+    running board, and it never stops one when the write that follows would be refused. Each case has a
+    home folder of its own as XDG_CONFIG_HOME; the server it would stop and the one it starts are stand-ins."""
+
+    def setUp(self):
+        import os
+        import tempfile
+        self.folder = tempfile.TemporaryDirectory()
+        self.home = mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": self.folder.name})
+        self.home.start()
+        self.file = serve.lem_state.machine_file()
+        self.file.parent.mkdir(parents=True)
+
+    def tearDown(self):
+        self.home.stop()
+        self.folder.cleanup()
+
+    def configure(self, port: int):
+        from types import SimpleNamespace
+        args = SimpleNamespace(port=port, tailscale_port=None, tailscale=False, tailscale_off=False)
+        with mock.patch.object(serve, "ask", return_value={"pid": 1}) as asked, \
+                mock.patch.object(serve, "stop_server") as stopped, \
+                mock.patch.object(serve, "ensure_held", return_value={"running": True}) as started:
+            try:
+                return serve.configure(args), asked, stopped, started
+            except serve.lem_state.StateError as error:
+                return error, asked, stopped, started
+
+    def test_another_table_of_the_wrong_type_is_refused_before_the_board_stops(self):
+        text = '[load]\nstart = "fast"\n\n[serve]\nport = 8800\n'
+        self.file.write_text(text, encoding="utf-8")
+        said, _, stopped, started = self.configure(8801)
+        self.assertIsInstance(said, serve.lem_state.StateError)
+        self.assertIn("load.start", str(said))
+        stopped.assert_not_called()
+        started.assert_not_called()
+        self.assertEqual(self.file.read_text(encoding="utf-8"), text)
+
+    def test_a_serve_table_its_own_fix_names_is_written_again_from_the_flags(self):
+        for text in ('[serve]\nport = "8800"\n', "[serve]\nport = 8800\nhost = 1\n"):
+            with self.subTest(text=text):
+                self.file.write_text("[load]\nstart = 4\n\n" + text, encoding="utf-8")
+                said, asked, _, started = self.configure(8801)
+                self.assertNotIsInstance(said, Exception)
+                asked.assert_called_once_with(serve.PORT)
+                started.assert_called_once()
+                self.assertEqual(serve.lem_state.machine_tables(), {"load": {"start": 4}, "serve": {"tailscale": False, "port": 8801, "tailscale_port": serve.TAILNET_PORT}})
+
+
 if __name__ == "__main__":
     unittest.main()
