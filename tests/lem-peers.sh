@@ -71,7 +71,7 @@ fi
 # A peer's pages and files pass through alpha with the peer's text, with no agterm button, and an act on them is refused.
 kanban=$(got "$ALPHA/beta/shop/")
 task=$(got "$ALPHA/beta/shop/tasks/gift-note" | words)
-style=$(grep -o '/beta/assets/board.css?v=[0-9a-f]*' <<<"$kanban" | head -n 1)
+style=$(grep -o '/beta/assets/board.css?v=[0-9a-f]*' <<<"$kanban" | sed -n 1p)
 posted=$(curl -s -X POST -d '{}' "$ALPHA/beta/shop/agterm/type")
 moved=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$ALPHA/beta/shop")
 if grep -qF "on beta" <<<"$task" && [ -n "$style" ] && [ "$(code "$ALPHA$style")" = 200 ] && grep -qF 'data-stream-url-value="/beta/shop/stream"' <<<"$kanban" \
