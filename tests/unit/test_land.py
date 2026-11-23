@@ -570,6 +570,35 @@ class MergeSeat(unittest.TestCase):
         self.assertEqual((land.seat_of_brief(kept, "aaa", "b1")["seat"], land.seat_of_brief(kept, "aaa", "b2")["seat"]), ("codex/gpt-6.2-sol:high", "claude/opus:high"))
         self.assertEqual(sorted(land.seats_kept(kept, "ccc", "b2", self.CODEX)), ["ccc-b2"])
 
+    def test_a_stand_in_that_failed_after_its_line_has_one_line_that_says_so(self) -> None:
+        plain = "- the merge agent was `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex had no tokens"
+        too = ("- the merge agent was to be `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex had no tokens; "
+               "then Claude Code gave an error too: Claude Code had no login")
+        body = f"## Checks\n\n- the checks ran\n\n{plain}\n"
+        self.assertEqual(land.noted_body(body, too, plain), f"## Checks\n\n- the checks ran\n\n{too}\n")
+        self.assertIsNone(land.noted_body(f"{body}\n{too}\n", too, plain))
+        # a stand-in that failed before any read had no line yet: it is added at the end
+        self.assertEqual(land.noted_body("## Checks\n\n- the checks ran\n", too, plain), f"## Checks\n\n- the checks ran\n\n{too}\n")
+
+    def test_a_merge_on_github_after_the_stand_in_failed_notes_its_line(self) -> None:
+        # forge_done, the one step to `landed`, notes each stand-in of the merge agent, also with no read after the block
+        from unittest import mock
+        events = [{"event": "seat.stand-in", "seat": "merger", "failed": "codex/gpt-6.2-sol:high", "took": "claude/opus:high", "error": "tokens"},
+                  {"event": "seat.blocked", "seat": "merger", "failed": "claude/opus:high", "error": "login"},
+                  {"event": "seat.stand-in", "seat": "reviewer", "failed": "codex/gpt-6.2-sol:high", "took": "claude/opus:high", "error": "tokens"}]
+        task = mock.Mock(slug="mb-stand", base="main")
+        task.kept.return_value = {"pr": {"url": "https://github.com/o/r/pull/7", "number": 7}}
+        view = {"baseRefName": "main", "mergeCommit": {"oid": "f" * 40}, "headRefOid": "a" * 40}
+        with mock.patch.object(land, "events_of", return_value=events), mock.patch.object(land, "noted") as noted, \
+                mock.patch.object(land, "base_refusal", return_value=None), mock.patch.object(land, "moved_line", return_value=(None, False)), \
+                mock.patch.object(land, "follow", return_value=[]), mock.patch.object(land, "state_item", return_value=None):
+            land.forge_done(task, view)
+        self.assertEqual([(call.args[2], call.args[5]) for call in noted.call_args_list],
+                         [("- the merge agent was to be `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex had no tokens; "
+                           "then Claude Code gave an error too: Claude Code had no login",
+                           "- the merge agent was `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex had no tokens")])
+        task.state.assert_called_once()
+
     def test_a_task_its_merge_agent_blocked_keeps_its_pull_request(self) -> None:
         block = "2026-11-23T10:00Z blocked: the merge agent `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback\nthe seat that failed: merger"
         self.assertTrue(land.merger_blocked({"status": "blocked", "state": block}))

@@ -868,7 +868,8 @@ fi
 # A merge agent's seat that fails after the pull request is open: the fallback stands in, the brief of the same tip
 # and base is written again with its seat, the record names the seat that read whatever the settings say by then, and
 # the pull request's text gets the stand-in's line once. When the stand-in fails too, the task is blocked, keeps its
-# pull request, and a merge on GitHub while it waits still lands it.
+# pull request, and a merge on GitHub while it waits still lands it, with the stand-in's line in the text replaced by
+# the one that says it failed too, though no read came after the block.
 mb_task mb-stand stand.txt && mb_land mb-stand
 printf '%s\n' '[seats]' 'merger = "codex/gpt-6.2-sol:high"' > "$MB/.lem/project.local.toml"
 stand_first=$(land --repo "$MB" merge-review mb-stand)
@@ -883,13 +884,16 @@ stand_read=$(land --repo "$MB" merge-review mb-stand --file "$WORK/mb-stand.md" 
 land --repo "$MB" merge-review mb-stand --file "$WORK/mb-stand.md" --tip "$stand_tip" --base "$stand_base" >/dev/null
 stand_line="- the merge agent was \`claude/opus:high\` in place of \`codex/gpt-6.2-sol:high\`: Codex had no tokens"
 printf '%s\n' "$stand_line" > "$WORK/mb-stand-line.txt"
+stand_pr=$(mb_kept mb-stand pr 'd["number"]')
+stand_count=$(gh_prs "$MB" "d['prs']['$stand_pr']['body'].splitlines().count(open('$WORK/mb-stand-line.txt').read().strip())" 2>/dev/null || true)
 stand_blocked=$(project --repo "$MB" seat-failed mb-stand merger --seat claude/opus:high --error login)
 stand_status=$(status_in "$MB" mb-stand)
 rm "$MB/.lem/project.local.toml"
-stand_pr=$(mb_kept mb-stand pr 'd["number"]')
 (cd "$MB" && gh pr merge "$stand_pr" --squash --match-head-commit "$(mb_kept mb-stand proposed d)" --subject "fix: mb-stand" >/dev/null)
 stand_merged=$(land --repo "$MB" merged mb-stand)
-stand_count=$(gh_prs "$MB" "d['prs']['$stand_pr']['body'].splitlines().count(open('$WORK/mb-stand-line.txt').read().strip())" 2>/dev/null || true)
+stand_too="- the merge agent was to be \`claude/opus:high\` in place of \`codex/gpt-6.2-sol:high\`: Codex had no tokens; then Claude Code gave an error too: Claude Code had no login"
+printf '%s\n' "$stand_too" > "$WORK/mb-stand-too.txt"
+stand_lines=$(gh_prs "$MB" "[d['prs']['$stand_pr']['body'].splitlines().count(open(f).read().strip()) for f in ('$WORK/mb-stand-line.txt', '$WORK/mb-stand-too.txt')]" 2>/dev/null || true)
 if [ "$(field '(d["seat"]["seat"], d["seat"]["from"])' <<<"$stand_first")" = "('codex/gpt-6.2-sol:high', '.lem/project.local.toml')" ] \
   && [ "$(field '(d["blocked"], d["seat"], d["from"])' <<<"$stood")" = "(False, 'claude/opus:high', 'stand-in')" ] \
   && [ "$(field '(d["seat"]["seat"], d["seat"]["from"], d["tip"], d["base"], d["brief"])' <<<"$stand_again")" \
@@ -897,12 +901,13 @@ if [ "$(field '(d["seat"]["seat"], d["seat"]["from"])' <<<"$stand_first")" = "('
   && [ "$(field 'd["facts"]["stand_ins"]' <<<"$stand_again")" = "[{'seat': 'merger', 'took': 'claude/opus:high', 'failed': 'codex/gpt-6.2-sol:high', 'error': 'tokens', 'failed_too': None}]" ] \
   && [ "$(field '(d["by"], d["calls"])' <<<"$stand_read")" = "('claude/opus:high', False)" ] && [ "$(mb_kept mb-stand merge_review 'd["by"]')" = claude/opus:high ] \
   && [ "$(mb_logged mb-stand merge.review 'd["by"]')" = "['claude/opus:high', 'claude/opus:high']" ] \
-  && [ "$stand_count" = 1 ] && [ "$(grep -cxF -- "$stand_line" "$MB/.lem/state/tasks/mb-stand/pr.md")" = 1 ] \
+  && [ "$stand_count" = 1 ] && [ "$stand_lines" = "[0, 1]" ] && [ "$(grep -cxF -- "$stand_line" "$MB/.lem/state/tasks/mb-stand/pr.md")" = 0 ] \
+  && [ "$(grep -cxF -- "$stand_too" "$MB/.lem/state/tasks/mb-stand/pr.md")" = 1 ] \
   && [ "$(field 'd["blocked"]' <<<"$stand_blocked")" = True ] && [ "$(field 'd["say"]' <<<"$stand_blocked")" = "the merge agent \`claude/opus:high\` gave an error: no login, and it was the fallback" ] \
   && [ "$stand_status" = blocked ] && [ "$(field 'd["pull_request"]["number"]' <<<"$stand_merged")" = "$stand_pr" ] && [ "$(status_in "$MB" mb-stand)" = landed ]; then
-  pass "a merge agent whose seat fails after the pull request is open: the fallback stands in on the same brief, the record names the seat kept with it whatever the settings say by then, the pull request's text and pr.md get its line once; a stand-in that fails too blocks the task, and a merge on GitHub while it waits lands it"
+  pass "a merge agent whose seat fails after the pull request is open: the fallback stands in on the same brief, the record names the seat kept with it whatever the settings say by then, the pull request's text and pr.md get its line once; a stand-in that fails too blocks the task, and a merge on GitHub while it waits lands it, its line replaced by the one that says it failed too"
 else
-  fail "a merge agent's stand-in: $stand_first / $stood / $stand_again / $stand_read / $stand_blocked / $stand_status / $stand_count / $stand_merged"
+  fail "a merge agent's stand-in: $stand_first / $stood / $stand_again / $stand_read / $stand_blocked / $stand_status / $stand_count / $stand_lines / $stand_merged"
 fi
 
 finish

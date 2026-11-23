@@ -3142,6 +3142,20 @@ def stand_in_lines(task: Task) -> list[str]:
     return [stand_in_line(stand_in) for stand_in in stand_ins_of(events_of(task))]
 
 
+def merger_noted(task: Task, pr: dict, then: str) -> None:
+    """The line of each stand-in of the merge agent in the pull request's text on GitHub and in pr.md, once
+    (`noted`). A merge agent's stand-in comes after the pull request is open, so both steps that follow it
+    run this: the record of a read (`merge-review --file`) and every path to `landed` (`forge_done`), which
+    a merge on GitHub takes while the stand-in reads or after it blocked the task. A stand-in that gave an
+    error after its line went in has that line replaced by the one that says so. THEN is the refusal's
+    words on what stays and what tries again."""
+    for stand_in in stand_ins_of(events_of(task)):
+        if stand_in["seat"] != "merger":
+            continue
+        earlier = stand_in_line({**stand_in, "failed_too": None}) if stand_in["failed_too"] else None
+        noted(task, pr, stand_in_line(stand_in), "the line of the merge agent's stand-in", then, earlier)
+
+
 def polished(polish: dict) -> str:
     """The polish pass as one line of the pull request's checks, from what `polish --done` logged.
     The checks refuse a task on the standard track with no pass that is done."""
@@ -4623,10 +4637,11 @@ def base_refusal(view: dict, base: str, url: str, slug: str) -> str | None:
 def forge_done(task: Task, view: dict) -> dict:
     """The bookkeeping of a pull request GitHub merged, the one step every path to `landed` takes: Lem's
     merge, and `lem land merged` of a merge GitHub took later or the owner made there. A merge on a base
-    that moved after the checks leaves its line in the pull request's text first (`moved_line`); a
-    failed edit leaves the task `open` with this step's error, and the next `lem land merged` tries again.
-    A task started from a reviewer's item of the state folder (`state_item`) removes the item's file the
-    same way, before `landed`; a dropped task never comes here, so its item is undecided again."""
+    that moved after the checks leaves its line in the pull request's text first (`moved_line`), and so
+    does each stand-in of the merge agent (`merger_noted`); a failed edit leaves the task as it was with
+    this step's error, and the next `lem land merged` tries again. A task started from a reviewer's item
+    of the state folder (`state_item`) removes the item's file the same way, before `landed`; a dropped
+    task never comes here, so its item is undecided again."""
     pr = task.kept()["pr"]
     # a merge into another branch than the base is no landing: the task stays as it is, and the owner reads why
     wrong = base_refusal(view, task.base, pr["url"], task.slug)
@@ -4638,6 +4653,7 @@ def forge_done(task: Task, view: dict) -> dict:
     if line:
         noted(task, pr, line, f"GitHub merged {pr['url']}, and the line of its merge on the moved base",
               f"the task stays open, and `lem land merged {task.slug}` tries again")
+    merger_noted(task, pr, f"GitHub merged {pr['url']}; the task stays as it was, and `lem land merged {task.slug}` tries again")
     item = state_item(task)
     removed = remove_item(task.state_folder, item, task.slug, pr["url"]) if item else False
     # the commit of the branch that the forge merged: `clean` removes the branch only when it holds nothing after it
@@ -4665,15 +4681,29 @@ def moved_line(task: Task, merged: str | None) -> tuple[str | None, bool]:
     return record["line"], False
 
 
-def noted(task: Task, pr: dict, line: str, what: str, then: str) -> None:
-    """LINE in the pull request's text on GitHub, once: added at its end when the text lacks it, and in
-    `pr.md`, the task's copy of that text, which the board shows. A failed edit is refused with WHAT, the
-    line as the owner knows it, and THEN, what stays and what tries again."""
-    body = json.loads(gh(task, "pr", "view", str(pr["number"]), "--json", "body").stdout).get("body") or ""
+def noted_body(body: str, line: str, replaces: str | None = None) -> str | None:
+    """The pull request's text BODY with LINE in it once, or None when it holds LINE already: in the place
+    of the line REPLACES, an earlier form of the same fact, when the text holds that line, else at its end."""
     if line in body:
+        return None
+    lines = body.rstrip("\n").split("\n")
+    if replaces is not None and replaces in lines:
+        lines[lines.index(replaces)] = line
+        return "\n".join(lines) + "\n"
+    return body.rstrip("\n") + "\n\n" + line + "\n"
+
+
+def noted(task: Task, pr: dict, line: str, what: str, then: str, replaces: str | None = None) -> None:
+    """LINE in the pull request's text on GitHub, once (`noted_body`): in the place of REPLACES, or added
+    at its end when the text lacks it, and in `pr.md`, the task's copy of that text, which the board shows.
+    A failed edit is refused with WHAT, the line as the owner knows it, and THEN, what stays and what
+    tries again."""
+    body = json.loads(gh(task, "pr", "view", str(pr["number"]), "--json", "body").stdout).get("body") or ""
+    new = noted_body(body, line, replaces)
+    if new is None:
         return
     text = task.directory / "pr.md"
-    write_whole(text, body.rstrip("\n") + "\n\n" + line + "\n")
+    write_whole(text, new)
     edited = gh(task, "pr", "edit", str(pr["number"]), "--body-file", str(text), check=False)
     if edited.returncode != 0:
         said = [one.strip() for one in (edited.stderr or edited.stdout).splitlines() if one.strip()]
@@ -5156,11 +5186,8 @@ def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None
         why = unread_why(lower_verdict(text), refusal)
     else:
         why = refusal if refusal else (next(line for line in text.splitlines() if line.strip()).strip().lstrip("#*> ").strip() if verdict == "call" else None)
-    # A merge agent's stand-in comes after the pull request is open: its line goes into the text on GitHub
-    # once, and into pr.md, before the read is written down, so a failed edit leaves the read to record again.
-    for line in (stand_in_line(stand_in) for stand_in in stand_ins_of(events_of(task)) if stand_in["seat"] == "merger"):
-        noted(task, kept["pr"], line, "the line of the merge agent's stand-in",
-              f"the read is not written down, and the same `lem land merge-review {task.slug} --file` tries again")
+    # the merge agent's stand-ins go into the pull request's text before the read is written down, so a failed edit leaves the read to record again
+    merger_noted(task, kept["pr"], f"the read is not written down, and the same `lem land merge-review {task.slug} --file` tries again")
     write_whole(task.directory / "merge-review.md", text if text.endswith("\n") else text + "\n")
     review = {"tip": tip, "verdict": verdict, "calls": calls, "why": why, "by": seat["seat"], "at": now_utc(), "base": read_on,
               "base_call": call[0] if call else None, "base_why": call[1] if call else None}
