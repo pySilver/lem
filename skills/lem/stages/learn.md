@@ -179,9 +179,9 @@ no lesson by itself.
    ```
 
    It judges each proposal with no verdict, the night's too, against the bar of rule 6 of the
-   builder's standing rules, refutes the weak ones with their reasons, and writes the rest as
-   items of the state folder's `backlog/`, one for each area, all through `lem project proposals
-   verdict`. Wait for its reply, which is its report. With no `undecided` proposal, no reviewer
+   builder's standing rules, refutes the weak ones with their reasons, each kept as a `worth: no`
+   item of the state folder's `backlog/`, and writes the rest as items there, one for each area,
+   all through `lem project proposals verdict`. Wait for its reply, which is its report. With no `undecided` proposal, no reviewer
    starts.
 7. **The closing report**: what the run read, each proposal's name and move, and from the
    reviewer's report each refuted one with its reason and each item with its path and title. It

@@ -139,9 +139,11 @@ team that adopts Lem may have its own.
     lem project proposals verdict --file FILE|-
                                     the reviewer's verdict on each proposal, refuted with its reason
                                     or passed with its area; the passed ones of one area become one
-                                    item of the state folder's backlog
+                                    item of the state folder's backlog, and each refuted one an
+                                    item of its own there, worth: no, with its reason
     lem project proposals drop PATH the owner's drop of a reviewer's item: refused while a task that
-                                    has not ended holds it; else each proposal's drop is kept in its
+                                    has not ended holds it, and for a worth: no item, decided
+                                    against already; else each proposal's drop is kept in its
                                     record, and the item's file goes
     lem project plan-file SLUG [--date YYYY-MM-DD]
                                     the name a task's plan takes (`paths.plan_file`), and the plan
@@ -407,9 +409,13 @@ never rewrites a number, a verdict or a drop, so a second retro of a day keeps t
 gives each proposal by its name, `KIND of DATE #N`. `verdict` takes each proposal's verdict once: the
 passed ones of one area become one item of `.lem/state/backlog/`, named by the words of the title the
 reviewer gives the area (`-2`, `-3` when the name is taken), in the backlog's item format with the
-front-matter line `proposals: KIND of DATE #N, ...`; no item when nothing passed. A reviewer's item is
+front-matter line `proposals: KIND of DATE #N, ...`; no such item when nothing passed. Each refuted
+proposal becomes an item of its own there, `worth: no`, named by the words of its move, with that one
+`proposals:` line and the reviewer's reason as its last line, `Decided against: REASON`; its `refuted`
+entry keeps its form. A reviewer's item is
 held while a task that has not ended has its path as its ask, and `drop` refuses it then, with that task
-in its JSON (`held_by`) on stdout; else it keeps the drop of each proposal the item names and removes
+in its JSON (`held_by`) on stdout, and refuses a `worth: no` item, which is decided against already;
+else it keeps the drop of each proposal the item names and removes
 the file, in one call under the records' one lock (`proposals.lock` in the state folder), which `add`
 and `verdict` take too. `task-dir --ask` refuses the path of such an item whose file is gone. A record
 that does not have this form is refused with the fix; one in the form of Lem's question page, which
@@ -4242,6 +4248,45 @@ def item_text(title: str, area: str, today: str, entries: list[tuple[str, dict]]
     return "\n".join(lines)
 
 
+def refuted_item_text(name: str, proposal: dict, reason: str, today: str) -> str:
+    """The item of one refuted proposal NAME, in the backlog's item format with `worth: no`: its
+    `where`, the front-matter key ITEM_KEY that names it, its move as the title, where it came from,
+    its body, and the reviewer's REASON as the last line, `Decided against: REASON` (rule 6 of
+    agents/lem-builder.md), so that a later agent who meets the same change finds it decided."""
+    kind, day, number = PROPOSAL_NAME.fullmatch(name).groups()
+    head = ["---", "worth: no", f"where: {proposal['where']}", f"added: {today}", f"{ITEM_KEY}: {name}", "---", f"# {' '.join(proposal['move'].split())}", ""]
+    return "\n".join([*head, f"The reviewer refuted {name} on {today}.", "",
+                      f"From the {kind} of {day}, proposal {number}. Its source: {proposal['source']}. Where: `{proposal['where']}`.", "",
+                      proposal["body"], "", f"Decided against: {' '.join(reason.split())}", ""])
+
+
+def item_front(text: str) -> dict[str, str] | None:
+    """The keys of an item's front matter, between its two `---` lines, or None when it has none."""
+    if not text.startswith("---"):
+        return None
+    head, mark, _ = text[3:].partition("\n---")
+    if not mark:
+        return None
+    front = {}
+    for line in head.splitlines():
+        key, colon, value = line.partition(":")
+        if colon and key.strip():
+            front.setdefault(key.strip(), value.strip())
+    return front
+
+
+def refuted_items(folder: Path) -> dict[str, list[Path]]:
+    """The `worth: no` items of the reviewer's folder FOLDER, by the one proposal each names in its
+    ITEM_KEY line: what a verdict wrote for a refuted proposal (`refuted_item_text`)."""
+    found: dict[str, list[Path]] = {}
+    for file in sorted(folder.glob("*.md")) if folder.is_dir() else ():
+        text = text_of(file)
+        names = item_proposals(text)
+        if (item_front(text) or {}).get("worth") == "no" and names and len(names) == 1:
+            found.setdefault(names[0], []).append(file)
+    return found
+
+
 def counted(n: int, word: str) -> str:
     return f"{n} {word}" if n == 1 else f"{n} {word}s"
 
@@ -4249,9 +4294,13 @@ def counted(n: int, word: str) -> str:
 def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:
     """The reviewer's verdict on each proposal SPEC names: refuted, with its reason, or passed, with its
     area. The passed proposals of one area become one item of the state folder's backlog, under the
-    title SPEC gives that area, and no item when nothing passed. Every verdict is checked before any
-    is written; the items are written before the records, so an interruption leaves a proposal with no
-    verdict, which the next read gives again, and never a verdict with no item."""
+    title SPEC gives that area, and no such item when nothing passed. Each refuted proposal becomes an
+    item of its own there, `worth: no`, with the reviewer's reason (`refuted_item_text`); its record's
+    `refuted` entry keeps its form, since the item names the proposal. Every verdict is checked before
+    any is written; the items are written before the records, so an interruption leaves a proposal with
+    no verdict, which the next read gives again, and never a verdict with no item. A retry that refutes
+    such a proposal again writes its item again in place (`refuted_items`), and one that passes it
+    removes the item that refuted it."""
     if extra := sorted(set(spec) - {"verdicts", "titles"}):
         raise SettingsError(f"the verdicts hold keys verdict does not take: {', '.join(extra)}; give `verdicts` and `titles`")
     verdicts, titles = spec.get("verdicts"), spec.get("titles", {})
@@ -4314,8 +4363,31 @@ def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:
             taken.add(name)
             items[area] = {"area": area, "title": title, "path": (lem_state.STATE / STATE_BACKLOG / name).as_posix(), "file": folder / name,
                            "proposals": [one for one, _ in entries], "text": item_text(title, area, today, entries)}
-        for item in items.values():
+        # A refuted proposal's item is found again by its ITEM_KEY line when a verdict was cut off between
+        # its items and its records, and written again in place; one that a retry passes instead goes.
+        left = refuted_items(folder)
+        decided: list[dict] = []
+        for name, _kind, word, verdict, proposal in judged:
+            if word != "refuted":
+                continue
+            if left.get(name):
+                file = left[name][0]
+            else:
+                stem = item_slug(proposal["move"]) or "refuted"
+                file_name, n = f"{stem}.md", 1
+                while file_name in taken:
+                    n += 1
+                    file_name = f"{stem}-{n}.md"
+                taken.add(file_name)
+                file = folder / file_name
+            decided.append({"proposal": name, "path": (lem_state.STATE / STATE_BACKLOG / file.name).as_posix(), "file": file,
+                            "text": refuted_item_text(name, proposal, verdict["refuted"], today)})
+        for item in [*items.values(), *decided]:
             write_whole(item["file"], item["text"])
+        for name, _kind, word, _verdict, _proposal in judged:
+            if word == "passed":
+                for file in left.get(name, []):
+                    file.unlink(missing_ok=True)
         for name, kind, word, verdict, _proposal in judged:
             found = PROPOSAL_NAME.fullmatch(name)
             record = records[(kind, found[2])][1]
@@ -4330,6 +4402,7 @@ def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:
         "day": today,
         "refuted": [name for name, _kind, word, _verdict, _proposal in judged if word == "refuted"],
         "items": [{key: item[key] for key in ("area", "title", "path", "proposals")} for item in items.values()],
+        "decided_against": [{key: item[key] for key in ("proposal", "path")} for item in decided],
     }
 
 
@@ -4390,20 +4463,15 @@ class ItemRefused(SettingsError):
 
 def item_proposals(text: str) -> list[str] | None:
     """The proposals a reviewer's item names in its front matter (ITEM_KEY), or None when it names none."""
-    if not text.startswith("---"):
-        return None
-    head, mark, _ = text[3:].partition("\n---")
-    for line in head.splitlines() if mark else ():
-        key, colon, value = line.partition(":")
-        if colon and key.strip() == ITEM_KEY:
-            names = [name.strip() for name in value.split(",") if name.strip()]
-            return names if names and all(PROPOSAL_NAME.fullmatch(name) for name in names) else None
-    return None
+    value = (item_front(text) or {}).get(ITEM_KEY)
+    names = [name.strip() for name in (value or "").split(",") if name.strip()]
+    return names if names and all(PROPOSAL_NAME.fullmatch(name) for name in names) else None
 
 
 def cmd_proposals_drop(state: Path, given: str, today: str) -> dict:
     """The owner's drop of a reviewer's item, in one call: refused while a task that has not ended holds
-    it (`item_holder`), with that task; else the drop of each proposal the item names is kept in its
+    it (`item_holder`), with that task, and refused for a `worth: no` item, a refuted proposal that is
+    decided against already; else the drop of each proposal the item names is kept in its
     day's record, and then the item's file goes. The board's server runs it under its script lock, so
     a start from the board comes before it or after it, never between its read and its removal."""
     item = backlog_item_of(state, given)
@@ -4421,7 +4489,12 @@ def cmd_proposals_drop(state: Path, given: str, today: str) -> dict:
             raise ItemRefused(f"the task {holder['task']} ({holder['status'] or 'new'}) builds the item {item}, so it is not dropped: "
                               f"it leaves with that task's landing, or is undecided again once the owner drops the task",
                               {"dropped": False, "item": item, "held_by": holder["task"], "status": holder["status"]})
-        names = item_proposals(text_of(file))
+        text = text_of(file)
+        if (item_front(text) or {}).get("worth") == "no":
+            raise ItemRefused(f"the item {item} is decided against already (`worth: no`): the reviewer refuted its proposal, and the record keeps "
+                              "the reason, so there is nothing to drop; it waits for nobody, and the Backlog key does not count it",
+                              {"dropped": False, "item": item, "held_by": None, "decided_against": True})
+        names = item_proposals(text)
         if names is None:
             raise ItemRefused(f"the item {item} names no proposal in its `{ITEM_KEY}:` line, so no record keeps its drop: "
                               "only `lem project proposals verdict` writes the reviewer's items; remove a file it did not write by hand",
@@ -5268,9 +5341,10 @@ def main(argv: list[str] | None = None) -> None:
     add.add_argument("--date", metavar="YYYY-MM-DD", help="the run's day (default: today, in UTC)")
     add.add_argument("--file", required=True, metavar="FILE|-", help='the run as JSON, {"read": TEXT, "proposals": [...]}, or - for stdin')
     acts.add_parser("read", help="every proposal with no verdict, of any day, with the refuted, passed and dropped ones, and the newest run of each kind")
-    verdict = acts.add_parser("verdict", help="the reviewer's verdict on each proposal; the passed ones of one area become one item of the state folder's backlog")
+    verdict = acts.add_parser("verdict", help="the reviewer's verdict on each proposal; the passed ones of one area become one item of the state folder's backlog, "
+                              "and each refuted one an item of its own there, worth: no, with its reason")
     verdict.add_argument("--file", required=True, metavar="FILE|-", help='the verdicts as JSON, {"verdicts": [...], "titles": {AREA: TITLE}}, or - for stdin')
-    acts.add_parser("drop", help="the owner's drop of a reviewer's item, refused while a task that has not ended holds it").add_argument("path", metavar="PATH")
+    acts.add_parser("drop", help="the owner's drop of a reviewer's item, refused while a task that has not ended holds it and for a worth: no item").add_argument("path", metavar="PATH")
     serial = commands.add_parser("serial", help="run one test command that two tasks cannot run at the same time, under the repository's one lock")
     serial.add_argument("words", nargs=argparse.REMAINDER, metavar="-- COMMAND")
     commands.add_parser("may-nap")

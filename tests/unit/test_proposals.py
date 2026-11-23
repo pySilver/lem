@@ -128,7 +128,9 @@ class Verdict(Records):
                          [("tests", ".lem/state/backlog/the-px-check-of-the-board-server-fails-by-chance.md", 1),
                           ("lessons", ".lem/state/backlog/five-lessons-of-the-retro.md", 5), ("board", ".lem/state/backlog/the-board-s-colors.md", 3)])
         self.assertEqual(sorted(file.name for file in (self.state / "backlog").iterdir()),
-                         ["five-lessons-of-the-retro.md", "the-board-s-colors.md", "the-px-check-of-the-board-server-fails-by-chance.md"])
+                         ["board-4.md", "five-lessons-of-the-retro.md", "lesson-6.md", "the-board-s-colors.md", "the-px-check-of-the-board-server-fails-by-chance.md"])
+        self.assertEqual(done["decided_against"], [{"proposal": "retro of 2026-11-24 #6", "path": ".lem/state/backlog/lesson-6.md"},
+                                                   {"proposal": "retro of 2026-11-24 #10", "path": ".lem/state/backlog/board-4.md"}])
         tests = (self.main / done["items"][0]["path"]).read_text(encoding="utf-8")
         self.assertTrue(tests.startswith("---\nworth: later\nwhere: tests/lem-serve.sh\nadded: 2026-11-24\nproposals: night of 2026-11-24 #1\n---\n"
                                          "# The PX check of the board server fails by chance\n"), tests)
@@ -144,11 +146,12 @@ class Verdict(Records):
         read = project.cmd_proposals_read(self.state)
         self.assertEqual((read["undecided"], len(read["refuted"]), len(read["passed"])), ([], 2, 9))
 
-    def test_no_item_on_a_morning_where_nothing_passed(self):
+    def test_no_item_of_an_area_on_a_morning_where_nothing_passed(self):
         self.add("retro", "2026-11-23", [proposal("lessons", "Move the rule")])
         done = project.cmd_proposals_verdict(self.state, {"verdicts": [{"proposal": "retro of 2026-11-23 #1", "refuted": "a first-time lesson, with no question in it"}]}, "2026-11-23")
         self.assertEqual(done["items"], [])
-        self.assertFalse((self.state / "backlog").exists())
+        self.assertEqual([file.name for file in (self.state / "backlog").iterdir()], ["move-the-rule.md"])
+        self.assertIn("worth: no\n", (self.state / "backlog" / "move-the-rule.md").read_text(encoding="utf-8"))
 
     def test_an_item_name_that_is_taken_gets_the_next_number(self):
         self.add("retro", "2026-11-23", [proposal("board", "Color the key"), proposal("board", "Color the chip")])
@@ -167,7 +170,7 @@ class Verdict(Records):
         self.assertIn("has 2 proposals", self.refused(project.cmd_proposals_verdict, self.state, {"verdicts": [{"proposal": "retro of 2026-11-23 #3", "refuted": "x"}]}, "2026-11-24"))
         self.assertIn("there is no record of the night of 2026-11-23", self.refused(project.cmd_proposals_verdict, self.state, {"verdicts": [{"proposal": "night of 2026-11-23 #1", "refuted": "x"}]}, "2026-11-24"))
         self.assertEqual(self.record("retro", "2026-11-23"), before)
-        self.assertFalse((self.state / "backlog").exists())
+        self.assertEqual([file.name for file in (self.state / "backlog").iterdir()], ["color-the-key.md"])
 
 
 class Drop(Records):
@@ -248,6 +251,88 @@ class Refuted(Records):
         self.add("retro", "2026-11-24", [proposal("board", "Color the key")])
         self.add("retro", "2026-11-25", [])
         self.assertEqual([one["name"] for one in project.cmd_proposals_read(self.state)["undecided"]], ["night of 2026-11-24 #1", "retro of 2026-11-24 #1"])
+
+
+class RefutedItem(Records):
+    """Criterion 3 of docs/plans/2026-11-23-backlog-refuted-items-and-jev.md: a refuted proposal stays as a
+    `worth: no` item of the reviewer, which names it, and its record keeps the form it had."""
+
+    REASON = "a first-time lesson, with no question in it"
+
+    def refute_six(self, today: str = "2026-11-24") -> dict:
+        return project.cmd_proposals_verdict(self.state, {"verdicts": [{"proposal": "retro of 2026-11-24 #6", "refuted": self.REASON}]}, today)
+
+    def test_criterion_3_retro_of_2026_11_24_proposal_6_is_a_worth_no_item_that_holds_its_reason(self):
+        self.eleven()
+        done = self.refute_six()
+        self.assertEqual((done["refuted"], done["items"]), (["retro of 2026-11-24 #6"], []))
+        self.assertEqual(done["decided_against"], [{"proposal": "retro of 2026-11-24 #6", "path": ".lem/state/backlog/lesson-6.md"}])
+        text = (self.main / ".lem/state/backlog/lesson-6.md").read_text(encoding="utf-8")
+        self.assertTrue(text.startswith("---\nworth: no\nwhere: skills/lem/stages/learn.md\nadded: 2026-11-24\nproposals: retro of 2026-11-24 #6\n---\n# Lesson 6\n"), text)
+        self.assertIn("The reviewer refuted retro of 2026-11-24 #6 on 2026-11-24.", text)
+        self.assertIn("From the retro of 2026-11-24, proposal 6. Its source: the task gift-note's records.", text)
+        self.assertIn("Why: lesson 6", text)
+        self.assertEqual(text.rstrip("\n").splitlines()[-1], f"Decided against: {self.REASON}")
+        self.assertEqual(project.item_proposals(text), ["retro of 2026-11-24 #6"])
+        # the record keeps its form: the refuted entry has the keys it had, and the read gives it as before
+        record = self.record("retro", "2026-11-24")
+        self.assertEqual(record["refuted"], [{"number": 6, "reason": self.REASON, "day": "2026-11-24"}])
+        self.assertTrue(all(sorted(entry) == sorted(project.ENTRY_KEYS["refuted"]) for entry in record["refuted"]))
+        self.assertEqual([(one["name"], one["reason"]) for one in project.cmd_proposals_read(self.state)["refuted"]], [("retro of 2026-11-24 #6", self.REASON)])
+
+    def test_a_record_of_the_old_form_with_a_refuted_entry_and_no_item_still_reads_and_takes_verdicts(self):
+        self.eleven()
+        file = project.record_file(self.state, "retro", "2026-11-24")
+        old = json.loads(file.read_text(encoding="utf-8"))
+        old["refuted"] = [{"number": 6, "reason": self.REASON, "day": "2026-11-23"}]
+        file.write_text(json.dumps(old, indent=2), encoding="utf-8")
+        read = project.cmd_proposals_read(self.state)
+        self.assertEqual([(one["name"], one["reason"], one["day"]) for one in read["refuted"]], [("retro of 2026-11-24 #6", self.REASON, "2026-11-23")])
+        self.assertIn("has a verdict already", self.refused(self.refute_six))
+        done = project.cmd_proposals_verdict(self.state, {"verdicts": [{"proposal": "retro of 2026-11-24 #10", "refuted": "the rule is in lem.css already"}]}, "2026-11-24")
+        self.assertEqual(done["decided_against"], [{"proposal": "retro of 2026-11-24 #10", "path": ".lem/state/backlog/board-4.md"}])
+        self.assertEqual(self.record("retro", "2026-11-24")["refuted"], [{"number": 6, "reason": self.REASON, "day": "2026-11-23"},
+                                                                         {"number": 10, "reason": "the rule is in lem.css already", "day": "2026-11-24"}])
+
+    def cut_off(self) -> None:
+        """A verdict on retro of 2026-11-24 #6 that wrote its item and was cut off before its record."""
+        file = project.record_file(self.state, "retro", "2026-11-24")
+        before = file.read_text(encoding="utf-8")
+        self.refute_six()
+        file.write_text(before, encoding="utf-8")
+        self.assertIn("retro of 2026-11-24 #6", [one["name"] for one in project.cmd_proposals_read(self.state)["undecided"]])
+
+    def test_a_verdict_cut_off_before_its_record_finds_its_item_again_and_writes_it_in_place(self):
+        # the talk's question 10: the item is found by its `proposals:` line, not written a second time
+        self.eleven()
+        self.cut_off()
+        again = project.cmd_proposals_verdict(self.state, {"verdicts": [{"proposal": "retro of 2026-11-24 #6", "refuted": "the rule is in learn.md already"}]}, "2026-11-25")
+        self.assertEqual(again["decided_against"], [{"proposal": "retro of 2026-11-24 #6", "path": ".lem/state/backlog/lesson-6.md"}])
+        self.assertEqual([file.name for file in (self.state / "backlog").iterdir()], ["lesson-6.md"])
+        text = (self.state / "backlog" / "lesson-6.md").read_text(encoding="utf-8")
+        self.assertIn("added: 2026-11-25\n", text)
+        self.assertEqual(text.rstrip("\n").splitlines()[-1], "Decided against: the rule is in learn.md already")
+
+    def test_a_retry_that_passes_a_proposal_whose_refute_was_cut_off_removes_the_refuted_item(self):
+        # "Raised, not argued" of the plan talk: no `worth: no` item stays beside the item it passed into
+        self.eleven()
+        self.cut_off()
+        again = project.cmd_proposals_verdict(self.state, {"verdicts": [{"proposal": "retro of 2026-11-24 #6", "passed": "lessons"}],
+                                                           "titles": {"lessons": "A lesson of the retro"}}, "2026-11-25")
+        self.assertEqual(again["decided_against"], [])
+        self.assertEqual([file.name for file in (self.state / "backlog").iterdir()], ["a-lesson-of-the-retro.md"])
+        self.assertEqual(self.record("retro", "2026-11-24")["refuted"], [])
+
+    def test_a_drop_of_a_refuted_item_is_refused_as_decided_against_already(self):
+        self.eleven()
+        path = self.refute_six()["decided_against"][0]["path"]
+        before = self.record("retro", "2026-11-24")
+        with self.assertRaises(project.ItemRefused) as caught:
+            project.cmd_proposals_drop(self.state, path, "2026-11-25")
+        self.assertIn(f"the item {path} is decided against already (`worth: no`)", str(caught.exception))
+        self.assertEqual(caught.exception.answer, {"dropped": False, "item": path, "held_by": None, "decided_against": True})
+        self.assertTrue((self.main / path).is_file())
+        self.assertEqual(self.record("retro", "2026-11-24"), before)
 
 
 if __name__ == "__main__":

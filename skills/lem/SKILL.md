@@ -411,7 +411,8 @@ server runs and opens the board's address, `http://127.0.0.1:PORT/HOST/WORKSPACE
 `.../tasks/SLUG`), as a page beside the session that opened it. It has four views (keys T, W, B and
 A): "Tasks", each task in the column of who acts on it; "Waits for you", one row for each thing the
 owner does, a task's two or more in one stack that opens, with where he does it, "no session" for a task whose session is gone while it needs
-one, and "stopped" for a task whose live session the server's guard logged as stopped, with the reason when Lem cannot read that session; "Backlog", the reviewer's items of `.lem/state/backlog/` in a group of their own, each undecided or held by a task,
+one, and "stopped" for a task whose live session the server's guard logged as stopped, with the reason when Lem cannot read that session; "Backlog", the reviewer's items of `.lem/state/backlog/` in a group of their own, each undecided or held by a task
+(a proposal it refuted is a `worth: no` item there, under "Decided against" with no act and not counted),
 then the items of the backlog path by their own `worth`, each with "start a task", which opens a task's session through the
 server, but a held one, and "Drop" on an undecided one, with the count of the undecided ones on its key; and "Activity". The owner answers there too, as on his
 typed word, with one note field for each answer: each open card of a task's live session is a row
