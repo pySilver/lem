@@ -71,6 +71,46 @@ flowchart TD
    follows the second refused answer on a base that did not move, and names the "Read the merge
    review" row the owner then sees in "Waits for you".
 
+## Plan talk
+
+Argued by Codex as the reviewer, GPT 6.2 Sol at high effort as its pane's status line showed them,
+and by Claude Code as the defender, Opus 5.5 at high effort as the task's `defender:` line gives
+them. Two families. Six turns, within the bound of 4 × 4 + 2.
+
+1. **A second answer with no verdict lets the owner's standing merge go through.** The plan said
+   that the record waits for the owner and that its `next` is that of a review that calls him. After
+   his merge was refused because the base moved and a revert gave main the checks' tree again, the
+   record reaches `read_answers` in `cmd_merge_review`, logs `merge.stands`, and the server runs his
+   merge. First answered with a refutation: the owner's own merge reads no verdict today, and a
+   valid `Verdict: call.` read of the same brief takes the same branch (`read_answers` in
+   `skills/lem/scripts/land.py`; `merge_locked` with `--standing`; `stages/land.md`, step 7). The
+   reviewer held: the plan's own words then said something false. Repaired (eccedd7c): the record
+   goes on as a `call` read of the same brief does, and a decision states the standing case and
+   what it rests on. Settled by the two, not checked by the review.
+2. **The journey's refused merge passes for the wrong reason.** The `first-change` fixture of
+   `tests/lem-land-shop.sh` has `branch.land = "owner"`, which `merger_refusal` refuses before it
+   reads any verdict. Repaired (e12c40c3): the journey runs on a task of the moved-base shop with
+   `land = "agent"`, green, not careful, with the review's careful call, and checks `verdict` null in
+   the JSON, the kept record and the event, and the refusal of the verdict rule. Settled by the
+   two, not checked by the review.
+3. **The `why` can name an answer the agent never gave.** `merge_unread` keeps no text of the first
+   answer, which may hold no verdict line at all. Repaired (07c7a028): the `why` says that the agent
+   twice gave no verdict on its first line, and of the last answer only whether a lower line gives a
+   verdict and which. Settled by the two, not checked by the review.
+4. **The moved-base check holds another input.** `mb-mute` sends a verdict and no base call, so it
+   does not hold a second answer with no verdict on a moved base. Repaired (e12c40c3): the choice of
+   what an answer that cannot be recorded leads to is a function of its facts, and a unit case calls
+   it with that input; criterion 2's `no test:` line names it. Settled by the two, not checked by
+   the review.
+
+No repair added a mechanism: no guard, field, flag or retry. No question was raised after the first
+turn, no addition was refused as unpriced, and no question closed as a design choice.
+
+What changed in the plan, all in task 1 and the decisions: the words of the `why` (question 3); the
+journey's shop and what it checks, the unit cases of the new function, and criterion 2's `no test:`
+line (questions 2 and 4); the record's path through `cmd_merge_review` and a new decision on the
+owner's standing merge (question 1).
+
 ## Decisions
 
 - **The record is a merge review that calls the owner, with no verdict.** No new state, row or
