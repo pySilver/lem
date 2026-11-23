@@ -2954,7 +2954,7 @@ def configure(args) -> dict:
     try:
         before = serve_settings()
     except ServeError:
-        # a port that is none is written again whole from the flags and the defaults
+        # a [serve] with a number that is no port, or one port twice, is written again whole from the flags and the defaults
         before = {"tailscale": False, "port": PORT, "tailscale_port": TAILNET_PORT}
     after = dict(before)
     if args.port is not None:

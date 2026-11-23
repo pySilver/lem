@@ -216,8 +216,8 @@ The home folder's `settings.toml` is the developer's own for every repository on
 merge agent's and a task session's seats (`[seats]` with `merger` and `session` only, `HOME_KEYS`),
 and the question page's defaults (`[ask]`, which only that page reads; here only its keys are
 checked). What guards a team's repository (`[flow]`, `[checks]`, `[branch]`, `[paths]`,
-`[tracker]`) is valid in the team's file only, and so is a switch of the naps; `keep_days` is a
-repository's (the owner, 2026-11-21) and is refused there.
+`[tracker]`) is valid in the team's file only. `keep_days` is a repository's (the owner,
+2026-11-21), and so is the naps' switch: this file refuses `[state]` and `[naps]` too.
 
 `.lem/settings.local.toml` is one person's or one day's choice on one machine for one repository:
 who sits in the reviewer's pane (the usual reviewer is down, or out of tokens) and on which model
