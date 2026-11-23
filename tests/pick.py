@@ -228,6 +228,25 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
         ("unit",),
     ),
+    # The code's style: ruff and pyrefly read every Python file and their settings, ESLint every
+    # JavaScript file and its own. The suite brings both tools itself (uv.lock, package-lock.json).
+    (
+        (
+            "*.py",
+            "bin/lem",
+            "skills/lem-ask/bin/lem-ask",
+            "tests/clock/date",
+            "pyproject.toml",
+            "uv.lock",
+            ".python-version",
+            "*.js",
+            "*.mjs",
+            "package.json",
+            "package-lock.json",
+            "eslint.config.mjs",
+        ),
+        ("lint",),
+    ),
     # What no suite reads, except docs/rulings/, the plan of the list, README.md and the guides, which the rows above give the unit level
     # (and README.md test-site too);
     # tests/clock/ is a late clock that a criterion's command puts on PYTHONPATH or PATH, and tools/ is the maintainer's build of the board's kit, whose built files are under skills/lem/assets/.
@@ -264,14 +283,14 @@ CHROME_OWN = {
 
 
 def suites() -> list[str]:
-    """Every suite there is: each tests/lem-*.sh and tests/test-*.sh but test-lem.sh, which runs the blocks; shellcheck; pick; unit."""
+    """Every suite there is: each tests/lem-*.sh and tests/test-*.sh but test-lem.sh, which runs the blocks; shellcheck; lint; pick; unit."""
     found = sorted(
         path.stem
         for pattern in ("lem-*.sh", "test-*.sh")
         for path in TESTS.glob(pattern)
         if path.stem != "test-lem"
     )
-    return [*found, "shellcheck", "pick", "unit"]
+    return [*found, "shellcheck", "lint", "pick", "unit"]
 
 
 def expand(names: tuple[str, ...], known: list[str]) -> set[str]:
