@@ -826,15 +826,20 @@ class MovedBase(unittest.TestCase):
         self.assertEqual((plain["head"], plain["text"], plain["sub"]), ("The merge agent read the task", "it merges", "by claude"))
 
     def test_a_merge_the_moved_base_refused_is_not_offered_again_until_the_next_proposal(self):
-        # his merge from the board met a moved base: until the merge agent reads it, his press stays offered,
-        # since a safe read lets it stand; once a read asks for another round, the same tip is refused again,
-        # so the task's page offers no Merge while Lem lands it again, and the new proposal offers it
+        # his merge from the board met a moved base: it stands (`owner_tap`), and the server runs it after a
+        # read that says safe, so while the merge agent reads, a second press could only meet the same moved
+        # base: the page offers no Merge (guard-sees-unreadable-sessions, 2026-11-23, #60). Once a read asks
+        # for another round, the same tip is refused again, so the task's page offers no Merge while Lem
+        # lands it again, and the new proposal offers it
         proposed = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", self.PR),
                     ev(2, "merge.review", verdict="call", calls=True, why="a careful request is merged by the owner", by="claude", tip="abc123456"))
         refused = (*proposed, ev(3, "merge.start", by="owner", via="server"),
                    ev(3, "merge.refused", by="owner", via="server", **{"from": "lem"}, kind="base", said="origin/main moved after the checks ran", tip="abc123456"))
         self.assertEqual(bm.acts_of(one(*proposed), None), ["merge"])
-        self.assertEqual((one(*refused).merge_wait, bm.acts_of(one(*refused), None)), ("reads", ["merge"]))
+        self.assertEqual((one(*refused).merge_wait, bm.acts_of(one(*refused), None)), ("reads", []))
+        # the merge agent's own merge that the moved base refused is no word of his: his press stays offered
+        merger = (*proposed, ev(3, "merge.refused", by="merger", via="server", **{"from": "lem"}, kind="base", said="origin/main moved after the checks ran", tip="abc123456"))
+        self.assertEqual((one(*merger).merge_wait, bm.acts_of(one(*merger), None)), ("reads", ["merge"]))
         another = (*refused, self.read(4, "another round", verdict="call", calls=True),
                    ev(4, "merge.refused", by="owner", via="server", **{"from": "lem"}, kind="base", said="the merge agent asks for another round of the checks", tip="abc123456"))
         self.assertEqual(one(*another).merge_wait, "relands")
@@ -842,6 +847,55 @@ class MovedBase(unittest.TestCase):
         again = (*another, state(5, "landing", "the base moved: the checks run again"),
                  ev(9, "proposed", green=True, not_green=[], tip="def456789"), state(9, "open", self.PR))
         self.assertEqual(bm.acts_of(one(*again), None), ["merge"])
+
+    def test_his_merge_stands_from_the_refusal_through_the_servers_merge_and_its_sentence_follows_the_span(self):
+        # guard-sees-unreadable-sessions, 2026-11-23, #60: 10:38:03 the moved base refused his merge; 10:41:22
+        # a fresh read said safe on d48c6a9bd and `merge.stands` was logged; 10:41:27 the server ran his merge
+        proposed = (ev(0, "proposed", green=True, not_green=[], tip="faac6eb3b"), state(1, "open", self.PR),
+                    ev(2, "merge.review", verdict="call", calls=True, why="a careful request is merged by the owner", by="claude", tip="faac6eb3b", base="ea54c2a2c", base_call="safe"))
+        refused = (*proposed, ev(8, "merge.start", by="owner", via="server"),
+                   ev(8, "merge.refused", by="owner", via="server", **{"from": "lem"}, kind="base", said="origin/main moved after the checks ran", tip="faac6eb3b"))
+        safe = ev(11, "merge.review", verdict="call", calls=True, why="a careful request is merged by the owner", by="claude", tip="faac6eb3b", base="d48c6a9bd",
+                  base_call="safe", base_why="B changed only docs/rulings/rulings.md, which the change does not read")
+        stands = ev(11, "merge.stands", by="owner", tip="faac6eb3b", after="a read of the moved base", base="d48c6a9bd")
+        # it waits for the read: criterion 1's sentence
+        t = one(*refused)
+        self.assertEqual((t.merge_wait, bm.owner_stands(t), bm.stands_said(t)),
+                         ("reads", True, "Your merge stands. It goes through when the merge agent’s read of the new base says safe."))
+        # the server runs it, from the safe read's `merge.stands` to its merge
+        t = one(*refused, safe, stands)
+        self.assertEqual((t.merge_wait, bm.owner_stands(t), bm.acts_of(t, None), bm.stands_said(t)), ("merges", True, [], "Your merge stands. Lem merges it now."))
+        # cut between the read's `merge.review` and its `merge.stands`, inside one `merge-review` run: the
+        # read's mark holds it, though `merge_wait` says "owner" there
+        t = one(*refused, safe)
+        self.assertEqual((t.merge_wait, bm.owner_stands(t), bm.acts_of(t, None), bm.stands_said(t)), ("owner", True, [], "Your merge stands. Lem merges it now."))
+        # the server's merge started at 10:41:27: the span ends there, so a try that land.py refuses with no
+        # refusal on record (the pull request's base changed on GitHub) offers his Merge again, and a press
+        # meets land.py's own line
+        started = ev(12, "merge.start", by="owner", via="server", after="a read of the moved base", base="d48c6a9bd")
+        t = one(*refused, safe, stands, started)
+        self.assertEqual((t.merge_wait, bm.owner_stands(t), bm.stands_said(t), bm.acts_of(t, None)), ("merges", False, None, ["merge"]))
+        # while the forge calls the pull request conflicting, the conflict's text says what comes next, not his merge's
+        t = one(*refused, safe, stands)
+        conflicting = {"gift-note": {"mergeable": "CONFLICTING", "head": "faac6eb3b"}}
+        self.assertEqual((bm.owner_stands(t), bm.stands_said(t, seen=conflicting), bm.acts_of(t, conflicting)), (True, None, []))
+        # GitHub refused the standing merge: it waits for him, and his Merge is offered again
+        github = one(*refused, safe, stands, ev(12, "merge.start", by="owner", via="server", after="a re-check"),
+                     ev(12, "merge.refused", by="owner", via="server", **{"from": "github"}, said="Required status check is expected", tip="faac6eb3b"))
+        self.assertEqual((github.merge_wait, bm.owner_stands(github), bm.stands_said(github), bm.acts_of(github, None)), ("owner", False, None, ["merge"]))
+        # the merge agent's own merge that the moved base refused, then a safe read: no merge of his stands
+        merger = one(*proposed, ev(8, "merge.refused", by="merger", via="server", **{"from": "lem"}, kind="base", said="origin/main moved after the checks ran", tip="faac6eb3b"))
+        self.assertEqual((bm.owner_stands(merger), bm.acts_of(merger, None)), (False, ["merge"]))
+        self.assertFalse(bm.owner_stands(one(*proposed, ev(8, "merge.refused", by="merger", via="server", **{"from": "lem"}, kind="base", said="moved", tip="faac6eb3b"), safe)))
+        # for the tip of a note: his merge stands for the proposed tip, and for no other
+        t = one(*refused)
+        self.assertEqual((bm.owner_stands(t, "faac6eb3b" + "0" * 31), bm.owner_stands(t, "abc123456")), (True, False))
+        # a new proposal that carried his merge to another tip: it stands for the new tip only
+        carried = one(*refused, safe, stands, ev(13, "proposed", green=True, not_green=[], tip="def456789"), state(14, "open", self.PR),
+                      ev(14, "merge.stands", by="owner", tip="def456789", **{"from": "faac6eb3b"}))
+        self.assertEqual((bm.owner_stands(carried, "def456789"), bm.owner_stands(carried, "faac6eb3b")), (True, False))
+        # and a new proposal with no carry ends it
+        self.assertFalse(bm.owner_stands(one(*refused, safe, ev(13, "proposed", green=True, not_green=[], tip="def456789"), state(14, "open", self.PR))))
 
     def test_a_merge_of_his_that_stands_is_the_servers(self):
         again = (ev(0, "proposed", green=True, not_green=[], tip="def456789"), state(1, "open", self.PR),
