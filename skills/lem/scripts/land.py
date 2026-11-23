@@ -53,7 +53,8 @@ may-land` about the settings' base branch, so a protected branch is never reache
                            (the board's server always gives it)
     lem land merged SLUG   the owner merged the pull request on the forge: finish the bookkeeping;
                            or he closed it with no merge: the task is dropped
-    lem land clean SLUG    remove the task's worktree and its branch after the merge
+    lem land clean SLUG    remove the task's worktree after the merge, and its branch when it
+                           holds nothing that was not merged
 
 What each step keeps for the next is in `landing.json` in the task's directory: the task's
 branch, the base it was rebased on, the commit and tree the checks passed on, each review, and

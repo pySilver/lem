@@ -1777,7 +1777,7 @@ def wait_say(w: dict) -> dict:
                 "where": "Open a session here or on the task’s header: it gives a ticket what it is still owed, then removes the worktree; the branch keeps its commits."}
     if kind == "session" and t.closed:
         return {"verb": "No session cleans the merged task", "icon": "alert", "actor": "bad", "to": "overview", "note": "since it was merged",
-                "where": "Open a session here or on the task’s header: it removes the worktree and the branch, and updates the ticket."}
+                "where": "Open a session here or on the task’s header: it removes the worktree, and the branch when it holds nothing that was not merged, and updates the ticket."}
     if kind == "session":
         return {"verb": "No session runs this task", "icon": "alert", "actor": "bad", "to": "overview", "note": "since its last session opened" if t.opened else "since it opened",
                 "where": "Open a session here or on the task’s header: a fresh agent reads the task’s state and goes on from there."}
