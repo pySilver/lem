@@ -290,3 +290,7 @@ check (question 4).
   `LEM_JEV` stand-in without the Mac's yes (task 2).
 - The order of the merge and the plugin's update in the four repositories: that is the maintaining
   session's work after the merge (decision 1).
+
+## The bar
+
+- tests/test-ask.sh: the three `expect` checks of `LEM_ASK_CONFIG`'s JSON defaults file left with that file, and their cases (a value that is not an object, a status glyph that is not a list, a size that is no percent) are now eight checks of the helper `refuses` on `[ask]` of the home settings file, one `expect` on a relative `XDG_CONFIG_HOME`, three checks that the page takes `[ask]` and one that no page writes under `~/.cache/lem-ask/`; the count of the words `assert` and `expect` does not see a call of `refuses`, so it reads two fewer where the file has more checks (`collected` counts each call).
