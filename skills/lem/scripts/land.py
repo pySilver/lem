@@ -3862,7 +3862,7 @@ def jev_spec(finding: dict, condition: str) -> dict:
     has), and one yes-or-no question, whether it is over the bar, with both meanings: yes, the bar's
     CONDITION as rule 6 says it; no, its plain negation, so that the two never both apply."""
     return {
-        "state": {key: finding[key] for key in ("where", "title", "run") if finding.get(key)},
+        "state": finding_state(finding),
         "questions": {JEV_QUESTION: {
             "type": "noul",
             "instructions": "This finding is a defect that an agent saw in the code outside the change it worked on, and called under the bar "
@@ -4296,9 +4296,10 @@ def check_alike(task: Task, waiting: list[tuple[dict, dict]], tip: str) -> dict[
             continue
         kept[key] = read["scores"]
         found = alike_named(read["scores"], items)
-        said[defect["number"]] = "none named" if not found else "named"
         if found:
             named.append((defect, found))
+        else:
+            said[defect["number"]] = "none named"
     if kept != (task.kept().get("alike") or {}):
         task.keep(alike=kept)
     if named:
