@@ -4437,11 +4437,16 @@ def try_of(main: Path, worktree: Path, pr: dict) -> dict:
     return {"worktree": folder, "checkout": f"gh pr checkout {pr['number']}"}
 
 
+def line_verdict(line: str) -> str | None:
+    """The verdict one LINE of the merge agent's review gives, `merge` or `call`, past a heading's,
+    a quote's or a bold mark; None when it gives none."""
+    found = VERDICT.match(line.strip().lstrip("#*> ").strip())
+    return found.group(1).lower() if found else None
+
+
 def verdict_of(text: str) -> str | None:
     """The merge agent's verdict, from the first line of its review: `merge` or `call`, or None."""
-    first = next((line for line in text.splitlines() if line.strip()), "")
-    found = VERDICT.match(first.strip().lstrip("#*> ").strip())
-    return found.group(1).lower() if found else None
+    return line_verdict(next((line for line in text.splitlines() if line.strip()), ""))
 
 
 def base_call_of(text: str) -> tuple[str, str] | None:
@@ -4474,13 +4479,9 @@ def unread_next(verdict: str | None, moved: bool, base_call: tuple[str, str] | N
 
 def lower_verdict(text: str) -> str | None:
     """The verdict a line below the first of the merge agent's answer gives, `merge` or `call`, as
-    `verdict_of` reads a first line; None when no such line does."""
+    `verdict_of` reads a first line (`line_verdict`); None when no such line does."""
     lines = [line for line in text.splitlines() if line.strip()]
-    for line in lines[1:]:
-        found = VERDICT.match(line.strip().lstrip("#*> ").strip())
-        if found:
-            return found.group(1).lower()
-    return None
+    return next((found for found in map(line_verdict, lines[1:]) if found), None)
 
 
 def unread_why(lower: str | None, refusal: str | None) -> str:
