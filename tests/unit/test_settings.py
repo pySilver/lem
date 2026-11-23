@@ -640,6 +640,18 @@ class SetSeat(Home):
         self.set("local", "fallback", "default")
         self.assertFalse(self.local_file.exists())
 
+    def test_a_file_with_a_comment_of_the_owners_stays_and_one_of_lems_lines_goes(self):
+        # criterion 6: "Each other line and comment of that file stays as it was", with no table left too
+        self.write(self.home_file, "# the Mac in the office", "[seats]", 'reviewer = "codex/gpt-6.2-sol:high"')
+        self.set("global", "reviewer", "default")
+        self.assertEqual(self.home_file.read_text(encoding="utf-8"), "# the Mac in the office\n")
+        # a file of Lem's own first line and one line goes, in both scopes
+        for scope, file in (("global", self.home_file), ("local", self.local_file)):
+            with self.subTest(scope=scope):
+                self.write(file, project.SET_FIRST[scope], "", "[seats]", 'reviewer = "codex/gpt-6.2-sol:high"')
+                self.set(scope, "reviewer", "default")
+                self.assertFalse(file.exists())
+
     def test_default_on_the_last_line_of_a_table(self):
         text = '[load]\nstart = 6\n\n[seats]\nreviewer = "codex/gpt-6.2-sol:high"\n\n[serve]\nport = 4500\n'
         self.assertEqual(project.lem_state.edited(text, "seats", "reviewer", None, "machine.toml"), "[load]\nstart = 6\n\n[serve]\nport = 4500\n")

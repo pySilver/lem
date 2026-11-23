@@ -1478,7 +1478,7 @@ SET_WORDS = {"reviewer": "the reviewer", "planner": "the defender", "merger": "t
 # or this machine's own file for this one. The team's file is everybody's, edited by hand and committed,
 # and no command writes it.
 SCOPES = ("global", "local")
-# the first line of a file `set` makes
+# the first line of a file `set` makes; a file left with nothing but it and blank lines goes, and one with a comment of the owner's stays
 SET_FIRST = {"global": "# Your own settings for Lem, for every repository on this machine. `lem project set global NAME VALUE` writes a seat.",
              "local": "# This machine's own settings for Lem, for this repository. Not committed; `lem project set local NAME VALUE` writes a seat."}
 

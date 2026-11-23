@@ -451,11 +451,18 @@ def edited(text: str, table: str, key: str, value: object, name: object) -> str:
     return after_text
 
 
+def lems_own(line: str, first_line: str | None) -> bool:
+    """Whether a line is one that Lem wrote and nobody else: blank, or the first line of a file it made."""
+    said = line.strip()
+    return not said or said == first_line
+
+
 def write_edits(file: Path, edits: list[tuple[str, str, object]], first_line: str | None = None, text: str | None = None) -> None:
     """Apply each edit, (TABLE, KEY, VALUE or None), to the file's text in turn (`edited`), then write the
     result through a temporary file beside it and a rename over it; nothing is written when one edit
-    is refused. A new file starts with FIRST_LINE, a comment; a file left with no line that says
-    something goes. TEXT is the file's text when the caller read it already."""
+    is refused. A new file starts with FIRST_LINE, a comment. A file left with nothing but Lem's own
+    lines goes (`lems_own`); one that keeps a comment of the owner's stays, with the comment, even with
+    no table left. TEXT is the file's text when the caller read it already."""
     import tempfile
     if text is None:
         try:
@@ -469,7 +476,7 @@ def write_edits(file: Path, edits: list[tuple[str, str, object]], first_line: st
         text = edited(text, table, key, value, file)
     if text == old:
         return
-    if not any(content(line) for line in text.splitlines()):
+    if all(lems_own(line, first_line) for line in text.splitlines()):
         file.unlink(missing_ok=True)
         return
     file.parent.mkdir(parents=True, exist_ok=True)
