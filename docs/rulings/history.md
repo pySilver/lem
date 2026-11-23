@@ -210,9 +210,9 @@ bullet.
 - **The first line of a task is composed by `lem project state`, and its session says it as it is.**
   `skills/lem/scripts/project.py` (`opening_line`); `skills/lem/prompts/session.md` ("What comes
   next"). (decided 2026-11-21)
-- **The trials of 2026-11-21: a task's session takes the focus only for its own question and says
-  its first line first, and the onboarding writes no allow rules and commits the plugin's file.**
-  `skills/lem/prompts/session.md` ("While the owner is needed", "What comes next");
+- **The trials of 2026-11-21: a task's session says its first line first, and the onboarding
+  writes no allow rules and commits the plugin's file.** `skills/lem/prompts/session.md` ("What
+  comes next");
   `skills/lem/stages/init.md` (steps 4 and 6). (decided 2026-11-21)
 - **A board of example tasks says so on the page, and a line that waits for him says where he
   answers.** `skills/lem/scripts/lem_board_pages.py` (the demo notice, and `wait_row`). (2026-11-14)
