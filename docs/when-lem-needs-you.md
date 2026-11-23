@@ -117,7 +117,7 @@ you are there. A task of `/lem night` always runs without you, to its pull reque
 
 ### Answer from the Inbox
 
-While you are away, each row of what waits for you also goes to the
+While you are away, each thing that waits for you also goes to the
 [Plannotator](https://github.com/backnotprop/plannotator) Inbox on this computer, in a thread with
 the name of the task. A question there has the same answers as the card in the session of the
 task. On your phone, the [page of the task](board.md#the-board-on-your-phone) links to the thread.
