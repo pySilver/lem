@@ -3906,7 +3906,8 @@ def cmd_proposals_drop(state: Path, given: str, today: str) -> dict:
             kind, day, number = PROPOSAL_NAME.fullmatch(name).groups()
             number = int(number)
             if (kind, day) not in records:
-                records[(kind, day)] = (record_file(state, kind, day), read_record(record_file(state, kind, day), kind))
+                record_path = record_file(state, kind, day)
+                records[(kind, day)] = (record_path, read_record(record_path, kind))
             record = records[(kind, day)][1]
             if record is None or not any(entry["number"] == number and entry["item"] == item for entry in record["passed"]):
                 raise ItemRefused(f"the item {item} names {name}, and no record says that it passed into this item, so no record keeps its drop: "

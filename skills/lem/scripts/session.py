@@ -1329,7 +1329,7 @@ def main(argv: list[str] | None = None) -> None:
     job = commands.add_parser("close-job", help="close this session of a scheduled night or retro once the owner has left it; a task's session, or one no job started, is refused")
     job.add_argument("--session", metavar="ID", help="the job's session (default: AGTERM_SESSION_ID, the caller's)")
     job.add_argument("--every", type=float, default=CLOSE_EVERY, help=argparse.SUPPRESS)
-    handoff =commands.add_parser("handoff", help="check the task's handoff.md against templates/handoff.md")
+    handoff = commands.add_parser("handoff", help="check the task's handoff.md against templates/handoff.md")
     handoff.add_argument("slug")
     handoff.add_argument("--check", action="store_true", required=True)
     talk = commands.add_parser("talk", help="copy the turns of this session about the task's ask into its talk.md")
