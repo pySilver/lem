@@ -591,9 +591,11 @@ FACTS = ("(() => { try { const c = document.querySelector('#confirm'), body = c.
          " noteBelow: note.getBoundingClientRect().bottom > body.getBoundingClientRect().bottom + 1, noteEnd: Math.round(note.getBoundingClientRect().bottom), buttonTop: Math.round(b.getBoundingClientRect().top),"
          " fixed: [c, ...c.querySelectorAll('*')].some(n => ['fixed', 'sticky'].includes(getComputedStyle(n).position)), focus: document.activeElement?.className ?? '-',"
          " commit: c.querySelector('#cf-dd-commit .mono')?.textContent ?? '-' }; } catch (e) { return {error: String(e)}; } })()")
-def until(label, cond):
-    """a print step that waits up to 15 s for COND, then gives LABEL and the card's facts"""
-    return {"print": f"new Promise(done => {{ const end = Date.now() + 15000; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {FACTS}]) : setTimeout(tick, 100); tick(); }})"}
+def until(label, cond, limit=15000):
+    """a print step that waits up to LIMIT ms for COND, then gives LABEL and the card's facts; with LIMIT None it has no
+    limit of its own, so only the suite's time limit (LEM_TEST_LIMIT) ends a wait for a COND that never comes"""
+    end = "Infinity" if limit is None else f"Date.now() + {limit}"
+    return {"print": f"new Promise(done => {{ const end = {end}; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {FACTS}]) : setTimeout(tick, 100); tick(); }})"}
 def at(label):
     return {"print": f"[{json.dumps(label)}, {FACTS}]"}
 def sh(*argv):
@@ -604,16 +606,18 @@ ready = "document.readyState === 'complete' && document.querySelector('#confirm[
 to_end = {"eval": "(() => { const b = document.querySelector('#confirm .cf-body'); b.scrollTop = b.scrollHeight; })()", "after": 500}
 specs = {
     # the text goes on below the screen: the button is off and a tap posts nothing, then on at the end; a new proposal,
-    # and one that brings a shorter text to a body scrolled to just above its end, each start the read again at the top
+    # and one that brings a shorter text to a body scrolled to just above its end, each start the read again at the top.
+    # The wait for each proposal has no limit of its own: under the load of tests/all.sh the board's stream brought the
+    # first one after the 15 s of the other waits (2026-11-23), and the read after it is what the check is about
     "gate": {"width": 390, "height": 664, "mobile": True, "steps": [
         {"goto": step, "wait": 300}, until("open", ready), {"wait": 300}, at("opened"),
         acts("acts-before"), {"click": "#confirm .cf-foot button"}, {"wait": 700}, {"print": "['tapped', location.pathname + location.search]"}, acts("acts-after"), at("after-tap"),
         to_end, at("end"),
         sh(py, f"{work}/merge.py", "landing", state, refund, "44", moved), sh(py, f"{work}/merge.py", "proposed", log, refund, moved, "4"),
-        until("moved", f"document.querySelector('#cf-dd-commit .mono')?.textContent === '{moved[:12]}'"), {"wait": 400}, at("moved-after"),
+        until("moved", f"document.querySelector('#cf-dd-commit .mono')?.textContent === '{moved[:12]}'", None), {"wait": 400}, at("moved-after"),
         {"eval": "(() => { const b = document.querySelector('#confirm .cf-body'); b.scrollTop = b.scrollHeight - b.clientHeight - 12; })()", "after": 500}, at("near"),
         sh(py, f"{work}/merge.py", "landing", state, refund, "44", shorter), sh(py, f"{work}/merge.py", "proposed", log, refund, shorter, "3"),
-        until("shorter", f"document.querySelector('#cf-dd-commit .mono')?.textContent === '{shorter[:12]}'"), {"wait": 400}, at("shorter-after"),
+        until("shorter", f"document.querySelector('#cf-dd-commit .mono')?.textContent === '{shorter[:12]}'", None), {"wait": 400}, at("shorter-after"),
     ]},
     # the screen of criterion 1, where the text of #44 fits
     "phone": {"width": 390, "height": 844, "mobile": True, "steps": [{"goto": step, "wait": 300}, until("open", ready), {"wait": 300}, at("phone")]},
