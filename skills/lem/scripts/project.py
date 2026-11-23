@@ -246,16 +246,17 @@ the one map): a table in another file is refused, and the refusal names the file
 `settings.toml` files hold the rest, and for a setting that more than one of them may hold, the
 nearest that holds it wins: `.lem/settings.local.toml`, then `.lem/settings.toml`, then the home
 folder's `settings.toml`, then Lem's default. `show` names in `from` the file each such value came
-from: each seat, each expert, the fallback, `naps.on` and `state.keep_days`. It gives
-`corrections.collect`, the machine's yes or no to the correction queue, with `from` too:
+from: each seat, each expert, the fallback, `naps.on`, `state.keep_days` and `jev.findings`. It
+gives `corrections.collect`, the machine's yes or no to the correction queue, with `from` too:
 `machine.toml`, which `lem corrections collect yes|no` writes, or Lem's default, which is no, and
 which `/lem init` asks about.
 
 The home folder's `settings.toml` is the developer's own for every repository on the machine: each
 seat and the fallback (`[seats]`, which `lem project set global` writes), and the question page's
 defaults (`[ask]`, which only that page reads; here only its keys are checked). What guards a team's
-repository (`[flow]`, `[checks]`, `[branch]`, `[paths]`, `[tracker]`) is valid in the team's file
-only. `keep_days` is a repository's (the owner,
+repository (`[flow]`, `[checks]`, `[branch]`, `[paths]`, `[tracker]`), and `[jev]`, whether a
+landing sends a finding to the Jev model, are valid in the team's file only. `keep_days` is a
+repository's (the owner,
 2026-11-21), and so is the naps' switch: this file refuses `[state]` and `[naps]` too.
 
 `.lem/settings.local.toml` is one person's or one day's choice on one machine for one repository:
@@ -586,7 +587,7 @@ DEFAULT_SEATS = {"reviewer": REVIEWER, "planner": PLANNER, "merger": SEAT_DEFAUL
 # otherwise (the owner, 2026-11-23: "and keep fallback: on (default)"; of the key: "y, one key").
 FALLBACK = "claude/opus:high"
 # Where a value came from when no file names it: a seat, an expert, the fallback, `naps.on`,
-# `state.keep_days`.
+# `state.keep_days`, `jev.findings`.
 DEFAULT_FROM = "Lem's default"
 # What `seat` gives as `from` for a seat in which the fallback stands in for the task (`seat-failed`).
 STAND_IN = "stand-in"
@@ -676,6 +677,8 @@ TABLES: dict[str, tuple[str, ...]] = {
     "tracker": ("kind",),
     "naps": ("on",),
     "state": ("keep_days",),
+    # whether the landing sends a finding called under the bar to the Jev model (land.py `jev_read`)
+    "jev": ("findings",),
     # the question page's defaults, which only that page reads and checks (`lem-ask`)
     "ask": ("style", "size", "review", "browser", "status"),
 }
@@ -837,7 +840,7 @@ experts = [{experts}]
 # [tracker]
 # kind = "linear"
 """
-# The state's table and the naps' table, the last of the file.
+# The state's table, the naps' table and Jev's table, the last of the file.
 TEMPLATE += f"""
 [state]
 # How many days Lem keeps what it no longer needs in .lem/state/, the folder git never sees: every
@@ -858,6 +861,15 @@ keep_days = {KEEP_DAYS}
 # nobody has shown that it helps. {NAPS_GAP_HOURS} hours pass between two naps: a guess, from the
 # owner's own nap routine. A nap's folder is kept for state.keep_days.
 on = false
+
+[jev]
+# Before a pull request, Lem asks the Jev decision model one question about each defect outside a
+# task that an agent calls under the bar: is it over the bar after all? Its score goes on the
+# finding's line of the pull request, and a high one makes `lem land propose` refuse once, so that
+# the agent looks again. Each question sends the finding's place, title and run to the model's
+# provider (OpenRouter unless JEV_API_URL names another), with the key JEV_API_KEY of the machine
+# that lands; with no key, nothing is sent. false sends nothing from this repository.
+findings = true
 """
 
 
@@ -1213,6 +1225,19 @@ def naps_of(raw: dict, name: Path) -> dict:
     return {"on": given, "from": str(SETTINGS)}
 
 
+def jev_of(raw: dict, name: Path) -> dict:
+    """The `[jev]` table of the team's file, checked: its one key, `findings`, whether the landing
+    sends the text of each finding an agent calls under the bar to the Jev model (land.py,
+    `jev_read`), with `from`, the team's file when it names it, else DEFAULT_FROM. With no line it
+    sends: the key of the model's provider is the machine's own, and with none nothing is sent."""
+    given = raw.get("jev", {}).get("findings")
+    if given is None:
+        return {"findings": True, "from": DEFAULT_FROM}
+    if not isinstance(given, bool):
+        raise SettingsError(f"{name}: jev.findings = {given!r} must be true or false")
+    return {"findings": given, "from": str(SETTINGS)}
+
+
 def keep_days_of(value: object, where: str, left_out: str = str(KEEP_DAYS)) -> int:
     """A number of days the state folder keeps what Lem no longer needs, checked: a whole number, 1 or
     more. 0 would take all but a task's small record at the first look after it ended, while the owner
@@ -1404,6 +1429,8 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         "corrections": corrections,
         "tracker": tracker,
         "naps": naps,
+        # whether a landing sends a finding called under the bar to the Jev model; the landing reads the main checkout's
+        "jev": jev_of(raw, SETTINGS),
         # read from the main checkout's settings, in a task's worktree too, or from this machine's own
         # file; `from` names which, as each seat's does
         "state": state,
