@@ -3278,7 +3278,8 @@ def waiting_model(root: Path, settings: dict):
     model.seen = (bm.forge_look(state) or {}).get("seen")
     said = None
     if not model.meta["demo"]:
-        model.sessions, said = waiting_sessions(root, settings, model, bm)
+        sessions, said = waiting_sessions(root, settings, model, bm)
+        bm.put_sessions(model, sessions)
     return model, said
 
 

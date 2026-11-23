@@ -246,6 +246,25 @@ class Overview(unittest.TestCase):
         p = bm.progress_of(one(state(0, "building", "plan committed, 3 tasks"), state(9, "building", "task 2 of 3")))
         self.assertEqual((p["finished"], p["current"], p["total"], p["subs"][2]), (1, 1, 3, "task 2 of 3"))
 
+    def test_the_panel_says_no_waits_for_while_the_tasks_session_works_on_his_answer(self):
+        # waits-for-you-only-when-it-waits, criteria 1 and 2: the header and the large card of a held interview
+        m = model(state(0, "held", "the interview waits for the owner"), ev(1, "interview.start"))
+        ctx = pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, task="gift-note", tab="overview")
+        t = m.tasks[0]
+
+        def panel(turn: str) -> tuple[str, str]:
+            bm.put_sessions(m, {"gift-note": {"live": True, "agent": True, "unanswered": False, "session": "S1", "worktree": False, "turn": turn}})
+            return str(task_pages.head(ctx, t, t.title)), str(task_pages.now_card(ctx, t))
+
+        head, card = panel("runs")
+        self.assertNotIn('id="dt-waits"', head)
+        self.assertIn("Works on your answer", head)
+        self.assertNotIn("Where you answer", card)
+        head, card = panel("ended")
+        self.assertIn('id="dt-waits"', head)
+        self.assertIn("The interview waits for you", card)
+        self.assertIn("Where you answer", card)
+
 
 class InboxLine(unittest.TestCase):
     """Where the owner answers on the phone's page of a task while his mark says away and the board's server

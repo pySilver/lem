@@ -41,7 +41,10 @@ While the mark does not say away, nothing is sent. A row with no recorded thing 
 says away and the door is open. A thing written before a call that never answered is sent again, with
 its payload and key, only while the mark says away, the door is open and its row is still the same
 thing; while he is away with the door closed it waits, and otherwise it is forgotten, since nothing of
-it may go now.
+it may go now. A row that the task's working session holds back (`lem_board_model.held_back`: a held
+task whose session's turn runs on his answer) keeps its recorded thing as it stands, away or not: it is
+neither withdrawn, forgotten nor sent again, so that a turn the Inbox's own wake started sends nothing
+when it ends on the same block.
 
 The door (`door_of`): `plannotator inbox status --json`, found on the server's PATH, read at each look
 while the mark says away or a sent thing waits in the record. Lem starts no Inbox on purpose: a look
@@ -243,10 +246,13 @@ def session_side(a: dict, b: dict) -> bool:
     return all(a.get(part) == b.get(part) for part in ("asks", "tip", "block"))
 
 
-def plan(want: dict, sent: list[dict], away: bool, door: bool, behind: set | frozenset = frozenset()) -> dict:
+def plan(want: dict, sent: list[dict], away: bool, door: bool, behind: set | frozenset = frozenset(),
+         held: set | frozenset = frozenset()) -> dict:
     """What a look does, from the things the rows are now (WANT, by key), the record's things (SENT),
-    the owner's mark (AWAY), whether the door is open (DOOR), and the keys of rows that still wait but
-    are no thing now (BEHIND: behind their task's session row, or with a session not told yet):
+    the owner's mark (AWAY), whether the door is open (DOOR), the keys of rows that still wait but
+    are no thing now (BEHIND: behind their task's session row, or with a session not told yet), and the
+    keys of rows that a working session holds back (HELD, `lem_board_model.held_back`), whose recorded
+    thing is neither withdrawn, forgotten nor sent again, away or not:
     `withdraw`, the recorded questions to withdraw; `replaced`, the keys of those a newer message of the
     same thread follows (the mark says away and the door is open); `forget`, the recorded notes, and the
     things whose call never answered, to drop; `retry`, those to send again with their payload; `send`,
@@ -255,6 +261,9 @@ def plan(want: dict, sent: list[dict], away: bool, door: bool, behind: set | fro
     for r in sent:
         key = r["key"]
         w = want.get(key)
+        if key in held:
+            # the task's session works on his answer: its question stays as it was sent, until the turn ends
+            continue
         if not r.get("message_id"):
             # written before a call that never answered: sent again only as the same thing while he is away
             if away and r.get("payload") and w is not None and same(r, w):
@@ -533,7 +542,7 @@ class Watcher:
         rows = bm.waits_of(m)
         by_key = {r["key"]: r for r in rows}
         want = things_of(rows, m, bm, lambda slug: space.landing_of(slug).get("proposed"))
-        steps = plan(want, record["sent"], away, door["tailnet_url"] is not None, {r["key"] for r in rows} - want.keys())
+        steps = plan(want, record["sent"], away, door["tailnet_url"] is not None, {r["key"] for r in rows} - want.keys(), bm.held_back(m))
         done: list[dict] = []
         problems: list[str] = []
 

@@ -554,5 +554,46 @@ class ReviewTwo(InFolder):
         self.assertEqual(self.woken, [])
 
 
+class HeldBack(InFolder):
+    """A row that the task's working session holds back keeps its sent thing as it stands (decision 5 of
+    waits-for-you-only-when-it-waits): the Inbox's own wake starts the session's turn on the question, and
+    neither that turn nor its end sends, withdraws or forgets anything. The held task is a breaker's: while
+    the owner is away, Lem settles an interview and criteria without him (`goes_on_of`), and they are no row."""
+
+    def turn(self, turn: str | None, owner=(AWAY,)):
+        m = bm.derive(list(BREAKER), list(owner), NOW)
+        bm.put_sessions(m, {RD: {"live": True, "agent": True, "unanswered": False, "session": "S-1", "worktree": False, "turn": turn}})
+        return m
+
+    def test_the_question_stays_open_while_the_woken_turn_runs_and_nothing_is_sent_when_it_ends(self):
+        self.m = self.turn(None)
+        w = self.watcher()
+        self.assertEqual([d["did"] for d in w.look()], ["sent"])
+        self.assertEqual(self.woken, [RD])
+        before = self.record()["sent"]
+        self.assertEqual([(r["key"], r["form"], r["message_id"]) for r in before], [(f"breaker:{RD}:1", "question", "msg_1")])
+        # the wake started the session's turn on his help: no row, and the question stays open as it was sent
+        self.m = self.turn("runs")
+        self.assertEqual((bm.waits_of(self.m), bm.held_back(self.m)), ([], {f"breaker:{RD}:1"}))
+        self.assertEqual(w.look(), [])
+        self.assertEqual(self.record()["sent"], before)
+        # the turn ends with the same block: the row is the same thing, and nothing goes again
+        self.m = self.turn("ended")
+        self.assertEqual(w.look(), [])
+        self.assertEqual((len(self.plannotator.sends()), self.woken, self.record()["sent"]), (1, [RD], before))
+
+    def test_a_held_back_thing_is_neither_withdrawn_forgotten_nor_sent_away_or_not(self):
+        asked = {"key": "held:a", "task": "a", "kind": "held", "form": "question", "asks": True, "session": "c", "tip": None, "block": 1, "message_id": "m1"}
+        noted = {**asked, "key": "held:b", "task": "b", "form": "note", "session": None}
+        unsent = {**asked, "key": "held:c", "task": "c", "message_id": None, "payload": {"body": "x"}}
+        none = {"withdraw": [], "replaced": set(), "forget": [], "retry": [], "send": []}
+        for away in (True, False):
+            with self.subTest(away=away):
+                self.assertEqual(inbox.plan({}, [asked, noted, unsent], away, True, held={"held:a", "held:b", "held:c"}), none)
+        # the same record with no row held back: the question is withdrawn, the note and the unsent one forgotten
+        steps = inbox.plan({}, [asked, noted, unsent], True, True)
+        self.assertEqual(([r["key"] for r in steps["withdraw"]], [r["key"] for r in steps["forget"]]), (["held:a"], ["held:b", "held:c"]))
+
+
 if __name__ == "__main__":
     unittest.main()

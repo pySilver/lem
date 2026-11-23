@@ -103,6 +103,10 @@ READ_SKIP = {"what": "the personas' read of the criteria", "chose": "no read: th
 # owner says whether to skip the personas' read (`skip`), the personas read them (`reads`), and the
 # owner gives his yes once the read is in or he skipped it (`yes`). The three that are his:
 OWNER_TURNS = ("asks", "skip", "yes")
+# The statuses whose time counts from the block that named the wait, not from the first block of the status
+# (`settle`): the interview's held block and the criteria's are two waits, and a block written again with
+# the same first line is the same one.
+WAIT_CLOCKS = ("held", "blocked")
 # The words of Lem's turn and of the skip question, on the card and in the row of "Waits for you".
 WRITES_SAYS = "Lem writes the criteria; then they come to you."
 SKIP_SAYS = "Lem asks whether to skip the personas' read of the criteria"
@@ -512,6 +516,10 @@ class Task:
     # the task a queued task waited for, which was dropped (`after_dropped`): it waits for the owner's word
     dropped_after: str | None = None
     for_owner: bool = False
+    # a held task of the owner's whose session's newest turn runs (`put_sessions`): Lem's work until that turn
+    # ends; and what `settle` gave it (`for_owner`, `info`, `shown`, `lane`), which it gets back then
+    works: bool = False
+    settled: dict | None = None
     # for an `open` task, who its merge waits for (`merge_wait`): "reads", "merges" or "owner"
     merge_wait: str | None = None
     investigating: bool = False
@@ -559,9 +567,10 @@ class Model:
     seen: dict | None = None
     # what the board server's last `lem session list` said of each task's session, by its slug
     # (`live`: the session is in agterm's tree; `agent`: an agent runs in its pane; `unanswered`: a
-    # wake-up waits in it for 10 minutes; `sign`, `shell` and `signs`: the session's own signs of work,
-    # as lem_signs reads them; `worktree`: the task's worktree is still there), which serve.py puts
-    # here; None while the server has not asked (a demo workspace, or before its first look)
+    # wake-up waits in it for 10 minutes; `sign`, `shell`, `signs` and `turn`: the session's own signs of
+    # work, as lem_signs reads them; `worktree`: the task's worktree is still there), which `put_sessions`
+    # puts here for serve.py, `lem project waiting` and the guard; None while the server has not asked (a
+    # demo workspace, or before its first look)
     sessions: dict | None = None
     # what the board server's Inbox thread last wrote of the owner's Inbox (`inbox_look` of INBOX_LOOK): the
     # door's last look and each thing it sent; None while no server wrote it
@@ -879,9 +888,11 @@ def settle(t: Task, now: int, away: bool = False) -> None:
     t.shown = shown[0] if shown else ""
     t.more = shown[1:]
     t.last_ts = last["ts"]
-    # "since" is when the task entered the status it has now; a summary's block keeps when its run began, and the task's first block
+    # "since" is when the task entered the status it has now; a summary's block keeps when its run began, and the task's first block.
+    # A wait of the owner's (WAIT_CLOCKS) counts from the block that named it: an earlier block of the same
+    # status counts only when it said the same first line, since another first line is another wait
     i = len(t.blocks) - 1
-    while i > 0 and t.blocks[i - 1]["status"] == t.status:
+    while i > 0 and t.blocks[i - 1]["status"] == t.status and (t.status not in WAIT_CLOCKS or t.blocks[i - 1]["text"].strip() == last["text"].strip()):
         i -= 1
     t.since = t.blocks[i].get("since", t.blocks[i]["ts"])
     t.first = t.blocks[0].get("first", t.blocks[0]["ts"])
@@ -1069,9 +1080,52 @@ def derive(events: list[dict], owner: list[dict], now: int, *, meta: dict | None
         if after_dropped(t, m):
             t.dropped_after, t.for_owner, t.lane, t.owner_rank = after_of(t), True, "you", OWNER_ORDER.index("queued")
             t.info = {**t.info, "actor": "you", "who": "You"}
-    m.for_owner = sorted((t for t in listed if t.for_owner), key=lambda t: (t.owner_rank, t.since))
-    m.lane = {lane["key"]: lanes_sorted(lane["key"], [t for t in listed if t.lane == lane["key"]]) for lane in LANES}
+    sort_lists(m)
     return m
+
+
+def sort_lists(m: Model) -> None:
+    """The lists of who acts, from each task's own `for_owner` and `lane`: the owner's, in the order of
+    what presses most, and each column of the kanban."""
+    m.for_owner = sorted((t for t in m.tasks if t.for_owner), key=lambda t: (t.owner_rank, t.since))
+    m.lane = {lane["key"]: lanes_sorted(lane["key"], [t for t in m.tasks if t.lane == lane["key"]]) for lane in LANES}
+
+
+# What a held task of the owner's shows while its session's newest turn runs (`put_sessions`): the
+# session works on what he said, and nothing waits for him until that turn ends.
+WORKS_INFO = {"actor": "lem", "who": "The task's session", "label": "Works on your answer", "icon": "play", "live": True}
+WORKS_SAYS = "it waits for you again when the session's turn ends"
+
+
+def works_of(t: Task, m: Model) -> bool:
+    """Whether a held task of the owner's is Lem's work now: its session lives with an agent in its pane
+    (`live_of`) and that session's newest turn runs (`turn` "runs", lem_signs). A task with no session
+    facts, a session that is not live, and a turn that ended or that Lem cannot read stay the owner's. A
+    breaker's held task follows the same rule: while its session works on his help, nothing of it waits."""
+    if t.status != "held" or not t.for_owner or m.sessions is None:
+        return False
+    f = m.sessions.get(t.slug) or {}
+    return f.get("live") is True and f.get("agent") is True and f.get("turn") == "runs"
+
+
+def put_sessions(m: Model, sessions: dict | None) -> None:
+    """Put what `lem session list` said of the task sessions (`sessions_of`, or None while nothing is known)
+    on a model, and with it who acts on each held task: one whose session's turn runs (`works_of`) is Lem's
+    work, with no row of "Waits for you" (`waits_of`), WORKS_INFO, and its card under Lem's work; one whose
+    turn ended gets back what `settle` gave it. The board server sets the sessions again on a model it
+    keeps (`Reader.current`), so this gives the same model for the same sessions however often it runs.
+    Every place that sets `Model.sessions` calls it: serve.py, `lem project waiting` and the guard of a
+    stopped session."""
+    m.sessions = sessions
+    for t in m.tasks:
+        if t.settled is not None:
+            t.for_owner, t.info, t.shown, t.lane = t.settled["for_owner"], dict(t.settled["info"]), t.settled["shown"], t.settled["lane"]
+            t.settled = None
+        t.works = works_of(t, m)
+        if t.works:
+            t.settled = {"for_owner": t.for_owner, "info": dict(t.info), "shown": t.shown, "lane": t.lane}
+            t.for_owner, t.info, t.shown, t.lane = False, dict(WORKS_INFO), WORKS_SAYS, "build"
+    sort_lists(m)
 
 
 def lanes_sorted(key: str, tasks: list) -> list:
@@ -1622,6 +1676,24 @@ def merge_says(t: Task) -> dict:
             "careful": bool(careful and careful["yes"]), "careful_why": (careful or {}).get("why") or ""}
 
 
+def held_row(t: Task) -> dict | None:
+    """The row of "Waits for you" that a task's held block gives, or None. A breaker that waits is its own
+    row, and the held block it wrote is not said again; a held task is his while its turn is (`turn_of`):
+    not while Lem writes its criteria or the personas read them, nor while Lem settles its need without
+    him (`goes_on_of`)."""
+    if t.breaker:
+        return {"kind": "breaker", "key": f"breaker:{t.slug}:{t.breaker.id}", "t": t, "c": t.breaker, "since": t.breaker.ts}
+    if t.turn in OWNER_TURNS and not t.goes_on:
+        return {"kind": "criteria" if t.criteria_wait else "held", "key": f"held:{t.slug}", "t": t, "c": None, "since": t.since}
+    return None
+
+
+def held_back(m: Model) -> set[str]:
+    """The keys of the rows that a working session holds back (`put_sessions`): each would be a row of
+    "Waits for you" once the session's turn ends, so the Inbox keeps what it sent for it (lem_inbox `plan`)."""
+    return {row["key"] for t in m.tasks if t.works and not t.closed and (row := held_row(t)) is not None}
+
+
 def waits_of(m: Model) -> list[dict]:
     """The rows of "Waits for you": one for each thing the owner does, as `lem project waiting` lists
     them (without the retro's proposals, and with the plans he reads), the most pressing first."""
@@ -1640,13 +1712,10 @@ def waits_of(m: Model) -> list[dict]:
             rows.append({"kind": "session", "key": f"{'deaf' if need == 'deaf' else 'session'}:{t.slug}", "t": t, "c": None, "since": since, "deaf": need == "deaf"})
         if t.closed:
             continue
-        # a breaker that waits is its own row, and the held block it wrote is not said again
-        if t.breaker:
-            rows.append({"kind": "breaker", "key": f"breaker:{t.slug}:{t.breaker.id}", "t": t, "c": t.breaker, "since": t.breaker.ts})
-        # a held task is his while its turn is (`turn_of`): not while Lem writes its criteria or the personas
-        # read them, nor while Lem settles its need without him (`goes_on_of`)
-        elif t.turn in OWNER_TURNS and not t.goes_on:
-            rows.append({"kind": "criteria" if t.criteria_wait else "held", "key": f"held:{t.slug}", "t": t, "c": None, "since": t.since})
+        # the row of a breaker or of a held task, held back while the task's session works on his answer (`put_sessions`)
+        held = held_row(t)
+        if held is not None and not t.works:
+            rows.append(held)
         # a task queued after a task that was dropped: no session runs it, and only his word starts it or ends it
         if after_dropped(t, m):
             done = m.by_slug[after_of(t)]
@@ -2064,6 +2133,8 @@ def now_head(t: Task) -> str:
         return "The plan waits for you" if t.for_owner else "The plan talk is done: the plan waits for the agent that builds it" if t.talks else "The plan waits for its plan talk"
     if s == "held":
         return ("Approved: its lead has not started yet" if t.approved else "Helped: its lead has not started yet" if t.helped
+                # its session's turn runs on what he said (`put_sessions`): a breaker's held task too
+                else "Its session works on your answer" if t.works
                 else "The build stopped: its breaker waits for you" if t.breaker
                 else "Lem goes on without you" if t.goes_on
                 else "The personas read the criteria" if t.reading

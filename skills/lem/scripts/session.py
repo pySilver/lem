@@ -694,7 +694,7 @@ def guard_check(root: Path, slug: str, step: str, named: str | None, where: dict
         records = [record for record in events if record.get("event") == lem_signs.EVENT and record.get("task") == slug]
         if alive and lem_signs.own_records(records, session):
             signs = lem_signs.signs_of(records, session, process_table(), slug)
-    m.sessions = {slug: {"live": alive, "agent": agent, "unanswered": False, "session": session, **signs}}
+    bm.put_sessions(m, {slug: {"live": alive, "agent": agent, "unanswered": False, "session": session, **signs}})
     reason = guard_refusal(t, m, step, named)
     read = signs.get("signs") is True
     if reason is None:

@@ -159,6 +159,31 @@ class Sending(InHome):
         self.assertEqual(push.latest()["url"], "/mac/shop/tasks/footer-terms-typo")
         self.assertNotIn("/repo/demo", push.read_state()["seen"])
 
+    def test_no_push_goes_for_a_held_task_while_its_session_works_and_one_when_its_turn_ended(self):
+        # waits-for-you-only-when-it-waits, criteria 1 and 2: the push follows the rows of Waits for you
+        push.subscribe({"endpoint": FCM}, "")
+        sent = []
+        pusher = push.Pusher(send=lambda endpoint, headers: sent.append(endpoint) or (201, ""))
+        building = [{"ts": "2026-11-23T11:00:00Z", "event": "task.state", "task": "gift-note", "status": "building", "text": "task 1 of 2", "lines": []}]
+        stopped = [*building, {"ts": "2026-11-23T11:20:00Z", "event": "decision.breaker", "task": "gift-note", "id": 1, "kind": "breaker", "cause": "criteria",
+                               "what": "The gift note has no place", "document": "breaker.md"},
+                   {"ts": "2026-11-23T11:20:00Z", "event": "task.state", "task": "gift-note", "status": "held", "text": "breaker 1 waits for the owner", "lines": []}]
+
+        def model(events, turn):
+            m = bm.derive(events, [], bm.at("2026-11-23T11:30:00Z"))
+            bm.put_sessions(m, {"gift-note": {"live": True, "agent": True, "unanswered": False, "session": "S1", "worktree": False, "turn": turn}})
+            return m
+
+        now = {"model": model(building, "runs")}
+        clock = {"now": 1000.0}
+        watcher = push.Watcher(lambda: [("shop", "/repo/shop", lambda: now["model"])], "mac", pusher, log=lambda line: None, now=lambda: clock["now"])
+        self.assertEqual(watcher.look(), [])
+        for turn, pushes in (("runs", 0), ("ended", 1)):
+            now["model"] = model(stopped, turn)
+            clock["now"] += 10
+            watcher.look()
+            self.assertEqual(len(sent), pushes, turn)
+
 
 if __name__ == "__main__":
     unittest.main()
