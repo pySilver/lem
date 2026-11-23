@@ -215,11 +215,12 @@ else
   fail "the watch of the owner's mark: $watched / ${took}s / $heard / $stale / $again_ts $paired / $kept / $stopped_code $(cat "$WORK/watch-stop.out") / $no_seen / $negative / $outside"
 fi
 
-# What the state folder keeps: `lem project prune` removes, once state.keep_days passed, the working files of a task that
-# ended and the old folders of the experts, the panels, the naps and the cast's copies. A task's documents and records
-# stay, and `tasks` and `lem decisions` read it as before; an open task, a young one and one whose state does not read
-# are not touched; a link is never followed, a removal that fails is named and the others go on, and a dry run
-# removes nothing.
+# What the state folder keeps: `lem project prune` removes, once state.keep_days passed, every file of a task that
+# ended but its small record (its state, its request, its pull request, its ticket's files), and the old folders of the
+# experts, the panels, the naps and the cast's copies. `tasks`, `may-start` and `task-dir` read the pruned task as
+# before, and a run after the one that finished its removal removes nothing; an open task, one that landed 10 days ago
+# and one whose state does not read are not touched; a link is never followed, a removal that fails is named and the
+# next run finishes it, and a dry run removes nothing.
 PR=$WORK/prune-repo
 git init -q -b main "$PR" && commit "$PR" start && project --repo "$PR" init --base main >/dev/null
 PS=$(project --repo "$PR" state-dir)
@@ -235,21 +236,25 @@ OLD=$PS/tasks/old-landed
 mkdir -p "$OLD/media" "$OLD/reviews/old-landed/01-initial/agents" "$OLD/locked"
 "$PY" -c 'import sys; [open(p, "wb").write(b"\x89PNG\r\n\x1a\n" + bytes(8)) for p in sys.argv[1:]]' "$OLD/media/shown.png" "$OLD/media/unshown.png"
 printf '# Report\n\nSee ![it](media/shown.png).\n' > "$OLD/report.md"
-printf '{"proposed": "abc"}\n' > "$OLD/landing.json"
+printf '{"proposed": "abc", "pr": {"url": "https://github.com/acme/shop/pull/1"}, "not_green": []}\n' > "$OLD/landing.json"
+printf '{}\n' > "$OLD/criteria.json" && printf '# Criteria\n' > "$OLD/criteria.md" && printf '{"kind": "taken"}\n' > "$OLD/decisions.jsonl" && : > "$OLD/empty.txt"
 printf 'started\nlanded\n' > "$OLD/ticket-steps.txt"
 printf '# Round 1\n' > "$OLD/reviews/old-landed/01-initial/report.md"
 printf '{}\n' > "$OLD/reviews/old-landed/01-initial/agents/a.jsonl"
 printf 'scratch\n' > "$OLD/scratch.txt" && printf 'held\n' > "$OLD/locked/held.txt" && printf 'kept outside\n' > "$WORK/outside.txt"
 ln -s "$WORK/outside.txt" "$OLD/link.txt"
-cp "$OLD/scratch.txt" "$PS/tasks/young-landed/scratch.txt" && cp "$OLD/scratch.txt" "$PS/tasks/still-open/scratch.txt" && cp "$OLD/scratch.txt" "$PS/tasks/old-dropped/scratch.txt"
-# the old tasks' events 40 days back, each line kept whole; the old folders 40 days back by their last write or their name
+for slug in young-landed still-open old-dropped; do
+  mkdir -p "$PS/tasks/$slug/media" && cp "$OLD/scratch.txt" "$OLD/report.md" "$OLD/decisions.jsonl" "$PS/tasks/$slug/" && cp "$OLD/media/shown.png" "$PS/tasks/$slug/media/"
+done
+# the old tasks' events 40 days back and the young task's 10, each line kept whole; the old folders 40 days back by their last write or their name
 "$PY" -c 'import json, sys
 from datetime import datetime, timedelta, timezone
-old = (datetime.now(timezone.utc) - timedelta(days=40)).strftime("%Y-%m-%dT%H:%M:%SZ")
+back = {"old-landed": 40, "old-dropped": 40, "young-landed": 10}
 lines = open(sys.argv[1], encoding="utf-8").read().split("\n")
 for n, line in enumerate(lines):
-    if line.strip() and json.loads(line).get("task") in ("old-landed", "old-dropped"):
-        lines[n] = line.replace(json.loads(line)["ts"], old, 1)
+    task = json.loads(line).get("task") if line.strip() else None
+    if task in back:
+        lines[n] = line.replace(json.loads(line)["ts"], (datetime.now(timezone.utc) - timedelta(days=back[task])).strftime("%Y-%m-%dT%H:%M:%SZ"), 1)
 open(sys.argv[1], "w", encoding="utf-8").write("\n".join(lines))' "$PS/events.jsonl"
 # each dated name once, so that a run that crosses a minute or a UTC midnight looks for the folder it made
 new_question=$(date -u +%Y-%m-%d)-101010-a-new-question
@@ -266,6 +271,8 @@ for top in sys.argv[1:]:
         for name in files: os.utime(os.path.join(root, name), (old, old))
     os.utime(top, (old, old))' "$PS/experts/2026-01-02-101010-an-old-question" "$PS/experts/notes" "$PS/panels/2026-01-02-an-old-panel" "$PS/personas-cast/0123abc"
 listing() { (cd "$PS" && find . -not -type d | LC_ALL=C sort | tr '\n' ' '); }
+# a task's files but the lock files at its top, from its folder
+task_files() { (cd "$PS/tasks/$1" && find . -not -type d | sed 's|^\./||' | awk '!/^[^\/]*\.lock$/' | LC_ALL=C sort | tr '\n' ' '); }
 before_dry=$(listing)
 dry=$(project --repo "$PR" prune --dry-run)
 after_dry=$(listing)
@@ -276,27 +283,35 @@ real_code=0
 real=$(project --repo "$PR" prune) || real_code=$?
 chmod 755 "$OLD/locked"
 again=$(project --repo "$PR" prune)
-tasks_after=$(project --repo "$PR" tasks | field '[(t["slug"], t["status"], t["ticket_steps"]) for t in d if t["slug"] in ("old-landed", "old-dropped")]')
-decided=$("$PY" -B "$DECISIONS" --repo "$PR" list old-dropped 2>&1 || true)
+before_third=$(listing)
+third=$(project --repo "$PR" prune)
+after_third=$(listing)
+tasks_after=$(project --repo "$PR" tasks | field '[(t["slug"], t["status"], t["ticket_steps"], (t["proposal"] or {}).get("pull_request")) for t in d if t["slug"] in ("old-landed", "old-dropped")]')
+project --repo "$PR" task-dir after-old --ask "Build on what old-landed added." >/dev/null
+project --repo "$PR" state after-old queued "it needs what old-landed added" "after: old-landed" >/dev/null
+after_starts=$(status_of project --repo "$PR" may-start after-old)
+old_taken=$(project --repo "$PR" task-dir old-landed --ask "The ask of old-landed, again." 2>&1 || true)
 if [ "$before_dry" = "$after_dry" ] && [ "$(field '(d["dry_run"], d["keep_days"], d["from"], [t["task"] for t in d["tasks"]])' <<<"$dry")" = "(True, 30, '.lem/project.toml', ['old-dropped', 'old-landed'])" ] \
   && [ "$(field '[t["task"] for t in d["tasks"]]' <<<"$dry_all")" = "['old-dropped', 'old-landed', 'young-landed']" ] && [ "$(field 'd["from"]' <<<"$dry_all")" = "--days 0" ] \
   && grep -qF -- "--days goes with --dry-run only" <<<"$no_days" && [ "$real_code" = 1 ] \
   && [ "$(field '[f["path"] for f in d["failed"]]' <<<"$real")" = "['tasks/old-landed/locked/held.txt']" ] \
   && [ "$(field 'sorted(f["path"] for f in d["folders"])' <<<"$real")" = "['experts/2026-01-02-101010-an-old-question', 'naps/2020-01-02-0300-an-old-dream', 'panels/2026-01-02-an-old-panel', 'personas-cast/0123abc']" ] \
   && [ "$(field '[(t["task"], t["files"]) for t in d["tasks"]]' <<<"$again")" = "[('old-landed', ['locked/held.txt'])]" ] && [ "$(field '(d["folders"], d["failed"])' <<<"$again")" = "([], [])" ] \
-  && [ ! -e "$OLD/scratch.txt" ] && [ ! -e "$OLD/media/unshown.png" ] && [ ! -e "$OLD/reviews/old-landed/01-initial/agents" ] && [ ! -e "$PS/tasks/old-dropped/scratch.txt" ] \
-  && [ -f "$OLD/media/shown.png" ] && [ -f "$OLD/report.md" ] && [ -f "$OLD/reviews/old-landed/01-initial/report.md" ] && [ -f "$OLD/state.md" ] && [ -f "$OLD/ask.txt" ] \
-  && [ -f "$OLD/landing.json" ] && [ -f "$OLD/ticket-steps.txt" ] && [ ! -e "$OLD/locked" ] && [ -L "$OLD/link.txt" ] && [ "$(cat "$WORK/outside.txt")" = "kept outside" ] \
-  && [ -f "$PS/tasks/young-landed/scratch.txt" ] && [ -f "$PS/tasks/still-open/scratch.txt" ] && [ -f "$PS/tasks/old-dropped/decisions.jsonl" ] \
+  && [ "$(task_files old-landed)" = "ask.txt landing.json link.txt state.md ticket-steps.txt " ] && [ "$(task_files old-dropped)" = "ask.txt state.md " ] \
+  && [ ! -e "$OLD/media" ] && [ ! -e "$OLD/reviews" ] && [ ! -e "$OLD/locked" ] && [ -L "$OLD/link.txt" ] && [ "$(cat "$WORK/outside.txt")" = "kept outside" ] \
+  && [ "$(task_files young-landed)" = "ask.txt decisions.jsonl media/shown.png report.md scratch.txt state.md " ] \
+  && [ "$(task_files still-open)" = "ask.txt decisions.jsonl media/shown.png report.md scratch.txt state.md " ] \
+  && [ "$(field '(d["tasks"], d["files"], d["summarized"], d["folders"], d["failed"])' <<<"$third")" = "([], 0, [], [], [])" ] && [ "$before_third" = "$after_third" ] \
+  && [ "$after_starts" = 0 ] && grep -qF "the task 'old-landed' is landed; a new task takes a slug of its own" <<<"$old_taken" \
   && [ ! -e "$PS/experts/2026-01-02-101010-an-old-question" ] && [ -d "$PS/experts/notes" ] && [ -d "$PS/experts/$new_question" ] \
   && [ ! -e "$PS/panels/2026-01-02-an-old-panel" ] && [ -L "$PS/panels/2026-01-03-a-link" ] && [ -d "$WORK/no-repo" ] \
   && [ ! -e "$PS/naps/2020-01-02-0300-an-old-dream" ] && [ -d "$PS/naps/$new_dream" ] && [ ! -e "$PS/personas-cast/0123abc" ] && [ -d "$PS/personas-cast/4567def" ] \
   && grep -qF "'tasks/broken-state'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" && grep -qF "'tasks/old-landed/link.txt'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" \
   && grep -qF "'panels/2026-01-03-a-link'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" \
-  && [ "$tasks_after" = "[('old-dropped', 'dropped', []), ('old-landed', 'landed', ['started', 'landed'])]" ] && grep -qF "Which name?" <<<"$decided"; then
-  pass "lem project prune removes the working files of a task that ended before state.keep_days and the old folders of the experts, the panels, the naps and the cast's copies, keeps every document, record and shown picture, and tasks and decisions read the task as before; an open or young task and a state that does not read are not touched, a link is never followed, a failed removal is named with exit 1, and a dry run removes nothing"
+  && [ "$tasks_after" = "[('old-dropped', 'dropped', [], None), ('old-landed', 'landed', ['started', 'landed'], 'https://github.com/acme/shop/pull/1')]" ]; then
+  pass "lem project prune leaves a task that ended before state.keep_days its small record only (its state, its request, its pull request, its ticket's files) and removes the old folders of the experts, the panels, the naps and the cast's copies; tasks gives the task's status and pull request, a task queued after it starts, task-dir refuses its name, and a run after the one that finished it removes nothing; an open task, one that landed 10 days ago and a state that does not read keep every file, a link is never followed, a failed removal is named with exit 1 and the next run finishes it, and a dry run removes nothing"
 else
-  fail "the prune: $dry / $dry_all / $no_days / $real_code / $real / $again / $tasks_after / ${decided:0:300} / $(listing)"
+  fail "the prune: $dry / $dry_all / $no_days / $real_code / $real / $again / $third / $tasks_after / $after_starts / $old_taken / old-landed: $(task_files old-landed) / young-landed: $(task_files young-landed) / $(listing)"
 fi
 
 # One machine's own number of days wins over the project's there: higher, it keeps a task the project's 30 would

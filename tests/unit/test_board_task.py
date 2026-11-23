@@ -407,20 +407,28 @@ class Map(unittest.TestCase):
         placed = lem_artifacts.place("merge-brief-abc123456789-def456789012.md")
         self.assertEqual(placed, {"group": "pr", "title": "The merge agent's brief of abc123456 on def456789", "role": "doc"})
 
-    def test_a_task_loses_only_its_working_files_and_keeps_its_state_and_every_record(self):
+    def test_a_task_that_ended_long_ago_keeps_only_its_small_record_and_its_lock_files(self):
         with tempfile.TemporaryDirectory() as folder:
             task = Path(folder) / "gift-note"
             files = {"ask.txt": "Add a gift note.", "state.md": "2026-11-20T10:00Z landed: main a..b", "ticket-steps.txt": "started\nassigned octocat\nlanded",
-                     "ticket-repo.txt": "acme/shop", "resumed-from.txt": "gift", "decisions.jsonl": "{}", "report.md": "# Report\n\n![the note](media/a.png)\n",
-                     "media/a.png": "a", "media/b.png": "b", "reviews/t/01-initial/report.md": "# Round", "reviews/t/01-initial/agents/a.jsonl": "{}",
-                     "scratch.txt": "notes", "look/x.png": "x"}
+                     "ticket-repo.txt": "acme/shop", "ticket.txt": "acme/shop#7", "resumed-from.txt": "gift", "task.md": "# Add a gift note",
+                     "landing.json": "{}", "decisions.jsonl": "{}", "criteria.json": "{}", "report.md": "# Report\n\n![the note](media/a.png)\n",
+                     "criteria-page.html": "<p>", "media/a.png": "a", "media/b.png": "b", "reviews/t/01-initial/report.md": "# Round",
+                     "reviews/t/01-initial/agents/a.jsonl": "{}", "scratch.txt": "notes", "look/x.png": "x", "empty.txt": "",
+                     "state.lock": "", "decisions.lock": "", "reviews/t/round.lock": "", "reports/state.md": "a builder's copy"}
             for path, text in files.items():
                 (task / path).parent.mkdir(parents=True, exist_ok=True)
                 (task / path).write_text(text)
-            self.assertEqual(sorted(e["path"] for e in lem_artifacts.working(task, "gift-note")),
-                             ["look/x.png", "media/b.png", "reviews/t/01-initial/agents/a.jsonl", "scratch.txt"])
-            self.assertEqual({p: lem_artifacts.place(p)["role"] for p in ("state.md", "ticket-steps.txt", "ticket-repo.txt", "resumed-from.txt")},
-                             {"state.md": "record", "ticket-steps.txt": "record", "ticket-repo.txt": "record", "resumed-from.txt": "record"})
+            (task / "elsewhere").symlink_to(folder)
+            (task / "reviews" / "note.md").symlink_to(task / "report.md")
+            self.assertEqual(lem_artifacts.outside_record(task),
+                             ["criteria-page.html", "criteria.json", "decisions.jsonl", "elsewhere", "empty.txt", "look/x.png", "media/a.png", "media/b.png",
+                              "report.md", "reports/state.md", "reviews/note.md", "reviews/t/01-initial/agents/a.jsonl", "reviews/t/01-initial/report.md",
+                              "reviews/t/round.lock", "scratch.txt"])
+            self.assertEqual(sorted(set(files) - set(lem_artifacts.outside_record(task))),
+                             ["ask.txt", "decisions.lock", "landing.json", "resumed-from.txt", "state.lock", "state.md", "task.md", "ticket-repo.txt",
+                              "ticket-steps.txt", "ticket.txt"])
+            self.assertEqual(lem_artifacts.outside_record(Path(folder) / "no-such-task"), [])
 
     def test_a_picture_is_one_by_its_name_and_its_first_bytes(self):
         png = b"\x89PNG\r\n\x1a\n" + bytes(8)
