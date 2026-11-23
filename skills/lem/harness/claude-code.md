@@ -13,7 +13,7 @@ use of that capability, once:
 | `claude-code/tracker.md` | the tracker |
 | `claude-code/task-session.md` | `open-task-session` for a task's own session: its launch, the context's number, a wake-up, the session's transcript (`lem session talk`) |
 | `claude-code/plan-talk.md` | `open-task-session` for the plan talk's pair |
-| `claude-code/second-opinion.md` | `second-opinion`: the reviewer's pane |
+| `claude-code/second-opinion.md` | `second-opinion`: the reviewer's pane, and `reviewer-guard.json` beside it, the guard of a Claude Code reviewer |
 | `claude-code/ask-experts.md` | `ask-experts` |
 | `claude-code/ask-merger.md` | `ask-merger` |
 | `claude-code/show-page.md` | `show-page`, and the board |

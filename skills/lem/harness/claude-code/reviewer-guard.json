@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "deny": ["Edit", "Write", "NotebookEdit", "Edit(./**)"],
+    "allow": ["Bash(mailbox-chat.py say --file *)"]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": true,
+    "excludedCommands": ["mailbox-chat.py say --file *"],
+    "filesystem": {
+      "denyWrite": ["~"],
+      "allowWrite": ["/private/tmp"]
+    }
+  }
+}
