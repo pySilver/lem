@@ -11,11 +11,13 @@ how. A session of another repository never edits Lem (`skills/lem/stages/learn.m
 
 ## Why the hour makes no branch
 
-Every repository installs Lem as a plugin from `main` of this repository, and an update of the
-plugin takes the commit there when the manifest's `version` changed. A commit on `main` that changes
-the version reaches every project at its next update, before anybody else read it. A session that loads this clone with
-`claude --plugin-dir` reads the files of the main checkout as they are saved. So a change in the
-main checkout changes the running Lem of that session too.
+Every repository installs Lem as a plugin from the newest release tag of this repository: the
+`lem` entry of `.claude-plugin/marketplace.json` names it as its `ref`, and an update takes it when
+the `version` changed. A commit on `main` reaches no project until a release is cut from it, and a
+release is one push of a commit and its tag, on the owner's word (`AGENTS.md`, "A release"). The
+hour makes none. A session that loads this clone with
+`claude --plugin-dir` reads the files of the main checkout as they are saved. So a change of a
+branch in the main checkout changes the running Lem of that session too.
 
 A branch of the hour would come to a merge with no reviewer's read and no yes of the owner before
 it. What Lem finds about itself reaches a project only through the agreed paths

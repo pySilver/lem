@@ -40,17 +40,19 @@ works, and this file says how to change it.
   chart in `README.md` or `docs/` writes each node's and each edge's text in double quotes, and is
   drawn once before it is committed.
 - **A maintainer's session with nobody at the terminal reads `docs/free-hour.md` first.** It changes
-  no file that git tracks, makes no branch and no worktree, and never pushes: `main` of this
-  repository is what every project's next update of the plugin installs. A task's own session is
+  no file that git tracks, makes no branch and no worktree, and never pushes: an update installs the newest
+  release tag, which is cut from `main` ("A release"). A task's own session is
   not such a session. The scheduled `/lem night` of this repository takes its free hour as a search
   only, writes what it finds as proposals into the night's file of the day, as
   `skills/lem/stages/night.md` says, and opens no task here: asked on 2026-11-21 whether a night
   here may open pull requests, the owner answered "A3 no". The scheduled `/lem retro` of this
   repository takes no free hour: it is a retro only.
-- **Lem is not released, so a change keeps no reading of the form before it.** A change to the
-  settings, a record, an event, a state or a command reads and writes the new form only, and the
-  maintaining session corrects the repositories that use Lem by hand. When Lem has users, this
-  rule changes.
+- **A change of the form of a record, an event or a state takes two releases.** Its release reads
+  the form of the release before (`BEFORE`), and writes one that the release before still reads: it
+  adds a key beside the old one, and never renames or removes a key the old reader reads. The release
+  after it may drop the old key and its reading. A session of the release before keeps its Lem until
+  it ends, and reads what the new board writes for its task. The test runs one record of the old form
+  through the new reader, and checks that the new writer keeps each key the old reader reads.
 - **A new ruling of the owner is one bullet of `docs/rulings/rulings.md`**, under the heading of
   its group: the rule in one sentence, in bold; only where the sentence alone could mislead, at most
   three lines more, with his words in quotes only where they are the rule or its limit; his day in
@@ -66,6 +68,19 @@ works, and this file says how to change it.
   maintaining session", with `decided` before its day, **when no code, test or text can show it**;
   otherwise it is in the message of the commit that made it. The `decided` lines of the history are
   the choices that were files until 2026-11-21 and that a test or one place holds.
+
+## A release
+
+A release is one commit on `main` and its tag, on the owner's word. `version` in
+`.claude-plugin/plugin.json` and in the `lem` entry of `.claude-plugin/marketplace.json` says
+`NUMBER`, the entry's `ref` says `vNUMBER` (`tests/unit/test_release.py` fails when the three
+differ), and `BEFORE` in `skills/lem/scripts/lem_release.py` names the release just before it
+(`tests/lem-machine.sh` checks it). Commit it as `chore(release): Lem NUMBER`, tag the commit
+`vNUMBER`, and push both at once: `git push --atomic origin main vNUMBER`.
+
+An update installs the tag the entry names, so a merge to `main` reaches no user. A release reads
+the records of the release just before it, and no older ones (`lem_release.py`). The owner's Mac
+takes each release first, and a bad release is repaired forward, by a newer one.
 
 ## The owner's rulings
 

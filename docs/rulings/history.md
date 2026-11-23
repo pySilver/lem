@@ -145,9 +145,8 @@ bullet.
 
 ## Kept in one place
 
-- **A release is a change of the plugin's `version`.** `docs/free-hour.md` ("Why the hour makes no
-  branch"); the value is in `.claude-plugin/plugin.json`.
-  (2026-11-20)
+- **A release is a change of the plugin's `version`.** `AGENTS.md` ("A release"); the value is in
+  `.claude-plugin/plugin.json`. (2026-11-20)
 - **A shipped skill's name follows `/lem`.** `AGENTS.md` ("Rules for a change here", "A stage names
   a capability or a role, never a tool"). (2026-11-14)
 - **The session's answers to his notes that asked a question: `[gate]` is renamed `[checks]`, a lead

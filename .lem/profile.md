@@ -37,10 +37,11 @@ and agterm on the owner's machine (`doctor.py`, 2026-11-16).
 
 ## What a newcomer gets wrong
 
-- **`main` of this repository is what every project installs next.** The plugin takes each
-  commit of `main` as an update, and a project gets it when it updates the plugin, with its tasks
-  open. So the new scripts read what the scripts before them wrote (`AGENTS.md`, "Rules for a
-  change here"). A task works in its own worktree, and nothing edits the main checkout by hand.
+- **The newest release tag of this repository is what every project installs next.** A project
+  gets a release when it updates the plugin, with its tasks open, and a merge to `main` reaches it
+  only through the next release. So a release reads what the release before it wrote (`AGENTS.md`,
+  "Rules for a change here" and "A release"). A task works in its own worktree, and nothing edits
+  the main checkout by hand.
 - **The skill files are instructions to agents.** A sentence in a stage file is followed word for
   word by a builder. A vague or wrong sentence is a defect, as a wrong line of code is.
 - **A ruling is not a design.** `docs/rulings/rulings.md` keeps the choices the maintaining
