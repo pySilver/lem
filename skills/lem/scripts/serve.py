@@ -2895,7 +2895,7 @@ def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
         workspace.forge["looked"],
         now,
         FORGE_SECONDS * 1000,
-        prs and has_forge(workspace, model),
+        forge=prs and has_forge(workspace, model),
     )
     if not due:
         return []

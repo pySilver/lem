@@ -1340,19 +1340,21 @@ class Forge(unittest.TestCase):
         self,
     ) -> None:
         prs, every = [{"task": "t", "n": 44}, {"task": "u", "n": 41}], 180_000
-        self.assertEqual(bm.forge_due(prs, None, NOW, every, True), [41, 44])
+        self.assertEqual(bm.forge_due(prs, None, NOW, every, forge=True), [41, 44])
         self.assertEqual(
-            bm.forge_due(prs, NOW - 60_000, NOW, every, True),
+            bm.forge_due(prs, NOW - 60_000, NOW, every, forge=True),
             [],
             "the server looked a minute ago",
         )
-        self.assertEqual(bm.forge_due(prs, NOW - 200_000, NOW, every, True), [41, 44])
         self.assertEqual(
-            bm.forge_due(prs, None, NOW, every, False),
+            bm.forge_due(prs, NOW - 200_000, NOW, every, forge=True), [41, 44]
+        )
+        self.assertEqual(
+            bm.forge_due(prs, None, NOW, every, forge=False),
             [],
             "a demo, or no GitHub remote",
         )
-        self.assertEqual(bm.forge_due([], None, NOW, every, True), [])
+        self.assertEqual(bm.forge_due([], None, NOW, every, forge=True), [])
 
 
 class Feed(unittest.TestCase):

@@ -37,9 +37,12 @@ import os
 import re
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from types import ModuleType
+from typing import Any, cast
 from urllib.parse import quote
 
 # ---- the words of each status, and the lanes ----
@@ -264,7 +267,7 @@ PHASES = ["Criteria", "Plan", "Build", "Checks", "Review", "Proposed", "Landed"]
 SMALL_PHASES = ["Change", "Checks", "Review", "Proposed", "Landed"]
 # What waits for the owner, the most pressing first.
 OWNER_ORDER = ["breaker", "held", "queued", "blocked", "planned", "open"]
-BY_WHOM = {
+BY_WHOM: dict[object, str] = {
     "lead": "the agent",
     "personas": "the personas",
     "owner": "you",
@@ -305,14 +308,14 @@ LEAD = {
     },
 }
 EXPERTS = {"fable": "Fable", "astra": "Astra"}
-IRREVERSIBLE = {
+IRREVERSIBLE: dict[object, str] = {
     "data": "it destroys or rewrites data outside the worktree",
     "system": "it writes to a system outside the repository",
     "person": "it sends something to a person",
     "money": "it spends money",
 }
 # The two causes of the circuit breaker (decisions.py CAUSES), in the page's words.
-BREAKS = {
+BREAKS: dict[object, str] = {
     "irreversible": "the next step cannot be undone by a later “no”",
     "criteria": "no option keeps the criteria you approved",
 }
@@ -339,7 +342,7 @@ SUMMARY = "task.summary"
 # newest state, the task is shown blocked with its message, and its status stays the one of its state.
 RELEASE_STOP = "release.stop"
 # How a run of the checks ended, by the `result` of its `gate.end` (land.py RESULTS).
-CHECKS_END = {
+CHECKS_END: dict[object, dict[str, str]] = {
     "passed": {
         "head": "The checks passed",
         "label": "Checks passed",
@@ -361,13 +364,13 @@ CHECKS_END = {
         "after": "The checks were stopped: the landing waits for your word",
     },
 }
-STEP_RUNS = {
+STEP_RUNS: dict[object, str] = {
     "polish.start": "The polish pass runs",
     "gate.start": "The checks run",
     "review.start": "The review runs",
 }
 # The three kinds of review, in the words of land.py.
-KIND = {
+KIND: dict[object, str] = {
     "read": "one read",
     "round": "a round with the profiles that fit",
     "full": "the project's full set",
@@ -430,26 +433,37 @@ def at(ts: object) -> int | None:
     return int(moment.timestamp() * 1000)
 
 
+# A span says its seconds under ten minutes, and its hours under two days (`span`); a time under five
+# seconds ago is now (`ago`).
+SECONDS_SHOWN_M = 10
+HOURS_SHOWN_H = 48
+JUST_NOW_MS = 5000
+
+
 def span(ms: float) -> str:
     """A length of time as the board says it: 45s, 3m 07s, 25m, 2h 05m, 3d 4h."""
     s = max(0, round(ms / 1000))
-    if s < 60:
+    m, seconds = divmod(s, 60)
+    if not m:
         return f"{s}s"
-    m = s // 60
-    if m < 10:
-        return f"{m}m {s % 60:02d}s"
-    if m < 60:
+    if m < SECONDS_SHOWN_M:
+        return f"{m}m {seconds:02d}s"
+    hours, minutes = divmod(m, 60)
+    if not hours:
         return f"{m}m"
-    hours = m // 60
-    return f"{hours}h {m % 60:02d}m" if hours < 48 else f"{hours // 24}d {hours % 24}h"
+    return (
+        f"{hours}h {minutes:02d}m"
+        if hours < HOURS_SHOWN_H
+        else f"{hours // 24}d {hours % 24}h"
+    )
 
 
 def ago(ms: float) -> str:
-    return "just now" if ms < 5000 else f"{span(ms)} ago"
+    return "just now" if ms < JUST_NOW_MS else f"{span(ms)} ago"
 
 
 def local(ms: float) -> datetime:
-    return datetime.fromtimestamp(ms / 1000)
+    return datetime.fromtimestamp(ms / 1000)  # noqa: DTZ006 - the board shows the clock of the machine it runs on
 
 
 def hhmm(ms: float) -> str:
@@ -484,7 +498,7 @@ def cap(s: str) -> str:
     return s[:1].upper() + s[1:] if s else s
 
 
-def title_of(slug: str) -> str:
+def title_of(slug: object) -> str:
     """ "report-dates-stay-whole" -> "Report dates stay whole": the owner reads names, never codes."""
     words_ = re.sub(r"-+", " ", str(slug)).strip()
     return cap(words_) if words_ else "A task"
@@ -505,7 +519,7 @@ def type_line(line: str) -> dict | None:
     return {"type": found[1], "why": found[2]} if found and found[1] in TYPES else None
 
 
-def words(line: object, talked: bool = False) -> str | None:
+def words(line: object, *, talked: bool = False) -> str | None:
     """A line of a state block as the page says it: a fixed line of the scripts in words, or left out
     (None) where the page says it elsewhere; any other line is the agent's own and stays as written."""
     s = str(line)
@@ -546,12 +560,12 @@ def words(line: object, talked: bool = False) -> str | None:
     return yours(s)
 
 
-def said_of(block: dict, talked: bool = False) -> list[str]:
+def said_of(block: dict, *, talked: bool = False) -> list[str]:
     """A state block's lines as the page says them; `talked` when a plan talk ended before it."""
     return [
         said
         for said in (
-            words(line, talked)
+            words(line, talked=talked)
             for line in [block.get("text", ""), *(block.get("lines") or [])]
         )
         if said
@@ -574,7 +588,7 @@ def lines_of(block: dict) -> list[str]:
     return [block.get("text", ""), *(block.get("lines") or [])]
 
 
-def task_line(block: dict):
+def task_line(block: dict) -> re.Match[str] | None:
     return (
         re.search(r"\btask (\d+) of (\d+)\b", " ".join(lines_of(block)))
         if block["status"] == "building"
@@ -1129,11 +1143,12 @@ def fold(t: Task, e: dict, ts: int) -> None:
             "base_call": e.get("base_call"),
             "base_why": e.get("base_why"),
         }
-        if answers_refusal(
-            t.refused, t.merge_review, review, (t.proposal or {}).get("tip")
+        refused = t.refused
+        if refused is not None and answers_refusal(
+            refused, t.merge_review, review, (t.proposal or {}).get("tip")
         ):
-            if t.refused.get("by") == "owner":
-                t.stood = t.refused.get("tip")
+            if refused.get("by") == "owner":
+                t.stood = refused.get("tip")
             t.refused = None
         t.merge_review = review
         return
@@ -1438,7 +1453,7 @@ def turn_of(t: Task, last: dict) -> tuple[str, dict | None]:
     return turn, read
 
 
-def goes_on_of(t: Task, last: dict, away: bool) -> str | None:
+def goes_on_of(t: Task, last: dict, *, away: bool) -> str | None:
     """The need of a held task that Lem settles without the owner now (GOES_ON), else None: the task runs
     without him while his mark says away (`away`), and from a night's own mark (`task.mode`) until it
     ends, as project.py `runs_without_owner` reads them. Its interview goes on with Lem's guesses, its
@@ -1456,14 +1471,14 @@ def goes_on_of(t: Task, last: dict, away: bool) -> str | None:
     return "answer" if last["text"].startswith(ANSWER_WAIT) else None
 
 
-def settle(t: Task, now: int, away: bool = False) -> None:
+def settle(t: Task, now: int, *, away: bool = False) -> None:
     """What a task's events add up to, once every one is folded in; `away` when the owner's mark says
     that he is away."""
     last = t.blocks[-1]
     t.status = last["status"]
     t.info = dict(STATUS.get(t.status, UNKNOWN))
     t.text = last["text"]
-    shown = said_of(last, talked_before(t, last["ts"]))
+    shown = said_of(last, talked=talked_before(t, last["ts"]))
     t.shown = shown[0] if shown else ""
     t.more = shown[1:]
     t.last_ts = last["ts"]
@@ -1589,7 +1604,7 @@ def settle(t: Task, now: int, away: bool = False) -> None:
         if t.status == "held" and not t.approved and not t.helped and not t.breaker
         else (None, None)
     )
-    t.goes_on = goes_on_of(t, last, away) if t.turn else None
+    t.goes_on = goes_on_of(t, last, away=away) if t.turn else None
     t.for_owner = (
         bool(t.breaker)
         or (t.turn in OWNER_TURNS and not t.goes_on)
@@ -1828,7 +1843,7 @@ def merge_wait(t: Task) -> str | None:
 
 # What the note of the owner's merge says while it stands, by its span (`stands_span`): the merge agent
 # reads the moved base, or the board's server runs his merge.
-STANDS_SAID = {
+STANDS_SAID: dict[object, str] = {
     "reads": "Your merge stands. It goes through when the merge agent’s read of the new base says safe.",
     "merges": "Your merge stands. Lem merges it now.",
 }
@@ -1961,7 +1976,7 @@ def derive(
             )
     listed = [t for t in tasks.values() if t.blocks]
     for t in listed:
-        settle(t, now, away is not None)
+        settle(t, now, away=away is not None)
 
     def by(status: str) -> list:
         return sorted((t for t in listed if t.status == status), key=lambda t: t.since)
@@ -2170,7 +2185,7 @@ def search_rows(m: Model, backlog: dict | None) -> list[dict]:
     reviewer's item, `Backlog · worth: WORTH`; and an item's `slug` is its `key`. Only this model
     and this backlog come in, so no other workspace and no joined machine does."""
 
-    def task_row(t: Task, open_: bool, actor: str, chip: str) -> dict:
+    def task_row(t: Task, *, open_: bool, actor: str, chip: str) -> dict:
         return {
             "kind": "task",
             "slug": t.slug,
@@ -2184,16 +2199,21 @@ def search_rows(m: Model, backlog: dict | None) -> list[dict]:
     for key in OPEN_LANES:
         lane = LANE[key]
         rows += [
-            task_row(t, True, lane["actor"], f"{lane['title']} · {t.status}")
+            task_row(
+                t, open_=True, actor=lane["actor"], chip=f"{lane['title']} · {t.status}"
+            )
             for t in m.lane[key]
         ]
-    rows += [task_row(t, True, STATUS[PARKED]["actor"], PARKED) for t in m.parked]
+    rows += [
+        task_row(t, open_=True, actor=STATUS[PARKED]["actor"], chip=PARKED)
+        for t in m.parked
+    ]
     rows += [
         task_row(
             t,
-            False,
-            LANE["done"]["actor"],
-            f"{t.status} {local(t.since).date().isoformat()}",
+            open_=False,
+            actor=LANE["done"]["actor"],
+            chip=f"{t.status} {local(t.since).date().isoformat()}",
         )
         for t in m.lane["done"]
     ]
@@ -2252,7 +2272,7 @@ def undecided(backlog: dict | None) -> int | None:
 # ---- what the views say ----
 
 # Why the checks wait behind the first in the machine's line, by the `why` of its `gate.wait` (land.py).
-BEHIND_WHY = {
+BEHIND_WHY: dict[object, str] = {
     "wanted": "which another task waits for",
     "longer": "which waits longer",
     "first": "which is first in the line",
@@ -2284,8 +2304,8 @@ def waits_now(t: Task) -> dict | None:
 
 def card_line(t: Task, lane: dict) -> str:
     """The state line of a card, in words: the lane's title is not said again."""
-    if waits_now(t):
-        return waits_say(t.waits)
+    if waits := waits_now(t):
+        return waits_say(waits)
     if t.status == "answered" and t.investigation:
         return f"{CALLS.get(t.investigation['call'], {}).get('card', t.investigation['call'])}: {t.investigation['line']}"
     if not t.shown:
@@ -3377,7 +3397,7 @@ def investigation_sub(x: dict) -> str:
     return " · ".join(p for p in parts if p)
 
 
-def job_of(e: dict):
+def job_of(e: dict) -> object:
     return "the change" if e.get("job") == FAST_JOB else e.get("job")
 
 
@@ -3444,11 +3464,12 @@ def merge_review_said(e: dict) -> dict:
 
 
 def _approved_head(e: dict) -> str:
-    return {
+    heads: dict[object, str] = {
         "owner": "You approved the acceptance criteria",
         "lem": "Taken for the fast track in your name",
         "read": "The personas’ read froze the criteria",
-    }.get(e.get("by"), f"Criteria approved by {e.get('by')}")
+    }
+    return heads.get(e.get("by"), f"Criteria approved by {e.get('by')}")
 
 
 def _criterion_head(e: dict) -> str:
@@ -3812,13 +3833,15 @@ def describe(e: dict, m: Model) -> dict:
     """One event as the activity says it: an icon and its actor, a head, a text and a line under it."""
     title = title_of(e.get("task"))
     if e.get("event") == "task.state":
-        info = STATUS.get(e.get("status"), UNKNOWN)
+        info = STATUS.get(e.get("status", ""), UNKNOWN)
         t = m.by_slug.get(e.get("task"))
         block = {
             "text": "" if e.get("text") is None else str(e["text"]),
             "lines": [str(x) for x in e.get("lines") or []],
         }
-        lines = said_of(block, talked_before(t, at(e.get("ts")) or 0) if t else False)
+        lines = said_of(
+            block, talked=talked_before(t, at(e.get("ts")) or 0) if t else False
+        )
         return {
             "info": info,
             "head": info["label"],
@@ -3848,7 +3871,7 @@ def describe(e: dict, m: Model) -> dict:
         # the stop of a look that a state block overtook: it never stood, and nothing waited for the owner
         say = stop_over_work_said
     if say:
-        said = {"title": title, "sub": "", **say(e)}
+        said: dict[str, Any] = {"title": title, "sub": "", **say(e)}
         if e.get("from") and e.get("was_at"):
             # a dropped task's event that its resumed task carried over (project.py `resume`), at the time of the
             # resume: it keeps its first time as `was_at`; another event's `from` is its own field (`merge.refused`'s
@@ -3875,8 +3898,9 @@ def describe(e: dict, m: Model) -> dict:
 
 def feed(events: list[dict], newest: int = 200) -> list[tuple[int, dict]]:
     """The newest events, newest first: time sorts, and the order of the log breaks a tie, the later first."""
-    timed = [(at(e.get("ts")), i, e) for i, e in enumerate(events)]
-    timed = [x for x in timed if x[0] is not None]
+    timed = [
+        (ts, i, e) for i, e in enumerate(events) if (ts := at(e.get("ts"))) is not None
+    ]
     timed.sort(key=lambda x: (-x[0], -x[1]))
     return [(i, e) for _, i, e in timed[:newest]]
 
@@ -3995,8 +4019,8 @@ def waits_for(t: Task, waits: list) -> dict | None:
             "text": "; ".join(wait_say(w)["verb"] for w in mine),
             "where": where,
         }
-    if waits_now(t):
-        return {"you": False, "text": waits_say(t.waits), "where": None}
+    if wait := waits_now(t):
+        return {"you": False, "text": waits_say(wait), "where": None}
     after = (
         next(
             (
@@ -4094,8 +4118,8 @@ def now_head(t: Task) -> str:
     if s == "ready":
         return "Waits for its checks"
     if s == "landing":
-        if waits_now(t):
-            return waits_say(t.waits)
+        if waits := waits_now(t):
+            return waits_say(waits)
         if starts_landing(t):
             return "It starts its landing: the rebase onto the base, then the polish pass, before the checks"
         if t.checks_stop:
@@ -4106,13 +4130,14 @@ def now_head(t: Task) -> str:
             else "The checks and the review run on it"
         )
     if s == "open":
-        if waits_now(t):
-            return waits_say(t.waits)
-        return {
+        if waits := waits_now(t):
+            return waits_say(waits)
+        proposed: dict[str | None, str] = {
             "reads": "Proposed: the merge agent reads it",
             "merges": "Proposed: the merge agent found nothing for you, and Lem merges it",
             "relands": "Proposed: Lem lands it again on the moved base",
-        }.get(t.merge_wait, "Proposed: it waits for your merge")
+        }
+        return proposed.get(t.merge_wait, "Proposed: it waits for your merge")
     return {
         "landed": "Landed",
         "dropped": "Dropped",
@@ -4150,12 +4175,12 @@ def whole(criterion: object) -> str:
     )
 
 
-_criteria = None
+_criteria: ModuleType | None = None
 
 
-def CRITERIA():  # noqa: N802 - it stands for the module
+def CRITERIA() -> ModuleType:  # noqa: N802 - it stands for the module
     """criteria.py as a module, loaded once (lem_sibling): the board reads a criterion as it does."""
-    global _criteria
+    global _criteria  # noqa: PLW0603 - the module loads criteria.py once and keeps it
     if _criteria is None:
         import lem_sibling
 
@@ -4242,22 +4267,23 @@ def criterion_checks(t: Task) -> list[dict]:
     """Each criterion of the plan with the tests that hold it and what the last check of them gave. A
     result counts only for the criteria and tests it ran on: a criterion or a test that changed since
     has no check yet. `state` is `done` (held by its tests), `bad` (a test does not hold it) or `quiet`."""
-    current = (
-        bool(t.red and t.red.get("digest")) and t.red["digest"] == t.criteria["digest"]
-    )
+    red = t.red or {}
+    # the board of a task draws these only for a task whose plan wrote its criteria (lem_board_task.py)
+    criteria = cast("dict[str, Any]", t.criteria)
+    current = bool(red and red.get("digest")) and red["digest"] == criteria["digest"]
     results = {
         (r.get("criterion"), r.get("command")): r
-        for r in (t.red["tests"] if current else [])
+        for r in (red["tests"] if current else [])
         if isinstance(r, dict)
     }
     out = []
-    for st in t.criteria["list"]:
+    for st in criteria["list"]:
         tests = [x for x in (st.get("tests") or []) if isinstance(x, dict)]
         checked = [results.get((st.get("n"), x.get("command"))) for x in tests]
         bad = any(r and r.get("problem") for r in checked)
         held = bool(tests) and all(r and not r.get("problem") for r in checked)
         said = []
-        for x, r in zip(tests, checked):
+        for x, r in zip(tests, checked, strict=True):
             if r and r.get("problem"):
                 said.append((x.get("command"), str(r["problem"])))
             elif r:
@@ -4265,7 +4291,7 @@ def criterion_checks(t: Task) -> list[dict]:
                     (
                         x.get("command"),
                         "passes on the branch, fails on the base commit"
-                        + (f" (checked on {t.red['tip']})" if t.red.get("tip") else ""),
+                        + (f" (checked on {red['tip']})" if red.get("tip") else ""),
                     )
                 )
             else:
@@ -4334,7 +4360,7 @@ def read_stale(t: Task, r: dict) -> str:
     return f"The criteria changed after this read{' and'.join(parts)}, and the change was not read."
 
 
-def taken_over(t: Task, c: dict):
+def taken_over(t: Task, c: dict) -> int | float | None:
     """The number of an approval of the owner's after a change of the build, which made that change his
     (decisions.py `taken_over_by`): it is no cause of not green. None when there is none."""
     return next(
@@ -4478,9 +4504,9 @@ def decisions_sum(t: Task) -> str:
     taken = sum(1 for d in t.decided if d.kind == "taken")
     breakers = sum(1 for d in t.decided if d.kind == "breaker")
     parts = [
-        taken and f"{taken} taken",
-        important and f"{important} important",
-        breakers and plural(breakers, "breaker"),
+        f"{taken} taken" if taken else "",
+        f"{important} important" if important else "",
+        plural(breakers, "breaker") if breakers else "",
     ]
     return " · ".join(p for p in parts if p)
 
@@ -4525,11 +4551,11 @@ def forge_of(m: "Model") -> str | None:
     found = max((t for t in m.tasks if pr_of(t)), key=lambda t: t.last_ts, default=None)
     if found is None:
         return None
-    url = pr_of(found)["url"]
+    url = (pr_of(found) or {})["url"]
     return url[: url.index("/pull/")]
 
 
-def pull_refs(text: str, forge: str | None) -> list:
+def pull_refs(text: object, forge: str | None) -> list:
     """A text in parts: each pull request it names as `{"text", "url"}`, every other part a str. The one
     rule of what is a link to a pull request on the board: an address of one as it is; `OWNER/REPO#N` on
     the forge's host (GitHub when none is known); a bare `#N` on the workspace's own repository (`forge`),
@@ -4655,7 +4681,7 @@ def reason_rows(reasons: list) -> list[dict]:
 
 
 def forge_due(
-    open_prs: list[dict], looked_at: int | None, now: int, every_ms: int, forge: bool
+    open_prs: list[dict], looked_at: int | None, now: int, every_ms: int, *, forge: bool
 ) -> list[int]:
     """The pull requests the server asks the forge about now, by their numbers; none when no task is open
     with one, when the workspace has no forge to ask (`forge` false: a demo, or no GitHub remote), or when
@@ -4681,13 +4707,13 @@ def progress_of(t: Task) -> dict:
     small = t.lead == "small"
 
     def phase_sub(k: int) -> str:
-        if k == 2 and p:
+        if k == PHASES.index("Build") and p:
             return f"task {p['of'] if done else p['n']} of {p['of']}"
-        if k == 3 and t.gates:
+        if k == PHASES.index("Checks") and t.gates:
             return f"{t.gate_bad} red" if t.gate_bad else f"{len(t.gates)} green"
-        if k == 4 and review:
+        if k == PHASES.index("Review") and review:
             return str(review["verdict"])
-        if k == 5 and t.proposal:
+        if k == PHASES.index("Proposed") and t.proposal:
             return "green" if t.proposal["green"] else "not green"
         return ""
 
@@ -4747,7 +4773,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
     t0 = min(first_ts, t.first) if first_ts is not None else t.first
 
     def add(
-        row: str, frm: float, to: float, head: str, sub: str = "", live: bool = False
+        row: str, frm: float, to: float, head: str, sub: str = "", *, live: bool = False
     ) -> None:
         if to > frm or live:
             spans.append(
@@ -4784,7 +4810,14 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             f"{str(r['flagged']) + ' flagged' if r.get('flagged') else 'nobody confused'}{' · the families split' if r.get('split') else ''}"
         )
 
-    def pair(i: int, e: dict, row: str, head: str, sub, ends) -> int | None:
+    def pair(
+        i: int,
+        e: dict,
+        row: str,
+        head: str,
+        sub: str | Callable[[dict], str],
+        ends: Callable[[dict], bool],
+    ) -> int | None:
         stop = next((j for j in range(i + 1, len(events)) if ends(events[j])), None)
         if stop is not None:
             explicit.append(
@@ -4896,6 +4929,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
         to: float,
         head: str,
         sub: str,
+        *,
         open_: bool,
         coord: str | None = None,
     ) -> None:
@@ -4908,7 +4942,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             if x["from"] < to and x["to"] > frm
         )
         if not cover:
-            add(row, frm, to, head, sub, open_)
+            add(row, frm, to, head, sub, live=open_)
             return
         cur, pieces = frm, []
         for a0, b0 in cover:
@@ -4921,8 +4955,8 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             x["row"] == "builders" and frm <= x["from"] < to for x in explicit
         )
         for a0, b0 in pieces:
-            if not own:
-                add(row, a0, b0, head, sub, open_ and b0 == to)
+            if not own or not coord:
+                add(row, a0, b0, head, sub, live=open_ and b0 == to)
             else:
                 before_ = a0 < cover[0][0]
                 said = (
@@ -4938,7 +4972,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                         else "Lem reads the report"
                     )
                 )
-                add(coord, a0, b0, said, sub, open_ and b0 == to)
+                add(coord, a0, b0, said, sub, live=open_ and b0 == to)
 
     gates = (
         meta.get("gates")
@@ -4954,12 +4988,12 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
         else 0
     )
 
-    def same_tip(a, b) -> bool:
+    def same_tip(a: object, b: object) -> bool:
         return bool(a and b) and (
             str(a).startswith(str(b)) or str(b).startswith(str(a))
         )
 
-    def landing(k: int, frm: float, to: float, open_: bool) -> None:
+    def landing(k: int, frm: float, to: float, *, open_: bool) -> None:
         """The landing, cut by the events of its checks and its review: each piece belongs to the event
         that ends it. A step whose start is logged starts its piece there, and the time before it is
         Lem's: the rebase onto the base before the first step, and Lem between two steps after it. One
@@ -4975,6 +5009,12 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             and (e.get("event") in CHECKS or e.get("event") in LANDING_STARTS)
         ]
         stepped = any(e.get("event") in LANDING_STARTS for e in inside)
+        run: dict[str, Any] | None
+        prev: float
+        before: dict | None
+        opened: dict | None
+        checks: dict[str, Any] | None
+        polished: dict | None
         run, owed, prev, before, opened, checks, polished = (
             None,
             False,
@@ -4989,7 +5029,8 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             return cap(str(job_of(e) or "a job"))
 
         for e in inside:
-            x = at(e.get("ts"))
+            # `derive` keeps only the events whose time reads
+            x = cast("int", at(e.get("ts")))
             ev = e.get("event")
             if ev == "gate.start":
                 checks = {
@@ -5186,13 +5227,15 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             prev, before, opened = x, e, None
         last = before.get("event") if before else None
         if open_:
+            # the newest step, which every branch below that reads it has (`last`)
+            step = before or {}
             after_failure = (
                 "lem",
                 "After a failed check: a repair or a stop, and no event says which yet",
             )
             between = ("lem", "Lem, between two steps of the landing")
             if last == "builder.start":
-                row, head = "builders", job(before)
+                row, head = "builders", job(step)
             elif last == "polish.start":
                 row, head = "builders", "The polish pass runs"
             elif last == "gate.start":
@@ -5203,11 +5246,11 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                     else "The checks run",
                 )
             elif last == "gate.end":
-                row, head = "lem", checks_end(before.get("result"))["after"]
+                row, head = "lem", checks_end(step.get("result"))["after"]
             elif last == "review.start":
                 row, head = (
                     "review",
-                    f"The review runs: {KIND.get(before.get('floor'), before.get('floor') or 'its floor')}",
+                    f"The review runs: {KIND.get(step.get('floor'), step.get('floor') or 'its floor')}",
                 )
             elif not last:
                 row, head = (
@@ -5221,6 +5264,8 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             elif last == "polish":
                 row, head = between if stepped else ("checks", "The checks run")
             elif last == "gate":
+                # a gate event always starts or counts a run
+                run = cast("dict[str, Any]", run)
                 if run["failed"] and run["done"]:
                     row, head = after_failure
                 elif run["failed"] and gates is None:
@@ -5258,14 +5303,14 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                             "The review runs; its event comes when it is written down",
                         )
                     )
-                    if before.get("ok")
+                    if step.get("ok")
                     else after_failure
                 )
-            elif last == "review" and before.get("verdict") == "must-fix":
+            elif last == "review" and step.get("verdict") == "must-fix":
                 row, head = "builders", "A repair after the review’s must-fix"
             else:
                 row, head = "lem", "Lem files and proposes"
-            add(row, prev, end, head, "", True)
+            add(row, prev, end, head, "", live=True)
         elif opened and opened.get("event") == "builder.start":
             add(
                 "builders",
@@ -5323,7 +5368,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             "short": "Criteria",
         }
 
-    def band(st: dict, frm: float, to: float, live: bool) -> None:
+    def band(st: dict, frm: float, to: float, *, live: bool) -> None:
         prev = bands[-1] if bands else None
         if prev and prev["key"] == st["key"] and prev["to"] == frm:
             prev["to"], prev["live"] = to, live
@@ -5335,7 +5380,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             {"key": "criteria", "label": "Acceptance criteria", "short": "Criteria"},
             t0,
             t.first,
-            False,
+            live=False,
         )
 
     for k, b in enumerate(t.blocks):
@@ -5344,11 +5389,11 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
         frm = b["ts"]
         to = nxt if nxt is not None else (end if open_ else b["ts"])
         task = task_line(b)
-        what = " · ".join(said_of(b, talked_before(t, b["ts"])))
+        what = " · ".join(said_of(b, talked=talked_before(t, b["ts"])))
         s = b["status"]
         if s not in ENDED and s in STATUS:
             stage = stage_of(b)
-            band(stage, frm, to, open_)
+            band(stage, frm, to, live=open_)
         if s == "queued":
             add_block(
                 "lem",
@@ -5358,20 +5403,34 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                 if waits_for_task(b)
                 else "Queued: it waits to start",
                 what,
-                open_,
+                open_=open_,
             )
         elif s == "building" and task:
             add_block(
-                "builders", frm, to, f"Task {task[1]} of {task[2]}", what, open_, "lead"
+                "builders",
+                frm,
+                to,
+                f"Task {task[1]} of {task[2]}",
+                what,
+                open_=open_,
+                coord="lead",
             )
         elif investigates(b):
-            add_block("builders", frm, to, "The investigation", what, open_, "lem")
+            add_block(
+                "builders", frm, to, "The investigation", what, open_=open_, coord="lem"
+            )
         elif small_block(b):
             add_block(
-                "builders", frm, to, "One builder makes the change", what, open_, "lem"
+                "builders",
+                frm,
+                to,
+                "One builder makes the change",
+                what,
+                open_=open_,
+                coord="lem",
             )
         elif s == "building":
-            add_block("lead", frm, to, "It plans the task", what, open_)
+            add_block("lead", frm, to, "It plans the task", what, open_=open_)
         elif s == "planned":
             owner = bool(re.search(r"\bowner\b", b["text"]))
             head = (
@@ -5381,7 +5440,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                 if any(x["ts"] <= b["ts"] for x in t.talks)
                 else "The plan waits for its plan talk"
             )
-            add_block("you" if owner else "lem", frm, to, head, what, open_)
+            add_block("you" if owner else "lem", frm, to, head, what, open_=open_)
         elif s == "held":
             head = (
                 "The criteria wait for your yes"
@@ -5390,7 +5449,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                 if BREAKER_WAIT.fullmatch(b["text"])
                 else "It waits for you"
             )
-            add_block("you", frm, to, head, what, open_)
+            add_block("you", frm, to, head, what, open_=open_)
         elif s == "blocked":
             red = BASE_RED in [line.strip() for line in lines_of(b)]
             add_block(
@@ -5401,14 +5460,16 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                 if red
                 else "Blocked: it waits for your word",
                 what,
-                open_,
+                open_=open_,
             )
         elif s == "ready":
-            add_block("lem", frm, to, "Ready: it waits for its checks", what, open_)
+            add_block(
+                "lem", frm, to, "Ready: it waits for its checks", what, open_=open_
+            )
         elif s == "landing":
-            landing(k, frm, to, open_)
+            landing(k, frm, to, open_=open_)
         elif s == "open":
-            add_block("you", frm, to, "It waits for your merge", what, open_)
+            add_block("you", frm, to, "It waits for your merge", what, open_=open_)
 
     # the criteria wait for his yes from the personas' read to his approval after it; a yes he gave before
     # the read was in, and a fast-track criterion Lem approved in his name, cost him no wait
@@ -5464,7 +5525,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             end,
             "The plan talk runs",
             f"with {t.talk_start['reviewer']}; its record comes when the talk ends",
-            True,
+            live=True,
         )
     elif t.talk_start:
         marks.append(
@@ -5525,13 +5586,17 @@ def time_rows(tm: dict) -> list[dict]:
     ]
 
 
+# A row's share of a task's time is in percent of it (`time_shares`).
+PERCENT = 100
+
+
 def time_shares(tm: dict, rows: list[dict]) -> dict:
     """Each row's total and its share of the task's time, and whether the shares as shown add up past
     100: two rows can hold the same minutes (a builder's span inside the agent's, the owner's wait for
     the criteria beside the personas' read), so rows overlap."""
     held = [r for r in rows if tm["totals"].get(r["key"], 0) > 0]
     share = {
-        r["key"]: math.floor(100 * tm["totals"][r["key"]] / tm["whole"] + 0.5)
+        r["key"]: math.floor(PERCENT * tm["totals"][r["key"]] / tm["whole"] + 0.5)
         for r in held
     }
     raw = sum(tm["totals"][r["key"]] for r in held)
@@ -5539,11 +5604,15 @@ def time_shares(tm: dict, rows: list[dict]) -> dict:
     return {
         "held": held,
         "share": share,
-        "over": shown if raw > tm["whole"] * 1.005 and shown > 100 else None,
+        "over": shown if raw > tm["whole"] * 1.005 and shown > PERCENT else None,
     }
 
 
 # ---- the loaders: the files a workspace's model is made from ----
+
+
+# The bad lines of the log that the page's status bar names before "and N more" (`Reader.read_log`).
+BAD_LINES_SHOWN = 3
 
 
 def log_version(inode: int, lines: int) -> str:
@@ -5570,7 +5639,7 @@ class Reader:
         # the whole lines of the log read so far, blank and bad ones too: the count of `log_version`
         self.log_lines = 0
         self.read_at = 0
-        self.stamps: dict[str, tuple] = {}
+        self.stamps: dict[str, object] = {}
         self.owner: list[dict] = []
         self.settings: dict | None = None
         self.settings_at = 0.0
@@ -5638,8 +5707,10 @@ class Reader:
         self.log_at = (facts.st_ino, start + whole)
         self.read_at = now_ms()
         if self.log_bad:
-            shown = ", ".join(self.log_bad[:3]) + (
-                f" and {len(self.log_bad) - 3} more" if len(self.log_bad) > 3 else ""
+            shown = ", ".join(self.log_bad[:BAD_LINES_SHOWN]) + (
+                f" and {len(self.log_bad) - BAD_LINES_SHOWN} more"
+                if len(self.log_bad) > BAD_LINES_SHOWN
+                else ""
             )
             self.problems["events"] = (
                 f"events.jsonl: {shown} {'is' if len(self.log_bad) == 1 else 'are'} no event with a time, and the board leaves {'it' if len(self.log_bad) == 1 else 'them'} out"
@@ -5662,7 +5733,7 @@ class Reader:
         self.stamps[key] = stamp_
         return True
 
-    def read_owner(self, project) -> None:
+    def read_owner(self, project: ModuleType) -> None:
         lem_state = project.lem_state
         try:
             mark = lem_state.owner_mark()
@@ -5677,7 +5748,7 @@ class Reader:
         except project.SettingsError as error:
             self.problems["owner"] = f"the owner's status does not read: {error}"
 
-    def read_settings(self, board) -> None:
+    def read_settings(self, board: ModuleType) -> None:
         if (
             self.settings is not None
             and time.monotonic() - self.settings_at < self.settle_seconds
@@ -5696,7 +5767,7 @@ class Reader:
             self.problems["settings"] = f"the settings do not read: {error}"
         self.settings_at = time.monotonic()
 
-    def read_backlog(self, board, fresh: bool = False) -> dict | None:
+    def read_backlog(self, board: ModuleType, *, fresh: bool = False) -> dict | None:
         """The backlog's items as `board.backlog` reads them, at most once in `settle_seconds`, or now with
         `fresh`, when a file of its folder or of the reviewer's folder changed (a name, a size or a
         time), or when the event log grew, since a task's start, landing or drop changes which
@@ -5705,6 +5776,7 @@ class Reader:
             self.read_settings(board)
             if self.settings is None:
                 return self.backlog
+            listing: list[object] | None
             try:
                 folders = (
                     Path(self.settings["main"])
@@ -5741,7 +5813,7 @@ class Reader:
                 self.backlog_at = time.monotonic()
             return self.backlog
 
-    def current(self, board, now: int | None = None) -> Model:
+    def current(self, board: ModuleType, now: int | None = None) -> Model:
         """The model as the files stand now, made again only when one of them changed, or once a
         minute for the times that move with the clock (a coarse clock keeps a page that is refreshed
         often from making it each time)."""
