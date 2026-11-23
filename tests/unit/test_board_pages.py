@@ -28,6 +28,13 @@ NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
 ENDED = ("landed", "dropped", "answered")
 
 
+def matched(found: re.Match[str] | None) -> re.Match[str]:
+    """A match the test reads a part of: the test fails here when the pattern is not in the text."""
+    if found is None:
+        raise AssertionError("the pattern is not in the text")
+    return found
+
+
 def state(minute: float, status: str, text: str, *lines: str, task: str) -> dict:
     return {
         "ts": (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -90,8 +97,11 @@ class Done(unittest.TestCase):
         self,
     ) -> None:
         done = column(str(pages.kanban_page(ctx_of(ended(25)))), "done")
-        row = re.search(
-            r'<a class="col-more" id="done-older" href="([^"]+)"[^>]*>(.*?)</a>', done
+        row = matched(
+            re.search(
+                r'<a class="col-more" id="done-older" href="([^"]+)"[^>]*>(.*?)</a>',
+                done,
+            )
         )
         self.assertIsNotNone(row)
         self.assertEqual(row[1], "/h/w/done")
@@ -183,7 +193,9 @@ class Views(unittest.TestCase):
             ("backlog", "Backlog", "B"),
             ("activity", "Activity", "A"),
         ):
-            button = re.search(rf'<a class="vbtn" id="view-{key}"[^>]*>(.*?)</a>', html)
+            button = matched(
+                re.search(rf'<a class="vbtn" id="view-{key}"[^>]*>(.*?)</a>', html)
+            )
             self.assertIsNotNone(button, key)
             self.assertIn(f'data-hotkey="Key{kbd}"', button[0])
             self.assertIn(f"{label}<kbd>{kbd}</kbd>", button[1])
@@ -193,16 +205,18 @@ class Views(unittest.TestCase):
 class SideFold(unittest.TestCase):
     """The one arrow at the sidebar's foot that folds it to a rail and unfolds it."""
 
-    def page(self, rail: bool) -> str:
+    def page(self, *, rail: bool) -> str:
         ctx = ctx_of(ended(3))
         ctx.prefs = {"rail": True} if rail else {}
         return str(pages.kanban_page(ctx))
 
     def fold(self, html: str) -> re.Match:
-        return re.search(
-            r'<button id="side-fold" class="ibtn" type="button" data-action="fold#side" title="([^"]+)" aria-label="([^"]+)">'
-            r'<svg class="ic" aria-hidden="true"><use href="#i-chevron-left"></use></svg></button>',
-            html,
+        return matched(
+            re.search(
+                r'<button id="side-fold" class="ibtn" type="button" data-action="fold#side" title="([^"]+)" aria-label="([^"]+)">'
+                r'<svg class="ic" aria-hidden="true"><use href="#i-chevron-left"></use></svg></button>',
+                html,
+            )
         )
 
     def test_an_open_sidebar_has_an_arrow_that_points_left_at_its_foot_and_the_old_icon_is_gone(
@@ -239,9 +253,11 @@ class SideFold(unittest.TestCase):
         self,
     ) -> None:
         css = (pages.ASSETS / "board.css").read_text(encoding="utf-8")
-        hidden = re.search(
-            r"\.shell\.railed \.side > :not\(([^)]*)\) \{ display: none !important; \}",
-            css,
+        hidden = matched(
+            re.search(
+                r"\.shell\.railed \.side > :not\(([^)]*)\) \{ display: none !important; \}",
+                css,
+            )
         )
         self.assertIsNotNone(hidden)
         self.assertIn(".side-foot", hidden[1])
@@ -261,7 +277,9 @@ class Keys(unittest.TestCase):
         self,
     ) -> None:
         html = str(pages.kanban_page(ctx_of(ended(3))))
-        kanban = re.search(r'<div class="view kanban" id="kanban"[^>]*>', html)[0]
+        kanban = matched(
+            re.search(r'<div class="view kanban" id="kanban"[^>]*>', html)
+        )[0]
         for attr in (
             'data-controller="cursor"',
             'data-cursor-item-value="article.tc"',
@@ -270,7 +288,9 @@ class Keys(unittest.TestCase):
             'data-action="keydown@window-&gt;cursor#key click-&gt;cursor#pick"',
         ):
             self.assertIn(attr, kanban)
-        line = re.search(r'<div class="keys" id="kanban-keys">(.*?)</div>', html)
+        line = matched(
+            re.search(r'<div class="keys" id="kanban-keys">(.*?)</div>', html)
+        )
         self.assertIsNotNone(line)
         self.assertEqual(
             " ".join(re.sub(r"<[^>]+>", " ", line[1]).split()),
@@ -328,9 +348,11 @@ class Keys(unittest.TestCase):
         ):
             with self.subTest(view=view):
                 html = str(draw(ctx))
-                foot = re.search(
-                    r'</main>(<div class="keys" id="([a-z]+)-keys">(.*?)</div>)<footer class="status',
-                    html,
+                foot = matched(
+                    re.search(
+                        r'</main>(<div class="keys" id="([a-z]+)-keys">(.*?)</div>)<footer class="status',
+                        html,
+                    )
                 )
                 self.assertIsNotNone(
                     foot,
@@ -361,7 +383,13 @@ class WaitsVerb(unittest.TestCase):
         "name": "gift-note",
     }
 
-    def verb(self, *events, row="held", local=True, sessions=None) -> str:
+    def verb(
+        self,
+        *events: dict,
+        row: str = "held",
+        local: bool = True,
+        sessions: dict | None = None,
+    ) -> str:
         """The verb link of the row ROW-gift-note"""
         m = bm.derive([self.OPEN, *events], [], NOW)
         m.sessions = (
@@ -438,7 +466,9 @@ class WaitsVerb(unittest.TestCase):
                 pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name)
             )
         )
-        listing = re.search(r'<div class="waits-list" id="waits-list"[^>]*>', html)
+        listing = matched(
+            re.search(r'<div class="waits-list" id="waits-list"[^>]*>', html)
+        )
         self.assertIsNotNone(listing)
         for attr in (
             'data-controller="cursor"',
@@ -449,7 +479,9 @@ class WaitsVerb(unittest.TestCase):
         ):
             self.assertIn(attr, listing[0])
         self.assertNotIn("data-cursor-group-value", listing[0])
-        line = re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', html)
+        line = matched(
+            re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', html)
+        )
         self.assertIsNotNone(line)
         self.assertEqual(
             " ".join(re.sub(r"<[^>]+>", " ", line[1]).split()),
@@ -457,7 +489,9 @@ class WaitsVerb(unittest.TestCase):
         )
         self.assertEqual(html.count('class="keys"'), 1)
         # the title link of the row opens the panel and carries no jump
-        self.assertNotIn("agterm", re.search(r'<a class="wr-task"[^>]*>', html)[0])
+        self.assertNotIn(
+            "agterm", matched(re.search(r'<a class="wr-task"[^>]*>', html))[0]
+        )
 
     def test_with_nothing_waiting_no_line_of_keys(self) -> None:
         html = str(pages.waits_page(ctx_of(ended(2))))
@@ -513,7 +547,7 @@ class WaitStack(unittest.TestCase):
             *logo,
         ]
 
-    def page(self, **kw) -> str:
+    def page(self, **kw: bool) -> str:
         m = bm.derive(self.events(**kw), [], NOW)
         return str(
             pages.waits_page(
@@ -546,11 +580,13 @@ class WaitStack(unittest.TestCase):
         html = self.page()
         stack = self.stack(html, self.LOGO)
         self.assertTrue(stack, "no stack of the logo's task")
-        opening = re.match(r"<details[^>]*>", stack)[0]
+        opening = matched(re.match(r"<details[^>]*>", stack))[0]
         self.assertNotIn(" open", opening)
         self.assertIn(f'data-task="{self.LOGO}"', opening)
-        summary = re.search(
-            r'<summary class="wrow wst-head"[^>]*>(.*?)</summary>', stack, re.DOTALL
+        summary = matched(
+            re.search(
+                r'<summary class="wrow wst-head"[^>]*>(.*?)</summary>', stack, re.DOTALL
+            )
         )
         self.assertIsNotNone(summary)
         self.assertEqual(
@@ -573,7 +609,9 @@ class WaitStack(unittest.TestCase):
             ],
         )
         self.assertEqual(listing.count('<details class="wstack'), 1)
-        cursor = re.search(r'<div class="waits-list" id="waits-list"[^>]*>', html)[0]
+        cursor = matched(
+            re.search(r'<div class="waits-list" id="waits-list"[^>]*>', html)
+        )[0]
         for attr in (
             'data-cursor-item-value="article.wrow, details.wstack"',
             'data-cursor-link-value="a.wr-verb, summary.wst-head"',
@@ -582,7 +620,9 @@ class WaitStack(unittest.TestCase):
             self.assertIn(attr, cursor)
         self.assertEqual(
             self.words(
-                re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', html)[1]
+                matched(
+                    re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', html)
+                )[1]
             ),
             "J K ↑ ↓ move · Enter go or open",
         )
@@ -603,7 +643,9 @@ class WaitStack(unittest.TestCase):
         self.assertEqual(list(rows), ["review", "merge"])
         tops = {
             kind: self.words(
-                re.search(r'<div class="wr-top">(.*?)</div>', row, re.DOTALL)[1]
+                matched(re.search(r'<div class="wr-top">(.*?)</div>', row, re.DOTALL))[
+                    1
+                ]
             )
             for kind, row in rows.items()
         }
@@ -617,21 +659,25 @@ class WaitStack(unittest.TestCase):
         self.assertIn("Merge…", rows["merge"])
         self.assertNotIn("Merge…", rows["review"])
         self.assertNotIn(
-            "Merge…", re.search(r"<summary.*?</summary>", stack, re.DOTALL)[0]
+            "Merge…", matched(re.search(r"<summary.*?</summary>", stack, re.DOTALL))[0]
         )
         self.assertIn("acme/shop#73", rows["merge"])
 
     def test_a_task_of_one_thing_is_its_plain_row_as_today(self) -> None:
         html = self.page()
-        row = re.search(
-            rf'<article class="wrow[^"]*" id="wait-held-{self.CARD}"[^>]*>(.*?)</article>',
-            html,
-            re.DOTALL,
+        row = matched(
+            re.search(
+                rf'<article class="wrow[^"]*" id="wait-held-{self.CARD}"[^>]*>(.*?)</article>',
+                html,
+                re.DOTALL,
+            )
         )
         self.assertIsNotNone(row)
         self.assertEqual(
             self.words(
-                re.search(r'<div class="wr-top">(.*?)</div>', row[1], re.DOTALL)[1]
+                matched(
+                    re.search(r'<div class="wr-top">(.*?)</div>', row[1], re.DOTALL)
+                )[1]
             ),
             "The interview waits for you 33m",
         )
@@ -652,14 +698,18 @@ class WaitStack(unittest.TestCase):
         self.assertNotIn('<details class="wstack', alone)
         self.assertEqual(
             self.words(
-                re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', alone)[1]
+                matched(
+                    re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', alone)
+                )[1]
             ),
             "J K ↑ ↓ move · Enter go",
         )
-        side = re.search(
-            r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div class="side-head">Views',
-            alone,
-            re.DOTALL,
+        side = matched(
+            re.search(
+                r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div class="side-head">Views',
+                alone,
+                re.DOTALL,
+            )
         )[1]
         self.assertNotIn("wi-n", side)
 
@@ -683,10 +733,12 @@ class WaitStack(unittest.TestCase):
         )
         self.assertIn("2 tasks wait for you, the most pressing first", html)
         # the sidebar: one row for each task, the logo's its first thing's with how many it has
-        side = re.search(
-            r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div class="side-head">Views',
-            html,
-            re.DOTALL,
+        side = matched(
+            re.search(
+                r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div class="side-head">Views',
+                html,
+                re.DOTALL,
+            )
         )[1]
         self.assertEqual(
             re.findall(r'<a class="wi[^"]*" id="(w-[a-z0-9-]+)"', side),
@@ -725,7 +777,7 @@ class Search(unittest.TestCase):
         ],
     }
 
-    def ctx(self, **kw) -> "pages.Ctx":
+    def ctx(self, **kw: object) -> "pages.Ctx":
         events = [
             *ended(22),
             state(
@@ -771,7 +823,7 @@ class Search(unittest.TestCase):
         drawn["native"] = task_pages.task_page(native)[1]
         for name, page_ in drawn.items():
             box = self.box(str(page_))
-            head = re.match(r"<div[^>]*>", box)[0]
+            head = matched(re.match(r"<div[^>]*>", box))[0]
             self.assertNotIn("data-js-open", head, name)
             self.assertIn('data-controller="search"', head, name)
             self.assertIn('role="dialog"', head, name)
@@ -790,11 +842,13 @@ class Search(unittest.TestCase):
         html = str(pages.waits_page(ctx))
         box = self.box(html)
 
-        def row(slug, kind="task"):
-            return re.search(
-                rf'<a class="sr [^"]*" id="sr-{kind}-{slug}"[^>]*>(.*?)</a>',
-                box,
-                re.DOTALL,
+        def row(slug: str, kind: str = "task") -> re.Match[str]:
+            return matched(
+                re.search(
+                    rf'<a class="sr [^"]*" id="sr-{kind}-{slug}"[^>]*>(.*?)</a>',
+                    box,
+                    re.DOTALL,
+                )
             )
 
         held = row("board-card-search")
@@ -860,14 +914,16 @@ class Search(unittest.TestCase):
     ) -> None:
         html = str(pages.activity_page(self.ctx()))
         for bar in ("bar", "mbar"):
-            header = re.search(
-                rf'<header class="{bar}">(.*?)</header>', html, re.DOTALL
+            header = matched(
+                re.search(rf'<header class="{bar}">(.*?)</header>', html, re.DOTALL)
             )
             self.assertIsNotNone(header, bar)
-            button = re.search(
-                r'<button class="btn search-open [^"]*"[^>]*>(.*?)</button>',
-                header[1],
-                re.DOTALL,
+            button = matched(
+                re.search(
+                    r'<button class="btn search-open [^"]*"[^>]*>(.*?)</button>',
+                    header[1],
+                    re.DOTALL,
+                )
             )
             self.assertIsNotNone(button, bar)
             self.assertIn("data-search-open", button[0])
@@ -893,7 +949,7 @@ class StandsNote(unittest.TestCase):
     }
 
     @staticmethod
-    def ev(minute: float, event: str, **fields) -> dict:
+    def ev(minute: float, event: str, **fields: object) -> dict:
         return {
             "ts": (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "event": event,
@@ -1070,7 +1126,7 @@ class ReviewerItems(unittest.TestCase):
         ],
     }
 
-    def page(self, can_act: bool = True) -> str:
+    def page(self, *, can_act: bool = True) -> str:
         events = [state(1, "building", "task 1 of 2", task="tests-flaky-check")]
         return str(
             pages.backlog_page(
@@ -1131,14 +1187,19 @@ class ReviewerItems(unittest.TestCase):
 
     def test_the_backlog_key_counts_the_undecided_items_of_the_reviewer(self) -> None:
         html = self.page()
-        key = re.search(r'<a class="vbtn" id="view-backlog"[^>]*>(.*?)</a>', html)[1]
+        key = matched(
+            re.search(r'<a class="vbtn" id="view-backlog"[^>]*>(.*?)</a>', html)
+        )[1]
         self.assertRegex(
             key,
             r"<em title=\"The reviewer&#x27;s items that wait for your start or drop\">1</em>",
         )
         self.assertRegex(
-            re.search(
-                r'<a class="rbtn" href="[^"]*" id="rail-backlog"[^>]*>(.*?)</a>', html
+            matched(
+                re.search(
+                    r'<a class="rbtn" href="[^"]*" id="rail-backlog"[^>]*>(.*?)</a>',
+                    html,
+                )
             )[1],
             r"<em>1</em>",
         )

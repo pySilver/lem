@@ -11,8 +11,10 @@ import re
 import sys
 import tempfile
 import unittest
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 
 sys.dont_write_bytecode = True
 sys.path.insert(
@@ -31,7 +33,7 @@ def ms(minute: float) -> int:
     return int((START + timedelta(minutes=minute)).timestamp() * 1000)
 
 
-def ev(minute: float, event: str, task: str = "gift-note", **fields) -> dict:
+def ev(minute: float, event: str, task: str = "gift-note", **fields: object) -> dict:
     return {
         "ts": (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "event": event,
@@ -46,15 +48,20 @@ def state(
     return ev(minute, "task.state", task, status=status, text=text, lines=list(lines))
 
 
-def model(*events: dict, owner=()):
+def model(*events: dict, owner: Iterable[dict] = ()) -> "bm.Model":
     return bm.derive(list(events), list(owner), NOW)
 
 
-def one(*events: dict, **kw) -> "bm.Task":
+def one(*events: dict, **kw: Iterable[dict]) -> "bm.Task":
     return model(*events, **kw).tasks[0]
 
 
-def spans(t, row: str | None = None, meta=None, end=None) -> list[tuple]:
+def spans(
+    t: "bm.Task",
+    row: str | None = None,
+    meta: dict | None = None,
+    end: int | None = None,
+) -> list[tuple]:
     tm = bm.time_of(
         t,
         end if end is not None else bm.time_end(t, NOW),
@@ -204,7 +211,14 @@ class Time(unittest.TestCase):
 
 
 class Criteria(unittest.TestCase):
-    def approval(self, minute, number, texts, by="owner", digest="d1"):
+    def approval(
+        self,
+        minute: float,
+        number: int,
+        texts: list[str],
+        by: str = "owner",
+        digest: str = "d1",
+    ) -> dict:
         return ev(
             minute,
             "criteria.approved",
@@ -506,7 +520,7 @@ class Overview(unittest.TestCase):
         )
         read = []
 
-        def overview(*events):
+        def overview(*events: dict) -> list[str]:
             ctx = pages.Ctx(
                 host="h", workspace="w", model=model(*events), asset=lambda name: name
             )
@@ -608,7 +622,7 @@ class Overview(unittest.TestCase):
             ),
         )
 
-        def page(*events):
+        def page(*events: dict) -> tuple["pages.Ctx", "bm.Task", str]:
             ctx = pages.Ctx(
                 host="h",
                 workspace="w",
@@ -651,7 +665,7 @@ class Overview(unittest.TestCase):
             ),
         )
 
-        def refusal(by):
+        def refusal(by: str) -> dict:
             return ev(
                 8,
                 "merge.refused",
@@ -663,7 +677,9 @@ class Overview(unittest.TestCase):
                 **{"from": "lem"},
             )
 
-        def page(*events, merging=frozenset()):
+        def page(
+            *events: dict, merging: Iterable[str] = frozenset()
+        ) -> tuple["pages.Ctx", "bm.Task", str]:
             ctx = pages.Ctx(
                 host="h",
                 workspace="w",
@@ -722,7 +738,7 @@ class Overview(unittest.TestCase):
             "say": line,
         }
 
-        def card(*events):
+        def card(*events: dict) -> str:
             ctx = pages.Ctx(
                 host="h", workspace="w", model=model(*events), asset=lambda name: name
             )
@@ -891,11 +907,12 @@ class InboxLine(unittest.TestCase):
     @classmethod
     def record(
         cls,
-        key="breaker:gift-note:1",
-        kind="breaker",
-        form="question",
-        asks=True,
-        **door,
+        key: str = "breaker:gift-note:1",
+        kind: str = "breaker",
+        form: str = "question",
+        *,
+        asks: bool = True,
+        **door: object,
     ) -> dict:
         sent = {
             "key": key,
@@ -915,7 +932,13 @@ class InboxLine(unittest.TestCase):
             "sent": [sent],
         }
 
-    def overview(self, *events, record=None, owner=AWAY, sessions=LIVE) -> str:
+    def overview(
+        self,
+        *events: dict,
+        record: dict | None = None,
+        owner: list[dict] = AWAY,
+        sessions: dict = LIVE,
+    ) -> str:
         m = model(self.OPENED, *events, owner=owner)
         m.sessions, m.inbox = sessions, record
         ctx = pages.Ctx(
@@ -1015,7 +1038,7 @@ class InboxLine(unittest.TestCase):
                 shown = self.overview(
                     state(1, "building", "task 2 of 3"),
                     *self.BREAKER,
-                    record=self.record(**door),
+                    record=self.record(**cast("dict[str, Any]", door)),
                 )
                 said = self.text(shown)
                 self.assertIn(self.TODAY, said)
@@ -1028,7 +1051,7 @@ class InboxLine(unittest.TestCase):
     ) -> None:
         shown = self.overview(
             state(1, "building", "lead: builder"),
-            record=self.record("session:gift-note", "session", "note", False),
+            record=self.record("session:gift-note", "session", "note", asks=False),
             sessions={"gift-note": {"live": True, "agent": False}},
         )
         said = self.text(shown)
@@ -1045,7 +1068,7 @@ class InboxLine(unittest.TestCase):
         shown = self.overview(
             state(1, "building", "lead: builder"),
             ev(60, "session.stopped", session="S1"),
-            record=self.record("stopped:gift-note", "stopped", "note", False),
+            record=self.record("stopped:gift-note", "stopped", "note", asks=False),
         )
         said = self.text(shown)
         self.assertIn(
@@ -1415,11 +1438,11 @@ class MergeStep(unittest.TestCase):
 
     def step(
         self,
-        *events,
-        tip="4c1d2e3f5a6b7c8d9e0f4c1d2e3f5a6b7c8d9e0f",
-        pr=44,
-        can_act=True,
-    ):
+        *events: dict,
+        tip: str = "4c1d2e3f5a6b7c8d9e0f4c1d2e3f5a6b7c8d9e0f",
+        pr: int | None = 44,
+        can_act: bool = True,
+    ) -> str:
         base = (
             ev(0, "proposed", green=False, not_green=self.REASONS, tip=tip[:9]),
             state(
@@ -1451,7 +1474,7 @@ class MergeStep(unittest.TestCase):
         ctx.landing_of = lambda slug: landing
         return "".join(str(x) for x in task_pages.merge_step(ctx, ctx.model.tasks[0]))
 
-    def careful(self, why):
+    def careful(self, why: str) -> dict:
         return ev(
             2,
             "review",
@@ -1463,7 +1486,7 @@ class MergeStep(unittest.TestCase):
             careful_why=why,
         )
 
-    def key(self, html):
+    def key(self, html: str) -> str | None:
         found = re.search(r'data-sheet-key-value="([0-9a-f]+)"', html)
         return found and found.group(1)
 
@@ -1560,11 +1583,11 @@ class ParkAndApproveSteps(unittest.TestCase):
         "said": "The criteria changed since the page showed them. Read them again, then approve.",
     }
 
-    def key(self, html):
+    def key(self, html: str) -> str | None:
         found = re.search(r'data-sheet-key-value="([0-9a-f]+)"', html)
         return found and found.group(1)
 
-    def park(self, can_act=True):
+    def park(self, *, can_act: bool = True) -> str:
         ctx = pages.Ctx(
             host="h",
             workspace="w",
@@ -1583,7 +1606,13 @@ class ParkAndApproveSteps(unittest.TestCase):
         )
         return "".join(str(x) for x in task_pages.park_step(ctx, ctx.model.tasks[0]))
 
-    def ctx(self, text=TEXT, can_act=True, note=None):
+    def ctx(
+        self,
+        text: str | None = TEXT,
+        *,
+        can_act: bool = True,
+        note: dict | None = None,
+    ) -> "pages.Ctx":
         ctx = pages.Ctx(
             host="h",
             workspace="w",
@@ -1597,8 +1626,8 @@ class ParkAndApproveSteps(unittest.TestCase):
         )
         return ctx
 
-    def approve(self, **kw):
-        ctx = self.ctx(**kw)
+    def approve(self, text: str | None = TEXT, *, can_act: bool = True) -> str:
+        ctx = self.ctx(text, can_act=can_act)
         return str(task_pages.approve_card(ctx, ctx.model.tasks[0]))
 
     def test_the_park_step_is_a_head_a_body_with_what_stopped_and_what_a_park_keeps_and_a_foot_with_the_field_the_button_and_back(
