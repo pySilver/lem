@@ -29,7 +29,7 @@ flowchart TD
   A["A command of Lem names one task"] --> B{"Which release began the task? No mark counts as 0.3.0"}
   B -->|"this release"| C["It goes on"]
   B -->|"the release just before this one"| D["It reads the old records and goes on"]
-  B -->|"two releases newer or more"| U["It stops with exit 1 and names the update; it writes nothing"]
+  B -->|"a newer release"| U["It stops with exit 1 and names the update; it writes nothing"]
   B -->|"two releases older or more"| E{"Is the command a step of the drop or of the end of a merge?"}
   E -->|"yes"| C
   E -->|"no"| F["It logs the stop and stops with exit 1; the board shows the task blocked, and its state stays"]
