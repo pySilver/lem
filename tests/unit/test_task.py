@@ -1266,6 +1266,23 @@ class ResumeSummarized(unittest.TestCase):
         carried = [json.loads(line) for line in self.log.read_text(encoding="utf-8").splitlines() if json.loads(line)["task"] == "card-foot-2"]
         self.assertEqual([(e["event"], e["from"], e["was_at"]) for e in carried], [("criteria.approved", "card-foot", back(39))])
 
+    def test_the_new_task_keeps_the_release_the_dropped_one_began_on(self):
+        from unittest import mock
+        # a task begun on 0.5.0, under Lem 0.5.0 whose release before is 0.4.0: its resume goes on on 0.5.0
+        (self.directory / "release.txt").write_text("0.5.0\n", encoding="utf-8")
+        with mock.patch.object(project, "taken_on_remote"), mock.patch.object(project.lem_release, "running", lambda: "0.5.0"), \
+                mock.patch.object(project.lem_release, "BEFORE", "0.4.0"):
+            said = project.cmd_resume(self.root, "card-foot")
+            new = self.state / "tasks" / said["task"]
+            self.assertEqual((new / "release.txt").read_text(encoding="utf-8"), "0.5.0\n")
+            self.assertIsNone(project.lem_release.check(new))
+
+    def test_the_new_task_of_a_dropped_one_with_no_mark_has_no_mark_either(self):
+        from unittest import mock
+        with mock.patch.object(project, "taken_on_remote"):
+            said = project.cmd_resume(self.root, "card-foot")
+        self.assertFalse((self.state / "tasks" / said["task"] / "release.txt").exists())
+
     def test_a_resume_whose_log_is_summarized_after_its_read_carries_what_it_read(self):
         from unittest import mock
         # the board server's prune summarizes the task and removes its files while the resume asks origin for the new branch
@@ -1401,7 +1418,7 @@ class ResumedFiles(unittest.TestCase):
     def test_a_task_with_its_breaker_takes_its_records_too(self):
         self.assertEqual(project.resumed_files(self.NAMES, notes=False),
                          ["breaker-1.md", "breaker-3.md", "criteria-read.md", "criteria.json", "criteria.md", "decisions.jsonl", "handoff.md",
-                          "talk.md", "task.md", "ticket-repo.txt", "ticket.txt"])
+                          "release.txt", "talk.md", "task.md", "ticket-repo.txt", "ticket.txt"])
 
     def test_a_task_the_release_stop_blocked_takes_its_notes_and_its_ticket_and_no_record(self):
         self.assertEqual(project.resumed_files(self.NAMES, notes=True),
@@ -1411,6 +1428,37 @@ class ResumedFiles(unittest.TestCase):
     def test_the_notes_are_each_markdown_document_of_the_resumed_files_and_the_ticket(self):
         self.assertEqual(set(project.RESUMED_NOTES), {"task.md", "talk.md", "directions.md", "interview-notes.md", "scout.md", "investigation.md",
                                                       "outside.md", "criteria.md", "criteria-read.md", "handoff.md", "ticket.txt", "ticket-repo.txt"})
+
+
+class ReleaseRefusal(unittest.TestCase):
+    """The release rule of `lem project` for `old-task`, begun two releases back: the ends of the task
+    pass, at `state` and at the tracker's step that a task's end writes (the Linear skill's
+    `ticket-step`), and a command of its work stops."""
+
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.root = Path(folder.name).resolve()
+        self.state = self.root / "state"
+        project.STATE_ROOTS[self.root] = self.state
+        self.addCleanup(project.STATE_ROOTS.pop, self.root)
+        directory = self.state / "tasks" / "old-task"
+        directory.mkdir(parents=True)
+        (directory / "release.txt").write_text("0.0.1\n", encoding="utf-8")
+
+    def refusal(self, *argv: object) -> str | None:
+        command, *rest = argv
+        fields = {"state": ("status", "lines"), "ticket-step": ("step",)}[command]
+        return project.release_refusal(self.root, project.argparse.Namespace(command=command, slug="old-task", **dict(zip(fields, rest))))
+
+    def test_the_tracker_steps_of_a_tasks_end_pass(self):
+        for step in ("commented", "landed", "dropped", "answered", "unassigned"):
+            self.assertIsNone(self.refusal("ticket-step", step), step)
+        self.assertIsNone(self.refusal("state", "dropped", ["not wanted"]))
+
+    def test_a_step_or_a_state_of_work_stops(self):
+        for argv in (("ticket-step", "started"), ("ticket-step", "assigned"), ("state", "building", ["lead: builder"])):
+            self.assertIn("old-task began on Lem 0.0.1", self.refusal(*argv) or "", argv)
 
 
 if __name__ == "__main__":

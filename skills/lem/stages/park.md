@@ -37,7 +37,8 @@ lem project resume SLUG
 - **A dropped task** stays dropped. The command opens a new task from it, with the next free
   number, `SLUG-2` (then `-3`): its branch `TYPE/SLUG-2` is cut from the tip of the old branch, so
   the commits come with it; its task directory gets the old one's request, criteria, handoff,
-  breaker document and record, `resumed-from.txt` with the old slug, and a brief whose `task`,
+  breaker document and record, its `release.txt` (so the new task keeps the release the old one
+  began on), `resumed-from.txt` with the old slug, and a brief whose `task`,
   `branch`, `worktree` and `task directory` lines are its own; its worktree is made; and its state
   is `held` by the breaker that waited, with the line `resumed from SLUG, which was dropped`. Then
   its session opens as for a parked task, with the new slug. A dropped task with no breaker that waits, and no release stop, has

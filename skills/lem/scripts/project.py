@@ -639,6 +639,8 @@ LOGIN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?")
 #   dropped    the ticket got the comment that its task was dropped
 #   answered   the ticket got the comment with its task's answer: not a bug, or the answer to a question
 TICKET_STEPS = ("started", "assigned", "unassigned", "commented", "landed", "dropped", "answered")
+# The steps a task's end writes (`ticket_owed`), which pass the release rule as the end itself does
+TICKET_ENDS = ("unassigned", "commented", "landed", "dropped", "answered")
 # The ended states that give a task's ticket back, once the task owes it nothing (`ticket_owed`): a
 # new task may take it then. A landed task keeps it.
 RETURNED = ("dropped", "answered")
@@ -2204,11 +2206,14 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
 
 
 # What `resume` copies from a dropped task into the new one: the documents a fresh agent goes on
-# from, the records the landing reads, each breaker's document (`breaker-N.md`, RESUMED_GLOBS) and the
-# breaker's pictures (`media/`). The landing's own
-# files (`landing.json`, `gate/`, `reviews/`, `pr.md`) stay with the old task: the new one lands anew.
+# from, the records the landing reads, the release the task began on (lem_release.MARK: the new task
+# goes on with the old one's records, so it keeps their release, and one with no mark stays unmarked),
+# each breaker's document (`breaker-N.md`, RESUMED_GLOBS) and the breaker's pictures (`media/`). The
+# landing's own files (`landing.json`, `gate/`, `reviews/`, `pr.md`) stay with the old task: the new
+# one lands anew.
 RESUMED_FILES = ("task.md", "talk.md", "directions.md", "interview-notes.md", "scout.md", "investigation.md", "outside.md",
-                 "criteria.md", "criteria-read.md", "criteria.json", "decisions.jsonl", "handoff.md", "ticket.txt", "ticket-repo.txt")
+                 "criteria.md", "criteria-read.md", "criteria.json", "decisions.jsonl", "handoff.md", "ticket.txt", "ticket-repo.txt",
+                 lem_release.MARK)
 RESUMED_GLOBS = ("breaker-*.md",)
 # What the resume of a task the release stop blocked copies: the documents an agent reads as text and
 # the ticket, and no record (`criteria.json`, `decisions.jsonl`). That task began two releases back or
@@ -4808,11 +4813,14 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
 def release_refusal(root: Path, args: argparse.Namespace) -> str | None:
     """The release rule (lem_release) for a command that names one task, before it reads or writes
     anything; `resume` runs it itself, once it reads whether the task is parked or dropped. The three
-    ends of a task pass at `state`: `land.py` writes `landed` through it at the end of a merge."""
+    ends of a task pass at `state` (`land.py` writes `landed` through it at the end of a merge), and so
+    do the tracker's steps of an end at `ticket-step` (TICKET_ENDS), which the Linear skill writes as
+    commands of their own after the end."""
     slug = getattr(args, "slug", None)
     if args.command == "resume" or not isinstance(slug, str) or not SLUG.fullmatch(slug):
         return None
-    return lem_release.check(state_root(root) / "tasks" / slug, passes=args.command == "state" and args.status in ENDED)
+    ends = (args.command == "state" and args.status in ENDED) or (args.command == "ticket-step" and args.step in TICKET_ENDS)
+    return lem_release.check(state_root(root) / "tasks" / slug, passes=ends)
 
 
 @lem_release.one_command

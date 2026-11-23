@@ -102,19 +102,22 @@ nd=$BR/.lem/state/tasks/gift-note-2
 carried=$(git -C "$BR" log -2 --format=%s feat/gift-note-2 | tr '\n' '|')
 # a lock is no copied file: each write of the new task's state takes its state.lock
 copied=$(cd "$nd" && find . -mindepth 1 -maxdepth 1 ! -name '*.lock' | sed 's|^\./||' | sort | tr '\n' ' ')
+# the new task goes on with the old one's records, so it keeps the release the old one began on
+mark=$(cat "$BR/.lem/state/tasks/gift-note/release.txt" 2>/dev/null)/$(cat "$nd/release.txt" 2>/dev/null)
 first=$(br tasks | field 'next((t["status"], t["state"].splitlines()[0].split(": ", 1)[1], t["state"].splitlines()[1:3]) for t in d if t["slug"] == "gift-note-2")')
 old=$(br tasks | field 'next(t["status"] for t in d if t["slug"] == "gift-note")')
 record=$(bdecide "$BR" list gift-note-2 | field '[(c["id"], c["kind"], c["state"]) for c in d]')
 again=$(br resume gift-note 2>&1 || true)
 if [ "$resumed" = "('gift-note-2', 'dropped', 'feat/gift-note-2', 'feat/gift-note', 3, 'held')" ] \
   && [ "$carried" = "feat: the second half of the note|feat: half of the note|" ] \
-  && [ "$copied" = "ask.txt breaker-1.md breaker-3.md decisions.jsonl handoff.md reports resumed-from.txt state.md " ] \
+  && [ "$copied" = "ask.txt breaker-1.md breaker-3.md decisions.jsonl handoff.md release.txt reports resumed-from.txt state.md " ] \
+  && [ "${mark%/*}" != "" ] && [ "${mark%/*}" = "${mark#*/}" ] \
   && [ "$first" = "('held', 'breaker 3 waits for the owner', ['resumed from gift-note, which was dropped', 'type: feat, because the export gets a column'])" ] \
   && [ "$old" = dropped ] && [ "$record" = "[(1, 'breaker', 'helped'), (2, 'taken', 'taken'), (3, 'breaker', 'waits')]" ] \
   && grep -qF "the dropped task 'gift-note' goes on in 'gift-note-2' already" <<<"$again"; then
-  pass "a dropped task stays dropped, and its resume opens a new task on a branch cut from its commits, with its handoff, each breaker's document and its record, held by the breaker that waits; a second resume of it is refused"
+  pass "a dropped task stays dropped, and its resume opens a new task on a branch cut from its commits, with its handoff, each breaker's document, its record and its release, held by the breaker that waits; a second resume of it is refused"
 else
-  fail "the resume of a dropped task: $resumed / $carried / $copied / $first / $old / $record / $again"
+  fail "the resume of a dropped task: $resumed / $carried / $copied / $mark / $first / $old / $record / $again"
 fi
 # A resume whose worktree's checks.setup fails still leaves the new task whole, held by its breaker, and says what is left.
 printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'setup = ["echo half; exit 3"]' > "$BR/.lem/settings.toml"
