@@ -1762,9 +1762,9 @@ class Handler(BaseHTTPRequestHandler):
         model = workspace.model()
         reader = workspace.reader
         backlog = reader.read_backlog(board, fresh=fresh_backlog)
-        return pages.Ctx(keep_days=keep_days_of(reader),host=HOSTNAME, workspace=workspace.name, model=model, asset=asset_link, prefs=prefs_of(self.headers.get("Cookie")),
+        return pages.Ctx(host=HOSTNAME, workspace=workspace.name, model=model, asset=asset_link, prefs=prefs_of(self.headers.get("Cookie")),
                          backlog=backlog, problems=[*reader.problems.values(), *([workspace.session_problem] if workspace.session_problem else [])],
-                         read_at=model.now, events=len(reader.events), log_id=reader.log_id(),
+                         read_at=model.now, events=len(reader.events), log_id=reader.log_id(), keep_days=keep_days_of(reader),
                          spaces=self.spaces(), native=bool(NATIVE.search(self.headers.get("User-Agent") or "")),
                          local=self.door is None and self.client_address[0] in LOOPBACK and not lem_peers.hopped(self.headers),
                          forge_look=dict(workspace.forge), filters=pages.backlog_filter(parse_qs(query)),
