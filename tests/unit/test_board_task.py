@@ -265,6 +265,24 @@ class Overview(unittest.TestCase):
         self.assertIn("The interview waits for you", card)
         self.assertIn("Where you answer", card)
 
+    def test_a_breakers_large_card_sends_him_to_its_document_only_while_the_breaker_waits_for_him(self):
+        # waits-for-you-only-when-it-waits, criteria 1 and 2: while the session works on his help, nothing asks him to read it
+        m = model(state(0, "building", "task 1 of 2"),
+                  ev(20, "decision.breaker", id=1, cause="criteria", what="The note has no place", document="breaker.md", handoff="handoff.md"),
+                  state(20, "held", "breaker 1 waits for the owner", "The note has no place: no option keeps the criteria"))
+        ctx = pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, task="gift-note", tab="overview")
+        t = m.tasks[0]
+        line = "Its document is the first card above: read it, then help, park or drop the task."
+
+        def card(turn: str) -> str:
+            bm.put_sessions(m, {"gift-note": {"live": True, "agent": True, "unanswered": False, "session": "S1", "worktree": False, "turn": turn}})
+            return str(task_pages.now_card(ctx, t))
+
+        working = card("runs")
+        self.assertIn("Its session works on your answer", working)
+        self.assertNotIn(line, working)
+        self.assertIn(line, card("ended"))
+
 
 class InboxLine(unittest.TestCase):
     """Where the owner answers on the phone's page of a task while his mark says away and the board's server

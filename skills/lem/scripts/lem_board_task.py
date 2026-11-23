@@ -540,7 +540,8 @@ def now_card(ctx, t: bm.Task) -> Markup:
             t.more and h("div", {"class": "now-ctx"}, P.rich(ctx, " · ".join(t.more))),
             found,
             t.for_owner and not t.breaker and h("div", {"class": "now-ctx"}, h("b", None, "Where you answer: "), P.rich(ctx, bm.answer_of(t))),
-            t.breaker and h("div", {"class": "now-ctx"}, "Its document is the first card above: read it, then help, park or drop the task."),
+            # the breaker's call to its document, only while it waits for him: not while the session works on his help
+            t.breaker and not t.works and h("div", {"class": "now-ctx"}, "Its document is the first card above: read it, then help, park or drop the task."),
             None if t.breaker else inbox_action(ctx, t) or (row_action(ctx, t) if t.for_owner else None),
             t.status == bm.PARKED and owner_lines(ctx, t)]
     time = h("span", None, bm.stamp(t.since, now)) if t.closed else P.since(t.since, now)
