@@ -11,7 +11,7 @@ Size: full, because the rule is one, but it sits in the step that decides whethe
    2. The merge agent answers with `## Review` as its first line and `Verdict: merge.` under it.
    3. `lem land merge-review gift-note --file ANSWER --tip TIP --base BASE` refuses it, and says that the merge agent is asked again.
    4. A fresh merge agent answers in the same form, with the same tip and base.
-   5. The same command now writes the answer down as the merge review, which calls the owner because the answer could not be recorded twice.
+   5. The same command now writes the answer down as the merge review, which calls the owner and says why in plain words: the merge agent twice put another line above its verdict, and its answer says `Verdict: merge.` lower down.
    6. "Waits for you" shows "Read the merge review" for gift-note, and the board's server does not merge it.
 2. On a base that moved, a second answer that cannot be recorded is still recorded as another round of the checks, and the owner is not asked.
    - no test: the change keeps behavior; the suite holds it
@@ -36,9 +36,10 @@ flowchart TD
 1. **The second refused answer on a base that did not move calls the owner** (criteria 1, 2 and 3).
    In `skills/lem/scripts/land.py`, `cmd_merge_review`: on a base that did not move, the second answer
    for one tip and base that gives no verdict is written down as `merge-review.md` and as the kept
-   `merge_review`, with `verdict` null, `calls` true and a `why` that says that the merge agent's
-   answer could not be recorded twice, with the reason, and that the owner reads the task. Its
-   `next` is the one of a review that calls the owner. The first such answer is refused as today, and
+   `merge_review`, with `verdict` null, `calls` true and a `why` in plain words: the merge agent
+   twice put another line above its verdict, and, when a line lower down in its answer gives
+   `Verdict: merge.` or `Verdict: call.`, which verdict that line gives. That lower line never
+   becomes the verdict: the owner decides. Its `next` is the one of a review that calls the owner. The first such answer is refused as today, and
    the moved base keeps its rule. A test in `tests/unit/test_land.py` for the rule where it can be a
    call of a function, and a check in `tests/lem-land-shop.sh` beside the check of the first refused
    answer (near line 127) for the journey: two answers with no verdict on a base that did not move,
@@ -46,7 +47,8 @@ flowchart TD
    `lem land merge SLUG --by merger --via server` is refused. In `skills/lem/stages/land.md`, step 7
    (the paragraph that starts "A first line with no verdict is refused"), and in
    `skills/lem/harness/claude-code/ask-merger.md` (its last paragraph), one sentence each on what
-   follows the second refused answer on a base that did not move.
+   follows the second refused answer on a base that did not move, and names the "Read the merge
+   review" row the owner then sees in "Waits for you".
 
 ## Decisions
 
