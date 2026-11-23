@@ -169,7 +169,7 @@ LOCAL_SETTINGS = Path(".lem") / "settings.local.toml"
 # alone, and nothing overrides it; what guards a team's repository is in the team's file alone; the
 # question page's defaults are the developer's (the plan of one-home-folder-for-lem, 2026-11-23,
 # "How it works", decisions 2 and 3). Which keys of a table one file may hold is `project.py`'s
-# (`HOME_KEYS`, `local_naps_off`).
+# (`local_naps_off`).
 TABLE_PLACES = {
     "load": ("machine",), "serve": ("machine",), "peers": ("machine",), "handoff": ("machine",), "corrections": ("machine",),
     "seats": ("home", "team", "local"),

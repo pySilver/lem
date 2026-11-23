@@ -297,8 +297,38 @@ class Tracker(Refuses):
 
 
 class Seats(Refuses):
-    """A seat is one string, agent/model:effort. The reviewer's, the defender's and each expert's is written
-    whole; the merge agent's and a task session's may leave out the effort, or the model and the effort."""
+    """A seat is one string, agent/model:effort. The reviewer's, the defender's, each expert's and the fallback's
+    is written whole; the merge agent's and a task session's may leave out the effort, or the model and the effort.
+    Each seat comes from the first of four places: this machine's own file for the repository, the team's file,
+    the home folder's settings.toml, then Lem's default. Each case runs with a folder of its own as
+    XDG_CONFIG_HOME, so the home folder's files are that folder's and the home directory's are never read."""
+
+    def setUp(self):
+        self.kept = os.environ.get("XDG_CONFIG_HOME")
+        self.folder = tempfile.TemporaryDirectory()
+        os.environ["XDG_CONFIG_HOME"] = self.folder.name
+
+    def tearDown(self):
+        if self.kept is None:
+            os.environ.pop("XDG_CONFIG_HOME", None)
+        else:
+            os.environ["XDG_CONFIG_HOME"] = self.kept
+        self.folder.cleanup()
+
+    def home(self, *lines: str) -> dict:
+        """The tables of a home folder's settings.toml of these lines, as `load` reads them; no lines, no file."""
+        file = project.lem_state.home_settings_file()
+        if lines:
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        else:
+            file.unlink(missing_ok=True)
+        return project.read_settings(file, Path(project.home_name()), "home")
+
+    def seats(self, project_lines: tuple[str, ...] = (), local_lines: tuple[str, ...] = (), home: dict | None = None) -> dict:
+        """The seats of a repository whose two files hold these lines, on a machine whose home folder's settings.toml is `home`."""
+        raw = read(*project_lines)
+        return project.decide(ROOT, ROOT, raw, local(*local_lines), raw, None, home or {})["seats"]
 
     def test_each_seat_parsed(self):
         found = settings("[seats]", 'reviewer = "codex/gpt-6.1-sol:high"', 'planner = "claude/opus:max"', 'experts = ["claude/fable:high", "codex/gpt-6.2-astra:xhigh"]')["seats"]
@@ -360,9 +390,134 @@ class Seats(Refuses):
 
     def test_lem_defaults_with_no_seat(self):
         found = settings("[branch]", 'base = "master"')["seats"]
-        self.assertEqual(found["reviewer"], {"agent": None, "model": None, "effort": None, "seat": None, "from": "Lem's default"})
-        self.assertEqual(found["planner"]["seat"], project.PLANNER)
-        self.assertEqual([e["seat"] for e in found["experts"]], list(project.EXPERTS))
+        self.assertEqual(found["reviewer"], {"agent": "claude", "model": "opus", "effort": "high", "seat": "claude/opus:high", "from": "Lem's default"})
+        self.assertEqual((found["planner"]["seat"], found["planner"]["from"]), (project.PLANNER, "Lem's default"))
+        self.assertEqual([(e["seat"], e["from"]) for e in found["experts"]], [(one, "Lem's default") for one in project.EXPERTS])
+        self.assertEqual(found["fallback"], {"agent": "claude", "model": "opus", "effort": "high", "seat": "claude/opus:high", "from": "Lem's default"})
+
+    def test_a_repository_that_names_no_reviewer_takes_the_machines_then_lems(self):
+        # criterion 1: the home folder's settings.toml names the reviewer, and notes-app names none in its two files
+        notes_app = ("[branch]", 'base = "main"')
+        reviewer = self.seats(notes_app, home=self.home("[seats]", 'reviewer = "codex/gpt-6.2-sol:high"'))["reviewer"]
+        self.assertEqual((reviewer["seat"], reviewer["from"]), ("codex/gpt-6.2-sol:high", project.home_name()))
+        # with no reviewer line in that file either, Lem's own
+        reviewer = self.seats(notes_app, home=self.home())["reviewer"]
+        self.assertEqual((reviewer["seat"], reviewer["from"]), ("claude/opus:high", "Lem's default"))
+
+    def test_each_seat_from_each_of_the_four_places(self):
+        for which, local_line, project_line, home_value in (
+            ("reviewer", 'reviewer = "codex/l:high"', 'reviewer = "codex/p:high"', "codex/m:high"),
+            ("planner", 'planner = "claude/l:high"', 'planner = "claude/p:high"', "claude/m:high"),
+            ("merger", 'merger = "codex/l"', 'merger = "codex:high"', "codex/m:low"),
+            ("session", 'session = "claude/l"', 'session = "claude:max"', "claude"),
+        ):
+            home = {"seats": {which: home_value}}
+            for local_lines, project_lines, given, seat, place in (
+                (("[seats]", local_line), ("[seats]", project_line), home, local_line.split('"')[1], str(project.LOCAL)),
+                ((), ("[seats]", project_line), home, project_line.split('"')[1], str(project.SETTINGS)),
+                ((), (), home, home_value, project.home_name()),
+                ((), (), {}, project.DEFAULT_SEATS[which], "Lem's default"),
+            ):
+                with self.subTest(which=which, place=place):
+                    found = self.seats(project_lines, local_lines, given)[which]
+                    self.assertEqual((found["seat"], found["from"]), (seat, place))
+
+    def test_the_experts_from_each_of_the_four_places(self):
+        home = self.home("[seats]", 'experts = ["claude/m:high"]')
+        for local_lines, project_lines, given, seats, place in (
+            (("[seats]", 'experts = ["claude/l:high"]'), ("[seats]", 'experts = ["claude/p:high", "codex/p:high"]'), home, ["claude/l:high"], str(project.LOCAL)),
+            ((), ("[seats]", 'experts = ["claude/p:high", "codex/p:high"]'), home, ["claude/p:high", "codex/p:high"], str(project.SETTINGS)),
+            ((), (), home, ["claude/m:high"], project.home_name()),
+            ((), (), {}, list(project.EXPERTS), "Lem's default"),
+        ):
+            with self.subTest(place=place):
+                found = self.seats(project_lines, local_lines, given)["experts"]
+                self.assertEqual([(e["seat"], e["from"]) for e in found], [(one, place) for one in seats])
+
+    def test_the_fallback_from_each_of_the_four_places(self):
+        # criterion 2: mybaze has no fallback line and the home folder's settings.toml has none, so it is Lem's claude/opus:high
+        mybaze = ("[seats]", 'reviewer = "codex/gpt-6.2-sol:high"')
+        found = self.seats(mybaze, home=self.home("[seats]", 'merger = "claude/opus:high"'))["fallback"]
+        self.assertEqual((found["seat"], found["agent"], found["model"], found["effort"], found["from"]), ("claude/opus:high", "claude", "opus", "high", "Lem's default"))
+        on = self.home("[seats]", 'fallback = "codex/m:high"')
+        off = self.home("[seats]", "fallback = false")
+        for local_lines, project_lines, given, seat, place in (
+            (("[seats]", 'fallback = "claude/l:high"'), ("[seats]", "fallback = false"), off, "claude/l:high", str(project.LOCAL)),
+            (("[seats]", "fallback = false"), ("[seats]", 'fallback = "claude/p:high"'), on, False, str(project.LOCAL)),
+            ((), ("[seats]", "fallback = false"), on, False, str(project.SETTINGS)),
+            ((), ("[seats]", 'fallback = "claude/p:high"'), off, "claude/p:high", str(project.SETTINGS)),
+            ((), (), on, "codex/m:high", project.home_name()),
+            ((), (), off, False, project.home_name()),
+            ((), (), {}, project.FALLBACK, "Lem's default"),
+        ):
+            with self.subTest(seat=seat, place=place):
+                found = self.seats(project_lines, local_lines, given)["fallback"]
+                self.assertEqual((found["seat"], found["from"]), (seat, place))
+                if seat is False:
+                    self.assertEqual(found, {"seat": False, "from": place})
+
+    def test_the_fallbacks_it_refuses(self):
+        for given, names in (
+            (True, ("seats.fallback = true is no seat", "or false, which turns the fallback off", 'Leave the line out for Lem\'s, "claude/opus:high"')),
+            ("", ("seats.fallback is empty", "or false, which turns the fallback off")),
+            ("claude", ("seats.fallback = 'claude' names no model and no effort", "written whole")),
+            ("claude/opus", ("seats.fallback = 'claude/opus' names no effort",)),
+            ("gemini/pro:high", ("the agent 'gemini' must be claude or codex",)),
+            (3, ("seats.fallback = 3", project.SEAT_FORM)),
+        ):
+            for name in (FILE, ROOT / project.LOCAL, Path(project.home_name())):
+                with self.subTest(given=given, name=name):
+                    self.assertNames(self.refused(project.fallback_of, {"seats": {"fallback": given}}, name), str(name), *names)
+
+    def test_a_wrong_fallback_after_the_first_place_is_still_refused(self):
+        message = self.refused(self.seats, ("[seats]", "fallback = true"), ("[seats]", 'fallback = "claude/opus:high"'))
+        self.assertNames(message, f"{project.SETTINGS}: seats.fallback = true is no seat")
+
+    def test_the_home_file_takes_each_seat_and_the_fallback(self):
+        home = self.home("[seats]", 'reviewer = "codex/gpt-6.2-sol:high"', 'planner = "claude/opus:high"', 'merger = "claude"', 'session = "claude:high"',
+                         'experts = ["claude/fable:high"]', "fallback = false")
+        found = self.seats(("[branch]", 'base = "main"'), (), home)
+        self.assertEqual({which: (found[which]["seat"], found[which]["from"]) for which in ("reviewer", "planner", "merger", "session", "fallback")},
+                         {"reviewer": ("codex/gpt-6.2-sol:high", project.home_name()), "planner": ("claude/opus:high", project.home_name()),
+                          "merger": ("claude", project.home_name()), "session": ("claude:high", project.home_name()), "fallback": (False, project.home_name())})
+        self.assertEqual([(e["seat"], e["from"]) for e in found["experts"]], [("claude/fable:high", project.home_name())])
+        for lines, names in (
+            (("[seats]", 'experts = "claude/fable:high"'), ("seats.experts", "must be a list of one or two seats")),
+            (("[seats]", "fallback = 3"), ("seats.fallback = 3", project.SEAT_FORM)),
+            (("[seats]", 'helper = "claude/opus:high"'), ("unknown key seats.helper", "reviewer, planner, merger, session, experts, fallback")),
+        ):
+            with self.subTest(lines=lines):
+                message = self.refused(lambda: self.seats(("[branch]", 'base = "main"'), (), self.home(*lines)))
+                self.assertNames(message, project.home_name(), *names)
+
+    def test_a_seat_in_the_home_file_is_written_whole_as_in_the_repositorys_files(self):
+        for which, given, names in (
+            ("reviewer", "codex", ("seats.reviewer = 'codex' names no model and no effort", "written whole")),
+            ("planner", "claude/opus", ("seats.planner = 'claude/opus' names no effort",)),
+            ("planner", "codex/gpt:high", ("the agent 'codex' must be claude",)),
+            ("experts", ["claude/fable"], ("seats.experts[0] = 'claude/fable' names no effort",)),
+        ):
+            with self.subTest(which=which, given=given):
+                self.assertNames(self.refused(self.seats, ("[branch]", 'base = "main"'), (), {"seats": {which: given}}), f"{project.home_name()}: seats.{which}", *names)
+        # the merge agent's and the session's seat may leave out a part there too
+        found = self.seats(("[branch]", 'base = "main"'), (), {"seats": {"merger": "codex", "session": "claude:high"}})
+        self.assertEqual((found["merger"]["agent"], found["merger"]["model"], found["session"]["effort"]), ("codex", None, "high"))
+
+    def test_the_experts_and_the_session_keep_their_rules_whatever_the_fallback(self):
+        # criterion 8: the fallback is one key of the reviewer, the planner and the merge agent; the experts keep
+        # their rule that one answers alone where its agent is missing, and the session seat is Claude only
+        with tempfile.TemporaryDirectory() as folder:
+            with mock.patch.dict(os.environ, {"PATH": str(Path(folder) / "none")}):
+                found = self.seats(("[seats]", 'fallback = "codex/gpt-6.2-sol:high"'), (), {"seats": {"experts": ["claude/fable:high", "codex/gpt-6.2-astra:high"]}})
+        self.assertEqual([(e["seat"], e["here"]) for e in found["experts"]], [("claude/fable:high", True), ("codex/gpt-6.2-astra:high", False)])
+        self.assertEqual((found["session"]["seat"], found["session"]["from"]), (project.SEAT_DEFAULT, "Lem's default"))
+        self.assertNotIn("fallback", found["session"])
+        message = self.refused(self.seats, ("[seats]", 'fallback = "codex/gpt-6.2-sol:high"'), (), {"seats": {"session": "codex:high"}})
+        self.assertNames(message, "seats.session", "a task's session runs Claude Code only for now")
+
+    def test_the_seats_leave_local_overrides_and_from_says_the_place(self):
+        found = project.decide(ROOT, ROOT, read(), local("[seats]", 'reviewer = "claude/l:high"'), read(), None, {})
+        self.assertEqual((found["seats"]["reviewer"]["from"], found["local"]["overrides"]), (str(project.LOCAL), []))
 
     def test_one_expert_answers_in_the_first_place(self):
         found = settings("[seats]", 'experts = ["codex/gpt-6.2-astra:high"]')["seats"]["experts"]

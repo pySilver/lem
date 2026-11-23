@@ -41,7 +41,7 @@ if [ "$shown_keys" = "$template_keys" ] && [ "$shown_keys" = "['commands', 'seri
 else
   fail "the [checks] keys of the template: $template_keys, of show: $shown_keys"
 fi
-# The team's file holds 19 keys, one to one in show (with a tracker, whose one key is its kind), in the file init writes (a
+# The team's file holds 20 keys, one to one in show (with a tracker, whose one key is its kind), in the file init writes (a
 # commented line counts) and on the settings page, of the tables valid in the team's file. `from`, the file a value came
 # from (naps.from, state.from), is no key.
 printf '%s\n' '' '[tracker]' 'kind = "linear"' > "$WORK/tracker.toml"
@@ -60,8 +60,8 @@ print(sorted(found))' "$NEW/.lem/settings.toml")
 paged=$("$PY" -I -B -c 'import re, sys; sys.path.insert(0, sys.argv[2]); import lem_state
 found = re.findall(r"^\| `(\w+)\.(\w+)` \|", open(sys.argv[1], encoding="utf-8").read(), re.M)
 print(sorted({f"{table}.{key}" for table, key in found if "team" in lem_state.TABLE_PLACES.get(table, ())}))' "$PWD/docs/settings.md" "$PWD/skills/lem/scripts")
-if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 19 ]; then
-  pass "the team's file holds 19 keys, the same in show, in the file init writes and on the settings page"
+if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 20 ]; then
+  pass "the team's file holds 20 keys, the same in show, in the file init writes and on the settings page"
 else
   fail "the keys of the settings: show $shown / the file $written / the page $paged"
 fi
@@ -540,10 +540,10 @@ fi
 # This machine's own settings: read from the main checkout in a worktree too, only seats and the few keys one machine may set.
 settings '[branch]' 'base = "master"' '[seats]' 'reviewer = "codex/the-usual:high"'
 out=$(project --repo "$WORK/wt" reviewer claude/a-claude-model:high)
-if [ "$(field '(d["reviewer"], d["local"]["overrides"])' <<<"$out")" = "({'agent': 'claude', 'model': 'a-claude-model', 'effort': 'high', 'seat': 'claude/a-claude-model:high', 'from': '.lem/settings.local.toml'}, ['seats.reviewer'])" ] \
+if [ "$(field '(d["reviewer"], d["local"]["overrides"])' <<<"$out")" = "({'agent': 'claude', 'model': 'a-claude-model', 'effort': 'high', 'seat': 'claude/a-claude-model:high', 'from': '.lem/settings.local.toml'}, [])" ] \
   && [ -f "$OLD/.lem/settings.local.toml" ] && [ ! -e "$WORK/wt/.lem/settings.local.toml" ] && grep -qxF 'reviewer = "claude/a-claude-model:high"' "$OLD/.lem/settings.local.toml" \
   && [ "$(project --repo "$OLD" show | field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"], d["local"]["file"])')" = "('claude', 'a-claude-model', '$OLD/.lem/settings.local.toml')" ]; then
-  pass "reviewer AGENT/MODEL:EFFORT, run in a worktree, writes this machine's seat in the main checkout in the same form; it replaces the project's seat whole and show says so"
+  pass "reviewer AGENT/MODEL:EFFORT, run in a worktree, writes this machine's seat in the main checkout in the same form; it replaces the project's seat whole and its from says so"
 else
   fail "reviewer override: $out"
 fi
@@ -551,7 +551,7 @@ fi
 printf '%s\n' 'planner = "claude/my\"own\"-🚀\\x:high"' >> "$OLD/.lem/settings.local.toml"
 project --repo "$OLD" reviewer claude/opus:high >/dev/null
 out=$(project --repo "$OLD" reviewer default)
-if [ "$(field '(d["reviewer"]["agent"], d["reviewer"]["model"], d["reviewer"]["effort"], d["local"]["overrides"])' <<<"$out")" = "('codex', 'the-usual', 'high', ['seats.planner'])" ] \
+if [ "$(field '(d["reviewer"]["agent"], d["reviewer"]["model"], d["reviewer"]["effort"], d["reviewer"]["from"])' <<<"$out")" = "('codex', 'the-usual', 'high', '.lem/settings.toml')" ] \
   && [ "$(project --repo "$OLD" show | field 'd["seats"]["planner"]["model"]')" = 'my"own"-🚀\x' ] && ! grep -q "^reviewer" "$OLD/.lem/settings.local.toml"; then
   pass "reviewer default gives the project's reviewer back and keeps what else the machine set, character for character"
 else
@@ -602,18 +602,18 @@ if [ ! -e "$OLD/.lem/settings.local.toml" ]; then pass "a local file with nothin
 # One machine may name its own defender and experts too, read from the main checkout, and a rewrite of the reviewer's seat keeps them.
 settings '[branch]' 'base = "master"' '[seats]' 'planner = "claude/the-usual:high"'
 printf '%s\n' '[seats]' 'planner = "claude/a-local-model:max"' 'experts = ["claude/opus:high", "codex/gpt-6.1-sol:high"]' > "$OLD/.lem/settings.local.toml"
-local_seat=$(project --repo "$WORK/wt" show | field '(d["seats"]["planner"], [e["seat"] for e in d["seats"]["experts"]], d["local"]["overrides"])' 2>&1 || true)
+local_seat=$(project --repo "$WORK/wt" show | field '(d["seats"]["planner"], [(e["seat"], e["from"]) for e in d["seats"]["experts"]], d["local"]["overrides"])' 2>&1 || true)
 project --repo "$OLD" reviewer codex/gpt-6.2-sol:high >/dev/null 2>&1 || true
-both=$(project --repo "$OLD" show | field '(d["seats"]["planner"]["model"], d["seats"]["reviewer"]["agent"], len(d["seats"]["experts"]), d["local"]["overrides"])' 2>&1 || true)
+both=$(project --repo "$OLD" show | field '(d["seats"]["planner"]["model"], d["seats"]["reviewer"]["agent"], len(d["seats"]["experts"]), [d["seats"][which]["from"] for which in ("reviewer", "planner")])' 2>&1 || true)
 project --repo "$OLD" reviewer default >/dev/null 2>&1 || true
-kept=$(project --repo "$OLD" show | field '(d["seats"]["planner"]["model"], d["local"]["overrides"])' 2>&1 || true)
+kept=$(project --repo "$OLD" show | field '(d["seats"]["planner"]["model"], d["seats"]["reviewer"]["from"])' 2>&1 || true)
 printf '%s\n' '[seats]' 'planner = "codex"' > "$OLD/.lem/settings.local.toml"
 err=$(project --repo "$OLD" reviewer claude/opus:high 2>&1 || true)
-if [ "$local_seat" = "({'agent': 'claude', 'model': 'a-local-model', 'effort': 'max', 'seat': 'claude/a-local-model:max', 'from': '.lem/settings.local.toml'}, ['claude/opus:high', 'codex/gpt-6.1-sol:high'], ['seats.planner', 'seats.experts'])" ] \
-  && [ "$both" = "('a-local-model', 'codex', 2, ['seats.reviewer', 'seats.planner', 'seats.experts'])" ] && [ "$kept" = "('a-local-model', ['seats.planner', 'seats.experts'])" ] \
+if [ "$local_seat" = "({'agent': 'claude', 'model': 'a-local-model', 'effort': 'max', 'seat': 'claude/a-local-model:max', 'from': '.lem/settings.local.toml'}, [('claude/opus:high', '.lem/settings.local.toml'), ('codex/gpt-6.1-sol:high', '.lem/settings.local.toml')], [])" ] \
+  && [ "$both" = "('a-local-model', 'codex', 2, ['.lem/settings.local.toml', '.lem/settings.local.toml'])" ] && [ "$kept" = "('a-local-model', \"Lem's default\")" ] \
   && grep -qF "project.py: .lem/settings.local.toml: seats.planner = 'codex': the agent 'codex' must be claude" <<<"$err" \
   && [ "$(cat "$OLD/.lem/settings.local.toml")" = "$(printf '%s\n' '[seats]' 'planner = "codex"')" ]; then
-  pass "the machine's own file may name the defender's seat and the experts, which replace the project's whole and show says so; reviewer keeps them through a rewrite, and refuses a wrong one already there, leaving the file as it was"
+  pass "the machine's own file may name the defender's seat and the experts, which replace the project's whole and their from says so; reviewer keeps them through a rewrite, and refuses a wrong one already there, leaving the file as it was"
 else
   fail "the defender's seat in the local file: $local_seat / $both / $kept / $err"
 fi

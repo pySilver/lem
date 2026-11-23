@@ -97,11 +97,12 @@ A persona names its own seats in the frontmatter of its file, in the same form:
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `seats.reviewer` | `"codex/gpt-6.2-sol:high"`, or `"claude/opus:high"` without Codex | the reviewer of the plan talk |
-| `seats.planner` | `"claude/opus:high"` | the defender of the plan in the plan talk: only `claude` |
+| `seats.reviewer` | the seat in `~/.config/lem/settings.toml`, else `"claude/opus:high"`. `/lem init` writes `"codex/gpt-6.2-sol:high"`, or `"claude/opus:high"` without Codex | the reviewer of the plan talk |
+| `seats.planner` | the seat in `~/.config/lem/settings.toml`, else `"claude/opus:high"` | the defender of the plan in the plan talk: only `claude` |
 | `seats.merger` | the seat in `~/.config/lem/settings.toml`, else `"claude/opus:high"` | the merge agent: `claude` or `codex` |
 | `seats.session` | the seat in `~/.config/lem/settings.toml`, else `"claude/opus:high"` | the agent of the session of each task: only `claude` |
-| `seats.experts` | `["claude/fable:high", "codex/gpt-6.2-astra:high"]` | the experts of a decision in doubt. Without Codex, one answers alone |
+| `seats.experts` | the list in `~/.config/lem/settings.toml`, else `["claude/fable:high", "codex/gpt-6.2-astra:high"]` | the experts of a decision in doubt. Without Codex, one answers alone |
+| `seats.fallback` | the line in `~/.config/lem/settings.toml`, else `"claude/opus:high"` | the seat that Lem starts in place of the reviewer, the planner or the merge agent when its agent gives an error. Write all three parts. `false` turns the fallback off, and then the task waits for you |
 
 ### `[naps]`
 

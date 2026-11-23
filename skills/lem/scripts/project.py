@@ -223,14 +223,13 @@ the one map): a table in another file is refused, and the refusal names the file
 `settings.toml` files hold the rest, and for a setting that more than one of them may hold, the
 nearest that holds it wins: `.lem/settings.local.toml`, then `.lem/settings.toml`, then the home
 folder's `settings.toml`, then Lem's default. `show` names in `from` the file each such value came
-from: each seat, each expert, `naps.on` and `state.keep_days`. It gives `corrections.collect`, the
+from: each seat, each expert, the fallback, `naps.on` and `state.keep_days`. It gives `corrections.collect`, the
 machine's yes or no to the correction queue, with `from` too: `machine.toml`, which `lem corrections
 collect yes|no` writes, or Lem's default, which is no, and which `/lem init` asks about.
 
-The home folder's `settings.toml` is the developer's own for every repository on the machine: the
-merge agent's and a task session's seats (`[seats]` with `merger` and `session` only, `HOME_KEYS`),
-and the question page's defaults (`[ask]`, which only that page reads; here only its keys are
-checked). What guards a team's repository (`[flow]`, `[checks]`, `[branch]`, `[paths]`,
+The home folder's `settings.toml` is the developer's own for every repository on the machine: each
+seat and the fallback (`[seats]`), and the question page's defaults (`[ask]`, which only that page
+reads; here only its keys are checked). What guards a team's repository (`[flow]`, `[checks]`, `[branch]`, `[paths]`,
 `[tracker]`) is valid in the team's file only. `keep_days` is a repository's (the owner,
 2026-11-21), and so is the naps' switch: this file refuses `[state]` and `[naps]` too.
 
@@ -293,21 +292,27 @@ A seat is one string, `agent/model:effort`: `seats.reviewer`, the agent in the r
 `seats.planner`, the defender of a plan talk; `seats.merger`, the merge agent, which reads each
 proposed task and merges it or calls the owner; `seats.session`, the agent of each task's own
 session (`lem session open`), only `claude` for now; and `seats.experts`, the one or two experts, the
-last level of the ladder of a decision in doubt. Each seat is the local file's when it names one,
-else the team's; the merge agent's and the session's are then the developer's own for all his
-repositories (`[seats] merger` and `session` in the home folder's `settings.toml`), else Lem's
-default, `claude/opus:high` (`SEAT_DEFAULT`). `show` gives each seat and each expert with `from`,
-the file it came from, or "Lem's default". `show` marks each expert `here` when its agent is on this
+last level of the ladder of a decision in doubt. Each seat comes from the first of four places that
+names it: this machine's own file for the repository (`.lem/settings.local.toml` of the main
+checkout), the team's file (the branch's copy in a task's worktree), the developer's own file for
+all his repositories (`[seats]` of the home folder's `settings.toml`, `lem_state.home_settings_file()`), else Lem's
+default (`DEFAULT_SEATS`: `claude/opus:high` for the reviewer, the defender, the merge agent and the
+session, and `EXPERTS`). A file's seat replaces the ones after it whole, and the experts' list too.
+`show` gives each seat, and each expert, with `from`: the file's name as above, or `Lem's default`.
+`seats.fallback`, from the same four places, is the seat that stands in for the reviewer, the
+defender or the merge agent when its agent gives an error: a whole seat turns it on, `false` turns
+it off, and with no line in any place it is `claude/opus:high` (`FALLBACK`); `show` gives it as a
+seat with `from`, or as `{"seat": false, "from": ...}`. The experts and the session take no
+fallback. `show` marks each expert `here` when its agent is on this
 machine (Claude Code always, Codex when its command is on PATH): only those answer, so without
-Codex the default's one Claude expert answers alone. The reviewer's, the defender's and each
-expert's seat is written whole, and `show` and `reviewer` refuse one that leaves out its model or its
-effort (the owner, 2026-11-18: "I think it should be explicitly `agent/model:effort` in all 3; not
-simply "claude" or "codex""); `init` writes the three so. The merge agent's and the session's seat
-may leave out the effort (`claude/opus`), and the model too (`claude`, `claude:high`): the part
-a named seat leaves out is that agent's own default, and Lem passes nothing for it. `show`
-gives each seat parsed, as `agent`, `model`, `effort` and the `seat` as written; a file with no
-planner or no experts gets Lem's (`PLANNER`, `EXPERTS`), and one with no reviewer gets none, which
-the stage that needs it asks the owner for.
+Codex the default's one Claude expert answers alone. The reviewer's, the defender's, each
+expert's and the fallback's seat is written whole, in each of the three files, and `show` and
+`reviewer` refuse one that leaves out its model or its effort (the owner, 2026-11-18: "I think it
+should be explicitly `agent/model:effort` in all 3; not simply "claude" or "codex""); `init` writes
+the three so. The merge agent's and the session's seat may leave out the effort (`claude/opus`), and
+the model too (`claude`, `claude:high`): the part a named seat leaves out is that agent's own
+default, and Lem passes nothing for it. `show` gives each seat parsed, as `agent`, `model`, `effort`
+and the `seat` as written, with its `from`.
 
 A plan's file is named by `paths.plan_file`, a pattern of the tokens `YYYY`, `MM`, `DD` and
 `<slug>`, `YYYY-MM-DD-<slug>.md` unless the settings say otherwise. A task's plan is found by it:
@@ -452,10 +457,6 @@ LOCAL = lem_state.LOCAL_SETTINGS
 # the tables one machine may set for itself in one repository; of [naps] only `on = false`, and of
 # [state] its one key, `keep_days` (`lem_state.TABLE_PLACES`)
 LOCAL_TABLES = tuple(table for table, places in lem_state.TABLE_PLACES.items() if "local" in places)
-# The keys a table of the home folder's `settings.toml` may hold, where it holds fewer than its own:
-# of the seats, the merge agent's and a task session's, which keep their rules of today (decision 3 of
-# the plan of one-home-folder-for-lem, 2026-11-23).
-HOME_KEYS = {"seats": ("merger", "session")}
 # What Lem reads beside its settings, each in one place with no setting (the owner's note of
 # 2026-11-18 on the plan, task 1b of docs/plans/2026-11-18-core-and-two-modes.md): Lem's own files,
 # the rules for the code in the folder Claude Code loads by itself, the review tool's folder, and the
@@ -499,9 +500,8 @@ REVIEWERS = ("claude", "codex")
 # it starts. The three seats of WHOLE_SEATS are written whole (the owner, 2026-11-18: "I think it
 # should be explicitly `agent/model:effort` in all 3; not simply "claude" or "codex""); a part left out
 # of the merge agent's or a task session's seat is the agent's own default, and Lem passes nothing for it;
-# a seat nobody names is SEAT_DEFAULT, written whole.
+# a seat nobody names is Lem's own (DEFAULT_SEATS), written whole.
 SEAT_FORM = "agent/model:effort"
-SEAT_KEYS = ("agent", "model", "effort")
 WHOLE_SEATS = ("reviewer", "planner", "experts")
 # The defender's seat: the agent Lem starts in the companion of a plan talk, which defends the
 # plan against the reviewer. Only Claude Code, because the harness was checked in no other agent.
@@ -510,6 +510,10 @@ PLANNER = "claude/opus:high"
 # The reviewer's seat that `init` writes for each agent: Codex when the machine has it, since two
 # model families disagree more usefully than one family twice, and Claude otherwise.
 REVIEWER_SEATS = {"codex": "codex/gpt-6.2-sol:high", "claude": "claude/opus:high"}
+# The reviewer's seat when no file names one: Claude, which is where Lem runs, so that a repository
+# that names none has a reviewer on every machine (the owner, 2026-11-23, in the ask of the task
+# seat-defaults-and-fallback: "`claude/opus:high` is used to review plans").
+REVIEWER = "claude/opus:high"
 # The experts, the last level of the ladder of a decision in doubt: one or two seats, each named by its
 # place, `fable` for the first seat and `astra` for the second, whatever model sits there, so that a
 # record (`advisers` of `decisions.py log --by experts`) says one expert or two. The default is the newest Fable of
@@ -531,10 +535,16 @@ SEATS = {
 # The merge agent's and a task session's seat when no file names one (the owner, 2026-11-22:
 # "`seats.merger`, `seats.session` should default to `claude/opus:high`").
 SEAT_DEFAULT = "claude/opus:high"
-# The seats that take the developer's own for all his repositories (the home folder's `settings.toml`)
-# when the repository names none, and SEAT_DEFAULT when he names none either.
-HOME_SEATS = HOME_KEYS["seats"]
-# Where a value came from when no file names it: a seat, an expert, `naps.on`, `state.keep_days`.
+# Lem's own seat of each of SEATS, the last of its four places (`seat_of`): this machine's own file for
+# the repository, the team's file, the developer's file for all his repositories (the home folder's
+# `settings.toml`), then this.
+DEFAULT_SEATS = {"reviewer": REVIEWER, "planner": PLANNER, "merger": SEAT_DEFAULT, "session": SEAT_DEFAULT}
+# The seat that stands in for the reviewer, the planner or the merge agent when its agent gives an
+# error, from the same four places; `false` in one turns the fallback off. On unless a file says
+# otherwise (the owner, 2026-11-23: "and keep fallback: on (default)"; of the key: "y, one key").
+FALLBACK = "claude/opus:high"
+# Where a value came from when no file names it: a seat, an expert, the fallback, `naps.on`,
+# `state.keep_days`.
 DEFAULT_FROM = "Lem's default"
 # A plan's file name: its default, and its tokens; `lem_plans` builds and finds the name.
 PLAN_FILE = lem_plans.PLAN_FILE
@@ -606,7 +616,7 @@ TABLES: dict[str, tuple[str, ...]] = {
     "branch": ("base", "land", "history", "protected"),
     "checks": ("commands", "setup", "serial"),
     "flow": ("topics",),
-    "seats": ("reviewer", "planner", "merger", "session", "experts"),
+    "seats": ("reviewer", "planner", "merger", "session", "experts", "fallback"),
     "tracker": ("kind",),
     "naps": ("on",),
     "state": ("keep_days",),
@@ -734,9 +744,12 @@ serial = []
 topics = []
 
 [seats]
-# Who sits where, each as "agent/model:effort". The reviewer, the planner and each expert are
-# written whole: Lem refuses "codex" or "codex/gpt-6.2-sol" there. A part left out of the merger
-# or the session ("claude", "claude:high") takes that agent's own default.
+# Who sits where, each as "agent/model:effort". The reviewer, the planner, each expert and the
+# fallback are written whole: Lem refuses "codex" or "codex/gpt-6.2-sol" there. A part left out of
+# the merger or the session ("claude", "claude:high") takes that agent's own default. Each seat comes
+# from the first file that names it: .lem/settings.local.toml, this file, the developer's
+# ~/.config/lem/settings.toml for all his repositories, then Lem's own, "claude/opus:high" for each
+# seat but the experts.
 # The reviewer, on the agent "claude" or "codex". Lem's builders build; this one talks the plan of
 # a careful or large task through with its defender, in the other pane of the pair the task's lead
 # opens for the talk. The same family twice is allowed.
@@ -746,17 +759,19 @@ reviewer = "{reviewer}"
 # now.
 planner = "{planner}"
 # The merge agent, which reads each proposed task and merges it or calls the owner: "claude" or
-# "codex", read-only. Left out, it is the seat the developer names for all his repositories
-# (`[seats] merger` in ~/.config/lem/settings.toml), else "claude/opus:high".
+# "codex", read-only.
 # merger = "agent/model:effort"
-# The agent of each task's own session in agterm: "claude" only for now. Left out, it is the seat the
-# developer names for all his repositories (`[seats] session` in ~/.config/lem/settings.toml), else
-# "claude/opus:high".
+# The agent of each task's own session in agterm: "claude" only for now.
 # session = "agent/model:effort"
 # The experts, the last level of the ladder of a decision in doubt, at the same moment and read-only: two
 # model families, so that their agreement is worth more than two of one. Where the machine has one
 # of their agents, that expert answers alone.
 experts = [{experts}]
+# The seat that stands in for the reviewer, the planner or the merge agent when its agent gives an
+# error (it is not on the machine, or says it has no login, no tokens or no such model), so that the
+# task goes on and the pull request says so. false turns it off: the task then waits for the owner.
+# Left out, it is "claude/opus:high".
+# fallback = "agent/model:effort"
 
 # The tracker a task's ask may come from: "linear" or "github". Leave it out when the project has
 # none. Lem reads a ticket into a task, marks it when its work starts, and comments the landing.
@@ -927,8 +942,8 @@ DIFFERS_SAID: list[bool] = []
 
 def settings_of(text: str, name: Path | str, place: str) -> dict:
     """The text of one settings file as a dict, checked as `read_settings` says: a table Lem does not
-    know, a table whose place is another file (named in the refusal), and a key the table may not
-    hold there are refused."""
+    know, a table whose place is another file (named in the refusal), and a key the table does not
+    have are refused."""
     try:
         raw = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
@@ -944,12 +959,6 @@ def settings_of(text: str, name: Path | str, place: str) -> dict:
         for key in body:
             if key not in TABLES[table]:
                 raise SettingsError(f"{name}: unknown key {table}.{key}{nearest(key, TABLES[table])}")
-            if place == "home" and key not in HOME_KEYS.get(table, TABLES[table]):
-                others = [one for one in ("team", "local") if one in lem_state.TABLE_PLACES[table]]
-                raise SettingsError(
-                    f"{name}: {table}.{key} is not valid in this file, which holds only {' and '.join(HOME_KEYS[table])} of [{table}]: "
-                    f"its place is {' or '.join(lem_state.place_name(one) for one in others)}",
-                )
     return raw
 
 
@@ -1023,20 +1032,68 @@ def home_name() -> str:
     return lem_state.shown(lem_state.home_settings_file())
 
 
-def seat_of(which: str, raw: dict, local: dict, home: dict) -> dict:
-    """One seat, with `from`, the file it came from: the local file's, else the team's, else, for a
-    seat of HOME_SEATS, the home folder's `settings.toml`, else Lem's default (PLANNER, SEAT_DEFAULT,
-    or no reviewer). Each file's seat is checked, the ones a nearer file wins over too."""
-    team, own = seat(raw, SETTINGS, which), seat(local, LOCAL, which)
-    mine = seat(home, Path(home_name()), which) if which in HOME_SEATS else None
-    for found, where in ((own, str(LOCAL)), (team, str(SETTINGS)), (mine, home_name())):
-        if found is not None:
-            return {**found, "from": where}
-    if which == "planner":
-        return {**seat({"seats": {which: PLANNER}}, Path(DEFAULT_FROM), which), "from": DEFAULT_FROM}
-    if which in HOME_SEATS:
-        return {**parse_seat(SEAT_DEFAULT, DEFAULT_FROM, *SEATS[which]), "from": DEFAULT_FROM}
-    return {**{key: None for key in SEAT_KEYS}, "seat": None, "from": DEFAULT_FROM}
+def places_of(local: dict, raw: dict, home: dict) -> list[tuple[dict, Path]]:
+    """The three files a seat may come from, first to last, each as its tables and the name `from`
+    gives it: this machine's own file for the repository, the team's file, and the developer's file
+    for all his repositories, the home folder's `settings.toml`."""
+    return [(local, LOCAL), (raw, SETTINGS), (home, Path(home_name()))]
+
+
+def first_of(found: list[tuple[object, Path]]) -> tuple[object, str]:
+    """The first value a place gives, with that place's name as `from`; else None, from Lem's default."""
+    for value, name in found:
+        if value is not None:
+            return value, str(name)
+    return None, DEFAULT_FROM
+
+
+def seat_of(which: str, local: dict, raw: dict, home: dict) -> dict:
+    """One seat of SEATS with `from`, the place it came from: the first of the three files that
+    names it (`places_of`), else Lem's own (DEFAULT_SEATS). Each file's seat is checked, the ones
+    after the first too, so that a wrong line is refused wherever it is."""
+    found = [(seat(tables, name, which), name) for tables, name in places_of(local, raw, home)]
+    chosen, place = first_of(found)
+    if chosen is None:
+        chosen = seat({"seats": {which: DEFAULT_SEATS[which]}}, Path(DEFAULT_FROM), which)
+    return {**chosen, "from": place}
+
+
+def experts_from(local: dict, raw: dict, home: dict) -> list[dict]:
+    """The experts with `from` on each, from the first of the three files that names them, else
+    Lem's (EXPERTS). A file's list replaces the one after it whole."""
+    found = [(experts_of(tables, name), name) for tables, name in places_of(local, raw, home)]
+    chosen, place = first_of(found)
+    if chosen is None:
+        chosen = experts_of({"seats": {"experts": list(EXPERTS)}}, Path(DEFAULT_FROM))
+    return [{**expert, "from": place} for expert in chosen]
+
+
+def fallback_of(raw: dict, name: Path) -> dict | None:
+    """The fallback one file names, checked: a whole seat, which turns it on, or `false`, which turns
+    it off; None when the file names none."""
+    given = raw.get("seats", {}).get("fallback")
+    if given is None:
+        return None
+    if given is False:
+        return {"seat": False}
+    where = f"{name}: seats.fallback"
+    form = (f'a whole seat, "{SEAT_FORM}", as "{FALLBACK}", which stands in for the reviewer, the planner or the merger '
+            "when its agent gives an error, or false, which turns the fallback off")
+    if given is True:
+        raise SettingsError(f"{where} = true is no seat: it is {form}. Leave the line out for Lem's, \"{FALLBACK}\"")
+    if isinstance(given, str) and not given.strip():
+        raise SettingsError(f"{where} is empty: it is {form}. Leave the line out for Lem's, \"{FALLBACK}\"")
+    return parse_seat(given, where, REVIEWERS, "the agents Lem can start in a seat's place", FALLBACK, True)
+
+
+def fallback_from(local: dict, raw: dict, home: dict) -> dict:
+    """The fallback with `from`, from the first of the three files that names it, else Lem's
+    (FALLBACK): `{"seat": false, "from": ...}` when it is off."""
+    found = [(fallback_of(tables, name), name) for tables, name in places_of(local, raw, home)]
+    chosen, place = first_of(found)
+    if chosen is None:
+        chosen = fallback_of({"seats": {"fallback": FALLBACK}}, Path(DEFAULT_FROM))
+    return {**chosen, "from": place}
 
 
 def agent_here(agent: str) -> bool:
@@ -1241,18 +1298,11 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
     if base in protected:
         raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
 
-    # A nearer seat replaces a farther one whole: its model and effort belong to its own agent.
-    seats: dict = {}
-    for which in SEATS:
-        seats[which] = seat_of(which, raw, local, home or {})
-        if seats[which]["from"] == str(LOCAL):
-            overridden.append(f"seats.{which}")
-    team_experts, local_experts = experts_of(raw, SETTINGS), experts_of(local, LOCAL)
-    experts, where = (local_experts, str(LOCAL)) if local_experts is not None else (team_experts, str(SETTINGS)) if team_experts is not None else (
-        experts_of({"seats": {"experts": list(EXPERTS)}}, Path(DEFAULT_FROM)), DEFAULT_FROM)
-    seats["experts"] = [{**expert, "from": where} for expert in experts]
-    if local_experts is not None:
-        overridden.append("seats.experts")
+    # Each seat is the first of its four places, whole: a model and an effort belong to the agent of the
+    # line they are on. `from` names the place, so the seats stay out of `local.overrides`.
+    seats: dict = {which: seat_of(which, local, raw, home or {}) for which in SEATS}
+    seats["experts"] = experts_from(local, raw, home or {})
+    seats["fallback"] = fallback_from(local, raw, home or {})
     # the machine's own switch of the correction queue, which no file of a repository may hold; with no
     # line it is Lem's default, no, and the hook sends nothing
     machine_corrections = (machine or {}).get("corrections", {})
@@ -1314,7 +1364,7 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         # read from the main checkout's settings, in a task's worktree too, or from this machine's own
         # file; `from` names which, as each seat's does
         "state": state,
-        # what this machine set for itself, so a report can say that the reviewer is not the project's
+        # what this machine set for itself in the tables that are not seats; a seat's `from` says it of the seat
         "local": {"file": str(local_file) if local_file.is_file() else None, "overrides": overridden},
     }
 
@@ -1432,9 +1482,10 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     # refused with its fix, and the file stays as the owner left it.
     local_naps_off(local)
     local_keep_days(local)
-    seat(local, LOCAL, "reviewer")
-    seat(local, LOCAL, "planner")
+    for which in SEATS:
+        seat(local, LOCAL, which)
     experts_of(local, LOCAL)
+    fallback_of(local, LOCAL)
     if words == ["default"]:
         local.get("seats", {}).pop("reviewer", None)
     else:
