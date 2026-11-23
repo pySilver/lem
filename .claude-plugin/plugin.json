@@ -1,6 +1,6 @@
 {
   "name": "lem",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Lem coordinates the agents that write code in one repository: /lem and an ask, builders, machine checks, a review, and a pull request that says green or not green.",
   "author": {
     "name": "Silver"
