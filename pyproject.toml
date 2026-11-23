@@ -135,6 +135,7 @@ allowed-confusables = ["’", "–", "×", "›"]
     "RUF012", # a test class holds its fixtures as plain attributes
     "S108", # a path in /tmp is a text of a test, never a file
     "S604", # a suite runs the shell line it checks
+    "E501", # a test's name is its sentence, and a fixture is a text as it is; ruff format still wraps the code
 ]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]

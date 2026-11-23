@@ -723,7 +723,7 @@ def brief_text(
     the one whose scripts it runs."""
     return "\n".join(
         [
-            "Read `skills/lem/prompts/session.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.",
+            "Read `skills/lem/prompts/session.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.",  # noqa: E501 - tests/unit/test_session.py reads this line whole (BRIEF_LINE)
             "",
             f"task: {slug}",
             f"phase: {phase}",

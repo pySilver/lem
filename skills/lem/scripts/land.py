@@ -7640,7 +7640,7 @@ def cmd_merge_review(
             "\n".join(
                 [
                     # by its place in the plugin, never by this Lem's folder, which an update of the plugin replaces
-                    "Read `skills/lem/prompts/merge.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check. Your reply is the review, in the form that file gives, and nothing else.",
+                    "Read `skills/lem/prompts/merge.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check. Your reply is the review, in the form that file gives, and nothing else.",  # noqa: E501 - tests/unit/test_session.py reads this line whole (BRIEF_LINE)
                     "",
                     "The facts of this task, as `lem land merge-review` gave them:",
                     "",
