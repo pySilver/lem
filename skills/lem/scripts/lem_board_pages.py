@@ -170,6 +170,9 @@ class Ctx:
     landing_of: object = lambda slug: {}
     merging: set = field(default_factory=set)
     note: dict | None = None
+    # the end on record of a card of a task's session (`lem_cards.ended`), for the step of a card that no
+    # longer waits: what took effect
+    card_end: object = lambda slug, page: None
     _forge: object = False
 
     @property
@@ -198,10 +201,11 @@ def under_query(ctx: Ctx, under: str | None = None) -> str:
 
 
 def task_href(ctx: Ctx, slug: str, tab: str = "overview", file: str | None = None, under: str | None = None) -> str:
-    """Where a task opens: `/HOST/WORKSPACE/tasks/SLUG`, a tab after it, and for an artifact its path,
+    """Where a task opens: `/HOST/WORKSPACE/tasks/SLUG`, a tab after it (`card/PAGEID` for the step of a
+    card), and for an artifact its path,
     each part encoded, with a slash at its end, so that no address ends in an extension Turbo refuses to
     visit (`report.md/`); the view under the panel in the query."""
-    path = f"{ctx.base}/tasks/{quote(slug, safe='')}" + ("" if tab == "overview" and not file else f"/{quote(tab, safe='')}")
+    path = f"{ctx.base}/tasks/{quote(slug, safe='')}" + ("" if tab == "overview" and not file else f"/{quote(tab, safe='/')}")
     if file:
         path += "/" + "/".join(quote(part, safe="") for part in file.split("/")) + "/"
     return path + under_query(ctx, under)
@@ -1031,7 +1035,8 @@ def verb_link(ctx: Ctx, w: dict, say: dict) -> dict:
 
 def row_acts(ctx: Ctx, w: dict) -> Markup | None:
     """The buttons of a row of "Waits for you": the way to criteria that wait for the owner's yes, which he
-    gives under their text, the way to a merge's confirm step, the way to park a task whose breaker waits, and
+    gives under their text, the way to a merge's confirm step, the way to park a task whose breaker waits, the
+    way to a card of the task's session, and
     "Open a session" for a task stuck with none or whose session stopped. None on a page that may not act, and for a row with no act."""
     if not ctx.can_act:
         return None
@@ -1048,6 +1053,8 @@ def row_acts(ctx: Ctx, w: dict) -> Markup | None:
                    else act_link(ctx, t.slug, "merge", "Merge…", "pull", "risk", "waits", frame=True))
     if w["kind"] == "breaker" and "park" in acts:
         out.append(act_link(ctx, t.slug, "park", "Park it…", "park", "", "waits", frame=True))
+    if w["kind"] == "card":
+        out.append(h("a", {"class": "btn go", **frame_link(ctx, task_href(ctx, t.slug, f"card/{w['c']['page']}", under="waits"))}, icon(ctx, "user"), h("span", None, "Answer the card…")))
     if w["kind"] in ("session", "stopped") and bm.opens_session(t, ctx.model):
         out.append(act_form(ctx, t.slug, "session", "Open a session", "play", "go", "Opening…", {"in": "waits"}))
     return h("div", {"class": "wr-acts"}, out) if out else None

@@ -50,6 +50,7 @@ from urllib.parse import quote
 
 import lem_artifacts
 import lem_board_model as bm
+import lem_cards
 import lem_board_pages as P
 from lem_html import Markup, h, join, page
 
@@ -528,6 +529,22 @@ def merge_review_card(ctx, t: bm.Task) -> Markup | None:
              h("div", {"class": "b-lines"}, h("div", {"class": "b-line"}, link)))
 
 
+def cards_card(ctx, t: bm.Task) -> Markup | None:
+    """Each `lem-ask` card the task's live session waits on (`bm.open_cards`), first on the Overview: its
+    question, since when, and on a page that may act the way to answer it on the board."""
+    found = bm.open_cards(t, ctx.model)
+    if not found:
+        return None
+    rows_ = []
+    for c in found:
+        go = ctx.can_act and h("a", {"class": "btn go", **P.frame_link(ctx, P.task_href(ctx, t.slug, f"card/{c['page']}"))}, P.icon(ctx, "user"), h("span", None, "Answer the card…"))
+        rows_.append(row(ctx, f"card-{c['page']}", "you", "user",
+                         [h("b", None, P.rich(ctx, bm.cap(c["prompt"] or "The task’s session asks you"))), " ",
+                          sub("Answer it here or in the task’s session at the Mac. A question back goes to the session."), go and h("div", {"class": "wl-actions"}, go)],
+                         P.since(c["since"], ctx.model.now)))
+    return card("cards", "The task’s session asks you", f"{bm.plural(len(found), 'card')} {'waits' if len(found) == 1 else 'wait'} for your answer", rows_, "a-you")
+
+
 def now_card(ctx, t: bm.Task) -> Markup:
     """What runs now, or what waits for the owner, with where he answers, under the task's first line
     while the block that said it is the task's newest."""
@@ -715,7 +732,7 @@ def overview_tab(ctx, t: bm.Task) -> list:
     if t.summary is not None:
         # no phases and no stats: their checks, review and decisions went with the events, and would read as none
         return [summary_card(ctx, t), building(ctx, t), verdict(ctx, t), now_card(ctx, t)]
-    return [merge_review_card(ctx, t), parked_card(ctx, t), breaker_card(ctx, t), building(ctx, t), verdict(ctx, t), now_card(ctx, t), progress(ctx, t)]
+    return [cards_card(ctx, t), merge_review_card(ctx, t), parked_card(ctx, t), breaker_card(ctx, t), building(ctx, t), verdict(ctx, t), now_card(ctx, t), progress(ctx, t)]
 
 
 # ---- Criteria and decisions ----
@@ -1451,6 +1468,26 @@ def park_step(ctx, t: bm.Task) -> list:
     return [confirm_card("card confirm a-you", "Park: confirm", h("div", {"class": "eyebrow"}, f"Park · breaker {b.id}"), body, acts, ctx.can_act)]
 
 
+def card_step(ctx, t: bm.Task, page_id: str) -> list:
+    """The step of a card of the task's session: the card's own page as `lem-ask` built it, in a frame of
+    the board (serve.py's `card_page`), which posts its answer itself and shows what the board said; on a
+    phone's screen an overlay of the whole screen (`sheet`), as a park's step is. A card that no longer
+    waits says what took effect, and a page that may not act says where to answer."""
+    c = next((c for c in bm.open_cards(t, ctx.model) if c["page"] == page_id), None)
+    if c is None:
+        end = ctx.card_end(t.slug, page_id)
+        said = (f"{bm.cap(lem_cards.took_effect(end))}. This card no longer waits for you." if end
+                else "This card no longer waits for you: the session that put it up no longer runs, or it holds no such card.")
+        return not_now(ctx, t, said)
+    if not ctx.can_act:
+        return not_now(ctx, t, "Answer this card on the board on the Mac the task runs on or through its tailnet door, or in the task’s session there.")
+    src = f"{ctx.base}/tasks/{quote(t.slug, safe='')}/cards/{quote(page_id, safe='')}/"
+    frame = h("iframe", {"class": "card-frame", "id": f"card-frame-{page_id}", "src": src, "title": c["prompt"] or "The card of the task’s session"})
+    foot = h("div", {"class": "act-row"}, act_back(ctx, t, "Back"), h("span", {"class": "sub"}, "A question back goes to the task’s session, at the Mac."))
+    return [confirm_card("card confirm a-you card-step", "A card of the task’s session", h("div", {"class": "eyebrow"}, "Card · the task’s session asks"),
+                         [frame], foot, True, card_id="card-step")]
+
+
 def panel(ctx) -> Markup:
     """The panel of the task the address names, with the tab it names; NotFound for a task the log does
     not hold, a tab that is none, or an artifact the task does not have."""
@@ -1459,7 +1496,8 @@ def panel(ctx) -> Markup:
     ctx.scope = "task"
     try:
         t = next((x for x in m.tasks if x.slug == slug), None)
-        if ctx.tab not in TAB and ctx.tab not in ACT_TABS:
+        asked = ctx.tab.removeprefix("card/") if ctx.tab.startswith("card/") else None
+        if ctx.tab not in TAB and ctx.tab not in ACT_TABS and not asked:
             raise NotFound(f"A task has no tab {ctx.tab!r}: its tabs are {', '.join(TAB)}.")
         if t is None:
             early = m.by_slug.get(slug)
@@ -1473,10 +1511,10 @@ def panel(ctx) -> Markup:
                 body = artifacts_tab(ctx, t)
                 tab_body = h("div", {"class": "tabbody arts-panel", "id": "tb-artifacts"}, body)
             else:
-                parts = {"overview": overview_tab, "criteria": criteria_tab, "checks": checks_tab, "timeline": timeline_tab,
-                         "merge": merge_step, "park": park_step}[ctx.tab](ctx, t)
+                parts = card_step(ctx, t, asked) if asked else {"overview": overview_tab, "criteria": criteria_tab, "checks": checks_tab, "timeline": timeline_tab,
+                                                              "merge": merge_step, "park": park_step}[ctx.tab](ctx, t)
                 # the criteria tab places the act's note itself: in the approval card while that holds the button
-                tab_body = h("div", {"class": "tabbody", "id": f"tb-{ctx.tab}"}, None if ctx.tab == "criteria" else note_card(ctx, t.slug), parts)
+                tab_body = h("div", {"class": "tabbody", "id": f"tb-{ctx.tab.replace('/', '-')}"}, None if ctx.tab == "criteria" else note_card(ctx, t.slug), parts)
             inner = [head(ctx, t, t.title), tab_nav(ctx, t), tab_body]
         # an HTML page opened among the artifacts takes the panel's height: the header folds as on a phone
         page_open = t is not None and ctx.tab == "artifacts" and ctx.file is not None and any(

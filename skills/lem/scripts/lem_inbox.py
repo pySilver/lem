@@ -17,7 +17,8 @@ What a row becomes (`things_of`, `thing_of`, pure functions over the model):
   is the commit the model's proposal names, whose `proposed` event keeps its first 9 digits, since
   `lem land merge --tip` takes 40), and the time of the task's newest state block (`block`). A row
   whose thing changes (another form, session, tip or block, or a row that no longer asks) is a new thing: the old one is withdrawn when it was a question, and the new one is sent. The
-  merge review and the merge of one task (`review:SLUG`, `merge:SLUG`) are one thing, the merge's.
+  merge review and the merge of one task (`review:SLUG`, `merge:SLUG`) are one thing, the merge's. A
+  `lem-ask` card of a task's session (`card:SLUG:PAGEID`) is no thing: the board answers it.
   While a task has a row of its own for its missing, deaf or stopped session, that row's note stands for
   the task, and its other rows wait until a session can take a reply. A row whose task's session opened
   less than the board's `GRACE_MS` ago (2 minutes) and has not yet logged its Claude Code session is
@@ -224,12 +225,12 @@ def thing_of(row: dict, m, bm, whole=None) -> dict | None:
 
 def things_of(rows: list[dict], m, bm, whole=None) -> dict:
     """The things of a workspace's rows, by key: none for a merge review (its merge's thing carries it),
-    only the session's own note for a task that has a row for its missing, deaf or stopped session, and
-    none for a row whose session cannot be told yet (`thing_of`)."""
+    none for a `lem-ask` card of a task's session, which the board answers, only the session's own note for a task that has a row for its missing, deaf or stopped
+    session, and none for a row whose session cannot be told yet (`thing_of`)."""
     without = {r["t"].slug for r in rows if r["kind"] in ("session", "stopped")}
     out = {}
     for row in rows:
-        if row["kind"] == "review" or (row["kind"] not in ("session", "stopped") and row["t"].slug in without):
+        if row["kind"] in ("review", "card") or (row["kind"] not in ("session", "stopped") and row["t"].slug in without):
             continue
         thing = thing_of(row, m, bm, whole)
         if thing is not None:

@@ -45,7 +45,7 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     # `lem project waiting` builds the board's model, and asks `lem session list` when the log has a session; every
     # command that names one task runs the release rule (lem_release.py) first
     (("skills/lem/scripts/project.py", "skills/lem/scripts/lem_state.py", "skills/lem/scripts/lem_plans.py", "skills/lem/scripts/lem_board_model.py",
-      "skills/lem/scripts/lem_release.py"),
+      "skills/lem/scripts/lem_release.py", "skills/lem/scripts/lem_cards.py"),
      ("lem-*", "test-ask-expert", "test-gate-panel")),
     (("skills/lem/scripts/lem_sibling.py", "skills/lem/scripts/decisions.py", "skills/lem/scripts/criteria.py"),
      ("lem-land-*", "lem-decisions", "lem-serial", "lem-settings", "lem-state", "lem-machine", "lem-command", "lem-picker", "test-ask-expert", "lem-board-act")),
@@ -69,7 +69,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("skills/lem/scripts/corrections.py", "skills/lem/scripts/jev.py", "hooks/*", "bin/lem-jev"), ("lem-machine", "lem-state", "lem-command")),
     (("skills/lem/scripts/doctor.py", "scripts/setup.py", ".claude-plugin/*", "agents/*"), ("lem-machine", "lem-command")),
     (("bin/lem", "skills/lem/scripts/lem_python.py"), ("lem-command", "lem-machine")),
-    (("skills/lem-ask/*", "bin/lem-ask"), ("test-ask", "lem-machine", "lem-command")),
+    # the afternoon of tests/board-showcase.py puts up its card with `lem-ask render`
+    (("skills/lem-ask/*", "bin/lem-ask"), ("test-ask", "lem-machine", "lem-command", "lem-serve", "lem-board-act", "lem-board-keys")),
     (("skills/lem-ask-expert/*",), ("test-ask-expert", "lem-command")),
     (("skills/lem-gate/*", "skills/lem-panel/*"), ("test-gate-panel", "lem-state", "lem-command")),
     # the experts' brief names the personas through the panel's cast.py; the unit level calls both scripts' functions

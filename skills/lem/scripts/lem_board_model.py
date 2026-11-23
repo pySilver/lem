@@ -28,7 +28,8 @@ when `lem project prune` put a new one in place), the owner's
 mark (`project.owner_records`), and the settings, the backlog and the meta facts through `board.py`'s
 functions, the board server's last look at the forge (FORGE_LOOK, `Model.seen`), and its record of
 what it sent to the owner's Inbox while he is away (INBOX_LOOK, `Model.inbox`, which `inbox_of` reads
-for a task's page). What does not read is a problem the page says, never an empty board.
+for a task's page), and the open `lem-ask` cards of each task's folder (`cards_look`, `Model.cards`, whose
+rows `open_cards` gives). What does not read is a problem the page says, never an empty board.
 """
 
 import json
@@ -41,6 +42,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
+
+import lem_cards
 
 # ---- the words of each status, and the lanes ----
 
@@ -199,7 +202,7 @@ OPENED = {"new": "for a new task", "handoff": "for the next phase", "dead": "in 
 # open to its agent (a guess, plan-task-4.md section 2, 2026-11-21).
 GRACE_MS = 2 * 60 * 1000
 # The merge review that calls the owner comes before the merge it is about.
-WAIT_ORDER = {"breaker": 0, "session": 0, "stopped": 0, "criteria": 1, "held": 1, "after_dropped": 1, "blocked": 1, "plan": 2, "review": 3, "merge": 4}
+WAIT_ORDER = {"breaker": 0, "session": 0, "stopped": 0, "criteria": 1, "held": 1, "card": 1, "after_dropped": 1, "blocked": 1, "plan": 2, "review": 3, "merge": 4}
 
 
 # ---- formatting ----
@@ -559,6 +562,10 @@ class Task:
     summary: dict | None = None
     # the newest `release.stop` while no state came after it (RELEASE_STOP): `began`, `running`, `branch`, `say`
     release_stop: dict | None = None
+    # each `lem-ask` card of the task's sessions with no `card.answered` or `card.closed` in the log, by its
+    # page id: its first question's prompt and when it went up. Whether it is open is its end file's to say
+    # (`Model.cards`, which the Reader reads): the event after the end only tells the stream.
+    cards: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -595,6 +602,11 @@ class Model:
     # what the board server's Inbox thread last wrote of the owner's Inbox (`inbox_look` of INBOX_LOOK): the
     # door's last look and each thing it sent; None while no server wrote it
     inbox: dict | None = None
+    # the open `lem-ask` cards of each task, by its slug, as the files of its folder say (`cards_look`):
+    # each card the log names with no end file, with its page, prompt, time and the agterm session that
+    # put it up; None while nothing read the files (`lem project waiting`, a unit case), and then no card
+    # has a row
+    cards: dict | None = None
 
 
 def decision_event(t: Task, e: dict, ts: int) -> None:
@@ -706,6 +718,13 @@ def fold(t: Task, e: dict, ts: int) -> None:
         return
     if event == "session.stopped":
         # the guard's record of a stop (`stop_stands`), read from `t.events`: no step of the task's own
+        return
+    if event == "card.asked":
+        if e.get("page"):
+            t.cards[str(e["page"])] = {"page": str(e["page"]), "prompt": str(e.get("prompt") or ""), "ts": ts}
+        return
+    if event in ("card.answered", "card.closed"):
+        t.cards.pop(str(e.get("page")), None)
         return
     if event == "session.transcript":
         t.transcripts.append({"ts": ts, "claude": e.get("claude"), "transcript": e.get("transcript"), "source": e.get("source")})
@@ -1800,7 +1819,8 @@ def conflicts(t: Task, seen: dict | None) -> bool:
 VIA = {"local": "the board, on this Mac", "door": "the board, through the tailnet door"}
 # Each act of the board, in the activity's words.
 ACTED = {"approve": "You approved the criteria from the board", "merge": "You merged it from the board", "park": "You parked the task from the board",
-         "session": "You opened a session of the task from the board", "start": "You started the task from the board"}
+         "session": "You opened a session of the task from the board", "start": "You started the task from the board",
+         "answer": "You answered a card of the task’s session from the board"}
 
 
 def acts_of(t: Task, seen: dict | None) -> list[str]:
@@ -1883,6 +1903,9 @@ def waits_of(m: Model) -> list[dict]:
         # a task its session stopped with something it cannot settle alone; not one that waits for the base's repair
         if t.status == "blocked" and not t.base_red:
             rows.append({"kind": "blocked", "key": f"blocked:{t.slug}", "t": t, "c": None, "since": t.since})
+        # a card the task's live session put up and waits on: one row for each, answered here or in the session
+        for c in open_cards(t, m):
+            rows.append({"kind": "card", "key": f"card:{t.slug}:{c['page']}", "t": t, "c": c, "since": c["since"]})
         if t.status == "planned" and re.search(r"\bowner\b", t.text):
             rows.append({"kind": "plan", "key": f"plan:{t.slug}", "t": t, "c": None, "since": t.since})
         # an open task is his only when its merge waits for him (`merge_wait`): not while the merge
@@ -1908,6 +1931,18 @@ def wait_stacks(rows: list[dict]) -> list[dict]:
             stacks.append(stack)
         stack["rows"].append(w)
     return stacks
+
+
+def open_cards(t: Task, m: Model) -> list[dict]:
+    """The `lem-ask` cards of the task that wait for the owner now, oldest first: open as its folder says
+    (`Model.cards`), and put up by the session that is the task's live one (`live_of`). A card of an
+    earlier session of the task, which a change of phase or a crash left with no waiter, has none, nor
+    has any card while nothing says which session lives."""
+    found = (m.cards or {}).get(t.slug) or []
+    f = live_of(t, m) if found else None
+    if not f or not f["live"] or not f["session"]:
+        return []
+    return [c for c in found if str(c.get("session") or "").upper() == str(f["session"]).upper()]
 
 
 def answered_in_session(w: dict, m: Model) -> bool:
@@ -1982,6 +2017,10 @@ def wait_say(w: dict) -> dict:
                          f"or type /lem drop {t.slug} there to end the task."}
     if kind == "plan":
         return {"verb": "Read the plan", "icon": "file", "to": "overview", "note": "in this state"}
+    if kind == "card":
+        return {"verb": cap(w["c"]["prompt"] or "The task’s session asks you"), "icon": "user", "to": f"card/{w['c']['page']}", "note": "since the session asked",
+                "where": "on the card, here or in the task’s session at the Mac. The board takes an answer with a note, never a conversation: "
+                         "a question back goes to the session at the Mac."}
     if kind == "review":
         return {"verb": "Read the merge review", "icon": "file", "to": "overview", "note": "since the merge agent wrote it",
                 "where": f"The merge review is the first card of the task’s Overview. {review_why(w['c'])}"}
@@ -2181,6 +2220,12 @@ SAYS = {
     "decision.breaker": lambda e: {"info": {"actor": "you", "icon": "alert"}, "head": f"The build of {e.get('task')} stopped: {e.get('what')}",
                                    "text": stop_words(Decision(id=e.get("id"), kind="breaker", ts=0, stop=e.get("cause"), irreversible=e.get("irreversible"))),
                                    "sub": f"breaker {e.get('id')} · {e.get('document') or 'breaker.md'} in the task directory"},
+    "card.asked": lambda e: {"info": {"actor": "you", "icon": "user"}, "head": "The task’s session asks you on a card", "text": e.get("prompt") or ""},
+    "card.answered": lambda e: {"info": {"actor": "done", "icon": "check"},
+                                "head": "You answered the card on the board" if e.get("from") == "board" else "You answered the card in the session",
+                                "text": VIA.get(e.get("via"), "") + (f", from the {e['device']}" if e.get("device") else "") if e.get("from") == "board" else ""},
+    "card.closed": lambda e: {"info": {"actor": "quiet", "icon": "dot"}, "head": "The card was dismissed" if e.get("status") == "dismissed" else "The card was closed",
+                              "text": "on the board" if e.get("from") == "board" else "in the session"},
     "board.act": lambda e: {"info": {"actor": "you", "icon": "user"}, "head": ACTED.get(e.get("act"), f"You acted from the board: {e.get('act')}"), "text": e.get("via") or "",
                             "sub": e.get("why") or ""},
     "decision.criterion": lambda e: {"info": {"actor": "you", "icon": "alert"}, "head": _criterion_head(e), "text": e.get("why")},
@@ -3150,6 +3195,32 @@ def log_version(inode: int, lines: int) -> str:
     return f"{inode}-{lines}"
 
 
+def cards_look(state: Path, m: Model) -> dict:
+    """The open `lem-ask` cards of each task (`Model.cards`): each card the log names with no end in it
+    (`Task.cards`) whose folder holds no end file, `cards/PAGEID.end.json` (lem_cards), with the agterm
+    session its `cards/PAGEID.json` names. A card whose files do not read has no row: its session still
+    waits for it at the Mac."""
+    out: dict[str, list[dict]] = {}
+    for t in m.tasks:
+        if t.closed or not t.cards:
+            continue
+        folder = state / "tasks" / t.slug
+        for page, c in sorted(t.cards.items(), key=lambda item: item[1]["ts"]):
+            try:
+                if lem_cards.end_file(folder, page).exists():
+                    continue
+                card = lem_cards.card(folder, page)
+            except (lem_cards.CardError, OSError):
+                continue
+            if not isinstance(card, dict):
+                continue
+            questions = card.get("questions") if isinstance(card.get("questions"), list) else []
+            first = questions[0] if questions and isinstance(questions[0], dict) else {}
+            out.setdefault(t.slug, []).append({"page": page, "prompt": str(first.get("prompt") or c["prompt"]), "since": c["ts"],
+                                               "session": card.get("session"), "chat": card.get("chat") is not False})
+    return out
+
+
 class Reader:
     """The facts of one workspace, read again only where a file changed: the event log read on from
     where the last read stopped, the owner's mark, and the settings, the meta
@@ -3324,4 +3395,5 @@ class Reader:
             if self.changed("inbox", self.state / INBOX_LOOK):
                 self.inbox = inbox_look(self.state)
             self.model.inbox = self.inbox
+            self.model.cards = cards_look(self.state, self.model)
             return self.model

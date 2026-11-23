@@ -46,9 +46,9 @@ lanes() { "$PY" -c 'import re, sys; t = sys.stdin.read(); cols = re.split(r"<sec
 server=$(got "$SERVER/api/server")
 listed=$(got "$SERVER/api/workspaces")
 if [ "$(field '(d["port"], d["config"])' <<<"$server")" = "($SERVE_PORT, '$XDG_CONFIG_HOME/lem')" ] && [ -n "$HOST" ] \
-  && [ "$(field '[(w["name"], w["url"], w["waits"], w["building"], w["checks"]) for w in d]' <<<"$listed")" = "[('shop', '/$HOST/shop/', 4, 2, 1)]" ] \
+  && [ "$(field '[(w["name"], w["url"], w["waits"], w["building"], w["checks"]) for w in d]' <<<"$listed")" = "[('shop', '/$HOST/shop/', 5, 2, 1)]" ] \
   && [ "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$SERVER/")" = "302 $BASE/" ]; then
-  pass "/api/server names the server of this home folder and the machine's name, /api/workspaces counts the tasks that wait (the four of the afternoon, refund-line-on-receipt's review and merge once), what builds and what is in its checks, and / with one workspace goes to its board"
+  pass "/api/server names the server of this home folder and the machine's name, /api/workspaces counts the tasks that wait (the five of the afternoon, refund-rounding's card among them, refund-line-on-receipt's review and merge once), what builds and what is in its checks, and / with one workspace goes to its board"
 else
   fail "the server and its workspaces: $server / $listed"
 fi
@@ -78,16 +78,16 @@ fi
 # lem project waiting lists the rows of the board's Waits for you, one for each thing, in their order, each by its key,
 # and the same things grouped by task as the board's stacks, which it counts as /api/workspaces does.
 waiting=$(project --repo "$DEMO" waiting)
-rows=$(got "$BASE/waits" | "$PY" -c 'import re, sys; print(re.findall(r"<article class=\"wrow [^\"]*\" id=\"wait-([a-z0-9-]+)\"", sys.stdin.read()))')
+rows=$(got "$BASE/waits" | "$PY" -c 'import re, sys; print(re.findall(r"<article class=\"wrow [^\"]*\" id=\"wait-([A-Za-z0-9-]+)\"", sys.stdin.read()))')
 # the rows inside the stack of refund-line-on-receipt, whose merge review calls the owner and whose merge waits for him
 stacked=$(got "$BASE/waits" | "$PY" -c 'import re, sys; m = re.search(r"(?s)<details class=\"wstack[^\"]*\" id=\"wait-stack-refund-line-on-receipt\".*?</details>", sys.stdin.read())
-print(re.findall(r"<article class=\"wrow [^\"]*\" id=\"wait-([a-z0-9-]+)\"", m[0]) if m else "no stack")')
-if [ "$(field '[r["key"].replace(":", "-") for r in d["rows"]]' <<<"$waiting")" = "$rows" ] && [ "$(field 'len(d["rows"])' <<<"$waiting")" = 5 ] \
-  && [ "$(field 'd["count"]' <<<"$waiting")" = 4 ] && [ "$(field 'd["count"]' <<<"$waiting")" = "$(field 'd[0]["waits"]' <<<"$listed")" ] \
+print(re.findall(r"<article class=\"wrow [^\"]*\" id=\"wait-([A-Za-z0-9-]+)\"", m[0]) if m else "no stack")')
+if [ "$(field '[r["key"].replace(":", "-") for r in d["rows"]]' <<<"$waiting")" = "$rows" ] && [ "$(field 'len(d["rows"])' <<<"$waiting")" = 6 ] \
+  && [ "$(field 'd["count"]' <<<"$waiting")" = 5 ] && [ "$(field 'd["count"]' <<<"$waiting")" = "$(field 'd[0]["waits"]' <<<"$listed")" ] \
   && [ "$(field '[[t["kind"] for t in e["things"]] for e in d["tasks"] if e["task"] == "refund-line-on-receipt"]' <<<"$waiting")" = "[['review', 'merge']]" ] \
   && [ "$stacked" = "['review-refund-line-on-receipt', 'merge-refund-line-on-receipt']" ] \
-  && [ "$(field '(d["sessions"]["known"], len(d["breakers"]), len(d["criteria"]))' <<<"$waiting")" = "(True, 1, 1)" ]; then
-  pass "lem project waiting lists the rows of the board's Waits for you in their order, five things, refund-line-on-receipt's two inside its stack and under its one entry of tasks, and counts four tasks, the count /api/workspaces gives"
+  && [ "$(field '(d["sessions"]["known"], len(d["breakers"]), len(d["criteria"]), [(c["task"], c["prompt"]) for c in d["cards"]])' <<<"$waiting")" = "(True, 1, 1, [('refund-rounding', 'Round each line of a refund, or only its total?')])" ]; then
+  pass "lem project waiting lists the rows of the board's Waits for you in their order, six things, refund-rounding's card among them and refund-line-on-receipt's two inside its stack and under its one entry of tasks, and counts five tasks, the count /api/workspaces gives"
 else
   fail "waiting and the board: $(field '(d["rows"], d["tasks"], d["count"])' <<<"$waiting") / $rows / the stack: $stacked"
 fi
@@ -124,6 +124,29 @@ if grep -qF 'line one &lt;b&gt;not markup&lt;/b&gt;' <<<"$art" && ! grep -qF '<b
   pass "an artifact's text reaches the page escaped, an HTML artifact comes only from the raw route under a sandbox, and the log, a lock, a path out of a task's files, an unknown task or workspace and the old page's files are not found"
 else
   fail "artifacts and what is not served: $outside / $raw_headers / ${art:0:300}"
+fi
+
+# A card of a task's session (the task board-answers-a-card, criterion 1): its row of Waits for you with its question and
+# the way to it, the card on the task's Overview, the step that frames it, and its page as lem-ask built it, under the
+# card's own policy, at its route with a slash at its end.
+CARD=4F9A1C2E-7B3D-4E8F-A1B2-C3D4E5F60718
+CT=$BASE/tasks/refund-rounding
+card_waits=$(got "$BASE/waits")
+card_overview=$(got "$CT")
+card_step=$(got "$CT/card/$CARD")
+card_headers=$(curl -fsS -D - -o "$WORK/card.html" "$CT/cards/$CARD/" | tr -d '\r')
+card_bare=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$CT/cards/$CARD")
+card_none="$(code "$CT/cards/NO-SUCH/") $(code "$CT/cards/..%2F..%2Fevents/") $(code "$BASE/tasks/order-date-on-invoice/cards/$CARD/")"
+if grep -qF "id=\"wait-card-refund-rounding-$CARD\"" <<<"$card_waits" && grep -qF "Round each line of a refund, or only its total?" <<<"$card_waits" \
+  && grep -qF "href=\"/$HOST/shop/tasks/refund-rounding/card/$CARD?in=waits\"" <<<"$card_waits" \
+  && grep -qF "The task’s session asks you" <<<"$card_overview" && grep -qF "/$HOST/shop/tasks/refund-rounding/card/$CARD" <<<"$card_overview" \
+  && grep -qF "<iframe class=\"card-frame\" id=\"card-frame-$CARD\" src=\"/$HOST/shop/tasks/refund-rounding/cards/$CARD/\"" <<<"$card_step" \
+  && cmp -s "$WORK/card.html" "$STATE/tasks/refund-rounding/cards/$CARD.html" \
+  && grep -q "^Content-Security-Policy: script-src 'sha256-[A-Za-z0-9+/=]*'; form-action 'none'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'self'$" <<<"$card_headers" \
+  && [ "$card_bare" = "302 $CT/cards/$CARD/" ] && [ "$card_none" = "404 404 404" ]; then
+  pass "a card of a task's session is a row of Waits for you with its question, a card of its Overview and a step that frames its page, which the board sends as lem-ask built it, under a policy that runs only the page's own scripts"
+else
+  fail "the card of refund-rounding: $card_bare / $card_none / $card_headers / $(grep -o 'wait-card.\{0,300\}' <<<"$card_waits" | head -c 600)"
 fi
 
 # The board of a task that ended long ago, after `lem project prune`: the task keeps only its small record (its

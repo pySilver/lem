@@ -1117,6 +1117,8 @@ html:has(.app.plain) { overflow: auto; height: auto; }
 .cf-facts { margin: 2px 0 0; font-size: 14px; }
 .cf-facts .mono { font-size: 13px; }
 .cf-note { font-size: 13px !important; color: var(--dim); }
+/* a card of the task's session (lem_board_task.py `card_step`): the card's own page, as lem-ask built it, in a frame */
+.card-frame { display: block; width: 100%; height: min(78vh, 820px); border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
 @media (max-width: 700px) {
   .act-row, .app .wr-acts { flex-direction: column; align-items: stretch; }
   .act-row > .btn, .act-row .act-form, .app .wr-acts > .btn, .app .wr-acts .act-form { width: 100%; }
@@ -1142,6 +1144,9 @@ html:has(.app.plain) { overflow: auto; height: auto; }
   .app .cf-sheet[data-js-sheet] .cf-foot > .act-row { margin-top: 0; }
   .app .cf-sheet[data-js-sheet] .cf-back { display: inline-flex; }
   .app .cf-sheet[data-js-sheet] .btn[aria-disabled="true"] { opacity: .6; }
+  /* the card's frame takes the overlay's height, and the card's page is the one part that scrolls */
+  .app .cf-sheet[data-js-sheet] .cf-body:has(> .card-frame) { padding: 0; overflow: hidden; }
+  .app .cf-sheet[data-js-sheet] .cf-body > .card-frame { flex: 1 1 auto; height: auto; min-height: 0; border: 0; border-radius: 0; }
 }
 
 /* ---- a new task (the "+" and its form) ---- */

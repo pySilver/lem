@@ -82,6 +82,11 @@ HOLD=$WORK/gh-hold
 mkdir -p "$WORK/hold"
 printf '%s\n' '#!/bin/sh' "if [ \"\$1 \$2\" = 'pr merge' ] && [ -e '$HOLD' ]; then : > '$HOLD.held'; while [ -e '$HOLD' ]; do sleep 0.1; done; fi" \
   "exec '$WORK/standin/gh' \"\$@\"" > "$WORK/hold/gh" && chmod +x "$WORK/hold/gh"
+# agterm, for the server's one read of a card's page (serve.py `agterm_card_refusal`): `session overlay result --page ID
+# --json` prints the file CARD_OUTCOME when it is there, else a page that waits; each call is a line of CARD_CALLS.
+CARD_OUTCOME=$WORK/card-outcome.json CARD_CALLS=$WORK/card-calls
+printf '%s\n' '#!/bin/sh' "echo \"\$*\" >> '$CARD_CALLS'" "if [ -e '$CARD_OUTCOME' ]; then cat '$CARD_OUTCOME'; else echo '{\"ok\": true, \"result\": {\"pageOutcome\": {}}}'; fi" \
+  > "$WORK/hold/agtermctl" && chmod +x "$WORK/hold/agtermctl"
 PATH="$WORK/hold:$PATH" serve_up
 SERVER=http://127.0.0.1:$SERVE_PORT
 HOST=$(curl -fsS "$SERVER/api/server" | field 'd["host"]')
@@ -736,6 +741,61 @@ if [ "$(field '(d["ran"], d["owed"], d["wait"])' <<<"$refused")" = "([['merge', 
   pass "a merge that meets the base another merge moved waits for the merge agent's read of what moved; its Base: safe. answers Lem's refusal, and the server's next look merges the task on the moved base with no new run of the checks, keeping what moved, the board showing the read and its why"
 else
   fail "the server's merge after a safe read of a moved base: $refused / $kept / $moved / $said / $read_now / $merged / $(events "$SAFE" gate.start code-second) vs $CHECKS_RAN / $(git -C "$SAFE.origin.git" log -3 --format=%s main)"
+fi
+
+# A card of a task's session answered on the board (the task board-answers-a-card): the card of refund-rounding on the
+# afternoon, which its live session waits on. A note with no pick, a wish to talk and a post of another site record
+# nothing (criterion 3); an answer agterm holds from the Mac counts first (criterion 4); a pick with a note from the
+# phone is on record as the owner's, with the card, the option, the note, the time and the device, and the row leaves
+# (criteria 2 and 9); the server read agterm's result and called nothing else of agterm, and woke no session itself
+# (criterion 8); and a second answer is refused with what took effect (criterion 4). Since the check of a stopped session
+# above, the task's session is S-FRESH: the card its earlier session put up has no row (no waiter reads it), and the
+# fresh session puts up the same card again, as lem-ask keeps it.
+OLD_CARD=4F9A1C2E-7B3D-4E8F-A1B2-C3D4E5F60718
+CARD=5B0C2D3E-8A4F-4B1C-9D2E-0F1A2B3C4D5E
+"$PY" -B -c '
+import json, sys
+from pathlib import Path
+sys.path.insert(0, "skills/lem/scripts")
+import lem_cards
+task = Path(sys.argv[1])
+spec = {"prompt": "Round each line of a refund, or only its total?", "options": [{"id": "line", "label": "Each line"}, {"id": "total", "label": "Only the total"}]}
+lem_cards.keep(task, sys.argv[3], lem_cards.html_file(task, sys.argv[2]).read_bytes(), spec, "S-FRESH")
+' "$STATE/tasks/refund-rounding" "$OLD_CARD" "$CARD"
+CARD_END=$STATE/tasks/refund-rounding/cards/$CARD.end.json
+IPHONE='Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1'
+# card_post JSON [ORIGIN]: the card's own page posts its answer; prints the status and the reply's said
+card_post() {
+  curl -s -w '\n%{http_code}' -H "Origin: ${2:-$SERVER}" -H 'Sec-Fetch-Site: same-origin' -H 'Content-Type: application/json' -A "$IPHONE" \
+    --data-binary "$1" "$BASE/tasks/refund-rounding/cards/$CARD/answer" | "$PY" -c 'import json, sys; *body, code = sys.stdin.read().split("\n"); print(code, (json.loads("\n".join(body) or "{}") or {}).get("said"))'
+}
+: > "$LEM_SESSION_CALLS"
+card_note=$(card_post '{"status": "answered", "answers": {"answer": {"selected": [], "labels": [], "text": "why not both?"}}}')
+card_chat=$(card_post '{"status": "chat", "text": "why not both?"}')
+card_other=$(card_post '{"status": "answered", "answers": {"answer": {"selected": ["total"], "labels": ["Only the total"]}}}' https://evil.example)
+card_still=$(curl -fsS "$BASE/waits" | grep -o "id=\"wait-card-refund-rounding-[A-Z0-9-]*\"" || true)
+printf '%s\n' '{"ok": true, "result": {"pageOutcome": {"outcome": "submitted", "value": "{}"}}}' > "$CARD_OUTCOME"
+card_mac=$(card_post '{"status": "answered", "answers": {"answer": {"selected": ["total"], "labels": ["Only the total"]}}}')
+none_yet=$([ -e "$CARD_END" ] && echo there || echo none)
+rm -f "$CARD_OUTCOME"
+card_taken=$(card_post '{"status": "answered", "answers": {"answer": {"selected": ["total"], "labels": ["Only the total"], "text": "as the receipts do"}}}')
+card_end=$("$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print((d["status"], d["from"], d["via"], d["device"], d["answer"]["answers"]["answer"], d["agent"] == sys.argv[2]))' "$CARD_END" "$IPHONE" 2>&1 || true)
+card_again=$(card_post '{"status": "answered", "answers": {"answer": {"selected": ["line"], "labels": ["Each line"]}}}')
+card_gone=$(curl -fsS "$BASE/waits" | grep -c "id=\"wait-card-refund-rounding-$CARD\"" || true)
+card_step=$(curl -fsS "$BASE/tasks/refund-rounding/card/$CARD" | words)
+card_calls=$(sort -u "$CARD_CALLS" 2>&1 || true)
+if [ "$card_note" = "422 A question goes to the task’s session, at the Mac: nothing was recorded." ] && [ "$card_chat" = "$card_note" ] \
+  && [ "${card_other%% *}" = 403 ] && [ "$card_still" = "id=\"wait-card-refund-rounding-$CARD\"" ] && [ "$none_yet" = none ] \
+  && [ "$card_mac" = "409 An answer was given on the card at the Mac: the task’s session takes it, and nothing was recorded here." ] \
+  && [ "$card_taken" = "200 Your answer is on record: the task’s session takes it." ] \
+  && [ "$card_end" = "('answered', 'board', 'local', 'phone', {'selected': ['total'], 'labels': ['Only the total'], 'text': 'as the receipts do'}, True)" ] \
+  && [ "$(events "$DEMO" card.answered refund-rounding)" = 1 ] && grep -qF '"event": "board.act", "task": "refund-rounding", "act": "answer"' "$STATE/events.jsonl" \
+  && grep -qE "^409 Only the total was taken on the board at [0-9]{2}:[0-9]{2}, from the phone: nothing was recorded\.$" <<<"$card_again" \
+  && [ "$card_gone" = 0 ] && grep -qF "Only the total was taken on the board at" <<<"$card_step" \
+  && [ "$card_calls" = "session overlay result --page $CARD --json" ] && ! grep -q "refund-rounding" "$LEM_SESSION_CALLS"; then
+  pass "a card of a task's live session takes a pick with a note from the board as the owner's, from the phone, once agterm said no answer waits at the Mac; a card of its earlier session has no row; a note alone, a wish to talk, another site and a second answer record nothing, and the server only read agterm and woke no session"
+else
+  fail "the card of refund-rounding: $card_note / $card_chat / $card_other / $card_still / $card_mac / $none_yet / $card_taken / $card_end / $card_again / $card_gone / $card_calls / $(cat "$LEM_SESSION_CALLS")"
 fi
 
 # The owner's Inbox while he is away (lem_inbox): the server's look sends the breaker of report-dates to the stand-in

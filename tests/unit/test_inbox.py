@@ -597,3 +597,12 @@ class HeldBack(InFolder):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CardRows(unittest.TestCase):
+    def test_a_card_of_a_tasks_session_is_no_thing_of_the_inbox(self):
+        m = model(*BREAKER, ev(2, "card.asked", page="P-1", prompt="Keep the empty cell?"))
+        m.cards = {RD: [{"page": "P-1", "prompt": "Keep the empty cell?", "since": bm.at(ev(2, "x")["ts"]), "session": "S-1", "chat": True}]}
+        rows = bm.waits_of(m)
+        self.assertIn(f"card:{RD}:P-1", [r["key"] for r in rows])
+        self.assertNotIn(f"card:{RD}:P-1", inbox.things_of(rows, m, bm))
