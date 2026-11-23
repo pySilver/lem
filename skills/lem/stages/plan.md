@@ -182,7 +182,8 @@ with each of its lines and that one. Your report says the same. A task he named 
      repair changed the plan after you wrote it.
    When your brief says `stop after the plan: yes`, take the plan's decisions through step 5
    first, then write the state `planned` with the line `the owner reads the plan`, show him the
-   plan to mark up (`show-page`), and wait in this session for his "build" or "drop".
+   plan to mark up (`show-page`), and wait in this session for his "build" or "drop", typed here or
+   given as Build or Drop on the board's row (`prompts/session.md`, "His answer on the board").
 4. **A careful or large plan gets a plan talk before any code**, in a pair you open under this
    session: its agent, the plan's defender (`prompts/defender.md`), holds the talk with the
    reviewer in its other pane by `stages/talk.md`, and writes its record into the plan as `##
