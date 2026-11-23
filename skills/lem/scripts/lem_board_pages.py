@@ -48,8 +48,10 @@ open` (`serve.act_session`).
 import hashlib
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Literal, cast
 from urllib.parse import quote
 
 import lem_board_model as bm
@@ -135,6 +137,8 @@ OLDER = {"key": "done", "path": "done", "label": "Older ended tasks"}
 UNDER = {**VIEW, OLDER["key"]: OLDER}
 # The key of the search over every card, as its button names it: the browser's search controller takes either.
 SEARCH_KEYS = "Cmd-K, or Ctrl-K off the Mac"
+# How many events a feed shows, the newest (`lem_board_model.feed`, its default).
+FEED_NEWEST = 200
 # How long the board's own look at GitHub counts as fresh: a few of its looks (serve.FORGE_SECONDS), a guess.
 BOARD_LOOK_FRESH = 10 * 60 * 1000
 # A path in a line the owner types into a session: anything but plain path characters is refused.
@@ -147,7 +151,7 @@ _marks: Markup | None = None
 
 
 def icon_set() -> dict:
-    global _icons
+    global _icons  # noqa: PLW0603 - the icons' file is read once, at the first page
     if _icons is None:
         _icons = json.loads(ICONS.read_text(encoding="utf-8"))
     return _icons
@@ -155,7 +159,7 @@ def icon_set() -> dict:
 
 def marks() -> Markup:
     """Lem's mark, day and night, as lem.css shows one of them by the palette: a file of the plugin's own."""
-    global _marks
+    global _marks  # noqa: PLW0603 - the mark's files are read once, at the first page
     if _marks is None:
         _marks = Markup(
             "".join(file.read_text(encoding="utf-8").strip() for file in MARKS)
@@ -170,7 +174,7 @@ class Ctx:
     host: str
     workspace: str
     model: bm.Model
-    asset: object  # name -> its address with the content's hash
+    asset: Callable[[str], str]  # name -> its address with the content's hash
     prefs: dict = field(default_factory=dict)
     backlog: dict | None = None
     problems: list = field(default_factory=list)
@@ -197,20 +201,20 @@ class Ctx:
     # what the task's tabs read beside the model, from the caller: "What we are building" of a task
     # (`told(slug)`), the task's files (`artifact_files`, with no text) and one of them with its text
     # (`artifact(slug, path)`), what did not read of them, and the address of an HTML artifact
-    told: object = lambda slug: None
+    told: Callable[[str], dict | None] = lambda slug: None
     artifact_files: list = field(default_factory=list)
-    artifact: object = lambda slug, path: None
+    artifact: Callable[[str, str], dict | None] = lambda slug, path: None
     artifacts_problem: str = ""
-    raw_href: object = lambda slug, path: ""
+    raw_href: Callable[[str, str], str] = lambda slug, path: ""
     # the address of a task's media folder, from which a document shows its pictures
-    media_href: object = lambda slug: ""
+    media_href: Callable[[str], str] = lambda slug: ""
     # the artifacts as their map has them (`lem_artifacts.arrange`), and the plan's `## How it works`
     artifact_map: dict | None = None
-    how_of: object = lambda slug: ""
+    how_of: Callable[[str], str] = lambda slug: ""
     # what a task's folder holds beside the model (`lem_board_task.folder_of`): the files of its small record
     # that are there and the paths outside it, or None when the folder does not list; and the workspace's
     # `state.keep_days` as its settings give it now, None while they do not read (one of `problems` then)
-    folder_of: object = lambda slug: None
+    folder_of: Callable[[str], dict | None] = lambda slug: None
     keep_days: int | None = None
     # the server's own look at the forge for the workspace: when it last looked, and what stops it
     forge_look: dict = field(default_factory=dict)
@@ -220,11 +224,11 @@ class Ctx:
     # through the tailnet door), the criteria that wait for the owner's yes in a task directory, a task's
     # landing record, the tasks whose merge runs now, and the result of an act the address names
     can_act: bool = False
-    criteria_waiting: object = lambda slug: None
-    landing_of: object = lambda slug: {}
+    criteria_waiting: Callable[[str], dict | None] = lambda slug: None
+    landing_of: Callable[[str], dict] = lambda slug: {}
     merging: set = field(default_factory=set)
     note: dict | None = None
-    _forge: object = False
+    _forge: str | Literal[False] | None = False
 
     @property
     def artifact_count(self) -> int:
@@ -376,7 +380,7 @@ CHART_ICONS = ("expand", "plus", "minus", "xmark")
 def md_block(
     ctx: Ctx,
     key: str,
-    text: str,
+    text: object,
     *,
     slug: str | None = None,
     folder: str = "",
@@ -428,6 +432,7 @@ def tag(
     text: str,
     c: str | None = None,
     title: str | None = None,
+    *,
     live: bool = False,
 ) -> Markup:
     return h(
@@ -441,7 +446,9 @@ def tag(
     )
 
 
-def chip(ctx: Ctx, name: str, cls: str, *kids, title: str | None = None) -> Markup:
+def chip(
+    ctx: Ctx, name: str, cls: str, *kids: object, title: str | None = None
+) -> Markup:
     return h(
         "span", {"class": f"chip {cls}".strip(), "title": title}, icon(ctx, name), *kids
     )
@@ -464,7 +471,7 @@ def act_form(
     cls: str,
     busy: str,
     fields: dict,
-    *kids,
+    *kids: object,
     form_cls: str = "",
 ) -> Markup:
     """A form that posts one act of a task: hidden fields, what it holds besides (a field of text), and
@@ -591,6 +598,7 @@ def act_link(
     name: str,
     cls: str = "",
     under: str | None = None,
+    *,
     frame: bool = False,
 ) -> Markup:
     """A link to the confirm step of an act: a button's look, a whole page on a phone."""
@@ -609,7 +617,7 @@ def act_link(
 # ---- the head and the layout ----
 
 
-def head(ctx_title: str, asset) -> list:
+def head(ctx_title: str, asset: Callable[[str], str]) -> list:
     return [
         h("meta", {"charset": "utf-8"}),
         h(
@@ -1119,7 +1127,7 @@ def notices(ctx: Ctx) -> list:
     m = ctx.model
     out = []
 
-    def notice(key: str, actor: str, name: str, *kids) -> Markup:
+    def notice(key: str, actor: str, name: str, *kids: object) -> Markup:
         return h(
             "div",
             {"class": f"notice a-{actor}", "id": f"notice-{key}"},
@@ -1155,27 +1163,27 @@ def notices(ctx: Ctx) -> list:
                 "The tasks go on without you until you type /lem im-back.",
             )
         )
-    for t in m.blocked:
-        out.append(
-            notice(
-                f"blocked-{t.slug}",
-                "bad",
-                "alert",
-                h("b", None, "Blocked: "),
-                h("a", {"class": "rlink", **task_link(ctx, t.slug)}, t.title),
-                " · ",
-                rich(ctx, t.shown),
-            )
+    out.extend(
+        notice(
+            f"blocked-{t.slug}",
+            "bad",
+            "alert",
+            h("b", None, "Blocked: "),
+            h("a", {"class": "rlink", **task_link(ctx, t.slug)}, t.title),
+            " · ",
+            rich(ctx, t.shown),
         )
-    for t in m.unknown:
-        out.append(
-            notice(
-                f"unknown-{t.slug}",
-                "bad",
-                "alert",
-                f"{t.title} has the status “{t.status}”, which no stage writes: nobody acts on it.",
-            )
+        for t in m.blocked
+    )
+    out.extend(
+        notice(
+            f"unknown-{t.slug}",
+            "bad",
+            "alert",
+            f"{t.title} has the status “{t.status}”, which no stage writes: nobody acts on it.",
         )
+        for t in m.unknown
+    )
     return out
 
 
@@ -1183,7 +1191,7 @@ def rail(ctx: Ctx, waits: list, counts: dict) -> list:
     """The sidebar folded: what waits for the owner, the views, a notice as its mark, and the workspaces."""
     m = ctx.model
 
-    def em(count, cls=None):
+    def em(count: int | None, cls: str | None = None) -> Markup | None:
         return h("em", {"class": cls}, count) if count is not None else None
 
     out = [
@@ -1290,7 +1298,10 @@ def runs_say(s: dict) -> str:
         building and f"{building} {'builds' if building == 1 else 'build'}",
         checks and f"{checks} in checks and review",
     ]
-    return " · ".join(part for part in parts if part) or "nothing runs"
+    return (
+        " · ".join(part for part in parts if isinstance(part, str) and part)
+        or "nothing runs"
+    )
 
 
 def space_says(s: dict, now: int | None = None) -> str:
@@ -1323,7 +1334,7 @@ def machines_of(spaces: list) -> list:
     return list(dict.fromkeys(s["host"] for s in spaces if s.get("host")))
 
 
-def space_name(s: dict, many: bool) -> str:
+def space_name(s: dict, *, many: bool) -> str:
     """A workspace's name in a list: `HOST/WORKSPACE` when the list holds more than one machine, the
     machine's name alone for a machine that never answered."""
     if not many:
@@ -1331,7 +1342,7 @@ def space_name(s: dict, many: bool) -> str:
     return f"{s['host']}/{s['name']}" if s["name"] else s["host"]
 
 
-def space_label(s: dict | None, workspace: str, many: bool) -> Markup:
+def space_label(s: dict | None, workspace: str, *, many: bool) -> Markup:
     """A workspace's name whole, and with more than one machine its machine's name as a second, smaller line."""
     if s is None:
         return h(
@@ -1354,7 +1365,7 @@ def switcher(ctx: Ctx) -> Markup:
     many = len(machines) > 1
     here = next((s for s in spaces if is_here(ctx, s)), None)
     title = (
-        f"{space_name(here, many)}: {space_says(here, ctx.model.now)}\n{here['path']}"
+        f"{space_name(here, many=many)}: {space_says(here, ctx.model.now)}\n{here['path']}"
         if here
         else ctx.workspace
     )
@@ -1363,7 +1374,7 @@ def switcher(ctx: Ctx) -> Markup:
             "div",
             {"class": "ws ws-one", "id": "ws", "title": title},
             icon(ctx, "grid-2"),
-            space_label(here, ctx.workspace, many),
+            space_label(here, ctx.workspace, many=many),
         )
     waiting = sum(
         1 for s in spaces if not is_here(ctx, s) and (s.get("waits") or 0) > 0
@@ -1434,10 +1445,10 @@ def switcher(ctx: Ctx) -> Markup:
                 "class": "ws-cur",
                 "title": f"{title}\nAnother workspace: click",
                 "aria-haspopup": "menu",
-                "aria-label": f"{space_name(here, many) if here else ctx.workspace}: another workspace",
+                "aria-label": f"{space_name(here, many=many) if here else ctx.workspace}: another workspace",
             },
             icon(ctx, "grid-2"),
-            space_label(here, ctx.workspace, many),
+            space_label(here, ctx.workspace, many=many),
             h(
                 "em",
                 {
@@ -1629,7 +1640,7 @@ def summary_of(m: bm.Model) -> str:
         helped and f"{helped} helped, with no lead yet",
         m.parked and f"{len(m.parked)} parked",
     ]
-    parts = [p for p in parts if p]
+    parts = [p for p in parts if isinstance(p, str) and p]
     if parts:
         return bm.cap(", ".join(parts))
     return (
@@ -1665,7 +1676,7 @@ def card_chips(ctx: Ctx, t: bm.Task) -> list:
                 lead["chip"],
                 "lead",
                 lead["title"],
-                t.status == "building",
+                live=t.status == "building",
             )
         )
     careful = bm.careful_of(t)
@@ -1924,12 +1935,14 @@ def kanban(ctx: Ctx) -> Markup:
     )
 
 
-def keys_line(*parts, id_: str | None = None, cls: str = "") -> Markup:
+def keys_line(
+    *parts: tuple[str, ...] | str, id_: str | None = None, cls: str = ""
+) -> Markup:
     """A view's line of its keys, in the page's foot under the stage (`layout`): the Tasks view's, "Waits for
     you"'s, the Backlog's and the Activity's; and the search's (`cls` "search-keys"), in its box. Each is hidden
     on a phone (`.keys`). The parts come in turns, a tuple of keys and the word of what they do."""
     out = []
-    for keys, word in zip(parts[::2], parts[1::2]):
+    for keys, word in zip(parts[::2], parts[1::2], strict=False):
         if out:
             out.append(" · ")
         for key in keys:
@@ -2430,7 +2443,7 @@ def parked_group(ctx: Ctx) -> Markup | None:
         return None
     items = []
     for t in m.parked:
-        p = bm.parked_of(t)
+        p = cast("dict", bm.parked_of(t))  # m.parked holds only parked tasks
         stopped = t.stopped
         items.append(
             h(
@@ -2660,7 +2673,7 @@ def filter_href(ctx: Ctx, f: dict, **change: str) -> str:
 def backlog_item(ctx: Ctx, it: dict) -> Markup:
     days = days_old(it.get("added", ""), ctx.model.now)
 
-    def t_(text, title, c=None):
+    def t_(text: str, title: str, c: str | None = None) -> Markup:
         return h(
             "span",
             {"class": f"tag{f' c-{c}' if c else ''}", "title": title},
@@ -2879,7 +2892,7 @@ def backlog_page(ctx: Ctx) -> Markup:
     f = {"q": "", "worth": "", "only": "", **(ctx.filters or {})}
     groups = []
     mine = bm.reviewer_items(items)
-    if mine:
+    if backlog and mine:
         # the reviewer's items in a group of their own, the undecided ones first: the proposals of the night and the retro that passed its read
         groups.append(
             h(
@@ -2994,7 +3007,7 @@ def backlog_page(ctx: Ctx) -> Markup:
             g["actor"],
             f"Only the items whose worth is {g['key']}",
         )
-        for g in bm.BY_WORTH
+        for g in cast("list[dict[str, Any]]", bm.BY_WORTH)
         if counts[g["key"]]
     ]
     facts_ = [
@@ -3349,7 +3362,7 @@ def timeline(ctx: Ctx) -> Markup:
     ]
     ticks = [
         tick(
-            f"tl-tick{' first' if i == 0 else ' last' if i == 6 else ''}",
+            f"tl-tick{' first' if i == 0 else ' last' if i == len(labels) - 1 else ''}",
             100 * i / 6,
             label,
         )
@@ -3467,7 +3480,11 @@ def feed_rows(ctx: Ctx) -> list:
                     if d.get("sub")
                     else None,
                 ),
-                h("span", {"class": "rtime"}, bm.stamp(bm.at(e.get("ts")), m.now)),
+                h(
+                    "span",
+                    {"class": "rtime"},
+                    bm.stamp(cast("int", bm.at(e.get("ts"))), m.now),
+                ),
             )
         )
     return rows or [h("div", {"class": "empty"}, "No events yet")]
@@ -3502,7 +3519,7 @@ def activity_page(ctx: Ctx) -> Markup:
                     "div",
                     {"class": "dim small"},
                     bm.plural(count, "event")
-                    + (" · the newest 200" if count > 200 else ""),
+                    + (f" · the newest {FEED_NEWEST}" if count > FEED_NEWEST else ""),
                 ),
             ),
             h("div", {"class": "feed rows"}, feed_rows(ctx)),
@@ -3521,7 +3538,9 @@ def activity_page(ctx: Ctx) -> Markup:
 # ---- the pages outside a workspace ----
 
 
-def plain_page(title: str, asset, body: list, eyebrow: str) -> Markup:
+def plain_page(
+    title: str, asset: Callable[[str], str], body: list, eyebrow: str
+) -> Markup:
     """A page in lem.css's document look, with the mark: the list of workspaces, an error."""
     ident = h(
         "div",
@@ -3545,7 +3564,7 @@ def plain_page(title: str, asset, body: list, eyebrow: str) -> Markup:
     )
 
 
-def index_page(host: str, spaces: list, asset) -> Markup:
+def index_page(host: str, spaces: list, asset: Callable[[str], str]) -> Markup:
     """The workspaces of this machine, and of each machine joined (`lem_peers`), each with how many tasks
     wait for the owner and what its tasks do now, the ones that wait for him first; a workspace of a
     machine that does not answer last, grayed, with when it last answered. With one machine a workspace is
@@ -3585,7 +3604,7 @@ def index_page(host: str, spaces: list, asset) -> Markup:
                         "id": ident,
                         "title": s.get("said") or None,
                     },
-                    h("h2", None, space_name(s, many)),
+                    h("h2", None, space_name(s, many=many)),
                     h(
                         "p",
                         {"class": "mono dim small"},
@@ -3618,7 +3637,7 @@ def index_page(host: str, spaces: list, asset) -> Markup:
                     "href": s["url"],
                     "id": ident,
                 },
-                h("h2", None, space_name(s, many)),
+                h("h2", None, space_name(s, many=many)),
                 h("p", {"class": "mono dim small"}, s["path"]),
                 h("div", {"class": "meta"}, chips),
             )
@@ -3651,7 +3670,9 @@ def index_page(host: str, spaces: list, asset) -> Markup:
     )
 
 
-def error_page(title: str, said: str, asset, fix: str | None = None) -> Markup:
+def error_page(
+    title: str, said: str, asset: Callable[[str], str], fix: str | None = None
+) -> Markup:
     """A route that failed, with its reason and what fixes it: never a blank page."""
     return plain_page(
         title,
@@ -3669,7 +3690,7 @@ def error_page(title: str, said: str, asset, fix: str | None = None) -> Markup:
     )
 
 
-def manifest(asset) -> str:
+def manifest(asset: Callable[[str], str]) -> str:
     """The web app manifest: the board added to a phone's home screen opens as an app of its own, at `/`."""
     return json.dumps(
         {
