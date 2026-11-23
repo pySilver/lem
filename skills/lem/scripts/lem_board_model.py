@@ -1352,6 +1352,10 @@ def card_line(t: Task, lane: dict) -> str:
         return waits_say(t.waits)
     if t.status == "answered" and t.investigation:
         return f"{CALLS.get(t.investigation['call'], {}).get('card', t.investigation['call'])}: {t.investigation['line']}"
+    # a landing's step that started after its newest state block: the words of the head of its page (`now_head`),
+    # since the state's own text ("the checks start") is older than the step that runs
+    if t.status == "landing" and t.landing_step and not t.checks_stop and not t.release_stop:
+        return step_runs(t.landing_step)
     if not t.shown:
         return t.info["label"]
     said_ = PULL.sub(r"#\1", t.shown)
