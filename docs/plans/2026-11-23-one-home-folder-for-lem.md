@@ -57,6 +57,12 @@ where it is valid:
 | `[naps]` | no | no | yes | `on = false` |
 | `[state]` | no | no | yes | yes |
 
+In a task's worktree the team's file is the branch's copy, except `[flow]`, `[naps]` and `[state]`,
+which are read as the base branch has them, as `load` and `decide` read them today: a branch does not
+lift what guards it, switch the naps on, or lower `keep_days` for the files of other tasks. The order
+of the chart holds among the files as so read, and `show` gives `from` for the copy it read
+(`settings_from` and the `from` of `state.keep_days`, as today).
+
 ## Tasks
 
 1. **The three `settings.toml` files and `machine.toml`.** `lem project` reads
@@ -66,7 +72,14 @@ where it is valid:
    file may hold: each seat, the experts, `naps.on` and `state.keep_days`, with "Lem's default"
    when no file names it. `machine.toml` takes `[corrections]` (one key, `collect`, true or false)
    and loses `[seats]`; `lem_state.write_machine` keeps `[corrections]` when it writes another
-   table. `lem project init` writes `.lem/settings.toml` with no `[corrections]` table and puts
+   table. `write_machine` writes over nothing it cannot keep: before it writes, it reads the whole
+   file and checks every table by the map above, and it refuses, with the file and the fix named, a
+   file that does not read and a file that holds a table that is not valid there (a `[seats]` table
+   names `~/.config/lem/settings.toml`). It no longer writes such a file again with its one table,
+   and no longer drops a table it does not know. It holds an exclusive lock, `machine.lock` in the
+   home folder (`fcntl.flock`, the kernel's, as `serial.lock` is), from its read to its rename, so
+   that two writers in two panes cannot lose each other's table. Every writer of the file goes
+   through it (`cmd_load`, `cmd_handoff`, `serve.py`, `lem_peers.py`, and task 2's command). `lem project init` writes `.lem/settings.toml` with no `[corrections]` table and puts
    `settings.local.toml` in `.lem/.gitignore`; `lem project reviewer` writes
    `.lem/settings.local.toml`. Every script and test that names the two old files names the new
    ones (`land.py` with its careful rule for an edit of either file and `Task.gate`, `criteria.py`,
@@ -86,16 +99,26 @@ where it is valid:
    through `lem_state.write_machine` and nothing else. `doctor.py` reads the same answer.
    `stages/init.md` asks the question only when `corrections.from` is "Lem's default", in the
    words criterion 7 names, and runs that command with the answer; a run where the Mac has the line
-   asks nothing about it. `harness/claude-code/correction-hook.md` says where the no is. Criteria 5,
-   6, 7. Files: `skills/lem/scripts/corrections.py`, `skills/lem/scripts/project.py`,
+   asks nothing about it. `harness/claude-code/correction-hook.md` says where the no is. The worker
+   (`cmd_worker`) asks `collects` again before it calls Jev, as today, and the worker check of
+   `tests/lem-machine.sh` moves to `machine.toml`: with the `LEM_JEV` stand-in, a worker started
+   after the hook gets no call of the stand-in and queues nothing when `machine.toml` says
+   `collect = false`, has no `[corrections]` line, or does not read, and when only the team's file
+   says `collect = true`. Criteria 5, 6, 7. Files: `skills/lem/scripts/corrections.py`, `skills/lem/scripts/project.py`,
    `skills/lem/scripts/doctor.py`, `skills/lem/stages/init.md`,
    `skills/lem/harness/claude-code/correction-hook.md`, `tests/lem-machine.sh`, `tests/unit/`.
 3. **The question page's defaults and cache.** `lem-ask` reads its defaults from `[ask]` of the home
    `settings.toml` (found as `lem_state.config()` finds the home folder, with `XDG_CONFIG_HOME`
-   first) over the skill's own `defaults.json`, with the same checks of each value, and keeps the
-   Mermaid file in `~/.cache/lem/` (`XDG_CACHE_HOME` first). `LEM_ASK_CONFIG` goes (decision 4).
-   `lem project` takes `[ask]` in the home file with its keys (`style`, `size`, `review`, `browser`,
-   `status`), and refuses it elsewhere. Criterion 8. Files: `skills/lem-ask/bin/lem-ask`,
+   first) over the skill's own `defaults.json`, and keeps the Mermaid file in `~/.cache/lem/`
+   (`XDG_CACHE_HOME` first). `LEM_ASK_CONFIG` goes (decision 4). TOML has values that JSON has not (a
+   date, a time), so the check of each value of `[ask]` takes the type of each key before any value
+   is printed or used: `style` and `review` strings, `size` as `size_problem` takes it, `browser` true
+   or false, `status` a table of two lists of words. A message names the file, the key and the value
+   as TOML writes it, never through `json.dumps`, and comes as a `DefaultsError`; a test of
+   `tests/test-ask.sh` writes `browser = 2026-11-23` under `[ask]` and reads that refusal. `lem
+   project` takes `[ask]` in the home file with its keys (`style`, `size`, `review`, `browser`,
+   `status`), checks only the table's place and its keys, and refuses it elsewhere; the values are
+   the question page's to check. Criterion 8. Files: `skills/lem-ask/bin/lem-ask`,
    `skills/lem-ask/SKILL.md`, `skills/lem/scripts/project.py`, `tests/test-ask.sh`.
 4. **The built-in cast only.** `cast.py` copies the built-in cast, also when
    `~/.config/personas/cast/` holds files; its docstring, `skills/lem-panel/SKILL.md` and
@@ -112,21 +135,33 @@ where it is valid:
    `prompts/review.md`, `harness/claude-code/second-opinion.md`, `assets/handover.html` and the two
    bullets of `docs/rulings/rulings.md` that name `machine.toml` and `.lem/project.local.toml` as
    the place of a seat and of `keep_days` name the new files, with no other word of the ruling
-   changed. A unit test finds no `project.toml` and no `project.local.toml` in `skills/`, `bin/`,
+   changed. The owner's answer on the correction queue (2026-11-23, criterion 5: "Looks like this
+   settings `corrections` belongs on a machine level only", and his "y" to the switch in
+   `~/.config/lem/machine.toml` only) is a new ruling, which replaces two lines of
+   `docs/rulings/history.md`: it becomes a bullet of `docs/rulings/rulings.md` under "The lessons,
+   the correction queue, the naps, the night and the free hour", in the form AGENTS.md gives, dated
+   2026-11-23. The line "As a plugin, the correction hook comes with the install, and the
+   repository says yes for all" loses "and the repository says yes for all" and keeps its other
+   words; the line "One person can say no to the correction queue, and nobody is switched on by a
+   file git does not show" leaves the history, since the new bullet takes its place. Each cite of
+   `docs/rulings/history.md` names a test by the name it has after tasks 1 to 3, so that
+   `tests/unit/test_agents_md.py` finds each one. A unit test finds no `project.toml` and no `project.local.toml` in `skills/`, `bin/`,
    `hooks/`, `README.md`, `AGENTS.md`, `site/` and the guides of `docs/` (not `docs/plans/`,
    `docs/backlog/` or `docs/rulings/history.md`). Criterion 10.
 
 ## Decisions
 
 1. **This repository keeps `.lem/project.toml` on the branch, unchanged, beside the new
-   `.lem/settings.toml`.** The installed Lem, 0.3.0, lands this task: in the task's worktree it reads
-   the branch's own copy of the settings (`load` reads `raw` from the worktree, and `Task.gate` reads
-   `.lem/project.toml`), so a branch without that file would run its checks with no command. Lem of
-   this branch never reads that file. After the merge and the plugin's update, the maintaining
+   `.lem/settings.toml`.** The installed Lem, 0.3.1, lands this task. Its `land.py` `project_now`,
+   run from the task's worktree, loads the worktree's own settings (`load` reads `raw` from the
+   branch's `.lem/project.toml`) and hands them to `may_land`, which refuses a branch whose file names
+   no `branch.base`; its `Task.gate` takes the main checkout's commands first, so the checks
+   themselves do not need the branch's file. Lem of this branch never reads that file. After the merge and the plugin's update, the maintaining
    session deletes it, renames the files of `mybaze`, `lem-trial` and `lem-scratch` by hand, and
    moves their `[corrections]` and `[seats]` lines. The owner's `collect = true` for his Mac is his
    own line in `~/.config/lem/machine.toml` (criterion 7): the maintaining session writes it only on
-   his word. Rests on: `project.py` `load` and `land.py` `Task.gate` as read on 299afc2f.
+   his word. Rests on: `land.py` `project_now` and `project.py` `load` and `may_land` of the
+   installed 0.3.1, as read on 2026-11-23.
 2. **The refusal of a table in a wrong file comes from one map** of each table to the files where
    it is valid, and names the file where it is valid. It names no file of an older Lem: it is the
    rule of the current form, which the ruling of 2026-11-18 ("no refusal of a settings key that
@@ -149,6 +184,7 @@ where it is valid:
 ## What this plan will not verify
 
 - The hook on the owner's Mac with the Jev model: no test sends a message to the provider; the tests
-  check the answer of `collects` and that the hook stays silent.
+  check the answer of `collects`, that the hook stays silent, and that the worker never calls the
+  `LEM_JEV` stand-in without the Mac's yes (task 2).
 - The order of the merge and the plugin's update in the four repositories: that is the maintaining
   session's work after the merge (decision 1).
