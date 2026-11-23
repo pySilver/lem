@@ -203,9 +203,14 @@ What two landings share is the machine and the base branch, and each has one rul
 only while the machine's load average is below the start number of this machine (`[load] start` in
 `machine.toml`, beside the owner's mark, else Lem's 40): a run waits before its first command,
 logs `gate.wait` with the load and the number while it waits, and starts when the load is below the
-number. Two runs that wait start at least `LOAD_SPACING` seconds apart, so that the load average
-shows the first before the second reads it. `lem project load --start none` takes the gate away on
-one machine (`lem doctor` gives the line that sets a number). And Lem's own merge calls (`merge`) go one at a time,
+number. The runs that wait form one line for the machine, of every repository on it (`load.line/`
+beside `load.lock`, one locked file for each run): the one another open task waits for goes first
+(the `after:` line of a queued task, or of a task blocked by a red base), then the one whose wait
+began first, and only the first in the line starts. A run behind another logs `gate.wait` with
+`behind` and `why`, also while the load is above the number, and a run whose process is gone loses
+its place at the next look of another. Two runs that wait start at least `LOAD_SPACING` seconds
+apart, so that the load average shows the first before the second reads it. `lem project load
+--start none` takes the gate away on one machine (`lem doctor` gives the line that sets a number). And Lem's own merge calls (`merge`) go one at a time,
 under `merge.lock` of the state folder: a second call logs `merge.wait` with the task that holds
 it, waits, and reads the base branch after it takes the lock, so that it meets the merge before it.
 The commands of `checks.serial` still take the repository's one lock for them; nothing else does.

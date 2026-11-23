@@ -94,9 +94,13 @@ landing up as after a cut-off.
    - Before the first command, the load gate: the start number of this machine, the developer's
      (`lem project load --start N`, one number for every repository on it) or else Lem's 40. The
      step waits while the machine's load average is at or above it, and starts when the load is
-     below it. A new number, or `--start none`, reaches a run that waits at its next look (15 s). Two runs that waited start a minute apart, so that the load shows the first before the
-     second reads it. The step logs each wait (`gate.wait`), and the board shows it in the task's
-     own card ("waits for the load: 55, starts below 40"); `--status` gives it as `waits`. Say
+     below it. A new number, or `--start none`, reaches a run that waits at its next look (15 s). The
+     runs that wait form one line for the machine, of every repository on it: a landing another open
+     task waits for (by its `after:` line) goes first, then the one that waits longest, and only the
+     first in the line starts. Two runs that waited start a minute apart, so that the load shows the
+     first before the second reads it. The step logs each wait (`gate.wait`), and the board shows it in the task's
+     own card ("waits for the load: 55, starts below 40", or "its checks wait behind
+     fast-track-checks-documents, which waits longer"); `--status` gives it as `waits`. Say
      nothing of a wait: it is no news, and it needs nobody. Only `lem project load --start none`
      takes the gate away on a machine; `lem doctor` gives the line that sets a number.
    - Every command of the settings' `checks.commands` runs at the root of the task's worktree,
