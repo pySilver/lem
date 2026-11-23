@@ -631,7 +631,9 @@ PARKABLE = ("queued", "held", "blocked", "planned")
 WITH_LANDING = ("landing", "open")
 # The states only a lead, or the start or the queue of a task, writes. None comes over a task with its
 # landing: there it is a lead that woke late. `ready` does with `--start-over`, which only the way out
-# that land.py names gives: a landing that cannot go on, or whose record is broken, starts over.
+# that land.py names gives: a landing that cannot go on, or whose record is broken, starts over. It
+# writes the line START_OVER under WHY by itself, which `lem land start` reads: a `ready` without it,
+# over a task that was proposed, goes on with the landing a wait cut.
 # `held` is not here: Lem writes it over `landing` when the checks find that a task on the fast track
 # needs the standard track, and the interview of that path starts with it (`stages/new.md`, "The fast track").
 LEADS_WRITE = ("queued", "building", "planned", "ready")

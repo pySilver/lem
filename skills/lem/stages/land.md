@@ -77,6 +77,15 @@ landing up as after a cut-off.
    changed the one commit): its reviews and its pull request stay its own. That is the one way
    back for it: `lem project may-start` refuses a lead for a task in `landing` or `open`, and a
    change the owner asks for after the build is a new ask.
+   A `ready` task that was proposed before goes on with the new landing that a wait for a red base
+   (step 4) or a stop cut: `start` keeps its record whole, and its reviews, its merge agent's
+   review, the owner's standing merge and the count of new landings stay, as with no wait between.
+   Only a start over takes them: `lem project state SLUG ready --start-over "WHY"`, when a message
+   of `land.py` names it, which writes the line `the landing starts over` under WHY by itself.
+   `start` prints `owner_merge`: null, or after a start over that ended the owner's standing merge,
+   `ended: the landing started over: WHY; the owner merges it again`. Then tell him WHY in one
+   line. When `start` then refuses for want of a command of the checks, its message ends with the
+   same words, and your one line says both.
 2. **`base`.** The base branch is brought in by a rebase. Before it, with a GitHub remote, the
    step asks origin for the task's own branch: a commit there that Lem did not push (a teammate's
    suggestion on the pull request) stops it, with each such commit named. Nothing is pushed over
@@ -167,8 +176,9 @@ landing up as after a cut-off.
    landed,dropped,answered`, SLUG being the new task. When it ends with `"gone": true`, that task's
    session is gone: open it again once, `lem session open SLUG --why dead`, and wait again; a second
    time, tell the owner in one line. When it ends with that task `landed`, write
-   this task's state `ready` with the line `the base is green again`, and land again from step 1;
-   otherwise tell the owner in one line. Skipping or changing a command of the checks is the owner's
+   this task's state `ready` with the line `the base is green again`, and land again from step 1,
+   where a task that was proposed before goes on with what its landing carried; otherwise tell the
+   owner in one line. Skipping or changing a command of the checks is the owner's
    decision only. After two builders on the same failure, write the state `blocked` and tell
    the owner in one line: the row of "Waits for you" and its push tell him too.
 5. **The review**, before anything is proposed. `lem land read SLUG` says whether one is due, the
@@ -304,7 +314,11 @@ landing up as after a cut-off.
    line once. The text in `pr.md` is what the owner reads on GitHub. The state becomes `open`.
    Tell the owner once, in two lines at most: the pull request's address, and green, or not green
    with the reasons as the step printed them. The text is the report; do not say it again in your
-   own words. Then step 7, at once.
+   own words. Then step 7, at once, unless `propose` printed `"merge_review": "carried"`: then no
+   merge agent starts, and the board's server merges it, for the merge agent's `merge` or for the
+   owner's merge that `"owner_merge": "stands: ..."` names, as step 8 says of a new landing. A
+   carried review that calls the owner, with no merge of his that stands, waits for him as step 7
+   says: "Waits for you" shows "Read the merge review".
 7. **The merge agent**, for every proposed task, the fast track's too. You read no diff, so the
    read is a fresh agent's. `lem land merge-review SLUG` fetches the base and writes its brief,
    `merge-brief-TIP-BASE.md` in the task directory, and prints the brief's path (`brief`), the
@@ -399,13 +413,16 @@ landing up as after a cut-off.
      `merge.stands`, and the server runs `lem land merge SLUG --by owner --via server --standing` on
      the base the read covered, which `merge.start` and `merged_by` record as made after a read of
      the moved base. On `Base: another round.` the task lands again, and while the new landing
-     keeps the change he merged and the same reasons for not green, `propose` prints
+     keeps the change he merged and the same reasons for not green (a wait for a red base inside
+     it changes neither, step 1), `propose` prints
      `"owner_merge": "stands: ..."` and logs `merge.stands`, and the server runs `lem land merge
      SLUG --by owner --via server --standing`, which `merge.start` and `merged_by` record as made
      after a re-check. Do not run that merge yourself. When `propose` prints `"owner_merge":
      "ended: WHY"` (no review covers the change, a commit came after the rebase or the resolution,
      the rebase met a conflict and its resolution did not carry, as step 7 says, or the reasons for
-     not green changed), tell him WHY in one line: the merge waits for his word again.
+     not green changed), or `start` prints it after a start over (the landing started over, step
+     1), tell him WHY in one line: the merge waits for his word again. Both log `merge.ended`, which
+     the board shows as "Your merge ended" with its why.
    - The owner merged the pull request on GitHub himself, or on the board: the board's server
      writes it down and wakes this session, as the top of this stage says.
 
