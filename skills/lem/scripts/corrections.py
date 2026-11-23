@@ -44,8 +44,14 @@ with no output. Its own waits are bounded: it gives up the read of the event and
 calls (two on a machine that says yes, none on one that does not) after WAIT_SECONDS each. The copy
 checks the machine's yes again, asks Jev, and appends the
 message to the queue when Jev's probability of "lesson" is at least FLAG_AT. Jev is a pre-filter, and a loose one on purpose. With this question
-at 0.3, on 150 replies their owner had labeled, it caught 22 of 27 lessons and flagged 63 replies
-that were none (mybaze, 2026-11-07, tuned on that same sample, so the true rate is lower).
+at 0.3, on 150 replies their owner had labeled, it caught 22 of 27 lessons and flagged 67 of the
+123 replies that were none (mybaze's replies, measured 2026-11-23; FLAG_AT was tuned on that same
+sample on 2026-11-07, so the true rate is lower). Jev does not give the same number twice: the same
+150 requests sent again moved the probability of 109 replies, by 0.01 at the median and 0.11 at the
+most, and 4 replies crossed FLAG_AT. The question stays one question, though Jev's docs say to ask
+one condition in each: in that same run, one yes/no question for each reason, flagged when any was
+at FLAG_AT, caught 26 or 27 lessons and flagged 111 to 116 of the 123, and with the threshold chosen
+on one half of the sample and scored on the other, no such rule beat the one question both ways.
 
 The queue is one file for one project: `corrections.jsonl` in Lem's state folder (`.lem/state/` of
 the main checkout, as `lem_state.py` names it), shared by every worktree and never committed. What a retro decided is in
@@ -111,6 +117,7 @@ TRANSCRIPT_TAIL_BYTES = 4_000_000
 OWNER_TRIM = 500
 PREVIOUS_TRIM = 300
 QUESTION = {
+    "type": "choice",
     "instructions": (
         "This is one exchange between a coding agent and the project's owner: the agent's last message, "
         "then the owner's reply. Decide whether an agent should remember a lesson from the owner's reply "

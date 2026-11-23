@@ -316,7 +316,7 @@ mkdir -p "$WORK/jevbin"
 # a line to the file JEV_CALLED names for each call
 # shellcheck disable=SC2016  # the stand-in's own variables, expanded when it runs
 printf '%s\n' '#!/bin/sh' 'cat > /dev/null' 'if [ -n "$JEV_CALLED" ]; then echo called >> "$JEV_CALLED"; fi' 'if [ -n "$JEV_EXIT" ]; then echo "no key" >&2; exit "$JEV_EXIT"; fi' \
-  'printf "{\"answers\": {\"lesson\": {\"probabilities\": {\"lesson\": %s}}}}" "$JEV_P"' > "$WORK/jevbin/jev"
+  'printf "{\"answers\": {\"lesson\": {\"type\": \"choice\", \"probabilities\": {\"lesson\": %s}}}}" "$JEV_P"' > "$WORK/jevbin/jev"
 chmod +x "$WORK/jevbin/jev"
 printf '%s\n' '{"type": "user", "message": {"content": "hi"}}' '{"type": "assistant", "message": {"content": [{"type": "text", "text": "I pushed it."}]}}' > "$WORK/transcript.jsonl"
 event() { printf '{"prompt": "%s", "cwd": "%s", "session_id": "%s", "transcript_path": "%s"}' "$1" "$CQ" "$2" "$WORK/transcript.jsonl"; }
@@ -585,22 +585,27 @@ else
 fi
 # Lem's client of Jev: a timeout that is no number and a spec that is not UTF-8 are named, and nothing is sent.
 JEVPY=$PWD/skills/lem/scripts/jev.py
-printf '%s\n' '{"state": "s", "questions": {"q": {"instructions": "i", "choices": {"a": "x", "b": "y"}}}}' > "$WORK/jev-spec.json"
+printf '%s\n' '{"state": "s", "questions": {"q": {"type": "choice", "instructions": "i", "choices": {"a": "x", "b": "y"}}}}' > "$WORK/jev-spec.json"
 printf '{"state": "caf\351", "questions": {}}' > "$WORK/jev-latin.json"
 soon_timeout=$(env JEV_TIMEOUT=soon "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" 2>&1 || true)
 soon_code=$(env JEV_TIMEOUT=soon "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" >/dev/null 2>&1; echo $?)
 latin_file=$("$PY" -B "$JEVPY" check "$WORK/jev-latin.json" 2>&1 || true)
 latin_stdin=$("$PY" -B "$JEVPY" check - < "$WORK/jev-latin.json" 2>&1 || true)
 checked=$(env JEV_TIMEOUT=30 "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" | field 'd["ok"]' 2>&1 || true)
+printf '%s\n' '{"state": "s", "questions": {"q": {"instructions": "i", "choices": {"a": "x", "b": "y"}}}}' > "$WORK/jev-untyped.json"
+untyped=$("$PY" -B "$JEVPY" check "$WORK/jev-untyped.json" 2>&1 || true)
+untyped_code=$("$PY" -B "$JEVPY" check "$WORK/jev-untyped.json" >/dev/null 2>&1; echo $?)
 if [ "$soon_code" = 1 ] && grep -qF "lem-jev: JEV_TIMEOUT='soon' is not a number of seconds above 0" <<<"$soon_timeout" \
   && grep -qF "lem-jev: the spec ($WORK/jev-latin.json) is not UTF-8 text" <<<"$latin_file" && grep -qF "lem-jev: the spec (stdin) is not UTF-8 text" <<<"$latin_stdin" \
-  && [ "$checked" = True ] && ! grep -q Traceback <<<"$soon_timeout$latin_file$latin_stdin"; then
-  pass "lem-jev names a JEV_TIMEOUT that is no number and a spec that is not UTF-8, from a file or from its input, and exits 1"
+  && [ "$untyped_code" = 1 ] && grep -qF "lem-jev: question 'q' names no type; give it \"type\": \"choice\" (with choices) or \"type\": \"noul\"" <<<"$untyped" \
+  && [ "$checked" = True ] && ! grep -q Traceback <<<"$soon_timeout$latin_file$latin_stdin$untyped"; then
+  pass "lem-jev names a JEV_TIMEOUT that is no number, a spec that is not UTF-8, from a file or from its input, and a question with no type, and exits 1"
 else
-  fail "jev's refusals: $soon_timeout / $latin_file / $latin_stdin / $checked"
+  fail "jev's refusals: $soon_timeout / $latin_file / $latin_stdin / $untyped_code $untyped / $checked"
 fi
 # The key and the address of the Jev model: JEV_API_KEY, and a key under another name is none; JEV_API_URL, else
-# OpenRouter's. A request goes to that address with that key, as a stand-in server of Jev's form sees it.
+# OpenRouter's. A request goes to that address with that key, as a stand-in server of Jev's form sees it; it
+# answers a choice and a noul, and a second request with a noul whose answer has no number.
 jcheck() { env -u JEV_API_KEY -u OPENROUTER_API_KEY -u JEV_API_URL "$@" "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" | field '(d["url"], d["key_from"])' 2>&1 || true; }
 by_jev=$(jcheck JEV_API_KEY=k1 OPENROUTER_API_KEY=k2)
 by_other=$(jcheck OPENROUTER_API_KEY=k2)
@@ -613,27 +618,34 @@ printf '%s\n' 'import http.server, json, sys' \
   'class H(http.server.BaseHTTPRequestHandler):' \
   '    def do_POST(self):' \
   '        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))' \
-  '        open(sys.argv[2], "w").write(json.dumps({"path": self.path, "auth": self.headers["Authorization"], "model": body["model"]}))' \
-  '        reply = json.dumps({"model": body["model"], "answers": {"q": {"type": "choice", "choice": "a", "confidence": 0.9, "probabilities": {"a": 0.9, "b": 0.1}}}, "usage": {"tokens": 12}}).encode()' \
+  '        if "bad" not in body["questions"]: open(sys.argv[2], "w").write(json.dumps({"path": self.path, "auth": self.headers["Authorization"], "model": body["model"], "state": body["state"], "n": body["questions"]["n"]}))' \
+  '        given = {"q": {"type": "choice", "choice": "a", "confidence": 0.9, "probabilities": {"a": 0.9, "b": 0.1}}, "n": {"type": "noul", "noul": 0.98}, "bad": {"type": "noul"}}' \
+  '        reply = json.dumps({"model": body["model"], "answers": {name: given[name] for name in body["questions"]}, "usage": {"tokens": 12}}).encode()' \
   '        self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(reply))); self.end_headers(); self.wfile.write(reply)' \
   '    def log_message(self, *args): pass' \
   's = http.server.HTTPServer(("127.0.0.1", 0), H)' \
   'open(sys.argv[1], "w").write(str(s.server_address[1]))' \
-  's.handle_request()' > "$WORK/jev-server.py"
+  's.handle_request()' 's.handle_request()' > "$WORK/jev-server.py"
+printf '%s\n' '{"state": {"said": "s"}, "questions": {"q": {"type": "choice", "instructions": "i", "choices": {"a": "x", "b": "y"}}, "n": {"type": "noul", "instructions": "i", "yes": "y", "no": "n"}}}' > "$WORK/jev-both.json"
+printf '%s\n' '{"state": "s", "questions": {"bad": {"type": "noul", "instructions": "i"}}}' > "$WORK/jev-bad.json"
 "$PY" -B "$WORK/jev-server.py" "$WORK/jev-port" "$WORK/jev-seen" &
 jev_server=$!
 soon test -s "$WORK/jev-port"
-asked=$(env JEV_API_KEY=sk-test-key JEV_API_URL="http://127.0.0.1:$(cat "$WORK/jev-port")/v1/systemone" JEV_MODEL=jev-latest "$PY" -B "$JEVPY" "$WORK/jev-spec.json" | field '(d["model"], d["answers"]["q"]["choice"], d["cost"])' 2>&1 || true)
+asked=$(env JEV_API_KEY=sk-test-key JEV_API_URL="http://127.0.0.1:$(cat "$WORK/jev-port")/v1/systemone" JEV_MODEL=jev-latest "$PY" -B "$JEVPY" "$WORK/jev-both.json" | field '(d["model"], d["answers"]["q"]["choice"], d["answers"]["n"], d["cost"])' 2>&1 || true)
+no_number=$(env JEV_API_KEY=sk-test-key JEV_API_URL="http://127.0.0.1:$(cat "$WORK/jev-port")/v1/systemone" "$PY" -B "$JEVPY" "$WORK/jev-bad.json" 2>&1; echo "exit=$?")
 wait "$jev_server" 2>/dev/null || true
-seen=$(field '(d["path"], d["auth"], d["model"])' < "$WORK/jev-seen" 2>&1 || true)
+seen=$(field '(d["path"], d["auth"], d["model"], d["state"], d["n"])' < "$WORK/jev-seen" 2>&1 || true)
 if [ "$by_jev" = "('https://openrouter.ai/api/alpha/decisions', 'JEV_API_KEY')" ] && [ "$by_other" = "('https://openrouter.ai/api/alpha/decisions', None)" ] \
   && [ "$by_none" = "('https://openrouter.ai/api/alpha/decisions', None)" ] && [ "$by_url" = "('https://api.example.test/v1/systemone', 'JEV_API_KEY')" ] \
   && [ "$other_code" = 1 ] && [ "$other_ask" = "lem-jev: JEV_API_KEY is not set in this process's environment, and it is the one name Lem reads for the key; put the key of the Jev model's provider there" ] \
   && grep -qF "lem-jev: JEV_API_URL='api.example.test' is not an address" <<<"$bad_url" \
-  && [ "$asked" = "('jev-latest', 'a', None)" ] && [ "$seen" = "('/v1/systemone', 'Bearer sk-test-key', 'jev-latest')" ]; then
-  pass "lem-jev takes its key from JEV_API_KEY alone, and with a key under another name it sends nothing, exits 1 and says that JEV_API_KEY is the one name; its address is JEV_API_URL, else OpenRouter's; a request goes to that address with that key, and a reply with no cost reads"
+  && [ "$asked" = "('jev-latest', 'a', {'type': 'noul', 'noul': 0.98}, None)" ] \
+  && [ "$seen" = "('/v1/systemone', 'Bearer sk-test-key', 'jev-latest', {'said': 's'}, {'type': 'noul', 'instructions': 'i', 'criteria': {'true': 'y', 'false': 'n'}})" ] \
+  && grep -qF "lem-jev: the reply's answer to question 'bad', a noul, lacks a noul, a number from 0 to 1" <<<"$no_number" && grep -q 'exit=1$' <<<"$no_number" \
+  && ! grep -q Traceback <<<"$no_number"; then
+  pass "lem-jev takes its key from JEV_API_KEY alone, and with a key under another name it sends nothing, exits 1 and says that JEV_API_KEY is the one name; its address is JEV_API_URL, else OpenRouter's; a request goes to that address with that key, a state object as JSON and a noul's yes and no as its criteria, a choice and a noul are answered in one reply and one with no cost reads, and a noul answered with no number exits 1 and names the question"
 else
-  fail "jev's key and address: $by_jev / $by_other / $by_none / $by_url / $other_code $other_ask / $bad_url / $asked / $seen"
+  fail "jev's key and address: $by_jev / $by_other / $by_none / $by_url / $other_code $other_ask / $bad_url / $asked / $seen / $no_number"
 fi
 # One message, one judgment: a hook registered in two or three places (the home's settings, the
 # repository's, the plugin) starts once for each, at the same moment, and the first copy claims the message.

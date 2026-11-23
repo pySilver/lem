@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""lem-jev: ask TypeSafe's Jev decision model one or more choice questions, through OpenRouter or another provider.
+"""lem-jev: ask TypeSafe's Jev decision model one or more choice or yes/no questions, through OpenRouter or another provider.
 
   lem-jev SPEC.json | lem-jev - < spec.json     ask, print the answers as JSON
   lem-jev check SPEC.json | lem-jev check -     validate the spec and its size, send nothing
@@ -7,17 +7,29 @@
 Lem's own copy. The plugin puts it on the Bash tool's PATH as `lem-jev` (`bin/lem-jev`), named so
 that it does not shadow a developer's own `jev`, and the correction hook runs it by its path.
 
-A spec is {"state": "<the facts to decide on>", "questions": {NAME: QUESTION, ...}} and
-optionally "model". A question is {"instructions": "<what to decide>", "choices": {ID: "<what
-this choice means>", ...}}; it is sent as Jev's "choice" type, with the choices as its criteria.
+A spec is {"state": STATE, "questions": {NAME: QUESTION, ...}} and optionally "model". STATE is
+the facts to decide on: a non-empty string, or a non-empty JSON object or array (Jev's docs
+recommend an object with named fields). Every question names its type, one of Jev's two that Lem
+sends, and there is no default:
 
-The reply on stdout: {"model", "answers": {NAME: {"choice", "confidence", "probabilities"}},
-"cost"}. Jev returns probabilities per choice; read them, a confidence near 0.5 is a coin toss.
+  {"type": "choice", "instructions": "<what to decide>", "choices": {ID: "<what this choice means>", ...}}
+      at least two choices, each with a meaning; the choices are sent as its criteria.
+  {"type": "noul", "instructions": "<the yes/no question>", "yes": "<what a yes means>", "no": "<what a no means>"}
+      one question, answered with the probability of yes; "yes" and "no" are optional, both or
+      neither, and are sent as its criteria "true" and "false".
 
-Jev reads text best under about 32,000 bytes. Past that it runs in a long-context mode its docs
-call slower and less accurate, so a spec whose state and questions together pass LIMIT_BYTES is
-refused with exit 3 and nothing is sent. Nothing here truncates: a caller with a longer input
-sends it to a big model instead.
+The reply on stdout: {"model", "answers": {NAME: ANSWER}, "cost"}. A choice's ANSWER is {"type":
+"choice", "choice", "confidence", "probabilities"}: Jev returns probabilities per choice; read
+them, a confidence near 0.5 is a coin toss. A noul's is {"type": "noul", "noul"}, the probability
+of yes, from 0 to 1. A reply whose answer lacks what its type must have is a failed request, never
+a null passed on.
+
+LIMIT_BYTES is OpenRouter's line: through it, a request with more than about 32,000 bytes of text
+runs in a long-context mode, on its own, which TypeSafe calls slower and less accurate; the hard
+limit is 262,144 tokens (OpenRouter's guide, read 2026-11-23). So a spec whose state and questions
+together pass LIMIT_BYTES is refused with exit 3 and nothing is sent. A state object or array
+counts the bytes of its JSON text. Nothing here truncates: a caller with a longer input sends it to
+a big model instead.
 
 The key is JEV_API_KEY from the environment, and the address JEV_API_URL, OpenRouter's by default
 (the owner, 2026-11-18: "jev lib only care about API url and API token - we can use any
@@ -27,11 +39,11 @@ and no secret goes into a file. A process keeps the values it started with, so a
 changed later reaches only processes started after the change.
 
 The request and the reply are Jev's own form, the same at every provider: a POST of state, model
-and questions with the key as a Bearer token, and answers with choice, confidence and
-probabilities. Three parts are OpenRouter's: its address (`URL`), its name of the model
-(`typesafe/jev-1.14`, where TypeSafe's own API says `jev-latest`), and the reply's `usage.cost`,
-which another provider may not give (`cost` is then null). With another JEV_API_URL, set JEV_MODEL
-to that provider's name of the model.
+and questions with the key as a Bearer token, and answers with a choice's choice, confidence and
+probabilities, or a noul's probability of yes. Three parts are OpenRouter's: its address (`URL`),
+its name of the model (`typesafe/jev-1.14`, where TypeSafe's own API says `jev-latest`), and the
+reply's `usage.cost`, which another provider may not give (`cost` is then null). With another
+JEV_API_URL, set JEV_MODEL to that provider's name of the model.
 
 Exit codes: 0 answered; 1 a bad spec, no key, or a failed request (the error names which);
 3 the input is over LIMIT_BYTES.
@@ -53,6 +65,8 @@ URL = "https://openrouter.ai/api/alpha/decisions"
 KEY = "JEV_API_KEY"
 DEFAULT_MODEL = os.environ.get("JEV_MODEL", "typesafe/jev-1.14")
 LIMIT_BYTES = 32_000
+# the types of Jev's questions that Lem sends
+TYPES = ("choice", "noul")
 # the default of JEV_TIMEOUT; main() reads the variable, so a wrong value is a message, not a traceback at import
 TIMEOUT_SECONDS = 120.0
 # macOS keeps its root certificates here. A python.org interpreter that never ran its
@@ -92,35 +106,93 @@ def load(arg: str) -> dict:
     return spec
 
 
+def filled(text: object) -> bool:
+    return isinstance(text, str) and bool(text.strip())
+
+
+def number(value: object) -> bool:
+    """A number from 0 to 1, as Jev gives a probability or a confidence; a JSON true is not one."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and 0 <= value <= 1
+
+
+def question_body(name: str, question: object) -> dict:
+    """One question of the request, in Jev's form, after checking its shape."""
+    if not isinstance(question, dict) or question.get("type") not in TYPES:
+        given = question.get("type") if isinstance(question, dict) else None
+        named = f"has type {given!r}" if given is not None else "names no type"
+        raise SpecError(f'question {name!r} {named}; give it "type": "choice" (with choices) or "type": "noul" (a yes/no question)')
+    kind = question["type"]
+    instructions = question.get("instructions")
+    if kind == "choice":
+        if set(question) - {"type", "instructions", "choices"}:
+            raise SpecError(f"question {name!r} is a choice and takes only type, instructions and choices; yes and no belong to a noul")
+        if not filled(instructions):
+            raise SpecError(f"question {name!r} needs instructions")
+        choices = question.get("choices")
+        if not isinstance(choices, dict) or len(choices) < 2 or not all(filled(v) for v in choices.values()):
+            raise SpecError(f"question {name!r} needs at least two choices, each with a meaning")
+        return {"type": "choice", "instructions": instructions, "criteria": choices}
+    if set(question) - {"type", "instructions", "yes", "no"}:
+        raise SpecError(f"question {name!r} is a noul and takes only type, instructions, yes and no; choices belong to a choice")
+    if not filled(instructions):
+        raise SpecError(f"question {name!r} needs instructions")
+    body = {"type": "noul", "instructions": instructions}
+    said = [key for key in ("yes", "no") if key in question]
+    if said:
+        if len(said) == 1 or not (filled(question["yes"]) and filled(question["no"])):
+            raise SpecError(f"question {name!r} needs both yes and no, each a text that says what that answer means, or neither")
+        body["criteria"] = {"true": question["yes"], "false": question["no"]}
+    return body
+
+
 def build(spec: dict) -> dict:
     """The decisions request body, after checking the spec's shape and size."""
     unknown = set(spec) - {"state", "questions", "model"}
     if unknown:
         raise SpecError(f"unknown spec keys: {sorted(unknown)}")
     state = spec.get("state")
-    if not isinstance(state, str) or not state.strip():
-        raise SpecError("state must be a non-empty string")
+    if isinstance(state, str) and state.strip():
+        state_text = state
+    elif isinstance(state, (dict, list)) and state:
+        state_text = json.dumps(state, ensure_ascii=False)
+    else:
+        raise SpecError("state must be a non-empty string, or a non-empty JSON object or array")
     questions = spec.get("questions")
     if not isinstance(questions, dict) or not questions:
         raise SpecError("questions must be a non-empty object")
-    body_questions = {}
-    for name, question in questions.items():
-        if not isinstance(question, dict) or set(question) - {"instructions", "choices"}:
-            raise SpecError(f"question {name!r} takes only instructions and choices")
-        instructions = question.get("instructions")
-        choices = question.get("choices")
-        if not isinstance(instructions, str) or not instructions.strip():
-            raise SpecError(f"question {name!r} needs instructions")
-        if not isinstance(choices, dict) or len(choices) < 2 or not all(
-            isinstance(k, str) and isinstance(v, str) and v.strip() for k, v in choices.items()
-        ):
-            raise SpecError(f"question {name!r} needs at least two choices, each with a meaning")
-        body_questions[name] = {"type": "choice", "instructions": instructions, "criteria": choices}
+    body_questions = {name: question_body(name, question) for name, question in questions.items()}
     body = {"model": spec.get("model") or DEFAULT_MODEL, "state": state, "questions": body_questions}
-    size = len(state.encode()) + len(json.dumps(body_questions).encode())
+    size = len(state_text.encode()) + len(json.dumps(body_questions).encode())
     if size > LIMIT_BYTES:
-        raise OverflowError(f"the input is {size} bytes, over Jev's {LIMIT_BYTES}; send it to a big model, never a cut-down copy")
+        raise OverflowError(f"the input is {size} bytes, over the {LIMIT_BYTES} past which OpenRouter runs Jev in its slower, less accurate long-context mode; send it to a big model, never a cut-down copy")
     return body
+
+
+def answer(name: str, kind: str, given: object) -> dict:
+    """One answer of the printed reply, for a question of type KIND, or a RuntimeError that names the question."""
+    if isinstance(given, dict) and given.get("type", kind) == kind:
+        if kind == "noul" and number(given.get("noul")):
+            return {"type": "noul", "noul": given["noul"]}
+        probabilities = given.get("probabilities")
+        if (kind == "choice" and isinstance(given.get("choice"), str) and number(given.get("confidence"))
+                and isinstance(probabilities, dict) and probabilities and all(number(p) for p in probabilities.values())):
+            return {"type": "choice", "choice": given["choice"], "confidence": given["confidence"], "probabilities": probabilities}
+    must = "a noul, a number from 0 to 1" if kind == "noul" else "a choice, a confidence and probabilities"
+    raise RuntimeError(f"the reply's answer to question {name!r}, a {kind}, lacks {must}: {json.dumps(given)[:400]}")
+
+
+def read(reply: object, questions: dict) -> dict:
+    """The printed reply from Jev's: each question's answer by its type, the model and the cost.
+    QUESTIONS is the request's, which says each question's type."""
+    answers = reply.get("answers") if isinstance(reply, dict) else None
+    if not isinstance(answers, dict) or set(answers) != set(questions):
+        raise RuntimeError(f"the reply does not answer every question: {json.dumps(reply)[:400]}")
+    usage = reply.get("usage")
+    return {
+        "model": reply.get("model"),
+        "answers": {name: answer(name, questions[name]["type"], answers[name]) for name in questions},
+        "cost": usage.get("cost") if isinstance(usage, dict) else None,
+    }
 
 
 def key() -> str:
@@ -155,17 +227,9 @@ def ask(body: dict, timeout: float) -> dict:
         raise RuntimeError(f"{where} answered HTTP {error.code}: {error.read().decode(errors='replace')[:400]}") from error
     except urllib.error.URLError as error:
         raise RuntimeError(f"{where} could not be reached: {error.reason}") from error
-    answers = reply.get("answers")
-    if not isinstance(answers, dict) or set(answers) != set(body["questions"]):
-        raise RuntimeError(f"the reply does not answer every question: {json.dumps(reply)[:400]}")
-    return {
-        "model": reply.get("model"),
-        "answers": {
-            name: {k: a.get(k) for k in ("choice", "confidence", "probabilities")}
-            for name, a in answers.items()
-        },
-        "cost": (reply.get("usage") or {}).get("cost"),
-    }
+    except ValueError as error:
+        raise RuntimeError(f"{where} answered with a reply that is not JSON: {error}") from error
+    return read(reply, body["questions"])
 
 
 def main(argv: list[str]) -> int:
