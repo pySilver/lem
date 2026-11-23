@@ -5,7 +5,7 @@ list of what waits for the owner (`lem_board_model.waits_of`) every LOOK_SECONDS
 away (`/lem im-away`, the model's `away`) and the Inbox runs on this Mac with a tailnet address, each
 row of the list goes to the Inbox once, in the thread named by the task's slug. A row that left the
 list has its open question withdrawn, the mark either way, so that the phone shows "No longer
-applies"; a question he answered in the Inbox gets nothing. At `/lem im-back` nothing is withdrawn,
+applies", unless the task's session holds it back while it works on his answer (`plan`); a question he answered in the Inbox gets nothing. At `/lem im-back` nothing is withdrawn,
 and after it nothing new is sent.
 
 What a row becomes (`things_of`, `thing_of`, pure functions over the model):
@@ -31,8 +31,11 @@ What a row becomes (`things_of`, `thing_of`, pure functions over the model):
   dropped one, a refused merge, an open task with no proposal, no review of its tip or
   no whole commit of it on record.
 
-The rule (`plan`): a recorded thing that still matches its row stays. One whose row left, or whose
-thing changed, leaves the record: a question is withdrawn (a message as the same session, with
+The rule (`plan`): a row that the task's working session holds back (`lem_board_model.held_back`: a
+held task whose session's turn runs on his answer) keeps its recorded thing as it stands, away or not:
+it is neither withdrawn, forgotten nor sent again, so that a turn the Inbox's own wake started sends
+nothing when it ends on the same block. Of every other recorded thing, one that still matches its row
+stays, and one whose row left, or whose thing changed, leaves the record: a question is withdrawn (a message as the same session, with
 `reply_to` its message and `supersedes` a list of its id), a note is only forgotten. While the mark
 does not say away, or the door is closed, a thing whose session alone changed, or whose form changed
 with it, stays, and so does one whose row still waits behind its task's session row: the question stays
@@ -41,10 +44,7 @@ While the mark does not say away, nothing is sent. A row with no recorded thing 
 says away and the door is open. A thing written before a call that never answered is sent again, with
 its payload and key, only while the mark says away, the door is open and its row is still the same
 thing; while he is away with the door closed it waits, and otherwise it is forgotten, since nothing of
-it may go now. A row that the task's working session holds back (`lem_board_model.held_back`: a held
-task whose session's turn runs on his answer) keeps its recorded thing as it stands, away or not: it is
-neither withdrawn, forgotten nor sent again, so that a turn the Inbox's own wake started sends nothing
-when it ends on the same block.
+it may go now.
 
 The door (`door_of`): `plannotator inbox status --json`, found on the server's PATH, read at each look
 while the mark says away or a sent thing waits in the record. Lem starts no Inbox on purpose: a look

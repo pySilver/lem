@@ -10,9 +10,11 @@ Four facts tell whether a task's session still works, beside the task's own even
 board's model reads): when its main thread or one of its subagents last wrote a turn (`sign`),
 whether a shell command of the session runs now (`shell`), whether those could be read at all
 (`signs`), and whether the newest turn of the session's main thread still runs (`turn`: `"runs"`,
-`"ended"`, or None when no record tells). The board server's guard of a stopped session (`serve.py`) sends a message only when
-`shell` is false and the task's newest sign of work is old: with `signs` true the newest of `sign`
-and of the task's events, with `signs` false the task's events alone.
+`"ended"`, or None when no record tells). The board server's guard of a stopped session
+(`serve.py`) sends a message only when `shell` is false and the task's newest sign of work is old:
+with `signs` true the newest of `sign` and of the task's events, with `signs` false the task's
+events alone. A held task of the owner's whose `turn` runs is Lem's work and no row of what waits
+for him until that turn ends (`lem_board_model.put_sessions`).
 
 Where each fact is, as read on this Mac with Claude Code 2.1.330 on 2026-11-22:
 
@@ -62,9 +64,9 @@ Where each fact is, as read on this Mac with Claude Code 2.1.330 on 2026-11-22:
   subagent's Bash command has the same parent and the same form (seen with a subagent's
   `sleep 40`, 2026-11-22). Other children, a hook's process or `caffeinate`, are no shell command.
 
-`signs` is false, and `turn` None, when no record of the session names a transcript, when no process file of the
-transcript's folder names one of the session's Claude Code ids, or when no such pid is in the
-process table: with no process to read there is no evidence that no shell runs, and a guard that
+`signs` is false, and `turn` None, when no record of the session names a transcript, when no
+process file of the transcript's folder names one of the session's Claude Code ids, or when no such
+pid is in the process table: with no process to read there is no evidence that no shell runs, and a guard that
 restarted such a session could put two agents on one task. So the guard counts only the task's
 events for it (`lem_board_model.stop_due`): the status message, then the owner's row "stopped",
 and never a fresh session that the owner did not open.
