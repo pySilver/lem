@@ -328,7 +328,8 @@ landing up as after a cut-off.
      server is there: each `lem` command starts it when none runs.
    - `calls` is true: the merge waits for the owner. A careful change, a request that is not
      green, and every task of a project whose `branch.land` is `owner` always call him, whatever
-     the agent found; so does a review whose verdict is `call`. "Waits for you" shows "Read the
+     the agent found; so does a review whose verdict is `call`, and a second answer with no verdict
+     on a base that did not move (below). "Waits for you" shows "Read the
      merge review", and the review is the first card of the task on the board. Tell him in one line
      with its `why`, and wait: his merge wakes this session (step 8). A fresh session for the wait
      would cost a fresh start and buy nothing.

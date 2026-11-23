@@ -4165,7 +4165,7 @@ def moved_carry(kept: dict, new: str, why_careful: list[str], reasons: list[str]
     if not old:
         return out
     said = kept.get("merge_review")
-    # a review with no verdict (the second answer on a moved base that could not be recorded) has nothing to carry
+    # a review with no verdict (a second answer whose first line gave none, on a moved base or not) has nothing to carry
     if how and isinstance(said, dict) and said.get("verdict") in ("merge", "call") and said.get("tip") == old:
         out["merge_review"] = True
     else:
