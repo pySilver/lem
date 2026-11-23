@@ -7,6 +7,7 @@ files is a fact only git shows, and tests/lem-settings.sh checks it with `lem pr
 """
 
 import os
+import runpy
 import sys
 import tempfile
 import threading
@@ -85,6 +86,13 @@ class Places(Home):
         for place in ("team", "local"):
             with self.subTest(place=place):
                 self.assertIn(f"[ask] is not valid in this file: its place is {project.home_name()}", self.refused(read, place, "[ask]", 'style = "minimal"'))
+        file = self.written('[ask]\nstyle = "minimal"\n')
+        self.assertIn(f"{file}: [ask] is not valid in this file: its place is {project.home_name()}", self.refused(lem_state.machine_tables))
+
+    def test_the_question_page_takes_the_keys_of_ask_that_lem_project_takes(self):
+        # lem-ask runs alone and imports nothing of Lem's, so its own list of the keys is held to project.py's here
+        page = runpy.run_path(str(Path(__file__).resolve().parents[2] / "skills" / "lem-ask" / "bin" / "lem-ask"), run_name="lem_ask")
+        self.assertEqual(tuple(page["ASK_KEYS"]), project.TABLES["ask"])
 
     def test_what_is_true_for_the_whole_machine_is_its_files_only(self):
         for table, line in (("load", "start = 4"), ("serve", "port = 4500"), ("peers", "mini = 4600"), ("handoff", "tokens = 0"), ("corrections", "collect = false")):

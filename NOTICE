@@ -61,11 +61,11 @@ demos.
 
 Changes made: the skill, its command and its runtime files have new names (`lem-ask`,
 `bin/lem-ask`, `ask.js`, `ask.css`), and its personal defaults moved to
-`~/.config/lem-ask/defaults.json` (`LEM_ASK_CONFIG`); the launcher moved from the skill's
+the table `[ask]` of Lem's own `~/.config/lem/settings.toml`, and its mermaid cache to `~/.cache/lem/`; the launcher moved from the skill's
 `scripts/huddle.py` to `bin/lem-ask`, so it is a bare command on the Bash tool's `PATH` and
 `allowed-tools: Bash(lem-ask *)` pre-authorizes it; it refuses to open a page
 in an unattended run (`CLAUDE_CODE_SESSION_ATTENDED=0`); outside agterm the
-browser fallback is opt-in (`--browser` or `"browser": true` in the user's
+browser fallback is opt-in (`--browser` or `browser = true` in the user's
 defaults) instead of automatic, and `HUDDLE_NO_BROWSER` is gone; an occupied overlay
 slot is its own exit (5, `busy`), naming the page when it is a question page; `lem-ask wait` fails at once on an agterm
 error instead of reporting `pending` after the full timeout; a malformed spec

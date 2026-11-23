@@ -20,11 +20,14 @@ unanswered), 3 no way to show it (outside agterm without --browser, or an unatte
 4 still pending after --timeout (run `lem-ask wait ID`), 5 the session already shows an overlay,
 1 error.
 
-Environment: AGTERMCTL (path to agtermctl), LEM_ASK_CONFIG (personal defaults, default
-~/.config/lem-ask/defaults.json; "browser": true there opens the page in the browser outside agterm).
+Environment: AGTERMCTL (path to agtermctl). The personal defaults are the table [ask] of Lem's own
+settings file, $XDG_CONFIG_HOME/lem/settings.toml or ~/.config/lem/settings.toml (`browser = true`
+there opens the page in the browser outside agterm); the mermaid bundle is kept in
+$XDG_CACHE_HOME/lem or ~/.cache/lem.
 """
 import argparse
 import base64
+import datetime
 import difflib
 import glob
 import hashlib
@@ -41,6 +44,7 @@ import subprocess
 import sys
 import threading
 import time
+import tomllib
 import urllib.request
 import webbrowser
 
@@ -48,12 +52,13 @@ HERE = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))  # the skill
 RUNTIME = os.path.join(HERE, "runtime")
 TEMPLATES = os.path.join(HERE, "templates")
 DEMOS = os.path.join(HERE, "demos")
-CACHE = os.path.expanduser("~/.cache/lem-ask")
 DEFAULTS = os.path.join(HERE, "defaults.json")
-USER_DEFAULTS = os.path.expanduser(os.environ.get("LEM_ASK_CONFIG", "~/.config/lem-ask/defaults.json"))
+# The keys of the table [ask] of Lem's home settings file; `lem project` takes the same five (project.py TABLES).
+ASK_KEYS = ("style", "size", "review", "browser", "status")
+STATUS_KEYS = ("asking", "answered")
 OUTDIR = os.path.join(os.environ.get("TMPDIR", "/tmp"), "lem-ask")
 MERMAID_URL = "https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js"
-MERMAID_FILE = os.path.join(CACHE, "mermaid-11.12.0.min.js")
+MERMAID_NAME = "mermaid-11.12.0.min.js"
 # jsDelivr's published sha256 for that file (data.jsdelivr.com/v1/package/npm/mermaid@11.12.0/flat).
 # The page runs with agterm's bridge, which can type into terminals, so unverified code never goes in.
 MERMAID_SHA256 = "07e37dfa97b337ccc85365d57eddf99b9706f09db3b59b260d0333b23b343c4b"
@@ -199,11 +204,17 @@ def says_nothing(o):
                 or o.get("cons") or o.get("tags") or isinstance(o.get("recommended"), str) or o.get("values"))
 
 
+SIZE_WHAT = "\"auto\", \"full\" or a whole percent of the session from 1 to 100"
+
+
+def size_valid(size):
+    """A panel size is "auto", "full" or a whole percent of 1 to 100."""
+    return size in ("auto", "full") or (isinstance(size, int) and not isinstance(size, bool) and 1 <= size <= 100)
+
+
 def size_problem(size):
-    """What is wrong with a panel size, or None: it is "auto", "full" or a whole percent of 1 to 100."""
-    if size in ("auto", "full") or (isinstance(size, int) and not isinstance(size, bool) and 1 <= size <= 100):
-        return None
-    return f"`size` is \"auto\", \"full\" or a whole percent of the session from 1 to 100, not {size!r}"
+    """What is wrong with a panel size of a spec, or None."""
+    return None if size_valid(size) else f"`size` is {SIZE_WHAT}, not {size!r}"
 
 
 def check_spec(spec):
@@ -367,16 +378,18 @@ def mermaid_js():
     """The pinned mermaid bundle, verified on every read; "" (diagrams show as source) when unavailable."""
     def verified(data):
         return hashlib.sha256(data).hexdigest() == MERMAID_SHA256
+    cache = lem_folder("XDG_CACHE_HOME", ".cache")
+    file = os.path.join(cache, MERMAID_NAME)
     try:
-        with open(MERMAID_FILE, "rb") as f:
+        with open(file, "rb") as f:
             data = f.read()
         if verified(data):
             return data.decode("utf-8")
-        print(f"lem-ask: {MERMAID_FILE} fails its sha256 check; fetching it again", file=sys.stderr)
+        print(f"lem-ask: {file} fails its sha256 check; fetching it again", file=sys.stderr)
     except FileNotFoundError:
         pass
     except OSError as e:
-        print(f"lem-ask: cannot read {MERMAID_FILE} ({e}); fetching it again", file=sys.stderr)
+        print(f"lem-ask: cannot read {file} ({e}); fetching it again", file=sys.stderr)
     try:
         with urllib.request.urlopen(MERMAID_URL, timeout=20) as r:
             data = r.read()
@@ -388,11 +401,11 @@ def mermaid_js():
               file=sys.stderr)
         return ""
     try:
-        os.makedirs(CACHE, exist_ok=True)
-        tmp = MERMAID_FILE + f".{os.getpid()}.tmp"
+        os.makedirs(cache, exist_ok=True)
+        tmp = file + f".{os.getpid()}.tmp"
         with open(tmp, "wb") as f:
             f.write(data)
-        os.replace(tmp, MERMAID_FILE)
+        os.replace(tmp, file)
     except OSError as e:  # the page still gets the verified bundle; only the cache is lost
         print(f"lem-ask: cannot cache mermaid ({e})", file=sys.stderr)
     return data.decode("utf-8")
@@ -438,43 +451,105 @@ def write_page(html):
 
 
 class DefaultsError(Exception):
-    """A defaults file this script cannot use; the message names the file and the fix."""
+    """A defaults file, or a folder of Lem's, this script cannot use; the message names the file and the fix."""
+
+
+def lem_folder(variable, fallback):
+    """Lem's folder under one base directory of XDG: `$VARIABLE/lem` when the variable is set and not
+    empty, else `~/FALLBACK/lem`. It is the rule of `lem_state.config()`, which this script cannot
+    import: it runs alone, on the standard library only. A relative path is refused, since it would be
+    read from the folder each command starts in."""
+    named = os.environ.get(variable, "")
+    if not named:
+        return os.path.join(os.path.expanduser("~"), fallback, "lem")
+    if not os.path.isabs(named):
+        raise DefaultsError(f"{variable} is {named!r}, a relative path: set it to an absolute path, or unset it for ~/{fallback}")
+    return os.path.join(named, "lem")
+
+
+def settings_file():
+    """Lem's settings file of the home folder, whose table [ask] holds the user's own defaults."""
+    return os.path.join(lem_folder("XDG_CONFIG_HOME", ".config"), "settings.toml")
+
+
+def shown(path):
+    """A file of the home directory as a person writes it, ~/.config/lem/settings.toml; another as it is."""
+    home = os.path.expanduser("~")
+    return "~/" + os.path.relpath(path, home) if path.startswith(home.rstrip(os.sep) + os.sep) else path
+
+
+def toml_text(value):
+    """A value as TOML writes it, for a message: json.dumps raises on a date, which TOML has."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        return '"' + "".join(f"\\u{ord(c):04x}" if ord(c) < 0x20 or ord(c) == 0x7F else c for c in escaped) + '"'
+    if isinstance(value, (int, float)):
+        return repr(value)
+    if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
+        return value.isoformat()
+    if isinstance(value, list):
+        return "[" + ", ".join(toml_text(item) for item in value) + "]"
+    if isinstance(value, dict):
+        bare = re.compile(r"[A-Za-z0-9_-]+")
+        return "{" + ", ".join(f"{k if bare.fullmatch(k) else toml_text(k)} = {toml_text(v)}" for k, v in value.items()) + "}"
+    return "null"  # JSON's null, which only the skill's own defaults.json can hold: TOML has none
 
 
 def defaults_problem(values):
-    """What is wrong with a defaults file's values that this script reads itself, or None."""
+    """What is wrong with the defaults, or None. Each key's type is checked by the spec's own rule
+    (TOP_TYPES, size_valid) before its value is used, and a value is named as TOML writes it."""
     if not isinstance(values, dict):
-        return f"it is a JSON object of settings, not {type(values).__name__}"
-    if "size" in values and (problem := size_problem(values["size"])):
-        return problem
+        return f"the defaults are a table of settings, not {toml_text(values)}"
+    for key in values:
+        if key not in ASK_KEYS:
+            near = difflib.get_close_matches(key, ASK_KEYS, n=1)
+            return f"`{key}` is no key of the defaults{f' (did you mean `{near[0]}`?)' if near else ''}: they are {', '.join(ASK_KEYS)}"
+    for key in ("style", "review"):
+        what, test = TOP_TYPES[key]
+        if key in values and not test(values[key]):
+            return f"`{key}` is {what}, not {toml_text(values[key])}"
+    if "size" in values and not size_valid(values["size"]):
+        return f"`size` is {SIZE_WHAT}, not {toml_text(values['size'])}"
     if "browser" in values and not isinstance(values["browser"], bool):
-        return f"`browser` is true or false, not {json.dumps(values['browser'])}"
+        return f"`browser` is true or false, not {toml_text(values['browser'])}"
     status = values.get("status", {})
-    if not isinstance(status, dict):
-        return f"`status` is an object with `asking` and `answered`, not {json.dumps(status)}"
-    for key in ("asking", "answered"):
-        glyph = status.get(key, ["x"])
+    if not isinstance(status, dict) or any(key not in STATUS_KEYS for key in status):
+        return f"`status` is a table of `asking` and `answered`, not {toml_text(status)}"
+    for key, glyph in status.items():
         if not isinstance(glyph, list) or not glyph or not all(isinstance(word, str) and word for word in glyph):
-            return f"`status.{key}` is a list of the words `agtermctl session status` takes, as [\"blocked\"], not {json.dumps(glyph)}"
+            return f"`status.{key}` is a list of the words `agtermctl session status` takes, as [\"blocked\"], not {toml_text(glyph)}"
     return None
 
 
 def defaults():
-    """The skill's neutral defaults.json, overlaid by the user's own file (LEM_ASK_CONFIG). A file
-    that is not JSON, or holds a value of the wrong type, is refused: a setting dropped without a
-    word would be a page that looks other than its owner chose."""
-    merged = {}
-    for path in (DEFAULTS, USER_DEFAULTS):
-        try:
-            with open(path, encoding="utf-8") as f:
-                values = json.load(f)
-        except FileNotFoundError:
-            continue
-        except (OSError, ValueError) as e:
-            raise DefaultsError(f"{path} cannot be read as JSON ({e}); correct the file or remove it") from e
-        if problem := defaults_problem(values):
-            raise DefaultsError(f"{path}: {problem}; correct the file or remove it")
-        merged.update(values)
+    """The skill's neutral defaults.json, overlaid by the table [ask] of Lem's home settings file. A
+    file that does not read, or a value of the wrong type, is refused: a setting dropped without a word
+    would be a page that looks other than its owner chose."""
+    try:
+        with open(DEFAULTS, encoding="utf-8") as f:
+            merged = json.load(f)
+    except (OSError, ValueError) as e:
+        raise DefaultsError(f"{DEFAULTS} cannot be read as JSON ({e}); install the plugin again") from e
+    if problem := defaults_problem(merged):
+        raise DefaultsError(f"{DEFAULTS}: {problem}; install the plugin again")
+    path = settings_file()
+    try:
+        with open(path, "rb") as f:
+            whole = tomllib.load(f)
+    except FileNotFoundError:
+        return merged
+    except OSError as e:
+        raise DefaultsError(f"{shown(path)} cannot be read ({e.strerror}); correct the file or remove it") from e
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as e:
+        raise DefaultsError(f"{shown(path)} does not read as TOML ({e}); correct the file") from e
+    values = whole.get("ask", {})
+    if not isinstance(values, dict):
+        raise DefaultsError(f"{shown(path)}: `ask` is the table [ask], not {toml_text(values)}; correct the file")
+    if problem := defaults_problem(values):
+        raise DefaultsError(f"{shown(path)}, under [ask]: {problem}; correct the file or remove the key")
+    merged.update(values)
     return merged
 
 
@@ -790,7 +865,7 @@ def ask(spec, a, base):
     browser = a.browser or (not in_agterm() and defaults().get("browser") is True)
     if not in_agterm() and not browser:
         emit({"status": "no-agterm", "error": "not inside agterm, so there is no overlay to show the page in",
-              "hint": "ask in the terminal; --browser, or \"browser\": true in ~/.config/lem-ask/defaults.json, "
+              "hint": f"ask in the terminal; --browser, or `browser = true` under [ask] in {shown(settings_file())}, "
                       "opens the page in the browser instead"}, 3)
     apply_defaults(spec)
     if a.style:
@@ -851,7 +926,7 @@ def main():
     common.add_argument("--follow", action="store_true", help="select this session so the user sees it now")
     common.add_argument("--size", type=int, help="floating panel, percent of the session (1-100); default auto")
     common.add_argument("--full", action="store_true", help="cover the whole session instead of a floating panel")
-    common.add_argument("--style", choices=["refined", "minimal", "bold", "terminal"], help="visual style (default from defaults.json)")
+    common.add_argument("--style", choices=["refined", "minimal", "bold", "terminal"], help="visual style (default: style under [ask] in ~/.config/lem/settings.toml, else refined)")
     common.add_argument("--review", choices=["auto", "always", "never"], help="show the answer review before sending")
     common.add_argument("--chromeless", action="store_true", help="hide the overlay's title strip")
     common.add_argument("--timeout", type=float, default=570, help="seconds to wait (default 570)")
