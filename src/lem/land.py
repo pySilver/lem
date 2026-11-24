@@ -50,6 +50,10 @@ reached, whoever asks.
                            merge or call, whether the owner is called, and on a moved base its call,
                            safe or another round; the commits are the `tip` and the `base` the brief
                            named, and the reply of a brief of an earlier proposal is refused
+    lem land merge-review SLUG --no-answer --tip COMMIT --base COMMIT
+                           write down that the merge agent of that brief ended with no answer:
+                           the first is refused and the agent is asked again; the second is
+                           written down as a reply with no verdict is
     lem land merge SLUG --by owner|merger [--message SUBJECT] [--via session|server] [--standing] [--tip COMMIT]
                            merge the pull request through GitHub: the owner's word, or the merge
                            agent's where the settings and the request allow it; `--via server`
@@ -622,7 +626,10 @@ such reply of one brief is recorded as another round, with that reason as its wh
 that the checks decide and the owner is not asked; on a base that did not move the
 second reply of one brief with no verdict is recorded as a review that calls the owner,
 with no verdict and a why that names the verdict a lower line of it gives, if any
-(`unread_next`, `unread_why`). It writes the reply as `merge-review.md`, keeps
+(`unread_next`, `unread_why`). `--no-answer` in the place of `--file` is a merge agent
+of that brief that ended with no answer, counted as such a reply: its second end is
+recorded the same way, with a why that says so (`unanswered_why`), and its reason in
+the place of the reply. It writes the reply as `merge-review.md`, keeps
 `merge_review` in `landing.json` (the proposed tip, the verdict, `calls`, `why`, the
 seat kept with its brief as `by`, never a new read of the settings, so it names the seat
 that read, the time as `at`, the `base` the read covered, and its `base_call` and
@@ -9670,6 +9677,17 @@ def unread_why(lower: str | None, refusal: str | None) -> str:
     )
 
 
+def unanswered_why(refusal: str | None) -> str:
+    """Why a second merge agent that ended with no answer, on a base that did not move,
+    calls the owner. The try before it may have been an answer with no verdict, which
+    the count of `merge_unread` does not tell apart, so the why says only what holds
+    of both; then the reason the merge agent may not merge (REFUSAL), if any."""
+    return (
+        "the merge agent twice gave no answer with a verdict on its first line; "
+        "its last try ended with no answer"
+    ) + (f"; {refusal}" if refusal else "")
+
+
 def moved_of(
     checks_ran_on: str, base_now: str, log: str, files: list[str], own: list[str]
 ) -> dict | None:
@@ -9889,6 +9907,8 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
     record: str | None,
     read_tip: str | None = None,
     read_on: str | None = None,
+    *,
+    no_answer: bool = False,
 ) -> dict:
     """The merge agent's read of a proposed task. With no record: its brief,
     `merge-brief-TIP-BASE.md` in the task directory, and the facts in it, the proposed
@@ -9896,7 +9916,9 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
     among them. With the agent's reply, READ_TIP and READ_ON, the tip and the base its
     brief named: the review written down as `merge-review.md`, whether it merges or
     calls the owner, and on a moved base its call on the move; the reply of a brief of
-    another tip than the one proposed now, or of a base no brief named, is refused."""
+    another tip than the one proposed now, or of a base no brief named, is refused.
+    NO_ANSWER in the place of the reply: the merge agent of that brief ended with no
+    answer, which counts as a reply that cannot be recorded (`unread_next`)."""
     if task.record["status"] != "open":
         raise LandError(
             f"the task is {task.record['status']!r}, not `open`: the merge agent reads "
@@ -9932,7 +9954,7 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
         called=review_call(task) is not None,
         review={"verdict": "merge"},
     )
-    if record is None:
+    if record is None and not no_answer:
         # origin's base now, after a fetch: a move since the checks is read in this
         # brief, so one read answers both questions
         task.fetch()
@@ -10058,7 +10080,8 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
     # never the base at the time of this record.
     if read_tip is None or read_on is None:
         raise LandError(
-            "--file goes with --tip and --base, the `tip` and the `base` that "
+            "--file and --no-answer go with --tip and --base, the `tip` and the "
+            "`base` that "
             f"`lem land merge-review {task.slug}` printed for the "
             "brief the merge agent read"
         )
@@ -10088,18 +10111,23 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
             f"`lem land merge-review {task.slug}` writes the brief again with its "
             "seat, and a fresh merge agent reads it"
         )
-    try:
-        text = Path(record).read_text(encoding="utf-8")
-    except OSError as error:
-        raise LandError(
-            f"{record} cannot be read ({error.strerror}); "
-            "--file names the merge agent's reply"
-        ) from error
+    text = None
+    if record is not None:
+        try:
+            text = Path(record).read_text(encoding="utf-8")
+        except OSError as error:
+            raise LandError(
+                f"{record} cannot be read ({error.strerror}); "
+                "--file names the merge agent's reply"
+            ) from error
     moved = read_on != kept["base"]
-    verdict = verdict_of(text)
-    call = base_call_of(text) if moved else None
+    verdict = verdict_of(text) if text is not None else None
+    call = base_call_of(text) if moved and text is not None else None
     problem, short = None, None
-    if verdict is None:
+    if text is None:
+        problem = "the merge agent ended with no answer"
+        short = "it ended with no answer"
+    elif verdict is None:
         problem = (
             f"the first line of {record} gives no verdict: it is `Verdict: merge.` or "
             "`Verdict: call.`, then one sentence, as `prompts/merge.md` asks"
@@ -10141,16 +10169,24 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
         owner = then == "owner"
     calls = verdict == "call" or refusal is not None or owner
     if owner:
-        why = unread_why(lower_verdict(text), refusal)
+        why = (
+            unread_why(lower_verdict(text), refusal)
+            if text is not None
+            else unanswered_why(refusal)
+        )
     else:
         why = refusal or (
             next(line for line in text.splitlines() if line.strip())
             .strip()
             .lstrip("#*> ")
             .strip()
-            if verdict == "call"
+            if verdict == "call" and text is not None
             else None
         )
+    if text is None:
+        # no answer to write down: the record's reason stands in its place, so the
+        # owner who opens merge-review.md reads why there is no review
+        text = f"No answer of the merge agent: {why or (call[1] if call else '')}.\n"
     # the merge agent's stand-ins go into the pull request's text before the read is
     # written down, so a failed edit leaves the read to record again
     merger_noted(
@@ -10158,7 +10194,7 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
         kept["pr"],
         (
             "the read is not written down, and the same "
-            f"`lem land merge-review {task.slug} --file` tries again"
+            f"`lem land merge-review {task.slug}` tries again"
         ),
     )
     write_whole(
@@ -10984,16 +11020,22 @@ def step(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901, PLR0911 -
             task, args.title, task_file(args.notes, "--notes", task.directory, here)
         )
     if args.command == "merge-review":
-        if (args.tip or args.base) and not args.file:
+        if args.file and args.no_answer:
             raise LandError(
-                "--tip and --base go with --file: the tip and the base of the brief "
-                "whose answer is written down"
+                "--file is the merge agent's answer and --no-answer says it gave none: "
+                "give one of the two"
+            )
+        if (args.tip or args.base) and not (args.file or args.no_answer):
+            raise LandError(
+                "--tip and --base go with --file or --no-answer: the tip and the base "
+                "of the brief whose answer is written down"
             )
         return cmd_merge_review(
             task,
             args.file and task_file(args.file, "--file", task.directory, here),
             args.tip,
             args.base,
+            no_answer=args.no_answer,
         )
     if args.command == "merge":
         return cmd_merge(
@@ -11144,10 +11186,20 @@ def main(argv: list[str] | None = None) -> None:  # noqa: PLR0915 - over the lim
         help="the merge agent's reply, its review with the verdict on its first line",
     )
     review.add_argument(
+        "--no-answer",
+        action="store_true",
+        help=(
+            "in the place of --file: the merge agent of the brief ended with no "
+            "answer; the second end of one brief is written down as a reply with no "
+            "verdict is"
+        ),
+    )
+    review.add_argument(
         "--tip",
         metavar="COMMIT",
         help=(
-            "with --file: the `tip` the step printed with the brief the agent read; "
+            "with --file or --no-answer: the `tip` the step printed with the brief "
+            "the agent read; "
             "the answer of another proposal than the one now is refused"
         ),
     )
@@ -11155,7 +11207,8 @@ def main(argv: list[str] | None = None) -> None:  # noqa: PLR0915 - over the lim
         "--base",
         metavar="COMMIT",
         help=(
-            "with --file: the `base` the step printed with the brief the agent read; "
+            "with --file or --no-answer: the `base` the step printed with the brief "
+            "the agent read; "
             "the read covers that base and no later one"
         ),
     )

@@ -42,11 +42,11 @@ owner (`mark-waiting`) first, then say its `say` in one line, the last text of y
 for his "go on": then `lem project seat-again SLUG`, `lem land merge-review SLUG` again, and the
 agent on the seat it prints.
 
-Any other non-zero exit, or no answer file, is a merge agent that did not answer: start it once
-more. After a second such end on a base that did not move (`moved` of the brief's facts is null),
-tell the owner in one line that the task waits for his read. On a moved base, land the task again
-as `stages/land.md` says for a read that said another round ("the base moved" of step 8), and tell
-the owner nothing of a read: in doubt, the checks run again.
+Any other non-zero exit, or no answer file, is a merge agent that did not answer: run `lem land
+merge-review SLUG --no-answer --tip TIP --base BASE`, TIP and BASE as below. It counts as a reply
+the step refuses: the first is refused, and the agent starts once more on the same `BRIEF` and
+`ANSWER`; the second end of that brief is recorded as a second refused reply is (below), and its
+`next` says what follows.
 
 Then `lem land merge-review SLUG --file "ANSWER" --tip TIP --base BASE`, TIP and BASE being the
 `tip` and the `base` the step printed with the brief. A reply the step refuses (no verdict, or no

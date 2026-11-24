@@ -1554,6 +1554,30 @@ class MergeReview(unittest.TestCase):
             ),
         )
 
+    def test_the_why_of_a_second_end_with_no_answer_says_that_the_last_try_gave_none(
+        self,
+    ) -> None:
+        # the first of the two may have been an answer with no verdict: the why says
+        # only what holds for either
+        self.assertEqual(
+            land.unanswered_why(None),
+            (
+                "the merge agent twice gave no answer with a verdict on its first "
+                "line; its last try ended with no answer"
+            ),
+        )
+        settings = (
+            "the settings say that the owner merges (`branch.land` is `owner`); it "
+            "waits as `open` for his word"
+        )
+        self.assertEqual(
+            land.unanswered_why(settings),
+            (
+                "the merge agent twice gave no answer with a verdict on its first "
+                f"line; its last try ended with no answer; {settings}"
+            ),
+        )
+
     def test_the_time_against_the_median_of_the_same_track(self) -> None:
         def ev(task: str, event: str, at: str, **more: object) -> dict:
             return {"ts": f"2026-11-20T{at}:00Z", "event": event, "task": task, **more}

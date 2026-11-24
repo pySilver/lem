@@ -395,9 +395,10 @@ landing up as after a cut-off.
    answer of that brief with no verdict is recorded as a review that calls the owner, with no
    verdict whatever a lower line of it says, and a `why` that names the verdict of that line, if
    any: "Waits for you" shows "Read the merge review", you start no merge agent again for that tip
-   and base, and its `next` says what follows, as for a read whose verdict is `call`. A merge agent that gives no answer
-   twice on a moved base (`ask-merger`) leaves nothing to record: land the task again with the
-   same steps, and tell the owner nothing of a read. A proposal made again keeps the merge review
+   and base, and its `next` says what follows, as for a read whose verdict is `call`. A merge agent that ends with no answer
+   is written down with `--no-answer` (`ask-merger`) and counts as such an answer: its second end
+   of one brief is recorded the same way, on a base that did not move with a `why` that says its
+   last try ended with no answer. A proposal made again keeps the merge review
    of the tip proposed before in two cases, each with no commit after it: a rebase that met no
    conflict and kept the review, an open must-fix of it too (another round on a moved base, or a
    conflict (`stages/conflict.md`) that git rebased by itself); and a builder's resolution of a

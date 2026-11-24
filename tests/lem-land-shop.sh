@@ -1024,6 +1024,32 @@ else
 fi
 project --repo "$MB" state mb-heading dropped "the test is over" >/dev/null
 
+# On a base that did not move, a merge agent that ends with no answer twice for the same tip and base is written down as
+# a review that calls the owner, with no verdict, as a second answer with no verdict is: "Read the merge review" waits for
+# him, and the board no longer says that the merge agent reads the task.
+mb_task mb-silent silent.txt && mb_land mb-silent
+silent_brief=$(land --repo "$MB" merge-review mb-silent)
+silent_tip=$(field 'd["tip"]' <<<"$silent_brief")
+silent_base=$(field 'd["base"]' <<<"$silent_brief")
+silent_exit=0
+silent_first=$(land --repo "$MB" merge-review mb-silent --no-answer --tip "$silent_tip" --base "$silent_base" 2>&1) || silent_exit=$?
+silent_second_exit=0
+silent_second=$(land --repo "$MB" merge-review mb-silent --no-answer --tip "$silent_tip" --base "$silent_base" 2>&1) || silent_second_exit=$?
+silent_why="the merge agent twice gave no answer with a verdict on its first line; its last try ended with no answer"
+silent_waits=$(project --repo "$MB" waiting | field '"mb-silent" in [r["task"] for r in d["reviews"]]')
+silent_merge=$(land --repo "$MB" merge mb-silent --by merger --via server --message "fix: mb-silent" 2>&1 || true)
+if [ "$silent_exit" = 1 ] && grep -qF "the merge agent ended with no answer" <<<"$silent_first" && grep -qF "the merge agent is asked again" <<<"$silent_first" \
+  && [ "$silent_second_exit" = 0 ] && [ "$(field '(d["verdict"], d["calls"], d["why"], d["next"].startswith("it calls the owner"))' <<<"$silent_second")" = "(None, True, '$silent_why', True)" ] \
+  && [ "$(mb_kept mb-silent merge_review '(d["verdict"], d["calls"], d["why"], d["tip"] == "'"$silent_tip"'")')" = "(None, True, '$silent_why', True)" ] && [ "$(mb_kept mb-silent merge_unread d)" = None ] \
+  && [ "$(mb_logged mb-silent merge.review '("verdict" in d, d["calls"], d["why"])')" = "[(False, True, '$silent_why')]" ] \
+  && grep -qF "$silent_why" "$MB/.lem/state/tasks/mb-silent/merge-review.md" \
+  && [ "$silent_waits" = True ] && grep -qF "the merge review calls the owner" <<<"$silent_merge" && [ "$(status_in "$MB" mb-silent)" = open ]; then
+  pass "on a base that did not move, a merge agent that ends with no answer is refused once and asked again; the second end for the same tip and base is written down as a review that calls the owner, with no verdict and a why that says so, so \"Read the merge review\" waits for him and the merge agent's merge is refused by the verdict rule"
+else
+  fail "a merge agent that ends twice with no answer on a base that did not move: $silent_first / $silent_second / $silent_waits / $silent_merge"
+fi
+project --repo "$MB" state mb-silent dropped "the test is over" >/dev/null
+
 # A merge on GitHub outside Lem between Lem's look at the base and its merge call: the merged commit's parent is not the
 # base the read covered, and the pull request's text and the task's state say so.
 mb_task mb-race race.txt && mb_land mb-race
