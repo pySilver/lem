@@ -1272,6 +1272,31 @@ class FirstLine(unittest.TestCase):
             "The invoice shows 70 EUR after the refund",
         )
 
+    def test_a_line_inside_a_fence_is_never_a_heading(self) -> None:
+        # a shell comment in a code sample read as a heading and ended the search, so
+        # the prose after the fence was missed; a tilde fence was no fence at all, and
+        # a fence inside a step of a story is indented
+        quoted = "The board shows the outcome of each task in one line"
+        for sample in (
+            "```sh\n# make the folder\nmkdir -p out\n```\n",
+            "~~~sh\n# make the folder\nmkdir -p out\n~~~\n",
+            "1. Make the folder:\n\n   ```sh\n   # make it\n   mkdir -p out\n   ```\n",
+            # a shorter fence, or one with words after it, inside a block closes nothing
+            "````md\n```sh\n# a comment\n```\n# a heading of the sample\n````\n",
+            "```sh\n# one\n```python\n# two\n```\n",
+        ):
+            self.assertEqual(
+                project.outcome_of(
+                    f"## Outcome\n\n{sample}\n{quoted}. It reads task.md.\n"
+                ),
+                quoted,
+                sample,
+            )
+        # a heading after the fence still ends the search
+        self.assertIsNone(
+            project.outcome_of(f"## Outcome\n\n~~~\nx\n~~~\n\n## Notes\n\n{quoted}.\n")
+        )
+
     def test_a_bold_outcome_is_quoted_whole(self) -> None:
         # brief-reads-installed-lem, 2026-11-22: one bold sentence wrapped over
         # two lines

@@ -5413,18 +5413,30 @@ def outcome_of(text: str) -> str | None:
     if not found:
         return None
     paragraph: list[str] = []
-    fenced = blank = False
+    blank = False
+    # the fence of the code block a line is in ("```", "~~~~"), or "": it closes only
+    # on a line of its own character, at least as long, with nothing after it, as
+    # criteria.fences reads one
+    fenced = ""
     # the column of the text of the step a line is in, or None
     inside: int | None = None
     for row in text[found.end() :].splitlines():
         line = row.strip()
         indent = len(row) - len(row.lstrip())
-        if line.startswith("```"):
+        fence = re.match(r"`{3,}|~{3,}", line)
+        if fence and (
+            not fenced
+            or (
+                fence[0][0] == fenced[0]
+                and len(fence[0]) >= len(fenced)
+                and not line[fence.end() :].strip()
+            )
+        ):
             # a fence indented less than the step's text ends the list
             inside = inside if fenced or indent >= (inside or 0) else None
-            fenced = not fenced
+            fenced = "" if fenced else fence[0]
             continue
-        if line.startswith("#"):
+        if line.startswith("#") and not fenced:
             break
         inside = step_of(line, indent, inside, blank=blank) if not fenced else inside
         blank = not line
