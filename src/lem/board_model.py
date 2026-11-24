@@ -6805,7 +6805,10 @@ def task_files_look(state: Path, m: Model) -> None:
         )
         t.approvable = t.approvable_events and not t.changing
     if stopped:
+        # the two lists of derive that a stop changes: a parked task two releases back
+        # stands among the blocked ones alone (`is_parked`)
         m.blocked = blocked_of(m.tasks)
+        m.parked = [t for t in m.parked if is_parked(t)]
         sort_lists(m)
 
 

@@ -2719,6 +2719,31 @@ class ReleaseStop(unittest.TestCase):
         # a task of this release keeps its acts
         self.assertIsNone(m.by_slug["fresh"].release_stop)
 
+    def test_the_mark_puts_a_parked_or_landing_task_where_its_logged_stop_would(
+        self,
+    ) -> None:
+        # the lists derive made before the mark was read: a parked task two releases
+        # back stood among the parked, and a landing in the guard of a stopped session
+        with tempfile.TemporaryDirectory() as folder:
+            for slug in ("parked-one", "landing-one"):
+                (Path(folder) / "tasks" / slug).mkdir(parents=True)
+                (Path(folder) / "tasks" / slug / "release.txt").write_text(
+                    "0.0.1\n", encoding="utf-8"
+                )
+            m = model(
+                state(0, "parked", "the owner parked it", task="parked-one"),
+                state(0, "landing", "the checks run", task="landing-one"),
+            )
+            bm.task_files_look(Path(folder), m)
+        self.assertEqual(
+            (
+                [t.slug for t in m.parked],
+                sorted(t.slug for t in m.blocked),
+                bm.guarded(m.by_slug["landing-one"]),
+            ),
+            ([], ["landing-one", "parked-one"], False),
+        )
+
 
 class SeatThatFailed(unittest.TestCase):
     """A task a seat's error blocked (`lem project seat-failed`) is a row of "Waits for
