@@ -944,6 +944,45 @@ class Bar(unittest.TestCase):
                     [("m.py", mark)] if mark else [],
                 )
 
+    def test_a_mark_is_named_as_far_as_its_tool_obeys_it(self) -> None:
+        # ruff 0.17.6 hides I001 for `isort: skip` or `isort:skip` anywhere in a
+        # comment, and pyrefly 1.5.0 and ruff obey no other mark with a `-` or a word
+        # character after it, but `pyre-ignore-all-errors` (each form run on a copy,
+        # 2026-11-24)
+        h = "#"
+        forms = {
+            f"import sys  {h} keep first isort:skip": f"{h} keep first isort:skip",
+            f"import sys  {h} pragma isort:skip": f"{h} pragma isort:skip",
+            f"import sys  {h} isort:skip_this": f"{h} isort:skip_this",
+            f"import sys  {h} isort: skipped": f"{h} isort: skipped",
+            f"import sys  {h} text ruff: isort: skip": f"{h} text ruff: isort: skip",
+            f"import sys  {h} isort:  skip": None,
+            f"{h} fmt: off-topic": None,
+            f"x=1  {h} fmt: skip-this": None,
+            f"{h} yapf: disable-x": None,
+            f"{h} isort: off-topic": None,
+            f"{h} mypy: ignore-missing-imports": None,
+            f"{h} mypy: ignore-errors": f"{h} mypy: ignore-errors",
+            f"x: int = ''  {h} type: ignored": None,
+            f"x: int = ''  {h} type: ignore[assignment]": f"{h} type: ignore",
+            f"x: int = ''  {h} pyrefly: ignore-x": None,
+            f"x: int = ''  {h} pyright: ignored": None,
+            f"x: int = ''  {h} ty: ignore-x": None,
+            f"x: int = ''  {h} pyre-fixme-x": None,
+            f"x: int = ''  {h} pyre-ignored": None,
+            f"{h} pyre-ignore-all-errors-x": f"{h} pyre-ignore-all-errors",
+            f"x: int = ''  {h} zuban: ignored": None,
+            f"import os  {h} noqa-x": None,
+            f"import os  {h} noqax": None,
+            f"{h} ruff: noqa-x": None,
+        }
+        for line, mark in forms.items():
+            with self.subTest(line=line):
+                self.assertEqual(
+                    lowered(bar(patch("m.py", plus=(line,), new=True))),
+                    [("m.py", mark)] if mark else [],
+                )
+
     def test_a_document_may_quote_a_mark(self) -> None:
         result = bar(
             patch(

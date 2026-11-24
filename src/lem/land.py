@@ -1090,27 +1090,34 @@ DOCS = (".md", ".rst", ".adoc")
 # other checkers' it obeys with `permissive-ignores` or with no settings file. Each
 # with the tool's own rule of case: `noqa` in any case, the rest in lower case. Left
 # out: the comment that ends a range (`enable`, `on`), as its start counts, and
-# `isort: split`, which hid no finding of I001 in that file. A focus or skip mark of one
-# word (`fit`, `xit`) is a call of the runner's global function, and after a dot it is a
-# method of that name (`this.fit()`, `a.fit(` in mermaid.min.js), which no runner's docs
-# write as a mark (Jasmine, Mocha, Jest, Vitest and Playwright, read 2026-11-24); a mark
-# of the form `test.describe.only(` is Playwright's own, and counts after a dot.
+# `isort: split`, which hid no finding of I001 in that file. Each takes the forms its
+# tool obeys, as ruff 0.17.6 and pyrefly 1.5.0 obeyed them on 2026-11-24: ruff's
+# `isort: skip` or `isort:skip` anywhere in a comment (`# keep first isort:skip`,
+# `# isort: skipped`), and no other mark with a `-` or a word character after it
+# (`# fmt: off-topic`, `# mypy: ignore-missing-imports`, `# type: ignored`), but
+# `pyre-ignore-all-errors`, which pyrefly obeys as the start of a longer word. A focus
+# or skip mark of one word (`fit`, `xit`) is a call of the runner's global function, and
+# after a dot it is a method of that name (`this.fit()`, `a.fit(` in mermaid.min.js),
+# which no runner's docs write as a mark (Jasmine, Mocha, Jest, Vitest and Playwright,
+# read 2026-11-24); a mark of the form `test.describe.only(` is Playwright's own, and
+# counts after a dot.
 BAR = {
     (".py",): (
-        r"#\s*(?i:noqa)",
-        r"#\s*type:\s*ignore",
-        r"#\s*pyright:\s*ignore",
-        r"#\s*pyrefly:\s*ignore(?:-errors)?",
-        r"#\s*ty:\s*ignore",
-        r"#\s*(?:ruff|flake8)\s*:\s*(?i:noqa)",
+        r"#\s*(?i:noqa)(?![-\w])",
+        r"#\s*type:\s*ignore(?![-\w])",
+        r"#\s*pyright:\s*ignore(?![-\w])",
+        r"#\s*pyrefly:\s*ignore(?:-errors)?(?![-\w])",
+        r"#\s*ty:\s*ignore(?![-\w])",
+        r"#\s*(?:ruff|flake8)\s*:\s*(?i:noqa)(?![-\w])",
         r"#\s*ruff\s*:\s*(?:disable|file-ignore|ignore)(?=\s*\[)",
-        r"#\s*(?:ruff:\s*)?isort:\s*(?:skip_file|skip|off)\b",
-        r"#\s*fmt:\s*(?:off|skip)\b",
-        r"#\s*yapf:\s*disable\b",
-        r"#\s*pyre-(?:ignore(?:-all-errors)?|fixme)",
-        r"#\s*pyre:\s*ignore",
-        r"#\s*mypy:\s*ignore(?:-errors)?",
-        r"#\s*zuban:\s*ignore",
+        r"#[^#\n]*?isort: ?skip\w*",
+        r"#\s*(?:ruff:\s*)?isort:\s*off(?![-\w])",
+        r"#\s*fmt:\s*(?:off|skip)(?![-\w])",
+        r"#\s*yapf:\s*disable(?![-\w])",
+        r"#\s*pyre-(?:ignore-all-errors|(?:ignore|fixme)(?![-\w]))",
+        r"#\s*pyre:\s*ignore(?![-\w])",
+        r"#\s*mypy:\s*ignore(?:-errors)?(?![-\w])",
+        r"#\s*zuban:\s*ignore(?![-\w])",
         r"#\s*pylint:\s*disable",
         r"#\s*nosec",
         r"\bpytest\.mark\.(skip|xfail)",
