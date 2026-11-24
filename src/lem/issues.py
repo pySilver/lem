@@ -51,6 +51,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 # the settings, the tasks and the record of each step
@@ -73,19 +74,27 @@ ADDRESS = re.compile(
 VIEW = "number,title,body,state,stateReason,labels,url,author,assignees"
 # the status each step belongs to; `start` belongs to every status but an ended or
 # parked one
-STATUS_OF = {"land": "landed", "drop": "dropped", "answer": "answered"}
+STATUS_OF = MappingProxyType(
+    {"land": "landed", "drop": "dropped", "answer": "answered"}
+)
 # the step of `lem project ticket-step` each comment writes down, and the word of its
 # last line
-COMMENTED = {"land": "commented", "drop": "dropped", "answer": "answered"}
-LAST_WORD = {"land": "landed", "drop": "dropped", "answer": "answered"}
+COMMENTED = MappingProxyType(
+    {"land": "commented", "drop": "dropped", "answer": "answered"}
+)
+LAST_WORD = MappingProxyType(
+    {"land": "landed", "drop": "dropped", "answer": "answered"}
+)
 INSTALL_GH = (
     "install GitHub's command gh (https://cli.github.com), "
     "then sign it in with `gh auth login`"
 )
+# how many characters of gh's output a refusal for bad JSON shows
+JSON_EXCERPT_LENGTH = 200
 
 
 class IssueError(Exception):
-    pass
+    """A step of `lem issue` that is refused, or that `gh` could not do."""
 
 
 def gh(root: Path, *args: str, stdin: str = "") -> subprocess.CompletedProcess:
@@ -113,8 +122,9 @@ def why(ran: subprocess.CompletedProcess) -> str:
 def gh_ok(root: Path, *args: str, stdin: str = "") -> str:
     ran = gh(root, *args, stdin=stdin)
     if ran.returncode != 0:
+        command = " ".join(args[:2])
         raise IssueError(
-            f"gh {' '.join(args[:2])} failed: {why(ran)}; check `gh auth status`, "
+            f"gh {command} failed: {why(ran)}; check `gh auth status`, "
             "then run this again"
         )
     return ran.stdout
@@ -125,9 +135,9 @@ def gh_json(root: Path, *args: str) -> dict[str, Any] | list[Any]:
     try:
         return json.loads(out)
     except ValueError as error:
-        raise IssueError(
-            f"gh {' '.join(args[:2])} gave no JSON ({error}): {out.strip()[:200]}"
-        ) from error
+        command = " ".join(args[:2])
+        excerpt = out.strip()[:JSON_EXCERPT_LENGTH]
+        raise IssueError(f"gh {command} gave no JSON ({error}): {excerpt}") from error
 
 
 def origin_url(root: Path) -> str:
@@ -182,11 +192,12 @@ def comments_of(root: Path, repo: str, number: int) -> list[dict]:
     pages = gh_json(
         root, "api", f"repos/{repo}/issues/{number}/comments", "--paginate", "--slurp"
     )
-    found = [
-        comment
-        for page in pages
-        for comment in (page if isinstance(page, list) else [page])
-    ]
+    found = []
+    for page in pages:
+        if isinstance(page, list):
+            found.extend(page)
+        else:
+            found.append(page)
     return [
         {
             "author": (comment.get("user") or {}).get("login"),
@@ -295,17 +306,17 @@ def tracker(root: Path) -> dict:
     settings = project.load(root)
     kind = (settings["tracker"] or {}).get("kind")
     if kind != "github":
-        raise IssueError(
-            (
-                f"the project's tracker is {kind or 'none'} ({project.SETTINGS}, "
-                '[tracker]), and lem issue acts for kind = "github" only'
-            )
-            + (
-                ": a Linear ticket's steps are the lem-linear skill's"
-                if kind == "linear"
-                else ': add the table with kind = "github" first'
-            )
+        kind_name = kind or "none"
+        message = (
+            f"the project's tracker is {kind_name} ({project.SETTINGS}, "
+            '[tracker]), and lem issue acts for kind = "github" only'
         )
+        fix = (
+            ": a Linear ticket's steps are the lem-linear skill's"
+            if kind == "linear"
+            else ': add the table with kind = "github" first'
+        )
+        raise IssueError(f"{message}{fix}")
     return settings
 
 
@@ -319,10 +330,8 @@ def the_task(root: Path, slug: str, step: str) -> tuple[dict, list[dict]]:
     tasks = project.read_tasks(root, settings)
     task = next((task for task in tasks if task["slug"] == slug), None)
     if task is None:
-        raise IssueError(
-            f"no task {slug!r}; the tasks are: "
-            f"{', '.join(task['slug'] for task in tasks) or 'none yet'}"
-        )
+        slugs = ", ".join(task["slug"] for task in tasks) or "none yet"
+        raise IssueError(f"no task {slug!r}; the tasks are: {slugs}")
     # the release rule (lem_release), before any call to GitHub: the writes at a task's
     # end pass
     stopped = lem_release.check(
@@ -349,8 +358,9 @@ def the_task(root: Path, slug: str, step: str) -> tuple[dict, list[dict]]:
             f"starts, so nothing is written to issue {task['ticket']}"
         )
     if step in STATUS_OF and status != STATUS_OF[step]:
+        status = status or "new"
         raise IssueError(
-            f"the task {slug!r} is {status or 'new'}, and `lem issue {step}` belongs "
+            f"the task {slug!r} is {status}, and `lem issue {step}` belongs "
             f"to a task that is {STATUS_OF[step]}: nothing is written "
             f"to issue {task['ticket']}"
         )
@@ -398,11 +408,11 @@ def carried(root: Path, task: dict, tasks: list[dict]) -> str | None:
     """The assignee Lem added for the dropped task this one went on from, with the same
     issue, and did not remove: the resumed task takes it over, so that its own end
     removes it."""
-    file = project.state_root(root) / "tasks" / task["slug"] / project.RESUMED_FROM
-    if not file.is_file():
+    path = project.state_root(root) / "tasks" / task["slug"] / project.RESUMED_FROM
+    if not path.is_file():
         return None
     before = next(
-        (other for other in tasks if other["slug"] == project.text_of(file).strip()),
+        (other for other in tasks if other["slug"] == project.text_of(path).strip()),
         None,
     )
     if (
@@ -414,7 +424,7 @@ def carried(root: Path, task: dict, tasks: list[dict]) -> str | None:
     return before["ticket_assignee"]
 
 
-def result(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
+def summary(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     task: dict,
     step: str,
     issue: dict | None,
@@ -440,7 +450,7 @@ def cmd_start(root: Path, slug: str) -> dict:
     task, tasks = the_task(root, slug, "start")
     steps = task["ticket_steps"]
     if "started" in steps:
-        return result(task, "start", None, [], [], None)
+        return summary(task, "start", None, [], [], None)
     repo, number, ticket = task["ticket_repo"], int(task["ticket"][1:]), task["ticket"]
     issue = view(root, repo, number)
     assignees = logins(issue.get("assignees"))
@@ -448,17 +458,16 @@ def cmd_start(root: Path, slug: str) -> dict:
     wrote: list[str] = []
     says = None
 
-    def add(login: str) -> None:
-        nonlocal says
+    def add(login: str) -> str | None:
         ran = gh(
             root, "issue", "edit", str(number), "--repo", repo, "--add-assignee", login
         )
         if ran.returncode == 0:
             did.append(f"added the assignee {login}")
             assignees.append(login)
-            return
+            return None
         wrote.append(write_step(root, slug, "unassigned"))
-        says = (
+        return (
             f"gh could not make {login} the assignee of issue {ticket} of {repo} "
             f"({why(ran)}): the build goes on with no assignee there"
         )
@@ -467,27 +476,28 @@ def cmd_start(root: Path, slug: str) -> dict:
         # a start cut off after its record: the add, only while the issue still
         # has nobody
         if "unassigned" not in steps and not assignees:
-            add(task["ticket_assignee"])
+            says = add(task["ticket_assignee"])
     else:
         before = carried(root, task, tasks)
         if before and any(same(before, login) for login in assignees):
             wrote.append(write_step(root, slug, "assigned", before))
-        elif not assignees:
+        elif assignees:
+            me = signed_in(root)
+            others = [login for login in assignees if not same(login, me)]
+            if others:
+                names = ", ".join(others)
+                says = (
+                    f"issue {ticket} of {repo} is assigned to {names}: "
+                    "Lem added nobody, and the build goes on"
+                )
+        else:
             login = signed_in(root)
             # written before the add: a cut-off between the two leaves a record whose
             # removal reads the assignees first
             wrote.append(write_step(root, slug, "assigned", login))
-            add(login)
-        else:
-            me = signed_in(root)
-            others = [login for login in assignees if not same(login, me)]
-            if others:
-                says = (
-                    f"issue {ticket} of {repo} is assigned to {', '.join(others)}: "
-                    "Lem added nobody, and the build goes on"
-                )
+            says = add(login)
     wrote.append(write_step(root, slug, "started"))
-    return result(
+    return summary(
         task,
         "start",
         {**issue, "assignees": [{"login": login} for login in assignees]},
@@ -547,8 +557,8 @@ def answered_words(root: Path, task: dict) -> str:
     if (
         project.state_root(root) / "tasks" / task["slug"] / "investigation.md"
     ).is_file():
-        said += (
-            "\n\nThe report is in the task's directory on the owner's machine, "
+        return (
+            f"{said}\n\nThe report is in the task's directory on the owner's machine, "
             "not on this issue."
         )
     return said
@@ -614,7 +624,7 @@ def cmd_land(root: Path, slug: str) -> dict:
             did.append("closed the issue as completed")
             issue = {**issue, "state": "CLOSED"}
         wrote.append(write_step(root, slug, "landed"))
-    return result(task, "land", issue, did, wrote, None)
+    return summary(task, "land", issue, did, wrote, None)
 
 
 def cmd_end(root: Path, slug: str, step: str) -> dict:
@@ -662,7 +672,7 @@ def cmd_end(root: Path, slug: str, step: str) -> dict:
             "whether it closes is the owner's call"
         )
     )
-    return result(
+    return summary(
         task,
         step,
         {**issue, "assignees": [{"login": found} for found in assignees]},
@@ -684,28 +694,28 @@ def cmd_check(root: Path) -> tuple[dict, bool]:  # noqa: C901, PLR0912 - over th
         "has_issues": None,
     }
     url = origin_url(root)
-    if not url:
+    if url:
+        matched = ORIGIN.fullmatch(url)
+        if matched:
+            found["repository"] = matched["repo"]
+        else:
+            missing.append(
+                {
+                    "what": f"origin is {url}, which is not a repository on GitHub",
+                    "fix": (
+                        "point origin at the repository on GitHub: git remote "
+                        "set-url origin https://github.com/OWNER/REPO.git"
+                    ),
+                }
+            )
+    else:
         missing.append(
             {
                 "what": "this repository has no origin",
                 "fix": "git remote add origin https://github.com/OWNER/REPO.git",
             }
         )
-    elif not (matched := ORIGIN.fullmatch(url)):
-        missing.append(
-            {
-                "what": f"origin is {url}, which is not a repository on GitHub",
-                "fix": (
-                    "point origin at the repository on GitHub: git remote "
-                    "set-url origin https://github.com/OWNER/REPO.git"
-                ),
-            }
-        )
-    else:
-        found["repository"] = matched["repo"]
-    if not found["gh"]:
-        missing.append({"what": "gh is not installed", "fix": INSTALL_GH})
-    else:
+    if found["gh"]:
         found["signed_in"] = (
             gh(root, "auth", "status", "--hostname", "github.com").returncode == 0
         )
@@ -713,6 +723,8 @@ def cmd_check(root: Path) -> tuple[dict, bool]:  # noqa: C901, PLR0912 - over th
             missing.append(
                 {"what": "gh is not signed in to github.com", "fix": "gh auth login"}
             )
+    else:
+        missing.append({"what": "gh is not installed", "fix": INSTALL_GH})
     repo = found["repository"]
     if repo and found["signed_in"]:
         ran = gh(root, "repo", "view", repo, "--json", "hasIssuesEnabled")
@@ -736,17 +748,7 @@ def cmd_check(root: Path) -> tuple[dict, bool]:  # noqa: C901, PLR0912 - over th
             )
         else:
             found["issues_on"] = bool(on)
-            if not on:
-                missing.append(
-                    {
-                        "what": f"the issues of {repo} are off in its settings",
-                        "fix": (
-                            "turn Issues on under Settings, General, "
-                            f"Features of https://github.com/{repo}"
-                        ),
-                    }
-                )
-            else:
+            if on:
                 # `--state all`: gh lists the open issues alone by default
                 ran = gh(
                     root,
@@ -777,16 +779,27 @@ def cmd_check(root: Path) -> tuple[dict, bool]:  # noqa: C901, PLR0912 - over th
                             ),
                         }
                     )
+            else:
+                missing.append(
+                    {
+                        "what": f"the issues of {repo} are off in its settings",
+                        "fix": (
+                            "turn Issues on under Settings, General, "
+                            f"Features of https://github.com/{repo}"
+                        ),
+                    }
+                )
     if missing:
-        says = "; ".join(f"{item['what']}: {item['fix']}" for item in missing)
+        says = "; ".join(f"{entry['what']}: {entry['fix']}" for entry in missing)
     else:
-        says = (
-            f"the issues of {repo} are on, and gh is signed in: "
-            "Lem can read and write them; "
-        ) + (
+        words = (
             "the repository holds at least one issue"
             if found["has_issues"]
             else "the repository holds no issue yet"
+        )
+        says = (
+            f"the issues of {repo} are on, and gh is signed in: "
+            f"Lem can read and write them; {words}"
         )
     return {**found, "missing": missing, "says": says}, not missing
 
