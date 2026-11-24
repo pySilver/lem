@@ -151,7 +151,7 @@ state. The release is made on the owner's word.
 - [x] The style step, the shared helpers, the package `src/lem/` and the backlog fixes are on
   `main`, with every suite green (`bash tests/all.sh`, 28 suites).
 - [x] The defects seen outside those changes are items of `docs/backlog/`.
-- [ ] The five items with `worth: yes` are fixed, each with its test, read by a reviewer, and on
+- [x] The five items with `worth: yes` are fixed, each with its test, read by a reviewer, and on
   `main`: the bar's three suppression forms, the hook's traceback, a conflict's quoted file names,
   the "waits for" text of a task two releases back, `lem-ask`'s answer that is no object.
 - [x] The owner's answers to the plan's questions are in "His answers", the two that change a
@@ -159,8 +159,12 @@ state. The release is made on the owner's word.
 - [x] Each `worth: later` item of `docs/backlog/` has his ruling, or says what it waits for:
   eight got his answer on 2026-11-24, four had one correct behavior after all, and two wait for
   something that is no ruling (an add-on he chooses, a real Linear ticket).
-- [ ] His eight answers and the four fixes are built, each with its test, read by a reviewer, and
+- [x] His eight answers and the four fixes are built, each with its test, read by a reviewer, and
   on `main`.
+- [x] What two outside reviews of that work found is repaired with it (Astra, 2026-11-24: the
+  board and the sessions, the landing), and so are the defects they saw in older code that had
+  one correct behavior. `lem land base` runs the plain rebase, and a review carries over it only
+  where git's merge of the base and the tip before is clean and is the new tip's tree.
 
 ### Stage 2: the clean base, proved
 
