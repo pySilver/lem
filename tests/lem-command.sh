@@ -155,10 +155,52 @@ PY
     fail "the installed wheel: $said / $data / $diff / $helped"
   fi
 }
+# uv_tried OUT SUBCOMMAND ARGS...: `uv SUBCOMMAND --offline ARGS`, and when uv says it needed the network for what its
+# cache lacks, the same online; uv's output in OUT, and its exit
+uv_tried() {
+  local out=$1 sub=$2
+  shift 2
+  uv "$sub" --offline "$@" > "$out" 2>&1 && return 0
+  uv_unreachable "$out" || return 1
+  uv "$sub" "$@" > "$out" 2>&1
+}
+
+# A second install of a copy of this checkout, after its manifest, its build-commit and a file of the plugin changed,
+# holds each change: uv's cache knows each input of the build (`[tool.uv] cache-keys`), so a sync builds again and
+# never keeps the build before. The install is the one a formula makes: no editable install, no tools.
+resync_check() {
+  local copy=$WORK/resync first again data version
+  mkdir -p "$copy"
+  git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$copy"
+  if ! (cd "$copy" && uv_tried "$WORK/resync.out" sync --locked --no-editable --no-dev --python "$PY"); then
+    if uv_unreachable "$WORK/resync.out"; then
+      skip "a second sync of a copy holds its changed manifest, build-commit and plugin file: uv's cache lacks the build backend, and uv reaches no index: $(tail -n 2 "$WORK/resync.out")"
+    else
+      fail "a sync of a copy of this checkout: $(tail -n 5 "$WORK/resync.out")"
+    fi
+    return
+  fi
+  first=$(env HOME="$WORK/apphome" "$copy/.venv/bin/lem" version 2>&1 | field '(d["version"], d["commit"])' 2>&1 || true)
+  "$PY" -I -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("\"version\": \"", "\"version\": \"9.", 1))' "$copy/.claude-plugin/plugin.json"
+  printf 'abc1234\n' > "$copy/src/lem/build-commit"
+  printf 'one more line\n' >> "$copy/skills/lem/SKILL.md"
+  (cd "$copy" && uv_tried "$WORK/resync.out" sync --locked --no-editable --no-dev --python "$PY") || true
+  again=$(env HOME="$WORK/apphome" "$copy/.venv/bin/lem" version 2>&1 | field '(d["version"], d["commit"])' 2>&1 || true)
+  data=$(find "$copy/.venv/lib" -path '*/site-packages/lem/data/skills/lem/SKILL.md')
+  version=$(field 'd["version"]' < .claude-plugin/plugin.json)
+  if [ "$first" = "('$version', None)" ] && [ "$again" = "('9.$version', 'abc1234')" ] && [ -n "$data" ] && [ "$(tail -n 1 "$data")" = "one more line" ]; then
+    pass "a second sync of a copy of this checkout, with no editable install, holds its changed manifest, its new build-commit and its changed plugin file: uv builds again for each"
+  else
+    fail "a second sync of a copy: first $first, again $again, SKILL.md's last line there: $(tail -n 1 "$data" 2>&1) / $(tail -n 3 "$WORK/resync.out")"
+  fi
+}
+
 if command -v uv >/dev/null 2>&1; then
   wheel_check
+  resync_check
 else
   skip_function wheel_check "no uv here to build the wheel (https://docs.astral.sh/uv/)"
+  skip_function resync_check "no uv here to install the package (https://docs.astral.sh/uv/)"
 fi
 
 # no bytecode: the real scripts, through lem, the ones that import their siblings among them

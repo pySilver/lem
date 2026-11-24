@@ -39,6 +39,27 @@ dev = [
     "hatchling==1.33.0",
 ]
 
+[tool.uv]
+# Every input of the build, so that a sync builds again when one changes. uv's own keys are
+# pyproject.toml and whether src is there; it never read the manifest, which holds the
+# version, nor the files the wheel carries, and a second `uv sync --no-editable` kept the
+# build before (2026-11-25: the manifest from 0.3.1 to 0.3.2, and the install said 0.3.1).
+# These replace uv's own.
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "hatch_build.py" },
+    { file = "checkout.pth" },
+    { file = ".claude-plugin/plugin.json" },
+    # what a formula writes before its build (`lem version`'s commit)
+    { file = "src/lem/build-commit" },
+    { file = "src/lem/**/*.py" },
+    { file = "skills/**/*" },
+    { file = "agents/**/*" },
+    { file = "hooks/**/*" },
+    { file = "assets/lem-mark.svg" },
+    { file = "assets/lem-mark-night.svg" },
+]
+
 [tool.uv.extra-build-variables]
 # hatchling imports hatch_build.py from the checkout, and the build writes no bytecode beside it.
 lem = { PYTHONDONTWRITEBYTECODE = "1" }
