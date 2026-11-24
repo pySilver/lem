@@ -9,7 +9,8 @@ its stdin, stdout, stderr and exit status are the module's own.
     lem NAME ARGS...     the module NAME stands for; `lem NAME --help` is its own help
 
 One command, so that one permission rule (`Bash(lem *)`) holds on every machine and
-after every update.
+after every update. A name whose module's file is not in the package is refused in one
+line that names the file, before anything else (`whole`).
 
 Before a name, `lem NAME` takes a cheap look whether the board server of this machine
 runs: it reads the server's pid from `serve.pid` in Lem's home folder, which the
@@ -70,11 +71,25 @@ def main(argv: list[str]) -> None:
             else "lem: name a command of Lem's; `lem help` lists the names"
         )
     name, args = argv[0], argv[1:]
-    module = str(names.module(name))
+    module = whole(name)
     import runpy
 
     sys.argv = [names.file_name(module), *args]
     runpy.run_module(f"lem.{module}", run_name="__main__", alter_sys=True)
+
+
+def whole(name: str) -> str:
+    """The module of the command NAME, when its file is in this package; else exit 1
+    with one line that names the file and the repair: the package is not whole, and no
+    import of it may end in a traceback."""
+    module = str(names.module(name))
+    path = os.path.join(HERE, names.file_name(module))
+    if not os.path.isfile(path):
+        sys.exit(
+            f"lem: {path} is not there: Lem's package {HERE} is not whole; the owner "
+            "installs Lem again"
+        )
+    return module
 
 
 def home() -> str | None:
@@ -212,6 +227,7 @@ def cli() -> None:
             f"lem: {name!r} is no command of Lem's; the names are:\n\n" + listing()
         )
         sys.exit(1)
+    whole(name)
     if name not in NO_LOOK:
         look_for_server()
     main(args)

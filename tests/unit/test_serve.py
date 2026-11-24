@@ -2886,6 +2886,38 @@ class Look(unittest.TestCase):
             {"serve", "board", "doctor", "ask", "jev"},
         )
 
+    def test_a_name_whose_module_is_not_there_is_refused_before_the_look(
+        self,
+    ) -> None:
+        """A package with no file of the name's module: one line that names the file and
+        the repair, before any look for the server, never the import's traceback (the
+        launcher before the package said it so, `whole` of `git show 9bb2cf8e:bin/lem`)."""
+        import tempfile
+        from unittest import mock
+
+        from lem import __main__ as command
+
+        looked = []
+        with (
+            tempfile.TemporaryDirectory() as folder,
+            mock.patch.object(command, "HERE", folder),
+            mock.patch.object(sys, "argv", ["lem", "project", "--help"]),
+            mock.patch.object(
+                command, "look_for_server", lambda: looked.append("look")
+            ),
+            mock.patch(
+                "runpy.run_module",
+                side_effect=ImportError("No module named lem.project"),
+            ),
+            self.assertRaises(SystemExit) as refused,
+        ):
+            command.cli()
+        said = str(refused.exception.code)
+        self.assertEqual(looked, [])
+        self.assertEqual(said.count("\n"), 0, said)
+        self.assertIn(f"{folder}/project.py is not there", said)
+        self.assertIn("the owner installs Lem again", said)
+
 
 class LogLook(unittest.TestCase):
     """The stream's look at the event log after `lem project prune` replaced it
