@@ -8,7 +8,6 @@ export PYTHONDONTWRITEBYTECODE=1
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
-PICKER=$PWD/skills/lem/scripts/picker.py
 BIN=$WORK/bin
 CALLS=$WORK/calls
 mkdir -p "$BIN"
@@ -27,9 +26,9 @@ chmod +x "$BIN/agtermctl"
 chord() {
   rm -f "$CALLS" "$CALLS.rows"
   env CALLS="$CALLS" ANSWER="$2" ANSWER_EXIT="${3:-0}" PATH="$BIN:$PATH" AGT_SESSION_PWD="$1" AGT_SESSION_ID=S-LEM AGT_SOCKET="$WORK/agterm.sock" AGT_WINDOW_ID=W1 AGT_PANE=left \
-    "$PY" -B "$PICKER"
+    "$PY" -B "$MAIN" picker
 }
-listed() { env CALLS="$WORK/list-calls" PATH="$BIN:$PATH" "$PY" -B "$PICKER" --repo "$1" --list; }
+listed() { env CALLS="$WORK/list-calls" PATH="$BIN:$PATH" "$PY" -B "$MAIN" picker --repo "$1" --list; }
 
 # A repository with tasks in every place of the list: a breaker, criteria for his yes, a step of his, a pull request,
 # two that build (one on the fast track), one queued, one landed yesterday and one landed a month ago.
@@ -64,7 +63,7 @@ backdate his-step 1
 pk task-dir his-criteria --ask "Add the gift note to the slip." >/dev/null && pk state his-criteria held "the criteria wait for the owner" "type: feat, because the slip gets a line" >/dev/null
 backdate his-criteria 1
 pk task-dir a-breaker --ask "Put the note in the export." >/dev/null && pk state a-breaker building "lead: builder" >/dev/null
-breaker_doc "$PK/.lem/state/tasks/a-breaker" && "$PY" -B "$DECISIONS" --repo "$PK" breaker a-breaker --cause criteria >/dev/null
+breaker_doc "$PK/.lem/state/tasks/a-breaker" && "$PY" -B "$MAIN" decisions --repo "$PK" breaker a-breaker --cause criteria >/dev/null
 backdate a-breaker 1
 
 rows=$(listed "$PK" 2>&1 || true)
@@ -129,7 +128,7 @@ git init -q -b main "$EM" && commit "$EM" start && project --repo "$EM" init --b
 no_lem=$(chord "$WORK/plain" '{}' 2>&1; echo "exit $?")
 no_task=$(chord "$EM" '{}' 2>&1; echo "exit $?")
 no_task_list=$(listed "$EM" 2>&1; echo "exit $?")
-no_ctl=$(env PATH="/usr/bin:/bin" AGT_SESSION_PWD="$PK" AGT_SESSION_ID=S-LEM AGT_SOCKET="$WORK/agterm.sock" "$PY" -B "$PICKER" 2>&1; echo "exit $?")
+no_ctl=$(env PATH="/usr/bin:/bin" AGT_SESSION_PWD="$PK" AGT_SESSION_ID=S-LEM AGT_SOCKET="$WORK/agterm.sock" "$PY" -B "$MAIN" picker 2>&1; echo "exit $?")
 if [ "$no_lem" = "lem picker: $WORK/plain is no repository of Lem: it has no .lem/settings.toml; /lem init sets it up
 exit 1" ] && [ "$no_task" = "lem picker: no task yet in $EM: \`/lem\` and a request opens one
 exit 1" ] && [ "$no_task_list" = "$no_task" ] \
@@ -140,12 +139,13 @@ else
 fi
 
 # A keymap line that the doctor printed before names picker.py in Lem's marketplace clone, which holds the head of main:
-# there the script hands over to the clone's bin/lem picker with its arguments, which runs the newest installed release.
+# the picker's old place keeps that file, which hands over to the clone's bin/lem picker with its arguments, which runs the
+# newest installed release.
 PLUGINS=$WORK/claude/plugins
 CLONE=$PLUGINS/marketplaces/lem
 RELEASE=$PLUGINS/cache/lem/lem/0.3.0
 mkdir -p "$CLONE/bin" "$CLONE/skills/lem/scripts" "$RELEASE/bin"
-cp "$PWD/bin/lem" "$CLONE/bin/lem" && cp "$PICKER" "$CLONE/skills/lem/scripts/picker.py"
+cp "$PWD/bin/lem" "$CLONE/bin/lem" && cp "$PWD/skills/lem/scripts/picker.py" "$CLONE/skills/lem/scripts/picker.py"
 printf '%s\n' 'import sys' "print('0.3.0', '|'.join(sys.argv[1:]) + '|')" > "$RELEASE/bin/lem"
 printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"user\", \"installPath\": \"$RELEASE\", \"version\": \"0.3.0\"}]}}" > "$PLUGINS/installed_plugins.json"
 older=$("$PY" -B "$CLONE/skills/lem/scripts/picker.py" --repo "$PK" --list 2>&1; echo "exit $?")
