@@ -2559,12 +2559,13 @@ def merge_in_thread(  # noqa: C901, PLR0913, PLR0917 - over the limit before the
     through; FAILED is called with no argument when the step did not. STANDING runs the
     owner's merge that stood through a new landing or a safe read of the moved base
     (`merge_args`). The owner's merge from the board (BY owner, not STANDING) reads the
-    task again in its thread, on a fresh model: before land.py, so that a press whose
+    task again in its thread, on a fresh model, before land.py, so that a press whose
     request read the model before his first merge's refusal was logged runs none while
-    that merge stands (`bm.owner_stands`), and after land.py's exit 1, when the moved
-    base refused it and his merge stands. Either way the note's state is `stands`, with
-    TIP and the sentence of the span that holds (`bm.stands_said`); any other exit 1 is
-    `refused`, with land.py's line."""
+    that merge stands (`bm.owner_stands`); every merge of the owner's, STANDING too,
+    reads it after land.py's exit 1, when the moved base refused it and his merge
+    stands, which a second press that got this token reads. Either way the note's state
+    is `stands`, with TIP and the sentence of the span that holds (`bm.stands_said`);
+    any other exit 1 is `refused`, with land.py's line."""
     pr = landing.get("pr") if isinstance(landing.get("pr"), dict) else None
     what = (
         f"pull request #{pr['number']}"
@@ -2583,11 +2584,12 @@ def merge_in_thread(  # noqa: C901, PLR0913, PLR0917 - over the limit before the
     )
     if not new:
         return token
-    his = by == "owner" and not standing
 
-    def stands() -> bool:
+    def stands(*, ended: bool) -> bool:
         # the task read again, on the log as it is now: whether his merge stands for the
-        # tip of this press
+        # tip of this press; before land.py only for his merge from the board, since a
+        # standing merge runs while it stands
+        his = by == "owner" and (ended or not standing)
         t = task_of(workspace, slug) if his else None
         said = bm.stands_said(t, tip) if t is not None else None
         if said:
@@ -2596,7 +2598,7 @@ def merge_in_thread(  # noqa: C901, PLR0913, PLR0917 - over the limit before the
 
     def merge() -> None:
         try:
-            if stands():
+            if stands(ended=False):
                 if failed:
                     failed()
                 return
@@ -2614,7 +2616,7 @@ def merge_in_thread(  # noqa: C901, PLR0913, PLR0917 - over the limit before the
                     + (after() if after else ""),
                 )
             else:
-                if not stands():
+                if not stands(ended=True):
                     NOTES.change(token, state="refused", said=said_of(ran))
                 if failed:
                     failed()

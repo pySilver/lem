@@ -1015,6 +1015,105 @@ class Duties(unittest.TestCase):
             ),
         )
 
+    def test_his_standing_merge_that_the_base_refuses_again_still_stands_in_its_note(
+        self,
+    ) -> None:
+        # docs/backlog/a-second-press-during-the-server-s-standing-merge-gets-not-done-
+        # when-the-base.md: the safe read logged merge.stands and the server runs his
+        # merge with --standing; a press from an old page gets that merge's token; main
+        # moves again, land.py refuses it with kind base and keeps his merge for
+        # another read, so the note says that it stands, not "Not done."
+        tip = "faac6eb3b" + "0" * 31
+        landing = {"proposed": tip, "pr": {"number": 60}, "base": "main"}
+        events = [
+            *self.standing(tip),
+            self.ev(
+                9,
+                "merge.review",
+                verdict="call",
+                calls=True,
+                why="a careful request is merged by the owner",
+                by="claude",
+                tip=tip[:9],
+                base="d48c6a9bd",
+                base_call="safe",
+                base_why="docs only",
+            ),
+            self.ev(10, "merge.stands", by="owner", tip=tip[:9], base="d48c6a9bd"),
+            self.ev(
+                11,
+                "merge.start",
+                by="owner",
+                via="server",
+                after="a read of the moved base",
+                base="d48c6a9bd",
+            ),
+        ]
+        model = self.model
+        ran = []
+
+        class Space:
+            name, acted = "shop", 0
+
+            def landing_of(self, slug: str) -> dict:
+                return landing
+
+            def model(self) -> "bm.Model":
+                return model(*events)
+
+        def refused(workspace: object, *args: str) -> subprocess.CompletedProcess:
+            ran.append(args)
+            events.append(
+                self.ev(
+                    12,
+                    "merge.refused",
+                    by="owner",
+                    via="server",
+                    kind="base",
+                    said="origin/main moved after the checks ran",
+                    tip=tip[:9],
+                    **{"from": "lem"},
+                )
+            )
+            return subprocess.CompletedProcess(
+                args, 1, "", "land.py: origin/main moved after the checks ran\n"
+            )
+
+        class Now:
+            def __init__(
+                self,
+                target: Callable[[], None],
+                name: str | None = None,
+                daemon: object = None,
+            ) -> None:
+                self.target = target
+
+            def start(self) -> None:
+                self.target()
+
+        self.addCleanup(serve.NOTES.merging.pop, ("shop", "gift-note"), None)
+        with (
+            mock.patch.object(serve, "merge_apart", refused),
+            mock.patch.object(serve.threading, "Thread", Now),
+        ):
+            note = serve.NOTES.get(
+                serve.merge_in_thread(
+                    Space(), "gift-note", landing, "owner", tip, standing=True
+                )
+            )
+        self.assertEqual(len(ran), 1)
+        self.assertIn("--standing", ran[0])
+        self.assertEqual(
+            (note["state"], note["said"]),
+            (
+                "stands",
+                (
+                    "Your merge stands. It goes through when the merge agent’s read of "
+                    "the new base says safe."
+                ),
+            ),
+        )
+
     def standing(self, tip: str) -> tuple:
         # #60 at 10:38:03: the merge agent's read called him, his merge met a moved
         # base, and Lem keeps it
