@@ -1326,7 +1326,7 @@ class RefutedAndAddedBy(unittest.TestCase):
         }
 
     def page(
-        self, items: list, can_act: bool = True, events: list | None = None
+        self, items: list, *, can_act: bool = True, events: list | None = None
     ) -> str:
         backlog = {
             "folder": "docs/backlog",
@@ -1360,7 +1360,9 @@ class RefutedAndAddedBy(unittest.TestCase):
                 self.mine("a-flaky-check", "later"),
             ]
         )
-        key = re.search(r'<a class="vbtn" id="view-backlog"[^>]*>(.*?)</a>', html)[1]
+        key = matched(
+            re.search(r'<a class="vbtn" id="view-backlog"[^>]*>(.*?)</a>', html)
+        )[1]
         self.assertRegex(
             key,
             (

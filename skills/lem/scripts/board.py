@@ -297,7 +297,7 @@ def added_by(log: str, folder: str) -> dict[str, dict]:
     found: dict[str, dict] = {}
     for record in log.split("\x1e")[1:]:
         fields = record.split("\x1f")
-        if len(fields) < 5:
+        if len(fields) < 5:  # noqa: PLR2004 - a commit's author, day, subject and body, and its file names
             continue
         author, day, subject = fields[0].strip(), fields[1].strip(), fields[2].strip()
         body = "\x1f".join(fields[3:-1])

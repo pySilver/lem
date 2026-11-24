@@ -1511,7 +1511,7 @@ def told_then(told: dict, then: str) -> str:
     )
 
 
-def act_approve(  # noqa: PLR0911 - over the limit before the limit was set
+def act_approve(  # noqa: C901, PLR0911 - over the limit before the limit was set
     workspace: Workspace, slug: str, form: dict, via: str, heard: dict | None = None
 ) -> dict:
     """The owner's yes to the criteria of the task directory, `lem criteria approve SLUG

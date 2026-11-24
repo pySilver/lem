@@ -1339,7 +1339,7 @@ def newest_block(task: Task) -> dict | None:
 def row_key(task: Task, block: dict) -> str:
     """The key of the criteria's row of the board for the state block
     BLOCK (`lem_answers.key_of`)."""
-    moment = datetime.fromisoformat(str(block["ts"]).replace("Z", "+00:00"))
+    moment = datetime.fromisoformat(str(block["ts"]))
     return lem_answers.key_of("criterion", task.slug, int(moment.timestamp() * 1000))
 
 
@@ -1409,7 +1409,7 @@ def waits_for_him(task: Task, other: str, source: Path) -> str:
     )
 
 
-def cmd_approve(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
+def cmd_approve(
     task: Task, file: str, by: str, *, plan: bool = False, shown: str | None = None
 ) -> dict:
     """Keep the criteria that were approved, word for word, with a digest and a number
@@ -1431,11 +1431,11 @@ def cmd_approve(  # noqa: C901, PLR0912, PLR0915 - over the limit before the lim
     # the other starts
     with (task.directory / "criteria.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        return approve_held(task, source, by, plan, shown)
+        return approve_held(task, source, by, plan=plan, shown=shown)
 
 
-def approve_held(
-    task: Task, source: Path, by: str, plan: bool, shown: str | None
+def approve_held(  # noqa: C901, PLR0912 - over the limit before the limit was set
+    task: Task, source: Path, by: str, *, plan: bool, shown: str | None
 ) -> dict:
     """`cmd_approve` under the task's criteria.lock: the read of the file, its checks
     and the write. The owner's yes, and an approval made without him, are refused while
@@ -1446,7 +1446,13 @@ def approve_held(
         said = owners_no(task, newest_block(task))
         if said:
             raise CriteriaError(
-                f"the owner said No to the criteria of this wait ({'typed in the session' if said.get('from') == 'session' else 'on the board'}, at {said.get('at')}"
+                "the owner said No to the criteria of this wait ("
+                + (
+                    "typed in the session"
+                    if said.get("from") == "session"
+                    else "on the board"
+                )
+                + f", at {said.get('at')}"
                 + (f", with the words {said['note']!r}" if said.get("note") else "")
                 + (
                     "), and the first answer counts: nothing was approved. "
@@ -1678,7 +1684,7 @@ def pairs(before: list[dict], after: list[dict]) -> list[dict]:
                     "before": shown_criterion(before[i]),
                     "after": shown_criterion(after[j]),
                 }
-                for i, j in zip(range(i1, i2), range(j1, j2))
+                for i, j in zip(range(i1, i2), range(j1, j2), strict=True)
             ]
             continue
         found += [
@@ -1743,10 +1749,10 @@ def write_whole(file: Path, text: str) -> None:
     fresh.replace(file)
 
 
-def waits_for_change(task: Task, block: dict | None) -> None:
+def waits_for_change(task: Task, block: dict | None) -> dict:
     """Refuse a change of the criteria, his typed No or a new wait of the same text,
     unless the task's criteria wait for the owner's yes on the standard track now, with
-    no approval of that track and none after the newest block."""
+    no approval of that track and none after the newest block. It gives BLOCK back."""
     if (
         block is None
         or block.get("status") != "held"
@@ -1790,6 +1796,7 @@ def waits_for_change(task: Task, block: dict | None) -> None:
             f"through its record, `lem decisions criterion {task.slug} --changed N "
             "--was TEXT --now TEXT`, and the plan is read against that approval",
         )
+    return block
 
 
 def cmd_typed(task: Task, words: str) -> dict:
@@ -1807,8 +1814,7 @@ def cmd_typed(task: Task, words: str) -> dict:
     task.directory.mkdir(parents=True, exist_ok=True)
     with (task.directory / "criteria.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        block = newest_block(task)
-        waits_for_change(task, block)
+        block = waits_for_change(task, newest_block(task))
         key = row_key(task, block)
         try:
             won, made = lem_answers.record(
@@ -1837,7 +1843,7 @@ def cmd_typed(task: Task, words: str) -> dict:
     return {"task": task.slug, "key": key, "recorded": won, "answer": made}
 
 
-def cmd_change(task: Task, file: str, words: str) -> dict:
+def cmd_change(task: Task, file: str, words: str) -> dict:  # noqa: C901 - over the limit before the limit was set
     """A change of the criteria from the owner's note: keep the text he answered, write
     FILE as the task's `criteria.md`, log `criteria.changed`, and write the held block
     CHANGED_WAIT, so that the criteria wait for his yes again. It approves nothing. It
@@ -1877,8 +1883,7 @@ def cmd_change(task: Task, file: str, words: str) -> dict:
     task.directory.mkdir(parents=True, exist_ok=True)
     with (task.directory / "criteria.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        block = newest_block(task)
-        waits_for_change(task, block)
+        block = waits_for_change(task, newest_block(task))
         key = row_key(task, block)
         made = answer_on_record(task, key)
         if made is not None and made.get("option") != "no":
@@ -1889,7 +1894,7 @@ def cmd_change(task: Task, file: str, words: str) -> dict:
             )
         kept = kept_before(task.directory)
         resumed = kept is not None and kept["ts"] == block["ts"]
-        if resumed:
+        if resumed and kept is not None:
             answered = kept["text"]
         elif task.small_file.is_file():
             answered = task.small_file.read_text(encoding="utf-8")
@@ -1987,8 +1992,7 @@ def cmd_unchanged(task: Task) -> dict:
     task.directory.mkdir(parents=True, exist_ok=True)
     with (task.directory / "criteria.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        block = newest_block(task)
-        waits_for_change(task, block)
+        block = waits_for_change(task, newest_block(task))
         made = answer_on_record(task, row_key(task, block))
         if made is None:
             raise CriteriaError(

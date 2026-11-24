@@ -6831,7 +6831,8 @@ def refuted_item_text(name: str, proposal: dict, reason: str, today: str) -> str
     the title, where it came from, its body, and the reviewer's REASON as the last line,
     `Decided against: REASON` (rule 6 of agents/lem-builder.md), so that a later agent
     who meets the same change finds it decided."""
-    kind, day, number = PROPOSAL_NAME.fullmatch(name).groups()
+    # each name had its verdict read in this form
+    kind, day, number = cast("re.Match[str]", PROPOSAL_NAME.fullmatch(name)).groups()
     head = [
         "---",
         "worth: no",
@@ -7196,7 +7197,7 @@ def item_proposals(text: str) -> list[str] | None:
     )
 
 
-def cmd_proposals_drop(state: Path, given: str, today: str) -> dict:
+def cmd_proposals_drop(state: Path, given: str, today: str) -> dict:  # noqa: C901 - over the limit before the limit was set
     """The owner's drop of a reviewer's item, in one call: refused while a task that has
     not ended holds it (`item_holder`), with that task, and refused for a `worth: no`
     item, a refuted proposal that is decided against already; else the drop of each

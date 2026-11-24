@@ -324,9 +324,12 @@ class TheNotesLines(unittest.TestCase):
         "none\n\n## Not done\n\nnone\n"
     )
 
-    def bare(self, notes: str, small: bool = False) -> list[str]:
+    def bare(self, notes: str, *, small: bool = False) -> list[str]:
         return land.unfiled_lines(
-            notes, small, "docs/backlog", lambda path: path in self.HELD
+            notes,
+            small=small,
+            folder="docs/backlog",
+            in_tip=lambda path: path in self.HELD,
         )
 
     def test_a_hand_written_line_with_no_call_is_named(self) -> None:
@@ -3194,7 +3197,9 @@ class TheBarJevReads(unittest.TestCase):
             self.assertIsNone(land.bar_condition(file.read_text()))
             self.assertEqual(
                 land.jev_entry(
-                    {"where": "a.py", "title": "T", "run": "r"}, True, (None, name)
+                    {"where": "a.py", "title": "T", "run": "r"},
+                    sends=True,
+                    bar=(None, name),
                 ),
                 {"not_asked": "no bar in .claude/agents/lem-builder.md"},
             )
@@ -3239,7 +3244,7 @@ class TheFindingsUnderTheBar(unittest.TestCase):
             for path, text in files.items()
         ]
         return land.under_findings(
-            added, lambda path: land.item_text(files[path]), "", False
+            added, lambda path: land.item_text(files[path]), "", small=False
         )
 
     def test_an_item_of_worth_no_without_its_reason(self) -> None:
@@ -3273,7 +3278,7 @@ class TheFindingsUnderTheBar(unittest.TestCase):
         self.assertNotEqual(other["key"], found["key"])
 
     def test_the_lines_of_the_notes_that_propose_checks(self) -> None:
-        lines = land.under_findings([], None, self.NOTES, False)
+        lines = land.under_findings([], None, self.NOTES, small=False)
         self.assertEqual(
             [(found["line"], found["run"]) for found in lines],
             [
@@ -3287,7 +3292,7 @@ class TheFindingsUnderTheBar(unittest.TestCase):
                 ),
             ],
         )
-        fast = land.under_findings([], None, self.NOTES, True)
+        fast = land.under_findings([], None, self.NOTES, small=True)
         self.assertEqual(fast[0]["run"], "Before the headings: `x.py`: x is slow")
         again = land.line_finding(
             [
@@ -3362,7 +3367,9 @@ class TheReadOfEachFinding(JevStandIn):
         "under: a second landing is rare\n"
     )
 
-    def task(self, findings: bool = True, kept: dict | None = None):
+    def task(
+        self, *, findings: bool = True, kept: dict | None = None
+    ) -> types.SimpleNamespace:
         held: dict = dict(kept or {"pr": {"number": 7}})
         task = types.SimpleNamespace(
             slug="t",
@@ -3379,7 +3386,7 @@ class TheReadOfEachFinding(JevStandIn):
         task.held = held
         return task
 
-    def read(self, task, notes: str | None = None) -> dict:
+    def read(self, task: types.SimpleNamespace, notes: str | None = None) -> dict:
         added = [
             {
                 "item": "docs/backlog/tidy.md",
@@ -3389,7 +3396,9 @@ class TheReadOfEachFinding(JevStandIn):
             }
         ]
         with mock.patch.object(land, "builder_filed", return_value=added):
-            return land.jev_read(task, self.NOTES if notes is None else notes, False)
+            return land.jev_read(
+                task, self.NOTES if notes is None else notes, small=False
+            )
 
     def test_a_score_over_the_line_refuses_once_and_the_second_answer_stands(
         self,
@@ -3577,7 +3586,7 @@ class TheItemsThatMayHoldAFinding(unittest.TestCase):
         items = self.items(5)
         scores = {
             item["item"]: score
-            for item, score in zip(items, (0.49, 0.91, 0.5, 0.62, 0.77))
+            for item, score in zip(items, (0.49, 0.91, 0.5, 0.62, 0.77), strict=True)
         }
         named = land.alike_named(scores, items)
         self.assertEqual(
@@ -3617,7 +3626,7 @@ class TheItemsThatMayHoldAFinding(unittest.TestCase):
                 land, "jev_fits", lambda spec: len(spec["questions"]) <= 2
             ),
         ):
-            said = land.ask_alike(self.PADS, items, True)
+            said = land.ask_alike(self.PADS, items, sends=True)
             self.assertEqual(
                 said,
                 {
@@ -3633,13 +3642,13 @@ class TheItemsThatMayHoldAFinding(unittest.TestCase):
             again = land.ask_alike(
                 self.PADS,
                 items,
-                True,
-                {"docs/backlog/item-0.md": 0.9, "docs/backlog/item-1.md": 0.2},
+                sends=True,
+                known={"docs/backlog/item-0.md": 0.9, "docs/backlog/item-1.md": 0.2},
             )
             self.assertEqual(again["scores"]["docs/backlog/item-0.md"], 0.9)
             self.assertEqual([list(spec["questions"]) for spec in sent[2:]], [["i0"]])
             self.assertEqual(
-                land.ask_alike(self.PADS, items, True, said["scores"]), said
+                land.ask_alike(self.PADS, items, sends=True, known=said["scores"]), said
             )
             self.assertEqual(len(sent), 3)
 
@@ -3659,11 +3668,11 @@ class TheItemsThatMayHoldAFinding(unittest.TestCase):
             ),
         ):
             self.assertEqual(
-                land.ask_alike(self.PADS, items, True), {"not_asked": "no answer"}
+                land.ask_alike(self.PADS, items, sends=True), {"not_asked": "no answer"}
             )
         with mock.patch.object(land, "ask_jev") as asked:
             self.assertEqual(
-                land.ask_alike(self.PADS, items, False),
+                land.ask_alike(self.PADS, items, sends=False),
                 {"not_asked": "off in the settings"},
             )
             asked.assert_not_called()
@@ -3672,12 +3681,12 @@ class TheItemsThatMayHoldAFinding(unittest.TestCase):
             mock.patch.object(land, "ask_jev") as asked,
         ):
             self.assertEqual(
-                land.ask_alike(self.PADS, items, True), {"not_asked": "too long"}
+                land.ask_alike(self.PADS, items, sends=True), {"not_asked": "too long"}
             )
             asked.assert_not_called()
         with mock.patch.dict(os.environ, {"JEV_API_KEY": ""}):
             self.assertEqual(
-                land.ask_alike(self.PADS, items, True), {"not_asked": "no key"}
+                land.ask_alike(self.PADS, items, sends=True), {"not_asked": "no key"}
             )
 
 
@@ -3781,7 +3790,7 @@ class JevOnTheLines(unittest.TestCase):
             "- `b.py`: other; under: x\n\n## Not done\n\n"
             "- `a.py`: slow; under: runs once\n"
         )
-        out = land.jev_notes(notes, False, endings)
+        out = land.jev_notes(notes, small=False, endings=endings)
         self.assertEqual(
             out,
             notes.replace(
@@ -3796,14 +3805,15 @@ class JevOnTheLines(unittest.TestCase):
                 "  under: runs once\n", "  under: runs once; Jev: not asked (no key)\n"
             ),
         )
-        self.assertEqual(land.jev_notes(out, False, endings), out)
+        self.assertEqual(land.jev_notes(out, small=False, endings=endings), out)
         self.assertTrue(
-            land.jev_notes(notes, True, endings).startswith(
+            land.jev_notes(notes, small=True, endings=endings).startswith(
                 "- `a.py`: slow; under: runs once; Jev: not asked (no key)\n"
             )
         )
         self.assertEqual(
-            land.jev_notes(notes, False, {"items": {}, "lines": {}}), notes
+            land.jev_notes(notes, small=False, endings={"items": {}, "lines": {}}),
+            notes,
         )
         self.assertEqual(land.jev_said({"score": 0.8}), "Jev: 0.80")
 

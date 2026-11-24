@@ -88,7 +88,7 @@ class Folder(unittest.TestCase):
         self.space.look_sessions = lambda: None
         self.space.model = self.model
 
-        def run(ws, file, *args):
+        def run(ws: object, file: str, *args: str) -> subprocess.CompletedProcess:
             self.calls.append((file, *args))
             return subprocess.CompletedProcess(
                 args, 1 if self.refuse else 0, "", "it refused" if self.refuse else ""
@@ -141,7 +141,7 @@ class Folder(unittest.TestCase):
             return json.dumps({"slug": SLUG, "status": args[2], "since": record["ts"]})
         raise AssertionError(f"no stand-in for {name} {args}")
 
-    def task(self):
+    def task(self) -> "criteria.Task":
         """criteria.py's task over the folder, as `lem criteria change` makes it."""
         task = criteria.Task.__new__(criteria.Task)
         task.slug, task.night, task.mode, task.repo = (
@@ -156,7 +156,7 @@ class Folder(unittest.TestCase):
             self.folder / "criteria.md",
         )
         task.read_mode = lambda: task.mode
-        task.log = lambda event, **fields: self.append(event, **fields)
+        task.log = self.append
         return task
 
     def waiting(

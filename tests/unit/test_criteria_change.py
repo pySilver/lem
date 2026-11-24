@@ -19,6 +19,7 @@ import tempfile
 import threading
 import time
 import unittest
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest import mock
@@ -78,7 +79,7 @@ class Folder(unittest.TestCase):
             self.task.directory / "criteria.md",
         )
         self.task.read_mode = lambda: self.task.mode
-        self.task.log = lambda event, **fields: self.append(event, **fields)
+        self.task.log = self.append
         self.stop_state = False
         self.calls: list[tuple[str, ...]] = []
         patcher = mock.patch.object(criteria, "script", side_effect=self.script)
@@ -138,9 +139,11 @@ class Folder(unittest.TestCase):
         self.task.small_file.write_text(text, encoding="utf-8")
         return self.held(block, "type: feat, because the export loses empty cells")
 
-    def refused(self, call, *args) -> str:
+    def refused(
+        self, call: Callable[..., object], *args: object, **named: object
+    ) -> str:
         with self.assertRaises(criteria.CriteriaError) as caught:
-            call(*args)
+            call(*args, **named)
         return str(caught.exception)
 
 
@@ -454,8 +457,8 @@ class OneLock(Folder):
             self.task,
             str(self.task.small_file),
             "owner",
-            False,
-            before,
+            plan=False,
+            shown=before,
         )
         self.assertIn("changed since the page showed them", said)
         self.assertFalse(self.task.approved_file.exists())
@@ -569,8 +572,8 @@ class HisTypedNo(Folder):
             self.task,
             str(self.task.small_file),
             "owner",
-            False,
-            criteria.shown_digest(CRITERIA.encode()),
+            plan=False,
+            shown=criteria.shown_digest(CRITERIA.encode()),
         )
         self.assertIn(
             "the owner said No to the criteria of this wait (typed in the session",
@@ -655,7 +658,11 @@ class HisNoThenAway(Folder):
         )
         self.task.mode = "alone"
         said = self.refused(
-            criteria.cmd_approve, self.task, str(self.task.small_file), "alone", True
+            criteria.cmd_approve,
+            self.task,
+            str(self.task.small_file),
+            "alone",
+            plan=True,
         )
         self.assertIn(
             "the owner said No to the criteria of this wait (on the board", said
@@ -710,8 +717,8 @@ class HisNoThatChangesNoCriterion(Folder):
                 self.task,
                 str(self.task.small_file),
                 "owner",
-                False,
-                shown,
+                plan=False,
+                shown=shown,
             ),
         )
         said = criteria.cmd_unchanged(self.task)

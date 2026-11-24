@@ -59,7 +59,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Literal, cast
 from urllib.parse import quote
 
 import lem_board_model as bm
@@ -3039,10 +3039,11 @@ def added_line(ctx: Ctx, it: dict) -> Markup | None:
     `added`. The task is a link to its board when this board has it."""
     if it.get("reviewer"):
         day = it.get("added") or ""
+        on = f" on {day}" if days_old(day, ctx.model.now) is not None else ""
         return h(
             "div",
             {"class": "bl-note bl-by"},
-            f"added by the reviewer of the night's and the retro's proposals{f' on {day}' if days_old(day, ctx.model.now) is not None else ''}",
+            f"added by the reviewer of the night's and the retro's proposals{on}",
         )
     if "added_by" not in it:
         return None
@@ -3440,7 +3441,7 @@ def backlog_page(ctx: Ctx) -> Markup:
             g["actor"],
             f"Only the items whose worth is {g['key']}",
         )
-        for g in cast("list[dict[str, Any]]", bm.BY_WORTH)
+        for g in bm.BY_WORTH
         if counts[g["key"]]
     ]
     facts_ = [

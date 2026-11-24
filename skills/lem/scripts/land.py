@@ -1029,6 +1029,8 @@ JEV_OVER = 0.7
 # jev.py's 120, since the read only adds a line and a landing should not wait for it. A
 # guess (2026-11-23), not a measurement.
 JEV_SECONDS = 20
+# jev.py's exit status for a request too long to send
+JEV_TOO_LONG = 3
 # The name of the one question of a finding's request.
 JEV_QUESTION = "over"
 # The sentence of the bar in rule 6 of the builder's standing rules: its condition,
@@ -2587,7 +2589,9 @@ def to_file(
     ]
 
 
-def settled_by_open(defect: dict, in_tip, refuted) -> bool:
+def settled_by_open(
+    defect: dict, in_tip: Callable[[str], bool], refuted: Callable[[str], bool]
+) -> bool:
     """Whether the `open` item of DEFECT settles it: IN_TIP finds the item in the tip,
     and it is not an item that says `worth: no` (REFUTED) of a defect now called over
     the bar, which gets an item of its own, `worth: later`, that names the old one; the
@@ -2739,7 +2743,7 @@ def entries_of(lines: list[str]) -> list[list[str]]:
     return [[lines[at] for at in span] for span in entry_spans(lines)]
 
 
-def called_bodies(notes: str, small: bool) -> list[list[str]]:
+def called_bodies(notes: str, *, small: bool) -> list[list[str]]:
     """The parts of the notes whose lines name a finding nobody filed: `## Left open`
     and `## Seen, not filed`, and on the fast track (SMALL), whose notes have no fixed
     headings, the lines before the first heading too, where the should findings the
@@ -2751,13 +2755,15 @@ def called_bodies(notes: str, small: bool) -> list[list[str]]:
     ]
 
 
-def unfiled_lines(notes: str, small: bool, folder: str, in_tip) -> list[str]:
+def unfiled_lines(
+    notes: str, *, small: bool, folder: str, in_tip: Callable[[str], bool]
+) -> list[str]:
     """The first line of each entry of the notes that names a finding nobody filed and
     has neither a bar call with its reason (`under: REASON`, `cheap: REASON`) nor the
     path of an item of the backlog folder FOLDER that IN_TIP finds in the tip, in the
     parts `called_bodies` gives."""
     found = []
-    for body in called_bodies(notes, small):
+    for body in called_bodies(notes, small=small):
         for entry in entries_of(body):
             text = "\n".join(entry)
             if CALLED.search(text):
@@ -2858,7 +2864,13 @@ def with_outside(
     at = {name: index for index, (name, _) in enumerate(parts)}
     own_filed = lines_of(parts[at[FILED]][1]) if FILED in at else []
     own_not = lines_of(parts[at[NOT_WORTH]][1]) if NOT_WORTH in at else []
-    items = dict(zip((FILED, NOT_WORTH), placed(own_filed, own_not, filed, not_worth)))
+    items = dict(
+        zip(
+            (FILED, NOT_WORTH),
+            placed(own_filed, own_not, filed, not_worth),
+            strict=True,
+        )
+    )
     for heading, own in ((FILED, own_filed), (NOT_WORTH, own_not)):
         if heading in at and items[heading] != own:
             # its lines as `placed` put them; a heading the notes hold keeps its `none`
@@ -5568,7 +5580,7 @@ def changes_said(changed: int) -> str:
     )
 
 
-def read_line(
+def read_line(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     read: dict | None,
     found: dict,
     quiet_reads: int = 0,
@@ -5909,7 +5921,13 @@ def line_finding(entry: list[str]) -> dict | None:
     }
 
 
-def under_findings(added: list[dict], read_item, notes: str, small: bool) -> list[dict]:
+def under_findings(
+    added: list[dict],
+    read_item: Callable[[str], tuple[dict[str, str], list[str]] | None],
+    notes: str,
+    *,
+    small: bool,
+) -> list[dict]:
     """Each finding called under the bar that the tip holds, whoever wrote it: each item
     the branch adds (ADDED, `items_added`) that says `worth: no`, whose file READ_ITEM
     reads as `item_of` does, and each line of the notes that calls one `under:` in the
@@ -5923,7 +5941,7 @@ def under_findings(added: list[dict], read_item, notes: str, small: bool) -> lis
     ]
     found += [
         finding
-        for body in called_bodies(notes, small)
+        for body in called_bodies(notes, small=small)
         for entry in entries_of(body)
         for finding in [line_finding(entry)]
         if finding
@@ -5965,7 +5983,7 @@ def ask_jev(spec: dict) -> dict:
         )
     except (OSError, subprocess.TimeoutExpired):
         return {"not_asked": "no answer"}
-    if ran.returncode == 3:
+    if ran.returncode == JEV_TOO_LONG:
         return {"not_asked": "too long"}
     try:
         if ran.returncode:
@@ -6004,14 +6022,17 @@ def jev_spec(finding: dict, condition: str) -> dict:
     }
 
 
-def jev_entry(finding: dict, sends: bool, bar: tuple[str | None, str] | None) -> dict:
+def jev_entry(
+    finding: dict, *, sends: bool, bar: tuple[str | None, str] | None
+) -> dict:
     """Jev's entry for one finding that has none yet: `{score, asked_at}`, or
     `{not_asked: WHY}`: `off in the settings` when SENDS is false, `no bar in FILE` when
     BAR, the condition of rule 6 and the file's name, has no condition; else what
     `ask_jev` says. Nothing is sent but by `ask_jev`."""
     if not sends:
         return {"not_asked": "off in the settings"}
-    condition, name = bar
+    # with SENDS, `jev_read` read the bar before the first finding it asks about
+    condition, name = cast("tuple[str | None, str]", bar)
     if condition is None:
         return {"not_asked": f"no bar in {name}"}
     said = ask_jev(jev_spec(finding, condition))
@@ -6090,7 +6111,7 @@ def jev_marked(body: list[str], endings: dict) -> list[str]:
     return out
 
 
-def jev_notes(notes: str, small: bool, endings: dict) -> str:
+def jev_notes(notes: str, *, small: bool, endings: dict) -> str:
     """The notes with Jev's read at the end of each line of a finding called under the
     bar: under `## Filed as not worth it`, `## Left open` and `## Seen, not filed`, and
     on the fast track (SMALL) the lines before the first heading. Notes with no such
@@ -6113,7 +6134,7 @@ def jev_notes(notes: str, small: bool, endings: dict) -> str:
     ) + ("\n" if notes.endswith("\n") else "")
 
 
-def jev_read(task: Task, notes: str, small: bool) -> dict:
+def jev_read(task: Task, notes: str, *, small: bool) -> dict:
     """Jev's one read of each finding called under the bar that the tip holds
     (`under_findings`), for `propose`: a finding with no entry kept in `landing.json`
     (`jev`, by `finding_key`) gets one, kept at once, so that no finding is sent twice,
@@ -6121,7 +6142,10 @@ def jev_read(task: Task, notes: str, small: bool) -> dict:
     finding and its score, when Jev reads one as over the bar (`jev_refused`); otherwise
     the end of each finding's line in the pull request (`jev_endings`)."""
     findings = under_findings(
-        builder_filed(task), lambda path: item_of(task.worktree / path), notes, small
+        builder_filed(task),
+        lambda path: item_of(task.worktree / path),
+        notes,
+        small=small,
     )
     kept = dict(task.kept().get("jev") or {})
     sends = jev_sends(task.settings)
@@ -6135,7 +6159,7 @@ def jev_read(task: Task, notes: str, small: bool) -> dict:
                 bar = (bar_condition(file.read_text(encoding="utf-8")), name)
             except (OSError, UnicodeDecodeError):
                 bar = (None, name)
-        kept[finding["key"]] = jev_entry(finding, sends, bar)
+        kept[finding["key"]] = jev_entry(finding, sends=sends, bar=bar)
         task.keep(jev=kept)
     refused, kept = jev_refused(findings, kept)
     if refused:
@@ -6196,7 +6220,9 @@ def finding_state(finding: dict) -> dict:
     return {key: finding[key] for key in ("where", "title", "run") if finding.get(key)}
 
 
-def alike_specs(finding: dict, items: list[dict], fits) -> list[dict] | None:
+def alike_specs(
+    finding: dict, items: list[dict], fits: Callable[[dict], bool]
+) -> list[dict] | None:
     """The requests of `alike` for FINDING: the finding as the state of each, and one
     question for each of ITEMS (`alike_question`, named `iN` by the item's place), in as
     many requests as FITS, which says whether a request is under jev.py's limit, needs.
@@ -6231,7 +6257,7 @@ def jev_fits(spec: dict) -> bool:
 
 
 def ask_alike(
-    finding: dict, items: list[dict], sends: bool, known: dict | None = None
+    finding: dict, items: list[dict], *, sends: bool, known: dict | None = None
 ) -> dict:
     """Jev's read of whether FINDING is the same defect as each of ITEMS:
     `{"scores": {PATH: P}}` for every item, or `{"not_asked": WHY}` when any request got
@@ -6338,7 +6364,7 @@ def cmd_alike(task: Task, where: str, title: str, what: str) -> dict:
                 "finding by the bar of rule 6"
             ),
         }
-    said = ask_alike(finding, items, jev_sends(task.settings))
+    said = ask_alike(finding, items, sends=jev_sends(task.settings))
     if "not_asked" in said:
         return {
             **out,
@@ -6377,7 +6403,7 @@ def cmd_alike(task: Task, where: str, title: str, what: str) -> dict:
     }
 
 
-def item_body(
+def item_body(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     defect: dict,
     round_: int,
     slug: str,
@@ -6425,7 +6451,9 @@ def item_name(
     raise AssertionError("names_for gives names without end")
 
 
-def same_flags(said: list[str], folder: str, in_tip) -> dict[str, str]:
+def same_flags(
+    said: list[str], folder: str, in_tip: Callable[[str], bool]
+) -> dict[str, str]:
     """The defects `--same rN.M=PATH` names, each with its item: a file of the backlog
     folder FOLDER that IN_TIP finds in the tip. A LandError for any other form."""
     found: dict[str, str] = {}
@@ -6448,7 +6476,7 @@ def same_flags(said: list[str], folder: str, in_tip) -> dict[str, str]:
     return found
 
 
-def cmd_file(  # noqa: C901, PLR0912 - over the limit before the limit was set
+def cmd_file(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     task: Task,
     *,
     again: bool,
@@ -6673,7 +6701,7 @@ def check_alike(
             "run": defect["what"],
         }
         key = finding_key(defect["where"], defect["title"], defect["what"])
-        read = ask_alike(finding, items, sends, kept.get(key))
+        read = ask_alike(finding, items, sends=sends, known=kept.get(key))
         if "not_asked" in read:
             said[defect["number"]] = f"Jev: not asked ({read['not_asked']})"
             continue
@@ -7761,7 +7789,7 @@ def pr_text(  # noqa: C901, PLR0915 - over the limit before the limit was set
     each line of a finding called under the bar, what Jev said of it (`jev_read`)."""
     jev = jev or {"items": {}, "lines": {}}
     if criteria_of(task)["small"]:
-        return small_text(task, jev_notes(notes, True, jev), state, jev)
+        return small_text(task, jev_notes(notes, small=True, endings=jev), state, jev)
     kept = task.kept()
     # the notes' lines of the cheap defects a builder fixed, each a review's entry by
     # its number
@@ -7926,8 +7954,8 @@ def pr_text(  # noqa: C901, PLR0915 - over the limit before the limit was set
         with_outside(
             notes, *outside_parts(kept.get("reads", []), fixed, builder_filed(task))
         ),
-        False,
-        jev,
+        small=False,
+        endings=jev,
     )
     return "\n".join(out) + "\n\n" + no_media(notes).strip() + "\n"
 
@@ -8336,9 +8364,9 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901,
     # is a defect the next review raises again, or one over the bar that nobody judged.
     bare = unfiled_lines(
         notes,
-        criteria_of(task)["small"],
-        backlog_of(task),
-        lambda path: file_at(task, tip, path),
+        small=criteria_of(task)["small"],
+        folder=backlog_of(task),
+        in_tip=lambda path: file_at(task, tip, path),
     )
     if bare:
         raise LandError(
@@ -8360,7 +8388,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901,
     # Jev reads each finding called under the bar once, the tip's items and the notes'
     # lines alike, and a read over the bar stops the step one time, so that the agent
     # looks again.
-    endings = jev_read(task, notes, criteria_of(task)["small"])
+    endings = jev_read(task, notes, small=criteria_of(task)["small"])
     reasons = not_green(task, state)
     # The one rule of a moved base runs before the text is written: the text, the
     # `proposed` event and what is carried after the push all say what this one

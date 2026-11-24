@@ -37,6 +37,7 @@ began on and a change of its criteria that stopped in the middle (`task_files_lo
 each Task). What does not read is a problem the page says, never an empty board.
 """  # noqa: E501 - the table of the model's names keeps its columns
 
+import contextlib
 import json
 import math
 import os
@@ -582,7 +583,7 @@ def type_line(line: str) -> dict | None:
     return {"type": found[1], "why": found[2]} if found and found[1] in TYPES else None
 
 
-def words(line: object, *, talked: bool = False) -> str | None:  # noqa: C901, PLR0911 - over the limit before the limit was set
+def words(line: object, *, talked: bool = False) -> str | None:  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit was set
     """A line of a state block as the page says it: a fixed line of the scripts in
     words, or left out (None) where the page says it elsewhere; any other line is the
     agent's own and stays as written."""
@@ -2362,7 +2363,7 @@ def done_older(m: Model) -> list:
 # The backlog's groups, from each item's own `worth`: every item of the backlog folder,
 # and the reviewer's items it decided against (`refuted`); its other items have a group
 # of their own (`reviewer_items`).
-BY_WORTH = [
+BY_WORTH: list[dict[str, Any]] = [
     {"key": "yes", "name": "Worth doing", "actor": "gate"},
     {"key": "later", "name": "Later", "actor": "you"},
     {"key": "unset", "name": "No verdict in the item", "actor": "quiet"},
@@ -6506,10 +6507,8 @@ def task_files_look(state: Path, m: Model) -> None:
         began = lem_release.numbers(t.began) if t.began else None
         t.behind = running is None or began is None or began < running
         kept = None
-        try:
+        with contextlib.suppress(OSError, ValueError):
             kept = json.loads((folder / CRITERIA_BEFORE).read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            pass
         t.changing = (
             t.status == "held"
             and isinstance(kept, dict)
