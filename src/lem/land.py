@@ -4067,6 +4067,20 @@ def shebang_suffix(line: str) -> str:
     return SHEBANG.get(re.sub(r"(?<=^python)[0-9.]+$", "", name), "")
 
 
+# A hunk's header in `git diff`: where it starts, and how many lines went and came,
+# each count 1 when git leaves it out
+HUNK = re.compile(r"@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@")
+
+
+def hunk_size(header: str) -> list[int]:
+    """How many lines of a hunk went and came, from its HEADER (`@@ -1,2 +1,0 @@`);
+    none for a header that is not one of a two-sided diff."""
+    found = HUNK.match(header)
+    if not found:
+        return [0, 0]
+    return [int(count) if count is not None else 1 for count in found.groups()]
+
+
 def bar_of(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     diff: str,
     rows: list[str],
@@ -4105,8 +4119,15 @@ def bar_of(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit wa
     file = old = ""
     marks: list[re.Pattern] = []
     settings: list[re.Pattern] = []
+    # the lines of the hunk still to come, those that went and those that came, by its
+    # `@@` header: a line inside a hunk is never a file's header, also a removed line
+    # whose text starts with `-- ` (`--- ` in the diff, a removed SQL comment)
+    due = [0, 0]
     for line in diff.splitlines():
-        if line.startswith("--- "):
+        inside = line[:1] in ("-", "+") and due[line[:1] == "+"] > 0
+        if inside:
+            due[line[:1] == "+"] -= 1
+        elif line.startswith("--- "):
             old = line[6:] if line.startswith("--- a/") else ""
         elif line.startswith("+++ "):
             # a file that is gone has its lines counted under the name it had
@@ -4129,11 +4150,10 @@ def bar_of(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit wa
             ]
             hunked.append((file, marks, settings, []))
         elif line.startswith("@@"):
+            due = hunk_size(line)
             if hunked:
                 hunked[-1][3].append(([], []))
-        elif not file or line[:1] not in "+-":
-            continue
-        else:
+        if inside and file:
             if hunked and hunked[-1][3] and (marks or settings):
                 hunked[-1][3][-1][line[0] == "+"].append(line[1:])
             if TEST_CONFIG.search(file) or WORKFLOW.search(file):

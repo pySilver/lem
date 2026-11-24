@@ -531,6 +531,26 @@ class TheSquashBody(unittest.TestCase):
 class Bar(unittest.TestCase):
     """`land.bar_of`: where a change lowers the bar, from the diff git gave."""
 
+    def test_a_removed_line_that_starts_with_two_dashes_is_no_header(self) -> None:
+        # `-- ` removed is `--- ` in the diff: a SQL comment of a test, a line of a
+        # Python string that only moved with the mark on it
+        self.assertEqual(
+            lowered(
+                bar(
+                    patch(
+                        "tests/orders.sql",
+                        ("-- assert: every order has a customer", "SELECT 1;"),
+                        ("SELECT 1;",),
+                    )
+                )
+            ),
+            [("tests/orders.sql", "1 assertion(s) fewer")],
+        )
+        moved = f"-- the total  {NOQA}: E501"
+        self.assertEqual(
+            lowered(bar(patch("calc.py", (moved, "x = 1"), ("x = 1", moved)))), []
+        )
+
     def test_a_new_suppression_lowers_the_bar(self) -> None:
         result = bar(patch("calc.py", plus=(f"import os  {NOQA}: F401",), new=True))
         self.assertEqual(
