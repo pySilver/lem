@@ -2544,6 +2544,20 @@ def merge_apart(workspace: Workspace, *args: str) -> subprocess.CompletedProcess
     )
 
 
+def kept_for_base(e: dict, tip: str) -> bool:
+    """Whether an event is land.py's refusal of the owner's merge of TIP because the
+    base moved, which it keeps for another read (`merge.refused` with `by: owner`,
+    `from: lem`, `kind: base`): land.py logs it under the merge lock, after its
+    `merge.start`."""
+    return (
+        e.get("event") == "merge.refused"
+        and e.get("by") == "owner"
+        and e.get("from") == "lem"
+        and e.get("kind") == "base"
+        and bm.same_tip(tip, e.get("tip"))
+    )
+
+
 def merge_in_thread(  # noqa: C901, PLR0913, PLR0917 - over the limit before the limit was set
     workspace: Workspace,
     slug: str,
@@ -2565,11 +2579,15 @@ def merge_in_thread(  # noqa: C901, PLR0913, PLR0917 - over the limit before the
     (`merge_args`). The owner's merge from the board (BY owner, not STANDING) reads the
     task again in its thread, on a fresh model, before land.py, so that a press whose
     request read the model before his first merge's refusal was logged runs none while
-    that merge stands (`bm.owner_stands`); every merge of the owner's, STANDING too,
-    reads it after land.py's exit 1, when the moved base refused it and his merge
-    stands, which a second press that got this token reads. Either way the note's state
-    is `stands`, with TIP and the sentence of the span that holds (`bm.stands_said`);
-    any other exit 1 is `refused`, with land.py's line."""
+    that merge stands (`bm.owner_stands`). After land.py's exit 1, every merge of the
+    owner's, STANDING too, reads it again when this run of land.py refused it because
+    the base moved and kept it: the `merge.refused` of TIP with `by: owner`,
+    `from: lem` and `kind: base` among the events logged since land.py started
+    (`kept_for_base`), which land.py writes only after its own `merge.start`; a second
+    press that got this token reads that note. Either way, while his merge stands, the
+    note's state is `stands`, with TIP and the sentence of the span that holds
+    (`bm.stands_said`); any other exit 1 (a lock that is held or cannot be opened, a
+    refusal of another kind, GitHub's) is `refused`, with land.py's line."""
     pr = landing.get("pr") if isinstance(landing.get("pr"), dict) else None
     what = (
         f"pull request #{pr['number']}"
@@ -2589,23 +2607,37 @@ def merge_in_thread(  # noqa: C901, PLR0913, PLR0917 - over the limit before the
     if not new:
         return token
 
-    def stands(*, ended: bool) -> bool:
+    def logged() -> int:
+        # how many events of the task the log holds before land.py runs
+        t = task_of(workspace, slug) if by == "owner" else None
+        return len(t.events) if t is not None else 0
+
+    def stands(since: int | None = None) -> bool:
         # the task read again, on the log as it is now: whether his merge stands for the
-        # tip of this press; before land.py only for his merge from the board, since a
-        # standing merge runs while it stands
-        his = by == "owner" and (ended or not standing)
-        t = task_of(workspace, slug) if his else None
-        said = bm.stands_said(t, tip) if t is not None else None
+        # tip of this press. Before land.py (no SINCE) only for his merge from the
+        # board, since a standing merge runs while it stands; after land.py's exit 1
+        # only when this run refused it for the moved base and kept it, by the
+        # refusal it logged after the first SINCE events (`kept_for_base`)
+        if by != "owner" or (since is None and standing):
+            return False
+        t = task_of(workspace, slug)
+        if t is None or (
+            since is not None
+            and not any(kept_for_base(e, tip) for e in t.events[since:])
+        ):
+            return False
+        said = bm.stands_said(t, tip)
         if said:
             NOTES.change(token, state="stands", said=said)
         return bool(said)
 
     def merge() -> None:
         try:
-            if stands(ended=False):
+            if stands():
                 if failed:
                     failed()
                 return
+            since = logged()
             ran = merge_apart(workspace, *args)
             if ran.returncode == 0:
                 NOTES.change(
@@ -2620,7 +2652,7 @@ def merge_in_thread(  # noqa: C901, PLR0913, PLR0917 - over the limit before the
                     + (after() if after else ""),
                 )
             else:
-                if not stands(ended=True):
+                if not stands(since):
                     NOTES.change(token, state="refused", said=said_of(ran))
                 if failed:
                     failed()

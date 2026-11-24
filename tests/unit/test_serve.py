@@ -1114,6 +1114,100 @@ class Duties(unittest.TestCase):
             ),
         )
 
+    def standing_exit_before_start(self, line: str) -> dict:
+        """The note of the server's standing merge of his, run after the safe read's
+        `merge.stands`, when land.py exits 1 with LINE before it logs `merge.start`:
+        nothing of this run refused his merge for a moved base."""
+        tip = "faac6eb3b" + "0" * 31
+        landing = {"proposed": tip, "pr": {"number": 60}, "base": "main"}
+        events = [
+            *self.standing(tip),
+            self.ev(
+                9,
+                "merge.review",
+                verdict="call",
+                calls=True,
+                why="a careful request is merged by the owner",
+                by="claude",
+                tip=tip[:9],
+                base="d48c6a9bd",
+                base_call="safe",
+                base_why="docs only",
+            ),
+            self.ev(10, "merge.stands", by="owner", tip=tip[:9], base="d48c6a9bd"),
+        ]
+        model = self.model
+        ran, failed = [], []
+
+        class Space:
+            name, acted = "shop", 0
+
+            def landing_of(self, slug: str) -> dict:
+                return landing
+
+            def model(self) -> "bm.Model":
+                return model(*events)
+
+        def refused(workspace: object, *args: str) -> subprocess.CompletedProcess:
+            ran.append(args)
+            return subprocess.CompletedProcess(args, 1, "", f"land.py: {line}\n")
+
+        class Now:
+            def __init__(
+                self,
+                target: Callable[[], None],
+                name: str | None = None,
+                daemon: object = None,
+            ) -> None:
+                self.target = target
+
+            def start(self) -> None:
+                self.target()
+
+        self.addCleanup(serve.NOTES.merging.pop, ("shop", "gift-note"), None)
+        with (
+            mock.patch.object(serve, "merge_apart", refused),
+            mock.patch.object(serve.threading, "Thread", Now),
+        ):
+            note = serve.NOTES.get(
+                serve.merge_in_thread(
+                    Space(),
+                    "gift-note",
+                    landing,
+                    "owner",
+                    tip,
+                    failed=lambda: failed.append(True),
+                    standing=True,
+                )
+            )
+        self.assertEqual((len(ran), failed), (1, [True]))
+        return note
+
+    def test_his_standing_merge_whose_step_lock_is_held_is_refused_with_land_s_line(
+        self,
+    ) -> None:
+        # the step lock is held by `lem land merge-review`: land.py exits 1 before its
+        # merge.start, and the note keeps its line
+        line = (
+            "another step of gift-note runs now and holds its lock (step.lock in its "
+            "task directory); it ends first, then this step runs again"
+        )
+        note = self.standing_exit_before_start(line)
+        self.assertEqual((note["state"], note["said"]), ("refused", f"land.py: {line}"))
+
+    def test_his_standing_merge_whose_merge_lock_cannot_open_is_refused_with_the_fix(
+        self,
+    ) -> None:
+        # the merge lock cannot be opened: land.py's line holds the fix, an `rm -r` of
+        # the lock, and the note keeps it
+        line = (
+            "the merge lock /shop/.lem/state/merge.lock cannot be opened (Is a "
+            "directory); it holds no state, so remove it (`rm -r "
+            "/shop/.lem/state/merge.lock`) and run `lem land merge gift-note` again"
+        )
+        note = self.standing_exit_before_start(line)
+        self.assertEqual((note["state"], note["said"]), ("refused", f"land.py: {line}"))
+
     def standing(self, tip: str) -> tuple:
         # #60 at 10:38:03: the merge agent's read called him, his merge met a moved
         # base, and Lem keeps it
