@@ -62,15 +62,17 @@ short (`iPhone · Safari`) and the workspaces it wants (all, by default).
 What is new: the first look at a workspace this file has no memory of records its rows
 and sends nothing; after that a row is new when it was not in the list at the last look,
 unless it left less than FLAP_SECONDS ago (a row that leaves and comes back is not sent
-twice). A row is known by its key (`lem_board_model.waits_of`: `breaker:SLUG:N`,
-`session:SLUG`, `deaf:SLUG`, `stopped:SLUG`, `held:SLUG`, `after_dropped:SLUG`,
-`blocked:SLUG`, `plan:SLUG`, `review:SLUG`, `merge:SLUG`), so a second breaker of one
-task is news of its own. The memory is in the file, so a restart of the server (each
-update of the plugin replaces it) neither sends again what was sent nor misses what came
-while it was down. A demo workspace sends nothing. The owner's away mark
-(`/lem im-away`) holds nothing back: no build asks him anything, so the list gains only
-what cannot go on without him (a breaker, a pull request to merge), and the phone is how
-he learns of it away from his computer.
+twice). A row is known by its key (`lem_board_model.waits_of`: `breaker:SLUG:N:STAMP`,
+`session:SLUG`, `deaf:SLUG`, `stopped:SLUG`, `held:SLUG`, `skip:SLUG:STAMP`,
+`criterion:SLUG:STAMP`, `after_dropped:SLUG`, `blocked:SLUG`, `plan:SLUG:STAMP`,
+`review:SLUG`, `merge:SLUG`, `card:SLUG:PAGEID`, where STAMP names the state block a row
+the board answers waits on), so a second breaker of one task, or a breaker that waits
+again in a new block, is news of its own. The memory is in the file, so a restart of the
+server (each update of the plugin replaces it) neither sends again what was sent nor
+misses what came while it was down. A demo workspace sends nothing. The owner's away
+mark (`/lem im-away`) holds nothing back: no build asks him anything, so the list gains
+only what cannot go on without him (a breaker, a pull request to merge), and the phone
+is how he learns of it away from his computer.
 
 A send is never on a request's path: the watcher runs in its own thread, each request
 with a timeout of SEND_TIMEOUT, and a failure is one line in the server's log and `push`

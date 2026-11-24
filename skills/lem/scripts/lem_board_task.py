@@ -58,8 +58,10 @@ from typing import Any, cast
 from urllib.parse import quote
 
 import lem_artifacts
+import lem_answers
 import lem_board_model as bm
 import lem_board_pages as P  # noqa: N812 - the pages module, named on 148 lines of this file
+import lem_cards
 from lem_html import Markup, h, join, page
 
 # The tabs of a task, with their names and their keys.
@@ -73,8 +75,9 @@ TABS = [
 TAB = dict(TABS)
 # The steps of the board's acts that ask first, each a page of the panel at
 # /tasks/SLUG/ACT, whose form posts the act (serve.py `board_act`): a merge's confirm
-# step, and a park with its one line of why.
-ACT_TABS = {"merge": "Merge", "park": "Park"}
+# step, a park with its one line of why, and a drop with the owner's note, whose Confirm
+# posts his Drop to the answer route (serve.py `act_answer`).
+ACT_TABS = {"merge": "Merge", "park": "Park", "drop": "Drop"}
 # How a note of an act's result reads (serve.py `NOTES`): its look, its icon and its
 # first word.
 KIND_ICON = {
@@ -918,10 +921,11 @@ def row_action(ctx: P.Ctx, t: bm.Task) -> Markup | None:
     return None
 
 
-def owner_lines(ctx: P.Ctx, t: bm.Task) -> Markup | None:
+def owner_lines(ctx: P.Ctx, t: bm.Task, *, park_link: bool = True) -> Markup | None:
     """The owner's two other words to a task a breaker holds, or to a parked one, as
     lines to type in any session; for a breaker, on a page that may act, the way to park
-    it from the board first."""
+    it from the board first, unless the breaker's answer form above has it
+    (PARK_LINK false)."""
     park = None
     if t.breaker is not None:
         lines = [
@@ -930,7 +934,7 @@ def owner_lines(ctx: P.Ctx, t: bm.Task) -> Markup | None:
         ]
         park = (
             P.act_link(ctx, t.slug, "park", "Park it…", "park", frame=True)
-            if ctx.can_act
+            if ctx.can_act and park_link
             else None
         )
     elif t.status == bm.PARKED:
@@ -1257,6 +1261,22 @@ def breaker_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
             "asks"
         ]  # inbox_action is None while it is None
     )
+    # on a page that may act, his Help, Park and Drop under the document, until his
+    # answer is on record
+    asks = bm.answer_row(t) if t.breaker else None
+    form = (
+        P.answer_form(ctx, t, asks, "panel", ctx.view)
+        if asks
+        and asks["kind"] == "breaker"
+        and ctx.can_act
+        and bm.answered_of(t, ctx.model) is None
+        else None
+    )
+    said = (
+        "help, park or drop it here, or help in the task’s session."
+        if form is not None
+        else "help in the task’s session."
+    )
     where = (
         h(
             "div",
@@ -1264,13 +1284,11 @@ def breaker_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
             None
             if both
             else h(
-                "div",
-                {"class": "b-line"},
-                h("b", None, "Where you answer: "),
-                "help in the task’s session.",
+                "div", {"class": "b-line"}, h("b", None, "Where you answer: "), said
             ),
+            form,
             inbox or row_action(ctx, t),
-            owner_lines(ctx, t),
+            owner_lines(ctx, t, park_link=form is None),
         )
         if t.breaker
         else h(
@@ -1352,6 +1370,115 @@ def merge_review_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
     )
 
 
+def cards_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
+    """Each `lem-ask` card the task's live session waits on (`bm.open_cards`), first on
+    the Overview: its question, since when, and on a page that may act the way to answer
+    it on the board."""
+    found = bm.open_cards(t, ctx.model)
+    if not found:
+        return None
+    rows_ = []
+    for c in found:
+        go = ctx.can_act and h(
+            "a",
+            {
+                "class": "btn go",
+                **P.frame_link(ctx, P.task_href(ctx, t.slug, f"card/{c['page']}")),
+            },
+            P.icon(ctx, "user"),
+            h("span", None, "Answer the card…"),
+        )
+        rows_.append(
+            row(
+                ctx,
+                f"card-{c['page']}",
+                "you",
+                "user",
+                [
+                    h(
+                        "b",
+                        None,
+                        P.rich(
+                            ctx, bm.cap(c["prompt"] or "The task’s session asks you")
+                        ),
+                    ),
+                    " ",
+                    sub(
+                        "Answer it here or in the task’s session at the Mac. "
+                        "A question back goes to the session."
+                    ),
+                    go and h("div", {"class": "wl-actions"}, go),
+                ],
+                P.since(c["since"], ctx.model.now),
+            )
+        )
+    return card(
+        "cards",
+        "The task’s session asks you",
+        (
+            f"{bm.plural(len(found), 'card')} {'waits' if len(found) == 1 else 'wait'} "
+            "for your answer"
+        ),
+        rows_,
+        "a-you",
+    )
+
+
+def now_answer(ctx: P.Ctx, t: bm.Task) -> Markup | None:
+    """The answer form of a plan that waits for the owner's read and of "Skip the
+    persona read?" on the large card (`P.answer_form`), on a page that may act, until
+    his answer is on record. A breaker's is under its document, and the one criterion's
+    under its text on "Criteria and decisions"."""
+    asks = bm.answer_row(t)
+    if (
+        not ctx.can_act
+        or asks is None
+        or asks["kind"] not in ("plan", "skip")
+        or bm.answered_of(t, ctx.model) is not None
+    ):
+        return None
+    return P.answer_form(ctx, t, asks, "panel", ctx.view)
+
+
+def answered_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
+    """The owner's answer on record for the row the board answers with its own buttons,
+    first on the Overview until the task's session writes its next state block
+    (`bm.answered_of`): that the session takes it, what he picked, when and from where,
+    and his note."""
+    made = bm.answered_of(t, ctx.model)
+    if made is None:
+        return None
+    return h(
+        "section",
+        {
+            "class": "card verdict a-gate",
+            "id": "answered",
+            "role": "status",
+            "aria-label": "Your answer",
+        },
+        h(
+            "div",
+            {"class": "v-line"},
+            h("span", {"class": "fi"}, P.icon(ctx, "clock")),
+            h(
+                "div",
+                {"class": "v-text"},
+                h("b", {"class": "v-word"}, bm.ANSWER_ON_RECORD),
+                " ",
+                f"{lem_answers.took_effect(made)}.",
+                made.get("note")
+                and h(
+                    "div",
+                    {"class": "sub"},
+                    "Your note: “",
+                    P.rich(ctx, made["note"]),
+                    "”",
+                ),
+            ),
+        ),
+    )
+
+
 def now_card(ctx: P.Ctx, t: bm.Task) -> Markup:
     """What runs now, or what waits for the owner, with where he answers, under the
     task's first line while the block that said it is the task's newest."""
@@ -1422,6 +1549,7 @@ def now_card(ctx: P.Ctx, t: bm.Task) -> Markup:
         None
         if t.breaker
         else inbox_action(ctx, t) or (row_action(ctx, t) if t.for_owner else None),
+        None if t.breaker else now_answer(ctx, t),
         t.status == bm.PARKED and owner_lines(ctx, t),
     ]
     time = (
@@ -1523,7 +1651,7 @@ def progress(ctx: P.Ctx, t: bm.Task) -> Markup:
         if t.closed
         else "no agent was started yet",
     )
-    taken, past, breakers = p["taken"], p["past"], p["breakers"]
+    taken, past, breakers = p["taken"], p["past_personas"], p["breakers"]
     stats = [
         stat("Who works on it", who[0], who[1]),
         stat(
@@ -1830,6 +1958,8 @@ def overview_tab(ctx: P.Ctx, t: bm.Task) -> list:
             now_card(ctx, t),
         ]
     return [
+        answered_card(ctx, t),
+        cards_card(ctx, t),
         merge_review_card(ctx, t),
         parked_card(ctx, t),
         breaker_card(ctx, t),
@@ -2610,6 +2740,62 @@ def approve_card(ctx: P.Ctx, t: bm.Task, note: Markup | None = None) -> Markup |
         h("h2", None, "The criteria wait for your yes"),
         h("div", {"class": "dim small"}, read or "criteria.md in the task directory"),
     )
+    asks = bm.answer_row(t)
+    criterion = asks if asks and asks["kind"] == "criterion" else None
+    made = bm.answered_of(t, ctx.model) if criterion else None
+    if waiting is not None and made is not None:
+        body = [
+            note,
+            P.md_block(
+                ctx, f"waiting-{t.slug}", waiting["text"], slug=t.slug, cls="b-md"
+            ),
+            h(
+                "p",
+                {"class": "sub"},
+                f"{bm.ANSWER_ON_RECORD} {lem_answers.took_effect(made)}.",
+            ),
+        ]
+        return h(
+            "section",
+            {"class": "card approve a-you", "id": "approve-card"},
+            head_,
+            h("div", {"class": "approve-body"}, body),
+        )
+    if waiting is not None and ctx.can_act and criterion:
+        # the one criterion of a request someone else wrote: his Yes or No under its
+        # text, in the one answer form, with the digest of the text shown (a No needs
+        # his words, which go into criteria.md)
+        body = [
+            note,
+            P.md_block(
+                ctx, f"waiting-{t.slug}", waiting["text"], slug=t.slug, cls="b-md"
+            ),
+            h("noscript", None, h("pre", {"class": "cf-plain"}, waiting["text"])),
+        ]
+        form = P.answer_form(
+            ctx,
+            t,
+            criterion,
+            "panel",
+            ctx.view,
+            digest=waiting["digest"],
+            tab="criteria",
+        )
+        return confirm_card(
+            "card approve a-you",
+            "Approve the criterion",
+            head_,
+            body,
+            h(
+                "div",
+                {"class": "act-row cf-acts"},
+                form,
+                act_back(ctx, t, "Back", "cf-back"),
+            ),
+            True,
+            card_id="approve-card",
+            wrap="approve-body",
+        )
     if waiting is not None and ctx.can_act:
         body = [
             note,
@@ -3700,11 +3886,18 @@ def act_back(ctx: P.Ctx, t: bm.Task, label: str, cls: str = "") -> Markup:
     )
 
 
-def not_now(ctx: P.Ctx, t: bm.Task, said: str) -> list:
+def not_now(
+    ctx: P.Ctx,
+    t: bm.Task,
+    said: str,
+    *,
+    card_id: str = "confirm",
+    keep: str | None = None,
+) -> list:
     return [
         h(
             "section",
-            {"class": "card confirm a-quiet", "id": "confirm"},
+            {"class": "card confirm a-quiet", "id": card_id, "data-keep": keep},
             h("p", None, said),
             h("div", {"class": "act-row"}, act_back(ctx, t, "Back to the task")),
         )
@@ -3909,6 +4102,7 @@ def confirm_card(  # noqa: PLR0913 - over the limit before the limit was set
     sheet: bool,
     card_id: str = "confirm",
     wrap: str | None = None,
+    keep: str | None = None,
 ) -> Markup:
     """The card of an act's step in its three parts: the head, the body with what the
     owner reads, and the foot with the button and the way back, the last two in a box of
@@ -3917,7 +4111,9 @@ def confirm_card(  # noqa: PLR0913 - over the limit before the limit was set
     that has its button (SHEET) gets the `sheet` controller and the key of its read, the
     digest of the body as rendered here: on a phone's screen the card is then an overlay
     whose button comes on when the body was scrolled to its end, and any change of what
-    the body says is another key, which the owner reads again from its top."""
+    the body says is another key, which the owner reads again from its top. A card with
+    KEEP stays as it is through a refresh that renders the same key
+    (`data-keep`, app.js)."""
     text = h(
         "div",
         {"class": "cf-body", "data-sheet-target": "body" if sheet else None},
@@ -3930,6 +4126,7 @@ def confirm_card(  # noqa: PLR0913 - over the limit before the limit was set
             "class": f"{cls}{' cf-sheet' if sheet else ''}",
             "id": card_id,
             "aria-label": label,
+            "data-keep": keep,
             **(
                 {
                     "data-controller": "sheet",
@@ -3966,7 +4163,24 @@ def park_step(ctx: P.Ctx, t: bm.Task) -> list:
                 f"The task is {t.info['label'].lower()}."
             ),
         )
-    # permanent, as the new task's field is: a refresh keeps the line he is typing
+    asks = bm.answer_row(t)
+    key = asks["key"] if asks and asks["kind"] == "breaker" else None
+    made = bm.answered_of(t, ctx.model) if key else None
+    if made is not None:
+        return not_now(
+            ctx, t, f"{lem_answers.took_effect(made)}: the task’s session takes it."
+        )
+    if key and ctx.query.get("key") and ctx.query["key"] != key:
+        return not_now(
+            ctx,
+            t,
+            (
+                f"The Park you opened was for a wait of {t.slug} that is over: "
+                "its breaker waits again. Read it, then answer it on its Overview."
+            ),
+        )
+    # permanent, as the new task's field is: a refresh keeps the line he is typing; the
+    # note of the breaker's form goes with Park…
     field_ = h(
         "label",
         {"class": "act-field"},
@@ -3982,6 +4196,8 @@ def park_step(ctx: P.Ctx, t: bm.Task) -> list:
                 "autocomplete": "off",
                 "enterkeyhint": "done",
                 "placeholder": "the owner parked it",
+                "value": " ".join(str(ctx.query.get("words") or "").split())[:300]
+                or None,
             },
         ),
     )
@@ -3994,7 +4210,7 @@ def park_step(ctx: P.Ctx, t: bm.Task) -> list:
             "park",
             "go",
             "Parking…",
-            {"in": ctx.view if ctx.view != "tasks" else None},
+            {"in": ctx.view if ctx.view != "tasks" else None, "key": key},
             field_,
             form_cls="act-stack",
         )
@@ -4038,6 +4254,199 @@ def park_step(ctx: P.Ctx, t: bm.Task) -> list:
     ]
 
 
+def drop_step(ctx: P.Ctx, t: bm.Task) -> list:
+    """The confirm step of a drop from the board, which asks first as a park does: "Drop
+    SLUG?", what waits, what a drop ends, the owner's note (what he typed in the row's
+    form, which Drop… brings), and Confirm, which posts his Drop to the answer route
+    with the row's key (serve.py `act_answer`). The server records it and wakes the
+    task's session, which drops the task as on /lem drop."""
+    asks = bm.answer_row(t)
+    if asks is None or "drop" not in asks["options"]:
+        return not_now(
+            ctx,
+            t,
+            (
+                "Nothing to drop from the board: no plan or breaker of this task waits "
+                f"for you. The task is {t.info['label'].lower()}; /lem drop {t.slug} "
+                "in any session ends it."
+            ),
+        )
+    made = bm.answered_of(t, ctx.model)
+    if made is not None:
+        return not_now(
+            ctx, t, f"{lem_answers.took_effect(made)}: the task’s session takes it."
+        )
+    if ctx.query.get("key") and ctx.query["key"] != asks["key"]:
+        return not_now(
+            ctx,
+            t,
+            (
+                f"The Drop you opened was for a wait of {t.slug} that is over. "
+                "Read what waits now, then answer it on its Overview."
+            ),
+        )
+    what = (
+        h(
+            "p",
+            None,
+            h("b", None, "The build stopped: "),
+            P.rich(ctx, t.breaker.what or ""),
+            f", since {bm.stop_words(t.breaker)}.",
+        )
+        if asks["kind"] == "breaker"
+        else h(
+            "p",
+            None,
+            h("b", None, "The plan waits for your read: "),
+            "a drop ends the task before its build.",
+        )
+    )
+    field_ = h(
+        "label",
+        {"class": "act-field"},
+        h("span", None, "Your note, if you like"),
+        h(
+            "textarea",
+            {
+                "id": f"drop-words-{ctx.workspace}-{t.slug}",
+                "name": "words",
+                "rows": "2",
+                "data-turbo-permanent": True,
+                "maxlength": str(P.NOTE_CHARS),
+                "autocomplete": "off",
+                "placeholder": "why, in your words",
+            },
+            str(ctx.query.get("words") or "")[: P.NOTE_CHARS],
+        ),
+    )
+    if ctx.can_act:
+        act = P.act_form(
+            ctx,
+            t.slug,
+            "answer",
+            "Confirm",
+            "x",
+            "risk",
+            "Dropping…",
+            {
+                "key": asks["key"],
+                "option": "drop",
+                "confirm": "yes",
+                "in": ctx.view if ctx.view != "tasks" else None,
+            },
+            field_,
+            form_cls="act-stack",
+        )
+        acts = h("div", {"class": "act-row"}, act, act_back(ctx, t, "Back"))
+    else:
+        acts = h(
+            "p",
+            {"class": "sub"},
+            (
+                "Drop it on this board on the Mac or through the tailnet door, or type "
+                f"/lem drop {t.slug} in any session."
+            ),
+        )
+    body = [
+        what,
+        h(
+            "p",
+            {"class": "sub"},
+            (
+                "A drop ends the task: its session gives a ticket what it is still "
+                "owed, then removes the worktree, and the branch keeps its commits. "
+                "The board records your Drop and wakes the task’s session, which drops "
+                f"it as /lem drop {t.slug} does."
+            ),
+        ),
+    ]
+    return [
+        confirm_card(
+            "card confirm a-you",
+            "Drop: confirm",
+            h("div", {"class": "eyebrow"}, f"Drop {t.slug}?"),
+            body,
+            acts,
+            sheet=ctx.can_act,
+        )
+    ]
+
+
+def card_step(ctx: P.Ctx, t: bm.Task, page_id: str) -> list:
+    """The step of a card of the task's session: the card's own page as `lem-ask` built
+    it, in a frame of the board (serve.py's `card_page`), which posts its answer itself
+    and shows what the board said; on a phone's screen an overlay of the whole screen
+    (`sheet`), as a park's step is. A card that no longer waits says what took effect,
+    and a page that may not act says where to answer.
+
+    The step and what it says once the card ended share their id and, for an answer from
+    the board, their `data-keep`: the board logs the answer before its reply reaches the
+    frame, so the refresh that the log brings would otherwise take the frame away, with
+    what the board said there, before or just after the frame showed it. A step that the
+    board's answer ended stays as the owner saw it until he leaves it; one that the
+    session ended turns into what took effect."""
+    keep = f"card-{page_id}"
+    c = next((c for c in bm.open_cards(t, ctx.model) if c["page"] == page_id), None)
+    if c is None:
+        end = ctx.card_end(t.slug, page_id)
+        said = (
+            f"{bm.cap(lem_cards.took_effect(end))}. This card no longer waits for you."
+            if end
+            else (
+                "This card no longer waits for you: the session that put it up no "
+                "longer runs, or it holds no such card."
+            )
+        )
+        return not_now(
+            ctx,
+            t,
+            said,
+            card_id="card-step",
+            keep=keep if end and end.get("from") == "board" else None,
+        )
+    if not ctx.can_act:
+        return not_now(
+            ctx,
+            t,
+            (
+                "Answer this card on the board on the Mac the task runs on or through "
+                "its tailnet door, or in the task’s session there."
+            ),
+        )
+    src = f"{ctx.base}/tasks/{quote(t.slug, safe='')}/cards/{quote(page_id, safe='')}/"
+    frame = h(
+        "iframe",
+        {
+            "class": "card-frame",
+            "id": f"card-frame-{page_id}",
+            "src": src,
+            "title": c["prompt"] or "The card of the task’s session",
+        },
+    )
+    foot = h(
+        "div",
+        {"class": "act-row"},
+        act_back(ctx, t, "Back"),
+        h(
+            "span",
+            {"class": "sub"},
+            "A question back goes to the task’s session, at the Mac.",
+        ),
+    )
+    return [
+        confirm_card(
+            "card confirm a-you card-step",
+            "A card of the task’s session",
+            h("div", {"class": "eyebrow"}, "Card · the task’s session asks"),
+            [frame],
+            foot,
+            sheet=True,
+            card_id="card-step",
+            keep=keep,
+        )
+    ]
+
+
 def panel(ctx: P.Ctx) -> Markup:
     """The panel of the task the address names, with the tab it names; NotFound for a
     task the log does not hold, a tab that is none, or an artifact the task does
@@ -4047,7 +4456,8 @@ def panel(ctx: P.Ctx) -> Markup:
     ctx.scope = "task"
     try:
         t = next((x for x in m.tasks if x.slug == slug), None)
-        if ctx.tab not in TAB and ctx.tab not in ACT_TABS:
+        asked = ctx.tab.removeprefix("card/") if ctx.tab.startswith("card/") else None
+        if ctx.tab not in TAB and ctx.tab not in ACT_TABS and not asked:
             raise NotFound(
                 f"A task has no tab {ctx.tab!r}: its tabs are {', '.join(TAB)}."
             )
@@ -4073,19 +4483,24 @@ def panel(ctx: P.Ctx) -> Markup:
                     "div", {"class": "tabbody arts-panel", "id": "tb-artifacts"}, body
                 )
             else:
-                parts = {
-                    "overview": overview_tab,
-                    "criteria": criteria_tab,
-                    "checks": checks_tab,
-                    "timeline": timeline_tab,
-                    "merge": merge_step,
-                    "park": park_step,
-                }[ctx.tab](ctx, t)
+                parts = (
+                    card_step(ctx, t, asked)
+                    if asked
+                    else {
+                        "overview": overview_tab,
+                        "criteria": criteria_tab,
+                        "checks": checks_tab,
+                        "timeline": timeline_tab,
+                        "merge": merge_step,
+                        "park": park_step,
+                        "drop": drop_step,
+                    }[ctx.tab](ctx, t)
+                )
                 # the criteria tab places the act's note itself: in the approval card
                 # while that holds the button
                 tab_body = h(
                     "div",
-                    {"class": "tabbody", "id": f"tb-{ctx.tab}"},
+                    {"class": "tabbody", "id": f"tb-{ctx.tab.replace('/', '-')}"},
                     None if ctx.tab == "criteria" else note_card(ctx, t.slug),
                     parts,
                 )

@@ -60,6 +60,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
             "skills/lem/scripts/lem_plans.py",
             "skills/lem/scripts/lem_board_model.py",
             "skills/lem/scripts/lem_release.py",
+            "skills/lem/scripts/lem_cards.py",
+            "skills/lem/scripts/lem_answers.py",
         ),
         ("lem-*", "test-ask-expert", "test-gate-panel"),
     ),
@@ -168,7 +170,18 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ("lem-machine", "lem-command"),
     ),
     (("bin/lem", "skills/lem/scripts/lem_python.py"), ("lem-command", "lem-machine")),
-    (("skills/lem-ask/*", "bin/lem-ask"), ("test-ask", "lem-machine", "lem-command")),
+    # the afternoon of tests/board-showcase.py puts up its card with `lem-ask render`
+    (
+        ("skills/lem-ask/*", "bin/lem-ask"),
+        (
+            "test-ask",
+            "lem-machine",
+            "lem-command",
+            "lem-serve",
+            "lem-board-act",
+            "lem-board-keys",
+        ),
+    ),
     (("skills/lem-ask-expert/*",), ("test-ask-expert", "lem-command")),
     (
         ("skills/lem-gate/*", "skills/lem-panel/*"),

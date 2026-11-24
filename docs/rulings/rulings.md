@@ -187,6 +187,9 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
   (2026-11-20)
 - **Stories, flowcharts and pictures, early.** Rich media and step-by-step stories in markdown,
   produced early, "for example after acceptance crierions are settled". (2026-11-20)
+- **The board takes an answer with a note, never a conversation.** "A note with no option picked is
+  refused on the board": the row stays in "Waits for you", and he asks in the session at the Mac.
+  (2026-11-23)
 
 ## The settings, the seats and the tracker
 

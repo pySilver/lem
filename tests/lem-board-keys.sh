@@ -9,8 +9,10 @@
 # click or a tap opens and closes, on a wide screen and at a phone's width. The search over every card (search.js): Cmd-K and Ctrl-K, also from a
 # field, and the search buttons open it, letters typed filter and order it, Enter, a click and Escape, and the box through
 # a morph. The confirm step of a merge, a park and an approval: on a phone an overlay whose button comes on when its
-# text was read to the end, on a desktop and with no script as before. The arrow that folds the sidebar, in a wide
-# window and in the drawer of a narrow one. The start of a task from a backlog item, which
+# text was read to the end, on a desktop and with no script as before; and the Drop of a breaker's row, which opens its
+# confirm step as that overlay. Each kind of lem-ask card through the board's card route on a phone, the Tune card's
+# values, and a card answered on a phone from its row. The arrow that folds the sidebar, in a wide window and in the
+# drawer of a narrow one. The start of a task from a backlog item, which
 # ends on the new task's page while the stream refreshes the backlog. The line of keys of each view at the window's
 # foot, with a backlog longer than the window. A check adds to the demo's log only the state
 # lines it needs, as a lead's `lem project state` and `lem session open` write them. Each check that needs Chrome
@@ -19,14 +21,18 @@
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
-# A stand-in for agtermctl, first on the PATH of this block and of its server: it prints the tree of AGT_TREE and records
-# each call in AGT_CALLS.
+# A stand-in for agtermctl, first on the PATH of this block and of its server: it prints the tree of AGT_TREE, says of a
+# card's page that no answer waits at the Mac, and records each call in AGT_CALLS.
 FAKE=$WORK/fake
 mkdir -p "$FAKE"
 cat > "$FAKE/agtermctl" <<'SH'
 #!/bin/sh
 echo "$*" >> "$AGT_CALLS"
-case "$1" in tree) cat "$AGT_TREE" ;; session) [ "$2 $3" = "overlay open" ] && echo "{\"result\": {\"id\": \"NEW\"}}" ;; esac
+case "$1 $2 $3" in
+  tree*) cat "$AGT_TREE" ;;
+  "session overlay open") echo "{\"result\": {\"id\": \"NEW\"}}" ;;
+  "session overlay result") echo "{\"ok\": true, \"result\": {\"pageOutcome\": {}}}" ;;
+esac
 exit 0
 SH
 chmod +x "$FAKE/agtermctl"
@@ -761,6 +767,271 @@ PY
   fi
 }
 
+# Drop on a phone (criterion 6 of board-answers-a-card): on "Waits for you" at 390 x 844 the breaker's row of
+# gift-note-in-export holds its one answer form; the owner writes a note and taps Drop…, and the panel opens the
+# confirm step as the overlay a park's step is, which asks "Drop gift-note-in-export?" with Confirm and the note he
+# wrote, and the row's key in the address. The tap posts nothing: the drop waits for his Confirm. Before step_checks,
+# which park the task.
+drop_checks() {
+  local out=$WORK/drop.out
+  "$PY" - "$BASE" "$PY" "$LOG" > "$WORK/drop.json" <<'PY'
+import json, shlex, sys
+base, py, log = sys.argv[1:]
+row = "article[id^='wait-breaker-gift-note-in-export-1-']"
+facts = ("(() => { const c = document.querySelector('#confirm'); if (!c) return {error: 'no step'}; const b = c.querySelector('.cf-foot button[type=submit]'), f = c.querySelector('.cf-foot form');"
+         " return {where: location.pathname + location.search, sheet: c.hasAttribute('data-js-sheet'), position: getComputedStyle(c).position, head: c.querySelector('.cf-head').textContent.trim(),"
+         " label: b.textContent.trim(), disabled: b.getAttribute('aria-disabled'), action: f.getAttribute('action'), option: f.querySelector('input[name=option]').value,"
+         " confirm: f.querySelector('input[name=confirm]').value, note: f.querySelector('textarea[name=words]').value, key: f.querySelector('input[name=key]').value,"
+         " inScreen: b.getBoundingClientRect().bottom <= innerHeight }; })()")
+acts = {"sh": " ".join(map(shlex.quote, [py, "-c", "import json, sys; print(json.dumps(['acts', sum('\"board.act\"' in line for line in open(sys.argv[1]))]))", log]))}
+steps = [
+    {"goto": f"{base}/waits", "wait": 300},
+    {"print": "new Promise(done => { const end = Date.now() + 15000; const tick = () => ((document.readyState === 'complete' && window.Turbo"
+              f" && document.querySelector(\"{row} form.answer-form\")) || Date.now() > end) ? done(['ready', Boolean(document.querySelector(\"{row} form.answer-form\"))]) : setTimeout(tick, 100); tick(); }})"},
+    {"wait": 800},
+    {"print": f"['row', [...document.querySelectorAll(\"{row} form.answer-form button\")].map(b => b.textContent.trim()).join(' | ')]"},
+    acts, {"eval": f"document.querySelector(\"{row} textarea[name=words]\").value = 'the export goes another way'", "after": 200},
+    {"click": f"{row} button[formaction$='/drop']", "tap": True, "after": 300},
+    {"print": "new Promise(done => { const end = Date.now() + 15000; const tick = () => ((document.querySelector('#confirm[data-js-sheet]')"
+              f" && location.pathname.endsWith('/drop')) || Date.now() > end) ? done(['step', {facts}]) : setTimeout(tick, 100); tick(); }})"},
+    {"wait": 700}, {**acts, "sh": acts["sh"].replace("'acts'", "'acts-after'")},
+]
+print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": steps}))
+PY
+  drive "$WORK/drop.json" "$out"
+  if [ "$(seen "$out" ready)" = True ] && [ "$(seen "$out" row)" = "Help | Park… | Drop…" ] \
+    && [ "$(fact "$out" step 'd["where"].split("?")[0], d["sheet"], d["position"], d["head"], d["label"], d["disabled"], d["inScreen"]')" = "('/$HOST/shop/tasks/gift-note-in-export/drop', True, 'fixed', 'Drop gift-note-in-export?', 'Confirm', None, True)" ] \
+    && [ "$(fact "$out" step 'd["action"], d["option"], d["confirm"], d["note"], d["key"].startswith("breaker:gift-note-in-export:1:"), "key=breaker" in d["where"]')" = "('/$HOST/shop/tasks/gift-note-in-export/answer', 'drop', 'yes', 'the export goes another way', True, True)" ] \
+    && [ "$(seen "$out" acts)" = "$(seen "$out" acts-after)" ] && [ "$(seen "$out" acts)" != "nothing printed" ]; then
+    pass "on a phone the breaker's row has Help, Park… and Drop…; a tap on Drop… opens the overlay that asks Drop gift-note-in-export? with Confirm and the note the owner wrote in the row, and posts nothing"
+  else
+    fail "Drop's confirm on a phone: $(cat "$out")"
+  fi
+}
+
+# Each kind of card on a phone (criterion 5 of board-answers-a-card): each of the ten templates of lem-ask, rendered as
+# lem-ask renders it and kept as a card of refund-rounding's live session as lem-ask keeps it (`lem_cards.keep`, page
+# T-NAME), opened through the board's card route at 390 x 844 with a phone's touch. For each question of each card the
+# look's facts: the page's width and the window's, each element past the window's edges outside a box that scrolls
+# sideways (a wide table's), each box that clips its text or hides the end of a line of code, each option and control smaller than WCAG 2.2's minimum target of 24 px or not
+# what a tap at its center hits, the key hints and the "Discuss in chat" shown, and the smallest text of a chart or a
+# diagram, in px as drawn; then a tap on each option, its pick before and after. The same pick page from its file, as
+# agterm shows it, at a desktop's 1440 px keeps its keys and "Discuss in chat". The stand-in agtermctl says that no
+# answer waits at the Mac (`session overlay result`), as agterm does for an open page.
+CARD=4F9A1C2E-7B3D-4E8F-A1B2-C3D4E5F60718  # the showcase's card of refund-rounding (tests/board-showcase.py CARD_PAGE)
+RR=$DEMO/.lem/state/tasks/refund-rounding
+cat > "$WORK/kinds.py" <<'PY'
+import json, os, sys
+verb, base, tdir, work = sys.argv[1:5]
+NAMES = sorted(f[:-5] for f in os.listdir(tdir) if f.endswith(".json"))
+if verb == "keep":
+    # each template as a card of the task's live session: the session of the showcase's own card
+    import subprocess
+    from pathlib import Path
+    task = Path(sys.argv[5])
+    sys.path.insert(0, sys.argv[6])
+    import lem_cards
+    session = json.loads(next((task / "cards").glob("*.json")).read_text())["session"]
+    for name in NAMES:
+        page = f"{work}/{name}.html"
+        subprocess.run([sys.executable, "-B", sys.argv[7], "render", f"{tdir}/{name}.json", "-o", page], check=True, capture_output=True)
+        lem_cards.keep(task, f"T-{name}", Path(page).read_bytes(), json.loads(Path(f"{tdir}/{name}.json").read_text()), session)
+    sys.exit()
+LOOK = r"""(() => { const W = innerWidth, d = document.documentElement;
+ const name = n => n.tagName.toLowerCase() + (typeof n.className === 'string' && n.className.trim() ? '.' + n.className.trim().split(/\s+/).join('.') : '');
+ const shown = n => n.getClientRects().length > 0 && getComputedStyle(n).visibility !== 'hidden';
+ const sideways = n => { for (let p = n.parentElement; p; p = p.parentElement) if (['auto', 'scroll'].includes(getComputedStyle(p).overflowX)) return true; return false; };
+ const all = [...document.querySelectorAll('.hd *')].filter(shown);
+ const over = all.filter(n => !(n.closest('svg') && n.tagName.toLowerCase() !== 'svg') && !sideways(n)).filter(n => { const b = n.getBoundingClientRect(); return b.right > W + 0.5 || b.left < -0.5; }).map(name);
+ const clipped = all.filter(n => (['hidden', 'clip'].includes(getComputedStyle(n).overflowX) || n.matches('.hd-code')) && n.scrollWidth > n.clientWidth + 1).map(name);
+ const taps = [...document.querySelectorAll('.hd-q.cur .hd-opt, .hd-q.cur .hd-toggle, .hd-q.cur .hd-ctl input, .hd-q.cur .hd-seg button, .hd-q.cur .hd-ctl-r, .hd-q.cur textarea, .hd-q.cur .hd-replay, .hd-tab, .hd-foot .hd-btn')].filter(shown).map(n => {
+   n.scrollIntoView({block: 'center'}); const b = n.getBoundingClientRect(), at = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+   return {n: name(n), w: Math.round(b.width), h: Math.round(b.height), hit: Boolean(at && (n.contains(at) || at.contains(n)))}; });
+ const fonts = [...document.querySelectorAll('.hd-q.cur svg')].filter(v => shown(v) && !v.closest('.hd-prev') && v.viewBox.baseVal && v.viewBox.baseVal.width).flatMap(v => {
+   const k = v.getBoundingClientRect().width / v.viewBox.baseVal.width;
+   return [...v.querySelectorAll('text, foreignObject span, foreignObject p')].filter(t => t.textContent.trim() && shown(t)).map(t => parseFloat(getComputedStyle(t).fontSize) * k); });
+ scrollTo(0, 0);
+ return {page: [d.scrollWidth, d.clientWidth], over, clipped, small: taps.filter(t => t.w < 24 || t.h < 24).map(t => `${t.n} ${t.w}x${t.h}`), missed: taps.filter(t => !t.hit).map(t => t.n),
+   taps: taps.length, keys: [...document.querySelectorAll('.hd-keys, .hd-tabkey, .hd-btn kbd')].filter(shown).length,
+   chat: [...document.querySelectorAll('.hd-btn')].filter(n => shown(n) && /chat/i.test(n.textContent)).length, smallest: fonts.length ? Math.round(Math.min(...fonts) * 10) / 10 : null}; })()"""
+def until(label, cond):
+    return {"print": f"new Promise(done => {{ const end = Date.now() + 15000; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, Boolean({cond})]) : setTimeout(tick, 100); tick(); }})"}
+drawn = "document.readyState === 'complete' && document.querySelector('.hd-foot') && [...document.querySelectorAll('.hd-q.cur .hd-mermaid')].every(m => m.querySelector('svg') || m.classList.contains('err'))"
+if verb == "spec":
+    steps = []
+    for name in NAMES:
+        spec = json.load(open(f"{tdir}/{name}.json"))
+        qs = spec.get("questions") or [spec]
+        steps += [{"goto": f"{base}/tasks/refund-rounding/cards/T-{name}/", "wait": 300}, until(f"ready:{name}", drawn), {"wait": 300}]
+        for qi, q in enumerate(qs):
+            if len(qs) > 1:
+                steps += [{"click": f".hd-tab:nth-child({qi + 1})", "tap": True, "after": 300}, until(f"tab:{name}:{qi}", drawn)]
+            steps.append({"print": f"['look:{name}:{qi}', {LOOK}]"})
+            for k in range(len(q.get("options") or [])):
+                # the tap on the option's name, as a finger picks it (a compare card's pros and cons take no pick), and 700 ms
+                # apart: two taps within Chrome's double-click time at the same place, the screen's middle, would send the card
+                sel = f".hd-q.cur .hd-opts > .hd-opt:nth-child({k + 1})"
+                on = f"document.querySelector('{sel}')?.classList.contains('on') ?? null"
+                steps += [{"print": f"['before:{name}:{qi}:{k}', {on}]"}, {"click": f"{sel} .hd-label", "tap": True, "after": 700}, {"print": f"['after:{name}:{qi}:{k}', {on}]"}]
+                if (q.get("mode") or "single") == "multi":
+                    # a second tap gives the pick back, so that a question's `max` never refuses the next option
+                    steps.append({"click": f"{sel} .hd-label", "tap": True, "after": 700})
+    print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": steps}))
+    # the page outside the board: the pick card from its file, as agterm shows it, on a desktop's screen
+    desk = [{"goto": f"file://{work}/pick.html", "wait": 300}, until("ready", drawn), {"print": f"['desk', {LOOK}]"}]
+    json.dump({"width": 1440, "height": 900, "steps": desk}, open(f"{work}/kinds-desk.json", "w"))
+if verb == "judge":
+    # what the drive printed, against the rule: one line of what is wrong for each question, nothing when all holds
+    seen = {}
+    for line in open(f"{work}/kinds.out", encoding="utf-8"):
+        try:
+            got = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(got, list) and len(got) == 2 and isinstance(got[0], str):
+            seen[got[0]] = got[1]
+    wrong = []
+    for name in NAMES:
+        spec = json.load(open(f"{tdir}/{name}.json"))
+        for qi, q in enumerate(spec.get("questions") or [spec]):
+            d = seen.get(f"look:{name}:{qi}")
+            if not isinstance(d, dict):
+                wrong.append(f"{name} {qi + 1}: nothing printed"); continue
+            if d["page"][0] > d["page"][1]:
+                wrong.append(f"{name} {qi + 1}: the page is {d['page'][0]} px wide in a window of {d['page'][1]}")
+            for key, what in (("over", "past the screen's edge"), ("clipped", "clips its text or hides a line's end"), ("small", "under 24 px"), ("missed", "not hit by a tap at its center")):
+                if d[key]:
+                    wrong.append(f"{name} {qi + 1}: {what}: {', '.join(d[key][:4])}")
+            if d["keys"] or d["chat"]:
+                wrong.append(f"{name} {qi + 1}: {d['keys']} key hints and {d['chat']} Discuss in chat shown")
+            if d["smallest"] is not None and d["smallest"] < 10:
+                wrong.append(f"{name} {qi + 1}: a chart's text is {d['smallest']} px")
+            if not d["taps"]:
+                wrong.append(f"{name} {qi + 1}: no option or control")
+            for k in range(len(q.get("options") or [])):
+                before, after = seen.get(f"before:{name}:{qi}:{k}"), seen.get(f"after:{name}:{qi}:{k}")
+                if after is None or (before == after and after is not True):
+                    wrong.append(f"{name} {qi + 1}: a tap on option {k + 1} picked nothing ({before} then {after})")
+    desk = seen.get("desk-look")
+    if not (isinstance(desk, dict) and desk["keys"] and desk["chat"] == 1):
+        wrong.append(f"the pick page from its file on a desktop: {desk}")
+    print("; ".join(wrong) or "ok")
+PY
+card_kinds_checks() {
+  local judged
+  "$PY" -B "$WORK/kinds.py" keep - "$PWD/skills/lem-ask/templates" "$WORK" "$RR" "$PWD/skills/lem/scripts" "$PWD/skills/lem-ask/bin/lem-ask"
+  "$PY" -B "$WORK/kinds.py" spec "$BASE" "$PWD/skills/lem-ask/templates" "$WORK" > "$WORK/kinds.json"
+  drive "$WORK/kinds.json" "$WORK/kinds.out"
+  drive "$WORK/kinds-desk.json" "$WORK/kinds-desk.out"
+  sed 's/^\["desk",/["desk-look",/' "$WORK/kinds-desk.out" >> "$WORK/kinds.out"
+  judged=$("$PY" -B "$WORK/kinds.py" judge - "$PWD/skills/lem-ask/templates" "$WORK")
+  if [ "$judged" = ok ]; then
+    pass "each of the ten templates of lem-ask, put up as a card of a task's session, opens through the board's card route on a phone of 390 x 844 with nothing past the screen's edges and no box that clips its text or hides a line of code's end, its charts' text at 10 px or more, every option and control at least 24 px each way and hit by a tap at its center, a tap on each option picks it, and no key hint and no Discuss in chat; the same page from its file on a desktop keeps its keys and Discuss in chat"
+  else
+    fail "each kind of card on a phone: $judged"
+  fi
+}
+
+# The Tune card on a phone (criterion 5 and the plan talk's question 8 of board-answers-a-card): on the board's card route
+# at 390 x 844 the owner taps the preset Soft, moves the corner radius to 20 by a finger's drag (the slider's own input
+# event), and taps Submit. The board takes those values as his answer: the card's end, from the board, holds the values
+# with radius 20, no preset kept, and Soft as the preset he started from. After card_kinds_checks, which keep the card.
+card_tune_checks() {
+  local out=$WORK/tune.out
+  "$PY" - "$BASE" "$RR" > "$WORK/tune.json" <<'PY'
+import json, shlex, sys
+base, task = sys.argv[1:]
+end = f"{task}/cards/T-tune.end.json"
+read = "import json, sys, time\nfor _ in range(50):\n    try:\n        d = json.load(open(sys.argv[1])); break\n    except (OSError, ValueError):\n        time.sleep(0.2)\nelse:\n    d = None\nprint(json.dumps(['end', d and [d['status'], d['from'], d['answer']['answers']]]))"
+print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": [
+    {"goto": f"{base}/tasks/refund-rounding/cards/T-tune/", "wait": 1500},
+    {"click": ".hd-opts > .hd-opt:nth-child(2) .hd-label", "tap": True, "after": 700},
+    {"eval": "(() => { const r = document.querySelector('.hd-ctl.range input[type=range]'); r.value = 20; r.dispatchEvent(new Event('input', {bubbles: true})); })()"},
+    {"print": "['picked', [document.querySelector('.hd-ctl-v').textContent, document.querySelectorAll('.hd-opt.on').length]]"},
+    {"click": ".hd-foot .hd-btn.primary", "tap": True, "after": 1500},
+    {"print": "['answered', document.querySelector('.hd-done')?.textContent ?? '-']"},
+    {"sh": " ".join(map(shlex.quote, [sys.executable, "-c", read, end]))}]}))
+PY
+  drive "$WORK/tune.json" "$out"
+  if [ "$(seen "$out" picked)" = "['20px', 0]" ] && [ "$(seen "$out" answered)" = "Your answer is on record: the task’s session takes it." ] \
+    && [ "$(fact "$out" end 'd[0], d[1], d[2]["answer"]["values"]["radius"], d[2]["answer"]["values"]["gap"], d[2]["answer"]["selected"], d[2]["answer"].get("from")')" = "('answered', 'board', 20, 16, [], 'soft')" ]; then
+    pass "on a phone the Tune card takes a tap on the preset Soft, a slider moved to a corner radius of 20 and a tap on Submit, and the board takes those values as the owner's answer: radius 20 with Soft's gap of 16, no preset kept, and Soft as where he started"
+  else
+    fail "the Tune card on a phone: $(cat "$out")"
+  fi
+}
+
+# A card answered on a phone (the phone half of criteria 1 and 3 of board-answers-a-card, and 2's row that leaves): on
+# "Waits for you" at 390 x 844, with an iPhone's user agent, the row of refund-rounding's card shows its question, in the
+# task's stack, which a tap opens; a tap on the row opens the card's step as the overlay of the whole screen, with the same page as in agterm, both options and the
+# note field, and no key hint or Discuss in chat. A note with no pick is refused with the board's line, nothing is
+# recorded and the row stays; Only the total with a note is on record as the owner's from the phone, the page says so,
+# and the row leaves the list with no reload. After card_tune_checks.
+card_phone_checks() {
+  local out=$WORK/card-phone.out
+  "$PY" - "$BASE" "$RR" "$CARD" > "$WORK/card-phone.json" <<'PY'
+import json, shlex, sys
+base, task, card = sys.argv[1:]
+row, frame = f"#wait-card-refund-rounding-{card}", f"#card-frame-{card}"
+doc = f"document.querySelector('{frame}')?.contentDocument"
+def until(label, cond, value):
+    return {"print": f"new Promise(done => {{ const end = Date.now() + 15000; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {value}]) : setTimeout(tick, 100); tick(); }})"}
+def note(text):
+    return {"eval": f"(() => {{ const t = {doc}.querySelector('.hd-q.cur textarea'); t.value = {json.dumps(text)}; t.dispatchEvent(new t.ownerDocument.defaultView.Event('input', {{bubbles: true}})); }})()"}
+def tap(sel, after=600):
+    return {"click": sel, "frame": frame, "tap": True, "after": after}
+ended = "import json, os, sys\nf = sys.argv[1]\nd = json.load(open(f)) if os.path.exists(f) else None\nprint(json.dumps([sys.argv[2], d and [d['status'], d['from'], d['device'], d['answer']['answers']['answer']]]))"
+def end(label):
+    return {"sh": " ".join(map(shlex.quote, [sys.executable, "-c", ended, f"{task}/cards/{card}.end.json", label]))}
+LOOK = (f"(() => {{ const d = {doc}, step = document.getElementById('card-step'); const shown = n => n.getClientRects().length > 0;"
+        " return {sheet: step?.hasAttribute('data-js-sheet') ?? false, position: step ? getComputedStyle(step).position : '-', prompt: d.querySelector('.hd-prompt').textContent,"
+        " options: [...d.querySelectorAll('.hd-opt .hd-label')].map(n => n.firstChild.textContent.trim()), note: Boolean(d.querySelector('.hd-q.cur textarea')),"
+        " keys: [...d.querySelectorAll('.hd-keys, .hd-tabkey, .hd-btn kbd')].filter(shown).length, chat: [...d.querySelectorAll('.hd-btn')].filter(n => shown(n) && /chat/i.test(n.textContent)).length}; })()")
+print(json.dumps({"width": 390, "height": 844, "mobile": True,
+                  "ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1", "steps": [
+    {"goto": f"{base}/waits", "wait": 300},
+    until("row", f"document.readyState === 'complete' && window.Turbo && document.querySelector('{row} a.wr-verb')", f"document.querySelector('{row} a.wr-verb')?.textContent.trim() ?? '-'"),
+    {"wait": 800},
+    # the cards card_kinds_checks kept make refund-rounding a task of two or more things, so its row is in the task's
+    # stack, closed as the page comes: a tap on the stack's summary opens it first
+    {"click": "#wait-stack-refund-rounding:not([open]) > summary", "tap": True, "after": 500},
+    {"eval": "window.lemStay = 1"},
+    {"click": f"{row} a.wr-verb", "tap": True, "after": 300},
+    until("opened", f"document.getElementById('card-step')?.hasAttribute('data-js-sheet') && {doc}?.querySelector('.hd-opt')", "location.pathname"),
+    {"wait": 500}, {"print": f"['look', {LOOK}]"},
+    # a note with no pick: the board refuses it, says so on the page, and records nothing
+    # (a note shows the review of his answer first, then Send posts it)
+    note("why not both?"), tap(".hd-foot .hd-btn.primary", 700), tap(".hd-foot .hd-btn.primary", 1500),
+    {"print": f"['refused', {doc}.querySelector('.hd-status').textContent]"}, end("end-refused"),
+    {"print": f"['stays', Boolean(document.querySelector('{row}'))]"},
+    # back to the question from the review: Only the total, with a note, its review, then Send
+    tap(".hd-ritem", 700), note("as the receipts do"), tap(".hd-q.cur .hd-opts > .hd-opt:nth-child(2) .hd-label", 700), tap(".hd-foot .hd-btn.primary", 700),
+    {"print": f"['review', {doc}.querySelector('.hd-review.cur .hd-chip')?.textContent ?? '-']"}, tap(".hd-foot .hd-btn.primary", 300),
+    until("said", f"{doc}?.querySelector('.hd-done')", f"{doc}?.querySelector('.hd-done')?.textContent ?? '-'"), end("end-taken"),
+    until("gone", f"!document.querySelector('{row}')", "[Boolean(document.querySelector('" + row + "')), window.lemStay === 1]")]}))
+PY
+  drive "$WORK/card-phone.json" "$out"
+  if [ "$(seen "$out" row)" = "Round each line of a refund, or only its total?" ] && [[ $(seen "$out" opened) == "/$HOST/shop/tasks/refund-rounding/card/$CARD" ]] \
+    && [ "$(fact "$out" look 'd["sheet"], d["position"], d["prompt"], d["options"], d["note"], d["keys"], d["chat"]')" = "(True, 'fixed', 'Round each line of a refund, or only its total?', ['Each line', 'Only the total'], True, 0, 0)" ]; then
+    pass "on a phone the row of refund-rounding's card in Waits for you shows its question, and a tap on it opens the same page as in agterm over the whole screen, with Each line, Only the total and the note field, and no key hint or Discuss in chat"
+  else
+    fail "the card's row and page on a phone: $(cat "$out")"
+  fi
+  if [ "$(seen "$out" refused)" = "A question goes to the task’s session, at the Mac: nothing was recorded." ] && [ "$(seen "$out" end-refused)" = None ] \
+    && [ "$(seen "$out" stays)" = True ]; then
+    pass "on a phone a note with no pick on the card is refused: the page says that a question goes to the task's session at the Mac, nothing is recorded, and the row stays"
+  else
+    fail "a note with no pick on a phone: $(cat "$out")"
+  fi
+  if [ "$(seen "$out" review)" = "Only the total" ] && [ "$(seen "$out" said)" = "Your answer is on record: the task’s session takes it." ] \
+    && [ "$(fact "$out" end-taken 'd[0], d[1], d[2], d[3]["selected"], d[3]["text"]')" = "('answered', 'board', 'phone', ['total'], 'as the receipts do')" ] \
+    && [ "$(seen "$out" gone)" = "[False, True]" ]; then
+    pass "on a phone Only the total with the note as the receipts do is on record as the owner's answer from the phone, the page says so, and the row leaves Waits for you with no reload"
+  else
+    fail "the card answered on a phone: $(cat "$out")"
+  fi
+}
+
 # The park step of gift-note-in-export and the approval of the criteria of stock-on-product-page, which on a phone take
 # the confirm step's overlay (lem_board_task.py `confirm_card`, the `sheet` controller, board.css). Each text fits at
 # 390 x 844, so the gate's checks use 390 x 400, where the text of each goes on below the body's end (measured: the park's
@@ -870,8 +1141,8 @@ PY
   fi
   if [ "$(fact "$out-noscript.out" approve-off 'd["sheet"], d["fixed"], d["disabled"], d["plain"], d["textEnd"] < d["button"][0]')" = "(False, False, None, '## Acceptance criteria', True)" ] \
     && grep -qF "[\"post\",\"$BASE/tasks/$stock/approve digest=" "$out-noscript.out" && [ "$(fact "$out-noscript.out" park-off 'd["sheet"], d["fixed"], d["disabled"], d["label"], d["button"][0] > d["textEnd"]')" = "(False, False, None, 'Park the task', True)" ] \
-    && grep -qF "[\"post\",\"$BASE/tasks/$park/park in=waits&why=\"]" "$out-noscript.out" && [ "$(grep -c '^\["acted", true\]$' "$out-noscript.out")" = 2 ]; then
-    pass "with no script the approval shows the criteria as plain text above its button and the park step its text above its button, each button is on, and each click posts its form and the act runs: the board.act of the approval and of the park come into the log"
+    && grep -qE "^\[\"post\",\"$BASE/tasks/$park/park in=waits&key=breaker%3A$park%3A1%3A[0-9]{8}T[0-9]{6}Z&why=\"\]$" "$out-noscript.out" && [ "$(grep -c '^\["acted", true\]$' "$out-noscript.out")" = 2 ]; then
+    pass "with no script the approval shows the criteria as plain text above its button and the park step its text above its button, each button is on, and each click posts its form, the park's with the key of the breaker's row, and the act runs: the board.act of the approval and of the park come into the log"
   else
     fail "the park step and the approval with no script: $(cat "$out-noscript.out")"
   fi
@@ -1005,6 +1276,10 @@ if [ -z "$NODE" ]; then
   skip_function stack_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function search_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function confirm_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
+  skip_function drop_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
+  skip_function card_kinds_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
+  skip_function card_tune_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
+  skip_function card_phone_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function step_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function side_fold_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function start_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
@@ -1015,6 +1290,10 @@ elif [ -z "$CHROME_AT" ]; then
   skip_function stack_checks "no Chrome here (set CHROME to the browser)"
   skip_function search_checks "no Chrome here (set CHROME to the browser)"
   skip_function confirm_checks "no Chrome here (set CHROME to the browser)"
+  skip_function drop_checks "no Chrome here (set CHROME to the browser)"
+  skip_function card_kinds_checks "no Chrome here (set CHROME to the browser)"
+  skip_function card_tune_checks "no Chrome here (set CHROME to the browser)"
+  skip_function card_phone_checks "no Chrome here (set CHROME to the browser)"
   skip_function step_checks "no Chrome here (set CHROME to the browser)"
   skip_function side_fold_checks "no Chrome here (set CHROME to the browser)"
   skip_function start_checks "no Chrome here (set CHROME to the browser)"
@@ -1024,6 +1303,10 @@ else
   stack_checks
   search_checks
   confirm_checks
+  drop_checks
+  card_kinds_checks
+  card_tune_checks
+  card_phone_checks
   step_checks
   side_fold_checks
   start_checks

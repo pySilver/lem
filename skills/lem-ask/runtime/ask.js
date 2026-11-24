@@ -1,9 +1,14 @@
 /* lem-ask runtime: renders the spec in <script id="hd-spec"> and hands the answer back.
    Answer path, first that applies: agterm page bridge (session.overlay.submit), the local
-   HTTP fallback server (POST /answer), else a preview banner showing the JSON. */
+   HTTP fallback server or the board (POST answer, a path relative to the page; the reply's `said`
+   is shown, and a refusal leaves the page to answer again), else a preview banner showing the JSON. */
 (function () {
   'use strict'
   const SPEC = JSON.parse(document.getElementById('hd-spec').textContent)
+  // Lem's board serves a card of a task's session at .../cards/PAGEID/ (serve.py, `card_page`) and takes an
+  // answer with a note, never a wish to talk: there the page offers no "Discuss in chat", nor its keys.
+  const ON_BOARD = location.protocol.startsWith('http') && /\/cards\/[^/]+\/$/.test(location.pathname)
+  const CHAT = SPEC.chat !== false && !ON_BOARD
   const KEYS = '123456789'
   const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e }
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -154,6 +159,9 @@
   function niceMax (v) { if (v <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(v))); const n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p }
 
   // ---------- charts (inline SVG, theme-colored) ----------
+  // A chart's width in the units of its text: the usual one, or the page's own on a narrower window (a
+  // phone), so that a label stays at its size there instead of shrinking with the drawing.
+  const fitW = (w) => Math.max(300, Math.min(w, (document.documentElement.clientWidth || w) - 64))
   function chart (c) {
     const wrap = $('div', 'hd-chart'); const type = c.type || 'bar'; const unit = c.unit || ''; const cols = palette()
     const series = c.series || (c.values ? [{ name: c.name || '', values: c.values }] : [])
@@ -183,7 +191,7 @@
       wrap.appendChild(lg); return wrap
     }
     if (type === 'hbar') {
-      const vals = series[0].values; const max = c.max || niceMax(Math.max(...vals)); const rowH = 26; const labW = c.labelWidth || 120; const W = 560; const H = vals.length * rowH + 4
+      const vals = series[0].values; const max = c.max || niceMax(Math.max(...vals)); const rowH = 26; const labW = c.labelWidth || 120; const W = fitW(560); const H = vals.length * rowH + 4
       vals.forEach((v, i) => {
         const y = i * rowH + 3; const w = Math.max(1, (v / max) * (W - labW - 60)); const col = c.highlight == null || isHl(i) ? colorOf(0) : css('--line-strong')
         svg += `<text x="${labW - 8}" y="${y + 15}" text-anchor="end">${esc(labels[i])}</text><rect x="${labW}" y="${y + 3}" width="${w}" height="${rowH - 9}" rx="3" fill="${col}"><title>${esc(labels[i])}: ${fmt(v, unit)}</title></rect><text class="vl" x="${labW + w + 6}" y="${y + 15}">${fmt(v, unit)}</text>`
@@ -191,7 +199,7 @@
       wrap.insertAdjacentHTML('beforeend', `<svg viewBox="0 0 ${W} ${H}">${svg}</svg>`); return wrap
     }
     // bar / line / area: shared axes
-    const W = 600; const H = c.height || 220; const L = 44; const R = 12; const T = 12; const B = 26; const all = series.flatMap((s) => s.values)
+    const W = fitW(600); const H = c.height || 220; const L = 44; const R = 12; const T = 12; const B = 26; const all = series.flatMap((s) => s.values)
     const min = c.min != null ? c.min : Math.min(0, ...all); const max = c.max || niceMax(Math.max(...all)); const pw = W - L - R; const ph = H - T - B
     const yOf = (v) => T + ph - ((v - min) / (max - min || 1)) * ph
     for (let k = 0; k <= 4; k++) { const v = min + ((max - min) * k) / 4; const y = yOf(v); svg += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text x="${L - 6}" y="${y + 4}" text-anchor="end">${fmt(v, unit)}</text>` }
@@ -472,7 +480,7 @@
   const status = $('span', 'hd-status'); foot.appendChild(status)
   const backBtn = $('button', 'hd-btn ghost', 'Back <kbd>Esc</kbd>'); backBtn.type = 'button'; backBtn.onclick = () => leaveReview(); backBtn.hidden = true; foot.appendChild(backBtn)
   const chatBtn = $('button', 'hd-btn ghost', 'Discuss in chat <kbd>⌥⏎</kbd>'); chatBtn.type = 'button'; chatBtn.onclick = () => deliver({ status: 'chat', text: allText() })
-  if (SPEC.chat !== false) foot.appendChild(chatBtn)
+  if (CHAT) foot.appendChild(chatBtn)
   const submitBtn = $('button', 'hd-btn primary', ''); submitBtn.type = 'button'; submitBtn.onclick = () => next()
   foot.appendChild(submitBtn)
   app.appendChild(foot)
@@ -541,7 +549,7 @@
       n ? `<span>${list ? '<kbd>↑</kbd><kbd>↓</kbd>' : '<kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd>'} move · <kbd>Space</kbd> pick</span>` : '',
       q.ta ? '<span><kbd>Esc</kbd> leave note · <kbd>⌘⏎</kbd> send from note</span>' : '',
       n && q.el.querySelector('.hd-toggle') ? '<span><kbd>e</kbd> details · <kbd>E</kbd> all</span>' : '',
-      '<span><kbd>⌥⏎</kbd> discuss in chat · <kbd>⌘W</kbd> dismiss</span>',
+      CHAT ? '<span><kbd>⌥⏎</kbd> discuss in chat · <kbd>⌘W</kbd> dismiss</span>' : ON_BOARD ? '' : '<span><kbd>⌘W</kbd> dismiss</span>',
     ]
     keys.innerHTML = full.concat(showHelp ? more : ['<span class="hd-more-keys"><kbd>?</kbd> more keys</span>']).filter(Boolean).join('')
   }
@@ -616,8 +624,14 @@
     try {
       if (window.agterm && window.agterm.request) { await window.agterm.request('session.overlay.submit', { args: { value } }); return }
       if (location.protocol.startsWith('http')) {
-        await fetch('/answer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: value })
-        document.body.appendChild($('div', 'hd-done', 'Answer sent — you can close this tab.')); return
+        // A path relative to the page: the browser fallback serves it at / and takes /answer, and the
+        // board serves a card under .../cards/PAGEID/ and takes the card's own answer route there.
+        const r = await fetch('answer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: value })
+        let reply = {}
+        try { reply = JSON.parse((await r.text()) || '{}') || {} } catch (e) { reply = {} }
+        const said = typeof reply.said === 'string' ? reply.said : ''
+        if (!r.ok) { finished = false; clearTimeout(flashT); status.textContent = said || 'The answer was not taken (' + r.status + ')'; return }
+        document.body.appendChild($('div', 'hd-done', esc(said || 'Answer sent — you can close this tab.'))); return
       }
       document.body.appendChild($('div', 'hd-done', `<div>Preview mode (no agterm bridge). Answer:<pre>${esc(JSON.stringify(v, null, 2))}</pre></div>`))
       console.log('[lem-ask] answer', value)
@@ -629,7 +643,7 @@
   document.addEventListener('keydown', (e) => {
     if (finished) return
     const q = qs[cur]; const inText = document.activeElement && document.activeElement.tagName === 'TEXTAREA'
-    if (e.key === 'Enter' && e.altKey) { e.preventDefault(); if (SPEC.chat !== false) chatBtn.click(); return }
+    if (e.key === 'Enter' && e.altKey) { e.preventDefault(); if (CHAT) chatBtn.click(); return }
     const tag = document.activeElement && document.activeElement.tagName
     const inCtl = document.activeElement && document.activeElement.closest && document.activeElement.closest('.hd-ctl')
     if (tag === 'INPUT' || tag === 'SELECT' || inCtl) {
@@ -793,6 +807,6 @@
   // The spec's top-level `script` is its author's code too, run once with `api` (SKILL.md).
   // eslint-disable-next-line no-new-func
   if (SPEC.script) { try { new Function('api', SPEC.script)(api) } catch (e) { app.appendChild($('pre', 'hd-err', 'script: ' + esc(e.message || e))) } }
-  if (!window.agterm && location.protocol.startsWith('http')) { window.addEventListener('pagehide', () => { if (!finished) navigator.sendBeacon('/answer', JSON.stringify({ status: 'dismissed' })) }) }
+  if (!window.agterm && location.protocol.startsWith('http')) { window.addEventListener('pagehide', () => { if (!finished) navigator.sendBeacon('answer', JSON.stringify({ status: 'dismissed' })) }) }
   window.focus()
 })()

@@ -63,7 +63,10 @@ tell him. He answers one of three ways: he helps, in a talk about the document i
 session; he parks the task (`/lem park SLUG`); or he drops it (`/lem drop SLUG`). `/lem resume
 SLUG` goes back to the talk after either. While he is away, the breaker also reaches his inbox with
 the same three answers, and help, park or drop may come from there as well (`inbox-reply`): the
-first answer counts, and it is his as if typed here.
+first answer counts, and it is his as if typed here. The board's row has Help, Park and Drop with
+a note, and his pick there is his typed word too (`prompts/session.md`, "His answer on the
+board"): Help brings his note as his first part of the talk, Drop is `/lem drop SLUG`, and Park the
+board runs itself.
 
 - **The talk.** You stand in for the lead that tripped it, or you are that lead: answer from the
   document, `handoff.md` and the code. "What do the experts say?" is the document's line of the
@@ -71,10 +74,17 @@ first answer counts, and it is his as if typed here.
   the dialectic and the panel are his to call the same way.
 - **His decision** is one record: `lem decisions log SLUG --by owner --breaker N --what WHAT
   --chose "WHAT HE DECIDED" --why "HIS REASON, IN HIS WORDS"`, with `--words` for his own words
-  when they are not the `--chose` text. When you cannot tell what he decided, ask him again. Then
+  when they are not the `--chose` text; after his Help on the board, `--why` also names its record:
+  its key, `via` and `device`. When you cannot tell what he decided, ask him again. Then
   build what he decided, in this session, from `handoff.md`, the breaker's document (`breaker-N.md`)
   and that record. A
   criterion his decision changes gets its record, `lem decisions criterion ... --decision ID`, with
   his decision's number: the change is his, and the pull request is not held back for it.
 - **He leaves the talk with no decision**: take nothing; the breaker waits, and the board's row
-  brings him back to this session.
+  brings him back to this session. When the talk began with his Help on the board, its record hides
+  the row until the next state block: write the breaker's held block again, with your one line to
+  his note, so that the row comes back under a new key, with Help, Park and Drop:
+
+  ```bash
+  lem project state SLUG held "breaker N waits for the owner" "YOUR ONE LINE TO HIS NOTE"
+  ```

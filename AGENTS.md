@@ -130,7 +130,7 @@ bash tests/lem-command.sh      # the command lem: each name, its arguments, stdi
 bash tests/lem-picker.sh       # the task picker, with a stand-in for agtermctl
 bash tests/lem-session.sh      # a task's own session (lem session) with a stand-in for agtermctl, and the copy of the talk
 bash tests/lem-serve.sh        # the board server and lem board over HTTP, on the afternoon of tests/board-showcase.py: its routes, pages, stream, jump and start on demand
-bash tests/lem-board-keys.sh   # the board's keys, a phone's confirm overlay and a narrow window's fold arrow, in headless Chrome on the same afternoon
+bash tests/lem-board-keys.sh   # the board's keys, a phone's overlays and cards, a narrow window's fold arrow, in headless Chrome on the same afternoon
 bash tests/lem-board-act.sh    # the owner's acts from the board, and the server's duties across tasks, with a stand-in for lem session
 bash tests/lem-peers.sh        # two machines under one address: two board servers on this Mac, a join, the loop guard, a machine that does not answer
 bash tests/test-gate-panel.sh  # the panel's cast, in its one place
@@ -138,7 +138,7 @@ bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads
 bash tests/test-ask-expert.sh  # the experts' brief of a question in words, its folder and the record of each answer, one expert alone; no expert runs
 bash tests/test-site.sh        # the page on GitHub Pages, from pages.yml's own copy step; its drawn page in headless Chrome when one is installed
 bash tests/shellcheck.sh       # ShellCheck over tests/*.sh, one check for each file, or over the files named
-bash tests/lint.sh             # ruff, pyrefly and ESLint; --fix fixes first
+bash tests/lint.sh             # ruff, pyrefly, ESLint; --fix fixes
 python3 tests/pick.py --check  # its map: every file read by a suite, every suite in all.sh
 bash tests/test-lem.sh         # every lem-* block at the same time, with its output in order; all.sh runs each alone
 ```
@@ -213,8 +213,8 @@ Each script's module docstring says what it does and why; this list says where e
     `lem_board_pages.py` (the pages of a workspace), `lem_board_task.py` (the board of one task),
     `lem_artifacts.py` (a task's files on one map), `lem_html.py` (`h()`, which escapes every text),
     `lem_push.py` (the notifications), `lem_inbox.py` (what waits for the owner, sent to his Plannotator
-    Inbox while he is away and withdrawn when it no longer waits) and `lem_peers.py` (another machine
-    joined with `--join`).
+    Inbox while he is away), `lem_peers.py` (another machine joined with `--join`), `lem_cards.py`
+    (a session's `lem-ask` cards) and `lem_answers.py` (the board's other answers).
   - `board.py` (`lem board`): makes sure the server runs and opens a board, or with `--page FILE`
     any page of Lem, as a companion. `picker.py` (`lem picker`): agterm's picker over the tasks.
   - `doctor.py` (`lem doctor`): the machine check. `corrections.py` (`lem corrections`): the

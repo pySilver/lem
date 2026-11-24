@@ -97,8 +97,8 @@ select = [
 ]
 # The size rules (C901 and PLR0911 to PLR0917) have ruff's own limits. A function that was over one
 # when the rules came, on 2026-11-24, carries `# noqa: RULE - over the limit before the limit was
-# set`: 141 functions. A new function gets no such mark; it is written under the limits, and a
-# marked one loses its mark when it is split.
+# set`. A new function gets no such mark; it is written under the limits, and a marked one
+# loses its mark when it is split.
 #
 # Left out, each for a reason:
 #   D     the docstrings keep their own voice (AGENTS.md), which is not pydocstyle's

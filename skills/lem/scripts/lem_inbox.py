@@ -22,11 +22,12 @@ What a row becomes (`things_of`, `thing_of`, pure functions over the model):
   changes (another form, session, tip or block, or a row that no longer asks) is a new
   thing: the old one is withdrawn when it was a question, and the new one is sent. The
   merge review and the merge of one task (`review:SLUG`, `merge:SLUG`) are one thing,
-  the merge's. While a task has a row of its own for its missing, deaf or stopped
-  session, that row's note stands for the task, and its other rows wait until a session
-  can take a reply. A row whose task's session opened less than the board's `GRACE_MS`
-  ago (2 minutes) and has not yet logged its Claude Code session is no thing yet: its
-  next look tells.
+  the merge's. A `lem-ask` card of a task's session (`card:SLUG:PAGEID`) is no thing:
+  the board answers it. While a task has a row of its own for its missing, deaf or
+  stopped session, that row's note stands for the task, and its other rows wait until a
+  session can take a reply. A row whose task's session opened less than the board's
+  `GRACE_MS` ago (2 minutes) and has not yet logged its Claude Code session is no thing
+  yet: its next look tells.
 - A question goes as the task's newest Claude Code session: the `claude` of its newest
   `session.transcript` after its newest `session.open`, whose `source` is not `fork` (a
   fork is another Claude Code session started from the task's, which inherits
@@ -332,13 +333,14 @@ def things_of(
     whole: Callable[[str], object] | None = None,
 ) -> dict:
     """The things of a workspace's rows, by key: none for a merge review (its merge's
-    thing carries it), only the session's own note for a task that has a row for its
-    missing, deaf or stopped session, and none for a row whose session cannot be told
+    thing carries it), none for a `lem-ask` card of a task's session, which the board
+    answers, only the session's own note for a task that has a row for its missing, deaf
+    or stopped session, and none for a row whose session cannot be told
     yet (`thing_of`)."""
     without = {r["t"].slug for r in rows if r["kind"] in ("session", "stopped")}
     out = {}
     for row in rows:
-        if row["kind"] == "review" or (
+        if row["kind"] in ("review", "card") or (
             row["kind"] not in ("session", "stopped") and row["t"].slug in without
         ):
             continue

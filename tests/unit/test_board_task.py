@@ -796,6 +796,34 @@ class Overview(unittest.TestCase):
             (1, 1, 3, "task 2 of 3"),
         )
 
+    def test_the_phase_line_is_green_up_to_the_phase_the_task_is_in_whatever_number_of_its_decisions_went_past_the_personas(
+        self,
+    ) -> None:
+        # phase-line-shows-real-progress, criterion 1: a task at Review with one
+        # decision past the personas
+        m = model(
+            state(0, "building", "lead: builder"),
+            ev(5, "decision.taken", id=1, what="w", chose="x", why="y", by="dialectic"),
+            state(10, "landing", "the checks start"),
+            ev(20, "review", attempt=1, round=1, kind="round", verdict="clean"),
+        )
+        ctx = pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name)
+        shown = str(task_pages.progress(ctx, m.tasks[0]))
+        phases = re.findall(r'<div class="(phase[^"]*)"><i></i>([^<]+)<', shown)
+        self.assertEqual(
+            phases,
+            [
+                ("phase past", "Criteria"),
+                ("phase past", "Plan"),
+                ("phase past", "Build"),
+                ("phase past", "Checks"),
+                ("phase cur", "Review"),
+                ("phase", "Proposed"),
+                ("phase", "Landed"),
+            ],
+        )
+        self.assertIn("1 taken, 1 past the personas", shown)
+
     def test_the_panel_says_no_waits_for_while_the_tasks_session_works_on_his_answer(
         self,
     ) -> None:
@@ -942,13 +970,18 @@ class InboxLine(unittest.TestCase):
     @classmethod
     def record(
         cls,
-        key: str = "breaker:gift-note:1",
+        key: str | None = None,
         kind: str = "breaker",
         form: str = "question",
         *,
         asks: bool = True,
         **door: object,
     ) -> dict:
+        # the breaker's row is named by its held block, 20 minutes after
+        # START (`answer_row`)
+        key = key or "breaker:gift-note:1:" + (START + timedelta(minutes=20)).strftime(
+            "%Y%m%dT%H%M%SZ"
+        )
         sent = {
             "key": key,
             "task": "gift-note",
@@ -1800,3 +1833,160 @@ class ParkAndApproveSteps(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CardStep(unittest.TestCase):
+    """The card of a task's session on the board (criterion 1 of board-answers-a-card):
+    its row's way to it, the Overview's card, and the step that frames the card's own
+    page, which says what took effect once it ended."""
+
+    PAGE = "P-1"
+    EVENTS = [
+        state(0, "building", "task 1 of 2", task="export-notes"),
+        ev(1, "session.open", "export-notes", session="S1", name="export-notes"),
+        ev(2, "card.asked", "export-notes", page=PAGE, prompt="Keep the empty cell?"),
+    ]
+
+    def ctx(self, can_act=True, open_=True, end=None):
+        m = model(*self.EVENTS)
+        m.sessions = {
+            "export-notes": {
+                "live": True,
+                "agent": True,
+                "unanswered": False,
+                "session": "S1",
+            }
+        }
+        m.cards = (
+            {
+                "export-notes": [
+                    {
+                        "page": self.PAGE,
+                        "prompt": "Keep the empty cell?",
+                        "since": ms(2),
+                        "session": "S1",
+                        "chat": True,
+                    }
+                ]
+            }
+            if open_
+            else {}
+        )
+        return pages.Ctx(
+            host="h",
+            workspace="w",
+            model=m,
+            asset=lambda name: name,
+            can_act=can_act,
+            task="export-notes",
+            tab=f"card/{self.PAGE}",
+            card_end=lambda slug, page: end,
+        )
+
+    def test_the_step_frames_the_cards_own_page_at_its_route_as_an_overlay_on_a_phone(
+        self,
+    ) -> None:
+        ctx = self.ctx()
+        html = "".join(
+            str(x) for x in task_pages.card_step(ctx, ctx.model.tasks[0], self.PAGE)
+        )
+        self.assertIn(
+            (
+                '<iframe class="card-frame" id="card-frame-P-1" '
+                'src="/h/w/tasks/export-notes/cards/P-1/"'
+            ),
+            html,
+        )
+        self.assertIn('data-controller="sheet"', html)
+        self.assertIn("A question back goes to the task’s session, at the Mac.", html)
+        panel = str(task_pages.panel(ctx))
+        self.assertIn('id="tb-card-P-1"', panel)
+
+    def test_the_rows_way_and_the_overviews_card_open_the_step(self) -> None:
+        ctx = self.ctx()
+        waits = str(pages.waits_page(ctx))
+        self.assertIn('href="/h/w/tasks/export-notes/card/P-1?in=waits"', waits)
+        self.assertIn("Keep the empty cell?", waits)
+        overview = str(task_pages.cards_card(ctx, ctx.model.tasks[0]))
+        self.assertIn("Keep the empty cell?", overview)
+        self.assertIn('href="/h/w/tasks/export-notes/card/P-1', overview)
+
+    def test_a_card_that_ended_says_what_took_effect_and_a_page_that_may_not_act_frames_nothing(
+        self,
+    ) -> None:
+        end = {
+            "page": self.PAGE,
+            "status": "answered",
+            "from": "board",
+            "at": "2026-11-20T09:42:00Z",
+            "device": "phone",
+            "answer": {
+                "status": "answered",
+                "answers": {
+                    "answer": {"selected": ["no"], "labels": ["No, write a dash"]}
+                },
+            },
+        }
+        ctx = self.ctx(open_=False, end=end)
+        said = "".join(
+            str(x) for x in task_pages.card_step(ctx, ctx.model.tasks[0], self.PAGE)
+        )
+        self.assertIn("No, write a dash was taken on the board at", said)
+        self.assertIn("from the phone. This card no longer waits for you.", said)
+        self.assertNotIn("iframe", said)
+        mute = self.ctx(can_act=False)
+        self.assertNotIn(
+            "iframe",
+            "".join(
+                str(x)
+                for x in task_pages.card_step(mute, mute.model.tasks[0], self.PAGE)
+            ),
+        )
+
+    def test_the_refresh_after_an_answer_on_the_board_keeps_the_step_and_after_one_in_the_session_says_what_took_effect(
+        self,
+    ) -> None:
+        # the board logs its answer before the frame has the reply: the refresh's render
+        # must pair with the open step (one id) and keep it (one data-keep, app.js), or
+        # the morph takes the frame with what the board said away
+        def head(ctx):
+            html = "".join(
+                str(x) for x in task_pages.card_step(ctx, ctx.model.tasks[0], self.PAGE)
+            )
+            return html[: html.index(">") + 1]
+
+        answer = {
+            "status": "answered",
+            "answers": {"answer": {"selected": ["no"], "labels": ["No, write a dash"]}},
+        }
+        opened = head(self.ctx())
+        self.assertIn('id="card-step"', opened)
+        self.assertIn('data-keep="card-P-1"', opened)
+        board = head(
+            self.ctx(
+                open_=False,
+                end={
+                    "page": self.PAGE,
+                    "status": "answered",
+                    "from": "board",
+                    "at": "2026-11-20T09:42:00Z",
+                    "answer": answer,
+                },
+            )
+        )
+        self.assertIn('id="card-step"', board)
+        self.assertIn('data-keep="card-P-1"', board)
+        session = head(
+            self.ctx(
+                open_=False,
+                end={
+                    "page": self.PAGE,
+                    "status": "answered",
+                    "from": "session",
+                    "at": "2026-11-20T09:42:00Z",
+                    "answer": answer,
+                },
+            )
+        )
+        self.assertIn('id="card-step"', session)
+        self.assertNotIn("data-keep", session)

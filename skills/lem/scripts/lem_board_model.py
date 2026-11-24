@@ -30,8 +30,10 @@ the last read stopped, and whole again when `lem project prune` put a new one in
 the owner's mark (`project.owner_records`), and the settings, the backlog and the meta
 facts through `board.py`'s functions, the board server's last look at the forge
 (FORGE_LOOK, `Model.seen`), and its record of what it sent to the owner's Inbox while he
-is away (INBOX_LOOK, `Model.inbox`, which `inbox_of` reads for a task's page). What does
-not read is a problem the page says, never an empty board.
+is away (INBOX_LOOK, `Model.inbox`, which `inbox_of` reads for a task's page), and the
+open `lem-ask` cards of each task's folder (`cards_look`, `Model.cards`, whose rows
+`open_cards` gives). What does not read is a problem the page says, never an
+empty board.
 """  # noqa: E501 - the table of the model's names keeps its columns
 
 import json
@@ -47,6 +49,9 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, cast
 from urllib.parse import quote
+
+import lem_answers
+import lem_cards
 
 # ---- the words of each status, and the lanes ----
 
@@ -456,6 +461,7 @@ WAIT_ORDER = {
     "stopped": 0,
     "criteria": 1,
     "held": 1,
+    "card": 1,
     "after_dropped": 1,
     "blocked": 1,
     "plan": 2,
@@ -931,6 +937,11 @@ class Task:
     # the newest `release.stop` while no state came after it (RELEASE_STOP): `began`,
     # `running`, `branch`, `say`
     release_stop: dict | None = None
+    # each `lem-ask` card of the task's sessions with no `card.answered` or
+    # `card.closed` in the log, by its page id: its first question's prompt and when it
+    # went up. Whether it is open is its end file's to say (`Model.cards`, which the
+    # Reader reads): the event after the end only tells the stream.
+    cards: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -970,6 +981,15 @@ class Model:
     # of INBOX_LOOK): the door's last look and each thing it sent; None while no server
     # wrote it
     inbox: dict | None = None
+    # the open `lem-ask` cards of each task, by its slug, as the files of its folder say
+    # (`cards_look`): each card the log names with no end file, with its page, prompt,
+    # time and the agterm session that put it up; None while nothing read the files (a
+    # unit case), and then no card has a row
+    cards: dict | None = None
+    # the answers on record of each task's row that the board answers with its own
+    # buttons (`answers_look`), by its slug, the record by the row's key (lem_answers);
+    # None while nothing read the files, and then no row is hidden for an answer
+    answers: dict | None = None
 
 
 def decision_event(t: Task, e: dict, ts: int) -> None:
@@ -1191,6 +1211,17 @@ def fold(t: Task, e: dict, ts: int) -> None:  # noqa: C901, PLR0911, PLR0912, PL
     if event == "session.stopped":
         # the guard's record of a stop (`stop_stands`), read from `t.events`: no step of
         # the task's own
+        return
+    if event == "card.asked":
+        if e.get("page"):
+            t.cards[str(e["page"])] = {
+                "page": str(e["page"]),
+                "prompt": str(e.get("prompt") or ""),
+                "ts": ts,
+            }
+        return
+    if event in ("card.answered", "card.closed"):
+        t.cards.pop(str(e.get("page")), None)
         return
     if event == "session.transcript":
         t.transcripts.append(
@@ -2467,6 +2498,16 @@ def card_line(t: Task, lane: dict) -> str:
             "card", t.investigation["call"]
         )
         return f"{call}: {t.investigation['line']}"
+    # a landing's step that started after its newest state block: the words of the head
+    # of its page (`now_head`), since the state's own text ("the checks start") is older
+    # than the step that runs
+    if (
+        t.status == "landing"
+        and t.landing_step
+        and not t.checks_stop
+        and not t.release_stop
+    ):
+        return step_runs(t.landing_step)
     if not t.shown:
         return t.info["label"]
     said_ = PULL.sub(r"#\1", t.shown)
@@ -2517,16 +2558,17 @@ def answer_of(t: Task) -> str:  # noqa: C901, PLR0911 - over the limit before th
         )
     if t.breaker is not None:
         return (
-            "Read its document, first on the task’s Overview. Help in the task’s "
-            f"session. Or type /lem park {t.slug} to put the task aside, "
-            f"or /lem drop {t.slug} to end it."
+            "Read its document, first on the task’s Overview. Then help, park or drop "
+            "the task on this board, or help in the task’s session. Or type /lem park "
+            f"{t.slug} to put the task aside, or /lem drop {t.slug} to end it."
         )
     if t.status == "open":
         return "Merge the pull request on GitHub or on this board."
     if t.need and t.need["need"] == "interview" and t.turn == "skip":
         return (
-            "Lem asks in the task’s session whether to skip the personas’ read of the "
-            "criteria, since each names only you. Answer y or n there."
+            "Lem asks whether to skip the personas’ read of the criteria, since each "
+            "names only you. Answer Yes or No on this board, "
+            "or y or n in the task’s session."
         )
     if t.need and t.need["need"] == "interview" and t.turn == "yes":
         return (
@@ -2537,6 +2579,12 @@ def answer_of(t: Task) -> str:  # noqa: C901, PLR0911 - over the limit before th
         return (
             "The interview runs in the task’s session. Answer its questions there, and "
             "approve the criteria at its end."
+        )
+    if t.criteria_wait and t.text == FAST_CRITERION:
+        return (
+            "The one criterion of a request someone else wrote waits for your yes. "
+            "Answer Yes or No under its text on this board, or y or n in the task’s "
+            "session. No needs your words: what the criterion should say."
         )
     if t.criteria_wait and t.reads and t.reads[-1]["answered"] == 0:
         return (
@@ -2556,7 +2604,10 @@ def answer_of(t: Task) -> str:  # noqa: C901, PLR0911 - over the limit before th
             "The task’s session says what to do."
         )
     if t.status == "planned":
-        return "Read the plan, then tell the task’s session: build it or drop it."
+        return (
+            "Read the plan, then build it or drop the task on this board, "
+            "or tell the task’s session."
+        )
     return f"Tell the task’s session to build it, or type /lem drop {t.slug} to end it."
 
 
@@ -3171,6 +3222,7 @@ ACTED = {
     "park": "You parked the task from the board",
     "session": "You opened a session of the task from the board",
     "start": "You started the task from the board",
+    "answer": "You answered a card of the task’s session from the board",
 }
 
 
@@ -3202,6 +3254,105 @@ def acts_of(t: Task, seen: dict | None) -> list[str]:
     return out
 
 
+# The first line of a held block of a small change that someone else asked for, whose
+# one criterion waits for the owner's yes (project.py FAST_WAIT; stages/new.md, "The
+# fast track", step 1).
+FAST_CRITERION = (
+    "the criteria wait for the owner: a small change that someone else asked for"
+)
+# What the board says once the owner's answer is on record, on the act's note and on the
+# task's Overview.
+ANSWER_ON_RECORD = "Your answer is on record: the task’s session takes it."
+# What each row the board answers with its own buttons asks (lem_answers.OPTIONS), as
+# the row and the record say it.
+ANSWER_QUESTIONS = {
+    "plan": "Build the plan, or drop the task?",
+    "breaker": "Help, park or drop the task?",
+    "skip": "Skip the persona read?",
+    "criterion": "Approve this criterion?",
+}
+# What the note field of each such row asks for: Help, and No on the criterion, need the
+# owner's words.
+ANSWER_NOTES = {
+    "plan": "A note for the task’s session, if you like",
+    "breaker": "Help needs your words for the lead",
+    "skip": "A note for the task’s session, if you like",
+    "criterion": "No needs your words: what should the criterion say?",
+}
+
+
+def answer_row(t: Task) -> dict | None:
+    """The wait of the task that the board answers with its own buttons now
+    (lem_answers), or None: a breaker that waits for the owner (Help, Park, Drop), a
+    plan that waits for his read (Build, Drop), "Skip the persona read?" of an interview
+    (Yes, No), and "Approve this criterion?" of a small change that someone else asked
+    for while his yes would count (Yes, No). Its key names the task's newest state block
+    by its time to the second, so that a new block of the same wait is a new row, and an
+    answer on record applies to its own block only (decision 9 of
+    board-answers-a-card)."""
+    if t.closed or not t.blocks:
+        return None
+    number = None
+    if t.breaker is not None and isinstance(t.breaker.id, int):
+        kind, number = "breaker", t.breaker.id
+    elif t.status == "planned" and re.search(r"\bowner\b", t.text):
+        kind = "plan"
+    elif (
+        t.turn == "skip" and not t.goes_on and t.need and t.need["need"] == "interview"
+    ):
+        kind = "skip"
+    elif (
+        t.turn in OWNER_TURNS
+        and not t.goes_on
+        and t.criteria_wait
+        and t.text == FAST_CRITERION
+        and t.approvable
+    ):
+        kind = "criterion"
+    else:
+        return None
+    question = (
+        f"Breaker {number} of {t.slug}: help, park or drop the task?"
+        if kind == "breaker"
+        else ANSWER_QUESTIONS[kind]
+    )
+    return {
+        "kind": kind,
+        "key": lem_answers.key_of(kind, t.slug, t.blocks[-1]["ts"], number),
+        "question": question,
+        "options": dict(lem_answers.OPTIONS[kind]),
+        "note": ANSWER_NOTES[kind],
+    }
+
+
+def answered_of(t: Task, m: Model) -> dict | None:
+    """The owner's answer on record for the row of the task that the board answers with
+    its own buttons (`answer_row`, `Model.answers`), or None: until the task's session
+    writes its next state block, the row is hidden and the task's Overview says that his
+    answer is on record."""
+    row = answer_row(t)
+    return (m.answers or {}).get(t.slug, {}).get(row["key"]) if row else None
+
+
+def acted_head(e: dict) -> str:
+    """The activity's words of a `board.act`: ACTED's, or for the answer of a row the
+    board answers with its own buttons (its `key` and `option`, serve.py `act_answer`)
+    what he picked and on which row."""
+    if e.get("act") == "answer" and e.get("key"):
+        try:
+            kind = lem_answers.parse(e["key"])["kind"]
+        except lem_answers.AnswerError:
+            kind = None
+        label = lem_answers.OPTIONS.get(kind, {}).get(
+            e.get("option"), e.get("option") or "an option"
+        )
+        return (
+            f"You picked {label} on "
+            f"“{ANSWER_QUESTIONS.get(kind, 'a question of the task')}” from the board"
+        )
+    return ACTED.get(e.get("act"), f"You acted from the board: {e.get('act')}")
+
+
 def merge_says(t: Task) -> dict:
     """What the confirm step of a merge says first: green or not green, careful when it
     is, and the reasons it is not green."""
@@ -3216,26 +3367,41 @@ def merge_says(t: Task) -> dict:
     }
 
 
+def asked_of(t: Task, kinds: tuple, other: str) -> tuple[dict | None, str]:
+    """The row of the task that the board answers with its own buttons (`answer_row`)
+    when it is of one of KINDS, else None, and the key of the row of "Waits for you" it
+    stands for: the answer row's own, which names the state block, else OTHER."""
+    asks = answer_row(t)
+    row = asks if asks and asks["kind"] in kinds else None
+    return row, row["key"] if row else other
+
+
 def held_row(t: Task) -> dict | None:
-    """The row of "Waits for you" that a task's held block gives, or None. A breaker
-    that waits is its own row, and the held block it wrote is not said again; a held
-    task is his while its turn is (`turn_of`): not while Lem writes its criteria or the
-    personas read them, nor while Lem settles its need without him (`goes_on_of`)."""
+    """The row of "Waits for you" that a task's held block gives, or None, with the row
+    the board answers with its own buttons as its `asks` (`asked_of`), whose key it
+    takes. A breaker that waits is its own row, and the held block it wrote is not said
+    again; a held task is his while its turn is (`turn_of`): not while Lem writes its
+    criteria or the personas read them, nor while Lem settles its need without
+    him (`goes_on_of`)."""
     if t.breaker:
+        row, key = asked_of(t, ("breaker",), f"breaker:{t.slug}:{t.breaker.id}")
         return {
             "kind": "breaker",
-            "key": f"breaker:{t.slug}:{t.breaker.id}",
+            "key": key,
             "t": t,
             "c": t.breaker,
             "since": t.breaker.ts,
+            "asks": row,
         }
     if t.turn in OWNER_TURNS and not t.goes_on:
+        row, key = asked_of(t, ("skip", "criterion"), f"held:{t.slug}")
         return {
             "kind": "criteria" if t.criteria_wait else "held",
-            "key": f"held:{t.slug}",
+            "key": key,
             "t": t,
             "c": None,
             "since": t.since,
+            "asks": row,
         }
     return None
 
@@ -3305,10 +3471,12 @@ def waits_of(m: Model) -> list[dict]:  # noqa: C901 - over the limit before the 
             )
         if t.closed:
             continue
-        # the row of a breaker or of a held task, held back while the task's session
-        # works on his answer (`put_sessions`)
+        # the row of a breaker or of a held task (`held_row`), held back while the
+        # task's session works on his answer (`put_sessions`), and none while his answer
+        # to it on the board is on record (`answered_of`): the task's session takes it
+        answered = answered_of(t, m) is not None
         held = held_row(t)
-        if held is not None and not t.works:
+        if held is not None and not t.works and not (held["asks"] and answered):
             rows.append(held)
         # a task queued after a task that was dropped: no session runs it, and only his
         # word starts it or ends it
@@ -3336,16 +3504,31 @@ def waits_of(m: Model) -> list[dict]:  # noqa: C901 - over the limit before the 
                     "since": t.since,
                 }
             )
-        if t.status == "planned" and re.search(r"\bowner\b", t.text):
+        # a card the task's live session put up and waits on: one row for each, answered
+        # here or in the session
+        for c in open_cards(t, m):
             rows.append(
                 {
-                    "kind": "plan",
-                    "key": f"plan:{t.slug}",
+                    "kind": "card",
+                    "key": f"card:{t.slug}:{c['page']}",
                     "t": t,
-                    "c": None,
-                    "since": t.since,
+                    "c": c,
+                    "since": c["since"],
                 }
             )
+        if t.status == "planned" and re.search(r"\bowner\b", t.text):
+            row, key = asked_of(t, ("plan",), f"plan:{t.slug}")
+            if not (row and answered):
+                rows.append(
+                    {
+                        "kind": "plan",
+                        "key": key,
+                        "t": t,
+                        "c": None,
+                        "since": t.since,
+                        "asks": row,
+                    }
+                )
         # an open task is his only when its merge waits for him (`merge_wait`): not
         # while the merge agent reads it, nor while the server merges it
         if t.merge_wait == "owner" and t.merge_review and t.merge_review["calls"]:
@@ -3389,17 +3572,35 @@ def wait_stacks(rows: list[dict]) -> list[dict]:
     return stacks
 
 
+def open_cards(t: Task, m: Model) -> list[dict]:
+    """The `lem-ask` cards of the task that wait for the owner now, oldest first: open
+    as its folder says (`Model.cards`), and put up by the session that is the task's
+    live one (`live_of`). A card of an earlier session of the task, which a change of
+    phase or a crash left with no waiter, has none, nor has any card while nothing says
+    which session lives."""
+    found = (m.cards or {}).get(t.slug) or []
+    f = live_of(t, m) if found else None
+    if not f or not f["live"] or not f["session"]:
+        return []
+    return [
+        c
+        for c in found
+        if str(c.get("session") or "").upper() == str(f["session"]).upper()
+    ]
+
+
 def answered_in_session(w: dict, m: Model) -> bool:
     """Whether the owner answers a row of "Waits for you" in the task's own session
-    rather than on the board: a held step with no yes of his on the board (the interview
-    and the others; not criteria that wait for his approval there), a task its session
-    stopped, and a session that does not answer. Every other row (a merge, criteria, a
-    breaker's document, a plan, a merge review, a task queued after a dropped one, a
-    task with no session, a task whose stop the guard of a stopped session logged) he
-    answers on the board or in another session."""
+    rather than on the board: a held step with no answer of his on the board (the
+    interview and the others; not criteria that wait for his approval there, nor a row
+    with its own buttons, `asks`: "Skip the persona read?"), a task its session stopped,
+    and a session that does not answer. Every other row (a merge, criteria, a breaker's
+    document, a plan, a card of the task's session, a merge review, a task queued after
+    a dropped one, a task with no session, a task whose stop the guard of a stopped
+    session logged) he answers on the board or in another session."""
     kind = w["kind"]
     if kind == "held":
-        return "approve" not in acts_of(w["t"], m.seen)
+        return "approve" not in acts_of(w["t"], m.seen) and not w.get("asks")
     return kind == "blocked" or (kind == "session" and bool(w.get("deaf")))
 
 
@@ -3569,6 +3770,18 @@ def wait_say(w: dict) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit 
             "icon": "file",
             "to": "overview",
             "note": "in this state",
+        }
+    if kind == "card":
+        return {
+            "verb": cap(w["c"]["prompt"] or "The task’s session asks you"),
+            "icon": "user",
+            "to": f"card/{w['c']['page']}",
+            "note": "since the session asked",
+            "where": (
+                "on the card, here or in the task’s session at the Mac. "
+                "The board takes an answer with a note, never a conversation: "
+                "a question back goes to the session at the Mac."
+            ),
         }
     if kind == "review":
         return {
@@ -4165,9 +4378,31 @@ SAYS = {
             "directory"
         ),
     },
+    "card.asked": lambda e: {
+        "info": {"actor": "you", "icon": "user"},
+        "head": "The task’s session asks you on a card",
+        "text": e.get("prompt") or "",
+    },
+    "card.answered": lambda e: {
+        "info": {"actor": "done", "icon": "check"},
+        "head": "You answered the card on the board"
+        if e.get("from") == "board"
+        else "You answered the card in the session",
+        "text": VIA.get(e.get("via"), "")
+        + (f", from the {e['device']}" if e.get("device") else "")
+        if e.get("from") == "board"
+        else "",
+    },
+    "card.closed": lambda e: {
+        "info": {"actor": "quiet", "icon": "dot"},
+        "head": "The card was dismissed"
+        if e.get("status") == "dismissed"
+        else "The card was closed",
+        "text": "on the board" if e.get("from") == "board" else "in the session",
+    },
     "board.act": lambda e: {
         "info": {"actor": "you", "icon": "user"},
-        "head": ACTED.get(e.get("act"), f"You acted from the board: {e.get('act')}"),
+        "head": acted_head(e),
         "text": e.get("via") or "",
         "sub": e.get("why") or "",
     },
@@ -5161,7 +5396,7 @@ def progress_of(t: Task) -> dict:
         "total": total,
         "review": review,
         "taken": taken,
-        "past": past,
+        "past_personas": past,
         "breakers": breakers,
     }
 
@@ -6101,6 +6336,61 @@ def log_version(inode: int, lines: int) -> str:
     return f"{inode}-{lines}"
 
 
+def cards_look(state: Path, m: Model) -> dict:
+    """The open `lem-ask` cards of each task (`Model.cards`): each card the log names
+    with no end in it (`Task.cards`) whose folder holds no end file,
+    `cards/PAGEID.end.json` (lem_cards), with the agterm session its `cards/PAGEID.json`
+    names. A card whose files do not read has no row: its session still waits for it at
+    the Mac."""
+    out: dict[str, list[dict]] = {}
+    for t in m.tasks:
+        if t.closed or not t.cards:
+            continue
+        folder = state / "tasks" / t.slug
+        for page, c in sorted(t.cards.items(), key=lambda item: item[1]["ts"]):
+            try:
+                if lem_cards.end_file(folder, page).exists():
+                    continue
+                card = lem_cards.card(folder, page)
+            except (lem_cards.CardError, OSError):
+                continue
+            if not isinstance(card, dict):
+                continue
+            questions = (
+                card.get("questions") if isinstance(card.get("questions"), list) else []
+            )
+            first = questions[0] if questions and isinstance(questions[0], dict) else {}
+            out.setdefault(t.slug, []).append(
+                {
+                    "page": page,
+                    "prompt": str(first.get("prompt") or c["prompt"]),
+                    "since": c["ts"],
+                    "session": card.get("session"),
+                    "chat": card.get("chat") is not False,
+                }
+            )
+    return out
+
+
+def answers_look(state: Path, m: Model) -> dict:
+    """The answer on record of each task's row that the board answers with its own
+    buttons (`Model.answers`): for each task with such a row now (`answer_row`), the
+    record of its key in the task's folder, when there is one (lem_answers). A record
+    that does not read hides nothing: the row stays his."""
+    out: dict[str, dict] = {}
+    for t in m.tasks:
+        row = answer_row(t)
+        if row is None:
+            continue
+        try:
+            found = lem_answers.on_record(state / "tasks" / t.slug, row["key"])
+        except (lem_answers.AnswerError, OSError):
+            continue
+        if isinstance(found, dict):
+            out[t.slug] = {row["key"]: found}
+    return out
+
+
 class Reader:
     """The facts of one workspace, read again only where a file changed: the event log
     read on from where the last read stopped, the owner's mark, and the settings, the
@@ -6324,4 +6614,6 @@ class Reader:
             if self.changed("inbox", self.state / INBOX_LOOK):
                 self.inbox = inbox_look(self.state)
             self.model.inbox = self.inbox
+            self.model.cards = cards_look(self.state, self.model)
+            self.model.answers = answers_look(self.state, self.model)
             return self.model

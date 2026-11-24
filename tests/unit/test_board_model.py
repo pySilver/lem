@@ -43,6 +43,14 @@ def ev(minute: float, event: str, task: str = "gift-note", **fields: object) -> 
     }
 
 
+def bkey(number: int = 1, minute: float = 20, task: str = "gift-note") -> str:
+    """The key of the row of breaker NUMBER, whose held block came MINUTE minutes after
+    START (`answer_row`)."""
+    return f"breaker:{task}:{number}:" + (START + timedelta(minutes=minute)).strftime(
+        "%Y%m%dT%H%M%SZ"
+    )
+
+
 def state(
     minute: float, status: str, text: str, *lines: str, task: str = "gift-note"
 ) -> dict:
@@ -149,7 +157,7 @@ class Breakers(unittest.TestCase):
         rows = bm.waits_of(m)
         self.assertEqual(
             [(w["key"], bm.wait_say(w)["verb"]) for w in rows],
-            [("breaker:gift-note:1", "Read the breaker of gift-note")],
+            [(bkey(), "Read the breaker of gift-note")],
         )
         self.assertEqual(
             (m.tasks[0].lane, bm.card_line(m.tasks[0], bm.LANE["you"])),
@@ -290,7 +298,39 @@ class Landing(unittest.TestCase):
             ev(1, "gate.wait", load=9.5, start=6),
             ev(2, "gate.start", commands=2),
         )
-        self.assertEqual(bm.card_line(going, bm.LANE["checks"]), "The checks start")
+        self.assertEqual(
+            (bm.card_line(going, bm.LANE["checks"]), bm.now_head(going)),
+            ("The checks run", "The checks run"),
+        )
+
+    def test_criterion_1_a_landing_card_says_the_step_that_runs_as_its_page_does(
+        self,
+    ) -> None:
+        t = one(
+            state(0, "landing", "the checks start"),
+            ev(1, "builder.start", job="the repair of a conflict with the base"),
+            ev(12, "builder.end"),
+            ev(13, "polish.start", before="1a2b3c4d5"),
+        )
+        self.assertEqual(bm.now_head(t), "The polish pass runs")
+        self.assertEqual(bm.card_line(t, bm.LANE["checks"]), "The polish pass runs")
+        builder = one(
+            state(0, "landing", "the checks start"),
+            ev(1, "builder.start", job="the repair of a conflict with the base"),
+        )
+        self.assertEqual(bm.card_line(builder, bm.LANE["checks"]), bm.now_head(builder))
+        # a step that ended leaves the state's own words, and so does a status other
+        # than landing
+        ended = one(
+            state(0, "landing", "the checks start"),
+            ev(1, "polish.start", before="1a2b3c4d5"),
+            ev(9, "polish", before="1a2b3c4d5", after="2b3c4d5e6"),
+        )
+        self.assertEqual(bm.card_line(ended, bm.LANE["checks"]), "The checks start")
+        building = one(
+            state(0, "building", "task 2 of 3"), ev(1, "builder.start", job="task 2")
+        )
+        self.assertEqual(bm.card_line(building, bm.LANE["build"]), "Task 2 of 3")
 
     def test_a_landing_that_waits_with_no_task_ahead_keeps_its_load_and_after_words(
         self,
@@ -1372,13 +1412,13 @@ class InterviewTurns(unittest.TestCase):
         written = (self.at(5, "interview.end"), self.at(6, "scout"))
         skip = model(*self.interview(*written, self.at(12, "read.skip.asked")))
         t = skip.tasks[0]
-        # the same row as the interview's, with its words, and the same way to the
-        # task's session (its need)
+        # a row of its own, named by the held block, with its words; the board answers
+        # it with its Yes and No
         self.assertEqual(
             self.rows(skip),
             [
                 (
-                    f"held:{self.SLUG}",
+                    f"skip:{self.SLUG}:20261120T090000Z",
                     "held",
                     "Lem asks whether to skip the personas' read of the criteria",
                     "overview",
@@ -1483,7 +1523,7 @@ class InterviewTurns(unittest.TestCase):
         t = m.by_slug[self.SLUG]
         self.assertEqual(
             sorted(w["key"] for w in bm.waits_of(m)),
-            ["breaker:gift-note:1", f"held:{order}", "held:zero-after-refund"],
+            [bkey(minute=1), f"held:{order}", "held:zero-after-refund"],
         )
         self.assertEqual(
             (t.for_owner, t.lane, t.goes_on, bm.now_head(t), bm.who_acts(t)),
@@ -1968,12 +2008,10 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
             state(20, "held", "breaker 1 waits for the owner"),
         )
         bm.put_sessions(m, self.sessions("runs", slug="gift-note"))
-        self.assertEqual(
-            (bm.waits_of(m), bm.held_back(m)), ([], {"breaker:gift-note:1"})
-        )
+        self.assertEqual((bm.waits_of(m), bm.held_back(m)), ([], {bkey()}))
         self.assertEqual(bm.now_head(m.tasks[0]), "Its session works on your answer")
         bm.put_sessions(m, self.sessions("ended", slug="gift-note"))
-        self.assertEqual([w["key"] for w in bm.waits_of(m)], ["breaker:gift-note:1"])
+        self.assertEqual([w["key"] for w in bm.waits_of(m)], [bkey()])
         blocked = model(
             state(0, "building", "task 1 of 2"),
             state(5, "blocked", "the fixture needs a login"),
@@ -2713,7 +2751,7 @@ class Inbox(unittest.TestCase):
 
     @staticmethod
     def thing(
-        key: str = "breaker:gift-note:1",
+        key: str | None = None,
         kind: str = "breaker",
         form: str = "question",
         *,
@@ -2722,7 +2760,7 @@ class Inbox(unittest.TestCase):
         **more: object,
     ) -> dict:
         return {
-            "key": key,
+            "key": key or bkey(),
             "task": task,
             "kind": kind,
             "form": form,
@@ -2764,8 +2802,7 @@ class Inbox(unittest.TestCase):
                 json.dumps(self.record(self.thing(), {"task": "gift-note"}, "x"))
             )
             self.assertEqual(
-                [s["key"] for s in bm.inbox_look(folder)["sent"]],
-                ["breaker:gift-note:1"],
+                [s["key"] for s in bm.inbox_look(folder)["sent"]], [bkey()]
             )
             (folder / bm.INBOX_LOOK).write_text("half")
             self.assertIsNone(bm.inbox_look(folder))
@@ -2927,7 +2964,7 @@ class Inbox(unittest.TestCase):
                 self.breaker(
                     self.record(
                         unsent,
-                        problem="the send of breaker:gift-note:1: server_error: down",
+                        problem=f"the send of {bkey()}: server_error: down",
                     )
                 ),
             )["why"],
@@ -5677,3 +5714,112 @@ class StoppedRow(unittest.TestCase):
             [(e["task"], e["open"], e["unread"]) for e in found["stopped"]],
             [("gift-note", "lem session open gift-note --why stopped", True)],
         )
+
+
+class Cards(unittest.TestCase):
+    """A `lem-ask` card of a task's session (criterion 1 of board-answers-a-card): a row
+    of "Waits for you" with its question while its folder says it is open and the
+    session that put it up is the task's live one."""
+
+    PAGE = "P-1"
+    ASKED = [
+        state(0, "building", "task 1 of 2", task="export-notes"),
+        ev(1, "session.open", "export-notes", session="S1", name="export-notes"),
+        ev(2, "card.asked", "export-notes", page=PAGE, prompt="Keep the empty cell?"),
+    ]
+
+    def model(
+        self, *more: dict, session: str = "S1", live: bool = True, cards: bool = True
+    ):
+        m = model(*self.ASKED, *more)
+        m.sessions = {
+            "export-notes": {
+                "live": live,
+                "agent": live,
+                "unanswered": False,
+                "session": "S1",
+            }
+        }
+        if cards:
+            m.cards = {
+                "export-notes": [
+                    {
+                        "page": self.PAGE,
+                        "prompt": "Keep the empty cell?",
+                        "since": bm.at(self.ASKED[2]["ts"]),
+                        "session": session,
+                        "chat": True,
+                    }
+                ]
+            }
+        return m
+
+    def test_an_open_card_of_the_live_session_is_a_row_with_its_question_whose_verb_opens_the_card(
+        self,
+    ) -> None:
+        m = self.model()
+        rows = [w for w in bm.waits_of(m) if w["kind"] == "card"]
+        self.assertEqual(
+            [(w["key"], bm.wait_say(w)["verb"], bm.wait_say(w)["to"]) for w in rows],
+            [("card:export-notes:P-1", "Keep the empty cell?", "card/P-1")],
+        )
+        self.assertFalse(bm.answered_in_session(rows[0], m))
+        self.assertIn("never a conversation", bm.wait_say(rows[0])["where"])
+
+    def test_a_card_of_an_earlier_session_or_of_a_session_that_does_not_run_has_no_row(
+        self,
+    ) -> None:
+        for m in (
+            self.model(session="S0"),
+            self.model(live=False),
+            self.model(cards=False),
+        ):
+            self.assertEqual(
+                [w["key"] for w in bm.waits_of(m) if w["kind"] == "card"], []
+            )
+
+    def test_the_folder_says_which_cards_are_open_and_the_end_event_closes_one_in_the_log(
+        self,
+    ) -> None:
+        lem_cards = importlib.import_module("lem_cards")
+        with tempfile.TemporaryDirectory() as tmp:
+            state_dir = Path(tmp)
+            folder = state_dir / "tasks" / "export-notes"
+            (folder / "cards").mkdir(parents=True)
+            lem_cards.card_file(folder, self.PAGE).write_text(
+                json.dumps(
+                    {
+                        "page": self.PAGE,
+                        "session": "S1",
+                        "questions": [
+                            {"id": "answer", "prompt": "Keep the empty cell?"}
+                        ],
+                    }
+                )
+            )
+            m = model(*self.ASKED)
+            self.assertEqual(
+                [
+                    (c["page"], c["session"], c["prompt"])
+                    for c in bm.cards_look(state_dir, m)["export-notes"]
+                ],
+                [(self.PAGE, "S1", "Keep the empty cell?")],
+            )
+            lem_cards.end_file(folder, self.PAGE).write_text(
+                json.dumps({"page": self.PAGE, "status": "answered", "from": "board"})
+            )
+            self.assertEqual(bm.cards_look(state_dir, m), {})
+            lem_cards.end_file(folder, self.PAGE).unlink()
+            answered = model(
+                *self.ASKED,
+                ev(
+                    3,
+                    "card.answered",
+                    "export-notes",
+                    page=self.PAGE,
+                    **{"from": "board"},
+                ),
+            )
+            self.assertEqual(
+                (answered.tasks[0].cards, bm.cards_look(state_dir, answered)), ({}, {})
+            )

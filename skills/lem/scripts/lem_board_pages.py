@@ -251,6 +251,13 @@ class Ctx:
     landing_of: Callable[[str], dict] = lambda slug: {}
     merging: set = field(default_factory=set)
     note: dict | None = None
+    # the end on record of a card of a task's session (`lem_cards.ended`), for the step
+    # of a card that no longer waits: what took effect
+    card_end: Callable[[str, str], dict | None] = lambda slug, page: None
+    # the fields of the address (`?key=...&words=...`), one value each: the confirm step
+    # of a park or a drop reads the row's key and the note that its answer form sent
+    # with Park… or Drop…
+    query: dict = field(default_factory=dict)
     _forge: str | Literal[False] | None = False
 
     @property
@@ -291,12 +298,12 @@ def task_href(
     file: str | None = None,
     under: str | None = None,
 ) -> str:
-    """Where a task opens: `/HOST/WORKSPACE/tasks/SLUG`, a tab after it, and for an
-    artifact its path, each part encoded, with a slash at its end, so that no address
-    ends in an extension Turbo refuses to visit (`report.md/`); the view under the panel
-    in the query."""
+    """Where a task opens: `/HOST/WORKSPACE/tasks/SLUG`, a tab after it (`card/PAGEID`
+    for the step of a card), and for an artifact its path, each part encoded, with a
+    slash at its end, so that no address ends in an extension Turbo refuses to visit
+    (`report.md/`); the view under the panel in the query."""
     path = f"{ctx.base}/tasks/{quote(slug, safe='')}" + (
-        "" if tab == "overview" and not file else f"/{quote(tab, safe='')}"
+        "" if tab == "overview" and not file else f"/{quote(tab, safe='/')}"
     )
     if file:
         path += "/" + "/".join(quote(part, safe="") for part in file.split("/")) + "/"
@@ -536,6 +543,124 @@ def act_form(  # noqa: PLR0913, PLR0917 - over the limit before the limit was se
             icon(ctx, name),
             h("span", None, label),
         ),
+    )
+
+
+# The icon and the look of each option of a row the board answers with its own
+# buttons (lem_answers.OPTIONS).
+ANSWER_LOOK = {
+    "build": ("play", "go"),
+    "help": ("help", "go"),
+    "yes": ("check", "go"),
+    "no": ("x", ""),
+    "park": ("park", ""),
+    "drop": ("x", "risk"),
+}
+# The longest note of an answer the board takes, in characters: a few sentences
+# (a guess).
+NOTE_CHARS = 2000
+
+
+def answer_form(
+    ctx: Ctx,
+    t: bm.Task,
+    asks: dict,
+    where: str,
+    under: str | None = None,
+    digest: str | None = None,
+    tab: str | None = None,
+) -> Markup:
+    """The one answer form of a row the board answers with its own buttons
+    (`lem_board_model.answer_row`), the same in the row of "Waits for you" and on the
+    task's page: its question, one note field and the options as buttons. An option that
+    the task's session takes posts the form to the answer route with the row's key
+    (serve.py `act_answer`); Park and Drop open their confirm step first, with the note
+    typed so far (`formaction`, a read). WHERE tells the two places apart in the field's
+    id, which a refresh keeps as he types; DIGEST is the criterion's, which the
+    page showed."""
+    slug = t.slug
+    key = asks["key"]
+    field_id = f"ans-{where}-{ctx.workspace}-{key.replace(':', '-')}"
+    note = h(
+        "label",
+        {"class": "act-field ans-note"},
+        h("span", None, asks["note"]),
+        h(
+            "textarea",
+            {
+                "id": field_id,
+                "name": "words",
+                "rows": "2",
+                "maxlength": str(NOTE_CHARS),
+                "data-turbo-permanent": True,
+                "autocomplete": "off",
+                "placeholder": "Your words, as you would type them in the session",
+            },
+        ),
+    )
+    buttons = []
+    for option, label in asks["options"].items():
+        name, cls = ANSWER_LOOK.get(option, ("check", ""))
+        if option in ("park", "drop"):
+            # the confirm step, as a read of the task's panel: the form's fields go with
+            # it, the note among them
+            step = {
+                "formaction": f"{ctx.base}/tasks/{quote(slug, safe='')}/{option}",
+                "formmethod": "get",
+                "formnovalidate": True,
+                **(
+                    {}
+                    if ctx.native
+                    else {"data-turbo-frame": "task", "data-turbo-action": "advance"}
+                ),
+            }
+            buttons.append(
+                h(
+                    "button",
+                    {"class": f"btn {cls}".strip(), "type": "submit", **step},
+                    icon(ctx, name),
+                    h("span", None, f"{label}…"),
+                )
+            )
+        else:
+            buttons.append(
+                h(
+                    "button",
+                    {
+                        "class": f"btn {cls}".strip(),
+                        "type": "submit",
+                        "name": "option",
+                        "value": option,
+                        "data-turbo-submits-with": f"{label}…",
+                    },
+                    icon(ctx, name),
+                    h("span", None, label),
+                )
+            )
+    fields = {
+        "key": key,
+        "digest": digest,
+        "tab": tab,
+        "in": under if under in UNDER and under != "tasks" else None,
+    }
+    return h(
+        "form",
+        {
+            "class": "act-form answer-form",
+            "id": f"answer-{where}-{key.replace(':', '-')}",
+            "method": "post",
+            "action": f"{ctx.base}/tasks/{quote(slug, safe='')}/answer",
+            "data-turbo-frame": "_top",
+            "aria-label": asks["question"],
+        },
+        [
+            h("input", {"type": "hidden", "name": name_, "value": value})
+            for name_, value in fields.items()
+            if value is not None
+        ],
+        h("div", {"class": "ans-q"}, asks["question"]),
+        note,
+        h("div", {"class": "act-row ans-acts"}, buttons),
     )
 
 
@@ -2547,16 +2672,43 @@ def verb_link(ctx: Ctx, w: dict, say: dict) -> dict:
 
 
 def row_acts(ctx: Ctx, w: dict) -> Markup | None:
-    """The buttons of a row of "Waits for you": the way to criteria that wait for the
-    owner's yes, which he gives under their text, the way to a merge's confirm step, the
-    way to park a task whose breaker waits, and "Open a session" for a task stuck with
-    none or whose session stopped. None on a page that may not act, and for a row with
-    no act."""
+    """The buttons of a row of "Waits for you": the answer form of a row the board
+    answers with its own buttons (a breaker, a plan, the two yes/no rows: `answer_form`,
+    with the one criterion's text above its Yes and No), the way to criteria that wait
+    for the owner's yes, which he gives under their text, the way to a merge's confirm
+    step, the way to a card of the task's session, and "Open a session" for a task stuck
+    with none or whose session stopped. None on a page that may not act, and for a row
+    with no act."""
     if not ctx.can_act:
         return None
     t = w["t"]
     acts = bm.acts_of(t, ctx.model.seen)
     out = []
+    asks = w.get("asks")
+    if asks and asks["kind"] == "criterion":
+        # the one criterion, as criteria.md has it, above his Yes and No: the yes is to
+        # the text he reads here
+        waiting = ctx.criteria_waiting(t.slug)
+        if waiting:
+            out.append(
+                md_block(
+                    ctx,
+                    f"criterion-{t.slug}",
+                    waiting["text"],
+                    slug=t.slug,
+                    cls="b-md wr-criterion",
+                )
+            )
+            out.append(
+                answer_form(ctx, t, asks, "row", "waits", digest=waiting["digest"])
+            )
+        return h("div", {"class": "wr-acts wr-answer"}, out) if out else None
+    if asks:
+        return h(
+            "div",
+            {"class": "wr-acts wr-answer"},
+            answer_form(ctx, t, asks, "row", "waits"),
+        )
     if w["kind"] == "criteria" or (w["kind"] == "held" and "approve" in acts):
         waiting = ctx.criteria_waiting(t.slug) if "approve" in acts else None
         if waiting:
@@ -2586,6 +2738,21 @@ def row_acts(ctx: Ctx, w: dict) -> Markup | None:
     if w["kind"] == "breaker" and "park" in acts:
         out.append(
             act_link(ctx, t.slug, "park", "Park it…", "park", "", "waits", frame=True)
+        )
+    if w["kind"] == "card":
+        out.append(
+            h(
+                "a",
+                {
+                    "class": "btn go",
+                    **frame_link(
+                        ctx,
+                        task_href(ctx, t.slug, f"card/{w['c']['page']}", under="waits"),
+                    ),
+                },
+                icon(ctx, "user"),
+                h("span", None, "Answer the card…"),
+            )
         )
     if w["kind"] in ("session", "stopped") and bm.opens_session(t, ctx.model):
         out.append(

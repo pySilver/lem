@@ -2,8 +2,9 @@
 // pictures (tests/board-showcase.py), tests/lem-serve.sh's typing into a page, the keys of tests/lem-board-keys.sh and a builder's look at a page. SPEC has a viewport (`width`,
 // `height`, `scale`, `mobile` for a phone's emulation), `dark` for the color scheme, `ua` for another
 // user agent, `noscript` for a page with its scripts off, `posts` to print each POST it sends, and `steps`:
-// {goto, wait}, {size} (the window's [width, height] from then on), {wait}, {eval}, {print}, {click} (with `tap`, a finger's touch, as a phone gets it), {sh} (a
-// command, its output printed), {key} (with `code`, `vk`, `text`, `modifiers`), {shot}. Chrome runs
+// {goto, wait}, {size} (the window's [width, height] from then on), {wait}, {eval}, {print}, {click} (with `tap`, a
+// finger's touch, as a phone gets it, and `frame`, the selector of an iframe of the page whose element it clicks), {sh} (a
+// command, its output printed), {key} (with `code`, `vk`, `text`, `modifiers`), {shot} (with `full`, the whole page). Chrome runs
 // with a throwaway profile and the mock keychain, and the profile goes at the end. CHROME names the
 // browser; by default Google Chrome's place on macOS, else the first of google-chrome and chromium.
 import { spawn, execSync } from 'node:child_process'
@@ -75,7 +76,9 @@ try {
       const r = await send('Runtime.evaluate', { expression: step.print, awaitPromise: true, returnByValue: true })
       console.log(JSON.stringify(r.result?.result?.value ?? r.result))
     } else if (step.click) {
-      const r = await send('Runtime.evaluate', { expression: `(() => { const n = document.querySelector(${JSON.stringify(step.click)}); if (!n) return null; n.scrollIntoView({block: 'center'}); const b = n.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`, returnByValue: true })
+      // in a frame: the element's place in the frame's window, moved by the frame's own place in the page
+      const where = step.frame ? `(() => { const f = document.querySelector(${JSON.stringify(step.frame)}); if (!f || !f.contentDocument) return null; const b = f.getBoundingClientRect(); return [f.contentDocument, b.left + f.clientLeft, b.top + f.clientTop]; })()` : '[document, 0, 0]'
+      const r = await send('Runtime.evaluate', { expression: `(() => { const at = ${where}; if (!at) return null; const n = at[0].querySelector(${JSON.stringify(step.click)}); if (!n) return null; n.scrollIntoView({block: 'center'}); const b = n.getBoundingClientRect(); return [at[1] + b.left + b.width / 2, at[2] + b.top + b.height / 2]; })()`, returnByValue: true })
       const at = r.result?.result?.value
       if (!at) { console.log('no element', step.click); continue }
       if (step.tap) for (const type of ['touchStart', 'touchEnd']) await send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchStart' ? [{ x: at[0], y: at[1] }] : [] })
@@ -95,7 +98,15 @@ try {
       }
       await sleep(step.after ?? 600)
     } else if (step.shot) {
+      // `full`: the whole page, in a window as tall as the page for the picture, so that a part fixed at the window's foot is drawn at the page's
+      const metrics = { width: w, height: h, deviceScaleFactor: spec.scale ?? 1, mobile: Boolean(spec.mobile) }
+      if (step.full) {
+        const tall = Math.ceil((await send('Page.getLayoutMetrics')).result.cssContentSize.height)
+        await send('Emulation.setDeviceMetricsOverride', { ...metrics, height: Math.max(h, tall) })
+        await sleep(400)
+      }
       const r = await send('Page.captureScreenshot', { format: 'png' })
+      if (step.full) { await send('Emulation.setDeviceMetricsOverride', metrics); await sleep(300) }
       writeFileSync(step.shot, Buffer.from(r.result.data, 'base64'))
       console.log(step.shot)
     }

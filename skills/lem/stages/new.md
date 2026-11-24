@@ -382,9 +382,12 @@ queued task").
      yes, `lem criteria approve SLUG --file TASK_DIR/criteria.md`: his approval, and the pull
      request is green for it. A change of his goes into `criteria.md` in his words first, then the
      same approval. A yes he gave on the board is on record already (`by: owner` in `lem criteria
-     approved SLUG`), and the board's server wakes this session for it. Then `stages/start.md`,
-     whose `building` block carries no type line, since the wait has it: it starts the one
-     builder. His "standard", or a change that makes it more than one plain change, takes the
+     approved SLUG`), and the board's server wakes this session for it. After his approval,
+     `stages/start.md`, whose `building` block carries no type line, since the wait has it: it
+     starts the one builder. His No on the board carries his words on what the criterion should
+     say (`note` of `board_answer`, `prompts/session.md`, "His answer on the board"): they are a
+     change of his, written into `criteria.md` in his words, and then this held block is written
+     again, so that the board asks his yes to the new text in a new row. His "standard", or a change that makes it more than one plain change, takes the
      standard track as `/lem standard-track` does.
    - *A task of the night, and such a ticket or item while he is away*: `lem criteria approve SLUG
      --file TASK_DIR/criteria.md --alone`, and its builder starts with no wait. Its pull request is
