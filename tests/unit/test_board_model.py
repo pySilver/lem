@@ -2190,6 +2190,32 @@ class Sessions(unittest.TestCase):
         self.assertIn("/lem drop gift-note", where)
         self.assertNotIn("Tell the task’s session", where)
 
+    def test_a_task_with_a_second_row_beside_no_session_is_answered_where_that_row_says(
+        self,
+    ) -> None:
+        # no-session-row-names-open, review round 1, 2026-11-22: a held and a planned
+        # task with no session were sent to the session that is gone
+        for status, text, second in (
+            ("held", "the migration needs the owner", "held"),
+            ("planned", "plan written, the owner reads it", "plan"),
+        ):
+            with self.subTest(status=status):
+                m = model(state(0, "building", "lead: builder"), state(5, status, text))
+                m.sessions = {}
+                t, waits = m.tasks[0], bm.waits_of(m)
+                self.assertEqual([w["kind"] for w in waits], ["session", second])
+                # the open comes first, and the second row's words follow for the
+                # session he opens
+                self.assertEqual(
+                    bm.waits_for(t, waits)["where"],
+                    f"{bm.wait_say(waits[0])['where']} {bm.answer_of(t)}",
+                )
+                self.assertTrue(
+                    bm.wait_say(waits[0])["where"].startswith(
+                        "Open a session here or on the task’s header"
+                    )
+                )
+
     def test_nothing_is_said_while_the_server_has_not_asked_or_the_session_is_young(
         self,
     ) -> None:
@@ -3816,13 +3842,16 @@ class AfterDropped(unittest.TestCase):
         self,
     ) -> None:
         # a breaker whose task has no session: the session's row does not take the
-        # breaker's words away
+        # breaker's words away, and says first that a session is to be opened
         m = model(state(0, "building", "task 2 of 3"), Breakers.STOP, Breakers.HELD)
         m.sessions = {}
         t = m.tasks[0]
         rows = bm.waits_of(m)
         self.assertEqual([w["kind"] for w in rows], ["session", "breaker"])
-        self.assertEqual(bm.waits_for(t, rows)["where"], bm.answer_of(t))
+        self.assertEqual(
+            bm.waits_for(t, rows)["where"],
+            f"{bm.wait_say(rows[0])['where']} {bm.answer_of(t)}",
+        )
         self.assertIn("/lem park gift-note", bm.waits_for(t, rows)["where"])
 
     def test_a_need_gets_the_same_row(self) -> None:

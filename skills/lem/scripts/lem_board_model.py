@@ -4742,24 +4742,27 @@ def waits_for(t: Task, waits: list) -> dict | None:
     for nothing."""
     mine = [w for w in waits if w["t"] is t]
     if mine:
-        # a task whose only row is "no session" is answered where that row says, never
-        # in the session that is gone; a row of another kind (a breaker) keeps its
-        # own words
-        gone = (
-            mine[0]
-            if len(mine) == 1
-            and (
-                mine[0]["kind"] == "stopped"
-                or (mine[0]["kind"] == "session" and not mine[0].get("deaf"))
-            )
-            else None
+        # a task with a row "no session" is answered where that row says first, never
+        # in the session that is gone; the words of its other row (a breaker, a held
+        # state, a plan) follow, for the session he opens, and a task with no such row
+        # keeps its own words
+        gone = next(
+            (
+                w
+                for w in mine
+                if w["kind"] == "stopped"
+                or (w["kind"] == "session" and not w.get("deaf"))
+            ),
+            None,
         )
-        where = (
-            answer_of(t)
-            if gone is None
-            else wait_say(gone)["where"]
-            + ("" if t.closed else f" Or type /lem drop {t.slug} to end it.")
+        then = (
+            f" {answer_of(t)}"
+            if len(mine) > 1
+            else ""
+            if t.closed
+            else f" Or type /lem drop {t.slug} to end it."
         )
+        where = answer_of(t) if gone is None else wait_say(gone)["where"] + then
         return {
             "you": True,
             "text": "; ".join(wait_say(w)["verb"] for w in mine),
