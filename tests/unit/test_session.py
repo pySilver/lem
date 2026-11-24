@@ -1477,6 +1477,34 @@ class Handoff(unittest.TestCase):
             ):
                 session.handoff_form(text, SLUG)
 
+    def test_a_code_block_that_never_closes_is_refused_with_its_line(self) -> None:
+        # a fence with no close, and a sample in three backticks that holds a block of
+        # its own in three backticks, whose outer close opens a block (its line 7)
+        shapes = (
+            ("```markdown\n## Open\n- one\n", 0),
+            ("```markdown\n## Open\n\n```python\nprint(1)\n```\n```\n", 6),
+        )
+        for sample, offset in shapes:
+            text = HANDOFF.replace(
+                "- the criteria, approved (`criteria.json`)\n",
+                f"- the criteria, approved (`criteria.json`)\n\n{sample}\n",
+            )
+            first = text.splitlines().index("```markdown")
+            with (
+                self.subTest(offset=offset),
+                self.assertRaises(session.SessionError) as raised,
+            ):
+                session.handoff_form(text, SLUG)
+            said = str(raised.exception)
+            self.assertIn(
+                f"handoff.md of {SLUG}: line {first + offset + 1} opens a code block "
+                "that never closes",
+                said,
+            )
+            self.assertIn("close the fence", said)
+            # the parts after it are there: the refusal names none as lacking
+            self.assertNotIn("lacks", said)
+
 
 class Hooks(unittest.TestCase):
     """The hooks as Claude Code starts them, in a throwaway repository: silent with exit

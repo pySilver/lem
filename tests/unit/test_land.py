@@ -74,7 +74,9 @@ def bar(
 ) -> dict:
     """land.bar_of over the parts of a diff, the name-status rows, the plan and the
     changed files."""
-    return land.bar_of("\n".join(patches), list(rows), plan, list(files))
+    return land.bar_of(
+        "\n".join(patches), list(rows), plan, list(files), where="docs/plans/plan.md"
+    )
 
 
 def lowered(result: dict) -> list[tuple[str, str]]:
@@ -889,7 +891,11 @@ class Bar(unittest.TestCase):
         tool = patch("tools/run", plus=("# shellcheck" + " disable=SC2086",), new=True)
         kinds = {"bin/lem": ".py", "tools/run": ".sh"}
         self.assertEqual(
-            lowered(land.bar_of(f"{script}\n{tool}", [], "", list(kinds), kinds=kinds)),
+            lowered(
+                land.bar_of(
+                    f"{script}\n{tool}", [], "", list(kinds), kinds=kinds, where=""
+                )
+            ),
             [("bin/lem", NOQA), ("tools/run", "# shellcheck" + " disable")],
         )
         # with no kind, a file with no suffix takes no marks, and is no kind of file
@@ -1201,12 +1207,12 @@ class FencedPlan(unittest.TestCase):
             "# gift-note\n\n## Tasks\n\n1. Write the export's column:\n\n"
             f"{self.SAMPLE}\n2. Test it.\n\n3. Say it in the guide.\n"
         )
-        self.assertEqual(land.tasks_of(plan), 3)
+        self.assertEqual(land.tasks_of(plan, "docs/plans/gift-note.md"), 3)
 
     def test_a_heading_inside_a_fence_of_the_notes_ends_no_section(self) -> None:
         notes = f"## Decisions\n\n- the sample:\n\n{self.SAMPLE}\n- the column\n"
         self.assertEqual(
-            land.section(notes, "## Decisions").split(),
+            land.section(notes, "## Decisions", where="notes.md").split(),
             ["-", "the", "sample:", *self.SAMPLE.split(), "-", "the", "column"],
         )
 
@@ -1223,6 +1229,83 @@ class FencedPlan(unittest.TestCase):
             [entry["reason"] for entry in result["lowered"]],
             ["the import registers a plugin."],
         )
+
+
+class UnclosedFence(unittest.TestCase):
+    """A code block that never closes makes each line after it a line of code: each
+    reader of a plan's or the notes' sections refuses it with its file, its line and
+    the fix, and never reads a section short."""
+
+    # The two shapes, each with the line of the block that never closes: a fence with
+    # no close, and a sample in three backticks that holds a block of its own in three
+    # backticks, whose inner close ends the sample and whose outer close opens a block.
+    SHAPES = (
+        ("```markdown\n## Notes\n\n1. a line of the sample\n", 0),
+        ("```markdown\n## Notes\n\n```python\nprint(1)\n```\n```\n", 6),
+    )
+
+    def opens(self, text: str, offset: int) -> str:
+        """The words of the refusal for the block of TEXT that opens OFFSET lines after
+        its sample's first line."""
+        first = text.splitlines().index("```markdown")
+        return f"line {first + offset + 1} opens a code block that never closes"
+
+    def test_a_plan_s_tasks(self) -> None:
+        for sample, offset in self.SHAPES:
+            plan = (
+                "# gift-note\n\n## Tasks\n\n1. Write the export's column.\n\n"
+                f"2. Show the sample:\n\n{sample}\n3. Test it.\n\n4. Say it in the "
+                "guide.\n\n5. Land it.\n"
+            )
+            with (
+                self.subTest(offset=offset),
+                self.assertRaises(land.LandError) as raised,
+            ):
+                land.tasks_of(plan, "docs/plans/gift-note.md")
+            said = str(raised.exception)
+            self.assertIn("docs/plans/gift-note.md", said)
+            self.assertIn(self.opens(plan, offset), said)
+            self.assertIn("close the fence", said)
+
+    def test_a_plan_s_bar(self) -> None:
+        for sample, offset in self.SHAPES:
+            plan = (
+                "# bar-change\n\n## The bar\n\n- `tests/test_base.py`: the sample:\n\n"
+                f"{sample}\n- calc.py: the import registers a plugin.\n"
+            )
+            with (
+                self.subTest(offset=offset),
+                self.assertRaises(land.LandError) as raised,
+            ):
+                land.bar_of(
+                    patch("calc.py", plus=(f"import os  {NOQA}: F401",)),
+                    [],
+                    plan,
+                    [],
+                    where="docs/plans/bar-change.md",
+                )
+            self.assertIn("docs/plans/bar-change.md", str(raised.exception))
+            self.assertIn(self.opens(plan, offset), str(raised.exception))
+
+    def test_the_notes(self) -> None:
+        for sample, offset in self.SHAPES:
+            notes = (
+                f"## Decisions\n\n- the sample:\n\n{sample}\n## Left open\n\n"
+                "- the export drops a gift note of 600 characters\n"
+            )
+            for read in (
+                lambda text: land.sections_of(text, where="notes.md"),
+                lambda text: land.section(text, "## Left open", where="notes.md"),
+                lambda text: land.unfiled_lines(
+                    text, small=False, folder="docs/backlog", in_tip=lambda _: False
+                ),
+            ):
+                with (
+                    self.subTest(offset=offset),
+                    self.assertRaises(land.LandError) as raised,
+                ):
+                    read(notes)
+                self.assertIn(self.opens(notes, offset), str(raised.exception))
 
 
 class BarRefusal(unittest.TestCase):

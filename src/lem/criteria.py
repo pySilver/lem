@@ -325,6 +325,35 @@ def fences(lines: list[str]) -> list[tuple[int, int, str, int]]:
     word, its indent. A fence closes only on a line of its own character, at least as
     long as the one that opened it, with nothing after it: a shorter fence inside is a
     part of the block. One that never closes runs to the end of the text."""
+    found, opened = closed_fences(lines)
+    if opened is not None:
+        found.append((opened[2], len(lines) - 1, opened[3], opened[4]))
+    return found
+
+
+def fenced_lines(lines: list[str], where: str, error: type[Exception]) -> set[int]:
+    """The numbers of the LINES of each fenced block (`fences`), its fences too, for a
+    reader that takes a document by its `## ` headings, where a line of code is never a
+    heading. A block that never closes is refused with ERROR, which names WHERE, the
+    document: each line after its fence would read as code, and the reader would go on
+    with less of the document than its writer wrote."""
+    found, opened = closed_fences(lines)
+    if opened is not None:
+        raise error(
+            f"{where}: line {opened[2] + 1} opens a code block that never closes "
+            f"({lines[opened[2]].strip()}), so each line after it reads as code and "
+            "no heading after it counts; close the fence, or put a sample that holds "
+            "fences of its own in a longer fence (```` around ```)"
+        )
+    return {n for first, last, *_ in found for n in range(first, last + 1)}
+
+
+def closed_fences(
+    lines: list[str],
+) -> tuple[list[tuple[int, int, str, int]], tuple[str, int, int, str, int] | None]:
+    """The blocks of LINES that close, as `fences` gives each, and the one left open at
+    the end: its fence's character and length, its line, its info word and its
+    indent, or None."""
     found: list[tuple[int, int, str, int]] = []
     opened: tuple[str, int, int, str, int] | None = None
     for i, line in enumerate(lines):
@@ -348,9 +377,7 @@ def fences(lines: list[str]) -> list[tuple[int, int, str, int]]:
         ):
             found.append((opened[2], i, opened[3], opened[4]))
             opened = None
-    if opened is not None:
-        found.append((opened[2], len(lines) - 1, opened[3], opened[4]))
-    return found
+    return found, opened
 
 
 def parse(text: str, name: str) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set

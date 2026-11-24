@@ -660,7 +660,10 @@ def handoff_form(text: str, slug: str) -> dict:  # noqa: C901, PLR0912 - over th
     """What handoff.md says of itself, after a check of its form
     (`templates/handoff.md`): its task, the phase it is from, its time and its changed
     files; a SessionError that names each part it lacks."""
-    bare = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    # a comment leaves its line breaks, so that a refusal names a line of the file
+    bare = re.sub(
+        r"<!--.*?-->", lambda found: "\n" * found[0].count("\n"), text, flags=re.DOTALL
+    )
     lines = bare.splitlines()
     head = next((line.strip() for line in lines if line.strip()), "")
     found = HANDOFF_LINE.fullmatch(head)
@@ -680,10 +683,11 @@ def handoff_form(text: str, slug: str) -> dict:  # noqa: C901, PLR0912 - over th
             f"and a phase is one of {', '.join(PHASES)}"
         )
     # here: the one fence rule of Lem, which only this check of session.py needs
-    from lem.criteria import fences
+    from lem.criteria import fenced_lines
 
-    # a line inside a code block is a line of its part, never a heading
-    fenced = {n for first, last, *_ in fences(lines) for n in range(first, last + 1)}
+    # a line inside a code block is a line of its part, never a heading; a block that
+    # never closes is refused before any part is named as missing
+    fenced = fenced_lines(lines, f"{HANDOFF} of {slug}", SessionError)
     parts: dict[str, list[str]] = {}
     current = None
     for number, line in enumerate(lines):

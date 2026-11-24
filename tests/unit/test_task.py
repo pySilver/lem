@@ -1297,6 +1297,31 @@ class FirstLine(unittest.TestCase):
             project.outcome_of(f"## Outcome\n\n~~~\nx\n~~~\n\n## Notes\n\n{quoted}.\n")
         )
 
+    def test_a_block_that_never_closes_hides_no_sentence_it_showed(self) -> None:
+        quoted = "The board shows the outcome of each task in one line"
+        # a sample in three backticks that holds a block of its own in three
+        # backticks: the inner close ends the sample, and the outer close, right
+        # after it, is that close again, never a block to the end of the text
+        for between in ("", "\n"):
+            self.assertEqual(
+                project.outcome_of(
+                    "## Outcome\n\n```md\n```python\nprint(1)\n```\n"
+                    f"{between}```\n\n{quoted}. It reads task.md.\n"
+                ),
+                quoted,
+                repr(between),
+            )
+        # a fence with no close is a block to the end, and code is never quoted
+        self.assertIsNone(
+            project.outcome_of(
+                f"## Outcome\n\n```sh\nmkdir -p out && cp a b\n\n{quoted}.\n"
+            )
+        )
+        self.assertEqual(
+            project.outcome_of(f"## Outcome\n\n{quoted}.\n\n```sh\nmkdir -p out\n"),
+            quoted,
+        )
+
     def test_a_bold_outcome_is_quoted_whole(self) -> None:
         # brief-reads-installed-lem, 2026-11-22: one bold sentence wrapped over
         # two lines

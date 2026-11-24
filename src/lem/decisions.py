@@ -896,11 +896,12 @@ def breaker_document(file: Path) -> str:
             "write it in UTF-8"
         ) from error
     # here: the one fence rule of Lem, which only this check of decisions.py needs
-    from lem.criteria import fences
+    from lem.criteria import fenced_lines
 
     lines = written.splitlines()
-    # a line inside a code block is a line of its part, never a heading
-    fenced = {n for first, last, *_ in fences(lines) for n in range(first, last + 1)}
+    # a line inside a code block is a line of its part, never a heading; a block that
+    # never closes is refused before any part is named as missing
+    fenced = fenced_lines(lines, str(file), DecisionError)
     title = next(
         (
             line[2:].strip()

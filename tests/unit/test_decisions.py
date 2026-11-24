@@ -265,6 +265,35 @@ class TheBreaker(unittest.TestCase):
             decisions.breaker_document(fenced).startswith("WHAT STOPPED THE BUILD")
         )
 
+    def test_a_code_block_that_never_closes_is_refused_with_its_line(self) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        document = Path(folder.name) / "breaker.md"
+        text = self.TEMPLATE.read_text(encoding="utf-8")
+        # a fence with no close, and a sample in three backticks that holds a block of
+        # its own in three backticks, whose outer close opens a block (its line 7)
+        shapes = (
+            ("```markdown\n## The options\n- one\n", 0),
+            ("```markdown\n## The options\n\n```python\nprint(1)\n```\n```\n", 6),
+        )
+        for sample, offset in shapes:
+            written = text.replace("## The options", f"{sample}\n## The options", 1)
+            document.write_text(written, encoding="utf-8")
+            first = written.splitlines().index("```markdown")
+            with (
+                self.subTest(offset=offset),
+                self.assertRaises(decisions.DecisionError) as raised,
+            ):
+                decisions.breaker_document(document)
+            said = str(raised.exception)
+            self.assertIn(
+                f"{document}: line {first + offset + 1} opens a code block that "
+                "never closes",
+                said,
+            )
+            self.assertIn("close the fence", said)
+            self.assertNotIn("lacks", said)
+
     def test_his_help_on_a_breaker_is_the_owners(self) -> None:
         with self.assertRaisesRegex(
             decisions.DecisionError, "--breaker and --words are the owner's"

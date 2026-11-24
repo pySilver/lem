@@ -5420,7 +5420,23 @@ def outcome_of(text: str) -> str | None:
     fenced = ""
     # the column of the text of the step a line is in, or None
     inside: int | None = None
-    for row in text[found.end() :].splitlines():
+    rows = text[found.end() :].splitlines()
+    # here: the one fence rule of Lem, which only this read of the outcome needs
+    from lem.criteria import closed_fences
+
+    # A sample in three backticks that holds a block of its own in three backticks:
+    # the inner close ends the sample, and the outer close opens a block that never
+    # closes. A fence that opens one right after a close is that close again, and its
+    # line is skipped; any other block that never closes runs to the end, code that is
+    # never quoted.
+    closed, opened = closed_fences(rows)
+    if (
+        opened is not None
+        and closed
+        and not any(row.strip() for row in rows[closed[-1][1] + 1 : opened[2]])
+    ):
+        rows[opened[2]] = ""
+    for row in rows:
         line = row.strip()
         indent = len(row) - len(row.lstrip())
         fence = re.match(r"`{3,}|~{3,}", line)

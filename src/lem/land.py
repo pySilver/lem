@@ -1088,6 +1088,9 @@ SLUG_AT = 80
 # read the task's report can say.
 FILED = "## Filed in the backlog"
 NOTES = ("## Decisions", "## Left open", "## Worth a look", FILED, "## Not done")
+# The notes as a refusal of their form names them: `propose` refuses notes with a code
+# block that never closes by the file `--notes` names before any other step reads them.
+NOTES_READ = "the notes of the pull request (--notes)"
 # A document may quote a mark of the bar, the plan's own reason for one too: no mark is
 # looked for in these.
 DOCS = (".md", ".rst", ".adoc")
@@ -3489,7 +3492,7 @@ def called_bodies(notes: str, *, small: bool) -> list[list[str]]:
     and `## Seen, not filed`, and on the fast track (SMALL), whose notes have no fixed
     headings, the lines before the first heading too, where the should findings the
     review left are."""
-    head, parts = sections_of(notes)
+    head, parts = sections_of(notes, where=NOTES_READ)
     return [
         *([head] if small else []),
         *(lines for heading, lines in parts if heading in (LEFT_OPEN, SEEN)),
@@ -3551,13 +3554,16 @@ def outside_words(read: dict, fixed: str) -> str:
     )
 
 
-def sections_of(text: str) -> tuple[list[str], list[tuple[str, list[str]]]]:
+def sections_of(
+    text: str, *, where: str
+) -> tuple[list[str], list[tuple[str, list[str]]]]:
     """A notes file as its lines before the first `## ` heading, and each heading with
-    its lines; a line of a code block is never a heading (`fenced_lines`)."""
+    its lines; a line of a code block is never a heading, and a block that never closes
+    is refused with WHERE, the file (`fenced_lines`)."""
     head: list[str] = []
     parts: list[tuple[str, list[str]]] = []
     lines = text.splitlines()
-    fenced = fenced_lines(lines)
+    fenced = fenced_lines(lines, where)
     for number, line in enumerate(lines):
         if number not in fenced and re.fullmatch(r"## \S.*", line.rstrip()):
             parts.append((line.rstrip(), []))
@@ -3568,11 +3574,11 @@ def sections_of(text: str) -> tuple[list[str], list[tuple[str, list[str]]]]:
     return head, parts
 
 
-def section(text: str, heading: str) -> str:
-    """The lines of TEXT under HEADING, or nothing."""
+def section(text: str, heading: str, *, where: str) -> str:
+    """The lines of TEXT, the file WHERE, under HEADING, or nothing."""
     return "\n".join(
         line
-        for name, lines in sections_of(text)[1]
+        for name, lines in sections_of(text, where=where)[1]
         if name == heading
         for line in lines
     )
@@ -3603,7 +3609,7 @@ def with_outside(
     they are."""
     if not filed and not not_worth and not seen:
         return notes
-    head, parts = sections_of(notes)
+    head, parts = sections_of(notes, where=NOTES_READ)
     at = {name: index for index, (name, _) in enumerate(parts)}
     own_filed = lines_of(parts[at[FILED]][1]) if FILED in at else []
     own_not = lines_of(parts[at[NOT_WORTH]][1]) if NOT_WORTH in at else []
@@ -3999,27 +4005,30 @@ def careful(task: Task, now: dict) -> list[str]:
     return why
 
 
-def fenced_lines(lines: list[str]) -> set[int]:
+def fenced_lines(lines: list[str], where: str) -> set[int]:
     """The numbers of the LINES of a fenced code block, its fences too
-    (`criteria.fences`): a heading or a numbered line there is a line of code, never a
-    section's start or a task."""
+    (`criteria.fenced_lines`): a heading or a numbered line there is a line of code,
+    never a section's start or a task. A block that never closes is refused, a
+    LandError that names WHERE, the document's file."""
     # here: the one fence rule of Lem, which only the readers of sections need
-    from lem.criteria import fences
+    from lem.criteria import fenced_lines as fenced
 
-    return {n for first, last, *_ in fences(lines) for n in range(first, last + 1)}
+    return fenced(lines, where, LandError)
 
 
-def unfenced(text: str) -> str:
+def unfenced(text: str, where: str) -> str:
     """TEXT with each line of a fenced code block blank (`fenced_lines`)."""
     lines = text.splitlines()
-    fenced = fenced_lines(lines)
+    fenced = fenced_lines(lines, where)
     return "".join(f"{'' if n in fenced else line}\n" for n, line in enumerate(lines))
 
 
-def tasks_of(plan: str) -> int:
+def tasks_of(plan: str, where: str) -> int:
     """How many tasks the plan has: the numbered lines, or numbered headings, under its
-    `## Tasks` heading, outside a code block."""
-    section = re.search(r"(?ms)^##\s+Tasks\b[^\n]*$(.*?)(?=^##\s|\Z)", unfenced(plan))
+    `## Tasks` heading, outside a code block. WHERE is the plan's file."""
+    section = re.search(
+        r"(?ms)^##\s+Tasks\b[^\n]*$(.*?)(?=^##\s|\Z)", unfenced(plan, where)
+    )
     count = (
         len(re.findall(r"(?m)^(?:###\s+)?\d+\.\s", section.group(1))) if section else 0
     )
@@ -4032,9 +4041,9 @@ def tasks_of(plan: str) -> int:
     return count
 
 
-def bar(task: Task, base: str, tip: str, plan: str) -> dict:
+def bar(task: Task, base: str, tip: str, plan: str, where: str) -> dict:
     """Where the change lowers the bar, each with the reason the plan gives for that
-    file, or none."""
+    file, or none. PLAN is the plan's text and WHERE its file."""
     # -M: a file that moved is one file, so its tests are not counted as gone and
     # come again
     files = changed(task, base, tip)
@@ -4044,6 +4053,7 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
         plan,
         files,
         kinds=shebang_kinds(task.worktree, tip, files),
+        where=where,
     )
 
 
@@ -4100,18 +4110,22 @@ def hunk_size(header: str) -> list[int]:
     return [int(count) if count is not None else 1 for count in found.groups()]
 
 
-def bar_of(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
+def bar_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before the limit was set
     diff: str,
     rows: list[str],
     plan: str,
     files: list[str],
     kinds: dict[str, str] | None = None,
+    *,
+    where: str,
 ) -> dict:
     """The bar's result from what git gave: `diff` is `git diff -U0 -M`, `rows` the
     lines of `git diff --name-status -M`, `files` every changed path; `plan` is the
-    plan's text, or "" when there is none; `kinds` names the suffix whose marks a file
-    with no suffix is read with (`shebang_kinds`)."""
-    section = re.search(r"(?ms)^##\s+The bar\s*$(.*?)(?=^##\s|\Z)", unfenced(plan))
+    plan's text, or "" when there is none, and `where` its file; `kinds` names the
+    suffix whose marks a file with no suffix is read with (`shebang_kinds`)."""
+    section = re.search(
+        r"(?ms)^##\s+The bar\s*$(.*?)(?=^##\s|\Z)", unfenced(plan, where)
+    )
     reasons = (
         {
             found.group(1).strip(): found.group(2).strip()
@@ -5611,7 +5625,7 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
     # bar never takes the fast track.
     plan = "" if found["small"] else Path(found["plan"]).read_text(encoding="utf-8")
     now = change(task)
-    result["bar"] = bar(task, now["base"], tip, plan)
+    result["bar"] = bar(task, now["base"], tip, plan, found["plan"])
     result["size"] = {
         "files": len(now["files"]),
         "lines": now["lines"],
@@ -5824,7 +5838,7 @@ def due(task: Task) -> dict:
     tasks = (
         1
         if found["small"]
-        else tasks_of(Path(found["plan"]).read_text(encoding="utf-8"))
+        else tasks_of(Path(found["plan"]).read_text(encoding="utf-8"), found["plan"])
     )
     said = due_of(
         now,
@@ -7069,7 +7083,7 @@ def jev_notes(notes: str, *, small: bool, endings: dict) -> str:
     finding come back as they are."""
     if not endings["items"] and not endings["lines"]:
         return notes
-    head, parts = sections_of(notes)
+    head, parts = sections_of(notes, where=NOTES_READ)
     head = jev_marked(head, endings) if small else head
     parts = [
         (
@@ -8594,7 +8608,7 @@ def small_text(task: Task, notes: str, state: dict, jev: dict | None = None) -> 
     each item Jev read (`jev_marked`); the notes come with Jev's ends of their own lines
     already (`pr_text`)."""
     kept = task.kept()
-    head, parts = sections_of(notes)
+    head, parts = sections_of(notes, where=NOTES_READ)
     own = {
         heading: lines_of(lines)
         for heading, lines in parts
@@ -8753,7 +8767,7 @@ def pr_text(  # noqa: C901, PLR0915 - over the limit before the limit was set
     kept = task.kept()
     # the notes' lines of the cheap defects a builder fixed, each a review's entry by
     # its number
-    fixed = section(notes, FIXED)
+    fixed = section(notes, FIXED, where=NOTES_READ)
     checks = kept.get("checks") or {}
     found = criteria_of(task)
     ask = (
@@ -9302,6 +9316,8 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901,
         raise LandError(
             f"{notes_file} is not a file; --notes names the notes of the pull request"
         )
+    # each step after this one reads the notes by their headings
+    fenced_lines(notes.splitlines(), notes_file)
     # The fast track's notes are what the review left open, in a few lines, or `none`:
     # it has no plan to decide from, no polish pass to file from, and nothing it set out
     # of scope.
@@ -11547,7 +11563,7 @@ def squash_body(text: str, moved: str | None, slug: str) -> str:
     merge on a base that moved after the checks, when there is one; and last the line
     `Lem task: SLUG`, by which the board names the task that added an item of
     the backlog."""
-    fixed = lines_of(section(text, FIXED).splitlines())
+    fixed = lines_of(section(text, FIXED, where=f"pr.md of {slug}").splitlines())
     return "\n\n".join(
         [
             *(["\n".join(fixed)] if fixed else []),
