@@ -1090,7 +1090,11 @@ DOCS = (".md", ".rst", ".adoc")
 # other checkers' it obeys with `permissive-ignores` or with no settings file. Each
 # with the tool's own rule of case: `noqa` in any case, the rest in lower case. Left
 # out: the comment that ends a range (`enable`, `on`), as its start counts, and
-# `isort: split`, which hid no finding of I001 in that file.
+# `isort: split`, which hid no finding of I001 in that file. A focus or skip mark of one
+# word (`fit`, `xit`) is a call of the runner's global function, and after a dot it is a
+# method of that name (`this.fit()`, `a.fit(` in mermaid.min.js), which no runner's docs
+# write as a mark (Jasmine, Mocha, Jest, Vitest and Playwright, read 2026-11-24); a mark
+# of the form `test.describe.only(` is Playwright's own, and counts after a dot.
 BAR = {
     (".py",): (
         r"#\s*(?i:noqa)",
@@ -1121,8 +1125,8 @@ BAR = {
         r"@ts-expect-error",
         r"@ts-nocheck",
         r"\b(it|test|describe)\.(skip|todo|only)(?=\()",
-        r"\bx(it|test|describe)(?=\()",
-        r"\bf(it|describe)(?=\()",
+        r"(?<!\.)\bx(it|test|describe)(?=\()",
+        r"(?<!\.)\bf(it|describe)(?=\()",
         r"\bjest\.retryTimes(?=\()",
         r"\bthis\.retries(?=\()",
     ),

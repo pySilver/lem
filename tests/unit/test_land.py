@@ -649,6 +649,54 @@ class Bar(unittest.TestCase):
             ["describe.only", "fdescribe", "fit", "it.only", "test.only"],
         )
 
+    def test_a_method_of_a_focus_or_skip_marks_name_is_no_mark(self) -> None:
+        # the two `fit` methods of the chart controller in the built board-app.js
+        # (sidebar-fold-arrow, 2026-11-22), and mermaid.min.js's `a.fit(`, `e.fit(` and
+        # `b.cy.fit(`: a line of a bundle that changed after them
+        line = "new R(()=>this.fit()),this.onDrawn=()=>{a.fit(),b.cy.fit()};v="
+        bundle = bar(
+            patch(
+                "skills/lem/assets/vendor/board-app.js",
+                minus=(f"{line}1",),
+                plus=(f"{line}2",),
+            )
+        )
+        self.assertEqual(bundle["lowered"], [])
+        calls = bar(
+            patch(
+                "chart.js",
+                plus=(
+                    "this.fit(); e.fdescribe(1); q.xit(2); r.xtest(3); s.xdescribe(4);",
+                    "t?.fit(5);",
+                    "u",
+                    "  .fit(6);",
+                ),
+                new=True,
+            )
+        )
+        self.assertEqual(calls["lowered"], [])
+        # after a dot, `.only` stays a mark: Playwright's test.describe.only; and a
+        # real mark after a method call of the same name on its line still counts
+        marks = bar(
+            patch(
+                "tests/shop.spec.js",
+                plus=(
+                    'test.describe.only("the shop", () => {});',
+                    'this.fit(); fit("runs alone", () => {});',
+                    'xit("later", () => {});',
+                ),
+                new=True,
+            )
+        )
+        self.assertEqual(
+            lowered(marks),
+            [
+                ("tests/shop.spec.js", "describe.only"),
+                ("tests/shop.spec.js", "fit"),
+                ("tests/shop.spec.js", "xit"),
+            ],
+        )
+
     def test_marks_in_a_runners_settings(self) -> None:
         result = bar(
             patch(
