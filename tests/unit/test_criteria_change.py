@@ -362,6 +362,24 @@ class HisTypedNo(Folder):
         self.assertIn("came after the wait the owner answered", self.refused(criteria.cmd_typed, self.task, NOTE))
 
 
+class HisNoThenAway(Folder):
+    """Review 1, finding 2: his No on the board, then his away mark: the away path's --alone does not approve
+    the text he said No to, and his note changes the criteria first."""
+
+    def test_alone_is_refused_until_the_change_from_his_note(self) -> None:
+        block = self.waiting()
+        lem_answers.record(self.task.directory, criteria.row_key(self.task, block), "Approve the criteria?", "no", NOTE,
+                           digest=criteria.shown_digest(CRITERIA.encode()), via="door", device="phone", agent="x")
+        self.task.mode = "alone"
+        said = self.refused(criteria.cmd_approve, self.task, str(self.task.small_file), "alone", True)
+        self.assertIn("the owner said No to the criteria of this wait (on the board", said)
+        self.assertIn("and --alone approves that text while the task runs without the owner", said)
+        self.assertFalse(self.task.approved_file.exists())
+        criteria.cmd_change(self.task, self.file(CHANGED), NOTE)
+        record = criteria.cmd_approve(self.task, str(self.task.small_file), "alone", True)
+        self.assertEqual((record["by"], record["text"]), ("alone", CHANGED))
+
+
 class HisYesToTheChange(Folder):
     """Criterion 6: his yes to the changed text is his approval (`by: owner`) of that text."""
 

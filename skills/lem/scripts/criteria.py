@@ -72,8 +72,9 @@ works`.
                               counts for the plan's check and for `lem decisions criterion`, and never
                               as the owner's yes. --alone: Lem or the lead approves the criteria of a task
                               on the standard track while the task runs without the owner (`lem project owner away`, a night),
-                              as `by: alone`; refused while it runs with him and after any approval
-                              but a fast-track one, Lem's or an `alone` one (a night's task that
+                              as `by: alone`; refused while it runs with him, while the owner's No to
+                              the criteria that wait is on record (his note changes them first),
+                              and after any approval but a fast-track one, Lem's or an `alone` one (a night's task that
                               grew into a full change: both stay in the history). On the fast track a
                               request that is not the owner's own sentence (the night's mark, or
                               `request by: someone else` in its brief or its state) gets no --small:
@@ -941,16 +942,18 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False, shown: str |
 
 def approve_held(task: Task, source: Path, by: str, plan: bool, shown: str | None) -> dict:
     """`cmd_approve` under the task's criteria.lock: the read of the file, its checks and the write. The
-    owner's yes is refused while his No to the criteria of the newest state block is on record: the
-    first answer counts, and that No changes them (`cmd_change`)."""
-    if by == "owner":
+    owner's yes, and an approval made without him, are refused while his No to the criteria of the newest
+    state block is on record: the first answer counts, and that No changes them (`cmd_change`) before
+    anything approves them, also when he went away after it."""
+    if by in ("owner", "alone"):
         said = owners_no(task, newest_block(task))
         if said:
             raise CriteriaError(
                 f"the owner said No to the criteria of this wait ({'typed in the session' if said.get('from') == 'session' else 'on the board'}, at {said.get('at')}"
                 + (f", with the words {said['note']!r}" if said.get("note") else "")
                 + f"), and the first answer counts: nothing was approved. The No changes the criteria: `lem criteria change {task.slug} --file FILE --words \"THE OWNER'S NOTE\"` "
-                "writes the changed text and a new wait, and the owner's yes to that text is the approval",
+                "writes the changed text and a new wait, "
+                + ("and the owner's yes to that text is the approval" if by == "owner" else "and --alone approves that text while the task runs without the owner"),
             )
     data = source.read_bytes()
     if shown is not None and shown_digest(data) != shown:
