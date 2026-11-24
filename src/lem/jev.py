@@ -56,9 +56,9 @@ import json
 import os
 import ssl
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 
 # OpenRouter's address of Jev's decisions, the default of JEV_API_URL
 URL = "https://openrouter.ai/api/alpha/decisions"
@@ -71,6 +71,8 @@ TYPES = ("choice", "noul")
 # the default of JEV_TIMEOUT; main() reads the variable, so a wrong value is a message,
 # not a traceback at import
 TIMEOUT_SECONDS = 120.0
+# how many characters of a bad reply or an HTTP error body a message shows
+ERROR_EXCERPT_CHARS = 400
 # macOS keeps its root certificates here. A python.org interpreter that never ran its
 # "Install Certificates" step has none of its own and fails every TLS handshake
 # without this.
@@ -78,7 +80,7 @@ MACOS_CA_BUNDLE = Path("/etc/ssl/cert.pem")
 
 
 class SpecError(Exception):
-    pass
+    """A spec or an environment setting this client cannot use."""
 
 
 def timeout_seconds() -> float:
@@ -105,9 +107,9 @@ def load(arg: str) -> dict:
             sys.stdin.buffer.read() if arg == "-" else Path(arg).read_bytes()
         ).decode("utf-8")
     except UnicodeDecodeError as error:
+        source = "stdin" if arg == "-" else arg
         raise SpecError(
-            f"the spec ({'stdin' if arg == '-' else arg}) is not UTF-8 text (byte "
-            f"{error.start} does not read)"
+            f"the spec ({source}) is not UTF-8 text (byte {error.start} does not read)"
         ) from error
     try:
         spec = json.loads(text)
@@ -122,13 +124,13 @@ def filled(text: object) -> bool:
     return isinstance(text, str) and bool(text.strip())
 
 
-def number(value: object) -> bool:
+def number(probability: object) -> bool:
     """A number from 0 to 1, as Jev gives a probability or a confidence; a JSON true is
     not one."""
     return (
-        isinstance(value, (int, float))
-        and not isinstance(value, bool)
-        and 0 <= value <= 1
+        isinstance(probability, (int, float))
+        and not isinstance(probability, bool)
+        and 0 <= probability <= 1
     )
 
 
@@ -136,7 +138,7 @@ def question_body(name: str, question: object) -> dict:
     """One question of the request, in Jev's form, after checking its shape."""
     if not isinstance(question, dict) or question.get("type") not in TYPES:
         given = question.get("type") if isinstance(question, dict) else None
-        named = f"has type {given!r}" if given is not None else "names no type"
+        named = "names no type" if given is None else f"has type {given!r}"
         raise SpecError(
             f'question {name!r} {named}; give it "type": "choice" (with choices) or '
             '"type": "noul" (a yes/no question)'
@@ -155,7 +157,7 @@ def question_body(name: str, question: object) -> dict:
         if (
             not isinstance(choices, dict)
             or len(choices) <= 1
-            or not all(filled(v) for v in choices.values())
+            or not all(filled(meaning) for meaning in choices.values())
         ):
             raise SpecError(
                 f"question {name!r} needs at least two choices, each with a meaning"
@@ -228,7 +230,7 @@ def answer(name: str, kind: str, given: object) -> dict:
             and number(given.get("confidence"))
             and isinstance(probabilities, dict)
             and probabilities
-            and all(number(p) for p in probabilities.values())
+            and all(number(probability) for probability in probabilities.values())
         ):
             return {
                 "type": "choice",
@@ -241,9 +243,9 @@ def answer(name: str, kind: str, given: object) -> dict:
         if kind == "noul"
         else "a choice, a confidence and probabilities"
     )
+    excerpt = json.dumps(given)[:ERROR_EXCERPT_CHARS]
     raise RuntimeError(
-        f"the reply's answer to question {name!r}, a {kind}, "
-        f"lacks {must}: {json.dumps(given)[:400]}"
+        f"the reply's answer to question {name!r}, a {kind}, lacks {must}: {excerpt}"
     )
 
 
@@ -256,9 +258,8 @@ def read(reply: object, questions: dict) -> dict:
         or not isinstance(answers, dict)
         or set(answers) != set(questions)
     ):
-        raise RuntimeError(
-            f"the reply does not answer every question: {json.dumps(reply)[:400]}"
-        )
+        excerpt = json.dumps(reply)[:ERROR_EXCERPT_CHARS]
+        raise RuntimeError(f"the reply does not answer every question: {excerpt}")
     usage = reply.get("usage")
     return {
         "model": reply.get("model"),
@@ -301,7 +302,7 @@ def ask(body: dict, timeout: float) -> dict:
         if MACOS_CA_BUNDLE.is_file()
         else ssl.create_default_context()
     )
-    request = urllib.request.Request(  # noqa: S310 - address() takes only http and https
+    request = urllib_request.Request(  # noqa: S310 - address() takes only http and https
         url,
         data=json.dumps(body).encode(),
         method="POST",
@@ -311,16 +312,14 @@ def ask(body: dict, timeout: float) -> dict:
         },
     )
     try:
-        with urllib.request.urlopen(  # noqa: S310 - address() takes only http and https
+        with urllib_request.urlopen(  # noqa: S310 - address() takes only http and https
             request, timeout=timeout, context=context
         ) as response:
             reply = json.load(response)
-    except urllib.error.HTTPError as error:
-        raise RuntimeError(
-            f"{where} answered HTTP {error.code}: "
-            f"{error.read().decode(errors='replace')[:400]}"
-        ) from error
-    except urllib.error.URLError as error:
+    except urllib_error.HTTPError as error:
+        excerpt = error.read().decode(errors="replace")[:ERROR_EXCERPT_CHARS]
+        raise RuntimeError(f"{where} answered HTTP {error.code}: {excerpt}") from error
+    except urllib_error.URLError as error:
         raise RuntimeError(f"{where} could not be reached: {error.reason}") from error
     except ValueError as error:
         raise RuntimeError(
@@ -333,7 +332,8 @@ def main(argv: list[str]) -> int:
     if argv in (["--help"], ["-h"], ["check", "--help"], ["check", "-h"]):
         # the two lines of usage at the top of this text
         lines = __doc__.strip().split("\n\n")[1].splitlines()
-        print("usage: " + "\n       ".join(line.strip() for line in lines))
+        usage = "\n       ".join(line.strip() for line in lines)
+        print(f"usage: {usage}")
         return 0
     check = bool(argv) and argv[0] == "check"
     args = argv[1:] if check else argv
