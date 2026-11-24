@@ -97,7 +97,8 @@ landing up as after a cut-off.
    and a read. `propose` asks the same before its push. A conflict is where two tasks on the
    same files meet, and it is not yours to resolve: the step prints the files and undoes the
    rebase. `spawn-builder` with the brief below, the job "the repair of a conflict with the
-   base", and as its paths the branch to rebase onto and those files. Then run the step again.
+   base", and as its paths the branch to rebase onto, the step's `rebase` and those files. Then
+   run the step again.
    A rebase that git refuses or stops with no file in conflict (a hook of git that refuses it, a
    lock of another git) is no builder's job: the step names git's words and keeps nothing. Tell
    the owner what git names, and run the step again once it is gone.

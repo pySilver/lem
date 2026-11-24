@@ -205,9 +205,11 @@ after the forge called it conflicting; one conflict in shop/dates.py, resolved b
 builder; one read of the resolution; the merge review carried over the resolved
 conflict: the resolution read found nothing; the checks passed again"). A conflict that
 `base` meets is kept in `landing.json` with the tip before the rebase and whether a
-review covered the change then. `base` rebases with `--reapply-cherry-picks`: a commit
-whose patch the base once took is applied again, so one the base then reverted stays in
-the change, one it kept is dropped as empty, and one it changed is a conflict. The
+review covered the change then. `base` rebases with a plain `git rebase`, which leaves
+out a commit whose patch the base took, and the base's later words on its lines stand;
+when the base took such a commit out again (`taken_out`), it rebases with
+`--reapply-cherry-picks` instead, so the commit stays in the change, and names that
+rebase for the builder of a conflict. The
 builder that resolves a conflict rebases the branch itself, and the next `base` finds
 the rewritten commits by that tip, gives the polish pass's commits their new names, and
 keeps the resolution. The newest review that saw the change
@@ -1878,23 +1880,19 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
         # why it is not, for the owner's merge that `propose` ends after this
         # rebase (`moved_carry`)
         uncovered = why_uncovered(answered, backlog_of(task), change(task), own)
-    # A commit whose patch a commit of the base carries is applied all the same
-    # (`--reapply-cherry-picks`): one the base took and then reverted stays in the
-    # change the review read, and one the base took and kept becomes empty and is
-    # dropped, with no stop (`--empty=drop`, git's own default, named so that nothing
-    # waits on it).
-    rebased = run(
-        [
-            "git",
-            "-C",
-            str(task.worktree),
-            "rebase",
-            "--reapply-cherry-picks",
-            "--empty=drop",
-            task.onto,
-        ],
-        check=False,
+    # A plain rebase leaves out a commit whose patch a commit of the base carries, and
+    # its result stands while the base still holds that commit's change. When the base
+    # took one out again (`taken_out`), the commit is applied all the same
+    # (`--reapply-cherry-picks`), so that it stays in the change the review read; one
+    # the base still holds becomes empty and is dropped, with no stop (`--empty=drop`,
+    # git's own default, named so that nothing waits on it).
+    reapply = (
+        ["--reapply-cherry-picks", "--empty=drop"]
+        if taken_out(task.worktree, onto, before)
+        else []
     )
+    rebasing = ["git", "rebase", *reapply, task.onto]
+    rebased = run([rebasing[0], "-C", str(task.worktree), *rebasing[1:]], check=False)
     if rebased.returncode != 0:
         conflicts = conflicted(task.worktree)
         git(task.worktree, "rebase", "--abort", check=False)
@@ -1944,6 +1942,8 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
                     "conflict": conflicts,
                     "onto": task.onto,
                     "branch": git(task.worktree, "branch", "--show-current"),
+                    # the rebase the builder runs, the one that stopped here
+                    "rebase": " ".join(rebasing),
                 },
                 indent=2,
             )
@@ -2081,6 +2081,44 @@ def rebase_notes(kept: dict, *, moved: bool) -> tuple[dict, dict]:
         {key: kept.get(key) for key in ("rebase_carried", "rebase_uncovered")},
         {"moved": bool(sync.get("moved")), "carried": sync.get("carried")},
     )
+
+
+def taken_out(where: Path, onto: str, before: str) -> list[str]:
+    """The commits of the branch at BEFORE that a plain rebase onto ONTO leaves out,
+    because a commit of the base carries their patch (`git rev-list --cherry-mark`),
+    whose change the base no longer holds: the base took it and took it out again.
+    Each such commit is merged onto ONTO's tree from its parent, with no write to the
+    worktree, the index or a ref (`git merge-tree --write-tree --merge-base`). A clean
+    merge that leaves ONTO's tree as it is finds the change there; a conflict finds
+    other words where the change was, which the base wrote after it took the commit
+    (it edited the commit's lines or their neighbors), and the base's words stand, as
+    with a plain rebase; a clean merge that changes the tree finds the change gone."""
+    marks = git(
+        where,
+        "rev-list",
+        "--cherry-mark",
+        "--right-only",
+        "--no-merges",
+        f"{onto}...{before}",
+    )
+    tree = git(where, "rev-parse", f"{onto}^{{tree}}")
+    gone = []
+    for commit in (line[1:] for line in marks.splitlines() if line.startswith("=")):
+        merged = lem_state.run_git(
+            where,
+            ["merge-tree", "--write-tree", f"--merge-base={commit}^", onto, commit],
+        )
+        if merged.returncode not in (0, 1):
+            version = git(where, "--version", check=False)
+            raise LandError(
+                f"git merge-tree failed ({(merged.stderr or merged.stdout).strip()}). "
+                "`git merge-tree --merge-base` needs git 2.40 or newer, and "
+                f"`git --version` says {version}: with an older git, the owner updates "
+                "git, and this step runs again"
+            )
+        if merged.returncode == 0 and merged.stdout.split()[0] != tree:
+            gone.append(commit)
+    return gone
 
 
 # git's exit status for an option it cannot parse (`usage_with_options`), in any

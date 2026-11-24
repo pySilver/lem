@@ -1054,17 +1054,82 @@ cp_pick cp-kept && git -C "$MBX" push -q origin main
 cp_kept=$(land --repo "$MB" start cp-kept >/dev/null && land --repo "$MB" base cp-kept 2>&1 || true)
 cp_task cp-edited
 cp_pick cp-edited && echo newer > "$MBX/cp-edited-feature.txt" && git -C "$MBX" commit -q -am "fix: the feature, newer" && git -C "$MBX" push -q origin main
-cp_edited_exit=0
-cp_edited=$(land --repo "$MB" start cp-edited >/dev/null && land --repo "$MB" base cp-edited 2>&1) || cp_edited_exit=$?
+cp_edited=$(land --repo "$MB" start cp-edited >/dev/null && land --repo "$MB" base cp-edited 2>&1 || true)
 if [ "$(field 'd["moved"]' <<<"$cp_kept" 2>/dev/null)" = True ] && [ "$(cp_after cp-kept)" = "1 new" ] \
-  && [ "$cp_edited_exit" = 1 ] && grep -qF '"cp-edited-feature.txt"' <<<"$cp_edited" && grep -qF "a builder resolves it in the worktree" <<<"$cp_edited" \
-  && [ "$(mb_kept cp-edited conflict 'd["files"]')" = "['cp-edited-feature.txt']" ]; then
-  pass "a commit the base cherry-picked and kept becomes empty on the rebase of base and is dropped, with no stop; one the base cherry-picked and then edited on the same lines is a conflict that a builder resolves"
+  && [ "$(field 'd["moved"]' <<<"$cp_edited" 2>/dev/null)" = True ] && [ "$(cp_after cp-edited)" = "1 newer" ] && [ "$(mb_kept cp-edited conflict d)" = None ]; then
+  pass "a commit the base cherry-picked and kept is left out of the rebase of base with no stop, and so is one the base cherry-picked and then edited on the same lines: the base's later words stand"
 else
-  fail "a cherry-pick the base kept or edited: $cp_kept / $(cp_after cp-kept) / $cp_edited_exit / $cp_edited"
+  fail "a cherry-pick the base kept or edited: $cp_kept / $(cp_after cp-kept) / $cp_edited / $(cp_after cp-edited)"
 fi
 project --repo "$MB" state cp-kept dropped "the test is over" >/dev/null
 project --repo "$MB" state cp-edited dropped "the test is over" >/dev/null
+
+# The base took a commit of the branch by its patch and then went on: a plain rebase leaves the commit out with no stop,
+# and its result is right, where a rebase that reapplies it stops on a conflict.
+# rv_task SLUG: on origin's main SLUG-list.txt holds a and b, SLUG-more.txt and SLUG-label.txt hold old; the task's
+# branch appends c to the list, then sets more, then the label to new, in a commit each, and is proposed
+rv_task() {
+  local tree
+  git -C "$MBX" pull -q --ff-only origin main && printf '%s\n' a b > "$MBX/$1-list.txt" && echo old > "$MBX/$1-more.txt" && echo old > "$MBX/$1-label.txt"
+  git -C "$MBX" add -A && git -C "$MBX" commit -q -m "chore: $1's files" && git -C "$MBX" push -q origin main
+  mb_task "$1" "$1.txt"
+  tree=$(project --repo "$MB" worktree-dir "$1")
+  git -C "$MB" fetch -q origin && git -C "$tree" rebase -q origin/main
+  printf '%s\n' a b c > "$tree/$1-list.txt" && git -C "$tree" commit -q -am "feat: c"
+  echo new > "$tree/$1-more.txt" && git -C "$tree" commit -q -am "feat: more"
+  echo new > "$tree/$1-label.txt" && git -C "$tree" commit -q -am "feat: the label"
+  mb_land "$1"
+}
+# rv_pick SLUG N...: origin's main cherry-picks the task's commit N back from its tip, for each N in order (2 is
+# `feat: c`, 1 is `feat: more`)
+rv_pick() {
+  local tree slug=$1 n
+  shift
+  tree=$(project --repo "$MB" worktree-dir "$slug")
+  git -C "$MBX" pull -q --ff-only origin main && git -C "$MBX" fetch -q origin "fix/$slug"
+  for n in "$@"; do git -C "$MBX" cherry-pick "$(git -C "$tree" rev-parse "HEAD~$n")" >/dev/null; done
+}
+# rv_base SLUG: start and base, then the moved flag, the kept conflict, and the list, more and label at the tip
+rv_base() {
+  local tree moved
+  tree=$(project --repo "$MB" worktree-dir "$1")
+  moved=$(land --repo "$MB" start "$1" >/dev/null && land --repo "$MB" base "$1" 2>&1 | field 'd["moved"]' 2>&1)
+  echo "$moved $(mb_kept "$1" conflict d) $(tr '\n' ' ' < "$tree/$1-list.txt")$(cat "$tree/$1-more.txt") $(cat "$tree/$1-label.txt")"
+}
+rv_task rv-append
+rv_pick rv-append 2 && printf '%s\n' a b c d > "$MBX/rv-append-list.txt" && git -C "$MBX" commit -q -am "feat: d" && git -C "$MBX" push -q origin main
+rv_append=$(rv_base rv-append)
+rv_task rv-above
+rv_pick rv-above 2 && printf '%s\n' a B c > "$MBX/rv-above-list.txt" && git -C "$MBX" commit -q -am "fix: B" && git -C "$MBX" push -q origin main
+rv_above=$(rv_base rv-above)
+rv_task rv-two
+rv_pick rv-two 2 1 && printf '%s\n' a b C > "$MBX/rv-two-list.txt" && git -C "$MBX" commit -q -am "fix: C" && git -C "$MBX" push -q origin main
+rv_two=$(rv_base rv-two)
+if [ "$rv_append" = "True None a b c d new new" ] && [ "$rv_above" = "True None a B c new new" ] && [ "$rv_two" = "True None a b C new new" ]; then
+  pass "a commit the base took by its patch and then appended after, edited the line above, or, taken with the next one, edited, is left out of the rebase of base with no stop, and the tip holds the base's words and the rest of the change"
+else
+  fail "a commit the base took and went on from: $rv_append / $rv_above / $rv_two"
+fi
+for slug in rv-append rv-above rv-two; do project --repo "$MB" state "$slug" dropped "the test is over" >/dev/null; done
+
+# The base took the commit, took it out again, and changed the label the branch changes too: the rebase reapplies the
+# commit and stops on the label, the step names the rebase it ran for the builder, and the builder's resolution with
+# that rebase keeps the commit.
+rv_task rv-out
+rv_pick rv-out 2 && git -C "$MBX" revert --no-edit HEAD >/dev/null && echo theirs > "$MBX/rv-out-label.txt" && git -C "$MBX" commit -q -am "fix: the label" && git -C "$MBX" push -q origin main
+out_tree=$(project --repo "$MB" worktree-dir rv-out)
+out_stop=$(land --repo "$MB" start rv-out >/dev/null && land --repo "$MB" base rv-out 2>/dev/null || true)
+out_rebase=$(field 'd["rebase"]' <<<"$out_stop" 2>&1 || true)
+git -C "$out_tree" rebase -q --reapply-cherry-picks --empty=drop origin/main >/dev/null 2>&1 || true
+echo new > "$out_tree/rv-out-label.txt" && git -C "$out_tree" add rv-out-label.txt && GIT_EDITOR=true git -C "$out_tree" rebase --continue >/dev/null 2>&1
+out_again=$(land --repo "$MB" base rv-out | field '(d["moved"], d["resolved"])')
+if [ "$(field 'd["conflict"]' <<<"$out_stop")" = "['rv-out-label.txt']" ] && [ "$out_rebase" = "git rebase --reapply-cherry-picks --empty=drop origin/main" ] \
+  && [ "$out_again" = "(True, ['rv-out-label.txt'])" ] && [ "$(tr '\n' ' ' < "$out_tree/rv-out-list.txt")" = "a b c " ]; then
+  pass "a commit the base took and took out again is reapplied by the rebase of base, also when the rebase stops on another file: the step names that rebase for the builder, and the resolution keeps the commit"
+else
+  fail "a commit the base took out again, with a conflict beside it: $out_stop / $out_again / $(tr '\n' ' ' < "$out_tree/rv-out-list.txt")"
+fi
+project --repo "$MB" state rv-out dropped "the test is over" >/dev/null
 
 # A commit added to the branch after the proposal, then the new landing, a clean first rebase, the wait and the second
 # rebase: the second rebase starts again from the tip before Lem's own first one, so the commit is still on the branch,
