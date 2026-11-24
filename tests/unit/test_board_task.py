@@ -1510,6 +1510,42 @@ class Feed(unittest.TestCase):
         self.assertIn("the new landing kept the change you merged", landed["text"])
         self.assertNotIn("carried over", landed["sub"])
 
+    def test_the_end_of_the_owners_merge_is_said_with_its_why(self) -> None:
+        m = model(state(0, "open", "pull request https://github.com/acme/shop/pull/75"))
+        over = bm.describe(
+            ev(
+                1,
+                "merge.ended",
+                by="owner",
+                tip="abc123456",
+                why="the landing started over: the gate was cut off",
+            ),
+            m,
+        )
+        moved = bm.describe(
+            ev(
+                1,
+                "merge.ended",
+                by="owner",
+                tip="abc123456",
+                why="a commit came after the rebase",
+                **{"from": "fed987654"},
+            ),
+            m,
+        )
+        self.assertEqual(
+            (over["head"], moved["head"]), ("Your merge ended", "Your merge ended")
+        )
+        self.assertEqual(
+            over["text"],
+            "the landing started over: the gate was cut off: you merge it again",
+        )
+        self.assertEqual(
+            moved["text"], "a commit came after the rebase: you merge it again"
+        )
+        self.assertEqual(over["info"]["actor"], "you")
+        self.assertNotIn("carried over", moved["sub"])
+
 
 class MergeStep(unittest.TestCase):
     """The confirm step of a merge (`merge_step`): its head, its body and its foot, and

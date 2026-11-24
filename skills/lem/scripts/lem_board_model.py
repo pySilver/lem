@@ -4244,6 +4244,14 @@ SAYS = {
         )
         + ": the board’s server runs it, and nobody asks you again",
     },
+    # land.py logs it when your standing merge ends: at `start` of a landing that starts
+    # over, or at a proposal whose change or reasons for not green are not the ones you
+    # merged (`why`)
+    "merge.ended": lambda e: {
+        "info": {"actor": "you", "icon": "alert"},
+        "head": "Your merge ended",
+        "text": f"{e.get('why') or 'no reason given'}: you merge it again",
+    },
     "merge.refused": lambda e: {
         "info": {"actor": "bad", "icon": "alert"},
         "head": "Lem refused the merge agent’s merge"

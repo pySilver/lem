@@ -221,7 +221,27 @@ under its own step lock: a feature waits for no other task's landing. Two `start
 one moment take turns only to read the tasks' states and write `landing`, under a lock
 of the state folder (`landing.lock`). With no command of the checks it writes the task's
 state `blocked`, and a later `start` takes that task back once the commands are there;
-each refusal on the way names the step out, also when its worktree is gone.
+each refusal on the way names the step out, also when its worktree is gone. That check
+comes after what `start` does with the record, so its own `blocked` block never stands
+between a start over and the record it deletes.
+
+`start` of a `ready` task starts the landing over when the newest state block holds the
+line `the landing starts over`, which `lem project state SLUG ready --start-over`
+writes, or when the record holds no proposal: `landing.json` keeps only the pull
+request, the pushes (`pr`, `pushed`, `taken`) and a polish pass that is done. When the
+owner's merge stood (`owner_tap`), its end is logged first (`merge.ended`, with `why`
+"the landing started over: WHY") and printed as `owner_merge`, `ended: ...`; otherwise
+`owner_merge` is null. A `ready` task whose record holds a proposal, with no such line,
+came back from a new landing that was cut (a wait for a red base, a builder that ended
+twice), since a task leaves `open` only through `start`, which counts the new landing:
+it goes on with that landing, and the record stays whole, with no second count. A second
+rebase in one landing then gives what one rebase with no wait gives: when the branch is
+still the tip the newest clean rebase of this landing made (`made`, which `filed_on`
+does not move), and no conflict or resolution is on record, `base` throws that tip away
+(only `propose` pushes, so it was never pushed), moves the branch back to the tip that
+rebase started from, and rebases that tip onto the base now, with the polish pass's
+names moved back by their place from the tip (`through_rebase`). A commit after `made`,
+or a conflict on the way, is judged as a rebase after it, as with no wait.
 
 What two landings share is the machine and the base branch, and each has one rule. The
 checks start only while the machine's load average is below the start number of this
@@ -270,9 +290,12 @@ whose last commit the tip holds, and any task whose pass started and is not done
 task with a plan is on the standard track: `criteria.py` refuses a plan that says
 `Size: small`, and so does every step here that reads the criteria. The commits that
 come after the pass, a repair, a fix of a review's findings, the items `file` writes,
-are on top of it, and a rebase by `base` gives the pass's commits their new names; any
-other rewrite of the branch asks for the pass again. The pass is one of this landing:
-`start` of a `ready` task forgets it with the rest of `landing.json`.
+are on top of it, and a rebase by `base` gives the pass's commits their new names; a
+rebase in which git leaves out one of the branch's commits (`through_rebase`), and any
+other rewrite of the branch, ask for the pass again. The pass runs once for a task:
+`start` of a `ready` task that starts over keeps a pass that is done while the branch
+holds its last commit, and a `ready` task that goes on with its landing keeps the whole
+record (above).
 
 A review comes before anything is proposed. There are three kinds: one read, which is
 the review tool's smallest profile, for a short and simple change; a round of the review
@@ -645,17 +668,18 @@ the ones he saw: `propose` logs `merge.stands`, and the server runs `merge --by 
 --via server --standing`, which `merge.start` and `merged_by` record as made
 `after: a re-check`. Otherwise the merge review does not carry (`"merge_review": null`,
 with `merge_review_why`, and a fresh merge agent reads the task) and the owner's merge
-ends (`owner_merge`), each with the rule's reason: a commit after the rebase or the
-resolution, a base that moved again after the resolution, a read of the resolution with
-a finding, or one that did not answer or did not run, a careful request, a review that
-does not cover the change (the review's reason, which the rebase kept,
-`rebase_uncovered`); for the merge review alone, no merge review of the earlier tip on
-record, and for the owner's merge alone, reasons for not green that are not the ones he
-saw. The pull request's text and the `proposed` event (`review`, `merge_review`, `why`,
-`owner_merge`, `owner_why`) say what carried ("the merge review carried over the
-resolved conflict: the resolution read found nothing", or "a fresh merge agent reads it:
-REASON"). A merge on a moved base that a read covered is recorded in `merge.start` and
-`merged_by` as made `after: a read of the moved base`, with the `base` it read.
+ends (`owner_merge`, and a `merge.ended` event with `why`, which the board shows), each
+with the rule's reason: a commit after the rebase or the resolution, a base that moved
+again after the resolution, a read of the resolution with a finding, or one that did not
+answer or did not run, a careful request, a review that does not cover the change (the
+review's reason, which the rebase kept, `rebase_uncovered`); for the merge review alone,
+no merge review of the earlier tip on record, and for the owner's merge alone, reasons
+for not green that are not the ones he saw. The pull request's text and the `proposed`
+event (`review`, `merge_review`, `why`, `owner_merge`, `owner_why`) say what carried
+("the merge review carried over the resolved conflict: the resolution read found
+nothing", or "a fresh merge agent reads it: REASON"). A merge on a moved base that a
+read covered is recorded in `merge.start` and `merged_by` as made
+`after: a read of the moved base`, with the `base` it read.
 
 A step that was cut off is run again; a merge that GitHub already holds only finishes
 the bookkeeping. `clean` knows the branch from `landing.json`, so it finds it after the
@@ -769,6 +793,10 @@ SOMEONE_ELSE = "request by: someone else"
 # The state line `start` writes when the project has no command of its checks; a task
 # blocked with it is the one `start` takes back once the commands are there.
 NO_GATE = "the project has no command in its checks"
+# The line `lem project state SLUG ready --start-over` writes in its block (`START_OVER`
+# there, a copy, since a stand-in may take project.py's place): `start` starts the
+# landing over with nothing carried.
+START_OVER = "the landing starts over"
 # The steps that take a tip from the start to a proposal, which a refusal of `land`
 # names when the tip, the base or the tree is not the one on record.
 AGAIN = (
@@ -1218,6 +1246,17 @@ class Task:
             f" blocked: {NO_GATE}"
         )
 
+    def block_lines(self) -> list[str]:
+        """The lines of the task's newest state block, its first one without its time
+        and status."""
+        rows = (self.record.get("state") or "").splitlines()
+        return [rows[0].split(": ", 1)[-1], *rows[1:]] if rows else []
+
+    def starts_over(self) -> bool:
+        """Whether the newest state block starts the landing over (`ready --start-over`
+        wrote it)."""
+        return START_OVER in (line.strip() for line in self.block_lines())
+
     def need_landing(self) -> None:
         if self.record["status"] != "landing":
             if self.record["status"] in ("ready", "open") or self.blocked_by_start():
@@ -1400,7 +1439,7 @@ def cmd_start(task: Task, *, conflicting: bool = False) -> dict:
         return start_locked(task, conflicting=conflicting)
 
 
-def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C901 - over the limit before the limit was set
+def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C901, PLR0912 - over the limit before the limit was set
     # a task `start` blocked for want of a command of the checks is taken back as a
     # `ready` one
     again = task.blocked_by_start()
@@ -1413,15 +1452,6 @@ def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C90
         raise LandError(
             "--conflicting is for an `open` task whose pull request the forge calls "
             f"conflicting, and {task.slug} is {task.record['status']!r}"
-        )
-    if not task.gate()[0]:
-        if not again:
-            task.state("blocked", NO_GATE)
-        raise LandError(
-            f"{NO_GATE}, so nothing would show that the change works; "
-            "the task is `blocked`. Add the commands to checks.commands in "
-            ".lem/settings.toml, or, for the task that sets up the checks, in its own "
-            f"branch's, then run `lem land start {task.slug}` again",
         )
     task.need_worktree()
     # The landing needs the task's branch: `propose` pushes it, and `clean` deletes it
@@ -1447,31 +1477,62 @@ def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C90
             f"needs the task's branch: `git -C {task.worktree} switch {branch}` puts "
             "it back on it, then this step runs again",
         )
+    # the end of the owner's standing merge that a start over gives, in the words
+    # `propose` gives an end
+    ended = None
     if task.record["status"] == "ready" or again:
-        # A task that was built further starts over, with new checks and new reads. Its
-        # pull request stays its own, and so does what Lem knows of its branch on the
-        # forge: the commit it pushed last, and the one whose commits the branch took in
-        # (`own_remote`). The polish pass runs once for a task (`stages/polish.md`): a
-        # pass that is done stays while the branch holds its last commit, as after a
-        # stop on a red base, and `base` carries it through the rebase.
         kept = task.kept()
-        forge = {
-            key: value
-            for key, value in kept.items()
-            if key in ("pr", "pushed", "taken") and value
-        }
-        polish = kept.get("polish")
-        if (
-            polish
-            and polish.get("done")
-            and holds_commit(
-                task, polish.get("after"), git(task.worktree, "rev-parse", "HEAD")
-            )
-        ):
-            forge["polish"] = polish
-        task.kept_file.unlink(missing_ok=True)
-        if forge:
-            task.keep(**forge)
+        if task.starts_over() or not kept.get("proposed"):
+            # A task that was built further, or whose landing `ready --start-over` gives
+            # back, starts over, with new checks and new reads. Its pull request stays
+            # its own, and so does what Lem knows of its branch on the forge: the commit
+            # it pushed last, and the one whose commits the branch took in
+            # (`own_remote`). The polish pass runs once for a task (`stages/polish.md`):
+            # a pass that is done stays while the branch holds its last commit, and
+            # `base` carries it through the rebase.
+            forge = {
+                key: value
+                for key, value in kept.items()
+                if key in ("pr", "pushed", "taken") and value
+            }
+            polish = kept.get("polish")
+            if (
+                polish
+                and polish.get("done")
+                and holds_commit(
+                    task, polish.get("after"), git(task.worktree, "rev-parse", "HEAD")
+                )
+            ):
+                forge["polish"] = polish
+            tap = kept.get("owner_tap")
+            if tap:
+                # His standing merge ends with the record: a fact of the log, which the
+                # board shows, logged before the deletion, so that a run cut between the
+                # two still told it (a rerun logs it twice).
+                why = (
+                    "the landing started over: "
+                    f"{(task.block_lines() or ['no reason given'])[0]}"
+                )
+                script(
+                    "project.py",
+                    task.main,
+                    "log",
+                    task.slug,
+                    "merge.ended",
+                    "by=owner",
+                    f"tip={str(tap.get('tip'))[:9]}",
+                    f"why={why}",
+                )
+                ended = f"ended: {why}; the owner merges it again"
+            task.kept_file.unlink(missing_ok=True)
+            if forge:
+                task.keep(**forge)
+        # Otherwise the record stays whole: no deletion, no new count. A task leaves
+        # `open` only through `start`, which counts the new landing below, so a proposal
+        # on record means that a new landing of that proposal was cut (a red base, a
+        # builder that ended twice) and the task came back `ready`: it goes on, and what
+        # the landing carried (the reviews, the merge agent's review, the owner's merge,
+        # a conflict and its resolution, the count) carries as with no wait between.
     if task.record["status"] == "open":
         # An open task brought onto a base that moved: what the pull request's text says
         # of it is kept from here, and a conflict or a resolution of an earlier landing
@@ -1492,6 +1553,7 @@ def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C90
             resolution=None,
             rebase_carried=None,
             rebase_uncovered=None,
+            made=None,
             relands=relands,
         )
         script(
@@ -1502,6 +1564,22 @@ def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C90
             "land.again",
             f"count:={relands}",
             f"conflicting:={json.dumps(conflicting)}",
+        )
+    # The check for a command of the checks comes after the record's two branches: its
+    # own `blocked` block never stands between the block of a start over and the record
+    # that start over deletes, and an `open` task's new landing is counted before
+    # anything here can refuse it.
+    if not task.gate()[0]:
+        if not again:
+            task.state("blocked", NO_GATE)
+        raise LandError(
+            (
+                f"{NO_GATE}, so nothing would show that the change works; "
+                "the task is `blocked`. Add the commands to checks.commands in "
+                ".lem/settings.toml, or, for the task that sets up the checks, in its "
+                f"own branch's, then run `lem land start {task.slug}` again"
+            )
+            + (f". The owner's merge {ended}" if ended else ""),
         )
     if task.record["status"] != "landing":
         # kept here because `clean` needs the branch after the worktree, which names it,
@@ -1524,10 +1602,11 @@ def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C90
         "worktree": str(task.worktree),
         "remote": task.remote,
         "forge": task.forge,
+        "owner_merge": ended,
     }
 
 
-def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0915 - over the limit before the limit was set
+def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     task.need_landing()
     task.need_worktree()
     task.fetch()
@@ -1537,12 +1616,38 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0915 - over the limit before
         # remove it.
         task.own_remote(git(task.worktree, "branch", "--show-current"))
     onto = git(task.worktree, "rev-parse", task.onto)
-    before = git(task.worktree, "rev-parse", "HEAD")
+    entry = git(task.worktree, "rev-parse", "HEAD")
     kept = task.kept()
     # A conflict this landing met before: a builder rebased the branch since and
     # resolved it, or left it as it was. Its record keeps the tip before any rebase,
     # whether a review covered it, and why not.
     pending = kept.get("conflict")
+    made = kept.get("made")
+    if (
+        made
+        and not pending
+        and not kept.get("resolution")
+        and made.get("tip") == entry
+        and made.get("from") != entry
+        and entry not in (kept.get("pushed"), kept.get("proposed"))
+    ):
+        # A second rebase in one landing (after a wait for a red base, or a step run
+        # again) gives what one rebase with no wait gives: the branch goes back to the
+        # tip before Lem's own first rebase, and that tip is rebased onto the base now,
+        # judged as one rebase. The tip thrown away is one only `base` wrote, with
+        # nothing after it, and never pushed (only `propose` pushes); a commit after it,
+        # or a conflict on the way, is judged as a rebase after it, as with no wait.
+        if kept.get("polish"):
+            # the polish pass's names go back to the commits of that tip, by their place
+            # from the tip
+            task.keep(
+                polish=through_rebase(
+                    task, kept["polish"], entry, made["from"], made["onto"]
+                )
+            )
+        git(task.worktree, "reset", "-q", "--hard", made["from"])
+        kept = task.kept()
+    before = git(task.worktree, "rev-parse", "HEAD")
     answered = [read for read in kept.get("reads", []) if read["answered"]]
     # what a rebase with no conflict carries: the newest review that answered, while it
     # saw this change, with whatever it left open (read before the rebase, on the branch
@@ -1632,7 +1737,14 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0915 - over the limit before
         "conflict": None,
         "rebase_carried": None,
         "rebase_uncovered": None,
+        "made": None,
     }
+    if tip != origin and not resolved:
+        # the tip this rebase made itself, from which tip and onto which base: a second
+        # rebase of this landing goes back to `from` while the branch is still `tip`
+        # (above). `filed_on` never moves it: `file`'s commits after it are commits
+        # after the rebase here.
+        updates["made"] = {"from": origin, "tip": tip, "onto": onto}
     # the review this rebase carried, with what it left open, for the pull request's
     # text (`synced`)
     carried = None
@@ -1685,7 +1797,7 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0915 - over the limit before
         "onto": task.onto,
         "base": onto,
         "tip": tip,
-        "moved": tip != before,
+        "moved": tip != entry,
         "ahead": ahead,
         "resolved": pending["files"] if resolved else None,
     }
@@ -7277,10 +7389,10 @@ def carry_merge(  # noqa: PLR0913, PLR0917 - over the limit before the limit was
     says (CARRY, `moved_carry`): the merge agent's review, with whether it calls the
     owner as the rules say now and with no call on a moved base (`carried_review`),
     logged again as a `merge.review` of TIP with `carried`; and the owner's merge that a
-    moved base refused, which stands (`merge.stands`) or ends with the rule's reason.
-    What it gives the output: `merge_review` (carried or null), `merge_review_why` (why
-    a fresh merge agent reads the task, after a moved base) and `owner_merge` (`stands`,
-    the reason it ended, or null)."""
+    moved base refused, which stands (`merge.stands`) or ends with the rule's reason
+    (`merge.ended`). What it gives the output: `merge_review` (carried or null),
+    `merge_review_why` (why a fresh merge agent reads the task, after a moved base) and
+    `owner_merge` (`stands`, the reason it ended, or null)."""
     old = kept.get("proposed")
     out: dict = {
         "merge_review": None,
@@ -7335,6 +7447,19 @@ def carry_merge(  # noqa: PLR0913, PLR0917 - over the limit before the limit was
         )
     elif carry["owner_merge"] == "ended":
         task.keep(owner_tap=None)
+        # the end is a fact of the log, which the board shows, and not only a line a
+        # session may never say
+        script(
+            "project.py",
+            task.main,
+            "log",
+            task.slug,
+            "merge.ended",
+            "by=owner",
+            f"tip={tip[:9]}",
+            f"from={str(old)[:9]}",
+            f"why={carry['owner_why']}",
+        )
         out["owner_merge"] = f"ended: {carry['owner_why']}; the owner merges it again"
     return out
 
