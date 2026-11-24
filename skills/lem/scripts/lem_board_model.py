@@ -552,7 +552,8 @@ def cap(s: str) -> str:
 
 
 def title_of(slug: object) -> str:
-    """ "report-dates-stay-whole" -> "Report dates stay whole": the owner reads names, never codes."""  # noqa: E501 - the docstring stays as written: its line breaks are part of its value
+    """ "report-dates-stay-whole" -> "Report dates stay whole": the owner reads names,
+    never codes."""
     words_ = re.sub(r"-+", " ", str(slug)).strip()
     return cap(words_) if words_ else "A task"
 
@@ -4927,11 +4928,12 @@ def decisions_sum(t: Task) -> str:
 
 
 def building_of(t: Task, told: dict | None) -> dict | None:
-    """ "What we are building": the goal (the reason of the type line), what the owner gets (the outcome of
-    its task.md, `told`, as the markdown it was written in: a story, a list, a table or a chart reads only
-    so), how many important decisions wait for a look, and the backlog items its branch filed. A task
-    whose worktree is gone has no line of filed items (`filed` None), nor has a task that ended when git
-    shows none. None when there is nothing to say."""  # noqa: E501 - the docstring stays as written: its line breaks are part of its value
+    """ "What we are building": the goal (the reason of the type line), what the owner
+    gets (the outcome of its task.md, `told`, as the markdown it was written in: a
+    story, a list, a table or a chart reads only so), how many important decisions wait
+    for a look, and the backlog items its branch filed. A task whose worktree is gone
+    has no line of filed items (`filed` None), nor has a task that ended when git shows
+    none. None when there is nothing to say."""
     goal = t.type["why"] if t.type else ""
     outcome = str((told or {}).get("outcome") or "").strip()
     important = len(important_of(t))

@@ -1026,9 +1026,9 @@ def media_pair(ctx: P.Ctx, t: bm.Task, pair: dict) -> Markup:
 
 
 def building(ctx: P.Ctx, t: bm.Task) -> Markup | None:
-    """ "What we are building": the goal, what the owner gets (the outcome of task.md, as markdown: its
-    story, its lists, its chart and its pictures), the before and after pictures of the task, the important
-    decisions, the filed items."""  # noqa: E501 - the docstring stays as written: its line breaks are part of its value
+    """ "What we are building": the goal, what the owner gets (the outcome of task.md,
+    as markdown: its story, its lists, its chart and its pictures), the before and after
+    pictures of the task, the important decisions, the filed items."""
     told = ctx.told(t.slug)
     b = bm.building_of(t, told)
     if not b:
@@ -2166,8 +2166,8 @@ def picks_of(d: bm.Decision) -> dict[str, list[str]]:
 
 
 def options_rows(ctx: P.Ctx, d: bm.Decision, at: int) -> Markup | None:
-    """ "This or that": each option on its row, its label and what it leads to, the one taken marked, and
-    the experts who picked it."""  # noqa: E501 - the docstring stays as written: its line breaks are part of its value
+    """ "This or that": each option on its row, its label and what it leads to, the one
+    taken marked, and the experts who picked it."""
     if not d.options:
         return None
     picks = picks_of(d)

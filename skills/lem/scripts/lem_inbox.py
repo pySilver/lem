@@ -368,15 +368,17 @@ def plan(
     behind: set | frozenset = frozenset(),
     held: set | frozenset = frozenset(),
 ) -> dict:
-    """What a look does, from the things the rows are now (WANT, by key), the record's things (SENT),
-    the owner's mark (AWAY), whether the door is open (DOOR), the keys of rows that still wait but
-    are no thing now (BEHIND: behind their task's session row, or with a session not told yet), and the
-    keys of rows that a working session holds back (HELD, `lem_board_model.held_back`), whose recorded
-    thing is neither withdrawn, forgotten nor sent again, away or not:
-    `withdraw`, the recorded questions to withdraw; `replaced`, the keys of those a newer message of the
-    same thread follows (the mark says away and the door is open); `forget`, the recorded notes, and the
-    things whose call never answered, to drop; `retry`, those to send again with their payload; `send`,
-    the things to send once the old thing of their row left the record."""  # noqa: E501 - the docstring stays as written: its line breaks are part of its value
+    """What a look does, from the things the rows are now (WANT, by key), the record's
+    things (SENT), the owner's mark (AWAY), whether the door is open (DOOR), the keys of
+    rows that still wait but are no thing now (BEHIND: behind their task's session row,
+    or with a session not told yet), and the keys of rows that a working session holds
+    back (HELD, `lem_board_model.held_back`), whose recorded thing is neither withdrawn,
+    forgotten nor sent again, away or not: `withdraw`, the recorded questions to
+    withdraw; `replaced`, the keys of those a newer message of the same thread follows
+    (the mark says away and the door is open); `forget`, the recorded notes, and the
+    things whose call never answered, to drop; `retry`, those to send again with their
+    payload; `send`, the things to send once the old thing of their row left the
+    record."""
     withdraw, forget, retry, leaving, replaced = [], [], [], set(), set()
     for r in sent:
         key = r["key"]
