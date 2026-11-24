@@ -2596,6 +2596,45 @@ class Summarized(unittest.TestCase):
         )
         self.assertEqual(after["night"], "2026-10-01")
 
+    def test_tasks_read_the_investigation_from_the_summary(self) -> None:
+        # lem-project-tasks-gives-no-investigation-for-a-task-whose-events-became-one,
+        # 2026-11-23: an answered question whose events became its summary read
+        # investigation null, and `lem issue answer` posted the state's line
+        self.task("why-slow", block(45, "answered", "the export reads every order"))
+        found = {
+            "type": "question",
+            "call": "answer",
+            "line": "the export reads every order twice",
+            "where": "export.py:rows",
+        }
+        with self.log.open("a", encoding="utf-8") as log:
+            for record in (
+                self.state_event(back(47), "why-slow", "investigating", "a question"),
+                {"ts": back(46), "event": "investigation", "task": "why-slow", **found},
+                self.state_event(
+                    back(45), "why-slow", "answered", "the export reads every order"
+                ),
+            ):
+                log.write(json.dumps(record) + "\n")
+        before = {t["slug"]: t for t in project.read_tasks(self.root)}["why-slow"]
+        self.assertEqual(before["investigation"]["line"], found["line"])
+        self.prune()
+        self.assertEqual(
+            [
+                json.loads(line)["event"]
+                for line in self.lines()
+                if json.loads(line)["task"] == "why-slow"
+            ],
+            ["task.summary"],
+        )
+        after = {t["slug"]: t for t in project.read_tasks(self.root)}["why-slow"]
+        self.assertEqual(after["status"], "answered")
+        self.assertIsNotNone(after["investigation"])
+        self.assertEqual(
+            {key: after["investigation"].get(key) for key in (*found, "event", "task")},
+            {**found, "event": "investigation", "task": "why-slow"},
+        )
+
 
 class SmallRecord(unittest.TestCase):
     """Criteria 1 to 4 in a state folder of their own: `done-column-shows-newest` landed

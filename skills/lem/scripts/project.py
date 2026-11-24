@@ -5791,17 +5791,34 @@ def opening_line(  # noqa: PLR0913, PLR0917 - over the limit before the limit wa
     )
 
 
+def newest_investigations(root: Path, presence: list[dict]) -> dict[str | None, dict]:
+    """Each task's newest `investigation` event, and for a task whose events became its
+    summary (SUMMARY, among PRESENCE) the investigation the summary kept, in the form of
+    the event it stands for. An `investigation` logged after the summary is newer, and
+    wins."""
+    found = newest_events(root, "investigation")
+    for record in presence:
+        kept = record.get("investigation") if record.get("event") == SUMMARY else None
+        if isinstance(kept, dict) and record.get("task") not in found:
+            found[record.get("task")] = {
+                "event": "investigation",
+                "task": record.get("task"),
+                **kept,
+            }
+    return found
+
+
 def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
     """Every task of the repository as its state files say now. `settings` is
     `load(root)` when the caller read it already; only a task with a ticket
     needs them."""
     tasks: list[dict] = []
     talks = newest_events(root, "plan.talk")
-    investigations = newest_events(root, "investigation")
     # each task's own mark and its first and newest state, from the repository's log; a
     # task whose events became its summary has both times and its night's date there,
     # and no mark of its own
     presence = events_named(root, "task.mode", "task.state", SUMMARY)
+    investigations = newest_investigations(root, presence)
     opened: dict[str | None, str] = {}
     newest: dict[str | None, str] = {}
     # the time of each task's newest state block, whose row's answer from the board
