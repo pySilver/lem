@@ -34,6 +34,9 @@ DEFECT = {
 NOQA = "#" + " noqa"
 SKIP = "pytest.mark" + ".skip"
 FLAKY = "pytest.mark" + ".flaky"
+PYREFLY = "#" + " pyrefly: ignore"
+TY = "#" + " ty: ignore"
+RUFF = "#" + " ruff: noqa"
 
 
 def patch(
@@ -708,11 +711,55 @@ class Bar(unittest.TestCase):
         )
         self.assertEqual(lowered(result), [("tests/test_calc.py", FLAKY)])
 
+    def test_a_pyrefly_a_ty_and_a_file_wide_ruff_suppression(self) -> None:
+        result = bar(
+            patch(
+                "m.py",
+                plus=(
+                    f"x = f()  {PYREFLY}[bad-assignment]",
+                    f"y = g()  {PYREFLY}",
+                    f"z = h()  {TY}[invalid-assignment]",
+                    f"w = k()  {TY}",
+                    f"{RUFF}: E501",
+                    RUFF,
+                ),
+                new=True,
+            ),
+        )
+        self.assertEqual(
+            lowered(result),
+            [
+                ("m.py", PYREFLY),
+                ("m.py", PYREFLY),
+                ("m.py", RUFF),
+                ("m.py", RUFF),
+                ("m.py", TY),
+                ("m.py", TY),
+            ],
+        )
+
+    def test_a_new_mark_in_a_string_counts_as_a_noqa_in_one(self) -> None:
+        result = bar(
+            patch(
+                "say.py",
+                plus=(f'OLD = "{NOQA}"', f'NEW = "{PYREFLY}, {TY}, {RUFF}"'),
+                new=True,
+            ),
+        )
+        self.assertEqual(
+            lowered(result),
+            [("say.py", NOQA), ("say.py", PYREFLY), ("say.py", RUFF), ("say.py", TY)],
+        )
+
     def test_a_document_may_quote_a_mark(self) -> None:
         result = bar(
             patch(
                 "docs/backlog/a-note.md",
-                plus=(f"A {NOQA} in a note is no mark.", f"{SKIP} neither."),
+                plus=(
+                    f"A {NOQA} in a note is no mark.",
+                    f"{SKIP} neither.",
+                    f"Nor {PYREFLY}, {TY} or {RUFF}.",
+                ),
                 new=True,
             ),
             files=("docs/backlog/a-note.md",),

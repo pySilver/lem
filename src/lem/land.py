@@ -1063,12 +1063,16 @@ DOCS = (".md", ".rst", ".adoc")
 # not measured. A mark that a call's "(" follows is looked for with that "(" and named
 # without it, so a refusal says `it.only`, never `it.only(`. The marks of a test that
 # runs again until it passes came after a probe of the bar passed eight ways of
-# weakening a test unseen (audit T-F2, 2026-11-17).
+# weakening a test unseen (audit T-F2, 2026-11-17). The marks of pyrefly and ty, and
+# ruff's for a whole file, came when those tools came to Lem's own code (2026-11-24).
 BAR = {
     (".py",): (
         r"#\s*noqa",
         r"#\s*type:\s*ignore",
         r"#\s*pyright:\s*ignore",
+        r"#\s*pyrefly:\s*ignore",
+        r"#\s*ty:\s*ignore",
+        r"#\s*ruff:\s*noqa",
         r"#\s*pylint:\s*disable",
         r"#\s*nosec",
         r"\bpytest\.mark\.(skip|xfail)",
