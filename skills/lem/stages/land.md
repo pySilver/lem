@@ -98,7 +98,9 @@ landing up as after a cut-off.
    same files meet, and it is not yours to resolve: the step prints the files and undoes the
    rebase. `spawn-builder` with the brief below, the job "the repair of a conflict with the
    base", and as its paths the branch to rebase onto, the step's `rebase` and those files. Then
-   run the step again.
+   run the step again. A rebase whose tip is not git's merge of the tip before it onto the base
+   goes on with `unshown`, its reason: no review carries over it, `read` asks for a read with
+   that reason, and `propose` ends the owner's merge with it.
    A rebase that git refuses or stops with no file in conflict (a hook of git that refuses it, a
    lock of another git) is no builder's job: the step names git's words and keeps nothing. Tell
    the owner what git names, and run the step again once it is gone.

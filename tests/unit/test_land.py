@@ -1437,6 +1437,53 @@ class RebaseRefused(unittest.TestCase):
         )
 
 
+class RebaseShown(unittest.TestCase):
+    """`land.fits`: a file of a rebase's tip, held to git's merge of the tip before it
+    where that merge met a conflict, and `land.merge_of`, the merge itself."""
+
+    # git's merge of a list the branch appended c to and the base appended d to, as
+    # git 2.55.0 writes it with its conflict markers
+    MERGED = (
+        b"a\nb\n<<<<<<< 1f05799\nc\n=======\nd\n>>>>>>> 3c2ee4f\ne\n"
+        b"<<<<<<< 1f05799\nx\n||||||| 218fa1c\nw\n=======\ny\n>>>>>>> 3c2ee4f\n"
+    )
+
+    def test_a_file_fits_the_lines_outside_the_conflicts_in_their_order(self) -> None:
+        # the base's words, the branch's, both, or none in the place of a conflict
+        for result in (b"a\nb\nd\ne\ny\n", b"a\nb\nc\nd\ne\n", b"a\nb\ne\nx\ny\n"):
+            with self.subTest(result=result):
+                self.assertTrue(land.fits(result, self.MERGED))
+        # a line outside the conflicts that is gone, another in its place, or out of
+        # its order, does not fit
+        for result in (
+            b"a\nd\ne\ny\n",
+            b"a\nB\nd\ne\ny\n",
+            b"b\na\nd\ne\ny\n",
+            b"a\nb\nd\n",
+        ):
+            with self.subTest(result=result):
+                self.assertFalse(land.fits(result, self.MERGED))
+
+    def test_a_merge_with_no_conflict_or_one_not_closed_fits_nothing(self) -> None:
+        self.assertFalse(land.fits(b"a\n", b"a\n"))
+        self.assertFalse(land.fits(b"a\nc\n", b"a\n<<<<<<< 1f05799\nc\n=======\n"))
+
+    def test_a_git_with_no_write_tree_is_refused_with_its_version(self) -> None:
+        # git 2.37 knows no `merge-tree --write-tree`: it prints its usage, exit 129
+        usage = subprocess.CompletedProcess(
+            [], 129, b"", b"error: unknown option `write-tree'\n"
+        )
+        with (
+            mock.patch.object(land.subprocess, "run", return_value=usage),
+            mock.patch.object(land, "git", return_value="git version 2.37.0"),
+            self.assertRaises(land.LandError) as raised,
+        ):
+            land.merge_of(Path("/nowhere"), "a" * 40, "b" * 40)
+        self.assertIn("needs git 2.38 or newer", str(raised.exception))
+        self.assertIn("says git version 2.37.0", str(raised.exception))
+        self.assertIn("the owner updates git", str(raised.exception))
+
+
 class RebaseFailed(unittest.TestCase):
     """`land.rebase_failed`: a rebase of base that failed with no file in conflict is
     refused with git's own words, never kept as a conflict with no file for a builder."""

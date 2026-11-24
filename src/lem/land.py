@@ -205,11 +205,16 @@ after the forge called it conflicting; one conflict in shop/dates.py, resolved b
 builder; one read of the resolution; the merge review carried over the resolved
 conflict: the resolution read found nothing; the checks passed again"). A conflict that
 `base` meets is kept in `landing.json` with the tip before the rebase and whether a
-review covered the change then. `base` rebases with a plain `git rebase`, which leaves
-out a commit whose patch the base took, and the base's later words on its lines stand;
-when the base took such a commit out again (`taken_out`), it rebases with
-`--reapply-cherry-picks` instead, so the commit stays in the change, and names that
-rebase for the builder of a conflict. The
+review covered the change then. `base` holds its rebase to one rule: the tip is git's
+three-way merge of the tip before it onto the base (`rebase_shown`), as a rebase that
+lost or doubled no commit gives. A plain `git rebase` comes first, which leaves out a
+commit whose patch the base took. When its tip is another tree, it is thrown away and
+the rebase runs with `--reapply-cherry-picks`, which keeps a commit the base took out
+again; where the merge met a conflict, the base's later words there stand, and only the
+lines outside the conflict are held to it. A tip that is still another tree goes on
+with no review carried: a read is due, and the owner's merge ends, each with that
+reason. A plain rebase that stops on a conflict while a commit of the branch is one it
+leaves out is undone for the second one, which the builder of the conflict runs. The
 builder that resolves a conflict rebases the branch itself, and the next `base` finds
 the rewritten commits by that tip, gives the polish pass's commits their new names, and
 keeps the resolution. The newest review that saw the change
@@ -1933,19 +1938,13 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
         # why it is not, for the owner's merge that `propose` ends after this
         # rebase (`moved_carry`)
         uncovered = why_uncovered(answered, backlog_of(task), change(task), own)
-    # A plain rebase leaves out a commit whose patch a commit of the base carries, and
-    # its result stands while the base still holds that commit's change. When the base
-    # took one out again (`taken_out`), the commit is applied all the same
-    # (`--reapply-cherry-picks`), so that it stays in the change the review read; one
-    # the base still holds becomes empty and is dropped, with no stop (`--empty=drop`,
-    # git's own default, named so that nothing waits on it).
-    reapply = (
-        ["--reapply-cherry-picks", "--empty=drop"]
-        if taken_out(task.worktree, onto, before)
-        else []
-    )
-    rebasing = ["git", "rebase", *reapply, task.onto]
-    rebased = run([rebasing[0], "-C", str(task.worktree), *rebasing[1:]], check=False)
+    # The rebase is held to git's merge of the tip before onto the base
+    # (`rebase_shown`): where its tip is another tree, the review does not carry, and
+    # the owner's merge ends with why.
+    rebasing, rebased, unshown = rebase_shown(task, onto, before)
+    if unshown:
+        carries = covered = False
+        uncovered = unshown
     if rebased.returncode != 0:
         conflicts = conflicted(task.worktree)
         git(task.worktree, "rebase", "--abort", check=False)
@@ -2111,6 +2110,7 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
         "moved": tip != entry,
         "ahead": ahead,
         "resolved": pending["files"] if resolved else None,
+        "unshown": unshown,
     }
 
 
@@ -2136,16 +2136,75 @@ def rebase_notes(kept: dict, *, moved: bool) -> tuple[dict, dict]:
     )
 
 
-def taken_out(where: Path, onto: str, before: str) -> list[str]:
-    """The commits of the branch at BEFORE that a plain rebase onto ONTO leaves out,
-    because a commit of the base carries their patch (`git rev-list --cherry-mark`),
-    whose change the base no longer holds: the base took it and took it out again.
-    Each such commit is merged onto ONTO's tree from its parent, with no write to the
-    worktree, the index or a ref (`git merge-tree --write-tree --merge-base`). A clean
-    merge that leaves ONTO's tree as it is finds the change there; a conflict finds
-    other words where the change was, which the base wrote after it took the commit
-    (it edited the commit's lines or their neighbors), and the base's words stand, as
-    with a plain rebase; a clean merge that changes the tree finds the change gone."""
+# The options of the rebase that applies every commit of the branch, one whose patch the
+# base took among them, and drops one that the base's tree holds already, with no stop
+# (`--empty=drop`, git's own default, named so that nothing waits on it)
+REAPPLY = ("--reapply-cherry-picks", "--empty=drop")
+
+# The first words of why a rebase's tip is not git's merge of the tip before it onto the
+# base (`rebase_shown`): the review does not carry, and a read is due (`due`).
+REBASE_UNSHOWN = "the rebase could not be shown to keep the change"
+
+
+def rebase_shown(
+    task: Task, onto: str, before: str
+) -> tuple[list[str], subprocess.CompletedProcess, str | None]:
+    """The rebase of `base` from the tip BEFORE onto ONTO, held to one rule: its tip is
+    git's three-way merge of BEFORE and ONTO from their merge base (`merge_of`), which a
+    rebase gives when no commit of the change was lost or doubled. The plain rebase
+    comes first; its tip stands when it is that merge (`rebase_lost`). Otherwise it is
+    thrown away (the branch, HEAD and the worktree as before it) and the rebase that
+    applies every commit, one whose patch the base took among them (`REAPPLY`), runs and
+    is held to the same rule. A plain rebase that stops on a file in conflict is undone
+    and the second one runs in its place when a commit of the branch is one a plain
+    rebase leaves out (`left_out`), so that the builder resolves the rebase that keeps
+    it. It gives the rebase it ran last, as the builder runs it, that run, and why the
+    change could not be shown kept (`REBASE_UNSHOWN`, with the paths), or None: for a
+    tip that is the merge, and for a rebase that stopped, which the caller undoes."""
+    merged = merge_of(task.worktree, before, onto)
+    plain = ["git", "rebase", task.onto]
+    rebased = rebase_run(task.worktree, plain)
+    if rebased.returncode == 0:
+        if not rebase_lost(task.worktree, merged):
+            return plain, rebased, None
+        git(task.worktree, "reset", "-q", "--hard", before, check=False)
+    elif conflicted(task.worktree) and left_out(task.worktree, onto, before):
+        git(task.worktree, "rebase", "--abort", check=False)
+    else:
+        return plain, rebased, None
+    left = rebase_left(task, before)
+    if left:
+        raise LandError(
+            f"the plain rebase onto {task.onto} was undone for the rebase that keeps "
+            f"each commit of the change, and the worktree is not as it was: {left}; "
+            "then this step runs again"
+        )
+    reapply = ["git", "rebase", *REAPPLY, task.onto]
+    rebased = rebase_run(task.worktree, reapply)
+    if rebased.returncode != 0:
+        return reapply, rebased, None
+    lost = rebase_lost(task.worktree, merged)
+    return (
+        reapply,
+        rebased,
+        (
+            f"{REBASE_UNSHOWN}: its tip is not git's merge of the tip before it onto "
+            f"{onto[:9]} in {', '.join(lost)}"
+        )
+        if lost
+        else None,
+    )
+
+
+def rebase_run(where: Path, rebasing: list[str]) -> subprocess.CompletedProcess:
+    """REBASING, a `git rebase` command as the builder runs it, run in WHERE."""
+    return run([rebasing[0], "-C", str(where), *rebasing[1:]], check=False)
+
+
+def left_out(where: Path, onto: str, before: str) -> bool:
+    """Whether the branch at BEFORE has a commit that a plain rebase onto ONTO leaves
+    out, because a commit of the base carries its patch (`git rev-list
+    --cherry-mark`)."""
     marks = git(
         where,
         "rev-list",
@@ -2154,24 +2213,173 @@ def taken_out(where: Path, onto: str, before: str) -> list[str]:
         "--no-merges",
         f"{onto}...{before}",
     )
-    tree = git(where, "rev-parse", f"{onto}^{{tree}}")
-    gone = []
-    for commit in (line[1:] for line in marks.splitlines() if line.startswith("=")):
-        merged = lem_state.run_git(
-            where,
-            ["merge-tree", "--write-tree", f"--merge-base={commit}^", onto, commit],
+    return any(line.startswith("=") for line in marks.splitlines())
+
+
+def rebase_left(task: Task, before: str) -> str:
+    """What a rebase that was undone left not as it was before it, each with the
+    command that puts it back, in the order they run: a rebase still in progress, a
+    HEAD that is not on the task's branch, a branch whose tip is not BEFORE. "" when
+    the branch is checked out at BEFORE and no rebase is in progress."""
+    where = task.worktree
+    branch = task.kept().get("branch") or "BRANCH"
+    left = []
+    if rebase_in_progress(where):
+        left.append(
+            f"a rebase is still in progress (`git -C {where} rebase --abort` ends it)"
         )
-        if merged.returncode not in (0, 1):
-            version = git(where, "--version", check=False)
-            raise LandError(
-                f"git merge-tree failed ({(merged.stderr or merged.stdout).strip()}). "
-                "`git merge-tree --merge-base` needs git 2.40 or newer, and "
-                f"`git --version` says {version}: with an older git, the owner updates "
-                "git, and this step runs again"
+    on = git(where, "symbolic-ref", "-q", "--short", "HEAD", check=False)
+    tip = git(where, "rev-parse", "-q", "--verify", f"refs/heads/{branch}", check=False)
+    if tip != before:
+        left.append(
+            f"the branch {branch} is at {tip[:9] or 'no commit'}, not at its tip "
+            f"before the rebase {before[:9]} (`git -C {where} "
+            + (
+                f"reset --hard {before}"
+                if on == branch
+                else f"branch -f {branch} {before}"
             )
-        if merged.returncode == 0 and merged.stdout.split()[0] != tree:
-            gone.append(commit)
-    return gone
+            + "` puts it back)"
+        )
+    if on != branch:
+        head = git(where, "rev-parse", "-q", "--verify", "HEAD", check=False)
+        left.append(
+            f"HEAD is {f'on {on}' if on else f'detached at {head[:9]}'}, not on the "
+            f"branch {branch} (`git -C {where} switch {branch}` puts it back)"
+        )
+    return "; ".join(left)
+
+
+def rebase_in_progress(where: Path) -> bool:
+    """Whether a rebase is in progress in the worktree WHERE: git keeps its state in a
+    folder of the worktree's own git folder, `rebase-merge` or `rebase-apply`."""
+    return any(
+        (where / git(where, "rev-parse", "--git-path", name)).is_dir()
+        for name in ("rebase-merge", "rebase-apply")
+    )
+
+
+def merge_of(where: Path, tip: str, onto: str) -> tuple[str, set[bytes]]:
+    """git's three-way merge of TIP and ONTO from their merge base (`git merge-tree
+    --write-tree`), with no write to the worktree, the index or a ref: its tree, and the
+    paths where it met a conflict, by the names git wrote. Refused with the version of
+    git for a git older than 2.38, which has no `--write-tree`."""
+    ran = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(where),
+            "merge-tree",
+            "--write-tree",
+            "--name-only",
+            "-z",
+            "--no-messages",
+            tip,
+            onto,
+        ],
+        capture_output=True,
+        check=False,
+    )
+    # 0: a merge with no conflict, 1: one with a conflict
+    if ran.returncode not in (0, 1):
+        said = ran.stderr.decode(errors="replace").strip()
+        version = git(where, "--version", check=False)
+        raise LandError(
+            f"git merge-tree failed ({said}). `git merge-tree --write-tree` needs git "
+            f"2.38 or newer, and `git --version` says {version}: with an older git, "
+            "the owner updates git, and this step runs again"
+        )
+    tree, *paths = ran.stdout.split(b"\0")
+    return tree.decode(), {path for path in paths if path}
+
+
+# The modes of a file whose content a merge can mark a conflict in: a file, an
+# executable one, a symbolic link
+TEXT_MODES = ("100644", "100755", "120000")
+
+
+def rebase_lost(where: Path, merged: tuple[str, set[bytes]]) -> list[str]:
+    """The paths where HEAD, a rebase's tip, is not shown to hold the change that
+    MERGED, git's merge of the tip before it onto the base (`merge_of`), holds. A path
+    where the merge met no conflict is shown only by the same content. Where it met one,
+    git could not tell which side's words stand there, and a rebase that applies each
+    commit in turn can: the path is shown when the tip holds every line the merge wrote
+    outside its conflicts, in their order, and any lines in the place of each conflict
+    (`fits`). Each path is shown as `shown_name` shows it."""
+    tree, conflicted = merged
+    fields = git_bytes(
+        where, "diff-tree", "-r", "-z", "--no-renames", "HEAD^{tree}", tree
+    ).split(b"\0")
+    lost = []
+    for head, path in zip(fields[0::2], fields[1::2], strict=False):
+        mine, its, mine_id, its_id = head.decode().lstrip(":").split()[:4]
+        if not (
+            path in conflicted
+            and mine in TEXT_MODES
+            and its in TEXT_MODES
+            and set(mine_id) != {"0"}
+            and set(its_id) != {"0"}
+            and fits(
+                git_bytes(where, "cat-file", "blob", mine_id),
+                git_bytes(where, "cat-file", "blob", its_id),
+            )
+        ):
+            lost.append(shown_name(path))
+    return lost
+
+
+# A line that opens a conflict a merge wrote into a file: seven `<` or more, the
+# conflict-marker-size of the file's attributes, and the side's name
+CONFLICT_OPENS = re.compile(rb"(<{7,})(?: [^\n]*)?\r?\n?")
+
+
+def fits(result: bytes, merged: bytes) -> bool:
+    """Whether RESULT, a file as a rebase left it, holds each line of MERGED, the same
+    file as git's merge wrote it with conflict markers, outside its conflicts and in
+    their order, with any lines in the place of each conflict. A MERGED with no
+    conflict, or one git did not close, fits nothing: an equal file is never asked."""
+    lines = merged.splitlines(keepends=True)
+    pieces: list[list[bytes]] = [[]]
+    at = 0
+    while at < len(lines):
+        opened = CONFLICT_OPENS.fullmatch(lines[at])
+        if not opened:
+            pieces[-1].append(lines[at])
+            at += 1
+            continue
+        closes = re.compile(rb">{%d}(?: [^\n]*)?\r?\n?" % len(opened[1]))
+        end = next(
+            (i for i in range(at + 1, len(lines)) if closes.fullmatch(lines[i])), None
+        )
+        if end is None:
+            return False
+        pieces.append([])
+        at = end + 1
+    return len(pieces) > 1 and in_order(result.splitlines(keepends=True), pieces)
+
+
+def in_order(lines: list[bytes], pieces: list[list[bytes]]) -> bool:
+    """Whether LINES are the PIECES in their order, with any lines between two of them:
+    the first piece starts them, the last ends them, and each other one is found at its
+    first place after the one before, which leaves the most room for the rest."""
+    first, *middle, last = pieces
+    end = len(lines) - len(last)
+    if lines[: len(first)] != first or end < len(first) or lines[end:] != last:
+        return False
+    at = len(first)
+    for piece in middle:
+        found = next(
+            (
+                start
+                for start in range(at, end - len(piece) + 1)
+                if lines[start : start + len(piece)] == piece
+            ),
+            None,
+        )
+        if found is None:
+            return False
+        at = found + len(piece)
+    return True
 
 
 # git's exit status for an option it cannot parse (`usage_with_options`), in any
@@ -5409,7 +5617,7 @@ def due(task: Task) -> dict:
         if found["small"]
         else tasks_of(Path(found["plan"]).read_text(encoding="utf-8"))
     )
-    return due_of(
+    said = due_of(
         now,
         kept.get("reads", []),
         kept.get("resolution"),
@@ -5419,6 +5627,26 @@ def due(task: Task) -> dict:
         folder=backlog_of(task),
         own=task_item(task),
     )
+    # A rebase whose tip is not git's merge of the tip before it (`rebase_shown`) may
+    # have lost what the review read, or what came after it: a read of the change is
+    # due, with that reason first, until a review of this tip answered.
+    unshown = kept.get("rebase_uncovered") or {}
+    if (
+        said["due"] in ("review", "none")
+        and unshown.get("to") == now["tip"]
+        and str(unshown.get("why")).startswith(REBASE_UNSHOWN)
+        and not any(
+            read["answered"] and read.get("tip") == now["tip"][:9]
+            for read in kept.get("reads", [])
+        )
+    ):
+        said["why"] = (
+            f"{unshown['why']}; {said['why']}"
+            if said["due"] == "review"
+            else unshown["why"]
+        )
+        said["due"] = "review"
+    return said
 
 
 def due_of(  # noqa: C901, PLR0911, PLR0912, PLR0913 - over the limit before the limit was set

@@ -1022,118 +1022,181 @@ else
 fi
 project --repo "$MB" state mb-cut dropped "the test is over" >/dev/null
 
-# The base takes a commit of a task's branch by its patch, and git reapplies it on the rebase of base all the same.
-# cp_task SLUG: on origin's main SLUG-feature.txt and SLUG-label.txt hold `old`; the task's branch, on that main, changes
-# each to `new` in a commit of its own (`feat: the feature`, `feat: the label`), and is proposed
-cp_task() {
-  local tree
-  git -C "$MBX" pull -q --ff-only origin main && echo old > "$MBX/$1-feature.txt" && echo old > "$MBX/$1-label.txt"
-  git -C "$MBX" add -A && git -C "$MBX" commit -q -m "chore: $1's files" && git -C "$MBX" push -q origin main
-  mb_task "$1" "$1.txt"
-  tree=$(project --repo "$MB" worktree-dir "$1")
+# The rebase of base, one row for each history of the base and the branch. Each row is a task of the moved-base shop,
+# reviewed and proposed, whose base then moves by the row's own steps; then start and base. A row gives what its files
+# hold at the tip and what became of the review: `carried` over the rebase, `unshown` (the rebase could not be shown to
+# keep the change, so a read is due), `uncovered` (no review covers the change, for another reason), or `stop FILES
+# REBASE`: a conflict for a builder, and the rebase the step names for him.
+# rb_task SLUG FILE=WORDS...: origin's main gets SLUG-FILE for each FILE, its WORDS one to a line, and the task SLUG
+# starts on that main
+rb_task() {
+  local slug=$1 pair tree
+  shift
+  git -C "$MBX" pull -q --ff-only origin main
+  for pair in "$@"; do tr ' ' '\n' <<<"${pair#*=}" > "$MBX/$slug-${pair%%=*}"; done
+  git -C "$MBX" add -A && git -C "$MBX" commit -q -m "chore: $slug's files" && git -C "$MBX" push -q origin main
+  mb_task "$slug" "$slug.txt"
+  tree=$(project --repo "$MB" worktree-dir "$slug")
   git -C "$MB" fetch -q origin && git -C "$tree" rebase -q origin/main
-  echo new > "$tree/$1-feature.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "feat: the feature"
-  echo new > "$tree/$1-label.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "feat: the label"
-  mb_land "$1"
 }
-# cp_pick SLUG: origin's main cherry-picks the task's commit `feat: the feature`, and pushes nothing yet
-cp_pick() {
-  git -C "$MBX" pull -q --ff-only origin main && git -C "$MBX" fetch -q origin "fix/$1"
-  git -C "$MBX" cherry-pick "$(git -C "$(project --repo "$MB" worktree-dir "$1")" rev-parse HEAD~1)" >/dev/null
+# rb_files DIR SLUG FILE=WORDS...: each SLUG-FILE in DIR gets its WORDS, one to a line
+rb_files() {
+  local dir=$1 slug=$2 pair
+  shift 2
+  for pair in "$@"; do tr ' ' '\n' <<<"${pair#*=}" > "$dir/$slug-${pair%%=*}"; done
 }
-# cp_after SLUG: the task's commits on origin/main and its feature file, after start and base
-cp_after() { local tree; tree=$(project --repo "$MB" worktree-dir "$1"); echo "$(git -C "$tree" log --format=%s origin/main..HEAD | grep -c '^feat:' || true) $(cat "$tree/$1-feature.txt")"; }
-cp_task cp-revert
-cp_pick cp-revert && git -C "$MBX" revert --no-edit HEAD >/dev/null && git -C "$MBX" push -q origin main
-cp_revert=$(land --repo "$MB" start cp-revert >/dev/null && land --repo "$MB" base cp-revert 2>&1 || true)
-if [ "$(field 'd["moved"]' <<<"$cp_revert" 2>/dev/null)" = True ] && [ "$(cp_after cp-revert)" = "2 new" ]; then
-  pass "a base that cherry-picked the branch's first commit and reverted it does not lose that commit on the rebase of base: the tip holds both commits, and the feature file is new"
-else
-  fail "a cherry-pick the base reverted: $cp_revert / $(cp_after cp-revert)"
-fi
-project --repo "$MB" state cp-revert dropped "the test is over" >/dev/null
-cp_task cp-kept
-cp_pick cp-kept && git -C "$MBX" push -q origin main
-cp_kept=$(land --repo "$MB" start cp-kept >/dev/null && land --repo "$MB" base cp-kept 2>&1 || true)
-cp_task cp-edited
-cp_pick cp-edited && echo newer > "$MBX/cp-edited-feature.txt" && git -C "$MBX" commit -q -am "fix: the feature, newer" && git -C "$MBX" push -q origin main
-cp_edited=$(land --repo "$MB" start cp-edited >/dev/null && land --repo "$MB" base cp-edited 2>&1 || true)
-if [ "$(field 'd["moved"]' <<<"$cp_kept" 2>/dev/null)" = True ] && [ "$(cp_after cp-kept)" = "1 new" ] \
-  && [ "$(field 'd["moved"]' <<<"$cp_edited" 2>/dev/null)" = True ] && [ "$(cp_after cp-edited)" = "1 newer" ] && [ "$(mb_kept cp-edited conflict d)" = None ]; then
-  pass "a commit the base cherry-picked and kept is left out of the rebase of base with no stop, and so is one the base cherry-picked and then edited on the same lines: the base's later words stand"
-else
-  fail "a cherry-pick the base kept or edited: $cp_kept / $(cp_after cp-kept) / $cp_edited / $(cp_after cp-edited)"
-fi
-project --repo "$MB" state cp-kept dropped "the test is over" >/dev/null
-project --repo "$MB" state cp-edited dropped "the test is over" >/dev/null
-
-# The base took a commit of the branch by its patch and then went on: a plain rebase leaves the commit out with no stop,
-# and its result is right, where a rebase that reapplies it stops on a conflict.
-# rv_task SLUG: on origin's main SLUG-list.txt holds a and b, SLUG-more.txt and SLUG-label.txt hold old; the task's
-# branch appends c to the list, then sets more, then the label to new, in a commit each, and is proposed
-rv_task() {
+# rb_commit SLUG SUBJECT FILE=WORDS...: a commit of the task with SUBJECT; rb_undo SLUG: the task reverts its last commit
+rb_commit() {
   local tree
-  git -C "$MBX" pull -q --ff-only origin main && printf '%s\n' a b > "$MBX/$1-list.txt" && echo old > "$MBX/$1-more.txt" && echo old > "$MBX/$1-label.txt"
-  git -C "$MBX" add -A && git -C "$MBX" commit -q -m "chore: $1's files" && git -C "$MBX" push -q origin main
-  mb_task "$1" "$1.txt"
   tree=$(project --repo "$MB" worktree-dir "$1")
-  git -C "$MB" fetch -q origin && git -C "$tree" rebase -q origin/main
-  printf '%s\n' a b c > "$tree/$1-list.txt" && git -C "$tree" commit -q -am "feat: c"
-  echo new > "$tree/$1-more.txt" && git -C "$tree" commit -q -am "feat: more"
-  echo new > "$tree/$1-label.txt" && git -C "$tree" commit -q -am "feat: the label"
-  mb_land "$1"
+  rb_files "$tree" "$1" "${@:3}" && git -C "$tree" add -A && git -C "$tree" commit -q -m "$2"
 }
-# rv_pick SLUG N...: origin's main cherry-picks the task's commit N back from its tip, for each N in order (2 is
-# `feat: c`, 1 is `feat: more`)
-rv_pick() {
-  local tree slug=$1 n
+rb_undo() { git -C "$(project --repo "$MB" worktree-dir "$1")" revert --no-edit HEAD >/dev/null; }
+# rb_sha SLUG SUBJECT: the task's commit with SUBJECT, the first from the tip
+rb_sha() { git -C "$(project --repo "$MB" worktree-dir "$1")" log --format='%H %s' origin/main..HEAD | awk -v s="$2" 'substr($0, 42) == s { print $1; exit }'; }
+# rb_pick SLUG SUBJECT...: origin's main (the other clone, not pushed yet) takes each commit of the task by its patch, in
+# order, as a cherry-pick with its own hash
+rb_pick() {
+  local slug=$1 subject
+  shift
+  git -C "$MBX" pull -q --ff-only origin main && git -C "$MBX" fetch -q origin "fix/$slug"
+  for subject in "$@"; do git -C "$MBX" cherry-pick -x "$(rb_sha "$slug" "$subject")" >/dev/null; done
+}
+# rb_main SLUG SUBJECT FILE=WORDS...: a commit of the other clone's main; rb_push: main goes to origin
+rb_main() { rb_files "$MBX" "$1" "${@:3}" && git -C "$MBX" commit -q -am "$2"; }
+rb_push() { git -C "$MBX" push -q origin main; }
+# rb_base SLUG FILE...: start and base, then each FILE at the tip and what became of the review
+rb_base() {
+  local slug=$1 tree out kept files="" name
   shift
   tree=$(project --repo "$MB" worktree-dir "$slug")
-  git -C "$MBX" pull -q --ff-only origin main && git -C "$MBX" fetch -q origin "fix/$slug"
-  for n in "$@"; do git -C "$MBX" cherry-pick "$(git -C "$tree" rev-parse "HEAD~$n")" >/dev/null; done
+  out=$(land --repo "$MB" start "$slug" >/dev/null && land --repo "$MB" base "$slug" 2>/dev/null || true)
+  kept=$("$PY" -c '
+import json, sys
+d = json.load(open(sys.argv[1]))
+if d.get("conflict"):
+    print("stop", d["conflict"]["files"], json.loads(sys.argv[2])["rebase"])
+elif d.get("rebase_carried"):
+    print("carried")
+elif d.get("rebase_uncovered"):
+    print("unshown" if d["rebase_uncovered"]["why"].startswith("the rebase could not be shown") else "uncovered")
+else:
+    print("none")' "$MB/.lem/state/tasks/$slug/landing.json" "${out:-{\}}")
+  if [ "${kept%% *}" = stop ]; then echo "$kept"; return; fi
+  for name in "$@"; do files+="$name=$(git -C "$tree" show "HEAD:$slug-$name" | tr '\n' ' ' | sed 's/ $//') "; done
+  echo "$files| $kept"
 }
-# rv_base SLUG: start and base, then the moved flag, the kept conflict, and the list, more and label at the tip
-rv_base() {
-  local tree moved
-  tree=$(project --repo "$MB" worktree-dir "$1")
-  moved=$(land --repo "$MB" start "$1" >/dev/null && land --repo "$MB" base "$1" 2>&1 | field 'd["moved"]' 2>&1)
-  echo "$moved $(mb_kept "$1" conflict d) $(tr '\n' ' ' < "$tree/$1-list.txt")$(cat "$tree/$1-more.txt") $(cat "$tree/$1-label.txt")"
-}
-rv_task rv-append
-rv_pick rv-append 2 && printf '%s\n' a b c d > "$MBX/rv-append-list.txt" && git -C "$MBX" commit -q -am "feat: d" && git -C "$MBX" push -q origin main
-rv_append=$(rv_base rv-append)
-rv_task rv-above
-rv_pick rv-above 2 && printf '%s\n' a B c > "$MBX/rv-above-list.txt" && git -C "$MBX" commit -q -am "fix: B" && git -C "$MBX" push -q origin main
-rv_above=$(rv_base rv-above)
-rv_task rv-two
-rv_pick rv-two 2 1 && printf '%s\n' a b C > "$MBX/rv-two-list.txt" && git -C "$MBX" commit -q -am "fix: C" && git -C "$MBX" push -q origin main
-rv_two=$(rv_base rv-two)
-if [ "$rv_append" = "True None a b c d new new" ] && [ "$rv_above" = "True None a B c new new" ] && [ "$rv_two" = "True None a b C new new" ]; then
-  pass "a commit the base took by its patch and then appended after, edited the line above, or, taken with the next one, edited, is left out of the rebase of base with no stop, and the tip holds the base's words and the rest of the change"
+# the rows: the base took a commit by its patch and took it out again, kept it, or edited its lines
+rb_task rb-revert feature=old label=old
+rb_commit rb-revert "feat: the feature" feature=new && rb_commit rb-revert "feat: the label" label=new && mb_land rb-revert
+rb_pick rb-revert "feat: the feature" && git -C "$MBX" revert --no-edit HEAD >/dev/null && rb_push
+rb_task rb-kept feature=old label=old
+rb_commit rb-kept "feat: the feature" feature=new && rb_commit rb-kept "feat: the label" label=new && mb_land rb-kept
+rb_pick rb-kept "feat: the feature" && rb_push
+rb_task rb-edited feature=old label=old
+rb_commit rb-edited "feat: the feature" feature=new && rb_commit rb-edited "feat: the label" label=new && mb_land rb-edited
+rb_pick rb-edited "feat: the feature" && rb_main rb-edited "fix: the feature, newer" feature=newer && rb_push
+# the earlier reviewer's three: the base took the commit that appends c, then appended d, or edited the line above it,
+# or took it with the next one and edited its line
+for row in append above two; do
+  rb_task "rb-$row" list="a b" more=old label=old
+  rb_commit "rb-$row" "feat: c" list="a b c" && rb_commit "rb-$row" "feat: more" more=new && rb_commit "rb-$row" "feat: the label" label=new
+  mb_land "rb-$row"
+done
+rb_pick rb-append "feat: c" && rb_main rb-append "feat: d" list="a b c d" && rb_push
+rb_pick rb-above "feat: c" && rb_main rb-above "fix: B" list="a B c" && rb_push
+rb_pick rb-two "feat: c" "feat: more" && rb_main rb-two "fix: C" list="a b C" && rb_push
+# a change the task made, took back and made again, then another file; the base took and kept the first commit
+rb_task rb-restored a=old b=old
+rb_commit rb-restored "feat: a" a=new && rb_undo rb-restored && rb_undo rb-restored && rb_commit rb-restored "feat: b" b=second
+mb_land rb-restored
+rb_pick rb-restored "feat: a" && rb_push
+# one commit changes a and b; the base took it, made a newer and b old again; the task has another commit
+rb_task rb-half a=old b=old c=old
+rb_commit rb-half "feat: a and b" a=new b=new && rb_commit rb-half "feat: c" c=new && mb_land rb-half
+rb_pick rb-half "feat: a and b" && rb_main rb-half "fix: a newer, b old" a=newer b=old && rb_push
+# the base took the commit, reverted it, and reverted the revert
+rb_task rb-again feature=old label=old
+rb_commit rb-again "feat: the feature" feature=new && rb_commit rb-again "feat: the label" label=new && mb_land rb-again
+rb_pick rb-again "feat: the feature" && git -C "$MBX" revert --no-edit HEAD >/dev/null && git -C "$MBX" revert --no-edit HEAD >/dev/null && rb_push
+# five commits, of which the base took two and reverted one
+rb_task rb-five f1=old f2=old f3=old f4=old f5=old
+for n in 1 2 3 4 5; do rb_commit rb-five "feat: f$n" "f$n=new"; done
+mb_land rb-five
+rb_pick rb-five "feat: f2" "feat: f4" && git -C "$MBX" revert --no-edit HEAD >/dev/null && rb_push
+# the base took the commit that appends c and reverted it, and gave the label words of its own: the plain rebase stops on
+# the label
+rb_task rb-out list="a b" more=old label=old
+rb_commit rb-out "feat: c" list="a b c" && rb_commit rb-out "feat: more" more=new && rb_commit rb-out "feat: the label" label=new
+mb_land rb-out
+rb_pick rb-out "feat: c" && git -C "$MBX" revert --no-edit HEAD >/dev/null && rb_main rb-out "fix: the label" label=theirs && rb_push
+# two the review saw at the old revision too: the base merged the commit by its own hash, then reverted it; five commits,
+# the base took one and edited it, and both the base and the task reverted another
+rb_task rb-hash feature=old label=old
+rb_commit rb-hash "feat: the feature" feature=new && rb_commit rb-hash "feat: the label" label=new && mb_land rb-hash
+git -C "$MBX" pull -q --ff-only origin main && git -C "$MBX" fetch -q origin fix/rb-hash
+git -C "$MBX" merge -q --no-edit "$(rb_sha rb-hash "feat: the feature")" && git -C "$MBX" revert --no-edit HEAD >/dev/null && rb_push
+rb_task rb-both f1=old f2=old f3=old f4=old f5=old
+for n in 1 2 3 4 5; do rb_commit rb-both "feat: f$n" "f$n=new"; done
+git -C "$(project --repo "$MB" worktree-dir rb-both)" revert --no-edit "$(rb_sha rb-both "feat: f4")" >/dev/null
+mb_land rb-both
+rb_pick rb-both "feat: f2" && rb_main rb-both "fix: f2, newer" f2=newer && rb_pick rb-both "feat: f4" && git -C "$MBX" revert --no-edit HEAD >/dev/null && rb_push
+# a merge of the base into the branch, with a word of its own in z, which no rebase keeps: the merge commit goes, and
+# with it z; the tip is not git's merge of the tip before it, so the review does not carry and a read is due
+rb_task rb-merged x=old y=old z=old
+rb_commit rb-merged "feat: x" x=new && mb_land rb-merged
+git -C "$MBX" pull -q --ff-only origin main && rb_main rb-merged "feat: y" y=one && rb_push
+rb_tree=$(project --repo "$MB" worktree-dir rb-merged)
+git -C "$MB" fetch -q origin && git -C "$rb_tree" merge -q --no-ff --no-commit origin/main >/dev/null
+rb_files "$rb_tree" rb-merged z=evil && git -C "$rb_tree" add -A && git -C "$rb_tree" commit -q -m "merge: main, with z of its own"
+git -C "$MBX" pull -q --ff-only origin main && rb_main rb-merged "feat: y, two" y=two && rb_push
+rb_rows=(
+  "rb-revert feature label|feature=new label=new | carried"
+  "rb-kept feature label|feature=new label=new | carried"
+  "rb-edited feature label|feature=newer label=new | carried"
+  "rb-append list more label|list=a b c d more=new label=new | carried"
+  "rb-above list more label|list=a B c more=new label=new | carried"
+  "rb-two list more label|list=a b C more=new label=new | carried"
+  "rb-restored a b|a=new b=second | carried"
+  "rb-half a b c|stop ['rb-half-a'] git rebase --reapply-cherry-picks --empty=drop origin/main"
+  "rb-again feature label|feature=new label=new | carried"
+  "rb-five f1 f2 f3 f4 f5|f1=new f2=new f3=new f4=new f5=new | carried"
+  "rb-out list more label|stop ['rb-out-label'] git rebase --reapply-cherry-picks --empty=drop origin/main"
+  "rb-hash feature label|feature=old label=new | uncovered"
+  "rb-both f1 f2 f3 f4 f5|f1=new f2=newer f3=new f4=old f5=new | carried"
+  "rb-merged x y z|x=new y=two z=old | unshown"
+)
+rb_wrong=""
+for row in "${rb_rows[@]}"; do
+  # shellcheck disable=SC2086  # the row's slug and its files, one word each
+  got=$(rb_base ${row%%|*})
+  [ "$got" = "${row#*|}" ] || rb_wrong+=" ${row%% *}: $got;"
+done
+polish_in "$MB" rb-merged && land --repo "$MB" checks rb-merged >/dev/null
+rb_due=$(land --repo "$MB" read rb-merged | field '(d["due"], d["why"].split(" in ")[0])')
+[ "$rb_due" = "('review', \"the rebase could not be shown to keep the change: its tip is not git's merge of the tip before it onto $(git -C "$MB" rev-parse --short=9 origin/main)\")" ] || rb_wrong+=" the read of rb-merged: $rb_due;"
+if [ -z "$rb_wrong" ]; then
+  pass "the rebase of base keeps each commit of the change that the base took out again, lets the base's own later words stand, and carries the review only where its tip is git's merge of the tip before onto the base, or stops for a builder with the rebase he runs"
 else
-  fail "a commit the base took and went on from: $rv_append / $rv_above / $rv_two"
+  fail "the rebase of base, row by row:$rb_wrong"
 fi
-for slug in rv-append rv-above rv-two; do project --repo "$MB" state "$slug" dropped "the test is over" >/dev/null; done
-
-# The base took the commit, took it out again, and changed the label the branch changes too: the rebase reapplies the
-# commit and stops on the label, the step names the rebase it ran for the builder, and the builder's resolution with
-# that rebase keeps the commit: the next base moves nothing, since the builder's rebase put the branch on the base, and
+for row in "${rb_rows[@]}"; do
+  slug=${row%% *}
+  [ "$slug" = rb-out ] || project --repo "$MB" state "$slug" dropped "the test is over" >/dev/null
+done
+# The builder of rb-out's conflict runs the rebase the step named for him and keeps the task's label: the commit the base
+# took out again stays on the branch, and the next base moves nothing, since his rebase put the branch on the base, and
 # takes the resolution.
-rv_task rv-out
-rv_pick rv-out 2 && git -C "$MBX" revert --no-edit HEAD >/dev/null && echo theirs > "$MBX/rv-out-label.txt" && git -C "$MBX" commit -q -am "fix: the label" && git -C "$MBX" push -q origin main
-out_tree=$(project --repo "$MB" worktree-dir rv-out)
-out_stop=$(land --repo "$MB" start rv-out >/dev/null && land --repo "$MB" base rv-out 2>/dev/null || true)
-out_rebase=$(field 'd["rebase"]' <<<"$out_stop" 2>&1 || true)
+out_tree=$(project --repo "$MB" worktree-dir rb-out)
 git -C "$out_tree" rebase -q --reapply-cherry-picks --empty=drop origin/main >/dev/null 2>&1 || true
-echo new > "$out_tree/rv-out-label.txt" && git -C "$out_tree" add rv-out-label.txt && GIT_EDITOR=true git -C "$out_tree" rebase --continue >/dev/null 2>&1
-out_again=$(land --repo "$MB" base rv-out | field '(d["moved"], d["resolved"])')
-if [ "$(field 'd["conflict"]' <<<"$out_stop")" = "['rv-out-label.txt']" ] && [ "$out_rebase" = "git rebase --reapply-cherry-picks --empty=drop origin/main" ] \
-  && [ "$out_again" = "(False, ['rv-out-label.txt'])" ] && [ "$(tr '\n' ' ' < "$out_tree/rv-out-list.txt")" = "a b c " ]; then
-  pass "a commit the base took and took out again is reapplied by the rebase of base, also when the rebase stops on another file: the step names that rebase for the builder, and the resolution keeps the commit"
+echo new > "$out_tree/rb-out-label" && git -C "$out_tree" add rb-out-label && GIT_EDITOR=true git -C "$out_tree" rebase --continue >/dev/null 2>&1
+out_again=$(land --repo "$MB" base rb-out | field '(d["moved"], d["resolved"])')
+if [ "$out_again" = "(False, ['rb-out-label'])" ] && [ "$(tr '\n' ' ' < "$out_tree/rb-out-list")" = "a b c " ]; then
+  pass "a builder who resolves the conflict with the rebase base named keeps the commit the base took out again, and the next base takes his resolution"
 else
-  fail "a commit the base took out again, with a conflict beside it: $out_stop / $out_again / $(tr '\n' ' ' < "$out_tree/rv-out-list.txt")"
+  fail "the builder's rebase of a commit the base took out again: $out_again / $(tr '\n' ' ' < "$out_tree/rb-out-list")"
 fi
-project --repo "$MB" state rv-out dropped "the test is over" >/dev/null
+project --repo "$MB" state rb-out dropped "the test is over" >/dev/null
 
 # A commit added to the branch after the proposal, then the new landing, a clean first rebase, the wait and the second
 # rebase: the second rebase starts again from the tip before Lem's own first one, so the commit is still on the branch,
