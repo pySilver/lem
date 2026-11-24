@@ -5064,15 +5064,13 @@ def code_version(root: Path = LEM_ROOT) -> str:
 
 
 def code_stamp(root: Path = LEM_ROOT) -> int:
-    """The newest change time of the scripts in the folder of Lem `root`, in ns: of two
-    codes, the newer one has the larger stamp, as an update writes its files anew."""
-    return max(
-        (
-            file.stat().st_mtime_ns
-            for file in (root / "skills" / "lem" / "scripts").glob("*.py")
-        ),
-        default=0,
-    )
+    """The newest change time of the Python in the folder of Lem `root`, in ns: of two
+    codes, the newer one has the larger stamp, as an update writes its files anew. The
+    package `src/lem` holds it; a folder of a release before the package, which another
+    install or a running server may still be, holds it in `skills/lem/scripts`."""
+    package = root / "src" / "lem"
+    folder = package if package.is_dir() else root / "skills" / "lem" / "scripts"
+    return max((file.stat().st_mtime_ns for file in folder.glob("*.py")), default=0)
 
 
 def serve_settings() -> dict:

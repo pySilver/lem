@@ -3105,5 +3105,66 @@ class SwitcherCount(unittest.TestCase):
                 self.assertEqual(counts(), (2, 2))
 
 
+class CodeStamp(unittest.TestCase):
+    """The stamp `lem serve --ensure` compares with the running server's: the newest
+    change time of the Python in a folder of Lem, of either layout."""
+
+    @staticmethod
+    def write(root: Path, place: str, ns: int) -> None:
+        import os
+
+        file = root / place
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text("", encoding="utf-8")
+        os.utime(file, ns=(ns, ns))
+
+    def test_an_edit_in_the_package_moves_the_stamp(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.write(root, "src/lem/serve.py", 2_000)
+            self.write(root, "skills/lem/scripts/picker.py", 3_000)
+            self.assertEqual(serve.code_stamp(root), 2_000)
+            self.write(root, "src/lem/land.py", 5_000)
+            self.assertEqual(serve.code_stamp(root), 5_000)
+
+    def test_a_folder_of_the_old_layout_stamps_from_its_scripts(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.write(root, "skills/lem/scripts/serve.py", 4_000)
+            self.write(root, "skills/lem/scripts/lem_state.py", 7_000)
+            self.assertEqual(serve.code_stamp(root), 7_000)
+
+    def test_a_newer_package_replaces_a_server_of_the_old_layout_not_back(
+        self,
+    ) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as old, tempfile.TemporaryDirectory() as new:
+            self.write(Path(old), "skills/lem/scripts/serve.py", 4_000)
+            self.write(Path(new), "src/lem/serve.py", 9_000)
+            self.write(Path(new), "skills/lem/scripts/picker.py", 1_000)
+            codes = {
+                root: {
+                    "version": f"files {serve.code_stamp(Path(root))}",
+                    "stamp": serve.code_stamp(Path(root)),
+                }
+                for root in (old, new)
+            }
+            for mine, theirs, replaces in ((new, old, True), (old, new, False)):
+                with (
+                    mock.patch.object(
+                        serve, "code_stamp", return_value=codes[mine]["stamp"]
+                    ),
+                    mock.patch.object(
+                        serve, "code_version", return_value=codes[mine]["version"]
+                    ),
+                ):
+                    self.assertEqual(serve.outdated(codes[theirs]), replaces)
+
+
 if __name__ == "__main__":
     unittest.main()
