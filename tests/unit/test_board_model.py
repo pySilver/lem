@@ -2465,6 +2465,27 @@ class ReleaseStop(unittest.TestCase):
         # every act of the board would stop in the guard: the drop is the way on
         self.assertEqual(bm.acts_of(t, None), [])
 
+    def test_what_a_task_two_releases_back_waits_for_is_the_stops_message_in_any_status(
+        self,
+    ) -> None:
+        for status, text in (
+            ("open", Merge.PR),
+            ("building", "the plan talk runs"),
+            ("planned", "the plan waits for the owner"),
+            ("held", "the criteria wait for the owner"),
+            ("blocked", "the session stopped"),
+            ("queued", "after: fix-the-base"),
+        ):
+            with self.subTest(status=status):
+                m = model(state(1, status, text), self.stop(5))
+                t = m.tasks[0]
+                wait = cast("dict", bm.waits_for(t, bm.waits_of(m)))
+                self.assertEqual(
+                    (t.status, bm.acts_of(t, None), wait["you"], wait["where"]),
+                    (status, [], True, self.SAY),
+                )
+                self.assertEqual(bm.answer_of(t), self.SAY)
+
     def test_a_landing_two_releases_back_is_out_of_the_guard_of_a_stopped_session(
         self,
     ) -> None:

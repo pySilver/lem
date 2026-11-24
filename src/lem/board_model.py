@@ -2605,10 +2605,13 @@ def board_yes_no(t: Task) -> str:
     )
 
 
-def answer_of(t: Task) -> str:  # noqa: C901, PLR0911 - over the limit before the limit was set
+def answer_of(t: Task) -> str:  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit was set
     """Where the owner answers what waits for him: in the task's own session, or on the
     board; for a task queued after a dropped task, which no session runs, in any
-    Lem session."""
+    Lem session; for a task two releases back, the stop's message, whatever its
+    status: the board offers no act on it (`acts_of`)."""
+    if t.release_stop and not t.closed:
+        return t.release_stop["say"]
     if t.dropped_after:
         start, drop = f"start {t.slug} now", f"/lem drop {t.slug}"
         return (
