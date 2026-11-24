@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# The board's acts (serve.py `board_act`, `board_start`): the owner's yes to the criteria, a merge from its confirm step,
+# The board's acts (serve.py `board_act`, `board_start`): the owner's yes to the criteria and his No with a note on the
+# standard track's (`act_answer`), a merge from its confirm step,
 # the park of a task a breaker holds, his Drop of it from its confirm step (`act_answer`), a fresh session of a task with
 # none and a new task, posted as forms to a server of this run, and his answer to a card of a task's session, which the
 # card's page posts as JSON (`card_answer`). The afternoon of tests/board-showcase.py gives the criteria, the breaker,
@@ -111,12 +112,61 @@ until_for() {
     sleep 0.2
   done
 }
-digest=$("$PY" -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()[:16])' "$STATE/tasks/stock-on-product-page/criteria.md")
+hashed() { "$PY" -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()[:16])' "$1"; }
+IPHONE='Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1'
 
+# The standard track's criteria (criteria 2, 3, 4 and 6 of criteria-change-asks-again): the card of stock-on-product-page,
+# whose criteria changed from the owner's note in the afternoon, shows criterion 1's text before beside its new text and
+# has Yes and No with a note. A No with no note is refused and changes nothing; a No with his note, from the phone, is on
+# record with the row's question and wakes the task's session; the session's change from it (`lem criteria change`, run
+# here as the session runs it) writes a new wait, a new row, whose card shows criterion 2 before and after. His yes to
+# that text below is his approval.
+S=$BASE/tasks/stock-on-product-page
+SF=$STATE/tasks/stock-on-product-page
+card=$(curl -fsS "$S/criteria")
+card_words=$(words <<<"$card")
+skey=$(grep -o 'name="key" value="criterion:stock-on-product-page:[0-9TZ]*"' <<<"$card" | head -1 | sed 's/.*value="//; s/"$//')
+sdigest=$(hashed "$SF/criteria.md")
+kept_md=$(cat "$SF/criteria.md")
+wakes=$(grep -c "^wake stock-on-product-page --why owner$" "$LEM_SESSION_CALLS" 2>/dev/null || true)
+bare=$(curl -s -o /dev/null -w '%{redirect_url}' -H "Origin: $SERVER" --data-urlencode "key=$skey" --data-urlencode "option=no" --data-urlencode "digest=$sdigest" \
+  --data-urlencode "words=   " --data-urlencode "tab=criteria" "$S/answer")
+bare_page=$(curl -fsS "$bare" | words)
+bare_kept=$([ "$(cat "$SF/criteria.md")" = "$kept_md" ] && [ ! -e "$SF/answers/$skey.json" ] && [ "$(status_in "$DEMO" stock-on-product-page)" = held ] && echo kept || echo moved)
+SNOTE="criterion 2 should name the size of the product too"
+noted=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -A "$IPHONE" -H "Origin: $SERVER" --data-urlencode "key=$skey" --data-urlencode "option=no" \
+  --data-urlencode "digest=$sdigest" --data-urlencode "words=$SNOTE" --data-urlencode "in=waits" "$S/answer")
+noted_page=$(curl -fsS "${noted#* }" | words)
+noted_made=$("$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print((d["option"], d["note"], d["from"], d["device"], d["question"], d["digest"] == sys.argv[2]))' \
+  "$SF/answers/$skey.json" "$sdigest" 2>/dev/null || true)
+noted_act=$(grep '"event": "board.act", "task": "stock-on-product-page"' "$STATE/events.jsonl" | tail -1 | field '(d["key"] == "'"$skey"'", d["option"], d["question"])' || true)
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the product page gets a new line.' '' \
+  '1. A product with 3 in stock says "3 left" under its price, and one with 1 in stock says "Only 1 left" in the warning color: the blue mug, with 1 in stock, says "Only 1 left".' \
+  '2. A product with none in stock says "Sold out", its size and no number: the red mug in size L, with none in stock, says "Sold out · L".' > "$WORK/stock-change.md"
+"$PY" -B "$CRITERIA" --repo "$DEMO" change stock-on-product-page --file "$WORK/stock-change.md" --words "$SNOTE" >/dev/null
+again=$(curl -fsS "$S/criteria")
+skey2=$(grep -o 'name="key" value="criterion:stock-on-product-page:[0-9TZ]*"' <<<"$again" | head -1 | sed 's/.*value="//; s/"$//')
+again_words=$(words <<<"$again")
+if grep -qF "action=\"/$HOST/shop/tasks/stock-on-product-page/answer\"" <<<"$card" && grep -qF 'name="option" value="no"' <<<"$card" \
+  && grep -qF "Before · criterion 1 A product with 3 in stock says \"3 left\" under its price. Now · criterion 1 A product with 3 in stock says \"3 left\" under its price, and one with 1" <<<"$card_words" \
+  && grep -qF 'Lem changed them from your note “criterion 1 should also warn when only one is left”.' <<<"$card_words" \
+  && grep -qF "Not done. No needs your words: what should the criteria say? Nothing was recorded." <<<"$bare_page" && [ "$bare_kept" = kept ] \
+  && [ "${noted%% *}" = 303 ] && grep -qF "Done. Your answer is on record: the task’s session takes it. The task’s session got word of it, and it changes the criteria from your words and asks for your yes again." <<<"$noted_page" \
+  && [ "$noted_made" = "('no', '$SNOTE', 'board', 'phone', 'Approve the criteria?', True)" ] && [ "$noted_act" = "(True, 'no', 'Approve the criteria?')" ] \
+  && [ "$(grep -c "^wake stock-on-product-page --why owner$" "$LEM_SESSION_CALLS")" = $((wakes + 1)) ] \
+  && [[ "$skey2" == criterion:stock-on-product-page:* ]] && [ "$skey2" != "$skey" ] && grep -qF 'name="option" value="yes"' <<<"$again" \
+  && grep -qF "Before · criterion 2 A product with none in stock says \"Sold out\" and no number. Now · criterion 2 A product with none in stock says \"Sold out\", its size" <<<"$again_words" \
+  && grep -qF 'Lem changed them from your note “'"$SNOTE"'”.' <<<"$again_words" && [ "$(status_in "$DEMO" stock-on-product-page)" = held ] && [ ! -e "$SF/criteria.json" ]; then
+  pass "the standard track's criteria card shows each changed criterion before beside its new text with Yes and No: a No with no note is refused and changes nothing, a No with the owner's note from the phone is on record with the row's question and wakes the task's session, and the session's change writes a new wait whose card shows the new pair, with nothing approved"
+else
+  fail "the standard track's No with a note: $skey / ${bare_page:0:300} / $bare_kept / $noted / ${noted_page:0:400} / $noted_made / $noted_act / $skey2 / $(grep -o 'Before · .\{0,300\}' <<<"$card_words$again_words" | head -c 900)"
+fi
+
+digest=$(hashed "$SF/criteria.md")
 waits=$(curl -fsS "$BASE/waits")
 criteria_tab=$(curl -fsS "$BASE/tasks/stock-on-product-page/criteria")
 if grep -qF "Read and approve" <<<"$waits" && ! grep -qF "stock-on-product-page/approve" <<<"$waits" \
-  && grep -qF "action=\"/$HOST/shop/tasks/stock-on-product-page/approve\"" <<<"$criteria_tab" && grep -qF "name=\"digest\" value=\"$digest\"" <<<"$criteria_tab" \
+  && grep -qF "action=\"/$HOST/shop/tasks/stock-on-product-page/answer\"" <<<"$criteria_tab" && grep -qF "name=\"digest\" value=\"$digest\"" <<<"$criteria_tab" \
   && grep -qF "href=\"/$HOST/shop/tasks/refund-line-on-receipt/merge?in=waits\"" <<<"$waits" \
   && grep -qF "formaction=\"/$HOST/shop/tasks/gift-note-in-export/park\" formmethod=\"get\"" <<<"$waits" && ! grep -qF "fee-notice-to-merchants/park" <<<"$waits"; then
   pass "on this Mac a row of Waits for you has the owner's act: the way to the criteria, with his yes under their text on the task's tab, the way to a merge's confirm step, and the way to park a task a breaker holds"
@@ -135,12 +185,13 @@ else
 fi
 
 # A form of another site, and one that carries criteria other than the file's, approve nothing.
+acts_before=$(events "$DEMO" board.act stock-on-product-page)
 elsewhere=$(post "$BASE/tasks/stock-on-product-page/approve" https://evil.example "digest=$digest")
 stale=$(post "$BASE/tasks/stock-on-product-page/approve" "$SERVER" "digest=0000" "in=waits")
 stale_note=$(curl -fsS "${stale#* }" | words)
 if [ "${elsewhere%% *}" = 403 ] && [ "${stale%% *}" = 303 ] && grep -qF "/stock-on-product-page?in=waits&note=" <<<"$stale" \
   && grep -qF "Not done. The criteria changed since the page showed them" <<<"$stale_note" \
-  && [ ! -e "$STATE/tasks/stock-on-product-page/criteria.json" ] && [ "$(events "$DEMO" board.act stock-on-product-page)" = 0 ]; then
+  && [ ! -e "$STATE/tasks/stock-on-product-page/criteria.json" ] && [ "$(events "$DEMO" board.act stock-on-product-page)" = "$acts_before" ]; then
   pass "a form from another origin is refused, and one whose criteria are not the file's approves nothing and says why on the task's page"
 else
   fail "the refusals of an approval: $elsewhere / $stale / ${stale_note:0:600}"
@@ -174,9 +225,9 @@ mine=$(through owner@example.com)
 kill -TERM "$DOOR_PID" 2>/dev/null; wait "$DOOR_PID" 2>/dev/null || true
 DOOR_PID=""
 approved=$("$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print((d["by"], d["number"]))' "$STATE/tasks/stock-on-product-page/criteria.json" 2>/dev/null || true)
-asked=$(grep '"event": "board.act", "task": "stock-on-product-page"' "$STATE/events.jsonl" | field '(d["act"], d["via"])' || true)
+asked=$(grep '"event": "board.act", "task": "stock-on-product-page"' "$STATE/events.jsonl" | tail -1 | field '(d["act"], d["via"])' || true)
 if [ "${other%% *}" = 403 ] && [ "${mine%% *}" = 303 ] && [ "$approved" = "('owner', 1)" ] && [ "$asked" = "('approve', 'the board, through the tailnet door')" ] \
-  && grep -qxF "wake stock-on-product-page --why owner" "$LEM_SESSION_CALLS" \
+  && [ "$(grep -c "^wake stock-on-product-page --why owner$" "$LEM_SESSION_CALLS")" = $((wakes + 2)) ] \
   && ! grep -rqF "owner@example.com" "$STATE/events.jsonl" "$STATE/tasks/stock-on-product-page" \
   && ! grep -qF "stock-on-product-page/approve" <<<"$(curl -fsS "$BASE/waits")"; then
   pass "through the door another login is refused, and the owner's yes is the owner's approval of the criteria, with where he asked and never his login, and the word to the task's session"
@@ -208,7 +259,6 @@ project --repo "$DEMO" resume gift-note-in-export >/dev/null
 row=$(curl -fsS "$BASE/waits")
 key=$(grep -o 'name="key" value="breaker:gift-note-in-export:1:[0-9TZ]*"' <<<"$row" | head -1 | sed 's/.*value="//; s/"$//')
 step=$(curl -fsS "$G/drop?in=waits&key=$key&words=another%20way" | words)
-IPHONE='Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1'
 bare=$(curl -s -o /dev/null -w '%{redirect_url}' -H "Origin: $SERVER" --data-urlencode "key=$key" --data-urlencode "option=drop" "$G/answer")
 bare_page=$(curl -fsS "$bare" | words)
 dropped=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -A "$IPHONE" -H "Origin: $SERVER" --data-urlencode "key=$key" --data-urlencode "option=drop" \

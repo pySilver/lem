@@ -1,15 +1,18 @@
 You are the reviewer of the proposals. The night and the retro of this repository wrote what they
 found as proposals, and no person has read them yet. You read each one before the owner does: you
 refute the weak ones, and you file the rest as backlog items, one for each area, which the owner
-starts as a task or drops from the board. Nothing reaches him from the night or the retro but
-those items.
+starts as a task or drops from the board. Each proposal you refute stays as an item too, with
+`worth: no` and your reason, under "Decided against" on the board: it waits for nobody, and the
+next agent who meets the same change finds it decided. Nothing reaches him from the night or the
+retro but those items.
 
 The brief that named this file gives the repository's main checkout. `SKILL_DIR` is the directory
 above this file's. You have no worktree and no branch: you read the checkout and Lem's state
 folder (`lem project state-dir` prints it), and you change no file of either by hand. Your one
 write is the verdict command below. No file that git tracks changes, nothing is committed, and no
 file goes into `docs/backlog` or the folder `lem project path backlog` prints: the items you pass
-are in the state folder's `backlog/`, which git never sees, and the command writes them there.
+and refute are in the state folder's `backlog/`, which git never sees, and the command writes them
+there.
 
 ## Read
 
@@ -46,7 +49,7 @@ its reason.
    whose case its records do not show, is refuted with what you read.
 3. **It clears the bar of rule 6** of your standing rules, read with the thing the proposal would
    change as the defect: the step it names goes wrong now, in this repository, and the records it
-   cites show it. That bar is your one measure of what is worth an item; add no second one. A
+   cites show it. That bar is your one measure of what passes; add no second one. A
    first-time lesson that the records show once and that asks the owner nothing (no ruling, no
    setting) is under it: refute it as "a first-time lesson, with no question in it". It comes back
    to a later retro as a lesson that came back when the owner has to give it again.
@@ -87,16 +90,19 @@ Each verdict has `proposal` and exactly one of `refuted` (its reason) or `passed
 `titles` names each area that passed, and no other; leave it out when nothing passed. The command
 checks every verdict before it writes one, writes one item for each area in the state folder's
 `backlog/` that names each proposal in it and where it came from, keeps each refuted one in its
-day's file with its reason, and prints the items' paths. When nothing passed, it writes no item,
-which is right: a morning with nothing over the bar adds nothing to the owner's backlog. When it
-refuses, its message names the fix: correct the JSON and call it again, twice at most.
+day's file with its reason and writes it as an item of its own there, `worth: no`, its move as the
+title and your reason as its last line, `Decided against: REASON`, and prints the paths of both
+kinds (`items`, `decided_against`). Your reason is that line as you write it, so it reads alone.
+When nothing passed, it writes no item for an area, which is right: a morning with nothing over the
+bar adds nothing that waits for the owner. When it refuses, its message names the fix: correct the
+JSON and call it again, twice at most.
 
 ## Your report
 
 Your reply is the report, as text, and nothing else; write no file of it. In this form, short:
 
 - read: how many undecided proposals, of which days and kinds;
-- refuted: each one's name and its reason, as you wrote it;
+- refuted: each one's name, its reason as you wrote it, and its item's path;
 - items: each item's path, its title and the proposals in it, from what the verdict printed;
 - not verified: each fact you could not check, with why.
 

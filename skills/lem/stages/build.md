@@ -161,8 +161,9 @@ owner reads.
 - **outside defects**: each defect seen in code outside the task, with its file and one line on
   what is wrong. Do not fix it and do not file it: the polish pass of the landing takes each one,
   with those of the interview's `outside.md`, by the bar of rule 6 of the builder's standing rules
-  (`stages/land.md`, step 3). It fixes a cheap one, files one over the bar that no open item
-  names, and names the others in the pull request under "Seen, not filed";
+  (`stages/land.md`, step 3). It fixes a cheap one, files each other one that no open item
+  names, `worth: later` over the bar and `worth: no` under it, and names the rest in the pull
+  request under "Seen, not filed";
 - **worth a look**: up to three places of the change a person's eye is worth, each with why;
   and, for a careful task, whether the change holds a migration and how to revert it. The
   landing puts these into the pull request's notes (`stages/land.md`, step 6);

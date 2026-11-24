@@ -16,7 +16,8 @@ The fast track is for one plain change: one acceptance criterion in his own sent
 and no question open, whatever its type (a fix of one rule, a typo, a rename, a version bump, a line
 of a document). One builder makes it and judges what it saw outside it by the bar of rule 6 of
 the builder's standing rules (`agents/lem-builder.md`, or a project's own): it fixes a cheap
-defect in a commit of its own and files an item only over the bar. The machine
+defect in a commit of its own and files each other one as an item, `worth: no` when it is under
+the bar. The machine
 checks and one read review it. It has no polish pass, and the merge agent reads it and merges it. Every other request takes the standard track, and the flow asks for his attention at
 three touches: the shape, an interview while a scout reads the code around his ask, which ends
 with the criteria that the personas read before he does and that he approves, so that they are
@@ -24,7 +25,7 @@ the contract in plain language and become the tests; a circuit breaker, the one 
 which asks him nothing else, with a document for him; and the merge, which is his only when a fresh merge agent, which
 reads every proposed task, calls him with its review: for a careful change, for a request that is not
 green, for what it found, or in every task where the settings say `branch.land = "owner"`.
-He answers the shape and a breaker in the task's own session. A task on the standard track from a complete request (a ticket that says what is wanted, a settled
+He answers the shape and a breaker in the task's own session, or on the board. A task on the standard track from a complete request (a ticket that says what is wanted, a settled
 backlog item) has no interview, and its criteria wait for him only when a persona doubts them or
 somebody else wrote the request.
 Lem names the type of each request from its words, a Conventional Commits type (`feat`, `fix`,
@@ -39,8 +40,8 @@ a report and nothing to merge. Between the touches a task builds without him. A 
 false ends with a documentation task. After the last task a fresh builder makes the polish pass, a
 short fixed list of what a build leaves behind (a comment made false, a leftover, code that reads
 badly, a document made false, the defects outside the task, each by the bar of rule 6 of the
-builder's standing rules: fixed when cheap, filed only over the bar), and changes
-no behavior. Then the change passes the machine checks and a
+builder's standing rules: fixed when cheap, filed otherwise, `worth: no` under the bar), and
+changes no behavior. Then the change passes the machine checks and a
 review by an agent that did not build it, as large as the change needs. Nothing is reviewed after
 the merge, since reviews queued after a landing stay open (43 of 48 about 28 hours later:
 convertiser-server, 2026-11-14), and nothing is argued task by task. Only a careful or large plan
@@ -298,11 +299,20 @@ shared by every worktree, never committed and not removed with a worktree. It ho
   and when, and the number of the approval, with the earlier approvals under `history`. For a
   task on the standard track from a complete request the lead's read freezes them there too (`by: read`), which is never his yes. Only `lem criteria approve` writes it; `lem criteria approved SLUG` prints it, and the
   plan's criteria must be those, with the test lines added.
-- `criteria.md`: the criteria as the interview writes them for his yes. On the fast track it is the one
+- `criteria.md`: the criteria that wait for his yes, as the interview, a lead's wait or a change from
+  his note writes them. On the fast track it is the one
   criterion, approved in his name (a request that is not his own sentence: by him while he is
   there, else without him), with the test line its builder adds under it, and it stands in
   for a plan: a task on the fast track commits no plan, and `criteria.py` and `land.py` read the criterion
   here when the branch has no plan file. On the standard track the criteria are read only from its plan.
+- `criteria-change.md`: the changed criteria a session writes from his note on the standard track,
+  before `lem criteria change` moves them into `criteria.md`, so that a session after a stop runs the
+  change again with the same file (`stages/interview.md`, step 6).
+- `criteria-before.json`: the text he answered before the newest change, with the `ts` of the state
+  block he answered, which `lem criteria change` writes; it holds no approval. The board and
+  `lem criteria change SLUG --pairs` show each changed criterion's text before beside its new text
+  from it, and a `ts` that is still the newest block's says the change stopped in the middle, when
+  the board takes no yes.
 - `brief.md`: the lead's brief, or the fast track's builder's; `talk-brief.md`, the defender's.
 - `state.md`: newest block first, written only through the script.
 - `report.md`: what the lead did, rewritten whole at each stop. `stages/build.md` gives its form.
@@ -410,13 +420,19 @@ server runs and opens the board's address, `http://127.0.0.1:PORT/HOST/WORKSPACE
 `.../tasks/SLUG`), as a page beside the session that opened it. It has four views (keys T, W, B and
 A): "Tasks", each task in the column of who acts on it; "Waits for you", one row for each thing the
 owner does, a task's two or more in one stack that opens, with where he does it, "no session" for a task whose session is gone while it needs
-one, and "stopped" for a task whose live session the server's guard logged as stopped, with the reason when Lem cannot read that session; "Backlog", the reviewer's items of `.lem/state/backlog/` in a group of their own, each undecided or held by a task,
+one, and "stopped" for a task whose live session the server's guard logged as stopped, with the reason when Lem cannot read that session; "Backlog", the reviewer's items of `.lem/state/backlog/` in a group of their own, each undecided or held by a task
+(a proposal it refuted is a `worth: no` item there, under "Decided against" with no act and not counted),
 then the items of the backlog path by their own `worth`, each with "start a task", which opens a task's session through the
 server, but a held one, and "Drop" on an undecided one, with the count of the undecided ones on its key; and "Activity". The owner answers there too, as on his
 typed word, with one note field for each answer: each open card of a task's live session is a row
 of "Waits for you" and a card of its Overview, which opens the card's own page; a plan that waits
-for his read has Build and Drop, a breaker Help, Park and Drop, "Skip the persona read?" and
-"Approve this criterion?" Yes and No, and Park and Drop ask him to confirm first. The first answer
+for his read has Build and Drop, a breaker Help, Park and Drop, "Skip the persona read?",
+"Approve this criterion?" and "Approve the criteria?" Yes and No, and Park and Drop ask him to
+confirm first. A No to the criteria needs his words; on the standard track it is a change, never his
+yes: the session writes the changed criteria and asks again, and the card shows each changed
+criterion's text before beside its new text (`stages/interview.md`, step 6); a note that changes no
+criterion asks again with the same text (`lem criteria change --unchanged`). A task begun on an
+older release than the board's gets none of these rows, and keeps one Approve. The first answer
 counts, and a note with no option or a wish to talk is refused: the row stays, and he asks in the
 session. The server records the answer and never decides: a card's answer ends the card's own
 `lem-ask` in the session, and for a row the server wakes the session (`prompts/session.md`, "A

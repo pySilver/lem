@@ -234,7 +234,14 @@ class Acts(unittest.TestCase):
         )
         self.assertIn(("wake", SLUG), self.calls)
         self.assertIn(
-            ("board.act", "answer", bm.VIA["door"], f"key={key}", "option=drop"),
+            (
+                "board.act",
+                "answer",
+                bm.VIA["door"],
+                f"key={key}",
+                "option=drop",
+                f"question=Breaker 1 of {SLUG}: help, park or drop the task?",
+            ),
             self.calls,
         )
         # the server never runs the drop itself: no script of Lem's ran
@@ -697,13 +704,16 @@ class Rows(unittest.TestCase):
         self.assertIn('name="digest" value="d1g3st"', tab)
         self.assertIn('name="tab" value="criteria"', tab)
         self.assertIn('name="option" value="no"', tab)
-        # the standard track's criteria keep their one Approve
+        # the standard track's criteria take Yes and No too, with their own
+        # question (criteria-change-asks-again)
         std = self.ctx(
             state(0, "held", "the criteria wait for the owner"), OPENED, tab="criteria"
         )
-        self.assertIsNone(bm.answer_row(std.model.tasks[0]))
+        self.assertEqual(
+            bm.answer_row(std.model.tasks[0])["question"], "Approve the criteria?"
+        )
         self.assertIn(
-            "<span>Approve the criteria</span>",
+            'name="option" value="no"',
             str(task_pages.approve_card(std, std.model.tasks[0])),
         )
 

@@ -12,6 +12,14 @@ ticket, you say yes to its one acceptance criterion before the build starts. You
 two in the session of the task, or on the [board](board.md#act-from-the-board). The build asks you
 nothing.
 
+On the standard track, a change to the acceptance criteria is not your yes. Tell the session of the
+task what to change, or answer No with a note on the board. Lem then writes the changed criteria in
+its own words, each with an example. It asks for your yes again, with the old text of each changed
+criterion beside its new text. The personas do not read the criteria again. The pull request says
+that the criteria changed after the personas' read. When your note on the board changes no
+criterion (an instruction or a question), Lem does what the note says and asks for your yes to the
+same criteria again.
+
 ## A decision in doubt
 
 The build takes each decision in doubt up a ladder, until one level settles it:
@@ -99,8 +107,8 @@ The time of a thing starts with the step that started its wait. For example, the
 criteria count from the time that they wait for your yes, not from the start of the interview.
 
 What the night and the retro propose is not on the list. A reviewer agent reads each proposal
-first, and you see only the proposals that pass, as items of the board's
-[**Backlog**](board.md#the-reviewers-items) view.
+first, and only the proposals that pass wait for you, as items of the board's
+[**Backlog**](board.md#the-reviewers-items) view. A proposal that it refutes waits for nobody.
 
 The [board](board.md) shows the same list, in the same order, in its view **Waits for you**. A
 task with one thing is one row. A task with two or more things is one stack: its title, its first

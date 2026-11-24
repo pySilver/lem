@@ -2673,18 +2673,23 @@ def verb_link(ctx: Ctx, w: dict, say: dict) -> dict:
 
 def row_acts(ctx: Ctx, w: dict) -> Markup | None:  # noqa: C901 - over the limit before the limit was set
     """The buttons of a row of "Waits for you": the answer form of a row the board
-    answers with its own buttons (a breaker, a plan, the two yes/no rows: `answer_form`,
-    with the one criterion's text above its Yes and No), the way to criteria that wait
-    for the owner's yes, which he gives under their text, the way to a merge's confirm
-    step, the way to a card of the task's session, and "Open a session" for a task stuck
-    with none or whose session stopped. None on a page that may not act, and for a row
-    with no act."""
+    answers with its own buttons (a breaker, a plan, "Skip the persona read?", and the
+    fast track's one criterion: `answer_form`, with the criterion's text above its Yes
+    and No), the way to criteria that wait for the owner's yes, which he gives under
+    their text, the way to a merge's confirm step, the way to a card of the task's
+    session, and "Open a session" for a task stuck with none or whose session stopped.
+    None on a page that may not act, and for a row with no act. The standard track's
+    criteria keep the way to their card, where his Yes and No stand under the whole
+    text, with each changed criterion's text before beside its new text (talk question 7
+    of criteria-change-asks-again)."""
     if not ctx.can_act:
         return None
     t = w["t"]
     acts = bm.acts_of(t, ctx.model.seen)
     out = []
     asks = w.get("asks")
+    if asks and asks["kind"] == "criterion" and not bm.fast_criterion(t):
+        asks = None
     if asks and asks["kind"] == "criterion":
         # the one criterion, as criteria.md has it, above his Yes and No: the yes is to
         # the text he reads here
@@ -3026,8 +3031,50 @@ def filter_href(ctx: Ctx, f: dict, **change: str) -> str:
     return f"{ctx.href('backlog')}{'?' + query if query else ''}"
 
 
+def added_line(ctx: Ctx, it: dict) -> Markup | None:
+    """The card's line of who added the item, on which day and in which task: for an
+    item of the backlog folder, the commit that added its file (`board.added_by`), "not
+    committed yet" while git does not have it, and nothing when git gave no answer; for
+    a reviewer's item, which git never holds, the reviewer and the day of the item's
+    `added`. The task is a link to its board when this board has it."""
+    if it.get("reviewer"):
+        day = it.get("added") or ""
+        return h(
+            "div",
+            {"class": "bl-note bl-by"},
+            f"added by the reviewer of the night's and the retro's proposals{f' on {day}' if days_old(day, ctx.model.now) is not None else ''}",
+        )
+    if "added_by" not in it:
+        return None
+    by = it["added_by"]
+    if not by:
+        return h("div", {"class": "bl-note bl-by"}, "not committed yet")
+    task, pull = by.get("task") or "", by.get("pull") or ""
+    if task:
+        where = [
+            ", in task ",
+            h("a", {"class": "bl-task", **task_link(ctx, task)}, task)
+            if ctx.model.by_slug.get(task) is not None
+            else h("code", None, task),
+        ]
+    else:
+        where = [f", in pull request #{pull}"] if pull else []
+    return h(
+        "div",
+        {"class": "bl-note bl-by"},
+        (
+            f"added by {by.get('author') or 'an unnamed author'} on "
+            f"{by.get('day') or 'an unknown day'}"
+        ),
+        where,
+    )
+
+
 def backlog_item(ctx: Ctx, it: dict) -> Markup:  # noqa: C901 - over the limit before the limit was set
     days = days_old(it.get("added", ""), ctx.model.now)
+    # a reviewer's item that waits for the owner's start or drop; a refuted one waits
+    # for nobody
+    waits = bool(it.get("reviewer")) and not bm.refuted(it)
 
     def t_(text: str, title: str, c: str | None = None) -> Markup:
         return h(
@@ -3086,7 +3133,7 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:  # noqa: C901 - over the limit b
                 "lead",
             ),
         )
-    elif it.get("reviewer"):
+    elif waits:
         side.insert(
             0,
             t_(
@@ -3158,7 +3205,7 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:  # noqa: C901 - over the limit b
                     h("span", None, "Drop"),
                 ),
             )
-            if it.get("reviewer")
+            if waits
             else None
         )
         note = (
@@ -3167,7 +3214,7 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:  # noqa: C901 - over the limit b
                 "Drop removes the file, and the day's record of the proposals keeps "
                 "the drop, so no later reviewer proposes it again."
             )
-            if it.get("reviewer")
+            if waits
             else "Lem opens the task's own session in agterm, which reads this item."
         )
         actions = h(
@@ -3202,7 +3249,7 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:  # noqa: C901 - over the limit b
                 {"class": "bl-note"},
                 "Drop it on this board on the Mac or through the tailnet door.",
             )
-            if it.get("reviewer")
+            if waits
             else None,
         )
     else:
@@ -3244,6 +3291,7 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:  # noqa: C901 - over the limit b
         h(
             "div",
             {"class": "bl-body"},
+            added_line(ctx, it),
             md_block(ctx, f"bl-{it['key']}", body, cls="bl-text")
             if body
             else h(
@@ -3291,9 +3339,7 @@ def backlog_page(ctx: Ctx) -> Markup:
             )
         )
     for g in bm.BY_WORTH:
-        mine = [
-            it for it in items if not it.get("reviewer") and bm.worth_of(it) == g["key"]
-        ]
+        mine = bm.worth_items(items, g["key"])
         if mine:
             groups.append(
                 h(
@@ -3340,7 +3386,7 @@ def backlog_page(ctx: Ctx) -> Markup:
     sum_ = ""
     if backlog:
         read = bm.at(backlog.get("read"))
-        theirs = bm.reviewer_items(items)
+        theirs = [it for it in items if it.get("reviewer")]
         reviewer = (
             (
                 f" · {len(theirs)} of the reviewer in {backlog['reviewer_folder']}, "

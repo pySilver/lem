@@ -56,7 +56,7 @@ fi
 kanban=$(got "$BASE/")
 said=$(words <<<"$kanban")
 if [ "$(lanes <<<"$kanban")" = "{'you': ['gift-note-in-export', 'stock-on-product-page', 'refund-line-on-receipt'], 'build': ['refund-rounding', 'cart-total-after-coupon'], 'checks': ['coupon-has-a-slug'], 'done': ['footer-terms-typo', 'order-date-on-invoice', 'why-export-is-slow']}" ] \
-  && grep -qF "The criteria wait for you" <<<"$said" && grep -qF "Investigating: an investigator reproduces the bug" <<<"$said" \
+  && grep -qF "The criteria changed from your note, and wait for your yes again" <<<"$said" && grep -qF "Investigating: an investigator reproduces the bug" <<<"$said" \
   && grep -qF "Landed: main: pull request #41 is merged" <<<"$said" && grep -qF "Landed: main: pull request #38 is merged" <<<"$said" \
   && grep -qF "Demo data." <<<"$said" && grep -qF "Read the breaker of gift-note-in-export" <<<"$said" && ! grep -qF 'id="card-fee-notice-to-merchants"' <<<"$kanban" && grep -qF 'data-agterm-url-value="/'"$HOST"'/shop/agterm"' <<<"$kanban"; then
   pass "the kanban puts each task in the column of who acts and a parked one in none, each card says its state in the board's words, the sidebar has what waits, and a page for this Mac carries the address of agterm's acts"
@@ -291,7 +291,7 @@ fi
 # field and the chip the address picks, and the backlog controller hides what the filter leaves out.
 filtered=$(got "$BASE/backlog?worth=later&q=query")
 shown=$("$PY" -c 'import re, sys; t = sys.stdin.read(); print(sorted(re.findall(r"<details class=\"bl-item\" id=\"item-([a-z0-9-]+)\"(?![^>]*data-js-out)", t)))' <<<"$filtered")
-if [ "$shown" = "['-read-the-receipt-s-total-by-its-label', '-the-export-s-check-fails-by-chance', 'export-in-one-query', 'invoice-footer-wraps']" ] && grep -qF 'id="f-worth-later" href="/'"$HOST"'/shop/backlog?q=query" data-turbo-action="replace"' <<<"$filtered" \
+if [ "$shown" = "['-read-the-receipt-s-total-by-its-label', '-run-make-lint-before-each-commit', '-the-export-s-check-fails-by-chance', 'export-in-one-query', 'invoice-footer-wraps']" ] && grep -qF 'id="f-worth-later" href="/'"$HOST"'/shop/backlog?q=query" data-turbo-action="replace"' <<<"$filtered" \
   && grep -qF 'aria-pressed="true"' <<<"$filtered" && grep -qF 'value="query"' <<<"$filtered"; then
   pass "the backlog's filter comes from the address: its words in the field and its chip on, over every item, so a shared link shows the same list"
 else
@@ -301,6 +301,8 @@ fi
 # The reviewer's items (criterion 6 of docs/plans/2026-11-23-scheduled-runs-one-branch.md): the Backlog view shows them in
 # a group of their own before the backlog folder's, the undecided one with "Start a task" and "Drop", each posting the
 # item's path, and the one the parked task holds with that task and no act; the "Backlog" key counts the undecided one.
+# The proposal the reviewer refuted is a `worth: no` item of the same folder (criterion 3 of
+# docs/plans/2026-11-23-backlog-refuted-items-and-jev.md), under "Decided against" with no "Drop", and counted nowhere.
 view=$(got "$BASE/backlog")
 group=${view#*id=\"group-reviewer\"}
 group=${group%%class=\"bl-group*}
@@ -308,15 +310,20 @@ undecided=${group#*id=\"item--read-the-receipt-s-total-by-its-label\"}
 undecided=${undecided%%</details>*}
 held=${group#*id=\"item--the-export-s-check-fails-by-chance\"}
 held=${held%%</details>*}
+against=${view#*id=\"group-no\"}
+against=${against%%class=\"bl-group*}
+refuted=${against#*id=\"item--run-make-lint-before-each-commit\"}
+refuted=${refuted%%</details>*}
 if grep -qF "The reviewer&#x27;s items" <<<"$group" && grep -qF '<span>undecided</span>' <<<"$undecided" \
   && [ "$(grep -oF 'name="item" value=".lem/state/backlog/read-the-receipt-s-total-by-its-label.md"' <<<"$undecided" | wc -l | tr -d ' ')" = 2 ] \
   && grep -qF 'action="/'"$HOST"'/shop/backlog/drop"' <<<"$undecided" && grep -qF 'action="/'"$HOST"'/shop/start"' <<<"$undecided" \
   && grep -qF '<span>held by export-check-by-chance</span>' <<<"$held" && grep -qF "(parked) builds this item" <<<"$held" && ! grep -qF "<form" <<<"$held" \
-  && grep -qF "Backlog B 1" <<<"$(words <<<"$view")" && grep -qF "2 items in docs/backlog · 2 of the reviewer in .lem/state/backlog, 1 undecided" <<<"$(words <<<"$view")" \
-  && ! grep -qF "backlog/drop" <<<"${view#*id=\"group-later\"}"; then
-  pass "the Backlog view shows the reviewer's items in a group of their own, the undecided one with Start a task and Drop on its path and the held one with its task, and the Backlog key counts the undecided ones"
+  && grep -qF "Backlog B 1" <<<"$(words <<<"$view")" && grep -qF "2 items in docs/backlog · 3 of the reviewer in .lem/state/backlog, 1 undecided" <<<"$(words <<<"$view")" \
+  && ! grep -qF "run-make-lint-before-each-commit" <<<"$group" && [ "$refuted" != "$against" ] && grep -qF "Decided against: a first-time lesson, with no question in it" <<<"$(cat "$DEMO/.lem/state/backlog/run-make-lint-before-each-commit.md")" \
+  && ! grep -qF "backlog/drop" <<<"$refuted" && ! grep -qF "backlog/drop" <<<"${view#*id=\"group-later\"}"; then
+  pass "the Backlog view shows the reviewer's items in a group of their own, the undecided one with Start a task and Drop on its path and the held one with its task, the refuted proposal's worth: no item with its reason under Decided against with no Drop, and the Backlog key counts the undecided ones"
 else
-  fail "the reviewer's items on the Backlog view: ${group:0:1500} / $(words <<<"$view" | head -c 800)"
+  fail "the reviewer's items on the Backlog view: ${group:0:1500} / ${against:0:800} / $(words <<<"$view" | head -c 800)"
 fi
 
 # The search over every card (criteria 1, 2, 4 and 5 of docs/plans/2026-11-22-board-card-search.md): the Tasks view and

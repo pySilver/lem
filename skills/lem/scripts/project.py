@@ -140,9 +140,11 @@ settings (`[paths]`): a team that adopts Lem may have its own.
     lem project proposals verdict --file FILE|-
                                     the reviewer's verdict on each proposal, refuted with its reason
                                     or passed with its area; the passed ones of one area become one
-                                    item of the state folder's backlog
+                                    item of the state folder's backlog, and each refuted one an
+                                    item of its own there, worth: no, with its reason
     lem project proposals drop PATH the owner's drop of a reviewer's item: refused while a task that
-                                    has not ended holds it; else each proposal's drop is kept in its
+                                    has not ended holds it, and for a worth: no item, decided
+                                    against already; else each proposal's drop is kept in its
                                     record, and the item's file goes
     lem project plan-file SLUG [--date YYYY-MM-DD]
                                     the name a task's plan takes (`paths.plan_file`), and the plan
@@ -255,18 +257,19 @@ is true for the whole machine, `[load]`, `[serve]`, `[peers]`, `[handoff]` and
 hold the rest, and for a setting that more than one of them may hold, the nearest that
 holds it wins: `.lem/settings.local.toml`, then `.lem/settings.toml`, then the home
 folder's `settings.toml`, then Lem's default. `show` names in `from` the file each such
-value came from: each seat, each expert, the fallback, `naps.on` and `state.keep_days`.
-It gives `corrections.collect`, the machine's yes or no to the correction queue, with
-`from` too: `machine.toml`, which `lem corrections collect yes|no` writes, or Lem's
-default, which is no, and which `/lem init` asks about.
+value came from: each seat, each expert, the fallback, `naps.on`, `state.keep_days` and
+`jev.findings`. It gives `corrections.collect`, the machine's yes or no to the
+correction queue, with `from` too: `machine.toml`, which
+`lem corrections collect yes|no` writes, or Lem's default, which is no, and which
+`/lem init` asks about.
 
 The home folder's `settings.toml` is the developer's own for every repository on the
 machine: each seat and the fallback (`[seats]`, which `lem project set global` writes),
 and the question page's defaults (`[ask]`, which only that page reads; here only its
 keys are checked). What guards a team's repository (`[flow]`, `[checks]`, `[branch]`,
-`[paths]`, `[tracker]`) is valid in the team's file only. `keep_days` is a repository's
-(the owner, 2026-11-21), and so is the naps' switch: this file refuses `[state]` and
-`[naps]` too.
+`[paths]`, `[tracker]`), and `[jev]`, whether a landing sends a finding to the Jev
+model, are valid in the team's file only. `keep_days` is a repository's (the owner,
+2026-11-21), and so is the naps' switch: this file refuses `[state]` and `[naps]` too.
 
 `.lem/settings.local.toml` is one person's or one day's choice on one machine for one
 repository: who sits in each seat of this repository, before the team's file and the
@@ -439,14 +442,18 @@ drop, so a second retro of a day keeps the first one's. `read` gives each propos
 its name, `KIND of DATE #N`. `verdict` takes each proposal's verdict once: the passed
 ones of one area become one item of `.lem/state/backlog/`, named by the words of the
 title the reviewer gives the area (`-2`, `-3` when the name is taken), in the backlog's
-item format with the front-matter line `proposals: KIND of DATE #N, ...`; no item when
-nothing passed. A reviewer's item is held while a task that has not ended has its path
-as its ask, and `drop` refuses it then, with that task in its JSON (`held_by`) on
-stdout; else it keeps the drop of each proposal the item names and removes the file, in
-one call under the records' one lock (`proposals.lock` in the state folder), which `add`
-and `verdict` take too. `task-dir --ask` refuses the path of such an item whose file is
-gone. A record that does not have this form is refused with the fix; one in the form of
-Lem's question page, which the retro wrote before, is converted by hand.
+item format with the front-matter line `proposals: KIND of DATE #N, ...`; no such item
+when nothing passed. Each refuted proposal becomes an item of its own there,
+`worth: no`, named by the words of its move, with that one `proposals:` line and the
+reviewer's reason as its last line, `Decided against: REASON`; its `refuted` entry keeps
+its form. A reviewer's item is held while a task that has not ended has its path as its
+ask, and `drop` refuses it then, with that task in its JSON (`held_by`) on stdout, and
+refuses a `worth: no` item, which is decided against already; else it keeps the drop of
+each proposal the item names and removes the file, in one call under the records' one
+lock (`proposals.lock` in the state folder), which `add` and `verdict` take too.
+`task-dir --ask` refuses the path of such an item whose file is gone. A record that does
+not have this form is refused with the fix; one in the form of Lem's question page,
+which the retro wrote before, is converted by hand.
 
 A nap is an optional part (`[naps]`, off unless the owner says yes): a fresh agent that
 reads the recent tasks, dreams, and writes the dream down in a folder of its own,
@@ -668,7 +675,7 @@ DEFAULT_SEATS = {
 # (default)"; of the key: "y, one key").
 FALLBACK = "claude/opus:high"
 # Where a value came from when no file names it: a seat, an expert, the fallback,
-# `naps.on`, `state.keep_days`.
+# `naps.on`, `state.keep_days`, `jev.findings`.
 DEFAULT_FROM = "Lem's default"
 # What `seat` gives as `from` for a seat in which the fallback stands in for the
 # task (`seat-failed`).
@@ -800,6 +807,9 @@ TABLES: dict[str, tuple[str, ...]] = {
     "tracker": ("kind",),
     "naps": ("on",),
     "state": ("keep_days",),
+    # whether the landing sends a finding to the Jev model (land.py `jev_read`
+    # and `ask_alike`)
+    "jev": ("findings",),
     # the question page's defaults, which only that page reads and checks (`lem-ask`)
     "ask": ("style", "size", "review", "browser", "status"),
 }
@@ -979,7 +989,7 @@ experts = [{experts}]
 # [tracker]
 # kind = "linear"
 """  # noqa: E501 - the text of `.lem/settings.toml` as Lem writes it
-# The state's table and the naps' table, the last of the file.
+# The state's table, the naps' table and Jev's table, the last of the file.
 TEMPLATE += f"""
 [state]
 # How many days Lem keeps what it no longer needs in .lem/state/, the folder git never sees: every
@@ -1000,6 +1010,17 @@ keep_days = {KEEP_DAYS}
 # nobody has shown that it helps. {NAPS_GAP_HOURS} hours pass between two naps: a guess, from the
 # owner's own nap routine. A nap's folder is kept for state.keep_days.
 on = false
+
+[jev]
+# Before a pull request, Lem asks the Jev decision model one question about each defect outside a
+# task that an agent calls under the bar: is it over the bar after all? Its score goes on the
+# finding's line of the pull request, and a high one makes `lem land propose` refuse once, so that
+# the agent looks again. Before an agent files a defect, Lem also asks which items of the backlog
+# may hold the same one. Each question sends the finding's place, title and run, and that second one
+# each item's title, place and first line, to the model's provider (OpenRouter unless JEV_API_URL
+# names another), with the key JEV_API_KEY of the machine that lands; with no key, nothing is sent.
+# false sends nothing from this repository.
+findings = true
 """  # noqa: E501 - the text of `.lem/settings.toml` as Lem writes it
 
 
@@ -1537,6 +1558,21 @@ def naps_of(raw: dict, name: Path) -> dict:
     return {"on": given, "from": str(SETTINGS)}
 
 
+def jev_of(raw: dict, name: Path) -> dict:
+    """The `[jev]` table of the team's file, checked: its one key, `findings`, whether
+    the landing sends the text of each finding an agent calls under the bar to the Jev
+    model (land.py, `jev_read`), and a finding with the backlog's items for the look at
+    the same defect (land.py, `ask_alike`), with `from`, the team's file when it names
+    it, else DEFAULT_FROM. With no line it sends: the key of the model's provider is the
+    machine's own, and with none nothing is sent."""
+    given = raw.get("jev", {}).get("findings")
+    if given is None:
+        return {"findings": True, "from": DEFAULT_FROM}
+    if not isinstance(given, bool):
+        raise SettingsError(f"{name}: jev.findings = {given!r} must be true or false")
+    return {"findings": given, "from": str(SETTINGS)}
+
+
 def keep_days_of(value: object, where: str, left_out: str = str(KEEP_DAYS)) -> int:
     """A number of days the state folder keeps what Lem no longer needs, checked: a
     whole number, 1 or more. 0 would take all but a task's small record at the first
@@ -1825,6 +1861,9 @@ def decide(  # noqa: C901, PLR0912, PLR0913, PLR0915, PLR0917 - over the limit b
         "corrections": corrections,
         "tracker": tracker,
         "naps": naps,
+        # whether a landing sends a finding to the Jev model; the landing reads the
+        # main checkout's
+        "jev": jev_of(raw, SETTINGS),
         # read from the main checkout's settings, in a task's worktree too, or from this
         # machine's own file; `from` names which, as each seat's does
         "state": state,
@@ -5858,8 +5897,8 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
                 "night": night.get(directory.name),
                 # the owner's answer from the board to the row of its newest state block
                 # (a plan, a breaker, "Skip the persona read?", "Approve this
-                # criterion?"), as lem_answers recorded it, or null: the task's session
-                # reads it on its wake
+                # criterion?", "Approve the criteria?"), as lem_answers recorded it (its
+                # newest), or null: the task's session reads it on its wake
                 "board_answer": answers.answer_of_block(
                     directory, directory.name, blocks.get(directory.name)
                 ),
@@ -6100,11 +6139,12 @@ def waiting_model(root: Path, settings: dict) -> "tuple[Model, str | None]":
     (`lem_board_model.FORGE_LOOK`), the open `lem-ask` cards of each task's folder
     (`lem_board_model.cards_look`), the answers the board recorded
     (`lem_board_model.answers_look`), and the task sessions, which it asks
-    `lem session list` for itself (`waiting_sessions`), with the turn of the session
-    that runs this command left as one Lem cannot tell
-    (`lem_board_model.own_turn_unread`), since that turn runs while it asks. With the
-    model, what the session said of the sessions: None when they are known, else
-    why not."""
+    `lem session list` for itself (`waiting_sessions`), what each task's directory says
+    beside the log (`lem_board_model.task_files_look`: its release, a change of its
+    criteria that stopped), with the turn of the session that runs this command left as
+    one Lem cannot tell (`lem_board_model.own_turn_unread`), since that turn runs while
+    it asks. With the model, what the session said of the sessions: None when they are
+    known, else why not."""
     bm = importlib.import_module("lem_board_model")
     state = state_root(root)
     reader = bm.Reader(main_checkout(root), state)
@@ -6121,6 +6161,7 @@ def waiting_model(root: Path, settings: dict) -> "tuple[Model, str | None]":
         meta={"demo": (state / "demo").is_file()},
     )
     model.seen = (bm.forge_look(state) or {}).get("seen")
+    bm.task_files_look(state, model)
     model.cards = bm.cards_look(state, model)
     # a row the owner answered on the board is the task's session's until its next state
     # block: no row here either
@@ -6784,6 +6825,70 @@ def item_text(
     return "\n".join(lines)
 
 
+def refuted_item_text(name: str, proposal: dict, reason: str, today: str) -> str:
+    """The item of one refuted proposal NAME, in the backlog's item format with
+    `worth: no`: its `where`, the front-matter key ITEM_KEY that names it, its move as
+    the title, where it came from, its body, and the reviewer's REASON as the last line,
+    `Decided against: REASON` (rule 6 of agents/lem-builder.md), so that a later agent
+    who meets the same change finds it decided."""
+    kind, day, number = PROPOSAL_NAME.fullmatch(name).groups()
+    head = [
+        "---",
+        "worth: no",
+        f"where: {proposal['where']}",
+        f"added: {today}",
+        f"{ITEM_KEY}: {name}",
+        "---",
+        f"# {' '.join(proposal['move'].split())}",
+        "",
+    ]
+    return "\n".join(
+        [
+            *head,
+            f"The reviewer refuted {name} on {today}.",
+            "",
+            (
+                f"From the {kind} of {day}, proposal {number}. "
+                f"Its source: {proposal['source']}. Where: `{proposal['where']}`."
+            ),
+            "",
+            proposal["body"],
+            "",
+            f"Decided against: {' '.join(reason.split())}",
+            "",
+        ]
+    )
+
+
+def item_front(text: str) -> dict[str, str] | None:
+    """The keys of an item's front matter, between its two `---` lines, or None when it
+    has none."""
+    if not text.startswith("---"):
+        return None
+    head, mark, _ = text[3:].partition("\n---")
+    if not mark:
+        return None
+    front = {}
+    for line in head.splitlines():
+        key, colon, value = line.partition(":")
+        if colon and key.strip():
+            front.setdefault(key.strip(), value.strip())
+    return front
+
+
+def refuted_items(folder: Path) -> dict[str, list[Path]]:
+    """The `worth: no` items of the reviewer's folder FOLDER, by the one proposal each
+    names in its ITEM_KEY line: what a verdict wrote for a refuted proposal
+    (`refuted_item_text`)."""
+    found: dict[str, list[Path]] = {}
+    for file in sorted(folder.glob("*.md")) if folder.is_dir() else ():
+        text = text_of(file)
+        names = item_proposals(text)
+        if (item_front(text) or {}).get("worth") == "no" and names and len(names) == 1:
+            found.setdefault(names[0], []).append(file)
+    return found
+
+
 def counted(n: int, word: str) -> str:
     return f"{n} {word}" if n == 1 else f"{n} {word}s"
 
@@ -6791,10 +6896,14 @@ def counted(n: int, word: str) -> str:
 def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     """The reviewer's verdict on each proposal SPEC names: refuted, with its reason, or
     passed, with its area. The passed proposals of one area become one item of the state
-    folder's backlog, under the title SPEC gives that area, and no item when nothing
-    passed. Every verdict is checked before any is written; the items are written before
-    the records, so an interruption leaves a proposal with no verdict, which the next
-    read gives again, and never a verdict with no item."""
+    folder's backlog, under the title SPEC gives that area, and no such item when
+    nothing passed. Each refuted proposal becomes an item of its own there, `worth: no`,
+    with the reviewer's reason (`refuted_item_text`); its record's `refuted` entry keeps
+    its form, since the item names the proposal. Every verdict is checked before any is
+    written; the items are written before the records, so an interruption leaves a
+    proposal with no verdict, which the next read gives again, and never a verdict with
+    no item. A retry that refutes such a proposal again writes its item again in place
+    (`refuted_items`), and one that passes it removes the item that refuted it."""
     if extra := sorted(set(spec) - {"verdicts", "titles"}):
         raise SettingsError(
             f"the verdicts hold keys verdict does not take: {', '.join(extra)}; "
@@ -6921,8 +7030,40 @@ def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:  # noqa:
                 "proposals": [one for one, _ in entries],
                 "text": item_text(title, area, today, entries),
             }
-        for item in items.values():
+        # A refuted proposal's item is found again by its ITEM_KEY line when a verdict
+        # was cut off between its items and its records, and written again in place; one
+        # that a retry passes instead goes.
+        left = refuted_items(folder)
+        decided: list[dict] = []
+        for name, _kind, word, verdict, proposal in judged:
+            if word != "refuted":
+                continue
+            if left.get(name):
+                file = left[name][0]
+            else:
+                stem = item_slug(proposal["move"]) or "refuted"
+                file_name, n = f"{stem}.md", 1
+                while file_name in taken:
+                    n += 1
+                    file_name = f"{stem}-{n}.md"
+                taken.add(file_name)
+                file = folder / file_name
+            decided.append(
+                {
+                    "proposal": name,
+                    "path": (lem_state.STATE / STATE_BACKLOG / file.name).as_posix(),
+                    "file": file,
+                    "text": refuted_item_text(
+                        name, proposal, verdict["refuted"], today
+                    ),
+                }
+            )
+        for item in [*items.values(), *decided]:
             write_whole(item["file"], item["text"])
+        for name, _kind, word, _verdict, _proposal in judged:
+            if word == "passed":
+                for file in left.get(name, []):
+                    file.unlink(missing_ok=True)
         for name, kind, word, verdict, _proposal in judged:
             # each name had its verdict read in this form
             found = cast("re.Match[str]", PROPOSAL_NAME.fullmatch(name))
@@ -6957,6 +7098,9 @@ def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:  # noqa:
         "items": [
             {key: item[key] for key in ("area", "title", "path", "proposals")}
             for item in items.values()
+        ],
+        "decided_against": [
+            {key: item[key] for key in ("proposal", "path")} for item in decided
         ],
     }
 
@@ -7043,27 +7187,22 @@ class ItemRefused(SettingsError):
 def item_proposals(text: str) -> list[str] | None:
     """The proposals a reviewer's item names in its front matter (ITEM_KEY), or None
     when it names none."""
-    if not text.startswith("---"):
-        return None
-    head, mark, _ = text[3:].partition("\n---")
-    for line in head.splitlines() if mark else ():
-        key, colon, value = line.partition(":")
-        if colon and key.strip() == ITEM_KEY:
-            names = [name.strip() for name in value.split(",") if name.strip()]
-            return (
-                names
-                if names and all(PROPOSAL_NAME.fullmatch(name) for name in names)
-                else None
-            )
-    return None
+    value = (item_front(text) or {}).get(ITEM_KEY)
+    names = [name.strip() for name in (value or "").split(",") if name.strip()]
+    return (
+        names
+        if names and all(PROPOSAL_NAME.fullmatch(name) for name in names)
+        else None
+    )
 
 
 def cmd_proposals_drop(state: Path, given: str, today: str) -> dict:
     """The owner's drop of a reviewer's item, in one call: refused while a task that has
-    not ended holds it (`item_holder`), with that task; else the drop of each proposal
-    the item names is kept in its day's record, and then the item's file goes. The
-    board's server runs it under its script lock, so a start from the board comes before
-    it or after it, never between its read and its removal."""
+    not ended holds it (`item_holder`), with that task, and refused for a `worth: no`
+    item, a refuted proposal that is decided against already; else the drop of each
+    proposal the item names is kept in its day's record, and then the item's file goes.
+    The board's server runs it under its script lock, so a start from the board comes
+    before it or after it, never between its read and its removal."""
     item = backlog_item_of(state, given)
     if item is None:
         raise ItemRefused(
@@ -7101,7 +7240,23 @@ def cmd_proposals_drop(state: Path, given: str, today: str) -> dict:
                     "status": holder["status"],
                 },
             )
-        names = item_proposals(text_of(file))
+        text = text_of(file)
+        if (item_front(text) or {}).get("worth") == "no":
+            raise ItemRefused(
+                (
+                    f"the item {item} is decided against already (`worth: no`): "
+                    "the reviewer refuted its proposal, and the record keeps the "
+                    "reason, so there is nothing to drop; it waits for nobody, and the "
+                    "Backlog key does not count it"
+                ),
+                {
+                    "dropped": False,
+                    "item": item,
+                    "held_by": None,
+                    "decided_against": True,
+                },
+            )
+        names = item_proposals(text)
         if names is None:
             raise ItemRefused(
                 (
@@ -8552,7 +8707,8 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0911, PLR0912
         "verdict",
         help=(
             "the reviewer's verdict on each proposal; the passed ones of one area "
-            "become one item of the state folder's backlog"
+            "become one item of the state folder's backlog, and each refuted one an "
+            "item of its own there, worth: no, with its reason"
         ),
     )
     verdict.add_argument(
@@ -8567,8 +8723,8 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0911, PLR0912
     acts.add_parser(
         "drop",
         help=(
-            "the owner's drop of a reviewer's item, refused while a task that "
-            "has not ended holds it"
+            "the owner's drop of a reviewer's item, refused while a task that has not "
+            "ended holds it and for a worth: no item"
         ),
     ).add_argument("path", metavar="PATH")
     serial = commands.add_parser(

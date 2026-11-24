@@ -3,12 +3,14 @@ own buttons.
 
 Four waits of a task get their answers on the board (`lem_board_model.answer_row`): a
 plan that waits for his read (Build or Drop), a breaker (Help, Park or Drop), "Skip the
-persona read?" of an interview (Yes or No), and "Approve this criterion?" of a small
-change that someone else asked for (Yes or No). Each row's key names the state block it
-waits on, by the time of that block's `task.state` event to the second (`stamp`):
-`plan:SLUG:STAMP`, `breaker:SLUG:N:STAMP`, `skip:SLUG:STAMP` and `criterion:SLUG:STAMP`.
-A new block of the same wait is a new key, so an answer on record applies to the block
-it answered and no later one.
+persona read?" of an interview (Yes or No), and the criteria that wait for his yes (Yes
+or No): "Approve this criterion?" of a small change that someone else asked for, and
+"Approve the criteria?" on the standard track. The two are one kind, `criterion`, with
+one key form; the record keeps the question its row asked. Each row's key names the
+state block it waits on, by the time of that block's `task.state` event to the second
+(`stamp`): `plan:SLUG:STAMP`, `breaker:SLUG:N:STAMP`, `skip:SLUG:STAMP` and
+`criterion:SLUG:STAMP`. A new block of the same wait is a new key, so an answer on
+record applies to the block it answered and no later one.
 
 The answer is `answers/KEY.json` in the task's folder, a link of a finished file as the
 one end of a card is (`lem_cards.link_whole`): of two answers to one key, the one linked
@@ -17,8 +19,11 @@ the criterion, a drop) links the record before it acts and refuses with what the
 says when the link fails. The record holds the key, the row's kind and question, the
 option and its label, the owner's note, `from: board`, `via` (`local` or `door`),
 `device` (`phone` or `computer`), `agent` (the request's User-Agent, whole), the time,
-and for the criterion the digest of the text the page showed. The task's session reads
-it on its wake as `board_answer` of `lem project tasks` (`answer_of_block`).
+and for the criterion the digest of the text the page showed. His No to the standard
+track's criteria typed in the task's session is recorded on the same row's key, with
+`from: session` and no `via`, `device` or `agent` (`lem criteria change --typed`), so
+that of his typed word and his answer on the board the first counts. The task's session
+reads it on its wake as `board_answer` of `lem project tasks` (`answer_of_block`).
 """
 
 import json
@@ -160,8 +165,11 @@ def withdraw(task: Path, made: dict) -> None:
 def answer_of_block(task: Path, slug: str, ts: str | None) -> dict | None:
     """The answer on record for the state block of the task SLUG whose event's time is
     TS (its newest, for `board_answer` of `lem project tasks`), or None: the record
-    whose key names that block. Of two, which two rows of one block could only be, the
-    one recorded first."""
+    whose key names that block. Of two, the one recorded last: the skip row and the
+    criteria row of one interview stand on the same `the interview waits for the owner`
+    block, the skip's answer always comes first, and the session took it already (its
+    decision names its key). Two records of one second are ordered by their
+    files' times."""
     block = stamp_of(ts) if ts else None
     folder = task / ANSWERS
     if block is None or not folder.is_dir():
@@ -175,28 +183,54 @@ def answer_of_block(task: Path, slug: str, ts: str | None) -> dict | None:
         if parts["slug"] != slug or parts["stamp"] != block:
             continue
         try:
-            found.append(json.loads(file.read_text(encoding="utf-8")))
+            found.append(
+                (
+                    str(json.loads(file.read_text(encoding="utf-8")).get("at") or ""),
+                    file.stat().st_mtime_ns,
+                    file,
+                )
+            )
+        except (OSError, ValueError, AttributeError):
+            continue
+    for _at, _ns, file in sorted(found, key=lambda x: (x[0], x[1]), reverse=True):
+        try:
+            return json.loads(file.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-    return min(found, key=lambda r: str(r.get("at") or "")) if found else None
+    return None
+
+
+# The question of each yes/no row as a record of an older form, with no `question`,
+# names it.
+QUESTIONS = {"skip": "Skip the persona read?", "criterion": "Approve this criterion?"}
 
 
 def took_effect(made: dict) -> str:
     """What the answer on record says, in one sentence: "You picked Drop for breaker 1
-    at 15:40, from the phone"."""
+    at 15:40, from the phone". A yes/no row is named by the question its record keeps
+    (the criteria's differs by track), and an answer the owner typed in the task's
+    session (`from: session`, no device) says so."""
     parts: dict
     try:
         parts = parse(made.get("key"))
     except AnswerError:
         parts = {"kind": made.get("kind"), "number": None}
-    what = {
-        "plan": "for the plan",
-        "breaker": f"for breaker {parts['number']}",
-        "skip": "on “Skip the persona read?”",
-        "criterion": "on “Approve this criterion?”",
-    }.get(parts["kind"], "")
-    device = f", from the {made['device']}" if made.get("device") else ""
+    question = (
+        made.get("question")
+        if isinstance(made.get("question"), str) and made.get("question")
+        else QUESTIONS.get(parts["kind"])
+    )
+    what = {"plan": "for the plan", "breaker": f"for breaker {parts['number']}"}.get(
+        parts["kind"]
+    ) or (f"on “{question}”" if parts["kind"] in QUESTIONS else "")
+    where = (
+        f", from the {made['device']}"
+        if made.get("device")
+        else ", in the task’s session"
+        if made.get("from") == "session"
+        else ""
+    )
     return (
         f"You picked {made.get('label') or made.get('option')} {what} at "
-        f"{lem_cards.local_time(made.get('at'))}{device}"
+        f"{lem_cards.local_time(made.get('at'))}{where}"
     ).replace("  ", " ")

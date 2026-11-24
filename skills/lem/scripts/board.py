@@ -270,6 +270,54 @@ def filed(worktree: Path, onto: str, folder: str) -> list[dict] | None:
     return items
 
 
+# The task a commit that added a backlog item names, from git alone, so that every clone
+# shows the same card: the line Lem's squash merge ends its body with (land.py
+# `cmd_merge`), then the subject of the commit `lem land file` makes on the branch,
+# which a history that keeps the branch's commits has; else the pull request the subject
+# ends with, as GitHub's squash writes it.
+TASK_LINE = re.compile(r"(?m)^Lem task:[ \t]*([a-z0-9]+(?:-[a-z0-9]+)*)[ \t]*$")
+FILE_SUBJECT = re.compile(
+    r"^docs\(backlog\): what review round \d+ saw outside "
+    r"([a-z0-9]+(?:-[a-z0-9]+)*)(?: \(#\d+\))?$"
+)
+PULL_SUBJECT = re.compile(r"\(#(\d+)\)\s*$")
+# The fields of one commit in the read of `added_by`, between two characters no name,
+# subject or body holds.
+ADDED_FORMAT = "%x1e%an%x1f%ad%x1f%s%x1f%b%x1f"
+
+
+def added_by(log: str, folder: str) -> dict[str, dict]:
+    """Who added each item of the backlog folder FOLDER, from the output of one
+    `git log --diff-filter=A --name-only -z` in `ADDED_FORMAT`, the newest commit first:
+    by the path of each item, the commit that added its file last, as
+    `{"author", "day", "task", "pull"}`. `task` is the slug the commit names
+    (`TASK_LINE`, `FILE_SUBJECT`), `pull` the number of the pull request its subject
+    ends with when it names no task; each is "" when the commit does not say. A file in
+    a folder under FOLDER is no item."""
+    found: dict[str, dict] = {}
+    for record in log.split("\x1e")[1:]:
+        fields = record.split("\x1f")
+        if len(fields) < 5:
+            continue
+        author, day, subject = fields[0].strip(), fields[1].strip(), fields[2].strip()
+        body = "\x1f".join(fields[3:-1])
+        task = TASK_LINE.search(body) or FILE_SUBJECT.match(subject)
+        pull = None if task else PULL_SUBJECT.search(subject)
+        for path in (name.strip("\n") for name in fields[-1].split("\0")):
+            if (
+                path.endswith(".md")
+                and path.rpartition("/")[0] == folder
+                and path not in found
+            ):
+                found[path] = {
+                    "author": author,
+                    "day": day,
+                    "task": task[1] if task else "",
+                    "pull": pull[1] if pull else "",
+                }
+    return found
+
+
 def reviewer_folder(settings: dict) -> Path:
     """The folder of the reviewer's items: `.lem/state/backlog/` of the main checkout,
     which git never sees."""
@@ -283,8 +331,11 @@ def backlog(settings: dict) -> dict:
     "Start a task" posts, and its `key`, which names it on the page: the stem for an
     item of the backlog folder, `-STEM` for a reviewer's item, so that the two items of
     one stem stay two. A reviewer's item (`reviewer`) is `held` by the task that builds
-    it, `{"task", "status"}` by project.py's holder rule, or undecided (None). It reads
-    and changes nothing."""
+    it, `{"task", "status"}` by project.py's holder rule, or undecided (None). An item
+    of the backlog folder has `added_by`, the commit that added its file (`added_by`,
+    from one read of git for the whole folder), or None while git does not have it; no
+    field of the item says who added it. With no answer from git, no item has
+    `added_by`. It reads and changes nothing."""
     main = Path(settings["main"])
     # the main checkout's copy: a task's worktree has the backlog as its branch left it
     folder = main / Path(settings["places"]["backlog"]["path"]).relative_to(
@@ -299,20 +350,36 @@ def backlog(settings: dict) -> dict:
         "items": [],
     }
 
-    def git(*args: str) -> str:
+    def git(*args: str) -> str | None:
         ran = subprocess.run(
             ["git", "-C", str(main), *args], capture_output=True, text=True, check=False
         )
-        return ran.stdout if ran.returncode == 0 else ""
+        return ran.stdout if ran.returncode == 0 else None
 
     # what git does not have committed yet: an item the closing pass filed a minute ago
     # is `new`
     changed = {}
+    adds = None
     if folder.is_dir():
+        # who added each item: one read of git for the whole folder, never one for
+        # each item
+        log = git(
+            "log",
+            "--diff-filter=A",
+            "--no-renames",
+            "--date=short",
+            f"--format={ADDED_FORMAT}",
+            "--name-only",
+            "-z",
+            "--",
+            relative,
+        )
+        adds = None if log is None else added_by(log, relative)
         # --untracked-files=all: a folder git does not know yet is listed file by file,
         # not as one line
-        for entry in git(
-            "status", "--porcelain", "--untracked-files=all", "-z", "--", relative
+        for entry in (
+            git("status", "--porcelain", "--untracked-files=all", "-z", "--", relative)
+            or ""
         ).split("\0"):
             code, path = entry[:2], entry[3:]
             if path:
@@ -332,6 +399,11 @@ def backlog(settings: dict) -> dict:
                 "path": rel,
                 "reviewer": reviewer,
                 **({"held": lem_project.item_holder(state, rel)} if reviewer else {}),
+                **(
+                    {"added_by": adds.get(rel)}
+                    if adds is not None and not reviewer
+                    else {}
+                ),
             }
             try:
                 text = file.read_text(encoding="utf-8", errors="replace")

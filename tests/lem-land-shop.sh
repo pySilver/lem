@@ -643,7 +643,10 @@ mb_logged() { "$PY" -c 'import json, sys; print([eval(sys.argv[3], {"d": d}) for
 
 # Safe: the read of m2 comes after main moved to m3, so it covers m2 alone and the merge on m3 waits for a new read;
 # GitHub's refusal writes no line; a failed edit of the text after GitHub's merge leaves the task open, and `merged` writes it.
-mb_task mb-safe safe.txt && mb_land mb-safe
+# The squash commit's body names the fix made on the way first and ends with the task.
+fixed_line="- \`docs/board.md\` (abc1234): a sentence named a key the board no longer has"
+cp "$NOTES" "$WORK/mb-safe-notes.md" && printf '%s\n' '' '## Fixed on the way' '' "$fixed_line" >> "$WORK/mb-safe-notes.md"
+mb_task mb-safe safe.txt && mb_land mb-safe "$MB_READ" "$WORK/mb-safe-notes.md"
 m1=$(mb_kept mb-safe base d)
 starts=$(mb_events mb-safe gate.start)
 m2=$(mb_move docs/board.md)
@@ -670,14 +673,14 @@ if [ "$(field '(d["base"], d["facts"]["moved"]["checks_ran_on"], d["facts"]["mov
   && [ "$(field '(d["base"], d["base_call"], d["next"].startswith("the board"))' <<<"$reread")" = "('$m3', 'safe', True)" ] && [ "$cleared" = None ] \
   && grep -qF "GitHub refused the merge" <<<"$gh_said" && [ "$untouched" = False ] \
   && grep -qF "did not reach the pull request's text (gh pr edit said: HTTP 502: Bad Gateway); the task stays open, and \`lem land merged mb-safe\` tries again" <<<"$edit_said" \
-  && [ "$open_still" = open ] && [ "$commit_body" = "$line" ] \
+  && [ "$open_still" = open ] && [ "$commit_body" = "$(printf '%s\n\n%s\n\n%s' "$fixed_line" "$line" "Lem task: mb-safe")" ] \
   && [ "$(field 'd["base_read"]' <<<"$merged")" = "$line" ] && [ "$(status_in "$MB" mb-safe)" = landed ] && [ "$(mb_body mb-safe "d.rstrip().endswith('''$line''')")" = True ] \
   && grep -qxF "$line" "$MB/.lem/state/tasks/mb-safe/pr.md" && grep -qxF "$line" "$MB/.lem/state/tasks/mb-safe/state.md" \
   && [ "$(mb_kept mb-safe merged_by '(d["by"], d["after"], d["base"], d["checks_ran_on"])')" = "('merger', 'a read of the moved base', '$m3', '$m1')" ] \
   && [ "$started" = "('a read of the moved base', '${m3:0:9}')" ] && [ "$(mb_events mb-safe gate.start)" = "$starts" ] \
   && [ "$(mb_logged mb-safe merge.review '(d["base"], d["base_call"])')" = "[('${m2:0:9}', 'safe'), ('${m3:0:9}', 'safe')]" ] \
   && [ "$(git -C "$MBO" show main:docs/board.md | grep -c '^move ')" = 2 ] && [ "$(git -C "$MBO" show main:safe.txt)" = yes ]; then
-  pass "a base that moved after the checks is read by a fresh merge agent with the commits and the files that moved beside the change; its read covers the base its brief named, so an answer recorded after main moved again covers no later base and the merge waits for a new read; a safe read merges with no new run of the checks and keeps what moved, and the merge commit, the pull request's text, pr.md and the task's state name the base the checks ran on, the base it merged on and the read's why, also when the edit of the text failed once; a merge GitHub refuses writes no line"
+  pass "a base that moved after the checks is read by a fresh merge agent with the commits and the files that moved beside the change; its read covers the base its brief named, so an answer recorded after main moved again covers no later base and the merge waits for a new read; a safe read merges with no new run of the checks and keeps what moved, and the merge commit, the pull request's text, pr.md and the task's state name the base the checks ran on, the base it merged on and the read's why, also when the edit of the text failed once; the squash commit's body names the fix on the way before that line and ends with the task; a merge GitHub refuses writes no line"
 else
   fail "a safe read of a moved base: $brief / $late / $beyond / $kept_refusal / $reread / $cleared / $gh_said / $untouched / $edit_said / $open_still / $commit_body / $merged / $started"
 fi

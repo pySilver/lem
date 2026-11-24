@@ -1039,8 +1039,8 @@ def jev_key() -> dict:
         "found": given,
         "detail": detail,
         "used_for": (
-            "the Jev decision model, which the correction queue and a "
-            "card's framing check ask"
+            "the Jev decision model, which the correction queue, a card's framing "
+            "check and the landing's read of each finding called under the bar ask"
         ),
     }
     if collects_here():
@@ -1061,8 +1061,10 @@ def jev_key() -> dict:
     return {
         **row,
         "without_it": (
-            "a card's framing check gets no answer, and the correction queue, which is "
-            f"off here, would stay empty if it were on; put {JEV_WHERE}"
+            "a card's framing check gets no answer, a pull request says \"Jev: "
+            'not asked (no key)" on the line of each finding called under the bar, and '
+            "the correction queue, which is off here, would stay empty if it were on; "
+            f"put {JEV_WHERE}"
         ),
     }
 

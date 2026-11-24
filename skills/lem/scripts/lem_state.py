@@ -247,6 +247,7 @@ TABLE_PLACES = {
     "branch": ("team",),
     "paths": ("team",),
     "tracker": ("team",),
+    "jev": ("team",),
     "naps": ("team", "local"),
     "state": ("team", "local"),
 }

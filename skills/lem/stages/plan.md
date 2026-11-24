@@ -107,9 +107,14 @@ with each of its lines and that one. Your report says the same. A task he named 
      and can stop the task. The landing refuses a task on the standard track with no such event.
  A doubt: the
      first line of code waits. Write `report.md` with the criteria and the answers that flagged
-     them on top, quoted, and the line `the criteria wait for the owner`; write the state `held`
-     with that line, and put them to him here, by steps 6 and 7 of `stages/interview.md`; after
-     his yes, build on. Leave a flagged criterion as you wrote it: what you would change goes
+     them on top, quoted, and the line `the criteria wait for the owner`; write the criteria into
+     `criteria.md` in the task directory too, the plan's section with no test line, so that the
+     board shows them with Yes and No; write the state `held` with that line, and put them to him
+     here, by steps 6 and 7 of `stages/interview.md`. A change of his there is no yes: it writes
+     the changed criteria and waits for his yes again, and you stay the task's lead meanwhile.
+     After his yes, the plan's section takes the approved criteria word for word, as the first
+     bullet says of criteria approved at an interview, before `lem criteria record`, and you build
+     on. Leave a flagged criterion as you wrote it: what you would change goes
      beside it, as a proposal, and he decides. A task that runs without him (`mode` is `alone` in
      `lem project --repo WORKTREE tasks`) waits for nothing of this, a request somebody else
      wrote among it: each flagged criterion is a

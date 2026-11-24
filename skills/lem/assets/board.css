@@ -1098,6 +1098,19 @@ html:has(.app.plain) { overflow: auto; height: auto; }
 .cf-plain { margin: 0; font: 13px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .approve-body .md:has(> template:only-child) { display: none; }
 .approve-body .act-note { margin-bottom: 0; }
+/* a change of the criteria from the owner's note (lem_board_task.py `change_block`): each changed criterion's text
+   before beside its new text, side by side on a wide screen, one under the other on a phone, each wrapped */
+.cf-change { display: flex; flex-direction: column; gap: 8px; }
+.cf-change > .sub { margin: 0; font-size: 13px; color: var(--dim); overflow-wrap: anywhere; }
+.cf-pairs { display: flex; flex-direction: column; gap: 10px; }
+.cf-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
+.cf-side { min-width: 0; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); overflow-wrap: anywhere; }
+.cf-side.cf-before { border-style: dashed; color: var(--dim); }
+.cf-side.cf-after { border-color: color-mix(in srgb, var(--you) 45%, var(--line)); }
+.cf-label { font-size: 12px; font-weight: 650; color: var(--dim); margin-bottom: 2px; }
+.cf-text p { margin: 0; font-size: 14px; line-height: 1.5; }
+.cf-text ul { margin: 4px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+@media (max-width: 700px) { .cf-pair { grid-template-columns: minmax(0, 1fr); } }
 .approve .cf-acts { margin-top: 0; }
 /* the way back of a step that a desktop shows inside its tab (the approval's): only its overlay needs one */
 .cf-back { display: none; }
@@ -1152,6 +1165,14 @@ html:has(.app.plain) { overflow: auto; height: auto; }
   .app .cf-sheet[data-js-sheet] .cf-foot > .act-row { margin-top: 0; }
   .app .cf-sheet[data-js-sheet] .cf-back { display: inline-flex; }
   .app .cf-sheet[data-js-sheet] .btn[aria-disabled="true"] { opacity: .6; }
+  /* an answer form in the overlay's foot (the criteria's Yes and No with a note): the head says what it asks, so the
+     question goes, the note takes the foot's width, the options stand in one row with Back at its end, and the body
+     keeps the screen to be read */
+  .app .cf-sheet[data-js-sheet] .cf-foot > .act-row:has(> .answer-form) { position: relative; }
+  .app .cf-sheet[data-js-sheet] .answer-form .ans-q { display: none; }
+  .app .cf-sheet[data-js-sheet] .answer-form .ans-acts { flex-direction: row; padding-right: 88px; }
+  .app .cf-sheet[data-js-sheet] .answer-form .ans-acts > .btn { flex: 1 1 0; width: auto; }
+  .app .cf-sheet[data-js-sheet] .cf-foot > .act-row:has(> .answer-form) > .cf-back { position: absolute; right: 0; bottom: 0; width: 80px; min-height: 44px; }
   /* the card's frame takes the overlay's height, and the card's page is the one part that scrolls */
   .app .cf-sheet[data-js-sheet] .cf-body:has(> .card-frame) { padding: 0; overflow: hidden; }
   .app .cf-sheet[data-js-sheet] .cf-body > .card-frame { flex: 1 1 auto; height: auto; min-height: 0; border: 0; border-radius: 0; }

@@ -133,10 +133,6 @@ class Digests(unittest.TestCase):
         self.assertEqual(text, criteria.text_digest("full", joined))
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class ResumedPlan(unittest.TestCase):
     """A task resumed from a dropped one finds the old task's plan on its branch, and
     its own once its lead writes one."""
@@ -571,3 +567,7 @@ class Inputs(unittest.TestCase):
         ):
             criteria.cmd_inputs(task)
         self.assertEqual(self.asked, [])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -75,6 +75,12 @@ DOCS = {
     "criteria.md": ("criteria", "Acceptance criteria"),
     "criteria-read.md": ("criteria", "The personas' read of the criteria"),
     "criteria-page.html": ("criteria", "The criteria page"),
+    # the changed criteria the task's session writes from the owner's note, which
+    # `lem criteria change --file` takes
+    "criteria-change.md": (
+        "criteria",
+        "The changed criteria, as the session wrote them for the change",
+    ),
     "design.md": ("plan", "Design"),
     "directions.md": ("plan", "The owner's directions"),
     "scout.md": ("plan", "The scout's report"),
@@ -93,6 +99,9 @@ DOCS = {
 # the tab of the board that shows them readable.
 RECORDS = {
     "criteria.json": ("criteria.md", "record", "criteria"),
+    # the text the owner answered, which `lem criteria change` keeps before
+    # criteria.md moves
+    "criteria-before.json": ("criteria.md", "text before the change", "criteria"),
     "decisions.jsonl": ("pr.md", "decisions", "criteria"),
     "polish.json": ("report.md", "polish pass", "checks"),
     "landing.json": ("pr.md", "landing", "checks"),

@@ -1,14 +1,15 @@
 """The bar of a backlog item, written in one place.
 
 Rule 6 of agents/lem-builder.md holds the bar: the sentence that says which defect
-outside a task is worth an item, its limit (Lem's agents only), what makes a defect
-cheap, and the three outcomes of a defect ("Fixed on the way", "Seen, not filed", an
-item under "Filed in the backlog"). The polish pass, the fast track's builder, the
-review and the reviewer of the night's and the retro's proposals are each a lem-builder
-and read that file whole, so every other file of Lem names the bar of rule 6 and copies
-no part of its sentence: a copy would drift from the rule the agents read. The briefs
-and stages that send an agent to judge a defect outside a task, or a proposal, each
-name it.
+outside a task is worth an item with `worth: later`, its limit (Lem's agents only), what
+makes a defect cheap (text that does not run, or a check's finding its rerun shows
+fixed), and the three outcomes of a defect no open item holds ("Fixed on the way", an
+item with `worth: no` under "Filed as not worth it", an item with `worth: later` under
+"Filed in the backlog"). The polish pass, the fast track's builder, the review and the
+reviewer of the night's and the retro's proposals are each a lem-builder and read that
+file whole, so every other file of Lem names the bar of rule 6 and copies no part of its
+sentence: a copy would drift from the rule the agents read. The briefs and stages that
+send an agent to judge a defect outside a task, or a proposal, each name it.
 
 It reads only the repository's own files, so a missing file is a failed case.
 
@@ -22,12 +23,15 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 BUILDER = ROOT / "agents/lem-builder.md"
-# The bar, word for word as criterion 1 of
-# docs/plans/2026-11-22-backlog-filing-judged.md gives it.
+# The bar, word for word as task 1 of
+# docs/plans/2026-11-23-backlog-refuted-items-and-jev.md gives it: the sentence of
+# criterion 1 of docs/plans/2026-11-22-backlog-filing-judged.md, its subject now the
+# item with `worth: later`, since a defect under the bar is an item too,
+# with `worth: no`.
 BAR = (
-    "An item is filed only for a defect over the bar: it confuses a user, breaks a "
-    "contract, damages data or costs money, and it happens today; "
-    "or the owner said it is worth an item."
+    "An item with `worth: later` is filed only for a defect over the bar: "
+    "it confuses a user, breaks a contract, damages data or costs money, and it "
+    "happens today; or the owner said it is worth an item."
 )
 # The parts of the bar a copy would carry, each one rare enough in Lem's prose that it
 # is found nowhere else (none was, 2026-11-22).
@@ -84,18 +88,48 @@ class TheBar(unittest.TestCase):
                 "The bar binds Lem's agents only: an item a person writes, or asks an "
                 "agent to file, is filed whatever the bar."
             ),
-            "A defect is cheap when its fix changes no behavior and needs no new test.",
+            (
+                "A defect is cheap when its fix is text that does not run (a comment, "
+                "a docstring, a sentence of a document), or when a check of the "
+                "project reports it and the check's rerun shows it fixed."
+            ),
+            "A refactor, or the removal of code that looks unused, is not cheap",
+            (
+                "a commit of its own whose message names it, as "
+                "`fixed on the way: FILE, what was wrong`"
+            ),
             "A cheap defect alone never starts a builder or a new run of the checks",
             '"Fixed on the way": the file, the commit and what was wrong',
-            '"Seen, not filed": its place and why it is under the bar',
             (
                 "Look in the backlog folder of the base for an open item "
                 "that names the same defect"
             ),
-            '"Filed in the backlog"',
+            (
+                "One item with `worth: no`, which the pull request lists under "
+                '"Filed as not worth it"'
+            ),
+            (
+                "One item with `worth: later`, which the pull request lists under "
+                '"Filed in the backlog"'
+            ),
+            "the optional line `Decided against: REASON`",
         ):
             with self.subTest(words=words):
                 self.assertIn(words, rule)
+
+    def test_rule_6_gives_a_defect_under_the_bar_a_file_and_cheap_no_room_for_code(
+        self,
+    ) -> None:
+        # an under defect that lived only in a pull request's text was raised again by
+        # the next review
+        rule = rule_6()
+        for words in (
+            "No file, and no `worth: no` item",
+            "its fix changes no behavior and needs no new test",
+            '"Seen, not filed": its place and why it is under the bar',
+        ):
+            with self.subTest(words=words):
+                self.assertNotIn(words, rule)
 
     def test_rule_6_keeps_a_plan_builder_to_its_list(self) -> None:
         self.assertTrue(

@@ -2706,19 +2706,123 @@ def approve_holds_form(ctx: P.Ctx, t: bm.Task) -> bool:
     )
 
 
+# Each side of a pair of a change of the criteria (criteria.py `pairs`), as its label
+# says it.
+PAIR_SIDES = {
+    "changed": (("before", "Before"), ("after", "Now")),
+    "removed": (("before", "Removed"),),
+    "added": (("after", "Added"),),
+}
+
+
+def criterion_text(ctx: P.Ctx, c: dict) -> Markup:
+    """One criterion of a pair: its sentence, and the steps of its case as a list."""
+    case = [str(x) for x in c.get("case") or []]
+    return h(
+        "div",
+        {"class": "cf-text"},
+        h("p", None, P.rich(ctx, c.get("text") or "")),
+        case and h("ul", None, [h("li", None, P.rich(ctx, step)) for step in case]),
+    )
+
+
+def change_block(ctx: P.Ctx, change: dict, words: str | None) -> Markup:
+    """The change of the criteria from the owner's note (`bm.change_of`), above the
+    whole criteria: his note, and each changed criterion's text before beside its new
+    text, a removed one with its text before and an added one with its new text. Side by
+    side on a wide screen, one under the other on a phone (board.css), each wrapped, so
+    nothing is cut off."""
+    said = (
+        f"Lem changed them from your note “{words}”."
+        if words
+        else "Lem changed them from your note."
+    )
+    if change.get("error"):
+        return h(
+            "div",
+            {"class": "cf-change"},
+            h(
+                "p",
+                {"class": "sub"},
+                f"{said} The text before the change does not read: {change['error']}.",
+            ),
+        )
+    pairs = []
+    for pair in change.get("pairs") or []:
+        sides = [
+            h(
+                "div",
+                {"class": f"cf-side cf-{key}"},
+                h(
+                    "div",
+                    {"class": "cf-label"},
+                    f"{label} · criterion {pair[key]['n']}",
+                ),
+                criterion_text(ctx, pair[key]),
+            )
+            for key, label in PAIR_SIDES.get(pair.get("change"), ())
+        ]
+        pairs.append(h("div", {"class": f"cf-pair cf-{pair.get('change')}"}, sides))
+    return h(
+        "div",
+        {"class": "cf-change"},
+        h(
+            "p",
+            {"class": "sub"},
+            said,
+            (
+                " Each changed criterion shows its text before beside its new text; "
+                "the whole criteria follow."
+            ),
+        ),
+        h("div", {"class": "cf-pairs"}, pairs),
+    )
+
+
 def approve_card(ctx: P.Ctx, t: bm.Task, note: Markup | None = None) -> Markup | None:
     """The criteria that wait for the owner's yes, as the task's session wrote them
     (`criteria.md` of the task directory), first on "Criteria and decisions", with the
-    personas' read in one line and his yes as a button on a page that may act. None
-    while they do not wait for a yes that would count. A card that holds the button is
-    an act's step (`confirm_card`): on a phone's screen an overlay whose button comes on
-    when the criteria were read to the end, with "Back" to the Overview, which a desktop
-    does not show. Its body holds the act's NOTE first, which the overlay would cover
-    above the card, and after the markdown block the criteria as plain text for a
-    browser with no script, which draws the markdown block empty."""
+    personas' read in one line and his answer under them on a page that may act. None
+    while they do not wait for a yes that would count. While they have a row the board
+    answers (`bm.answer_row`: the fast track's one criterion, the standard track's
+    criteria on a task of the board's release) the answer is the one answer form, Yes,
+    or No with his words, and the digest of the text shown; else one button, "Approve
+    the criteria". After a change from his note (`bm.change_of`) each changed
+    criterion's text before stands beside its new text, above the whole criteria; while
+    that change stopped in the middle (`Task.changing`) the card says the new request
+    comes, and takes no answer. A card that holds an answer is an act's step
+    (`confirm_card`): on a phone's screen an overlay whose button comes on when the
+    criteria were read to the end, with "Back" to the Overview, which a desktop does not
+    show. Its body holds the act's NOTE first, which the overlay would cover above the
+    card, and after the markdown block the criteria as plain text for a browser with no
+    script, which draws the markdown block empty."""
+    if t.changing and not t.closed:
+        return h(
+            "section",
+            {"class": "card approve a-you", "id": "approve-card"},
+            h(
+                "div",
+                {"class": "card-head"},
+                h("h2", None, "The criteria change from your note"),
+            ),
+            h(
+                "div",
+                {"class": "approve-body"},
+                h(
+                    "p",
+                    {"class": "sub"},
+                    (
+                        "Lem writes the changed criteria: the new request comes in a "
+                        "moment, with each changed criterion’s text "
+                        "before beside its new text."
+                    ),
+                ),
+            ),
+        )
     if "approve" not in bm.acts_of(t, ctx.model.seen):
         return None
     waiting = ctx.criteria_waiting(t.slug)
+    change = bm.change_of(t, waiting)
     r = t.reads[-1] if t.reads else None
     read = None
     if r:
@@ -2743,9 +2847,13 @@ def approve_card(ctx: P.Ctx, t: bm.Task, note: Markup | None = None) -> Markup |
     asks = bm.answer_row(t)
     criterion = asks if asks and asks["kind"] == "criterion" else None
     made = bm.answered_of(t, ctx.model) if criterion else None
+    changed = (
+        change_block(ctx, change, waiting.get("words")) if change and waiting else None
+    )
     if waiting is not None and made is not None:
         body = [
             note,
+            changed,
             P.md_block(
                 ctx, f"waiting-{t.slug}", waiting["text"], slug=t.slug, cls="b-md"
             ),
@@ -2762,11 +2870,13 @@ def approve_card(ctx: P.Ctx, t: bm.Task, note: Markup | None = None) -> Markup |
             h("div", {"class": "approve-body"}, body),
         )
     if waiting is not None and ctx.can_act and criterion:
-        # the one criterion of a request someone else wrote: his Yes or No under its
-        # text, in the one answer form, with the digest of the text shown (a No needs
-        # his words, which go into criteria.md)
+        # his Yes or No under the text, in the one answer form, with the digest of the
+        # text shown: a No needs his words, which go into the fast track's criteria.md
+        # as they are, and from which the standard track's session writes the changed
+        # criteria and asks again
         body = [
             note,
+            changed,
             P.md_block(
                 ctx, f"waiting-{t.slug}", waiting["text"], slug=t.slug, cls="b-md"
             ),
@@ -2783,7 +2893,7 @@ def approve_card(ctx: P.Ctx, t: bm.Task, note: Markup | None = None) -> Markup |
         )
         return confirm_card(
             "card approve a-you",
-            "Approve the criterion",
+            "Approve the criterion" if bm.fast_criterion(t) else "Approve the criteria",
             head_,
             body,
             h(
@@ -2799,6 +2909,7 @@ def approve_card(ctx: P.Ctx, t: bm.Task, note: Markup | None = None) -> Markup |
     if waiting is not None and ctx.can_act:
         body = [
             note,
+            changed,
             P.md_block(
                 ctx, f"waiting-{t.slug}", waiting["text"], slug=t.slug, cls="b-md"
             ),
@@ -2855,6 +2966,7 @@ def approve_card(ctx: P.Ctx, t: bm.Task, note: Markup | None = None) -> Markup |
         ]
     else:
         body = [
+            changed,
             P.md_block(
                 ctx, f"waiting-{t.slug}", waiting["text"], slug=t.slug, cls="b-md"
             ),

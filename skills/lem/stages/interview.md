@@ -150,11 +150,53 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
      - a criterion a persona flagged as you wrote it, with the answers that flagged it quoted beside
        it. Never reword it before he sees it: what changes it is his;
      - the directions.
-   He approves, or changes a criterion, a direction or the set. Write each change in his words into
-   the criteria file or `directions.md`. The personas do not read his own change again; the pull
-   request then says that the criteria changed after the read.
-7. **Freeze them**: `lem criteria approve SLUG --file FILE`, again after
-   each change of his. The criteria are then kept word for word with a digest, and the plan's
+   He approves, or changes a criterion, a direction or the set. A direction he changes goes into
+   `directions.md` in his words and touches no criterion: his yes to the criteria is still to come
+   when his answer did not give it. A change of a criterion or of the set is never his yes, here
+   or as his No with a note on the board's card "The criteria wait for your yes" (`prompts/session.md`,
+   "His answer on the board"); it changes the criteria and asks again:
+   1. **His No first.** His change, typed or given on the page, is his No to the criteria he read,
+      and it counts from the moment you take it: record it as the answer of the board's row before
+      you write a word of the new text, `lem criteria change SLUG --typed --words "HIS NOTE"`. It
+      refuses when an answer of the board came first, and says which: his Yes there approved the
+      criteria already, and the task goes on from that approval as step 7 ends; his No there is the
+      change, from the note he wrote there, and his typed words are not taken. Say in one line which
+      answer you took and from where.
+   2. **The new text, in your words.** Write each criterion his note changes again, in the form of
+      step 4: one rule in plain language with a concrete example, with real names and values (his
+      "criterion 2 must also cover empty rows" gives "An export keeps an empty cell and an empty
+      row: order 1042 with no note and a blank line exports both"). Keep the rule his note gives,
+      as a rewrite of the personas' that keeps its rule is taken, and leave every criterion his
+      note does not touch word for word. Write the whole file, `criteria.md` with that change and
+      no test line, as `criteria-change.md` in the task directory: a session after you finds it
+      there.
+   3. **The change**: `lem criteria change SLUG --file TASK_DIR/criteria-change.md --words "HIS
+      NOTE"`. It keeps the text he answered, writes the new `criteria.md`, and writes the held block
+      `the criteria wait for the owner: changed from the owner's note`, so that the board's row
+      comes back under a new key, with the old text beside the new; it approves nothing. Its
+      refusal that his Yes came first is the one of the first part. When it refuses that nothing
+      changed, the file still says what he answered: write the change again. A No on record whose
+      note changes no criterion (a direction, a question: on the board's card his note is his one
+      field for words) takes no change: a direction goes into `directions.md` in his words, a
+      question gets its answer on the page of the next part, and `lem criteria change SLUG
+      --unchanged` writes the held block `the criteria wait for the owner: the owner's note changed
+      no criterion`, so that the board's row comes back under a new key for his yes to the same
+      text. His No on record refuses every yes to the block he answered until one of the two runs.
+   4. **Ask again**: the page again, through `ask-owner`, with his note quoted on top; each pair the
+      change printed, a changed criterion's old text beside its new text with its number before and
+      after, a removed one with its old text, an added one with its new text; the criteria it left
+      as they were; and one line that the personas read the text before the change and not this
+      one. A session after you takes the pairs from `lem criteria change SLUG --pairs`. The personas
+      do not read it again, and the pull request says that the criteria changed after their read.
+      After `--unchanged` the page has no pair and no such line: the criteria as they were, with
+      what his note gave. His answer to this page is this step again: his yes, or another change.
+
+   Only his yes to the page, or his Yes on the board, approves the criteria: his yes here is step
+   7, and his Yes on the board approved them already (`by: owner` in `lem criteria approved SLUG`).
+7. **Freeze them**: `lem criteria approve SLUG --file FILE`, on his yes and never on his change
+   (step 6). After a change, FILE is `criteria.md` in the task directory, and his yes is to the
+   text the page showed: add `--shown DIGEST`, the `shown` that `lem criteria change`, its `--pairs`
+   or its `--unchanged` printed, so that a text that moved since is approved by nobody. The criteria are then kept word for word with a digest, and the plan's
    criteria have to be those, with only the test lines added: a criterion the build changes, adds or
    drops has its own record (`lem decisions criterion`), and the pull request is not green for it.
    Write no `lead:` line before it: the landing reads the first `lead:` line as the end of the

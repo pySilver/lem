@@ -63,6 +63,10 @@ of the night acts on none: it runs without him until it ends.
     starts its one builder. A task held with `the criteria wait for the owner: the small
     change is a full change` has had no interview yet: it takes the interview without him, from its
     first question.
+  - *His No to the criteria on record* (on the board, or typed before he left): `--alone` refuses
+    the text he said No to. Make the change from his note first, with no page while he is away: as
+    `stages/interview.md`, step 6 says, or on the fast track as "The fast track" of
+    `stages/new.md`, step 1 says. Then approve the changed text with `--alone`.
   - A request read while he is away asks nothing: where a stage would ask him, take the safer read
     (the standard track, and careful in doubt) and log it.
 - **Back**: go on with him from where the files stand. What was taken without him stands.

@@ -20,6 +20,9 @@ export LEM_SERVE=off  # a board that a check opens starts no board server (`serv
 # (`lem_release.chosen`), never with the release the developer installed, which may be two releases behind the checkout
 export CLAUDE_CONFIG_DIR="$WORK/claude"
 export LEM_PUSH=record  # the board server's notifications are written to push-record.jsonl in the run's home folder, never sent (`lem_push.py`)
+# No finding goes to the Jev model's provider: with no key a landing asks nothing, and a check that wants Jev's read
+# gives a key of no value and a stand-in through LEM_JEV (`land.py`, `ask_jev`)
+unset JEV_API_KEY JEV_API_URL JEV_MODEL LEM_JEV
 # shellcheck source=tests/checks.sh
 . tests/checks.sh
 SERVE_PID=""

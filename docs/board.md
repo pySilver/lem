@@ -24,6 +24,11 @@ The first page lists the repositories that use Lem, each with what waits for you
 Press each key alone, with no Shift. `Cmd-K` (`Ctrl-K` off a Mac), or the **Search** button, finds
 any task or backlog item by its title.
 
+An item of the backlog says who added it and on which day, from the commit that added its file:
+"added by AUTHOR on DAY, in task SLUG". When that commit names no task, the item names its pull
+request, if the commit names one. An item that git does not have yet says "not committed yet". An
+item of the [reviewer](#the-reviewers-items) says the day that the reviewer added it.
+
 On **Tasks**, `J`, `K`, `↑` and `↓` move a mark in a column, and `H`, `L`, `←` and `→` to the next
 column. On **Waits for you**, `J`, `K`, `↑` and `↓` move it. `Enter` opens the marked task, or the
 session in agterm where you answer its row. On a marked stack, `Enter` opens or closes the stack.
@@ -43,7 +48,7 @@ Buttons on "Waits for you" and the task pages do what Lem does on your words:
 
 - **New task** (`+`, or the key `N`): type a request, and Lem opens the session of the new task.
   A backlog item has **Start a task**, and the item leaves the backlog when that task merges.
-- **Approve the criteria**: your yes to the criteria.
+- **Approve the criteria**, on a task that the release before began: your yes to the criteria.
 - **Merge**: a page shows green or not green, the pull request and the commit first. You cannot
   undo a merge. On a phone, the page opens over the task, and its button becomes active when you
   read to the end.
@@ -59,8 +64,17 @@ You also answer the questions of a task on the board. Each question has one fiel
 - **Skip the persona read?** of an interview: **Yes** or **No**.
 - **Approve this criterion?** of a small change that another person asked for: **Yes** or **No**.
   No needs a note: what the criterion must say.
+- **Approve the criteria?** of the standard track: **Yes** or **No**. No needs a note: what the
+  criteria must say. Lem then writes the changed criteria, and asks for your yes again. The card
+  then shows the old text of each changed criterion beside its new text. When your note changes
+  no criterion (an instruction or a question), Lem does what the note says and asks for your yes
+  to the same criteria again. On **Waits for you**, the row has **Read and approve…**, which
+  opens the card.
 
-**Park** and **Drop** ask you to confirm first. Park, and Yes to a criterion, take effect at once.
+On a task that the release before began, the board does not ask about a plan, a breaker, the
+persona read or the criteria. Answer these questions in the session of the task.
+
+**Park** and **Drop** ask you to confirm first. Park, and Yes to criteria, take effect at once.
 The session of the task takes each other answer as your typed word.
 
 The board takes an answer with a note, never a conversation. A note with no option, or
@@ -75,11 +89,15 @@ way. The page then shows the result, or why Lem refused.
 
 The night and the retro write what they find as proposals. Each morning, after the retro, a
 reviewer agent reads them and refutes the weak ones. It puts the proposals that pass into backlog
-items, one item for each area. These items are in `.lem/state/backlog/`, which git ignores.
-**Backlog** shows them in a group of their own, before the other items.
+items, one item for each area. It puts each proposal that it refutes into an item with
+`worth: no` and its reason, so that an agent that proposes the same change again finds it
+decided.
+These items are in `.lem/state/backlog/`, which git ignores. **Backlog** shows the items that
+passed in a group of their own, before the other items, and the refuted items in the group
+"Decided against", with no **Drop**.
 
-- An item that no task builds is "undecided". The **Backlog** key shows the number of undecided
-  items.
+- An item that passed and that no task builds is "undecided". The **Backlog** key shows the
+  number of undecided items. It never counts an item with `worth: no`.
 - **Start a task** opens a task for the item. The item then shows the name of that task. The item
   leaves the backlog when the task merges, and it is undecided again when you drop the task.
 - **Drop** removes the item at once. The record of the proposals keeps the drop, so no later

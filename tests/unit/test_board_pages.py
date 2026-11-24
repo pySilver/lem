@@ -1284,6 +1284,176 @@ class ReviewerItems(unittest.TestCase):
         self.assertNotIn("<form", undecided)
 
 
+class RefutedAndAddedBy(unittest.TestCase):
+    """Criteria 4 and 5 of docs/plans/2026-11-23-backlog-refuted-items-and-jev.md on the
+    Backlog view: a reviewer's refuted item (`worth: no`) is under "Decided against"
+    with no "Drop" and no count on the key, and each card says who added its item, on
+    which day and in which task."""
+
+    @staticmethod
+    def mine(stem: str, worth: str, held: dict | None = None) -> dict:
+        return {
+            "slug": stem,
+            "key": f"-{stem}",
+            "path": f".lem/state/backlog/{stem}.md",
+            "reviewer": True,
+            "held": held,
+            "title": stem.replace("-", " ").capitalize(),
+            "worth": worth,
+            "where": "",
+            "added": "2026-11-20",
+            "state": "",
+            "body": (
+                "From the retro of 2026-11-20.\n\nDecided against: "
+                "a first-time lesson, with no question in it."
+            ),
+        }
+
+    @staticmethod
+    def folder(stem: str, added_by: dict | None) -> dict:
+        return {
+            "slug": stem,
+            "key": stem,
+            "path": f"docs/backlog/{stem}.md",
+            "reviewer": False,
+            "added_by": added_by,
+            "title": stem.replace("-", " ").capitalize(),
+            "worth": "later",
+            "where": "",
+            "added": "2026-11-20",
+            "state": "" if added_by else "new",
+            "body": "What happens.",
+        }
+
+    def page(
+        self, items: list, can_act: bool = True, events: list | None = None
+    ) -> str:
+        backlog = {
+            "folder": "docs/backlog",
+            "reviewer_folder": ".lem/state/backlog",
+            "read": "2026-11-20T10:00:00Z",
+            "items": items,
+        }
+        return str(
+            pages.backlog_page(
+                pages.Ctx(
+                    host="h",
+                    workspace="w",
+                    model=bm.derive(events or [], [], NOW),
+                    asset=lambda name: name,
+                    backlog=backlog,
+                    can_act=can_act,
+                )
+            )
+        )
+
+    def item(self, html: str, key: str) -> str:
+        return html.split(f'id="item-{key}"', 1)[1].split("</details>", 1)[0]
+
+    def test_criterion_4_two_waiting_and_one_refuted_give_2_on_the_key_and_3_in_the_view_the_refuted_one_under_decided_against(
+        self,
+    ) -> None:
+        html = self.page(
+            [
+                self.mine("the-board-s-colors", "later"),
+                self.mine("run-make-lint-before-each-commit", "no"),
+                self.mine("a-flaky-check", "later"),
+            ]
+        )
+        key = re.search(r'<a class="vbtn" id="view-backlog"[^>]*>(.*?)</a>', html)[1]
+        self.assertRegex(
+            key,
+            (
+                r"<em title=\"The reviewer&#x27;s items that wait for your "
+                r"start or drop\">2</em>"
+            ),
+        )
+        self.assertEqual(len(re.findall(r'<details class="bl-item"', html)), 3)
+        reviewer = html.split('id="group-reviewer"', 1)[1].split('class="bl-group', 1)[
+            0
+        ]
+        self.assertNotIn('id="item--run-make-lint-before-each-commit"', reviewer)
+        against = html.split('id="group-no"', 1)[1]
+        self.assertIn("Decided against", against.split('class="bl-item"', 1)[0])
+        refuted = self.item(html, "-run-make-lint-before-each-commit")
+        self.assertIn('id="item--run-make-lint-before-each-commit"', against)
+        self.assertNotIn("Drop", refuted)
+        self.assertNotIn(">undecided<", refuted)
+        # it can still start a task, as any item can
+        self.assertIn('action="/h/w/start"', refuted)
+        self.assertIn("3 of the reviewer in .lem/state/backlog, 2 undecided", html)
+        # a page that cannot act does not tell to drop it either
+        self.assertNotIn(
+            "Drop it on this board",
+            self.item(
+                self.page(
+                    [self.mine("run-make-lint-before-each-commit", "no")], can_act=False
+                ),
+                "-run-make-lint-before-each-commit",
+            ),
+        )
+
+    def test_criterion_5_the_card_says_who_added_the_item_on_which_day_and_in_which_task(
+        self,
+    ) -> None:
+        stem = "clean-refuses-a-branch-rebased-after-its-push-and-blames-the-forge"
+        by = {
+            "author": "pySilver",
+            "day": "2026-11-22",
+            "task": "seat-defaults-and-fallback",
+            "pull": "",
+        }
+        card = self.item(self.page([self.folder(stem, by)]), stem)
+        self.assertIn(
+            (
+                '<div class="bl-note bl-by">added by pySilver on 2026-11-22, '
+                "in task <code>seat-defaults-and-fallback</code></div>"
+            ),
+            card,
+        )
+        # a task this board has is a link to its board
+        linked = self.item(
+            self.page(
+                [self.folder(stem, by)],
+                events=[
+                    state(1, "landed", "merged", task="seat-defaults-and-fallback")
+                ],
+            ),
+            stem,
+        )
+        self.assertRegex(
+            linked,
+            r'added by pySilver on 2026-11-22, in task <a class="bl-task" [^>]*href="/h/w/tasks/seat-defaults-and-fallback[^"]*"[^>]*>seat-defaults-and-fallback</a>',
+        )
+        # a commit that names no task but its pull request; one that names neither; an
+        # item git does not have yet
+        pull = self.item(
+            self.page([self.folder(stem, {**by, "task": "", "pull": "88"})]), stem
+        )
+        self.assertIn(">added by pySilver on 2026-11-22, in pull request #88<", pull)
+        bare = self.item(self.page([self.folder(stem, {**by, "task": ""})]), stem)
+        self.assertIn(">added by pySilver on 2026-11-22<", bare)
+        self.assertIn(
+            '<div class="bl-note bl-by">not committed yet</div>',
+            self.item(self.page([self.folder(stem, None)]), stem),
+        )
+        # no answer from git: no line; a reviewer's item, which git never holds: the
+        # reviewer and its day
+        nothing = self.folder(stem, None)
+        del nothing["added_by"]
+        self.assertNotIn("bl-by", self.item(self.page([nothing]), stem))
+        self.assertIn(
+            (
+                "added by the reviewer of the night&#x27;s and the retro&#x27;s "
+                "proposals on 2026-11-20"
+            ),
+            self.item(
+                self.page([self.mine("the-board-s-colors", "later")]),
+                "-the-board-s-colors",
+            ),
+        )
+
+
 class ItemSlug(unittest.TestCase):
     """The slug of a task started from a backlog item (`serve.item_slug`): the stem, or
     the stem with the first free `-2`, `-3` when a task of the stem ended, so that an

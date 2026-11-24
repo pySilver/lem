@@ -73,8 +73,8 @@ task, and after his reply came in a thread whose session no longer runs the task
 - **He is away**, and this session waits for him on the task's row there: for a blocked task or
   an order of his that names no task, put up a card with a text answer, as "A card in a task's
   session" says, in the background and without `--follow`, so that it takes no focus; the board
-  shows it as a card row with its text field. A breaker, a plan, a merge and the two yes/no rows
-  ("Skip the persona read?", "Approve this criterion?") get no card: the board answers each with
+  shows it as a card row with its text field. A breaker, a plan, a merge and the yes/no rows
+  ("Skip the persona read?", "Approve this criterion?", "Approve the criteria?") get no card: the board answers each with
   its own buttons (a merge with Merge; its "Not now" is no act), and a card would be a second row
   for one thing. Put up no second card for a thing whose card is up. His answer on the card is his
   typed word, and it is the first answer: the server then withdraws the Inbox question.

@@ -30,10 +30,11 @@ the last read stopped, and whole again when `lem project prune` put a new one in
 the owner's mark (`project.owner_records`), and the settings, the backlog and the meta
 facts through `board.py`'s functions, the board server's last look at the forge
 (FORGE_LOOK, `Model.seen`), and its record of what it sent to the owner's Inbox while he
-is away (INBOX_LOOK, `Model.inbox`, which `inbox_of` reads for a task's page), and the
-open `lem-ask` cards of each task's folder (`cards_look`, `Model.cards`, whose rows
-`open_cards` gives). What does not read is a problem the page says, never an
-empty board.
+is away (INBOX_LOOK, `Model.inbox`, which `inbox_of` reads for a task's page), the open
+`lem-ask` cards of each task's folder (`cards_look`, `Model.cards`, whose rows
+`open_cards` gives), and what each task's folder says beside the log, the release it
+began on and a change of its criteria that stopped in the middle (`task_files_look`, on
+each Task). What does not read is a problem the page says, never an empty board.
 """  # noqa: E501 - the table of the model's names keeps its columns
 
 import json
@@ -52,6 +53,7 @@ from urllib.parse import quote
 
 import lem_answers
 import lem_cards
+import lem_release
 
 # ---- the words of each status, and the lanes ----
 
@@ -614,6 +616,12 @@ def words(line: object, *, talked: bool = False) -> str | None:  # noqa: C901, P
         return f"it starts after “{title_of(after[1])}” ends"
     if BREAKER_WAIT.fullmatch(s):
         return "the build stopped, and its breaker waits for you"
+    if s == CHANGED_CRITERIA:
+        return "the criteria changed from your note, and wait for your yes again"
+    if s == UNCHANGED_CRITERIA:
+        return (
+            "your note changed no criterion, and the criteria wait for your yes again"
+        )
     resumed = re.fullmatch(r"resumed from ([a-z0-9-]+), which was dropped", s)
     if resumed:
         return f"it goes on from “{title_of(resumed[1])}”, which was dropped"
@@ -937,6 +945,19 @@ class Task:
     # the newest `release.stop` while no state came after it (RELEASE_STOP): `began`,
     # `running`, `branch`, `say`
     release_stop: dict | None = None
+    # what the task's directory says beside the log (`task_files_look`), None while
+    # nothing read it (a unit case): the release the task began on (lem_release),
+    # whether that is older than the board's own (`behind`: no row the board answers
+    # with its own buttons, since its session has no `board_answer`), and whether a
+    # change of its criteria from the owner's note began under its newest state block
+    # and did not end (`changing`: `criteria-before.json` names that block; no yes
+    # counts until it ends)
+    began: str | None = None
+    behind: bool = False
+    changing: bool = False
+    # `approvable` as the log alone gives it (`settle`), which `task_files_look` narrows
+    # by `changing`
+    approvable_events: bool = False
     # each `lem-ask` card of the task's sessions with no `card.answered` or
     # `card.closed` in the log, by its page id: its first question's prompt and when it
     # went up. Whether it is open is its end file's to say (`Model.cards`, which the
@@ -1867,6 +1888,7 @@ def settle(t: Task, now: int, *, away: bool = False) -> None:  # noqa: C901, PLR
         t.for_owner, t.approvable, t.checks_stop, t.waits = True, False, None, None
         t.info = {**STATUS["blocked"], "actor": "you", "who": "You"}
         t.shown, t.more = t.release_stop["say"], []
+    t.approvable_events = t.approvable
     rank = (
         "blocked"
         if t.release_stop and not t.closed
@@ -2337,7 +2359,9 @@ def done_older(m: Model) -> list:
 
 # ---- the backlog's items and the search over every card ----
 
-# The backlog's groups, from each item's own `worth`.
+# The backlog's groups, from each item's own `worth`: every item of the backlog folder,
+# and the reviewer's items it decided against (`refuted`); its other items have a group
+# of their own (`reviewer_items`).
 BY_WORTH = [
     {"key": "yes", "name": "Worth doing", "actor": "gate"},
     {"key": "later", "name": "Later", "actor": "you"},
@@ -2353,18 +2377,38 @@ def worth_of(it: dict) -> str:
     return it.get("worth") if it.get("worth") in ("yes", "later", "no") else "unset"
 
 
+def refuted(it: dict) -> bool:
+    """A reviewer's item that says `worth: no`: a proposal the reviewer decided against,
+    kept so that no later night or retro raises it again. It waits for nobody, so the
+    Backlog key does not count it."""
+    return bool(it.get("reviewer")) and worth_of(it) == "no"
+
+
+def worth_items(items: list[dict], key: str) -> list[dict]:
+    """The items of a backlog's read in the group of BY_WORTH whose key is KEY, in the
+    order of the read: the backlog folder's, and in "Decided against" the reviewer's
+    refuted ones (`refuted`) too."""
+    return [
+        it
+        for it in items
+        if (not it.get("reviewer") or refuted(it)) and worth_of(it) == key
+    ]
+
+
 def search_rows(m: Model, backlog: dict | None) -> list[dict]:
     """One row for each card of the workspace, in the order the search lists them with
     nothing typed: the tasks of the columns that have not ended, each column in the
     kanban's order; the parked tasks; every ended task, the newest first, also those
     Done draws no card for; then the reviewer's items, the undecided ones first
-    (`reviewer_items`); then the other backlog items by their worth. Each row has its
+    (`reviewer_items`); then the other backlog items by their worth, the reviewer's
+    refuted ones among those of "Decided against" (`worth_items`). Each row has its
     title, whether it is a task that has not ended (`open`), the color of its place
     (`actor`), its chip: `COLUMN · STATUS`, `parked`, `STATUS DAY` for an ended task
     (the day it ended, on this machine's clock, as `stamp` reads it),
-    `Backlog · undecided` or `Backlog · held by SLUG` for a reviewer's item,
-    `Backlog · worth: WORTH`; and an item's `slug` is its `key`. Only this model and
-    this backlog come in, so no other workspace and no joined machine does."""
+    `Backlog · undecided` or `Backlog · held by SLUG` for a reviewer's item that is not
+    refuted, `Backlog · worth: WORTH` for the others; and an item's `slug` is its `key`.
+    Only this model and this backlog come in, so no other workspace and no joined
+    machine does."""
 
     def task_row(t: Task, *, open_: bool, actor: str, chip: str) -> dict:
         return {
@@ -2422,16 +2466,16 @@ def search_rows(m: Model, backlog: dict | None) -> list[dict]:
                 "actor": g["actor"],
                 "chip": f"Backlog · worth: {g['key']}",
             }
-            for it in items
-            if not it.get("reviewer") and worth_of(it) == g["key"]
+            for it in worth_items(items, g["key"])
         ]
     return rows
 
 
 def reviewer_items(items: list[dict]) -> list[dict]:
-    """The reviewer's items of a backlog's read (`board.backlog`), the undecided ones
-    first, each part in the order of the read."""
-    mine = [it for it in items if it.get("reviewer")]
+    """The reviewer's items of a backlog's read (`board.backlog`) that are not refuted
+    (`refuted`), the undecided ones first, each part in the order of the read: a refuted
+    one is in "Decided against"."""
+    mine = [it for it in items if it.get("reviewer") and not refuted(it)]
     return [it for it in mine if not it.get("held")] + [
         it for it in mine if it.get("held")
     ]
@@ -2439,14 +2483,13 @@ def reviewer_items(items: list[dict]) -> list[dict]:
 
 def undecided(backlog: dict | None) -> int | None:
     """How many of the reviewer's items no task holds, the count on the "Backlog" key;
-    None with no read."""
+    None with no read. A refuted item (`worth: no`) waits for nobody and is
+    never counted."""
     return (
         None
         if backlog is None
         else sum(
-            1
-            for it in backlog.get("items") or []
-            if it.get("reviewer") and not it.get("held")
+            1 for it in reviewer_items(backlog.get("items") or []) if not it.get("held")
         )
     )
 
@@ -2545,6 +2588,17 @@ def parked_of(t: Task) -> dict | None:
     return {"since": t.since, "why": t.text, "resume": f"/lem resume {t.slug}"}
 
 
+def board_yes_no(t: Task) -> str:
+    """How the owner answers the standard track's criteria on the board: Yes, or No with
+    his words, which changes them and asks again (`answer_row`); a task begun on an
+    older release keeps the one Approve."""
+    if t.behind:
+        return "approve them there."
+    return (
+        "Yes, or No with your words, and Lem changes them and asks for your yes again."
+    )
+
+
 def answer_of(t: Task) -> str:  # noqa: C901, PLR0911 - over the limit before the limit was set
     """Where the owner answers what waits for him: in the task's own session, or on the
     board; for a task queued after a dropped task, which no session runs, in any
@@ -2573,7 +2627,7 @@ def answer_of(t: Task) -> str:  # noqa: C901, PLR0911 - over the limit before th
     if t.need and t.need["need"] == "interview" and t.turn == "yes":
         return (
             "The criteria wait for your yes in the task’s session. Approve or change "
-            "them there, or approve them on this board."
+            f"them there, or on this board: {board_yes_no(t)}"
         )
     if t.need and t.need["need"] == "interview":
         return (
@@ -2586,17 +2640,23 @@ def answer_of(t: Task) -> str:  # noqa: C901, PLR0911 - over the limit before th
             "Answer Yes or No under its text on this board, or y or n in the task’s "
             "session. No needs your words: what the criterion should say."
         )
+    if t.criteria_wait and t.text == CHANGED_CRITERIA:
+        return (
+            "The criteria changed from your note, and wait for your yes again, each "
+            "changed one with its text before beside it. Approve or change them in the "
+            f"task’s session, or on this board: {board_yes_no(t)}"
+        )
     if t.criteria_wait and t.reads and t.reads[-1]["answered"] == 0:
         return (
             "No persona answered the read of the acceptance criteria. "
             "Approve or change them in the task’s session, "
-            "or approve them on this board."
+            f"or on this board: {board_yes_no(t)}"
         )
     if t.criteria_wait:
         return (
             "The acceptance criteria, with the personas’ read on top, wait in the "
             "task’s session. Approve or change them there, "
-            "or approve them on this board."
+            f"or on this board: {board_yes_no(t)}"
         )
     if t.status == "held":
         return (
@@ -3260,6 +3320,18 @@ def acts_of(t: Task, seen: dict | None) -> list[str]:
 FAST_CRITERION = (
     "the criteria wait for the owner: a small change that someone else asked for"
 )
+# The first line of the held block a change of the criteria from the owner's note writes
+# (criteria.py CHANGED_WAIT, `lem criteria change`): the criteria wait for his yes
+# again, with their text before the change kept in the task directory
+# (criteria.py BEFORE).
+CHANGED_CRITERIA = "the criteria wait for the owner: changed from the owner's note"
+# The first line of the held block after his No whose note changes no criterion
+# (criteria.py UNCHANGED_WAIT, `lem criteria change --unchanged`): the same criteria
+# wait for his yes again, in a new row.
+UNCHANGED_CRITERIA = (
+    "the criteria wait for the owner: the owner's note changed no criterion"
+)
+CRITERIA_BEFORE = "criteria-before.json"
 # What the board says once the owner's answer is on record, on the act's note and on the
 # task's Overview.
 ANSWER_ON_RECORD = "Your answer is on record: the task’s session takes it."
@@ -3279,18 +3351,41 @@ ANSWER_NOTES = {
     "skip": "A note for the task’s session, if you like",
     "criterion": "No needs your words: what should the criterion say?",
 }
+# The criteria's row on the standard track: one kind with the fast track's (`criterion`,
+# one key form and one record), its own words (criteria.py CRITERIA_QUESTION, which the
+# owner's typed No records).
+CRITERIA_QUESTION = "Approve the criteria?"
+CRITERIA_NOTE = "No needs your words: what should the criteria say?"
+
+
+def fast_criterion(t: Task) -> bool:
+    """Whether the task's criteria are the fast track's one criterion of a request
+    someone else wrote."""
+    return t.text == FAST_CRITERION
+
+
+def criterion_question(t: Task) -> str:
+    """The question of the task's criteria row: "Approve this criterion?" on the fast
+    track, "Approve the criteria?" else."""
+    return ANSWER_QUESTIONS["criterion"] if fast_criterion(t) else CRITERIA_QUESTION
 
 
 def answer_row(t: Task) -> dict | None:
     """The wait of the task that the board answers with its own buttons now
     (lem_answers), or None: a breaker that waits for the owner (Help, Park, Drop), a
     plan that waits for his read (Build, Drop), "Skip the persona read?" of an interview
-    (Yes, No), and "Approve this criterion?" of a small change that someone else asked
-    for while his yes would count (Yes, No). Its key names the task's newest state block
+    (Yes, No), and the criteria while his yes would count (`Task.approvable`, the turn
+    his and nobody going on for him; Yes, No): "Approve this criterion?" of a small
+    change that someone else asked for, "Approve the criteria?" on the standard track,
+    after an interview's read or his skip of it, or in a held block of the criteria (a
+    lead's doubt, a change from his note). Its key names the task's newest state block
     by its time to the second, so that a new block of the same wait is a new row, and an
-    answer on record applies to its own block only (decision 9 of
-    board-answers-a-card)."""
-    if t.closed or not t.blocks:
+    answer on record applies to its own block only (decision 9 of board-answers-a-card).
+    A task begun on an older release than the board's (`Task.behind`) has no row of any
+    kind: its session has no `board_answer` to read, so a recorded answer would hide the
+    row and reach nobody; it keeps the board's other acts (criteria-change-asks-again,
+    talk question 6)."""
+    if t.closed or not t.blocks or t.behind:
         return None
     number = None
     if t.breaker is not None and isinstance(t.breaker.id, int):
@@ -3301,27 +3396,28 @@ def answer_row(t: Task) -> dict | None:
         t.turn == "skip" and not t.goes_on and t.need and t.need["need"] == "interview"
     ):
         kind = "skip"
-    elif (
-        t.turn in OWNER_TURNS
-        and not t.goes_on
-        and t.criteria_wait
-        and t.text == FAST_CRITERION
-        and t.approvable
-    ):
+    elif t.turn in OWNER_TURNS and not t.goes_on and t.approvable:
         kind = "criterion"
     else:
         return None
     question = (
         f"Breaker {number} of {t.slug}: help, park or drop the task?"
         if kind == "breaker"
+        else criterion_question(t)
+        if kind == "criterion"
         else ANSWER_QUESTIONS[kind]
+    )
+    note = (
+        CRITERIA_NOTE
+        if kind == "criterion" and not fast_criterion(t)
+        else ANSWER_NOTES[kind]
     )
     return {
         "kind": kind,
         "key": lem_answers.key_of(kind, t.slug, t.blocks[-1]["ts"], number),
         "question": question,
         "options": dict(lem_answers.OPTIONS[kind]),
-        "note": ANSWER_NOTES[kind],
+        "note": note,
     }
 
 
@@ -3336,8 +3432,9 @@ def answered_of(t: Task, m: Model) -> dict | None:
 
 def acted_head(e: dict[str, Any]) -> str:
     """The activity's words of a `board.act`: ACTED's, or for the answer of a row the
-    board answers with its own buttons (its `key` and `option`, serve.py `act_answer`)
-    what he picked and on which row."""
+    board answers with its own buttons (its `key`, `option` and `question`, serve.py
+    `act_answer`) what he picked and on which row. An event of an older form, with no
+    `question`, is named by its row's kind."""
     if e.get("act") == "answer" and e.get("key"):
         try:
             kind = lem_answers.parse(e["key"])["kind"]
@@ -3347,10 +3444,12 @@ def acted_head(e: dict[str, Any]) -> str:
         label = lem_answers.OPTIONS.get(kind, {}).get(
             e.get("option") or "", e.get("option") or "an option"
         )
-        return (
-            f"You picked {label} on "
-            f"“{ANSWER_QUESTIONS.get(kind, 'a question of the task')}” from the board"
+        question = (
+            e.get("question")
+            if isinstance(e.get("question"), str) and e.get("question")
+            else ANSWER_QUESTIONS.get(kind, "a question of the task")
         )
+        return f"You picked {label} on “{question}” from the board"
     return ACTED.get(e.get("act"), f"You acted from the board: {e.get('act')}")
 
 
@@ -6381,6 +6480,63 @@ def cards_look(state: Path, m: Model) -> dict:
     return out
 
 
+def task_files_look(state: Path, m: Model) -> None:
+    """What each open task's directory says beside the log, put on its Task: the release
+    it began on (`began`, lem_release's mark) and whether that is older than the board's
+    own (`behind`), and whether a change of its criteria from the owner's note stopped
+    in the middle (`changing`: `criteria-before.json` names the newest state block, as
+    criteria.py `cmd_change` reads it), which makes no yes count (`approvable` false)
+    until the change ends with its held block (logged decision 5 of
+    criteria-change-asks-again). A release that cannot be told, the board's or the
+    task's, counts as behind: the owner answers in the task's session, as on a task of
+    an older release. Run at each look: `approvable` comes back from the log's own value
+    each time."""
+    try:
+        running = lem_release.numbers(lem_release.running())
+    except ValueError:
+        running = None
+    for t in m.tasks:
+        if t.closed or not t.blocks:
+            continue
+        folder = state / "tasks" / t.slug
+        try:
+            t.began = lem_release.began_on(folder)
+        except (ValueError, OSError):
+            t.began = None
+        began = lem_release.numbers(t.began) if t.began else None
+        t.behind = running is None or began is None or began < running
+        kept = None
+        try:
+            kept = json.loads((folder / CRITERIA_BEFORE).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pass
+        t.changing = (
+            t.status == "held"
+            and isinstance(kept, dict)
+            and at(kept.get("ts")) == t.blocks[-1]["ts"]
+        )
+        t.approvable = t.approvable_events and not t.changing
+
+
+def change_of(t: Task, waiting: dict | None) -> dict | None:
+    """The change of the task's criteria from the owner's note that waits for his yes
+    now, as its card shows it, or None: while the newest held block is the change's
+    (CHANGED_CRITERIA), the text before the change (WAITING's `before`, from
+    `criteria-before.json`) and the one that waits (WAITING's `text`, the bytes of its
+    digest), paired by criteria.py `change_of` (`before`, `after`, `pairs`). When they
+    do not read, the pairs are none and `error` says why."""
+    if (
+        t.text != CHANGED_CRITERIA
+        or not waiting
+        or not isinstance(waiting.get("before"), str)
+    ):
+        return None
+    try:
+        return CRITERIA().change_of(waiting["before"], waiting["text"])
+    except CRITERIA().CriteriaError as error:
+        return {"before": [], "after": [], "pairs": [], "error": str(error)}
+
+
 def answers_look(state: Path, m: Model) -> dict:
     """The answer on record of each task's row that the board answers with its own
     buttons (`Model.answers`): for each task with such a row now (`answer_row`), the
@@ -6623,6 +6779,7 @@ class Reader:
             if self.changed("inbox", self.state / INBOX_LOOK):
                 self.inbox = inbox_look(self.state)
             self.model.inbox = self.inbox
+            task_files_look(self.state, self.model)
             self.model.cards = cards_look(self.state, self.model)
             self.model.answers = answers_look(self.state, self.model)
             return self.model

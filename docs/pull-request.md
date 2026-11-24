@@ -21,19 +21,32 @@ Smaller choices of an agent do not change green. The pull request lists the ones
 
 ## What Lem saw outside the task
 
-The pull request names each defect that an agent found outside the task, under one of three
+The pull request names each defect that an agent found outside the task, under one of four
 headings:
 
-- **Fixed on the way**: a cheap defect (no change of behavior, no new test). An agent that already
-  works on the branch fixed it in a commit of its own.
+- **Fixed on the way**: a cheap defect: text that does not run (a comment, a docstring, a
+  sentence of a document), or a finding of a check that its next run shows fixed. An agent that
+  already works on the branch fixed it in a commit of its own, whose message names the fix. A
+  refactor is never cheap.
 - **Filed in the backlog**: a defect that occurs today and confuses a user, breaks a contract,
-  damages data or costs money. It is an item in `docs/backlog/`.
-- **Seen, not filed**: each other defect, with its place and the reason, or the open item that
-  already names it.
+  damages data or costs money. It is an item in `docs/backlog/` with `worth: later`.
+- **Filed as not worth it**: each other defect, as an item with `worth: no`, so that the next
+  agent finds it decided. Its last line can give the reason (`Decided against: REASON`).
+- **Seen, not filed**: a defect that an open item holds, with the path of that item, or a line
+  with its bar call and its reason.
 
 The bar is rule 6 of `agents/lem-builder.md`, or of your own `.claude/agents/lem-builder.md`. It
-is for Lem's agents only: an item that you write or ask for is always filed. When Lem filed an
-item under the bar, the merge agent calls you.
+is for Lem's agents only: an item that you write or ask for is always filed. When the `worth` of
+an item does not agree with the bar, the merge agent calls you.
+
+Before an agent files a defect, the Jev decision model names up to three items of the backlog
+that can hold the same defect, for the agent to read. `lem land propose` refuses a line under
+"Seen, not filed" or "Left open" (what the review left) that names no item and has no bar call,
+`under: REASON` or `cheap: REASON`. Then Jev reads each defect that an agent calls under the bar,
+one time. When Jev reads it as over the bar, `propose` stops one time, and the agent looks again.
+The agent can keep its call. The line of the defect ends with the score (`Jev: 0.82`), or with
+why Lem did not ask (`Jev: not asked (no key)`). [`[jev]`](settings.md#jev) can stop these
+questions.
 
 ## The merge review
 
@@ -90,7 +103,9 @@ updates the ticket of the task. A branch that Lem rebased after its push also go
 change that GitHub merged. A branch with a change that GitHub did not merge stays, and Lem tells you
 what changed and how to delete it.
 
-On GitHub's button, you select the merge method. `branch.history` is for Lem's merge.
+On GitHub's button, you select the merge method. `branch.history` is for Lem's merge. With
+`branch.history = "squash"`, the body of Lem's commit names each fix on the way, and its last line
+is `Lem task: <task>`. The board reads that line to show which task added a backlog item.
 
 The board server sees a merge or a close on GitHub within a few minutes.
 

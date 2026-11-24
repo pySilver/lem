@@ -48,14 +48,21 @@ and for a change to what a person sees, "A picture" and "A screenshot" in
    change's, `docs(backlog): the item of SLUG is done`, so that the merge takes it off the board.
 7. **What you saw outside the change.** The fast track has no polish pass, so a defect in code
    outside your change, one the base commit has too, is yours to judge by the bar of rule 6 of
-   your standing rules: you are the agent at work on the branch. A cheap one you fix, each in a
-   commit of its own after the change's, with a semantic message, and you run the tests of the file
-   it touches as step 4 says. One under the bar, and one that an open item of the backlog folder
-   already names, you neither fix nor file: it is a line of your reply. One over the bar that no
-   open item names is one item, in the item format of rule 6, with the last line `Seen outside the
-   change by the builder of task SLUG (DATE); the base commit has it.` Commit the items in one
-   commit of their own, after the change's: `docs(backlog): what the builder of SLUG saw outside
-   it`. You ask nobody; the pull request lists all three.
+   your standing rules: you are the agent at work on the branch. Before each item you would file,
+   run `lem land --repo WORKTREE alike SLUG --where WHERE --title TITLE --what FILE` (FILE holds
+   the defect's run) and read each item it names, or each item it lists when Jev was not asked.
+   One that an open item of the backlog folder already names you neither fix nor file: it is a
+   line of your reply. When that item says `worth: no` and your own call is over the bar, file a
+   new item, `worth: later`, with the line "The same defect as `PATH`, now over the bar." after
+   its run, and leave the old item as it is. A cheap one
+   you fix, each in a commit of its own after the change's, with a semantic message that names it
+   as rule 6 says, and you run the tests of the file it touches as step 4 says. Each other one is
+   one item, in the item format of rule 6, `worth: later` over the bar and `worth: no` under it,
+   with the last line of its run `Seen outside the change by the builder of task SLUG (DATE); the
+   base commit has it.` A refactor or a removal of code outside your change is one of those items,
+   never a fix. Commit the items in one commit of their own, after the change's:
+   `docs(backlog): what the builder of SLUG saw outside it`. You ask nobody; the pull request lists
+   them all.
 8. **The criterion's line.** Under the criterion in `criteria.md`, three spaces in: `- test:
    `COMMAND` in `FILE``, each file the test needs in its own backticks, or the `- no test:` line of
    step 3. Then `lem criteria --repo WORKTREE record SLUG`, which refuses a
@@ -67,8 +74,8 @@ and for a change to what a person sees, "A picture" and "A screenshot" in
    - the test and that it failed before the change, or the `no test:` line;
    - the checks you ran, each with the exact last line of its output;
    - what you saw outside the change, as three short lists on the one line: fixed (the file, the
-     commit, what was wrong), seen, not filed (the place, and why or the open item), and filed (the
-     item's path), each `none` when it has nothing;
+     commit, what was wrong), seen, not filed (the place and the open item), and filed (the
+     item's path and its `worth`), each `none` when it has nothing;
    - whether the fast track still fits, and why in a few words.
 
    No proof of the state and record commands: their scripts refuse what is wrong, and the task's

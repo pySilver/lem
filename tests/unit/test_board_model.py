@@ -1274,7 +1274,7 @@ class InterviewRead(unittest.TestCase):
         self.assertEqual(
             (self.rows(read), t.for_owner, t.lane, bm.now_head(t)),
             (
-                [("held:gift-note", "held")],
+                [("criterion:gift-note:20261120T090000Z", "held")],
                 True,
                 "you",
                 "The criteria wait for your yes",
@@ -1452,7 +1452,7 @@ class InterviewTurns(unittest.TestCase):
             self.rows(read_in),
             [
                 (
-                    f"held:{self.SLUG}",
+                    f"criterion:{self.SLUG}:20261120T090000Z",
                     "held",
                     "The criteria wait for your yes",
                     "overview",
@@ -1472,7 +1472,7 @@ class InterviewTurns(unittest.TestCase):
             self.rows(said_yes),
             [
                 (
-                    f"held:{self.SLUG}",
+                    f"criterion:{self.SLUG}:20261120T090000Z",
                     "held",
                     "The criteria wait for your yes",
                     "overview",
@@ -1870,6 +1870,11 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
     def rows(self, m: "bm.Model") -> list:
         return [(w["kind"], w["key"], w["since"]) for w in bm.waits_of(m)]
 
+    def row_key(self) -> str:
+        """The key of the criteria's row, which the board answers with Yes and No: named
+        by the held block of 11:39:31."""
+        return f"criterion:{self.SLUG}:{bm.lem_answers.stamp_of(self.CRITERIA)}"
+
     def panel(self, m: "bm.Model") -> dict:
         ctx, t = self.ctx(m), m.by_slug[self.SLUG]
         return {
@@ -1900,7 +1905,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         )
         self.assertEqual(pages.summary_of(m), "1 whose session works on your answer")
         # the Inbox keeps what it sent for the row the session holds back
-        self.assertEqual(bm.held_back(m), {f"held:{self.SLUG}"})
+        self.assertEqual(bm.held_back(m), {self.row_key()})
         panel = self.panel(m)
         self.assertNotIn("Waits for", panel["facts"])
         self.assertNotIn("p-key you", panel["key"])
@@ -1918,7 +1923,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         bm.put_sessions(m, self.sessions("ended"))
         t = m.by_slug[self.SLUG]
         began = bm.at(self.CRITERIA)
-        self.assertEqual(self.rows(m), [("criteria", f"held:{self.SLUG}", began)])
+        self.assertEqual(self.rows(m), [("criteria", self.row_key(), began)])
         self.assertEqual(
             (t.works, t.for_owner, t.lane, m.for_owner, m.lane["you"]),
             (False, True, "you", [t], [t]),
@@ -1959,9 +1964,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         ended = (self.rows(m), dict(t.info), t.shown, t.lane, t.for_owner)
         bm.put_sessions(m, self.sessions("ended"))
         self.assertEqual((self.rows(m), t.info, t.shown, t.lane, t.for_owner), ended)
-        self.assertEqual(
-            ended[0], [("criteria", f"held:{self.SLUG}", bm.at(self.CRITERIA))]
-        )
+        self.assertEqual(ended[0], [("criteria", self.row_key(), bm.at(self.CRITERIA))])
 
     def test_criterion_3_with_no_turn_lem_can_read_the_task_waits_as_today(
         self,
@@ -1981,8 +1984,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
                 bm.put_sessions(m, facts)
                 t = m.by_slug[self.SLUG]
                 self.assertIn(
-                    ("criteria", f"held:{self.SLUG}", bm.at(self.CRITERIA)),
-                    self.rows(m),
+                    ("criteria", self.row_key(), bm.at(self.CRITERIA)), self.rows(m)
                 )
                 self.assertEqual(self.rows(m), self.rows(today))
                 self.assertEqual(
@@ -2062,7 +2064,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         self.assertEqual(problems, [])
         self.assertEqual(
             (self.rows(m), t.works, t.for_owner, t.lane, m.for_owner, bm.held_back(m)),
-            ([], True, False, "build", [], {f"held:{self.SLUG}"}),
+            ([], True, False, "build", [], {self.row_key()}),
         )
 
     def waiting(self, turn: str, caller: str | None = None) -> list:
@@ -2078,6 +2080,12 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
             state_folder = Path(folder)
             (state_folder / "events.jsonl").write_text(
                 "".join(json.dumps(e) + "\n" for e in self.events()), encoding="utf-8"
+            )
+            # the task began on the release that runs, so that the board answers its
+            # rows (`task_files_look`)
+            (state_folder / "tasks" / self.SLUG).mkdir(parents=True)
+            (state_folder / "tasks" / self.SLUG / "release.txt").write_text(
+                bm.lem_release.running() + "\n", encoding="utf-8"
             )
             with (
                 mock.patch.object(project, "state_root", return_value=state_folder),
@@ -2096,14 +2104,14 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
 
     def test_lem_project_waiting_lists_the_task_only_once_the_turn_ended(self) -> None:
         self.assertEqual(self.waiting("runs"), [])
-        self.assertEqual(self.waiting("ended"), [f"held:{self.SLUG}"])
+        self.assertEqual(self.waiting("ended"), [self.row_key()])
 
     def test_the_tasks_own_session_finds_its_row_in_lem_project_waiting_while_its_turn_runs(
         self,
     ) -> None:
         # the session asks inside its own turn, which then runs: a breaker's wake reads
         # its row there to put up its card
-        self.assertEqual(self.waiting("runs", caller="S1"), [f"held:{self.SLUG}"])
+        self.assertEqual(self.waiting("runs", caller="S1"), [self.row_key()])
         # another session's ask still reads the task's turn
         self.assertEqual(self.waiting("runs", caller="S2"), [])
 
@@ -4768,6 +4776,52 @@ class Search(unittest.TestCase):
         self.assertEqual(bm.undecided(self.BACKLOG), 1)
         self.assertEqual(bm.undecided({"items": self.BACKLOG["items"][:4]}), 0)
         self.assertIsNone(bm.undecided(None))
+
+    def test_criterion_4_a_refuted_item_of_the_reviewer_is_not_counted_and_is_under_decided_against(
+        self,
+    ) -> None:
+        # criterion 4 of docs/plans/2026-11-23-backlog-refuted-items-and-jev.md: 2
+        # reviewer's items that wait for the owner and 1 refuted give 2 on the key, and
+        # the view lists all 3
+        def mine(stem: str, worth: str) -> dict:
+            return {
+                "slug": stem,
+                "key": f"-{stem}",
+                "title": stem,
+                "worth": worth,
+                "reviewer": True,
+                "held": None,
+            }
+
+        backlog = {
+            "items": [
+                mine("the-board-s-colors", "later"),
+                mine("run-make-lint-before-each-commit", "no"),
+                mine("a-flaky-check", "later"),
+            ]
+        }
+        self.assertEqual(bm.undecided(backlog), 2)
+        self.assertEqual(
+            [it["key"] for it in bm.reviewer_items(backlog["items"])],
+            ["-the-board-s-colors", "-a-flaky-check"],
+        )
+        self.assertEqual(
+            [it["key"] for it in bm.worth_items(backlog["items"], "no")],
+            ["-run-make-lint-before-each-commit"],
+        )
+        rows = {
+            r["slug"]: r["chip"]
+            for r in bm.search_rows(bm.derive(self.events(), [], self.NOW), backlog)
+            if r["kind"] == "item"
+        }
+        self.assertEqual(
+            rows,
+            {
+                "-the-board-s-colors": "Backlog · undecided",
+                "-a-flaky-check": "Backlog · undecided",
+                "-run-make-lint-before-each-commit": "Backlog · worth: no",
+            },
+        )
 
 
 class StoppedSession(unittest.TestCase):
