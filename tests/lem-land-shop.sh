@@ -856,6 +856,35 @@ else
 fi
 project --repo "$MB" state mb-over dropped "the test is over" >/dev/null
 
+# A start over keeps the review files of the landing before: start moves them from reviews/ into reviews/landing-N/, so
+# the new landing's review writes no file over them, and the record of the review before is no record of the new one.
+mb_task mb-anew anew.txt && mb_land mb-anew
+anew_dir=$(project --repo "$MB" task-dir mb-anew)
+mkdir -p "$anew_dir/reviews/mb-anew/01-initial"
+cp "$(record mb-anew 1 "$MB_READ")" "$anew_dir/reviews/review-1.json"
+echo "the first landing's review" > "$anew_dir/reviews/review-1.md"
+echo "{}" > "$anew_dir/reviews/revmux-01-initial.json" && echo run > "$anew_dir/reviews/revmux-01-initial.log"
+echo "the first round" > "$anew_dir/reviews/mb-anew/01-initial/report.md"
+project --repo "$MB" state mb-anew ready --start-over "the owner asked for a fresh landing" >/dev/null
+land --repo "$MB" start mb-anew >/dev/null && land --repo "$MB" base mb-anew >/dev/null && polish_in "$MB" mb-anew && land --repo "$MB" checks mb-anew >/dev/null
+anew_due=$(land --repo "$MB" read mb-anew | field '(d["due"], d["attempt"])')
+anew_stale=0
+anew_old=$(land --repo "$MB" read mb-anew --record "$anew_dir/reviews/review-1.json" 2>&1) || anew_stale=$?
+anew_first=$(cd "$anew_dir/reviews" && find . -type f | sort | tr '\n' ' ')
+echo "the second landing's review" > "$anew_dir/reviews/review-1.md"
+project --repo "$MB" state mb-anew ready --start-over "the landing is cut again" >/dev/null
+land --repo "$MB" start mb-anew >/dev/null
+anew_second=$(cd "$anew_dir/reviews" && find . -type f | sort | tr '\n' ' ')
+if [ "$anew_due" = "('review', 1)" ] && [ "$anew_stale" = 1 ] && [ "$(mb_kept mb-anew reads d)" = None ] \
+  && [ "$anew_first" = "./landing-1/mb-anew/01-initial/report.md ./landing-1/review-1.json ./landing-1/review-1.md ./landing-1/revmux-01-initial.json ./landing-1/revmux-01-initial.log " ] \
+  && [ "$anew_second" = "./landing-1/mb-anew/01-initial/report.md ./landing-1/review-1.json ./landing-1/review-1.md ./landing-1/revmux-01-initial.json ./landing-1/revmux-01-initial.log ./landing-2/review-1.md " ] \
+  && [ "$(cat "$anew_dir/reviews/landing-1/review-1.md")" = "the first landing's review" ] && [ "$(cat "$anew_dir/reviews/landing-2/review-1.md")" = "the second landing's review" ]; then
+  pass "a start over moves the review files of the landing before into reviews/landing-N/, N one more than the folders there, so the new review writes over none of them and the record of the old review, of the same attempt and tip, is no record of the new landing"
+else
+  fail "the review files of a landing before a start over: $anew_due / $anew_stale / $anew_old / $anew_first / $anew_second"
+fi
+project --repo "$MB" state mb-anew dropped "the test is over" >/dev/null
+
 # The check for a command of the checks comes after what start does with the record: an open task's new landing is
 # counted once, though start refused it and ran again; a start over is not lost through that refusal, which says the end
 # of his merge, and the retry keeps only the pull request's keys.

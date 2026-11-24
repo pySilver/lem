@@ -83,6 +83,8 @@ landing up as after a cut-off.
    review, the owner's standing merge and the count of new landings stay, as with no wait between.
    Only a start over takes them: `lem project state SLUG ready --start-over "WHY"`, when a message
    of `land.py` names it, which writes the line `the landing starts over` under WHY by itself.
+   The review files of the landing before then move into `reviews/landing-N/` of the task
+   directory, so the new review starts at `review-1` again and writes over none of them.
    `start` prints `owner_merge`: null, or after a start over that ended the owner's standing merge,
    `ended: the landing started over: WHY; the owner merges it again`. Then tell him WHY in one
    line. When `start` then refuses for want of a command of the checks, its message ends with the

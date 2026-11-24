@@ -243,17 +243,22 @@ writes, or when the record holds no proposal: `landing.json` keeps only the pull
 request, the pushes (`pr`, `pushed`, `taken`) and a polish pass that is done. When the
 owner's merge stood (`owner_tap`), its end is logged first (`merge.ended`, with `why`
 "the landing started over: WHY") and printed as `owner_merge`, `ended: ...`; otherwise
-`owner_merge` is null. A `ready` task whose record holds a proposal, with no such line,
-came back from a new landing that was cut (a wait for a red base, a builder that ended
-twice), since a task leaves `open` only through `start`, which counts the new landing:
-it goes on with that landing, and the record stays whole, with no second count. A second
-rebase in one landing then gives what one rebase with no wait gives: when the branch is
-still the tip the newest clean rebase of this landing made (`made`, which `filed_on`
-does not move), and no conflict or resolution is on record, `base` throws that tip away
-(only `propose` pushes, so it was never pushed), moves the branch back to the tip that
-rebase started from, and rebases that tip onto the base now, with the polish pass's
-names moved back by their place from the tip (`through_rebase`). A commit after `made`,
-or a conflict on the way, is judged as a rebase after it, as with no wait.
+`owner_merge` is null. Before the record goes, the review files of the landing before
+(each file and folder of `reviews/` in the task directory but the `landing-N` folders)
+move into `reviews/landing-N/`, N one more than the highest there, so that the new
+landing's review, which counts its attempts from 1 again, writes over none of them, and
+the record of an old review is no file the new landing's `read --record` finds. A
+`ready` task whose record holds a proposal, with no such line, came back from a new
+landing that was cut (a wait for a red base, a builder that ended twice), since a task
+leaves `open` only through `start`, which counts the new landing: it goes on with that
+landing, and the record stays whole, with no second count. A second rebase in one
+landing then gives what one rebase with no wait gives: when the branch is still the tip
+the newest clean rebase of this landing made (`made`, which `filed_on` does not move),
+and no conflict or resolution is on record, `base` throws that tip away (only `propose`
+pushes, so it was never pushed), moves the branch back to the tip that rebase started
+from, and rebases that tip onto the base now, with the polish pass's names moved back by
+their place from the tip (`through_rebase`). A commit after `made`, or a conflict on the
+way, is judged as a rebase after it, as with no wait.
 
 What two landings share is the machine and the base branch, and each has one rule. The
 checks start only while the machine's load average is below the start number of this
@@ -1569,6 +1574,45 @@ def cmd_start(task: Task, *, conflicting: bool = False) -> dict:
         return start_locked(task, conflicting=conflicting)
 
 
+# A folder of `reviews/` that holds the review files of an earlier landing of the task
+LANDING_FOLDER = re.compile(r"landing-(\d+)")
+
+
+def keep_reviews(task: Task) -> None:
+    """Move the review files of the landing before, each file and folder at the top of
+    `reviews/` in the task directory but the `landing-N` folders, into a new
+    `reviews/landing-N/`, N one more than the highest there. A move that fails is
+    refused with the step out, and nothing of the record is deleted."""
+    reviews = task.directory / "reviews"
+    if not reviews.is_dir():
+        return
+    entries = list(reviews.iterdir())
+    landings = [
+        int(found.group(1))
+        for entry in entries
+        if entry.is_dir() and (found := LANDING_FOLDER.fullmatch(entry.name))
+    ]
+    earlier = [
+        entry
+        for entry in entries
+        if not (entry.is_dir() and LANDING_FOLDER.fullmatch(entry.name))
+    ]
+    if not earlier:
+        return
+    folder = reviews / f"landing-{max(landings, default=0) + 1}"
+    try:
+        folder.mkdir()
+        for entry in earlier:
+            entry.rename(folder / entry.name)
+    except OSError as error:
+        raise LandError(
+            f"the review files of the landing before could not move into {folder} "
+            f"({error.strerror}): move each file and folder of {reviews} but the "
+            f"landing-N folders into {folder} by hand, then run "
+            f"`lem land start {task.slug}` again"
+        ) from error
+
+
 def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C901, PLR0912 - over the limit before the limit was set
     # a task `start` blocked for want of a command of the checks is taken back as a
     # `ready` one
@@ -1655,6 +1699,10 @@ def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C90
                     f"why={why}",
                 )
                 ended = f"ended: {why}; the owner merges it again"
+            # the record's reads go, so the new review counts its attempts from 1 again
+            # and writes reviews/review-1.*: the files of the landing before move aside
+            # first
+            keep_reviews(task)
             task.kept_file.unlink(missing_ok=True)
             if forge:
                 task.keep(**forge)
