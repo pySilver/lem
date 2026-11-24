@@ -1836,9 +1836,11 @@ def placed(own_filed: list[str], own_not: list[str], filed: list[str], not_worth
     """The lines under `## Filed in the backlog` and `## Filed as not worth it`: the notes' own lines
     (OWN_FILED, OWN_NOT), then the step's (FILED, NOT_WORTH). A notes line that names an item the
     step lists takes the place of the step's line, under the heading the item's `worth` gives, so no
-    item is written twice and none under the other heading."""
+    item is written twice and none under the other heading. The step's line of each item is found by
+    its place in its list, which a notes line in any form may have taken."""
     lists = {FILED: list(filed), NOT_WORTH: list(not_worth)}
     heading_of = {line.split("`")[1]: heading for heading, lines in lists.items() for line in lines}
+    slot = {line.split("`")[1]: index for lines in lists.values() for index, line in enumerate(lines)}
     own: dict[str, list[str]] = {FILED: [], NOT_WORTH: []}
     taken: set[str] = set()
     for heading, lines in ((FILED, own_filed), (NOT_WORTH, own_not)):
@@ -1852,7 +1854,7 @@ def placed(own_filed: list[str], own_not: list[str], filed: list[str], not_worth
                 into.append(line)
                 continue
             taken.add(path)
-            into[next(index for index, one in enumerate(into) if one.split("`")[1] == path)] = line
+            into[slot[path]] = line
     return [*own[FILED], *lists[FILED]], [*own[NOT_WORTH], *lists[NOT_WORTH]]
 
 

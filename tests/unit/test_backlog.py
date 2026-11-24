@@ -331,6 +331,12 @@ class TheText(unittest.TestCase):
         self.assertFalse(land.names_item("- `docs/backlog/css.md-2`", "docs/backlog/css.md"))
         self.assertTrue(land.names_item("docs/backlog/css.md, worth: no", "docs/backlog/css.md"))
 
+    def test_notes_lines_with_no_backticks_take_the_place_of_each_step_line(self) -> None:
+        # the first notes line takes the place of a.md's step line; the second still finds b.md's (review 1, finding 1)
+        steps = ["- `docs/backlog/a.md`: A", "- `docs/backlog/b.md`: B"]
+        self.assertEqual(land.placed(["- docs/backlog/a.md: A", "- docs/backlog/b.md: B"], [], steps, []), (["- docs/backlog/a.md: A", "- docs/backlog/b.md: B"], []))
+        self.assertEqual(land.placed(["- docs/backlog/b.md: B", "- docs/backlog/a.md: A"], [], steps, []), (["- docs/backlog/a.md: A", "- docs/backlog/b.md: B"], []))
+
 
 if __name__ == "__main__":
     unittest.main()
