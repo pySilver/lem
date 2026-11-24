@@ -18,7 +18,7 @@ from unittest import mock
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from lem import corrections, paths, project
+from lem import corrections, doctor, paths, project
 from lem import state as lem_state
 
 
@@ -358,19 +358,11 @@ class TheHomeFoldersWriters(unittest.TestCase):
 
     def test_the_hooks_reach_no_writer(self) -> None:
         # the plugin's hooks are these four modules, each the first word after the
-        # launcher's path; the board server's starts `serve.py --ensure`, which writes
-        # no setting
-        hooks = json.loads(
-            (paths.ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8")
-        )["hooks"]
-        scripts = {
-            hook["command"].split('"')[-1].split()[0] + ".py"
-            for entries in hooks.values()
-            for entry in entries
-            for hook in entry["hooks"]
-        }
+        # launcher's path, as the machine check reads them; the board server's starts
+        # `serve.py --ensure`, which writes no setting
         self.assertEqual(
-            scripts, {"corrections.py", "serve_hook.py", "session_hook.py", "ask.py"}
+            doctor.hook_module_names(paths.ROOT / "hooks" / "hooks.json"),
+            ["python", "corrections", "serve_hook", "session_hook", "ask"],
         )
         self.assertIn(
             '"--ensure"]', (paths.PACKAGE / "serve_hook.py").read_text(encoding="utf-8")
