@@ -9,7 +9,7 @@ allowed-tools: Bash(lem-ask *)
 
 One command opens the question over **your own** agterm session, waits for the answer, and prints it as
 JSON. The runtime (layout, styles, charts, diagrams, sliders, keyboard) is prebuilt; you describe the
-question. `lem-ask` is `bin/lem-ask` in this skill's directory; Lem's plugin puts it on the Bash tool's `PATH`.
+question. Lem's plugin puts `lem-ask` on the Bash tool's `PATH`.
 
 Run it with the Bash tool's `timeout: 600000`. It waits up to 570 s, then exits 4 with the page still open
 (see [Waiting](#waiting)).
