@@ -1899,6 +1899,11 @@ def summary_of(m: bm.Model) -> str:
 # ---- the kanban ----
 
 
+# The chip of a task stuck for want of its session, by `session_need`'s answer or the
+# guard's stop (`stopped_of`); a task with no session at all is "no session".
+SESSION_CHIPS = {"deaf": "session does not answer", "stopped": "session stopped"}
+
+
 def card_chips(ctx: Ctx, t: bm.Task) -> list:
     """The chips a developer acts on: the type, who works on it, careful, the breaker
     that waits, a task stuck for want of its session, red checks, a review that was not
@@ -1955,16 +1960,26 @@ def card_chips(ctx: Ctx, t: bm.Task) -> list:
                 h("span", None, f"breaker {t.breaker.id} waits"),
             )
         )
-    need = bm.session_need(t, ctx.model)
+    # the guard's stop takes the place of the need, as its row does in "Waits for you"
+    need = (
+        "stopped"
+        if bm.stopped_of(t, ctx.model) is not None
+        else bm.session_need(t, ctx.model)
+    )
     if need:
         out.append(
             tag(
                 ctx,
                 "alert",
-                "session does not answer" if need == "deaf" else "no session",
+                SESSION_CHIPS.get(need, "no session"),
                 "bad",
                 "A wake-up has waited in the task’s session for 10 minutes or more"
                 if need == "deaf"
+                else (
+                    "The task’s session stopped: “Open a session” on its page "
+                    "starts a fresh one"
+                )
+                if need == "stopped"
                 else (
                     "No agent runs the task now: “Open a session” on its "
                     "page starts a fresh one"

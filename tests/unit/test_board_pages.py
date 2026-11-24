@@ -1138,6 +1138,49 @@ class StandsNote(unittest.TestCase):
         self.assertEqual(self.note(carried), "")
 
 
+class StoppedChip(unittest.TestCase):
+    """docs/backlog/a-stopped-task-s-card-on-the-kanban-has-no-chip-of-its-own.md: a
+    task in landing whose live session the guard logged as stopped has the row "Its
+    session stopped" in "Waits for you", and its card on the kanban says so too."""
+
+    def chips(self, *, stopped: bool, live: bool = True) -> str:
+        events = [
+            state(0, "landing", "the checks run", task="gift-note"),
+            {
+                **state(1, "landing", "", task="gift-note"),
+                "event": "session.open",
+                "session": "S1",
+                "name": "gift-note",
+                "phase": "land",
+                "why": "handoff",
+            },
+        ]
+        if stopped:
+            events.append(
+                {
+                    **state(50, "landing", "", task="gift-note"),
+                    "event": "session.stopped",
+                    "session": "S1",
+                }
+            )
+        ctx = ctx_of(events)
+        ctx.model.sessions = {
+            "gift-note": {"live": live, "agent": live, "session": "S1"}
+        }
+        t = ctx.model.by_slug["gift-note"]
+        return "".join(str(c) for c in pages.card_chips(ctx, t))
+
+    def test_a_stopped_session_has_its_chip_on_the_card(self) -> None:
+        chips = self.chips(stopped=True)
+        self.assertIn("<span>session stopped</span>", chips)
+        self.assertNotIn("no session", chips)
+        self.assertNotIn("session stopped", self.chips(stopped=False))
+        # a stopped session that is gone from agterm is "no session", never both
+        gone = self.chips(stopped=True, live=False)
+        self.assertIn("<span>no session</span>", gone)
+        self.assertNotIn("session stopped", gone)
+
+
 class ReviewerItems(unittest.TestCase):
     """The reviewer's items on the Backlog view (criteria 6 and 7 of
     docs/plans/2026-11-23-scheduled-runs-one-branch.md): a group of their own, each
