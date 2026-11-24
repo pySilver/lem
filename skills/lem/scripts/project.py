@@ -539,6 +539,7 @@ if TYPE_CHECKING:
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lem_artifacts  # noqa: E402
+import lem_files  # noqa: E402
 import lem_plans  # noqa: E402
 import lem_state  # noqa: E402
 
@@ -6585,19 +6586,6 @@ def read_record(file: Path, kind: str) -> dict | None:
     )
 
 
-def write_whole(file: Path, text: str) -> None:
-    """Write FILE whole under another name first, so that a reader never finds half
-    of it."""
-    file.parent.mkdir(parents=True, exist_ok=True)
-    staging = file.with_name(f"{file.name}.{os.getpid()}.new")
-    staging.write_text(text, encoding="utf-8")
-    staging.replace(file)
-
-
-def write_record(file: Path, data: dict) -> None:
-    write_whole(file, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-
-
 @contextlib.contextmanager
 def proposals_lock(state: Path) -> Generator[None, None, None]:
     with (state / PROPOSALS_LOCK).open("a") as lock:
@@ -6703,7 +6691,7 @@ def cmd_proposals_add(  # noqa: C901 - over the limit before the limit was set
         record["runs"].append(
             {"at": at, "read": spec["read"].strip(), "proposals": numbers}
         )
-        write_record(file, record)
+        lem_files.write_json(file, record, make_folder=True)
     return {
         "file": str(file),
         "kind": kind,
@@ -7066,7 +7054,7 @@ def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:  # noqa:
                 }
             )
         for item in [*items.values(), *decided]:
-            write_whole(item["file"], item["text"])
+            lem_files.write_whole(item["file"], item["text"], make_folder=True)
         for name, _kind, word, _verdict, _proposal in judged:
             if word == "passed":
                 for file in left.get(name, []):
@@ -7094,7 +7082,7 @@ def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:  # noqa:
                     }
                 )
         for file, record in records.values():
-            write_record(file, record)
+            lem_files.write_json(file, record, make_folder=True)
     return {
         "day": today,
         "refuted": [
@@ -7310,7 +7298,7 @@ def cmd_proposals_drop(state: Path, given: str, today: str) -> dict:  # noqa: C9
                 )
         for record_path, record in records.values():
             # a name whose record is missing was refused above
-            write_record(record_path, cast("dict", record))
+            lem_files.write_json(record_path, cast("dict", record), make_folder=True)
         file.unlink()
     return {"dropped": True, "item": item, "proposals": names, "day": today}
 

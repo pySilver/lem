@@ -223,6 +223,7 @@ SCRIPTS = Path(__file__).resolve().parent
 # The one place that builds and finds a plan's name, shared with project.py.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
+import lem_files  # noqa: E402  (a file written whole or not at all)
 import lem_plans  # noqa: E402
 
 # How this script calls a sibling: in this process, as one command of it.
@@ -1738,14 +1739,6 @@ def kept_before(directory: Path) -> dict | None:
     return kept
 
 
-def write_whole(file: Path, text: str) -> None:
-    """Write TEXT as FILE in one step: a reader sees the old file or the new one, never
-    a part."""
-    fresh = file.with_name(f"{file.name}.{os.getpid()}.new")
-    fresh.write_text(text, encoding="utf-8")
-    fresh.replace(file)
-
-
 def waits_for_change(task: Task, block: dict | None) -> dict:
     """Refuse a change of the criteria, his typed No or a new wait of the same text,
     unless the task's criteria wait for the owner's yes on the standard track now, with
@@ -1924,21 +1917,16 @@ def cmd_change(task: Task, file: str, words: str) -> dict:  # noqa: C901 - over 
         if not resumed:
             # kept before criteria.md moves, so that a stop after the move still knows
             # what he answered
-            write_whole(
+            lem_files.write_json(
                 task.directory / BEFORE,
-                json.dumps(
-                    {
-                        "ts": block["ts"],
-                        "text": answered,
-                        "words": note,
-                        "at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    },
-                    indent=2,
-                    ensure_ascii=False,
-                )
-                + "\n",
+                {
+                    "ts": block["ts"],
+                    "text": answered,
+                    "words": note,
+                    "at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
-        write_whole(task.small_file, text)
+        lem_files.write_whole(task.small_file, text)
         task.log(
             "criteria.changed",
             words=note,

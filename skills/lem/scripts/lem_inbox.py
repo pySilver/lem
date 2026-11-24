@@ -115,6 +115,9 @@ from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import lem_files
+
 if TYPE_CHECKING:
     import lem_board_model
     import serve
@@ -624,11 +627,11 @@ def read_record(state: Path) -> dict:
 def write_record(state: Path, record: dict) -> None:
     """Write `inbox.json` whole: a file beside it, then a rename over it."""
     file = state / RECORD
-    fresh = file.with_name(f".{file.name}.{os.getpid()}.{threading.get_ident()}.tmp")
-    fresh.write_text(
-        json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    lem_files.write_json(
+        file,
+        record,
+        fresh=file.with_name(f".{file.name}.{os.getpid()}.{threading.get_ident()}.tmp"),
     )
-    fresh.replace(file)
 
 
 def unlooked(record: dict) -> str:

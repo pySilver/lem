@@ -813,6 +813,7 @@ SCRIPTS = Path(__file__).resolve().parent
 # How this script calls a sibling: in this process, as one command of it.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
+import lem_files  # noqa: E402
 import lem_sibling  # noqa: E402
 import lem_state  # noqa: E402
 import lem_tokens  # noqa: E402
@@ -820,6 +821,9 @@ import lem_tokens  # noqa: E402
 # The release a task began on, and the rule that stops a command for a task two
 # releases back.
 lem_release = importlib.import_module("lem_release")
+# A file written whole or not at all, under `NAME.PID.new` first, in a folder that is
+# there (`lem_files`); lem-land-guards.sh calls it by this name.
+write_whole = lem_files.write_whole
 
 # Who merges: the owner's word, or the merge agent, where the settings and the request
 # allow it.
@@ -1197,15 +1201,6 @@ def run(
 
 def git(where: Path, *args: str, check: bool = True) -> str:
     return run(["git", "-C", str(where), *args], check=check).stdout.strip()
-
-
-def write_whole(file: Path, text: str) -> None:
-    """Write a file whole or not at all: a run cut off in the middle leaves the old
-    file, never half of one. The new file's name holds this process's id, so two writers
-    of one file at one moment never write one new file."""
-    fresh = file.with_name(f"{file.name}.{os.getpid()}.new")
-    fresh.write_text(text, encoding="utf-8")
-    fresh.replace(file)
 
 
 def script(

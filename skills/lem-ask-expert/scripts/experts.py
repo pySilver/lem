@@ -72,6 +72,9 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parents[2] / "lem" / "scripts"
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
+# a file written whole or not at all
+import lem_files  # noqa: E402
+
 # the one check of a command's arguments, that each is UTF-8 text
 import lem_state  # noqa: E402
 
@@ -476,11 +479,9 @@ text before or after.
 
 
 def write_record(folder: Path, record: dict) -> None:
-    staging = folder / f".record.{os.getpid()}"
-    staging.write_text(
-        json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    lem_files.write_json(
+        folder / "record.json", record, fresh=folder / f".record.{os.getpid()}"
     )
-    staging.replace(folder / "record.json")
 
 
 def summary(folder: Path, record: dict) -> dict:

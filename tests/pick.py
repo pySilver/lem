@@ -52,11 +52,13 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("skills/lem/scripts/*", "tests/unit/*"), ("unit",)),
     # `lem project waiting` builds the board's model, and asks `lem session list` when
     # the log has a session; every command that names one task runs the release rule
-    # (lem_release.py) first
+    # (lem_release.py) first; the helpers project.py shares with land.py, criteria.py,
+    # lem_inbox.py and experts.py (lem_files.py)
     (
         (
             "skills/lem/scripts/project.py",
             "skills/lem/scripts/lem_state.py",
+            "skills/lem/scripts/lem_files.py",
             "skills/lem/scripts/lem_plans.py",
             "skills/lem/scripts/lem_board_model.py",
             "skills/lem/scripts/lem_release.py",
