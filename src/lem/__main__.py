@@ -18,8 +18,8 @@ that process lives (signal 0), with no import of Lem's other modules, no connect
 process started. Only when the file is not there, or its process is gone, does it start
 `lem serve --ensure` as a process of its own, with its output in the server's log, and
 it goes on without a wait. `serve` itself, `board` and `doctor`, which look at the
-server their own way, take no look, and `LEM_SERVE=off` turns it off, which the test
-suites set.
+server their own way, and `ask` and `jev` take no look (`NO_LOOK`), and
+`LEM_SERVE=off` turns it off, which the test suites set.
 
 `python -B src/lem/__main__.py NAME ARGS...` is the same command with no look: every
 command of Lem that starts another as a process of its own starts it so, with its own
@@ -48,10 +48,11 @@ if not __package__:
 
 from lem import names  # noqa: E402 - after the line that puts the package on sys.path
 
-# The commands that take no look at the board server: the server's own, and the two that
+# The commands that take no look at the board server: the server's own, the two that
 # look at it their own way (`board` starts it and waits for it, and `doctor` only
-# reports it).
-NO_LOOK = ("serve", "board", "doctor")
+# reports it), and the question page and the Jev model, which the launcher before the
+# package ran as `lem-ask` and `lem-jev` with no look.
+NO_LOOK = ("serve", "board", "doctor", "ask", "jev")
 # The server's pid file and its log in Lem's home folder (lem.state.SERVE_PID and
 # SERVE_LOG), by name: the look imports none of Lem's modules but the table of names,
 # since that import was most of its cost (8 to 11 ms a call, medians of the builder of

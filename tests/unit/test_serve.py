@@ -2862,6 +2862,30 @@ class Look(unittest.TestCase):
             [sys.executable, "-B", str(paths.MAIN), "serve", "--ensure"],
         )
 
+    def test_the_names_that_take_no_look_are_the_old_launchers(self) -> None:
+        """The launcher before the package (`git show 9bb2cf8e:bin/lem`) took no look for
+        `serve`, `board` and `doctor` (its NO_LOOK), nor for its two links `lem-ask` and
+        `lem-jev`, which it ran with `look=False`: they are the names `ask` and `jev`."""
+        from unittest import mock
+
+        from lem import __main__ as command
+        from lem import names
+
+        looked = []
+        for name in names.COMMANDS:
+            with (
+                mock.patch.object(sys, "argv", ["lem", name]),
+                mock.patch.object(
+                    command, "look_for_server", lambda name=name: looked.append(name)
+                ),
+                mock.patch.object(command, "main", lambda _: None),
+            ):
+                command.cli()
+        self.assertEqual(
+            set(names.COMMANDS) - set(looked),
+            {"serve", "board", "doctor", "ask", "jev"},
+        )
+
 
 class LogLook(unittest.TestCase):
     """The stream's look at the event log after `lem project prune` replaced it
