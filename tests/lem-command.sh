@@ -113,48 +113,6 @@ else
   fail "lem version: $fake_version / $stamped / $own_version"
 fi
 
-# The wheel, built as an install builds it (uv build: the sdist, and the wheel from it) and installed into a virtual
-# environment outside the checkout: it holds every module of the package and every file the app reads through
-# lem.paths, under lem/data, byte for byte as git has them, and nothing more there; its name holds the manifest's
-# version; its lem version names that folder
-# as root, the manifest's version and no commit (no checkout, no build-commit); its lem help lists every name. With the
-# build backend in uv's cache the build needs no network; with neither uv nor the cache and no network it cannot run.
-wheel_check() {
-  local built=$WORK/wheel app=$WORK/app said root data diff version
-  if ! said=$(uv build --offline --out-dir "$built" 2>&1) && ! said=$(uv build --out-dir "$built" 2>&1); then
-    skip "the wheel holds the package and the plugin's files the app reads, and its lem version and lem help answer from them: uv build failed, offline and online: $(tail -n 3 <<<"$said")"
-    return
-  fi
-  uv venv -q --python "$PY" "$app" >/dev/null 2>&1
-  uv pip install -q --offline --no-deps --python "$app/bin/python" "$built"/lem-*.whl >/dev/null 2>&1
-  said=$(env HOME="$WORK/apphome" "$app/bin/lem" version 2>&1 || true)
-  root=$(field 'd["root"]' <<<"$said" 2>/dev/null || true)
-  data=$(find "$app/lib" -path '*/site-packages/lem/data' -type d)
-  diff=$("$PY" -I - "$PWD" "$data" <<'PY'
-import subprocess, sys
-from pathlib import Path
-checkout, data = Path(sys.argv[1]), Path(sys.argv[2])
-tracked = subprocess.run(["git", "-C", str(checkout), "ls-files", "-z", "--", "skills", "agents", "hooks", "src/lem"], capture_output=True, text=True, check=True).stdout.split("\0")
-wanted = {name: name for name in tracked if name and not name.startswith("src/")}
-wanted.update({name: name for name in (".claude-plugin/plugin.json", "assets/lem-mark.svg", "assets/lem-mark-night.svg")})
-modules = {name.removeprefix("src/lem/"): name for name in tracked if name.startswith("src/lem/")}
-found = {str(path.relative_to(data)) for path in data.rglob("*") if path.is_file()}
-wrong = [f"{name} is not the checkout's" for name, source in sorted(wanted.items()) if not (data / name).is_file() or (data / name).read_bytes() != (checkout / source).read_bytes()]
-wrong += [f"{name} is no file of the plugin's" for name in sorted(found - set(wanted))]
-wrong += [f"the module {name} is not the checkout's" for name, source in sorted(modules.items()) if (data.parent / name).read_bytes() != (checkout / source).read_bytes()]
-print("; ".join(wrong) or f"same {len(wanted)} {len(modules)}")
-PY
-)
-  helped=$(env HOME="$WORK/apphome" "$app/bin/lem" help 2>&1 | "$PY" -c 'import sys; print(" ".join(line.split()[0] for line in sys.stdin.read().splitlines()[1:] if line.startswith("  ")))')
-  table=$("$PY" -I -c 'import runpy, sys; print(" ".join(runpy.run_path(sys.argv[1])["COMMANDS"]))' "$NAMES")
-  version=$(field 'd["version"]' < .claude-plugin/plugin.json)
-  if [ -n "$data" ] && [ "$root" = "$data" ] && [ "$(field '(d["version"], d["commit"])' <<<"$said")" = "('$version', None)" ] && [ -f "$built/lem-$version-py3-none-any.whl" ] \
-    && [[ "$diff" == "same "* ]] && [ "$helped" = "$table version help" ]; then
-    pass "the wheel, built from the sdist with the manifest's version in its name and installed outside the checkout, holds each module of the package and each file the app reads through lem.paths, byte for byte, and no other file under lem/data; its lem version names that folder as root, the manifest's version and no commit, and its lem help lists every name"
-  else
-    fail "the installed wheel: $said / $data / $diff / $helped"
-  fi
-}
 # uv_tried OUT SUBCOMMAND ARGS...: `uv SUBCOMMAND --offline ARGS`, and when uv says it needed the network for what its
 # cache lacks, the same online; uv's output in OUT, and its exit
 uv_tried() {
@@ -163,6 +121,100 @@ uv_tried() {
   uv "$sub" --offline "$@" > "$out" 2>&1 && return 0
   uv_unreachable "$out" || return 1
   uv "$sub" "$@" > "$out" 2>&1
+}
+
+# The wheel, built as an install builds it (uv build: the sdist, and the wheel from it) and installed into a virtual
+# environment outside the checkout: it holds every module of the package and every file the app reads through
+# lem.paths, under lem/data, byte for byte as git has them at HEAD, and nothing more there; its name holds the
+# manifest's version; its lem version names that folder as root, the manifest's version and no commit (no checkout, no
+# build-commit); its lem help lists every name. With the build backend in uv's cache the build needs no network.
+# wheel_built SRC OUT: SRC's sdist and its wheel in OUT, built as an install builds them. It prints `built`; or
+# `skip: WHY` when uv's own words say the backend is not in its cache and no index answers, the one prerequisite a
+# build may miss here; or `fail: WHY` with uv's line and the backend's last lines, for every other failure.
+wheel_built() {
+  local out=$2.out
+  if (cd "$1" && uv_tried "$out" build --out-dir "$2"); then
+    echo built
+  elif uv_unreachable "$out"; then
+    printf "skip: the build backend is not in uv's cache, and uv reaches no index: %s\n" "$(tail -n 2 "$out" | tr -s ' \n' ' ')"
+  else
+    printf 'fail: %s: %s\n' "$(grep -m 1 '^  × ' "$out" | sed 's/^  × //')" "$(sed '/^  × /,$d' "$out" | tail -n 2 | tr -s ' \n' ' ')"
+  fi
+}
+# wheel_installed BUILT APP: the wheel in BUILT installed into a virtual environment APP; prints its data folder
+wheel_installed() {
+  uv venv -q --python "$PY" "$2" >/dev/null 2>&1
+  uv pip install -q --offline --no-deps --python "$2/bin/python" "$1"/lem-*.whl >/dev/null 2>&1
+  find "$2/lib" -path '*/site-packages/lem/data' -type d
+}
+# wheel_same CHECKOUT DATA: `same N M` when the installed package of the data folder DATA holds the N files of the
+# plugin and the M modules of CHECKOUT's HEAD, each the blob git has (`git hash-object --no-filters` of the installed
+# file against `git ls-tree HEAD`), and no other file under DATA; else what differs
+wheel_same() {
+  "$PY" -I - "$1" "$2" <<'PY'
+import subprocess, sys
+from pathlib import Path
+checkout, data = Path(sys.argv[1]), Path(sys.argv[2])
+def git(*args: str, given: str | None = None) -> str:
+    return subprocess.run(["git", "-C", str(checkout), *args], input=given, capture_output=True, text=True, check=True).stdout
+listed = git("ls-tree", "-r", "-z", "HEAD", "--", "skills", "agents", "hooks", "src/lem", ".claude-plugin/plugin.json", "assets/lem-mark.svg", "assets/lem-mark-night.svg")
+blobs = {entry.split("\t", 1)[1]: entry.split()[2] for entry in listed.split("\0") if entry}
+places = {name: data.parent / name.removeprefix("src/lem/") if name.startswith("src/lem/") else data / name for name in blobs}
+there = [name for name, path in places.items() if path.is_file()]
+hashed = dict(zip(there, git("hash-object", "--no-filters", "--stdin-paths", given="".join(f"{places[name]}\n" for name in there)).split(), strict=True))
+wrong = [f"{'the module ' if name.startswith('src/') else ''}{name} is not git's" for name in sorted(blobs) if hashed.get(name) != blobs[name]]
+wrong += [f"{path.relative_to(data)} is no file of the plugin's" for path in sorted(data.rglob("*")) if path.is_file() and path not in places.values()]
+modules = sum(name.startswith("src/") for name in blobs)
+print("; ".join(wrong) or f"same {len(blobs) - modules} {modules}")
+PY
+}
+wheel_check() {
+  local built=$WORK/wheel app=$WORK/app said state root data diff version
+  state=$(wheel_built "$PWD" "$built")
+  case $state in
+    built) ;;
+    skip:*) skip "the wheel holds the package and the plugin's files the app reads, and its lem version and lem help answer from them: ${state#skip: }"; return ;;
+    *) fail "the wheel's build: ${state#fail: }"; return ;;
+  esac
+  data=$(wheel_installed "$built" "$app")
+  said=$(env HOME="$WORK/apphome" "$app/bin/lem" version 2>&1 || true)
+  root=$(field 'd["root"]' <<<"$said" 2>/dev/null || true)
+  diff=$(wheel_same "$PWD" "$data")
+  helped=$(env HOME="$WORK/apphome" "$app/bin/lem" help 2>&1 | "$PY" -c 'import sys; print(" ".join(line.split()[0] for line in sys.stdin.read().splitlines()[1:] if line.startswith("  ")))')
+  table=$("$PY" -I -c 'import runpy, sys; print(" ".join(runpy.run_path(sys.argv[1])["COMMANDS"]))' "$NAMES")
+  version=$(field 'd["version"]' < .claude-plugin/plugin.json)
+  if [ -n "$data" ] && [ "$root" = "$data" ] && [ "$(field '(d["version"], d["commit"])' <<<"$said")" = "('$version', None)" ] && [ -f "$built/lem-$version-py3-none-any.whl" ] \
+    && [[ "$diff" == "same "* ]] && [ "$helped" = "$table version help" ]; then
+    pass "the wheel, built from the sdist with the manifest's version in its name and installed outside the checkout, holds each module of the package and each file the app reads through lem.paths, each the blob git has at HEAD, and no other file under lem/data; its lem version names that folder as root, the manifest's version and no commit, and its lem help lists every name"
+  else
+    fail "the installed wheel: $said / $data / $diff / $helped"
+  fi
+}
+# What the wheel check refuses, on a copy of this checkout that git holds as its own repository: a plugin's file with a
+# line git does not have is a file of the wheel that is not git's, and a build hook that raises is a broken build,
+# named with the backend's own last lines, never a missing prerequisite.
+wheel_refusals() {
+  local copy=$WORK/wheel-copy state data other raised
+  mkdir -p "$copy"
+  git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$copy"
+  git init -q -b main "$copy" && ident "$copy"
+  git -C "$copy" add -A && git -C "$copy" commit -q -m "chore: Lem as this checkout has it"
+  printf 'a line git does not have\n' >> "$copy/skills/lem/SKILL.md"
+  state=$(wheel_built "$copy" "$WORK/wheel-copy-built")
+  case $state in
+    built) ;;
+    skip:*) skip "the wheel check refuses a file that is not git's and a build hook that raises: ${state#skip: }"; return ;;
+    *) fail "the build of a copy of this checkout: ${state#fail: }"; return ;;
+  esac
+  data=$(wheel_installed "$WORK/wheel-copy-built" "$WORK/wheel-copy-app")
+  other=$(wheel_same "$copy" "$data")
+  printf '%s\n' 'raise RuntimeError("the build hook of this check raises")' > "$copy/hatch_build.py"
+  raised=$(wheel_built "$copy" "$WORK/wheel-raised")
+  if [ "$other" = "skills/lem/SKILL.md is not git's" ] && [[ "$raised" == "fail: "*"the build hook of this check raises"* ]]; then
+    pass "the wheel check refuses a wheel's file that is not git's at HEAD, and calls a build whose hook raises a failure with the backend's last lines, never a SKIP"
+  else
+    fail "the wheel check's refusals: $other / $raised"
+  fi
 }
 
 # A second install of a copy of this checkout, after its manifest, its build-commit and a file of the plugin changed,
@@ -197,9 +249,11 @@ resync_check() {
 
 if command -v uv >/dev/null 2>&1; then
   wheel_check
+  wheel_refusals
   resync_check
 else
   skip_function wheel_check "no uv here to build the wheel (https://docs.astral.sh/uv/)"
+  skip_function wheel_refusals "no uv here to build the wheel (https://docs.astral.sh/uv/)"
   skip_function resync_check "no uv here to install the package (https://docs.astral.sh/uv/)"
 fi
 
