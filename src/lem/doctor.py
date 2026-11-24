@@ -35,7 +35,7 @@ every repository.
     lem doctor
 
 The row `python3` names the Python that Lem's commands and hooks run under, which
-`lem_python.py` finds when the first `python3` is older than 3.11, and fails with the
+`python.py` finds when the first `python3` is older than 3.11, and fails with the
 fix when there is none.
 """
 

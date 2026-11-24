@@ -59,7 +59,7 @@ flagged 111 to 116 of the 123, and with the threshold chosen on one half of the 
 and scored on the other, no such rule beat the one question both ways.
 
 The queue is one file for one project: `corrections.jsonl` in Lem's state folder
-(`.lem/state/` of the main checkout, as `lem_state.py` names it), shared by every
+(`.lem/state/` of the main checkout, as `state.py` names it), shared by every
 worktree and never committed. What a retro decided is in `corrections-reviews.jsonl`
 beside it. A failure (no key, a failed request) goes to `corrections.log` there and
 never to the conversation, and `list` reports it first: a message the hook failed on was
@@ -70,7 +70,7 @@ The hook half speaks Claude Code's hook contract: the event on stdin with `promp
 its path: a hook has no `PATH` to count on. LEM_JEV, when set, names another command
 with the same contract.
 
-The plugin starts the hook through `lem_python.py` beside this file, which runs it under
+The plugin starts the hook through `python.py` beside this file, which runs it under
 a Python of 3.11 or newer when the first `python3` is older, and leaves the session
 silent when the machine has none.
 """  # noqa: E501 - the usage table of `--help` keeps its columns

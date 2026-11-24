@@ -161,7 +161,7 @@ settings (`[paths]`): a team that adopts Lem may have its own.
                                     removes nothing, writes nothing and says what would go, and --days
                                     says it for another number than the settings'
 
-Task state is kept in `.lem/state/` of the main checkout, the one folder `lem_state.py`
+Task state is kept in `.lem/state/` of the main checkout, the one folder `state.py`
 names for every script: every worktree writes there, git never tracks it, a worktree's
 removal does not take it, and a session that replaces another finds it.
 
