@@ -169,7 +169,14 @@ migration.
 
 - [ ] One real task runs on `main`'s Lem in a scratch repository (`claude --plugin-dir`), from
   `/lem new` to a merged pull request: the hooks, the board server's start and a landing, on the
-  new layout. A defect it shows is fixed before stage 3 starts.
+  new layout. The trial has a Lem home, a Claude configuration and a port of its own, as
+  `tests/lib.sh` gives a suite, so that it cannot replace his board server; its report names the
+  command that was resolved, its version and root, and the server's root and pid. A defect it
+  shows is fixed before stage 3 starts.
+- [ ] The base lines that later stages are held to are recorded here: for each hook, and for one
+  small command, the modules its process loads and its time (the least of 20 runs), on a prompt
+  with the correction queue off, at a session's start and at a compaction; and the command lines
+  of the skills' texts at tag `v0.3.1`, with their output and exit status, as fixtures.
 
 ### Stage 3: Lem gets its libraries (the rest of step 1)
 
@@ -177,6 +184,17 @@ migration.
   uv from the lock file of a tag; `brew install` and `brew upgrade` tried from it.
 - [ ] The app's command replaces the plugin's `bin/lem`; the hooks start the app by its full
   path; a check of the two versions stops with one line that names the one that is behind.
+- [ ] An installed app knows where its files are. Today `paths.ROOT` is two folders above the
+  package, which in an installed app is a folder of the interpreter: the skills' data, the
+  plugin folder a task's session gets (`session.plugin_dir`) and the server's code stamp
+  (`serve.code_stamp`, which is 0 for a folder with no source tree, so that an installed app
+  would never replace an older server) each get their place from the installed package. Tried:
+  a fresh install, an upgrade over a running server of 0.3.1, and a second repository on another
+  plugin version.
+- [ ] The path a developer's keymap holds (`doctor.picker` writes the interpreter and the
+  absolute `bin/lem` of the marketplace clone) still starts Lem after the change.
+- [ ] The journeys of `tests/*.sh` run against the installed app too (`tests/lib.sh` starts
+  `src/lem/__main__.py` of the checkout today, which passes where an installed app lacks a file).
 - [ ] Python 3.14: the project file, the checkers' settings, the tests on Lem's own Python, CI.
 - [ ] `lem doctor`, `docs/install.md` and the site describe the new install, and Lem says one
   line at the start of a session when another `lem` is first on the path.
@@ -188,19 +206,44 @@ Each stage is one step of "The steps, in order", is done when its row there is t
 `main` releasable. Each ends with every suite green and with its package in the list of the style
 gate (`flake8 --select=WPS`).
 
-- [ ] Stage 4, step 2: the unit cases run under pytest; the shell checks that only call a script
-  are unit cases.
-- [ ] Stage 5, step 3: one runner for `gh` and `agtermctl`, one error with its exit, a log for the
-  server.
-- [ ] Stage 6, step 4: a model for each record, checked when it is read; the read defects of the
-  inventory fixed, each in a commit of its own. Wide: it reaches 29 of the 41 modules.
-- [ ] Stage 7, step 5: the settings as models; `tomlkit` for the edits.
-- [ ] Stage 8, step 6: one command tree on a library, the same words and options. Wide: 13
-  modules.
-- [ ] Stage 9, step 7: the board server on a framework, the pages from templates, Web Push with
-  `cryptography`, the peers with `httpx`.
-- [ ] Stage 10, step 8: the large functions split; the style gate covers all of `src/lem`, and no
-  size mark of step 0 is left.
+- [ ] Stage 4, step 2 (the tests): the unit cases run under pytest; the shell checks that only
+  call a script are unit cases. `tests/all.sh`, `tests/pick.py` and `tests/suites.sh` change
+  together and keep the count, the failures, the skips and the time limit; the case names before
+  and after are compared, since an equal total can hide a missing case. A check that needs a
+  real process (an exit status, a competing lock holder, the end of a process group) stays in
+  shell.
+- [ ] Stage 5, step 3 (the shared base): one runner for `gh` and `agtermctl`, one error with its
+  exit, a log for the server. Each caller keeps its own policy (stdin, prompts, the socket and
+  window, what is tried again). Wide.
+- [ ] Stage 6, step 4 (the records): a model for each record, checked when it is read; the read
+  defects of the inventory fixed, each in a commit of its own. Wide: it reaches 29 of the 41
+  modules. Three rules, from the code: the bytes that are written stay those of `json.dumps`
+  (the reader of 0.3.1 looks for the text `"task": "SLUG"` in a line before it parses it,
+  `land.events_of`, so another writer's bytes make an event invisible to it); a key the model
+  does not know is kept through an update (`land.Task.keep` writes the whole record back); and
+  the tests read old bytes with the new reader and new bytes with the reader of the tag. No hook
+  and no small command imports the model library: its import alone is about 40 ms for pydantic
+  and 15 ms for msgspec (Astra's probe, Python 3.14.3, median of 7), against 33 to 58 ms for a
+  whole hook today. Which library is measured on Lem's own records before it is chosen.
+- [ ] Stage 7, step 5 (the settings): the settings as models over the data that `project.load`
+  selects from its four files and from a committed blob; `tomlkit` for the edits. Not
+  `pydantic-settings`: its sources (environment, dotenv, secrets) are not Lem's, and its import
+  is about 84 ms (the same probe).
+- [ ] Stage 8, step 6 (the command line): one command tree on a library, the same words and
+  options. Wide: 13 modules. First the functions that the server and the landing call in
+  process get direct callers (`sibling.in_form` finds `def main(argv` in a module's text, and
+  starts a process when it is gone). The library is chosen by a measurement of Lem's own tree:
+  in the probe, the dispatch of one argument took about 36 ms with cyclopts, 16 with argparse
+  and 15 with Click, and `lem NAME` runs hundreds of times in a task.
+- [ ] Stage 9, step 7 (the board server): the board server on a framework, the pages from
+  templates, Web Push with `cryptography`, the peers with `httpx`. The server's duties (the
+  machine, the push watcher, the Inbox watcher, the look at GitHub) keep one owner across its two
+  listeners, and the door's rule stays with its listener. A run of `tests/lem-board-keys.sh` in
+  which the phone's and the frames' checks execute, not skip, is required.
+- [ ] Stage 10, step 8 (what is left of the large functions): each stage from 5 on splits the
+  modules whose callers it changes, and brings them under the style gate; this stage splits what
+  no stage touched. At its end the gate covers all of `src/lem`, and no size mark of step 0 is
+  left.
 
 A release between two stages is his call. None is planned: nobody uses Lem during the
 migration, so a release before the end would run only its hooks and its board server in his
@@ -233,6 +276,22 @@ sessions.
 | 4 to 10 | A look at each stage's report |
 | 11 | The word for 1.0.0 and for the scheduled jobs; a week of real use |
 
+## An outside read, and what it changed
+
+On 2026-11-24 a session of another model family (Astra, through Codex) read this plan against
+`main`, read-only. Its report is `2026-11-24-lem-as-an-app/astra-read.md`, kept as an opinion.
+The maintaining session found each line it quotes in the code, and took these points into the
+stages above:
+
+- Stage 2: the trial's own Lem home, Claude configuration and port; the base lines of the hooks.
+- Stage 3: the root of an installed app, the keymap's path, the journeys on the installed app.
+- Stage 6: the writer's bytes, the unknown keys, the cost of a model library in a hook.
+- Stage 7: no `pydantic-settings`. Stage 8: direct callers first, and the library by measure.
+- Stage 10: the split goes with each stage, not after all of them.
+
+Its measured import times are in the stages where they decide something. Three defects it found
+in today's code are items of `docs/backlog/`.
+
 ## How this work is done
 
 - By the maintaining session, and not by Lem: "I will not use Lem anywhere during migration.
@@ -241,9 +300,11 @@ sessions.
   moves. Then the session merges the stage to `main`, pushes it and reports to him: he chose this
   over a question before each merge (2026-11-24).
 - All work continues beside the reshape, with a stop while a wide step is open (his answer). The
-  wide steps are 3, 4 and 6. Before one starts, the open work is finished; while it is open,
+  wide steps are the shared base, the records and the command line (stages 5, 6 and 8). Before
+  one starts, the open work is finished; while it is open,
   nothing else starts or lands; then all work continues.
-- No release is installed while nobody uses Lem: his Mac stays on 0.3.1, and `BEFORE` stays 0.3.1,
+- No release is installed while nobody uses Lem: his Mac stays on 0.3.1, and the release at the end names 0.3.1 as its `BEFORE` (on `main` the
+  constant still says 0.3.0, the release before 0.3.1),
   until the release at the end. A new form of a record is read beside the form of 0.3.1 for the
   whole reshape.
 - A step that changes how a thing is built changes no behavior with it. Where a defect is fixed
