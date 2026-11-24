@@ -5401,21 +5401,20 @@ def outcome_of(text: str) -> str | None:
     if not found:
         return None
     paragraph: list[str] = []
-    fenced = step = blank = False
+    fenced = blank = False
+    # the column of the text of the step a line is in, or None
+    inside: int | None = None
     for row in text[found.end() :].splitlines():
         line = row.strip()
+        indent = len(row) - len(row.lstrip())
         if line.startswith("```"):
+            # a fence indented less than the step's text ends the list
+            inside = inside if fenced or indent >= (inside or 0) else None
             fenced = not fenced
             continue
         if line.startswith("#"):
             break
-        # a step of a story or an item of a list holds the lines under it, as Markdown
-        # reads them: those that wrap it, indented or not, and a paragraph indented
-        # under it; a line with no indent after a blank one ends the list
-        if not fenced and re.match(r"(?:\d+\.|[-*+])(?:\s|$)", line):
-            step = True
-        elif line and blank and not row[:1].isspace():
-            step = False
+        inside = step_of(line, indent, inside, blank=blank) if not fenced else inside
         blank = not line
         # a line that opens with bold is a label when its bold closes on it within a few
         # words, or ends in a colon inside the bold or right after it; a *** rule opens
@@ -5441,20 +5440,44 @@ def outcome_of(text: str) -> str | None:
                 or label[2]
             )
         )
+        # the rule under a table's header: the row above it is no sentence
+        rule = not fenced and "|" in line and TABLE_RULE.fullmatch(line)
         prose = (
             line
             and not fenced
-            and not step
+            and inside is None
+            and not rule
             and (bold or not re.match(r"(\d+\.|[-*+>|!]|\*\*)", line))
         )
         if prose:
             paragraph.append(line)
             continue
+        if rule and paragraph:
+            paragraph.pop()
         if paragraph and len(" ".join(paragraph).split()) > FEW_WORDS:
             break
         paragraph = []
     said = BOLD_RUN.sub(lambda run: run[1] or run[2], " ".join(paragraph))
     return first_sentence(said) if len(said.split()) > FEW_WORDS else None
+
+
+# The rule under the header of a table: dashes, colons and pipes, with one pipe or more.
+TABLE_RULE = re.compile(r"[\s|:-]*-[\s|:-]*")
+
+
+def step_of(line: str, indent: int, inside: int | None, *, blank: bool) -> int | None:
+    """The column of the text of the step that LINE, of INDENT, is in, after a line in
+    the step whose text starts at INSIDE (None for none), or None. A step of a story or
+    an item of a list holds the lines under it, as Markdown reads them: those that wrap
+    it, indented or not, and a paragraph indented as far as its text; a line indented
+    less after a blank one (BLANK) ends the list. A step inside a step keeps the
+    column of the outer one."""
+    marker = re.match(r"(?:\d+\.|[-*+])(?:[ \t]+|$)", line)
+    if marker and (inside is None or indent < inside):
+        return indent + max(len(marker[0]), len(marker[0].rstrip()) + 1)
+    if marker:
+        return inside
+    return None if line and blank and indent < (inside or 0) else inside
 
 
 def opening_line_facts(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set

@@ -1459,6 +1459,31 @@ class FirstLine(unittest.TestCase):
                     "The picker keeps the same twenty tasks in its list",
                 )
 
+    def test_a_block_after_a_step_ends_it_as_markdown_reads_it(self) -> None:
+        # the review of 2026-11-24 on d12224a0 and 85c7044f: the release before quoted
+        # the sentence in each; a paragraph indented less than the step's text, and a
+        # fence with no indent, end the list, and a table's header is no sentence
+        for outcome in (
+            "1. The owner opens the refund.\n\n " + self.NEXT.strip() + "\n",
+            "- The owner runs the command.\n```\nlem board\n```\n" + self.NEXT.strip(),
+            (
+                "**Before** the refund | **After** the refund\n--- | ---\n"
+                "| 100 EUR | 80 EUR |\n" + self.NEXT
+            ),
+        ):
+            with self.subTest(outcome=outcome):
+                self.assertEqual(
+                    project.outcome_of("## Outcome\n\n" + outcome),
+                    "The picker keeps the same twenty tasks in its list",
+                )
+        # a fence indented under the step is the step's, and the step goes on after it
+        self.assertIsNone(
+            project.outcome_of(
+                "## Outcome\n\n- The owner runs the command:\n\n  ```\n  lem board\n"
+                "  ```\n\n  It opens the board.\n"
+            )
+        )
+
 
 # Words that hold the three characters str.splitlines breaks at and
 # json.dumps(ensure_ascii=False) keeps.
