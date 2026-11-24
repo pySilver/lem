@@ -1145,6 +1145,10 @@ class ReviewTwo(InFolder):
         stuck = [
             state(0, "building", "task 1 of 2"),
             *opened(1),
+            ev(46, "session.wake", session="S-1", why="status"),
+            ev(
+                56, "session.open", session="S-1", name=RD, phase="build", why="stopped"
+            ),
             ev(60, "session.stopped", session="S-1"),
         ]
         self.m = model(*stuck, owner=[AWAY])
@@ -1168,6 +1172,32 @@ class ReviewTwo(InFolder):
         self.m.inbox = kept
         said = cast("dict", bm.inbox_of(self.m.tasks[0], self.m))
         self.assertEqual((said["asks"], said["gone"]), (False, True))
+
+    def test_the_note_of_a_stop_logged_over_a_standing_one_names_no_fresh_session(
+        self,
+    ) -> None:
+        # the guard's newer stop over an unread stop that a turn passed: no fresh
+        # session was opened
+        stuck = [
+            state(0, "building", "task 1 of 2"),
+            *opened(1),
+            ev(46, "session.wake", session="S-1", why="status", unread=True),
+            ev(56, "session.stopped", session="S-1", unread=True),
+            ev(110, "session.wake", session="S-1", why="status"),
+            ev(120, "session.stopped", session="S-1"),
+        ]
+        self.m = model(*stuck, owner=[AWAY])
+        self.assertEqual([r["kind"] for r in bm.waits_of(self.m)], ["stopped"])
+        self.assertEqual([d["did"] for d in self.watcher().look()], ["sent"])
+        self.assertEqual(
+            self.plannotator.sends()[0]["payload"]["body"],
+            (
+                "The session of report-dates stopped after the status message, and "
+                "Lem opened no fresh one by itself. Open a fresh one on the board: "
+                "[report-dates on the board](https://mac.tail0.ts.net:4537/mac/shop/"
+                "tasks/report-dates)"
+            ),
+        )
 
     def test_the_note_of_a_stop_lem_cannot_read_says_so_and_names_no_fresh_session_that_took_its_place(
         self,

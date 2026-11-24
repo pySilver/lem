@@ -471,9 +471,14 @@ def message_of(  # noqa: C901, PLR0912, PLR0913 - over the limit before the limi
             )
         elif kind == "stopped":
             body = (
-                f"The session of {slug} stopped, and so did the fresh one that took "
-                f"its place. Open a fresh one on the board: {link_line}"
-            )
+                f"The session of {slug} stopped after the status message, and Lem "
+                "opened no fresh one by itself."
+                if row.get("restarted") is False
+                else (
+                    f"The session of {slug} stopped, and so did the fresh one that "
+                    "took its place."
+                )
+            ) + f" Open a fresh one on the board: {link_line}"
         elif kind == "merge" and t.refused:
             said = t.refused.get("said") or "nothing"
             body = (

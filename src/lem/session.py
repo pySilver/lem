@@ -177,7 +177,9 @@ one `--session` names and still lives with an agent in its pane, no shell comman
 runs, and the rule still gives that step, so that no sign of work came since the step
 was due. Else it acts on nothing, exits 0 and prints `acted: false` with `why`
 (`working`, `status`, `gone` or `unread`, a restart beside signs that do not read), and
-the server's next look asks again. While a stop stands, no restart is due;
+the server's next look asks again. While a stop stands, no restart is due: a status
+message of the readable clock after it (a turn passed an unread stop) gives one newer
+stop, which says that no fresh session took its place; and
 `open --why stopped` with no `--session` acts then, and when the signs read, only while
 no sign of work came after the stop: the owner's "Open a session" on a stopped task. A
 stop stands while no event of the task's work came after the status message before it,
@@ -1155,8 +1157,14 @@ def cmd_stopped(root: Path, slug: str, named: str | None) -> dict:
         # a state block is appended under the log's lock, not the task's, so it may come
         # between the look and the stop
         t = model_now(root)[0].by_slug.get(slug)
-        stands = t is not None and board_model().stop_stands(t) is not None
-    if not stands:
+        stood = board_model().stop_stands(t) if t is not None else None
+        # a stop over one that already stood: no fresh session took the place of this
+        restarted = (
+            t is not None
+            and stood is not None
+            and board_model().restarted_before(t, stood)
+        )
+    if stood is None:
         return {
             "task": slug,
             "session": session,
@@ -1176,6 +1184,12 @@ def cmd_stopped(root: Path, slug: str, named: str | None) -> dict:
         else (
             "its session showed no sign of work after the status "
             "message and after its restart"
+        )
+        if restarted
+        else (
+            "its session showed no sign of work after the status message, and Lem "
+            "opened no fresh session by itself, since a stop of the task already "
+            "waited"
         )
     )
     return {

@@ -3199,6 +3199,21 @@ def stop_over_work(t: Task, e: dict) -> bool:
     )
 
 
+def restarted_before(t: Task, e: dict) -> bool:
+    """Whether the guard opened a fresh session in the stopped one's place
+    (`session.open why=stopped`) after the task's newest work event (`work_event`)
+    before the `session.stopped` record E, found by identity as `stop_over_work` finds
+    it. A readable stop comes once that restart is spent, or over a stop that already
+    stood (`stop_due`), which no fresh session took the place of."""
+    stop = next((i for i, x in enumerate(t.events) if x is e), None)
+    for x in reversed(t.events[:stop] if stop is not None else []):
+        if x.get("event") == "session.open" and x.get("why") == "stopped":
+            return True
+        if work_event(x):
+            return False
+    return False
+
+
 def stopped_of(t: Task, m: Model) -> dict | None:
     """The stop that waits for the owner (`stop_stands`), while the guard watches the
     task (`guarded`) and its session still lives (`live_of`): the row `stopped` of
@@ -3583,6 +3598,8 @@ def waits_of(m: Model) -> list[dict]:  # noqa: C901 - over the limit before the 
                     "c": None,
                     "since": at(stop.get("ts")) or t.since,
                     "unread": stop.get("unread") is True,
+                    # false for a stop that no fresh session took the place of
+                    "restarted": restarted_before(t, stop),
                 }
             )
         elif need:
@@ -3792,10 +3809,20 @@ def wait_say(w: dict) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit 
             "to": "overview",
             "note": "since Lem logged the stop",
             "where": (
-                f"The task’s session showed no sign of work for {QUIET_MS // 60000} "
-                f"minutes, nor in the {ANSWER_MS // 60000} minutes after Lem asked it "
-                "for its status, and neither did the fresh session that took its "
-                "place. Open a session here or on the task’s header: "
+                (
+                    "The task’s session showed no sign of work in the "
+                    f"{ANSWER_MS // 60000} minutes after Lem asked it for its status, "
+                    "and Lem opened no fresh session by itself, since a stop of the "
+                    "task already waited for you."
+                    if w.get("restarted") is False
+                    else (
+                        "The task’s session showed no sign of work for "
+                        f"{QUIET_MS // 60000} minutes, nor in the {ANSWER_MS // 60000} "
+                        "minutes after Lem asked it for its status, and neither did "
+                        "the fresh session that took its place."
+                    )
+                )
+                + " Open a session here or on the task’s header: "
                 "a fresh agent reads the task’s state and goes on from there, and the "
                 "old pane stays open in agterm."
             ),
@@ -4570,6 +4597,19 @@ def stop_over_work_said(_e: dict) -> dict:
     }
 
 
+def stop_unrestarted_said(_e: dict) -> dict:
+    """The words of a readable `session.stopped` that no fresh session took the place
+    of (`restarted_before`), which `describe` gives in place of SAYS's."""
+    return {
+        "info": {"actor": "bad", "icon": "alert"},
+        "head": "The task’s session stopped",
+        "text": (
+            "no sign of work after the status message, and Lem opened no fresh "
+            "session by itself: “Open a session” on the board starts one"
+        ),
+    }
+
+
 def describe(e: dict, m: Model) -> dict:
     """One event as the activity says it: an icon and its actor, a head, a text and a
     line under it."""
@@ -4613,6 +4653,14 @@ def describe(e: dict, m: Model) -> dict:
         # the stop of a look that a state block overtook: it never stood, and nothing
         # waited for the owner
         say = stop_over_work_said
+    elif (
+        e.get("event") == "session.stopped"
+        and e.get("unread") is not True
+        and (t := m.by_slug.get(e.get("task")))
+        and not restarted_before(t, e)
+    ):
+        # a readable stop over one that already stood: no fresh session was opened
+        say = stop_unrestarted_said
     if say:
         said: dict[str, Any] = {"title": title, "sub": "", **say(e)}
         if e.get("from") and e.get("was_at"):

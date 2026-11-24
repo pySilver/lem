@@ -5801,6 +5801,51 @@ class StoppedRow(unittest.TestCase):
             ),
         )
 
+    def test_a_stop_over_a_standing_unread_stop_names_no_fresh_session(self) -> None:
+        # review 2 of guard-sees-unreadable-sessions (#60): the unread stop of 11:49, a
+        # turn at 12:00, the readable message at 12:45 and a newer stop at 12:55, and no
+        # fresh session ever opened
+        events = (
+            *self.woken(unread=True),
+            self.ev("11:49", "session.stopped", session="S1", unread=True),
+            self.ev("12:45", "session.wake", session="S1", why="status"),
+            self.ev("12:55", "session.stopped", session="S1"),
+        )
+        m = self.model(*events, at="13:00", sign="2026-11-22T12:00:00Z")
+        row = next(w for w in bm.waits_of(m) if w["kind"] == "stopped")
+        self.assertEqual(
+            bm.wait_say(row)["where"],
+            (
+                "The task’s session showed no sign of work in the 10 minutes after "
+                "Lem asked it for its status, and Lem opened no fresh session by "
+                "itself, since a stop of the task already waited for you. Open a "
+                "session here or on the task’s header: a fresh agent reads the task’s "
+                "state and goes on from there, and the old pane stays open in agterm."
+            ),
+        )
+        stop = m.by_slug["gift-note"].events[-1]
+        self.assertEqual(
+            bm.describe(stop, m)["text"],
+            (
+                "no sign of work after the status message, and Lem opened no fresh "
+                "session by itself: “Open a session” on the board starts one"
+            ),
+        )
+        # a stop after the spent restart keeps its words
+        readable = self.model(*self.stopped(), at="13:00", session="S2", sign=None)
+        row = next(w for w in bm.waits_of(readable) if w["kind"] == "stopped")
+        self.assertIn(
+            "and neither did the fresh session that took its place",
+            bm.wait_say(row)["where"],
+        )
+        self.assertEqual(
+            bm.describe(readable.by_slug["gift-note"].events[-1], readable)["text"],
+            (
+                "no sign of work after the status message, nor in the fresh session: "
+                "“Open a session” on the board starts another"
+            ),
+        )
+
     def test_the_timeline_says_that_a_stop_over_new_work_leaves_nothing_waiting(
         self,
     ) -> None:

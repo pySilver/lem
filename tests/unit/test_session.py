@@ -1987,10 +1987,38 @@ class Guard(unittest.TestCase):
         # one newer stop is due, never a restart, and the server's look takes it
         self.assertIsNone(self.refusal(woken, "stopped", "12:55", **turned))
         self.assertEqual(self.refusal(woken, "restart", "12:55", **turned), "working")
+        # the stop's words name no fresh session, since none was opened
+        done, _, logged = self.run_act(
+            woken,
+            lambda: session.cmd_stopped(ROOT, SLUG, "S1"),
+            signs={**self.SIGNS, **turned},
+            at="12:55",
+        )
+        self.assertEqual(
+            [(e["event"], e.get("unread")) for e in logged],
+            [("session.stopped", None)],
+        )
+        self.assertEqual(
+            done["say"],
+            (
+                f"the stop of {SLUG} is logged: its session showed no sign of work "
+                "after the status message, and Lem opened no fresh session by itself, "
+                "since a stop of the task already waited, so it waits for the owner, "
+                f"whose `lem session open {SLUG} --why stopped` opens a fresh session"
+            ),
+        )
         stopped = [*woken, self.ev("12:55", "session.stopped", session="S1")]
         # the owner's "Open a session" acts again, and the guard gives nothing more
         self.assertIsNone(
             self.refusal(stopped, "restart", "12:56", named=None, **turned)
+        )
+        # a turn after the newer stop: the click waits for the next stop, as for every
+        # readable stop
+        self.assertEqual(
+            self.refusal(
+                stopped, "restart", "13:10", named=None, sign="2026-11-22T13:00:00Z"
+            ),
+            "working",
         )
         for at in ("12:56", "17:00"):
             m = bm.derive(stopped, [], bm.at(f"2026-11-22T{at}:00Z") or 0)
@@ -2304,6 +2332,11 @@ class Guard(unittest.TestCase):
         self.assertEqual((done["acted"], sent), (True, []))
         self.assertEqual(
             [(e["event"], e["session"]) for e in logged], [("session.stopped", "S1")]
+        )
+        # after a spent restart, the stop says so
+        self.assertIn(
+            "no sign of work after the status message and after its restart",
+            done["say"],
         )
         again, _, logged = self.run_act(
             [*fresh, self.ev("12:44", "session.stopped", session="S1")],
