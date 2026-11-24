@@ -10515,8 +10515,10 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
         )
     if text is None:
         # no answer to write down: the record's reason stands in its place, so the
-        # owner who opens merge-review.md reads why there is no review
-        text = f"No answer of the merge agent: {why or (call[1] if call else '')}.\n"
+        # owner who opens merge-review.md reads why there is no review. On a moved base
+        # that is another round, whose why holds; a rule that keeps the merge from the
+        # agent says what the owner does with a review, which no review asks of him here
+        text = f"No answer of the merge agent: {call[1] if call else why}.\n"
     # the merge agent's stand-ins go into the pull request's text before the read is
     # written down, so a failed edit leaves the read to record again
     merger_noted(

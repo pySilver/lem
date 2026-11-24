@@ -1277,6 +1277,25 @@ else
 fi
 project --repo "$MB" state mb-mum dropped "the test is over" >/dev/null
 
+# A moved base where the owner merges by the settings, and a merge agent that ends twice with no answer: the read is
+# another round, and merge-review.md says first that no answer came, and nothing of a wait for his word.
+mb_settings owner squash
+mb_task mb-hush hush.txt && mb_land mb-hush
+mb_move docs/board.md >/dev/null
+hush_brief=$(land --repo "$MB" merge-review mb-hush)
+hush_tip=$(field 'd["tip"]' <<<"$hush_brief") && hush_base=$(field 'd["base"]' <<<"$hush_brief")
+land --repo "$MB" merge-review mb-hush --no-answer --tip "$hush_tip" --base "$hush_base" >/dev/null 2>&1 || true
+hush=$(land --repo "$MB" merge-review mb-hush --no-answer --tip "$hush_tip" --base "$hush_base" 2>&1 || true)
+hush_text=$(cat "$MB/.lem/state/tasks/mb-hush/merge-review.md")
+mb_settings agent squash
+if [ "$(field 'd["base_call"]' <<<"$hush")" = "another round" ] && [ "$(head -c 29 <<<"$hush_text")" = "No answer of the merge agent:" ] \
+  && grep -qF "could not be recorded twice (it ended with no answer)" <<<"$hush_text" && ! grep -qF "his word" <<<"$hush_text" && ! grep -qF "branch.land" <<<"$hush_text"; then
+  pass "on a moved base where the owner merges, a merge agent that ends twice with no answer is another round, and merge-review.md says first that no answer came and nothing of a wait for his word"
+else
+  fail "no answer twice on a moved base where the owner merges: $hush / $hush_text"
+fi
+project --repo "$MB" state mb-hush dropped "the test is over" >/dev/null
+
 # A task started from a reviewer's item of the state folder, which git never holds: its file leaves with the landing, by
 # Lem's merge and by `merged`; a removal that fails leaves the task open for `merged`; a pull request closed on GitHub
 # drops the task and leaves the file, so the item is undecided again.
