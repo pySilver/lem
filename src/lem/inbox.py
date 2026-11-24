@@ -37,7 +37,8 @@ What a row becomes (`things_of`, `thing_of`, pure functions over the model):
 - A note goes with no session: a task with no live session, one whose session does not
   answer, one whose session stopped (the row "stopped" of the guard of a stopped
   session), a task queued after a dropped one, a refused merge, an open task with no
-  proposal, no review of its tip or no whole commit of it on record.
+  proposal, no review of its tip or no whole commit of it on record, and a task two
+  releases back, whose session's every command stops: the stop's message.
 
 The rule (`plan`): a row that the task's working session holds back
 (`lem_board_model.held_back`: a held task whose session's turn runs on his answer) keeps
@@ -293,9 +294,12 @@ def thing_of(
     tip = commit_of(t, whole) if kind == "merge" else None
     # what the row itself allows, apart from who can take the reply: a task with no
     # session, one whose session stopped, one queued after a dropped task, a refused
-    # merge and a merge with no review of its tip or no whole commit ask nothing
-    can = kind not in ("session", "stopped", "after_dropped") and (
-        kind != "merge" or (merge_asks(t, bm) and tip is not None)
+    # merge and a merge with no review of its tip or no whole commit ask nothing, nor
+    # does a task two releases back (its `blocked` row with the stop's `say`)
+    can = (
+        kind not in ("session", "stopped", "after_dropped")
+        and not row.get("say")
+        and (kind != "merge" or (merge_asks(t, bm) and tip is not None))
     )
     live = answers(t, m, bm)
     if (
@@ -479,6 +483,8 @@ def message_of(  # noqa: C901, PLR0912, PLR0913 - over the limit before the limi
                     "took its place."
                 )
             ) + f" Open a fresh one on the board: {link_line}"
+        elif kind == "blocked" and row.get("say"):
+            body = f"{row['say']}\n\nThe task on the board: {link_line}"
         elif kind == "merge" and t.refused:
             said = t.refused.get("said") or "nothing"
             body = (

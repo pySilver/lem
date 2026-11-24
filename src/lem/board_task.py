@@ -288,7 +288,11 @@ def tags(ctx: P.Ctx, t: bm.Task) -> list:
                 h(
                     "span",
                     None,
-                    f"breaker {b.id} waits" if t.breaker else f"breaker {b.id}, parked",
+                    f"breaker {b.id} waits"
+                    if t.breaker
+                    else f"breaker {b.id}, parked"
+                    if t.status == bm.PARKED
+                    else f"breaker {b.id}",
                 ),
             )
         )
@@ -1199,7 +1203,7 @@ def now_foot(
 
 def breaker_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
     """The breaker's document, first on the Overview while it waits (for the owner, or
-    for nobody while the task is parked): its markdown as the artifacts render it, with
+    for nobody while the task is parked or two releases back): its markdown as the artifacts render it, with
     its callouts, its stories, its chart, its table and the task's pictures. Once his
     help is on record it leaves the Overview, and Artifacts and "Criteria and decisions"
     keep it. None while no breaker waits."""
@@ -1297,10 +1301,13 @@ def breaker_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
             h(
                 "div",
                 {"class": "b-line"},
+                # a task two releases back: its stop's message is the way on
                 (
                     "The task is parked: this breaker waits for nobody "
                     "until you bring it back."
-                ),
+                )
+                if t.status == bm.PARKED
+                else [h("b", None, "Where you answer: "), P.rich(ctx, bm.answer_of(t))],
             ),
             owner_lines(ctx, t),
         )

@@ -931,6 +931,83 @@ class Overview(unittest.TestCase):
         self.assertIn(line, card("ended"))
 
 
+class ReleaseStopPage(unittest.TestCase):
+    """The page of a task two releases back (lem_release): every act of the board on it
+    stops in Lem's guard, so its Overview and its chips say the stop's message and name
+    no act of the board, a breaker that waited too."""
+
+    SAY = (
+        "gift-note began on Lem 0.1.6, and Lem 0.3.0 reads only tasks begun on 0.2.0 "
+        "or 0.3.0. Your branch and its commits stay. /lem drop gift-note, then /lem "
+        "resume gift-note, starts a new task on 0.3.0 from that branch and from "
+        "the notes the task left."
+    )
+    BREAKER = (
+        state(0, "building", "task 1 of 2"),
+        ev(
+            20,
+            "decision.breaker",
+            id=1,
+            cause="criteria",
+            what="The note has no place",
+            document="breaker.md",
+        ),
+        state(20, "held", "breaker 1 waits for the owner"),
+    )
+    PLAN = (state(1, "planned", "the plan waits for the owner"),)
+
+    def page(self, *events: dict) -> str:
+        """The Overview and the chips of the task, on a page that may act."""
+        m = model(
+            *events,
+            ev(
+                30,
+                "release.stop",
+                began="0.1.6",
+                running="0.3.0",
+                branch="feat/gift-note",
+                say=self.SAY,
+            ),
+        )
+        ctx = pages.Ctx(
+            host="h",
+            workspace="w",
+            model=m,
+            asset=lambda name: name,
+            task="gift-note",
+            tab="overview",
+            can_act=True,
+        )
+        ctx.artifact = lambda slug, path: {
+            "path": path,
+            "kind": "markdown",
+            "text": "# The note has no place",
+        }
+        t = m.tasks[0]
+        return "".join(
+            str(x)
+            for x in [*task_pages.overview_tab(ctx, t), *task_pages.tags(ctx, t)]
+            if x
+        )
+
+    def test_the_overview_says_the_stops_message_and_offers_no_act(self) -> None:
+        for name, events in (("breaker", self.BREAKER), ("plan", self.PLAN)):
+            with self.subTest(wait=name):
+                said = self.page(*events)
+                self.assertIn("It began on an older release of Lem", said)
+                self.assertIn("/lem drop gift-note, then /lem", said)
+                for act in (
+                    "park or drop",
+                    "Park it",
+                    "help in the task",
+                    "ans-note",
+                    "breaker 1 waits",
+                    "parked",
+                    "The plan waits for you",
+                ):
+                    self.assertNotIn(act, said)
+
+
 class InboxLine(unittest.TestCase):
     """Where the owner answers on the phone's page of a task while his mark says away
     and the board's server sent the task's thing to his Inbox: both places with a link

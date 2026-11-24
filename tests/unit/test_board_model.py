@@ -2521,6 +2521,32 @@ class ReleaseStop(unittest.TestCase):
         )
         self.assertEqual([w["key"] for w in bm.waits_of(m)], ["blocked:gift-note"])
 
+    def test_the_board_answers_no_plan_and_no_breaker_of_a_task_two_releases_back(
+        self,
+    ) -> None:
+        breaker = [
+            state(0, "building", "task 1 of 2"),
+            ev(
+                20,
+                "decision.breaker",
+                id=1,
+                cause="criteria",
+                what="The note has no place",
+                document="breaker.md",
+            ),
+            state(20, "held", "breaker 1 waits for the owner"),
+        ]
+        for name, events in (
+            ("breaker", breaker),
+            ("plan", [state(1, "planned", "the plan waits for the owner")]),
+        ):
+            with self.subTest(wait=name):
+                t = one(*events, self.stop(30))
+                self.assertEqual(
+                    (bm.answer_row(t), bm.acts_of(t, None), bm.now_head(t)),
+                    (None, [], "It began on an older release of Lem"),
+                )
+
     def test_a_state_after_the_stop_is_the_tasks_own_work_again(self) -> None:
         t = one(
             state(0, "open", Merge.PR),

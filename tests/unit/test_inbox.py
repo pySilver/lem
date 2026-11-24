@@ -1225,6 +1225,46 @@ class ReviewTwo(InFolder):
         self.assertEqual(self.woken, [])
 
 
+class ReleaseStop(InFolder):
+    def test_a_task_two_releases_back_gets_a_note_with_the_stops_message(self) -> None:
+        # every command of its session stops in Lem's guard: no reply can reach it,
+        # and the stop's message names what the owner types
+        say = (
+            "report-dates began on Lem 0.1.6, and Lem 0.3.0 reads only tasks begun on "
+            "0.2.0 or 0.3.0. Your branch and its commits stay. /lem drop report-dates, "
+            "then /lem resume report-dates, starts a new task on 0.3.0 from that "
+            "branch and from the notes the task left."
+        )
+        self.m = model(
+            state(0, "building", "task 1 of 2"),
+            *opened(1),
+            ev(
+                5,
+                "release.stop",
+                began="0.1.6",
+                running="0.3.0",
+                branch="feat/report-dates",
+                say=say,
+            ),
+            owner=[AWAY],
+        )
+        self.assertEqual([r["kind"] for r in bm.waits_of(self.m)], ["blocked"])
+        self.assertEqual([d["did"] for d in self.watcher().look()], ["sent"])
+        sent = self.plannotator.sends()[0]
+        self.assertEqual(
+            (sent["session"], sent["payload"]["body"]),
+            (
+                None,
+                f"{say}\n\nThe task on the board: [report-dates on the "
+                "board](https://mac.tail0.ts.net:4537/mac/shop/tasks/report-dates)",
+            ),
+        )
+        self.assertEqual(self.woken, [])
+        self.assertEqual(
+            [(r["form"], r["asks"]) for r in self.record()["sent"]], [("note", False)]
+        )
+
+
 class HeldBack(InFolder):
     """A row that the task's working session holds back keeps its sent thing as it
     stands (decision 5 of waits-for-you-only-when-it-waits): the Inbox's own wake starts

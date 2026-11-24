@@ -391,6 +391,8 @@ SUMMARY = "task.summary"
 # newer than the task's newest state, the task is shown blocked with its message, and
 # its status stays the one of its state.
 RELEASE_STOP = "release.stop"
+# What such a task does now, in words: its row's and its large card's head.
+OLDER_RELEASE = "It began on an older release of Lem"
 # How a run of the checks ended, by the `result` of its `gate.end` (land.py RESULTS).
 CHECKS_END: dict[object, dict[str, str]] = {
     "passed": {
@@ -1885,8 +1887,10 @@ def settle(t: Task, now: int, *, away: bool = False) -> None:  # noqa: C901, PLR
     if t.release_stop and not t.closed:
         # a task two releases back: nothing of it goes on until the owner drops it, so
         # it is his, blocked, with the stop's message; its status stays the one of its
-        # state, which open_prs and land.py read
+        # state, which open_prs and land.py read. A breaker of it waits for nobody: its
+        # help, park or drop would stop in the guard (`t.stopped` keeps its document)
         t.for_owner, t.approvable, t.checks_stop, t.waits = True, False, None, None
+        t.breaker = None
         t.info = {**STATUS["blocked"], "actor": "you", "who": "You"}
         t.shown, t.more = t.release_stop["say"], []
     t.approvable_events = t.approvable
@@ -3433,8 +3437,9 @@ def answer_row(t: Task) -> dict | None:
     A task begun on an older release than the board's (`Task.behind`) has no row of any
     kind: its session has no `board_answer` to read, so a recorded answer would hide the
     row and reach nobody; it keeps the board's other acts (criteria-change-asks-again,
-    talk question 6)."""
-    if t.closed or not t.blocks or t.behind:
+    talk question 6). A task two releases back has none either: every answer of it
+    would stop in Lem's guard (`acts_of`)."""
+    if t.closed or not t.blocks or t.behind or t.release_stop:
         return None
     number = None
     if t.breaker is not None and isinstance(t.breaker.id, int):
@@ -3904,7 +3909,7 @@ def wait_say(w: dict) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit 
         }
     if kind == "blocked" and w.get("say"):
         return {
-            "verb": "It began on an older release of Lem",
+            "verb": OLDER_RELEASE,
             "icon": "alert",
             "actor": "bad",
             "to": "overview",
@@ -4863,6 +4868,8 @@ def step_runs(e: dict) -> str:
 
 def now_head(t: Task) -> str:  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit was set
     """The head of the large card of a task: what it does now, in words."""
+    if t.release_stop and not t.closed:
+        return OLDER_RELEASE
     s = t.status
     if s == "queued":
         if t.dropped_after:
