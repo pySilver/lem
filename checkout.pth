@@ -1,0 +1,3 @@
+# An editable install of a checkout gets this file (hatch_build.py): no Python that
+# starts from its .venv writes bytecode into the checkout.
+import sys; sys.dont_write_bytecode = True

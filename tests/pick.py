@@ -187,6 +187,12 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ("lem-machine", "lem-command"),
     ),
     (("bin/lem", "src/lem/python.py"), ("lem-command", "lem-machine")),
+    # the package's build: lem-command builds the wheel and installs it outside the
+    # checkout
+    (
+        ("pyproject.toml", "uv.lock", "hatch_build.py", "checkout.pth"),
+        ("lem-command",),
+    ),
     # the picker's old place, which an older keymap line names
     (("skills/lem/scripts/picker.py",), ("lem-picker",)),
     # the afternoon of tests/board-showcase.py puts up its card with `lem-ask render`

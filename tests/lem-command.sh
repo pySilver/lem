@@ -142,6 +142,54 @@ else
   fail "lem version: $fake_version / $own_version"
 fi
 
+# The wheel, built as an install builds it (uv build: the sdist, and the wheel from it) and installed into a virtual
+# environment outside the checkout: it holds every module of the package and every file the app reads through
+# lem.paths, under lem/data, byte for byte as git has them, and nothing more there; its name holds the manifest's
+# version; its lem version names that folder
+# as root, the manifest's version and no commit (no checkout, no build-commit); its lem help lists every name. With the
+# build backend in uv's cache the build needs no network; with neither uv nor the cache and no network it cannot run.
+wheel_check() {
+  local built=$WORK/wheel app=$WORK/app said root data diff version
+  if ! said=$(uv build --offline --out-dir "$built" 2>&1) && ! said=$(uv build --out-dir "$built" 2>&1); then
+    skip "the wheel holds the package and the plugin's files the app reads, and its lem version and lem help answer from them: uv build failed, offline and online: $(tail -n 3 <<<"$said")"
+    return
+  fi
+  uv venv -q --python "$PY" "$app" >/dev/null 2>&1
+  uv pip install -q --offline --no-deps --python "$app/bin/python" "$built"/lem-*.whl >/dev/null 2>&1
+  said=$(env HOME="$WORK/apphome" "$app/bin/lem" version 2>&1 || true)
+  root=$(field 'd["root"]' <<<"$said" 2>/dev/null || true)
+  data=$(find "$app/lib" -path '*/site-packages/lem/data' -type d)
+  diff=$("$PY" -I - "$PWD" "$data" <<'PY'
+import subprocess, sys
+from pathlib import Path
+checkout, data = Path(sys.argv[1]), Path(sys.argv[2])
+tracked = subprocess.run(["git", "-C", str(checkout), "ls-files", "-z", "--", "skills", "agents", "hooks", "src/lem"], capture_output=True, text=True, check=True).stdout.split("\0")
+wanted = {name: name for name in tracked if name and not name.startswith("src/")}
+wanted.update({name: name for name in (".claude-plugin/plugin.json", "assets/lem-mark.svg", "assets/lem-mark-night.svg")})
+modules = {name.removeprefix("src/lem/"): name for name in tracked if name.startswith("src/lem/")}
+found = {str(path.relative_to(data)) for path in data.rglob("*") if path.is_file()}
+wrong = [f"{name} is not the checkout's" for name, source in sorted(wanted.items()) if not (data / name).is_file() or (data / name).read_bytes() != (checkout / source).read_bytes()]
+wrong += [f"{name} is no file of the plugin's" for name in sorted(found - set(wanted))]
+wrong += [f"the module {name} is not the checkout's" for name, source in sorted(modules.items()) if (data.parent / name).read_bytes() != (checkout / source).read_bytes()]
+print("; ".join(wrong) or f"same {len(wanted)} {len(modules)}")
+PY
+)
+  helped=$(env HOME="$WORK/apphome" "$app/bin/lem" help 2>&1 | "$PY" -c 'import sys; print(" ".join(line.split()[0] for line in sys.stdin.read().splitlines()[1:] if line.startswith("  ")))')
+  table=$("$PY" -I -c 'import runpy, sys; print(" ".join(runpy.run_path(sys.argv[1])["COMMANDS"]))' "$NAMES")
+  version=$(field 'd["version"]' < .claude-plugin/plugin.json)
+  if [ -n "$data" ] && [ "$root" = "$data" ] && [ "$(field '(d["version"], d["commit"])' <<<"$said")" = "('$version', None)" ] && [ -f "$built/lem-$version-py3-none-any.whl" ] \
+    && [[ "$diff" == "same "* ]] && [ "$helped" = "$table version help" ]; then
+    pass "the wheel, built from the sdist with the manifest's version in its name and installed outside the checkout, holds each module of the package and each file the app reads through lem.paths, byte for byte, and no other file under lem/data; its lem version names that folder as root, the manifest's version and no commit, and its lem help lists every name"
+  else
+    fail "the installed wheel: $said / $data / $diff / $helped"
+  fi
+}
+if command -v uv >/dev/null 2>&1; then
+  wheel_check
+else
+  skip_function wheel_check "no uv here to build the wheel (https://docs.astral.sh/uv/)"
+fi
+
 # no bytecode: the real scripts, through lem, the ones that import their siblings among them
 for name in project land criteria decisions experts cast issue board picker session; do "$LEM" "$name" --help >/dev/null 2>&1 || true; done
 caches=$(find src skills bin -name __pycache__ -type d)
@@ -220,7 +268,8 @@ fi
 # land.py, criteria.py and decisions.py run a sibling's command in their own process (sibling.py): for each way
 # a module can end, the result is the one a process of its own gives, and a command of APART is such a process. The
 # ends are modules of a copy of the package, each a name of its table, and a process of one runs through the copy's entry.
-mkdir -p "$WORK/siblings/src"
+# The copy is a checkout's: the package beside the plugin's files, which lem.paths finds there.
+mkdir -p "$WORK/siblings/src" && ln -s "$PWD/skills" "$WORK/siblings/skills"
 cp -R "$PWD/src/lem" "$WORK/siblings/src/lem"
 "$PY" -I -B - "$WORK/siblings/src" "$WORK/siblings" > "$WORK/siblings.out" <<'PY' || true
 import importlib, subprocess, sys

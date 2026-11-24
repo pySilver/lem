@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 from typing import cast
@@ -233,6 +234,24 @@ class Repository(unittest.TestCase):
 
     def test_the_repository_names_one_release_in_three_places(self) -> None:
         self.assertEqual(release_places(*self.read()), [])
+
+    def test_the_package_takes_its_version_from_plugin_json(self) -> None:
+        # the build reads the number with hatch's regex source, the one place it has
+        project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        self.assertEqual(project["project"]["dynamic"], ["version"])
+        source = project["tool"]["hatch"]["version"]
+        self.assertEqual(source["path"], ".claude-plugin/plugin.json")
+        found = re.search(
+            source["pattern"], (ROOT / source["path"]).read_text(encoding="utf-8")
+        )
+        self.assertIsNotNone(found)
+        self.assertEqual(found and found["version"], self.read()[0]["version"])
+
+    def test_the_build_backend_and_the_dev_tools_name_one_hatchling(self) -> None:
+        project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        backend = project["build-system"]["requires"]
+        self.assertRegex(backend[0], r"^hatchling==\d+\.\d+\.\d+$")
+        self.assertIn(backend[0], project["dependency-groups"]["dev"])
 
 
 # Criterion 4's message, word for word, for invoice-totals begun on 0.2.0 under 0.4.0,

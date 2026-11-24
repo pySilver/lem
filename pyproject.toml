@@ -1,31 +1,85 @@
-# The maintainer's tools for Lem's Python: uv installs them, ruff formats and lints, pyrefly checks
-# the types. Nobody who installs the plugin reads this file: Lem's scripts are standard-library
-# Python and need no install (AGENTS.md, "Rules for a change here").
+# Lem's package and the maintainer's tools. hatchling builds the package: the modules of
+# src/lem, and under lem/data the plugin's files that the app reads, at the names they have
+# here. uv installs it into .venv as an editable install, with the tools, at the versions of
+# uv.lock; ruff formats and lints, pyrefly checks the types.
 #
-#     uv sync                      the tools, at the versions of uv.lock, into .venv
+#     uv sync                      the package and the tools into .venv; .venv/bin/lem is the command
+#     uv build                     the sdist, and from it the wheel, into dist/
 #     uv run ruff format           the one format
 #     uv run ruff check --fix      the lint rules below
 #     uv run pyrefly check         the types
 #     bash tests/lint.sh           all of them, and the JavaScript's, as tests/all.sh runs them
 
+[build-system]
+# An exact version, so that a build of one commit is the same build on every machine.
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
 [project]
 name = "lem"
 description = "Lem coordinates the agents that write code in one repository."
-# uv asks for a version, and this one names no release: the release number has its places in
-# .claude-plugin/ (tests/unit/test_release.py), and nothing builds a package from this file.
-version = "0"
+# The release number has one place, .claude-plugin/plugin.json (tests/unit/test_release.py),
+# and the build reads it there ([tool.hatch.version]).
+dynamic = ["version"]
 # The oldest Python a script of Lem runs under. ruff takes its target version from this line.
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 dependencies = []
+
+[project.scripts]
+lem = "lem.__main__:cli"
 
 [dependency-groups]
 dev = [
     "ruff>=0.17.6",
     "pyrefly>=1.2.0",
+    # the build backend's own types, for pyrefly's check of hatch_build.py: the version of
+    # [build-system]
+    "hatchling==1.33.0",
 ]
 
-[tool.uv]
-package = false
+[tool.uv.extra-build-variables]
+# hatchling imports hatch_build.py from the checkout, and the build writes no bytecode beside it.
+lem = { PYTHONDONTWRITEBYTECODE = "1" }
+
+# ==== hatchling ====
+[tool.hatch.version]
+path = ".claude-plugin/plugin.json"
+pattern = '"version":\s*"(?P<version>[^"]+)"'
+
+[tool.hatch.build.targets.sdist]
+# What a wheel is built from, and nothing else: the package, the plugin's files the app reads,
+# the licenses and the build's hook.
+only-include = [
+    "src/lem",
+    "skills",
+    "agents",
+    "hooks",
+    ".claude-plugin/plugin.json",
+    "assets/lem-mark.svg",
+    "assets/lem-mark-night.svg",
+    "LICENSE",
+    "NOTICE",
+    "hatch_build.py",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lem"]
+
+# The plugin's files under lem/data, at the names they have here: paths.ROOT is that folder in
+# an installed app. The sources stay where they are, one copy in git.
+[tool.hatch.build.targets.wheel.force-include]
+"skills" = "lem/data/skills"
+"agents" = "lem/data/agents"
+"hooks" = "lem/data/hooks"
+".claude-plugin/plugin.json" = "lem/data/.claude-plugin/plugin.json"
+"assets/lem-mark.svg" = "lem/data/assets/lem-mark.svg"
+"assets/lem-mark-night.svg" = "lem/data/assets/lem-mark-night.svg"
+
+# hatch_build.py: an editable install takes no copy of the plugin's files, and runs with no
+# bytecode written into the checkout.
+[tool.hatch.build.targets.wheel.hooks.custom]
 
 # ==== ruff ====
 [tool.ruff]
@@ -49,7 +103,6 @@ src = [
 # names that they load, and the picker's old place, which hands over to bin/lem.
 "bin/lem" = "py39"
 "src/lem/python.py" = "py39"
-"src/lem/__main__.py" = "py39"
 "src/lem/names.py" = "py39"
 "skills/lem/scripts/picker.py" = "py39"
 
