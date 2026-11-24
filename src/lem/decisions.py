@@ -895,14 +895,24 @@ def breaker_document(file: Path) -> str:
             f"{file} is not UTF-8 text (byte {error.start} does not read); "
             "write it in UTF-8"
         ) from error
+    # here: the one fence rule of Lem, which only this check of decisions.py needs
+    from lem.criteria import fences
+
+    lines = written.splitlines()
+    # a line inside a code block is a line of its part, never a heading
+    fenced = {n for first, last, *_ in fences(lines) for n in range(first, last + 1)}
     title = next(
-        (line[2:].strip() for line in written.splitlines() if line.startswith("# ")),
+        (
+            line[2:].strip()
+            for number, line in enumerate(lines)
+            if line.startswith("# ") and number not in fenced
+        ),
         "",
     )
     sections: dict[str, list[str]] = {}
     current = None
-    for line in written.splitlines():
-        if line.startswith("## "):
+    for number, line in enumerate(lines):
+        if line.startswith("## ") and number not in fenced:
             head = " ".join(line[3:].lower().split())
             current = next(
                 (part for part in BREAKER_PARTS if head.startswith(part)), None

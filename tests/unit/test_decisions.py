@@ -239,6 +239,32 @@ class TheBreaker(unittest.TestCase):
         ):
             decisions.breaker_document(bare)
 
+    def test_a_part_s_heading_inside_a_code_fence_is_a_line_of_its_part(
+        self,
+    ) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        fenced = Path(folder.name) / "breaker.md"
+        text = self.TEMPLATE.read_text(encoding="utf-8")
+        # the real assumptions are gone, and the root cause shows a sample of a
+        # document that has them
+        sample = "```markdown\n# A sample\n\n## The assumptions\n\n- one\n```\n"
+        fenced.write_text(
+            sample
+            + text.split("## The assumptions")[0].replace(
+                "## The options", f"{sample}\n## The options"
+            ),
+            encoding="utf-8",
+        )
+        with self.assertRaises(decisions.DecisionError) as caught:
+            decisions.breaker_document(fenced)
+        self.assertIn("## The assumptions", str(caught.exception))
+        # the title is the first heading outside a fence
+        fenced.write_text(sample + text, encoding="utf-8")
+        self.assertTrue(
+            decisions.breaker_document(fenced).startswith("WHAT STOPPED THE BUILD")
+        )
+
     def test_his_help_on_a_breaker_is_the_owners(self) -> None:
         with self.assertRaisesRegex(
             decisions.DecisionError, "--breaker and --words are the owner's"

@@ -1451,6 +1451,32 @@ class Handoff(unittest.TestCase):
             self.assertIn(says, str(raised.exception))
             self.assertIn("templates/handoff.md", str(raised.exception))
 
+    def test_a_part_s_heading_inside_a_code_fence_is_a_line_of_its_part(self) -> None:
+        sample = "## Changed files\n- the export, somewhere\n## Failed\n- none"
+        fenced = HANDOFF.replace(
+            "- the criteria, approved (`criteria.json`)\n",
+            "- the criteria, approved (`criteria.json`)\n\n"
+            f"```markdown\n{sample}\n```\n",
+        )
+        # a sample in Settled is no part of its own: the changed files are the two
+        # of the real part
+        self.assertEqual(
+            [each["path"] for each in session.handoff_form(fenced, SLUG)["changed"]],
+            ["docs/plans/2026-11-21-gift-note.md", "src/export.py"],
+        )
+        # and a part that is only in a sample, in a tilde fence too, is missing
+        for mark in ("```", "~~~~"):
+            text = (
+                fenced.replace("## Failed\n\n- none\n\n", "")
+                .replace("```markdown", f"{mark}markdown")
+                .replace("- none\n```\n", f"- none\n{mark}\n")
+            )
+            with (
+                self.subTest(mark=mark),
+                self.assertRaisesRegex(session.SessionError, "## Failed"),
+            ):
+                session.handoff_form(text, SLUG)
+
 
 class Hooks(unittest.TestCase):
     """The hooks as Claude Code starts them, in a throwaway repository: silent with exit

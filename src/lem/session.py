@@ -679,10 +679,15 @@ def handoff_form(text: str, slug: str) -> dict:  # noqa: C901, PLR0912 - over th
             f"its first line says from {found['phase']!r}, "
             f"and a phase is one of {', '.join(PHASES)}"
         )
+    # here: the one fence rule of Lem, which only this check of session.py needs
+    from lem.criteria import fences
+
+    # a line inside a code block is a line of its part, never a heading
+    fenced = {n for first, last, *_ in fences(lines) for n in range(first, last + 1)}
     parts: dict[str, list[str]] = {}
     current = None
-    for line in lines:
-        if line.startswith("## "):
+    for number, line in enumerate(lines):
+        if line.startswith("## ") and number not in fenced:
             title = " ".join(line[3:].lower().split())
             current = title if title in HANDOFF_PARTS else None
             if current is not None:

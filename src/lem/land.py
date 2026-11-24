@@ -3553,11 +3553,13 @@ def outside_words(read: dict, fixed: str) -> str:
 
 def sections_of(text: str) -> tuple[list[str], list[tuple[str, list[str]]]]:
     """A notes file as its lines before the first `## ` heading, and each heading with
-    its lines."""
+    its lines; a line of a code block is never a heading (`fenced_lines`)."""
     head: list[str] = []
     parts: list[tuple[str, list[str]]] = []
-    for line in text.splitlines():
-        if re.fullmatch(r"## \S.*", line.rstrip()):
+    lines = text.splitlines()
+    fenced = fenced_lines(lines)
+    for number, line in enumerate(lines):
+        if number not in fenced and re.fullmatch(r"## \S.*", line.rstrip()):
             parts.append((line.rstrip(), []))
         elif parts:
             parts[-1][1].append(line)
@@ -3997,10 +3999,27 @@ def careful(task: Task, now: dict) -> list[str]:
     return why
 
 
+def fenced_lines(lines: list[str]) -> set[int]:
+    """The numbers of the LINES of a fenced code block, its fences too
+    (`criteria.fences`): a heading or a numbered line there is a line of code, never a
+    section's start or a task."""
+    # here: the one fence rule of Lem, which only the readers of sections need
+    from lem.criteria import fences
+
+    return {n for first, last, *_ in fences(lines) for n in range(first, last + 1)}
+
+
+def unfenced(text: str) -> str:
+    """TEXT with each line of a fenced code block blank (`fenced_lines`)."""
+    lines = text.splitlines()
+    fenced = fenced_lines(lines)
+    return "".join(f"{'' if n in fenced else line}\n" for n, line in enumerate(lines))
+
+
 def tasks_of(plan: str) -> int:
     """How many tasks the plan has: the numbered lines, or numbered headings, under its
-    `## Tasks` heading."""
-    section = re.search(r"(?ms)^##\s+Tasks\b[^\n]*$(.*?)(?=^##\s|\Z)", plan)
+    `## Tasks` heading, outside a code block."""
+    section = re.search(r"(?ms)^##\s+Tasks\b[^\n]*$(.*?)(?=^##\s|\Z)", unfenced(plan))
     count = (
         len(re.findall(r"(?m)^(?:###\s+)?\d+\.\s", section.group(1))) if section else 0
     )
@@ -4092,7 +4111,7 @@ def bar_of(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit wa
     lines of `git diff --name-status -M`, `files` every changed path; `plan` is the
     plan's text, or "" when there is none; `kinds` names the suffix whose marks a file
     with no suffix is read with (`shebang_kinds`)."""
-    section = re.search(r"(?ms)^##\s+The bar\s*$(.*?)(?=^##\s|\Z)", plan)
+    section = re.search(r"(?ms)^##\s+The bar\s*$(.*?)(?=^##\s|\Z)", unfenced(plan))
     reasons = (
         {
             found.group(1).strip(): found.group(2).strip()

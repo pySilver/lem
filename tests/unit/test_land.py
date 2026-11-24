@@ -1171,6 +1171,41 @@ class Bar(unittest.TestCase):
         )
 
 
+class FencedPlan(unittest.TestCase):
+    """A plan's sections, `## Tasks` and `## The bar`, read past a code block whose
+    lines look like a heading or a numbered line: those are lines of code."""
+
+    SAMPLE = "```markdown\n## Notes\n\n1. a line of the sample\n```\n"
+
+    def test_a_heading_inside_a_fence_of_a_task_ends_no_section(self) -> None:
+        plan = (
+            "# gift-note\n\n## Tasks\n\n1. Write the export's column:\n\n"
+            f"{self.SAMPLE}\n2. Test it.\n\n3. Say it in the guide.\n"
+        )
+        self.assertEqual(land.tasks_of(plan), 3)
+
+    def test_a_heading_inside_a_fence_of_the_notes_ends_no_section(self) -> None:
+        notes = f"## Decisions\n\n- the sample:\n\n{self.SAMPLE}\n- the column\n"
+        self.assertEqual(
+            land.section(notes, "## Decisions").split(),
+            ["-", "the", "sample:", *self.SAMPLE.split(), "-", "the", "column"],
+        )
+
+    def test_a_heading_inside_a_fence_of_the_bar_ends_no_section(self) -> None:
+        plan = (
+            "# bar-change\n\n## The bar\n\n- `tests/test_base.py`: the sample:\n\n"
+            f"{self.SAMPLE}\n- calc.py: the import registers a plugin.\n"
+        )
+        result = bar(
+            patch("calc.py", plus=(f"import os  {NOQA}: F401",)),
+            plan=plan,
+        )
+        self.assertEqual(
+            [entry["reason"] for entry in result["lowered"]],
+            ["the import registers a plugin."],
+        )
+
+
 class BarRefusal(unittest.TestCase):
     """`land.bar_refusal`: what the checks say of a bar lowered with no reason, on
     each track."""
