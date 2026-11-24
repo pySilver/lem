@@ -52,7 +52,7 @@ SOURCES = ("session", "board")
 
 
 class CardError(Exception):
-    pass
+    """A card or its record cannot be used."""
 
 
 def task_folder(start: Path, slug: str | None) -> Path | None:
@@ -103,12 +103,20 @@ def questions_of(spec: dict) -> list[dict]:
             else:
                 given = option.get("id") or f"o{index}"
                 options.append({"id": given, "label": option.get("label") or given})
-        mode = question.get("mode") or (
-            "tune" if question.get("controls") else "single" if options else "text"
-        )
+        mode = question.get("mode")
+        if not mode:
+            if question.get("controls"):
+                mode = "tune"
+            elif options:
+                mode = "single"
+            else:
+                mode = "text"
+        question_id = question.get("id")
+        if not question_id:
+            question_id = f"q{number}" if listed else "answer"
         out.append(
             {
-                "id": question.get("id") or (f"q{number}" if listed else "answer"),
+                "id": question_id,
                 "prompt": question.get("prompt") or spec.get("title") or "",
                 "mode": mode,
                 "optional": question.get("optional") is True,
@@ -126,20 +134,20 @@ def fresh_name(path: Path) -> Path:
     )
 
 
-def write_whole(path: Path, data: bytes) -> None:
-    """Write DATA to PATH so that a reader sees the old file or the new one, never
+def write_whole(path: Path, body: bytes) -> None:
+    """Write BODY to PATH so that a reader sees the old file or the new one, never
     a part."""
     fresh = fresh_name(path)
     try:
-        with fresh.open("xb") as file:
-            file.write(data)
+        with fresh.open("xb") as out:
+            out.write(body)
         fresh.replace(path)
     finally:
         fresh.unlink(missing_ok=True)
 
 
-def link_whole(target: Path, data: bytes) -> bool:
-    """Write DATA as TARGET only when no file of that name is there, as `link_mark` in
+def link_whole(target: Path, body: bytes) -> bool:
+    """Write BODY as TARGET only when no file of that name is there, as `link_mark` in
     `project.py` makes a mark: whole under a name unique to its writer (the PID, the
     thread and a random token), then linked to TARGET, which fails when the name is
     there. True when this call made TARGET, False when another writer had. A reader
@@ -148,8 +156,8 @@ def link_whole(target: Path, data: bytes) -> bool:
     target.parent.mkdir(exist_ok=True)
     fresh = fresh_name(target)
     try:
-        with fresh.open("xb") as file:
-            file.write(data)
+        with fresh.open("xb") as out:
+            out.write(body)
         os.link(fresh, target)
     except FileExistsError:
         return False
@@ -172,7 +180,7 @@ def keep(task: Path, page: str, html: bytes, spec: dict, session: str | None) ->
     }
     write_whole(
         card_file(task, page),
-        (json.dumps(card, ensure_ascii=False, indent=1) + "\n").encode("utf-8"),
+        f"{json.dumps(card, ensure_ascii=False, indent=1)}\n".encode(),
     )
     log(task, "card.asked", {"page": page, "prompt": card["questions"][0]["prompt"]})
     return card
@@ -207,18 +215,18 @@ def ended(task: Path, page: str) -> dict | None:
 HALF = re.compile("[\ud800-\udfff]")
 
 
-def whole(value: object) -> object:
-    """VALUE, an answer as JSON reads it, with each half of a UTF-16 pair alone in one
+def whole(answer: object) -> object:
+    """ANSWER, an answer as JSON reads it, with each half of a UTF-16 pair alone in one
     of its strings in the place of U+FFFD, as a browser's UTF-8 encoder writes it
     (WHATWG Encoding, "UTF-8 encode"): every other character of the answer stays, and
     the answer prints and writes as UTF-8."""
-    if isinstance(value, str):
-        return HALF.sub("\ufffd", value)
-    if isinstance(value, list):
-        return [whole(one) for one in value]
-    if isinstance(value, dict):
-        return {whole(key): whole(one) for key, one in value.items()}
-    return value
+    if isinstance(answer, str):
+        return HALF.sub("\ufffd", answer)
+    if isinstance(answer, list):
+        return [whole(one) for one in answer]
+    if isinstance(answer, dict):
+        return {whole(key): whole(one) for key, one in answer.items()}
+    return answer
 
 
 def end(
@@ -235,11 +243,11 @@ def end(
     `closed`; SOURCE is `session` or `board`; MORE are the board's fields (`via`,
     `device`, `agent`). The owner of the end logs `card.answered` or `card.closed`."""
     if status not in STATUSES:
-        raise CardError(f"a card ends as {', '.join(STATUSES)}, not {status!r}")
+        allowed = ", ".join(STATUSES)
+        raise CardError(f"a card ends as {allowed}, not {status!r}")
     if source not in SOURCES:
-        raise CardError(
-            f"a card's end comes from {' or '.join(SOURCES)}, not {source!r}"
-        )
+        allowed = " or ".join(SOURCES)
+        raise CardError(f"a card's end comes from {allowed}, not {source!r}")
     if (status == "answered") != (answer is not None):
         raise CardError(
             "an answered card's end holds the answer, and only an answered one's"
@@ -249,13 +257,13 @@ def end(
         "status": status,
         "from": source,
         "at": lem_clock.stamp(),
-        **({"answer": whole(answer)} if answer is not None else {}),
+        **({} if answer is None else {"answer": whole(answer)}),
         **more,
     }
     target = end_file(task, page)
     if not link_whole(
         target,
-        (json.dumps(record, ensure_ascii=False, indent=1) + "\n").encode("utf-8"),
+        f"{json.dumps(record, ensure_ascii=False, indent=1)}\n".encode(),
     ):
         on_record = ended(task, page)
         if on_record is None:
@@ -266,7 +274,7 @@ def end(
     fields = {
         "page": page,
         "from": source,
-        **({"status": status} if status != "answered" else {}),
+        **({} if status == "answered" else {"status": status}),
         **{key: more[key] for key in ("via", "device") if key in more},
     }
     log(task, "card.answered" if status == "answered" else "card.closed", fields)
