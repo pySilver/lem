@@ -219,8 +219,8 @@ def run(path: str, args: "list[str]") -> None:
 
     In a plugin folder that is not whole, the module ends as on a machine with no
     Python, with nothing printed: when its file is gone or cannot be compiled, and when
-    a module of the package that it imports is gone or cannot be compiled. Whatever
-    else the module raises, its own `sys.exit` too, is its own."""
+    a module of the package that it imports is gone, cannot be read or cannot be
+    compiled. Whatever else the module raises, its own `sys.exit` too, is its own."""
     sys.dont_write_bytecode = True
     sys.argv = [path, *args]
     package = os.path.dirname(path)
@@ -240,6 +240,10 @@ def run(path: str, args: "list[str]") -> None:
             raise
     except SyntaxError as error:
         if os.path.dirname(os.path.abspath(error.filename or "")) != package:
+            raise
+    except OSError as error:
+        # a file of the package that cannot be read (mode 0) is as one that is gone
+        if os.path.dirname(os.path.abspath(str(error.filename or ""))) != package:
             raise
 
 

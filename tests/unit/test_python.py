@@ -182,15 +182,25 @@ class FolderNotWhole(unittest.TestCase):
         newer.parent.mkdir()
         newer.symlink_to(os.path.realpath(sys.executable))
         for name, args, event in self.HOOKS:
-            for gone in (f"{name}.py", "state.py"):
-                with self.subTest(hook=name, gone=gone):
-                    copy = home / f"{name}-{gone}" / "src"
+            # a file that is gone, and state.py that cannot be read (mode 0, the
+            # review of 2026-11-24: its import raised PermissionError)
+            for gone, unreadable in (
+                (f"{name}.py", False),
+                ("state.py", False),
+                ("state.py", True),
+            ):
+                with self.subTest(hook=name, gone=gone, unreadable=unreadable):
+                    copy = home / f"{name}-{gone}-{unreadable}" / "src"
                     shutil.copytree(
                         self.SRC / "lem",
                         copy / "lem",
                         ignore=shutil.ignore_patterns("__pycache__"),
                     )
-                    (copy / "lem" / gone).unlink()
+                    if unreadable:
+                        (copy / "lem" / gone).chmod(0)
+                        self.addCleanup((copy / "lem" / gone).chmod, 0o644)
+                    else:
+                        (copy / "lem" / gone).unlink()
                     ran = subprocess.run(
                         [python, "-B", str(copy / "lem" / "python.py"), name, *args],
                         input=json.dumps({**event, "cwd": str(home)}),
