@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/lem_python.py\" \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/corrections.py\" hook",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" corrections hook",
             "timeout": 10
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/lem_python.py\" \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/serve_hook.py\"",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" serve_hook",
             "timeout": 5
           }
         ]
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/lem_python.py\" \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/session_hook.py\"",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" session_hook",
             "timeout": 5
           }
         ]
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/lem_python.py\" \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/session_hook.py\"",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" session_hook",
             "timeout": 5
           }
         ]

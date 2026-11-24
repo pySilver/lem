@@ -30,26 +30,28 @@ package = false
 # ==== ruff ====
 [tool.ruff]
 # ruff's own format and its line length of 88, with no option of ours.
-# The three Python files with no `.py` in their name.
-extend-include = ["bin/lem", "skills/lem-ask/bin/lem-ask", "tests/clock/date"]
+# The two Python files with no `.py` in their name.
+extend-include = ["bin/lem", "tests/clock/date"]
 # ruff also formats the Python blocks of a Markdown file. The stage files, the plans and the guides
 # keep their text as it was written.
 extend-exclude = ["*.md"]
 
-# Where a script finds its siblings: each folder that a script or a test puts on `sys.path`.
+# Where an import finds Lem's package and the tests' own modules: each folder that the entry,
+# `bin/lem` or a test puts on `sys.path`.
 src = [
-    "skills/lem/scripts",
-    "skills/lem-panel/scripts",
-    "skills/lem-github/scripts",
-    "skills/lem-ask-expert/scripts",
+    "src",
     "tests/unit",
 ]
 
 [tool.ruff.per-file-target-version]
-# The two files that run under whatever `python3` a machine has, the system's 3.9 on a Mac, and
-# find the newer Python for the rest (skills/lem/scripts/lem_python.py).
+# The files that run under whatever `python3` a machine has, the system's 3.9 on a Mac, and
+# find the newer Python for the rest (src/lem/python.py), with the entry and the table of
+# names that they load, and the picker's old place, which hands over to bin/lem.
 "bin/lem" = "py39"
-"skills/lem/scripts/lem_python.py" = "py39"
+"src/lem/python.py" = "py39"
+"src/lem/__main__.py" = "py39"
+"src/lem/names.py" = "py39"
+"skills/lem/scripts/picker.py" = "py39"
 
 [tool.ruff.lint]
 select = [
@@ -104,7 +106,7 @@ select = [
 #   D     the docstrings keep their own voice (AGENTS.md), which is not pydocstyle's
 #   PT    the tests are unittest's, so that they need only Python
 #   T20   a script's output is what it prints
-#   INP   the scripts are files that `lem NAME` runs, not packages
+#   INP   Lem's one package is src/lem; the tests and the tools are files run by their path
 #   EM    with TRY003 below: a refusal's message is written where it is raised
 #   ARG, ERA, FA and the rules of libraries Lem does not use
 ignore = [
@@ -112,11 +114,11 @@ ignore = [
     "TRY003", # a refusal says what is wrong and names the fix, in the `raise` that knows both
     "TRY004", # a refusal is one exception type whatever was wrong with the input
     "TRY301", # a refusal raised inside its own `try` is how a command stops with a message
-    "PLC0415", # a script imports a sibling on the path that needs it, after it put the folder on sys.path
+    "PLC0415", # a module imports another on the path that needs it: to start fast, or because the two need each other
     "S603", # Lem's work is to run git, gh, agtermctl and a project's own checks,
     "S607", # each named in a list of arguments, found on PATH,
     "S606", # and a launcher becomes the script it starts (os.execv)
-    "UP036", # a script's first lines tell an old python3 what Lem needs, so they must stay
+    "UP036", # the entry and bin/lem tell an old python3 what Lem needs, so those lines must stay
     "N818", # an exception is named for what happened (Refusal, NotFound)
 ]
 
@@ -125,13 +127,14 @@ ignore = [
 allowed-confusables = ["’", "–", "×", "›"]
 
 [tool.ruff.lint.per-file-ignores]
-# The two files that every command and every hook starts under any python3: they keep to os.path
+# The files that every command and every hook starts under any python3: they keep to os.path
 # and to what Python 3.9 has.
 "bin/lem" = ["PTH"]
-"skills/lem/scripts/lem_python.py" = ["PTH"]
+"src/lem/python.py" = ["PTH"]
+"src/lem/__main__.py" = ["PTH"]
 # lem-ask shows a path as its caller wrote it, in a page's address and in each message (`./x.json`,
 # a TMPDIR with `//`), and pathlib would rewrite that text.
-"skills/lem-ask/bin/lem-ask" = ["PTH"]
+"src/lem/ask.py" = ["PTH"]
 "tests/**" = [
     "PLR2004", # a test compares with the value it expects
     "FBT003", # and passes it by position
@@ -151,13 +154,10 @@ allowed-confusables = ["’", "–", "×", "›"]
 [tool.pyrefly]
 # The oldest Python a script runs under: a name the standard library got later is an error here.
 python-version = "3.11"
-project-includes = ["**/*.py", "bin/lem", "skills/lem-ask/bin/lem-ask", "tests/clock/date"]
+project-includes = ["**/*.py", "bin/lem", "tests/clock/date"]
 # The same folders as ruff's `src`.
 search-path = [
-    "skills/lem/scripts",
-    "skills/lem-panel/scripts",
-    "skills/lem-github/scripts",
-    "skills/lem-ask-expert/scripts",
+    "src",
     "tests/unit",
 ]
 # `project-excludes` is the one list of what is left out. A task's worktree is under `.lem/` and an

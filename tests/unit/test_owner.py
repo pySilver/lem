@@ -6,7 +6,6 @@ facts of real checkouts, in tests/lem-state.sh.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import os
 import sys
 import tempfile
@@ -14,11 +13,9 @@ import unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-lem_state = importlib.import_module("lem_state")
-project = importlib.import_module("project")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import project  # noqa: E402 - after the line that puts src on sys.path
+from lem import state as lem_state  # noqa: E402 - after the line that puts src on sys.path
 
 SLUG = "report-dates"
 

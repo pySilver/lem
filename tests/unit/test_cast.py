@@ -8,19 +8,17 @@ tests/test-gate-panel.sh checks it in real repositories.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import sys
 import tempfile
+import typing
 import unittest
 from collections.abc import Callable
 from pathlib import Path
 from unittest import mock
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem-panel" / "scripts")
-)
-cast = importlib.import_module("cast")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import cast  # noqa: E402 - after the line that puts src on sys.path
 
 FILE = Path("/lem-unit/repo/.lem/personas/merchant.md")
 BODY = "# A merchant\n\n## Who they are\n\nSells shoes in two shops.\n"
@@ -130,7 +128,10 @@ class Seats(Refuses):
         found = cast.seats_of({}, FILE, everywhere)
         self.assertEqual(found["seats_from"], "default")
         self.assertEqual(
-            [(s["agent"], s["model"], s["name"]) for s in found["seats"]],
+            [
+                (s["agent"], s["model"], s["name"])
+                for s in typing.cast("list[dict]", found["seats"])
+            ],
             [("claude", "opus", "opus"), ("codex", None, "sol")],
         )
         self.assertEqual(seats("# no seats chosen yet"), found)
@@ -145,7 +146,13 @@ class Seats(Refuses):
             [("codex/gpt-6.2-sol:high", False)],
         )
         self.assertEqual(
-            [s["name"] for s in cast.seats_of({}, FILE, no_codex)["left_out"]], ["sol"]
+            [
+                s["name"]
+                for s in typing.cast(
+                    "list[dict]", cast.seats_of({}, FILE, no_codex)["left_out"]
+                )
+            ],
+            ["sol"],
         )
         # a persona of codex seats only has none left on such a machine, and the panel
         # names it
@@ -218,7 +225,10 @@ class Person(unittest.TestCase):
                 (found["path"], found["person"]),
                 (str(path), str(Path(top) / "copy.md")),
             )
-            self.assertEqual([s["seat"] for s in found["seats"]], ["claude/opus:high"])
+            self.assertEqual(
+                [s["seat"] for s in typing.cast("list[dict]", found["seats"])],
+                ["claude/opus:high"],
+            )
 
     def test_a_copy_read_again_takes_the_time_of_the_read(self) -> None:
         """`lem project prune` removes a copy by its last write, so a read writes its

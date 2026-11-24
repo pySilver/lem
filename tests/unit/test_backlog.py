@@ -9,18 +9,16 @@ a review that a later commit asks to run again) stays in tests/lem-land-backlog.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-land = importlib.import_module("land")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import land  # noqa: E402 - after the line that puts src on sys.path
 
 # Two defects of one place and one title, with two different runs.
 D = {
@@ -46,7 +44,7 @@ TASK = SimpleNamespace(
 )
 # the folder as `covers` gives it to `covers_one`: from the task's settings, by the
 # script's own function
-FOLDER = land.backlog_of(TASK)
+FOLDER = land.backlog_of(cast("land.Task", TASK))
 NONE = "0" * 40
 
 
@@ -133,7 +131,10 @@ class Holds(unittest.TestCase):
             item(D, worth="no", reason="The owner: a document always has a root here.")
         )
         self.assertTrue(land.holds(said_no, D))
-        self.assertEqual(land.item_of(said_no)[0]["worth"], "no")
+        self.assertEqual(
+            cast("tuple[dict[str, str], list[str]]", land.item_of(said_no))[0]["worth"],
+            "no",
+        )
 
     def test_an_item_with_no_place_is_no_defect(self) -> None:
         plain = self.file("# An item from before\n")
@@ -268,7 +269,7 @@ class Covers(unittest.TestCase):
         }
         self.assertTrue(
             land.covers(
-                TASK,
+                cast("land.Task", TASK),
                 read,
                 {
                     "patch": "later",
@@ -279,7 +280,9 @@ class Covers(unittest.TestCase):
                 },
             )
         )
-        self.assertFalse(land.covers(TASK, {**read, "carried": []}, {**rebased}))
+        self.assertFalse(
+            land.covers(cast("land.Task", TASK), {**read, "carried": []}, {**rebased})
+        )
 
 
 class TaskItem(unittest.TestCase):

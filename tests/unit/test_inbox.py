@@ -8,7 +8,6 @@ call and answers as the case sets. The server's thread runs in tests/lem-board-a
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import json
 import subprocess
 import sys
@@ -18,19 +17,17 @@ from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 if TYPE_CHECKING:
-    import lem_board_model
+    from lem import board_model as lem_board_model
+    from lem import serve
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-inbox = importlib.import_module("lem_inbox")
-bm = importlib.import_module("lem_board_model")
-land = importlib.import_module("land")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import board_model as bm  # noqa: E402 - after the line that puts src on sys.path
+from lem import inbox, land  # noqa: E402 - after the line that puts src on sys.path
 
 START = datetime(2026, 11, 22, 9, 0, tzinfo=UTC)
 NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
@@ -274,7 +271,7 @@ class InFolder(unittest.TestCase):
             landing_of=lambda slug: self.landings.get(slug, {}),
         )
         return inbox.Watcher(
-            lambda: [space],
+            lambda: [cast("serve.Workspace", space)],
             lambda name, slug: f"https://mac.tail0.ts.net:4537/mac/{name}/tasks/{slug}",
             lambda space, slug: self.woken.append(slug) or wakes,
             runner=self.plannotator,
@@ -1169,7 +1166,7 @@ class ReviewTwo(InFolder):
             [(r["form"], r["asks"]) for r in kept["sent"]], [("note", False)]
         )
         self.m.inbox = kept
-        said = bm.inbox_of(self.m.tasks[0], self.m)
+        said = cast("dict", bm.inbox_of(self.m.tasks[0], self.m))
         self.assertEqual((said["asks"], said["gone"]), (False, True))
 
     def test_the_note_of_a_stop_lem_cannot_read_says_so_and_names_no_fresh_session_that_took_its_place(

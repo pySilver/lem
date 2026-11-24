@@ -7,7 +7,6 @@ servers that pass pages and a stream through run in tests/lem-peers.sh.
 """
 
 import email.message
-import importlib
 import os
 import sys
 import unittest
@@ -15,11 +14,9 @@ from pathlib import Path
 from unittest import mock
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-peers = importlib.import_module("lem_peers")
-pages = importlib.import_module("lem_board_pages")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import board_pages as pages  # noqa: E402 - after the line that puts src on sys.path
+from lem import peers  # noqa: E402 - after the line that puts src on sys.path
 
 SUFFIX = "tail1234.ts.net"
 

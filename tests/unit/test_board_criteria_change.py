@@ -14,7 +14,6 @@ tests/lem-board-keys.sh.
     python3 -B -m unittest tests.unit.test_board_criteria_change
 """
 
-import importlib
 import json
 import subprocess
 import sys
@@ -22,19 +21,22 @@ import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 from unittest import mock
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "skills" / "lem" / "scripts"))
-serve = importlib.import_module("serve")
-bm = importlib.import_module("lem_board_model")
-pages = importlib.import_module("lem_board_pages")
-task_pages = importlib.import_module("lem_board_task")
-lem_answers = importlib.import_module("lem_answers")
-lem_artifacts = importlib.import_module("lem_artifacts")
-lem_release = importlib.import_module("lem_release")
-criteria = importlib.import_module("criteria")
+sys.path.insert(0, str(ROOT / "src"))
+from lem import answers as lem_answers  # noqa: E402 - after the line that puts src on sys.path
+from lem import artifacts as lem_artifacts  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_model as bm  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_pages as pages  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_task as task_pages  # noqa: E402 - after the line that puts src on sys.path
+from lem import criteria, serve  # noqa: E402 - after the line that puts src on sys.path
+from lem import release as lem_release  # noqa: E402 - after the line that puts src on sys.path
 
 SLUG = "invoice-export-empty-cells"
 START = datetime(2026, 11, 23, 15, 0, tzinfo=UTC)
@@ -156,7 +158,7 @@ class Folder(unittest.TestCase):
             self.folder / "criteria.md",
         )
         task.read_mode = lambda: task.mode
-        task.log = self.append
+        task.log = cast("Callable[..., None]", self.append)
         return task
 
     def waiting(
@@ -215,7 +217,7 @@ class Folder(unittest.TestCase):
         return serve.act_answer(self.space, SLUG, form, dict(PHONE))
 
     def key(self) -> str:
-        return bm.answer_row(self.t())["key"]
+        return cast("dict", bm.answer_row(self.t()))["key"]
 
 
 class TheRow(Folder):
@@ -227,7 +229,7 @@ class TheRow(Folder):
         self,
     ) -> None:
         block = self.waiting()
-        row = bm.answer_row(self.t())
+        row = cast("dict", bm.answer_row(self.t()))
         self.assertEqual(
             (
                 row["kind"],
@@ -258,7 +260,9 @@ class TheRow(Folder):
             (t.text, t.need, t.turn, t.reading),
             (criteria.CHANGED_WAIT, {"need": "criteria", "number": None}, "asks", None),
         )
-        self.assertEqual(bm.answer_row(t)["question"], "Approve the criteria?")
+        self.assertEqual(
+            cast("dict", bm.answer_row(t))["question"], "Approve the criteria?"
+        )
         self.assertEqual(bm.acts_of(t, None), ["approve"])
         self.assertEqual(bm.CHANGED_CRITERIA, criteria.CHANGED_WAIT)
         self.assertEqual(bm.CRITERIA_BEFORE, criteria.BEFORE)
@@ -282,7 +286,9 @@ class TheRow(Folder):
             split=False,
             digest="x",
         )
-        self.assertEqual(bm.answer_row(self.t())["question"], "Approve the criteria?")
+        self.assertEqual(
+            cast("dict", bm.answer_row(self.t()))["question"], "Approve the criteria?"
+        )
 
     def test_the_fast_track_keeps_approve_this_criterion(self) -> None:
         self.waiting(
@@ -292,7 +298,7 @@ class TheRow(Folder):
             ),
             block=bm.FAST_CRITERION,
         )
-        row = bm.answer_row(self.t())
+        row = cast("dict", bm.answer_row(self.t()))
         self.assertEqual(
             (row["question"], row["note"]),
             (
@@ -311,7 +317,7 @@ class TheCard(Folder):
     ) -> None:
         self.waiting()
         html = self.card()
-        digest = self.space.criteria_waiting(SLUG)["digest"]
+        digest = cast("dict", self.space.criteria_waiting(SLUG))["digest"]
         for part in (
             f'action="/h/w/tasks/{SLUG}/answer"',
             f'name="key" value="{self.key()}"',
@@ -340,7 +346,7 @@ class TheCard(Folder):
     ) -> None:
         self.waiting()
         self.changed()
-        waiting = self.space.criteria_waiting(SLUG)
+        waiting = cast("dict", self.space.criteria_waiting(SLUG))
         self.assertEqual(
             (waiting["before"], waiting["words"], waiting["text"]),
             (CRITERIA, NOTE, CHANGED),
@@ -412,7 +418,10 @@ class HisNo(Folder):
         self,
     ) -> None:
         block = self.waiting()
-        key, digest = self.key(), self.space.criteria_waiting(SLUG)["digest"]
+        key, digest = (
+            self.key(),
+            cast("dict", self.space.criteria_waiting(SLUG))["digest"],
+        )
         done = self.answer(
             {"key": key, "option": "no", "digest": digest, "words": f"  {NOTE} "}
         )
@@ -426,7 +435,7 @@ class HisNo(Folder):
                 ),
             },
         )
-        made = lem_answers.on_record(self.folder, key)
+        made = cast("dict", lem_answers.on_record(self.folder, key))
         self.assertEqual(
             {
                 k: made[k]
@@ -476,7 +485,10 @@ class HisNo(Folder):
 
     def test_criterion_3_a_no_with_no_note_is_refused_and_nothing_changes(self) -> None:
         self.waiting()
-        key, digest = self.key(), self.space.criteria_waiting(SLUG)["digest"]
+        key, digest = (
+            self.key(),
+            cast("dict", self.space.criteria_waiting(SLUG))["digest"],
+        )
         log = (self.state / "events.jsonl").read_text()
         said = self.answer(
             {"key": key, "option": "no", "digest": digest, "words": "   "}
@@ -518,7 +530,10 @@ class HisNo(Folder):
     ) -> None:
         self.waiting()
         self.changed()
-        key, digest = self.key(), self.space.criteria_waiting(SLUG)["digest"]
+        key, digest = (
+            self.key(),
+            cast("dict", self.space.criteria_waiting(SLUG))["digest"],
+        )
         done = self.answer({"key": key, "option": "yes", "digest": digest})
         self.assertTrue(done["ok"], done)
         self.assertIn(
@@ -535,15 +550,18 @@ class HisNo(Folder):
         )
         self.assertEqual(
             (
-                lem_answers.on_record(self.folder, key)["option"],
-                lem_answers.on_record(self.folder, key)["question"],
+                cast("dict", lem_answers.on_record(self.folder, key))["option"],
+                cast("dict", lem_answers.on_record(self.folder, key))["question"],
             ),
             ("yes", "Approve the criteria?"),
         )
 
     def test_criterion_6_a_yes_to_the_text_before_the_change_is_refused(self) -> None:
         self.waiting()
-        old_key, old_digest = self.key(), self.space.criteria_waiting(SLUG)["digest"]
+        old_key, old_digest = (
+            self.key(),
+            cast("dict", self.space.criteria_waiting(SLUG))["digest"],
+        )
         self.changed()
         said = self.answer({"key": old_key, "option": "yes", "digest": old_digest})
         self.assertFalse(said["ok"])
@@ -554,7 +572,10 @@ class HisNo(Folder):
         self,
     ) -> None:
         self.waiting()
-        key, digest = self.key(), self.space.criteria_waiting(SLUG)["digest"]
+        key, digest = (
+            self.key(),
+            cast("dict", self.space.criteria_waiting(SLUG))["digest"],
+        )
         criteria.cmd_typed(self.task(), NOTE)
         said = self.answer({"key": key, "option": "yes", "digest": digest})
         self.assertRegex(
@@ -574,7 +595,7 @@ class AStopInTheMiddle(Folder):
 
     def test_no_yes_while_a_change_stopped_in_the_middle(self) -> None:
         self.waiting()
-        digest_before = self.space.criteria_waiting(SLUG)["digest"]
+        digest_before = cast("dict", self.space.criteria_waiting(SLUG))["digest"]
         self.stop_state = True
         with self.assertRaises(KeyboardInterrupt):
             self.changed()
@@ -586,7 +607,7 @@ class AStopInTheMiddle(Folder):
         said = serve.act_approve(
             self.space,
             SLUG,
-            {"digest": self.space.criteria_waiting(SLUG)["digest"]},
+            {"digest": cast("dict", self.space.criteria_waiting(SLUG))["digest"]},
             bm.VIA["local"],
             heard=PHONE,
         )
@@ -602,7 +623,7 @@ class AStopInTheMiddle(Folder):
         )
         self.assertNotEqual(
             digest_before,
-            self.space.criteria_waiting(SLUG)["digest"],
+            cast("dict", self.space.criteria_waiting(SLUG))["digest"],
             "criteria.md moved before the stop",
         )
         self.assertIn(
@@ -712,7 +733,7 @@ class TheNewestAnswerOfABlock(unittest.TestCase):
                     "",
                     **PHONE,
                 )
-            skip = lem_answers.answer_of_block(folder, SLUG, block)
+            skip = cast("dict", lem_answers.answer_of_block(folder, SLUG, block))
             self.assertEqual(skip["kind"], "skip")
             # after the read his No to the criteria: the newest is the criteria's
             with mock.patch.object(

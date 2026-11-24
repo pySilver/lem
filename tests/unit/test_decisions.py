@@ -4,18 +4,16 @@ breaker's two causes and the parts its document must have. The breaker's journey
 its stop to a resumed task, is in tests/lem-decisions.sh."""
 
 import argparse
-import importlib
 import sys
 import tempfile
 import unittest
 from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-decisions = importlib.import_module("decisions")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import decisions  # noqa: E402 - after the line that puts src on sys.path
 
 CASE = {
     "case": "1. Order 1042 has two notes.\n2. The export keeps one.",
@@ -65,7 +63,9 @@ def logged(**given: object) -> dict:
         "words": None,
         **given,
     }
-    return decisions.cmd_log(Record(), argparse.Namespace(**args))
+    return decisions.cmd_log(
+        cast("decisions.Task", Record()), argparse.Namespace(**args)
+    )
 
 
 class TheStory(unittest.TestCase):
@@ -176,7 +176,7 @@ class TheBreaker(unittest.TestCase):
             decisions.DecisionError, "--cause irreversible names its kind"
         ):
             decisions.cmd_breaker(
-                task,
+                cast("decisions.Task", task),
                 argparse.Namespace(
                     **vars(stub), cause="irreversible", irreversible=None
                 ),
@@ -185,7 +185,7 @@ class TheBreaker(unittest.TestCase):
             decisions.DecisionError, "--irreversible goes with --cause irreversible"
         ):
             decisions.cmd_breaker(
-                task,
+                cast("decisions.Task", task),
                 argparse.Namespace(**vars(stub), cause="criteria", irreversible="data"),
             )
         task.status = "landing"
@@ -193,7 +193,7 @@ class TheBreaker(unittest.TestCase):
             decisions.DecisionError, "no breaker stops a landing"
         ):
             decisions.cmd_breaker(
-                task,
+                cast("decisions.Task", task),
                 argparse.Namespace(**vars(stub), cause="criteria", irreversible=None),
             )
         # an overrun is no cause: the parser takes the two causes only

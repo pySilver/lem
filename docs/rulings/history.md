@@ -193,35 +193,35 @@ bullet.
 - **The push and the pull request of `propose` need no question.** `skills/lem/stages/land.md` (step
   6, `propose`). (decided 2026-11-17)
 - **The board's server runs the merge agent's merge, and the agent only writes its review.**
-  `skills/lem/scripts/serve.py` (its module docstring, the duty `merge_due`). (decided 2026-11-21)
+  `src/lem/serve.py` (its module docstring, the duty `merge_due`). (decided 2026-11-21)
 - **The status knows what merged, and changes only what already happened.**
   `skills/lem/stages/status.md` (its opening: what merged on GitHub is the board's server's, and the
   status only reads). (decided 2026-11-17)
 - **Nobody else's word is his.** `skills/lem/stages/land.md` (step 8, "The merge", `--by owner`).
   (decided 2026-11-18)
 - **The first line of a task is composed by `lem project state`, and its session says it as it is.**
-  `skills/lem/scripts/project.py` (`opening_line`); `skills/lem/prompts/session.md` ("What comes
+  `src/lem/project.py` (`opening_line`); `skills/lem/prompts/session.md` ("What comes
   next"). (decided 2026-11-21)
 - **The trials of 2026-11-21: a task's session says its first line first, and the onboarding
   writes no allow rules and commits the plugin's file.** `skills/lem/prompts/session.md` ("What
   comes next");
   `skills/lem/stages/init.md` (steps 4 and 6). (decided 2026-11-21)
 - **A board of example tasks says so on the page, and a line that waits for him says where he
-  answers.** `skills/lem/scripts/lem_board_pages.py` (the demo notice, and `wait_row`). (2026-11-14)
+  answers.** `src/lem/board_pages.py` (the demo notice, and `wait_row`). (2026-11-14)
 - **The time card gets exact start times.** `skills/lem/SKILL.md` ("Where a task keeps its state", a
-  stage's start is an event); `STARTS` in `skills/lem/scripts/project.py`. (2026-11-17)
+  stage's start is an event); `STARTS` in `src/lem/project.py`. (2026-11-17)
 - **What waits for the owner is one list, with a decision for each item.** `skills/lem/SKILL.md`
   ("Subcommands", the row bare `/lem`, `status`); `skills/lem/stages/status.md`. (2026-11-17)
-- **A chord opens a list of the tasks.** `skills/lem/scripts/picker.py` (its module docstring).
+- **A chord opens a list of the tasks.** `src/lem/picker.py` (its module docstring).
   (2026-11-18)
-- **A page to read opens as a companion.** `skills/lem/scripts/board.py` (its module docstring).
+- **A page to read opens as a companion.** `src/lem/board.py` (its module docstring).
   (2026-11-18)
-- **No stale pull request, and a folded header on a phone.** `skills/lem/scripts/serve.py` (its
-  module docstring, the look at the forge); `skills/lem/scripts/lem_board_task.py` (`head`).
+- **No stale pull request, and a folded header on a phone.** `src/lem/serve.py` (its
+  module docstring, the look at the forge); `src/lem/board_task.py` (`head`).
   (2026-11-20)
-- **A task's artifacts have one map.** `skills/lem/scripts/lem_artifacts.py` (its module docstring).
+- **A task's artifacts have one map.** `src/lem/artifacts.py` (its module docstring).
   (2026-11-20)
-- **The board is served, and the server draws it.** `skills/lem/scripts/serve.py` (its module
+- **The board is served, and the server draws it.** `src/lem/serve.py` (its module
   docstring); `skills/lem/SKILL.md` ("The board"). (decided 2026-11-20)
 - **A check of the tracker is no command of the owner's.** `skills/lem-linear/SKILL.md` ("check").
   (2026-11-14)

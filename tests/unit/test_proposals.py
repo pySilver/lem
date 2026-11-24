@@ -8,7 +8,6 @@ the items is tests/lem-state.sh's.
 """
 
 import contextlib
-import importlib
 import io
 import json
 import sys
@@ -19,10 +18,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-project = importlib.import_module("project")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import project  # noqa: E402 - after the line that puts src on sys.path
 
 MORNING = datetime(2026, 11, 23, 6, 55, tzinfo=UTC)
 TEN = datetime(2026, 11, 23, 10, 0, tzinfo=UTC)

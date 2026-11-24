@@ -7,7 +7,6 @@ group that is gone ends the stop.
 """
 
 import contextlib
-import importlib
 import os
 import signal
 import subprocess
@@ -18,10 +17,8 @@ import unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-lem_proc = importlib.import_module("lem_proc")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import proc as lem_proc  # noqa: E402 - after the line that puts src on sys.path
 
 # A leader that says a term and ends at once, and a process it leaves in its group,
 # which says a term and ends WAIT seconds later, or ignores it when WAIT is "never".

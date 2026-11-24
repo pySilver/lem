@@ -11,7 +11,6 @@ shows: tests/lem-settings.sh runs one journey for each.
 """
 
 import contextlib
-import importlib
 import io
 import os
 import subprocess
@@ -20,12 +19,11 @@ import tempfile
 import unittest
 from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-project = importlib.import_module("project")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import project  # noqa: E402 - after the line that puts src on sys.path
 
 
 class Refuses(unittest.TestCase):
@@ -60,7 +58,10 @@ class TypeLine(Refuses):
         )
         for kind in project.TYPES:
             self.assertEqual(
-                project.type_line(f"type: {kind}, because a reason")["type"], kind
+                cast("dict", project.type_line(f"type: {kind}, because a reason"))[
+                    "type"
+                ],
+                kind,
             )
 
     def test_a_type_that_is_none_of_the_eight_names_them(self) -> None:
@@ -993,7 +994,8 @@ class SeatCommands(Refuses):
             ["codex/gpt-6.2-sol:high"],
         )
         # "Waits for you" shows it, with its first line
-        bm = importlib.import_module("lem_board_model")
+        from lem import board_model as bm
+
         model, _ = project.waiting_model(root, project.load(root))
         rows = bm.waits_of(model)
         self.assertEqual(

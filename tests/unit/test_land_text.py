@@ -9,7 +9,6 @@ of tests/ keep one real proposal of each family, which reads the real `pr.md`, s
 the writer and the reader still meet.
 """
 
-import importlib
 import json
 import sys
 import tempfile
@@ -19,12 +18,8 @@ from pathlib import Path
 from typing import Any, cast
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-land = importlib.import_module("land")
-decisions = importlib.import_module("decisions")
-criteria = importlib.import_module("criteria")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import criteria, decisions, land  # noqa: E402 - after the line that puts src on sys.path
 
 AT = "2026-11-18T10:00:00Z"
 LATER = "2026-11-18T11:00:00Z"
@@ -471,7 +466,7 @@ class TheBreaker(Proposal):
                 "after decision 2 (The one-line rule), the owner's help on breaker 1, "
                 'which took "no such rule"'
             ),
-            land.change_line(task, task.criteria["history"][0]),
+            land.change_line(task, cast("dict", task.criteria)["history"][0]),
         )
 
 
@@ -496,7 +491,7 @@ class CriteriaThatChanged(Proposal):
         self.assertTrue(
             reason.startswith("criterion 1 changed during the build: y is taken")
         )
-        line = land.change_line(task, task.criteria["history"][0])
+        line = land.change_line(task, cast("dict", task.criteria)["history"][0])
         self.assertIn(
             (
                 'was "The file holds the word y.", now "The file holds the '
@@ -556,7 +551,9 @@ class CriteriaThatChanged(Proposal):
             )
         )
         self.assertTrue(
-            land.change_line(task, task.criteria["history"][1]).endswith("By the lead.")
+            land.change_line(task, cast("dict", task.criteria)["history"][1]).endswith(
+                "By the lead."
+            )
         )
 
     def test_a_change_his_later_approval_took_over_is_his(self) -> None:
@@ -580,7 +577,7 @@ class CriteriaThatChanged(Proposal):
         )
         self.assertEqual(land.not_green(task, self.state()), [])
         self.assertTrue(
-            land.change_line(task, task.criteria["history"][0]).endswith(
+            land.change_line(task, cast("dict", task.criteria)["history"][0]).endswith(
                 "Approved by the owner afterwards (approval 2)."
             )
         )
@@ -632,7 +629,9 @@ class TheRead(Proposal):
             "no answer from the buyer, opus (the model was at capacity)", line
         )
         said = land.read_line(
-            land.criteria_read_of(task), task.criteria, land.unanswered(task)
+            land.criteria_read_of(task),
+            cast("dict", task.criteria),
+            land.unanswered(task),
         )
         self.assertIn(
             "2 reads in a row, and none of the 2 personas asked answered", said

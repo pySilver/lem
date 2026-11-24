@@ -9,7 +9,6 @@ tests/lem-serve.sh, with a server.
 """
 
 import email.message
-import importlib
 import json
 import subprocess
 import sys
@@ -21,11 +20,9 @@ from typing import IO, cast
 from unittest import mock
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-serve = importlib.import_module("serve")
-bm = importlib.import_module("lem_board_model")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import board_model as bm  # noqa: E402 - after the line that puts src on sys.path
+from lem import serve  # noqa: E402 - after the line that puts src on sys.path
 
 OWNER = "owner@example.com"
 SERVED = "mac-mini.tail1234.ts.net"
@@ -272,7 +269,9 @@ class Reads(unittest.TestCase):
             headers(),
             headers(("Host", "127.0.0.1:4536"), ("Host", "evil.example.com")),
         ):
-            self.assertIn("not the board's own", serve.host_refusal(given, 4536))
+            self.assertIn(
+                "not the board's own", cast("str", serve.host_refusal(given, 4536))
+            )
         self.assertIsNone(
             serve.host_refusal(headers(Host="10.0.0.5:4536"), 4536, "10.0.0.5")
         )
@@ -294,7 +293,8 @@ class Notes(unittest.TestCase):
         )
         notes.change(first, state="done", said="merged")
         self.assertEqual(
-            (notes.get(first)["state"], notes.get("no-such-token")), ("done", None)
+            (cast("dict", notes.get(first))["state"], notes.get("no-such-token")),
+            ("done", None),
         )
 
 
@@ -892,13 +892,16 @@ class Duties(unittest.TestCase):
                 **{"from": "lem"},
             ),
         )
-        note = serve.NOTES.get(
-            serve.act_merge(
-                Space(self.model(*base)),
-                "gift-note",
-                {"confirm": "yes", "tip": "abc123456"},
-                "board",
-            )
+        note = cast(
+            "dict",
+            serve.NOTES.get(
+                serve.act_merge(
+                    cast("serve.Workspace", Space(self.model(*base))),
+                    "gift-note",
+                    {"confirm": "yes", "tip": "abc123456"},
+                    "board",
+                )
+            ),
         )
         self.assertEqual(note["state"], "refused")
         self.assertIn("Lem lands it again", note["said"])
@@ -1002,8 +1005,17 @@ class Duties(unittest.TestCase):
             mock.patch.object(serve, "merge_apart", refused),
             mock.patch.object(serve.threading, "Thread", Now),
         ):
-            note = serve.NOTES.get(
-                serve.merge_in_thread(Space(), "gift-note", landing, "owner", tip)
+            note = cast(
+                "dict",
+                serve.NOTES.get(
+                    serve.merge_in_thread(
+                        cast("serve.Workspace", Space()),
+                        "gift-note",
+                        landing,
+                        "owner",
+                        tip,
+                    )
+                ),
             )
         self.assertNotEqual(note["state"], "refused", note["said"])
         self.assertIn("stands", note["said"])
@@ -1096,10 +1108,18 @@ class Duties(unittest.TestCase):
             mock.patch.object(serve, "merge_apart", refused),
             mock.patch.object(serve.threading, "Thread", Now),
         ):
-            note = serve.NOTES.get(
-                serve.merge_in_thread(
-                    Space(), "gift-note", landing, "owner", tip, standing=True
-                )
+            note = cast(
+                "dict",
+                serve.NOTES.get(
+                    serve.merge_in_thread(
+                        cast("serve.Workspace", Space()),
+                        "gift-note",
+                        landing,
+                        "owner",
+                        tip,
+                        standing=True,
+                    )
+                ),
             )
         self.assertEqual(len(ran), 1)
         self.assertIn("--standing", ran[0])
@@ -1171,7 +1191,7 @@ class Duties(unittest.TestCase):
         ):
             note = serve.NOTES.get(
                 serve.merge_in_thread(
-                    Space(),
+                    cast("serve.Workspace", Space()),
                     "gift-note",
                     landing,
                     "owner",
@@ -1181,7 +1201,7 @@ class Duties(unittest.TestCase):
                 )
             )
         self.assertEqual((len(ran), failed), (1, [True]))
-        return note
+        return cast("dict", note)
 
     def test_his_standing_merge_whose_step_lock_is_held_is_refused_with_land_s_line(
         self,
@@ -1264,10 +1284,16 @@ class Duties(unittest.TestCase):
                 serve.threading, "Thread", lambda *a, **k: threads.append(k)
             ),
         ):
-            note = serve.NOTES.get(
-                serve.act_merge(
-                    space, "gift-note", {"confirm": "yes", "tip": tip}, "local"
-                )
+            note = cast(
+                "dict",
+                serve.NOTES.get(
+                    serve.act_merge(
+                        cast("serve.Workspace", space),
+                        "gift-note",
+                        {"confirm": "yes", "tip": tip},
+                        "local",
+                    )
+                ),
             )
             self.assertEqual(
                 (note["state"], note["said"]),
@@ -1285,7 +1311,10 @@ class Duties(unittest.TestCase):
             serve.NOTES.merging[("shop", "gift-note")] = "t0k3n"
             self.assertEqual(
                 serve.act_merge(
-                    space, "gift-note", {"confirm": "yes", "tip": tip}, "local"
+                    cast("serve.Workspace", space),
+                    "gift-note",
+                    {"confirm": "yes", "tip": tip},
+                    "local",
                 ),
                 "t0k3n",
             )
@@ -1296,13 +1325,16 @@ class Duties(unittest.TestCase):
             conflicting.seen = {
                 "gift-note": {"mergeable": "CONFLICTING", "head": tip[:12]}
             }
-            note = serve.NOTES.get(
-                serve.act_merge(
-                    self.space(conflicting, landing),
-                    "gift-note",
-                    {"confirm": "yes", "tip": tip},
-                    "local",
-                )
+            note = cast(
+                "dict",
+                serve.NOTES.get(
+                    serve.act_merge(
+                        cast("serve.Workspace", self.space(conflicting, landing)),
+                        "gift-note",
+                        {"confirm": "yes", "tip": tip},
+                        "local",
+                    )
+                ),
             )
             self.assertEqual(note["state"], "refused")
             self.assertIn("conflicting", note["said"])
@@ -1336,14 +1368,20 @@ class Duties(unittest.TestCase):
             mock.patch.object(serve, "merge_apart", lambda *args: ran.append(args)),
             mock.patch.object(serve.threading, "Thread", Now),
         ):
-            note = serve.NOTES.get(
-                serve.merge_in_thread(
-                    self.space(self.model(*self.standing(tip)), landing),
-                    "gift-note",
-                    landing,
-                    "owner",
-                    tip,
-                )
+            note = cast(
+                "dict",
+                serve.NOTES.get(
+                    serve.merge_in_thread(
+                        cast(
+                            "serve.Workspace",
+                            self.space(self.model(*self.standing(tip)), landing),
+                        ),
+                        "gift-note",
+                        landing,
+                        "owner",
+                        tip,
+                    )
+                ),
             )
         self.assertEqual(ran, [])
         self.assertEqual(
@@ -2140,7 +2178,9 @@ class StoppedOpen(unittest.TestCase):
             mock.patch.object(serve, "session_run", ran),
             mock.patch.object(serve, "asked_from", logged),
         ):
-            said = serve.act_session(space, "gift-note", {}, "board")
+            said = serve.act_session(
+                cast("serve.Workspace", space), "gift-note", {}, "board"
+            )
         return said, asked, logged.call_args_list
 
     def test_the_button_opens_beside_the_stopped_session(self) -> None:
@@ -2313,10 +2353,10 @@ class DutyKey(unittest.TestCase):
             ),
             mock.patch.object(serve.time, "monotonic", lambda: 1000.0),
         ):
-            serve.run_duties(w, now=1000.0)
+            serve.run_duties(cast("serve.Workspace", w), now=1000.0)
             # the merge on m2 failed for the read of m2: the next look waits DUTY_RETRY
             # for that read
-            serve.run_duties(w, now=1010.0)
+            serve.run_duties(cast("serve.Workspace", w), now=1010.0)
             self.assertEqual(started, ["merger"])
             # a new read of the moved base said safe: its merge runs at the server's
             # next look
@@ -2325,7 +2365,7 @@ class DutyKey(unittest.TestCase):
                 **landing["merge_review"],
                 "at": "2026-11-22T10:04:00Z",
             }
-            serve.run_duties(w, now=1020.0)
+            serve.run_duties(cast("serve.Workspace", w), now=1020.0)
         self.assertEqual(started, ["merger", "merger"])
 
 
@@ -2372,7 +2412,7 @@ class ForgeLookBesideAMerge(unittest.TestCase):
         )
         ran = []
 
-        def run(path: Path, repo: Path, *args: str) -> subprocess.CompletedProcess:
+        def run(name: str, repo: Path, *args: str) -> subprocess.CompletedProcess:
             ran.append(args)
             return subprocess.CompletedProcess(
                 [],
@@ -2386,12 +2426,12 @@ class ForgeLookBesideAMerge(unittest.TestCase):
             mock.patch.object(serve, "open_prs", lambda model: prs),
             mock.patch.object(serve, "has_forge", lambda w, m: True),
             mock.patch.object(serve.shutil, "which", lambda name: "/lem-unit/bin/gh"),
-            mock.patch.object(serve.lem_sibling, "module", lambda path: land),
+            mock.patch("lem.land", land, create=True),
             mock.patch.object(serve.lem_sibling, "run", run),
             mock.patch.object(serve, "keep_forge_look", lambda *a: None),
             mock.patch.dict(serve.NOTES.merging, {("shop", "gift-note"): "token"}),
         ):
-            looked = serve.forge_once(place, now=1000)
+            looked = serve.forge_once(cast("serve.Workspace", place), now=1000)
         self.assertEqual(
             ran, [("merged", "tax-line")], "no `merged` for gift-note, whose merge runs"
         )
@@ -2433,7 +2473,7 @@ class ForgeLookBesideAMerge(unittest.TestCase):
         )
         ran = []
 
-        def run(path: Path, repo: Path, *args: str) -> subprocess.CompletedProcess:
+        def run(name: str, repo: Path, *args: str) -> subprocess.CompletedProcess:
             ran.append(args)
             return subprocess.CompletedProcess(
                 [],
@@ -2450,12 +2490,12 @@ class ForgeLookBesideAMerge(unittest.TestCase):
             mock.patch.object(serve, "open_prs", lambda model: prs),
             mock.patch.object(serve, "has_forge", lambda w, m: True),
             mock.patch.object(serve.shutil, "which", lambda name: "/lem-unit/bin/gh"),
-            mock.patch.object(serve.lem_sibling, "module", lambda path: land),
+            mock.patch("lem.land", land, create=True),
             mock.patch.object(serve.lem_sibling, "run", run),
             mock.patch.object(serve, "keep_forge_look", lambda *a: None),
             mock.patch.dict(serve.NOTES.merging, {("shop", "gift-note"): "token"}),
         ):
-            looked = serve.forge_once(place, now=1000)
+            looked = serve.forge_once(cast("serve.Workspace", place), now=1000)
         self.assertEqual(
             ran, [], "no `merged` for gift-note, whose merge ran when the look began"
         )
@@ -2503,12 +2543,25 @@ class Prune(unittest.TestCase):
 
         place = self.Place()
         with mock.patch.object(serve, "lem_run", run):
-            first = serve.prune_once(place, now=1000.0)
-            self.assertIsNone(
-                serve.prune_once(place, now=1000.0 + serve.PRUNE_SECONDS - 1)
+            first = cast(
+                "dict", serve.prune_once(cast("serve.Workspace", place), now=1000.0)
             )
-            again = serve.prune_once(place, now=1000.0 + serve.PRUNE_SECONDS)
-            self.assertIsNone(serve.prune_once(self.Place(demo=True), now=1000.0))
+            self.assertIsNone(
+                serve.prune_once(
+                    cast("serve.Workspace", place), now=1000.0 + serve.PRUNE_SECONDS - 1
+                )
+            )
+            again = cast(
+                "dict",
+                serve.prune_once(
+                    cast("serve.Workspace", place), now=1000.0 + serve.PRUNE_SECONDS
+                ),
+            )
+            self.assertIsNone(
+                serve.prune_once(
+                    cast("serve.Workspace", self.Place(demo=True)), now=1000.0
+                )
+            )
         self.assertEqual(ran, [("project.py", "prune"), ("project.py", "prune")])
         self.assertEqual(
             (first["exit"], first["said"], first["files"], again["bytes"]),
@@ -2559,7 +2612,10 @@ class Prune(unittest.TestCase):
         with mock.patch.object(
             serve, "lem_run", return_value=subprocess.CompletedProcess([], 0, said, "")
         ):
-            ran = serve.prune_once(self.Place(), now=1000.0)
+            ran = cast(
+                "dict",
+                serve.prune_once(cast("serve.Workspace", self.Place()), now=1000.0),
+            )
         self.assertEqual((ran["files"], ran["bytes"], ran["events"]), (1, 0, 0))
         self.assertEqual(
             serve.prune_line("shop", ran),
@@ -2593,9 +2649,9 @@ class Prune(unittest.TestCase):
         with mock.patch.object(
             serve, "lem_run", return_value=subprocess.CompletedProcess([], 0, said, "")
         ):
-            ran = serve.prune_once(self.Place(), now=1000.0)
+            ran = serve.prune_once(cast("serve.Workspace", self.Place()), now=1000.0)
         self.assertEqual(
-            serve.prune_line("shop", ran),
+            serve.prune_line("shop", cast("dict", ran)),
             (
                 "serve.py: shop: `lem project prune` exited 0: removed 0 files, "
                 "replaced the 60 events of 1 such tasks\n"
@@ -2672,8 +2728,10 @@ class WorkingSession(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as folder:
             space = serve.Workspace("shop", folder)
-            kept = bm.derive(list(self.EVENTS), [], bm.at("2026-11-23T11:43:00Z"))
-            space.reader.current = lambda board: kept
+            kept = bm.derive(
+                list(self.EVENTS), [], cast("int", bm.at("2026-11-23T11:43:00Z"))
+            )
+            space.reader.current = lambda board, now=None: kept
             space.settings = lambda: {"root": folder}
 
             def look(turn: str) -> list:

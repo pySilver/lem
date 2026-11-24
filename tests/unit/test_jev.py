@@ -6,17 +6,14 @@ through OpenRouter gave on 2026-11-23 (`{"type": "noul", "noul": 0.98}` for a no
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import json
 import sys
 import unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-jev = importlib.import_module("jev")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import jev  # noqa: E402 - after the line that puts src on sys.path
 
 CHOICE = {
     "type": "choice",

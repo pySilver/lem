@@ -5,7 +5,6 @@ output of a run that went well and None for every other.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import subprocess
 import sys
 import tempfile
@@ -13,10 +12,8 @@ import unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-lem_state = importlib.import_module("lem_state")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import state as lem_state  # noqa: E402 - after the line that puts src on sys.path
 
 # the name git gives an empty file
 EMPTY_BLOB = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"

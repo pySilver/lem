@@ -7,7 +7,6 @@ whole file. The routes run in tests/lem-serve.sh.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import json
 import os
 import subprocess
@@ -16,18 +15,16 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 if TYPE_CHECKING:
-    import lem_board_model
+    from lem import board_model as lem_board_model
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-push = importlib.import_module("lem_push")
-bm = importlib.import_module("lem_board_model")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import board_model as bm  # noqa: E402 - after the line that puts src on sys.path
+from lem import push  # noqa: E402 - after the line that puts src on sys.path
 
 HAS_OPENSSL = any(os.access(place, os.X_OK) for place in push.OPENSSL_PLACES)
 NO_OPENSSL = "no openssl at " + ", ".join(push.OPENSSL_PLACES)
@@ -226,8 +223,8 @@ class Sending(InHome):
         clock = {"now": 1000.0}
         watcher = push.Watcher(
             lambda: [
-                ("shop", "/repo/shop", lambda: model),
-                ("demo", "/repo/demo", lambda: demo),
+                ("shop", "/repo/shop", lambda: cast("bm.Model", model)),
+                ("demo", "/repo/demo", lambda: cast("bm.Model", demo)),
             ],
             "mac",
             pusher,
@@ -302,7 +299,7 @@ class Sending(InHome):
         ]
 
         def model(events: list[dict], turn: str) -> "lem_board_model.Model":
-            m = bm.derive(events, [], bm.at("2026-11-23T11:30:00Z"))
+            m = bm.derive(events, [], cast("int", bm.at("2026-11-23T11:30:00Z")))
             bm.put_sessions(
                 m,
                 {

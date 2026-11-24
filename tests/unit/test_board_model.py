@@ -7,7 +7,6 @@ card, its followers, its board and the read of the new log.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import json
 import os
 import re
@@ -22,13 +21,11 @@ from typing import IO, Any, Never, cast
 from unittest import mock
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-bm = importlib.import_module("lem_board_model")
-pages = importlib.import_module("lem_board_pages")
-task_pages = importlib.import_module("lem_board_task")
-join = importlib.import_module("lem_html").join
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import board_model as bm  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_pages as pages  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_task as task_pages  # noqa: E402 - after the line that puts src on sys.path
+from lem.markup import join  # noqa: E402 - after the line that puts src on sys.path
 
 START = datetime(2026, 11, 20, 9, 0, tzinfo=UTC)
 NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
@@ -275,7 +272,10 @@ class Landing(unittest.TestCase):
             ),
         )
         self.assertEqual(refused.info["label"], "Checks refused")
-        self.assertEqual(bm.refused_of(refused.checks_end), "a.py changed")
+        self.assertEqual(
+            bm.refused_of(cast("dict", refused.checks_end)),
+            "a.py changed",
+        )
         passed = one(
             state(0, "landing", "the checks start"),
             ev(1, "gate.start", commands=2),
@@ -388,7 +388,7 @@ class WaitsBehind(unittest.TestCase):
         said = "Its checks wait behind fast-track-checks-documents, which waits longer"
         self.assertEqual(bm.card_line(t, bm.LANE["checks"]), said)
         self.assertEqual(bm.now_head(t), said)
-        self.assertEqual(bm.waits_for(t, [])["text"], said)
+        self.assertEqual(cast("dict", bm.waits_for(t, []))["text"], said)
         self.assertEqual(
             bm.SAYS["gate.wait"](t.events[-1]),
             {
@@ -588,7 +588,7 @@ class TakenFromPolish(unittest.TestCase):
                 f"the tests of the criteria taken from the polish pass at {self.TIP}, "
                 "not run again"
             ),
-            bm.SAYS["gate.end"](t.events[-1])["sub"],
+            cast("str", bm.SAYS["gate.end"](t.events[-1])["sub"]),
         )
 
     def test_a_run_of_the_tests_says_nothing_of_the_polish_pass(self) -> None:
@@ -617,7 +617,9 @@ class TakenFromPolish(unittest.TestCase):
             "The tests of the criteria, on the branch and on the base commit", heads
         )
         self.assertFalse(any("polish pass" in x for x in heads))
-        self.assertNotIn("polish pass", bm.SAYS["gate.end"](t.events[-1])["sub"])
+        self.assertNotIn(
+            "polish pass", cast("str", bm.SAYS["gate.end"](t.events[-1])["sub"])
+        )
 
     def test_after_the_last_command_on_the_passs_commit_the_live_line_does_not_say_that_the_tests_run(
         self,
@@ -645,7 +647,7 @@ class Merge(unittest.TestCase):
             bm.wait_say(bm.waits_of(m)[0])["verb"], "Merge the pull request #41"
         )
         self.assertEqual(bm.verdict_of(t), {"green": True, "reasons": []})
-        self.assertEqual(bm.pr_of(t)["repo"], "acme/shop")
+        self.assertEqual(cast("dict", bm.pr_of(t))["repo"], "acme/shop")
 
     def test_not_green_has_the_proposals_reasons(self) -> None:
         t = one(
@@ -880,7 +882,7 @@ class Merge(unittest.TestCase):
                 said="origin/main moved after the checks ran",
                 tip="abc123456",
             )
-            return bm.SAYS["merge.refused"]({**refused, **fields})["head"]
+            return cast("str", bm.SAYS["merge.refused"]({**refused, **fields})["head"])
 
         self.assertEqual(
             (
@@ -1015,7 +1017,8 @@ class WaitingByTask(unittest.TestCase):
     SLUGS = ("board-answers-a-card", "logo-eyes", "board-card")
 
     def waiting(self, m: "bm.Model") -> dict:
-        project = importlib.import_module("project")
+        from lem import project
+
         tasks = [
             {
                 "slug": slug,
@@ -1688,7 +1691,7 @@ class HomeFolder:
         return {"ts": ts, "event": event, "task": self.SLUG, **fields}
 
     def board(self, *more: dict, now: str = NOW) -> "bm.Model":
-        return bm.derive([*self.events(), *more], [], bm.at(now))
+        return bm.derive([*self.events(), *more], [], cast("int", bm.at(now)))
 
     def events(self) -> list[dict]:
         return [
@@ -1945,7 +1948,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         bm.put_sessions(m, self.sessions("runs"))
         # the server keeps the model it derived and sets the sessions again at its
         # next look
-        m.now = bm.at(self.ENDED)
+        m.now = cast("int", bm.at(self.ENDED))
         bm.put_sessions(m, self.sessions("ended"))
         t = m.by_slug[self.SLUG]
         began = bm.at(self.CRITERIA)
@@ -2096,7 +2099,8 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
     def waiting(self, turn: str, caller: str | None = None) -> list:
         """The keys of the rows `lem project waiting` lists at 11:43, with the session's
         turn TURN, asked from the agterm session CALLER (none: outside agterm)."""
-        project = importlib.import_module("project")
+        from lem import project
+
         env = {
             k: v
             for k, v in os.environ.items()
@@ -2185,7 +2189,7 @@ class Sessions(unittest.TestCase):
         m.sessions = {}
         t, waits = m.tasks[0], bm.waits_of(m)
         self.assertEqual(self.rows(m), [("session", "No session runs this task")])
-        where = bm.waits_for(t, waits)["where"]
+        where = cast("dict", bm.waits_for(t, waits))["where"]
         self.assertIn("Open a session here or on the task’s header", where)
         self.assertIn("/lem drop gift-note", where)
         self.assertNotIn("Tell the task’s session", where)
@@ -2207,7 +2211,7 @@ class Sessions(unittest.TestCase):
                 # the open comes first, and the second row's words follow for the
                 # session he opens
                 self.assertEqual(
-                    bm.waits_for(t, waits)["where"],
+                    cast("dict", bm.waits_for(t, waits))["where"],
                     f"{bm.wait_say(waits[0])['where']} {bm.answer_of(t)}",
                 )
                 self.assertTrue(
@@ -2290,7 +2294,8 @@ class Sessions(unittest.TestCase):
     ) -> None:
         # session.py's `phase_of` is the one that opens it: the board agrees with it on
         # every ended state
-        session = importlib.import_module("session")
+        from lem import session
+
         for status in bm.ENDED:
             for worktree in (True, False):
                 with self.subTest(status=status, worktree=worktree):
@@ -2406,7 +2411,7 @@ class Blocked(unittest.TestCase):
         )
         m.sessions = {"gift-note": {"live": True, "agent": True}}
         t, rows = m.tasks[0], bm.waits_of(m)
-        where = bm.waits_for(t, rows)["where"]
+        where = cast("dict", bm.waits_for(t, rows))["where"]
         self.assertEqual(where, bm.wait_say(rows[0])["where"])
         self.assertEqual(bm.answer_of(t), where)
         self.assertIn("“the migration needs the owner”", where)
@@ -2444,7 +2449,7 @@ class ReleaseStop(unittest.TestCase):
             self.stop(5),
         )
         t = m.tasks[0]
-        self.assertEqual((t.status, bm.pr_of(t)["n"]), ("open", "41"))
+        self.assertEqual((t.status, cast("dict", bm.pr_of(t))["n"]), ("open", "41"))
         self.assertEqual(
             (t.info["label"], t.info["actor"], t.lane, t.shown),
             ("Blocked", "you", "you", self.SAY),
@@ -2609,7 +2614,8 @@ class SeatThatFailed(unittest.TestCase):
     def test_a_block_of_the_merge_agent_keeps_its_pull_request_in_the_look_at_github(
         self,
     ) -> None:
-        serve = importlib.import_module("serve")
+        from lem import serve
+
         merger = self.LINE.replace("the reviewer", "the merge agent")
         m = model(
             state(0, "open", self.PR),
@@ -2668,7 +2674,9 @@ class ForgeLook(unittest.TestCase):
                     }
                 )
             )
-            self.assertEqual(bm.forge_look(folder)["seen"]["gift-note"]["head"], "abc")
+            self.assertEqual(
+                cast("dict", bm.forge_look(folder))["seen"]["gift-note"]["head"], "abc"
+            )
             (folder / bm.FORGE_LOOK).write_text("half")
             self.assertIsNone(bm.forge_look(folder))
 
@@ -2709,7 +2717,8 @@ class Workspace(unittest.TestCase):
         }
         back = {"ts": "2026-11-20T10:30:00Z", "event": "owner", "away": False}
         self.assertEqual(
-            model(state(0, "queued", "x"), owner=[away]).away["words"], "out"
+            cast("dict", model(state(0, "queued", "x"), owner=[away]).away)["words"],
+            "out",
         )
         self.assertIsNone(model(state(0, "queued", "x"), owner=[away, back]).away)
 
@@ -2868,7 +2877,8 @@ class Inbox(unittest.TestCase):
     def test_the_record_is_the_servers_file_read_whole_and_each_why_has_its_words(
         self,
     ) -> None:
-        lem_inbox = importlib.import_module("lem_inbox")
+        from lem import inbox as lem_inbox
+
         self.assertEqual(
             (bm.INBOX_LOOK, set(bm.INBOX_WHY)), (lem_inbox.RECORD, set(lem_inbox.WHYS))
         )
@@ -2879,7 +2889,8 @@ class Inbox(unittest.TestCase):
                 json.dumps(self.record(self.thing(), {"task": "gift-note"}, "x"))
             )
             self.assertEqual(
-                [s["key"] for s in bm.inbox_look(folder)["sent"]], [bkey()]
+                [s["key"] for s in cast("dict", bm.inbox_look(folder))["sent"]],
+                [bkey()],
             )
             (folder / bm.INBOX_LOOK).write_text("half")
             self.assertIsNone(bm.inbox_look(folder))
@@ -2887,7 +2898,7 @@ class Inbox(unittest.TestCase):
     def test_the_reader_puts_the_record_into_the_model_and_reads_it_again_when_it_changes(
         self,
     ) -> None:
-        from types import SimpleNamespace
+        from types import ModuleType, SimpleNamespace
 
         with tempfile.TemporaryDirectory() as tmp:
             folder = Path(tmp)
@@ -2908,17 +2919,25 @@ class Inbox(unittest.TestCase):
                 meta_of=lambda *_: {},
             )
             reader = bm.Reader(folder, folder)
-            self.assertIsNone(reader.current(board, NOW).inbox)
+            self.assertIsNone(reader.current(cast("ModuleType", board), NOW).inbox)
             (folder / bm.INBOX_LOOK).write_text(json.dumps(self.record(self.thing())))
             self.assertEqual(
-                reader.current(board, NOW).inbox["tailnet_url"], self.TAILNET
+                cast("dict", reader.current(cast("ModuleType", board), NOW).inbox)[
+                    "tailnet_url"
+                ],
+                self.TAILNET,
             )
             (folder / bm.INBOX_LOOK).write_text(
                 json.dumps(
                     self.record(running=False, tailnet_url=None, why="not running")
                 )
             )
-            self.assertEqual(reader.current(board, NOW).inbox["why"], "not running")
+            self.assertEqual(
+                cast("dict", reader.current(cast("ModuleType", board), NOW).inbox)[
+                    "why"
+                ],
+                "not running",
+            )
 
     def test_criterion_6_a_question_sent_while_he_is_away_links_to_its_thread_at_the_tailnet_address(
         self,
@@ -3083,7 +3102,7 @@ class Inbox(unittest.TestCase):
             [w["key"] for w in bm.waits_of(merge)],
             ["review:gift-note", "merge:gift-note"],
         )
-        said = bm.inbox_of(merge.tasks[0], merge)
+        said = cast("dict", bm.inbox_of(merge.tasks[0], merge))
         self.assertEqual(
             (said["asks"], said["gone"], said["thread"]),
             (False, False, f"{self.TAILNET}#thread=msg_01ABC"),
@@ -3178,7 +3197,7 @@ class MovedBase(unittest.TestCase):
             (None, "merges", "Lem merges it"),
         )
         self.assertEqual(
-            t.merge_review["base_why"],
+            cast("dict", t.merge_review)["base_why"],
             "B changed only docs/board.md, which the change does not read",
         )
         # the owner's merge that the moved base refused stands on the safe read, with a
@@ -3218,7 +3237,8 @@ class MovedBase(unittest.TestCase):
             self.read(3, "safe"),
         )
         self.assertEqual(
-            (github.refused["from"], github.merge_wait), ("github", "owner")
+            (cast("dict", github.refused)["from"], github.merge_wait),
+            ("github", "owner"),
         )
 
     def test_a_read_on_the_checks_base_answers_lems_refusal_after_a_revert(
@@ -3813,7 +3833,8 @@ class AfterDropped(unittest.TestCase):
         # the task's own card says where he answers as the row does, not "tell the
         # task's session", since none runs
         self.assertEqual(
-            bm.waits_for(m.by_slug[self.ORDER], rows)["where"], say["where"]
+            cast("dict", bm.waits_for(m.by_slug[self.ORDER], rows))["where"],
+            say["where"],
         )
 
     def test_the_task_waits_for_him_on_every_view_of_the_board(self) -> None:
@@ -3849,10 +3870,12 @@ class AfterDropped(unittest.TestCase):
         rows = bm.waits_of(m)
         self.assertEqual([w["kind"] for w in rows], ["session", "breaker"])
         self.assertEqual(
-            bm.waits_for(t, rows)["where"],
+            cast("dict", bm.waits_for(t, rows))["where"],
             f"{bm.wait_say(rows[0])['where']} {bm.answer_of(t)}",
         )
-        self.assertIn("/lem park gift-note", bm.waits_for(t, rows)["where"])
+        self.assertIn(
+            "/lem park gift-note", cast("dict", bm.waits_for(t, rows))["where"]
+        )
 
     def test_a_need_gets_the_same_row(self) -> None:
         need = state(
@@ -4012,7 +4035,8 @@ def report_dates() -> list[dict]:
 def summarized(events: list[dict], *slugs: str) -> list[dict]:
     """EVENTS with the events of each of SLUGS replaced by its one summary, in the place
     of its newest event, as `lem project prune` writes it (project.py `summary_of`)."""
-    project = importlib.import_module("project")
+    from lem import project
+
     out = list(events)
     for slug in slugs:
         mine = [e for e in out if e.get("task") == slug]
@@ -4141,7 +4165,7 @@ class Summary(unittest.TestCase):
         ):
             self.assertIn(said, shown)
         self.assertEqual(
-            (rd.status, rd.since, bm.pr_of(rd)["n"]),
+            (rd.status, rd.since, cast("dict", bm.pr_of(rd))["n"]),
             ("landed", bm.at(ev(15, "x")["ts"]), "12"),
         )
         # criterion 2.2: the same card, word for word, and the same facts its
@@ -4190,7 +4214,7 @@ class Summary(unittest.TestCase):
             ),
         ).by_slug["report-dates"]
         self.assertEqual(
-            (t.status, t.since, t.first, bm.pr_of(t)["n"]),
+            (t.status, t.since, t.first, cast("dict", bm.pr_of(t))["n"]),
             ("landed", bm.at(ev(15, "x")["ts"]), bm.at(ev(1, "x")["ts"]), "12"),
         )
 
@@ -4199,7 +4223,7 @@ class Summary(unittest.TestCase):
     ) -> None:
         # lem_tokens reads them by each transcript's first prompt, so a fork of another
         # task logged here still counts for that task
-        project = importlib.import_module("project")
+        from lem import project
 
         def logged(minute: float, name: str, task: str = "report-dates") -> dict:
             return ev(
@@ -4303,7 +4327,7 @@ class SummarizedBoard(unittest.TestCase):
     def ctx(
         m: "bm.Model",
         tab: str = "overview",
-        folder: Path | None = None,
+        folder: dict | None = None,
         keep_days: int | None = 30,
     ) -> "pages.Ctx":
         ctx = pages.Ctx(
@@ -5225,10 +5249,15 @@ class StoppedSession(unittest.TestCase):
         def task(*events: dict) -> "bm.Task":
             return bm.derive(list(events), [], self.ms("13:00")).by_slug["gift-note"]
 
-        self.assertEqual(bm.stop_stands(task(*stopped))["session"], "S2")
+        self.assertEqual(cast("dict", bm.stop_stands(task(*stopped)))["session"], "S2")
         self.assertEqual(
-            bm.stop_stands(
-                task(*stopped, self.ev("12:50", "board.act", act="open", via="board"))
+            cast(
+                "dict",
+                bm.stop_stands(
+                    task(
+                        *stopped, self.ev("12:50", "board.act", act="open", via="board")
+                    )
+                ),
             )["session"],
             "S2",
         )
@@ -5291,7 +5320,7 @@ class StoppedSession(unittest.TestCase):
         )
         # no agent in the pane, or a shell command that runs, still gets nothing
         m = self.model(*self.landing(), at="11:39", **self.unread())
-        m.sessions["gift-note"]["agent"] = None
+        cast("dict", m.sessions)["gift-note"]["agent"] = None
         self.assertIsNone(bm.stop_due(m.by_slug["gift-note"], m))
         self.assertIsNone(
             self.due(*self.landing(), at="11:39", sign=None, signs=False, shell=True)
@@ -5321,9 +5350,10 @@ class StoppedSession(unittest.TestCase):
         # the owner, so no restart
         self.assertIsNone(self.due(*stopped, at="11:50"))
         self.assertEqual(
-            bm.stop_stands(self.model(*stopped, at="11:50").by_slug["gift-note"])[
-                "session"
-            ],
+            cast(
+                "dict",
+                bm.stop_stands(self.model(*stopped, at="11:50").by_slug["gift-note"]),
+            )["session"],
             "S1",
         )
 
@@ -5495,7 +5525,10 @@ class StoppedRow(unittest.TestCase):
         # he acts on the board, so the verb opens the panel and never jumps to the
         # stopped pane
         self.assertIsNone(bm.session_of_wait(bm.waits_of(m)[0], m))
-        self.assertIn("Open a session here", bm.waits_for(t, bm.waits_of(m))["where"])
+        self.assertIn(
+            "Open a session here",
+            cast("dict", bm.waits_for(t, bm.waits_of(m)))["where"],
+        )
         html = str(
             pages.waits_page(
                 pages.Ctx(
@@ -5567,7 +5600,7 @@ class StoppedRow(unittest.TestCase):
 
     def test_a_stop_takes_the_place_of_a_wake_nobody_took(self) -> None:
         m = self.model(*self.stopped(), at="13:00", session="S2", sign=None)
-        m.sessions["gift-note"]["unanswered"] = True
+        cast("dict", m.sessions)["gift-note"]["unanswered"] = True
         self.assertEqual([w["key"] for w in bm.waits_of(m)], ["stopped:gift-note"])
 
     def test_a_task_out_of_its_phase_has_no_row_whatever_its_stop(self) -> None:
@@ -5670,7 +5703,9 @@ class StoppedRow(unittest.TestCase):
         # no fresh session took its place, so the readable row's words are not said
         self.assertNotIn("fresh session that took its place", say["where"])
         self.assertTrue(bm.opens_session(t, m))
-        self.assertIn("Lem cannot read whether", bm.waits_for(t, rows)["where"])
+        self.assertIn(
+            "Lem cannot read whether", cast("dict", bm.waits_for(t, rows))["where"]
+        )
         html = str(
             pages.waits_page(
                 pages.Ctx(
@@ -5823,7 +5858,8 @@ class StoppedRow(unittest.TestCase):
     def waiting(self, m: "bm.Model") -> dict:
         from unittest import mock
 
-        project = importlib.import_module("project")
+        from lem import project
+
         task = {
             "slug": "gift-note",
             "ask": "a gift note",
@@ -5943,7 +5979,8 @@ class Cards(unittest.TestCase):
     def test_the_folder_says_which_cards_are_open_and_the_end_event_closes_one_in_the_log(
         self,
     ) -> None:
-        lem_cards = importlib.import_module("lem_cards")
+        from lem import cards as lem_cards
+
         with tempfile.TemporaryDirectory() as tmp:
             state_dir = Path(tmp)
             folder = state_dir / "tasks" / "export-notes"

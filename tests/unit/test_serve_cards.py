@@ -12,7 +12,6 @@ import ast
 import base64
 import email.message
 import hashlib
-import importlib
 import json
 import subprocess
 import sys
@@ -25,10 +24,10 @@ from unittest import mock
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "skills" / "lem" / "scripts"))
-serve = importlib.import_module("serve")
-bm = importlib.import_module("lem_board_model")
-lem_cards = importlib.import_module("lem_cards")
+sys.path.insert(0, str(ROOT / "src"))
+from lem import board_model as bm  # noqa: E402 - after the line that puts src on sys.path
+from lem import cards as lem_cards  # noqa: E402 - after the line that puts src on sys.path
+from lem import serve  # noqa: E402 - after the line that puts src on sys.path
 
 START = datetime(2026, 11, 23, 15, 0, tzinfo=UTC)
 NOW = int((START + timedelta(hours=1)).timestamp() * 1000)
@@ -159,7 +158,13 @@ class Answer(unittest.TestCase):
         self, given: dict, via: str = "door", device: str = "phone", session: str = "S1"
     ) -> tuple[int, str | None]:
         return serve.act_card(
-            Workspace(self.state, session), SLUG, PAGE, given, via, device, IPHONE
+            cast("serve.Workspace", Workspace(self.state, session)),
+            SLUG,
+            PAGE,
+            given,
+            via,
+            device,
+            IPHONE,
         )
 
     def end(self) -> dict | None:
@@ -328,17 +333,20 @@ class Refusal(unittest.TestCase):
     ) -> None:
         self.assertIn(
             "an option the card does not have",
-            serve.card_refusal(CARD, picked("maybe")),
+            cast("str", serve.card_refusal(CARD, picked("maybe"))),
         )
         self.assertIn(
             "an option the card does not have",
-            serve.card_refusal(CARD, picked("yes", "no")),
+            cast("str", serve.card_refusal(CARD, picked("yes", "no"))),
         )
         self.assertIn(
             "questions the card does not ask",
-            serve.card_refusal(
-                CARD,
-                {"status": "answered", "answers": {"other": {"selected": ["yes"]}}},
+            cast(
+                "str",
+                serve.card_refusal(
+                    CARD,
+                    {"status": "answered", "answers": {"other": {"selected": ["yes"]}}},
+                ),
             ),
         )
         self.assertEqual(
@@ -347,12 +355,15 @@ class Refusal(unittest.TestCase):
         )
         self.assertIn(
             "Type an answer first",
-            serve.card_refusal(
-                self.TUNE,
-                self.given(
-                    q1={"values": {}},
-                    q2={"selected": []},
-                    q3={"selected": [], "text": " "},
+            cast(
+                "str",
+                serve.card_refusal(
+                    self.TUNE,
+                    self.given(
+                        q1={"values": {}},
+                        q2={"selected": []},
+                        q3={"selected": [], "text": " "},
+                    ),
                 ),
             ),
         )
@@ -429,7 +440,8 @@ class Agterm(unittest.TestCase):
         )
         with mock.patch.object(serve, "agtermctl", return_value=None):
             self.assertIn(
-                "agtermctl is not on this Mac", serve.agterm_card_refusal(PAGE)
+                "agtermctl is not on this Mac",
+                cast("str", serve.agterm_card_refusal(PAGE)),
             )
 
 
@@ -462,7 +474,8 @@ class Policy(unittest.TestCase):
                 [
                     sys.executable,
                     "-B",
-                    str(ROOT / "skills" / "lem-ask" / "bin" / "lem-ask"),
+                    str(ROOT / "src" / "lem" / "__main__.py"),
+                    "lem-ask",
                     "render",
                     str(Path(tmp) / "spec.json"),
                     "-o",
@@ -513,9 +526,7 @@ class NoTyping(unittest.TestCase):
         self,
     ) -> None:
         tree = ast.parse(
-            (ROOT / "skills" / "lem" / "scripts" / "serve.py").read_text(
-                encoding="utf-8"
-            )
+            (ROOT / "src" / "lem" / "serve.py").read_text(encoding="utf-8")
         )
         texts = [
             node.value

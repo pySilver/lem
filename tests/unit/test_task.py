@@ -8,7 +8,6 @@ checks it in a real repository. And what `lem project prune` does with each task
 """
 
 import contextlib
-import importlib
 import io
 import json
 import os
@@ -23,10 +22,8 @@ from pathlib import Path
 from typing import TypeVar
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-import project  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import project  # noqa: E402 - after the line that puts src on sys.path
 
 # A checkout that is not on disk: the rules resolve paths under it and find
 # nothing there.
@@ -1609,7 +1606,8 @@ class StartOver(unittest.TestCase):
         self.assertEqual(len(same), 1)
 
     def test_the_landing_reads_the_same_line(self) -> None:
-        land = importlib.import_module("land")
+        from lem import land
+
         self.assertEqual(land.START_OVER, project.START_OVER)
         task = object.__new__(land.Task)
         task.record = {
@@ -2246,7 +2244,8 @@ class Summarized(unittest.TestCase):
     def test_an_old_ended_task_becomes_one_summary_and_every_other_line_stays_as_it_was(
         self,
     ) -> None:
-        bm = importlib.import_module("lem_board_model")
+        from lem import board_model as bm
+
         events = [json.loads(line) for line in self.before.split(b"\n")[:-1]]
         self.assertEqual(sum(1 for e in events if e["task"] == "report-dates"), 60)
         card = bm.derive(events, [], bm.now_ms()).by_slug["report-dates"]
@@ -2470,10 +2469,10 @@ class Summarized(unittest.TestCase):
     ) -> None:
         import subprocess
 
-        scripts = str(Path(project.__file__).resolve().parent)
+        src = str(Path(project.__file__).resolve().parents[1])
         setup = (
-            f"import sys; from pathlib import Path; sys.path.insert(0, {scripts!r}); "
-            f"import project, session_hook; root, state = Path({str(self.root)!r}), "
+            f"import sys; from pathlib import Path; sys.path.insert(0, {src!r}); "
+            f"from lem import project, session_hook; root, state = Path({str(self.root)!r}), "
             f"Path({str(self.state)!r}); project.STATE_ROOTS[root] = state; "
         )
         writes = [

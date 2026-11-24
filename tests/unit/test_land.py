@@ -19,10 +19,8 @@ from typing import IO, cast
 from unittest import mock
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-land = importlib.import_module("land")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import land  # noqa: E402 - after the line that puts src on sys.path
 
 # One defect outside the change, as a review's record names it.
 DEFECT = {
@@ -266,7 +264,7 @@ class TheItemOfADefect(unittest.TestCase):
         text = land.item_body(
             {**self.PADS, "bar": "under"}, 1, "export-notes", "2026-11-23", "2026-11-23"
         )
-        front, lines = land.item_text(text)
+        front, lines = cast("tuple[dict[str, str], list[str]]", land.item_text(text))
         self.assertEqual(
             front,
             {"worth": "no", "where": "shop/dates.py:format_day", "added": "2026-11-23"},
@@ -287,7 +285,10 @@ class TheItemOfADefect(unittest.TestCase):
         text = land.item_body(
             {**self.PADS, "bar": "over"}, 2, "export-notes", "2026-11-22", "2026-11-23"
         )
-        self.assertEqual(land.item_text(text)[0]["worth"], "later")
+        self.assertEqual(
+            cast("tuple[dict[str, str], list[str]]", land.item_text(text))[0]["worth"],
+            "later",
+        )
         self.assertNotIn("Decided against", text)
         self.assertTrue(
             text.endswith(
@@ -800,15 +801,15 @@ class BarRefusal(unittest.TestCase):
         found = bar(patch("tests/test_old.py", plus=(f"@{SKIP}",), new=True), plan="")
         said = land.bar_refusal(found["lowered"], small=True)
         self.assertEqual([entry["reason"] for entry in found["lowered"]], [None])
-        self.assertIn(f"tests/test_old.py ({SKIP})", said)
-        self.assertIn("standard track", said)
+        self.assertIn(f"tests/test_old.py ({SKIP})", cast("str", said))
+        self.assertIn("standard track", cast("str", said))
 
     def test_the_standard_track_names_the_plans_section(self) -> None:
         found = bar(patch("calc.py", plus=(f"import os  {NOQA}",)))
         said = land.bar_refusal(found["lowered"], small=False)
-        self.assertIn(f"calc.py ({NOQA})", said)
-        self.assertIn("`## The bar`", said)
-        self.assertNotIn("standard track", said)
+        self.assertIn(f"calc.py ({NOQA})", cast("str", said))
+        self.assertIn("`## The bar`", cast("str", said))
+        self.assertNotIn("standard track", cast("str", said))
 
     def test_a_reason_for_each_file_is_no_refusal(self) -> None:
         found = bar(
@@ -1002,7 +1003,7 @@ class RemoveBytecode(unittest.TestCase):
             (root / "shop" / "__pycache__").mkdir(parents=True)
             (root / "shop" / "__pycache__" / "c.pyc").write_bytes(b"\0")
             (root / "shop" / "__pycache__" / "out").symlink_to(root / "keep")
-            land.remove_bytecode(task, "shop/__pycache__/")
+            land.remove_bytecode(cast("land.Task", task), "shop/__pycache__/")
             self.assertFalse((root / "shop" / "__pycache__").exists())
             self.assertTrue((root / "shop").is_dir())
             self.assertEqual(
@@ -1019,9 +1020,9 @@ class RemoveBytecode(unittest.TestCase):
             (root / "a" / "__pycache__").symlink_to(root / "keep")
             (root / "b").mkdir()
             (root / "b" / "__pycache__").write_text("a file\n", encoding="utf-8")
-            land.remove_bytecode(task, "a/__pycache__/")
-            land.remove_bytecode(task, "b/__pycache__/")
-            land.remove_bytecode(task, "gone/__pycache__/")
+            land.remove_bytecode(cast("land.Task", task), "a/__pycache__/")
+            land.remove_bytecode(cast("land.Task", task), "b/__pycache__/")
+            land.remove_bytecode(cast("land.Task", task), "gone/__pycache__/")
             self.assertTrue((root / "a" / "__pycache__").is_symlink())
             self.assertEqual(
                 (root / "keep" / "mine.txt").read_text(encoding="utf-8"), "mine\n"
@@ -1039,7 +1040,8 @@ class RemoveBytecode(unittest.TestCase):
             (Path(outside) / "__pycache__").mkdir()
             (root / "linked").symlink_to(outside)
             land.remove_bytecode(
-                types.SimpleNamespace(worktree=root, slug=SLUG), "linked/__pycache__/"
+                cast("land.Task", types.SimpleNamespace(worktree=root, slug=SLUG)),
+                "linked/__pycache__/",
             )
             self.assertTrue((Path(outside) / "__pycache__").is_dir())
 
@@ -1053,7 +1055,9 @@ class RemoveBytecode(unittest.TestCase):
             try:
                 with self.assertRaises(land.LandError) as refused:
                     land.remove_bytecode(
-                        types.SimpleNamespace(worktree=root, slug=SLUG),
+                        cast(
+                            "land.Task", types.SimpleNamespace(worktree=root, slug=SLUG)
+                        ),
                         "shop/__pycache__/",
                     )
             finally:
@@ -1412,7 +1416,8 @@ class MergeSeat(unittest.TestCase):
         kept = land.seats_kept(None, "aaa", "b1", self.CODEX)
         # the settings name another merger afterwards: the brief's seat stays
         self.assertEqual(
-            land.seat_of_brief(kept, "aaa", "b1")["seat"], "codex/gpt-6.2-sol:high"
+            cast("dict", land.seat_of_brief(kept, "aaa", "b1"))["seat"],
+            "codex/gpt-6.2-sol:high",
         )
         self.assertIsNone(land.seat_of_brief(kept, "aaa", "b2"))
         self.assertIsNone(land.seat_of_brief(None, "aaa", "b1"))
@@ -1435,8 +1440,8 @@ class MergeSeat(unittest.TestCase):
         )
         self.assertEqual(
             (
-                land.seat_of_brief(kept, "aaa", "b1")["seat"],
-                land.seat_of_brief(kept, "aaa", "b2")["seat"],
+                cast("dict", land.seat_of_brief(kept, "aaa", "b1"))["seat"],
+                cast("dict", land.seat_of_brief(kept, "aaa", "b2"))["seat"],
             ),
             ("codex/gpt-6.2-sol:high", "claude/opus:high"),
         )
@@ -2326,18 +2331,22 @@ class EventLog(unittest.TestCase):
 
     def test_every_reader_reads_the_event_whole(self) -> None:
         self.assertEqual(
-            [record["say"] for record in land.events_of(self.task)],
+            [record["say"] for record in land.events_of(cast("land.Task", self.task))],
             [self.WORDS, self.WORDS],
         )
         self.assertEqual(
-            [record["say"] for record in land.events_all(self.task)],
+            [record["say"] for record in land.events_all(cast("land.Task", self.task))],
             [self.WORDS, self.WORDS],
         )
         self.assertEqual(
-            [record["say"] for record in land.gate_ends(self.task)], [self.WORDS]
+            [record["say"] for record in land.gate_ends(cast("land.Task", self.task))],
+            [self.WORDS],
         )
         self.assertEqual(
-            (land.waits_of(self.task, "2026-11-21T09:00:00Z") or {}).get("say"),
+            (
+                land.waits_of(cast("land.Task", self.task), "2026-11-21T09:00:00Z")
+                or {}
+            ).get("say"),
             self.WORDS,
         )
 
@@ -2464,14 +2473,15 @@ class ReadOfATip(unittest.TestCase):
                 f"the record is of the review of {'a' * 12}, "
                 f"and the branch is at {'b' * 12} now"
             ),
-            said,
+            cast("str", said),
         )
-        self.assertIn("`lem land read gift-note`", said)
+        self.assertIn("`lem land read gift-note`", cast("str", said))
 
     def test_a_tip_that_is_no_whole_commit_is_refused(self) -> None:
         for said in (None, "a" * 9, "HEAD"):
             self.assertIn(
-                "40 hex digits", land.record_tip_refusal(said, "a" * 40, "gift-note")
+                "40 hex digits",
+                cast("str", land.record_tip_refusal(said, "a" * 40, "gift-note")),
             )
 
     def test_each_tip_and_base_has_its_own_brief_and_answer_file(self) -> None:
@@ -2480,25 +2490,29 @@ class ReadOfATip(unittest.TestCase):
         task = types.SimpleNamespace(directory=Path("/state/tasks/gift-note"))
         self.assertEqual(
             land.answer_file(
-                task, "abc123456789" + "0" * 28, "def456789012" + "0" * 28
+                cast("land.Task", task),
+                "abc123456789" + "0" * 28,
+                "def456789012" + "0" * 28,
             ).name,
             "merge-answer-abc123456789-def456789012.md",
         )
         self.assertEqual(
             land.brief_file(
-                task, "abc123456789" + "0" * 28, "def456789012" + "0" * 28
+                cast("land.Task", task),
+                "abc123456789" + "0" * 28,
+                "def456789012" + "0" * 28,
             ).name,
             "merge-brief-abc123456789-def456789012.md",
         )
         self.assertNotEqual(
-            land.answer_file(task, "a" * 40, "c" * 40),
-            land.answer_file(task, "b" * 40, "c" * 40),
+            land.answer_file(cast("land.Task", task), "a" * 40, "c" * 40),
+            land.answer_file(cast("land.Task", task), "b" * 40, "c" * 40),
         )
         # a brief for a later base never takes the place of the brief an agent was
         # started with
         self.assertNotEqual(
-            land.brief_file(task, "a" * 40, "c" * 40),
-            land.brief_file(task, "a" * 40, "d" * 40),
+            land.brief_file(cast("land.Task", task), "a" * 40, "c" * 40),
+            land.brief_file(cast("land.Task", task), "a" * 40, "d" * 40),
         )
 
 
@@ -2514,16 +2528,18 @@ class ExpectedTip(unittest.TestCase):
         said = land.expected_refusal("a" * 40, "b" * 40, "gift-note")
         self.assertIn(
             f"the merge was asked for {'a' * 9}, and the proposal is {'b' * 9} now",
-            said,
+            cast("str", said),
         )
-        self.assertIn("nothing was merged", said)
+        self.assertIn("nothing was merged", cast("str", said))
 
     def test_an_empty_or_short_tip_is_refused(self) -> None:
         self.assertIn(
-            "the whole commit", land.expected_refusal("", "a" * 40, "gift-note")
+            "the whole commit",
+            cast("str", land.expected_refusal("", "a" * 40, "gift-note")),
         )
         self.assertIn(
-            "the whole commit", land.expected_refusal("a" * 9, "a" * 40, "gift-note")
+            "the whole commit",
+            cast("str", land.expected_refusal("a" * 9, "a" * 40, "gift-note")),
         )
 
 
@@ -2548,17 +2564,20 @@ class ForgeBase(unittest.TestCase):
             "https://github.com/acme/shop/pull/7",
             "gift-note",
         )
-        self.assertIn("is on release-2 on GitHub, not on main", said)
-        self.assertIn("gh pr edit 7 --base main", said)
+        self.assertIn("is on release-2 on GitHub, not on main", cast("str", said))
+        self.assertIn("gh pr edit 7 --base main", cast("str", said))
 
     def test_no_base_in_the_answer_is_refused(self) -> None:
         self.assertIn(
             "names no base branch",
-            land.base_refusal(
-                {"state": "OPEN"},
-                "main",
-                "https://github.com/acme/shop/pull/7",
-                "gift-note",
+            cast(
+                "str",
+                land.base_refusal(
+                    {"state": "OPEN"},
+                    "main",
+                    "https://github.com/acme/shop/pull/7",
+                    "gift-note",
+                ),
             ),
         )
 
@@ -2575,13 +2594,13 @@ class ProtectedBranch(unittest.TestCase):
 
     def test_a_protected_name_is_refused_and_named(self) -> None:
         said = land.protected_refusal("fix/gift-note", self.BRANCH, "pushes")
-        self.assertIn("fix/gift-note is in branch.protected", said)
-        self.assertIn("Lem pushes nothing to it", said)
+        self.assertIn("fix/gift-note is in branch.protected", cast("str", said))
+        self.assertIn("Lem pushes nothing to it", cast("str", said))
 
     def test_the_base_is_refused(self) -> None:
         self.assertIn(
             "main is the base branch",
-            land.protected_refusal("main", self.BRANCH, "deletes"),
+            cast("str", land.protected_refusal("main", self.BRANCH, "deletes")),
         )
 
 
@@ -3046,9 +3065,7 @@ class BarFile(unittest.TestCase):
             )
             # the plugin's file is at that place, three folders above the scripts
             self.assertTrue(
-                (
-                    Path(land.SCRIPTS).parents[2] / land.bar_file(Path(main))["file"]
-                ).is_file()
+                (land.lem_paths.ROOT / land.bar_file(Path(main))["file"]).is_file()
             )
 
     def test_the_project_s_own_builder_by_its_whole_path(self) -> None:
@@ -3240,7 +3257,12 @@ class TheFindingsUnderTheBar(unittest.TestCase):
 
     def items(self, **files: str) -> list[dict]:
         added = [
-            {"item": path, "worth": land.item_text(text)[0].get("worth")}
+            {
+                "item": path,
+                "worth": cast("tuple[dict[str, str], list[str]]", land.item_text(text))[
+                    0
+                ].get("worth"),
+            }
             for path, text in files.items()
         ]
         return land.under_findings(
@@ -3278,7 +3300,7 @@ class TheFindingsUnderTheBar(unittest.TestCase):
         self.assertNotEqual(other["key"], found["key"])
 
     def test_the_lines_of_the_notes_that_propose_checks(self) -> None:
-        lines = land.under_findings([], None, self.NOTES, small=False)
+        lines = land.under_findings([], lambda name: None, self.NOTES, small=False)
         self.assertEqual(
             [(found["line"], found["run"]) for found in lines],
             [
@@ -3292,15 +3314,18 @@ class TheFindingsUnderTheBar(unittest.TestCase):
                 ),
             ],
         )
-        fast = land.under_findings([], None, self.NOTES, small=True)
+        fast = land.under_findings([], lambda name: None, self.NOTES, small=True)
         self.assertEqual(fast[0]["run"], "Before the headings: `x.py`: x is slow")
-        again = land.line_finding(
-            [
-                (
-                    "- `land.py:cmd_start` writes over `reviews/review-1.*`; "
-                    "under: git keeps each review"
-                )
-            ]
+        again = cast(
+            "dict",
+            land.line_finding(
+                [
+                    (
+                        "- `land.py:cmd_start` writes over `reviews/review-1.*`; "
+                        "under: git keeps each review"
+                    )
+                ]
+            ),
         )
         self.assertEqual(again["key"], lines[1]["key"])
         self.assertIsNone(
@@ -3313,7 +3338,8 @@ class TheSpecOfAFinding(unittest.TestCase):
     both or neither: yes is the bar's condition, no its plain negation (decision 5)."""
 
     def test_jev_py_takes_it(self) -> None:
-        jev = importlib.import_module("jev")
+        from lem import jev
+
         spec = land.jev_spec(
             {
                 "where": "src/v.py:tidy",
@@ -3390,14 +3416,17 @@ class TheReadOfEachFinding(JevStandIn):
         added = [
             {
                 "item": "docs/backlog/tidy.md",
-                "worth": land.item_of(task.worktree / "docs/backlog/tidy.md")[0][
-                    "worth"
-                ],
+                "worth": cast(
+                    "tuple[dict[str, str], list[str]]",
+                    land.item_of(task.worktree / "docs/backlog/tidy.md"),
+                )[0]["worth"],
             }
         ]
         with mock.patch.object(land, "builder_filed", return_value=added):
             return land.jev_read(
-                task, self.NOTES if notes is None else notes, small=False
+                cast("land.Task", task),
+                self.NOTES if notes is None else notes,
+                small=False,
             )
 
     def test_a_score_over_the_line_refuses_once_and_the_second_answer_stands(
@@ -3534,7 +3563,8 @@ class TheItemsThatMayHoldAFinding(unittest.TestCase):
     def test_one_question_for_each_item_with_its_title_where_and_first_line_that_jev_py_takes(
         self,
     ) -> None:
-        jev = importlib.import_module("jev")
+        from lem import jev
+
         question = land.alike_question(self.ITEM)
         for words in (
             "format_day pads the day with a space",
@@ -3555,9 +3585,10 @@ class TheItemsThatMayHoldAFinding(unittest.TestCase):
         )
 
     def test_every_item_is_asked_in_requests_each_under_jev_py_s_limit(self) -> None:
-        jev = importlib.import_module("jev")
+        from lem import jev
+
         items = self.items(200)
-        specs = land.alike_specs(self.PADS, items, land.jev_fits)
+        specs = cast("list[dict]", land.alike_specs(self.PADS, items, land.jev_fits))
         self.assertGreater(len(specs), 1)
         for spec in specs:
             jev.build(spec)
@@ -3571,7 +3602,7 @@ class TheItemsThatMayHoldAFinding(unittest.TestCase):
         def fits(spec: dict) -> bool:
             return len(spec["questions"]) <= 2
 
-        specs = land.alike_specs(self.PADS, self.items(5), fits)
+        specs = cast("list[dict]", land.alike_specs(self.PADS, self.items(5), fits))
         self.assertEqual(
             [list(spec["questions"]) for spec in specs],
             [["i0", "i1"], ["i2", "i3"], ["i4"]],
@@ -3736,7 +3767,7 @@ class AnOverDefectOfARefutedItem(unittest.TestCase):
             "2026-11-24",
             self.OLD,
         )
-        front, lines = land.item_text(text)
+        front, lines = cast("tuple[dict[str, str], list[str]]", land.item_text(text))
         self.assertEqual(front["worth"], "later")
         self.assertIn(f"The same defect as `{self.OLD}`, now over the bar.", lines)
         with tempfile.TemporaryDirectory() as scratch:
@@ -3777,7 +3808,7 @@ class JevOnTheLines(unittest.TestCase):
     before the first heading on the fast track; once."""
 
     def test_the_lines_end_with_jev_s_read(self) -> None:
-        line = land.line_finding(["- `a.py`: slow; under: runs once"])
+        line = cast("dict", land.line_finding(["- `a.py`: slow; under: runs once"]))
         endings = {
             "items": {"docs/backlog/tidy.md": "Jev: 0.82"},
             "lines": {line["key"]: "Jev: not asked (no key)"},
@@ -4006,7 +4037,8 @@ class WantedGoesFirst(LineCase):
             "building: the lead builds",
             "queued: waits for one task to land\nafter: an-old-one",
         )
-        project = land.lem_sibling.module(land.SCRIPTS / "project.py")
+        from lem import project
+
         self.assertEqual(
             land.waited_for(land.line_state(project, str(self.lem)), project),
             {"fix-red-base", "fix-flaky-test"},
@@ -4233,7 +4265,7 @@ class TheWait(LineCase):
                 land, "script", side_effect=lambda *args: logged.append(args)
             ),
         ):
-            return land.wait_for_load(task, pid=91001), logged
+            return land.wait_for_load(cast("land.Task", task), pid=91001), logged
 
     def test_a_run_behind_another_logs_the_first_and_why_then_starts_when_it_left(
         self,
@@ -4283,7 +4315,7 @@ class TheWait(LineCase):
             ),
             self.assertRaises(land.LandError) as caught,
         ):
-            land.checks_run(task, {"stopping": True, "done": False})
+            land.checks_run(cast("land.Task", task), {"stopping": True, "done": False})
         self.assertIn("stopped before their first command", str(caught.exception))
         self.assertEqual(
             logged,
@@ -4409,7 +4441,7 @@ class WaitsBehindSays(unittest.TestCase):
                     json.dumps(record) + "\n", encoding="utf-8"
                 )
                 self.assertEqual(
-                    land.checks_status(task)["waits"],
+                    land.checks_status(cast("land.Task", task))["waits"],
                     {
                         "load": 30,
                         "start": 40,

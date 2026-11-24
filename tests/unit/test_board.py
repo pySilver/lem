@@ -9,7 +9,6 @@ tests/lem-serve.sh reads it on the board of a task whose branch filed one.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import os
 import subprocess
 import sys
@@ -18,11 +17,9 @@ import unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-board = importlib.import_module("board")
-task_pages = importlib.import_module("lem_board_task")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import board  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_task as task_pages  # noqa: E402 - after the line that puts src on sys.path
 
 # A task.md as `/lem new` writes it (stages/new.md): the ask, the type, the outcome over
 # two paragraphs with hard-wrapped lines, then the next sections.

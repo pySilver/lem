@@ -4,7 +4,6 @@ datetime or as seconds, or of now; a moment given is written as it is.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import sys
 import unittest
 from datetime import UTC, datetime, timedelta, timezone, tzinfo
@@ -13,10 +12,8 @@ from typing import Self
 from unittest import mock
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-lem_clock = importlib.import_module("lem_clock")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import clock as lem_clock  # noqa: E402 - after the line that puts src on sys.path
 
 MOMENT = datetime(2026, 11, 24, 10, 18, 18, 987654, tzinfo=UTC)
 

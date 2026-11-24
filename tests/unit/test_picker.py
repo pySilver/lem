@@ -5,7 +5,6 @@ with the picker is in tests/lem-picker.sh, with a stand-in for agtermctl.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import sys
 import unittest
 from datetime import UTC, datetime, timedelta
@@ -13,9 +12,8 @@ from pathlib import Path
 from unittest import mock
 
 sys.dont_write_bytecode = True
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"
-sys.path.insert(0, str(SCRIPTS))
-picker = importlib.import_module("picker")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import picker  # noqa: E402 - after the line that puts src on sys.path
 
 
 class StateWords(unittest.TestCase):

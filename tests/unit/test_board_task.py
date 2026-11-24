@@ -7,7 +7,6 @@ and that a task's text reaches the page escaped.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import re
 import sys
 import tempfile
@@ -18,13 +17,11 @@ from pathlib import Path
 from typing import Any, cast
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-bm = importlib.import_module("lem_board_model")
-task_pages = importlib.import_module("lem_board_task")
-lem_artifacts = importlib.import_module("lem_artifacts")
-pages = importlib.import_module("lem_board_pages")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import artifacts as lem_artifacts  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_model as bm  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_pages as pages  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_task as task_pages  # noqa: E402 - after the line that puts src on sys.path
 
 START = datetime(2026, 11, 20, 9, 0, tzinfo=UTC)
 NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
@@ -256,8 +253,10 @@ class Criteria(unittest.TestCase):
                 approval=1,
             ),
         )
-        self.assertEqual(bm.standing(t)["texts"], ["one", "two, said again"])
-        self.assertIsNone(bm.standing(t)["digest"])
+        self.assertEqual(
+            cast("dict", bm.standing(t))["texts"], ["one", "two, said again"]
+        )
+        self.assertIsNone(cast("dict", bm.standing(t))["digest"])
 
     def test_a_read_is_stale_when_the_owner_approved_other_criteria_after_it(
         self,
@@ -510,9 +509,12 @@ class Overview(unittest.TestCase):
         closed = one(state(0, "landed", "merged"))
         self.assertIsNone(bm.building_of(closed, {"outcome": "", "filed": []}))
         self.assertEqual(
-            bm.building_of(
-                one(state(0, "building", "lead: builder")),
-                {"outcome": "One.\n\nTwo.", "filed": []},
+            cast(
+                "dict",
+                bm.building_of(
+                    one(state(0, "building", "lead: builder")),
+                    {"outcome": "One.\n\nTwo.", "filed": []},
+                ),
             )["outcome"],
             "One.\n\nTwo.",
         )
@@ -1187,7 +1189,10 @@ class Artifacts(unittest.TestCase):
                 [None],
             )
             self.assertEqual(
-                lem_artifacts.one(task, "gift-note", "report.md")[0]["text"],
+                cast(
+                    "tuple[dict, Path]",
+                    lem_artifacts.one(task, "gift-note", "report.md"),
+                )[0]["text"],
                 "# Report\n",
             )
             self.assertIsNone(lem_artifacts.one(task, "gift-note", "../../secret.txt"))

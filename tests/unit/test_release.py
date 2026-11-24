@@ -13,7 +13,6 @@ command that ends the task go on.
     python3 -B -m unittest discover -s tests/unit -p test_release.py
 """
 
-import importlib
 import json
 import re
 import subprocess
@@ -21,12 +20,14 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import cast
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.dont_write_bytecode = True
-sys.path.insert(0, str(ROOT / "skills" / "lem" / "scripts"))
-lem_release = importlib.import_module("lem_release")
+sys.path.insert(0, str(ROOT / "src"))
+from lem import release as lem_release  # noqa: E402 - after the line that puts src on sys.path
+
 # The repository every install of the `lem` entry takes the plugin from.
 REPO = "pySilver/lem"
 
@@ -268,7 +269,9 @@ class Rule(unittest.TestCase):
         )
 
     def test_a_task_of_a_newer_release_stops_and_names_the_update(self) -> None:
-        found = lem_release.stop("invoice-totals", "0.5.0", "0.4.0", "0.3.0")
+        found = cast(
+            "dict", lem_release.stop("invoice-totals", "0.5.0", "0.4.0", "0.3.0")
+        )
         self.assertEqual(found["kind"], "new")
         self.assertIn("/plugin marketplace update lem", found["say"])
         self.assertTrue(
@@ -280,10 +283,12 @@ class Rule(unittest.TestCase):
     def test_versions_compare_as_numbers_part_by_part(self) -> None:
         self.assertEqual(lem_release.stop("t", "0.9.0", "0.10.0", "0.9.0"), None)
         self.assertEqual(
-            lem_release.stop("t", "0.8.9", "0.10.0", "0.9.0")["kind"], "old"
+            cast("dict", lem_release.stop("t", "0.8.9", "0.10.0", "0.9.0"))["kind"],
+            "old",
         )
         self.assertEqual(
-            lem_release.stop("t", "0.10.1", "0.10.0", "0.9.0")["kind"], "new"
+            cast("dict", lem_release.stop("t", "0.10.1", "0.10.0", "0.9.0"))["kind"],
+            "new",
         )
 
 
@@ -434,7 +439,7 @@ class Check(unittest.TestCase):
         for passes in (False, True):
             self.assertIn(
                 "/plugin marketplace update lem",
-                lem_release.check(self.task, passes=passes),
+                cast("str", lem_release.check(self.task, passes=passes)),
             )
         self.assertEqual(self.events(), [])
 
@@ -564,7 +569,8 @@ class Before(unittest.TestCase):
         )["version"]
         self.assertEqual(lem_release.running(), version)
         self.assertLess(
-            lem_release.numbers(lem_release.BEFORE), lem_release.numbers(version)
+            cast("tuple[int, ...]", lem_release.numbers(lem_release.BEFORE)),
+            cast("tuple[int, ...]", lem_release.numbers(version)),
         )
 
 

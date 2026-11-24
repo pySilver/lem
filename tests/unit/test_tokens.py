@@ -5,18 +5,16 @@ the form Claude Code writes them (one record a line; a reply's blocks share one
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import json
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import cast
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-lem_tokens = importlib.import_module("lem_tokens")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import tokens as lem_tokens  # noqa: E402 - after the line that puts src on sys.path
 
 SLUG = "gift-note"
 
@@ -160,7 +158,7 @@ class Tokens(unittest.TestCase):
             (SLUG, str(first)),
             ("another-task", str(other)),
         )
-        found = lem_tokens.task_tokens(self.state, SLUG)
+        found = cast("dict", lem_tokens.task_tokens(self.state, SLUG))
         self.assertEqual(
             {
                 key: found[key]
@@ -199,7 +197,7 @@ class Tokens(unittest.TestCase):
         kept = self.projects / "aaa.jsonl"
         write(kept, reply("m1", 1, 2))
         self.log((SLUG, str(kept)), (SLUG, str(self.projects / "gone.jsonl")))
-        found = lem_tokens.task_tokens(self.state, SLUG)
+        found = cast("dict", lem_tokens.task_tokens(self.state, SLUG))
         self.assertEqual(
             (found["output"], found["sessions"], found["missing"]), (2, 1, 1)
         )
@@ -305,8 +303,12 @@ class FirstPrompt(unittest.TestCase):
             lem_tokens.transcripts_of(self.state, "merge-leaves-board-lock"),
             [str(merge), str(fork)],
         )
-        search_count = lem_tokens.task_tokens(self.state, "board-card-search")
-        merge_count = lem_tokens.task_tokens(self.state, "merge-leaves-board-lock")
+        search_count = cast(
+            "dict", lem_tokens.task_tokens(self.state, "board-card-search")
+        )
+        merge_count = cast(
+            "dict", lem_tokens.task_tokens(self.state, "merge-leaves-board-lock")
+        )
         self.assertEqual((search_count["output"], search_count["sessions"]), (10, 1))
         self.assertEqual((merge_count["output"], merge_count["sessions"]), (3200, 2))
 
@@ -341,13 +343,15 @@ class FirstPrompt(unittest.TestCase):
         self.assertEqual(
             lem_tokens.transcripts_of(self.state, "board-card-search"), [str(fork)]
         )
-        self.assertEqual(lem_tokens.task_tokens(self.state, SLUG)["output"], 12)
+        self.assertEqual(
+            cast("dict", lem_tokens.task_tokens(self.state, SLUG))["output"], 12
+        )
 
     def test_a_transcript_that_is_gone_is_missing_for_its_records_task_only(
         self,
     ) -> None:
         self.log(self.logged(SLUG, self.projects / "gone.jsonl"))
-        found = lem_tokens.task_tokens(self.state, SLUG)
+        found = cast("dict", lem_tokens.task_tokens(self.state, SLUG))
         self.assertEqual((found["sessions"], found["missing"]), (0, 1))
         self.assertIsNone(lem_tokens.task_tokens(self.state, "board-card-search"))
 
@@ -382,7 +386,9 @@ class FirstPrompt(unittest.TestCase):
             [str(fork), str(merge)],
         )
         self.assertEqual(
-            lem_tokens.task_tokens(self.state, "merge-leaves-board-lock")["output"],
+            cast("dict", lem_tokens.task_tokens(self.state, "merge-leaves-board-lock"))[
+                "output"
+            ],
             3200,
         )
         self.assertEqual(

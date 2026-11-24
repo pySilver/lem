@@ -8,7 +8,6 @@ with a session is in tests/lem-session.sh, with a stand-in for agtermctl.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import json
 import os
 import re
@@ -21,20 +20,19 @@ import unittest
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 if TYPE_CHECKING:
-    import lem_board_model
+    from lem import board_model as lem_board_model
 
 sys.dont_write_bytecode = True
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"
-sys.path.insert(0, str(SCRIPTS))
-lem_state = importlib.import_module("lem_state")
-project = importlib.import_module("project")
-session = importlib.import_module("session")
-session_hook = importlib.import_module("session_hook")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import project, session, session_hook  # noqa: E402 - after the line that puts src on sys.path
+from lem import state as lem_state  # noqa: E402 - after the line that puts src on sys.path
 
+# the folder of this checkout of Lem
+ROOT_OF_LEM = Path(__file__).resolve().parents[2]
 ROOT = Path("/lem-unit/repo")
 SLUG = "gift-note"
 HANDOFF = """task: gift-note · from shape · written: 2026-11-21T10:05Z
@@ -635,36 +633,43 @@ class FirstLine(unittest.TestCase):
         typed = self.state(
             "building", "small change: one builder", "type: docs, because a line"
         )
-        night = session.first_line_end(SLUG, [typed], night=True)
+        night = cast("dict", session.first_line_end(SLUG, [typed], night=True))
         self.assertEqual((night["say"], night["gone"]), (None, False))
         self.assertIn("a task of the night", night["why"])
         self.assertIn(
-            "has no line", session.first_line_end(SLUG, [typed], night=False)["why"]
+            "has no line",
+            cast("dict", session.first_line_end(SLUG, [typed], night=False))["why"],
         )
         # the hold of an order that named no task: his answer brings the line, in the
         # task's own session
-        held = session.first_line_end(
-            SLUG,
-            [
-                self.state(
-                    "held",
-                    'the order waits for the owner: "After the gift note"',
-                    "type: feat, because x",
-                )
-            ],
-            night=False,
+        held = cast(
+            "dict",
+            session.first_line_end(
+                SLUG,
+                [
+                    self.state(
+                        "held",
+                        'the order waits for the owner: "After the gift note"',
+                        "type: feat, because x",
+                    )
+                ],
+                night=False,
+            ),
         )
         self.assertEqual((held["say"], held["gone"]), (None, False))
         self.assertIn(f"{SLUG} is held: the order waits for the owner", held["why"])
         self.assertIn("comes with his answer", held["why"])
         for status in ("dropped", "answered", "landed", "parked"):
-            ended = session.first_line_end(
-                SLUG,
-                [
-                    self.state("held", "the request waits for one answer"),
-                    self.state(status, "the owner dropped it"),
-                ],
-                night=False,
+            ended = cast(
+                "dict",
+                session.first_line_end(
+                    SLUG,
+                    [
+                        self.state("held", "the request waits for one answer"),
+                        self.state(status, "the owner dropped it"),
+                    ],
+                    night=False,
+                ),
             )
             self.assertEqual(ended["say"], None, status)
             self.assertIn(f"{SLUG} is {status} before its first line", ended["why"])
@@ -1190,9 +1195,7 @@ class SessionBrief(unittest.TestCase):
 
     def written_by(self, plugin: Path) -> str:
         skill = plugin / "skills" / "lem"
-        with mock.patch.multiple(
-            session, SCRIPTS=skill / "scripts", SKILL=skill, PLUGIN=plugin
-        ):
+        with mock.patch.multiple(session, SKILL=skill, PLUGIN=plugin):
             return session.brief_text(
                 SLUG, "shape", "new", ROOT / ".lem/state/tasks" / SLUG, ROOT, None
             )
@@ -1214,9 +1217,7 @@ class SessionBrief(unittest.TestCase):
             for version in ("0.2.0", "0.2.1"):
                 plugin = cache / version
                 (plugin / "bin").mkdir(parents=True)
-                (plugin / "bin/lem").write_bytes(
-                    (SCRIPTS.parents[2] / "bin/lem").read_bytes()
-                )
+                (plugin / "bin/lem").write_bytes((ROOT_OF_LEM / "bin/lem").read_bytes())
                 (plugin / "bin/lem").chmod(0o755)
                 (plugin / "skills/lem/prompts").mkdir(parents=True)
                 (plugin / "skills/lem/prompts/session.md").write_text(
@@ -1254,7 +1255,7 @@ class EveryBrief(unittest.TestCase):
     prompt (`Read SKILL_DIR/prompts/writing.md first`) is no brief: that reader runs
     from the installed Lem already."""
 
-    PLACES = ("skills", "agents")
+    PLACES = ("skills", "agents", "src")
     TEXTS = {".md", ".py", ".sh", ".toml", ".json", ".txt", ""}
     # a brief's first line by its shape, and what it reads: a Lem text when it names one
     # by a path
@@ -1271,7 +1272,7 @@ class EveryBrief(unittest.TestCase):
         ]
 
     def test_no_brief_names_a_lem_text_by_a_folder(self) -> None:
-        root = SCRIPTS.parents[2]
+        root = ROOT_OF_LEM
         wrong, briefs = [], 0
         for place in self.PLACES:
             for path in sorted((root / place).rglob("*")):
@@ -1346,8 +1347,8 @@ class NoFocus(unittest.TestCase):
     SELECT = re.compile(r"\"session\",\s*\"select\"")
 
     def files(self) -> Iterator[tuple[str, str]]:
-        root = SCRIPTS.parents[2]
-        for place in ("skills", "agents"):
+        root = ROOT_OF_LEM
+        for place in ("skills", "agents", "src"):
             for path in sorted((root / place).rglob("*")):
                 if (
                     path.is_file()
@@ -1378,9 +1379,9 @@ class NoFocus(unittest.TestCase):
                 if name.endswith(".py") and self.SELECT.search(text)
             ),
             [
-                "skills/lem/scripts/board.py",
-                "skills/lem/scripts/picker.py",
-                "skills/lem/scripts/serve.py",
+                "src/lem/board.py",
+                "src/lem/picker.py",
+                "src/lem/serve.py",
             ],
         )
 
@@ -1408,7 +1409,7 @@ class Handoff(unittest.TestCase):
         self.assertEqual(session.handoff_form(none, SLUG)["changed"], [])
 
     def test_the_template_reads_as_a_form_once_filled(self) -> None:
-        template = (SCRIPTS.parent / "templates" / "handoff.md").read_text(
+        template = (ROOT_OF_LEM / "skills/lem/templates/handoff.md").read_text(
             encoding="utf-8"
         )
         filled = (
@@ -1502,7 +1503,12 @@ class Hooks(unittest.TestCase):
         if pane:
             env["AGTERM_SESSION_ID"] = pane
         return subprocess.run(
-            [sys.executable, "-B", str(SCRIPTS / "session_hook.py")],
+            [
+                sys.executable,
+                "-B",
+                str(ROOT_OF_LEM / "src/lem/python.py"),
+                "session_hook",
+            ],
             input=json.dumps({"cwd": str(self.repo), **event}),
             capture_output=True,
             text=True,
@@ -1893,7 +1899,9 @@ class Guard(unittest.TestCase):
         with mock.patch.object(session, "guard_refusal", side_effect=spy):
             refused, _, _ = self.run_act(
                 self.landing("held"),
-                lambda: session.guard_check(ROOT, SLUG, "status", "S1", {}),
+                lambda: cast(
+                    "dict", session.guard_check(ROOT, SLUG, "status", "S1", {})
+                ),
             )[0]
         self.assertEqual(refused["why"], "status")
         self.assertEqual(

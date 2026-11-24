@@ -7,7 +7,6 @@ and its lock file until the block ends, however it ends.
 """
 
 import fcntl
-import importlib
 import os
 import sys
 import tempfile
@@ -17,10 +16,8 @@ from pathlib import Path
 from unittest import mock
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-lem_files = importlib.import_module("lem_files")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import files as lem_files  # noqa: E402 - after the line that puts src on sys.path
 
 
 class Whole(unittest.TestCase):

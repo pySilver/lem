@@ -7,7 +7,6 @@ in words.
 """
 
 import ast
-import importlib
 import json
 import os
 import re
@@ -19,8 +18,9 @@ from unittest import mock
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "skills" / "lem" / "scripts"))
-doctor = importlib.import_module("doctor")
+sys.path.insert(0, str(ROOT / "src"))
+from lem import doctor  # noqa: E402 - after the line that puts src on sys.path
+
 # Each row of the machine check that the table of docs/install.md lists, with the words
 # of the one table row that names it.
 IN_TABLE = {
@@ -117,11 +117,7 @@ def tiers() -> dict[str, set[str]]:
     is read in the tier it is written with first."""
     found: dict[str, set[str]] = {}
     for node in ast.walk(
-        ast.parse(
-            (ROOT / "skills" / "lem" / "scripts" / "doctor.py").read_text(
-                encoding="utf-8"
-            )
-        )
+        ast.parse((ROOT / "src" / "lem" / "doctor.py").read_text(encoding="utf-8"))
     ):
         name = need = None
         if (

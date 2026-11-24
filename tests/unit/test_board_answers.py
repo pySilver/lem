@@ -12,7 +12,6 @@ in tests/lem-board-keys.sh.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import json
 import subprocess
 import sys
@@ -26,13 +25,12 @@ from unittest import mock
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "skills" / "lem" / "scripts"))
-serve = importlib.import_module("serve")
-bm = importlib.import_module("lem_board_model")
-pages = importlib.import_module("lem_board_pages")
-task_pages = importlib.import_module("lem_board_task")
-lem_answers = importlib.import_module("lem_answers")
-project = importlib.import_module("project")
+sys.path.insert(0, str(ROOT / "src"))
+from lem import answers as lem_answers  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_model as bm  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_pages as pages  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_task as task_pages  # noqa: E402 - after the line that puts src on sys.path
+from lem import project, serve  # noqa: E402 - after the line that puts src on sys.path
 
 START = datetime(2026, 11, 23, 15, 0, tzinfo=UTC)
 NOW = int((START + timedelta(hours=1)).timestamp() * 1000)
@@ -185,10 +183,12 @@ class Acts(unittest.TestCase):
     def answer(
         self, form: dict, *events: dict, heard: dict = PHONE, **kw: str | None
     ) -> dict:
-        return serve.act_answer(self.ws(*events, **kw), SLUG, form, dict(heard))
+        return serve.act_answer(
+            cast("serve.Workspace", self.ws(*events, **kw)), SLUG, form, dict(heard)
+        )
 
     def key(self, *events: dict) -> str:
-        return bm.answer_row(model(*events).tasks[0])["key"]
+        return cast("dict", bm.answer_row(model(*events).tasks[0]))["key"]
 
     def record(self, key: str) -> dict | None:
         return lem_answers.on_record(self.folder, key)
@@ -199,7 +199,11 @@ class Acts(unittest.TestCase):
         key = self.key(*BREAKER)
         self.assertEqual(key, f"breaker:{SLUG}:1:{stamp(20)}")
         self.assertEqual(
-            list(bm.answer_row(model(*BREAKER).tasks[0])["options"].values()),
+            list(
+                cast("dict", bm.answer_row(model(*BREAKER).tasks[0]))[
+                    "options"
+                ].values()
+            ),
             ["Help", "Park", "Drop"],
         )
         unconfirmed = self.answer({"key": key, "option": "drop"})
@@ -338,7 +342,11 @@ class Acts(unittest.TestCase):
         self.assertEqual(cast("dict", self.record(key))["option"], "drop")
         # Park, from its own step, reads the same record first
         parked = serve.act_park(
-            self.ws(), SLUG, {"key": key, "why": "later"}, bm.VIA["local"], heard=PHONE
+            cast("serve.Workspace", self.ws()),
+            SLUG,
+            {"key": key, "why": "later"},
+            bm.VIA["local"],
+            heard=PHONE,
         )
         self.assertEqual(parked["said"], later["said"])
         self.assertNotIn(("project.py", "state", SLUG, "parked", "later"), self.calls)
@@ -348,7 +356,7 @@ class Acts(unittest.TestCase):
     ) -> None:
         key = self.key(*BREAKER)
         parked = serve.act_park(
-            self.ws(),
+            cast("serve.Workspace", self.ws()),
             SLUG,
             {"key": key, "why": "wait for the new reader"},
             bm.VIA["door"],
@@ -379,7 +387,13 @@ class Acts(unittest.TestCase):
         key = self.key(*BREAKER)
         self.refuse = True
         self.assertEqual(
-            serve.act_park(self.ws(), SLUG, {"key": key}, bm.VIA["local"], heard=PHONE),
+            serve.act_park(
+                cast("serve.Workspace", self.ws()),
+                SLUG,
+                {"key": key},
+                bm.VIA["local"],
+                heard=PHONE,
+            ),
             {"ok": False, "said": "it refused"},
         )
         self.assertIsNone(self.record(key))
@@ -432,7 +446,14 @@ class Acts(unittest.TestCase):
     ) -> None:
         key = self.key(*PLAN)
         self.assertEqual(
-            (key, list(bm.answer_row(model(*PLAN).tasks[0])["options"].values())),
+            (
+                key,
+                list(
+                    cast("dict", bm.answer_row(model(*PLAN).tasks[0]))[
+                        "options"
+                    ].values()
+                ),
+            ),
             (f"plan:{SLUG}:{stamp(10)}", ["Build", "Drop"]),
         )
         done = self.answer({"key": key, "option": "build"}, *PLAN)
@@ -710,7 +731,8 @@ class Rows(unittest.TestCase):
             state(0, "held", "the criteria wait for the owner"), OPENED, tab="criteria"
         )
         self.assertEqual(
-            bm.answer_row(std.model.tasks[0])["question"], "Approve the criteria?"
+            cast("dict", bm.answer_row(std.model.tasks[0]))["question"],
+            "Approve the criteria?",
         )
         self.assertIn(
             'name="option" value="no"',
@@ -754,7 +776,7 @@ class Rows(unittest.TestCase):
             folder = Path(tmp) / "tasks" / SLUG
             folder.mkdir(parents=True)
             m = model(*BREAKER)
-            key = bm.answer_row(m.tasks[0])["key"]
+            key = cast("dict", bm.answer_row(m.tasks[0]))["key"]
             self.assertEqual(bm.answers_look(Path(tmp), m), {})
             lem_answers.record(folder, key, "q", "help", "words", **PHONE)
             self.assertEqual(bm.answers_look(Path(tmp), m)[SLUG][key]["option"], "help")
@@ -823,7 +845,8 @@ class BoardAnswer(unittest.TestCase):
                 [
                     sys.executable,
                     "-B",
-                    str(ROOT / "skills/lem/scripts/project.py"),
+                    str(ROOT / "src/lem/__main__.py"),
+                    "project",
                     "--repo",
                     str(repo),
                     *args,

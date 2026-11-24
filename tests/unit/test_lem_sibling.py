@@ -1,30 +1,28 @@
-"""lem_sibling.py's `checked`: a sibling that failed is the caller's own refusal, of
-the class it names, with the sibling's message less its name, unless the caller reads
-the exit itself; what a sibling that succeeded wrote on stderr is said again.
+"""sibling.py's `checked`: a sibling that failed is the caller's own refusal, of the
+class it names, with the sibling's message less its name, unless the caller reads the
+exit itself; what a sibling that succeeded wrote on stderr is said again. The sibling is
+a stand-in module in the place of `project`'s, which `checked` runs in this process.
 
     python3 -B -m unittest discover -s tests/unit
 """
 
 import contextlib
-import importlib
 import io
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-lem_sibling = importlib.import_module("lem_sibling")
-
-# a sibling in the form a call in this process needs: it says on stderr and exits as
-# its first argument asks
-SIBLING = """import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import sibling as lem_sibling  # noqa: E402 - after the line that puts src on sys.path
 
 
-def main(argv):
+def main(argv: list[str]) -> None:
+    """The `main(argv)` of a sibling in the form a call in this process needs: it says
+    on stderr and exits as its first argument asks."""
     word = argv[2]
     if word == "fails":
         sys.exit("project.py: no task 'x'; make it first")
@@ -33,7 +31,6 @@ def main(argv):
     print("out")
     if word == "says":
         print("project.py: settings read from main", file=sys.stderr)
-"""
 
 
 class Refused(Exception):
@@ -45,14 +42,19 @@ class Checked(unittest.TestCase):
         made = tempfile.TemporaryDirectory()
         self.addCleanup(made.cleanup)
         self.folder = Path(made.name)
-        self.path = self.folder / "project.py"
-        self.path.write_text(SIBLING, encoding="utf-8")
+        standin = types.SimpleNamespace(main=main)
+        for patch in (
+            mock.patch.object(lem_sibling, "loaded", lambda name: standin),
+            mock.patch.object(lem_sibling, "in_form", lambda name: True),
+        ):
+            patch.start()
+            self.addCleanup(patch.stop)
 
     def call(self, *args: str, check: bool = True) -> tuple[object, str]:
         said = io.StringIO()
         with contextlib.redirect_stderr(said):
             ran = lem_sibling.checked(
-                self.path, self.folder, *args, error=Refused, check=check
+                "project", self.folder, *args, error=Refused, check=check
             )
         return ran, said.getvalue()
 

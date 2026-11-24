@@ -7,7 +7,6 @@ in tests/lem-machine.sh.
 
 import ast
 import contextlib
-import importlib
 import io
 import json
 import os
@@ -18,11 +17,9 @@ from pathlib import Path
 from unittest import mock
 
 sys.dont_write_bytecode = True
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"
-sys.path.insert(0, str(SCRIPTS))
-corrections = importlib.import_module("corrections")
-lem_state = importlib.import_module("lem_state")
-project = importlib.import_module("project")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import corrections, paths, project  # noqa: E402 - after the line that puts src on sys.path
+from lem import state as lem_state  # noqa: E402 - after the line that puts src on sys.path
 
 
 def said(text: str) -> dict:
@@ -310,12 +307,12 @@ CALLS: dict = {}
 
 
 def calls_of(name: str) -> set:
-    """Each (file, function) of Lem's scripts, those of every skill and `bin/lem`, that
+    """Each (file, function) of Lem's package, every module of it, and `bin/lem`, that
     calls `name`."""
     if not CALLS:
         for file in [
-            *sorted(SCRIPTS.parent.parent.glob("*/scripts/*.py")),
-            SCRIPTS.parent.parent.parent / "bin" / "lem",
+            *sorted((paths.PACKAGE).glob("*.py")),
+            paths.ROOT / "bin" / "lem",
         ]:
             Calls(file.name, CALLS).visit(ast.parse(file.read_text(encoding="utf-8")))
     return CALLS.get(name, set())
@@ -331,13 +328,13 @@ class TheHomeFoldersWriters(unittest.TestCase):
 
     def test_the_writers_of_the_machines_file_are_the_owners_commands(self) -> None:
         self.assertEqual(
-            calls_of("write_machine") - {("lem_state.py", "write_machine")},
+            calls_of("write_machine") - {("state.py", "write_machine")},
             {
                 ("project.py", "cmd_load"),
                 ("project.py", "cmd_handoff"),
                 ("serve.py", "configure"),
-                ("lem_peers.py", "join"),
-                ("lem_peers.py", "leave"),
+                ("peers.py", "join"),
+                ("peers.py", "leave"),
                 ("corrections.py", "cmd_collect"),
             },
         )
@@ -348,25 +345,24 @@ class TheHomeFoldersWriters(unittest.TestCase):
             {
                 ("project.py", "home_name"),
                 ("project.py", "load"),
-                ("lem_state.py", "place_name"),
+                ("state.py", "place_name"),
                 ("project.py", "cmd_set"),
             },
         )
         self.assertEqual(
-            calls_of("write_edits") - {("lem_state.py", "write_edits")},
+            calls_of("write_edits") - {("state.py", "write_edits")},
             {("project.py", "cmd_set")},
         )
 
     def test_the_hooks_reach_no_writer(self) -> None:
-        # the plugin's hooks are these three scripts; the board server's starts
-        # `serve.py --ensure`, which writes no setting
+        # the plugin's hooks are these three modules, each the first word after the
+        # launcher's path; the board server's starts `serve.py --ensure`, which writes
+        # no setting
         hooks = json.loads(
-            (SCRIPTS.parent.parent.parent / "hooks" / "hooks.json").read_text(
-                encoding="utf-8"
-            )
+            (paths.ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8")
         )["hooks"]
         scripts = {
-            Path(hook["command"].split('"')[-2]).name
+            hook["command"].split('"')[-1].split()[0] + ".py"
             for entries in hooks.values()
             for entry in entries
             for hook in entry["hooks"]
@@ -375,7 +371,7 @@ class TheHomeFoldersWriters(unittest.TestCase):
             scripts, {"corrections.py", "serve_hook.py", "session_hook.py"}
         )
         self.assertIn(
-            '"--ensure"]', (SCRIPTS / "serve_hook.py").read_text(encoding="utf-8")
+            '"--ensure"]', (paths.PACKAGE / "serve_hook.py").read_text(encoding="utf-8")
         )
         writers = calls_of("write_machine")
         for hook in (

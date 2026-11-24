@@ -12,7 +12,6 @@ in tests/lem-settings.sh.
     python3 -B -m unittest tests.unit.test_criteria_change
 """
 
-import importlib
 import json
 import sys
 import tempfile
@@ -22,16 +21,14 @@ import unittest
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 from unittest import mock
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-criteria = importlib.import_module("criteria")
-project = importlib.import_module("project")
-bm = importlib.import_module("lem_board_model")
-lem_answers = importlib.import_module("lem_answers")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import answers as lem_answers  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_model as bm  # noqa: E402 - after the line that puts src on sys.path
+from lem import criteria, project  # noqa: E402 - after the line that puts src on sys.path
 
 SLUG = "invoice-export-empty-cells"
 START = datetime(2026, 11, 23, 15, 0, tzinfo=UTC)
@@ -79,7 +76,7 @@ class Folder(unittest.TestCase):
             self.task.directory / "criteria.md",
         )
         self.task.read_mode = lambda: self.task.mode
-        self.task.log = self.append
+        self.task.log = cast("Callable[..., None]", self.append)
         self.stop_state = False
         self.calls: list[tuple[str, ...]] = []
         patcher = mock.patch.object(criteria, "script", side_effect=self.script)
@@ -162,7 +159,7 @@ class AChangeWaitsForHisYes(Folder):
         self.assertEqual(
             (kept["ts"], kept["text"], kept["words"]), (block["ts"], CRITERIA, NOTE)
         )
-        newest = criteria.newest_block(self.task)
+        newest = cast("dict", criteria.newest_block(self.task))
         self.assertEqual(
             (newest["status"], newest["text"]),
             ("held", "the criteria wait for the owner: changed from the owner's note"),
@@ -228,7 +225,8 @@ class AChangeWaitsForHisYes(Folder):
         changed = criteria.cmd_change(self.task, self.file(CHANGED), NOTE)
         newest = criteria.newest_block(self.task)
         self.assertNotEqual(
-            criteria.row_key(self.task, newest), criteria.row_key(self.task, block)
+            criteria.row_key(self.task, cast("dict", newest)),
+            criteria.row_key(self.task, block),
         )
         self.assertIsNone(criteria.owners_no(self.task, newest))
         self.assertEqual(
@@ -506,7 +504,9 @@ class AStopInTheMiddle(Folder):
         with self.assertRaises(KeyboardInterrupt):
             criteria.cmd_change(self.task, self.file(CHANGED), NOTE)
         self.assertEqual(self.task.small_file.read_text(encoding="utf-8"), CHANGED)
-        self.assertEqual(criteria.newest_block(self.task)["ts"], block["ts"])
+        self.assertEqual(
+            cast("dict", criteria.newest_block(self.task))["ts"], block["ts"]
+        )
         self.assertIn(
             "stopped in the middle", self.refused(criteria.cmd_pairs, self.task)
         )
@@ -546,7 +546,7 @@ class HisTypedNo(Folder):
             int(datetime.fromisoformat(block["ts"]).timestamp() * 1000),
         )
         self.assertEqual((said["key"], said["recorded"]), (key, True))
-        made = lem_answers.on_record(self.task.directory, key)
+        made = cast("dict", lem_answers.on_record(self.task.directory, key))
         self.assertEqual(
             (made["option"], made["note"], made["from"], made["question"]),
             ("no", NOTE, "session", "Approve the criteria?"),
@@ -722,12 +722,13 @@ class HisNoThatChangesNoCriterion(Folder):
             ),
         )
         said = criteria.cmd_unchanged(self.task)
-        newest = criteria.newest_block(self.task)
+        newest = cast("dict", criteria.newest_block(self.task))
         self.assertEqual(
             (newest["status"], newest["text"]), ("held", criteria.UNCHANGED_WAIT)
         )
         self.assertNotEqual(
-            criteria.row_key(self.task, newest), criteria.row_key(self.task, block)
+            criteria.row_key(self.task, newest),
+            criteria.row_key(self.task, block),
         )
         self.assertEqual(
             (said["words"], said["answered"], said["shown"]),
@@ -784,7 +785,9 @@ class HisNoThatChangesNoCriterion(Folder):
         self.assertIn(
             "stopped in the middle", self.refused(criteria.cmd_unchanged, self.task)
         )
-        self.assertEqual(criteria.newest_block(self.task)["ts"], block["ts"])
+        self.assertEqual(
+            cast("dict", criteria.newest_block(self.task))["ts"], block["ts"]
+        )
 
     def test_the_command_line(self) -> None:
         for argv, said in (
@@ -818,7 +821,8 @@ class HisYesToTheChange(Folder):
             (record["by"], record["text"], record["number"]), ("owner", CHANGED, 1)
         )
         self.assertEqual(
-            self.task.approved()["criteria"][1]["text"], NEW_TWO[3:].strip()
+            cast("dict", self.task.approved())["criteria"][1]["text"],
+            NEW_TWO[3:].strip(),
         )
 
 
@@ -919,7 +923,8 @@ class TheWaitAsTheOthersReadIt(unittest.TestCase):
             bm.words(criteria.UNCHANGED_WAIT),
             "your note changed no criterion, and the criteria wait for your yes again",
         )
-        land = importlib.import_module("land")
+        from lem import land
+
         self.assertNotEqual(criteria.UNCHANGED_WAIT, land.CHANGED_WAIT)
 
         def at(minute: int) -> str:
@@ -964,7 +969,7 @@ class TheWaitAsTheOthersReadIt(unittest.TestCase):
             (t.need["need"], t.approvable, t.turn), ("criteria", True, "asks")
         )
         self.assertEqual(land.changed_after_read(events), 0)
-        row = bm.answer_row(t)
+        row = cast("dict", bm.answer_row(t))
         self.assertEqual(
             (row["kind"], row["question"]), ("criterion", "Approve the criteria?")
         )

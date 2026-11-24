@@ -6,7 +6,6 @@ line of keys in the page's foot.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import json
 import re
 import sys
@@ -14,15 +13,14 @@ import types
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-bm = importlib.import_module("lem_board_model")
-pages = importlib.import_module("lem_board_pages")
-task_pages = importlib.import_module("lem_board_task")
-serve = importlib.import_module("serve")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import board_model as bm  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_pages as pages  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_task as task_pages  # noqa: E402 - after the line that puts src on sys.path
+from lem import serve  # noqa: E402 - after the line that puts src on sys.path
 
 START = datetime(2026, 11, 20, 9, 0, tzinfo=UTC)
 NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
@@ -801,7 +799,9 @@ class WaitStack(unittest.TestCase):
             model=lambda: m,
             reader=types.SimpleNamespace(problems={}),
         )
-        self.assertEqual(serve.Workspace.count(space)["waits"], 2)
+        self.assertEqual(
+            serve.Workspace.count(cast("serve.Workspace", space))["waits"], 2
+        )
         self.assertEqual(len(bm.waits_of(m)), 3)
 
 
@@ -839,7 +839,8 @@ class Search(unittest.TestCase):
             model=bm.derive(events, [], NOW),
             asset=lambda name: name,
             backlog=self.BACKLOG,
-            **kw,
+            # each a field of Ctx, as the case names it
+            **cast("dict[str, Any]", kw),
         )
 
     def box(self, html: str) -> str:

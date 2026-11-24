@@ -260,7 +260,9 @@ class Shop:
         serve.py `act_answer` writes them."""
         if str(SCRIPTS) not in sys.path:
             sys.path.insert(0, str(SCRIPTS))
-        import lem_answers  # the record of the owner's answer on the board
+        from lem import (
+            answers as lem_answers,  # the record of the owner's answer on the board
+        )
 
         key = f"criterion:{slug}:{(NOW - timedelta(minutes=block)).strftime('%Y%m%dT%H%M%SZ')}"
         lem_answers.record(
@@ -321,7 +323,9 @@ class Shop:
         )
         if str(SCRIPTS) not in sys.path:
             sys.path.insert(0, str(SCRIPTS))
-        import lem_cards  # Lem's record of a task's cards, as a task's session keeps it
+        from lem import (
+            cards as lem_cards,  # Lem's record of a task's cards, as a task's session keeps it
+        )
 
         lem_cards.keep(
             self.dir / "tasks" / slug,

@@ -8,7 +8,6 @@ or closes the session's page.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import json
 import re
 import subprocess
@@ -20,9 +19,8 @@ from pathlib import Path
 from typing import cast
 
 sys.dont_write_bytecode = True
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"
-sys.path.insert(0, str(SCRIPTS))
-lem_cards = importlib.import_module("lem_cards")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import cards as lem_cards  # noqa: E402 - after the line that puts src on sys.path
 
 SLUG = "export-notes"
 SPEC = {
@@ -89,7 +87,7 @@ class Keep(Repository):
         html = b"<!doctype html><p>Keep the empty cell?</p>"
         lem_cards.keep(self.task, "P1", html, SPEC, "S1")
         self.assertEqual((self.task / "cards" / "P1.html").read_bytes(), html)
-        card = lem_cards.card(self.task, "P1")
+        card = cast("dict", lem_cards.card(self.task, "P1"))
         self.assertEqual(
             (card["page"], card["session"], card["chat"]), ("P1", "S1", True)
         )
@@ -161,7 +159,9 @@ class FirstEndCounts(Repository):
         won, on_record = lem_cards.end(self.task, "P1", "answered", "session", A)
         self.assertFalse(won)
         self.assertEqual(on_record["answer"], B)
-        self.assertEqual(lem_cards.ended(self.task, "P1")["from"], "board")
+        self.assertEqual(
+            cast("dict", lem_cards.ended(self.task, "P1"))["from"], "board"
+        )
         self.assertRegex(
             lem_cards.took_effect(on_record),
             r"\Ano, write a dash was taken on the board at \d\d:\d\d, from the phone\Z",
@@ -263,7 +263,7 @@ class FirstEndCounts(Repository):
 
 class NoAgterm(unittest.TestCase):
     def test_the_module_the_board_calls_answers_and_closes_no_page(self) -> None:
-        text = (SCRIPTS / "lem_cards.py").read_text(encoding="utf-8")
+        text = Path(lem_cards.__file__).read_text(encoding="utf-8")
         self.assertIsNone(
             re.search(r"agtermctl|subprocess|overlay\W+(submit|close)", text)
         )

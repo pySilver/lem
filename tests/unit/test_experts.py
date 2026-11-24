@@ -7,18 +7,14 @@ tests/test-ask-expert.sh.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0,
-    str(Path(__file__).resolve().parents[2] / "skills" / "lem-ask-expert" / "scripts"),
-)
-experts = importlib.import_module("experts")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import experts  # noqa: E402 - after the line that puts src on sys.path
 
 MERCHANT = """# A merchant who sells shoes
 

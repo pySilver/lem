@@ -4,16 +4,14 @@ and in an attribute's value, and only `Markup` passes as it is.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import sys
 import unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-lem_html = importlib.import_module("lem_html")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import markup as lem_html  # noqa: E402 - after the line that puts src on sys.path
+
 h, Markup = lem_html.h, lem_html.Markup
 
 # a task's title as an attacker would write it

@@ -2,17 +2,15 @@
 criterion's case and its chart, the plan's `## How it works`, which of them the digests
 mark, and the inputs of a run of `red`."""
 
-import importlib
 import sys
 import unittest
 import unittest.mock
 from pathlib import Path
+from typing import cast
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-criteria = importlib.import_module("criteria")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import criteria  # noqa: E402 - after the line that puts src on sys.path
 
 PLAN = """## Acceptance criteria
 
@@ -140,7 +138,8 @@ class ResumedPlan(unittest.TestCase):
     def test_the_plan_of_the_task_it_came_from(self) -> None:
         import tempfile
 
-        lem_plans = importlib.import_module("lem_plans")
+        from lem import plans as lem_plans
+
         with tempfile.TemporaryDirectory() as folder:
             tasks, plans = Path(folder) / "tasks", Path(folder) / "plans"
             for slug, came in (
@@ -161,21 +160,27 @@ class ResumedPlan(unittest.TestCase):
                 lem_plans.found(plans, lem_plans.PLAN_FILE, "gift-note-3"), None
             )
             self.assertEqual(
-                lem_plans.found(
-                    plans,
-                    lem_plans.PLAN_FILE,
-                    "gift-note-3",
-                    lem_plans.resumed_from(tasks, "gift-note-3"),
+                cast(
+                    "Path",
+                    lem_plans.found(
+                        plans,
+                        lem_plans.PLAN_FILE,
+                        "gift-note-3",
+                        lem_plans.resumed_from(tasks, "gift-note-3"),
+                    ),
                 ).name,
                 "2026-11-20-gift-note.md",
             )
             (plans / "2026-11-21-gift-note-3.md").write_text("# its own\n")
             self.assertEqual(
-                lem_plans.found(
-                    plans,
-                    lem_plans.PLAN_FILE,
-                    "gift-note-3",
-                    ["gift-note-2", "gift-note"],
+                cast(
+                    "Path",
+                    lem_plans.found(
+                        plans,
+                        lem_plans.PLAN_FILE,
+                        "gift-note-3",
+                        ["gift-note-2", "gift-note"],
+                    ),
                 ).name,
                 "2026-11-21-gift-note-3.md",
             )
@@ -475,7 +480,11 @@ class ReadsOf(unittest.TestCase):
                 json.dumps(record, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             self.assertEqual(
-                [read["silent"] for read in criteria.reads_of(task)], [[words]]
+                [
+                    read["silent"]
+                    for read in criteria.reads_of(cast("criteria.Task", task))
+                ],
+                [[words]],
             )
 
 

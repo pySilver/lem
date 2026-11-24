@@ -6,7 +6,6 @@ name and never started.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import os
 import shutil
 import sys
@@ -15,10 +14,8 @@ import unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-lem_python = importlib.import_module("lem_python")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import python as lem_python  # noqa: E402 - after the line that puts src on sys.path
 
 
 class Find(unittest.TestCase):

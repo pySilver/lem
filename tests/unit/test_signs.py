@@ -9,7 +9,6 @@ newest turn runs (`turn_of`), over records of the forms the probes of 2026-11-23
 """
 
 import contextlib
-import importlib
 import json
 import sys
 import tempfile
@@ -18,10 +17,9 @@ from pathlib import Path
 from unittest import mock
 
 sys.dont_write_bytecode = True
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"
-sys.path.insert(0, str(SCRIPTS))
-lem_signs = importlib.import_module("lem_signs")
-session = importlib.import_module("session")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import session  # noqa: E402 - after the line that puts src on sys.path
+from lem import signs as lem_signs  # noqa: E402 - after the line that puts src on sys.path
 
 SLUG = "merge-leaves-board-lock"
 # the pane of the task's newest `session.open`, and the old pane before a restart

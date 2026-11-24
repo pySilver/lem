@@ -9,7 +9,6 @@ table is valid is the map's.
     python3 -B -m unittest discover -s tests/unit
 """
 
-import importlib
 import os
 import re
 import runpy
@@ -23,11 +22,9 @@ from collections.abc import Callable
 from pathlib import Path
 
 sys.dont_write_bytecode = True
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
-)
-lem_state = importlib.import_module("lem_state")
-project = importlib.import_module("project")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from lem import project  # noqa: E402 - after the line that puts src on sys.path
+from lem import state as lem_state  # noqa: E402 - after the line that puts src on sys.path
 
 ROOT = Path("/lem-unit/repo")
 LEM = Path(__file__).resolve().parents[2]
@@ -182,16 +179,10 @@ class Places(Home):
     def test_the_question_page_takes_the_keys_of_ask_that_lem_project_takes(
         self,
     ) -> None:
-        # lem-ask runs alone and imports nothing of Lem's, so its own list of the keys
+        # lem-ask imports nothing of Lem's at its start, so its own list of the keys
         # is held to project.py's here
         page = runpy.run_path(
-            str(
-                Path(__file__).resolve().parents[2]
-                / "skills"
-                / "lem-ask"
-                / "bin"
-                / "lem-ask"
-            ),
+            str(Path(__file__).resolve().parents[2] / "src" / "lem" / "ask.py"),
             run_name="lem_ask",
         )
         self.assertEqual(tuple(page["ASK_KEYS"]), project.TABLES["ask"])
