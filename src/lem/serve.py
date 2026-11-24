@@ -199,7 +199,7 @@ server's other calls into Lem's scripts (SCRIPT_LOCK):
   minutes after it with still none, never a restart: the owner's "Open a session" opens
   the fresh one. When its signs read again and show a turn at or after that message,
   `worked SLUG` logs the turn once: the stop no longer stands, and the clock counts from
-  the turn. Each looks once more in the task's lock and acts on nothing
+  the turn (from the release after this one, `bm.WRITES_WORKED`). Each looks once more in the task's lock and acts on nothing
   (`acted: false`) when the step is no longer due. A duty whose command failed
   waits DUTY_RETRY;
 - the merge agent's merge (`merge_due`): for an open task whose merge agent's review of

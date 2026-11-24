@@ -1955,6 +1955,8 @@ class StoppedSession(unittest.TestCase):
         # no `open … stopped`
         self.assertEqual(self.owed(*logged, at="11:50"), [])
 
+    # the writer of the record, which the release after this one turns on
+    @mock.patch("lem.board_model.WRITES_WORKED", True)
     def test_a_turn_read_after_an_unread_stop_is_logged_once_by_lem_session_worked(
         self,
     ) -> None:

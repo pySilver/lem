@@ -2077,6 +2077,8 @@ class Guard(unittest.TestCase):
             "unread",
         )
 
+    # the writer of the record, which the release after this one turns on
+    @mock.patch("lem.board_model.WRITES_WORKED", True)
     def test_a_turn_read_after_an_unread_stop_is_logged_once_and_the_open_agrees(
         self,
     ) -> None:

@@ -1235,9 +1235,9 @@ def fold(t: Task, e: dict, ts: int) -> None:  # noqa: C901, PLR0911, PLR0912, PL
             "say": str(e.get("say") or ""),
         }
         return
-    if event == "session.stopped":
-        # the guard's record of a stop (`stop_stands`), read from `t.events`: no step of
-        # the task's own
+    if event in ("session.stopped", WORKED):
+        # the guard's record of a stop (`stop_stands`) or of a turn (`worked_turn`),
+        # read from `t.events`: no step of the task's own
         return
     if event == "card.asked":
         if e.get("page"):
@@ -3059,6 +3059,12 @@ ANSWER_MS = 10 * 60 * 1000
 # signs saw after a status message that Lem sent while it could not read them
 # (`stop_due`'s step `worked`): its `session`, and `turn`, the time of that turn.
 WORKED = "session.worked"
+# Whether the guard logs a WORKED record (`stop_due`'s step `worked`): not before the
+# release after the one that reads it (AGENTS.md, a change of the form of a record takes
+# two releases). The reader of 0.3.1 folds an event it does not know as a step of the
+# landing, so its card of a landing that waits for the load would say that the landing
+# starts.
+WRITES_WORKED = False
 
 
 def guarded(t: Task) -> bool:
@@ -3105,7 +3111,7 @@ def stop_due(t: Task, m: Model) -> dict | None:  # noqa: PLR0911 - over the limi
       unread stop after it stands, or the stop is still to come): the record of that
       turn, once, since the clock then counts from it. It ends the stop
       (`stop_stands`), so the row and the owner's refused "Open a session" go. A turn
-      before a newer status wake answers none that stands;
+      before a newer status wake answers none that stands. Only with WRITES_WORKED;
     - `status`, from that sign, QUIET_MS after it, when no status wake of its clock came
       after it;
     - with signs that read, `restart`, from that wake, ANSWER_MS after it, when no
@@ -3154,7 +3160,7 @@ def stop_due(t: Task, m: Model) -> dict | None:  # noqa: PLR0911 - over the limi
         ),
         None,
     )
-    if newest is not None and newest["unread"] and turn >= newest["ts"]:
+    if WRITES_WORKED and newest and newest["unread"] and turn >= newest["ts"]:
         return {"step": "worked", "session": session, "from": turn}
     stop = stop_stands(t)
     # the order of the status wake before the standing stop (`wake_before`, an index; an

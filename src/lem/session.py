@@ -179,8 +179,9 @@ alone: 45 minutes with no event of the task give the status message, logged with
 `unread: true`, since Lem opens no second session by itself beside a session it cannot
 read. When the signs read again and show a turn at or after such a message, `worked`
 logs `session.worked` with that turn's time, once: the stop after the message no longer
-stands, and both clocks count from that turn. Each of the four looks once more in the
-task's lock before it acts (`guard_check`): the task is still in one of those statuses, its newest session is the
+stands, and both clocks count from that turn; the rule gives that step only from the
+release after this one (`lem_board_model.WRITES_WORKED`). Each of the four looks once
+more in the task's lock before it acts (`guard_check`): the task is still in one of those statuses, its newest session is the
 one `--session` names and still lives with an agent in its pane, no shell command of it
 runs, and the rule still gives that step, so that no sign of work came since the step
 was due. Else it acts on nothing, exits 0 and prints `acted: false` with `why`

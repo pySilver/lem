@@ -5657,6 +5657,8 @@ class StoppedSession(unittest.TestCase):
     def rows(self, m: "bm.Model") -> list:
         return [w["kind"] for w in bm.waits_of(m) if w["t"].slug == "gift-note"]
 
+    # the writer of the record, which the release after this one turns on
+    @mock.patch("lem.board_model.WRITES_WORKED", True)
     def test_a_turn_read_after_an_unread_stop_is_logged_once_and_the_stop_goes(
         self,
     ) -> None:
@@ -5709,6 +5711,8 @@ class StoppedSession(unittest.TestCase):
             ),
         )
 
+    # the writer of the record, which the release after this one turns on
+    @mock.patch("lem.board_model.WRITES_WORKED", True)
     def test_a_turn_read_between_two_unread_looks_keeps_the_stop_from_being_logged(
         self,
     ) -> None:
@@ -5739,6 +5743,8 @@ class StoppedSession(unittest.TestCase):
             ("stopped", "S1", self.ms("11:39")),
         )
 
+    # the writer of the record, which the release after this one turns on
+    @mock.patch("lem.board_model.WRITES_WORKED", True)
     def test_a_second_unread_period_gets_its_own_record_once(self) -> None:
         again = (
             *self.unread_stopped(),
@@ -5756,6 +5762,8 @@ class StoppedSession(unittest.TestCase):
         self.assertIsNone(self.due(*twice, at="13:02", **turned))
         self.assertEqual(self.rows(self.model(*twice, at="13:02", **turned)), [])
 
+    # the writer of the record, which the release after this one turns on
+    @mock.patch("lem.board_model.WRITES_WORKED", True)
     def test_a_turn_answers_only_the_status_message_that_the_standing_stop_followed(
         self,
     ) -> None:
@@ -5808,6 +5816,51 @@ class StoppedSession(unittest.TestCase):
         # a readable session with no stop before keeps its restart (criterion 4)
         self.assertEqual(
             self.due(*self.woken(), at="11:49"), ("restart", "S1", self.ms("11:39"))
+        )
+
+    def test_this_release_reads_the_record_and_writes_none(self) -> None:
+        # a reader of 0.3.1 folds the record as a step of the landing, so this release
+        # only reads it: the item's run gives the steps of the release before, and the
+        # unread stop keeps its row
+        self.assertFalse(bm.WRITES_WORKED)
+        turned = {"sign": "2026-11-22T11:55:00Z"}
+        self.assertIsNone(self.due(*self.unread_stopped(), at="11:56", **turned))
+        self.assertEqual(
+            self.due(*self.unread_stopped(), at="12:40", **turned),
+            ("status", "S1", self.ms("11:55")),
+        )
+        m = self.model(*self.unread_stopped(), at="11:56", **turned)
+        self.assertEqual(self.rows(m), ["stopped"])
+
+    def test_the_record_of_a_turn_changes_no_step_of_the_landing(self) -> None:
+        # the review's run of 2026-11-24: a landing whose checks wait for the load, an
+        # unread status message and its stop, then the record of a turn; and one whose
+        # polish pass runs. The card says the same before the record and after it.
+        waiting = (
+            *self.landing()[:2],
+            self.ev("10:18", "gate.start", tip="5ccc53d36", commands=1),
+            self.ev("10:19", "gate.wait", load=12, start=5),
+            self.ev("11:39", "session.wake", session="S1", why="status", unread=True),
+            self.ev("11:49", "session.stopped", session="S1", unread=True),
+        )
+        polishing = (
+            *self.landing()[:2],
+            self.ev("10:18", "polish.start", tip="5ccc53d36"),
+            *waiting[-2:],
+        )
+        record = self.worked("11:56", "11:55")
+        for events in (waiting, polishing):
+            one, other = (
+                bm.derive(list(log), [], self.ms("12:00")).by_slug["gift-note"]
+                for log in (events, (*events, record))
+            )
+            self.assertEqual(
+                (bm.now_head(other), other.waits, other.landing_step),
+                (bm.now_head(one), one.waits, one.landing_step),
+            )
+        self.assertEqual(
+            bm.now_head(bm.derive(list(waiting), [], 0).by_slug["gift-note"]),
+            "Waits for the load: 12, starts below 5",
         )
 
     def test_the_record_of_a_turn_is_no_work_and_no_fact_of_the_card(self) -> None:
