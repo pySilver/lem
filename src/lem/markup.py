@@ -61,12 +61,12 @@ class Markup(str):
         return Markup(str.__add__(escape(other), self))
 
 
-def escape(value: object) -> Markup:
+def escape(text: object) -> Markup:
     """A value as HTML text: a `Markup` as it is, anything else as its `str` with `&`,
     `<`, `>`, `"` and `'` escaped."""
-    if isinstance(value, Markup):
-        return value
-    return Markup(html.escape(str(value), quote=True))
+    if isinstance(text, Markup):
+        return text
+    return Markup(html.escape(str(text), quote=True))
 
 
 def flat(kids: Iterable) -> Iterable:
@@ -85,12 +85,12 @@ def flat(kids: Iterable) -> Iterable:
 
 def attributes(attrs: dict | None) -> str:
     out = []
-    for key, value in (attrs or {}).items():
-        if value is None or value is False:
+    for key, attr in (attrs or {}).items():
+        if attr is None or attr is False:
             continue
-        if not key or any(c in key for c in " \"'<>/=\t\n"):
+        if not key or any(char in key for char in " \"'<>/=\t\n"):
             raise ValueError(f"{key!r} is no attribute name")
-        out.append(f" {key}" if value is True else f' {key}="{escape(value)}"')
+        out.append(f" {key}" if attr is True else f' {key}="{escape(attr)}"')
     return "".join(out)
 
 
