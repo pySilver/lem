@@ -182,7 +182,7 @@ TABLE_PLACES = {
     "load": ("machine",), "serve": ("machine",), "peers": ("machine",), "handoff": ("machine",), "corrections": ("machine",),
     "seats": ("home", "team", "local"),
     "ask": ("home",),
-    "flow": ("team",), "checks": ("team",), "branch": ("team",), "paths": ("team",), "tracker": ("team",),
+    "flow": ("team",), "checks": ("team",), "branch": ("team",), "paths": ("team",), "tracker": ("team",), "jev": ("team",),
     "naps": ("team", "local"),
     "state": ("team", "local"),
 }

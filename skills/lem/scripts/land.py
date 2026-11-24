@@ -27,10 +27,16 @@ may-land` about the settings' base branch, so a protected branch is never reache
     lem land read SLUG     whether a review is due, the least it may be, and what a reviewer gets
     lem land read SLUG --record FILE
                            write down what the review was and what it found
-    lem land file SLUG [--again]
-                           file each defect a review saw outside the change and called over the
-                           bar as an item of the backlog, and commit the items on the task's
-                           branch; a defect whose open item the tip holds is that item
+    lem land file SLUG [--again] [--same rN.M=PATH ...] [--new rN.M ...]
+                           file each defect a review saw outside the change and called over or
+                           under the bar as an item of the backlog, `worth: later` or `worth: no`,
+                           and commit the items on the task's branch; a defect whose open item the
+                           tip holds is that item; first, a defect Jev reads as one an item holds
+                           stops the step, and the next run says `--same` or `--new` for it
+    lem land alike SLUG --where WHERE --title TITLE --what FILE
+                           the items of the backlog folder at the task's tip that Jev reads as the
+                           same defect as a finding, three at most, before an agent files it by
+                           hand; with nothing sent, every item, for the agent to read
     lem land propose SLUG --title SUBJECT --notes FILE
                            push the branch and open its pull request on GitHub, or update the one
                            that is there: the state becomes `open`
@@ -79,7 +85,8 @@ of the same task meanwhile exits 1 and names the step that holds the lock, since
 process. While the checks hold it, a second `checks` is refused because they already run, and any
 other step says that their end comes first, so that nothing is proposed, read or rebased while they
 run. `checks --status` and `checks --stop` take no lock: they look at the file
-and at the process it names, never at the lock, so a look never makes a real start fail. The
+and at the process it names, never at the lock, so a look never makes a real start fail. Nor does
+`alike`, which writes nothing and which a builder runs between two steps. The
 commands a step runs do not get the lock's file, so a server one of them left behind does not hold
 it.
 
@@ -105,9 +112,10 @@ run lets the lock go (`STOP_WAIT` at most), and says whether it stopped one (`st
 A task on the fast track has no plan: its one acceptance criterion is `criteria.md` in the task directory
 (`criteria.py` gives `small`), which the steps read in the plan's place. It is one task and never gets a polish
 pass (`polish` refuses it): its builder judges each defect it saw outside the change by the bar of
-rule 6 of the builder's standing rules, fixes a cheap one and files one over the bar in the backlog
-folder, each in a commit of its own, and the pull request lists each file the branch adds there
-under `## Filed in the backlog`. It has
+rule 6 of the builder's standing rules, fixes a cheap one, and files each other one in the backlog
+folder, `worth: later` over the bar and `worth: no` under it, each in a commit of its own, and the
+pull request lists each file the branch adds there under `## Filed in the backlog`, or under `##
+Filed as not worth it` when the file says `worth: no`. It has
 no reason for a lowered bar (the checks refuse one: a lowered bar takes the standard track), and its pull
 request's text is short. One that is careful after all is not green, since it took the fast track
 with no interview, read or plan.
@@ -311,10 +319,11 @@ reaches, or what was checked to say that it reaches none; `careful: true` comes 
 the change lowers the bar, and is left out otherwise. `outside` names each defect the review saw
 that the base commit already has: it is no finding of the change. `what` is the concrete run: what
 happens, with the input. A count in its place is refused, and `0` reads as none. `bar` is the
-review's call on the defect by the bar of rule 6 of the builder's standing rules: `over`, worth an
-item; `under`, one line of the pull request and no file; `cheap`, its fix changes no behavior and
-needs no new test. `why` is one line, why the defect is under the bar or why it is cheap, and an
-`under` or a `cheap` entry needs it. `open` names an item of the backlog folder at the base that
+review's call on the defect by the bar of rule 6 of the builder's standing rules: `over`, an item
+with `worth: later`; `under`, an item with `worth: no`; `cheap`, its fix is text that does not run
+(a comment, a docstring, a sentence of a document) or a finding of a check of the project that the
+check's rerun shows fixed. `why` is one line, why the defect is under the bar or why it is cheap,
+and an `under` or a `cheap` entry needs it: an `under` item ends with it, `Decided against: WHY`. `open` names an item of the backlog folder at the base that
 holds the same defect, from the base's items `read` lists (`backlog`, each with its path, its
 `where` and its title); a path that is no file of that folder at the base is refused. `read
 --record` gives each entry its number, `r`, the attempt and its place in the record (`r2.1`), which
@@ -334,14 +343,34 @@ Two rounds at most: after that the request is proposed as it is, green when the 
 left nothing open and not green otherwise. `attempt` in a record is the number `read` printed
 for it, so a record that is sent twice is written down once.
 
-No defect a review saw outside the change gets lost: each one is an item, or one line of the pull
-request with its reason. `file` writes one item in the backlog folder for each `over` defect of a
-review that has none yet and whose `open` item the tip does not hold, in the item format of
-`agents/lem-builder.md` (`worth: later`, its `where`, the day it was filed; its title; its run and
-where it was seen), commits the new items on the task's branch, one commit for each round, and
-keeps the path of each defect's item in `landing.json`. An `over` defect whose `open` item the tip
-holds is that item, and nothing is written for it (`open` in the output); one whose `open` item the
-tip lacks (the base removed or joined it after the review, and a rebase kept the review) is filed.
+No defect a review saw outside the change gets lost, and none is raised again by the next review:
+each one is an item, or one line of the pull request with its reason. `file` writes one item in the
+backlog folder for each `over` and each `under` defect of a review that has none yet and whose
+`open` item the tip does not hold, in the item format of `agents/lem-builder.md` (`worth: later`
+over the bar and `worth: no` under it, its `where`, the day it was filed; its title; its run and
+where it was seen; for an `under` one, its `why` as `Decided against: WHY`), commits the new items
+on the task's branch, one commit for each round, and keeps the path of each defect's item in
+`landing.json`. A defect whose `open` item the tip holds is that item, and nothing is written for it
+(`open` in the output); one whose `open` item the tip lacks (the base removed or joined it after the
+review, and a rebase kept the review) is filed. A defect called over the bar whose `open` item says
+`worth: no` at the tip is not settled by it: `file` writes a new item, `worth: later`, whose run is
+followed by the line "The same defect as `OLD-PATH`, now over the bar." (`NOW_OVER`), and the old
+item stays as it is; the new item is an added file like any other `file` writes.
+
+Before it writes anything, `file` asks the Jev model, for each other defect that waits for an item
+and whose own item is not there yet, whether it is the same defect as each item of the backlog
+folder at the tip, the base's and the branch's (`check_alike`): the defect is the state, and each
+item one yes-or-no question with its title, its `where` and the first line of its body, in as many
+requests as jev.py's limit needs, so that every item is asked. An item with a score at or over
+SAME_AT is named, three at most, the highest first. When any defect has items named, `file` writes
+nothing and refuses, with each such defect and its items; the next run says for each `--same
+rN.M=PATH`, that item holds it and is kept as its `open`, or `--new rN.M`, a defect of its own,
+and writes every item at once. Jev's scores are kept in `landing.json` under `alike`, by the
+finding's digest and the item's path, so a second run asks nothing it asked. With no key, no answer
+or `findings = false`, nothing is named and the filing goes on as without Jev. `alike` gives the
+same read for one finding to a builder that files by hand (the polish pass, the fast track's
+builder): the items named, or "Jev: not asked (WHY)" and every item's path and title to read. It
+writes nothing and takes no lock.
 A second run files nothing new. Those commits ask for no
 check again: `read` and `propose` take the checks' result for a tip whose commits after the checked
 one only add items whose paths `landing.json` keeps, and keep the result for that tip, so that
@@ -379,16 +408,45 @@ it was still there to remove: a file gone already is no error. A removal that fa
 `open` with the step's error, and the next `lem land merged` tries again. A dropped task leaves the
 file, and the item is undecided again.
 
-The text of the pull request lists what the reviews saw outside the change under three headings,
-each written only when it has a line, after `## Filed in the backlog`: the review's items join the
-notes' lines there; `## Fixed on the way` holds the notes' lines, one for each cheap defect a
-builder fixed in a commit of its own, a review's entry named by its number; and `## Seen, not
-filed` gets one line from the record, "`WHERE`: TITLE; WHY", for each `under` entry, each entry
-whose `open` item holds it (the line names the item), and each `cheap` entry that no line of the
+The text of the pull request lists what was seen outside the change under four headings, each
+written only when it has a line. The two lists of items come from the tip, not from who filed them:
+each item the branch adds to the backlog folder (a review's, the polish pass's, the fast track's
+builder's, one by hand) is a line under `## Filed in the backlog` when its file says `worth: later`
+or `yes`, and under `## Filed as not worth it`, which comes after it, when it says `no`; a line of
+the notes that names such an item takes the place of the step's line, under the heading its
+`worth` gives, so no item is written twice. `## Fixed on the way` holds the notes' lines, one for
+each cheap defect a builder fixed in a commit of its own, a review's entry named by its number; and
+`## Seen, not filed` gets one line from the record, "`WHERE`: TITLE; cheap: WHY", for each entry
+whose `open` item holds it (the line names the item) and each `cheap` entry that no line of the
 notes under `## Fixed on the way` names by its number, beside the notes' own lines there. So a
 cheap fix that never came, or a note that was not written, leaves its line. A lone `none` of the
 notes under such a heading gives way to the record's lines. The fast track's notes have no fixed
-headings: its text writes the three itself, the items its builder filed under the first.
+headings: its text writes the four itself, at its end.
+
+`propose` refuses each line of the notes that names a finding nobody filed and has neither a bar
+call with its reason (`under: REASON`, `cheap: REASON`) nor the path of an item of the backlog
+folder that the tip holds, whoever wrote it, and names the line (`unfiled_lines`). The lines read
+are those under `## Left open` and `## Seen, not filed`, and on the fast track the lines before the
+notes' first heading too, where the should findings the review left are; a lone `none` is no
+finding. A line `seen_line` writes has that form, so a line of the script always passes.
+
+Then `propose` asks the Jev model one question about each finding called under the bar that the
+tip holds, whoever wrote it (`jev_read`): each item the branch adds with `worth: no` (its `where`,
+its title and its run, the body without its `Decided against:` line) and each `under:` line of those
+parts of the notes (its text before the call). The question is whether the finding is over the bar:
+yes means the bar's condition, read at run time from rule 6 of the file `bar_file` names, and no its
+plain negation. Each finding is asked once: its entry is kept in `landing.json` under `jev`, by the
+digest of its `where`, title and run (`finding_key`), `{score, asked_at}` or `{not_asked: WHY}`, and
+`start` carries it into a second landing. A score at or over JEV_OVER refuses the step one time
+(`refused` in the entry), and the tip as the next run reads it is the agent's second answer: an item
+made `worth: later` is no finding under the bar, an item still `worth: no` stands with its `Decided
+against:` line and is refused again without one, and a notes line stands with its reason. Each line
+of such a finding in the pull request's text ends with `Jev: 0.82`, or with `Jev: not asked (WHY)`:
+`no key` with no JEV_API_KEY, `no answer` for a failed request or one past JEV_SECONDS, `too long`
+over jev.py's limit, `off in the settings` with `findings = false` under `[jev]` of the team's
+settings, which sends nothing, and `no bar in FILE` for a rule 6 with no sentence of the bar's form.
+The landing goes on in each. Jev is run as the correction hook runs it, or as the command LEM_JEV
+names.
 
 `propose` writes the text of the pull request to `pr.md` in the task's directory, from what the
 steps kept, from the record of the task's decisions (`lem decisions list`) and from the notes
@@ -564,15 +622,19 @@ proposed tip with `Base: safe.` covered, and no read of that tip said another ro
 refuses, and the refusal names the merge agent's read of what moved as the next step, or a new
 landing after another round. A read of one base covers no later one. Such a merge leaves its record in
 git, and only once GitHub took it: its line names the base the checks ran on, the base it merged on
-and the merge agent's sentence of why; with `branch.history = "squash"` it is the body of the merge
-commit, in the same `gh pr merge` call, and `forge_done`, which every path to `landed` takes (`merge`,
+and the merge agent's sentence of why; with `branch.history = "squash"` it is in the body of the
+merge commit, in the same `gh pr merge` call, and `forge_done`, which every path to `landed` takes (`merge`,
 and `merged`), adds it to the pull request's text (`gh pr edit`, and `pr.md`) and to the landed state
 when the text lacks it. A failed edit leaves the task `open` with the step's error, and the next
 `merged` tries again. `forge_done` also reads the merged commit's parent on the base: when its tree is
 not the tree the read covered (a merge on GitHub outside Lem came between Lem's fetch and its merge
 call, which no flag of `gh pr merge` can bind), the line names the base it really merged on and says
 that no read covered it, and the step prints it as `uncovered`, for the owner. A merge on the base the
-checks ran on writes no such line, and a merge GitHub refuses writes none anywhere.
+checks ran on writes no such line, and a merge GitHub refuses writes none anywhere. With
+`branch.history = "squash"` the body of the merge commit holds each line of `pr.md` under `## Fixed
+on the way` first, so the base's history names each fix made outside the task, then that line when
+there is one, and ends with the line `Lem task: SLUG`, by which the board names the task of an item
+of the backlog (`squash_body`).
 
 A refusal by Lem's own rules under the lock (`Refusal`, with its `kind`: `rule` for one of the merge
 agent's rules, `tip` for a tip or a head that is not the one proposed and checked, `base` for the
@@ -768,13 +830,51 @@ TRACKS = {"small": "fast", "full": "standard"}
 GREEN = "**Green.** The checks passed with the bar where it was, the review left no must-fix, no criterion changed, and no decision past the personas was taken without an answer."
 # What a review names of each defect it saw outside the change.
 DEFECT = ("where", "title", "what")
-# The review's call on such a defect, by the bar of rule 6 of the builder's standing rules: worth an
-# item, under the bar, or cheap (its fix changes no behavior and needs no new test).
+# The review's call on such a defect, by the bar of rule 6 of the builder's standing rules: over the
+# bar (an item with `worth: later`), under it (an item with `worth: no`), or cheap (its fix is text
+# that does not run, or a finding of a check of the project that the check's rerun shows fixed).
 BARS = ("over", "under", "cheap")
+# The calls that make an item, each with the `worth` of the item `file` writes for it.
+FILED_BARS = {"over": "later", "under": "no"}
 # The headings of the pull request's text for what was seen outside the change, after the notes'
 # `## Filed in the backlog`, in this order.
+NOT_WORTH = "## Filed as not worth it"
 FIXED = "## Fixed on the way"
 SEEN = "## Seen, not filed"
+# The bar call of a line of the notes that names a finding nobody filed: `under: REASON` or
+# `cheap: REASON`, anywhere in the line.
+CALLED = re.compile(r"(?i)(?<![\w-])(under|cheap):[ \t]*\S")
+# The call of a line of the notes under the bar, where its reason starts: the text before it is the
+# finding Jev reads (`line_finding`).
+UNDER = re.compile(r"(?i)(?<![\w-])under:[ \t]*(?=\S)")
+# The parts of the notes whose lines name a finding nobody filed, on both tracks; the fast track's
+# lines before the first heading are such lines too (`called_bodies`).
+LEFT_OPEN = "## Left open"
+# Jev's one read of each finding an agent called under the bar (`jev_read`). JEV_OVER is the score at
+# or over which `propose` refuses once: the starting value of Jev's documentation, which the
+# jev-specialist named ("start at 0.7, Jev's docs' starting value, a guess until measured", jev-advice.md
+# of task backlog-refuted-items-and-jev, 2026-11-23); a guess, not measured on findings, of which no
+# labeled sample exists.
+JEV_OVER = 0.7
+# The seconds one request to Jev may take before it is "no answer": shorter than jev.py's 120, since the
+# read only adds a line and a landing should not wait for it. A guess (2026-11-23), not a measurement.
+JEV_SECONDS = 20
+# The name of the one question of a finding's request.
+JEV_QUESTION = "over"
+# The sentence of the bar in rule 6 of the builder's standing rules: its condition, after the colon.
+BAR_SENTENCE = re.compile(r"filed only for a defect over the bar:\s*(.+?)\.(?=\s|$)")
+# The end of a line of the pull request that holds Jev's read of its finding (`jev_said`).
+JEV_SAID = re.compile(r"Jev: (\d\.\d\d|not asked \([^)]*\))$")
+# Jev's read of whether a finding is the same defect as an item of the backlog (`alike`). SAME_AT is the
+# score at or over which an item is named to the agent: a guess (2026-11-23), so that a weak match never
+# reaches the agent's three, not measured on findings, of which no labeled sample exists.
+SAME_AT = 0.5
+# The most items `alike` names for one finding: the agent reads each (criterion 8 of task
+# backlog-refuted-items-and-jev, 2026-11-23).
+ALIKE_MOST = 3
+# The paragraph of an item filed over the bar for a defect whose open item says `worth: no` at the tip:
+# the old item stays as it is, and the new one names it (decision 10 of task backlog-refuted-items-and-jev).
+NOW_OVER = "The same defect as `{}`, now over the bar."
 # The longest file name an item of the backlog gets from its title, before `.md`. A guess
 # (2026-11-16), not a measurement: long enough for a title of a dozen words.
 SLUG_AT = 80
@@ -1117,10 +1217,11 @@ def start_locked(task: Task, conflicting: bool = False) -> dict:
             # A task that was built further, or whose landing `ready --start-over` gives back, starts
             # over, with new checks and new reads. Its pull request stays its own, and so does what Lem
             # knows of its branch on the forge: the commit it pushed last, and the one whose commits the
-            # branch took in (`own_remote`). The polish pass runs once for a task (`stages/polish.md`):
-            # a pass that is done stays while the branch holds its last commit, and `base` carries it
-            # through the rebase.
-            forge = {key: value for key, value in kept.items() if key in ("pr", "pushed", "taken") and value}
+            # branch took in (`own_remote`); and Jev's read of each finding called under the bar (`jev`),
+            # so a second landing sends no finding twice. The polish pass runs once for a task
+            # (`stages/polish.md`): a pass that is done stays while the branch holds its last commit, and
+            # `base` carries it through the rebase.
+            forge = {key: value for key, value in kept.items() if key in ("pr", "pushed", "taken", "jev") and value}
             polish = kept.get("polish")
             if polish and polish.get("done") and holds_commit(task, polish.get("after"), git(task.worktree, "rev-parse", "HEAD")):
                 forge["polish"] = polish
@@ -1627,7 +1728,8 @@ def defects_of(value: object, attempt: int, folder: str, at_base) -> list[dict]:
         if call not in BARS:
             raise LandError(
                 f"the defect {number} outside the change (\"{title}\") has {'no `bar`' if call is None else f'the bar {call!r}'}: `bar` is the review's call by the bar of rule 6 "
-                "of the builder's standing rules, \"over\" (worth an item), \"under\" (one line of the pull request, no file) or \"cheap\" (its fix changes no behavior and needs no new test)",
+                "of the builder's standing rules, \"over\" (an item with `worth: later`), \"under\" (an item with `worth: no`) or \"cheap\" "
+                "(its fix is text that does not run, or a finding of a check of the project that the check's rerun shows fixed)",
             )
         if why is not None and (not isinstance(why, str) or not why.strip() or "\n" in why.strip()):
             raise LandError(f"`why` of the defect {number} outside the change (\"{title}\") is one line of text")
@@ -1651,15 +1753,26 @@ def outside_of(read: dict) -> list[dict]:
     return read.get("outside", [])
 
 
-def to_file(reads: list[dict], in_tip) -> list[dict]:
+def to_file(reads: list[dict], in_tip, refuted=lambda path: False) -> list[dict]:
     """Each defect outside the change that waits for an item: one of a review that answered, called
-    over the bar, with no item yet, and whose `open` item IN_TIP does not find in the tip. The base may
-    remove or join that item after the review while a rebase keeps the review: then it is filed."""
+    over or under the bar, with no item yet, and whose `open` item IN_TIP does not find in the tip.
+    The base may remove or join that item after the review while a rebase keeps the review: then it
+    is filed. An over defect whose open item says `worth: no` at the tip (REFUTED) waits too: it gets
+    a new item that names the old one (`NOW_OVER`). A cheap one waits for none: a builder fixes it, or
+    it is a line of the pull request."""
     return [
         {"round": read["round"], "number": defect["number"], **{key: defect[key] for key in DEFECT}}
         for read in reads if read["answered"] for defect in outside_of(read)
-        if defect["bar"] == "over" and not defect.get("item") and not (defect.get("open") and in_tip(defect["open"]))
+        if defect["bar"] in FILED_BARS and not defect.get("item") and not settled_by_open(defect, in_tip, refuted)
     ]
+
+
+def settled_by_open(defect: dict, in_tip, refuted) -> bool:
+    """Whether the `open` item of DEFECT settles it: IN_TIP finds the item in the tip, and it is not an
+    item that says `worth: no` (REFUTED) of a defect now called over the bar, which gets an item of its
+    own, `worth: later`, that names the old one; the old item stays as it is."""
+    open_ = defect.get("open")
+    return bool(open_) and in_tip(open_) and not (defect["bar"] == "over" and refuted(open_))
 
 
 def named_by(number: str, text: str) -> bool:
@@ -1669,40 +1782,144 @@ def named_by(number: str, text: str) -> bool:
 
 
 def seen_line(defect: dict) -> str:
-    """The line of a defect under `## Seen, not filed`: its place, its title, why, and the open item
-    that holds it."""
+    """The line of a defect under `## Seen, not filed`: its place, its title, the review's call with
+    its why (`cheap: WHY`), and the open item that holds it, in the form `propose` asks of a line of
+    the notes there (`unfiled_lines`), so a line the script writes always passes."""
     line = f"- `{defect['where']}`: {defect['title']}"
     if defect.get("why"):
-        line += f"; {defect['why']}"
+        line += f"; {defect['bar']}: {defect['why']}"
     if defect.get("open"):
         line += f"; an open item holds it, `{defect['open']}`"
     return line
 
 
-def outside_parts(reads: list[dict], fixed: str) -> tuple[list[str], list[str]]:
-    """What the reviews saw outside the change, for the pull request's text: the line of each item
-    one was filed as, and each line under `## Seen, not filed`. FIXED is the text of the notes under
-    `## Fixed on the way`, whose lines name the cheap entries a builder fixed by their numbers."""
-    filed, seen = [], []
+def outside_parts(reads: list[dict], fixed: str, added: list[dict] | tuple = ()) -> tuple[list[str], list[str], list[str]]:
+    """What was seen outside the change, for the pull request's text: the lines under `## Filed in
+    the backlog`, those under `## Filed as not worth it`, and those under `## Seen, not filed`.
+    ADDED is each item the branch adds to the backlog folder, whoever filed it, with its `worth` at
+    the tip (`builder_filed`); an item of a review that is not among them (a file of the base that
+    holds the same defect) follows the review's call. FIXED is the text of the notes under `## Fixed
+    on the way`, whose lines name the cheap entries a builder fixed by their numbers."""
+    items, seen = list(added), []
     for read in reads:
         if not read["answered"]:
             continue
         for defect in outside_of(read):
             if defect.get("item"):
-                line = f"- `{defect['item']}`: {defect['title']}"
-                if line not in filed:
-                    filed.append(line)
+                if all(item["item"] != defect["item"] for item in items):
+                    items.append({"item": defect["item"], "title": defect["title"], "worth": FILED_BARS.get(defect["bar"])})
             elif not (defect["bar"] == "cheap" and named_by(defect["number"], fixed)):
                 seen.append(seen_line(defect))
-    return filed, seen
+    filed, not_worth = item_lines(items)
+    return filed, not_worth, seen
+
+
+def item_lines(items: list[dict]) -> tuple[list[str], list[str]]:
+    """The line of each item, `- `PATH`: TITLE`, under the heading its `worth` gives: `## Filed as
+    not worth it` for `no`, `## Filed in the backlog` for any other."""
+    filed: list[str] = []
+    not_worth: list[str] = []
+    for item in items:
+        line = f"- `{item['item']}`" + (f": {item['title']}" if item.get("title") else "")
+        into = not_worth if (item.get("worth") or "").strip().lower() == "no" else filed
+        if line not in into:
+            into.append(line)
+    return filed, not_worth
+
+
+def names_item(line: str, path: str) -> bool:
+    """Whether LINE names the item at PATH, and not another whose path starts the same."""
+    return re.search(rf"(?<![\w./-]){re.escape(path)}(?![\w./-])", line) is not None
+
+
+def placed(own_filed: list[str], own_not: list[str], filed: list[str], not_worth: list[str]) -> tuple[list[str], list[str]]:
+    """The lines under `## Filed in the backlog` and `## Filed as not worth it`: the notes' own lines
+    (OWN_FILED, OWN_NOT), then the step's (FILED, NOT_WORTH). A notes line that names an item the
+    step lists takes the place of the step's line, under the heading the item's `worth` gives, so no
+    item is written twice and none under the other heading. The step's line of each item is found by
+    its place in its list, which a notes line in any form may have taken."""
+    lists = {FILED: list(filed), NOT_WORTH: list(not_worth)}
+    heading_of = {line.split("`")[1]: heading for heading, lines in lists.items() for line in lines}
+    slot = {line.split("`")[1]: index for lines in lists.values() for index, line in enumerate(lines)}
+    own: dict[str, list[str]] = {FILED: [], NOT_WORTH: []}
+    taken: set[str] = set()
+    for heading, lines in ((FILED, own_filed), (NOT_WORTH, own_not)):
+        for line in lines:
+            path = next((path for path in heading_of if names_item(line, path)), None)
+            if path is None:
+                own[heading].append(line)
+                continue
+            into = lists[heading_of[path]]
+            if path in taken:
+                into.append(line)
+                continue
+            taken.add(path)
+            into[slot[path]] = line
+    return [*own[FILED], *lists[FILED]], [*own[NOT_WORTH], *lists[NOT_WORTH]]
+
+
+def entry_spans(lines: list[str]) -> list[list[int]]:
+    """The entries of a part of the notes as the places of their lines: a list item with the lines
+    that continue it, a list item indented deeper than the entry's first line among them, or a
+    paragraph's line; blank lines, a lone `none` and a heading of a lower level are none."""
+    spans: list[list[int]] = []
+    if not lines_of(lines):
+        return spans
+    new = True
+    depth = 0
+    for at, line in enumerate(lines):
+        if not line.strip():
+            new = True
+            continue
+        if line.lstrip().startswith("#"):
+            new = True
+            continue
+        mark = re.match(r"(\s*)([-*+]|\d+[.)])\s", line)
+        if new or (mark and len(mark.group(1)) <= depth):
+            spans.append([at])
+            depth = len(line) - len(line.lstrip())
+        else:
+            spans[-1].append(at)
+        new = False
+    return spans
+
+
+def entries_of(lines: list[str]) -> list[list[str]]:
+    """The entries of a part of the notes, each as its lines (`entry_spans`)."""
+    return [[lines[at] for at in span] for span in entry_spans(lines)]
+
+
+def called_bodies(notes: str, small: bool) -> list[list[str]]:
+    """The parts of the notes whose lines name a finding nobody filed: `## Left open` and `## Seen,
+    not filed`, and on the fast track (SMALL), whose notes have no fixed headings, the lines before
+    the first heading too, where the should findings the review left are."""
+    head, parts = sections_of(notes)
+    return [*([head] if small else []), *(lines for heading, lines in parts if heading in (LEFT_OPEN, SEEN))]
+
+
+def unfiled_lines(notes: str, small: bool, folder: str, in_tip) -> list[str]:
+    """The first line of each entry of the notes that names a finding nobody filed and has neither a
+    bar call with its reason (`under: REASON`, `cheap: REASON`) nor the path of an item of the backlog
+    folder FOLDER that IN_TIP finds in the tip, in the parts `called_bodies` gives."""
+    found = []
+    for body in called_bodies(notes, small):
+        for entry in entries_of(body):
+            text = "\n".join(entry)
+            if CALLED.search(text):
+                continue
+            paths = [path.rstrip(".:") for path in re.findall(rf"(?<![\w./-]){re.escape(folder)}/[^\s`'\"()\[\],;]+", text)]
+            if any(in_tip(path) for path in paths):
+                continue
+            found.append(entry[0].strip())
+    return found
 
 
 def outside_words(read: dict, fixed: str) -> str:
     """What one review saw outside the change, for its line of the pull request's checks: how many
     defects, the items they were filed as, how many a builder fixed on the way (FIXED, the notes'
     lines under `## Fixed on the way`, names them by their numbers), and how many are seen and not
-    filed. `propose` refuses while one over the bar has neither its item nor its open item in the tip,
-    so each one is one of the three. Nothing for a review that saw none."""
+    filed. `propose` refuses while one over or under the bar has neither its item nor its open item
+    in the tip, so each one is one of the three. Nothing for a review that saw none."""
     defects = outside_of(read)
     if not defects:
         return ""
@@ -1745,22 +1962,35 @@ def joined(body: list[str], more: list[str]) -> list[str]:
     return ["", *kept, *(line for line in more if line not in kept), ""]
 
 
-def with_outside(notes: str, filed: list[str], seen: list[str]) -> str:
-    """The notes of the standard track with what the reviews saw outside the change: FILED joins the
-    lines under `## Filed in the backlog`, and SEEN those under `## Seen, not filed`, which comes after
-    it (and after `## Fixed on the way`) when the notes lack it. Notes that get no line come back as they are."""
-    filed = [line for line in filed if line.split(":", 1)[0].removeprefix("- ") not in section(notes, FILED)]
-    if not filed and not seen:
+def with_outside(notes: str, filed: list[str], not_worth: list[str], seen: list[str]) -> str:
+    """The notes of the standard track with what was seen outside the change: FILED and NOT_WORTH,
+    the line of each item the branch adds, under `## Filed in the backlog` and `## Filed as not worth
+    it` (`placed`: a notes line that names the item takes the place of the step's), and SEEN under
+    `## Seen, not filed`. A heading the notes lack comes after `## Filed in the backlog`, in the order
+    `## Filed as not worth it`, `## Fixed on the way`, `## Seen, not filed`. Notes that get no line
+    come back as they are."""
+    if not filed and not not_worth and not seen:
         return notes
     head, parts = sections_of(notes)
-    for heading, more in ((FILED, filed), (SEEN, seen)):
+    at = {name: index for index, (name, _) in enumerate(parts)}
+    own_filed = lines_of(parts[at[FILED]][1]) if FILED in at else []
+    own_not = lines_of(parts[at[NOT_WORTH]][1]) if NOT_WORTH in at else []
+    items = dict(zip((FILED, NOT_WORTH), placed(own_filed, own_not, filed, not_worth)))
+    for heading, own in ((FILED, own_filed), (NOT_WORTH, own_not)):
+        if heading in at and items[heading] != own:
+            # its lines as `placed` put them; a heading the notes hold keeps its `none` when no line is left
+            parts[at[heading]] = (heading, ["", *(items[heading] or ["none"]), ""])
+    order = (FILED, NOT_WORTH, FIXED, SEEN)
+    for heading, more in ((FILED, items[FILED]), (NOT_WORTH, items[NOT_WORTH]), (SEEN, seen)):
         if not more:
             continue
-        at = next((index for index, (name, _) in enumerate(parts) if name == heading), None)
-        if at is not None:
-            parts[at] = (heading, joined(parts[at][1], more))
+        index = next((index for index, (name, _) in enumerate(parts) if name == heading), None)
+        if index is not None:
+            if heading == SEEN:
+                parts[index] = (heading, joined(parts[index][1], more))
             continue
-        after = [index for index, (name, _) in enumerate(parts) if name in (FILED, FIXED)]
+        before = order[:order.index(heading)]
+        after = [index for index, (name, _) in enumerate(parts) if name in before]
         place = after[-1] + 1 if after else len(parts)
         if place and parts[place - 1][1][-1:] != [""]:
             # a heading of its own paragraph, after the lines of the one before it
@@ -1848,12 +2078,18 @@ def file_at(task: Task, commit: str, path: str) -> bool:
 
 def base_items(task: Task, base: str) -> list[dict]:
     """Each file of the backlog folder at BASE, with its `where` and its title where it is an item,
-    for the reviewer, who names in `open` the one that holds a defect it sees: one read of git for all."""
+    for the reviewer, who names in `open` the one that holds a defect it sees."""
+    return [{key: item[key] for key in ("item", "where", "title")} for item in items_at(task, base)]
+
+
+def items_at(task: Task, commit: str) -> list[dict]:
+    """Each file of the backlog folder at COMMIT, with its `where`, its title, its `worth` and the first
+    line of its body where it is an item: one read of git for all."""
     folder = backlog_of(task)
-    paths = [path for path in run(["git", "-C", str(task.worktree), "ls-tree", "-r", "-z", "--name-only", base, "--", folder + "/"]).stdout.split("\0") if path]
+    paths = [path for path in run(["git", "-C", str(task.worktree), "ls-tree", "-r", "-z", "--name-only", commit, "--", folder + "/"]).stdout.split("\0") if path]
     if not paths:
         return []
-    out = subprocess.run(["git", "-C", str(task.worktree), "cat-file", "--batch"], input="".join(f"{base}:{path}\n" for path in paths).encode(),
+    out = subprocess.run(["git", "-C", str(task.worktree), "cat-file", "--batch"], input="".join(f"{commit}:{path}\n" for path in paths).encode(),
                          capture_output=True, check=False).stdout
     found, at = [], 0
     for path in paths:
@@ -1862,9 +2098,24 @@ def base_items(task: Task, base: str) -> list[dict]:
         size = int(head[2]) if len(head) == 3 else 0
         item = item_text(out[at:at + size].decode("utf-8", errors="replace")) if len(head) == 3 else None
         at += size + (1 if len(head) == 3 else 0)
-        front, lines = item if item else ({}, [])
-        found.append({"item": path, "where": front.get("where"), "title": lines[0][2:].strip() if lines else None})
+        found.append(item_facts(path, item))
     return found
+
+
+def item_facts(path: str, item: tuple[dict[str, str], list[str]] | None) -> dict:
+    """What `alike` and the reviewer are told of the file at PATH, from `item_text`: its `where`, its
+    title, its `worth` and the first line of its body, each None where it has none."""
+    front, lines = item if item else ({}, [])
+    first = next((line.strip() for line in lines[1:] if line.strip()), None)
+    return {"item": path, "where": front.get("where"), "title": lines[0][2:].strip() if lines else None, "worth": front.get("worth"), "first": first}
+
+
+def worth_at(task: Task, commit: str, path: str) -> str | None:
+    """The `worth` the item at PATH says at COMMIT, lowercase, or None."""
+    shown = run(["git", "-C", str(task.worktree), "show", f"{commit}:{path}"], check=False)
+    item = item_text(shown.stdout) if shown.returncode == 0 else None
+    worth = item[0].get("worth") if item else None
+    return worth.strip().lower() if worth else None
 
 
 def someone_elses(task: Task) -> bool:
@@ -3467,7 +3718,8 @@ def gate_holds(task: Task, tip: str) -> bool:
 
 def items_added(task: Task, base: str) -> list[dict]:
     """Each item the branch adds to the backlog folder between BASE and its tip, whoever wrote it (a
-    builder, the polish pass, `file` for a review), with its `where` and its title."""
+    builder, the polish pass, `file` for a review), with its `where`, its title and its `worth` as
+    the tip's file says them."""
     folder = backlog_of(task)
     rows = [row.split("\t", 1) for row in git(task.worktree, "diff", "--name-status", "--no-renames", "--diff-filter=A", base, "HEAD").splitlines()]
     found = []
@@ -3476,7 +3728,7 @@ def items_added(task: Task, base: str) -> list[dict]:
             continue
         item = item_of(task.worktree / path)
         front, lines = item if item else ({}, [])
-        found.append({"item": path, "where": front.get("where"), "title": lines[0][2:].strip() if lines else None})
+        found.append({"item": path, "where": front.get("where"), "title": lines[0][2:].strip() if lines else None, "worth": front.get("worth")})
     return found
 
 
@@ -3504,51 +3756,501 @@ def bar_file(main: Path) -> dict:
     return {"file": "agents/lem-builder.md", "of": "lem"}
 
 
-def cmd_file(task: Task, again: bool) -> dict:
-    """File each defect a review saw outside the change and called over the bar as an item of the
-    backlog, and commit the items. A defect under the bar, or cheap, is a line of the pull request and
-    no file; one whose `open` item the tip holds is that item."""
+def bar_path(main: Path) -> tuple[Path, str]:
+    """The file of `bar_file` on this machine, and its name as a line of the pull request gives it:
+    the project's `.claude/agents/lem-builder.md`, or Lem's `agents/lem-builder.md` in the plugin."""
+    found = bar_file(main)
+    if found["of"] == "project":
+        return Path(found["file"]), OWN_BUILDER.as_posix()
+    return SCRIPTS.parents[2] / found["file"], found["file"]
+
+
+def bar_condition(text: str) -> str | None:
+    """The condition of the bar in the text of a builder's standing rules: of rule 6, from its number
+    to rule 7's, the sentence "... is filed only for a defect over the bar: CONDITION.", read whole
+    over its line breaks. None when rule 6 holds no sentence of that form (a project that writes its
+    bar in its own words): Jev is then not asked, since a question with no bar has no meaning."""
+    rule = re.search(r"(?ms)^6\.\s(.*?)(?=^7\.\s|\Z)", text)
+    if not rule:
+        return None
+    found = BAR_SENTENCE.search(" ".join(rule.group(1).replace("**", "").split()))
+    return found.group(1).strip() if found else None
+
+
+def finding_key(where: str, title: str, run: str) -> str:
+    """The digest Jev's entry of a finding is kept by: its `where`, its title and its run, as `holds`
+    tells two defects apart, so two runs of one place and title are two findings, and a new reason
+    (an item's `Decided against:` line, a notes line's text after `under:`) is the same one."""
+    return hashlib.sha256(json.dumps([where.strip(), title.strip(), "\n\n".join(paragraphs(run))]).encode()).hexdigest()[:16]
+
+
+def item_finding(path: str, item: tuple[dict[str, str], list[str]] | None) -> dict | None:
+    """The finding of an item of the backlog that says `worth: no`, from `item_of`: its `where`, its
+    title and its run, the body without its `Decided against:` line, and whether that line gives a
+    reason. None for a file that is no item, or one of another worth."""
+    if item is None:
+        return None
+    front, lines = item
+    if (front.get("worth") or "").strip().lower() != "no":
+        return None
+    decided = [line for line in lines[1:] if re.match(r"(?i)\s*decided against:", line)]
+    run = "\n".join(line for line in lines[1:] if line not in decided)
+    where, title = front.get("where") or "", lines[0][2:].strip()
+    return {"item": path, "where": where, "title": title, "run": "\n\n".join(paragraphs(run)),
+            "reason": any(re.match(r"(?i)\s*decided against:\s*\S", line) for line in decided), "key": finding_key(where, title, run)}
+
+
+def line_finding(entry: list[str]) -> dict | None:
+    """The finding of an entry of the notes that calls it under the bar (`under: REASON`): its text
+    before the call, without the list's mark, is its run; it has no `where` and no title of its own.
+    None for an entry with no such call."""
+    text = " ".join(" ".join(entry).split())
+    call = UNDER.search(text)
+    if call is None:
+        return None
+    run = re.sub(r"^([-*+]|\d+[.)])\s+", "", text[:call.start()]).rstrip(" ;,:-(") or text
+    return {"line": entry[0].strip(), "where": "", "title": "", "run": run, "reason": True, "key": finding_key("", "", run)}
+
+
+def under_findings(added: list[dict], read_item, notes: str, small: bool) -> list[dict]:
+    """Each finding called under the bar that the tip holds, whoever wrote it: each item the branch
+    adds (ADDED, `items_added`) that says `worth: no`, whose file READ_ITEM reads as `item_of` does,
+    and each line of the notes that calls one `under:` in the parts `propose` checks (`called_bodies`)."""
+    found = [finding for item in added if (item.get("worth") or "").strip().lower() == "no"
+             for finding in [item_finding(item["item"], read_item(item["item"]))] if finding]
+    found += [finding for body in called_bodies(notes, small) for entry in entries_of(body) for finding in [line_finding(entry)] if finding]
+    return found
+
+
+def jev_sends(settings: dict) -> bool:
+    """Whether the project sends a finding's text to the Jev model: `findings` of the team's `[jev]`,
+    true when the file says nothing (`project.py`, `jev_of`)."""
+    return settings["jev"]["findings"]
+
+
+def jev_command() -> list[str]:
+    """How the landing runs Jev, as corrections.py does: Lem's own jev.py beside this file, or the
+    command LEM_JEV names, with the same contract (a test's stand-in)."""
+    other = os.environ.get("LEM_JEV")
+    return [other] if other else [sys.executable, "-B", str(SCRIPTS / "jev.py")]
+
+
+def ask_jev(spec: dict) -> dict:
+    """One request to Jev with SPEC, `jev.py`'s form, given JEV_SECONDS: `{"answers": {NAME: P}}`,
+    each question's probability of yes, or `{"not_asked": WHY}` when no answer came, and the landing
+    goes on as without Jev: `no key` with no JEV_API_KEY, where nothing is started; `too long` for a
+    spec over jev.py's limit (its exit 3, nothing sent); `no answer` for a failed or timed-out
+    request, or a reply that does not read."""
+    if not os.environ.get("JEV_API_KEY"):
+        return {"not_asked": "no key"}
+    try:
+        ran = subprocess.run([*jev_command(), "-"], input=json.dumps(spec), capture_output=True, text=True, check=False,
+                             timeout=JEV_SECONDS, env={**os.environ, "JEV_TIMEOUT": str(JEV_SECONDS)})
+    except (OSError, subprocess.TimeoutExpired):
+        return {"not_asked": "no answer"}
+    if ran.returncode == 3:
+        return {"not_asked": "too long"}
+    try:
+        if ran.returncode:
+            raise ValueError(ran.stderr)
+        answers = json.loads(ran.stdout)["answers"]
+        said = {name: answers[name]["noul"] for name in spec["questions"]}
+    except (ValueError, KeyError, TypeError):
+        return {"not_asked": "no answer"}
+    if not all(isinstance(p, (int, float)) and not isinstance(p, bool) and 0 <= p <= 1 for p in said.values()):
+        return {"not_asked": "no answer"}
+    return {"answers": said}
+
+
+def jev_spec(finding: dict, condition: str) -> dict:
+    """The request of one finding: the finding as the state (its `where`, title and run, each that it
+    has), and one yes-or-no question, whether it is over the bar, with both meanings: yes, the bar's
+    CONDITION as rule 6 says it; no, its plain negation, so that the two never both apply."""
+    return {
+        "state": finding_state(finding),
+        "questions": {JEV_QUESTION: {
+            "type": "noul",
+            "instructions": "This finding is a defect that an agent saw in the change it worked on or in the code outside it, and called under the bar "
+                            "for an item of the backlog. Is the finding over the bar?",
+            "yes": f"The finding meets the bar: {condition}.",
+            "no": "The finding does not meet that bar.",
+        }},
+    }
+
+
+def jev_entry(finding: dict, sends: bool, bar: tuple[str | None, str] | None) -> dict:
+    """Jev's entry for one finding that has none yet: `{score, asked_at}`, or `{not_asked: WHY}`: `off
+    in the settings` when SENDS is false, `no bar in FILE` when BAR, the condition of rule 6 and the
+    file's name, has no condition; else what `ask_jev` says. Nothing is sent but by `ask_jev`."""
+    if not sends:
+        return {"not_asked": "off in the settings"}
+    condition, name = bar
+    if condition is None:
+        return {"not_asked": f"no bar in {name}"}
+    said = ask_jev(jev_spec(finding, condition))
+    if "not_asked" in said:
+        return said
+    return {"score": said["answers"][JEV_QUESTION], "asked_at": now_utc()}
+
+
+def jev_said(entry: dict | None) -> str | None:
+    """The end of a finding's line in the pull request: `Jev: 0.82`, or `Jev: not asked (WHY)`."""
+    if not entry:
+        return None
+    if "score" in entry:
+        return f"Jev: {entry['score']:.2f}"
+    return f"Jev: not asked ({entry['not_asked']})"
+
+
+def jev_refused(findings: list[dict], kept: dict) -> tuple[list[tuple[dict, float, bool]], dict]:
+    """What `propose` refuses for Jev's read of FINDINGS, by the entries KEPT: each finding with a
+    score at or over JEV_OVER that was never refused, once; and each refused before that is an item
+    still `worth: no` with no `Decided against:` line, until it has one. A notes line has its reason
+    in its call. Each as (finding, score, again), with the entries after it, those refused now marked
+    `refused`."""
+    kept = {key: dict(entry) for key, entry in kept.items()}
+    out = []
+    for finding in findings:
+        entry = kept.get(finding["key"]) or {}
+        if "score" not in entry or entry["score"] < JEV_OVER:
+            continue
+        if not entry.get("refused"):
+            entry["refused"] = True
+            out.append((finding, entry["score"], False))
+        elif finding.get("item") and not finding["reason"]:
+            out.append((finding, entry["score"], True))
+    return out, kept
+
+
+def jev_endings(findings: list[dict], kept: dict) -> dict:
+    """The end each finding's line gets in the pull request (`jev_said`), by the item's path and by
+    the digest of a notes line's finding."""
+    endings: dict = {"items": {}, "lines": {}}
+    for finding in findings:
+        said = jev_said(kept.get(finding["key"]))
+        if said:
+            if finding.get("item"):
+                endings["items"][finding["item"]] = said
+            else:
+                endings["lines"][finding["key"]] = said
+    return endings
+
+
+def jev_marked(body: list[str], endings: dict) -> list[str]:
+    """The lines of a part of the pull request's text, each entry of a finding Jev read ending with
+    what Jev said (`; Jev: 0.82`): an entry that names an item by its path, or calls a finding
+    `under:`. An entry that ends so already is left as it is."""
+    out = list(body)
+    for span in entry_spans(body):
+        entry = [body[at] for at in span]
+        said = next((said for path, said in endings["items"].items() if any(names_item(line, path) for line in entry)), None)
+        if said is None:
+            finding = line_finding(entry)
+            said = endings["lines"].get(finding["key"]) if finding else None
+        last = out[span[-1]].rstrip()
+        if said and not JEV_SAID.search(last):
+            out[span[-1]] = last.rstrip(";") + f"; {said}"
+    return out
+
+
+def jev_notes(notes: str, small: bool, endings: dict) -> str:
+    """The notes with Jev's read at the end of each line of a finding called under the bar: under
+    `## Filed as not worth it`, `## Left open` and `## Seen, not filed`, and on the fast track (SMALL)
+    the lines before the first heading. Notes with no such finding come back as they are."""
+    if not endings["items"] and not endings["lines"]:
+        return notes
+    head, parts = sections_of(notes)
+    head = jev_marked(head, endings) if small else head
+    parts = [(heading, jev_marked(lines, endings) if heading in (NOT_WORTH, LEFT_OPEN, SEEN) else lines) for heading, lines in parts]
+    return "\n".join([*head, *(line for heading, lines in parts for line in (heading, *lines))]) + ("\n" if notes.endswith("\n") else "")
+
+
+def jev_read(task: Task, notes: str, small: bool) -> dict:
+    """Jev's one read of each finding called under the bar that the tip holds (`under_findings`), for
+    `propose`: a finding with no entry kept in `landing.json` (`jev`, by `finding_key`) gets one,
+    kept at once, so that no finding is sent twice, by this landing or the next (`start_locked` carries
+    `jev`). Refused once, with each finding and its score, when Jev reads one as over the bar
+    (`jev_refused`); otherwise the end of each finding's line in the pull request (`jev_endings`)."""
+    findings = under_findings(builder_filed(task), lambda path: item_of(task.worktree / path), notes, small)
+    kept = dict(task.kept().get("jev") or {})
+    sends = jev_sends(task.settings)
+    bar = None
+    for finding in findings:
+        if finding["key"] in kept:
+            continue
+        if sends and bar is None:
+            file, name = bar_path(task.main)
+            try:
+                bar = (bar_condition(file.read_text(encoding="utf-8")), name)
+            except (OSError, UnicodeDecodeError):
+                bar = (None, name)
+        kept[finding["key"]] = jev_entry(finding, sends, bar)
+        task.keep(jev=kept)
+    refused, kept = jev_refused(findings, kept)
+    if refused:
+        task.keep(jev=kept)
+        named = "; ".join(
+            (f"`{finding['item']}`" if finding.get("item") else f"\"{finding['line']}\"") + f" (Jev: {score:.2f}"
+            + ("; refused before, and the item still says `worth: no` with no `Decided against:` line)" if again else ")")
+            for finding, score, again in refused
+        )
+        raise LandError(
+            f"{len(refused)} finding(s) called under the bar, which Jev reads as over it at {JEV_OVER} or more: {named}. "
+            "Jev reads this as over the bar: make the item `worth: later`, or keep `worth: no` with its `Decided against:` line "
+            f"(for a notes line, keep `under:` with its reason), then run this step again. An edit of an item is a commit, so `lem land checks {task.slug}` "
+            "runs before this step; Jev is not asked again about a finding it read",
+        )
+    return jev_endings(findings, kept)
+
+
+def alike_question(item: dict) -> dict:
+    """The question of `alike` about one item of the backlog: whether the finding, the state, is the
+    same defect as the item, told by its title, its `where` and the first line of its body, each that
+    it has; both meanings, as jev.py asks for both or neither."""
+    told = [f"title: {item['title'] or item['item']}"] + [f"{key}: {item[key]}" for key in ("where", "first") if item.get(key)]
+    return {
+        "type": "noul",
+        "instructions": "Is the finding the same defect as this item of the backlog? The item, " + "; ".join(told).replace("first: ", "the first line of its body: "),
+        "yes": "The finding and the item are one defect, so the item holds the finding and no second item is needed.",
+        "no": "The finding is another defect than the item's, in the same place or in another.",
+    }
+
+
+def finding_state(finding: dict) -> dict:
+    """The state of a request about a finding: its `where`, its title and its run, each that it has."""
+    return {key: finding[key] for key in ("where", "title", "run") if finding.get(key)}
+
+
+def alike_specs(finding: dict, items: list[dict], fits) -> list[dict] | None:
+    """The requests of `alike` for FINDING: the finding as the state of each, and one question for each
+    of ITEMS (`alike_question`, named `iN` by the item's place), in as many requests as FITS, which
+    says whether a request is under jev.py's limit, needs. Jev answers each question alone, so every
+    item is asked, and none is left out by its place. None when the state with one question alone does
+    not fit: that item cannot be asked."""
+    state = finding_state(finding)
+    specs: list[dict] = []
+    questions: dict = {}
+    for place, item in enumerate(items):
+        name, question = f"i{place}", alike_question(item)
+        if fits({"state": state, "questions": {**questions, name: question}}):
+            questions[name] = question
+            continue
+        if not questions or not fits({"state": state, "questions": {name: question}}):
+            return None
+        specs.append({"state": state, "questions": questions})
+        questions = {name: question}
+    if questions:
+        specs.append({"state": state, "questions": questions})
+    return specs
+
+
+def jev_fits(spec: dict) -> bool:
+    """Whether jev.py takes SPEC under its limit (`LIMIT_BYTES`), by its own count of the bytes."""
+    try:
+        importlib.import_module("jev").build(spec)
+    except OverflowError:
+        return False
+    return True
+
+
+def ask_alike(finding: dict, items: list[dict], sends: bool, known: dict | None = None) -> dict:
+    """Jev's read of whether FINDING is the same defect as each of ITEMS: `{"scores": {PATH: P}}` for
+    every item, or `{"not_asked": WHY}` when any request got no answer (or SENDS is false: `off in the
+    settings`), so that the agent then reads every item. KNOWN holds the scores of this finding an
+    earlier run kept, by the item's path, which are not asked again: one text read twice moved by up
+    to 0.11 (jev-advice.md of task backlog-refuted-items-and-jev, 2026-11-23), so a second ask could
+    name an item the first did not."""
+    if not sends:
+        return {"not_asked": "off in the settings"}
+    scores = dict(known or {})
+    ask = [item for item in items if item["item"] not in scores]
+    specs = alike_specs(finding, ask, jev_fits) if ask else []
+    if specs is None:
+        return {"not_asked": "too long"}
+    for spec in specs:
+        said = ask_jev(spec)
+        if "not_asked" in said:
+            return said
+        scores.update({ask[int(name[1:])]["item"]: score for name, score in said["answers"].items()})
+    return {"scores": {item["item"]: scores[item["item"]] for item in items}}
+
+
+def alike_named(scores: dict, items: list[dict]) -> list[dict]:
+    """The items `alike` names: those whose score is at or over SAME_AT, the highest first, ALIKE_MOST at
+    most, each with its path, title, `where`, `worth` and Jev's score."""
+    by_path = {item["item"]: item for item in items}
+    named = sorted((path for path, score in scores.items() if path in by_path and score >= SAME_AT), key=lambda path: (-scores[path], path))
+    return [{**{key: by_path[path][key] for key in ("item", "title", "where", "worth")}, "score": scores[path], "jev": f"Jev: {scores[path]:.2f}"}
+            for path in named[:ALIKE_MOST]]
+
+
+def flag_line(flag: str, value: str) -> str:
+    """VALUE of FLAG, stripped, when it is one line of text; a LandError otherwise."""
+    if not value.strip() or "\n" in value.strip():
+        raise LandError(f"{flag} is one line of text, and it is {value!r}")
+    return value.strip()
+
+
+def cmd_alike(task: Task, where: str, title: str, what: str) -> dict:
+    """The items of the backlog folder, as the task's tip holds them, that Jev reads as the same defect
+    as the finding (WHERE, TITLE, and the run in the file WHAT): at most ALIKE_MOST, at or over
+    SAME_AT, the highest first. With nothing sent, every item, for the agent to read. It reads and
+    writes nothing else, and takes no lock: a builder runs it while it files by hand."""
+    if not (task.worktree / ".git").exists():
+        raise LandError(f"the task has no worktree at {task.worktree}, and `alike` reads the backlog folder as the task's tip holds it")
+    finding = {"where": flag_line("--where", where), "title": flag_line("--title", title)}
+    if not slug_of(finding["title"]):
+        raise LandError(f"--title is the finding's title, and {title!r} has no word for an item's file name")
+    try:
+        run_ = Path(what).read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeDecodeError) as error:
+        raise LandError(f"--what names the file of the finding's run, and {what} does not read ({error})") from error
+    if not run_:
+        raise LandError(f"--what names the file of the finding's run, what happens with the input, and {what} is empty")
+    finding["run"] = run_
+    items = items_at(task, "HEAD")
+    out = {"task": task.slug, "finding": {"where": finding["where"], "title": finding["title"]}, "items": len(items)}
+    if not items:
+        return {**out, "alike": [], "next": "the backlog folder holds no item: judge the finding by the bar of rule 6"}
+    said = ask_alike(finding, items, jev_sends(task.settings))
+    if "not_asked" in said:
+        return {**out, "alike": [], "jev": f"Jev: not asked ({said['not_asked']})",
+                "read": [{key: item[key] for key in ("item", "title", "where", "worth")} for item in items],
+                "next": "Jev was not asked: read the items of `read` whose title or `where` is near the finding, and judge it by rule 6 as for the items `alike` names"}
+    named = alike_named(said["scores"], items)
+    if not named:
+        return {**out, "alike": [], "next": f"Jev reads no item as the same defect at {SAME_AT} or more: judge the finding by the bar of rule 6"}
+    return {**out, "alike": named, "next": (
+        "read each item named here. One that holds the same defect gets no second file: name it on the finding's line. When it says `worth: no` "
+        "and your call is over the bar, file a new item with `worth: later` whose run is followed by the line "
+        f"\"{NOW_OVER.format('PATH')}\", and leave the old item as it is. A defect none of them holds you judge by the bar of rule 6")}
+
+
+def item_body(defect: dict, round_: int, slug: str, seen: str, today: str, same_as: str | None = None) -> str:
+    """The text of the item `file` writes for DEFECT of review round ROUND_ of task SLUG, seen on the
+    day SEEN, in the item format of rule 6: `worth` by the review's call, the run, the line of the old
+    item SAME_AS when the defect is one that item holds and it says `worth: no` (`NOW_OVER`), where it
+    was seen, and for an item under the bar the review's `why` as its last line, `Decided against: WHY`."""
+    text = (f"---\nworth: {FILED_BARS[defect['bar']]}\nwhere: {defect['where']}\nadded: {today}\n---\n# {defect['title']}\n\n{defect['what']}\n\n"
+            + (f"{NOW_OVER.format(same_as)}\n\n" if same_as else "")
+            + f"Seen outside the change by review round {round_} of task {slug} ({seen}); the base commit has it.\n")
+    if defect["bar"] == "under" and defect.get("why"):
+        text += f"\nDecided against: {defect['why']}\n"
+    return text
+
+
+def item_name(worktree: Path, folder: str, defect: dict, old: str | None = None) -> tuple[str, bool]:
+    """The path of DEFECT's item by the names `names_for` gives it, in turn: the first that holds this
+    very defect (`holds`, True), or the first that is free (False). A name that holds another defect is
+    passed: an extra item is the price, never a lost one. OLD, the `worth: no` item an over defect gets
+    a new item beside, is never its item."""
+    for name in names_for(defect):
+        path = f"{folder}/{name}"
+        file = worktree / path
+        if path != old and holds(file, defect):
+            return path, True
+        if not (file.exists() or file.is_symlink()):
+            return path, False
+    raise AssertionError("names_for gives names without end")
+
+
+def same_flags(said: list[str], folder: str, in_tip) -> dict[str, str]:
+    """The defects `--same rN.M=PATH` names, each with its item: a file of the backlog folder FOLDER
+    that IN_TIP finds in the tip. A LandError for any other form."""
+    found: dict[str, str] = {}
+    for value in said:
+        number, _, path = value.partition("=")
+        number, path = number.strip(), path.strip()
+        if not re.fullmatch(r"r\d+\.\d+", number) or not path.startswith(folder + "/") or ".." in Path(path).parts or not in_tip(path):
+            raise LandError(
+                f"--same {value!r} is no defect and item: it is `--same rN.M=PATH`, the number of a defect (`r1.2`) and the path of the item of "
+                f"the backlog folder {folder} that holds it, a file of the task's tip, as `lem land file` named it",
+            )
+        found[number] = path
+    return found
+
+
+def cmd_file(task: Task, again: bool, same_said: list[str] | tuple = (), new_said: list[str] | tuple = ()) -> dict:
+    """File each defect a review saw outside the change and called over or under the bar as an item
+    of the backlog, `worth: later` over it and `worth: no` under it, with the review's `why` as the
+    item's last line (`Decided against: WHY`), and commit the items, one commit for each round. A
+    cheap defect is a builder's fix or a line of the pull request, and no file; one whose `open` item
+    the tip holds is that item, unless the defect is over the bar and that item says `worth: no`: then
+    a new item, `worth: later`, names the old one (`NOW_OVER`), and the old one stays as it is.
+
+    Before it writes anything, it asks Jev whether each other defect that waits for an item is the
+    same defect as an item of the backlog folder at the tip (`ask_alike`). When Jev names an item for
+    any of them, it writes nothing and refuses, with each such defect and its items: the next run says
+    for each `--same rN.M=PATH` (that item holds it: it is kept as its `open`) or `--new rN.M` (a defect
+    of its own: filed). A defect whose own item is there already (`holds`) is not asked about. Jev's
+    scores are kept in `landing.json` (`alike`, by the finding's digest and the item's path), so a
+    second run asks nothing it asked before."""
     task.need_landing()
     task.need_worktree()
-    reads = task.kept().get("reads", [])
+    kept = task.kept()
+    reads = kept.get("reads", [])
     tip = git(task.worktree, "rev-parse", "HEAD")
     folder = backlog_of(task)
     today = date.today().isoformat()
+
+    def in_tip(path: str) -> bool:
+        return in_tree(task, tip, path)
+
+    named_same = same_flags(list(same_said), folder, in_tip)
+    named_new = {value.strip() for value in new_said}
+    both = sorted(set(named_same) & named_new)
+    if both:
+        raise LandError(f"{', '.join(both)} is named by both --same and --new: a defect is the item it names, or a defect of its own")
     filed, same, open_, gone, written = [], [], [], [], {}
+    # each defect to write, with the `worth: no` item it is a new item beside, or None
+    todo: list[tuple[dict, dict, str | None]] = []
+    free: set[str] = set()
     for read in reads:
         if not read["answered"]:
             continue
         for defect in outside_of(read):
-            if defect["bar"] != "over":
+            if defect["bar"] not in FILED_BARS:
                 continue
+            entry = {"round": read["round"], "number": defect["number"], "title": defect["title"]}
             if defect.get("item"):
-                if in_tree(task, tip, defect["item"]):
+                if in_tip(defect["item"]):
                     continue
                 if not again:
-                    gone.append({"round": read["round"], "number": defect["number"], "title": defect["title"], "item": defect["item"]})
+                    gone.append({**entry, "item": defect["item"]})
                     continue
-            elif defect.get("open") and in_tree(task, tip, defect["open"]):
-                open_.append({"round": read["round"], "number": defect["number"], "title": defect["title"], "item": defect["open"]})
+                todo.append((read, defect, None))
                 continue
-            # The first name that holds this very defect is its item; the first that is free gets it.
-            # A name that holds another defect is passed: an extra item is the price, never a lost one.
-            for name in names_for(defect):
-                path = f"{folder}/{name}"
-                file = task.worktree / path
-                if holds(file, defect):
-                    same.append({"round": read["round"], "number": defect["number"], "title": defect["title"], "item": path})
-                    break
-                if not (file.exists() or file.is_symlink()):
-                    file.parent.mkdir(parents=True, exist_ok=True)
-                    write_whole(
-                        file,
-                        f"---\nworth: later\nwhere: {defect['where']}\nadded: {today}\n---\n# {defect['title']}\n\n{defect['what']}\n\n"
-                        f"Seen outside the change by review round {read['round']} of task {task.slug} ({read.get('date', today)}); the base commit has it.\n",
-                    )
-                    filed.append({"round": read["round"], "number": defect["number"], "title": defect["title"], "item": path})
-                    written.setdefault(read["round"], []).append(path)
-                    break
-            defect["item"] = path
+            if not (defect.get("open") and in_tip(defect["open"])):
+                free.add(defect["number"])
+            held = named_same.get(defect["number"]) or defect.get("open")
+            if held and in_tip(held):
+                if defect["bar"] == "over" and worth_at(task, tip, held) == "no":
+                    todo.append((read, defect, held))
+                else:
+                    open_.append({**entry, "item": held})
+                continue
+            todo.append((read, defect, None))
+    stray = sorted((set(named_same) | named_new) - free)
+    if stray:
+        raise LandError(
+            f"{', '.join(stray)} is no defect that waits for an item with no open item of its own: --same and --new name such a defect by its number"
+            + (f", and the ones here are {', '.join(sorted(free))}" if free else ", and none waits here"),
+        )
+    alike = check_alike(task, [(read, defect) for read, defect, old in todo if old is None and not defect.get("item")
+                               and defect["number"] not in named_new and not item_name(task.worktree, folder, defect)[1]], tip)
+    for number, path in named_same.items():
+        next(defect for read in reads for defect in outside_of(read) if defect["number"] == number)["open"] = path
+    for read, defect, old in todo:
+        path, held = item_name(task.worktree, folder, defect, old)
+        entry = {"round": read["round"], "number": defect["number"], "title": defect["title"], "item": path}
+        if held:
+            same.append(entry)
+        else:
+            (task.worktree / path).parent.mkdir(parents=True, exist_ok=True)
+            write_whole(task.worktree / path, item_body(defect, read["round"], task.slug, read.get("date", today), today, old))
+            filed.append(entry)
+            written.setdefault(read["round"], []).append(path)
+        defect["item"] = path
     # One commit for each round, of its new items and nothing else: the worktree was clean. A commit
     # hook of the project may refuse the message, which has Lem's form and not the project's: the
     # items stay written, and a builder commits them in the project's form, after which a second
@@ -3571,7 +4273,56 @@ def cmd_file(task: Task, again: bool) -> dict:
     # A run cut off after its commit finds each item again by its defect, so this write comes last;
     # a resolution or a rebase whose tip these commits moved names the new one (`filed_on`).
     task.keep(reads=reads, **filed_on(task.kept(), before, tip))
-    return {"task": task.slug, "filed": filed, "same": same, "open": open_, "gone": gone, "tip": tip}
+    return {"task": task.slug, "filed": filed, "same": same, "open": open_, "gone": gone, "alike": alike, "tip": tip}
+
+
+def check_alike(task: Task, waiting: list[tuple[dict, dict]], tip: str) -> dict[str, str]:
+    """`file`'s look for the items that may hold each defect of WAITING (its read and the defect), before
+    any file is written: Jev's read of each against every item of the backlog folder at TIP
+    (`ask_alike`), its scores kept in `landing.json` under `alike`, by the finding's digest
+    (`finding_key`) and the item's path. A LandError that names each defect Jev reads as one an item
+    holds, with its items (`alike_named`) and the two ways on; otherwise what Jev said of each defect,
+    by its number: `none named`, `Jev: not asked (WHY)`, or `no item to compare` when the backlog
+    folder at TIP holds no item."""
+    if not waiting:
+        return {}
+    items = items_at(task, tip)
+    if not items:
+        return {defect["number"]: "no item to compare" for _, defect in waiting}
+    kept = dict(task.kept().get("alike") or {})
+    sends = jev_sends(task.settings)
+    said: dict[str, str] = {}
+    named: list[tuple[dict, list[dict]]] = []
+    for _, defect in waiting:
+        finding = {"where": defect["where"], "title": defect["title"], "run": defect["what"]}
+        key = finding_key(defect["where"], defect["title"], defect["what"])
+        read = ask_alike(finding, items, sends, kept.get(key))
+        if "not_asked" in read:
+            said[defect["number"]] = f"Jev: not asked ({read['not_asked']})"
+            continue
+        kept[key] = read["scores"]
+        found = alike_named(read["scores"], items)
+        if found:
+            named.append((defect, found))
+        else:
+            said[defect["number"]] = "none named"
+    if kept != (task.kept().get("alike") or {}):
+        task.keep(alike=kept)
+    if named:
+        listed = "; ".join(
+            f"{defect['number']} \"{defect['title']}\" (`{defect['where']}`): "
+            + ", ".join(f"`{item['item']}` \"{item['title']}\" ({item['jev']}, worth: {item['worth'] or 'none'})" for item in found)
+            for defect, found in named
+        )
+        first = named[0][0]["number"]
+        raise LandError(
+            f"{len(named)} defect(s) to file may be one an item of the backlog holds already, by Jev's read at {SAME_AT} or more: {listed}. "
+            f"Nothing is written. Read each item named, then run `lem land file {task.slug}` again with, for each defect named here, "
+            f"`--same {first}=PATH` when that item holds the defect (it is kept as its open item, and no file is written for it; an item that says "
+            "`worth: no` of a defect called over the bar gets a new item, `worth: later`, that names it), "
+            f"or `--new {first}` when it is a defect of its own (it is filed)",
+        )
+    return said
 
 
 def task_file(value: str, flag: str, directory: Path, here: Path) -> str:
@@ -3633,8 +4384,8 @@ def cmd_read(task: Task, record: str | None) -> dict:
             # the number the record of this review carries, so that the same record is never written down twice,
             # and the tip it reads, which the record names too
             "attempt": state["attempt"], "tip": state["tip"],
-            # the defects outside the change that reviews called over the bar and that have no item yet: `lem land file` files them
-            "to_file": to_file(reads, lambda path: in_tree(task, state["tip"], path)),
+            # the defects outside the change that reviews called over or under the bar and that have no item yet: `lem land file` files them
+            "to_file": to_file(reads, lambda path: in_tree(task, state["tip"], path), lambda path: worth_at(task, state["tip"], path) == "no"),
             "careful": state["careful"], "tasks": state["tasks"], "small": state["small"], "lines": state["lines"], "in_parts": state["in_parts"],
             # a builder's resolution of a conflict with the base, when the review due is the read of it: what it changed is
             # what `range_diff` shows, the branch's commits before the rebase beside the same commits after it
@@ -3742,7 +4493,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
     if answered and call and not plan_careful(task) and not any(record.get("event") == "careful.missed" for record in events_of(task)):
         script("project.py", task.worktree, "log", task.slug, "careful.missed", f"round:={state['round']}", f"why={call_why.strip()}")
     return {
-        "task": task.slug, "recorded": entry, "next": due(task)["due"], "to_file": to_file(task.kept()["reads"], lambda path: in_tree(task, state["tip"], path)),
+        "task": task.slug, "recorded": entry, "next": due(task)["due"], "to_file": to_file(task.kept()["reads"], lambda path: in_tree(task, state["tip"], path), lambda path: worth_at(task, state["tip"], path) == "no"),
         # the cheap defects of this record, which a builder that fixes its must-fix fixes too: its brief names each by its number
         "cheap": [{key: defect[key] for key in ("number", "where", "title")} for defect in outside if defect["bar"] == "cheap"],
     }
@@ -3945,9 +4696,10 @@ def criteria_lines(found: dict, held: dict, chart: bool = False) -> list[str]:
 
 
 def builder_filed(task: Task) -> list[dict]:
-    """The items the fast track's builder filed: each file the branch adds to the backlog folder,
-    other than those `file` wrote for a review, with its title."""
-    return branch_items(task)
+    """Each item the branch adds to the backlog folder, whoever filed it (a review through `file`, the
+    polish pass, the fast track's builder, a session by hand), with its title and its `worth` as the
+    tip's file says them: the pull request lists each under the heading its `worth` gives."""
+    return items_added(task, git(task.worktree, "merge-base", "HEAD", task.onto))
 
 
 def synced(task: Task) -> str | None:
@@ -4033,15 +4785,17 @@ def issue_line(task: Task) -> list[str]:
     return [f"Issue: {ticket}", ""]
 
 
-def small_text(task: Task, notes: str, state: dict) -> str:
+def small_text(task: Task, notes: str, state: dict, jev: dict | None = None) -> str:
     """The text of a pull request on the fast track: green or not, the criterion, the checks, the read.
     What the fast track does not have (a plan, a personas' read, a polish pass, a talk) gets no line.
-    Its notes have no fixed headings, so the text writes the three of what was seen outside the change
-    itself, at its end, each when it has a line: the items its builder and the reviews filed, the cheap
-    defects fixed on the way, and the defects seen and not filed."""
+    Its notes have no fixed headings, so the text writes the four of what was seen outside the change
+    itself, at its end, each when it has a line: the items the branch adds, its builder's and the
+    reviews', under `## Filed in the backlog` or `## Filed as not worth it` by their `worth`, the cheap
+    defects fixed on the way, and the defects seen and not filed. JEV ends the line of each item Jev
+    read (`jev_marked`); the notes come with Jev's ends of their own lines already (`pr_text`)."""
     kept = task.kept()
     head, parts = sections_of(notes)
-    own = {heading: lines_of(lines) for heading, lines in parts if heading in (FILED, FIXED, SEEN)}
+    own = {heading: lines_of(lines) for heading, lines in parts if heading in (FILED, NOT_WORTH, FIXED, SEEN)}
     fixed = "\n".join(own.get(FIXED, []))
     checks = kept.get("checks") or {}
     found = criteria_of(task)
@@ -4080,19 +4834,22 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     decisions = [*breaker_lines(task), *(decided(decision) for decision in task.decisions())]
     if decisions:
         out += ["", "## Decisions", "", *decisions]
-    # the notes but for the three headings, which come at the end with the record's lines
+    # the notes but for the four headings, which come at the end with the record's lines
     rest = no_media("\n".join([*head, *(line for heading, lines in parts if heading not in own for line in (heading, *lines))])).strip()
-    filed, seen = outside_parts(kept.get("reads", []), fixed)
-    builder = [f"- `{item['item']}`" + (f": {item['title']}" if item.get("title") else "") for item in builder_filed(task)]
-    ends = [(FILED, [*builder, *own.get(FILED, []), *(line for line in filed if line not in builder)]), (FIXED, own.get(FIXED, [])), (SEEN, [*own.get(SEEN, []), *seen])]
+    filed, not_worth, seen = outside_parts(kept.get("reads", []), fixed, builder_filed(task))
+    filed, not_worth = placed(own.get(FILED, []), own.get(NOT_WORTH, []), filed, not_worth)
+    not_worth = jev_marked(not_worth, jev or {"items": {}, "lines": {}})
+    ends = [(FILED, filed), (NOT_WORTH, not_worth), (FIXED, own.get(FIXED, [])), (SEEN, [*own.get(SEEN, []), *seen])]
     tail = "".join(f"\n\n{heading}\n\n" + "\n".join(lines) for heading, lines in ends if lines)
     return "\n".join(out) + ("\n\n" + rest if rest and rest.lower() != "none" else "") + tail + "\n"
 
 
-def pr_text(task: Task, notes: str, state: dict) -> str:
-    """The text of the pull request, in the order the owner reads it."""
+def pr_text(task: Task, notes: str, state: dict, jev: dict | None = None) -> str:
+    """The text of the pull request, in the order the owner reads it. JEV is the end of each line of a
+    finding called under the bar, what Jev said of it (`jev_read`)."""
+    jev = jev or {"items": {}, "lines": {}}
     if criteria_of(task)["small"]:
-        return small_text(task, notes, state)
+        return small_text(task, jev_notes(notes, True, jev), state, jev)
     kept = task.kept()
     # the notes' lines of the cheap defects a builder fixed, each a review's entry by its number
     fixed = section(notes, FIXED)
@@ -4156,7 +4913,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     out.append(careful_line(task, state))
     out += ["", "## Decisions of the build", "", *([*breaker_lines(task), *(decided(decision) for decision in task.decisions())] or ["none"])]
     out += folded_stories(task)
-    notes = with_outside(notes, *outside_parts(kept.get("reads", []), fixed))
+    notes = jev_notes(with_outside(notes, *outside_parts(kept.get("reads", []), fixed, builder_filed(task))), False, jev)
     return "\n".join(out) + "\n\n" + no_media(notes).strip() + "\n"
 
 
@@ -4287,7 +5044,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         raise LandError(f"{missing}; `lem land checks {task.slug}` comes first")
     kept = task.kept()
     reads = kept.get("reads", [])
-    unfiled = to_file(reads, lambda path: in_tree(task, tip, path))
+    unfiled = to_file(reads, lambda path: in_tree(task, tip, path), lambda path: worth_at(task, tip, path) == "no")
     state = due(task)
     if state["due"] == "review":
         raise LandError(f"a review is due before anything is proposed, {KIND_SAYS[state['floor']]} at the least ({state['why']}); `lem land read {task.slug}` says what a reviewer gets")
@@ -4356,12 +5113,13 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             f"nobody at the terminal read that request, so its criteria wait for his yes even when nobody was confused, and a freeze by the read is not his yes "
             f"(`stages/plan.md`, step 1). The criteria with the personas' answers go to the owner, and his yes is kept with `lem criteria approve {task.slug} --file FILE`",
         )
-    # Each defect a review saw outside the change and called over the bar has its item in the tip,
-    # or the open item it names is there, so that none is lost: one that a session never filed, and
-    # one whose item a later commit took out. The others are lines of the text, from the record.
+    # Each defect a review saw outside the change and called over or under the bar has its item in
+    # the tip, or the open item it names is there, so that none is lost and none is raised again: one
+    # that a session never filed, and one whose item a later commit took out. The cheap ones are lines
+    # of the text, from the record.
     if unfiled:
         raise LandError(
-            f"{len(unfiled)} defect(s) a review saw outside the change and called over the bar have no item in the backlog: "
+            f"{len(unfiled)} defect(s) a review saw outside the change and called over or under the bar have no item in the backlog: "
             + "; ".join(f"\"{defect['title']}\" ({defect['number']}, round {defect['round']})" for defect in unfiled)
             + f". `lem land file {task.slug}` files them, then this step runs again",
         )
@@ -4390,8 +5148,23 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     missing = [heading for heading in wanted if not re.search(rf"(?m)^{re.escape(heading)}\s*$", notes)]
     if missing:
         raise LandError(f"the notes lack {', '.join(missing)}: they hold {', '.join(wanted)}, each with what is true of this task or the one word `none`")
+    # A finding nobody filed reaches the pull request only with a bar call and its reason, or as an
+    # item the tip holds, whoever wrote its line: a line with neither is a defect the next review
+    # raises again, or one over the bar that nobody judged.
+    bare = unfiled_lines(notes, criteria_of(task)["small"], backlog_of(task), lambda path: file_at(task, tip, path))
+    if bare:
+        raise LandError(
+            f"{len(bare)} line(s) of the notes name a finding with no bar call and no item: "
+            + "; ".join(f"\"{line}\"" for line in bare)
+            + ". Give it a bar call and a reason, or file it: by the bar of rule 6 of the builder's standing rules, the line ends with "
+            f"`under: REASON` or `cheap: REASON`, or a builder files it as an item of {backlog_of(task)} and the line names the item's path; "
+            "then this step runs again",
+        )
     if not title.strip() or "\n" in title:
         raise LandError("--title is one line: the subject of the change")
+    # Jev reads each finding called under the bar once, the tip's items and the notes' lines alike,
+    # and a read over the bar stops the step one time, so that the agent looks again.
+    endings = jev_read(task, notes, criteria_of(task)["small"])
     reasons = not_green(task, state)
     # The one rule of a moved base runs before the text is written: the text, the `proposed` event and
     # what is carried after the push all say what this one result gives.
@@ -4399,7 +5172,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     if kept.get("sync"):
         task.keep(sync={**task.kept()["sync"], "carry": {key: carry[key] for key in ("how", "why", "review", "merge_review", "merge_why")}})
     body = task.directory / "pr.md"
-    write_whole(body, pr_text(task, notes, state))
+    write_whole(body, pr_text(task, notes, state, endings))
     says = "green" if not reasons else f"not green: {'; '.join(reasons)}"
     branch = git(task.worktree, "branch", "--show-current")
     # the name the push goes to, by the settings as they are now: the owner may protect it after the worktree was made
@@ -5397,7 +6170,9 @@ def merge_locked(task: Task, by: str, message: str | None, via: str, standing: b
         line = base_line(task.base, kept["base"], covered, review["base_why"])
         commits = 1 if squash else int(git(task.worktree, "rev-list", "--count", f"{kept['base']}..{tip}"))
         record = {"after": READ_AFTER, "base": covered, "checks_ran_on": kept["base"], "base_why": review["base_why"], "line": line, "commits": commits}
-    how = ["--squash", "--subject", message, *(["--body", record["line"]] if record else [])] if squash else ["--rebase"]
+    proposed = task.directory / "pr.md"
+    body = squash_body(proposed.read_text(encoding="utf-8") if proposed.is_file() else "", record.get("line"), task.slug)
+    how = ["--squash", "--subject", message, "--body", body] if squash else ["--rebase"]
     merged = gh(task, "pr", "merge", str(kept["pr"]["number"]), "--match-head-commit", tip, *how, check=False)
     if merged.returncode != 0:
         # GitHub's own rules hold (a required review, a check it waits for, a protected branch): its
@@ -5416,6 +6191,16 @@ def merge_locked(task: Task, by: str, message: str | None, via: str, standing: b
     if view["state"] != "MERGED":
         raise ForgeSaid("GitHub took the merge and the pull request is not merged yet (a queue, or a check it waits for); run `lem land merged` when it is")
     return forge_done(task, view)
+
+
+def squash_body(text: str, moved: str | None, slug: str) -> str:
+    """The body of the one commit a squash merge makes, from TEXT, the pull request's text as `propose`
+    wrote it: each line under `## Fixed on the way`, so the base's history names each fix made outside
+    the task on the way; then MOVED, the line of a merge on a base that moved after the checks, when
+    there is one; and last the line `Lem task: SLUG`, by which the board names the task that added an
+    item of the backlog."""
+    fixed = lines_of(section(text, FIXED).splitlines())
+    return "\n\n".join([*(["\n".join(fixed)] if fixed else []), *([moved] if moved else []), f"Lem task: {slug}"])
 
 
 def first_differ(replayed: list[str], own: list[str]) -> int | None:
@@ -5588,7 +6373,7 @@ def step(task: Task, args: argparse.Namespace) -> dict:
     if args.command == "read":
         return cmd_read(task, args.record and task_file(args.record, "--record", task.directory, here))
     if args.command == "file":
-        return cmd_file(task, args.again)
+        return cmd_file(task, args.again, args.same, args.new)
     if args.command == "propose":
         return cmd_propose(task, args.title, task_file(args.notes, "--notes", task.directory, here))
     if args.command == "merge-review":
@@ -5627,6 +6412,14 @@ def main(argv: list[str] | None = None) -> None:
     filing = commands.add_parser("file")
     filing.add_argument("slug")
     filing.add_argument("--again", action="store_true", help="write once more each item that was filed and is gone from the tip")
+    filing.add_argument("--same", action="append", default=[], metavar="rN.M=PATH",
+                        help="the defect rN.M is the one the item PATH of the backlog folder holds: kept as its open item, with no file of its own")
+    filing.add_argument("--new", action="append", default=[], metavar="rN.M", help="the defect rN.M is a defect of its own, whatever item Jev named for it: filed")
+    alike = commands.add_parser("alike", help="the items of the backlog that may hold the same defect as a finding, by Jev's read, before an agent files it")
+    alike.add_argument("slug")
+    alike.add_argument("--where", required=True, help="the finding's place, PATH or PATH:SYMBOL")
+    alike.add_argument("--title", required=True, help="the finding's title, one line")
+    alike.add_argument("--what", required=True, metavar="FILE", help="a file with the finding's run: what happens, with the input")
     propose = commands.add_parser("propose")
     propose.add_argument("slug")
     propose.add_argument("--title", required=True, help="the subject of the change, one semantic line")
@@ -5654,6 +6447,9 @@ def main(argv: list[str] | None = None) -> None:
         if args.command == "checks" and (args.status or args.stop):
             # a look and a stop take no lock: they are about the run that holds it
             result = checks_stop(task) if args.stop else checks_status(task)
+        elif args.command == "alike":
+            # a read that writes nothing, which a builder runs while it files by hand, between two steps
+            result = cmd_alike(task, args.where, args.title, task_file(args.what, "--what", task.directory, Path.cwd()))
         else:
             with step_lock(task, args.command):
                 result = step(task, args)

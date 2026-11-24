@@ -1197,8 +1197,32 @@ def filter_href(ctx: Ctx, f: dict, **change: str) -> str:
     return f"{ctx.href('backlog')}{'?' + query if query else ''}"
 
 
+def added_line(ctx: Ctx, it: dict) -> Markup | None:
+    """The card's line of who added the item, on which day and in which task: for an item of the backlog
+    folder, the commit that added its file (`board.added_by`), "not committed yet" while git does not
+    have it, and nothing when git gave no answer; for a reviewer's item, which git never holds, the
+    reviewer and the day of the item's `added`. The task is a link to its board when this board has it."""
+    if it.get("reviewer"):
+        day = it.get("added") or ""
+        return h("div", {"class": "bl-note bl-by"},
+                 f"added by the reviewer of the night's and the retro's proposals{f' on {day}' if days_old(day, ctx.model.now) is not None else ''}")
+    if "added_by" not in it:
+        return None
+    by = it["added_by"]
+    if not by:
+        return h("div", {"class": "bl-note bl-by"}, "not committed yet")
+    task, pull = by.get("task") or "", by.get("pull") or ""
+    if task:
+        where = [", in task ", h("a", {"class": "bl-task", **task_link(ctx, task)}, task) if ctx.model.by_slug.get(task) is not None else h("code", None, task)]
+    else:
+        where = [f", in pull request #{pull}"] if pull else []
+    return h("div", {"class": "bl-note bl-by"}, f"added by {by.get('author') or 'an unnamed author'} on {by.get('day') or 'an unknown day'}", where)
+
+
 def backlog_item(ctx: Ctx, it: dict) -> Markup:
     days = days_old(it.get("added", ""), ctx.model.now)
+    # a reviewer's item that waits for the owner's start or drop; a refuted one waits for nobody
+    waits = bool(it.get("reviewer")) and not bm.refuted(it)
 
     def t_(text, title, c=None):
         return h("span", {"class": f"tag{f' c-{c}' if c else ''}", "title": title}, h("span", None, text))
@@ -1220,7 +1244,7 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:
     held = it.get("held") if it.get("reviewer") else None
     if held:
         side.insert(0, t_(f"held by {held['task']}", f"The task {held['task']} builds this item", "lead"))
-    elif it.get("reviewer"):
+    elif waits:
         side.insert(0, t_("undecided", "No task builds this item, and you have not dropped it", "you"))
     if held:
         who = (h("a", {"class": "bl-task", **task_link(ctx, held["task"])}, held["task"]) if ctx.model.by_slug.get(held["task"]) is not None
@@ -1235,15 +1259,15 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:
         drop = (h("form", {"class": "act-form", "method": "post", "action": f"{ctx.base}/backlog/drop", "data-turbo-frame": "_top"},
                   h("input", {"type": "hidden", "name": "item", "value": it["path"]}),
                   h("button", {"class": "btn", "type": "submit", "data-turbo-submits-with": "Dropping…"}, icon(ctx, "x"), h("span", None, "Drop")))
-                if it.get("reviewer") else None)
+                if waits else None)
         note = ("Start a task opens its own session in agterm, which reads this item. Drop removes the file, and the day's record of the proposals "
-                "keeps the drop, so no later reviewer proposes it again." if it.get("reviewer") else "Lem opens the task's own session in agterm, which reads this item.")
+                "keeps the drop, so no later reviewer proposes it again." if waits else "Lem opens the task's own session in agterm, which reads this item.")
         actions = h("div", {"class": "bl-actions"}, start, drop, h("span", {"class": "bl-note"}, note))
     elif SAFE_PATH.fullmatch(it["path"]):
         actions = h("div", {"class": "bl-actions"}, h("span", {"class": "bl-note"}, "To start a task, type in any session: "), h("code", None, cmd),
                     h("button", {"class": "ibtn copy", "type": "button", "data-controller": "copy", "data-copy-text-value": cmd, "data-action": "copy#copy",
                                  "title": "Copy the line", "aria-label": "Copy the line"}, icon(ctx, "copy"), icon(ctx, "check", "ic done")),
-                    h("span", {"class": "bl-note"}, "Drop it on this board on the Mac or through the tailnet door.") if it.get("reviewer") else None)
+                    h("span", {"class": "bl-note"}, "Drop it on this board on the Mac or through the tailnet door.") if waits else None)
     else:
         actions = h("div", {"class": "bl-actions"}, h("span", {"class": "bl-note bad"},
                     "The name of this file has a character that a line to type would not keep. Start the task yourself in a session, with your own words."))
@@ -1255,6 +1279,7 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:
                          "data-stale": "1" if it.get("where_problem") else None, "data-new": "1" if it.get("state") in ("new", "edited") else None},
              h("summary", {"class": "bl-head"}, h("span", {"class": "bl-title"}, rich(ctx, it["title"])), h("span", {"class": "bl-side"}, side), place),
              h("div", {"class": "bl-body"},
+               added_line(ctx, it),
                md_block(ctx, f"bl-{it['key']}", body, cls="bl-text") if body else h("div", {"class": "bl-text dim"}, "The item has no text below its title."),
                actions))
 
@@ -1273,7 +1298,7 @@ def backlog_page(ctx: Ctx) -> Markup:
                         h("div", {"class": "lane-head", "title": f"What the night and the retro proposed and the reviewer passed, in {backlog['reviewer_folder']}: start a task or drop it"},
                           h("i"), "The reviewer's items", h("em", None, len(mine))), [backlog_item(ctx, it) for it in mine]))
     for g in bm.BY_WORTH:
-        mine = [it for it in items if not it.get("reviewer") and bm.worth_of(it) == g["key"]]
+        mine = bm.worth_items(items, g["key"])
         if mine:
             groups.append(h("div", {"class": f"bl-group a-{g['actor']}{' recessive' if g.get('recessive') else ''}", "id": f"group-{g['key']}", "data-backlog-target": "group"},
                             h("div", {"class": "lane-head"}, h("i"), g["name"], h("em", None, len(mine))), [backlog_item(ctx, it) for it in mine]))
@@ -1290,7 +1315,7 @@ def backlog_page(ctx: Ctx) -> Markup:
     sum_ = ""
     if backlog:
         read = bm.at(backlog.get("read"))
-        theirs = bm.reviewer_items(items)
+        theirs = [it for it in items if it.get("reviewer")]
         reviewer = f" · {len(theirs)} of the reviewer in {backlog['reviewer_folder']}, {bm.undecided(backlog)} undecided" if theirs else ""
         sum_ = (f"{bm.plural(len(items) - len(theirs), 'item')} in {backlog['folder']}{reviewer}"
                 f"{f' · {broken} cannot be read' if broken else ''}"

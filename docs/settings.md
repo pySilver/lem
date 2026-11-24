@@ -41,7 +41,7 @@ valid.
 | `[load]`, `[serve]`, `[peers]`, `[handoff]`, `[corrections]` | yes | no | no | no |
 | `[seats]` | no | yes | yes | yes |
 | `[ask]` | no | yes | no | no |
-| `[flow]`, `[checks]`, `[branch]`, `[paths]`, `[tracker]` | no | no | yes | no |
+| `[flow]`, `[checks]`, `[branch]`, `[paths]`, `[tracker]`, `[jev]` | no | no | yes | no |
 | `[naps]` | no | no | yes | only `on = false` |
 | `[state]` | no | no | yes | yes |
 
@@ -151,6 +151,20 @@ personas that nobody used for that number of days. To see what a number removes,
 | Setting | Default | Use |
 | --- | --- | --- |
 | `state.keep_days` | `30` | the days after which an old file goes. When nothing of a task that ended happened for this number of days, the task keeps only its small record, and its events become one summary event. Lem counts from the last event of the task, and from the last write of a folder. A dropped task whose events became a summary cannot be resumed. A whole number, `1` or more. A computer can set its own number in `.lem/settings.local.toml` |
+
+### `[jev]`
+
+Before a pull request, Lem asks the Jev decision model one question about each defect outside the
+task that an agent calls under the bar: is this defect over the bar? The line of the defect in the
+pull request shows the score. When the score is high, `lem land propose` stops one time, and the
+agent looks at the defect again. Before an agent files a defect, Lem also asks which items of the
+backlog can hold the same defect. Each question sends the place, the title and the text of the
+defect to the provider of the model, and that second question also sends the title, the place
+and the first line of each item. Lem sends nothing when your computer has no `JEV_API_KEY`.
+
+| Setting | Default | Use |
+| --- | --- | --- |
+| `jev.findings` | `true` | `false` sends no defect and no item of this repository to the model. The line of the defect then says "Jev: not asked (off in the settings)" |
 
 ### `[tracker]`
 

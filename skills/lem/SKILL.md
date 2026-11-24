@@ -16,7 +16,8 @@ The fast track is for one plain change: one acceptance criterion in his own sent
 and no question open, whatever its type (a fix of one rule, a typo, a rename, a version bump, a line
 of a document). One builder makes it and judges what it saw outside it by the bar of rule 6 of
 the builder's standing rules (`agents/lem-builder.md`, or a project's own): it fixes a cheap
-defect in a commit of its own and files an item only over the bar. The machine
+defect in a commit of its own and files each other one as an item, `worth: no` when it is under
+the bar. The machine
 checks and one read review it. It has no polish pass, and the merge agent reads it and merges it. Every other request takes the standard track, and the flow asks for his attention at
 three touches: the shape, an interview while a scout reads the code around his ask, which ends
 with the criteria that the personas read before he does and that he approves, so that they are
@@ -39,8 +40,8 @@ a report and nothing to merge. Between the touches a task builds without him. A 
 false ends with a documentation task. After the last task a fresh builder makes the polish pass, a
 short fixed list of what a build leaves behind (a comment made false, a leftover, code that reads
 badly, a document made false, the defects outside the task, each by the bar of rule 6 of the
-builder's standing rules: fixed when cheap, filed only over the bar), and changes
-no behavior. Then the change passes the machine checks and a
+builder's standing rules: fixed when cheap, filed otherwise, `worth: no` under the bar), and
+changes no behavior. Then the change passes the machine checks and a
 review by an agent that did not build it, as large as the change needs. Nothing is reviewed after
 the merge, since reviews queued after a landing stay open (43 of 48 about 28 hours later:
 convertiser-server, 2026-11-14), and nothing is argued task by task. Only a careful or large plan
@@ -410,7 +411,8 @@ server runs and opens the board's address, `http://127.0.0.1:PORT/HOST/WORKSPACE
 `.../tasks/SLUG`), as a page beside the session that opened it. It has four views (keys T, W, B and
 A): "Tasks", each task in the column of who acts on it; "Waits for you", one row for each thing the
 owner does, a task's two or more in one stack that opens, with where he does it, "no session" for a task whose session is gone while it needs
-one, and "stopped" for a task whose live session the server's guard logged as stopped, with the reason when Lem cannot read that session; "Backlog", the reviewer's items of `.lem/state/backlog/` in a group of their own, each undecided or held by a task,
+one, and "stopped" for a task whose live session the server's guard logged as stopped, with the reason when Lem cannot read that session; "Backlog", the reviewer's items of `.lem/state/backlog/` in a group of their own, each undecided or held by a task
+(a proposal it refuted is a `worth: no` item there, under "Decided against" with no act and not counted),
 then the items of the backlog path by their own `worth`, each with "start a task", which opens a task's session through the
 server, but a held one, and "Drop" on an undecided one, with the count of the undecided ones on its key; and "Activity". The owner answers there too, as on his
 typed word, with one note field for each answer: each open card of a task's live session is a row

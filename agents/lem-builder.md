@@ -72,30 +72,41 @@ What holds for every builder, unless your job says otherwise as above:
 6. **A defect outside your task is listed, not fixed and not filed.** Its file and one line on
    what is wrong go into your report. The landing's polish pass, the fast track's builder and the
    review judge it by the bar below, and when your brief is one of those jobs, its file says where
-   each of your lines goes. **The bar.** An item is filed only for a defect over the bar: it
-   confuses a user, breaks a contract, damages data or costs money, and it happens today; or the
-   owner said it is worth an item. The bar binds Lem's agents only: an item a person writes, or
-   asks an agent to file, is filed whatever the bar. A defect is **cheap** when its fix changes no
-   behavior and needs no new test. Each defect takes these questions in this order:
+   each of your lines goes. **The bar.** An item with `worth: later` is filed only for a defect over
+   the bar: it confuses a user, breaks a contract, damages data or costs money, and it happens
+   today; or the owner said it is worth an item. The bar binds Lem's agents only: an item a person
+   writes, or asks an agent to file, is filed whatever the bar. A defect is **cheap** when its fix
+   is text that does not run (a comment, a docstring, a sentence of a document), or when a check of
+   the project reports it and the check's rerun shows it fixed. A refactor, or the removal of code
+   that looks unused, is not cheap, however small. Each defect takes these questions in this
+   order:
+   - *Held by an open item?* Look in the backlog folder of the base for an open item that names the
+     same defect; the same `where` alone is no proof. When one does, the defect gets no second
+     file, and its line under "Seen, not filed" names that item by its path; but when that item
+     says `worth: no` and your call is over the bar, file a new item with `worth: later` whose run
+     is followed by the line "The same defect as `OLD-PATH`, now over the bar.", and leave the old
+     item as it is.
    - *Cheap?* When an agent is already at work on the branch (the polish pass, the fast track's
      builder, or a builder that fixes a must-fix of the same review), that agent fixes it in a
-     commit of its own, and the pull request names it on one line under "Fixed on the way": the
-     file, the commit and what was wrong. A cheap defect alone never starts a builder or a new run
-     of the checks: with no agent at work, it is one line under "Seen, not filed".
-   - *Under the bar?* One line under "Seen, not filed": its place and why it is under the bar, as
-     "`tests/unit/test_board_model.py`: two test classes come after the main guard; only a reader
-     of the code meets it". No file, and no `worth: no` item.
-   - *Over the bar?* Look in the backlog folder of the base for an open item that names the same
-     defect; the same `where` alone is no proof. When one does, the defect gets no second file,
-     and its line under "Seen, not filed" names that item by its path. Otherwise it is one item,
-     which the pull request lists under "Filed in the backlog".
+     commit of its own whose message names it, as `fixed on the way: FILE, what was wrong` in the
+     project's form of a message, so that a squash that lists the commits names it too; and the
+     pull request names it on one line under "Fixed on the way": the file, the commit and what was
+     wrong. A cheap defect alone never starts a builder or a new run of the checks: with no agent
+     at work, it is one line under "Seen, not filed".
+   - *Over the bar?* One item with `worth: later`, which the pull request lists under "Filed in
+     the backlog".
+   - *Under the bar?* One item with `worth: no`, which the pull request lists under "Filed as not
+     worth it", so that the next agent who sees the defect finds it decided and does not raise it
+     again. Its reason is optional: when you give one, it is the item's last line, as
+     `Decided against: only a reader of the code meets it`.
 
    **The item format**, for a builder that files: one file for each defect,
    `docs/backlog/<slug>.md`, the slug the title's words joined by `-`; between two `---` lines
-   `worth: later`, `where: PATH` or `PATH:SYMBOL` (never a line number) and `added: YYYY-MM-DD`,
-   today; then `# TITLE` on one line; then the concrete run, with real values, in prose. When a
-   file of that name holds another defect, add the stem of the `where` to the slug. The items go
-   on the task's branch, in a commit of their own (`docs(backlog): ...`).
+   `worth: later` (over the bar) or `worth: no` (under it), `where: PATH` or `PATH:SYMBOL` (never a
+   line number) and `added: YYYY-MM-DD`, today; then `# TITLE` on one line; then the concrete run,
+   with real values, in prose; then, for a `worth: no` item, the optional line `Decided against:
+   REASON`. When a file of that name holds another defect, add the stem of the `where` to the
+   slug. The items go on the task's branch, in a commit of their own (`docs(backlog): ...`).
 7. **You ask nobody.** A decision the plan did not take, you take and write in your report with
    its reason, while the criteria stay true. A choice that would change a criterion, whose options
    each cost a person something, or that only the owner can answer, is not yours: commit what

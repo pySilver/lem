@@ -56,8 +56,10 @@ When it does not fit, the builder stops, and the standard track starts.
 5. **The plan.** A short plan goes to `docs/plans/`, and a new builder makes each part. The
    [ladder](when-lem-needs-you.md#a-decision-in-doubt) decides each choice, and asks you nothing.
 6. **The polish pass.** A new builder removes leftovers and fixes a cheap defect outside the
-   task. It files a defect in `docs/backlog/` only when the defect is a
-   [real problem today](pull-request.md#what-lem-saw-outside-the-task).
+   task: text that does not run. It files each other defect in `docs/backlog/`, with
+   `worth: later` only when the defect is a
+   [real problem today](pull-request.md#what-lem-saw-outside-the-task), and with `worth: no`
+   when it is not.
 
 A ticket or a backlog item that already says what you want skips the interview. Say "interview
 me" to get it.

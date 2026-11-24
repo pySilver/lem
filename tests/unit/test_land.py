@@ -113,21 +113,132 @@ class DefectsOutside(unittest.TestCase):
             {**DEFECT, "bar": "over", "open": "docs/backlog/the-first-line-skips-a-bold-outcome.md", "number": "r2.3"},
         ])
 
-    def test_only_an_over_defect_with_no_item_and_no_open_item_in_the_tip_waits_to_be_filed(self) -> None:
+    def test_an_over_or_under_defect_with_no_item_and_no_open_item_in_the_tip_waits_to_be_filed(self) -> None:
         held = "docs/backlog/the-first-line-skips-a-bold-outcome.md"
         outside = self.of([
             {**DEFECT, "bar": "over"},
             {**DEFECT, "bar": "under", "why": "only a reader of the code meets it"},
             {**DEFECT, "bar": "cheap", "why": "an outdated suppression"},
             {**DEFECT, "bar": "over", "open": held},
+            {**DEFECT, "bar": "under", "why": "only a reader of the code meets it", "open": held},
         ])
         reads = [{"round": 1, "answered": True, "outside": outside}]
-        self.assertEqual(land.to_file(reads, lambda path: path == held), [{"round": 1, "number": "r2.1", **DEFECT}])
+        # an under defect is an item too, `worth: no`, so the next review does not raise it again; a cheap one is none
+        self.assertEqual(land.to_file(reads, lambda path: path == held), [{"round": 1, "number": "r2.1", **DEFECT}, {"round": 1, "number": "r2.2", **DEFECT}])
         # the base joined the open item after the review, and a rebase kept the review: the defect is filed
-        self.assertEqual([entry["number"] for entry in land.to_file(reads, lambda path: False)], ["r2.1", "r2.4"])
+        self.assertEqual([entry["number"] for entry in land.to_file(reads, lambda path: False)], ["r2.1", "r2.2", "r2.4", "r2.5"])
         # one with its item waits for nothing, nor one of a review nobody answered
         outside[0]["item"] = "docs/backlog/empty-input-crashes-the-parser.md"
+        outside[1]["item"] = "docs/backlog/empty-input-crashes-the-parser-json-parse.md"
         self.assertEqual(land.to_file([*reads, {"round": 2, "answered": False, "outside": outside}], lambda path: path == held), [])
+
+
+class TheItemOfADefect(unittest.TestCase):
+    """`land.item_body`: the item `file` writes for a review's defect, `worth: later` over the bar and
+    `worth: no` under it, the review's why as its last line (backlog-refuted-items-and-jev, criterion 1)."""
+
+    PADS = {"where": "shop/dates.py:format_day", "title": "format_day pads the day with a space", "what": "format_day of 3 May gives \" 3 May\"; the rest of the shop gives \"03 May\".",
+            "why": "no user is confused, no contract breaks"}
+
+    def test_an_under_defect_is_a_worth_no_item_that_ends_with_its_reason(self) -> None:
+        text = land.item_body({**self.PADS, "bar": "under"}, 1, "export-notes", "2026-11-23", "2026-11-23")
+        front, lines = land.item_text(text)
+        self.assertEqual(front, {"worth": "no", "where": "shop/dates.py:format_day", "added": "2026-11-23"})
+        self.assertEqual(lines[0], "# format_day pads the day with a space")
+        self.assertEqual(lines[-1], "Decided against: no user is confused, no contract breaks")
+        self.assertIn("Seen outside the change by review round 1 of task export-notes (2026-11-23); the base commit has it.", lines)
+
+    def test_an_over_defect_is_a_worth_later_item_with_no_reason_line(self) -> None:
+        text = land.item_body({**self.PADS, "bar": "over"}, 2, "export-notes", "2026-11-22", "2026-11-23")
+        self.assertEqual(land.item_text(text)[0]["worth"], "later")
+        self.assertNotIn("Decided against", text)
+        self.assertTrue(text.endswith("Seen outside the change by review round 2 of task export-notes (2026-11-22); the base commit has it.\n"))
+
+    def test_the_file_is_still_the_defect_with_its_reason_in_it(self) -> None:
+        with tempfile.TemporaryDirectory() as scratch:
+            file = Path(scratch) / "item.md"
+            file.write_text(land.item_body({**self.PADS, "bar": "under"}, 1, "export-notes", "2026-11-23", "2026-11-23"), encoding="utf-8")
+            self.assertTrue(land.holds(file, self.PADS))
+
+
+class TheNotesLines(unittest.TestCase):
+    """`land.unfiled_lines`: `propose` refuses a line of the notes that names a finding nobody filed
+    and has no bar call with its reason and no item the tip holds, whoever wrote it
+    (backlog-refuted-items-and-jev, criterion 6)."""
+
+    HELD = {"docs/backlog/a-held-item.md"}
+    NOTES = "## Decisions\n\nnone\n\n## Left open\n\nnone\n\n## Worth a look\n\n- the one line of the file.\n\n## Filed in the backlog\n\nnone\n\n## Not done\n\nnone\n"
+
+    def bare(self, notes: str, small: bool = False) -> list[str]:
+        return land.unfiled_lines(notes, small, "docs/backlog", lambda path: path in self.HELD)
+
+    def test_a_hand_written_line_with_no_call_is_named(self) -> None:
+        line = "- `land.py:cmd_start` writes over `reviews/review-1.*`"
+        notes = self.NOTES.replace("## Not done", f"## Seen, not filed\n\n{line}\n\n## Not done")
+        self.assertEqual(self.bare(notes), [line])
+        # a call with its reason, or an item the tip holds, lets it go on
+        for passes in (f"{line}; under: a second landing is rare, and the review files are kept in git",
+                       f"{line}; cheap: a comment says the opposite",
+                       f"{line}; Under: the owner reads the reviews in the pull request",
+                       f"{line}; filed as `docs/backlog/a-held-item.md`"):
+            with self.subTest(line=passes):
+                self.assertEqual(self.bare(self.NOTES.replace("## Not done", f"## Seen, not filed\n\n{passes}\n\n## Not done")), [])
+
+    def test_a_call_with_no_reason_or_an_item_the_tip_lacks_is_no_call(self) -> None:
+        for bare in ("- `a.py`: one; under:", "- `a.py`: one; under:   ", "- `a.py`: one; underline: the word", "- `a.py`: one; filed as docs/backlog/gone.md",
+                     "- `a.py`: one; over: worth an item"):
+            with self.subTest(line=bare):
+                self.assertEqual(self.bare(self.NOTES.replace("## Left open\n\nnone", f"## Left open\n\n{bare}")), [bare.strip()])
+
+    def test_a_should_finding_left_open_is_checked_and_its_continued_line_is_one_entry(self) -> None:
+        notes = self.NOTES.replace("## Left open\n\nnone", "## Left open\n\n- `land.py:start_locked`: no test holds the carry of `pr`,\n  under: the journey of the moved base holds it\n- `land.py:cmd_base`: a long line")
+        self.assertEqual(self.bare(notes), ["- `land.py:cmd_base`: a long line"])
+
+    def test_an_item_path_before_a_colon_is_the_item(self) -> None:
+        # review 1, finding 3: the colon after the path is no part of it
+        line = "- land.py:cmd_start overwrites reviews; held by docs/backlog/a-held-item.md: same defect"
+        self.assertEqual(self.bare(self.NOTES.replace("## Not done", f"## Seen, not filed\n\n{line}\n\n## Not done")), [])
+
+    def test_an_indented_bullet_continues_the_entry_above_it(self) -> None:
+        # review 1, finding 4: a sub-bullet is part of its finding, and a bullet at the same depth is a finding of its own
+        notes = self.NOTES.replace("## Left open\n\nnone", "## Left open\n\n- `a.py`: a missing test; under: the path is covered by the journey\n  - seen in round 2 too\n- `b.py`: no call")
+        self.assertEqual(self.bare(notes), ["- `b.py`: no call"])
+        indented = self.NOTES.replace("## Left open\n\nnone", "## Left open\n\n  - `a.py`: a missing test; under: the journey covers it\n  - `b.py`: no call")
+        self.assertEqual(self.bare(indented), ["- `b.py`: no call"])
+
+    def test_the_other_parts_and_a_lone_none_are_not_read(self) -> None:
+        self.assertEqual(self.bare(self.NOTES), [])
+        self.assertEqual(self.bare(self.NOTES.replace("- the one line of the file.", "- a place worth a look, no call")), [])
+
+    def test_the_fast_track_reads_its_lines_before_any_heading_and_a_left_open_it_wrote(self) -> None:
+        self.assertEqual(self.bare("none\n", small=True), [])
+        self.assertEqual(self.bare("- `report.css`: the gap is 3px wide\n", small=True), ["- `report.css`: the gap is 3px wide"])
+        self.assertEqual(self.bare("- `report.css`: the gap; under: nobody sees 1px\n\n## Left open\n\n- `report.py`: no test\n", small=True), ["- `report.py`: no test"])
+        # the standard track does not read the lines before its first heading
+        self.assertEqual(self.bare("- `report.css`: the gap is 3px wide\n" + self.NOTES), [])
+
+    def test_a_line_the_script_writes_passes(self) -> None:
+        for defect in ({**DEFECT, "bar": "cheap", "why": "a comment says the opposite"}, {**DEFECT, "bar": "over", "open": "docs/backlog/a-held-item.md"}):
+            with self.subTest(bar=defect["bar"]):
+                self.assertEqual(self.bare(self.NOTES.replace("## Not done", f"## Seen, not filed\n\n{land.seen_line(defect)}\n\n## Not done")), [])
+
+
+class TheSquashBody(unittest.TestCase):
+    """`land.squash_body`: the body of the one commit of a squash merge names each fix made on the way
+    and ends with the task (backlog-refuted-items-and-jev, criterion 2)."""
+
+    TEXT = ("**Green.**\n\n## Not done\n\nnone\n\n## Fixed on the way\n\n- `skills/lem/scripts/lem_state.py` (abc1234): the docstring said the state folder is in the home folder\n"
+            "- `docs/board.md` (def5678): a sentence named a key the board no longer has\n\n## Seen, not filed\n\n- `a.py`: one; cheap: a comment\n")
+
+    def test_each_fix_on_the_way_then_the_moved_base_then_the_task(self) -> None:
+        moved = "The checks ran on main at 1a2b3c4d5; it merged on main at 6e7f8a9b0, after the merge agent's read of what moved: nothing it rests on."
+        self.assertEqual(land.squash_body(self.TEXT, moved, "export-notes"),
+                         "- `skills/lem/scripts/lem_state.py` (abc1234): the docstring said the state folder is in the home folder\n"
+                         "- `docs/board.md` (def5678): a sentence named a key the board no longer has\n\n" + moved + "\n\nLem task: export-notes")
+
+    def test_with_no_fix_and_no_move_the_task_alone(self) -> None:
+        self.assertEqual(land.squash_body("**Green.**\n\n## Fixed on the way\n\nnone\n", None, "export-notes"), "Lem task: export-notes")
+        self.assertEqual(land.squash_body("", None, "export-notes"), "Lem task: export-notes")
 
 
 class Bar(unittest.TestCase):
@@ -1279,6 +1390,353 @@ class BarFile(unittest.TestCase):
             own.parent.mkdir(parents=True)
             own.write_text("---\nname: lem-builder\n---\n")
             self.assertEqual(land.bar_file(Path(main)), {"file": str(own), "of": "project"})
+
+
+# Jev's stand-in for the cases of its read: each request on a line of JEV_LOG, and an answer by JEV_ACT.
+JEV_STANDIN = """#!/bin/sh
+tr '\\n' ' ' >> "$JEV_LOG" && echo >> "$JEV_LOG"
+case "$JEV_ACT" in
+  fail) echo 'lem-jev: OpenRouter answered HTTP 502' >&2; exit 1 ;;
+  long) echo 'lem-jev: the input is over' >&2; exit 3 ;;
+  garbled) echo 'not json' ;;
+  sleep) sleep 3 ;;
+  *) printf '{"model": "stand-in", "answers": {"over": {"type": "noul", "noul": %s}}, "cost": null}\\n' "$JEV_ACT" ;;
+esac
+"""
+# A rule 6 of a project's own builder whose bar is in its own words, with no sentence of the bar's form.
+OWN_WORDS = "5. **Commit.** Commit your work.\n6. **A defect outside your task.** File it when it hurts someone.\n7. **You ask nobody.**\n"
+
+
+class JevStandIn(unittest.TestCase):
+    """A folder of its own with Jev's stand-in, named by LEM_JEV, and a key of no value: nothing leaves the machine."""
+
+    def setUp(self) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.root = Path(folder.name)
+        self.log = self.root / "sent.log"
+        standin = self.root / "jev-standin"
+        standin.write_text(JEV_STANDIN, encoding="utf-8")
+        standin.chmod(0o755)
+        environ = mock.patch.dict(os.environ, {"JEV_API_KEY": "not-a-real-key", "LEM_JEV": str(standin), "JEV_LOG": str(self.log), "JEV_ACT": "0.82"})
+        environ.start()
+        self.addCleanup(environ.stop)
+
+    def sent(self) -> list[dict]:
+        return [json.loads(line) for line in self.log.read_text(encoding="utf-8").splitlines()] if self.log.is_file() else []
+
+
+class JevAsk(JevStandIn):
+    """`land.ask_jev`: one request through the command LEM_JEV names, as jev.py's contract has it; with no key,
+    no answer, or a spec over jev.py's limit, the landing goes on as without Jev (criterion 9)."""
+
+    SPEC = {"state": {"where": "a.py:f", "title": "T", "run": "f(1) gives 2."}, "questions": {"over": {"type": "noul", "instructions": "Over?", "yes": "y", "no": "n"}}}
+
+    def test_a_score_comes_back_and_the_spec_is_sent_whole(self) -> None:
+        self.assertEqual(land.ask_jev(self.SPEC), {"answers": {"over": 0.82}})
+        self.assertEqual(self.sent(), [self.SPEC])
+
+    def test_no_key_starts_nothing(self) -> None:
+        with mock.patch.dict(os.environ, {"JEV_API_KEY": ""}):
+            self.assertEqual(land.ask_jev(self.SPEC), {"not_asked": "no key"})
+        self.assertEqual(self.sent(), [])
+
+    def test_a_failed_request_a_reply_that_does_not_read_and_a_spec_over_the_limit(self) -> None:
+        for act, why in (("fail", "no answer"), ("garbled", "no answer"), ("1.5", "no answer"), ("long", "too long")):
+            with self.subTest(act=act), mock.patch.dict(os.environ, {"JEV_ACT": act}):
+                self.assertEqual(land.ask_jev(self.SPEC), {"not_asked": why})
+
+    def test_a_request_past_its_seconds_is_no_answer(self) -> None:
+        with mock.patch.dict(os.environ, {"JEV_ACT": "sleep"}), mock.patch.object(land, "JEV_SECONDS", 0.5):
+            self.assertEqual(land.ask_jev(self.SPEC), {"not_asked": "no answer"})
+
+    def test_the_request_is_given_jev_seconds(self) -> None:
+        with mock.patch.object(land.subprocess, "run", side_effect=subprocess.TimeoutExpired("jev", 20)) as ran:
+            land.ask_jev(self.SPEC)
+        self.assertEqual((ran.call_args.kwargs["timeout"], ran.call_args.kwargs["env"]["JEV_TIMEOUT"]), (land.JEV_SECONDS, str(land.JEV_SECONDS)))
+        self.assertLess(land.JEV_SECONDS, 120)
+
+
+class TheBarJevReads(unittest.TestCase):
+    """`land.bar_condition`: Jev's yes is the condition of the bar's sentence, read at run time from rule 6 of the
+    file `bar_file` names, never copied into a file of Lem; a rule 6 in a project's own words has none."""
+
+    def test_the_condition_of_lem_s_own_rule_6(self) -> None:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        bar = importlib.import_module("test_the_bar").BAR
+        with tempfile.TemporaryDirectory() as main:
+            file, name = land.bar_path(Path(main))
+            self.assertEqual(name, "agents/lem-builder.md")
+            self.assertEqual(land.bar_condition(file.read_text(encoding="utf-8")), bar.split("over the bar: ", 1)[1].removesuffix("."))
+
+    def test_a_project_s_own_builder_in_its_own_words_has_no_bar(self) -> None:
+        with tempfile.TemporaryDirectory() as main:
+            own = Path(main) / ".claude" / "agents" / "lem-builder.md"
+            own.parent.mkdir(parents=True)
+            own.write_text(OWN_WORDS)
+            file, name = land.bar_path(Path(main))
+            self.assertEqual((file, name), (own, ".claude/agents/lem-builder.md"))
+            self.assertIsNone(land.bar_condition(file.read_text()))
+            self.assertEqual(land.jev_entry({"where": "a.py", "title": "T", "run": "r"}, True, (None, name)), {"not_asked": "no bar in .claude/agents/lem-builder.md"})
+
+    def test_the_sentence_counts_only_in_rule_6(self) -> None:
+        text = "5. An item is filed only for a defect over the bar: it is red.\n6. **Defects.** List them.\n7. Ask nobody.\n"
+        self.assertIsNone(land.bar_condition(text))
+        self.assertEqual(land.bar_condition("6. **Defects.** An item is filed only for a defect\nover the bar: it is red\nand loud. Then stop.\n"), "it is red and loud")
+
+
+class TheFindingsUnderTheBar(unittest.TestCase):
+    """`land.under_findings`, `land.item_finding`, `land.line_finding`: what Jev reads, whoever wrote it, and the
+    digest its entry is kept by, which a new reason leaves the same (decision 4)."""
+
+    ITEM = "---\nworth: no\nwhere: src/v.py:tidy\nadded: 2026-11-23\n---\n# Tidy keeps a stray space\n\ntidy of \"a  b\" keeps two spaces.\n\nDecided against: nobody reads it\n"
+    NOTES = ("Before the headings: `x.py`: x is slow; under: a test runs it once\n\n## Left open\n\n- the missing test of f; under: f is two lines\n\n"
+             "## Seen, not filed\n\n- `land.py:cmd_start` writes over `reviews/review-1.*`;\n  under: a second landing is rare\n- `a.css`: a rule matches nothing; cheap: CSS\n\n## Not done\n\n- `y.py`: under: z\n")
+
+    def items(self, **files: str) -> list[dict]:
+        added = [{"item": path, "worth": land.item_text(text)[0].get("worth")} for path, text in files.items()]
+        return land.under_findings(added, lambda path: land.item_text(files[path]), "", False)
+
+    def test_an_item_of_worth_no_without_its_reason(self) -> None:
+        [found] = self.items(**{"docs/backlog/tidy.md": self.ITEM, "docs/backlog/later.md": self.ITEM.replace("worth: no", "worth: later")})
+        self.assertEqual({key: found[key] for key in ("item", "where", "title", "run", "reason")},
+                         {"item": "docs/backlog/tidy.md", "where": "src/v.py:tidy", "title": "Tidy keeps a stray space", "run": "tidy of \"a  b\" keeps two spaces.", "reason": True})
+        [bare] = self.items(**{"docs/backlog/tidy.md": self.ITEM.replace("Decided against: nobody reads it\n", "")})
+        self.assertEqual((bare["key"], bare["reason"]), (found["key"], False))
+        [other] = self.items(**{"docs/backlog/tidy.md": self.ITEM.replace("two spaces", "three spaces")})
+        self.assertNotEqual(other["key"], found["key"])
+
+    def test_the_lines_of_the_notes_that_propose_checks(self) -> None:
+        lines = land.under_findings([], None, self.NOTES, False)
+        self.assertEqual([(found["line"], found["run"]) for found in lines],
+                         [("- the missing test of f; under: f is two lines", "the missing test of f"),
+                          ("- `land.py:cmd_start` writes over `reviews/review-1.*`;", "`land.py:cmd_start` writes over `reviews/review-1.*`")])
+        fast = land.under_findings([], None, self.NOTES, True)
+        self.assertEqual(fast[0]["run"], "Before the headings: `x.py`: x is slow")
+        again = land.line_finding(["- `land.py:cmd_start` writes over `reviews/review-1.*`; under: git keeps each review"])
+        self.assertEqual(again["key"], lines[1]["key"])
+        self.assertIsNone(land.line_finding(["- `a.css`: a rule matches nothing; cheap: CSS"]))
+
+
+class TheSpecOfAFinding(unittest.TestCase):
+    """`land.jev_spec`: one question of type noul, with both meanings as jev.py asks for both or neither: yes is
+    the bar's condition, no its plain negation (decision 5)."""
+
+    def test_jev_py_takes_it(self) -> None:
+        jev = importlib.import_module("jev")
+        spec = land.jev_spec({"where": "src/v.py:tidy", "title": "Tidy keeps a stray space", "run": "tidy keeps two spaces.", "line": "x"}, "it is red")
+        body = jev.build(spec)
+        self.assertEqual(spec["state"], {"where": "src/v.py:tidy", "title": "Tidy keeps a stray space", "run": "tidy keeps two spaces."})
+        self.assertEqual(body["questions"]["over"]["criteria"], {"true": "The finding meets the bar: it is red.", "false": "The finding does not meet that bar."})
+        self.assertEqual(land.jev_spec({"where": "", "title": "", "run": "f is slow"}, "it is red")["state"], {"run": "f is slow"})
+
+    def test_the_instructions_fit_a_finding_of_the_change_too(self) -> None:
+        # a `## Left open` finding is of the change itself, so the question does not say every finding is outside it (review 1, finding 5)
+        said = land.jev_spec({"where": "", "title": "", "run": "no test holds f"}, "it is red")["questions"][land.JEV_QUESTION]["instructions"]
+        self.assertIn("in the change it worked on or in the code outside it", said)
+
+
+class TheReadOfEachFinding(JevStandIn):
+    """`land.jev_read`, the read `propose` makes: each finding called under the bar once, kept in `landing.json`
+    under `jev`, read from a record of the old form too; one refusal for a score over the line; the second answer
+    stands; nothing sent with `findings = false` (criteria 7 and 10)."""
+
+    ITEM = TheFindingsUnderTheBar.ITEM
+    NOTES = "## Seen, not filed\n\n- `land.py:cmd_start` writes over `reviews/review-1.*`; under: a second landing is rare\n"
+
+    def task(self, findings: bool = True, kept: dict | None = None):
+        held: dict = dict(kept or {"pr": {"number": 7}})
+        task = types.SimpleNamespace(slug="t", main=self.root, worktree=self.root / "tree", settings={"jev": {"findings": findings}},
+                                     kept=lambda: json.loads(json.dumps(held)), keep=lambda **values: held.update(values))
+        (task.worktree / "docs" / "backlog").mkdir(parents=True, exist_ok=True)
+        (task.worktree / "docs" / "backlog" / "tidy.md").write_text(self.ITEM, encoding="utf-8")
+        task.held = held
+        return task
+
+    def read(self, task, notes: str | None = None) -> dict:
+        added = [{"item": "docs/backlog/tidy.md", "worth": land.item_of(task.worktree / "docs/backlog/tidy.md")[0]["worth"]}]
+        with mock.patch.object(land, "builder_filed", return_value=added):
+            return land.jev_read(task, self.NOTES if notes is None else notes, False)
+
+    def test_a_score_over_the_line_refuses_once_and_the_second_answer_stands(self) -> None:
+        task = self.task()
+        with self.assertRaises(land.LandError) as refused:
+            self.read(task)
+        said = str(refused.exception)
+        self.assertIn("2 finding(s) called under the bar, which Jev reads as over it at 0.7 or more: `docs/backlog/tidy.md` (Jev: 0.82); "
+                      "\"- `land.py:cmd_start` writes over `reviews/review-1.*`; under: a second landing is rare\" (Jev: 0.82)", said)
+        self.assertIn("Jev reads this as over the bar: make the item `worth: later`, or keep `worth: no` with its `Decided against:` line "
+                      "(for a notes line, keep `under:` with its reason), then run this step again", said)
+        self.assertEqual(len(self.sent()), 2)
+        self.assertEqual(sorted((entry["score"], entry["refused"]) for entry in task.held["jev"].values()), [(0.82, True), (0.82, True)])
+        self.assertEqual(task.held["pr"], {"number": 7})
+        endings = self.read(task, self.NOTES.replace("a second landing is rare", "git keeps each review"))
+        self.assertEqual(len(self.sent()), 2)
+        self.assertEqual(endings["items"], {"docs/backlog/tidy.md": "Jev: 0.82"})
+        self.assertEqual(list(endings["lines"].values()), ["Jev: 0.82"])
+
+    def test_a_refused_item_with_no_reason_is_refused_until_it_has_one(self) -> None:
+        task = self.task()
+        (task.worktree / "docs/backlog/tidy.md").write_text(self.ITEM.replace("Decided against: nobody reads it\n", ""), encoding="utf-8")
+        with self.assertRaises(land.LandError) as first:
+            self.read(task, "")
+        with self.assertRaises(land.LandError) as second:
+            self.read(task, "")
+        self.assertNotIn("refused before", str(first.exception))
+        self.assertIn("`docs/backlog/tidy.md` (Jev: 0.82; refused before, and the item still says `worth: no` with no `Decided against:` line)", str(second.exception))
+        (task.worktree / "docs/backlog/tidy.md").write_text(self.ITEM, encoding="utf-8")
+        self.assertEqual(self.read(task, "")["items"], {"docs/backlog/tidy.md": "Jev: 0.82"})
+        self.assertEqual(len(self.sent()), 1)
+
+    def test_a_score_under_the_line_goes_on_and_off_in_the_settings_sends_nothing(self) -> None:
+        with mock.patch.dict(os.environ, {"JEV_ACT": "0.3"}):
+            endings = self.read(self.task(kept={}))
+        self.assertEqual(endings["items"], {"docs/backlog/tidy.md": "Jev: 0.30"})
+        self.assertEqual(len(self.sent()), 2)
+        off = self.task(findings=False, kept={})
+        endings = self.read(off)
+        self.assertEqual(len(self.sent()), 2)
+        self.assertEqual((endings["items"]["docs/backlog/tidy.md"], list(endings["lines"].values())), ("Jev: not asked (off in the settings)", ["Jev: not asked (off in the settings)"]))
+
+    def test_no_key_is_kept_and_not_asked_again(self) -> None:
+        task = self.task()
+        with mock.patch.dict(os.environ, {"JEV_API_KEY": ""}):
+            self.assertEqual(self.read(task)["items"], {"docs/backlog/tidy.md": "Jev: not asked (no key)"})
+        self.assertEqual(self.read(task)["items"], {"docs/backlog/tidy.md": "Jev: not asked (no key)"})
+        self.assertEqual(self.sent(), [])
+
+
+class TheItemsThatMayHoldAFinding(unittest.TestCase):
+    """`land.alike_question`, `land.alike_specs`, `land.ask_alike` and `land.alike_named`: before an agent files a
+    finding, Jev is asked of each item of the backlog whether it is the same defect, every item in as many
+    requests as jev.py's limit needs, and the three highest at or over SAME_AT are named (criterion 8)."""
+
+    PADS = {"where": "shop/dates.py:format_day", "title": "format_day pads the day with a space",
+            "run": "format_day of 3 May gives \" 3 May\"; the rest of the shop gives \"03 May\"."}
+    ITEM = {"item": "docs/backlog/format-day-pads-with-a-space.md", "title": "format_day pads the day with a space", "where": "shop/dates.py:format_day",
+            "worth": "no", "first": "format_day of 3 May gives \" 3 May\"."}
+
+    def items(self, count: int) -> list[dict]:
+        return [{"item": f"docs/backlog/item-{n}.md", "title": f"Item {n} " + "word " * 40, "where": f"src/m{n}.py", "worth": "later", "first": "a line " * 20}
+                for n in range(count)]
+
+    def test_one_question_for_each_item_with_its_title_where_and_first_line_that_jev_py_takes(self) -> None:
+        jev = importlib.import_module("jev")
+        question = land.alike_question(self.ITEM)
+        for words in ("format_day pads the day with a space", "where: shop/dates.py:format_day", "the first line of its body: format_day of 3 May"):
+            with self.subTest(words=words):
+                self.assertIn(words, question["instructions"])
+        body = jev.build({"state": land.finding_state(self.PADS), "questions": {"i0": question}})
+        self.assertEqual(set(body["questions"]["i0"]["criteria"]), {"true", "false"})
+        self.assertNotIn("where:", land.alike_question({**self.ITEM, "where": None, "first": None})["instructions"])
+
+    def test_every_item_is_asked_in_requests_each_under_jev_py_s_limit(self) -> None:
+        jev = importlib.import_module("jev")
+        items = self.items(200)
+        specs = land.alike_specs(self.PADS, items, land.jev_fits)
+        self.assertGreater(len(specs), 1)
+        for spec in specs:
+            jev.build(spec)
+            self.assertEqual(spec["state"], self.PADS)
+        self.assertEqual(sorted(int(name[1:]) for spec in specs for name in spec["questions"]), list(range(200)))
+
+    def test_requests_are_split_where_the_next_question_does_not_fit(self) -> None:
+        def fits(spec: dict) -> bool:
+            return len(spec["questions"]) <= 2
+        specs = land.alike_specs(self.PADS, self.items(5), fits)
+        self.assertEqual([list(spec["questions"]) for spec in specs], [["i0", "i1"], ["i2", "i3"], ["i4"]])
+        self.assertIsNone(land.alike_specs(self.PADS, self.items(2), lambda spec: False))
+
+    def test_the_three_highest_at_or_over_same_at_are_named_the_highest_first(self) -> None:
+        items = self.items(5)
+        scores = {item["item"]: score for item, score in zip(items, (0.49, 0.91, 0.5, 0.62, 0.77))}
+        named = land.alike_named(scores, items)
+        self.assertEqual([(item["item"], item["jev"]) for item in named],
+                         [("docs/backlog/item-1.md", "Jev: 0.91"), ("docs/backlog/item-4.md", "Jev: 0.77"), ("docs/backlog/item-3.md", "Jev: 0.62")])
+        self.assertEqual([item["item"] for item in land.alike_named({items[0]["item"]: 0.5, items[1]["item"]: 0.49}, items)], ["docs/backlog/item-0.md"])
+        self.assertEqual(land.SAME_AT, 0.5)
+
+    def test_the_answers_of_each_request_come_back_by_the_item_s_path(self) -> None:
+        items = self.items(3)
+        sent: list[dict] = []
+
+        def answer(spec: dict) -> dict:
+            sent.append(spec)
+            return {"answers": {name: 0.1 * (int(name[1:]) + 1) for name in spec["questions"]}}
+        with mock.patch.object(land, "ask_jev", side_effect=answer), mock.patch.object(land, "jev_fits", lambda spec: len(spec["questions"]) <= 2):
+            said = land.ask_alike(self.PADS, items, True)
+            self.assertEqual(said, {"scores": {"docs/backlog/item-0.md": 0.1, "docs/backlog/item-1.md": 0.2, "docs/backlog/item-2.md": 0.30000000000000004}})
+            self.assertEqual(len(sent), 2)
+            # the scores an earlier run kept are not asked again
+            again = land.ask_alike(self.PADS, items, True, {"docs/backlog/item-0.md": 0.9, "docs/backlog/item-1.md": 0.2})
+            self.assertEqual(again["scores"]["docs/backlog/item-0.md"], 0.9)
+            self.assertEqual([list(spec["questions"]) for spec in sent[2:]], [["i0"]])
+            self.assertEqual(land.ask_alike(self.PADS, items, True, said["scores"]), said)
+            self.assertEqual(len(sent), 3)
+
+    def test_with_nothing_sent_nothing_is_named_and_the_reason_is_said(self) -> None:
+        items = self.items(3)
+        with mock.patch.object(land, "ask_jev", side_effect=[{"answers": {"i0": 0.9, "i1": 0.9}}, {"not_asked": "no answer"}]), \
+                mock.patch.object(land, "jev_fits", lambda spec: len(spec["questions"]) <= 2):
+            self.assertEqual(land.ask_alike(self.PADS, items, True), {"not_asked": "no answer"})
+        with mock.patch.object(land, "ask_jev") as asked:
+            self.assertEqual(land.ask_alike(self.PADS, items, False), {"not_asked": "off in the settings"})
+            asked.assert_not_called()
+        with mock.patch.object(land, "jev_fits", lambda spec: False), mock.patch.object(land, "ask_jev") as asked:
+            self.assertEqual(land.ask_alike(self.PADS, items, True), {"not_asked": "too long"})
+            asked.assert_not_called()
+        with mock.patch.dict(os.environ, {"JEV_API_KEY": ""}):
+            self.assertEqual(land.ask_alike(self.PADS, items, True), {"not_asked": "no key"})
+
+
+class AnOverDefectOfARefutedItem(unittest.TestCase):
+    """`land.to_file`, `land.item_body` and `land.item_name`: a defect called over the bar whose open item says
+    `worth: no` at the tip waits for a new item, `worth: later`, that names the old one; the old one stays
+    (decision 10 of task backlog-refuted-items-and-jev)."""
+
+    OLD = "docs/backlog/format-day-pads-with-a-space.md"
+    PADS = {"where": "shop/dates.py:format_day", "title": "format_day pads with a space", "what": "format_day of 3 May gives \" 3 May\"."}
+
+    def test_an_over_defect_waits_and_an_under_one_is_settled(self) -> None:
+        outside = [{**self.PADS, "bar": "over", "open": self.OLD, "number": "r1.1"}, {**self.PADS, "bar": "under", "why": "w", "open": self.OLD, "number": "r1.2"}]
+        reads = [{"round": 1, "answered": True, "outside": outside}]
+        self.assertEqual([entry["number"] for entry in land.to_file(reads, lambda path: True, lambda path: path == self.OLD)], ["r1.1"])
+        self.assertEqual(land.to_file(reads, lambda path: True, lambda path: False), [])
+        self.assertEqual(land.to_file(reads, lambda path: True), [])
+
+    def test_the_new_item_names_the_old_one_and_is_still_the_defect(self) -> None:
+        text = land.item_body({**self.PADS, "bar": "over"}, 1, "export-notes", "2026-11-24", "2026-11-24", self.OLD)
+        front, lines = land.item_text(text)
+        self.assertEqual(front["worth"], "later")
+        self.assertIn(f"The same defect as `{self.OLD}`, now over the bar.", lines)
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            (root / "docs/backlog").mkdir(parents=True)
+            (root / self.OLD).write_text(land.item_body({**self.PADS, "bar": "under", "why": "w"}, 1, "t", "2026-11-23", "2026-11-23"), encoding="utf-8")
+            # the old item holds the defect word for word, and is still never its new item
+            self.assertEqual(land.item_name(root, "docs/backlog", self.PADS), (self.OLD, True))
+            path, held = land.item_name(root, "docs/backlog", self.PADS, self.OLD)
+            self.assertEqual((path, held), ("docs/backlog/format-day-pads-with-a-space-dates-format-day.md", False))
+            (root / path).write_text(text, encoding="utf-8")
+            self.assertEqual(land.item_name(root, "docs/backlog", self.PADS, self.OLD), (path, True))
+
+
+class JevOnTheLines(unittest.TestCase):
+    """`land.jev_notes`: each line of a finding called under the bar ends with what Jev said, under `## Filed as not
+    worth it`, `## Left open` and `## Seen, not filed`, and before the first heading on the fast track; once."""
+
+    def test_the_lines_end_with_jev_s_read(self) -> None:
+        line = land.line_finding(["- `a.py`: slow; under: runs once"])
+        endings = {"items": {"docs/backlog/tidy.md": "Jev: 0.82"}, "lines": {line["key"]: "Jev: not asked (no key)"}}
+        notes = ("- `a.py`: slow; under: runs once\n\n## Left open\n\n- `a.py`: slow; under: runs once\n\n## Filed as not worth it\n\n- `docs/backlog/tidy.md`: Tidy\n\n"
+                 "## Seen, not filed\n\n- `a.py`: slow;\n  under: runs once\n- `b.py`: other; under: x\n\n## Not done\n\n- `a.py`: slow; under: runs once\n")
+        out = land.jev_notes(notes, False, endings)
+        self.assertEqual(out, notes.replace("## Left open\n\n- `a.py`: slow; under: runs once", "## Left open\n\n- `a.py`: slow; under: runs once; Jev: not asked (no key)")
+                         .replace("Tidy\n", "Tidy; Jev: 0.82\n").replace("  under: runs once\n", "  under: runs once; Jev: not asked (no key)\n"))
+        self.assertEqual(land.jev_notes(out, False, endings), out)
+        self.assertTrue(land.jev_notes(notes, True, endings).startswith("- `a.py`: slow; under: runs once; Jev: not asked (no key)\n"))
+        self.assertEqual(land.jev_notes(notes, False, {"items": {}, "lines": {}}), notes)
+        self.assertEqual(land.jev_said({"score": 0.8}), "Jev: 0.80")
 
 
 # The load gate's line, with the stories' slugs and times of 2026-11-23 (UTC).

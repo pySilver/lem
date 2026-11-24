@@ -227,11 +227,13 @@ else
 fi
 project --repo "$BLG" state hook-form dropped "the test is over" >/dev/null
 
-# A review judges each defect outside the change by the bar of rule 6, and only what is over the bar becomes an item:
-# one under the bar is a line of the pull request, one that an open item of the base holds names that item and files
-# nothing, one whose open item the branch removed is filed, and of two cheap defects of one place and title that
-# nobody's fix takes up, the one a fix line names by its number leaves the list and the other stays. No cheap defect
-# runs the checks again. Last in this block: it reads the item that by-hand's landing put on the base.
+# A review judges each defect outside the change by the bar of rule 6: one over the bar is an item with worth: later,
+# one under it an item with worth: no that ends with the review's reason, which the pull request lists under its own
+# heading; one that an open item of the base holds names that item and files nothing, one whose open item the branch
+# removed is filed, and of two cheap defects of one place and title that nobody's fix takes up, the one a fix line
+# names by its number leaves the list and the other stays. No cheap defect runs the checks again. A line the session
+# writes by hand under Seen, not filed with no bar call stops propose, named, and goes on with its call and reason.
+# Last in this block: it reads the item that by-hand's landing put on the base.
 O='{"where": "src/a.py:f", "title": "F crashes on None", "what": "f(None) raises TypeError, on the base commit too.", "bar": "over"}'
 U='{"where": "tests/unit/test_board_model.py", "title": "two test classes come after the main guard", "what": "the two classes stand after the main guard of the file, on the base commit too.", "bar": "under", "why": "only a reader of the code meets it"}'
 P='{"where": "src/json.py:parse", "title": "Empty input crashes the parser", "what": "parse with an empty string raises IndexError, on the base commit too.", "bar": "over", "open": "docs/backlog/empty-input-crashes-the-parser.md"}'
@@ -248,29 +250,218 @@ nowhere=$(land --repo "$BLG" read judged --record "$(record judged 1 "$a_read, $
 judged=$(land --repo "$BLG" read judged --record "$(record judged 1 "$a_read, $(outside "$O" "$U" "$P" "$Q" "$C1" "$C2")")" | field '(d["next"], [f["number"] for f in d["to_file"]], [c["number"] for c in d["cheap"]])')
 filing=$(land --repo "$BLG" file judged | field '([(f["number"], f["item"]) for f in d["filed"]], [(f["number"], f["item"]) for f in d["open"]])')
 numbers=$(land --repo "$BLG" read judged | field '[f["number"] for f in d["reads"][0]["outside"]]')
-printf '%s\n' '## Decisions' '' 'none' '' '## Left open' '' 'none' '' '## Worth a look' '' 'none' '' '## Filed in the backlog' '' 'none' '' \
-  '## Fixed on the way' '' '- src/c.py (abc1234): r1.5, the comment of h said it returns None' '' '## Not done' '' 'none' > "$WORK/judged-notes.md"
+hand="- \`land.py:cmd_start\` writes over \`reviews/review-1.*\`"
+# judged_notes SEEN: the notes of judged, with SEEN the one line under Seen, not filed
+judged_notes() {
+  printf '%s\n' '## Decisions' '' 'none' '' '## Left open' '' 'none' '' '## Worth a look' '' 'none' '' '## Filed in the backlog' '' 'none' '' \
+    '## Fixed on the way' '' '- src/c.py (abc1234): r1.5, the comment of h said it returns None' '' '## Seen, not filed' '' "$1" '' '## Not done' '' 'none' > "$WORK/judged-notes.md"
+}
+judged_notes "$hand"
+bare=$(land --repo "$BLG" propose judged --title "fix: judged" --notes "$WORK/judged-notes.md" 2>&1 || true)
+judged_notes "$hand; under: a second landing is rare, and git keeps each review"
 green=$(land --repo "$BLG" propose judged --title "fix: judged" --notes "$WORK/judged-notes.md" | field 'd["green"]')
 text=$BLG/.lem/state/tasks/judged/pr.md
+under=$tree/docs/backlog/two-test-classes-come-after-the-main-guard.md
 seen=$(sed -n '/^## Seen, not filed$/,/^## Not done$/p' "$text")
 if [ "$told" = "[('docs/backlog/empty-input-crashes-the-parser.md', 'src/json.py:parse', 'Empty input crashes the parser'), ('docs/backlog/existing.md', None, 'an item from before')]" ] \
   && grep -qF "\`open\` of the defect r1.1 outside the change (\"G loses the last row\") is 'docs/backlog/nothing-of-the-base.md', which is no file of the backlog folder docs/backlog at the base" <<<"$nowhere" \
-  && [ "$judged" = "('none', ['r1.1', 'r1.4'], ['r1.5', 'r1.6'])" ] \
-  && [ "$filing" = "([('r1.1', 'docs/backlog/f-crashes-on-none.md'), ('r1.4', 'docs/backlog/g-loses-the-last-row.md')], [('r1.3', 'docs/backlog/empty-input-crashes-the-parser.md')])" ] \
+  && [ "$judged" = "('none', ['r1.1', 'r1.2', 'r1.4'], ['r1.5', 'r1.6'])" ] \
+  && [ "$filing" = "([('r1.1', 'docs/backlog/f-crashes-on-none.md'), ('r1.2', 'docs/backlog/two-test-classes-come-after-the-main-guard.md'), ('r1.4', 'docs/backlog/g-loses-the-last-row.md')], [('r1.3', 'docs/backlog/empty-input-crashes-the-parser.md')])" ] \
   && [ "$numbers" = "['r1.1', 'r1.2', 'r1.3', 'r1.4', 'r1.5', 'r1.6']" ] && [ "$green" = True ] \
-  && [ "$(git -C "$tree" ls-files docs/backlog | tr '\n' ' ')" = "docs/backlog/empty-input-crashes-the-parser.md docs/backlog/f-crashes-on-none.md docs/backlog/g-loses-the-last-row.md " ] \
-  && [ "$(grep '^## ' "$text" | tail -5 | tr '\n' '|')" = "## Worth a look|## Filed in the backlog|## Fixed on the way|## Seen, not filed|## Not done|" ] \
+  && [ "$(git -C "$tree" ls-files docs/backlog | tr '\n' ' ')" = "docs/backlog/empty-input-crashes-the-parser.md docs/backlog/f-crashes-on-none.md docs/backlog/g-loses-the-last-row.md docs/backlog/two-test-classes-come-after-the-main-guard.md " ] \
+  && [ "$(sed -n 2p "$under")" = "worth: no" ] && [ "$(sed -n 6p "$under")" = "# two test classes come after the main guard" ] \
+  && [ "$(tail -n 1 "$under")" = "Decided against: only a reader of the code meets it" ] \
+  && [ "$(grep '^## ' "$text" | tail -6 | tr '\n' '|')" = "## Worth a look|## Filed in the backlog|## Filed as not worth it|## Fixed on the way|## Seen, not filed|## Not done|" ] \
+  && [ "$(sed -n '/^## Filed as not worth it$/,/^## Fixed on the way$/p' "$text" | grep '^- ')" = "- \`docs/backlog/two-test-classes-come-after-the-main-guard.md\`: two test classes come after the main guard; Jev: not asked (no key)" ] \
   && grep -qxF -- "- \`docs/backlog/f-crashes-on-none.md\`: F crashes on None" "$text" && grep -qxF -- "- \`docs/backlog/g-loses-the-last-row.md\`: G loses the last row" "$text" \
-  && grep -qxF -- "- \`tests/unit/test_board_model.py\`: two test classes come after the main guard; only a reader of the code meets it" <<<"$seen" \
   && grep -qxF -- "- \`src/json.py:parse\`: Empty input crashes the parser; an open item holds it, \`docs/backlog/empty-input-crashes-the-parser.md\`" <<<"$seen" \
-  && [ "$(grep -cxF -- "- \`src/c.py:h\`: A comment says the opposite; a comment, no behavior" <<<"$seen")" = 1 ] && [ "$(grep -c '^- ' <<<"$seen")" = 3 ] \
-  && grep -qF "it saw 6 defects outside the change, filed as \`docs/backlog/f-crashes-on-none.md\`, \`docs/backlog/g-loses-the-last-row.md\`; 1 fixed on the way; 3 seen, not filed" "$text" \
+  && [ "$(grep -cxF -- "- \`src/c.py:h\`: A comment says the opposite; cheap: a comment, no behavior" <<<"$seen")" = 1 ] && [ "$(grep -c '^- ' <<<"$seen")" = 3 ] \
+  && grep -qxF -- "$hand; under: a second landing is rare, and git keeps each review; Jev: not asked (no key)" <<<"$seen" \
+  && grep -qF "it saw 6 defects outside the change, filed as \`docs/backlog/f-crashes-on-none.md\`, \`docs/backlog/two-test-classes-come-after-the-main-guard.md\`, \`docs/backlog/g-loses-the-last-row.md\`; 1 fixed on the way; 2 seen, not filed" "$text" \
   && [ "$(grep -c '"event": "gate", "task": "judged"' "$BLG/.lem/state/events.jsonl")" = 1 ] && [ -z "$(git -C "$tree" status --porcelain)" ]; then
-  pass "a review judges each defect outside the change by the bar: only one over it with no open item in the tip is filed, and the pull request opens with each other one on a line under Seen, not filed, a cheap one that a fix line names by its number left out, and no new run of the checks"
+  pass "a review judges each defect outside the change by the bar: one over it is an item with worth: later, one under it an item with worth: no that ends with the review's reason and is listed under Filed as not worth it, each other one is a line under Seen, not filed, a cheap one that a fix line names by its number left out, and no new run of the checks; with no JEV_API_KEY each line of a finding under the bar ends with Jev: not asked (no key)"
 else
-  fail "the defects a review judged: $told / $nowhere / $judged / $filing / $numbers / $green / $(git -C "$tree" ls-files docs/backlog | tr '\n' ' ') / $(cat "$text" 2>/dev/null)"
+  fail "the defects a review judged: $told / $nowhere / $judged / $filing / $numbers / $green / $(git -C "$tree" ls-files docs/backlog | tr '\n' ' ') / $(cat "$under" 2>/dev/null) / $(cat "$text" 2>/dev/null)"
+fi
+if grep -qF "1 line(s) of the notes name a finding with no bar call and no item: \"$hand\". Give it a bar call and a reason, or file it" <<<"$bare" \
+  && grep -qF "\`under: REASON\` or \`cheap: REASON\`" <<<"$bare" && ! grep -q Traceback <<<"$bare" && [ "$green" = True ]; then
+  pass "a line the session wrote by hand under Seen, not filed with no bar call stops propose, which names the line and says to give it a bar call and a reason or to file it; with under and its reason it goes on"
+else
+  fail "a hand-written line with no call: $bare / $green"
 fi
 project --repo "$BLG" state judged dropped "the test is over" >/dev/null
+
+# Jev reads each finding called under the bar once, whoever wrote it: the item a review's under defect became and a
+# line of the notes with its under: call. A stand-in for Jev logs each request it gets and answers 0.82, over the
+# line, so the first propose stops one time and names both; the second goes on, asks nothing again, and the pull
+# request ends each line with Jev's score. A landing that starts over keeps Jev's read. In a repository whose team
+# settings say findings = false under [jev], nothing is sent and each line says so. The spec, the bar's sentence, a
+# failed request and the refusal's rules are tests/unit/test_land.py's.
+JEV_LOG=$WORK/jev-sent.log
+cat > "$WORK/jev-standin" <<'SH'
+#!/bin/sh
+# Jev's stand-in: each request on a line of the log, and the score of JEV_NOUL for the question "over"
+tr '\n' ' ' >> "$JEV_LOG" && echo >> "$JEV_LOG"
+printf '{"model": "stand-in", "answers": {"over": {"type": "noul", "noul": %s}}, "cost": null}\n' "$JEV_NOUL"
+SH
+chmod +x "$WORK/jev-standin" && : > "$JEV_LOG"
+# jev_land ARGS...: the landing with a key of no value and the stand-in in Jev's place
+jev_land() { JEV_API_KEY=not-a-real-key LEM_JEV=$WORK/jev-standin JEV_LOG=$JEV_LOG JEV_NOUL=0.82 land "$@"; }
+V='{"where": "src/v.py:tidy", "title": "Tidy keeps a stray space", "what": "tidy of \"a  b\" returns \"a  b\", on the base commit too.", "bar": "under", "why": "nobody reads the tidied text"}'
+jev_notes() {
+  printf '%s\n' '## Decisions' '' 'none' '' '## Left open' '' 'none' '' '## Worth a look' '' 'none' '' '## Filed in the backlog' '' 'none' '' \
+    '## Seen, not filed' '' "- \`land.py:cmd_start\` writes over \`reviews/review-1.*\`; under: $1" '' '## Not done' '' 'none' > "$WORK/jev-notes.md"
+}
+task_in "$BLG" jev-read jev.txt five && read_in "$BLG" jev-read
+tree=$(project --repo "$BLG" worktree-dir jev-read)
+checked_in "$BLG" jev-read
+land --repo "$BLG" read jev-read --record "$(record jev-read 1 "$a_read, $(outside "$V")")" >/dev/null
+land --repo "$BLG" file jev-read >/dev/null
+jev_notes "a second landing is rare, and git keeps each review"
+refused=$(jev_land --repo "$BLG" propose jev-read --title "fix: jev-read" --notes "$WORK/jev-notes.md" 2>&1 || true)
+first_asked=$(grep -c '' "$JEV_LOG")
+jev_notes "git keeps each review, and a second landing reads the newest"
+green=$(jev_land --repo "$BLG" propose jev-read --title "fix: jev-read" --notes "$WORK/jev-notes.md" | field 'd["green"]')
+asked=$(grep -c '' "$JEV_LOG")
+text=$BLG/.lem/state/tasks/jev-read/pr.md
+project --repo "$BLG" state jev-read ready --start-over "the test lands it again" >/dev/null && land --repo "$BLG" start jev-read >/dev/null
+kept_read=$(kept_in "$BLG" jev-read jev | "$PY" -c 'import ast, sys; print(sorted((e.get("score"), e.get("refused")) for e in ast.literal_eval(sys.stdin.read()).values()))')
+if grep -qF "2 finding(s) called under the bar, which Jev reads as over it at 0.7 or more: \`docs/backlog/tidy-keeps-a-stray-space.md\` (Jev: 0.82); \"- \`land.py:cmd_start\` writes over \`reviews/review-1.*\`; under: a second landing is rare, and git keeps each review\" (Jev: 0.82)" <<<"$refused" \
+  && grep -qF "make the item \`worth: later\`, or keep \`worth: no\` with its \`Decided against:\` line" <<<"$refused" && ! grep -q Traceback <<<"$refused" \
+  && [ "$first_asked" = 2 ] && [ "$asked" = 2 ] && [ "$green" = True ] \
+  && grep -qF '"where": "src/v.py:tidy", "title": "Tidy keeps a stray space"' "$JEV_LOG" && grep -qF '"no": "The finding does not meet that bar."' "$JEV_LOG" \
+  && grep -qF '"yes": "The finding meets the bar: ' "$JEV_LOG" && ! grep -qE "nobody reads the tidied text|a second landing is rare" "$JEV_LOG" \
+  && grep -qxF -- "- \`docs/backlog/tidy-keeps-a-stray-space.md\`: Tidy keeps a stray space; Jev: 0.82" "$text" \
+  && grep -qxF -- "- \`land.py:cmd_start\` writes over \`reviews/review-1.*\`; under: git keeps each review, and a second landing reads the newest; Jev: 0.82" "$text" \
+  && [ "$kept_read" = "[(0.82, True), (0.82, True)]" ]; then
+  pass "Jev reads each finding called under the bar once, an under item and a notes line, with the bar from rule 6 and none of the agent's reasons; a read over the line stops propose one time and names both, the second propose goes on and asks nothing again, each line ends with Jev's score, and a landing that starts over keeps the read"
+else
+  fail "Jev's read of the findings under the bar: $refused / $first_asked $asked / $green / $kept_read / $(cat "$JEV_LOG") / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$BLG" state jev-read dropped "the test is over" >/dev/null
+task_in "$BLG" jev-off jev-off.txt six && read_in "$BLG" jev-off
+checked_in "$BLG" jev-off
+land --repo "$BLG" read jev-off --record "$(record jev-off 1 "$a_read, $(outside "$V")")" >/dev/null
+land --repo "$BLG" file jev-off >/dev/null
+cp "$BLG/.lem/settings.toml" "$WORK/settings-before-jev.toml" && printf '%s\n' '[jev]' 'findings = false' >> "$BLG/.lem/settings.toml"
+jev_notes "a second landing is rare"
+off=$(jev_land --repo "$BLG" propose jev-off --title "fix: jev-off" --notes "$WORK/jev-notes.md" | field 'd["green"]' 2>&1 || true)
+cp "$WORK/settings-before-jev.toml" "$BLG/.lem/settings.toml"
+text=$BLG/.lem/state/tasks/jev-off/pr.md
+if [ "$off" = True ] && [ "$(grep -c '' "$JEV_LOG")" = 2 ] \
+  && grep -qxF -- "- \`docs/backlog/tidy-keeps-a-stray-space.md\`: Tidy keeps a stray space; Jev: not asked (off in the settings)" "$text" \
+  && grep -qxF -- "- \`land.py:cmd_start\` writes over \`reviews/review-1.*\`; under: a second landing is rare; Jev: not asked (off in the settings)" "$text"; then
+  pass "a repository whose team settings say findings = false under [jev] sends no finding to Jev, with a key on the machine, and each line of a finding under the bar says Jev was not asked, off in the settings"
+else
+  fail "Jev off in the settings: $off / $(cat "$JEV_LOG") / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$BLG" state jev-off dropped "the test is over" >/dev/null
+
+# Before a defect is filed, Jev reads it against each item of the backlog folder at the tip, and the items it reads as
+# the same defect are named for the agent to read (criterion 8). The base holds format-day-pads-with-a-space.md, decided
+# against. A builder's `alike` for the padding seen again names it; with no key it names nothing and lists every item.
+# A review that sees the padding again and one defect of another place: `file` stops, names the item for the first and
+# writes no file of either; `--same` files nothing for the first and files the second, and Jev is asked nothing twice.
+# Then a review that calls the padding over the bar, with that item as its open one, gets a new worth: later item that
+# names the old one, which stays as it is, with no second review and no new run of the checks. The spec, the split into
+# requests and the pick of the three are tests/unit/test_land.py's.
+backlog_repo backlog-alike
+ALK=$WORK/backlog-alike
+pads=docs/backlog/format-day-pads-with-a-space.md
+printf '%s\n' '---' 'worth: no' 'where: shop/dates.py:format_day' 'added: 2026-11-23' '---' '# format_day pads with a space' '' \
+  'format_day of 3 May gives " 3 May", where the rest of the shop gives "03 May".' '' 'Decided against: no user is confused, no contract breaks' > "$ALK/$pads"
+git -C "$ALK" add -A && git -C "$ALK" commit -q -m "docs(backlog): the padding of format_day, decided against" && git -C "$ALK" push -q origin main && git -C "$ALK" fetch -q origin
+ALIKE_LOG=$WORK/alike-sent.log
+printf '#!%s\n' "$PY" > "$WORK/alike-standin"
+cat >> "$WORK/alike-standin" <<'PY'
+# Jev's stand-in: each request on a line of the log; a question about an item of format_day, of a finding of format_day, is 0.91
+import json, os, sys
+spec = json.load(sys.stdin)
+with open(os.environ["JEV_LOG"], "a") as log:
+    log.write(json.dumps(spec) + "\n")
+state = json.dumps(spec["state"])
+scores = {name: 0.91 if "format_day" in state and "format_day" in question["instructions"] else 0.12 for name, question in spec["questions"].items()}
+print(json.dumps({"model": "stand-in", "answers": {name: {"type": "noul", "noul": score} for name, score in scores.items()}, "cost": None}))
+PY
+chmod +x "$WORK/alike-standin" && : > "$ALIKE_LOG"
+# alike_land ARGS...: the landing with a key of no value and the stand-in in Jev's place
+alike_land() { JEV_API_KEY=not-a-real-key LEM_JEV=$WORK/alike-standin JEV_LOG=$ALIKE_LOG land "$@"; }
+SAME='{"where": "shop/dates.py:format_day", "title": "The day of format_day is padded with a space", "what": "format_day of 9 June gives \" 9 June\", on the base commit too.", "bar": "under", "why": "nobody reads the day"}'
+OTHER='{"where": "shop/cart.py:total", "title": "Total rounds half down", "what": "total of 0.125 gives 0.12, on the base commit too.", "bar": "over"}'
+task_in "$ALK" seen-again app.txt two && read_in "$ALK" seen-again
+tree=$(project --repo "$ALK" worktree-dir seen-again)
+checked_in "$ALK" seen-again
+echo 'format_day of 9 June gives " 9 June".' > "$WORK/alike-what.txt"
+named=$(alike_land --repo "$ALK" alike seen-again --where shop/dates.py:format_day --title "The day of format_day is padded with a space" --what "$WORK/alike-what.txt" \
+  | field '[(i["item"], i["jev"], i["worth"]) for i in d["alike"]]')
+unasked=$(land --repo "$ALK" alike seen-again --where shop/dates.py:format_day --title "The day of format_day is padded with a space" --what "$WORK/alike-what.txt" \
+  | field '(d["alike"], d["jev"], sorted(i["item"] for i in d["read"]))')
+land --repo "$ALK" read seen-again --record "$(record seen-again 1 "$a_read, $(outside "$SAME" "$OTHER")")" >/dev/null
+before=$(git -C "$tree" rev-parse HEAD)
+refused=$(alike_land --repo "$ALK" file seen-again 2>&1 || true)
+untouched=$(git -C "$tree" rev-parse HEAD; git -C "$tree" status --porcelain)
+asked_first=$(grep -c '' "$ALIKE_LOG")
+settled=$(alike_land --repo "$ALK" file seen-again --same "r1.1=$pads" | field '([(f["number"], f["item"]) for f in d["filed"]], [(f["number"], f["item"]) for f in d["open"]], d["alike"])')
+asked_then=$(grep -c '' "$ALIKE_LOG")
+green=$(land --repo "$ALK" propose seen-again --title "fix: seen-again" --notes "$NOTES" | field 'd["green"]')
+text=$ALK/.lem/state/tasks/seen-again/pr.md
+if [ "$named" = "[('$pads', 'Jev: 0.91', 'no')]" ] && [ "$unasked" = "([], 'Jev: not asked (no key)', ['docs/backlog/existing.md', '$pads'])" ] \
+  && grep -qF "1 defect(s) to file may be one an item of the backlog holds already, by Jev's read at 0.5 or more: r1.1 \"The day of format_day is padded with a space\" (\`shop/dates.py:format_day\`): \`$pads\` \"format_day pads with a space\" (Jev: 0.91, worth: no)" <<<"$refused" \
+  && grep -qF "Nothing is written" <<<"$refused" && grep -qF -- "--same r1.1=PATH" <<<"$refused" && grep -qF -- "--new r1.1" <<<"$refused" && ! grep -q Traceback <<<"$refused" \
+  && [ "$untouched" = "$before" ] && [ "$asked_first" = 3 ] && [ "$asked_then" = 3 ] \
+  && [ "$settled" = "([('r1.2', 'docs/backlog/total-rounds-half-down.md')], [('r1.1', '$pads')], {'r1.2': 'none named'})" ] \
+  && [ "$(git -C "$tree" ls-files docs/backlog | tr '\n' ' ')" = "docs/backlog/existing.md $pads docs/backlog/total-rounds-half-down.md " ] \
+  && [ "$green" = True ] && grep -qxF -- "- \`shop/dates.py:format_day\`: The day of format_day is padded with a space; under: nobody reads the day; an open item holds it, \`$pads\`" "$text"; then
+  pass "a defect seen again gets the item that holds it named by Jev before anything is filed: alike names it for a builder, file stops and writes no file of that run, --same files nothing for it and files the other, Jev is asked nothing twice, and with no key every item is listed to read"
+else
+  fail "the items that may hold a finding: $named / $unasked / $refused / $untouched / $asked_first $asked_then / $settled / $green / $(git -C "$tree" ls-files docs/backlog | tr '\n' ' ')"
+fi
+project --repo "$ALK" state seen-again dropped "the test is over" >/dev/null
+# The same review on another task, where the builder reads the item Jev names and finds another defect: a number named
+# by both flags and a number of no waiting defect are refused before Jev is asked or a file written, and `--new` files
+# the defect as its own item beside the one Jev named.
+task_in "$ALK" seen-new app.txt four && read_in "$ALK" seen-new
+tree=$(project --repo "$ALK" worktree-dir seen-new)
+checked_in "$ALK" seen-new
+land --repo "$ALK" read seen-new --record "$(record seen-new 1 "$a_read, $(outside "$SAME" "$OTHER")")" >/dev/null
+before=$(git -C "$tree" rev-parse HEAD)
+asked_before=$(grep -c '' "$ALIKE_LOG")
+both=$(alike_land --repo "$ALK" file seen-new --same "r1.1=$pads" --new r1.1 2>&1 || true)
+stray=$(alike_land --repo "$ALK" file seen-new --new r1.9 2>&1 || true)
+untouched=$(git -C "$tree" rev-parse HEAD; git -C "$tree" status --porcelain)
+asked_refused=$(grep -c '' "$ALIKE_LOG")
+own=$(alike_land --repo "$ALK" file seen-new --new r1.1 | field '([(f["number"], f["item"]) for f in d["filed"]], d["open"])')
+if grep -qF "r1.1 is named by both --same and --new" <<<"$both" && grep -qF "r1.9 is no defect that waits for an item" <<<"$stray" && grep -qF "the ones here are r1.1, r1.2" <<<"$stray" \
+  && ! grep -q Traceback <<<"$both$stray" && [ "$untouched" = "$before" ] && [ "$asked_refused" = "$asked_before" ] \
+  && [ "$own" = "([('r1.1', 'docs/backlog/the-day-of-format-day-is-padded-with-a-space.md'), ('r1.2', 'docs/backlog/total-rounds-half-down.md')], [])" ] \
+  && [ "$(sed -n 2p "$tree/docs/backlog/the-day-of-format-day-is-padded-with-a-space.md")" = "worth: no" ] && [ -z "$(git -C "$tree" diff main -- "$pads")" ]; then
+  pass "file refuses a defect named by both --same and --new, and a number of no waiting defect, before Jev is asked or a file is written; --new files the defect as its own item and leaves the item Jev named as it is"
+else
+  fail "file --new: $both / $stray / $untouched / $asked_before $asked_refused / $own"
+fi
+project --repo "$ALK" state seen-new dropped "the test is over" >/dev/null
+OVER='{"where": "shop/dates.py:format_day", "title": "format_day pads with a space", "what": "format_day of 3 May gives \" 3 May\", where the rest of the shop gives \"03 May\".", "bar": "over", "open": "docs/backlog/format-day-pads-with-a-space.md"}'
+task_in "$ALK" over-again app.txt three && read_in "$ALK" over-again
+tree=$(project --repo "$ALK" worktree-dir over-again)
+checked_in "$ALK" over-again
+waits=$(land --repo "$ALK" read over-again --record "$(record over-again 1 "$a_read, $(outside "$OVER")")" | field '[f["number"] for f in d["to_file"]]')
+asked_before=$(grep -c '' "$ALIKE_LOG")
+raised=$(alike_land --repo "$ALK" file over-again | field '([(f["number"], f["item"]) for f in d["filed"]], d["open"])')
+new_item=$tree/docs/backlog/format-day-pads-with-a-space-dates-format-day.md
+due=$(land --repo "$ALK" read over-again | field '(d["due"], d["to_file"])')
+green=$(land --repo "$ALK" propose over-again --title "fix: over-again" --notes "$NOTES" | field 'd["green"]')
+text=$ALK/.lem/state/tasks/over-again/pr.md
+if [ "$waits" = "['r1.1']" ] && [ "$raised" = "([('r1.1', 'docs/backlog/format-day-pads-with-a-space-dates-format-day.md')], [])" ] \
+  && [ "$(grep -c '' "$ALIKE_LOG")" = "$asked_before" ] \
+  && [ "$(sed -n 2p "$new_item")" = "worth: later" ] && grep -qxF "The same defect as \`$pads\`, now over the bar." "$new_item" \
+  && [ -z "$(git -C "$tree" diff main -- "$pads")" ] && [ "$due" = "('none', [])" ] && [ "$green" = True ] \
+  && [ "$(grep -c '"event": "gate", "task": "over-again"' "$ALK/.lem/state/events.jsonl")" = 1 ] \
+  && [ "$(sed -n '/^## Filed in the backlog$/,/^## /p' "$text" | grep '^- ')" = "- \`docs/backlog/format-day-pads-with-a-space-dates-format-day.md\`: format_day pads with a space" ]; then
+  pass "a defect called over the bar whose open item says worth: no gets a new worth: later item that names the old one, the old one unchanged, listed under Filed in the backlog, with no second review and no new run of the checks"
+else
+  fail "an over call on a refuted item: $waits / $raised / $due / $green / $(cat "$new_item" 2>/dev/null) / $(git -C "$tree" diff main -- "$pads") / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$ALK" state over-again dropped "the test is over" >/dev/null
 
 # A task started from a backlog item, whose ask is the item's path alone as the board's "Start a task" writes it,
 # removes that item on its branch: propose stops while the tip holds it and names it, and after a builder's git rm

@@ -41,12 +41,12 @@ if [ "$shown_keys" = "$template_keys" ] && [ "$shown_keys" = "['commands', 'seri
 else
   fail "the [checks] keys of the template: $template_keys, of show: $shown_keys"
 fi
-# The team's file holds 20 keys, one to one in show (with a tracker, whose one key is its kind), in the file init writes (a
+# The team's file holds 21 keys, one to one in show (with a tracker, whose one key is its kind), in the file init writes (a
 # commented line counts) and on the settings page, of the tables valid in the team's file. `from`, the file a value came
-# from (naps.from, state.from), is no key.
+# from (naps.from, state.from, jev.from), is no key.
 printf '%s\n' '' '[tracker]' 'kind = "linear"' > "$WORK/tracker.toml"
 cp "$NEW/.lem/settings.toml" "$WORK/template.toml" && cat "$WORK/tracker.toml" >> "$NEW/.lem/settings.toml"
-shown=$(project --repo "$NEW" show | field 'sorted(f"{table}.{key}" for table in ("paths", "branch", "checks", "flow", "seats", "tracker", "naps", "state") for key in d[table] if key != "from")')
+shown=$(project --repo "$NEW" show | field 'sorted(f"{table}.{key}" for table in ("paths", "branch", "checks", "flow", "seats", "tracker", "naps", "state", "jev") for key in d[table] if key != "from")')
 cp "$WORK/template.toml" "$NEW/.lem/settings.toml"
 written=$("$PY" -I -c 'import re, sys
 table, found = None, set()
@@ -60,8 +60,8 @@ print(sorted(found))' "$NEW/.lem/settings.toml")
 paged=$("$PY" -I -B -c 'import re, sys; sys.path.insert(0, sys.argv[2]); import lem_state
 found = re.findall(r"^\| `(\w+)\.(\w+)` \|", open(sys.argv[1], encoding="utf-8").read(), re.M)
 print(sorted({f"{table}.{key}" for table, key in found if "team" in lem_state.TABLE_PLACES.get(table, ())}))' "$PWD/docs/settings.md" "$PWD/skills/lem/scripts")
-if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 20 ]; then
-  pass "the team's file holds 20 keys, the same in show, in the file init writes and on the settings page"
+if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 21 ]; then
+  pass "the team's file holds 21 keys, the same in show, in the file init writes and on the settings page"
 else
   fail "the keys of the settings: show $shown / the file $written / the page $paged"
 fi

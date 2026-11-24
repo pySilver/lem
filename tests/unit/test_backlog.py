@@ -271,9 +271,15 @@ class TheText(unittest.TestCase):
 
     GUARD = {"where": "tests/unit/test_board_model.py", "title": "two test classes come after the main guard", "what": "python3 -m unittest of the file runs them, a reader does not find them."}
 
-    def test_an_under_defect_is_one_line_with_its_place_and_why_and_no_item(self) -> None:
-        reads = [{"round": 1, "answered": True, "outside": [entry_of(self.GUARD, "under", "r1.1", why="only a reader of the code meets it")]}]
-        self.assertEqual(land.outside_parts(reads, ""), ([], ["- `tests/unit/test_board_model.py`: two test classes come after the main guard; only a reader of the code meets it"]))
+    def test_an_under_defect_is_an_item_filed_as_not_worth_it(self) -> None:
+        item = "docs/backlog/two-test-classes-come-after-the-main-guard.md"
+        reads = [{"round": 1, "answered": True, "outside": [entry_of(self.GUARD, "under", "r1.1", why="only a reader of the code meets it", item=item)]}]
+        line = f"- `{item}`: two test classes come after the main guard"
+        # the tip's file says `worth: no`, or no file of the branch lists it and the review's call says so
+        self.assertEqual(land.outside_parts(reads, "", [{"item": item, "title": self.GUARD["title"], "worth": "no"}]), ([], [line], []))
+        self.assertEqual(land.outside_parts(reads, ""), ([], [line], []))
+        # the owner raised it at the tip: the file decides, not who filed it
+        self.assertEqual(land.outside_parts(reads, "", [{"item": item, "title": self.GUARD["title"], "worth": "later"}]), ([line], [], []))
 
     def test_an_open_entry_names_its_item_and_a_filed_one_is_under_filed(self) -> None:
         held = "docs/backlog/the-first-line-skips-a-bold-outcome.md"
@@ -281,37 +287,55 @@ class TheText(unittest.TestCase):
             entry_of(D, "over", "r1.1", open=held),
             entry_of(E, "over", "r1.2", item="docs/backlog/an-item-from-before-json-parse.md"),
         ]}]
-        filed, seen = land.outside_parts(reads, "")
-        self.assertEqual(filed, ["- `docs/backlog/an-item-from-before-json-parse.md`: An item from before"])
+        filed, not_worth, seen = land.outside_parts(reads, "")
+        self.assertEqual((filed, not_worth), (["- `docs/backlog/an-item-from-before-json-parse.md`: An item from before"], []))
         self.assertEqual(seen, [f"- `src/json.py:parse`: An item from before; an open item holds it, `{held}`"])
 
     def test_a_cheap_entry_is_a_line_unless_a_fix_line_names_its_number(self) -> None:
         # D and E have one place and one title: only the number tells them apart
         reads = [{"round": 1, "answered": True, "outside": [entry_of(D, "cheap", "r1.1", why="a comment says the opposite"), entry_of(E, "cheap", "r1.2", why="a comment says the opposite")]},
                  {"round": 2, "answered": True, "outside": [entry_of(D, "cheap", "r2.1", why="an outdated suppression")]}]
-        line = "- `src/json.py:parse`: An item from before; a comment says the opposite"
-        # nobody fixed one: each is a line, a second round's among them
-        self.assertEqual(land.outside_parts(reads, "")[1], [line, line, "- `src/json.py:parse`: An item from before; an outdated suppression"])
+        line = "- `src/json.py:parse`: An item from before; cheap: a comment says the opposite"
+        # nobody fixed one: each is a line with its call, a second round's among them
+        self.assertEqual(land.outside_parts(reads, "")[2], [line, line, "- `src/json.py:parse`: An item from before; cheap: an outdated suppression"])
         # a fix line for r1.2 leaves r1.1's line, and r1.20 or r11.2 is no fix of r1.2
-        self.assertEqual(land.outside_parts(reads, "- `src/json.py` (abc1234): r1.2, the comment said the opposite")[1], [line, "- `src/json.py:parse`: An item from before; an outdated suppression"])
-        self.assertEqual(len(land.outside_parts(reads, "- r1.20 and r11.2 were fixed")[1]), 3)
+        self.assertEqual(land.outside_parts(reads, "- `src/json.py` (abc1234): r1.2, the comment said the opposite")[2], [line, "- `src/json.py:parse`: An item from before; cheap: an outdated suppression"])
+        self.assertEqual(len(land.outside_parts(reads, "- r1.20 and r11.2 were fixed")[2]), 3)
         self.assertTrue(land.named_by("r1.2", "fixed r1.2."))
 
     def test_notes_with_nothing_outside_come_back_as_they_are(self) -> None:
-        self.assertEqual(land.with_outside(NOTES, [], []), NOTES)
+        self.assertEqual(land.with_outside(NOTES, [], [], []), NOTES)
 
     def test_the_records_lines_join_the_notes_and_a_lone_none_gives_way(self) -> None:
-        out = land.with_outside(NOTES, ["- `docs/backlog/x.md`: X"], ["- `a.py`: a; why"])
+        out = land.with_outside(NOTES, ["- `docs/backlog/x.md`: X"], ["- `docs/backlog/y.md`: Y"], ["- `a.py`: a; cheap: why"])
         self.assertEqual([line for line in out.splitlines() if line.startswith("## ")],
-                         ["## Decisions", "## Left open", "## Worth a look", "## Filed in the backlog", "## Seen, not filed", "## Not done"])
-        self.assertIn("## Filed in the backlog\n\n- `docs/backlog/x.md`: X\n\n## Seen, not filed\n\n- `a.py`: a; why\n\n## Not done", out)
+                         ["## Decisions", "## Left open", "## Worth a look", "## Filed in the backlog", "## Filed as not worth it", "## Seen, not filed", "## Not done"])
+        self.assertIn("## Filed in the backlog\n\n- `docs/backlog/x.md`: X\n\n## Filed as not worth it\n\n- `docs/backlog/y.md`: Y\n\n"
+                      "## Seen, not filed\n\n- `a.py`: a; cheap: why\n\n## Not done", out)
 
     def test_the_seen_lines_come_after_the_notes_fixed_lines_and_keep_the_notes_own(self) -> None:
         notes = NOTES.replace("## Not done", "## Fixed on the way\n\n- `b.py` (abc1234): a false docstring\n\n## Seen, not filed\n\n- `c.py`: polish saw it; why\n\n## Not done")
-        out = land.with_outside(notes, ["- `docs/backlog/x.md`: X"], ["- `a.py`: a; why"])
+        out = land.with_outside(notes, ["- `docs/backlog/x.md`: X"], [], ["- `a.py`: a; why"])
         self.assertIn("## Fixed on the way\n\n- `b.py` (abc1234): a false docstring\n\n## Seen, not filed\n\n- `c.py`: polish saw it; why\n- `a.py`: a; why\n\n## Not done", out)
         # an item the notes list already is not written twice
-        self.assertEqual(land.with_outside(out, ["- `docs/backlog/x.md`: X"], []), out)
+        self.assertEqual(land.with_outside(out, ["- `docs/backlog/x.md`: X"], [], []), out)
+
+    def test_a_notes_line_that_names_an_item_goes_under_the_heading_of_its_worth(self) -> None:
+        # the polish pass wrote its `worth: no` item under `## Filed in the backlog`; the step lists it under the other heading
+        notes = NOTES.replace("## Filed in the backlog\n\nnone", "## Filed in the backlog\n\n- `docs/backlog/css.md` (worth: no): a CSS rule matches nothing\n- a line of the polish pass")
+        out = land.with_outside(notes, ["- `docs/backlog/x.md`: X"], ["- `docs/backlog/css.md`: A CSS rule matches nothing"], [])
+        self.assertIn("## Filed in the backlog\n\n- a line of the polish pass\n- `docs/backlog/x.md`: X\n\n## Filed as not worth it\n\n"
+                      "- `docs/backlog/css.md` (worth: no): a CSS rule matches nothing\n\n## Not done", out)
+        self.assertEqual(out.count("docs/backlog/css.md"), 1)
+        # a path that only starts the same is another item
+        self.assertFalse(land.names_item("- `docs/backlog/css.md-2`", "docs/backlog/css.md"))
+        self.assertTrue(land.names_item("docs/backlog/css.md, worth: no", "docs/backlog/css.md"))
+
+    def test_notes_lines_with_no_backticks_take_the_place_of_each_step_line(self) -> None:
+        # the first notes line takes the place of a.md's step line; the second still finds b.md's (review 1, finding 1)
+        steps = ["- `docs/backlog/a.md`: A", "- `docs/backlog/b.md`: B"]
+        self.assertEqual(land.placed(["- docs/backlog/a.md: A", "- docs/backlog/b.md: B"], [], steps, []), (["- docs/backlog/a.md: A", "- docs/backlog/b.md: B"], []))
+        self.assertEqual(land.placed(["- docs/backlog/b.md: B", "- docs/backlog/a.md: A"], [], steps, []), (["- docs/backlog/a.md: A", "- docs/backlog/b.md: B"], []))
 
 
 if __name__ == "__main__":

@@ -12,7 +12,8 @@ one in its checks, a breaker and criteria that wait for the owner, a pull reques
 the owner for, a typo the merge agent found nothing in and the board's server merged, another landed task,
 an answered question, one task the owner parked after its breaker, and one he parked that he started from a
 reviewer's item. The night and the retro proposed, and the reviewer passed two proposals into the state
-folder's backlog: that item, held by the parked task, and one that is undecided. The careful change's session
+folder's backlog: that item, held by the parked task, and one that is undecided; the proposal it refuted is a
+third item there, `worth: no`. The careful change's session
 has a `lem-ask` card up (`CARD_SPEC`), kept in its task's folder as lem-ask keeps it, so that "Waits for you" has
 its row and the board serves its page. Each task has the `session.open`
 of its agterm session, as `lem session open` logs it, and one that builds has none, so that "Waits for
@@ -605,7 +606,8 @@ def afternoon(shop: Shop) -> None:
     s.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "docs: the backlog")
 
     # The night's and the retro's proposals, and the reviewer's verdicts, through `lem project proposals`: two items of
-    # the state folder's backlog, one undecided and one a queued task holds, and one proposal refuted.
+    # the state folder's backlog, one undecided and one a queued task holds, and one proposal refuted, which stays there
+    # as a third item, `worth: no`, under "Decided against".
     night = s.work / "night.json"
     night.write_text(json.dumps({"read": "the free search of the night", "proposals": [
         {"area": "tests", "move": "Make the check of the monthly export wait for its file", "where": "tests/test_export.py:test_monthly",

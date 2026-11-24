@@ -78,7 +78,7 @@ class Places(Home):
 
     def test_what_guards_a_team_is_valid_in_the_teams_file_only(self):
         for table, line in (("flow", "topics = []"), ("checks", "commands = []"), ("branch", 'base = "main"'), ("paths", 'plans = "docs/plans"'),
-                            ("tracker", 'kind = "linear"')):
+                            ("tracker", 'kind = "linear"'), ("jev", "findings = false")):
             self.assertEqual(read("team", f"[{table}]", line), {table: tomllike(line)})
             for place in ("home", "local"):
                 with self.subTest(table=table, place=place):
@@ -176,6 +176,13 @@ class Nearest(Home):
         found = self.decided(team=("[naps]", "on = true", "[state]", "keep_days = 7"), local=("[naps]", "on = false", "[state]", "keep_days = 3"))
         self.assertEqual((found["naps"], found["state"]), ({"on": False, "from": ".lem/settings.local.toml"}, {"keep_days": 3, "from": ".lem/settings.local.toml"}))
         self.assertEqual(found["local"]["overrides"], ["naps.on", "state.keep_days"])
+
+    def test_jev_reads_each_finding_unless_the_teams_file_says_no(self):
+        # criterion 10 of backlog-refuted-items-and-jev: with no line the landing sends, and only the team's file says no
+        self.assertEqual(self.decided()["jev"], {"findings": True, "from": "Lem's default"})
+        self.assertEqual(self.decided(team=("[jev]", "findings = false"))["jev"], {"findings": False, "from": ".lem/settings.toml"})
+        self.assertIn(".lem/settings.toml: jev.findings = 'no' must be true or false", self.refused(self.decided, ("[jev]", 'findings = "no"')))
+        self.assertIn("unknown key jev.send", self.refused(read, "team", "[jev]", "send = false"))
 
 
 class MachineFile(Home):

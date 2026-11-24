@@ -53,6 +53,8 @@ paths"). So the hour writes one thing: its proposals, into the night's file of t
 
 In the morning, after the retro, a fresh reviewer reads the night's proposals with the retro's
 against the backlog bar (`skills/lem/stages/learn.md`, "retro"). A proposal it refutes stays with its reason
-in the file that holds it: a night's proposal in the night's file, `.lem/state/night/DATE.json`. It writes those that pass as backlog items in `.lem/state/backlog/`,
-one for each area. The board's "Backlog" view shows each one as undecided, with "Start a task" and
-"Drop". A task the owner starts from one lands as any task of Lem does, through its pull request.
+in the file that holds it: a night's proposal in the night's file, `.lem/state/night/DATE.json`,
+and as an item of its own in `.lem/state/backlog/`, `worth: no` with that reason, which the board's
+"Backlog" view shows under "Decided against" and does not count. It writes those that pass as
+backlog items there, one for each area. The view shows each one as undecided, with "Start a task"
+and "Drop". A task the owner starts from one lands as any task of Lem does, through its pull request.

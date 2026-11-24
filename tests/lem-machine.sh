@@ -242,8 +242,9 @@ if [ "$(field '[t["name"] for t in d["tools"] if "lem-ask" in t["name"]]' <<<"$o
   && [ "$(row 'Jev key' detail <<<"$out")" = "JEV_API_KEY is not set, and it is the one name Lem reads for the key" ] \
   && [ "$(row 'Jev key' detail <<<"$elsewhere")" = "JEV_API_KEY, to https://api.example.test/v1/systemone" ] \
   && grep -qF "JEV_API_KEY in the environment the agent starts with" <<<"$nokey_says" && grep -qF "OpenRouter unless JEV_API_URL names another" <<<"$nokey_says" \
+  && grep -qF "the landing's read of each finding called under the bar" <<<"$(row 'Jev key' used_for <<<"$out")" && grep -qF 'Jev: not asked (no key)' <<<"$nokey_says" \
   && ! grep -q "OPENROUTER_API_KEY" <<<"$out$other_name" && ! grep -q "sk-not-a-real-key" <<<"$keyed$other_name$elsewhere"; then
-  pass "the check has no row for the question page, which is a part of Lem; its Jev key row says that JEV_API_KEY gives the key and to which provider; with no JEV_API_KEY, also when the key is under another name, the row is not found and says that JEV_API_KEY is the one name, names OpenRouter as the default, and never prints the key"
+  pass "the check has no row for the question page, which is a part of Lem; its Jev key row says that JEV_API_KEY gives the key and to which provider; with no JEV_API_KEY, also when the key is under another name, the row is not found and says that JEV_API_KEY is the one name, names OpenRouter as the default, says that a pull request then says Jev was not asked about a finding under the bar, and never prints the key"
 else
   fail "doctor and the key: $keyed / $other_name / $elsewhere / $nokey_says"
 fi
