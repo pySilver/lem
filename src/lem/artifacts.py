@@ -44,12 +44,17 @@ import contextlib
 import os
 import re
 from pathlib import Path
+from types import MappingProxyType
 
 from lem import clock as lem_clock
 
 # A file over this many bytes is listed with no text: the page draws each file it shows,
 # and a review tool's log can be megabytes. A guess, not a measurement.
 CAP = 300_000
+# The first bytes of a file with an unknown extension that `kind_of` reads for a NUL.
+KIND_HEAD_BYTES = 8192
+# The WebP tag follows the RIFF tag and the four-byte size.
+WEBP_TAG_END = 12
 # The sections of every task's map, in their order, and the group of the working files
 # after them.
 SECTIONS = (
@@ -65,64 +70,68 @@ WORK = "work"
 GROUPS = (*(key for key, _ in SECTIONS), WORK)
 
 # The documents of a task directory, by their name: their section and their title.
-DOCS = {
-    "ask.txt": ("request", "The request"),
-    "ticket.txt": ("request", "The ticket"),
-    "task.md": ("request", "The task"),
-    "brief.md": ("request", "The brief"),
-    "talk.md": ("request", "The talk that led to the request"),
-    "interview-notes.md": ("request", "Interview notes"),
-    "session.md": ("request", "The task session's first read"),
-    "outside.md": ("request", "Outside the change"),
-    "criteria.md": ("criteria", "Acceptance criteria"),
-    "criteria-read.md": ("criteria", "The personas' read of the criteria"),
-    "criteria-page.html": ("criteria", "The criteria page"),
-    # the changed criteria the task's session writes from the owner's note, which
-    # `lem criteria change --file` takes
-    "criteria-change.md": (
-        "criteria",
-        "The changed criteria, as the session wrote them for the change",
-    ),
-    "design.md": ("plan", "Design"),
-    "directions.md": ("plan", "The owner's directions"),
-    "scout.md": ("plan", "The scout's report"),
-    "investigation.md": ("plan", "Investigation"),
-    "handoff.md": ("plan", "Handoff"),
-    "talk-list.md": ("plan", "The plan talk's list"),
-    "report.md": ("build", "Report"),
-    "breaker.md": ("build", "What stopped the build"),
-    "setup.log": ("checks", "Worktree setup output"),
-    "pr.md": ("pr", "Pull request text"),
-    "notes.md": ("pr", "Notes for the pull request"),
-    "merge-review.md": ("pr", "The merge review"),
-    "handover.html": ("pr", "The hand-over page"),
-}
+DOCS = MappingProxyType(
+    {
+        "ask.txt": ("request", "The request"),
+        "ticket.txt": ("request", "The ticket"),
+        "task.md": ("request", "The task"),
+        "brief.md": ("request", "The brief"),
+        "talk.md": ("request", "The talk that led to the request"),
+        "interview-notes.md": ("request", "Interview notes"),
+        "session.md": ("request", "The task session's first read"),
+        "outside.md": ("request", "Outside the change"),
+        "criteria.md": ("criteria", "Acceptance criteria"),
+        "criteria-read.md": ("criteria", "The personas' read of the criteria"),
+        "criteria-page.html": ("criteria", "The criteria page"),
+        # the changed criteria the task's session writes from the owner's note, which
+        # `lem criteria change --file` takes
+        "criteria-change.md": (
+            "criteria",
+            "The changed criteria, as the session wrote them for the change",
+        ),
+        "design.md": ("plan", "Design"),
+        "directions.md": ("plan", "The owner's directions"),
+        "scout.md": ("plan", "The scout's report"),
+        "investigation.md": ("plan", "Investigation"),
+        "handoff.md": ("plan", "Handoff"),
+        "talk-list.md": ("plan", "The plan talk's list"),
+        "report.md": ("build", "Report"),
+        "breaker.md": ("build", "What stopped the build"),
+        "setup.log": ("checks", "Worktree setup output"),
+        "pr.md": ("pr", "Pull request text"),
+        "notes.md": ("pr", "Notes for the pull request"),
+        "merge-review.md": ("pr", "The merge review"),
+        "handover.html": ("pr", "The hand-over page"),
+    }
+)
 # The records, by their name: the document they belong to, the word of their link, and
 # the tab of the board that shows them readable.
-RECORDS = {
-    "criteria.json": ("criteria.md", "record", "criteria"),
-    # the text the owner answered, which `lem criteria change` keeps before
-    # criteria.md moves
-    "criteria-before.json": ("criteria.md", "text before the change", "criteria"),
-    "decisions.jsonl": ("pr.md", "decisions", "criteria"),
-    "polish.json": ("report.md", "polish pass", "checks"),
-    "landing.json": ("pr.md", "landing", "checks"),
-    "read.json": ("pr.md", "review's read", "checks"),
-    # the task's state, newest block first, which `lem project tasks`, the nap and a
-    # session read
-    "state.md": ("ask.txt", "state", "timeline"),
-    # what Lem did to the task's ticket, which `lem project tasks` reads to say what is
-    # still owed
-    "ticket-steps.txt": ("ticket.txt", "ticket steps", None),
-    # the repository of a GitHub issue, which each write of `lem issue` compares
-    # with origin's
-    "ticket-repo.txt": ("ticket.txt", "ticket repository", None),
-    # the task a resumed one came from, which a resume and a plan's name follow back
-    "resumed-from.txt": ("ask.txt", "resumed from", None),
-    # the release the task began on, which each command of Lem for the task reads
-    # first (lem_release)
-    "release.txt": ("ask.txt", "release", None),
-}
+RECORDS = MappingProxyType(
+    {
+        "criteria.json": ("criteria.md", "record", "criteria"),
+        # the text the owner answered, which `lem criteria change` keeps before
+        # criteria.md moves
+        "criteria-before.json": ("criteria.md", "text before the change", "criteria"),
+        "decisions.jsonl": ("pr.md", "decisions", "criteria"),
+        "polish.json": ("report.md", "polish pass", "checks"),
+        "landing.json": ("pr.md", "landing", "checks"),
+        "read.json": ("pr.md", "review's read", "checks"),
+        # the task's state, newest block first, which `lem project tasks`, the nap and a
+        # session read
+        "state.md": ("ask.txt", "state", "timeline"),
+        # what Lem did to the task's ticket, which `lem project tasks` reads to say
+        # what is still owed
+        "ticket-steps.txt": ("ticket.txt", "ticket steps", None),
+        # the repository of a GitHub issue, which each write of `lem issue` compares
+        # with origin's
+        "ticket-repo.txt": ("ticket.txt", "ticket repository", None),
+        # the task a resumed one came from, which a resume and a plan's name follow back
+        "resumed-from.txt": ("ask.txt", "resumed from", None),
+        # the release the task began on, which each command of Lem for the task reads
+        # first (lem_release)
+        "release.txt": ("ask.txt", "release", None),
+    }
+)
 # The small record of a task: what stays of its folder once it ended long ago
 # (`outside_record`), each file for the readers that need it after the end.
 SMALL_RECORD = (
@@ -145,61 +154,67 @@ SMALL_RECORD = (
     "resumed-from.txt",
 )
 # The tabs, by their key, as a record's line names them.
-TAB_NAMES = {
-    "criteria": "Criteria and decisions",
-    "checks": "Checks and review",
-    "timeline": "Timeline",
-}
+TAB_NAMES = MappingProxyType(
+    {
+        "criteria": "Criteria and decisions",
+        "checks": "Checks and review",
+        "timeline": "Timeline",
+    }
+)
 # The pictures a document may show, and their types; an SVG is no picture here, since it
 # can carry a script.
-IMAGES = {
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".gif": "image/gif",
-    ".webp": "image/webp",
-}
+IMAGES = MappingProxyType(
+    {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+    }
+)
 # A path in a document's text that names a picture of the task's media folder.
 MEDIA_REF = re.compile(
     r"(?:^|[(\s\"'/])(media/[A-Za-z0-9._/-]+\.(?:png|jpe?g|gif|webp))\b", re.IGNORECASE
 )
 
 
-KINDS = {
-    ".md": "markdown",
-    ".markdown": "markdown",
-    ".txt": "text",
-    ".py": "text",
-    ".js": "text",
-    ".css": "text",
-    ".toml": "text",
-    ".yaml": "text",
-    ".yml": "text",
-    ".sh": "text",
-    ".diff": "text",
-    ".patch": "text",
-    ".csv": "text",
-    ".svg": "text",
-    ".json": "json",
-    ".jsonl": "jsonl",
-    ".log": "log",
-    ".out": "log",
-    ".err": "log",
-    ".html": "html",
-    ".htm": "html",
-    ".png": "image",
-    ".jpg": "image",
-    ".jpeg": "image",
-    ".gif": "image",
-    ".webp": "image",
-    ".ico": "binary",
-    ".pdf": "binary",
-    ".zip": "binary",
-    ".gz": "binary",
-    ".tar": "binary",
-    ".sqlite": "binary",
-    ".db": "binary",
-}
+KINDS = MappingProxyType(
+    {
+        ".md": "markdown",
+        ".markdown": "markdown",
+        ".txt": "text",
+        ".py": "text",
+        ".js": "text",
+        ".css": "text",
+        ".toml": "text",
+        ".yaml": "text",
+        ".yml": "text",
+        ".sh": "text",
+        ".diff": "text",
+        ".patch": "text",
+        ".csv": "text",
+        ".svg": "text",
+        ".json": "json",
+        ".jsonl": "jsonl",
+        ".log": "log",
+        ".out": "log",
+        ".err": "log",
+        ".html": "html",
+        ".htm": "html",
+        ".png": "image",
+        ".jpg": "image",
+        ".jpeg": "image",
+        ".gif": "image",
+        ".webp": "image",
+        ".ico": "binary",
+        ".pdf": "binary",
+        ".zip": "binary",
+        ".gz": "binary",
+        ".tar": "binary",
+        ".sqlite": "binary",
+        ".db": "binary",
+    }
+)
 
 
 def image_type(name: str, head: bytes) -> str | None:
@@ -209,17 +224,16 @@ def image_type(name: str, head: bytes) -> str | None:
     want = IMAGES.get(Path(name).suffix.lower())
     if want is None:
         return None
-    found = (
-        "image/png"
-        if head.startswith(b"\x89PNG\r\n\x1a\n")
-        else "image/jpeg"
-        if head.startswith(b"\xff\xd8\xff")
-        else "image/gif"
-        if head[:6] in (b"GIF87a", b"GIF89a")
-        else "image/webp"
-        if head[:4] == b"RIFF" and head[8:12] == b"WEBP"
-        else None
-    )
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        found = "image/png"
+    elif head.startswith(b"\xff\xd8\xff"):
+        found = "image/jpeg"
+    elif head[:6] in (b"GIF87a", b"GIF89a"):
+        found = "image/gif"
+    elif head[:4] == b"RIFF" and head[8:WEBP_TAG_END] == b"WEBP":
+        found = "image/webp"
+    else:
+        found = None
     return found if found == want else None
 
 
@@ -236,9 +250,10 @@ def place(path: str) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit b
         return {"group": group, "title": title, "role": "doc"}
     if path in RECORDS:
         of, label, tab = RECORDS[path]
+        group, title = DOCS[of]
         return {
-            "group": DOCS[of][0],
-            "title": f"{DOCS[of][1]} ({label})",
+            "group": group,
+            "title": f"{title} ({label})",
             "role": "record",
             "of": of,
             "label": label,
@@ -247,12 +262,11 @@ def place(path: str) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit b
     # the merge agent's brief of one proposed tip on one base (land.py `brief_file`)
     brief = re.fullmatch(r"merge-brief-([0-9a-f]+)-([0-9a-f]+)\.md", path)
     if brief:
+        tip = brief.group(1)[:9]
+        base = brief.group(2)[:9]
         return {
             "group": "pr",
-            "title": (
-                f"The merge agent's brief of {brief.group(1)[:9]} on "
-                f"{brief.group(2)[:9]}"
-            ),
+            "title": f"The merge agent's brief of {tip} on {base}",
             "role": "doc",
         }
     breaker = re.fullmatch(r"breaker-(\d+)\.md", path)
@@ -263,9 +277,10 @@ def place(path: str) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit b
             "role": "doc",
         }
     if path.startswith("reports/") and suffix == "md":
+        report = path.removeprefix("reports/").removesuffix(".md")
         return {
             "group": "build",
-            "title": f"Report: {path.removeprefix('reports/').removesuffix('.md')}",
+            "title": f"Report: {report}",
             "role": "doc",
         }
     if path.startswith("gate/"):
@@ -294,11 +309,12 @@ def place(path: str) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit b
                 "title": f"Review {review.group(1)}",
                 "role": "doc",
             }
+        review_stem = path[:-5]
         return {
             "group": "review",
             "title": f"Review {review.group(1)} (record)",
             "role": "record",
-            "of": path[:-5] + ".md",
+            "of": f"{review_stem}.md",
             "label": "record",
             "tab": "checks",
         }
@@ -358,85 +374,87 @@ def arrange(entries: list[dict], shows: dict[str, list[str]] | None = None) -> d
     folder. A record whose document is not listed, and a picture that no document shows,
     is a working file. `shows` gives the pictures each document's text names, by the
     document's path. `count` is the number of documents."""
-    by_path = {e["path"]: e for e in entries}
+    by_path = {artifact["path"]: artifact for artifact in entries}
     shown_by = {}
-    for doc, pictures in (shows or {}).items():
+    for path, pictures in (shows or {}).items():
         for picture in pictures:
-            if picture in by_path and doc in by_path:
-                shown_by.setdefault(picture, doc)
+            if picture in by_path and path in by_path:
+                shown_by.setdefault(picture, path)
     attached: dict[str, list[dict]] = {}
     work: list[dict] = []
     docs = []
-    for e in entries:
-        role = e.get("role", "doc")
-        if role == "record" and e.get("of") in by_path:
-            attached.setdefault(e["of"], []).append(e)
-        elif e["path"] in shown_by:
-            attached.setdefault(shown_by[e["path"]], []).append(
-                {**e, "label": e["path"].removeprefix("media/")}
+    for artifact in entries:
+        role = artifact.get("role", "doc")
+        if role == "record" and artifact.get("of") in by_path:
+            attached.setdefault(artifact["of"], []).append(artifact)
+        elif artifact["path"] in shown_by:
+            attached.setdefault(shown_by[artifact["path"]], []).append(
+                {**artifact, "label": artifact["path"].removeprefix("media/")}
             )
         elif role == "doc":
-            docs.append(e)
+            docs.append(artifact)
         else:
-            folder = e.get("folder") or (
-                "Records with no document" if role == "record" else None
-            )
-            work.append({**e, "folder": folder})
+            folder = artifact.get("folder")
+            if not folder:
+                folder = "Records with no document" if role == "record" else None
+            work.append({**artifact, "folder": folder})
     sections = [
         {
             "key": key,
             "name": name,
             "docs": [
-                {**d, "attached": attached.get(d["path"], [])}
-                for d in docs
-                if d["group"] == key
+                {**doc, "attached": attached.get(doc["path"], [])}
+                for doc in docs
+                if doc["group"] == key
             ],
         }
         for key, name in SECTIONS
     ]
     folders: dict = {}
-    for e in work:
-        folders.setdefault(e["folder"], []).append(e)
+    for artifact in work:
+        folders.setdefault(artifact["folder"], []).append(artifact)
+    ordered_folders = sorted(
+        folders.items(),
+        key=lambda pair: (pair[0] is not None, pair[0] or ""),
+    )
     return {
         "sections": sections,
         "work": [
-            {"folder": f, "files": files_}
-            for f, files_ in sorted(
-                folders.items(), key=lambda x: (x[0] is not None, x[0] or "")
-            )
+            {"folder": folder, "files": folder_entries}
+            for folder, folder_entries in ordered_folders
         ],
         "count": len(docs),
         "work_count": len(work),
     }
 
 
-def kind_of(file: Path) -> str:
+def kind_of(file_path: Path) -> str:
     """The kind of a file, from its extension; one with an unknown extension is binary
     when its first bytes hold a NUL, and text otherwise."""
-    known = KINDS.get(file.suffix.lower())
+    known = KINDS.get(file_path.suffix.lower())
     if known:
         return known
     try:
-        with file.open("rb") as handle:
-            return "binary" if b"\0" in handle.read(8192) else "text"
+        with file_path.open("rb") as stream:
+            return "binary" if b"\0" in stream.read(KIND_HEAD_BYTES) else "text"
     except OSError:
         return "binary"
 
 
 def entry(
-    file: Path, path: str, where: dict, href: str | None, *, read: bool = True
+    file_path: Path, path: str, where: dict, href: str | None, *, read: bool = True
 ) -> dict | None:
     """One file's entry; None for an empty file, which shows nothing, and for a link to
     a file that is gone. A file that cannot be read is listed with no text, and the
     others are still read. With `read` false the entry has no text: the board lists the
     files and reads only the one shown."""
     try:
-        facts = file.stat()
+        facts = file_path.stat()
     except OSError:
         return None
     if facts.st_size == 0:
         return None
-    kind = kind_of(file)
+    kind = kind_of(file_path)
     found: dict = {
         "path": path,
         **where,
@@ -454,7 +472,7 @@ def entry(
             found["cut"] = True
         else:
             with contextlib.suppress(OSError):
-                found["text"] = file.read_bytes().decode("utf-8", errors="replace")
+                found["text"] = file_path.read_bytes().decode("utf-8", errors="replace")
     return found
 
 
@@ -470,13 +488,15 @@ def files(
     repository root; with `read` false, with no text (`entry`)."""
     found = []
     for at, folders, names in os.walk(directory):
-        folders[:] = sorted(name for name in folders if not name.startswith("."))
+        visible_folders = sorted(name for name in folders if not name.startswith("."))
+        folders.clear()
+        folders.extend(visible_folders)
         for name in sorted(names):
             if name.startswith(".") or name.endswith(".lock"):
                 continue
-            file = Path(at) / name
-            path = file.relative_to(directory).as_posix()
-            made = entry(file, path, place(path), path, read=read)
+            file_path = Path(at) / name
+            path = file_path.relative_to(directory).as_posix()
+            made = entry(file_path, path, place(path), path, read=read)
             if made:
                 found.append(made)
     if plan is not None:
@@ -491,10 +511,10 @@ def files(
             found.append(made)
     return sorted(
         found,
-        key=lambda item: (
-            GROUPS.index(item["group"]),
-            not item.get("first"),
-            item["path"],
+        key=lambda artifact: (
+            GROUPS.index(artifact["group"]),
+            not artifact.get("first"),
+            artifact["path"],
         ),
     )
 
@@ -506,50 +526,55 @@ def one(
     `files` names it (from the task directory, or the plan's path from the repository
     root); None for a path that is no entry of the task's, so that nothing outside its
     files is ever read by a name a request gives."""
-    listed = {item["path"]: item for item in files(directory, slug, plan, read=False)}
+    listed = {
+        artifact["path"]: artifact
+        for artifact in files(directory, slug, plan, read=False)
+    }
     if path not in listed:
         return None
     if plan is not None and path == plan[1]:
-        file = plan[0]
+        file_path = plan[0]
     else:
-        file = directory / path
+        file_path = directory / path
         try:
-            if not file.resolve().is_relative_to(directory.resolve()):
+            if not file_path.resolve().is_relative_to(directory.resolve()):
                 return None
         except OSError:
             return None
     where = {
-        key: value
-        for key, value in listed[path].items()
+        key: detail
+        for key, detail in listed[path].items()
         if key not in ("path", "kind", "bytes", "mtime", "text", "cut", "href")
     }
-    found = entry(file, path, where, listed[path].get("href"))
-    return (found, file) if found else None
+    found = entry(file_path, path, where, listed[path].get("href"))
+    return (found, file_path) if found else None
 
 
 def pictures_named(directory: Path, entries: list[dict]) -> dict[str, list[str]]:
     """The pictures of `media/` each markdown document of the task names, by the
     document's path: read only when the task has a picture, and only the documents of
     the task directory."""
-    if not any(e["path"].startswith("media/") for e in entries):
+    if not any(artifact["path"].startswith("media/") for artifact in entries):
         return {}
     named = {}
-    for e in entries:
+    for artifact in entries:
         if (
-            e["kind"] != "markdown"
-            or e.get("role") != "doc"
-            or e.get("cut")
-            or e["path"].startswith("/")
-            or e.get("first")
+            artifact["kind"] != "markdown"
+            or artifact.get("role") != "doc"
+            or artifact.get("cut")
+            or artifact["path"].startswith("/")
+            or artifact.get("first")
         ):
             continue
         try:
-            text = (directory / e["path"]).read_text(encoding="utf-8", errors="replace")
+            text = (directory / artifact["path"]).read_text(
+                encoding="utf-8", errors="replace"
+            )
         except OSError:
             continue
-        found = sorted({m.group(1) for m in MEDIA_REF.finditer(text)})
+        found = sorted({match.group(1) for match in MEDIA_REF.finditer(text)})
         if found:
-            named[e["path"]] = found
+            named[artifact["path"]] = found
     return named
 
 

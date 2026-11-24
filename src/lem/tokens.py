@@ -4,7 +4,7 @@
                                 sentence of what the number leaves out; None when no transcript
                                 the log names counts for the task
     transcripts_of(state, slug) the transcripts that count for the task, each once
-    first_prompt(file)          the text of a transcript's first prompt; None when the file does not read
+    first_prompt(transcript)    the text of a transcript's first prompt; None when the file does not read
     task_named(text)            the task whose launch line TEXT is; None for any other text
 
 The plugin's SessionStart hook of a task's session (`session_hook.py`) logs each Claude
@@ -49,6 +49,7 @@ another machine are not in it, and `covers` says so with the number.
 import json
 import re
 from pathlib import Path
+from types import MappingProxyType
 
 # how a JSON-lines file is split into its lines; the scripts' folder is on the path of
 # every importer
@@ -59,12 +60,14 @@ EVENT = "session.transcript"
 # the `transcripts` of its `session.transcript` records
 SUMMARY = "task.summary"
 # the usage's keys, by the name of each sum
-SUMS = {
-    "input": "input_tokens",
-    "output": "output_tokens",
-    "cache_read": "cache_read_input_tokens",
-    "cache_write": "cache_creation_input_tokens",
-}
+SUMS = MappingProxyType(
+    {
+        "input": "input_tokens",
+        "output": "output_tokens",
+        "cache_read": "cache_read_input_tokens",
+        "cache_write": "cache_creation_input_tokens",
+    }
+)
 # the first prompt of a task's session, `launch_line` in session.py: TASK_DIR is the
 # state folder's `tasks/SLUG`, and the state folder is `.lem/state` of the main checkout
 # (lem_state STATE)
@@ -82,13 +85,13 @@ def task_named(text: str | None) -> str | None:
     return found["slug"] if found else None
 
 
-def first_prompt(file: Path) -> str | None:
+def first_prompt(transcript: Path) -> str | None:
     """The text of the transcript's first prompt, its first `user` record that is not
     `isMeta`, read from the file's start up to that record; None when the file does not
     read or holds no such record. A prompt of text blocks gives their texts; one with
     another block is no text and gives ""."""
     try:
-        with file.open("rb") as lines:
+        with transcript.open("rb") as lines:
             for raw in lines:
                 try:
                     record = json.loads(raw.decode("utf-8", errors="replace"))
@@ -100,14 +103,14 @@ def first_prompt(file: Path) -> str | None:
                     or record.get("isMeta")
                 ):
                     continue
-                content = (
+                prompt = (
                     record.get("message", {}).get("content")
                     if isinstance(record.get("message"), dict)
                     else None
                 )
-                if isinstance(content, str):
-                    return content
-                blocks = content if isinstance(content, list) else []
+                if isinstance(prompt, str):
+                    return prompt
+                blocks = prompt if isinstance(prompt, list) else []
                 if blocks and all(
                     isinstance(block, dict)
                     and block.get("type") == "text"
@@ -171,11 +174,11 @@ def transcripts_of(state: Path, slug: str) -> list[str]:
     return found
 
 
-def add_file(file: Path, sums: dict, seen: set, counts: dict) -> bool:
-    """Add the usage of each reply of one transcript file to SUMS, a reply once by its
-    id (SEEN); False when the file does not read."""
+def add_file(transcript: Path, sums: dict, seen: set, counts: dict) -> bool:
+    """Add the usage of each reply of TRANSCRIPT to SUMS, a reply once by its id (SEEN);
+    False when the file does not read."""
     try:
-        lines = file.read_bytes().splitlines()
+        lines = transcript.read_bytes().splitlines()
     except OSError:
         return False
     for raw in lines:
@@ -200,9 +203,9 @@ def add_file(file: Path, sums: dict, seen: set, counts: dict) -> bool:
                 continue
             seen.add(key)
         for name, field in SUMS.items():
-            value = usage.get(field)
-            if isinstance(value, int) and not isinstance(value, bool):
-                sums[name] += value
+            token_count = usage.get(field)
+            if isinstance(token_count, int) and not isinstance(token_count, bool):
+                sums[name] += token_count
     return True
 
 
@@ -229,14 +232,12 @@ def task_tokens(state: Path, slug: str) -> dict | None:
         for agent in sorted(folder.glob("agent-*.jsonl")) if folder.is_dir() else []:
             if add_file(agent, sums, seen, counts):
                 counts["subagents"] += 1
-    gone = (
-        (
-            f"; {counts['missing']} transcript{'s' if counts['missing'] != 1 else ''} "
-            f"the log names {'are' if counts['missing'] != 1 else 'is'} gone"
-        )
-        if counts["missing"]
-        else ""
-    )
+    gone = ""
+    missing = counts["missing"]
+    if missing:
+        suffix = "" if missing == 1 else "s"
+        verb = "is" if missing == 1 else "are"
+        gone = f"; {missing} transcript{suffix} the log names {verb} gone"
     covers = (
         f"the Claude Code sessions of the task on this machine ({counts['sessions']}) "
         f"and their subagents ({counts['subagents']}){gone}; a Codex reviewer, an "
