@@ -205,9 +205,12 @@ after the forge called it conflicting; one conflict in shop/dates.py, resolved b
 builder; one read of the resolution; the merge review carried over the resolved
 conflict: the resolution read found nothing; the checks passed again"). A conflict that
 `base` meets is kept in `landing.json` with the tip before the rebase and whether a
-review covered the change then; the builder that resolves it rebases the branch itself,
-and the next `base` finds the rewritten commits by that tip, gives the polish pass's
-commits their new names, and keeps the resolution. The newest review that saw the change
+review covered the change then. `base` rebases with `--reapply-cherry-picks`: a commit
+whose patch the base once took is applied again, so one the base then reverted stays in
+the change, one it kept is dropped as empty, and one it changed is a conflict. The
+builder that resolves a conflict rebases the branch itself, and the next `base` finds
+the rewritten commits by that tip, gives the polish pass's commits their new names, and
+keeps the resolution. The newest review that saw the change
 stands as it was through a rebase that git made with no conflict, also when the base
 changed a file of the change in other lines: `base` carries it onto the new base, for a
 careful request too, and a must-fix it left stays open, so the request is not green for
@@ -1850,10 +1853,34 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
         # why it is not, for the owner's merge that `propose` ends after this
         # rebase (`moved_carry`)
         uncovered = why_uncovered(answered, backlog_of(task), change(task), own)
-    rebased = run(["git", "-C", str(task.worktree), "rebase", task.onto], check=False)
+    # A commit whose patch a commit of the base carries is applied all the same
+    # (`--reapply-cherry-picks`): one the base took and then reverted stays in the
+    # change the review read, and one the base took and kept becomes empty and is
+    # dropped, with no stop (`--empty=drop`, git's own default, named so that nothing
+    # waits on it).
+    rebased = run(
+        [
+            "git",
+            "-C",
+            str(task.worktree),
+            "rebase",
+            "--reapply-cherry-picks",
+            "--empty=drop",
+            task.onto,
+        ],
+        check=False,
+    )
     if rebased.returncode != 0:
         conflicts = conflicted(task.worktree)
         git(task.worktree, "rebase", "--abort", check=False)
+        refused = rebase_refused(rebased.stderr, conflicts)
+        if refused:
+            version = git(task.worktree, "--version", check=False)
+            raise LandError(
+                f"{refused}. `git rebase --reapply-cherry-picks` needs git 2.27 or "
+                f"newer, and `git --version` says {version}: with an older git, the "
+                "owner updates git, and this step runs again"
+            )
         task.keep(
             conflict={
                 "before": pending["before"] if pending else before,
@@ -2002,6 +2029,18 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
         "ahead": ahead,
         "resolved": pending["files"] if resolved else None,
     }
+
+
+def rebase_refused(said: str, conflicts: list[str]) -> str | None:
+    """Git's refusal of an option of `git rebase`, from what it SAID on stderr, when
+    the rebase stopped on no file (CONFLICTS): a git older than the option names it as
+    unknown, and that is no conflict for a builder. None otherwise."""
+    if conflicts:
+        return None
+    line = next(
+        (line.strip() for line in said.splitlines() if "unknown option" in line), None
+    )
+    return f"git rebase refused an option ({line})" if line else None
 
 
 def conflicted(where: Path) -> list[str]:

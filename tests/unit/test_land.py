@@ -1088,6 +1088,44 @@ class ConflictNames(unittest.TestCase):
         )
 
 
+class RebaseRefused(unittest.TestCase):
+    """`land.rebase_refused`: a git too old for an option of base's rebase is named as
+    such, never kept as a conflict with no file for a builder."""
+
+    # what a git with no such option prints, as git 2.55.0 prints it for an option it
+    # does not know (`--reapply-cherry-pickz`), its usage after it
+    OLD_GIT = (
+        "error: unknown option `reapply-cherry-picks'\n"
+        "usage: git rebase [-i] [options] [--exec <cmd>] [--onto <newbase>]\n"
+    )
+
+    def test_an_unknown_option_with_no_file_in_conflict_is_a_refusal_of_git(
+        self,
+    ) -> None:
+        self.assertEqual(
+            land.rebase_refused(self.OLD_GIT, []),
+            "git rebase refused an option (error: unknown option "
+            "`reapply-cherry-picks')",
+        )
+
+    def test_a_conflict_or_another_stop_is_no_refusal_of_git(self) -> None:
+        self.assertIsNone(land.rebase_refused(self.OLD_GIT, ["shop.py"]))
+        self.assertIsNone(
+            land.rebase_refused(
+                "CONFLICT (content): Merge conflict in shop.py\n"
+                "error: could not apply 1a2b3c4... fix: the shop\n",
+                ["shop.py"],
+            )
+        )
+        self.assertIsNone(
+            land.rebase_refused(
+                "error: The following untracked working tree files would be "
+                "overwritten by checkout:\n\tshop.py\n",
+                [],
+            )
+        )
+
+
 class StaleBytecode(unittest.TestCase):
     """`land.bytecode_of` and its parts: the ignored `__pycache__` folders the checks
     remove before their first command, from git's list of what it ignores and the

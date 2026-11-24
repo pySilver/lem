@@ -9,9 +9,11 @@ removed after the landing.
 
 The brief gives the branch to rebase onto and the files git named as in conflict.
 
-1. Rebase the task's branch onto that branch. This job is the one case where a builder rebases.
-   Keep the branch's commits one for one: squash none, drop none, reorder none, so that `lem land
-   base` finds each of them, the polish pass's among them, by its place.
+1. Rebase the task's branch onto that branch with `git rebase --reapply-cherry-picks BRANCH`, as
+   `lem land base` does, so that git leaves out no commit whose patch the base once took. This job
+   is the one case where a builder rebases. Keep the branch's commits one for one: squash none,
+   drop none, reorder none, so that `lem land base` finds each of them, the polish pass's among
+   them, by its place.
 2. Resolve each conflict so that both changes hold: read the plan of this task, and the commits
    of the other side, before you choose. When the two cannot both hold, stop with the rebase
    undone and say which two outcomes collide; that is a decision, and not yours.

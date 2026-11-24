@@ -990,6 +990,53 @@ else
 fi
 project --repo "$MB" state mb-probe dropped "the test is over" >/dev/null
 
+# The base takes a commit of a task's branch by its patch, and git reapplies it on the rebase of base all the same.
+# cp_task SLUG: on origin's main SLUG-feature.txt and SLUG-label.txt hold `old`; the task's branch, on that main, changes
+# each to `new` in a commit of its own (`feat: the feature`, `feat: the label`), and is proposed
+cp_task() {
+  local tree
+  git -C "$MBX" pull -q --ff-only origin main && echo old > "$MBX/$1-feature.txt" && echo old > "$MBX/$1-label.txt"
+  git -C "$MBX" add -A && git -C "$MBX" commit -q -m "chore: $1's files" && git -C "$MBX" push -q origin main
+  mb_task "$1" "$1.txt"
+  tree=$(project --repo "$MB" worktree-dir "$1")
+  git -C "$MB" fetch -q origin && git -C "$tree" rebase -q origin/main
+  echo new > "$tree/$1-feature.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "feat: the feature"
+  echo new > "$tree/$1-label.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "feat: the label"
+  mb_land "$1"
+}
+# cp_pick SLUG: origin's main cherry-picks the task's commit `feat: the feature`, and pushes nothing yet
+cp_pick() {
+  git -C "$MBX" pull -q --ff-only origin main && git -C "$MBX" fetch -q origin "fix/$1"
+  git -C "$MBX" cherry-pick "$(git -C "$(project --repo "$MB" worktree-dir "$1")" rev-parse HEAD~1)" >/dev/null
+}
+# cp_after SLUG: the task's commits on origin/main and its feature file, after start and base
+cp_after() { local tree; tree=$(project --repo "$MB" worktree-dir "$1"); echo "$(git -C "$tree" log --format=%s origin/main..HEAD | grep -c '^feat:' || true) $(cat "$tree/$1-feature.txt")"; }
+cp_task cp-revert
+cp_pick cp-revert && git -C "$MBX" revert --no-edit HEAD >/dev/null && git -C "$MBX" push -q origin main
+cp_revert=$(land --repo "$MB" start cp-revert >/dev/null && land --repo "$MB" base cp-revert 2>&1 || true)
+if [ "$(field 'd["moved"]' <<<"$cp_revert" 2>/dev/null)" = True ] && [ "$(cp_after cp-revert)" = "2 new" ]; then
+  pass "a base that cherry-picked the branch's first commit and reverted it does not lose that commit on the rebase of base: the tip holds both commits, and the feature file is new"
+else
+  fail "a cherry-pick the base reverted: $cp_revert / $(cp_after cp-revert)"
+fi
+project --repo "$MB" state cp-revert dropped "the test is over" >/dev/null
+cp_task cp-kept
+cp_pick cp-kept && git -C "$MBX" push -q origin main
+cp_kept=$(land --repo "$MB" start cp-kept >/dev/null && land --repo "$MB" base cp-kept 2>&1 || true)
+cp_task cp-edited
+cp_pick cp-edited && echo newer > "$MBX/cp-edited-feature.txt" && git -C "$MBX" commit -q -am "fix: the feature, newer" && git -C "$MBX" push -q origin main
+cp_edited_exit=0
+cp_edited=$(land --repo "$MB" start cp-edited >/dev/null && land --repo "$MB" base cp-edited 2>&1) || cp_edited_exit=$?
+if [ "$(field 'd["moved"]' <<<"$cp_kept" 2>/dev/null)" = True ] && [ "$(cp_after cp-kept)" = "1 new" ] \
+  && [ "$cp_edited_exit" = 1 ] && grep -qF '"cp-edited-feature.txt"' <<<"$cp_edited" && grep -qF "a builder resolves it in the worktree" <<<"$cp_edited" \
+  && [ "$(mb_kept cp-edited conflict 'd["files"]')" = "['cp-edited-feature.txt']" ]; then
+  pass "a commit the base cherry-picked and kept becomes empty on the rebase of base and is dropped, with no stop; one the base cherry-picked and then edited on the same lines is a conflict that a builder resolves"
+else
+  fail "a cherry-pick the base kept or edited: $cp_kept / $(cp_after cp-kept) / $cp_edited_exit / $cp_edited"
+fi
+project --repo "$MB" state cp-kept dropped "the test is over" >/dev/null
+project --repo "$MB" state cp-edited dropped "the test is over" >/dev/null
+
 # A commit added to the branch after the proposal, then the new landing, a clean first rebase, the wait and the second
 # rebase: the second rebase starts again from the tip before Lem's own first one, so the commit is still on the branch,
 # and propose says what one rebase with no wait says.
