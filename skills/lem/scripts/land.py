@@ -3886,7 +3886,7 @@ def wait_for_load(task: Task, pid: int | None = None) -> dict | None:
 
 
 def seconds_since(stamp: str, now: datetime | None = None) -> int:
-    """The whole seconds from a stamp of the form `now_utc` writes to now."""
+    """The whole seconds from a stamp of the form `lem_clock.stamp` writes to now."""
     then = datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
     return max(0, int(((now or datetime.now(UTC)) - then).total_seconds()))
 
