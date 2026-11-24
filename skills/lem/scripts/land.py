@@ -3870,7 +3870,7 @@ def jev_spec(finding: dict, condition: str) -> dict:
         "state": finding_state(finding),
         "questions": {JEV_QUESTION: {
             "type": "noul",
-            "instructions": "This finding is a defect that an agent saw in the code outside the change it worked on, and called under the bar "
+            "instructions": "This finding is a defect that an agent saw in the change it worked on or in the code outside it, and called under the bar "
                             "for an item of the backlog. Is the finding over the bar?",
             "yes": f"The finding meets the bar: {condition}.",
             "no": "The finding does not meet that bar.",

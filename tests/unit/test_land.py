@@ -1530,6 +1530,11 @@ class TheSpecOfAFinding(unittest.TestCase):
         self.assertEqual(body["questions"]["over"]["criteria"], {"true": "The finding meets the bar: it is red.", "false": "The finding does not meet that bar."})
         self.assertEqual(land.jev_spec({"where": "", "title": "", "run": "f is slow"}, "it is red")["state"], {"run": "f is slow"})
 
+    def test_the_instructions_fit_a_finding_of_the_change_too(self) -> None:
+        # a `## Left open` finding is of the change itself, so the question does not say every finding is outside it (review 1, finding 5)
+        said = land.jev_spec({"where": "", "title": "", "run": "no test holds f"}, "it is red")["questions"][land.JEV_QUESTION]["instructions"]
+        self.assertIn("in the change it worked on or in the code outside it", said)
+
 
 class TheReadOfEachFinding(JevStandIn):
     """`land.jev_read`, the read `propose` makes: each finding called under the bar once, kept in `landing.json`
