@@ -3444,6 +3444,85 @@ class ResumeAsRequest(unittest.TestCase):
         self.assertFalse((self.state / "tasks" / "card-foot-2").exists())
 
 
+class ResumedSlug(unittest.TestCase):
+    """The slug of the task a dropped one goes on in (`resumed_slug`), from the line of
+    `resumed-from.txt` files back to its first task."""
+
+    # More reads of `resumed-from.txt` than any line of resumes here has: past them,
+    # the walk goes round, and the case stops it.
+    READS = 50
+
+    def setUp(self) -> None:
+        made = tempfile.TemporaryDirectory()
+        self.addCleanup(made.cleanup)
+        self.root = Path(made.name)
+        self.tasks = self.root / "state" / "tasks"
+        project.STATE_ROOTS[self.root] = self.root / "state"
+        self.addCleanup(project.STATE_ROOTS.pop, self.root)
+
+    def task(self, slug: str, came: str | None = None) -> Path:
+        (self.tasks / slug).mkdir(parents=True)
+        if came is not None:
+            (self.tasks / slug / project.RESUMED_FROM).write_text(
+                came, encoding="utf-8"
+            )
+        return self.tasks / slug / project.RESUMED_FROM
+
+    def slug(self, dropped: str) -> str:
+        """`resumed_slug` of DROPPED, with a walk that goes round stopped as a failure
+        of the case."""
+        from unittest import mock
+
+        reads = 0
+        read = project.text_of
+
+        def counted(file: Path) -> str:
+            nonlocal reads
+            reads += 1
+            if reads > self.READS:
+                raise AssertionError(f"the walk read {file} {reads} times")
+            return read(file)
+
+        with mock.patch.object(project, "text_of", counted):
+            return project.resumed_slug(self.root, dropped)
+
+    def test_the_first_task_of_the_line_with_the_next_free_number(self) -> None:
+        self.task("gift-note")
+        self.task("gift-note-2", "gift-note\n")
+        self.task("gift-note-3", "gift-note-2\n")
+        self.assertEqual(self.slug("gift-note-3"), "gift-note-4")
+        self.assertEqual(self.slug("gift-note"), "gift-note-4")
+
+    def test_a_blank_link_and_a_line_that_goes_round_are_refused_with_the_file(
+        self,
+    ) -> None:
+        fix = (
+            ": it names the task this one was resumed from; write the slug of that "
+            "task into it, or delete it when there is none"
+        )
+        self.task("gift-note")
+        blank = self.task("gift-note-2", " \n")
+        self.assertEqual(self.refused("gift-note-2"), f"{blank} is blank{fix}")
+        back = self.task("gift-wrap", "gift-wrap-2\n")
+        self.task("gift-wrap-2", "gift-wrap\n")
+        self.assertEqual(
+            self.refused("gift-wrap-2"),
+            f"{back} names 'gift-wrap-2', which this line of resumes met already "
+            f"(gift-wrap-2, gift-wrap){fix}",
+        )
+        own = self.task("gift-box", "gift-box\n")
+        self.assertEqual(
+            self.refused("gift-box"),
+            f"{own} names 'gift-box', which this line of resumes met already "
+            f"(gift-box){fix}",
+        )
+
+    def refused(self, dropped: str) -> str:
+        with self.assertRaises(project.SettingsError) as caught:
+            self.slug(dropped)
+        return str(caught.exception)
+
+
 class ResumedFiles(unittest.TestCase):
     """What `lem project resume` copies of a dropped task's files (`resumed_files`):
     every document and record for a task with its breaker, and for a task the release

@@ -3860,12 +3860,24 @@ def cmd_seat_again(root: Path, slug: str) -> dict:
 def resumed_slug(root: Path, slug: str) -> str:
     """The slug of the task a dropped one goes on in: the first slug of its line (the
     task it came from, when it came from one) with the next free number, `gift-note-2`,
-    then `gift-note-3`."""
-    first = slug
+    then `gift-note-3`. A link that is blank, or that names a task the line met
+    already, is refused with its file: the walk would go round for ever."""
+    first, met = slug, [slug]
     while (state_root(root) / "tasks" / first / RESUMED_FROM).is_file():
-        first = (
-            text_of(state_root(root) / "tasks" / first / RESUMED_FROM).strip() or first
-        )
+        file = state_root(root) / "tasks" / first / RESUMED_FROM
+        first = text_of(file).strip()
+        if not first or first in met:
+            said = (
+                f"names {first!r}, which this line of resumes met already "
+                f"({', '.join(met)})"
+                if first
+                else "is blank"
+            )
+            raise SettingsError(
+                f"{file} {said}: it names the task this one was resumed from; write "
+                "the slug of that task into it, or delete it when there is none"
+            )
+        met.append(first)
     taken = {path.name for path in (state_root(root) / "tasks").iterdir()}
     return next(f"{first}-{n}" for n in range(2, 1000) if f"{first}-{n}" not in taken)
 
