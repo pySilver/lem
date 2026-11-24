@@ -151,7 +151,9 @@ session list` gives as `session`; compare the two with no regard to case.
 
 `agtermctl session status blocked --blink --auto-reset --target "$AGTERM_SESSION_ID"`: the sidebar
 marks the session, and the mark goes back to idle once the owner visits it (the options of
-`agtermctl session status --help`, read 2026-11-21). Not run yet.
+`agtermctl session status --help`, read 2026-11-21). Run (lem, 2026-11-23): other status hooks set
+the session `active` again at the end of its turn. The plugin's Stop hook (`lem-ask hook-stop`) sets
+it `blocked` again while a page of `lem-ask` is open; a question asked in the terminal loses its mark.
 
 Its reverse, for an answer that came from elsewhere while the owner never visited the session
 (`inbox-reply`): `agtermctl session status idle --target "$AGTERM_SESSION_ID"` (the states of the

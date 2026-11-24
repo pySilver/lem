@@ -565,8 +565,7 @@ card "lem-ask close after the board's answer is not taken: the page closes, and 
 
 # The asking glyph against status hooks. The plugin's async Stop hook acts only when a question page is open,
 # re-posts the asking status (with --auto-reset) whenever another hook posted over it, and stops once the
-# page is gone. Its hooks.json guard keeps Python out of sessions outside agterm and machines without it.
-# A timed-out wait leaves a glyph that a visit clears.
+# page is gone. A timed-out wait leaves a glyph that a visit clears.
 GLYPH=$(cat <<'PY'
 import importlib.machinery, importlib.util, json, os, sys, types
 sys.path.insert(0, sys.argv[1].rsplit("/lem/", 1)[0])  # src, the folder of Lem's package, which lem-ask imports from
@@ -626,20 +625,23 @@ check "a timed-out question leaves a glyph that a visit clears" timeout \
   'r["code"] == 4 and r["posts"][-1][:2] == ["blocked", "--auto-reset"]'
 nohook=$(env -u AGTERM_ENABLED "$PY" -I -B "$MAIN" lem-ask hook-stop < /dev/null; echo "rc=$?")
 if [ "$nohook" = "rc=0" ]; then pass "Stop hook is silent and exits 0 outside agterm"; else fail "Stop hook outside agterm: $nohook"; fi
-# The hooks.json command itself, run the way Claude Code runs a command with no args: through a shell.
-HOOKCMD=$("$PY" -I -B -c 'import json,sys; print(json.load(open(sys.argv[1]))["hooks"]["Stop"][0]["hooks"][0]["command"])' skills/lem-ask/hooks/hooks.json)
-# A stand-in for bin/lem-ask that leaves a mark and exits 9: lem-ask itself is silent outside agterm, so only
-# the guard keeps the stand-in from running, and a run with a session and a python3 shows that it can run.
-FAKE=$WORK/fake-plugin
-mkdir -p "$FAKE/bin" && printf '#!/bin/sh\n: > "%s/ran"\nexit 9\n' "$FAKE" > "$FAKE/bin/lem-ask" && chmod +x "$FAKE/bin/lem-ask"
-guard1=$(env -u AGTERM_SESSION_ID CLAUDE_PLUGIN_ROOT="$FAKE" sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
-guard2=$(env AGTERM_SESSION_ID=S1 PATH=/nonexistent CLAUDE_PLUGIN_ROOT="$FAKE" /bin/sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
-ran_before=$([ -e "$FAKE/ran" ] && echo yes || echo no)
-guard3=$(env AGTERM_SESSION_ID=S1 CLAUDE_PLUGIN_ROOT="$FAKE" sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
-if [ "$guard1" = "rc=0" ] && [ "$guard2" = "rc=0" ] && [ "$ran_before" = no ] && [ "$guard3" = "rc=9" ] && [ -e "$FAKE/ran" ]; then
-  pass "hooks.json guard: silent exit 0 with no agterm session, and with no python3"
+# The plugin's hooks.json command itself, run the way Claude Code runs a command with no args: through a
+# shell, with the hook's JSON on stdin. Outside agterm it ends at once; in a session with no question page
+# it asks agterm for the tree once (a stand-in agtermctl that notes its calls) and ends. Both are silent.
+HOOKCMD=$("$PY" -I -B -c 'import json,sys; print(json.load(open(sys.argv[1]))["hooks"]["Stop"][0]["hooks"][0]["command"])' hooks/hooks.json)
+STANDIN=$WORK/agtermctl
+printf '#!/bin/sh\necho "$*" >> "%s/asked"\necho %s\n' "$WORK" \
+  "'{\"ok\": true, \"result\": {\"tree\": {\"workspaces\": [{\"sessions\": [{\"id\": \"S1\", \"status\": \"active\", \"htmlOverlays\": []}]}]}}}'" \
+  > "$STANDIN" && chmod +x "$STANDIN"
+stop1=$(echo '{"hook_event_name": "Stop"}' | env LEM_SERVE=off CLAUDE_PLUGIN_ROOT="$PWD" sh -c "$HOOKCMD" 2>&1; echo "rc=$?")
+asked_before=$([ -e "$WORK/asked" ] && echo yes || echo no)
+stop2=$(echo '{"hook_event_name": "Stop"}' | env -u AGTERM_WINDOW_ID -u AGTERM_PANE_ID LEM_SERVE=off AGTERM_ENABLED=1 AGTERM_SESSION_ID=S1 AGTERMCTL="$STANDIN" \
+  CLAUDE_PLUGIN_ROOT="$PWD" sh -c "$HOOKCMD" 2>&1; echo "rc=$?")
+asked=$(cat "$WORK/asked" 2>/dev/null)
+if [ "$stop1" = "rc=0" ] && [ "$asked_before" = no ] && [ "$stop2" = "rc=0" ] && [ "$asked" = "tree --json" ]; then
+  pass "the plugin's Stop hook: silent exit 0 outside agterm, and in a session with no question page one look at the tree"
 else
-  fail "hooks.json guard: no session [$guard1], no python3 [$guard2], ran before a session [$ran_before], with a session [$guard3]"
+  fail "the plugin's Stop hook: outside agterm [$stop1], asked before a session [$asked_before], in a session [$stop2], asked [$asked]"
 fi
 
 # A whole file in a code block is capped; past the cap the spec has to name its lines.

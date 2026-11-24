@@ -355,7 +355,7 @@ class TheHomeFoldersWriters(unittest.TestCase):
         )
 
     def test_the_hooks_reach_no_writer(self) -> None:
-        # the plugin's hooks are these three modules, each the first word after the
+        # the plugin's hooks are these four modules, each the first word after the
         # launcher's path; the board server's starts `serve.py --ensure`, which writes
         # no setting
         hooks = json.loads(
@@ -368,7 +368,7 @@ class TheHomeFoldersWriters(unittest.TestCase):
             for hook in entry["hooks"]
         }
         self.assertEqual(
-            scripts, {"corrections.py", "serve_hook.py", "session_hook.py"}
+            scripts, {"corrections.py", "serve_hook.py", "session_hook.py", "ask.py"}
         )
         self.assertIn(
             '"--ensure"]', (paths.PACKAGE / "serve_hook.py").read_text(encoding="utf-8")
@@ -377,6 +377,7 @@ class TheHomeFoldersWriters(unittest.TestCase):
         for hook in (
             ("serve_hook.py", "main"),
             ("session_hook.py", "main"),
+            ("ask.py", "hook_stop"),
             ("serve.py", "ensure"),
             ("corrections.py", "cmd_hook"),
             ("corrections.py", "cmd_worker"),

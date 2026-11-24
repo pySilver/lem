@@ -103,11 +103,11 @@ def python() -> dict:
         "found": found is not None,
         "detail": detail,
         "used_for": (
-            "every script of Lem, its commands and its two hooks; the settings file is "
+            "every script of Lem, its commands and its hooks; the settings file is "
             "read with a module that came with Python 3.11"
         ),
         "without_it": (
-            "no command of Lem runs, and the plugin's two hooks do nothing in a "
+            "no command of Lem runs, and the plugin's hooks do nothing in a "
             f"session; run {lem_python.FIX}"
         ),
     }

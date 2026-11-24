@@ -44,6 +44,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" ask hook-stop",
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }

@@ -748,10 +748,12 @@ session = launch + "session_hook"
 matchers = {event: [group.get("matcher") for group in groups] for event, groups in hooks.items()}
 ok = ok and commands == {"UserPromptSubmit": [launch + "corrections hook"],
                          "SessionStart": [launch + "serve_hook", session],
-                         "PreCompact": [session]}
+                         "PreCompact": [session],
+                         "Stop": [launch + "ask hook-stop"]}
 ok = ok and matchers["SessionStart"] == ["startup|resume", "startup|resume|clear|compact|fork"] and matchers["PreCompact"] == ["auto|manual"]
+ok = ok and matchers["Stop"] == [None] and hooks["Stop"][0]["hooks"][0].get("async") is True
 sys.exit(not ok)' "$PWD"; then
-  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin, from GitHub at the tag of that release and with its version; bin/ holds the command lem, a file of its own, and the two commands lem-ask and lem-jev as links to it, and no plain jev; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, and a task session's hooks of a compaction and of each session's start, each started by the plugin's own path through src/lem/python.py with its module's name"
+  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin, from GitHub at the tag of that release and with its version; bin/ holds the command lem, a file of its own, and the two commands lem-ask and lem-jev as links to it, and no plain jev; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, a task session's hooks of a compaction and of each session's start, and lem-ask's Stop hook in the background, each started by the plugin's own path through src/lem/python.py with its module's name"
 else
   fail "the plugin files in .claude-plugin and bin"
 fi

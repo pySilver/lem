@@ -106,6 +106,7 @@ class HookStart(unittest.TestCase):
             {"LEM_TASK": "gift-note"},
             {"hook_event_name": "PreCompact"},
         ),
+        ("ask", ["hook-stop"], {}, {"hook_event_name": "Stop"}),
     )
 
     def loaded(self, argv: list[str], task: dict, event: dict) -> tuple[set, str, int]:

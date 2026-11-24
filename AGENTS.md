@@ -285,7 +285,7 @@ Each module's docstring says what it does and why; this list says where each thi
   plugin `lem`, the one way Lem installs. `bin/lem` is Lem's one command: `lem NAME` runs the module
   NAME stands for, and `lem help` lists them; `lem-ask` and `lem-jev` are links to it.
   `hooks/hooks.json` starts, each through `src/lem/python.py`, the correction hook, the SessionStart
-  hook of the board server and the two hooks of a task's session. Every text and message says `lem NAME`, so one permission rule, `Bash(lem *)`, covers them on every machine and
+  hook of the board server, the two hooks of a task's session and lem-ask's Stop hook. Every text and message says `lem NAME`, so one permission rule, `Bash(lem *)`, covers them on every machine and
   after every update.
 - `agents/lem-builder.md`: the builder, as a Claude Code agent definition; its body is the builder's
   standing rules, and `harness/claude-code.md` says how it is used and overridden.
@@ -316,8 +316,7 @@ Each module's docstring says what it does and why; this list says where each thi
 ## The shipped skills are copies, not yet under the rules above
 
 Each was copied from where it worked and changed only as far as the new layout needed. Their text
-still names Claude Code's tools,
-and lem-ask's Stop hook (`skills/lem-ask/hooks/hooks.json`) is registered by nothing. Bring one under
+still names Claude Code's tools. Bring one under
 the capability rule when a second agent has to run it, not before.
 
 The set is deliberately small. A tool with its own life (revmux, agterm, the mailbox chat, webrev,
