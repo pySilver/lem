@@ -139,6 +139,8 @@ CALL_SECONDS = 60
 EXIT_TIMEOUT = 124
 EXIT_NOT_STARTED = 127
 EXIT_NOT_ANSWERING = 2
+# The most characters kept from a failed status call in the door's `said`.
+DOOR_SAID_CHARS = 300
 # The variables Plannotator 0.29.0 reads to name the session of a call
 # (`SESSION_VARIABLES` and `SESSIONLESS_HOSTS` of `inbox-call-command.ts`,
 # `inboxHostSessionFromEnv`, read in its binary on 2026-11-22), and the two that name a
@@ -211,9 +213,10 @@ class InboxError(Exception):
 def environment(env: dict | None = None) -> dict:
     """The environment of every call: the server's, less the variables that name
     a session."""
+    source = os.environ if env is None else env
     return {
-        name: value
-        for name, value in (os.environ if env is None else env).items()
+        name: setting
+        for name, setting in source.items()
         if name not in SESSION_VARIABLES
     }
 
@@ -221,54 +224,60 @@ def environment(env: dict | None = None) -> dict:
 # --- the rule: pure functions over the model ------------------------------------------
 
 
-def claude_of(t: lem_board_model.Task) -> str | None:
+def claude_of(task: lem_board_model.Task) -> str | None:
     """The task's newest Claude Code session: the `claude` of its newest
     `session.transcript` after its newest `session.open`, whose `source` is not `fork`;
     None when there is none."""
-    events = t.events
+    events = task.events
     start = max(
-        (i for i, e in enumerate(events) if e.get("event") == "session.open"),
+        (
+            index
+            for index, event in enumerate(events)
+            if event.get("event") == "session.open"
+        ),
         default=-1,
     )
-    for e in reversed(events[start + 1 :]):
+    for event in reversed(events[start + 1 :]):
         if (
-            e.get("event") == "session.transcript"
-            and e.get("source") != "fork"
-            and isinstance(e.get("claude"), str)
-            and e["claude"]
+            event.get("event") == "session.transcript"
+            and event.get("source") != "fork"
+            and isinstance(event.get("claude"), str)
+            and event["claude"]
         ):
-            return e["claude"]
+            return event["claude"]
     return None
 
 
-def answers(t: lem_board_model.Task, m: lem_board_model.Model, bm: ModuleType) -> bool:
+def answers(
+    task: lem_board_model.Task, model: lem_board_model.Model, bm: ModuleType
+) -> bool:
     """Whether the task's session can take a reply now: the board knows it lives
     and answers."""
-    f = bm.live_of(t, m)
-    return bool(f and f["live"] and not f["unanswered"])
+    live = bm.live_of(task, model)
+    return bool(live and live["live"] and not live["unanswered"])
 
 
-def merge_asks(t: lem_board_model.Task, bm: ModuleType) -> bool:
+def merge_asks(task: lem_board_model.Task, bm: ModuleType) -> bool:
     """Whether a merge row asks merge or not now: a proposal, and the merge agent's
     review of its tip that calls the owner, as one read of the model (decision 6). A
     refused merge, and an open task with no proposal or no review of its tip, go as
     a note."""
-    review, tip = t.merge_review, (t.proposal or {}).get("tip")
-    if not (t.proposal and tip and review and not t.refused):
+    review, tip = task.merge_review, (task.proposal or {}).get("tip")
+    if not (task.proposal and tip and review and not task.refused):
         return False
     of = review.get("tip")
     return bool(of) and (str(tip).startswith(str(of)) or str(of).startswith(str(tip)))
 
 
 def commit_of(
-    t: lem_board_model.Task, whole: Callable[[str], object] | None
+    task: lem_board_model.Task, whole: Callable[[str], object] | None
 ) -> str | None:
     """The whole commit of the task's proposal: WHOLE(slug), `proposed` of its
     `landing.json`, when it is 40 hex digits and the commit the model's proposal names
     (its first 9 digits, as the `proposed` event keeps them); None otherwise, and the
     merge then asks nothing."""
-    short = (t.proposal or {}).get("tip")
-    full = whole(t.slug) if whole and short else None
+    short = (task.proposal or {}).get("tip")
+    full = whole(task.slug) if whole and short else None
     return (
         full
         if isinstance(full, str)
@@ -280,7 +289,7 @@ def commit_of(
 
 def thing_of(
     row: dict,
-    m: lem_board_model.Model,
+    model: lem_board_model.Model,
     bm: ModuleType,
     whole: Callable[[str], object] | None = None,
 ) -> dict | None:
@@ -288,9 +297,9 @@ def thing_of(
     gives the whole commit Lem proposed last (`landing.json`'s `proposed`). None while
     the task's session opened less than GRACE_MS ago and has not logged its Claude Code
     session: no form can be told yet."""
-    t, kind = row["t"], row["kind"]
-    claude = claude_of(t)
-    tip = commit_of(t, whole) if kind == "merge" else None
+    task, kind = row["t"], row["kind"]
+    claude = claude_of(task)
+    tip = commit_of(task, whole) if kind == "merge" else None
     # what the row itself allows, apart from who can take the reply: a task with no
     # session, one whose session stopped, one queued after a dropped task, a refused
     # merge and a merge with no review of its tip or no whole commit ask nothing, nor
@@ -298,35 +307,35 @@ def thing_of(
     can = (
         kind not in ("session", "stopped", "after_dropped")
         and not row.get("say")
-        and (kind != "merge" or (merge_asks(t, bm) and tip is not None))
+        and (kind != "merge" or (merge_asks(task, bm) and tip is not None))
     )
-    live = answers(t, m, bm)
+    live = answers(task, model, bm)
     if (
         can
         and live
         and claude is None
-        and t.opened
-        and m.now - t.opened["ts"] < bm.GRACE_MS
+        and task.opened
+        and model.now - task.opened["ts"] < bm.GRACE_MS
     ):
         return None
     asks = can and live and claude is not None
     if kind == "merge" and tip is None:
-        tip = (t.proposal or {}).get("tip")
+        tip = (task.proposal or {}).get("tip")
     return {
         "key": row["key"],
-        "task": t.slug,
+        "task": task.slug,
         "kind": kind,
         "form": QUESTION if asks else NOTE,
         "asks": can,
         "session": claude if asks else None,
         "tip": str(tip) if tip else None,
-        "block": t.last_ts,
+        "block": task.last_ts,
     }
 
 
 def things_of(
     rows: list[dict],
-    m: lem_board_model.Model,
+    model: lem_board_model.Model,
     bm: ModuleType,
     whole: Callable[[str], object] | None = None,
 ) -> dict:
@@ -335,28 +344,28 @@ def things_of(
     answers, only the session's own note for a task that has a row for its missing, deaf
     or stopped session, and none for a row whose session cannot be told
     yet (`thing_of`)."""
-    without = {r["t"].slug for r in rows if r["kind"] in ("session", "stopped")}
+    without = {row["t"].slug for row in rows if row["kind"] in ("session", "stopped")}
     out = {}
     for row in rows:
         if row["kind"] in ("review", "card") or (
             row["kind"] not in ("session", "stopped") and row["t"].slug in without
         ):
             continue
-        thing = thing_of(row, m, bm, whole)
+        thing = thing_of(row, model, bm, whole)
         if thing is not None:
             out[row["key"]] = thing
     return out
 
 
-def same(a: dict, b: dict) -> bool:
-    return all(a.get(part) == b.get(part) for part in SAME)
+def same(entry: dict, thing: dict) -> bool:
+    return all(entry.get(part) == thing.get(part) for part in SAME)
 
 
-def session_side(a: dict, b: dict) -> bool:
+def session_side(entry: dict, thing: dict) -> bool:
     """Whether two things of one row differ only in the session they go as, or in the
     form that a session which can take a reply, or none, gives them: not in what the row
     itself asks, its tip or its block."""
-    return all(a.get(part) == b.get(part) for part in ("asks", "tip", "block"))
+    return all(entry.get(part) == thing.get(part) for part in ("asks", "tip", "block"))
 
 
 def plan(  # noqa: PLR0913 - over the limit before the limit was set
@@ -380,38 +389,48 @@ def plan(  # noqa: PLR0913 - over the limit before the limit was set
     payload; `send`, the things to send once the old thing of their row left the
     record."""
     withdraw, forget, retry, leaving, replaced = [], [], [], set(), set()
-    for r in sent:
-        key = r["key"]
-        w = want.get(key)
+    for entry in sent:
+        key = entry["key"]
+        thing = want.get(key)
         if key in held:
             # the task's session works on his answer: its question stays as it was sent,
             # until the turn ends
             continue
-        if not r.get("message_id"):
+        if not entry.get("message_id"):
             # written before a call that never answered: sent again only as the same
             # thing while he is away
-            if away and r.get("payload") and w is not None and same(r, w):
+            if (
+                away
+                and entry.get("payload")
+                and thing is not None
+                and same(entry, thing)
+            ):
                 if door:
-                    retry.append(r)
+                    retry.append(entry)
                 continue
-            forget.append(r)
+            forget.append(entry)
             leaving.add(key)
             continue
-        if w is not None and same(r, w):
+        if thing is not None and same(entry, thing):
             continue
         if not (away and door) and (
-            (w is not None and session_side(r, w)) or (w is None and key in behind)
+            (thing is not None and session_side(entry, thing))
+            or (thing is None and key in behind)
         ):
             continue
-        if r.get("form") == QUESTION:
-            withdraw.append(r)
-            if away and door and (w is not None or key in behind):
+        if entry.get("form") == QUESTION:
+            withdraw.append(entry)
+            if away and door and (thing is not None or key in behind):
                 replaced.add(key)
         else:
-            forget.append(r)
+            forget.append(entry)
         leaving.add(key)
-    kept = {r["key"] for r in sent} - leaving
-    send = [w for key, w in want.items() if key not in kept] if away and door else []
+    kept = {saved["key"] for saved in sent} - leaving
+    send = (
+        [thing for key, thing in want.items() if key not in kept]
+        if away and door
+        else []
+    )
     return {
         "withdraw": withdraw,
         "replaced": replaced,
@@ -428,8 +447,8 @@ def task_link(link: Callable[[str, str], str], name: str, slug: str) -> str:
     return f"[{slug} on the board]({link(name, slug)})"
 
 
-def no_session(t: lem_board_model.Task, link_line: str, extra: str = "") -> str:
-    return f"{t.slug} has no session; open it on the board: {link_line}{extra}"
+def no_session(task: lem_board_model.Task, link_line: str, extra: str = "") -> str:
+    return f"{task.slug} has no session; open it on the board: {link_line}{extra}"
 
 
 def block(
@@ -448,7 +467,7 @@ def block(
 def message_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before the limit was set
     thing: dict,
     row: dict,
-    m: lem_board_model.Model,
+    model: lem_board_model.Model,
     bm: ModuleType,
     *,
     task_dir: Path,
@@ -458,13 +477,13 @@ def message_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before
     """The send's subject, body and attachments for a thing: the same case as the task's
     session says, by the row's kind (the plan of away-questions-reach-phone, task 1,
     "The message")."""
-    t, kind = row["t"], row["kind"]
-    slug = t.slug
+    task, kind = row["t"], row["kind"]
+    slug = task.slug
     verb = bm.wait_say(row)["verb"]
     attachments: list[str] = []
     if thing["form"] == NOTE:
         if kind == "after_dropped":
-            body = no_session(t, link_line, f"\n\n{bm.answer_of(t)}")
+            body = no_session(task, link_line, f"\n\n{bm.answer_of(task)}")
         elif kind == "stopped" and row.get("unread"):
             body = (
                 f"The session of {slug} stopped, and Lem cannot read it: "
@@ -473,15 +492,17 @@ def message_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before
                 f"the board: {link_line}"
             )
         elif kind == "stopped":
-            body = (
-                f"The session of {slug} stopped after the status message, and Lem "
-                "opened no fresh one by itself."
-                if row.get("restarted") is False
-                else (
+            if row.get("restarted") is False:
+                body = (
+                    f"The session of {slug} stopped after the status message, and Lem "
+                    "opened no fresh one by itself."
+                )
+            else:
+                body = (
                     f"The session of {slug} stopped, and so did the fresh one that "
                     "took its place."
                 )
-            ) + f" Open a fresh one on the board: {link_line}"
+            body = f"{body} Open a fresh one on the board: {link_line}"
         elif kind == "session" and row.get("deaf"):
             # its session lives: no open waits on the board, and the row says which
             # case holds and the act that works. A note kept while the case changes
@@ -492,59 +513,61 @@ def message_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before
             )
         elif kind == "blocked" and row.get("say"):
             body = f"{row['say']}\n\nThe task on the board: {link_line}"
-        elif kind == "merge" and t.refused:
-            said = t.refused.get("said") or "nothing"
+        elif kind == "merge" and task.refused:
+            said = task.refused.get("said") or "nothing"
             body = (
                 f"The merge of {slug} did not go through: {said}\n\n"
                 f"The task on the board: {link_line}"
             )
-        elif kind == "merge" and answers(t, m, bm) and claude_of(t):
-            missing = (
-                "no proposal of Lem's on record"
-                if not t.proposal
-                else "no merge review of the commit Lem proposed last"
-                if not merge_asks(t, bm)
-                else "no whole commit of Lem's last proposal on record"
-            )
+        elif kind == "merge" and answers(task, model, bm) and claude_of(task):
+            if task.proposal:
+                missing = (
+                    "no whole commit of Lem's last proposal on record"
+                    if merge_asks(task, bm)
+                    else "no merge review of the commit Lem proposed last"
+                )
+            else:
+                missing = "no proposal of Lem's on record"
             body = (
                 f"{verb}: the pull request of {slug} waits for you with {missing}. "
                 f"Open it on the board: {link_line}"
             )
         else:
             body = no_session(
-                t, link_line, "" if kind == "session" else f"\n\nWhat waits: {verb}."
+                task, link_line, "" if kind == "session" else f"\n\nWhat waits: {verb}."
             )
         return {"subject": f"{slug}: {verb}", "body": body, "attachments": attachments}
-    state_line = t.shown or t.text
+    state_line = task.shown or task.text
+    order = ORDER.match(task.text or "") if kind == "held" else None
     if kind == "breaker":
-        d = t.breaker
-        document = task_dir / str(d.document) if d.document else None
+        breaker = task.breaker
+        document = task_dir / str(breaker.document) if breaker.document else None
         try:
             text = document.read_text(encoding="utf-8").strip() if document else ""
         except OSError:
             text = ""
-        what = bm.flat(d.what) if d.what else state_line
+        what = bm.flat(breaker.what) if breaker.what else state_line
         body = (
-            (text or f"Breaker {d.id} of {slug}: {what}")
+            (text or f"Breaker {breaker.id} of {slug}: {what}")
             + "\n\n"
             + block(
                 "question",
-                f"Breaker {d.id} of {slug}: help, park or drop?",
+                f"Breaker {breaker.id} of {slug}: help, park or drop?",
                 (
                     f"{what.rstrip('.')}. The task's session waits for your answer. "
                     "Help: write how it goes on in your answer's note."
                 ),
                 ("Help", "Park", "Drop"),
-                f"the build of {slug} stopped at breaker {d.id}",
+                f"the build of {slug} stopped at breaker {breaker.id}",
             )
         )
     elif kind == "merge":
-        pr = bm.pr_of(t)
+        pr = bm.pr_of(task)
         number = f" #{pr['n']}" if pr else ""
         url = f" ({pr['url']})" if pr and pr.get("url") else ""
         tip = thing["tip"]
-        why = bm.review_why(t.merge_review)
-        body = f"The merge review of {slug}: {why}\n\n" + block(
+        why = bm.review_why(task.merge_review)
+        question = block(
             "question",
             f"Merge pull request{number} of {slug} at commit {tip}?",
             (
@@ -554,6 +577,7 @@ def message_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before
             ("Merge", "Not now"),
             f"the merge of {slug} waits for you",
         )
+        body = f"The merge review of {slug}: {why}\n\n{question}"
     elif kind == "plan":
         if plan_file is not None:
             attachments.append(str(plan_file))
@@ -566,7 +590,7 @@ def message_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before
             ("Build", "Drop"),
             f"the build of {slug} waits for your word",
         )
-    elif kind == "held" and (order := ORDER.match(t.text or "")):
+    elif order:
         words = order.group(1)
         body = block(
             "question-text",
@@ -591,7 +615,7 @@ def message_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before
         body = block(
             "question-text",
             f"{slug}: {verb}",
-            f"“{state_line}”. {bm.answer_of(t)}",
+            f"“{state_line}”. {bm.answer_of(task)}",
             stopped=f"{slug} waits for you",
         )
     return {
@@ -622,18 +646,20 @@ def read_record(state: Path) -> dict:
     if not isinstance(found, dict):
         found = {}
     found["sent"] = [
-        s for s in found.get("sent") or [] if isinstance(s, dict) and s.get("key")
+        entry
+        for entry in found.get("sent") or []
+        if isinstance(entry, dict) and entry.get("key")
     ]
     return found
 
 
 def write_record(state: Path, record: dict) -> None:
     """Write `inbox.json` whole: a file beside it, then a rename over it."""
-    file = state / RECORD
+    path = state / RECORD
     lem_files.write_json(
-        file,
+        path,
         record,
-        fresh=file.with_name(f".{file.name}.{os.getpid()}.{threading.get_ident()}.tmp"),
+        fresh=path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp"),
     )
 
 
@@ -641,7 +667,7 @@ def unlooked(record: dict) -> str:
     """The record as text without the time of its look, to tell whether a look
     changed it."""
     return json.dumps(
-        {k: v for k, v in record.items() if k != "looked"}, sort_keys=True
+        {key: field for key, field in record.items() if key != "looked"}, sort_keys=True
     )
 
 
@@ -673,10 +699,11 @@ def run_cli(
             check=False,
         )
     except subprocess.TimeoutExpired:
+        command = " ".join(args[:3])
         return (
             EXIT_TIMEOUT,
             "",
-            f"`plannotator {' '.join(args[:3])}` took more than {CALL_SECONDS} s",
+            f"`plannotator {command}` took more than {CALL_SECONDS} s",
         )
     except OSError as error:
         return EXIT_NOT_STARTED, "", f"plannotator did not start: {error}"
@@ -712,17 +739,14 @@ def door_of(
         and status.get("tailnet_url")
         else None
     )
-    why = (
-        None
-        if running and tailnet
-        else NO_TAILNET
-        if running
-        else NOT_ANSWERING
-        if code == EXIT_NOT_ANSWERING
-        else NOT_RUNNING
-        if code == 1
-        else FAILED
-    )
+    if running:
+        why = None if tailnet else NO_TAILNET
+    elif code == EXIT_NOT_ANSWERING:
+        why = NOT_ANSWERING
+    elif code == 1:
+        why = NOT_RUNNING
+    else:
+        why = FAILED
     return {
         "running": running,
         "url": status.get("url") if running else None,
@@ -730,7 +754,7 @@ def door_of(
         "why": why,
         "said": ""
         if why is None
-        else (err.strip() or str(status.get("reason") or ""))[:300],
+        else (err.strip() or str(status.get("reason") or ""))[:DOOR_SAID_CHARS],
     }
 
 
@@ -760,27 +784,27 @@ def call(
             err,
         )
     try:
-        result = json.loads(out)
+        reply = json.loads(out)
     except ValueError as error:
         raise InboxError(
             f"`plannotator inbox call {action}` printed no JSON"
         ) from error
-    if not isinstance(result, dict):
+    if not isinstance(reply, dict):
         raise InboxError(f"`plannotator inbox call {action}` printed no JSON object")
-    return result
+    return reply
 
 
 def replies_after(thread: dict, message_id: str) -> list[str]:
     """The ids of the owner's messages after MESSAGE_ID in a thread as `read_thread`
     gives it in full."""
     messages = (thread.get("thread") or {}).get("messages") or []
-    ids = [m.get("id") for m in messages]
+    ids = [message.get("id") for message in messages]
     if message_id not in ids:
         return []
     return [
-        m["id"]
-        for m in messages[ids.index(message_id) + 1 :]
-        if (m.get("author") or {}).get("kind") == "person" and m.get("id")
+        message["id"]
+        for message in messages[ids.index(message_id) + 1 :]
+        if (message.get("author") or {}).get("kind") == "person" and message.get("id")
     ]
 
 
@@ -841,8 +865,8 @@ class Watcher:
 
     def look_at(self, space: serve.Workspace) -> list[dict]:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
         bm = self.bm
-        m = space.model()
-        if m.meta.get("demo") or m.sessions is None:
+        model = space.model()
+        if model.meta.get("demo") or model.sessions is None:
             # a demo sends nothing; before the server knows which sessions live, no form
             # can be told
             return []
@@ -850,7 +874,7 @@ class Watcher:
         cwd = space.path
         with held(state):
             record = read_record(state)
-        away = m.away is not None
+        away = model.away is not None
         if not away and not record["sent"]:
             return []
         door = door_of(cwd, self.runner)
@@ -862,18 +886,18 @@ class Watcher:
             why=door["why"],
             said=door["said"],
         )
-        rows = bm.waits_of(m)
-        by_key = {r["key"]: r for r in rows}
+        rows = bm.waits_of(model)
+        by_key = {row["key"]: row for row in rows}
         want = things_of(
-            rows, m, bm, lambda slug: space.landing_of(slug).get("proposed")
+            rows, model, bm, lambda slug: space.landing_of(slug).get("proposed")
         )
         steps = plan(
             want,
             record["sent"],
             away=away,
             door=door["tailnet_url"] is not None,
-            behind={r["key"] for r in rows} - want.keys(),
-            held=bm.held_back(m),
+            behind={row["key"] for row in rows} - want.keys(),
+            held=bm.held_back(model),
         )
         done: list[dict] = []
         problems: list[str] = []
@@ -890,60 +914,60 @@ class Watcher:
 
         # a thing forgotten needs no call, so it leaves the record whether the Inbox
         # runs or not
-        for r in steps["forget"]:
-            record["sent"].remove(r)
-            done.append({"workspace": space.name, "did": "forgot", "key": r["key"]})
+        for saved in steps["forget"]:
+            record["sent"].remove(saved)
+            done.append({"workspace": space.name, "did": "forgot", "key": saved["key"]})
         save()
         if not door["running"]:
             return done
         # a thing written before a call that never answered: the same payload and
         # key again
-        for r in steps["retry"]:
+        for saved in steps["retry"]:
             try:
-                result = call(
+                reply = call(
                     "send_message",
-                    r["payload"],
+                    saved["payload"],
                     cwd=cwd,
-                    session=r.get("session"),
+                    session=saved.get("session"),
                     runner=self.runner,
                 )
             except InboxError as error:
-                problems.append(f"the send of {r['key']} again: {error}")
+                problems.append(f"the send of {saved['key']} again: {error}")
                 continue
-            self.sent_as(r, result)
+            self.sent_as(saved, reply)
             save()
-            done.append({"workspace": space.name, "did": "sent", "key": r["key"]})
-            if r.get("form") == QUESTION:
-                self.wake(space, r["task"])
-        for r in steps["withdraw"]:
-            body = REPLACED if r["key"] in steps["replaced"] else WITHDRAWN
+            done.append({"workspace": space.name, "did": "sent", "key": saved["key"]})
+            if saved.get("form") == QUESTION:
+                self.wake(space, saved["task"])
+        for saved in steps["withdraw"]:
+            body = REPLACED if saved["key"] in steps["replaced"] else WITHDRAWN
             payload = {
                 "body": body,
-                "reply_to": r["message_id"],
-                "supersedes": [r["message_id"]],
-                "idempotency_key": f"{r['idempotency_key']}-withdrawn",
+                "reply_to": saved["message_id"],
+                "supersedes": [saved["message_id"]],
+                "idempotency_key": f"{saved['idempotency_key']}-withdrawn",
             }
             try:
                 call(
                     "send_message",
                     payload,
                     cwd=cwd,
-                    session=r.get("session"),
+                    session=saved.get("session"),
                     runner=self.runner,
                 )
                 did = "withdrew"
             except InboxError as error:
                 if not any(
-                    line.startswith(ANSWERED.format(id=r["message_id"]))
+                    line.startswith(ANSWERED.format(id=saved["message_id"]))
                     for line in error.said.splitlines()
                 ):
-                    problems.append(f"the withdrawal of {r['key']}: {error}")
+                    problems.append(f"the withdrawal of {saved['key']}: {error}")
                     continue
                 did = "answered"
-            record["sent"].remove(r)
-            done.append({"workspace": space.name, "did": did, "key": r["key"]})
+            record["sent"].remove(saved)
+            done.append({"workspace": space.name, "did": did, "key": saved["key"]})
         save()
-        recorded = {r["key"] for r in record["sent"]}
+        recorded = {entry["key"] for entry in record["sent"]}
         for thing in steps["send"]:
             if thing["key"] in recorded:
                 continue
@@ -952,7 +976,7 @@ class Watcher:
             message = message_of(
                 thing,
                 row,
-                m,
+                model,
                 bm,
                 task_dir=state / "tasks" / thing["task"],
                 plan_file=found[0] if found else None,
@@ -960,7 +984,7 @@ class Watcher:
             )
             key = f"lem-{space.name}-{thing['key']}-{secrets.token_hex(6)}"
             payload = {
-                **{k: v for k, v in message.items() if v},
+                **{part: field for part, field in message.items() if field},
                 "thread": thing["task"],
                 "project_path": cwd,
                 "idempotency_key": key,
@@ -975,7 +999,7 @@ class Watcher:
             record["sent"].append(entry)
             save()
             try:
-                result = call(
+                reply = call(
                     "send_message",
                     payload,
                     cwd=cwd,
@@ -985,29 +1009,29 @@ class Watcher:
             except InboxError as error:
                 problems.append(f"the send of {thing['key']}: {error}")
                 continue
-            self.sent_as(entry, result)
+            self.sent_as(entry, reply)
             save()
             done.append({"workspace": space.name, "did": "sent", "key": thing["key"]})
             if entry["form"] == QUESTION:
                 self.wake(space, thing["task"])
-        done += self.replies(space, m, record, cwd, problems)
+        done += self.replies(space, model, record, cwd, problems)
         record["problem"] = "; ".join(problems) or None
         save()
         self.say(space.name, record["problem"])
         return done
 
     @staticmethod
-    def sent_as(entry: dict, result: dict) -> None:
+    def sent_as(entry: dict, reply: dict) -> None:
         """What the Inbox answered to a send, into the thing's record; its payload is no
         longer needed."""
         entry.update(
-            message_id=result.get("message_id"),
-            thread_id=result.get("thread_id"),
-            thread_url=result.get("url"),
+            message_id=reply.get("message_id"),
+            thread_id=reply.get("thread_id"),
+            thread_url=reply.get("url"),
             questions=[
-                q.get("key")
-                for q in result.get("questions") or []
-                if isinstance(q, dict) and q.get("key")
+                question.get("key")
+                for question in reply.get("questions") or []
+                if isinstance(question, dict) and question.get("key")
             ],
         )
         entry.pop("payload", None)
@@ -1015,7 +1039,7 @@ class Watcher:
     def replies(
         self,
         space: serve.Workspace,
-        m: lem_board_model.Model,
+        model: lem_board_model.Model,
         record: dict,
         cwd: str,
         problems: list[str],
@@ -1024,20 +1048,20 @@ class Watcher:
         whose question went as a session that no longer runs the task (decision 11
         of away-questions-reach-phone)."""
         done = []
-        for r in record["sent"]:
-            t = m.by_slug.get(r.get("task"))
+        for entry in record["sent"]:
+            task = model.by_slug.get(entry.get("task"))
             if (
-                r.get("form") != QUESTION
-                or not r.get("message_id")
-                or t is None
-                or claude_of(t) == r.get("session")
+                entry.get("form") != QUESTION
+                or not entry.get("message_id")
+                or task is None
+                or claude_of(task) == entry.get("session")
             ):
                 continue
             try:
                 thread = call(
                     "read_thread",
                     {
-                        "message_id": r["message_id"],
+                        "message_id": entry["message_id"],
                         "format": "full",
                         "project_path": cwd,
                     },
@@ -1045,16 +1069,18 @@ class Watcher:
                     runner=self.runner,
                 )
             except InboxError as error:
-                problems.append(f"the read of {r['key']}'s thread: {error}")
+                problems.append(f"the read of {entry['key']}'s thread: {error}")
                 continue
             fresh = [
                 one
-                for one in replies_after(thread, r["message_id"])
-                if one not in r.setdefault("woke", [])
+                for one in replies_after(thread, entry["message_id"])
+                if one not in entry.setdefault("woke", [])
             ]
-            if fresh and self.wake(space, r["task"]):
-                r["woke"] += fresh
-                done.append({"workspace": space.name, "did": "woke", "key": r["key"]})
+            if fresh and self.wake(space, entry["task"]):
+                entry["woke"] += fresh
+                done.append(
+                    {"workspace": space.name, "did": "woke", "key": entry["key"]}
+                )
         return done
 
     def run(self, stopping: threading.Event) -> None:
