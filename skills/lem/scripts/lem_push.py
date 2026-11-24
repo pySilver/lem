@@ -86,7 +86,6 @@ suite sets it.
 
 import base64
 import contextlib
-import fcntl
 import ipaddress
 import json
 import os
@@ -98,7 +97,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from http import HTTPStatus
 from pathlib import Path
@@ -106,6 +105,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import quote, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import lem_files
 import lem_state
 
 if TYPE_CHECKING:
@@ -463,18 +463,10 @@ def device_of(agent: str) -> str:
 _file_lock = threading.Lock()
 
 
-@contextlib.contextmanager
-def held() -> Generator[None, None, None]:
+def held() -> contextlib.AbstractContextManager[None]:
     """Hold `push.lock`: one writer of `push.json` at a time, the server's threads and
     `lem serve --push-test` alike."""
-    folder = home()
-    folder.mkdir(parents=True, exist_ok=True)
-    with _file_lock, (folder / LOCK_FILE).open("a") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(handle, fcntl.LOCK_UN)
+    return lem_files.held(_file_lock, home() / LOCK_FILE)
 
 
 def empty() -> dict:

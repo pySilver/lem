@@ -1,14 +1,17 @@
 """lem_files.py's rules: a file is written whole under a name of its own first, the
 caller's name when it gives one, in a folder that is there unless the caller asks for
-it; a JSON record has the one form of Lem's records.
+it; a JSON record has the one form of Lem's records; a held file holds its thread lock
+and its lock file until the block ends, however it ends.
 
     python3 -B -m unittest discover -s tests/unit
 """
 
+import fcntl
 import importlib
 import os
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -70,6 +73,40 @@ class Whole(unittest.TestCase):
             '{\n  "said": "é",\n  "n": [\n    1\n  ]\n}\n',
         )
         self.assertEqual(self.renamed, [".r"])
+
+
+class Held(unittest.TestCase):
+    def setUp(self) -> None:
+        made = tempfile.TemporaryDirectory()
+        self.addCleanup(made.cleanup)
+        self.file = Path(made.name) / "home" / "push.lock"
+
+    def free(self) -> bool:
+        """Whether another holder could take the lock file now."""
+        with self.file.open("a") as other:
+            try:
+                fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return False
+            fcntl.flock(other, fcntl.LOCK_UN)
+            return True
+
+    def test_both_locks_are_held_inside_and_free_after_and_the_folder_is_made(
+        self,
+    ) -> None:
+        lock = threading.Lock()
+        with lem_files.held(lock, self.file):
+            self.assertTrue(lock.locked())
+            self.assertFalse(self.free())
+        self.assertFalse(lock.locked())
+        self.assertTrue(self.free())
+
+    def test_an_error_inside_frees_both(self) -> None:
+        lock = threading.Lock()
+        with self.assertRaises(KeyError), lem_files.held(lock, self.file):
+            raise KeyError("x")
+        self.assertFalse(lock.locked())
+        self.assertTrue(self.free())
 
 
 if __name__ == "__main__":

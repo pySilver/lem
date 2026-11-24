@@ -99,7 +99,6 @@ no step of a task waits for it.
 """
 
 import contextlib
-import fcntl
 import json
 import os
 import re
@@ -109,7 +108,7 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
@@ -597,16 +596,9 @@ def message_of(  # noqa: C901, PLR0912, PLR0913 - over the limit before the limi
 _lock = threading.Lock()
 
 
-@contextlib.contextmanager
-def held(state: Path) -> Generator[None, None, None]:
+def held(state: Path) -> contextlib.AbstractContextManager[None]:
     """Hold `inbox.lock` of the state folder: one writer of `inbox.json` at a time."""
-    state.mkdir(parents=True, exist_ok=True)
-    with _lock, (state / LOCK).open("a") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(handle, fcntl.LOCK_UN)
+    return lem_files.held(_lock, state / LOCK)
 
 
 def read_record(state: Path) -> dict:
