@@ -402,7 +402,7 @@ class Task:
             )
             history.append({**line, "taken_over_by": later})
         changes = [line for line in everything if line.get("approval") == newest]
-        expected = [whole(criterion) for criterion in approved["criteria"]]
+        expected = [lem_state.whole(criterion) for criterion in approved["criteria"]]
         for change in changes:
             expected = applied(expected, change)
         return {
@@ -480,13 +480,6 @@ def typed(value: str | None, flag: str) -> str:
     if value is None or not value.strip():
         raise DecisionError(f"{flag} needs the criterion's text, word for word")
     return value.strip()
-
-
-def whole(criterion: dict) -> str:
-    """An approved criterion as `lem criteria` compares it: its sentence and the steps
-    of its case, one to a line (criteria.py's `whole`). A change of a step is a change
-    of the criterion."""
-    return "\n".join([criterion["text"], *criterion.get("case", [])])
 
 
 def same(one: str, other: str) -> bool:

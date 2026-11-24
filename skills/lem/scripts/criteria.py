@@ -235,6 +235,10 @@ lem_answers = importlib.import_module("lem_answers")
 # The release a task began on, and the rule that stops a command for a task two
 # releases back.
 lem_release = importlib.import_module("lem_release")
+# A criterion as the owner approved it, one text (`lem_state.whole`, which
+# decisions.py reads too). The board reads it by this name, as criteria.py's own
+# (`lem_board_model.whole`).
+whole = lem_state.whole
 # How long a command of the check gets after each signal of a stop, in seconds, and how
 # long a serial test's wrapper (`project.py serial`) gets after its term: its own
 # cleanup sends its command a term, waits 3 s, sends a kill and waits 3 s more
@@ -324,13 +328,6 @@ def script(name: str, repo: Path, *args: str) -> str:
     if ran.returncode == 0 and ran.stderr:
         sys.stderr.write(ran.stderr)
     return ran.stdout
-
-
-def whole(criterion: dict) -> str:
-    """A criterion as the owner approved it: its sentence and the steps of its case, one
-    to a line. What a digest marks and what a recorded change names; its chart is no
-    part of it."""
-    return "\n".join([criterion["text"], *criterion.get("case", [])])
 
 
 def fences(lines: list[str]) -> list[tuple[int, int, str, int]]:

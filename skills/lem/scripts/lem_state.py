@@ -45,7 +45,9 @@ keeps every other line of the file, the owner's comments too (`edited`).
 
 It also holds the words of a seat whose agent gave an error (`SEAT_ERRORS`,
 `SEAT_NAMES`), which `lem project seat-failed` writes into a block and `land.py` into
-the pull request's line of a stand-in, so that both say one error in one way.
+the pull request's line of a stand-in, so that both say one error in one way. And it
+holds a criterion as one text (`whole`), which `criteria.py` marks and `decisions.py`
+compares, so that both read one criterion in one way.
 """
 
 import contextlib
@@ -967,3 +969,11 @@ def agent_name(line: str) -> str:
     gives it."""
     agent = line.partition("/")[0].partition(":")[0]
     return AGENT_NAMES.get(agent, agent)
+
+
+def whole(criterion: dict) -> str:
+    """A criterion as the owner approved it: its sentence and the steps of its case, one
+    to a line. What a digest marks and what a recorded change names (`lem criteria`),
+    and what `lem decisions` compares an approved criterion as: a change of a step is a
+    change of the criterion; its chart is no part of it."""
+    return "\n".join([criterion["text"], *criterion.get("case", [])])
