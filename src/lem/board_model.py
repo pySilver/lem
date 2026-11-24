@@ -3079,8 +3079,10 @@ def stop_due(t: Task, m: Model) -> dict | None:  # noqa: PLR0911 - over the limi
       agent logs work again, and a logged stop waits for the owner's "Open a session";
     - `stopped`, from that wake, ANSWER_MS after it, when no `session.stopped` came
       after the wake, so that a stop is logged once: with signs that read once the
-      restart is spent, and with signs that do not read at once, since Lem never
-      restarts by itself beside a session it cannot read.
+      restart is spent or a stop stands from before the wake (an unread stop that a
+      turn of the session passed, whose newer stop the owner's "Open a session" takes
+      again), and with signs that do not read at once, since Lem never restarts by
+      itself beside a session it cannot read.
 
     A wake in the same second as a sign counts as before it: the session that answers at
     once works."""
@@ -3128,15 +3130,19 @@ def stop_due(t: Task, m: Model) -> dict | None:  # noqa: PLR0911 - over the limi
         )
     if m.now - wake["ts"] < ANSWER_MS:
         return None
-    if read and not any(
-        e.get("event") == "session.open" and e.get("why") == "stopped"
-        for e in t.events[work + 1 :]
-    ):
-        return (
-            None
-            if stop is not None
-            else {"step": "restart", "session": session, "from": wake["ts"]}
+    if (
+        read
+        and stop is None
+        and not any(
+            e.get("event") == "session.open" and e.get("why") == "stopped"
+            for e in t.events[work + 1 :]
         )
+    ):
+        return {"step": "restart", "session": session, "from": wake["ts"]}
+    # A stop that stands came before this wake, or is the one this wake was for: only
+    # a newer wake (an unread stop that a turn of the session passed, so that the
+    # readable clock sent its own message) logs one newer stop, whose open the owner's
+    # click takes again (`session.guard_refusal`).
     if any(e.get("event") == "session.stopped" for e in t.events[wake["order"] :]):
         return None
     return {"step": "stopped", "session": session, "from": wake["ts"]}

@@ -1969,6 +1969,43 @@ class Guard(unittest.TestCase):
             "unread",
         )
 
+    def test_a_turn_after_an_unread_stop_gets_one_newer_stop_whose_open_acts(
+        self,
+    ) -> None:
+        # review 2 of guard-sees-unreadable-sessions (#60): the session takes a turn at
+        # 12:00 with no state block, its signs read again, and the readable clock sends
+        # its own message at 12:45; the stop of 11:49 still stands
+        bm = session.board_model()
+        turned = {"sign": "2026-11-22T12:00:00Z"}
+        woken = [
+            *self.unread_stop(),
+            self.ev("12:45", "session.wake", session="S1", why="status"),
+        ]
+        self.assertEqual(
+            self.refusal(woken, "restart", "12:55", named=None, **turned), "working"
+        )
+        # one newer stop is due, never a restart, and the server's look takes it
+        self.assertIsNone(self.refusal(woken, "stopped", "12:55", **turned))
+        self.assertEqual(self.refusal(woken, "restart", "12:55", **turned), "working")
+        stopped = [*woken, self.ev("12:55", "session.stopped", session="S1")]
+        # the owner's "Open a session" acts again, and the guard gives nothing more
+        self.assertIsNone(
+            self.refusal(stopped, "restart", "12:56", named=None, **turned)
+        )
+        for at in ("12:56", "17:00"):
+            m = bm.derive(stopped, [], bm.at(f"2026-11-22T{at}:00Z") or 0)
+            m.sessions = {
+                SLUG: {
+                    "live": True,
+                    "agent": True,
+                    "unanswered": False,
+                    "session": "S1",
+                    **self.SIGNS,
+                    **turned,
+                }
+            }
+            self.assertIsNone(bm.stop_due(m.by_slug[SLUG], m), at)
+
     def test_a_pane_that_agterm_has_not_drawn_is_no_agent_for_any_step(self) -> None:
         drawn = [{"id": "S1", "name": SLUG, "workspace": "W1", "realized": False}]
         woken = [
