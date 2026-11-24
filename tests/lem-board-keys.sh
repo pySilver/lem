@@ -165,12 +165,12 @@ base, work, py, log = sys.argv[1:]
 STATE = ("(() => { const cur = document.querySelector('[data-js-cur]'); const focus = document.activeElement?.closest('article.tc');"
          " const panel = document.querySelector('#task > .panel');"
          " return [cur ? cur.dataset.task : '-', focus ? focus.dataset.task : '-', panel ? panel.dataset.task : '-'].join(' '); })()")
-# A wait for what the board's stream brings after a step of the check wrote it has no limit of its own (None):
-# under the load of tests/all.sh the stream brought a proposal after the 15 s of the other waits (2026-11-23)
+# A wait for what the board's stream brings after a step of the check wrote it has no limit of its own (None), and the
+# driver ends it at the suite's: under the load of tests/all.sh the stream brought a proposal after 15 s (2026-11-23)
 def until(label, cond, limit=15000):
     """a print step that waits up to LIMIT ms for COND, then gives LABEL and the state; with LIMIT None it has no
-    limit of its own, so only the suite's time limit (LEM_TEST_LIMIT) ends a wait for a COND that never comes"""
-    end = "Infinity" if limit is None else f"Date.now() + {limit}"
+    limit of its own, and ends at the suite's time limit (LEM_TEST_LIMIT, `lemSuiteLimit` of tests/board-cdp.mjs)"""
+    end = "Date.now() + globalThis.lemSuiteLimit" if limit is None else f"Date.now() + {limit}"
     return {"print": f"new Promise(done => {{ const end = {end}; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {STATE}]) : setTimeout(tick, 100); tick(); }})"}
 def at(label):
     return {"print": f"[{json.dumps(label)}, {STATE}]"}
@@ -329,12 +329,12 @@ opened = [r for e in rows for r in ([e, *entries["stacks"][e]] if e == stack els
 STATE = ("(() => { const cur = document.querySelector('#waits-list [data-js-cur]'); const focus = document.activeElement?.closest('article.wrow, details.wstack');"
          " const panel = document.querySelector('#task > .panel');"
          " return [cur ? cur.id : '-', focus ? focus.id : '-', panel ? panel.dataset.task : '-'].join(' '); })()")
-# A wait for what the board's stream brings after a step of the check wrote it has no limit of its own (None):
-# under the load of tests/all.sh the stream brought a proposal after the 15 s of the other waits (2026-11-23)
+# A wait for what the board's stream brings after a step of the check wrote it has no limit of its own (None), and the
+# driver ends it at the suite's: under the load of tests/all.sh the stream brought a proposal after 15 s (2026-11-23)
 def until(label, cond, limit=15000):
     """a print step that waits up to LIMIT ms for COND, then gives LABEL and the state; with LIMIT None it has no
-    limit of its own, so only the suite's time limit (LEM_TEST_LIMIT) ends a wait for a COND that never comes"""
-    end = "Infinity" if limit is None else f"Date.now() + {limit}"
+    limit of its own, and ends at the suite's time limit (LEM_TEST_LIMIT, `lemSuiteLimit` of tests/board-cdp.mjs)"""
+    end = "Date.now() + globalThis.lemSuiteLimit" if limit is None else f"Date.now() + {limit}"
     return {"print": f"new Promise(done => {{ const end = {end}; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {STATE}]) : setTimeout(tick, 100); tick(); }})"}
 def at(label):
     return {"print": f"[{json.dumps(label)}, {STATE}]"}
@@ -484,12 +484,12 @@ STATE = ("(() => { const box = document.getElementById('search'); const q = box?
          " const rows = [...document.querySelectorAll('#search-list a.sr:not([data-js-out])')].slice(0, 6).map(r => (r.hasAttribute('data-js-cur') ? '*' : '') + r.dataset.slug);"
          " return [box?.hasAttribute('data-js-open') ? 'open' : 'closed', q && document.activeElement === q ? 'field' : 'away', q?.value ?? '',"
          " panel ? panel.dataset.task : '-', rows.join(',')].join(' | '); })()")
-# A wait for what the board's stream brings after a step of the check wrote it has no limit of its own (None):
-# under the load of tests/all.sh the stream brought a proposal after the 15 s of the other waits (2026-11-23)
+# A wait for what the board's stream brings after a step of the check wrote it has no limit of its own (None), and the
+# driver ends it at the suite's: under the load of tests/all.sh the stream brought a proposal after 15 s (2026-11-23)
 def until(label, cond, limit=15000):
     """a print step that waits up to LIMIT ms for COND, then gives LABEL and the state; with LIMIT None it has no
-    limit of its own, so only the suite's time limit (LEM_TEST_LIMIT) ends a wait for a COND that never comes"""
-    end = "Infinity" if limit is None else f"Date.now() + {limit}"
+    limit of its own, and ends at the suite's time limit (LEM_TEST_LIMIT, `lemSuiteLimit` of tests/board-cdp.mjs)"""
+    end = "Date.now() + globalThis.lemSuiteLimit" if limit is None else f"Date.now() + {limit}"
     return {"print": f"new Promise(done => {{ const end = {end}; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {STATE}]) : setTimeout(tick, 100); tick(); }})"}
 def at(label):
     return {"print": f"[{json.dumps(label)}, {STATE}]"}
@@ -690,8 +690,8 @@ FACTS = ("(() => { try { const c = document.querySelector('#confirm'), body = c.
          " commit: c.querySelector('#cf-dd-commit .mono')?.textContent ?? '-' }; } catch (e) { return {error: String(e)}; } })()")
 def until(label, cond, limit=15000):
     """a print step that waits up to LIMIT ms for COND, then gives LABEL and the card's facts; with LIMIT None it has no
-    limit of its own, so only the suite's time limit (LEM_TEST_LIMIT) ends a wait for a COND that never comes"""
-    end = "Infinity" if limit is None else f"Date.now() + {limit}"
+    limit of its own, and ends at the suite's time limit (LEM_TEST_LIMIT, `lemSuiteLimit` of tests/board-cdp.mjs)"""
+    end = "Date.now() + globalThis.lemSuiteLimit" if limit is None else f"Date.now() + {limit}"
     return {"print": f"new Promise(done => {{ const end = {end}; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {FACTS}]) : setTimeout(tick, 100); tick(); }})"}
 def at(label):
     return {"print": f"[{json.dumps(label)}, {FACTS}]"}

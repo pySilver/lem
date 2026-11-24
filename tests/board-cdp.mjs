@@ -55,6 +55,12 @@ try {
   if (spec.posts) await send('Network.enable')
   await send('Page.enable')
   await send('Runtime.enable')
+  // A wait of a step that has no limit of its own ends at `lemSuiteLimit`, in ms, which every document of the page
+  // knows: the suite's limit, LEM_TEST_LIMIT seconds, else 1800, as SUITE_LIMIT of tests/suites.sh says (the two must
+  // agree). A suite run alone has no other limit, so such a wait then ends with what the page shows, as a limited one does
+  const limit = Number(process.env.LEM_TEST_LIMIT || 1800) * 1000
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: `globalThis.lemSuiteLimit = ${limit}` })
+  await send('Runtime.evaluate', { expression: `globalThis.lemSuiteLimit = ${limit}` })
   for (const step of spec.steps) {
     if (step.goto) {
       await send('Page.navigate', { url: step.goto })

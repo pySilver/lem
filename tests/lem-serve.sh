@@ -761,8 +761,9 @@ fi
 # A back gesture between two tabs of one task: on the criteria tab of refund-rounding a file of the task comes, with no
 # line of the log, and the stream's refresh counts it on the tab of Artifacts. history.back() shows Turbo's snapshot of
 # the Overview, from before that file, and the stream opens again with `?since=`, so the server's refresh counts it
-# there too. A wait for what the stream brings has no limit of its own: the suite's time limit (LEM_TEST_LIMIT) ends it,
-# as in tests/lem-board-keys.sh. It runs last, since the file stays.
+# there too. The wait for the file on the criteria tab has no limit of its own, and the driver ends it at the suite's
+# (`lemSuiteLimit` of tests/board-cdp.mjs), as in tests/lem-board-keys.sh; the wait for the refresh, which this check
+# guards, has REFRESH_WAIT. It runs last, since the file stays.
 if [ -z "$cdp_chrome" ] || ! command -v node >/dev/null 2>&1; then
   skip "a back gesture between two tabs of one task refreshes Turbo's snapshot through the stream: no Chrome or no Node"
 else
@@ -771,8 +772,11 @@ import json, shlex, sys
 base, note, spec = sys.argv[1:]
 COUNT = "(document.querySelector('#ptab-artifacts .n')?.textContent ?? '-')"
 SEEN = f"[location.pathname.split('/').slice(-2).join('/'), {COUNT}].join(' ')"
+# how long the Overview may wait for the refresh, in ms: a guess with room for a loaded machine (the refresh came in
+# about 0.23 s on this Mac, 2026-11-24), and short enough that a refresh that never comes is red in useful time
+REFRESH_WAIT = 120000
 def until(label, cond, limit=15000):
-    end = "Infinity" if limit is None else f"Date.now() + {limit}"
+    end = "Date.now() + globalThis.lemSuiteLimit" if limit is None else f"Date.now() + {limit}"
     return {"print": f"new Promise(done => {{ const end = {end}; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {SEEN}]) : setTimeout(tick, 100); tick(); }})"}
 steps = [
     {"goto": f"{base}/tasks/refund-rounding", "wait": 300},
@@ -785,7 +789,7 @@ steps = [
     {"eval": f"window.lemRestored = null; document.addEventListener('turbo:load', () => {{ window.lemRestored = {COUNT} }}, {{ once: true }}); history.back()"},
     until("back", "!location.pathname.endsWith('/criteria') && window.lemRestored !== null"),
     {"print": "['counts', [window.lemBefore, window.lemRestored].join(' ')]"},
-    until("refreshed", f"{COUNT} !== window.lemRestored", None),
+    until("refreshed", f"{COUNT} !== window.lemRestored", REFRESH_WAIT),
 ]
 json.dump({"width": 1440, "height": 900, "steps": steps}, open(spec, "w"))
 PY
