@@ -38,9 +38,11 @@ protected = []
 # load gate (`lem project load`), not a lock, keeps a run from starting on a loaded machine.
 commands = ["bash tests/all.sh"]
 # What a new worktree needs before its tests can run ("uv sync", "npm ci"). Lem runs these one
-# time in each worktree it makes for a task. None here: the tests need only Python and git, and
-# the lint suite brings its own tools at its first run (tests/lint.sh).
-setup = []
+# time in each worktree it makes for a task. Here the worktree's .venv, which every suite runs on
+# (tests/python.sh): Lem from the worktree and the tools, at the versions of uv.lock. With the
+# build backend and the tools in uv's cache it needs no network (2026-11-25, `--offline` in a
+# fresh copy).
+setup = ["uv sync --locked"]
 # The tests that two tasks cannot run at the same time. None here.
 serial = []
 

@@ -186,4 +186,32 @@ else
   fail "checks.setup in a new worktree: $made / $setup_checks / $again / $failed / $failed_code"
 fi
 
+# This repository's own checks.setup: a task's new worktree of Lem gets the .venv its suites run on (tests/python.sh),
+# from uv's cache where it holds the build backend and the tools. The repository is a copy of this checkout's tracked
+# files as they are on disk, with its own settings; its task's worktree is made as any task's is.
+own_setup() {
+  local own=$WORK/own made tree ready said
+  mkdir -p "$own"
+  git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$own"
+  git init -q -b main "$own" && ident "$own"
+  git -C "$own" add -A && git -C "$own" commit -q -m "chore: Lem as this checkout has it"
+  project --repo "$own" task-dir own-setup >/dev/null
+  made=$(project --repo "$own" worktree own-setup feat/own-setup 2>&1 | field '[(s["command"], s["exit"]) for s in d["setup"]]' 2>&1 || true)
+  tree=$(project --repo "$own" worktree-dir own-setup)
+  ready=$(cd "$tree" && bash -c '. tests/python.sh && echo ready' 2>&1 || true)
+  said=$("$tree/.venv/bin/lem" version 2>&1 | field 'd["root"]' 2>&1 || true)
+  if [ "$made" = "[('uv sync --locked', 0)]" ] && [ "$ready" = ready ] && [ "$said" = "$tree" ]; then
+    pass "this repository's own checks.setup gives a task's new worktree of Lem the .venv its suites run on: tests/python.sh passes there, and its lem names that worktree as root"
+  elif uv_unreachable "$own/.lem/state/tasks/own-setup/setup.log"; then
+    skip "this repository's own checks.setup gives a task's new worktree the .venv its suites run on: uv's cache lacks what uv sync installs, and uv reaches no index: $(tail -n 2 "$own/.lem/state/tasks/own-setup/setup.log")"
+  else
+    fail "this repository's checks.setup in a new worktree: $made / $ready / $said / $(tail -n 3 "$own/.lem/state/tasks/own-setup/setup.log" 2>/dev/null)"
+  fi
+}
+if command -v uv >/dev/null 2>&1; then
+  own_setup
+else
+  skip_function own_setup "no uv here, which this repository's checks.setup runs (https://docs.astral.sh/uv/)"
+fi
+
 finish

@@ -187,11 +187,15 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     ),
     (("src/lem/python.py",), ("lem-command", "lem-machine")),
     # the package's build: lem-command builds the wheel and installs it outside the
-    # checkout
+    # checkout, and lem-serial runs this repository's own checks.setup, which makes a
+    # new worktree's .venv from them
     (
         ("pyproject.toml", "uv.lock", "hatch_build.py", "checkout.pth"),
-        ("lem-command",),
+        ("lem-command", "lem-serial"),
     ),
+    # this repository's own settings: lem-serial makes a task's worktree with its
+    # checks.setup
+    ((".lem/settings.toml",), ("lem-serial",)),
     # the afternoon of tests/board-showcase.py puts up its card with `lem ask render`
     (
         ("skills/lem-ask/*", "src/lem/ask.py"),

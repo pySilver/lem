@@ -251,6 +251,12 @@ STANDIN
   chmod +x "$1/agtermctl"
 }
 project() { "$PY" -B "$MAIN" project "$@"; }
+# uv_unreachable FILE: whether uv's output in FILE says it needed the network and had none: offline, data its cache
+# lacks ("Network connectivity is disabled", "the network was disabled"), or online, a request that reached no host
+# ("error sending request"). uv wraps its message in a tree of box characters, which are read as spaces.
+uv_unreachable() {
+  "$PY" -I -c 'import re, sys; text = " ".join(re.sub("[│├╰─▶×]", " ", open(sys.argv[1], errors="replace").read()).split()); sys.exit(0 if re.search("error sending request|Network connectivity is disabled|the network was disabled", text) else 1)' "$1" 2>/dev/null
+}
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 field() { "$PY" -c 'import json, sys; d = json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1"; }
 # log_version LOG [ADD]: the version of an event log as the board's stream names it (lem_board_model.log_version), its inode
