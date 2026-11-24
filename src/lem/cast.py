@@ -84,6 +84,7 @@ import re
 import shutil
 import subprocess
 import sys
+import types
 import typing
 from pathlib import Path
 
@@ -98,11 +99,16 @@ if typing.TYPE_CHECKING:
 
 # Where a project keeps its personas and its profile, relative to the checkout: each has
 # one place, which configure() takes from `project.py show` (`places`).
-PROJECT_CAST = Path(".lem") / "personas"
-PROJECT_PROFILE = Path(".lem") / "profile.md"
+_places = types.SimpleNamespace(
+    cast=Path(".lem") / "personas",
+    profile=Path(".lem") / "profile.md",
+)
 # The folder of Lem's state folder that holds each panel's own folder.
 PANELS = "panels"
 BUILT_IN = paths.CAST
+
+# How many hex digits of the persona text's hash name its copy.
+PERSON_DIGEST_LENGTH = 16
 
 # A persona's own seats, in the frontmatter of its file: the one key, the agents that
 # can answer as a persona, and the line to write.
@@ -126,7 +132,7 @@ DEFAULT_SEATS: tuple[dict[str, typing.Any], ...] = (
 
 
 class CastError(Exception):
-    pass
+    """A persona file the cast cannot read."""
 
 
 def frontmatter(text: str, path: Path) -> tuple[dict[str, str], str]:
@@ -141,8 +147,8 @@ def frontmatter(text: str, path: Path) -> tuple[dict[str, str], str]:
         return {}, text
     end = next(
         (
-            n
-            for n, line in enumerate(lines[1:], start=1)
+            offset
+            for offset, line in enumerate(lines[1:], start=1)
             if line.rstrip("\r\n") == "---"
         ),
         None,
@@ -157,7 +163,7 @@ def frontmatter(text: str, path: Path) -> tuple[dict[str, str], str]:
         bare = line.strip()
         if not bare or bare.startswith("#"):
             continue
-        key, colon, value = bare.partition(":")
+        key, colon, raw = bare.partition(":")
         key = key.strip()
         if not colon or not key:
             raise CastError(
@@ -174,7 +180,7 @@ def frontmatter(text: str, path: Path) -> tuple[dict[str, str], str]:
                 f"{path}, line {number}: `{key}` is written twice; "
                 f"keep one line, {SEATS_LINE}"
             )
-        meta[key] = value.strip()
+        meta[key] = raw.strip()
     return meta, "".join(lines[end + 1 :]).lstrip("\r\n")
 
 
@@ -231,9 +237,10 @@ def seats_of(
         names = [seat["name"] for seat in named]
         twice = sorted({name for name in names if names.count(name) > 1})
         if twice:
+            repeated = ", ".join(twice)
+            seats = ", ".join(seat["seat"] for seat in named)
             raise CastError(
-                f"{path}: two seats are named {', '.join(twice)} "
-                f"({', '.join(seat['seat'] for seat in named)}): each answer file "
+                f"{path}: two seats are named {repeated} ({seats}): each answer file "
                 "carries the last word of its seat's model, "
                 "so give models whose last words differ"
             )
@@ -263,7 +270,7 @@ def persona(
     found = {"stem": path.stem, "path": str(path), **seats_of(meta, path, here)}
     if body == text:
         return {**found, "person": str(path)}
-    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]
+    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()[:PERSON_DIGEST_LENGTH]
     return {
         **found,
         "person": str(
@@ -285,7 +292,6 @@ def fail(message: str) -> typing.NoReturn:
 def configure(root: Path) -> None:
     """Take the places of the personas and the profile from the project's settings,
     which this checks first: a settings file that does not read stops the panel."""
-    global PROJECT_CAST, PROJECT_PROFILE  # noqa: PLW0603 - the places hold for the whole run, and every reader takes them from here
     done = subprocess.run(
         [sys.executable, "-B", str(paths.MAIN), "project", "--repo", str(root), "show"],
         capture_output=True,
@@ -296,8 +302,9 @@ def configure(root: Path) -> None:
         fail(done.stderr.strip() or "could not read the project's settings")
     settings = json.loads(done.stdout)
     top = Path(settings["root"]).resolve()
-    PROJECT_CAST = Path(settings["places"]["personas"]["path"]).relative_to(top)
-    PROJECT_PROFILE = Path(settings["places"]["profile"]["path"]).relative_to(top)
+    places = settings["places"]
+    _places.cast = Path(places["personas"]["path"]).relative_to(top)
+    _places.profile = Path(places["profile"]["path"]).relative_to(top)
 
 
 def git(cwd: Path, *args: str) -> str:
@@ -328,7 +335,7 @@ def is_persona(name: str) -> bool:
 def personas(directory: Path) -> list[Path]:
     if not directory.is_dir():
         return []
-    return sorted(p for p in directory.glob("*.md") if is_persona(p.name))
+    return sorted(path for path in directory.glob("*.md") if is_persona(path.name))
 
 
 def commit_of(root: Path, ref: str) -> str:
@@ -383,14 +390,15 @@ def default_branch_cast(root: Path) -> tuple[str, Path, str] | None:
     for ref in default_refs(root):
         sha = commit_of(root, ref)
         label = ref.removeprefix("refs/heads/").removeprefix("refs/remotes/")
-        listed = git(
-            root, "ls-tree", "--name-only", sha, "--", f"{PROJECT_CAST.as_posix()}/"
-        )
-        names = [n for n in listed.splitlines() if n.endswith(".md")]
-        if not any(is_persona(n) for n in names):
+        directory = _places.cast.as_posix()
+        listed = git(root, "ls-tree", "--name-only", sha, "--", f"{directory}/")
+        names = [name for name in listed.splitlines() if name.endswith(".md")]
+        if not any(is_persona(name) for name in names):
             continue
         target = cache(root, "personas-cast") / sha
-        if not target.is_dir():
+        if target.is_dir():
+            read_now(target)
+        else:
             # Two sessions may resolve the same commit at once: each stages under its
             # own name and the first rename wins; the loser's copy is identical, so it
             # is dropped.
@@ -403,10 +411,9 @@ def default_branch_cast(root: Path) -> tuple[str, Path, str] | None:
                     check=False,
                 )
                 if body.returncode:
-                    fail(
-                        f"could not read {name} at {label} ({sha[:9]}): "
-                        f"{body.stderr.decode().strip()}"
-                    )
+                    short_sha = sha[:9]
+                    error = body.stderr.decode().strip()
+                    fail(f"could not read {name} at {label} ({short_sha}): {error}")
                 (staging / Path(name).name).write_bytes(body.stdout)
             try:
                 staging.rename(target)
@@ -414,9 +421,8 @@ def default_branch_cast(root: Path) -> tuple[str, Path, str] | None:
                 if not target.is_dir():
                     raise
                 shutil.rmtree(staging)
-        else:
-            read_now(target)
-        return f"{label} at {sha[:9]}", target, ref
+        short_sha = sha[:9]
+        return f"{label} at {short_sha}", target, ref
     return None
 
 
@@ -451,7 +457,9 @@ def state_file(root: Path, folder: str, name: str, body: bytes) -> Path:
     name and the first rename wins; the copies are identical, so the loser's is dropped.
     """
     target = cache(root, folder) / name
-    if not target.is_file():
+    if target.is_file():
+        read_now(target)
+    else:
         target.parent.mkdir(parents=True, exist_ok=True)
         staging = target.with_name(f"{name}.{os.getpid()}.partial")
         staging.write_bytes(body)
@@ -461,8 +469,6 @@ def state_file(root: Path, folder: str, name: str, body: bytes) -> Path:
             if not target.is_file():
                 raise
             staging.unlink()
-    else:
-        read_now(target)
     return target
 
 
@@ -480,15 +486,15 @@ def profile(root: Path) -> dict[str, str] | None:
     A checkout whose profile is only an older copy of the default branch's reads the
     default branch's, so an edit to the profile reaches every worktree without a merge.
     """
-    local = root / PROJECT_PROFILE
+    local = root / _places.profile
     for ref in default_refs(root):
         sha = commit_of(root, ref)
         label = ref.removeprefix("refs/heads/").removeprefix("refs/remotes/")
-        there = PROJECT_PROFILE.as_posix()
+        there = _places.profile.as_posix()
         if git(root, "cat-file", "-t", f"{sha}:{there}") != "blob":
             continue
         if local.is_file() and not follows_default(
-            root, ref, PROJECT_PROFILE.as_posix()
+            root, ref, _places.profile.as_posix()
         ):
             break
         body = subprocess.run(
@@ -497,15 +503,15 @@ def profile(root: Path) -> dict[str, str] | None:
             check=False,
         )
         if body.returncode:
-            fail(
-                f"could not read {there} at {label} ({sha[:9]}): "
-                f"{body.stderr.decode().strip()}"
-            )
+            short_sha = sha[:9]
+            error = body.stderr.decode().strip()
+            fail(f"could not read {there} at {label} ({short_sha}): {error}")
         # Named by the file's own blob id, so every commit that leaves the profile
         # unchanged reuses one copy instead of adding another.
         blob = git(root, "rev-parse", f"{sha}:{there}")
         path = state_file(root, "personas-profile", f"{blob}.md", body.stdout)
-        return {"source": f"{label} at {sha[:9]}", "path": str(path)}
+        short_sha = sha[:9]
+        return {"source": f"{label} at {short_sha}", "path": str(path)}
     if local.is_file():
         return {"source": "checkout", "path": str(local)}
     return None
@@ -517,7 +523,7 @@ def resolve(root: Path) -> dict[str, object]:
     found_cast = project_cast(root)
     if found_cast is None:
         fail(
-            f"this project has no personas in {PROJECT_CAST}, so its setup is not "
+            f"this project has no personas in {_places.cast}, so its setup is not "
             "finished and no panel can run: `/lem init` writes them from the owner's "
             "answers, or `lem cast init` copies a starting cast there for him to "
             "rewrite. No generic cast answers in their place",
@@ -561,7 +567,9 @@ def pick(
                 "source": source,
                 "dir": str(directory),
                 "index": str(index) if index.is_file() else None,
-                "personas": [{"stem": p.stem, "path": str(p)} for p in found_personas],
+                "personas": [
+                    {"stem": path.stem, "path": str(path)} for path in found_personas
+                ],
                 "profile": profile(root),
             }
     return None
@@ -572,17 +580,17 @@ def project_cast(root: Path) -> dict[str, object] | None:
     wrote none."""
     candidates: list[tuple[str, str, Path]] = []
     found = default_branch_cast(root)
-    local = bool(personas(root / PROJECT_CAST))
+    local = bool(personas(root / _places.cast))
     if found and (
-        not local or follows_default(root, found[2], PROJECT_CAST.as_posix())
+        not local or follows_default(root, found[2], _places.cast.as_posix())
     ):
         candidates.append(("project", found[0], found[1]))
-    candidates.append(("project", "checkout", root / PROJECT_CAST))
+    candidates.append(("project", "checkout", root / _places.cast))
     return pick(root, candidates)
 
 
 def init(root: Path) -> None:
-    target = root / PROJECT_CAST
+    target = root / _places.cast
     if target.is_dir() and any(target.iterdir()):
         fail(f"{target} already holds files; edit them there")
     there = project_cast(root)
@@ -604,7 +612,8 @@ def run_dir(root: Path, slug: str) -> None:
         fail(f"a slug is one plain path segment, not {slug!r}")
     panels = cache(root, PANELS)
     panels.mkdir(exist_ok=True)
-    target = panels / f"{dt.date.today().isoformat()}-{slug}"  # noqa: DTZ011 - a panel's folder is named for the owner's local day
+    day = dt.date.today().isoformat()  # noqa: DTZ011 - a panel's folder is named for the owner's local day
+    target = panels / f"{day}-{slug}"
     if target.exists():
         fail(f"{target} already exists; add a suffix such as -2 to the slug")
     target.mkdir()
@@ -621,14 +630,14 @@ def main(argv: list[str]) -> None:
         argv = argv[:at] + argv[at + 2 :]
     root = checkout_root(repo)
     configure(root)
-    if not argv:
-        print(json.dumps(resolve(root), indent=2))
-    elif argv == ["init"]:
+    if argv == ["init"]:
         init(root)
     elif argv[:-1] == ["run-dir"]:
         run_dir(root, argv[1])
-    else:
+    elif argv:
         fail(f"unexpected arguments {argv!r}; see the usage in this script's docstring")
+    else:
+        print(json.dumps(resolve(root), indent=2))
 
 
 if __name__ == "__main__":
