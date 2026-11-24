@@ -40,6 +40,7 @@ fix when there is none.
 """
 
 import argparse
+import ast
 import contextlib
 import json
 import os
@@ -381,45 +382,101 @@ def correction_hook() -> list[dict]:
 
 def hook_module_names(hooks_file: Path) -> list[str]:
     """The modules that the plugin's hooks file starts through `src/lem/python.py`, each
-    once in their order, after python.py itself."""
-    names = ["python"]
+    once in their order, after python.py itself. A file that cannot be read, or that
+    reads another way than a table of hooks, raises ValueError with what is wrong."""
+    shown = f"{hooks_file.parent.name}/{hooks_file.name}"
     try:
-        hooks = json.loads(hooks_file.read_text(encoding="utf-8")).get("hooks") or {}
-    except (OSError, ValueError, AttributeError):
-        return names
-    for entries in hooks.values():
-        for entry in entries if isinstance(entries, list) else []:
-            for hook in entry.get("hooks") or [] if isinstance(entry, dict) else []:
-                found = re.search(
-                    r"python\.py\"?\s+(\w+)", str((hook or {}).get("command") or "")
-                )
-                if found and found[1] not in names:
-                    names.append(found[1])
+        manifest = json.loads(hooks_file.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise ValueError(f"{shown} is missing") from None
+    except OSError as error:
+        raise ValueError(f"{shown} cannot be read ({error.strerror})") from None
+    except ValueError as error:
+        line = getattr(error, "lineno", None)
+        raise ValueError(
+            f"{shown} is not JSON" + (f" (line {line})" if line is not None else "")
+        ) from None
+    commands = hook_commands(manifest)
+    if commands is None:
+        raise ValueError(f"{shown} is not a table of hooks")
+    names = ["python"]
+    for command in commands:
+        found = re.search(r"python\.py\"?\s+(\w+)", command)
+        if found and found[1] not in names:
+            names.append(found[1])
     return names
 
 
+def hook_commands(manifest: object) -> list[str] | None:
+    """The command of each hook of a hooks file's MANIFEST, as Claude Code reads it:
+    `{"hooks": {EVENT: [{"hooks": [{"command": ...}]}]}}`; None for another shape."""
+    table = manifest.get("hooks") if isinstance(manifest, dict) else None
+    if not isinstance(table, dict):
+        return None
+    commands = []
+    for group in table.values():
+        for entry in group if isinstance(group, list) else [None]:
+            hooks = entry.get("hooks") if isinstance(entry, dict) else None
+            for hook in hooks if isinstance(hooks, list) else [None]:
+                if not isinstance(hook, dict):
+                    return None
+                commands.append(str(hook.get("command") or ""))
+    return commands
+
+
+def package_imports(tree: ast.Module) -> list[str]:
+    """The modules of Lem's package that a module imports at its top, the statements of
+    its body: `from lem import NAME`, `from lem.NAME import ...` and `import lem.NAME`.
+    An import inside a function runs on that function's path only."""
+    found = []
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and not node.level:
+            parts = (node.module or "").split(".")
+            if parts[0] == "lem":
+                found += parts[1:2] or [alias.name for alias in node.names]
+        elif isinstance(node, ast.Import):
+            found += [
+                alias.name.split(".")[1]
+                for alias in node.names
+                if alias.name.startswith("lem.")
+            ]
+    return found
+
+
 def hook_modules(root: Path = paths.ROOT) -> dict:
-    """The row of the modules the plugin's hooks start (`hooks/hooks.json`) and of
-    `src/lem/python.py`, each read and compiled. A hook whose module is gone or does not
-    compile ends with nothing printed (python.py `run`), so this row is where the owner
-    learns it."""
+    """The row of the modules the plugin's hooks start (`hooks/hooks.json`), of
+    `src/lem/python.py`, and of each module of the package that one of them imports at
+    its top, each read and compiled. A hook whose module is gone or does not compile
+    ends with nothing printed (python.py `run`), so this row is where the owner learns
+    it; so does a hooks file that is gone or reads another way."""
     package = root / "src" / "lem"
-    names = hook_module_names(root / "hooks" / "hooks.json")
-    broken = []
+    try:
+        names = hook_module_names(root / "hooks" / "hooks.json")
+    except ValueError as error:
+        names, broken = [], [str(error)]
+    else:
+        broken = []
     for name in names:
         path = package / f"{name}.py"
         try:
-            compile(path.read_bytes(), str(path), "exec")
+            text = path.read_bytes()
+            compile(text, str(path), "exec")
         except FileNotFoundError:
             broken.append(f"{name}.py is missing")
+            continue
         except OSError as error:
             broken.append(f"{name}.py cannot be read ({error.strerror})")
+            continue
         except (SyntaxError, ValueError) as error:
             line = getattr(error, "lineno", None)
             broken.append(
                 f"{name}.py does not compile"
                 + (f" (line {line})" if line is not None else "")
             )
+            continue
+        for found in package_imports(ast.parse(text, str(path))):
+            if found not in names:
+                names.append(found)
     return {
         "name": "hook modules",
         "need": "required",
@@ -430,8 +487,9 @@ def hook_modules(root: Path = paths.ROOT) -> dict:
             "server and the records of a task's session"
         ),
         "without_it": (
-            "a hook whose module is missing or does not compile does nothing and says "
-            "nothing; install the plugin again"
+            "a hook whose module is missing or does not compile, or a hooks file that "
+            "is gone or reads another way, does nothing and says nothing; install the "
+            "plugin again"
         ),
     }
 

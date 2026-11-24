@@ -291,7 +291,7 @@ then pass "q option syntax"; else fail "q option syntax"; fi
 # answer, and a value that is no JSON object is its text, as one answer; the page gets its 204 either
 # way. No browser opens: the stand-in for it posts the value.
 if "$PY" -I -B - "$B" 2>/dev/null <<'PY'
-import contextlib, importlib.machinery, importlib.util, io, json, sys, threading, urllib.request
+import contextlib, importlib.machinery, importlib.util, io, json, sys, threading, urllib.request, webbrowser
 sys.path.insert(0, sys.argv[1].rsplit("/lem/", 1)[0])  # src, the folder of Lem's package, which lem-ask imports from
 loader = importlib.machinery.SourceFileLoader("lem-ask", sys.argv[1])
 mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("lem-ask", loader))
@@ -306,7 +306,7 @@ def run(value):
         posts.append(threading.Thread(target=post, args=(url,), daemon=True))
         posts[-1].start()
         return True
-    mod.webbrowser.open = opened
+    webbrowser.open = opened  # the module ask_in_browser imports when it runs
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         code = mod.ask_in_browser("<p>q</p>", 3)

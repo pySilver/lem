@@ -133,7 +133,7 @@ class HookModules(unittest.TestCase):
             )
             package = root / "src" / "lem"
             package.mkdir(parents=True)
-            for name in ("python", "session_hook"):
+            for name in ("python", "session_hook", "ask"):
                 (package / f"{name}.py").write_text("x = 1\n", encoding="utf-8")
             (package / "serve_hook.py").write_text("def (:\n", encoding="utf-8")
             row = doctor.hook_modules(root)
@@ -143,6 +143,67 @@ class HookModules(unittest.TestCase):
             "corrections.py is missing; serve_hook.py does not compile (line 1)",
         )
         self.assertIn("install the plugin again", row["without_it"])
+
+    def plugin(self, folder: str, manifest: str | None) -> Path:
+        """A plugin's folder in FOLDER whose hooks file holds MANIFEST (none when None),
+        with each module the hooks start whole, and `corrections.py` importing
+        `state.py`, which is not there."""
+        root = Path(folder)
+        package = root / "src" / "lem"
+        package.mkdir(parents=True)
+        for name in ("python", "serve_hook", "session_hook", "ask"):
+            (package / f"{name}.py").write_text("x = 1\n", encoding="utf-8")
+        (package / "corrections.py").write_text(
+            "import json\n\nfrom lem import state as lem_state\n\n\n"
+            "def later() -> None:\n    from lem import project\n",
+            encoding="utf-8",
+        )
+        if manifest is not None:
+            (root / "hooks").mkdir()
+            (root / "hooks" / "hooks.json").write_text(manifest, encoding="utf-8")
+        return root
+
+    def test_a_hooks_file_that_is_gone_or_reads_another_way_is_a_failing_row(
+        self,
+    ) -> None:
+        # the review of 2026-11-24 on 233a4728: each gave `found` true, and the last
+        # raised AttributeError
+        for manifest, said in (
+            (None, "hooks/hooks.json is missing"),
+            ("{", "hooks/hooks.json is not JSON (line 1)"),
+            ('{"hooks": ["Stop"]}', "hooks/hooks.json is not a table of hooks"),
+            ("[]", "hooks/hooks.json is not a table of hooks"),
+            (
+                '{"hooks": {"Stop": [{"hooks": "x"}]}}',
+                "hooks/hooks.json is not a table of hooks",
+            ),
+        ):
+            with (
+                self.subTest(manifest=manifest),
+                tempfile.TemporaryDirectory() as folder,
+            ):
+                row = doctor.hook_modules(self.plugin(folder, manifest))
+                self.assertEqual((row["found"], row["detail"]), (False, said))
+                self.assertIn("install the plugin again", row["without_it"])
+
+    def test_a_module_that_a_hooks_module_imports_at_its_top_is_checked(
+        self,
+    ) -> None:
+        # the review of 2026-11-24: with `state.py` gone, which corrections.py imports
+        # at its top, the row was whole and the hook ended with nothing printed
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.plugin(folder, (ROOT / "hooks" / "hooks.json").read_text())
+            row = doctor.hook_modules(root)
+            self.assertEqual(
+                (row["found"], row["detail"]), (False, "state.py is missing")
+            )
+            # an import inside a function is the hook's later path, which its own
+            # call reports
+            (root / "src" / "lem" / "state.py").write_text("x = 1\n", encoding="utf-8")
+            row = doctor.hook_modules(root)
+        self.assertTrue(row["found"])
+        self.assertIn("state.py", row["detail"])
+        self.assertNotIn("project.py", row["detail"])
 
 
 class Installs(unittest.TestCase):
