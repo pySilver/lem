@@ -737,8 +737,10 @@ agent reads what moved; after a read that said another round the session lands t
 again. One rule says what a new landing's proposal carries of what was said of the tip
 proposed before (`moved_carry`), and it runs before the pull request's text is written.
 The tip carries when it is the same, when a rebase with no conflict made it and kept the
-review (`rebase_carried`, from the tip before the rebase to the one after it), and when
-it is the tip of a builder's resolution whose one read found nothing, on a request that
+review (`rebase_carried`, from the tip before the rebase to the one after it, which a
+later `base` that moves nothing keeps, as it keeps the line of the pull request's text
+that says the task was rebased), and when it is the tip of a builder's resolution whose
+one read found nothing, on a request that
 no call makes careful (above), with no commit after the rebase or the resolution other
 than the backlog items `file` commits, which move the tip the record names (`filed_on`).
 Then each act has its own last fact. `propose` carries the merge agent's review of the
@@ -1958,13 +1960,13 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
     # the tip a rebase with no conflict made of the tip before it, while the review
     # carried: what was said of that tip at the merge (the merge agent's review, the
     # owner's merge) is kept for this one
+    notes, line = rebase_notes(task.kept(), moved=tip != origin)
     updates: dict = {
         "base": onto,
         "gated": None,
         "tree": None,
         "conflict": None,
-        "rebase_carried": None,
-        "rebase_uncovered": None,
+        **notes,
         "made": None,
     }
     if tip != origin and not resolved:
@@ -1975,7 +1977,7 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
         updates["made"] = {"from": origin, "tip": tip, "onto": onto}
     # the review this rebase carried, with what it left open, for the pull request's
     # text (`synced`)
-    carried = None
+    carried = line["carried"]
     if resolved:
         # What the review saw is the change before the conflict; what the builder chose
         # where the two sides met is new, and gets one read of its own (`due`).
@@ -2014,7 +2016,7 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
         updates["sync"] = {
             **task.kept()["sync"],
             "onto": onto[:9],
-            "moved": tip != origin,
+            "moved": line["moved"],
             "resolved": resolved or task.kept()["sync"].get("resolved", False),
             "carried": carried,
         }
@@ -2029,6 +2031,28 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
         "ahead": ahead,
         "resolved": pending["files"] if resolved else None,
     }
+
+
+def rebase_notes(kept: dict, *, moved: bool) -> tuple[dict, dict]:
+    """The notes of a rebase that `base` starts from, from the record KEPT: the
+    record's own (`rebase_carried`, `rebase_uncovered`), and the `moved` and `carried`
+    of `sync`, which the pull request's line is written from (`sync_line`). A rebase
+    that MOVED the tip starts them over and writes its own after this. A `base` that
+    moved nothing keeps those of the rebase before it in this landing: run again after a
+    `propose` that pushed the tip and was cut off before it kept the proposal, it would
+    otherwise end the owner's merge for a commit that never came (`tip_carry`) and say
+    that no rebase was needed. A note carries only for the two tips it names, and
+    `start` clears them at each new landing of an open task."""
+    if moved:
+        return (
+            {"rebase_carried": None, "rebase_uncovered": None},
+            {"moved": True, "carried": None},
+        )
+    sync = kept.get("sync") or {}
+    return (
+        {key: kept.get(key) for key in ("rebase_carried", "rebase_uncovered")},
+        {"moved": bool(sync.get("moved")), "carried": sync.get("carried")},
+    )
 
 
 def rebase_refused(said: str, conflicts: list[str]) -> str | None:

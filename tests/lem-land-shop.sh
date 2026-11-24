@@ -990,6 +990,27 @@ else
 fi
 project --repo "$MB" state mb-probe dropped "the test is over" >/dev/null
 
+# A propose cut off after its push: GitHub's refusal of the edit of the text stands in for the cut, after the step kept
+# the push and before it kept the proposal. The next base moves nothing and keeps the notes of the rebase that made the
+# tip, so the merge review and the owner's merge carry from the tip proposed before, and the pull request says rebased.
+mb_task mb-cut cut.txt && mb_land mb-cut
+mb_refused mb-cut && mb_again mb-cut
+cut_tip=$(git -C "$(project --repo "$MB" worktree-dir mb-cut)" rev-parse HEAD)
+cut_first=$(GH_EDIT_REFUSE="the session is cut off" land --repo "$MB" propose mb-cut --title "fix: mb-cut" --notes "$NOTES" 2>&1 || true)
+cut_pushed="$(mb_kept mb-cut pushed d) $(mb_kept mb-cut proposed 'd == "'"$cut_tip"'"')"
+land --repo "$MB" base mb-cut >/dev/null && land --repo "$MB" checks mb-cut >/dev/null
+cut_due=$(land --repo "$MB" read mb-cut | field 'd["due"]')
+cut=$(land --repo "$MB" propose mb-cut --title "fix: mb-cut" --notes "$NOTES" 2>&1 || true)
+cut_line="rebased on main; the review carried over the rebase; the merge review carried over the rebase; the checks passed again"
+if grep -qF "the session is cut off" <<<"$cut_first" && [ "$cut_pushed" = "$cut_tip False" ] && [ "$cut_due" = none ] \
+  && [ "$(field '(d["merge_review"], d["owner_merge"].split(":")[0], d["synced"])' <<<"$cut")" = "('carried', 'stands', '$cut_line')" ] \
+  && [ "$(mb_events mb-cut merge.ended)" = 0 ]; then
+  pass "a base run again after a propose cut off after its push moves nothing and keeps the notes of the rebase that made the tip: the merge review carries, the owner's merge stands, and the pull request says rebased on main"
+else
+  fail "base again after a cut-off propose: $cut_first / $cut_pushed / $cut_due / $cut"
+fi
+project --repo "$MB" state mb-cut dropped "the test is over" >/dev/null
+
 # The base takes a commit of a task's branch by its patch, and git reapplies it on the rebase of base all the same.
 # cp_task SLUG: on origin's main SLUG-feature.txt and SLUG-label.txt hold `old`; the task's branch, on that main, changes
 # each to `new` in a commit of its own (`feat: the feature`, `feat: the label`), and is proposed
