@@ -148,8 +148,10 @@ the Inbox.
 `list`'s `phase` is the phase the task's state gives now, null for a task that gets no
 session (parked, or ended with its worktree gone), and `opened_in` the phase its newest
 session opened in. Its `unanswered` is a wake older than UNANSWERED_AFTER whose line
-still waits in the session's mailbox (`agtermctl msg read`, which removes nothing),
-never the guard's status message, whose wait the guard itself ends.
+still waits in the session's mailbox (`agtermctl msg read`, which removes nothing), or
+after which the session's signs, when they read, show no turn (a parked Claude Code
+process takes the line out of its mailbox with no turn), never the guard's status
+message, whose wait the guard itself ends.
 
 Each entry whose session is live (`live`) says what Claude Code's own files say of its
 work (`lem_signs`): `sign`, the time of the newest turn of the session's main thread or
@@ -207,8 +209,9 @@ import shutil
 import subprocess
 import sys
 import time
-from collections.abc import Generator, Mapping
+from collections.abc import Callable, Generator, Mapping
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, cast
@@ -309,8 +312,9 @@ FIRST_LINE_BOUND = 600
 # 2026-11-22), taken as a guess for a talk (plan seat-defaults-and-fallback,
 # decision 10).
 QUIET_SECONDS = 45 * 60
-# After how long a wake whose line still waits in the mailbox is `unanswered`: 10
-# minutes, a guess (the plan's "no session" row says "does not answer" after it).
+# After how long a wake whose line still waits in the mailbox, or that no turn
+# followed, is `unanswered`: 10 minutes, a guess (the plan's "no session" row says
+# "does not answer" after it).
 UNANSWERED_AFTER = 600
 # How long ps may take to list the machine's processes. A guess: it answers in well
 # under a second.
@@ -1920,6 +1924,40 @@ def cmd_first_line(root: Path, slug: str, every: float, bound: float) -> dict:
         ) from None
 
 
+def unanswered_of(
+    wake: dict | None, signs: dict, now: datetime, *, waits: Callable[[], bool]
+) -> bool:
+    """Whether the newest wake WAKE of a live session went unanswered at NOW: older than
+    UNANSWERED_AFTER, and its line still waits in the session's mailbox (WAITS, which
+    reads it, called only then), or the session's SIGNS read and show no turn since the
+    wake. A parked Claude Code process runs its own Stop hook, which takes the line out
+    of the mailbox with no turn of the agent (merge-leaves-board-lock, 2026-11-22: an
+    `enqueue` at 15:53:31Z in its transcript, and no turn), so the mailbox alone never
+    tells of it. A turn in the same second as the wake counts as after it, as the guard
+    of a stopped session counts it; signs that do not read leave the mailbox alone. The
+    guard's own status message is never one: the guard ends its wait at 10 minutes,
+    with the restart or the stop, so no row "does not answer" stands beside its
+    steps."""
+    if (
+        wake is None
+        or wake.get("why") == "status"
+        or (now - stamp(wake["ts"])).total_seconds() < UNANSWERED_AFTER
+    ):
+        return False
+    if waits():
+        return True
+    sign = signs.get("sign")
+    return signs.get("signs") is True and (
+        not isinstance(sign, str) or stamp(sign) < stamp(wake["ts"])
+    )
+
+
+def mailbox_holds(where: dict, pane: str, line: str) -> bool:
+    """Whether LINE still waits in the mailbox of PANE (`SESSION:PANE`):
+    `agtermctl msg read`, which removes nothing."""
+    return line in ctl(where, "msg", "read", "--as", pane, "--json", window=False)
+
+
 def cmd_list(root: Path) -> list[dict]:
     where = place()
     nodes = tree(where)
@@ -1980,26 +2018,6 @@ def cmd_list(root: Path) -> list[dict]:
             ),
             None,
         )
-        unanswered = False
-        # the guard's own status message is no wait for the owner: the guard ends it at
-        # 10 minutes, with the restart or the stop, so no row "does not answer" stands
-        # beside its steps
-        if (
-            node is not None
-            and wake is not None
-            and wake.get("why") != "status"
-            and (now - stamp(wake["ts"])).total_seconds() >= UNANSWERED_AFTER
-        ):
-            mailbox = ctl(
-                where,
-                "msg",
-                "read",
-                "--as",
-                f"{session}:{left_pane(node)}",
-                "--json",
-                window=False,
-            )
-            unanswered = f"lem: {slug} {wake.get('why')}" in mailbox
         signs = {"sign": None, "shell": False, "signs": False, "turn": None}
         if live(node, opened, now):
             records = [record for record in transcripts if record.get("task") == slug]
@@ -2008,6 +2026,17 @@ def cmd_list(root: Path) -> list[dict]:
             signs = lem_signs.signs_of(
                 records, session, table[0] if table else None, slug
             )
+        unanswered = node is not None and unanswered_of(
+            wake,
+            signs,
+            now,
+            waits=partial(
+                mailbox_holds,
+                where,
+                f"{session}:{left_pane(node)}",
+                f"lem: {slug} {(wake or {}).get('why')}",
+            ),
+        )
         out.append(
             {
                 "task": slug,

@@ -1849,6 +1849,100 @@ class Guard(unittest.TestCase):
 
         self.assertEqual((unanswered("owner"), unanswered("status")), (True, False))
 
+    def test_a_wake_a_parked_pane_took_with_no_turn_is_unanswered(self) -> None:
+        # merge-leaves-board-lock (#37), 2026-11-22: its Claude Code process was parked
+        # (`status: idle` since 10:45:48), and its own Stop hook took a wake's line out
+        # of the mailbox at 15:53:31 with no turn of the agent
+        woke = {
+            "ts": "2026-11-22T15:53:30Z",
+            "event": "session.wake",
+            "task": SLUG,
+            "session": "S1",
+            "why": "owner",
+        }
+        parked = {"sign": "2026-11-22T10:45:48Z", "shell": False, "signs": True}
+
+        def unanswered(
+            signs: dict, at: str = "16:04", *, waits: bool = False, why: str = "owner"
+        ) -> bool:
+            return session.unanswered_of(
+                {**woke, "why": why},
+                signs,
+                session.stamp(f"2026-11-22T{at}:00Z"),
+                waits=lambda: waits,
+            )
+
+        self.assertTrue(unanswered(parked))
+        self.assertTrue(unanswered({**parked, "sign": None}))
+        # under 10 minutes after the wake
+        self.assertFalse(unanswered(parked, at="16:03"))
+        # a turn after the wake, or in its second: the session took it
+        self.assertFalse(unanswered({**parked, "sign": "2026-11-22T15:55:02Z"}))
+        self.assertFalse(unanswered({**parked, "sign": "2026-11-22T15:53:30Z"}))
+        # signs that do not read: the mailbox alone, as before
+        self.assertFalse(unanswered({**parked, "signs": False}))
+        self.assertTrue(unanswered({**parked, "signs": False}, waits=True))
+        # the guard's status message is never one, the guard ends its wait itself
+        self.assertFalse(unanswered(parked, why="status"))
+        self.assertFalse(unanswered(parked, why="status", waits=True))
+
+    def test_lem_session_list_reads_the_signs_for_a_wake_no_mailbox_holds(
+        self,
+    ) -> None:
+        ago = datetime.now(UTC) - timedelta(minutes=11)
+        woke = {
+            "ts": ago.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "event": "session.wake",
+            "task": SLUG,
+            "session": "S1",
+            "why": "owner",
+        }
+        opened = {
+            "ts": "2026-11-22T01:33:00Z",
+            "event": "session.open",
+            "task": SLUG,
+            "session": "S1",
+            "name": SLUG,
+            "phase": "land",
+            "why": "handoff",
+        }
+
+        def unanswered(minutes: int) -> bool:
+            sign = (ago + timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            with (
+                mock.patch.object(
+                    session,
+                    "place",
+                    return_value={"session": "", "socket": "", "window": ""},
+                ),
+                mock.patch.object(session, "tree", return_value=self.NODES),
+                mock.patch.object(
+                    session.project,
+                    "events_named",
+                    side_effect=lambda root, *names: [
+                        e for e in (opened, woke) if e["event"] in names
+                    ],
+                ),
+                mock.patch.object(session.project, "load", return_value={}),
+                mock.patch.object(session.project, "read_tasks", return_value=[]),
+                # the parked pane's Stop hook took the line: the mailbox is empty
+                mock.patch.object(session, "ctl", return_value="[]"),
+                mock.patch.object(
+                    session.lem_signs,
+                    "signs_of",
+                    return_value={
+                        "sign": sign,
+                        "shell": False,
+                        "signs": True,
+                        "turn": "ended",
+                    },
+                ),
+            ):
+                return session.cmd_list(ROOT)[0]["unanswered"]
+
+        # the newest turn 5 hours before the wake, or 2 minutes after it
+        self.assertEqual((unanswered(-300), unanswered(2)), (True, False))
+
     def test_the_owners_open_of_a_stopped_task_acts_until_its_session_works_again(
         self,
     ) -> None:
