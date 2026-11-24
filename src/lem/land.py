@@ -9690,6 +9690,16 @@ def tip_carry(  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit
             return None, f"no review covers the change: {uncovered['why']}"
         if (rebased or uncovered or {}).get("from") == old:
             return None, "a commit came after the rebase"
+        pushed = kept.get("pushed")
+        if pushed and pushed != old and pushed in started_from(kept):
+            # A `propose` pushed that tip and ended before it kept the proposal (the
+            # forge refused its edit, or it was cut off), and a rebase of this landing
+            # started from it: the tip proposed before is not where the rebase
+            # started, and no commit need have come.
+            return None, (
+                f"the rebase started from {pushed[:9]}, which a proposal pushed and "
+                f"did not keep, not from the tip proposed before, {old[:9]}"
+            )
         return None, "a commit came after the tip proposed before"
     met = "the rebase met a conflict, and"
     if uncovers and uncovered:
@@ -9740,6 +9750,21 @@ def tip_carry(  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit
             f"{met} the request is careful: the review says so: {reason(careful_said)}",
         )
     return "resolution", None
+
+
+def started_from(kept: dict) -> set[str]:
+    """The tips the record KEPT names as where a rebase or a builder's resolution of
+    this landing started (`rebase_carried.from`, `rebase_uncovered.from`,
+    `resolution.before`)."""
+    return {
+        one.get(key)
+        for one, key in (
+            (kept.get("rebase_carried"), "from"),
+            (kept.get("rebase_uncovered"), "from"),
+            (kept.get("resolution"), "before"),
+        )
+        if one and one.get(key)
+    }
 
 
 def filed_on(kept: dict, before: str, after: str) -> dict:

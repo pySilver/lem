@@ -2474,6 +2474,34 @@ class MovedBase(unittest.TestCase):
             land.tip_carry({"rebase_carried": rebased}, "bbb", []), (None, None)
         )
 
+    def test_a_rebase_from_a_tip_a_proposal_pushed_names_no_commit(self) -> None:
+        # `propose` pushed bbb, the rebase of the proposed aaa, and ended before it
+        # kept the proposal; the base moved, and the next `base` rebased bbb to ccc,
+        # with no commit between: the reason says where the rebase started
+        why = (
+            "the rebase started from bbb, which a proposal pushed and did not keep, "
+            "not from the tip proposed before, aaa"
+        )
+        kept = {
+            "proposed": "aaa",
+            "pushed": "bbb",
+            "rebase_carried": {"from": "bbb", "to": "ccc"},
+        }
+        self.assertEqual(land.tip_carry(kept, "ccc", []), (None, why))
+        # the same when that rebase met a conflict a builder resolved
+        resolved = {
+            "proposed": "aaa",
+            "pushed": "bbb",
+            "resolution": {"before": "bbb", "after": "ddd"},
+            "rebase_uncovered": {"from": "bbb", "to": "ddd", "why": "a read is due"},
+        }
+        self.assertEqual(land.tip_carry(resolved, "ddd", []), (None, why))
+        # a rebase from a tip nobody pushed follows a commit
+        self.assertEqual(
+            land.tip_carry({**kept, "pushed": "aaa"}, "ccc", []),
+            (None, "a commit came after the tip proposed before"),
+        )
+
     def test_a_base_that_moves_nothing_keeps_the_notes_of_the_rebase_before_it(
         self,
     ) -> None:
