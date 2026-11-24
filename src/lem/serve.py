@@ -3618,6 +3618,9 @@ class Handler(BaseHTTPRequestHandler):
         model = workspace.model()
         reader = workspace.reader
         backlog = reader.read_backlog(board, fresh=fresh_backlog)
+        # the list first: its look at `[peers]` says whether that table reads now
+        spaces = self.spaces(workspace.name)
+        peers = self.peers.trouble
         return pages.Ctx(
             host=HOSTNAME,
             workspace=workspace.name,
@@ -3628,12 +3631,13 @@ class Handler(BaseHTTPRequestHandler):
             problems=[
                 *reader.problems.values(),
                 *([workspace.session_problem] if workspace.session_problem else []),
+                *([f"the machines joined do not read: {peers}"] if peers else []),
             ],
             read_at=model.now,
             events=len(reader.events),
             log_id=reader.log_id(),
             keep_days=keep_days_of(reader),
-            spaces=self.spaces(workspace.name),
+            spaces=spaces,
             native=bool(NATIVE.search(self.headers.get("User-Agent") or "")),
             local=self.door is None
             and self.client_address[0] in LOOPBACK

@@ -59,6 +59,7 @@ import os
 import re
 import socket
 import ssl
+import sys
 import threading
 import time
 from collections.abc import Callable
@@ -622,19 +623,37 @@ class Peers:
     """The machines of the table `[peers]`, read at each look, each kept while the table
     names it."""
 
-    def __init__(self, status: Callable[[], dict]) -> None:
+    def __init__(
+        self,
+        status: Callable[[], dict],
+        log: Callable[[str], object] | None = None,
+    ) -> None:
         # status(): `tailscale status --json` as a dict, or an exception that says
         # why not
         self.status = status
+        self.log = log or (lambda line: sys.stderr.write(f"serve.py: {line}\n"))
         self.lock = threading.Lock()
         self.known: dict[str, Peer] = {}
         self.suffix: str | None = None
+        # why the table does not read, in the words of its StateError; the board shows
+        # it among a page's problems
+        self.trouble: str | None = None
 
     def table(self) -> dict[str, int]:
+        """The table `[peers]`; one with a line that does not read gives no machine,
+        keeps why in `trouble` and says it in the log once, so the board goes on."""
         try:
-            return dict(lem_state.machine_table("peers"))
-        except lem_state.StateError:
+            table = dict(lem_state.machine_table("peers"))
+        except lem_state.StateError as error:
+            with self.lock:
+                new = self.trouble != str(error)
+                self.trouble = str(error)
+            if new:
+                self.log(f"the machines joined do not read: {error}")
             return {}
+        with self.lock:
+            self.trouble = None
+        return table
 
     def tailnet_suffix(self) -> str | None:
         """This tailnet's suffix, read once when it reads."""
@@ -791,7 +810,9 @@ def leave(given: str) -> dict:
 
 def report(status: Callable[[], dict]) -> dict:
     """`--peers`: each machine joined, where it is reached, and what it says of
-    itself now."""
+    itself now. A table with a line that does not read is refused with that line and
+    the fix, as a join and a leave refuse it."""
+    lem_state.machine_table("peers")
     peers = Peers(status)
     out = []
     for peer in peers.all():

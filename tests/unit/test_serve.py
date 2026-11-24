@@ -3109,6 +3109,8 @@ class SwitcherCount(unittest.TestCase):
         import tempfile
 
         class Peers:
+            trouble = None
+
             def states(self) -> list:
                 return []
 
@@ -3138,6 +3140,37 @@ class SwitcherCount(unittest.TestCase):
                 with log.open("a", encoding="utf-8") as file:
                     file.write(self.held("refund-rounding", 1) + "\n")
                 self.assertEqual(counts(), (2, 2))
+
+
+class PeersTrouble(unittest.TestCase):
+    """A `[peers]` table with a line that does not read: a page of the board says
+    why among its problems, instead of a list with no other machine and no word."""
+
+    def test_a_page_says_why_the_machines_joined_do_not_read(self) -> None:
+        import tempfile
+
+        said = "peers.broken in machine.toml is no machine's name; delete the line"
+
+        class Peers:
+            trouble: str | None = None
+
+            def states(self) -> list:
+                self.trouble = said
+                return []
+
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / ".lem" / "state").mkdir(parents=True)
+            handler = serve.Handler.__new__(serve.Handler)
+            handler.headers = email.message.Message()
+            handler.client_address = ("127.0.0.1", 0)
+            handler.machine = serve.Machine()
+            handler.peers = cast("serve.lem_peers.Peers", Peers())
+            with mock.patch.object(
+                serve.lem_state, "workspaces", return_value=[folder]
+            ):
+                workspace = handler.machine.workspaces()[0]
+                ctx = handler.context(workspace, "")
+        self.assertTrue(any(said in problem for problem in ctx.problems))
 
 
 class CodeStamp(unittest.TestCase):

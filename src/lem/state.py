@@ -222,7 +222,10 @@ MACHINE_KEYS: dict[str, dict[str, type | tuple[type, ...]] | None] = {
 MACHINE_FIX = {
     "load": "`lem project load --start N` writes it",
     "serve": "`lem serve --port N` or `lem serve --tailscale` writes it",
-    "peers": "`lem serve --join HOST` and `--leave HOST` write it",
+    "peers": (
+        "`lem serve --join HOST` writes a machine's line, "
+        "and `lem serve --leave HOST` takes it out"
+    ),
     "handoff": (
         "`lem project handoff --tokens N` writes it, "
         "and `--tokens default` takes it out"
@@ -380,7 +383,7 @@ def checked_table(tables: dict, name: str) -> dict:
             ):
                 raise StateError(
                     f"{name}.{key} in {file} is no machine's name with a port of its "
-                    f"door; delete the line, or {fix}"
+                    f"door; delete the line, then {fix}"
                 )
             continue
         kind = kinds.get(key)

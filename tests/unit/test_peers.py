@@ -336,6 +336,25 @@ class Table(unittest.TestCase):
             peers.leave("beta")
         self.assertEqual(self.file.read_text(encoding="utf-8"), text)
 
+    def test_the_list_refuses_a_table_with_a_bad_line_and_the_board_keeps_why(
+        self,
+    ) -> None:
+        self.file.write_text('[peers]\nbeta = 4537\nbroken = "bad"\n', encoding="utf-8")
+        line = r"peers\.broken in .*machine\.toml is no machine's name.*delete the line"
+        with self.assertRaisesRegex(lem_state.StateError, line):
+            peers.report(dict)
+        said: list[str] = []
+        machines = peers.Peers(dict, log=said.append)
+        # the board's looks show no machine, keep why, and log it once
+        self.assertEqual(machines.all(), [])
+        self.assertEqual(machines.all(), [])
+        self.assertRegex(machines.trouble or "", line)
+        self.assertEqual(len(said), 1)
+        self.assertRegex(said[0], line)
+        self.file.write_text("[peers]\nbeta = 4537\n", encoding="utf-8")
+        self.assertEqual([peer.name for peer in machines.all()], ["beta"])
+        self.assertIsNone(machines.trouble)
+
     def test_the_read_and_the_write_of_a_join_and_a_leave_are_under_one_lock(
         self,
     ) -> None:
