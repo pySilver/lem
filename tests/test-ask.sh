@@ -316,7 +316,8 @@ def run(value):
 def text(value):
     return {"status": "answered", "answers": {"answer": {"selected": [], "labels": [], "text": value}}}
 answer = {"status": "answered", "answers": {"answer": {"selected": ["a"], "labels": ["A"]}}}
-sys.exit(not (all(run(v) == (0, text(v), 204) for v in ("[1]", "42", '"text"', "not json"))
+sys.exit(not (all(run(v) == (0, text(v), 204) for v in ("[1]", "42", "null", "true", "not json"))
+              and run('"ship it"') == (0, text("ship it"), 204)
               and run(json.dumps(answer)) == (0, answer, 204)))
 PY
 then pass "the browser takes a posted JSON value that is no object, or no JSON, as the text of one answer, and an object as the answer"
@@ -343,7 +344,7 @@ calls = []
 def reply(stdout, code=0):
     return types.SimpleNamespace(stdout=stdout, stderr="", returncode=code)
 # a submitted value the page's own script may send (`window.lemAsk.send`): JSON that is no object, or no JSON
-VALUES = {"value-list": "[1]", "value-number": "42", "value-string": '"text"', "value-text": "not json"}
+VALUES = {"value-list": "[1]", "value-number": "42", "value-string": '"ship it"', "value-null": "null", "value-true": "true", "value-text": "not json"}
 def outcome(o):
     value = VALUES.get(scenario, json.dumps({"status": "answered", "answers": {}}))
     return reply(json.dumps({"ok": True, "result": {"pageOutcome": {"pageID": "P1", "outcome": o, "value": value}}}))
@@ -390,11 +391,12 @@ stub "wait takes a submitted list as the text of one answer" 0 answered value-li
 stub "wait takes a submitted number as the text of one answer" 0 answered value-number
 stub "wait takes a submitted JSON string as the text of one answer" 0 answered value-string
 texts=""
-for scenario in value-list value-number value-string value-text; do
+for scenario in value-list value-number value-string value-null value-true value-text; do
   said=$("$PY" -I -B -c "$STUB" "$B" "$scenario" 2>/dev/null || true)
   texts+=$(printf '%s' "$said" | "$PY" -I -B -c 'import json,sys; a = json.load(sys.stdin); print(a["answers"]["answer"]["text"], a["pageID"], sep="|")' 2>/dev/null || echo "unread: $said")$'\n'
 done
-if [ "$texts" = $'[1]|P1\n42|P1\n"text"|P1\nnot json|P1\n' ]; then
+# ask.js sends JSON.stringify of every value, so a string's text is the string, without its quotes
+if [ "$texts" = $'[1]|P1\n42|P1\nship it|P1\nnull|P1\ntrue|P1\nnot json|P1\n' ]; then
   pass "wait gives a JSON value that is no object the form of a value that is no JSON: its text, as one answer"
 else
   fail "wait gives a JSON value that is no object the form of a value that is no JSON: $texts"

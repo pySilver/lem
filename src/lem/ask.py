@@ -1251,16 +1251,19 @@ def keep_card(path: str, page: str | None, spec: dict[str, Any]) -> Card | None:
 def submitted(value: str | None) -> dict[str, Any]:
     """The answer a page sent as VALUE: the object it is as JSON; a value that is no
     JSON, or JSON that is no object (what a spec's own script may send through
-    `window.lemAsk.send`), is its text, as one answer."""
+    `window.lemAsk.send`), is its text, as one answer. The page's runtime sends every
+    value as JSON, so a JSON string's text is the string, without its quotes; a number,
+    a list, `null` or `true` keeps its JSON text."""
     try:
         given = json.loads(value or "{}")
     except json.JSONDecodeError:
         given = None
     if isinstance(given, dict):
         return given
+    text = given if isinstance(given, str) else value
     return {
         "status": "answered",
-        "answers": {"answer": {"selected": [], "labels": [], "text": value}},
+        "answers": {"answer": {"selected": [], "labels": [], "text": text}},
     }
 
 
