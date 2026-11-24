@@ -1106,20 +1106,6 @@ def text_of(file: Path) -> str:
         ) from error
 
 
-def unreadable_argument(argv: list[str]) -> str | None:
-    """The first argument that is not UTF-8 text, as the message that names it; None
-    when all are. Such an argument would stop the write of the file it goes into
-    half way."""
-    for arg in argv:
-        try:
-            arg.encode("utf-8")
-        except UnicodeEncodeError:
-            return (
-                f"the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8"
-            )
-    return None
-
-
 # a string as TOML writes it, for the template and the refusals; the line edit of a
 # settings file writes the same
 toml_string = lem_state.toml_string
@@ -8802,7 +8788,7 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0911, PLR0912
         help="set the number: 0 leaves it to Claude Code, default takes the line out",
     )
     args = parser.parse_args(argv)
-    if problem := unreadable_argument(sys.argv[1:] if argv is None else argv):
+    if problem := lem_state.unreadable_argument(sys.argv[1:] if argv is None else argv):
         sys.exit(f"project.py: {problem}")
     try:
         root = repo_root(Path(args.repo))

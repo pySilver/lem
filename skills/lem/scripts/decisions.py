@@ -132,7 +132,6 @@ import argparse
 import fcntl
 import importlib
 import json
-import os
 import re
 import subprocess
 from collections.abc import Callable
@@ -1297,15 +1296,9 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
     pending.add_argument("slug", nargs="?")
     commands.add_parser("list").add_argument("slug")
     args = parser.parse_args(argv)
-    for arg in sys.argv[1:] if argv is None else argv:
-        try:
-            arg.encode("utf-8")
-        except UnicodeEncodeError:
-            # the record would hold it, and the event log and the pull request after it
-            sys.exit(
-                f"decisions.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; "
-                "give it in UTF-8"
-            )
+    # the record would hold it, and the event log and the pull request after it
+    if problem := lem_state.unreadable_argument(sys.argv[1:] if argv is None else argv):
+        sys.exit(f"decisions.py: {problem}")
     repo = Path(args.repo)
     try:
         if args.command == "pending" and args.slug:

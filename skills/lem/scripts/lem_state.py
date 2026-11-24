@@ -47,7 +47,8 @@ It also holds the words of a seat whose agent gave an error (`SEAT_ERRORS`,
 `SEAT_NAMES`), which `lem project seat-failed` writes into a block and `land.py` into
 the pull request's line of a stand-in, so that both say one error in one way. And it
 holds a criterion as one text (`whole`), which `criteria.py` marks and `decisions.py`
-compares, so that both read one criterion in one way.
+compares, so that both read one criterion in one way. The one check that each argument
+of a command is UTF-8 text is here too (`unreadable_argument`).
 """
 
 import contextlib
@@ -977,3 +978,17 @@ def whole(criterion: dict) -> str:
     and what `lem decisions` compares an approved criterion as: a change of a step is a
     change of the criterion; its chart is no part of it."""
     return "\n".join([criterion["text"], *criterion.get("case", [])])
+
+
+def unreadable_argument(argv: list[str]) -> str | None:
+    """The first argument that is not UTF-8 text, as the message that names it; None
+    when all are. Such an argument would stop the write of the file it goes into
+    half way. Each command says it after its own name (`project.py: ...`)."""
+    for arg in argv:
+        try:
+            arg.encode("utf-8")
+        except UnicodeEncodeError:
+            return (
+                f"the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8"
+            )
+    return None

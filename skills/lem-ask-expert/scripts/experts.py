@@ -72,6 +72,9 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parents[2] / "lem" / "scripts"
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
+# the one check of a command's arguments, that each is UTF-8 text
+import lem_state  # noqa: E402
+
 # the names of the two seats of the settings' seats.experts, the first and the second,
 # whatever model sits there (project.py's EXPERT_PLACES): an expert whose `--seat` names
 # no model is named by its place
@@ -673,14 +676,8 @@ def main() -> None:
             ),
         )
     args = parser.parse_args()
-    for arg in sys.argv[1:]:
-        try:
-            arg.encode("utf-8")
-        except UnicodeEncodeError:
-            sys.exit(
-                f"experts.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; "
-                "give it in UTF-8"
-            )
+    if problem := lem_state.unreadable_argument(sys.argv[1:]):
+        sys.exit(f"experts.py: {problem}")
     repo = Path(args.repo)
     try:
         if args.command == "brief":
