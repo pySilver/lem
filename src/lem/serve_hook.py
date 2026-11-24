@@ -10,7 +10,7 @@ prints nothing, since Claude Code takes a SessionStart hook's output as context,
 exits 0 whatever happens, a failure too: the board server is no part of a session.
 
 The plugin starts it through `python.py` beside this file, which runs it under a
-Python of 3.11 or newer when the first `python3` is older, and leaves the session silent
+Python of 3.14 or newer when the first `python3` is older, and leaves the session silent
 when the machine has none.
 """
 

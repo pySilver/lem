@@ -35,7 +35,7 @@ every repository.
     lem doctor
 
 The row `python3` names the Python that Lem's commands and hooks run under, which
-`python.py` finds when the first `python3` is older than 3.11, and fails with the
+`python.py` finds when the first `python3` is older than 3.14, and fails with the
 fix when there is none.
 """
 
@@ -73,7 +73,7 @@ PLUGINS = Path(".claude") / "plugins"
 
 
 def python() -> dict:
-    """The Python of 3.11 or newer that `lem` and the plugin's hooks start Lem's scripts
+    """The Python of 3.14 or newer that `lem` and the plugin's hooks start Lem's scripts
     with, found as they find it: the first `python3` on PATH, else the newest
     `python3.N`, else Homebrew's, else one uv has."""
     from lem import python as lem_python
@@ -95,7 +95,7 @@ def python() -> dict:
         )
     else:
         detail = (
-            f"{python3}, and no python3.N of 3.11 or newer is on PATH, nor at "
+            f"{python3}, and no python3.N of 3.14 or newer is on PATH, nor at "
             f"{' or '.join(lem_python.FALLBACKS)}, and uv has none"
         )
     return {

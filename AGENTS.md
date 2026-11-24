@@ -29,7 +29,7 @@ works, and this file says how to change it.
   that reads a task's code or its diff goes to the lead, a builder or a fresh agent (the
   investigator, the review, the merge agent), never into the shape (`new`, `interview`) or the
   landing (`land`).
-- **Scripts are standard-library Python, 3.11 or newer**, print JSON for an agent to read, and
+- **Scripts are standard-library Python, 3.14 or newer**, print JSON for an agent to read, and
   refuse a wrong input with exit 1 and a message that names the fix. No silent default for a
   choice that is the owner's (`project.py init` with no base it can tell asks for `--base`).
   Every string a script prints or writes for a person, its `--help` too, says "the owner";

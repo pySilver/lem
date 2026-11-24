@@ -15,11 +15,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
-      # the oldest Python Lem supports, so that a newer feature in a script fails here
+      # the Python Lem is written for, and uv, which installs Lem and its tools from uv.lock into .venv
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
-      # the lint suite's tools: uv brings ruff and pyrefly from uv.lock, npm brings ESLint from package-lock.json
+          python-version: "3.14"
       - uses: astral-sh/setup-uv@v10.4.0
       - uses: actions/setup-node@v7
         with:

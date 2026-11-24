@@ -436,7 +436,7 @@ else
 fi
 old=""
 for candidate in /usr/bin/python3 python3.9 python3.10; do
-  if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(sys.version_info >= (3, 11))' 2>/dev/null; then old=$candidate; break; fi
+  if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(sys.version_info >= (3, 14))' 2>/dev/null; then old=$candidate; break; fi
 done
 if [ -n "$old" ]; then
   # The plugin's hook line under that python3: python.py starts the hook under a newer Python it
@@ -448,14 +448,14 @@ if [ -n "$old" ]; then
     "$old" -B "$launch" corrections hook 2>&1; echo "exit=$?")
   soon test -s "$CQ/.lem/state/corrections.jsonl"
   if [ "$out" = "exit=0" ] && grep -qF '"owner": "under an old python"' "$CQ/.lem/state/corrections.jsonl" && [ ! -e "$CQ/.lem/state/corrections.log" ]; then
-    pass "under a python3 before 3.11 the plugin's hook line runs the hook under a newer Python it finds: exit 0, no output, and the message queued"
+    pass "under a python3 before 3.14 the plugin's hook line runs the hook under a newer Python it finds: exit 0, no output, and the message queued"
   else
     fail "the hook under $old: $out / $(cat "$CQ/.lem/state/corrections.jsonl" "$CQ/.lem/state/corrections.log" 2>&1)"
   fi
   rm -f "$CQ/.lem/state/corrections.jsonl" "$WORK/jev-called"
   queue_off
 else
-  skip "the hook under a python3 before 3.11: none found"
+  skip "the hook under a python3 before 3.14: none found"
 fi
 queue_on
 out=$(event "never push without asking" s1 | hook hook; echo "exit=$?")

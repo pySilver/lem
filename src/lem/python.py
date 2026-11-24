@@ -1,8 +1,8 @@
-"""The Python that runs Lem's scripts: 3.11 or newer, found by itself when the first
-`python3` is older.
+"""The Python that runs the plugin's hooks: 3.14 or newer, found by itself when the
+first `python3` is older.
 
-Lem's scripts need Python 3.11 (they read the settings with `tomllib`), and a Mac whose
-developer does not work in Python has only the system's `python3`, 3.9. So whatever
+Lem's code is written for Python 3.14, and a Mac whose developer does not work in Python
+has only the system's `python3`, 3.9. So whatever
 starts a script of Lem asks `find()` for a newer one when the `python3` it runs under is
 older, and starts the script with that: the plugin's hooks, which `hooks/hooks.json`
 starts as
@@ -12,7 +12,7 @@ starts as
 with NAME the hook's module of this package, and only when this file and a `python3` are
 there: in a plugin folder without it (an update in progress), python3 would exit 2,
 which Claude Code reads as a blocking error (a compaction blocked). Under a Python of
-3.11 or newer the hook's module runs in this process, so a hook costs no second start of
+3.14 or newer the hook's module runs in this process, so a hook costs no second start of
 Python; under an older one this process becomes this file under the newer Python, which
 runs it. Either way the module runs as Python runs a script (`run()`), and this file
 loads nothing more on the way to it: the search for a Python imports its tools inside
@@ -30,7 +30,7 @@ on the Python of its own install, and needs none of this.
 import os
 import sys
 
-FLOOR: "tuple[int, int]" = (3, 11)
+FLOOR: "tuple[int, int]" = (3, 14)
 # Where Homebrew links its newest Python, on Apple silicon and on Intel: looked at after
 # PATH, for a PATH (a hook's, a keymap's) that leaves Homebrew's folder out.
 FALLBACKS = ("/opt/homebrew/bin/python3", "/usr/local/bin/python3")

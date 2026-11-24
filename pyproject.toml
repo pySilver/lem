@@ -21,8 +21,8 @@ description = "Lem coordinates the agents that write code in one repository."
 # The release number has one place, .claude-plugin/plugin.json (tests/unit/test_release.py),
 # and the build reads it there ([tool.hatch.version]).
 dynamic = ["version"]
-# The oldest Python a script of Lem runs under. ruff takes its target version from this line.
-requires-python = ">=3.11"
+# The Python Lem's code is written for. ruff takes its target version from this line.
+requires-python = ">=3.14"
 license = "MIT"
 license-files = ["LICENSE", "NOTICE"]
 dependencies = []
@@ -199,13 +199,14 @@ allowed-confusables = ["’", "–", "×", "›"]
 "tests/unit/*.py" = ["E402"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-# The owner's ruling "Python 3.11 stays, in the modern form" (docs/rulings/rulings.md).
-"__future__.annotations".msg = "No script has `from __future__ import annotations`: Python 3.11 is the floor, and its own annotations are enough."
+# The owner's ruling "Python 3.11 stays, in the modern form", written for 3.14 from the release
+# that brings Lem's own Python (docs/rulings/rulings.md).
+"__future__.annotations".msg = "No script has `from __future__ import annotations`: Python 3.14 is the floor, and its own annotations are enough."
 
 # ==== pyrefly ====
 [tool.pyrefly]
-# The oldest Python a script runs under: a name the standard library got later is an error here.
-python-version = "3.11"
+# The Python Lem's code is written for: a name the standard library got later is an error here.
+python-version = "3.14"
 project-includes = ["**/*.py", "tests/clock/date"]
 # The same folders as ruff's `src`.
 search-path = [

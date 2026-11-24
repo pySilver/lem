@@ -237,7 +237,7 @@ bullet.
   `README.md` (its opening). (2026-11-18)
 - **Each label of a chart is quoted.** `AGENTS.md` ("Documentation describes the current state");
   `skills/lem/prompts/writing.md` ("The flowchart") for a task's documents. (2026-11-19)
-- **The texts people read say "the owner".** `AGENTS.md` ("Scripts are standard-library Python, 3.11
+- **The texts people read say "the owner".** `AGENTS.md` ("Scripts are standard-library Python, 3.14
   or newer"). (decided 2026-11-17)
 - **A night's brake: with two or more of its pull requests that nobody merged or closed, a night
   opens nothing.** `skills/lem/stages/night.md` (step 1, "The brake"). (decided 2026-11-18)

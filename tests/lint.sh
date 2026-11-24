@@ -41,9 +41,9 @@ python_checks() {
     said "ruff check: no Python file breaks a rule of pyproject.toml" "$out"
   fi
   if out=$(uv run --locked pyrefly check --output-format min-text 2>&1); then
-    pass "pyrefly check: the types of every Python file hold under Python 3.11"
+    pass "pyrefly check: the types of every Python file hold under Python 3.14"
   else
-    said "pyrefly check: the types of every Python file hold under Python 3.11" "$out"
+    said "pyrefly check: the types of every Python file hold under Python 3.14" "$out"
   fi
 }
 

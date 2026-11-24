@@ -22,8 +22,8 @@ starts a second copy for each message; the first copy claims the message, so it 
 once, and the machine check's `correction hook` row names each such file with the entry to delete
 from it by hand. Say that in one line, and do not edit the file: it is the owner's.
 
-- It needs Python 3.11 or newer as `python3`. Under an older one it judges nothing, and says so
-  in its log. It finds `python3` and `git` on the hook's `PATH`, as any hook does; with no `git`
+- It needs Python 3.14 or newer, as `python3` or as a `python3.N` it finds. Without one it
+  judges nothing, and says so in its log. It finds `python3` and `git` on the hook's `PATH`, as any hook does; with no `git`
   there it queues nothing and has nowhere to say so, since git names its state folder. The
   model's client is Lem's own `jev.py`, run through the package's entry by its path. It needs `JEV_API_KEY`, the one name it
   reads for the key, in the environment Claude Code starts with, and `JEV_API_URL` there for a

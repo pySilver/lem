@@ -1,4 +1,4 @@
-"""lem_python.find(), the search for a Python of 3.11 or newer that the plugin's hooks
+"""lem_python.find(), the search for a Python of 3.14 or newer that the plugin's hooks
 make when the first `python3` is older, over stand-in folders of a PATH.
 A stand-in `python3` says its version as Python would; a `python3.N` is known by its
 name and never started. And what a hook's process loads when python.py starts it.
@@ -40,16 +40,16 @@ class Find(unittest.TestCase):
 
     def test_an_old_python3_gives_way_to_the_newest_python3_n_on_the_path(self) -> None:
         self.stand_in("a", "python3")
-        self.stand_in("a", "python3.12")
+        self.stand_in("a", "python3.15")
         newest = self.stand_in(
             "b", "python3.31"
         )  # no upper end: a minor version newer than this file is taken
-        self.stand_in("b", "python3.10")
+        self.stand_in("b", "python3.13")
         self.assertEqual(lem_python.find(self.path("a", "b"), fallbacks=()), newest)
 
     def test_a_python3_new_enough_comes_first_unless_the_caller_is_it(self) -> None:
-        first = self.stand_in("a", "python3", says="3 13")
-        named = self.stand_in("a", "python3.12")
+        first = self.stand_in("a", "python3", says="3 16")
+        named = self.stand_in("a", "python3.15")
         self.assertEqual(lem_python.find(self.path("a"), fallbacks=()), first)
         self.assertEqual(
             lem_python.find(self.path("a"), python3=False, fallbacks=()), named
@@ -59,10 +59,10 @@ class Find(unittest.TestCase):
         self,
     ) -> None:
         self.stand_in("a", "python3")
-        self.stand_in("a", "python3.10")
-        old = self.stand_in("brew", "python3", says="3 10")
+        self.stand_in("a", "python3.13")
+        old = self.stand_in("brew", "python3", says="3 13")
         self.assertIsNone(lem_python.find(self.path("a"), fallbacks=(old,), uv=()))
-        new = self.stand_in("local", "python3", says="3 11")
+        new = self.stand_in("local", "python3", says="3 14")
         self.assertEqual(
             lem_python.find(self.path("a"), fallbacks=(old, new), uv=()), new
         )
@@ -71,7 +71,7 @@ class Find(unittest.TestCase):
         self,
     ) -> None:
         self.stand_in("a", "python3")
-        managed = self.stand_in("uv-home", "python3", says="3 12")
+        managed = self.stand_in("uv-home", "python3", says="3 15")
         asked = self.home / "asked"
         uv = self.stand_in("tools", "uv", says=f'{managed}; echo "$@" > {asked}')
         self.assertEqual(
@@ -79,12 +79,12 @@ class Find(unittest.TestCase):
         )
         self.assertEqual(
             asked.read_text().split(),
-            ["python", "find", "--no-project", "--no-python-downloads", ">=3.11"],
+            ["python", "find", "--no-project", "--no-python-downloads", ">=3.14"],
         )
         self.assertEqual(
             lem_python.find(self.path("a"), fallbacks=(), uv=(uv,)), managed
         )  # uv off the PATH, at its usual place
-        old = self.stand_in("uv-home", "python3", says="3 10")
+        old = self.stand_in("uv-home", "python3", says="3 13")
         self.assertIsNone(
             lem_python.find(self.path("a", "tools"), fallbacks=(), uv=())
         )  # what uv names is asked its version
@@ -230,7 +230,7 @@ class FolderNotWhole(unittest.TestCase):
         if not lem_python.runnable(old) or (lem_python.version(old) or (0, 0)) >= (
             lem_python.FLOOR
         ):
-            self.skipTest(f"no python3 older than 3.11 at {old}")
+            self.skipTest(f"no python3 older than 3.14 at {old}")
         self.runs(old)
 
 

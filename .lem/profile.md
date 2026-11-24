@@ -23,7 +23,7 @@ ran well on one Mac (convertiser-server, 2026-11-14).
   test or one place holds of them is `docs/rulings/history.md`.
 - The rules of a change in `AGENTS.md` hold: the skill knows no project; a stage names a
   capability, never a tool; a number carries its source and date; scripts are standard-library
-  Python 3.11 or newer, print JSON, and refuse a wrong input with exit 1 and the fix.
+  Python 3.14 or newer, print JSON, and refuse a wrong input with exit 1 and the fix.
 - A change to a script comes with its test. A change to a stage file names the task that showed
   the need.
 - Documentation describes the current state. The README is in ASD-STE100.
@@ -31,7 +31,7 @@ ran well on one Mac (convertiser-server, 2026-11-14).
 
 ## Tools and versions
 
-Python 3.11 or newer, standard library only; bash and ShellCheck for the tests; headless Chrome
+Python 3.14 or newer, standard library only; bash and ShellCheck for the tests; headless Chrome
 for the page checks when one is installed; Claude Code 2.1.325, codex-cli 0.169.0, revmux v0.2.7
 and agterm on the owner's machine (`doctor.py`, 2026-11-16).
 

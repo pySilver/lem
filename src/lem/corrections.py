@@ -71,7 +71,7 @@ its path: a hook has no `PATH` to count on. LEM_JEV, when set, names another com
 with the same contract.
 
 The plugin starts the hook through `python.py` beside this file, which runs it under
-a Python of 3.11 or newer when the first `python3` is older, and leaves the session
+a Python of 3.14 or newer when the first `python3` is older, and leaves the session
 silent when the machine has none.
 """  # noqa: E501 - the usage table of `--help` keeps its columns
 
