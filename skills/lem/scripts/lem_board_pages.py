@@ -3071,6 +3071,20 @@ def added_line(ctx: Ctx, it: dict) -> Markup | None:
     )
 
 
+def item_task(ctx: Ctx, path: str) -> dict | None:
+    """The task of the model that builds the backlog folder's item at PATH: one that has
+    not ended and whose ask is the item's path, as "Start a task" writes it, or a whole
+    path that ends in it, as the night may write it; the same ask.txt that project.py's
+    `item_holder` reads for a reviewer's item and for the start's refusal. None when no
+    task builds it."""
+    for t in ctx.model.tasks:
+        ask = (t.ask or "").strip()
+        whole = ask.startswith("/") and ask.endswith(f"/{path}")
+        if not t.closed and (ask == path or whole):
+            return {"task": t.slug, "status": t.status}
+    return None
+
+
 def backlog_item(ctx: Ctx, it: dict) -> Markup:  # noqa: C901 - over the limit before the limit was set
     days = days_old(it.get("added", ""), ctx.model.now)
     # a reviewer's item that waits for the owner's start or drop; a refuted one waits
@@ -3124,7 +3138,7 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:  # noqa: C901 - over the limit b
     else:
         place = h("span", {"class": "bl-where"}, where or "no place in the code named")
     cmd = f"/lem new {it['path']}"
-    held = it.get("held") if it.get("reviewer") else None
+    held = it.get("held") if it.get("reviewer") else item_task(ctx, it["path"])
     if held:
         side.insert(
             0,
@@ -3157,11 +3171,13 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:  # noqa: C901 - over the limit b
                 {"class": "bl-note"},
                 "The task ",
                 who,
+                f" ({held['status'] or 'new'}) builds this item. ",
                 (
-                    f" ({held['status'] or 'new'}) builds this item. "
                     "It leaves the backlog with that task's landing, and is undecided "
                     "again when the task is dropped."
-                ),
+                )
+                if it.get("reviewer")
+                else "Start a task comes back here when that task is dropped.",
             ),
         )
     elif ctx.can_act:

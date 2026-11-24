@@ -1194,8 +1194,11 @@ class ReviewerItems(unittest.TestCase):
         ],
     }
 
-    def page(self, *, can_act: bool = True) -> str:
-        events = [state(1, "building", "task 1 of 2", task="tests-flaky-check")]
+    def page(self, *, can_act: bool = True, more: list | None = None) -> str:
+        events = [
+            state(1, "building", "task 1 of 2", task="tests-flaky-check"),
+            *(more or []),
+        ]
         return str(
             pages.backlog_page(
                 pages.Ctx(
@@ -1252,6 +1255,32 @@ class ReviewerItems(unittest.TestCase):
         mine = self.item(self.page(), "tests-flaky-check")
         self.assertIn('name="item" value="docs/backlog/tests-flaky-check.md"', mine)
         self.assertNotIn("backlog/drop", mine)
+
+    def test_an_item_of_the_backlog_folder_that_a_task_builds_shows_it_and_no_start(
+        self,
+    ) -> None:
+        # docs/backlog/a-backlog-item-never-shows-that-it-has-a-task.md: the task the
+        # board's "Start a task" opened, whose ask is the item's path, builds it
+        building = {
+            **state(2, "building", "task 1 of 2", task="flaky-fix"),
+            "ask": "docs/backlog/tests-flaky-check.md",
+        }
+        mine = self.item(self.page(more=[building]), "tests-flaky-check")
+        self.assertIn(">held by flaky-fix<", mine)
+        self.assertIn("(building) builds this item", mine)
+        self.assertIn('href="/h/w/tasks/flaky-fix', mine)
+        self.assertNotIn("<form", mine)
+        # a whole path under the main checkout, as the night may write it, is the
+        # same item; a dropped task gives "Start a task" back
+        night = {**building, "ask": "/Users/dev/shop/docs/backlog/tests-flaky-check.md"}
+        self.assertIn(
+            ">held by flaky-fix<",
+            self.item(self.page(more=[night]), "tests-flaky-check"),
+        )
+        dropped = {**state(3, "dropped", "not needed", task="flaky-fix"), "ask": ""}
+        again = self.item(self.page(more=[building, dropped]), "tests-flaky-check")
+        self.assertNotIn("held by", again)
+        self.assertIn('action="/h/w/start"', again)
 
     def test_the_backlog_key_counts_the_undecided_items_of_the_reviewer(self) -> None:
         html = self.page()
