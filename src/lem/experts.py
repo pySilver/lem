@@ -84,9 +84,11 @@ SEAT = re.compile(
     r"\A(?P<agent>[a-z]+)(?:/(?P<model>[A-Za-z0-9][A-Za-z0-9._-]*))?(?::(?P<effort>[a-z]+))?\Z"
 )
 FOLDER = re.compile(r"\A\d{4}-\d{2}-\d{2}-\d{6}-[a-z0-9-]+\Z")
+# How many characters of the question's words can go into the folder's name.
+QUESTION_CHARS = 48
 # The persona panel's command, `lem cast`: the one reader of the cast and the profile,
 # which a brief names so that an expert knows who the code is for.
-CAST = [sys.executable, "-B", str(paths.MAIN), "cast"]
+CAST = (sys.executable, "-B", str(paths.MAIN), "cast")
 # How many words of each persona's "Who they are" a brief carries. A guess, not a
 # measurement: at about 200 words a minute, the part of three or four personas reads in
 # a minute.
@@ -95,7 +97,7 @@ WHO_HEADING = re.compile(r"\A#{2,6}\s+who they are\s*\Z", re.IGNORECASE)
 
 
 class ExpertError(Exception):
-    pass
+    """A refusal to make a brief or record an expert's answer."""
 
 
 def script(name: str, repo: Path, *args: str) -> str:
@@ -147,9 +149,10 @@ def parse_seat(given: str, where: str, place: str | None) -> dict:
             f"for example {EXAMPLE_SEAT}"
         )
     if found["agent"] not in AGENTS:
+        agents = " or ".join(AGENTS)
         raise ExpertError(
             f"{where} {given!r} names the agent {found['agent']!r}: "
-            f"an expert is started by {' or '.join(AGENTS)}, "
+            f"an expert is started by {agents}, "
             "the agents the harness knows"
         )
     return {"seat": found.group(0), **found.groupdict(), "place": place}
@@ -185,18 +188,20 @@ def seats(repo: Path, given: list[str]) -> list[dict]:
             }
             for seat in named
         ]
-    for expert in experts:
-        expert["name"] = (
-            name_of(expert["model"])
-            if expert["model"]
-            else expert["place"] or expert["agent"]
+    for entry in experts:
+        entry["name"] = (
+            name_of(entry["model"])
+            if entry["model"]
+            else entry["place"] or entry["agent"]
         )
     names = [expert["name"] for expert in experts]
     twice = sorted({name for name in names if names.count(name) > 1})
     if twice:
+        repeated = ", ".join(twice)
+        listed = ", ".join(expert["seat"] for expert in experts)
         raise ExpertError(
-            f"two experts are named {', '.join(twice)} "
-            f"({', '.join(e['seat'] for e in experts)}): each answer file carries the "
+            f"two experts are named {repeated} "
+            f"({listed}): each answer file carries the "
             "name, so give models whose last words differ"
         )
     return experts
@@ -239,17 +244,18 @@ def who_they_are(text: str, stem: str) -> tuple[str, str]:
     lines = text.splitlines()
     heading = next((line[2:].strip() for line in lines if line.startswith("# ")), stem)
     who = next(
-        (n + 1 for n, line in enumerate(lines) if WHO_HEADING.match(line.strip())), None
+        (
+            index + 1
+            for index, line in enumerate(lines)
+            if WHO_HEADING.match(line.strip())
+        ),
+        None,
     )
     part: list[str] = []
-    if who is not None:
-        for line in lines[who:]:
-            if line.startswith("#"):
-                break
-            part.append(line.strip())
-    else:
+    if who is None:
         first = next(
-            (n + 1 for n, line in enumerate(lines) if line.startswith("# ")), 0
+            (index + 1 for index, line in enumerate(lines) if line.startswith("# ")),
+            0,
         )
         for line in lines[first:]:
             bare = line.strip()
@@ -258,6 +264,11 @@ def who_they_are(text: str, stem: str) -> tuple[str, str]:
                     break
             elif not bare.startswith(">"):
                 part.append(bare)
+    else:
+        for line in lines[who:]:
+            if line.startswith("#"):
+                break
+            part.append(line.strip())
     sentences = re.split(r"(?<=[.!?])\s+", " ".join(" ".join(part).split()))
     kept: list[str] = []
     for sentence in sentences:
@@ -289,10 +300,8 @@ def audience_text(found: dict) -> str:
             Path(persona.get("person") or persona["path"]).read_text(encoding="utf-8"),
             persona["stem"],
         )
-        people.append(
-            f"- **{heading}** (`{persona['path']}`): "
-            f"{who or 'the file says who they are.'}"
-        )
+        who = who or "the file says who they are."
+        people.append(f"- **{heading}** (`{persona['path']}`): {who}")
     listed = "\n".join(people)
     return f"""## Who the code is for
 
@@ -395,14 +404,13 @@ def questions(repo: Path) -> Path:
 
 
 def new_folder(top: Path, question: str, at: datetime) -> Path:
-    words = (
-        "-".join(re.findall(r"[a-z0-9]+", question.lower())[:6])[:48].strip("-")
-        or "question"
-    )
+    words = "-".join(re.findall(r"[a-z0-9]+", question.lower())[:6])
+    words = words[:QUESTION_CHARS].strip("-") or "question"
     stem = f"{at.strftime('%Y-%m-%d-%H%M%S')}-{words}"
     top.mkdir(parents=True, exist_ok=True)
-    for n in range(1, 100):
-        folder = top / (stem if n == 1 else f"{stem}-{n}")
+    for number in range(1, 100):
+        name = stem if number == 1 else f"{stem}-{number}"
+        folder = top / name
         try:
             folder.mkdir()
         except FileExistsError:
@@ -426,13 +434,15 @@ def free_brief_text(  # noqa: PLR0913, PLR0917 - over the limit before the limit
         f"\n## What is being decided\n\n{context.strip()}\n" if context.strip() else ""
     )
     listed = (
-        "\n".join(f"- {file}" for file in files)
+        "\n".join(f"- {path}" for path in files)
         or "- none named: read what the question points at"
     )
     if options:
         offered = (
             "\n## The options, word for word\n\n"
-            + "\n".join(f"{n}. {option}" for n, option in enumerate(options, start=1))
+            + "\n".join(
+                f"{number}. {option}" for number, option in enumerate(options, start=1)
+            )
             + "\n"
         )
         forms = "one of these two forms"
@@ -494,15 +504,16 @@ def summary(folder: Path, record: dict) -> dict:
         expert["name"] for expert in record["experts"] if expert["name"] not in answers
     ]
     if waiting:
+        listed = " and ".join(waiting)
         then = (
-            f"wait for {' and '.join(waiting)}; as each ends, `lem experts record "
+            f"wait for {listed}; as each ends, `lem experts record "
             f"--folder {folder.name} --expert NAME`"
         )
     elif record["options"]:
+        outcome = f"all picked {shared!r}" if shared else "where they split"
         then = (
-            "show the owner the answers side by side, "
-            + (f"all picked {shared!r}" if shared else "where they split")
-            + ", and one line of what you would do with them"
+            f"show the owner the answers side by side, {outcome}, "
+            "and one line of what you would do with them"
         )
     else:
         then = (
@@ -550,7 +561,7 @@ def cmd_free_brief(  # noqa: PLR0913, PLR0917 - over the limit before the limit 
         "question": question.strip(),
         "context": context.strip(),
         "options": options,
-        "files": [str(file) for file in files],
+        "files": [str(path) for path in files],
         "asked": lem_clock.stamp(now),
         "checkout": str(place),
         "experts": [
@@ -560,7 +571,8 @@ def cmd_free_brief(  # noqa: PLR0913, PLR0917 - over the limit before the limit 
         "answers": {},
     }
     write_record(folder, record)
-    names_ = [expert["name"] for expert in experts]
+    expert_names = [expert["name"] for expert in experts]
+    listed = " and ".join(expert_names)
     return {
         "folder": folder.name,
         "dir": str(folder),
@@ -568,9 +580,9 @@ def cmd_free_brief(  # noqa: PLR0913, PLR0917 - over the limit before the limit 
         "worktree": str(place),
         "experts": record["experts"],
         "answers": {expert["name"]: expert["answer"] for expert in record["experts"]},
-        "ask": names_,
+        "ask": expert_names,
         "next": (
-            f"start {' and '.join(names_)} at once, in the background, with this brief "
+            f"start {listed} at once, in the background, with this brief "
             "(the harness's `ask-experts`); as each ends, `lem experts record --folder "
             f"{folder.name} --expert NAME`"
         ),
@@ -584,7 +596,8 @@ def cmd_free_record(repo: Path, name: str, expert: str) -> dict:
             "give the name `lem experts brief --question` printed"
         )
     folder = questions(repo) / name
-    if not (folder / "record.json").is_file():
+    path = folder / "record.json"
+    if not path.is_file():
         raise ExpertError(
             f"no question {name} is in {folder.parent}: "
             "give the name `lem experts brief --question` printed; "
@@ -592,17 +605,16 @@ def cmd_free_record(repo: Path, name: str, expert: str) -> dict:
         )
     with (folder / ".lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        record = json.loads((folder / "record.json").read_text(encoding="utf-8"))
-        names = [e["name"] for e in record["experts"]]
+        record = json.loads(path.read_text(encoding="utf-8"))
+        names = [entry["name"] for entry in record["experts"]]
         if expert not in names:
+            listed = ", ".join(names)
             raise ExpertError(
-                f"--expert {expert} is none of this question's experts "
-                f"({', '.join(names)})"
+                f"--expert {expert} is none of this question's experts ({listed})"
             )
         if expert in record["answers"]:
             raise ExpertError(
-                f"{expert} answered question {name} already: "
-                f"its answer is in {folder / 'record.json'}"
+                f"{expert} answered question {name} already: its answer is in {path}"
             )
         got = read_answer(
             folder / f"{expert}.md",
@@ -611,9 +623,10 @@ def cmd_free_record(repo: Path, name: str, expert: str) -> dict:
             one_left="the owner then has the other experts' answers only",
         )
         if "pick" in got and got["pick"] not in record["options"]:
+            offered = "; ".join(record["options"])
             raise ExpertError(
                 "the pick of an expert is one of the options, word for word: "
-                f"{'; '.join(record['options'])}; {got['pick']!r} is none of them"
+                f"{offered}; {got['pick']!r} is none of them"
             )
         record["answers"][expert] = {
             **got,
@@ -675,12 +688,13 @@ def main() -> None:
             ),
         )
     args = parser.parse_args()
-    if problem := lem_state.unreadable_argument(sys.argv[1:]):
+    problem = lem_state.unreadable_argument(sys.argv[1:])
+    if problem:
         sys.exit(f"experts.py: {problem}")
     repo = Path(args.repo)
     try:
         if args.command == "brief":
-            result = cmd_free_brief(
+            reply = cmd_free_brief(
                 repo, args.question, args.context, args.option, args.file, args.seat
             )
         else:
@@ -689,10 +703,10 @@ def main() -> None:
                     "--seat belongs to brief: a question's experts are "
                     "the ones its brief named"
                 )
-            result = cmd_free_record(repo, args.folder, args.expert)
+            reply = cmd_free_record(repo, args.folder, args.expert)
     except ExpertError as error:
         sys.exit(f"experts.py: {error}")
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    print(json.dumps(reply, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
