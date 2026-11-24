@@ -99,6 +99,38 @@ else
   fail "an unknown name: $unknown_code / $unknown_out / $(cat "$WORK/unknown")"
 fi
 
+# A plugin's folder that is not whole: bin/lem with no package at all, or with a package that lacks the table of
+# names or the entry. lem alone, lem help, a name and an unknown name each say in one line on stderr which file is not
+# there and to install the plugin again, and exit 1, under this Python and an old python3; lem version still answers.
+cut=yes
+for gone in src src/lem/names.py src/lem/__main__.py; do
+  rm -rf "$WORK/cut" && mkdir -p "$WORK/cut/bin" "$WORK/cut/src" && cp "$LEM" "$WORK/cut/bin/lem" && cp -R "$PWD/src/lem" "$WORK/cut/src/lem"
+  rm -rf "${WORK:?}/cut/$gone"
+  for python in "$PY" /usr/bin/python3; do
+    [ -x "$python" ] || continue
+    for args in "" help "project show" "tickets approve"; do
+      [ "$gone" = src/lem/__main__.py ] && case "$args" in "" | help | tickets*) continue ;; esac
+      set +e
+      # shellcheck disable=SC2086 # each word of ARGS is one argument
+      said=$("$python" -B "$WORK/cut/bin/lem" $args 2>"$WORK/cut-err")
+      code=$?
+      set -e
+      line="lem: $WORK/cut/$([ "$gone" = src ] && echo src/lem/names.py || echo "$gone") is not there: the plugin's folder $WORK/cut is not whole; install the plugin again"
+      if [ "$code" != 1 ] || [ -n "$said" ] || [ "$(cat "$WORK/cut-err")" != "$line" ]; then
+        cut="no: $python lem $args without $gone: $code / $said / $(cat "$WORK/cut-err")"
+        break 3
+      fi
+    done
+  done
+done
+rm -rf "$WORK/cut/src"
+versioned=$("$PY" -B "$WORK/cut/bin/lem" version 2>&1 | field 'd["root"]' || true)
+if [ "$cut" = yes ] && [ "$versioned" = "$WORK/cut" ]; then
+  pass "in a plugin's folder that is not whole, lem alone, lem help, a name and an unknown name each say in one line which file is not there and to install the plugin again, and exit 1, also under an old python3; lem version still answers"
+else
+  fail "lem in a folder that is not whole: $cut / $versioned"
+fi
+
 # version: the plugin's version from its manifest when it has one, and the commit when the folder is a checkout
 mkdir -p "$FAKE/.claude-plugin" && printf '{"name": "lem", "version": "1.4.0"}\n' > "$FAKE/.claude-plugin/plugin.json"
 fake_version=$("$FAKE/bin/lem" version | field '(d["version"], d["commit"])')

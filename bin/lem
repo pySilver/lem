@@ -32,7 +32,8 @@ under any python3, and so do the two modules it imports where it needs them
 (`lem.names`, the table of names, and `lem.python` only under an old python3): when that
 python3 is older than Lem's package needs, it runs the entry under the newer Python that
 `lem.python.find()` finds, or says in one line what to install. `lem version` and the
-hand-over below import neither, so this file alone in a folder answers them.
+hand-over below import neither, so this file alone in a folder answers them; any other
+call there says in one line that the plugin's folder is not whole (`whole()`).
 
 In Lem's marketplace clone (`PLUGINS/marketplaces/NAME`, which Claude Code pulls from
 the head of `main`), this file runs no script of its own: it becomes the `bin/lem` of
@@ -68,8 +69,21 @@ def package() -> None:
         sys.path.insert(0, folder)
 
 
+def whole(*files: str) -> None:
+    """Exit 1 with one line when one of FILES, a file of this plugin's folder that the
+    command needs, is not there: the folder is not whole, and no import of it may end in
+    a traceback."""
+    for path in files:
+        if not os.path.isfile(path):
+            sys.exit(
+                f"lem: {path} is not there: the plugin's folder {ROOT} is not whole; "
+                "install the plugin again"
+            )
+
+
 def table() -> types.ModuleType:
     """`lem.names`, the table of the names, from this plugin's package."""
+    whole(os.path.join(ROOT, "src", "lem", "names.py"))
     package()
     from lem import names
 
@@ -197,8 +211,10 @@ def version() -> dict:
 def run(name: str, args: list, command: str, *, look: bool = False) -> None:
     """Become the entry with NAME and ARGS, under this Python when it is 3.11 or newer,
     else under one it finds; with LOOK, after the look at the board server."""
+    whole(MAIN)
     python = sys.executable or "python3"
     if sys.version_info < (3, 11):
+        whole(os.path.join(ROOT, "src", "lem", "python.py"))
         package()
         from lem import python as lem_python
 
@@ -275,12 +291,7 @@ def main() -> None:
             f"lem: {name!r} is no command of Lem's; the names are:\n\n" + names()
         )
         sys.exit(1)
-    script = os.path.join(ROOT, "src", "lem", commands[name][0] + ".py")
-    if not os.path.isfile(script):
-        sys.exit(
-            f"lem: {script} is not there: the plugin's folder {ROOT} is not whole; "
-            "install the plugin again"
-        )
+    whole(os.path.join(ROOT, "src", "lem", commands[name][0] + ".py"))
     run(name, rest, "lem", look=name not in NO_LOOK)
 
 
