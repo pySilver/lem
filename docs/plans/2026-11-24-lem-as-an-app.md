@@ -176,7 +176,8 @@ migration.
 - [ ] The base lines that later stages are held to are recorded here: for each hook, and for one
   small command, the modules its process loads and its time (the least of 20 runs), on a prompt
   with the correction queue off, at a session's start and at a compaction; and the command lines
-  of the skills' texts at tag `v0.3.1`, with their output and exit status, as fixtures.
+  of the skills' texts on `main` at the end of stage 1, with their output and exit status, as
+  fixtures.
 
 ### Stage 3: Lem gets its libraries (the rest of step 1)
 
@@ -189,8 +190,8 @@ migration.
   plugin folder a task's session gets (`session.plugin_dir`) and the server's code stamp
   (`serve.code_stamp`, which is 0 for a folder with no source tree, so that an installed app
   would never replace an older server) each get their place from the installed package. Tried:
-  a fresh install, an upgrade over a running server of 0.3.1, and a second repository on another
-  plugin version.
+  a fresh install, an upgrade from one trial build to the next over that build's running
+  server, and a second repository on another plugin version.
 - [ ] The path a developer's keymap holds (`doctor.picker` writes the interpreter and the
   absolute `bin/lem` of the marketplace clone) still starts Lem after the change.
 - [ ] The journeys of `tests/*.sh` run against the installed app too (`tests/lib.sh` starts
@@ -217,11 +218,13 @@ gate (`flake8 --select=WPS`).
   window, what is tried again). Wide.
 - [ ] Stage 6, step 4 (the records): a model for each record, checked when it is read; the read
   defects of the inventory fixed, each in a commit of its own. Wide: it reaches 29 of the 41
-  modules. Three rules, from the code: the bytes that are written stay those of `json.dumps`
-  (the reader of 0.3.1 looks for the text `"task": "SLUG"` in a line before it parses it,
-  `land.events_of`, so another writer's bytes make an event invisible to it); a key the model
-  does not know is kept through an update (`land.Task.keep` writes the whole record back); and
-  the tests read old bytes with the new reader and new bytes with the reader of the tag. No hook
+  modules. The release reads no record of 0.3.1 ("No upgrade from 0.3.1" in "His answers"), so
+  a record's form may change here in one step, with no reader of the old form beside it. Two
+  rules, from the code: the reader and the writer of a record change in the same commit
+  (`land.events_of` looks for the text `"task": "SLUG"` in a line before it parses it, so a
+  writer with other bytes makes an event invisible to a reader that was left as it is); and one
+  rule for all records says what becomes of a key the model does not know (`land.Task.keep`
+  writes the whole record back today). No hook
   and no small command imports the model library: its import alone is about 40 ms for pydantic
   and 15 ms for msgspec (Astra's probe, Python 3.14.3, median of 7), against 33 to 58 ms for a
   whole hook today. Which library is measured on Lem's own records before it is chosen.
@@ -255,7 +258,9 @@ sessions.
   report nothing.
 - [ ] No `# noqa: ... over the limit before the limit was set` is left.
 - [ ] Every suite is green on the release commit, and the scratch task of stage 2 ran on it.
-- [ ] His Mac and mybaze take the release, which reads the records of 0.3.1; a week of real
+- [ ] What Lem 0.3.1 left in his repositories and on his Mac is wiped, on his word and from a
+  list of what goes (each repository's state folder and tasks' worktrees, Lem's home folder,
+  the board server of 0.3.1); his Mac and mybaze start over on the release, and a week of real
   tasks there shows no defect that a fix release had to repair.
 - [ ] The scheduled jobs `lem: night` and `lem: retro` are on again, on his word ("its not use
   until we complete refactoring", 2026-11-24).
@@ -303,18 +308,20 @@ in today's code are items of `docs/backlog/`.
   wide steps are the shared base, the records and the command line (stages 5, 6 and 8). Before
   one starts, the open work is finished; while it is open,
   nothing else starts or lands; then all work continues.
-- No release is installed while nobody uses Lem: his Mac stays on 0.3.1, and the release at the end names 0.3.1 as its `BEFORE` (on `main` the
-  constant still says 0.3.0, the release before 0.3.1),
-  until the release at the end. A new form of a record is read beside the form of 0.3.1 for the
-  whole reshape.
+- No release is installed while nobody uses Lem: his Mac stays on 0.3.1 until the release at
+  the end. That release reads no record of 0.3.1 and keeps no command line of it: his
+  repositories start over ("No upgrade from 0.3.1" in "His answers"). So during the reshape a
+  record, an event, a state, a settings key or a command line changes form in one step, and the
+  skills' texts change with it in the same commit. The two-release rule of `AGENTS.md` holds
+  again from the release at the end, which is the session's reading of his words.
 - A step that changes how a thing is built changes no behavior with it. Where a defect is fixed
   (step 4), it is a commit of its own with its test.
 - A task that moves a file is checked by what the tests prove, not by where they are: Lem's own
   bar counts a moved test file as a lowered bar, so the plan of such a task says which file went
   where.
-- The command lines of the release before keep working for one release, as the records do: a
-  session that runs while `brew upgrade lem` changes the app has the old skills and the new
-  command.
+- From the release at the end on, the command lines of the release before keep working for one
+  release, as the records do: a session that runs while `brew upgrade lem` changes the app has
+  the old skills and the new command.
 
 ## His rulings that this changes
 
@@ -349,6 +356,10 @@ that day, outside git.
    beside one open step) and the plan's lack of an end date spoke against that.
 5. **The name of the command**: `lem` stays, and Lem says one line when another `lem` is first.
    A ruling of its own, on his word.
+6. **No upgrade from 0.3.1**, said by him the same evening and asked by nobody: "nobody uses Lem
+   except me, so we don't need any 'clean upgrade' - we can wipe current usage of lem and start
+   over in those repos". A ruling of its own. It took the readers of old forms out of stages 3,
+   6 and 11.
 
 ## Out of scope
 

@@ -50,6 +50,9 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 - **No word of a Lem before is kept; a release reads the records of the release just before it,
   and no older ones.** No older command word and no refusal of a settings key that went; a task
   begun two releases back stops, and its message names the way on. (2026-11-18, 2026-11-23)
+- **The release of the reshape reads no record of the Lem before it: his repositories start
+  over.** "nobody uses Lem except me, so we don't need any 'clean upgrade' - we can wipe current
+  usage of lem and start over in those repos". (2026-11-24)
 - **The shipped skills are for the times he steps in.** (2026-11-16)
 
 ## What Lem needs on the machine
