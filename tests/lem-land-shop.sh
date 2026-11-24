@@ -706,6 +706,9 @@ printf '%s\n' 'Verdict: merge. The change does what its criterion says.' '' 'Its
 mute_first=$(land --repo "$MB" merge-review mb-mute --file "$WORK/mb-mute.md" --tip "$(field 'd["tip"]' <<<"$mute_brief")" --base "$(field 'd["base"]' <<<"$mute_brief")" 2>&1 || true)
 mute_second=$(land --repo "$MB" merge-review mb-mute --file "$WORK/mb-mute.md" --tip "$(field 'd["tip"]' <<<"$mute_brief")" --base "$(field 'd["base"]' <<<"$mute_brief")")
 mute_refusal=$(mb_kept mb-mute merge_refused '(d["from"], d["kind"])')
+mute_said=$(mb_kept mb-mute merge_refused 'd["said"]')
+mute_rebrief=$(land --repo "$MB" merge-review mb-mute 2>&1 || true)
+mute_merge=$(land --repo "$MB" merge mb-mute --by merger --via server --message "fix: mb-mute" 2>&1 || true)
 # the new landing: the rebase with no conflict carries the review and the merge review, with no call on the old base
 land --repo "$MB" start mb-round >/dev/null && land --repo "$MB" base mb-round >/dev/null && land --repo "$MB" checks mb-round >/dev/null && land --repo "$MB" read mb-round >/dev/null
 reproposed=$(land --repo "$MB" propose mb-round --title "fix: mb-round" --notes "$NOTES")
@@ -722,12 +725,17 @@ if [ "$overlap" = "['shared.txt']" ] \
   && [ "$(field '(d["verdict"], d["base_call"], d["base_why"])' <<<"$mute_second")" \
     = "('merge', 'another round', \"the merge agent's answer could not be recorded twice (its second line gave no call on the moved base), and in doubt the checks run again\")" ] \
   && [ "$mute_refusal" = "('lem', 'base')" ] \
+  && grep -qF "the merge agent's answer could not be recorded twice (its second line gave no call on the moved base), so in doubt the moved base gets another round of the checks: the task lands again" <<<"$(field 'd["next"]' <<<"$mute_second")" \
+  && grep -qF "the merge agent's answer on what moved on main since the checks could not be recorded twice (its second line gave no call on the moved base)" <<<"$mute_said" \
+  && grep -qF "the merge agent's answer for $(mb_kept mb-mute proposed 'd[:9]') could not be recorded twice" <<<"$mute_rebrief" \
+  && grep -qF "the merge agent's answer for this tip could not be recorded twice" <<<"$mute_merge" \
+  && ! grep -qF "the merge agent says" <<<"$mute_second" && ! grep -qF "says another round" <<<"$mute_said" && ! grep -qF "said another round" <<<"$mute_merge" && ! grep -qF "said that the moved base" <<<"$mute_rebrief" \
   && [ "$(field 'd["merge_review"]' <<<"$reproposed")" = carried ] && [ "$carried" = "('merge', False, True)" ] \
   && [ "$(status_in "$MB" mb-round)" = landed ] && [ "$(mb_kept mb-round merged_by d)" = "{'by': 'merger', 'via': 'server'}" ] && [ "$(field 'd["base_read"]' <<<"$landed_round")" = None ] \
   && [ "$(git -C "$MBO" show main:shared.txt | tr '\n' ' ')" = "one 2 3 4 5 6 7 8 9 ten " ]; then
-  pass "a read that says another round merges nothing and keeps a base refusal that no later read answers, also when the move touched a file the change edits; a second answer with no base call on a moved base is recorded as another round; the new landing carries the merge review with no call on the old base and merges with no line"
+  pass "a read that says another round merges nothing and keeps a base refusal that no later read answers, also when the move touched a file the change edits; a second answer with no base call on a moved base is recorded as another round, and the step's next line, the kept refusal, the brief's and the merge's refusal say that its answer could not be recorded, never that it said so; the new landing carries the merge review with no call on the old base and merges with no line"
 else
-  fail "another round on a moved base: $overlap / $round / $again_brief / $again_answer / $again_merge / $round_refusal / $mute_first / $mute_second / $reproposed / $carried / $landed_round"
+  fail "another round on a moved base: $overlap / $round / $again_brief / $again_answer / $again_merge / $round_refusal / $mute_first / $mute_second / $mute_said / $mute_rebrief / $mute_merge / $reproposed / $carried / $landed_round"
 fi
 project --repo "$MB" state mb-mute dropped "the test is over" >/dev/null
 

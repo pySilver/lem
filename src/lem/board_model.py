@@ -4216,6 +4216,11 @@ def summary_said(e: dict) -> str:
     )
 
 
+# The start of the why of a merge review that is another round because the merge agent's
+# answer could not be recorded twice on a moved base: Lem's words (`land.UNRECORDED`).
+UNRECORDED = "the merge agent's answer could not be recorded twice"
+
+
 def merge_review_said(e: dict) -> dict:
     """The merge agent's read in the feed: its verdict, and on a moved base its call
     (`base_call`) on the base it read, with that call's sentence of why (`base_why`)
@@ -4239,6 +4244,16 @@ def merge_review_said(e: dict) -> dict:
             "head": "The merge agent read the task and the moved base",
             "text": f"{base} is safe; {verdict}",
             "sub": sub,
+        }
+    if str(e.get("base_why") or "").startswith(UNRECORDED):
+        # no read of the agent said it: Lem recorded another round in its place
+        return {
+            "info": {"actor": "gate", "icon": "file"},
+            "head": "The merge agent's answer could not be recorded",
+            "text": (
+                f"{base} gets another round of the checks in doubt: Lem lands it again"
+            ),
+            "sub": e.get("base_why") or sub,
         }
     return {
         "info": {"actor": "gate", "icon": "file"},

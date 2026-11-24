@@ -3384,6 +3384,38 @@ class ReadOfAMovedBase(unittest.TestCase):
         )
         self.assertIn("the merge agent's read of this tip said another round", again)
         self.assertIn("lem land start", again)
+        # another round that Lem recorded because the answer could not be recorded
+        unread = land.moved_refusal(
+            "gift-note",
+            "origin/main",
+            ["land.py"],
+            "merger",
+            None,
+            round_said=True,
+            unrecorded="it ended with no answer",
+        )
+        self.assertIn(
+            "the merge agent's answer for this tip could not be recorded twice "
+            "(it ended with no answer), so in doubt the checks run again",
+            unread,
+        )
+        self.assertNotIn("said another round", unread)
+
+    def test_another_round_recorded_for_want_of_an_answer_is_told_apart(
+        self,
+    ) -> None:
+        short = "its second line gave no call on the moved base"
+        unread = {
+            "tip": TIP,
+            "base_call": "another round",
+            "base_why": land.unrecorded_why(short),
+        }
+        self.assertEqual(land.round_unrecorded(unread, TIP), short)
+        said = {**unread, "base_why": "B rewrote the parser the change rests on"}
+        self.assertIsNone(land.round_unrecorded(said, TIP))
+        self.assertIsNone(land.round_unrecorded(unread, M2))
+        self.assertIsNone(land.round_unrecorded({**unread, "base_call": "safe"}, TIP))
+        self.assertIsNone(land.round_unrecorded(None, TIP))
 
     def test_a_carried_review_drops_its_call_on_the_base(self) -> None:
         review = {

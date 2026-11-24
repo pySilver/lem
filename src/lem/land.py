@@ -9792,6 +9792,35 @@ def unread_why(lower: str | None, refusal: str | None) -> str:
     )
 
 
+# The start of the why of a merge review that is another round because the merge agent's
+# answer could not be recorded twice on a moved base (`unread_next`): Lem's words, not
+# the agent's. The board knows such a read by it (`board_model.UNRECORDED`).
+UNRECORDED = "the merge agent's answer could not be recorded twice"
+
+
+def unrecorded_why(short: str) -> str:
+    """The why of another round recorded for want of an answer, with SHORT, what was
+    wrong with the second answer (`round_unrecorded` reads it back)."""
+    return f"{UNRECORDED} ({short}), and in doubt the checks run again"
+
+
+def round_unrecorded(review: object, tip: str) -> str | None:
+    """What was wrong with the merge agent's second answer, when the merge review REVIEW
+    of TIP is another round that Lem recorded for want of an answer (`unrecorded_why`);
+    None for a read whose answer said `Base: another round.`, and for any other."""
+    if (
+        not isinstance(review, dict)
+        or review.get("tip") != tip
+        or review.get("base_call") != "another round"
+    ):
+        return None
+    found = re.fullmatch(
+        re.escape(UNRECORDED) + r" \((.+)\), and in doubt the checks run again",
+        str(review.get("base_why") or ""),
+    )
+    return found[1] if found else None
+
+
 def unanswered_why(refusal: str | None) -> str:
     """Why a second merge agent that ended with no answer, on a base that did not move,
     calls the owner. The try before it may have been an answer with no verdict, which
@@ -9897,11 +9926,14 @@ def moved_refusal(  # noqa: PLR0913 - over the limit before the limit was set
     covered: str | None,
     *,
     round_said: bool,
+    unrecorded: str | None = None,
 ) -> str:
     """Why a merge on a base that moved after the checks by FILES is refused, and the
     step that comes next: the merge agent's read of what moved, or a new landing when a
-    read of the tip said `Base: another round.` (ROUND_SAID). COVERED is the base an
-    earlier read with `Base: safe.` covered, which covers no later base."""
+    read of the tip said `Base: another round.` (ROUND_SAID), or Lem recorded one
+    because the merge agent's answer could not be recorded twice (UNRECORDED, what was
+    wrong with it). COVERED is the base an earlier read with `Base: safe.` covered,
+    which covers no later base."""
     said = (
         f"{onto} moved after the checks ran, by files "
         f"({', '.join(files[:NAMED_FILES])}"
@@ -9920,9 +9952,15 @@ def moved_refusal(  # noqa: PLR0913 - over the limit before the limit was set
                 "review still says merge"
             )
         )
+        read = (
+            f"the merge agent's answer for this tip could not be recorded twice "
+            f"({unrecorded}), so in doubt the checks run again"
+            if unrecorded
+            else "the merge agent's read of this tip said another round"
+        )
         return (
-            f"{said}, and the merge agent's read of this tip said another round; "
-            f"{AGAIN}. The merge review is kept with the review, and {then}"
+            f"{said}, and {read}; {AGAIN}. The merge review is kept with the review, "
+            f"and {then}"
         )
     earlier = (
         f"; the read of {covered[:9]} said safe, and it covers no later base"
@@ -10050,11 +10088,20 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
     if git(task.worktree, "rev-parse", "HEAD") != tip:
         raise LandError(f"the branch's tip is not the tip that was proposed; {AGAIN}")
     if kept.get("another_round") == tip:
-        # a read of this tip said the moved base needs another round: its refusal is
-        # answered by the new landing alone
+        # a read of this tip said the moved base needs another round, or Lem recorded
+        # one for want of an answer: its refusal is answered by the new landing alone
+        unrecorded = round_unrecorded(kept.get("merge_review"), tip)
         raise LandError(
-            f"the merge agent's read of {tip[:9]} said that the moved base needs "
-            f"another round of the checks, and no later read answers that; {AGAIN}"
+            (
+                f"the merge agent's answer for {tip[:9]} could not be recorded twice "
+                f"({unrecorded}), so in doubt the moved base gets another round of the "
+                f"checks, and no later read answers that; {AGAIN}"
+            )
+            if unrecorded
+            else (
+                f"the merge agent's read of {tip[:9]} said that the moved base needs "
+                f"another round of the checks, and no later read answers that; {AGAIN}"
+            )
         )
     state = due(task)
     reasons = not_green(task, state)
@@ -10238,7 +10285,7 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
     moved = read_on != kept["base"]
     verdict = verdict_of(text) if text is not None else None
     call = base_call_of(text) if moved and text is not None else None
-    problem, short = None, None
+    problem, short = None, ""
     if text is None:
         problem = "the merge agent ended with no answer"
         short = "it ended with no answer"
@@ -10257,6 +10304,9 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
         )
         short = "its second line gave no call on the moved base"
     owner = False
+    # what was wrong with the merge agent's second answer, when Lem records another
+    # round in its place: the words after this say so, never that the agent said it
+    unrecorded = None
     if problem:
         # The merge agent is asked again once (`unread_next`). Its second answer that
         # cannot be recorded is recorded as another round on a moved base, so the checks
@@ -10274,13 +10324,8 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
         if then == "again":
             raise LandError(f"{problem}; the merge agent is asked again")
         if then == "another round":
-            call = (
-                "another round",
-                (
-                    f"the merge agent's answer could not be recorded twice ({short}), "
-                    "and in doubt the checks run again"
-                ),
-            )
+            unrecorded = short
+            call = ("another round", unrecorded_why(short))
         owner = then == "owner"
     calls = verdict == "call" or refusal is not None or owner
     if owner:
@@ -10359,8 +10404,16 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
             else ("merger", "session")
         )
         said = (
-            f"the merge agent's read of what moved on {task.base} since the checks "
-            f"says another round: {call[1]}; {AGAIN}"
+            (
+                f"the merge agent's answer on what moved on {task.base} since the "
+                f"checks could not be recorded twice ({unrecorded}), and in doubt the "
+                f"checks run again; {AGAIN}"
+            )
+            if unrecorded
+            else (
+                f"the merge agent's read of what moved on {task.base} since the checks "
+                f"says another round: {call[1]}; {AGAIN}"
+            )
         )
         task.keep(
             merge_refused={
@@ -10414,8 +10467,14 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
             )
     if call and call[0] == "another round":
         after = (
-            "the merge agent says that the moved base needs another round of the "
-            f"checks: the task lands again, and the owner is not asked; {AGAIN}"
+            (
+                f"the merge agent's answer could not be recorded twice ({unrecorded}), "
+                "so in doubt the moved base gets another round of the checks"
+                if unrecorded
+                else "the merge agent says that the moved base needs another round of "
+                "the checks"
+            )
+            + f": the task lands again, and the owner is not asked; {AGAIN}"
         ) + (
             (
                 "; the owner's merge stands through the new landing while the "
@@ -10656,6 +10715,7 @@ def merge_locked(  # noqa: C901, PLR0912, PLR0915 - over the limit before the li
                     by,
                     covered,
                     round_said=kept.get("another_round") == tip,
+                    unrecorded=round_unrecorded(review, tip),
                 ),
             )
         line = base_line(task.base, kept["base"], covered, review["base_why"])

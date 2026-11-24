@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from lem import board_model as bm
 from lem import board_pages as pages
 from lem import board_task as task_pages
+from lem import land
 from lem.markup import join
 
 START = datetime(2026, 11, 20, 9, 0, tzinfo=UTC)
@@ -3512,6 +3513,27 @@ class MovedBase(unittest.TestCase):
                     "Lem lands it again"
                 ),
             ),
+        )
+        # another round that Lem recorded because the answer could not be recorded
+        why = (
+            "the merge agent's answer could not be recorded twice (it ended with no "
+            "answer), and in doubt the checks run again"
+        )
+        unread = bm.describe({**self.read(3, "another round"), "base_why": why}, m)
+        self.assertEqual(
+            (unread["head"], unread["text"], unread["sub"]),
+            (
+                "The merge agent's answer could not be recorded",
+                (
+                    "the moved base m2m2m2m2m gets another round of the checks in "
+                    "doubt: Lem lands it again"
+                ),
+                why,
+            ),
+        )
+        self.assertEqual(
+            (bm.UNRECORDED, land.unrecorded_why("it ended with no answer")),
+            (land.UNRECORDED, why),
         )
         plain = bm.describe(
             ev(
