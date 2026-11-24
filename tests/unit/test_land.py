@@ -1552,84 +1552,64 @@ class ConflictNames(unittest.TestCase):
         self.assertEqual(land.kept_name('"\\"a\\""'), '<U+0022>a"')
 
 
-class RebaseRefused(unittest.TestCase):
-    """`land.rebase_refused`: a git too old for an option of base's rebase is named as
-    such, never kept as a conflict with no file for a builder. Its exit status (129,
-    git's for an option it cannot parse) decides, in any language of git's words."""
+class RebaseUnshown(unittest.TestCase):
+    """`land.rebase_unshown`: why the tip of base's plain rebase is not shown to keep
+    the change, from git's merge of the base and the tip before (`land.merge_of`), and
+    `land.merge_of` itself."""
 
-    # what a git with no such option prints, as git 2.55.0 prints it for an option it
-    # does not know (`--reapply-cherry-pickz`), its usage after it, with exit 129
-    OLD_GIT = (
-        "error: unknown option `reapply-cherry-picks'\n"
-        "usage: git rebase [-i] [options] [--exec <cmd>] [--onto <newbase>]\n"
-    )
-    # the same, as git 2.55.0 prints it under LC_ALL=de_DE.UTF-8
-    GERMAN = (
-        "Fehler: Unbekannte Option: `reapply-cherry-picks'\n"
-        "Verwendung: git rebase [-i] [<Optionen>] [--exec <Programm>]\n"
-    )
+    SKIPPED = [("1f0579982" + "0" * 31, "feat: the feature"), ("2" * 40, "feat: more")]
 
-    def test_an_unknown_option_with_no_file_in_conflict_is_a_refusal_of_git(
-        self,
-    ) -> None:
-        self.assertEqual(
-            land.rebase_refused(land.GIT_USAGE, self.OLD_GIT, []),
-            "git rebase refused an option (error: unknown option "
-            "`reapply-cherry-picks')",
-        )
-        self.assertEqual(
-            land.rebase_refused(land.GIT_USAGE, self.GERMAN, []),
-            "git rebase refused an option (Fehler: Unbekannte Option: "
-            "`reapply-cherry-picks')",
-        )
-
-    def test_a_conflict_or_another_stop_is_no_refusal_of_git(self) -> None:
-        self.assertIsNone(land.rebase_refused(land.GIT_USAGE, self.OLD_GIT, ["a.py"]))
-        self.assertIsNone(
-            land.rebase_refused(
-                1,
-                "CONFLICT (content): Merge conflict in shop.py\n"
-                "error: could not apply 1a2b3c4... fix: the shop\n",
-                ["shop.py"],
+    def test_a_clean_merge_with_the_tips_tree_carries(self) -> None:
+        with mock.patch.object(land, "git", return_value="t" * 40):
+            self.assertIsNone(
+                land.rebase_unshown(Path("/wt"), ("t" * 40, None), "b" * 40, [])
             )
-        )
-        self.assertIsNone(
-            land.rebase_refused(
-                1, "error: The pre-rebase hook refused to rebase.\n", []
-            )
-        )
 
-
-class RebaseShown(unittest.TestCase):
-    """`land.fits`: a file of a rebase's tip, held to git's merge of the tip before it
-    where that merge met a conflict, and `land.merge_of`, the merge itself."""
-
-    # git's merge of a list the branch appended c to and the base appended d to, as
-    # git 2.55.0 writes it with its conflict markers
-    MERGED = (
-        b"a\nb\n<<<<<<< 1f05799\nc\n=======\nd\n>>>>>>> 3c2ee4f\ne\n"
-        b"<<<<<<< 1f05799\nx\n||||||| 218fa1c\nw\n=======\ny\n>>>>>>> 3c2ee4f\n"
-    )
-
-    def test_a_file_fits_the_lines_outside_the_conflicts_in_their_order(self) -> None:
-        # the base's words, the branch's, both, or none in the place of a conflict
-        for result in (b"a\nb\nd\ne\ny\n", b"a\nb\nc\nd\ne\n", b"a\nb\ne\nx\ny\n"):
-            with self.subTest(result=result):
-                self.assertTrue(land.fits(result, self.MERGED))
-        # a line outside the conflicts that is gone, another in its place, or out of
-        # its order, does not fit
-        for result in (
-            b"a\nd\ne\ny\n",
-            b"a\nB\nd\ne\ny\n",
-            b"b\na\nd\ne\ny\n",
-            b"a\nb\nd\n",
+    def test_another_tree_names_its_paths_and_each_commit_left_out(self) -> None:
+        with (
+            mock.patch.object(land, "git", return_value="h" * 40),
+            mock.patch.object(land, "git_bytes", return_value=b"a.txt\0b\nc.txt\0"),
         ):
-            with self.subTest(result=result):
-                self.assertFalse(land.fits(result, self.MERGED))
+            said = land.rebase_unshown(
+                Path("/wt"), ("t" * 40, None), "b" * 40, self.SKIPPED
+            )
+        self.assertEqual(
+            said,
+            "the rebase could not be shown to keep the change: its tip is not git's "
+            f"merge of the tip before it onto {'b' * 9} in a.txt, b<U+000A>c.txt; the "
+            "rebase left out each commit whose patch the base holds: 1f0579982 (feat: "
+            "the feature), 222222222 (feat: more), and `git cherry-pick HASH` brings "
+            "one back if the base took it out again",
+        )
 
-    def test_a_merge_with_no_conflict_or_one_not_closed_fits_nothing(self) -> None:
-        self.assertFalse(land.fits(b"a\n", b"a\n"))
-        self.assertFalse(land.fits(b"a\nc\n", b"a\n<<<<<<< 1f05799\nc\n=======\n"))
+    def test_a_conflict_of_the_merge_never_carries(self) -> None:
+        # the tip's tree is never asked: a match outside the marks cannot show which
+        # place kept an edit
+        with mock.patch.object(land, "git", side_effect=AssertionError):
+            said = land.rebase_unshown(
+                Path("/wt"), ("t" * 40, ["f.txt", "g.txt"]), "b" * 40, []
+            )
+        self.assertEqual(
+            said,
+            "the rebase could not be shown to keep the change: git's merge of the tip "
+            f"before it onto {'b' * 9} met a conflict in f.txt, g.txt",
+        )
+
+    def test_the_merge_puts_the_base_first_as_a_rebase_does(self) -> None:
+        clean = subprocess.CompletedProcess([], 0, b"t" * 40 + b"\0", b"")
+        with mock.patch.object(land.subprocess, "run", return_value=clean) as ran:
+            self.assertEqual(
+                land.merge_of(Path("/wt"), "base", "tip"), ("t" * 40, None)
+            )
+        self.assertEqual(ran.call_args.args[0][-2:], ["base", "tip"])
+        conflict = subprocess.CompletedProcess(
+            [], 1, b"t" * 40 + b"\0g.txt\0f.txt\0", b""
+        )
+        with mock.patch.object(land.subprocess, "run", return_value=conflict):
+            self.assertEqual(
+                land.merge_of(Path("/wt"), "base", "tip"),
+                ("t" * 40, ["f.txt", "g.txt"]),
+            )
 
     def test_a_git_with_no_write_tree_is_refused_with_its_version(self) -> None:
         # git 2.37 knows no `merge-tree --write-tree`: it prints its usage, exit 129
@@ -1645,6 +1625,21 @@ class RebaseShown(unittest.TestCase):
         self.assertIn("needs git 2.38 or newer", str(raised.exception))
         self.assertIn("says git version 2.37.0", str(raised.exception))
         self.assertIn("the owner updates git", str(raised.exception))
+
+    def test_a_resolution_git_staged_by_itself_is_a_file_for_a_builder(self) -> None:
+        # `rerere.autoupdate` stages git's recorded resolution: no file is unmerged,
+        # and the stopped commit's file still waits
+        with tempfile.TemporaryDirectory() as d:
+            for args in (
+                ["init", "-q"],
+                ["config", "user.name", "t"],
+                ["config", "user.email", "t@t"],
+                ["commit", "-q", "--allow-empty", "-m", "start"],
+            ):
+                subprocess.run(["git", "-C", d, *args], check=True)
+            (Path(d) / "f.txt").write_text("resolved\n", encoding="utf-8")
+            subprocess.run(["git", "-C", d, "add", "f.txt"], check=True)
+            self.assertEqual(land.conflicted(Path(d)), ["f.txt"])
 
 
 class RebaseFailed(unittest.TestCase):

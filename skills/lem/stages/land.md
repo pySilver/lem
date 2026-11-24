@@ -98,9 +98,15 @@ landing up as after a cut-off.
    same files meet, and it is not yours to resolve: the step prints the files and undoes the
    rebase. `spawn-builder` with the brief below, the job "the repair of a conflict with the
    base", and as its paths the branch to rebase onto, the step's `rebase` and those files. Then
-   run the step again. A rebase whose tip is not git's merge of the tip before it onto the base
-   goes on with `unshown`, its reason: no review carries over it, `read` asks for a read with
-   that reason, and `propose` ends the owner's merge with it.
+   run the step again. Lem runs the plain rebase only; the step's `rebase` is the one that
+   applies every commit (`--reapply-cherry-picks`) when the plain one leaves out a commit whose
+   patch the base holds, and its message says so. A review carries over a rebase only when git's
+   merge of the base and the tip before is clean and is the new tip's tree. Otherwise the step
+   goes on with `unshown`, its reason, which names the paths and each commit the rebase left out:
+   no review carries over it, `read` asks for a read with that reason, and `propose` ends the
+   owner's merge with it. A rebase that leaves no commit of a change it could not show kept (the
+   change sat only in a merge commit) is refused with the tip before it and the `git reset --hard`
+   that puts it back: that goes to the owner.
    A rebase that git refuses or stops with no file in conflict (a hook of git that refuses it, a
    lock of another git) is no builder's job: the step names git's words and keeps nothing. Tell
    the owner what git names, and run the step again once it is gone. The step looks at the

@@ -1047,10 +1047,13 @@ fi
 project --repo "$MB" state mb-reset dropped "the test is over" >/dev/null
 
 # The rebase of base, one row for each history of the base and the branch. Each row is a task of the moved-base shop,
-# reviewed and proposed, whose base then moves by the row's own steps; then start and base. A row gives what its files
-# hold at the tip and what became of the review: `carried` over the rebase, `unshown` (the rebase could not be shown to
-# keep the change, so a read is due), `uncovered` (no review covers the change, for another reason), or `stop FILES
-# REBASE`: a conflict for a builder, and the rebase the step names for him.
+# reviewed and proposed, whose base then moves by the row's own steps; then start and base, which runs the plain rebase.
+# A row gives what its files hold at the tip and what became of the review: `carried` over the rebase (git's merge of
+# the base and the tip before, base first, is clean and is the tip's tree), `unshown conflict PATHS` or `unshown differs
+# PATHS` (the rebase could not be shown to keep the change, so a read is due), with `| left out SUBJECTS | cherry-pick`
+# when the reason names the commits the plain rebase left out and the command that brings one back, `uncovered` (no
+# review covers the change, for another reason), `stop FILES REBASE` (a conflict for a builder, and the rebase the step
+# names for him), or `refused`, with `TIP` when the refusal names the tip before and the command that puts it back.
 # rb_task SLUG FILE=WORDS...: origin's main gets SLUG-FILE for each FILE, its WORDS one to a line, and the task SLUG
 # starts on that main
 rb_task() {
@@ -1091,26 +1094,45 @@ rb_main() { rb_files "$MBX" "$1" "${@:3}" && git -C "$MBX" commit -q -am "$2"; }
 rb_push() { git -C "$MBX" push -q origin main; }
 # rb_base SLUG FILE...: start and base, then each FILE at the tip and what became of the review
 rb_base() {
-  local slug=$1 tree out kept files="" name
+  local slug=$1 tree out kept files="" name before said
   shift
   tree=$(project --repo "$MB" worktree-dir "$slug")
-  out=$(land --repo "$MB" start "$slug" >/dev/null && land --repo "$MB" base "$slug" 2>/dev/null || true)
+  before=$(git -C "$tree" rev-parse HEAD)
+  land --repo "$MB" start "$slug" >/dev/null || true
+  out=$(land --repo "$MB" base "$slug" 2>"$WORK/$slug-base.err" || true)
+  said=$(cat "$WORK/$slug-base.err")
+  if [ -z "$out" ] && grep -qF "reset --hard $before" <<<"$said"; then echo "refused TIP"; return; fi
+  if [ -z "$out" ] && ! grep -qF "a builder resolves it" <<<"$said"; then echo "refused"; return; fi
   kept=$("$PY" -c '
-import json, sys
+import json, re, sys
 d = json.load(open(sys.argv[1]))
 if d.get("conflict"):
     print("stop", d["conflict"]["files"], json.loads(sys.argv[2])["rebase"])
 elif d.get("rebase_carried"):
     print("carried")
 elif d.get("rebase_uncovered"):
-    print("unshown" if d["rebase_uncovered"]["why"].startswith("the rebase could not be shown") else "uncovered")
+    why = d["rebase_uncovered"]["why"]
+    if not why.startswith("the rebase could not be shown"):
+        print("uncovered")
+        sys.exit()
+    head, _, left = why.partition("; the rebase left out ")
+    kind = "conflict" if " met a conflict in " in head else "differs"
+    said = f"unshown {kind} {head.rsplit(" in ", 1)[1]}"
+    if left:
+        said += " | left out " + ", ".join(re.findall(r"[0-9a-f]{9} \(([^)]*)\)", left))
+        said += " | cherry-pick" if "git cherry-pick HASH" in left else ""
+    print(said)
 else:
     print("none")' "$MB/.lem/state/tasks/$slug/landing.json" "${out:-{\}}")
   if [ "${kept%% *}" = stop ]; then echo "$kept"; return; fi
   for name in "$@"; do files+="$name=$(git -C "$tree" show "HEAD:$slug-$name" | tr '\n' ' ' | sed 's/ $//') "; done
   echo "$files| $kept"
 }
-# the rows: the base took a commit by its patch and took it out again, kept it, or edited its lines
+# the rows: the base moved in another file; the base took a commit by its patch and took it out again, kept it, or
+# edited its lines
+rb_task rb-plain feature=old label=old other=old
+rb_commit rb-plain "feat: the feature" feature=new && rb_commit rb-plain "feat: the label" label=new && mb_land rb-plain
+git -C "$MBX" pull -q --ff-only origin main && rb_main rb-plain "docs: other" other=new && rb_push
 rb_task rb-revert feature=old label=old
 rb_commit rb-revert "feat: the feature" feature=new && rb_commit rb-revert "feat: the label" label=new && mb_land rb-revert
 rb_pick rb-revert "feat: the feature" && git -C "$MBX" revert --no-edit HEAD >/dev/null && rb_push
@@ -1174,21 +1196,86 @@ rb_tree=$(project --repo "$MB" worktree-dir rb-merged)
 git -C "$MB" fetch -q origin && git -C "$rb_tree" merge -q --no-ff --no-commit origin/main >/dev/null
 rb_files "$rb_tree" rb-merged z=evil && git -C "$rb_tree" add -A && git -C "$rb_tree" commit -q -m "merge: main, with z of its own"
 git -C "$MBX" pull -q --ff-only origin main && rb_main rb-merged "feat: y, two" y=two && rb_push
+# An outside review's histories (Astra, 2026-11-24). rb-private: an ignored file of the worktree with bytes of its own,
+# which a commit the base took had tracked, and a file both sides add a line to under `merge=union`; rb-union: that
+# file alone, where the base's line comes first in git's merge, as in the rebase.
+printf '%s\n' 'rb-private-f merge=union' 'rb-union-f merge=union' >> "$MBX/.gitattributes"
+echo rb-private-artifact >> "$MBX/.gitignore"
+rb_task rb-private f=root g=old
+pv_tree=$(project --repo "$MB" worktree-dir rb-private)
+echo tracked > "$pv_tree/rb-private-artifact" && git -C "$pv_tree" add -f rb-private-artifact && rb_commit rb-private "feat: the artifact" g=picked
+git -C "$pv_tree" rm -q rb-private-artifact && git -C "$pv_tree" commit -q -m "chore: no artifact"
+rb_commit rb-private "feat: f" f=task && mb_land rb-private
+rb_pick rb-private "feat: the artifact" "chore: no artifact" && rb_main rb-private "fix: f and g" f=base g=newer && rb_push
+echo private > "$pv_tree/rb-private-artifact"
+rb_task rb-union f=root
+rb_commit rb-union "feat: f" f=task && rb_commit rb-union "feat: the tail" extra=task && mb_land rb-union
+git -C "$MBX" pull -q --ff-only origin main && rb_main rb-union "fix: f" f=base && rb_push
+# The base took two commits, then edited a line: one conflict holds an edit of the change that the base never touched
+# (rb-swallow), a copy of the lines stands between two conflicts (rb-copy), the base drops an executable bit (rb-mode),
+# a line of the file looks like a mark of a conflict (rb-marker).
+rb_task rb-swallow f="off m a"
+rb_commit rb-swallow "feat: on" f="on m a" && rb_commit rb-swallow "feat: M b" f="on M b" && rb_commit rb-swallow "feat: the tail" extra=task
+mb_land rb-swallow
+rb_pick rb-swallow "feat: on" "feat: M b" && rb_main rb-swallow "fix: off, c" f="off m c" && rb_push
+rb_task rb-copy f="H k0 k1 off k2 k3 T"
+rb_commit rb-copy "feat: on" f="H k0 k1 on k2 k3 T" && rb_commit rb-copy "feat: X Y" f="X k0 k1 on k2 k3 Y" && rb_commit rb-copy "feat: the tail" extra=task
+mb_land rb-copy
+rb_pick rb-copy "feat: on" "feat: X Y" && rb_main rb-copy "fix: a copy" f="U k0 k1 on k2 k3 END k0 k1 off k2 k3 V" && rb_push
+rb_task rb-mode f=a
+md_tree=$(project --repo "$MB" worktree-dir rb-mode)
+chmod +x "$md_tree/rb-mode-f" && git -C "$md_tree" commit -q -am "feat: executable"
+rb_commit rb-mode "feat: b" f=b && rb_commit rb-mode "feat: the tail" extra=task && mb_land rb-mode
+rb_pick rb-mode "feat: executable" "feat: b" && chmod -x "$MBX/rb-mode-f" && rb_main rb-mode "fix: c" f=c && rb_push
+rb_task rb-marker f="<<<<<<< off 1 2 3 4 5 6 7 8 9 10 11 12 a"
+rb_commit rb-marker "feat: on" f="<<<<<<< on 1 2 3 4 5 6 7 8 9 10 11 12 a" && rb_commit rb-marker "feat: b" f="<<<<<<< on 1 2 3 4 5 6 7 8 9 10 11 12 b"
+rb_commit rb-marker "feat: the tail" extra=task && mb_land rb-marker
+rb_pick rb-marker "feat: on" "feat: b" && rb_main rb-marker "fix: off, c" f="<<<<<<< off 1 2 3 4 5 6 7 8 9 10 11 12 c" && rb_push
+# The task's one change is inside a merge commit of the base into the branch, which the rebase drops: the branch is
+# put back on the commit the task started on, so that the merge is its only commit.
+rb_task rb-inside f=old x=old
+in_tree=$(project --repo "$MB" worktree-dir rb-inside)
+mb_land rb-inside
+git -C "$in_tree" reset -q --hard "$(git -C "$in_tree" merge-base HEAD origin/main)"
+git -C "$MBX" pull -q --ff-only origin main && git -C "$MBX" commit -q --allow-empty -m "chore: divergence" && rb_push
+git -C "$MB" fetch -q origin && git -C "$in_tree" merge -q --no-ff --no-commit origin/main >/dev/null
+rb_files "$in_tree" rb-inside f=reviewed && git -C "$in_tree" add -A && git -C "$in_tree" commit -q -m "merge: main, with f of its own"
+in_tip=$(git -C "$in_tree" rev-parse HEAD)
+rb_main rb-inside "feat: x" x=advance && rb_push
+# A resolution git recorded (rerere), which it stages by itself with `rerere.autoupdate`: the plain rebase stops with no
+# file in conflict, and a commit it left out. The settings hold for the rows of the table, and go after them.
+rb_task rb-rerere f=old g=old
+rb_commit rb-rerere "feat: g" g=picked && rb_commit rb-rerere "feat: f" f=task && mb_land rb-rerere
+rb_pick rb-rerere "feat: g" && rb_main rb-rerere "fix: f" f=base && rb_push
+rr_tree=$(project --repo "$MB" worktree-dir rb-rerere)
+git -C "$MB" config rerere.enabled true && git -C "$MB" config rerere.autoupdate true && git -C "$MB" fetch -q origin
+git -C "$rr_tree" rebase -q origin/main >/dev/null 2>&1 || true
+echo resolved > "$rr_tree/rb-rerere-f" && git -C "$rr_tree" add rb-rerere-f && git -C "$rr_tree" rerere >/dev/null 2>&1
+git -C "$rr_tree" rebase --abort
 rb_rows=(
-  "rb-revert feature label|feature=new label=new | carried"
+  "rb-plain feature label other|feature=new label=new other=new | carried"
   "rb-kept feature label|feature=new label=new | carried"
-  "rb-edited feature label|feature=newer label=new | carried"
-  "rb-append list more label|list=a b c d more=new label=new | carried"
-  "rb-above list more label|list=a B c more=new label=new | carried"
-  "rb-two list more label|list=a b C more=new label=new | carried"
-  "rb-restored a b|a=new b=second | carried"
-  "rb-half a b c|stop ['rb-half-a'] git rebase --reapply-cherry-picks --empty=drop origin/main"
+  "rb-revert feature label|feature=old label=new | unshown differs rb-revert-feature | left out feat: the feature | cherry-pick"
+  "rb-edited feature label|feature=newer label=new | unshown conflict rb-edited-feature | left out feat: the feature | cherry-pick"
+  "rb-append list more label|list=a b c d more=new label=new | unshown conflict rb-append-list | left out feat: c | cherry-pick"
+  "rb-above list more label|list=a B c more=new label=new | unshown conflict rb-above-list | left out feat: c | cherry-pick"
+  "rb-two list more label|list=a b C more=new label=new | unshown conflict rb-two-list | left out feat: c, feat: more | cherry-pick"
+  "rb-restored a b|a=old b=second | unshown differs rb-restored-a | left out feat: a, Reapply \"feat: a\" | cherry-pick"
+  "rb-half a b c|a=newer b=old c=new | unshown conflict rb-half-a | left out feat: a and b | cherry-pick"
   "rb-again feature label|feature=new label=new | carried"
-  "rb-five f1 f2 f3 f4 f5|f1=new f2=new f3=new f4=new f5=new | carried"
+  "rb-five f1 f2 f3 f4 f5|f1=new f2=new f3=new f4=old f5=new | unshown differs rb-five-f4 | left out feat: f2, feat: f4 | cherry-pick"
   "rb-out list more label|stop ['rb-out-label'] git rebase --reapply-cherry-picks --empty=drop origin/main"
   "rb-hash feature label|feature=old label=new | uncovered"
-  "rb-both f1 f2 f3 f4 f5|f1=new f2=newer f3=new f4=old f5=new | carried"
-  "rb-merged x y z|x=new y=two z=old | unshown"
+  "rb-both f1 f2 f3 f4 f5|f1=new f2=newer f3=new f4=old f5=new | unshown conflict rb-both-f2 | left out feat: f2, feat: f4, Revert \"feat: f4\" | cherry-pick"
+  "rb-merged x y z|x=new y=two z=old | unshown differs rb-merged-z"
+  "rb-private f g|f=base task g=newer | unshown conflict rb-private-g | left out feat: the artifact, chore: no artifact | cherry-pick"
+  "rb-union f extra|f=base task extra=task | carried"
+  "rb-swallow f extra|f=off m c extra=task | unshown conflict rb-swallow-f | left out feat: on, feat: M b | cherry-pick"
+  "rb-copy f extra|f=U k0 k1 on k2 k3 END k0 k1 off k2 k3 V extra=task | unshown conflict rb-copy-f | left out feat: on, feat: X Y | cherry-pick"
+  "rb-mode f extra|f=c extra=task | unshown conflict rb-mode-f | left out feat: executable, feat: b | cherry-pick"
+  "rb-marker f extra|f=<<<<<<< off 1 2 3 4 5 6 7 8 9 10 11 12 c extra=task | unshown conflict rb-marker-f | left out feat: on, feat: b | cherry-pick"
+  "rb-inside f|refused TIP"
+  "rb-rerere f g|stop ['rb-rerere-f'] git rebase --reapply-cherry-picks --empty=drop origin/main"
 )
 rb_wrong=""
 for row in "${rb_rows[@]}"; do
@@ -1196,11 +1283,21 @@ for row in "${rb_rows[@]}"; do
   got=$(rb_base ${row%%|*})
   [ "$got" = "${row#*|}" ] || rb_wrong+=" ${row%% *}: $got;"
 done
+git -C "$MB" config --unset rerere.enabled && git -C "$MB" config --unset rerere.autoupdate
 polish_in "$MB" rb-merged && land --repo "$MB" checks rb-merged >/dev/null
 rb_due=$(land --repo "$MB" read rb-merged | field '(d["due"], d["why"].split(" in ")[0])')
 [ "$rb_due" = "('review', \"the rebase could not be shown to keep the change: its tip is not git's merge of the tip before it onto $(git -C "$MB" rev-parse --short=9 origin/main)\")" ] || rb_wrong+=" the read of rb-merged: $rb_due;"
+# the ignored file keeps its bytes, whatever the step said
+pv_bytes=$(cat "$pv_tree/rb-private-artifact" 2>&1 || true)
+[ "$pv_bytes" = private ] || rb_wrong+=" rb-private's ignored file: $pv_bytes;"
+# the step says why the builder's rebase applies every commit, and a stop of git's own resolution is no refusal of git
+grep -qF "whose patch the base holds" "$WORK/rb-out-base.err" || rb_wrong+=" rb-out's why: $(cat "$WORK/rb-out-base.err");"
+if grep -qF "failed with no file in conflict" "$WORK/rb-rerere-base.err"; then rb_wrong+=" rb-rerere: $(cat "$WORK/rb-rerere-base.err");"; fi
+# run again, the step refuses rb-inside with the same tip, though its branch is on the base now
+in_again=$(land --repo "$MB" base rb-inside 2>&1 || true)
+grep -qF "reset --hard $in_tip" <<<"$in_again" || rb_wrong+=" rb-inside again: $in_again;"
 if [ -z "$rb_wrong" ]; then
-  pass "the rebase of base keeps each commit of the change that the base took out again, lets the base's own later words stand, and carries the review only where its tip is git's merge of the tip before onto the base, or stops for a builder with the rebase he runs"
+  pass "base runs the plain rebase and carries the review only where git's merge of the base and the tip before is clean and is the rebased tip's tree; otherwise a read is due with the paths and each commit the rebase left out; a stop goes to a builder with the rebase that applies every commit, a change lost inside a merge commit is refused with the tip that puts it back, and an ignored file keeps its bytes"
 else
   fail "the rebase of base, row by row:$rb_wrong"
 fi

@@ -7,11 +7,12 @@ removed after the landing.
 
 ## The repair of a conflict with the base
 
-The brief gives the branch to rebase onto, the rebase that stopped, and the files git named as
+The brief gives the branch to rebase onto, the rebase the step named, and the files git named as
 in conflict.
 
 1. Rebase the task's branch onto that branch with that rebase: `git rebase BRANCH`, or with
-   `--reapply-cherry-picks` when the brief names it. This job is the one case where a builder
+   `--reapply-cherry-picks` when the brief names it, so that a commit the base took and took out
+   again stays in the change. This job is the one case where a builder
    rebases. Keep the branch's commits one for one: squash none, drop none, reorder none, so that
    `lem land base` finds each of them, the polish pass's among them, by its place.
 2. Resolve each conflict so that both changes hold: read the plan of this task, and the commits
