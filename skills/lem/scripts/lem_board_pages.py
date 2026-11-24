@@ -3734,32 +3734,6 @@ def new_page(ctx: Ctx) -> Markup:
 
 # ---- the activity ----
 
-NICE_MINUTES = [
-    1,
-    2,
-    5,
-    10,
-    15,
-    20,
-    30,
-    45,
-    60,
-    90,
-    120,
-    180,
-    240,
-    360,
-    480,
-    720,
-    1080,
-    1440,
-]
-
-
-def nice_ceil(ms: float) -> int:
-    found = next((m for m in NICE_MINUTES if m * 60000 >= ms), None)
-    return (found if found is not None else -(-int(ms) // 86400000) * 1440) * 60000
-
 
 def timeline(ctx: Ctx) -> Markup:
     """What each task of today waited on, over time: one row for each task, a bar for
@@ -3784,7 +3758,7 @@ def timeline(ctx: Ctx) -> Markup:
     t0 = min(t.first for t in rows)
     any_open = any(not t.closed for t in rows)
     coarse = -(-m.now // 15000) * 15000 if any_open else max(t.last_ts for t in rows)
-    whole = nice_ceil(max(60000, coarse - t0))
+    whole = bm.nice_ceil(max(60000, coarse - t0))
 
     def x(ms: float) -> float:
         return 100 * min(whole, max(0, ms - t0)) / whole
