@@ -539,6 +539,7 @@ if TYPE_CHECKING:
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lem_artifacts  # noqa: E402
+import lem_clock  # noqa: E402
 import lem_files  # noqa: E402
 import lem_plans  # noqa: E402
 import lem_state  # noqa: E402
@@ -3252,7 +3253,7 @@ def append_event(root: Path, event: str, slug: str, fields: dict) -> dict:
     log either has not read it yet, or has put its new file in place, and the record
     goes into the file that stays."""
     record = {
-        "ts": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ts": lem_clock.stamp(),
         "event": event,
         "task": slug,
         **fields,
@@ -3503,7 +3504,7 @@ def cmd_state(  # noqa: C901, PLR0913 - over the limit before the limit was set
         if status == "answered":
             answered_form(root, directory, slug)
         # the time is the clock's, never a writer's estimate
-        since = datetime.now(UTC).strftime("%Y-%m-%dT%H:%MZ")
+        since = lem_clock.stamp_minute()
         block = "\n".join(
             [
                 f"{since} {status}: {lines[0].strip()}",
@@ -5114,7 +5115,7 @@ def append_owner(root: Path, *, away: bool, words: str) -> dict:
     repositories that write at once each add their own line whole, so no lock is kept
     beside it."""
     record = {
-        "ts": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ts": lem_clock.stamp(),
         "event": OWNER,
         "task": None,
         "away": away,
@@ -6446,7 +6447,6 @@ DROPPED_SAID = "the owner dropped it"
 # in that day's record.
 ITEM_KEY = "proposals"
 PROPOSAL_NAME = re.compile(r"(retro|night) of (\d{4}-\d{2}-\d{2}) #([1-9]\d*)")
-RUN_TIME = "%Y-%m-%dT%H:%M:%SZ"
 # How a record reads, for every refusal of one that does not.
 RECORD_FORM = (
     "a JSON object with `date` (its day), `kind` (retro or night), `runs` (each with "
@@ -6668,7 +6668,7 @@ def cmd_proposals_add(  # noqa: C901 - over the limit before the limit was set
                 "its body says the rest"
             )
     file = record_file(state, kind, day)
-    at = now.astimezone(UTC).strftime(RUN_TIME)
+    at = lem_clock.stamp(now.astimezone(UTC))
     with proposals_lock(state):
         record = read_record(file, kind) or {
             "date": day,
@@ -7541,9 +7541,7 @@ def cmd_serial(root: Path, words: list[str]) -> int:  # noqa: C901 - over the li
         handle.seek(0)
         handle.truncate()
         handle.write(
-            f"pid {os.getpid()}, since "
-            f"{datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}, in {Path.cwd()}: "
-            f"{shown}\n"
+            f"pid {os.getpid()}, since {lem_clock.stamp()}, in {Path.cwd()}: {shown}\n"
         )
         handle.flush()
         proc: subprocess.Popen | None = None
@@ -7689,7 +7687,7 @@ def cmd_may_nap(root: Path) -> None:
             )
             answer["time"] = now.strftime(NAP_TIME)
             record = {
-                "since": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "since": lem_clock.stamp(now),
                 "time": answer["time"],
             }
             # written whole under another name first, so that a reader never finds half
@@ -7935,10 +7933,6 @@ def last_write(path: Path) -> float:
     return newest
 
 
-def stamp_of(seconds: float) -> str:
-    return datetime.fromtimestamp(seconds, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 # What a line of the log that does not read stops in `prune`, which dates each ended
 # task by the log.
 PRUNE_STOPS = "prune dates each task by the log, so it removed nothing"
@@ -7975,7 +7969,7 @@ def log_events(root: Path, why: str = PRUNE_STOPS) -> list[dict]:
 
 def stamp_ms(ms: int) -> str:
     """A time of the board's model, in ms, as the log writes a `ts`."""
-    return datetime.fromtimestamp(ms / 1000, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return lem_clock.stamp(ms / 1000)
 
 
 def summary_of(slug: str, records: list[dict], now: int) -> dict:
@@ -8398,7 +8392,7 @@ def cmd_prune(root: Path, *, dry: bool, days: int | None) -> tuple[dict, int]:  
                 {
                     "kind": kind,
                     "path": f"{name}/{entry.name}",
-                    "last": stamp_of(last),
+                    "last": lem_clock.stamp(last),
                     "bytes": size,
                 }
             )
@@ -8412,7 +8406,7 @@ def cmd_prune(root: Path, *, dry: bool, days: int | None) -> tuple[dict, int]:  
         "dry_run": dry,
         "keep_days": keep,
         "from": source,
-        "before": stamp_of(cutoff.timestamp()),
+        "before": lem_clock.stamp(cutoff.timestamp()),
         "state": str(state),
         "tasks": pruned_tasks,
         "summarized": summarized,
@@ -8422,7 +8416,8 @@ def cmd_prune(root: Path, *, dry: bool, days: int | None) -> tuple[dict, int]:  
         "bytes": total,
         "said": (
             f"{verb} {files} files of {len(pruned_tasks)} ended tasks with no event "
-            f"since {stamp_of(cutoff.timestamp())[:10]}, so that each keeps only its "
+            f"since {lem_clock.stamp(cutoff.timestamp())[:10]}, "
+            "so that each keeps only its "
             "small record (its state, its request, its pull request, and its ticket's "
             f"and its resume's files), {'would replace' if dry else 'replaced'} the "
             f"{replaced} events of {len(summarized)} such tasks with one summary event "

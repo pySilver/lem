@@ -64,7 +64,6 @@ import json
 import os
 import re
 import subprocess
-import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -72,7 +71,8 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parents[2] / "lem" / "scripts"
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
-# a file written whole or not at all
+# a moment as text, and a file written whole or not at all
+import lem_clock  # noqa: E402
 import lem_files  # noqa: E402
 
 # the one check of a command's arguments, that each is UTF-8 text
@@ -553,7 +553,7 @@ def cmd_free_brief(  # noqa: PLR0913, PLR0917 - over the limit before the limit 
         "context": context.strip(),
         "options": options,
         "files": [str(file) for file in files],
-        "asked": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "asked": lem_clock.stamp(now),
         "checkout": str(place),
         "experts": [
             {**expert, "answer": str(folder / f"{expert['name']}.md")}
@@ -619,7 +619,7 @@ def cmd_free_record(repo: Path, name: str, expert: str) -> dict:
             )
         record["answers"][expert] = {
             **got,
-            "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "at": lem_clock.stamp(),
         }
         write_record(folder, record)
     return summary(folder, record)

@@ -32,6 +32,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import lem_cards
+import lem_clock
 
 ANSWERS = "answers"
 # Each wait the board answers, its options in the order the buttons show them, and each
@@ -54,7 +55,9 @@ class AnswerError(Exception):
 
 
 def now() -> str:
-    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    """Now, as an answer's `at` (`lem_clock.stamp`): the one place an answer reads the
+    clock, which a test sets."""
+    return lem_clock.stamp()
 
 
 def stamp(ms: int) -> str:

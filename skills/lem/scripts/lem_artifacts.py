@@ -36,14 +36,16 @@ a task.
 
 The plan is no file of the task directory: it lives in the task's worktree, on its
 branch. The caller finds it (`project.py`'s `task_plan`) and passes it in, so this file
-imports nothing of Lem's. A task with no worktree or no plan has no plan entry.
+imports nothing of Lem's but the one form of a time (`lem_clock`). A task with no
+worktree or no plan has no plan entry.
 """
 
 import contextlib
 import os
 import re
-from datetime import UTC, datetime
 from pathlib import Path
+
+import lem_clock
 
 # A file over this many bytes is listed with no text: the page draws each file it shows,
 # and a review tool's log can be megabytes. A guess, not a measurement.
@@ -421,10 +423,6 @@ def kind_of(file: Path) -> str:
         return "binary"
 
 
-def stamp(seconds: float) -> str:
-    return datetime.fromtimestamp(seconds, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def entry(
     file: Path, path: str, where: dict, href: str | None, *, read: bool = True
 ) -> dict | None:
@@ -444,7 +442,7 @@ def entry(
         **where,
         "kind": kind,
         "bytes": facts.st_size,
-        "mtime": stamp(facts.st_mtime),
+        "mtime": lem_clock.stamp(facts.st_mtime),
         "text": None,
     }
     if facts.st_size > CAP and kind not in ("html", "binary", "image"):

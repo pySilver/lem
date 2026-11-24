@@ -215,7 +215,7 @@ import signal
 import subprocess
 import tempfile
 import time
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -223,6 +223,7 @@ SCRIPTS = Path(__file__).resolve().parent
 # The one place that builds and finds a plan's name, shared with project.py.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
+import lem_clock  # noqa: E402  (a moment as text)
 import lem_files  # noqa: E402  (a file written whole or not at all)
 import lem_plans  # noqa: E402
 
@@ -1618,7 +1619,7 @@ def approve_held(  # noqa: C901, PLR0912 - over the limit before the limit was s
     record = {
         "task": task.slug,
         "number": len(history) + 1,
-        "at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "at": lem_clock.stamp(),
         # who approved: the owner; Lem in his name, for a task on the fast track, which
         # does not wait; the lead's read on the standard track from a complete request,
         # which counts for the plan's check and never as his yes; or Lem or the lead
@@ -1923,7 +1924,7 @@ def cmd_change(task: Task, file: str, words: str) -> dict:  # noqa: C901 - over 
                     "ts": block["ts"],
                     "text": answered,
                     "words": note,
-                    "at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "at": lem_clock.stamp(),
                 },
             )
         lem_files.write_whole(task.small_file, text)
@@ -1960,10 +1961,7 @@ def new_wait(task: Task, block: dict, line: str) -> dict:
     block written in the second of the one he answered would take his No on record for
     an answer to the new wait. At most one second of wait, in a run that fast."""
     until = time.monotonic() + 1.5
-    while (
-        datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ") <= str(block["ts"])
-        and time.monotonic() < until
-    ):
+    while lem_clock.stamp() <= str(block["ts"]) and time.monotonic() < until:
         time.sleep(0.05)
     return json.loads(script("project.py", task.repo, "state", task.slug, "held", line))
 

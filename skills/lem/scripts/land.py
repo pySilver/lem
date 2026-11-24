@@ -813,6 +813,7 @@ SCRIPTS = Path(__file__).resolve().parent
 # How this script calls a sibling: in this process, as one command of it.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
+import lem_clock  # noqa: E402
 import lem_files  # noqa: E402
 import lem_sibling  # noqa: E402
 import lem_state  # noqa: E402
@@ -3884,10 +3885,6 @@ def wait_for_load(task: Task, pid: int | None = None) -> dict | None:
             line_leave(own)
 
 
-def now_utc() -> str:
-    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def seconds_since(stamp: str, now: datetime | None = None) -> int:
     """The whole seconds from a stamp of the form `now_utc` writes to now."""
     then = datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
@@ -4086,7 +4083,8 @@ def step_lock(task: Task, step: str) -> Generator[None, None, None]:
         handle.seek(0)
         handle.truncate()
         handle.write(
-            json.dumps({"step": step, "pid": os.getpid(), "since": now_utc()}) + "\n"
+            json.dumps({"step": step, "pid": os.getpid(), "since": lem_clock.stamp()})
+            + "\n"
         )
         handle.flush()
         try:
@@ -6033,7 +6031,7 @@ def jev_entry(
     said = ask_jev(jev_spec(finding, condition))
     if "not_asked" in said:
         return said
-    return {"score": said["answers"][JEV_QUESTION], "asked_at": now_utc()}
+    return {"score": said["answers"][JEV_QUESTION], "asked_at": lem_clock.stamp()}
 
 
 def jev_said(entry: dict | None) -> str | None:
@@ -9294,7 +9292,7 @@ def merge_lock(
                     "step": "merge",
                     "task": task.slug,
                     "pid": os.getpid(),
-                    "since": now_utc(),
+                    "since": lem_clock.stamp(),
                 }
             )
             + "\n"
@@ -10007,7 +10005,7 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
         "calls": calls,
         "why": why,
         "by": seat["seat"],
-        "at": now_utc(),
+        "at": lem_clock.stamp(),
         "base": read_on,
         "base_call": call[0] if call else None,
         "base_why": call[1] if call else None,
@@ -10056,7 +10054,7 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
                 "from": "lem",
                 "kind": "base",
                 "said": said,
-                "at": now_utc(),
+                "at": lem_clock.stamp(),
             },
             another_round=tip,
         )
@@ -10224,7 +10222,7 @@ def cmd_merge(  # noqa: PLR0913 - over the limit before the limit was set
                         "from": "lem",
                         "kind": error.kind,
                         "said": str(error),
-                        "at": now_utc(),
+                        "at": lem_clock.stamp(),
                     }
                 )
                 if by == "owner":
@@ -10233,7 +10231,7 @@ def cmd_merge(  # noqa: PLR0913 - over the limit before the limit was set
                             "tip": tip,
                             "not_green": kept.get("not_green", []),
                             "via": via,
-                            "at": now_utc(),
+                            "at": lem_clock.stamp(),
                         }
                     )
                 script(
@@ -10398,7 +10396,7 @@ def merge_locked(  # noqa: C901, PLR0912, PLR0915 - over the limit before the li
                 "via": via,
                 "from": "github",
                 "said": line,
-                "at": now_utc(),
+                "at": lem_clock.stamp(),
             }
         )
         script(

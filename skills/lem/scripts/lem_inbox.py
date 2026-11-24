@@ -109,12 +109,12 @@ import sys
 import threading
 import time
 from collections.abc import Callable, Iterable
-from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import lem_clock
 import lem_files
 
 if TYPE_CHECKING:
@@ -205,12 +205,6 @@ class InboxError(Exception):
     def __init__(self, line: str, said: str = "") -> None:
         super().__init__(line)
         self.said = said or line
-
-
-def now_iso(seconds: float | None = None) -> str:
-    return datetime.fromtimestamp(
-        time.time() if seconds is None else seconds, UTC
-    ).isoformat(timespec="seconds")
 
 
 def environment(env: dict | None = None) -> dict:
@@ -872,7 +866,7 @@ class Watcher:
             # nothing touches no file
             if unlooked(record) == written["text"]:
                 return
-            record["looked"] = now_iso(self.now())
+            record["looked"] = lem_clock.iso(self.now())
             with held(state):
                 write_record(state, record)
             written["text"] = unlooked(record)
@@ -958,7 +952,7 @@ class Watcher:
                 **thing,
                 "idempotency_key": key,
                 "payload": payload,
-                "at": now_iso(self.now()),
+                "at": lem_clock.iso(self.now()),
                 "woke": [],
             }
             record["sent"].append(entry)

@@ -57,7 +57,6 @@ import subprocess
 import urllib.error
 import urllib.request
 from collections.abc import Callable
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 from urllib.parse import quote
@@ -67,6 +66,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 lem_project = importlib.import_module("project")
 lem_state = importlib.import_module("lem_state")
+lem_clock = importlib.import_module("lem_clock")
 # the look every page of Lem shares, and the script that picks its palette, which the
 # board links
 STYLE = SCRIPTS.parent / "assets" / "lem.css"
@@ -346,7 +346,7 @@ def backlog(settings: dict) -> dict:
     feed: dict = {
         "folder": relative,
         "reviewer_folder": mine.relative_to(main).as_posix(),
-        "read": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "read": lem_clock.stamp(),
         "items": [],
     }
 

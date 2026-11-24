@@ -135,13 +135,13 @@ import json
 import re
 import subprocess
 from collections.abc import Callable
-from datetime import UTC, datetime
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
 # How this script calls a sibling: in this process, as one command of it.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
+import lem_clock  # noqa: E402
 import lem_sibling  # noqa: E402
 import lem_state  # noqa: E402  (how a JSON-lines file is split into its lines)
 
@@ -263,14 +263,6 @@ def script(name: str, repo: Path, *args: str) -> str:
     if ran.returncode == 0 and ran.stderr:
         sys.stderr.write(ran.stderr)
     return ran.stdout
-
-
-def now() -> datetime:
-    return datetime.now(UTC).replace(microsecond=0)
-
-
-def stamp(moment: datetime) -> str:
-    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class Task:
@@ -569,7 +561,7 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901, PLR091
             "words, goes with --by owner"
         )
     line = {
-        "at": stamp(now()),
+        "at": lem_clock.stamp(),
         "kind": "taken",
         "what": text(args.what, "--what"),
         "chose": chose,
@@ -689,7 +681,7 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901 -
             "`lem criteria approve`",
         )
     line = {
-        "at": stamp(now()),
+        "at": lem_clock.stamp(),
         "kind": "criterion",
         "how": how,
         "criterion": getattr(args, how),
@@ -1051,7 +1043,7 @@ def cmd_breaker(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901 - o
             "since a dropped task's worktree goes and only its branch stays",
         )
     line = {
-        "at": stamp(now()),
+        "at": lem_clock.stamp(),
         "kind": "breaker",
         "cause": args.cause,
         "what": title,

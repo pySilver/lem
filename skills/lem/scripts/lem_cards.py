@@ -34,6 +34,7 @@ import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
+import lem_clock
 import lem_state
 
 CARDS = "cards"
@@ -48,10 +49,6 @@ SOURCES = ("session", "board")
 
 class CardError(Exception):
     pass
-
-
-def now() -> str:
-    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def task_folder(start: Path, slug: str | None) -> Path | None:
@@ -165,7 +162,7 @@ def keep(task: Path, page: str, html: bytes, spec: dict, session: str | None) ->
     card = {
         "page": page,
         "session": session,
-        "at": now(),
+        "at": lem_clock.stamp(),
         "chat": spec.get("chat") is not False,
         "questions": questions_of(spec),
     }
@@ -228,7 +225,7 @@ def end(
         "page": page,
         "status": status,
         "from": source,
-        "at": now(),
+        "at": lem_clock.stamp(),
         **({"answer": answer} if answer is not None else {}),
         **more,
     }

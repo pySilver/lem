@@ -234,6 +234,7 @@ sys.path.insert(0, str(SCRIPTS))
 project = importlib.import_module("project")
 lem_state = importlib.import_module("lem_state")
 lem_signs = importlib.import_module("lem_signs")
+lem_clock = importlib.import_module("lem_clock")
 # the release a task began on, and the rule that stops a command for a task two
 # releases back
 lem_release = importlib.import_module("lem_release")
@@ -1772,7 +1773,7 @@ def cmd_wait(  # noqa: C901, PLR0913, PLR0917 - over the limit before the limit 
             f"one of {', '.join(project.STATES)}"
         )
     where = place()
-    began = {"ts": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    began = {"ts": lem_clock.stamp()}
 
     def mine() -> list[dict]:
         return [

@@ -87,6 +87,9 @@ from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 
+# a moment as Lem writes it
+import lem_clock
+
 # the task a transcript's first prompt names; the scripts' folder is on the path of
 # every importer
 import lem_tokens
@@ -167,7 +170,7 @@ def newest_turn(lines: Iterable[str | bytes]) -> str | None:
             and record.get("type") in TURNS
             and (found := when(record.get("timestamp")))
         ):
-            return found.strftime("%Y-%m-%dT%H:%M:%SZ")
+            return lem_clock.stamp(found)
     return None
 
 
@@ -274,7 +277,7 @@ def read_signs(  # noqa: PLR0913, PLR0917 - over the limit before the limit was 
         for text in turns.get(record["transcript"], [])
         if (found := when(text))
     ]
-    sign = max(times).strftime("%Y-%m-%dT%H:%M:%SZ") if times else None
+    sign = lem_clock.stamp(max(times)) if times else None
     ids = {record["claude"] for record in mine}
     folders = {folder for record in mine if (folder := folder_of(record["transcript"]))}
     pids = {

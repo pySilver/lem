@@ -393,7 +393,6 @@ import types
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Generator
-from datetime import UTC, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -405,6 +404,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 board = importlib.import_module("board")
 lem_state = importlib.import_module("lem_state")
+lem_clock = importlib.import_module("lem_clock")
 lem_project = board.lem_project
 bm = importlib.import_module("lem_board_model")
 pages = importlib.import_module("lem_board_pages")
@@ -4174,7 +4174,7 @@ def keep_forge_look(state: Path, seen: dict, now: int) -> None:
     read what the server saw. A write that fails is a line in the server's log: the
     server's own look still holds in memory."""
     file = state / bm.FORGE_LOOK
-    looked = datetime.fromtimestamp(now / 1000, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    looked = lem_clock.stamp(now / 1000)
     temporary = file.with_name(f".{file.name}.{os.getpid()}.tmp")
     try:
         temporary.write_text(
@@ -5240,7 +5240,7 @@ def start_server(settings: dict) -> dict:
         offset = out.tell()
         out.write(
             (
-                f"{datetime.now(UTC).isoformat(timespec='seconds')} lem serve --ensure "
+                f"{lem_clock.iso()} lem serve --ensure "
                 f"starts a server of {code_version()} from {LEM_ROOT}\n"
             ).encode()
         )
@@ -5528,7 +5528,7 @@ def listen(host: str, *, verbose: bool, settings: dict) -> None:  # noqa: C901, 
             "stamp": code_stamp(),
             "root": str(LEM_ROOT),
             "config": str(lem_state.config()),
-            "started": datetime.now(UTC).isoformat(timespec="seconds"),
+            "started": lem_clock.iso(),
             "port": bound,
             "url": said["url"],
             "host": HOSTNAME,

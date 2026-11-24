@@ -98,13 +98,13 @@ import time
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterable
-from datetime import UTC, datetime
 from http import HTTPStatus
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import quote, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import lem_clock
 import lem_files
 import lem_state
 
@@ -519,12 +519,6 @@ def write_state(state: dict) -> None:
         raise
 
 
-def stamp(seconds: float | None = None) -> str:
-    return datetime.fromtimestamp(
-        time.time() if seconds is None else seconds, UTC
-    ).isoformat(timespec="seconds")
-
-
 def subscribe(given: object, agent: str) -> dict:
     """Keep a device's subscription (the browser's `PushSubscription.toJSON()`, and
     `workspaces`, a list of names, for fewer than all): a new endpoint is added, a known
@@ -556,7 +550,7 @@ def subscribe(given: object, agent: str) -> dict:
     entry = {
         "endpoint": endpoint,
         "keys": keys,
-        "added": stamp(),
+        "added": lem_clock.iso(),
         "device": device_of(agent),
         "workspaces": wanted,
     }
@@ -627,7 +621,7 @@ def post(endpoint: str, headers: dict) -> tuple[int | None, str]:
         auth = headers.get("Authorization", "")
         jwt = re.search(r"t=([^,\s]+)", auth)
         line = {
-            "at": stamp(),
+            "at": lem_clock.iso(),
             "endpoint": endpoint,
             "TTL": headers.get("TTL"),
             "Urgency": headers.get("Urgency"),
@@ -683,7 +677,7 @@ class Pusher:
         if said is not None:
             with held():
                 state = read_state()
-                state["latest"] = {**said, "at": stamp(self.now())}
+                state["latest"] = {**said, "at": lem_clock.iso(self.now())}
                 write_state(state)
         path, public = machine_key()
         results = []
@@ -729,7 +723,7 @@ class Pusher:
                     d for d in state["devices"] if d.get("endpoint") not in gone
                 ]
             state["last"] = {
-                "at": stamp(self.now()),
+                "at": lem_clock.iso(self.now()),
                 "results": [
                     {k: v for k, v in r.items() if k != "endpoint"} for r in results
                 ],
@@ -838,7 +832,7 @@ class Watcher:
         if problem and WATCH_PROBLEM.get("said") != problem:
             self.log(f"the board's notifications: {problem}")
         if problem:
-            WATCH_PROBLEM.update(said=problem, at=stamp(self.now()))
+            WATCH_PROBLEM.update(said=problem, at=lem_clock.iso(self.now()))
         else:
             WATCH_PROBLEM.clear()
 

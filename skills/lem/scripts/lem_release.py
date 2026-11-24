@@ -44,10 +44,10 @@ import json
 import os
 import subprocess
 from collections.abc import Callable, Mapping
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import ParamSpec, TypeVar, cast
 
+import lem_clock
 import lem_state
 
 # The release just before the version of plugin.json. A release moves it (AGENTS.md,
@@ -319,7 +319,7 @@ def log_stop(directory: Path, began: str, version: str, say: str) -> None:
         if stopped_already(log, slug, version):
             return
         record = {
-            "ts": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "ts": lem_clock.stamp(),
             "event": STOP,
             "task": slug,
             "began": began,
