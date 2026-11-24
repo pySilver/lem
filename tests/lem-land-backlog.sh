@@ -417,6 +417,29 @@ else
   fail "the items that may hold a finding: $named / $unasked / $refused / $untouched / $asked_first $asked_then / $settled / $green / $(git -C "$tree" ls-files docs/backlog | tr '\n' ' ')"
 fi
 project --repo "$ALK" state seen-again dropped "the test is over" >/dev/null
+# The same review on another task, where the builder reads the item Jev names and finds another defect: a number named
+# by both flags and a number of no waiting defect are refused before Jev is asked or a file written, and `--new` files
+# the defect as its own item beside the one Jev named.
+task_in "$ALK" seen-new app.txt four && read_in "$ALK" seen-new
+tree=$(project --repo "$ALK" worktree-dir seen-new)
+checked_in "$ALK" seen-new
+land --repo "$ALK" read seen-new --record "$(record seen-new 1 "$a_read, $(outside "$SAME" "$OTHER")")" >/dev/null
+before=$(git -C "$tree" rev-parse HEAD)
+asked_before=$(grep -c '' "$ALIKE_LOG")
+both=$(alike_land --repo "$ALK" file seen-new --same "r1.1=$pads" --new r1.1 2>&1 || true)
+stray=$(alike_land --repo "$ALK" file seen-new --new r1.9 2>&1 || true)
+untouched=$(git -C "$tree" rev-parse HEAD; git -C "$tree" status --porcelain)
+asked_refused=$(grep -c '' "$ALIKE_LOG")
+own=$(alike_land --repo "$ALK" file seen-new --new r1.1 | field '([(f["number"], f["item"]) for f in d["filed"]], d["open"])')
+if grep -qF "r1.1 is named by both --same and --new" <<<"$both" && grep -qF "r1.9 is no defect that waits for an item" <<<"$stray" && grep -qF "the ones here are r1.1, r1.2" <<<"$stray" \
+  && ! grep -q Traceback <<<"$both$stray" && [ "$untouched" = "$before" ] && [ "$asked_refused" = "$asked_before" ] \
+  && [ "$own" = "([('r1.1', 'docs/backlog/the-day-of-format-day-is-padded-with-a-space.md'), ('r1.2', 'docs/backlog/total-rounds-half-down.md')], [])" ] \
+  && [ "$(sed -n 2p "$tree/docs/backlog/the-day-of-format-day-is-padded-with-a-space.md")" = "worth: no" ] && [ -z "$(git -C "$tree" diff main -- "$pads")" ]; then
+  pass "file refuses a defect named by both --same and --new, and a number of no waiting defect, before Jev is asked or a file is written; --new files the defect as its own item and leaves the item Jev named as it is"
+else
+  fail "file --new: $both / $stray / $untouched / $asked_before $asked_refused / $own"
+fi
+project --repo "$ALK" state seen-new dropped "the test is over" >/dev/null
 OVER='{"where": "shop/dates.py:format_day", "title": "format_day pads with a space", "what": "format_day of 3 May gives \" 3 May\", where the rest of the shop gives \"03 May\".", "bar": "over", "open": "docs/backlog/format-day-pads-with-a-space.md"}'
 task_in "$ALK" over-again app.txt three && read_in "$ALK" over-again
 tree=$(project --repo "$ALK" worktree-dir over-again)
