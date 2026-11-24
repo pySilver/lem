@@ -125,6 +125,11 @@ def load_spec(arg: str | None) -> dict[str, Any]:
         return json.loads(raw)
     except json.JSONDecodeError as e:
         die(f"spec is not valid JSON: {e}")
+    except (ValueError, RecursionError) as e:
+        die(
+            f"spec is JSON that Python cannot read ({e}); "
+            "shorten the number or the nesting"
+        )
 
 
 # The keys the page reads, so a misnamed one fails here instead of vanishing from the
@@ -1304,13 +1309,16 @@ def submitted(value: str | None) -> dict[str, Any]:
     `window.lemAsk.send`), is its text, as one answer. The page's runtime sends every
     value as JSON, so a JSON string's text is the string, without its quotes; a number,
     a list, `null` or `true` keeps its JSON text. Half of a character that a page's
-    script cut in two is U+FFFD (`lem_cards.whole`), so the answer prints as UTF-8."""
+    script cut in two is U+FFFD (`lem_cards.whole`), so the answer prints as UTF-8.
+    JSON that Python cannot hold (a number of more digits than
+    `sys.get_int_max_str_digits()`, nesting deeper than the stack) is no JSON to it,
+    so it is its text too."""
     try:
         given = json.loads(value or "{}")
-    except json.JSONDecodeError:
+        if isinstance(given, dict):
+            return typing.cast("dict[str, Any]", lem_cards().whole(given))
+    except (ValueError, RecursionError):  # JSONDecodeError is a ValueError
         given = None
-    if isinstance(given, dict):
-        return typing.cast("dict[str, Any]", lem_cards().whole(given))
     text = given if isinstance(given, str) else value
     return {
         "status": "answered",

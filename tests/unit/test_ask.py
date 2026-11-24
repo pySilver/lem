@@ -8,6 +8,7 @@ import contextlib
 import io
 import json
 import sys
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -65,6 +66,43 @@ class Submitted(unittest.TestCase):
         self.assertEqual(
             printed('"\\ud83d\\ude80"')[1]["answers"]["answer"]["text"], "\U0001f680"
         )
+
+    def test_json_python_cannot_hold_is_kept_as_its_text(self) -> None:
+        # a number of more than sys.get_int_max_str_digits() digits made json.loads
+        # raise ValueError, and nesting deeper than the stack RecursionError, in the
+        # decode or in the walk of `whole`: the wait ended with a traceback
+        digits = "9" * (sys.get_int_max_str_digits() + 1)
+        deep = '{"a":' * 600 + "1" + "}" * 600
+        for value in (
+            digits,
+            f'{{"status": "answered", "n": {digits}}}',
+            "[" * 100_000 + "]" * 100_000,
+            deep,
+        ):
+            code, said = printed(value)
+            self.assertEqual(code, 0)
+            self.assertEqual(said["answers"]["answer"]["text"], value)
+
+
+class LoadSpec(unittest.TestCase):
+    def test_json_python_cannot_hold_in_a_spec_is_refused_with_a_message(self) -> None:
+        # the same decode for a spec: a traceback where a spec that is no JSON is
+        # refused with exit 1 and a message
+        digits = "9" * (sys.get_int_max_str_digits() + 1)
+        with tempfile.TemporaryDirectory() as folder:
+            for text in (f'{{"title": {digits}}}', "[" * 100_000):
+                path = Path(folder, "spec.json")
+                path.write_text(text, encoding="utf-8")
+                out = io.StringIO()
+                with (
+                    contextlib.redirect_stdout(out),
+                    self.assertRaises(SystemExit) as stop,
+                ):
+                    ask.load_spec(str(path))
+                self.assertEqual(stop.exception.code, 1)
+                said = json.loads(out.getvalue())
+                self.assertEqual(said["status"], "error")
+                self.assertIn("spec", said["error"])
 
 
 if __name__ == "__main__":
