@@ -180,9 +180,13 @@ migration.
 - [x] The base lines that later stages are held to are recorded here: for each hook, and for one
   small command, the modules its process loads and its time (the least of 20 runs), on a prompt
   with the correction queue off, at a session's start and at a compaction.
-- [ ] The command lines of the skills' texts on `main` at the end of stage 1 are fixtures: what
+- [x] The command lines of the skills' texts on `main` at the end of stage 1 are fixtures: what
   each name takes (its subcommands and options), and that each command line a text gives is one
-  the command takes.
+  the command takes. `tests/unit/commands.json` holds the shape of 17 names, 88 subcommands and
+  297 options in plain data, with no word of `argparse`, and what a wrong call exits with;
+  `tests/unit/test_command_lines.py` reads 567 command lines from 84 texts against it. One line
+  was wrong (`stages/investigate.md`, a `lem project state` with no text), and stage 3 corrects
+  it.
 
 #### The trial of 2026-11-24
 
