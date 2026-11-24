@@ -12,6 +12,12 @@ ticket, you say yes to its one acceptance criterion before the build starts. You
 two in the session of the task, or on the [board](board.md#act-from-the-board). The build asks you
 nothing.
 
+On the standard track, a change to the acceptance criteria is not your yes. Tell the session of the
+task what to change, or answer No with a note on the board. Lem then writes the changed criteria in
+its own words, each with an example. It asks for your yes again, with the old text of each changed
+criterion beside its new text. The personas do not read the criteria again. The pull request says
+that the criteria changed after the personas' read.
+
 ## A decision in doubt
 
 The build takes each decision in doubt up a ladder, until one level settles it:
