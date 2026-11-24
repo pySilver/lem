@@ -902,6 +902,14 @@ if [ "$plain" = "[('project', False, 'default: no settings file names one', 'eac
 else
   fail "the permission mode: $plain / $shared / $local_bypass / $user_auto / $outside / $assumed / $to_auto"
 fi
+# The modules the plugin's hooks start: a hook whose module is gone or does not compile ends with nothing printed, so
+# the machine check names it (tests/unit/test_doctor.py has the broken cases).
+hooked=$( (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$MAIN" doctor || true) | field '[(t["need"], t["found"]) for t in d["tools"] if t["name"] == "hook modules"]')
+if [ "$hooked" = "[('required', True)]" ]; then
+  pass "the machine check has a required row of the modules the plugin's hooks start, whole in this clone"
+else
+  fail "the hook modules row: $hooked"
+fi
 # Lem's plugin installed for the user loads in every repository: a row says so with the two commands that move it.
 mkdir -p "$FAKEHOME/.claude/plugins"
 printf '%s\n' '{"version": 2, "plugins": {"lem@lem": [{"scope": "user"}]}}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"

@@ -379,6 +379,63 @@ def correction_hook() -> list[dict]:
     ]
 
 
+def hook_module_names(hooks_file: Path) -> list[str]:
+    """The modules that the plugin's hooks file starts through `src/lem/python.py`, each
+    once in their order, after python.py itself."""
+    names = ["python"]
+    try:
+        hooks = json.loads(hooks_file.read_text(encoding="utf-8")).get("hooks") or {}
+    except (OSError, ValueError, AttributeError):
+        return names
+    for entries in hooks.values():
+        for entry in entries if isinstance(entries, list) else []:
+            for hook in entry.get("hooks") or [] if isinstance(entry, dict) else []:
+                found = re.search(
+                    r"python\.py\"?\s+(\w+)", str((hook or {}).get("command") or "")
+                )
+                if found and found[1] not in names:
+                    names.append(found[1])
+    return names
+
+
+def hook_modules(root: Path = paths.ROOT) -> dict:
+    """The row of the modules the plugin's hooks start (`hooks/hooks.json`) and of
+    `src/lem/python.py`, each read and compiled. A hook whose module is gone or does not
+    compile ends with nothing printed (python.py `run`), so this row is where the owner
+    learns it."""
+    package = root / "src" / "lem"
+    names = hook_module_names(root / "hooks" / "hooks.json")
+    broken = []
+    for name in names:
+        path = package / f"{name}.py"
+        try:
+            compile(path.read_bytes(), str(path), "exec")
+        except FileNotFoundError:
+            broken.append(f"{name}.py is missing")
+        except OSError as error:
+            broken.append(f"{name}.py cannot be read ({error.strerror})")
+        except (SyntaxError, ValueError) as error:
+            line = getattr(error, "lineno", None)
+            broken.append(
+                f"{name}.py does not compile"
+                + (f" (line {line})" if line is not None else "")
+            )
+    return {
+        "name": "hook modules",
+        "need": "required",
+        "found": not broken,
+        "detail": "; ".join(broken) or ", ".join(f"{name}.py" for name in names),
+        "used_for": (
+            "the hooks of the plugin: the correction hook, the start of the board "
+            "server and the records of a task's session"
+        ),
+        "without_it": (
+            "a hook whose module is missing or does not compile does nothing and says "
+            "nothing; install the plugin again"
+        ),
+    }
+
+
 def skill(
     name: str,
     used_for: str,
@@ -1641,6 +1698,7 @@ def main() -> None:
         *board_notifications(),
         *project(),
         *correction_hook(),
+        hook_modules(),
         *permission_mode(),
         *user_plugin(),
     ]

@@ -109,6 +109,42 @@ class HookEntries(unittest.TestCase):
         )
 
 
+class HookModules(unittest.TestCase):
+    """The row of the modules the plugin's hooks start: a hook whose module is gone or
+    does not compile ends with nothing printed (python.py `run`), so this row is where
+    the owner learns it. The review of 2026-11-24."""
+
+    def test_the_plugin_of_this_repository_is_whole(self) -> None:
+        row = doctor.hook_modules(ROOT)
+        self.assertEqual(
+            (row["name"], row["need"], row["found"]), ("hook modules", "required", True)
+        )
+        for name in ("python.py", "corrections.py", "serve_hook.py", "session_hook.py"):
+            self.assertIn(name, row["detail"])
+
+    def test_a_module_that_is_gone_or_does_not_compile_is_named_with_the_fix(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "hooks").mkdir()
+            (root / "hooks" / "hooks.json").write_bytes(
+                (ROOT / "hooks" / "hooks.json").read_bytes()
+            )
+            package = root / "src" / "lem"
+            package.mkdir(parents=True)
+            for name in ("python", "session_hook"):
+                (package / f"{name}.py").write_text("x = 1\n", encoding="utf-8")
+            (package / "serve_hook.py").write_text("def (:\n", encoding="utf-8")
+            row = doctor.hook_modules(root)
+        self.assertFalse(row["found"])
+        self.assertEqual(
+            row["detail"],
+            "corrections.py is missing; serve_hook.py does not compile (line 1)",
+        )
+        self.assertIn("install the plugin again", row["without_it"])
+
+
 class Installs(unittest.TestCase):
     def test_a_repository_whose_install_is_other_code_gets_a_row_with_the_two_lines(
         self,
