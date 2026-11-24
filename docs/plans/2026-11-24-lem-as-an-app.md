@@ -156,7 +156,11 @@ state. The release is made on the owner's word.
   the "waits for" text of a task two releases back, `lem-ask`'s answer that is no object.
 - [x] The owner's answers to the plan's questions are in "His answers", the two that change a
   ruling are in `docs/rulings/rulings.md`, and this plan's status is "accepted".
-- [ ] Each `worth: later` item of `docs/backlog/` has his ruling, or says what it waits for.
+- [x] Each `worth: later` item of `docs/backlog/` has his ruling, or says what it waits for:
+  eight got his answer on 2026-11-24, four had one correct behavior after all, and two wait for
+  something that is no ruling (an add-on he chooses, a real Linear ticket).
+- [ ] His eight answers and the four fixes are built, each with its test, read by a reviewer, and
+  on `main`.
 
 ### Stage 2: the clean base, proved
 
@@ -212,6 +216,10 @@ sessions.
   tasks there shows no defect that a fix release had to repair.
 - [ ] The scheduled jobs `lem: night` and `lem: retro` are on again, on his word ("its not use
   until we complete refactoring", 2026-11-24).
+- [ ] The five guides of `docs/` that run past the 800-word aim are cut (his answer of
+  2026-11-24: at this release, since the stages before it write `install.md` again).
+- [ ] One real nap reads the changed nap brief, and its dream is read (his answer of 2026-11-24:
+  Lem changes the fewest words, and the next nap is the test).
 - [ ] `AGENTS.md`, the guides and the site describe Lem as it is; this plan gets its status line
   with the commits.
 
@@ -230,7 +238,8 @@ sessions.
 - By the maintaining session, and not by Lem: "I will not use Lem anywhere during migration.
   That's why we disabled cronjobs to prevent Lem using itself" (the owner, 2026-11-24). Workers
   build each step, an independent reader reviews it, and `bash tests/all.sh` passes before `main`
-  moves.
+  moves. Then the session merges the stage to `main`, pushes it and reports to him: he chose this
+  over a question before each merge (2026-11-24).
 - All work continues beside the reshape, with a stop while a wide step is open (his answer). The
   wide steps are 3, 4 and 6. Before one starts, the open work is finished; while it is open,
   nothing else starts or lands; then all work continues.
@@ -278,6 +287,7 @@ that day, outside git.
    Both personas wanted features to wait; the record of the day before (12 features and 14 fixes
    beside one open step) and the plan's lack of an end date spoke against that.
 5. **The name of the command**: `lem` stays, and Lem says one line when another `lem` is first.
+   A ruling of its own, on his word.
 
 ## Out of scope
 

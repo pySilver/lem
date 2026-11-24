@@ -38,6 +38,9 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 - **The app ships as a Homebrew program from his own tap, built with uv from the release's lock
   file, and the plugin keeps its own update.** "maybe a homebrew with uv?". When the two versions
   differ, Lem stops with one line that names the one that is behind. (2026-11-23, 2026-11-24)
+- **The command keeps the name `lem`.** Where another program named `lem` is first on the path,
+  Lem says so in one line with the fix. The name is fixed for good on the day the Homebrew formula
+  is published. (2026-11-24)
 - **Lem is his one desk for work in a repository, and its core is the path from a request to a
   merged pull request.** A helper stays in the core when a step of the path uses it, and he can then
   call that step by hand. (2026-11-17 and 2026-11-18)
