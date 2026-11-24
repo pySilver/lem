@@ -95,11 +95,12 @@ import sys
 import tempfile
 import threading
 import time
-import urllib.error
-import urllib.request
 from http import HTTPStatus
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING
+from urllib import error as urlerror
+from urllib import request as urlrequest
 from urllib.parse import quote, urlsplit
 
 from lem import clock as lem_clock
@@ -127,7 +128,7 @@ SWITCH = ("LEM_PUSH", "record")
 # How long a push service keeps a push the device has not taken. A guess: the owner
 # looks at his phone within some hours, and an older "something waits" is no news (Apple
 # keeps one up to 30 days).
-TTL_SECONDS = 6 * 3600
+TTL_SECONDS = 21_600  # six hours
 URGENCY = "high"
 # One topic for every push: the service keeps only the newest one it has not delivered
 # (RFC 8030, 5.4: at most 32 characters of the URL-safe base64 alphabet). Apple also
@@ -141,8 +142,8 @@ TOPIC = "lemwaits"
 SEND_TIMEOUT = 10
 # A token's life (RFC 8292: at most 24 hours) and how long it is used again (Apple: no
 # new JWT more often than once an hour). Picks inside both bounds.
-TOKEN_LIFETIME = 12 * 3600
-TOKEN_REUSE = 6 * 3600
+TOKEN_LIFETIME = 43_200  # twelve hours
+TOKEN_REUSE = 21_600  # six hours
 # The JWT's `sub`: a contact URI, which Apple requires as a `mailto:` or a URL. It names
 # no person on purpose, so the push services get no address of the owner, and its domain
 # is example.com, the one reserved for examples (RFC 2606): Apple answered 403
@@ -163,7 +164,9 @@ MAX_DEVICES = 20
 # What a device posts, at most.
 MAX_BODY = 4096
 # What the worker shows when it learns nothing more (sw.js has the same words).
-FIXED = {"title": "Lem", "body": "Something waits for you in Lem", "url": "/"}
+FIXED = MappingProxyType(
+    {"title": "Lem", "body": "Something waits for you in Lem", "url": "/"}
+)
 # The longest endpoint a device's subscription may have, in characters.
 MAX_ENDPOINT = 2048
 # The longest key of a subscription (`p256dh`, `auth`) that is kept, in characters.
@@ -172,10 +175,16 @@ MAX_KEY = 200
 # subdomains are.
 PUSH_HOSTS = ("fcm.googleapis.com", "updates.push.services.mozilla.com")
 PUSH_DOMAINS = (".push.apple.com", ".notify.windows.com")
+# The key file's mode: only the owner can read or write it.
+KEY_MODE = 0o600
+# How much of a reply is read from the service, kept in the record and shown in the log.
+REPLY_BYTES = 300
+ANSWER_CHARS = 300
+LOG_ANSWER_CHARS = 160
 
 
 class PushError(Exception):
-    pass
+    """A refusal of the board's notifications; the message says why."""
 
 
 # ---- the key and the token ----
@@ -185,6 +194,8 @@ class PushError(Exception):
 DER_SEQUENCE = 0x30
 DER_INTEGER = 0x02
 DER_SHORTEST = 8
+# DER integers have a sign bit in their first byte.
+DER_SIGN_BIT = 0x80
 # A number of P-256 in bytes, and a JWS signature, R||S (RFC 7518, 3.4).
 NUMBER_SIZE = 32
 SIGNATURE_SIZE = 64
@@ -195,8 +206,8 @@ POINT_SIZE = 65
 UNCOMPRESSED = 0x04
 
 
-def b64url(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+def b64url(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
 
 
 def unb64url(text: str) -> bytes:
@@ -214,13 +225,13 @@ def der_to_raw(der: bytes) -> bytes:
         if at + 2 > len(der) or der[at] != DER_INTEGER:
             raise PushError("openssl's signature is no DER sequence of two integers")
         size = der[at + 1]
-        value = der[at + 2 : at + 2 + size]
-        if len(value) != size:
+        number = der[at + 2 : at + 2 + size]
+        if len(number) != size:
             raise PushError("openssl's signature is cut short")
-        value = value.lstrip(b"\0")
-        if len(value) > NUMBER_SIZE:
+        number = number.lstrip(b"\0")
+        if len(number) > NUMBER_SIZE:
             raise PushError("openssl's signature has a number longer than P-256's")
-        parts.append(value.rjust(NUMBER_SIZE, b"\0"))
+        parts.append(number.rjust(NUMBER_SIZE, b"\0"))
         at += 2 + size
     if at != len(der):
         raise PushError("openssl's signature has bytes after its two integers")
@@ -233,14 +244,14 @@ def raw_to_der(raw: bytes) -> bytes:
     if len(raw) != SIGNATURE_SIZE:
         raise PushError("a P-256 signature is 64 bytes")
 
-    def integer(value: bytes) -> bytes:
-        value = value.lstrip(b"\0") or b"\0"
-        if value[0] & 0x80:
-            value = b"\0" + value
-        return b"\x02" + bytes([len(value)]) + value
+    def integer(number: bytes) -> bytes:
+        number = number.lstrip(b"\0") or b"\0"
+        if number[0] & DER_SIGN_BIT:
+            number = b"".join((b"\0", number))
+        return bytes((DER_INTEGER, len(number))) + number
 
-    body = integer(raw[:32]) + integer(raw[32:])
-    return b"\x30" + bytes([len(body)]) + body
+    body = integer(raw[:NUMBER_SIZE]) + integer(raw[NUMBER_SIZE:])
+    return bytes((DER_SEQUENCE, len(body))) + body
 
 
 def openssl() -> str:
@@ -255,20 +266,21 @@ def openssl() -> str:
         None,
     )
     if found is None:
+        places = ", ".join(OPENSSL_PLACES)
         raise PushError(
             "the board's notifications sign with openssl (ES256), and this machine has "
-            f"none at {', '.join(OPENSSL_PLACES)}: "
+            f"none at {places}: "
             "install it (`brew install openssl@3`), then turn notifications on again"
         )
     return found
 
 
-def run_openssl(args: list[str], data: bytes | None = None) -> bytes:
+def run_openssl(args: list[str], stdin: bytes | None = None) -> bytes:
     tool = openssl()
     try:
         ran = subprocess.run(
             [tool, *args],
-            input=data,
+            input=stdin,
             capture_output=True,
             check=False,
             timeout=SEND_TIMEOUT,
@@ -299,15 +311,15 @@ def make_key(path: Path) -> None:
     """A new P-256 key pair in PATH, mode 0600 from its first byte: openssl writes into
     a file `mkstemp` made, which is renamed over PATH."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    handle, temporary = tempfile.mkstemp(
+    descriptor, temporary = tempfile.mkstemp(
         dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
     )
-    os.close(handle)
+    os.close(descriptor)
     try:
         run_openssl(
             ["ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", temporary]
         )
-        Path(temporary).chmod(0o600)
+        Path(temporary).chmod(KEY_MODE)
         Path(temporary).replace(path)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
@@ -342,15 +354,16 @@ def machine_key() -> tuple[Path, str]:
         return path, _public[stamp]
 
 
-def sign(path: Path, data: bytes) -> bytes:
-    """DATA signed with the key file PATH, ES256, as the 64 bytes a JWS carries."""
-    return der_to_raw(run_openssl(["dgst", "-sha256", "-sign", str(path)], data))
+def sign(path: Path, message: bytes) -> bytes:
+    """MESSAGE signed with the key file PATH, ES256, as the 64 bytes a JWS carries."""
+    return der_to_raw(run_openssl(["dgst", "-sha256", "-sign", str(path)], message))
 
 
 def audience(endpoint: str) -> str:
     """The origin of an endpoint, the JWT's `aud` (RFC 8292, 2)."""
     parts = urlsplit(endpoint)
-    return f"{parts.scheme}://{parts.netloc.lower()}"
+    netloc = parts.netloc.lower()
+    return f"{parts.scheme}://{netloc}"
 
 
 def token(
@@ -476,18 +489,18 @@ def empty() -> dict:
 def read_state() -> dict:
     """`push.json` as it reads; empty when it is not there. A file that does not read is
     refused with the fix."""
-    file = home() / STATE_FILE
+    path = home() / STATE_FILE
     try:
-        text = file.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return empty()
     except OSError as error:
-        raise PushError(f"{file} cannot be read ({error.strerror})") from error
+        raise PushError(f"{path} cannot be read ({error.strerror})") from error
     try:
         state = json.loads(text)
     except ValueError as error:
         raise PushError(
-            f"{file} does not read as JSON ({error}): delete it, and turn "
+            f"{path} does not read as JSON ({error}): delete it, and turn "
             "notifications on again on each device"
         ) from error
     if (
@@ -496,7 +509,7 @@ def read_state() -> dict:
         or not isinstance(state.get("seen", {}), dict)
     ):
         raise PushError(
-            f"{file} is not the shape Lem writes: delete it, "
+            f"{path} is not the shape Lem writes: delete it, "
             "and turn notifications on again on each device"
         )
     return {**empty(), **state}
@@ -505,15 +518,15 @@ def read_state() -> dict:
 def write_state(state: dict) -> None:
     """Write `push.json` whole, mode 0600: a temporary file beside it, then a rename
     over it."""
-    file = home() / STATE_FILE
-    file.parent.mkdir(parents=True, exist_ok=True)
-    handle, temporary = tempfile.mkstemp(
-        dir=file.parent, prefix=f".{file.name}.", suffix=".tmp"
+    path = home() / STATE_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
     )
     try:
-        with os.fdopen(handle, "w", encoding="utf-8") as out:
-            out.write(json.dumps(state, indent=2) + "\n")
-        Path(temporary).replace(file)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as out:
+            out.write(f"{json.dumps(state, indent=2)}\n")
+        Path(temporary).replace(path)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise
@@ -533,11 +546,11 @@ def subscribe(given: object, agent: str) -> dict:
         raise PushError(said)
     keys = given.get("keys") if isinstance(given.get("keys"), dict) else {}
     keys = {
-        name: value
-        for name, value in keys.items()
+        name: material
+        for name, material in keys.items()
         if name in ("p256dh", "auth")
-        and isinstance(value, str)
-        and len(value) <= MAX_KEY
+        and isinstance(material, str)
+        and len(material) <= MAX_KEY
     }
     wanted = given.get("workspaces")
     if wanted is not None and not (
@@ -556,7 +569,9 @@ def subscribe(given: object, agent: str) -> dict:
     }
     with held():
         state = read_state()
-        others = [d for d in state["devices"] if d.get("endpoint") != endpoint]
+        others = [
+            device for device in state["devices"] if device.get("endpoint") != endpoint
+        ]
         if len(others) >= MAX_DEVICES:
             raise PushError(
                 f"{MAX_DEVICES} devices get the board's notifications already: "
@@ -570,7 +585,9 @@ def subscribe(given: object, agent: str) -> dict:
 def unsubscribe(endpoint: object) -> dict:
     with held():
         state = read_state()
-        kept = [d for d in state["devices"] if d.get("endpoint") != endpoint]
+        kept = [
+            device for device in state["devices"] if device.get("endpoint") != endpoint
+        ]
         gone = len(kept) != len(state["devices"])
         if gone:
             state["devices"] = kept
@@ -588,11 +605,11 @@ def status() -> dict:
     return {
         "devices": [
             {
-                "device": d.get("device"),
-                "added": d.get("added"),
-                "workspaces": d.get("workspaces"),
+                "device": device.get("device"),
+                "added": device.get("added"),
+                "workspaces": device.get("workspaces"),
             }
-            for d in state["devices"]
+            for device in state["devices"]
         ],
         "last": state.get("last"),
         "key": key_path().is_file(),
@@ -629,20 +646,22 @@ def post(endpoint: str, headers: dict) -> tuple[int | None, str]:
             "claims": claims_of(jwt[1]) if jwt else None,
         }
         with (home() / RECORD_FILE).open("a", encoding="utf-8") as out:
-            out.write(json.dumps(line) + "\n")
+            out.write(f"{json.dumps(line)}\n")
         return 201, "recorded, not sent (LEM_PUSH=record)"
     # refusal() lets only https at a push service reach this request
-    request = urllib.request.Request(  # noqa: S310 - an endpoint passed refusal() first
+    request = urlrequest.Request(  # noqa: S310 - an endpoint passed refusal() first
         endpoint, data=b"", method="POST", headers=headers
     )
     try:
-        with urllib.request.urlopen(  # noqa: S310 - an endpoint passed refusal() first
+        with urlrequest.urlopen(  # noqa: S310 - an endpoint passed refusal() first
             request, timeout=SEND_TIMEOUT
         ) as reply:
-            return reply.status, reply.read(300).decode("utf-8", "replace").strip()
-    except urllib.error.HTTPError as error:
-        return error.code, error.read(300).decode("utf-8", "replace").strip()
-    except (urllib.error.URLError, OSError, ValueError) as error:
+            return reply.status, reply.read(REPLY_BYTES).decode(
+                "utf-8", "replace"
+            ).strip()
+    except urlerror.HTTPError as error:
+        return error.code, error.read(REPLY_BYTES).decode("utf-8", "replace").strip()
+    except (urlerror.URLError, OSError, ValueError) as error:
         return None, str(getattr(error, "reason", error))
 
 
@@ -680,13 +699,13 @@ class Pusher:
                 state["latest"] = {**said, "at": lem_clock.iso(self.now())}
                 write_state(state)
         path, public = machine_key()
-        results = []
+        replies = []
         for device in devices:
             endpoint = device.get("endpoint")
             refused = refusal(endpoint)
             # refusal() refuses whatever is not a string
             if refused or not isinstance(endpoint, str):
-                results.append(
+                replies.append(
                     {
                         "device": device.get("device"),
                         "status": None,
@@ -705,31 +724,37 @@ class Pusher:
                 ),
             }
             code, answer = self.send_one(endpoint, headers)
-            results.append(
+            replies.append(
                 {
                     "device": device.get("device"),
                     "service": urlsplit(endpoint).hostname,
                     "status": code,
-                    "said": answer[:300],
+                    "said": answer[:ANSWER_CHARS],
                     "gone": code in (404, 410),
                     "endpoint": endpoint,
                 }
             )
-        gone = {r["endpoint"] for r in results if r.get("gone")}
+        gone = {reply["endpoint"] for reply in replies if reply.get("gone")}
         with held():
             state = read_state()
             if gone:
                 state["devices"] = [
-                    d for d in state["devices"] if d.get("endpoint") not in gone
+                    entry
+                    for entry in state["devices"]
+                    if entry.get("endpoint") not in gone
                 ]
             state["last"] = {
                 "at": lem_clock.iso(self.now()),
                 "results": [
-                    {k: v for k, v in r.items() if k != "endpoint"} for r in results
+                    {key: field for key, field in reply.items() if key != "endpoint"}
+                    for reply in replies
                 ],
             }
             write_state(state)
-        return [{k: v for k, v in r.items() if k != "endpoint"} for r in results]
+        return [
+            {key: field for key, field in reply.items() if key != "endpoint"}
+            for reply in replies
+        ]
 
 
 def send_all(pusher: Pusher | None = None) -> list[dict]:
@@ -751,7 +776,12 @@ def send_test(endpoint: object, pusher: Pusher | None = None) -> dict:
     """One push to the one device that asks for it from the board
     (`POST /api/push/test`)."""
     device = next(
-        (d for d in read_state()["devices"] if d.get("endpoint") == endpoint), None
+        (
+            entry
+            for entry in read_state()["devices"]
+            if entry.get("endpoint") == endpoint
+        ),
+        None,
     )
     if device is None:
         raise PushError(
@@ -790,8 +820,8 @@ def gained(
         for key in dict.fromkeys(rows)
         if key not in before and not (key in gone and now - gone[key] < flap)
     ]
-    for key in before - now_rows:
-        gone[key] = now
+    for old_key in before - now_rows:
+        gone[old_key] = now
     gone = {
         key: at for key, at in gone.items() if key not in now_rows and now - at < flap
     }
@@ -860,42 +890,50 @@ class Watcher:
             seen = state["seen"]
             changed = False
             for name, path, _model, rows in looked:
-                fresh, memory = gained(seen.get(path), [r["key"] for r in rows], now)
+                fresh, memory = gained(
+                    seen.get(path), [row["key"] for row in rows], now
+                )
                 if memory != seen.get(path):
                     seen[path] = memory
                     changed = True
                 if fresh:
-                    news += [(name, r) for r in rows if r["key"] in fresh]
+                    news += [(name, row) for row in rows if row["key"] in fresh]
             if changed:
                 write_state(state)
             devices = state["devices"]
         if not news:
             return []
-        name, row = news[0]
+        workspace, row = news[0]
         say = bm.wait_say(row)
-        t = row["t"]
-        more = f" · and {len(news) - 1} more" if len(news) > 1 else ""
+        task = row["t"]
+        count = len(news) - 1
+        more = f" · and {count} more" if count else ""
         tab = "" if say["to"] == "overview" else f"/{quote(say['to'], safe='')}"
         said = {
             "title": say["verb"],
-            "body": f"{t.title} · {name}{more}",
+            "body": f"{task.title} · {workspace}{more}",
             "url": (
-                f"/{quote(self.host)}/{quote(name)}/tasks/{quote(t.slug, safe='')}{tab}"
+                f"/{quote(self.host)}/{quote(workspace)}/tasks/"
+                f"{quote(task.slug, safe='')}{tab}"
             ),
             "tag": f"lem-{row['key']}",
         }
         named = {space for space, _ in news}
-        to = [d for d in devices if any(wants(d, space) for space in named)]
+        to = [
+            device for device in devices if any(wants(device, space) for space in named)
+        ]
         sent = self.pusher.send(to, said)
-        bad = [r for r in sent if r["status"] != HTTPStatus.CREATED]
-        for r in bad:
+        bad = [reply for reply in sent if reply["status"] != HTTPStatus.CREATED]
+        for reply in bad:
             gone = (
-                " (removed: the push service no longer knows it)" if r["gone"] else ""
+                " (removed: the push service no longer knows it)"
+                if reply["gone"]
+                else ""
             )
-            self.log(
-                f"a push to {r['device']} got {r['status'] or 'no answer'}: "
-                f"{r['said'][:160]}{gone}"
-            )
+            device = reply["device"]
+            code = reply["status"] or "no answer"
+            answer = reply["said"][:LOG_ANSWER_CHARS]
+            self.log(f"a push to {device} got {code}: {answer}{gone}")
         return sent
 
     def run(self, stopping: threading.Event) -> None:
