@@ -313,9 +313,7 @@ def configure(root: Path) -> None:
 
 
 def git(cwd: Path, *args: str) -> str:
-    done = subprocess.run(
-        ["git", "-C", str(cwd), *args], capture_output=True, text=True, check=False
-    )
+    done = lem_state.run_git(cwd, list(args))
     return done.stdout.strip() if done.returncode == 0 else ""
 
 

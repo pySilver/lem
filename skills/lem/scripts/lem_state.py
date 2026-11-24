@@ -93,15 +93,27 @@ def jsonl_lines(text: str) -> list[str]:
     return text.split("\n")
 
 
+def run_git(
+    start: Path, args: list, timeout: float | None = None, *, stdin: int | None = None
+) -> subprocess.CompletedProcess:
+    """`git -C START ARGS` as Lem's scripts run it, its output caught as text, an exit
+    other than 0 given back, not raised. Each runner over it keeps its own way to give
+    the result (`git` below, the `git` of `land.py`, `criteria.py`, `lem_release.py`
+    and `cast.py`, and the ones inside functions of `board.py` and `project.py`), and
+    passes the time limit or the closed stdin it had."""
+    return subprocess.run(
+        ["git", "-C", str(start), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=timeout,
+        stdin=stdin,
+    )
+
+
 def git(start: Path, args: list, timeout: float | None) -> str | None:
     try:
-        ran = subprocess.run(
-            ["git", "-C", str(start), *args],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=timeout,
-        )
+        ran = run_git(start, args, timeout)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return ran.stdout if ran.returncode == 0 else None

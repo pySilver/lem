@@ -231,12 +231,7 @@ def filed(worktree: Path, onto: str, folder: str) -> list[dict] | None:
         return None
 
     def git(*args: str) -> str | None:
-        ran = subprocess.run(
-            ["git", "-C", str(worktree), *args],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        ran = lem_state.run_git(worktree, list(args))
         return ran.stdout if ran.returncode == 0 else None
 
     base = git("merge-base", "HEAD", onto)
@@ -351,9 +346,7 @@ def backlog(settings: dict) -> dict:
     }
 
     def git(*args: str) -> str | None:
-        ran = subprocess.run(
-            ["git", "-C", str(main), *args], capture_output=True, text=True, check=False
-        )
+        ran = lem_state.run_git(main, list(args))
         return ran.stdout if ran.returncode == 0 else None
 
     # what git does not have committed yet: an item the closing pass filed a minute ago

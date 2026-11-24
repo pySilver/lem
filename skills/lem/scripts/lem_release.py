@@ -226,13 +226,7 @@ def began_on(directory: Path) -> str:
 
 
 def git(where: Path, *args: str) -> str | None:
-    ran = subprocess.run(
-        ["git", "-C", str(where), *args],
-        capture_output=True,
-        text=True,
-        check=False,
-        stdin=subprocess.DEVNULL,
-    )
+    ran = lem_state.run_git(where, list(args), stdin=subprocess.DEVNULL)
     return ran.stdout if ran.returncode == 0 else None
 
 

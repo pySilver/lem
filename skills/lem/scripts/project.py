@@ -3102,13 +3102,7 @@ def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> dict:  #
     line on stderr), it starts from the local base branch."""
 
     def git(*args: str) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            ["git", "-C", str(main), *args],
-            capture_output=True,
-            text=True,
-            check=False,
-            stdin=subprocess.DEVNULL,
-        )
+        return lem_state.run_git(main, list(args), stdin=subprocess.DEVNULL)
 
     def said(ran: subprocess.CompletedProcess) -> str:
         lines = [
@@ -3306,12 +3300,7 @@ def task_worktree(root: Path, settings: dict, slug: str) -> dict:
     no worktree."""
 
     def git(where: Path, *args: str) -> str | None:
-        ran = subprocess.run(
-            ["git", "-C", str(where), *args],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        ran = lem_state.run_git(where, list(args))
         return (
             ran.stdout.strip() if ran.returncode == 0 and ran.stdout.strip() else None
         )

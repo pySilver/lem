@@ -316,7 +316,13 @@ def run(
 
 
 def git(where: Path, *args: str, check: bool = True) -> str:
-    return run(["git", "-C", str(where), *args], check=check).stdout.strip()
+    ran = lem_state.run_git(where, list(args))
+    if check and ran.returncode != 0:
+        # the refusal of `run`, of the same command
+        raise CriteriaError(
+            f"{' '.join(ran.args[:4])} failed: {(ran.stderr or ran.stdout).strip()}"
+        )
+    return ran.stdout.strip()
 
 
 def script(name: str, repo: Path, *args: str) -> str:
