@@ -352,12 +352,12 @@ class AskStopHook(unittest.TestCase):
             "AGTERMCTL": str(ctl),
         }
 
-    def test_a_page_opened_with_no_status_keeps_its_choice_at_the_stop(self) -> None:
-        # the review's run of 2026-11-24: `lem-ask q 'Continue?' yes no --no-status
-        # --timeout 0` leaves its page open and sets no status; the Stop hook then
-        # sets none either
-        calls, shown = self.home / "calls", self.home / "shown"
-        env = self.env(
+    def one_page(self, calls: Path) -> dict:
+        """The environment of a session S1 whose stand-in agtermctl writes each call
+        into CALLS, opens one page P1 and shows it in the tree while it stays
+        unanswered."""
+        shown = self.home / "shown"
+        return self.env(
             f'echo "$*" >> "{calls}"\n'
             'case "$1 $2 $3" in\n'
             '"session overlay open")\n'
@@ -372,6 +372,13 @@ class AskStopHook(unittest.TestCase):
             '{"pageID": "P1", "outcome": "pending"}}}\' ;;\n'
             "esac\n"
         )
+
+    def test_a_page_opened_with_no_status_keeps_its_choice_at_the_stop(self) -> None:
+        # the review's run of 2026-11-24: `lem-ask q 'Continue?' yes no --no-status
+        # --timeout 0` leaves its page open and sets no status; the Stop hook then
+        # sets none either
+        calls = self.home / "calls"
+        env = self.one_page(calls)
         main = str(self.SRC / "lem" / "python.py")
         for words, given in (
             (
@@ -395,6 +402,34 @@ class AskStopHook(unittest.TestCase):
         self.assertEqual(
             [line for line in said if line.startswith("session status")], []
         )
+
+    def test_a_wait_with_no_status_holds_for_a_page_opened_without_it(self) -> None:
+        # the page opens with the status left to lem-ask, and the caller's last word,
+        # `lem-ask wait P1 --no-status`, asks for none: the wait sent none, and the
+        # Stop hook sent `blocked --auto-reset` for the page all the same
+        calls = self.home / "calls"
+        env = self.one_page(calls)
+        main = str(self.SRC / "lem" / "python.py")
+        sent = []
+        for words, given in (
+            (["ask", "q", "Continue?", "yes", "no", "--no-wait"], ""),
+            (["ask", "wait", "P1", "--no-status", "--timeout", "0"], ""),
+            (["ask", "hook-stop"], json.dumps({"hook_event_name": "Stop"})),
+        ):
+            subprocess.run(
+                [sys.executable, "-B", main, *words],
+                input=given,
+                capture_output=True,
+                text=True,
+                cwd=self.home,
+                env=env,
+                timeout=30,
+                check=False,
+            )
+            said = calls.read_text(encoding="utf-8").splitlines()
+            calls.write_text("", encoding="utf-8")
+            sent.append([line for line in said if line.startswith("session status")])
+        self.assertEqual(sent, [[], [], []])
 
     def test_a_stdin_that_stays_open_does_not_keep_the_hook_alive(self) -> None:
         # the review's run of 2026-11-24: the Stop JSON through a pipe that stays open

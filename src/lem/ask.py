@@ -68,6 +68,11 @@ PAGE_KEEP = 86400
 # The end of the name of a page opened with --no-status: the Stop hook reads a page's
 # choice from the file agterm shows it from, and sets no status for it.
 QUIET_PAGE = ".no-status.html"
+# The end of the name of the file in OUTDIR that keeps the word of the last
+# `lem-ask wait` on a page, "status" or "no-status", for the Stop hook: the caller's
+# last word holds over the name of the page. It ends in .html, so the sweep of
+# `write_page` takes it with the pages.
+WAIT_WORD = ".wait.html"
 MERMAID_URL = "https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js"
 MERMAID_NAME = "mermaid-11.12.0.min.js"
 # jsDelivr's published sha256 for that file
@@ -1132,6 +1137,43 @@ def close_page(page_id: str | None = None) -> None:
     emit({"status": "closed", "pageID": page}, 0)
 
 
+def wait_word_file(page_id: str | None) -> Path | None:
+    """The file that keeps the word of the last `lem-ask wait` on the page PAGE_ID, or
+    None for an id that is no plain file name."""
+    if not page_id or not re.fullmatch(r"[A-Za-z0-9_-]+", page_id):
+        return None
+    return Path(OUTDIR, page_id + WAIT_WORD)
+
+
+def keep_wait_word(page_id: str | None, *, status: bool) -> None:
+    """Keep the word of this `lem-ask wait` on the page PAGE_ID, status or no status,
+    for the Stop hook (`quiet_page`)."""
+    if (kept := wait_word_file(page_id)) is None:
+        return
+    try:
+        kept.parent.mkdir(parents=True, exist_ok=True)
+        kept.write_text("status" if status else "no-status", encoding="utf-8")
+    except OSError as e:
+        print(
+            f"lem-ask: the Stop hook may not keep this wait's word on page "
+            f"{page_id}: {e}",
+            file=sys.stderr,
+        )
+
+
+def quiet_page(shown: dict[str, Any]) -> bool:
+    """Whether the caller said --no-status last for the page SHOWN (agterm's overlay,
+    its `id` and its `file`): in its last `lem-ask wait`, else when it opened it."""
+    kept = wait_word_file(shown.get("id"))
+    try:
+        word = kept.read_text(encoding="utf-8") if kept is not None else None
+    except OSError:
+        word = None
+    if word in ("status", "no-status"):
+        return word == "no-status"
+    return str(shown.get("file")).endswith(QUIET_PAGE)
+
+
 def hook_stop() -> None:
     """The plugin's Stop hook: when the turn ends with a question page still open, show
     the question.
@@ -1156,8 +1198,10 @@ def hook_stop() -> None:
     within the last offset may see asking re-posted over its own status until its next
     tool call; the question is still open then, so that is true.
 
-    A page opened with --no-status (its name ends in QUIET_PAGE) keeps that choice: the
-    hook sets no status for it.
+    A page opened with --no-status (its name ends in QUIET_PAGE), or whose last
+    `lem-ask wait` said --no-status (WAIT_WORD), keeps that choice: the hook sets no
+    status for it. The caller's last word holds: a plain `wait` on a page opened with
+    --no-status lets the hook set it again.
 
     Never prints, never fails: a Stop hook's output or exit 2 could hold the session."""
     try:
@@ -1167,7 +1211,7 @@ def hook_stop() -> None:
         # that stays open would keep the read, and the hook, alive
         shown = pending_overlay(STOP_CALL)
         page = (shown or {}).get("id")
-        if not page or str((shown or {}).get("file")).endswith(QUIET_PAGE):
+        if not page or quiet_page(shown or {}):
             # no page, or one whose `lem-ask` was told to leave the glyph alone
             return
         asking = defaults().get("status", {}).get("asking", ["blocked"])
@@ -1811,6 +1855,7 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the 
     if a.cmd == "wait":
         if not in_agterm():
             die("not inside agterm", 3)
+        keep_wait_word(a.page_id, status=not a.no_status)
         sys.exit(
             wait_page(
                 a.page_id, a.timeout, status=not a.no_status, card=card_of(a.page_id)

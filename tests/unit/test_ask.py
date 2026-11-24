@@ -152,5 +152,35 @@ class HalfACharacterInASpec(unittest.TestCase):
         self.assertIn("the �", page)
 
 
+class WaitWord(unittest.TestCase):
+    """The caller's last word on a page's status, which the Stop hook reads
+    (`quiet_page`); test_python.AskStopHook plays the run through python.py."""
+
+    def test_the_last_wait_holds_over_the_way_the_page_opened(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as folder,
+            mock.patch.object(ask, "OUTDIR", folder),
+        ):
+            loud = {"id": "P1", "file": f"{folder}/x.html"}
+            quiet = {"id": "P2", "file": f"{folder}/y{ask.QUIET_PAGE}"}
+            self.assertEqual(
+                (ask.quiet_page(loud), ask.quiet_page(quiet)), (False, True)
+            )
+            ask.keep_wait_word("P1", status=False)
+            ask.keep_wait_word("P2", status=True)
+            self.assertEqual(
+                (ask.quiet_page(loud), ask.quiet_page(quiet)), (True, False)
+            )
+            ask.keep_wait_word("P1", status=True)
+            self.assertFalse(ask.quiet_page(loud))
+            # an id that is no plain file name keeps no word, and writes nowhere
+            ask.keep_wait_word("../P3", status=False)
+            self.assertFalse(ask.quiet_page({"id": "../P3", "file": "z.html"}))
+            self.assertEqual(
+                sorted(p.name for p in Path(folder).iterdir()),
+                ["P1.wait.html", "P2.wait.html"],
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

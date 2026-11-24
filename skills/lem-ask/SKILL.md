@@ -310,7 +310,7 @@ key and the value. Per call, a flag or the same key in the spec wins:
   Status hooks that post a "working" or "done" glyph at the end of a turn would cover a question still
   waiting in the background; lem-ask's Stop hook, which the plugin registers, re-posts the asking glyph
   when a turn ends with a question page still open, set to clear when the user visits. `--no-status`
-  leaves the glyph alone.
+  leaves the glyph alone, the Stop hook's too; on a page you `wait` for, the last `wait` decides.
 - `--chromeless` hides the overlay's title strip.
 - Outside agterm it opens nothing (exit 3, `no-agterm`). With `--browser` it serves the page on `127.0.0.1`
   and opens the default browser instead, inside agterm too; `browser = true` under `[ask]` in the user's
