@@ -274,6 +274,32 @@ class Answer(unittest.TestCase):
         self.assertIn("no longer runs", cast("str", said))
         self.assertIsNone(self.end())
 
+    def read(self, body: str) -> object:
+        """The answer as the server's read of a card's body takes it, one frame above
+        `act_card`, as `Handler.card_answer` is (`lem_cards.whole` of the decode)."""
+        return lem_cards.whole(json.loads(body))
+
+    def test_an_answer_the_read_takes_and_the_end_cannot_walk_is_refused_as_no_json(
+        self,
+    ) -> None:
+        # the deepest answer the read takes, searched down from the interpreter's
+        # limit: the end walks it two frames deeper (`lem_cards.end`)
+        given: object = None
+        depth = sys.getrecursionlimit()
+        while given is None and depth > 0:
+            body = (
+                '{"status": "answered", "answers": {"answer": {"selected": ["no"], '
+                f'"extra": {"[" * depth + "]" * depth}}}}}}}'
+            )
+            try:
+                given = self.read(body)
+            except RecursionError:
+                depth -= 1
+        self.assertEqual(
+            self.answer(cast("dict", given)), (400, serve.NO_CARD_JSON), depth
+        )
+        self.assertIsNone(self.end())
+
     def test_two_answers_of_the_board_at_once_record_one(self) -> None:
         first = self.answer(picked("no"))
         second = self.answer(picked("yes"))

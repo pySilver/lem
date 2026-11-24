@@ -1897,6 +1897,12 @@ def act_session(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
 # The largest answer of a card the board takes, in bytes: the page's JSON, with a note
 # of a few paragraphs and the values of a few sliders (a guess).
 CARD_BYTES = 65536
+# What the board says to a card's body that is no JSON object it takes: at the read,
+# and at the act's end, which walks an answer the read took two frames deeper.
+NO_CARD_JSON = (
+    f"The request carries no JSON object of at most {CARD_BYTES} bytes: "
+    "nothing was recorded."
+)
 # What the board says to a note with no option picked, and to the page's wish to talk:
 # the owner's ruling of 2026-11-23, "The board takes an answer with a note, never
 # a conversation."
@@ -2195,6 +2201,11 @@ def act_card(  # noqa: C901, PLR0911, PLR0913, PLR0917 - over the limit before t
             device=device,
             agent=agent,
         )
+    except RecursionError:
+        # nested so deep that the end's walk of it (`lem_cards.whole`, then
+        # `json.dumps`), two frames under the read's, runs out of stack: no JSON to
+        # Python, and refused as the read refuses it; the end wrote nothing
+        return HTTPStatus.BAD_REQUEST, NO_CARD_JSON
     except (lem_cards.CardError, OSError) as error:
         return (
             HTTPStatus.INTERNAL_SERVER_ERROR,
@@ -3163,13 +3174,7 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, RecursionError, OSError):
             given = None
         if not isinstance(given, dict):
-            return answer(
-                HTTPStatus.BAD_REQUEST,
-                (
-                    f"The request carries no JSON object of at most {CARD_BYTES} "
-                    "bytes: nothing was recorded."
-                ),
-            )
+            return answer(HTTPStatus.BAD_REQUEST, NO_CARD_JSON)
         status, said = act_card(
             workspace,
             slug,
