@@ -1,7 +1,7 @@
 # Lem as an app with dependencies, in a pythonic shape
 
-> **Status: proposed**, for the owner to read. Nothing of it is built but step 0, which is the
-> branch `chore/python-js-style`. The four questions at the end are his.
+> **Status: proposed**, for the owner to read. Three parts of it are built and on `main`:
+> "Where the steps stand" names them. The four questions at the end are his.
 
 A draft by the maintaining session of 2026-11-23 and 24, from the owner's words of that night, an
 inventory of the code and a research of how such a tool ships. Both reports are in the session's
@@ -110,6 +110,24 @@ Each step ends with `main` releasable, and what it changes for a developer is sa
 | 8 | The large functions | `time_of`, the landing's steps, `project.py`'s commands, split under the wemake gate, a domain at a time | nothing |
 
 Steps 3 to 7 each bring their package under the wemake gate when they end; step 8 brings the rest.
+
+### Where the steps stand
+
+Three parts were built in the night of 2026-11-24 with no dependency and no change of how Lem
+installs, so that none of them waited for an answer of his. They are on `main` since that day:
+
+- **Step 0**, the commits of `chore/python-js-style`.
+- **The first half of step 1**, the commits of `refactor/package-layout`: the scripts are the
+  package `src/lem/` with real imports and one entry, moved and not rewritten. Of the 22
+  `sys.path` inserts one is left, in `bin/lem`; no module is loaded by its path. What is left of
+  step 1 is the half that needs his answers: the formula, the plugin from the app, and the end
+  of the Python 3.9 launcher, which is `src/lem/python.py` now.
+- **A part of step 3**, the commits of `refactor/shared-helpers`: one writer of a whole file,
+  one lock of a thread and a file, one clock, one stop of a process group, one `git` runner,
+  each with the standard library. The `gh` and `agtermctl` runners, the one error and the
+  logging are left.
+
+Beside them, the fixes of `docs/backlog/` that needed no ruling.
 Step 1 comes first because nothing can depend on a library before the app installs with its
 dependencies. Step 2 comes next because every later step leans on the tests, and they should be
 in the form the new code's tests take.
