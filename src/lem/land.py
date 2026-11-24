@@ -159,8 +159,10 @@ by a coverage threshold whose number went down or that is gone, there or on a co
 line of the forge's workflows. Each existing test, snapshot and test configuration the
 change edits is listed (`edited`), and the pull request names them: what a test expects
 is read by the review, since no mark shows a changed expectation. A mark counts when the
-change leaves more of it in a file than the file had, so a line that only moved is no
-new mark; a mark whose own text changed is a new one. A lowered bar passes only with a
+line it stands on did not have it: an old mark cancels a new one only on its own line
+(a line that moved whole, then one of its hunk that kept its code, then the next of its
+hunk), never one elsewhere in the file; a mark whose own text changed is a new one. A
+lowered bar passes only with a
 reason for that file under `## The bar` in the task's plan, as `- PATH: REASON`. The
 marks looked for are those of Python, JavaScript and TypeScript, Go, Rust, Java and
 Kotlin, and shell. A changed file of another language gets no such check, and the result
@@ -822,6 +824,7 @@ import tempfile
 import time
 import tomllib
 import unicodedata
+from collections import Counter, deque
 from collections.abc import Callable, Generator, Iterator
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -4128,13 +4131,14 @@ def bar_of(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit wa
     )
     lowered: list[dict] = []
     asserts: dict[str, int] = {}
-    # A mark counts when the change leaves more of it in a file than the file had: a
-    # line that only moved, or got another space, took the mark out and put it back. A
-    # mark is the same one only with the same own text (`marks_of`): `noqa: F401` that
-    # becomes `noqa` or `noqa: F401, E501` is a wider suppression, and a new one, while
-    # a mark put beside it leaves its text as it was.
-    came: dict[tuple[str, str, str], list[dict]] = {}
-    went: dict[tuple[str, str, str], int] = {}
+    # A mark counts when the line it stands on did not have it: an old mark cancels a
+    # new one only on its own line (`new_marks`), and a line that only moved, or got
+    # another space, keeps its marks. A mark is the same one only with the same own
+    # text (`marks_of`): `noqa: F401` that becomes `noqa` or `noqa: F401, E501` is a
+    # wider suppression, and a new one, while a mark put beside it leaves its text as
+    # it was. Each file's hunks, the lines that went and came of each, wait for the
+    # file's last hunk, as a line may move from one hunk to another.
+    hunked: list[tuple[str, list, list, list[tuple[list[str], list[str]]]]] = []
     # each coverage threshold's numbers before and after, whatever file of a runner's
     # settings holds it
     thresholds: dict[str, dict[str, list[tuple[float, str]]]] = {}
@@ -4163,21 +4167,15 @@ def bar_of(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit wa
                 for mark in TEST_CONFIG_MARKS
                 if file and TEST_CONFIG.search(file)
             ]
+            hunked.append((file, marks, settings, []))
+        elif line.startswith("@@"):
+            if hunked:
+                hunked[-1][3].append(([], []))
         elif not file or line[:1] not in "+-":
             continue
         else:
-            for hit, own in marks_of(line[1:], marks, settings):
-                key = (file, hit.re.pattern, own)
-                if line.startswith("+"):
-                    came.setdefault(key, []).append(
-                        {
-                            "file": file,
-                            "what": hit.group(0),
-                            "line": line[1:].strip()[:160],
-                        }
-                    )
-                else:
-                    went[key] = went.get(key, 0) + 1
+            if hunked and hunked[-1][3] and (marks or settings):
+                hunked[-1][3][-1][line[0] == "+"].append(line[1:])
             if TEST_CONFIG.search(file) or WORKFLOW.search(file):
                 for found in THRESHOLD.finditer(line[1:]):
                     name, number = (
@@ -4194,8 +4192,11 @@ def bar_of(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit wa
                 asserts[file] = asserts.get(file, 0) + (
                     1 if line.startswith("-") else -1
                 )
-    for key, entries in came.items():
-        lowered += entries[went.get(key, 0) :]
+    for name, its, kinds_of, hunks in hunked:
+        lowered += [
+            {"file": name, "what": hit.group(0), "line": line.strip()[:160]}
+            for hit, line in new_marks(hunks, its, kinds_of)
+        ]
     for name, fewer in sorted(asserts.items()):
         if fewer > 0:
             lowered.append(
@@ -4290,6 +4291,97 @@ def marks_of(
         if hit
     ]
     return [(hit, " ".join(words.split())) for hit, words in own]
+
+
+def new_marks(
+    hunks: list[tuple[list[str], list[str]]],
+    marks: list[re.Pattern],
+    settings: list[re.Pattern],
+) -> list[tuple[re.Match, str]]:
+    """Each mark of a file's added lines that no old mark of the same line stands for,
+    with its added line, from the file's HUNKS of `git diff -U0` (the lines that went
+    and the lines that came, of each) and its MARKS and SETTINGS (`marks_of`). An old
+    mark cancels a new one of the same own text only on the line it stood on
+    (`same_lines`): an old mark anywhere else in the file stands for none, so a
+    suppression taken off one line and put on another is a new one."""
+    found = [
+        [[marks_of(line, marks, settings) for line in side] for side in hunk]
+        for hunk in hunks
+    ]
+    pairs = same_lines(hunks, found)
+    new = []
+    for h, (_, came) in enumerate(hunks):
+        for a, line in enumerate(came):
+            was = pairs.get((h, a))
+            left = Counter(
+                (hit.re.pattern, own)
+                for hit, own in ([] if was is None else found[was[0]][0][was[1]])
+            )
+            for hit, own in found[h][1][a]:
+                if left[(hit.re.pattern, own)]:
+                    left[(hit.re.pattern, own)] -= 1
+                else:
+                    new.append((hit, line))
+    return new
+
+
+def same_lines(
+    hunks: list[tuple[list[str], list[str]]],
+    found: list[list[list[list[tuple[re.Match, str]]]]],
+) -> dict[tuple[int, int], tuple[int, int]]:
+    """Which removed line each added line is the same line as, each by its hunk and its
+    place there, from a file's HUNKS and the marks FOUND on each line (`new_marks`): a
+    line that moved, with the same words, from anywhere in the file; then, in its hunk,
+    a line that kept its code, the words before its first mark (an import whose
+    suppression went); then the rest of its hunk in their order, as git lists a hunk's
+    lines that changed. Each removed line is one added line's at most."""
+    pairs: dict[tuple[int, int], tuple[int, int]] = {}
+    moved: dict[str, deque[tuple[int, int]]] = {}
+    for h, (gone, _) in enumerate(hunks):
+        for r, line in enumerate(gone):
+            moved.setdefault(" ".join(line.split()), deque()).append((h, r))
+    for h, (_, came) in enumerate(hunks):
+        for a, line in enumerate(came):
+            spare = moved.get(" ".join(line.split()))
+            if spare:
+                pairs[(h, a)] = spare.popleft()
+    used = set(pairs.values())
+    for h, hunk in enumerate(hunks):
+        same_in_hunk(h, hunk, found[h], pairs, used)
+    return pairs
+
+
+def same_in_hunk(
+    h: int,
+    hunk: tuple[list[str], list[str]],
+    found: list[list[list[tuple[re.Match, str]]]],
+    pairs: dict[tuple[int, int], tuple[int, int]],
+    used: set[tuple[int, int]],
+) -> None:
+    """`same_lines` in the hunk H of a file, its lines that went and came (HUNK) and
+    the marks FOUND on each: each added line that PAIRS holds no removed line for yet
+    takes the removed line of its hunk, not USED, that kept its code, or else the next
+    one in the hunk's order. PAIRS and USED take each pair."""
+    gone, came = hunk
+
+    def code(line: str, hits: list[tuple[re.Match, str]]) -> str:
+        first = min((hit.start() for hit, _ in hits), default=None)
+        return " ".join(line[:first].split())
+
+    kept: dict[str, deque[int]] = {}
+    for r, line in enumerate(gone):
+        if (h, r) not in used:
+            kept.setdefault(code(line, found[0][r]), deque()).append(r)
+    for a, line in enumerate(came):
+        spare = kept.get(code(line, found[1][a]))
+        if (h, a) not in pairs and spare:
+            pairs[(h, a)] = (h, spare.popleft())
+            used.add(pairs[(h, a)])
+    rest = deque(r for r in range(len(gone)) if (h, r) not in used)
+    for a in range(len(came)):
+        if (h, a) not in pairs and rest:
+            pairs[(h, a)] = (h, rest.popleft())
+            used.add(pairs[(h, a)])
 
 
 def bar_refusal(lowered: list[dict], *, small: bool) -> str | None:

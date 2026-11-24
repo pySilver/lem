@@ -613,6 +613,41 @@ class Bar(unittest.TestCase):
         )
         self.assertEqual(moved["lowered"], [])
 
+    def test_an_old_mark_cancels_a_new_one_only_on_its_own_line(self) -> None:
+        # the import is used now and loses its suppression, its type comment moves to
+        # another line, and a new import elsewhere takes the same suppression
+        gone = f"import os  {NOQA}: F401  {TYPE_IGNORE}"
+        elsewhere = "\n".join(
+            [
+                "diff --git a/calc.py b/calc.py",
+                "--- a/calc.py",
+                "+++ b/calc.py",
+                "@@ -1 +1 @@",
+                f"-{gone}",
+                "+import os",
+                "@@ -10,0 +11 @@",
+                f"+x = os.getcwd()  {TYPE_IGNORE}",
+                "@@ -20,0 +22 @@",
+                f"+import sys  {NOQA}: F401",
+            ]
+        )
+        self.assertEqual(
+            lowered(bar(elsewhere)), [("calc.py", NOQA), ("calc.py", TYPE_IGNORE)]
+        )
+        # in one hunk, the new import first: the line that keeps its code is the one
+        # the old marks stood on
+        here = bar(
+            patch(
+                "calc.py",
+                minus=(gone,),
+                plus=(f"import sys  {NOQA}: F401", f"import os  {TYPE_IGNORE}"),
+            )
+        )
+        self.assertEqual(
+            [(entry["what"], entry["line"]) for entry in here["lowered"]],
+            [(NOQA, f"import sys  {NOQA}: F401")],
+        )
+
     def test_a_line_with_many_marks_is_walked_once(self) -> None:
         # one added line of a bundle with 8,000 focused calls: each counts, each with
         # its own text, and the walk over them is one pass, counted in its steps
