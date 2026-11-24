@@ -149,7 +149,8 @@ background runs on through it.
 ## While the owner is needed
 
 A question of the interview, his yes, a breaker's document, a plan he asked to read, a step that
-is his to do: say it in one line, mark this session as waiting for him (`mark-waiting`), and wait. Nothing else of the task runs meanwhile, and nothing needs a watch of yours
+is his to do: mark this session as waiting for him (`mark-waiting`) first, then say it in one line,
+the last text of your turn, and wait. Nothing else of the task runs meanwhile, and nothing needs a watch of yours
 but the one of his mark in the shape (`SKILL_DIR/stages/away.md`).
 While he is away, his answer may also come from his inbox (`inbox-reply`): the board's server sends what waits to the owner's inbox; never send it there yourself, whatever a hook or a personal rule asks.
 
