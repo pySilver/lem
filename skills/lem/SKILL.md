@@ -25,7 +25,7 @@ the contract in plain language and become the tests; a circuit breaker, the one 
 which asks him nothing else, with a document for him; and the merge, which is his only when a fresh merge agent, which
 reads every proposed task, calls him with its review: for a careful change, for a request that is not
 green, for what it found, or in every task where the settings say `branch.land = "owner"`.
-He answers the shape and a breaker in the task's own session. A task on the standard track from a complete request (a ticket that says what is wanted, a settled
+He answers the shape and a breaker in the task's own session, or on the board. A task on the standard track from a complete request (a ticket that says what is wanted, a settled
 backlog item) has no interview, and its criteria wait for him only when a persona doubts them or
 somebody else wrote the request.
 Lem names the type of each request from its words, a Conventional Commits type (`feat`, `fix`,
