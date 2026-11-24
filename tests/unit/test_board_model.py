@@ -474,7 +474,7 @@ class InterviewRead(unittest.TestCase):
 
         read = model(*self.INTERVIEW, ev(10, "criteria.read.start", by="lem"), ev(14, "criteria.read", **self.READ))
         t = read.tasks[0]
-        self.assertEqual((self.rows(read), t.for_owner, t.lane, bm.now_head(t)), ([("held:gift-note", "held")], True, "you", "The criteria wait for your yes"))
+        self.assertEqual((self.rows(read), t.for_owner, t.lane, bm.now_head(t)), ([("criterion:gift-note:20261120T090000Z", "held")], True, "you", "The criteria wait for your yes"))
         self.assertEqual(bm.acts_of(t, None), ["approve"])
 
     def test_a_read_nobody_answered_and_started_once_more_hides_the_row_again(self):
@@ -558,11 +558,11 @@ class InterviewTurns(unittest.TestCase):
         said_no = model(*self.interview(*written, self.at(12, "read.skip.asked"), self.at(13, "criteria.read.start", by="lem")))
         self.assertEqual((self.rows(said_no), said_no.tasks[0].for_owner), ([], False))
         read_in = model(*self.interview(*written, self.at(12, "read.skip.asked"), self.at(13, "criteria.read.start", by="lem"), self.at(18, "criteria.read", **self.READ)))
-        self.assertEqual(self.rows(read_in), [(f"held:{self.SLUG}", "held", "The criteria wait for your yes", "overview")])
+        self.assertEqual(self.rows(read_in), [(f"criterion:{self.SLUG}:20261120T090000Z", "held", "The criteria wait for your yes", "overview")])
 
         said_yes = model(*self.interview(*written, self.at(12, "read.skip.asked"), self.at(13, "decision.taken", **self.SKIP)))
         t = said_yes.tasks[0]
-        self.assertEqual(self.rows(said_yes), [(f"held:{self.SLUG}", "held", "The criteria wait for your yes", "overview")])
+        self.assertEqual(self.rows(said_yes), [(f"criterion:{self.SLUG}:20261120T090000Z", "held", "The criteria wait for your yes", "overview")])
         self.assertEqual((bm.now_head(t), bm.acts_of(t, None)), ("The criteria wait for your yes", ["approve"]))
 
     def test_criterion_3_while_he_is_away_lem_goes_on_and_only_a_breaker_and_an_order_stay_his(self):
@@ -732,6 +732,10 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
     def rows(self, m) -> list:
         return [(w["kind"], w["key"], w["since"]) for w in bm.waits_of(m)]
 
+    def row_key(self) -> str:
+        """The key of the criteria's row, which the board answers with Yes and No: named by the held block of 11:39:31."""
+        return f"criterion:{self.SLUG}:{bm.lem_answers.stamp_of(self.CRITERIA)}"
+
     def panel(self, m) -> dict:
         ctx, t = self.ctx(m), m.by_slug[self.SLUG]
         return {"facts": str(join(task_pages.facts(ctx, t, bm.waits_of(m)))), "key": str(task_pages.key_line(ctx, t)), "now": str(task_pages.now_card(ctx, t))}
@@ -748,7 +752,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         self.assertEqual(bm.card_line(t, bm.LANE["build"]), "Works on your answer: it waits for you again when the session's turn ends")
         self.assertEqual(pages.summary_of(m), "1 whose session works on your answer")
         # the Inbox keeps what it sent for the row the session holds back
-        self.assertEqual(bm.held_back(m), {f"held:{self.SLUG}"})
+        self.assertEqual(bm.held_back(m), {self.row_key()})
         panel = self.panel(m)
         self.assertNotIn("Waits for", panel["facts"])
         self.assertNotIn("p-key you", panel["key"])
@@ -763,7 +767,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         bm.put_sessions(m, self.sessions("ended"))
         t = m.by_slug[self.SLUG]
         began = bm.at(self.CRITERIA)
-        self.assertEqual(self.rows(m), [("criteria", f"held:{self.SLUG}", began)])
+        self.assertEqual(self.rows(m), [("criteria", self.row_key(), began)])
         self.assertEqual((t.works, t.for_owner, t.lane, m.for_owner, m.lane["you"]), (False, True, "you", [t], [t]))
         self.assertEqual(bm.held_back(m), set())
         # exactly what settle gave the task, as a model derived at 11:43:33 says
@@ -787,7 +791,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         ended = (self.rows(m), dict(t.info), t.shown, t.lane, t.for_owner)
         bm.put_sessions(m, self.sessions("ended"))
         self.assertEqual((self.rows(m), t.info, t.shown, t.lane, t.for_owner), ended)
-        self.assertEqual(ended[0], [("criteria", f"held:{self.SLUG}", bm.at(self.CRITERIA))])
+        self.assertEqual(ended[0], [("criteria", self.row_key(), bm.at(self.CRITERIA))])
 
     def test_criterion_3_with_no_turn_lem_can_read_the_task_waits_as_today(self):
         cases = {"the server has not asked": None, "no session of the task": {}, "no transcript Lem reads": self.sessions(None),
@@ -799,7 +803,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
                 m = self.board(now=self.RUNS)
                 bm.put_sessions(m, facts)
                 t = m.by_slug[self.SLUG]
-                self.assertIn(("criteria", f"held:{self.SLUG}", bm.at(self.CRITERIA)), self.rows(m))
+                self.assertIn(("criteria", self.row_key(), bm.at(self.CRITERIA)), self.rows(m))
                 self.assertEqual(self.rows(m), self.rows(today))
                 self.assertEqual((t.works, t.for_owner, t.lane, t.info), (False, True, "you", today.by_slug[self.SLUG].info))
 
@@ -850,7 +854,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
             second.join(5)
         t = m.by_slug[self.SLUG]
         self.assertEqual(problems, [])
-        self.assertEqual((self.rows(m), t.works, t.for_owner, t.lane, m.for_owner, bm.held_back(m)), ([], True, False, "build", [], {f"held:{self.SLUG}"}))
+        self.assertEqual((self.rows(m), t.works, t.for_owner, t.lane, m.for_owner, bm.held_back(m)), ([], True, False, "build", [], {self.row_key()}))
 
     def waiting(self, turn: str, caller: str | None = None) -> list:
         """The keys of the rows `lem project waiting` lists at 11:43, with the session's turn TURN, asked from the
@@ -860,6 +864,9 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             state_folder = Path(folder)
             (state_folder / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in self.events()), encoding="utf-8")
+            # the task began on the release that runs, so that the board answers its rows (`task_files_look`)
+            (state_folder / "tasks" / self.SLUG).mkdir(parents=True)
+            (state_folder / "tasks" / self.SLUG / "release.txt").write_text(bm.lem_release.running() + "\n", encoding="utf-8")
             with mock.patch.object(project, "state_root", return_value=state_folder), mock.patch.object(project, "main_checkout", return_value=state_folder), \
                  mock.patch.object(project, "owner_records", return_value=[]), mock.patch.object(project, "waiting_sessions", return_value=(self.sessions(turn), None)), \
                  mock.patch.object(bm, "now_ms", return_value=bm.at(self.RUNS)), mock.patch.dict(os.environ, env, clear=True):
@@ -868,11 +875,11 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
 
     def test_lem_project_waiting_lists_the_task_only_once_the_turn_ended(self):
         self.assertEqual(self.waiting("runs"), [])
-        self.assertEqual(self.waiting("ended"), [f"held:{self.SLUG}"])
+        self.assertEqual(self.waiting("ended"), [self.row_key()])
 
     def test_the_tasks_own_session_finds_its_row_in_lem_project_waiting_while_its_turn_runs(self):
         # the session asks inside its own turn, which then runs: a breaker's wake reads its row there to put up its card
-        self.assertEqual(self.waiting("runs", caller="S1"), [f"held:{self.SLUG}"])
+        self.assertEqual(self.waiting("runs", caller="S1"), [self.row_key()])
         # another session's ask still reads the task's turn
         self.assertEqual(self.waiting("runs", caller="S2"), [])
 

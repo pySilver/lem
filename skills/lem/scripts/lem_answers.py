@@ -2,7 +2,9 @@
 
 Four waits of a task get their answers on the board (`lem_board_model.answer_row`): a plan that waits
 for his read (Build or Drop), a breaker (Help, Park or Drop), "Skip the persona read?" of an interview
-(Yes or No), and "Approve this criterion?" of a small change that someone else asked for (Yes or No).
+(Yes or No), and the criteria that wait for his yes (Yes or No): "Approve this criterion?" of a small
+change that someone else asked for, and "Approve the criteria?" on the standard track. The two are one
+kind, `criterion`, with one key form; the record keeps the question its row asked.
 Each row's key names the state block it waits on, by the time of that block's `task.state` event to
 the second (`stamp`): `plan:SLUG:STAMP`, `breaker:SLUG:N:STAMP`, `skip:SLUG:STAMP` and
 `criterion:SLUG:STAMP`. A new block of the same wait is a new key, so an answer on record applies to
@@ -123,8 +125,10 @@ def withdraw(task: Path, made: dict) -> None:
 
 def answer_of_block(task: Path, slug: str, ts: str | None) -> dict | None:
     """The answer on record for the state block of the task SLUG whose event's time is TS (its newest, for
-    `board_answer` of `lem project tasks`), or None: the record whose key names that block. Of two, which
-    two rows of one block could only be, the one recorded first."""
+    `board_answer` of `lem project tasks`), or None: the record whose key names that block. Of two, the one
+    recorded last: the skip row and the criteria row of one interview stand on the same `the interview
+    waits for the owner` block, the skip's answer always comes first, and the session took it already
+    (its decision names its key). Two records of one second are ordered by their files' times."""
     block = stamp_of(ts) if ts else None
     folder = task / ANSWERS
     if block is None or not folder.is_dir():
@@ -138,19 +142,30 @@ def answer_of_block(task: Path, slug: str, ts: str | None) -> dict | None:
         if parts["slug"] != slug or parts["stamp"] != block:
             continue
         try:
-            found.append(json.loads(file.read_text(encoding="utf-8")))
+            found.append((str(json.loads(file.read_text(encoding="utf-8")).get("at") or ""), file.stat().st_mtime_ns, file))
+        except (OSError, ValueError, AttributeError):
+            continue
+    for _at, _ns, file in sorted(found, key=lambda x: (x[0], x[1]), reverse=True):
+        try:
+            return json.loads(file.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-    return min(found, key=lambda r: str(r.get("at") or "")) if found else None
+    return None
+
+
+# The question of each yes/no row as a record of an older form, with no `question`, names it.
+QUESTIONS = {"skip": "Skip the persona read?", "criterion": "Approve this criterion?"}
 
 
 def took_effect(made: dict) -> str:
-    """What the answer on record says, in one sentence: "You picked Drop for breaker 1 at 15:40, from the phone"."""
+    """What the answer on record says, in one sentence: "You picked Drop for breaker 1 at 15:40, from the phone".
+    A yes/no row is named by the question its record keeps (the criteria's differs by track), and an answer
+    the owner typed in the task's session (`from: session`, no device) says so."""
     try:
         parts = parse(made.get("key"))
     except AnswerError:
         parts = {"kind": made.get("kind"), "number": None}
-    what = {"plan": "for the plan", "breaker": f"for breaker {parts['number']}", "skip": "on “Skip the persona read?”",
-            "criterion": "on “Approve this criterion?”"}.get(parts["kind"], "")
-    device = f", from the {made['device']}" if made.get("device") else ""
-    return f"You picked {made.get('label') or made.get('option')} {what} at {lem_cards.local_time(made.get('at'))}{device}".replace("  ", " ")
+    question = made.get("question") if isinstance(made.get("question"), str) and made.get("question") else QUESTIONS.get(parts["kind"])
+    what = {"plan": "for the plan", "breaker": f"for breaker {parts['number']}"}.get(parts["kind"]) or (f"on “{question}”" if parts["kind"] in QUESTIONS else "")
+    where = f", from the {made['device']}" if made.get("device") else ", in the task’s session" if made.get("from") == "session" else ""
+    return f"You picked {made.get('label') or made.get('option')} {what} at {lem_cards.local_time(made.get('at'))}{where}".replace("  ", " ")

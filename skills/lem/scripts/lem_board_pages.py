@@ -1075,16 +1075,21 @@ def verb_link(ctx: Ctx, w: dict, say: dict) -> dict:
 
 def row_acts(ctx: Ctx, w: dict) -> Markup | None:
     """The buttons of a row of "Waits for you": the answer form of a row the board answers with its own
-    buttons (a breaker, a plan, the two yes/no rows: `answer_form`, with the one criterion's text above its
-    Yes and No), the way to criteria that wait for the owner's yes, which he gives under their text, the way
-    to a merge's confirm step, the way to a card of the task's session, and
-    "Open a session" for a task stuck with none or whose session stopped. None on a page that may not act, and for a row with no act."""
+    buttons (a breaker, a plan, "Skip the persona read?", and the fast track's one criterion: `answer_form`,
+    with the criterion's text above its Yes and No), the way to criteria that wait for the owner's yes, which
+    he gives under their text, the way to a merge's confirm step, the way to a card of the task's session, and
+    "Open a session" for a task stuck with none or whose session stopped. None on a page that may not act, and
+    for a row with no act. The standard track's criteria keep the way to their card, where his Yes and No
+    stand under the whole text, with each changed criterion's text before beside its new text (talk question
+    7 of criteria-change-asks-again)."""
     if not ctx.can_act:
         return None
     t = w["t"]
     acts = bm.acts_of(t, ctx.model.seen)
     out = []
     asks = w.get("asks")
+    if asks and asks["kind"] == "criterion" and not bm.fast_criterion(t):
+        asks = None
     if asks and asks["kind"] == "criterion":
         # the one criterion, as criteria.md has it, above his Yes and No: the yes is to the text he reads here
         waiting = ctx.criteria_waiting(t.slug)

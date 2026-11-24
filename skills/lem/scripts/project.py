@@ -3754,7 +3754,8 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
             # the date of the night that opened it, or null for a task of the day
             "night": night.get(directory.name),
             # the owner's answer from the board to the row of its newest state block (a plan, a breaker, "Skip the
-            # persona read?", "Approve this criterion?"), as lem_answers recorded it, or null: the task's session reads it on its wake
+            # persona read?", "Approve this criterion?", "Approve the criteria?"), as lem_answers recorded it (its newest), or null:
+            # the task's session reads it on its wake
             "board_answer": answers.answer_of_block(directory, directory.name, blocks.get(directory.name)),
         })
     if any(task["ticket"] for task in tasks):
@@ -3898,7 +3899,8 @@ def waiting_model(root: Path, settings: dict):
     `waiting`: the event log, the owner's mark, the demo mark (board.py `meta_of`), the forge's last look
     that the server wrote (`lem_board_model.FORGE_LOOK`), the open `lem-ask` cards of each task's folder
     (`lem_board_model.cards_look`), the answers the board recorded (`lem_board_model.answers_look`), and the
-    task sessions, which it asks `lem session list` for itself (`waiting_sessions`), with the turn of the
+    task sessions, which it asks `lem session list` for itself (`waiting_sessions`), what each task's directory
+    says beside the log (`lem_board_model.task_files_look`: its release, a change of its criteria that stopped), with the turn of the
     session that runs this command left as one Lem cannot tell (`lem_board_model.own_turn_unread`), since
     that turn runs while it asks. With the model, what the session said of the sessions: None when they are
     known, else why not."""
@@ -3910,6 +3912,7 @@ def waiting_model(root: Path, settings: dict):
         raise SettingsError(f"{state / 'events.jsonl'}: {reader.problems['events']}; the log is written by project.py, never by hand")
     model = bm.derive(reader.events, owner_records(), bm.now_ms(), meta={"demo": (state / "demo").is_file()})
     model.seen = (bm.forge_look(state) or {}).get("seen")
+    bm.task_files_look(state, model)
     model.cards = bm.cards_look(state, model)
     # a row the owner answered on the board is the task's session's until its next state block: no row here either
     model.answers = bm.answers_look(state, model)

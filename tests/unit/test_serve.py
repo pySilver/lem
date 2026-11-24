@@ -956,10 +956,10 @@ class WorkingSession(unittest.TestCase):
                     space.look_sessions()
                 return [w["key"] for w in bm.waits_of(space.model())]
 
-            self.assertEqual((look("ended"), space.acted), (["held:gift-note"], 0))
+            self.assertEqual((look("ended"), space.acted), (["criterion:gift-note:20261123T113931Z"], 0))
             self.assertEqual((look("runs"), space.acted), ([], 1))
             self.assertEqual((look("runs"), space.acted), ([], 1))
-            self.assertEqual((look("ended"), space.acted), (["held:gift-note"], 2))
+            self.assertEqual((look("ended"), space.acted), (["criterion:gift-note:20261123T113931Z"], 2))
 
 
 class Look(unittest.TestCase):
