@@ -2343,6 +2343,23 @@ class Blocked(unittest.TestCase):
         self.assertEqual((bm.waits_of(red), red.tasks[0].lane), ([], "build"))
         self.assertIn("waits for the base", bm.now_head(red.tasks[0]))
 
+    def test_the_where_of_a_blocked_task_says_to_tell_its_session_what_to_do(
+        self,
+    ) -> None:
+        # no-session-row-names-open, 2026-11-22: the tooltip of the card's Waits for
+        # fact asked him to have the stopped session build it
+        m = model(
+            state(0, "building", "lead: builder"),
+            state(5, "blocked", "the migration needs the owner"),
+        )
+        m.sessions = {"gift-note": {"live": True, "agent": True}}
+        t, rows = m.tasks[0], bm.waits_of(m)
+        where = bm.waits_for(t, rows)["where"]
+        self.assertEqual(where, bm.wait_say(rows[0])["where"])
+        self.assertEqual(bm.answer_of(t), where)
+        self.assertIn("“the migration needs the owner”", where)
+        self.assertNotIn("to build it", where)
+
 
 class ReleaseStop(unittest.TestCase):
     """A task two releases back (lem_release): Lem's first command for it logged

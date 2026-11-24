@@ -2669,7 +2669,26 @@ def answer_of(t: Task) -> str:  # noqa: C901, PLR0911 - over the limit before th
             "Read the plan, then build it or drop the task on this board, "
             "or tell the task’s session."
         )
-    return f"Tell the task’s session to build it, or type /lem drop {t.slug} to end it."
+    # a blocked task's session stopped and waits for his word, unless only the base's
+    # repair is awaited
+    return (
+        blocked_where(t)
+        if t.status == "blocked" and not t.base_red
+        else (
+            "Tell the task’s session to build it, "
+            f"or type /lem drop {t.slug} to end it."
+        )
+    )
+
+
+def blocked_where(t: Task) -> str:
+    """Where the owner answers a task its session stopped with something it cannot
+    settle alone (`blocked`): in that session, which waits for his word."""
+    return (
+        "The task’s session stopped on something it cannot settle alone: "
+        f"“{t.shown or t.text}”. Tell it what to do in the task’s session, or "
+        f"type /lem drop {t.slug} there to end the task."
+    )
 
 
 def after_of(t: Task) -> str | None:
@@ -3858,11 +3877,7 @@ def wait_say(w: dict) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit 
             "actor": "bad",
             "to": "overview",
             "note": "since it stopped",
-            "where": (
-                "The task’s session stopped on something it cannot settle alone: "
-                f"“{t.shown or t.text}”. Tell it what to do in the task’s session, or "
-                f"type /lem drop {t.slug} there to end the task."
-            ),
+            "where": blocked_where(t),
         }
     if kind == "plan":
         return {
