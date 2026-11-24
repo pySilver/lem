@@ -502,6 +502,7 @@ def afternoon(shop: Shop) -> None:
     s.no_on_the_board(t, 10, 14, STOCK_NOTE)
     changed = s.criteria_file(t, "full", "the product page gets a new line.", *STOCK_CHANGED)
     s.criteria("change", t, "--file", str(changed), "--words", STOCK_NOTE)
+    # the change writes two events, `criteria.changed` and the held block's `task.state`
     s.at(t, 8)
     s.at(t, 8)
 

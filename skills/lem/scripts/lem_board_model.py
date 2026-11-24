@@ -28,8 +28,10 @@ when `lem project prune` put a new one in place), the owner's
 mark (`project.owner_records`), and the settings, the backlog and the meta facts through `board.py`'s
 functions, the board server's last look at the forge (FORGE_LOOK, `Model.seen`), and its record of
 what it sent to the owner's Inbox while he is away (INBOX_LOOK, `Model.inbox`, which `inbox_of` reads
-for a task's page), and the open `lem-ask` cards of each task's folder (`cards_look`, `Model.cards`, whose
-rows `open_cards` gives). What does not read is a problem the page says, never an empty board.
+for a task's page), the open `lem-ask` cards of each task's folder (`cards_look`, `Model.cards`, whose
+rows `open_cards` gives), and what each task's folder says beside the log, the release it began on and a
+change of its criteria that stopped in the middle (`task_files_look`, on each Task). What does not read
+is a problem the page says, never an empty board.
 """
 
 import json

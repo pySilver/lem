@@ -1252,7 +1252,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--repo", default=".", help="a directory inside the repository (default: the current one)")
     parser.add_argument("step", choices=("approve", "approved", "change", "digest", "show", "record", "red", "inputs"))
     parser.add_argument("slug")
-    parser.add_argument("--file", help="with approve: the criteria the owner approved, in the form above and with no test lines; with digest: the criteria to mark")
+    parser.add_argument("--file", help="with approve: the criteria the owner approved, in the form above and with no test lines; with change: the changed criteria, "
+                        "in the same form; with digest: the criteria to mark")
     parser.add_argument("--small", action="store_true", help="with approve: Lem approves the one criterion of a task on the fast track in the owner's name")
     parser.add_argument("--read", action="store_true", help="with approve: the lead of a task on the standard track from a complete request freezes the criteria a read in which nobody was confused read")
     parser.add_argument("--alone", action="store_true", help="with approve: Lem or the lead approves the criteria of a task while the task runs without the owner")
