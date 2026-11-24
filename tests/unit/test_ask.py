@@ -45,6 +45,16 @@ def printed(value: str) -> tuple[int | None, dict]:
     return code, json.loads(raw.getvalue().decode("utf-8"))
 
 
+def past_the_limit() -> str:
+    """A JSON object nested as deep as the interpreter's recursion limit, which Python
+    cannot hold whatever one level costs: json.loads raises RecursionError on it
+    under 3.11, and from 3.12 it decodes and the walk of `whole` raises (3.11 to 3.15,
+    2026-11-24). A fixed depth of 600 passed the limit in the walk only while a
+    comprehension was a frame of its own, under 3.11."""
+    depth = sys.getrecursionlimit()
+    return '{"a":' * depth + "1" + "}" * depth
+
+
 class Submitted(unittest.TestCase):
     def test_a_lone_surrogate_prints_as_valid_utf8_and_the_answer_stays(self) -> None:
         # the review of 2026-11-24 on 8b84f438: a page's script sends
@@ -73,12 +83,11 @@ class Submitted(unittest.TestCase):
         # raise ValueError, and nesting deeper than the stack RecursionError, in the
         # decode or in the walk of `whole`: the wait ended with a traceback
         digits = "9" * (sys.get_int_max_str_digits() + 1)
-        deep = '{"a":' * 600 + "1" + "}" * 600
         for value in (
             digits,
             f'{{"status": "answered", "n": {digits}}}',
             "[" * 100_000 + "]" * 100_000,
-            deep,
+            past_the_limit(),
         ):
             code, said = printed(value)
             self.assertEqual(code, 0)
@@ -91,7 +100,7 @@ class LoadSpec(unittest.TestCase):
         # refused with exit 1 and a message
         digits = "9" * (sys.get_int_max_str_digits() + 1)
         with tempfile.TemporaryDirectory() as folder:
-            for text in (f'{{"title": {digits}}}', "[" * 100_000):
+            for text in (f'{{"title": {digits}}}', past_the_limit()):
                 path = Path(folder, "spec.json")
                 path.write_text(text, encoding="utf-8")
                 out = io.StringIO()
@@ -103,7 +112,7 @@ class LoadSpec(unittest.TestCase):
                 self.assertEqual(stop.exception.code, 1)
                 said = json.loads(out.getvalue())
                 self.assertEqual(said["status"], "error")
-                self.assertIn("spec", said["error"])
+                self.assertIn("spec is JSON that Python cannot read", said["error"])
 
 
 def page_of(spec: dict) -> str:
