@@ -260,7 +260,8 @@ It is not landed yet: the owner's read of the drafts is the review.
 `claude plugin marketplace add` and `claude plugin install lem@lem --scope project` wrote there:
 `extraKnownMarketplaces` with the one entry `lem`, and `enabledPlugins` with the one entry
 `lem@lem`. The file installs nothing by itself: each person who clones the repository installs Lem
-once in their own clone. A file that holds anything
+once in their own clone, unless they have it for every repository already (the user or the managed
+scope). A file that holds anything
 else, or that git tracks already, is the developer's: leave it out of the commit, and name it on the
 page with the keys it holds beside the plugin's. He commits it himself, and nothing waits for it.
 
@@ -308,7 +309,8 @@ the experts, the newest Fable of Anthropic through Claude Code and the newest As
 through Codex (`seats.experts`; "change experts SEAT SEAT"), with a word when the machine check
 found no Codex: then one expert answers alone and its pick settles a decision the experts take, not
 green, and the panel's second family does not answer. And the plugin's file: "the file installs nothing by itself;
-each person who clones this repository installs Lem once in their own clone" (`.claude/settings.json`, in the commit; "change plugin mine"
+each person who clones this repository installs Lem once in their own clone, unless they have it
+for every repository already" (`.claude/settings.json`, in the commit; "change plugin mine"
 takes it out of the commit and leaves it untracked), or the line that names the file as his to
 commit. With git hooks, one line says, in these words, why the
 checks have only tests: "the git hooks run the rest at each commit of a builder" (the hook files;

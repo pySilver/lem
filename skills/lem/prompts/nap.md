@@ -10,7 +10,7 @@ Let the recent work come back to you first, the way a day replays when you lie d
 here. Under `tasks/`, each task has what the owner asked for (`ask.txt`, `task.md`) and how it
 went (`state.md`, newest first). A recent one also keeps its `report.md` and the decisions taken on
 the way (`decisions.jsonl`). `events.jsonl` holds the days in order, with the checks that went red
-and the reviews; an old task has faded there to one line. Drift through whichever of them you like, as much or as little as you like. You are not
+and the reviews; an old task that ended has faded there to one line. Drift through whichever of them you like, as much or as little as you like. You are not
 looking for anything.
 
 Beside the days lies what was made of them. `corrections.jsonl` keeps the owner's own words from
