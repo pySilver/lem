@@ -6,9 +6,9 @@
 // id seen (`?rendered=`), and the server sends a refresh at once only when the log is no longer at it: the
 // page shows what its live stream told it, and a refresh there would morph over the visit and over a click
 // made during it. An open after the page may have missed a change (back into view, out of the back-forward
-// cache, or after its stream went down) names it as `?since=`, and the server sends a refresh at once
-// whatever the log, since a change the page missed may add no line to it (the owner's mark, the settings, a
-// task's files). An id is the log's version, its inode and its count of lines in one text ("8812-140"),
+// cache, Turbo's snapshot shown by a back or forward gesture, or after its stream went down) names it as
+// `?since=`, and the server sends a refresh at once whatever the log, since a change the page missed may add
+// no line to it (the owner's mark, the settings, a task's files). An id is the log's version, its inode and its count of lines in one text ("8812-140"),
 // kept whole: a log that `lem project prune` replaced has another inode, so the page is told also when the
 // count is the same. With a task open (its address), the stream watches that task's files too (`&task=`).
 //
@@ -51,6 +51,15 @@ export default class extends Controller {
     this.onPageShow = ev => { if (ev.persisted) { this.owed = true; this.open() } }
     // a visit to another task opens the stream again for that task's files
     this.onVisit = () => { if (this.task() !== this.watching) this.open() }
+    // a back or forward gesture shows Turbo's snapshot, the page as it was when the owner left it, so its
+    // load opens the stream again as a page that may have missed a change (`?since=`), also for the same task
+    this.onRestore = ev => { this.restored = ev.detail.action === 'restore' }
+    this.onLoad = () => {
+      if (!this.restored) return this.onVisit()
+      this.restored = false
+      this.owed = true
+      this.open()
+    }
     // the forms being posted, and whether a refresh waits for their end
     this.posts = new Set()
     this.held = false
@@ -66,7 +75,8 @@ export default class extends Controller {
     document.addEventListener('turbo:before-stream-render', this.onRender)
     document.addEventListener('visibilitychange', this.onShow)
     window.addEventListener('pageshow', this.onPageShow)
-    document.addEventListener('turbo:load', this.onVisit)
+    document.addEventListener('turbo:visit', this.onRestore)
+    document.addEventListener('turbo:load', this.onLoad)
     document.addEventListener('turbo:frame-load', this.onVisit)
     window.addEventListener('popstate', this.onVisit)
     this.timer = setInterval(() => this.tick(), 1000)
@@ -79,7 +89,8 @@ export default class extends Controller {
     document.removeEventListener('turbo:before-stream-render', this.onRender)
     document.removeEventListener('visibilitychange', this.onShow)
     window.removeEventListener('pageshow', this.onPageShow)
-    document.removeEventListener('turbo:load', this.onVisit)
+    document.removeEventListener('turbo:visit', this.onRestore)
+    document.removeEventListener('turbo:load', this.onLoad)
     document.removeEventListener('turbo:frame-load', this.onVisit)
     window.removeEventListener('popstate', this.onVisit)
     clearInterval(this.timer)

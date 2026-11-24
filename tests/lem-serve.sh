@@ -758,6 +758,51 @@ else
   fail "the board's notifications: $key / $added / $elsewhere / $not_a_service / $removed / $worker"
 fi
 
+# A back gesture between two tabs of one task: on the criteria tab of refund-rounding a file of the task comes, with no
+# line of the log, and the stream's refresh counts it on the tab of Artifacts. history.back() shows Turbo's snapshot of
+# the Overview, from before that file, and the stream opens again with `?since=`, so the server's refresh counts it
+# there too. A wait for what the stream brings has no limit of its own: the suite's time limit (LEM_TEST_LIMIT) ends it,
+# as in tests/lem-board-keys.sh. It runs last, since the file stays.
+if [ -z "$cdp_chrome" ] || ! command -v node >/dev/null 2>&1; then
+  skip "a back gesture between two tabs of one task refreshes Turbo's snapshot through the stream: no Chrome or no Node"
+else
+  "$PY" - "$BASE" "$STATE/tasks/refund-rounding/outside.md" "$WORK/restore.json" <<'PY'
+import json, shlex, sys
+base, note, spec = sys.argv[1:]
+COUNT = "(document.querySelector('#ptab-artifacts .n')?.textContent ?? '-')"
+SEEN = f"[location.pathname.split('/').slice(-2).join('/'), {COUNT}].join(' ')"
+def until(label, cond, limit=15000):
+    end = "Infinity" if limit is None else f"Date.now() + {limit}"
+    return {"print": f"new Promise(done => {{ const end = {end}; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {SEEN}]) : setTimeout(tick, 100); tick(); }})"}
+steps = [
+    {"goto": f"{base}/tasks/refund-rounding", "wait": 300},
+    until("ready", "document.readyState === 'complete' && window.Turbo && document.querySelector('#task > .panel')"), {"wait": 1000},
+    {"click": "#ptab-criteria"}, until("criteria", "location.pathname.endsWith('/criteria') && document.querySelector('#ptab-criteria[aria-current=page]')"), {"wait": 1000},
+    {"eval": f"window.lemBefore = {COUNT}"},
+    {"sh": " ".join(map(shlex.quote, ["sh", "-c", 'printf "a finding outside the change\\n" > "$1"', "sh", note]))},
+    until("streamed", f"{COUNT} !== window.lemBefore", None), {"wait": 1000},
+    # what the page shows at the restore's load, before the stream may refresh it
+    {"eval": f"window.lemRestored = null; document.addEventListener('turbo:load', () => {{ window.lemRestored = {COUNT} }}, {{ once: true }}); history.back()"},
+    until("back", "!location.pathname.endsWith('/criteria') && window.lemRestored !== null"),
+    {"print": "['counts', [window.lemBefore, window.lemRestored].join(' ')]"},
+    until("refreshed", f"{COUNT} !== window.lemRestored", None),
+]
+json.dump({"width": 1440, "height": 900, "steps": steps}, open(spec, "w"))
+PY
+  restored=$(TMPDIR="$WORK/chrome-tmp" MAC_CHROMIUM_TMPDIR="$WORK/chrome-tmp" CHROME="$cdp_chrome" node tests/board-cdp.mjs "$WORK/restore.json" 2>&1 || true)
+  # the count before the file, the one after it on the criteria tab, the snapshot's and the refreshed Overview's
+  counts=$(grep -E '^\["(counts|streamed|refreshed)"' <<<"$restored" | "$PY" -c 'import json, sys
+seen = {k: v for k, v in (json.loads(line) for line in sys.stdin)}
+print(seen.get("counts", "- -"), seen.get("streamed", "- -").split()[-1], seen.get("refreshed", "- -").split()[-1])' 2>&1 || true)
+  read -r before snapshot streamed refreshed <<<"$counts"
+  if [ -n "${refreshed:-}" ] && [ "$before" = "$snapshot" ] && [ "$streamed" != "$before" ] && [ "$refreshed" = "$streamed" ] \
+    && grep -qF '["refreshed","tasks/refund-rounding ' <<<"$restored"; then
+    pass "a back gesture from a task's criteria tab to its Overview shows Turbo's snapshot, from before a file of the task that came with no line of the log, and the stream's refresh counts the file there too"
+  else
+    fail "a back gesture between two tabs of one task: $restored"
+  fi
+fi
+
 # The start on demand: the foreground server ends with --stop; --ensure twice makes one server, which keeps its pid and
 # port in Lem's home folder for bin/lem's look, and --stop ends it and its file.
 stopped_fg=$("$PY" -B "$SERVE" --stop)
