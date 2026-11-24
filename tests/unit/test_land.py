@@ -551,6 +551,25 @@ class Bar(unittest.TestCase):
             lowered(bar(patch("calc.py", (moved, "x = 1"), ("x = 1", moved)))), []
         )
 
+    def test_an_added_line_that_starts_with_two_pluses_is_no_header(self) -> None:
+        # `++ ` added is `+++ ` in the diff: a line of a string, a C++ comment; the
+        # file after it keeps its name and the line keeps its mark
+        added = f"++ the total  {NOQA}: E501"
+        self.assertEqual(
+            lowered(
+                bar(patch("calc.py", plus=(added,)), patch("plug.py", plus=("x",)))
+            ),
+            [("calc.py", NOQA)],
+        )
+        self.assertEqual(
+            lowered(bar(patch("calc.py", (added, "x = 1"), ("x = 1", added)))), []
+        )
+        # an assertion that only moved into a string's line keeps its count
+        moved = patch(
+            "tests/test_calc.py", ("assert total == 3",), ("++ assert total == 3",)
+        )
+        self.assertEqual(lowered(bar(moved)), [])
+
     def test_a_new_suppression_lowers_the_bar(self) -> None:
         result = bar(patch("calc.py", plus=(f"import os  {NOQA}: F401",), new=True))
         self.assertEqual(
