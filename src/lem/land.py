@@ -1939,26 +1939,47 @@ def rebased_files(where: Path, before: str, after: str) -> list[str]:
     and AFTER (`BASE..TIP` each): each file a commit of either range touches, whose
     range-diff alone pairs a commit with one that is not equal (`!`) or leaves one with
     no pair (`<`, `>`). Each file is read alone, as a literal path, so that a commit
-    that changed in one file is equal in the others. The output is read as bytes, and
-    a name that is not UTF-8 is given with the replacement character."""
-    touched = {
-        os.fsdecode(name)
+    that changed in one file is equal in the others. A binary file's patches say only
+    that it differs, so it is named when the blobs its commits left differ between the
+    ranges. The output is read as bytes, and a name that is not UTF-8 is given with the
+    replacement character."""
+    blobs = [left_blobs(where, spec) for spec in (before, after)]
+    binary = {
+        os.fsdecode(line.split(b"\t", 2)[2])
         for spec in (before, after)
-        for name in git_bytes(
-            where, "log", "-z", "--format=", "--name-only", "--no-renames", spec
+        for line in git_bytes(
+            where, "log", "-z", "--numstat", "--format=", "--no-renames", spec
         ).split(b"\0")
-        if name
+        if line.startswith(b"-\t-\t")
     }
     return sorted(
         os.fsencode(name).decode(errors="replace")
-        for name in touched
-        if any(
-            # with --no-patch, only the pairs' lines: `N:  SHA = N:  SHA SUBJECT`
-            line.split()[2] != b"="
-            for line in pairs(where, before, after, name)
-            if line.strip()
+        for name in {*blobs[0], *blobs[1]}
+        if (
+            blobs[0].get(name) != blobs[1].get(name)
+            if name in binary
+            else any(
+                # with --no-patch, only the pairs' lines: `N:  SHA = N:  SHA SUBJECT`
+                line.split()[2] != b"="
+                for line in pairs(where, before, after, name)
+                if line.strip()
+            )
         )
     )
+
+
+def left_blobs(where: Path, spec: str) -> dict[str, list[bytes]]:
+    """Each file a commit of SPEC touches, with the blob each of those commits left of
+    it, newest first, from `git log --raw` (`:MODE MODE OLD NEW STATUS`, then the
+    path)."""
+    tokens = git_bytes(
+        where, "log", "-z", "--raw", "--no-abbrev", "--format=", "--no-renames", spec
+    ).split(b"\0")
+    blobs: dict[str, list[bytes]] = {}
+    for meta, name in zip(tokens[::2], tokens[1::2], strict=False):
+        if meta.startswith(b":"):
+            blobs.setdefault(os.fsdecode(name), []).append(meta.split()[3])
+    return blobs
 
 
 def pairs(where: Path, before: str, after: str, name: str) -> list[bytes]:
