@@ -465,6 +465,50 @@ class MachineFile(Home):
         lem_state.write_machine("load", None)
         self.assertFalse(file.exists())
 
+    def whole(self, text: str, name: str, values: dict) -> None:
+        """TEXT, a form of table NAME that the line edit cannot change, with `[handoff]`
+        after it: the write of NAME as VALUES is taken, as before the line edit, and the
+        file reads back to VALUES and the other table."""
+        self.written(text + "\n[handoff]\ntokens = 0\n")
+        lem_state.write_machine(name, values)
+        self.assertEqual(
+            lem_state.machine_tables(), {name: values, "handoff": {"tokens": 0}}
+        )
+
+    # the review of a-write-of-machine-toml-drops-the-comments, 2026-11-24: each form
+    # was refused by the line edit, where the old writer wrote the file whole
+    def test_a_dotted_key_at_the_top_is_written_whole(self) -> None:
+        self.whole("serve.tailscale_port = 4540\n", "serve", {"port": 4600})
+
+    def test_a_dotted_key_inside_the_table_is_written_whole(self) -> None:
+        self.whole("[serve]\nold.port = 4500\n", "serve", {"port": 4600})
+
+    def test_an_inline_table_is_written_whole(self) -> None:
+        self.whole("serve = { port = 4500 }\n", "serve", {"port": 4600})
+
+    def test_a_quoted_table_header_is_written_whole(self) -> None:
+        self.whole('["serve"]\nport = 4500\n', "serve", {"port": 4600})
+
+    def test_a_key_in_double_quotes_is_written_whole(self) -> None:
+        self.whole('[serve]\n"port" = 4500\n', "serve", {"port": 4600})
+
+    def test_a_key_in_single_quotes_is_written_whole(self) -> None:
+        self.whole("[load]\n'start' = 30\n", "load", {"start": 12})
+
+    def test_a_scalar_where_the_table_belongs_is_written_whole(self) -> None:
+        self.whole("serve = 5\n", "serve", {"port": 4600})
+
+    def test_an_array_of_tables_is_written_whole(self) -> None:
+        self.whole("[[load]]\nstart = 4\n", "load", {"start": 12})
+
+    def test_a_value_over_several_lines_is_written_whole(self) -> None:
+        self.whole("[serve]\nport = [\n  4500,\n]\n", "serve", {"port": 4600})
+
+    def test_a_table_taken_out_of_a_form_the_line_edit_cannot_change(self) -> None:
+        self.written("serve.port = 4500\n\n[handoff]\ntokens = 0\n")
+        lem_state.write_machine("serve", None)
+        self.assertEqual(lem_state.machine_tables(), {"handoff": {"tokens": 0}})
+
     def test_a_second_writer_waits_for_the_lock_and_keeps_the_first_ones_table(
         self,
     ) -> None:

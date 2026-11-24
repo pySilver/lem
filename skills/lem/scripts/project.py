@@ -7444,7 +7444,9 @@ def cmd_load(start: str | None) -> dict:
                     "--start is a load average above 0, or none to take the gate away, "
                     f"not {start!r}"
                 )
-        # the file is written whole, with the board server's table kept as it reads
+        # the line of [load] is changed and every other line of the file stays; a
+        # [load] in another form (a dotted key, an inline table) has the file written
+        # whole, with the board server's table kept as it reads (`write_machine`)
         try:
             lem_state.write_machine(
                 "load", {"start": int(value) if value.is_integer() else value}

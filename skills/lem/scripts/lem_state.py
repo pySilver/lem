@@ -404,25 +404,35 @@ def kept_tables(name: str) -> dict:
 
 def write_machine(name: str, values: dict | None) -> None:
     """Write table `name` of the machine's file as `values`, or take it out with None,
-    and keep every other table as it reads, and every other line and comment of the
-    file (`machine_text`). It writes over nothing it cannot keep: the whole file is read
-    and each of its other tables checked first (`kept_tables`), and a file that does not
-    read, or whose other tables hold a table or a key that is not valid there, is
-    refused with the file and the fix, and stays as it is; table `name` is written over
-    whatever it held. The new text goes to a temporary file beside it, then a rename
-    over it, under the lock of MACHINE_LOCK from the read to the rename, so that two
-    writers at one moment each keep the other's table. A file left with Lem's own lines
-    alone goes; one that keeps a comment of the owner's stays."""
+    and keep every other table as it reads. It writes over nothing it cannot keep: the
+    whole file is read and each of its other tables checked first (`kept_tables`), and a
+    file that does not read, or whose other tables hold a table or a key that is not
+    valid there, is refused with the file and the fix, and stays as it is; table `name`
+    is written over whatever it held. Where the line edit can change table `name`
+    (`line_editable`), every other line and comment of the file stays (`machine_text`),
+    and a file left with Lem's own lines alone goes, while one that keeps a comment of
+    the owner's stays. Any other form of the table is written whole from the tables
+    (`whole_machine_text`), the comments with it, and with no table left the file goes.
+    The new text goes to a temporary file beside it, then a rename over it, under the
+    lock of MACHINE_LOCK from the read to the rename, so that two writers at one moment
+    each keep the other's table."""
     import tempfile
 
     file = machine_file()
     with machine_lock():
-        kept_tables(name)
+        tables = kept_tables(name)
         try:
             text = file.read_text(encoding="utf-8")
         except FileNotFoundError:
             text = ""
-        new = machine_text(text, name, values)
+        if line_editable(text, name):
+            new = machine_text(text, name, values)
+            mode = file.stat().st_mode & 0o777 if file.exists() else 0o644
+        else:
+            if values is not None:
+                tables[name] = values
+            new = whole_machine_text(tables)
+            mode = 0o644
         if new == text:
             return
         own = {f"# {fix}" for fix in MACHINE_FIX.values()}
@@ -438,13 +448,74 @@ def write_machine(name: str, values: dict | None) -> None:
         try:
             with os.fdopen(handle, "w", encoding="utf-8") as out:
                 out.write(new)
-            Path(temporary).chmod(
-                file.stat().st_mode & 0o777 if file.exists() else 0o644
-            )
+            Path(temporary).chmod(mode)
             Path(temporary).replace(file)
         except BaseException:
             Path(temporary).unlink(missing_ok=True)
             raise
+
+
+def line_editable(text: str, name: str) -> bool:
+    """Whether the line edit (`edited`) can change table `name` of TEXT, the machine's
+    file as it reads: the file has no such table, or holds it under one plain `[name]`
+    header, each line under it that says something one `key = value` of a bare key
+    that reads alone, and those lines are the whole table. A dotted key, an inline
+    table, a quoted header or key, an array of tables, a value over several lines or a
+    scalar where the table belongs is none, and is written whole. Decided from the text
+    before anything is written."""
+    was = tomllib.loads(text).get(name) if text.strip() else None
+    if was is None:
+        return True
+    if not isinstance(was, dict):
+        return False
+    lines = text.splitlines()
+    opened = [TABLE_LINE.fullmatch(line) for line in lines]
+    headers = [
+        number
+        for number, found in enumerate(opened)
+        if found and found.group(1) == "[" and found.group(2) == name
+    ]
+    if len(headers) != 1:
+        return False
+    stop = next((n for n in range(headers[0] + 1, len(lines)) if opened[n]), len(lines))
+    found: dict = {}
+    for line in lines[headers[0] + 1 : stop]:
+        if not content(line):
+            continue
+        key = re.match(r"\s*([A-Za-z0-9_-]+)\s*=", line)
+        try:
+            alone = tomllib.loads(line)
+        except tomllib.TOMLDecodeError:
+            return False
+        if not key or list(alone) != [key[1]] or key[1] in found:
+            return False
+        found[key[1]] = alone[key[1]]
+    return found == was
+
+
+def whole_machine_text(tables: dict) -> str:
+    """The machine's file written whole from its TABLES, in the order of MACHINE_KEYS:
+    MACHINE_HEAD, then each table with the comment of the command that writes it. No
+    line of the file before is kept; with no table, the text is empty."""
+    if not tables:
+        return ""
+    lines = [MACHINE_HEAD]
+    for table in MACHINE_KEYS:
+        if table not in tables:
+            continue
+        lines += ["", f"[{table}]", f"# {MACHINE_FIX[table]}"]
+        for key, value in tables[table].items():
+            shown_value = (
+                ("true" if value else "false")
+                if isinstance(value, bool)
+                else (
+                    str(int(value))
+                    if isinstance(value, float) and value.is_integer()
+                    else str(value)
+                )
+            )
+            lines.append(f"{key} = {shown_value}")
+    return "\n".join(lines) + "\n"
 
 
 def machine_text(text: str, name: str, values: dict | None) -> str:

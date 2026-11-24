@@ -2953,6 +2953,22 @@ class Configure(unittest.TestCase):
         started.assert_not_called()
         self.assertEqual(self.file.read_text(encoding="utf-8"), text)
 
+    def test_a_dotted_serve_key_is_written_after_the_stop_and_the_board_starts_again(
+        self,
+    ) -> None:
+        # the review of a-write-of-machine-toml-drops-the-comments, 2026-11-24: the
+        # write after the stop refused the dotted form, and no server started again
+        self.file.write_text("serve.tailscale_port = 4540\n", encoding="utf-8")
+        said, asked, stopped, started = self.configure(4600)
+        self.assertNotIsInstance(said, Exception)
+        asked.assert_called_once_with(serve.PORT)
+        stopped.assert_called_once()
+        started.assert_called_once()
+        self.assertEqual(
+            serve.lem_state.machine_tables(),
+            {"serve": {"tailscale": False, "port": 4600, "tailscale_port": 4540}},
+        )
+
     def test_a_serve_table_its_own_fix_names_is_written_again_from_the_flags(
         self,
     ) -> None:
