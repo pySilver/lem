@@ -2882,5 +2882,60 @@ class Configure(unittest.TestCase):
                 )
 
 
+class SwitcherCount(unittest.TestCase):
+    """docs/backlog/the-switcher-s-count-of-this-board-lags-the-sidebar-for-up-to-5-
+    seconds.md: the page's row of "this board" in the switcher and its sidebar's "Waits
+    for you" count the same model, also within REFRESH_SECONDS of a change."""
+
+    @staticmethod
+    def held(slug: str, minute: int) -> str:
+        return json.dumps(
+            {
+                "ts": f"2026-11-22T10:{minute:02d}:00Z",
+                "event": "task.state",
+                "task": slug,
+                "status": "held",
+                "text": "the interview waits for the owner",
+                "lines": [],
+            }
+        )
+
+    def test_this_board_s_row_counts_what_the_sidebar_counts_right_after_a_change(
+        self,
+    ) -> None:
+        import tempfile
+
+        class Peers:
+            def states(self) -> list:
+                return []
+
+        with tempfile.TemporaryDirectory() as folder:
+            state = Path(folder) / ".lem" / "state"
+            state.mkdir(parents=True)
+            log = state / serve.EVENT_LOG
+            log.write_text(self.held("gift-note", 0) + "\n", encoding="utf-8")
+            handler = serve.Handler.__new__(serve.Handler)
+            handler.headers = email.message.Message()
+            handler.client_address = ("127.0.0.1", 0)
+            handler.machine = serve.Machine()
+            handler.peers = cast("serve.lem_peers.Peers", Peers())
+            with mock.patch.object(
+                serve.lem_state, "workspaces", return_value=[folder]
+            ):
+                workspace = handler.machine.workspaces()[0]
+
+                def counts() -> tuple[int, int]:
+                    ctx = handler.context(workspace, "")
+                    here = next(s for s in ctx.spaces if serve.pages.is_here(ctx, s))
+                    sidebar = len(bm.wait_stacks(bm.waits_of(ctx.model)))
+                    return here["waits"], sidebar
+
+                self.assertEqual(counts(), (1, 1))
+                # a second task waits now, a second after the first page
+                with log.open("a", encoding="utf-8") as file:
+                    file.write(self.held("refund-rounding", 1) + "\n")
+                self.assertEqual(counts(), (2, 2))
+
+
 if __name__ == "__main__":
     unittest.main()

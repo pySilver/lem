@@ -868,12 +868,14 @@ class Workspace:
         branch = (self.settings() or {}).get("branch") or {}
         return {**record, "base": branch.get("base"), "history": branch.get("history")}
 
-    def count(self) -> dict:
+    def count(self, *, fresh: bool = False) -> dict:
         """How many tasks wait for the owner (the entries of the board's "Waits for
         you", its rows grouped by task, `wait_stacks`), how many tasks build and how
         many are in their checks and review (`landing`), and the two together
-        (`running`), from the board's model, at most once in REFRESH_SECONDS."""
-        if time.monotonic() - self.counted < REFRESH_SECONDS:
+        (`running`), from the board's model, at most once in REFRESH_SECONDS, or now
+        with FRESH: a page of this workspace, whose switcher's row of this board then
+        says what its sidebar says."""
+        if not fresh and time.monotonic() - self.counted < REFRESH_SECONDS:
             return self.counts
         try:
             model = self.model()
@@ -929,13 +931,15 @@ class Machine:
             found = next((w for w in self.workspaces() if w.name == name), None)
         return found if found is not None and live(found.path) else None
 
-    def listing(self) -> list[dict]:
+    def listing(self, fresh: str | None = None) -> list[dict]:
+        """The rows of the workspaces, the one named FRESH counted now
+        (`Workspace.count`)."""
         return [
             {
                 "name": w.name,
                 "path": w.path,
                 "url": f"/{quote(HOSTNAME)}/{quote(w.name)}/",
-                **w.count(),
+                **w.count(fresh=w.name == fresh),
             }
             for w in self.workspaces()
         ]
@@ -3511,11 +3515,12 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             return None
 
-    def spaces(self) -> list:
+    def spaces(self, fresh: str | None = None) -> list:
         """The workspaces a page lists: this machine's and each joined machine's
         (`lem_peers.merged`); for a request of another machine's server, this machine's
-        in the list that server sent."""
-        own = self.machine.listing()
+        in the list that server sent. The workspace FRESH, the one a page shows, is
+        counted now (`Workspace.count`)."""
+        own = self.machine.listing(fresh)
         if lem_peers.hopped(self.headers):
             return lem_peers.with_own(
                 lem_peers.spaces_of(self.headers.get(lem_peers.SPACES)), own, HOSTNAME
@@ -3594,7 +3599,7 @@ class Handler(BaseHTTPRequestHandler):
             events=len(reader.events),
             log_id=reader.log_id(),
             keep_days=keep_days_of(reader),
-            spaces=self.spaces(),
+            spaces=self.spaces(workspace.name),
             native=bool(NATIVE.search(self.headers.get("User-Agent") or "")),
             local=self.door is None
             and self.client_address[0] in LOOPBACK
