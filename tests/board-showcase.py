@@ -474,7 +474,7 @@ What the ladder said: a step that cannot be undone is never the ladder's to take
 """
 
 
-def afternoon(shop: Shop) -> None:
+def afternoon(shop: Shop) -> None:  # noqa: PLR0915 - over the limit before the limit was set
     s = shop
     # A task on the fast track, built, checked, read once and proposed green: the merge
     # agent finds nothing for the owner, and the board's server merges it (`lem land
@@ -1253,7 +1253,7 @@ DEMO_CHART = """flowchart TD
   C --> E["The new total stands under it"]"""
 
 
-def refund_line(s: Shop) -> None:
+def refund_line(s: Shop) -> None:  # noqa: PLR0915 - over the limit before the limit was set
     """A task of the night that shows every form a document of Lem's takes: an outcome
     with Today and After and a chart, a criterion with its case and its chart, the
     plan's chart, an important decision with its story and a chart, a pull request that

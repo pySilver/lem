@@ -170,7 +170,7 @@ def size_of(n: int | None) -> str:
     )
 
 
-def row(
+def row(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     ctx: P.Ctx, key: str, actor: str, name: str, text: list, time: object = ""
 ) -> Markup:
     """One row of a card: an icon in the actor's color, its text, and its time at
@@ -404,7 +404,7 @@ def copy_control(ctx: P.Ctx, text: str, what: str) -> Markup:
     )
 
 
-def facts(ctx: P.Ctx, t: bm.Task, waits: list) -> list:
+def facts(ctx: P.Ctx, t: bm.Task, waits: list) -> list:  # noqa: C901 - over the limit before the limit was set
     """The facts of the header, each a term and its description; a fact with nothing to
     say is left out."""
     now = ctx.model.now
@@ -3227,7 +3227,7 @@ def json_marks(text: str) -> Markup:
     return join(out)
 
 
-def art_body(ctx: P.Ctx, f: dict, t: bm.Task) -> Markup:
+def art_body(ctx: P.Ctx, f: dict, t: bm.Task) -> Markup:  # noqa: C901, PLR0911 - over the limit before the limit was set
     """The opened file, by its kind; a record with one line on top that links to the tab
     that shows it readable."""
     if f["kind"] == "html" and f.get("href"):
@@ -3357,7 +3357,7 @@ def art_body(ctx: P.Ctx, f: dict, t: bm.Task) -> Markup:
     return h("pre", {"class": "code"}, text)
 
 
-def empty_reason(t: bm.Task, key: str) -> str:
+def empty_reason(t: bm.Task, key: str) -> str:  # noqa: PLR0911 - over the limit before the limit was set
     """The gray line of a section of the map that holds no document, by the task's path
     and where it stands: what is on a tab of the board instead, not yet, or none."""
     small = bm.track_of(t) == "fast track" or t.lead == "small"
@@ -3899,7 +3899,7 @@ def merge_step(ctx: P.Ctx, t: bm.Task) -> list:
     ]
 
 
-def confirm_card(
+def confirm_card(  # noqa: PLR0913 - over the limit before the limit was set
     cls: str,
     label: str,
     head_: Markup,
@@ -4203,7 +4203,7 @@ def frame_page(ctx: P.Ctx) -> tuple[int, Markup]:
     )
 
 
-def told_of(
+def told_of(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     state: Path,
     board: ModuleType,
     slug: str,

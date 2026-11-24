@@ -444,7 +444,7 @@ def version(command: list[str]) -> str | None:
     return lines[0] if ran.returncode == 0 and lines else None
 
 
-def tool(
+def tool(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     name: str,
     need: str,
     used_for: str,

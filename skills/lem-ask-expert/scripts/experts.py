@@ -409,7 +409,7 @@ def new_folder(top: Path, question: str, at: datetime) -> Path:
     )
 
 
-def free_brief_text(
+def free_brief_text(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     question: str,
     context: str,
     options: list[str],
@@ -517,7 +517,7 @@ def summary(folder: Path, record: dict) -> dict:
     }
 
 
-def cmd_free_brief(
+def cmd_free_brief(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     repo: Path,
     question: str,
     context: str,

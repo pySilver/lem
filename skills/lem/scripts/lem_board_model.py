@@ -574,7 +574,7 @@ def type_line(line: str) -> dict | None:
     return {"type": found[1], "why": found[2]} if found and found[1] in TYPES else None
 
 
-def words(line: object, *, talked: bool = False) -> str | None:
+def words(line: object, *, talked: bool = False) -> str | None:  # noqa: C901, PLR0911 - over the limit before the limit was set
     """A line of a state block as the page says it: a fixed line of the scripts in
     words, or left out (None) where the page says it elsewhere; any other line is the
     agent's own and stays as written."""
@@ -1105,7 +1105,7 @@ def answers_refusal(
     )
 
 
-def fold(t: Task, e: dict, ts: int) -> None:
+def fold(t: Task, e: dict, ts: int) -> None:  # noqa: C901, PLR0911, PLR0912, PLR0915 - over the limit before the limit was set
     """One event of a task into what the task holds."""
     event = str(e.get("event"))
     if event.startswith("decision."):
@@ -1581,7 +1581,7 @@ def goes_on_of(t: Task, last: dict, *, away: bool) -> str | None:
     return "answer" if last["text"].startswith(ANSWER_WAIT) else None
 
 
-def settle(t: Task, now: int, *, away: bool = False) -> None:
+def settle(t: Task, now: int, *, away: bool = False) -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     """What a task's events add up to, once every one is folded in; `away` when the
     owner's mark says that he is away."""
     last = t.blocks[-1]
@@ -1923,7 +1923,7 @@ MERGE_WAITS = {
 }
 
 
-def merge_wait(t: Task) -> str | None:
+def merge_wait(t: Task) -> str | None:  # noqa: PLR0911 - over the limit before the limit was set
     """Who the merge of an `open` task waits for, None for any other task. "reads": the
     merge agent, since no review of the tip Lem proposed last is written (a review of an
     older tip counts for none; one that `propose` carried onto this tip is its
@@ -2075,7 +2075,7 @@ def stands_said(t: Task, tip: object = None, seen: dict | None = None) -> str | 
     )
 
 
-def derive(
+def derive(  # noqa: C901 - over the limit before the limit was set
     events: list[dict], owner: list[dict], now: int, *, meta: dict | None = None
 ) -> Model:
     """The model of a workspace: each task from its events, in the order of its first
@@ -2504,7 +2504,7 @@ def parked_of(t: Task) -> dict | None:
     return {"since": t.since, "why": t.text, "resume": f"/lem resume {t.slug}"}
 
 
-def answer_of(t: Task) -> str:
+def answer_of(t: Task) -> str:  # noqa: C901, PLR0911 - over the limit before the limit was set
     """Where the owner answers what waits for him: in the task's own session, or on the
     board; for a task queued after a dropped task, which no session runs, in any
     Lem session."""
@@ -2744,7 +2744,7 @@ def thread_link(tailnet: object, thread: object) -> str | None:
     return f"{base}#thread={quote(thread, safe='')}"
 
 
-def inbox_of(t: Task, m: Model) -> dict | None:
+def inbox_of(t: Task, m: Model) -> dict | None:  # noqa: PLR0911 - over the limit before the limit was set
     """What a task's page says of the owner's Inbox, from the server's record
     (`Model.inbox`): None while his mark does not say away, while the task has no row of
     "Waits for you", and while nothing is known that changes today's line (no record, or
@@ -2915,7 +2915,7 @@ def work_event(e: dict) -> bool:
     return not event.startswith("session.") and event != "board.act"
 
 
-def stop_due(t: Task, m: Model) -> dict | None:
+def stop_due(t: Task, m: Model) -> dict | None:  # noqa: PLR0911 - over the limit before the limit was set
     """The step of the guard of a stopped session that is due for the task now, or None:
     `{"step", "session", "from"}`, the step (`status`, `restart` or `stopped`), the
     session it is for, and the time in ms it is due from. Only for a task the guard
@@ -3251,7 +3251,7 @@ def held_back(m: Model) -> set[str]:
     }
 
 
-def waits_of(m: Model) -> list[dict]:
+def waits_of(m: Model) -> list[dict]:  # noqa: C901 - over the limit before the limit was set
     """The rows of "Waits for you": one for each thing the owner does, as
     `lem project waiting` lists them (with the plans he reads), the most
     pressing first."""
@@ -3419,7 +3419,7 @@ def dropped_head(after: str) -> str:
     return f"{after} was dropped: your word starts or ends this task"
 
 
-def wait_say(w: dict) -> dict:
+def wait_say(w: dict) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit was set
     """What a row of "Waits for you" says the owner does, its icon, the tab where he
     acts, and how its time reads."""
     t, kind = w["t"], w["kind"]
@@ -3643,7 +3643,7 @@ def review_why(review: dict) -> str:
     return said if said.endswith((".", "!", "?")) else f"{said}."
 
 
-def phase_index(t: Task, lead: str | None = "") -> int:
+def phase_index(t: Task, lead: str | None = "") -> int:  # noqa: PLR0911 - over the limit before the limit was set
     """The step of the flow the task reached; a task that waits for the owner or is
     blocked stays where it got to."""
     lead = t.lead if lead == "" else lead
@@ -4434,7 +4434,7 @@ def step_runs(e: dict) -> str:
     return STEP_RUNS.get(e.get("event")) or f"A builder makes {job_of(e) or 'its job'}"
 
 
-def now_head(t: Task) -> str:
+def now_head(t: Task) -> str:  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit was set
     """The head of the large card of a task: what it does now, in words."""
     s = t.status
     if s == "queued":
@@ -5178,7 +5178,7 @@ def time_end(t: Task, now: int) -> int:
     return -(-now // 15000) * 15000
 
 
-def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
+def time_of(t: Task, end: int, meta: dict | None = None) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     """The spans of one task, each on the row of who held the work (ROWS), the marks of
     what logged only its end, and the bands of the stages behind them, up to `end`. A
     state block starts a span and the next one ends it; a stage whose start is logged
@@ -5200,7 +5200,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
     first_ts = at(events[0].get("ts")) if events else None
     t0 = min(first_ts, t.first) if first_ts is not None else t.first
 
-    def add(
+    def add(  # noqa: PLR0913 - over the limit before the limit was set
         row: str, frm: float, to: float, head: str, sub: str = "", *, live: bool = False
     ) -> None:
         if to > frm or live:
@@ -5241,7 +5241,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             f"{' · the families split' if r.get('split') else ''}"
         )
 
-    def pair(
+    def pair(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
         i: int,
         e: dict,
         row: str,
@@ -5354,7 +5354,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             )
     spans.extend(explicit)
 
-    def add_block(
+    def add_block(  # noqa: PLR0913 - over the limit before the limit was set
         row: str,
         frm: float,
         to: float,
@@ -5425,7 +5425,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             str(a).startswith(str(b)) or str(b).startswith(str(a))
         )
 
-    def landing(k: int, frm: float, to: float, *, open_: bool) -> None:
+    def landing(k: int, frm: float, to: float, *, open_: bool) -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
         """The landing, cut by the events of its checks and its review: each piece
         belongs to the event that ends it. A step whose start is logged starts its piece
         there, and the time before it is Lem's: the rebase onto the base before the
@@ -5792,7 +5792,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
     saw_task = False
     stage: dict | None = None
 
-    def stage_of(b: dict) -> dict:
+    def stage_of(b: dict) -> dict:  # noqa: PLR0911 - over the limit before the limit was set
         nonlocal saw_task
         task = task_line(b)
         if task:
@@ -6133,7 +6133,7 @@ class Reader:
 
     # each loader keeps its last good read, and says what failed in `problems`
 
-    def read_log(self) -> None:
+    def read_log(self) -> None:  # noqa: C901 - over the limit before the limit was set
         """The log read on from where the last read stopped, or from its start when it
         is another file (`lem project prune` puts a new one in place, with a new inode)
         or shrank. The inode and the size are the ones of the file this read holds open

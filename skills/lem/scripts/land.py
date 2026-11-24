@@ -1400,7 +1400,7 @@ def cmd_start(task: Task, *, conflicting: bool = False) -> dict:
         return start_locked(task, conflicting=conflicting)
 
 
-def start_locked(task: Task, *, conflicting: bool = False) -> dict:
+def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C901 - over the limit before the limit was set
     # a task `start` blocked for want of a command of the checks is taken back as a
     # `ready` one
     again = task.blocked_by_start()
@@ -1527,7 +1527,7 @@ def start_locked(task: Task, *, conflicting: bool = False) -> dict:
     }
 
 
-def cmd_base(task: Task) -> dict:
+def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0915 - over the limit before the limit was set
     task.need_landing()
     task.need_worktree()
     task.fetch()
@@ -1748,7 +1748,7 @@ def test_files(found: dict) -> list[str]:
     )
 
 
-def cmd_polish(task: Task, *, done: bool) -> dict:
+def cmd_polish(task: Task, *, done: bool) -> dict:  # noqa: C901, PLR0912 - over the limit before the limit was set
     """The polish pass: what its builder gets, and after the builder, the check of what
     it did."""
     task.need_landing()
@@ -2844,7 +2844,7 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
     )
 
 
-def bar_of(diff: str, rows: list[str], plan: str, files: list[str]) -> dict:
+def bar_of(diff: str, rows: list[str], plan: str, files: list[str]) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     """The bar's result from what git gave: `diff` is `git diff -U0 -M`, `rows` the
     lines of `git diff --name-status -M`, `files` every changed path; `plan` is the
     plan's text, or "" when there is none."""
@@ -3092,7 +3092,7 @@ BEHIND_WHY = {
 BASE_RED = "the base is red"
 
 
-def wait_say(
+def wait_say(  # noqa: PLR0913 - over the limit before the limit was set
     slug: str,
     load: float,
     start: float,
@@ -4011,7 +4011,7 @@ def checks_ready(task: Task) -> tuple[str, dict, list[str]]:
     return tip, found, commands
 
 
-def checks_body(
+def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - over the limit before the limit was set
     task: Task,
     flags: dict,
     tip: str,
@@ -4469,7 +4469,7 @@ def due(task: Task) -> dict:
     )
 
 
-def due_of(
+def due_of(  # noqa: C901, PLR0911, PLR0912, PLR0913 - over the limit before the limit was set
     now: dict,
     reads: list[dict],
     resolution: dict | None,
@@ -5353,7 +5353,7 @@ def bar_file(main: Path) -> dict:
     return {"file": "agents/lem-builder.md", "of": "lem"}
 
 
-def cmd_file(task: Task, *, again: bool) -> dict:
+def cmd_file(task: Task, *, again: bool) -> dict:  # noqa: C901, PLR0912 - over the limit before the limit was set
     """File each defect a review saw outside the change and called over the bar as an
     item of the backlog, and commit the items. A defect under the bar, or cheap, is a
     line of the pull request and no file; one whose `open` item the tip holds is
@@ -5559,7 +5559,7 @@ def record_tip_refusal(said: object, tip: str, slug: str) -> str | None:
     )
 
 
-def cmd_read(task: Task, record: str | None) -> dict:
+def cmd_read(task: Task, record: str | None) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     task.need_landing()
     task.need_worktree()
     state = due(task)
@@ -6535,7 +6535,7 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     )
 
 
-def pr_text(task: Task, notes: str, state: dict) -> str:
+def pr_text(task: Task, notes: str, state: dict) -> str:  # noqa: C901, PLR0915 - over the limit before the limit was set
     """The text of the pull request, in the order the owner reads it."""
     if criteria_of(task)["small"]:
         return small_text(task, notes, state)
@@ -6870,7 +6870,7 @@ def protected_refusal(branch: str, settings: dict, does: str) -> str | None:
     return None
 
 
-def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
+def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     task.need_landing()
     task.need_worktree()
     if task.forge != "github":
@@ -7269,7 +7269,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     }
 
 
-def carry_merge(
+def carry_merge(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     task: Task, kept: dict, tip: str, state: dict, reasons: list[str], carry: dict
 ) -> dict:
     """After a proposal, what was said of the tip proposed before (KEPT, the record
@@ -7372,7 +7372,7 @@ def follow(task: Task) -> str | None:
     )
 
 
-def merger_refusal(
+def merger_refusal(  # noqa: PLR0911, PLR0913 - over the limit before the limit was set
     slug: str,
     land: str,
     careful: list[str],
@@ -7433,7 +7433,7 @@ def kept_refusal(by: str, kind: str | None) -> bool:
     return kind in REFUSALS and (by == "merger" or kind == "base")
 
 
-def tip_carry(
+def tip_carry(  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit was set
     kept: dict, new: str, why_careful: list[str]
 ) -> tuple[str | None, str | None]:
     """Whether what was said of the proposed tip at its merge holds for the tip NEW
@@ -7808,7 +7808,7 @@ def noted_body(body: str, line: str, replaces: str | None = None) -> str | None:
     return body.rstrip("\n") + "\n\n" + line + "\n"
 
 
-def noted(
+def noted(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     task: Task, pr: dict, line: str, what: str, then: str, replaces: str | None = None
 ) -> None:
     """LINE in the pull request's text on GitHub, once (`noted_body`): in the place of
@@ -8295,7 +8295,7 @@ def uncovered_line(base: str, checks_ran_on: str, real: str, read: str) -> str:
     )
 
 
-def moved_refusal(
+def moved_refusal(  # noqa: PLR0913 - over the limit before the limit was set
     slug: str,
     onto: str,
     files: list[str],
@@ -8423,7 +8423,7 @@ def moved_facts(task: Task, checks_ran_on: str, base_now: str, tip: str) -> dict
     )
 
 
-def cmd_merge_review(
+def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     task: Task,
     record: str | None,
     read_tip: str | None = None,
@@ -8872,7 +8872,7 @@ def expected_refusal(
     return None
 
 
-def cmd_merge(
+def cmd_merge(  # noqa: PLR0913 - over the limit before the limit was set
     task: Task,
     by: str,
     message: str | None,
@@ -8954,7 +8954,7 @@ def cmd_merge(
             raise
 
 
-def merge_locked(
+def merge_locked(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     task: Task, by: str, message: str | None, via: str, *, standing: bool = False
 ) -> dict:
     """The one merge of a task's pull request, the owner's and the merge agent's alike:
@@ -9292,7 +9292,7 @@ def drop_forge_copy(task: Task, branch: str, removed: dict) -> None:
         removed["remote"] = branch
 
 
-def cmd_clean(task: Task) -> dict:
+def cmd_clean(task: Task) -> dict:  # noqa: C901, PLR0912 - over the limit before the limit was set
     if task.record["status"] not in ("landed", "dropped", "answered"):
         raise LandError(
             f"the task is {task.record['status']!r}; only a landed, dropped or "
@@ -9482,7 +9482,7 @@ def cmd_clean(task: Task) -> dict:
     return {"task": task.slug, **removed}
 
 
-def step(task: Task, args: argparse.Namespace) -> dict:
+def step(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901, PLR0911 - over the limit before the limit was set
     """One step of a task's landing, which `main` runs under the task's step lock."""
     if args.command == "start":
         return cmd_start(task, conflicting=args.conflicting)
@@ -9531,7 +9531,7 @@ def step(task: Task, args: argparse.Namespace) -> dict:
 
 
 @lem_release.one_command
-def main(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None) -> None:  # noqa: PLR0915 - over the limit before the limit was set
     parser = argparse.ArgumentParser(
         prog="lem land",
         description=__doc__,

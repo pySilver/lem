@@ -150,7 +150,7 @@ class Plannotator:
         self.answered: set[str] = set()
         self.thread: dict = {"thread": {"messages": []}}
 
-    def __call__(
+    def __call__(  # noqa: PLR0911 - over the limit before the limit was set
         self,
         args: list[str],
         input: str | None = None,  # noqa: A002 - subprocess.run's own name, which run_cli passes

@@ -407,7 +407,7 @@ MERMAID_FENCE = re.compile(r"^[ \t>]*(?:`{3,}|~{3,})[ \t]*mermaid\b", re.MULTILI
 CHART_ICONS = ("expand", "plus", "minus", "xmark")
 
 
-def md_block(
+def md_block(  # noqa: PLR0913 - over the limit before the limit was set
     ctx: Ctx,
     key: str,
     text: object,
@@ -459,7 +459,7 @@ def ago_(ms: int, now: int) -> Markup:
     return h("span", {"data-ago": ms or 0}, bm.ago(now - ms) if ms else "never")
 
 
-def tag(
+def tag(  # noqa: PLR0913 - over the limit before the limit was set
     ctx: Ctx,
     name: str,
     text: str,
@@ -496,7 +496,7 @@ def act_href(ctx: Ctx, slug: str, act: str, under: str | None = None) -> str:
     return f"{ctx.base}/tasks/{quote(slug, safe='')}/{act}" + under_query(ctx, under)
 
 
-def act_form(
+def act_form(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     ctx: Ctx,
     slug: str,
     act: str,
@@ -628,7 +628,7 @@ def new_task_link(ctx: Ctx, cls: str = "") -> Markup:
     )
 
 
-def act_link(
+def act_link(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     ctx: Ctx,
     slug: str,
     act: str,
@@ -774,7 +774,7 @@ def task_frame(ctx: Ctx) -> Markup:
     )
 
 
-def layout(
+def layout(  # noqa: PLR0913 - over the limit before the limit was set
     ctx: Ctx,
     title: str,
     summary: str,
@@ -2859,7 +2859,7 @@ def filter_href(ctx: Ctx, f: dict, **change: str) -> str:
     return f"{ctx.href('backlog')}{'?' + query if query else ''}"
 
 
-def backlog_item(ctx: Ctx, it: dict) -> Markup:
+def backlog_item(ctx: Ctx, it: dict) -> Markup:  # noqa: C901 - over the limit before the limit was set
     days = days_old(it.get("added", ""), ctx.model.now)
 
     def t_(text: str, title: str, c: str | None = None) -> Markup:
@@ -3189,7 +3189,7 @@ def backlog_page(ctx: Ctx) -> Markup:
             f"{f' · read {bm.stamp(read, m.now)}' if read else ''}"
         )
 
-    def chip_(
+    def chip_(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
         key: str, value: str, label: str, n: int, actor: str, title: str
     ) -> Markup:
         on = f.get(key) == value

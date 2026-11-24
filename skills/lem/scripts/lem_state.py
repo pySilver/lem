@@ -509,7 +509,7 @@ def comment_after(value: str) -> str:
     return ""
 
 
-def edited(text: str, table: str, key: str, value: object, name: object) -> str:
+def edited(text: str, table: str, key: str, value: object, name: object) -> str:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     """The text of a TOML file with KEY of TABLE set to VALUE, or taken out with None,
     and every other line as it was, its comments too. It replaces the one line
     `KEY = ...` inside `[TABLE]`, adds the line after the table's last line, or adds the

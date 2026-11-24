@@ -1108,7 +1108,7 @@ def read_settings(file: Path, name: Path, place: str) -> dict:
     return settings_of(text_of(file), name, place)
 
 
-def committed_settings(main: Path) -> dict | None:
+def committed_settings(main: Path) -> dict | None:  # noqa: C901 - over the limit before the limit was set
     """The tracked settings as the base branch's newest commit holds them: the text, the
     branch and the commit; None when no commit of the base holds the file yet (an
     onboarding, whose settings are only in the working tree or on its own branch). The
@@ -1214,7 +1214,7 @@ def flow_of(raw: dict, name: Path) -> dict:
     return {"topics": strings(raw.get("flow", {}).get("topics", []), "flow.topics")}
 
 
-def parse_seat(
+def parse_seat(  # noqa: C901, PLR0912, PLR0913 - over the limit before the limit was set
     text: object,
     where: str,
     agents: tuple[str, ...],
@@ -1638,7 +1638,7 @@ def load(root: Path) -> dict:
     return decide(root, main, raw, local, on_base, committed, home, machine)
 
 
-def decide(
+def decide(  # noqa: C901, PLR0912, PLR0913, PLR0915, PLR0917 - over the limit before the limit was set
     root: Path,
     main: Path,
     raw: dict,
@@ -2261,7 +2261,7 @@ def glob_patterns(glob: str) -> list[re.Pattern[str]]:
     return [glob_regex(one) for one in braces(glob.removeprefix("./"))]
 
 
-def rule_scope(file: Path, name: str) -> list[str] | None:
+def rule_scope(file: Path, name: str) -> list[str] | None:  # noqa: C901, PLR0912 - over the limit before the limit was set
     """The globs a rule file scopes itself to, or None for one that covers every path.
 
     The one format read is Claude Code's: `paths:` in the file's frontmatter, as a list
@@ -2343,7 +2343,7 @@ def rule_scope(file: Path, name: str) -> list[str] | None:
     return globs
 
 
-def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
+def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:  # noqa: C901 - over the limit before the limit was set
     """The rule files that cover the given files: one match for every reader of
     the rules."""
     root = Path(settings["root"]).resolve()
@@ -2608,7 +2608,7 @@ def mark_of(root: Path, ticket: str) -> Path:
     return state_root(root) / TICKET_MARKS / ticket.lstrip("#")
 
 
-def claim_ticket(
+def claim_ticket(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     root: Path,
     slug: str,
     ticket: str,
@@ -2682,7 +2682,7 @@ def claim_ticket(
 
 
 @contextlib.contextmanager
-def held_ticket(
+def held_ticket(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     root: Path,
     slug: str,
     ticket: str,
@@ -2795,7 +2795,7 @@ def ticket_steps_of(directory: Path) -> tuple[list[str], str | None]:
     return [row[0] for row in rows], login
 
 
-def cmd_task_dir(
+def cmd_task_dir(  # noqa: C901, PLR0912, PLR0913, PLR0915, PLR0917 - over the limit before the limit was set
     root: Path,
     slug: str,
     ask: str | None,
@@ -3062,7 +3062,7 @@ def cmd_worktree_dir(settings: dict, slug: str) -> None:
     print(parent / slug)
 
 
-def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> dict:
+def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> dict:  # noqa: C901, PLR0912 - over the limit before the limit was set
     """Make the task's worktree where `worktree-dir` says, on BRANCH. A new branch
     starts from the base branch as origin has it now, after a fetch: the local base
     branch may be days old. It gets no upstream, so that no `git push` of a builder's
@@ -3359,7 +3359,7 @@ def state_locked(directory: Path) -> Generator[None, None, None]:
             LOCKS_HELD.discard(mine)
 
 
-def cmd_state(
+def cmd_state(  # noqa: C901, PLR0913 - over the limit before the limit was set
     root: Path,
     slug: str,
     status: str,
@@ -3676,7 +3676,7 @@ def seat_call(which: str, line: str, kind: str, fallback: dict) -> dict:
     }
 
 
-def cmd_seat_failed(
+def cmd_seat_failed(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     root: Path, slug: str, which: str, line: str, kind: str, said: str | None
 ) -> dict:
     """A seat's agent gave one of the four errors: the fallback stands in for WHICH from
@@ -3983,7 +3983,7 @@ def has_branch(main: Path, name: str | None) -> bool:
     )
 
 
-def open_resumed(
+def open_resumed(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     root: Path,
     settings: dict,
     main: Path,
@@ -4033,7 +4033,7 @@ def open_resumed(
     return target
 
 
-def resume_as_request(
+def resume_as_request(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     root: Path,
     slug: str,
     directory: Path,
@@ -4119,7 +4119,7 @@ def resume_as_request(
     }
 
 
-def cmd_resume(root: Path, slug: str) -> dict:
+def cmd_resume(root: Path, slug: str) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     """The owner's word to go on with a task he put aside: a parked one comes back as it
     was, and a dropped one goes on in a new task that starts from its files and its
     branch. A dropped task whose events became its summary (SUMMARY) is refused: the
@@ -4438,7 +4438,7 @@ def answered_form(root: Path, directory: Path, slug: str) -> None:
         )
 
 
-def investigation_form(fields: dict) -> None:
+def investigation_form(fields: dict) -> None:  # noqa: C901 - over the limit before the limit was set
     """What the investigation of a fix or of a question found, which Lem writes after it
     reads the report: the type, the call that sets the next path, one line (the cause,
     the answer, or what was tried), the cause's place, and for a fix whether the bug
@@ -4499,7 +4499,7 @@ def investigation_form(fields: dict) -> None:
             )
 
 
-def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
+def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:  # noqa: C901, PLR0912 - over the limit before the limit was set
     """Append one event about a task; `state` is the only writer of task.state."""
     task_directory(root, slug)
     if event == "task.state":
@@ -4561,7 +4561,7 @@ LEAST_PERSONAS = 2
 SPLIT_FAMILIES = 2
 
 
-def read_form(fields: dict) -> None:
+def read_form(fields: dict) -> None:  # noqa: C901, PLR0912 - over the limit before the limit was set
     """The personas' read of the criteria is read by the landing, so it has one form:
     who ran it, how many personas were asked and how many answered, the model families
     that answered, each source that did not answer and why, how many criteria were read
@@ -5406,7 +5406,7 @@ def outcome_of(text: str) -> str | None:
     return first_sentence(said) if len(said.split()) > FEW_WORDS else None
 
 
-def opening_line_facts(
+def opening_line_facts(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     directory: Path,
     main: Path,
     status: str,
@@ -5669,7 +5669,7 @@ def held_order(directory: Path, main: Path, older: str) -> list[str] | None:
     return held
 
 
-def opening_line_of(
+def opening_line_of(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     directory: Path,
     main: Path,
     status: str,
@@ -5693,7 +5693,7 @@ def opening_line_of(
     return compose_opening_line(facts, task) if facts else None
 
 
-def opening_line(
+def opening_line(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     root: Path,
     directory: Path,
     slug: str,
@@ -6384,7 +6384,7 @@ def text_problem(value: object, where: str) -> str | None:
     return None if isinstance(value, str) and value.strip() else f"{where} is no text"
 
 
-def record_problem(data: object, kind: str, day: str) -> str | None:
+def record_problem(data: object, kind: str, day: str) -> str | None:  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit was set
     """Why DATA is not the record of KIND's proposals of DAY, or None when it is. A file
     in the form of Lem's question page, as the retro wrote it before its proposals went
     to the reviewer, says so."""
@@ -6538,7 +6538,7 @@ def spec_of(text: str, where: str) -> dict:
     return spec
 
 
-def cmd_proposals_add(
+def cmd_proposals_add(  # noqa: C901 - over the limit before the limit was set
     state: Path, kind: str, day: str, spec: dict, now: datetime
 ) -> dict:
     """Add one run of KIND to its record of DAY, which this makes when it is not there:
@@ -6742,7 +6742,7 @@ def counted(n: int, word: str) -> str:
     return f"{n} {word}" if n == 1 else f"{n} {word}s"
 
 
-def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:
+def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     """The reviewer's verdict on each proposal SPEC names: refuted, with its reason, or
     passed, with its area. The passed proposals of one area become one item of the state
     folder's backlog, under the title SPEC gives that area, and no item when nothing
@@ -7306,7 +7306,7 @@ def cmd_handoff(tokens: str | None) -> dict:
     }
 
 
-def cmd_serial(root: Path, words: list[str]) -> int:
+def cmd_serial(root: Path, words: list[str]) -> int:  # noqa: C901 - over the limit before the limit was set
     """Run one command under the repository's lock for commands that need the machine to
     themselves, and give its exit status back. Another run that holds the lock is
     waited for."""
@@ -7521,7 +7521,7 @@ PRUNED = (
 DAY_NAME = re.compile(r"\d{4}-\d{2}-\d{2}-.+")
 
 
-def task_calls(found: list[dict], events: list[dict], cutoff: datetime) -> list[dict]:
+def task_calls(found: list[dict], events: list[dict], cutoff: datetime) -> list[dict]:  # noqa: C901 - over the limit before the limit was set
     """What `prune` does with each task: `found` gives each task's `slug` and the text
     of its state.md (`state`, None with no such file), `events` the event log, oldest
     first. Each call is `open` (no state yet, or a status that is not ended: never
@@ -7684,7 +7684,7 @@ class Remover:
                 except OSError as error:
                     self.failed.append({"path": self.shown(path), "error": str(error)})
 
-    def tree(self, path: Path) -> int:
+    def tree(self, path: Path) -> int:  # noqa: C901 - over the limit before the limit was set
         """Remove a file, or a folder with all it holds, deepest first; the bytes
         removed. A link inside stays, and so does the folder that holds it."""
         if not self.inside(path):
@@ -8018,7 +8018,7 @@ def rewrite_log(
     return calls, made
 
 
-def cmd_prune(root: Path, *, dry: bool, days: int | None) -> tuple[dict, int]:
+def cmd_prune(root: Path, *, dry: bool, days: int | None) -> tuple[dict, int]:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     """Remove what the state folder no longer needs, older than `state.keep_days` (or,
     in a dry run, --days): the events of each task that ended, which become its one
     summary event (`rewrite_log`), then every file of that task's folder but its small
@@ -8261,7 +8261,7 @@ def release_refusal(root: Path, args: argparse.Namespace) -> str | None:
 
 
 @lem_release.one_command
-def main(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0911, PLR0912, PLR0915 - over the limit before the limit was set
     parser = argparse.ArgumentParser(
         prog="lem project",
         description=__doc__,

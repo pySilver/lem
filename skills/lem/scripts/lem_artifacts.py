@@ -212,7 +212,7 @@ def image_type(name: str, head: bytes) -> str | None:
     return found if found == want else None
 
 
-def place(path: str) -> dict:
+def place(path: str) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit was set
     """Where a file of the task directory goes on the map, from its path relative to it:
     its section (`group`), its title, its role (`doc`, `record` or `work`), and for a
     record the document it belongs to (`of`), its link's word (`label`) and its tab; for

@@ -396,7 +396,7 @@ def changed(base: str) -> list[str]:
     )
 
 
-def check() -> int:
+def check() -> int:  # noqa: C901 - over the limit before the limit was set
     """The map's own check, in the form of a suite: every file git tracks is in the map
     or is a suite's own file, every script and hook is read by a suite, each suite is in
     tests/all.sh, each block in tests/test-lem.sh, the map names only suites there are,

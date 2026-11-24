@@ -367,7 +367,7 @@ def size_problem(size: object) -> str | None:
     return None if size_valid(size) else f"`size` is {SIZE_WHAT}, not {size!r}"
 
 
-def check_spec(spec: object) -> None:
+def check_spec(spec: object) -> None:  # noqa: C901, PLR0912 - over the limit before the limit was set
     """The spec's shape, and the type of every field this script reads itself; the page
     reads the rest."""
     if not isinstance(spec, dict):
@@ -468,7 +468,7 @@ def line_range(spec: object, total: int, path: str) -> tuple[int, int]:
     return first, last
 
 
-def load_files(node: object, base: str) -> None:
+def load_files(node: object, base: str) -> None:  # noqa: C901, PLR0912 - over the limit before the limit was set
     """Replace `{"file": …}` in code, diff, md and mermaid blocks with the file's text.
 
     Source code pasted into JSON by hand is where a spec breaks or a snippet drifts from
@@ -727,7 +727,7 @@ def shown(path: str) -> str:
     )
 
 
-def toml_text(value: object) -> str:
+def toml_text(value: object) -> str:  # noqa: PLR0911 - over the limit before the limit was set
     """A value as TOML writes it, for a message: json.dumps raises on a date, which
     TOML has."""
     if isinstance(value, bool):
@@ -761,7 +761,7 @@ def toml_text(value: object) -> str:
     return "null"
 
 
-def defaults_problem(values: object) -> str | None:
+def defaults_problem(values: object) -> str | None:  # noqa: C901, PLR0911 - over the limit before the limit was set
     """What is wrong with the defaults, or None. Each key's type is checked by the
     spec's own rule (TOP_TYPES, size_valid) before its value is used, and a value is
     named as TOML writes it."""
@@ -1157,7 +1157,7 @@ def open_overlay(path: str, a: argparse.Namespace, spec: dict[str, Any]) -> str 
     return res.get("pageID") or res.get("id")
 
 
-def wait_page(
+def wait_page(  # noqa: C901 - over the limit before the limit was set
     page_id: str | None, timeout: float, *, status: bool = True
 ) -> int | None:
     deadline = time.time() + timeout
@@ -1412,7 +1412,7 @@ def list_dir(d: Path) -> list[tuple[str, str]]:
     return rows
 
 
-def main() -> None:
+def main() -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument(
         "--follow",

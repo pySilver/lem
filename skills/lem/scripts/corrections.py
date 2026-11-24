@@ -395,7 +395,7 @@ def claim(where: Path, session: str, prompt: str) -> Path | None:
     return None
 
 
-def cmd_hook() -> None:
+def cmd_hook() -> None:  # noqa: C901, PLR0912 - over the limit before the limit was set
     """Return at once. Whatever goes wrong here must not reach the owner's prompt."""
     cwd = None
     path = None
@@ -715,7 +715,7 @@ def cmd_lessons(where: Path) -> None:
     )
 
 
-def cmd_record(
+def cmd_record(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     where: Path,
     gid: str,
     decision: str,
@@ -827,7 +827,7 @@ def arguments() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> None:
+def main() -> None:  # noqa: C901, PLR0912 - over the limit before the limit was set
     args = arguments().parse_args()
     if args.command == "hook":
         cmd_hook()

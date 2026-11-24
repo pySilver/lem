@@ -108,7 +108,7 @@ def project(repo: str, *args: str) -> str:
     return ran.stdout.strip()
 
 
-def where_problem(root: Path, where: str) -> str:
+def where_problem(root: Path, where: str) -> str:  # noqa: PLR0911 - over the limit before the limit was set
     """What of an item's `where` no longer resolves, or "": the check the backlog skill
     makes before it reports an item."""
     path, _, symbol = where.partition(":")
@@ -532,7 +532,7 @@ def ctl(socket: str, *args: str) -> str:
     return ran.stdout
 
 
-def show(
+def show(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     opens: list[str],
     shows: Callable[[dict], bool],
     name: str,
@@ -652,7 +652,7 @@ def open_page(page: Path, args: argparse.Namespace, session: str, socket: str) -
     }
 
 
-def open_board(
+def open_board(  # noqa: PLR0913 - over the limit before the limit was set
     url: str,
     base: str,
     *,

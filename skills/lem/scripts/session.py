@@ -369,7 +369,7 @@ def lead_started(state: str) -> bool:
     return False
 
 
-def phase_of(
+def phase_of(  # noqa: C901, PLR0911, PLR0913 - over the limit before the limit was set
     slug: str,
     status: str | None,
     line: str | None,
@@ -435,7 +435,7 @@ def phase_of(
     return "land"
 
 
-def phase_left(
+def phase_left(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     slug: str,
     blocks: list[dict],
     track: str | None,
@@ -654,7 +654,7 @@ def newest_opens(events: list[dict]) -> dict[str, dict]:
     return found
 
 
-def handoff_form(text: str, slug: str) -> dict:
+def handoff_form(text: str, slug: str) -> dict:  # noqa: C901, PLR0912 - over the limit before the limit was set
     """What handoff.md says of itself, after a check of its form
     (`templates/handoff.md`): its task, the phase it is from, its time and its changed
     files; a SessionError that names each part it lacks."""
@@ -741,7 +741,7 @@ def plugin_dir(root: Path, environ: Mapping[str, str]) -> str | None:
     return None if found == plugins or plugins in found.parents else str(found)
 
 
-def launch_line(
+def launch_line(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     shell: str,
     slug: str,
     brief: Path,
@@ -803,7 +803,7 @@ def shell_word(word: str) -> str:
     return f'"{word}"' if not DOUBLE_QUOTED.search(word) else shlex.quote(word)
 
 
-def brief_text(
+def brief_text(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     slug: str, phase: str, why: str, directory: Path, main: Path, worktree: Path | None
 ) -> str:
     """The text of `session.md`. Its first line names `prompts/session.md` by its place
@@ -1473,7 +1473,7 @@ def own_session(events: list[dict], slug: str, session: str) -> None:
     )
 
 
-def cmd_close(
+def cmd_close(  # noqa: PLR0913 - over the limit before the limit was set
     root: Path,
     slug: str,
     session: str | None,
@@ -1755,7 +1755,7 @@ def quiet_over(
     return now - max(began if changed is None else changed, began) >= after
 
 
-def cmd_wait(
+def cmd_wait(  # noqa: C901, PLR0913, PLR0917 - over the limit before the limit was set
     root: Path,
     slug: str,
     until: list[str],
@@ -2074,7 +2074,7 @@ def typed_text(content: object) -> tuple[str, str | None]:
     return text, None
 
 
-def transcript_turns(path: Path) -> list[dict]:
+def transcript_turns(path: Path) -> list[dict]:  # noqa: C901, PLR0912 - over the limit before the limit was set
     """The turns of a Claude Code session's transcript, oldest first, each {"who":
     "owner" or "lem", "at": its first record's time, "text": its words}. The form is the
     harness's (`skills/lem/harness/claude-code.md`): one JSON record a line. The owner's
@@ -2343,7 +2343,7 @@ def cmd_talk(root: Path, slug: str, start: str, leave: list[str]) -> dict:
 
 
 @lem_release.one_command
-def main(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     parser = argparse.ArgumentParser(
         prog="lem session",
         description=__doc__,

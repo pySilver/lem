@@ -308,7 +308,7 @@ def fences(lines: list[str]) -> list[tuple[int, int, str, int]]:
     return found
 
 
-def parse(text: str, name: str) -> dict:
+def parse(text: str, name: str) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     """The criteria section of a plan as a dict; a section that does not have the form
     is refused with the line."""
     lines = text.splitlines()
@@ -916,7 +916,7 @@ def cmd_inputs(task: Task) -> dict:
     return {"task": task.slug, "inputs": inputs(task, task.criteria())}
 
 
-def cmd_red(task: Task) -> dict:
+def cmd_red(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     found = task.criteria()
     untested = [
         criterion["n"]
@@ -1299,7 +1299,7 @@ def waits_for_him(task: Task, other: str, source: Path) -> str:
     )
 
 
-def cmd_approve(
+def cmd_approve(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     task: Task, file: str, by: str, *, plan: bool = False, shown: str | None = None
 ) -> dict:
     """Keep the criteria that were approved, word for word, with a digest and a number
@@ -1501,7 +1501,7 @@ def cmd_approve(
 
 
 @lem_release.one_command
-def main(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     parser = argparse.ArgumentParser(
         prog="lem criteria",
         description=__doc__,

@@ -238,7 +238,7 @@ def table_rows(table: str) -> list[tuple[int, int, str]]:
     return rows
 
 
-def read_signs(
+def read_signs(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     records: list[dict],
     session: str | None,
     turns: dict[str, list],

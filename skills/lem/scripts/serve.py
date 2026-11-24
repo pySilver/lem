@@ -967,7 +967,7 @@ def decoded(value: str) -> str:
         return value
 
 
-def door_refusal(
+def door_refusal(  # noqa: PLR0911 - over the limit before the limit was set
     headers: email.message.Message, method: str, owner: str, served: str, port: int
 ) -> str | None:
     """Whether the door lets a request in: None when it does, else the one line its
@@ -1633,7 +1633,7 @@ def release_behind(workspace: Workspace) -> str | None:
     )
 
 
-def act_start(workspace: Workspace, form: dict, via: str) -> dict:
+def act_start(workspace: Workspace, form: dict, via: str) -> dict:  # noqa: C901, PLR0911 - over the limit before the limit was set
     """A new task, on the owner's word from the board: from his words (`words`, the form
     of "+") or from a backlog item (`item`, its path from the root of the main checkout,
     of the backlog folder or of the reviewer's folder, so that two items of one stem
@@ -1911,7 +1911,7 @@ def merge_apart(workspace: Workspace, *args: str) -> subprocess.CompletedProcess
     )
 
 
-def merge_in_thread(
+def merge_in_thread(  # noqa: C901, PLR0913, PLR0917 - over the limit before the limit was set
     workspace: Workspace,
     slug: str,
     landing: dict,
@@ -2229,7 +2229,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.refused(body=True):
             self.answer(body=True)
 
-    def act(self) -> None:
+    def act(self) -> None:  # noqa: PLR0911 - over the limit before the limit was set
         """Every method that is not a read comes here, after the door's check. The
         actions are the server's own stop (`stop_refusal`) and the two acts of agterm
         (`agterm_act`), on the main listener only; the board's notifications; and the
@@ -2693,7 +2693,7 @@ class Handler(BaseHTTPRequestHandler):
             headers={"Location": to},
         )
 
-    def answer(self, *, body: bool) -> None:
+    def answer(self, *, body: bool) -> None:  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit was set
         split = urlsplit(self.path)
         path = unquote(split.path)
         machine = self.machine
@@ -3234,7 +3234,7 @@ def has_forge(workspace: Workspace, model: "bm.Model") -> bool:
     return bool(GITHUB_REMOTE.match(url))
 
 
-def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
+def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     """One look at the forge for a workspace when it is due
     (`lem_board_model.forge_due`), and the bookkeeping of each pull request the forge
     calls merged or closed, except of a task whose merge this server runs
@@ -3429,7 +3429,7 @@ def wait_start(t: "bm.Task") -> int:
     return t.blocks[i]["order"]
 
 
-def duties(
+def duties(  # noqa: C901, PLR0912 - over the limit before the limit was set
     model: "bm.Model",
     seen: dict,
     kept: set,
@@ -4189,7 +4189,7 @@ def tailscale_off(port: int) -> dict:
     return {"removed": True, "port": port, "url": f"https://{name}:{port}/"}
 
 
-def git_commit(root: Path) -> str | None:
+def git_commit(root: Path) -> str | None:  # noqa: C901, PLR0911 - over the limit before the limit was set
     """The commit the checkout at `root` is on, read from its git files with no git
     command (a worktree's `.git` file, a ref in the common folder, `packed-refs`); None
     when it reads no commit."""
@@ -4549,7 +4549,7 @@ def stop() -> dict:
         return {"stopped": True, "pid": found["pid"], "version": found["version"]}
 
 
-def configure(args: argparse.Namespace) -> dict:
+def configure(args: argparse.Namespace) -> dict:  # noqa: C901 - over the limit before the limit was set
     """Write the machine's `[serve]` from the flags given, end a server on a port it no
     longer serves, make sure the server runs the new way, and take Lem's tailnet entry
     out where the door closed."""
@@ -4658,7 +4658,7 @@ def remove_pid() -> None:
         pass
 
 
-def listen(host: str, *, verbose: bool, settings: dict) -> None:
+def listen(host: str, *, verbose: bool, settings: dict) -> None:  # noqa: C901, PLR0915 - over the limit before the limit was set
     """Serve in the foreground, the way the settings say, until a stop, SIGTERM
     or Ctrl-C."""
     detach_from_session()
@@ -4782,7 +4782,7 @@ def listen(host: str, *, verbose: bool, settings: dict) -> None:
     print(json.dumps({"stopped": True, "pid": os.getpid()}), flush=True)
 
 
-def main() -> None:
+def main() -> None:  # noqa: C901, PLR0911, PLR0912, PLR0915 - over the limit before the limit was set
     parser = argparse.ArgumentParser(
         prog="lem serve",
         description=__doc__,

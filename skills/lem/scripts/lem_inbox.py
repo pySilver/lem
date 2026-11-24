@@ -359,7 +359,7 @@ def session_side(a: dict, b: dict) -> bool:
     return all(a.get(part) == b.get(part) for part in ("asks", "tip", "block"))
 
 
-def plan(
+def plan(  # noqa: PLR0913 - over the limit before the limit was set
     want: dict,
     sent: list[dict],
     *,
@@ -445,7 +445,7 @@ def block(
     return "\n".join([*parts, ":::"])
 
 
-def message_of(
+def message_of(  # noqa: C901, PLR0912, PLR0913 - over the limit before the limit was set
     thing: dict,
     row: dict,
     m: "lem_board_model.Model",
@@ -787,7 +787,7 @@ class Watcher:
     `lem session wake SLUG --why inbox` and returns whether a live session got
     the word."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 - over the limit before the limit was set
         self,
         spaces: Callable[[], Iterable["serve.Workspace"]],
         link: Callable[[str, str], str],
@@ -831,7 +831,7 @@ class Watcher:
                 self.say(space.name, repr(error))
         return done
 
-    def look_at(self, space: "serve.Workspace") -> list[dict]:
+    def look_at(self, space: "serve.Workspace") -> list[dict]:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
         bm = self.bm
         m = space.model()
         if m.meta.get("demo") or m.sessions is None:

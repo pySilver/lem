@@ -536,7 +536,7 @@ def pairs(values: list[str] | None, flag: str, form: str) -> list[list[str]]:
     return out
 
 
-def cmd_log(task: Task, args: argparse.Namespace) -> dict:
+def cmd_log(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901, PLR0912 - over the limit before the limit was set
     chose = text(args.chose, "--chose")
     votes = pairs(
         args.vote,
@@ -646,7 +646,7 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:
     return task.add(make)[0]
 
 
-def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
+def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901 - over the limit before the limit was set
     """Record one change of an approved criterion, checked against the criteria as
     they stand."""
     how = [
@@ -781,7 +781,7 @@ def story(args: argparse.Namespace, what: str | None = None) -> dict:
     }
 
 
-def chart(file: str) -> str:
+def chart(file: str) -> str:  # noqa: C901 - over the limit before the limit was set
     """The text of one mermaid chart, from FILE, with its line breaks and without
     its fence."""
     source = Path(file)
@@ -1005,7 +1005,7 @@ def kept_document(document: Path, number: int) -> str:
     return kept.name
 
 
-def cmd_breaker(task: Task, args: argparse.Namespace) -> dict:
+def cmd_breaker(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901 - over the limit before the limit was set
     """The circuit breaker: record it with its cause and its document, then hold
     the task."""
     if args.cause == "irreversible" and args.irreversible is None:
@@ -1148,7 +1148,7 @@ def cmd_pending(repo: Path, slug: str | None) -> dict:
 
 
 @lem_release.one_command
-def main(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     parser = argparse.ArgumentParser(
         prog="lem decisions",
         description=__doc__,

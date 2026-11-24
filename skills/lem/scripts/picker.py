@@ -186,7 +186,7 @@ def breaker_words(number: int) -> str:
     return f"Stopped: breaker {number} waits for you"
 
 
-def rows(root: Path, now: datetime) -> list[dict]:
+def rows(root: Path, now: datetime) -> list[dict]:  # noqa: C901 - over the limit before the limit was set
     """The picker's rows, as `pick` reads them; a repository with no task has none."""
     tasks = {task["slug"]: task for task in project.read_tasks(root)}
     if not tasks:

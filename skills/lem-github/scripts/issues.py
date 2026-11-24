@@ -426,7 +426,7 @@ def carried(root: Path, task: dict, tasks: list[dict]) -> str | None:
     return before["ticket_assignee"]
 
 
-def result(
+def result(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     task: dict,
     step: str,
     issue: dict | None,
@@ -566,7 +566,7 @@ def answered_words(root: Path, task: dict) -> str:
     return said
 
 
-def comment(
+def comment(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     root: Path,
     task: dict,
     step: str,
@@ -684,7 +684,7 @@ def cmd_end(root: Path, slug: str, step: str) -> dict:
     )
 
 
-def cmd_check(root: Path) -> tuple[dict, bool]:
+def cmd_check(root: Path) -> tuple[dict, bool]:  # noqa: C901, PLR0912 - over the limit before the limit was set
     """The tracker's check: each missing thing with its fix, and the facts the
     onboarding needs."""
     missing: list[dict] = []
