@@ -879,7 +879,7 @@ class Workspace:
             building = sum(t.status == "building" for t in model.tasks)
             checks = sum(t.status == "landing" for t in model.tasks)
             self.counts = {
-                "waits": len(bm.wait_stacks(bm.waits_of(model))),
+                "waits": bm.wait_count(model),
                 "building": building,
                 "checks": checks,
                 "running": building + checks,

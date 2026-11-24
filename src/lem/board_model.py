@@ -6,6 +6,7 @@ each task and one for the workspace, which the pages of `lem_board_pages` draw.
     model.lane["you"]           the tasks of one column of the kanban
     waits_of(model)             one row for each thing the owner does
     wait_stacks(rows)           those rows grouped by task, as "Waits for you" draws and counts them
+    wait_count(model)           how many tasks wait for the owner, in every place that says so
     card_line(task, lane)       what a card says
     now_head(task)              what the large card of a task says it does now
     time_of(task, end, meta)    where the time of one task went: its spans, marks and stages
@@ -3725,6 +3726,17 @@ def wait_stacks(rows: list[dict]) -> list[dict]:
             stacks.append(stack)
         stack["rows"].append(w)
     return stacks
+
+
+def wait_count(m: Model) -> int:
+    """How many tasks wait for the owner: the tasks with a row of "Waits for you", one
+    for each group of `wait_stacks`. Every place whose words say what waits for him
+    counts this: the top line of the Tasks view (`summary_of`), the sidebar, the rail,
+    the page's title, the phone's icon and the switcher's row of a workspace. The "You"
+    column of the kanban holds the tasks whose next act is his (`for_owner`), which is
+    not always the same set: a task that builds with no session has a row and stays in
+    its column."""
+    return len(wait_stacks(waits_of(m)))
 
 
 def open_cards(t: Task, m: Model) -> list[dict]:

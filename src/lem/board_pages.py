@@ -1854,7 +1854,8 @@ def statusbar(ctx: Ctx) -> Markup:
 
 
 def summary_of(m: bm.Model) -> str:
-    """What the kanban holds, in one line, as the bar says it."""
+    """What the kanban holds, in one line, as the bar says it, first how many tasks
+    wait for the owner as the sidebar counts them (`wait_count`)."""
 
     def in_build(status: str) -> int:
         return sum(1 for t in m.lane["build"] if t.status == status)
@@ -1865,7 +1866,9 @@ def summary_of(m: bm.Model) -> str:
     reading = sum(1 for t in m.lane["build"] if t.reading and not t.goes_on)
     writing = sum(1 for t in m.lane["build"] if t.turn == "writes" and not t.goes_on)
     works = sum(1 for t in m.lane["build"] if t.works)
-    n = len(m.for_owner)
+    # the tasks with a row of "Waits for you", as the sidebar and the phone's icon
+    # count them, not the "You" column (the owner's answer of 2026-11-24)
+    n = bm.wait_count(m)
     parts = [
         n and f"{n} wait{'s' if n == 1 else ''} for you",
         in_build("building")

@@ -1009,6 +1009,35 @@ class WaitStacks(unittest.TestCase):
         self.assertEqual(bm.wait_stacks([]), [])
 
 
+class TopLine(unittest.TestCase):
+    """The words "waits for you" of the Tasks view's top line (`summary_of`) count what
+    the sidebar, the rail, the phone's icon and the switcher count: the tasks with a row
+    of "Waits for you" (`wait_count`), not the tasks of the "You" column. The owner's
+    answer of 2026-11-24, "Count like the sidebar"."""
+
+    def test_a_building_task_whose_session_is_gone_waits_for_you_on_the_top_line(
+        self,
+    ) -> None:
+        # the probe of the question: the task builds, its session closed, and "Waits for
+        # you" has its one row "No session runs this task"
+        m = model(
+            state(0, "building", "lead: builder"), state(30, "building", "task 2 of 3")
+        )
+        m.sessions = {}
+        self.assertEqual([w["key"] for w in bm.waits_of(m)], ["session:gift-note"])
+        self.assertEqual(pages.summary_of(m), "1 waits for you, 1 builds")
+        self.assertEqual((bm.wait_count(m), len(m.lane["you"])), (1, 0))
+
+    def test_a_task_whose_merge_review_calls_you_is_one_on_the_top_line_and_in_the_sidebar(
+        self,
+    ) -> None:
+        # the two sets were the same before: two rows, one task, in the "You" column
+        m = model(*WaitStacks.calls("logo-eyes", 10, 73))
+        self.assertEqual(len(bm.waits_of(m)), 2)
+        self.assertEqual(pages.summary_of(m), "1 waits for you")
+        self.assertEqual((bm.wait_count(m), len(m.lane["you"])), (1, 1))
+
+
 class WaitingByTask(unittest.TestCase):
     """`lem project waiting` groups the things of one task under that task (`tasks`), in
     the order of the board's stacks, and counts each task once (criterion 5
