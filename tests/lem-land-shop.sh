@@ -1142,4 +1142,28 @@ else
   fail "a merge agent's stand-in: $stand_first / $stood / $stand_again / $stand_read / $stand_blocked / $stand_status / $stand_count / $stand_lines / $stand_merged"
 fi
 
+# A builder's rebase that stops twice: base met only the first commit's conflict, in stop-a.txt, and the builder's rebase
+# stops again on the second commit, in stop-b.txt. The resolution names both, each file whose patch differs between the
+# two ranges of its range-diff, and no file that the rebase left as it was.
+mb_task mb-stops stop-a.txt
+stops_tree=$(project --repo "$MB" worktree-dir mb-stops)
+echo yes > "$stops_tree/stop-b.txt" && git -C "$stops_tree" add stop-b.txt && git -C "$stops_tree" commit -q -m "fix: the second file"
+git -C "$MBX" pull -q --ff-only origin main && echo theirs > "$MBX/stop-a.txt" && echo theirs > "$MBX/stop-b.txt"
+git -C "$MBX" add -A && git -C "$MBX" commit -q -m "fix: both files on main" && git -C "$MBX" push -q origin main
+land --repo "$MB" start mb-stops >/dev/null
+stops_met=$(land --repo "$MB" base mb-stops 2>/dev/null || true)
+git -C "$stops_tree" rebase -q origin/main >/dev/null 2>&1 || true
+echo yes > "$stops_tree/stop-a.txt" && git -C "$stops_tree" add stop-a.txt
+GIT_EDITOR=true git -C "$stops_tree" rebase --continue >/dev/null 2>&1 || true
+echo yes > "$stops_tree/stop-b.txt" && git -C "$stops_tree" add stop-b.txt
+GIT_EDITOR=true git -C "$stops_tree" rebase --continue >/dev/null 2>&1
+stops=$(land --repo "$MB" base mb-stops 2>&1 || true)
+if [ "$(field 'd["conflict"]' <<<"$stops_met")" = "['stop-a.txt']" ] && [ "$(field 'd["resolved"]' <<<"$stops")" = "['stop-a.txt']" ] \
+  && [ "$(mb_kept mb-stops resolution 'd["files"]')" = "['stop-a.txt', 'stop-b.txt']" ]; then
+  pass "a builder's rebase that stops on a later commit too: the resolution names the files of each stop, every file whose patch the rebase changed, for the read of the resolution"
+else
+  fail "a resolution over two stops: $stops_met / $stops / $(mb_kept mb-stops resolution d)"
+fi
+project --repo "$MB" state mb-stops dropped "the test is over" >/dev/null
+
 finish

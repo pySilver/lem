@@ -1854,8 +1854,19 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
     if resolved:
         # What the review saw is the change before the conflict; what the builder chose
         # where the two sides met is new, and gets one read of its own (`due`).
+        # Its files are each one whose patch the builder's rebase changed: a later
+        # commit of it may stop on files that `base` never met.
         updates["resolution"] = {
-            "files": pending["files"],
+            "files": sorted(
+                {
+                    *pending["files"],
+                    *rebased_files(
+                        task.worktree,
+                        f"{pending['base']}..{origin}",
+                        f"{onto}..{tip}",
+                    ),
+                }
+            ),
             "before": origin,
             "after": tip,
             "base": pending["base"],
@@ -1904,6 +1915,41 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
         "ahead": ahead,
         "resolved": pending["files"] if resolved else None,
     }
+
+
+def rebased_files(where: Path, before: str, after: str) -> list[str]:
+    """The files whose patch differs between the two ranges of `git range-diff`, BEFORE
+    and AFTER (`BASE..TIP` each): each file a commit of either range touches, whose
+    range-diff alone pairs a commit with one that is not equal (`!`) or leaves one with
+    no pair (`<`, `>`). Each file is read alone, as a literal path, so that a commit
+    that changed in one file is equal in the others."""
+    touched = {
+        name
+        for spec in (before, after)
+        for name in git(
+            where, "log", "-z", "--format=", "--name-only", "--no-renames", spec
+        ).split("\0")
+        if name
+    }
+    return sorted(
+        name
+        for name in touched
+        if any(
+            # a pair's line, `N:  SHA = N:  SHA SUBJECT`, its numbers padded to the
+            # width of the largest; each line of its diff is indented by four spaces
+            line.split()[2] != "="
+            for line in git(
+                where,
+                "range-diff",
+                "--no-color",
+                before,
+                after,
+                "--",
+                f":(literal){name}",
+            ).splitlines()
+            if line.strip() and not line.startswith("    ")
+        )
+    )
 
 
 def holds_commit(task: Task, commit: object, tip: str) -> bool:
