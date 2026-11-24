@@ -12,7 +12,8 @@ collected
 WORK=$(cd "$(mktemp -d)" && pwd -P)
 export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
 trap 'stopped; rm -rf "$WORK" "$WORK-wt"' EXIT
-PY=$(python3 -I -c 'import sys; print(sys.executable)')
+# shellcheck source=tests/python.sh
+. tests/python.sh
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 git -C "$WORK" init -q
 

@@ -10,6 +10,8 @@
 SUITE_LIMIT=${LEM_TEST_LIMIT:-1800}
 # shellcheck source-path=SCRIPTDIR source=checks.sh
 . "$(dirname "${BASH_SOURCE[0]}")/checks.sh"
+# shellcheck source-path=SCRIPTDIR source=python.sh
+. "$(dirname "${BASH_SOURCE[0]}")/python.sh"
 
 # within_limit NAME COMMAND...: COMMAND, stopped and failed by name when it runs over the limit. A
 # runner calls it in a job of its own, and a TERM or an INT to that job goes on to the suite, whose
@@ -17,7 +19,7 @@ SUITE_LIMIT=${LEM_TEST_LIMIT:-1800}
 within_limit() {
   local name=$1 child code
   shift
-  python3 -I -B "$(dirname "${BASH_SOURCE[0]}")/limit.py" "$SUITE_LIMIT" "$name" -- "$@" &
+  "$PY" -I -B "$(dirname "${BASH_SOURCE[0]}")/limit.py" "$SUITE_LIMIT" "$name" -- "$@" &
   child=$!
   trap 'kill "$child" 2>/dev/null' TERM INT
   wait "$child"

@@ -23,10 +23,13 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
+      # Lem installed from the checkout into .venv, with its tools: every suite runs on its Python
+      - name: The app
+        run: uv sync --locked
       - name: What the suites need
         run: |
           if [ "$RUNNER_OS" = macOS ]; then brew install shellcheck; else sudo apt-get update -q && sudo apt-get install -y -q shellcheck; fi
-          python3 --version
+          .venv/bin/python --version
           shellcheck --version | sed -n 2p
           git --version
           uv --version

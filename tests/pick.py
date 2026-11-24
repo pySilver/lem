@@ -1,12 +1,12 @@
 """pick.py: the suites to run for the files a change touched, from one map.
 
-    python3 tests/pick.py FILE...         the suites for these files (paths from the root)
-    python3 tests/pick.py --base BASE     the suites for what `git diff --name-only BASE` names,
-                                          and the files git does not track yet
-    python3 tests/pick.py --check         the map's own check, a suite of tests/all.sh
+    .venv/bin/python tests/pick.py FILE...       the suites for these files (paths from the root)
+    .venv/bin/python tests/pick.py --base BASE   the suites for what `git diff --name-only BASE`
+                                                 names, and the files git does not track yet
+    .venv/bin/python tests/pick.py --check       the map's own check, a suite of tests/all.sh
 
 It prints one command for each suite to run, `bash tests/NAME.sh` (the unit level's is
-`python3 -B -m unittest discover -s tests/unit`), then `bash tests/shellcheck.sh`
+`.venv/bin/python -B -m unittest discover -s tests/unit`), then `bash tests/shellcheck.sh`
 with the suite files that changed, and lines that start with `#` for what it found: a file no
 suite reads is named with "nothing reads it", and a file the map does not know runs the whole
 suite (`bash tests/all.sh`). The Chrome suites, test-ask and test-site, run only for
@@ -34,10 +34,10 @@ TESTS = ROOT / "tests"
 EVERYTHING = "all"
 # The suites that are not a file tests/NAME.sh of their own: the map's check, and the
 # unit level, one file or more for each module in tests/unit/, which tests/all.sh runs
-# as `python3 -B tests/unit`.
+# as `.venv/bin/python -B tests/unit`.
 COMMANDS = {
-    "pick": "python3 tests/pick.py --check",
-    "unit": "python3 -B -m unittest discover -s tests/unit",
+    "pick": ".venv/bin/python tests/pick.py --check",
+    "unit": ".venv/bin/python -B -m unittest discover -s tests/unit",
     EVERYTHING: "bash tests/all.sh",
 }
 CHROME = ("test-ask", "test-site")
@@ -246,7 +246,13 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ("lem-*", "test-ask", "test-site", "test-gate-panel", "shellcheck"),
     ),
     (
-        ("tests/suites.sh", "tests/limit.py", "tests/all.sh", "tests/test-lem.sh"),
+        (
+            "tests/suites.sh",
+            "tests/limit.py",
+            "tests/all.sh",
+            "tests/test-lem.sh",
+            "tests/python.sh",
+        ),
         (EVERYTHING,),
     ),
     (("tests/pick.py",), ("pick",)),

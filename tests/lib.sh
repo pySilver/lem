@@ -1,9 +1,10 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034  # the paths and values here are read by the blocks that source this file
 # What every block of Lem's script checks shares: the strict mode, the root of the checkout, a
-# folder of its own, the interpreter, the count of its checks (checks.sh), and the helpers more than
-# one block calls. A block sources this file first and ends with `finish`. Each block runs alone, so
-# nothing here depends on the order in which the blocks run.
+# folder of its own, the interpreter (tests/python.sh) and the command (LEM_UNDER_TEST), the count of
+# its checks (checks.sh), and the helpers more than one block calls. A block sources this file first
+# and ends with `finish`. Each block runs alone, so nothing here depends on the order in which the
+# blocks run.
 set -eEuo pipefail
 
 # -P: the folder as it is on disk, the way readlink and git name it: a checkout under /tmp is
@@ -25,7 +26,14 @@ unset JEV_API_KEY JEV_API_URL JEV_MODEL LEM_JEV
 . tests/checks.sh
 SERVE_PID=""
 trap 'stopped; [ -z "$SERVE_PID" ] || { kill -TERM "$SERVE_PID" 2>/dev/null; wait "$SERVE_PID" 2>/dev/null || true; }; rm -rf "$WORK"' EXIT
-PY=$(python3 -I -c 'import sys; print(sys.executable)')
+# shellcheck source=tests/python.sh
+. tests/python.sh
+# LEM_UNDER_TEST: the absolute path of the command `lem` a block drives; by default the checkout's own, .venv/bin/lem
+export LEM_UNDER_TEST=${LEM_UNDER_TEST:-$PWD/.venv/bin/lem}
+case $LEM_UNDER_TEST in
+  /*) ;;
+  *) printf 'FAIL LEM_UNDER_TEST=%s is no absolute path: name the command lem a block drives by its whole path\n' "$LEM_UNDER_TEST"; exit 1 ;;
+esac
 # The board server's port of this run, a free one, in the machine's settings of this run: a check that asks for the
 # server (lem board, lem serve --ensure) asks this port, never the one of a server the owner runs. The load gate is
 # away (`start = 0`, as `lem project load --start none` writes it): under Lem's default of 40 two landings of a block

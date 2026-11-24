@@ -13,7 +13,8 @@ MAIN=$PWD/src/lem/__main__.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
 export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
 trap 'stopped; rm -rf "$WORK"' EXIT
-PY=$(python3 -I -c 'import sys; print(sys.executable)')
+# shellcheck source=tests/python.sh
+. tests/python.sh
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 # A stand-in for Codex on PATH, so that both experts of the default seats answer here (`here` in `lem project show`),
 # whatever this machine has; a check of one expert alone runs with a PATH that has no codex.

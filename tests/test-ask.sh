@@ -13,10 +13,10 @@ SKILL=skills/lem-ask
 WORK=$(mktemp -d)
 export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
 trap 'stopped; rm -rf "$WORK"' EXIT
-# The real interpreter, resolved before HOME moves: a version-manager shim reads its config from HOME.
-# Every call below passes -B: importing ask.py must not leave a __pycache__ in the plugin (and -I
-# ignores PYTHONDONTWRITEBYTECODE).
-PY=$(python3 -I -c 'import sys; print(sys.executable)')
+# The app's own Python (tests/python.sh). Every call below passes -B: importing ask.py must not leave a
+# __pycache__ in the checkout (and -I ignores PYTHONDONTWRITEBYTECODE).
+# shellcheck source=tests/python.sh
+. tests/python.sh
 # The mermaid bundle is fetched once and kept outside the run, in Lem's own cache of the real
 # HOME (~/.cache/lem, or $XDG_CACHE_HOME/lem): each run copies it into its private HOME, and a run
 # that downloaded it puts it there. lem-ask checks the bundle's sha256 at every read, so a copy is as

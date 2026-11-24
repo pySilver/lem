@@ -1,6 +1,7 @@
-"""The unit level as a suite of tests/all.sh: `python3 -B tests/unit`.
+"""The unit level as a suite of tests/all.sh: `.venv/bin/python -B tests/unit`.
 
-It runs what `python3 -B -m unittest discover -s tests/unit` runs, and prints it in the form every
+It runs what `.venv/bin/python -B -m unittest discover -s tests/unit` runs, on the app's
+own Python, the checkout's .venv that `uv sync` makes, and refuses another, and prints it in the form every
 suite prints (tests/checks.sh): `collected N`, then one line for each case, `ok   ID`, `FAIL ID: WHY`
 or `SKIP ID: WHY`, then the traceback of each case that failed. One unittest case is one check. The
 exit is 1 when a case failed or the lines do not add up to the cases collected: a case whose
@@ -13,6 +14,8 @@ from pathlib import Path
 from types import TracebackType
 
 HERE = Path(__file__).resolve().parent
+# the checkout's .venv, the one Python the unit level runs on
+VENV = HERE.parents[1] / ".venv"
 # what unittest hands a result for a case that failed: sys.exc_info()'s form
 ExcInfo = (
     tuple[type[BaseException], BaseException, TracebackType] | tuple[None, None, None]
@@ -56,6 +59,13 @@ class Lines(unittest.TestResult):
 
 
 def main() -> int:
+    if Path(sys.prefix).resolve() != VENV.resolve():
+        print(
+            f"FAIL the unit level runs on {VENV / 'bin' / 'python'}, not on "
+            f"{sys.executable}: run uv sync at the root of the checkout, then "
+            ".venv/bin/python -B tests/unit"
+        )
+        return 1
     # the test files set it too, but only after their own import, which would leave
     # their cache
     sys.dont_write_bytecode = True

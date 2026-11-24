@@ -91,9 +91,10 @@ place that holds it: read it when a change touches one.
 ## Checks
 
 ```bash
+uv sync                        # .venv: Lem from this checkout, editable, and its tools; every suite runs on its Python
 bash tests/all.sh              # every suite below at the same time, one log each, a line of ok, FAIL and SKIP per suite
-python3 tests/pick.py --base main  # the suites to run for what the branch changed (or name the files)
-python3 -B -m unittest discover -s tests/unit  # the unit level, in one process; all.sh runs it as the suite unit
+.venv/bin/python tests/pick.py --base main  # the suites to run for what the branch changed (or name the files)
+.venv/bin/python -B -m unittest discover -s tests/unit  # the unit level, in one process; all.sh runs it as the suite unit
 ```
 
 The loop: the unit level after each edit; while a task is in work, only the one block that holds
@@ -139,7 +140,7 @@ bash tests/test-ask-expert.sh  # the experts' brief of a question in words, its 
 bash tests/test-site.sh        # the page on GitHub Pages, from pages.yml's own copy step; its drawn page in headless Chrome when one is installed
 bash tests/shellcheck.sh       # ShellCheck over tests/*.sh, one check for each file, or over the files named
 bash tests/lint.sh             # ruff, pyrefly, ESLint; --fix fixes
-python3 tests/pick.py --check  # its map: every file read by a suite, every suite in all.sh
+.venv/bin/python tests/pick.py --check  # its map: every file read by a suite, every suite in all.sh
 bash tests/test-lem.sh         # every lem-* block at the same time, with its output in order; all.sh runs each alone
 ```
 
@@ -273,7 +274,7 @@ Each module's docstring says what it does and why; this list says where each thi
   with a status line that names its commits and where later decisions changed it; the redesign of
   2026-11-20 is `plans/2026-11-20-a-session-for-each-task.md` and its folder.
 - `tests/`: the suites of "Checks". `unit/` is the unit level, one `test_*.py` or more for each module;
-  `lib.sh` is what each `lem-*.sh` block sources, `checks.sh` how every suite counts its checks,
+  `lib.sh` is what each `lem-*.sh` block sources, `checks.sh` how every suite counts its checks, `python.sh` its Python,
   `suites.sh` and `limit.py` what `all.sh` and `test-lem.sh` share, and `pick.py` the map of which
   suite reads which file. `board-showcase.py` writes the demo afternoon that `lem-serve.sh` serves,
   and makes the board's pictures through headless Chrome (`board-cdp.mjs`, which needs Node), the

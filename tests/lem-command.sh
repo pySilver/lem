@@ -7,7 +7,7 @@
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
-LEM=$PWD/.venv/bin/lem
+LEM=$LEM_UNDER_TEST
 # the names, as `lem help` lists them: each line after the first that opens with two spaces
 listed=$("$LEM" help | "$PY" -c 'import sys; print(" ".join(line.split()[0] for line in sys.stdin.read().splitlines()[1:] if line.startswith("  ")))')
 names=${listed% version help}

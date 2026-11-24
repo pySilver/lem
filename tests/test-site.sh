@@ -17,7 +17,8 @@ ROOT=$PWD
 WORK=$(cd "$(mktemp -d)" && pwd -P)
 export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
 trap 'stopped; rm -rf "$WORK"' EXIT
-PY=$(python3 -I -c 'import sys; print(sys.executable)')
+# shellcheck source=tests/python.sh
+. tests/python.sh
 STEP_NAME="Make the folder to publish"
 
 # The workflow's copy step, run as it is written, in a folder with the repository's site/ and assets/
