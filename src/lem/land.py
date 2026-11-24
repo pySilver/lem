@@ -1063,12 +1063,16 @@ DOCS = (".md", ".rst", ".adoc")
 # not measured. A mark that a call's "(" follows is looked for with that "(" and named
 # without it, so a refusal says `it.only`, never `it.only(`. The marks of a test that
 # runs again until it passes came after a probe of the bar passed eight ways of
-# weakening a test unseen (audit T-F2, 2026-11-17). The marks of pyrefly and ty, and
-# ruff's for a whole file, came when those tools came to Lem's own code (2026-11-24),
-# each form as the docs of ruff 0.17.3 and the `--help` of pyrefly 1.5.0 give it, with
-# the tool's own rule of case: ruff's `noqa` in any case, after the name `ruff` or
-# `flake8` in lower case; pyrefly's comments in lower case only, the other checkers'
-# too, which it obeys with `permissive-ignores` or with no settings file.
+# weakening a test unseen (audit T-F2, 2026-11-17). Of Python, every comment that
+# ruff and pyrefly obey to hide a finding came when those tools came to Lem's own code
+# (2026-11-24), each form as the docs of ruff 0.17.3 and the `--help` of pyrefly 1.5.0
+# give it, and as ruff 0.17.6 and pyrefly 1.5.0 obeyed it in a throwaway file: ruff's
+# `noqa`, `ignore`, `disable` and `file-ignore`, isort's `skip_file`, `off` and `skip`,
+# the formatter's `fmt: off`, `fmt: skip` and `yapf: disable`; pyrefly's own, and the
+# other checkers' it obeys with `permissive-ignores` or with no settings file. Each
+# with the tool's own rule of case: `noqa` in any case, the rest in lower case. Left
+# out: the comment that ends a range (`enable`, `on`), as its start counts, and
+# `isort: split`, which hid no finding of I001 in that file.
 BAR = {
     (".py",): (
         r"#\s*(?i:noqa)",
@@ -1077,10 +1081,13 @@ BAR = {
         r"#\s*pyrefly:\s*ignore(?:-errors)?",
         r"#\s*ty:\s*ignore",
         r"#\s*(?:ruff|flake8)\s*:\s*(?i:noqa)",
-        r"#\s*ruff:\s*(?:disable|file-ignore)(?=\[)",
+        r"#\s*ruff\s*:\s*(?:disable|file-ignore|ignore)(?=\s*\[)",
+        r"#\s*(?:ruff:\s*)?isort:\s*(?:skip_file|skip|off)\b",
+        r"#\s*fmt:\s*(?:off|skip)\b",
+        r"#\s*yapf:\s*disable\b",
         r"#\s*pyre-(?:ignore(?:-all-errors)?|fixme)",
         r"#\s*pyre:\s*ignore",
-        r"#\s*mypy:\s*ignore-errors",
+        r"#\s*mypy:\s*ignore(?:-errors)?",
         r"#\s*zuban:\s*ignore",
         r"#\s*pylint:\s*disable",
         r"#\s*nosec",
