@@ -3628,9 +3628,11 @@ class Handler(BaseHTTPRequestHandler):
         model = workspace.model()
         reader = workspace.reader
         backlog = reader.read_backlog(board, fresh=fresh_backlog)
-        # the list first: its look at `[peers]` says whether that table reads now
+        # the list first: its look at `[peers]` says whether that table reads now. A
+        # request another machine passed takes that machine's list and looks at no
+        # table, so it shows no reason kept from an earlier look
         spaces = self.spaces(workspace.name)
-        peers = self.peers.trouble
+        peers = None if lem_peers.hopped(self.headers) else self.peers.trouble
         return pages.Ctx(
             host=HOSTNAME,
             workspace=workspace.name,

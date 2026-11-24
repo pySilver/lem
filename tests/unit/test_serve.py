@@ -3172,6 +3172,35 @@ class PeersTrouble(unittest.TestCase):
                 ctx = handler.context(workspace, "")
         self.assertTrue(any(said in problem for problem in ctx.problems))
 
+    def test_a_page_another_machine_passed_shows_no_reason_kept_from_before(
+        self,
+    ) -> None:
+        import tempfile
+
+        # the reason a direct request kept, before the owner repaired the table
+        said = "peers.broken in machine.toml is no machine's name; delete the line"
+
+        class Peers:
+            trouble: str | None = said
+
+            def states(self) -> list:
+                raise AssertionError("a passed request looks at no [peers] table")
+
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / ".lem" / "state").mkdir(parents=True)
+            handler = serve.Handler.__new__(serve.Handler)
+            handler.headers = email.message.Message()
+            handler.headers[serve.lem_peers.HOP] = "other-mac"
+            handler.client_address = ("127.0.0.1", 0)
+            handler.machine = serve.Machine()
+            handler.peers = cast("serve.lem_peers.Peers", Peers())
+            with mock.patch.object(
+                serve.lem_state, "workspaces", return_value=[folder]
+            ):
+                workspace = handler.machine.workspaces()[0]
+                ctx = handler.context(workspace, "")
+        self.assertFalse(any(said in problem for problem in ctx.problems))
+
 
 def nested(depth: int) -> str:
     """A JSON list nested DEPTH levels deep."""
