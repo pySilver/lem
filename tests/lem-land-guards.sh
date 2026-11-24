@@ -315,6 +315,25 @@ else
 fi
 project --repo "$GRD" state bar-moves dropped "the test is over" >/dev/null
 
+# A file with no suffix is read with the marks of the language its first line names: a Python script and a shell script
+# each get a mark of their own language, and a file with no such line gets none.
+small_task_in "$GRD" bar-scripts b.txt b
+tree=$(wt bar-scripts)
+mkdir -p "$tree/bin"
+printf '%s\n' '#!/usr/bin/env -S python3 -I' "import os  # noq""a: F401" > "$tree/bin/tool"
+printf '%s\n' '#!/bin/sh' "# shellcheck"" disable=SC2086" 'echo hello' > "$tree/bin/run"
+printf '%s\n' 'all:' "	true  # noq""a" > "$tree/Makefile"
+git -C "$tree" add -A && git -C "$tree" commit -q -m "feat: two scripts"
+g start bar-scripts >/dev/null && g base bar-scripts >/dev/null
+scripts=$(g checks bar-scripts 2>/dev/null || true)
+if [ "$(field 'sorted((e["file"], e["what"]) for e in d["bar"]["lowered"])' <<<"$scripts" 2>/dev/null)" \
+  = "[('bin/run', '# shellcheck disable'), ('bin/tool', '# noqa')]" ]; then
+  pass "a file with no suffix is read with the marks of the language its first line names, a Python script and a shell script each with its own, and a file with no such line with none"
+else
+  fail "the bar of files with no suffix: $scripts"
+fi
+project --repo "$GRD" state bar-scripts dropped "the test is over" >/dev/null
+
 # The bar sees the usual ways a test gets weaker outside the test's own lines: a mark in a test runner's settings, a
 # coverage threshold that went down, and a retry decorator. The checks name each existing test, snapshot and test
 # configuration the change edits.

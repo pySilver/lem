@@ -9,8 +9,9 @@ The JavaScript marks of `BAR` in `land.py` count `fit(`, `fdescribe(`, `xit(`, `
 `xdescribe(` unless a `.` comes before them, so a method call (`this.fit()`) is no mark. A method
 definition in a class body is none of these either, and still counts: `}fit(){` and `},fit(){`.
 
-`bar_of` keys a mark by its file, its pattern and the text after it on its line. In a built file
-of long lines, an edit after the definition on the same line makes the old mark count as new.
+`bar_of` keys a mark by its file, its pattern and the text after it on its line, up to the next
+mark. In a built file of long lines, an edit after the definition on the same line makes the old
+mark count as new.
 
 The task `sidebar-fold-arrow` (2026-11-22) changed only the fold controller and rebuilt
 `skills/lem/assets/vendor/board-app.js`. Its bundle with the chart's two methods named `fit` again

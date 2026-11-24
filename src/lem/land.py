@@ -1135,6 +1135,18 @@ BAR = {
     (".java", ".kt"): (r"@Disabled", r"@Ignore", r"@SuppressWarnings"),
     (".sh", ".bash"): (r"#\s*shellcheck\s+disable",),
 }
+# A file with no suffix is read with the marks of the language its first line names
+# (`#!`), as ruff checks such a file of Python when a project names it (`bin/lem` in
+# Lem's `extend-include`) and ShellCheck reads a shell script by its `#!`: each
+# interpreter here with the suffix whose marks it takes. Another interpreter, or no
+# `#!`, takes no marks, as a file with no suffix took none before.
+SHEBANG = {
+    "python": ".py",
+    **dict.fromkeys(("sh", "bash", "dash", "ksh"), ".sh"),
+}
+# The bytes of a file's first line that are read for its `#!`: an interpreter's path
+# and name fit in it, and a built file of one long line is never read whole.
+SHEBANG_READ = 256
 # The settings files of a test runner or of coverage, by name: their marks leave tests
 # out, or run a failing test again until it passes, for the whole suite at once.
 TEST_CONFIG = re.compile(
@@ -3589,18 +3601,66 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
     file, or none."""
     # -M: a file that moved is one file, so its tests are not counted as gone and
     # come again
+    files = changed(task, base, tip)
     return bar_of(
         git(task.worktree, "diff", "-U0", "-M", base, tip),
         git(task.worktree, "diff", "--name-status", "-M", base, tip).splitlines(),
         plan,
-        changed(task, base, tip),
+        files,
+        kinds=shebang_kinds(task.worktree, tip, files),
     )
 
 
-def bar_of(diff: str, rows: list[str], plan: str, files: list[str]) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
+def shebang_kinds(where: Path, tip: str, files: list[str]) -> dict[str, str]:
+    """Each of FILES with no suffix whose first line at TIP names an interpreter of
+    `SHEBANG`, with the suffix whose marks it is read with. One read of git for each
+    file with no suffix and none for any other; a file TIP does not hold has none."""
+    kinds = {}
+    for name in files:
+        if Path(name).suffix:
+            continue
+        with subprocess.Popen(
+            ["git", "-C", str(where), "cat-file", "blob", f"{tip}:{name}"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        ) as read:
+            first = read.stdout.readline(SHEBANG_READ) if read.stdout else b""
+            read.kill()
+        kind = shebang_suffix(first.decode(errors="replace"))
+        if kind:
+            kinds[name] = kind
+    return kinds
+
+
+def shebang_suffix(line: str) -> str:
+    """The suffix whose marks a file with no suffix is read with, from its first LINE:
+    the interpreter its `#!` names, also through `env` and its options and settings
+    (`#!/usr/bin/env -S python3 -I`), by `SHEBANG`, with a version after a Python's
+    name (`python3.11`); "" for no `#!` and for another interpreter."""
+    if not line.startswith("#!"):
+        return ""
+    words = line[2:].split()
+    if words and Path(words[0]).name == "env":
+        words = [
+            word for word in words[1:] if not word.startswith("-") and "=" not in word
+        ]
+    if not words:
+        return ""
+    name = Path(words[0]).name
+    return SHEBANG.get(re.sub(r"(?<=^python)[0-9.]+$", "", name), "")
+
+
+def bar_of(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
+    diff: str,
+    rows: list[str],
+    plan: str,
+    files: list[str],
+    kinds: dict[str, str] | None = None,
+) -> dict:
     """The bar's result from what git gave: `diff` is `git diff -U0 -M`, `rows` the
     lines of `git diff --name-status -M`, `files` every changed path; `plan` is the
-    plan's text, or "" when there is none."""
+    plan's text, or "" when there is none; `kinds` names the suffix whose marks a file
+    with no suffix is read with (`shebang_kinds`)."""
     section = re.search(r"(?ms)^##\s+The bar\s*$(.*?)(?=^##\s|\Z)", plan)
     reasons = (
         {
@@ -3616,8 +3676,9 @@ def bar_of(diff: str, rows: list[str], plan: str, files: list[str]) -> dict:  # 
     asserts: dict[str, int] = {}
     # A mark counts when the change leaves more of it in a file than the file had: a
     # line that only moved, or got another space, took the mark out and put it back. A
-    # mark is the same one only with the same text from the mark to the end of its line:
-    # `noqa: F401` that becomes `noqa` is a wider suppression, and a new one.
+    # mark is the same one only with the same own text (`marks_of`): `noqa: F401` that
+    # becomes `noqa` or `noqa: F401, E501` is a wider suppression, and a new one, while
+    # a mark put beside it leaves its text as it was.
     came: dict[tuple[str, str, str], list[dict]] = {}
     went: dict[tuple[str, str, str], int] = {}
     # each coverage threshold's numbers before and after, whatever file of a runner's
@@ -3625,6 +3686,7 @@ def bar_of(diff: str, rows: list[str], plan: str, files: list[str]) -> dict:  # 
     thresholds: dict[str, dict[str, list[tuple[float, str]]]] = {}
     file = old = ""
     marks: list[re.Pattern] = []
+    settings: list[re.Pattern] = []
     for line in diff.splitlines():
         if line.startswith("--- "):
             old = line[6:] if line.startswith("--- a/") else ""
@@ -3634,30 +3696,24 @@ def bar_of(diff: str, rows: list[str], plan: str, files: list[str]) -> dict:  # 
             if Path(file).suffix.lower() in DOCS:
                 # a document may quote a mark, the plan's own reason for one too
                 file = ""
-            marks = (
-                [
-                    *(
-                        re.compile(mark)
-                        for suffixes, found in BAR.items()
-                        if Path(file).suffix.lower() in suffixes
-                        for mark in found
-                    ),
-                    *(
-                        re.compile(mark)
-                        for mark in TEST_CONFIG_MARKS
-                        if TEST_CONFIG.search(file)
-                    ),
-                ]
-                if file
-                else []
-            )
+            # a file with no suffix takes the marks of its first line's language
+            suffix = Path(file).suffix.lower() or (kinds or {}).get(file, "")
+            marks = [
+                re.compile(mark)
+                for suffixes, found in BAR.items()
+                if file and suffix in suffixes
+                for mark in found
+            ]
+            settings = [
+                re.compile(mark)
+                for mark in TEST_CONFIG_MARKS
+                if file and TEST_CONFIG.search(file)
+            ]
         elif not file or line[:1] not in "+-":
             continue
         else:
-            # every mark of the line counts, as a runner's settings put several on
-            # one line
-            for hit in (found for mark in marks if (found := mark.search(line[1:]))):
-                key = (file, hit.re.pattern, " ".join(line[1:][hit.start() :].split()))
+            for hit, own in marks_of(line[1:], marks, settings):
+                key = (file, hit.re.pattern, own)
                 if line.startswith("+"):
                     came.setdefault(key, []).append(
                         {
@@ -3747,6 +3803,40 @@ def bar_of(diff: str, rows: list[str], plan: str, files: list[str]) -> dict:  # 
         "not_covered": not_covered,
         "edited": sorted(edited, key=lambda entry: entry["file"]),
     }
+
+
+def marks_of(
+    text: str, marks: list[re.Pattern], settings: list[re.Pattern]
+) -> list[tuple[re.Match, str]]:
+    """Each mark of a line's TEXT with its own text, by which `bar_of` tells an old mark
+    from a new one. A mark of the code (MARKS) counts each time it stands on the line,
+    and its own text runs from it to the next such mark, or to the line's end: a mark
+    put beside an old one leaves the old one's text as it was, and a rule list that grew
+    changes it. A mark of a runner's settings (SETTINGS) counts once for each kind, with
+    the text to the line's end, as its tokens share a line by the settings' syntax, and
+    a new one of the same kind changes that text."""
+    hits = sorted(
+        (found for mark in marks for found in mark.finditer(text)),
+        key=lambda found: found.start(),
+    )
+    own = [
+        (
+            hit,
+            text[
+                hit.start() : next(
+                    (later.start() for later in hits if later.start() > hit.start()),
+                    len(text),
+                )
+            ],
+        )
+        for hit in hits
+    ]
+    own += [
+        (hit, text[hit.start() :])
+        for hit in (mark.search(text) for mark in settings)
+        if hit
+    ]
+    return [(hit, " ".join(words.split())) for hit, words in own]
 
 
 def bar_refusal(lowered: list[dict], *, small: bool) -> str | None:

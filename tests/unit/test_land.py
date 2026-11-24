@@ -37,6 +37,7 @@ FLAKY = "pytest.mark" + ".flaky"
 PYREFLY = "#" + " pyrefly: ignore"
 TY = "#" + " ty: ignore"
 RUFF = "#" + " ruff: noqa"
+TYPE_IGNORE = "#" + " type: ignore"
 
 
 def patch(
@@ -564,6 +565,59 @@ class Bar(unittest.TestCase):
             [entry["line"] for entry in result["lowered"]], [f"import other  {NOQA}"]
         )
 
+    def test_a_mark_put_beside_an_old_one_is_the_one_new_mark(self) -> None:
+        # the old mark's own text runs to the next mark of its line: a mark put after
+        # it, or before it, leaves that text as it was
+        after = bar(
+            patch(
+                "plug.py",
+                minus=(f"import plugin  {NOQA}: F401",),
+                plus=(f"import plugin  {NOQA}: F401  {TYPE_IGNORE}",),
+            )
+        )
+        self.assertEqual(lowered(after), [("plug.py", TYPE_IGNORE)])
+        before = bar(
+            patch(
+                "plug.py",
+                minus=(f"x = plugin.load()  {NOQA}: E501",),
+                plus=(f"x = plugin.load()  {TYPE_IGNORE}  {NOQA}: E501",),
+            )
+        )
+        self.assertEqual(lowered(before), [("plug.py", TYPE_IGNORE)])
+        # a rule list that grew is a wider suppression, beside a new mark too
+        grew = bar(
+            patch(
+                "plug.py",
+                minus=(f"import plugin  {NOQA}: F401",),
+                plus=(f"import plugin  {NOQA}: F401, E501",),
+            ),
+            patch(
+                "load.py",
+                minus=(f"import load  {NOQA}: F401",),
+                plus=(f"import load  {NOQA}: F401, E501  {TYPE_IGNORE}",),
+            ),
+        )
+        self.assertEqual(
+            lowered(grew),
+            [("load.py", NOQA), ("load.py", TYPE_IGNORE), ("plug.py", NOQA)],
+        )
+        # a mark that moved with its code to another line is none
+        moved = bar(
+            patch(
+                "plug.py",
+                minus=(f"import plugin  {NOQA}: F401", "import os"),
+                plus=("import os", f"import plugin  {NOQA}: F401"),
+            )
+        )
+        self.assertEqual(moved["lowered"], [])
+
+    def test_a_second_mark_of_one_kind_on_a_line_counts(self) -> None:
+        # a runner's settings put several marks of one kind on one line
+        two = 'addopts = "--deselect tests/a.py --deselect tests/b.py'
+        three = f'{two} --deselect tests/c.py"'
+        result = bar(patch("pyproject.toml", minus=(f'{two}"',), plus=(three,)))
+        self.assertEqual([entry["line"] for entry in result["lowered"]], [three])
+
     def test_a_skip_of_a_whole_module(self) -> None:
         result = bar(
             patch(
@@ -696,6 +750,34 @@ class Bar(unittest.TestCase):
                 ("tests/shop.spec.js", "xit"),
             ],
         )
+
+    def test_a_file_with_no_suffix_is_read_as_its_first_line_names(self) -> None:
+        lines = {
+            "#!/usr/bin/env python3\n": ".py",
+            "#!/usr/bin/env -S python3 -I\n": ".py",
+            "#!/usr/bin/python3.11\n": ".py",
+            "#!/bin/sh -e\n": ".sh",
+            "#!/usr/bin/env bash\n": ".sh",
+            "#!/usr/bin/env node\n": "",
+            "#!/usr/bin/env -S uv run --script\n": "",
+            "#!/usr/bin/env\n": "",
+            "import os\n": "",
+            "": "",
+        }
+        self.assertEqual({line: land.shebang_suffix(line) for line in lines}, lines)
+        script = patch(
+            "bin/lem", minus=("import os",), plus=(f"import os  {NOQA}: F401",)
+        )
+        tool = patch("tools/run", plus=("# shellcheck" + " disable=SC2086",), new=True)
+        kinds = {"bin/lem": ".py", "tools/run": ".sh"}
+        self.assertEqual(
+            lowered(land.bar_of(f"{script}\n{tool}", [], "", list(kinds), kinds=kinds)),
+            [("bin/lem", NOQA), ("tools/run", "# shellcheck" + " disable")],
+        )
+        # with no kind, a file with no suffix takes no marks, and is no kind of file
+        # the bar misses
+        plain = bar(script, tool, files=tuple(kinds))
+        self.assertEqual((plain["lowered"], plain["not_covered"]), ([], []))
 
     def test_marks_in_a_runners_settings(self) -> None:
         result = bar(
