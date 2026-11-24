@@ -165,9 +165,13 @@ base, work, py, log = sys.argv[1:]
 STATE = ("(() => { const cur = document.querySelector('[data-js-cur]'); const focus = document.activeElement?.closest('article.tc');"
          " const panel = document.querySelector('#task > .panel');"
          " return [cur ? cur.dataset.task : '-', focus ? focus.dataset.task : '-', panel ? panel.dataset.task : '-'].join(' '); })()")
-def until(label, cond):
-    """a print step that waits up to 15 s for COND, then gives LABEL and the state"""
-    return {"print": f"new Promise(done => {{ const end = Date.now() + 15000; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {STATE}]) : setTimeout(tick, 100); tick(); }})"}
+# A wait for what the board's stream brings after a step of the check wrote it has no limit of its own (None):
+# under the load of tests/all.sh the stream brought a proposal after the 15 s of the other waits (2026-11-23)
+def until(label, cond, limit=15000):
+    """a print step that waits up to LIMIT ms for COND, then gives LABEL and the state; with LIMIT None it has no
+    limit of its own, so only the suite's time limit (LEM_TEST_LIMIT) ends a wait for a COND that never comes"""
+    end = "Infinity" if limit is None else f"Date.now() + {limit}"
+    return {"print": f"new Promise(done => {{ const end = {end}; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {STATE}]) : setTimeout(tick, 100); tick(); }})"}
 def at(label):
     return {"print": f"[{json.dumps(label)}, {STATE}]"}
 def go(url):
@@ -207,14 +211,14 @@ steps = [
     {"eval": "document.activeElement.blur()"}, key("j", "KeyJ", modifiers=4), at("cmd"), key("j", "KeyJ", modifiers=2), at("ctrl"), key("j", "KeyJ", modifiers=1), at("alt"),
     key("ArrowDown", modifiers=2), at("ctrl-down"), J, at("plain"),
     # H and L over an empty column: the one task in its checks lands
-    *go(f"{base}/"), event("coupon-has-a-slug", "landed", "main: the change is merged"), until("emptied", "!document.querySelector('#col-checks article.tc')"),
+    *go(f"{base}/"), event("coupon-has-a-slug", "landed", "main: the change is merged"), until("emptied", "!document.querySelector('#col-checks article.tc')", None),
     J, L, J, at("from-empty"),
     {"print": "['nearest', (() => { const mid = n => { const b = n.getBoundingClientRect(); return b.top + b.height / 2; }; const at = mid(document.querySelector('[data-js-cur]'));"
               " return [...document.querySelectorAll('#col-done article.tc')].sort((a, b) => Math.abs(mid(a) - at) - Math.abs(mid(b) - at))[0].dataset.task; })()]"},
     L, at("l-empty"), H, at("h-empty"),
     # the mark through a morph: a new card comes into its column, then the marked card moves to another column
-    event("keys-new-task", "building", "task 1 of 2"), until("new-card", "document.querySelector('#col-build #card-keys-new-task')"),
-    event("cart-total-after-coupon", "landing", "the checks start"), until("moved", "document.querySelector('#col-checks #card-cart-total-after-coupon')"),
+    event("keys-new-task", "building", "task 1 of 2"), until("new-card", "document.querySelector('#col-build #card-keys-new-task')", None),
+    event("cart-total-after-coupon", "landing", "the checks start"), until("moved", "document.querySelector('#col-checks #card-cart-total-after-coupon')", None),
     J, at("after-move"),
     # every column folded: no card to mark, and the down arrow stays the browser's (it scrolls)
     {"eval": "document.querySelectorAll('#kanban section.col:not(.folded) .col-head button').forEach(b => b.click())"}, {"wait": 300},
@@ -325,9 +329,13 @@ opened = [r for e in rows for r in ([e, *entries["stacks"][e]] if e == stack els
 STATE = ("(() => { const cur = document.querySelector('#waits-list [data-js-cur]'); const focus = document.activeElement?.closest('article.wrow, details.wstack');"
          " const panel = document.querySelector('#task > .panel');"
          " return [cur ? cur.id : '-', focus ? focus.id : '-', panel ? panel.dataset.task : '-'].join(' '); })()")
-def until(label, cond):
-    """a print step that waits up to 15 s for COND, then gives LABEL and the state"""
-    return {"print": f"new Promise(done => {{ const end = Date.now() + 15000; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {STATE}]) : setTimeout(tick, 100); tick(); }})"}
+# A wait for what the board's stream brings after a step of the check wrote it has no limit of its own (None):
+# under the load of tests/all.sh the stream brought a proposal after the 15 s of the other waits (2026-11-23)
+def until(label, cond, limit=15000):
+    """a print step that waits up to LIMIT ms for COND, then gives LABEL and the state; with LIMIT None it has no
+    limit of its own, so only the suite's time limit (LEM_TEST_LIMIT) ends a wait for a COND that never comes"""
+    end = "Infinity" if limit is None else f"Date.now() + {limit}"
+    return {"print": f"new Promise(done => {{ const end = {end}; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {STATE}]) : setTimeout(tick, 100); tick(); }})"}
 def at(label):
     return {"print": f"[{json.dumps(label)}, {STATE}]"}
 def where(label):
@@ -363,8 +371,8 @@ steps = [
     key("Escape"), until("merge-escape", gone), *seen_calls("calls-merge"),
     # the mark through a morph: a new row comes, then the marked row leaves
     *(moves(merge, mine, opened if stack else rows) if merge else []), at("pre-morph"),
-    sh(py, f"{work}/event.py", log, "keys-other-wait", "held", "the interview waits for the owner"), until("new-row", "document.querySelector('#wait-held-keys-other-wait')"),
-    sh(py, f"{work}/event.py", log, held, "building", "task 1 of 2"), until("row-gone", f"!document.querySelector('#{mine}')"),
+    sh(py, f"{work}/event.py", log, "keys-other-wait", "held", "the interview waits for the owner"), until("new-row", "document.querySelector('#wait-held-keys-other-wait')", None),
+    sh(py, f"{work}/event.py", log, held, "building", "task 1 of 2"), until("row-gone", f"!document.querySelector('#{mine}')", None),
     J, at("after-gone"), {"print": "['first', document.querySelector('#waits-list article.wrow')?.id ?? '-']"},
 ]
 print(json.dumps({"width": 1440, "height": 900, "steps": steps}))
@@ -476,9 +484,13 @@ STATE = ("(() => { const box = document.getElementById('search'); const q = box?
          " const rows = [...document.querySelectorAll('#search-list a.sr:not([data-js-out])')].slice(0, 6).map(r => (r.hasAttribute('data-js-cur') ? '*' : '') + r.dataset.slug);"
          " return [box?.hasAttribute('data-js-open') ? 'open' : 'closed', q && document.activeElement === q ? 'field' : 'away', q?.value ?? '',"
          " panel ? panel.dataset.task : '-', rows.join(',')].join(' | '); })()")
-def until(label, cond):
-    """a print step that waits up to 15 s for COND, then gives LABEL and the state"""
-    return {"print": f"new Promise(done => {{ const end = Date.now() + 15000; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {STATE}]) : setTimeout(tick, 100); tick(); }})"}
+# A wait for what the board's stream brings after a step of the check wrote it has no limit of its own (None):
+# under the load of tests/all.sh the stream brought a proposal after the 15 s of the other waits (2026-11-23)
+def until(label, cond, limit=15000):
+    """a print step that waits up to LIMIT ms for COND, then gives LABEL and the state; with LIMIT None it has no
+    limit of its own, so only the suite's time limit (LEM_TEST_LIMIT) ends a wait for a COND that never comes"""
+    end = "Infinity" if limit is None else f"Date.now() + {limit}"
+    return {"print": f"new Promise(done => {{ const end = {end}; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {STATE}]) : setTimeout(tick, 100); tick(); }})"}
 def at(label):
     return {"print": f"[{json.dumps(label)}, {STATE}]"}
 def ask(label, expr):
@@ -531,7 +543,7 @@ steps = [
     # a new event while the box is open: it stays open with the letters, and the new card's row is filtered too
     *go(f"{base}/", "document.querySelector('#kanban')"), CMD_K, *typed("crdsrch"),
     {"sh": " ".join(map(shlex.quote, [py, f"{work}/event.py", log, "refund-note-wording", "building", "task 1 of 2"]))},
-    until("s-morph", "document.querySelector('#card-refund-note-wording') && document.querySelector('#sr-task-refund-note-wording')"),
+    until("s-morph", "document.querySelector('#card-refund-note-wording') && document.querySelector('#sr-task-refund-note-wording')", None),
     ask("s-morph-new", "String(document.getElementById('sr-task-refund-note-wording')?.hasAttribute('data-js-out'))"),
 ]
 print(json.dumps({"width": 1440, "height": 900, "steps": steps}))
