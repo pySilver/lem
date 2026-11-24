@@ -5756,6 +5756,39 @@ class StoppedSession(unittest.TestCase):
         self.assertIsNone(self.due(*twice, at="13:02", **turned))
         self.assertEqual(self.rows(self.model(*twice, at="13:02", **turned)), [])
 
+    def test_a_turn_answers_only_the_status_message_that_the_standing_stop_followed(
+        self,
+    ) -> None:
+        # the review's run of 2026-11-24: the unread message at 11:39 and its stop at
+        # 11:49; a turn at 11:55 that no record holds yet; the readable clock's
+        # message at 12:40 and its stop at 12:50. The turn came before the message of
+        # 12:40, so it answers nothing that stands: no record is due, and the stop of
+        # 12:50 keeps its row and the owner's "Open a session"
+        twice = (
+            *self.unread_stopped(),
+            self.ev("12:40", "session.wake", session="S1", why="status"),
+            self.ev("12:50", "session.stopped", session="S1"),
+        )
+        turned = {"sign": "2026-11-22T11:55:00Z"}
+        self.assertIsNone(self.due(*twice, at="17:00", **turned))
+        m = self.model(*twice, at="17:00", **turned)
+        t = m.by_slug["gift-note"]
+        self.assertIs(bm.stop_stands(t), twice[-1])
+        self.assertEqual(self.rows(m), ["stopped"])
+        # a record of that turn after the stop ends nothing either
+        logged = (*twice, self.worked("12:51", "11:55"))
+        m = self.model(*logged, at="17:00", **turned)
+        t = m.by_slug["gift-note"]
+        self.assertIs(bm.stop_stands(t), twice[-1])
+        self.assertIsNotNone(bm.stopped_of(t, m))
+        self.assertEqual(self.rows(m), ["stopped"])
+        self.assertIsNone(self.due(*logged, at="17:00", **turned))
+        # a turn after the message of 12:40 is no turn of the unread clock: the
+        # readable stop stands, as for every readable stop
+        self.assertIsNone(
+            self.due(*twice, at="13:00", sign="2026-11-22T12:55:00Z"),
+        )
+
     def test_after_the_record_a_quiet_session_gets_a_stop_never_a_restart(
         self,
     ) -> None:

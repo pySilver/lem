@@ -40,7 +40,8 @@ Where each fact is, as read on this Mac with Claude Code 2.1.330 on 2026-11-22:
   prompt, a tool's result, a reply), read from the file's end; never the file's time. A
   message that reaches an idle or parked pane writes a `queue-operation` record and runs
   no turn, and `attachment`, `system`, `cost-state`, `continued-in` and `api-request`
-  records are no turn either.
+  records are no turn either, nor a `user` record that `turn` skips (a local command's
+  text, a compaction's summary).
 - `turn` is read from the newest decisive record of the main transcript, from its end,
   and of the session's records only from the transcript whose main thread wrote the
   newest turn (`turn_of`). An `assistant` record with `stop_reason` `tool_use` runs,
@@ -159,7 +160,8 @@ def when(text: object) -> datetime | None:
 def newest_turn(lines: Iterable[str | bytes]) -> str | None:
     """The `timestamp` of the first turn among LINES, a transcript's lines from its
     newest to its oldest (bytes or text), as Lem writes a time (`%Y-%m-%dT%H:%M:%SZ`);
-    None when no line is a turn."""
+    None when no line is a turn. A `user` record that runs no turn (`runs_none`) is
+    none: the output of the owner's `/cost` is no work of the session."""
     for raw in lines:
         try:
             record = json.loads(raw)
@@ -168,10 +170,22 @@ def newest_turn(lines: Iterable[str | bytes]) -> str | None:
         if (
             isinstance(record, dict)
             and record.get("type") in TURNS
+            and not runs_none(record)
             and (found := when(record.get("timestamp")))
         ):
             return lem_clock.stamp(found)
     return None
+
+
+def runs_none(record: dict) -> bool:
+    """Whether a `user` record runs no turn: a local command's text or a compaction's
+    summary (`turn_of` skips both)."""
+    if record.get("type") != "user":
+        return False
+    texts = texts_of(record)
+    return bool(
+        record.get("isCompactSummary") or (texts and texts[0].startswith(LOCAL))
+    )
 
 
 def texts_of(record: dict) -> list[str]:
@@ -224,7 +238,7 @@ def turn_of(lines: Iterable[str | bytes]) -> str | None:
             texts = texts_of(record)
             if any(text.startswith(INTERRUPT) for text in texts):
                 return ENDED
-            if record.get("isCompactSummary") or (texts and texts[0].startswith(LOCAL)):
+            if runs_none(record):
                 continue
             return RUNS
     return None

@@ -3100,11 +3100,12 @@ def stop_due(t: Task, m: Model) -> dict | None:  # noqa: PLR0911 - over the limi
     that a change of the signs gives a logged stop no second message and no second
     stop. Then:
 
-    - `worked`, from the turn, when the signs read and show a turn at or after a status
-      wake of the unread clock that the clock still counts (an unread stop after it
-      stands, or the stop is still to come): the record of that turn, once, since the
-      clock then counts from it. It ends the stop (`stop_stands`), so the row and the
-      owner's refused "Open a session" go;
+    - `worked`, from the turn, when the signs read and show a turn at or after the
+      newest status wake that the clock still counts, and the unread clock sent it (an
+      unread stop after it stands, or the stop is still to come): the record of that
+      turn, once, since the clock then counts from it. It ends the stop
+      (`stop_stands`), so the row and the owner's refused "Open a session" go. A turn
+      before a newer status wake answers none that stands;
     - `status`, from that sign, QUIET_MS after it, when no status wake of its clock came
       after it;
     - with signs that read, `restart`, from that wake, ANSWER_MS after it, when no
@@ -3142,17 +3143,18 @@ def stop_due(t: Task, m: Model) -> dict | None:  # noqa: PLR0911 - over the limi
     turn = (at(f.get("sign")) or 0) if read else 0
     since = max([*times, turn])
     session = f.get("session") or t.session
-    # a turn read after a status message that the clock of signs that do not read still
-    # counts: logged once, it ends that message's wait and the stop after it
-    unread = next(
+    # a turn read after the newest status message, when the clock of signs that do not
+    # read sent it: logged once, it ends that message's wait and the stop after it. A
+    # turn before a newer message of either clock answers none that stands.
+    newest = next(
         (
             w
-            for w in t.wakes
-            if w.get("why") == "status" and w["unread"] and w["ts"] > max(times)
+            for w in reversed(t.wakes)
+            if w.get("why") == "status" and w["ts"] > max(times)
         ),
         None,
     )
-    if unread is not None and turn >= unread["ts"]:
+    if newest is not None and newest["unread"] and turn >= newest["ts"]:
         return {"step": "worked", "session": session, "from": turn}
     stop = stop_stands(t)
     # the order of the status wake before the standing stop (`wake_before`, an index; an
@@ -3223,7 +3225,8 @@ def stop_stands(t: Task) -> dict | None:
     owner's "Open a session"; else None. A work event between that wake and the stop is
     a state block the session appended in the moment the guard looked: the order of the
     log decides, and such a stop stands over nothing. A WORKED record is a turn that a
-    look which read the session saw after the status message: the session answered."""
+    look which read the session saw after the status message: the session answered,
+    when the turn came at or after that wake, and else it answered an older one."""
     found = next(
         (
             i
@@ -3235,8 +3238,11 @@ def stop_stands(t: Task) -> dict | None:
     if found is None:
         return None
     wake = wake_before(t, found)
+    asked = at(t.events[wake].get("ts")) or 0
     if any(work_event(e) for e in t.events[wake + 1 :]) or any(
-        e.get("event") in ("session.open", WORKED) for e in t.events[found + 1 :]
+        e.get("event") == "session.open"
+        or (e.get("event") == WORKED and (at(e.get("turn")) or 0) >= asked)
+        for e in t.events[found + 1 :]
     ):
         return None
     return t.events[found]

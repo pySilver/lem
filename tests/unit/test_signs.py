@@ -374,6 +374,31 @@ class Transcript(unittest.TestCase):
             lem_signs.newest_turn([json.dumps(line) for line in self.LINES[2:]])
         )
 
+    def test_a_local_commands_output_after_the_newest_turn_moves_no_sign(
+        self,
+    ) -> None:
+        # the review's run of 2026-11-24: after an unread stop, the owner asks for the
+        # cost in the pane whose turn had ended; the output of the local command is a
+        # `user` record that runs no turn (`turn_of`), so the sign stays at the end of
+        # the turn
+        later = "2026-11-23T12:30:00Z"
+        records = [
+            PROMPT,
+            ENDED,
+            {**CAVEAT, "timestamp": later},
+            {**user("<command-name>/cost</command-name>"), "timestamp": later},
+            {
+                **user(
+                    "<local-command-stdout>Total cost: $1.20</local-command-stdout>"
+                ),
+                "timestamp": later,
+            },
+            {**SUMMARY, "timestamp": later},
+        ]
+        lines = [json.dumps(one) for one in reversed(records)]
+        self.assertEqual(lem_signs.turn_of(lines), "ended")
+        self.assertEqual(lem_signs.newest_turn(lines), "2026-11-23T11:42:55Z")
+
     def test_the_file_is_read_from_its_end_in_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "t.jsonl"
