@@ -4,6 +4,7 @@ prints for a value the page submitted.
     python3 -B -m unittest discover -s tests/unit
 """
 
+import argparse
 import contextlib
 import io
 import json
@@ -103,6 +104,52 @@ class LoadSpec(unittest.TestCase):
                 said = json.loads(out.getvalue())
                 self.assertEqual(said["status"], "error")
                 self.assertIn("spec", said["error"])
+
+
+def page_of(spec: dict) -> str:
+    """The text of the page `write_page` writes for SPEC, in a folder of its own."""
+    with (
+        tempfile.TemporaryDirectory() as folder,
+        mock.patch.object(ask, "OUTDIR", folder),
+    ):
+        ask.check_spec(spec)
+        path = ask.write_page(ask.build_html(spec, folder))
+        return Path(path).read_bytes().decode("utf-8")
+
+
+class HalfACharacterInASpec(unittest.TestCase):
+    """A spec's text with one half of a UTF-16 pair alone, as JSON writes it
+    ("\\ud83d") or as Python reads a byte of argv that is no UTF-8: write_page raised
+    UnicodeEncodeError."""
+
+    def test_a_spec_from_a_file_writes_its_page_as_valid_utf8(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder, "spec.json")
+            path.write_text(
+                '{"title": "ship \\ud83d", "questions": [{"id": "a", "prompt":'
+                ' "go \\ud83d\\ude80 \\udc80now", "options": [{"id": "o1",'
+                ' "label": "yes \\ud83d"}]}]}',
+                encoding="utf-8",
+            )
+            spec = ask.load_spec(str(path))
+        page = page_of(spec)
+        self.assertIn("ship �", page)
+        self.assertIn("go \U0001f680 �now", page)
+        self.assertIn("yes �", page)
+        self.assertEqual(spec["title"], "ship �")
+
+    def test_a_quick_question_writes_its_page_as_valid_utf8(self) -> None:
+        a = argparse.Namespace(
+            prompt="go \udcff",
+            options=["*yes \udcff|sub|why"],
+            multi=False,
+            context="the \ud83d",
+            title=None,
+        )
+        page = page_of(ask.quick_spec(a))
+        self.assertIn("go �", page)
+        self.assertIn("yes �", page)
+        self.assertIn("the �", page)
 
 
 if __name__ == "__main__":

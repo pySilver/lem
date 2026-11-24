@@ -122,7 +122,9 @@ def load_spec(arg: str | None) -> dict[str, Any]:
         except OSError as e:
             die(f"cannot read the spec: {e}")
     try:
-        return json.loads(raw)
+        # half of a UTF-16 pair alone ("\ud83d") is U+FFFD, as in what a page sends
+        # (`submitted`): the page, the card and every message write as UTF-8
+        return typing.cast("dict[str, Any]", lem_cards().whole(json.loads(raw)))
     except json.JSONDecodeError as e:
         die(f"spec is not valid JSON: {e}")
     except (ValueError, RecursionError) as e:
@@ -1680,7 +1682,8 @@ def quick_spec(a: "argparse.Namespace") -> dict[str, Any]:
         spec["title"] = a.title
     if opts:
         spec["width"] = "narrow"
-    return spec
+    # a byte of argv that is no UTF-8 reads as half of a pair: U+FFFD, as in a spec
+    return typing.cast("dict[str, Any]", lem_cards().whole(spec))
 
 
 def list_dir(d: Path) -> list[tuple[str, str]]:
