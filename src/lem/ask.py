@@ -1397,9 +1397,15 @@ def wait_page(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit
             out = o.get("outcome")
             if out == "submitted":
                 try:
-                    ans: dict[str, Any] = json.loads(o.get("value") or "{}")
+                    given = json.loads(o.get("value") or "{}")
                 except json.JSONDecodeError:
-                    ans = {
+                    given = None
+                # a value that is no JSON, or JSON that is no object (what a spec's own
+                # script may send): its text, as one answer
+                ans: dict[str, Any] = (
+                    given
+                    if isinstance(given, dict)
+                    else {
                         "status": "answered",
                         "answers": {
                             "answer": {
@@ -1409,6 +1415,7 @@ def wait_page(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit
                             }
                         },
                     }
+                )
                 if card is not None:
                     won, on_record = card.end("answered", ans)
                     if not won:

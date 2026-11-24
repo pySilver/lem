@@ -307,8 +307,11 @@ mod.time.sleep = lambda s: None
 calls = []
 def reply(stdout, code=0):
     return types.SimpleNamespace(stdout=stdout, stderr="", returncode=code)
+# a submitted value the page's own script may send (`window.lemAsk.send`): JSON that is no object, or no JSON
+VALUES = {"value-list": "[1]", "value-number": "42", "value-string": '"text"', "value-text": "not json"}
 def outcome(o):
-    return reply(json.dumps({"ok": True, "result": {"pageOutcome": {"pageID": "P1", "outcome": o, "value": json.dumps({"status": "answered", "answers": {}})}}}))
+    value = VALUES.get(scenario, json.dumps({"status": "answered", "answers": {}}))
+    return reply(json.dumps({"ok": True, "result": {"pageOutcome": {"pageID": "P1", "outcome": o, "value": value}}}))
 def tree(file):
     return reply(json.dumps({"ok": True, "result": {"tree": {"workspaces": [{"sessions": [
         {"id": "S1", "htmlOverlays": [{"file": file, "id": "P0"}]}]}]}}}))
@@ -320,7 +323,7 @@ def ctl(*args, check=True):
         if len(calls) > 5:
             sys.exit(9)  # still polling: the wait never gave up
         return reply("")
-    if scenario == "answered":
+    if scenario == "answered" or scenario in VALUES:
         return outcome("pending") if len(calls) < 3 else outcome("submitted")
     if scenario == "dismissed":
         return outcome("dismissed")
@@ -348,6 +351,19 @@ PY
 stub "wait stops on an agterm error" 1 error invalid
 stub "wait stops when agterm goes silent" 1 error silent
 stub "wait returns the answer" 0 answered answered
+stub "wait takes a submitted list as the text of one answer" 0 answered value-list
+stub "wait takes a submitted number as the text of one answer" 0 answered value-number
+stub "wait takes a submitted JSON string as the text of one answer" 0 answered value-string
+texts=""
+for scenario in value-list value-number value-string value-text; do
+  said=$("$PY" -I -B -c "$STUB" "$B" "$scenario" 2>/dev/null || true)
+  texts+=$(printf '%s' "$said" | "$PY" -I -B -c 'import json,sys; a = json.load(sys.stdin); print(a["answers"]["answer"]["text"], a["pageID"], sep="|")' 2>/dev/null || echo "unread: $said")$'\n'
+done
+if [ "$texts" = $'[1]|P1\n42|P1\n"text"|P1\nnot json|P1\n' ]; then
+  pass "wait gives a JSON value that is no object the form of a value that is no JSON: its text, as one answer"
+else
+  fail "wait gives a JSON value that is no object the form of a value that is no JSON: $texts"
+fi
 stub "wait reports a dismissal" 2 dismissed dismissed
 stub "busy names a pending question page" 5 busy busy-own
 stub "busy with another tool's overlay" 5 busy busy-other
