@@ -20,6 +20,7 @@ import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 from unittest import mock
 
 sys.dont_write_bytecode = True
@@ -60,7 +61,7 @@ CARD = {
 }
 
 
-def ev(minute: float, event: str, **fields) -> dict:
+def ev(minute: float, event: str, **fields: object) -> dict:
     return {
         "ts": (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "event": event,
@@ -70,7 +71,10 @@ def ev(minute: float, event: str, **fields) -> dict:
 
 
 def picked(*ids: str, text: str | None = None, labels: list | None = None) -> dict:
-    one = {"selected": list(ids), "labels": labels if labels is not None else list(ids)}
+    one: dict[str, object] = {
+        "selected": list(ids),
+        "labels": labels if labels is not None else list(ids),
+    }
     if text is not None:
         one["text"] = text
     return {"status": "answered", "answers": {"answer": one}}
@@ -153,7 +157,7 @@ class Answer(unittest.TestCase):
 
     def answer(
         self, given: dict, via: str = "door", device: str = "phone", session: str = "S1"
-    ):
+    ) -> tuple[int, str | None]:
         return serve.act_card(
             Workspace(self.state, session), SLUG, PAGE, given, via, device, IPHONE
         )
@@ -172,7 +176,7 @@ class Answer(unittest.TestCase):
             )
         )
         self.assertEqual((status, said), (200, serve.ON_RECORD))
-        end = self.end()
+        end = cast("dict", self.end())
         self.assertEqual(
             {
                 key: end[key]
@@ -242,9 +246,10 @@ class Answer(unittest.TestCase):
         status, said = self.answer(picked("no"))
         self.assertEqual(status, 409)
         self.assertRegex(
-            said, r"^Yes was taken in the session at \d\d:\d\d: nothing was recorded\.$"
+            cast("str", said),
+            r"^Yes was taken in the session at \d\d:\d\d: nothing was recorded\.$",
         )
-        self.assertEqual(self.end()["from"], "session")
+        self.assertEqual(cast("dict", self.end())["from"], "session")
 
     def test_criterion_4_an_answer_agterm_holds_from_the_mac_counts_first(self) -> None:
         self.agterm = (
@@ -261,7 +266,7 @@ class Answer(unittest.TestCase):
     def test_a_card_of_a_session_that_no_longer_runs_takes_no_answer(self) -> None:
         status, said = self.answer(picked("no"), session="S2")
         self.assertEqual(status, 409)
-        self.assertIn("no longer runs", said)
+        self.assertIn("no longer runs", cast("str", said))
         self.assertIsNone(self.end())
 
     def test_two_answers_of_the_board_at_once_record_one(self) -> None:
@@ -269,7 +274,9 @@ class Answer(unittest.TestCase):
         second = self.answer(picked("yes"))
         self.assertEqual(first[0], 200)
         self.assertEqual(second[0], 409)
-        self.assertIn("No, write a dash was taken on the board at", second[1])
+        self.assertIn(
+            "No, write a dash was taken on the board at", cast("str", second[1])
+        )
 
 
 class Refusal(unittest.TestCase):
@@ -294,7 +301,7 @@ class Refusal(unittest.TestCase):
         ]
     }
 
-    def given(self, **answers) -> dict:
+    def given(self, **answers: object) -> dict:
         return {"status": "answered", "answers": answers}
 
     def test_a_tune_answer_with_moved_sliders_an_optional_question_left_empty_and_a_text_answer_are_answers(

@@ -57,8 +57,8 @@ from types import ModuleType
 from typing import Any, cast
 from urllib.parse import quote
 
-import lem_artifacts
 import lem_answers
+import lem_artifacts
 import lem_board_model as bm
 import lem_board_pages as P  # noqa: N812 - the pages module, named on 148 lines of this file
 import lem_cards
@@ -2792,7 +2792,7 @@ def approve_card(ctx: P.Ctx, t: bm.Task, note: Markup | None = None) -> Markup |
                 form,
                 act_back(ctx, t, "Back", "cf-back"),
             ),
-            True,
+            sheet=True,
             card_id="approve-card",
             wrap="approve-body",
         )
@@ -4293,7 +4293,8 @@ def drop_step(ctx: P.Ctx, t: bm.Task) -> list:
             P.rich(ctx, t.breaker.what or ""),
             f", since {bm.stop_words(t.breaker)}.",
         )
-        if asks["kind"] == "breaker"
+        # a breaker's row is there only while its breaker is (`answer_row`)
+        if asks["kind"] == "breaker" and t.breaker is not None
         else h(
             "p",
             None,

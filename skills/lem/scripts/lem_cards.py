@@ -130,9 +130,9 @@ def write_whole(path: Path, data: bytes) -> None:
     a part."""
     fresh = fresh_name(path)
     try:
-        with open(fresh, "xb") as file:
+        with fresh.open("xb") as file:
             file.write(data)
-        os.replace(fresh, path)
+        fresh.replace(path)
     finally:
         fresh.unlink(missing_ok=True)
 
@@ -147,7 +147,7 @@ def link_whole(target: Path, data: bytes) -> bool:
     target.parent.mkdir(exist_ok=True)
     fresh = fresh_name(target)
     try:
-        with open(fresh, "xb") as file:
+        with fresh.open("xb") as file:
             file.write(data)
         os.link(fresh, target)
     except FileExistsError:
@@ -202,7 +202,12 @@ def ended(task: Path, page: str) -> dict | None:
 
 
 def end(
-    task: Path, page: str, status: str, source: str, answer: dict | None = None, **more
+    task: Path,
+    page: str,
+    status: str,
+    source: str,
+    answer: dict | None = None,
+    **more: object,
 ) -> tuple[bool, dict]:
     """End the card PAGE of the task's folder TASK, only when no end is on record:
     (True, the record) when this call owns the end, else (False, the end on record).
@@ -289,7 +294,9 @@ def words(answer: dict | None) -> str:
     return "an answer in words" if texts else "an answer"
 
 
-def local_time(stamp: str) -> str:
+def local_time(stamp: str | None) -> str:
+    if not isinstance(stamp, str):
+        return str(stamp)
     try:
         return (
             datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ")
@@ -297,8 +304,8 @@ def local_time(stamp: str) -> str:
             .astimezone()
             .strftime("%H:%M")
         )
-    except (TypeError, ValueError):
-        return str(stamp)
+    except ValueError:
+        return stamp
 
 
 def took_effect(record: dict) -> str:

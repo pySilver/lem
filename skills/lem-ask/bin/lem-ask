@@ -1080,7 +1080,7 @@ def close_page(page_id: str | None = None) -> None:
                 )
             )
         print(f"lem-ask: {error}", file=sys.stderr)
-    if lost is not None:
+    if card is not None and lost is not None:
         emit(*card.output(lost, "closed"))
     emit({"status": "closed", "pageID": page}, 0)
 
@@ -1339,7 +1339,7 @@ def open_overlay(path: str, a: argparse.Namespace, spec: dict[str, Any]) -> str 
     return res.get("pageID") or res.get("id")
 
 
-def wait_page(  # noqa: C901 - over the limit before the limit was set
+def wait_page(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     page_id: str | None,
     timeout: float,
     *,
@@ -1360,8 +1360,7 @@ def wait_page(  # noqa: C901 - over the limit before the limit was set
     unreadable = 0
     try:
         while True:
-            on_record = card.ended() if card is not None else None
-            if on_record is not None:
+            if card is not None and (on_record := card.ended()) is not None:
                 mine = peek(page_id) if on_record.get("from") == "board" else None
                 if (
                     on_record.get("status") == "answered"

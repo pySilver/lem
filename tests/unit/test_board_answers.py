@@ -21,6 +21,7 @@ import threading
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 from unittest import mock
 
 sys.dont_write_bytecode = True
@@ -47,7 +48,7 @@ CRITERION = (
 )
 
 
-def ev(minute: float, event: str, **fields) -> dict:
+def ev(minute: float, event: str, **fields: object) -> dict:
     return {
         "ts": (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "event": event,
@@ -98,7 +99,7 @@ SKIP = [
 FAST = [state(0, "held", bm.FAST_CRITERION, "type: fix, because a cell"), OPENED]
 
 
-def model(*events: dict, answers: dict | None = None):
+def model(*events: dict, answers: dict | None = None) -> "bm.Model":
     m = bm.derive(list(events), [], NOW)
     m.sessions = {
         SLUG: {"live": True, "agent": True, "unanswered": False, "session": "S1"}
@@ -152,7 +153,7 @@ class Acts(unittest.TestCase):
         self.calls: list = []
         self.refuse = False
 
-        def run(ws, file, *args):
+        def run(ws: Workspace, file: str, *args: str) -> subprocess.CompletedProcess:
             self.calls.append((file, *args))
             return subprocess.CompletedProcess(
                 args, 1 if self.refuse else 0, "", "it refused" if self.refuse else ""
@@ -178,13 +179,15 @@ class Acts(unittest.TestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
 
-    def ws(self, *events, criteria=CRITERION) -> Workspace:
+    def ws(self, *events: dict, criteria: str | None = CRITERION) -> Workspace:
         return Workspace(self.state, list(events or BREAKER), criteria)
 
-    def answer(self, form: dict, *events, heard=PHONE, **kw) -> dict:
+    def answer(
+        self, form: dict, *events: dict, heard: dict = PHONE, **kw: str | None
+    ) -> dict:
         return serve.act_answer(self.ws(*events, **kw), SLUG, form, dict(heard))
 
-    def key(self, *events) -> str:
+    def key(self, *events: dict) -> str:
         return bm.answer_row(model(*events).tasks[0])["key"]
 
     def record(self, key: str) -> dict | None:
@@ -238,7 +241,9 @@ class Acts(unittest.TestCase):
         self.assertEqual(
             [c for c in self.calls if c[0] not in ("wake", "board.act")], []
         )
-        self.assertEqual(self.record(key)["note"], "the export goes another way")
+        self.assertEqual(
+            cast("dict", self.record(key))["note"], "the export goes another way"
+        )
 
     def test_criterion_9_the_record_is_the_owners_with_the_question_option_note_time_and_device(
         self,
@@ -247,7 +252,7 @@ class Acts(unittest.TestCase):
         self.answer(
             {"key": key, "option": "help", "words": "Put the note in the last column."}
         )
-        made = self.record(key)
+        made = cast("dict", self.record(key))
         self.assertEqual(
             {
                 k: made[k]
@@ -286,7 +291,10 @@ class Acts(unittest.TestCase):
             heard={"via": "local", "device": "computer", "agent": "Mac"},
         )
         self.assertEqual(
-            (self.record(plan_key)["device"], self.record(plan_key)["via"]),
+            (
+                cast("dict", self.record(plan_key))["device"],
+                cast("dict", self.record(plan_key))["via"],
+            ),
             ("computer", "local"),
         )
 
@@ -320,7 +328,7 @@ class Acts(unittest.TestCase):
                 r"the task’s session takes it\.$"
             ),
         )
-        self.assertEqual(self.record(key)["option"], "drop")
+        self.assertEqual(cast("dict", self.record(key))["option"], "drop")
         # Park, from its own step, reads the same record first
         parked = serve.act_park(
             self.ws(), SLUG, {"key": key, "why": "later"}, bm.VIA["local"], heard=PHONE
@@ -341,7 +349,10 @@ class Acts(unittest.TestCase):
         )
         self.assertTrue(parked["ok"])
         self.assertEqual(
-            (self.record(key)["option"], self.record(key)["note"]),
+            (
+                cast("dict", self.record(key))["option"],
+                cast("dict", self.record(key))["note"],
+            ),
             ("park", "wait for the new reader"),
         )
         self.assertIn(
@@ -419,7 +430,7 @@ class Acts(unittest.TestCase):
         )
         done = self.answer({"key": key, "option": "build"}, *PLAN)
         self.assertTrue(done["ok"])
-        self.assertEqual(self.record(key)["option"], "build")
+        self.assertEqual(cast("dict", self.record(key))["option"], "build")
         self.assertEqual([w["kind"] for w in bm.waits_of(self.ws(*PLAN).model())], [])
 
     def test_criterion_7_yes_on_skip_the_persona_read_is_on_record_and_wakes_the_session_as_his_y_does(
@@ -437,7 +448,10 @@ class Acts(unittest.TestCase):
         )
         self.assertTrue(self.answer({"key": key, "option": "yes"}, *SKIP)["ok"])
         self.assertEqual(
-            (self.record(key)["question"], self.record(key)["label"]),
+            (
+                cast("dict", self.record(key))["question"],
+                cast("dict", self.record(key))["label"],
+            ),
             ("Skip the persona read?", "Yes"),
         )
         self.assertIn(("wake", SLUG), self.calls)
@@ -472,7 +486,11 @@ class Acts(unittest.TestCase):
             self.calls,
         )
         self.assertEqual(
-            (self.record(key)["option"], self.record(key)["digest"]), ("yes", "d1g3st")
+            (
+                cast("dict", self.record(key))["option"],
+                cast("dict", self.record(key))["digest"],
+            ),
+            ("yes", "d1g3st"),
         )
 
     def test_a_yes_whose_approval_refuses_takes_its_record_back(self) -> None:
@@ -517,7 +535,10 @@ class Acts(unittest.TestCase):
             )["ok"]
         )
         self.assertEqual(
-            (self.record(key)["note"], self.record(key)["digest"]),
+            (
+                cast("dict", self.record(key))["note"],
+                cast("dict", self.record(key))["digest"],
+            ),
             ("a dash, as in the invoice export", "d1g3st"),
         )
         self.assertNotIn("criteria.py", [c[0] for c in self.calls])
@@ -549,12 +570,12 @@ class Rows(unittest.TestCase):
 
     def ctx(
         self,
-        *events,
-        answers=None,
-        can_act=True,
-        tab="overview",
-        query=None,
-        view="waits",
+        *events: dict,
+        answers: dict | None = None,
+        can_act: bool = True,
+        tab: str = "overview",
+        query: dict | None = None,
+        view: str = "waits",
     ) -> "pages.Ctx":
         ctx = pages.Ctx(
             host="h",

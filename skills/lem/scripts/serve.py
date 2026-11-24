@@ -1498,7 +1498,7 @@ def told_then(told: dict, then: str) -> str:
     )
 
 
-def act_approve(
+def act_approve(  # noqa: PLR0911 - over the limit before the limit was set
     workspace: Workspace, slug: str, form: dict, via: str, heard: dict | None = None
 ) -> dict:
     """The owner's yes to the criteria of the task directory, `lem criteria approve SLUG
@@ -1665,7 +1665,7 @@ def note_of(form: dict) -> str:
     return " ".join(str(form.get("words") or "").split())[:NOTE_CHARS]
 
 
-def act_answer(workspace: Workspace, slug: str, form: dict, heard: dict) -> dict:
+def act_answer(workspace: Workspace, slug: str, form: dict, heard: dict) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit was set
     """The owner's answer to a row the board answers with its own buttons
     (`bm.answer_row`: a plan, a breaker, "Skip the persona read?", "Approve this
     criterion?"), from its answer form: the row's `key`, the `option` and his note
@@ -1870,7 +1870,7 @@ ON_RECORD = bm.ANSWER_ON_RECORD
 PHONE_AGENT = re.compile(r"\b(iPhone|iPad|Android)\b")
 
 
-def device_of(headers) -> str:
+def device_of(headers: email.message.Message) -> str:
     """`phone` when the request names a phone (PHONE_AGENT, `Sec-CH-UA-Mobile: ?1`),
     else `computer`."""
     if (headers.get("Sec-CH-UA-Mobile") or "").strip() == "?1":
@@ -1943,7 +1943,7 @@ def card_policy(page: bytes) -> str:
     )
 
 
-def card_refusal(card: dict, given: object) -> str | None:
+def card_refusal(card: dict, given: object) -> str | None:  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit was set
     """Why the board takes no answer GIVEN to CARD (the card's record,
     `lem_cards.card`), else None. A wish to talk, and a note with no option picked on a
     question with options, go to the session (the page's own rule: `valid` and `finish`
@@ -2026,7 +2026,7 @@ def card_answer_of(card: dict, given: dict) -> dict:
     return {"status": "answered", "answers": out}
 
 
-def agterm_card_refusal(page: str) -> str | None:
+def agterm_card_refusal(page: str) -> str | None:  # noqa: PLR0911 - over the limit before the limit was set
     """agterm's word on the card's page before the board takes an answer (decision 8 of
     board-answers-a-card), else None: a read of `agtermctl session overlay result --page
     PAGE`, the read lem-ask's own wait makes. When agterm holds an answer or a dismissal
@@ -2082,7 +2082,7 @@ def agterm_card_refusal(page: str) -> str | None:
     return None
 
 
-def act_card(
+def act_card(  # noqa: C901, PLR0911, PLR0913, PLR0917 - over the limit before the limit was set
     workspace: Workspace,
     slug: str,
     page: str,
@@ -2147,7 +2147,7 @@ def act_card(
             page,
             "answered",
             "board",
-            card_answer_of(card, given),
+            card_answer_of(card, cast("dict", given)),  # a dict: card_refusal took it
             via=via,
             device=device,
             agent=agent,
@@ -2818,7 +2818,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.refused(body=True):
             self.answer(body=True)
 
-    def act(self) -> None:  # noqa: PLR0911 - over the limit before the limit was set
+    def act(self) -> None:  # noqa: C901, PLR0911 - over the limit before the limit was set
         """Every method that is not a read comes here, after the door's check. The
         actions are the server's own stop (`stop_refusal`) and the two acts of agterm
         (`agterm_act`), on the main listener only; the board's notifications; and the
@@ -3048,17 +3048,18 @@ class Handler(BaseHTTPRequestHandler):
 
         def answer(status: int, said: str | None) -> None:
             if status == HTTPStatus.NO_CONTENT:
-                return self.send(status, b"", "text/plain; charset=utf-8", body=True)
-            self.send(
-                status,
-                json.dumps({"said": said}, ensure_ascii=False).encode("utf-8"),
-                "application/json",
-                body=True,
-            )
+                self.send(status, b"", "text/plain; charset=utf-8", body=True)
+            else:
+                self.send(
+                    status,
+                    json.dumps({"said": said}, ensure_ascii=False).encode("utf-8"),
+                    "application/json",
+                    body=True,
+                )
 
         if self.door is None:
             said = action_refusal(
-                self.client_address[0], self.headers, self.server.server_address[1]
+                self.client_address[0], self.headers, self.listen_port()
             )
             if said:
                 return answer(HTTPStatus.FORBIDDEN, said)
@@ -3702,7 +3703,7 @@ class Handler(BaseHTTPRequestHandler):
             },
         )
 
-    def card_page(
+    def card_page(  # noqa: PLR0913 - over the limit before the limit was set
         self,
         workspace: Workspace,
         slug: str,

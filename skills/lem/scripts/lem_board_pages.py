@@ -561,7 +561,7 @@ ANSWER_LOOK = {
 NOTE_CHARS = 2000
 
 
-def answer_form(
+def answer_form(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
     ctx: Ctx,
     t: bm.Task,
     asks: dict,
@@ -2671,7 +2671,7 @@ def verb_link(ctx: Ctx, w: dict, say: dict) -> dict:
     return attrs
 
 
-def row_acts(ctx: Ctx, w: dict) -> Markup | None:
+def row_acts(ctx: Ctx, w: dict) -> Markup | None:  # noqa: C901 - over the limit before the limit was set
     """The buttons of a row of "Waits for you": the answer form of a row the board
     answers with its own buttons (a breaker, a plan, the two yes/no rows: `answer_form`,
     with the one criterion's text above its Yes and No), the way to criteria that wait

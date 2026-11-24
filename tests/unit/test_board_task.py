@@ -1847,7 +1847,9 @@ class CardStep(unittest.TestCase):
         ev(2, "card.asked", "export-notes", page=PAGE, prompt="Keep the empty cell?"),
     ]
 
-    def ctx(self, can_act=True, open_=True, end=None):
+    def ctx(
+        self, *, can_act: bool = True, open_: bool = True, end: dict | None = None
+    ) -> "pages.Ctx":
         m = model(*self.EVENTS)
         m.sessions = {
             "export-notes": {
@@ -1949,7 +1951,7 @@ class CardStep(unittest.TestCase):
         # the board logs its answer before the frame has the reply: the refresh's render
         # must pair with the open step (one id) and keep it (one data-keep, app.js), or
         # the morph takes the frame with what the board said away
-        def head(ctx):
+        def head(ctx: "pages.Ctx") -> str:
             html = "".join(
                 str(x) for x in task_pages.card_step(ctx, ctx.model.tasks[0], self.PAGE)
             )

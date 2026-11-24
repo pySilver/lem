@@ -17,6 +17,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from typing import cast
 
 sys.dont_write_bytecode = True
 SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"
@@ -220,7 +221,7 @@ class FirstEndCounts(Repository):
         self,
     ) -> None:
         start = threading.Barrier(8)
-        results: list[tuple[bool, dict]] = [None] * 8
+        results: list[tuple[bool, dict] | None] = [None] * 8
 
         def one(number: int) -> None:
             start.wait()
@@ -239,7 +240,9 @@ class FirstEndCounts(Repository):
             thread.start()
         for thread in threads:
             thread.join()
-        winners = [record for won, record in results if won]
+        # each thread set its own place
+        ends = cast("list[tuple[bool, dict]]", results)
+        winners = [record for won, record in ends if won]
         self.assertEqual(len(winners), 1)
         on_record = lem_cards.ended(self.task, "P1")
         self.assertEqual(
@@ -248,7 +251,7 @@ class FirstEndCounts(Repository):
             "the file on record is not the record of the one writer that owns the end",
         )
         self.assertTrue(
-            all(record == on_record for _, record in results),
+            all(record == on_record for _, record in ends),
             "a writer that lost was told another end than the one on record",
         )
         self.assertEqual(

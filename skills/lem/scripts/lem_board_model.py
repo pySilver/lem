@@ -3216,7 +3216,7 @@ def conflicts(t: Task, seen: dict | None) -> bool:
 # his login.
 VIA = {"local": "the board, on this Mac", "door": "the board, through the tailnet door"}
 # Each act of the board, in the activity's words.
-ACTED = {
+ACTED: dict[object, str] = {
     "approve": "You approved the criteria from the board",
     "merge": "You merged it from the board",
     "park": "You parked the task from the board",
@@ -3334,7 +3334,7 @@ def answered_of(t: Task, m: Model) -> dict | None:
     return (m.answers or {}).get(t.slug, {}).get(row["key"]) if row else None
 
 
-def acted_head(e: dict) -> str:
+def acted_head(e: dict[str, Any]) -> str:
     """The activity's words of a `board.act`: ACTED's, or for the answer of a row the
     board answers with its own buttons (its `key` and `option`, serve.py `act_answer`)
     what he picked and on which row."""
@@ -3342,9 +3342,10 @@ def acted_head(e: dict) -> str:
         try:
             kind = lem_answers.parse(e["key"])["kind"]
         except lem_answers.AnswerError:
-            kind = None
+            kind = ""  # no row's kind: each table below gives its default
+        # an option that is none (no `option`) is no key of the table either
         label = lem_answers.OPTIONS.get(kind, {}).get(
-            e.get("option"), e.get("option") or "an option"
+            e.get("option") or "", e.get("option") or "an option"
         )
         return (
             f"You picked {label} on "
@@ -3506,16 +3507,16 @@ def waits_of(m: Model) -> list[dict]:  # noqa: C901 - over the limit before the 
             )
         # a card the task's live session put up and waits on: one row for each, answered
         # here or in the session
-        for c in open_cards(t, m):
-            rows.append(
-                {
-                    "kind": "card",
-                    "key": f"card:{t.slug}:{c['page']}",
-                    "t": t,
-                    "c": c,
-                    "since": c["since"],
-                }
-            )
+        rows.extend(
+            {
+                "kind": "card",
+                "key": f"card:{t.slug}:{c['page']}",
+                "t": t,
+                "c": c,
+                "since": c["since"],
+            }
+            for c in open_cards(t, m)
+        )
         if t.status == "planned" and re.search(r"\bowner\b", t.text):
             row, key = asked_of(t, ("plan",), f"plan:{t.slug}")
             if not (row and answered):

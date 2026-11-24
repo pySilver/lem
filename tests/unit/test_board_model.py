@@ -5730,7 +5730,7 @@ class Cards(unittest.TestCase):
 
     def model(
         self, *more: dict, session: str = "S1", live: bool = True, cards: bool = True
-    ):
+    ) -> "bm.Model":
         m = model(*self.ASKED, *more)
         m.sessions = {
             "export-notes": {

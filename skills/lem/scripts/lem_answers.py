@@ -109,7 +109,7 @@ def on_record(task: Path, key: str) -> dict | None:
 
 
 def record(
-    task: Path, key: str, question: str, option: str, note: str, **more
+    task: Path, key: str, question: str, option: str, note: str, **more: object
 ) -> tuple[bool, dict]:
     """Record the owner's OPTION and NOTE to the row KEY of the task's folder TASK, only
     when no answer is on record for it: (True, the record) when this call made it, else
@@ -184,6 +184,7 @@ def answer_of_block(task: Path, slug: str, ts: str | None) -> dict | None:
 def took_effect(made: dict) -> str:
     """What the answer on record says, in one sentence: "You picked Drop for breaker 1
     at 15:40, from the phone"."""
+    parts: dict
     try:
         parts = parse(made.get("key"))
     except AnswerError:
