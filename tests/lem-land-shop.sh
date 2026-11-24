@@ -878,18 +878,21 @@ land --repo "$MB" start mb-anew >/dev/null && land --repo "$MB" base mb-anew >/d
 anew_due=$(land --repo "$MB" read mb-anew | field '(d["due"], d["attempt"])')
 anew_stale=0
 anew_old=$(land --repo "$MB" read mb-anew --record "$anew_dir/reviews/review-1.json" 2>&1) || anew_stale=$?
+anew_kept_code=0
+anew_kept=$(land --repo "$MB" read mb-anew --record "$anew_dir/reviews/landing-1/review-1.json" 2>&1) || anew_kept_code=$?
 anew_first=$(cd "$anew_dir/reviews" && find . -type f | sort | tr '\n' ' ')
 echo "the second landing's review" > "$anew_dir/reviews/review-1.md"
 project --repo "$MB" state mb-anew ready --start-over "the landing is cut again" >/dev/null
 land --repo "$MB" start mb-anew >/dev/null
 anew_second=$(cd "$anew_dir/reviews" && find . -type f | sort | tr '\n' ' ')
 if [ "$anew_due" = "('review', 1)" ] && [ "$anew_stale" = 1 ] && [ "$(mb_kept mb-anew reads d)" = None ] \
+  && [ "$anew_kept_code" = 1 ] && grep -qF "is a review of a landing before" <<<"$anew_kept" \
   && [ "$anew_first" = "./landing-1/mb-anew/01-initial/report.md ./landing-1/review-1.json ./landing-1/review-1.md ./landing-1/revmux-01-initial.json ./landing-1/revmux-01-initial.log " ] \
   && [ "$anew_second" = "./landing-1/mb-anew/01-initial/report.md ./landing-1/review-1.json ./landing-1/review-1.md ./landing-1/revmux-01-initial.json ./landing-1/revmux-01-initial.log ./landing-2/review-1.md " ] \
   && [ "$(cat "$anew_dir/reviews/landing-1/review-1.md")" = "the first landing's review" ] && [ "$(cat "$anew_dir/reviews/landing-2/review-1.md")" = "the second landing's review" ]; then
-  pass "a start over moves the review files of the landing before into reviews/landing-N/, N one more than the folders there, so the new review writes over none of them and the record of the old review, of the same attempt and tip, is no record of the new landing"
+  pass "a start over moves the review files of the landing before into reviews/landing-N/, N one more than the folders there, so the new review writes over none of them and the record of the old review, of the same attempt and tip, is no record of the new landing, at its old place or in its landing's folder"
 else
-  fail "the review files of a landing before a start over: $anew_due / $anew_stale / $anew_old / $anew_first / $anew_second"
+  fail "the review files of a landing before a start over: $anew_due / $anew_stale / $anew_old / $anew_kept / $anew_first / $anew_second"
 fi
 project --repo "$MB" state mb-anew dropped "the test is over" >/dev/null
 

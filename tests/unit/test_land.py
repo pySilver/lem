@@ -1184,6 +1184,101 @@ class ChecksSay(unittest.TestCase):
             land.checks_say(SLUG, "green")
 
 
+class KeepReviews(unittest.TestCase):
+    """`land.keep_reviews`: the review files of the landing before move into one
+    `reviews/landing-N/` of their own, from a task directory in a throwaway folder."""
+
+    def task(self, folder: str, slug: str = "gift-note") -> land.Task:
+        return cast(
+            "land.Task", types.SimpleNamespace(directory=Path(folder), slug=slug)
+        )
+
+    @staticmethod
+    def files(folder: str) -> list[str]:
+        reviews = Path(folder) / "reviews"
+        return sorted(str(path.relative_to(reviews)) for path in reviews.rglob("*"))
+
+    def test_a_move_cut_off_halfway_ends_in_the_same_folder(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            reviews = Path(d) / "reviews"
+            reviews.mkdir()
+            for name in ("review-1.json", "review-1.md", "revmux-01-initial.log"):
+                (reviews / name).write_text("x")
+            moves = 0
+            rename = Path.rename
+
+            def cut(path: Path, target: Path) -> Path:
+                nonlocal moves
+                moves += 1
+                if moves == 2:
+                    raise OSError(5, "Input/output error")
+                return rename(path, target)
+
+            with (
+                mock.patch.object(Path, "rename", cut),
+                self.assertRaises(land.LandError),
+            ):
+                land.keep_reviews(self.task(d))
+            land.keep_reviews(self.task(d))
+            self.assertEqual(
+                self.files(d),
+                [
+                    "landing-1",
+                    "landing-1/review-1.json",
+                    "landing-1/review-1.md",
+                    "landing-1/revmux-01-initial.log",
+                ],
+            )
+
+    def test_the_review_tools_folder_of_a_task_named_landing_n_moves(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            reviews = Path(d) / "reviews"
+            (reviews / "landing-1").mkdir(parents=True)
+            (reviews / "landing-1" / "review-1.json").write_text("x")
+            (reviews / "landing-2" / "01-initial").mkdir(parents=True)
+            (reviews / "landing-2" / "01-initial" / "report.md").write_text("x")
+            (reviews / "review-1.json").write_text("y")
+            land.keep_reviews(self.task(d, slug="landing-2"))
+            self.assertEqual(
+                self.files(d),
+                [
+                    "landing-1",
+                    "landing-1/review-1.json",
+                    "landing-3",
+                    "landing-3/landing-2",
+                    "landing-3/landing-2/01-initial",
+                    "landing-3/landing-2/01-initial/report.md",
+                    "landing-3/review-1.json",
+                ],
+            )
+
+    def test_a_folder_is_made_only_for_a_reviews_file(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            reviews = Path(d) / "reviews"
+            reviews.mkdir()
+            (reviews / ".DS_Store").write_text("x")
+            land.keep_reviews(self.task(d))
+            self.assertEqual(self.files(d), [".DS_Store"])
+
+    def test_a_record_kept_in_a_landing_folder_is_of_a_landing_before(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            reviews = Path(d) / "reviews"
+            (reviews / "landing-1").mkdir(parents=True)
+            (reviews / "gift-note").mkdir()
+            task = self.task(d)
+            self.assertEqual(
+                land.landing_before(task, reviews / "landing-1" / "review-1.json"),
+                reviews / "landing-1",
+            )
+            for now in (
+                reviews / "review-1.json",
+                reviews / "gift-note" / "review-1.json",
+                Path(d) / "elsewhere.json",
+            ):
+                with self.subTest(record=now):
+                    self.assertIsNone(land.landing_before(task, now))
+
+
 class ConflictNames(unittest.TestCase):
     """`land.conflicted`: the files of a stopped rebase, by their own names, from a
     throwaway repository whose index holds them unmerged. The index takes a name that

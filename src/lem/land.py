@@ -249,10 +249,12 @@ request, the pushes (`pr`, `pushed`, `taken`) and a polish pass that is done. Wh
 owner's merge stood (`owner_tap`), its end is logged first (`merge.ended`, with `why`
 "the landing started over: WHY") and printed as `owner_merge`, `ended: ...`; otherwise
 `owner_merge` is null. Before the record goes, the review files of the landing before
-(each file and folder of `reviews/` in the task directory but the `landing-N` folders)
+(each file and folder of `reviews/` in the task directory but the `landing-N` folders
+and a hidden file; the review tool's folder of a task named `landing-N` moves too)
 move into `reviews/landing-N/`, N one more than the highest there, so that the new
 landing's review, which counts its attempts from 1 again, writes over none of them, and
-the record of an old review is no file the new landing's `read --record` finds. A
+`read --record` refuses the record of an old review, in its landing's folder too. A
+move cut off halfway goes on into the same folder when `start` runs again. A
 `ready` task whose record holds a proposal, with no such line, came back from a new
 landing that was cut (a wait for a red base, a builder that ended twice), since a task
 leaves `open` only through `start`, which counts the new landing: it goes on with that
@@ -1606,41 +1608,92 @@ def cmd_start(task: Task, *, conflicting: bool = False) -> dict:
 
 # A folder of `reviews/` that holds the review files of an earlier landing of the task
 LANDING_FOLDER = re.compile(r"landing-(\d+)")
+# The folder a move of the review files fills, under a name no landing folder has, until
+# it takes its `landing-N` name at the move's end: a move cut off halfway goes on in it.
+MOVING_FOLDER = re.compile(r"\.landing-(\d+)\.moving")
+
+
+def is_landing(entry: Path, slug: str) -> bool:
+    """Whether ENTRY of `reviews/` is the folder of a landing before: a folder named
+    `landing-N` that is not the review tool's own folder of the task, which bears the
+    task's SLUG (a task may be named `landing-2`)."""
+    return (
+        entry.is_dir()
+        and entry.name != slug
+        and LANDING_FOLDER.fullmatch(entry.name) is not None
+    )
 
 
 def keep_reviews(task: Task) -> None:
     """Move the review files of the landing before, each file and folder at the top of
-    `reviews/` in the task directory but the `landing-N` folders, into a new
-    `reviews/landing-N/`, N one more than the highest there. A move that fails is
-    refused with the step out, and nothing of the record is deleted."""
+    `reviews/` in the task directory but the folders of landings before (`is_landing`)
+    and a hidden file (`.DS_Store`), into a new `reviews/landing-N/`, N one more than
+    the highest there and never the task's own name. The files go into a hidden folder
+    first, which takes its name at the end, so a move cut off halfway puts the rest into
+    the same folder when it runs again, and no folder is made for no review's file. A
+    move that fails is refused with the step out, and nothing of the record is
+    deleted."""
     reviews = task.directory / "reviews"
     if not reviews.is_dir():
         return
     entries = list(reviews.iterdir())
-    landings = [
-        int(found.group(1))
-        for entry in entries
-        if entry.is_dir() and (found := LANDING_FOLDER.fullmatch(entry.name))
-    ]
+    moving = next(
+        (
+            (entry, int(found[1]))
+            for entry in entries
+            if entry.is_dir() and (found := MOVING_FOLDER.fullmatch(entry.name))
+        ),
+        None,
+    )
     earlier = [
         entry
         for entry in entries
-        if not (entry.is_dir() and LANDING_FOLDER.fullmatch(entry.name))
+        if not entry.name.startswith(".") and not is_landing(entry, task.slug)
     ]
-    if not earlier:
+    if not earlier and not moving:
         return
-    folder = reviews / f"landing-{max(landings, default=0) + 1}"
+    if moving:
+        folder, number = moving
+    else:
+        number = 1 + max(
+            (
+                int(found[1])
+                for entry in entries
+                if is_landing(entry, task.slug)
+                and (found := LANDING_FOLDER.fullmatch(entry.name))
+            ),
+            default=0,
+        )
+        if f"landing-{number}" == task.slug:
+            number += 1
+        folder = reviews / f".landing-{number}.moving"
+    kept = reviews / f"landing-{number}"
     try:
-        folder.mkdir()
+        folder.mkdir(exist_ok=True)
         for entry in earlier:
             entry.rename(folder / entry.name)
+        folder.rename(kept)
     except OSError as error:
         raise LandError(
-            f"the review files of the landing before could not move into {folder} "
-            f"({error.strerror}): move each file and folder of {reviews} but the "
-            f"landing-N folders into {folder} by hand, then run "
-            f"`lem land start {task.slug}` again"
+            f"the review files of the landing before could not move into {kept} "
+            f"({error.strerror}): run `lem land start {task.slug}` again, which puts "
+            f"the rest into the same folder; when it fails again, move each file and "
+            f"folder of {folder} and of {reviews} but the landing-N folders into "
+            f"{kept} by hand"
         ) from error
+
+
+def landing_before(task: Task, record: Path) -> Path | None:
+    """The folder of a landing before that holds RECORD, a review's record that
+    `read --record` names: such a review is of a landing before (`keep_reviews` moved
+    it), whatever its attempt and tip say. None for a record anywhere else."""
+    reviews = (task.directory / "reviews").resolve()
+    try:
+        parts = record.resolve().relative_to(reviews).parts
+    except ValueError:
+        return None
+    folder = task.directory / "reviews" / parts[0]
+    return folder if len(parts) > 1 and is_landing(folder, task.slug) else None
 
 
 def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C901, PLR0912 - over the limit before the limit was set
@@ -7366,6 +7419,13 @@ def cmd_read(task: Task, record: str | None) -> dict:  # noqa: C901, PLR0912, PL
         }
     if state["due"] != "review":
         raise LandError(f"no review is due: {state['why']}")
+    before = landing_before(task, Path(record))
+    if before:
+        raise LandError(
+            f"{record} is a review of a landing before, kept in {before}: it "
+            f"records nothing of this landing. `lem land read {task.slug}` says the "
+            "review that is due, and --record names the file of that review"
+        )
     try:
         said = json.loads(Path(record).read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
