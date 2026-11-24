@@ -3441,10 +3441,9 @@ def acted_head(e: dict[str, Any]) -> str:
             kind = lem_answers.parse(e["key"])["kind"]
         except lem_answers.AnswerError:
             kind = ""  # no row's kind: each table below gives its default
-        # an option that is none (no `option`) is no key of the table either
-        label = lem_answers.OPTIONS.get(kind, {}).get(
-            e.get("option") or "", e.get("option") or "an option"
-        )
+        # the event's own value is the key, whatever a log changed by hand holds there
+        options = cast("dict[object, str]", lem_answers.OPTIONS.get(kind, {}))
+        label = options.get(e.get("option"), e.get("option") or "an option")
         question = (
             e.get("question")
             if isinstance(e.get("question"), str) and e.get("question")

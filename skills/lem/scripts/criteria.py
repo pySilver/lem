@@ -1339,7 +1339,7 @@ def newest_block(task: Task) -> dict | None:
 def row_key(task: Task, block: dict) -> str:
     """The key of the criteria's row of the board for the state block
     BLOCK (`lem_answers.key_of`)."""
-    moment = datetime.fromisoformat(str(block["ts"]))
+    moment = datetime.fromisoformat(str(block["ts"]).replace("Z", "+00:00"))  # noqa: FURB162 - a Z that is not the last character must still be refused
     return lem_answers.key_of("criterion", task.slug, int(moment.timestamp() * 1000))
 
 
