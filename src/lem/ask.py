@@ -1248,6 +1248,22 @@ def keep_card(path: str, page: str | None, spec: dict[str, Any]) -> Card | None:
     return Card(task, page)
 
 
+def submitted(value: str | None) -> dict[str, Any]:
+    """The answer a page sent as VALUE: the object it is as JSON; a value that is no
+    JSON, or JSON that is no object (what a spec's own script may send through
+    `window.lemAsk.send`), is its text, as one answer."""
+    try:
+        given = json.loads(value or "{}")
+    except json.JSONDecodeError:
+        given = None
+    if isinstance(given, dict):
+        return given
+    return {
+        "status": "answered",
+        "answers": {"answer": {"selected": [], "labels": [], "text": value}},
+    }
+
+
 def peek(page_id: str | None) -> dict[str, Any] | str | None:
     """agterm's outcome of the page in one read, never an error: an answer, "dismissed",
     or None."""
@@ -1255,7 +1271,7 @@ def peek(page_id: str | None) -> dict[str, Any] | str | None:
     try:
         o = json.loads(r.stdout).get("result", {}).get("pageOutcome", {})
         if o.get("outcome") == "submitted":
-            return json.loads(o.get("value") or "{}")
+            return submitted(o.get("value"))
     except (json.JSONDecodeError, AttributeError):
         return None
     return "dismissed" if o.get("outcome") == "dismissed" else None
@@ -1396,26 +1412,7 @@ def wait_page(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit
             o = reply.get("result", {}).get("pageOutcome", {})
             out = o.get("outcome")
             if out == "submitted":
-                try:
-                    given = json.loads(o.get("value") or "{}")
-                except json.JSONDecodeError:
-                    given = None
-                # a value that is no JSON, or JSON that is no object (what a spec's own
-                # script may send): its text, as one answer
-                ans: dict[str, Any] = (
-                    given
-                    if isinstance(given, dict)
-                    else {
-                        "status": "answered",
-                        "answers": {
-                            "answer": {
-                                "selected": [],
-                                "labels": [],
-                                "text": o.get("value"),
-                            }
-                        },
-                    }
-                )
+                ans = submitted(o.get("value"))
                 if card is not None:
                     won, on_record = card.end("answered", ans)
                     if not won:
@@ -1486,10 +1483,7 @@ def ask_in_browser(html: str, timeout: float) -> int:
 
         def do_POST(self) -> None:
             n = int(self.headers.get("content-length", 0))
-            try:
-                body = json.loads(self.rfile.read(n))
-            except json.JSONDecodeError:
-                body = {}
+            body = submitted(self.rfile.read(n).decode("utf-8", errors="replace"))
             self.send_response(204)
             self.end_headers()
             if body.get("status") == "dismissed":

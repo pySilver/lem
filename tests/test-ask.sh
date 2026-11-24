@@ -287,6 +287,41 @@ sys.exit(not (o[0]["recommended"] == "no new service" and o[0]["subtitle"] == "r
 PY
 then pass "q option syntax"; else fail "q option syntax"; fi
 
+# The browser fallback takes what a page posts as wait takes what agterm gives: an object is the
+# answer, and a value that is no JSON object is its text, as one answer; the page gets its 204 either
+# way. No browser opens: the stand-in for it posts the value.
+if "$PY" -I -B - "$B" 2>/dev/null <<'PY'
+import contextlib, importlib.machinery, importlib.util, io, json, sys, threading, urllib.request
+sys.path.insert(0, sys.argv[1].rsplit("/lem/", 1)[0])  # src, the folder of Lem's package, which lem-ask imports from
+loader = importlib.machinery.SourceFileLoader("lem-ask", sys.argv[1])
+mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("lem-ask", loader))
+loader.exec_module(mod)
+direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+def run(value):
+    got, posts = {}, []
+    def post(url):
+        with direct.open(urllib.request.Request(url + "answer", data=value.encode(), method="POST"), timeout=5) as r:
+            got["status"] = r.status
+    def opened(url):
+        posts.append(threading.Thread(target=post, args=(url,), daemon=True))
+        posts[-1].start()
+        return True
+    mod.webbrowser.open = opened
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        code = mod.ask_in_browser("<p>q</p>", 3)
+    for p in posts:
+        p.join(5)
+    return code, json.loads(out.getvalue()), got.get("status")
+def text(value):
+    return {"status": "answered", "answers": {"answer": {"selected": [], "labels": [], "text": value}}}
+answer = {"status": "answered", "answers": {"answer": {"selected": ["a"], "labels": ["A"]}}}
+sys.exit(not (all(run(v) == (0, text(v), 204) for v in ("[1]", "42", '"text"', "not json"))
+              and run(json.dumps(answer)) == (0, answer, 204)))
+PY
+then pass "the browser takes a posted JSON value that is no object, or no JSON, as the text of one answer, and an object as the answer"
+else fail "the browser takes a posted JSON value that is no object, or no JSON, as the text of one answer, and an object as the answer"; fi
+
 # The agterm paths, with agtermctl stubbed: an agterm error ends a wait at once instead of after
 # the full timeout, and an occupied overlay slot is exit 5, naming the page when it is a question page.
 stub() {
@@ -436,6 +471,8 @@ def result(n):
         return outcome("submitted", A)
     if scenario == "dismissed":
         return outcome("dismissed")
+    if scenario == "board-list":
+        return outcome("submitted", [1])  # what a spec's own script may send
     return outcome("pending")
 def ctl(*args, check=True):
     calls.append(list(args))
@@ -459,7 +496,7 @@ a = types.SimpleNamespace(browser=False, no_wait=False, style=None, review=None,
 printed = io.StringIO()
 with contextlib.redirect_stdout(printed):
     try:
-        if scenario in ("wait-board", "close-wins", "close-loses"):
+        if scenario in ("wait-board", "board-list", "close-wins", "close-loses"):
             cards.keep(task, "P1", b"<p>the card</p>", SPEC, "S1")
             if scenario != "close-wins":
                 board()
@@ -511,6 +548,9 @@ card "two answers before the session reads either: the board's, recorded first, 
    and r["end"]["from"] == "board" and [e["event"] for e in r["events"]].count("card.answered") == 1'
 card "a wait after an exit 4 finds the board's answer at its first poll" wait-board \
   'r["code"] == 0 and r["out"]["from"] == "board" and r["out"]["answers"]["answer"]["selected"] == ["b"] and r["polls"] == 1'
+card "the board's answer on record and a JSON list the session's page sent: said names that answer in words as not taken" board-list \
+  'r["code"] == 0 and r["out"]["from"] == "board" and r["out"]["answers"]["answer"]["selected"] == ["b"]
+   and "an answer in words on the card in the session was not taken" in r["out"]["said"]'
 card "a dismissal in the session ends the card as dismissed, and logs card.closed" dismissed \
   'r["code"] == 2 and r["out"]["status"] == "dismissed" and r["end"]["status"] == "dismissed" and r["end"]["from"] == "session"
    and r["events"][-1]["event"] == "card.closed" and r["events"][-1]["status"] == "dismissed"'
