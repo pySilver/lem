@@ -3403,6 +3403,63 @@ class MovedBase(unittest.TestCase):
             ("github", "owner"),
         )
 
+    def test_a_review_that_calls_him_after_lems_refusal_of_his_merge_waits_for_him(
+        self,
+    ) -> None:
+        # Lem refused his merge because the base moved; the base went back to the
+        # checks' tree, and two merge agents of the brief on that base ended with no
+        # answer, which `merge-review --no-answer` records as a review that calls him,
+        # with no verdict and no call on a move, and the refusal stays
+        refused = (
+            ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
+            state(1, "open", self.PR),
+            ev(
+                2,
+                "merge.refused",
+                by="owner",
+                via="server",
+                **{"from": "lem"},
+                kind="base",
+                said="origin/main moved after the checks ran",
+                tip="abc123456",
+            ),
+        )
+        silent = ev(
+            4,
+            "merge.review",
+            calls=True,
+            by="claude",
+            tip="abc123456",
+            base="m1m1m1m1m",
+            why="the merge agent ended twice with no answer",
+        )
+        m = model(*refused, silent)
+        t = m.tasks[0]
+        rows = bm.waits_of(m)
+        # the row "Read the merge review" that the step promised, and his merge, which
+        # he gives afresh: the refused one does not go through by itself
+        self.assertEqual(
+            (
+                t.merge_wait,
+                [(w["kind"], bm.wait_say(w)["verb"]) for w in rows],
+                bm.owner_stands(t),
+                "merge" in bm.acts_of(t, None),
+                t.refused is not None,
+            ),
+            (
+                "owner",
+                [
+                    ("review", "Read the merge review"),
+                    ("merge", "Merge the pull request #41"),
+                ],
+                False,
+                True,
+                True,
+            ),
+        )
+        # before the review, the merge agent reads what moved, as before
+        self.assertEqual(one(*refused).merge_wait, "reads")
+
     def test_a_read_on_the_checks_base_answers_lems_refusal_after_a_revert(
         self,
     ) -> None:

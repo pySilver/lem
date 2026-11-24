@@ -1300,6 +1300,8 @@ def fold(t: Task, e: dict, ts: int) -> None:  # noqa: C901, PLR0911, PLR0912, PL
             "base": e.get("base"),
             "base_call": e.get("base_call"),
             "base_why": e.get("base_why"),
+            # its place among the task's events, as a refusal keeps it
+            "order": len(t.events),
         }
         refused = t.refused
         if refused is not None and answers_refusal(
@@ -1998,7 +2000,9 @@ def merge_wait(t: Task) -> str | None:  # noqa: PLR0911 - over the limit before 
     revert, answers Lem's refusal (`answers_refusal`). "relands": the task's session,
     since a read of that tip said `another round` of the moved base, and the session
     lands it again, until the next proposal. "owner": the owner, for a review that
-    calls him, any other refused merge, and an open task with no proposal on record.
+    calls him, one with no verdict after Lem's refusal of that tip among them
+    (`calls_after_refusal`), any other refused merge, and an open task with no proposal
+    on record.
     Only "owner" is a row of "Waits for you". The owner's own merge on the task's page
     is offered in "owner", and in "reads" and "merges" while no merge of his stands
     (`owner_stands`, `acts_of`): never in "relands", where a press meets the base
@@ -2023,7 +2027,9 @@ def merge_wait(t: Task) -> str | None:  # noqa: PLR0911 - over the limit before 
     )
     if t.refused:
         if t.refused.get("from") == "lem" and t.refused.get("kind") == "base":
-            return "relands" if again else "reads"
+            if again:
+                return "relands"
+            return "owner" if calls_after_refusal(t) else "reads"
         return "owner"
     r = t.merge_review
     if r and same(r.get("tip")) and r.get("base_call") == "another round":
@@ -2037,6 +2043,29 @@ def merge_wait(t: Task) -> str | None:  # noqa: PLR0911 - over the limit before 
     if not r or (tip and r.get("tip") and not same(r.get("tip"))):
         return "reads"
     return "merges" if r.get("verdict") == "merge" and not r.get("calls") else "owner"
+
+
+def calls_after_refusal(t: Task) -> bool:
+    """Whether the newest merge review of the tip Lem proposed last came after Lem's
+    refusal of that tip because the base moved (`kind: base`), and calls the owner with
+    no verdict: a merge agent of the brief on the checks' own base that ended twice with
+    no answer, or replied twice with none. It answers no refusal (`answers_refusal`),
+    so the refusal stays and the refused merge does not go through by itself; the owner
+    decides afresh, from "Read the merge review" and his own Merge, as for a review that
+    calls him on a base that did not move (`merge_wait` "owner")."""
+    refused, review = t.refused, t.merge_review
+    tip = (t.proposal or {}).get("tip")
+    return bool(
+        refused
+        and review
+        and refused.get("from") == "lem"
+        and refused.get("kind") == "base"
+        and review.get("verdict") is None
+        and review.get("calls")
+        and same_tip(tip, refused.get("tip"))
+        and same_tip(tip, review.get("tip"))
+        and review.get("order", -1) > refused.get("order", -1)
+    )
 
 
 # What the note of the owner's merge says while it stands, by its span (`stands_span`):
@@ -2083,7 +2112,7 @@ def stands_span(t: Task) -> str | None:
             and r.get("kind") == "base"
             and same_tip(tip, r.get("tip"))
         )
-        return "reads" if his and not again else None
+        return "reads" if his and not again and not calls_after_refusal(t) else None
     review = t.merge_review
     if (
         review
@@ -4074,7 +4103,10 @@ def wait_say(w: dict) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit 
                 f"task’s Overview. {review_why(w['c'])}"
             ),
         }
-    if t.refused and t.refused.get("from") == "lem":
+    # Lem's refusal that a review calling him came after is his to decide afresh: the
+    # row is his Merge, as with no refusal
+    refused = None if calls_after_refusal(t) else t.refused
+    if refused and refused.get("from") == "lem":
         return {
             "verb": "The merge did not go through",
             "icon": "alert",
@@ -4087,7 +4119,7 @@ def wait_say(w: dict) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit 
                 "or waits for you."
             ),
         }
-    if t.refused:
+    if refused:
         return {
             "verb": "GitHub refused the merge",
             "icon": "alert",
