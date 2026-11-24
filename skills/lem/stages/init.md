@@ -259,7 +259,8 @@ It is not landed yet: the owner's read of the drafts is the review.
 `.claude/settings.json` goes into that commit when git does not track it yet and it holds only what
 `claude plugin marketplace add` and `claude plugin install lem@lem --scope project` wrote there:
 `extraKnownMarketplaces` with the one entry `lem`, and `enabledPlugins` with the one entry
-`lem@lem`. With it in git, everyone who clones the repository gets Lem. A file that holds anything
+`lem@lem`. With it in git, Lem is on for everyone who clones the repository, and each of them still
+runs those two commands in their own clone: the file installs nothing. A file that holds anything
 else, or that git tracks already, is the developer's: leave it out of the commit, and name it on the
 page with the keys it holds beside the plugin's. He commits it himself, and nothing waits for it.
 
@@ -306,8 +307,8 @@ which one holds. The three models a task runs on: the builder on Opus at high ef
 the experts, the newest Fable of Anthropic through Claude Code and the newest Astra of OpenAI
 through Codex (`seats.experts`; "change experts SEAT SEAT"), with a word when the machine check
 found no Codex: then one expert answers alone and its pick settles a decision the experts take, not
-green, and the panel's second family does not answer. And the plugin's file: "the plugin is installed for
-everyone who clones this repository" (`.claude/settings.json`, in the commit; "change plugin mine"
+green, and the panel's second family does not answer. And the plugin's file: "Lem is on for everyone who
+clones this repository; each installs it in their own clone" (`.claude/settings.json`, in the commit; "change plugin mine"
 takes it out of the commit and leaves it untracked), or the line that names the file as his to
 commit. With git hooks, one line says, in these words, why the
 checks have only tests: "the git hooks run the rest at each commit of a builder" (the hook files;
