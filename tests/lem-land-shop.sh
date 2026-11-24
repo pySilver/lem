@@ -1046,6 +1046,30 @@ else
 fi
 project --repo "$MB" state mb-reset dropped "the test is over" >/dev/null
 
+# The same base that goes back, under a tip proposed to the end: the merge agent read the tip on b0, the base moved to b1
+# and the new landing proposed the rebased tip on it, the review and the merge review carried over the rebase; then the
+# base goes back to b0, the next base moves nothing, and the same tip now holds against b0 what b1 added, which no review
+# read. The proposal keeps its base: the merge review does not carry, and the reason names the two bases.
+mb_task mb-under under.txt && mb_land mb-under
+merge_read "$MB" mb-under merge >/dev/null
+under_b1=$(mb_move docs/board.md) && under_b0=$(git -C "$MBX" rev-parse HEAD~1)
+mb_again mb-under
+under_first=$(land --repo "$MB" propose mb-under --title "fix: mb-under" --notes "$NOTES" 2>&1 || true)
+git -C "$MBX" reset -q --hard HEAD~1 && git -C "$MBX" push -q -f origin main
+mb_again mb-under
+under_moved=$(mb_kept mb-under base d)
+under=$(land --repo "$MB" propose mb-under --title "fix: mb-under" --notes "$NOTES" 2>&1 || true)
+under_kept="$(mb_kept mb-under proposed_on d) $(mb_kept mb-under merge_review d)"
+git -C "$MBX" reset -q --hard "$under_b1" && git -C "$MBX" push -q origin main
+under_why="the base moved from ${under_b1:0:9} to ${under_b0:0:9}, under the same tip"
+if [ "$(field 'd["merge_review"]' <<<"$under_first")" = carried ] && [ "$under_moved" = "$under_b0" ] \
+  && [ "$(field '(d["merge_review"], d["merge_review_why"])' <<<"$under")" = "(None, '$under_why')" ] && [ "$under_kept" = "$under_b0 None" ]; then
+  pass "a tip proposed on a base that then went back carries no merge review to that base: the proposal keeps the base it was made on, the reason names both, and the merge review of that tip no longer counts"
+else
+  fail "a base that went back under a proposed tip: $under_first / $under_moved / $under_kept / $under"
+fi
+project --repo "$MB" state mb-under dropped "the test is over" >/dev/null
+
 # The rebase of base, one row for each history of the base and the branch. Each row is a task of the moved-base shop,
 # reviewed and proposed, whose base then moves by the row's own steps; then start and base, which runs the plain rebase.
 # A row gives what its files hold at the tip and what became of the review: `carried` over the rebase (git's merge of

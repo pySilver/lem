@@ -3221,6 +3221,34 @@ class MovedBase(unittest.TestCase):
         carry = self.resolved(resolution=resolution, base="b1b1b1b1b1b1")
         self.assertEqual(carry["how"], "resolution")
 
+    def test_the_same_tip_on_a_base_that_went_back_carries_nothing(self) -> None:
+        # `propose` proposed aaa on b1; the base went back to b0, `start` cleared the
+        # resolution and `base` moved nothing: the change is aaa against b0, which
+        # holds what b1 added, and no review read that
+        kept = {
+            "proposed": "aaa",
+            "proposed_on": "b1b1b1b1b1b1",
+            "base": "b0b0b0b0b0b0",
+            "merge_review": {"verdict": "merge", "tip": "aaa"},
+            "owner_tap": {"tip": "aaa", "not_green": []},
+        }
+        why = "the base moved from b1b1b1b1b to b0b0b0b0b, under the same tip"
+        self.assertEqual(land.tip_carry(kept, "aaa", []), (None, why))
+        carry = land.moved_carry(kept, "aaa", [], [])
+        self.assertEqual(
+            (carry["merge_review"], carry["merge_why"], carry["owner_merge"]),
+            (False, why, "ended"),
+        )
+        self.assertEqual(carry["owner_why"], why)
+        # on the base it was proposed on, and for a record of a landing in flight
+        # that kept no base of its proposal, the same tip carries as before
+        for record in ({**kept, "base": "b1b1b1b1b1b1"}, {**kept, "proposed_on": None}):
+            carry = land.moved_carry(record, "aaa", [], [])
+            self.assertEqual(
+                (carry["how"], carry["merge_review"], carry["owner_merge"]),
+                ("same", True, "stands"),
+            )
+
     def test_the_line_of_a_resolution_read_names_its_kind(self) -> None:
         self.assertEqual(self.resolved()["review"], "one read of the resolution")
         self.assertEqual(

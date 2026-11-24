@@ -9519,7 +9519,15 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901,
         *carried_facts,
     )
     moved = synced(task)
-    task.keep(pr=pr, proposed=tip, title=title, not_green=reasons)
+    # the base it is proposed on, beside the tip: what was said of the tip carries to
+    # the next proposal of the same tip on this base alone (`tip_carry`)
+    task.keep(
+        pr=pr,
+        proposed=tip,
+        proposed_on=kept.get("base"),
+        title=title,
+        not_green=reasons,
+    )
     carried = carry_merge(task, kept, tip, state, reasons, carry)
     task.state("open", f"pull request {pr['url']}", says, *([moved] if moved else []))
     return {
@@ -9583,6 +9591,10 @@ def carry_merge(  # noqa: PLR0913, PLR0917 - over the limit before the limit was
             *([f"why={why}"] if why else []),
         )
         out["merge_review"] = "carried"
+    elif old == tip and (kept.get("merge_review") or {}).get("tip") == tip:
+        # the same tip on a base no review read: its merge review no longer counts
+        # (`merge_review_of` reads a review by its tip alone)
+        task.keep(merge_review=None)
     if carry["owner_merge"] == "stands":
         task.keep(owner_tap=carry["tap"])
         script(
@@ -9733,6 +9745,15 @@ def tip_carry(  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit
     if not old:
         return None, None
     if old == new:
+        # the same tip on another base than the one it was proposed on (a base that
+        # went back under it, where `base` moves nothing): the change holds what moved
+        # between the two, which no review read. A record of a landing in flight that
+        # kept no base of its proposal carries as before.
+        on, base = kept.get("proposed_on"), kept.get("base")
+        if on and on != base:
+            return None, (
+                f"the base moved from {on[:9]} to {str(base)[:9]}, under the same tip"
+            )
         return "same", None
     if rebased == {"from": old, "to": new}:
         return "rebase", None
