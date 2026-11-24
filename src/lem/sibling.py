@@ -59,10 +59,14 @@ APART = {
 # once
 FORMS: dict[str, bool] = {}
 
+# an integer exit code is reported as its low byte
+EXIT_CODE_MASK = 0xFF
+
 
 def file_of(name: str) -> Path:
     """The file of the module that the command NAME runs, in this package."""
-    return paths.PACKAGE / f"{names.COMMANDS[name][0]}.py"
+    module = names.COMMANDS[name][0]
+    return paths.PACKAGE / f"{module}.py"
 
 
 def in_form(name: str) -> bool:
@@ -108,7 +112,7 @@ def exit_code(stop: SystemExit, err: io.StringIO) -> int:
     if code is None:
         return 0
     if isinstance(code, int):
-        return code & 0xFF
+        return code & EXIT_CODE_MASK
     err.write(f"{code}\n")
     return 1
 
@@ -118,7 +122,7 @@ def run(name: str, repo: Path, *args: str) -> subprocess.CompletedProcess:
     unless the command is in `APART` or its module is not in the form for it."""
     argv = ["--repo", str(repo), *args]
     command = [sys.executable, "-B", str(paths.MAIN), name, *argv]
-    if (name, args[0] if args else "") in APART or not in_form(name):
+    if (name, (args or ("",))[0]) in APART or not in_form(name):
         return subprocess.run(command, capture_output=True, text=True, check=False)
     out, err = io.StringIO(), io.StringIO()
     code = 0
@@ -142,10 +146,11 @@ def checked(
     when it succeeded is the caller's to say too, as project.py's of the settings read
     from the base branch."""
     ran = run(name, repo, *args)
-    file = names.file_name(names.COMMANDS[name][0])
+    filename = names.file_name(names.COMMANDS[name][0])
     if check and ran.returncode != 0:
         raise error(
-            ran.stderr.strip().removeprefix(f"{file}: ") or f"{file} {args[0]} failed"
+            ran.stderr.strip().removeprefix(f"{filename}: ")
+            or f"{filename} {args[0]} failed"
         )
     if ran.returncode == 0 and ran.stderr:
         sys.stderr.write(ran.stderr)
