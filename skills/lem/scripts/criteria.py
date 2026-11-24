@@ -869,14 +869,20 @@ def row_key(task: Task, block: dict) -> str:
     return lem_answers.key_of("criterion", task.slug, int(moment.timestamp() * 1000))
 
 
+def answer_on_record(task: Task, key: str) -> dict | None:
+    """The owner's answer on record for the board's row KEY of the task (`lem_answers.on_record`), or None;
+    a record that does not read is refused with the file it names."""
+    try:
+        return lem_answers.on_record(task.directory, key)
+    except lem_answers.AnswerError as error:
+        raise CriteriaError(str(error)) from error
+
+
 def owners_no(task: Task, block: dict | None) -> dict | None:
     """The owner's No on record for the criteria's row of BLOCK, typed or on the board, or None."""
     if block is None or block.get("status") != "held":
         return None
-    try:
-        made = lem_answers.on_record(task.directory, row_key(task, block))
-    except lem_answers.AnswerError as error:
-        raise CriteriaError(str(error)) from error
+    made = answer_on_record(task, row_key(task, block))
     return made if made and made.get("option") == "no" else None
 
 
@@ -1174,7 +1180,7 @@ def cmd_change(task: Task, file: str, words: str) -> dict:
         block = newest_block(task)
         waits_for_change(task, block)
         key = row_key(task, block)
-        made = lem_answers.on_record(task.directory, key)
+        made = answer_on_record(task, key)
         if made is not None and made.get("option") != "no":
             raise CriteriaError(
                 f"the owner's answer {made.get('label') or made.get('option')!r} to this wait came first, at {made.get('at')}: nothing was changed. "

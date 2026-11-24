@@ -203,6 +203,15 @@ class Refusals(Folder):
         self.assertIn("the section starts with `Size: full", self.refused(criteria.cmd_change, self.task, self.file("## Acceptance criteria\n\n1. One.\n"), NOTE))
         self.untouched()
 
+    def test_an_answer_on_record_that_does_not_read(self) -> None:
+        """Review 1, finding 3: a record of the row that is no JSON is a refusal that names its file, not a traceback."""
+        block = self.waiting()
+        broken = lem_answers.answer_file(self.task.directory, criteria.row_key(self.task, block))
+        broken.parent.mkdir(parents=True, exist_ok=True)
+        broken.write_text("{not json", encoding="utf-8")
+        self.assertIn(f"{broken} cannot be read as an answer", self.refused(criteria.cmd_change, self.task, self.file(CHANGED), NOTE))
+        self.untouched()
+
     def test_no_criteria_md(self) -> None:
         self.waiting()
         self.task.small_file.unlink()
