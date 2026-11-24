@@ -484,9 +484,13 @@ def message_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before
                 )
             ) + f" Open a fresh one on the board: {link_line}"
         elif kind == "session" and row.get("deaf"):
-            # its session lives: no open waits on the board, and the row's words
-            # say what is true and the act that works
-            body = f"{bm.wait_say(row)['where']}\n\nThe task on the board: {link_line}"
+            # its session lives: no open waits on the board, and the row says which
+            # case holds and the act that works. A note kept while the case changes
+            # (SAME) names none of it.
+            body = (
+                f"The session of {slug} does not answer a wake-up of Lem’s. The board "
+                f"says what holds and what acts: {link_line}"
+            )
         elif kind == "blocked" and row.get("say"):
             body = f"{row['say']}\n\nThe task on the board: {link_line}"
         elif kind == "merge" and t.refused:

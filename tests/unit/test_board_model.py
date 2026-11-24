@@ -2421,14 +2421,29 @@ class DeafRow(unittest.TestCase):
     def test_each_case_says_what_is_true_names_the_wake_and_the_act_that_works(
         self,
     ) -> None:
+        # the words say what the mailbox and the transcript show: when Lem sent the
+        # line, that the pane took it, and whether a turn ran after it (the review of
+        # 2026-11-24 on 0b1bbf9a)
         taken = self.where({"why": "merged", "line": "taken"})
         self.assertEqual(
             taken,
             (
-                "The task’s session took the wake-up “lem: gift-note merged” 10 "
-                "minutes ago or more, and took no turn after it: its agent does not "
-                "run. Go to the session and tell it to go on, or close the session: "
-                "then this row offers “Open a session”."
+                "Lem sent the wake-up “lem: gift-note merged” 10 minutes ago or more. "
+                "The task’s session took it, and took no turn after it. Go to the "
+                "session and tell it to go on, or close the session: then this row "
+                "offers “Open a session”."
+            ),
+        )
+        # a pane that took the line while a turn or a command of its own runs is
+        # busy: no word tells the owner to close it
+        runs = self.where({"why": "merged", "line": "runs"})
+        self.assertEqual(
+            runs,
+            (
+                "Lem sent the wake-up “lem: gift-note merged” 10 minutes ago or more. "
+                "The task’s session took it while a turn or a command of it ran, and "
+                "took no turn after it. Look at the session: its agent may run a long "
+                "turn or command."
             ),
         )
         waits = self.where({"why": "merged", "line": "waits"})

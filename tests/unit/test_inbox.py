@@ -508,32 +508,40 @@ class Sends(InFolder):
     ) -> None:
         # review of 2026-11-24: a live session whose parked pane took the wake's line
         # with no turn got "has no session; open it on the board", and the board offers
-        # no open for a live session
+        # no open for a live session. The note names the task and sends the owner to
+        # the board, whose row says the case: a note kept while the case changes
+        # (`SAME`) says nothing the row no longer says.
         events = [state(0, "building", "task 1 of 2"), *breaker()]
-        self.m = model(
-            *events,
-            owner=[AWAY],
-            sessions={
-                RD: {
-                    "live": True,
-                    "agent": True,
-                    "unanswered": True,
-                    "unheard": {"why": "merged", "line": "taken"},
-                    "session": "S-1",
-                    "worktree": False,
-                }
-            },
-        )
-        self.watcher().look()
-        body = self.plannotator.sends()[0]["payload"]["body"]
-        self.assertNotIn("has no session", body)
-        self.assertIn("“lem: report-dates merged”", body)
-        self.assertIn("took no turn", body)
-        self.assertIn("close the session", body)
-        self.assertIn(
-            "[report-dates on the board](https://mac.tail0.ts.net:4537/mac/shop/tasks/"
-            "report-dates)",
-            body,
+        bodies = []
+        for line in ("waits", "taken", "runs"):
+            self.plannotator.calls.clear()
+            (self.state / inbox.RECORD).unlink(missing_ok=True)
+            self.m = model(
+                *events,
+                owner=[AWAY],
+                sessions={
+                    RD: {
+                        "live": True,
+                        "agent": True,
+                        "unanswered": True,
+                        "unheard": {"why": "merged", "line": line},
+                        "session": "S-1",
+                        "worktree": False,
+                    }
+                },
+            )
+            self.watcher().look()
+            bodies.append(self.plannotator.sends()[0]["payload"]["body"])
+        self.assertEqual(
+            bodies,
+            [
+                (
+                    "The session of report-dates does not answer a wake-up of Lem’s. "
+                    "The board says what holds and what acts: [report-dates on the "
+                    "board](https://mac.tail0.ts.net:4537/mac/shop/tasks/report-dates)"
+                )
+            ]
+            * 3,
         )
 
     def test_a_fork_is_not_the_tasks_session_and_a_session_that_does_not_answer_gets_a_note(

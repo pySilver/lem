@@ -1989,8 +1989,10 @@ def unheard_of(
     wake: dict | None, signs: dict, now: datetime, *, waits: Callable[[], bool]
 ) -> dict | None:
     """Which case of `unanswered_of` holds, or None: `{"why", "line"}`, the wake's why
-    and `waits` when its line still waits in the mailbox, or `taken` when the pane took
-    the line and the signs show no turn since (a parked Claude Code process), so that
+    and `waits` when its line still waits in the mailbox, `runs` when the pane took the
+    line and the signs show no turn since, while the newest turn of the session runs or
+    one of its shell commands does (Claude Code queues a line that comes during a
+    turn), or `taken` when they show neither (a parked Claude Code process), so that
     the board and the Inbox say what is true and the act that works."""
     if (
         wake is None
@@ -2004,7 +2006,8 @@ def unheard_of(
     if signs.get("signs") is True and (
         not isinstance(sign, str) or stamp(sign) < stamp(wake["ts"])
     ):
-        return {"why": wake.get("why"), "line": "taken"}
+        busy = signs.get("turn") == lem_signs.RUNS or signs.get("shell") is True
+        return {"why": wake.get("why"), "line": "runs" if busy else "taken"}
     return None
 
 

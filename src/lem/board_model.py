@@ -3865,10 +3865,12 @@ def dropped_head(after: str) -> str:
 
 def deaf_where(t: Task, unheard: dict | None) -> str:
     """Where the owner answers a session that does not answer, in the case `lem session
-    list` names (UNHEARD): the wake's line still waits in its mailbox, or its pane took
+    list` names (UNHEARD): the wake's line still waits in its mailbox; its pane took
     the line and took no turn (a parked Claude Code process), whose fresh session comes
-    once he closes it (`session_need`'s `gone`). An entry with no case keeps the words
-    of the line that waits."""
+    once he closes it (`session_need`'s `gone`); or its pane took the line while a turn
+    or a shell command of it ran, which no word tells him to close. The words say what
+    the mailbox and the transcript show: Lem knows when it sent the line, not when the
+    pane took it. An entry with no case keeps the words of the line that waits."""
     if not unheard:
         return (
             "A wake-up has waited in the task’s session for 10 minutes or more. "
@@ -3876,12 +3878,18 @@ def deaf_where(t: Task, unheard: dict | None) -> str:
             "or run a long turn."
         )
     line = f"“lem: {t.slug} {unheard.get('why')}”"
+    sent = f"Lem sent the wake-up {line} 10 minutes ago or more."
     if unheard.get("line") == "taken":
         return (
-            f"The task’s session took the wake-up {line} 10 minutes ago or more, and "
-            "took no turn after it: its agent does not run. Go to the session and "
-            "tell it to go on, or close the session: then this row offers “Open a "
-            "session”."
+            f"{sent} The task’s session took it, and took no turn after it. Go to the "
+            "session and tell it to go on, or close the session: then this row offers "
+            "“Open a session”."
+        )
+    if unheard.get("line") == "runs":
+        return (
+            f"{sent} The task’s session took it while a turn or a command of it ran, "
+            "and took no turn after it. Look at the session: its agent may run a long "
+            "turn or command."
         )
     return (
         f"The wake-up {line} has waited in the task’s session for 10 minutes or "

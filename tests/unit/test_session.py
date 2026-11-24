@@ -1886,6 +1886,40 @@ class Guard(unittest.TestCase):
         self.assertFalse(unanswered(parked, why="status"))
         self.assertFalse(unanswered(parked, why="status", waits=True))
 
+    def test_a_wake_a_pane_took_while_a_turn_or_a_command_runs_is_not_taken(
+        self,
+    ) -> None:
+        # the review's run of 2026-11-24: the wake at 11:39, an empty mailbox, and a
+        # turn that began at 11:35 and still runs with a shell command; at 11:56 the
+        # pane took the line into a turn that runs, and took no turn of its own after
+        woke = {
+            "ts": "2026-11-22T11:39:00Z",
+            "event": "session.wake",
+            "task": SLUG,
+            "session": "S1",
+            "why": "merged",
+        }
+        busy = {"sign": "2026-11-22T11:35:00Z", "signs": True}
+
+        def case(**signs: object) -> dict | None:
+            return session.unheard_of(
+                woke,
+                {**busy, **signs},
+                session.stamp("2026-11-22T11:56:00Z"),
+                waits=lambda: False,
+            )
+
+        runs = {"why": "merged", "line": "runs"}
+        self.assertEqual(case(turn="runs", shell=True), runs)
+        self.assertEqual(case(turn="runs", shell=False), runs)
+        self.assertEqual(case(turn="ended", shell=True), runs)
+        self.assertEqual(
+            case(turn="ended", shell=False), {"why": "merged", "line": "taken"}
+        )
+        self.assertEqual(
+            case(turn=None, shell=False), {"why": "merged", "line": "taken"}
+        )
+
     def test_lem_session_list_reads_the_signs_for_a_wake_no_mailbox_holds(
         self,
     ) -> None:
