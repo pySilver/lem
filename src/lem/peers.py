@@ -746,8 +746,13 @@ def join(
             f"{base} answers as the machine {found.get('host')!r}, not {name}: "
             "join it by that name"
         )
-    table = {key: value for key, value in Peers(status).table().items() if key != name}
-    lem_state.write_machine("peers", {**table, name: port})
+    # the read and the write are one change under the lock, so that a join or a leave
+    # at the same moment keeps this one's line; a table with a line that does not read
+    # is refused with that line and the fix, and written over never
+    with lem_state.machine_lock():
+        table = lem_state.machine_table("peers")
+        rest = {key: value for key, value in table.items() if key != name}
+        lem_state.write_held("peers", {**rest, name: port})
     if found["reachable"]:
         said = (
             f"{name} answers ({found.get('version')}): its {len(found['workspaces'])} "
@@ -773,13 +778,14 @@ def join(
 def leave(given: str) -> dict:
     """`--leave HOST`: take the machine out of `[peers]`."""
     name = given.strip().lower().rstrip(".").split(".")[0]
-    table = Peers(dict).table()
-    if name not in table:
-        raise PeerError(
-            f"{name} is not joined: `lem serve --peers` lists the machines that are"
-        )
-    rest = {key: value for key, value in table.items() if key != name}
-    lem_state.write_machine("peers", rest or None)
+    with lem_state.machine_lock():
+        table = lem_state.machine_table("peers")
+        if name not in table:
+            raise PeerError(
+                f"{name} is not joined: `lem serve --peers` lists the machines that are"
+            )
+        rest = {key: value for key, value in table.items() if key != name}
+        lem_state.write_held("peers", rest or None)
     return {"left": name, "peers": sorted(rest), "file": str(lem_state.machine_file())}
 
 

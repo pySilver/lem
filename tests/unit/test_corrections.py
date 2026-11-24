@@ -327,8 +327,10 @@ class TheHomeFoldersWriters(unittest.TestCase):
     in tests/lem-machine.sh."""
 
     def test_the_writers_of_the_machines_file_are_the_owners_commands(self) -> None:
+        # write_held is write_machine for a caller that holds the lock already
         self.assertEqual(
-            calls_of("write_machine") - {("state.py", "write_machine")},
+            (calls_of("write_machine") | calls_of("write_held"))
+            - {("state.py", "write_machine")},
             {
                 ("project.py", "cmd_load"),
                 ("project.py", "cmd_handoff"),
@@ -373,7 +375,7 @@ class TheHomeFoldersWriters(unittest.TestCase):
         self.assertIn(
             '"--ensure"]', (paths.PACKAGE / "serve_hook.py").read_text(encoding="utf-8")
         )
-        writers = calls_of("write_machine")
+        writers = calls_of("write_machine") | calls_of("write_held")
         for hook in (
             ("serve_hook.py", "main"),
             ("session_hook.py", "main"),

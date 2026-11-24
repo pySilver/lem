@@ -7,8 +7,10 @@ servers that pass pages and a stream through run in tests/lem-peers.sh.
 """
 
 import email.message
+import fcntl
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -17,6 +19,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from lem import board_pages as pages
 from lem import peers
+from lem import state as lem_state
 
 SUFFIX = "tail1234.ts.net"
 
@@ -287,6 +290,68 @@ class Passing(unittest.TestCase):
             )
             with self.assertRaisesRegex(peers.PeerError, "no MagicDNS suffix"):
                 peers.base_of("beta", 4537, None)
+
+
+class Table(unittest.TestCase):
+    """A join and a leave change `[peers]` of the machine's file in a home folder of
+    the test's own; gamma is a test's address, so no tailnet is asked."""
+
+    def setUp(self) -> None:
+        made = tempfile.TemporaryDirectory()
+        self.addCleanup(made.cleanup)
+        home = Path(made.name)
+        switches = mock.patch.dict(
+            os.environ,
+            {"XDG_CONFIG_HOME": str(home), peers.ADDRESS_SWITCH: "gamma=http://x"},
+        )
+        switches.start()
+        self.addCleanup(switches.stop)
+        asked = mock.patch.object(
+            peers, "probe", return_value={"reachable": False, "said": "no answer"}
+        )
+        asked.start()
+        self.addCleanup(asked.stop)
+        self.file = home / "lem" / "machine.toml"
+        self.file.parent.mkdir()
+
+    def held(self) -> bool:
+        """Whether a writer holds the lock of the machine's file now."""
+        with (self.file.parent / lem_state.MACHINE_LOCK).open("a") as handle:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return True
+            fcntl.flock(handle, fcntl.LOCK_UN)
+            return False
+
+    def test_a_join_or_a_leave_refuses_a_table_with_a_bad_line_and_keeps_its_neighbors(
+        self,
+    ) -> None:
+        text = '[peers]\nbeta = 4537\nbroken = "bad"\n'
+        self.file.write_text(text, encoding="utf-8")
+        line = r"peers\.broken in .*machine\.toml is no machine's name.*delete the line"
+        with self.assertRaisesRegex(lem_state.StateError, line):
+            peers.join("gamma", "alpha", (), 4537, dict)
+        with self.assertRaisesRegex(lem_state.StateError, line):
+            peers.leave("beta")
+        self.assertEqual(self.file.read_text(encoding="utf-8"), text)
+
+    def test_the_read_and_the_write_of_a_join_and_a_leave_are_under_one_lock(
+        self,
+    ) -> None:
+        self.file.write_text("[peers]\nbeta = 4537\n", encoding="utf-8")
+        held = []
+        read = lem_state.machine_table
+
+        def reads(name: str) -> dict:
+            held.append(self.held())
+            return read(name)
+
+        with mock.patch.object(lem_state, "machine_table", reads):
+            peers.join("gamma", "alpha", (), 4537, dict)
+            peers.leave("beta")
+        self.assertEqual(held, [True, True])
+        self.assertEqual(lem_state.machine_table("peers"), {"gamma": 4537})
 
 
 if __name__ == "__main__":

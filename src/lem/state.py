@@ -431,43 +431,49 @@ def write_machine(name: str, values: dict | None) -> None:
     The new text goes to a temporary file beside it, then a rename over it, under the
     lock of MACHINE_LOCK from the read to the rename, so that two writers at one moment
     each keep the other's table."""
+    with machine_lock():
+        write_held(name, values)
+
+
+def write_held(name: str, values: dict | None) -> None:
+    """`write_machine` for a caller that holds `machine_lock` already, so that what it
+    read of the file and this write are one change; a second `machine_lock` in the same
+    process would wait for the first."""
     import tempfile
 
     file = machine_file()
-    with machine_lock():
-        tables = kept_tables(name)
-        try:
-            text = file.read_text(encoding="utf-8")
-        except FileNotFoundError:
-            text = ""
-        if line_editable(text, name):
-            new = machine_text(text, name, values)
-            mode = file.stat().st_mode & 0o777 if file.exists() else 0o644
-        else:
-            if values is not None:
-                tables[name] = values
-            new = whole_machine_text(tables)
-            mode = 0o644
-        if new == text:
-            return
-        own = {f"# {fix}" for fix in MACHINE_FIX.values()}
-        if all(
-            lems_own(line, MACHINE_HEAD) or line.strip() in own
-            for line in new.splitlines()
-        ):
-            file.unlink(missing_ok=True)
-            return
-        handle, temporary = tempfile.mkstemp(
-            dir=file.parent, prefix=f".{file.name}.", suffix=".tmp"
-        )
-        try:
-            with os.fdopen(handle, "w", encoding="utf-8") as out:
-                out.write(new)
-            Path(temporary).chmod(mode)
-            Path(temporary).replace(file)
-        except BaseException:
-            Path(temporary).unlink(missing_ok=True)
-            raise
+    tables = kept_tables(name)
+    try:
+        text = file.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        text = ""
+    if line_editable(text, name):
+        new = machine_text(text, name, values)
+        mode = file.stat().st_mode & 0o777 if file.exists() else 0o644
+    else:
+        if values is not None:
+            tables[name] = values
+        new = whole_machine_text(tables)
+        mode = 0o644
+    if new == text:
+        return
+    own = {f"# {fix}" for fix in MACHINE_FIX.values()}
+    if all(
+        lems_own(line, MACHINE_HEAD) or line.strip() in own for line in new.splitlines()
+    ):
+        file.unlink(missing_ok=True)
+        return
+    handle, temporary = tempfile.mkstemp(
+        dir=file.parent, prefix=f".{file.name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as out:
+            out.write(new)
+        Path(temporary).chmod(mode)
+        Path(temporary).replace(file)
+    except BaseException:
+        Path(temporary).unlink(missing_ok=True)
+        raise
 
 
 def line_editable(text: str, name: str) -> bool:
