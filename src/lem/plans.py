@@ -9,6 +9,7 @@ one's tip, so its plan is the old slug's file until its lead writes one of its o
 """
 
 import re
+from types import MappingProxyType
 
 # typing's flag, without the import of typing, which a hook's start does not pay
 TYPE_CHECKING = False
@@ -16,7 +17,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 PLAN_FILE = "YYYY-MM-DD-<slug>.md"
-TOKENS = {"YYYY": r"(?P<Y>\d{4})", "MM": r"(?P<M>\d{2})", "DD": r"(?P<D>\d{2})"}
+TOKENS = MappingProxyType(
+    {"YYYY": r"(?P<Y>\d{4})", "MM": r"(?P<M>\d{2})", "DD": r"(?P<D>\d{2})"}
+)
 
 
 def regex(pattern: str, slug: str) -> re.Pattern[str]:
@@ -35,12 +38,12 @@ def regex(pattern: str, slug: str) -> re.Pattern[str]:
 
 def name(pattern: str, slug: str, day: str) -> str:
     """The name a task's plan takes when it is written on DAY (YYYY-MM-DD)."""
-    year, month, date_ = day.split("-")
+    year, month, day_of_month = day.split("-")
     return (
         pattern.replace("<slug>", slug)
         .replace("YYYY", year)
         .replace("MM", month)
-        .replace("DD", date_)
+        .replace("DD", day_of_month)
     )
 
 
@@ -75,9 +78,9 @@ def found(
     for name in (slug, *before):
         form = regex(pattern, name)
         hits = []
-        for file in folder.iterdir():
-            match = form.fullmatch(file.name)
-            if match and file.is_file():
+        for path in folder.iterdir():
+            match = form.fullmatch(path.name)
+            if match and path.is_file():
                 groups = match.groupdict()
                 hits.append(
                     (
@@ -86,8 +89,8 @@ def found(
                             groups.get("M") or "",
                             groups.get("D") or "",
                         ),
-                        file.name,
-                        file,
+                        path.name,
+                        path,
                     )
                 )
         if hits:
