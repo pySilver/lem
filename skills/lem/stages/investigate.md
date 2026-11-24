@@ -77,8 +77,8 @@ task.
    - *answer*, for a question: show him the answer as the report gives it, with where each
      part was read. Write the state `answered` with the answer in one line, the ticket's "answer"
      (below), and `lem land clean SLUG`.
-   `lem project state SLUG answered` refuses a task with no `investigation.md` or no record whose
-   call is `not-a-bug` or `answer`. For an answered task that came from a ticket, the tracker
+   `lem project state SLUG answered "THE ANSWER"` refuses a task with no `investigation.md` or no
+   record whose call is `not-a-bug` or `answer`. For an answered task that came from a ticket, the tracker
    comments the answer on the ticket right after that state, before `lem land clean`, so that a
    worktree the cleanup refuses does not stop the comment (`load-skill` the skill `tracker.kind`
    names, its "answer"). It removes an assignee it added at the start and changes no status: tell

@@ -96,13 +96,7 @@ MARKS = {"[": OPEN, "]": CLOSE, "(": GROUP, ")": UNGROUP}
 ALLOWED: dict[str, str] = {}
 # The lines that are wrong today, each with what the command takes instead. A defect of
 # the text or of the command, listed and left as it is.
-WRONG: dict[str, str] = {
-    # skills/lem/stages/investigate.md, of the answer to a question: the prose names the
-    # call, and the call with no line is refused before its own check runs
-    "lem project state SLUG answered": (
-        'state takes one LINE or more after the status: lem project state SLUG answered "THE ANSWER"'
-    ),
-}
+WRONG: dict[str, str] = {}
 
 
 @dataclass(frozen=True)
