@@ -171,12 +171,14 @@ def newest_turn(lines: Iterable[str | bytes]) -> str | None:
             record = json.loads(raw)
         except ValueError:
             continue
-        if (
-            isinstance(record, dict)
+        found = (
+            when(record.get("timestamp"))
+            if isinstance(record, dict)
             and record.get("type") in TURNS
             and not runs_none(record)
-            and (found := when(record.get("timestamp")))
-        ):
+            else None
+        )
+        if found:
             return lem_clock.stamp(found)
     return None
 
@@ -196,13 +198,13 @@ def texts_of(record: dict) -> list[str]:
     """The text of a record's message: its content when that is a string, else each of
     its text parts."""
     message = record.get("message")
-    content = message.get("content") if isinstance(message, dict) else None
-    if isinstance(content, str):
-        return [content]
-    if isinstance(content, list):
+    body = message.get("content") if isinstance(message, dict) else None
+    if isinstance(body, str):
+        return [body]
+    if isinstance(body, list):
         return [
             part["text"]
-            for part in content
+            for part in body
             if isinstance(part, dict)
             and part.get("type") == "text"
             and isinstance(part.get("text"), str)
@@ -230,12 +232,12 @@ def turn_of(lines: Iterable[str | bytes]) -> str | None:
                 continue
             if reason != TOOL_USE:
                 return ENDED
-            content = message.get("content")
-            asks = isinstance(content, list) and any(
+            body = message.get("content")
+            asks = isinstance(body, list) and any(
                 isinstance(part, dict)
                 and part.get("type") == "tool_use"
                 and part.get("name") == ASKS
-                for part in content
+                for part in body
             )
             return ENDED if asks else RUNS
         if record.get("type") == "user":
@@ -306,7 +308,7 @@ def read_signs(  # noqa: PLR0913, PLR0917 - over the limit before the limit was 
         and process.get("sessionId") in ids
         and str(process.get("pid", "")).isdigit()
     }
-    rows = table_rows(table) if table is not None else []
+    rows = [] if table is None else table_rows(table)
     running = pids & {pid for pid, _, _ in rows}
     if not mine or not running:
         return {"sign": sign, "shell": False, "signs": False, "turn": None}
@@ -326,13 +328,13 @@ def read_signs(  # noqa: PLR0913, PLR0917 - over the limit before the limit was 
 def tail_lines(path: Path, block: int = BLOCK) -> Iterator[bytes]:
     """The lines of a file from its end to its start, as bytes, read BLOCK bytes at
     a time."""
-    with path.open("rb") as handle:
-        handle.seek(0, 2)
-        end, rest = handle.tell(), b""
+    with path.open("rb") as stream:
+        stream.seek(0, 2)
+        end, rest = stream.tell(), b""
         while end > 0:
             start = max(0, end - block)
-            handle.seek(start)
-            lines = (handle.read(end - start) + rest).split(b"\n")
+            stream.seek(start)
+            lines = (stream.read(end - start) + rest).split(b"\n")
             end = start
             # the first piece may be the end of a line that starts in the block before
             rest = lines.pop(0) if start > 0 else b""
