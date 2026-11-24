@@ -4373,7 +4373,11 @@ SAYS = {
     },
     "merge.refused": lambda e: {
         "info": {"actor": "bad", "icon": "alert"},
-        "head": "Lem refused the merge agent’s merge"
+        "head": (
+            "Lem refused your merge"
+            if e.get("by") == "owner"
+            else "Lem refused the merge agent’s merge"
+        )
         if e.get("from") == "lem"
         else "GitHub refused the merge",
         "text": e.get("said") or "",

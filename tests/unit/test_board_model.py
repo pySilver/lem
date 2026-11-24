@@ -869,6 +869,32 @@ class Merge(unittest.TestCase):
         )
         self.assertIn("GitHub said: Required status check is expected.", say["where"])
 
+    def test_the_timeline_says_whose_merge_lem_refused(self) -> None:
+        # merge-button-after-failed-merge, 2026-11-22: right after his own press, the
+        # owner read that the merge agent's merge was refused
+        def head(**fields: object) -> str:
+            refused = ev(
+                2,
+                "merge.refused",
+                via="server",
+                said="origin/main moved after the checks ran",
+                tip="abc123456",
+            )
+            return bm.SAYS["merge.refused"]({**refused, **fields})["head"]
+
+        self.assertEqual(
+            (
+                head(by="owner", kind="base", **{"from": "lem"}),
+                head(by="merger", kind="base", **{"from": "lem"}),
+                head(by="owner", **{"from": "github"}),
+            ),
+            (
+                "Lem refused your merge",
+                "Lem refused the merge agent’s merge",
+                "GitHub refused the merge",
+            ),
+        )
+
 
 class WaitStacks(unittest.TestCase):
     """The rows of "Waits for you" grouped by task (`wait_stacks`), each group in the
