@@ -2,14 +2,17 @@
 # The experts, offline: the lem-ask-expert skill's brief of a question in words, which the owner asks
 # and a lead's ladder asks at its last level, its folder, the record of each answer, who the experts
 # are, and one expert alone without Codex. No expert runs here.
-set -euo pipefail
+set -eEuo pipefail
 
 cd "$(dirname "$0")/.."
+# shellcheck source-path=SCRIPTDIR source=checks.sh
+. tests/checks.sh
+collected
 # Lem's one entry: `"$PY" -B "$MAIN" NAME ARGS...` is `lem NAME ARGS...`
 MAIN=$PWD/src/lem/__main__.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
 export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
-trap 'rm -rf "$WORK"' EXIT
+trap 'stopped; rm -rf "$WORK"' EXIT
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 # A stand-in for Codex on PATH, so that both experts of the default seats answer here (`here` in `lem project show`),
@@ -20,9 +23,6 @@ export PATH="$WORK/standin:$PATH"
 mkdir -p "$WORK/nocodex" && ln -s "$(command -v git)" "$WORK/nocodex/git"
 NOCODEX=$WORK/nocodex
 
-fails=0
-pass() { printf 'ok   %s\n' "$1"; }
-fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
 project() { "$PY" -B "$MAIN" project "$@"; }
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 field() { "$PY" -c 'import json, sys; d = json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1"; }
@@ -180,8 +180,7 @@ fi
 
 if [ -d "$PWD/src/lem/__pycache__" ]; then fail "experts.py left a __pycache__"; else pass "experts.py left no __pycache__, also of the scripts it imports"; fi
 
-if [ "$fails" -gt 0 ]; then
-  echo "$fails failed"
-  exit 1
-fi
-echo "all passed"
+results_add_up
+finished=yes
+[ "$fails" -eq 0 ] || { printf '%d failure(s)\n' "$fails"; exit 1; }
+printf 'all passed\n'
