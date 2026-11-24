@@ -5547,6 +5547,174 @@ class StoppedSession(unittest.TestCase):
     def test_the_numbers_are_the_owners(self) -> None:
         self.assertEqual((bm.QUIET_MS, bm.ANSWER_MS), (45 * 60 * 1000, 10 * 60 * 1000))
 
+    # A turn that a readable look saw after a status message Lem sent while it could not
+    # read the session (`session.worked`). The owner's answer of 2026-11-24: "B · Log
+    # the turn once: the row goes, and the clock starts again."
+
+    def unread_stopped(self) -> tuple:
+        return (
+            *self.woken(unread=True),
+            self.ev("11:49", "session.stopped", session="S1", unread=True),
+        )
+
+    def worked(self, hhmm: str, turn: str) -> dict:
+        return self.ev(
+            hhmm, "session.worked", session="S1", turn=f"2026-11-22T{turn}:00Z"
+        )
+
+    def rows(self, m: "bm.Model") -> list:
+        return [w["kind"] for w in bm.waits_of(m) if w["t"].slug == "gift-note"]
+
+    def test_a_turn_read_after_an_unread_stop_is_logged_once_and_the_stop_goes(
+        self,
+    ) -> None:
+        # the item's first run: the unread message at 11:39 and the unread stop at
+        # 11:49; from 11:50 the signs read, and the session takes a turn at 11:55 with
+        # no state block
+        turned = {"sign": "2026-11-22T11:55:00Z"}
+        logged = (*self.unread_stopped(), self.worked("11:56", "11:55"))
+        m = self.model(*logged, at="11:57", **turned)
+        t = m.by_slug["gift-note"]
+        self.assertEqual(
+            (bm.stop_stands(t), bm.stopped_of(t, m), self.rows(m)), (None, None, [])
+        )
+        # the look after the turn logs it; no look before the turn, nor after its
+        # record, logs it
+        self.assertIsNone(self.due(*self.unread_stopped(), at="11:54"))
+        self.assertEqual(
+            self.due(*self.unread_stopped(), at="11:56", **turned),
+            ("worked", "S1", self.ms("11:55")),
+        )
+        for at in ("11:57", "12:39"):
+            self.assertIsNone(self.due(*logged, at=at, **turned), at)
+        # the clock counts from the turn: the readable clock's message at 12:40, and
+        # the unread clock's too, when the signs stop reading again
+        self.assertEqual(
+            self.due(*logged, at="12:40", **turned), ("status", "S1", self.ms("11:55"))
+        )
+        self.assertIsNone(self.due(*logged, at="12:39:59", **self.unread()))
+        self.assertEqual(
+            self.due(*logged, at="12:40", **self.unread()),
+            ("status", "S1", self.ms("11:55")),
+        )
+        # the session answers the message of 12:40 at 12:41, and no row comes back
+        answered = (
+            *logged,
+            self.ev("12:40", "session.wake", session="S1", why="status"),
+        )
+        m = self.model(*answered, at="13:00", sign="2026-11-22T12:41:00Z")
+        self.assertEqual(self.rows(m), [])
+        # the timeline says it in words of its own
+        said = bm.describe(logged[-1], m)
+        self.assertEqual(
+            (said["head"], said["text"]),
+            (
+                "Lem read the task’s session again, and it worked",
+                (
+                    "a turn of the session came after the status message that Lem sent "
+                    "while it could not read it, so no stop waits for you"
+                ),
+            ),
+        )
+
+    def test_a_turn_read_between_two_unread_looks_keeps_the_stop_from_being_logged(
+        self,
+    ) -> None:
+        # the item's second run: the unread message at 11:39; a look at 11:45 reads the
+        # signs and sees a turn at 11:40; a look at 11:49 does not read them
+        woken = self.woken(unread=True)
+        logged = (*woken, self.worked("11:45", "11:40"))
+        self.assertIsNone(self.due(*logged, at="11:49", **self.unread()))
+        self.assertEqual(
+            self.due(*woken, at="11:45", sign="2026-11-22T11:40:00Z"),
+            ("worked", "S1", self.ms("11:40")),
+        )
+        self.assertIsNone(self.due(*logged, at="12:24:59", **self.unread()))
+        self.assertEqual(
+            self.due(*logged, at="12:25", **self.unread()),
+            ("status", "S1", self.ms("11:40")),
+        )
+        # a turn in the second of the message answers it, as for every clock
+        self.assertEqual(
+            self.due(*woken, at="11:45", sign="2026-11-22T11:39:00Z"),
+            ("worked", "S1", self.ms("11:39")),
+        )
+        # a turn before the message is none, and a log of the old form, with no record
+        # of a turn, gives the stop as before
+        self.assertIsNone(self.due(*woken, at="11:45", sign="2026-11-22T11:30:00Z"))
+        self.assertEqual(
+            self.due(*woken, at="11:49", **self.unread()),
+            ("stopped", "S1", self.ms("11:39")),
+        )
+
+    def test_a_second_unread_period_gets_its_own_record_once(self) -> None:
+        again = (
+            *self.unread_stopped(),
+            self.worked("11:56", "11:55"),
+            self.ev("12:40", "session.wake", session="S1", why="status", unread=True),
+            self.ev("12:50", "session.stopped", session="S1", unread=True),
+        )
+        m = self.model(*again, at="12:51", **self.unread())
+        self.assertEqual(self.rows(m), ["stopped"])
+        turned = {"sign": "2026-11-22T13:00:00Z"}
+        self.assertEqual(
+            self.due(*again, at="13:01", **turned), ("worked", "S1", self.ms("13:00"))
+        )
+        twice = (*again, self.worked("13:01", "13:00"))
+        self.assertIsNone(self.due(*twice, at="13:02", **turned))
+        self.assertEqual(self.rows(self.model(*twice, at="13:02", **turned)), [])
+
+    def test_after_the_record_a_quiet_session_gets_a_stop_never_a_restart(
+        self,
+    ) -> None:
+        # be719e8c's run, with the record of the turn at 12:00: the readable clock's
+        # message at 12:45 and no answer; Lem opens no fresh session by itself in the
+        # run of work in which a stop of the task stood, and logs one newer stop
+        logged = (
+            *self.unread_stopped(),
+            self.worked("12:01", "12:00"),
+            self.ev("12:45", "session.wake", session="S1", why="status"),
+        )
+        turned = {"sign": "2026-11-22T12:00:00Z"}
+        self.assertIsNone(self.due(*logged, at="12:54:59", **turned))
+        self.assertEqual(
+            self.due(*logged, at="12:55", **turned), ("stopped", "S1", self.ms("12:45"))
+        )
+        # a readable session with no stop before keeps its restart (criterion 4)
+        self.assertEqual(
+            self.due(*self.woken(), at="11:49"), ("restart", "S1", self.ms("11:39"))
+        )
+
+    def test_the_record_of_a_turn_is_no_work_and_no_fact_of_the_card(self) -> None:
+        # what a reader of the release before reads of it: `derive` keeps every record
+        # in the task's events and folds nothing from one it does not know, and every
+        # `session.*` record is no work
+        record = self.worked("11:56", "11:55")
+        self.assertFalse(bm.work_event(record))
+        one, other = (
+            self.model(*events, at="11:57").by_slug["gift-note"]
+            for events in (self.unread_stopped(), (*self.unread_stopped(), record))
+        )
+        self.assertEqual(
+            (other.status, other.since, other.blocks, other.wakes, other.opened),
+            (one.status, one.since, one.blocks, one.wakes, one.opened),
+        )
+        self.assertEqual(
+            (other.lane, other.for_owner, other.info),
+            (one.lane, one.for_owner, one.info),
+        )
+        # the prune's summary of the task counts it as one event more, and says the
+        # same of the task
+        from lem import project
+
+        now = self.ms("11:57")
+        plain = project.summary_of("gift-note", list(self.unread_stopped()), now)
+        more = project.summary_of("gift-note", [*self.unread_stopped(), record], now)
+        self.assertEqual(more.pop("events"), plain.pop("events") + 1)
+        self.assertEqual(more.pop("ts"), record["ts"])
+        plain.pop("ts")
+        self.assertEqual(more, plain)
+
 
 class StoppedRow(unittest.TestCase):
     """Criteria 5 and 6 on the board: a stop the guard logged is the row `stopped` of
@@ -5880,7 +6048,8 @@ class StoppedRow(unittest.TestCase):
     def test_a_stop_over_a_standing_unread_stop_names_no_fresh_session(self) -> None:
         # review 2 of guard-sees-unreadable-sessions (#60): the unread stop of 11:49, a
         # turn at 12:00, the readable message at 12:45 and a newer stop at 12:55, and no
-        # fresh session ever opened
+        # fresh session ever opened; a log of the release before, with no record of the
+        # turn (`session.worked`)
         events = (
             *self.woken(unread=True),
             self.ev("11:49", "session.stopped", session="S1", unread=True),
@@ -5894,8 +6063,8 @@ class StoppedRow(unittest.TestCase):
             (
                 "The task’s session showed no sign of work in the 10 minutes after "
                 "Lem asked it for its status, and Lem opened no fresh session by "
-                "itself, since a stop of the task already waited for you. Open a "
-                "session here or on the task’s header: a fresh agent reads the task’s "
+                "itself, since the task already stopped once after its last work. Open "
+                "a session here or on the task’s header: a fresh agent reads the task’s "
                 "state and goes on from there, and the old pane stays open in agterm."
             ),
         )

@@ -28,6 +28,9 @@ fresh agent.
                                  log that the task's session stopped after its status message and
                                  its restart, or after the message alone when Lem cannot read its
                                  signs, so that it waits for the owner
+    lem session worked SLUG [--session ID]
+                                 log the turn that the task's session took after a status message
+                                 Lem sent while it could not read its signs, once they read again
     lem session wait SLUG --until STATE,... | --event NAME | --first-line [--companion ID [--quiet FILE]]
                                  end when the task's state is one of these, or a new event is logged,
                                  or the task's first line is written, or when the task's session is
@@ -173,8 +176,10 @@ session whose signs do not read, the clock is the task's events and its newest o
 alone: 45 minutes with no event of the task give the status message, logged with
 `unread: true`, and 10 minutes more with none give `stopped` at once, logged with
 `unread: true`, since Lem opens no second session by itself beside a session it cannot
-read. Each of the three looks once more in the task's lock before it acts
-(`guard_check`): the task is still in one of those statuses, its newest session is the
+read. When the signs read again and show a turn at or after such a message, `worked`
+logs `session.worked` with that turn's time, once: the stop after the message no longer
+stands, and both clocks count from that turn. Each of the four looks once more in the
+task's lock before it acts (`guard_check`): the task is still in one of those statuses, its newest session is the
 one `--session` names and still lives with an agent in its pane, no shell command of it
 runs, and the rule still gives that step, so that no sign of work came since the step
 was due. Else it acts on nothing, exits 0 and prints `acted: false` with `why`
@@ -996,11 +1001,11 @@ def guard_refusal(
     step: str,
     named: object,
 ) -> str | None:
-    """Why the act of STEP (`status`, `restart` or `stopped`) of the guard of a stopped
-    session acts on nothing, a key of REFUSALS, or None when it acts. T is the task in
-    M, the board's model of the event log as it is now (None for a task with no state),
-    whose `sessions` holds the one entry of T's newest session as read now in the task's
-    lock; NAMED is the session the board server named, or None.
+    """Why the act of STEP (`worked`, `status`, `restart` or `stopped`) of the guard of
+    a stopped session acts on nothing, a key of REFUSALS, or None when it acts. T is the
+    task in M, the board's model of the event log as it is now (None for a task with no
+    state), whose `sessions` holds the one entry of T's newest session as read now in
+    the task's lock; NAMED is the session the board server named, or None.
 
     It acts when the guard still watches the task (`guarded`), its newest session is the
     one named and still lives with an agent in its pane, no shell command of it runs,
@@ -1064,11 +1069,20 @@ def guard_check(
     root: Path, slug: str, step: str, named: str | None, where: dict
 ) -> tuple[dict | None, str | None, bool]:
     """The look once more of the guard of a stopped session, run in the task's lock
-    before its act: the board's model of the event log now, the task's newest session in
-    agterm's tree (`agent` is true only for an agent agterm sees in its pane, as `list`
-    gives it), and its signs of work read now. Its refusal, `acted: false` with its
-    reason for the caller to print, or None; the session the act is for; and whether its
-    signs read, for the record of the act."""
+    before its act (`guard_look`): its refusal, `acted: false` with its reason for the
+    caller to print, or None; the session the act is for; and whether its signs read,
+    for the record of the act."""
+    refused, session, signs = guard_look(root, slug, step, named, where)
+    return refused, session, signs.get("signs") is True
+
+
+def guard_look(
+    root: Path, slug: str, step: str, named: str | None, where: dict
+) -> tuple[dict | None, str | None, dict]:
+    """`guard_check`'s look: the board's model of the event log now, the task's newest
+    session in agterm's tree (`agent` is true only for an agent agterm sees in its
+    pane, as `list` gives it), and its signs of work read now. Its refusal, the session
+    the act is for, and the signs as they read (`lem_signs`)."""
     bm = board_model()
     m, events = model_now(root)
     t = m.by_slug.get(slug)
@@ -1101,9 +1115,8 @@ def guard_check(
         },
     )
     reason = guard_refusal(t, m, step, named)
-    read = signs.get("signs") is True
     if reason is None:
-        return None, session, read
+        return None, session, signs
     return (
         {
             "task": slug,
@@ -1116,7 +1129,7 @@ def guard_check(
             ),
         },
         session,
-        read,
+        signs,
     )
 
 
@@ -1143,6 +1156,35 @@ def tell_replaced(root: Path, where: dict, slug: str, old: str) -> dict:
         root, "session.wake", slug, {"session": old, "why": "replaced"}
     )
     return {"old": old, "told": True}
+
+
+def cmd_worked(root: Path, slug: str, named: str | None) -> dict:
+    """The record of a turn of the task's session that came at or after a status
+    message Lem sent while it could not read the session's signs, now that they read
+    (`lem_board_model.stop_due`'s step `worked`), logged once in the task's lock: the
+    stop after that message no longer stands, and the guard's clock counts from the
+    turn."""
+    where = place()
+    directory = project.task_directory(root, slug)
+    with task_lock(directory):
+        refused, session, signs = guard_look(root, slug, "worked", named, where)
+        if refused is not None:
+            return refused
+        turn = signs.get("sign")
+        project.append_event(
+            root, board_model().WORKED, slug, {"session": session, "turn": turn}
+        )
+    return {
+        "task": slug,
+        "session": session,
+        "acted": True,
+        "turn": turn,
+        "say": (
+            f"the session of {slug} took a turn at {turn}, after the status message "
+            "Lem sent while it could not read the session: no stop of the task waits "
+            "for the owner, and the guard's clock counts from that turn"
+        ),
+    }
 
 
 def cmd_stopped(root: Path, slug: str, named: str | None) -> dict:
@@ -1192,8 +1234,8 @@ def cmd_stopped(root: Path, slug: str, named: str | None) -> dict:
         if restarted
         else (
             "its session showed no sign of work after the status message, and Lem "
-            "opened no fresh session by itself, since a stop of the task already "
-            "waited"
+            "opened no fresh session by itself, since the task already stopped once "
+            "after its last work"
         )
     )
     return {
@@ -2519,6 +2561,19 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
         metavar="ID",
         help="the session the stop is for, which must still be the task's newest",
     )
+    working = commands.add_parser(
+        "worked",
+        help=(
+            "log the turn the task's session took after a status message Lem sent "
+            "while it could not read the session, once its signs read again"
+        ),
+    )
+    working.add_argument("slug")
+    working.add_argument(
+        "--session",
+        metavar="ID",
+        help="the session the turn is of, which must still be the task's newest",
+    )
     waiting = commands.add_parser(
         "wait",
         help=(
@@ -2637,6 +2692,8 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
             result = cmd_wake(root, args.slug, args.why, args.head, args.session)
         elif args.command == "stopped":
             result = cmd_stopped(root, args.slug, args.session)
+        elif args.command == "worked":
+            result = cmd_worked(root, args.slug, args.session)
         elif args.command == "wait" and args.first_line:
             if args.companion:
                 raise SessionError(

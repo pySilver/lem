@@ -1954,6 +1954,38 @@ class StoppedSession(unittest.TestCase):
         # no `open … stopped`
         self.assertEqual(self.owed(*logged, at="11:50"), [])
 
+    def test_a_turn_read_after_an_unread_stop_is_logged_once_by_lem_session_worked(
+        self,
+    ) -> None:
+        # the session takes a turn at 11:55 with no state block, and the signs read
+        logged = (
+            *self.landing(),
+            self.ev("11:39", "session.wake", session="S1", why="status", unread=True),
+            self.ev("11:49", "session.stopped", session="S1", unread=True),
+        )
+        turned = self.live(sign="2026-11-22T11:55:00Z")
+        self.assertEqual(
+            self.owed(*logged, at="11:56", sessions=turned),
+            [("worked", "gift-note", "worked")],
+        )
+        self.assertEqual(
+            serve.duty_args(
+                "worked",
+                "gift-note",
+                "worked",
+                {},
+                self.model(*logged, at="11:56", sessions=turned),
+            ),
+            ["worked", "gift-note", "--session", "S1"],
+        )
+        worked = (
+            *logged,
+            self.ev(
+                "11:56", "session.worked", session="S1", turn="2026-11-22T11:55:00Z"
+            ),
+        )
+        self.assertEqual(self.owed(*worked, at="11:57", sessions=turned), [])
+
     def test_a_task_that_waits_for_the_owner_or_is_out_of_its_phase_is_not_woken(
         self,
     ) -> None:

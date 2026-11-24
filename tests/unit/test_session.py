@@ -2063,16 +2063,96 @@ class Guard(unittest.TestCase):
             "unread",
         )
 
+    def test_a_turn_read_after_an_unread_stop_is_logged_once_and_the_open_agrees(
+        self,
+    ) -> None:
+        # the session takes a turn at 11:55 with no state block, and the signs read
+        # again: the row says stopped, and the owner's open is refused as `working`
+        turned = {"sign": "2026-11-22T11:55:00Z"}
+        self.assertEqual(
+            self.refusal(self.unread_stop(), "restart", "11:56", named=None, **turned),
+            "working",
+        )
+        self.assertIsNone(self.refusal(self.unread_stop(), "worked", "11:56", **turned))
+        self.assertEqual(
+            self.refusal(self.unread_stop(), "worked", "11:56", named="S0", **turned),
+            "gone",
+        )
+        self.assertEqual(
+            self.refusal(self.unread_stop(), "worked", "11:56", sign=None, signs=False),
+            "working",
+        )
+        done, sent, logged = self.run_act(
+            self.unread_stop(),
+            lambda: session.cmd_worked(ROOT, SLUG, "S1"),
+            signs={**self.SIGNS, **turned},
+            at="11:56",
+        )
+        self.assertEqual(
+            (done["acted"], sent, logged[0]["event"]),
+            (True, [], "session.worked"),
+        )
+        self.assertEqual(
+            {key: logged[0][key] for key in ("session", "turn")},
+            {"session": "S1", "turn": "2026-11-22T11:55:00Z"},
+        )
+        self.assertEqual(
+            done["say"],
+            (
+                f"the session of {SLUG} took a turn at 2026-11-22T11:55:00Z, after "
+                "the status message Lem sent while it could not read the session: "
+                "no stop of the task waits for the owner, and the guard's clock "
+                "counts from that turn"
+            ),
+        )
+        worked = [*self.unread_stop(), *logged]
+        # once: a second look, a second server or a peer that asks again acts on
+        # nothing
+        again, _, twice = self.run_act(
+            worked,
+            lambda: session.cmd_worked(ROOT, SLUG, "S1"),
+            signs={**self.SIGNS, **turned},
+            at="11:57",
+        )
+        self.assertEqual((again["acted"], again["why"], twice), (False, "working", []))
+        # no stop stands, so the owner's open is refused as the board offers none
+        bm = session.board_model()
+        m = bm.derive(worked, [], bm.at("2026-11-22T11:57:00Z") or 0)
+        m.sessions = {
+            SLUG: {
+                "live": True,
+                "agent": True,
+                "unanswered": False,
+                "session": "S1",
+                **self.SIGNS,
+                **turned,
+            }
+        }
+        t = m.by_slug[SLUG]
+        self.assertEqual(
+            (
+                bm.stopped_of(t, m),
+                bm.opens_session(t, m),
+                self.refusal(worked, "restart", "11:57", named=None, **turned),
+            ),
+            (None, False, "working"),
+        )
+
     def test_a_turn_after_an_unread_stop_gets_one_newer_stop_whose_open_acts(
         self,
     ) -> None:
         # review 2 of guard-sees-unreadable-sessions (#60): the session takes a turn at
-        # 12:00 with no state block, its signs read again, and the readable clock sends
-        # its own message at 12:45; the stop of 11:49 still stands
+        # 12:00 with no state block, its signs read again, the server's look logs the
+        # turn (`session.worked`), and the readable clock sends its own message at
+        # 12:45: no fresh session comes by itself in the run of work of the stop of
+        # 11:49
         bm = session.board_model()
         turned = {"sign": "2026-11-22T12:00:00Z"}
         woken = [
             *self.unread_stop(),
+            self.ev(
+                "12:01", "session.worked", session="S1", turn="2026-11-22T12:00:00Z"
+            ),
             self.ev("12:45", "session.wake", session="S1", why="status"),
         ]
         self.assertEqual(
@@ -2097,7 +2177,8 @@ class Guard(unittest.TestCase):
             (
                 f"the stop of {SLUG} is logged: its session showed no sign of work "
                 "after the status message, and Lem opened no fresh session by itself, "
-                "since a stop of the task already waited, so it waits for the owner, "
+                "since the task already stopped once after its last work, so it waits "
+                "for the owner, "
                 f"whose `lem session open {SLUG} --why stopped` opens a fresh session"
             ),
         )

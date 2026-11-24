@@ -197,7 +197,9 @@ server's other calls into Lem's scripts (SCRIPT_LOCK):
   logs the stop for the owner's row "stopped". A session whose signs do not read gets
   the status message after 45 minutes with no event of the task, and `stopped SLUG` 10
   minutes after it with still none, never a restart: the owner's "Open a session" opens
-  the fresh one. Each looks once more in the task's lock and acts on nothing
+  the fresh one. When its signs read again and show a turn at or after that message,
+  `worked SLUG` logs the turn once: the stop no longer stands, and the clock counts from
+  the turn. Each looks once more in the task's lock and acts on nothing
   (`acted: false`) when the step is no longer due. A duty whose command failed
   waits DUTY_RETRY;
 - the merge agent's merge (`merge_due`): for an open task whose merge agent's review of
@@ -4292,7 +4294,11 @@ def duties(  # noqa: C901, PLR0912 - over the limit before the limit was set
     - `stopped … stopped`: the same once the restart was spent, or at once when its
       signs do not read: `lem session stopped SLUG` logs the stop, once, and the owner's
       "Waits for you" shows it.
-    Each of the three names the session it is for (`--session`), and `lem session` looks
+    - `worked … worked`: the same task whose signs read again and show a turn at or
+      after a status message sent while they did not read: `lem session worked SLUG`
+      logs that turn, once, so that the stop after the message no longer stands and
+      the clock counts from the turn.
+    Each of the four names the session it is for (`--session`), and `lem session` looks
     once more in the task's lock before it acts: a sign of work since, a status that
     changed, a session that is gone, or a restart beside signs that do not read or over
     a standing stop make it act on nothing (`acted: false`), and the next look
@@ -4367,6 +4373,7 @@ def duties(  # noqa: C901, PLR0912 - over the limit before the limit was set
 # The duty of each step of the guard of a stopped session (`bm.stop_due`),
 # as `(VERB, SLUG, WHY)`.
 STOP_DUTIES = {
+    "worked": lambda slug: ("worked", slug, "worked"),
     "status": lambda slug: ("wake", slug, "status"),
     "restart": lambda slug: ("open", slug, "stopped"),
     "stopped": lambda slug: ("stopped", slug, "stopped"),
@@ -4470,14 +4477,15 @@ def duty_args(
     forge named on its record (`session.wake`), one wake for each head. A step of the
     guard of a stopped session names the session it is for, the one `lem session list`
     gave (`Model.sessions`), so that the act refuses another one; the stop is
-    `lem session stopped SLUG`, which has no why."""
+    `lem session stopped SLUG` and the record of a turn `lem session worked SLUG`,
+    which have no why."""
     head = (seen.get(slug) or {}).get("head") if why == "conflict" else None
     named = (
         ((model.sessions or {}).get(slug) or {}).get("session")
-        if why in ("status", "stopped")
+        if why in ("status", "stopped", "worked")
         else None
     )
-    words = [verb, slug] + ([] if verb == "stopped" else ["--why", why])
+    words = [verb, slug] + ([] if verb in ("stopped", "worked") else ["--why", why])
     return (
         words
         + (["--head", str(head)] if head else [])
