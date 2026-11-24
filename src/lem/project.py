@@ -2023,7 +2023,7 @@ def cmd_init(root: Path, base: str | None, codex: str) -> None:
         encoding="utf-8",
     )
     # one machine's own settings and Lem's state are never committed (the state folder
-    # also holds an ignore file of its own, `lem_state.py`)
+    # also holds an ignore file of its own, `state.py`)
     ignore = file.parent / ".gitignore"
     known = text_of(ignore).splitlines() if ignore.is_file() else []
     missing = [

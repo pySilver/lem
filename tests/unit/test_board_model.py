@@ -1,4 +1,4 @@
-"""lem_board_model.py's rules, each called over a few events: the status and the column
+"""board_model.py's rules, each called over a few events: the status and the column
 of a task, who acts, what a card says, what waits for the owner and where he answers,
 green and its reasons, the end of a run of the checks, the phases, the read of the log
 on from where the last read stopped, and a task whose events became one summary: its

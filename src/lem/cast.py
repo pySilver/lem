@@ -30,7 +30,7 @@ reads the default branch's cast, never a generic one, so a session running in th
 worktree keeps the project's people without a rebase. Of the local and remote default
 branch, the newer one is read: work can land on either side first. The files are written
 once per commit in Lem's state folder (`.lem/state/personas-cast/<sha>/` of the main
-checkout, as `lem_state.py` names it), which git never shows and every worktree shares;
+checkout, as `state.py` names it), which git never shows and every worktree shares;
 `source` names the branch and commit. Each read writes its time on the copy it reads,
 here and for the copies of the profile and of a persona below, and `lem project prune`
 removes a copy that nobody wrote or read for `state.keep_days` days.

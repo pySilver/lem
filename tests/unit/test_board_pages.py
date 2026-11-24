@@ -1,4 +1,4 @@
-"""lem_board_pages.py's rules, each a page drawn from a model of a few events: what the
+"""board_pages.py's rules, each a page drawn from a model of a few events: what the
 kanban's Done column draws of the ended tasks, its foot row, the page that lists the
 ended tasks it has no card for, and the kanban's mark over its cards, and each view's
 line of keys in the page's foot.

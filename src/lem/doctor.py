@@ -1443,7 +1443,7 @@ def board_notifications() -> list[dict]:
 
 def plannotator() -> dict:
     # recommended (away-questions-reach-phone, 2026-11-22): while the owner is away, the
-    # board's server sends what waits for him to the Inbox (lem_inbox.py), and without
+    # board's server sends what waits for him to the Inbox (inbox.py), and without
     # it nothing is sent and no step of a task fails
     row = tool(
         "plannotator",

@@ -4,7 +4,7 @@
 `vNUMBER`. An install and an update take the plugin from that source, so they get the
 commit of the release tag and never the head of `main`.
 
-A task keeps the release it began on (lem_release.py): the rule that a command for a
+A task keeps the release it began on (release.py): the rule that a command for a
 task of this release or the one before goes on, and one for a task two releases back
 stops with the message of criterion 4; the mark a task's open writes, from Claude Code's
 list of installs; and the check each command runs, which logs the stop once and lets a

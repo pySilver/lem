@@ -1,4 +1,4 @@
-"""lem_clock.py's rules: each of the three forms of a UTC time, of a moment given as a
+"""clock.py's rules: each of the three forms of a UTC time, of a moment given as a
 datetime or as seconds, or of now; a moment given is written as it is.
 
     python3 -B -m unittest discover -s tests/unit

@@ -1,4 +1,4 @@
-"""lem_tokens.py: the tokens of a task's Claude Code sessions, over small transcripts in
+"""tokens.py: the tokens of a task's Claude Code sessions, over small transcripts in
 the form Claude Code writes them (one record a line; a reply's blocks share one
 `message.id` and its `usage`).
 

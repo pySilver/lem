@@ -98,7 +98,7 @@ def run_git(
 ) -> subprocess.CompletedProcess:
     """`git -C START ARGS` as Lem's scripts run it, its output caught as text, an exit
     other than 0 given back, not raised. Each runner over it keeps its own way to give
-    the result (`git` below, the `git` of `land.py`, `criteria.py`, `lem_release.py`
+    the result (`git` below, the `git` of `land.py`, `criteria.py`, `release.py`
     and `cast.py`, and the ones inside functions of `board.py` and `project.py`), and
     passes the time limit or the closed stdin it had."""
     return subprocess.run(

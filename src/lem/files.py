@@ -1,13 +1,13 @@
 """A file written whole, and a file held by threads and processes alike: the one writer
-that `land.py`, `criteria.py`, `project.py`, `lem_inbox.py` and `experts.py` share, and
-the one lock of `lem_push.py` and `lem_inbox.py`.
+that `land.py`, `criteria.py`, `project.py`, `inbox.py` and `experts.py` share, and
+the one lock of `push.py` and `inbox.py`.
 
 A reader of a record, a pull request's text or a plan finds the old file or the new
 one, never a part: the text goes to a file beside it under another name, which then
 replaces it in one rename. The other name is the caller's, and it is part of what the
 caller does: two writers of one file at one moment must never write one other file, so
 it holds the process's id, and the board server's threads, which share that id, add
-their own (`lem_inbox.py`); a check looks for what a writer left (`lem-land-guards.sh`
+their own (`inbox.py`); a check looks for what a writer left (`lem-land-guards.sh`
 finds no `whole.txt*.new`). So a caller that has a scheme of its own passes the name,
 and the rest take `NAME.PID.new` beside the file. A caller that may write the first
 file of a folder says so (`make_folder`); the others write into a folder that is there.
@@ -15,8 +15,8 @@ file of a folder says so (`make_folder`); the others write into a folder that is
 A file that the board server's threads write, and a command in a process of its own
 too, is held under two locks at once (`held`): a thread lock, which keeps out the other
 threads of the one process, and a lock file beside it, which keeps out the other
-processes. Each such file has a thread lock of its own (`lem_push.py`'s and
-`lem_inbox.py`'s).
+processes. Each such file has a thread lock of its own (`push.py`'s and
+`inbox.py`'s).
 
 It imports nothing of Lem's, so that any script may load it.
 """

@@ -1,4 +1,4 @@
-"""lem_files.py's rules: a file is written whole under a name of its own first, the
+"""files.py's rules: a file is written whole under a name of its own first, the
 caller's name when it gives one, in a folder that is there unless the caller asks for
 it; a JSON record has the one form of Lem's records; a held file holds its thread lock
 and its lock file until the block ends, however it ends.

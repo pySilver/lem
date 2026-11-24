@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Two machines under one address (lem_peers.py), as two board servers on this Mac: alpha, the entry, with the run's
+# Two machines under one address (peers.py), as two board servers on this Mac: alpha, the entry, with the run's
 # home folder and port (tests/lib.sh), and beta, with a home folder and a port of its own. The test's switches name
 # each server's machine (LEM_SERVE_NAME) and give alpha its peers' addresses over plain http on loopback
 # (LEM_SERVE_PEERS), so no check here runs the tailscale command. gamma is a port that takes a connection and never

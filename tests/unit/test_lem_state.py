@@ -1,4 +1,4 @@
-"""lem_state.py's runner of git: `run_git` gives every exit back with what git said,
+"""state.py's runner of git: `run_git` gives every exit back with what git said,
 under the time limit and with the stdin its caller passes; `git` over it gives the
 output of a run that went well and None for every other.
 

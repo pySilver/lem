@@ -1,5 +1,5 @@
 """A `lem-ask` card of a task's session in the task's folder, and the one end of each
-card (lem_cards.py): the first end recorded counts, from the session or from the board,
+card (cards.py): the first end recorded counts, from the session or from the board,
 and the other writer reads it; the threads of one process each write under a name of
 their own (decision 7 of docs/plans/2026-11-23-board-answers-a-card.md); the module that
 the board's server calls holds no call of agterm, so an end from the board never answers

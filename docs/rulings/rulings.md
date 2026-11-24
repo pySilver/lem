@@ -54,7 +54,7 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
   `/lem init` stops for it; a scheduled job is still added only on his yes. (2026-11-18)
 - **Lem assumes auto mode**, in Claude Code and in Codex. (2026-11-18)
 - **Python 3.11 stays, in the modern form.** No script has `from __future__ import annotations`, and
-  `lem_python.py` finds a newer Python for `bin/lem` and the hooks. (2026-11-20)
+  `src/lem/python.py` finds a newer Python for `bin/lem` and the hooks. (2026-11-20)
 
 ## A request: its type, its track and its commands
 

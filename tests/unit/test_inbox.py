@@ -1,4 +1,4 @@
-"""lem_inbox.py's rules, each called in this process: which rows of "Waits for you"
+"""inbox.py's rules, each called in this process: which rows of "Waits for you"
 become things, the form and the session each goes as, what a look sends and withdraws by
 the owner's mark and the Inbox's door, the record that keeps a send single across a
 restart, and the wake of a task's session for a reply in a thread whose session is gone.

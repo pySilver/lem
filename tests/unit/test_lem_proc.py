@@ -1,4 +1,4 @@
-"""lem_proc.py's rules: the stop of a process group sends a term, then a kill to what
+"""proc.py's rules: the stop of a process group sends a term, then a kill to what
 is left; waiting for the whole group, a group that ends within its grace gets no kill;
 waiting for the first process only, what it left gets the kill as soon as it ended; a
 group that is gone ends the stop.

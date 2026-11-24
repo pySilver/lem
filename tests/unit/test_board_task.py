@@ -1,4 +1,4 @@
-"""The rules of the board of one task (lem_board_model.py, lem_board_task.py), each
+"""The rules of the board of one task (board_model.py, board_task.py), each
 called over a few events: where the time went, the criteria as they stand and their
 checks, which decisions are important and what a reason of not green says, what the task
 waits for, the head of its large card, its progress, and the artifacts the panel reads;

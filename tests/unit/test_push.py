@@ -1,4 +1,4 @@
-"""lem_push.py's rules, each called in this process: the ES256 signature in the form a
+"""push.py's rules, each called in this process: the ES256 signature in the form a
 JWS carries, the VAPID token's claims and life, what is news in a list of what waits,
 which endpoints are taken, and a device that its push service no longer knows. No case
 sends a push: the send is a stand-in, and the switch LEM_PUSH=record is set for the

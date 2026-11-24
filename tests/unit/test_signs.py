@@ -1,4 +1,4 @@
-"""The signs of work of a task's Claude Code session (lem_signs.py), and what
+"""The signs of work of a task's Claude Code session (signs.py), and what
 `lem session list` says of them: the rule as a call of `read_signs` over the facts, the
 read of a transcript from its end, the facts read from a Claude Code folder laid out as
 Claude Code 2.1.330 lays it out (2026-11-22), a fork of another task's session logged

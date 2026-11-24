@@ -616,7 +616,7 @@ PY
 }
 
 # The confirm step of a merge, which on a phone is an overlay whose button comes on when its text was read to the end
-# (lem_board_task.py `merge_step`, the `sheet` controller, board.css). The demo writes no landing record, so a merge step
+# (board_task.py `merge_step`, the `sheet` controller, board.css). The demo writes no landing record, so a merge step
 # has no button: merge.py writes what land.py keeps and logs for an open task. `merge.py landing STATE TASK PR TIP`: its
 # landing.json with the proposed tip and the pull request; `merge.py review LOG TASK`: a review's careful call;
 # `merge.py proposed LOG TASK TIP N`: a proposal of TIP that is not green for the first N of the demo's four reasons
@@ -1045,7 +1045,7 @@ PY
 }
 
 # The park step of gift-note-in-export and the approval of the criteria of stock-on-product-page, which on a phone take
-# the confirm step's overlay (lem_board_task.py `confirm_card`, the `sheet` controller, board.css). The criteria of
+# the confirm step's overlay (board_task.py `confirm_card`, the `sheet` controller, board.css). The criteria of
 # stock-on-product-page changed from the owner's note, so their card shows criterion 1's text before beside its new
 # text, one under the other on a phone and side by side on a desktop, above Yes and No with a note (criteria 2, 3 and 4
 # of criteria-change-asks-again); on a phone of 390 x 844 a No with no note, after the read to the end, is refused on

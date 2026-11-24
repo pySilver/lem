@@ -941,7 +941,7 @@ class Task:
     transcripts: list = field(default_factory=list)
     # the task's summary (SUMMARY) as `lem project prune` wrote it, once its events
     # became that one event; the board of the task says so and shows what it
-    # holds (lem_board_task.py)
+    # holds (board_task.py)
     summary: dict | None = None
     # the newest `release.stop` while no state came after it (RELEASE_STOP): `began`,
     # `running`, `branch`, `say`
@@ -5032,7 +5032,7 @@ def criterion_checks(t: Task) -> list[dict]:
     `bad` (a test does not hold it) or `quiet`."""
     red = t.red or {}
     # the board of a task draws these only for a task whose plan wrote its
-    # criteria (lem_board_task.py)
+    # criteria (board_task.py)
     criteria = cast("dict[str, Any]", t.criteria)
     current = bool(red and red.get("digest")) and red["digest"] == criteria["digest"]
     results = {
