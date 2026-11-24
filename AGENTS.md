@@ -71,7 +71,7 @@ works, and this file says how to change it.
 A release is one commit on `main` and its tag, on the owner's word: `version` in
 `.claude-plugin/plugin.json` and in the `lem` entry of `.claude-plugin/marketplace.json` is
 `NUMBER`, the entry's `ref` is `vNUMBER` (`tests/unit/test_release.py`), and `BEFORE` in
-`skills/lem/scripts/lem_release.py` names the release before (`tests/lem-machine.sh`). Commit it
+`src/lem/release.py` names the release before (`tests/lem-machine.sh`). Commit it
 as `chore(release): Lem NUMBER`, tag it `vNUMBER`, and run `git push --atomic origin main vNUMBER`.
 An update installs that tag, so a merge to `main` reaches no user. A release reads the records of
 `BEFORE` and none older. The owner's Mac takes each release first, and a newer one repairs a bad
@@ -161,7 +161,7 @@ reads that folder from `lem session plugin-dir`. With an older Lem installed for
 
 ## Layout
 
-Each script's module docstring says what it does and why; this list says where each thing is.
+Each module's docstring says what it does and why; this list says where each thing is.
 
 - `skills/lem/SKILL.md`: the entry point, what holds in every stage, and "One session for each
   task".
@@ -185,21 +185,23 @@ Each script's module docstring says what it does and why; this list says where e
   hand-over between two agents of a task; `breaker.md`, the breaker's document.
 - `skills/lem/harness/`: the capability contract, `README.md`, and one file for each agent, a core with
   its parts in a folder of the agent's name (`claude-code/`).
-- `skills/lem/scripts/`, each a command of `lem` or a module the commands share:
-  - `project.py` (`lem project`): Lem's settings from four files (`lem_state.TABLE_PLACES`, where
+- `src/lem/`: Lem's one package. `__main__.py NAME ARGS` is its one entry, `names.py` the table of
+  names (both load under Python 3.9, as `bin/lem` and `python.py` do) and `paths.py` the
+  plugin's folders.
+  - `project.py` (`lem project`): Lem's settings from four files (`state.TABLE_PLACES`, where
     each table is valid), the one place of each file Lem reads beside them (`PLACES`), a task's state and directory, the event log, the owner's status and its
     watch, `waiting` (the one list of what waits for the owner), `prune` (what the state folder
-    keeps, `state.keep_days`, which one machine's `.lem/settings.local.toml` may set for itself),
+    keeps; one machine's `.lem/settings.local.toml` may set its `state.keep_days`),
     `proposals` (the night's and the retro's proposals, the reviewer's verdicts, the owner's drop),
     and the machine's `load` and `handoff` numbers.
   - `session.py` (`lem session`): a task's own session in agterm, its change of phase, its wake-up,
     the handoff's check and the copy of the talk, and `close-job`, the end of a scheduled job's
     session; `session_hook.py`: the plugin's `PreCompact` and
     `SessionStart` hooks of a task's session (every source: the record of each Claude Code session of
-    the task, and after a compaction the task's files); `lem_tokens.py`: the tokens a task's Claude
-    Code sessions spent, from their transcripts, for the merge brief; `lem_signs.py`: the signs of
-    work of a task's live session (its newest turn, a shell command that runs), from Claude Code's
-    own files, for `lem session list`.
+    the task, and after a compaction the task's files); `tokens.py`: the tokens a task's Claude
+    Code sessions spent, from their transcripts, for the merge brief; `signs.py`: the signs of
+    work of a task's live session (its newest turn, a shell command that runs), for
+    `lem session list`.
   - `land.py` (`lem land`): the landing, one refusable step at a time, from `ready` through the
     checks and the review to a pull request on GitHub, the merge agent's read, the merge and the
     cleanup.
@@ -209,20 +211,23 @@ Each script's module docstring says what it does and why; this list says where e
   - `serve.py` (`lem serve`): the machine's one board server, with the owner's acts, the jump to a
     session, the tailnet door and the duties across tasks, the hourly `lem project prune` of each
     workspace among them; `serve_hook.py`: the SessionStart hook
-    that starts it. Its parts: `lem_board_model.py` (the model, pure functions over the files),
-    `lem_board_pages.py` (the pages of a workspace), `lem_board_task.py` (the board of one task),
-    `lem_artifacts.py` (a task's files on one map), `lem_html.py` (`h()`, which escapes every text),
-    `lem_push.py` (the notifications), `lem_inbox.py` (what waits for the owner, sent to his Plannotator
-    Inbox while he is away), `lem_peers.py` (another machine joined with `--join`), `lem_cards.py`
-    (a session's `lem-ask` cards) and `lem_answers.py` (the board's other answers).
+    that starts it. Its parts: `board_model.py` (the model, pure functions over the files),
+    `board_pages.py` (the pages of a workspace), `board_task.py` (the board of one task),
+    `artifacts.py` (a task's files on one map), `markup.py` (`h()`, which escapes every text),
+    `push.py` (the notifications), `inbox.py` (what waits for the owner, sent to his Plannotator
+    Inbox while he is away), `peers.py` (another machine joined with `--join`), `cards.py`
+    (a session's `lem-ask` cards) and `answers.py` (the board's other answers).
   - `board.py` (`lem board`): makes sure the server runs and opens a board, or with `--page FILE`
-    any page of Lem, as a companion. `picker.py` (`lem picker`): agterm's picker over the tasks.
+    any page of Lem, as a companion. `picker.py` (`lem picker`): agterm's picker over the tasks;
+    its old place, `skills/lem/scripts/picker.py`, hands an older keymap line to `bin/lem`.
   - `doctor.py` (`lem doctor`): the machine check. `corrections.py` (`lem corrections`): the
     optional queue of the owner's corrections and its hook. `jev.py` (`lem-jev`): the Jev client:
     corrections, panel, landing.
-  - `lem_state.py` (the state folder and Lem's home folder), `lem_plans.py` (a plan's file
-    name), `lem_sibling.py` (a sibling's command in the same process), `lem_release.py` (a task's
-    `release.txt` and its stop two releases back) and `lem_python.py` (a Python of 3.11 or newer for
+  - `state.py` (the state folder and Lem's home folder), `files.py` (a file written whole, a
+    shared lock), `clock.py` (a moment as text), `proc.py` (the stop of a
+    process group), `plans.py` (a plan's file
+    name), `sibling.py` (a sibling's command in the same process), `release.py` (a task's
+    `release.txt` and its stop two releases back) and `python.py` (a Python of 3.11 or newer for
     `bin/lem` and the hooks).
 - `skills/lem/assets/`: what `lem serve` sends under `/assets/`. `board.css` is the board's look,
   the phone's too; `lem.css` and `lem.js` are the look and the palette every page of Lem shares, and
@@ -233,14 +238,14 @@ Each script's module docstring says what it does and why; this list says where e
 - `tools/board-kit/`: the maintainer's build of `vendor/`, which nobody who installs the plugin
   runs: the built files are committed. Its `README.md` says how to build and how to add a Stimulus
   controller to `controllers/`.
-- Lem's home folder, `$XDG_CONFIG_HOME/lem` or `~/.config/lem` (`lem_state.config()`):
+- Lem's home folder, `$XDG_CONFIG_HOME/lem` or `~/.config/lem` (`state.config()`):
   `owner.jsonl`, the owner's away and back; `machine.toml`, the machine's settings, which no
   file overrides, `[load]`, `[serve]`, `[peers]`, `[handoff]` and `[corrections]`, written through
-  `lem_state.write_machine`; `settings.toml`, the developer's own for every repository, `[seats]`
+  `state.write_machine`; `settings.toml`, the developer's own for every repository, `[seats]`
   (which a repository's files override) and `[ask]`, the question page's defaults;
   `workspaces.json`, the repositories the server shows; and what the server and the checks keep
-  there: `serve.lock`, `serve.log`, `load.lock`, `load.line/` (the line of
-  the runs of the checks that wait for the load, one locked file for each), the push key
+  there: `serve.lock`, `serve.log`, `load.lock`, `load.line/` (a locked file
+  for each run of the checks that waits for the load), the push key
   `push-key.pem` and the devices `push.json`.
 - `.lem/`: Lem's settings (the team's `settings.toml` and one developer's
   `settings.local.toml`), profile, cast and lessons, in the places every repository has them. Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
@@ -248,18 +253,16 @@ Each script's module docstring says what it does and why; this list says where e
   a file for each day), the reviewer's backlog items (`backlog/`) and `proposals.lock` over both,
   the naps, the experts' folders, a panel's copies, the panels' folders (`panels/`, which
   `lem cast run-dir` makes), `forge.json`, the board server's last look at GitHub, and
-  `inbox.json`, its record of the owner's Inbox: its last look there and each thing it sent
-  there. `lem project prune` keeps the records and the items, and removes from the rest what is
-  older than `state.keep_days`: of a task that ended and that nothing happened in for that many
-  days, every file but its small record (`lem_artifacts.SMALL_RECORD`), and its events become one
-  summary event of the log. `.lem/worktrees/` holds
-  the tasks' worktrees. `.revmux/` is the review tool's configuration for this repository.
+  `inbox.json`, its record of the owner's Inbox. `lem project prune` keeps the records and the items; of a task that ended and saw nothing
+  for `state.keep_days`, it removes every file but its small record (`artifacts.SMALL_RECORD`)
+  and makes its events one summary event of the log. `.lem/worktrees/` holds
+  the tasks' worktrees. `.revmux/` is the review tool's configuration.
 - The naps, an optional part: `prompts/nap.md` is written after the owner's own nap routine and
   keeps its voice (a change is tried with one real nap, and its dream is read: a brief that makes a
   report of it is wrong); `stages/nap.md` starts one and `lem project may-nap` says whether one
   may. No page shows them; the retro reads their waking notes.
-- `docs/`: the guides the README links, each in STE like the README, each with one job and an aim
-  of under 800 words, or a bit more when needed: `flow.md` (how a task goes, with the one diagram), `when-lem-needs-you.md`,
+- `docs/`: the guides the README links, in STE, each with one job and an aim of under 800
+  words: `flow.md` (how a task goes, with the one diagram), `when-lem-needs-you.md`,
   `pull-request.md` (what green means, the merge review, the merge, a conflict), `board.md` (the
   board, the phone, two machines under one address, the server), `install.md`, `linear.md` and
   `github-issues.md`; and `settings.md`, the reference, one table for each file and each table of
@@ -271,7 +274,7 @@ Each script's module docstring says what it does and why; this list says where e
   work, and `plans/`, the plans that built Lem, each finished one
   with a status line that names its commits and where later decisions changed it; the redesign of
   2026-11-20 is `plans/2026-11-20-a-session-for-each-task.md` and its folder.
-- `tests/`: the suites of "Checks". `unit/` is the unit level, one `test_*.py` or more for each script;
+- `tests/`: the suites of "Checks". `unit/` is the unit level, one `test_*.py` or more for each module;
   `lib.sh` is what each `lem-*.sh` block sources, `checks.sh` how every suite counts its checks,
   `suites.sh` and `limit.py` what `all.sh` and `test-lem.sh` share, and `pick.py` the map of which
   suite reads which file. `board-showcase.py` writes the demo afternoon that `lem-serve.sh` serves,
@@ -279,18 +282,17 @@ Each script's module docstring says what it does and why; this list says where e
   driver that `lem-board-keys.sh` presses the board's keys with.
   `.github/workflows/ci.yml` runs `all.sh`, started by hand.
 - `.claude-plugin/`, `bin/` and `hooks/`: what Claude Code reads to load this repository as the
-  plugin `lem`, the one way Lem installs. `bin/lem` is Lem's one command: `lem NAME` runs the script
+  plugin `lem`, the one way Lem installs. `bin/lem` is Lem's one command: `lem NAME` runs the module
   NAME stands for, and `lem help` lists them; `lem-ask` and `lem-jev` are links to it.
-  `hooks/hooks.json` starts, each through `lem_python.py`, the correction hook, the SessionStart
-  hook of the board server and the two hooks of a task's session. Every text and every message of a
-  script says `lem NAME`, so one permission rule, `Bash(lem *)`, covers them on every machine and
+  `hooks/hooks.json` starts, each through `src/lem/python.py`, the correction hook, the SessionStart
+  hook of the board server and the two hooks of a task's session. Every text and message says `lem NAME`, so one permission rule, `Bash(lem *)`, covers them on every machine and
   after every update.
 - `agents/lem-builder.md`: the builder, as a Claude Code agent definition; its body is the builder's
   standing rules, and `harness/claude-code.md` says how it is used and overridden.
 - `assets/`: the logo (`lem.svg`, the animated scene with both skies), the figure alone
   (`lem-mark.svg`), and the night file of each (`*-night.svg`), which `night.py` writes in the night
   palette, with the scene's night sky in its own colors. `assets/screens/` holds the board's
-  pictures, light and dark, made by `tests/board-showcase.py`: `board-*` (the kanban), `task-*` (a
+  pictures, light and dark: `board-*` (the kanban), `task-*` (a
   task on "Overview"), `backlog-*` and `phone-*`. The README shows `board-*` and `phone-*`,
   `docs/board.md` `phone-*`, `docs/when-lem-needs-you.md` `task-*`, the site all three, and no page
   `backlog-*`.
@@ -303,14 +305,13 @@ Each script's module docstring says what it does and why; this list says where e
   changes `site/index.html` in the same commit where the page says the same thing.
 - `skills/lem-ask/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`, `skills/lem-root-cause/`,
   `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`, `skills/lem-github/`,
-  `skills/lem-ask-expert/`: the skills Lem names and ships. `lem-github` is Lem's own, with
-  `scripts/issues.py` (`lem issue`: the GitHub tracker's check, the read of an issue, and its
-  writes at a task's start, landing, drop and answer, through `gh`). `lem-ask-expert` is Lem's
-  own, with `scripts/experts.py` (`lem experts`: the brief of a question in words and the record of the experts' answers, in a folder of
-  `.lem/state/experts/`). `lem-panel`'s `scripts/cast.py` (`lem cast`) finds the cast, copies it
-  into a project, keeps the copies a panel read in Lem's state folder, and makes each panel's own
-  folder there, in `.lem/state/panels/`. `NOTICE` says where each
-  came from.
+  `skills/lem-ask-expert/`: the skills Lem names and ships, each command a module of
+  `src/lem/` (`ask.py` is `lem-ask`). `lem-github` is Lem's own, with `lem issue` (the GitHub tracker's check, the read of an issue, and its writes at a task's
+  start, landing, drop and answer, through `gh`). `lem-ask-expert` is Lem's own, with
+  `lem experts` (the brief of a question in words and the record of the experts' answers, in a
+  folder of `.lem/state/experts/`). `lem-panel`'s `lem cast` finds the cast, copies it into a
+  project, keeps the copies a panel read in Lem's state folder, and makes each panel's own folder
+  there. `NOTICE` says where each came from.
 
 ## The shipped skills are copies, not yet under the rules above
 

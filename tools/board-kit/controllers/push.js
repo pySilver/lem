@@ -1,4 +1,4 @@
-// The control of the board's notifications on this device (lem_board_pages `push_row`, lem_push.py): it says
+// The control of the board's notifications on this device (lem_board_pages `push_row`, push.py): it says
 // whether this device gets a notification when something starts to wait for the owner, and turns that on
 // and off. The server renders a sentence for each state; the controller sets the state in data-js-push and
 // a line of what happened in data-js-note, both kept by a morph (app.js), and board.css shows the matching

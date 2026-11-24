@@ -1,6 +1,6 @@
 ---
 worth: later
-where: skills/lem/scripts/lem_board_model.py:session_need
+where: src/lem/board_model.py:session_need
 added: 2026-11-22
 ---
 # A wake into a parked pane is never shown as unheard

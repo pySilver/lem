@@ -34,7 +34,7 @@ owner answered with "There is no such thing in FASHION as ILLUSTRATION" (mybaze 
 2026-11).
 
 Each project writes its own from `references/profile-template.md`; no other profile
-stands in for it. `scripts/cast.py` prints its path as `profile`, from the checkout or, like the
+stands in for it. `lem cast` prints its path as `profile`, from the checkout or, like the
 cast, from the default branch when the checkout has none or holds only an unchanged older copy. When `profile` is null, the panel still
 runs and every card and review says "no project profile"; offer once to draft one from the
 project's own documents, for the user to finish and commit.

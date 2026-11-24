@@ -531,7 +531,7 @@ pre.code { margin: 0; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; overf
   .status > :nth-child(2) { display: none; }
 }
 
-/* ==== the board as the server draws it (lem serve, lem_board_pages.py) ====
+/* ==== the board as the server draws it (lem serve, board_pages.py) ====
    Links that a visit follows, icons as SVG symbols of
    the page's own sprite, <details> for what opens and closes, and the browser's own state in data-js-*
    attributes, which a morph keeps (tools/board-kit/app.js). Every rule here is under .app, the body of
@@ -687,7 +687,7 @@ html:has(.app.plain) { overflow: auto; height: auto; }
 .app.plain .doc h2 { font: 700 20px/1.3 var(--sans); letter-spacing: -.012em; text-transform: none; color: var(--fg); }
 .app .bl-bar > .dim { flex: 1 1 260px; min-width: 0; }
 
-/* ---- the served board: the panel of a task (lem_board_task.py) ----
+/* ---- the served board: the panel of a task (board_task.py) ----
    The panel lies in <turbo-frame id="task">, which takes no box of its own. Its width is the owner's
    dragged one (--pw, from the cookie) or the usual one, two columns of the kanban with the gap between
    them, and it always leaves 264 px of the stage beside it; under 760 px of stage it takes the whole
@@ -1098,7 +1098,7 @@ html:has(.app.plain) { overflow: auto; height: auto; }
 .cf-plain { margin: 0; font: 13px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .approve-body .md:has(> template:only-child) { display: none; }
 .approve-body .act-note { margin-bottom: 0; }
-/* a change of the criteria from the owner's note (lem_board_task.py `change_block`): each changed criterion's text
+/* a change of the criteria from the owner's note (board_task.py `change_block`): each changed criterion's text
    before beside its new text, side by side on a wide screen, one under the other on a phone, each wrapped */
 .cf-change { display: flex; flex-direction: column; gap: 8px; }
 .cf-change > .sub { margin: 0; font-size: 13px; color: var(--dim); overflow-wrap: anywhere; }
@@ -1116,7 +1116,7 @@ html:has(.app.plain) { overflow: auto; height: auto; }
 .cf-back { display: none; }
 .confirm { display: flex; flex-direction: column; gap: 10px; box-shadow: inset 3px 0 0 var(--actor); }
 .confirm > p, .confirm > :is(.cf-body, .cf-foot) > p { margin: 0; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
-/* the three parts of an act's step (lem_board_task.py `confirm_card`): outside the phone's overlay they take
+/* the three parts of an act's step (board_task.py `confirm_card`): outside the phone's overlay they take
    no box, so the card's column and its gap reach the same children as with no parts */
 .cf-head, .cf-body, .cf-foot { display: contents; }
 .confirm .sub { color: var(--dim); }
@@ -1130,7 +1130,7 @@ html:has(.app.plain) { overflow: auto; height: auto; }
 .cf-facts { margin: 2px 0 0; font-size: 14px; }
 .cf-facts .mono { font-size: 13px; }
 .cf-note { font-size: 13px !important; color: var(--dim); }
-/* the one answer form of a row the board answers with its own buttons (lem_board_pages.py `answer_form`), in the
+/* the one answer form of a row the board answers with its own buttons (board_pages.py `answer_form`), in the
    row of "Waits for you" and on the task's page: its question, one note field, and the options as buttons */
 .answer-form { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; max-width: 640px; }
 .answer-form .ans-q { font-size: 14px; font-weight: 650; color: var(--ink); }
@@ -1138,7 +1138,7 @@ html:has(.app.plain) { overflow: auto; height: auto; }
 .answer-form .ans-acts { margin-top: 0; }
 .app .wr-answer { flex-direction: column; align-items: stretch; }
 .wr-criterion { padding: 8px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
-/* a card of the task's session (lem_board_task.py `card_step`): the card's own page, as lem-ask built it, in a frame */
+/* a card of the task's session (board_task.py `card_step`): the card's own page, as lem-ask built it, in a frame */
 .card-frame { display: block; width: 100%; height: min(78vh, 820px); border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
 @media (max-width: 700px) {
   .act-row, .app .wr-acts { flex-direction: column; align-items: stretch; }
@@ -1189,7 +1189,7 @@ html:has(.app.plain) { overflow: auto; height: auto; }
   .nt { padding: 12px 12px 24px; }
 }
 
-/* ---- the search over every card (search_box in lem_board_pages.py) ----
+/* ---- the search over every card (search_box in board_pages.py) ----
    Drawn closed on every page; the search controller opens it with data-js-open, which a morph keeps. It
    lies over the board and the drawer, behind a scrim of the drawer's color, one row for each card, its chip a pill in the color of
    the card's place. Its button stands in the bar, and on a phone in the bar at the top. */

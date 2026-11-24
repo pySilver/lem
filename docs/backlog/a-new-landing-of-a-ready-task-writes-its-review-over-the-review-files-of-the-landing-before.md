@@ -1,6 +1,6 @@
 ---
 worth: later
-where: skills/lem/scripts/land.py:start_locked
+where: src/lem/land.py:start_locked
 added: 2026-11-23
 ---
 # A new landing of a ready task writes its review over the review files of the landing before

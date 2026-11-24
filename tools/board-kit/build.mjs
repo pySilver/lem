@@ -43,7 +43,7 @@ await build({
   logLevel: 'warning',
 })
 // The diagram library, as its package ships it: the same file, byte for byte, that lem-ask pins
-// (MERMAID_SHA256 in skills/lem-ask/bin/lem-ask), so that both show a chart the same way.
+// (MERMAID_SHA256 in src/lem/ask.py), so that both show a chart the same way.
 const MERMAID = join(HERE, 'node_modules/mermaid/dist/mermaid.min.js')
 const MERMAID_SHA256 = '07e37dfa97b337ccc85365d57eddf99b9706f09db3b59b260d0333b23b343c4b'
 const mermaidHash = createHash('sha256').update(readFileSync(MERMAID)).digest('hex')

@@ -1,6 +1,6 @@
 ---
 worth: later
-where: skills/lem/scripts/project.py:outcome_of
+where: src/lem/project.py:outcome_of
 added: 2026-11-22
 ---
 # The first line skips a bold outcome

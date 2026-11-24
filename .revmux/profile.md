@@ -7,7 +7,7 @@ A draft written at Lem's onboarding on 2026-11-16. revmux copies this file into 
 Lem is a set of Claude Code skills that carries one unit of work in a repository from an ask to a
 pull request that says green or not green. Most of the repository is instructions to agents
 (`skills/*/SKILL.md`, `skills/lem/stages/*.md`, `skills/lem/prompts/*.md`) and standard-library
-Python scripts that keep a task's state and do its landing (`skills/lem/scripts/*.py`). This
+Python scripts that keep a task's state and do its landing (`src/lem/*.py`). This
 repository is also the Lem that runs: a change that reaches `main` changes every session that uses
 it.
 

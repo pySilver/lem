@@ -122,8 +122,8 @@ line that opens with the name of a stage or of a shipped skill is the owner's co
 for this repository, and you follow it where that text says otherwise. No line there lifts what a script
 refuses.
 
-`lem` is Lem's one command: `lem NAME ARGS...` runs the script `NAME.py` of this skill's
-`scripts/`, or a shipped skill's (`lem experts`, `lem cast`), and `lem help` lists every name.
+`lem` is Lem's one command: `lem NAME ARGS...` runs the module of Lem's package that NAME stands
+for, a shipped skill's too (`lem experts`, `lem cast`), and `lem help` lists every name.
 Run Lem's scripts only through it. The harness file says where it comes from, and what to run
 where the shell does not find it.
 
@@ -185,7 +185,7 @@ so do the end of a command it runs in the background and a wake-up from the boar
   it in the decisions log, and go on. A red test, a failed command or a moving base branch is the
   work, never a reason to stop.
 - **Decisions are logged, and the owner can overturn each.** Each decision made without the
-  owner, each breaker and his help on it, through `scripts/decisions.py`: what, what
+  owner, each breaker and his help on it, through `lem decisions`: what, what
   was chosen, by whom, why, and what it would take to undo. It writes `decisions.jsonl` in the
   task's directory and an event for the board; nobody writes that file by hand. The report lists
   them as decisions, never as questions, and the pull request lists each one from the record.
@@ -318,7 +318,7 @@ shared by every worktree, never committed and not removed with a worktree. It ho
 - `report.md`: what the lead did, rewritten whole at each stop. `stages/build.md` gives its form.
 - `decisions.jsonl`: each decision taken without the owner, each breaker and his help on it, one
   line for each thing that happened, and each change of an approved criterion with its text before
-  and after. Written only through `scripts/decisions.py`; `lem decisions list SLUG` shows each
+  and after. Written only through `lem decisions`; `lem decisions list SLUG` shows each
   decision as it stands, and `lem decisions changes SLUG` the criterion changes with the criteria
   they give.
 - `breaker-N.md`: the document a lead that tripped breaker N leaves for the owner, which the lead
@@ -327,7 +327,7 @@ shared by every worktree, never committed and not removed with a worktree. It ho
 - `release.txt`: the release of Lem the task began on, which its open writes (`lem project task-dir`).
   A command of Lem for a task begun two releases back stops with a message that names the way on,
   `/lem drop`, then `/lem resume`, and logs `release.stop`, which the board shows as blocked
-  (`scripts/lem_release.py`).
+  (`src/lem/release.py`).
 - `reports/`: one file per builder of a plan's task, which the lead reads.
 - `landing.json`, `polish.json`, `gate/`, `read.json`, `reviews/`, `notes.md`, `pr.md`,
   `merge-brief-TIP-BASE.md`, `merge-answer-TIP-BASE.md` and `merge-review.md`: what the landing
@@ -336,9 +336,9 @@ shared by every worktree, never committed and not removed with a worktree. It ho
   merge agent's brief and answer for each proposed tip and base, and its newest review.
 - `cards/`: each `lem-ask` card the task's session put up, `PAGEID.html` and `PAGEID.json` (what it
   asks), and its one end, `PAGEID.end.json`, the first of a pick in the session, a dismissal, a
-  close or his answer on the board (`scripts/lem_cards.py`).
+  close or his answer on the board (`src/lem/cards.py`).
 - `answers/`: `KEY.json`, his answer on the board to a row it answers with its own buttons, one for
-  each row's key (`scripts/lem_answers.py`); `lem project tasks` gives the one of the newest state
+  each row's key (`src/lem/answers.py`); `lem project tasks` gives the one of the newest state
   block as `board_answer`.
 
 The plan of a task on the standard track is a file in the repository, in the settings' `plans` path.

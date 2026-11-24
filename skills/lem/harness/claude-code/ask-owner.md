@@ -50,7 +50,7 @@ session: the board refuses both. Exit 2 with a `said` is a close or a dismissal 
 
 The owner's inbox is the Plannotator Inbox. While his mark says away, the board's server sends each
 thing of "Waits for you" there once, in the thread named by the task's slug, as the task's newest
-Claude Code session (`plannotator inbox call --session claude-code:ID`, `lem_inbox.py`), and
+Claude Code session (`plannotator inbox call --session claude-code:ID`, `inbox.py`), and
 withdraws its question as the same session when the thing leaves the list. Plannotator brings his
 reply back into the session the message went as ("Where replies go" in `plannotator inbox --help`,
 read 2026-11-22). With no Inbox on the machine, or one with no tailnet address, nothing goes there,

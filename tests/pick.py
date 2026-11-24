@@ -15,9 +15,9 @@ moves: this list is for the turns before that.
 
 The map was read from the suites' text on 2026-11-18, and the row of test-site on
 2026-11-19 and 2026-11-23 (the scripts each one starts, and the files of this repository
-it reads), not measured by a trace. A script's change reaches every suite that runs a
-script that calls it: land.py, criteria.py and decisions.py call their siblings in their
-own process (`skills/lem/scripts/lem_sibling.py`).
+it reads), not measured by a trace. A module's change reaches every suite that runs a
+module that calls it: land.py, criteria.py and decisions.py call their siblings in their
+own process (`src/lem/sibling.py`).
 """
 
 import fnmatch
@@ -33,7 +33,7 @@ TESTS = ROOT / "tests"
 # them all.
 EVERYTHING = "all"
 # The suites that are not a file tests/NAME.sh of their own: the map's check, and the
-# unit level, one file or more for each script in tests/unit/, which tests/all.sh runs
+# unit level, one file or more for each module in tests/unit/, which tests/all.sh runs
 # as `python3 -B tests/unit`.
 COMMANDS = {
     "pick": "python3 tests/pick.py --check",
@@ -47,35 +47,46 @@ CHROME = ("test-ask", "test-site")
 # names. A row with no suite names files nothing reads. A suite's own file,
 # tests/NAME.sh, runs that suite and is in no row.
 MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
-    # Lem's scripts, and the suites that run them, directly or through a script that
-    # calls them. The unit level calls their functions, and every file of it is its own.
-    (("skills/lem/scripts/*", "tests/unit/*"), ("unit",)),
-    # `lem project waiting` builds the board's model, and asks `lem session list` when
-    # the log has a session; every command that names one task runs the release rule
-    # (lem_release.py) first; the helpers project.py shares with land.py, criteria.py,
-    # lem_inbox.py and experts.py (lem_files.py), with every script that writes a time
-    # (lem_clock.py), and the stop of a check's process group, which `lem project
-    # serial` shares with land.py and criteria.py (lem_proc.py)
+    # Lem's package, and the suites that run it, directly or through a module that
+    # calls it. The unit level calls their functions, and every file of it is its own.
+    (("src/lem/*", "tests/unit/*"), ("unit",)),
+    # the one entry, its table of names and the plugin's folders, through which every
+    # suite runs a command of Lem
     (
         (
-            "skills/lem/scripts/project.py",
-            "skills/lem/scripts/lem_state.py",
-            "skills/lem/scripts/lem_files.py",
-            "skills/lem/scripts/lem_clock.py",
-            "skills/lem/scripts/lem_proc.py",
-            "skills/lem/scripts/lem_plans.py",
-            "skills/lem/scripts/lem_board_model.py",
-            "skills/lem/scripts/lem_release.py",
-            "skills/lem/scripts/lem_cards.py",
-            "skills/lem/scripts/lem_answers.py",
+            "src/lem/__init__.py",
+            "src/lem/__main__.py",
+            "src/lem/names.py",
+            "src/lem/paths.py",
+        ),
+        ("lem-*", "test-ask-expert", "test-gate-panel"),
+    ),
+    # `lem project waiting` builds the board's model, and asks `lem session list` when
+    # the log has a session; every command that names one task runs the release rule
+    # (release.py) first; the helpers project.py shares with land.py, criteria.py,
+    # inbox.py and experts.py (files.py), with every script that writes a time
+    # (clock.py), and the stop of a check's process group, which `lem project
+    # serial` shares with land.py and criteria.py (proc.py)
+    (
+        (
+            "src/lem/project.py",
+            "src/lem/state.py",
+            "src/lem/files.py",
+            "src/lem/clock.py",
+            "src/lem/proc.py",
+            "src/lem/plans.py",
+            "src/lem/board_model.py",
+            "src/lem/release.py",
+            "src/lem/cards.py",
+            "src/lem/answers.py",
         ),
         ("lem-*", "test-ask-expert", "test-gate-panel"),
     ),
     (
         (
-            "skills/lem/scripts/lem_sibling.py",
-            "skills/lem/scripts/decisions.py",
-            "skills/lem/scripts/criteria.py",
+            "src/lem/sibling.py",
+            "src/lem/decisions.py",
+            "src/lem/criteria.py",
         ),
         (
             "lem-land-*",
@@ -91,23 +102,23 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
     ),
     (
-        ("skills/lem/scripts/land.py",),
+        ("src/lem/land.py",),
         ("lem-land-*", "lem-serial", "lem-command", "lem-board-act"),
     ),
-    # the merge brief's `tokens`, which land.py reads through lem_tokens.py
-    (("skills/lem/scripts/lem_tokens.py",), ("lem-land-*",)),
+    # the merge brief's `tokens`, which land.py reads through tokens.py
+    (("src/lem/tokens.py",), ("lem-land-*",)),
     (
-        ("skills/lem/scripts/board.py",),
+        ("src/lem/board.py",),
         ("lem-serve", "lem-settings", "lem-machine", "lem-command", "lem-picker"),
     ),
     # the board server and the pages it draws, and the afternoon its block serves
     (
         (
-            "skills/lem/scripts/serve.py",
-            "skills/lem/scripts/serve_hook.py",
-            "skills/lem/scripts/lem_board_*.py",
-            "skills/lem/scripts/lem_html.py",
-            "skills/lem/scripts/lem_artifacts.py",
+            "src/lem/serve.py",
+            "src/lem/serve_hook.py",
+            "src/lem/board_*.py",
+            "src/lem/markup.py",
+            "src/lem/artifacts.py",
             "skills/lem/assets/*",
             "tests/board-showcase.py",
         ),
@@ -122,7 +133,7 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     ),
     # the server's thread that sends what waits to the owner's Inbox, which every server
     # loads and lem-board-act runs on the stand-in for plannotator
-    (("skills/lem/scripts/lem_inbox.py",), ("lem-board-act", "lem-serve")),
+    (("src/lem/inbox.py",), ("lem-board-act", "lem-serve")),
     # the driver of headless Chrome, through which lem-serve types into a page of the
     # board and lem-board-keys presses the board's keys
     (("tests/board-cdp.mjs",), ("lem-serve", "lem-board-keys")),
@@ -130,37 +141,37 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     # and the list of both
     (
         (
-            "skills/lem/scripts/serve.py",
-            "skills/lem/scripts/lem_peers.py",
-            "skills/lem/scripts/lem_board_pages.py",
+            "src/lem/serve.py",
+            "src/lem/peers.py",
+            "src/lem/board_pages.py",
         ),
         ("lem-peers",),
     ),
-    # `lem session list` reads each live session's signs of work through lem_signs.py,
-    # which takes the task a transcript names from lem_tokens.py
+    # `lem session list` reads each live session's signs of work through signs.py,
+    # which takes the task a transcript names from tokens.py
     (
         (
-            "skills/lem/scripts/picker.py",
-            "skills/lem/scripts/session.py",
-            "skills/lem/scripts/lem_signs.py",
-            "skills/lem/scripts/lem_tokens.py",
+            "src/lem/picker.py",
+            "src/lem/session.py",
+            "src/lem/signs.py",
+            "src/lem/tokens.py",
         ),
         ("lem-picker", "lem-command"),
     ),
     (
         (
-            "skills/lem/scripts/session.py",
-            "skills/lem/scripts/lem_signs.py",
-            "skills/lem/scripts/lem_tokens.py",
-            "skills/lem/scripts/session_hook.py",
+            "src/lem/session.py",
+            "src/lem/signs.py",
+            "src/lem/tokens.py",
+            "src/lem/session_hook.py",
             "skills/lem/templates/handoff.md",
         ),
         ("lem-session", "lem-command"),
     ),
     (
         (
-            "skills/lem/scripts/corrections.py",
-            "skills/lem/scripts/jev.py",
+            "src/lem/corrections.py",
+            "src/lem/jev.py",
             "hooks/*",
             "bin/lem-jev",
         ),
@@ -168,17 +179,19 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     ),
     (
         (
-            "skills/lem/scripts/doctor.py",
+            "src/lem/doctor.py",
             "scripts/setup.py",
             ".claude-plugin/*",
             "agents/*",
         ),
         ("lem-machine", "lem-command"),
     ),
-    (("bin/lem", "skills/lem/scripts/lem_python.py"), ("lem-command", "lem-machine")),
+    (("bin/lem", "src/lem/python.py"), ("lem-command", "lem-machine")),
+    # the picker's old place, which an older keymap line names
+    (("skills/lem/scripts/picker.py",), ("lem-picker",)),
     # the afternoon of tests/board-showcase.py puts up its card with `lem-ask render`
     (
-        ("skills/lem-ask/*", "bin/lem-ask"),
+        ("skills/lem-ask/*", "bin/lem-ask", "src/lem/ask.py"),
         (
             "test-ask",
             "lem-machine",
@@ -188,18 +201,21 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
             "lem-board-keys",
         ),
     ),
-    (("skills/lem-ask-expert/*",), ("test-ask-expert", "lem-command")),
     (
-        ("skills/lem-gate/*", "skills/lem-panel/*"),
+        ("skills/lem-ask-expert/*", "src/lem/experts.py"),
+        ("test-ask-expert", "lem-command"),
+    ),
+    (
+        ("skills/lem-gate/*", "skills/lem-panel/*", "src/lem/cast.py"),
         ("test-gate-panel", "lem-state", "lem-command"),
     ),
     # the experts' brief names the personas through the panel's cast.py; the unit level
-    # calls both scripts' functions
-    (("skills/lem-panel/scripts/*",), ("test-ask-expert", "unit")),
-    (("skills/lem-ask-expert/scripts/*",), ("unit",)),
-    # the GitHub tracker's script, which tests/unit/test_issues.py runs over a stand-in
+    # calls both modules' functions
+    (("src/lem/cast.py",), ("test-ask-expert", "unit")),
+    (("src/lem/experts.py",), ("unit",)),
+    # the GitHub tracker's module, which tests/unit/test_issues.py runs over a stand-in
     # for gh; `lem issue --help` is lem-command's
-    (("skills/lem-github/scripts/*",), ("unit", "lem-command")),
+    (("src/lem/issues.py",), ("unit", "lem-command")),
     # Texts a suite reads: every text under skills/ and agents/, none of which may tell
     # anyone to run a script by its path (lem-command), nor name a Lem text by a folder
     # in a brief's first line (tests/unit/test_session.py).
@@ -270,7 +286,6 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         (
             "*.py",
             "bin/lem",
-            "skills/lem-ask/bin/lem-ask",
             "tests/clock/date",
             "pyproject.toml",
             "uv.lock",
@@ -307,7 +322,12 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
 # The files the Chrome suites are run for: each row that names one of them is all of
 # their own.
 CHROME_OWN = {
-    "test-ask": ("skills/lem-ask/*", "bin/lem-ask", "tests/checks.sh"),
+    "test-ask": (
+        "skills/lem-ask/*",
+        "bin/lem-ask",
+        "src/lem/ask.py",
+        "tests/checks.sh",
+    ),
     "test-site": (
         "site/*",
         ".github/workflows/pages.yml",
@@ -438,7 +458,7 @@ def check() -> int:  # noqa: C901 - over the limit before the limit was set
         path
         for path in tracked
         if re.fullmatch(
-            r"(skills/[^/]+/(scripts|bin)/[^/]+|bin/[^/]+|hooks/[^/]+|scripts/[^/]+)",
+            r"(src/lem/[^/]+|skills/[^/]+/(scripts|bin)/[^/]+|bin/[^/]+|hooks/[^/]+|scripts/[^/]+)",
             path,
         )
     ]

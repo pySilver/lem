@@ -39,7 +39,7 @@ are in JavaScript Standard Style: `npx eslint . --fix` at the root of the checko
 
 ## The panel of a task
 
-A task opens in `<turbo-frame id="task">` (`lem_board_task.py`). Its controllers: `panel` (it marks the
+A task opens in `<turbo-frame id="task">` (`board_task.py`). Its controllers: `panel` (it marks the
 task's card while it is open, and expands the panel), `splitter` (the grip, whose width goes into the
 cookie), `tip` (the hover of the time card), `artifacts` (the groups folded and the list's scroll,
 kept for the task while the page lives), `markdown` (a document rendered from the `<template>` the

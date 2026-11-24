@@ -32,10 +32,10 @@ script's. So one permission rule, `Bash(lem *)`, covers every script of Lem's on
 changes with each update. The rule covers a plain call: run each `lem` call alone and read what it
 prints, never inside `$(...)`, before a pipe or after an `&&`, which make a command of another
 shape that needs a rule of its own. Where the shell does not find it (`command not found`), run the same
-script by its path, `python3 SKILL_DIR/scripts/NAME.py ARGS...`, or for a shipped skill's the
-file in that skill's `scripts/` (`lem experts` is `python3
-SKILL_DIR/../lem-ask-expert/scripts/experts.py`; `COMMANDS` in `SKILL_DIR/../../bin/lem` names
-each file), and say once that `lem` was not on the `PATH`.
+command through the entry of Lem's package by its path, `python3 SKILL_DIR/../../src/lem/__main__.py
+NAME ARGS...` (a shipped skill's too: `lem experts` is `python3
+SKILL_DIR/../../src/lem/__main__.py experts`; `COMMANDS` in `SKILL_DIR/../../src/lem/names.py`
+names each module), and say once that `lem` was not on the `PATH`.
 
 ## load-skill
 

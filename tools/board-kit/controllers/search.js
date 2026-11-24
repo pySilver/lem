@@ -1,4 +1,4 @@
-// The search over every card of the workspace (search_box in lem_board_pages.py). Cmd-K, or Ctrl-K off the
+// The search over every card of the workspace (search_box in board_pages.py). Cmd-K, or Ctrl-K off the
 // Mac, opens it with the cursor in its field, also while the focus is in another field; so does a search
 // button of the bars (data-search-open), which stands outside the box and is caught by a click on the
 // document. With nothing typed the box shows the tasks that have not ended (data-open), in the order the

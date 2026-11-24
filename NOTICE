@@ -62,7 +62,7 @@ demos.
 Changes made: the skill, its command and its runtime files have new names (`lem-ask`,
 `bin/lem-ask`, `ask.js`, `ask.css`), and its personal defaults moved to
 the table `[ask]` of Lem's own `~/.config/lem/settings.toml`, and its mermaid cache to `~/.cache/lem/`; the launcher moved from the skill's
-`scripts/huddle.py` to `bin/lem-ask`, so it is a bare command on the Bash tool's `PATH` and
+`scripts/huddle.py` to `src/lem/ask.py` in Lem's package, which `bin/lem-ask` runs, so it is a bare command on the Bash tool's `PATH` and
 `allowed-tools: Bash(lem-ask *)` pre-authorizes it; it refuses to open a page
 in an unattended run (`CLAUDE_CODE_SESSION_ATTENDED=0`); outside agterm the
 browser fallback is opt-in (`--browser` or `browser = true` in the user's
@@ -165,7 +165,7 @@ owner's own and unpublished, so no license applies to it.
 
 ## gate, panel, lem-ask, interview-me and jev
 
-`skills/lem/scripts/jev.py` is the `jev` command of that repository's `jev` plugin, as of
+`src/lem/jev.py` is the `jev` command of that repository's `jev` plugin, as of
 2026-11-15, with two lines added to its description.
 
 These came here from [pySilver/cc-tools](https://github.com/pySilver/cc-tools), by the same author

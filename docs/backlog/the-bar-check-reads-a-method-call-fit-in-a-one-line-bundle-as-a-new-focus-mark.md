@@ -1,6 +1,6 @@
 ---
 worth: later
-where: skills/lem/scripts/land.py:bar_of
+where: src/lem/land.py:bar_of
 added: 2026-11-22
 ---
 # The bar check reads a method call fit( in a one-line bundle as a new focus mark

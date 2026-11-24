@@ -63,7 +63,7 @@ the background; a wake of that session meanwhile ends the wait with no close (`c
 agent and is selected, the phase its task is in now (`phase`) and the one it opened in
 (`opened_in`), `unanswered`, a wake-up still in its mailbox after 10 minutes (never the guard's
 status message), and for a live session its signs of work from Claude Code's own files
-(`lem_signs.py`): `sign`, the time of the newest turn of its main thread or a subagent, `shell`,
+(`signs.py`): `sign`, the time of the newest turn of its main thread or a subagent, `shell`,
 whether a shell command of it runs, `signs`, whether the two could be read, and `turn`, whether
 the newest turn of its main thread runs (`runs`), ended (`ended`), or cannot be told (null).
 

@@ -1,6 +1,6 @@
 ---
 worth: later
-where: skills/lem/scripts/lem_board_pages.py:summary_of
+where: src/lem/board_pages.py:summary_of
 added: 2026-11-22
 ---
 # The topbar's summary counts tasks while the inbox icon counts rows

@@ -1,5 +1,5 @@
 // The service worker of Lem's board, served at /sw.js so that its scope is the whole board. It has one
-// job: show a notification when the board server pushes that something waits for the owner (lem_push.py).
+// job: show a notification when the board server pushes that something waits for the owner (push.py).
 //
 // A push carries no payload, so event.data is null. The worker asks the server what to say
 // (/api/push/latest, same origin: through the tailnet door it carries the owner's login as a page does)

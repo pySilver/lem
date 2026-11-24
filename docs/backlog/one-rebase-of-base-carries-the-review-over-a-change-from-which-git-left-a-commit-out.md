@@ -1,6 +1,6 @@
 ---
 worth: later
-where: skills/lem/scripts/land.py:cmd_base
+where: src/lem/land.py:cmd_base
 added: 2026-11-23
 ---
 # One rebase of base carries the review over a change from which git left a commit out
