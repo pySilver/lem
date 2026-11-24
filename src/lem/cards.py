@@ -198,6 +198,25 @@ def ended(task: Path, page: str) -> dict | None:
         ) from error
 
 
+# One half of a UTF-16 pair, alone in a string: what a page's script sends when it cuts
+# a character in two ("🚀".slice(0, 1)), which UTF-8 cannot hold.
+HALF = re.compile("[\ud800-\udfff]")
+
+
+def whole(value: object) -> object:
+    """VALUE, an answer as JSON reads it, with each half of a UTF-16 pair alone in one
+    of its strings in the place of U+FFFD, as a browser's UTF-8 encoder writes it
+    (WHATWG Encoding, "UTF-8 encode"): every other character of the answer stays, and
+    the answer prints and writes as UTF-8."""
+    if isinstance(value, str):
+        return HALF.sub("\ufffd", value)
+    if isinstance(value, list):
+        return [whole(one) for one in value]
+    if isinstance(value, dict):
+        return {whole(key): whole(one) for key, one in value.items()}
+    return value
+
+
 def end(
     task: Path,
     page: str,
@@ -226,7 +245,7 @@ def end(
         "status": status,
         "from": source,
         "at": lem_clock.stamp(),
-        **({"answer": answer} if answer is not None else {}),
+        **({"answer": whole(answer)} if answer is not None else {}),
         **more,
     }
     target = end_file(task, page)

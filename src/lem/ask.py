@@ -1192,7 +1192,8 @@ def hook_stop() -> None:
 
 def lem_cards() -> ModuleType:
     """`lem_cards`, the record of a task's cards, from Lem's package."""
-    from lem import cards as module  # only a run in a task's session reads it
+    # a run in a task's session reads it, and every answer's text (`submitted`)
+    from lem import cards as module
 
     return module
 
@@ -1302,17 +1303,20 @@ def submitted(value: str | None) -> dict[str, Any]:
     JSON, or JSON that is no object (what a spec's own script may send through
     `window.lemAsk.send`), is its text, as one answer. The page's runtime sends every
     value as JSON, so a JSON string's text is the string, without its quotes; a number,
-    a list, `null` or `true` keeps its JSON text."""
+    a list, `null` or `true` keeps its JSON text. Half of a character that a page's
+    script cut in two is U+FFFD (`lem_cards.whole`), so the answer prints as UTF-8."""
     try:
         given = json.loads(value or "{}")
     except json.JSONDecodeError:
         given = None
     if isinstance(given, dict):
-        return given
+        return typing.cast("dict[str, Any]", lem_cards().whole(given))
     text = given if isinstance(given, str) else value
     return {
         "status": "answered",
-        "answers": {"answer": {"selected": [], "labels": [], "text": text}},
+        "answers": {
+            "answer": {"selected": [], "labels": [], "text": lem_cards().whole(text)}
+        },
     }
 
 

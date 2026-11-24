@@ -188,6 +188,18 @@ class FirstEndCounts(Repository):
             [e["event"] for e in self.events()], ["card.asked", "card.answered"]
         )
 
+    def test_an_answer_with_half_a_character_is_kept_as_valid_utf8(self) -> None:
+        # the review of 2026-11-24: one half of a pair, as a page's script may send it
+        won, record = lem_cards.end(
+            self.task, "P1", "answered", "session", answer("a", "yes", "go \ud83d now")
+        )
+        self.assertTrue(won)
+        kept = lem_cards.end_file(self.task, "P1").read_bytes().decode("utf-8")
+        self.assertEqual(
+            json.loads(kept)["answer"]["answers"]["answer"]["text"], "go � now"
+        )
+        self.assertEqual(record["answer"]["answers"]["answer"]["text"], "go � now")
+
     def test_a_close_or_a_dismissal_is_an_end_too(self) -> None:
         self.assertTrue(lem_cards.end(self.task, "P1", "closed", "session")[0])
         won, on_record = lem_cards.end(
