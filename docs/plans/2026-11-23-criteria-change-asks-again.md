@@ -12,11 +12,21 @@ Size: full, because the change reaches when the owner's approval of the criteria
    3. Lem writes the new text of criterion 2 into the task's criteria.
    4. The task waits for his yes, and `lem criteria approved invoice-export-empty-cells` shows no approval of the new text by him.
    5. No lead starts.
+   - test: `python3 -B -m unittest tests.unit.test_criteria_change.AChangeWaitsForHisYes tests.unit.test_criteria_change.Refusals tests.unit.test_criteria_change.OneLock tests.unit.test_criteria_change.AStopInTheMiddle` in `tests/unit/test_criteria_change.py`
 2. The board's card "The criteria wait for your yes" of a task on the standard track has No with a note beside Approve, on the phone too: a No with the note "criterion 2 must also cover empty rows" reaches the task's session, which changes the criteria from it.
+   - test: `python3 -B -m unittest tests.unit.test_board_criteria_change.TheRow.test_criterion_2_the_standard_tracks_criteria_have_yes_and_no_with_their_own_question tests.unit.test_board_criteria_change.TheCard.test_criterion_2_the_card_has_yes_and_no_with_a_note_and_the_digest_of_the_text_shown tests.unit.test_board_criteria_change.HisNo.test_criterion_2_a_no_with_his_note_is_on_record_and_wakes_the_session` in `tests/unit/test_board_criteria_change.py`
 3. A No with no note on that card is refused with a message that asks for his words, and the criteria and the task stay as they were.
+   - test: `python3 -B -m unittest tests.unit.test_board_criteria_change.HisNo.test_criterion_3_a_no_with_no_note_is_refused_and_nothing_changes` in `tests/unit/test_board_criteria_change.py`
 4. Lem writes a changed criterion in its own words from his note, with a concrete example, and the request for his yes shows the old text of each changed criterion beside its new text, on the board and on the page in the task's session: criterion 2 "An export keeps an empty cell" shows beside "An export keeps an empty cell and an empty row: order 1042 with no note and a blank line exports both".
+   - test: `python3 -B -m unittest tests.unit.test_criteria_change.Pairs` in `tests/unit/test_criteria_change.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_criteria_change.TheCard` in `tests/unit/test_board_criteria_change.py`
 5. The personas do not read the changed criteria again: the request for his yes comes at once, with Approve on the board, and the pull request says that the criteria changed after the personas' read.
+   - test: `python3 -B -m unittest tests.unit.test_criteria_change.TheWaitAsTheOthersReadIt` in `tests/unit/test_criteria_change.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_criteria_change.TheRow.test_criterion_5_after_a_change_the_request_for_his_yes_comes_at_once` in `tests/unit/test_board_criteria_change.py`
+   - test: `python3 -B -m unittest tests.unit.test_land_text.ChangesFromHisNotes tests.unit.test_land_text.TheRead.test_his_yes_after_a_change_from_his_note` in `tests/unit/test_land_text.py`
 6. His yes to the changed text is his approval (`by: owner`) of that text, and the build starts from it, the same after a change in the task's session as after a No on the board.
+   - test: `python3 -B -m unittest tests.unit.test_criteria_change.HisYesToTheChange tests.unit.test_criteria_change.HisTypedNo` in `tests/unit/test_criteria_change.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_criteria_change.HisNo.test_criterion_6_yes_on_the_changed_text_approves_the_bytes_the_card_showed tests.unit.test_board_criteria_change.HisNo.test_criterion_6_a_yes_to_the_text_before_the_change_is_refused` in `tests/unit/test_board_criteria_change.py`
 
 ## How it works
 
