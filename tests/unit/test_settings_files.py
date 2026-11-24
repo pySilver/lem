@@ -416,6 +416,55 @@ class MachineFile(Home):
         lem_state.write_machine("handoff", None)
         self.assertFalse(lem_state.machine_file().exists())
 
+    def test_a_write_keeps_the_lines_and_the_comments_the_owner_typed(self) -> None:
+        # a-write-of-machine-toml-drops-the-comments-the-owner-typed-in-it, 2026-11-23:
+        # the file was written whole from its tables
+        file = self.written(
+            "# the Mac in the office: keep the gate low\n[load]\nstart = 30\n\n"
+            "[serve]\nport = 4500  # the old port was taken\n"
+        )
+        lem_state.write_machine("load", {"start": 12})
+        self.assertEqual(
+            file.read_text(encoding="utf-8"),
+            "# the Mac in the office: keep the gate low\n[load]\nstart = 12\n\n"
+            "[serve]\nport = 4500  # the old port was taken\n",
+        )
+        lem_state.write_machine("serve", {"port": 4600, "tailscale": True})
+        lem_state.write_machine("load", None)
+        self.assertEqual(
+            file.read_text(encoding="utf-8"),
+            "# the Mac in the office: keep the gate low\n\n"
+            "[serve]\nport = 4600  # the old port was taken\ntailscale = true\n",
+        )
+        # with no table left, the owner's comment keeps the file
+        lem_state.write_machine("serve", None)
+        self.assertEqual(
+            file.read_text(encoding="utf-8"),
+            "# the Mac in the office: keep the gate low\n",
+        )
+        self.assertEqual(lem_state.machine_tables(), {})
+
+    def test_a_new_file_and_one_lem_wrote_keep_lems_own_lines_only_with_a_table(
+        self,
+    ) -> None:
+        lem_state.write_machine("handoff", {"tokens": 0})
+        lem_state.write_machine("load", {"start": 6})
+        file = lem_state.machine_file()
+        self.assertEqual(
+            file.read_text(encoding="utf-8"),
+            f"{lem_state.MACHINE_HEAD}\n\n"
+            f"[handoff]\n# {lem_state.MACHINE_FIX['handoff']}\ntokens = 0\n\n"
+            f"[load]\n# {lem_state.MACHINE_FIX['load']}\nstart = 6\n",
+        )
+        lem_state.write_machine("handoff", None)
+        self.assertEqual(
+            file.read_text(encoding="utf-8"),
+            f"{lem_state.MACHINE_HEAD}\n\n"
+            f"[load]\n# {lem_state.MACHINE_FIX['load']}\nstart = 6\n",
+        )
+        lem_state.write_machine("load", None)
+        self.assertFalse(file.exists())
+
     def test_a_second_writer_waits_for_the_lock_and_keeps_the_first_ones_table(
         self,
     ) -> None:

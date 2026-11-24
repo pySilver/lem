@@ -204,7 +204,8 @@ same seat wins.
 ## `~/.config/lem/machine.toml`
 
 The settings of this computer, for every repository on it. No other file overrides them. The
-commands below write this file, and each one keeps the other tables.
+commands below write this file. Each one changes only its own lines: the other tables, lines
+and comments of the file stay.
 
 | Setting | Default | Use |
 | --- | --- | --- |

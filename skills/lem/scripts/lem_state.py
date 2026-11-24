@@ -216,6 +216,11 @@ MACHINE_FIX = {
         "`lem corrections collect yes` or `lem corrections collect no` writes it"
     ),
 }
+# The first line of the machine's file that Lem makes, and Lem's own as `lems_own` reads
+# it.
+MACHINE_HEAD = (
+    "# this machine's own settings, for every repository on it; nothing overrides them"
+)
 # A machine's name on the tailnet, as a key of `[peers]`: one DNS label, in lower case.
 PEER_NAME = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
 # The first number past the last port of a machine.
@@ -399,56 +404,82 @@ def kept_tables(name: str) -> dict:
 
 def write_machine(name: str, values: dict | None) -> None:
     """Write table `name` of the machine's file as `values`, or take it out with None,
-    and keep every other table as it reads. It writes over nothing it cannot keep: the
-    whole file is read and each of its other tables checked first (`kept_tables`), and a
-    file that does not read, or whose other tables hold a table or a key that is not
-    valid there, is refused with the file and the fix, and stays as it is; table `name`
-    is written over whatever it held. The file is written whole: a temporary file beside
-    it, then a rename over it, under the lock of MACHINE_LOCK from the read to the
-    rename, so that two writers at one moment each keep the other's table. With no table
-    left, the file goes."""
+    and keep every other table as it reads, and every other line and comment of the
+    file (`machine_text`). It writes over nothing it cannot keep: the whole file is read
+    and each of its other tables checked first (`kept_tables`), and a file that does not
+    read, or whose other tables hold a table or a key that is not valid there, is
+    refused with the file and the fix, and stays as it is; table `name` is written over
+    whatever it held. The new text goes to a temporary file beside it, then a rename
+    over it, under the lock of MACHINE_LOCK from the read to the rename, so that two
+    writers at one moment each keep the other's table. A file left with Lem's own lines
+    alone goes; one that keeps a comment of the owner's stays."""
     import tempfile
 
     file = machine_file()
     with machine_lock():
-        tables = kept_tables(name)
-        if values is not None:
-            tables[name] = values
-        if not tables:
+        kept_tables(name)
+        try:
+            text = file.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            text = ""
+        new = machine_text(text, name, values)
+        if new == text:
+            return
+        own = {f"# {fix}" for fix in MACHINE_FIX.values()}
+        if all(
+            lems_own(line, MACHINE_HEAD) or line.strip() in own
+            for line in new.splitlines()
+        ):
             file.unlink(missing_ok=True)
             return
-        lines = [
-            (
-                "# this machine's own settings, for every repository on it; "
-                "nothing overrides them"
-            )
-        ]
-        for table in MACHINE_KEYS:
-            if table not in tables:
-                continue
-            lines += ["", f"[{table}]", f"# {MACHINE_FIX[table]}"]
-            for key, value in tables[table].items():
-                shown_value = (
-                    ("true" if value else "false")
-                    if isinstance(value, bool)
-                    else (
-                        str(int(value))
-                        if isinstance(value, float) and value.is_integer()
-                        else str(value)
-                    )
-                )
-                lines.append(f"{key} = {shown_value}")
         handle, temporary = tempfile.mkstemp(
             dir=file.parent, prefix=f".{file.name}.", suffix=".tmp"
         )
         try:
             with os.fdopen(handle, "w", encoding="utf-8") as out:
-                out.write("\n".join(lines) + "\n")
-            Path(temporary).chmod(0o644)
+                out.write(new)
+            Path(temporary).chmod(
+                file.stat().st_mode & 0o777 if file.exists() else 0o644
+            )
             Path(temporary).replace(file)
         except BaseException:
             Path(temporary).unlink(missing_ok=True)
             raise
+
+
+def machine_text(text: str, name: str, values: dict | None) -> str:
+    """The text of the machine's file with table `name` as `values`, or taken out with
+    None: each key of the table set or taken out by the line edit of the settings files
+    (`edited`), and every other line as it was. A new file opens with MACHINE_HEAD; a
+    new table gets the comment of the command that writes it (MACHINE_FIX) under its
+    header, and that comment goes with the table."""
+    was = tomllib.loads(text).get(name, {}) if text.strip() else {}
+    keys = list(was) if isinstance(was, dict) else []
+    wanted = values or {}
+    fix = f"# {MACHINE_FIX[name]}"
+    file = machine_file()
+    new = text if text.strip() else MACHINE_HEAD + "\n\n"
+    if not wanted:
+        new = "".join(
+            line for line in new.splitlines(keepends=True) if line.strip() != fix
+        )
+    for key in keys:
+        if key not in wanted:
+            new = edited(new, name, key, None, file)
+    for key, value in wanted.items():
+        new = edited(new, name, key, value, file)
+    if wanted and not keys:
+        lines = new.splitlines(keepends=True)
+        header = next(
+            number
+            for number, line in enumerate(lines)
+            if (opened := TABLE_LINE.fullmatch(line.rstrip("\r\n")))
+            and opened.group(1) == "["
+            and opened.group(2) == name
+        )
+        lines.insert(header + 1, fix + "\n")
+        new = "".join(lines)
+    return new
 
 
 # The characters a TOML string writes as an escape: those under CONTROL_END, and DELETE.
