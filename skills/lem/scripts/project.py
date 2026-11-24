@@ -631,7 +631,9 @@ PARKABLE = ("queued", "held", "blocked", "planned")
 WITH_LANDING = ("landing", "open")
 # The states only a lead, or the start or the queue of a task, writes. None comes over a task with its
 # landing: there it is a lead that woke late. `ready` does with `--start-over`, which only the way out
-# that land.py names gives: a landing that cannot go on, or whose record is broken, starts over.
+# that land.py names gives: a landing that cannot go on, or whose record is broken, starts over. It
+# writes the line START_OVER under WHY by itself, which `lem land start` reads: a `ready` without it,
+# over a task that was proposed, goes on with the landing a wait cut.
 # `held` is not here: Lem writes it over `landing` when the checks find that a task on the fast track
 # needs the standard track, and the interview of that path starts with it (`stages/new.md`, "The fast track").
 LEADS_WRITE = ("queued", "building", "planned", "ready")
@@ -2321,6 +2323,20 @@ def state_locked(directory: Path) -> Iterator[None]:
             LOCKS_HELD.discard(mine)
 
 
+# The line `--start-over` writes under WHY in its block, by itself: `lem land start` reads it in the
+# newest block and starts the landing over, where a `ready` written after a wait (a red base) goes on
+# with the landing it cut. The status alone does not tell the two apart. land.py keeps a copy.
+START_OVER = "the landing starts over"
+
+
+def with_start_over(lines: list[str]) -> list[str]:
+    """The lines of a `ready --start-over` block: WHY, then START_OVER, then the rest; a block whose
+    lines already hold it gets it no second time."""
+    if any(line.strip() == START_OVER for line in lines):
+        return lines
+    return [lines[0], START_OVER, *lines[1:]]
+
+
 def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: bool = False, resumed: bool = False, again: bool = False) -> dict:
     """Put a new block at the top of the task's state.md, and the same as an event in the log.
     `resumed` is `resume`'s own write over a parked task, the one way out of `parked` but a drop;
@@ -2335,6 +2351,8 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
     if any(not line.strip() or "\n" in line for line in lines):
         # a blank line ends a block, so one inside a block would hide the lines after it
         raise SettingsError("each LINE of a state block is one line of text, and none is empty")
+    if start_over:
+        lines = with_start_over(lines)
     for line in lines:
         type_line(line)
         fixed_form(line)
@@ -5210,7 +5228,9 @@ def main(argv: list[str] | None = None) -> None:
     state.add_argument("slug")
     state.add_argument("status")
     state.add_argument("lines", nargs="+", metavar="LINE")
-    state.add_argument("--start-over", action="store_true", help="ready over a task in landing or open: its landing starts over, as land.py's message says")
+    state.add_argument("--start-over", action="store_true", help="ready, also over a task in landing or open: its landing starts over with nothing carried, as land.py's message says. "
+                       "It writes the line `the landing starts over` under WHY by itself, which `lem land start` reads; "
+                       "a `ready` with no such line over a task that was proposed goes on with the landing a wait cut")
     seat_now = commands.add_parser("seat", help="the seat in use for a task: the fallback while it stands in, else the seat the settings name")
     seat_now.add_argument("slug")
     seat_now.add_argument("seat", metavar="|".join(SEATS))

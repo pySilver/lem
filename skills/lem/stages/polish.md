@@ -25,8 +25,9 @@ commits it made and how many items it filed. The pass
 runs once for a task, here, and never after each task of a plan; a builder of a later job of this
 landing has the same list in its brief. So when the landing comes back here from a later step and
 `lem land polish` prints `"done": true`, go on to step 4 of `stages/land.md`. `checks` refuses a
-task on the standard track with no pass on the tip it checks. A rewrite of the branch after the pass, other than
-the rebase of `base`, asks for the pass again: `checks` says so.
+task on the standard track with no pass on the tip it checks. A rewrite of the branch after the pass asks for the
+pass again, and so does a rebase of `base` in which git leaves out one of the branch's commits:
+`checks` says so.
 
 Read `report.md` again after the pass: its builder brought it up to what it did, the documents it
 corrected, and its three lists of the defects outside the task, "Fixed on the way", "Seen, not
