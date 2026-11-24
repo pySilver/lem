@@ -2316,8 +2316,9 @@ class MovedBase(unittest.TestCase):
             "rebase_carried": {"from": "aaa", "to": "bbb"},
             "rebase_uncovered": None,
             "sync": {"onto": "ccc", "moved": True, "carried": carried},
+            "base": "ccc",
         }
-        notes, line = land.rebase_notes(kept, moved=False)
+        notes, line = land.rebase_notes(kept, moved=False, onto="ccc", tip="bbb")
         self.assertEqual(
             (notes, line),
             (
@@ -2337,7 +2338,10 @@ class MovedBase(unittest.TestCase):
         # the note of a rebase no review covered is kept as well, with its why
         uncovered = {"from": "aaa", "to": "bbb", "why": "a must-fix is open"}
         notes, _ = land.rebase_notes(
-            {**kept, "rebase_carried": None, "rebase_uncovered": uncovered}, moved=False
+            {**kept, "rebase_carried": None, "rebase_uncovered": uncovered},
+            moved=False,
+            onto="ccc",
+            tip="bbb",
         )
         self.assertEqual(
             land.tip_carry({**kept, **notes}, "bbb", []),
@@ -2350,7 +2354,7 @@ class MovedBase(unittest.TestCase):
         )
         # a rebase that moved the tip starts the notes over, and writes its own after
         self.assertEqual(
-            land.rebase_notes(kept, moved=True),
+            land.rebase_notes(kept, moved=True, onto="ddd", tip="eee"),
             (
                 {"rebase_carried": None, "rebase_uncovered": None},
                 {"moved": True, "carried": None},
@@ -2359,7 +2363,10 @@ class MovedBase(unittest.TestCase):
         # a landing with no rebase before, and a first landing with no line at all
         self.assertEqual(
             land.rebase_notes(
-                {"sync": {"onto": None, "moved": None, "carried": None}}, moved=False
+                {"sync": {"onto": None, "moved": None, "carried": None}},
+                moved=False,
+                onto="ccc",
+                tip="bbb",
             ),
             (
                 {"rebase_carried": None, "rebase_uncovered": None},
@@ -2367,8 +2374,55 @@ class MovedBase(unittest.TestCase):
             ),
         )
         self.assertEqual(
-            land.rebase_notes({}, moved=False)[0],
+            land.rebase_notes({}, moved=False, onto="ccc", tip="bbb")[0],
             {"rebase_carried": None, "rebase_uncovered": None},
+        )
+
+    def test_a_kept_note_holds_only_on_its_base_and_its_tip(self) -> None:
+        # `base` rebased the proposed tip aaa onto ccc as bbb, `propose` pushed bbb and
+        # was cut off, then the base went back to its commit before ccc: the next `base`
+        # moves nothing, and the change holds what ccc added, which nobody read
+        carried = {"round": 1, "must_fix": 0}
+        kept = {
+            "proposed": "aaa",
+            "pushed": "bbb",
+            "rebase_carried": {"from": "aaa", "to": "bbb"},
+            "rebase_uncovered": None,
+            "sync": {"onto": "ccc", "moved": True, "carried": carried},
+            "base": "c" * 40,
+        }
+        notes, line = land.rebase_notes(kept, moved=False, onto="b" * 40, tip="bbb")
+        why = (
+            f"the base moved from {'c' * 9}, which the rebase was made onto, to "
+            f"{'b' * 9}, under the same tip"
+        )
+        self.assertEqual(
+            (notes, line),
+            (
+                {
+                    "rebase_carried": None,
+                    "rebase_uncovered": {"from": "aaa", "to": "bbb", "why": why},
+                },
+                {"moved": False, "carried": None},
+            ),
+        )
+        self.assertEqual(
+            land.tip_carry({**kept, **notes}, "bbb", []),
+            (None, f"no review covers the change: {why}"),
+        )
+        self.assertNotIn(
+            "carried over the rebase", land.sync_line({**kept["sync"], **line}, "main")
+        )
+        # on its own base, a tip that is not the one the note names keeps the note for
+        # `tip_carry`, and the pull request's line no longer says the review carried
+        notes, line = land.rebase_notes(kept, moved=False, onto="c" * 40, tip="ddd")
+        self.assertEqual(
+            (notes["rebase_carried"], line),
+            (kept["rebase_carried"], {"moved": True, "carried": None}),
+        )
+        self.assertEqual(
+            land.tip_carry({**kept, **notes}, "ddd", []),
+            (None, "a commit came after the rebase"),
         )
 
     def test_the_owners_merge_stands_while_the_change_and_its_reasons_stay(

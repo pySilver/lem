@@ -747,8 +747,9 @@ again. One rule says what a new landing's proposal carries of what was said of t
 proposed before (`moved_carry`), and it runs before the pull request's text is written.
 The tip carries when it is the same, when a rebase with no conflict made it and kept the
 review (`rebase_carried`, from the tip before the rebase to the one after it, which a
-later `base` that moves nothing keeps, as it keeps the line of the pull request's text
-that says the task was rebased), and when it is the tip of a builder's resolution whose
+later `base` that moves nothing keeps while the base is the one the rebase was made on,
+as it keeps the line of the pull request's text that says the task was rebased), and
+when it is the tip of a builder's resolution whose
 one read found nothing, on a request that
 no call makes careful (above), with no commit after the rebase or the resolution other
 than the backlog items `file` commits, which move the tip the record names (`filed_on`).
@@ -2040,7 +2041,7 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
     # the tip a rebase with no conflict made of the tip before it, while the review
     # carried: what was said of that tip at the merge (the merge agent's review, the
     # owner's merge) is kept for this one
-    notes, line = rebase_notes(task.kept(), moved=tip != origin)
+    notes, line = rebase_notes(task.kept(), moved=tip != origin, onto=onto, tip=tip)
     updates: dict = {
         "base": onto,
         "gated": None,
@@ -2114,7 +2115,7 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
     }
 
 
-def rebase_notes(kept: dict, *, moved: bool) -> tuple[dict, dict]:
+def rebase_notes(kept: dict, *, moved: bool, onto: str, tip: str) -> tuple[dict, dict]:
     """The notes of a rebase that `base` starts from, from the record KEPT: the
     record's own (`rebase_carried`, `rebase_uncovered`), and the `moved` and `carried`
     of `sync`, which the pull request's line is written from (`sync_line`). A rebase
@@ -2122,17 +2123,51 @@ def rebase_notes(kept: dict, *, moved: bool) -> tuple[dict, dict]:
     moved nothing keeps those of the rebase before it in this landing: run again after a
     `propose` that pushed the tip and was cut off before it kept the proposal, it would
     otherwise end the owner's merge for a commit that never came (`tip_carry`) and say
-    that no rebase was needed. A note carries only for the two tips it names, and
-    `start` clears them at each new landing of an open task."""
+    that no rebase was needed. A note holds only on the base it was made on, the
+    record's `base`, which `base` keeps with it: on another base ONTO under the same TIP
+    the change holds what moved between the two, which no review read, so the note of
+    the rebase that made TIP becomes a note of no review covering it, with why, and the
+    line says no rebase and no carried review. On its own base a note carries only for
+    the two tips it names (`tip_carry`), and the line says that the review carried only
+    while TIP is the tip that rebase made. `start` clears the notes at each new landing
+    of an open task."""
     if moved:
         return (
             {"rebase_carried": None, "rebase_uncovered": None},
             {"moved": True, "carried": None},
         )
     sync = kept.get("sync") or {}
+    notes = {key: kept.get(key) for key in ("rebase_carried", "rebase_uncovered")}
+    if kept.get("base") != onto:
+        made = next(
+            (one for one in notes.values() if one and one.get("to") == tip), None
+        )
+        made_on = str(kept.get("base"))[:9]
+        return (
+            {
+                "rebase_carried": None,
+                "rebase_uncovered": {
+                    "from": made["from"],
+                    "to": tip,
+                    "why": (
+                        f"the base moved from {made_on}, which the rebase was made "
+                        f"onto, to {onto[:9]}, under the same tip"
+                    ),
+                }
+                if made
+                else None,
+            },
+            {"moved": False, "carried": None},
+        )
+    carried = notes["rebase_carried"]
     return (
-        {key: kept.get(key) for key in ("rebase_carried", "rebase_uncovered")},
-        {"moved": bool(sync.get("moved")), "carried": sync.get("carried")},
+        notes,
+        {
+            "moved": bool(sync.get("moved")),
+            "carried": sync.get("carried")
+            if carried and carried.get("to") == tip
+            else None,
+        },
     )
 
 
