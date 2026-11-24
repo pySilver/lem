@@ -792,6 +792,7 @@ import sys
 import tempfile
 import time
 import tomllib
+import unicodedata
 from collections.abc import Callable, Generator, Iterator
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -1745,6 +1746,9 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
     # resolved it, or left it as it was. Its record keeps the tip before any rebase,
     # whether a review covered it, and why not.
     pending = kept.get("conflict")
+    if pending:
+        # a record of the release before may keep a name as git quoted it
+        pending["files"] = sorted({kept_name(name) for name in pending["files"]})
     made = kept.get("made")
     if (
         made
@@ -1811,7 +1815,13 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
                 sync={
                     **kept["sync"],
                     "conflict": sorted(
-                        {*(kept["sync"].get("conflict") or []), *conflicts}
+                        {
+                            *(
+                                kept_name(name)
+                                for name in kept["sync"].get("conflict") or []
+                            ),
+                            *conflicts,
+                        }
                     ),
                 }
             )
@@ -1941,15 +1951,58 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
 
 def conflicted(where: Path) -> list[str]:
     """The files a stopped rebase left in conflict in WHERE, by the names git wrote
-    (`-z`, read as bytes): never quoted, and a name that is not UTF-8 is given with the
-    replacement character, as `rebased_files` gives it. A refusal of git gives what it
-    printed, as the rebase is undone after this read either way."""
+    (`-z`, read as bytes): never quoted, and shown as `shown_name` shows a name, as
+    `rebased_files` shows it. A refusal of git gives what it printed, as the rebase is
+    undone after this read either way."""
     ran = subprocess.run(
         ["git", "-C", str(where), "diff", "-z", "--name-only", "--diff-filter=U"],
         capture_output=True,
         check=False,
     )
-    return [name.decode(errors="replace") for name in ran.stdout.split(b"\0") if name]
+    return [shown_name(name) for name in ran.stdout.split(b"\0") if name]
+
+
+def shown_name(raw: bytes) -> str:
+    """A path as git wrote it, for a person to read: a byte that is not UTF-8 and a
+    control character (a newline, an ESC) each become the replacement character, so
+    that no name breaks a line or drives a terminal."""
+    return "".join(
+        "\ufffd" if unicodedata.category(char) == "Cc" else char
+        for char in raw.decode(errors="replace")
+    )
+
+
+# git's escapes of a quoted path (`core.quotePath`), other than the octal ones
+QUOTED = {
+    b"a": b"\a",
+    b"b": b"\b",
+    b"t": b"\t",
+    b"n": b"\n",
+    b"v": b"\v",
+    b"f": b"\f",
+    b"r": b"\r",
+    b'"': b'"',
+    b"\\": b"\\",
+}
+
+
+def kept_name(name: str) -> str:
+    """A file's name as a conflict's record keeps it. A record of a release before
+    `conflicted` keeps a name as git quoted it (`"caf\\303\\251.txt"`, quotes and all),
+    which is read as the name it stands for and shown as `shown_name` shows it; any
+    other name is kept as it is."""
+    quoted = re.fullmatch(r'"((?:[^"\\]|\\(?:[0-7]{3}|[abtnvfr"\\]))*)"', name)
+    if not quoted:
+        return name
+    return shown_name(
+        re.sub(
+            rb"\\([0-7]{3}|.)",
+            lambda found: (
+                bytes([int(found[1], 8)]) if found[1].isdigit() else QUOTED[found[1]]
+            ),
+            quoted[1].encode(),
+        )
+    )
 
 
 def git_bytes(where: Path, *args: str) -> bytes:
@@ -1972,8 +2025,8 @@ def rebased_files(where: Path, before: str, after: str) -> list[str]:
     no pair (`<`, `>`). Each file is read alone, as a literal path, so that a commit
     that changed in one file is equal in the others. A binary file's patches say only
     that it differs, so it is named when the blobs its commits left differ between the
-    ranges. The output is read as bytes, and a name that is not UTF-8 is given with the
-    replacement character."""
+    ranges. The output is read as bytes, and each name is shown as `shown_name` shows
+    it."""
     blobs = [left_blobs(where, spec) for spec in (before, after)]
     binary = {
         os.fsdecode(line.split(b"\t", 2)[2])
@@ -1984,7 +2037,7 @@ def rebased_files(where: Path, before: str, after: str) -> list[str]:
         if line.startswith(b"-\t-\t")
     }
     return sorted(
-        os.fsencode(name).decode(errors="replace")
+        shown_name(os.fsencode(name))
         for name in {*blobs[0], *blobs[1]}
         if (
             blobs[0].get(name) != blobs[1].get(name)

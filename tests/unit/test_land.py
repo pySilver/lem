@@ -1048,6 +1048,45 @@ class ConflictNames(unittest.TestCase):
                     ["café.txt", "caf\ufffd.txt", "plain.txt"],
                 )
 
+    def test_a_control_character_breaks_no_line(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run(["git", "init", "-q", d], check=True)
+            blob = subprocess.run(
+                ["git", "-C", d, "hash-object", "-w", "--stdin"],
+                input=b"x\n",
+                capture_output=True,
+                check=True,
+            ).stdout.strip()
+            subprocess.run(
+                ["git", "-C", d, "update-index", "-z", "--index-info"],
+                input=b"".join(
+                    b"100644 %s %d\t%s\0" % (blob, stage, name)
+                    for name in (b"a\nb.txt", b"esc\x1b[31m.txt")
+                    for stage in (1, 2, 3)
+                ),
+                check=True,
+            )
+            self.assertEqual(
+                sorted(land.conflicted(Path(d))),
+                ["a\ufffdb.txt", "esc\ufffd[31m.txt"],
+            )
+
+    def test_a_name_kept_as_git_quoted_it(self) -> None:
+        # a conflict's record of the release before, written with git's quoting
+        kept = {
+            "files": [
+                '"caf\\303\\251.txt"',
+                '"caf\\351.txt"',
+                '"a\\"b\\\\c\\td.txt"',
+                "café.txt",
+                'say "hi".txt',
+            ]
+        }
+        self.assertEqual(
+            sorted({land.kept_name(name) for name in kept["files"]}),
+            ['a"b\\c\ufffdd.txt', "café.txt", "caf\ufffd.txt", 'say "hi".txt'],
+        )
+
 
 class StaleBytecode(unittest.TestCase):
     """`land.bytecode_of` and its parts: the ignored `__pycache__` folders the checks

@@ -1147,7 +1147,8 @@ fi
 # two ranges of its range-diff (letters.txt too, whose lines around the change the base changed), and no file that the
 # rebase left as it was. The second commit's subject and its line of letters.txt are in Latin-1: a byte that is not
 # UTF-8 stops nothing. Two binary files: the builder resolves bin.dat to a content of its own, which is named though
-# both patches say only that the binary files differ, and the base leaves keep.bin alone, which is not named.
+# both patches say only that the binary files differ, and the base leaves keep.bin alone, which is not named. A name the
+# record of the release before keeps as git quoted it is read as the name it stands for.
 git -C "$MBX" pull -q --ff-only origin main && seq 1 30 > "$MBX/letters.txt"
 printf '\000\001' > "$MBX/bin.dat" && printf '\000\001' > "$MBX/keep.bin"
 git -C "$MBX" add letters.txt bin.dat keep.bin && git -C "$MBX" commit -q -m "docs: letters" && git -C "$MBX" push -q origin main
@@ -1162,6 +1163,7 @@ git -C "$MBX" pull -q --ff-only origin main && echo theirs > "$MBX/café.txt" &&
 { seq 1 6; echo seven; seq 8 30; } > "$MBX/letters.txt" && printf '\000\003' > "$MBX/bin.dat"
 git -C "$MBX" add -A && git -C "$MBX" commit -q -m "fix: both files on main" && git -C "$MBX" push -q origin main
 stops_met=$(land --repo "$MB" base mb-stops 2>/dev/null || true)
+"$PY" -c 'import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["conflict"]["files"] = [chr(34) + "caf\\303\\251.txt" + chr(34)]; json.dump(d, open(p, "w"))' "$MB/.lem/state/tasks/mb-stops/landing.json"
 git -C "$stops_tree" rebase -q origin/main >/dev/null 2>&1 || true
 echo yes > "$stops_tree/café.txt" && git -C "$stops_tree" add café.txt
 GIT_EDITOR=true git -C "$stops_tree" rebase --continue >/dev/null 2>&1 || true
