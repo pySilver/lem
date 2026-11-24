@@ -1917,37 +1917,51 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
     }
 
 
+def git_bytes(where: Path, *args: str) -> bytes:
+    """`git -C WHERE ARGS` with its output as git wrote it, for a read in which a path,
+    a commit's subject or a line of a file may hold a byte that is not UTF-8; refused as
+    `git` refuses."""
+    ran = subprocess.run(
+        ["git", "-C", str(where), *args], capture_output=True, check=False
+    )
+    if ran.returncode != 0:
+        said = ran.stderr.decode(errors="replace").strip()
+        raise LandError(f"git -C {where} {args[0]} failed: {said}")
+    return ran.stdout
+
+
 def rebased_files(where: Path, before: str, after: str) -> list[str]:
     """The files whose patch differs between the two ranges of `git range-diff`, BEFORE
     and AFTER (`BASE..TIP` each): each file a commit of either range touches, whose
     range-diff alone pairs a commit with one that is not equal (`!`) or leaves one with
     no pair (`<`, `>`). Each file is read alone, as a literal path, so that a commit
-    that changed in one file is equal in the others."""
+    that changed in one file is equal in the others. The output is read as bytes, and
+    a name that is not UTF-8 is given with the replacement character."""
     touched = {
-        name
+        os.fsdecode(name)
         for spec in (before, after)
-        for name in git(
+        for name in git_bytes(
             where, "log", "-z", "--format=", "--name-only", "--no-renames", spec
-        ).split("\0")
+        ).split(b"\0")
         if name
     }
     return sorted(
-        name
+        os.fsencode(name).decode(errors="replace")
         for name in touched
         if any(
-            # a pair's line, `N:  SHA = N:  SHA SUBJECT`, its numbers padded to the
-            # width of the largest; each line of its diff is indented by four spaces
-            line.split()[2] != "="
-            for line in git(
+            # with --no-patch, only the pairs' lines: `N:  SHA = N:  SHA SUBJECT`
+            line.split()[2] != b"="
+            for line in git_bytes(
                 where,
                 "range-diff",
                 "--no-color",
+                "--no-patch",
                 before,
                 after,
                 "--",
                 f":(literal){name}",
-            ).splitlines()
-            if line.strip() and not line.startswith("    ")
+            ).split(b"\n")
+            if line.strip()
         )
     )
 
