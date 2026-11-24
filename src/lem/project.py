@@ -5395,7 +5395,8 @@ def outcome_of(text: str) -> str | None:
     """The first sentence of prose under `## Outcome` in a task.md, or None: a numbered
     story, a list, a chart or a bold label (a few words, or any that ends in a colon:
     "Today:") is no sentence to quote. A bold sentence, on one line or wrapped over
-    more, is quoted whole and without its `**`; the `**` inside a code span stays."""
+    more, is quoted whole and without its `**`, and so is a sentence that a few bold
+    words open ("**Done** shows ..."); the `**` inside a code span stays."""
     found = re.search(r"(?m)^##[ \t]+Outcome[ \t]*$", text)
     if not found:
         return None
@@ -5413,8 +5414,19 @@ def outcome_of(text: str) -> str | None:
         # with no bold; the `**` a code span names never closes the label, as
         # in BOLD_RUN
         label = re.match(r"\*\*((?:`[^`]*`|[^*`])*)\*\*(:?)", line)
+        # but a run of a few words that ends in a letter or a digit, with a letter, a
+        # digit or a code span next on its line, opens the sentence: "**Done** shows
+        # the 20 newest ended tasks." ("**Today** - ...", "**Today**, ..." and
+        # "**Before.** ..." stay labels)
+        opens = bool(
+            label
+            and not label[2]
+            and label[1][-1:].isalnum()
+            and re.match(r"[ \t]*(?:[^\W_]|`)", line[label.end() :])
+        )
         bold = bool(re.match(r"\*\*[^*\s]", line)) and not (
             label
+            and not opens
             and (
                 len(label[1].split()) <= FEW_WORDS
                 or label[1].rstrip().endswith(":")

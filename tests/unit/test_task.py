@@ -1381,6 +1381,46 @@ class FirstLine(unittest.TestCase):
             "The invoice shows 70 EUR after the refund",
         )
 
+    NEXT = "\n\nThe picker keeps the same twenty tasks in its list.\n"
+
+    def test_a_short_bold_phrase_with_a_word_after_it_opens_the_outcome(self) -> None:
+        # the-first-line-skips-a-bold-outcome: the bold phrase that prompts/writing.md
+        # asks for was read as a label, and the next paragraph was quoted. The owner's
+        # answer of 2026-11-24: "a short bold run with a word after it starts the
+        # sentence"
+        self.assertEqual(
+            project.outcome_of(
+                "## Outcome\n\n**Done** shows the 20 newest ended tasks, and one row "
+                "leads to the rest." + self.NEXT
+            ),
+            "Done shows the 20 newest ended tasks, and one row leads to the rest",
+        )
+        self.assertEqual(
+            project.outcome_of(
+                "## Outcome\n\n**Lem board** `--follow` opens the task that waits."
+                + self.NEXT
+            ),
+            "Lem board `--follow` opens the task that waits",
+        )
+
+    def test_a_short_bold_label_stays_a_label(self) -> None:
+        # each label of the 97 task.md files of Lem's own state folder (2026-11-24),
+        # and the forms of the item: the paragraph after it is quoted
+        for label in (
+            "**Today**\n\n1. The owner opens the board.",
+            "**Today**, the landing of merge-leaves-board-lock:",
+            "**Today** - the footer says 2025.",
+            "**Before.** The invoice shows 100 EUR after the refund.",
+            "**1.** The owner opens the board.",
+            "**Today:** the footer says 2025.",
+            "**Today**: the footer says 2025.",
+        ):
+            with self.subTest(label=label):
+                self.assertEqual(
+                    project.outcome_of("## Outcome\n\n" + label + self.NEXT),
+                    "The picker keeps the same twenty tasks in its list",
+                )
+
 
 # Words that hold the three characters str.splitlines breaks at and
 # json.dumps(ensure_ascii=False) keeps.
