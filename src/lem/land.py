@@ -1825,6 +1825,21 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
     # it was resolved nothing.
     resolved = bool(pending) and before != pending["before"]
     origin = pending["before"] if pending else before
+    # The files of a builder's resolution: each one whose patch its rebase changed, as
+    # a later commit of it may stop on files that `base` never met. They are read
+    # before anything is kept, so that a refusal of git leaves the task as it was.
+    files = (
+        sorted(
+            {
+                *pending["files"],
+                *rebased_files(
+                    task.worktree, f"{pending['base']}..{origin}", f"{onto}..{tip}"
+                ),
+            }
+        )
+        if resolved
+        else []
+    )
     if tip != origin and task.kept().get("polish"):
         # The rebase rewrote the commits the polish pass names; each takes its new name,
         # so that the checks still find the pass on the tip they check.
@@ -1854,19 +1869,8 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
     if resolved:
         # What the review saw is the change before the conflict; what the builder chose
         # where the two sides met is new, and gets one read of its own (`due`).
-        # Its files are each one whose patch the builder's rebase changed: a later
-        # commit of it may stop on files that `base` never met.
         updates["resolution"] = {
-            "files": sorted(
-                {
-                    *pending["files"],
-                    *rebased_files(
-                        task.worktree,
-                        f"{pending['base']}..{origin}",
-                        f"{onto}..{tip}",
-                    ),
-                }
-            ),
+            "files": files,
             "before": origin,
             "after": tip,
             "base": pending["base"],
@@ -1951,19 +1955,34 @@ def rebased_files(where: Path, before: str, after: str) -> list[str]:
         if any(
             # with --no-patch, only the pairs' lines: `N:  SHA = N:  SHA SUBJECT`
             line.split()[2] != b"="
-            for line in git_bytes(
-                where,
-                "range-diff",
-                "--no-color",
-                "--no-patch",
-                before,
-                after,
-                "--",
-                f":(literal){name}",
-            ).split(b"\n")
+            for line in pairs(where, before, after, name)
             if line.strip()
         )
     )
+
+
+def pairs(where: Path, before: str, after: str, name: str) -> list[bytes]:
+    """The lines of `git range-diff --no-patch BEFORE AFTER` of the file NAME alone. A
+    path after `--` needs git 2.38 or newer, so a refusal of git names the version that
+    runs here."""
+    try:
+        return git_bytes(
+            where,
+            "range-diff",
+            "--no-color",
+            "--no-patch",
+            before,
+            after,
+            "--",
+            f":(literal){name}",
+        ).split(b"\n")
+    except LandError as error:
+        version = git_bytes(where, "--version").decode(errors="replace").strip()
+        raise LandError(
+            f"{error}. A path after `--` in git range-diff needs git 2.38 or newer, "
+            f"and `git --version` says {version}: with an older git, the owner "
+            "updates git, and this step runs again"
+        ) from error
 
 
 def holds_commit(task: Task, commit: object, tip: str) -> bool:
