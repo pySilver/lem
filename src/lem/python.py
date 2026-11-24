@@ -215,16 +215,32 @@ def run(path: str, args: "list[str]") -> None:
     """Run the module of this package at PATH with ARGS as Python runs a script: as
     `__main__`, with its own `if __name__ == "__main__":` lines, and `sys.argv` holds
     PATH and ARGS. The package's folder takes this file's place first on sys.path, so
-    that `lem` is the package. No `runpy`: its imports would be a cost of every hook."""
+    that `lem` is the package. No `runpy`: its imports would be a cost of every hook.
+
+    In a plugin folder that is not whole, the module ends as on a machine with no
+    Python, with nothing printed: when its file is gone or cannot be compiled, and when
+    a module of the package that it imports is gone or cannot be compiled. Whatever
+    else the module raises, its own `sys.exit` too, is its own."""
     sys.dont_write_bytecode = True
     sys.argv = [path, *args]
-    sys.path[0] = os.path.dirname(os.path.dirname(path))
-    with open(path, "rb") as file:
-        code = compile(file.read(), path, "exec")
+    package = os.path.dirname(path)
+    sys.path[0] = os.path.dirname(package)
+    try:
+        with open(path, "rb") as file:
+            code = compile(file.read(), path, "exec")
+    except (OSError, SyntaxError, ValueError):
+        return
     main = type(sys)("__main__")
     main.__file__ = path
     sys.modules["__main__"] = main
-    exec(code, vars(main))  # noqa: S102 - the plugin's own module, run as a script
+    try:
+        exec(code, vars(main))  # noqa: S102 - the plugin's own module, run as a script
+    except ImportError as error:
+        if (error.name or "").split(".")[0] != os.path.basename(package):
+            raise
+    except SyntaxError as error:
+        if os.path.dirname(os.path.abspath(error.filename or "")) != package:
+            raise
 
 
 if __name__ == "__main__":

@@ -160,5 +160,67 @@ class HookStart(unittest.TestCase):
                 self.assertEqual(started - alone, set())
 
 
+class FolderNotWhole(unittest.TestCase):
+    """A hook of `hooks/hooks.json` in a copy of the plugin's package that is not whole:
+    its own module file is gone, or `state.py`, which the correction hook imports at its
+    top. The hook ends as it does on a machine with no Python: nothing printed, exit 0."""
+
+    SRC = Path(__file__).resolve().parents[2] / "src"
+    HOOKS = (
+        ("corrections", ["hook"], {"prompt": "hello there", "session_id": "S1"}),
+        ("serve_hook", [], {"hook_event_name": "SessionStart"}),
+        ("session_hook", [], {"hook_event_name": "SessionStart"}),
+    )
+
+    def runs(self, python: str) -> None:
+        """Each hook under PYTHON, in a copy without its module and one without
+        state.py. A `python3.N` of this Python stands first on PATH, so that an old
+        PYTHON finds it."""
+        home = Path(tempfile.mkdtemp(prefix="lem-unwhole-"))
+        self.addCleanup(shutil.rmtree, home)
+        newer = home / "bin" / f"python3.{sys.version_info[1]}"
+        newer.parent.mkdir()
+        newer.symlink_to(os.path.realpath(sys.executable))
+        for name, args, event in self.HOOKS:
+            for gone in (f"{name}.py", "state.py"):
+                with self.subTest(hook=name, gone=gone):
+                    copy = home / f"{name}-{gone}" / "src"
+                    shutil.copytree(
+                        self.SRC / "lem",
+                        copy / "lem",
+                        ignore=shutil.ignore_patterns("__pycache__"),
+                    )
+                    (copy / "lem" / gone).unlink()
+                    ran = subprocess.run(
+                        [python, "-B", str(copy / "lem" / "python.py"), name, *args],
+                        input=json.dumps({**event, "cwd": str(home)}),
+                        capture_output=True,
+                        text=True,
+                        cwd=home,
+                        env={
+                            "PATH": f"{newer.parent}{os.pathsep}/usr/bin:/bin",
+                            "HOME": str(home),
+                            "XDG_CONFIG_HOME": str(home / "config"),
+                            "LEM_SERVE": "off",
+                        },
+                        timeout=30,
+                        check=False,
+                    )
+                    self.assertEqual(
+                        (ran.stdout, ran.stderr, ran.returncode), ("", "", 0)
+                    )
+
+    def test_a_hook_whose_files_are_gone_prints_nothing_and_exits_0(self) -> None:
+        self.runs(sys.executable)
+
+    def test_so_it_does_under_an_old_python3_that_finds_a_newer_one(self) -> None:
+        old = "/usr/bin/python3"
+        if not lem_python.runnable(old) or (lem_python.version(old) or (0, 0)) >= (
+            lem_python.FLOOR
+        ):
+            self.skipTest(f"no python3 older than 3.11 at {old}")
+        self.runs(old)
+
+
 if __name__ == "__main__":
     unittest.main()
