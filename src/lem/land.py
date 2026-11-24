@@ -5046,21 +5046,24 @@ def due_of(  # noqa: C901, PLR0911, PLR0912, PLR0913 - over the limit before the
             return {
                 "due": "owner",
                 "why": (
-                    f"not reviewed: the read of the conflict's resolution in {files} "
-                    "was started twice and no source answered"
+                    "not reviewed: the read of the resolution of a conflict, whose "
+                    f"rebase changed the patch of {files}, was started twice and no "
+                    "source answered"
                 ),
                 **facts,
             }
+        # the files are each one whose patch the rebase changed, those where git met
+        # the conflict among them (`rebased_files`)
+        resolved = (
+            "a builder resolved a conflict with the base, and its rebase changed the "
+            f"patch of {files}"
+        )
         why = (
-            (
-                f"the request is careful: {why_careful[0]}; a builder resolved a "
-                f"conflict with the base in {files}"
-            )
+            f"the request is careful: {why_careful[0]}; {resolved}"
             if why_careful
             else (
-                f"a builder resolved a conflict with the base in {files}: "
-                "one read of what the resolution changed, and the earlier "
-                "review stands for the rest"
+                f"{resolved}: one read of what the resolution changed, and the "
+                "earlier review stands for the rest"
             )
         )
         return {"due": "review", "why": why, **facts}

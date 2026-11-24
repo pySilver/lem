@@ -625,7 +625,7 @@ four_line="rebased on main after the forge called it conflicting; one conflict i
 if [ "$(status_in "$GWS" w-three)" = landed ] && [ "$(field 'd["conflict"]' <<<"$stopped" 2>&1)" = "['shop.txt']" ] && [ "$(field '(d["resolved"], d["moved"])' <<<"$resolved" 2>&1)" = "(['shop.txt'], False)" ] \
   && [ "$(field 'd["done"]' <<<"$polished" 2>&1)" = True ] \
   && [ "$(field '(d["due"], d["floor"], d["round"], d["resolution"]["files"], d["resolution"]["range_diff"].startswith("git range-diff "))' <<<"$due_read" 2>&1)" = "('review', 'read', 1, ['shop.txt'], True)" ] \
-  && grep -qF "a builder resolved a conflict with the base in shop.txt: one read of what the resolution changed" <<<"$due_read" \
+  && grep -qF "a builder resolved a conflict with the base, and its rebase changed the patch of shop.txt: one read of what the resolution changed" <<<"$due_read" \
   && [ "$(field '(d["recorded"]["of"], d["recorded"]["round"], d["next"], len(d["to_file"]))' <<<"$recorded" 2>&1)" = "('resolution', 1, 'none', 1)" ] && [ "$(field 'd["due"]' <<<"$due_after" 2>&1)" = none ] \
   && [ "$(field '[f["item"] for f in d["filed"]]' <<<"$filed" 2>&1)" = "['docs/backlog/the-shop-has-no-closing-line.md']" ] \
   && [ "$(field '(d["pull_request"]["number"], d["green"], d["synced"])' <<<"$again" 2>&1)" = "(10, True, '$four_line')" ] \

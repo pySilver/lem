@@ -1679,6 +1679,59 @@ class Due(unittest.TestCase):
         said = self.due([review(1, must_fix=1)], self.now("p2"))
         self.assertEqual((said["due"], said["floor"]), ("review", "round"))
 
+    def test_the_read_of_a_resolution_names_each_file_its_rebase_changed(
+        self,
+    ) -> None:
+        # git met the conflict in shop.txt; the base changed the lines around the
+        # change of letters.txt, whose patch the rebase changed with no conflict
+        resolution = {
+            "files": ["letters.txt", "shop.txt"],
+            "before": "1" * 40,
+            "after": "2" * 40,
+            "base": "3" * 40,
+            "onto": "4" * 40,
+            "covered": True,
+            "patch": "p2",
+            "read": None,
+        }
+
+        def why(reads: list[dict], careful: tuple[str, ...] = ()) -> str:
+            return land.due_of(
+                self.now("p2"),
+                reads,
+                resolution,
+                list(careful),
+                1,
+                small=False,
+                folder=self.FOLDER,
+            )["why"]
+
+        changed = "its rebase changed the patch of letters.txt, shop.txt"
+        self.assertEqual(
+            why([review(1)]),
+            (
+                f"a builder resolved a conflict with the base, and {changed}: one "
+                "read of what the resolution changed, and the earlier review stands "
+                "for the rest"
+            ),
+        )
+        self.assertEqual(
+            why([review(1)], careful=("the owner says so",)),
+            (
+                "the request is careful: the owner says so; a builder resolved a "
+                f"conflict with the base, and {changed}"
+            ),
+        )
+        silent = [review(2, answered_by=()), review(3, answered_by=())]
+        self.assertEqual(
+            why([review(1), *silent]),
+            (
+                "not reviewed: the read of the resolution of a conflict, whose "
+                "rebase changed the patch of letters.txt, shop.txt, was started "
+                "twice and no source answered"
+            ),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
