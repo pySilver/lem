@@ -2165,14 +2165,37 @@ def conflicted(where: Path) -> list[str]:
     return [shown_name(name) for name in ran.stdout.split(b"\0") if name]
 
 
+# The characters of a name that can break a line or reorder the text around it when it
+# is shown: controls (Cc), format characters such as a right-to-left override (Cf), and
+# the line and paragraph separators (Zl, Zp).
+UNSHOWN = ("Cc", "Cf", "Zl", "Zp")
+
+
+# what `surrogateescape` decodes a byte 0x80 to 0xFF that is not UTF-8 to
+SURROGATES = (0xDC80, 0xDCFF)
+
+
 def shown_name(raw: bytes) -> str:
-    """A path as git wrote it, for a person to read: a byte that is not UTF-8 and a
-    control character (a newline, an ESC) each become the replacement character, so
-    that no name breaks a line or drives a terminal."""
-    return "".join(
-        "\ufffd" if unicodedata.category(char) == "Cc" else char
-        for char in raw.decode(errors="replace")
-    )
+    """A path as git wrote it, for a person to read and for a conflict's record to keep,
+    one name for each path: each character of `UNSHOWN` becomes its code point
+    (`<U+000A>`), a byte that is not UTF-8 its value (`<0xE9>`), and `<` itself
+    `<U+003C>`, so that every `<` of a name starts such a mark and two paths never share
+    a name; a `"` that opens the name becomes `<U+0022>`, so that no name of this form
+    reads as one git quoted (`kept_name`)."""
+    shown = []
+    for at, char in enumerate(raw.decode(errors="surrogateescape")):
+        code = ord(char)
+        if SURROGATES[0] <= code <= SURROGATES[1]:
+            shown.append(f"<0x{code - SURROGATES[0] + 0x80:02X}>")
+        elif (
+            unicodedata.category(char) in UNSHOWN
+            or char == "<"
+            or (char == '"' and at == 0)
+        ):
+            shown.append(f"<U+{code:04X}>")
+        else:
+            shown.append(char)
+    return "".join(shown)
 
 
 # git's escapes of a quoted path (`core.quotePath`), other than the octal ones
@@ -2193,7 +2216,8 @@ def kept_name(name: str) -> str:
     """A file's name as a conflict's record keeps it. A record of a release before
     `conflicted` keeps a name as git quoted it (`"caf\\303\\251.txt"`, quotes and all),
     which is read as the name it stands for and shown as `shown_name` shows it; any
-    other name is kept as it is."""
+    other name is kept as it is. A name `shown_name` gives never opens with `"`, so no
+    name of the new form is read as quoted, and a quoted one always opens with it."""
     quoted = re.fullmatch(r'"((?:[^"\\]|\\(?:[0-7]{3}|[abtnvfr"\\]))*)"', name)
     if not quoted:
         return name

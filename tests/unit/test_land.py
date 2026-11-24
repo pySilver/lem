@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import types
+import unicodedata
 import unittest
 from collections.abc import Callable
 from pathlib import Path
@@ -1214,7 +1215,7 @@ class ConflictNames(unittest.TestCase):
                 )
                 self.assertEqual(
                     sorted(land.conflicted(repo)),
-                    ["café.txt", "caf\ufffd.txt", "plain.txt"],
+                    ["caf<0xE9>.txt", "café.txt", "plain.txt"],
                 )
 
     def test_a_control_character_breaks_no_line(self) -> None:
@@ -1237,7 +1238,7 @@ class ConflictNames(unittest.TestCase):
             )
             self.assertEqual(
                 sorted(land.conflicted(Path(d))),
-                ["a\ufffdb.txt", "esc\ufffd[31m.txt"],
+                ["a<U+000A>b.txt", "esc<U+001B>[31m.txt"],
             )
 
     def test_a_name_kept_as_git_quoted_it(self) -> None:
@@ -1253,8 +1254,44 @@ class ConflictNames(unittest.TestCase):
         }
         self.assertEqual(
             sorted({land.kept_name(name) for name in kept["files"]}),
-            ['a"b\\c\ufffdd.txt', "café.txt", "caf\ufffd.txt", 'say "hi".txt'],
+            ['a"b\\c<U+0009>d.txt', "caf<0xE9>.txt", "café.txt", 'say "hi".txt'],
         )
+
+    def test_two_paths_never_share_a_name(self) -> None:
+        raws = (
+            b"a\nb.txt",
+            b"a\tb.txt",
+            b"a<U+000A>b.txt",
+            "a\u202eb.txt".encode(),
+            "a\u2028b.txt".encode(),
+            "a\u2029b.txt".encode(),
+            b"a\xe9b.txt",
+            b"a\xe8b.txt",
+            b"a<0xE9>b.txt",
+        )
+        shown = [land.shown_name(raw) for raw in raws]
+        self.assertEqual(len(set(shown)), len(raws))
+        for name in shown:
+            with self.subTest(name=name):
+                self.assertFalse(
+                    any(
+                        unicodedata.category(char) in ("Cc", "Cf", "Zl", "Zp")
+                        for char in name
+                    )
+                )
+        # the pull request's line counts two files for two
+        line = land.sync_line(
+            {"onto": "abc", "moved": True, "resolved": True, "conflict": shown[:2]},
+            "main",
+        )
+        self.assertIn("conflicts in 2 files", line)
+
+    def test_a_name_of_the_new_form_is_never_unquoted(self) -> None:
+        # a real file named `"a"`, quotes and all, as `conflicted` gives it now
+        name = land.shown_name(b'"a"')
+        self.assertEqual((name, land.kept_name(name)), ('<U+0022>a"', '<U+0022>a"'))
+        # a record of the release before still reads as git quoted it
+        self.assertEqual(land.kept_name('"\\"a\\""'), '<U+0022>a"')
 
 
 class RebaseRefused(unittest.TestCase):
