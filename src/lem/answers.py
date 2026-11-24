@@ -29,6 +29,7 @@ reads it on its wake as `board_answer` of `lem project tasks` (`answer_of_block`
 import json
 import re
 from datetime import UTC, datetime
+from types import MappingProxyType
 
 from lem import cards as lem_cards
 from lem import clock as lem_clock
@@ -41,12 +42,14 @@ if TYPE_CHECKING:
 ANSWERS = "answers"
 # Each wait the board answers, its options in the order the buttons show them, and each
 # option's label.
-OPTIONS = {
-    "plan": {"build": "Build", "drop": "Drop"},
-    "breaker": {"help": "Help", "park": "Park", "drop": "Drop"},
-    "skip": {"yes": "Yes", "no": "No"},
-    "criterion": {"yes": "Yes", "no": "No"},
-}
+OPTIONS = MappingProxyType(
+    {
+        "plan": MappingProxyType({"build": "Build", "drop": "Drop"}),
+        "breaker": MappingProxyType({"help": "Help", "park": "Park", "drop": "Drop"}),
+        "skip": MappingProxyType({"yes": "Yes", "no": "No"}),
+        "criterion": MappingProxyType({"yes": "Yes", "no": "No"}),
+    }
+)
 # The stamp of a state block in a key: its event's time in UTC, to the second.
 STAMP = "%Y%m%dT%H%M%SZ"
 KEY = re.compile(
@@ -55,7 +58,7 @@ KEY = re.compile(
 
 
 class AnswerError(Exception):
-    pass
+    """The board cannot take or read the answer."""
 
 
 def now() -> str:
@@ -129,9 +132,8 @@ def record(
     `agent`, and `digest` for the criterion)."""
     kind = parse(key)["kind"]
     if option not in OPTIONS[kind]:
-        raise AnswerError(
-            f"the row {key} takes {', '.join(OPTIONS[kind])}, not {option!r}"
-        )
+        choices = ", ".join(OPTIONS[kind])
+        raise AnswerError(f"the row {key} takes {choices}, not {option!r}")
     made = {
         "key": key,
         "kind": kind,
@@ -145,7 +147,7 @@ def record(
     }
     if lem_cards.link_whole(
         answer_file(task, key),
-        (json.dumps(made, ensure_ascii=False, indent=1) + "\n").encode("utf-8"),
+        f"{json.dumps(made, ensure_ascii=False, indent=1)}\n".encode(),
     ):
         return True, made
     found = on_record(task, key)
@@ -161,12 +163,12 @@ def withdraw(task: Path, made: dict) -> None:
     """Remove the record MADE, which this server linked, when the act it stood for did
     not run (the script of a park or of a yes refused): the row is the owner's again, as
     before his tap."""
-    file = answer_file(task, made["key"])
+    path = answer_file(task, made["key"])
     try:
-        if json.loads(file.read_text(encoding="utf-8")) == made:
-            file.unlink()
+        if json.loads(path.read_text(encoding="utf-8")) == made:
+            path.unlink()
     except OSError, ValueError:
-        pass
+        return
 
 
 def answer_of_block(task: Path, slug: str, ts: str | None) -> dict | None:
@@ -182,9 +184,9 @@ def answer_of_block(task: Path, slug: str, ts: str | None) -> dict | None:
     if block is None or not folder.is_dir():
         return None
     found = []
-    for file in folder.glob("*.json"):
+    for path in folder.glob("*.json"):
         try:
-            parts = parse(file.name.removesuffix(".json"))
+            parts = parse(path.name.removesuffix(".json"))
         except AnswerError:
             continue
         if parts["slug"] != slug or parts["stamp"] != block:
@@ -192,16 +194,17 @@ def answer_of_block(task: Path, slug: str, ts: str | None) -> dict | None:
         try:
             found.append(
                 (
-                    str(json.loads(file.read_text(encoding="utf-8")).get("at") or ""),
-                    file.stat().st_mtime_ns,
-                    file,
+                    str(json.loads(path.read_text(encoding="utf-8")).get("at") or ""),
+                    path.stat().st_mtime_ns,
+                    path,
                 )
             )
         except OSError, ValueError, AttributeError:
             continue
-    for _at, _ns, file in sorted(found, key=lambda x: (x[0], x[1]), reverse=True):
+    found.sort(key=lambda row: (row[0], row[1]), reverse=True)
+    for _at, _ns, path in found:
         try:
-            return json.loads(file.read_text(encoding="utf-8"))
+            return json.loads(path.read_text(encoding="utf-8"))
         except OSError, ValueError:
             continue
     return None
@@ -209,7 +212,9 @@ def answer_of_block(task: Path, slug: str, ts: str | None) -> dict | None:
 
 # The question of each yes/no row as a record of an older form, with no `question`,
 # names it.
-QUESTIONS = {"skip": "Skip the persona read?", "criterion": "Approve this criterion?"}
+QUESTIONS = MappingProxyType(
+    {"skip": "Skip the persona read?", "criterion": "Approve this criterion?"}
+)
 
 
 def took_effect(made: dict) -> str:
@@ -229,15 +234,19 @@ def took_effect(made: dict) -> str:
     )
     what = {"plan": "for the plan", "breaker": f"for breaker {parts['number']}"}.get(
         parts["kind"]
-    ) or (f"on “{question}”" if parts["kind"] in QUESTIONS else "")
-    where = (
-        f", from the {made['device']}"
-        if made.get("device")
-        else ", in the task’s session"
-        if made.get("from") == "session"
-        else ""
     )
-    return (
-        f"You picked {made.get('label') or made.get('option')} {what} at "
-        f"{lem_cards.local_time(made.get('at'))}{where}"
+    if not what:
+        what = f"on “{question}”" if parts["kind"] in QUESTIONS else ""
+    if made.get("device"):
+        where = f", from the {made['device']}"
+    elif made.get("from") == "session":
+        where = ", in the task’s session"
+    else:
+        where = ""
+    label = made.get("label") or made.get("option")
+    return "".join(
+        (
+            f"You picked {label} {what} at ",
+            f"{lem_cards.local_time(made.get('at'))}{where}",
+        )
     ).replace("  ", " ")
