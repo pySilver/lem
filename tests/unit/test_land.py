@@ -8,13 +8,14 @@ import datetime as dt
 import importlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import types
 import unicodedata
 import unittest
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import IO, cast
 from unittest import mock
@@ -611,6 +612,51 @@ class Bar(unittest.TestCase):
             )
         )
         self.assertEqual(moved["lowered"], [])
+
+    def test_a_line_with_many_marks_is_walked_once(self) -> None:
+        # one added line of a bundle with 8,000 focused calls: each counts, each with
+        # its own text, and the walk over them is one pass, counted in its steps
+        count = 8000
+        line = "it.only(1);" * count
+        marks = [
+            re.compile(mark)
+            for suffixes, found in land.BAR.items()
+            if ".js" in suffixes
+            for mark in found
+        ]
+        found = land.marks_of(line, marks, [])
+        self.assertEqual(len(found), count)
+        self.assertEqual({own for _, own in found}, {"it.only(1);"})
+        steps = 0
+        start = re.Match.start
+
+        class Counted:
+            """A match whose `start` counts its calls."""
+
+            def __init__(self, found: re.Match) -> None:
+                self.found = found
+                self.re = found.re
+
+            def start(self) -> int:
+                nonlocal steps
+                steps += 1
+                return start(self.found)
+
+            def group(self, *names: int) -> str:
+                return self.found.group(*names)
+
+        class Pattern:
+            """A mark whose matches count."""
+
+            def __init__(self, mark: re.Pattern) -> None:
+                self.mark = mark
+
+            def finditer(self, text: str) -> Iterator[Counted]:
+                return (Counted(found) for found in self.mark.finditer(text))
+
+        land.marks_of(line, cast("list[re.Pattern]", [Pattern(m) for m in marks]), [])
+        # a walk over all hits for each hit takes count * count steps
+        self.assertLess(steps, 10 * count)
 
     def test_a_second_mark_of_one_kind_on_a_line_counts(self) -> None:
         # a runner's settings put several marks of one kind on one line

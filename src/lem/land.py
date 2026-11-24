@@ -4268,23 +4268,22 @@ def marks_of(
     put beside an old one leaves the old one's text as it was, and a rule list that grew
     changes it. A mark of a runner's settings (SETTINGS) counts once for each kind, with
     the text to the line's end, as its tokens share a line by the settings' syntax, and
-    a new one of the same kind changes that text."""
+    a new one of the same kind changes that text. The marks are walked once, from the
+    last: a bundle's one line may hold thousands."""
     hits = sorted(
         (found for mark in marks for found in mark.finditer(text)),
         key=lambda found: found.start(),
     )
-    own = [
-        (
-            hit,
-            text[
-                hit.start() : next(
-                    (later.start() for later in hits if later.start() > hit.start()),
-                    len(text),
-                )
-            ],
-        )
-        for hit in hits
-    ]
+    starts = [hit.start() for hit in hits]
+    ends = [len(text)] * len(hits)
+    # the start of the next mark that starts after the one at hand: marks that start at
+    # one place share it
+    following = len(text)
+    for at in range(len(hits) - 2, -1, -1):
+        if starts[at + 1] > starts[at]:
+            following = starts[at + 1]
+        ends[at] = following
+    own = [(hit, text[starts[at] : ends[at]]) for at, hit in enumerate(hits)]
     own += [
         (hit, text[hit.start() :])
         for hit in (mark.search(text) for mark in settings)
