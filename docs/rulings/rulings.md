@@ -33,8 +33,11 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
   skill: `/webrev` (the way to mark up a plan or a document) and `/backlog` are required recipes,
   none copied into Lem. (2026-11-15, 2026-11-18)
 - **Lem is an app and its skills, and may take two steps to set up.** "(app + skills) so be it".
-  The skills stay a Claude Code or Codex plugin, the correction hook comes with it, and how the app
-  ships is open: "maybe a homebrew with uv?". (2026-11-17, 2026-11-23)
+  The skills stay a Claude Code or Codex plugin, and the correction hook comes with it.
+  (2026-11-17, 2026-11-23)
+- **The app ships as a Homebrew program from his own tap, built with uv from the release's lock
+  file, and the plugin keeps its own update.** "maybe a homebrew with uv?". When the two versions
+  differ, Lem stops with one line that names the one that is behind. (2026-11-23, 2026-11-24)
 - **Lem is his one desk for work in a repository, and its core is the path from a request to a
   merged pull request.** A helper stays in the core when a step of the path uses it, and he can then
   call that step by hand. (2026-11-17 and 2026-11-18)
@@ -54,8 +57,10 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 - **cronn is required, and Codex is highly recommended.** The machine check fails without cronn and
   `/lem init` stops for it; a scheduled job is still added only on his yes. (2026-11-18)
 - **Lem assumes auto mode**, in Claude Code and in Codex. (2026-11-18)
-- **Python 3.11 stays, in the modern form.** No script has `from __future__ import annotations`, and
-  `src/lem/python.py` finds a newer Python for `bin/lem` and the hooks. (2026-11-20)
+- **Python 3.11 stays, in the modern form, until Lem brings its own Python; from that release
+  Lem's code is written for 3.14.** No script has `from __future__ import annotations`, and until
+  that release `src/lem/python.py` finds a newer Python for `bin/lem` and the hooks. (2026-11-20,
+  2026-11-24)
 - **Lem uses the well-known open-source library for a job, and writes no copy of its own.** "I
   don't want to have our own implementation of things that are well known and available in
   opensource for ages". (2026-11-23)
