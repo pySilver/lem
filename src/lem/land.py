@@ -9765,6 +9765,15 @@ def tip_carry(  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit
         return None, f"{met} the base moved again after its resolution"
     if resolution.get("after") != new:
         return None, f"{met} a commit came after its resolution"
+    if resolution.get("onto") != kept.get("base"):
+        # a base that moved under the same tip (a `base` that moved nothing after it
+        # went back): the change holds what moved between the two, which no read saw,
+        # as a note of a rebase holds only on its own base (`rebase_notes`)
+        return None, (
+            f"{met} the base moved from {str(resolution.get('onto'))[:9]}, which its "
+            f"resolution was made onto, to {str(kept.get('base'))[:9]}, under the "
+            "same tip"
+        )
     if not (read and read["answered"]):
         silent = any(
             one.get("of") == "resolution"

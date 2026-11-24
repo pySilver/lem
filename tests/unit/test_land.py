@@ -3119,6 +3119,25 @@ class MovedBase(unittest.TestCase):
                 ),
             )
 
+    def test_a_base_that_moved_back_under_the_resolved_tip_carries_nothing(
+        self,
+    ) -> None:
+        # the resolution made bbb on b1; a `propose` pushed bbb and was cut off, the
+        # base went back to b0, and `base` ran again, which moved nothing: the change
+        # now holds what b1 added, which no read saw
+        resolution = {**self.RESOLVED["resolution"], "onto": "b1b1b1b1b1b1"}
+        why = (
+            "the rebase met a conflict, and the base moved from b1b1b1b1b, which its "
+            "resolution was made onto, to b0b0b0b0b, under the same tip"
+        )
+        carry = self.resolved(resolution=resolution, base="b0b0b0b0b0b0", pushed="bbb")
+        self.assertEqual(
+            (carry["how"], carry["merge_why"], carry["owner_why"]), (None, why, why)
+        )
+        # on the base it was made onto, the clean read carries as before
+        carry = self.resolved(resolution=resolution, base="b1b1b1b1b1b1")
+        self.assertEqual(carry["how"], "resolution")
+
     def test_the_line_of_a_resolution_read_names_its_kind(self) -> None:
         self.assertEqual(self.resolved()["review"], "one read of the resolution")
         self.assertEqual(
