@@ -35,40 +35,40 @@ if TYPE_CHECKING:
 
 
 def write_whole(
-    file: Path, text: str, *, fresh: Path | None = None, make_folder: bool = False
+    path: Path, text: str, *, fresh: Path | None = None, make_folder: bool = False
 ) -> None:
-    """Write TEXT as FILE whole or not at all: under FRESH first, `NAME.PID.new` beside
-    FILE unless named, then renamed over FILE. With MAKE_FOLDER, FILE's folder is made
+    """Write TEXT as PATH whole or not at all: under FRESH first, `NAME.PID.new` beside
+    PATH unless named, then renamed over PATH. With MAKE_FOLDER, PATH's folder is made
     first when it is not there."""
     if make_folder:
-        file.parent.mkdir(parents=True, exist_ok=True)
-    staging = fresh or file.with_name(f"{file.name}.{os.getpid()}.new")
+        path.parent.mkdir(parents=True, exist_ok=True)
+    staging = fresh or path.with_name(f"{path.name}.{os.getpid()}.new")
     staging.write_text(text, encoding="utf-8")
-    staging.replace(file)
+    staging.replace(path)
 
 
 def write_json(
-    file: Path, data: object, *, fresh: Path | None = None, make_folder: bool = False
+    path: Path, record: object, *, fresh: Path | None = None, make_folder: bool = False
 ) -> None:
-    """Write DATA as FILE whole, as JSON in the one form of Lem's records: two spaces
+    """Write RECORD as PATH whole, as JSON in the one form of Lem's records: two spaces
     of indent, every character as itself, and a line end after it."""
     write_whole(
-        file,
-        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+        path,
+        f"{json.dumps(record, indent=2, ensure_ascii=False)}\n",
         fresh=fresh,
         make_folder=make_folder,
     )
 
 
 @contextlib.contextmanager
-def held(lock: threading.Lock, file: Path) -> Generator[None]:
-    """Hold LOCK, this process's lock of a file, and then FILE, the lock file of the
-    same, waiting for another holder of either; FILE's folder is made first when it is
+def held(lock: threading.Lock, path: Path) -> Generator[None]:
+    """Hold LOCK, this process's lock of a file, and then PATH, the lock file of the
+    same, waiting for another holder of either; PATH's folder is made first when it is
     not there."""
-    file.parent.mkdir(parents=True, exist_ok=True)
-    with lock, file.open("a") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with lock, path.open("a") as stream:
+        fcntl.flock(stream, fcntl.LOCK_EX)
         try:
             yield
         finally:
-            fcntl.flock(handle, fcntl.LOCK_UN)
+            fcntl.flock(stream, fcntl.LOCK_UN)
