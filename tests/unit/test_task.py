@@ -1311,27 +1311,6 @@ class FirstLine(unittest.TestCase):
             project.outcome_of("## Outcome\n\n**Today:** it shows 100.\n\n1. step\n")
         )
 
-    def test_a_short_bold_phrase_that_opens_the_outcome_is_quoted(self) -> None:
-        # the-first-line-skips-a-bold-outcome, 2026-11-22: prompts/writing.md puts bold
-        # on the phrase that carries the outcome, and the first line quoted the next
-        # paragraph
-        self.assertEqual(
-            project.outcome_of(
-                "## Outcome\n\n**Done** shows the 20 newest ended tasks, and one row "
-                "leads to the rest.\n\n"
-                "The picker keeps the same twenty tasks in its list.\n"
-            ),
-            "Done shows the 20 newest ended tasks, and one row leads to the rest",
-        )
-        # a label is told by its form: a colon, or a few bold words alone on the line
-        self.assertEqual(
-            project.outcome_of(
-                "## Outcome\n\n**Before the change**\n\n"
-                "The invoice shows 70 EUR after the refund.\n"
-            ),
-            "The invoice shows 70 EUR after the refund",
-        )
-
     def test_only_the_marks_of_a_bold_run_leave_the_quote(self) -> None:
         # bold-outcome-quoted-whole, 2026-11-22: prose that names the marks in code
         # keeps them

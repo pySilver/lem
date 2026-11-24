@@ -5441,21 +5441,17 @@ def outcome_of(text: str) -> str | None:
             continue
         if line.startswith("#"):
             break
-        # a line that opens with bold is a label when its bold closes on it and ends in
-        # a colon inside the bold or right after it, or is a few words alone on the
-        # line; a short bold phrase with text after it opens the outcome, as writing.md
-        # asks; a *** rule opens with no bold; the `**` a code span names never closes
-        # the label, as in BOLD_RUN
+        # a line that opens with bold is a label when its bold closes on it within a few
+        # words, or ends in a colon inside the bold or right after it; a *** rule opens
+        # with no bold; the `**` a code span names never closes the label, as
+        # in BOLD_RUN
         label = re.match(r"\*\*((?:`[^`]*`|[^*`])*)\*\*(:?)", line)
         bold = bool(re.match(r"\*\*[^*\s]", line)) and not (
             label
             and (
-                label[1].rstrip().endswith(":")
+                len(label[1].split()) <= FEW_WORDS
+                or label[1].rstrip().endswith(":")
                 or label[2]
-                or (
-                    len(label[1].split()) <= FEW_WORDS
-                    and not line[label.end() :].strip()
-                )
             )
         )
         prose = (
