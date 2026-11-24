@@ -26,8 +26,8 @@ if TYPE_CHECKING:
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from lem import board_model as bm  # noqa: E402 - after the line that puts src on sys.path
-from lem import inbox, land  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_model as bm
+from lem import inbox, land
 
 START = datetime(2026, 11, 22, 9, 0, tzinfo=UTC)
 NOW = int((START + timedelta(hours=2)).timestamp() * 1000)

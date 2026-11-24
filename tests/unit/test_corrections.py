@@ -18,8 +18,8 @@ from unittest import mock
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from lem import corrections, paths, project  # noqa: E402 - after the line that puts src on sys.path
-from lem import state as lem_state  # noqa: E402 - after the line that puts src on sys.path
+from lem import corrections, paths, project
+from lem import state as lem_state
 
 
 def said(text: str) -> dict:

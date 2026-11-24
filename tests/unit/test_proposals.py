@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from lem import project  # noqa: E402 - after the line that puts src on sys.path
+from lem import project
 
 MORNING = datetime(2026, 11, 23, 6, 55, tzinfo=UTC)
 TEN = datetime(2026, 11, 23, 10, 0, tzinfo=UTC)

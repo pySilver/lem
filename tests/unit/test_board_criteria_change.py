@@ -30,13 +30,13 @@ if TYPE_CHECKING:
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-from lem import answers as lem_answers  # noqa: E402 - after the line that puts src on sys.path
-from lem import artifacts as lem_artifacts  # noqa: E402 - after the line that puts src on sys.path
-from lem import board_model as bm  # noqa: E402 - after the line that puts src on sys.path
-from lem import board_pages as pages  # noqa: E402 - after the line that puts src on sys.path
-from lem import board_task as task_pages  # noqa: E402 - after the line that puts src on sys.path
-from lem import criteria, serve  # noqa: E402 - after the line that puts src on sys.path
-from lem import release as lem_release  # noqa: E402 - after the line that puts src on sys.path
+from lem import answers as lem_answers
+from lem import artifacts as lem_artifacts
+from lem import board_model as bm
+from lem import board_pages as pages
+from lem import board_task as task_pages
+from lem import criteria, serve
+from lem import release as lem_release
 
 SLUG = "invoice-export-empty-cells"
 START = datetime(2026, 11, 23, 15, 0, tzinfo=UTC)

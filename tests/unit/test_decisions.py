@@ -13,7 +13,7 @@ from typing import cast
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from lem import decisions  # noqa: E402 - after the line that puts src on sys.path
+from lem import decisions
 
 CASE = {
     "case": "1. Order 1042 has two notes.\n2. The export keeps one.",

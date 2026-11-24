@@ -145,6 +145,9 @@ allowed-confusables = ["’", "–", "×", "›"]
     "S604", # a suite runs the shell line it checks
     "E501", # a test's name is its sentence, and a fixture is a text as it is; ruff format still wraps the code
 ]
+# A unit test puts src on sys.path before it imports lem, since the tests run with `python3 -I`,
+# which reads no PYTHONPATH.
+"tests/unit/*.py" = ["E402"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # The owner's ruling "Python 3.11 stays, in the modern form" (docs/rulings/rulings.md).

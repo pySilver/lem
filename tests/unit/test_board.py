@@ -18,8 +18,8 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from lem import board  # noqa: E402 - after the line that puts src on sys.path
-from lem import board_task as task_pages  # noqa: E402 - after the line that puts src on sys.path
+from lem import board
+from lem import board_task as task_pages
 
 # A task.md as `/lem new` writes it (stages/new.md): the ask, the type, the outcome over
 # two paragraphs with hard-wrapped lines, then the next sections.

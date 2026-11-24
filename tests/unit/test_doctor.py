@@ -19,7 +19,7 @@ from unittest import mock
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-from lem import doctor  # noqa: E402 - after the line that puts src on sys.path
+from lem import doctor
 
 # Each row of the machine check that the table of docs/install.md lists, with the words
 # of the one table row that names it.

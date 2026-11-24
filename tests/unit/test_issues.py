@@ -22,7 +22,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(HERE / "src"))
-from lem import issues  # noqa: E402 - after the line that puts src on sys.path
+from lem import issues
 
 project = issues.project
 

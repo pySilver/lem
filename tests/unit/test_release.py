@@ -26,7 +26,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[2]
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(ROOT / "src"))
-from lem import release as lem_release  # noqa: E402 - after the line that puts src on sys.path
+from lem import release as lem_release
 
 # The repository every install of the `lem` entry takes the plugin from.
 REPO = "pySilver/lem"

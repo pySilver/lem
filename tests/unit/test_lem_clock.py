@@ -13,7 +13,7 @@ from unittest import mock
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from lem import clock as lem_clock  # noqa: E402 - after the line that puts src on sys.path
+from lem import clock as lem_clock
 
 MOMENT = datetime(2026, 11, 24, 10, 18, 18, 987654, tzinfo=UTC)
 

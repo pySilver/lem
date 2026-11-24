@@ -18,7 +18,7 @@ from typing import cast
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from lem import land  # noqa: E402 - after the line that puts src on sys.path
+from lem import land
 
 # Two defects of one place and one title, with two different runs.
 D = {

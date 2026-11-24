@@ -28,8 +28,8 @@ if TYPE_CHECKING:
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from lem import project, session, session_hook  # noqa: E402 - after the line that puts src on sys.path
-from lem import state as lem_state  # noqa: E402 - after the line that puts src on sys.path
+from lem import project, session, session_hook
+from lem import state as lem_state
 
 # the folder of this checkout of Lem
 ROOT_OF_LEM = Path(__file__).resolve().parents[2]

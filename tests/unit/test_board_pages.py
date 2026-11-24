@@ -17,10 +17,10 @@ from typing import Any, cast
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from lem import board_model as bm  # noqa: E402 - after the line that puts src on sys.path
-from lem import board_pages as pages  # noqa: E402 - after the line that puts src on sys.path
-from lem import board_task as task_pages  # noqa: E402 - after the line that puts src on sys.path
-from lem import serve  # noqa: E402 - after the line that puts src on sys.path
+from lem import board_model as bm
+from lem import board_pages as pages
+from lem import board_task as task_pages
+from lem import serve
 
 START = datetime(2026, 11, 20, 9, 0, tzinfo=UTC)
 NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
