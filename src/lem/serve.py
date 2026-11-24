@@ -979,7 +979,7 @@ def prefs_of(header: str | None) -> dict:
     morsel = jar.get(PREFS_COOKIE)
     try:
         value = json.loads(unquote(morsel.value)) if morsel else {}
-    except ValueError:
+    except (ValueError, RecursionError):  # nested deeper than the stack: no JSON
         return {}
     if not isinstance(value, dict):
         return {}
@@ -3020,7 +3020,8 @@ class Handler(BaseHTTPRequestHandler):
                 if 0 < length <= AGTERM_BYTES
                 else None
             )
-        except (ValueError, OSError):
+        # nesting deeper than the stack is no JSON to Python (RecursionError)
+        except (ValueError, RecursionError, OSError):
             asked = None
         if not isinstance(asked, dict):
             return answer(
@@ -3151,12 +3152,15 @@ class Handler(BaseHTTPRequestHandler):
             )
         try:
             length = int(self.headers.get("Content-Length") or 0)
+            # walked here as the record's end walks it (`lem_cards.whole`): an answer
+            # nested deeper than the stack is no JSON to Python, under 3.11 in the
+            # decode and from 3.12 in the walk, and is refused before the act
             given = (
-                json.loads(self.rfile.read(length))
+                lem_cards.whole(json.loads(self.rfile.read(length)))
                 if 0 < length <= CARD_BYTES
                 else None
             )
-        except (ValueError, OSError):
+        except (ValueError, RecursionError, OSError):
             given = None
         if not isinstance(given, dict):
             return answer(
@@ -3359,7 +3363,8 @@ class Handler(BaseHTTPRequestHandler):
                 if 0 < length <= lem_push.MAX_BODY
                 else None
             )
-        except (ValueError, OSError):
+        # nesting deeper than the stack is no JSON to Python (RecursionError)
+        except (ValueError, RecursionError, OSError):
             given = None
         if not isinstance(given, dict):
             return answer(

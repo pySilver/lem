@@ -3173,6 +3173,90 @@ class PeersTrouble(unittest.TestCase):
         self.assertTrue(any(said in problem for problem in ctx.problems))
 
 
+def nested(depth: int) -> str:
+    """A JSON list nested DEPTH levels deep."""
+    return "[" * depth + "]" * depth
+
+
+class DeepBody(unittest.TestCase):
+    """A request's JSON nested as deep as the interpreter's recursion limit: under 3.11
+    the decode raises RecursionError, from 3.12 a walk of it can. Each reader answers
+    with an HTTP status, and a card's answer is refused as no JSON before the act."""
+
+    def setUp(self) -> None:
+        import io
+        import tempfile
+
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        (Path(folder.name) / ".lem" / "state").mkdir(parents=True)
+        self.handler = serve.Handler.__new__(serve.Handler)
+        self.handler.door = None
+        self.handler.client_address = ("127.0.0.1", 0)
+        self.handler.machine = serve.Machine()
+        self.sent: list[tuple[int, dict]] = []
+        self.acted: list[str] = []
+
+        def send(status: int, data: bytes, kind: str, **_: object) -> None:
+            self.sent.append((status, json.loads(data or b"{}")))
+
+        self.io = io
+        for where, name, value in (
+            (self.handler, "send", send),
+            (self.handler, "listen_port", lambda: 0),
+            (serve, "action_refusal", lambda *_: None),
+            (serve, "act_card", lambda *_: self.acted.append("card") or (200, "x")),
+            (serve, "agterm_act", lambda *_: self.acted.append("agterm") or "typed"),
+        ):
+            patched = mock.patch.object(where, name, value)
+            patched.start()
+            self.addCleanup(patched.stop)
+        listed = mock.patch.object(
+            serve.lem_state, "workspaces", return_value=[folder.name]
+        )
+        listed.start()
+        self.addCleanup(listed.stop)
+        self.name = self.handler.machine.workspaces()[0].name
+
+    def post(self, body: str) -> None:
+        data = body.encode("utf-8")
+        self.handler.headers = email.message.Message()
+        self.handler.headers["Content-Length"] = str(len(data))
+        self.handler.rfile = self.io.BytesIO(data)
+
+    def test_a_cards_answer_nested_past_the_limit_is_refused_as_no_json(self) -> None:
+        deep = nested(sys.getrecursionlimit())
+        self.post(
+            '{"status": "answered", "answers": {"answer": '
+            f'{{"selected": [], "extra": {deep}}}}}}}'
+        )
+        self.handler.card_answer(self.name, "refund-rounding", "C-1")
+        self.assertEqual([status for status, _ in self.sent], [400])
+        self.assertIn("no JSON object", self.sent[0][1]["said"])
+        self.assertEqual(self.acted, [])
+
+    def test_an_act_of_agterm_and_of_the_notifications_answer_with_a_status(
+        self,
+    ) -> None:
+        deep = f'{{"x": {nested(sys.getrecursionlimit())}}}'
+        self.post(deep)
+        self.handler.agterm(self.name, "type")
+        self.post(deep)
+        with mock.patch.object(
+            serve.lem_push, "subscribe", return_value={"devices": 1}
+        ):
+            self.handler.push_act("subscribe")
+        self.assertEqual(len(self.sent), 2)
+        self.assertTrue(all(isinstance(status, int) for status, _ in self.sent))
+
+    def test_a_cookie_nested_past_the_limit_is_no_preference(self) -> None:
+        deep = nested(sys.getrecursionlimit())
+        self.assertEqual(
+            serve.prefs_of(f"{serve.PREFS_COOKIE}={deep}"),
+            serve.prefs_of(None),
+        )
+
+
 class CodeStamp(unittest.TestCase):
     """The stamp `lem serve --ensure` compares with the running server's: the newest
     change time of the Python in a folder of Lem, of either layout."""

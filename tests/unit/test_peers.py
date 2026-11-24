@@ -215,6 +215,31 @@ class List(unittest.TestCase):
         self.assertEqual(peers.spaces_of("not json"), [])
 
 
+class DeepJson(unittest.TestCase):
+    """JSON from another server nested as deep as the interpreter's recursion limit:
+    under 3.11 the decode raises RecursionError. The entry's list reads as none, and a
+    peer's answer that does not read is a PeerError that says why."""
+
+    DEEP = "[" * sys.getrecursionlimit() + "]" * sys.getrecursionlimit()
+
+    def test_a_list_in_the_header_nested_past_the_limit_is_none(self) -> None:
+        self.assertEqual(peers.spaces_of(self.DEEP), [])
+
+    def test_a_peers_answer_nested_past_the_limit_is_no_json(self) -> None:
+        reply = mock.Mock(status=200)
+        reply.read.return_value = self.DEEP.encode("utf-8")
+        conn = mock.Mock()
+        conn.getresponse.return_value = reply
+        # 3.12 and newer read it whole, as a list; 3.11 cannot, and says why
+        with mock.patch.object(peers, "connect", return_value=(conn, None)):
+            try:
+                read = peers.ask_json("http://beta:4537", "/api/workspaces")
+            except peers.PeerError as error:
+                self.assertIn("no JSON", str(error))
+            else:
+                self.assertIsInstance(read, list)
+
+
 class Passing(unittest.TestCase):
     BASE = "https://beta.tail1234.ts.net:4537"
 

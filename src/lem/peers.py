@@ -420,7 +420,7 @@ def spaces_of(header: str | None) -> list:
         return []
     try:
         given = json.loads(header)
-    except ValueError:
+    except (ValueError, RecursionError):  # nested deeper than the stack: no JSON
         return []
     if not isinstance(given, list):
         return []
@@ -525,7 +525,7 @@ def ask_json(base: str, path: str, timeout: float = LIST_TIMEOUT) -> object:
         )
     try:
         return json.loads(data)
-    except ValueError as error:
+    except (ValueError, RecursionError) as error:  # nested deeper than the stack too
         raise PeerError(
             f"{urlsplit(base).netloc} answered {path} with no JSON: "
             "is it a server of Lem?"
