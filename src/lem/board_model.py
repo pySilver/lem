@@ -6884,7 +6884,9 @@ class Reader:
         whole = data.rfind(b"\n") + 1
         if not same:
             self.events, self.log_bad, self.log_lines = [], [], 0
-        number = len(self.events) + len(self.log_bad)
+        # the lines read before, blank ones too, so that a bad line has its number in
+        # the file
+        number = self.log_lines
         for raw in data[:whole].split(b"\n")[:-1]:
             number += 1
             if not raw.strip():

@@ -2956,6 +2956,29 @@ class Reader(unittest.TestCase):
             reader.read_log()
             self.assertIn("line 4", reader.problems["events"])
 
+    def test_a_bad_line_is_named_by_its_line_of_the_file_after_a_blank_line(
+        self,
+    ) -> None:
+        said = (
+            "events.jsonl: line 3 is no event with a time, and the board leaves it out"
+        )
+        good = json.dumps(state(0, "queued", "x"))
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / "events.jsonl"
+            # in one read: a blank line, a good event, then a line that is no JSON
+            log.write_text(f"\n{good}\nnot json\n")
+            reader = bm.Reader(Path(tmp), Path(tmp))
+            reader.read_log()
+            self.assertEqual(reader.problems["events"], said)
+            # in two reads: the bad line comes after the read of the first two
+            log.write_text(f"\n{good}\n")
+            reader = bm.Reader(Path(tmp), Path(tmp))
+            reader.read_log()
+            with log.open("a") as out:
+                out.write("not json\n")
+            reader.read_log()
+            self.assertEqual(reader.problems["events"], said)
+
 
 class Inbox(unittest.TestCase):
     """What the task's page reads of the owner's Inbox: the board server's record
