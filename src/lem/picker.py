@@ -41,6 +41,7 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from types import MappingProxyType
 
 from lem import board_model as lem_board_model
 from lem import paths, project
@@ -50,12 +51,14 @@ from lem import paths, project
 ALL = ":all"
 # The state of a task in the board's words: the board's own list
 # (lem_board_model.STATUS).
-WORDS = {status: facts["label"] for status, facts in lem_board_model.STATUS.items()}
+WORDS = MappingProxyType(
+    {status: facts["label"] for status, facts in lem_board_model.STATUS.items()}
+)
 # the board's word for a task with no state block, and for a builder that investigates
 # before any lead
 UNKNOWN = lem_board_model.UNKNOWN["label"]
 INVESTIGATING = "Investigating"
-TRACKS = {"fast": "fast track", "standard": "standard track"}
+TRACKS = MappingProxyType({"fast": "fast track", "standard": "standard track"})
 # The order of the tasks that build: an agent or the checks work on these now, and Lem
 # acts on the rest.
 ACTIVE = ("building", "landing", "ready", "planned", "blocked", "queued")
@@ -68,10 +71,12 @@ DAY = 24 * HOUR
 LABEL_WIDTH = 100
 # the exit status of `agtermctl pick` when the owner closes the picker
 CLOSED = 2
+# the most characters of agterm's non-JSON answer that an error shows
+ANSWER_WIDTH = 200
 
 
 class PickerError(Exception):
-    pass
+    """A failure the picker shows to the owner."""
 
 
 def age(since: str | None, now: datetime) -> str:
@@ -89,22 +94,24 @@ def age(since: str | None, now: datetime) -> str:
     if minutes < HOUR:
         return f"{minutes}m"
     if minutes < DAY:
-        return f"{minutes // HOUR}h"
-    return f"{minutes // DAY}d"
+        hours = minutes // HOUR
+        return f"{hours}h"
+    days = minutes // DAY
+    return f"{days}d"
 
 
 def label(task: dict) -> str:
     """The task's ask in the owner's words, on one line; its slug in words when it has
     none. agterm refuses a label with a control character, so none stays."""
-    words = (
-        " ".join(
-            "".join(ch if ch.isprintable() else " " for ch in task["ask"] or "").split()
-        )
-        or task["slug"].replace("-", " ").capitalize()
+    words = " ".join(
+        "".join(ch if ch.isprintable() else " " for ch in task["ask"] or "").split()
     )
-    return (
-        words if len(words) <= LABEL_WIDTH else words[: LABEL_WIDTH - 1].rstrip() + "…"
-    )
+    if not words:
+        words = task["slug"].replace("-", " ").capitalize()
+    if len(words) <= LABEL_WIDTH:
+        return words
+    short = words[: LABEL_WIDTH - 1].rstrip()
+    return f"{short}…"
 
 
 def state_words(task: dict, waits: str | None) -> str:
@@ -130,10 +137,9 @@ def pull_request(task: dict) -> str:
     if not proposal:
         return ""
     number = NUMBER.search(proposal["pull_request"] or "")
-    return " ".join(
-        ([f"#{number[1]}"] if number else [])
-        + ["green" if proposal["green"] else "not green"]
-    )
+    prefix = [f"#{number[1]}"] if number else []
+    word = "green" if proposal["green"] else "not green"
+    return " ".join([*prefix, word])
 
 
 def row(task: dict, now: datetime, waits: str | None = None) -> dict:
@@ -190,26 +196,26 @@ def rows(root: Path, now: datetime) -> list[dict]:  # noqa: C901 - over the limi
         for task in tasks.values()
         if task["slug"] not in seen and task["status"] not in project.ENDED
     ]
-    for task in sorted(
+    building = sorted(
         sorted(building, key=newest, reverse=True),
         key=lambda task: (
             ACTIVE.index(task["status"]) if task["status"] in ACTIVE else len(ACTIVE)
         ),
-    ):
+    )
+    for task in building:
         add(task["slug"])
     # the ended tasks Done draws as cards, by the board's own number, so that the two
     # lists cannot drift
-    ended = [task for task in tasks.values() if task["status"] in project.ENDED]
+    ended = [record for record in tasks.values() if record["status"] in project.ENDED]
     for task in sorted(ended, key=newest, reverse=True)[: lem_board_model.DONE_SHOWN]:
         add(task["slug"])
     count = len(tasks)
+    suffix = "" if count == 1 else "s"
     out.append(
         {
             "id": ALL,
             "label": "All tasks",
-            "subtitle": (
-                f"the board of every task · {count} task{'s' if count != 1 else ''}"
-            ),
+            "subtitle": f"the board of every task · {count} task{suffix}",
         }
     )
     return out
@@ -265,20 +271,17 @@ def pick(found: list[dict]) -> str | None:
     if ran.returncode == CLOSED:
         return None
     if ran.returncode != 0:
-        raise PickerError(
-            "agtermctl pick failed: "
-            f"{(ran.stderr or ran.stdout).strip() or f'exit {ran.returncode}'}"
-        )
+        said = (ran.stderr or ran.stdout).strip() or f"exit {ran.returncode}"
+        raise PickerError(f"agtermctl pick failed: {said}")
     try:
         answer = json.loads(ran.stdout)
     except ValueError as error:
-        raise PickerError(
-            f"agtermctl pick answered no JSON: {ran.stdout.strip()[:200]}"
-        ) from error
+        excerpt = ran.stdout.strip()[:ANSWER_WIDTH]
+        raise PickerError(f"agtermctl pick answered no JSON: {excerpt}") from error
     if answer.get("result") != "picked":
         return None
     chosen = str(answer.get("id", ""))
-    if chosen not in {item["id"] for item in found}:
+    if chosen not in {row["id"] for row in found}:
         raise PickerError(f"agtermctl pick answered an id that no row has: {chosen!r}")
     return chosen
 
@@ -377,7 +380,7 @@ def main(argv: list[str] | None = None) -> None:
         chosen = pick(found)
         if chosen is None:
             return
-        live = live_session(root, chosen) if chosen != ALL else None
+        live = None if chosen == ALL else live_session(root, chosen)
         if live:
             select_session(live)
         else:
