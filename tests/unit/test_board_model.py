@@ -3404,6 +3404,43 @@ class MovedBase(unittest.TestCase):
         )
         self.assertEqual(bm.acts_of(one(*again), None), ["merge"])
 
+    def test_his_standing_merge_waits_for_nobody_between_the_safe_read_and_its_stands_line(
+        self,
+    ) -> None:
+        # standing-merge-shows-as-waiting, 2026-11-23, #60: the read's `merge.review`
+        # (a careful request) and its `merge.stands` carry 10:41:22; a look between the
+        # two lines gave him a review row and a merge row for his own standing merge
+        m = model(
+            ev(0, "proposed", green=True, not_green=[], tip="faac6eb3b"),
+            state(1, "open", self.PR),
+            ev(
+                8,
+                "merge.refused",
+                by="owner",
+                via="server",
+                **{"from": "lem"},
+                kind="base",
+                said="origin/main moved after the checks ran",
+                tip="faac6eb3b",
+            ),
+            ev(
+                11,
+                "merge.review",
+                verdict="call",
+                calls=True,
+                why="a careful request is merged by the owner",
+                by="claude",
+                tip="faac6eb3b",
+                base="d48c6a9bd",
+                base_call="safe",
+            ),
+        )
+        t = m.tasks[0]
+        self.assertEqual(
+            (t.merge_wait, t.for_owner, t.lane, bm.waits_of(m)),
+            ("merges", False, "checks", []),
+        )
+
     def test_his_merge_stands_from_the_refusal_through_the_servers_merge_and_its_sentence_follows_the_span(
         self,
     ) -> None:
@@ -3481,12 +3518,11 @@ class MovedBase(unittest.TestCase):
             ("merges", True, [], "Your merge stands. Lem merges it now."),
         )
         # cut between the read's `merge.review` and its `merge.stands`, inside one
-        # `merge-review` run: the read's mark holds it, though `merge_wait` says
-        # "owner" there
+        # `merge-review` run: the read's mark holds it
         t = one(*refused, safe)
         self.assertEqual(
             (t.merge_wait, bm.owner_stands(t), bm.acts_of(t, None), bm.stands_said(t)),
-            ("owner", True, [], "Your merge stands. Lem merges it now."),
+            ("merges", True, [], "Your merge stands. Lem merges it now."),
         )
         # the server's merge started at 10:41:27: the span ends there, so a try that
         # land.py refuses with no refusal on record (the pull request's base changed on

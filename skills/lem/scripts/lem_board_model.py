@@ -1985,16 +1985,17 @@ def merge_wait(t: Task) -> str | None:  # noqa: PLR0911 - over the limit before 
     (`merge.refused` with `kind: base`) and no read of that tip said `another round`:
     the task's session starts a fresh merge agent, which reads what moved. "merges": the
     board's server, since the review says `merge`, calls nobody and no merge of that tip
-    was refused, or the owner's merge stands for that tip (`merge.stands`); a read whose
-    call on the moved base is `safe`, or a read on the checks' own base after a revert,
-    answers Lem's refusal (`answers_refusal`). "relands": the task's session, since a
-    read of that tip said `another round` of the moved base, and the session lands it
-    again, until the next proposal. "owner": the owner, for a review that calls him, any
-    other refused merge, and an open task with no proposal on record. Only "owner" is a
-    row of "Waits for you". The owner's own merge on the task's page is offered in
-    "owner", and in "reads" and "merges" while no merge of his stands (`owner_stands`,
-    `acts_of`): never in "relands", where a press meets the base refusal that only the
-    new landing answers and is refused again."""
+    was refused, or the owner's merge stands for that tip (`merge.stands`, or before
+    that line the mark of the read that answered his refusal, `Task.stood`); a read
+    whose call on the moved base is `safe`, or a read on the checks' own base after a
+    revert, answers Lem's refusal (`answers_refusal`). "relands": the task's session,
+    since a read of that tip said `another round` of the moved base, and the session
+    lands it again, until the next proposal. "owner": the owner, for a review that
+    calls him, any other refused merge, and an open task with no proposal on record.
+    Only "owner" is a row of "Waits for you". The owner's own merge on the task's page
+    is offered in "owner", and in "reads" and "merges" while no merge of his stands
+    (`owner_stands`, `acts_of`): never in "relands", where a press meets the base
+    refusal that only the new landing answers and is refused again."""
     if t.status != "open":
         return None
     if not t.proposal:
@@ -2020,7 +2021,11 @@ def merge_wait(t: Task) -> str | None:  # noqa: PLR0911 - over the limit before 
     r = t.merge_review
     if r and same(r.get("tip")) and r.get("base_call") == "another round":
         return "relands"
-    if any(e.get("event") == "merge.stands" and same(e.get("tip")) for e in since):
+    # his merge stands by `merge.stands`, or, before that line, by the read that
+    # answered his refusal (`Task.stood`), as `stands_span` reads it
+    if same(t.stood) or any(
+        e.get("event") == "merge.stands" and same(e.get("tip")) for e in since
+    ):
         return "merges"
     if not r or (tip and r.get("tip") and not same(r.get("tip"))):
         return "reads"
