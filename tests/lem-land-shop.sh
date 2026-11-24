@@ -1117,7 +1117,8 @@ for slug in rv-append rv-above rv-two; do project --repo "$MB" state "$slug" dro
 
 # The base took the commit, took it out again, and changed the label the branch changes too: the rebase reapplies the
 # commit and stops on the label, the step names the rebase it ran for the builder, and the builder's resolution with
-# that rebase keeps the commit.
+# that rebase keeps the commit: the next base moves nothing, since the builder's rebase put the branch on the base, and
+# takes the resolution.
 rv_task rv-out
 rv_pick rv-out 2 && git -C "$MBX" revert --no-edit HEAD >/dev/null && echo theirs > "$MBX/rv-out-label.txt" && git -C "$MBX" commit -q -am "fix: the label" && git -C "$MBX" push -q origin main
 out_tree=$(project --repo "$MB" worktree-dir rv-out)
@@ -1127,7 +1128,7 @@ git -C "$out_tree" rebase -q --reapply-cherry-picks --empty=drop origin/main >/d
 echo new > "$out_tree/rv-out-label.txt" && git -C "$out_tree" add rv-out-label.txt && GIT_EDITOR=true git -C "$out_tree" rebase --continue >/dev/null 2>&1
 out_again=$(land --repo "$MB" base rv-out | field '(d["moved"], d["resolved"])')
 if [ "$(field 'd["conflict"]' <<<"$out_stop")" = "['rv-out-label.txt']" ] && [ "$out_rebase" = "git rebase --reapply-cherry-picks --empty=drop origin/main" ] \
-  && [ "$out_again" = "(True, ['rv-out-label.txt'])" ] && [ "$(tr '\n' ' ' < "$out_tree/rv-out-list.txt")" = "a b c " ]; then
+  && [ "$out_again" = "(False, ['rv-out-label.txt'])" ] && [ "$(tr '\n' ' ' < "$out_tree/rv-out-list.txt")" = "a b c " ]; then
   pass "a commit the base took and took out again is reapplied by the rebase of base, also when the rebase stops on another file: the step names that rebase for the builder, and the resolution keeps the commit"
 else
   fail "a commit the base took out again, with a conflict beside it: $out_stop / $out_again / $(tr '\n' ' ' < "$out_tree/rv-out-list.txt")"
