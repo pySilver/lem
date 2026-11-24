@@ -37,7 +37,7 @@ lists, with the same arguments (`release()`). A line outside Claude Code names t
 clone's path, which outlives every update (the doctor's keymap line of the task picker,
 and its start of the board server), and runs a release through it, never the head of
 `main`. With no such release listed, it exits 1 and names the install.
-"""
+"""  # noqa: E501 - the usage table of the command keeps its columns
 
 import json
 import os

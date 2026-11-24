@@ -191,7 +191,7 @@ text, less each owner turn that a `--leave` text starts (another topic) with the
 of the agent that answer it. It copies only what the owner typed (a `/lem` line as he
 typed it) and what the agent wrote; the skill's text that `/lem` loads, a task's
 notification and agterm's mail are no turn of his.
-"""
+"""  # noqa: E501 - the usage table of `--help` and its launch line keep their columns
 
 import sys
 

@@ -51,7 +51,7 @@ stuck for want of one (`lem_board_model.session_need`), and so is a task whose l
 session the guard logged as stopped (`lem_board_model.stopped_of`). The row and the
 task's header have "Open a session" on every page that may act, which the server answers
 with `lem session open` (`serve.act_session`).
-"""
+"""  # noqa: E501 - the table of the pages and their addresses keeps its columns
 
 import hashlib
 import json
@@ -756,7 +756,10 @@ def stage_attrs(ctx: Ctx, stage_cls: str = "") -> dict:
     expanded it, and the width he dragged it to; the cookie keeps both (`Ctx.prefs`)."""
     width = ctx.prefs.get("pw")
     return {
-        "class": f"stage v-{ctx.view}{' full' if ctx.prefs.get('full') else ''}{' native' if ctx.native else ''} {stage_cls}".strip(),
+        "class": (
+            f"stage v-{ctx.view}{' full' if ctx.prefs.get('full') else ''}"
+            f"{' native' if ctx.native else ''} {stage_cls}"
+        ).strip(),
         "id": "stage",
         "style": f"--pw: {width}px" if width else None,
     }
@@ -1370,7 +1373,10 @@ def rail(ctx: Ctx, waits: list, counts: dict) -> list:
                 {
                     "class": "rbtn",
                     "href": "/",
-                    "title": f"Another workspace{f': something waits for you in {others}' if others else ''}",
+                    "title": (
+                        "Another workspace"
+                        f"{f': something waits for you in {others}' if others else ''}"
+                    ),
                 },
                 icon(ctx, "grid-2"),
                 em(others or None, "you"),
@@ -1532,6 +1538,7 @@ def switcher(ctx: Ctx) -> Markup:
             h("div", {"class": "ws-head"}, "Workspaces"),
             [item(s) for s in order(spaces)],
         ]
+    elsewhere = "one other workspace" if waiting == 1 else f"{waiting} other workspaces"
     return h(
         "details",
         {"class": "ws", "id": "ws", "data-menu": True},
@@ -1550,9 +1557,7 @@ def switcher(ctx: Ctx) -> Markup:
             space_label(here, ctx.workspace, many=many),
             h(
                 "em",
-                {
-                    "title": f"In {'one other workspace' if waiting == 1 else f'{waiting} other workspaces'} something waits for you"
-                },
+                {"title": f"In {elsewhere} something waits for you"},
                 waiting,
             )
             if waiting
@@ -3127,7 +3132,10 @@ def backlog_page(ctx: Ctx) -> Markup:
                 h(
                     "div",
                     {
-                        "class": f"bl-group a-{g['actor']}{' recessive' if g.get('recessive') else ''}",
+                        "class": (
+                            f"bl-group a-{g['actor']}"
+                            f"{' recessive' if g.get('recessive') else ''}"
+                        ),
                         "id": f"group-{g['key']}",
                         "data-backlog-target": "group",
                     },
@@ -3561,13 +3569,20 @@ def timeline(ctx: Ctx) -> Markup:
                 )
                 continue
             to = "now" if g["open"] else bm.stamp(g["end"], m.now)
+            took = bm.span((m.now if g["open"] else g["end"]) - g["start"])
             bars.append(
                 h(
                     "span",
                     {
-                        "class": f"tl-seg s-{g['status']} a-{info['actor']}{' live' if g['open'] and info['live'] else ''}",
+                        "class": (
+                            f"tl-seg s-{g['status']} a-{info['actor']}"
+                            f"{' live' if g['open'] and info['live'] else ''}"
+                        ),
                         "style": f"left:{x1:.3f}%;width:max(2px, {x2 - x1:.3f}%)",
-                        "title": f"{info['label']} · {info['who']} · {bm.stamp(g['start'], m.now)} to {to} · {bm.span((m.now if g['open'] else g['end']) - g['start'])}",
+                        "title": (
+                            f"{info['label']} · {info['who']} · "
+                            f"{bm.stamp(g['start'], m.now)} to {to} · {took}"
+                        ),
                     },
                 )
             )

@@ -44,7 +44,7 @@ that summary.
 It counts only what Claude Code wrote on this machine: a Codex reviewer of a plan talk
 or of a review round, an expert of another provider, and a session of the task on
 another machine are not in it, and `covers` says so with the number.
-"""
+"""  # noqa: E501 - the table of the module's functions keeps its columns
 
 import json
 import re

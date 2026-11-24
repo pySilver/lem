@@ -220,7 +220,7 @@ def environment(env: dict | None = None) -> dict:
     }
 
 
-# --- the rule: pure functions over the model -------------------------------------------------------
+# --- the rule: pure functions over the model ------------------------------------------
 
 
 def claude_of(t: "lem_board_model.Task") -> str | None:
@@ -376,7 +376,7 @@ def plan(
     `withdraw`, the recorded questions to withdraw; `replaced`, the keys of those a newer message of the
     same thread follows (the mark says away and the door is open); `forget`, the recorded notes, and the
     things whose call never answered, to drop; `retry`, those to send again with their payload; `send`,
-    the things to send once the old thing of their row left the record."""
+    the things to send once the old thing of their row left the record."""  # noqa: E501 - the docstring stays as written: its line breaks are part of its value
     withdraw, forget, retry, leaving, replaced = [], [], [], set(), set()
     for r in sent:
         key = r["key"]
@@ -419,7 +419,7 @@ def plan(
     }
 
 
-# --- the bodies --------------------------------------------------------------------------------------
+# --- the bodies -----------------------------------------------------------------------
 
 
 def task_link(link: Callable[[str, str], str], name: str, slug: str) -> str:
@@ -584,7 +584,7 @@ def message_of(
     }
 
 
-# --- the record --------------------------------------------------------------------------------------
+# --- the record -----------------------------------------------------------------------
 
 
 _lock = threading.Lock()
@@ -635,7 +635,7 @@ def unlooked(record: dict) -> str:
     )
 
 
-# --- the calls ---------------------------------------------------------------------------------------
+# --- the calls ------------------------------------------------------------------------
 
 
 def run_cli(
@@ -774,7 +774,7 @@ def replies_after(thread: dict, message_id: str) -> list[str]:
     ]
 
 
-# --- the watcher -------------------------------------------------------------------------------------
+# --- the watcher ----------------------------------------------------------------------
 
 
 class Watcher:

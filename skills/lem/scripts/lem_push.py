@@ -274,9 +274,8 @@ def run_openssl(args: list[str], data: bytes | None = None) -> bytes:
     except (OSError, subprocess.TimeoutExpired) as error:
         raise PushError(f"`openssl {args[0]}` did not run ({error})") from error
     if ran.returncode != 0:
-        raise PushError(
-            f"`openssl {args[0]}` failed: {ran.stderr.decode('utf-8', 'replace').strip() or f'exit {ran.returncode}'}"
-        )
+        said = ran.stderr.decode("utf-8", "replace").strip() or f"exit {ran.returncode}"
+        raise PushError(f"`openssl {args[0]}` failed: {said}")
     return ran.stdout
 
 
@@ -892,7 +891,9 @@ class Watcher:
         said = {
             "title": say["verb"],
             "body": f"{t.title} · {name}{more}",
-            "url": f"/{quote(self.host)}/{quote(name)}/tasks/{quote(t.slug, safe='')}{tab}",
+            "url": (
+                f"/{quote(self.host)}/{quote(name)}/tasks/{quote(t.slug, safe='')}{tab}"
+            ),
             "tag": f"lem-{row['key']}",
         }
         named = {space for space, _ in news}
@@ -900,8 +901,12 @@ class Watcher:
         sent = self.pusher.send(to, said)
         bad = [r for r in sent if r["status"] != HTTPStatus.CREATED]
         for r in bad:
+            gone = (
+                " (removed: the push service no longer knows it)" if r["gone"] else ""
+            )
             self.log(
-                f"a push to {r['device']} got {r['status'] or 'no answer'}: {r['said'][:160]}{' (removed: the push service no longer knows it)' if r['gone'] else ''}"
+                f"a push to {r['device']} got {r['status'] or 'no answer'}: "
+                f"{r['said'][:160]}{gone}"
             )
         return sent
 

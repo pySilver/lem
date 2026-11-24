@@ -47,7 +47,7 @@ no options:
 
     answer: one to three sentences.
     why: two to four sentences.
-"""
+"""  # noqa: E501 - the usage table of `--help` keeps its columns
 
 import sys
 
@@ -298,7 +298,7 @@ def audience_text(found: dict) -> str:
 
 Weigh each option by what it does to these people. You still decide as an engineer: they are
 context, and you answer as none of them.
-"""
+"""  # noqa: E501 - the section of the brief, as an expert reads it
 
 
 def audience(repo: Path) -> str:
@@ -331,9 +331,9 @@ def answer_form(options: list[str], pick_from: str) -> str:
     why: two to four sentences: what decides it, from the criteria, the plan or the code.
 
     none fits
-    why: two to four sentences: why no option fits, and what would."""
+    why: two to four sentences: why no option fits, and what would."""  # noqa: E501 - the form of an answer, as an expert reads it in the brief
     return """    answer: one to three sentences: your answer to the question.
-    why: two to four sentences: what decides it, from the code, the files or what you know."""
+    why: two to four sentences: what decides it, from the code, the files or what you know."""  # noqa: E501 - the form of an answer, as an expert reads it in the brief
 
 
 # The forms of an answer, with any indent an expert copied from the brief
@@ -383,7 +383,7 @@ def read_answer(answer: Path, expert: str, *, options: bool, one_left: str) -> d
     return {"pick": found["pick"].strip(), "why": why}
 
 
-# --- a question in words --------------------------------------------------------------------
+# --- a question in words --------------------------------------------------------------
 
 
 def questions(repo: Path) -> Path:
@@ -469,7 +469,7 @@ Your last message is your answer, in {forms} and nothing else: no heading, no qu
 text before or after.
 
 {answer_form(options, "THE OPTIONS ABOVE")}
-"""
+"""  # noqa: E501 - the brief, as an expert reads it
 
 
 def write_record(folder: Path, record: dict) -> None:

@@ -36,7 +36,7 @@ and no release, this file runs nothing of its own: it becomes the clone's
 `bin/lem picker` with the same arguments, which runs the newest installed release. The
 keymap lines that the doctor printed before it gave `bin/lem picker` name this file in
 that clone, and they stay on the machines that have them.
-"""
+"""  # noqa: E501 - the usage table of `--help` keeps its columns
 
 import os
 import sys

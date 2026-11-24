@@ -115,7 +115,7 @@ two. The pull request is not green for their pick.
 Every write reads the record and checks the state under one lock, so two writers never
 take one number. A task that is dropped, landed or answered takes no write at all, read
 under the same lock: nobody builds it, and its record stays as it ended.
-"""
+"""  # noqa: E501 - the usage table of `--help` keeps its columns
 
 import sys
 

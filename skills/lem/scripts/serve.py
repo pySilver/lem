@@ -319,7 +319,7 @@ another target holds is refused, never taken over, and an entry that already poi
 the door is kept. The entry stays when the server stops, and Tailscale keeps it across a
 restart of the Mac; `--tailscale-off` takes it out, only when it points at Lem's door.
 Funnel is never used.
-"""
+"""  # noqa: E501 - the usage table and the table of addresses of `--help` keep their columns
 
 import sys
 
@@ -1544,9 +1544,12 @@ def act_session(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
         opened = {}
     if isinstance(opened, dict) and opened.get("acted") is False:
         workspace.look_sessions()
+        why_not = NOT_OPENED.get(
+            opened.get("why", ""), opened.get("say") or "No session was opened"
+        )
         return {
             "ok": False,
-            "said": f"{NOT_OPENED.get(opened.get('why', ''), opened.get('say') or 'No session was opened')}.",
+            "said": f"{why_not}.",
         }
     name = opened.get("name") if isinstance(opened, dict) else None
     workspace.look_sessions()
@@ -2458,7 +2461,10 @@ class Handler(BaseHTTPRequestHandler):
         if slug and workspace.model().by_slug.get(slug) is not None:
             to = f"{base}/tasks/{quote(slug)}?{urlencode({'note': token})}"
         else:
-            to = f"{base}/{'backlog' if form.get('item') else 'new'}?{urlencode({'note': token})}"
+            to = (
+                f"{base}/{'backlog' if form.get('item') else 'new'}"
+                f"?{urlencode({'note': token})}"
+            )
         return self.send(
             HTTPStatus.SEE_OTHER,
             b"",
@@ -2505,7 +2511,10 @@ class Handler(BaseHTTPRequestHandler):
             "text/plain; charset=utf-8",
             body=True,
             headers={
-                "Location": f"/{quote(HOSTNAME)}/{quote(name)}/backlog?{urlencode({'note': token})}"
+                "Location": (
+                    f"/{quote(HOSTNAME)}/{quote(name)}/backlog"
+                    f"?{urlencode({'note': token})}"
+                )
             },
         )
 

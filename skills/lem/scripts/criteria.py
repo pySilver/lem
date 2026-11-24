@@ -163,7 +163,7 @@ One check of a task runs at a time. The two worktrees are removed afterwards, al
 a command fails or the check is stopped, with every process a command left behind; what
 a killed run left is removed by the next run. A worktree that cannot be removed is an
 error with its path.
-"""
+"""  # noqa: E501 - the usage table of `--help` and its example keep their columns
 
 import sys
 
@@ -924,10 +924,16 @@ def cmd_red(task: Task) -> dict:
         if not criterion["tests"] and not criterion["no_test"]
     ]
     if untested:
+        held_in = (
+            "the criteria.md of the task on the fast track"
+            if found["small"]
+            else "the plan"
+        )
         raise CriteriaError(
             f"criterion {untested[0]} names no test: every criterion is held by a test "
             "at the end of a build. "
-            f"Add `- test: `COMMAND` in `FILE`` under it in {'the criteria.md of the task on the fast track' if found['small'] else 'the plan'}, or `- no test: REASON` when no test can hold it",
+            f"Add `- test: `COMMAND` in `FILE`` under it in {held_in}, "
+            "or `- no test: REASON` when no test can hold it",
         )
     dirty = git(task.worktree, "status", "--porcelain")
     if dirty:
@@ -1436,8 +1442,13 @@ def cmd_approve(
                     "on with the criteria as they are",
                 )
             if last["flagged"] or last["split"]:
+                found_in = (
+                    "a flagged criterion"
+                    if last["flagged"]
+                    else "a split between the families"
+                )
                 raise CriteriaError(
-                    f"the newest read of {task.slug}'s criteria found {'a flagged criterion' if last['flagged'] else 'a split between the families'}: "
+                    f"the newest read of {task.slug}'s criteria found {found_in}: "
                     "the criteria wait for the owner, and only the "
                     "owner's approval freezes them",
                 )

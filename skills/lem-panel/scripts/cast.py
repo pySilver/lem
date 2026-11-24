@@ -73,7 +73,7 @@ panel's files never show in `git status` and a project needs no ignore rule of i
 a worktree's removal does not take them, and `lem project prune` removes the folder
 `state.keep_days` days after its last write. An existing folder is refused, so two
 panels never write into one.
-"""
+"""  # noqa: E501 - the table of a persona's keys keeps its columns
 
 import sys
 

@@ -25,7 +25,7 @@ Environment: AGTERMCTL (path to agtermctl). The personal defaults are the table 
 Lem's own settings file, $XDG_CONFIG_HOME/lem/settings.toml or
 ~/.config/lem/settings.toml (`browser = true` there opens the page in the browser
 outside agterm); the mermaid bundle is kept in $XDG_CACHE_HOME/lem or ~/.cache/lem.
-"""
+"""  # noqa: E501 - the usage table of `--help` keeps its columns
 
 import argparse
 import base64

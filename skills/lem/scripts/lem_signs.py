@@ -80,7 +80,7 @@ evidence that no shell runs, and a guard that restarted such a session could put
 agents on one task. So the guard counts only the task's events for it
 (`lem_board_model.stop_due`): the status message, then the owner's row "stopped", and
 never a fresh session that the owner did not open.
-"""
+"""  # noqa: E501 - the table of the module's functions keeps its columns
 
 import json
 from collections.abc import Iterable, Iterator
@@ -262,7 +262,7 @@ def read_signs(
     direct child of the session's Claude Code process sources the shell's snapshot,
     `signs`, whether there was something to read: a record of the session, and a live
     process of it in a process file, and `turn`, the main thread's turn of the
-    transcript whose main thread wrote the newest turn, None when `signs` is false."""
+    transcript whose main thread wrote the newest turn, None when `signs` is false."""  # noqa: E501 - the table of the facts keeps its columns
     mine = [
         record
         for record in own_records(records, session)

@@ -47,7 +47,7 @@ owner's mark says away and the board's server sent a thing of the task to his In
 line of where he answers names both places, the task's session on the Mac and the Inbox,
 with a link to the task's thread at the Inbox's tailnet address; with no link, it says
 why (`inbox_action`).
-"""
+"""  # noqa: E501 - the table of the pages and their addresses keeps its columns
 
 import hashlib
 import json
@@ -1028,7 +1028,7 @@ def media_pair(ctx: P.Ctx, t: bm.Task, pair: dict) -> Markup:
 def building(ctx: P.Ctx, t: bm.Task) -> Markup | None:
     """ "What we are building": the goal, what the owner gets (the outcome of task.md, as markdown: its
     story, its lists, its chart and its pictures), the before and after pictures of the task, the important
-    decisions, the filed items."""
+    decisions, the filed items."""  # noqa: E501 - the docstring stays as written: its line breaks are part of its value
     told = ctx.told(t.slug)
     b = bm.building_of(t, told)
     if not b:
@@ -1564,7 +1564,10 @@ def progress(ctx: P.Ctx, t: bm.Task) -> Markup:
             "Decisions",
             taken,
             (
-                f"{taken} taken{f', {past} past the personas' if past else ''}{', ' + bm.plural(breakers, 'breaker') if breakers else ''}"
+                (
+                    f"{taken} taken{f', {past} past the personas' if past else ''}"
+                    f"{', ' + bm.plural(breakers, 'breaker') if breakers else ''}"
+                )
                 if t.decided
                 else "none"
                 if t.closed
@@ -2164,7 +2167,7 @@ def picks_of(d: bm.Decision) -> dict[str, list[str]]:
 
 def options_rows(ctx: P.Ctx, d: bm.Decision, at: int) -> Markup | None:
     """ "This or that": each option on its row, its label and what it leads to, the one taken marked, and
-    the experts who picked it."""
+    the experts who picked it."""  # noqa: E501 - the docstring stays as written: its line breaks are part of its value
     if not d.options:
         return None
     picks = picks_of(d)
@@ -2592,7 +2595,12 @@ def approve_card(ctx: P.Ctx, t: bm.Task, note: Markup | None = None) -> Markup |
         read = (
             "Nobody answered the personas’ read."
             if r["answered"] == 0
-            else f"The personas flagged {r['flagged']} of {bm.criteria_count(r['criteria'] or 0)}{'; the two model families split' if r['split'] else ''}: read the flagged one before you approve."
+            else (
+                f"The personas flagged {r['flagged']} of "
+                f"{bm.criteria_count(r['criteria'] or 0)}"
+                f"{'; the two model families split' if r['split'] else ''}: "
+                "read the flagged one before you approve."
+            )
             if r["flagged"] or r["split"]
             else "The personas read them, and nobody was confused."
         )
@@ -2965,7 +2973,9 @@ def time_card(ctx: P.Ctx, t: bm.Task) -> Markup:
             h(
                 "span",
                 {
-                    "class": f"tt-band{' odd' if i % 2 else ''}{' hot' if b['live'] else ''}",
+                    "class": (
+                        f"tt-band{' odd' if i % 2 else ''}{' hot' if b['live'] else ''}"
+                    ),
                     "id": f"tb-{t.slug}-{i}",
                     "style": f"left:{x1:.3f}%;width:{max(0.0, x2 - x1):.3f}%",
                     **tip(
@@ -3030,7 +3040,10 @@ def time_card(ctx: P.Ctx, t: bm.Task) -> Markup:
                     {
                         "class": "tt-mark",
                         "id": f"{key}-{seen[key]}",
-                        "style": f"left:{pct(g['at'], t0, whole):.3f}%;background:{r['fill']}",
+                        "style": (
+                            f"left:{pct(g['at'], t0, whole):.3f}%;"
+                            f"background:{r['fill']}"
+                        ),
                         **tip(
                             f"{r['label']} · {g['head']}",
                             g["sub"],
@@ -3647,7 +3660,10 @@ def artifacts_tab(ctx: P.Ctx, t: bm.Task) -> Markup:
     return h(
         "div",
         {
-            "class": f"arts{' show-file' if chosen else ''}{' wide' if wide and chosen else ''}",
+            "class": (
+                f"arts{' show-file' if chosen else ''}"
+                f"{' wide' if wide and chosen else ''}"
+            ),
             "id": "arts",
             "data-controller": "artifacts",
             "data-artifacts-task-value": t.slug,

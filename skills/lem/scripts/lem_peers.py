@@ -48,7 +48,7 @@ tailnet, so that two servers on one Mac are two machines. LEM_SERVE_PEERS,
 `NAME=ADDRESS,...`, gives a peer its address: a whole base URL (`http://127.0.0.1:4621`,
 plain http on loopback) or a host name that stands for `NAME.SUFFIX` (with the port of
 the join).
-"""
+"""  # noqa: E501 - the usage lines keep their columns
 
 import contextlib
 import email.message

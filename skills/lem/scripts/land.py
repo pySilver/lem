@@ -683,7 +683,7 @@ such commit named, and the way on is to pull it into the task's worktree, after 
 is part of the change, with its checks and a read. A pull request on the task's branch
 name is taken as the task's own only when its head is the commit Lem pushed; any other
 is somebody's, and `propose` refuses with its number and author.
-"""
+"""  # noqa: E501 - the usage table of `--help` and the form of a review keep their columns
 
 import sys
 
@@ -2861,10 +2861,10 @@ def bar_of(diff: str, rows: list[str], plan: str, files: list[str]) -> dict:
     )
     lowered: list[dict] = []
     asserts: dict[str, int] = {}
-    # A mark counts when the change leaves more of it in a file than the file had: a line that
-    # only moved, or got another space, took the mark out and put it back. A mark is the same
-    # one only with the same text from the mark to the end of its line: `noqa: F401` that
-    # becomes `noqa` is a wider suppression, and a new one.
+    # A mark counts when the change leaves more of it in a file than the file had: a
+    # line that only moved, or got another space, took the mark out and put it back. A
+    # mark is the same one only with the same text from the mark to the end of its line:
+    # `noqa: F401` that becomes `noqa` is a wider suppression, and a new one.
     came: dict[tuple[str, str, str], list[dict]] = {}
     went: dict[tuple[str, str, str], int] = {}
     # each coverage threshold's numbers before and after, whatever file of a runner's
@@ -6216,9 +6216,12 @@ def criteria_lines(found: dict, held: dict, *, chart: bool = False) -> list[str]
         out += criterion_lines(criterion, chart=chart)
         for test in criterion["tests"]:
             proof = held.get((criterion["n"], test["command"]))
-            out.append(
-                f"   - `{test['command']}`: {'passes on the branch, fails on the base commit' if proof and not proof['problem'] else 'not checked'}"
+            gave = (
+                "passes on the branch, fails on the base commit"
+                if proof and not proof["problem"]
+                else "not checked"
             )
+            out.append(f"   - `{test['command']}`: {gave}")
         if criterion["no_test"]:
             out.append(f"   - no test: {criterion['no_test']}")
     return out
@@ -6411,6 +6414,11 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     ]
     out += issue_line(task)
     approval: dict[str, Any] = found.get("approved") or {}
+    opened_by = (
+        "the night opened the task"
+        if task.record.get("night")
+        else "someone else wrote the request"
+    )
     by = {
         "lem": (
             f" Lem approved it in the owner's name on {approval.get('at', '')[:10]}; "
@@ -6418,7 +6426,10 @@ def small_text(task: Task, notes: str, state: dict) -> str:
         ),
         # a night's task, or a request someone else wrote: not the owner's own sentence,
         # so not his approval either
-        "alone": f" Lem approved it on {approval.get('at', '')[:10]} without the owner ({'the night opened the task' if task.record.get('night') else 'someone else wrote the request'}); the personas did not read it.",
+        "alone": (
+            f" Lem approved it on {approval.get('at', '')[:10]} without the owner "
+            f"({opened_by}); the personas did not read it."
+        ),
     }.get(approval.get("by", ""), "")
     out += [
         "## The acceptance criterion",
@@ -6430,7 +6441,9 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     out += [change_line(task, change) for change in found["history"]]
     out += ["", "## Checks", ""]
     out += [
-        f"- check, `{command['command']}`{' (serial, under the lock)' if command.get('serial') else ''}: {command['last'] or 'exit ' + str(command['exit'])}"
+        f"- check, `{command['command']}`"
+        f"{' (serial, under the lock)' if command.get('serial') else ''}: "
+        f"{command['last'] or 'exit ' + str(command['exit'])}"
         for command in checks.get("commands", [])
     ]
     cause = task.record.get("investigation")
@@ -6572,7 +6585,9 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     for command in checks.get("commands", []):
         code = command["exit"]
         out.append(
-            f"- check, `{command['command']}`{' (serial, under the lock)' if command.get('serial') else ''}: {command['last'] or f'exit {code}'}"
+            f"- check, `{command['command']}`"
+            f"{' (serial, under the lock)' if command.get('serial') else ''}: "
+            f"{command['last'] or f'exit {code}'}"
         )
     out.append(criteria_check_line(checked_criteria(checks)))
     out.append(polished(cast("dict", kept.get("polish"))))
@@ -7495,9 +7510,10 @@ def tip_carry(
     if why_careful:
         return None, f"{met} the request is careful: {why_careful[0]}"
     if rounds and rounds[-1].get("careful"):
+        careful_said = rounds[-1].get("careful_why") or "a round called it careful"
         return (
             None,
-            f"{met} the request is careful: the review says so: {reason(rounds[-1].get('careful_why') or 'a round called it careful')}",
+            f"{met} the request is careful: the review says so: {reason(careful_said)}",
         )
     return "resolution", None
 
@@ -8292,7 +8308,11 @@ def moved_refusal(
     step that comes next: the merge agent's read of what moved, or a new landing when a
     read of the tip said `Base: another round.` (ROUND_SAID). COVERED is the base an
     earlier read with `Base: safe.` covered, which covers no later base."""
-    said = f"{onto} moved after the checks ran, by files ({', '.join(files[:NAMED_FILES])}{', ...' if len(files) > NAMED_FILES else ''})"
+    said = (
+        f"{onto} moved after the checks ran, by files "
+        f"({', '.join(files[:NAMED_FILES])}"
+        f"{', ...' if len(files) > NAMED_FILES else ''})"
+    )
     if round_said:
         then = (
             (

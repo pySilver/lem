@@ -485,7 +485,7 @@ duties across tasks); `--dry-run` says what would go and removes nothing, and wi
 A settings file with an unknown key, a wrong type or a path outside the repository is an
 error: a stage that read half of it would run on defaults nobody chose. Needs Python
 3.11 for tomllib.
-"""
+"""  # noqa: E501 - the usage table of `--help` keeps its columns
 
 import sys
 
@@ -694,25 +694,35 @@ PLAN_TOKENS = lem_plans.TOKENS
 # a task's slug: plain words joined by hyphens, e.g. report-dates-stay-whole
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 # What a task's newest state block may say, and who acts next:
-#   queued    the ask is written and no lead runs yet: its `after:` line names the task it waits for,
-#             whose result it needs, or after which the owner's words put it. Three of its lines have a
-#             fixed form, which `state` checks and the task's first line reads (`opening_line_facts`):
-#             `the owner's order: "HIS WORDS"`, `then: PATH` and `the one open task that fits his words`
+#   queued    the ask is written and no lead runs yet: its `after:` line names the task
+#             it waits for, whose result it needs, or after which the owner's words put
+#             it. Three of its lines have a fixed form, which `state` checks and the
+#             task's first line reads (`opening_line_facts`):
+#             `the owner's order: "HIS WORDS"`, `then: PATH` and
+#             `the one open task that fits his words`
 #   building  a lead plans or builds
-#   planned   the plan is committed and nothing builds it: it needs its talk, or a builder after the talk, or the owner reads it
-#   held      it waits for the owner: the criteria, one more fact, a step of his, the task his order names
-#             (`the order waits for the owner`, ORDER_WAIT), or a breaker's document (`breaker N waits for
-#             the owner`); no choice of the build waits for him, the ladder decides it
-#   blocked   the task stopped on something its session could not settle: the base is red, a builder ended two times with no report,
-#             or a seat's agent gave an error and no fallback could stand in (`seat-failed`, the line `the seat that failed: SEAT`)
+#   planned   the plan is committed and nothing builds it: it needs its talk, or a
+#             builder after the talk, or the owner reads it
+#   held      it waits for the owner: the criteria, one more fact, a step of his, the
+#             task his order names (`the order waits for the owner`, ORDER_WAIT), or a
+#             breaker's document (`breaker N waits for the owner`); no choice of the
+#             build waits for him, the ladder decides it
+#   blocked   the task stopped on something its session could not settle: the base is
+#             red, a builder ended two times with no report, or a seat's agent gave an
+#             error and no fallback could stand in (`seat-failed`, the line
+#             `the seat that failed: SEAT`)
 #   ready     the report is written and the branch waits for its checks
-#   landing   the checks and the read run on it, or a builder repairs what they or the base showed
-#   open      it is proposed: its pull request is open, and it waits for the merge agent's read and the merge
+#   landing   the checks and the read run on it, or a builder repairs what they or the
+#             base showed
+#   open      it is proposed: its pull request is open, and it waits for the merge
+#             agent's read and the merge
 #   landed    it is on the base branch
 #   dropped   nobody will build it
-#   answered  it ended with a report and nothing to merge: a question answered, or a bug that is none
-#   parked    put aside on the owner's word (`/lem park`): its worktree, branch and files stay, nothing
-#             waits for him, and `resume` brings back the block it put aside
+#   answered  it ended with a report and nothing to merge: a question answered, or a bug
+#             that is none
+#   parked    put aside on the owner's word (`/lem park`): its worktree, branch and
+#             files stay, nothing waits for him, and `resume` brings back the block it
+#             put aside
 STATES = (
     "queued",
     "building",
@@ -804,17 +814,22 @@ ISSUE = re.compile(r"#?([0-9]+)")
 ISSUE_REPO = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?/[A-Za-z0-9._-]+")
 # the login of a GitHub account, which `ticket-step SLUG assigned --login LOGIN` keeps
 LOGIN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?")
-# What Lem did to a task's ticket, each written down after the tracker took it (`assigned` before),
-# so that a step is never done twice and a session that was cut off can see what is still owed:
-#   started    the ticket got the status for work that started; for an issue, the start ran
-#   assigned   Lem set out to add the person signed in to `gh` as the issue's assignee: written
-#              before the add, with the login (`assigned LOGIN`), since a removal reads the
-#              assignees first and a record lost after the add would leave his name on the issue
+# What Lem did to a task's ticket, each written down after the tracker took it
+# (`assigned` before), so that a step is never done twice and a session that was cut off
+# can see what is still owed:
+#   started    the ticket got the status for work that started; for an issue, the start
+#              ran
+#   assigned   Lem set out to add the person signed in to `gh` as the issue's assignee:
+#              written before the add, with the login (`assigned LOGIN`), since a
+#              removal reads the assignees first and a record lost after the add would
+#              leave his name on the issue
 #   unassigned Lem removed that assignee again, or the add failed
 #   commented  the landing was commented on the ticket
-#   landed     the ticket got the status for work that landed; an issue is closed as completed
+#   landed     the ticket got the status for work that landed; an issue is closed as
+#              completed
 #   dropped    the ticket got the comment that its task was dropped
-#   answered   the ticket got the comment with its task's answer: not a bug, or the answer to a question
+#   answered   the ticket got the comment with its task's answer: not a bug, or the
+#              answer to a question
 TICKET_STEPS = (
     "started",
     "assigned",
@@ -959,7 +974,7 @@ experts = [{experts}]
 # assignee at the start and closes the issue at the landing.
 # [tracker]
 # kind = "linear"
-"""
+"""  # noqa: E501 - the text of `.lem/settings.toml` as Lem writes it
 # The state's table and the naps' table, the last of the file.
 TEMPLATE += f"""
 [state]
@@ -981,7 +996,7 @@ keep_days = {KEEP_DAYS}
 # nobody has shown that it helps. {NAPS_GAP_HOURS} hours pass between two naps: a guess, from the
 # owner's own nap routine. A nap's folder is kept for state.keep_days.
 on = false
-"""
+"""  # noqa: E501 - the text of `.lem/settings.toml` as Lem writes it
 
 
 class SettingsError(Exception):
@@ -6304,7 +6319,7 @@ def cmd_waiting(root: Path) -> dict:
     return found
 
 
-# ---- the proposals of the night and the retro, and the reviewer's items (`proposals`) ----
+# -- the proposals of the night and the retro, and the reviewer's items (`proposals`) --
 
 # The two kinds of run that propose, each with its folder of the state folder: one
 # record a day.

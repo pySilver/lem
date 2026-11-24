@@ -49,7 +49,7 @@ Exit codes: 0 answered; 1 a bad spec, no key, or a failed request (the error nam
 3 the input is over LIMIT_BYTES.
 Environment: JEV_API_KEY (required), JEV_API_URL (the
 address of the decisions endpoint, default URL), JEV_MODEL (default model), JEV_TIMEOUT (seconds).
-"""
+"""  # noqa: E501 - `main` prints its third line as the usage line, so its lines stay as they are
 
 import json
 import os

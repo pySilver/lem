@@ -73,7 +73,7 @@ with the same contract.
 The plugin starts the hook through `lem_python.py` beside this file, which runs it under
 a Python of 3.11 or newer when the first `python3` is older, and leaves the session
 silent when the machine has none.
-"""
+"""  # noqa: E501 - the usage table of `--help` keeps its columns
 
 import sys
 

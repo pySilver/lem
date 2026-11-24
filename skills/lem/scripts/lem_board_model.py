@@ -32,7 +32,7 @@ facts through `board.py`'s functions, the board server's last look at the forge
 (FORGE_LOOK, `Model.seen`), and its record of what it sent to the owner's Inbox while he
 is away (INBOX_LOOK, `Model.inbox`, which `inbox_of` reads for a task's page). What does
 not read is a problem the page says, never an empty board.
-"""
+"""  # noqa: E501 - the table of the model's names keeps its columns
 
 import json
 import math
@@ -552,7 +552,7 @@ def cap(s: str) -> str:
 
 
 def title_of(slug: object) -> str:
-    """ "report-dates-stay-whole" -> "Report dates stay whole": the owner reads names, never codes."""
+    """ "report-dates-stay-whole" -> "Report dates stay whole": the owner reads names, never codes."""  # noqa: E501 - the docstring stays as written: its line breaks are part of its value
     words_ = re.sub(r"-+", " ", str(slug)).strip()
     return cap(words_) if words_ else "A task"
 
@@ -2462,7 +2462,10 @@ def card_line(t: Task, lane: dict) -> str:
     if waits := waits_now(t):
         return waits_say(waits)
     if t.status == "answered" and t.investigation:
-        return f"{CALLS.get(t.investigation['call'], {}).get('card', t.investigation['call'])}: {t.investigation['line']}"
+        call = CALLS.get(t.investigation["call"], {}).get(
+            "card", t.investigation["call"]
+        )
+        return f"{call}: {t.investigation['line']}"
     if not t.shown:
         return t.info["label"]
     said_ = PULL.sub(r"#\1", t.shown)
@@ -2776,12 +2779,16 @@ def inbox_of(t: Task, m: Model) -> dict | None:
             if isinstance(why, str)
             else None
         )
+        went = (
+            "A message of this task went to the Inbox, and"
+            if there
+            else "No question went to the Inbox:"
+        )
         return {
             "thread": None,
             "asks": False,
             "gone": False,
-            "why": said
-            or f"{'A message of this task went to the Inbox, and' if there else 'No question went to the Inbox:'} its last look said “{flat(why)}”.",
+            "why": said or f"{went} its last look said “{flat(why)}”.",
         }
     link = next(
         (thread_link(record["tailnet_url"], s["thread_id"]) for s in there), None
@@ -3778,6 +3785,11 @@ def _approved_head(e: dict) -> str:
     return heads.get(e.get("by"), f"Criteria approved by {e.get('by')}")
 
 
+def _flagged_words(flagged: object) -> str:
+    """What a read of the criteria flagged: "2 flagged", or "nobody confused"."""
+    return str(flagged) + " flagged" if flagged else "nobody confused"
+
+
 def _criterion_head(e: dict) -> str:
     how = (
         "changed"
@@ -3813,7 +3825,11 @@ SAYS = {
     "criteria.approved": lambda e: {
         "info": {"actor": "you" if e.get("by") == "owner" else "lem", "icon": "check"},
         "head": _approved_head(e),
-        "text": f"{'approval ' + str(e['number']) + ' · ' if e.get('number') else ''}{track_words(e.get('size'))}: {criteria_count(len(e.get('criteria') or []))}",
+        "text": (
+            f"{'approval ' + str(e['number']) + ' · ' if e.get('number') else ''}"
+            f"{track_words(e.get('size'))}: "
+            f"{criteria_count(len(e.get('criteria') or []))}"
+        ),
     },
     "criteria.read": lambda e: (
         {
@@ -3828,7 +3844,11 @@ SAYS = {
                 "icon": "users",
             },
             "head": "The personas read the criteria",
-            "text": f"{'the families split · ' if e.get('split') else ''}{str(e['flagged']) + ' flagged' if e.get('flagged') else 'nobody confused'} · {e.get('answered')} of {e.get('asked')} answered",
+            "text": (
+                f"{'the families split · ' if e.get('split') else ''}"
+                f"{_flagged_words(e.get('flagged'))}"
+                f" · {e.get('answered')} of {e.get('asked')} answered"
+            ),
         }
     ),
     "review": lambda e: {
@@ -4833,7 +4853,11 @@ def decision_says(t: Task, d: Decision) -> dict:
         how = f"the agent’s pick, which no level of the ladder settled, because {d.why}"
         who = "the agent’s pick, which no level settled"
     else:
-        how = f"taken by {BY_WHOM.get(d.by, d.by)}{f', as {picked_word(d)}' if d.by == 'experts' else ''}, because {d.why}"
+        how = (
+            f"taken by {BY_WHOM.get(d.by, d.by)}"
+            f"{f', as {picked_word(d)}' if d.by == 'experts' else ''}"
+            f", because {d.why}"
+        )
         who = f"by {BY_WHOM.get(d.by, d.by)}"
     if d.copied:
         who = f"{who} · in “{title_of(d.copied)}”"
@@ -4907,7 +4931,7 @@ def building_of(t: Task, told: dict | None) -> dict | None:
     its task.md, `told`, as the markdown it was written in: a story, a list, a table or a chart reads only
     so), how many important decisions wait for a look, and the backlog items its branch filed. A task
     whose worktree is gone has no line of filed items (`filed` None), nor has a task that ended when git
-    shows none. None when there is nothing to say."""
+    shows none. None when there is nothing to say."""  # noqa: E501 - the docstring stays as written: its line breaks are part of its value
     goal = t.type["why"] if t.type else ""
     outcome = str((told or {}).get("outcome") or "").strip()
     important = len(important_of(t))
@@ -5211,7 +5235,8 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
         return (
             f"{r.get('answered')} of {r.get('asked')} answered, "
             f"{FAMILIES.get(len(families), f'{len(families)} model families')} · "
-            f"{str(r['flagged']) + ' flagged' if r.get('flagged') else 'nobody confused'}{' · the families split' if r.get('split') else ''}"
+            f"{_flagged_words(r.get('flagged'))}"
+            f"{' · the families split' if r.get('split') else ''}"
         )
 
     def pair(
@@ -5619,12 +5644,15 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                     else f"Review round {e.get('round') or '?'}"
                 )
                 answered = e.get("answered") or []
+                answered_say = (
+                    " · answered: " + ", ".join(map(str, answered)) if answered else ""
+                )
                 add(
                     "review",
                     prev,
                     x,
                     f"{head}: {KIND.get(e.get('kind'), e.get('kind'))}",
-                    f"{e.get('verdict')}{' · answered: ' + ', '.join(map(str, answered)) if answered else ''}",
+                    f"{e.get('verdict')}{answered_say}",
                 )
             elif ev == "review.filed":
                 add(
@@ -5666,10 +5694,8 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             elif last == "gate.end":
                 row, head = "lem", checks_end(step.get("result"))["after"]
             elif last == "review.start":
-                row, head = (
-                    "review",
-                    f"The review runs: {KIND.get(step.get('floor'), step.get('floor') or 'its floor')}",
-                )
+                floor = KIND.get(step.get("floor"), step.get("floor") or "its floor")
+                row, head = "review", f"The review runs: {floor}"
             elif not last:
                 row, head = (
                     (
@@ -5919,7 +5945,8 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                 r["ts"],
                 a["ts"],
                 "The criteria waited for your yes",
-                f"from the personas’ read to your approval{' · the read found a doubt' if r['flagged'] or r['split'] else ''}",
+                "from the personas’ read to your approval"
+                f"{' · the read found a doubt' if r['flagged'] or r['split'] else ''}",
             )
         since = a["order"]
     for r in t.reads:
@@ -5930,7 +5957,12 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
         sub = (
             f"nobody of {r['asked']} answered · its start is not logged"
             if not r["answered"]
-            else f"{r['answered']} of {r['asked']} answered, {fam} · {str(r['flagged']) + ' flagged' if r['flagged'] else 'nobody confused'}{' · the families split' if r['split'] else ''} · its start is not logged"
+            else (
+                f"{r['answered']} of {r['asked']} answered, {fam} · "
+                f"{_flagged_words(r['flagged'])}"
+                f"{' · the families split' if r['split'] else ''}"
+                " · its start is not logged"
+            )
         )
         marks.append(
             {

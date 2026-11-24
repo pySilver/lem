@@ -35,7 +35,7 @@ is gone until this runs again.
 
 It runs from an agent's session, which has the AGTERM_* variables, and from an agterm
 keymap command, which has AGT_* instead.
-"""
+"""  # noqa: E501 - the usage table of `--help` keeps its columns
 
 import sys
 

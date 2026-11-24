@@ -39,7 +39,7 @@ of `gh issue edit`, `gh issue comment`, `gh issue close`, `gh issue list`,
 `gh repo view`, `gh api` and `gh auth status` were read from their `--help` in gh
 2.101.0 (2026-09-15), on 2026-11-22; no call of this script has run against a real
 repository yet.
-"""
+"""  # noqa: E501 - the usage table of `--help` keeps its columns
 
 import sys
 

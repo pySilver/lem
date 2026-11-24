@@ -35,7 +35,7 @@ transcript's task from its first prompt, the launch line of the task's session, 
 record's `task` only when that prompt names no task (`lem_tokens`).
 
 The plugin starts it through `lem_python.py` beside this file, as the other hooks.
-"""
+"""  # noqa: E501 - the table of the hooks keeps its columns
 
 import os
 import sys
