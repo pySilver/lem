@@ -1,5 +1,5 @@
 """The stop of a command's process group: the one way `land.py`, `criteria.py` and
-`project.py serial` end a project's own checks.
+`lem project serial` end a project's own checks.
 
 Each command of the checks starts in a process group of its own, so that what it
 starts (a server a test put up, a worker) ends with it. The stop sends the group a
