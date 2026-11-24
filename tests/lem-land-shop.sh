@@ -1142,7 +1142,7 @@ else
   fail "a merge agent's stand-in: $stand_first / $stood / $stand_again / $stand_read / $stand_blocked / $stand_status / $stand_count / $stand_lines / $stand_merged"
 fi
 
-# A builder's rebase that stops twice: base met only the first commit's conflict, in stop-a.txt, and the builder's rebase
+# A builder's rebase that stops twice: base met only the first commit's conflict, in café.txt, and the builder's rebase
 # stops again on the second commit, in stop-b.txt. The resolution names both, each file whose patch differs between the
 # two ranges of its range-diff (letters.txt too, whose lines around the change the base changed), and no file that the
 # rebase left as it was. The second commit's subject and its line of letters.txt are in Latin-1: a byte that is not
@@ -1152,18 +1152,18 @@ git -C "$MBX" pull -q --ff-only origin main && seq 1 30 > "$MBX/letters.txt"
 printf '\000\001' > "$MBX/bin.dat" && printf '\000\001' > "$MBX/keep.bin"
 git -C "$MBX" add letters.txt bin.dat keep.bin && git -C "$MBX" commit -q -m "docs: letters" && git -C "$MBX" push -q origin main
 git -C "$MB" pull -q --ff-only origin main
-mb_task mb-stops stop-a.txt
+mb_task mb-stops café.txt
 stops_tree=$(project --repo "$MB" worktree-dir mb-stops)
 echo yes > "$stops_tree/stop-b.txt" && { seq 1 8; printf 'caf\xe9\n'; seq 10 19; printf '%s\n' a b c d; seq 24 30; } > "$stops_tree/letters.txt"
 printf '\000\002' > "$stops_tree/bin.dat" && printf '\000\002' > "$stops_tree/keep.bin"
 git -C "$stops_tree" add stop-b.txt letters.txt bin.dat keep.bin && git -C "$stops_tree" commit -q -m "$(printf 'fix: the second fil\xe9')" 2>/dev/null
 land --repo "$MB" start mb-stops >/dev/null && land --repo "$MB" base mb-stops >/dev/null && polish_in "$MB" mb-stops
-git -C "$MBX" pull -q --ff-only origin main && echo theirs > "$MBX/stop-a.txt" && echo theirs > "$MBX/stop-b.txt"
+git -C "$MBX" pull -q --ff-only origin main && echo theirs > "$MBX/café.txt" && echo theirs > "$MBX/stop-b.txt"
 { seq 1 6; echo seven; seq 8 30; } > "$MBX/letters.txt" && printf '\000\003' > "$MBX/bin.dat"
 git -C "$MBX" add -A && git -C "$MBX" commit -q -m "fix: both files on main" && git -C "$MBX" push -q origin main
 stops_met=$(land --repo "$MB" base mb-stops 2>/dev/null || true)
 git -C "$stops_tree" rebase -q origin/main >/dev/null 2>&1 || true
-echo yes > "$stops_tree/stop-a.txt" && git -C "$stops_tree" add stop-a.txt
+echo yes > "$stops_tree/café.txt" && git -C "$stops_tree" add café.txt
 GIT_EDITOR=true git -C "$stops_tree" rebase --continue >/dev/null 2>&1 || true
 echo yes > "$stops_tree/stop-b.txt" && printf '\000\004' > "$stops_tree/bin.dat" && git -C "$stops_tree" add stop-b.txt bin.dat
 GIT_EDITOR=true git -C "$stops_tree" rebase --continue >/dev/null 2>&1
@@ -1187,9 +1187,9 @@ else
   fail "base on a git older than 2.38: $stops_code / $stops_old / $(diff "$WORK/stops-kept.json" "$MB/.lem/state/tasks/mb-stops/landing.json" || true)"
 fi
 stops=$(land --repo "$MB" base mb-stops 2>&1 || true)
-if [ "$(field 'd["conflict"]' <<<"$stops_met")" = "['stop-a.txt']" ] && [ "$(field 'd["resolved"]' <<<"$stops")" = "['stop-a.txt']" ] \
-  && [ "$(mb_kept mb-stops resolution 'd["files"]')" = "['bin.dat', 'letters.txt', 'stop-a.txt', 'stop-b.txt']" ]; then
-  pass "a builder's rebase that stops on a later commit too: the resolution names the files of each stop, every file whose patch the rebase changed, a binary file whose content the resolution changed too, for the read of the resolution, and not a binary file the base left alone"
+if [ "$(field 'd["conflict"]' <<<"$stops_met")" = "['café.txt']" ] && [ "$(field 'd["resolved"]' <<<"$stops")" = "['café.txt']" ] \
+  && [ "$(mb_kept mb-stops resolution 'd["files"]')" = "['bin.dat', 'café.txt', 'letters.txt', 'stop-b.txt']" ]; then
+  pass "a builder's rebase that stops on a later commit too: the resolution names the files of each stop by their own names, café.txt too, every file whose patch the rebase changed, a binary file whose content the resolution changed too, for the read of the resolution, and not a binary file the base left alone"
 else
   fail "a resolution over two stops: $stops_met / $stops / $(mb_kept mb-stops resolution d)"
 fi

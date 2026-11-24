@@ -1777,9 +1777,7 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
         uncovered = why_uncovered(answered, backlog_of(task), change(task), own)
     rebased = run(["git", "-C", str(task.worktree), "rebase", task.onto], check=False)
     if rebased.returncode != 0:
-        conflicts = git(
-            task.worktree, "diff", "--name-only", "--diff-filter=U", check=False
-        ).splitlines()
+        conflicts = conflicted(task.worktree)
         git(task.worktree, "rebase", "--abort", check=False)
         task.keep(
             conflict={
@@ -1923,6 +1921,19 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
         "ahead": ahead,
         "resolved": pending["files"] if resolved else None,
     }
+
+
+def conflicted(where: Path) -> list[str]:
+    """The files a stopped rebase left in conflict in WHERE, by the names git wrote
+    (`-z`, read as bytes): never quoted, and a name that is not UTF-8 is given with the
+    replacement character, as `rebased_files` gives it. A refusal of git gives what it
+    printed, as the rebase is undone after this read either way."""
+    ran = subprocess.run(
+        ["git", "-C", str(where), "diff", "-z", "--name-only", "--diff-filter=U"],
+        capture_output=True,
+        check=False,
+    )
+    return [name.decode(errors="replace") for name in ran.stdout.split(b"\0") if name]
 
 
 def git_bytes(where: Path, *args: str) -> bytes:

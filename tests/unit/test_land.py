@@ -951,6 +951,41 @@ class ChecksSay(unittest.TestCase):
             land.checks_say(SLUG, "green")
 
 
+class ConflictNames(unittest.TestCase):
+    """`land.conflicted`: the files of a stopped rebase, by their own names, from a
+    throwaway repository whose index holds them unmerged. The index takes a name that
+    is not UTF-8, which APFS refuses as a file."""
+
+    def test_names_as_git_wrote_them(self) -> None:
+        names = ("café.txt".encode(), b"caf\xe9.txt", b"plain.txt")
+        for quote in ("true", "false"):
+            with self.subTest(quote_path=quote), tempfile.TemporaryDirectory() as d:
+                repo = Path(d)
+                subprocess.run(["git", "init", "-q", d], check=True)
+                subprocess.run(
+                    ["git", "-C", d, "config", "core.quotePath", quote], check=True
+                )
+                blob = subprocess.run(
+                    ["git", "-C", d, "hash-object", "-w", "--stdin"],
+                    input=b"x\n",
+                    capture_output=True,
+                    check=True,
+                ).stdout.strip()
+                subprocess.run(
+                    ["git", "-C", d, "update-index", "--index-info"],
+                    input=b"".join(
+                        b"100644 %s %d\t%s\n" % (blob, stage, name)
+                        for name in names
+                        for stage in (1, 2, 3)
+                    ),
+                    check=True,
+                )
+                self.assertEqual(
+                    sorted(land.conflicted(repo)),
+                    ["café.txt", "caf\ufffd.txt", "plain.txt"],
+                )
+
+
 class StaleBytecode(unittest.TestCase):
     """`land.bytecode_of` and its parts: the ignored `__pycache__` folders the checks
     remove before their first command, from git's list of what it ignores and the
