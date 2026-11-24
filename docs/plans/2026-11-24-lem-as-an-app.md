@@ -132,6 +132,99 @@ Step 1 comes first because nothing can depend on a library before the app instal
 dependencies. Step 2 comes next because every later step leans on the tests, and they should be
 in the form the new code's tests take.
 
+## From here to the release
+
+The path from `main` on 2026-11-24 (`21a18e67`, installed release 0.3.1) to the release in which
+the reshape is complete. A box is ticked in the commit that makes it true, so this list is the
+state. The release numbers are proposals; each release is made on the owner's word.
+
+### Stage 1: close the night's work
+
+- [x] The style step, the shared helpers, the package `src/lem/` and the backlog fixes are on
+  `main`, with every suite green (`bash tests/all.sh`, 28 suites).
+- [x] The defects seen outside those changes are items of `docs/backlog/`.
+- [ ] The five items with `worth: yes` are fixed, each with its test, read by a reviewer, and on
+  `main`: the bar's three suppression forms, the hook's traceback, a conflict's quoted file names,
+  the "waits for" text of a task two releases back, `lem-ask`'s answer that is no object.
+- [ ] The owner's answers to the four questions of "Open with him" are bullets of
+  `docs/rulings/rulings.md`, and this plan's status is "accepted".
+- [ ] Each `worth: later` item of `docs/backlog/` has his ruling, or says what it waits for.
+
+### Stage 2: release 0.4.0, the clean base
+
+Still a plugin with no install step and no dependency. It brings the package layout and the
+fixes to the machines that run Lem.
+
+- [ ] One real task runs on `main`'s Lem in a scratch repository (`claude --plugin-dir`), from
+  `/lem new` to a merged pull request: the hooks, the board server's start and a landing, on the
+  new layout.
+- [ ] `README.md`, `docs/install.md` and `site/index.html` say what 0.4.0 is.
+- [ ] On his word: `version` 0.4.0, `BEFORE` 0.3.1, the tag, `git push --atomic origin main v0.4.0`.
+- [ ] His Mac takes it first (`/plugin marketplace update lem`, `/reload-plugins`,
+  `lem serve --ensure`), then mybaze. A defect it shows is fixed in 0.4.1 before stage 3 starts.
+
+### Stage 3: Lem gets its libraries (the rest of step 1), release 0.5.0
+
+What is built here follows his answer to "how Lem ships".
+
+- [ ] A trial in a scratch repository of the way he chose, before any code: for a program from
+  Homebrew that hands Claude Code its part, the three cases nobody tried (a repository whose
+  committed settings switch Lem on, the session after an upgrade, a session started from an app's
+  window); for one plugin with its libraries through `uv`, the first command with no network and
+  the start time of a hook.
+- [ ] The trial's result is written here, and the way that held is built: the formula in the tap
+  (his repository, made by him or on his word), or the plugin's `uv` starter.
+- [ ] The Python version he chose, with the checkers' settings, the tests on Lem's own Python and
+  CI.
+- [ ] `lem doctor`, `docs/install.md` and the site describe the new install; the command lines of
+  0.4.0 still work for one release.
+- [ ] On his word: release 0.5.0, the first with a dependency.
+
+### Stages 4 to 10: the reshape, a step each
+
+Each stage is one step of "The steps, in order", is done when its row there is true, and leaves
+`main` releasable. Each ends with every suite green and with its package in the list of the style
+gate (`flake8 --select=WPS`).
+
+- [ ] Stage 4, step 2: the unit cases run under pytest; the shell checks that only call a script
+  are unit cases.
+- [ ] Stage 5, step 3: one runner for `gh` and `agtermctl`, one error with its exit, a log for the
+  server.
+- [ ] Stage 6, step 4: a model for each record, checked when it is read; the read defects of the
+  inventory fixed, each in a commit of its own. Wide: it reaches 29 of the 41 modules.
+- [ ] Stage 7, step 5: the settings as models; `tomlkit` for the edits.
+- [ ] Stage 8, step 6: one command tree on a library, the same words and options. Wide: 13
+  modules.
+- [ ] Stage 9, step 7: the board server on a framework, the pages from templates, Web Push with
+  `cryptography`, the peers with `httpx`.
+- [ ] Stage 10, step 8: the large functions split; the style gate covers all of `src/lem`, and no
+  size mark of step 0 is left.
+
+A release between two stages is his call; the proposal is one after stage 6 and one after stage 9,
+so that no release carries more than three steps.
+
+### Stage 11: release 1.0.0
+
+- [ ] `flake8 --select=WPS` over `src/lem` reports nothing, and `ruff`, `pyrefly` and ESLint
+  report nothing.
+- [ ] No `# noqa: ... over the limit before the limit was set` is left.
+- [ ] Every suite is green on the release commit, and the release ran on his Mac and in mybaze
+  for a week of real tasks with no defect that a fix release had to repair.
+- [ ] The scheduled jobs `lem: night` and `lem: retro` are on again, on his word ("its not use
+  until we complete refactoring", 2026-11-24).
+- [ ] `AGENTS.md`, the guides and the site describe Lem as it is; this plan gets its status line
+  with the commits.
+
+### What each stage asks of him
+
+| Stage | His part |
+|---|---|
+| 1 | The four answers; a ruling on each `worth: later` item |
+| 2 | The word for 0.4.0; a look at the scratch task's pull request |
+| 3 | The tap, if Homebrew; the word for 0.5.0 |
+| 4 to 10 | The merge of each careful pull request; a release word where he wants one |
+| 11 | The word for 1.0.0 and for the scheduled jobs |
+
 ## How this work is done
 
 - By Lem itself: each step is one task or a few, on the standard track, careful where a topic of
