@@ -25,7 +25,7 @@ Size: full, because the change reaches when the owner's approval of the criteria
    - test: `python3 -B -m unittest tests.unit.test_board_criteria_change.TheRow.test_criterion_5_after_a_change_the_request_for_his_yes_comes_at_once` in `tests/unit/test_board_criteria_change.py`
    - test: `python3 -B -m unittest tests.unit.test_land_text.ChangesFromHisNotes tests.unit.test_land_text.TheRead.test_his_yes_after_a_change_from_his_note` in `tests/unit/test_land_text.py`
 6. His yes to the changed text is his approval (`by: owner`) of that text, and the build starts from it, the same after a change in the task's session as after a No on the board.
-   - test: `python3 -B -m unittest tests.unit.test_criteria_change.HisYesToTheChange tests.unit.test_criteria_change.HisTypedNo` in `tests/unit/test_criteria_change.py`
+   - test: `python3 -B -m unittest tests.unit.test_criteria_change.HisYesToTheChange tests.unit.test_criteria_change.HisTypedNo tests.unit.test_criteria_change.HisNoThatChangesNoCriterion` in `tests/unit/test_criteria_change.py`
    - test: `python3 -B -m unittest tests.unit.test_board_criteria_change.HisNo.test_criterion_6_yes_on_the_changed_text_approves_the_bytes_the_card_showed tests.unit.test_board_criteria_change.HisNo.test_criterion_6_a_yes_to_the_text_before_the_change_is_refused` in `tests/unit/test_board_criteria_change.py`
 
 ## How it works

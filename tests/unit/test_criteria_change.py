@@ -380,6 +380,65 @@ class HisNoThenAway(Folder):
         self.assertEqual((record["by"], record["text"]), ("alone", CHANGED))
 
 
+class HisNoThatChangesNoCriterion(Folder):
+    """Review 1, finding 1: his No on the board whose note changes no criterion (a direction) is on record and
+    refuses every yes to the block he answered; `--unchanged` writes a new wait of the same text, and his yes
+    to it is his approval."""
+
+    DIRECTION = "use openpyxl for the export"
+
+    def board_no(self, block: dict, note: str = DIRECTION) -> None:
+        lem_answers.record(self.task.directory, criteria.row_key(self.task, block), "Approve the criteria?", "no", note,
+                           digest=criteria.shown_digest(CRITERIA.encode()), via="door", device="phone", agent="x")
+
+    def test_a_new_wait_of_the_same_text_takes_his_yes(self) -> None:
+        block = self.waiting()
+        self.board_no(block)
+        shown = criteria.shown_digest(CRITERIA.encode())
+        # the two refusals the review's probe met, each now naming the way out
+        self.assertIn("--unchanged", self.refused(criteria.cmd_change, self.task, self.file(CRITERIA), self.DIRECTION))
+        self.assertIn(f"`lem criteria change {SLUG} --unchanged`", self.refused(criteria.cmd_approve, self.task, str(self.task.small_file), "owner", False, shown))
+        said = criteria.cmd_unchanged(self.task)
+        newest = criteria.newest_block(self.task)
+        self.assertEqual((newest["status"], newest["text"]), ("held", criteria.UNCHANGED_WAIT))
+        self.assertNotEqual(criteria.row_key(self.task, newest), criteria.row_key(self.task, block))
+        self.assertEqual((said["words"], said["answered"], said["shown"]), (self.DIRECTION, block["ts"], shown))
+        # the same text, nothing approved, and no change logged or kept
+        self.assertEqual(self.task.small_file.read_text(encoding="utf-8"), CRITERIA)
+        self.assertFalse(self.task.approved_file.exists())
+        self.assertEqual(self.named("criteria.changed"), [])
+        self.assertFalse((self.task.directory / "criteria-before.json").exists())
+        record = criteria.cmd_approve(self.task, str(self.task.small_file), "owner", shown=shown)
+        self.assertEqual((record["by"], record["text"]), ("owner", CRITERIA))
+
+    def test_refusals(self) -> None:
+        block = self.waiting()
+        self.assertIn("no answer of the owner is on record for this wait", self.refused(criteria.cmd_unchanged, self.task))
+        lem_answers.record(self.task.directory, criteria.row_key(self.task, block), "Approve the criteria?", "yes", "", digest="d", via="door", device="phone", agent="x")
+        self.assertIn("the owner's answer 'Yes' to this wait came first", self.refused(criteria.cmd_unchanged, self.task))
+        self.held("lead: builder")
+        self.assertIn("do not wait for the owner's yes", self.refused(criteria.cmd_unchanged, self.task))
+        self.assertEqual([e["text"] for e in self.named("task.state")], [criteria.INTERVIEW_WAIT, "lead: builder"])
+
+    def test_a_change_that_stopped_in_the_middle_is_ended_first(self) -> None:
+        block = self.waiting()
+        self.board_no(block, NOTE)
+        self.stop_state = True
+        with self.assertRaises(KeyboardInterrupt):
+            criteria.cmd_change(self.task, self.file(CHANGED), NOTE)
+        self.stop_state = False
+        self.assertIn("stopped in the middle", self.refused(criteria.cmd_unchanged, self.task))
+        self.assertEqual(criteria.newest_block(self.task)["ts"], block["ts"])
+
+    def test_the_command_line(self) -> None:
+        for argv, said in ((["change", SLUG, "--unchanged", "--words", "x"], "--unchanged takes no --words"),
+                           (["change", SLUG, "--unchanged", "--typed", "--words", "x"], "change takes one of"),
+                           (["approve", SLUG, "--unchanged"], "go with `change`")):
+            with self.assertRaises(SystemExit) as caught:
+                criteria.main(argv)
+            self.assertIn(said, str(caught.exception))
+
+
 class HisYesToTheChange(Folder):
     """Criterion 6: his yes to the changed text is his approval (`by: owner`) of that text."""
 
@@ -418,6 +477,31 @@ class TheWaitAsTheOthersReadIt(unittest.TestCase):
         ]
         [t] = bm.derive(events, [], int((START + timedelta(hours=1)).timestamp() * 1000)).tasks
         self.assertEqual((t.need["need"], t.approvable, t.turn, t.reading, t.for_owner), ("criteria", True, "asks", None, True))
+
+    def test_a_wait_after_a_note_that_changes_no_criterion(self) -> None:
+        """Review 1, finding 1: the new wait of the same text is the standard track's criteria wait, its own row
+        of the board with Yes and No, said in the owner's words, and no change for the pull request."""
+        self.assertEqual(criteria.UNCHANGED_WAIT, bm.UNCHANGED_CRITERIA)
+        self.assertTrue(criteria.UNCHANGED_WAIT.startswith(project.CRITERIA_WAIT))
+        self.assertEqual(project.track_of(f"2026-11-23T15:10Z held: {criteria.UNCHANGED_WAIT}\n\n2026-11-23T15:00Z held: {criteria.INTERVIEW_WAIT}\n"), "standard")
+        project.fixed_form(criteria.UNCHANGED_WAIT)
+        self.assertEqual(bm.words(criteria.UNCHANGED_WAIT), "your note changed no criterion, and the criteria wait for your yes again")
+        land = importlib.import_module("land")
+        self.assertNotEqual(criteria.UNCHANGED_WAIT, land.CHANGED_WAIT)
+
+        def at(minute: int) -> str:
+            return (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        events = [
+            {"ts": at(0), "event": "task.state", "task": SLUG, "status": "held", "text": criteria.INTERVIEW_WAIT, "lines": []},
+            {"ts": at(1), "event": "criteria.read", "task": SLUG, "by": "lem", "asked": 2, "answered": 2, "families": ["opus"], "silent": [], "criteria": 3, "flagged": 0, "split": False, "digest": "0" * 12},
+            {"ts": at(5), "event": "task.state", "task": SLUG, "status": "held", "text": criteria.UNCHANGED_WAIT, "lines": []},
+        ]
+        [t] = bm.derive(events, [], int((START + timedelta(hours=1)).timestamp() * 1000)).tasks
+        self.assertEqual((t.need["need"], t.approvable, t.turn), ("criteria", True, "asks"))
+        self.assertEqual(land.changed_after_read(events), 0)
+        row = bm.answer_row(t)
+        self.assertEqual((row["kind"], row["question"]), ("criterion", "Approve the criteria?"))
+        self.assertEqual(row["key"], lem_answers.key_of("criterion", SLUG, t.blocks[-1]["ts"]))
 
 
 if __name__ == "__main__":

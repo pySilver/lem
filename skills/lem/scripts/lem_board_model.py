@@ -330,6 +330,8 @@ def words(line: object, talked: bool = False) -> str | None:
         return "the build stopped, and its breaker waits for you"
     if s == CHANGED_CRITERIA:
         return "the criteria changed from your note, and wait for your yes again"
+    if s == UNCHANGED_CRITERIA:
+        return "your note changed no criterion, and the criteria wait for your yes again"
     resumed = re.fullmatch(r"resumed from ([a-z0-9-]+), which was dropped", s)
     if resumed:
         return f"it goes on from “{title_of(resumed[1])}”, which was dropped"
@@ -1903,6 +1905,9 @@ FAST_CRITERION = "the criteria wait for the owner: a small change that someone e
 # CHANGED_WAIT, `lem criteria change`): the criteria wait for his yes again, with their text before the change
 # kept in the task directory (criteria.py BEFORE).
 CHANGED_CRITERIA = "the criteria wait for the owner: changed from the owner's note"
+# The first line of the held block after his No whose note changes no criterion (criteria.py UNCHANGED_WAIT,
+# `lem criteria change --unchanged`): the same criteria wait for his yes again, in a new row.
+UNCHANGED_CRITERIA = "the criteria wait for the owner: the owner's note changed no criterion"
 CRITERIA_BEFORE = "criteria-before.json"
 # What the board says once the owner's answer is on record, on the act's note and on the task's Overview.
 ANSWER_ON_RECORD = "Your answer is on record: the task’s session takes it."
