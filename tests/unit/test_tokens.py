@@ -2,7 +2,7 @@
 the form Claude Code writes them (one record a line; a reply's blocks share one
 `message.id` and its `usage`).
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import json

@@ -2,7 +2,7 @@
 under the time limit and with the stdin its caller passes; `git` over it gives the
 output of a run that went well and None for every other.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import subprocess

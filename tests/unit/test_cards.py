@@ -5,7 +5,7 @@ their own (decision 7 of docs/plans/2026-11-23-board-answers-a-card.md); the mod
 the board's server calls holds no call of agterm, so an end from the board never answers
 or closes the session's page.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import json

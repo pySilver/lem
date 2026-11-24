@@ -6,7 +6,7 @@ only git shows, and tests/lem-settings.sh checks it with `lem project show`. The
 of Lem name the files by these names only, and the settings page's table of where each
 table is valid is the map's.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import os

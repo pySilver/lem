@@ -4,7 +4,7 @@ which endpoints are taken, and a device that its push service no longer knows. N
 sends a push: the send is a stand-in, and the switch LEM_PUSH=record is set for the
 whole file. The routes run in tests/lem-serve.sh.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import json

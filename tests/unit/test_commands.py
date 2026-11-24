@@ -4,8 +4,8 @@ tests/unit/commands.json. A unit case builds the shape again from the parsers as
 are and compares it with the file, so a change of a name, a subcommand or an option
 shows as a failure that names it.
 
-    python3 -B -m unittest discover -s tests/unit
-    python3 -B tests/unit/test_commands.py --write    the file again, after a meant change
+    .venv/bin/python -B -m unittest discover -s tests/unit
+    .venv/bin/python -B tests/unit/test_commands.py --write    the file again, after a meant change
 
 The file holds no class or text of argparse: names, counts and booleans only, so that a
 tree built from another command-line library can be compared with it. For each command
@@ -69,7 +69,7 @@ if TYPE_CHECKING:
     from types import ModuleType
 
 FILE = Path(__file__).resolve().parent / "commands.json"
-WRITE = "python3 -B tests/unit/test_commands.py --write"
+WRITE = ".venv/bin/python -B tests/unit/test_commands.py --write"
 # An option that no command of Lem takes, for the wrong call.
 UNKNOWN = "--no-such-option"
 # Every word of a call as one entry of `exits`.

@@ -1,9 +1,9 @@
 """The board of a normal afternoon in one shop, for the README's pictures, for a look at
 the board, and for tests/lem-serve.sh.
 
-    python3 tests/board-showcase.py OUT              the pictures, into OUT: board-*, task-*, backlog-*, phone-*, waits-*, phone-waits-*,
-                                                     story-*, phone-review-*, phone-merge-off-* and phone-merge-on-*, light and dark
-    python3 tests/board-showcase.py --demo DIR       the repository alone, in DIR; print its path and its state folder as JSON
+    .venv/bin/python tests/board-showcase.py OUT              the pictures, into OUT: board-*, task-*, backlog-*, phone-*, waits-*, phone-waits-*,
+                                                              story-*, phone-review-*, phone-merge-off-* and phone-merge-on-*, light and dark
+    .venv/bin/python tests/board-showcase.py --demo DIR       the repository alone, in DIR; print its path and its state folder as JSON
 
 It is eleven tasks a team could have on one afternoon, written by Lem's own scripts
 (project.py, criteria.py, decisions.py) in a throwaway repository, with a task in every

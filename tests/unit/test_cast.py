@@ -5,7 +5,7 @@ machine, and the text a persona's agent reads as who it is. Where the cast comes
 (the checkout or the default branch) is a fact only git shows, and
 tests/test-gate-panel.sh checks it in real repositories.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import sys

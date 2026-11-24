@@ -7,7 +7,7 @@ command prints. That `state` and `log` call these rules, refuse with exit 1 and 
 nothing then, and that `tasks` gives the newest record, are facts only the real command
 shows: tests/lem-settings.sh runs one journey for each.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import contextlib

@@ -9,7 +9,7 @@ with `lem project state` and `lem project log` stood in for by writes of the sam
 into the log; the command's journey with the real `lem project state` runs once
 in tests/lem-settings.sh.
 
-    python3 -B -m unittest tests.unit.test_criteria_change
+    .venv/bin/python -B -m unittest tests.unit.test_criteria_change
 """
 
 import json

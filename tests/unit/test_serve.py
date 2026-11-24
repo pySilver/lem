@@ -5,7 +5,7 @@ the server owes the tasks, when it runs `lem project prune`, and the number of
 `state.keep_days` a page says. The routes, the stream and the start on demand run in
 tests/lem-serve.sh, with a server.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import email.message

@@ -3,7 +3,7 @@ make when the first `python3` is older, over stand-in folders of a PATH.
 A stand-in `python3` says its version as Python would; a `python3.N` is known by its
 name and never started. And what a hook's process loads when python.py starts it.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import json

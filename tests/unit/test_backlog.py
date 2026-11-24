@@ -6,7 +6,7 @@ removed the task's own, and which item a task was started from.
 What only git can show (the commits `lem land file` makes, an item removed by a commit,
 a review that a later commit asks to run again) stays in tests/lem-land-backlog.sh.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import sys

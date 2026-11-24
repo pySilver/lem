@@ -3,7 +3,7 @@
 functions with records. The write of the mark and its read from two repositories are
 facts of real checkouts, in tests/lem-state.sh.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import os

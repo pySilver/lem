@@ -13,7 +13,7 @@ send an agent to judge a defect outside a task, or a proposal, each name it.
 
 It reads only the repository's own files, so a missing file is a failed case.
 
-    python3 -B -m unittest discover -s tests/unit -p test_the_bar.py
+    .venv/bin/python -B -m unittest discover -s tests/unit -p test_the_bar.py
 """
 
 import sys

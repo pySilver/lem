@@ -3,7 +3,7 @@ is left; waiting for the whole group, a group that ends within its grace gets no
 waiting for the first process only, what it left gets the kill as soon as it ended; a
 group that is gone ends the stop.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import contextlib

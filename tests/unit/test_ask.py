@@ -1,7 +1,7 @@
 """The wait of `lem ask` for a page's answer (ask.py), with a stand-in for agterm: what it
 prints for a value the page submitted.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import argparse

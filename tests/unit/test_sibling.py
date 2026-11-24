@@ -3,7 +3,7 @@ class it names, with the sibling's message less its name, unless the caller read
 exit itself; what a sibling that succeeded wrote on stderr is said again. The sibling is
 a stand-in module in the place of `project`'s, which `checked` runs in this process.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import contextlib

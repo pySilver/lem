@@ -5,7 +5,7 @@ repository in a JSON file, and one line of each call in that file's `calls`. The
 repository is a throwaway checkout whose origin names GitHub and is never asked; a task
 is its files in the state folder, as `lem project` writes them.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import contextlib

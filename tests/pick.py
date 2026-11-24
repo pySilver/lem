@@ -297,7 +297,6 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (
         (
             "*.py",
-            "tests/clock/date",
             "pyproject.toml",
             "uv.lock",
             ".python-version",

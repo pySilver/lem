@@ -11,7 +11,7 @@ event, as in tests/unit/test_criteria_change.py. The routes run in
 tests/lem-board-act.sh with a server, and the card on a phone in
 tests/lem-board-keys.sh.
 
-    python3 -B -m unittest tests.unit.test_board_criteria_change
+    .venv/bin/python -B -m unittest tests.unit.test_board_criteria_change
 """
 
 import json

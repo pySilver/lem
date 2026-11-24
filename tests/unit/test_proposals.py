@@ -4,7 +4,7 @@ functions over a state folder in a temporary directory. That `waiting` no longer
 or counts the retros is tests/lem-decisions.sh's, and that `prune` keeps the records and
 the items is tests/lem-state.sh's.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import contextlib

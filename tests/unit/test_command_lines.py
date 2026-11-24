@@ -3,7 +3,7 @@ in a code span or a code block of the skills
 (`skills/**/*.md`), the agents (`agents/*.md`), the guides (`docs/*.md`) and README.md,
 read against the shape in tests/unit/commands.json (tests/unit/test_commands.py).
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 
 Where a command line is:
 

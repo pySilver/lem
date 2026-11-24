@@ -3,7 +3,7 @@ kanban's Done column draws of the ended tasks, its foot row, the page that lists
 ended tasks it has no card for, and the kanban's mark over its cards, and each view's
 line of keys in the page's foot.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import json

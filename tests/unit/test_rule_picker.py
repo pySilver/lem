@@ -6,7 +6,7 @@ from their frontmatter, a file that moved in a range of commits, and the refusal
 `lem project rules` are facts only the file system, git and the real command show:
 tests/lem-settings.sh runs one journey for them.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import re

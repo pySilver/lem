@@ -5,7 +5,7 @@ launch line with the seat and `[handoff] tokens`, and the hooks with and without
 script writes, which names its standing text through `lem version`. What agterm does
 with a session is in tests/lem-session.sh, with a stand-in for agtermctl.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import json

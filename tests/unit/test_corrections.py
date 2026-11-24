@@ -2,7 +2,7 @@
 process. The hook, the queue and the review are facts of real runs,
 in tests/lem-machine.sh.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import ast

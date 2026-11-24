@@ -3,7 +3,7 @@ makes the request body of a choice and of a noul, and read(), which makes the pr
 reply from Jev's. No case sends a request; the replies are in the form a real request
 through OpenRouter gave on 2026-11-23 (`{"type": "noul", "noul": 0.98}` for a noul).
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import json

@@ -2,7 +2,7 @@
 checkout the package is part of, else one error that names both places. Each case runs
 a copy of paths.py in a folder of its own, laid out as one of the three.
 
-    python3 -B -m unittest discover -s tests/unit -p test_paths.py
+    .venv/bin/python -B -m unittest discover -s tests/unit -p test_paths.py
 """
 
 import runpy

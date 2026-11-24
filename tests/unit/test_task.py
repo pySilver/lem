@@ -4,7 +4,7 @@ Whether the base branch exists is a fact only git shows, and tests/lem-settings.
 checks it in a real repository. And what `lem project prune` does with each task
 (`task_calls`); what it removes from a folder is tests/lem-state.sh's.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import contextlib

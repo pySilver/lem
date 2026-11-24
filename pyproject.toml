@@ -105,8 +105,6 @@ packages = ["src/lem"]
 # ==== ruff ====
 [tool.ruff]
 # ruff's own format and its line length of 88, with no option of ours.
-# The one Python file with no `.py` in its name.
-extend-include = ["tests/clock/date"]
 # ruff also formats the Python blocks of a Markdown file. The stage files, the plans and the guides
 # keep their text as it was written.
 extend-exclude = ["*.md"]
@@ -228,7 +226,7 @@ allowed-confusables = ["’", "–", "×", "›"]
 [tool.pyrefly]
 # The Python Lem's code is written for: a name the standard library got later is an error here.
 python-version = "3.14"
-project-includes = ["**/*.py", "tests/clock/date"]
+project-includes = ["**/*.py"]
 # The same folders as ruff's `src`.
 search-path = [
     "src",

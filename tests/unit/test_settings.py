@@ -4,7 +4,7 @@ here takes the tables that were read and returns the settings or refuses; which 
 and which commit supply the tables is a fact only git shows, and tests/lem-settings.sh
 checks it in real repositories.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import contextlib

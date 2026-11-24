@@ -6,7 +6,7 @@ title, the reviewer's items, and who added each item of the backlog folder, whic
 Which items a task's branch adds against its merge base is a fact only git shows:
 tests/lem-serve.sh reads it on the board of a task whose branch filed one.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import os

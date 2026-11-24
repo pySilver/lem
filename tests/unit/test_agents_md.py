@@ -12,7 +12,7 @@ file still names one of those files.
 It reads only the repository's own files and `git ls-files`, so a missing file is a
 failed case.
 
-    python3 -B -m unittest discover -s tests/unit -p test_agents_md.py
+    .venv/bin/python -B -m unittest discover -s tests/unit -p test_agents_md.py
 """
 
 import ast

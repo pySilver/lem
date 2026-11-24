@@ -3,7 +3,7 @@ caller's name when it gives one, in a folder that is there unless the caller ask
 it; a JSON record has the one form of Lem's records; a held file holds its thread lock
 and its lock file until the block ends, however it ends.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import fcntl

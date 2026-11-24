@@ -5,7 +5,7 @@ Claude Code 2.1.330 lays it out (2026-11-22), a fork of another task's session l
 under the task's own session (6fe214ec, 2026-11-22), and whether the main thread's
 newest turn runs (`turn_of`), over records of the forms the probes of 2026-11-23 read.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import contextlib

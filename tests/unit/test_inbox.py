@@ -5,7 +5,7 @@ restart, and the wake of a task's session for a reply in a thread whose session 
 No case runs Plannotator: every call goes to a stand-in in this file, which keeps each
 call and answers as the case sets. The server's thread runs in tests/lem-board-act.sh.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import json

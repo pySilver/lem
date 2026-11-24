@@ -5,7 +5,7 @@ one (`agterm_card_refusal`), the policy of the card's page (`card_policy`), and 
 server holds no call that answers, closes or types into a session. The routes run in
 tests/lem-serve.sh and tests/lem-board-act.sh, with a server.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import ast

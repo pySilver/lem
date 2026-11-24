@@ -9,7 +9,7 @@ answer is on record; and `board_answer` of `lem project tasks`. The routes run i
 tests/lem-board-act.sh with a server, and Drop's confirm on a phone
 in tests/lem-board-keys.sh.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import json

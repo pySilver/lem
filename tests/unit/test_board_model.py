@@ -4,7 +4,7 @@ green and its reasons, the end of a run of the checks, the phases, the read of t
 on from where the last read stopped, and a task whose events became one summary: its
 card, its followers, its board and the read of the new log.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import json

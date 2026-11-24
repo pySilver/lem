@@ -4,7 +4,7 @@ checks, which decisions are important and what a reason of not green says, what 
 waits for, the head of its large card, its progress, and the artifacts the panel reads;
 and that a task's text reaches the page escaped.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import re

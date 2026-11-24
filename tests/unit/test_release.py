@@ -10,7 +10,7 @@ stops with the message of criterion 4; the mark a task's open writes, from Claud
 list of installs; and the check each command runs, which logs the stop once and lets a
 command that ends the task go on.
 
-    python3 -B -m unittest discover -s tests/unit -p test_release.py
+    .venv/bin/python -B -m unittest discover -s tests/unit -p test_release.py
 """
 
 import json

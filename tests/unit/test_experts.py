@@ -4,7 +4,7 @@ the profile's path, from what `lem cast` prints. The brief files the commands wr
 a project with no personas, are checked through the real command in
 tests/test-ask-expert.sh.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import sys

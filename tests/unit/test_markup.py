@@ -1,7 +1,7 @@
 """markup.py's one rule: text reaches a served page only escaped, in an element's text
 and in an attribute's value, and only `Markup` passes as it is.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import sys

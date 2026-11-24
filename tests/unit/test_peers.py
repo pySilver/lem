@@ -3,7 +3,7 @@ loop guard, the list of two machines' workspaces and its order, a machine that d
 answer, a redirect kept inside the peer's addresses, and the headers that pass. Two
 servers that pass pages and a stream through run in tests/lem-peers.sh.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import email.message

@@ -3,7 +3,7 @@ other code than the board server runs, the task picker's keymap line and which l
 a keymap run it, and the tier of each tool, which the table of docs/install.md says
 in words.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import ast

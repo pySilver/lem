@@ -2,7 +2,7 @@
 of a task in the board's words, and the ended tasks that keep a row. What agterm does
 with the picker is in tests/lem-picker.sh, with a stand-in for agtermctl.
 
-    python3 -B -m unittest discover -s tests/unit
+    .venv/bin/python -B -m unittest discover -s tests/unit
 """
 
 import sys
