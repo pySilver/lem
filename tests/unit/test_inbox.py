@@ -1255,8 +1255,10 @@ class ReleaseStop(InFolder):
             (sent["session"], sent["payload"]["body"]),
             (
                 None,
-                f"{say}\n\nThe task on the board: [report-dates on the "
-                "board](https://mac.tail0.ts.net:4537/mac/shop/tasks/report-dates)",
+                (
+                    f"{say}\n\nThe task on the board: [report-dates on the "
+                    "board](https://mac.tail0.ts.net:4537/mac/shop/tasks/report-dates)"
+                ),
             ),
         )
         self.assertEqual(self.woken, [])

@@ -1203,10 +1203,10 @@ def now_foot(
 
 def breaker_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
     """The breaker's document, first on the Overview while it waits (for the owner, or
-    for nobody while the task is parked or two releases back): its markdown as the artifacts render it, with
-    its callouts, its stories, its chart, its table and the task's pictures. Once his
-    help is on record it leaves the Overview, and Artifacts and "Criteria and decisions"
-    keep it. None while no breaker waits."""
+    for nobody while the task is parked or two releases back): its markdown as the
+    artifacts render it, with its callouts, its stories, its chart, its table and the
+    task's pictures. Once his help is on record it leaves the Overview, and Artifacts
+    and "Criteria and decisions" keep it. None while no breaker waits."""
     b = t.stopped
     if b is None:
         return None
