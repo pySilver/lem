@@ -11,7 +11,9 @@ older, and starts the script with that: `bin/lem` (and through it `lem-ask` and
 
 with NAME the hook's module of this package. Under a Python of 3.11 or newer the hook's
 module runs in this process, so a hook costs no second start of Python; under an older
-one this process becomes this file under the newer Python, which runs it. When the
+one this process becomes this file under the newer Python, which runs it. Either way the
+module runs as Python runs a script (`run()`), and this file loads nothing more on the
+way to it: the search for a Python imports its tools inside its functions. When the
 machine has none, the hook does nothing and prints nothing, since Claude Code takes a
 hook's output as context and a hook that fails must not fail the session: `lem doctor`'s
 row `python3` says so, with the fix, and every `lem` command says it in one line
@@ -24,8 +26,6 @@ row `python3` says so, with the fix, and every `lem` command says it in one line
 # sys.path, so it finds the package from its own place.
 
 import os
-import re
-import subprocess
 import sys
 
 FLOOR: "tuple[int, int]" = (3, 11)
@@ -53,7 +53,7 @@ UV_ASKS = (
 # `python3.N`, the name every installer (python.org, Homebrew, uv, mise) gives each
 # minor version. No list of N: the folders of PATH are read for every such name, so a
 # version newer than this file is found too.
-NAMED = re.compile(r"python3\.(\d+)")
+NAMED = r"python3\.(\d+)"
 
 
 def runnable(path: str) -> bool:
@@ -63,7 +63,10 @@ def runnable(path: str) -> bool:
 def version(path: str) -> "tuple[int, int] | None":
     """The (major, minor) of the Python at PATH: from its name when the name has it,
     else asked of it."""
-    named = NAMED.fullmatch(os.path.basename(path))
+    import re
+    import subprocess
+
+    named = re.fullmatch(NAMED, os.path.basename(path))
     if named:
         return 3, int(named.group(1))
     try:
@@ -90,6 +93,8 @@ def version(path: str) -> "tuple[int, int] | None":
 def from_uv(folders: "list[str]", fallbacks: "tuple[str, ...]") -> "str | None":
     """The Python of FLOOR or newer that uv knows, or None: uv from FOLDERS, else the
     first of FALLBACKS."""
+    import subprocess
+
     uv = next(
         (
             path
@@ -133,6 +138,8 @@ def find(
     newer on the search path, the first of its name in the path's order; the first of
     FALLBACKS that is new enough; the one uv knows (`from_uv`), with uv from the search
     path or from UV."""
+    import re
+
     folders = [
         folder
         for folder in (os.environ.get("PATH", "") if search is None else search).split(
@@ -158,7 +165,7 @@ def find(
         except OSError:
             continue
         for name in names:
-            named = NAMED.fullmatch(name)
+            named = re.fullmatch(NAMED, name)
             if (
                 not named
                 or (3, int(named.group(1))) < FLOOR
@@ -197,16 +204,27 @@ def hook(argv: "list[str]") -> None:
     name, args = argv[0], argv[1:]
     here = os.path.dirname(os.path.abspath(__file__))
     if sys.version_info >= FLOOR:
-        import runpy
-
-        sys.dont_write_bytecode = True
-        sys.argv = [os.path.join(here, name + ".py"), *args]
-        sys.path[0] = os.path.dirname(here)
-        runpy.run_module("lem." + name, run_name="__main__", alter_sys=True)
+        run(os.path.join(here, name + ".py"), args)
         return
     python = find(python3=False)
     if python is not None:
         os.execv(python, [python, "-B", os.path.join(here, "python.py"), name, *args])
+
+
+def run(path: str, args: "list[str]") -> None:
+    """Run the module of this package at PATH with ARGS as Python runs a script: as
+    `__main__`, with its own `if __name__ == "__main__":` lines, and `sys.argv` holds
+    PATH and ARGS. The package's folder takes this file's place first on sys.path, so
+    that `lem` is the package. No `runpy`: its imports would be a cost of every hook."""
+    sys.dont_write_bytecode = True
+    sys.argv = [path, *args]
+    sys.path[0] = os.path.dirname(os.path.dirname(path))
+    with open(path, "rb") as file:
+        code = compile(file.read(), path, "exec")
+    main = type(sys)("__main__")
+    main.__file__ = path
+    sys.modules["__main__"] = main
+    exec(code, vars(main))  # noqa: S102 - the plugin's own module, run as a script
 
 
 if __name__ == "__main__":

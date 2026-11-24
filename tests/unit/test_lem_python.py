@@ -1,13 +1,15 @@
 """lem_python.find(), the search for a Python of 3.11 or newer that `bin/lem` and the
 plugin's hooks make when the first `python3` is older, over stand-in folders of a PATH.
 A stand-in `python3` says its version as Python would; a `python3.N` is known by its
-name and never started.
+name and never started. And what a hook's process loads when python.py starts it.
 
     python3 -B -m unittest discover -s tests/unit
 """
 
+import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -86,6 +88,76 @@ class Find(unittest.TestCase):
             lem_python.find(self.path("a", "tools"), fallbacks=(), uv=())
         )  # what uv names is asked its version
         self.assertEqual(old, managed)
+
+
+class HookStart(unittest.TestCase):
+    """The process that runs a hook through python.py, as the newer Python runs it after
+    an old python3 found it, loads no module that the hook's own module does not: no
+    more than the hook's script loaded when it was started by its path."""
+
+    SRC = Path(__file__).resolve().parents[2] / "src"
+    HOOKS = (
+        ("corrections", ["hook"], {}, {"prompt": "hello there", "session_id": "S1"}),
+        ("serve_hook", [], {}, {"hook_event_name": "SessionStart"}),
+        ("session_hook", [], {}, {"hook_event_name": "SessionStart"}),
+        (
+            "session_hook",
+            [],
+            {"LEM_TASK": "gift-note"},
+            {"hook_event_name": "PreCompact"},
+        ),
+    )
+
+    def loaded(self, argv: list[str], task: dict, event: dict) -> tuple[set, str, int]:
+        """The modules a run of ARGV under this Python loads, from -X importtime, its
+        stdout and its exit status, in a folder of no repository with a home of its
+        own."""
+        home = tempfile.mkdtemp(prefix="lem-hook-")
+        self.addCleanup(shutil.rmtree, home)
+        ran = subprocess.run(
+            [sys.executable, "-B", "-X", "importtime", *argv],
+            input=json.dumps({**event, "cwd": home}),
+            capture_output=True,
+            text=True,
+            cwd=home,
+            env={
+                "PATH": os.environ.get("PATH", ""),
+                "HOME": home,
+                "XDG_CONFIG_HOME": str(Path(home) / "config"),
+                "LEM_SERVE": "off",
+                **task,
+            },
+            timeout=30,
+            check=False,
+        )
+        names = {
+            line.rsplit("|", 1)[1].strip()
+            for line in ran.stderr.splitlines()
+            if line.startswith("import time:") and "|" in line
+        }
+        return names - {"imported package"}, ran.stdout, ran.returncode
+
+    def test_python_py_loads_nothing_on_its_way_to_the_hooks_module(self) -> None:
+        for name, args, task, event in self.HOOKS:
+            with self.subTest(hook=name, task=task):
+                started, said, status = self.loaded(
+                    [str(self.SRC / "lem" / "python.py"), name, *args], task, event
+                )
+                alone, _, _ = self.loaded(
+                    [
+                        "-c",
+                        (
+                            "import sys; sys.path[0] = sys.argv.pop(1); "
+                            f"from lem import {name}; {name}.main()"
+                        ),
+                        str(self.SRC),
+                        *args,
+                    ],
+                    task,
+                    event,
+                )
+                self.assertEqual((said, status), ("", 0))
+                self.assertEqual(started - alone, set())
 
 
 if __name__ == "__main__":
