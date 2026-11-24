@@ -6,7 +6,9 @@ set -eEuo pipefail
 cd "$(dirname "$0")/.."
 # shellcheck source-path=SCRIPTDIR source=checks.sh
 . tests/checks.sh
-B=skills/lem-ask/bin/lem-ask
+# lem-ask's module, and Lem's one entry, which runs it as `lem-ask` does: `"$PY" -I -B "$MAIN" lem-ask ARGS...`
+B=src/lem/ask.py
+MAIN=src/lem/__main__.py
 SKILL=skills/lem-ask
 WORK=$(mktemp -d)
 export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
@@ -62,14 +64,14 @@ if [ -x "$B" ]; then pass "bin/lem-ask is executable"; else fail "bin/lem-ask is
 # Every template and demo renders.
 for f in "${specs[@]}"; do
   n=$(basename "$f" .json)
-  if "$PY" -I -B "$B" render "$f" -o "$WORK/$n.html" >/dev/null 2>"$WORK/$n.err"; then pass "render $n"; else fail "render $n: $(cat "$WORK/$n.err")"; fi
+  if "$PY" -I -B "$MAIN" lem-ask render "$f" -o "$WORK/$n.html" >/dev/null 2>"$WORK/$n.err"; then pass "render $n"; else fail "render $n: $(cat "$WORK/$n.err")"; fi
 done
 for f in "$HOME"/.cache/lem/mermaid-*.min.js; do
   if [ -f "$f" ] && [ ! -f "$MERMAID_CACHE/${f##*/}" ]; then mkdir -p "$MERMAID_CACHE" && cp "$f" "$MERMAID_CACHE/"; fi
 done
 
 # Malformed specs fail with the JSON error contract, never a traceback.
-bad() { printf '%s' "$2" > "$WORK/bad.json"; expect "rejects $1" 1 error -- "$PY" -I -B "$B" render "$WORK/bad.json" -o "$WORK/bad.html"; }
+bad() { printf '%s' "$2" > "$WORK/bad.json"; expect "rejects $1" 1 error -- "$PY" -I -B "$MAIN" lem-ask render "$WORK/bad.json" -o "$WORK/bad.html"; }
 bad "invalid JSON" 'nope'
 bad "a non-object question" '{"questions": ["x"]}'
 bad "a non-list options" '{"prompt": "p", "options": "x"}'
@@ -120,12 +122,12 @@ bad "a control label that is a number" '{"prompt": "p", "controls": [{"id": "r",
 bad "a control type the page does not know" '{"prompt": "p", "controls": [{"id": "r", "label": "Radius", "type": "slider"}]}'
 bad "a spec that is not UTF-8" $'{"prompt": "caf\xe9?", "options": ["Yes", "No"]}'
 printf '{"prompt": "p", "options": ["Yes", "No"]}' > "$WORK/plain.json"
-expect "rejects an output in a folder that is not there" 1 error -- "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/no/such/folder/x.html"
+expect "rejects an output in a folder that is not there" 1 error -- "$PY" -I -B "$MAIN" lem-ask render "$WORK/plain.json" -o "$WORK/no/such/folder/x.html"
 
 # The personal defaults are the table [ask] of Lem's home settings file, $XDG_CONFIG_HOME/lem/settings.toml.
 # style_of FOLDER: the style of the page rendered with FOLDER as XDG_CONFIG_HOME
 style_of() {
-  XDG_CONFIG_HOME="$1" "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/styled.html" >/dev/null 2>&1 || true
+  XDG_CONFIG_HOME="$1" "$PY" -I -B "$MAIN" lem-ask render "$WORK/plain.json" -o "$WORK/styled.html" >/dev/null 2>&1 || true
   "$PY" -I -B -c 'import json,re,sys; print(json.loads(re.search(r"id=\"hd-spec\">(.*?)</script>", open(sys.argv[1]).read()).group(1))["style"])' "$WORK/styled.html" 2>/dev/null || true
 }
 mkdir -p "$WORK/styled/lem" "$HOME/.config/lem-ask"
@@ -140,7 +142,7 @@ if [ "$got" = refined ]; then pass "with no [ask], the page is refined, and ~/.c
 else fail "with no [ask], the page is refined, and ~/.config/lem-ask/defaults.json is not read: the page's style is ${got:-none}"; fi
 mkdir -p "$WORK/taken/lem"
 printf '[ask]\nreview = true\nsize = 90\nbrowser = false\n\n[ask.status]\nasking = ["blocked", "--sound", "default"]\nanswered = ["active"]\n' > "$WORK/taken/lem/settings.toml"
-if XDG_CONFIG_HOME="$WORK/taken" "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/taken.html" >/dev/null 2>&1 && grep -q '"review": true' "$WORK/taken.html"; then
+if XDG_CONFIG_HOME="$WORK/taken" "$PY" -I -B "$MAIN" lem-ask render "$WORK/plain.json" -o "$WORK/taken.html" >/dev/null 2>&1 && grep -q '"review": true' "$WORK/taken.html"; then
   pass "an [ask] of every key, with review = true, is taken"
 else fail "an [ask] of every key, with review = true, is taken"; fi
 # refuses NAME TOML WANT...: lem-ask refuses a home settings file of TOML as an error that names the file and holds each WANT
@@ -150,7 +152,7 @@ refuses() {
   printf '%s\n' "$2" > "$WORK/refused/lem/settings.toml"
   shift 2
   set +e
-  out=$(XDG_CONFIG_HOME="$WORK/refused" "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/plain.html" 2>/dev/null)
+  out=$(XDG_CONFIG_HOME="$WORK/refused" "$PY" -I -B "$MAIN" lem-ask render "$WORK/plain.json" -o "$WORK/plain.html" 2>/dev/null)
   got=$?
   set -e
   if [ "$got" != 1 ]; then fail "$name: exit $got, want 1: $out"; return; fi
@@ -168,20 +170,20 @@ refuses "refuses a status glyph under [ask] that is not a list" $'[ask.status]\n
 refuses "refuses a misspelled key under [ask]" $'[ask]\nstlye = "bold"' "did you mean \`style\`?"
 refuses "refuses an ask that is not a table" 'ask = 5' 'not 5'
 refuses "refuses a home settings file that does not read as TOML" '[ask' 'does not read as TOML'
-expect "refuses a relative XDG_CONFIG_HOME" 1 error -- env XDG_CONFIG_HOME=config "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/plain.html"
+expect "refuses a relative XDG_CONFIG_HOME" 1 error -- env XDG_CONFIG_HOME=config "$PY" -I -B "$MAIN" lem-ask render "$WORK/plain.json" -o "$WORK/plain.html"
 
 # A counting label is fine once the option carries its text, and a key starting with "_" is the author's own.
 printf '{"prompt": "Approve?", "_data": 1, "options": [{"label": "Criterion 1", "detail": "The operator approves by hand."}, "Yes"]}' > "$WORK/carried.json"
-if "$PY" -I -B "$B" render "$WORK/carried.json" -o "$WORK/carried.html" >/dev/null; then pass "a counting label carrying its text passes"; else fail "a counting label carrying its text passes"; fi
+if "$PY" -I -B "$MAIN" lem-ask render "$WORK/carried.json" -o "$WORK/carried.html" >/dev/null; then pass "a counting label carrying its text passes"; else fail "a counting label carrying its text passes"; fi
 # A question's own context is shown on the page (checked in the browser below).
 printf '{"questions": [{"id": "a", "prompt": "First?", "context": "QCTX-MARKER-ONE", "options": ["Yes", "No"]}, {"id": "b", "prompt": "Second?", "body": "QCTX-MARKER-TWO", "options": ["Yes", "No"]}]}' > "$WORK/qctx.json"
-"$PY" -I -B "$B" render "$WORK/qctx.json" -o "$WORK/qctx.html" >/dev/null
+"$PY" -I -B "$MAIN" lem-ask render "$WORK/qctx.json" -o "$WORK/qctx.html" >/dev/null
 # The same with one question: a `questions` list of one keeps that question's context, and a spec that
 # is one question shows its context once and its body.
 printf '{"questions": [{"id": "a", "prompt": "Only?", "context": "QCTX-MARKER-SOLO", "options": ["Yes", "No"]}]}' > "$WORK/qctx-one.json"
-"$PY" -I -B "$B" render "$WORK/qctx-one.json" -o "$WORK/qctx-one.html" >/dev/null
+"$PY" -I -B "$MAIN" lem-ask render "$WORK/qctx-one.json" -o "$WORK/qctx-one.html" >/dev/null
 printf '{"prompt": "Only?", "context": "QCTX-MARKER-TOP", "body": "QCTX-MARKER-BODY", "options": ["Yes", "No"]}' > "$WORK/qctx-flat.json"
-"$PY" -I -B "$B" render "$WORK/qctx-flat.json" -o "$WORK/qctx-flat.html" >/dev/null
+"$PY" -I -B "$MAIN" lem-ask render "$WORK/qctx-flat.json" -o "$WORK/qctx-flat.html" >/dev/null
 
 # Markdown an agent writes by habit, each case a page of its own (checked in the browser below). md-owner
 # is the table of /lem init's last page on 2026-11-16, which showed as raw "| | |" and "|---|---|" lines.
@@ -210,7 +212,7 @@ PY
 )
 MDNAMES=$("$PY" -I -B -c "$MDCASES" "$WORK")
 for n in $MDNAMES; do
-  "$PY" -I -B "$B" render "$WORK/$n.json" -o "$WORK/$n.html" >/dev/null 2>"$WORK/$n.err"
+  "$PY" -I -B "$MAIN" lem-ask render "$WORK/$n.json" -o "$WORK/$n.html" >/dev/null 2>"$WORK/$n.err"
 done
 # The bundle goes into the page of a mermaid fence in markdown, and into no page that has no mermaid.
 BUNDLED=$(cat <<'PY'
@@ -250,17 +252,17 @@ json.dump(spec, open(sys.argv[1], "w"))
 PY
 )
 "$PY" -I -B -c "$WIDE" "$WORK/wide.json"
-"$PY" -I -B "$B" render "$WORK/wide.json" -o "$WORK/wide.html" >/dev/null
+"$PY" -I -B "$MAIN" lem-ask render "$WORK/wide.json" -o "$WORK/wide.html" >/dev/null
 
 # An unattended run never opens anything.
-expect "refuses an unattended run" 3 unattended -- env CLAUDE_CODE_SESSION_ATTENDED=0 "$PY" -I -B "$B" q "Which?" A B
+expect "refuses an unattended run" 3 unattended -- env CLAUDE_CODE_SESSION_ATTENDED=0 "$PY" -I -B "$MAIN" lem-ask q "Which?" A B
 # Outside agterm it opens nothing unless the browser is asked for: the agent runs lem-ask without checking first.
-expect "exit 3 outside agterm" 3 no-agterm -- "$PY" -I -B "$B" q "Which?" A B
+expect "exit 3 outside agterm" 3 no-agterm -- "$PY" -I -B "$MAIN" lem-ask q "Which?" A B
 
 # {"file": …} blocks carry the file's own lines, numbered, under the path.
 printf 'a\nb\nc\nd\n' > "$WORK/src.py"
 printf '{"prompt": "p", "context": {"code": {"file": "src.py", "lines": "2-3"}}, "options": ["a"]}' > "$WORK/file.json"
-"$PY" -I -B "$B" render "$WORK/file.json" -o "$WORK/file.html" >/dev/null
+"$PY" -I -B "$MAIN" lem-ask render "$WORK/file.json" -o "$WORK/file.html" >/dev/null
 if "$PY" -I -B - "$WORK/file.html" <<'PY'
 import json, re, sys
 html = open(sys.argv[1], encoding="utf-8").read()
@@ -273,6 +275,7 @@ then pass "code from a file"; else fail "code from a file"; fi
 # `q` reads "*Label|subtitle|why".
 if "$PY" -I -B - "$B" <<'PY'
 import argparse, importlib.machinery, importlib.util, sys
+sys.path.insert(0, sys.argv[1].rsplit("/lem/", 1)[0])  # src, the folder of Lem's package, which lem-ask imports from
 loader = importlib.machinery.SourceFileLoader("lem-ask", sys.argv[1])
 mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("lem-ask", loader))
 loader.exec_module(mod)
@@ -293,6 +296,7 @@ stub() {
 }
 STUB=$(cat <<'PY'
 import importlib.machinery, importlib.util, json, os, sys, types
+sys.path.insert(0, sys.argv[1].rsplit("/lem/", 1)[0])  # src, the folder of Lem's package, which lem-ask imports from
 loader = importlib.machinery.SourceFileLoader("lem-ask", sys.argv[1])
 mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("lem-ask", loader))
 loader.exec_module(mod)
@@ -353,7 +357,7 @@ stub "close closes this session's own question page" 0 closed close-own
 stub "close leaves another tool's overlay up" 0 gone close-other
 stub "close leaves up a question other than the one named" 0 gone close-named
 stub "close says so when agterm refuses" 1 error close-refused
-expect "close outside agterm closes nothing" 3 error -- "$PY" -I -B "$B" close
+expect "close outside agterm closes nothing" 3 error -- "$PY" -I -B "$MAIN" lem-ask close
 own=$("$PY" -I -B -c "$STUB" "$B" busy-own 2>/dev/null || true)  # exit 5 is the point; read what it printed
 other=$("$PY" -I -B -c "$STUB" "$B" busy-other 2>/dev/null || true)
 if printf '%s' "$own" | "$PY" -I -B -c 'import json,sys; sys.exit(json.load(sys.stdin).get("pageID") != "P0")' \
@@ -370,6 +374,7 @@ fi
 CARDS=$(cat <<'PY'
 import contextlib, glob, importlib.machinery, importlib.util, io, json, os, subprocess, sys, types
 from pathlib import Path
+sys.path.insert(0, sys.argv[1].rsplit("/lem/", 1)[0])  # src, the folder of Lem's package, which lem-ask imports from
 loader = importlib.machinery.SourceFileLoader("lem-ask", sys.argv[1])
 mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("lem-ask", loader))
 loader.exec_module(mod)
@@ -506,6 +511,7 @@ card "lem-ask close after the board's answer is not taken: the page closes, and 
 # A timed-out wait leaves a glyph that a visit clears.
 GLYPH=$(cat <<'PY'
 import importlib.machinery, importlib.util, json, os, sys, types
+sys.path.insert(0, sys.argv[1].rsplit("/lem/", 1)[0])  # src, the folder of Lem's package, which lem-ask imports from
 loader = importlib.machinery.SourceFileLoader("lem-ask", sys.argv[1])
 mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("lem-ask", loader))
 loader.exec_module(mod)
@@ -560,7 +566,7 @@ check "Stop hook leaves an asking glyph alone" already 'r["posts"] == [] and r["
 check "Stop hook does nothing without a question page" nopage 'r["posts"] == [] and r["looks"] == 1'
 check "a timed-out question leaves a glyph that a visit clears" timeout \
   'r["code"] == 4 and r["posts"][-1][:2] == ["blocked", "--auto-reset"]'
-nohook=$(env -u AGTERM_ENABLED "$PY" -I -B "$B" hook-stop < /dev/null; echo "rc=$?")
+nohook=$(env -u AGTERM_ENABLED "$PY" -I -B "$MAIN" lem-ask hook-stop < /dev/null; echo "rc=$?")
 if [ "$nohook" = "rc=0" ]; then pass "Stop hook is silent and exits 0 outside agterm"; else fail "Stop hook outside agterm: $nohook"; fi
 # The hooks.json command itself, run the way Claude Code runs a command with no args: through a shell.
 HOOKCMD=$("$PY" -I -B -c 'import json,sys; print(json.load(open(sys.argv[1]))["hooks"]["Stop"][0]["hooks"][0]["command"])' skills/lem-ask/hooks/hooks.json)
@@ -859,7 +865,7 @@ PY
   # B and submits, and submits again 800 ms later: the refused page sends twice, the taken one once.
   mkdir -p "$WORK/post"
   printf '%s' '{"prompt": "Keep the empty cell?", "options": [{"id": "a", "label": "yes"}, {"id": "b", "label": "no, write a dash"}], "script": "api.select(\"answer\", \"b\"); api.submit(); setTimeout(() => api.submit(), 800);"}' > "$WORK/post/card.json"
-  "$PY" -I -B "$B" render "$WORK/post/card.json" -o "$WORK/post/card.html" >/dev/null
+  "$PY" -I -B "$MAIN" lem-ask render "$WORK/post/card.json" -o "$WORK/post/card.html" >/dev/null
   POSTED=$(cat <<'PY'
 import http.server, json, re, subprocess, sys, threading
 chrome, page, work = sys.argv[1], open(sys.argv[2], "rb").read(), sys.argv[3]

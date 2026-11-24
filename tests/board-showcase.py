@@ -61,7 +61,9 @@ from pathlib import Path
 from typing import IO, cast
 
 ROOT = Path(__file__).resolve().parent.parent
-SCRIPTS = ROOT / "skills" / "lem" / "scripts"
+# Lem's one entry, which runs the command a name stands for, and the folder of its package
+MAIN = ROOT / "src" / "lem" / "__main__.py"
+SRC = ROOT / "src"
 NOW = datetime.now(UTC).replace(second=0, microsecond=0)
 TODAY = NOW.strftime("%Y-%m-%d")
 WIDTH, HEIGHT = 1440, 900
@@ -156,7 +158,8 @@ class Shop:
         return run(
             sys.executable,
             "-B",
-            str(SCRIPTS / "project.py"),
+            str(MAIN),
+            "project",
             "--repo",
             str(self.repo),
             *args,
@@ -166,7 +169,8 @@ class Shop:
         return run(
             sys.executable,
             "-B",
-            str(SCRIPTS / "criteria.py"),
+            str(MAIN),
+            "criteria",
             "--repo",
             str(self.repo),
             *args,
@@ -258,8 +262,8 @@ class Shop:
         minutes before NOW, from his phone through the tailnet door, MINUTES before NOW:
         its record in the task's folder (lem_answers) and the board's `board.act`, as
         serve.py `act_answer` writes them."""
-        if str(SCRIPTS) not in sys.path:
-            sys.path.insert(0, str(SCRIPTS))
+        if str(SRC) not in sys.path:
+            sys.path.insert(0, str(SRC))
         from lem import (
             answers as lem_answers,  # the record of the owner's answer on the board
         )
@@ -315,14 +319,15 @@ class Shop:
         run(
             sys.executable,
             "-B",
-            str(ROOT / "skills" / "lem-ask" / "bin" / "lem-ask"),
+            str(MAIN),
+            "lem-ask",
             "render",
             str(spec_file),
             "-o",
             str(page_file),
         )
-        if str(SCRIPTS) not in sys.path:
-            sys.path.insert(0, str(SCRIPTS))
+        if str(SRC) not in sys.path:
+            sys.path.insert(0, str(SRC))
         from lem import (
             cards as lem_cards,  # Lem's record of a task's cards, as a task's session keeps it
         )
@@ -343,7 +348,8 @@ class Shop:
         run(
             sys.executable,
             "-B",
-            str(SCRIPTS / "decisions.py"),
+            str(MAIN),
+            "decisions",
             "--repo",
             str(self.repo),
             *args,
@@ -1995,9 +2001,9 @@ def main() -> None:
         (work / "config" / "lem" / "machine.toml").write_text(
             f"[serve]\nport = {port}\n"
         )
-        run(sys.executable, "-B", str(SCRIPTS / "serve.py"), "--add", str(shop.repo))
+        run(sys.executable, "-B", str(MAIN), "serve", "--add", str(shop.repo))
         server = subprocess.Popen(
-            [sys.executable, "-B", str(SCRIPTS / "serve.py")],
+            [sys.executable, "-B", str(MAIN), "serve"],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             env=env,

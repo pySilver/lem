@@ -39,10 +39,10 @@ BETA_HOME=$WORK/beta-config
 # beta's repository is beta's: its task-dir puts it into beta's list of workspaces, never alpha's
 XDG_CONFIG_HOME=$BETA_HOME repo "$WORK/beta/shop" gift-note "Print the gift note on the packing slip, on beta."
 mkdir -p "$WORK/alpha/shop/.lem/state" && git init -q -b main "$WORK/alpha/shop" && commit "$WORK/alpha/shop" init
-"$PY" -B "$SERVE" --add "$WORK/alpha/shop" >/dev/null
+"$PY" -B "$MAIN" serve --add "$WORK/alpha/shop" >/dev/null
 mkdir -p "$BETA_HOME/lem" && printf '[serve]\nport = %s\n' "$BETA_PORT" > "$BETA_HOME/lem/machine.toml"
-XDG_CONFIG_HOME=$BETA_HOME "$PY" -B "$SERVE" --add "$WORK/beta/shop" >/dev/null
-XDG_CONFIG_HOME=$BETA_HOME LEM_SERVE_NAME=beta "$PY" -B "$SERVE" > "$WORK/beta.out" 2>&1 &
+XDG_CONFIG_HOME=$BETA_HOME "$PY" -B "$MAIN" serve --add "$WORK/beta/shop" >/dev/null
+XDG_CONFIG_HOME=$BETA_HOME LEM_SERVE_NAME=beta "$PY" -B "$MAIN" serve > "$WORK/beta.out" 2>&1 &
 BETA_PID=$!
 # gamma: a socket that listens and never accepts, so a connection opens and no answer comes
 "$PY" -I -c 'import socket, sys, time; s = socket.socket(); s.bind(("127.0.0.1", int(sys.argv[1]))); s.listen(8); time.sleep(600)' "$HOLE_PORT" &
@@ -54,9 +54,9 @@ BETA=http://127.0.0.1:$BETA_PORT
 soon curl -fs -o /dev/null "$BETA/api/server"
 
 # The join: it asks the machine once and says what it found; this machine's own name and a word that is no name are refused.
-joined=$("$PY" -B "$SERVE" --join beta)
-own=$("$PY" -B "$SERVE" --join alpha 2>&1 || true)
-bad=$("$PY" -B "$SERVE" --join 'mac mini' 2>&1 || true)
+joined=$("$PY" -B "$MAIN" serve --join beta)
+own=$("$PY" -B "$MAIN" serve --join alpha 2>&1 || true)
+bad=$("$PY" -B "$MAIN" serve --join 'mac mini' 2>&1 || true)
 listed=$(got "$ALPHA/api/workspaces")
 index=$(got "$ALPHA/" | words)
 if [ "$(field '(d["joined"], d["reachable"], d["workspaces"])' <<<"$joined")" = "('beta', True, ['shop'])" ] && grep -qF "this machine's own name" <<<"$own" \
@@ -116,7 +116,7 @@ else
 fi
 
 # A machine that never answers is joined all the same; the list does not wait for it, and a stopped one shows its last answer.
-silent=$("$PY" -B "$SERVE" --join gamma)
+silent=$("$PY" -B "$MAIN" serve --join gamma)
 first=$(seconds "$ALPHA/")
 soon lists '"host": "gamma"'
 then_=$(seconds "$ALPHA/")

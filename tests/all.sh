@@ -73,7 +73,7 @@ for suite in "${suites[@]}"; do
   summary "$suite" "$LOGS/$suite.log" "$code" "$seconds" "$source_file" || failed+=("$suite")
 done
 # what no suite checks alone: the scripts of every suite, run at one time, left no cache
-caches=$(find skills bin tests -name __pycache__ -type d 2>/dev/null)
+caches=$(find src skills bin tests -name __pycache__ -type d 2>/dev/null)
 if [ -n "$caches" ]; then
   printf 'FAIL the scripts left a __pycache__: %s\n' "$caches"
   failed+=(__pycache__)

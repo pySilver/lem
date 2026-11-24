@@ -19,7 +19,6 @@ ended() {
 }
 trap ended EXIT
 
-BOARD=$PWD/skills/lem/scripts/board.py
 # A stand-in for agtermctl, first on the PATH of this block and of its server: it prints the tree of AGT_TREE and records
 # each call in AGT_CALLS.
 FAKE=$WORK/fake
@@ -30,7 +29,7 @@ chmod +x "$FAKE/agtermctl"
 export PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree.json"
 DEMO=$("$PY" -B tests/board-showcase.py --demo "$WORK/demo" | field 'd["repo"]')
 STATE=$DEMO/.lem/state
-"$PY" -B "$SERVE" --add "$DEMO" >/dev/null
+"$PY" -B "$MAIN" serve --add "$DEMO" >/dev/null
 serve_up
 SERVER=http://127.0.0.1:$SERVE_PORT
 HOST=$(curl -fsS "$SERVER/api/server" | field 'd["host"]')
@@ -372,9 +371,9 @@ fi
 # The switcher names a workspace whole, however long its name, and the machine under it only when there are two.
 LONG=$WORK/a-repository-whose-name-is-longer-than-the-sidebar-is-wide
 git init -q -b main "$LONG" && commit "$LONG" init && project --repo "$LONG" init --base main >/dev/null && mkdir -p "$LONG/.lem/state"
-"$PY" -B "$SERVE" --add "$LONG" >/dev/null
+"$PY" -B "$MAIN" serve --add "$LONG" >/dev/null
 switcher=$(got "$SERVER/$HOST/a-repository-whose-name-is-longer-than-the-sidebar-is-wide/")
-"$PY" -B "$SERVE" --remove "$LONG" >/dev/null
+"$PY" -B "$MAIN" serve --remove "$LONG" >/dev/null
 if grep -qF '<span class="ws-label"><span class="ws-name">a-repository-whose-name-is-longer-than-the-sidebar-is-wide</span></span>' <<<"$switcher" \
   && grep -qF '<span class="ws-n">shop</span>' <<<"$switcher" && ! grep -qF 'ws-host' <<<"$switcher"; then
   pass "the switcher names the workspace whole, however long its name, and with one machine names no machine"
@@ -392,7 +391,7 @@ project --repo "$ORD" state gift-note-in-export building "lead: builder" >/dev/n
 project --repo "$ORD" task-dir export-notes-in-order --ask "After gift-note-in-export: the export keeps the notes in their order." >/dev/null
 project --repo "$ORD" state export-notes-in-order queued "the owner's order: \"After gift-note-in-export\"" "after: gift-note-in-export" "type: feat, because a new order" "then: the interview" >/dev/null
 project --repo "$ORD" state gift-note-in-export dropped "the owner dropped it" >/dev/null
-"$PY" -B "$SERVE" --add "$ORD" >/dev/null
+"$PY" -B "$MAIN" serve --add "$ORD" >/dev/null
 OB=$SERVER/$HOST/orders
 order_page=$(got "$OB/waits")
 order_said=$(words <<<"$order_page")
@@ -401,7 +400,7 @@ order_rows=$("$PY" -c 'import re, sys; print(re.findall(r"<article class=\"wrow 
 order_list=$(project --repo "$ORD" waiting | field '([r["key"].replace(":", "-") for r in d["rows"]], [(t["task"], t["after"]) for t in d["after_dropped"]], d["count"])')
 project --repo "$ORD" state export-notes-in-order dropped "the owner dropped it: /lem drop export-notes-in-order" >/dev/null
 order_after=$(got "$OB/waits" | "$PY" -c 'import re, sys; print(re.findall(r"<article class=\"wrow [^\"]*\" id=\"wait-([a-z0-9_-]+)\"", sys.stdin.read()))')
-"$PY" -B "$SERVE" --remove "$ORD" >/dev/null
+"$PY" -B "$MAIN" serve --remove "$ORD" >/dev/null
 if [ "$order_rows" = "['after_dropped-export-notes-in-order']" ] && [ "$order_list" = "(['after_dropped-export-notes-in-order'], [('export-notes-in-order', 'gift-note-in-export')], 1)" ] \
   && grep -qF "gift-note-in-export was dropped: your word starts or ends this task" <<<"$order_said" \
   && grep -qF "Where you answer: It waited for gift-note-in-export, which was dropped, so the result it waited for never came. Type " <<<"$order_said" \
@@ -533,7 +532,7 @@ tapped_checks() {
       {"click": "#card-refund-line-on-receipt .tc-link", "tap": True, "after": 2500},
       {"sh": f"{py} -B {project} --repo {demo} owner away --words away >/dev/null && {py} -B {project} --repo {demo} state cart-total-after-coupon building \"an investigator reproduces the bug and finds its cause\" \"investigation: bug\" >/dev/null", "after": 5000},
       {"print": "JSON.stringify([document.querySelector(\".m-waits span\")?.textContent ?? \"none\", document.querySelector(\".side-head em\")?.textContent ?? \"none\"])"}]}))' \
-    "$BASE" "$PROJECT" "$DEMO" "$PY" > "$WORK/tap.json"
+    "$BASE" "$MAIN project" "$DEMO" "$PY" > "$WORK/tap.json"
   node tests/board-cdp.mjs "$WORK/tap.json" > "$WORK/tap.out" 2>&1 || true
   inbox_after=$(inbox)
   project --repo "$DEMO" owner back --words "/lem im-back" >/dev/null
@@ -556,11 +555,11 @@ tapped_checks() {
 merge_checks() {
   printf '%s\n' 'import json, sys, urllib.request' 'print("count", json.load(urllib.request.urlopen(sys.argv[1]))[0]["waits"])' > "$WORK/count.py"
   for end in refused merged; do
-    "$PY" -c 'import json, shlex, sys; base, server, project, demo, py, work, end = sys.argv[1:]
-log = [py, "-B", project, "--repo", demo, "log", "refund-line-on-receipt"]
+    "$PY" -c 'import json, shlex, sys; base, server, main, demo, py, work, end = sys.argv[1:]
+log = [py, "-B", main, "project", "--repo", demo, "log", "refund-line-on-receipt"]
 events = [log + ["merge.start", "by=owner", "via=server"], {
   "refused": log + ["merge.refused", "by=owner", "via=server", "from=lem", "kind=base", "said=origin/main moved after the checks ran, by files (shop/receipt.py)", "tip=e269cde1d"],
-  "merged": [py, "-B", project, "--repo", demo, "state", "refund-line-on-receipt", "landed", "main: pull request https://github.com/acme/shop/pull/44 is merged"]}[end]]
+  "merged": [py, "-B", main, "project", "--repo", demo, "state", "refund-line-on-receipt", "landed", "main: pull request https://github.com/acme/shop/pull/44 is merged"]}[end]]
 count = shlex.join([py, "-I", work + "/count.py", server + "/api/workspaces"])
 pair = "[document.querySelector(\".m-waits span\")?.textContent ?? \"none\", document.querySelector(\".side-head em\")?.textContent ?? \"none\"]"
 print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": [
@@ -570,7 +569,7 @@ print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": [
   {"sh": " && ".join([count] + [shlex.join(e) + " >/dev/null" for e in events]), "after": 5000},
   {"sh": count},
   {"print": "JSON.stringify(window.lemPairs)"}]}))' \
-      "$BASE" "$SERVER" "$PROJECT" "$DEMO" "$PY" "$WORK" "$end" > "$WORK/merge-$end.json"
+      "$BASE" "$SERVER" "$MAIN" "$DEMO" "$PY" "$WORK" "$end" > "$WORK/merge-$end.json"
     node tests/board-cdp.mjs "$WORK/merge-$end.json" > "$WORK/merge-$end.out" 2>&1 || true
     if [ "$end" = refused ]; then
       project --repo "$DEMO" log refund-line-on-receipt proposed "green:=false" 'not_green:=["the owner did not approve the criteria"]' tip=7a51c0d >/dev/null
@@ -654,7 +653,7 @@ print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": [
   {"print": until(f"{live} === \"reconnecting\"", 32000)},
   {"sh": f"kill -CONT {relay_pid}"},
   {"print": until(f"{pair}[0] !== {json.dumps(before)}", 20000)}]}))' \
-    "$relayed" "$PROJECT" "$DEMO" "$PY" "$RELAY_PID" "$inbox_before" > "$WORK/relay.json"
+    "$relayed" "$MAIN project" "$DEMO" "$PY" "$RELAY_PID" "$inbox_before" > "$WORK/relay.json"
   node tests/board-cdp.mjs "$WORK/relay.json" > "$WORK/relay.out" 2>&1 || true
   inbox_after=$(inbox)
   project --repo "$DEMO" owner back --words "/lem im-back" >/dev/null
@@ -693,7 +692,7 @@ fi
 printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [{"id": "LEM", "foreground": ["/usr/local/bin/claude"]}, {"id": "OTHER"},' \
   '{"id": "PX", "content": "page", "parent": "LEM", "htmlOverlays": [{"url": "http://127.0.0.1:1/elsewhere/shop/", "page": "http://127.0.0.1:1/elsewhere/shop/"}]},' \
   "{\"id\": \"PA\", \"name\": \"Lem board\", \"content\": \"page\", \"parent\": \"LEM\", \"htmlOverlays\": [{\"url\": \"$BASE/\", \"page\": \"$BASE/backlog\"}]}]}]}}}" > "$WORK/tree.json"
-opened() { : > "$AGT_CALLS"; env -u AGTERM_WINDOW_ID -u AGT_WINDOW_ID -u AGT_SESSION_ID -u AGT_SOCKET AGTERM_SESSION_ID="$1" AGTERM_SOCKET="$WORK/agterm.sock" "$PY" -B "$BOARD" --repo "$DEMO" "${@:2}"; }
+opened() { : > "$AGT_CALLS"; env -u AGTERM_WINDOW_ID -u AGT_WINDOW_ID -u AGT_SESSION_ID -u AGT_SOCKET AGTERM_SESSION_ID="$1" AGTERM_SOCKET="$WORK/agterm.sock" "$PY" -B "$MAIN" board --repo "$DEMO" "${@:2}"; }
 kept=$(opened LEM)
 kept_calls=$(cat "$AGT_CALLS")
 fresh=$(opened OTHER --task stock-on-product-page --follow)
@@ -809,14 +808,14 @@ fi
 
 # The start on demand: the foreground server ends with --stop; --ensure twice makes one server, which keeps its pid and
 # port in Lem's home folder for bin/lem's look, and --stop ends it and its file.
-stopped_fg=$("$PY" -B "$SERVE" --stop)
+stopped_fg=$("$PY" -B "$MAIN" serve --stop)
 wait "$SERVE_PID" 2>/dev/null || true
 SERVE_PID=""
-first=$(env -u LEM_SERVE "$PY" -B "$SERVE" --ensure)
+first=$(env -u LEM_SERVE "$PY" -B "$MAIN" serve --ensure)
 SERVE_PID=$(field 'd["pid"]' <<<"$first")
-second=$(env -u LEM_SERVE "$PY" -B "$SERVE" --ensure)
+second=$(env -u LEM_SERVE "$PY" -B "$MAIN" serve --ensure)
 pid_kept=$(cat "$XDG_CONFIG_HOME/lem/serve.pid" 2>/dev/null || true)
-ended=$("$PY" -B "$SERVE" --stop)
+ended=$("$PY" -B "$MAIN" serve --stop)
 soon test ! -e "$XDG_CONFIG_HOME/lem/serve.pid"
 gone=$(code "$SERVER/api/server")
 SERVE_PID=""

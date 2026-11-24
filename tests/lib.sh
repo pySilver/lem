@@ -9,10 +9,8 @@ set -eEuo pipefail
 # -P: the folder as it is on disk, the way readlink and git name it: a checkout under /tmp is
 # under /private/tmp on macOS.
 cd -P "$(dirname "${BASH_SOURCE[0]}")/.."
-PROJECT=$PWD/skills/lem/scripts/project.py
-CRITERIA=$PWD/skills/lem/scripts/criteria.py
-DECISIONS=$PWD/skills/lem/scripts/decisions.py
-LAND=$PWD/skills/lem/scripts/land.py
+# Lem's one entry: `"$PY" -B "$MAIN" NAME ARGS...` is `lem NAME ARGS...` with no look at the board server
+MAIN=$PWD/src/lem/__main__.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
 export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
 export LEM_SERVE=off  # a board that a check opens starts no board server (`serve.py`), which would outlive the run
@@ -34,11 +32,10 @@ PY=$(python3 -I -c 'import sys; print(sys.executable)')
 # would start their checks a minute apart, and a loaded machine would hold every one.
 SERVE_PORT=$("$PY" -I -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')
 mkdir -p "$XDG_CONFIG_HOME/lem" && printf '[load]\nstart = 0\n[serve]\nport = %s\n' "$SERVE_PORT" > "$XDG_CONFIG_HOME/lem/machine.toml"
-SERVE=$PWD/skills/lem/scripts/serve.py
 # serve_up: the board server of this run, in the foreground of a background job, with its output in $WORK/serve.out;
 # it answers before this returns, and the run's exit stops it
 serve_up() {
-  "$PY" -B "$SERVE" > "$WORK/serve.out" 2>&1 &
+  "$PY" -B "$MAIN" serve > "$WORK/serve.out" 2>&1 &
   SERVE_PID=$!
   soon curl -fs -o /dev/null "http://127.0.0.1:$SERVE_PORT/api/server"
 }
@@ -245,7 +242,7 @@ STANDIN
   } > "$1/agtermctl"
   chmod +x "$1/agtermctl"
 }
-project() { "$PY" -B "$PROJECT" "$@"; }
+project() { "$PY" -B "$MAIN" project "$@"; }
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 field() { "$PY" -c 'import json, sys; d = json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1"; }
 # log_version LOG [ADD]: the version of an event log as the board's stream names it (lem_board_model.log_version), its inode
@@ -284,7 +281,7 @@ soon() {
 }
 
 # The landing's helpers, for every block that takes a task through land.py.
-land() { "$PY" -B "$LAND" "$@"; }
+land() { "$PY" -B "$MAIN" land "$@"; }
 ident() { git -C "$1" config user.name t; git -C "$1" config user.email t@t; }
 # plan_in TREE SLUG TEST: the task's plan, a full change's, with one criterion that TEST holds; TEST is `no test: REASON` for a criterion with none
 plan_in() {
@@ -312,7 +309,7 @@ small_task_in() {
   local tree directory
   directory=$(project --repo "$1" task-dir "$2" --ask "Put $4 into $3.")
   printf '%s\n' '## Acceptance criteria' '' 'Size: small, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$directory/criteria.md"
-  "$PY" -B "$CRITERIA" --repo "$1" approve "$2" --file "$directory/criteria.md" --small >/dev/null
+  "$PY" -B "$MAIN" criteria --repo "$1" approve "$2" --file "$directory/criteria.md" --small >/dev/null
   printf '%s\n' "   - test: \`sh tests/$2.sh\` in \`tests/$2.sh\`" >> "$directory/criteria.md"
   tree=$(project --repo "$1" worktree-dir "$2")
   git -C "$1" worktree add -q "$tree" -b "fix/$2" main
@@ -324,7 +321,7 @@ small_task_in() {
 # model family, nobody confused. A full change is not proposed without one.
 read_in() {
   local digest
-  digest=$("$PY" -B "$CRITERIA" --repo "$1" digest "$2" | field 'd["digest"]')
+  digest=$("$PY" -B "$MAIN" criteria --repo "$1" digest "$2" | field 'd["digest"]')
   project --repo "$1" log "$2" criteria.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
 }
 # polish_in REPO SLUG: the polish pass of a full change's landing, which here changes nothing; none when this landing's pass is done already

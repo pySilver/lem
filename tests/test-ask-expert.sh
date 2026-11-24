@@ -5,8 +5,8 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-PROJECT=$PWD/skills/lem/scripts/project.py
-EXPERTS=$PWD/skills/lem-ask-expert/scripts/experts.py
+# Lem's one entry: `"$PY" -B "$MAIN" NAME ARGS...` is `lem NAME ARGS...`
+MAIN=$PWD/src/lem/__main__.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
 export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
 trap 'rm -rf "$WORK"' EXIT
@@ -23,7 +23,7 @@ NOCODEX=$WORK/nocodex
 fails=0
 pass() { printf 'ok   %s\n' "$1"; }
 fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
-project() { "$PY" -B "$PROJECT" "$@"; }
+project() { "$PY" -B "$MAIN" project "$@"; }
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 field() { "$PY" -c 'import json, sys; d = json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1"; }
 
@@ -37,10 +37,10 @@ printf '%s\n' '---' 'seats: ["claude/opus:high"]' '---' '# A merchant who sells 
 printf '%s\n' '# The accountant of the shop' '' '## Who they are' '' 'Imports the export into the books each Monday.' > "$EX/.lem/personas/accountant.md"
 printf '%s\n' '# A gift shop' '' 'One merchant, a few hundred orders a week.' > "$EX/.lem/profile.md"
 git -C "$EX" add -A && git -C "$EX" commit -q -m "chore: the settings"
-experts() { "$PY" -B "$EXPERTS" --repo "$EX" "$@"; }
+experts() { "$PY" -B "$MAIN" experts --repo "$EX" "$@"; }
 
 # Without Codex on the machine the one expert that can answer answers alone: a question in words has one expert.
-alone_brief=$(env PATH="$NOCODEX" "$PY" -B "$EXPERTS" --repo "$EX" brief --question "Which font for the note?" || true)
+alone_brief=$(env PATH="$NOCODEX" "$PY" -B "$MAIN" experts --repo "$EX" brief --question "Which font for the note?" || true)
 alone_names=$(field '[e["name"] for e in d["experts"]]' <<<"$alone_brief" || true)
 alone_file=$(field 'd["brief"]' <<<"$alone_brief" || true)
 if [ "$alone_names" = "['fable']" ] && grep -qF "The owner asks one expert this question" "$alone_file"; then
@@ -97,7 +97,7 @@ done
 NOCAST=$WORK/no-cast
 git init -q -b main "$NOCAST" && git -C "$NOCAST" config user.name t && git -C "$NOCAST" config user.email t@t
 project --repo "$NOCAST" init --base main >/dev/null && git -C "$NOCAST" add -A && git -C "$NOCAST" commit -q -m start
-nocast=$("$PY" -B "$EXPERTS" --repo "$NOCAST" brief --question "Which store?" 2>&1 || true)
+nocast=$("$PY" -B "$MAIN" experts --repo "$NOCAST" brief --question "Which store?" 2>&1 || true)
 if [ "$people" = yes ] && grep -qF "the brief says who the code is for, from the project's personas, and \`lem cast\` says: this project has no personas" <<<"$nocast" \
   && [ -z "$(ls "$NOCAST/.lem/state/experts" 2>/dev/null)" ]; then
   pass "a brief names the profile and each persona by its path, heading and who they are, without its seats, and tells the experts to weigh the options by these people; a project with no personas gets no brief"
@@ -169,7 +169,7 @@ rm "$EX/.lem/settings.local.toml"
 nomodelq=$(experts brief --question "Which store, by no model?" --seat claude --seat codex:xhigh | field '[e["name"] for e in d["experts"]]' || true)
 cp "$WORK/settings.toml" "$EX/.lem/settings.toml"
 settings_committed
-places=$("$PY" -B -c 'import sys; sys.path.insert(0, sys.argv[1]); sys.path.insert(0, sys.argv[2]); import experts, project; print(experts.PLACES == project.EXPERT_PLACES, project.EXPERT_PLACES)' "$PWD/skills/lem/scripts" "$(dirname "$EXPERTS")")
+places=$("$PY" -B -c 'import sys; sys.path.insert(0, sys.argv[1]); from lem import experts, project; print(experts.PLACES == project.EXPERT_PLACES, project.EXPERT_PLACES)' "$PWD/src")
 if [ "$tracked" = "[('opus', 'claude', 'opus', 'high', 'fable'), ('sol', 'codex', 'gpt-6.1-sol', 'xhigh', 'astra')]" ] \
   && [ "$machineq" = "['sonnet', 'astra']" ] && [ "$nomodelq" = "['fable', 'astra']" ] && [ "$places" = "True ('fable', 'astra')" ]; then
   pass "the experts are the settings' seats.experts, the project's or this machine's, each with its agent, model and effort, named by its model, and a --seat with no model by its place"
@@ -178,7 +178,7 @@ else
 fi
 
 
-if [ -d "$PWD/skills/lem/scripts/__pycache__" ] || [ -d "$(dirname "$EXPERTS")/__pycache__" ]; then fail "experts.py left a __pycache__"; else pass "experts.py left no __pycache__, also of the scripts it imports"; fi
+if [ -d "$PWD/src/lem/__pycache__" ]; then fail "experts.py left a __pycache__"; else pass "experts.py left no __pycache__, also of the scripts it imports"; fi
 
 if [ "$fails" -gt 0 ]; then
   echo "$fails failed"

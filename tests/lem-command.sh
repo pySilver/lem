@@ -13,17 +13,20 @@ LEM=$PWD/bin/lem
 listed=$("$LEM" help | "$PY" -c 'import sys; print(" ".join(line.split()[0] for line in sys.stdin.read().splitlines()[1:] if line.startswith("  ")))')
 names=${listed% version help}
 
-# A copy of the plugin's folder whose every script is a stand-in that says what it got: its
-# arguments, its stdin, whether Python writes bytecode, and a line on stderr; it exits 7.
+# The table of names, src/lem/names.py, which bin/lem and the entry read.
+NAMES=$PWD/src/lem/names.py
+# A copy of the plugin's folder with bin/lem, the entry and the table of names, whose every module of
+# a name is a stand-in that says what it got: its arguments, its stdin, whether Python writes
+# bytecode, and a line on stderr; it exits 7.
 FAKE=$WORK/plugin
-mkdir -p "$FAKE/bin" && cp "$LEM" "$FAKE/bin/lem"
-"$PY" -I - "$LEM" "$FAKE" <<'PY'
+mkdir -p "$FAKE/bin" "$FAKE/src/lem" && cp "$LEM" "$FAKE/bin/lem"
+cp "$PWD/src/lem/__init__.py" "$PWD/src/lem/__main__.py" "$NAMES" "$FAKE/src/lem/"
+"$PY" -I - "$NAMES" "$FAKE" <<'PY'
 import runpy, sys
 from pathlib import Path
 commands = runpy.run_path(sys.argv[1])["COMMANDS"]
-for name, (path, _) in commands.items():
-    target = Path(sys.argv[2]) / path
-    target.parent.mkdir(parents=True, exist_ok=True)
+for name, (module, _) in commands.items():
+    target = Path(sys.argv[2]) / "src" / "lem" / f"{module}.py"
     target.write_text("import sys\nprint('|'.join(sys.argv[1:]) + '|', 'stdin=' + sys.stdin.read().strip(), 'bytecode=' + str(sys.flags.dont_write_bytecode), '" + name + "')\n"
                       "print('err " + name + "', file=sys.stderr)\nsys.exit(7)\n")
 PY
@@ -42,7 +45,7 @@ for name in $names; do
   [ "$routed" = yes ] || break
 done
 # every name of the table, so that a help that lists fewer does not pass on the names it kept
-count=$("$PY" -I -c 'import runpy, sys; print(len(runpy.run_path(sys.argv[1])["COMMANDS"]))' "$LEM")
+count=$("$PY" -I -c 'import runpy, sys; print(len(runpy.run_path(sys.argv[1])["COMMANDS"]))' "$NAMES")
 if [ "$routed" = yes ] && [ -n "$names" ] && [ "$(wc -w <<<"$names" | tr -d ' ')" = "$count" ]; then
   pass "each name of lem ($(wc -w <<<"$names" | tr -d ' ')) runs its own script with the arguments as they came, a space and a quote in them, its stdin, its stdout and stderr apart, and its exit status, and Python with -B"
 else
@@ -53,7 +56,7 @@ fi
 # lem; cast takes no --help (it reads this checkout's settings first)
 real=yes
 for name in $names; do
-  file=$("$PY" -I -c 'import runpy, sys; print(runpy.run_path(sys.argv[1])["COMMANDS"][sys.argv[2]][0])' "$LEM" "$name")
+  file=src/lem/$("$PY" -I -c 'import runpy, sys; print(runpy.run_path(sys.argv[1])["COMMANDS"][sys.argv[2]][0])' "$NAMES" "$name").py
   [ -f "$PWD/$file" ] || { real="no: $name names $file"; break; }
   case "$name" in
     cast) ;;
@@ -109,7 +112,7 @@ fi
 
 # no bytecode: the real scripts, through lem, the ones that import their siblings among them
 for name in project land criteria decisions experts cast issue board picker session; do "$LEM" "$name" --help >/dev/null 2>&1 || true; done
-caches=$(find skills bin -name __pycache__ -type d)
+caches=$(find src skills bin -name __pycache__ -type d)
 if [ -z "$caches" ]; then pass "lem leaves no __pycache__, also of the scripts that import their siblings"; else fail "lem left a __pycache__: $caches"; fi
 
 # No text of Lem tells anyone to run a script of Lem's by its path or by its file's name: each says
@@ -125,7 +128,7 @@ path_form = re.compile(r"(?:python3|bash)\s+\S*scripts/[\w-]+\.(?:py|sh)")
 # `land.py merged SLUG`, `project.py --repo W tasks`, also across a line break
 short_form = re.compile(rf"`(?:{names})\.py\s+[-a-z\[]")
 found = []
-for path in sorted(root.glob("skills/**/*")) + sorted(root.glob("agents/**/*")):
+for path in sorted(root.glob("skills/**/*")) + sorted(root.glob("agents/**/*")) + sorted(root.glob("src/**/*")):
     if not path.is_file() or path.suffix not in (".md", ".html", ".json", ".py", ""):
         continue
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
@@ -182,40 +185,48 @@ else
 $compound"
 fi
 
-# land.py, criteria.py and decisions.py run a sibling's command in their own process (lem_sibling.py): for each way
-# a script can end, the result is the one a process of its own gives, and a command of APART is such a process.
-mkdir -p "$WORK/siblings"
-"$PY" -I -B - "$PWD/skills/lem/scripts" "$WORK/siblings" > "$WORK/siblings.out" <<'PY' || true
-import subprocess, sys
+# land.py, criteria.py and decisions.py run a sibling's command in their own process (sibling.py): for each way
+# a module can end, the result is the one a process of its own gives, and a command of APART is such a process. The
+# ends are modules of a copy of the package, each a name of its table, and a process of one runs through the copy's entry.
+mkdir -p "$WORK/siblings/src"
+cp -R "$PWD/src/lem" "$WORK/siblings/src/lem"
+"$PY" -I -B - "$WORK/siblings/src" "$WORK/siblings" > "$WORK/siblings.out" <<'PY' || true
+import importlib, subprocess, sys
 from pathlib import Path
 sys.dont_write_bytecode = True
 sys.path.insert(0, sys.argv[1])
-import lem_sibling
 work = Path(sys.argv[2])
+package = Path(sys.argv[1]) / "lem"
 ends = {
     "text": 'print("out")\n    sys.exit("text.py: refused")', "number": 'print("out")\n    sys.exit(3)', "wrapped": "sys.exit(-1)",
     "none": 'print("out", argv)\n    print("said", file=sys.stderr)\n    sys.exit()', "plain": 'print("out")',
     "crash": 'print("half")\n    {}["x"]', "pid": 'import os\n    print(os.getpid())',
 }
+with open(package / "names.py", "a") as table:
+    table.write(f"COMMANDS.update({{name: (name, 'an end of a test') for name in {[*ends, 'stand']!r}}})\n")
+from lem import sibling as lem_sibling
+# the copy's modules of the test's names, which `loaded` does not name
+lem_sibling.loaded = lambda name: importlib.import_module(f"lem.{name}")
+main = str(package / "__main__.py")
 wrong = []
 for name, body in ends.items():
-    (work / f"{name}.py").write_text(f"import sys\ndef main(argv=None):\n    {body}\nif __name__ == '__main__':\n    main(sys.argv[1:])\n")
-    got = lem_sibling.run(work / f"{name}.py", work, name, "--flag")
-    real = subprocess.run([sys.executable, "-B", str(work / f"{name}.py"), "--repo", str(work), name, "--flag"], capture_output=True, text=True)
+    (package / f"{name}.py").write_text(f"import sys\ndef main(argv=None):\n    {body}\nif __name__ == '__main__':\n    main(sys.argv[1:])\n")
+    got = lem_sibling.run(name, work, name, "--flag")
+    real = subprocess.run([sys.executable, "-B", main, name, "--repo", str(work), name, "--flag"], capture_output=True, text=True)
     if name == "pid":
         # this process runs it, and a command of APART (as criteria.py red is) runs in another
-        lem_sibling.APART[("pid.py", "apart")] = "a process of its own"
-        got, real = got.stdout.strip(), lem_sibling.run(work / "pid.py", work, "apart").stdout.strip()
+        lem_sibling.APART[("pid", "apart")] = "a process of its own"
+        got, real = got.stdout.strip(), lem_sibling.run("pid", work, "apart").stdout.strip()
         if got != str(__import__("os").getpid()) or real in ("", got):
             wrong.append(f"pid: {got} in this process, {real} for a command of APART")
         continue
     last = [(ran.returncode, ran.stdout, ran.stderr.strip().splitlines()[-1:] if name == "crash" else ran.stderr) for ran in (got, real)]
     if last[0] != last[1] or (name == "crash" and not got.stderr.startswith("Traceback")):
         wrong.append(f"{name}: {last[0]!r} in this process, {last[1]!r} as a process")
-# a file in a sibling's place with no main(argv) of its own, such as a stand-in that reads sys.argv, is run as a process
-(work / "stand.py").write_text('import sys\nprint(sys.argv[1:])\nsys.exit("stand.py: refused" if "landed" in sys.argv else 0)\n')
+# a module in a sibling's place with no main(argv) of its own, such as a stand-in that reads sys.argv, is run as a process
+(package / "stand.py").write_text('import sys\nprint(sys.argv[1:])\nsys.exit("stand.py: refused" if "landed" in sys.argv else 0)\n')
 for args in (("state", "x", "landed"), ("tasks",)):
-    got, real = lem_sibling.run(work / "stand.py", work, *args), subprocess.run([sys.executable, "-B", str(work / "stand.py"), "--repo", str(work), *args], capture_output=True, text=True)
+    got, real = lem_sibling.run("stand", work, *args), subprocess.run([sys.executable, "-B", main, "stand", "--repo", str(work), *args], capture_output=True, text=True)
     if (got.returncode, got.stdout, got.stderr) != (real.returncode, real.stdout, real.stderr):
         wrong.append(f"stand-in {args}: {(got.returncode, got.stdout, got.stderr)!r}, as a process {(real.returncode, real.stdout, real.stderr)!r}")
 print("; ".join(wrong) or "same")

@@ -76,7 +76,7 @@ project --repo "$DOCS" init --base main >/dev/null 2>&1
 project --repo "$DOCS" task-dir note-in-readme --ask "Put a note into the README." >/dev/null
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the README gets a section.' '' '1. The README holds the note the owner asked for.' > "$DOCS/.lem/state/tasks/note-in-readme/criteria.md"
 project --repo "$DOCS" state note-in-readme held "the criteria wait for the owner" >/dev/null
-"$PY" -B "$SERVE" --add "$DEMO" >/dev/null && "$PY" -B "$SERVE" --add "$SHOP" >/dev/null && "$PY" -B "$SERVE" --add "$DOCS" >/dev/null
+"$PY" -B "$MAIN" serve --add "$DEMO" >/dev/null && "$PY" -B "$MAIN" serve --add "$SHOP" >/dev/null && "$PY" -B "$MAIN" serve --add "$DOCS" >/dev/null
 # GitHub that answers slowly: the server's `gh` holds a `pr merge` while the file HOLD is there, and writes HOLD.held
 # when it starts to hold; a call while HOLD is not there goes to the stand-in at once. Each check that holds removes
 # the HOLD.held of the one before, so that only a hold of its own merge counts.
@@ -143,7 +143,7 @@ noted_act=$(grep '"event": "board.act", "task": "stock-on-product-page"' "$STATE
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the product page gets a new line.' '' \
   '1. A product with 3 in stock says "3 left" under its price, and one with 1 in stock says "Only 1 left" in the warning color: the blue mug, with 1 in stock, says "Only 1 left".' \
   '2. A product with none in stock says "Sold out", its size and no number: the red mug in size L, with none in stock, says "Sold out · L".' > "$WORK/stock-change.md"
-"$PY" -B "$CRITERIA" --repo "$DEMO" change stock-on-product-page --file "$WORK/stock-change.md" --words "$SNOTE" >/dev/null
+"$PY" -B "$MAIN" criteria --repo "$DEMO" change stock-on-product-page --file "$WORK/stock-change.md" --words "$SNOTE" >/dev/null
 again=$(curl -fsS "$S/criteria")
 skey2=$(grep -o 'name="key" value="criterion:stock-on-product-page:[0-9TZ]*"' <<<"$again" | head -1 | sed 's/.*value="//; s/"$//')
 again_words=$(words <<<"$again")
@@ -201,8 +201,8 @@ fi
 DOOR_PORT=$("$PY" -I -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')
 "$PY" -B -c '
 import sys
-sys.path.insert(0, "skills/lem/scripts")
-import serve, lem_peers
+sys.path.insert(0, "src")
+from lem import serve, peers as lem_peers
 serve.Handler.machine = serve.Machine()
 serve.Handler.peers = lem_peers.Peers(lambda: {})
 door = serve.Door("/nonexistent/tailscale", "mac.tail0000.ts.net", int(sys.argv[1]), "owner@example.com")
@@ -485,14 +485,14 @@ AGT=$WORK/agt
 agterm_standin "$AGT/bin"
 printf '%s\n' '[{"id": "S-HIS", "name": "notes", "workspace": "W-1", "foreground": ["claude"]}]' > "$AGT/tree.json"
 agt() { env -u AGTERM_SOCKET -u AGTERM_WINDOW_ID CALLS="$AGT/calls" TREE="$AGT/tree.json" PATH="$AGT/bin:$PATH" "$@"; }
-agt AGTERM_SESSION_ID=S-HIS "$PY" -B skills/lem/scripts/session.py --repo "$DUTY" open first-word --why new >/dev/null
+agt AGTERM_SESSION_ID=S-HIS "$PY" -B src/lem/__main__.py session --repo "$DUTY" open first-word --why new >/dev/null
 # GitHub merges the first pull request, and calls the second one conflicting
 (cd "$DUTY" && gh pr merge 1 --squash --match-head-commit "$(git -C "$DUTY.origin.git" rev-parse refs/heads/fix/first-word)" --subject "fix: first-word" >/dev/null)
 "$PY" -c 'import json, sys; f = sys.argv[1]; d = json.load(open(f)); d["prs"]["2"]["mergeable"] = "CONFLICTING"; json.dump(d, open(f, "w"))' "$DUTY.origin.git.gh.json"
 looked=$(agt AGTERM_SESSION_ID=S-HIS AGTERM_WINDOW_ID=W-HIS LEM_SESSION_SCRIPT= "$PY" -B -c '
 import json, sys
-sys.path.insert(0, "skills/lem/scripts")
-import serve
+sys.path.insert(0, "src")
+from lem import serve
 serve.detach_from_session()
 w = serve.Workspace("duty-shop", sys.argv[1])
 forge = serve.forge_once(w)
@@ -525,15 +525,15 @@ land --repo "$CLOSE" start word-not-wanted >/dev/null && land --repo "$CLOSE" ba
 land --repo "$CLOSE" checks word-not-wanted >/dev/null && land --repo "$CLOSE" read word-not-wanted --record "$(clean word-not-wanted 1)" >/dev/null
 land --repo "$CLOSE" propose word-not-wanted --title "fix: word-not-wanted" --notes "$NOTES" >/dev/null
 printf '%s\n' '[{"id": "S-HIS", "name": "notes", "workspace": "W-1", "foreground": ["claude"]}]' > "$AGT/tree.json"
-agt AGTERM_SESSION_ID=S-HIS "$PY" -B skills/lem/scripts/session.py --repo "$CLOSE" open word-not-wanted --why new >/dev/null
+agt AGTERM_SESSION_ID=S-HIS "$PY" -B src/lem/__main__.py session --repo "$CLOSE" open word-not-wanted --why new >/dev/null
 # its session is gone (agterm's tree holds the owner's session alone), and GitHub closes the pull request with no merge
 printf '%s\n' '[{"id": "S-HIS", "name": "notes", "workspace": "W-1", "foreground": ["claude"]}]' > "$AGT/tree.json"
 : > "$AGT/calls"
 "$PY" -c 'import json, sys; f = sys.argv[1]; d = json.load(open(f)); d["prs"]["1"]["state"] = "CLOSED"; json.dump(d, open(f, "w"))' "$CLOSE.origin.git.gh.json"
 closed=$(agt LEM_SESSION_SCRIPT= "$PY" -B -c '
 import json, sys
-sys.path.insert(0, "skills/lem/scripts")
-import serve
+sys.path.insert(0, "src")
+from lem import serve
 serve.detach_from_session()
 w = serve.Workspace("close-shop", sys.argv[1])
 forge = serve.forge_once(w)
@@ -568,11 +568,11 @@ land --repo "$AUTO" checks word-by-agent >/dev/null && land --repo "$AUTO" read 
 land --repo "$AUTO" propose word-by-agent --title "fix: the word by the agent" --notes "$NOTES" >/dev/null
 reviewed=$(merge_read "$AUTO" word-by-agent | field '(d["calls"], d["next"].startswith("the board'"'"'s server merges it"))')
 : > "$AGT/calls"
-agt AGTERM_SESSION_ID=S-HIS "$PY" -B skills/lem/scripts/session.py --repo "$AUTO" open word-by-agent --why new >/dev/null
+agt AGTERM_SESSION_ID=S-HIS "$PY" -B src/lem/__main__.py session --repo "$AUTO" open word-by-agent --why new >/dev/null
 auto=$(agt LEM_SESSION_SCRIPT= "$PY" -B -c '
 import json, sys, threading
-sys.path.insert(0, "skills/lem/scripts")
-import serve
+sys.path.insert(0, "src")
+from lem import serve
 serve.detach_from_session()
 w = serve.Workspace("auto-shop", sys.argv[1])
 w.look_sessions()
@@ -619,8 +619,8 @@ rm -f "$HOLD.held"
 : > "$HOLD"
 PATH="$WORK/hold:$PATH" "$PY" -B -c '
 import json, os, sys, threading, time
-sys.path.insert(0, "skills/lem/scripts")
-import serve
+sys.path.insert(0, "src")
+from lem import serve
 w = serve.Workspace("move-shop", sys.argv[1])
 landing = w.landing_of("first-move")
 serve.merge_in_thread(w, "first-move", landing, "merger", serve.merge_tip_of(landing, "merger"))
@@ -652,8 +652,8 @@ until_for 300 second_waits || true
 PAGES_PORT=$("$PY" -I -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')
 "$PY" -B -c '
 import sys
-sys.path.insert(0, "skills/lem/scripts")
-import serve, lem_peers
+sys.path.insert(0, "src")
+from lem import serve, peers as lem_peers
 serve.Handler.machine = serve.Machine()
 serve.Handler.peers = lem_peers.Peers(lambda: {})
 server = serve.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), serve.Handler)
@@ -695,8 +695,8 @@ refused=$moved
 duty() {
   "$PY" -B -c '
 import json, sys, threading
-sys.path.insert(0, "skills/lem/scripts")
-import serve
+sys.path.insert(0, "src")
+from lem import serve
 w = serve.Workspace("move-shop", sys.argv[1])
 ran = serve.run_duties(w)
 for thread in threading.enumerate():
@@ -800,8 +800,8 @@ PROPOSED=$(kept_in "$SAFE" code-second proposed)
 safe_duty() {
   "$PY" -B -c '
 import json, sys, threading
-sys.path.insert(0, "skills/lem/scripts")
-import serve, lem_board_model as bm
+sys.path.insert(0, "src")
+from lem import serve, board_model as bm
 w = serve.Workspace("safe-shop", sys.argv[1])
 ran = serve.run_duties(w)
 for thread in threading.enumerate():
@@ -820,8 +820,8 @@ moved=$(land --repo "$SAFE" merge-review code-second | field '("docs-first.txt" 
 said=$(safe_read code-second "Base: safe. docs-first only added docs-first.txt, which this change neither edits nor reads.")
 read_now=$("$PY" -B -c '
 import json, sys
-sys.path.insert(0, "skills/lem/scripts")
-import serve
+sys.path.insert(0, "src")
+from lem import serve
 w = serve.Workspace("safe-shop", sys.argv[1])
 t = w.model().by_slug["code-second"]
 print(json.dumps({"owed": serve.duties(w.model(), {}, set()), "wait": t.merge_wait, "refused": t.refused}))
@@ -854,8 +854,8 @@ CARD=5B0C2D3E-8A4F-4B1C-9D2E-0F1A2B3C4D5E
 "$PY" -B -c '
 import json, sys
 from pathlib import Path
-sys.path.insert(0, "skills/lem/scripts")
-import lem_cards
+sys.path.insert(0, "src")
+from lem import cards as lem_cards
 task = Path(sys.argv[1])
 spec = {"prompt": "Round each line of a refund, or only its total?", "options": [{"id": "line", "label": "Each line"}, {"id": "total", "label": "Only the total"}]}
 lem_cards.keep(task, sys.argv[3], lem_cards.html_file(task, sys.argv[2]).read_bytes(), spec, "S-FRESH")
@@ -907,7 +907,7 @@ project --repo "$IN" state report-dates building "lead: builder" "type: feat, be
 project --repo "$IN" log report-dates session.open session=S-1 name=report-dates phase=build why=new >/dev/null
 project --repo "$IN" log report-dates session.transcript claude=c-main transcript=/t/c-main.jsonl source=startup >/dev/null
 breaker_doc "$IN/.lem/state/tasks/report-dates"
-"$PY" -B "$DECISIONS" --repo "$INT" breaker report-dates --cause criteria >/dev/null
+"$PY" -B "$MAIN" decisions --repo "$INT" breaker report-dates --cause criteria >/dev/null
 project --repo "$IN" owner away --words "/lem im-away" >/dev/null
 printf '%s\n' '[{"task": "report-dates", "session": "S-1", "name": "report-dates", "live": true, "agent": true, "unanswered": false}]' > "$WORK/inbox-sessions.json"
 printf '%s\n' '{"state": "running", "running": true, "url": "http://plannotator.localhost:50026/", "tailnet_url": "https://mac.tail0.ts.net:50026/"}' > "$PLANNOTATOR_STATUS"
@@ -915,8 +915,8 @@ printf '%s\n' '{"state": "running", "running": true, "url": "http://plannotator.
 look() {
   LEM_SESSION_LIST=$WORK/inbox-sessions.json PLANNOTATOR_SESSION_TAG=claude-code:the-session-that-started-the-server CLAUDECODE=1 "$PY" -B -c '
 import json, sys
-sys.path.insert(0, "skills/lem/scripts")
-import serve, lem_inbox
+sys.path.insert(0, "src")
+from lem import serve, inbox as lem_inbox
 serve.detach_from_session()
 w = serve.Workspace("inbox-shop", sys.argv[1])
 w.look_sessions()

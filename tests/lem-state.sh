@@ -39,9 +39,9 @@ else
 fi
 # Outside a repository there is no state folder, and the script says why.
 mkdir -p "$WORK/no-repo"
-err=$(cd "$WORK/no-repo" && "$PY" -B "$PROJECT" state-dir 2>&1 || true)
-code=$(cd "$WORK/no-repo" && status_of "$PY" -B "$PROJECT" state-dir)
-corr_err=$("$PY" -B "$PWD/skills/lem/scripts/corrections.py" --repo "$WORK/no-repo" list 2>&1 || true)
+err=$(cd "$WORK/no-repo" && "$PY" -B "$MAIN" project state-dir 2>&1 || true)
+code=$(cd "$WORK/no-repo" && status_of "$PY" -B "$MAIN" project state-dir)
+corr_err=$("$PY" -B "$PWD/src/lem/__main__.py" corrections --repo "$WORK/no-repo" list 2>&1 || true)
 if [ "$code" = 1 ] && grep -qF "is not inside a git checkout" <<<"$err" && grep -qF "is not inside a git checkout" <<<"$corr_err" && [ ! -e "$WORK/no-repo/.lem" ]; then
   pass "outside a repository the state folder is refused with exit 1 and the reason, and nothing is made"
 else
@@ -115,8 +115,8 @@ if [ -f "$MACHINE/lem/owner.jsonl" ]; then
 fi
 relative=$(XDG_CONFIG_HOME=config project --repo "$FIRST" waiting 2>&1 || true)
 mkdir -p "$WORK/home"
-homed=$(env -u XDG_CONFIG_HOME HOME="$WORK/home" "$PY" -B "$PROJECT" --repo "$FIRST" owner away --words "I'm away" | field 'd["written"]')
-env -u XDG_CONFIG_HOME HOME="$WORK/home" "$PY" -B "$PROJECT" --repo "$FIRST" owner back --words "I'm back" >/dev/null
+homed=$(env -u XDG_CONFIG_HOME HOME="$WORK/home" "$PY" -B "$MAIN" project --repo "$FIRST" owner away --words "I'm away" | field 'd["written"]')
+env -u XDG_CONFIG_HOME HOME="$WORK/home" "$PY" -B "$MAIN" project --repo "$FIRST" owner back --words "I'm back" >/dev/null
 if [ "$fresh" = "(False, None, None, 0)/(False, None, None, 0)" ] && [ "$made" = none ] \
   && [ "$in_second" = "(True, '$away_at', '/lem im-away', 1)" ] && [ "$in_first" = "(False, '$back_at', '/lem im-back', 2)" ] \
   && [ "$mark" = "[('owner', None, True, 'owner', '$FIRST'), ('owner', None, False, 'owner', '$SECOND')]" ] && [ "$in_logs" = 0 ] \
@@ -137,7 +137,7 @@ sleep 1
 away_at=$(on "$FIRST" owner away --words "I'm away" | field 'd["since"]')
 sleep 1
 back_at=$(on "$SECOND" owner back --words "/lem im-back" | field 'd["since"]')
-line=$(on "$SECOND" tasks | "$PY" -B -c 'import json, sys, types; sys.path.insert(0, sys.argv[1]); import land; task = next(t for t in json.load(sys.stdin) if t["slug"] == "span-task"); print(task["mode"], land.without_owner(types.SimpleNamespace(record=task)))' "$PWD/skills/lem/scripts")
+line=$(on "$SECOND" tasks | "$PY" -B -c 'import json, sys, types; sys.path.insert(0, sys.argv[1]); from lem import land; task = next(t for t in json.load(sys.stdin) if t["slug"] == "span-task"); print(task["mode"], land.without_owner(types.SimpleNamespace(record=task)))' "$PWD/src")
 if [ "$line" = "with-owner It ran without the owner from ${away_at:0:10} ${away_at:11:5} UTC (the owner: \"I'm away\") to ${back_at:0:10} ${back_at:11:5} UTC (the owner: \"/lem im-back\")." ]; then
   pass "a task of one repository ran without the owner from his away in another repository to his back in its own, and the pull request's line says that span"
 else
@@ -148,16 +148,16 @@ fi
 # an away in the first with that record; started with a `seen` that is no longer the count, it ends at once; an away and a back written in one
 # second, which share their `ts`, end it too, since the count is its cursor. It writes nothing to the mark, a stop ends
 # it with exit 1, and it is refused outside a repository and without a count it can take.
-watch_in() { XDG_CONFIG_HOME=$MACHINE "$PY" -B "$PROJECT" --repo "$SECOND" owner watch "$@"; }
+watch_in() { XDG_CONFIG_HOME=$MACHINE "$PY" -B "$MAIN" project --repo "$SECOND" owner watch "$@"; }
 # at_once ARGS...: the watch of the second repository with a clock that refuses a wait, so that "at once" is no count of
 # seconds: a watch that sleeps before its next look ends here with that message
 at_once() {
   XDG_CONFIG_HOME=$MACHINE "$PY" -B -c 'import sys, time, types
 sys.path.insert(0, sys.argv[1])
-import project
+from lem import project
 def refused(seconds): sys.exit(f"the watch waited {seconds} s for its next look")
 project.time = types.SimpleNamespace(**{**{name: getattr(time, name) for name in dir(time) if not name.startswith("_")}, "sleep": refused})
-project.main(sys.argv[2:])' "$PWD/skills/lem/scripts" --repo "$SECOND" owner watch "$@"
+project.main(sys.argv[2:])' "$PWD/src" --repo "$SECOND" owner watch "$@"
 }
 # looping ARGS... &: the watch of the second repository, in the job's own process (exec: a stop reaches it), whose every wait
 # first leaves the file $WORK/looping: the sign that it reached its loop, where a stop has its own answer, in place of
@@ -165,10 +165,10 @@ project.main(sys.argv[2:])' "$PWD/skills/lem/scripts" --repo "$SECOND" owner wat
 looping() {
   XDG_CONFIG_HOME=$MACHINE exec "$PY" -B -c 'import pathlib, sys, time, types
 sys.path.insert(0, sys.argv[1])
-import project
+from lem import project
 def marked(seconds): pathlib.Path(sys.argv[2]).touch(); time.sleep(seconds)
 project.time = types.SimpleNamespace(**{**{name: getattr(time, name) for name in dir(time) if not name.startswith("_")}, "sleep": marked})
-project.main(sys.argv[3:])' "$PWD/skills/lem/scripts" "$WORK/looping" --repo "$SECOND" owner watch "$@"
+project.main(sys.argv[3:])' "$PWD/src" "$WORK/looping" --repo "$SECOND" owner watch "$@"
 }
 watching() { [ -e "$WORK/looping" ]; }
 seen=$(on "$SECOND" waiting | field 'd["owner"]["seen"]')
@@ -204,7 +204,7 @@ stopped_code=0
 wait "$stopper" || stopped_code=$?
 no_seen=$(watch_in 2>&1 || true)
 negative=$(watch_in --seen -1 2>&1 || true)
-outside=$(cd "$WORK/no-repo" && XDG_CONFIG_HOME=$MACHINE "$PY" -B "$PROJECT" owner watch --seen 0 2>&1 || true)
+outside=$(cd "$WORK/no-repo" && XDG_CONFIG_HOME=$MACHINE "$PY" -B "$MAIN" project owner watch --seen 0 2>&1 || true)
 if [ "$watched" = 0 ] && [ "$took" -lt 15 ] && [ "$heard" = "(True, '$away_at', '/lem im-away', $((seen + 1)))" ] \
   && [ "$stale" = "(True, '$away_at', $lines)" ] && [ "$(grep -c '' "$MACHINE/lem/owner.jsonl")" = "$kept" ] \
   && [ "$paired" = "(True, '$again_ts', $((before_pair + 2)))" ] && [ "$kept" = "$((before_pair + 2))" ] \
@@ -229,7 +229,7 @@ project --repo "$PR" state old-landed landed "main: pull request 1 is merged" >/
 project --repo "$PR" state young-landed landed "main: pull request 2 is merged" >/dev/null
 project --repo "$PR" state still-open building "lead: builder" >/dev/null
 project --repo "$PR" state old-dropped building "lead: builder" >/dev/null
-"$PY" -B "$DECISIONS" --repo "$PR" log old-dropped --what "Which name?" --chose "A" --why "It reads plainly." --by lead >/dev/null
+"$PY" -B "$MAIN" decisions --repo "$PR" log old-dropped --what "Which name?" --chose "A" --why "It reads plainly." --by lead >/dev/null
 project --repo "$PR" state old-dropped dropped "nobody will build it" >/dev/null
 mkdir -p "$PS/tasks/broken-state" && printf 'not a state line\n' > "$PS/tasks/broken-state/state.md"
 OLD=$PS/tasks/old-landed

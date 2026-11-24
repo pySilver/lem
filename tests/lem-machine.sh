@@ -6,7 +6,6 @@
 . "$(dirname "$0")/lib.sh"
 
 # The machine check: a required tool that is absent fails it, an optional one only changes its row.
-DOCTOR=$PWD/skills/lem/scripts/doctor.py
 BIN=$WORK/bin
 FAKEHOME=$WORK/home
 # doctor.py reads the repository it runs in (its builder, an install of Lem for it, its personas),
@@ -15,14 +14,14 @@ MACHINE=$WORK/machine-repo
 mkdir -p "$BIN" "$FAKEHOME"
 git init -q -b main "$MACHINE"
 ln -s "$(command -v git)" "$BIN/git"
-# the Python that runs these tests, as a python3.N on the PATH, where lem_python.py finds it
+# the Python that runs these tests, as a python3.N on the PATH, where lem.python finds it
 ln -s "$PY" "$BIN/python3.$("$PY" -c 'import sys; print(sys.version_info[1])')"
 fake() { printf '#!/bin/sh\necho "%s"\n' "$2" > "$BIN/$1"; chmod +x "$BIN/$1"; }
-doctor() { (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR"); }
+doctor() { (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$MAIN" doctor); }
 row() { field "next(t for t in d[\"tools\"] if t[\"name\"] == \"$1\")[\"$2\"]"; }
 # --help prints the usage and exits 0 with no check run; an unknown argument is a usage error, exit 2, with the usage.
-helped=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" --help 2>&1; echo "exit $?")
-wrong=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" --all 2>&1; echo "exit $?")
+helped=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$MAIN" doctor --help 2>&1; echo "exit $?")
+wrong=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$MAIN" doctor --all 2>&1; echo "exit $?")
 if [ "$(head -n 1 <<<"$helped")" = "usage: lem doctor [-h]" ] && [ "$(tail -n 1 <<<"$helped")" = "exit 0" ] && ! grep -qF '"tools"' <<<"$helped" \
   && grep -qxF "usage: lem doctor [-h]" <<<"$wrong" && grep -qF "lem doctor: error: unrecognized arguments: --all" <<<"$wrong" && [ "$(tail -n 1 <<<"$wrong")" = "exit 2" ] && ! grep -qF '"tools"' <<<"$wrong"; then
   pass "doctor --help prints its usage and exits 0 with no check run, and an unknown argument exits 2 with the usage"
@@ -113,7 +112,7 @@ fi
 # A project's own builder that git does not track is in the main checkout only: the check run in a task's worktree finds it there.
 commit "$MACHINE" start && git -C "$MACHINE" worktree add -q "$WORK/machine-wt" -b a-task
 mkdir -p "$MACHINE/.claude/agents" && ln -s "$PWD/agents/lem-builder.md" "$MACHINE/.claude/agents/lem-builder.md"
-in_tree=$( (cd "$WORK/machine-wt" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true) | row 'lem-builder agent' detail)
+in_tree=$( (cd "$WORK/machine-wt" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$MAIN" doctor || true) | row 'lem-builder agent' detail)
 rm -r "$MACHINE/.claude" && git -C "$MACHINE" worktree remove --force "$WORK/machine-wt"
 if [ "$in_tree" = "$MACHINE/.claude/agents/lem-builder.md" ] && grep -qF "\`claude plugin marketplace add pySilver/lem --scope project\`, then \`claude plugin install lem@lem --scope project\`" <<<"$(row 'lem-builder agent' without_it <<<"$out")" \
   && ! grep -q "setup" <<<"$(row 'lem-builder agent' without_it <<<"$out")" \
@@ -139,7 +138,7 @@ else
 fi
 # A plugin loaded for one session by a flag is in no list of installs: the session's CLAUDE_PLUGIN_ROOT finds it, when that
 # folder holds the builder; a folder without one finds nothing, and the row says what such a session has all the same.
-flagged() { (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" CLAUDE_PLUGIN_ROOT="$1" "$PY" -B "$DOCTOR" || true) | field 'next((t["found"], t["detail"]) for t in d["tools"] if t["name"] == "lem-builder agent")'; }
+flagged() { (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" CLAUDE_PLUGIN_ROOT="$1" "$PY" -B "$MAIN" doctor || true) | field 'next((t["found"], t["detail"]) for t in d["tools"] if t["name"] == "lem-builder agent")'; }
 by_flag=$(flagged "$PWD")
 other_plugin=$(flagged "$WORK")
 said=$(doctor | row 'lem-builder agent' without_it || true)
@@ -211,8 +210,8 @@ printf '%s\n' "command \"Lem tasks ›\"  ctrl+cmd+t  --error-hud $PY ~/.claude/
 older=$(doctor | field '(lambda t: (t["found"], t["line"], t["detail"]))(next(t for t in d["tools"] if t["name"] == "task picker"))' || true)
 rm -r "$FAKEHOME/.claude/plugins/marketplaces"
 rm -r "$FAKEHOME/.config/agterm" "$FAKEHOME/.claude/plugins/known_marketplaces.json"
-mkdir -p "$WORK/cache/lem/abc123" && cp -R "$PWD/skills" "$WORK/cache/lem/abc123/"
-from_cache=$( (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$WORK/cache/lem/abc123/skills/lem/scripts/doctor.py") | picker_row || true)
+mkdir -p "$WORK/cache/lem/abc123" && cp -R "$PWD/skills" "$PWD/src" "$WORK/cache/lem/abc123/"
+from_cache=$( (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$WORK/cache/lem/abc123/src/lem/__main__.py" doctor) | picker_row || true)
 if [ "$from_clone" = "('optional', False, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $PWD/bin/lem picker')" ] \
   && [ "$from_market" = "('optional', False, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/bin/lem picker')" ] \
   && [ "$held" = "('optional', True, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/bin/lem picker')" ] \
@@ -231,10 +230,10 @@ else
   fail "doctor without cronn: $out"
 fi
 fake cronn "cronn"
-keyed=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" JEV_API_KEY=sk-not-a-real-key "$PY" -B "$DOCTOR")
+keyed=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" JEV_API_KEY=sk-not-a-real-key "$PY" -B "$MAIN" doctor)
 # a key under another name than JEV_API_KEY is no key; JEV_API_URL names another provider
-other_name=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" OPENROUTER_API_KEY=sk-not-a-real-key "$PY" -B "$DOCTOR")
-elsewhere=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" JEV_API_KEY=sk-not-a-real-key JEV_API_URL=https://api.example.test/v1/systemone "$PY" -B "$DOCTOR")
+other_name=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" OPENROUTER_API_KEY=sk-not-a-real-key "$PY" -B "$MAIN" doctor)
+elsewhere=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" JEV_API_KEY=sk-not-a-real-key JEV_API_URL=https://api.example.test/v1/systemone "$PY" -B "$MAIN" doctor)
 nokey_says=$(row 'Jev key' without_it <<<"$out")
 if [ "$(field '[t["name"] for t in d["tools"] if "lem-ask" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'Jev key' found <<<"$out")" = "False" ] && [ "$(row 'Jev key' need <<<"$out")" = "optional" ] \
   && [ "$(row 'Jev key' found <<<"$keyed")" = "True" ] && [ "$(row 'Jev key' detail <<<"$keyed")" = "JEV_API_KEY, to OpenRouter" ] \
@@ -255,7 +254,7 @@ KEY_MACHINE=$FAKEHOME/.config/lem/machine.toml
 git init -q -b main "$KEYED" && mkdir -p "$KEYED/.lem" "$FAKEHOME/.config/lem"
 printf '%s\n' '[branch]' 'base = "main"' > "$KEYED/.lem/settings.toml"
 printf '%s\n' '[corrections]' 'collect = true' > "$KEY_MACHINE"
-key_doctor() { (cd "$KEYED" && env -i PATH="$BIN" HOME="$FAKEHOME" "$@" "$PY" -B "$DOCTOR"); }
+key_doctor() { (cd "$KEYED" && env -i PATH="$BIN" HOME="$FAKEHOME" "$@" "$PY" -B "$MAIN" doctor); }
 key_row() { field '(lambda t: (t["need"], t["found"]))(next(t for t in d["tools"] if t["name"] == "Jev key"))'; }
 on_out=$(key_doctor || true)
 on_code=$(status_of key_doctor)
@@ -303,7 +302,6 @@ else
   fail "agents/lem-builder.md frontmatter"
 fi
 # The correction queue: off unless the machine's own file says yes, filled by the hook, read by the retro.
-CORR=$PWD/skills/lem/scripts/corrections.py
 CQ=$WORK/corr
 git init -q -b main "$CQ" && commit "$CQ" start
 project --repo "$CQ" init --base main >/dev/null
@@ -322,12 +320,12 @@ chmod +x "$WORK/jevbin/jev"
 printf '%s\n' '{"type": "user", "message": {"content": "hi"}}' '{"type": "assistant", "message": {"content": [{"type": "text", "text": "I pushed it."}]}}' > "$WORK/transcript.jsonl"
 event() { printf '{"prompt": "%s", "cwd": "%s", "session_id": "%s", "transcript_path": "%s"}' "$1" "$CQ" "$2" "$WORK/transcript.jsonl"; }
 # LEM_JEV in every call: without it the worker runs Lem's own jev.py, which asks a real service.
-hook() { env LEM_JEV="$WORK/jevbin/jev" JEV_P="${JEV_P:-0.9}" JEV_EXIT="${JEV_EXIT:-}" JEV_CALLED="$WORK/jev-called" "$PY" -B "$CORR" "$@"; }
+hook() { env LEM_JEV="$WORK/jevbin/jev" JEV_P="${JEV_P:-0.9}" JEV_EXIT="${JEV_EXIT:-}" JEV_CALLED="$WORK/jev-called" "$PY" -B "$MAIN" corrections "$@"; }
 worker() {
   printf '{"prompt": "%s", "cwd": "%s", "session": "%s", "transcript": "%s"}' "$1" "$CQ" "$2" "$WORK/transcript.jsonl" > "$WORK/payload.json"
   hook worker "$WORK/payload.json"
 }
-corr() { "$PY" -B "$CORR" --repo "$CQ" "$@"; }
+corr() { "$PY" -B "$MAIN" corrections --repo "$CQ" "$@"; }
 # The switch is the machine's: `collect` under [corrections] in machine.toml of Lem's home folder, which only
 # `lem corrections collect yes|no` writes, keeping the file's other tables. With no line it is Lem's default, a no.
 MACHINE_FILE=$XDG_CONFIG_HOME/lem/machine.toml
@@ -341,7 +339,7 @@ unsaid_show=$(switch_of)
 said_no=$(corr collect no)
 no_show=$(switch_of)
 # it is the machine's, so it needs no repository
-said_yes=$(cd "$WORK" && "$PY" -B "$CORR" collect yes)
+said_yes=$(cd "$WORK" && "$PY" -B "$MAIN" corrections collect yes)
 yes_show=$(switch_of)
 kept=$("$PY" -c 'import sys, tomllib; d = tomllib.load(open(sys.argv[1], "rb")); print(sorted(d), d["load"], d["serve"]["port"] == int(sys.argv[2]), d["corrections"])' "$MACHINE_FILE" "$SERVE_PORT")
 maybe_code=$(status_of corr collect maybe)
@@ -405,10 +403,10 @@ queue_on
 mkdir -p "$WORK/hooktmp"
 out=$(event "the copy cannot start" s0 | env LEM_JEV="$WORK/jevbin/jev" TMPDIR="$WORK/hooktmp" "$PY" -B -c '
 import runpy, sys
-script = sys.argv[1]
-sys.argv = [script, "hook"]
+sys.path.insert(0, sys.argv[1])
+sys.argv = [sys.argv[1] + "/lem/corrections.py", "hook"]
 sys.executable = "/no/such/python"   # the hook starts its copy with this
-runpy.run_path(script, run_name="__main__")' "$CORR" 2>&1; echo "exit=$?")
+runpy.run_module("lem.corrections", run_name="__main__", alter_sys=True)' "$PWD/src" 2>&1; echo "exit=$?")
 # only the hook's own files count: git may keep a cache of its own in the temp folder
 if [ "$out" = "exit=0" ] && [ -z "$(find "$WORK/hooktmp" -name 'lem-correction-*')" ] && grep -q "/no/such/python" "$CQ/.lem/state/corrections.log"; then
   pass "when the detached half cannot start, the hook removes the file with the owner's words and logs the failure"
@@ -441,14 +439,14 @@ for candidate in /usr/bin/python3 python3.9 python3.10; do
   if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(sys.version_info >= (3, 11))' 2>/dev/null; then old=$candidate; break; fi
 done
 if [ -n "$old" ]; then
-  # The plugin's hook line under that python3: lem_python.py starts the hook under a newer Python it
+  # The plugin's hook line under that python3: python.py starts the hook under a newer Python it
   # finds, run from another repository than the one of the event, and the message is queued there.
   git init -q -b main "$WORK/elsewhere"
-  launch=$PWD/skills/lem/scripts/lem_python.py
+  launch=$PWD/src/lem/python.py
   lem=$PWD/bin/lem
   queue_on
   out=$(cd "$WORK/elsewhere" && event "under an old python" s0 | env LEM_JEV="$WORK/jevbin/jev" JEV_P=0.9 JEV_CALLED="$WORK/jev-called" \
-    "$old" -B "$launch" "$CORR" hook 2>&1; echo "exit=$?")
+    "$old" -B "$launch" corrections hook 2>&1; echo "exit=$?")
   soon test -s "$CQ/.lem/state/corrections.jsonl"
   if [ "$out" = "exit=0" ] && grep -qF '"owner": "under an old python"' "$CQ/.lem/state/corrections.jsonl" && [ ! -e "$CQ/.lem/state/corrections.log" ]; then
     pass "under a python3 before 3.11 the plugin's hook line runs the hook under a newer Python it finds: exit 0, no output, and the message queued"
@@ -488,11 +486,11 @@ event "[peer chat] a message from the other pane" s5 | hook hook
 JEV_EXIT=3 worker "a very long message" s6
 JEV_EXIT=1 worker "no key here" s7
 printf '{"prompt": "a jev that is not there", "cwd": "%s", "session": "s8", "transcript": ""}' "$CQ" > "$WORK/payload.json"
-env LEM_JEV="$WORK/no-such-jev" "$PY" -B "$CORR" worker "$WORK/payload.json"
+env LEM_JEV="$WORK/no-such-jev" "$PY" -B "$MAIN" corrections worker "$WORK/payload.json"
 # No LEM_JEV: the worker runs Lem's own jev.py by its path, with a PATH that has no jev. No key is
 # set, so the copy stops before it sends anything, and its own words are in the log.
 printf '{"prompt": "the copy beside the hook", "cwd": "%s", "session": "s9", "transcript": ""}' "$CQ" > "$WORK/payload.json"
-env -u LEM_JEV -u JEV_API_KEY PATH="$BIN" "$PY" -B "$CORR" worker "$WORK/payload.json"
+env -u LEM_JEV -u JEV_API_KEY PATH="$BIN" "$PY" -B "$MAIN" corrections worker "$WORK/payload.json"
 sleep 1
 out=$(corr list)
 if [ "$(field '(d["entries"], [(g["entries"], g["sessions"], g["p_lesson_max"]) for g in d["groups"]], d["failures"]["count"])' <<<"$out")" = "(3, [(2, 2, 0.9), (1, 1, None)], 3)" ] \
@@ -585,17 +583,16 @@ else
   fail "a queue that does not read: $cut_line / $latin_line / $latin_code / $latin_settings"
 fi
 # Lem's client of Jev: a timeout that is no number and a spec that is not UTF-8 are named, and nothing is sent.
-JEVPY=$PWD/skills/lem/scripts/jev.py
 printf '%s\n' '{"state": "s", "questions": {"q": {"type": "choice", "instructions": "i", "choices": {"a": "x", "b": "y"}}}}' > "$WORK/jev-spec.json"
 printf '{"state": "caf\351", "questions": {}}' > "$WORK/jev-latin.json"
-soon_timeout=$(env JEV_TIMEOUT=soon "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" 2>&1 || true)
-soon_code=$(env JEV_TIMEOUT=soon "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" >/dev/null 2>&1; echo $?)
-latin_file=$("$PY" -B "$JEVPY" check "$WORK/jev-latin.json" 2>&1 || true)
-latin_stdin=$("$PY" -B "$JEVPY" check - < "$WORK/jev-latin.json" 2>&1 || true)
-checked=$(env JEV_TIMEOUT=30 "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" | field 'd["ok"]' 2>&1 || true)
+soon_timeout=$(env JEV_TIMEOUT=soon "$PY" -B "$MAIN" lem-jev check "$WORK/jev-spec.json" 2>&1 || true)
+soon_code=$(env JEV_TIMEOUT=soon "$PY" -B "$MAIN" lem-jev check "$WORK/jev-spec.json" >/dev/null 2>&1; echo $?)
+latin_file=$("$PY" -B "$MAIN" lem-jev check "$WORK/jev-latin.json" 2>&1 || true)
+latin_stdin=$("$PY" -B "$MAIN" lem-jev check - < "$WORK/jev-latin.json" 2>&1 || true)
+checked=$(env JEV_TIMEOUT=30 "$PY" -B "$MAIN" lem-jev check "$WORK/jev-spec.json" | field 'd["ok"]' 2>&1 || true)
 printf '%s\n' '{"state": "s", "questions": {"q": {"instructions": "i", "choices": {"a": "x", "b": "y"}}}}' > "$WORK/jev-untyped.json"
-untyped=$("$PY" -B "$JEVPY" check "$WORK/jev-untyped.json" 2>&1 || true)
-untyped_code=$("$PY" -B "$JEVPY" check "$WORK/jev-untyped.json" >/dev/null 2>&1; echo $?)
+untyped=$("$PY" -B "$MAIN" lem-jev check "$WORK/jev-untyped.json" 2>&1 || true)
+untyped_code=$("$PY" -B "$MAIN" lem-jev check "$WORK/jev-untyped.json" >/dev/null 2>&1; echo $?)
 if [ "$soon_code" = 1 ] && grep -qF "lem-jev: JEV_TIMEOUT='soon' is not a number of seconds above 0" <<<"$soon_timeout" \
   && grep -qF "lem-jev: the spec ($WORK/jev-latin.json) is not UTF-8 text" <<<"$latin_file" && grep -qF "lem-jev: the spec (stdin) is not UTF-8 text" <<<"$latin_stdin" \
   && [ "$untyped_code" = 1 ] && grep -qF "lem-jev: question 'q' names no type; give it \"type\": \"choice\" (with choices) or \"type\": \"noul\"" <<<"$untyped" \
@@ -607,14 +604,14 @@ fi
 # The key and the address of the Jev model: JEV_API_KEY, and a key under another name is none; JEV_API_URL, else
 # OpenRouter's. A request goes to that address with that key, as a stand-in server of Jev's form sees it; it
 # answers a choice and a noul, and a second request with a noul whose answer has no number.
-jcheck() { env -u JEV_API_KEY -u OPENROUTER_API_KEY -u JEV_API_URL "$@" "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" | field '(d["url"], d["key_from"])' 2>&1 || true; }
+jcheck() { env -u JEV_API_KEY -u OPENROUTER_API_KEY -u JEV_API_URL "$@" "$PY" -B "$MAIN" lem-jev check "$WORK/jev-spec.json" | field '(d["url"], d["key_from"])' 2>&1 || true; }
 by_jev=$(jcheck JEV_API_KEY=k1 OPENROUTER_API_KEY=k2)
 by_other=$(jcheck OPENROUTER_API_KEY=k2)
 by_none=$(jcheck)
-other_ask=$(env -u JEV_API_KEY OPENROUTER_API_KEY=k2 "$PY" -B "$JEVPY" "$WORK/jev-spec.json" 2>&1 || true)
-other_code=$(env -u JEV_API_KEY OPENROUTER_API_KEY=k2 "$PY" -B "$JEVPY" "$WORK/jev-spec.json" >/dev/null 2>&1; echo $?)
+other_ask=$(env -u JEV_API_KEY OPENROUTER_API_KEY=k2 "$PY" -B "$MAIN" lem-jev "$WORK/jev-spec.json" 2>&1 || true)
+other_code=$(env -u JEV_API_KEY OPENROUTER_API_KEY=k2 "$PY" -B "$MAIN" lem-jev "$WORK/jev-spec.json" >/dev/null 2>&1; echo $?)
 by_url=$(jcheck JEV_API_KEY=k1 JEV_API_URL=https://api.example.test/v1/systemone)
-bad_url=$(env JEV_API_KEY=k1 JEV_API_URL=api.example.test "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" 2>&1 || true)
+bad_url=$(env JEV_API_KEY=k1 JEV_API_URL=api.example.test "$PY" -B "$MAIN" lem-jev check "$WORK/jev-spec.json" 2>&1 || true)
 printf '%s\n' 'import http.server, json, sys' \
   'class H(http.server.BaseHTTPRequestHandler):' \
   '    def do_POST(self):' \
@@ -632,8 +629,8 @@ printf '%s\n' '{"state": "s", "questions": {"bad": {"type": "noul", "instruction
 "$PY" -B "$WORK/jev-server.py" "$WORK/jev-port" "$WORK/jev-seen" &
 jev_server=$!
 soon test -s "$WORK/jev-port"
-asked=$(env JEV_API_KEY=sk-test-key JEV_API_URL="http://127.0.0.1:$(cat "$WORK/jev-port")/v1/systemone" JEV_MODEL=jev-latest "$PY" -B "$JEVPY" "$WORK/jev-both.json" | field '(d["model"], d["answers"]["q"]["choice"], d["answers"]["n"], d["cost"])' 2>&1 || true)
-no_number=$(env JEV_API_KEY=sk-test-key JEV_API_URL="http://127.0.0.1:$(cat "$WORK/jev-port")/v1/systemone" "$PY" -B "$JEVPY" "$WORK/jev-bad.json" 2>&1; echo "exit=$?")
+asked=$(env JEV_API_KEY=sk-test-key JEV_API_URL="http://127.0.0.1:$(cat "$WORK/jev-port")/v1/systemone" JEV_MODEL=jev-latest "$PY" -B "$MAIN" lem-jev "$WORK/jev-both.json" | field '(d["model"], d["answers"]["q"]["choice"], d["answers"]["n"], d["cost"])' 2>&1 || true)
+no_number=$(env JEV_API_KEY=sk-test-key JEV_API_URL="http://127.0.0.1:$(cat "$WORK/jev-port")/v1/systemone" "$PY" -B "$MAIN" lem-jev "$WORK/jev-bad.json" 2>&1; echo "exit=$?")
 wait "$jev_server" 2>/dev/null || true
 seen=$(field '(d["path"], d["auth"], d["model"], d["state"], d["n"])' < "$WORK/jev-seen" 2>&1 || true)
 if [ "$by_jev" = "('https://openrouter.ai/api/alpha/decisions', 'JEV_API_KEY')" ] && [ "$by_other" = "('https://openrouter.ai/api/alpha/decisions', None)" ] \
@@ -657,7 +654,7 @@ queue_on
 CLAIMS=$CL/.lem/state/corrections-claims
 CALLS=$WORK/claim-calls
 claim_event() { printf '{"prompt": "%s", "cwd": "%s", "session_id": "%s", "transcript_path": ""}' "$1" "$CL" "$2"; }
-claim_hook() { env LEM_JEV="$WORK/jevbin/jev" JEV_P=0.9 JEV_CALLED="$CALLS" "$PY" -B "$CORR" hook; }
+claim_hook() { env LEM_JEV="$WORK/jevbin/jev" JEV_P=0.9 JEV_CALLED="$CALLS" "$PY" -B "$MAIN" corrections hook; }
 lines_of() { if [ -f "$1" ]; then wc -l < "$1" | tr -d ' '; else echo 0; fi; }
 queued() { lines_of "$CL/.lem/state/corrections.jsonl"; }
 queued_at_least() { [ "$(queued)" -ge "$1" ]; }
@@ -702,7 +699,7 @@ fi
 rm -rf "$CLAIMS" && touch "$CLAIMS"
 out=$(claim_event "a claim that cannot be made" c4 | claim_hook 2>&1; echo "exit=$?")
 soon queued_at_least 8
-claim_failures=$(cd "$CL" && "$PY" -B "$CORR" list | field 'd["failures"]["count"]')
+claim_failures=$(cd "$CL" && "$PY" -B "$MAIN" corrections list | field 'd["failures"]["count"]')
 if [ "$out" = "exit=0" ] && [ "$(queued)" = 8 ] && grep -q "could not claim the message" "$CL/.lem/state/corrections.log" && ! grep -q Traceback "$CL/.lem/state/corrections.log" \
   && [ "$claim_failures" = 0 ]; then
   pass "a claim folder that cannot be made still queues the message, with no output, and the log says the message was judged unclaimed, as a note that list does not count as a failure"
@@ -715,7 +712,7 @@ rm "$CLAIMS"
 printf '[corrections]\ncollect = "yes"\n' > "$MACHINE_FILE"
 typed_show=$(project --repo "$CQ" show 2>&1 || true)
 typed_code=$(status_of project --repo "$CQ" show)
-typed_hook=$("$PY" -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import corrections; print(corrections.collects(sys.argv[2]))' "$(dirname "$CORR")" "$CQ")
+typed_hook=$("$PY" -B -c 'import sys; sys.path.insert(0, sys.argv[1]); from lem import corrections; print(corrections.collects(sys.argv[2]))' "$PWD/src" "$CQ")
 corr collect no >/dev/null
 typed_fixed=$(switch_of)
 printf 'not toml [\n' > "$MACHINE_FILE"
@@ -743,18 +740,18 @@ ok = (manifest["name"] == "lem" and re.fullmatch(r"\d+\.\d+\.\d+", manifest.get(
       and [os.readlink(f"{root}/bin/{name}") for name in ("lem-ask", "lem-jev")] == ["lem", "lem"]
       and sorted(os.listdir(f"{root}/bin")) == ["lem", "lem-ask", "lem-jev"] and not os.path.exists(f"{root}/scripts/setup.py")
       and os.path.isfile(f"{root}/bin/lem") and not os.path.islink(f"{root}/bin/lem") and os.access(f"{root}/bin/lem", os.X_OK)
-      and all(os.access(f"{root}/{script}", os.X_OK) for script in ("skills/lem-ask/bin/lem-ask", "skills/lem/scripts/jev.py")))
+      and all(os.access(f"{root}/{script}", os.X_OK) for script in ("src/lem/ask.py", "src/lem/jev.py")))
 hooks = json.load(open(f"{root}/hooks/hooks.json"))["hooks"]
 commands = {event: [h["command"] for group in groups for h in group["hooks"]] for event, groups in hooks.items()}
-launch = "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/lem_python.py\" "
-session = launch + "\"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/session_hook.py\""
+launch = "python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" "
+session = launch + "session_hook"
 matchers = {event: [group.get("matcher") for group in groups] for event, groups in hooks.items()}
-ok = ok and commands == {"UserPromptSubmit": [launch + "\"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/corrections.py\" hook"],
-                         "SessionStart": [launch + "\"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/serve_hook.py\"", session],
+ok = ok and commands == {"UserPromptSubmit": [launch + "corrections hook"],
+                         "SessionStart": [launch + "serve_hook", session],
                          "PreCompact": [session]}
 ok = ok and matchers["SessionStart"] == ["startup|resume", "startup|resume|clear|compact|fork"] and matchers["PreCompact"] == ["auto|manual"]
 sys.exit(not ok)' "$PWD"; then
-  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin, from GitHub at the tag of that release and with its version; bin/ holds the command lem, a file of its own, and the two commands lem-ask and lem-jev as links to it, and no plain jev; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, and a task session's hooks of a compaction and of each session's start, each by the plugin's own path and started through lem_python.py"
+  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin, from GitHub at the tag of that release and with its version; bin/ holds the command lem, a file of its own, and the two commands lem-ask and lem-jev as links to it, and no plain jev; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, and a task session's hooks of a compaction and of each session's start, each started by the plugin's own path through src/lem/python.py with its module's name"
 else
   fail "the plugin files in .claude-plugin and bin"
 fi
@@ -769,7 +766,7 @@ for change in sys.stdin.read().split("\0"):
         print(was[0], now[0])
         break')
 read -r was now <<<"${before:-none none}"
-said=$("$PY" -B -c 'import sys; sys.path.insert(0, "skills/lem/scripts"); import lem_release; print(lem_release.BEFORE, lem_release.running())')
+said=$("$PY" -B -c 'import sys; sys.path.insert(0, "src"); from lem import release as lem_release; print(lem_release.BEFORE, lem_release.running())')
 if [ "$was" = none ]; then
   skip "lem_release.BEFORE is the version plugin.json held before its newest change of version: this clone holds no change of the version (shallow: $(git -C "$PWD" rev-parse --is-shallow-repository))"
 elif [ "$said" = "$was $now" ]; then
@@ -779,7 +776,7 @@ else
 fi
 # A machine with Claude Code and no git still gets its rows, not a traceback.
 mkdir -p "$WORK/nogit" && cp "$BIN/claude" "$WORK/nogit/claude"
-out=$(cd "$WORK" && env -i PATH="$WORK/nogit" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" 2>&1 || true)
+out=$(cd "$WORK" && env -i PATH="$WORK/nogit" HOME="$FAKEHOME" "$PY" -B "$MAIN" doctor 2>&1 || true)
 if [ "$(row git found <<<"$out")" = "False" ] && [ "$(row 'lem-builder agent' found <<<"$out")" = "True" ] && [ "$(field 'd["ok"]' <<<"$out")" = "False" ]; then
   pass "doctor without git reports git as absent and still gives every other row"
 else
@@ -849,7 +846,7 @@ fi
 PPL=$WORK/people-repo
 git init -q -b main "$PPL" && commit "$PPL" start && project --repo "$PPL" init --base main >/dev/null
 git -C "$PPL" add -A && commit "$PPL" "chore: the settings" && git -C "$PPL" worktree add -q "$WORK/people-wt" -b before-the-people
-people() { (cd "$1" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true) | field '(d["ok"], [(t["need"], t["found"], t["detail"].split(": ")[-1] if t["found"] else t["detail"][:38]) for t in d["tools"] if t["name"] == "project personas"])'; }
+people() { (cd "$1" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$MAIN" doctor || true) | field '(d["ok"], [(t["need"], t["found"], t["detail"].split(": ")[-1] if t["found"] else t["detail"][:38]) for t in d["tools"] if t["name"] == "project personas"])'; }
 none=$(people "$PPL")
 mkdir -p "$PPL/.lem/personas" && echo '# The people' > "$PPL/.lem/personas/README.md" && echo '# A merchant' > "$PPL/.lem/personas/merchant.md"
 one=$(people "$PPL")
@@ -879,7 +876,7 @@ else
 fi
 # The permission mode a builder in the background meets: the repository's local settings first, then its shared ones,
 # then the user's; auto and bypassPermissions count from the user's only. The row never fails the machine.
-mode() { (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true) | field '[(t["need"], t["found"], t["detail"], t["without_it"][:44]) for t in d["tools"] if t["name"] == "permission mode"]'; }
+mode() { (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$MAIN" doctor || true) | field '[(t["need"], t["found"], t["detail"], t["without_it"][:44]) for t in d["tools"] if t["name"] == "permission mode"]'; }
 mkdir -p "$MACHINE/.claude"
 rm -f "$FAKEHOME/.claude/settings.json"
 plain=$(mode)
@@ -890,11 +887,11 @@ local_bypass=$(mode)
 printf '%s\n' '{"permissions": {"defaultMode": "auto"}}' > "$FAKEHOME/.claude/settings.json"
 rm "$MACHINE/.claude/settings.json"
 user_auto=$(mode)
-assumed=$( (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true) | field 'next(t["used_for"] for t in d["tools"] if t["name"] == "permission mode")')
+assumed=$( (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$MAIN" doctor || true) | field 'next(t["used_for"] for t in d["tools"] if t["name"] == "permission mode")')
 rm "$FAKEHOME/.claude/settings.json"
-to_auto=$( (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true) | field 'next(t["without_it"] for t in d["tools"] if t["name"] == "permission mode")')
+to_auto=$( (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$MAIN" doctor || true) | field 'next(t["without_it"] for t in d["tools"] if t["name"] == "permission mode")')
 rm -r "$MACHINE/.claude"
-outside=$( (cd "$WORK" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true) | field '[t["name"] for t in d["tools"] if t["name"] == "permission mode"]')
+outside=$( (cd "$WORK" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$MAIN" doctor || true) | field '[t["name"] for t in d["tools"] if t["name"] == "permission mode"]')
 if [ "$plain" = "[('project', False, 'default: no settings file names one', 'each command the allow list does not hold as')]" ] \
   && [ "$shared" = "[('project', False, 'acceptEdits, from $MACHINE/.claude/settings.json', 'an edit goes through, and each other command')]" ] \
   && [ "$local_bypass" = "$shared" ] \

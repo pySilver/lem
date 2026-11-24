@@ -50,7 +50,7 @@ from datetime import datetime, timezone
 args = sys.argv[1:]
 verb = args[2:3]
 if verb != ["open"] or args[4:6] != ["--why", "new"]:
-    os.execv(sys.executable, [sys.executable, "-B", os.environ["REAL_SESSION"], *args])
+    os.execv(sys.executable, [sys.executable, "-B", os.environ["REAL_MAIN"], "session", *args])
 slug = args[3]
 with open(os.environ["START_LOG"], "a", encoding="utf-8") as out:
     out.write(json.dumps({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": "session.open", "task": slug, "session": "S-START",
@@ -60,8 +60,8 @@ with open(os.environ["START_CALLS"], "a", encoding="utf-8") as calls:
     calls.write(" ".join(args[2:]) + "\n")
 print(json.dumps({"task": slug, "session": "S-START", "name": slug, "phase": "shape", "already": False, "say": f"{slug}: a session opened"}))
 PY
-export LEM_SESSION_SCRIPT=$WORK/session-standin.py REAL_SESSION=$PWD/skills/lem/scripts/session.py START_LOG=$LOG START_CALLS=$WORK/start-calls
-"$PY" -B "$SERVE" --add "$DEMO" >/dev/null
+export LEM_SESSION_SCRIPT=$WORK/session-standin.py REAL_MAIN=$MAIN START_LOG=$LOG START_CALLS=$WORK/start-calls
+"$PY" -B "$MAIN" serve --add "$DEMO" >/dev/null
 serve_up
 SERVER=http://127.0.0.1:$SERVE_PORT
 HOST=$(curl -fsS "$SERVER/api/server" | field 'd["host"]')
@@ -842,11 +842,11 @@ if verb == "keep":
     from pathlib import Path
     task = Path(sys.argv[5])
     sys.path.insert(0, sys.argv[6])
-    import lem_cards
+    from lem import cards as lem_cards
     session = json.loads(next((task / "cards").glob("*.json")).read_text())["session"]
     for name in NAMES:
         page = f"{work}/{name}.html"
-        subprocess.run([sys.executable, "-B", sys.argv[7], "render", f"{tdir}/{name}.json", "-o", page], check=True, capture_output=True)
+        subprocess.run([sys.executable, "-B", sys.argv[7], "lem-ask", "render", f"{tdir}/{name}.json", "-o", page], check=True, capture_output=True)
         lem_cards.keep(task, f"T-{name}", Path(page).read_bytes(), json.loads(Path(f"{tdir}/{name}.json").read_text()), session)
     sys.exit()
 LOOK = r"""(() => { const W = innerWidth, d = document.documentElement;
@@ -931,7 +931,7 @@ if verb == "judge":
 PY
 card_kinds_checks() {
   local judged
-  "$PY" -B "$WORK/kinds.py" keep - "$PWD/skills/lem-ask/templates" "$WORK" "$RR" "$PWD/skills/lem/scripts" "$PWD/skills/lem-ask/bin/lem-ask"
+  "$PY" -B "$WORK/kinds.py" keep - "$PWD/skills/lem-ask/templates" "$WORK" "$RR" "$PWD/src" "$MAIN"
   "$PY" -B "$WORK/kinds.py" spec "$BASE" "$PWD/skills/lem-ask/templates" "$WORK" > "$WORK/kinds.json"
   drive "$WORK/kinds.json" "$WORK/kinds.out"
   drive "$WORK/kinds-desk.json" "$WORK/kinds-desk.out"

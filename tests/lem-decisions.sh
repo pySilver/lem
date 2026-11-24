@@ -10,7 +10,7 @@ DC=$WORK/decisions-repo
 git init -q -b main "$DC" && commit "$DC" start && project --repo "$DC" init --base main >/dev/null
 project --repo "$DC" task-dir gift-note >/dev/null && project --repo "$DC" task-dir other-task >/dev/null && project --repo "$DC" task-dir race-task >/dev/null
 project --repo "$DC" task-dir dropped-task >/dev/null && project --repo "$DC" task-dir landed-task >/dev/null
-decide() { "$PY" -B "$DECISIONS" --repo "$DC" "$@"; }
+decide() { "$PY" -B "$MAIN" decisions --repo "$DC" "$@"; }
 dlist() { decide list gift-note | field "$1"; }
 dfile=$DC/.lem/state/tasks/gift-note/decisions.jsonl
 lead=$(decide log gift-note --what "The name of the new column" --chose gift_note --why "the other columns of the export are in snake case" --by lead --undo "rename the column" | field '(d["id"], d["kind"], d["by"], d["undo"])')
@@ -35,7 +35,7 @@ fi
 BR=$WORK/breaker-repo
 git init -q -b main "$BR" && ident "$BR" && commit "$BR" start && project --repo "$BR" init --base main >/dev/null
 br() { project --repo "$BR" "$@"; }
-bdecide() { "$PY" -B "$DECISIONS" --repo "$@"; }
+bdecide() { "$PY" -B "$MAIN" decisions --repo "$@"; }
 br task-dir gift-note --ask "Add the gift note to the CSV export" >/dev/null
 BT=$(br worktree gift-note feat/gift-note | field 'd["worktree"]')
 br state gift-note building "lead: builder" "type: feat, because the export gets a column" >/dev/null
@@ -146,10 +146,10 @@ decide log old-release --what "The columns of the old export" --chose "keep them
 marked=$(cat "$od/release.txt" 2>/dev/null || true)
 printf '0.0.1\n' > "$od/release.txt"
 version=$("$PY" -c 'import json; print(json.load(open(".claude-plugin/plugin.json"))["version"])')
-prior=$("$PY" -B -c 'import sys; sys.path.insert(0, "skills/lem/scripts"); import lem_release; print(lem_release.BEFORE)' 2>/dev/null || true)
+prior=$("$PY" -B -c 'import sys; sys.path.insert(0, "src"); from lem import release as lem_release; print(lem_release.BEFORE)' 2>/dev/null || true)
 say="old-release began on Lem 0.0.1, and Lem $version reads only tasks begun on $prior or $version. Your branch and its commits stay. /lem drop old-release, then /lem resume old-release, starts a new task on $version from that branch and from the notes the task left."
-stopped=$("$PY" -B "$CRITERIA" --repo "$DC" approved old-release 2>&1; echo "exit $?")
-again=$(status_of "$PY" -B "$CRITERIA" --repo "$DC" approved old-release)
+stopped=$("$PY" -B "$MAIN" criteria --repo "$DC" approved old-release 2>&1; echo "exit $?")
+again=$(status_of "$PY" -B "$MAIN" criteria --repo "$DC" approved old-release)
 waits=$(project --repo "$DC" waiting | field '[(t["task"], t["line"]) for t in d["blocked"]]')
 own=$(project --repo "$DC" tasks | field 'next(t["status"] for t in d if t["slug"] == "old-release")')
 ended=$(status_of project --repo "$DC" state old-release dropped "the owner dropped it: it began two releases back")
@@ -210,9 +210,9 @@ fi
 "$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$DC/.lem/state/tasks/other-task/decisions.lock" > "$WORK/dlock.out" &
 holder=$!
 soon test -s "$WORK/dlock.out"
-"$PY" -B "$DECISIONS" --repo "$DC" log other-task --what "first" --chose a --why b --by lead > "$WORK/dw1.out" 2>&1 &
+"$PY" -B "$MAIN" decisions --repo "$DC" log other-task --what "first" --chose a --why b --by lead > "$WORK/dw1.out" 2>&1 &
 w1=$!
-"$PY" -B "$DECISIONS" --repo "$DC" log other-task --what "second" --chose a --why b --by lead > "$WORK/dw2.out" 2>&1 &
+"$PY" -B "$MAIN" decisions --repo "$DC" log other-task --what "second" --chose a --why b --by lead > "$WORK/dw2.out" 2>&1 &
 w2=$!
 sleep 2
 held=$(grep -c '' "$DC/.lem/state/tasks/other-task/decisions.jsonl" 2>/dev/null || true)
@@ -327,8 +327,8 @@ needed=$(start_it shows-the-note 2>&1 || true)
 newest() { project --repo "$WS" tasks | field "'\n'.join([r.split(': ', 1)[1] if i == 0 else r for i, r in enumerate(next(t['state'] for t in d if t['slug'] == '$1').split('\n'))])"; }
 kept=$(newest export-notes-in-order 2>&1 || true)
 need_kept=$(newest shows-the-note 2>&1 || true)
-his_word=$("$PY" -B "$DECISIONS" --repo "$WS" list export-notes-in-order | field '"\n".join(" | ".join([c["by"], c["what"], c["chose"], c["words"]]) for c in d)' 2>&1 || true)
-no_word=$("$PY" -B "$DECISIONS" --repo "$WS" list shows-the-note | field 'len(d)' 2>&1 || true)
+his_word=$("$PY" -B "$MAIN" decisions --repo "$WS" list export-notes-in-order | field '"\n".join(" | ".join([c["by"], c["what"], c["chose"], c["words"]]) for c in d)' 2>&1 || true)
+no_word=$("$PY" -B "$MAIN" decisions --repo "$WS" list shows-the-note | field 'len(d)' 2>&1 || true)
 may=$(project --repo "$WS" may-start export-notes-in-order 2>&1 | field 'd["running"]' 2>&1 || true)
 need_may=$(project --repo "$WS" may-start shows-the-note 2>&1 | field 'd["running"]' 2>&1 || true)
 if grep -qF "nothing below runs before it" <<<"$ordered" && grep -qF "lem project may-start export-notes-in-order\` once more" <<<"$ordered" \
@@ -350,7 +350,7 @@ for slug in a-breaker his-criteria his-step proposed-one in-read; do wq task-dir
 wq state in-read held "the interview waits for the owner" "type: feat, because the export gets a note" >/dev/null
 wq log in-read criteria.read.start by=lem >/dev/null
 # a breaker holds its task: the list names it once, under breakers
-breaker_doc "$WQ/.lem/state/tasks/a-breaker" && "$PY" -B "$DECISIONS" --repo "$WQ" breaker a-breaker --cause criteria >/dev/null
+breaker_doc "$WQ/.lem/state/tasks/a-breaker" && "$PY" -B "$MAIN" decisions --repo "$WQ" breaker a-breaker --cause criteria >/dev/null
 wq state his-criteria held "the criteria wait for the owner" "type: feat, because the export gets a column" >/dev/null
 wq state his-step held "the reviewer's pane waits for the owner's trust of the folder" >/dev/null
 wq state proposed-one open "pull request https://github.com/acme/shop/pull/7" "not green: the bar is lower" >/dev/null
@@ -442,7 +442,7 @@ project --repo "$DC" owner away --words "I'm away" >/dev/null
 "$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$D2/.lem/state/tasks/late-approve/criteria.lock" > "$WORK/alock.out" &
 holder=$!
 soon test -s "$WORK/alock.out"
-"$PY" -B "$CRITERIA" --repo "$D2" approve late-approve --file "$WORK/late-approve.md" --alone > "$WORK/late-approve.out" 2>&1 &
+"$PY" -B "$MAIN" criteria --repo "$D2" approve late-approve --file "$WORK/late-approve.md" --alone > "$WORK/late-approve.out" 2>&1 &
 approver=$!
 # at_lock PID: the approval PID has the lock's file open, which it opens only to wait for the lock: a sign in place of a
 # second of waiting, so that a late start of the approval cannot read his back before it reaches the lock
@@ -472,19 +472,19 @@ rs_criteria() { printf '%s\n' '## Acceptance criteria' '' 'Size: full, because t
 rs_resume() {
   local dir=$RS/.lem/state/tasks/$1 new number
   project --repo "$RS" state "$1" building "lead: builder" >/dev/null
-  breaker_doc "$dir" && number=$("$PY" -B "$DECISIONS" --repo "$RS" breaker "$1" --cause criteria | field 'd["id"]')
+  breaker_doc "$dir" && number=$("$PY" -B "$MAIN" decisions --repo "$RS" breaker "$1" --cause criteria | field 'd["id"]')
   project --repo "$RS" state "$1" dropped "the owner dropped it" >/dev/null
   new=$(project --repo "$RS" resume "$1" | field 'd["task"]')
-  "$PY" -B "$DECISIONS" --repo "$RS" log "$new" --by owner --breaker "$number" --what "Where the word goes" --chose "the first line" --why "a reader sees it at once" >/dev/null
+  "$PY" -B "$MAIN" decisions --repo "$RS" log "$new" --by owner --breaker "$number" --what "Where the word goes" --chose "the first line" --why "a reader sees it at once" >/dev/null
   project --repo "$RS" state "$new" ready "the report is written" >/dev/null
   land --repo "$RS" start "$new" >/dev/null && land --repo "$RS" base "$new" >/dev/null && polish_in "$RS" "$new" && land --repo "$RS" checks "$new" >/dev/null \
     && land --repo "$RS" read "$new" --record "$(clean "$new" 1)" >/dev/null && land --repo "$RS" propose "$new" --title "fix: $new" --notes "$NOTES" 2>&1
 }
 task_in "$RS" flagged-word f.txt f
 rs_criteria flagged-word
-flag_digest=$("$PY" -B "$CRITERIA" --repo "$RS" digest flagged-word | field 'd["digest"]')
+flag_digest=$("$PY" -B "$MAIN" criteria --repo "$RS" digest flagged-word | field 'd["digest"]')
 project --repo "$RS" log flagged-word criteria.read by=lem asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=1 split:=false "digest=$flag_digest" >/dev/null
-"$PY" -B "$CRITERIA" --repo "$RS" approve flagged-word --file "$WORK/flagged-word-approved.md" >/dev/null
+"$PY" -B "$MAIN" criteria --repo "$RS" approve flagged-word --file "$WORK/flagged-word-approved.md" >/dev/null
 # the read and his approval a day before the resume, as their times in the log and in criteria.json say
 "$PY" -c '
 import json, sys
@@ -500,8 +500,8 @@ json.dump(record, open(kept, "w"))
 flagged=$(rs_resume flagged-word || true)
 task_in "$RS" skipped-word s.txt s
 rs_criteria skipped-word
-"$PY" -B "$DECISIONS" --repo "$RS" log skipped-word --by owner --what "the personas' read of the criteria" --chose "no read: the criteria name only the developer" --why "the criteria name only the developer" >/dev/null
-"$PY" -B "$CRITERIA" --repo "$RS" approve skipped-word --file "$WORK/skipped-word-approved.md" >/dev/null
+"$PY" -B "$MAIN" decisions --repo "$RS" log skipped-word --by owner --what "the personas' read of the criteria" --chose "no read: the criteria name only the developer" --why "the criteria name only the developer" >/dev/null
+"$PY" -B "$MAIN" criteria --repo "$RS" approve skipped-word --file "$WORK/skipped-word-approved.md" >/dev/null
 skipped=$(rs_resume skipped-word || true)
 copied=$("$PY" -c 'import json, sys; rows = [json.loads(line) for line in open(sys.argv[1]) if json.loads(line).get("task") == "skipped-word-2"]; print([(r["event"], "was_at" in r) for r in rows[:2]])' "$RS/.lem/state/events.jsonl")
 if [ "$(field '(d["task"], d["pull_request"]["number"])' <<<"$flagged" 2>/dev/null)" = "('flagged-word-2', 1)" ] \

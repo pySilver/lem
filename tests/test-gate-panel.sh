@@ -18,13 +18,14 @@ git -C "$WORK" init -q
 
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 
-CAST=$PWD/skills/lem-panel/scripts/cast.py
+# Lem's one entry: `"$PY" -B "$MAIN" cast ARGS...` is `lem cast ARGS...`
+MAIN=$PWD/src/lem/__main__.py
 PANEL=$(cd "$(mktemp -d)" && pwd -P)
 trap 'stopped; rm -rf "$WORK" "$WORK-wt" "$PANEL"' EXIT
 export HOME=$PANEL/home
 mkdir -p "$HOME"
 commit() { git -C "$1" -c user.name=t -c user.email=t@t commit -q --allow-empty -m "$2"; }
-cast() { "$PY" -B "$CAST" "$@"; }
+cast() { "$PY" -B "$MAIN" cast "$@"; }
 layer_of() { cast --repo "$1" | "$PY" -c 'import json, sys; c = json.load(sys.stdin); print(c["layer"], len(c["personas"]))'; }
 
 REPO=$PANEL/repo
@@ -230,8 +231,8 @@ mkdir -p "$LINKED/.lem"
 printf '%s\n' '[paths]' 'persona = "x"' > "$LINKED/.lem/settings.toml"
 if [ "$(status_of cast --repo "$LINKED")" = 1 ]; then pass "a settings file Lem refuses stops the panel too"; else fail "bad settings passed"; fi
 # once without -B: whatever the run says, its imports wrote no bytecode
-env -u PYTHONDONTWRITEBYTECODE "$PY" "$CAST" --repo "$LINKED" >/dev/null 2>&1 || true
-if [ -d "$(dirname "$CAST")/__pycache__" ] || [ -d skills/lem/scripts/__pycache__ ]; then fail "cast.py left no __pycache__"; else pass "cast.py left no __pycache__"; fi
+env -u PYTHONDONTWRITEBYTECODE "$PY" "$MAIN" cast --repo "$LINKED" >/dev/null 2>&1 || true
+if [ -d src/lem/__pycache__ ]; then fail "cast.py left no __pycache__"; else pass "cast.py left no __pycache__"; fi
 
 # Every skill Lem ships starts only for Lem: the flag keeps it out of every session's list of
 # skills, and its description is short and names Lem. The `lem` skill itself keeps its own.

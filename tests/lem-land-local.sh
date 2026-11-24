@@ -25,8 +25,8 @@ local_land() { land --repo "$LOCAL" "$@"; }
 task_in "$LOCAL" local-change x.txt x
 # A criterion that changed during the build is written down by the build, as a record of its own with its text before and after; the text shows it, and a person merges.
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word y.' > "$WORK/local-approved.md"
-"$PY" -B "$CRITERIA" --repo "$LOCAL" approve local-change --file "$WORK/local-approved.md" >/dev/null 2>&1 || true
-"$PY" -B "$DECISIONS" --repo "$LOCAL" criterion local-change --changed 1 --was "The file holds the word y." --now "The file holds the word the owner asked for." \
+"$PY" -B "$MAIN" criteria --repo "$LOCAL" approve local-change --file "$WORK/local-approved.md" >/dev/null 2>&1 || true
+"$PY" -B "$MAIN" decisions --repo "$LOCAL" criterion local-change --changed 1 --was "The file holds the word y." --now "The file holds the word the owner asked for." \
   --why "y is taken by another file." --by personas --said "Both personas picked x." >/dev/null 2>&1 || true
 read_in "$LOCAL" local-change
 local_land start local-change >/dev/null && local_land base local-change >/dev/null && polish_in "$LOCAL" local-change && local_land checks local-change >/dev/null && local_land read local-change --record "$(clean local-change 1)" >/dev/null
@@ -51,7 +51,7 @@ local_land clean local-change >/dev/null
 # the real pr.md meet.
 task_in "$LOCAL" waited-change w.txt w
 read_in "$LOCAL" waited-change
-wdec() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
+wdec() { "$PY" -B "$MAIN" decisions --repo "$LOCAL" "$@"; }
 wdec log waited-change --what "The name of the file" --chose w.txt --why "The other files have one letter." --by lead >/dev/null
 breaker_doc "$LOCAL/.lem/state/tasks/waited-change" && wdec breaker waited-change --cause irreversible --irreversible person >/dev/null
 project --repo "$LOCAL" state waited-change ready "the report is written" >/dev/null
@@ -60,7 +60,7 @@ waiting=$(local_land propose waited-change --title "fix: w" --notes "$NOTES" 2>&
 wdec log waited-change --by owner --breaker 2 --what "Tell the merchants" --chose "send nothing" --why "Nothing they see changes." --words "no email, they read the export" >/dev/null
 wdec log waited-change "${CASE[@]}" --what "Where the word goes" --chose "the first line" --by dialectic --option "the first line" --option "the last line" \
   --level "personas=1 for the first line, 1 for the last line" --level "dialectic=no break" --why "A reader sees it at once." >/dev/null
-alone_log=$(env PATH="$NOCODEX" "$PY" -B "$DECISIONS" --repo "$LOCAL" log waited-change "${CASE[@]}" --what "The word's line ending" --chose "a line break" --by experts \
+alone_log=$(env PATH="$NOCODEX" "$PY" -B "$MAIN" decisions --repo "$LOCAL" log waited-change "${CASE[@]}" --what "The word's line ending" --chose "a line break" --by experts \
   --why "Fable: every file ends so." --option "a line break" --option "no line break" | field 'd["advisers"]' 2>&1 || true)
 local_land propose waited-change --title "fix: w" --notes "$NOTES" >/dev/null
 text=$LOCAL/.lem/state/tasks/waited-change/pr.md
@@ -84,8 +84,8 @@ project --repo "$LOCAL" state waited-change dropped "the test is over" >/dev/nul
 
 # Approved criteria in the landing: a criterion the build added or removed is not green, like a changed one; and the
 # checks hold one line on the personas' read of the criteria, from its event, with his approval.
-lcriteria() { "$PY" -B "$CRITERIA" --repo "$LOCAL" "$@"; }
-ldecide() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
+lcriteria() { "$PY" -B "$MAIN" criteria --repo "$LOCAL" "$@"; }
+ldecide() { "$PY" -B "$MAIN" decisions --repo "$LOCAL" "$@"; }
 # polish_local SLUG: a polish pass that finds nothing to change, as a full change's checks needs one
 polish_local() { polish_in "$LOCAL" "$1"; }
 # to_open SLUG: the machine steps with a polish pass, a clean read and the proposal of a task of the local repository

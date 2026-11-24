@@ -52,7 +52,7 @@ pids=()
 printf '\n== the blocks (seconds since the start)\n'
 printf '%s\n' "${lines[@]}"
 printf '\n== the run\n'
-if [ -d skills/lem/scripts/__pycache__ ]; then fail "the scripts left no __pycache__"; else pass "the scripts left no __pycache__"; fi
+if [ -d src/lem/__pycache__ ]; then fail "the scripts left no __pycache__"; else pass "the scripts left no __pycache__"; fi
 if [ -n "$failed" ]; then
   printf '\nthe block(s) that failed:%s\n' "$failed"
   exit 1

@@ -322,7 +322,7 @@ project --repo "$GRD" state bar-weaker dropped "the test is over" >/dev/null
 
 # Two writers of one file at one moment (two runs of a landing step on one task's landing.json): each writes a new file of
 # its own and puts it in place, so neither finds its new file gone, and the file is always one of the two texts whole.
-whole_writer() { "$PY" -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import land; from pathlib import Path; [land.write_whole(Path(sys.argv[2]), sys.argv[3] * 2000) for _ in range(300)]' "$PWD/skills/lem/scripts" "$WORK/whole.txt" "$1"; }
+whole_writer() { "$PY" -B -c 'import sys; sys.path.insert(0, sys.argv[1]); from lem import land; from pathlib import Path; [land.write_whole(Path(sys.argv[2]), sys.argv[3] * 2000) for _ in range(300)]' "$PWD/src" "$WORK/whole.txt" "$1"; }
 whole_writer a > "$WORK/whole-a.out" 2>&1 & wa=$!
 whole_writer b > "$WORK/whole-b.out" 2>&1 & wb=$!
 set +e; wait "$wa"; code_a=$?; wait "$wb"; code_b=$?; set -e
@@ -334,7 +334,7 @@ fi
 
 # Landings in parallel: three starts at one moment take turns under the lock of the state folder, and each task starts its landing.
 for slug in race-one race-two race-three; do small_task_in "$GRD" "$slug" "$slug.txt" r; done
-for slug in race-one race-two race-three; do "$PY" -B "$LAND" --repo "$GRD" start "$slug" > "$WORK/$slug.start" 2>&1 & done
+for slug in race-one race-two race-three; do "$PY" -B "$MAIN" land --repo "$GRD" start "$slug" > "$WORK/$slug.start" 2>&1 & done
 wait
 raced=$(project --repo "$GRD" tasks | field 'sorted(t["status"] for t in d if t["slug"].startswith("race-"))')
 if [ "$raced" = "['landing', 'landing', 'landing']" ]; then
@@ -376,7 +376,7 @@ left=$(cat "$WORK/left.pid")
 gone_soon "$left"
 left_state=$(kill -0 "$left" 2>/dev/null && echo alive || echo ended)
 grd_settings "\"sleep 62 > /dev/null 2>&1 & echo \$! > $WORK/held.pid; wait\""
-"$PY" -B "$LAND" --repo "$GRD" checks gate-group > "$WORK/stopped.out" 2>&1 &
+"$PY" -B "$MAIN" land --repo "$GRD" checks gate-group > "$WORK/stopped.out" 2>&1 &
 gate_pid=$!
 soon test -s "$WORK/held.pid"
 kill -TERM "$gate_pid" 2>/dev/null || true
@@ -408,7 +408,7 @@ red_say=$(g checks one-step 2>/dev/null | field 'd["say"]' || true)
 grd_settings '"true"'
 passed=$(g checks one-step | field '(d["result"], d["say"])')
 grd_settings "\"touch $WORK/slow.started; while [ ! -f $WORK/slow.go ]; do sleep 0.1; done\""
-"$PY" -B "$LAND" --repo "$GRD" checks one-step > "$WORK/slow.out" 2>&1 &
+"$PY" -B "$MAIN" land --repo "$GRD" checks one-step > "$WORK/slow.out" 2>&1 &
 slow_pid=$!
 soon test -f "$WORK/slow.started"
 second=$(g checks one-step 2>&1 || true)
@@ -454,7 +454,7 @@ fi
 idle_stop=$(g checks one-step --stop | field 'd["stopped"]')
 # the command writes a file git neither tracks nor ignores before it sleeps: the stop removes it too
 grd_settings "\"echo left > stop-left.out; sleep 64 > /dev/null 2>&1 & echo \$! > $WORK/stop.pid; wait\""
-"$PY" -B "$LAND" --repo "$GRD" checks one-step > "$WORK/stop.out" 2>&1 &
+"$PY" -B "$MAIN" land --repo "$GRD" checks one-step > "$WORK/stop.out" 2>&1 &
 stop_pid=$!
 soon test -s "$WORK/stop.pid"
 stopped_plain=$(g checks one-step --stop | field '(d["stopped"], d["ended"]["result"])')
@@ -465,7 +465,7 @@ plain_gated=$(kept_in "$GRD" one-step gated)
 plain_left_files=$(git -C "$(wt one-step)" status --porcelain --untracked-files=all)
 # a serial command that ignores a term: its wrapper kills it after three seconds, and the checks wait for that wrapper
 SERIAL="\"trap '' TERM; sleep 65 & echo \$! > $WORK/serial.pid; wait\"" grd_settings '"true"'
-"$PY" -B "$LAND" --repo "$GRD" checks one-step > "$WORK/serial.out" 2>&1 &
+"$PY" -B "$MAIN" land --repo "$GRD" checks one-step > "$WORK/serial.out" 2>&1 &
 serial_gate=$!
 soon test -s "$WORK/serial.pid"
 stopped_serial=$(g checks one-step --stop | field 'd["stopped"]')
@@ -481,7 +481,7 @@ ctree=$(wt crit-stop)
 printf '%s\n' "touch $WORK/crit.started; sleep 66 & echo \$! > $WORK/crit.pid; wait" "grep -qx c c1.txt" > "$ctree/tests/crit-stop.sh"
 git -C "$ctree" commit -q -am "test: a slow test"
 g start crit-stop >/dev/null && g base crit-stop >/dev/null
-"$PY" -B "$LAND" --repo "$GRD" checks crit-stop > "$WORK/crit.out" 2>&1 &
+"$PY" -B "$MAIN" land --repo "$GRD" checks crit-stop > "$WORK/crit.out" 2>&1 &
 crit_gate=$!
 soon test -s "$WORK/crit.pid"
 stopped_crit=$(g checks crit-stop --stop | field '(d["stopped"], d["ended"]["result"])')
@@ -530,7 +530,7 @@ fi
 # The check of the criteria needs a change: a branch the base holds whole has no commit for a test to hold.
 small_task_in "$GRD" on-base o.txt o
 git -C "$GRD" merge -q --ff-only fix/on-base && git -C "$GRD" push -q origin main
-on_base=$("$PY" -B "$CRITERIA" --repo "$GRD" red on-base 2>&1 || true)
+on_base=$("$PY" -B "$MAIN" criteria --repo "$GRD" red on-base 2>&1 || true)
 if grep -qF "the branch has no commit beyond origin/main, so there is no change for a test to hold" <<<"$on_base"; then
   pass "the check of the criteria refuses a branch with no commit beyond the base"
 else

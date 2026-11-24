@@ -40,7 +40,7 @@ open_task first-change ok.txt yes
 # first-change began on the release before this one (lem_release.BEFORE): its open wrote this Lem's own release as its
 # mark, the one Claude Code's list of this run gives (lib.sh), and the mark now says the release before. It lands below.
 version=$("$PY" -c 'import json; print(json.load(open(".claude-plugin/plugin.json"))["version"])')
-prior=$("$PY" -B -c 'import sys; sys.path.insert(0, "skills/lem/scripts"); import lem_release; print(lem_release.BEFORE)' 2>/dev/null || true)
+prior=$("$PY" -B -c 'import sys; sys.path.insert(0, "src"); from lem import release as lem_release; print(lem_release.BEFORE)' 2>/dev/null || true)
 began=$(cat "$SHOP/.lem/state/tasks/first-change/release.txt" 2>/dev/null || true)
 printf '%s\n' "$prior" > "$SHOP/.lem/state/tasks/first-change/release.txt"
 open_task second-change app.txt two
@@ -494,15 +494,15 @@ open_task not-clean nc.txt seven
 checked not-clean
 # A run that is cut off before the review is written down leaves nothing, the next run writes it
 # down once, and the same record sent again is refused: one review never takes two rounds. A copy
-# of the scripts whose project.py refuses the `review` event stands in for the kill. The copy is in a folder of the
+# of the package whose project.py refuses the `review` event stands in for the kill. The copy is in a folder of the
 # plugin's shape, whose plugin.json names this Lem's release, which each step reads (lem_release).
-CUT=$WORK/cut/skills/lem/scripts
-mkdir -p "$WORK/cut/skills/lem" "$WORK/cut/.claude-plugin" && cp "$PWD/.claude-plugin/plugin.json" "$WORK/cut/.claude-plugin/"
-cp -R "$PWD/skills/lem/scripts" "$CUT"
+CUT=$WORK/cut/src/lem
+mkdir -p "$WORK/cut/src" "$WORK/cut/.claude-plugin" && cp "$PWD/.claude-plugin/plugin.json" "$WORK/cut/.claude-plugin/"
+cp -R "$PWD/src/lem" "$CUT"
 printf '%s\n' 'import runpy, sys' 'if "review" in sys.argv: sys.exit("project.py: cut off")' \
-  "sys.argv[0] = '$PWD/skills/lem/scripts/project.py'" "runpy.run_path(sys.argv[0], run_name='__main__')" > "$CUT/project.py"
+  "sys.argv[0] = '$PWD/src/lem/project.py'" "runpy.run_path(sys.argv[0], run_name='__main__')" > "$CUT/project.py"
 first=$(record not-clean 1 '{"kind": "read", "answered": ["codex"], "must_fix": 2}')
-cut_off=$(status_of "$PY" -B "$CUT/land.py" --repo "$SHOP" read not-clean --record "$first")
+cut_off=$(status_of "$PY" -B "$CUT/__main__.py" land --repo "$SHOP" read not-clean --record "$first")
 nothing=$(kept not-clean reads)
 land --repo "$SHOP" read not-clean --record "$first" >/dev/null
 twice=$(land --repo "$SHOP" read not-clean --record "$first" 2>&1 || true)

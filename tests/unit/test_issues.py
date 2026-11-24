@@ -1,4 +1,4 @@
-"""The GitHub tracker, `lem issue` (skills/lem-github/scripts/issues.py), each step and
+"""The GitHub tracker, `lem issue` (src/lem/issues.py), each step and
 each refusal, over a stand-in for `gh` on PATH, in the manner of the one tests/lib.sh
 keeps: a Python file that a shell script on PATH runs, which keeps the issues of each
 repository in a JSON file, and one line of each call in that file's `calls`. The

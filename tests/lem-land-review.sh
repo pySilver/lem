@@ -22,7 +22,7 @@ app_py old old > "$LOCAL/app.py"
 printf '%s\n' 'pub fn one() -> i32 { 1 }' '#[cfg(test)]' 'mod tests {' '    #[test]' '    fn it_is_one() { assert_eq!(super::one(), 1); }' '}' > "$LOCAL/lib.rs"
 git -C "$LOCAL" add -A && git -C "$LOCAL" commit -q -m "chore: start" && on_github "$LOCAL"
 local_land() { land --repo "$LOCAL" "$@"; }
-lcriteria() { "$PY" -B "$CRITERIA" --repo "$LOCAL" "$@"; }
+lcriteria() { "$PY" -B "$MAIN" criteria --repo "$LOCAL" "$@"; }
 
 # The polish pass: after the task's own work and before the machine checks, a fresh builder takes out
 # what the change left behind, and the script checks what it committed. Here the test is the builder.
@@ -200,8 +200,8 @@ git -C "$SPACES" switch -q -c fix/spaces
 echo 'value = "a b"' > "$SPACES/v.py" && app_py new old > "$SPACES/app.py" && git -C "$SPACES" add -A && git -C "$SPACES" commit -q -m "fix: a value"
 # change_id: the id land.change gives the change of the branch from main, as it is now
 change_id() {
-  "$PY" -B -c 'import sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); import land
-task = land.Task.__new__(land.Task); task.worktree, task.onto = Path(sys.argv[2]), "main"; print(land.change(task)["patch"])' "$(dirname "$LAND")" "$SPACES"
+  "$PY" -B -c 'import sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); from lem import land
+task = land.Task.__new__(land.Task); task.worktree, task.onto = Path(sys.argv[2]), "main"; print(land.change(task)["patch"])' "$PWD/src" "$SPACES"
 }
 reviewed=$(change_id)
 # the same edit in the next function of the file: every line of the diff is the same, with its context, and only its place is not
@@ -375,7 +375,7 @@ local_land clean call-kept >/dev/null
 # A task that ran without the owner: green when nothing of his was decided without him, with the line that says when it
 # ran so, and a decision the gate or the personas settled stays green, its line with the votes and the model families. The
 # merge agent merges it as any other. Here the owner says that he is away.
-ldecide() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
+ldecide() { "$PY" -B "$MAIN" decisions --repo "$LOCAL" "$@"; }
 task_in "$LOCAL" quiet-run quiet.txt quiet
 read_in "$LOCAL" quiet-run
 ldecide log quiet-run --what "The file's name" --chose quiet.txt --by gate --why "docs/rulings.md, Names: A file is named for what it holds." >/dev/null

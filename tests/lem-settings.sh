@@ -57,9 +57,9 @@ for line in open(sys.argv[1], encoding="utf-8"):
     if key and table: found.add(f"{table}.{key.group(1)}")
 print(sorted(found))' "$NEW/.lem/settings.toml")
 # shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
-paged=$("$PY" -I -B -c 'import re, sys; sys.path.insert(0, sys.argv[2]); import lem_state
+paged=$("$PY" -I -B -c 'import re, sys; sys.path.insert(0, sys.argv[2]); from lem import state as lem_state
 found = re.findall(r"^\| `(\w+)\.(\w+)` \|", open(sys.argv[1], encoding="utf-8").read(), re.M)
-print(sorted({f"{table}.{key}" for table, key in found if "team" in lem_state.TABLE_PLACES.get(table, ())}))' "$PWD/docs/settings.md" "$PWD/skills/lem/scripts")
+print(sorted({f"{table}.{key}" for table, key in found if "team" in lem_state.TABLE_PLACES.get(table, ())}))' "$PWD/docs/settings.md" "$PWD/src")
 if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 21 ]; then
   pass "the team's file holds 21 keys, the same in show, in the file init writes and on the settings page"
 else
@@ -68,7 +68,7 @@ fi
 # The tables one machine's own file takes are the same in project.py and in that file's table on the settings page.
 # shellcheck disable=SC2016  # the backticks are the page's own marks
 local_paged=$("$PY" -I -c 'import re, sys; page = open(sys.argv[1], encoding="utf-8").read().split("## `.lem/settings.local.toml`", 1)[1]; print(re.findall(r"^\| `\[(\w+)\]` \|", page, re.M))' "$PWD/docs/settings.md")
-local_coded=$("$PY" -I -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import project; print(list(project.LOCAL_TABLES))' "$PWD/skills/lem/scripts")
+local_coded=$("$PY" -I -B -c 'import sys; sys.path.insert(0, sys.argv[1]); from lem import project; print(list(project.LOCAL_TABLES))' "$PWD/src")
 if [ "$local_paged" = "$local_coded" ] && [ "$local_coded" = "['seats', 'naps', 'state']" ]; then
   pass "the tables of .lem/settings.local.toml are the same in project.py and on the settings page: the seats, the naps and the state"
 else
@@ -231,11 +231,10 @@ fi
 settings '[branch]' 'base = "master"' '[paths]' 'rulings = "decisions/rulings.md"'
 ruled=$(project --repo "$OLD" path rulings)
 settings '[branch]' 'base = "master"' '[paths]' 'rulings = "docs/rulings"'
-CORR=$PWD/skills/lem/scripts/corrections.py
 stopped_codes="" stopped_said=0
 for command in "project show" "project path rulings" "project plan-file header-names" "project prune --dry-run" "project may-nap" "corrections list"; do
   read -r -a argv <<<"$command"
-  if [ "${argv[0]}" = project ]; then run=("$PY" -B "$PROJECT"); else run=("$PY" -B "$CORR"); fi
+  if [ "${argv[0]}" = project ]; then run=("$PY" -B "$MAIN" project); else run=("$PY" -B "$MAIN" corrections); fi
   code=0
   said=$("${run[@]}" --repo "$OLD" "${argv[@]:1}" 2>&1) || code=$?
   stopped_codes="$stopped_codes $code"
@@ -1017,7 +1016,7 @@ else
   fail "a start through log: $started / $odd_job_code $odd_job"
 fi
 # a breaker that stopped the investigation while the task built, which nobody helped on before the task ended
-breaker_doc "$ans_dir" && "$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" breaker zero-after-refund --cause irreversible --irreversible data >/dev/null
+breaker_doc "$ans_dir" && "$PY" -B "$PWD/src/lem/__main__.py" decisions --repo "$ANS" breaker zero-after-refund --cause irreversible --irreversible data >/dev/null
 # `answered` needs the report and a record whose call ends the task; it takes no place and keeps its slug.
 no_report=$(project --repo "$ANS" state zero-after-refund answered "not a bug: a refund is a credit note" 2>&1 || true)
 printf '%s\n' '# Investigation' '' 'Reproduced: yes.' > "$ans_dir/investigation.md"
@@ -1044,8 +1043,8 @@ else
   fail "the state answered: $no_report / $goes_on / $answered / $places / $unreported / $free / $taken"
 fi
 # A breaker of an answered task waits for nobody, and the task takes no new decision.
-ended=$("$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" pending | field '(d["waiting"], [(e["task"], e["status"], e["breakers"]) for e in d["ended"]])' 2>&1 || true)
-again=$("$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" log zero-after-refund --by lead --what "Keep the test" --chose "keep it" --why "it pins the behavior" 2>&1 || true)
+ended=$("$PY" -B "$PWD/src/lem/__main__.py" decisions --repo "$ANS" pending | field '(d["waiting"], [(e["task"], e["status"], e["breakers"]) for e in d["ended"]])' 2>&1 || true)
+again=$("$PY" -B "$PWD/src/lem/__main__.py" decisions --repo "$ANS" log zero-after-refund --by lead --what "Keep the test" --chose "keep it" --why "it pins the behavior" 2>&1 || true)
 if [ "$ended" = "([], [('zero-after-refund', 'answered', [1])])" ] && grep -qF "zero-after-refund is answered" <<<"$again" \
   && [ "$(grep -c '' "$ANS/.lem/state/tasks/zero-after-refund/decisions.jsonl")" = 1 ]; then
   pass "an answered task has no breaker that waits: pending puts it with the tasks that ended, and a new decision of it is refused"
@@ -1151,7 +1150,7 @@ else
 fi
 
 # The criteria of a task: read from the top of its plan, and each one held by a test that fails on the base commit.
-criteria() { "$PY" -B "$CRITERIA" --repo "$ST" "$@"; }
+criteria() { "$PY" -B "$MAIN" criteria --repo "$ST" "$@"; }
 ST=$WORK/criteria-repo
 git init -q -b main "$ST" && git -C "$ST" config user.name t && git -C "$ST" config user.email t@t
 mkdir -p "$ST/tests" "$ST/docs/plans" && echo 'echo "1042,None"' > "$ST/export.sh" && git -C "$ST" add -A && git -C "$ST" commit -q -m start
@@ -1299,7 +1298,7 @@ second=$(criteria red export-has-the-gift-note 2>&1 || true)
 kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
 # A check that is stopped ends the command it runs, and leaves no worktree.
 sed -i.bak "s|^setup = .*\$|setup = [\"sleep $NAP2\"]|" "$ST/.lem/settings.toml" && rm "$ST/.lem/settings.toml.bak"
-"$PY" -B "$CRITERIA" --repo "$ST" red export-has-the-gift-note > "$WORK/stopped.out" 2>&1 &
+"$PY" -B "$MAIN" criteria --repo "$ST" red export-has-the-gift-note > "$WORK/stopped.out" 2>&1 &
 check=$!
 napping() { pgrep -f "sleep ${NAP2/./\\.}" >/dev/null 2>&1; }
 soon napping
@@ -1441,7 +1440,7 @@ if grep -qF "criterion 3 of 2026-11-16-approved-note.md, 'The note file ends wit
 else
   fail "an extra criterion at the end of the plan: $extra / $red_extra"
 fi
-adecide() { "$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ST" "$@"; }
+adecide() { "$PY" -B "$PWD/src/lem/__main__.py" decisions --repo "$ST" "$@"; }
 t1='The note file holds the gift note of order 1042: "for Ania".'
 t2='An order with no gift note has the line "1043," and no word after the comma.'
 c1='The note file holds the gift note of order 1042, "for Ania".'
@@ -1559,7 +1558,7 @@ project --repo "$ST" task-dir locked-note >/dev/null
   "$ST/.lem/state/tasks/locked-note/criteria.lock" > "$WORK/criteria-lock.out" &
 holder=$!
 soon test -s "$WORK/criteria-lock.out"
-"$PY" -B "$CRITERIA" --repo "$ST" approve locked-note --file "$WORK/reapproved.md" > "$WORK/his-approval.out" 2>&1 &
+"$PY" -B "$MAIN" criteria --repo "$ST" approve locked-note --file "$WORK/reapproved.md" > "$WORK/his-approval.out" 2>&1 &
 his=$!
 sleep 0.5
 while_held=$([ -e "$ST/.lem/state/tasks/locked-note/criteria.json" ] && echo written || echo waits)
@@ -1591,8 +1590,8 @@ project --repo "$BKB" init --base main >/dev/null
 # backlog_of REPO: the items as the board reads them (board.backlog), as JSON in $WORK/backlog.json
 backlog_of() {
   project --repo "$1" show > "$WORK/settings.json"
-  "$PY" -B -c 'import json, sys; sys.path.insert(0, sys.argv[1]); import board; print(json.dumps(board.backlog(json.load(open(sys.argv[2])))))' \
-    "$PWD/skills/lem/scripts" "$WORK/settings.json" > "$WORK/backlog.json"
+  "$PY" -B -c 'import json, sys; sys.path.insert(0, sys.argv[1]); from lem import board; print(json.dumps(board.backlog(json.load(open(sys.argv[2])))))' \
+    "$PWD/src" "$WORK/settings.json" > "$WORK/backlog.json"
 }
 feed() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2], {"d": d, "by": {i["slug"]: i for i in d["items"]}}))' "$WORK/backlog.json" "$1"; }
 backlog_of "$BKB"
@@ -1616,8 +1615,7 @@ else
   fail "a first backlog item: $(head -c 500 "$WORK/backlog.json")"
 fi
 # lem board: what it refuses before it asks the board server (tests/lem-serve.sh opens the board, with a server).
-BOARD=$PWD/skills/lem/scripts/board.py
-board() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$BOARD" "$@"; }
+board() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$MAIN" board "$@"; }
 err=$(board --repo "$OLD" --no-open --task no-such-task 2>&1 || true)
 if [ "$(status_of board --repo "$OLD" --no-open --task no-such-task)" = 1 ] && grep -q "the tasks are: .*second-task" <<<"$err" \
   && [ "$(status_of board --repo "$OLD")" = 1 ] && grep -qF "not inside an agterm session" <<<"$(board --repo "$OLD" 2>&1 || true)"; then
@@ -1627,7 +1625,7 @@ else
 fi
 board --repo "$OLD" --no-open --demo >/dev/null 2>&1 || true
 board --repo "$OLD" --no-open >/dev/null 2>&1 || true
-if [ -f "$OLD/.lem/state/demo" ] && [ "$(project --repo "$OLD" show | "$PY" -B -c 'import json, sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); import board; s = json.load(sys.stdin); print(board.meta_of(s, Path(sys.argv[2]))["demo"])' "$PWD/skills/lem/scripts" "$OLD/.lem/state")" = True ]; then
+if [ -f "$OLD/.lem/state/demo" ] && [ "$(project --repo "$OLD" show | "$PY" -B -c 'import json, sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); from lem import board; s = json.load(sys.stdin); print(board.meta_of(s, Path(sys.argv[2]))["demo"])' "$PWD/src" "$OLD/.lem/state")" = True ]; then
   pass "board --demo marks the state folder's tasks as examples, and a later run with no flag keeps the mark"
 else
   fail "board --demo: no mark in $OLD/.lem/state"
@@ -1644,15 +1642,15 @@ printf '%s\n' '#!/bin/sh' 'echo "$*" >> "$AGT_CALLS"' 'case "$1" in tree) cat "$
 chmod +x "$FAKE/agtermctl"
 printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [{"id": "CCC", "name": "lem c"}]}]}}}' > "$WORK/tree.json"
 mkdir -p "$WORK/pages" && echo '<html><body>built</body></html>' > "$WORK/pages/page.html" && echo 'text' > "$WORK/pages/notes.md"
-showpage() { : > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree.json" AGTERM_SESSION_ID=CCC AGTERM_SOCKET=/none "$PY" -B "$BOARD" "$@"; }
+showpage() { : > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree.json" AGTERM_SESSION_ID=CCC AGTERM_SOCKET=/none "$PY" -B "$MAIN" board "$@"; }
 first=$(showpage --page "$WORK/pages/page.html" --name "gift-note page")
 first_calls=$(cat "$WORK/calls")
 printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [{"id": "CCC", "name": "lem c"},' \
   "{\"id\": \"PP\", \"name\": \"gift-note page\", \"content\": \"page\", \"parent\": \"CCC\", \"htmlOverlays\": [{\"file\": \"$WORK/pages/page.html\"}]}]}]}}}" > "$WORK/tree-page.json"
-again=$(: > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree-page.json" AGTERM_SESSION_ID=CCC AGTERM_SOCKET=/none "$PY" -B "$BOARD" --page "$WORK/pages/page.html" --name "gift-note page")
+again=$(: > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree-page.json" AGTERM_SESSION_ID=CCC AGTERM_SOCKET=/none "$PY" -B "$MAIN" board --page "$WORK/pages/page.html" --name "gift-note page")
 again_calls=$(cat "$WORK/calls")
 not_page=$(showpage --page "$WORK/pages/notes.md" 2>&1 || true)
-outside=$(env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$BOARD" --page "$WORK/pages/page.html" 2>&1 || true)
+outside=$(env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$MAIN" board --page "$WORK/pages/page.html" 2>&1 || true)
 if [ "$(field '(d["companion"], d["reloaded"], d["parent"], d["name"])' <<<"$first")" = "('NEW', False, 'CCC', 'gift-note page')" ] \
   && grep -q "session overlay open --html $WORK/pages/page.html --cwd $WORK/pages --js --companion --target CCC" <<<"$first_calls" \
   && ! grep -q "overlay open --html [^ ]* --cwd [^ ]* --target" <<<"$first_calls" \
