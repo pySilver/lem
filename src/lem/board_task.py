@@ -291,7 +291,7 @@ def tags(ctx: P.Ctx, t: bm.Task) -> list:
                     f"breaker {b.id} waits"
                     if t.breaker
                     else f"breaker {b.id}, parked"
-                    if t.status == bm.PARKED
+                    if bm.is_parked(t)
                     else f"breaker {b.id}",
                 ),
             )
@@ -941,7 +941,7 @@ def owner_lines(ctx: P.Ctx, t: bm.Task, *, park_link: bool = True) -> Markup | N
             if ctx.can_act and park_link
             else None
         )
-    elif t.status == bm.PARKED:
+    elif bm.is_parked(t):
         lines = [
             (f"/lem resume {t.slug}", "brings it back as it was"),
             (f"/lem drop {t.slug}", "ends it"),
@@ -1301,13 +1301,21 @@ def breaker_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
             h(
                 "div",
                 {"class": "b-line"},
-                # a task two releases back: its stop's message is the way on
                 (
                     "The task is parked: this breaker waits for nobody "
                     "until you bring it back."
-                )
-                if t.status == bm.PARKED
-                else [h("b", None, "Where you answer: "), P.rich(ctx, bm.answer_of(t))],
+                ),
+            )
+            if bm.is_parked(t)
+            # a task two releases back: its stop's message is the way on, which the
+            # large card says once
+            else None
+            if bm.answer_of(t) == t.shown
+            else h(
+                "div",
+                {"class": "b-line"},
+                h("b", None, "Where you answer: "),
+                P.rich(ctx, bm.answer_of(t)),
             ),
             owner_lines(ctx, t),
         )
@@ -1533,8 +1541,11 @@ def now_card(ctx: P.Ctx, t: bm.Task) -> Markup:
         and h("div", {"class": "now-status"}, P.rich(ctx, t.shown)),
         t.more and h("div", {"class": "now-ctx"}, P.rich(ctx, " · ".join(t.more))),
         found,
+        # where he answers, unless the line above says it already (a task two
+        # releases back: the stop's message)
         t.for_owner
         and not t.breaker
+        and bm.answer_of(t) != t.shown
         and h(
             "div",
             {"class": "now-ctx"},
@@ -1557,7 +1568,7 @@ def now_card(ctx: P.Ctx, t: bm.Task) -> Markup:
         if t.breaker
         else inbox_action(ctx, t) or (row_action(ctx, t) if t.for_owner else None),
         None if t.breaker else now_answer(ctx, t),
-        t.status == bm.PARKED and owner_lines(ctx, t),
+        bm.is_parked(t) and owner_lines(ctx, t),
     ]
     time = (
         h("span", None, bm.stamp(t.since, now)) if t.closed else P.since(t.since, now)

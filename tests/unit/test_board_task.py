@@ -1007,6 +1007,28 @@ class ReleaseStopPage(unittest.TestCase):
                 ):
                     self.assertNotIn(act, said)
 
+    def test_a_parked_task_two_releases_back_names_no_resume(self) -> None:
+        # review of 2026-11-24: the parked lines said "/lem resume gift-note brings it
+        # back", which `lem project resume` refuses for such a task
+        for name, events in (
+            ("parked", (state(0, "building", "task 1 of 2"),)),
+            ("breaker", self.BREAKER),
+        ):
+            with self.subTest(wait=name):
+                said = self.page(*events, state(25, "parked", "the owner parked it"))
+                self.assertIn("It began on an older release of Lem", said)
+                for act in ("bring it back", "brings it back", "Parked", "parked"):
+                    self.assertNotIn(act, said)
+                self.assertEqual(said.count("Your branch and its commits stay"), 1)
+
+    def test_the_overview_says_the_stops_message_once(self) -> None:
+        # review of 2026-11-24: the large card said it as what the task waits for and
+        # again as where he answers, and a breaker's card a third time
+        for name, events in (("breaker", self.BREAKER), ("plan", self.PLAN)):
+            with self.subTest(wait=name):
+                said = self.page(*events)
+                self.assertEqual(said.count("Your branch and its commits stay"), 1)
+
 
 class InboxLine(unittest.TestCase):
     """Where the owner answers on the phone's page of a task while his mark says away

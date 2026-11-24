@@ -2196,7 +2196,7 @@ def derive(  # noqa: C901 - over the limit before the limit was set
         queued=by("queued"),
         ready=by("ready"),
         landing=by("landing"),
-        parked=by(PARKED),
+        parked=[t for t in by(PARKED) if is_parked(t)],
         for_owner=[],
         blocked=sorted(
             (
@@ -2591,10 +2591,18 @@ def stop_words(d: Decision) -> str:
     )
 
 
+def is_parked(t: Task) -> bool:
+    """Whether the task is parked and its park is its way on: never a task two releases
+    back (RELEASE_STOP), whose way on is the stop's message and which `lem project
+    resume` refuses to bring back, so that it stands in "Waits for you" alone."""
+    return t.status == PARKED and t.release_stop is None
+
+
 def parked_of(t: Task) -> dict | None:
     """A parked task: since when, why (the parked block's first line, in the owner's
-    words), and the command that brings it back; None for a task that is not parked."""
-    if t.status != PARKED:
+    words), and the command that brings it back; None for a task that is not parked, or
+    whose park is no way on (`is_parked`)."""
+    if not is_parked(t):
         return None
     return {"since": t.since, "why": t.text, "resume": f"/lem resume {t.slug}"}
 
@@ -5390,7 +5398,7 @@ def breaker_says(t: Task, d: Decision) -> dict:
         now, actor = f"helped by your decision {d.help}", "done"
     elif t.closed:
         now, actor = f"the task is {t.status}: it no longer waits", "quiet"
-    elif t.status == PARKED:
+    elif is_parked(t):
         now, actor = (
             f"the task is parked: it waits for nobody until /lem resume {t.slug}",
             "quiet",

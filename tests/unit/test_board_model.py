@@ -2504,6 +2504,7 @@ class ReleaseStop(unittest.TestCase):
             ("held", "the criteria wait for the owner"),
             ("blocked", "the session stopped"),
             ("queued", "after: fix-the-base"),
+            ("parked", "the owner parked it"),
         ):
             with self.subTest(status=status):
                 m = model(state(1, status, text), self.stop(5))
@@ -2514,6 +2515,9 @@ class ReleaseStop(unittest.TestCase):
                     (status, [], True, self.SAY),
                 )
                 self.assertEqual(bm.answer_of(t), self.SAY)
+                # one place: "Waits for you" and the blocked tasks, never the parked
+                self.assertEqual((t in m.blocked, t in m.parked), (True, False))
+                self.assertEqual(bm.card_line(t, bm.LANE["you"]), f"Blocked: {self.SAY}")
 
     def test_a_landing_two_releases_back_is_out_of_the_guard_of_a_stopped_session(
         self,
