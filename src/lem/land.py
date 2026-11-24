@@ -1064,15 +1064,24 @@ DOCS = (".md", ".rst", ".adoc")
 # without it, so a refusal says `it.only`, never `it.only(`. The marks of a test that
 # runs again until it passes came after a probe of the bar passed eight ways of
 # weakening a test unseen (audit T-F2, 2026-11-17). The marks of pyrefly and ty, and
-# ruff's for a whole file, came when those tools came to Lem's own code (2026-11-24).
+# ruff's for a whole file, came when those tools came to Lem's own code (2026-11-24),
+# each form as the docs of ruff 0.17.3 and the `--help` of pyrefly 1.5.0 give it, with
+# the tool's own rule of case: ruff's `noqa` in any case, after the name `ruff` or
+# `flake8` in lower case; pyrefly's comments in lower case only, the other checkers'
+# too, which it obeys with `permissive-ignores` or with no settings file.
 BAR = {
     (".py",): (
-        r"#\s*noqa",
+        r"#\s*(?i:noqa)",
         r"#\s*type:\s*ignore",
         r"#\s*pyright:\s*ignore",
-        r"#\s*pyrefly:\s*ignore",
+        r"#\s*pyrefly:\s*ignore(?:-errors)?",
         r"#\s*ty:\s*ignore",
-        r"#\s*ruff:\s*noqa",
+        r"#\s*(?:ruff|flake8)\s*:\s*(?i:noqa)",
+        r"#\s*ruff:\s*(?:disable|file-ignore)(?=\[)",
+        r"#\s*pyre-(?:ignore(?:-all-errors)?|fixme)",
+        r"#\s*pyre:\s*ignore",
+        r"#\s*mypy:\s*ignore-errors",
+        r"#\s*zuban:\s*ignore",
         r"#\s*pylint:\s*disable",
         r"#\s*nosec",
         r"\bpytest\.mark\.(skip|xfail)",

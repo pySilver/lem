@@ -751,6 +751,42 @@ class Bar(unittest.TestCase):
             [("say.py", NOQA), ("say.py", PYREFLY), ("say.py", RUFF), ("say.py", TY)],
         )
 
+    def test_each_form_ruff_and_pyrefly_obey(self) -> None:
+        # each line with the mark it is named by, or None where the tool's own rule of
+        # case takes no mark: ruff's `noqa` in any case after the name `ruff` or
+        # `flake8` in lower case, and pyrefly's comments in lower case only. Pyrefly honors the
+        # other checkers' comments with `permissive-ignores`, or with no settings file.
+        h = "#"
+        forms = {
+            f"x = 1  {h} NOQA": f"{h} NOQA",
+            f"x = 1  {h} NoQA: E501": f"{h} NoQA",
+            f"{h} flake8: noqa": f"{h} flake8: noqa",
+            f"{h} flake8: noqa: E501": f"{h} flake8: noqa",
+            f"{h} ruff : noqa": f"{h} ruff : noqa",
+            f"{h} ruff: NOQA": f"{h} ruff: NOQA",
+            f"{h} RUFF: noqa": None,
+            f"{h} ruff: disable[E501]": f"{h} ruff: disable",
+            f"{h} ruff: file-ignore[F401, ARG001]": f"{h} ruff: file-ignore",
+            f"{h} pyrefly: ignore-errors": f"{h} pyrefly: ignore-errors",
+            f"{h} pyrefly: ignore-errors[bad-assignment]": (
+                f"{h} pyrefly: ignore-errors"
+            ),
+            f"x: int = ''  {h} PYREFLY: IGNORE": None,
+            f"x: int = ''  {h} pyre-ignore": f"{h} pyre-ignore",
+            f"x: int = ''  {h} pyre-ignore[9]": f"{h} pyre-ignore",
+            f"{h} pyre-ignore-all-errors": f"{h} pyre-ignore-all-errors",
+            f"x: int = ''  {h} pyre-fixme[9]": f"{h} pyre-fixme",
+            f"x: int = ''  {h} pyre: ignore": f"{h} pyre: ignore",
+            f"{h} mypy: ignore-errors": f"{h} mypy: ignore-errors",
+            f"x: int = ''  {h} zuban: ignore": f"{h} zuban: ignore",
+        }
+        for line, mark in forms.items():
+            with self.subTest(line=line):
+                self.assertEqual(
+                    lowered(bar(patch("m.py", plus=(line,), new=True))),
+                    [("m.py", mark)] if mark else [],
+                )
+
     def test_a_document_may_quote_a_mark(self) -> None:
         result = bar(
             patch(
