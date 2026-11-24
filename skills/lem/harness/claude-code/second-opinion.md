@@ -32,8 +32,9 @@ You see it on the pane's screen, `agtermctl session text --pane right --target
 pane, or in a reply. The words change with each release of Codex and Claude Code, so the KIND is
 your read of them. A slow reviewer is no error: wait for it, however long its turn takes. An
 agent that ended with words of another kind is none of the four and gets no stand-in: open the
-same seat once more at step 2; after a second such end, say it in one line and mark the session
-as waiting for the owner (`mark-waiting`). On one of the four, run
+same seat once more at step 2; after a second such end, mark the session as waiting for the
+owner (`mark-waiting`) first, then say it in one line, the last text of your turn. On one of the
+four, run
 
 ```bash
 lem project seat-failed SLUG reviewer --seat "LINE" --error KIND --said "ITS WORDS"

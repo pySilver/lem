@@ -33,8 +33,9 @@ its task directory. `SKILL_DIR` is the directory above this file's.
    (`stages/breaker.md`) takes one to him. His `/lem im-away` or `/lem im-back`, or plain
    words that say the same, typed in this session is `lem project --repo WORKTREE owner away|back --words "HIS WORDS"`.
    A step that is his to do, such as the trust prompt of the reviewer's agent, or a step your agent
-   refuses you: say it in one line here, with where he does it, mark this session as waiting
-   for him (`mark-waiting`), and go on when he says it is done. Never go around a refusal.
+   refuses you: mark this session as waiting for him (`mark-waiting`) first, then say it in one
+   line here, with where he does it, the last text of your turn, and go on when he says it is
+   done. Never go around a refusal.
    A reviewer whose agent gives an error is no step of his: `lem project seat-failed` decides
    (`stages/talk.md`, "A seat that fails"). When it wrote `blocked`, stop, and wait for nothing
    in this session: the lead closes the pair and takes the owner's "go on".
