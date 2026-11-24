@@ -145,6 +145,31 @@ else
 fi
 project --repo "$GRD" state broken-record dropped "the test is over" >/dev/null
 
+# A rebase that git refuses with no file in conflict, here by a pre-rebase hook of the repository (an untracked file is
+# refused before the rebase, as a change nobody committed): base is refused with git's own words and the fix, the
+# worktree stays as it was, and no conflict is kept for a builder.
+small_task_in "$GRD" in-the-way i.txt i
+g start in-the-way >/dev/null
+way_tree=$(wt in-the-way)
+way_tip=$(git -C "$way_tree" rev-parse HEAD)
+way_hook="$(git -C "$way_tree" rev-parse --path-format=absolute --git-common-dir)/hooks/pre-rebase"
+echo base > "$GRD/way.txt" && git -C "$GRD" add way.txt && git -C "$GRD" commit -q -m "chore: the base adds way.txt" && git -C "$GRD" push -q origin main
+mkdir -p "$(dirname "$way_hook")" && printf '%s\n' '#!/bin/sh' 'echo "no rebase today" >&2' 'exit 1' > "$way_hook" && chmod +x "$way_hook"
+way_code=0
+way=$(g base in-the-way 2>&1) || way_code=$?
+way_left="$(git -C "$way_tree" rev-parse HEAD) $(git -C "$way_tree" status --porcelain) $(kept_in "$GRD" in-the-way conflict)"
+way_rebasing=$(find "$(git -C "$way_tree" rev-parse --path-format=absolute --git-dir)" -maxdepth 1 -name 'rebase-*' | wc -l | tr -d ' ')
+rm "$way_hook"
+way_again=$(g base in-the-way | field '(d["moved"], d["ahead"])')
+if [ "$way_code" = 1 ] && grep -qF "git said: no rebase today / error: The pre-rebase hook refused to rebase" <<<"$way" && grep -qF "the worktree is as it was" <<<"$way" \
+  && ! grep -qF "a builder resolves it" <<<"$way" && [ "$way_left" = "$way_tip  None" ] && [ "$way_rebasing" = 0 ] \
+  && [ "$way_again" = "(True, 1)" ]; then
+  pass "a rebase of base that git refuses with no file in conflict, by a hook of the repository, is refused with git's words and leaves the worktree and the record as they were; once the hook is gone, the same step rebases"
+else
+  fail "a rebase refused with no file in conflict: $way_code / $way / $way_left / $way_rebasing / $way_again"
+fi
+project --repo "$GRD" state in-the-way dropped "the test is over" >/dev/null
+
 # What a gate command writes that git does not know, a cache of Python's bytecode in a repository
 # with no ignore rule for it, is the run's output and not the tree it judged: the gate passes, removes
 # those files and the folders they emptied, names them, and keeps a folder that holds a tracked file.

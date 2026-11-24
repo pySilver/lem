@@ -98,6 +98,9 @@ landing up as after a cut-off.
    same files meet, and it is not yours to resolve: the step prints the files and undoes the
    rebase. `spawn-builder` with the brief below, the job "the repair of a conflict with the
    base", and as its paths the branch to rebase onto and those files. Then run the step again.
+   A rebase that git refuses or stops with no file in conflict (a hook of git that refuses it, a
+   lock of another git) is no builder's job: the step names git's words and keeps nothing. Tell
+   the owner what git names, and run the step again once it is gone.
 3. **`polish`: the polish pass**, on the standard track: read `stages/polish.md` now and follow it.
    The fast track never has the pass, and `lem land polish` refuses one: one builder changed one rule, its own checks ran, the review reads every line of it, and
    its builder filed each defect it saw outside the change in a commit of its own, which the pull

@@ -1174,6 +1174,28 @@ class RebaseRefused(unittest.TestCase):
         )
 
 
+class RebaseFailed(unittest.TestCase):
+    """`land.rebase_failed`: a rebase of base that failed with no file in conflict is
+    refused with git's own words, never kept as a conflict with no file for a builder."""
+
+    # what git 2.55.0 printed when a pre-rebase hook refused, the hook's own line first
+    HOOK = "no rebase today\nerror: The pre-rebase hook refused to rebase.\n"
+
+    def test_gits_words_and_the_fix(self) -> None:
+        said = land.rebase_failed("origin/main", self.HOOK)
+        self.assertTrue(
+            said.startswith(
+                "the rebase onto origin/main failed with no file in conflict, and the "
+                "worktree is as it was; git said: no rebase today / error: The "
+                "pre-rebase hook refused to rebase. Nothing is kept for a builder"
+            )
+        )
+        self.assertIn("the owner removes what git names", said)
+        self.assertIn("this step runs again", said)
+        self.assertNotIn("builder resolves", said)
+        self.assertIn("git said: nothing.", land.rebase_failed("origin/main", ""))
+
+
 class StaleBytecode(unittest.TestCase):
     """`land.bytecode_of` and its parts: the ignored `__pycache__` folders the checks
     remove before their first command, from git's list of what it ignores and the

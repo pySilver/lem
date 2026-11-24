@@ -1887,6 +1887,11 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
                 f"newer, and `git --version` says {version}: with an older git, the "
                 "owner updates git, and this step runs again"
             )
+        if not conflicts:
+            # git refused the rebase, or stopped it, for a reason no builder resolves
+            # (a hook of git, a lock): the abort above left the worktree as it was, and
+            # nothing is kept
+            raise LandError(rebase_failed(task.onto, rebased.stderr))
         task.keep(
             conflict={
                 "before": pending["before"] if pending else before,
@@ -2069,6 +2074,20 @@ def rebase_refused(said: str, conflicts: list[str]) -> str | None:
         (line.strip() for line in said.splitlines() if "unknown option" in line), None
     )
     return f"git rebase refused an option ({line})" if line else None
+
+
+def rebase_failed(onto: str, said: str) -> str:
+    """The refusal of a rebase onto ONTO that failed with no file in conflict, with what
+    git SAID on stderr, each line of it: such a stop is no conflict for a builder, and
+    the owner removes its cause."""
+    words = " / ".join(line.strip() for line in said.splitlines() if line.strip())
+    words = words.rstrip(".")
+    return (
+        f"the rebase onto {onto} failed with no file in conflict, and the worktree is "
+        f"as it was; git said: {words or 'nothing'}. Nothing is kept for a builder: "
+        "the owner removes what git names (a hook of git that refuses the rebase, a "
+        "lock that another git holds), and this step runs again"
+    )
 
 
 def conflicted(where: Path) -> list[str]:
