@@ -335,6 +335,98 @@ class AskStopHook(unittest.TestCase):
         )
         self.assertEqual(left.stdout, "")
 
+    def env(self, standin: str) -> dict:
+        """The environment of a session S1 whose agtermctl is a shell script of the body
+        STANDIN."""
+        ctl = self.home / "agtermctl"
+        ctl.write_text("#!/bin/sh\n" + standin, encoding="utf-8")
+        ctl.chmod(0o755)
+        return {
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": str(self.home),
+            "XDG_CONFIG_HOME": str(self.home / "config"),
+            "TMPDIR": str(self.home),
+            "LEM_SERVE": "off",
+            "AGTERM_ENABLED": "1",
+            "AGTERM_SESSION_ID": "S1",
+            "AGTERMCTL": str(ctl),
+        }
+
+    def test_a_page_opened_with_no_status_keeps_its_choice_at_the_stop(self) -> None:
+        # the review's run of 2026-11-24: `lem-ask q 'Continue?' yes no --no-status
+        # --timeout 0` leaves its page open and sets no status; the Stop hook then
+        # sets none either
+        calls, shown = self.home / "calls", self.home / "shown"
+        env = self.env(
+            f'echo "$*" >> "{calls}"\n'
+            'case "$1 $2 $3" in\n'
+            '"session overlay open")\n'
+            '  while [ $# -gt 0 ]; do [ "$1" = --html ] && echo "$2" > '
+            f'"{shown}"; shift; done\n'
+            '  echo \'{"ok": true, "result": {"pageID": "P1"}}\' ;;\n'
+            "tree*)\n"
+            '  printf \'{"ok": true, "result": {"tree": {"workspaces": [{"sessions": '
+            '[{"id": "S1", "status": "active", "htmlOverlays": [{"id": "P1", '
+            f'"file": "%s"}}]}}]}}]}}}}}}\\n\' "$(cat "{shown}")" ;;\n'
+            '*) echo \'{"ok": true, "result": {"pageOutcome": '
+            '{"pageID": "P1", "outcome": "pending"}}}\' ;;\n'
+            "esac\n"
+        )
+        main = str(self.SRC / "lem" / "python.py")
+        for words, given in (
+            (
+                ["ask", "q", "Continue?", "yes", "no", "--no-status", "--timeout", "0"],
+                "",
+            ),
+            (["ask", "hook-stop"], json.dumps({"hook_event_name": "Stop"})),
+        ):
+            subprocess.run(
+                [sys.executable, "-B", main, *words],
+                input=given,
+                capture_output=True,
+                text=True,
+                cwd=self.home,
+                env=env,
+                timeout=30,
+                check=False,
+            )
+        said = calls.read_text(encoding="utf-8").splitlines()
+        self.assertTrue(any(line.startswith("tree") for line in said), said)
+        self.assertEqual(
+            [line for line in said if line.startswith("session status")], []
+        )
+
+    def test_a_stdin_that_stays_open_does_not_keep_the_hook_alive(self) -> None:
+        # the review's run of 2026-11-24: the Stop JSON through a pipe that stays open
+        with subprocess.Popen(
+            [
+                sys.executable,
+                "-B",
+                str(self.SRC / "lem" / "python.py"),
+                "ask",
+                "hook-stop",
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=self.home,
+            env=self.env(self.NO_PAGE),
+        ) as hook:
+            stdin = hook.stdin
+            if stdin is None:
+                self.fail("the hook has no pipe for its input")
+            stdin.write(json.dumps({"hook_event_name": "Stop"}).encode())
+            stdin.flush()
+            try:
+                status = hook.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                hook.kill()
+                hook.wait()
+                status = None
+            stdin.close()
+            out = hook.stdout.read() if hook.stdout else b""
+        self.assertEqual((status, out), (0, b""))
+
     def test_a_status_call_that_cannot_start_prints_nothing(self) -> None:
         # the tree shows a page of lem-ask twice; after the second look the stand-in
         # can no longer be started, so the hook's status call fails

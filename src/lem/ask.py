@@ -65,6 +65,9 @@ STATUS_KEYS = ("asking", "answered")
 OUTDIR = os.path.join(os.environ.get("TMPDIR", "/tmp"), "lem-ask")  # noqa: S108 - the folder prints as TMPDIR is written, a // kept; /tmp when TMPDIR names none
 # Seconds an old page stays in OUTDIR, for debugging.
 PAGE_KEEP = 86400
+# The end of the name of a page opened with --no-status: the Stop hook reads a page's
+# choice from the file agterm shows it from, and sets no status for it.
+QUIET_PAGE = ".no-status.html"
 MERMAID_URL = "https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js"
 MERMAID_NAME = "mermaid-11.12.0.min.js"
 # jsDelivr's published sha256 for that file
@@ -672,7 +675,9 @@ def build_html(spec: dict[str, Any], base: str) -> str:
     )
 
 
-def write_page(html: str) -> str:
+def write_page(html: str, *, quiet: bool = False) -> str:
+    """Write the page into OUTDIR, under a name that ends in QUIET_PAGE when QUIET (its
+    caller leaves the status glyph alone), and give its path."""
     import secrets
 
     try:
@@ -693,7 +698,10 @@ def write_page(html: str) -> str:
         except OSError:
             pass
     path = os.path.join(
-        OUTDIR, time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3) + ".html"
+        OUTDIR,
+        time.strftime("%Y%m%d-%H%M%S-")
+        + secrets.token_hex(3)
+        + (QUIET_PAGE if quiet else ".html"),
     )
     with open(path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -998,13 +1006,19 @@ def pending_page(timeout: float | None = None) -> str | None:
     When the overlay slot is taken, the page in it is often this agent's own question,
     left pending by a timeout or a killed call whose output (and page id) is gone
     after compaction."""
+    return (pending_overlay(timeout) or {}).get("id")
+
+
+def pending_overlay(timeout: float | None = None) -> dict[str, Any] | None:
+    """agterm's overlay of the question page open on this session (its `id` and its
+    `file`), or None."""
     s = this_session(timeout) or {}
     ours = (
         os.path.realpath(OUTDIR) + os.sep
     )  # agterm reports /tmp/… where TMPDIR says /private/tmp/…
     for o in s.get("htmlOverlays") or []:
         if o.get("file") and os.path.realpath(o["file"]).startswith(ours):
-            return o.get("id")
+            return o
     return None
 
 
@@ -1135,14 +1149,19 @@ def hook_stop() -> None:
     within the last offset may see asking re-posted over its own status until its next
     tool call; the question is still open then, so that is true.
 
+    A page opened with --no-status (its name ends in QUIET_PAGE) keeps that choice: the
+    hook sets no status for it.
+
     Never prints, never fails: a Stop hook's output or exit 2 could hold the session."""
     try:
         if not in_agterm() or unattended():
             return
-        if not sys.stdin.isatty():
-            sys.stdin.read()  # the hook's JSON input; nothing in it is needed
-        page = pending_page(STOP_CALL)
-        if not page:
+        # the hook's JSON input is never read: nothing in it is needed, and a pipe
+        # that stays open would keep the read, and the hook, alive
+        shown = pending_overlay(STOP_CALL)
+        page = (shown or {}).get("id")
+        if not page or str((shown or {}).get("file")).endswith(QUIET_PAGE):
+            # no page, or one whose `lem-ask` was told to leave the glyph alone
             return
         asking = defaults().get("status", {}).get("asking", ["blocked"])
         ours = os.path.realpath(OUTDIR) + os.sep
@@ -1619,7 +1638,7 @@ def ask(spec: dict[str, Any], a: "argparse.Namespace", base: str) -> int | None:
                 "while this process runs"
             )
         return ask_in_browser(html, a.timeout)
-    path = write_page(html)
+    path = write_page(html, quiet=a.no_status)
     page = open_overlay(path, a, spec)
     card = keep_card(path, page, spec)
     if a.no_wait:
