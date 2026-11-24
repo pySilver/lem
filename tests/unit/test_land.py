@@ -1278,6 +1278,91 @@ class KeepReviews(unittest.TestCase):
                 with self.subTest(record=now):
                     self.assertIsNone(land.landing_before(task, now))
 
+    def test_a_hidden_review_file_moves_and_only_the_finders_file_stays(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            reviews = Path(d) / "reviews"
+            reviews.mkdir()
+            for name in (".DS_Store", ".landing-review.json", "review-1.json"):
+                (reviews / name).write_text("x")
+            land.keep_reviews(self.task(d))
+            self.assertEqual(
+                self.files(d),
+                [
+                    ".DS_Store",
+                    "landing-1",
+                    "landing-1/.landing-review.json",
+                    "landing-1/review-1.json",
+                ],
+            )
+
+    def test_a_record_reached_through_a_link_into_or_out_of_an_archive_is_refused(
+        self,
+    ) -> None:
+        with (
+            tempfile.TemporaryDirectory() as d,
+            tempfile.TemporaryDirectory() as outside,
+        ):
+            reviews = Path(d) / "reviews"
+            (reviews / "landing-1").mkdir(parents=True)
+            (reviews / ".landing-2.moving").mkdir()
+            (reviews / "landing-1" / "review-1.json").write_text("x")
+            (Path(outside) / "review-1.json").write_text("x")
+            # an archived link to a record outside, and a link at the top of reviews/
+            # to an archived record
+            (reviews / "landing-1" / "review-2.json").symlink_to(
+                Path(outside) / "review-1.json"
+            )
+            (reviews / "review-1.json").symlink_to(
+                reviews / "landing-1" / "review-1.json"
+            )
+            task = self.task(d)
+            for record, folder in (
+                (reviews / "landing-1" / "review-2.json", "landing-1"),
+                (reviews / "review-1.json", "landing-1"),
+                (reviews / ".landing-2.moving" / "review-1.json", ".landing-2.moving"),
+            ):
+                with self.subTest(record=record):
+                    self.assertEqual(
+                        land.landing_before(task, record), reviews / folder
+                    )
+
+    def test_a_staging_name_that_is_not_a_cut_off_move_is_refused_before_a_move(
+        self,
+    ) -> None:
+        for taken in ("a record of its own", "a file", "a landing beside it"):
+            with self.subTest(taken=taken), tempfile.TemporaryDirectory() as d:
+                reviews = Path(d) / "reviews"
+                staging = reviews / ".landing-1.moving"
+                reviews.mkdir()
+                (reviews / "review-1.json").write_text("new")
+                if taken == "a file":
+                    staging.write_text("other")
+                else:
+                    staging.mkdir()
+                    (staging / "review-1.json").write_text("other")
+                if taken == "a landing beside it":
+                    (reviews / "review-1.json").rename(reviews / "review-2.json")
+                    (reviews / "landing-1").mkdir()
+                before = {
+                    str(path.relative_to(reviews)): path.read_text()
+                    for path in reviews.rglob("*")
+                    if path.is_file()
+                }
+                with self.assertRaises(land.LandError) as raised:
+                    land.keep_reviews(self.task(d))
+                self.assertIn(
+                    f"`mv {staging} {reviews / 'landing-1.moving'}`",
+                    str(raised.exception),
+                )
+                self.assertEqual(
+                    {
+                        str(path.relative_to(reviews)): path.read_text()
+                        for path in reviews.rglob("*")
+                        if path.is_file()
+                    },
+                    before,
+                )
+
 
 class ConflictNames(unittest.TestCase):
     """`land.conflicted`: the files of a stopped rebase, by their own names, from a

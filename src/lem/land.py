@@ -254,12 +254,14 @@ request, the pushes (`pr`, `pushed`, `taken`) and a polish pass that is done. Wh
 owner's merge stood (`owner_tap`), its end is logged first (`merge.ended`, with `why`
 "the landing started over: WHY") and printed as `owner_merge`, `ended: ...`; otherwise
 `owner_merge` is null. Before the record goes, the review files of the landing before
-(each file and folder of `reviews/` in the task directory but the `landing-N` folders
-and a hidden file; the review tool's folder of a task named `landing-N` moves too)
-move into `reviews/landing-N/`, N one more than the highest there, so that the new
-landing's review, which counts its attempts from 1 again, writes over none of them, and
-`read --record` refuses the record of an old review, in its landing's folder too. A
-move cut off halfway goes on into the same folder when `start` runs again. A
+(each file and folder of `reviews/` in the task directory, hidden ones too, but the
+`landing-N` folders and the Finder's `.DS_Store`; the review tool's folder of a task
+named `landing-N` moves too) move into `reviews/landing-N/`, N one more than the highest
+there, so that the new landing's review, which counts its attempts from 1 again, writes
+over none of them, and `read --record` refuses the record of an old review, in its
+landing's folder too, by its path as named and with its links resolved. A move cut off
+halfway goes on into the same folder when `start` runs again; a name of that folder
+that is no such move is refused before any file moves, with the `mv` that frees it. A
 `ready` task whose record holds a proposal, with no such line, came back from a new
 landing that was cut (a wait for a red base, a builder that ended twice), since a task
 leaves `open` only through `start`, which counts the new landing: it goes on with that
@@ -1619,6 +1621,11 @@ LANDING_FOLDER = re.compile(r"landing-(\d+)")
 MOVING_FOLDER = re.compile(r"\.landing-(\d+)\.moving")
 
 
+# What stays at the top of `reviews/` when the review files of a landing before move:
+# the file of the Finder's view of a folder on macOS, which holds no review
+STAYS = (".DS_Store",)
+
+
 def is_landing(entry: Path, slug: str) -> bool:
     """Whether ENTRY of `reviews/` is the folder of a landing before: a folder named
     `landing-N` that is not the review tool's own folder of the task, which bears the
@@ -1633,33 +1640,39 @@ def is_landing(entry: Path, slug: str) -> bool:
 def keep_reviews(task: Task) -> None:
     """Move the review files of the landing before, each file and folder at the top of
     `reviews/` in the task directory but the folders of landings before (`is_landing`)
-    and a hidden file (`.DS_Store`), into a new `reviews/landing-N/`, N one more than
-    the highest there and never the task's own name. The files go into a hidden folder
-    first, which takes its name at the end, so a move cut off halfway puts the rest into
-    the same folder when it runs again, and no folder is made for no review's file. A
-    move that fails is refused with the step out, and nothing of the record is
-    deleted."""
+    and the Finder's file (`STAYS`), hidden ones too, into a new `reviews/landing-N/`, N
+    one more than the highest there and never the task's own name. The files go into a
+    hidden folder first, which takes its name at the end, so a move cut off halfway puts
+    the rest into the same folder when it runs again, and no folder is made for no
+    review's file. Such a folder is taken for a move cut off only when it is one
+    (`moving_refusal`); otherwise the step is refused before any file moves. A move that
+    fails is refused with the step out, and nothing of the record is deleted."""
     reviews = task.directory / "reviews"
     if not reviews.is_dir():
         return
     entries = list(reviews.iterdir())
-    moving = next(
-        (
-            (entry, int(found[1]))
-            for entry in entries
-            if entry.is_dir() and (found := MOVING_FOLDER.fullmatch(entry.name))
-        ),
-        None,
-    )
+    staged = [entry for entry in entries if MOVING_FOLDER.fullmatch(entry.name)]
     earlier = [
         entry
         for entry in entries
-        if not entry.name.startswith(".") and not is_landing(entry, task.slug)
+        if entry.name not in STAYS
+        and entry not in staged
+        and not is_landing(entry, task.slug)
     ]
-    if not earlier and not moving:
+    if not earlier and not staged:
         return
-    if moving:
-        folder, number = moving
+    for entry in staged:
+        why = moving_refusal(entry, staged, earlier)
+        if why:
+            raise LandError(
+                f"{entry} is not a move of the review files that was cut off halfway: "
+                f"{why}. Nothing moved. `mv {entry} {reviews / entry.name[1:]}` gives "
+                "it a name of its own, which the next move takes with the rest; then "
+                f"run `lem land start {task.slug}` again"
+            )
+    if staged:
+        folder = staged[0]
+        number = int(cast("re.Match", MOVING_FOLDER.fullmatch(folder.name))[1])
     else:
         number = 1 + max(
             (
@@ -1689,17 +1702,56 @@ def keep_reviews(task: Task) -> None:
         ) from error
 
 
+def moving_refusal(entry: Path, staged: list[Path], earlier: list[Path]) -> str | None:
+    """Why ENTRY of `reviews/`, named as the hidden folder a move of the review files
+    fills (`MOVING_FOLDER`), is not a move that was cut off halfway, from all such
+    entries (STAGED) and the files that move (EARLIER); None when it is one. A move cut
+    off is the one such folder, a folder of its own and no link, whose `landing-N` is
+    not there yet (it takes that name at its end), and none of whose files has a name
+    of a file still to move: a move renames each file once, and never leaves one name in
+    both places."""
+    if len(staged) > 1:
+        return f"{len(staged)} such folders are there, and one move fills one"
+    if entry.is_symlink() or not entry.is_dir():
+        return "it is a file or a link, and a move fills a folder of its own"
+    number = cast("re.Match", MOVING_FOLDER.fullmatch(entry.name))[1]
+    landing = entry.parent / f"landing-{number}"
+    if landing.exists():
+        return f"{landing} is there already, the name it takes at its end"
+    both = sorted({one.name for one in earlier} & {one.name for one in entry.iterdir()})
+    if both:
+        return (
+            f"{', '.join(both)} is in it and at the top of {entry.parent} both, which "
+            "a move never leaves"
+        )
+    return None
+
+
 def landing_before(task: Task, record: Path) -> Path | None:
     """The folder of a landing before that holds RECORD, a review's record that
     `read --record` names: such a review is of a landing before (`keep_reviews` moved
-    it), whatever its attempt and tip say. None for a record anywhere else."""
-    reviews = (task.directory / "reviews").resolve()
-    try:
-        parts = record.resolve().relative_to(reviews).parts
-    except ValueError:
-        return None
-    folder = task.directory / "reviews" / parts[0]
-    return folder if len(parts) > 1 and is_landing(folder, task.slug) else None
+    it, or a move that was cut off holds it), whatever its attempt and tip say. RECORD
+    is looked for as it is named and with its links resolved, so that a link in an
+    archive to a record elsewhere, and a link elsewhere to an archived record, are both
+    found. None for a record anywhere else."""
+    reviews = task.directory / "reviews"
+    for root, path in (
+        (
+            Path(os.path.normpath(reviews.absolute())),
+            Path(os.path.normpath(record.absolute())),
+        ),
+        (reviews.resolve(), record.resolve()),
+    ):
+        try:
+            parts = path.relative_to(root).parts
+        except ValueError:
+            continue
+        folder = reviews / parts[0]
+        if len(parts) > 1 and (
+            is_landing(folder, task.slug) or MOVING_FOLDER.fullmatch(parts[0])
+        ):
+            return folder
+    return None
 
 
 def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C901, PLR0912 - over the limit before the limit was set
