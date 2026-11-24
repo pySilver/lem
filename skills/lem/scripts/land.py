@@ -815,6 +815,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 import lem_clock  # noqa: E402
 import lem_files  # noqa: E402
+import lem_proc  # noqa: E402
 import lem_sibling  # noqa: E402
 import lem_state  # noqa: E402
 import lem_tokens  # noqa: E402
@@ -4694,27 +4695,9 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
 def end_group(running: list[subprocess.Popen], grace: float = GRACE) -> None:
     """End each command's process group and everything still in it: a term first, then a
     kill for what is left after `grace` seconds (a second, or the time of a serial
-    wrapper's own cleanup)."""
+    wrapper's own cleanup). A group that ends within its grace gets no kill."""
     for proc in running:
-        for sign, wait in ((signal.SIGTERM, grace), (signal.SIGKILL, GRACE)):
-            try:
-                os.killpg(proc.pid, sign)
-            except (ProcessLookupError, PermissionError):
-                break
-            deadline = time.monotonic() + wait
-            while time.monotonic() < deadline:
-                try:
-                    os.killpg(proc.pid, 0)
-                except (ProcessLookupError, PermissionError):
-                    break
-                if proc.poll() is None:
-                    with contextlib.suppress(subprocess.TimeoutExpired):
-                        proc.wait(timeout=0.05)
-                else:
-                    time.sleep(0.05)
-            else:
-                continue
-            break
+        lem_proc.stop_group(proc, grace, GRACE, whole_group=True)
     running.clear()
 
 

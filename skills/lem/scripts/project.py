@@ -542,6 +542,7 @@ import lem_artifacts  # noqa: E402
 import lem_clock  # noqa: E402
 import lem_files  # noqa: E402
 import lem_plans  # noqa: E402
+import lem_proc  # noqa: E402
 import lem_state  # noqa: E402
 
 # The release a task began on, and the rule that stops a command for a task two
@@ -7504,7 +7505,7 @@ def cmd_handoff(tokens: str | None) -> dict:
     }
 
 
-def cmd_serial(root: Path, words: list[str]) -> int:  # noqa: C901 - over the limit before the limit was set
+def cmd_serial(root: Path, words: list[str]) -> int:
     """Run one command under the repository's lock for commands that need the machine to
     themselves, and give its exit status back. Another run that holds the lock is
     waited for."""
@@ -7566,21 +7567,7 @@ def cmd_serial(root: Path, words: list[str]) -> int:  # noqa: C901 - over the li
             code = 128 + stop.args[0]
         finally:
             if proc is not None:
-                for sign in (signal.SIGTERM, signal.SIGKILL):
-                    try:
-                        os.killpg(proc.pid, sign)
-                    except (ProcessLookupError, PermissionError):
-                        break
-                    try:
-                        proc.wait(timeout=3)
-                    except subprocess.TimeoutExpired:
-                        continue
-                    # the leader ended; a process it left in the group gets the next
-                    # signal too
-                    try:
-                        os.killpg(proc.pid, 0)
-                    except (ProcessLookupError, PermissionError):
-                        break
+                lem_proc.stop_group(proc, 3, 3, whole_group=False)
             for sign, handler in before.items():
                 signal.signal(sign, handler)
             # the holder's line goes with the hold, so that a waiting run never names a

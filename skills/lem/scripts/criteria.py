@@ -207,7 +207,6 @@ import fcntl
 import hashlib
 import importlib
 import json
-import os
 import re
 import shlex
 import shutil
@@ -226,6 +225,7 @@ sys.path.insert(0, str(SCRIPTS))
 import lem_clock  # noqa: E402  (a moment as text)
 import lem_files  # noqa: E402  (a file written whole or not at all)
 import lem_plans  # noqa: E402
+import lem_proc  # noqa: E402  (the stop of a command's process group)
 
 # How this script calls a sibling: in this process, as one command of it.
 import lem_sibling  # noqa: E402
@@ -1077,18 +1077,12 @@ def cmd_red(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limi
             """End the command that runs and everything it started: each command is a
             process group of its own."""
             for proc in child:
-                for sign, wait in (
-                    (signal.SIGTERM, SERIAL_GRACE if proc.pid in wrappers else GRACE),
-                    (signal.SIGKILL, GRACE),
-                ):
-                    try:
-                        os.killpg(proc.pid, sign)
-                    except (ProcessLookupError, PermissionError):
-                        break
-                    try:
-                        proc.wait(timeout=wait)
-                    except subprocess.TimeoutExpired:
-                        continue
+                lem_proc.stop_group(
+                    proc,
+                    SERIAL_GRACE if proc.pid in wrappers else GRACE,
+                    GRACE,
+                    whole_group=False,
+                )
             child.clear()
             wrappers.clear()
 
