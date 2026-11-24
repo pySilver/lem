@@ -743,17 +743,19 @@ ok = (manifest["name"] == "lem" and re.fullmatch(r"\d+\.\d+\.\d+", manifest.get(
       and all(os.access(f"{root}/{script}", os.X_OK) for script in ("src/lem/ask.py", "src/lem/jev.py")))
 hooks = json.load(open(f"{root}/hooks/hooks.json"))["hooks"]
 commands = {event: [h["command"] for group in groups for h in group["hooks"]] for event, groups in hooks.items()}
-launch = "python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" "
-session = launch + "session_hook"
+main = "\"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\""
+def launch(module):
+    return f"if [ -f {main} ] && command -v python3 >/dev/null; then python3 {main} {module}; fi"
+session = launch("session_hook")
 matchers = {event: [group.get("matcher") for group in groups] for event, groups in hooks.items()}
-ok = ok and commands == {"UserPromptSubmit": [launch + "corrections hook"],
-                         "SessionStart": [launch + "serve_hook", session],
+ok = ok and commands == {"UserPromptSubmit": [launch("corrections hook")],
+                         "SessionStart": [launch("serve_hook"), session],
                          "PreCompact": [session],
-                         "Stop": [launch + "ask hook-stop"]}
+                         "Stop": [launch("ask hook-stop")]}
 ok = ok and matchers["SessionStart"] == ["startup|resume", "startup|resume|clear|compact|fork"] and matchers["PreCompact"] == ["auto|manual"]
 ok = ok and matchers["Stop"] == [None] and hooks["Stop"][0]["hooks"][0].get("async") is True
 sys.exit(not ok)' "$PWD"; then
-  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin, from GitHub at the tag of that release and with its version; bin/ holds the command lem, a file of its own, and the two commands lem-ask and lem-jev as links to it, and no plain jev; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, a task session's hooks of a compaction and of each session's start, and lem-ask's Stop hook in the background, each started by the plugin's own path through src/lem/python.py with its module's name"
+  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin, from GitHub at the tag of that release and with its version; bin/ holds the command lem, a file of its own, and the two commands lem-ask and lem-jev as links to it, and no plain jev; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, a task session's hooks of a compaction and of each session's start, and lem-ask's Stop hook in the background, each started by the plugin's own path through src/lem/python.py with its module's name, and only when that file and a python3 are there"
 else
   fail "the plugin files in .claude-plugin and bin"
 fi

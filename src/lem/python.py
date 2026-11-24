@@ -9,15 +9,17 @@ older, and starts the script with that: `bin/lem` (and through it `lem-ask` and
 
     python3 src/lem/python.py NAME ARGS...
 
-with NAME the hook's module of this package. Under a Python of 3.11 or newer the hook's
-module runs in this process, so a hook costs no second start of Python; under an older
-one this process becomes this file under the newer Python, which runs it. Either way the
-module runs as Python runs a script (`run()`), and this file loads nothing more on the
-way to it: the search for a Python imports its tools inside its functions. When the
-machine has none, the hook does nothing and prints nothing, since Claude Code takes a
-hook's output as context and a hook that fails must not fail the session: `lem doctor`'s
-row `python3` says so, with the fix, and every `lem` command says it in one line
-(`missing()`).
+with NAME the hook's module of this package, and only when this file and a `python3` are
+there: in a plugin folder without it (an update in progress), python3 would exit 2,
+which Claude Code reads as a blocking error (a compaction blocked). Under a Python of
+3.11 or newer the hook's module runs in this process, so a hook costs no second start of
+Python; under an older one this process becomes this file under the newer Python, which
+runs it. Either way the module runs as Python runs a script (`run()`), and this file
+loads nothing more on the way to it: the search for a Python imports its tools inside
+its functions. When the machine has none, the hook does nothing and prints nothing,
+since Claude Code takes a hook's output as context and a hook that fails must not fail
+the session: `lem doctor`'s row `python3` says so, with the fix, and every `lem` command
+says it in one line (`missing()`).
 """
 
 # This file loads under an old python3 too (the system's 3.9 on a Mac), since it is what

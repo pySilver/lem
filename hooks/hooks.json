@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" corrections hook",
+            "command": "if [ -f \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" ] && command -v python3 >/dev/null; then python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" corrections hook; fi",
             "timeout": 10
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" serve_hook",
+            "command": "if [ -f \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" ] && command -v python3 >/dev/null; then python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" serve_hook; fi",
             "timeout": 5
           }
         ]
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" session_hook",
+            "command": "if [ -f \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" ] && command -v python3 >/dev/null; then python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" session_hook; fi",
             "timeout": 5
           }
         ]
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" session_hook",
+            "command": "if [ -f \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" ] && command -v python3 >/dev/null; then python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" session_hook; fi",
             "timeout": 5
           }
         ]
@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" ask hook-stop",
+            "command": "if [ -f \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" ] && command -v python3 >/dev/null; then python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" ask hook-stop; fi",
             "async": true
           }
         ]

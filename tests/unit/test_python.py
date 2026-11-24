@@ -234,6 +234,81 @@ class FolderNotWhole(unittest.TestCase):
         self.runs(old)
 
 
+class HookLines(unittest.TestCase):
+    """Each command line of `hooks/hooks.json` as Claude Code runs it, through `sh -c`
+    (code.claude.com/docs/en/hooks, "Shell form", read 2026-11-24), in a plugin folder
+    that has no `src/lem/python.py` (an update in progress, a broken install) or on a
+    PATH with no python3. python3 exited 2 with "can't open file", which Claude Code
+    reads as a blocking error (a `PreCompact` hook blocks the compaction), and sh 127:
+    the line exits 0 and prints nothing. Where python.py is
+    there, the line's status is its own."""
+
+    HOOKS = Path(__file__).resolve().parents[2] / "hooks" / "hooks.json"
+
+    def lines(self) -> list[str]:
+        table = json.loads(self.HOOKS.read_text(encoding="utf-8"))["hooks"]
+        found = [
+            hook["command"]
+            for groups in table.values()
+            for group in groups
+            for hook in group["hooks"]
+        ]
+        self.assertEqual(len(found), 5)
+        return found
+
+    def run_line(self, line: str, root: Path, path: str) -> tuple[str, str, int]:
+        home = Path(tempfile.mkdtemp(prefix="lem-lines-"))
+        self.addCleanup(shutil.rmtree, home)
+        ran = subprocess.run(
+            ["/bin/sh", "-c", line],
+            input=json.dumps({"hook_event_name": "Stop", "cwd": str(home)}),
+            capture_output=True,
+            text=True,
+            cwd=home,
+            env={
+                "PATH": path,
+                "HOME": str(home),
+                "XDG_CONFIG_HOME": str(home / "config"),
+                "LEM_SERVE": "off",
+                "CLAUDE_PLUGIN_ROOT": str(root),
+            },
+            timeout=30,
+            check=False,
+        )
+        return ran.stdout, ran.stderr, ran.returncode
+
+    def test_with_python_py_or_python3_missing_each_line_exits_0_silent(self) -> None:
+        empty = Path(tempfile.mkdtemp(prefix="lem-noplugin-"))
+        self.addCleanup(shutil.rmtree, empty)
+        python3 = Path(sys.executable).parent
+        for line in self.lines():
+            with self.subTest(line=line, missing="python.py"):
+                self.assertEqual(
+                    self.run_line(line, empty, f"{python3}{os.pathsep}/usr/bin:/bin"),
+                    ("", "", 0),
+                )
+            with self.subTest(line=line, missing="python3"):
+                self.assertEqual(
+                    self.run_line(line, self.HOOKS.parents[1], str(empty)),
+                    ("", "", 0),
+                )
+
+    def test_the_status_of_python_py_is_the_status_of_the_line(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="lem-plugin-"))
+        self.addCleanup(shutil.rmtree, root)
+        (root / "src" / "lem").mkdir(parents=True)
+        (root / "src" / "lem" / "python.py").write_text(
+            "import sys\nsys.exit(int(sys.argv[1] == 'ask') * 2 + 3)\n",
+            encoding="utf-8",
+        )
+        path = f"{Path(sys.executable).parent}{os.pathsep}/usr/bin:/bin"
+        for line in self.lines():
+            with self.subTest(line=line):
+                self.assertEqual(
+                    self.run_line(line, root, path)[2], 5 if " ask " in line else 3
+                )
+
+
 class AskStopHook(unittest.TestCase):
     """The plugin's Stop hook, `python.py ask hook-stop`, which runs at the end of every
     turn of every session: what its process loads with no question page open, and that

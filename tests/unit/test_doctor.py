@@ -87,6 +87,11 @@ class HookEntries(unittest.TestCase):
     ) -> None:
         lines = [
             self.PLUGIN,
+            (
+                'if [ -f "${CLAUDE_PLUGIN_ROOT}/src/lem/python.py" ] && command -v '
+                'python3 >/dev/null; then python3 "${CLAUDE_PLUGIN_ROOT}/src/lem/'
+                'python.py" corrections hook; fi'
+            ),
             "python3 /home/o/lem/src/lem/python.py corrections hook",
             (
                 'python3 "/r/skills/lem/scripts/lem_python.py" '
