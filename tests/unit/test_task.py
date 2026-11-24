@@ -3150,6 +3150,23 @@ class ResumeSummarized(unittest.TestCase):
         self.assertFalse((self.state / "tasks" / "card-foot-2").exists())
         self.assertEqual(self.log.read_bytes(), before)
 
+    def test_a_resume_whose_brief_is_not_utf8_makes_nothing(self) -> None:
+        from unittest import mock
+
+        # a-resume-whose-dropped-task-has-a-brief-md-that-is-not-utf-8, 2026-11-23: the
+        # brief was decoded after the new folder and its branch were made
+        (self.directory / "brief.md").write_bytes(b"task: card-foot\nnote: caf\xe9\n")
+        before = self.log.read_bytes()
+        with (
+            mock.patch.object(project, "taken_on_remote") as remote,
+            self.assertRaises(project.SettingsError) as said,
+        ):
+            project.cmd_resume(self.root, "card-foot")
+        self.assertIn("brief.md is not UTF-8 text", str(said.exception))
+        remote.assert_not_called()
+        self.assertFalse((self.state / "tasks" / "card-foot-2").exists())
+        self.assertEqual(self.log.read_bytes(), before)
+
 
 class ResumeAsRequest(unittest.TestCase):
     """`lem project resume` of `card-foot`, dropped after the release stop blocked it: a

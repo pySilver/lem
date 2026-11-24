@@ -4340,6 +4340,9 @@ def cmd_resume(root: Path, slug: str) -> dict:  # noqa: C901, PLR0912, PLR0915 -
     ticket = (
         carried_text("ticket.txt").strip() if "ticket.txt" in carried_files else None
     )
+    # decoded before the new folder and its branch are made, so that a brief that does
+    # not read leaves nothing half made
+    brief = carried_text("brief.md") if "brief.md" in carried_files else None
     target = open_resumed(
         root, settings, main, slug, new, branch, old if exists else None, ticket
     )
@@ -4351,7 +4354,7 @@ def cmd_resume(root: Path, slug: str) -> dict:  # noqa: C901, PLR0912, PLR0915 -
         / Path(settings["places"]["worktrees"]["path"]).relative_to(root.resolve())
         / new
     )
-    if "brief.md" in carried_files:
+    if brief is not None:
         # the old brief with this task's own lines: a fresh lead reads where it works
         # from it
         own = {
@@ -4364,7 +4367,7 @@ def cmd_resume(root: Path, slug: str) -> dict:  # noqa: C901, PLR0912, PLR0915 -
             f"{row.split(':', 1)[0]}: {own[row.split(':', 1)[0]]}"
             if row.split(":", 1)[0] in own
             else row
-            for row in carried_text("brief.md").splitlines()
+            for row in brief.splitlines()
         ]
         (target / "brief.md").write_text(
             "\n".join(
