@@ -5401,7 +5401,7 @@ def outcome_of(text: str) -> str | None:
     if not found:
         return None
     paragraph: list[str] = []
-    fenced = False
+    fenced = step = blank = False
     for row in text[found.end() :].splitlines():
         line = row.strip()
         if line.startswith("```"):
@@ -5409,6 +5409,14 @@ def outcome_of(text: str) -> str | None:
             continue
         if line.startswith("#"):
             break
+        # a step of a story or an item of a list holds the lines under it, as Markdown
+        # reads them: those that wrap it, indented or not, and a paragraph indented
+        # under it; a line with no indent after a blank one ends the list
+        if not fenced and re.match(r"(?:\d+\.|[-*+])(?:\s|$)", line):
+            step = True
+        elif line and blank and not row[:1].isspace():
+            step = False
+        blank = not line
         # a line that opens with bold is a label when its bold closes on it within a few
         # words, or ends in a colon inside the bold or right after it; a *** rule opens
         # with no bold; the `**` a code span names never closes the label, as
@@ -5436,6 +5444,7 @@ def outcome_of(text: str) -> str | None:
         prose = (
             line
             and not fenced
+            and not step
             and (bold or not re.match(r"(\d+\.|[-*+>|!]|\*\*)", line))
         )
         if prose:

@@ -1421,6 +1421,44 @@ class FirstLine(unittest.TestCase):
                     "The picker keeps the same twenty tasks in its list",
                 )
 
+    def test_the_wrapped_line_of_a_step_is_no_quote(self) -> None:
+        # board-card-search, 2026-11-24: under "**Today**" its first line quoted 'goes
+        # to "Waits for you" or gives up', the second line of step 3. A step is part of
+        # the story, its lines after its first too
+        story = (
+            "## Outcome\n\n**Today**\n\n"
+            '1. The owner is on the board\'s "Tasks" view.\n'
+            "2. A parked task is not on the view at all: he\n"
+            '   goes to "Waits for you" or gives up.\n\n'
+            "**After**\n\n1. He presses `Cmd-K`.\n"
+        )
+        self.assertIsNone(project.outcome_of(story))
+        self.assertEqual(
+            project.outcome_of(story + self.NEXT),
+            "The picker keeps the same twenty tasks in its list",
+        )
+        for steps in (
+            # an item of a list, and a step's second paragraph
+            (
+                "- A parked task is not on the view at all: he\n"
+                '  goes to "Waits for you" or gives up.\n'
+            ),
+            (
+                "1. A parked task is not on the view.\n\n"
+                '   He goes to "Waits for you" or gives up.\n'
+            ),
+            # a line that goes on with no indent is the step's too, as Markdown reads it
+            (
+                "1. A parked task is not on the view at all: he\n"
+                'goes to "Waits for you" or gives up.\n'
+            ),
+        ):
+            with self.subTest(steps=steps):
+                self.assertEqual(
+                    project.outcome_of("## Outcome\n\n" + steps + self.NEXT),
+                    "The picker keeps the same twenty tasks in its list",
+                )
+
 
 # Words that hold the three characters str.splitlines breaks at and
 # json.dumps(ensure_ascii=False) keeps.
