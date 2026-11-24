@@ -351,7 +351,7 @@ def outcome(o):
 def tree(file):
     return reply(json.dumps({"ok": True, "result": {"tree": {"workspaces": [{"sessions": [
         {"id": "S1", "htmlOverlays": [{"file": file, "id": "P0"}]}]}]}}}))
-def ctl(*args, check=True):
+def ctl(*args, check=True, timeout=None):
     calls.append(args)
     if scenario == "invalid":
         return reply('{"ok":false,"error":"invalid page id"}', 1)
@@ -476,7 +476,7 @@ def result(n):
     if scenario == "board-list":
         return outcome("submitted", [1])  # what a spec's own script may send
     return outcome("pending")
-def ctl(*args, check=True):
+def ctl(*args, check=True, timeout=None):
     calls.append(list(args))
     if args[:3] == ("session", "overlay", "open"):
         return reply(json.dumps({"ok": True, "result": {"pageID": "P1"}}))
@@ -584,7 +584,7 @@ page = {"open": scenario != "nopage"}
 posts, looks = [], []
 def reply(stdout, code=0):
     return types.SimpleNamespace(stdout=stdout, stderr="", returncode=code)
-def ctl(*args, check=True):
+def ctl(*args, check=True, timeout=None):
     if args[:2] == ("session", "status"):
         posts.append(list(args[2:]))
         glyph.update(status=args[2], changed=now[0])

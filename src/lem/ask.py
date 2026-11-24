@@ -30,34 +30,27 @@ there opens the page in the browser outside agterm); the mermaid bundle is kept 
 $XDG_CACHE_HOME/lem or ~/.cache/lem.
 """  # noqa: E501 - the usage table of `--help` keeps its columns
 
-import argparse
-import base64
-import datetime as dt
-import difflib
-import hashlib
-import http.client
-import http.server
+# What only the page server, the browser fallback, the mermaid download, an embedded
+# image, a page's name or the command line uses is imported in the function that uses
+# it: the plugin's Stop hook (`hook_stop`) runs this file at the end of every turn of
+# every session, and loads only what it uses.
 import json
-import mimetypes
 import os
 import re
-import secrets
 import shutil
-import socketserver
 import subprocess
 import sys
-import threading
 import time
-import tomllib
 import typing
-import urllib.request
-import webbrowser
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import ModuleType
 from typing import Any, NoReturn
 
 from lem import paths
+
+if typing.TYPE_CHECKING:
+    import argparse
 
 # the skill's directory, skills/lem-ask: its runtime, templates, demos and defaults
 HERE = paths.ASK
@@ -83,6 +76,9 @@ MAX_IMAGE = 8 * 1024 * 1024
 # status at these offsets (seconds): status hooks run in parallel with it, so a slower
 # one may post after it does, and one slower than the last offset wins.
 STOP_RECHECKS = (0.5, 1.5, 3, 6)
+# Seconds the Stop hook gives each call of agtermctl: one that has not answered by then
+# is killed, and the hook ends there.
+STOP_CALL = 2
 SOURCED = (
     "code",
     "diff",
@@ -325,6 +321,8 @@ def check_keys(node: dict[str, Any], allowed: set[str], where: str) -> None:
         return
 
     def hint(k: str) -> str:
+        import difflib
+
         if m := difflib.get_close_matches(k, allowed, n=1):
             return f"{k!r} (did you mean {m[0]!r}?)"
         if m := difflib.get_close_matches(k, set().union(*KEY_PLACES.values()), n=1):
@@ -547,6 +545,9 @@ def embed_images(node: object, base: str) -> None:
                     continue
                 if p.stat().st_size > MAX_IMAGE:
                     die(f"image too large to embed (>8MB): {v}")
+                import base64
+                import mimetypes
+
                 mime = mimetypes.guess_type(p)[0] or "image/png"
                 with p.open("rb") as f:
                     node[k] = (
@@ -583,6 +584,9 @@ def uses_mermaid(node: object) -> bool:
 def mermaid_js() -> str:
     """The pinned mermaid bundle, verified on every read; "" (diagrams show as source)
     when unavailable."""
+    import hashlib
+    import http.client
+    import urllib.request
 
     def verified(data: bytes) -> bool:
         return hashlib.sha256(data).hexdigest() == MERMAID_SHA256
@@ -669,6 +673,8 @@ def build_html(spec: dict[str, Any], base: str) -> str:
 
 
 def write_page(html: str) -> str:
+    import secrets
+
     try:
         os.makedirs(OUTDIR, exist_ok=True)
     except OSError as e:
@@ -736,6 +742,8 @@ def shown(path: str) -> str:
 def toml_text(value: object) -> str:  # noqa: PLR0911 - over the limit before the limit was set
     """A value as TOML writes it, for a message: json.dumps raises on a date, which
     TOML has."""
+    import datetime as dt
+
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, str):
@@ -775,6 +783,8 @@ def defaults_problem(values: object) -> str | None:  # noqa: C901, PLR0911 - ove
         return f"the defaults are a table of settings, not {toml_text(values)}"
     for key in values:
         if key not in ASK_KEYS:
+            import difflib
+
             near = difflib.get_close_matches(key, ASK_KEYS, n=1)
             return (
                 f"`{key}` is no key of the "
@@ -812,6 +822,8 @@ def defaults() -> dict[str, Any]:
     settings file. A file that does not read, or a value of the wrong type, is refused:
     a setting dropped without a word would be a page that looks other than its
     owner chose."""
+    import tomllib
+
     try:
         with DEFAULTS.open(encoding="utf-8") as f:
             merged = json.load(f)
@@ -898,7 +910,9 @@ def agtermctl() -> str | None:
     )
 
 
-def ctl(*args: str | None, check: bool = True) -> subprocess.CompletedProcess[str]:
+def ctl(
+    *args: str | None, check: bool = True, timeout: float | None = None
+) -> subprocess.CompletedProcess[str]:
     exe = agtermctl()
     cmd = [exe, *args]
     if os.environ.get("AGTERM_SOCKET"):
@@ -906,7 +920,11 @@ def ctl(*args: str | None, check: bool = True) -> subprocess.CompletedProcess[st
     # every caller runs inside agterm (in_agterm()), where agtermctl and the session's
     # id are found
     r = subprocess.run(
-        typing.cast("list[str]", cmd), capture_output=True, text=True, check=False
+        typing.cast("list[str]", cmd),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=timeout,
     )
     if check and r.returncode not in (0, 2):
         raise RuntimeError(
@@ -935,26 +953,32 @@ def unattended() -> bool:
     return os.environ.get("CLAUDE_CODE_SESSION_ATTENDED") == "0"
 
 
-def set_status(args: list[str]) -> None:
+def status_args(args: list[str]) -> list[str | None]:
+    """The arguments of agtermctl that set this session's status to ARGS."""
     sid, pid = os.environ.get("AGTERM_SESSION_ID"), os.environ.get("AGTERM_PANE_ID")
     extra = ["--pane-id", pid] if pid else []
+    return ["session", "status", *args, "--target", sid, *extra]
+
+
+def set_status(args: list[str]) -> None:
     try:
-        ctl("session", "status", *args, "--target", sid, *extra, check=False)
+        ctl(*status_args(args), check=False)
     except OSError as e:  # the glyph is a courtesy; never fail the question over it
         print(f"lem-ask: could not set the status glyph: {e}", file=sys.stderr)
 
 
-def this_session() -> dict[str, Any] | None:
-    """This session's node from `agtermctl tree`, or None when agterm cannot say."""
+def this_session(timeout: float | None = None) -> dict[str, Any] | None:
+    """This session's node from `agtermctl tree`, or None when agterm cannot say. A
+    call past TIMEOUT seconds raises subprocess.TimeoutExpired."""
     args = ["tree", "--json"] + (
         ["--window", os.environ["AGTERM_WINDOW_ID"]]
         if os.environ.get("AGTERM_WINDOW_ID")
         else []
     )
     try:
-        workspaces = json.loads(ctl(*args, check=False).stdout)["result"]["tree"][
-            "workspaces"
-        ]
+        workspaces = json.loads(ctl(*args, check=False, timeout=timeout).stdout)[
+            "result"
+        ]["tree"]["workspaces"]
         return next(
             (
                 s
@@ -968,13 +992,13 @@ def this_session() -> dict[str, Any] | None:
         return None
 
 
-def pending_page() -> str | None:
+def pending_page(timeout: float | None = None) -> str | None:
     """The id of a question page open on this session, or None.
 
     When the overlay slot is taken, the page in it is often this agent's own question,
     left pending by a timeout or a killed call whose output (and page id) is gone
     after compaction."""
-    s = this_session() or {}
+    s = this_session(timeout) or {}
     ours = (
         os.path.realpath(OUTDIR) + os.sep
     )  # agterm reports /tmp/… where TMPDIR says /private/tmp/…
@@ -1101,7 +1125,8 @@ def hook_stop() -> None:
     STOP_RECHECKS offset whenever another hook has posted over it, then stops once the
     page is answered or closed. A Stop hook slower than the last offset still wins. It
     posts with --auto-reset: with no `lem-ask wait` left to reset it, the user's visit
-    clears it.
+    clears it. Each call of agtermctl has STOP_CALL seconds: one that hangs is killed
+    then, and the hook ends, so the hook lives at most the last offset and its calls.
 
     Not covered: Stop does not run when the user interrupts the turn (Escape), so then
     the glyph keeps whatever the last hook posted until the next turn ends; the user who
@@ -1116,7 +1141,7 @@ def hook_stop() -> None:
             return
         if not sys.stdin.isatty():
             sys.stdin.read()  # the hook's JSON input; nothing in it is needed
-        page = pending_page()
+        page = pending_page(STOP_CALL)
         if not page:
             return
         asking = defaults().get("status", {}).get("asking", ["blocked"])
@@ -1124,7 +1149,7 @@ def hook_stop() -> None:
         started = time.time()
         for at in STOP_RECHECKS:
             time.sleep(max(0, started + at - time.time()))
-            s = this_session() or {}
+            s = this_session(STOP_CALL) or {}
             if not any(
                 o.get("id") == page
                 and o.get("file")
@@ -1133,7 +1158,12 @@ def hook_stop() -> None:
             ):
                 return  # answered or closed in the meantime
             if s.get("status") != asking[0]:
-                set_status([*asking, "--auto-reset"])
+                # not set_status, which says on stderr that the call failed
+                ctl(
+                    *status_args([*asking, "--auto-reset"]),
+                    check=False,
+                    timeout=STOP_CALL,
+                )
     except Exception:  # noqa: BLE001 - a hook must never take the session down with it
         return
 
@@ -1291,7 +1321,9 @@ def close_after_board(page_id: str | None) -> None:
         )
 
 
-def open_overlay(path: str, a: argparse.Namespace, spec: dict[str, Any]) -> str | None:
+def open_overlay(
+    path: str, a: "argparse.Namespace", spec: dict[str, Any]
+) -> str | None:
     args = [
         "session",
         "overlay",
@@ -1468,6 +1500,11 @@ RELOAD_GRACE = (
 
 
 def ask_in_browser(html: str, timeout: float) -> int:
+    import http.server
+    import socketserver
+    import threading
+    import webbrowser
+
     state: dict[str, Any] = {"answer": None, "dismissed_at": None}
     done = threading.Event()
 
@@ -1533,7 +1570,7 @@ def ask_in_browser(html: str, timeout: float) -> int:
 # ---------- commands ----------
 
 
-def ask(spec: dict[str, Any], a: argparse.Namespace, base: str) -> int | None:
+def ask(spec: dict[str, Any], a: "argparse.Namespace", base: str) -> int | None:
     check_spec(spec)
     if unattended():
         emit(
@@ -1591,7 +1628,7 @@ def ask(spec: dict[str, Any], a: argparse.Namespace, base: str) -> int | None:
     return wait_page(page, a.timeout, status=not a.no_status, card=card)
 
 
-def quick_spec(a: argparse.Namespace) -> dict[str, Any]:
+def quick_spec(a: "argparse.Namespace") -> dict[str, Any]:
     opts = []
     for i, raw in enumerate(a.options):
         rec = raw.startswith("*")
@@ -1631,6 +1668,12 @@ def list_dir(d: Path) -> list[tuple[str, str]]:
 
 
 def main() -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
+    if sys.argv[1:] == ["hook-stop"]:
+        # answered before the command line is read: the hook loads no argparse
+        hook_stop()
+        sys.exit(0)
+    import argparse
+
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument(
         "--follow",
@@ -1721,10 +1764,6 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the 
     s_r.add_argument("-o", "--out", required=True)
     sp.add_parser("hook-stop")
     a = p.parse_args(argv)
-
-    if a.cmd == "hook-stop":
-        hook_stop()
-        sys.exit(0)
 
     if a.cmd == "ask":
         base = (
