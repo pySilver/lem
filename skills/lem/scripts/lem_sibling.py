@@ -19,6 +19,9 @@ cannot change while one command runs (`lem_state`'s main checkout of a folder,
 command that needs a process of its own stays one: `APART`, and so does a file in the
 sibling's place with no `def main(argv` of its own (a stand-in a test puts there, which
 reads `sys.argv` as a process does).
+
+Each of the three takes a result the same way (`checked`): a sibling that failed is
+its own refusal, of the error class it names, so that each still raises its own.
 """
 
 import contextlib
@@ -130,3 +133,22 @@ def run(path: Path, repo: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.CompletedProcess(
         [sys.executable, "-B", str(path), *argv], code, out.getvalue(), err.getvalue()
     )
+
+
+def checked(
+    path: Path, repo: Path, *args: str, error: type[Exception], check: bool = True
+) -> subprocess.CompletedProcess:
+    """`run`, as a script that calls its sibling takes it: a failure is that script's
+    own refusal ERROR, with the sibling's message less its `NAME.py: ` (with CHECK
+    false the caller reads the exit itself), and a line the sibling wrote on stderr
+    when it succeeded is the caller's to say too, as project.py's of the settings read
+    from the base branch."""
+    ran = run(path, repo, *args)
+    if check and ran.returncode != 0:
+        raise error(
+            ran.stderr.strip().removeprefix(f"{path.name}: ")
+            or f"{path.name} {args[0]} failed"
+        )
+    if ran.returncode == 0 and ran.stderr:
+        sys.stderr.write(ran.stderr)
+    return ran
