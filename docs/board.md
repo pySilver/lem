@@ -66,8 +66,10 @@ You also answer the questions of a task on the board. Each question has one fiel
   No needs a note: what the criterion must say.
 - **Approve the criteria?** of the standard track: **Yes** or **No**. No needs a note: what the
   criteria must say. Lem then writes the changed criteria, and asks for your yes again. The card
-  then shows the old text of each changed criterion beside its new text. On **Waits for you**, the
-  row has **Read and approve…**, which opens the card.
+  then shows the old text of each changed criterion beside its new text. When your note changes
+  no criterion (an instruction or a question), Lem does what the note says and asks for your yes
+  to the same criteria again. On **Waits for you**, the row has **Read and approve…**, which
+  opens the card.
 
 On a task that the release before began, the board does not ask about a plan, a breaker, the
 persona read or the criteria. Answer these questions in the session of the task.

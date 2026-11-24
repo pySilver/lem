@@ -175,21 +175,28 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
       `the criteria wait for the owner: changed from the owner's note`, so that the board's row
       comes back under a new key, with the old text beside the new; it approves nothing. Its
       refusal that his Yes came first is the one of the first part. When it refuses that nothing
-      changed, the file still says what he answered: write the change again.
+      changed, the file still says what he answered: write the change again. A No on record whose
+      note changes no criterion (a direction, a question: on the board's card his note is his one
+      field for words) takes no change: a direction goes into `directions.md` in his words, a
+      question gets its answer on the page of the next part, and `lem criteria change SLUG
+      --unchanged` writes the held block `the criteria wait for the owner: the owner's note changed
+      no criterion`, so that the board's row comes back under a new key for his yes to the same
+      text. His No on record refuses every yes to the block he answered until one of the two runs.
    4. **Ask again**: the page again, through `ask-owner`, with his note quoted on top; each pair the
       change printed, a changed criterion's old text beside its new text with its number before and
       after, a removed one with its old text, an added one with its new text; the criteria it left
       as they were; and one line that the personas read the text before the change and not this
       one. A session after you takes the pairs from `lem criteria change SLUG --pairs`. The personas
       do not read it again, and the pull request says that the criteria changed after their read.
-      His answer to this page is this step again: his yes, or another change.
+      After `--unchanged` the page has no pair and no such line: the criteria as they were, with
+      what his note gave. His answer to this page is this step again: his yes, or another change.
 
    Only his yes to the page, or his Yes on the board, approves the criteria: his yes here is step
    7, and his Yes on the board approved them already (`by: owner` in `lem criteria approved SLUG`).
 7. **Freeze them**: `lem criteria approve SLUG --file FILE`, on his yes and never on his change
    (step 6). After a change, FILE is `criteria.md` in the task directory, and his yes is to the
-   text the page showed: add `--shown DIGEST`, the `shown` that `lem criteria change` or its `--pairs`
-   printed, so that a text that moved since is approved by nobody. The criteria are then kept word for word with a digest, and the plan's
+   text the page showed: add `--shown DIGEST`, the `shown` that `lem criteria change`, its `--pairs`
+   or its `--unchanged` printed, so that a text that moved since is approved by nobody. The criteria are then kept word for word with a digest, and the plan's
    criteria have to be those, with only the test lines added: a criterion the build changes, adds or
    drops has its own record (`lem decisions criterion`), and the pull request is not green for it.
    Write no `lead:` line before it: the landing reads the first `lead:` line as the end of the

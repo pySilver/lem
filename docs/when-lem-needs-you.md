@@ -16,7 +16,9 @@ On the standard track, a change to the acceptance criteria is not your yes. Tell
 task what to change, or answer No with a note on the board. Lem then writes the changed criteria in
 its own words, each with an example. It asks for your yes again, with the old text of each changed
 criterion beside its new text. The personas do not read the criteria again. The pull request says
-that the criteria changed after the personas' read.
+that the criteria changed after the personas' read. When your note on the board changes no
+criterion (an instruction or a question), Lem does what the note says and asks for your yes to the
+same criteria again.
 
 ## A decision in doubt
 

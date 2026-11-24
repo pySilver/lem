@@ -430,7 +430,8 @@ for his read has Build and Drop, a breaker Help, Park and Drop, "Skip the person
 "Approve this criterion?" and "Approve the criteria?" Yes and No, and Park and Drop ask him to
 confirm first. A No to the criteria needs his words; on the standard track it is a change, never his
 yes: the session writes the changed criteria and asks again, and the card shows each changed
-criterion's text before beside its new text (`stages/interview.md`, step 6). A task begun on an
+criterion's text before beside its new text (`stages/interview.md`, step 6); a note that changes no
+criterion asks again with the same text (`lem criteria change --unchanged`). A task begun on an
 older release than the board's gets none of these rows, and keeps one Approve. The first answer
 counts, and a note with no option or a wish to talk is refused: the row stays, and he asks in the
 session. The server records the answer and never decides: a card's answer ends the card's own
