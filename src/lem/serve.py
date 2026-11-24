@@ -35,7 +35,7 @@ the new code, and a session that still runs the old plugin does not bring the ol
 back. SERVE_LOCK spaces two starts at one moment. The environment variable LEM_SERVE=off
 makes `--ensure` start nothing: a test suite sets it. A server writes its pid and its
 port to `serve.pid` in Lem's home folder at its start and removes the file at a clean
-stop (`write_pid`): `bin/lem` reads it, and asks the kernel whether that process lives,
+stop (`write_pid`): the command `lem` reads it, and asks the kernel whether that process lives,
 to tell whether to start one.
 
 The settings of the server are the machine's: `[serve]` in `machine.toml` (`lem_state`),
@@ -114,7 +114,7 @@ answer is listed as not reachable, with when it last answered, and never slows a
     GET /HOST/NAME/tasks/SLUG/card/PAGEID
                                the step of a card of the task's session, as the task's panel, which frames the card's page
     GET /HOST/NAME/tasks/SLUG/cards/PAGEID/
-                               the card's own page as `lem-ask` built it, under the card's policy (`card_page`)
+                               the card's own page as `lem ask` built it, under the card's policy (`card_page`)
     POST /HOST/NAME/tasks/SLUG/approve, /merge, /park, /session, /answer
                                the owner's acts on a task (below), on the main listener and through the door; a 303 to
                                the task's page, whose `?note=` says what came of the act
@@ -297,7 +297,7 @@ duty below wakes it for the cleanup.
 
 A `lem-ask` card that a task's live session put up is a row of "Waits for you"
 (lem_board_model `open_cards`), and its step in the task's panel frames the card's own
-page, which the server sends from the task's folder as `lem-ask` built it (`card_page`,
+page, which the server sends from the task's folder as `lem ask` built it (`card_page`,
 `cards/PAGEID/`), under a policy that runs only the page's own scripts (`card_policy`).
 The page posts the owner's answer to `cards/PAGEID/answer` (`card_answer`, `act_card`),
 through the checks of an act. The board takes an answer with a note, never a
@@ -308,7 +308,7 @@ and refuses while agterm holds an answer from the Mac that no waiter read
 (`agterm_card_refusal`). Then it links the card's end file with the answer, from the
 board, with where he asked (`via`), the device the request names (`device_of`) and its
 User-Agent, which logs `card.answered`, and logs `board.act act=answer`. The card's own
-`lem-ask` in the session sees the end at its next poll, closes its own page and ends
+`lem ask` in the session sees the end at its next poll, closes its own page and ends
 with the answer, which wakes the session: the server sends it nothing.
 
 It has no login of its own. It shows the tasks' files and the copied talk of a new task
@@ -1964,7 +1964,7 @@ class PageScripts(html.parser.HTMLParser):
 
 def card_policy(page: bytes) -> str:
     """The Content-Security-Policy of a card's page on the board (decision 2 of
-    board-answers-a-card): it runs only the inline scripts `lem-ask` builds into the
+    board-answers-a-card): it runs only the inline scripts `lem ask` builds into the
     page (`build_html`: its runtime and the pinned mermaid bundle), each by its hash,
     with no `unsafe-eval`, so that a spec's own `script` and `js` blocks, which the
     runtime runs through `new Function`, and an inline handler in its raw `html` or
@@ -2078,7 +2078,7 @@ def card_answer_of(card: dict, given: dict) -> dict:
 def agterm_card_refusal(page: str) -> str | None:  # noqa: PLR0911 - over the limit before the limit was set
     """agterm's word on the card's page before the board takes an answer (decision 8 of
     board-answers-a-card), else None: a read of `agtermctl session overlay result --page
-    PAGE`, the read lem-ask's own wait makes. When agterm holds an answer or a dismissal
+    PAGE`, the read of `lem ask wait`. When agterm holds an answer or a dismissal
     no waiter has read yet, the pick at the Mac came first and the board takes nothing;
     when agterm does not answer, the board cannot tell. A read only: the server never
     answers, closes or types into a session's page."""
@@ -2148,7 +2148,7 @@ def act_card(  # noqa: C901, PLR0911, PLR0913, PLR0917 - over the limit before t
     `pagehide` sends, records nothing (204). Else it ends the card in its folder with
     the answer, from the board (`lem_cards.end`, which logs `card.answered`), unless the
     session's own end was linked first, and logs `board.act act=answer`. The end of the
-    card's own `lem-ask` in the session is the wake: the server sends the
+    card's own `lem ask` in the session is the wake: the server sends the
     session nothing."""
     folder = workspace.state / "tasks" / slug
     try:
@@ -3810,7 +3810,7 @@ class Handler(BaseHTTPRequestHandler):
         slashed: bool,
         body: bool,
     ) -> None:
-        """A card of the task's session as `lem-ask` built it (`cards/PAGEID.html`), as
+        """A card of the task's session as `lem ask` built it (`cards/PAGEID.html`), as
         it is, under the card's own policy (`card_policy`), at an address that ends in a
         slash, so that the page's relative `answer` is the card's own route."""
         folder = workspace.state / "tasks" / slug
@@ -5473,8 +5473,8 @@ def pid_file() -> Path:
 
 def write_pid(port: int) -> None:
     """The server's pid and its main port in Lem's home folder (`lem_state.SERVE_PID`),
-    which `bin/lem` reads to tell whether a server runs, with no connect and no import
-    of Lem's modules."""
+    which the command `lem` reads to tell whether a server runs, with no connect and no
+    import of Lem's modules."""
     file = pid_file()
     file.parent.mkdir(parents=True, exist_ok=True)
     fresh = file.with_name(f"{file.name}.{os.getpid()}.new")

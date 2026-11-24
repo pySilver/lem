@@ -36,8 +36,6 @@ def root() -> Path:
 ROOT = root()
 # the one entry, which runs the module a name stands for: `python -B MAIN NAME ARGS...`
 MAIN = PACKAGE / "__main__.py"
-# the command `lem`, which the plugin puts on the Bash tool's PATH
-LEM = ROOT / "bin" / "lem"
 SKILLS = ROOT / "skills"
 # the skill `lem`: its stages, prompts and templates, and the board's assets
 SKILL = SKILLS / "lem"

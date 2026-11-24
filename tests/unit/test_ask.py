@@ -1,4 +1,4 @@
-"""lem-ask's wait for a page's answer (ask.py), with a stand-in for agterm: what it
+"""The wait of `lem ask` for a page's answer (ask.py), with a stand-in for agterm: what it
 prints for a value the page submitted.
 
     python3 -B -m unittest discover -s tests/unit
@@ -21,7 +21,7 @@ from lem import ask
 
 
 def printed(value: str) -> tuple[int | None, dict]:
-    """What `lem-ask wait` prints, through a UTF-8 output that refuses what UTF-8
+    """What `lem ask wait` prints, through a UTF-8 output that refuses what UTF-8
     cannot hold, when the page submitted VALUE, and its exit status."""
     reply = json.dumps(
         {

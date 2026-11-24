@@ -1,5 +1,5 @@
-"""Each command line a text of Lem gives is one the command takes: every `lem NAME ...`,
-`lem-ask ...` and `lem-jev ...` in a code span or a code block of the skills
+"""Each command line a text of Lem gives is one the command takes: every `lem NAME ...`
+in a code span or a code block of the skills
 (`skills/**/*.md`), the agents (`agents/*.md`), the guides (`docs/*.md`) and README.md,
 read against the shape in tests/unit/commands.json (tests/unit/test_commands.py).
 
@@ -7,7 +7,7 @@ read against the shape in tests/unit/commands.json (tests/unit/test_commands.py)
 
 Where a command line is:
 
-- a code span whose text starts with `lem`, `lem-ask` or `lem-jev` and a word after it;
+- a code span whose text starts with `lem` and a word after it;
   a span may run over a line break, never over an empty line (`lem land` at the end of
   a line of skills/lem/harness/claude-code/ask-merger.md and `merge-review SLUG
   --no-answer --tip TIP --base BASE` on the next are one call);
@@ -53,8 +53,8 @@ How a line is read:
   After an option the level does not take, the count is not checked: nobody knows
   whether a value follows it. A required option the line leaves out is not a fault: a
   text gives what it is about.
-- `lem-ask` puts `ask` before a first word that is not a subcommand, as its main does
-  (`lem-ask /tmp/session-storage.json`).
+- `lem ask` puts `ask` before a first word that is not a subcommand, as its main does
+  (`lem ask /tmp/session-storage.json`).
 
 A line the case cannot read is in ALLOWED with its reason, and a line that is wrong
 today is in WRONG with what the command takes instead, each by its exact text: a new
@@ -77,8 +77,7 @@ ROOT = test_commands.ROOT
 TEXTS = ("skills/**/*.md", "agents/*.md", "docs/*.md", "README.md")
 # The marks of a code block whose lines are shell lines.
 SHELL = ("", "bash", "sh", "shell", "console")
-NAMES = ("lem", "lem-ask", "lem-jev")
-CALL = re.compile(r"(lem|lem-ask|lem-jev)\s+\S")
+CALL = re.compile(r"lem\s+\S")
 FENCE = re.compile(r"^\s*(`{3,}|~{3,})\s*([\w+-]*)")
 # A code span, over line breaks but not over an empty line (the paragraph is cut at
 # them first).
@@ -440,29 +439,23 @@ def judge(level: dict, words: list[Word], where: str, *, span: bool) -> list[str
     return wrong + counted(level, given, where, mention=mention or omitted)
 
 
-def root(name: str, shapes: dict[str, dict]) -> dict:
-    """The shape a line that starts with NAME is read against."""
-    if name != "lem":
-        return shapes[name]
-    links = test_commands.names.ALIASES
+def root(shapes: dict[str, dict]) -> dict:
+    """The shape a line that starts with `lem` is read against."""
     return {
         "options": {"--help": test_commands.HELP},
         "positionals": [],
-        "subcommands": {
-            key: shape for key, shape in shapes.items() if key not in links
-        },
+        "subcommands": shapes,
         "subcommand_required": False,
     }
 
 
 def verdict(line: Line, shapes: dict[str, dict]) -> list[str]:
     """What is wrong with LINE against SHAPES: nothing when the command takes it."""
-    name = line.text.split()[0]
     try:
         words = words_of(line.text)
     except ValueError as error:
         return [f"{CANNOT}{error}"]
-    return judge(root(name, shapes), words, name, span=line.span)
+    return judge(root(shapes), words, "lem", span=line.span)
 
 
 class Rules(unittest.TestCase):
@@ -532,7 +525,7 @@ class Rules(unittest.TestCase):
 
     def test_words_left_out_lift_the_count(self) -> None:
         self.assertEqual(self.wrong("lem decisions criterion ... --decision ID"), [])
-        self.assertEqual(self.wrong("lem-ask … --no-wait"), [])
+        self.assertEqual(self.wrong("lem ask … --no-wait"), [])
         self.assertEqual(
             self.wrong("lem project ... --words X"),
             ["cannot judge: `lem project` leaves out its subcommand"],
@@ -585,12 +578,12 @@ class Rules(unittest.TestCase):
     def test_lem_ask_reads_a_first_word_that_names_no_subcommand_as_a_spec(
         self,
     ) -> None:
-        self.assertEqual(self.wrong("lem-ask /tmp/session-storage.json"), [])
-        self.assertEqual(self.wrong("lem-ask - <<'JSON'"), [])
-        self.assertEqual(self.wrong("lem-ask wait PAGEID"), [])
+        self.assertEqual(self.wrong("lem ask /tmp/session-storage.json"), [])
+        self.assertEqual(self.wrong("lem ask - <<'JSON'"), [])
+        self.assertEqual(self.wrong("lem ask wait PAGEID"), [])
         self.assertEqual(
-            self.wrong("lem-ask a.json b.json"),
-            ["the line gives `lem-ask ask` 2 positional words, and it takes 0 to 1"],
+            self.wrong("lem ask a.json b.json"),
+            ["the line gives `lem ask ask` 2 positional words, and it takes 0 to 1"],
         )
 
     def test_quotes_that_do_not_close_cannot_be_judged(self) -> None:

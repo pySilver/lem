@@ -22,7 +22,7 @@ from unittest import mock
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from lem import board_model as bm
-from lem import serve
+from lem import paths, serve
 
 OWNER = "owner@example.com"
 SERVED = "mac-mini.tail1234.ts.net"
@@ -2803,24 +2803,16 @@ class WorkingSession(unittest.TestCase):
 
 
 class Look(unittest.TestCase):
-    """`bin/lem`'s look for the server: its pid file, and whether that process lives."""
+    """The command's look for the server (`lem.__main__`): its pid file, and whether that
+    process lives."""
 
     def test_a_server_lives_only_where_its_pid_file_names_a_live_process(self) -> None:
-        import importlib.machinery
-        import importlib.util
         import os
         import subprocess
         import tempfile
 
-        path = Path(__file__).resolve().parents[2] / "bin" / "lem"
-        loader = importlib.machinery.SourceFileLoader("lem_command", str(path))
-        command = importlib.util.module_from_spec(
-            cast(
-                "importlib.machinery.ModuleSpec",
-                importlib.util.spec_from_loader("lem_command", loader),
-            )
-        )
-        loader.exec_module(command)
+        from lem import __main__ as command
+
         with tempfile.TemporaryDirectory() as folder:
             self.assertFalse(command.server_lives(folder), "no pid file")
             pid_file = Path(folder) / command.PID_FILE
@@ -2837,24 +2829,13 @@ class Look(unittest.TestCase):
             pid_file.write_text("0 4536\n")
             self.assertFalse(command.server_lives(folder), "0 names a process group")
 
-    def test_the_look_starts_the_server_under_the_python_it_found_also_when_the_launchers_own_is_older(
-        self,
-    ) -> None:
-        import importlib.machinery
-        import importlib.util
+    def test_the_look_starts_the_server_under_the_commands_own_python(self) -> None:
         import os
         import tempfile
         from unittest import mock
 
-        path = Path(__file__).resolve().parents[2] / "bin" / "lem"
-        loader = importlib.machinery.SourceFileLoader("lem_command", str(path))
-        command = importlib.util.module_from_spec(
-            cast(
-                "importlib.machinery.ModuleSpec",
-                importlib.util.spec_from_loader("lem_command", loader),
-            )
-        )
-        loader.exec_module(command)
+        from lem import __main__ as command
+
         started = []
         with tempfile.TemporaryDirectory() as folder:
             outside = {
@@ -2867,16 +2848,17 @@ class Look(unittest.TestCase):
                 mock.patch.object(
                     command.subprocess, "Popen", lambda args, **_: started.append(args)
                 ),
-                mock.patch.object(sys, "version_info", (3, 9, 6)),
             ):
-                command.look_for_server("/opt/found/python3.13")
+                command.look_for_server()
                 os.environ["LEM_SERVE"] = "off"
-                command.look_for_server("/opt/found/python3.13")
+                command.look_for_server()
         self.assertEqual(
             len(started), 1, "one start with no LEM_SERVE, none with LEM_SERVE=off"
         )
-        self.assertEqual(started[0][:2], ["/opt/found/python3.13", "-B"])
-        self.assertEqual(started[0][-1], "--ensure")
+        self.assertEqual(
+            started[0],
+            [sys.executable, "-B", str(paths.MAIN), "serve", "--ensure"],
+        )
 
 
 class LogLook(unittest.TestCase):

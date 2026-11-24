@@ -205,8 +205,8 @@ LOAD_LINE = "load.line"
 # The output of the board server that starts on demand (`serve.py`), in the same folder.
 SERVE_LOG = "serve.log"
 # The board server's pid and its main port, one line `PID PORT`, which it writes at its
-# start and removes at a clean stop (`serve.py` `listen`); `bin/lem` reads it by this
-# name, with no import of this file.
+# start and removes at a clean stop (`serve.py` `listen`); the command `lem`
+# (`lem.__main__`) reads it by this name, with no import of this file.
 SERVE_PID = "serve.pid"
 # The keys of each table of the file, with the type each holds; what `write_machine`
 # writes. The keys of `[peers]` are not fixed: each is a machine's name on the tailnet

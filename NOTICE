@@ -60,14 +60,14 @@ fallback, `~/.config/huddle/defaults.json`, and the ten templates and five
 demos.
 
 Changes made: the skill, its command and its runtime files have new names (`lem-ask`,
-`bin/lem-ask`, `ask.js`, `ask.css`), and its personal defaults moved to
+`lem ask`, `ask.js`, `ask.css`), and its personal defaults moved to
 the table `[ask]` of Lem's own `~/.config/lem/settings.toml`, and its mermaid cache to `~/.cache/lem/`; the launcher moved from the skill's
-`scripts/huddle.py` to `src/lem/ask.py` in Lem's package, which `bin/lem-ask` runs, so it is a bare command on the Bash tool's `PATH` and
-`allowed-tools: Bash(lem-ask *)` pre-authorizes it; it refuses to open a page
+`scripts/huddle.py` to `src/lem/ask.py` in Lem's package, which `lem ask` runs, a name of Lem's command, and
+`allowed-tools: Bash(lem ask *)` pre-authorizes it; it refuses to open a page
 in an unattended run (`CLAUDE_CODE_SESSION_ATTENDED=0`); outside agterm the
 browser fallback is opt-in (`--browser` or `browser = true` in the user's
 defaults) instead of automatic, and `HUDDLE_NO_BROWSER` is gone; an occupied overlay
-slot is its own exit (5, `busy`), naming the page when it is a question page; `lem-ask wait` fails at once on an agterm
+slot is its own exit (5, `busy`), naming the page when it is a question page; `lem ask wait` fails at once on an agterm
 error instead of reporting `pending` after the full timeout; a malformed spec
 gets the JSON error contract instead of a traceback; the downloaded mermaid
 bundle is checked against a pinned sha256; `code`, `diff`, `md` and `mermaid`

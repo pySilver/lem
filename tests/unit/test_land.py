@@ -4299,8 +4299,8 @@ class BarFile(unittest.TestCase):
 JEV_STANDIN = """#!/bin/sh
 tr '\\n' ' ' >> "$JEV_LOG" && echo >> "$JEV_LOG"
 case "$JEV_ACT" in
-  fail) echo 'lem-jev: OpenRouter answered HTTP 502' >&2; exit 1 ;;
-  long) echo 'lem-jev: the input is over' >&2; exit 3 ;;
+  fail) echo 'lem jev: OpenRouter answered HTTP 502' >&2; exit 1 ;;
+  long) echo 'lem jev: the input is over' >&2; exit 3 ;;
   garbled) echo 'not json' ;;
   sleep) sleep 3 ;;
   *) printf '{"model": "stand-in", "answers": {"over": {"type": "noul", "noul": %s}}, "cost": null}\\n' "$JEV_ACT" ;;

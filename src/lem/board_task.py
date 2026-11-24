@@ -4504,7 +4504,7 @@ def drop_step(ctx: P.Ctx, t: bm.Task) -> list:
 
 
 def card_step(ctx: P.Ctx, t: bm.Task, page_id: str) -> list:
-    """The step of a card of the task's session: the card's own page as `lem-ask` built
+    """The step of a card of the task's session: the card's own page as `lem ask` built
     it, in a frame of the board (serve.py's `card_page`), which posts its answer itself
     and shows what the board said; on a phone's screen an overlay of the whole screen
     (`sheet`), as a park's step is. A card that no longer waits says what took effect,

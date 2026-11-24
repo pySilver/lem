@@ -307,13 +307,9 @@ CALLS: dict = {}
 
 
 def calls_of(name: str) -> set:
-    """Each (file, function) of Lem's package, every module of it, and `bin/lem`, that
-    calls `name`."""
+    """Each (file, function) of Lem's package, every module of it, that calls `name`."""
     if not CALLS:
-        for file in [
-            *sorted((paths.PACKAGE).glob("*.py")),
-            paths.ROOT / "bin" / "lem",
-        ]:
+        for file in sorted(paths.PACKAGE.glob("*.py")):
             Calls(file.name, CALLS).visit(ast.parse(file.read_text(encoding="utf-8")))
     return CALLS.get(name, set())
 

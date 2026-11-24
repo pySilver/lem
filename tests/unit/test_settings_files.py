@@ -179,7 +179,7 @@ class Places(Home):
     def test_the_question_page_takes_the_keys_of_ask_that_lem_project_takes(
         self,
     ) -> None:
-        # lem-ask imports nothing of Lem's at its start, so its own list of the keys
+        # `lem ask` imports nothing of Lem's at its start, so its own list of the keys
         # is held to project.py's here
         page = runpy.run_path(
             str(Path(__file__).resolve().parents[2] / "src" / "lem" / "ask.py"),

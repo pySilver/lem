@@ -2,14 +2,14 @@
 name: lem-ask
 description: "Lem's question page: shows one question as a page in agterm and returns the answer as JSON. Lem opens it by itself each time it asks the owner to choose or to approve; it is no call of the owner's."
 disable-model-invocation: true
-allowed-tools: Bash(lem-ask *)
+allowed-tools: Bash(lem ask *)
 ---
 
 # lem-ask — ask the user with a page, not a prompt
 
 One command opens the question over **your own** agterm session, waits for the answer, and prints it as
 JSON. The runtime (layout, styles, charts, diagrams, sliders, keyboard) is prebuilt; you describe the
-question. Lem's plugin puts `lem-ask` on the Bash tool's `PATH`.
+question. The command is `lem ask`, a name of Lem's command `lem`.
 
 Run it with the Bash tool's `timeout: 600000`. It waits up to 570 s, then exits 4 with the page still open
 (see [Waiting](#waiting)).
@@ -24,16 +24,16 @@ Run it with the Bash tool's `timeout: 600000`. It waits up to 570 s, then exits 
   "go ahead?" on a step you just described.
 - **The user's own instructions win.** When their `CLAUDE.md` or `AGENTS.md` says how to ask questions,
   follow it; this section is the default, not an override.
-- **Don't check for agterm first.** Run `lem-ask`: outside agterm it opens nothing and exits 3 with
+- **Don't check for agterm first.** Run `lem ask`: outside agterm it opens nothing and exits 3 with
   `status: "no-agterm"`, and you ask in the terminal instead.
 - **Only the agent talking with the user asks.** A subagent, a plan executor or a background worker returns
   its question to whoever started it. In an unattended run (`claude -p`, where Claude Code sets
-  `CLAUDE_CODE_SESSION_ATTENDED=0`) `lem-ask` refuses with exit 3 and opens nothing.
+  `CLAUDE_CODE_SESSION_ATTENDED=0`) `lem ask` refuses with exit 3 and opens nothing.
 
 ## Fastest: one line
 
 ```bash
-lem-ask q "Which store for sessions?" "*Redis|already runs the job queue|no new service" "Postgres table|one table, expiry index" "Stateless JWT|cannot revoke"
+lem ask q "Which store for sessions?" "*Redis|already runs the job queue|no new service" "Postgres table|one table, expiry index" "Stateless JWT|cannot revoke"
 ```
 
 Each option is `Label|subtitle`; a leading `*` marks it recommended, and a third field says why
@@ -59,15 +59,15 @@ Write the spec with your file-writing tool, to an absolute path in a scratch dir
 ```
 
 ```bash
-lem-ask /tmp/session-storage.json
+lem ask /tmp/session-storage.json
 ```
 
 Relative paths inside the spec (images, `file` blocks) resolve beside the spec file.
 
-`lem-ask -` reads the same spec from stdin and resolves those paths from the working directory. Keep it
+`lem ask -` reads the same spec from stdin and resolves those paths from the working directory. Keep it
 for a terminal. From an agent it needs a heredoc, and in a Claude Code worktree session the Bash guard
 reads a heredoc body as shell and refuses a `{` followed by a quote, which every spec holds: 16 of 17
-`lem-ask - <<'JSON'` calls were refused in the author's worktree sessions (Claude Code 2.1.319 to 2.1.322).
+`lem ask - <<'JSON'` calls were refused in the author's worktree sessions (Claude Code 2.1.319 to 2.1.322).
 
 ## Write the question first
 
@@ -90,7 +90,7 @@ alone: the plan, the code and your last terminal message are not in front of the
   option each, labeled by what it says rather than by its number ("4 · an unplaceable brand stays pending",
   never "Criterion 4"), the gist in `subtitle`, the full text in `detail` (or
   `{"md": {"file": "docs/plans/x.md", "lines": "40-52"}}`), and `expanded: true` so the text is open without
-  a click. lem-ask refuses an option whose label only counts and that carries nothing else.
+  a click. `lem ask` refuses an option whose label only counts and that carries nothing else.
 - **What several options share goes above them**: the example from the eval, the numbers, today's flow as a
   diagram, in `context` or the question's `body`.
 - **Before you send**, read the page as the user will: could they answer without opening anything else? If
@@ -114,14 +114,14 @@ When there *are* standard values (4/8/16 px, a design-system scale), offer them 
 When the value is continuous or purely taste, give sliders: the user sees the result while dragging.
 Combine them: options to pick a direction, then a `controls` question to fine-tune it (see `demos/ui-kit`).
 
-`lem-ask templates` lists the templates and prints their directory; read one and fill it. `lem-ask demo NAME`
+`lem ask templates` lists the templates and prints their directory; read one and fill it. `lem ask demo NAME`
 opens one, as do the larger showcases in `demos/` (`motion`, `ui-kit`, `auth-flow`, `rollout`, `pricing`) —
 read those for combinations.
 
 ## Show the real code
 
 Never paste source into a spec by hand: escaping it into JSON is where a spec breaks or a snippet drifts
-from the file. Point at the file instead and `lem-ask` reads it when it builds the page:
+from the file. Point at the file instead and `lem ask` reads it when it builds the page:
 
 ```json
 {"code": {"file": "src/session/store.py", "lines": "40-62"}}
@@ -163,7 +163,7 @@ from the file. Point at the file instead and `lem-ask` reads it when it builds t
 - Exit 4 `status: "pending"`: still open after `--timeout` (see [Waiting](#waiting)).
 - Exit 5 `status: "busy"`: the session already shows an overlay. With a `pageID`, it is a question page still
   open on this session — almost always your own earlier question, left pending by a timeout or a call that
-  was cut off: `lem-ask wait <pageID>` for its answer before asking anything new. Without one, it belongs to
+  was cut off: `lem ask wait <pageID>` for its answer before asking anything new. Without one, it belongs to
   another tool (a diff review, a plan annotation): ask in the terminal, and never close an overlay you did
   not open.
 - Exit 1 `status: "error"`: the spec or agterm failed; the `error` says which, including a key the page would
@@ -320,23 +320,23 @@ key and the value. Per call, a flag or the same key in the spec wins:
 - `AGTERMCTL` points at `agtermctl` when it is not on `PATH`.
 - Mermaid is downloaded once to `~/.cache/lem/` (`$XDG_CACHE_HOME/lem`) on first use and checked against a pinned sha256 on
   every use; offline, or on a mismatch, diagrams show as source and stderr says why.
-- Generated pages land in `$TMPDIR/lem-ask/` and are pruned after a day. `lem-ask render spec.json -o out.html`
+- Generated pages land in `$TMPDIR/lem-ask/` and are pruned after a day. `lem ask render spec.json -o out.html`
   builds one without opening it (for checking a spec).
 
 ## Waiting
 
 Default wait is 570 s so it fits one Bash call. When it exits 4 with `"status": "pending"`, the page is
-still up: run `lem-ask wait <pageID>` to keep waiting. `lem-ask wait` is for that case (and a `busy` reply
+still up: run `lem ask wait <pageID>` to keep waiting. `lem ask wait` is for that case (and a `busy` reply
 naming your page); an answered question needs nothing more. If the Bash call runs past its own `timeout`
 anyway, the question is not lost: in Claude Code 2.1.296 (measured in auto mode) the harness moves the
 call to the background instead of killing it, and the answer arrives as its completion notice. For a question the user may take long over, run
-`lem-ask … --no-wait` (prints the `pageID` at once) and later `lem-ask wait <pageID>`, or run the whole command
+`lem ask … --no-wait` (prints the `pageID` at once) and later `lem ask wait <pageID>`, or run the whole command
 with the Bash tool's `run_in_background: true` — you are notified when the user answers. In the background,
 add `--timeout 86400`: the 570 s default exists only for foreground calls. A question whose answer the next
 step does not depend on can wait in the background while you do that step; one that decides what you do
 next is asked in the foreground. A timed-out wait leaves the "asking" glyph up, since the question is still
 open, set to clear when the user visits the session to answer or close it. When the question was answered
-somewhere else, `lem-ask close` (or `lem-ask close <pageID>` for that page only) closes the page this session
+somewhere else, `lem ask close` (or `lem ask close <pageID>` for that page only) closes the page this session
 shows, only when it is one of lem-ask's, and prints `"status": "closed"`, or `"gone"` when none is up; the
 waiting call then ends as `dismissed`, which needs no act.
 
@@ -352,14 +352,14 @@ On the board the page offers no **Discuss in chat**, since the board takes an an
 wish to talk; in agterm it keeps it. On a touch screen (the board on a phone) the page shows no key hints.
 
 A card ends once, in `cards/PAGEID.end.json`, and the first end recorded counts: a pick or a dismissal on
-the card in the session, a `lem-ask close`, or the owner's answer on the board.
+the card in the session, a `lem ask close`, or the owner's answer on the board.
 
 - A pick on the card carries `"from": "session"`.
-- The board's answer ends the `lem-ask ask` or `wait` that waits on the card: it closes its own page and
+- The board's answer ends the `lem ask ask` or `wait` that waits on the card: it closes its own page and
   prints the answer as the card's own, with `"from": "board"`, `via` (`local`, the board on this Mac, or
-  `door`, through the tailnet), `device` (`phone` or `computer`) and a `said` line, exit 0. A `lem-ask
+  `door`, through the tailnet), `device` (`phone` or `computer`) and a `said` line, exit 0. A `lem ask
   wait <pageID>` after an exit 4 finds an answer the board took in between.
-- When the board's answer was recorded first, a pick, a dismissal or a `lem-ask close` in the session is
+- When the board's answer was recorded first, a pick, a dismissal or a `lem ask close` in the session is
   not taken: the output is the board's answer, exit 0, with a `said` line that names both.
 
 ## Recommending

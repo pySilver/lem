@@ -1,5 +1,5 @@
-"""lem_python.find(), the search for a Python of 3.11 or newer that `bin/lem` and the
-plugin's hooks make when the first `python3` is older, over stand-in folders of a PATH.
+"""lem_python.find(), the search for a Python of 3.11 or newer that the plugin's hooks
+make when the first `python3` is older, over stand-in folders of a PATH.
 A stand-in `python3` says its version as Python would; a `python3.N` is known by its
 name and never started. And what a hook's process loads when python.py starts it.
 
@@ -317,7 +317,7 @@ class AskStopHook(unittest.TestCase):
 
     SRC = Path(__file__).resolve().parents[2] / "src"
     # What only the page server, the browser fallback, the mermaid download, an
-    # embedded image and the command line of lem-ask use.
+    # embedded image and the command line of `lem ask` use.
     NOT_FOR_THE_HOOK = frozenset(
         {
             "argparse",
@@ -449,7 +449,7 @@ class AskStopHook(unittest.TestCase):
         )
 
     def test_a_page_opened_with_no_status_keeps_its_choice_at_the_stop(self) -> None:
-        # the review's run of 2026-11-24: `lem-ask q 'Continue?' yes no --no-status
+        # the review's run of 2026-11-24: `lem ask q 'Continue?' yes no --no-status
         # --timeout 0` leaves its page open and sets no status; the Stop hook then
         # sets none either
         calls = self.home / "calls"
@@ -479,8 +479,8 @@ class AskStopHook(unittest.TestCase):
         )
 
     def test_a_wait_with_no_status_holds_for_a_page_opened_without_it(self) -> None:
-        # the page opens with the status left to lem-ask, and the caller's last word,
-        # `lem-ask wait P1 --no-status`, asks for none: the wait sent none, and the
+        # the page opens with the status left to `lem ask`, and the caller's last word,
+        # `lem ask wait P1 --no-status`, asks for none: the wait sent none, and the
         # Stop hook sent `blocked --auto-reset` for the page all the same
         calls = self.home / "calls"
         env = self.one_page(calls)

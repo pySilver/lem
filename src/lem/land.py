@@ -1163,10 +1163,10 @@ BAR = {
     (".sh", ".bash"): (r"#\s*shellcheck\s+disable",),
 }
 # A file with no suffix is read with the marks of the language its first line names
-# (`#!`), as ruff checks such a file of Python when a project names it (`bin/lem` in
-# Lem's `extend-include`) and ShellCheck reads a shell script by its `#!`: each
-# interpreter here with the suffix whose marks it takes. Another interpreter, or no
-# `#!`, takes no marks, as a file with no suffix took none before.
+# (`#!`), as ruff checks such a file of Python when a project names it
+# (`tests/clock/date` in Lem's `extend-include`) and ShellCheck reads a shell script by
+# its `#!`: each interpreter here with the suffix whose marks it takes. Another
+# interpreter, or no `#!`, takes no marks, as a file with no suffix took none before.
 SHEBANG = {
     "python": ".py",
     **dict.fromkeys(("sh", "bash", "dash", "ksh"), ".sh"),
@@ -6924,7 +6924,7 @@ def jev_command() -> list[str]:
     """How the landing runs Jev, as corrections.py does: Lem's own jev.py beside this
     file, or the command LEM_JEV names, with the same contract (a test's stand-in)."""
     other = os.environ.get("LEM_JEV")
-    return [other] if other else [sys.executable, "-B", str(lem_paths.MAIN), "lem-jev"]
+    return [other] if other else [sys.executable, "-B", str(lem_paths.MAIN), "jev"]
 
 
 def ask_jev(spec: dict) -> dict:

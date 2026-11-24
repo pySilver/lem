@@ -4,8 +4,8 @@
 Lem's scripts need Python 3.11 (they read the settings with `tomllib`), and a Mac whose
 developer does not work in Python has only the system's `python3`, 3.9. So whatever
 starts a script of Lem asks `find()` for a newer one when the `python3` it runs under is
-older, and starts the script with that: `bin/lem` (and through it `lem-ask` and
-`lem-jev`) and the plugin's hooks, which `hooks/hooks.json` starts as
+older, and starts the script with that: the plugin's hooks, which `hooks/hooks.json`
+starts as
 
     python3 src/lem/python.py NAME ARGS...
 
@@ -18,8 +18,8 @@ runs it. Either way the module runs as Python runs a script (`run()`), and this 
 loads nothing more on the way to it: the search for a Python imports its tools inside
 its functions. When the machine has none, the hook does nothing and prints nothing,
 since Claude Code takes a hook's output as context and a hook that fails must not fail
-the session: `lem doctor`'s row `python3` says so, with the fix, and every `lem` command
-says it in one line (`missing()`).
+the session: `lem doctor`'s row `python3` says so, with the fix. The command `lem` runs
+on the Python of its own install, and needs none of this.
 """
 
 # This file loads under an old python3 too (the system's 3.9 on a Mac), since it is what
@@ -187,15 +187,6 @@ def find(
         None,
     )
     return brewed or from_uv(folders, uv)
-
-
-def missing(command: str) -> str:
-    """The one line a command says when the machine has no Python of FLOOR or newer."""
-    return (
-        f"{command}: Lem needs Python 3.11 or newer, and python3 is "
-        f"{sys.version.split()[0]}, with no python3.N of 3.11 or newer on PATH and "
-        f"none from Homebrew or uv; run {FIX}"
-    )
 
 
 def hook(argv: "list[str]") -> None:

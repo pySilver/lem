@@ -30,12 +30,6 @@ agent. Nothing is typed into a pane. Escape opens nothing. Every failure exits 1
 one line on stderr, which agterm shows when the keymap line carries `--error-hud`: no
 repository of Lem in the session, no task yet, no `agtermctl`, or a picker or a board
 that failed (a board server that does not run among them).
-
-In Lem's marketplace clone (`PLUGINS/marketplaces/NAME`), which holds the head of `main`
-and no release, this file runs nothing of its own: it becomes the clone's
-`bin/lem picker` with the same arguments, which runs the newest installed release. The
-keymap lines that the doctor printed before it gave `bin/lem picker` name this file in
-that clone, and they stay on the machines that have them.
 """  # noqa: E501 - the usage table of `--help` keeps its columns
 
 import argparse

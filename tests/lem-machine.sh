@@ -192,8 +192,8 @@ else
   fail "doctor with the required set: $out"
 fi
 # The task picker's row: optional, with the keymap line for this machine. The line runs `bin/lem picker` of a folder of Lem
-# that an update does not move: the marketplace's clone, else this checkout when it is a clone; a plugin's folder alone
-# gives no line. The row is found when agterm's keymap holds the line, or the older line that names the clone's picker.py
+# that an update does not move: the marketplace's clone when it holds one; this checkout, which holds none, and a
+# plugin's folder alone give no line. The row is found when agterm's keymap holds the line, or the older line that names the clone's picker.py
 # from `~/`; Lem only reads that file.
 picker_row() { field '(lambda t: (t["need"], t["found"], t["line"]))(next(t for t in d["tools"] if t["name"] == "task picker"))'; }
 from_clone=$(doctor | picker_row || true)
@@ -212,12 +212,12 @@ rm -r "$FAKEHOME/.claude/plugins/marketplaces"
 rm -r "$FAKEHOME/.config/agterm" "$FAKEHOME/.claude/plugins/known_marketplaces.json"
 mkdir -p "$WORK/cache/lem/abc123" && cp -R "$PWD/skills" "$PWD/src" "$WORK/cache/lem/abc123/"
 from_cache=$( (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$WORK/cache/lem/abc123/src/lem/__main__.py" doctor) | picker_row || true)
-if [ "$from_clone" = "('optional', False, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $PWD/bin/lem picker')" ] \
+if [ "$from_clone" = "('optional', False, None)" ] \
   && [ "$from_market" = "('optional', False, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/bin/lem picker')" ] \
   && [ "$held" = "('optional', True, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/bin/lem picker')" ] \
   && [ "$older" = "(True, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $FAKEHOME/.claude/plugins/marketplaces/lem/bin/lem picker', \"$FAKEHOME/.config/agterm/keymap.conf holds a line that runs $FAKEHOME/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py, an older form that still works; the line in its current form, to put in its place when the owner likes, is this row's line\")" ] \
   && [ "$from_cache" = "('optional', False, None)" ]; then
-  pass "the task picker's row is optional and gives the keymap line with a python3 and the bin/lem picker of a folder of Lem that an update does not move, the marketplace's clone before this clone; it is found when agterm's keymap holds the line, and when it holds the older line that names the clone's picker.py from ~/, with the current line to put in its place; a plugin's folder alone gives no line"
+  pass "the task picker's row is optional and gives the keymap line with a python3 and the bin/lem picker of a folder of Lem that an update does not move, the marketplace's clone, and none for this checkout, which holds no bin/lem; it is found when agterm's keymap holds the line, and when it holds the older line that names the clone's picker.py from ~/, with the current line to put in its place; a plugin's folder alone gives no line"
 else
   fail "the task picker's row: $from_clone / $from_market / $held / $older / $from_cache"
 fi
@@ -443,7 +443,6 @@ if [ -n "$old" ]; then
   # finds, run from another repository than the one of the event, and the message is queued there.
   git init -q -b main "$WORK/elsewhere"
   launch=$PWD/src/lem/python.py
-  lem=$PWD/bin/lem
   queue_on
   out=$(cd "$WORK/elsewhere" && event "under an old python" s0 | env LEM_JEV="$WORK/jevbin/jev" JEV_P=0.9 JEV_CALLED="$WORK/jev-called" \
     "$old" -B "$launch" corrections hook 2>&1; echo "exit=$?")
@@ -455,21 +454,8 @@ if [ -n "$old" ]; then
   fi
   rm -f "$CQ/.lem/state/corrections.jsonl" "$WORK/jev-called"
   queue_off
-  # lem under that python3, first on PATH, and a python3.N of 3.11 or newer later on it: the script runs
-  # under the newer one, and the machine check's row names both.
-  mkdir -p "$WORK/oldbin" && ln -sf "$(command -v "$old")" "$WORK/oldbin/python3"
-  helped=$("$old" -B "$lem" project --help 2>&1 || true)
-  rows=$(cd "$MACHINE" && env -i PATH="$WORK/oldbin:$BIN" HOME="$FAKEHOME" "$old" -B "$lem" doctor 2>&1 || true)
-  if [ "$(head -n 1 <<<"$helped" | cut -c 1-19)" = "usage: lem project " ] && [ "$(row python3 found <<<"$rows")" = "True" ] \
-    && grep -qF "python3 is 3.$("$old" -c 'import sys; print(sys.version_info[1])') at $WORK/oldbin/python3; Lem's commands and hooks start $BIN/python3." <<<"$(row python3 detail <<<"$rows")" \
-    && ! grep -q Traceback <<<"$helped$rows"; then
-    pass "under a python3 before 3.11, lem runs the script under a newer Python it finds, and the machine check's python3 row says which"
-  else
-    fail "lem under $old: $helped / $rows"
-  fi
 else
   skip "the hook under a python3 before 3.11: none found"
-  skip "lem under a python3 before 3.11: none found"
 fi
 queue_on
 out=$(event "never push without asking" s1 | hook hook; echo "exit=$?")
@@ -495,7 +481,7 @@ sleep 1
 out=$(corr list)
 if [ "$(field '(d["entries"], [(g["entries"], g["sessions"], g["p_lesson_max"]) for g in d["groups"]], d["failures"]["count"])' <<<"$out")" = "(3, [(2, 2, 0.9), (1, 1, None)], 3)" ] \
   && grep -q "no key" "$CQ/.lem/state/corrections.log" && grep -q "jev did not run" "$CQ/.lem/state/corrections.log" \
-  && grep -q "jev gave no answer: lem-jev: JEV_API_KEY is not set in this process's environment, and it is the one name Lem reads for the key" "$CQ/.lem/state/corrections.log"; then
+  && grep -q "jev gave no answer: lem jev: JEV_API_KEY is not set in this process's environment, and it is the one name Lem reads for the key" "$CQ/.lem/state/corrections.log"; then
   pass "one sentence from two sessions is one group; a low score, a command and injected text queue nothing; a message too long for Jev is queued unjudged; each failure is in the log and counted; with no other jev named, the worker runs the copy beside it"
 else
   fail "the queue: $out / $(cat "$CQ/.lem/state/corrections.log" 2>&1)"
@@ -585,33 +571,33 @@ fi
 # Lem's client of Jev: a timeout that is no number and a spec that is not UTF-8 are named, and nothing is sent.
 printf '%s\n' '{"state": "s", "questions": {"q": {"type": "choice", "instructions": "i", "choices": {"a": "x", "b": "y"}}}}' > "$WORK/jev-spec.json"
 printf '{"state": "caf\351", "questions": {}}' > "$WORK/jev-latin.json"
-soon_timeout=$(env JEV_TIMEOUT=soon "$PY" -B "$MAIN" lem-jev check "$WORK/jev-spec.json" 2>&1 || true)
-soon_code=$(env JEV_TIMEOUT=soon "$PY" -B "$MAIN" lem-jev check "$WORK/jev-spec.json" >/dev/null 2>&1; echo $?)
-latin_file=$("$PY" -B "$MAIN" lem-jev check "$WORK/jev-latin.json" 2>&1 || true)
-latin_stdin=$("$PY" -B "$MAIN" lem-jev check - < "$WORK/jev-latin.json" 2>&1 || true)
-checked=$(env JEV_TIMEOUT=30 "$PY" -B "$MAIN" lem-jev check "$WORK/jev-spec.json" | field 'd["ok"]' 2>&1 || true)
+soon_timeout=$(env JEV_TIMEOUT=soon "$PY" -B "$MAIN" jev check "$WORK/jev-spec.json" 2>&1 || true)
+soon_code=$(env JEV_TIMEOUT=soon "$PY" -B "$MAIN" jev check "$WORK/jev-spec.json" >/dev/null 2>&1; echo $?)
+latin_file=$("$PY" -B "$MAIN" jev check "$WORK/jev-latin.json" 2>&1 || true)
+latin_stdin=$("$PY" -B "$MAIN" jev check - < "$WORK/jev-latin.json" 2>&1 || true)
+checked=$(env JEV_TIMEOUT=30 "$PY" -B "$MAIN" jev check "$WORK/jev-spec.json" | field 'd["ok"]' 2>&1 || true)
 printf '%s\n' '{"state": "s", "questions": {"q": {"instructions": "i", "choices": {"a": "x", "b": "y"}}}}' > "$WORK/jev-untyped.json"
-untyped=$("$PY" -B "$MAIN" lem-jev check "$WORK/jev-untyped.json" 2>&1 || true)
-untyped_code=$("$PY" -B "$MAIN" lem-jev check "$WORK/jev-untyped.json" >/dev/null 2>&1; echo $?)
-if [ "$soon_code" = 1 ] && grep -qF "lem-jev: JEV_TIMEOUT='soon' is not a number of seconds above 0" <<<"$soon_timeout" \
-  && grep -qF "lem-jev: the spec ($WORK/jev-latin.json) is not UTF-8 text" <<<"$latin_file" && grep -qF "lem-jev: the spec (stdin) is not UTF-8 text" <<<"$latin_stdin" \
-  && [ "$untyped_code" = 1 ] && grep -qF "lem-jev: question 'q' names no type; give it \"type\": \"choice\" (with choices) or \"type\": \"noul\"" <<<"$untyped" \
+untyped=$("$PY" -B "$MAIN" jev check "$WORK/jev-untyped.json" 2>&1 || true)
+untyped_code=$("$PY" -B "$MAIN" jev check "$WORK/jev-untyped.json" >/dev/null 2>&1; echo $?)
+if [ "$soon_code" = 1 ] && grep -qF "lem jev: JEV_TIMEOUT='soon' is not a number of seconds above 0" <<<"$soon_timeout" \
+  && grep -qF "lem jev: the spec ($WORK/jev-latin.json) is not UTF-8 text" <<<"$latin_file" && grep -qF "lem jev: the spec (stdin) is not UTF-8 text" <<<"$latin_stdin" \
+  && [ "$untyped_code" = 1 ] && grep -qF "lem jev: question 'q' names no type; give it \"type\": \"choice\" (with choices) or \"type\": \"noul\"" <<<"$untyped" \
   && [ "$checked" = True ] && ! grep -q Traceback <<<"$soon_timeout$latin_file$latin_stdin$untyped"; then
-  pass "lem-jev names a JEV_TIMEOUT that is no number, a spec that is not UTF-8, from a file or from its input, and a question with no type, and exits 1"
+  pass "lem jev names a JEV_TIMEOUT that is no number, a spec that is not UTF-8, from a file or from its input, and a question with no type, and exits 1"
 else
   fail "jev's refusals: $soon_timeout / $latin_file / $latin_stdin / $untyped_code $untyped / $checked"
 fi
 # The key and the address of the Jev model: JEV_API_KEY, and a key under another name is none; JEV_API_URL, else
 # OpenRouter's. A request goes to that address with that key, as a stand-in server of Jev's form sees it; it
 # answers a choice and a noul, and a second request with a noul whose answer has no number.
-jcheck() { env -u JEV_API_KEY -u OPENROUTER_API_KEY -u JEV_API_URL "$@" "$PY" -B "$MAIN" lem-jev check "$WORK/jev-spec.json" | field '(d["url"], d["key_from"])' 2>&1 || true; }
+jcheck() { env -u JEV_API_KEY -u OPENROUTER_API_KEY -u JEV_API_URL "$@" "$PY" -B "$MAIN" jev check "$WORK/jev-spec.json" | field '(d["url"], d["key_from"])' 2>&1 || true; }
 by_jev=$(jcheck JEV_API_KEY=k1 OPENROUTER_API_KEY=k2)
 by_other=$(jcheck OPENROUTER_API_KEY=k2)
 by_none=$(jcheck)
-other_ask=$(env -u JEV_API_KEY OPENROUTER_API_KEY=k2 "$PY" -B "$MAIN" lem-jev "$WORK/jev-spec.json" 2>&1 || true)
-other_code=$(env -u JEV_API_KEY OPENROUTER_API_KEY=k2 "$PY" -B "$MAIN" lem-jev "$WORK/jev-spec.json" >/dev/null 2>&1; echo $?)
+other_ask=$(env -u JEV_API_KEY OPENROUTER_API_KEY=k2 "$PY" -B "$MAIN" jev "$WORK/jev-spec.json" 2>&1 || true)
+other_code=$(env -u JEV_API_KEY OPENROUTER_API_KEY=k2 "$PY" -B "$MAIN" jev "$WORK/jev-spec.json" >/dev/null 2>&1; echo $?)
 by_url=$(jcheck JEV_API_KEY=k1 JEV_API_URL=https://api.example.test/v1/systemone)
-bad_url=$(env JEV_API_KEY=k1 JEV_API_URL=api.example.test "$PY" -B "$MAIN" lem-jev check "$WORK/jev-spec.json" 2>&1 || true)
+bad_url=$(env JEV_API_KEY=k1 JEV_API_URL=api.example.test "$PY" -B "$MAIN" jev check "$WORK/jev-spec.json" 2>&1 || true)
 printf '%s\n' 'import http.server, json, sys' \
   'class H(http.server.BaseHTTPRequestHandler):' \
   '    def do_POST(self):' \
@@ -629,19 +615,19 @@ printf '%s\n' '{"state": "s", "questions": {"bad": {"type": "noul", "instruction
 "$PY" -B "$WORK/jev-server.py" "$WORK/jev-port" "$WORK/jev-seen" &
 jev_server=$!
 soon test -s "$WORK/jev-port"
-asked=$(env JEV_API_KEY=sk-test-key JEV_API_URL="http://127.0.0.1:$(cat "$WORK/jev-port")/v1/systemone" JEV_MODEL=jev-latest "$PY" -B "$MAIN" lem-jev "$WORK/jev-both.json" | field '(d["model"], d["answers"]["q"]["choice"], d["answers"]["n"], d["cost"])' 2>&1 || true)
-no_number=$(env JEV_API_KEY=sk-test-key JEV_API_URL="http://127.0.0.1:$(cat "$WORK/jev-port")/v1/systemone" "$PY" -B "$MAIN" lem-jev "$WORK/jev-bad.json" 2>&1; echo "exit=$?")
+asked=$(env JEV_API_KEY=sk-test-key JEV_API_URL="http://127.0.0.1:$(cat "$WORK/jev-port")/v1/systemone" JEV_MODEL=jev-latest "$PY" -B "$MAIN" jev "$WORK/jev-both.json" | field '(d["model"], d["answers"]["q"]["choice"], d["answers"]["n"], d["cost"])' 2>&1 || true)
+no_number=$(env JEV_API_KEY=sk-test-key JEV_API_URL="http://127.0.0.1:$(cat "$WORK/jev-port")/v1/systemone" "$PY" -B "$MAIN" jev "$WORK/jev-bad.json" 2>&1; echo "exit=$?")
 wait "$jev_server" 2>/dev/null || true
 seen=$(field '(d["path"], d["auth"], d["model"], d["state"], d["n"])' < "$WORK/jev-seen" 2>&1 || true)
 if [ "$by_jev" = "('https://openrouter.ai/api/alpha/decisions', 'JEV_API_KEY')" ] && [ "$by_other" = "('https://openrouter.ai/api/alpha/decisions', None)" ] \
   && [ "$by_none" = "('https://openrouter.ai/api/alpha/decisions', None)" ] && [ "$by_url" = "('https://api.example.test/v1/systemone', 'JEV_API_KEY')" ] \
-  && [ "$other_code" = 1 ] && [ "$other_ask" = "lem-jev: JEV_API_KEY is not set in this process's environment, and it is the one name Lem reads for the key; put the key of the Jev model's provider there" ] \
-  && grep -qF "lem-jev: JEV_API_URL='api.example.test' is not an address" <<<"$bad_url" \
+  && [ "$other_code" = 1 ] && [ "$other_ask" = "lem jev: JEV_API_KEY is not set in this process's environment, and it is the one name Lem reads for the key; put the key of the Jev model's provider there" ] \
+  && grep -qF "lem jev: JEV_API_URL='api.example.test' is not an address" <<<"$bad_url" \
   && [ "$asked" = "('jev-latest', 'a', {'type': 'noul', 'noul': 0.98}, None)" ] \
   && [ "$seen" = "('/v1/systemone', 'Bearer sk-test-key', 'jev-latest', {'said': 's'}, {'type': 'noul', 'instructions': 'i', 'criteria': {'true': 'y', 'false': 'n'}})" ] \
-  && grep -qF "lem-jev: the reply's answer to question 'bad', a noul, lacks a noul, a number from 0 to 1" <<<"$no_number" && grep -q 'exit=1$' <<<"$no_number" \
+  && grep -qF "lem jev: the reply's answer to question 'bad', a noul, lacks a noul, a number from 0 to 1" <<<"$no_number" && grep -q 'exit=1$' <<<"$no_number" \
   && ! grep -q Traceback <<<"$no_number"; then
-  pass "lem-jev takes its key from JEV_API_KEY alone, and with a key under another name it sends nothing, exits 1 and says that JEV_API_KEY is the one name; its address is JEV_API_URL, else OpenRouter's; a request goes to that address with that key, a state object as JSON and a noul's yes and no as its criteria, a choice and a noul are answered in one reply and one with no cost reads, and a noul answered with no number exits 1 and names the question"
+  pass "lem jev takes its key from JEV_API_KEY alone, and with a key under another name it sends nothing, exits 1 and says that JEV_API_KEY is the one name; its address is JEV_API_URL, else OpenRouter's; a request goes to that address with that key, a state object as JSON and a noul's yes and no as its criteria, a choice and a noul are answered in one reply and one with no cost reads, and a noul answered with no number exits 1 and names the question"
 else
   fail "jev's key and address: $by_jev / $by_other / $by_none / $by_url / $other_code $other_ask / $bad_url / $asked / $seen / $no_number"
 fi
@@ -737,9 +723,7 @@ manifest = json.load(open(f"{root}/.claude-plugin/plugin.json"))
 market = json.load(open(f"{root}/.claude-plugin/marketplace.json"))
 ok = (manifest["name"] == "lem" and re.fullmatch(r"\d+\.\d+\.\d+", manifest.get("version") or "") is not None
       and [(p["name"], p["source"], p.get("version")) for p in market["plugins"]] == [("lem", {"source": "github", "repo": "pySilver/lem", "ref": "v" + manifest["version"]}, manifest["version"])]
-      and [os.readlink(f"{root}/bin/{name}") for name in ("lem-ask", "lem-jev")] == ["lem", "lem"]
-      and sorted(os.listdir(f"{root}/bin")) == ["lem", "lem-ask", "lem-jev"] and not os.path.exists(f"{root}/scripts/setup.py")
-      and os.path.isfile(f"{root}/bin/lem") and not os.path.islink(f"{root}/bin/lem") and os.access(f"{root}/bin/lem", os.X_OK)
+      and not os.path.exists(f"{root}/bin") and not os.path.exists(f"{root}/scripts/setup.py")
       and all(os.access(f"{root}/{script}", os.X_OK) for script in ("src/lem/ask.py", "src/lem/jev.py")))
 hooks = json.load(open(f"{root}/hooks/hooks.json"))["hooks"]
 commands = {event: [h["command"] for group in groups for h in group["hooks"]] for event, groups in hooks.items()}
@@ -755,9 +739,9 @@ ok = ok and commands == {"UserPromptSubmit": [launch("corrections hook")],
 ok = ok and matchers["SessionStart"] == ["startup|resume", "startup|resume|clear|compact|fork"] and matchers["PreCompact"] == ["auto|manual"]
 ok = ok and matchers["Stop"] == [None] and hooks["Stop"][0]["hooks"][0].get("async") is True
 sys.exit(not ok)' "$PWD"; then
-  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin, from GitHub at the tag of that release and with its version; bin/ holds the command lem, a file of its own, and the two commands lem-ask and lem-jev as links to it, and no plain jev; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, a task session's hooks of a compaction and of each session's start, and lem-ask's Stop hook in the background, each started by the plugin's own path through src/lem/python.py with its module's name, and only when that file and a python3 are there"
+  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin, from GitHub at the tag of that release and with its version; the plugin has no bin/, since the command lem is the app's; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, a task session's hooks of a compaction and of each session's start, and lem-ask's Stop hook in the background, each started by the plugin's own path through src/lem/python.py with its module's name, and only when that file and a python3 are there"
 else
-  fail "the plugin files in .claude-plugin and bin"
+  fail "the plugin files in .claude-plugin and hooks"
 fi
 # The release before this one (lem_release.BEFORE), which each release moves: the version plugin.json held before its
 # newest change of version, as git shows it. A release that forgot to move it would stop every task of the release

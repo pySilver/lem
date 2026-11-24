@@ -25,14 +25,14 @@ use of that capability, once:
 
 ## lem
 
-`lem` is a file in the plugin's `bin/`, and Claude Code puts that folder on the Bash tool's `PATH`
-while the plugin is loaded, also in a subagent (Claude Code 2.1.326, 2026-11-17). It runs the
-script a name stands for with the arguments as they came, and its output and exit status are the
-script's. So one permission rule, `Bash(lem *)`, covers every script of Lem's on every machine and after every update of the plugin, whose folder
-changes with each update. The rule covers a plain call: run each `lem` call alone and read what it
+`lem` is the command of Lem's app, the package `lem` installed with a Python of its own
+(Homebrew's `lem`, or a checkout's `.venv/bin/lem` after `uv sync`), on the Bash tool's `PATH`. It
+runs the script a name stands for with the arguments as they came, and its output and exit status
+are the script's. So one permission rule, `Bash(lem *)`, covers every script of Lem's on every
+machine and after every update. The rule covers a plain call: run each `lem` call alone and read what it
 prints, never inside `$(...)`, before a pipe or after an `&&`, which make a command of another
 shape that needs a rule of its own. Where the shell does not find it (`command not found`), run the same
-command through the entry of Lem's package by its path, `python3 SKILL_DIR/../../src/lem/__main__.py
+command through the entry of Lem's package by its path with a Python of 3.14 or newer, `python3 SKILL_DIR/../../src/lem/__main__.py
 NAME ARGS...` (a shipped skill's too: `lem experts` is `python3
 SKILL_DIR/../../src/lem/__main__.py experts`; `COMMANDS` in `SKILL_DIR/../../src/lem/names.py`
 names each module), and say once that `lem` was not on the `PATH`.
@@ -152,7 +152,7 @@ session list` gives as `session`; compare the two with no regard to case.
 `agtermctl session status blocked --blink --auto-reset --target "$AGTERM_SESSION_ID"`: the sidebar
 marks the session, and the mark goes back to idle once the owner visits it (the options of
 `agtermctl session status --help`, read 2026-11-21). Run (lem, 2026-11-23): other status hooks set
-the session `active` again at the end of its turn. The plugin's Stop hook (`lem-ask hook-stop`) sets
+the session `active` again at the end of its turn. The plugin's Stop hook (`lem ask hook-stop`) sets
 it `blocked` again while a page of `lem-ask` is open; a question asked in the terminal loses its mark.
 
 Its reverse, for an answer that came from elsewhere while the owner never visited the session

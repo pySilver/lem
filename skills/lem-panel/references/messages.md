@@ -273,7 +273,7 @@ names the failure it prevents and the input that produces it. If you find nothin
 
 ## Framing check
 
-The `lem-jev` spec. `CARD` is the card's text; a card over Jev's limit is checked by a big model
+The `lem jev` spec. `CARD` is the card's text; a card over Jev's limit is checked by a big model
 instead, never cut.
 
 ```json

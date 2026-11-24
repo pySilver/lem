@@ -185,7 +185,7 @@ here). For a developer in such a mode the rules are an offer of step 6: write
 (`{}` when there is none) with these rules added to `permissions.allow`, each one that is not there
 yet, and no rule taken out and no other key changed:
 
-- `Bash(lem *)`, `Bash(lem-ask *)`, `Bash(lem-jev *)`;
+- `Bash(lem *)`;
 - `Bash(git worktree add *)`, `Bash(git add *)`, `Bash(git commit *)`, `Bash(git rm *)`, `Bash(git mv *)`;
 - the calls of agterm the harness file makes: `Bash(agtermctl msg send *)`, `Bash(agtermctl session
   overlay open *)`, `Bash(agtermctl session new *)`, `Bash(agtermctl session split *)`,

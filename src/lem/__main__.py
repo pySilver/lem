@@ -158,11 +158,6 @@ def listing() -> str:
             "and its commit, as JSON"
         ),
         f"  {'help':<{width}}  this list",
-        "",
-        (
-            "lem-ask (the question page) and lem-jev (the Jev model) are "
-            "commands of their own."
-        ),
     ]
     return "\n".join(lines) + "\n"
 

@@ -2354,7 +2354,7 @@
       },
       "subcommand_required": true
     },
-    "lem-ask": {
+    "ask": {
       "options": {
         "--help": {
           "aliases": [
@@ -2774,8 +2774,16 @@
       "subcommand_required": false,
       "default": "ask"
     },
-    "lem-jev": {
-      "options": {},
+    "jev": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
       "positionals": [
         {
           "name": "spec",
@@ -2784,7 +2792,15 @@
       ],
       "subcommands": {
         "check": {
-          "options": {},
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
           "positionals": [
             {
               "name": "spec",
@@ -2870,13 +2886,13 @@
       "bare": 2,
       "unknown": 2
     },
-    "lem-ask": {
+    "ask": {
       "help": 0,
       "bare": "runs",
       "unknown": 2
     },
-    "lem-jev": {
-      "help": 1,
+    "jev": {
+      "help": 0,
       "bare": 1,
       "unknown": 1
     }

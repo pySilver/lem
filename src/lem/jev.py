@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""lem-jev: ask TypeSafe's Jev decision model one or more choice or yes/no questions, through OpenRouter or another provider.
+"""lem jev: ask TypeSafe's Jev decision model one or more choice or yes/no questions, through OpenRouter or another provider.
 
-  lem-jev SPEC.json | lem-jev - < spec.json     ask, print the answers as JSON
-  lem-jev check SPEC.json | lem-jev check -     validate the spec and its size, send nothing
+  lem jev SPEC.json | lem jev - < spec.json     ask, print the answers as JSON
+  lem jev check SPEC.json | lem jev check -     validate the spec and its size, send nothing
 
-Lem's own copy. The plugin puts it on the Bash tool's PATH as `lem-jev` (`bin/lem-jev`), named so
-that it does not shadow a developer's own `jev`, and the correction hook runs it by its path.
+Lem's own copy, `lem jev`, a name of Lem's command, so that it does not shadow a developer's own
+`jev`; the correction hook runs it through the package's entry. `lem jev --help` prints the
+lines of usage above.
 
 A spec is {"state": STATE, "questions": {NAME: QUESTION, ...}} and optionally "model". STATE is
 the facts to decide on: a non-empty string, or a non-empty JSON object or array (Jev's docs
@@ -329,6 +330,11 @@ def ask(body: dict, timeout: float) -> dict:
 
 
 def main(argv: list[str]) -> int:
+    if argv in (["--help"], ["-h"], ["check", "--help"], ["check", "-h"]):
+        # the two lines of usage at the top of this text
+        lines = __doc__.strip().split("\n\n")[1].splitlines()
+        print("usage: " + "\n       ".join(line.strip() for line in lines))
+        return 0
     check = bool(argv) and argv[0] == "check"
     args = argv[1:] if check else argv
     if len(args) != 1:
@@ -355,10 +361,10 @@ def main(argv: list[str]) -> int:
             return 0
         print(json.dumps(ask(body, timeout)))
     except OverflowError as error:
-        print(f"lem-jev: {error}", file=sys.stderr)
+        print(f"lem jev: {error}", file=sys.stderr)
         return 3
     except (SpecError, OSError, RuntimeError) as error:
-        print(f"lem-jev: {error}", file=sys.stderr)
+        print(f"lem jev: {error}", file=sys.stderr)
         return 1
     else:
         return 0

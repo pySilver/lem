@@ -172,8 +172,8 @@ Type these in Claude Code:
 - `/lem serve join HOST`, `/lem serve leave HOST`: adds or removes a second computer.
 - `/lem serve stop`: stops the server.
 
-After a remote login with no Claude Code, use the path that `lem doctor` gives:
+After a remote login with no Claude Code, run Lem's command:
 
 ```bash
-~/.claude/plugins/marketplaces/lem/bin/lem serve --ensure
+lem serve --ensure
 ```

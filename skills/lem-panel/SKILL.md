@@ -238,7 +238,7 @@ Without Codex, a fresh Opus subagent challenges instead, and the card says so.
 ### 5. The framing check
 
 Ask Jev whether the card is framed for the user, with the "Framing check" spec from
-`references/messages.md` through `lem-jev`, the command Lem's plugin puts on PATH. On "not
+`references/messages.md` through `lem jev`, a name of Lem's command `lem`. On "not
 framed", send the moderator Jev's verdict and the spec's criteria, once, and check again: the
 verdict is one answer for the whole card and names no criterion, so the moderator reads the card
 against each. A card that still fails goes to the user with the check's result on it, never

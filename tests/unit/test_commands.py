@@ -1,5 +1,5 @@
 """The shape of the command `lem`: for each name of the table (`lem.names`), and for
-`lem-ask`, `lem-jev`, `lem help` and `lem version`, the words it takes, as plain data in
+`lem help` and `lem version`, the words it takes, as plain data in
 tests/unit/commands.json. A unit case builds the shape again from the parsers as they
 are and compares it with the file, so a change of a name, a subcommand or an option
 shows as a failure that names it.
@@ -21,24 +21,24 @@ and each subcommand, at any depth:
     exclusive     the groups of options of which at most one is given, with `required`
                   when one must be
     subcommands   each by its name, with `subcommand_required`
-    default       the subcommand a first word that names none goes to (`lem-ask`)
+    default       the subcommand a first word that names none goes to (`lem ask`)
 
 Two modules read their own arguments without argparse: `cast` (`lem cast [init |
-run-dir SLUG] [--repo DIR]`, --repo anywhere, and no --help) and `jev` (`lem-jev [check]
-SPEC`). Their shapes are written here by hand from their `main`, and so are `help` and
-`version`, the two words of `bin/lem` itself. `lem-ask`'s `default` is by hand too: its
-`main` puts `ask` before any first word that is not a subcommand, before argparse reads
-the line.
+run-dir SLUG] [--repo DIR]`, --repo anywhere, and no --help) and `jev` (`lem jev [check]
+SPEC`, or `--help`). Their shapes are written here by hand from their `main`, and so are
+`help` and `version`, the two words of the command itself (`lem.__main__.cli`).
+`lem ask`'s `default` is by hand too: its `main` puts `ask` before any first word that is
+not a subcommand, before argparse reads the line.
 
 A parser is reached by its module's `main` with `ArgumentParser.parse_args` patched:
 the patch keeps the parser and stops, before the command does anything.
 
-The second table of the file, `exits`, is what a wrong call gives through `bin/lem`: the
-exit status of `NAME --help`, of NAME with no argument, and of NAME with an option no
-command has, for each name of the table and the two links. A name whose shape needs no
+The second table of the file, `exits`, is what a wrong call gives through the command
+`lem` (COMMAND): the exit status of `NAME --help`, of NAME with no argument, and of NAME
+with an option no command has, for each name of the table. A name whose shape needs no
 argument runs its command when it is called alone (`lem serve` serves, `lem doctor`
-checks the machine, `lem-ask` reads a spec), so the table says `runs` for it and no case
-calls it. tests/lem-command.sh checks the rest of a call through `bin/lem`: that each name
+checks the machine, `lem ask` reads a spec), so the table says `runs` for it and no case
+calls it. tests/lem-command.sh checks the rest of a call through `lem`: that each name
 reaches its module with its arguments, that `--help` shows the usage in the name the
 developer types, the words of one usage error, `lem`, `lem help`, `lem version` and an
 unknown name. This case checks only the three exit statuses, for every name.
@@ -72,13 +72,16 @@ UNKNOWN = "--no-such-option"
 CALLS = {"help": ["--help"], "bare": [], "unknown": [UNKNOWN]}
 # What `exits` says of a call that is not made: the name alone runs its command.
 RUNS = "runs"
-# The seconds one call through bin/lem may take before the case calls it hung.
+# The seconds one call through the command may take before the case calls it hung.
 CALL_SECONDS = 60
 
 HELP = {"aliases": ["-h"], "value": False, "required": False}
 REPO = {"aliases": [], "value": True, "required": False}
-# The shapes of what reads its arguments by hand: cast.main and jev.main, and bin/lem's
-# own two words.
+# The command the exits are read through: LEM_UNDER_TEST (tests/lib.sh), else the
+# checkout's own, which `uv sync` makes.
+COMMAND = Path(os.environ.get("LEM_UNDER_TEST") or ROOT / ".venv" / "bin" / "lem")
+# The shapes of what reads its arguments by hand: cast.main and jev.main, and the
+# command's own two words.
 HAND: dict[str, dict] = {
     "cast": {
         "options": {"--repo": REPO},
@@ -92,18 +95,21 @@ HAND: dict[str, dict] = {
         },
         "subcommand_required": False,
     },
-    "lem-jev": {
-        "options": {},
+    "jev": {
+        "options": {"--help": HELP},
         "positionals": [{"name": "spec", "count": "1"}],
         "subcommands": {
-            "check": {"options": {}, "positionals": [{"name": "spec", "count": "1"}]}
+            "check": {
+                "options": {"--help": HELP},
+                "positionals": [{"name": "spec", "count": "1"}],
+            }
         },
         "subcommand_required": False,
     },
     "help": {"options": {}, "positionals": []},
     "version": {"options": {}, "positionals": []},
 }
-# lem-ask's main sends a line whose first word names no subcommand to this one.
+# lem ask's main sends a line whose first word names no subcommand to this one.
 ASK_DEFAULT = "ask"
 
 
@@ -216,11 +222,8 @@ def shape_of(parser: argparse.ArgumentParser) -> dict:
 
 
 def modules() -> dict[str, str]:
-    """Each name of the table and each link, with the module it runs."""
-    return {
-        **{name: module for name, (module, _) in names.COMMANDS.items()},
-        **names.ALIASES,
-    }
+    """Each name of the table, with the module it runs."""
+    return {name: module for name, (module, _) in names.COMMANDS.items()}
 
 
 def build() -> dict[str, dict]:
@@ -231,7 +234,7 @@ def build() -> dict[str, dict]:
             shapes[name] = HAND[name]
             continue
         shapes[name] = shape_of(parser_of(importlib.import_module(f"lem.{module}")))
-    shapes["lem-ask"]["default"] = ASK_DEFAULT
+    shapes["ask"]["default"] = ASK_DEFAULT
     shapes["help"] = HAND["help"]
     shapes["version"] = HAND["version"]
     return shapes
@@ -261,14 +264,11 @@ def environment(home: Path) -> dict[str, str]:
 
 
 def status(name: str, words: list[str], home: Path) -> int:
-    """The exit status of `NAME WORDS` through bin/lem, run in a new repository with no
-    commit: cast reads the checkout before its arguments, and there it reads them."""
+    """The exit status of `lem NAME WORDS`, run in a new repository with no commit:
+    cast reads the checkout before its arguments, and there it reads them."""
     folder = home / "work"
-    program = ROOT / "bin" / (name if name in names.ALIASES else "lem")
-    line = [sys.executable, "-B", str(program)]
-    line += [*([] if name in names.ALIASES else [name]), *words]
     ran = subprocess.run(
-        line,
+        [str(COMMAND), name, *words],
         cwd=folder,
         env=environment(home),
         stdin=subprocess.DEVNULL,
@@ -280,8 +280,12 @@ def status(name: str, words: list[str], home: Path) -> int:
 
 
 def exits(shapes: dict[str, dict]) -> dict[str, dict[str, int | str]]:
-    """For each name of the table and each link, the exit status of each call of CALLS;
-    RUNS for the bare call of a name that needs no word."""
+    """For each name of the table, the exit status of each call of CALLS; RUNS for the
+    bare call of a name that needs no word."""
+    if not COMMAND.is_file():
+        raise AssertionError(
+            f"{COMMAND} is not there: run `uv sync` at the root of the checkout"
+        )
     named = list(modules())
     with tempfile.TemporaryDirectory(prefix="lem-commands-") as folder:
         home = Path(folder)
@@ -353,9 +357,7 @@ class Shape(unittest.TestCase):
         )
 
     def test_the_shape_names_every_name_of_the_table(self) -> None:
-        self.assertEqual(
-            set(build()), {*names.COMMANDS, *names.ALIASES, "help", "version"}
-        )
+        self.assertEqual(set(build()), {*names.COMMANDS, "help", "version"})
 
     def test_a_parser_is_reached_without_running_its_command(self) -> None:
         # land's parser, reached through its main with parse_args patched: its words,
@@ -376,7 +378,7 @@ class Shape(unittest.TestCase):
 
 
 class Exits(unittest.TestCase):
-    def test_a_wrong_call_through_bin_lem_exits_as_the_file_says(self) -> None:
+    def test_a_wrong_call_through_the_command_exits_as_the_file_says(self) -> None:
         found = list(differences(written()["exits"], exits(build())))
         self.assertEqual(
             found,

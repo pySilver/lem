@@ -499,7 +499,7 @@ def cmd_worker(path: str) -> None:
     other = os.environ.get("LEM_JEV")
     from lem import paths
 
-    jev = [other] if other else [sys.executable, "-B", str(paths.MAIN), "lem-jev"]
+    jev = [other] if other else [sys.executable, "-B", str(paths.MAIN), "jev"]
     previous = (
         last_agent_text(payload.get("transcript", ""))
         or "(no agent message before this one)"

@@ -435,7 +435,7 @@ criterion asks again with the same text (`lem criteria change --unchanged`). A t
 older release than the board's gets none of these rows, and keeps one Approve. The first answer
 counts, and a note with no option or a wish to talk is refused: the row stays, and he asks in the
 session. The server records the answer and never decides: a card's answer ends the card's own
-`lem-ask` in the session, and for a row the server wakes the session (`prompts/session.md`, "A
+`lem ask` in the session, and for a row the server wakes the session (`prompts/session.md`, "A
 wake-up"). A task opens in a panel beside the view,
 with its tabs "Overview", "Criteria and decisions", "Checks and review", "Timeline" and
 "Artifacts", and a button that opens its session when none runs or its session stopped. With the tailnet door on (`/lem

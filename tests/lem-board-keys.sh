@@ -846,7 +846,7 @@ if verb == "keep":
     session = json.loads(next((task / "cards").glob("*.json")).read_text())["session"]
     for name in NAMES:
         page = f"{work}/{name}.html"
-        subprocess.run([sys.executable, "-B", sys.argv[7], "lem-ask", "render", f"{tdir}/{name}.json", "-o", page], check=True, capture_output=True)
+        subprocess.run([sys.executable, "-B", sys.argv[7], "ask", "render", f"{tdir}/{name}.json", "-o", page], check=True, capture_output=True)
         lem_cards.keep(task, f"T-{name}", Path(page).read_bytes(), json.loads(Path(f"{tdir}/{name}.json").read_text()), session)
     sys.exit()
 LOOK = r"""(() => { const W = innerWidth, d = document.documentElement;

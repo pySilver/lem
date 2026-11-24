@@ -1,7 +1,7 @@
 """A `lem-ask` card of a task's session, kept in the task's folder, and the one end of
 each card.
 
-A task's session runs with `LEM_TASK=SLUG` (`session_hook.py`). When `lem-ask` puts up a
+A task's session runs with `LEM_TASK=SLUG` (`session_hook.py`). When `lem ask` puts up a
 card there and the task's folder exists in the state folder of the repository it runs
 in, it keeps the card in `cards/` of that folder (`keep`): `PAGEID.html`, a copy of the
 page's exact bytes, written after agterm opened the page from its own file, and
@@ -11,7 +11,7 @@ and whether the page offers to talk). It logs `card.asked`.
 
 A card ends once, and every end goes through one file, `cards/PAGEID.end.json` (`end`):
 an answer the owner picked on the card in the session, an answer the board's server
-took, a dismissal agterm reported, or a `lem-ask close`. The file is a link of a
+took, a dismissal agterm reported, or a `lem ask close`. The file is a link of a
 finished file, as `link_mark` in `project.py` makes a mark: the record is written whole
 under a name unique to its writer (the PID, the thread and a random token, since the
 board server's threads share one PID), then linked to the name, which fails when the
@@ -54,7 +54,7 @@ class CardError(Exception):
 def task_folder(start: Path, slug: str | None) -> Path | None:
     """The folder of the task SLUG in the state folder of the repository START is in, or
     None when there is no such task: no slug, a slug that is no task's name, no
-    repository, or no folder. It makes nothing: a run of `lem-ask` outside a task keeps
+    repository, or no folder. It makes nothing: a run of `lem ask` outside a task keeps
     no card."""
     if not slug or not SLUG.fullmatch(slug):
         return None

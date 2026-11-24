@@ -310,7 +310,7 @@ class Shop:
     def card(self, slug: str, minutes: float, page: str, spec: dict) -> None:
         """A `lem-ask` card the task's newest session put up MINUTES before NOW, kept in
         the task's folder as lem-ask keeps it (`lem_cards.keep`, which logs
-        `card.asked`), with the page `lem-ask render` builds."""
+        `card.asked`), with the page `lem ask render` builds."""
         spec_file, page_file = (
             self.work / f"{slug}-card.json",
             self.work / f"{slug}-card.html",
@@ -320,7 +320,7 @@ class Shop:
             sys.executable,
             "-B",
             str(MAIN),
-            "lem-ask",
+            "ask",
             "render",
             str(spec_file),
             "-o",

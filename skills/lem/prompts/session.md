@@ -246,7 +246,7 @@ the stage that waits takes:
   record already, so its first part runs no `--typed`, and the change and the page that asks again
   follow; a note that changes no criterion (a direction, a question) takes that step's
   `--unchanged` in place of the change. When a page of this session waits on the criteria as his
-  answer comes, a yes or a no, close it first (`lem-ask close`, as `ask-owner` closes a card),
+  answer comes, a yes or a no, close it first (`lem ask close`, as `ask-owner` closes a card),
   then act. A record with `from: session` is no answer of the board: it is his No typed in this
   session, which that step's first part recorded, and it takes the same change, with no decision
   logged for it.

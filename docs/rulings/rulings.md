@@ -65,8 +65,8 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 - **Lem assumes auto mode**, in Claude Code and in Codex. (2026-11-18)
 - **Python 3.11 stays, in the modern form, until Lem brings its own Python; from that release
   Lem's code is written for 3.14.** No script has `from __future__ import annotations`, and until
-  that release `src/lem/python.py` finds a newer Python for `bin/lem` and the hooks. (2026-11-20,
-  2026-11-24)
+  that release `src/lem/python.py` finds a newer Python for the command `lem` and the hooks.
+  (2026-11-20, 2026-11-24)
 - **Lem uses the well-known open-source library for a job, and writes no copy of its own.** "I
   don't want to have our own implementation of things that are well known and available in
   opensource for ages". (2026-11-23)

@@ -1190,7 +1190,7 @@ BRIEF_LINE = re.compile(
 
 class SessionBrief(unittest.TestCase):
     """`session.md` sends its session to the texts of the Lem installed when it starts:
-    Lem in `.../lem/0.2.0` writes it, the plugin updates to `.../lem/0.2.1`, and the
+    Lem in `.../lem/0.2.0` writes it, an update installs `.../lem/0.2.1`, and the
     session reads 0.2.1."""
 
     def written_by(self, plugin: Path) -> str:
@@ -1213,20 +1213,28 @@ class SessionBrief(unittest.TestCase):
 
     def test_after_an_update_the_first_line_leads_to_the_new_folder(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            cache = Path(tmp).resolve() / "plugins/cache/lem/lem"
+            apps = Path(tmp).resolve() / "lem"
             for version in ("0.2.0", "0.2.1"):
-                plugin = cache / version
-                (plugin / "bin").mkdir(parents=True)
-                (plugin / "bin/lem").write_bytes((ROOT_OF_LEM / "bin/lem").read_bytes())
-                (plugin / "bin/lem").chmod(0o755)
-                (plugin / "skills/lem/prompts").mkdir(parents=True)
-                (plugin / "skills/lem/prompts/session.md").write_text(
+                # an installed app: the package with its data, and its command
+                package = apps / version / "site" / "lem"
+                package.mkdir(parents=True)
+                for module in (ROOT_OF_LEM / "src/lem").glob("*.py"):
+                    (package / module.name).write_bytes(module.read_bytes())
+                (package / "data/skills/lem/prompts").mkdir(parents=True)
+                (package / "data/skills/lem/prompts/session.md").write_text(
                     f"Lem {version}\n"
                 )
-            text = self.written_by(cache / "0.2.0")
-            # the update: the session's PATH holds the bin/ of 0.2.1, the plugin
-            # loaded now
-            lem = shutil.which("lem", path=str(cache / "0.2.1/bin"))
+                (apps / version / "bin").mkdir()
+                (apps / version / "bin/lem").write_text(
+                    f"#!{sys.executable} -B\nimport sys\n"
+                    f"sys.path.insert(0, {str(package.parent)!r})\n"
+                    "from lem.__main__ import cli\ncli()\n"
+                )
+                (apps / version / "bin/lem").chmod(0o755)
+            text = self.written_by(apps / "0.2.0/site/lem/data")
+            # the update: the session's PATH holds the bin/ of 0.2.1, the app
+            # installed now
+            lem = shutil.which("lem", path=str(apps / "0.2.1/bin"))
             if lem is None:
                 self.fail("no lem in the bin/ of 0.2.1")
             ran = subprocess.run(

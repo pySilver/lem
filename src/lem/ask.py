@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""lem-ask — ask the user a rich question in an agterm HTML overlay and print the answer
+"""lem ask — ask the user a rich question in an agterm HTML overlay and print the answer
 as JSON.
 
-  lem-ask SPEC.json | lem-ask - < spec.json      ask from a JSON spec (see SKILL.md for the schema)
-  lem-ask q "Prompt" "Label|subtitle" "*Recommended|subtitle|why" ... [--multi] [--context MD]
-  lem-ask wait PAGE_ID                          resume waiting after a timeout (exit 4)
-  lem-ask close [PAGE_ID]                       close the question page this session shows (that one, when named),
+  lem ask SPEC.json | lem ask - < spec.json      ask from a JSON spec (see SKILL.md for the schema)
+  lem ask q "Prompt" "Label|subtitle" "*Recommended|subtitle|why" ... [--multi] [--context MD]
+  lem ask wait PAGE_ID                          resume waiting after a timeout (exit 4)
+  lem ask close [PAGE_ID]                       close the question page this session shows (that one, when named),
                                                 whose answer came from elsewhere; its waiter ends as dismissed
-  lem-ask demo [NAME ...]                       open bundled demos (no name: list them)
-  lem-ask templates                             list templates with their one-line purpose
-  lem-ask render SPEC -o FILE                   build the page only, open nothing
-  lem-ask hook-stop                             the plugin's Stop hook (not for agents to run)
+  lem ask demo [NAME ...]                       open bundled demos (no name: list them)
+  lem ask templates                             list templates with their one-line purpose
+  lem ask render SPEC -o FILE                   build the page only, open nothing
+  lem ask hook-stop                             the plugin's Stop hook (not for agents to run)
 
 Common flags: --follow (pull the user to this session), --size N (floating panel, % of
 the session), --timeout SEC (default 570, under the Bash tool's 600 s cap), --browser
@@ -18,7 +18,7 @@ the session), --timeout SEC (default 570, under the Bash tool's 600 s cap), --br
 
 Exit codes: 0 answered or "chat" (user wants to discuss in the terminal), 2 dismissed
 (closed unanswered), 3 no way to show it (outside agterm without --browser, or an
-unattended run), 4 still pending after --timeout (run `lem-ask wait ID`), 5 the session
+unattended run), 4 still pending after --timeout (run `lem ask wait ID`), 5 the session
 already shows an overlay, 1 error.
 
 Environment: AGTERMCTL (path to agtermctl), LEM_TASK (a task's session of Lem: the card
@@ -69,7 +69,7 @@ PAGE_KEEP = 86400
 # choice from the file agterm shows it from, and sets no status for it.
 QUIET_PAGE = ".no-status.html"
 # The end of the name of the file in OUTDIR that keeps the word of the last
-# `lem-ask wait` on a page, "status" or "no-status", for the Stop hook: the caller's
+# `lem ask wait` on a page, "status" or "no-status", for the Stop hook: the caller's
 # last word holds over the name of the page. It ends in .html, so the sweep of
 # `write_page` takes it with the pages.
 WAIT_WORD = ".wait.html"
@@ -614,26 +614,26 @@ def mermaid_js() -> str:
         if verified(data):
             return data.decode("utf-8")
         print(
-            f"lem-ask: {file} fails its sha256 check; fetching it again",
+            f"lem ask: {file} fails its sha256 check; fetching it again",
             file=sys.stderr,
         )
     except FileNotFoundError:
         pass
     except OSError as e:
-        print(f"lem-ask: cannot read {file} ({e}); fetching it again", file=sys.stderr)
+        print(f"lem ask: cannot read {file} ({e}); fetching it again", file=sys.stderr)
     try:
         with urllib.request.urlopen(MERMAID_URL, timeout=20) as r:
             data = r.read()
     except (OSError, http.client.HTTPException) as e:
         print(
-            f"lem-ask: mermaid unavailable ({e}); diagrams show as source",
+            f"lem ask: mermaid unavailable ({e}); diagrams show as source",
             file=sys.stderr,
         )
         return ""
     if not verified(data):
         print(
             (
-                f"lem-ask: {MERMAID_URL} does not match its pinned sha256; "
+                f"lem ask: {MERMAID_URL} does not match its pinned sha256; "
                 "not using it, diagrams show as source"
             ),
             file=sys.stderr,
@@ -648,7 +648,7 @@ def mermaid_js() -> str:
     except (
         OSError
     ) as e:  # the page still gets the verified bundle; only the cache is lost
-        print(f"lem-ask: cannot cache mermaid ({e})", file=sys.stderr)
+        print(f"lem ask: cannot cache mermaid ({e})", file=sys.stderr)
     return data.decode("utf-8")
 
 
@@ -984,7 +984,7 @@ def set_status(args: list[str]) -> None:
     try:
         ctl(*status_args(args), check=False)
     except OSError as e:  # the glyph is a courtesy; never fail the question over it
-        print(f"lem-ask: could not set the status glyph: {e}", file=sys.stderr)
+        print(f"lem ask: could not set the status glyph: {e}", file=sys.stderr)
 
 
 def this_session(timeout: float | None = None) -> dict[str, Any] | None:
@@ -1087,7 +1087,7 @@ def close_page(page_id: str | None = None) -> None:
     only while that page is one of this script's: another tool's overlay (a diff review,
     a plan annotation) is not ours to close, and neither is another question than the
     one named. With none of ours open there is nothing to close, which is no error. The
-    `lem-ask ask` or `wait` that waits on the page then ends as a dismissal (exit 2).
+    `lem ask ask` or `wait` that waits on the page then ends as a dismissal (exit 2).
 
     A card of a task's session ends as `closed` in the task's folder first
     (`lem_cards.end`). When the board's answer is on record already, the close is not
@@ -1131,14 +1131,14 @@ def close_page(page_id: str | None = None) -> None:
                     else ""
                 )
             )
-        print(f"lem-ask: {error}", file=sys.stderr)
+        print(f"lem ask: {error}", file=sys.stderr)
     if card is not None and lost is not None:
         emit(*card.output(lost, "closed"))
     emit({"status": "closed", "pageID": page}, 0)
 
 
 def wait_word_file(page_id: str | None) -> Path | None:
-    """The file that keeps the word of the last `lem-ask wait` on the page PAGE_ID, or
+    """The file that keeps the word of the last `lem ask wait` on the page PAGE_ID, or
     None for an id that is no plain file name."""
     if not page_id or not re.fullmatch(r"[A-Za-z0-9_-]+", page_id):
         return None
@@ -1146,7 +1146,7 @@ def wait_word_file(page_id: str | None) -> Path | None:
 
 
 def keep_wait_word(page_id: str | None, *, status: bool) -> None:
-    """Keep the word of this `lem-ask wait` on the page PAGE_ID, status or no status,
+    """Keep the word of this `lem ask wait` on the page PAGE_ID, status or no status,
     for the Stop hook (`quiet_page`)."""
     if (kept := wait_word_file(page_id)) is None:
         return
@@ -1155,7 +1155,7 @@ def keep_wait_word(page_id: str | None, *, status: bool) -> None:
         kept.write_text("status" if status else "no-status", encoding="utf-8")
     except OSError as e:
         print(
-            f"lem-ask: the Stop hook may not keep this wait's word on page "
+            f"lem ask: the Stop hook may not keep this wait's word on page "
             f"{page_id}: {e}",
             file=sys.stderr,
         )
@@ -1163,7 +1163,7 @@ def keep_wait_word(page_id: str | None, *, status: bool) -> None:
 
 def quiet_page(shown: dict[str, Any]) -> bool:
     """Whether the caller said --no-status last for the page SHOWN (agterm's overlay,
-    its `id` and its `file`): in its last `lem-ask wait`, else when it opened it."""
+    its `id` and its `file`): in its last `lem ask wait`, else when it opened it."""
     kept = wait_word_file(shown.get("id"))
     try:
         word = kept.read_text(encoding="utf-8") if kept is not None else None
@@ -1187,7 +1187,7 @@ def hook_stop() -> None:
     cannot post last; it runs async (hooks.json) and re-posts the asking status at each
     STOP_RECHECKS offset whenever another hook has posted over it, then stops once the
     page is answered or closed. A Stop hook slower than the last offset still wins. It
-    posts with --auto-reset: with no `lem-ask wait` left to reset it, the user's visit
+    posts with --auto-reset: with no `lem ask wait` left to reset it, the user's visit
     clears it. Each call of agtermctl has STOP_CALL seconds: one that hangs is killed
     then, and the hook ends, so the hook lives at most the last offset and its calls.
 
@@ -1199,7 +1199,7 @@ def hook_stop() -> None:
     tool call; the question is still open then, so that is true.
 
     A page opened with --no-status (its name ends in QUIET_PAGE), or whose last
-    `lem-ask wait` said --no-status (WAIT_WORD), keeps that choice: the hook sets no
+    `lem ask wait` said --no-status (WAIT_WORD), keeps that choice: the hook sets no
     status for it. The caller's last word holds: a plain `wait` on a page opened with
     --no-status lets the hook set it again.
 
@@ -1212,7 +1212,7 @@ def hook_stop() -> None:
         shown = pending_overlay(STOP_CALL)
         page = (shown or {}).get("id")
         if not page or quiet_page(shown or {}):
-            # no page, or one whose `lem-ask` was told to leave the glyph alone
+            # no page, or one whose `lem ask` was told to leave the glyph alone
             return
         asking = defaults().get("status", {}).get("asking", ["blocked"])
         ours = os.path.realpath(OUTDIR) + os.sep
@@ -1340,7 +1340,7 @@ def keep_card(path: str, page: str | None, spec: dict[str, Any]) -> Card | None:
     except (OSError, cards.CardError) as e:
         print(
             (
-                f"lem-ask: the card {page} is not kept in {task}, "
+                f"lem ask: the card {page} is not kept in {task}, "
                 f"so the board does not show it: {e}"
             ),
             file=sys.stderr,
@@ -1393,7 +1393,7 @@ def close_after_board(page_id: str | None) -> None:
     s = this_session()
     if s is not None and shown_page(s, page_id) and (error := close_overlay(page_id)):
         print(
-            f"lem-ask: the board's answer counts, and the page stays up: {error}",
+            f"lem ask: the board's answer counts, and the page stays up: {error}",
             file=sys.stderr,
         )
 
@@ -1441,7 +1441,7 @@ def open_overlay(
                         "hint": (
                             "a question page is still open on this session, most "
                             "likely your own unanswered question: "
-                            f"run `lem-ask wait {page}` for its answer "
+                            f"run `lem ask wait {page}` for its answer "
                             "before asking anything new"
                         ),
                     },
@@ -1556,7 +1556,7 @@ def wait_page(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit
                             "status": "pending",
                             "pageID": page_id,
                             "hint": (
-                                f"still open; run `lem-ask wait {page_id}` to keep "
+                                f"still open; run `lem ask wait {page_id}` to keep "
                                 "waiting"
                             ),
                         }
@@ -1615,7 +1615,7 @@ def ask_in_browser(html: str, timeout: float) -> int:
     if not webbrowser.open(url):
         srv.shutdown()
         die("not inside agterm and no browser could be opened", 3)
-    print(f"lem-ask: opened {url}", file=sys.stderr)
+    print(f"lem ask: opened {url}", file=sys.stderr)
     deadline = time.time() + timeout
     while not done.wait(0.25):
         gone = state["dismissed_at"]
@@ -1665,8 +1665,8 @@ def ask(spec: dict[str, Any], a: "argparse.Namespace", base: str) -> int | None:
             3,
         )
     # Outside agterm the browser is opt-in: the skill tells the agent to just run
-    # lem-ask rather than check for agterm first, so an unasked-for browser tab must not
-    # be what happens in a plain terminal.
+    # `lem ask` rather than check for agterm first, so an unasked-for browser tab must
+    # not be what happens in a plain terminal.
     browser = a.browser or (not in_agterm() and defaults().get("browser") is True)
     if not in_agterm() and not browser:
         emit(
@@ -1790,7 +1790,7 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the 
     common.add_argument(
         "--no-wait",
         action="store_true",
-        help="open and print the page id; read it later with `lem-ask wait`",
+        help="open and print the page id; read it later with `lem ask wait`",
     )
     common.add_argument(
         "--no-status", action="store_true", help="leave the sidebar status glyph alone"
@@ -1817,7 +1817,7 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the 
         sub = "ask"
 
     p = argparse.ArgumentParser(
-        prog="lem-ask",
+        prog="lem ask",
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

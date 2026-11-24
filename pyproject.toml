@@ -84,27 +84,23 @@ packages = ["src/lem"]
 # ==== ruff ====
 [tool.ruff]
 # ruff's own format and its line length of 88, with no option of ours.
-# The two Python files with no `.py` in their name.
-extend-include = ["bin/lem", "tests/clock/date"]
+# The one Python file with no `.py` in its name.
+extend-include = ["tests/clock/date"]
 # ruff also formats the Python blocks of a Markdown file. The stage files, the plans and the guides
 # keep their text as it was written.
 extend-exclude = ["*.md"]
 
-# Where an import finds Lem's package and the tests' own modules: each folder that the entry,
-# `bin/lem` or a test puts on `sys.path`.
+# Where an import finds Lem's package and the tests' own modules: each folder that the entry
+# or a test puts on `sys.path`.
 src = [
     "src",
     "tests/unit",
 ]
 
 [tool.ruff.per-file-target-version]
-# The files that run under whatever `python3` a machine has, the system's 3.9 on a Mac, and
-# find the newer Python for the rest (src/lem/python.py), with the entry and the table of
-# names that they load, and the picker's old place, which hands over to bin/lem.
-"bin/lem" = "py39"
+# The file the plugin's hooks start under whatever `python3` a machine has, the system's 3.9
+# on a Mac, and which finds the newer Python for the rest.
 "src/lem/python.py" = "py39"
-"src/lem/names.py" = "py39"
-"skills/lem/scripts/picker.py" = "py39"
 
 [tool.ruff.lint]
 select = [
@@ -171,7 +167,7 @@ ignore = [
     "S603", # Lem's work is to run git, gh, agtermctl and a project's own checks,
     "S607", # each named in a list of arguments, found on PATH,
     "S606", # and a launcher becomes the script it starts (os.execv)
-    "UP036", # the entry and bin/lem tell an old python3 what Lem needs, so those lines must stay
+    "UP036", # python.py tells an old python3 what Lem needs, so those lines must stay
     "N818", # an exception is named for what happened (Refusal, NotFound)
 ]
 
@@ -180,12 +176,12 @@ ignore = [
 allowed-confusables = ["’", "–", "×", "›"]
 
 [tool.ruff.lint.per-file-ignores]
-# The files that every command and every hook starts under any python3: they keep to os.path
-# and to what Python 3.9 has.
-"bin/lem" = ["PTH"]
+# The file every hook starts under any python3 keeps to os.path and to what Python 3.9 has,
+# and the entry to os.path, whose import costs less than pathlib's, before its look at the board
+# server.
 "src/lem/python.py" = ["PTH"]
 "src/lem/__main__.py" = ["PTH"]
-# lem-ask shows a path as its caller wrote it, in a page's address and in each message (`./x.json`,
+# lem ask shows a path as its caller wrote it, in a page's address and in each message (`./x.json`,
 # a TMPDIR with `//`), and pathlib would rewrite that text.
 "src/lem/ask.py" = ["PTH"]
 "tests/**" = [
@@ -210,7 +206,7 @@ allowed-confusables = ["’", "–", "×", "›"]
 [tool.pyrefly]
 # The oldest Python a script runs under: a name the standard library got later is an error here.
 python-version = "3.11"
-project-includes = ["**/*.py", "bin/lem", "tests/clock/date"]
+project-includes = ["**/*.py", "tests/clock/date"]
 # The same folders as ruff's `src`.
 search-path = [
     "src",

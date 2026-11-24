@@ -138,7 +138,7 @@ bullet.
   other rule of the project"` (decided 2026-11-14 and 2026-11-15)
 - **As a plugin, the correction hook comes with the install.** `tests/lem-machine.sh: "the plugin
   manifest names lem and a version of three numbers, which is the release"` (2026-11-15)
-- **The Jev model comes through any provider.** `tests/lem-machine.sh: "lem-jev takes its key from
+- **The Jev model comes through any provider.** `tests/lem-machine.sh: "lem jev takes its key from
   JEV_API_KEY alone, and with a key under another name"` (2026-11-18)
 - **A correction hook registered twice judges each message once.** `tests/lem-machine.sh: "three
   copies of the hook on one message, started at once as three registrations"` (decided 2026-11-17)

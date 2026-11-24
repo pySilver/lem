@@ -1138,7 +1138,7 @@ html:has(.app.plain) { overflow: auto; height: auto; }
 .answer-form .ans-acts { margin-top: 0; }
 .app .wr-answer { flex-direction: column; align-items: stretch; }
 .wr-criterion { padding: 8px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
-/* a card of the task's session (board_task.py `card_step`): the card's own page, as lem-ask built it, in a frame */
+/* a card of the task's session (board_task.py `card_step`): the card's own page, as lem ask built it, in a frame */
 .card-frame { display: block; width: 100%; height: min(78vh, 820px); border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
 @media (max-width: 700px) {
   .act-row, .app .wr-acts { flex-direction: column; align-items: stretch; }

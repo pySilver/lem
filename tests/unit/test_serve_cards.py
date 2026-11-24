@@ -417,7 +417,7 @@ class Device(unittest.TestCase):
 
 class Agterm(unittest.TestCase):
     """`agterm_card_refusal`: one read of agterm's outcome of the card's page, as
-    lem-ask's wait reads it."""
+    `lem ask wait` reads it."""
 
     def said(self, stdout: str, returncode: int = 0, stderr: str = "") -> tuple:
         ran = subprocess.CompletedProcess([], returncode, stdout, stderr)
@@ -472,7 +472,7 @@ class Agterm(unittest.TestCase):
 
 
 class Policy(unittest.TestCase):
-    """`card_policy` over a page as `lem-ask render` builds it from a template, whose
+    """`card_policy` over a page as `lem ask render` builds it from a template, whose
     spec holds a script of its own."""
 
     def test_criterion_1_the_page_runs_its_runtime_by_hash_and_no_script_form_or_base_of_its_spec(
@@ -501,7 +501,7 @@ class Policy(unittest.TestCase):
                     sys.executable,
                     "-B",
                     str(ROOT / "src" / "lem" / "__main__.py"),
-                    "lem-ask",
+                    "ask",
                     "render",
                     str(Path(tmp) / "spec.json"),
                     "-o",

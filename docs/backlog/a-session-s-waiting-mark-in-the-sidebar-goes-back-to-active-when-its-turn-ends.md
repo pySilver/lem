@@ -14,7 +14,7 @@ one-home-folder-for-lem on 2026-11-23: `blocked` at 11:49:52Z, `active` from the
 11:49:57Z.
 
 The half of a question on a page of `lem-ask` was fixed on 2026-11-24: the plugin registers
-`lem-ask hook-stop`, which sets the mark again while the page is open.
+`lem ask hook-stop`, which sets the mark again while the page is open.
 
 What is left, for the terminal question: a `lem` command that sets the mark, notes the wait in the
 task's folder and keeps the mark for any question until he answers; or the board server setting the

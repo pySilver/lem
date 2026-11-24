@@ -138,22 +138,4 @@ else
   fail "the picker's refusals: $no_lem / $no_task / $no_task_list / $no_ctl"
 fi
 
-# A keymap line that the doctor printed before names picker.py in Lem's marketplace clone, which holds the head of main:
-# the picker's old place keeps that file, which hands over to the clone's bin/lem picker with its arguments, which runs the
-# newest installed release.
-PLUGINS=$WORK/claude/plugins
-CLONE=$PLUGINS/marketplaces/lem
-RELEASE=$PLUGINS/cache/lem/lem/0.3.0
-mkdir -p "$CLONE/bin" "$CLONE/skills/lem/scripts" "$RELEASE/bin"
-cp "$PWD/bin/lem" "$CLONE/bin/lem" && cp "$PWD/skills/lem/scripts/picker.py" "$CLONE/skills/lem/scripts/picker.py"
-printf '%s\n' 'import sys' "print('0.3.0', '|'.join(sys.argv[1:]) + '|')" > "$RELEASE/bin/lem"
-printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"user\", \"installPath\": \"$RELEASE\", \"version\": \"0.3.0\"}]}}" > "$PLUGINS/installed_plugins.json"
-older=$("$PY" -B "$CLONE/skills/lem/scripts/picker.py" --repo "$PK" --list 2>&1; echo "exit $?")
-if [ "$older" = "0.3.0 picker|--repo|$PK|--list|
-exit 0" ]; then
-  pass "picker.py in Lem's marketplace clone, as an older keymap line names it, runs the installed release's lem picker with its arguments"
-else
-  fail "picker.py in the marketplace clone: $older"
-fi
-
 finish

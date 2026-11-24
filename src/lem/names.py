@@ -1,11 +1,7 @@
 """The names of Lem's commands: each name of `lem NAME`, the module of this package it
-runs and what it does in one line, and the two commands of their own (`lem-ask`,
-`lem-jev`), which are links to `bin/lem`.
-
-`bin/lem` reads this file for `lem help` and for the name it is given, and it runs under
-whatever `python3` a machine has, the system's 3.9 on a Mac: so this file is written in
-syntax Python 3.9 reads, an annotation that 3.9 cannot evaluate is a string, and it
-imports nothing.
+runs and what it does in one line. The entry (`lem.__main__`) reads this table for
+`lem help` and for the name it is given, before any other module of Lem is imported, so
+this file imports nothing.
 """
 
 # name -> (the module of this package; what it does, in one line)
@@ -82,29 +78,24 @@ COMMANDS = {
             "and answer on its issue"
         ),
     ),
-}
-
-# the name of a link to `bin/lem` in bin/ -> the module of this package it runs
-ALIASES = {
-    "lem-ask": "ask",
-    "lem-jev": "jev",
-}
-
-# The name a module had as a script, where it is not the module's own with `.py`: the
-# entry says it to an old python3, as the script said it.
-FILES = {
-    "ask": "lem-ask",
+    "ask": (
+        "ask",
+        "the question page: one question to the owner as a page in agterm",
+    ),
+    "jev": (
+        "jev",
+        "the Jev model: choice and yes/no questions, answered as JSON",
+    ),
 }
 
 
-def module(name: str) -> "str | None":
-    """The module that the command NAME runs, a name of `lem NAME` or of an alias; None
-    for a name of neither."""
+def module(name: str) -> str | None:
+    """The module that the command NAME runs; None for a name of no command."""
     if name in COMMANDS:
         return COMMANDS[name][0]
-    return ALIASES.get(name)
+    return None
 
 
 def file_name(module: str) -> str:
     """The name of the script MODULE was before it was a module of this package."""
-    return FILES.get(module, module + ".py")
+    return module + ".py"

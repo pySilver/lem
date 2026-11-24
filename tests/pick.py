@@ -173,7 +173,6 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
             "src/lem/corrections.py",
             "src/lem/jev.py",
             "hooks/*",
-            "bin/lem-jev",
         ),
         ("lem-machine", "lem-state", "lem-command"),
     ),
@@ -186,18 +185,16 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
         ("lem-machine", "lem-command"),
     ),
-    (("bin/lem", "src/lem/python.py"), ("lem-command", "lem-machine")),
+    (("src/lem/python.py",), ("lem-command", "lem-machine")),
     # the package's build: lem-command builds the wheel and installs it outside the
     # checkout
     (
         ("pyproject.toml", "uv.lock", "hatch_build.py", "checkout.pth"),
         ("lem-command",),
     ),
-    # the picker's old place, which an older keymap line names
-    (("skills/lem/scripts/picker.py",), ("lem-picker",)),
-    # the afternoon of tests/board-showcase.py puts up its card with `lem-ask render`
+    # the afternoon of tests/board-showcase.py puts up its card with `lem ask render`
     (
-        ("skills/lem-ask/*", "bin/lem-ask", "src/lem/ask.py"),
+        ("skills/lem-ask/*", "src/lem/ask.py"),
         (
             "test-ask",
             "lem-machine",
@@ -272,7 +269,6 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         (
             "README.md",
             "site/*",
-            "bin/*",
             "hooks/*",
             "docs/flow.md",
             "docs/when-lem-needs-you.md",
@@ -291,7 +287,6 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (
         (
             "*.py",
-            "bin/lem",
             "tests/clock/date",
             "pyproject.toml",
             "uv.lock",
@@ -330,7 +325,6 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
 CHROME_OWN = {
     "test-ask": (
         "skills/lem-ask/*",
-        "bin/lem-ask",
         "src/lem/ask.py",
         "tests/checks.sh",
     ),

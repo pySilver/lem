@@ -126,7 +126,7 @@ else
 fi
 
 # A card of a task's session (the task board-answers-a-card, criterion 1): its row of Waits for you with its question and
-# the way to it, the card on the task's Overview, the step that frames it, and its page as lem-ask built it, under the
+# the way to it, the card on the task's Overview, the step that frames it, and its page as lem ask built it, under the
 # card's own policy, at its route with a slash at its end.
 CARD=4F9A1C2E-7B3D-4E8F-A1B2-C3D4E5F60718
 CT=$BASE/tasks/refund-rounding
@@ -143,7 +143,7 @@ if grep -qF "id=\"wait-card-refund-rounding-$CARD\"" <<<"$card_waits" && grep -q
   && cmp -s "$WORK/card.html" "$STATE/tasks/refund-rounding/cards/$CARD.html" \
   && grep -q "^Content-Security-Policy: script-src 'sha256-[A-Za-z0-9+/=]*'; form-action 'none'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'self'$" <<<"$card_headers" \
   && [ "$card_bare" = "302 $CT/cards/$CARD/" ] && [ "$card_none" = "404 404 404" ]; then
-  pass "a card of a task's session is a row of Waits for you with its question, a card of its Overview and a step that frames its page, which the board sends as lem-ask built it, under a policy that runs only the page's own scripts"
+  pass "a card of a task's session is a row of Waits for you with its question, a card of its Overview and a step that frames its page, which the board sends as lem ask built it, under a policy that runs only the page's own scripts"
 else
   fail "the card of refund-rounding: $card_bare / $card_none / $card_headers / $(grep -o 'wait-card.\{0,300\}' <<<"$card_waits" | head -c 600)"
 fi
@@ -807,7 +807,7 @@ print(seen.get("counts", "- -"), seen.get("streamed", "- -").split()[-1], seen.g
 fi
 
 # The start on demand: the foreground server ends with --stop; --ensure twice makes one server, which keeps its pid and
-# port in Lem's home folder for bin/lem's look, and --stop ends it and its file.
+# port in Lem's home folder for the command's look, and --stop ends it and its file.
 stopped_fg=$("$PY" -B "$MAIN" serve --stop)
 wait "$SERVE_PID" 2>/dev/null || true
 SERVE_PID=""
