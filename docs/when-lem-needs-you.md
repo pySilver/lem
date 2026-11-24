@@ -64,7 +64,8 @@ start a new task.
 ## A task of an older release
 
 Lem reads the tasks begun on its own release and on the release just before it. A task begun two
-releases back or more stops at its first command, and the board shows it blocked. Its message names
+releases back or more stops at its first command. The board shows it blocked and offers no act on
+it, also before that command. Its message names
 the release it began on, and the way on: `/lem drop <task>`, then `/lem resume <task>`. The resume
 starts a new request on your release, from the branch and its commits and from the notes of the
 task. Its session asks you again for your yes to the acceptance criteria.

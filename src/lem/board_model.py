@@ -2229,14 +2229,7 @@ def derive(  # noqa: C901 - over the limit before the limit was set
         landing=by("landing"),
         parked=[t for t in by(PARKED) if is_parked(t)],
         for_owner=[],
-        blocked=sorted(
-            (
-                t
-                for t in listed
-                if t.status == "blocked" or (t.release_stop and not t.closed)
-            ),
-            key=lambda t: t.since,
-        ),
+        blocked=blocked_of(listed),
         landed_today=[
             t for t in listed if t.status == "landed" and local(t.since).date() == today
         ],
@@ -2259,6 +2252,19 @@ def derive(  # noqa: C901 - over the limit before the limit was set
             t.info = {**t.info, "actor": "you", "who": "You"}
     sort_lists(m)
     return m
+
+
+def blocked_of(tasks: list) -> list:
+    """The blocked tasks, a task two releases back among them (RELEASE_STOP), the
+    longest blocked first."""
+    return sorted(
+        (
+            t
+            for t in tasks
+            if t.status == "blocked" or (t.release_stop and not t.closed)
+        ),
+        key=lambda t: t.since,
+    )
 
 
 def sort_lists(m: Model) -> None:
@@ -6752,11 +6758,18 @@ def task_files_look(state: Path, m: Model) -> None:
     criteria-change-asks-again). A release that cannot be told, the board's or the
     task's, counts as behind: the owner answers in the task's session, as on a task of
     an older release. Run at each look: `approvable` comes back from the log's own value
-    each time."""
+    each time.
+
+    A mark older than the board's release before (lem_release `stop`, "old") stops the
+    task as its `release.stop` would, whether or not a command logged one yet: every
+    command of the board's acts would stop on it, so the board offers none, and the
+    task is settled again under the stop, the stop's message its way on."""
     try:
-        running = lem_release.numbers(lem_release.running())
+        version = lem_release.running()
     except ValueError:
-        running = None
+        version = None
+    running = lem_release.numbers(version) if version else None
+    stopped = False
     for t in m.tasks:
         if t.closed or not t.blocks:
             continue
@@ -6767,6 +6780,21 @@ def task_files_look(state: Path, m: Model) -> None:
             t.began = None
         began = lem_release.numbers(t.began) if t.began else None
         t.behind = running is None or began is None or began < running
+        found = (
+            lem_release.stop(t.slug, t.began, version, lem_release.BEFORE)
+            if version and t.began and t.release_stop is None
+            else None
+        )
+        if found and found["kind"] == "old":
+            t.release_stop = {
+                "ts": t.since,
+                "began": t.began,
+                "running": version,
+                "branch": None,
+                "say": found["say"],
+            }
+            settle(t, m.now, away=m.away is not None)
+            stopped = True
         kept = None
         with contextlib.suppress(OSError, ValueError):
             kept = json.loads((folder / CRITERIA_BEFORE).read_text(encoding="utf-8"))
@@ -6776,6 +6804,9 @@ def task_files_look(state: Path, m: Model) -> None:
             and at(kept.get("ts")) == t.blocks[-1]["ts"]
         )
         t.approvable = t.approvable_events and not t.changing
+    if stopped:
+        m.blocked = blocked_of(m.tasks)
+        sort_lists(m)
 
 
 def change_of(t: Task, waiting: dict | None) -> dict | None:

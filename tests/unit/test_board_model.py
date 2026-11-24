@@ -2671,6 +2671,54 @@ class ReleaseStop(unittest.TestCase):
             [],
         )
 
+    def test_the_mark_of_a_task_two_releases_back_stops_its_acts_before_any_stop_is_logged(
+        self,
+    ) -> None:
+        # no command of Lem ran for the task since the release moved, so the log holds
+        # no `release.stop`: the board offered the merge, the approval and the answer of
+        # its row all the same, and each would stop in the guard
+        with tempfile.TemporaryDirectory() as folder:
+            tasks = Path(folder) / "tasks"
+            for slug, mark in (("gift-note", "0.0.1"), ("fresh", None)):
+                (tasks / slug).mkdir(parents=True)
+                (tasks / slug / "release.txt").write_text(
+                    (mark or bm.lem_release.running()) + "\n", encoding="utf-8"
+                )
+            m = model(
+                ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
+                state(1, "open", Merge.PR, "green"),
+                state(1, "held", "the criteria wait for the owner", task="fresh"),
+            )
+            self.assertEqual(bm.acts_of(m.by_slug["gift-note"], None), ["merge"])
+            bm.task_files_look(Path(folder), m)
+            bm.task_files_look(Path(folder), m)  # each look, the same
+        t = m.by_slug["gift-note"]
+        say = cast(
+            "dict",
+            bm.lem_release.stop(
+                "gift-note", "0.0.1", bm.lem_release.running(), bm.lem_release.BEFORE
+            ),
+        )["say"]
+        self.assertEqual(
+            (t.status, bm.acts_of(t, None), bm.answer_row(t), bm.now_head(t)),
+            ("open", [], None, bm.OLDER_RELEASE),
+        )
+        self.assertEqual(
+            (t.info["label"], t.info["actor"], t.lane, t.shown),
+            ("Blocked", "you", "you", say),
+        )
+        self.assertEqual(
+            ([x.slug for x in m.blocked], [x.slug for x in m.for_owner]),
+            # a held task's criteria press more than a blocked task (OWNER_ORDER)
+            (["gift-note"], ["fresh", "gift-note"]),
+        )
+        self.assertEqual(
+            [(w["key"], w.get("say")) for w in bm.waits_of(m) if w["t"] is t],
+            [("blocked:gift-note", say)],
+        )
+        # a task of this release keeps its acts
+        self.assertIsNone(m.by_slug["fresh"].release_stop)
+
 
 class SeatThatFailed(unittest.TestCase):
     """A task a seat's error blocked (`lem project seat-failed`) is a row of "Waits for
