@@ -2764,6 +2764,7 @@ def session_entries(text: str) -> dict[str, dict]:
                 "live",
                 "agent",
                 "unanswered",
+                "unheard",
                 "session",
                 "name",
                 "sign",
@@ -2974,6 +2975,9 @@ def live_of(t: Task, m: Model) -> dict | None:
         return {
             "live": f.get("live") is True and f.get("agent") is True,
             "unanswered": f.get("unanswered") is True,
+            # which case of it (`lem session list`), or None from a list of the
+            # release before
+            "unheard": f.get("unheard") if isinstance(f.get("unheard"), dict) else None,
             "worktree": f.get("worktree") is True,
             "session": f.get("session") or t.session,
         }
@@ -3678,6 +3682,9 @@ def waits_of(m: Model) -> list[dict]:  # noqa: C901 - over the limit before the 
                     "c": None,
                     "since": since,
                     "deaf": need == "deaf",
+                    "unheard": (live_of(t, m) or {}).get("unheard")
+                    if need == "deaf"
+                    else None,
                 }
             )
         if t.closed:
@@ -3842,6 +3849,33 @@ def dropped_head(after: str) -> str:
     return f"{after} was dropped: your word starts or ends this task"
 
 
+def deaf_where(t: Task, unheard: dict | None) -> str:
+    """Where the owner answers a session that does not answer, in the case `lem session
+    list` names (UNHEARD): the wake's line still waits in its mailbox, or its pane took
+    the line and took no turn (a parked Claude Code process), whose fresh session comes
+    once he closes it (`session_need`'s `gone`). An entry with no case keeps the words
+    of the line that waits."""
+    if not unheard:
+        return (
+            "A wake-up has waited in the task’s session for 10 minutes or more. "
+            "Look at the session: its agent may wait for an answer, "
+            "or run a long turn."
+        )
+    line = f"“lem: {t.slug} {unheard.get('why')}”"
+    if unheard.get("line") == "taken":
+        return (
+            f"The task’s session took the wake-up {line} 10 minutes ago or more, and "
+            "took no turn after it: its agent does not run. Go to the session and "
+            "tell it to go on, or close the session: then this row offers “Open a "
+            "session”."
+        )
+    return (
+        f"The wake-up {line} has waited in the task’s session for 10 minutes or "
+        "more. Look at the session: its agent may wait for an answer, or run a long "
+        "turn."
+    )
+
+
 def wait_say(w: dict) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit was set
     """What a row of "Waits for you" says the owner does, its icon, the tab where he
     acts, and how its time reads."""
@@ -3853,11 +3887,7 @@ def wait_say(w: dict) -> dict:  # noqa: C901, PLR0911, PLR0912 - over the limit 
             "actor": "bad",
             "to": "overview",
             "note": "since its session opened",
-            "where": (
-                "A wake-up has waited in the task’s session for 10 minutes or more. "
-                "Look at the session: its agent may wait for an answer, "
-                "or run a long turn."
-            ),
+            "where": deaf_where(t, w.get("unheard")),
         }
     if kind == "stopped" and w.get("unread"):
         return {

@@ -2398,6 +2398,59 @@ class Sessions(unittest.TestCase):
         self.assertEqual(self.rows(closed), [("session", "No session runs this task")])
 
 
+class DeafRow(unittest.TestCase):
+    """The row "Its session does not answer" in each of its two cases, which `lem
+    session list` names beside `unanswered` (`unheard`): the wake's line still waits in
+    the session's mailbox, or the pane took it and no turn came (a parked Claude Code
+    process). The review of 2026-11-24."""
+
+    def where(self, unheard: dict | None) -> str:
+        m = model(state(0, "building", "lead: builder"))
+        m.sessions = {
+            "gift-note": {
+                "live": True,
+                "agent": True,
+                "unanswered": True,
+                "unheard": unheard,
+            }
+        }
+        row = next(w for w in bm.waits_of(m) if w["kind"] == "session")
+        return bm.wait_say(row)["where"]
+
+    def test_each_case_says_what_is_true_names_the_wake_and_the_act_that_works(
+        self,
+    ) -> None:
+        taken = self.where({"why": "merged", "line": "taken"})
+        self.assertEqual(
+            taken,
+            (
+                "The task’s session took the wake-up “lem: gift-note merged” 10 "
+                "minutes ago or more, and took no turn after it: its agent does not "
+                "run. Go to the session and tell it to go on, or close the session: "
+                "then this row offers “Open a session”."
+            ),
+        )
+        waits = self.where({"why": "merged", "line": "waits"})
+        self.assertEqual(
+            waits,
+            (
+                "The wake-up “lem: gift-note merged” has waited in the task’s session "
+                "for 10 minutes or more. Look at the session: its agent may wait for "
+                "an answer, or run a long turn."
+            ),
+        )
+        # an entry with no case, as a `lem session list` of the release before
+        # gives it, keeps the words of the line that waits
+        self.assertEqual(
+            self.where(None),
+            (
+                "A wake-up has waited in the task’s session for 10 minutes or more. "
+                "Look at the session: its agent may wait for an answer, "
+                "or run a long turn."
+            ),
+        )
+
+
 class Blocked(unittest.TestCase):
     """A task its session stopped (`blocked`) waits for the owner's word, except while
     the base is red."""
@@ -2517,7 +2570,9 @@ class ReleaseStop(unittest.TestCase):
                 self.assertEqual(bm.answer_of(t), self.SAY)
                 # one place: "Waits for you" and the blocked tasks, never the parked
                 self.assertEqual((t in m.blocked, t in m.parked), (True, False))
-                self.assertEqual(bm.card_line(t, bm.LANE["you"]), f"Blocked: {self.SAY}")
+                self.assertEqual(
+                    bm.card_line(t, bm.LANE["you"]), f"Blocked: {self.SAY}"
+                )
 
     def test_a_landing_two_releases_back_is_out_of_the_guard_of_a_stopped_session(
         self,
@@ -2774,6 +2829,7 @@ class ForgeLook(unittest.TestCase):
                     "live": True,
                     "agent": True,
                     "unanswered": None,
+                    "unheard": None,
                     "session": None,
                     "name": None,
                     "sign": None,

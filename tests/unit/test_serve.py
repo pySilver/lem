@@ -1439,6 +1439,7 @@ class Duties(unittest.TestCase):
                     "live": True,
                     "agent": False,
                     "unanswered": False,
+                    "unheard": None,
                     "session": "S1",
                     "name": None,
                     "sign": "2026-11-22T10:15:42Z",

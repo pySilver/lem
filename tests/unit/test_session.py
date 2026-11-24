@@ -1907,7 +1907,7 @@ class Guard(unittest.TestCase):
             "why": "handoff",
         }
 
-        def unanswered(minutes: int) -> bool:
+        def unanswered(minutes: int, mailbox: str = "[]") -> bool:
             sign = (ago + timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
             with (
                 mock.patch.object(
@@ -1926,7 +1926,7 @@ class Guard(unittest.TestCase):
                 mock.patch.object(session.project, "load", return_value={}),
                 mock.patch.object(session.project, "read_tasks", return_value=[]),
                 # the parked pane's Stop hook took the line: the mailbox is empty
-                mock.patch.object(session, "ctl", return_value="[]"),
+                mock.patch.object(session, "ctl", return_value=mailbox),
                 mock.patch.object(
                     session.lem_signs,
                     "signs_of",
@@ -1938,10 +1938,24 @@ class Guard(unittest.TestCase):
                     },
                 ),
             ):
-                return session.cmd_list(ROOT)[0]["unanswered"]
+                entry = session.cmd_list(ROOT)[0]
+                # which of the two cases, beside `unanswered`, whose meaning stays
+                unheard[minutes, mailbox] = entry["unheard"]
+                return entry["unanswered"]
 
+        unheard: dict = {}
         # the newest turn 5 hours before the wake, or 2 minutes after it
         self.assertEqual((unanswered(-300), unanswered(2)), (True, False))
+        waits = json.dumps([{"text": f"lem: {SLUG} owner"}])
+        self.assertTrue(unanswered(-300, waits))
+        self.assertEqual(
+            unheard,
+            {
+                (-300, "[]"): {"why": "owner", "line": "taken"},
+                (2, "[]"): None,
+                (-300, waits): {"why": "owner", "line": "waits"},
+            },
+        )
 
     def test_the_owners_open_of_a_stopped_task_acts_until_its_session_works_again(
         self,

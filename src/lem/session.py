@@ -154,7 +154,8 @@ session opened in. Its `unanswered` is a wake older than UNANSWERED_AFTER whose 
 still waits in the session's mailbox (`agtermctl msg read`, which removes nothing), or
 after which the session's signs, when they read, show no turn (a parked Claude Code
 process takes the line out of its mailbox with no turn), never the guard's status
-message, whose wait the guard itself ends.
+message, whose wait the guard itself ends. Its `unheard` says which, or is null:
+`{"why", "line"}`, the wake's why and `waits` or `taken`.
 
 Each entry whose session is live (`live`) says what Claude Code's own files say of its
 work (`lem_signs`): `sign`, the time of the newest turn of the session's main thread or
@@ -1980,18 +1981,30 @@ def unanswered_of(
     guard's own status message is never one: the guard ends its wait at 10 minutes,
     with the restart or the stop, so no row "does not answer" stands beside its
     steps."""
+    return unheard_of(wake, signs, now, waits=waits) is not None
+
+
+def unheard_of(
+    wake: dict | None, signs: dict, now: datetime, *, waits: Callable[[], bool]
+) -> dict | None:
+    """Which case of `unanswered_of` holds, or None: `{"why", "line"}`, the wake's why
+    and `waits` when its line still waits in the mailbox, or `taken` when the pane took
+    the line and the signs show no turn since (a parked Claude Code process), so that
+    the board and the Inbox say what is true and the act that works."""
     if (
         wake is None
         or wake.get("why") == "status"
         or (now - stamp(wake["ts"])).total_seconds() < UNANSWERED_AFTER
     ):
-        return False
+        return None
     if waits():
-        return True
+        return {"why": wake.get("why"), "line": "waits"}
     sign = signs.get("sign")
-    return signs.get("signs") is True and (
+    if signs.get("signs") is True and (
         not isinstance(sign, str) or stamp(sign) < stamp(wake["ts"])
-    )
+    ):
+        return {"why": wake.get("why"), "line": "taken"}
+    return None
 
 
 def mailbox_holds(where: dict, pane: str, line: str) -> bool:
@@ -2068,7 +2081,7 @@ def cmd_list(root: Path) -> list[dict]:
             signs = lem_signs.signs_of(
                 records, session, table[0] if table else None, slug
             )
-        unanswered = node is not None and unanswered_of(
+        unheard = node is not None and unheard_of(
             wake,
             signs,
             now,
@@ -2093,7 +2106,9 @@ def cmd_list(root: Path) -> list[dict]:
                 "agent": agent_runs(node) if node else False,
                 "selected": bool(node and node.get("active")),
                 "closed": closed["why"] if closed else None,
-                "unanswered": unanswered,
+                "unanswered": bool(unheard),
+                # which case, beside `unanswered`, whose meaning stays
+                "unheard": unheard or None,
                 **signs,
             }
         )

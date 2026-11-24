@@ -446,7 +446,7 @@ def block(
     return "\n".join([*parts, ":::"])
 
 
-def message_of(  # noqa: C901, PLR0912, PLR0913 - over the limit before the limit was set
+def message_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before the limit was set
     thing: dict,
     row: dict,
     m: "lem_board_model.Model",
@@ -483,6 +483,10 @@ def message_of(  # noqa: C901, PLR0912, PLR0913 - over the limit before the limi
                     "took its place."
                 )
             ) + f" Open a fresh one on the board: {link_line}"
+        elif kind == "session" and row.get("deaf"):
+            # its session lives: no open waits on the board, and the row's words
+            # say what is true and the act that works
+            body = f"{bm.wait_say(row)['where']}\n\nThe task on the board: {link_line}"
         elif kind == "blocked" and row.get("say"):
             body = f"{row['say']}\n\nThe task on the board: {link_line}"
         elif kind == "merge" and t.refused:

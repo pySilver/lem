@@ -503,6 +503,39 @@ class Sends(InFolder):
         self.assertEqual(self.record()["sent"][0]["form"], "note")
         self.assertEqual(self.woken, [])
 
+    def test_the_note_of_a_session_that_does_not_answer_says_what_is_true_and_what_acts(
+        self,
+    ) -> None:
+        # review of 2026-11-24: a live session whose parked pane took the wake's line
+        # with no turn got "has no session; open it on the board", and the board offers
+        # no open for a live session
+        events = [state(0, "building", "task 1 of 2"), *breaker()]
+        self.m = model(
+            *events,
+            owner=[AWAY],
+            sessions={
+                RD: {
+                    "live": True,
+                    "agent": True,
+                    "unanswered": True,
+                    "unheard": {"why": "merged", "line": "taken"},
+                    "session": "S-1",
+                    "worktree": False,
+                }
+            },
+        )
+        self.watcher().look()
+        body = self.plannotator.sends()[0]["payload"]["body"]
+        self.assertNotIn("has no session", body)
+        self.assertIn("“lem: report-dates merged”", body)
+        self.assertIn("took no turn", body)
+        self.assertIn("close the session", body)
+        self.assertIn(
+            "[report-dates on the board](https://mac.tail0.ts.net:4537/mac/shop/tasks/"
+            "report-dates)",
+            body,
+        )
+
     def test_a_fork_is_not_the_tasks_session_and_a_session_that_does_not_answer_gets_a_note(
         self,
     ) -> None:
