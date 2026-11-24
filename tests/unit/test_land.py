@@ -677,9 +677,6 @@ class Bar(unittest.TestCase):
                 steps += 1
                 return start(self.found)
 
-            def group(self, *names: int) -> str:
-                return self.found.group(*names)
-
         class Pattern:
             """A mark whose matches count."""
 
