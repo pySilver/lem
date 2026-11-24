@@ -1898,7 +1898,7 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
     if rebased.returncode != 0:
         conflicts = conflicted(task.worktree)
         git(task.worktree, "rebase", "--abort", check=False)
-        refused = rebase_refused(rebased.stderr, conflicts)
+        refused = rebase_refused(rebased.returncode, rebased.stderr, conflicts)
         if refused:
             version = git(task.worktree, "--version", check=False)
             raise LandError(
@@ -2083,16 +2083,21 @@ def rebase_notes(kept: dict, *, moved: bool) -> tuple[dict, dict]:
     )
 
 
-def rebase_refused(said: str, conflicts: list[str]) -> str | None:
-    """Git's refusal of an option of `git rebase`, from what it SAID on stderr, when
-    the rebase stopped on no file (CONFLICTS): a git older than the option names it as
-    unknown, and that is no conflict for a builder. None otherwise."""
-    if conflicts:
+# git's exit status for an option it cannot parse (`usage_with_options`), in any
+# language of its words
+GIT_USAGE = 129
+
+
+def rebase_refused(code: int, said: str, conflicts: list[str]) -> str | None:
+    """Git's refusal of an option of `git rebase`, from its exit CODE and what it SAID
+    on stderr, when the rebase stopped on no file (CONFLICTS): a git older than the
+    option exits with `GIT_USAGE`, and that is no conflict for a builder. The status
+    decides, as git words its refusal in the language of the machine; its first line
+    is named. None otherwise."""
+    if conflicts or code != GIT_USAGE:
         return None
-    line = next(
-        (line.strip() for line in said.splitlines() if "unknown option" in line), None
-    )
-    return f"git rebase refused an option ({line})" if line else None
+    line = next((line.strip() for line in said.splitlines() if line.strip()), "")
+    return f"git rebase refused an option ({line or f'exit {code}'})"
 
 
 def rebase_failed(onto: str, said: str) -> str:

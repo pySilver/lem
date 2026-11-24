@@ -1259,28 +1259,40 @@ class ConflictNames(unittest.TestCase):
 
 class RebaseRefused(unittest.TestCase):
     """`land.rebase_refused`: a git too old for an option of base's rebase is named as
-    such, never kept as a conflict with no file for a builder."""
+    such, never kept as a conflict with no file for a builder. Its exit status (129,
+    git's for an option it cannot parse) decides, in any language of git's words."""
 
     # what a git with no such option prints, as git 2.55.0 prints it for an option it
-    # does not know (`--reapply-cherry-pickz`), its usage after it
+    # does not know (`--reapply-cherry-pickz`), its usage after it, with exit 129
     OLD_GIT = (
         "error: unknown option `reapply-cherry-picks'\n"
         "usage: git rebase [-i] [options] [--exec <cmd>] [--onto <newbase>]\n"
+    )
+    # the same, as git 2.55.0 prints it under LC_ALL=de_DE.UTF-8
+    GERMAN = (
+        "Fehler: Unbekannte Option: `reapply-cherry-picks'\n"
+        "Verwendung: git rebase [-i] [<Optionen>] [--exec <Programm>]\n"
     )
 
     def test_an_unknown_option_with_no_file_in_conflict_is_a_refusal_of_git(
         self,
     ) -> None:
         self.assertEqual(
-            land.rebase_refused(self.OLD_GIT, []),
+            land.rebase_refused(land.GIT_USAGE, self.OLD_GIT, []),
             "git rebase refused an option (error: unknown option "
+            "`reapply-cherry-picks')",
+        )
+        self.assertEqual(
+            land.rebase_refused(land.GIT_USAGE, self.GERMAN, []),
+            "git rebase refused an option (Fehler: Unbekannte Option: "
             "`reapply-cherry-picks')",
         )
 
     def test_a_conflict_or_another_stop_is_no_refusal_of_git(self) -> None:
-        self.assertIsNone(land.rebase_refused(self.OLD_GIT, ["shop.py"]))
+        self.assertIsNone(land.rebase_refused(land.GIT_USAGE, self.OLD_GIT, ["a.py"]))
         self.assertIsNone(
             land.rebase_refused(
+                1,
                 "CONFLICT (content): Merge conflict in shop.py\n"
                 "error: could not apply 1a2b3c4... fix: the shop\n",
                 ["shop.py"],
@@ -1288,9 +1300,7 @@ class RebaseRefused(unittest.TestCase):
         )
         self.assertIsNone(
             land.rebase_refused(
-                "error: The following untracked working tree files would be "
-                "overwritten by checkout:\n\tshop.py\n",
-                [],
+                1, "error: The pre-rebase hook refused to rebase.\n", []
             )
         )
 
