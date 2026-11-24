@@ -39,7 +39,6 @@ The plugin starts it through `lem_python.py` beside this file, as the other hook
 
 import os
 import sys
-from datetime import UTC
 
 # The names of the annotations below, for the type checker alone: the hook imports
 # nothing at its start that a session which is no task's does not need.
@@ -142,7 +141,7 @@ def keep_transcript(
     hook's input, and SESSION, the agterm session the hook runs in, once for each Claude
     id and agterm session."""
     import json
-    from datetime import datetime
+    from datetime import UTC, datetime
     from pathlib import Path
 
     claude, transcript = event.get("session_id"), event.get("transcript_path")
@@ -181,7 +180,7 @@ def main() -> None:
     import json
     import os
     import re
-    from datetime import datetime
+    from datetime import UTC, datetime
     from pathlib import Path
 
     slug = os.environ.get("LEM_TASK", "").strip()
