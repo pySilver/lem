@@ -3459,14 +3459,28 @@ class ReadOfAMovedBase(unittest.TestCase):
         # again: the brief named the checks' own base, its read has no call on a move,
         # and it answers the refusal as a safe read does
         base = {"tip": TIP, "by": "merger", "from": "lem", "kind": "base"}
-        self.assertTrue(land.read_answers(base, TIP, None, on_checks_base=True))
-        self.assertTrue(land.read_answers(base, TIP, "safe", on_checks_base=False))
-        self.assertFalse(
-            land.read_answers(base, TIP, "another round", on_checks_base=False)
+        self.assertTrue(
+            land.read_answers(base, TIP, None, on_checks_base=True, verdict="merge")
         )
-        self.assertFalse(land.read_answers(base, TIP, None, on_checks_base=False))
+        self.assertTrue(
+            land.read_answers(base, TIP, "safe", on_checks_base=False, verdict="merge")
+        )
         self.assertFalse(
-            land.read_answers({**base, "kind": "rule"}, TIP, None, on_checks_base=True)
+            land.read_answers(
+                base, TIP, "another round", on_checks_base=False, verdict="merge"
+            )
+        )
+        self.assertFalse(
+            land.read_answers(base, TIP, None, on_checks_base=False, verdict="merge")
+        )
+        self.assertFalse(
+            land.read_answers(
+                {**base, "kind": "rule"},
+                TIP,
+                None,
+                on_checks_base=True,
+                verdict="merge",
+            )
         )
         self.assertFalse(
             land.read_answers(
@@ -3474,8 +3488,29 @@ class ReadOfAMovedBase(unittest.TestCase):
                 TIP,
                 None,
                 on_checks_base=True,
+                verdict="merge",
             )
         )
+
+    def test_a_record_with_no_verdict_answers_no_refusal(self) -> None:
+        # Lem refused the owner's merge because main moved, a revert gave main the
+        # checks' tree again, and the brief named the checks' own base; the merge agent
+        # ended twice with no answer, or gave twice no verdict: the record calls the
+        # owner, and neither form answers the refusal
+        base = {"tip": TIP, "by": "owner", "from": "lem", "kind": "base"}
+        for verdict in (None, "merge", "call"):
+            with self.subTest(verdict=verdict):
+                self.assertEqual(
+                    (
+                        land.read_answers(
+                            base, TIP, None, on_checks_base=True, verdict=verdict
+                        ),
+                        land.read_answers(
+                            base, TIP, "safe", on_checks_base=False, verdict=verdict
+                        ),
+                    ),
+                    (verdict is not None, verdict is not None),
+                )
 
     def test_the_line_names_both_bases_and_the_why(self) -> None:
         line = land.base_line("main", M1, M2, "B changed only docs/board.md.")

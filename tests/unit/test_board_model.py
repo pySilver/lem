@@ -3359,6 +3359,16 @@ class MovedBase(unittest.TestCase):
             (m.tasks[0].refused, m.tasks[0].merge_wait, bm.waits_of(m)),
             (None, "merges", []),
         )
+        # a record with no verdict (two ends with no answer, or two replies with none)
+        # on the checks' own base after a revert answers nothing: his merge does not
+        # stand, and the refusal stays
+        mute = {**self.read(3, "safe"), "base_call": None, "base_why": None}
+        del mute["verdict"]
+        silent = model(*his[:3], {**mute, "calls": True})
+        self.assertEqual(
+            (silent.tasks[0].refused is not None, silent.tasks[0].stood),
+            (True, None),
+        )
         # no read answers GitHub's refusal
         github = one(
             *proposed,

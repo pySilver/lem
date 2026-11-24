@@ -1259,6 +1259,23 @@ if grep -qF "moved after the checks ran, by files (docs/board.md)" <<<"$back_ref
 else
   fail "a read on the checks' base after a revert: $back_refused / $back_read / $back_cleared / $back_merged / $(git -C "$MBO" log -3 --format=%s main)"
 fi
+# The same state, and a merge agent that ends twice with no answer: a record with no verdict answers no refusal, so it
+# calls the owner, his merge does not stand, and the refusal stays.
+mb_task mb-mum mum.txt && mb_land mb-mum
+mb_move docs/board.md >/dev/null
+land --repo "$MB" merge mb-mum --by owner --message "fix: mb-mum" >/dev/null 2>&1 || true
+git -C "$MBX" revert --no-edit HEAD >/dev/null && git -C "$MBX" push -q origin main
+mum_brief=$(land --repo "$MB" merge-review mb-mum)
+mum_tip=$(field 'd["tip"]' <<<"$mum_brief") && mum_base=$(field 'd["base"]' <<<"$mum_brief")
+land --repo "$MB" merge-review mb-mum --no-answer --tip "$mum_tip" --base "$mum_base" >/dev/null 2>&1 || true
+mum=$(land --repo "$MB" merge-review mb-mum --no-answer --tip "$mum_tip" --base "$mum_base" 2>&1 || true)
+if [ "$mum_base" = "$(mb_kept mb-mum base d)" ] && [ "$(field '(d["verdict"], d["calls"], d["next"].startswith("it calls the owner"))' <<<"$mum")" = "(None, True, True)" ] \
+  && [ "$(mb_kept mb-mum merge_refused '(d["by"], d["kind"])')" = "('owner', 'base')" ] && [ "$(mb_events mb-mum merge.stands)" = 0 ]; then
+  pass "a merge agent that ends twice with no answer on the checks' own base, after a revert, answers no refusal: it calls the owner, the refusal of his merge stays, and his merge does not stand"
+else
+  fail "no answer twice on the checks' base after a revert: $mum / $(mb_kept mb-mum merge_refused d) / $(mb_events mb-mum merge.stands)"
+fi
+project --repo "$MB" state mb-mum dropped "the test is over" >/dev/null
 
 # A task started from a reviewer's item of the state folder, which git never holds: its file leaves with the landing, by
 # Lem's merge and by `merged`; a removal that fails leaves the task open for `merged`; a pull request closed on GitHub

@@ -10044,15 +10044,26 @@ def refusal_answered(refused: object, tip: str) -> bool:
 
 
 def read_answers(
-    refused: object, tip: str, base_call: str | None, *, on_checks_base: bool
+    refused: object,
+    tip: str,
+    base_call: str | None,
+    *,
+    on_checks_base: bool,
+    verdict: str | None,
 ) -> bool:
     """Whether the record of a read of TIP answers the refusal on record (REFUSED,
-    `refusal_answered`): a read with `Base: safe.` (BASE_CALL), or a read whose brief
-    named the checks' own base (ON_CHECKS_BASE): origin's base had the checks' tree
-    again when the brief was written, after a revert of the move Lem refused for, so the
-    read has no call on a move, and the merge checks the base once more. A read with
-    `Base: another round.` answers nothing."""
-    return refusal_answered(refused, tip) and (base_call == "safe" or on_checks_base)
+    `refusal_answered`): a read with a VERDICT and `Base: safe.` (BASE_CALL), or one
+    with a verdict whose brief named the checks' own base (ON_CHECKS_BASE): origin's
+    base had the checks' tree again when the brief was written, after a revert of the
+    move Lem refused for, so the read has no call on a move, and the merge checks the
+    base once more. A read with `Base: another round.` answers nothing, and neither does
+    a record with no verdict (a merge agent that ended twice with no answer, or replied
+    twice with none), which calls the owner."""
+    return (
+        verdict is not None
+        and refusal_answered(refused, tip)
+        and (base_call == "safe" or on_checks_base)
+    )
 
 
 def base_line(base: str, checks_ran_on: str, merged_on: str, why: str) -> str:
@@ -10604,6 +10615,7 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
         tip,
         call[0] if call else None,
         on_checks_base=not moved,
+        verdict=verdict,
     ):
         # A safe read, or a read on the checks' own base after main went back to their
         # tree, answers Lem's refusal of this tip for the moved base, so landing.json,

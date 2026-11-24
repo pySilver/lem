@@ -1128,15 +1128,17 @@ def answers_refusal(
 ) -> bool:
     """Whether a merge review (REVIEW) answers the refusal on record (REFUSED), as
     land.py's record of it clears `merge_refused` (`read_answers`): a read of the
-    proposed tip (PROPOSED) whose call on the moved base is `safe`, or that has no call
-    on a move, answers Lem's refusal of that tip because the base moved (`kind: base`),
-    unless the newest read of that tip before it (BEFORE) said `another round`, whose
-    refusal only the new landing answers. land.py records a read with no call only when
-    its brief named the checks' own base: main has their tree again, after a revert. No
-    read answers any other refusal: GitHub's, a rule's, a tip's."""
+    proposed tip (PROPOSED) with a verdict whose call on the moved base is `safe`, or
+    that has no call on a move, answers Lem's refusal of that tip because the base moved
+    (`kind: base`), unless the newest read of that tip before it (BEFORE) said `another
+    round`, whose refusal only the new landing answers. land.py records a read with no
+    call only when its brief named the checks' own base: main has their tree again,
+    after a revert. A record with no verdict, which calls the owner, answers nothing,
+    and no read answers any other refusal: GitHub's, a rule's, a tip's."""
     tip = review.get("tip")
     return bool(
         refused
+        and review.get("verdict") in ("merge", "call")
         and review.get("base_call") in ("safe", None)
         and refused.get("from") == "lem"
         and refused.get("kind") == "base"
