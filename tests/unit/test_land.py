@@ -194,6 +194,18 @@ class TheNotesLines(unittest.TestCase):
         notes = self.NOTES.replace("## Left open\n\nnone", "## Left open\n\n- `land.py:start_locked`: no test holds the carry of `pr`,\n  under: the journey of the moved base holds it\n- `land.py:cmd_base`: a long line")
         self.assertEqual(self.bare(notes), ["- `land.py:cmd_base`: a long line"])
 
+    def test_an_item_path_before_a_colon_is_the_item(self) -> None:
+        # review 1, finding 3: the colon after the path is no part of it
+        line = "- land.py:cmd_start overwrites reviews; held by docs/backlog/a-held-item.md: same defect"
+        self.assertEqual(self.bare(self.NOTES.replace("## Not done", f"## Seen, not filed\n\n{line}\n\n## Not done")), [])
+
+    def test_an_indented_bullet_continues_the_entry_above_it(self) -> None:
+        # review 1, finding 4: a sub-bullet is part of its finding, and a bullet at the same depth is a finding of its own
+        notes = self.NOTES.replace("## Left open\n\nnone", "## Left open\n\n- `a.py`: a missing test; under: the path is covered by the journey\n  - seen in round 2 too\n- `b.py`: no call")
+        self.assertEqual(self.bare(notes), ["- `b.py`: no call"])
+        indented = self.NOTES.replace("## Left open\n\nnone", "## Left open\n\n  - `a.py`: a missing test; under: the journey covers it\n  - `b.py`: no call")
+        self.assertEqual(self.bare(indented), ["- `b.py`: no call"])
+
     def test_the_other_parts_and_a_lone_none_are_not_read(self) -> None:
         self.assertEqual(self.bare(self.NOTES), [])
         self.assertEqual(self.bare(self.NOTES.replace("- the one line of the file.", "- a place worth a look, no call")), [])

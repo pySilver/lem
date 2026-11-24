@@ -1860,12 +1860,13 @@ def placed(own_filed: list[str], own_not: list[str], filed: list[str], not_worth
 
 def entry_spans(lines: list[str]) -> list[list[int]]:
     """The entries of a part of the notes as the places of their lines: a list item with the lines
-    that continue it, or a paragraph's line; blank lines, a lone `none` and a heading of a lower level
-    are none."""
+    that continue it, a list item indented deeper than the entry's first line among them, or a
+    paragraph's line; blank lines, a lone `none` and a heading of a lower level are none."""
     spans: list[list[int]] = []
     if not lines_of(lines):
         return spans
     new = True
+    depth = 0
     for at, line in enumerate(lines):
         if not line.strip():
             new = True
@@ -1873,8 +1874,10 @@ def entry_spans(lines: list[str]) -> list[list[int]]:
         if line.lstrip().startswith("#"):
             new = True
             continue
-        if new or re.match(r"\s*([-*+]|\d+[.)])\s", line):
+        mark = re.match(r"(\s*)([-*+]|\d+[.)])\s", line)
+        if new or (mark and len(mark.group(1)) <= depth):
             spans.append([at])
+            depth = len(line) - len(line.lstrip())
         else:
             spans[-1].append(at)
         new = False
@@ -1904,7 +1907,7 @@ def unfiled_lines(notes: str, small: bool, folder: str, in_tip) -> list[str]:
             text = "\n".join(entry)
             if CALLED.search(text):
                 continue
-            paths = [path.rstrip(".") for path in re.findall(rf"(?<![\w./-]){re.escape(folder)}/[^\s`'\"()\[\],;]+", text)]
+            paths = [path.rstrip(".:") for path in re.findall(rf"(?<![\w./-]){re.escape(folder)}/[^\s`'\"()\[\],;]+", text)]
             if any(in_tip(path) for path in paths):
                 continue
             found.append(entry[0].strip())
