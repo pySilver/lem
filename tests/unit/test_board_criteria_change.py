@@ -143,7 +143,7 @@ class Folder(unittest.TestCase):
             return json.dumps({"slug": SLUG, "status": args[2], "since": record["ts"]})
         raise AssertionError(f"no stand-in for {name} {args}")
 
-    def task(self) -> "criteria.Task":
+    def task(self) -> criteria.Task:
         """criteria.py's task over the folder, as `lem criteria change` makes it."""
         task = criteria.Task.__new__(criteria.Task)
         task.slug, task.night, task.mode, task.repo = (
@@ -182,7 +182,7 @@ class Folder(unittest.TestCase):
         source.write_text(CHANGED, encoding="utf-8")
         return criteria.cmd_change(self.task(), str(source), NOTE)
 
-    def model(self) -> "bm.Model":
+    def model(self) -> bm.Model:
         reader = bm.Reader(Path(self.tmp.name), self.state)
         reader.read_log()
         m = bm.derive(
@@ -192,10 +192,10 @@ class Folder(unittest.TestCase):
         m.answers = bm.answers_look(self.state, m)
         return m
 
-    def t(self) -> "bm.Task":
+    def t(self) -> bm.Task:
         return self.model().by_slug[SLUG]
 
-    def ctx(self, view: str = "tasks") -> "pages.Ctx":
+    def ctx(self, view: str = "tasks") -> pages.Ctx:
         ctx = pages.Ctx(
             host="h",
             workspace="w",

@@ -97,7 +97,7 @@ SKIP = [
 FAST = [state(0, "held", bm.FAST_CRITERION, "type: fix, because a cell"), OPENED]
 
 
-def model(*events: dict, answers: dict | None = None) -> "bm.Model":
+def model(*events: dict, answers: dict | None = None) -> bm.Model:
     m = bm.derive(list(events), [], NOW)
     m.sessions = {
         SLUG: {"live": True, "agent": True, "unanswered": False, "session": "S1"}
@@ -122,7 +122,7 @@ class Workspace:
             str(state_.parent.parent),
         )
 
-    def model(self) -> "bm.Model":
+    def model(self) -> bm.Model:
         m = model(*self.events)
         m.answers = bm.answers_look(self.state, m)
         return m
@@ -604,7 +604,7 @@ class Rows(unittest.TestCase):
         tab: str = "overview",
         query: dict | None = None,
         view: str = "waits",
-    ) -> "pages.Ctx":
+    ) -> pages.Ctx:
         ctx = pages.Ctx(
             host="h",
             workspace="w",

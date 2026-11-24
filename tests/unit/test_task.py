@@ -10,29 +10,29 @@ checks it in a real repository. And what `lem project prune` does with each task
 import contextlib
 import io
 import json
-import os
 import shlex
 import shutil
 import sys
 import tempfile
 import unittest
-from collections.abc import Callable
-from datetime import tzinfo
 from pathlib import Path
-from typing import TypeVar
+from typing import TYPE_CHECKING
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from lem import project
 
+if TYPE_CHECKING:
+    import os
+    from collections.abc import Callable
+    from datetime import tzinfo
+
 # A checkout that is not on disk: the rules resolve paths under it and find
 # nothing there.
 ROOT = Path("/lem-unit/repo")
 
-Value = TypeVar("Value")
 
-
-def present(value: Value | None) -> Value:
+def present[Value](value: Value | None) -> Value:
     """VALUE, which the case expects to be there: a None fails the case here, as its
     use would."""
     if value is None:

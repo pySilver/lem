@@ -17,13 +17,14 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
     from lem import board_model as lem_board_model
 
 sys.dont_write_bytecode = True
@@ -2090,8 +2091,8 @@ class Guard(unittest.TestCase):
         real = session.guard_refusal
 
         def spy(
-            t: "lem_board_model.Task | None",
-            m: "lem_board_model.Model",
+            t: lem_board_model.Task | None,
+            m: lem_board_model.Model,
             step: str,
             named: object,
         ) -> str | None:

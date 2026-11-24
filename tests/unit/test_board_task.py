@@ -11,10 +11,9 @@ import re
 import sys
 import tempfile
 import unittest
-from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
@@ -22,6 +21,9 @@ from lem import artifacts as lem_artifacts
 from lem import board_model as bm
 from lem import board_pages as pages
 from lem import board_task as task_pages
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 START = datetime(2026, 11, 20, 9, 0, tzinfo=UTC)
 NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
@@ -46,16 +48,16 @@ def state(
     return ev(minute, "task.state", task, status=status, text=text, lines=list(lines))
 
 
-def model(*events: dict, owner: Iterable[dict] = ()) -> "bm.Model":
+def model(*events: dict, owner: Iterable[dict] = ()) -> bm.Model:
     return bm.derive(list(events), list(owner), NOW)
 
 
-def one(*events: dict, **kw: Iterable[dict]) -> "bm.Task":
+def one(*events: dict, **kw: Iterable[dict]) -> bm.Task:
     return model(*events, **kw).tasks[0]
 
 
 def spans(
-    t: "bm.Task",
+    t: bm.Task,
     row: str | None = None,
     meta: dict | None = None,
     end: int | None = None,
@@ -644,7 +646,7 @@ class Overview(unittest.TestCase):
             ),
         )
 
-        def page(*events: dict) -> tuple["pages.Ctx", "bm.Task", str]:
+        def page(*events: dict) -> tuple[pages.Ctx, bm.Task, str]:
             ctx = pages.Ctx(
                 host="h",
                 workspace="w",
@@ -702,7 +704,7 @@ class Overview(unittest.TestCase):
 
         def page(
             *events: dict, merging: Iterable[str] = frozenset()
-        ) -> tuple["pages.Ctx", "bm.Task", str]:
+        ) -> tuple[pages.Ctx, bm.Task, str]:
             ctx = pages.Ctx(
                 host="h",
                 workspace="w",
@@ -1846,7 +1848,7 @@ class ParkAndApproveSteps(unittest.TestCase):
         *,
         can_act: bool = True,
         note: dict | None = None,
-    ) -> "pages.Ctx":
+    ) -> pages.Ctx:
         ctx = pages.Ctx(
             host="h",
             workspace="w",
@@ -1993,7 +1995,7 @@ class CardStep(unittest.TestCase):
 
     def ctx(
         self, *, can_act: bool = True, open_: bool = True, end: dict | None = None
-    ) -> "pages.Ctx":
+    ) -> pages.Ctx:
         m = model(*self.EVENTS)
         m.sessions = {
             "export-notes": {
@@ -2095,7 +2097,7 @@ class CardStep(unittest.TestCase):
         # the board logs its answer before the frame has the reply: the refresh's render
         # must pair with the open step (one id) and keep it (one data-keep, app.js), or
         # the morph takes the frame with what the board said away
-        def head(ctx: "pages.Ctx") -> str:
+        def head(ctx: pages.Ctx) -> str:
             html = "".join(
                 str(x) for x in task_pages.card_step(ctx, ctx.model.tasks[0], self.PAGE)
             )

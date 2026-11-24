@@ -25,9 +25,13 @@ import contextlib
 import fcntl
 import json
 import os
-import threading
-from collections.abc import Generator
-from pathlib import Path
+
+# typing's flag, without the import of typing, which a hook's start does not pay
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    import threading
+    from collections.abc import Generator
+    from pathlib import Path
 
 
 def write_whole(
@@ -57,7 +61,7 @@ def write_json(
 
 
 @contextlib.contextmanager
-def held(lock: threading.Lock, file: Path) -> Generator[None, None, None]:
+def held(lock: threading.Lock, file: Path) -> Generator[None]:
     """Hold LOCK, this process's lock of a file, and then FILE, the lock file of the
     same, waiting for another holder of either; FILE's folder is made first when it is
     not there."""

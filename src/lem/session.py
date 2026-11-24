@@ -216,14 +216,15 @@ import shutil
 import subprocess
 import sys
 import time
-from collections.abc import Callable, Generator, Mapping
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
-from types import ModuleType
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Generator, Mapping
+    from types import ModuleType
+
     from lem import board_model as lem_board_model
 
 from lem import clock as lem_clock
@@ -936,7 +937,7 @@ def worktree_of(root: Path, settings: dict, slug: str) -> Path | None:
 
 
 @contextlib.contextmanager
-def task_lock(directory: Path) -> Generator[None, None, None]:
+def task_lock(directory: Path) -> Generator[None]:
     with (directory / LOCK).open("a") as handle:
         fcntl.flock(handle, fcntl.LOCK_EX)
         try:
@@ -1007,8 +1008,8 @@ def workspace_for(
 
 
 def guard_refusal(
-    t: "lem_board_model.Task | None",
-    m: "lem_board_model.Model",
+    t: lem_board_model.Task | None,
+    m: lem_board_model.Model,
     step: str,
     named: object,
 ) -> str | None:
@@ -1062,7 +1063,7 @@ def board_model() -> ModuleType:
     return board_model
 
 
-def model_now(root: Path) -> tuple["lem_board_model.Model", list[dict]]:
+def model_now(root: Path) -> tuple[lem_board_model.Model, list[dict]]:
     """The board's model of the event log as it is now, and the log's records."""
     bm = board_model()
     state = project.state_root(root)
@@ -2142,7 +2143,7 @@ def process_table() -> str | None:
             check=False,
             timeout=PS_TIMEOUT,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except OSError, subprocess.TimeoutExpired:
         return None
     return ran.stdout if ran.returncode == 0 else None
 

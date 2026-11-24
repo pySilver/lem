@@ -32,7 +32,7 @@ def group_gone(proc: subprocess.Popen, seconds: float) -> bool:
     while time.monotonic() < deadline:
         try:
             os.killpg(proc.pid, 0)
-        except (ProcessLookupError, PermissionError):
+        except ProcessLookupError, PermissionError:
             return True
         if proc.poll() is None:
             with contextlib.suppress(subprocess.TimeoutExpired):
@@ -53,7 +53,7 @@ def stop_group(
     for sign, grace in ((signal.SIGTERM, term_grace), (signal.SIGKILL, kill_grace)):
         try:
             os.killpg(proc.pid, sign)
-        except (ProcessLookupError, PermissionError):
+        except ProcessLookupError, PermissionError:
             return
         if whole_group:
             if group_gone(proc, grace):
@@ -66,5 +66,5 @@ def stop_group(
         # the leader ended; a process it left in the group gets the next signal too
         try:
             os.killpg(proc.pid, 0)
-        except (ProcessLookupError, PermissionError):
+        except ProcessLookupError, PermissionError:
             return

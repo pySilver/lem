@@ -53,16 +53,20 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from types import ModuleType
 from unittest import mock
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
+from typing import TYPE_CHECKING
+
 from lem import names
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from types import ModuleType
 
 FILE = Path(__file__).resolve().parent / "commands.json"
 WRITE = "python3 -B tests/unit/test_commands.py --write"

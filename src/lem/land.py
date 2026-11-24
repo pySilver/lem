@@ -827,11 +827,9 @@ import time
 import tomllib
 import unicodedata
 from collections import Counter, deque
-from collections.abc import Callable, Generator, Iterator
 from datetime import UTC, date, datetime
 from pathlib import Path
-from types import ModuleType
-from typing import Any, TextIO, cast
+from typing import TYPE_CHECKING, Any, TextIO, cast
 
 from lem import clock as lem_clock
 from lem import files as lem_files
@@ -846,6 +844,10 @@ from lem import release as lem_release
 from lem import sibling as lem_sibling
 from lem import state as lem_state
 from lem import tokens as lem_tokens
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator, Iterator
+    from types import ModuleType
 
 # A file written whole or not at all, under `NAME.PID.new` first, in a folder that is
 # there (`lem_files`); lem-land-guards.sh calls it by this name.
@@ -3681,7 +3683,7 @@ def item_of(file: Path) -> tuple[dict[str, str], list[str]] | None:
     such item."""
     try:
         text = file.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
+    except OSError, UnicodeDecodeError:
         return None
     return item_text(text)
 
@@ -4973,7 +4975,7 @@ def holder_of(path: Path) -> dict | None:
     lock go."""
     try:
         found = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
     if (
         not isinstance(found, dict)
@@ -5026,7 +5028,7 @@ def held_refusal(slug: str, step: str, holder: dict | None) -> str:
 
 
 @contextlib.contextmanager
-def step_lock(task: Task, step: str) -> Generator[None, None, None]:
+def step_lock(task: Task, step: str) -> Generator[None]:
     """Hold the task's one step lock for as long as the step runs, however it ends, with
     the step's name, process and start in its file; a step of the same task meanwhile is
     refused with that holder. The commands a step starts do not get the lock's file
@@ -6946,7 +6948,7 @@ def ask_jev(spec: dict) -> dict:
             timeout=JEV_SECONDS,
             env={**os.environ, "JEV_TIMEOUT": str(JEV_SECONDS)},
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except OSError, subprocess.TimeoutExpired:
         return {"not_asked": "no answer"}
     if ran.returncode == JEV_TOO_LONG:
         return {"not_asked": "too long"}
@@ -6955,7 +6957,7 @@ def ask_jev(spec: dict) -> dict:
             raise ValueError(ran.stderr)
         answers = json.loads(ran.stdout)["answers"]
         said = {name: answers[name]["noul"] for name in spec["questions"]}
-    except (ValueError, KeyError, TypeError):
+    except ValueError, KeyError, TypeError:
         return {"not_asked": "no answer"}
     if not all(
         isinstance(p, (int, float)) and not isinstance(p, bool) and 0 <= p <= 1
@@ -7122,7 +7124,7 @@ def jev_read(task: Task, notes: str, *, small: bool) -> dict:
             file, name = bar_path(task.main)
             try:
                 bar = (bar_condition(file.read_text(encoding="utf-8")), name)
-            except (OSError, UnicodeDecodeError):
+            except OSError, UnicodeDecodeError:
                 bar = (None, name)
         kept[finding["key"]] = jev_entry(finding, sends=sends, bar=bar)
         task.keep(jev=kept)
@@ -10292,7 +10294,7 @@ def forge_look(main: Path, base: str, numbers: list[int]) -> dict[int, dict]:
 @contextlib.contextmanager
 def merge_lock(
     task: Task, by: str, via: str, *, standing: bool = False
-) -> Generator[None, None, None]:
+) -> Generator[None]:
     """Hold the repository's one lock of Lem's merge calls while this one runs. A call
     that finds it held logs `merge.wait` with the task that holds it and waits; whoever
     holds it is done in seconds (a fetch, a merge on the forge or a push). The call

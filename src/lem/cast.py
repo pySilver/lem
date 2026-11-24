@@ -85,7 +85,6 @@ import shutil
 import subprocess
 import sys
 import typing
-from collections.abc import Callable
 from pathlib import Path
 
 # project: the one reader of a seat, `agent/model:effort`, and whether its agent is here
@@ -93,6 +92,9 @@ from lem import paths, project
 
 # `lem_state` is the one place that says where the state is.
 from lem import state as lem_state
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Callable
 
 # Where a project keeps its personas and its profile, relative to the checkout: each has
 # one place, which configure() takes from `project.py show` (`places`).

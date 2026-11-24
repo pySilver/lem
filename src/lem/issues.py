@@ -722,7 +722,7 @@ def cmd_check(root: Path) -> tuple[dict, bool]:  # noqa: C901, PLR0912 - over th
                 if ran.returncode == 0
                 else None
             )
-        except (ValueError, AttributeError):
+        except ValueError, AttributeError:
             on = None
         if on is None:
             missing.append(

@@ -42,15 +42,15 @@ import subprocess
 import sys
 import time
 import typing
-from collections.abc import Callable, Mapping
 from pathlib import Path
-from types import ModuleType
 from typing import Any, NoReturn
 
 from lem import paths
 
 if typing.TYPE_CHECKING:
     import argparse
+    from collections.abc import Callable, Mapping
+    from types import ModuleType
 
 # the skill's directory, skills/lem-ask: its runtime, templates, demos and defaults
 HERE = paths.ASK
@@ -480,7 +480,7 @@ def line_range(spec: object, total: int, path: str) -> tuple[int, int]:
         first, last = a, b or a
     try:
         first, last = int(first), int(last)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         die(f'{path}: lines must look like "40-60", "40" or [40, 60], got {spec!r}')
     if not 1 <= first <= last <= total:
         die(f"{path}: lines {first}-{last} are outside the file's 1-{total}")
@@ -1008,7 +1008,7 @@ def this_session(timeout: float | None = None) -> dict[str, Any] | None:
             ),
             None,
         )
-    except (OSError, json.JSONDecodeError, KeyError, TypeError, AttributeError):
+    except OSError, json.JSONDecodeError, KeyError, TypeError, AttributeError:
         return None
 
 
@@ -1363,7 +1363,7 @@ def submitted(value: str | None) -> dict[str, Any]:
         given = json.loads(value or "{}")
         if isinstance(given, dict):
             return typing.cast("dict[str, Any]", lem_cards().whole(given))
-    except (ValueError, RecursionError):  # JSONDecodeError is a ValueError
+    except ValueError, RecursionError:  # JSONDecodeError is a ValueError
         given = None
     text = given if isinstance(given, str) else value
     return {
@@ -1382,7 +1382,7 @@ def peek(page_id: str | None) -> dict[str, Any] | str | None:
         o = json.loads(r.stdout).get("result", {}).get("pageOutcome", {})
         if o.get("outcome") == "submitted":
             return submitted(o.get("value"))
-    except (json.JSONDecodeError, AttributeError):
+    except json.JSONDecodeError, AttributeError:
         return None
     return "dismissed" if o.get("outcome") == "dismissed" else None
 
@@ -1398,9 +1398,7 @@ def close_after_board(page_id: str | None) -> None:
         )
 
 
-def open_overlay(
-    path: str, a: "argparse.Namespace", spec: dict[str, Any]
-) -> str | None:
+def open_overlay(path: str, a: argparse.Namespace, spec: dict[str, Any]) -> str | None:
     args = [
         "session",
         "overlay",
@@ -1647,7 +1645,7 @@ def ask_in_browser(html: str, timeout: float) -> int:
 # ---------- commands ----------
 
 
-def ask(spec: dict[str, Any], a: "argparse.Namespace", base: str) -> int | None:
+def ask(spec: dict[str, Any], a: argparse.Namespace, base: str) -> int | None:
     check_spec(spec)
     if unattended():
         emit(
@@ -1705,7 +1703,7 @@ def ask(spec: dict[str, Any], a: "argparse.Namespace", base: str) -> int | None:
     return wait_page(page, a.timeout, status=not a.no_status, card=card)
 
 
-def quick_spec(a: "argparse.Namespace") -> dict[str, Any]:
+def quick_spec(a: argparse.Namespace) -> dict[str, Any]:
     opts = []
     for i, raw in enumerate(a.options):
         rec = raw.startswith("*")

@@ -7,13 +7,15 @@ import argparse
 import sys
 import tempfile
 import unittest
-from collections.abc import Callable
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from lem import decisions
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 CASE = {
     "case": "1. Order 1042 has two notes.\n2. The export keeps one.",

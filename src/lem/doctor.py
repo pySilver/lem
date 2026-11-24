@@ -51,11 +51,15 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
-from collections.abc import Callable
 from http import HTTPStatus
 from pathlib import Path
 
 from lem import paths
+
+# typing's flag, without the import of typing, which a hook's start does not pay
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # Where each agent keeps a user's skills; the agterm skill is looked for in all of them.
 SKILL_HOMES = (
@@ -163,7 +167,7 @@ def plugin_installs(name: str, home: Path) -> list[tuple[str, str | None]]:
         listed = json.loads(
             (home / PLUGINS / "installed_plugins.json").read_text(encoding="utf-8")
         )
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return []
     plugins = listed.get("plugins") if isinstance(listed, dict) else None
     if not isinstance(plugins, dict):
@@ -207,7 +211,7 @@ def plugin_skill(name: str) -> str | None:
                 encoding="utf-8"
             )
         )
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
     plugins = listed.get("plugins") if isinstance(listed, dict) else None
     here = checkouts()
@@ -235,7 +239,7 @@ def settings(file: Path) -> dict:
     """A settings file of Claude Code; empty when it is absent or reads another way."""
     try:
         data = json.loads(file.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return {}
     return data if isinstance(data, dict) else {}
 
@@ -547,7 +551,7 @@ def version(command: list[str]) -> str | None:
         ran = subprocess.run(
             command, capture_output=True, text=True, check=False, timeout=10
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except OSError, subprocess.TimeoutExpired:
         return None
     lines = (ran.stdout or ran.stderr).strip().splitlines()
     return lines[0] if ran.returncode == 0 and lines else None
@@ -663,7 +667,7 @@ def marketplace_lem(home: Path, holds: Path) -> Path | None:
         known = json.loads(
             (home / PLUGINS / "known_marketplaces.json").read_text(encoding="utf-8")
         )
-    except (OSError, ValueError):
+    except OSError, ValueError:
         known = {}
     for key, _ in plugin_installs("lem", home):
         entry = known.get(key.partition("@")[2]) if isinstance(known, dict) else None
@@ -1090,7 +1094,7 @@ def project() -> list[dict]:
         found = json.loads(asked.stdout)
         count = len(found["personas"])
         where = f"{found['layer']}, {found['source']}"
-    except (ValueError, KeyError, TypeError):
+    except ValueError, KeyError, TypeError:
         return [{**row, "detail": "the panel's cast check printed no JSON"}]
     detail = f"{count} ({where})" + (
         ": a panel needs a second person who would notice other things"
@@ -1361,7 +1365,7 @@ def lem_installs(home: Path) -> list[dict]:
         listed = json.loads(
             (home / PLUGINS / "installed_plugins.json").read_text(encoding="utf-8")
         )
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return []
     plugins = listed.get("plugins") if isinstance(listed, dict) else None
     found = []
@@ -1474,7 +1478,7 @@ def installed_lem() -> list[dict]:
     try:
         found = serve.ask(serve.serve_settings()["port"])
         repositories = serve.lem_state.workspaces()
-    except (serve.ServeError, serve.lem_state.StateError):
+    except serve.ServeError, serve.lem_state.StateError:
         return []
     if not found or not found.get("version"):
         return []
@@ -1615,7 +1619,7 @@ def cronn() -> dict:
                 f"http://127.0.0.1:{port}/api/v1/status", timeout=2
             ) as answer:
                 row["running"] = answer.status == HTTPStatus.OK
-        except (urllib.error.URLError, OSError, ValueError):
+        except urllib.error.URLError, OSError, ValueError:
             pass
     return row
 

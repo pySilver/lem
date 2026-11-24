@@ -18,10 +18,9 @@ import tempfile
 import threading
 import time
 import unittest
-from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 sys.dont_write_bytecode = True
@@ -29,6 +28,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from lem import answers as lem_answers
 from lem import board_model as bm
 from lem import criteria, project
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 SLUG = "invoice-export-empty-cells"
 START = datetime(2026, 11, 23, 15, 0, tzinfo=UTC)

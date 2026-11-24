@@ -95,7 +95,7 @@ class Workspace:
         self.acted = 0
         self.session = session
 
-    def model(self) -> "bm.Model":
+    def model(self) -> bm.Model:
         m = bm.derive(
             [
                 ev(0, "task.state", status="building", text="task 1 of 2", lines=[]),

@@ -123,7 +123,6 @@ import json
 import re
 import subprocess
 import sys
-from collections.abc import Callable
 from pathlib import Path
 
 from lem import clock as lem_clock
@@ -135,6 +134,11 @@ from lem import release as lem_release
 # How this module calls a sibling: in this process, as one command of it.
 from lem import sibling as lem_sibling
 from lem import state as lem_state  # how a JSON-lines file is split into its lines
+
+# typing's flag, without the import of typing, which a hook's start does not pay
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # Who took a decision: the lead, a level of the ladder (`stages/ladder.md`), the owner,
 # or Lem.

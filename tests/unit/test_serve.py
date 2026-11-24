@@ -13,16 +13,18 @@ import json
 import subprocess
 import sys
 import unittest
-from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import IO, cast
+from typing import IO, TYPE_CHECKING, cast
 from unittest import mock
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from lem import board_model as bm
 from lem import paths, serve
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 OWNER = "owner@example.com"
 SERVED = "mac-mini.tail1234.ts.net"
@@ -385,7 +387,7 @@ class Duties(unittest.TestCase):
 
     def model(
         self, *events: dict, sessions: dict | None = None, demo: bool = False
-    ) -> "bm.Model":
+    ) -> bm.Model:
         m = bm.derive(
             list(events), [], 1_800_000_000_000, meta={"demo": True} if demo else {}
         )
@@ -852,10 +854,10 @@ class Duties(unittest.TestCase):
         class Space:
             name = "shop"
 
-            def __init__(self, m: "bm.Model") -> None:
+            def __init__(self, m: bm.Model) -> None:
                 self.m = m
 
-            def model(self) -> "bm.Model":
+            def model(self) -> bm.Model:
                 return self.m
 
             def landing_of(self, slug: str) -> dict:
@@ -953,7 +955,7 @@ class Duties(unittest.TestCase):
             def landing_of(self, slug: str) -> dict:
                 return landing
 
-            def model(self) -> "bm.Model":
+            def model(self) -> bm.Model:
                 return model(*events)
 
         def refused(workspace: object, *args: str) -> subprocess.CompletedProcess:
@@ -1070,7 +1072,7 @@ class Duties(unittest.TestCase):
             def landing_of(self, slug: str) -> dict:
                 return landing
 
-            def model(self) -> "bm.Model":
+            def model(self) -> bm.Model:
                 return model(*events)
 
         def refused(workspace: object, *args: str) -> subprocess.CompletedProcess:
@@ -1165,7 +1167,7 @@ class Duties(unittest.TestCase):
             def landing_of(self, slug: str) -> dict:
                 return landing
 
-            def model(self) -> "bm.Model":
+            def model(self) -> bm.Model:
                 return model(*events)
 
         def refused(workspace: object, *args: str) -> subprocess.CompletedProcess:
@@ -1256,11 +1258,11 @@ class Duties(unittest.TestCase):
             ),
         )
 
-    def space(self, m: "bm.Model", landing: dict) -> object:
+    def space(self, m: bm.Model, landing: dict) -> object:
         class Space:
             name, acted = "shop", 0
 
-            def model(self) -> "bm.Model":
+            def model(self) -> bm.Model:
                 return m
 
             def landing_of(self, slug: str) -> dict:
@@ -1463,7 +1465,7 @@ class MovedBaseRead(unittest.TestCase):
     PR = Duties.PR
     ev = staticmethod(Duties.ev)
 
-    def model(self, *events: dict) -> "bm.Model":
+    def model(self, *events: dict) -> bm.Model:
         return bm.derive(list(events), [], 1_800_000_000_000, meta={})
 
     def proposed(self) -> tuple:
@@ -1838,7 +1840,7 @@ class StoppedSession(unittest.TestCase):
             cls.ev("10:54", "gate.end", result="passed", seconds=2156, tip="5ccc53d36"),
         )
 
-    def model(self, *events: dict, at: str, sessions: dict | None = None) -> "bm.Model":
+    def model(self, *events: dict, at: str, sessions: dict | None = None) -> bm.Model:
         m = bm.derive(list(events), [], self.now(at))
         m.sessions = self.live() if sessions is None else sessions
         return m
@@ -2160,16 +2162,16 @@ class StoppedOpen(unittest.TestCase):
     class Space:
         name = "shop"
 
-        def __init__(self, m: "bm.Model") -> None:
+        def __init__(self, m: bm.Model) -> None:
             self.m, self.looked = m, 0
 
-        def model(self) -> "bm.Model":
+        def model(self) -> bm.Model:
             return self.m
 
         def look_sessions(self) -> None:
             self.looked += 1
 
-    def stopped(self, *, live: bool = True) -> "StoppedOpen.Space":
+    def stopped(self, *, live: bool = True) -> StoppedOpen.Space:
         s = StoppedSession
         events = (
             *s.landing(),
@@ -2200,7 +2202,7 @@ class StoppedOpen(unittest.TestCase):
         }
         return self.Space(m)
 
-    def act(self, space: "StoppedOpen.Space", printed: dict) -> tuple[dict, list, list]:
+    def act(self, space: StoppedOpen.Space, printed: dict) -> tuple[dict, list, list]:
         asked = []
         ran = mock.Mock(
             side_effect=lambda workspace, *args: (
@@ -2699,7 +2701,7 @@ class KeepDays(unittest.TestCase):
     they read now, and none while they do not read, even with an older read on hand."""
 
     @staticmethod
-    def reader(settings: object, problems: dict | None = None) -> "bm.Reader":
+    def reader(settings: object, problems: dict | None = None) -> bm.Reader:
         # a stand-in with the two facts keep_days_of reads
         return cast(
             "bm.Reader",

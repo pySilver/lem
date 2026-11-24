@@ -51,7 +51,6 @@ the join).
 """  # noqa: E501 - the usage lines keep their columns
 
 import contextlib
-import email.message
 import http.client
 import http.cookies
 import json
@@ -62,7 +61,6 @@ import ssl
 import sys
 import threading
 import time
-from collections.abc import Callable
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 from urllib.parse import quote, unquote, urlsplit
@@ -70,6 +68,9 @@ from urllib.parse import quote, unquote, urlsplit
 from lem import state as lem_state
 
 if TYPE_CHECKING:
+    import email.message
+    from collections.abc import Callable
+
     from lem.serve import Handler
 
 # The header on every request to a peer, and its one value: a server that gets it
@@ -420,7 +421,7 @@ def spaces_of(header: str | None) -> list:
         return []
     try:
         given = json.loads(header)
-    except (ValueError, RecursionError):  # nested deeper than the stack: no JSON
+    except ValueError, RecursionError:  # nested deeper than the stack: no JSON
         return []
     if not isinstance(given, list):
         return []
@@ -834,7 +835,7 @@ def report(status: Callable[[], dict]) -> dict:
 
 
 def forward(
-    handler: "Handler",
+    handler: Handler,
     peer: Peer,
     base: str,
     stopping: threading.Event,
@@ -886,7 +887,7 @@ def forward(
             pipe(handler, reply, raw, stopping)
         else:
             handler.wfile.write(data)
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return
     finally:
         with contextlib.suppress(OSError):
@@ -896,7 +897,7 @@ def forward(
 
 
 def pipe(
-    handler: "Handler",
+    handler: Handler,
     reply: http.client.HTTPResponse,
     raw: socket.socket,
     stopping: threading.Event,
@@ -923,7 +924,7 @@ def pipe(
             if not chunk:
                 return
             handler.wfile.write(chunk)
-    except (OSError, ValueError, http.client.HTTPException):
+    except OSError, ValueError, http.client.HTTPException:
         return
     finally:
         done.set()

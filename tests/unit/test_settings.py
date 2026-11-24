@@ -16,14 +16,16 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from collections.abc import Callable
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from lem import project
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # A checkout that is not on disk: the rules resolve paths under it and find
 # nothing there.

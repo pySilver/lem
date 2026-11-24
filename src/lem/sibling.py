@@ -32,10 +32,14 @@ import re
 import subprocess
 import sys
 import traceback
-from pathlib import Path
-from types import ModuleType
 
 from lem import names, paths
+
+# typing's flag, without the import of typing, which a hook's start does not pay
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from pathlib import Path
+    from types import ModuleType
 
 # The commands that stay a process of their own, and why.
 APART = {
@@ -74,7 +78,7 @@ def in_form(name: str) -> bool:
                 )
                 is not None
             )
-        except (OSError, UnicodeDecodeError):
+        except OSError, UnicodeDecodeError:
             FORMS[name] = False
     return FORMS[name]
 

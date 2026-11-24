@@ -298,7 +298,7 @@ class Sending(InHome):
             },
         ]
 
-        def model(events: list[dict], turn: str) -> "lem_board_model.Model":
+        def model(events: list[dict], turn: str) -> lem_board_model.Model:
             m = bm.derive(events, [], cast("int", bm.at("2026-11-23T11:30:00Z")))
             bm.put_sessions(
                 m,

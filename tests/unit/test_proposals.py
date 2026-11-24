@@ -13,13 +13,17 @@ import json
 import sys
 import tempfile
 import unittest
-from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from typing import TYPE_CHECKING
+
 from lem import project
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 MORNING = datetime(2026, 11, 23, 6, 55, tzinfo=UTC)
 TEN = datetime(2026, 11, 23, 10, 0, tzinfo=UTC)

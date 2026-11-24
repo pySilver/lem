@@ -56,15 +56,17 @@ with `lem session open` (`serve.act_session`).
 import hashlib
 import json
 import re
-from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 from urllib.parse import quote
 
 from lem import board_model as bm
 from lem import paths
 from lem import project as lem_project
 from lem.markup import Markup, h, page
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 ASSETS = paths.ASSETS
 LEM_ROOT = paths.ROOT

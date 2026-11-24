@@ -99,7 +99,6 @@ one line in the server's log and `problem` in the record, and the next look trie
 no step of a task waits for it.
 """
 
-import contextlib
 import json
 import os
 import re
@@ -109,15 +108,17 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Callable, Iterable
 from pathlib import Path
-from types import ModuleType
 from typing import TYPE_CHECKING
 
 from lem import clock as lem_clock
 from lem import files as lem_files
 
 if TYPE_CHECKING:
+    import contextlib
+    from collections.abc import Callable, Iterable
+    from types import ModuleType
+
     from lem import board_model as lem_board_model
     from lem import serve
 
@@ -220,7 +221,7 @@ def environment(env: dict | None = None) -> dict:
 # --- the rule: pure functions over the model ------------------------------------------
 
 
-def claude_of(t: "lem_board_model.Task") -> str | None:
+def claude_of(t: lem_board_model.Task) -> str | None:
     """The task's newest Claude Code session: the `claude` of its newest
     `session.transcript` after its newest `session.open`, whose `source` is not `fork`;
     None when there is none."""
@@ -240,16 +241,14 @@ def claude_of(t: "lem_board_model.Task") -> str | None:
     return None
 
 
-def answers(
-    t: "lem_board_model.Task", m: "lem_board_model.Model", bm: ModuleType
-) -> bool:
+def answers(t: lem_board_model.Task, m: lem_board_model.Model, bm: ModuleType) -> bool:
     """Whether the task's session can take a reply now: the board knows it lives
     and answers."""
     f = bm.live_of(t, m)
     return bool(f and f["live"] and not f["unanswered"])
 
 
-def merge_asks(t: "lem_board_model.Task", bm: ModuleType) -> bool:
+def merge_asks(t: lem_board_model.Task, bm: ModuleType) -> bool:
     """Whether a merge row asks merge or not now: a proposal, and the merge agent's
     review of its tip that calls the owner, as one read of the model (decision 6). A
     refused merge, and an open task with no proposal or no review of its tip, go as
@@ -262,7 +261,7 @@ def merge_asks(t: "lem_board_model.Task", bm: ModuleType) -> bool:
 
 
 def commit_of(
-    t: "lem_board_model.Task", whole: Callable[[str], object] | None
+    t: lem_board_model.Task, whole: Callable[[str], object] | None
 ) -> str | None:
     """The whole commit of the task's proposal: WHOLE(slug), `proposed` of its
     `landing.json`, when it is 40 hex digits and the commit the model's proposal names
@@ -281,7 +280,7 @@ def commit_of(
 
 def thing_of(
     row: dict,
-    m: "lem_board_model.Model",
+    m: lem_board_model.Model,
     bm: ModuleType,
     whole: Callable[[str], object] | None = None,
 ) -> dict | None:
@@ -327,7 +326,7 @@ def thing_of(
 
 def things_of(
     rows: list[dict],
-    m: "lem_board_model.Model",
+    m: lem_board_model.Model,
     bm: ModuleType,
     whole: Callable[[str], object] | None = None,
 ) -> dict:
@@ -429,7 +428,7 @@ def task_link(link: Callable[[str, str], str], name: str, slug: str) -> str:
     return f"[{slug} on the board]({link(name, slug)})"
 
 
-def no_session(t: "lem_board_model.Task", link_line: str, extra: str = "") -> str:
+def no_session(t: lem_board_model.Task, link_line: str, extra: str = "") -> str:
     return f"{t.slug} has no session; open it on the board: {link_line}{extra}"
 
 
@@ -449,7 +448,7 @@ def block(
 def message_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before the limit was set
     thing: dict,
     row: dict,
-    m: "lem_board_model.Model",
+    m: lem_board_model.Model,
     bm: ModuleType,
     *,
     task_dir: Path,
@@ -618,7 +617,7 @@ def read_record(state: Path) -> dict:
     not read."""
     try:
         found = json.loads((state / RECORD).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         found = {}
     if not isinstance(found, dict):
         found = {}
@@ -798,9 +797,9 @@ class Watcher:
 
     def __init__(  # noqa: PLR0913 - over the limit before the limit was set
         self,
-        spaces: Callable[[], Iterable["serve.Workspace"]],
+        spaces: Callable[[], Iterable[serve.Workspace]],
         link: Callable[[str, str], str],
-        wake: Callable[["serve.Workspace", str], bool],
+        wake: Callable[[serve.Workspace, str], bool],
         *,
         runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
         log: Callable[[str], object] | None = None,
@@ -840,7 +839,7 @@ class Watcher:
                 self.say(space.name, repr(error))
         return done
 
-    def look_at(self, space: "serve.Workspace") -> list[dict]:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
+    def look_at(self, space: serve.Workspace) -> list[dict]:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
         bm = self.bm
         m = space.model()
         if m.meta.get("demo") or m.sessions is None:
@@ -1015,8 +1014,8 @@ class Watcher:
 
     def replies(
         self,
-        space: "serve.Workspace",
-        m: "lem_board_model.Model",
+        space: serve.Workspace,
+        m: lem_board_model.Model,
         record: dict,
         cwd: str,
         problems: list[str],

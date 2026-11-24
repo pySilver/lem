@@ -514,13 +514,14 @@ import tempfile
 import threading
 import time
 import tomllib
-from collections.abc import Generator, Sequence
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from types import ModuleType
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
+    from collections.abc import Generator, Sequence
+    from types import ModuleType
+
     from lem.board_model import Model
 
 from lem import artifacts as lem_artifacts
@@ -1144,7 +1145,7 @@ def committed_settings(main: Path) -> dict | None:  # noqa: C901 - over the limi
     def names(text: str) -> str | None:
         try:
             base = tomllib.loads(text).get("branch", {}).get("base")
-        except (tomllib.TOMLDecodeError, AttributeError):
+        except tomllib.TOMLDecodeError, AttributeError:
             return None
         return base if isinstance(base, str) and base.strip() else None
 
@@ -1328,11 +1329,10 @@ def places_of(local: dict, raw: dict, home: dict) -> list[tuple[dict, Path]]:
     return [(local, LOCAL), (raw, SETTINGS), (home, Path(home_name()))]
 
 
-# A value one of the places gives (`first_of`).
-Given = TypeVar("Given")
-
-
-def first_of(found: Sequence[tuple[Given | None, Path]]) -> tuple[Given | None, str]:
+# Given: a value one of the places gives.
+def first_of[Given](
+    found: Sequence[tuple[Given | None, Path]],
+) -> tuple[Given | None, str]:
     """The first value a place gives, with that place's name as `from`; else None, from
     Lem's default."""
     for value, name in found:
@@ -2710,7 +2710,7 @@ def held_ticket(  # noqa: PLR0913, PLR0917 - over the limit before the limit was
     tasks: list[dict],
     kind: str | None,
     succeeds: str | None = None,
-) -> Generator[None, None, None]:
+) -> Generator[None]:
     """Take TICKET for the task SLUG (`claim_ticket`) for the rest of an opening,
     `task-dir`'s or `resume`'s: a refusal raised in the block gives back the mark this
     claim made, to the dropped task SUCCEEDS when the claim took it from that one, so
@@ -3353,7 +3353,7 @@ LOCKS_HELD: set[tuple[int, Path]] = set()
 
 
 @contextlib.contextmanager
-def state_locked(directory: Path) -> Generator[None, None, None]:
+def state_locked(directory: Path) -> Generator[None]:
     """Hold the lock of one task's state.md (STATE_LOCK in its directory), or go on
     under it when this thread holds it already."""
     mine = (threading.get_ident(), directory)
@@ -6204,7 +6204,7 @@ def waiting_brief(task: dict) -> dict:
     }
 
 
-def waiting_model(root: Path, settings: dict) -> "tuple[Model, str | None]":
+def waiting_model(root: Path, settings: dict) -> tuple[Model, str | None]:
     """The board's model of the repository as the board server builds it
     (`lem_board_model`), for `waiting`: the event log, the owner's mark, the demo mark
     (board.py `meta_of`), the forge's last look that the server wrote
@@ -6252,7 +6252,7 @@ def waiting_model(root: Path, settings: dict) -> "tuple[Model, str | None]":
 
 
 def waiting_sessions(
-    root: Path, settings: dict, model: "Model", bm: ModuleType
+    root: Path, settings: dict, model: Model, bm: ModuleType
 ) -> tuple[dict | None, str | None]:
     """The task sessions as the board server knows them (`lem_board_model.sessions_of`):
     what `lem session list` says, with the ended tasks whose worktree is still there;
@@ -6655,7 +6655,7 @@ def read_record(file: Path, kind: str) -> dict | None:
 
 
 @contextlib.contextmanager
-def proposals_lock(state: Path) -> Generator[None, None, None]:
+def proposals_lock(state: Path) -> Generator[None]:
     with (state / PROPOSALS_LOCK).open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         yield

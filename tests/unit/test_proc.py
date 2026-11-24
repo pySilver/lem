@@ -68,7 +68,7 @@ class Stop(unittest.TestCase):
         while True:
             try:
                 os.killpg(proc.pid, 0)
-            except (ProcessLookupError, PermissionError):
+            except ProcessLookupError, PermissionError:
                 return True
             if time.monotonic() > deadline:
                 return False

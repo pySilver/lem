@@ -58,8 +58,12 @@ import os
 import re
 import subprocess
 import tomllib
-from collections.abc import Generator
 from pathlib import Path
+
+# typing's flag, without the import of typing, which a hook's start does not pay
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 STATE = Path(".lem") / "state"
 # what the folder's own ignore file says: everything in it, and the file itself
@@ -77,7 +81,7 @@ class StateError(Exception):
 
 
 @contextlib.contextmanager
-def events_lock(state: Path) -> Generator[None, None, None]:
+def events_lock(state: Path) -> Generator[None]:
     """Hold the lock of the event log in the state folder STATE, waiting for
     another holder."""
     with (state / EVENTS_LOCK).open("a") as handle:
@@ -114,7 +118,7 @@ def run_git(
 def git(start: Path, args: list, timeout: float | None) -> str | None:
     try:
         ran = run_git(start, args, timeout)
-    except (OSError, subprocess.TimeoutExpired):
+    except OSError, subprocess.TimeoutExpired:
         return None
     return ran.stdout if ran.returncode == 0 else None
 
@@ -323,7 +327,7 @@ def misplaced(table: str, place: str) -> str | None:
 
 
 @contextlib.contextmanager
-def machine_lock() -> Generator[None, None, None]:
+def machine_lock() -> Generator[None]:
     """Hold the lock of the machine's file, waiting for another writer; the folder is
     made for it."""
     folder = config()

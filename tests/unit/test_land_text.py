@@ -13,13 +13,15 @@ import json
 import sys
 import tempfile
 import unittest
-from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from lem import criteria, decisions, land
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 AT = "2026-11-18T10:00:00Z"
 LATER = "2026-11-18T11:00:00Z"
@@ -85,7 +87,7 @@ def breaker(number: int, cause: str = "criteria", **more: object) -> dict:
     }
 
 
-def ledger(directory: Path) -> "decisions.Task":
+def ledger(directory: Path) -> decisions.Task:
     """decisions.py's own record of a task in DIRECTORY, without the commands that
     find it."""
     record = decisions.Task.__new__(decisions.Task)
@@ -261,7 +263,7 @@ class Proposal(unittest.TestCase):
         kept: dict | None = None,
         record: dict | None = None,
         events: tuple[dict, ...] = (),
-    ) -> "land.Task":
+    ) -> land.Task:
         task = land.Task.__new__(land.Task)
         task.slug, task.base, task.onto = "t", "main", "main"
         task.settings = {"checks": {"commands": ["true"]}}

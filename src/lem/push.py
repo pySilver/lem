@@ -97,7 +97,6 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Iterable
 from http import HTTPStatus
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -108,6 +107,8 @@ from lem import files as lem_files
 from lem import state as lem_state
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
     from lem import board_model as bm
 
 # Where openssl is, by its absolute path: macOS's own first, then Homebrew's.
@@ -813,7 +814,7 @@ class Watcher:
 
     def __init__(
         self,
-        spaces: Callable[[], Iterable[tuple[str, str, Callable[[], "bm.Model"]]]],
+        spaces: Callable[[], Iterable[tuple[str, str, Callable[[], bm.Model]]]],
         host: str,
         pusher: Pusher | None = None,
         log: Callable[[str], object] | None = None,

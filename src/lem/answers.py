@@ -29,10 +29,14 @@ reads it on its wake as `board_answer` of `lem project tasks` (`answer_of_block`
 import json
 import re
 from datetime import UTC, datetime
-from pathlib import Path
 
 from lem import cards as lem_cards
 from lem import clock as lem_clock
+
+# typing's flag, without the import of typing, which a hook's start does not pay
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from pathlib import Path
 
 ANSWERS = "answers"
 # Each wait the board answers, its options in the order the buttons show them, and each
@@ -71,7 +75,7 @@ def stamp_of(ts: str) -> str | None:
     when it does not read as a time."""
     try:
         moment = datetime.fromisoformat(ts)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=UTC)
@@ -161,7 +165,7 @@ def withdraw(task: Path, made: dict) -> None:
     try:
         if json.loads(file.read_text(encoding="utf-8")) == made:
             file.unlink()
-    except (OSError, ValueError):
+    except OSError, ValueError:
         pass
 
 
@@ -193,12 +197,12 @@ def answer_of_block(task: Path, slug: str, ts: str | None) -> dict | None:
                     file,
                 )
             )
-        except (OSError, ValueError, AttributeError):
+        except OSError, ValueError, AttributeError:
             continue
     for _at, _ns, file in sorted(found, key=lambda x: (x[0], x[1]), reverse=True):
         try:
             return json.loads(file.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except OSError, ValueError:
             continue
     return None
 

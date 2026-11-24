@@ -380,14 +380,12 @@ import subprocess
 import sys
 import threading
 import time
-import types
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Generator
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from urllib.parse import parse_qs, quote, unquote, urlencode, urlsplit
 
 from lem import answers as lem_answers
@@ -404,6 +402,10 @@ from lem import push as lem_push
 from lem import release as lem_release
 from lem import sibling as lem_sibling
 from lem import state as lem_state
+
+if TYPE_CHECKING:
+    import types
+    from collections.abc import Callable, Generator
 
 lem_project = board.lem_project
 
@@ -635,7 +637,7 @@ class Workspace:
         # monotonic clock
         self.pruned: float | None = None
 
-    def model(self) -> "bm.Model":
+    def model(self) -> bm.Model:
         found = self.reader.current(board)
         bm.put_sessions(found, self.sessions)
         # the server's own look, once it looked; before it, the last look on file
@@ -657,7 +659,7 @@ class Workspace:
                 / Path(settings["places"]["worktrees"]["path"]).relative_to(root)
                 / slug
             )
-        except (KeyError, TypeError, ValueError):
+        except KeyError, TypeError, ValueError:
             return None
 
     def look_sessions(self) -> None:
@@ -712,7 +714,7 @@ class Workspace:
             return Path(settings["main"]) / Path(
                 settings["places"]["backlog"]["path"]
             ).relative_to(settings["root"])
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             return None
 
     def settings(self) -> dict | None:
@@ -726,7 +728,7 @@ class Workspace:
             return None
         try:
             return lem_project.task_plan(Path(self.path), settings, slug)
-        except (OSError, KeyError, ValueError, lem_project.SettingsError):
+        except OSError, KeyError, ValueError, lem_project.SettingsError:
             return None
 
     def how_of(self, slug: str) -> str:
@@ -744,7 +746,7 @@ class Workspace:
                     ).get("how")
                     or ""
                 )
-        except (OSError, criteria.CriteriaError):
+        except OSError, criteria.CriteriaError:
             pass
         try:
             record = json.loads(
@@ -753,7 +755,7 @@ class Workspace:
                 )
             )
             return str(record.get("how") or "") if isinstance(record, dict) else ""
-        except (OSError, ValueError):
+        except OSError, ValueError:
             return ""
 
     def told_of(self, slug: str) -> dict | None:
@@ -779,7 +781,7 @@ class Workspace:
                     .as_posix()
                 )
                 onto = self.onto_of(main, settings["branch"]["base"] or "")
-            except (KeyError, ValueError):
+            except KeyError, ValueError:
                 worktree = backlog = None
         told = task_pages.told_of(self.state, board, slug, worktree, onto, backlog)
         self.told[slug] = (time.monotonic(), told)
@@ -820,7 +822,7 @@ class Workspace:
             return None
         try:
             kept = json.loads((folder / bm.CRITERIA_BEFORE).read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except OSError, ValueError:
             kept = None
         kept = (
             kept if isinstance(kept, dict) and isinstance(kept.get("text"), str) else {}
@@ -838,7 +840,7 @@ class Workspace:
         while it is open or does not read."""
         try:
             return lem_cards.ended(self.state / "tasks" / slug, page)
-        except (lem_cards.CardError, OSError):
+        except lem_cards.CardError, OSError:
             return None
 
     def landing_of(self, slug: str) -> dict:
@@ -851,7 +853,7 @@ class Workspace:
                     encoding="utf-8"
                 )
             )
-        except (OSError, ValueError):
+        except OSError, ValueError:
             return {}
         if not isinstance(record, dict):
             return {}
@@ -955,7 +957,7 @@ def asset_link(name: str) -> str:
     return f"/{HOSTNAME}/assets/{name}?v={DIGESTS[key]}"
 
 
-def keep_days_of(reader: "bm.Reader") -> int | None:
+def keep_days_of(reader: bm.Reader) -> int | None:
     """The workspace's `state.keep_days` as its settings give it now
     (`lem_project.load`, this machine's own number too), for the page of a task whose
     files prune removed; None while the settings do not read, which the page shows among
@@ -979,7 +981,7 @@ def prefs_of(header: str | None) -> dict:
     morsel = jar.get(PREFS_COOKIE)
     try:
         value = json.loads(unquote(morsel.value)) if morsel else {}
-    except (ValueError, RecursionError):  # nested deeper than the stack: no JSON
+    except ValueError, RecursionError:  # nested deeper than the stack: no JSON
         return {}
     if not isinstance(value, dict):
         return {}
@@ -1015,7 +1017,7 @@ def decoded(value: str) -> str:
     it does not decode."""
     try:
         return str(email.header.make_header(email.header.decode_header(value)))
-    except (ValueError, LookupError):
+    except ValueError, LookupError:
         return value
 
 
@@ -1220,7 +1222,7 @@ def agtermctl() -> str | None:
     )
 
 
-def agterm_act(workspace: "Workspace", act: str, asked: dict) -> str:
+def agterm_act(workspace: Workspace, act: str, asked: dict) -> str:
     """The jump to a task's session for a page of the workspace, on the owner's click,
     and what was done; AgtermRefused says why not. Only the session of a task's newest
     `session.open` is taken, and agtermctl finds agterm's socket itself (measured with
@@ -1398,7 +1400,7 @@ def asked_from(workspace: Workspace, slug: str, act: str, via: str, *more: str) 
     )
 
 
-def task_of(workspace: Workspace, slug: str) -> "bm.Task | None":
+def task_of(workspace: Workspace, slug: str) -> bm.Task | None:
     """The task as the board shows it, also one whose session opened and wrote no state
     yet (bm.NEW), or None."""
     t = workspace.model().by_slug.get(slug)
@@ -1454,7 +1456,7 @@ def tell_session(workspace: Workspace, slug: str) -> dict:
 
 
 def row_refusal(
-    t: "bm.Task", asks: dict | None, given: object, folder: Path
+    t: bm.Task, asks: dict | None, given: object, folder: Path
 ) -> str | None:
     """Why the board takes no act on the row GIVEN (a row's key, from the page) of the
     task T, whose row the board answers now is ASKS (`bm.answer_row`), else None: the
@@ -2886,7 +2888,7 @@ class Handler(BaseHTTPRequestHandler):
     listen_host = HOST
     # the machines joined (`lem serve --join`), whose boards pass through; `listen`
     # sets it
-    peers: "lem_peers.Peers"
+    peers: lem_peers.Peers
     timeout = REQUEST_TIMEOUT
 
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002 - the base class names it so
@@ -3032,7 +3034,7 @@ class Handler(BaseHTTPRequestHandler):
                 else None
             )
         # nesting deeper than the stack is no JSON to Python (RecursionError)
-        except (ValueError, RecursionError, OSError):
+        except ValueError, RecursionError, OSError:
             asked = None
         if not isinstance(asked, dict):
             return answer(
@@ -3171,7 +3173,7 @@ class Handler(BaseHTTPRequestHandler):
                 if 0 < length <= CARD_BYTES
                 else None
             )
-        except (ValueError, RecursionError, OSError):
+        except ValueError, RecursionError, OSError:
             given = None
         if not isinstance(given, dict):
             return answer(HTTPStatus.BAD_REQUEST, NO_CARD_JSON)
@@ -3298,7 +3300,7 @@ class Handler(BaseHTTPRequestHandler):
                 keep_blank_values=True,
                 max_num_fields=20,
             )
-        except (UnicodeDecodeError, ValueError, OSError):
+        except UnicodeDecodeError, ValueError, OSError:
             return None
         return {key: values[-1] for key, values in fields.items()}
 
@@ -3369,7 +3371,7 @@ class Handler(BaseHTTPRequestHandler):
                 else None
             )
         # nesting deeper than the stack is no JSON to Python (RecursionError)
-        except (ValueError, RecursionError, OSError):
+        except ValueError, RecursionError, OSError:
             given = None
         if not isinstance(given, dict):
             return answer(
@@ -3556,7 +3558,7 @@ class Handler(BaseHTTPRequestHandler):
             )
         except (lem_state.StateError, lem_project.SettingsError) as error:
             return self.failed(str(error), body=body)
-        except (BrokenPipeError, ConnectionResetError):
+        except BrokenPipeError, ConnectionResetError:
             return None
 
     def spaces(self, fresh: str | None = None) -> list:
@@ -3571,7 +3573,7 @@ class Handler(BaseHTTPRequestHandler):
             )
         return lem_peers.merged(own, HOSTNAME, self.peers.states())
 
-    def forwarded(self, peer: "lem_peers.Peer", *, body: bool) -> None:
+    def forwarded(self, peer: lem_peers.Peer, *, body: bool) -> None:
         """A page, a file or a stream of a joined machine, passed through
         (`lem_peers.forward`); a machine that does not answer gets a page that
         says so."""
@@ -3623,7 +3625,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def context(
         self, workspace: Workspace, query: str, *, fresh_backlog: bool = False
-    ) -> "pages.Ctx":
+    ) -> pages.Ctx:
         """What a page of the workspace is drawn from, read now."""
         model = workspace.model()
         reader = workspace.reader
@@ -3820,7 +3822,7 @@ class Handler(BaseHTTPRequestHandler):
                 if lem_cards.card(folder, page) is not None
                 else None
             )
-        except (lem_cards.CardError, OSError):
+        except lem_cards.CardError, OSError:
             data = None
         if data is None:
             return self.text(
@@ -3985,7 +3987,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif time.monotonic() - quiet >= PING_SECONDS:
                     self.wfile.write(ping(version))
                     quiet = time.monotonic()
-        except (OSError, ValueError):
+        except OSError, ValueError:
             return
 
     def hung_up(self) -> bool:
@@ -3996,7 +3998,7 @@ class Handler(BaseHTTPRequestHandler):
             if not select.select([self.connection], [], [], 0)[0]:
                 return False
             return self.connection.recv(1, socket.MSG_PEEK) == b""
-        except (OSError, ValueError):
+        except OSError, ValueError:
             return True
 
     def caching(self, query: str) -> dict:
@@ -4032,7 +4034,7 @@ SCRIPT_LOCK = threading.Lock()
 GITHUB_REMOTE = re.compile(r"(https://|ssh://git@|git@)github\.com[:/]")
 
 
-def open_prs(model: "bm.Model") -> list[dict]:
+def open_prs(model: bm.Model) -> list[dict]:
     """Each task that is `open` with a pull request, as the model has it: its name and
     its number. A task its merge agent's seat blocked counts as open (`failed_seat`):
     its pull request waits for the owner's go on, and a merge on GitHub meanwhile still
@@ -4048,7 +4050,7 @@ def open_prs(model: "bm.Model") -> list[dict]:
     ]
 
 
-def has_forge(workspace: Workspace, model: "bm.Model") -> bool:
+def has_forge(workspace: Workspace, model: bm.Model) -> bool:
     """Whether the workspace has a forge to ask: no example tasks, and a
     GitHub remote."""
     settings = workspace.settings()
@@ -4155,7 +4157,7 @@ def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:  # n
         if result.returncode == 0:
             try:
                 said = [json.loads(result.stdout).get("state") or "landed"]
-            except (ValueError, AttributeError):
+            except ValueError, AttributeError:
                 said = ["done"]
         ran.append(
             {
@@ -4232,7 +4234,7 @@ def same_head(head: object, tip: object) -> bool:
     )
 
 
-def run_start(t: "bm.Task") -> int:
+def run_start(t: bm.Task) -> int:
     """The place in the task's events of the first block of the status it has now."""
     i = len(t.blocks) - 1
     while i > 0 and t.blocks[i - 1]["status"] == t.status:
@@ -4240,7 +4242,7 @@ def run_start(t: "bm.Task") -> int:
     return t.blocks[i]["order"]
 
 
-def wait_start(t: "bm.Task") -> int:
+def wait_start(t: bm.Task) -> int:
     """The place in a queued task's events of the first block of its wait now: the run
     of `queued` blocks with the `after:` line of the newest one. A queued block behind
     another task starts a new wait, so a session opened or woken for the wait before it
@@ -4260,7 +4262,7 @@ def wait_start(t: "bm.Task") -> int:
 
 
 def duties(  # noqa: C901, PLR0912 - over the limit before the limit was set
-    model: "bm.Model",
+    model: bm.Model,
     seen: dict,
     kept: set,
     merging: set[str] | frozenset[str] = frozenset(),
@@ -4396,7 +4398,7 @@ STOP_DUTIES = {
 }
 
 
-def merge_due(t: "bm.Task", seen: dict, merging: set[str] | frozenset[str]) -> bool:
+def merge_due(t: bm.Task, seen: dict, merging: set[str] | frozenset[str]) -> bool:
     """Whether the server runs the merge agent's merge of an open task now: the merge
     agent's review is of the tip Lem proposed last, says `merge`, calls nobody and does
     not say `another round` of a moved base (the task's session lands it again); no
@@ -4420,12 +4422,12 @@ def merge_due(t: "bm.Task", seen: dict, merging: set[str] | frozenset[str]) -> b
     )
 
 
-def since_proposal(t: "bm.Task") -> list[dict]:
+def since_proposal(t: bm.Task) -> list[dict]:
     """The task's events after its newest proposal, oldest first; [] with none."""
     return t.events[t.proposal["order"] :] if t.proposal else []
 
 
-def refusal_of(t: "bm.Task") -> dict:
+def refusal_of(t: bm.Task) -> dict:
     """The newest refusal of a merge of the tip Lem proposed last, as its
     `merge.refused` event has it (`by`, `via`, `from`, and for Lem's own `kind`),
     or {}."""
@@ -4435,7 +4437,7 @@ def refusal_of(t: "bm.Task") -> dict:
     )
 
 
-def stands_due(t: "bm.Task", seen: dict, merging: set[str] | frozenset[str]) -> bool:
+def stands_due(t: bm.Task, seen: dict, merging: set[str] | frozenset[str]) -> bool:
     """Whether the server runs the owner's merge that a moved base refused now:
     `merge.stands` is logged for the tip Lem proposed last, by `propose` after a new
     landing or by the record of a read that answered Lem's refusal because the base
@@ -4486,9 +4488,7 @@ def duty_key(verb: str, slug: str, why: str, landing: dict) -> tuple:
     return (verb, slug, why, proposed, read)
 
 
-def duty_args(
-    verb: str, slug: str, why: str, seen: dict, model: "bm.Model"
-) -> list[str]:
+def duty_args(verb: str, slug: str, why: str, seen: dict, model: bm.Model) -> list[str]:
     """The words of `lem session` for one duty. A conflict's wake keeps the head the
     forge named on its record (`session.wake`), one wake for each head. A step of the
     guard of a stopped session names the session it is for, the one `lem session list`
@@ -4654,7 +4654,7 @@ def prune_line(name: str, ran: dict) -> str | None:
     return "; ".join(parts) + "\n"
 
 
-def forge_loop(machine: "Machine") -> None:
+def forge_loop(machine: Machine) -> None:
     """The server's thread, until the server stops: at each FORGE_TICK, for each
     workspace, its look at the forge (`forge_once`), its look at the task sessions
     (`Workspace.look_sessions`), and its duties (`run_duties`), each failure one line in
@@ -5076,7 +5076,7 @@ def code_version(root: Path = LEM_ROOT) -> str:
         manifest = json.loads(
             (root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
         )
-    except (OSError, ValueError):
+    except OSError, ValueError:
         manifest = {}
     named = manifest.get("version") if isinstance(manifest, dict) else None
     if isinstance(named, str) and named.strip():
@@ -5188,7 +5188,7 @@ def ask(port: int, timeout: float = ASK_TIMEOUT) -> dict | None:
 
 
 @contextlib.contextmanager
-def start_lock() -> Generator[None, None, None]:
+def start_lock() -> Generator[None]:
     """Hold SERVE_LOCK, so that two starts at one moment make one server; wait for
     another's at most as long as its stop and its start may take."""
     home = lem_state.config()
@@ -5394,7 +5394,7 @@ def configure(args: argparse.Namespace) -> dict:  # noqa: C901 - over the limit 
     lem_state.kept_tables("serve")
     try:
         before = serve_settings()
-    except (ServeError, lem_state.StateError):
+    except ServeError, lem_state.StateError:
         # a [serve] with an unknown key, a value of the wrong type, a number that is no
         # port or one port twice is written again whole from the flags and the defaults,
         # as its refusal's fix says
@@ -5488,7 +5488,7 @@ def remove_pid() -> None:
     try:
         if file.read_text(encoding="utf-8").split()[:1] == [str(os.getpid())]:
             file.unlink()
-    except (OSError, IndexError):
+    except OSError, IndexError:
         pass
 
 

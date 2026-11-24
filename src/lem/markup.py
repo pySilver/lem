@@ -20,7 +20,11 @@ escaped (`text` of a `<template>` or a data attribute).
 """
 
 import html
-from collections.abc import Iterable
+
+# typing's flag, without the import of typing, which a hook's start does not pay
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 # The elements that have no end tag.
 VOID = frozenset(
@@ -50,10 +54,10 @@ class Markup(str):
     def __html__(self) -> str:
         return self
 
-    def __add__(self, other: object) -> "Markup":
+    def __add__(self, other: object) -> Markup:
         return Markup(str.__add__(self, escape(other)))
 
-    def __radd__(self, other: object) -> "Markup":
+    def __radd__(self, other: object) -> Markup:
         return Markup(str.__add__(escape(other), self))
 
 

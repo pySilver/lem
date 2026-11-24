@@ -13,7 +13,6 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,6 +20,8 @@ from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from lem import board_model as lem_board_model
     from lem import serve
 
@@ -110,7 +111,7 @@ def bkey(number: int = 1, minute: float = 2, task: str = RD) -> str:
 
 def model(
     *events: dict, owner: Iterable[dict] = (), sessions: dict | None = None
-) -> "lem_board_model.Model":
+) -> lem_board_model.Model:
     m = bm.derive(list(events), list(owner), NOW)
     slugs = {e["task"] for e in events}
     m.sessions = (
@@ -261,7 +262,7 @@ class InFolder(unittest.TestCase):
         self.landings: dict[str, dict] = {}
         self.m = None
 
-    def watcher(self, *, wakes: bool = True) -> "inbox.Watcher":
+    def watcher(self, *, wakes: bool = True) -> inbox.Watcher:
         space = SimpleNamespace(
             name="shop",
             path="/repo/shop",
@@ -686,7 +687,7 @@ class Door(InFolder):
 
 
 class Withdraws(InFolder):
-    def sent_breaker(self) -> "inbox.Watcher":
+    def sent_breaker(self) -> inbox.Watcher:
         self.m = model(*BREAKER, owner=[AWAY])
         w = self.watcher()
         w.look()
@@ -1318,7 +1319,7 @@ class HeldBack(InFolder):
 
     def turn(
         self, turn: str | None, owner: Iterable[dict] = (AWAY,)
-    ) -> "lem_board_model.Model":
+    ) -> lem_board_model.Model:
         m = bm.derive(list(BREAKER), list(owner), NOW)
         bm.put_sessions(
             m,

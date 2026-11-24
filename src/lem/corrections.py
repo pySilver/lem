@@ -168,7 +168,7 @@ def git(cwd: str, *args: str) -> str | None:
             check=False,
             timeout=WAIT_SECONDS,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except OSError, subprocess.TimeoutExpired:
         return None
     return ran.stdout.strip() if ran.returncode == 0 and ran.stdout.strip() else None
 
@@ -223,7 +223,7 @@ def machine_says_yes() -> bool:
     # StateError: a file that does not read or holds what is not valid there, or a
     # relative XDG_CONFIG_HOME; the others are a guard, since a hook's failure must not
     # reach the message
-    except (lem_state.StateError, OSError, ValueError):
+    except lem_state.StateError, OSError, ValueError:
         return False
 
 

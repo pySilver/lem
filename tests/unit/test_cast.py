@@ -12,13 +12,15 @@ import sys
 import tempfile
 import typing
 import unittest
-from collections.abc import Callable
 from pathlib import Path
 from unittest import mock
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from lem import cast
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Callable
 
 FILE = Path("/lem-unit/repo/.lem/personas/merchant.md")
 BODY = "# A merchant\n\n## Who they are\n\nSells shoes in two shops.\n"

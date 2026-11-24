@@ -9,7 +9,11 @@ one's tip, so its plan is the old slug's file until its lead writes one of its o
 """
 
 import re
-from pathlib import Path
+
+# typing's flag, without the import of typing, which a hook's start does not pay
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from pathlib import Path
 
 PLAN_FILE = "YYYY-MM-DD-<slug>.md"
 TOKENS = {"YYYY": r"(?P<Y>\d{4})", "MM": r"(?P<M>\d{2})", "DD": r"(?P<D>\d{2})"}

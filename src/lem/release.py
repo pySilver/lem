@@ -43,13 +43,15 @@ import functools
 import json
 import os
 import subprocess
-from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import ParamSpec, TypeVar, cast
+from typing import TYPE_CHECKING, cast
 
 from lem import clock as lem_clock
 from lem import paths
 from lem import state as lem_state
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 # The release just before the version of plugin.json. A release moves it (AGENTS.md,
 # "A release").
@@ -78,9 +80,6 @@ UPDATE = "/plugin marketplace update lem"
 CLEARED: contextvars.ContextVar[frozenset | None] = contextvars.ContextVar(
     "lem_release_cleared", default=None
 )
-# The arguments and the result of a script's `main`, which `one_command` keeps.
-Params = ParamSpec("Params")
-Result = TypeVar("Result")
 
 
 def numbers(version: object) -> tuple[int, ...] | None:
@@ -199,7 +198,7 @@ def installs(environ: Mapping[str, str] | None = None) -> object:
         return json.loads(
             (home / "plugins" / "installed_plugins.json").read_text(encoding="utf-8")
         )
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
 
 
@@ -352,7 +351,10 @@ def check(directory: Path, *, passes: bool = False) -> str | None:
     return None
 
 
-def one_command(main: Callable[Params, Result]) -> Callable[Params, Result]:
+# Params and Result: the arguments and the result of a script's `main`, which it keeps.
+def one_command[**Params, Result](
+    main: Callable[Params, Result],
+) -> Callable[Params, Result]:
     """A script's `main` as one command: what it passes (`check`) holds for the commands
     it runs in this process, and for no command after it."""
 

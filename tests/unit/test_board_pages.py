@@ -57,7 +57,7 @@ def ended(n: int) -> list:
     return [*events, state(60, "building", "task 1 of 2", task="builds")]
 
 
-def ctx_of(events: list) -> "pages.Ctx":
+def ctx_of(events: list) -> pages.Ctx:
     return pages.Ctx(
         host="h",
         workspace="w",
@@ -825,7 +825,7 @@ class Search(unittest.TestCase):
         ],
     }
 
-    def ctx(self, **kw: object) -> "pages.Ctx":
+    def ctx(self, **kw: object) -> pages.Ctx:
         events = [
             *ended(22),
             state(

@@ -18,13 +18,17 @@ import tempfile
 import threading
 import time
 import unittest
-from collections.abc import Callable
 from pathlib import Path
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from typing import TYPE_CHECKING
+
 from lem import project
 from lem import state as lem_state
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 ROOT = Path("/lem-unit/repo")
 LEM = Path(__file__).resolve().parents[2]
@@ -552,7 +556,7 @@ class Texts(unittest.TestCase):
         for name in files:
             try:
                 text = (LEM / name).read_text(encoding="utf-8")
-            except (UnicodeDecodeError, FileNotFoundError):
+            except UnicodeDecodeError, FileNotFoundError:
                 continue
             for number, line in enumerate(text.split("\n"), 1):
                 if found := OLD_NAME.search(line):

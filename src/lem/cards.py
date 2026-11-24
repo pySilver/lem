@@ -32,10 +32,14 @@ import secrets
 import sys
 import threading
 from datetime import UTC, datetime
-from pathlib import Path
 
 from lem import clock as lem_clock
 from lem import state as lem_state
+
+# typing's flag, without the import of typing, which a hook's start does not pay
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from pathlib import Path
 
 CARDS = "cards"
 # a task's slug, as project.py's SLUG takes it

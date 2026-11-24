@@ -84,7 +84,6 @@ never a fresh session that the owner did not open.
 """  # noqa: E501 - the table of the module's functions keeps its columns
 
 import json
-from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -94,6 +93,11 @@ from lem import clock as lem_clock
 # the task a transcript's first prompt names; the scripts' folder is on the path of
 # every importer
 from lem import tokens as lem_tokens
+
+# typing's flag, without the import of typing, which a hook's start does not pay
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
 
 # the record types that are a turn of the session (see the module docstring, 2026-11-22)
 TURNS = ("user", "assistant")
@@ -387,7 +391,7 @@ def facts_of(
                     found.append(
                         json.loads(path.read_text(encoding="utf-8", errors="replace"))
                     )
-                except (OSError, ValueError):
+                except OSError, ValueError:
                     continue
             processes[folder] = found
     return {

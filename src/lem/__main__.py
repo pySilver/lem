@@ -93,7 +93,7 @@ def server_lives(folder: str) -> bool:
     try:
         with open(os.path.join(folder, PID_FILE), encoding="utf-8") as file:
             pid = int(file.read().split()[0])
-    except (OSError, ValueError, IndexError):
+    except OSError, ValueError, IndexError:
         return False
     if pid <= 0:
         # 0 and a negative pid name a process group, never one server
@@ -178,7 +178,7 @@ def version() -> dict[str, object]:
             paths.ROOT / ".claude-plugin" / "plugin.json", encoding="utf-8"
         ) as manifest:
             found["version"] = json.load(manifest).get("version")
-    except (OSError, ValueError):
+    except OSError, ValueError:
         pass
     try:
         with open(paths.PACKAGE / "build-commit", encoding="utf-8") as stamp:

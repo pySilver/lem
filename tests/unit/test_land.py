@@ -15,14 +15,16 @@ import tempfile
 import types
 import unicodedata
 import unittest
-from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import IO, cast
+from typing import IO, TYPE_CHECKING, cast
 from unittest import mock
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from lem import land
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
 
 # One defect outside the change, as a review's record names it.
 DEFECT = {

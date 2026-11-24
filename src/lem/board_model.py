@@ -45,17 +45,19 @@ import os
 import re
 import threading
 import time
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from types import ModuleType
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import quote
 
 from lem import answers as lem_answers
 from lem import cards as lem_cards
 from lem import release as lem_release
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from types import ModuleType
 
 # ---- the words of each status, and the lanes ----
 
@@ -2837,7 +2839,7 @@ def forge_look(state: Path) -> dict | None:
     does not read."""
     try:
         found = json.loads((state / FORGE_LOOK).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
     return (
         found
@@ -2904,7 +2906,7 @@ def inbox_look(state: Path) -> dict | None:
     that name a row; None when there is none or it does not read."""
     try:
         found = json.loads((state / INBOX_LOOK).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
     if not isinstance(found, dict):
         return None
@@ -5572,7 +5574,7 @@ MD_KEEP = re.compile(
 GITHUB = "https://github.com"
 
 
-def forge_of(m: "Model") -> str | None:
+def forge_of(m: Model) -> str | None:
     """The forge's address of the workspace's repository,
     `https://github.com/OWNER/REPO`, from the newest pull request its tasks name; None
     while no task names one, and then a bare `#N` stays text."""
@@ -6728,7 +6730,7 @@ def cards_look(state: Path, m: Model) -> dict:
                 if lem_cards.end_file(folder, page).exists():
                     continue
                 card = lem_cards.card(folder, page)
-            except (lem_cards.CardError, OSError):
+            except lem_cards.CardError, OSError:
                 continue
             if not isinstance(card, dict):
                 continue
@@ -6776,7 +6778,7 @@ def task_files_look(state: Path, m: Model) -> None:
         folder = state / "tasks" / t.slug
         try:
             t.began = lem_release.began_on(folder)
-        except (ValueError, OSError):
+        except ValueError, OSError:
             t.began = None
         began = lem_release.numbers(t.began) if t.began else None
         t.behind = running is None or began is None or began < running
@@ -6843,7 +6845,7 @@ def answers_look(state: Path, m: Model) -> dict:
             continue
         try:
             found = lem_answers.on_record(state / "tasks" / t.slug, row["key"])
-        except (lem_answers.AnswerError, OSError):
+        except lem_answers.AnswerError, OSError:
             continue
         if isinstance(found, dict):
             out[t.slug] = {row["key"]: found}
@@ -7030,7 +7032,7 @@ class Reader:
                     for folder in folders
                 ]
                 listing.append(self.log_lines)
-            except (KeyError, ValueError, OSError):
+            except KeyError, ValueError, OSError:
                 listing = None
             moved = listing != self.stamps.get("backlog")
             self.stamps["backlog"] = listing

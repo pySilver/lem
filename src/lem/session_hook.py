@@ -88,7 +88,7 @@ def restored(
     return "\n".join(lines)
 
 
-def newest_phase(log: "Iterable[str]", slug: str) -> str | None:
+def newest_phase(log: Iterable[str], slug: str) -> str | None:
     """The phase of the task's newest `session.open` in the event log, the lines
     of LOG."""
     import json
@@ -107,7 +107,7 @@ def newest_phase(log: "Iterable[str]", slug: str) -> str | None:
 
 
 def transcript_record(
-    log: "Iterable[str]", slug: str, claude: str, session: str | None
+    log: Iterable[str], slug: str, claude: str, session: str | None
 ) -> bool:
     """Whether the event log, the lines of LOG, already holds this Claude Code session
     of the task in this agterm session: a background host of Claude Code that runs with
@@ -135,7 +135,7 @@ def transcript_record(
 
 
 def keep_transcript(
-    state: "Path", slug: str, event: dict, session: str | None = None
+    state: Path, slug: str, event: dict, session: str | None = None
 ) -> None:
     """Log the task's Claude Code session, its id and its transcript's path from the
     hook's input, and SESSION, the agterm session the hook runs in, once for each Claude

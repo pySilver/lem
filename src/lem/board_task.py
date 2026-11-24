@@ -52,9 +52,7 @@ why (`inbox_action`).
 import hashlib
 import json
 import re
-from pathlib import Path
-from types import ModuleType
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import quote
 
 from lem import answers as lem_answers
@@ -63,6 +61,10 @@ from lem import board_model as bm
 from lem import board_pages as P  # noqa: N812 - the pages module, named on 148 lines of this file
 from lem import cards as lem_cards
 from lem.markup import Markup, h, join, page
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    from types import ModuleType
 
 # The tabs of a task, with their names and their keys.
 TABS = [

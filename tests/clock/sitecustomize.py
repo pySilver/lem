@@ -19,7 +19,7 @@ if _later and "--list" in sys.argv:
 
     class _Later(dt.datetime):
         @classmethod
-        def now(cls, tz: "dt.tzinfo | None" = None) -> "_Later":
+        def now(cls, tz: dt.tzinfo | None = None) -> _Later:
             return super().now(tz) + _shift
 
     dt.datetime = _Later

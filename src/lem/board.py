@@ -45,15 +45,17 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
-from collections.abc import Callable
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from urllib.parse import quote
 
 from lem import clock as lem_clock
 from lem import paths
 from lem import project as lem_project
 from lem import state as lem_state
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # the look every page of Lem shares, and the script that picks its palette, which the
 # board links
