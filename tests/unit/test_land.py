@@ -1492,7 +1492,7 @@ class RebaseFailed(unittest.TestCase):
     HOOK = "no rebase today\nerror: The pre-rebase hook refused to rebase.\n"
 
     def test_gits_words_and_the_fix(self) -> None:
-        said = land.rebase_failed("origin/main", self.HOOK)
+        said = land.rebase_failed("origin/main", self.HOOK, "the worktree is as it was")
         self.assertTrue(
             said.startswith(
                 "the rebase onto origin/main failed with no file in conflict, and the "
@@ -1503,7 +1503,19 @@ class RebaseFailed(unittest.TestCase):
         self.assertIn("the owner removes what git names", said)
         self.assertIn("this step runs again", said)
         self.assertNotIn("builder resolves", said)
-        self.assertIn("git said: nothing.", land.rebase_failed("origin/main", ""))
+        self.assertIn(
+            "git said: nothing.",
+            land.rebase_failed("origin/main", "", "the worktree is as it was"),
+        )
+        # a worktree that is not as it was is said, with its way back
+        left = land.rebase_failed(
+            "origin/main",
+            self.HOOK,
+            "the worktree is not as it was: HEAD is detached at 1f0579982 (`git -C "
+            "/wt switch fix/shop` puts it back)",
+        )
+        self.assertIn("and the worktree is not as it was: HEAD is detached", left)
+        self.assertIn("puts the worktree back as named, and this step", left)
 
 
 class StaleBytecode(unittest.TestCase):

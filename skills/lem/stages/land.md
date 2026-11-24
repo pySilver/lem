@@ -103,7 +103,11 @@ landing up as after a cut-off.
    that reason, and `propose` ends the owner's merge with it.
    A rebase that git refuses or stops with no file in conflict (a hook of git that refuses it, a
    lock of another git) is no builder's job: the step names git's words and keeps nothing. Tell
-   the owner what git names, and run the step again once it is gone.
+   the owner what git names, and run the step again once it is gone. The step looks at the
+   worktree after git's abort: when it is not as it was (a detached HEAD, a rebase still in
+   progress), it says so with the commands that put it back, and those go to the owner too. A
+   builder's own rebase that is still in progress stops the step before it starts one: the
+   builder finishes it or ends it, as the step names.
 3. **`polish`: the polish pass**, on the standard track: read `stages/polish.md` now and follow it.
    The fast track never has the pass, and `lem land polish` refuses one: one builder changed one rule, its own checks ran, the review reads every line of it, and
    its builder filed each defect it saw outside the change in a commit of its own, which the pull

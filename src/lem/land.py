@@ -1877,6 +1877,14 @@ def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C90
 def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     task.need_landing()
     task.need_worktree()
+    if rebase_in_progress(task.worktree):
+        # a builder's own, paused or stopped: an abort of it would undo his work
+        raise LandError(
+            f"a rebase is in progress in {task.worktree}, a builder's own: base starts "
+            "no rebase over it and aborts none. It is finished (`git -C "
+            f"{task.worktree} rebase --continue`) or ended (`git -C {task.worktree} "
+            "rebase --abort`), then this step runs again"
+        )
     task.fetch()
     if task.forge == "github":
         # Before the rebase rewrites the branch: a commit a teammate added to it on the
@@ -1949,6 +1957,15 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
     if rebased.returncode != 0:
         conflicts = conflicted(task.worktree)
         git(task.worktree, "rebase", "--abort", check=False)
+        # what the abort left, looked at, never taken on trust: a lock of the branch's
+        # ref held through the rebase's last update leaves HEAD detached
+        left = rebase_left(task, before)
+        if conflicts and left:
+            raise LandError(
+                f"the rebase onto {task.onto} stopped on {len(conflicts)} file(s), and "
+                f"its abort left the worktree not as it was: {left}. Nothing is kept "
+                "for a builder: once it is put back, this step runs again"
+            )
         refused = rebase_refused(rebased.returncode, rebased.stderr, conflicts)
         if refused:
             version = git(task.worktree, "--version", check=False)
@@ -1959,9 +1976,22 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
             )
         if not conflicts:
             # git refused the rebase, or stopped it, for a reason no builder resolves
-            # (a hook of git, a lock): the abort above left the worktree as it was, and
-            # nothing is kept
-            raise LandError(rebase_failed(task.onto, rebased.stderr))
+            # (a hook of git, a lock), and nothing is kept: the words say where the
+            # worktree is now
+            raise LandError(
+                rebase_failed(
+                    task.onto,
+                    rebased.stderr,
+                    f"the worktree is not as it was: {left}"
+                    if left
+                    else "the worktree is as it was"
+                    if before == entry
+                    else (
+                        f"the branch is at {before[:9]}, the tip before the rebase "
+                        "Lem made in this landing, from which this step starts again"
+                    ),
+                )
+            )
         task.keep(
             conflict={
                 "before": pending["before"] if pending else before,
@@ -2434,17 +2464,19 @@ def rebase_refused(code: int, said: str, conflicts: list[str]) -> str | None:
     return f"git rebase refused an option ({line or f'exit {code}'})"
 
 
-def rebase_failed(onto: str, said: str) -> str:
+def rebase_failed(onto: str, said: str, where: str) -> str:
     """The refusal of a rebase onto ONTO that failed with no file in conflict, with what
-    git SAID on stderr, each line of it: such a stop is no conflict for a builder, and
-    the owner removes its cause."""
+    git SAID on stderr, each line of it, and WHERE the worktree is after its abort, as
+    `cmd_base` looked (`rebase_left`): such a stop is no conflict for a builder, and the
+    owner removes its cause, and puts the worktree back where it is not as it was."""
     words = " / ".join(line.strip() for line in said.splitlines() if line.strip())
     words = words.rstrip(".")
+    back = ", puts the worktree back as named," if "not as it was" in where else ""
     return (
-        f"the rebase onto {onto} failed with no file in conflict, and the worktree is "
-        f"as it was; git said: {words or 'nothing'}. Nothing is kept for a builder: "
-        "the owner removes what git names (a hook of git that refuses the rebase, a "
-        "lock that another git holds), and this step runs again"
+        f"the rebase onto {onto} failed with no file in conflict, and {where}; git "
+        f"said: {words or 'nothing'}. Nothing is kept for a builder: the owner removes "
+        "what git names (a hook of git that refuses the rebase, a lock that another "
+        f"git holds){back} and this step runs again"
     )
 
 

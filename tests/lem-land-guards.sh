@@ -170,6 +170,48 @@ else
 fi
 project --repo "$GRD" state in-the-way dropped "the test is over" >/dev/null
 
+# The same, with the lock of the branch's ref held through the rebase's last update of it: git's abort leaves HEAD
+# detached at the rebased commit. base looks before it says the worktree is as it was: it names what is not, and the
+# command that puts it back, which works as named.
+small_task_in "$GRD" locked-ref l.txt l
+g start locked-ref >/dev/null
+lock_tree=$(wt locked-ref)
+lock_tip=$(git -C "$lock_tree" rev-parse HEAD)
+lock_file="$(git -C "$lock_tree" rev-parse --path-format=absolute --git-common-dir)/refs/heads/fix/locked-ref.lock"
+echo base > "$GRD/lock.txt" && git -C "$GRD" add lock.txt && git -C "$GRD" commit -q -m "chore: the base adds lock.txt" && git -C "$GRD" push -q origin main
+touch "$lock_file"
+lock_code=0
+lock=$(g base locked-ref 2>&1) || lock_code=$?
+rm "$lock_file"
+lock_head=$(git -C "$lock_tree" rev-parse HEAD)
+git -C "$lock_tree" switch -q fix/locked-ref
+lock_again=$(g base locked-ref | field '(d["moved"], d["ahead"])')
+if [ "$lock_code" = 1 ] && grep -qF "HEAD is detached at ${lock_head:0:9}" <<<"$lock" && grep -qF "\`git -C $lock_tree switch fix/locked-ref\` puts it back" <<<"$lock" \
+  && ! grep -qF "the worktree is as it was" <<<"$lock" && [ "$lock_head" != "$lock_tip" ] && [ "$lock_again" = "(True, 1)" ]; then
+  pass "a rebase of base whose abort leaves HEAD detached is refused with what is not as it was and the command that puts it back, never with words that the worktree is as it was"
+else
+  fail "a rebase whose abort leaves HEAD detached: $lock_code / $lock / $lock_head / $lock_tip / $lock_again"
+fi
+project --repo "$GRD" state locked-ref dropped "the test is over" >/dev/null
+
+# A builder's own rebase, paused at a commit he edits, is in progress when base runs: base refuses before it starts one,
+# names the commands that end it, and aborts nothing.
+small_task_in "$GRD" paused p.txt p
+g start paused >/dev/null
+paused_tree=$(wt paused)
+GIT_SEQUENCE_EDITOR="sed -i.bak -e s/^pick/edit/" git -C "$paused_tree" rebase -q -i HEAD~1 >/dev/null 2>&1
+paused_code=0
+paused=$(g base paused 2>&1) || paused_code=$?
+paused_left=$(find "$(git -C "$paused_tree" rev-parse --path-format=absolute --git-dir)" -maxdepth 1 -name 'rebase-merge' | wc -l | tr -d ' ')
+git -C "$paused_tree" rebase --continue >/dev/null 2>&1 || true
+if [ "$paused_code" = 1 ] && grep -qF "a rebase is in progress in $paused_tree" <<<"$paused" && grep -qF "\`git -C $paused_tree rebase --continue\`" <<<"$paused" \
+  && grep -qF "\`git -C $paused_tree rebase --abort\`" <<<"$paused" && [ "$paused_left" = 1 ] && [ "$(g base paused | field 'd["ahead"]')" = 1 ]; then
+  pass "base refuses a worktree where a builder's own rebase is in progress, names how to finish it or end it, and aborts nothing"
+else
+  fail "base over a rebase in progress: $paused_code / $paused / $paused_left"
+fi
+project --repo "$GRD" state paused dropped "the test is over" >/dev/null
+
 # What a gate command writes that git does not know, a cache of Python's bytecode in a repository
 # with no ignore rule for it, is the run's output and not the tree it judged: the gate passes, removes
 # those files and the folders they emptied, names them, and keeps a folder that holds a tracked file.
