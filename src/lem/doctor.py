@@ -267,9 +267,12 @@ def lem_plugin(home: Path, root: Path | None) -> str | None:
     return None
 
 
-# The correction hook in a settings file, in any form
-# (`python3 /PATH/corrections.py hook`), added by hand.
-HOOK_FORM = re.compile(r"corrections\.py['\"]?\s+hook\b")
+# The correction hook in a settings file, in any form added by hand: the plugin's line
+# as it is (`python3 /PATH/src/lem/python.py corrections hook`) or as it was before the
+# package (`python3 /PATH/corrections.py hook`).
+HOOK_FORM = re.compile(
+    r"(?:corrections\.py|python\.py['\"]?\s+corrections)['\"]?\s+hook\b"
+)
 
 
 def hook_entries(file: Path) -> list[dict]:

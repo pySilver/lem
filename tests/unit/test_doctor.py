@@ -66,6 +66,49 @@ def identity(entry: dict) -> str:
     return f"version {entry['version']}"
 
 
+class HookEntries(unittest.TestCase):
+    """Which entries of a settings file's `UserPromptSubmit` hooks are the correction
+    hook: the plugin's line now, the line before the package, and nothing else."""
+
+    PLUGIN = 'python3 "${CLAUDE_PLUGIN_ROOT}/src/lem/python.py" corrections hook'
+
+    def entries(self, *commands: str) -> list[str]:
+        with tempfile.TemporaryDirectory() as folder:
+            file = Path(folder) / "settings.json"
+            hooks = [{"type": "command", "command": line} for line in commands]
+            file.write_text(
+                json.dumps({"hooks": {"UserPromptSubmit": [{"hooks": hooks}]}}),
+                encoding="utf-8",
+            )
+            return [hook["command"] for hook in doctor.hook_entries(file)]
+
+    def test_the_plugins_line_of_now_and_of_before_the_package_are_the_hook(
+        self,
+    ) -> None:
+        lines = [
+            self.PLUGIN,
+            "python3 /home/o/lem/src/lem/python.py corrections hook",
+            (
+                'python3 "/r/skills/lem/scripts/lem_python.py" '
+                '"/r/skills/lem/scripts/corrections.py" hook'
+            ),
+            "LEM_JEV=/x/jev python3 /elsewhere/corrections.py hook",
+        ]
+        self.assertEqual(self.entries(*lines), lines)
+
+    def test_another_module_or_command_of_python_py_is_not(self) -> None:
+        self.assertEqual(
+            self.entries(
+                'python3 "${CLAUDE_PLUGIN_ROOT}/src/lem/python.py" serve_hook',
+                'python3 "${CLAUDE_PLUGIN_ROOT}/src/lem/python.py" session_hook',
+                'python3 "${CLAUDE_PLUGIN_ROOT}/src/lem/python.py" corrections list',
+                "python3 /r/src/lem/python.py hook",
+                "lem corrections hook",
+            ),
+            [],
+        )
+
+
 class Installs(unittest.TestCase):
     def test_a_repository_whose_install_is_other_code_gets_a_row_with_the_two_lines(
         self,
