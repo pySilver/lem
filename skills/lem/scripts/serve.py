@@ -237,10 +237,12 @@ session open SLUG --why new` with no focus, whose agent reads the type and the t
 drop of a reviewer's item from its "Drop" (`act_drop`), `lem project proposals drop PATH`, one call
 that refuses while a task that has not ended holds the item; and his answer to a row the board answers
 with its own buttons (`act_answer`: a plan's Build or Drop, a breaker's Help, Park or Drop, Yes or No on
-"Skip the persona read?" and on "Approve this criterion?"), which records it as `answers/KEY.json` in the
-task's folder (lem_answers) and wakes the task's session, which acts on it as on his typed word; the
-record of a row's key comes first for every act of the board on that row (a park, a yes to the
-criterion, a drop of the task), and a second act on it is refused with what the record says. A task
+"Skip the persona read?" and on the criteria, "Approve this criterion?" on the fast track and "Approve the
+criteria?" on the standard track, where a No with his note makes the session change them and ask again),
+which records it as `answers/KEY.json` in the task's folder (lem_answers) and wakes the task's session,
+which acts on it as on his typed word; the record of a row's key comes first for every act of the board on
+that row (a park, a yes to the criteria, a drop of the task), and a second act on it is refused with what
+the record says. A task
 whose session opened and wrote no state yet is on the board as starting (`lem_board_model.NEW`), so its
 acts and "Open a session" work. Each act on a task the script took is logged as `board.act` with where
 he asked (`via`: the board on this Mac, or through the tailnet door), never his login; a drop of a
@@ -664,13 +666,22 @@ class Workspace:
         """The criteria of the task directory that wait for the owner's yes, `criteria.md`, as the task's
         session writes them: its path, its text and a digest of its bytes, which the approval's form carries back,
         so that a yes never takes criteria the page did not show: `lem criteria approve --shown` compares it with
-        the bytes it approves, in the same form (criteria.py's `shown_digest`). None when the file is not there."""
-        file = self.state / "tasks" / slug / "criteria.md"
+        the bytes it approves, in the same form (criteria.py's `shown_digest`). With them `before` and `words`, the
+        text the newest change from the owner's note kept and his note (`criteria-before.json`, `lem criteria change`), or None: the
+        card shows it beside the new text while that change's wait stands (`bm.change_of`). None when
+        criteria.md is not there."""
+        folder = self.state / "tasks" / slug
         try:
-            data = file.read_bytes()
+            data = (folder / "criteria.md").read_bytes()
         except OSError:
             return None
-        return {"path": str(file), "text": data.decode("utf-8", errors="replace"), "digest": hashlib.sha256(data).hexdigest()[:16]}
+        try:
+            kept = json.loads((folder / bm.CRITERIA_BEFORE).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            kept = None
+        kept = kept if isinstance(kept, dict) and isinstance(kept.get("text"), str) else {}
+        return {"path": str(folder / "criteria.md"), "text": data.decode("utf-8", errors="replace"), "digest": hashlib.sha256(data).hexdigest()[:16],
+                "before": kept.get("text"), "words": kept.get("words") if isinstance(kept.get("words"), str) else None}
 
     def card_end(self, slug: str, page: str) -> dict | None:
         """The end on record of the card PAGE of the task (`lem_cards.ended`), or None while it is open or does not read."""
@@ -1122,7 +1133,7 @@ def row_refusal(t: "bm.Task", asks: dict | None, given: object, folder: Path) ->
     if asks is not None and asks["key"] == key:
         return None
     what = {"breaker": f"Breaker {parts['number']} of {t.slug}", "plan": f"The plan of {t.slug}", "skip": f"“Skip the persona read?” of {t.slug}",
-            "criterion": f"“Approve this criterion?” of {t.slug}"}[parts["kind"]]
+            "criterion": f"“{bm.criterion_question(t)}” of {t.slug}"}[parts["kind"]]
     if asks is not None and asks["kind"] == parts["kind"] and lem_answers.parse(asks["key"])["number"] == parts["number"]:
         return f"{what} waits again since {bm.hhmm(t.blocks[-1]['ts'])}, and the page you answered from showed an earlier wait: read it again, then answer. Nothing was recorded."
     now = f"you parked it at {bm.hhmm(t.since)}" if t.status == bm.PARKED else f"it is {t.info['label'].lower()} since {bm.hhmm(t.since)}"
@@ -1140,12 +1151,16 @@ def told_then(told: dict, then: str) -> str:
 
 def act_approve(workspace: Workspace, slug: str, form: dict, via: str, heard: dict | None = None) -> dict:
     """The owner's yes to the criteria of the task directory, `lem criteria approve SLUG --file
-    criteria.md`, while they wait for it and are the criteria the page showed (`digest`). The yes to the
-    one criterion of a small change that someone else asked for is his Yes on that row (`bm.answer_row`):
-    its record is linked first (lem_answers, with HEARD: `via`, `device`, `agent`), and taken back when
-    the approval's script refuses."""
+    criteria.md`, while they wait for it and are the criteria the page showed (`digest`). His yes to the
+    criteria that have a row the board answers (`bm.answer_row`: the fast track's one criterion, and the
+    standard track's criteria on a task of the board's release) is his Yes on that row: its record is
+    linked first (lem_answers, with HEARD: `via`, `device`, `agent`), and taken back when the approval's
+    script refuses. While a change of the criteria from his note stopped in the middle (`Task.changing`) no
+    yes is taken: the new text has no request with the old text beside it yet."""
     t = task_of(workspace, slug)
     model = workspace.model()
+    if t is not None and t.changing:
+        return {"ok": False, "said": "Lem writes the changed criteria: the new request comes in a moment. Nothing was approved."}
     if t is None or "approve" not in bm.acts_of(t, model.seen):
         return {"ok": False, "said": f"The criteria of {slug} do not wait for your yes now" + (f": it is {t.info['label'].lower()}." if t else ".")}
     folder = workspace.state / "tasks" / slug
@@ -1223,7 +1238,7 @@ def note_of(form: dict) -> str:
 
 def act_answer(workspace: Workspace, slug: str, form: dict, heard: dict) -> dict:
     """The owner's answer to a row the board answers with its own buttons (`bm.answer_row`: a plan, a
-    breaker, "Skip the persona read?", "Approve this criterion?"), from its answer form: the row's `key`,
+    breaker, "Skip the persona read?", the criteria's yes), from its answer form: the row's `key`,
     the `option` and his note (`words`). It refuses a key that is not the row that waits now, a key with an
     answer on record (`row_refusal`), no option, an option the row does not have, Help and the criterion's No
     with no words, the criterion's No on a text that changed since the page showed it, and a Drop with no
@@ -1252,11 +1267,15 @@ def act_answer(workspace: Workspace, slug: str, form: dict, heard: dict) -> dict
         return {"ok": False, "said": "Help needs your words for the lead: nothing was recorded."}
     more = {}
     if asks["kind"] == "criterion":
+        # his No changes the criteria: the fast track's session writes his words in, the standard track's
+        # writes the change in its own words and asks again (`lem criteria change`); either needs his words
+        fast = bm.fast_criterion(t)
         if not words:
-            return {"ok": False, "said": "No needs your words: what should the criterion say? Nothing was recorded."}
+            return {"ok": False, "said": f"{asks['note']} Nothing was recorded."}
         waiting = workspace.criteria_waiting(slug)
         if waiting is None or form.get("digest") != waiting["digest"]:
-            return {"ok": False, "said": "The criterion changed since the page showed it. Read it again, then answer: nothing was recorded."}
+            return {"ok": False, "said": "The criterion changed since the page showed it. Read it again, then answer: nothing was recorded." if fast
+                    else "The criteria changed since the page showed them. Read them again, then answer: nothing was recorded."}
         more["digest"] = waiting["digest"]
     if option == "drop" and form.get("confirm") != "yes":
         return {"ok": False, "said": "Drop asks for a confirm first: open Drop… and confirm there. Nothing was recorded."}
@@ -1266,8 +1285,9 @@ def act_answer(workspace: Workspace, slug: str, form: dict, heard: dict) -> dict
         return {"ok": False, "said": f"The answer was not recorded: {error}."}
     if not won:
         return {"ok": False, "said": f"{lem_answers.took_effect(made)}: the task’s session takes it."}
-    asked = asked_from(workspace, slug, "answer", via, f"key={asks['key']}", f"option={option}")
-    then = told_then(tell_session(workspace, slug), ANSWER_THEN[option])
+    asked = asked_from(workspace, slug, "answer", via, f"key={asks['key']}", f"option={option}", f"question={asks['question']}")
+    then = told_then(tell_session(workspace, slug), ANSWER_THEN[option] if not (asks["kind"] == "criterion" and option == "no" and not bm.fast_criterion(t))
+                     else "it changes the criteria from your words and asks for your yes again")
     return {"ok": True, "said": f"{bm.ANSWER_ON_RECORD} {then}" + asked}
 
 

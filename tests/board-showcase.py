@@ -8,7 +8,7 @@ for tests/lem-serve.sh.
 
 It is eleven tasks a team could have on one afternoon, written by Lem's own scripts (project.py,
 criteria.py, decisions.py) in a throwaway repository, with a task in every column: two that build,
-one in its checks, a breaker and criteria that wait for the owner, a pull request the merge agent calls
+one in its checks, a breaker and criteria that changed from the owner's note and wait for his yes again, a pull request the merge agent calls
 the owner for, a typo the merge agent found nothing in and the board's server merged, another landed task,
 an answered question, one task the owner parked after its breaker, and one he parked that he started from a
 reviewer's item. The night and the retro proposed, and the reviewer passed two proposals into the state
@@ -147,6 +147,18 @@ class Shop:
         self.criteria("approve", slug, "--file", str(file), *flags)
         self.at(slug, minutes)
 
+    def no_on_the_board(self, slug: str, minutes: float, block: float, note: str) -> None:
+        """The owner's No with NOTE on the criteria's row of the held block of BLOCK minutes before NOW, from his phone
+        through the tailnet door, MINUTES before NOW: its record in the task's folder (lem_answers) and the board's
+        `board.act`, as serve.py `act_answer` writes them."""
+        if str(SCRIPTS) not in sys.path:
+            sys.path.insert(0, str(SCRIPTS))
+        import lem_answers  # the record of the owner's answer on the board
+
+        key = f"criterion:{slug}:{(NOW - timedelta(minutes=block)).strftime('%Y%m%dT%H%M%SZ')}"
+        lem_answers.record(self.dir / "tasks" / slug, key, "Approve the criteria?", "no", note, via="door", device="phone", agent="Mozilla/5.0 (iPhone)")
+        self.log(slug, minutes, "board.act", "act=answer", "via=the board, through the tailnet door", f"key={key}", "option=no", "question=Approve the criteria?")
+
     def session(self, slug: str, minutes: float, phase: str, why: str) -> None:
         """The task's agterm session opened MINUTES before NOW, as `lem session open` logs it: an id of agterm's
         form, made from the task's name and the minute, so that each run writes the same."""
@@ -195,6 +207,12 @@ class Shop:
             sys.exit(f"board-showcase: these tasks have more times than events: {short}")
         log.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows))
 
+
+# The owner's note on the criteria of stock-on-product-page, and the criteria the session wrote from it.
+STOCK_NOTE = "criterion 1 should also warn when only one is left"
+STOCK_CHANGED = ('A product with 3 in stock says "3 left" under its price, and one with 1 in stock says "Only 1 left" in the warning color: '
+                 'the blue mug, with 1 in stock, says "Only 1 left".',
+                 'A product with none in stock says "Sold out" and no number.')
 
 FOOTER_ITEM = ("---\nworth: yes\nwhere: invoice/footer.py:footer\nadded: {today}\n---\n\n# The invoice footer wraps on A5\n\n"
                "Seen in the polish pass of the order date: the footer's last line wraps when the invoice prints on A5.\n")
@@ -462,7 +480,9 @@ def afternoon(shop: Shop) -> None:
     s.state(t, 190, "parked", "the owner parked it: wait for the merchants' association to confirm the fee date")
     s.closed(t, 189.5, "owner")
 
-    # Criteria the personas read, with one flagged, which wait for his yes.
+    # Criteria the personas read, with one flagged, which waited for his yes; he said No on his phone with a note, and
+    # the session wrote the change in its own words (`lem criteria change`): they wait for his yes again, each changed
+    # criterion with its text before beside its new text.
     t = "stock-on-product-page"
     s.task(t, "Show how many are left on the product page")
     s.session(t, 31.5, "shape", "new")
@@ -477,8 +497,14 @@ def afternoon(shop: Shop) -> None:
     s.log(t, 19, "criteria.read.start", "by=lem")
     s.read(t, 14, stock, 1)
     s.state(t, 14, "held", "the criteria wait for the owner")
-    # its session keeps them in the task directory, where the board shows them with the owner's button
+    # its session keeps them in the task directory, where the board shows them with the owner's Yes and No
     (s.dir / "tasks" / t / "criteria.md").write_text(stock.read_text())
+    s.no_on_the_board(t, 10, 14, STOCK_NOTE)
+    changed = s.criteria_file(t, "full", "the product page gets a new line.", *STOCK_CHANGED)
+    s.criteria("change", t, "--file", str(changed), "--words", STOCK_NOTE)
+    # the change writes two events, `criteria.changed` and the held block's `task.state`
+    s.at(t, 8)
+    s.at(t, 8)
 
     # A careful change: its plan is talked through with the reviewer before anything is built.
     t = "refund-rounding"

@@ -1033,10 +1033,12 @@ PY
 }
 
 # The park step of gift-note-in-export and the approval of the criteria of stock-on-product-page, which on a phone take
-# the confirm step's overlay (lem_board_task.py `confirm_card`, the `sheet` controller, board.css). Each text fits at
-# 390 x 844, so the gate's checks use 390 x 400, where the text of each goes on below the body's end (measured: the park's
-# body 161 px of 194, the approval's 140 of 226). Last in the block: with no script its checks park the one task and
-# approve the criteria of the other. `acted.py LOG TASK ACT` prints whether a board.act of ACT on TASK comes into the log
+# the confirm step's overlay (lem_board_task.py `confirm_card`, the `sheet` controller, board.css). The criteria of
+# stock-on-product-page changed from the owner's note, so their card shows criterion 1's text before beside its new
+# text, one under the other on a phone and side by side on a desktop, above Yes and No with a note (criteria 2, 3 and 4
+# of criteria-change-asks-again); on a phone of 390 x 844 a No with no note, after the read to the end, is refused on
+# the page and posts no act. The gate's checks use 390 x 400, where the text of each goes on below the body's end.
+# Last in the block: with no script its checks park the one task and approve the criteria of the other with its Yes. `acted.py LOG TASK ACT` prints whether a board.act of ACT on TASK comes into the log
 # within 20 s (serve.py `asked_from` logs it after the act's script ran).
 cat > "$WORK/acted.py" <<'PY'
 import json, sys, time
@@ -1086,11 +1088,23 @@ def to_end(step):
 def gate(step, url):
     return [*open_(step, url), at(f"{step}-opened", step), acts(f"{step}-acts-before"), {"click": f"{CARD[step]} .cf-foot button[type=submit]"}, {"wait": 700},
             {"print": f"['{step}-tapped', location.pathname + location.search]"}, acts(f"{step}-acts-after"), at(f"{step}-after-tap", step), to_end(step), at(f"{step}-end", step)]
-def looks(width, height, label, **more):
-    return {"width": width, "height": height, **more, "steps": [*open_("park", PARK), at(f"park-{label}", "park"), *open_("approve", STOCK), at(f"approve-{label}", "approve")]}
+# the two sides of the changed criterion: how many, one under the other with one left edge, side by side on one top,
+# each inside the screen, and whether the overlay's body has nothing wider than itself
+PAIRS = ("(() => { const s = [...document.querySelectorAll('#approve-card .cf-pair.cf-changed .cf-side')].map(n => n.getBoundingClientRect()), body = document.querySelector('#approve-card .cf-body');"
+         " return {sides: s.length, stacked: s.length === 2 && Math.round(s[0].left) === Math.round(s[1].left) && s[1].top >= s[0].bottom - 1,"
+         " beside: s.length === 2 && Math.round(s[0].top) === Math.round(s[1].top) && s[1].left >= s[0].right - 1, inside: s.every(r => r.left >= 0 && r.right <= innerWidth),"
+         " wide: body.scrollWidth <= body.clientWidth + 1, labels: [...document.querySelectorAll('#approve-card .cf-pair .cf-label')].map(n => n.textContent.trim())}; })()")
+def looks(width, height, label, then=(), **more):
+    return {"width": width, "height": height, **more, "steps": [*open_("park", PARK), at(f"park-{label}", "park"), *open_("approve", STOCK), at(f"approve-{label}", "approve"),
+                                                               {"print": f"['pairs-{label}', {PAIRS}]"}, *then]}
+# a No with no note on the phone, after the read to the end: refused on the page, and no act in the log
+NOTE_SAID = "document.querySelector('#act-note')?.textContent.replace(/\\s+/g, ' ').trim()"
+BARE_NO = [to_end("approve"), acts("no-acts-before"), {"click": "#approve-card .cf-foot button[value=no]"}, {"wait": 700},
+           {"print": f"new Promise(done => {{ const end = Date.now() + 15000; const tick = () => (({NOTE_SAID}) || Date.now() > end) ? done(['no-said', {NOTE_SAID} ?? null]) : setTimeout(tick, 100); tick(); }})"},
+           acts("no-acts-after")]
 specs = {
     "gate": {"width": 390, "height": 400, "mobile": True, "steps": [*gate("park", PARK), *gate("approve", STOCK)]},
-    "fit": looks(390, 844, "fit", mobile=True),
+    "fit": looks(390, 844, "fit", mobile=True, then=BARE_NO),
     "desk": looks(1440, 900, "desk"),
     # with no script: no controller, so no overlay; each click posts its form, and the act runs
     "noscript": {"width": 390, "height": 844, "mobile": True, "noscript": True, "posts": True, "steps": [
@@ -1121,28 +1135,40 @@ PY
   else
     fail "the park step's overlay on a phone: $(cat "$gate")"
   fi
-  if gated approve "Approve the criteria" && [ "$(seen "$gate" approve-tapped)" = "/$HOST/shop/tasks/$stock/criteria?in=waits" ] \
+  if gated approve "Yes" && [ "$(seen "$gate" approve-tapped)" = "/$HOST/shop/tasks/$stock/criteria?in=waits" ] \
     && [[ "$(fact "$gate" approve-opened 'd["headWords"]')" == "The criteria wait for your yes"* ]]; then
-    pass "on a phone whose screen the criteria go on below, the approval of stock-on-product-page opens the overlay with its head, the criteria and a button that is off and reads Read to the end ↓, a tap on it posts nothing, and after the criteria are scrolled to their end it reads Approve the criteria and is on"
+    pass "on a phone whose screen the criteria go on below, the approval of stock-on-product-page opens the overlay with its head, the criteria and a button that is off and reads Read to the end ↓, a tap on it posts nothing, and after the criteria are scrolled to their end it reads Yes and is on"
   else
     fail "the approval's overlay on a phone: $(cat "$gate")"
   fi
   if [ "$(fact "$out-fit.out" park-fit 'd["sheet"], d["position"], d["content"] <= d["height"], d["disabled"], d["label"]')" = "(True, 'fixed', True, None, 'Park the task')" ] \
-    && [ "$(fact "$out-fit.out" approve-fit 'd["sheet"], d["position"], d["content"] <= d["height"], d["disabled"], d["label"]')" = "(True, 'fixed', True, None, 'Approve the criteria')" ]; then
-    pass "on a phone of 390 x 844, where the whole text of each fits, the park step and the approval open the overlay with the button on from the first look"
+    && [ "$(fact "$out-fit.out" approve-fit 'd["sheet"], d["position"], d["content"] <= d["height"], d["disabled"], d["label"], d["back"][1] <= d["screen"]')" = "(True, 'fixed', True, None, 'Yes', True)" ]; then
+    pass "on a phone of 390 x 844, where the whole text of each fits, the park step and the approval open the overlay with the button on from the first look, the approval's Yes, No and Back in the screen"
   else
     fail "the park step and the approval whose text fits: $(cat "$out-fit.out")"
   fi
+  if [ "$(fact "$out-fit.out" pairs-fit 'd["sides"], d["stacked"], d["inside"], d["wide"], d["labels"]')" = "(2, True, True, True, ['Before · criterion 1', 'Now · criterion 1'])" ] \
+    && [ "$(fact "$out-desk.out" pairs-desk 'd["sides"], d["beside"], d["inside"]')" = "(2, True, True)" ]; then
+    pass "the card of criteria that changed from the owner's note shows criterion 1's text before and its new text, one under the other on a phone of 390 px with nothing wider than the overlay, and side by side on a desktop"
+  else
+    fail "the text before beside the new: $(seen "$out-fit.out" pairs-fit) / $(seen "$out-desk.out" pairs-desk)"
+  fi
+  if [ "$(seen "$out-fit.out" no-said)" = "Not done. No needs your words: what should the criteria say? Nothing was recorded." ] \
+    && [ "$(seen "$out-fit.out" no-acts-before)" = "$(seen "$out-fit.out" no-acts-after)" ] && [ "$(seen "$out-fit.out" no-acts-after)" != "nothing printed" ]; then
+    pass "on a phone, No with no note on the criteria of stock-on-product-page, after the read to the end, is refused on the page with the words it needs, and no act comes into the log"
+  else
+    fail "a No with no note on a phone: $(seen "$out-fit.out" no-said) / $(seen "$out-fit.out" no-acts-before) / $(seen "$out-fit.out" no-acts-after)"
+  fi
   if [ "$(fact "$out-desk.out" park-desk 'd["fixed"], d["disabled"], d["label"], d["button"][0] > d["textEnd"], d["backWords"], d["back"] is not None')" = "(False, None, 'Park the task', True, 'Back', True)" ] \
-    && [ "$(fact "$out-desk.out" approve-desk 'd["fixed"], d["disabled"], d["label"], d["button"][0] > d["textEnd"], d["back"]')" = "(False, None, 'Approve the criteria', True, None)" ]; then
+    && [ "$(fact "$out-desk.out" approve-desk 'd["fixed"], d["disabled"], d["label"], d["button"][0] > d["textEnd"], d["back"]')" = "(False, None, 'Yes', True, None)" ]; then
     pass "on a desktop's screen of 1440 x 900 the park step and the approval have no fixed part and their button is on, below their text in the page, and the approval shows no Back"
   else
     fail "the park step and the approval on a desktop: $(cat "$out-desk.out")"
   fi
   if [ "$(fact "$out-noscript.out" approve-off 'd["sheet"], d["fixed"], d["disabled"], d["plain"], d["textEnd"] < d["button"][0]')" = "(False, False, None, '## Acceptance criteria', True)" ] \
-    && grep -qF "[\"post\",\"$BASE/tasks/$stock/approve digest=" "$out-noscript.out" && [ "$(fact "$out-noscript.out" park-off 'd["sheet"], d["fixed"], d["disabled"], d["label"], d["button"][0] > d["textEnd"]')" = "(False, False, None, 'Park the task', True)" ] \
+    && grep -qE "^\[\"post\",\"$BASE/tasks/$stock/answer key=criterion%3A$stock%3A[0-9]{8}T[0-9]{6}Z&digest=[0-9a-f]{16}&tab=criteria&in=waits&words=&option=yes\"\]$" "$out-noscript.out" && [ "$(fact "$out-noscript.out" park-off 'd["sheet"], d["fixed"], d["disabled"], d["label"], d["button"][0] > d["textEnd"]')" = "(False, False, None, 'Park the task', True)" ] \
     && grep -qE "^\[\"post\",\"$BASE/tasks/$park/park in=waits&key=breaker%3A$park%3A1%3A[0-9]{8}T[0-9]{6}Z&why=\"\]$" "$out-noscript.out" && [ "$(grep -c '^\["acted", true\]$' "$out-noscript.out")" = 2 ]; then
-    pass "with no script the approval shows the criteria as plain text above its button and the park step its text above its button, each button is on, and each click posts its form, the park's with the key of the breaker's row, and the act runs: the board.act of the approval and of the park come into the log"
+    pass "with no script on a phone the approval shows the criteria as plain text above its Yes and the park step its text above its button, each button is on, and each click posts its form, the approval's Yes with the key of the criteria's row and the digest, the park's with the key of the breaker's row, and the act runs: the board.act of the approval and of the park come into the log"
   else
     fail "the park step and the approval with no script: $(cat "$out-noscript.out")"
   fi

@@ -56,7 +56,7 @@ fi
 kanban=$(got "$BASE/")
 said=$(words <<<"$kanban")
 if [ "$(lanes <<<"$kanban")" = "{'you': ['gift-note-in-export', 'stock-on-product-page', 'refund-line-on-receipt'], 'build': ['refund-rounding', 'cart-total-after-coupon'], 'checks': ['coupon-has-a-slug'], 'done': ['footer-terms-typo', 'order-date-on-invoice', 'why-export-is-slow']}" ] \
-  && grep -qF "The criteria wait for you" <<<"$said" && grep -qF "Investigating: an investigator reproduces the bug" <<<"$said" \
+  && grep -qF "The criteria changed from your note, and wait for your yes again" <<<"$said" && grep -qF "Investigating: an investigator reproduces the bug" <<<"$said" \
   && grep -qF "Landed: main: pull request #41 is merged" <<<"$said" && grep -qF "Landed: main: pull request #38 is merged" <<<"$said" \
   && grep -qF "Demo data." <<<"$said" && grep -qF "Read the breaker of gift-note-in-export" <<<"$said" && ! grep -qF 'id="card-fee-notice-to-merchants"' <<<"$kanban" && grep -qF 'data-agterm-url-value="/'"$HOST"'/shop/agterm"' <<<"$kanban"; then
   pass "the kanban puts each task in the column of who acts and a parked one in none, each card says its state in the board's words, the sidebar has what waits, and a page for this Mac carries the address of agterm's acts"

@@ -48,7 +48,7 @@ Buttons on "Waits for you" and the task pages do what Lem does on your words:
 
 - **New task** (`+`, or the key `N`): type a request, and Lem opens the session of the new task.
   A backlog item has **Start a task**, and the item leaves the backlog when that task merges.
-- **Approve the criteria**: your yes to the criteria.
+- **Approve the criteria**, on a task that the release before began: your yes to the criteria.
 - **Merge**: a page shows green or not green, the pull request and the commit first. You cannot
   undo a merge. On a phone, the page opens over the task, and its button becomes active when you
   read to the end.
@@ -64,8 +64,17 @@ You also answer the questions of a task on the board. Each question has one fiel
 - **Skip the persona read?** of an interview: **Yes** or **No**.
 - **Approve this criterion?** of a small change that another person asked for: **Yes** or **No**.
   No needs a note: what the criterion must say.
+- **Approve the criteria?** of the standard track: **Yes** or **No**. No needs a note: what the
+  criteria must say. Lem then writes the changed criteria, and asks for your yes again. The card
+  then shows the old text of each changed criterion beside its new text. When your note changes
+  no criterion (an instruction or a question), Lem does what the note says and asks for your yes
+  to the same criteria again. On **Waits for you**, the row has **Read and approve…**, which
+  opens the card.
 
-**Park** and **Drop** ask you to confirm first. Park, and Yes to a criterion, take effect at once.
+On a task that the release before began, the board does not ask about a plan, a breaker, the
+persona read or the criteria. Answer these questions in the session of the task.
+
+**Park** and **Drop** ask you to confirm first. Park, and Yes to criteria, take effect at once.
 The session of the task takes each other answer as your typed word.
 
 The board takes an answer with a note, never a conversation. A note with no option, or

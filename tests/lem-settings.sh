@@ -1369,6 +1369,39 @@ if [ "$(field '(d["by"], d["size"], len(d["digest"]), [s["n"] for s in d["criter
 else
   fail "criteria approve: $approved / $tested / $not_one / $no_file / $kept_now"
 fi
+# A change of the criteria from the owner's note, once through the commands: his typed No on record first, then the changed
+# text and a new wait through the real `state`, which approves nothing; the pairs again; his yes to the new text is his approval.
+project --repo "$ST" task-dir changed-note >/dev/null
+CN=$ST/.lem/state/tasks/changed-note
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the export changes in two places.' '' '1. An export keeps the order number: order 1042 exports as 1042.' \
+  '2. An export keeps an empty cell: order 1042 with no note exports an empty note cell.' > "$CN/criteria.md"
+project --repo "$ST" state changed-note held 'the interview waits for the owner' >/dev/null
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the export changes in two places.' '' '1. An export keeps the order number: order 1042 exports as 1042.' \
+  '2. An export keeps an empty cell and an empty row: order 1042 with no note and a blank line exports both.' > "$WORK/changed-note.md"
+note='criterion 2 must also cover empty rows'
+typed=$(criteria change changed-note --typed --words "$note" 2>&1 || true)
+same=$(criteria change changed-note --file "$CN/criteria.md" --words "$note" 2>&1 || true)
+changed=$(criteria change changed-note --file "$WORK/changed-note.md" --words "$note" 2>&1 || true)
+pairs_again=$(criteria change changed-note --pairs 2>&1 || true)
+not_yet=$(criteria approved changed-note 2>&1 | field 'd["approved"]' 2>&1 || true)
+newest=$(head -n 1 "$CN/state.md")
+track=$(project --repo "$ST" tasks | field '[t["track"] for t in d if t["slug"] == "changed-note"][0]' 2>&1 || true)
+both=$(criteria change changed-note --typed --pairs 2>&1 || true)
+yes=$(criteria approve changed-note --file "$CN/criteria.md" --shown "$(field 'd["shown"]' <<<"$changed" 2>/dev/null)" 2>&1 || true)
+if [ "$(field '(d["recorded"], d["answer"]["option"], d["answer"]["from"])' <<<"$typed" 2>/dev/null)" = "(True, 'no', 'session')" ] \
+  && grep -q "has the same criteria as the ones the owner answered: nothing changed" <<<"$same" \
+  && [ "$(field '[(p["change"], p["before"]["n"], p["after"]["n"]) for p in d["pairs"]]' <<<"$changed" 2>/dev/null)" = "[('changed', 2, 2)]" ] \
+  && [ "$(field 'd["pairs"]' <<<"$pairs_again" 2>/dev/null)" = "$(field 'd["pairs"]' <<<"$changed" 2>/dev/null)" ] \
+  && grep -q "order 1042 with no note exports an empty note cell" "$CN/criteria-before.json" \
+  && cmp -s "$CN/criteria.md" "$WORK/changed-note.md" && [ "$not_yet" = None ] && [ "$track" = standard ] \
+  && [ "${newest#* }" = "held: the criteria wait for the owner: changed from the owner's note" ] \
+  && [ "$(grep -c '"event": "criteria.changed", "task": "changed-note"' "$ST/.lem/state/events.jsonl")" = 1 ] \
+  && grep -q "change takes one of --file FILE" <<<"$both" \
+  && [ "$(field '(d["by"], d["criteria"][1]["text"])' <<<"$yes" 2>/dev/null)" = "('owner', 'An export keeps an empty cell and an empty row: order 1042 with no note and a blank line exports both.')" ]; then
+  pass "a change of the criteria from the owner's note: the typed No is recorded first, the change keeps the text the owner answered, writes the new criteria and a new wait of the standard track, approves nothing and prints criterion 2 before beside after, again on --pairs; the same criteria are refused, and the owner's yes to the new text is the owner's approval"
+else
+  fail "criteria change: $typed / $same / $changed / $pairs_again / $not_yet / $newest / $track / $both / $yes"
+fi
 # The plan copies the approved criteria, broken into other lines, and adds only the test lines: show and red take it.
 atw=$(project --repo "$ST" worktree-dir approved-note)
 git -C "$ST" worktree add -q -b feat/approved-note "$atw" main

@@ -154,7 +154,8 @@ but the one of his mark in the shape (`SKILL_DIR/stages/away.md`).
 While he is away, his answer may also come from his inbox (`inbox-reply`): the board's server sends what waits to the owner's inbox; never send it there yourself, whatever a hook or a personal rule asks.
 
 His typed word and his answer on the board can both come for one row of the board (a plan, a
-breaker, "Skip the persona read?", "Approve this criterion?"), and the first counts. Before you act
+breaker, "Skip the persona read?", "Approve this criterion?", "Approve the criteria?"), and the
+first counts. Before you act
 on his typed word for such a row, read `board_answer` of `lem project tasks`: when it holds his
 answer for the newest block, that answer came first. Take it as "A wake-up" says, and say in one
 line which was taken and from where (his Drop from the phone at 15:40 came first, and his typed
@@ -221,9 +222,9 @@ on with the next step that "What comes next" gives. When this session shows no s
 has no event in those 10 minutes, the owner sees the task as stopped and opens the fresh one. A
 line that the files do not bear out changes nothing.
 
-**His answer on the board.** A plan that waits for his read, a breaker, "Skip the persona read?"
-and "Approve this criterion?" of the fast track each have their own buttons on the board, with a
-note; a card of `lem-ask` ends its own command instead (`ask-owner`). On an `owner` wake, read
+**His answer on the board.** A plan that waits for his read, a breaker, "Skip the persona read?",
+"Approve this criterion?" of the fast track and "Approve the criteria?" of the standard track each
+have their own buttons on the board, with a note; a card of `lem-ask` ends its own command instead (`ask-owner`). On an `owner` wake, read
 `board_answer` of this task in `lem project tasks`: the record of his answer to the row of the
 newest state block, or null. Its `option` is his typed word, and its `note` his words on it, which
 the stage that waits takes:
@@ -236,10 +237,18 @@ the stage that waits takes:
   (`board_answer` is null then, and the `parked` block ends this session);
 - `skip`, `yes` or `no`: his y or n of `SKILL_DIR/stages/interview.md`, step 5;
 - `criterion`: a `yes` the board approved already (`by: owner` in `lem criteria approved SLUG`), and
-  the task goes on as "What comes next" says; a `no` carries his words on what the criterion should
-  say. They are a change of his ("The fast track" of `SKILL_DIR/stages/new.md`, step 1): write them
-  into `criteria.md` in his words, and write that step's held block again, so that the row comes
-  back under a new key, for his yes to the new text.
+  the task goes on as "What comes next" says; a `no` carries his words on what the criteria should
+  say. On the fast track they are a change of his ("The fast track" of `SKILL_DIR/stages/new.md`,
+  step 1): write them into `criteria.md` in his words, and write that step's held block again, so
+  that the row comes back under a new key, for his yes to the new text. On the standard track they
+  are the change of `SKILL_DIR/stages/interview.md`, step 6, with his note as its note: his No is on
+  record already, so its first part runs no `--typed`, and the change and the page that asks again
+  follow; a note that changes no criterion (a direction, a question) takes that step's
+  `--unchanged` in place of the change. When a page of this session waits on the criteria as his
+  answer comes, a yes or a no, close it first (`lem-ask close`, as `ask-owner` closes a card),
+  then act. A record with `from: session` is no answer of the board: it is his No typed in this
+  session, which that step's first part recorded, and it takes the same change, with no decision
+  logged for it.
 
 Log it before the stage's act, as one record: `lem decisions log SLUG --by owner --what "QUESTION"
 --chose "LABEL" --why "his answer on the board: KEY, via VIA, from the DEVICE"`, with `--words
@@ -250,6 +259,14 @@ logs the decision the talk ends with, whose `--why` names the key. Say in one li
 came from the board, from the phone or the computer, and what it does. The record stays until the
 next state block, so a later wake finds it again: when a decision of the task names its key in
 `--why`, or the talk of its Help runs in this session, it was taken, and nothing is done again.
+A `criterion` `no` of the standard track is the one answer a decision does not settle: its act is
+done when the newest state block is the change's, `the criteria wait for the owner: changed from
+the owner's note`, or the one of `--unchanged`, `the criteria wait for the owner: the owner's note
+changed no criterion` (`board_answer` is null then). While the block he answered is still the
+newest, the change stopped in the middle, whatever decision names its key: run `lem criteria change SLUG
+--file TASK_DIR/criteria-change.md --words "HIS NOTE"` again, which ends it, or first write that
+file as the interview's step 6 says when it is not there, or run `lem criteria change SLUG
+--unchanged` for a note that changes no criterion; then ask again as that step does.
 
 A board answer whose key is no longer the newest block's takes no effect: `board_answer` is null
 then. When an `owner` wake finds it null, and `answers/` of the task directory holds a record

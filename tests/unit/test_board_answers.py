@@ -130,7 +130,7 @@ class Acts(unittest.TestCase):
         done = self.answer({"key": key, "option": "drop", "confirm": "yes", "words": "  the export   goes  another way "})
         self.assertEqual(done, {"ok": True, "said": f"{bm.ANSWER_ON_RECORD} The task’s session got word of it, and it drops the task as on /lem drop."})
         self.assertIn(("wake", SLUG), self.calls)
-        self.assertIn(("board.act", "answer", bm.VIA["door"], f"key={key}", "option=drop"), self.calls)
+        self.assertIn(("board.act", "answer", bm.VIA["door"], f"key={key}", "option=drop", f"question=Breaker 1 of {SLUG}: help, park or drop the task?"), self.calls)
         # the server never runs the drop itself: no script of Lem's ran
         self.assertEqual([c for c in self.calls if c[0] not in ("wake", "board.act")], [])
         self.assertEqual(self.record(key)["note"], "the export goes another way")
@@ -337,10 +337,10 @@ class Rows(unittest.TestCase):
         self.assertIn('name="digest" value="d1g3st"', tab)
         self.assertIn('name="tab" value="criteria"', tab)
         self.assertIn('name="option" value="no"', tab)
-        # the standard track's criteria keep their one Approve
+        # the standard track's criteria take Yes and No too, with their own question (criteria-change-asks-again)
         std = self.ctx(state(0, "held", "the criteria wait for the owner"), OPENED, tab="criteria")
-        self.assertIsNone(bm.answer_row(std.model.tasks[0]))
-        self.assertIn("<span>Approve the criteria</span>", str(task_pages.approve_card(std, std.model.tasks[0])))
+        self.assertEqual(bm.answer_row(std.model.tasks[0])["question"], "Approve the criteria?")
+        self.assertIn('name="option" value="no"', str(task_pages.approve_card(std, std.model.tasks[0])))
 
     def test_criterion_6_an_answer_on_record_hides_the_row_and_the_overview_says_so_until_the_next_block(self):
         key = f"breaker:{SLUG}:1:{stamp(20)}"

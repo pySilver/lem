@@ -696,7 +696,10 @@ class ParkAndApproveSteps(unittest.TestCase):
         self.assertIn("&quot;3 left&quot; under its price.", html[plain:foot])
         form = html[foot:]
         self.assertIn('name="digest" value="d1g3st"', form)
-        self.assertIn("<span>Approve the criteria</span>", form)
+        # the standard track's criteria take the one answer form: Yes, or No with his words
+        self.assertIn('<div class="ans-q">Approve the criteria?</div>', form)
+        self.assertIn('name="option" value="yes"', form)
+        self.assertIn('name="option" value="no"', form)
         self.assertIn('class="btn cf-back"', form)
         self.assertIn("<span>Back</span>", form)
         self.assertIn('data-controller="sheet"', html)
