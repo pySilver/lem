@@ -171,17 +171,57 @@ state. The release is made on the owner's word.
 Still a plugin with no install step and no dependency. No release: nobody uses Lem during the
 migration.
 
-- [ ] One real task runs on `main`'s Lem in a scratch repository (`claude --plugin-dir`), from
+- [x] One real task runs on `main`'s Lem in a scratch repository (`claude --plugin-dir`), from
   `/lem new` to a merged pull request: the hooks, the board server's start and a landing, on the
   new layout. The trial has a Lem home, a Claude configuration and a port of its own, as
   `tests/lib.sh` gives a suite, so that it cannot replace his board server; its report names the
   command that was resolved, its version and root, and the server's root and pid. A defect it
   shows is fixed before stage 3 starts.
-- [ ] The base lines that later stages are held to are recorded here: for each hook, and for one
+- [x] The base lines that later stages are held to are recorded here: for each hook, and for one
   small command, the modules its process loads and its time (the least of 20 runs), on a prompt
-  with the correction queue off, at a session's start and at a compaction; and the command lines
-  of the skills' texts on `main` at the end of stage 1, with their output and exit status, as
-  fixtures.
+  with the correction queue off, at a session's start and at a compaction.
+- [ ] The command lines of the skills' texts on `main` at the end of stage 1 are fixtures: what
+  each name takes (its subcommands and options), and that each command line a text gives is one
+  the command takes.
+
+#### The trial of 2026-11-24
+
+Run by the maintaining session from a runbook that Astra wrote, on `main` at `3247d8fe`, in a
+temporary folder with its own Lem home, Claude configuration (empty) and port, in the private
+repository `pySilver/lem-scratch`.
+
+- **Resolved.** In the request's session and in the task's session `command -v lem` gave the
+  copy's `bin/lem`, and `lem version` gave version 0.3.1, commit `3247d8f` and the copy's folder as
+  its root. The session listed the agent `lem:lem-builder`.
+- **The board server.** No listener before the first session. The `SessionStart` hook started
+  one: pid 79869, port 52849, its root the copy's folder and its home the trial's
+  (`/api/server`). His own server kept its pid 3311, its start time and its two ports, read by
+  `ps` and `lsof` before and after.
+- **The task.** `/lem new Correct the typo "recieve" to "receive" in docs/word-list.txt.` went the
+  fast track with no answer from a person: `session.open` at 20:09:48 UTC, one builder, the check
+  `sh tests/words.sh`, one review read, pull request 19 proposed green at 20:14:00, the merge
+  agent's verdict `merge` at 20:14:30, merged by the server at 20:14:52. The worktree and the
+  branch were gone after it, here and on GitHub.
+- **Seen, and not Lem's code.** A new Claude Code configuration (2.1.331) asks "Allow this read
+  outside the working directories?" at the first read of a stage file in the plugin's folder: a
+  new user meets it at the first task, so the install guide of stage 3 says it. The wake after
+  the merge opened a second session, because the trial's wrapper of `claude` had another name
+  and `session.agent_runs` saw no agent in the first: the next trial names its wrapper `claude`.
+
+The base lines, on Python 3.15.2, with the board server running, each the least of 20 runs:
+
+| Process | When | Least | Modules |
+|---|---|---|---|
+| `corrections hook` | a prompt, the queue off | 55.5 ms | 107 |
+| `serve_hook` | a session's start | 50.8 ms | 82 |
+| `session_hook` | a session's start | 47.8 ms | 83 |
+| `session_hook` | before a compaction | 48.3 ms | 83 |
+| `session_hook` | a start after a compaction | 48.5 ms | 83 |
+| `ask hook-stop` | a turn's end, not waited for | 86.3 ms | 91 |
+| `lem version` | a small command | 40.5 ms | 67 |
+
+The modules of `lem` in a hook's process are `lem`, `lem.state` and `lem.paths` at most, beside
+the hook's own module.
 
 ### Stage 3: Lem gets its libraries (the rest of step 1)
 
