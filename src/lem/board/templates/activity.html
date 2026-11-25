@@ -5,12 +5,15 @@
 {% for lane in view.lanes %}
 <div class="tl-row" id="tl-{{ lane.slug }}">{{ p.href(lane.task, native, 'tl-label') }}
 <div class="tl-track">
-{% if view.now is not none %}<i class="tl-now" style="left:{{ view.now }}%"></i>{% endif %}
 {% for stretch in lane.stretches %}
 <span class="tl-{{ 'dot' if stretch.dot else 'seg' }} s-{{ stretch.status }} a-{{ stretch.look }}{% if stretch.live %} live{% endif %}" tabindex="0" style="left:{{ stretch.left }}%;{% if not stretch.dot %}width:max(2px, {{ stretch.width }}%){% endif %}" title="{{ stretch.title }}" aria-label="{{ stretch.title }}"></span>
 {% endfor %}
 </div></div>
 {% else %}<p class="empty">No task has a state yet.</p>{% endfor %}
+<div class="tl-grid" aria-hidden="true">
+{% for tick in view.ticks %}<i style="left:{{ tick.left }}%;"></i>{% endfor %}
+{% if view.now is not none %}<span class="tl-now" style="left:{{ view.now }}%"></span>{% endif %}
+</div>
 </div>
 <div class="tl-axis"><b class="tl-day">{{ view.day }}</b><div class="tl-ticks">{{ events.ticks(view.ticks) }}</div></div>
 <div class="legend">{% for shade in view.shades %}<span class="a-{{ shade.look }}{% if shade.status %} s-{{ shade.status }}{% endif %}" title="{{ shade.title }}"><i></i>{{ shade.label }}</span>{% endfor %}</div>

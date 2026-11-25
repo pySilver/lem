@@ -6,7 +6,7 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
     from pathlib import Path
 
     from starlette.requests import Request
@@ -14,7 +14,14 @@ if TYPE_CHECKING:
 SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 RECORDS = "tasks/*/task.json"
 DIGITS = 16
-SHARED = ("demo", "forge.json", "inbox.json", "backlog/*.md", "tasks/*/sessions.jsonl")
+SHARED = (
+    "demo",
+    "forge.json",
+    "inbox.json",
+    "backlog/*.md",
+    "tasks/*/sessions.jsonl",
+    "tasks/*/session-acts.jsonl",
+)
 SETTINGS = ("settings.toml", "settings.local.toml")
 OWNER = ("owner.json", "workspaces.json", "machine.toml")
 
@@ -44,10 +51,11 @@ def files(state: Path, home: Path, slug: str | None) -> Iterable[Path]:
             yield from task.rglob("*")
 
 
-def digest(paths: Iterable[Path]) -> str:
-    """A version that changes when a file is replaced, edited or removed."""
+def digest(paths: Iterable[Path], revision: str = "") -> str:
+    """A version of the files and the results of the owner's acts."""
     found = sorted(filter(None, map(stamped, paths)))
-    return hashlib.sha256(repr(found).encode()).hexdigest()[:DIGITS]
+    shown = repr((found, revision))
+    return hashlib.sha256(shown.encode()).hexdigest()[:DIGITS]
 
 
 def shown(request: Request, state: Path) -> str:
@@ -55,4 +63,8 @@ def shown(request: Request, state: Path) -> str:
     home = request.app.state.home
     slug = request.path_params.get("slug") or request.query_params.get("task")
     records = state.glob(RECORDS)
-    return digest((*records, *files(state, home, slug)))
+    revision: Callable[[Path], str] | None = getattr(
+        request.app.state, "act_revision", None
+    )
+    token = revision(state) if revision else ""
+    return digest((*records, *files(state, home, slug)), token)

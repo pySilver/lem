@@ -3,6 +3,7 @@
 {% if tab.went %}{{ went(tab.went, native) }}
 {% elif tab.ended %}<p class="empty">{{ tab.ended }}</p>
 {% else %}
+{% if tab.commands or tab.ended_run or tab.commands_empty %}
 <section class="card" id="checks-card"><header class="card-head"><h2>Checks</h2>{% if tab.commands_said %}<p>{{ tab.commands_said }}</p>{% endif %}</header>
 {% for command in tab.commands %}
 <div class="ev a-{{ command.look }}" id="{{ command.id }}">{{ p.icon(command.icon) }} <div><b>{{ command.word }}</b> <code>{{ command.command }}</code>
@@ -14,6 +15,8 @@
 {% if tab.ended_run %}{{ p.row(tab.ended_run) }}{% endif %}
 {% if tab.commands_empty %}<p class="empty">{{ tab.commands_empty }}</p>{% endif %}
 </section>
+{% endif %}
+{% if tab.rounds or tab.proposal or tab.rounds_empty %}
 <section class="card" id="review-card"><header class="card-head"><h2>Review</h2>{% if tab.rounds_said %}<p>{{ tab.rounds_said }}</p>{% endif %}</header>
 {% for round in tab.rounds %}{{ p.row(round) }}{% endfor %}
 {% if tab.rounds_empty %}<p class="empty">{{ tab.rounds_empty }}</p>{% endif %}
@@ -23,4 +26,5 @@
 {% if proposal.reasons %}{{ p.reasons(proposal.reasons, native) }}{% endif %}</div><time>{{ proposal.time }}</time></div>
 {% endif %}
 </section>
+{% endif %}
 {% endif %}

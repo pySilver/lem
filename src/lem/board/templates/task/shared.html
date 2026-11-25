@@ -1,4 +1,7 @@
 {% import 'parts.html' as p %}
+{% macro back(href, native) -%}
+<a class="ibtn p-back" href="{{ href | address }}"{{ p.frame_attrs(native) }} title="Back to the board" aria-label="Back to the board">{{ p.icon('arrow-left') }}</a>
+{%- endmacro %}
 {% macro facts(parts, native, cls='facts') -%}
 {% if parts %}<dl class="{{ cls }}">{% for fact in parts %}
 <div class="fact{% if fact.yours %} a-you{% endif %}" style="display: contents" id="fact-{{ fact.key }}"{% if fact.title %} title="{{ fact.title }}"{% endif %}>

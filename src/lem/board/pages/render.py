@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import jinja2
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
+from lem.board.inputs.names import task_href
 from lem.board.inputs.switcher import Workspaces
 from lem.board.pages import printing
 
@@ -27,6 +28,7 @@ ENV.filters.update(
     inline=printing.inline,
     milliseconds=printing.milliseconds,
     read_key=printing.read_key,
+    task_address=task_href,
 )
 SYMBOLS = printing.icons()
 HEADERS = MappingProxyType(

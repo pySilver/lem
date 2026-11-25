@@ -9,7 +9,7 @@ from starlette.responses import HTMLResponse, Response
 from starlette.routing import Route
 
 from lem.board.inputs.switcher import Failure
-from lem.board.pages import place, render, stamps
+from lem.board.pages import place, render, stamps, task_tab
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -56,6 +56,9 @@ def resolved(request: Request, provider: Source | None) -> Response:
         )
     stamp = stamps.shown(request, space.state) if space else ""
     board = provider(request, space, stamp)
+    unknown = request.path_params.get("unknown_tab")
+    if unknown:
+        board = task_tab.missing(board, unknown)
     return render.page(board, fragment=request.headers.get("turbo-frame") == "task")
 
 

@@ -7,6 +7,7 @@ import pwd
 import re
 import threading
 from dataclasses import dataclass
+from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -239,7 +240,9 @@ def test_a_request_with_two_hosts_or_none_reads_nothing() -> None:
 
 async def first_event(state: Path, *, rendered: str | None, missed: bool) -> object:
     """The stream's first message, while a record is written a moment after it opens."""
-    events = stream.events(state, rendered=rendered, missed=missed)
+    events = stream.refreshed(
+        partial(stream.version, state), rendered=rendered, missed=missed
+    )
 
     async def write() -> None:
         await anyio.sleep(0.3)

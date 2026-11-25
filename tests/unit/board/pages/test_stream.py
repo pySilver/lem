@@ -112,3 +112,37 @@ def test_poll_ignores_other_tasks_prose_and_does_not_follow_a_slug_as_a_path(
         before = stamps.shown(request, state)
         artifact.write_text(f"{slug} new contents", encoding="utf-8")
         assert before == stamps.shown(request, state)
+
+
+def test_session_stop_refreshes_activity_without_an_open_task(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    request = at(tmp_path / "home", None)
+    happened = state / "tasks" / "a-task" / "session-acts.jsonl"
+    happened.parent.mkdir(parents=True)
+    before = stamps.shown(request, state)
+    happened.write_text('{"act":"stop"}\n', encoding="utf-8")
+    assert stamps.shown(request, state) != before
+
+
+def test_merge_refusal_refreshes_after_the_last_file_write(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    request = at(tmp_path / "home", "a-task")
+    notes = {state: "running: Merging…"}
+    request.app.state.act_revision = notes.__getitem__
+    other = tmp_path / "other"
+    notes[other] = "running: Merging…"
+    look = partial(stamps.shown, request, state)
+    before = look()
+    notes[other] = "refused: Another merge stopped."
+    assert look() == before
+    notes[state] = "refused: The base moved."
+
+    async def check() -> None:
+        async with aclosing(
+            stream.refreshed(look, rendered=before, missed=False)
+        ) as messages:
+            with anyio.fail_after(2):
+                message = await anext(messages)
+                assert message.id == look() != before
+
+    anyio.run(check)

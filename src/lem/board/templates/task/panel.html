@@ -1,13 +1,18 @@
+{% from 'task/shared.html' import back %}
 <section class="panel{% if panel.artifacts and panel.artifacts.wide %} page-open{% endif %}" id="panel" data-task="{{ panel.slug }}" aria-label="The task" data-controller="panel">
 <div class="p-grip" role="separator" aria-orientation="vertical" aria-label="The panel's width" data-controller="splitter" data-action="pointerdown->splitter#start dblclick->splitter#reset" title="Drag to resize. Double-click for the usual width."></div>
-{% if panel.head %}{% set head = panel.head %}{% include 'task/head.html' %}{% endif %}
-{% if panel.missing %}
-<header class="p-head"><a class="ibtn p-close" href="{{ panel.missing.back | address }}"{{ p.frame_attrs(native) }} data-hotkey="Escape" aria-label="Close the task">{{ p.icon('xmark') }}</a><h2 class="p-title" tabindex="-1">{{ panel.missing.title }}</h2></header>
-<div class="tabbody" id="tb-missing"><p>{{ panel.missing.said }}</p></div>
-{% else %}
+{% if panel.head %}{% set head = panel.head %}{% include 'task/head.html' %}
+{% elif panel.missing %}
+<header class="p-head"><div class="p-top">{{ back(panel.missing.back, native) }}<a class="ibtn p-close" href="{{ panel.missing.back | address }}"{{ p.frame_attrs(native) }} data-hotkey="Escape" aria-label="Close the task">{{ p.icon('xmark') }}</a></div><h2 class="p-title" tabindex="-1">{{ panel.missing.title }}</h2></header>
+{% endif %}
+{% if not panel.missing or panel.tabs %}
 <nav class="ptabs" id="ptabs" aria-label="Task tabs">{% for tab in panel.tabs %}
 <a class="ptab" id="ptab-{{ tab.key }}" href="{{ tab.href | address }}"{{ p.frame_attrs(native) }} data-hotkey="Digit{{ tab.kbd }}" title="{{ tab.name }} · key {{ tab.kbd }}"{% if tab.current %} aria-current="page"{% endif %}>{{ tab.name }}{% if tab.count is not none %} <em>{{ tab.count }}</em>{% endif %}</a>
 {% endfor %}</nav>
+{% endif %}
+{% if panel.missing %}
+<div class="tabbody" id="tb-missing"><p>{{ panel.missing.said }}</p></div>
+{% else %}
 <div class="tabbody{% if panel.artifacts %} arts-panel{% endif %}" id="tb-{{ panel.shows }}">
 {% if panel.not_now %}{% include 'task/not-now.html' %}
 {% elif panel.overview %}{% set tab = panel.overview %}{% include 'task/overview.html' %}

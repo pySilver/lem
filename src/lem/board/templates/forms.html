@@ -8,18 +8,18 @@
 {% else %}<textarea rows="{{ part.rows }}" name="{{ part.name }}" id="{{ part.id }}" maxlength="{{ part.longest }}"{% if part.placeholder %} placeholder="{{ part.placeholder }}"{% endif %}{% if part.required %} required{% endif %}>{{ part.words }}</textarea>{% endif %}
 {%- endmacro %}
 {% macro act(part, cls='act-form') -%}
-<form class="{{ cls }}" method="post" action="{{ part.action | address }}">
+<form class="{{ cls }}" method="post" action="{{ part.action | address }}" data-turbo-frame="_top">
 {{ fields(part.fields) }}
 {% if part.box %}{{ box(part.box) }}{% endif %}
 <button type="submit" class="btn {{ part.press }}" data-turbo-submits-with="{{ part.busy }}">{{ p.icon(part.icon) }}<span>{{ part.label }}</span></button>
 </form>
 {%- endmacro %}
-{% macro answer(part) -%}
-<form class="act-form answer-form" method="post" action="{{ part.action | address }}" id="{{ part.id }}" aria-label="{{ part.question }}">
+{% macro answer(part, native) -%}
+<form class="act-form answer-form" method="post" action="{{ part.action | address }}" id="{{ part.id }}" aria-label="{{ part.question }}" data-turbo-frame="_top">
 {{ fields(part.fields) }}<p class="ans-q">{{ part.question }}</p>{{ box(part.note) }}
 <div class="ans-acts">
 {% for choice in part.choices %}
-<button class="btn {{ choice.press }}" type="submit" name="option" value="{{ choice.option }}"{% if choice.confirm %} formaction="{{ choice.confirm | address }}" formmethod="get" formnovalidate{% endif %}>{{ p.icon(choice.icon) }}<span>{{ choice.label }}</span></button>
+<button class="btn {{ choice.press }}" type="submit" name="option" value="{{ choice.option }}"{% if choice.confirm %} formaction="{{ choice.confirm | address }}" formmethod="get" formnovalidate{{ p.frame_attrs(native) }}{% endif %}>{{ p.icon(choice.icon) }}<span>{{ choice.label }}</span></button>
 {% endfor %}
 </div></form>
 {%- endmacro %}

@@ -8,4 +8,6 @@
 {% if box.href %}<a href="{{ box.href | address }}">{{ box.name }}</a>{% else %}<b>{{ box.name }}</b>{% endif %}
 <small>{{ box.path }}</small>{% for chip in box.chips %}{{ p.chip(chip, false) }}{% endfor %}
 </article>
+{% else %}
+<section class="box quiet"><h2>No workspace yet</h2><p>Run <code>lem board</code> in a repository that uses Lem, or <code>lem serve add DIR</code>. Then load this page again.</p></section>
 {% endfor %}</div></main>{{ p.sprite(symbols) }}</body></html>

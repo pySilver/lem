@@ -144,6 +144,9 @@ async function probe () {
     $('[data-zoom=close]').click()
     await pause()
     ok(!dialog.open && document.activeElement === opener, 'close did not return focus')
+  } else if (which === 'merge') {
+    const back = $('#confirm .cf-foot a')
+    ok(back.getClientRects().length && getComputedStyle(back).visibility === 'visible', 'desktop merge cancel is hidden')
   } else if (which === 'copy') {
     const button = $('[title="Copy path"]')
     let copied = ''
@@ -160,10 +163,12 @@ async function probe () {
     const original = $('#arts')
     const next = original.cloneNode(true)
     $('#work-folder').open = false
+    $('#ag-request > summary').click()
     await pause()
     original.replaceWith(next)
     await pause()
     ok(!$('#work-folder').open, 'artifact fold was lost across a tab visit')
+    ok(!$('#ag-request').open, 'standard group fold was lost across a tab visit')
   } else if (which === 'drawer') {
     const tabs = [...document.querySelectorAll('.ktab')]
     const kanban = $('#kanban')

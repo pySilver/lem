@@ -15,9 +15,9 @@
 <h2 class="lane-head"{% if shelf.title %} title="{{ shelf.title }}"{% endif %}>{{ shelf.name }} <em>{{ shelf.entries | length }}</em></h2>
 {% for entry in shelf.entries %}
 <details class="bl-item" id="item-{{ entry.key }}" data-backlog-target="item" data-worth="{{ entry.worth }}"{% if entry.where_problem %} data-stale{% endif %}{% if entry.new %} data-new{% endif %}>
-<summary class="bl-head"><span class="bl-title">{{ entry.title | inline | safe }}</span><span class="bl-side">{% for tag in entry.tags %}{{ p.chip(tag, native) }}{% endfor %}{{ p.icon('chevron-right', 'ic chev') }}</span></summary>
+<summary class="bl-head"><span class="bl-title">{{ entry.title | inline | safe }}</span><span class="bl-side">{% for tag in entry.tags %}{{ p.chip(tag, native) }}{% endfor %}{{ p.icon('chevron-right', 'ic chev') }}</span>
+<span class="bl-where{% if entry.where_problem %} stale{% endif %}">{% if entry.where_problem %}{{ p.icon('alert') }} {% endif %}{{ entry.where }}{% if entry.where_problem %} · {{ entry.where_problem }}{% endif %}</span></summary>
 <div class="bl-body">
-<div class="bl-where">{{ entry.where }}{% if entry.where_problem %}<span class="bad">{{ entry.where_problem }}</span>{% endif %}</div>
 {% if entry.added %}<div class="bl-added">{{ entry.added.said }}{% if entry.added.task %} {{ p.href(entry.added.task, native) }}{% endif %}{{ entry.added.after or '' }}</div>{% endif %}
 {% if entry.body %}<div class="bl-text">{{ p.document(entry.body) }}</div>{% endif %}
 <div class="bl-actions">

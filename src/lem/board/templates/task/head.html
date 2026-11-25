@@ -1,7 +1,9 @@
 {% import 'forms.html' as f %}
 {% from 'task/shared.html' import facts %}
+{% from 'task/shared.html' import back %}
 <header class="p-head{% if viewer.head_open %} open{% endif %}" id="p-head">
 <div class="p-top">
+{{ back(head.back, native) }}
 <a class="ibtn p-close" href="{{ head.back | address }}" {{ p.frame_attrs(native) }} data-hotkey="Escape" aria-label="Close the task">{{ p.icon('xmark') }}</a>
 <span class="p-crumb">{{ head.slug }}</span><span class="sp"></span>
 <span class="pill a-{{ head.pill.look }}{% if head.pill.live %} live{% endif %}"><i></i>{{ head.pill.label }} {{ p.when(head.pill.since) }}</span>

@@ -9,7 +9,7 @@
 {% if now.where %}<p><b>Where you answer:</b> {{ now.where | inline | safe }}</p>{% endif %}
 {% if now.breaker %}<p>{{ now.breaker }}</p>{% endif %}
 {{ f.ways(now.ways, native) }}
-{% if now.answer %}{{ f.answer(now.answer) }}{% endif %}
+{% if now.answer %}{{ f.answer(now.answer, native) }}{% endif %}
 </div></div>
 <footer class="now-next"><span>Updated {{ p.when(now.foot.updated) }}</span><span title="{{ now.foot.note }}">{{ p.when(now.foot.timer) }}</span>
 {% if now.foot.jump %}{{ p.jump(now.foot.jump, 'Open the session') }}{% endif %}</footer>

@@ -14,7 +14,7 @@
 {% if wait.acts %}
 <div class="wr-acts{% if wait.acts.answer %} wr-answer{% endif %}">
 {% if wait.acts.criterion %}<p>{{ wait.acts.criterion | inline | safe }}</p>{% endif %}
-{% if wait.acts.answer %}{{ f.answer(wait.acts.answer) }}{% endif %}
+{% if wait.acts.answer %}{{ f.answer(wait.acts.answer, native) }}{% endif %}
 {% for link in wait.acts.links %}{{ p.href(link, native) }}{% endfor %}
 {% if wait.acts.busy %}<span>{{ wait.acts.busy }}</span>{% endif %}
 {% for form in wait.acts.forms %}{{ f.act(form) }}{% endfor %}
@@ -36,7 +36,9 @@
 <div class="wst-first">{{ stack.first | inline | safe }}<span class="wr-state"> · {{ stack.state }}</span></div></div>
 </summary><div class="wst-rows">{% for wait in stack.waits %}{{ wait_row(wait, stack.slug) }}{% endfor %}</div></details>
 {% endif %}
-{% else %}<p class="empty">Nothing waits for the owner.</p>{% endfor %}
+{% else %}
+<div class="wait-none">{{ p.icon('circle-check') }}<div><b>Nothing waits for you.</b> A breaker, criteria to approve, a plan to read, a pull request to merge or a task with no session shows here when it comes.</div></div>
+{% endfor %}
 </div>
 {% if view.parked %}
 <section class="bl-group a-quiet recessive" id="parked" aria-label="Parked">

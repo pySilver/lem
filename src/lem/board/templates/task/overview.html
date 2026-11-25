@@ -17,7 +17,7 @@
 {% if card.missing %}<p>{{ card.missing }}</p>{% endif %}
 {{ p.href(card.artifact, native) }}{% if card.handoff %} {{ p.href(card.handoff, native) }}{% endif %}
 {% if card.where %}<p>{{ card.where | inline | safe }}</p>{% endif %}
-{% if card.answer %}{{ f.answer(card.answer) }}{% endif %}
+{% if card.answer %}{{ f.answer(card.answer, native) }}{% endif %}
 {{ f.ways(card.ways, native) }}
 </section>{% endif %}
 {% if tab.building %}{% set card = tab.building %}
@@ -34,5 +34,5 @@
 {% if card.text %} {{ card.text | inline | safe }}{% endif %}
 {% if card.reasons %}{{ p.reasons(card.reasons, native) }}{% endif %}
 </section>{% endif %}
-{% if not tab.pruned %}{% set now = tab.now %}{% include 'task/now.html' %}{% endif %}
+{% set now = tab.now %}{% include 'task/now.html' %}
 {% if tab.phases %}{% set phases = tab.phases %}{% include 'task/progress.html' %}{% endif %}

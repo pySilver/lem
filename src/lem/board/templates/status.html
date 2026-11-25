@@ -1,5 +1,5 @@
 {% set status = frame.statusbar %}
-<footer class="status" id="status">
+<footer class="status{% if status.problems %} bad{% endif %}" id="status">
 <span class="st-left">{% for problem in status.problems %}<span class="bad">{{ problem }}</span>{% endfor %}
 <span>read {{ p.when(status.read) }} · {{ status.events }}</span></span>
 <span class="st-right"><span class="st-forge{% if status.forge_bad %} bad{% endif %}" title="{{ status.forge_title }}">{{ status.forge | inline | safe }}</span>

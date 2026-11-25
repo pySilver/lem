@@ -3,8 +3,8 @@
 {% set step = panel.merge or panel.park or panel.drop or panel.card %}
 {% if step %}
 {% set confirm = step.confirm %}
-{% set sheet = confirm.sheet and confirm.form %}
-<section class="card confirm a-{{ confirm.look }}{% if sheet %} cf-sheet{% endif %}" id="{{ panel.card.keep if panel.card else 'confirm' }}" aria-label="{{ confirm.label }}"{% if panel.card %} data-keep="{{ panel.card.keep }}"{% endif %}{% if sheet %} data-controller="sheet" data-sheet-key-value="{{ step | read_key }}"{% endif %}>
+{% set sheet = confirm.sheet and (confirm.form or panel.card) %}
+<section class="card confirm a-{{ confirm.look }}{% if sheet %} cf-sheet{% endif %}" id="{{ 'card-step' if panel.card else 'confirm' }}" aria-label="{{ confirm.label }}"{% if panel.card %} data-keep="{{ panel.card.keep }}"{% endif %}{% if sheet %} data-controller="sheet" data-sheet-key-value="{{ step | read_key }}"{% endif %}>
 <header class="cf-head"{% if sheet %} data-sheet-target="head" tabindex="-1"{% endif %}><div class="eyebrow">{{ confirm.eyebrow }}</div><h2>{{ confirm.label }}</h2></header>
 <div class="cf-body"{% if sheet %} data-sheet-target="body"{% endif %}>
 {% if panel.merge %}
@@ -20,8 +20,10 @@
 </div>
 <div class="cf-foot">
 {% if confirm.words %}<p>{{ confirm.words | inline | safe }}</p>{% endif %}
+<div class="act-row">
 {% if confirm.form %}{{ f.act(confirm.form) }}{% endif %}
-{% if confirm.back %}{{ p.href(confirm.back, native, 'cf-back') }}{% endif %}
+{% if confirm.back %}{{ p.href(confirm.back, native, 'btn') }}{% endif %}
+</div>
 </div>
 </section>
 {% endif %}

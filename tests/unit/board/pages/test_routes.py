@@ -21,6 +21,7 @@ from lem.board.inputs.tasks import Older
 from lem.board.pages import routes
 from lem.kernel import clock
 from unit.board.pages import test_sections as examples
+from unit.board.pages.markup import Parsed
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -148,7 +149,7 @@ def client(tmp_path: Path) -> TestClient:
     home = tmp_path / "home"
     home.mkdir()
     (home / "workspaces.json").write_text(f'["{checkout}"]', encoding="utf-8")
-    app = Starlette(routes=routes.ROUTES)
+    app = Starlette(routes=(*routes.ROUTES, *routes.FALLBACK_ROUTES))
     app.state.facts = Facts(
         pid=1,
         port=1,
@@ -212,6 +213,29 @@ def test_task_link_can_request_just_the_turbo_frame(client: TestClient) -> None:
     assert answer.text.lstrip().startswith('<turbo-frame id="task"')
     assert '<section class="panel"' in answer.text
     assert "<!doctype html>" not in answer.text
+
+
+@pytest.mark.parametrize("fragment", [False, True])
+def test_unknown_task_tab_keeps_the_task_tabs_and_way_back(
+    client: TestClient, *, fragment: bool
+) -> None:
+    headers = {"Turbo-Frame": "task"} if fragment else {}
+    address = f"{TASK}/typo"
+    answer = client.get(address, headers=headers)
+    assert (
+        answer.status_code == client.head(address, headers=headers).status_code == 404
+    )
+    root = Parsed(answer.text).root
+    shown = root.one(id_="panel")
+    assert "typo" in shown.one(id_="tb-missing").words()
+    tabs = shown.one(id_="ptabs").all(cls="ptab")
+    assert [tab.attrs["href"] for tab in tabs] == [
+        link.href for link in panel.OPEN.tabs
+    ]
+    assert not any("aria-current" in tab.attrs for tab in tabs)
+    assert panel.OPEN.head is not None
+    assert shown.one(cls="p-back").attrs["href"] == panel.OPEN.head.back
+    assert bool(root.all(tag="html")) is not fragment
 
 
 def test_assets_and_pages_refuse_an_address_on_another_host(client: TestClient) -> None:

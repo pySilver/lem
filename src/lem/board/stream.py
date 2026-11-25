@@ -41,15 +41,6 @@ def pinged() -> ServerSentEvent:
     return ServerSentEvent(event="ping", data="ping")
 
 
-async def events(
-    state: Path, *, rendered: str | None, missed: bool
-) -> AsyncGenerator[ServerSentEvent]:
-    """The record changes of a workspace."""
-    look = partial(version, state)
-    async for message in refreshed(look, rendered=rendered, missed=missed):
-        yield message
-
-
 async def refreshed(
     look: Callable[[], str], *, rendered: str | None, missed: bool
 ) -> AsyncGenerator[ServerSentEvent]:

@@ -8,7 +8,7 @@ import pytest
 
 from fixtures.board import columns, frame, panel, shelves, waiting
 from fixtures.board.moments import BASE, NOW
-from lem.board.inputs.activity import Activity, Happened, Lane, NewTask, Stretch
+from lem.board.inputs.activity import Activity, Happened, Lane, NewTask, Stretch, Tick
 from lem.board.inputs.forms import ActForm, Choice, Field, TextBox
 from lem.board.inputs.layout import Viewer
 from lem.board.inputs.page import Page
@@ -17,12 +17,13 @@ from lem.board.inputs.sidebar import Notice
 from lem.board.inputs.switcher import Box, Failure, Workspaces
 from lem.board.inputs.task.artifacts import Artifacts, Body, Doc, Folder, Section, Shown
 from lem.board.inputs.task.cards import Asked, Breaker, Picture, Shot
+from lem.board.inputs.task.checks import Checks
 from lem.board.inputs.task.criteria import Approve
-from lem.board.inputs.task.decisions import Decision, Part
+from lem.board.inputs.task.decisions import Criteria, Decision, Part
 from lem.board.inputs.task.head import Fact
-from lem.board.inputs.task.overview import Answered
+from lem.board.inputs.task.overview import Answered, Pruned
 from lem.board.inputs.task.panel import Missing, Panel
-from lem.board.inputs.task.steps import Card, Confirm, Drop, Park
+from lem.board.inputs.task.steps import Card, Confirm, Drop, NotNow, Park
 from lem.board.inputs.task.timeline import Mark, Spell, Time, Timeline, Track
 from lem.board.inputs.tasks import Ended, Older
 from lem.board.pages import printing, render
@@ -57,6 +58,7 @@ FORM = ActForm(
 
 ACTIVITY = Activity(
     day="today",
+    ticks=(Tick(left=0, clock="14:00"), Tick(left=50, clock="16:00")),
     now=75.0,
     events="Two events.",
     lanes=(
@@ -131,7 +133,17 @@ def test_activity_and_timeline_link_tasks_and_expose_live_spans_and_points() -> 
     assert not board.one(id_="global").all(tag="a")
     assert board.one(cls="tl-seg").attrs["aria-label"] == "Build · 14:00 to 14:30"
     assert board.one(cls="tl-dot").attrs["tabindex"] == "0"
+    grid = board.one(cls="tl-grid")
+    assert [tick.attrs["style"] for tick in grid.all(tag="i")] == [
+        "left:0%;",
+        "left:50%;",
+    ]
+    assert grid.one(cls="tl-now").attrs["style"] == "left:75.0%"
+    assert board.one(id_="events").one(tag="h2").words() == "Activity"
     timeline = task(shows="timeline", timeline=TIMELINE)
+    assert timeline.one(cls="tl-note").words().startswith("Each row")
+    assert timeline.one(id_="tt").one(cls="tip").attrs["role"] == "tooltip"
+    assert timeline.one(id_="events").one(tag="h2").words() == "Activity"
     assert timeline.one(id_="now-work").attrs["data-to"] == "now"
     mark = timeline.one(id_="one-mark")
     assert (
@@ -181,6 +193,13 @@ def test_artifacts_display_the_file_and_copy_its_path() -> None:
     ]
     assert copy[0].attrs["data-copy-text-value"] == SOURCE
     assert board.one(id_="arts").attrs["data-artifacts-task-value"] == panel.SLUG
+    assert board.one(id_="arts").has("show-file")
+    assert board.one(cls="av-back").words() == "The files"
+    assert board.one(cls="av-back").attrs["href"] == f"{REFUND}/artifacts"
+    group = board.one(id_="ag-request")
+    assert group.tag == "details" and "open" in group.attrs
+    assert group.one(tag="summary").one(tag="em").words() == "1"
+    assert group.one(id_=doc.id)
 
 
 def test_artifacts_html_uses_a_sandbox_and_exposes_the_standalone_link() -> None:
@@ -196,14 +215,18 @@ def test_artifacts_html_uses_a_sandbox_and_exposes_the_standalone_link() -> None
     )
     board = task(
         shows="artifacts",
-        artifacts=Artifacts(sections=(), shown=shown, said="One file", wide=True),
+        artifacts=Artifacts(
+            sections=(), shown=shown, said="One file", chosen=True, wide=True
+        ),
     )
     assert board.one(id_="panel").has("page-open")
+    assert board.one(id_="arts").has("wide")
+    assert board.one(cls="av-back").words() == "The files"
     assert board.one(tag="iframe").attrs == {
         "class": "art-html",
         "src": raw,
         "title": "View",
-        "sandbox": None,
+        "sandbox": "allow-scripts allow-popups allow-popups-to-escape-sandbox",
     }
     assert any(
         link.attrs.get("href") == raw and link.attrs.get("target") == "_blank"
@@ -272,6 +295,8 @@ def test_an_older_row_opens_the_task_and_an_external_pull_request() -> None:
         == "task"
     )
     assert board.one(cls="older-back").attrs["href"] == BACK.href
+    assert board.one(id_="older-view").has("scroll")
+    assert board.one(id_="older").one(tag="h2").words() == "Older tasks"
 
 
 def test_new_task_provides_words_and_cancel_or_no_form() -> None:
@@ -286,6 +311,7 @@ def test_new_task_provides_words_and_cancel_or_no_form() -> None:
             assert new.one(tag="textarea").attrs["maxlength"] == "100"
         else:
             assert not new.all(tag="form")
+            assert "/lem" in new.words() and "in any session" in new.words()
 
 
 def test_each_confirmation_and_card_draw_only_their_typed_action() -> None:
@@ -318,9 +344,25 @@ def test_each_confirmation_and_card_draw_only_their_typed_action() -> None:
         step = parsed.one(id_="confirm")
         assert step.attrs["data-controller"] == "sheet"
         assert step.one(cls="cf-body").attrs["data-sheet-target"] == "body"
-        assert step.one(cls="cf-foot").one(tag="a").words() == "Back to Tasks"
-    assert card.one(id_="card-a").attrs["data-keep"] == "card-a"
+        back = step.one(cls="cf-foot").one(tag="a")
+        assert back.words() == "Back to Tasks"
+        assert back.has("btn") and not back.has("cf-back")
+    assert card.one(id_="card-step").attrs["data-keep"] == "card-a"
+    assert card.one(id_="card-step").attrs["data-controller"] == "sheet"
+    assert not card.one(id_="card-step").all(tag="form")
     assert card.one(tag="iframe").attrs["title"] == "A question"
+
+
+def test_card_answer_keeps_the_frame_only_for_a_board_receipt() -> None:
+    for keep in ("card-a", None):
+        receipt = task(
+            shows="card",
+            not_now=NotNow(id="card-step", said="B was taken.", back=BACK, keep=keep),
+        ).one(id_="card-step")
+        if keep:
+            assert receipt.attrs["data-keep"] == keep
+        else:
+            assert "data-keep" not in receipt.attrs
 
 
 def test_merge_shows_the_bound_tip_and_each_reason_id() -> None:
@@ -328,7 +370,17 @@ def test_merge_shows_the_bound_tip_and_each_reason_id() -> None:
     step = board.one(id_="confirm")
     assert step.attrs["data-controller"] == "sheet"
     assert step.one(tag="form").attrs["action"] == f"{REFUND}/merge"
-    assert any(item.attrs.get("value") == panel.TIP for item in step.all(tag="input"))
+    assert {
+        field.attrs["name"]: field.attrs["value"] for field in step.all(tag="input")
+    } == {
+        "tip": panel.TIP,
+        "confirm": "yes",
+    }
+    back = step.one(cls="cf-foot").one(tag="a")
+    assert back.has("btn") and not back.has("cf-back")
+    assert (
+        panel.MERGE.confirm.back and back.attrs["href"] == panel.MERGE.confirm.back.href
+    )
     assert step.one(cls="cf-facts").all(tag="dt")[0].words() == "Pull request"
     assert step.one(id_="cf-reasons").one(id_="cf-r1")
     changed = msgspec.structs.replace(panel.MERGE, careful_why="Changed careful call.")
@@ -338,6 +390,21 @@ def test_merge_shows_the_bound_tip_and_each_reason_id() -> None:
         .attrs["data-sheet-key-value"]
         != step.attrs["data-sheet-key-value"]
     )
+    confirm = panel.MERGE.confirm
+    assert confirm.form
+    new_tip = "a" * len(panel.TIP)
+    fields = tuple(
+        msgspec.structs.replace(field, shown=new_tip) if field.name == "tip" else field
+        for field in confirm.form.fields
+    )
+    changed_tip = msgspec.structs.replace(
+        panel.MERGE,
+        confirm=msgspec.structs.replace(
+            confirm, form=msgspec.structs.replace(confirm.form, fields=fields)
+        ),
+    )
+    next_step = task(shows="merge", merge=changed_tip).one(id_="confirm")
+    assert next_step.attrs["data-sheet-key-value"] != step.attrs["data-sheet-key-value"]
 
 
 def test_waits_stack_buttons_and_parked_row() -> None:
@@ -363,6 +430,11 @@ def test_backlog_filters_and_reply_forms_have_stable_ids_and_fields() -> None:
         assert button.attrs["data-backlog-target"] == "chip"
         assert button.attrs["data-key"]
     reviewer = board.one(id_="group-reviewer")
+    assert board.all(cls="bl-group")[0] is reviewer
+    assert [row.attrs["id"] for row in reviewer.all(cls="bl-item")] == [
+        f"item-{shelves.RECEIPT_ITEM.key}",
+        f"item-{shelves.CHECK_ITEM.key}",
+    ]
     assert len(reviewer.all(tag="form")) == 2
     assert all(
         form.one(tag="input").attrs["name"] == "item"
@@ -399,7 +471,9 @@ def test_a_missing_task_has_its_own_panel_and_http_status() -> None:
     )
     board = Page(frame=frame.FRAME, panel=panel_input)
     assert render.page(board, fragment=True).status_code == 404
-    assert read(board, "fragment.html").one(id_="tb-missing").words() == "Missing"
+    root = read(board, "fragment.html")
+    assert root.one(id_="tb-missing").words() == "Missing"
+    assert root.one(cls="p-back").attrs["href"] == f"{BASE}/"
 
 
 def test_inline_markdown_leaves_raw_html_as_text() -> None:
@@ -410,7 +484,7 @@ def test_inline_markdown_leaves_raw_html_as_text() -> None:
             msgspec.structs.replace(
                 card,
                 title=MALICIOUS,
-                line=f"{MALICIOUS} `code` [link](https://example.org)",
+                line=f"{MALICIOUS} `code` [link](https://example.org) ![external](https://example.org/image.png)",
             ),
         ),
     )
@@ -424,7 +498,10 @@ def test_inline_markdown_leaves_raw_html_as_text() -> None:
     assert row.one(cls="tc-link").raw() == MALICIOUS
     assert not row.all(tag="img")
     assert row.one(tag="code").raw() == "code"
-    assert row.one(cls="tc-line").one(tag="a").attrs["href"] == "https://example.org"
+    assert any(
+        link.words() == "link" and link.attrs["href"] == "https://example.org"
+        for link in row.one(cls="tc-line").all(tag="a")
+    )
 
 
 @pytest.mark.parametrize(
@@ -842,3 +919,102 @@ def test_plan_drop_posts_its_own_id_to_the_confirmation() -> None:
     assert form.one(tag="input").attrs["value"] == "plan-request"
     assert form.one(tag="button").attrs["formaction"] == drop.confirm
     assert form.one(tag="button").attrs["formmethod"] == "get"
+    assert form.attrs["data-turbo-frame"] == "_top"
+    assert form.one(tag="button").attrs["data-turbo-frame"] == "task"
+
+
+def test_panel_posts_target_the_page_but_confirmation_reads_target_the_panel() -> None:
+    reply = waiting.BREAKER.acts
+    assert reply and reply.answer and panel.OPEN.overview
+    choices = tuple(
+        Choice(option=verb, label=verb, icon="xmark", confirm=f"{REFUND}/{verb}")
+        for verb in ("park", "drop")
+    )
+    answer = msgspec.structs.replace(reply.answer, choices=choices)
+    overview = panel.OPEN.overview
+    ready = msgspec.structs.replace(
+        overview, now=msgspec.structs.replace(overview.now, answer=answer)
+    )
+    parsed = task(overview=ready)
+    form = parsed.one(id_=answer.id)
+    assert form.attrs["data-turbo-frame"] == "_top"
+    for button in form.all(tag="button"):
+        assert button.attrs["data-turbo-frame"] == "task"
+        assert button.attrs["data-turbo-action"] == "advance"
+    merge = task(shows="merge", merge=panel.MERGE)
+    assert merge.one(id_="confirm").one(tag="form").attrs["data-turbo-frame"] == "_top"
+
+
+def test_workspace_search_and_phone_status_expose_their_controls() -> None:
+    shown = msgspec.structs.replace(
+        frame.FRAME,
+        statusbar=msgspec.structs.replace(
+            frame.FRAME.statusbar, problems=("Read error",)
+        ),
+    )
+    root = read(Page(frame=shown, tasks=columns.TASKS))
+    search = root.one(id_="search")
+    assert search.one(tag="input").attrs["aria-controls"] == "search-list"
+    assert search.one(id_="search-list").attrs["role"] == "listbox"
+    assert [key.words() for key in search.one(id_="search-keys").all(tag="kbd")] == [
+        "↑",
+        "↓",
+        "Enter",
+        "Esc",
+    ]
+    assert root.one(id_="status").has("bad")
+
+
+def test_empty_waits_and_workspaces_tell_the_owner_what_to_do() -> None:
+    waits = msgspec.structs.replace(waiting.WAITS, stacks=())
+    root = read(Page(frame=frame.FRAME, waits=waits))
+    assert "criteria to approve" in root.one(cls="wait-none").words()
+    index = Parsed(
+        render.section(
+            "workspaces.html", Workspaces(host="studio", ask="No workspaces")
+        )
+    ).root
+    assert [command.words() for command in index.all(tag="code")] == [
+        "lem board",
+        "lem serve add DIR",
+    ]
+
+
+def test_stale_backlog_location_is_visible_while_the_item_is_closed() -> None:
+    frame_input = msgspec.structs.replace(
+        for_view("backlog", "Backlog"), keys=shelves.KEYS
+    )
+    source = msgspec.structs.replace(shelves.FOOTER_ITEM, where_problem="File moved")
+    shelf = msgspec.structs.replace(shelves.BACKLOG.shelves[1], entries=(source,))
+    backlog = msgspec.structs.replace(shelves.BACKLOG, shelves=(shelf,))
+    root = read(Page(frame=frame_input, backlog=backlog))
+    row = root.one(id_=f"item-{source.key}")
+    location = row.one(tag="summary").one(cls="bl-where")
+    assert location.has("stale") and source.where in location.words()
+    assert [key.words() for key in root.one(id_="backlog-keys").all(tag="kbd")] == [
+        "/",
+        "J",
+        "K",
+        "Enter",
+        "R",
+    ]
+
+
+def test_pruned_overview_shows_now() -> None:
+    assert panel.OPEN.overview
+    pruned = Pruned(
+        events="Earlier events", kept="Kept", went="Went", files="Files", artifacts=BACK
+    )
+    overview = msgspec.structs.replace(panel.OPEN.overview, pruned=pruned, phases=None)
+    root = task(overview=overview)
+    assert root.one(id_="pruned")
+    assert root.one(id_="now").one(cls="now-head").words()
+
+
+def test_ended_tabs_omit_the_empty_sibling_card() -> None:
+    criteria = Criteria(decisions=panel.CRITERIA.decisions)
+    root = task(shows="criteria", criteria=criteria)
+    assert root.one(id_="decisions") and not root.all(id_="criteria")
+    checks = Checks(commands=panel.CHECKS.commands)
+    root = task(shows="checks", checks=checks)
+    assert root.one(id_="checks-card") and not root.all(id_="review-card")

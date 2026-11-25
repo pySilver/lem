@@ -1,3 +1,3 @@
-<section class="card confirm" id="{{ panel.not_now.id }}"{% if panel.not_now.keep %} data-keep{% endif %}>
+<section class="card confirm" id="{{ panel.not_now.id }}"{% if panel.not_now.keep %} data-keep="{{ panel.not_now.keep }}"{% endif %}>
 <p>{{ panel.not_now.said | inline | safe }}</p>{{ p.href(panel.not_now.back, native, 'btn plain') }}
 </section>

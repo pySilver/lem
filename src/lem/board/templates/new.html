@@ -2,6 +2,7 @@
 <div class="view list new" id="new-task"><section class="card">
 <h2>New task</h2>
 {{ p.note(board.note) }}
-{% if view.form %}{{ f.act(view.form) }}{% endif %}
+{% if view.form %}{{ f.act(view.form) }}
+{% else %}<p class="sub">Start the task on the board on the Mac or through the tailnet door, or type <code>/lem</code> and your words in any session.</p>{% endif %}
 {{ p.href(view.cancel, native, 'btn plain') }}
 </section></div>

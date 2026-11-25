@@ -34,3 +34,6 @@ ROUTES = (
     source.bound(f"{TASK}/artifacts/{{path:path}}", "artifact"),
     source.bound(f"{TASK}/card/{{page}}", "card"),
 )
+
+# After the concrete routes of every table, before the server's general 404.
+FALLBACK_ROUTES = (source.bound(f"{TASK}/{{unknown_tab}}", "overview"),)

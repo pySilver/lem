@@ -10,6 +10,7 @@
 {% elif tab.ended %}<p class="empty">{{ tab.ended }}</p>
 {% else %}
 {% if tab.how %}<section class="card how" id="how-card"><h2>How it works</h2>{{ p.document(tab.how) }}</section>{% endif %}
+{% if tab.reads or tab.criteria or tab.criteria_empty %}
 <section class="card" id="criteria"><header class="card-head"><h2>Criteria</h2>{% if tab.criteria_said %}<p>{{ tab.criteria_said }}</p>{% endif %}</header>
 {% for read in tab.reads %}{{ p.row(read) }}{% endfor %}
 {% for criterion in tab.criteria %}
@@ -25,9 +26,12 @@
 {% endfor %}
 {% if tab.criteria_empty %}<p class="empty">{{ tab.criteria_empty }}</p>{% endif %}
 </section>
+{% endif %}
+{% if tab.decisions or tab.orphans or tab.decisions_empty %}
 <section class="card" id="decisions"><header class="card-head"><h2>Decisions</h2>{% if tab.decisions_said %}<p>{{ tab.decisions_said }}</p>{% endif %}</header>
 {% for decision in tab.decisions %}{{ decision_row(decision, native, cases) }}{% endfor %}
 {% for orphan in tab.orphans %}{{ p.row(orphan) }}{% endfor %}
 {% if tab.decisions_empty %}<p class="empty">{{ tab.decisions_empty }}</p>{% endif %}
 </section>
+{% endif %}
 {% endif %}

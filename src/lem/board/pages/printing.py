@@ -13,7 +13,7 @@ from lem.kernel import paths
 if TYPE_CHECKING:
     from datetime import datetime
 
-INLINE = MarkdownIt("commonmark").disable("html_inline")
+INLINE = MarkdownIt("commonmark").disable(("html_inline", "image"))
 
 
 def inline(words: str) -> str:

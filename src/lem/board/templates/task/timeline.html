@@ -9,7 +9,8 @@ data-head="{{ head }}"{% if sub %} data-sub="{{ sub }}"{% endif %} data-from="{{
 <section class="card a-{{ time.look }}" id="tl-card"><header class="card-head"><h2>Where the time went</h2>
 <div class="legend"><span class="whole">{{ time.whole }}</span>{% for track in time.tracks %}{% if track.held %}<span title="{{ track.held_title }}"><i style="background:{{ track.fill }}"></i>{{ track.label }} {{ track.held }}</span>{% endif %}{% endfor %}{% if time.over %}<span class="over">{{ time.over }}</span>{% endif %}</div>
 </header>
-<div class="tt-plot" data-controller="tip" data-action="pointermove->tip#move pointerleave->tip#hide click->tip#move">
+<div class="tt" id="tt" data-controller="tip" data-action="pointermove->tip#move pointerleave->tip#hide click->tip#move">
+<div class="tt-plot">
 <div class="tt-back" style="grid-row:1 / {{ time.tracks | length + 2 }}">
 {% for tick in time.ticks %}<i class="tt-grid" style="left:{{ tick.left }}%"></i>{% endfor %}
 {% if time.now is not none %}<i class="tt-now" style="left:{{ time.now }}%"></i>{% endif %}
@@ -22,7 +23,10 @@ data-head="{{ head }}"{% if sub %} data-sub="{{ sub }}"{% endif %} data-from="{{
 </div>{% endfor %}
 <div class="tt-day" style="grid-row:{{ time.tracks | length + 1 }}">{{ time.day }}</div>
 <div class="tt-axis" style="grid-row:{{ time.tracks | length + 1 }}">{{ events.ticks(time.ticks) }}</div>
-<div class="tt-tip" data-tip-target="box" role="tooltip" hidden></div>
-</div></section>
+</div>
+<div class="tip" data-tip-target="box" role="tooltip" hidden></div>
+</div>
+<p class="tl-note">Each row is who held the work. A band is a stage. Hover over a mark for its times, and over the legend for how the shares add up.</p>
+</section>
 {% endif %}
 {% if tab.events is not none %}{{ events.feed(tab.events, tab.feed, native) }}{% endif %}

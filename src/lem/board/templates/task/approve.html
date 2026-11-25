@@ -15,7 +15,7 @@
 {% if approve.say %}<p>{{ approve.say }}</p>{% endif %}
 {% if approve.took %}<p>{{ approve.took }}</p>{% endif %}
 {% if approve.words %}<p>{{ approve.words }}</p>{% endif %}
-{% if approve.answer %}{{ f.answer(approve.answer) }}{% endif %}
+{% if approve.answer %}{{ f.answer(approve.answer, native) }}{% endif %}
 {% if approve.form %}{{ f.act(approve.form) }}{% endif %}
 {% if approve.back %}{{ p.href(approve.back, native, 'cf-back') }}{% endif %}
 </div>

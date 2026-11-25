@@ -15,7 +15,7 @@ from fixtures.board import columns, frame, panel, shelves, waiting
 from lem.board.inputs.backlog import Holds
 from lem.board.inputs.page import Page
 from lem.board.inputs.switcher import Group, Space
-from lem.board.inputs.task.artifacts import Artifacts, Body, Folder, Shown
+from lem.board.inputs.task.artifacts import Artifacts, Body, Folder, Section, Shown
 from lem.board.pages.render import section
 from lem.kernel import paths
 
@@ -24,9 +24,9 @@ if TYPE_CHECKING:
 
 CHROME = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
 ASSETS = paths.root() / "skills" / "lem" / "assets"
-PROBE = Path(__file__).with_name("browser.js")
+PROBE = Path(__file__).parents[1] / "unit" / "board" / "pages" / "browser.js"
 ARTIFACTS = Artifacts(
-    sections=(),
+    sections=(Section(key="request", name="The request"),),
     work=(Folder(id="work-folder", name="Working files", docs=(), open=True),),
     said="One document",
     shown=Shown(
@@ -93,9 +93,16 @@ BACKLOG = msgspec.structs.replace(
 BOARDS = (
     ("keys", Page(frame=frame.FRAME, tasks=columns.TASKS)),
     ("panel", with_panel(panel.OPEN)),
-    ("backlog", Page(frame=frame.FRAME, backlog=BACKLOG)),
+    (
+        "backlog",
+        Page(
+            frame=msgspec.structs.replace(frame.FRAME, keys=shelves.KEYS),
+            backlog=BACKLOG,
+        ),
+    ),
     ("waits", Page(frame=frame.FRAME, waits=waiting.WAITS)),
     ("chart", with_panel(panel.CRITERIA_TAB)),
+    ("merge", with_panel(panel.MERGE_STEP)),
     (
         "copy",
         with_panel(
