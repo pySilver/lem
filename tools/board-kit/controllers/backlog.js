@@ -44,7 +44,11 @@ export default class extends Controller {
   // the filter as the address has it
   state () {
     const query = new URLSearchParams(location.search)
-    return { q: this.hasQueryTarget ? this.queryTarget.value : query.get('q') ?? '', worth: query.get('worth') ?? '', only: query.get('only') ?? '' }
+    const known = (key) => {
+      const value = query.get(key)?.trim()
+      return this.chipTargets.some(chip => chip.dataset.key === key && chip.dataset.value === value) ? value : ''
+    }
+    return { q: this.hasQueryTarget ? this.queryTarget.value : query.get('q') ?? '', worth: known('worth'), only: known('only') }
   }
 
   address (state) {
@@ -61,7 +65,7 @@ export default class extends Controller {
     for (const item of this.itemTargets) {
       const hay = words.length ? this.hay(item) : ''
       const hit = words.every(w => hay.includes(w)) && (!state.worth || item.dataset.worth === state.worth) &&
-        (state.only !== 'stale' || item.dataset.stale) && (state.only !== 'new' || item.dataset.new)
+        (state.only !== 'stale' || item.hasAttribute('data-stale')) && (state.only !== 'new' || item.hasAttribute('data-new'))
       item.toggleAttribute('data-js-out', !hit)
       if (hit) shown++
     }

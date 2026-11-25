@@ -1,0 +1,10 @@
+<div class="search" id="search" data-controller="search" data-action="click->search#click" role="dialog" aria-modal="true" aria-label="Search every card"><div class="search-box">
+<div class="search-field">{{ p.icon('magnifying-glass') }}<input type="search" id="{{ search.field }}" aria-label="Search tasks and backlog" placeholder="Search tasks and backlog" aria-controls="search-list" autocomplete="off" spellcheck="false" data-search-target="query" data-turbo-permanent data-action="input->search#input"><kbd>Esc</kbd></div>
+<div class="search-list" id="search-list" role="listbox" aria-label="The cards of the workspace">
+{% for hit in search.rows %}
+<a class="sr a-{{ hit.look }}" href="{{ hit.href | address }}" id="sr-{{ hit.kind }}-{{ hit.key }}" data-search-target="row" data-title="{{ hit.title }}" role="option" tabindex="-1"{% if hit.open %} data-task="{{ hit.key }}" data-open="1"{% endif %}{% if hit.frame %}{{ p.frame_attrs(native) }}{% endif %}><span class="sr-title">{{ hit.title }}</span><span class="sr-chip">{{ hit.chip }}</span></a>
+{% endfor %}
+<div class="search-none" data-search-target="none" data-js-out>No matches</div>
+</div>
+<div class="keys search-keys" id="search-keys"><span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span></div>
+</div></div>

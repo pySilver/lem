@@ -1,0 +1,18 @@
+{% macro search_button(cls) -%}
+<button class="ibtn search-open {{ cls }}" type="button" data-search-open title="Search (⌘K)" aria-label="Search">{{ p.icon('magnifying-glass') }}</button>
+{%- endmacro %}
+{% macro new_link(href, cls) -%}
+<a class="ibtn new-task {{ cls }}" href="{{ href | address }}" data-hotkey="KeyN" title="New task" aria-label="New task">{{ p.icon('plus') }}</a>
+{%- endmacro %}
+{% set phone = frame.phonebar %}
+<header class="mbar">
+<button class="ibtn" type="button" data-action="drawer#open" title="Menu" aria-label="Open the menu">{{ p.icon('bars') }}</button>
+<div class="m-title"><b>Lem</b><span>{{ phone.title }}</span></div>
+{{ search_button('m-search') }}
+{% if phone.new_task %}{{ new_link(phone.new_task, 'm-new') }}{% endif %}
+<a class="m-waits{% if phone.waits %} you{% endif %}" href="{{ viewer.base }}/waits" aria-label="{{ phone.waits_label }}">{{ p.icon('inbox') }}<span>{{ phone.waits }}</span></a>
+</header>
+{% set bar = frame.topbar %}
+<header class="bar"><h1>{{ bar.title }}</h1><div class="sum">{{ bar.summary }}</div>
+<div class="meta">{% for chip in bar.chips %}{{ p.chip(chip, native) }}{% endfor %}
+{{ search_button('bar-search') }}{% if bar.new_task %}{{ new_link(bar.new_task, 'bar-new') }}{% endif %}</div></header>

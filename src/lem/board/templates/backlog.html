@@ -1,0 +1,36 @@
+{% import 'forms.html' as f %}
+{% macro filter(part, every=false) %}
+<a class="fchip{% if part.look %} a-{{ part.look }}{% endif %}{% if part.on %} on{% endif %}{% if not part.count %} zero{% endif %}" href="{{ part.href | address }}" title="{{ part.title }}" data-backlog-target="chip" data-action="backlog#pick" data-key="{{ 'all' if every else part.key }}" data-value="{{ part.shown }}"{% if part.on %} aria-current="true"{% endif %}>{{ part.label }} <em>{{ part.count }}</em></a>
+{% endmacro %}
+<div class="view scroll backlog-view">
+{{ p.note(board.note) }}
+<div class="backlog" id="backlog" data-controller="backlog" data-action="keydown@window->backlog#key" data-backlog-base-value="{{ viewer.base }}/backlog">
+<div class="bl-bar"><input type="search" id="bl-query" aria-label="Filter backlog" placeholder="Filter backlog" value="{{ view.query }}" maxlength="200" data-backlog-target="query" data-action="input->backlog#filter keydown->backlog#clear">
+<a href="{{ view.read_again | address }}" class="btn plain" data-hotkey="KeyR">{{ p.icon('rotate') }} Read again</a>
+<div class="bl-filters">{{ filter(view.every, true) }}{% for part in view.filters %}{{ filter(part) }}{% endfor %}</div>
+<div class="bl-sum"><span data-backlog-target="count"></span>{{ view.summary }}</div></div>
+<div class="backlog" id="bl-groups">
+{% for shelf in view.shelves %}
+<div class="bl-group a-{{ shelf.look }}{% if shelf.recessive %} recessive{% endif %}" id="group-{{ shelf.key }}" data-backlog-target="group">
+<h2 class="lane-head"{% if shelf.title %} title="{{ shelf.title }}"{% endif %}>{{ shelf.name }} <em>{{ shelf.entries | length }}</em></h2>
+{% for entry in shelf.entries %}
+<details class="bl-item" id="item-{{ entry.key }}" data-backlog-target="item" data-worth="{{ entry.worth }}"{% if entry.where_problem %} data-stale{% endif %}{% if entry.new %} data-new{% endif %}>
+<summary class="bl-head"><span class="bl-title">{{ entry.title | inline | safe }}</span><span class="bl-side">{% for tag in entry.tags %}{{ p.chip(tag, native) }}{% endfor %}{{ p.icon('chevron-right', 'ic chev') }}</span>
+<span class="bl-where{% if entry.where_problem %} stale{% endif %}">{% if entry.where_problem %}{{ p.icon('alert') }} {% endif %}{{ entry.where }}{% if entry.where_problem %} · {{ entry.where_problem }}{% endif %}</span></summary>
+<div class="bl-body">
+{% if entry.added %}<div class="bl-added">{{ entry.added.said }}{% if entry.added.task %} {{ p.href(entry.added.task, native) }}{% endif %}{{ entry.added.after or '' }}</div>{% endif %}
+{% if entry.body %}<div class="bl-text">{{ p.document(entry.body) }}</div>{% endif %}
+<div class="bl-actions">
+{% if entry.holds.held_by %}{{ p.href(entry.holds.held_by, native) }} {{ entry.holds.held or '' }}{% endif %}
+{% if entry.holds.start %}{{ f.act(entry.holds.start) }}{% endif %}
+{% if entry.holds.drop %}{{ f.act(entry.holds.drop) }}{% endif %}
+{% if entry.holds.note %}<p>{{ entry.holds.note }}</p>{% endif %}
+{% if entry.holds.typed %}<code>{{ entry.holds.typed }}</code>{{ p.copy(entry.holds.typed, 'Copy the start command') }}{% endif %}
+{% if entry.holds.bad %}<p class="bad">{{ entry.holds.bad }}</p>{% endif %}
+</div>
+</div></details>
+{% endfor %}</div>
+{% endfor %}
+{% if view.empty %}<p class="empty">{{ view.empty }}</p>{% endif %}
+<p class="empty" data-backlog-target="none" data-js-out>No items match the filter.</p>
+</div></div></div>

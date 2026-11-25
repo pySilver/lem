@@ -1,0 +1,53 @@
+{% macro icon(name, cls='ic') -%}
+{% if name %}<svg class="{{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"></use></svg>{% endif %}
+{%- endmacro %}
+{% macro sprite(symbols) -%}
+<svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" style="display:none">
+{% for name, symbol in symbols.items() %}<symbol id="i-{{ name }}" viewBox="{{ symbol.viewBox }}">{{ symbol.body | safe }}</symbol>{% endfor %}
+</svg>
+{%- endmacro %}
+{% macro frame_attrs(native, anchor=none) -%}
+{% if not native %} data-turbo-frame="task" data-turbo-action="advance"{% endif %}{% if anchor %} data-row="{{ anchor }}"{% endif %}
+{%- endmacro %}
+{% macro href(link, native, cls='') -%}
+<a href="{{ link.href | address }}"{% if cls or link.press %} class="{{ cls }}{% if link.press %} btn {{ link.press }}{% endif %}"{% endif %}{% if link.title %} title="{{ link.title }}"{% endif %}{% if link.out %} target="_blank" rel="noopener"{% endif %}{% if link.current %} aria-current="page"{% endif %}{% if link.frame %}{{ frame_attrs(native, link.anchor) }}{% endif %}>{{ icon(link.icon) }}{{ link.label | inline | safe }}</a>
+{%- endmacro %}
+{% macro when(part, cls='') -%}
+<span{% if cls %} class="{{ cls }}"{% endif %}{% if part.title %} title="{{ part.title }}"{% endif %}{% if part.ticks == 'since' %} data-since="{{ part.at | milliseconds }}"{% elif part.ticks == 'ago' %} data-ago="{{ part.at | milliseconds }}"{% endif %}>{{ part.shown }}</span>
+{%- endmacro %}
+{% macro chip(part, native) -%}
+{% if part.link %}{{ href(part.link, native, 'tag c-' ~ (part.look or 'quiet')) }}
+{% else %}<span class="tag{% if part.look %} c-{{ part.look }}{% endif %}{% if part.live %} live{% endif %}"{% if part.title %} title="{{ part.title }}"{% endif %}>{{ icon(part.icon) }}<span>{{ part.label | inline | safe }}</span></span>{% endif %}
+{%- endmacro %}
+{% macro document(part) -%}
+<div class="md" id="{{ part.id }}" data-keep="{{ part.id }}" data-controller="markdown" data-markdown-key-value="{{ part.id }}"{% if part.media %} data-markdown-media-value="{{ part.media }}"{% endif %}{% if part.folder %} data-markdown-dir-value="{{ part.folder }}"{% endif %}><template>{{ part.text }}</template></div>
+{%- endmacro %}
+{% macro row(part) -%}
+<div class="ev a-{{ part.look }}" id="{{ part.id }}"{% if part.title %} title="{{ part.title }}"{% endif %}>{{ icon(part.icon) }}<div><b>{{ part.head | inline | safe }}</b>{% if part.text %} {{ part.text | inline | safe }}{% endif %}{% for sub in part.subs %}<div class="ev-sub">{{ sub | inline | safe }}</div>{% endfor %}</div>{% if part.time %}<time>{{ part.time }}</time>{% endif %}</div>
+{%- endmacro %}
+{% macro note(part) -%}
+{% if part %}<div class="act-note a-{{ part.look }}" role="status">{{ icon(part.icon) }}<div>{% if part.word %}<b>{{ part.word }}</b> {% endif %}{{ part.said | inline | safe }}</div></div>{% endif %}
+{%- endmacro %}
+{% macro copy(words, label) -%}
+<button class="ibtn" type="button" title="{{ label }}" aria-label="{{ label }}" data-controller="copy" data-action="copy#copy" data-copy-text-value="{{ words }}">{{ icon('copy') }}<span class="copy-failed" role="status">Copy failed</span></button>
+{%- endmacro %}
+{% macro jump(session, label, cls='') -%}
+<button class="{{ cls }}" type="button" data-action="agterm#jump" data-agterm-session-param="{{ session }}">{{ label | inline | safe }}</button>
+{%- endmacro %}
+{% macro reasons(part, native) -%}
+<ol id="{{ part.id }}-reasons" class="reasons">
+{% for reason in part.rows %}
+<li class="rs" id="{{ part.id }}-r{{ loop.index }}">
+{% if reason.detail %}<details class="rs-fold"><summary>
+{{ icon('chevron-right', 'ic chev') }}<span class="rs-line">
+<span class="rs-head">{{ reason.head | inline | safe }}</span>{% if reason.about %}<span class="rs-about">{{ reason.about | inline | safe }}</span>{% endif %}</span>
+{% if reason.ref %}{{ href(reason.ref, native, 'rs-to') }}{% endif %}
+</summary><ul class="rs-detail">{% for line in reason.detail %}<li>{{ line | inline | safe }}</li>{% endfor %}</ul></details>
+{% else %}<div class="rs-flat"><span></span><span class="rs-line">
+<span class="rs-head">{{ reason.head | inline | safe }}</span>{% if reason.about %}<span class="rs-about">{{ reason.about | inline | safe }}</span>{% endif %}</span>
+{% if reason.ref %}{{ href(reason.ref, native, 'rs-to') }}{% endif %}
+</div>{% endif %}
+</li>
+{% endfor %}
+</ol>
+{%- endmacro %}

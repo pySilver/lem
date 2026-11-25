@@ -18,7 +18,7 @@ const WORKER = 'skills/lem/assets/sw.js'
 
 export default defineConfig([
   globalIgnores([
-    // The board's built files and mermaid's own, which tools/board-kit writes (its README).
+    // The board's built files and Pele's own, which tools/board-kit writes (its README).
     'skills/lem/assets/vendor/',
     '**/node_modules/',
     '.venv/',
@@ -30,7 +30,7 @@ export default defineConfig([
   ...neostandard(),
   // The board's sources: ES modules for the browser, which esbuild bundles into one classic script.
   {
-    files: ['tools/board-kit/**/*.js'],
+    files: ['tools/board-kit/**/*.js', 'tests/unit/board/pages/browser.js'],
     extends: [neostandard({ env: ['browser'] })],
   },
   {

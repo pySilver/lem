@@ -1,0 +1,522 @@
+{
+  "kanban_page": {
+    "title": "DEMO · Tasks · Lem · shop · 2 build · 5 for you",
+    "views": [
+      "/studio/shop/",
+      "/studio/shop/waits",
+      "/studio/shop/backlog",
+      "/studio/shop/activity"
+    ],
+    "search": [
+      [
+        "sr-task-gift-note-in-export",
+        "/studio/shop/tasks/gift-note-in-export",
+        "Gift note in export"
+      ],
+      [
+        "sr-task-stock-on-product-page",
+        "/studio/shop/tasks/stock-on-product-page",
+        "Stock on product page"
+      ],
+      [
+        "sr-task-refund-line-on-receipt",
+        "/studio/shop/tasks/refund-line-on-receipt",
+        "Refund line on receipt"
+      ],
+      [
+        "sr-task-refund-rounding",
+        "/studio/shop/tasks/refund-rounding",
+        "Refund rounding"
+      ],
+      [
+        "sr-task-cart-total-after-coupon",
+        "/studio/shop/tasks/cart-total-after-coupon",
+        "Cart total after coupon"
+      ],
+      [
+        "sr-task-coupon-has-a-slug",
+        "/studio/shop/tasks/coupon-has-a-slug",
+        "Coupon has a slug"
+      ],
+      [
+        "sr-task-fee-notice-to-merchants",
+        "/studio/shop/tasks/fee-notice-to-merchants",
+        "Fee notice to merchants"
+      ],
+      [
+        "sr-task-export-check-by-chance",
+        "/studio/shop/tasks/export-check-by-chance",
+        "Export check by chance"
+      ],
+      [
+        "sr-task-footer-terms-typo",
+        "/studio/shop/tasks/footer-terms-typo",
+        "Footer terms typo"
+      ],
+      [
+        "sr-task-order-date-on-invoice",
+        "/studio/shop/tasks/order-date-on-invoice",
+        "Order date on invoice"
+      ],
+      [
+        "sr-task-why-export-is-slow",
+        "/studio/shop/tasks/why-export-is-slow",
+        "Why export is slow"
+      ],
+      [
+        "sr-item--read-the-receipt-s-total-by-its-label",
+        "/studio/shop/backlog#item--read-the-receipt-s-total-by-its-label",
+        "Read the receipt's total by its label"
+      ],
+      [
+        "sr-item--the-export-s-check-fails-by-chance",
+        "/studio/shop/backlog#item--the-export-s-check-fails-by-chance",
+        "The export's check fails by chance"
+      ],
+      [
+        "sr-item-invoice-footer-wraps",
+        "/studio/shop/backlog#item-invoice-footer-wraps",
+        "The invoice footer wraps on A5"
+      ],
+      [
+        "sr-item-export-in-one-query",
+        "/studio/shop/backlog#item-export-in-one-query",
+        "Read the monthly export in one query"
+      ],
+      [
+        "sr-item--run-make-lint-before-each-commit",
+        "/studio/shop/backlog#item--run-make-lint-before-each-commit",
+        "Run make lint before each commit"
+      ]
+    ],
+    "columns": [
+      "col-you",
+      "col-build",
+      "col-checks",
+      "col-done"
+    ],
+    "card links": [
+      [
+        "Gift note in export",
+        "/studio/shop/tasks/gift-note-in-export"
+      ],
+      [
+        "Stock on product page",
+        "/studio/shop/tasks/stock-on-product-page"
+      ],
+      [
+        "Refund line on receipt",
+        "/studio/shop/tasks/refund-line-on-receipt"
+      ],
+      [
+        "Refund rounding",
+        "/studio/shop/tasks/refund-rounding"
+      ],
+      [
+        "Cart total after coupon",
+        "/studio/shop/tasks/cart-total-after-coupon"
+      ],
+      [
+        "Coupon has a slug",
+        "/studio/shop/tasks/coupon-has-a-slug"
+      ],
+      [
+        "Footer terms typo",
+        "/studio/shop/tasks/footer-terms-typo"
+      ],
+      [
+        "Order date on invoice",
+        "/studio/shop/tasks/order-date-on-invoice"
+      ],
+      [
+        "Why export is slow",
+        "/studio/shop/tasks/why-export-is-slow"
+      ]
+    ],
+    "stack IDs": [],
+    "wait IDs": [],
+    "parked": [],
+    "backlog": [],
+    "items": []
+  },
+  "waits_page": {
+    "title": "DEMO · Waits for you · Lem · shop · 2 build · 5 for you",
+    "views": [
+      "/studio/shop/",
+      "/studio/shop/waits",
+      "/studio/shop/backlog",
+      "/studio/shop/activity"
+    ],
+    "search": [
+      [
+        "sr-task-gift-note-in-export",
+        "/studio/shop/tasks/gift-note-in-export?in=waits",
+        "Gift note in export"
+      ],
+      [
+        "sr-task-stock-on-product-page",
+        "/studio/shop/tasks/stock-on-product-page?in=waits",
+        "Stock on product page"
+      ],
+      [
+        "sr-task-refund-line-on-receipt",
+        "/studio/shop/tasks/refund-line-on-receipt?in=waits",
+        "Refund line on receipt"
+      ],
+      [
+        "sr-task-refund-rounding",
+        "/studio/shop/tasks/refund-rounding?in=waits",
+        "Refund rounding"
+      ],
+      [
+        "sr-task-cart-total-after-coupon",
+        "/studio/shop/tasks/cart-total-after-coupon?in=waits",
+        "Cart total after coupon"
+      ],
+      [
+        "sr-task-coupon-has-a-slug",
+        "/studio/shop/tasks/coupon-has-a-slug?in=waits",
+        "Coupon has a slug"
+      ],
+      [
+        "sr-task-fee-notice-to-merchants",
+        "/studio/shop/tasks/fee-notice-to-merchants?in=waits",
+        "Fee notice to merchants"
+      ],
+      [
+        "sr-task-export-check-by-chance",
+        "/studio/shop/tasks/export-check-by-chance?in=waits",
+        "Export check by chance"
+      ],
+      [
+        "sr-task-footer-terms-typo",
+        "/studio/shop/tasks/footer-terms-typo?in=waits",
+        "Footer terms typo"
+      ],
+      [
+        "sr-task-order-date-on-invoice",
+        "/studio/shop/tasks/order-date-on-invoice?in=waits",
+        "Order date on invoice"
+      ],
+      [
+        "sr-task-why-export-is-slow",
+        "/studio/shop/tasks/why-export-is-slow?in=waits",
+        "Why export is slow"
+      ],
+      [
+        "sr-item--read-the-receipt-s-total-by-its-label",
+        "/studio/shop/backlog#item--read-the-receipt-s-total-by-its-label",
+        "Read the receipt's total by its label"
+      ],
+      [
+        "sr-item--the-export-s-check-fails-by-chance",
+        "/studio/shop/backlog#item--the-export-s-check-fails-by-chance",
+        "The export's check fails by chance"
+      ],
+      [
+        "sr-item-invoice-footer-wraps",
+        "/studio/shop/backlog#item-invoice-footer-wraps",
+        "The invoice footer wraps on A5"
+      ],
+      [
+        "sr-item-export-in-one-query",
+        "/studio/shop/backlog#item-export-in-one-query",
+        "Read the monthly export in one query"
+      ],
+      [
+        "sr-item--run-make-lint-before-each-commit",
+        "/studio/shop/backlog#item--run-make-lint-before-each-commit",
+        "Run make lint before each commit"
+      ]
+    ],
+    "columns": [],
+    "card links": [],
+    "stack IDs": [
+      "wait-stack-refund-line-on-receipt"
+    ],
+    "wait IDs": [
+      "wait-breaker-gift-note-in-export-1-20261125T154000Z",
+      "wait-session-cart-total-after-coupon",
+      "wait-card-refund-rounding-4F9A1C2E-7B3D-4E8F-A1B2-C3D4E5F60718",
+      "wait-criterion-stock-on-product-page-20261125T155200Z",
+      "wait-review-refund-line-on-receipt",
+      "wait-merge-refund-line-on-receipt"
+    ],
+    "parked": [
+      "parked-fee-notice-to-merchants",
+      "parked-export-check-by-chance"
+    ],
+    "backlog": [
+      "parked"
+    ],
+    "items": []
+  },
+  "backlog_page": {
+    "title": "DEMO · Backlog · Lem · shop · 2 build · 5 for you",
+    "views": [
+      "/studio/shop/",
+      "/studio/shop/waits",
+      "/studio/shop/backlog",
+      "/studio/shop/activity"
+    ],
+    "search": [
+      [
+        "sr-task-gift-note-in-export",
+        "/studio/shop/tasks/gift-note-in-export?in=backlog",
+        "Gift note in export"
+      ],
+      [
+        "sr-task-stock-on-product-page",
+        "/studio/shop/tasks/stock-on-product-page?in=backlog",
+        "Stock on product page"
+      ],
+      [
+        "sr-task-refund-line-on-receipt",
+        "/studio/shop/tasks/refund-line-on-receipt?in=backlog",
+        "Refund line on receipt"
+      ],
+      [
+        "sr-task-refund-rounding",
+        "/studio/shop/tasks/refund-rounding?in=backlog",
+        "Refund rounding"
+      ],
+      [
+        "sr-task-cart-total-after-coupon",
+        "/studio/shop/tasks/cart-total-after-coupon?in=backlog",
+        "Cart total after coupon"
+      ],
+      [
+        "sr-task-coupon-has-a-slug",
+        "/studio/shop/tasks/coupon-has-a-slug?in=backlog",
+        "Coupon has a slug"
+      ],
+      [
+        "sr-task-fee-notice-to-merchants",
+        "/studio/shop/tasks/fee-notice-to-merchants?in=backlog",
+        "Fee notice to merchants"
+      ],
+      [
+        "sr-task-export-check-by-chance",
+        "/studio/shop/tasks/export-check-by-chance?in=backlog",
+        "Export check by chance"
+      ],
+      [
+        "sr-task-footer-terms-typo",
+        "/studio/shop/tasks/footer-terms-typo?in=backlog",
+        "Footer terms typo"
+      ],
+      [
+        "sr-task-order-date-on-invoice",
+        "/studio/shop/tasks/order-date-on-invoice?in=backlog",
+        "Order date on invoice"
+      ],
+      [
+        "sr-task-why-export-is-slow",
+        "/studio/shop/tasks/why-export-is-slow?in=backlog",
+        "Why export is slow"
+      ],
+      [
+        "sr-item--read-the-receipt-s-total-by-its-label",
+        "/studio/shop/backlog#item--read-the-receipt-s-total-by-its-label",
+        "Read the receipt's total by its label"
+      ],
+      [
+        "sr-item--the-export-s-check-fails-by-chance",
+        "/studio/shop/backlog#item--the-export-s-check-fails-by-chance",
+        "The export's check fails by chance"
+      ],
+      [
+        "sr-item-invoice-footer-wraps",
+        "/studio/shop/backlog#item-invoice-footer-wraps",
+        "The invoice footer wraps on A5"
+      ],
+      [
+        "sr-item-export-in-one-query",
+        "/studio/shop/backlog#item-export-in-one-query",
+        "Read the monthly export in one query"
+      ],
+      [
+        "sr-item--run-make-lint-before-each-commit",
+        "/studio/shop/backlog#item--run-make-lint-before-each-commit",
+        "Run make lint before each commit"
+      ]
+    ],
+    "columns": [],
+    "card links": [],
+    "stack IDs": [],
+    "wait IDs": [],
+    "parked": [],
+    "backlog": [
+      "group-reviewer",
+      "group-yes",
+      "group-later",
+      "group-no"
+    ],
+    "items": [
+      "item--read-the-receipt-s-total-by-its-label",
+      "item--the-export-s-check-fails-by-chance",
+      "item-invoice-footer-wraps",
+      "item-export-in-one-query",
+      "item--run-make-lint-before-each-commit"
+    ]
+  },
+  "task-refund-line-on-receipt-overview": {
+    "panel task": "refund-line-on-receipt",
+    "title": "Refund line on receipt",
+    "tabs": [
+      [
+        "ptab-overview",
+        "/studio/shop/tasks/refund-line-on-receipt"
+      ],
+      [
+        "ptab-criteria",
+        "/studio/shop/tasks/refund-line-on-receipt/criteria"
+      ],
+      [
+        "ptab-checks",
+        "/studio/shop/tasks/refund-line-on-receipt/checks"
+      ],
+      [
+        "ptab-timeline",
+        "/studio/shop/tasks/refund-line-on-receipt/timeline"
+      ],
+      [
+        "ptab-artifacts",
+        "/studio/shop/tasks/refund-line-on-receipt/artifacts"
+      ]
+    ],
+    "active tab": [
+      "ptab-overview"
+    ],
+    "documents": [
+      [
+        "md-merge-review-refund-line-on-receipt-254b6c061086",
+        "Verdict: call. The change does what both criteria say; it is not green for two choices taken without you, and I would keep both.\n\n**What was built, and why.** You asked: \"Show a refund as a line of its own on the receipt.\"\n\nToday:\n\n1. Order 1042 is 100.00 EUR, and a refund of 30.00 EUR comes in.\n2. The receipt shows 70.00 EUR, and no line says why.\n\nAfter:\n\n1. Order 1042 is 100.00 EUR, and a refund of 30.00 EUR comes in.\n2. The receipt shows `Refund -30.00` under the items, and `Total 70.00` under it.\n3. A refund of 120.00 EUR shows `Total 0.00` and a credit note for 20.00 EUR.\n\n**The results.** `make test` and `make lint` passed. The tests of both criteria pass on the branch and fail on the base. Round 2 of the review left no must-fix.\n\n**Decided without you.**\n\n- Where the line goes, by the dialectic: under the items, before the total. I agree: the receipt prints its total last, so the refund reads as a change of the total and not as an item.\n- The criteria were approved at night, while the task ran without you. They say what your words ask, and nothing more.\n\n**The time.** 2 h 42 min, against about 2 h for a change of this size in this repository.\n\n**What I found.** Nothing wrong. One assertion left `tests/test_receipt.py`: it read the total from a fixed row, which the refund line moves, and `test_total_after_refund` now reads the total by its label.\n"
+      ],
+      [
+        "md-outcome-refund-line-on-receipt-1fdac4309f09",
+        "**A refund shows on the receipt as a line of its own, and the total under it is what the customer paid.**\n\nToday:\n1. Order 1042 is 100.00 EUR.\n2. A refund of 30.00 EUR comes in.\n3. The receipt shows 70.00 EUR, and no line says why.\n\nAfter:\n1. Order 1042 is 100.00 EUR.\n2. A refund of 30.00 EUR comes in.\n3. The receipt shows `Refund -30.00` under the items, and `Total 70.00` under it.\n\n```mermaid\nflowchart TD\n  A[\"A refund of 30 EUR comes in\"] --> B{\"Is it larger than the total?\"}\n  B -->|\"no\"| C[\"The receipt shows a line: Refund -30.00\"]\n  B -->|\"yes\"| D[\"The receipt shows 0.00 and a credit note\"]\n  C --> E[\"The new total stands under it\"]\n```\n\n| Receipt | Today | After |\n| --- | --- | --- |\n| The refund | not shown | a line of its own, in green |\n| The total | 70.00 | 70.00, under the refund |"
+      ]
+    ],
+    "decisions": [],
+    "forge links": [
+      "https://github.com/acme/shop/pull/44"
+    ]
+  },
+  "task-refund-line-on-receipt-criteria": {
+    "panel task": "refund-line-on-receipt",
+    "title": "Refund line on receipt",
+    "tabs": [
+      [
+        "ptab-overview",
+        "/studio/shop/tasks/refund-line-on-receipt"
+      ],
+      [
+        "ptab-criteria",
+        "/studio/shop/tasks/refund-line-on-receipt/criteria"
+      ],
+      [
+        "ptab-checks",
+        "/studio/shop/tasks/refund-line-on-receipt/checks"
+      ],
+      [
+        "ptab-timeline",
+        "/studio/shop/tasks/refund-line-on-receipt/timeline"
+      ],
+      [
+        "ptab-artifacts",
+        "/studio/shop/tasks/refund-line-on-receipt/artifacts"
+      ]
+    ],
+    "active tab": [
+      "ptab-criteria"
+    ],
+    "documents": [
+      [
+        "md-how-refund-line-on-receipt-a98f7848d7ea",
+        "A refund becomes a line of the receipt; the rule for one larger than the total is the second branch.\n\n```mermaid\nflowchart LR\n  A[\"The refund event\"] --> B[\"The receipt's lines\"]\n  B --> C{\"Refund larger than the total?\"}\n  C -->|\"no\"| D[\"Refund line, then the total\"]\n  C -->|\"yes\"| E[\"Total 0.00, then a credit note\"]\n```"
+      ],
+      [
+        "md-crit-refund-line-on-receipt-1-72ca49989017",
+        "```mermaid\nflowchart TD\n  A[\"A refund of 30 EUR comes in\"] --> B{\"Is it larger than the total?\"}\n  B -->|\"no\"| C[\"The receipt shows a line: Refund -30.00\"]\n  B -->|\"yes\"| D[\"The receipt shows 0.00 and a credit note\"]\n  C --> E[\"The new total stands under it\"]\n```"
+      ],
+      [
+        "md-dec-refund-line-on-receipt-1-85189c0787a3",
+        "```mermaid\nflowchart TD\n  A[\"The receipt has its items\"] --> B{\"Where does the refund go?\"}\n  B -->|\"A\"| C[\"In the items: the total reads as a price\"]\n  B -->|\"B\"| D[\"Under the items: the total stands under it\"]\n  B -->|\"C\"| E[\"In a footer: the customer looks for it\"]\n```"
+      ]
+    ],
+    "decisions": [
+      "dec-1",
+      "dec-2"
+    ],
+    "forge links": [
+      "https://github.com/acme/shop/pull/44"
+    ]
+  },
+  "task-refund-line-on-receipt-checks": {
+    "panel task": "refund-line-on-receipt",
+    "title": "Refund line on receipt",
+    "tabs": [
+      [
+        "ptab-overview",
+        "/studio/shop/tasks/refund-line-on-receipt"
+      ],
+      [
+        "ptab-criteria",
+        "/studio/shop/tasks/refund-line-on-receipt/criteria"
+      ],
+      [
+        "ptab-checks",
+        "/studio/shop/tasks/refund-line-on-receipt/checks"
+      ],
+      [
+        "ptab-timeline",
+        "/studio/shop/tasks/refund-line-on-receipt/timeline"
+      ],
+      [
+        "ptab-artifacts",
+        "/studio/shop/tasks/refund-line-on-receipt/artifacts"
+      ]
+    ],
+    "active tab": [
+      "ptab-checks"
+    ],
+    "documents": [],
+    "decisions": [],
+    "forge links": [
+      "https://github.com/acme/shop/pull/44"
+    ]
+  },
+  "task-refund-line-on-receipt-merge": {
+    "panel task": "refund-line-on-receipt",
+    "title": "Refund line on receipt",
+    "tabs": [
+      [
+        "ptab-overview",
+        "/studio/shop/tasks/refund-line-on-receipt"
+      ],
+      [
+        "ptab-criteria",
+        "/studio/shop/tasks/refund-line-on-receipt/criteria"
+      ],
+      [
+        "ptab-checks",
+        "/studio/shop/tasks/refund-line-on-receipt/checks"
+      ],
+      [
+        "ptab-timeline",
+        "/studio/shop/tasks/refund-line-on-receipt/timeline"
+      ],
+      [
+        "ptab-artifacts",
+        "/studio/shop/tasks/refund-line-on-receipt/artifacts"
+      ]
+    ],
+    "active tab": [],
+    "documents": [],
+    "decisions": [],
+    "forge links": [
+      "https://github.com/acme/shop/pull/44"
+    ]
+  }
+}

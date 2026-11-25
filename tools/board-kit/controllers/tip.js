@@ -37,7 +37,10 @@ export default class extends Controller {
       line('td', from === to ? `at ${hms(from)}` : `${span(to - from)} · ${hms(from)} → ${now ? 'now' : hms(to, from)}`))
     box.hidden = false
     const area = this.element.getBoundingClientRect()
-    const x = ev.clientX - area.left; const y = ev.clientY - area.top; const w = box.offsetWidth; const h = box.offsetHeight
+    const target = node.getBoundingClientRect()
+    const x = (ev.clientX ?? target.left) - area.left
+    const y = (ev.clientY ?? target.top) - area.top
+    const w = box.offsetWidth; const h = box.offsetHeight
     box.style.left = `${x + 14 + w > area.width ? Math.max(0, x - 14 - w) : x + 14}px`
     box.style.top = `${Math.max(0, Math.min(y + 14, area.height - h))}px`
   }

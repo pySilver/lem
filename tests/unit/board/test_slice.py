@@ -7,6 +7,7 @@ import pwd
 import re
 import threading
 from dataclasses import dataclass
+from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -175,10 +176,6 @@ def test_a_host_or_workspace_the_board_does_not_have_is_404(
 @pytest.mark.parametrize(
     ("method", "path", "step"),
     [
-        ("GET", "/", "board-pages"),
-        ("GET", "/h/w/waits", "board-pages"),
-        ("GET", "/h/w/tasks/fix-the-login", "board-pages"),
-        ("GET", "/h/w/tasks/fix-the-login/merge", "board-pages"),
         ("GET", "/h/w/tasks/fix-the-login/cards/p1/", "ask"),
         ("POST", "/h/w/tasks/fix-the-login/cards/p1/answer", "ask"),
     ],

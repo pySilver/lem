@@ -20,6 +20,10 @@ document.addEventListener('turbo:before-morph-element', ev => {
   // path, time and size) stays as it is while its key is the same: the server's version holds the text,
   // and the page's holds what it rendered. So does the step of a session's card (its page id), whose
   // frame holds what the board said to the owner's answer there.
+  const next = ev.detail?.newElement
+  // The writable box keeps the owner's words until the matching form leaves the page.
+  if (ev.target.matches('input[type="text"][id], textarea[id]') && ev.target.id === next?.id &&
+      ev.target.value !== ev.target.defaultValue) ev.preventDefault()
   const keep = ev.target.dataset?.keep
   if (keep && ev.detail?.newElement?.dataset?.keep === keep) ev.preventDefault()
 })

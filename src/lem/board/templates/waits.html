@@ -1,0 +1,61 @@
+{% import 'forms.html' as f %}
+{% macro wait_row(wait, slug) %}
+<article class="wrow a-{{ wait.look }}" id="{{ wait.id }}" data-task="{{ slug }}">
+<span class="fi">{{ p.icon(wait.icon) }}</span><div class="wr-main">
+<div class="wr-top">
+<a class="wr-verb" href="{{ wait.href | address }}"{{ p.frame_attrs(native) }}{% if wait.jump %} data-action="agterm#jump" data-agterm-session-param="{{ wait.jump }}"{% endif %}>{{ wait.verb | inline | safe }}</a>
+{{ p.when(wait.since, 'wr-time') }}
+</div>
+<a class="wr-task" href="{{ wait.href | address }}"{{ p.frame_attrs(native) }}>{{ wait.task }}<span class="wr-state"> · {{ wait.state }}</span></a>
+{% if wait.what %}<div class="wr-what">{{ wait.what | inline | safe }}</div>{% endif %}
+{% if wait.sub %}<div class="wr-sub">{{ wait.sub | inline | safe }}</div>{% endif %}
+{% if wait.marks %}<div class="wr-marks">{% for mark in wait.marks %}{{ p.chip(mark, native) }}{% endfor %}</div>{% endif %}
+{% if wait.reasons %}{{ p.reasons(wait.reasons, native) }}{% endif %}
+{% if wait.acts %}
+<div class="wr-acts{% if wait.acts.answer %} wr-answer{% endif %}">
+{% if wait.acts.criterion %}<p>{{ wait.acts.criterion | inline | safe }}</p>{% endif %}
+{% if wait.acts.answer %}{{ f.answer(wait.acts.answer, native) }}{% endif %}
+{% for link in wait.acts.links %}{{ p.href(link, native) }}{% endfor %}
+{% if wait.acts.busy %}<span>{{ wait.acts.busy }}</span>{% endif %}
+{% for form in wait.acts.forms %}{{ f.act(form) }}{% endfor %}
+</div>
+{% endif %}
+<div class="wr-where"><b>Where you answer:</b> {{ wait.where | inline | safe }}</div>
+</div></article>
+{% endmacro %}
+<div class="view scroll waits-view" id="waits-view">
+{{ p.note(board.note) }}
+<div class="waits-list" id="waits-list" data-controller="cursor" data-cursor-item-value="article.wrow, details.wstack" data-cursor-link-value="a.wr-verb, summary.wst-head" data-cursor-pick-value="a.wr-verb, a.wr-task, summary.wst-head" data-action="keydown@window->cursor#key click->cursor#pick">
+{% for stack in view.stacks %}
+{% if stack.waits | length == 1 %}{{ wait_row(stack.waits[0], stack.slug) }}
+{% else %}
+<details class="wstack a-{{ stack.look }}" id="{{ stack.id }}" data-task="{{ stack.slug }}">
+<summary class="wrow wst-head" title="{{ stack.count }} of {{ stack.title }} wait for you: a click shows each">
+<span class="fi">{{ p.icon(stack.icon) }}</span>
+<div class="wr-main"><div class="wr-top"><span class="wst-title">{{ stack.title }}</span><span class="wst-n">{{ stack.count }}</span>{{ p.icon('chevron-right', 'ic chev') }}</div>
+<div class="wst-first">{{ stack.first | inline | safe }}<span class="wr-state"> · {{ stack.state }}</span></div></div>
+</summary><div class="wst-rows">{% for wait in stack.waits %}{{ wait_row(wait, stack.slug) }}{% endfor %}</div></details>
+{% endif %}
+{% else %}
+<div class="wait-none">{{ p.icon('circle-check') }}<div><b>Nothing waits for you.</b> A breaker, criteria to approve, a plan to read, a pull request to merge or a task with no session shows here when it comes.</div></div>
+{% endfor %}
+</div>
+{% if view.parked %}
+<section class="bl-group a-quiet recessive" id="parked" aria-label="Parked">
+<h2 class="lane-head">Parked <em>{{ view.parked | length }}</em></h2>
+{% for task in view.parked %}
+<details class="bl-item" id="parked-{{ task.slug }}">
+<summary class="bl-head"><span class="bl-title">{{ task.title }}</span>
+<span class="bl-side">{{ p.icon('moon') }} {{ p.when(task.since, 'wr-time') }}</span><span class="wr-sub">{{ task.why | inline | safe }}</span></summary>
+<div class="bl-body">
+{% if task.breaker %}<div class="wr-sub">{{ task.breaker | inline | safe }}</div>{% endif %}
+<div class="wr-sub">{{ task.parked_at }}</div>
+<div class="bl-actions">
+{% if task.resume %}<code>{{ task.resume }}</code> {{ p.copy(task.resume, 'Copy the resume command') }}{% endif %}
+<a class="btn" href="{{ task.href | address }}"{{ p.frame_attrs(native) }}>Open the task</a>
+</div></div></details>
+{% endfor %}
+</section>
+{% endif %}
+{% from 'push.html' import pushes %}{{ pushes('page') }}
+</div>

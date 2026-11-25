@@ -1,0 +1,30 @@
+{% import 'parts.html' as p %}
+{% from 'assets.html' import head %}
+{% set frame = board.frame %}
+{% set viewer = frame.viewer %}
+{% set native = viewer.native %}
+{% set assets = '/' ~ viewer.host ~ '/assets' %}
+<!doctype html>
+<html lang="en">
+<head>{{ head(frame.head.title, assets) }}</head>
+<body class="app" data-controller="clock agterm"{% if frame.head.jump %} data-agterm-url-value="{{ frame.head.jump }}"{% endif %}>
+<div class="shell{% if viewer.rail %} railed{% endif %}" id="shell" data-controller="drawer fold hotkeys" data-action="keydown@window->drawer#escape keydown@window->hotkeys#key">
+{% set side = frame.sidebar %}{% include 'sidebar.html' %}
+<div class="scrim" data-action="click->drawer#close" aria-hidden="true"></div>
+<div class="main">
+{% include 'bars.html' %}
+<main class="stage v-{{ viewer.view }}{% if viewer.full %} full{% endif %}{% if native %} native{% endif %}" id="stage"{% if viewer.width is not none %} style="--pw: {{ viewer.width }}px"{% endif %}>
+{% if board.tasks %}{% set view = board.tasks %}{% include 'tasks.html' %}{% endif %}
+{% if board.older %}{% set view = board.older %}{% include 'older.html' %}{% endif %}
+{% if board.waits %}{% set view = board.waits %}{% include 'waits.html' %}{% endif %}
+{% if board.backlog %}{% set view = board.backlog %}{% include 'backlog.html' %}{% endif %}
+{% if board.activity %}{% set view = board.activity %}{% include 'activity.html' %}{% endif %}
+{% if board.new %}{% set view = board.new %}{% include 'new.html' %}{% endif %}
+{% include 'fragment.html' %}
+</main>
+{% if frame.keys %}<div class="keys" id="{{ frame.keys.id }}">{% for group in frame.keys.groups %}<span>{% for key in group.keys %}<kbd>{{ key }}</kbd> {% endfor %}{{ group.word }}</span>{% endfor %}</div>{% endif %}
+{% include 'status.html' %}
+</div></div>
+{% set search = frame.search %}{% include 'search.html' %}
+{{ p.sprite(symbols) }}
+</body></html>

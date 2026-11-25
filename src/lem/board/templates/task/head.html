@@ -1,0 +1,27 @@
+{% import 'forms.html' as f %}
+{% from 'task/shared.html' import facts %}
+{% from 'task/shared.html' import back %}
+<header class="p-head{% if viewer.head_open %} open{% endif %}" id="p-head">
+<div class="p-top">
+{{ back(head.back, native) }}
+<a class="ibtn p-close" href="{{ head.back | address }}" {{ p.frame_attrs(native) }} data-hotkey="Escape" aria-label="Close the task">{{ p.icon('xmark') }}</a>
+<span class="p-crumb">{{ head.slug }}</span><span class="sp"></span>
+<span class="pill a-{{ head.pill.look }}{% if head.pill.live %} live{% endif %}"><i></i>{{ head.pill.label }} {{ p.when(head.pill.since) }}</span>
+<button class="ibtn p-expand" type="button" data-action="panel#expand" aria-label="Expand or restore the panel" aria-pressed="{{ 'true' if viewer.full else 'false' }}">{{ p.icon('expand') }}</button>
+</div>
+<h2 class="p-title" tabindex="-1">{{ head.title }}</h2>
+<div class="p-sum" id="p-sum">
+{% if head.key_line %}{% set key = head.key_line %}
+<div class="p-key{% if key.look %} a-{{ key.look }}{% endif %}">{% if key.link %}{{ p.href(key.link, native) }}{% endif %}{{ p.icon(key.icon) }}{% if key.word %}<b>{{ key.word }}</b>{% endif %}{% if key.text %} {{ key.text | inline | safe }}{% endif %}</div>
+{% endif %}
+<button class="p-fold" type="button" data-action="fold#head" aria-controls="p-more" aria-expanded="{{ 'true' if viewer.head_open else 'false' }}"><span class="on-closed">Details</span><span class="on-open">Less</span>{{ p.icon('chevron-down', 'ic chev') }}</button>
+</div>
+{% if head.acts %}<div class="p-acts">{% if head.acts.session %}{{ f.act(head.acts.session) }}{% endif %}
+{% if head.acts.merge %}{{ p.href(head.acts.merge, native) }}{% endif %}
+{% if head.acts.merging %}<span class="btn live">Merging…</span>{% endif %}</div>{% endif %}
+<div class="p-more" id="p-more">
+{% if head.ask %}<div class="p-ask">{{ head.ask | inline | safe }}</div>{% endif %}
+{{ facts(head.facts, native) }}
+{% if head.chips %}<div class="p-tags">{% for chip in head.chips %}{{ p.chip(chip, native) }}{% endfor %}</div>{% endif %}
+</div>
+</header>

@@ -1,0 +1,10 @@
+<div class="view scroll" id="older-view">
+<section class="card" id="older">
+<header class="card-head"><h2>Older tasks</h2>{{ p.href(view.newer, native, 'older-back') }}</header>
+<div class="rows">
+{% for row in view.rows %}
+<article class="wrow a-{{ row.look }}" id="older-{{ row.slug }}" data-task="{{ row.slug }}">
+{{ p.icon(row.icon, 'fi') }}<div class="wr-main"><a class="wr-verb" href="{{ row.href | address }}"{{ p.frame_attrs(native) }}>{{ row.title }}</a><span>{{ row.label }}</span>{% if row.pull %}{{ p.chip(row.pull, native) }}{% endif %}</div>{{ p.when(row.ended) }}
+</article>
+{% else %}{% if view.empty %}<p class="empty">{{ view.empty }}</p>{% endif %}{% endfor %}
+</div></section></div>

@@ -1,0 +1,46 @@
+{% import 'task/shared.html' as task %}
+{% macro documents(parts) %}
+{% for doc in parts %}
+<div class="a-row{% if doc.selected %} sel{% endif %}" id="{{ doc.id }}">
+<a class="a-doc a-item{% if doc.selected %} sel{% endif %}" href="{{ doc.href | address }}"{{ p.frame_attrs(native) }} title="{{ doc.path }}"{% if doc.selected %} aria-current="page"{% endif %}>{{ p.icon(doc.icon) }} <span>{{ doc.title }}</span></a>
+{% if doc.attached %}<span class="a-recs">{% for link in doc.attached %}{{ p.href(link, native, 'a-rec') }}{% endfor %}</span>{% endif %}
+</div>{% endfor %}
+{% endmacro %}
+{% macro group(name, count) %}
+{{ p.icon('chevron-right', 'ic chev') }}<span class="a-group">{{ name }}{% if count %} <em>{{ count }}</em>{% endif %}</span>
+{% endmacro %}
+<div class="arts{% if tab.chosen %} show-file{% endif %}{% if tab.wide %} wide{% endif %}" id="arts" data-controller="artifacts" data-artifacts-task-value="{{ panel.slug }}">
+<aside class="arts-side" id="arts-side" data-artifacts-target="side">
+<nav class="a-tree" aria-label="The files of the task">
+{% for section in tab.sections %}<details class="a-grp{% if not section.docs %} none{% endif %}" id="ag-{{ section.key }}" open>
+<summary>{{ group(section.name, section.docs | length) }}</summary><div class="a-list">
+{{ documents(section.docs) }}
+{% if section.empty %}<div class="a-empty">{{ section.empty }}</div>{% endif %}</div></details>{% endfor %}
+{% if tab.work %}<details class="a-grp a-work" id="ag-work"{% if tab.work | selectattr('open') | first is defined or tab.work | sum(attribute='docs', start=()) | selectattr('selected') | first is defined %} open{% endif %}>
+<summary>{{ group('Working files', tab.work_count) }}</summary><div class="a-list">
+{% for folder in tab.work %}
+{% if folder.name %}<details class="a-sub"{% if folder.id %} id="{{ folder.id }}"{% endif %}{% if folder.open %} open{% endif %}><summary>{{ p.icon('chevron-right', 'ic chev') }}{{ p.icon('folder') }}<span>{{ folder.name }}</span><em class="a-n">{{ folder.docs | length }}</em></summary><div class="a-list">{{ documents(folder.docs) }}</div></details>
+{% else %}{{ documents(folder.docs) }}{% endif %}
+{% endfor %}</div></details>{% endif %}
+</nav>
+<p class="art-tally{% if tab.problem %} bad{% endif %}">{{ tab.said }}</p>
+</aside>
+<div class="arts-view" id="arts-view">
+{% if tab.shown %}{% set shown = tab.shown %}{% set body = shown.body %}
+<header class="av-head">
+{% if tab.chosen %}<a class="btn av-back" href="{{ viewer.base | task_address(panel.slug, 'artifacts', viewer.view) | address }}"{{ p.frame_attrs(native) }}>{{ p.icon('arrow-left') }} The files</a>{% endif %}
+<div class="av-title">{{ p.icon(shown.icon) }}<span>{{ shown.title }}</span>{% if shown.alone %}<a class="av-alone" href="{{ shown.alone | address }}" target="_blank" rel="noopener">Open on its own</a>{% endif %}</div>
+<div class="av-meta"><span>{{ shown.meta }}</span> {{ p.copy(shown.path, 'Copy path') }}</div>
+</header>
+<div class="av-body{% if body.frame %} frame{% endif %}" id="av-body">
+{% if body.document %}{{ p.document(body.document) }}{% endif %}
+{% if body.text is not none %}<pre class="art-text">{{ body.text }}</pre>{% endif %}
+{% if body.lines %}<pre class="art-text">{% for line in body.lines %}<span>{{ line }}</span>{{ '\n' }}{% endfor %}</pre>{% endif %}
+{% if body.frame %}<iframe class="art-html" src="{{ body.frame | address }}" title="{{ shown.title }}" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"></iframe>{% endif %}
+{% if body.picture %}{{ task.picture(body.picture) }}{% endif %}
+{% if body.record %}{{ p.href(body.record, native) }}{% endif %}
+{% if body.said %}<p>{{ body.said }}</p>{% endif %}
+</div><p class="art-where">{{ body.where }}</p>
+{% elif tab.empty %}<p class="empty">{{ tab.empty }}</p>{% endif %}
+</div>
+</div>
