@@ -21,33 +21,32 @@ if TYPE_CHECKING:
 # fit in it, and a built file of one long line is never read whole.
 FIRST_LINE = 256
 DIFF = "diff"
+NAMES = "--name-only"
 
 
 def added(where: Path, base: str, tip: str) -> tuple[str, ...]:
     """The paths the change adds, a moved file as the path that came."""
     return checks_git.listed(
-        where, DIFF, "--name-only", "--no-renames", "--diff-filter=A", "-z", base, tip
+        where, DIFF, NAMES, "--no-renames", "--diff-filter=A", "-z", base, tip
     )
 
 
 def diff(where: Path, base: str, tip: str) -> str:
     """`git diff -U0 -M BASE TIP`: every hunk with no line of context."""
-    ran = checks_git.raw(where, DIFF, "-U0", "-M", base, tip)
-    return ran.stdout.decode(errors="replace")
+    return checks_git.text(where, DIFF, "-U0", "-M", base, tip)
 
 
 def rows(where: Path, base: str, tip: str) -> tuple[str, ...]:
     """`git diff --name-status -M`: a status, a path, and a moved file's new path, by tabs."""
-    ran = checks_git.raw(where, DIFF, "--name-status", "-M", base, tip)
-    return tuple(ran.stdout.decode(errors="replace").splitlines())
+    return tuple(
+        checks_git.text(where, DIFF, "--name-status", "-M", base, tip).splitlines()
+    )
 
 
 def paths(where: Path, base: str, tip: str) -> tuple[str, ...]:
     """Every path that differs between two commits; a rename is the path that went and the
     path that came."""
-    return checks_git.listed(
-        where, DIFF, "--name-only", "--no-renames", "-z", base, tip
-    )
+    return checks_git.listed(where, DIFF, NAMES, "--no-renames", "-z", base, tip)
 
 
 def touched(where: Path, commit: str) -> tuple[str, ...]:
@@ -56,7 +55,7 @@ def touched(where: Path, commit: str) -> tuple[str, ...]:
         where,
         "diff-tree",
         "--no-commit-id",
-        "--name-only",
+        NAMES,
         "--no-renames",
         "-r",
         "-z",
@@ -66,7 +65,9 @@ def touched(where: Path, commit: str) -> tuple[str, ...]:
 
 def first_line(where: Path, tip: str, name: str) -> str:
     """The first line of `name` at `tip`, at most FIRST_LINE bytes of it; "" when `tip`
-    holds no such file."""
+    holds no such file, as `git ls-tree` says, whose failure is refused."""
+    if not checks_git.text(where, "ls-tree", NAMES, tip, "--", name):
+        return ""
     with subprocess.Popen(
         [GIT, "-C", str(where), "cat-file", "blob", f"{tip}:{name}"],
         stdout=subprocess.PIPE,

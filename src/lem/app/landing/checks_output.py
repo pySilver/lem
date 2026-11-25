@@ -32,10 +32,34 @@ def grouped(
         procs.stop_group(proc, grace, GRACE, whole_group=True)
 
 
+class Cut(InterruptedError):
+    """A stop while a command ran: what the command wrote up to its end, and the outcomes of
+    the run so far, its own last."""
+
+    def __init__(
+        self, number: int, body: bytes, outcomes: tuple[object, ...] = ()
+    ) -> None:
+        """Keep the signal, the output and the outcomes."""
+        super().__init__(number)
+        self.number = number
+        self.body = body
+        self.outcomes = outcomes
+
+
+def waited(argv: list[str], cwd: Path, output: IO[bytes], grace: float) -> int:
+    """Run `argv` in its group, and give its exit code once the group ended."""
+    with grouped(argv, cwd, output, grace) as proc:
+        return proc.wait()
+
+
 def ended(argv: list[str], cwd: Path, grace: float) -> tuple[int, bytes]:
-    """Run `argv` in its group, and give its exit code and output, once the group ended."""
+    """Run `argv` in its group, and give its exit code and output, once the group ended; a
+    stop gives what the command wrote up to its end, in a `Cut`."""
     with tempfile.TemporaryFile() as output:
-        with grouped(argv, cwd, output, grace) as proc:
-            code = proc.wait()
+        try:
+            code = waited(argv, cwd, output, grace)
+        except InterruptedError as stop:
+            output.seek(0)
+            raise Cut(stop.args[0], output.read()) from None
         output.seek(0)
         return code, output.read()

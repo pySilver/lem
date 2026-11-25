@@ -26,6 +26,8 @@ SHELL = "/bin/sh"
 GRACE = checks_output.GRACE
 SERIAL_GRACE = 7.0
 SHORT = 12
+# What a shell adds to a signal's number for the exit of a command it ended.
+SIGNALLED = 128
 
 
 def output_of(context: frame.Context, command: str) -> tuple[int, bytes]:
@@ -59,13 +61,29 @@ def outcome_of(
     )
 
 
+def one(
+    context: frame.Context, numbered: tuple[int, str], done: list[Outcome]
+) -> Outcome:
+    """One command's outcome; a stop while it runs keeps its output, as an outcome that did
+    not pass, with the run's outcomes before it."""
+    place, command = numbered
+    run = serial_of if place > len(context.world.rules.commands) else output_of
+    try:
+        ran = run(context, command)
+    except checks_output.Cut as cut:
+        stopped = outcome_of(
+            context, place, command, (SIGNALLED + cut.number, cut.body)
+        )
+        raise checks_output.Cut(cut.number, cut.body, (*done, stopped)) from None
+    return outcome_of(context, place, command, ran)
+
+
 def every(context: frame.Context) -> tuple[Outcome, ...]:
     """Each command of `checks.commands`, in the order of the settings."""
-    commands = enumerate(context.world.rules.commands, 1)
-    return tuple(
-        outcome_of(context, place, command, output_of(context, command))
-        for place, command in commands
-    )
+    done: list[Outcome] = []
+    for numbered in enumerate(context.world.rules.commands, 1):
+        done.append(one(context, numbered, done))
+    return tuple(done)
 
 
 def serial_of(context: frame.Context, command: str) -> tuple[int, bytes]:
@@ -88,8 +106,9 @@ def serial_of(context: frame.Context, command: str) -> tuple[int, bytes]:
 def serials(context: frame.Context) -> tuple[Outcome, ...]:
     """Each command of `checks.serial`, after the others, under the serial lock."""
     rules = context.world.rules
-    numbered = enumerate(rules.serial, len(rules.commands) + 1)
-    return tuple(
-        outcome_of(context, place, command, serial_of(context, command))
-        for place, command in numbered
-    )
+    done: list[Outcome] = []
+    for numbered in enumerate(rules.serial, len(rules.commands) + 1):
+        done.append(one(context, numbered, done))
+        if not done[-1].passed:
+            break
+    return tuple(done)

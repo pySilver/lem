@@ -41,21 +41,11 @@ GIT_FIX = (
 )
 
 
-def said(where: Path, *args: str) -> str:
-    """What a git that runs no hook answers; a failure is refused in git's words."""
-    ran = checks_git.raw(where, *args)
-    if ran.returncode:
-        words = ran.stderr.decode(errors="replace").strip()
-        named = " ".join(args[:2])
-        raise errors.Refusal(CODE, f"git {named} failed: {words}", GIT_FIX)
-    return ran.stdout.decode(errors="replace").strip()
-
-
 def onto_of(checkout: Path, base: str) -> str:
     """What the branch is measured against: origin's base branch, or the base branch itself in
     a repository with no origin."""
-    ran = checks_git.raw(checkout, "remote", "get-url", "origin")
-    return base if ran.returncode else f"origin/{base}"
+    remotes = checks_git.text(checkout, "remote").split()
+    return f"origin/{base}" if "origin" in remotes else base
 
 
 def laid(worktree: Path, tip: str, tests: Sequence[RedTest]) -> tuple[str, ...]:
@@ -84,7 +74,10 @@ def removed(checkout: Path, found: Iterable[Path]) -> tuple[str, ...]:
         checks_git.raw(checkout, WORKTREE, "remove", "--force", "--force", str(doomed))
         shutil.rmtree(doomed, ignore_errors=True)
     checks_git.raw(checkout, WORKTREE, "prune")
-    entries = checks_git.raw(checkout, WORKTREE, "list", "--porcelain", "-z").stdout
+    ran = checks_git.raw(checkout, WORKTREE, "list", "--porcelain", "-z")
+    if ran.returncode:
+        return tuple(STUCK.format(place=path, checkout=checkout) for path in gone)
+    entries = ran.stdout
     listed = {
         os.fsdecode(entry).removeprefix("worktree ") for entry in entries.split(b"\0")
     }
@@ -97,21 +90,29 @@ def removed(checkout: Path, found: Iterable[Path]) -> tuple[str, ...]:
 
 
 @contextmanager
-def kept(checkout: Path, found: tuple[Path, Path], slug: str) -> Generator[None]:
-    """Remove both worktrees however the run ends. A worktree that stays is said whatever else
-    went wrong: the first failure does not hide it."""
-    again = f"lem criteria red {slug} runs the check again"
+def cleaned(
+    checkout: Path, found: tuple[Path, Path], stuck: list[str]
+) -> Generator[None]:
+    """Remove both worktrees once, however the run ends, and say in `stuck` each that stays."""
     try:
         yield
-    except errors.Refusal as failure:
-        left = JOIN.join(removed(checkout, found)) or REMOVED
-        raise errors.Refusal(CODE, f"{failure.why}; {left}", failure.fix) from None
-    except InterruptedError:
-        left = JOIN.join(removed(checkout, found)) or REMOVED
-        raise errors.Refusal(CODE, f"{STOPPED}; {left}", again) from None
     finally:
-        stuck = removed(checkout, found)
+        stuck.extend(removed(checkout, found))
+
+
+@contextmanager
+def kept(checkout: Path, found: tuple[Path, Path], slug: str) -> Generator[None]:
+    """Remove both worktrees however the run ends. A worktree that stays is said whatever else
+    went wrong: the first failure does not hide it. A stop passes on as a stop."""
+    stuck: list[str] = []
+    try:
+        with cleaned(checkout, found, stuck):
+            yield
+    except errors.Refusal as failure:
+        left = JOIN.join(stuck) or REMOVED
+        raise errors.Refusal(CODE, f"{failure.why}; {left}", failure.fix) from None
     if stuck:
+        again = f"lem criteria red {slug} runs the check again"
         raise errors.Refusal(CODE, JOIN.join(stuck), again)
 
 
@@ -140,10 +141,11 @@ def ready(workspace: places.Workspace, slug: str) -> Generator[tuple[Path, Path]
 
 @contextmanager
 def stopped(slug: str) -> Generator[None]:
-    """A stop of the run while it is held is refused in the words of a stop: by then what it
-    started is ended, and its worktrees are removed (`kept`)."""
+    """A stop of `lem criteria red` while it is held is refused in the words of a stop: by
+    then what it started is ended, and its worktrees are removed (`kept`, which lets the stop
+    pass, so that the checks keep a stop of their own as stopped)."""
     try:
         yield
     except InterruptedError:
         again = f"lem criteria red {slug} runs the check again"
-        raise errors.Refusal(CODE, STOPPED, again) from None
+        raise errors.Refusal(CODE, f"{STOPPED}; {REMOVED}", again) from None

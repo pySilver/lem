@@ -13,7 +13,7 @@ import signal
 import time
 from typing import TYPE_CHECKING
 
-from lem.app.landing import checks_last, checks_waits
+from lem.app.landing import checks_last, checks_since, checks_waits
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.landing import checks_said
@@ -77,7 +77,7 @@ def watched(
 ) -> Status:
     """The status of a run that holds the lock."""
     slug = record.task.slug
-    run = checks_last.running(record, state, holder.since, clock.now())
+    run = checks_since.running(record, state, holder.since, clock.now())
     said = checks_said.overdue(run.seconds, run.last)
     return Status(
         task=slug,

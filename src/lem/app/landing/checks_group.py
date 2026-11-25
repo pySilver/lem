@@ -4,14 +4,15 @@ says (`project.cmd_serial` on `main`)."""
 
 import os
 import signal
+import subprocess
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from lem.app.landing import checks_stop
 from lem.kernel import procs
 
 if TYPE_CHECKING:
-    import subprocess
     from collections.abc import Generator
 
 # The signals that stop a run, and what a shell adds to a signal's number for its exit.
@@ -21,15 +22,12 @@ SIGNALLED = 128
 GRACE = 3.0
 
 
-def stopped(number: int, _frame: object) -> None:
-    """A signal's handler: the run stops."""
-    raise InterruptedError(number)
-
-
 @contextmanager
 def trapped() -> Generator[None]:
-    """The signals of `STOPS` stop the run while it is held, and are as before after."""
-    before = {sign: signal.signal(sign, stopped) for sign in STOPS}
+    """The signals of `STOPS` stop the run once while it is held (`checks_stop.Stopper`), and
+    are as before after."""
+    stopper = checks_stop.Stopper()
+    before = {sign: signal.signal(sign, stopper) for sign in STOPS}
     try:
         yield
     finally:
@@ -54,8 +52,11 @@ def argv_of(command: tuple[str, ...]) -> list[str]:
 
 @contextmanager
 def started(argv: list[str]) -> Generator[subprocess.Popen[bytes]]:
-    """The command started in a group of its own, which is stopped however the run ends."""
-    proc = procs.start_group(argv, Path.cwd(), os.environ, None)
+    """The command started in a group of its own, which is stopped however the run ends; it
+    keeps the caller's standard input, output and errors."""
+    proc = subprocess.Popen(
+        argv, cwd=Path.cwd(), env=os.environ, start_new_session=True
+    )
     try:
         yield proc
     finally:

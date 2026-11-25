@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING
 from lem.app.landing import (
     checks_kept,
     checks_ready,
-    checks_record,
     checks_stop,
     checks_verdict,
     step,
@@ -38,8 +37,7 @@ def act(context: frame.Context) -> Checked:
     with stopper.held():
         checks_ready.gated(context)
         began = clock.now()
-        begun = partial(checks_record.begun, name="checks", at=began)
-        checks_ready.written(context, begun)
+        checks_ready.written(context, partial(checks_ready.began, at=began))
         verdict = checks_verdict.judged(context, began)
         stopper.done = True
         keep = partial(checks_kept.kept, world=context.world, verdict=verdict)

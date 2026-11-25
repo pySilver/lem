@@ -14,6 +14,7 @@ from lem.app.landing import (
     checks_bar,
     checks_git,
     checks_judge,
+    checks_output,
     checks_run,
     checks_tree,
     frame,
@@ -21,6 +22,7 @@ from lem.app.landing import (
 from lem.kernel.errors import Refusal
 from lem.model.landing import bar, checks, checks_ended
 from lem.records.landing.checks import Checked, Outcome, Removed
+from lem.store import tasks
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -117,14 +119,27 @@ class Judgment(Evidence):
         tip = self.context.world.tip or ""
         refusal = checks_judge.tree_refusal(self.context, tip)
         if refusal is not None:
-            said = "a command of the checks changed what git tracks"
-            return self.refused(refusal, said)
+            return self.refused(
+                refusal, "a command of the checks changed what git tracks"
+            )
+        moved = self.reread()
+        if moved is not None:
+            return self.refused(moved, "the criteria changed while the checks ran")
         red, taken = checks_judge.criteria_run(self.context, self.began)
         self.evidence(PASSED, criteria=checks_judge.criteria_of(red, taken))
         refusal = checks_judge.criteria_refusal(red)
         if refusal is not None:
             return self.refused(refusal, "the check of the criteria did not pass")
         return self.barred(tip)
+
+    def reread(self) -> Refusal | None:
+        """Read the record again after the commands: the criteria's check is of the criteria
+        as they are now, and refused when they changed since the run began."""
+        context = self.context
+        now = tasks.read(context.workspace.state, context.record.task.slug)
+        refused = checks.moved(context.record.task.criteria, now.task.criteria)
+        self.context = dataclasses.replace(context, record=now)
+        return refused
 
     def barred(self, tip: str) -> Verdict:
         """The bar and the size; a lowered bar with no reason is refused, and on the fast
@@ -161,6 +176,10 @@ def judged(context: frame.Context, began: Moment) -> Verdict:
     judgment = Judgment(context=context, began=began)
     try:
         return judgment.ran()
+    except checks_output.Cut as cut:
+        earlier = judgment.found.outcomes if judgment.found else ()
+        judgment.evidence("stopped", outcomes=(*earlier, *cut.outcomes))
+        return stopped(judgment)
     except InterruptedError:
         return stopped(judgment)
     except Refusal as refusal:

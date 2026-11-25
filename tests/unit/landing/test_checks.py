@@ -19,10 +19,16 @@ from msgspec.structs import replace
 
 from fakes.records import MOMENT, record
 from lem.app.landing import (
+    checks_criteria,
+    checks_diff,
     checks_gate,
+    checks_git,
     checks_last,
     checks_machine,
     checks_queue,
+    checks_red_places,
+    checks_since,
+    checks_stop,
     checks_tree,
     checks_waits,
     checks_wanted,
@@ -35,6 +41,7 @@ from lem.records.holds import Blocked
 from lem.records.journal.landing import CheckEnd, CheckWait
 from lem.records.landing.record import Landing
 from lem.records.landing.start import PassRun, Polished
+from lem.records.red import Inputs
 from lem.records.task import Shape
 from lem.records.work import Span
 from lem.store import places, step_refusals, steps, tasks
@@ -984,7 +991,7 @@ def test_the_waits_of_status_name_the_first_and_why(tmp_path: Path) -> None:
             load=30, start=40, behind=LEM_TASK, behind_repo="/Users/me/mybaze", why=why
         )
         checks_waits.told(folder, TALK_TASK, wait, since + timedelta(minutes=2))
-        found = checks_last.running(tasks.read(state, TALK_TASK), state, since, since)
+        found = checks_since.running(tasks.read(state, TALK_TASK), state, since, since)
         assert found.waits is not None
         assert found.waits.wait == wait
         assert found.waits.say == checks_said.waiting(TALK_TASK, wait)
@@ -1041,3 +1048,95 @@ def test_a_run_that_does_not_end_after_its_stop_is_refused_with_the_way_on(
         checks_watch.waited(SLUG, path, os.getpid())
     assert refused.value.code == "stop"
     assert f"`lem land checks {SLUG} --stop` asks again" in refused.value.fix
+
+
+# The review of 2026-11-25 (`/tmp/lem-rebuild/reviews/land-checks/findings.md`): each case
+# failed on the code before its change.
+
+
+def test_a_git_that_cannot_give_the_diff_is_refused_never_read_as_no_change(
+    tmp_path: Path,
+) -> None:
+    for read in (checks_diff.diff, checks_diff.rows):
+        with pytest.raises(Refusal) as refused:
+            read(tmp_path, "a" * 40, "b" * 40)
+        assert refused.value.code == "git"
+    with pytest.raises(Refusal):
+        checks_git.changed(tmp_path)
+
+
+def test_a_check_ignore_that_fails_is_refused_in_its_words(tmp_path: Path) -> None:
+    with pytest.raises(Refusal) as refused:
+        checks_tree.ignored_of(tmp_path, ("build",))
+    assert refused.value.code == "git"
+    assert refused.value.why.startswith("git check-ignore --no-index failed: ")
+
+
+def test_a_second_term_while_the_first_is_handled_changes_nothing() -> None:
+    stopper = checks_stop.Stopper()
+    with pytest.raises(InterruptedError):
+        stopper(15, None)
+    stopper(15, None)
+    stopper.done = True
+    stopper(15, None)
+
+
+def test_the_last_passed_run_is_found_behind_a_red_retry(tmp_path: Path) -> None:
+    passed = ran("one", "passed", 266)
+    later = ENDED + timedelta(minutes=10)
+    retry = CheckEnd(at=later, outcome="red", say="one: ...")
+    spans = (
+        *passed.task.spans,
+        Span(name="checks", start=later - timedelta(seconds=20), end=later),
+    )
+    tasks.create(
+        tmp_path,
+        replace(
+            passed,
+            task=replace(passed.task, spans=spans),
+            journal=(*passed.journal, retry),
+        ),
+    )
+    assert checks_last.last_seconds(tmp_path) == 266
+
+
+def test_a_new_place_in_the_line_is_told_again(
+    line: Line, workspace: places.Workspace
+) -> None:
+    gate = checks_gate.Gate(
+        slug=TALK_TASK,
+        workspace=workspace,
+        gauges=Gauged(loads=[], clock=at("12:19")).gauges(),
+    )
+    wait = checks_said.Wait(load=30, start=40, behind=LEM_TASK, why="longer")
+    gate.tell(wait, 3)
+    gate.tell(wait, 2)
+    journal = tasks.read(workspace.state, TALK_TASK).journal
+    assert [one.position for one in journal if isinstance(one, CheckWait)] == [3, 2]
+
+
+def test_a_stop_during_the_criteria_tests_stays_a_stop_once_the_worktrees_are_gone(
+    tmp_path: Path,
+) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    found = (tmp_path / "x.red-tip", tmp_path / "x.red-base")
+    with pytest.raises(InterruptedError), checks_red_places.kept(tmp_path, found, "x"):
+        raise InterruptedError(15)
+
+
+@pytest.mark.parametrize("field", ["tip", "base", "plan", "setup", "serial"])
+def test_each_of_the_five_inputs_that_differs_runs_the_tests(field: str) -> None:
+    found = Inputs(
+        tip="1" * 40, base="2" * 40, plan="docs/plans/p.md", setup=("make",), serial=()
+    )
+    other = {
+        "tip": "3" * 40,
+        "base": "4" * 40,
+        "plan": "docs/plans/q.md",
+        "setup": (),
+        "serial": ("e2e",),
+    }
+    kept = replace(DONE, run=replace(RUN, inputs=checks_criteria.digest(found)))
+    now = checks_criteria.digest(replace(found, **{field: other[field]}))
+    assert checks.pass_kept(kept, checks_criteria.digest(found), small=False)
+    assert not checks.pass_kept(kept, now, small=False)

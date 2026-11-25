@@ -13,14 +13,19 @@ if TYPE_CHECKING:
 
 @dataclasses.dataclass(kw_only=True, slots=True)
 class Stopper:
-    """Stops the run with `InterruptedError` until it is `done`."""
+    """Stops the run with `InterruptedError` once, until it is `done`: a second term while
+    the first is handled (the cleanup of a command that ignores a term) changes nothing, so
+    that the cleanup ends what the command started (`land.cmd_checks` on `main`)."""
 
     done: bool = False
+    stopping: bool = False
 
     def __call__(self, number: int, _frame: object) -> None:
-        """Stop the run, unless it is judged already."""
-        if not self.done:
-            raise InterruptedError(number)
+        """Stop the run, unless it is judged or stopping already."""
+        if self.done or self.stopping:
+            return
+        self.stopping = True
+        raise InterruptedError(number)
 
     @contextlib.contextmanager
     def held(self) -> Generator[None]:

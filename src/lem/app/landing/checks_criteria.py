@@ -14,7 +14,7 @@ import msgspec
 from lem.app.landing import checks_git, checks_red_places, checks_red_run
 from lem.app.tasks import where
 from lem.kernel import errors, files
-from lem.model.landing import checks_red
+from lem.model.landing import checks, checks_red
 from lem.records.red import Inputs, Red
 from lem.settings.load import base_of, team_of
 from lem.store import places, tasks
@@ -52,12 +52,12 @@ def inputs(workspace: places.Workspace, record: Record) -> Inputs:
     file, and the main checkout's `checks.setup` and `checks.serial`."""
     worktree = worktree_of(workspace, record)
     team = team_of(workspace.checkout)
-    tip = checks_red_places.said(worktree, "rev-parse", "HEAD")
+    tip = checks_git.text(worktree, "rev-parse", "HEAD").strip()
     onto = checks_red_places.onto_of(workspace.checkout, base_of(team))
     plan = record.task.plan
     return Inputs(
         tip=tip,
-        base=checks_red_places.said(worktree, "merge-base", tip, onto),
+        base=checks_git.text(worktree, "merge-base", tip, onto).strip(),
         plan=plan.path if plan else None,
         setup=team.checks.setup,
         serial=team.checks.serial,
@@ -106,8 +106,12 @@ def prepared(workspace: places.Workspace, record: Record) -> checks_red_run.Run:
     )
 
 
-def with_red(record: Record, *, made: Red) -> Record:
-    """The record with this run as the newest of its criteria's check."""
+def with_red(record: Record, *, made: Red, ran: Record) -> Record:
+    """The record with this run as the newest of its criteria's check; refused when the
+    criteria changed while it ran (`ran` is the record it ran on)."""
+    refused = checks.moved(ran.task.criteria, record.task.criteria)
+    if refused is not None:
+        raise refused
     criteria = msgspec.structs.replace(record.task.criteria, red=made)
     task = msgspec.structs.replace(record.task, criteria=criteria)
     return msgspec.structs.replace(record, task=task)
@@ -117,14 +121,16 @@ def red(workspace: places.Workspace, record: Record, now: Moment) -> Red:
     """Run the check, write it on the task's record, and give it. A run with no test holds with
     no worktree; one with tests runs under the task's check lock."""
     slug = record.task.slug
-    with checks_red_places.stopped(slug):
-        run = prepared(workspace, record)
-        made = run.red(now, (), ())
-        if run.tests:
-            with checks_red_places.ready(workspace, slug) as both:
-                made = run.red(now, *run.outcomes(both))
+    run = prepared(workspace, record)
+    made = run.red(now, (), ())
+    if run.tests:
+        with checks_red_places.ready(workspace, slug) as both:
+            made = run.red(now, *run.outcomes(both))
     revision = tasks.read(workspace.state, slug).revision
     tasks.update(
-        workspace.state, slug, lambda before: with_red(before, made=made), revision
+        workspace.state,
+        slug,
+        lambda before: with_red(before, made=made, ran=record),
+        revision,
     )
     return made

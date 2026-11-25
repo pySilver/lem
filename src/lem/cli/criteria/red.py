@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import click
 import msgspec
 
-from lem.app.landing import checks_criteria, checks_group
+from lem.app.landing import checks_criteria, checks_group, checks_red_places
 from lem.cli import place
 from lem.kernel import clock
 from lem.model.landing import checks_red
@@ -33,7 +33,7 @@ def run(call: Call) -> Red:
     """Run the check of the task's criteria, write it on its record, and print it."""
     workspace = places.workspace(place.folder())
     record = tasks.read(workspace.state, call.slug)
-    with checks_group.trapped():
+    with checks_red_places.stopped(call.slug), checks_group.trapped():
         made = checks_criteria.red(workspace, record, clock.now())
     refusal = checks_red.failed(made)
     if refusal:

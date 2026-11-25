@@ -15,6 +15,7 @@ import subprocess
 import sys
 import threading
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -22,8 +23,9 @@ import pytest
 from msgspec.structs import replace
 
 from fakes.repo import run_git
-from journeys.test_skeleton import SLUG, World, lem, made, upto
-from lem.app.landing import checks_criteria
+from journeys.test_skeleton import SLUG, Killed, World, lem, made, upto
+from lem.app.landing import checks_criteria, checks_gate, checks_run, frame
+from lem.cli import lazy
 from lem.kernel import folders
 from lem.records.criterion import CriterionTest
 from lem.records.work import Plan
@@ -237,20 +239,63 @@ sys.exit(lazy.main(["--repo", str(checkout), "land", "checks", sys.argv[4]]))
 """
 
 
+def started_at(pid: int) -> str | None:
+    """When the process `pid` started, as the process table says it; None when it is gone."""
+    ran = subprocess.run(
+        ["ps", "-o", "lstart=", "-p", str(pid)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return ran.stdout.strip() or None
+
+
+@dataclass
+class Children:
+    """The children a case starts and the commands they start, each known by its pid and its
+    start, and each ended when the case ends, also when an assertion failed after its start: a
+    child gets the stop it would get from `--stop`, then a kill; a command's group a kill."""
+
+    procs: list[subprocess.Popen[str]] = field(default_factory=list)
+    groups: dict[int, str] = field(default_factory=dict)
+
+    def own(self, pid_file: Path) -> int:
+        """The command whose pid `pid_file` names, owned from now on."""
+        pid = int(pid_file.read_text())
+        started = started_at(pid)
+        if started is not None:
+            self.groups[pid] = started
+        return pid
+
+    def end_all(self) -> None:
+        for proc in self.procs:
+            if proc.poll() is None:
+                proc.send_signal(signal.SIGTERM)
+                try:
+                    proc.wait(timeout=REACH)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+            proc.communicate(timeout=REACH)
+        for pid, started in self.groups.items():
+            if started_at(pid) == started:
+                os.killpg(pid, signal.SIGKILL)
+
+    def left(self) -> list[int]:
+        return [
+            pid for pid, started in self.groups.items() if started_at(pid) == started
+        ]
+
+
 @pytest.fixture
-def child(world: World) -> Iterator[list[subprocess.Popen[str]]]:
+def child(world: World) -> Iterator[Children]:
     """The children a case starts, each ended when the case ends."""
-    started: list[subprocess.Popen[str]] = []
-    yield started
-    for proc in started:
-        if proc.poll() is None:
-            proc.kill()
-        proc.communicate(timeout=REACH)
+    held = Children()
+    yield held
+    held.end_all()
+    assert held.left() == []
 
 
-def running(
-    world: World, started: list[subprocess.Popen[str]]
-) -> subprocess.Popen[str]:
+def running(world: World, started: Children) -> subprocess.Popen[str]:
     """`lem land checks SLUG` in a child of its own, with the skeleton's ports."""
     argv = [
         sys.executable,
@@ -266,7 +311,7 @@ def running(
     proc = subprocess.Popen(
         argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
     )
-    started.append(proc)
+    started.procs.append(proc)
     return proc
 
 
@@ -281,7 +326,7 @@ def reached(look: object, what: str) -> None:
 
 
 def test_status_names_a_run_that_waits_and_a_stop_there_ends_it_before_its_first_command(
-    world: World, capsys: pytest.CaptureFixture[str], child: list[subprocess.Popen[str]]
+    world: World, capsys: pytest.CaptureFixture[str], child: Children
 ) -> None:
     machine("0.001")
     proc = running(world, child)
@@ -311,12 +356,14 @@ def test_status_names_a_run_that_waits_and_a_stop_there_ends_it_before_its_first
 
 
 def test_a_stop_ends_the_command_that_runs_with_what_it_started_and_keeps_the_run_stopped(
-    world: World, capsys: pytest.CaptureFixture[str], child: list[subprocess.Popen[str]]
+    world: World, capsys: pytest.CaptureFixture[str], child: Children
 ) -> None:
     pid_file = world.folder / "command.pid"
-    settings(world, f"[\"sh -c 'echo $$ > {pid_file}; sleep 60'\"]")
+    line = f"echo the test hangs here; echo $$ > {pid_file}; sleep 60"
+    settings(world, f"[\"sh -c '{line}'\"]")
     proc = running(world, child)
     reached(lambda: pid_file.is_file() and pid_file.read_text().strip(), "its command")
+    child.own(pid_file)
     status = checks(capsys, world, "--status")["result"]
     assert status["running"] is True
     assert status["seconds"] is not None
@@ -329,6 +376,11 @@ def test_a_stop_ends_the_command_that_runs_with_what_it_started_and_keeps_the_ru
         os.kill(int(pid_file.read_text()), 0)
     found = record_of(world)
     assert found["landing"]["checked"]["outcome"] == "stopped"
+    [stopped] = found["landing"]["checked"]["outcomes"]
+    assert stopped["passed"] is False
+    assert (
+        world.task_folder / stopped["output"]
+    ).read_text() == "the test hangs here\n"
     assert found["journal"][-1]["outcome"] == "stopped"
     assert due(capsys, world) == "checks"
     assert checks(capsys, world, "--stop")["result"]["stopped"] is False
@@ -371,13 +423,15 @@ def test_serial_passes_the_exit_status_through_runs_one_line_in_the_shell_and_re
         lem(capsys, world.checkout, "serial", "--", " ")["refusal"]["code"]
         == "serial-call"
     )
+    assert lazy.main(["--repo", str(world.checkout), "serial"]) == 2
+    assert "Missing argument" in capsys.readouterr().err
 
 
 def test_two_runs_at_one_moment_take_turns_and_the_second_says_who_holds_the_lock(
-    world: World, child: list[subprocess.Popen[str]]
+    world: World, child: Children
 ) -> None:
     first = serial(world, "sleep 3", wait=False)
-    child.append(first)
+    child.procs.append(first)
     places.locks_folder(world.checkout / ".lem" / "state")
 
     def holds() -> bool:
@@ -397,7 +451,7 @@ def test_two_runs_at_one_moment_take_turns_and_the_second_says_who_holds_the_loc
 
 
 def test_a_stale_lock_file_of_a_dead_process_does_not_block(
-    world: World, child: list[subprocess.Popen[str]]
+    world: World, child: Children
 ) -> None:
     places.locks_folder(world.checkout / ".lem" / "state")
     lock_path(world).write_text("pid 99999, since 2026-11-19T10:18Z, in /x: sleep 60")
@@ -408,7 +462,7 @@ def test_a_stale_lock_file_of_a_dead_process_does_not_block(
         stdout=subprocess.PIPE,
         text=True,
     )
-    child.append(holder)
+    child.procs.append(holder)
     assert holder.stdout is not None
     assert holder.stdout.readline().strip() == "held"
     holder.send_signal(signal.SIGKILL)
@@ -427,13 +481,14 @@ HOLD_KILLED = (
 
 
 def test_a_stopped_serial_run_ends_its_command_and_exits_as_the_signal_says(
-    world: World, child: list[subprocess.Popen[str]]
+    world: World, child: Children
 ) -> None:
     pid_file = world.folder / "stubborn.pid"
     line = f"trap '' TERM; echo $$ > {pid_file}; while :; do sleep 1; done"
     proc = serial(world, "sh", "-c", line, wait=False)
-    child.append(proc)
+    child.procs.append(proc)
     reached(lambda: pid_file.is_file() and pid_file.read_text().strip(), "its command")
+    child.own(pid_file)
     proc.send_signal(signal.SIGTERM)
     proc.communicate(timeout=REACH)
     assert proc.returncode == 128 + signal.SIGTERM
@@ -548,3 +603,126 @@ def test_a_pass_after_which_the_criteria_do_not_hold_is_refused(
     assert refused["why"].startswith("after the polish pass the tests of the criteria")
     assert "polished" in record_of(world)["landing"]
     assert "after" not in record_of(world)["landing"]["polished"]
+
+
+# The review of 2026-11-25 (`/tmp/lem-rebuild/reviews/land-checks/findings.md`): each case
+# failed on the code before its change.
+
+
+def criteria_tests(
+    world: World, *tests: CriterionTest, no_test: str | None = None
+) -> None:
+    """The task's one criterion held by `tests`, or by none and `no_test`."""
+
+    def tested(found: Record) -> Record:
+        criteria = found.task.criteria
+        criterion = replace(criteria.criteria[0], tests=tests, no_test=no_test)
+        changed = replace(criteria, criteria=(criterion,))
+        return replace(found, task=replace(found.task, criteria=changed))
+
+    state = world.checkout / ".lem" / "state"
+    tasks.update(state, SLUG, tested, tasks.read(state, SLUG).revision)
+
+
+def test_a_criterion_that_changed_while_the_checks_waited_takes_no_proof_of_the_old_one(
+    world: World, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    committed(world, "check.sh", "grep -q receive README.md\n", "test: the word")
+    criteria_tests(world, CriterionTest(command="sh check.sh", files=("check.sh",)))
+    changed = CriterionTest(command="sh check.sh --other", files=("check.sh",))
+
+    def owner_changes_it(gate: object) -> bool:
+        criteria_tests(world, changed)
+        return False
+
+    monkeypatch.setattr(checks_gate.Gate, "passed", owner_changes_it)
+    refused = checks(capsys, world)["refusal"]
+    assert refused["code"] == "contract-moved"
+    found = record_of(world)
+    assert "red" not in found["task"]["criteria"]
+    assert found["landing"]["checked"]["outcome"] == "refused"
+    assert due(capsys, world) == "checks"
+
+
+def test_a_run_cut_off_after_its_first_command_leaves_no_old_pass_in_force(
+    world: World, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert checks(capsys, world)["ok"] is True
+    before = (world.checkout / ".lem" / "settings.toml").read_text()
+    settings(world, '["test -f README.md", "true"]')
+    ran = checks_run.every
+
+    def cut(context: frame.Context) -> object:
+        ran(context)
+        raise Killed("after the first command")
+
+    monkeypatch.setattr(checks_run, "every", cut)
+    with pytest.raises(Killed):
+        checks(capsys, world)
+    capsys.readouterr()
+    (world.checkout / ".lem" / "settings.toml").write_text(before)
+    assert due(capsys, world) == "checks"
+
+
+def test_the_serial_commands_stop_at_their_first_failure(
+    world: World, capsys: pytest.CaptureFixture[str]
+) -> None:
+    marker = world.folder / "late"
+    settings(world, '["true"]', f'["false", "touch {marker}"]')
+    refused = checks(capsys, world)["refusal"]
+    assert refused["code"] == "red"
+    assert not marker.exists()
+    outcomes = record_of(world)["landing"]["checked"]["outcomes"]
+    assert [one["command"] for one in outcomes] == ["true", "false"]
+
+
+def test_a_criterion_with_no_test_and_no_reason_is_refused_before_the_first_command(
+    world: World, capsys: pytest.CaptureFixture[str]
+) -> None:
+    marker = world.folder / "ran"
+    settings(world, f'["touch {marker}"]')
+    criteria_tests(world)
+    refused = checks(capsys, world)["refusal"]
+    assert refused["code"] == "criteria"
+    assert "names no test" in refused["why"]
+    assert not marker.exists()
+
+
+def test_a_stop_during_the_criteria_tests_keeps_the_run_stopped(
+    world: World, capsys: pytest.CaptureFixture[str], child: Children
+) -> None:
+    pid_file = world.folder / "criterion.pid"
+    script = f"echo $$ > {pid_file}; sleep 60\n"
+    committed(world, "check.sh", script, "test: a slow one")
+    criteria_tests(world, CriterionTest(command="sh check.sh", files=("check.sh",)))
+    proc = running(world, child)
+    reached(
+        lambda: pid_file.is_file() and pid_file.read_text().strip(),
+        "the criterion's test",
+    )
+    child.own(pid_file)
+    assert checks(capsys, world, "--stop")["result"]["stopped"] is True
+    out, _ = proc.communicate(timeout=REACH)
+    assert proc.returncode == 1
+    assert '"code":"stopped"' in out
+    found = record_of(world)
+    assert found["landing"]["checked"]["outcome"] == "stopped"
+    assert found["journal"][-1]["outcome"] == "stopped"
+    assert not list(world.worktree.parent.glob(f"{SLUG}.red-*"))
+
+
+def test_serial_with_no_command_is_a_wrong_call_and_its_command_reads_its_input(
+    world: World, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert lazy.main(["--repo", str(world.checkout), "serial"]) == 2
+    assert "Missing argument" in capsys.readouterr().err
+    argv = [sys.executable, "-I", "-B", "-m", "lem", "--repo", str(world.checkout)]
+    said = subprocess.run(
+        [*argv, "serial", "--", "read word; echo got $word"],
+        input="hello\n",
+        capture_output=True,
+        text=True,
+        timeout=REACH,
+        check=False,
+    )
+    assert (said.returncode, said.stdout) == (0, "got hello\n")

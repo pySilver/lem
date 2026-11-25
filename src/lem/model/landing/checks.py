@@ -16,6 +16,7 @@ from lem.model.landing.world import Due, Held, Rules, World
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
+    from lem.records.criteria import Criteria
     from lem.records.landing.start import Polished
     from lem.records.record import Record
 
@@ -111,3 +112,18 @@ def pass_kept(polish: Polished | None, now: str, *, small: bool) -> bool:
         return False
     ran = polish.run
     return ran is not None and ran.outcome == "passed" and ran.inputs == now
+
+
+def moved(before: Criteria, now: Criteria) -> Refusal | None:
+    """Why a run of the criteria's tests is not one to keep: the criteria, their tests among
+    them, changed since it began (`land.checks_body` on `main` read them again after the
+    commands). The contract's own mark (`model/criteria/contract.py`) takes this place once the
+    step `criteria` joins."""
+    if before.criteria == now.criteria and before.approvals == now.approvals:
+        return None
+    return Refusal(
+        "contract-moved",
+        "the criteria changed while the checks ran, so their run is not one of the criteria "
+        "of now",
+        "the checks run again on the criteria of now: lem land next names the step",
+    )

@@ -106,7 +106,7 @@ class Gate:
         """A new wait in the journal and `checks-wait.json` when its reason or the first in
         the line changed, or after SAY seconds of the same."""
         now = self.gauges.clock()
-        key = told_as(wait)
+        key = (*told_as(wait), position)
         if self.fresh(key, now):
             return
         self.said = (key, now)

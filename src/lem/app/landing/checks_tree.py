@@ -9,6 +9,7 @@ the next step finds the worktree clean; a file that was there before the run sta
 is the task's own, made by Lem.
 """
 
+import os
 import shutil
 from typing import TYPE_CHECKING
 
@@ -20,13 +21,37 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
+def ignored(where: Path) -> tuple[str, ...]:
+    """What git ignores in the worktree, a folder whole by its name with its final slash."""
+    return checks_git.listed(
+        where,
+        "ls-files",
+        "--others",
+        "--ignored",
+        "--exclude-standard",
+        "--directory",
+        "-z",
+    )
+
+
+def ignored_of(where: Path, folders: tuple[str, ...]) -> frozenset[str]:
+    """Which of `folders` a rule ignores. `check-ignore` reads each path as a pathspec, so a
+    folder named `:(top)x` would read as `x` at the top; `./` before it makes git read it as it
+    is. With no `--no-index`, a folder that holds a tracked file is never named."""
+    asked = b"".join(os.fsencode(f"./{folder}\0") for folder in folders)
+    named = checks_git.listed(
+        where, "check-ignore", "--no-index", "--stdin", "-z", asked=asked
+    )
+    return frozenset(path.removeprefix("./") for path in named)
+
+
 def stale(worktree: Path) -> tuple[str, ...]:
     """Each ignored `__pycache__` of the worktree with no ignored folder above it, as git
     names it."""
-    listed = checks_git.ignored(worktree)
+    listed = ignored(worktree)
     above = checks_bytecode.folders_above(checks_bytecode.candidates(listed))
-    ignored = checks_git.ignored_of(worktree, above) if above else frozenset()
-    return checks_bytecode.stale(listed, ignored)
+    rules = ignored_of(worktree, above) if above else frozenset()
+    return checks_bytecode.stale(listed, rules)
 
 
 def removed(worktree: Path, folder: str, slug: str) -> None:

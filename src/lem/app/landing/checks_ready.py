@@ -7,7 +7,7 @@ reads the record as it is now: the gate and the criteria's check write it while 
 from functools import partial
 from typing import TYPE_CHECKING
 
-from lem.app.landing import changes, checks_gate, checks_record
+from lem.app.landing import changes, checks_criteria, checks_gate, checks_record
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.landing import checks, checks_said
@@ -33,6 +33,8 @@ def ready(context: frame.Context) -> None:
     refused = checks.decide(record, context.world)
     if refused is not None:
         raise refused
+    found = checks_criteria.inputs(context.workspace, record)
+    checks_criteria.checked(context.workspace, record, found)
     in_tip = polish_in_tip(context)
     refused = checks.unpolished(record, in_tip=in_tip)
     if refused is not None:
@@ -48,6 +50,13 @@ def polish_in_tip(context: frame.Context) -> bool:
         return True
     tip = context.world.tip or ""
     return context.ports.git.is_ancestor(context.worktree, polish.after, tip)
+
+
+def began(record: Record, *, at: Moment) -> Record:
+    """The record with the checks' span begun and no earlier run in force: a run cut off with
+    no chance to clean up leaves none for its tip either."""
+    cleared = changes.landing(record, checked=None)
+    return checks_record.begun(cleared, name="checks", at=at)
 
 
 def stopped_before(record: Record, *, at: Moment) -> Record:
