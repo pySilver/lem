@@ -9,8 +9,6 @@ and the step would go on with less of the notes than their writer wrote.
 import itertools
 from typing import TYPE_CHECKING
 
-from markdown_it import MarkdownIt
-
 from lem.kernel.errors import Refusal
 from lem.records.base import Frozen
 
@@ -58,6 +56,10 @@ def unclosed(token: Token, lines: list[str]) -> int | None:
 def starts(text: str) -> Starts | Refusal:
     """The line of each `## ` heading of the notes, or the refusal of a block that never
     closes."""
+    from markdown_it import (
+        MarkdownIt,
+    )  # only `propose` reads notes: no other step loads it
+
     lines = text.splitlines()
     found: list[int] = []
     for token in MarkdownIt("commonmark").parse(text):

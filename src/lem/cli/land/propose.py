@@ -1,8 +1,9 @@
-"""`lem land propose`: open or update the pull request.
+"""`lem land propose`: green or not green, the pull request's text, the push and the pull request.
 
     lem land propose SLUG --title TITLE --notes NOTES
 
-The plain path, as the step `slice-land` built it; the step `land-propose` owns it.
+Its result names the pull request's number and address, and `say` gives them with green or each
+reason it is not (`app/landing/propose.py`).
 """
 
 from typing import TYPE_CHECKING
