@@ -83,3 +83,18 @@ def test_the_owner_is_there_until_he_says_he_is_away(tmp_path: Path) -> None:
     )
     assert owner.change(tmp_path, None, later, away=False) == back
     assert owner.read(tmp_path) == back
+
+
+def test_a_line_with_a_separator_python_splits_at_reads_back_whole(
+    tmp_path: Path,
+) -> None:
+    odd = SessionLine(
+        at=MOMENT,
+        source="resume",
+        claude="claude-\u2028x",
+        transcript="/t/a\u2029b\u0085.jsonl",
+        task="fix-the-login",
+    )
+    sessions.append(tmp_path, odd)
+    sessions.append(tmp_path, line(2))
+    assert sessions.read(tmp_path) == (odd, line(2))

@@ -6,12 +6,13 @@ import signal
 import subprocess
 import sys
 import threading
+import time
 from datetime import UTC, datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 import pytest
 
-from lem.kernel import clock, files, locks, logs, paths, procs
+from lem.kernel import clock, files, locks, logs, paths, procs, release
 from lem.kernel.errors import Fault, Refusal
 
 if TYPE_CHECKING:
@@ -188,3 +189,98 @@ def test_a_fault_is_logged_with_no_logging_module() -> None:
         timeout=60,
     )
     assert ran.stdout == "False\n"
+
+
+def test_a_lock_an_error_left_inside_is_free_after(tmp_path: Path) -> None:
+    path = tmp_path / "merge.lock"
+    with pytest.raises(ValueError, match="inside"), locks.held(path):
+        raise ValueError("inside")
+    with locks.tried(path) as other:
+        assert other is not None
+
+
+def test_a_file_is_written_into_a_folder_that_is_there_and_an_artifact_makes_its_own(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(FileNotFoundError):
+        files.write_whole(tmp_path / "gone" / "task.json", b"{}")
+    assert not (tmp_path / "gone").exists()
+    files.publish(tmp_path / "checks" / "1-01.log", b"ok\n")
+    assert (tmp_path / "checks" / "1-01.log").read_bytes() == b"ok\n"
+
+
+def test_a_group_that_is_gone_ends_the_stop_at_once(tmp_path: Path) -> None:
+    proc = procs.start_group(
+        [sys.executable, "-I", "-c", "pass"], tmp_path, dict(os.environ), None
+    )
+    proc.wait(timeout=30)
+    procs.stop_group(proc, 30, 30, whole_group=True)
+    procs.stop_group(proc, 30, 30, whole_group=False)
+
+
+IGNORES_TERM = (
+    "import signal, subprocess, sys, time\n"
+    "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+    "child = subprocess.Popen([sys.executable, '-c', "
+    "'import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)'])\n"
+    "open(sys.argv[1], 'w').write(str(child.pid))\n"
+)
+
+
+def started(tmp_path: Path, script: str) -> tuple[subprocess.Popen[bytes], int]:
+    """A group whose leader runs `script` and leaves a child that ignores a term."""
+    left = tmp_path / "child.pid"
+    proc = procs.start_group(
+        [sys.executable, "-I", "-c", script, str(left)],
+        tmp_path,
+        dict(os.environ),
+        None,
+    )
+    deadline = time.monotonic() + 30
+    while not (left.exists() and left.read_text()):
+        assert time.monotonic() < deadline, "the group never started its child"
+        time.sleep(0.05)
+    return proc, int(left.read_text())
+
+
+def gone(pid: int) -> bool:
+    """Whether the process `pid` is gone within 10 s: a killed child waits for the system to
+    reap it, as its parent ended first."""
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def test_the_whole_group_left_after_its_grace_gets_the_kill(tmp_path: Path) -> None:
+    proc, child = started(tmp_path, IGNORES_TERM + "time.sleep(60)\n")
+    procs.stop_group(proc, 0.5, 5, whole_group=True)
+    assert procs.group_gone(proc, 5)
+    assert gone(child)
+
+
+def test_what_the_first_process_left_gets_the_kill_when_it_ended(
+    tmp_path: Path,
+) -> None:
+    ends_on_term = (
+        IGNORES_TERM.replace(
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN)\nchild", "child"
+        )
+        + "time.sleep(60)\n"
+    )
+    proc, child = started(tmp_path, ends_on_term)
+    procs.stop_group(proc, 30, 5, whole_group=False)
+    assert proc.wait(timeout=5) == -signal.SIGTERM
+    assert gone(child)
+
+
+def test_releases_compare_as_numbers_part_by_part() -> None:
+    assert release.newer("0.10.0", "0.9.9")
+    assert release.newer("1.0.1", "1.0")
+    assert not release.newer("1.0.0", "1.0.0")
+    with pytest.raises(Fault, match="no release"):
+        release.numbers("1.0-beta")

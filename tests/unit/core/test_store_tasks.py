@@ -188,3 +188,9 @@ def test_a_record_that_would_not_read_back_is_never_written(tmp_path: Path) -> N
     with pytest.raises(Fault, match="would not read back"):
         tasks.create(tmp_path, bad_moment)
     assert [found.task.slug for found in tasks.every(tmp_path)] == ["fix-the-login"]
+
+
+def test_a_record_keeps_every_character_as_itself(tmp_path: Path) -> None:
+    tasks.create(tmp_path, record(ask="fix the café’s login – ✓"))
+    written = (tmp_path / "tasks" / "fix-the-login" / "task.json").read_text()
+    assert '"ask": "fix the café’s login – ✓"' in written

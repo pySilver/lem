@@ -192,3 +192,12 @@ def test_the_claim_holds_the_workspace_lock_while_it_scans(tmp_path: Path) -> No
     assert seen == ["held"]
     with locks.tried(lock) as stream:
         assert stream is not None
+
+
+def test_a_step_held_by_another_step_than_the_checks_is_named(tmp_path: Path) -> None:
+    holder = steps.Holder(step="base", pid=4242, since=MOMENT)
+    refused = step_refusals.refusal("fix-the-login", "checks", holder)
+    assert refused.why == (
+        "another step of fix-the-login runs now, `lem land base fix-the-login` "
+        "(since 2026-11-25T10:00Z, in process 4242)"
+    )

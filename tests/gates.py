@@ -73,3 +73,11 @@ def test_eslint_holds_the_javascript_to_its_style(pytestconfig: pytest.Config) -
             "and a full run fails here"
         )
     holds(eslint, ".")
+
+
+def test_shellcheck_holds_the_hooks_launcher() -> None:
+    # hooks/run is the one shell script of Lem: what Claude Code runs before a hook's Python.
+    shellcheck = shutil.which("shellcheck")
+    if shellcheck is None:
+        pytest.skip("no shellcheck on PATH: brew install shellcheck")
+    holds(shellcheck, "hooks/run")
