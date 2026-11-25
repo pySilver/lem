@@ -32,6 +32,18 @@ class Shelf(Frozen, frozen=True, kw_only=True):
     shelved: tuple[items.BacklogItem, ...] = ()
     taken: frozenset[str] = frozenset()
 
+    def holds(self, path: str, defect: items.Defect, old: str | None) -> bool:
+        """Whether the item of the tip at `path` holds the defect already; `old`, the
+        `worth: no` item a new one goes beside, never does."""
+        found = next((one for one in self.shelved if one.path == path), None)
+        return path != old and items.holds(found, defect)
+
+    def takes(self, judged: tuple[str, bool]) -> bool:
+        """Whether the item goes at a path (`judged`: the path, and whether its file holds
+        the defect): its file holds it, or no file of the tip or on disk has the name."""
+        path, held = judged
+        return held or path not in self.paths | self.taken
+
 
 class Write(Frozen, frozen=True, kw_only=True):
     """An item to write: its path, its text, and the review round whose commit takes it."""
@@ -75,16 +87,12 @@ def seen_line(finding: Finding, held: str | None = None) -> str:
 
 
 def named(shelf: Shelf, defect: items.Defect, old: str | None) -> tuple[str, bool]:
-    """The path of the defect's item, and whether a file there holds it already. `old`, the
-    `worth: no` item a new one goes beside, is never its item."""
-    by_path = {found.path: found for found in shelf.shelved}
-    for name in names_for(defect):
-        path = f"{shelf.folder}/{name}"
-        if path != old and items.holds(by_path.get(path), defect):
-            return path, True
-        if path not in shelf.paths | shelf.taken:
-            return path, False
-    raise AssertionError("names_for gives names without end")
+    """The path of the defect's item, and whether a file there holds it already: the first of
+    its names that holds it, else the first that is free. `names_for` gives names without
+    end, so one is always found."""
+    paths = map(f"{shelf.folder}/{{0}}".format, names_for(defect))
+    judged = ((path, shelf.holds(path, defect, old)) for path in paths)
+    return next(filter(shelf.takes, judged))
 
 
 def itemized(
