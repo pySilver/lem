@@ -55,7 +55,10 @@ def common_dir(dot_git: str) -> str:
 
 
 def checkout_of(folder: str) -> str | None:
-    """The main checkout of the repository `folder` is in, or None outside one."""
+    """The main checkout of the repository `folder` is in, or None outside one and for a
+    folder that is not there (a worktree that was removed)."""
+    if not raw.is_folder(folder):
+        return None
     here = os.path.realpath(folder)
     while not os.access(f"{here}/.git", os.F_OK):
         if here == "/":
@@ -73,10 +76,13 @@ def folder_of(found: raw.Event, environ: Mapping[str, str]) -> str:
 
 def task_folder(found: raw.Event, environ: Mapping[str, str]) -> str | None:
     """The folder of the session's task in the state of its main checkout, or None for a
-    session that is no task's, or whose task has no folder there."""
+    session that is no task's, whose task has no folder there, or whose folder a link puts in
+    another place: a hook touches no file of another checkout."""
     slug = slug_of(environ)
     if slug is None:
         return None
     checkout = checkout_of(folder_of(found, environ))
     folder = f"{checkout}/{STATE}/tasks/{slug}"
-    return folder if checkout and raw.is_folder(folder) else None
+    if checkout is None or not raw.is_folder(folder):
+        return None
+    return folder if os.path.realpath(folder) == folder else None

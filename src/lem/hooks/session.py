@@ -60,35 +60,43 @@ def shown(lines: list[str], said: str) -> str:
 
 def recorded(environ: Mapping[str, str]) -> str:
     """Put the session on record in its task's folder, and give the task's context after a
-    compaction; nothing for a session that is no task's, or whose folder does not take it."""
+    compaction once its line is on record; nothing for a session that is no task's, for an
+    input that is no SessionStart event, or when the folder does not take the line."""
     found = raw.event()
     try:
-        folder = where.task_folder(found, environ)
+        folder = task_of(found, environ)
     except OSError, ValueError:
         return ""
-    if folder is None:
+    frame = framed(found, folder, environ) if folder else None
+    if folder is None or frame is None:
         return ""
-    pane = environ.get("AGTERM_SESSION_ID", "").strip()
-    frame = framed(found, folder.rpartition("/")[2], pane or None)
-    if frame is not None:
-        raw.append(f"{folder}/{SESSIONS}", frame)
+    kept = raw.append(f"{folder}/{SESSIONS}", frame)
     compacted = raw.text(found, SOURCE) == "compact"
-    return precompact.restored(folder) if compacted else ""
+    return precompact.restored(folder) if kept and compacted else ""
 
 
-def framed(found: raw.Event, slug: str, pane: str | None) -> bytes | None:
-    """The framed line of the session the event names, or None when it names no Claude Code
-    session, no transcript, or a source of no known name."""
+def task_of(found: raw.Event, environ: Mapping[str, str]) -> str | None:
+    """The folder of the task of a SessionStart event; None for any other input."""
+    if raw.text(found, "hook_event_name") != "SessionStart":
+        return None
+    return where.task_folder(found, environ)
+
+
+def framed(found: raw.Event, folder: str, environ: Mapping[str, str]) -> bytes | None:
+    """The framed line of the session the event names, for the task of `folder`, in the
+    agterm session of `environ`; None when the event names no Claude Code session, no
+    transcript, or a source of no known name."""
     line = {
         "v": VERSION,
         "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         SOURCE: raw.text(found, SOURCE),
         "claude": raw.text(found, "session_id"),
         "transcript": raw.text(found, "transcript_path"),
-        "task": slug,
+        "task": folder.rpartition("/")[2],
     }
     if not all(line.values()) or line[SOURCE] not in SOURCES:
         return None
+    pane = environ.get("AGTERM_SESSION_ID", "").strip() or None
     encoded = json.dumps({**line, "pane": pane}, ensure_ascii=False).encode()
     return b"".join((b"\n", encoded, b"\n"))
 

@@ -22,6 +22,10 @@ type Event = dict[str, object]
 WAIT = 2.0
 # The most of one read from stdin.
 CHUNK = 65536
+# A file a hook appends to: made when it is not there, and never through a final link.
+APPEND = os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW
+# Read and write for the owner, read for the rest, as a file the shell makes.
+MODE = 0o644
 
 
 def event() -> Event:
@@ -71,9 +75,13 @@ def read_bytes(path: str) -> bytes:
 
 def append(path: str, body: bytes) -> bool:
     """Append `body` to `path`, made when it is not there, in one write; False when its folder
-    does not take it."""
+    does not take it, or when `path` is a link, which is never followed."""
     try:
-        with io.FileIO(path, "a") as stream:
+        descriptor = os.open(path, APPEND, MODE)
+    except OSError:
+        return False
+    try:
+        with io.FileIO(descriptor, "a") as stream:
             stream.write(body)
     except OSError:
         return False

@@ -63,7 +63,7 @@ def test_the_framed_line_is_one_the_store_reads(tmp_path: Path) -> None:
         "transcript_path": "/t/c1.jsonl",
         "source": "fork",
     }
-    frame = session.framed(found, "gift-note", "S-1")
+    frame = session.framed(found, "/s/tasks/gift-note", {"AGTERM_SESSION_ID": "S-1"})
     assert frame is not None
     assert frame.startswith(b"\n")
     assert frame.endswith(b"\n")
@@ -79,7 +79,7 @@ def test_the_framed_line_is_one_the_store_reads(tmp_path: Path) -> None:
         {},
     )
     for event in broken:
-        assert session.framed(event, "gift-note", None) is None
+        assert session.framed(event, "/s/tasks/gift-note", {}) is None
 
 
 def lem_file(folder: Path) -> str:
@@ -177,3 +177,12 @@ def test_the_state_after_a_compaction_reads_past_a_record_it_does_not_know(
     assert precompact.newest_state(str(tmp_path)) == (
         "status: landing; hold: blocked; newest state line: none written yet"
     )
+
+
+def test_a_hard_link_of_the_apps_command_is_the_app(tmp_path: Path) -> None:
+    own = lem_file(tmp_path / "app")
+    (tmp_path / "hard").mkdir()
+    (tmp_path / "hard" / "lem").hardlink_to(own)
+    assert other.same(str(tmp_path / "hard" / "lem"), own)
+    assert other.other_lem(f"{tmp_path / 'hard'}", own) is None
+    assert other.same(own, str(tmp_path / "gone")) is False

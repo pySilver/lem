@@ -14,6 +14,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -84,18 +85,43 @@ def hooked(
         ["/bin/sh", "-c", LINES[selector]],
         input=stdin,
         env=env,
+        cwd=tempfile.gettempdir(),
         capture_output=True,
         timeout=30,
         check=False,
     )
 
 
-def test_the_manifest_names_each_selector_through_hooks_run() -> None:
-    assert sorted(LINES) == sorted(SELECTORS)
-    for selector, line in LINES.items():
-        assert line == (
-            f'/bin/sh "$CLAUDE_PLUGIN_ROOT/hooks/run" {selector} 2>/dev/null || :'
+def test_the_manifest_registers_each_selector_on_its_event_matcher_and_flags() -> None:
+    manifest = json.loads((ROOT / "hooks" / "hooks.json").read_text())
+    registered = sorted(
+        (
+            event,
+            group.get("matcher"),
+            hook["command"],
+            hook.get("timeout"),
+            hook.get("async", False),
         )
+        for event, groups in manifest["hooks"].items()
+        for group in groups
+        for hook in group["hooks"]
+    )
+    line = '/bin/sh "$CLAUDE_PLUGIN_ROOT/hooks/run" {} 2>/dev/null || :'
+    assert registered == sorted(
+        [
+            ("PreCompact", "auto|manual", line.format("precompact"), 5, False),
+            ("SessionStart", "startup|resume", line.format("serve"), 5, False),
+            (
+                "SessionStart",
+                "startup|resume|clear|compact|fork",
+                line.format("session-start"),
+                5,
+                False,
+            ),
+            ("Stop", None, line.format("stop"), None, True),
+            ("UserPromptSubmit", None, line.format("corrections"), 10, False),
+        ]
+    )
 
 
 def test_with_no_app_every_selector_says_nothing_and_exits_0(tmp_path: Path) -> None:
@@ -313,3 +339,108 @@ def test_a_selector_takes_at_most_55_ms_at_p95(selector: str, tmp_path: Path) ->
     workspace(tmp_path / "repo")
     took = p95(selector, started(tmp_path / "repo"))
     assert took <= BUDGET, f"{selector}: p95 {took:.1f} ms over {RUNS} runs"
+
+
+def entry(selector: str, stdin: bytes) -> subprocess.CompletedProcess[bytes]:
+    """Run `lem-hook SELECTOR` itself, with no wrapper to mask what it says."""
+    env = {**os.environ, "PATH": GUI_PATH, "LEM_TASK": SLUG}
+    return subprocess.run(
+        [str(HOOK), selector],
+        input=stdin,
+        env=env,
+        cwd=tempfile.gettempdir(),
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+
+
+def test_the_entry_itself_says_nothing_and_exits_0_on_any_input(tmp_path: Path) -> None:
+    workspace(tmp_path / "repo")
+    nul = json.dumps({"cwd": "/tmp/a\u0000b", "hook_event_name": "PreCompact"})
+    inputs = (*BAD_INPUTS, nul.encode(), started(tmp_path / "repo\u0000x"))
+    for selector in (*SELECTORS, "no-such-selector", ""):
+        for stdin in inputs:
+            ran = entry(selector, stdin)
+            assert (ran.returncode, ran.stdout, ran.stderr) == (0, b"", b""), (
+                selector,
+                stdin,
+            )
+
+
+def test_a_folder_that_is_gone_puts_nothing_on_record(tmp_path: Path) -> None:
+    folder = workspace(tmp_path / "repo")
+    gone = tmp_path / "repo" / ".lem" / "worktrees" / SLUG
+    ran = hooked("session-start", started(gone))
+    assert (ran.returncode, ran.stdout) == (0, b"")
+    assert not (folder / sessions.SESSIONS).exists()
+
+
+def test_a_state_folder_linked_into_another_checkout_is_not_touched(
+    tmp_path: Path,
+) -> None:
+    other = workspace(tmp_path / "other")
+    (other / "handoff.md").write_text("task: gift-note · from build\n")
+    mine = tmp_path / "mine"
+    (mine / ".git").mkdir(parents=True)
+    (mine / ".lem").mkdir()
+    (mine / ".lem" / "state").symlink_to(tmp_path / "other" / ".lem" / "state")
+    for source in ("startup", "compact"):
+        ran = hooked("session-start", started(mine, source))
+        assert (ran.returncode, ran.stdout) == (0, b"")
+    assert not (other / sessions.SESSIONS).exists()
+
+
+def test_a_link_at_the_environment_file_or_the_sessions_file_is_never_followed(
+    tmp_path: Path,
+) -> None:
+    folder = workspace(tmp_path / "repo")
+    target = tmp_path / "target"
+    target.write_text("kept\n")
+    (tmp_path / "env").symlink_to(target)
+    (folder / sessions.SESSIONS).symlink_to(target)
+    ran = hooked(
+        "session-start",
+        started(tmp_path / "repo", "compact"),
+        CLAUDE_ENV_FILE=str(tmp_path / "env"),
+    )
+    assert (ran.returncode, ran.stdout) == (0, b"")
+    assert target.read_text() == "kept\n"
+
+
+def test_a_compaction_whose_line_was_not_kept_or_no_session_start_gives_nothing(
+    tmp_path: Path,
+) -> None:
+    folder = workspace(tmp_path / "repo")
+    (folder / "handoff.md").write_text("task: gift-note · from build\n")
+    folder.chmod(0o555)
+    try:
+        failed = hooked("session-start", started(tmp_path / "repo", "compact"))
+    finally:
+        folder.chmod(0o755)
+    other_event = json.loads(started(tmp_path / "repo", "compact"))
+    other_event["hook_event_name"] = "PreCompact"
+    wrong = hooked("session-start", json.dumps(other_event).encode())
+    assert (failed.returncode, failed.stdout) == (0, b"")
+    assert (wrong.returncode, wrong.stdout) == (0, b"")
+    assert not (folder / sessions.SESSIONS).exists()
+
+
+def test_a_plugin_whose_manifest_does_not_read_is_named_with_its_fix(
+    tmp_path: Path,
+) -> None:
+    workspace(tmp_path / "repo")
+    plugin = tmp_path / "plugin"
+    (plugin / "hooks").mkdir(parents=True)
+    shutil.copy2(ROOT / "hooks" / "run", plugin / "hooks" / "run")
+    ran = hooked(
+        "session-start", started(tmp_path / "repo"), CLAUDE_PLUGIN_ROOT=str(plugin)
+    )
+    said = json.loads(ran.stdout)["systemMessage"]
+    assert said.startswith(
+        "lem: Lem's plugin and Lem's app may be two versions: the plugin's manifest is "
+        f"unreadable ({plugin}/.claude-plugin/plugin.json"
+    )
+    assert said.endswith(
+        "the owner installs Lem's plugin again and starts the session again"
+    )

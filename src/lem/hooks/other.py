@@ -23,9 +23,20 @@ def runnable(path: str) -> bool:
     return not os.access(f"{path}/.", os.F_OK)
 
 
+def identity(path: str) -> tuple[int, int] | None:
+    """The device and inode of the file `path` names, after its links; None when it is not
+    there."""
+    try:
+        found = os.lstat(os.path.realpath(path))
+    except OSError:
+        return None
+    return (found.st_dev, found.st_ino)
+
+
 def same(one: str, other: str) -> bool:
-    """Whether the two paths are one file, after their links."""
-    return os.path.realpath(one) == os.path.realpath(other)
+    """Whether the two paths are one file, after their links, a hard link too."""
+    first = identity(one)
+    return first is not None and first == identity(other)
 
 
 def other_lem(search: str, own: str) -> str | None:

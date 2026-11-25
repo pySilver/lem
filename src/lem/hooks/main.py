@@ -14,6 +14,7 @@ are two versions, every selector but `session-start` does nothing and says nothi
 `session-start` says the one line that names the half behind.
 """
 
+import contextlib
 import importlib
 import os
 import sys
@@ -51,8 +52,12 @@ def run(selector: str, environ: Mapping[str, str]) -> str:
 
 
 def main() -> None:
-    """Answer the hook that the first argument names, on its event."""
+    """Answer the hook that the first argument names, on its event, and exit 0 whatever
+    happens: a hook that fails says nothing, and a session never fails on one. Not
+    `sys.exit`: a flush at the interpreter's exit that fails would print on stderr."""
     selector = "".join(sys.argv[1:2])
-    said = run(selector, os.environ)
-    if said:
+    with contextlib.suppress(Exception):
+        said = run(selector, os.environ)
         sys.stdout.write(said)
+        sys.stdout.flush()
+    os._exit(0)

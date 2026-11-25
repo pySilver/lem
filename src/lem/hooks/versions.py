@@ -15,6 +15,13 @@ MANIFEST = ".claude-plugin/plugin.json"
 # The update command of each half, for the line that names the one that is behind.
 APP_UPDATE = "brew upgrade pySilver/tap/lem"
 PLUGIN_UPDATE = "claude plugin update lem@lem"
+# What a manifest that does not read is called, and the fix of each half when its manifest is
+# damaged (`hooks.version_line` on `main`): that half is installed again.
+UNREADABLE = "unreadable"
+AGAIN = (
+    ("plugin", "installs Lem's plugin again"),
+    ("app", "installs Lem again"),
+)
 
 
 def app_root() -> str | None:
@@ -36,9 +43,9 @@ def version_of(folder: str) -> str:
     try:
         manifest = json.loads(raw.read_bytes(path))
     except (OSError, ValueError) as error:
-        return f"unreadable ({path}: {error})"
+        return f"{UNREADABLE} ({path}: {error})"
     version = manifest.get("version") if isinstance(manifest, dict) else None
-    return str(version) if version else f"unreadable ({path}: no version)"
+    return str(version) if version else f"{UNREADABLE} ({path}: no version)"
 
 
 def numbers(version: str) -> tuple[int, ...] | None:
@@ -55,6 +62,9 @@ def behind(plugin: str, app: str) -> str | None:
     theirs, mine = version_of(plugin), version_of(app)
     if theirs == mine:
         return None
+    damage = damaged(theirs, mine)
+    if damage is not None:
+        return damage
     plugin_numbers, app_numbers = numbers(theirs), numbers(mine)
     if plugin_numbers is None or app_numbers is None:
         return (
@@ -71,3 +81,15 @@ def behind(plugin: str, app: str) -> str | None:
         f"lem: Lem's app {mine} ({app}) is behind Lem's plugin {theirs}; the owner runs "
         f"`{APP_UPDATE}` and starts the session again"
     )
+
+
+def damaged(theirs: str, mine: str) -> str | None:
+    """The line for a half whose manifest does not read: it names the file and why, and the
+    fix, to install that half again; None when both read."""
+    for (half, fix), version in zip(AGAIN, (theirs, mine), strict=True):
+        if version.startswith(UNREADABLE):
+            return (
+                f"lem: Lem's plugin and Lem's app may be two versions: the {half}'s manifest "
+                f"is {version}; the owner {fix} and starts the session again"
+            )
+    return None
