@@ -24,8 +24,12 @@ TRUTH = (
 
 
 def answer(environ: Mapping[str, str], behind: str | None) -> str:
-    """The summary's instructions for a task's session; nothing for another session."""
-    folder = where.task_folder(raw.event(), environ)
+    """The summary's instructions for a task's session; nothing for another session, or for an
+    input that is no PreCompact event."""
+    found = raw.event()
+    if raw.text(found, "hook_event_name") != "PreCompact":
+        return ""
+    folder = where.task_folder(found, environ)
     if folder is None:
         return ""
     slug = folder.rpartition("/")[2]
