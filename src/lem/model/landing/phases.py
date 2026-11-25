@@ -13,12 +13,12 @@ from lem.model.landing import (
     checks,
     filing,
     merge,
-    mergeread,
     propose,
     reconcile,
     review,
     start,
 )
+from lem.model.landing.mergeread import another_round, usable
 from lem.model.landing.world import Due, Held, World
 from lem.records.landing.record import Landing
 from lem.records.record import Record
@@ -58,12 +58,12 @@ def opened(record: Record, world: World) -> Due:
     proposed = landing.proposed
     if proposed is None or proposed.tip != world.tip:
         return Due(step="start", why="the tip moved after the proposal: a new round")
-    if mergeread.another_round(landing) is not None:
+    if another_round(landing) is not None:
         why = (
             "the merge agent's read of this tip says the moved base needs another round"
         )
         return Due(step="start", why=f"{why}: a new round")
-    if mergeread.usable(landing, world) is None:
+    if usable(landing, world) is None:
         why = "no read of the merge agent covers this tip on origin's base as it is now"
         return Due(step="merge-review", why=why)
     return merge.due(record, world)

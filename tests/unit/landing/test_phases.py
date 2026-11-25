@@ -9,7 +9,7 @@ import pytest
 from msgspec.structs import replace
 
 from lem.model.landing import phases
-from lem.model.landing.merge_evidence import digest_of
+from lem.model.landing.merge_standing import digest_of
 from lem.model.landing.world import Due, Rules
 from lem.records.landing.merge import MergeAccepted, Refused
 from lem.records.landing.propose import MergeRead, Standing

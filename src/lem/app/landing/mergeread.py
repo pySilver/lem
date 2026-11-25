@@ -8,7 +8,6 @@ answer that could not be recorded, the first of which a fresh merge agent answer
 (`model/landing/mergeread.py`).
 """
 
-import re
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -16,7 +15,7 @@ from typing import TYPE_CHECKING
 from lem.app.landing import changes, following, merge_brief, merge_step, merge_world
 from lem.kernel import files
 from lem.kernel.errors import Refusal
-from lem.model.landing import mergeread
+from lem.model.landing import merge_asked, mergeread
 from lem.records.journal.merge import ReadNoted
 
 if TYPE_CHECKING:
@@ -25,7 +24,7 @@ if TYPE_CHECKING:
     from lem.records.landing.propose import MergeRead
     from lem.records.record import Record
 
-WHOLE = re.compile("[0-9a-f]{40}")
+WHOLE = merge_asked.WHOLE
 # The reply as the owner reads it beside the read: agent prose, written whole, never cited.
 REVIEW = "merge-review.md"
 # The tip and the base of the brief a reply answers, as the step printed them.

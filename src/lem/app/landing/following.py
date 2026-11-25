@@ -3,6 +3,7 @@ input the caller gives as a placeholder that `why` names (and no other), or the 
 after the merge agent's brief, the form that writes its reply down, with the brief's own tip and
 base (`main:land.cmd_merge_review`'s `next`)."""
 
+from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from lem.kernel.envelope import Next
@@ -12,34 +13,33 @@ if TYPE_CHECKING:
 
 RESTS = frozenset(("wait", "done", "none"))
 # Each step whose command takes an input of the caller's: its words, and what each is.
-INPUTS = (
-    (
-        "propose",
-        " --title TITLE --notes FILE",
-        "TITLE is the report's commit subject, FILE the pull request's notes",
-    ),
-    (
-        "merge",
-        " --by merger --message SUBJECT",
-        "SUBJECT is the report's commit subject",
-    ),
+INPUTS = MappingProxyType(
+    {
+        "propose": (
+            " --title TITLE --notes FILE",
+            "TITLE is the report's commit subject, FILE the pull request's notes",
+        ),
+        "merge": (
+            " --by merger --message SUBJECT",
+            "SUBJECT is the report's commit subject",
+        ),
+    }
 )
+# A merge that keeps the branch's commits takes no subject.
+KEEPS = (" --by merger", None)
+NONE: tuple[str, str | None] = ("", None)
 
 
 def following(slug: str, due: Due, *, squash: bool = True) -> Next:
-    """The due step's command, or the wait and why; the owner's merge is his to give. A merge
-    that keeps the branch's commits takes no subject."""
+    """The due step's command, or the wait and why; the owner's merge is his to give."""
     if due.step == "done":
         return Next(act="done", why=due.why)
     if due.step in RESTS or due.by == "owner":
         return Next(act="wait", why=due.why)
-    words, said = next(
-        ((words, said) for step, words, said in INPUTS if step == due.step), ("", None)
-    )
-    if due.step == "merge" and not squash:
-        words, said = " --by merger", None
-    command = f"lem land {due.step} {slug}{words}"
+    keeps = due.step == "merge" and not squash
+    words, said = KEEPS if keeps else INPUTS.get(due.step, NONE)
     why = f"{due.why}; {said}" if said else due.why
+    command = f"lem land {due.step} {slug}{words}"
     return Next(act="run", command=command, why=why)
 
 

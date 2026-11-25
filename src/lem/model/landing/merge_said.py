@@ -21,7 +21,9 @@ BASE_CALL = re.compile(
     r"(?:base\s*:\s*)?\**\s*(safe|another round)\b[\s.:;,*-]*(.*)", re.IGNORECASE
 )
 # The marks a line may open with: a heading's, a quote's, a bold mark.
-OPENING = "#*> "
+OPENING = "#*> \t"
+# What may stand between the verdict and its sentence of why.
+TRIM = " .:;,*-"
 # The start of the why of another round that Lem recorded because the merge agent's answer
 # could not be recorded twice on a moved base: Lem's words, never the agent's.
 UNRECORDED = "the merge agent's answer could not be recorded twice"
@@ -33,7 +35,7 @@ TRIES = 2
 
 def lines_of(reply: str) -> list[str]:
     """The reply's lines that are not empty, each past its opening marks."""
-    found = (line.strip().lstrip(OPENING).strip() for line in reply.splitlines())
+    found = (line.lstrip(OPENING).rstrip() for line in reply.splitlines())
     return [line for line in found if line]
 
 
@@ -43,14 +45,15 @@ def verdict_of(reply: str) -> Verdict | None:
     found = VERDICT.match(lines[0]) if lines else None
     if found is None:
         return None
-    return "merge" if found.group(1).lower() == "merge" else "call"
+    word = found.group(1).lower()
+    return "merge" if word == "merge" else "call"
 
 
 def base_call_of(reply: str) -> tuple[BaseCall, str] | None:
     """The call on a moved base on the reply's second line that is not empty, with its
     sentence of why; None for no call, or a call with no why."""
-    lines = lines_of(reply)
-    found = BASE_CALL.match(lines[1]) if len(lines) > 1 else None
+    second = next(iter(lines_of(reply)[1:]), "")
+    found = BASE_CALL.match(second)
     if found is None:
         return None
     why = found.group(2).strip().strip("*").strip()
@@ -105,7 +108,7 @@ def answered(read: MergeRead, reply: str, *, moved: bool) -> MergeRead:
     if call is not None:
         return replace(read, verdict=verdict, base_call=call[0], why=call[1])
     lines = lines_of(reply)
-    rest = VERDICT.sub("", lines[0], count=1).lstrip(" .:;,*-").strip()
+    rest = VERDICT.sub("", lines[0], count=1).lstrip(TRIM)
     why = rest or next(iter(lines[1:]), None)
     return replace(read, verdict=verdict, why=why)
 

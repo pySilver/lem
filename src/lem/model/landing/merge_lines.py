@@ -4,9 +4,11 @@ or changed after it, or not merged (`main:land.base_line`, `uncovered_line`, `no
 `squash_body`, `after_push`, `cmd_clean`)."""
 
 SHORT = 9
+# Two commits, in the order a line names them.
+type Pair = tuple[str, str]
 
 
-def base_line(base: str, bases: tuple[str, str], why: str) -> str:
+def base_line(base: str, bases: Pair, why: str) -> str:
     """The line of a merge on a base that moved after the checks, which a safe read covered:
     the base the checks ran on and the base it merged on (`bases`), and the read's why."""
     ran, merged = (sha[:SHORT] for sha in bases)
@@ -16,7 +18,7 @@ def base_line(base: str, bases: tuple[str, str], why: str) -> str:
     )
 
 
-def uncovered_line(base: str, bases: tuple[str, str], read: str | None) -> str:
+def uncovered_line(base: str, bases: Pair, read: str | None) -> str:
     """The line of a merge whose base on the forge neither the checks nor a read covered: a
     merge on GitHub came between Lem's look at the base and the merge, and nothing undoes
     it. `bases` are the checks' base and the base it merged on; `read` the base a read
@@ -47,9 +49,7 @@ def squash_body(slug: str, moved: str | None) -> str:
     return f"{moved}\n\n{named}" if moved else named
 
 
-def after_push(
-    branch: str, shas: tuple[str, str], bases: tuple[str, str], *, same: bool
-) -> str:
+def after_push(branch: str, shas: Pair, bases: Pair, *, same: bool) -> str:
     """The line of a branch rebased after Lem's last push (`shas`: its tip and the head the
     forge merged; `bases`: the tip's base and the merged head's): it holds the same change,
     or it was changed after the push, with the commands that show the difference and remove
@@ -68,12 +68,18 @@ def after_push(
     )
 
 
-def unmerged_why(*, after: bool, inside: bool) -> str:
-    """Why a landed branch's tip is not what the forge merged: commits `after` the merged
-    head, a merged head made on the forge after the tip (`inside`, its "Update branch"), or
-    neither."""
+def unmerged_why(base: str, branch: Pair, *, after: bool, inside: bool) -> str:
+    """Why a landed branch (`branch`: its name and tip) stays: origin's `base` does not hold
+    its tip, and it has commits `after` the merged head, or the forge merged a head made after
+    the tip (`inside`, its "Update branch"), or neither."""
+    name, tip = branch
     if after:
-        return "the branch has commits after the head the forge merged"
-    if inside:
-        return 'the forge merged a commit made after its tip (its "Update branch")'
-    return "the forge did not merge its tip"
+        how = "the branch has commits after the head the forge merged"
+    elif inside:
+        how = 'the forge merged a commit made after its tip (its "Update branch")'
+    else:
+        how = "the forge did not merge its tip"
+    return (
+        f"origin's {base} does not hold the tip {tip} of {name}: {how}; the branch and the "
+        "forge's copy stay, and nothing was removed"
+    )

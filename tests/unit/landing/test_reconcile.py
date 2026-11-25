@@ -5,6 +5,7 @@ by its method; the line of a merge on a moved base, covered or not (`landing.md`
 
 from msgspec.structs import replace
 
+from lem.kernel.errors import Refusal
 from lem.model.landing import merge_lines, reconcile
 from lem.model.landing.reconcile import Trees
 from lem.model.landing.world import Rules
@@ -67,6 +68,7 @@ def test_with_only_an_open_pull_request_visible_the_intent_stays_and_the_owner_c
 ):
     found = reconcile.reconciled(opened(intent=INTENT), facing(), INTENT, SAME)
     assert code_of(found) == "intent"
+    assert isinstance(found, Refusal)
     assert "the owner checks https://github.com/o/p/pull/1 on GitHub" in found.fix
     assert f"--by owner --tip {TIP}" in found.fix
 

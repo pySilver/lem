@@ -1,30 +1,21 @@
-"""What the merge's steps read from git beyond the world: the trees a merge is judged by, what
-moved on the base since the checks for the merge agent's brief, and the facts of a branch the
-cleanup decides on (`landing.md` D and E)."""
+"""What the merge's steps read from git and the forge beyond the world: the trees a merge is
+judged by, the queue's end, and the facts of a branch the cleanup decides on (`landing.md` D and
+E)."""
 
 from typing import TYPE_CHECKING
 
 from lem.model.landing.clean import Facts, Rebased
 from lem.model.landing.reconcile import Trees
-from lem.records.base import Frozen, Sha
 
 if TYPE_CHECKING:
     from lem.app.landing.frame import Context
     from lem.model.landing.world import PullSeen
+    from lem.records.base import Sha
     from lem.records.landing.merge import Merged
 
 
-class Moved(Frozen, frozen=True, kw_only=True):
-    """What moved on the base since the checks, as the merge agent's brief gives it: the base
-    the checks ran on, the base now, each commit between them by its sha and subject, the
-    files they changed, and which of those the task's change touches too
-    (`main:land.moved_of`)."""
-
-    checks_ran_on: Sha
-    base_now: Sha
-    commits: tuple[tuple[Sha, str], ...]
-    files: tuple[str, ...]
-    overlap: tuple[str, ...]
+# The local branch of a name.
+LOCAL = "refs/heads/{0}"
 
 
 def checks_tree(context: Context) -> Sha:
@@ -40,38 +31,12 @@ def trees_of(context: Context, pull: PullSeen | None) -> Trees:
     forge's merge went onto (the checks' tree while the forge reports none, or the merge went
     into another branch, which is no landing)."""
     checks = checks_tree(context)
-    parent = pull.base_parent if pull is not None else None
-    if parent is None or pull is None or pull.base != context.world.rules.base:
+    parent = None if pull is None else pull.base_parent
+    into = pull is not None and pull.base == context.world.rules.base
+    if parent is None or not into:
         return Trees(checks=checks, parent=checks)
-    return Trees(
-        checks=checks, parent=context.ports.git.tree(context.workspace.checkout, parent)
-    )
-
-
-def moved_of(context: Context, tip: Sha) -> Moved | None:
-    """What moved on origin's base since the checks ran, beside the files of the change; None
-    when origin's base has the checks' base tree (nothing moved, or a revert)."""
-    landing = context.record.landing
-    checked = landing.checked if landing else None
-    if checked is None or checks_tree(context) == context.world.base_tree:
-        return None
-    git, checkout, now = (
-        context.ports.git,
-        context.workspace.checkout,
-        context.world.base,
-    )
-    files = git.diff_stat(checkout, checked.base, now).paths
-    own = set(git.diff_stat(checkout, checked.base, tip).paths)
-    return Moved(
-        checks_ran_on=checked.base,
-        base_now=now,
-        commits=tuple(
-            (made.sha, made.subject)
-            for made in git.commits(checkout, checked.base, now)
-        ),
-        files=files,
-        overlap=tuple(path for path in files if path in own),
-    )
+    tree = context.ports.git.tree(context.workspace.checkout, parent)
+    return Trees(checks=checks, parent=tree)
 
 
 def rebase_proof(context: Context, local: Sha, head: Sha) -> Rebased:
@@ -95,17 +60,15 @@ def branch_facts(context: Context, merged: Merged | None, *, asks: bool) -> Fact
     )
     if local is None:
         return Facts()
-    in_local = git.is_ancestor(
-        checkout, local, f"refs/heads/{context.world.rules.base}"
-    )
+    ref = LOCAL.format(context.world.rules.base)
+    in_local = git.is_ancestor(checkout, local, ref)
     if merged is None:
         return Facts(in_local_base=in_local)
-    head = merged.merged_head
     return Facts(
         in_local_base=in_local,
-        after_merged=git.is_ancestor(checkout, head, local),
-        inside_merged=git.is_ancestor(checkout, local, head),
-        rebased=rebase_proof(context, local, head) if asks else None,
+        after_merged=git.is_ancestor(checkout, merged.merged_head, local),
+        inside_merged=git.is_ancestor(checkout, local, merged.merged_head),
+        rebased=rebase_proof(context, local, merged.merged_head) if asks else None,
     )
 
 

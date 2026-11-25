@@ -9,20 +9,15 @@ written. `checks` is the tree of the base the checks ran on, which the app reads
 
 from typing import TYPE_CHECKING
 
-import msgspec
 from msgspec.structs import replace
 
-from lem.kernel import files
 from lem.kernel.errors import Refusal
 from lem.model.landing import checks, mergeread
 from lem.model.landing.invariants import protected
-from lem.model.landing.world import Due, Merger, World
-from lem.records.landing.merge import Refused
-from lem.records.landing.propose import Standing
+from lem.model.landing.world import Due, World
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
-    from lem.records.base import Moment
     from lem.records.landing.propose import Proposed
     from lem.records.record import Record
 
@@ -93,51 +88,14 @@ def base_side(record: Record, world: World, checks_tree: str) -> Refusal | None:
     guard = protected(world.rules.base, world.rules, "merges")
     if guard is not None or world.base_tree == checks_tree:
         return guard
-    landing = record.landing or Landing()
-    read = mergeread.usable(landing, world)
+    read = mergeread.usable(record.landing or Landing(), world)
     if read is not None and read.base_call == "safe":
         return None
     slug, branch = record.task.slug, world.rules.base
-    ran = landing.checked.base if landing.checked else "the checks' base"
     return Refusal(
         "base",
-        f"origin's {branch} moved after the checks ran on {ran}, and no read of the merge "
-        f"agent covers {branch} at {world.base} as safe: nothing was merged",
+        f"origin's {branch} moved after the checks ran, and no read of the merge agent "
+        f"covers {branch} at {world.base} as safe: nothing was merged",
         f"lem land merge-review {slug} writes the brief of what moved; a fresh merge agent "
         "reads it, and on `Base: safe.` the merge goes on that base",
     )
-
-
-def digest_of(reasons: tuple[str, ...]) -> str:
-    """One digest of the reasons a proposal is not green, which a standing merge keeps."""
-    return files.digest(msgspec.json.encode(reasons))
-
-
-def standing_of(landing: Landing) -> Standing | None:
-    """The owner's merge that stands for the proposed tip: refused for the base, with the
-    reasons it is not green unchanged since (`landing.md` D, "Standing merge")."""
-    proposed, standing = landing.proposed, landing.standing
-    if proposed is None or standing is None or standing.tip != proposed.tip:
-        return None
-    return standing if standing.reasons_digest == digest_of(proposed.reasons) else None
-
-
-def kept(
-    landing: Landing, refusal: Refusal, asked: tuple[Merger, str], now: Moment
-) -> tuple[Refused, Standing | None] | None:
-    """What a refusal of the merge for the base keeps (`asked`: who asked, through what): its
-    `Refused` of Lem for the proposed tip, so the server tries that tip no more, and, for the
-    owner's merge, his merge standing until a safe read (`main:land.kept_refusal`). None for
-    any other refusal, which keeps nothing."""
-    proposed = landing.proposed
-    if refusal.code != "base" or proposed is None:
-        return None
-    by, via = asked
-    refused = Refused(
-        tip=proposed.tip, source="lem", kind="base", line=refusal.why, by=by, at=now
-    )
-    if by != "owner":
-        return refused, None
-    reasons = digest_of(proposed.reasons)
-    standing = Standing(tip=proposed.tip, reasons_digest=reasons, by_act=via, at=now)
-    return refused, standing

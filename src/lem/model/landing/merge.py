@@ -10,14 +10,18 @@ moved base refused stands until a safe read. `branch.history` squashes the branc
 commit, or lands its own commits (a rebase on the forge).
 """
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
-from lem.model.landing import merge_asked, merge_evidence, merge_lines, mergeread
+from lem.model.landing import (
+    merge_asked,
+    merge_call,
+    merge_evidence,
+    merge_standing,
+    mergeread,
+)
 from lem.model.landing.review import newest
 from lem.model.landing.world import Due, Merger, World
-from lem.records.base import Frozen
-from lem.records.landing.merge import MergeIntent
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
@@ -25,19 +29,12 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 STEP = "merge"
-# How the forge lands the branch: one squashed commit, or its own commits replayed.
-type Method = Literal["squash", "rebase"]
+NOT_GREEN = "the request is not green, so the owner merges it"
+CAREFUL = "the request is careful: the owner merges it, whatever the settings say"
+NO_CALL = "no review that answered made the careful call for this change"
+LAND_OWNER = 'branch.land is "owner" in .lem/settings.toml: the owner merges every task'
+CALLS = "the merge agent's read of this tip and base calls the owner"
 OWNER: Merger = "owner"
-
-
-class Merging(Frozen, frozen=True, kw_only=True):
-    """The merge to call: its intent, the forge's method, and the one commit's subject and
-    body (a squash's; a rebase lands the branch's own commits)."""
-
-    intent: MergeIntent
-    method: Method
-    subject: str
-    body: str
 
 
 def who(world: World, reasons: tuple[str, ...]) -> Merger:
@@ -48,24 +45,25 @@ def who(world: World, reasons: tuple[str, ...]) -> Merger:
     return "merger"
 
 
+def careful(record: Record) -> bool:
+    """Whether the request is careful, by its proposal or by its shape: the owner merges
+    it."""
+    proposed, shape = (record.landing or Landing()).proposed, record.task.shape
+    return bool(proposed and proposed.careful) or bool(shape and shape.careful)
+
+
 def authority(record: Record, world: World) -> str | None:
     """Why the merge agent may not merge, or None when it may (`main:land.merger_refusal`)."""
     landing = record.landing or Landing()
-    proposed, shape = landing.proposed, record.task.shape
     last, read = newest(landing), mergeread.usable(landing, world)
-    if proposed is None or proposed.reasons:
-        return "the request is not green, so the owner merges it"
-    if proposed.careful or (shape is not None and shape.careful):
-        return "the request is careful: the owner merges it, whatever the settings say"
-    if last is None or last.careful is None:
-        return "no review that answered made the careful call for this change"
-    if who(world, proposed.reasons) == OWNER:
-        return (
-            'branch.land is "owner" in .lem/settings.toml: the owner merges every task'
-        )
-    if read is None or read.verdict != "merge":
-        return "the merge agent's read of this tip and base calls the owner"
-    return None
+    found = (
+        (landing.proposed is None or bool(landing.proposed.reasons), NOT_GREEN),
+        (careful(record), CAREFUL),
+        (last is None or last.careful is None, NO_CALL),
+        (world.rules.land == OWNER, LAND_OWNER),
+        (read is None or read.verdict != "merge", CALLS),
+    )
+    return next((pair[1] for pair in found if pair[0]), None)
 
 
 def due(record: Record, world: World) -> Due:
@@ -74,7 +72,7 @@ def due(record: Record, world: World) -> Due:
     why = authority(record, world)
     if why is None:
         return Due(step=STEP, why="the merge agent's read says merge", by="merger")
-    if merge_evidence.standing_of(record.landing or Landing()) is not None:
+    if merge_standing.standing_of(record.landing or Landing()) is not None:
         slug = record.task.slug
         said = (
             "the owner's merge stands: the board's server merges it "
@@ -97,44 +95,37 @@ def opened(record: Record) -> Refusal | Proposed:
     return proposed
 
 
-def merging(record: Record, world: World, intent: MergeIntent, subject: str) -> Merging:
-    """The call for `intent`: a squash with the report's `subject` and a body that names the
-    task, and the line of a merge on a base a safe read covered; or a rebase that keeps the
-    branch's commits."""
-    if world.rules.history == "keep":
-        return Merging(intent=intent, method="rebase", subject="", body="")
-    landing = record.landing or Landing()
-    read, checked = mergeread.usable(landing, world), landing.checked
-    line = None
-    if read is not None and read.base_call == "safe" and checked is not None:
-        bases = (checked.base, world.base)
-        line = merge_lines.base_line(world.rules.base, bases, read.why or "")
-    body = merge_lines.squash_body(record.task.slug, line)
-    return Merging(intent=intent, method="squash", subject=subject, body=body)
+def merger_refusal(
+    record: Record, world: World, asked: merge_asked.Asked
+) -> Refusal | None:
+    """Why the merge agent may not merge what it asks to: no authority of its own."""
+    if asked.by == OWNER:
+        return None
+    why = authority(record, world)
+    if why is None:
+        return None
+    return Refusal(
+        "merger-rule",
+        f"the merge agent may not merge: {why}",
+        "the owner merges it, on his word",
+    )
 
 
 def decide(
     record: Record, world: World, asked: merge_asked.Asked, checks_tree: str
-) -> Refusal | Merging:
+) -> Refusal | merge_call.Merging:
     """The merge to call for `asked`, or why it may not go to the forge with the world as it
     is now; `checks_tree` is the tree of the base the checks ran on."""
     proposed = opened(record)
     if isinstance(proposed, Refusal):
         return proposed
-    refused = (
+    stale = (
         merge_evidence.base_side(record, world, checks_tree)
         or merge_evidence.forge_side(record, world, proposed)
         or merge_evidence.our_side(record, world, proposed)
-        or merge_asked.refusal(record, world, asked)
     )
+    refused = stale or merge_asked.refusal(record, world, asked)
+    refused = refused or merger_refusal(record, world, asked)
     if refused is not None:
         return refused
-    why = None if asked.by == OWNER else authority(record, world)
-    if why is not None:
-        return Refusal(
-            "merger-rule",
-            f"the merge agent may not merge: {why}",
-            "the owner merges it, on his word",
-        )
-    intent = MergeIntent(tip=proposed.tip, by=asked.by, via=asked.via, at=world.now)
-    return merging(record, world, intent, asked.subject or "")
+    return merge_call.merging(record, world, asked, proposed.tip)

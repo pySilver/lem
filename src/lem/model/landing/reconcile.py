@@ -66,28 +66,32 @@ def line_of(
     covered, else the line that no read covered it."""
     if trees.parent == trees.checks:
         return None, False
-    bases = (merged.base_checked, merged.parent)
-    reads = [
+    safe = [
         read
         for read in landing.reads
         if read.tip == merged.merged_head and read.base_call == "safe"
     ]
-    covering = [read for read in reads if read.base_tree == trees.parent]
+    bases = (merged.base_checked, merged.parent)
+    covering = [read.why or "" for read in safe if read.base_tree == trees.parent]
     if covering:
-        return merge_lines.base_line(base, bases, covering[-1].why or ""), False
-    read_base = reads[-1].base if reads else None
-    return merge_lines.uncovered_line(base, bases, read_base), True
+        return merge_lines.base_line(base, bases, covering[-1]), False
+    read = safe[-1].base if safe else None
+    return merge_lines.uncovered_line(base, bases, read), True
 
 
 def made(
-    landing: Landing, world: World, pull: PullSeen, facts: tuple[Merger, Via, Trees]
+    landing: Landing,
+    world: World,
+    pull: PullSeen,
+    who: tuple[Merger, Via],
+    trees: Trees,
 ) -> Merged:
-    """The record of a merge the forge reports whole, into the task's base."""
-    by, via, trees = facts
+    """The record of a merge the forge reports whole, into the task's base, by `who` (who
+    merged and through what), judged by `trees`."""
     read = mergeread.usable(landing, world)
     merged = Merged(
-        by=by,
-        via=via,
+        by=who[0],
+        via=who[1],
         commit=pull.merge_commit or "",
         merged_head=pull.merged_head or "",
         parent=pull.base_parent or "",
@@ -110,6 +114,7 @@ def landed(
     trees it is judged by), or why it is no landing: another destination, which leaves the
     task open with nothing cleaned, or a merge whose commit the forge does not report yet."""
     wrong = target(pull.base, world.rules, pull.url)
+    slug = record.task.slug
     if wrong is not None:
         return wrong
     if not (pull.merge_commit and pull.merged_head and pull.base_parent):
@@ -117,9 +122,10 @@ def landed(
             "unreported",
             f"GitHub merged {pull.url} and does not report its commit yet: nothing was "
             "written",
-            f"lem land merged {record.task.slug} runs again in a minute",
+            f"lem land merged {slug} runs again in a minute",
         )
-    return made(record.landing or Landing(), world, pull, facts)
+    landing, who = record.landing or Landing(), facts[:2]
+    return made(landing, world, pull, who, facts[2])
 
 
 def reconciled(
@@ -151,12 +157,13 @@ def reconciled(
             at=world.now,
         )
     url = pull.url if pull else "the pull request"
+    slug = record.task.slug
     return Refusal(
         "intent",
         f"a merge call for {intent.tip} went out, and GitHub shows {url} open: the call may "
         "not have reached it, and no new call goes unasked",
         f"the owner checks {url} on GitHub; when it is not merged there, his word merges it: "
-        f"lem land merge {record.task.slug} --by owner --tip {intent.tip}",
+        f"lem land merge {slug} --by owner --tip {intent.tip}",
     )
 
 
@@ -166,20 +173,20 @@ def queued(
     """What a pull request the forge holds in its queue shows now that it is still open: the
     queue's end in GitHub's words, or that it waits."""
     landing = record.landing or Landing()
-    pull, accepted = world.pull, landing.accepted
+    accepted = landing.accepted
     tip = accepted.tip if accepted else world.tip or ""
-    if pull is not None and dequeued:
-        who = landing.proposed.who_acts if landing.proposed else "owner"
+    if world.pull is not None and dequeued:
         return Refused(
             tip=tip,
             source="github",
             kind="rule",
             line=dequeued,
-            by=who,
+            by=landing.proposed.who_acts if landing.proposed else "owner",
             at=world.now,
         )
+    slug = record.task.slug
     return Refusal(
         "queued",
         f"GitHub holds the merge of {tip} in its queue, and has not merged it yet",
-        f"lem land merged {record.task.slug} runs again once GitHub merged it",
+        f"lem land merged {slug} runs again once GitHub merged it",
     )

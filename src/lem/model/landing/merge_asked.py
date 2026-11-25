@@ -12,7 +12,7 @@ import re
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
-from lem.model.landing import merge_evidence
+from lem.model.landing import merge_standing
 from lem.model.landing.world import Merger
 from lem.records.base import Frozen
 from lem.records.landing.merge import Via
@@ -37,22 +37,39 @@ class Asked(Frozen, frozen=True, kw_only=True):
     subject: str | None = None
 
 
-def tip_refusal(record: Record, asked: Asked) -> Refusal | None:
-    """Why the tip the caller saw is not the proposed one: not a whole commit, the owner's
-    word for another tip, or his standing merge that no longer stands."""
-    landing = record.landing or Landing()
+def tip_why(landing: Landing, asked: Asked) -> str | None:
+    """Why the tip the caller saw is not the proposed one: not a whole commit, his standing
+    merge that no longer stands, the owner's word for another tip, or another tip."""
     shown = landing.proposed.tip if landing.proposed else None
-    slug = record.task.slug
-    if asked.tip is not None and not WHOLE.fullmatch(asked.tip):
-        why = f"--tip is the whole commit the merge is for, 40 hex digits, not {asked.tip!r}"
-    elif asked.standing and merge_evidence.standing_of(landing) is None:
-        why = f"no merge of the owner's stands for {shown}: the proposal ended it"
-    elif asked.by == OWNER and not asked.standing and asked.tip != shown:
-        why = f"the owner's merge names {asked.tip}, and the proposal is {shown} now"
-    elif asked.tip is not None and asked.tip != shown:
-        why = f"the merge was asked for {asked.tip}, and the proposal is {shown} now"
-    else:
+    tip = asked.tip
+    word = asked.by == OWNER and not asked.standing
+    found = (
+        (
+            tip is not None and not WHOLE.fullmatch(tip),
+            f"--tip is not a whole commit: {tip}",
+        ),
+        (
+            asked.standing and merge_standing.standing_of(landing) is None,
+            f"no merge of the owner's stands for {shown}: the proposal ended it",
+        ),
+        (
+            word and tip != shown,
+            f"the owner's merge names {tip}, and the proposal is {shown}",
+        ),
+        (
+            tip is not None and tip != shown,
+            f"it was asked for {tip}, and the proposal is {shown}",
+        ),
+    )
+    return next((pair[1] for pair in found if pair[0]), None)
+
+
+def tip_refusal(record: Record, asked: Asked) -> Refusal | None:
+    """Why the merge may not go for the tip the caller saw (`tip_why`)."""
+    why = tip_why(record.landing or Landing(), asked)
+    if why is None:
         return None
+    slug = record.task.slug
     return Refusal(
         "tip",
         f"{why}: nothing was merged",

@@ -12,7 +12,7 @@ from lem.records.landing.record import Landing
 from unit.landing.merges import MOVED, MOVED_TREE, code_of, facing, moved, opened
 from unit.landing.worlds import BASE, MOMENT, OPENED, OTHER, TIP, TREE, task
 
-OPENED_LANDING = Landing(**OPENED)
+OPENED_LANDING = task("open", **OPENED).landing or Landing()
 UNMOVED = mergeread.Briefed(tip=TIP, base=BASE, base_tree=TREE, moved=False)
 ON_MOVED = mergeread.Briefed(tip=TIP, base=MOVED, base_tree=MOVED_TREE, moved=True)
 

@@ -74,6 +74,7 @@ def test_a_tip_the_forge_did_not_merge_keeps_the_branch_and_its_copy() -> None:
     after = world(local=REBASED, tip=REBASED, remote=REBASED)
     found = clean.decide(LANDED, after, clean.Facts(after_merged=True))
     assert code_of(found) == "unmerged"
+    assert isinstance(found, Refusal)
     assert "commits after the head the forge merged" in found.why
     inside = clean.decide(LANDED, after, clean.Facts(inside_merged=True))
     assert code_of(inside) == "unmerged"

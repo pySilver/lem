@@ -29,11 +29,6 @@ type Act = Callable[[Context], object]
 type Told = Callable[[object], Next | None]
 
 
-def none_told(outcome: object) -> Next | None:
-    """No line of the act's own: what comes next is the due step's."""
-    return None
-
-
 def refused(workspace: places.Workspace, slug: str, verb: Verb) -> None:
     """Refuse the step `verb` when the record alone says another is due, with no look at git
     or the forge."""
@@ -51,19 +46,28 @@ def ran(
     with steps.step(workspace.state, slug, verb, now):
         context = step.allowed(step.opened(workspace, slug, now), verb)
         outcome = act(context)
-        due = phases.settled(tasks.read(workspace.state, slug)) or step.looked(context)
+        after = tasks.read(workspace.state, slug)
+        due = phases.settled(after) or step.looked(context)
     return context, outcome, due
 
 
+def then_of(context: Context, outcome: object, due: Due, told: Told | None) -> Next:
+    """What comes next: the act's own line, else the due step's command."""
+    said = None if told is None else told(outcome)
+    squash = context.world.rules.history == "squash"
+    slug = context.record.task.slug
+    return said or following.following(slug, due, squash=squash)
+
+
 def landed(
-    folder: Path, slug: str, verb: Verb, act: Act, told: Told = none_told
+    folder: Path, slug: str, verb: Verb, act: Act, told: Told | None = None
 ) -> Envelope:
     """Run the step `verb` of the task `slug` with its act, and give its envelope; `told`
     gives the act's own line of what comes next, when it has one."""
     workspace = places.workspace(folder)
     refused(workspace, slug, verb)
     context, outcome, due = ran(workspace, slug, verb, act)
-    squash = context.world.rules.history == "squash"
-    then = told(outcome) or following.following(slug, due, squash=squash)
-    encoded = msgspec.Raw(msgspec.json.encode(outcome))
-    return Envelope(ok=True, outcome=encoded, following=then)
+    then = then_of(context, outcome, due, told)
+    return Envelope(
+        ok=True, outcome=msgspec.Raw(msgspec.json.encode(outcome)), following=then
+    )

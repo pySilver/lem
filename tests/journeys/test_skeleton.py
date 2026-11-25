@@ -641,9 +641,9 @@ def test_githubs_refusal_is_kept_in_its_words_and_waits_for_the_owner(
     assert landing["refused"]["line"] == "Required status check is expected"
     assert "intent" not in landing or landing["intent"] is None
     envelope = next_step(capsys, world)
-    assert envelope["result"]["step"] == "wait"
+    assert (envelope["result"]["step"], envelope["result"]["by"]) == ("merge", "owner")
     assert envelope["next"]["do"] == "wait"
-    assert MERGE(capsys, world)["refusal"]["code"] == "not-due"
+    assert MERGE(capsys, world)["refusal"]["code"] == "github"
     assert len(world.forge.merge_calls) == 1
 
 

@@ -91,9 +91,12 @@ def landed(
         return replace(sweep, branch=False, branch_left=said)
     return Refusal(
         "unmerged",
-        f"origin's {world.rules.base} does not hold the tip {local} of {world.branch}: "
-        + merge_lines.unmerged_why(after=facts.after_merged, inside=facts.inside_merged)
-        + "; the branch and the forge's copy stay, and nothing was removed",
+        merge_lines.unmerged_why(
+            world.rules.base,
+            (world.branch, local),
+            after=facts.after_merged,
+            inside=facts.inside_merged,
+        ),
         f"git log {world.branch} shows what it holds, and git branch -D {world.branch} "
         "removes it; then lem land clean runs again",
     )

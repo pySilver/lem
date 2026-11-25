@@ -15,8 +15,7 @@ from msgspec.structs import replace
 from lem.app.landing import changes, merge_world
 from lem.kernel import files
 from lem.kernel.errors import Refusal
-from lem.model.landing import merge_lines
-from lem.model.landing import reconcile as rules
+from lem.model.landing import merge_lines, reconcile
 from lem.ports.faults import Unanswered
 from lem.records.landing.record import Landing
 
@@ -35,13 +34,9 @@ def line_of(context: Context, landing: Landing) -> str | None:
     merged = landing.merged
     if merged is None:
         return None
-    git, checkout = context.ports.git, context.workspace.checkout
-    trees = rules.Trees(
-        checks=merge_world.checks_tree(context),
-        parent=git.tree(checkout, merged.parent),
-    )
-    line, _uncovered = rules.line_of(landing, merged, trees, context.world.rules.base)
-    return line
+    tree = context.ports.git.tree(context.workspace.checkout, merged.parent)
+    trees = reconcile.Trees(checks=merge_world.checks_tree(context), parent=tree)
+    return reconcile.line_of(landing, merged, trees, context.world.rules.base)[0]
 
 
 def confirmed(record: Record, *, text: str | None) -> Record:
@@ -63,12 +58,19 @@ def waiting(record: Record, *, text: str) -> Record:
     return changes.landing(record, proposed=replace(proposed, text_waits=text))
 
 
+def named_of(record: Record, body: str) -> str:
+    """The path of a body of the pull request's text in the task's folder: by its round and
+    its digest, so a cut-off never changes a cited text."""
+    digest = files.digest(body.encode())
+    landing = record.landing or Landing()
+    return TEXT.format(landing.round, digest[:SHORT])
+
+
 def sent(context: Context, record: Record, edit: tuple[PullSeen, str]) -> Record:
     """Publish the newer text (`edit`: the pull request and its newer body), note that it
     waits, and send it to the forge; a failed edit is refused, and the step stays due."""
-    landing = record.landing or Landing()
     pull, body = edit
-    named = TEXT.format(landing.round, files.digest(body.encode())[:SHORT])
+    named, slug = named_of(record, body), record.task.slug
     files.publish(context.folder / named, body.encode())
     waits = context.write(record, partial(waiting, text=named))
     try:
@@ -76,9 +78,9 @@ def sent(context: Context, record: Record, edit: tuple[PullSeen, str]) -> Record
     except Unanswered as error:
         raise Refusal(
             "text",
-            f"GitHub merged the pull request, and the line of its merge did not reach its "
+            "GitHub merged the pull request, and the line of its merge did not reach its "
             f"text ({error.said}): the newer text waits",
-            f"lem land merged {record.task.slug} tries the edit again",
+            f"lem land merged {slug} tries the edit again",
         ) from error
     return context.write(waits, partial(confirmed, text=named))
 
