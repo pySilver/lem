@@ -14,7 +14,7 @@ from lem.app.decisions import stopping
 from lem.kernel import clock, files
 from lem.model.decisions import breaker, document
 from lem.records.decisions import Breaker
-from lem.store import tasks
+from lem.store import guard, tasks
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -48,6 +48,7 @@ def tripped(ports: Ports, folder: Path, slug: str, asked: stopping.Asked) -> Bre
     record = here.read()
     path = stopping.checked(ports, here, record, asked)
     made, raw = made_of(record, asked, path)
+    guard.writable(here.workspace.state)
     files.publish(here.folder / made.document, raw)
     tasks.update(here.workspace.state, slug, holding(made, asked), record.revision)
     path.unlink()
