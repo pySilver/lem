@@ -93,3 +93,24 @@ as `land.checks_stop` on `main` did.
 ## For `criteria`
 
 The rows of `criteria read SLUG done` (`ReadForm` of `test_task_rules.py`) are moved to you.
+
+## For `settings`: the table `[paths]`
+
+`lem task plan-file`, `planned` and `build` read `[paths]` of the team's file through a local
+stand-in, `lem.app.tasks.plans.paths_of(checkout)`: `plans` (default `docs/plans`), `plan_file`
+(default `YYYY-MM-DD-<slug>.md`), `rulings` (read past). Main's `project.file_pattern_of` checked
+the pattern (`<slug>` once, no `/` or `\`, `.md`, only `YYYY`, `MM`, `DD`, `<slug>`, none twice);
+the stand-in does not, and the table's struct should. Then `paths_of` becomes
+`team_of(checkout).paths`.
+
+## For `criteria`: two starts that are no spans
+
+`criteria.read.start by=lem|lead` and `read.skip.asked` (main's `STARTS`) are not spans of
+`lem task span` (`SpanName` has no criteria read): they are `criteria read SLUG start` and
+`criteria skip SLUG asked`.
+
+## For `tree`: `task build` with no name
+
+`tests/unit/cli/tree.json` gives `task build`'s `target` the count `?`: with no name it lists the
+plans that wait, as the owner's ruling "`/lem build` takes a plan file too, and lists the waiting
+plans when it gets no name" asks.
