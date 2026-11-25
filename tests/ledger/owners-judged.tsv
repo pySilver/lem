@@ -89,10 +89,12 @@ check:tests/lem-land-shop.sh:a-commit-after-the-rebase-that-follows-a-red-1f51da
 check:tests/lem-land-shop.sh:a-conflict-on-the-rebase-after-a-red-base-is-c879b7f9884d255b	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)	land-merge
 check:tests/lem-land-shop.sh:a-conflict-with-the-base-names-its-files-and-9976014b4497686f	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)	land-merge
 check:tests/lem-land-shop.sh:a-first-task-that-brings-the-gate-on-its-own-f734d653fef7d01d	land-checks	the gate and the criteria's check are land-checks'	land-merge
+check:tests/lem-land-shop.sh:a-first-task-that-brings-the-gate-on-its-own-f734d653fef7d01d	land-base	"the task that brings the checks on its own branch is landing.md E ""No checks"", whose proof owner is land-base (start's hold and Checked.own_checks)"	land-checks
 check:tests/lem-land-shop.sh:a-fix-is-reviewed-only-after-the-machine-che-2ee9e4020def8f4a	land-review	the review's rounds and records are land-review's	land-merge
 check:tests/lem-land-shop.sh:a-merge-agent-whose-seat-fails-after-the-pul-9ad9f66ba0020edd	sessions	the merge agent's seat and its stand-in are the seats' (cli/seat/)	land-merge
 check:tests/lem-land-shop.sh:a-plan-of-four-tasks-with-no-plan-talk-is-no-7299403f55c58fb9	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's	land-merge
 check:tests/lem-land-shop.sh:a-project-with-no-gate-command-lands-nothing-ad4cdca96c61e197	land-checks	the gate and the criteria's check are land-checks'	land-merge
+check:tests/lem-land-shop.sh:a-project-with-no-gate-command-lands-nothing-ad4cdca96c61e197	land-base	"a project with no command is held `blocked: no checks` by start (landing.md E ""No checks""), land-base's"	land-checks
 check:tests/lem-land-shop.sh:a-rebase-that-changes-nothing-of-the-change-16900f7b23124240	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)	land-merge
 check:tests/lem-land-shop.sh:a-red-gate-exits-1-with-each-command-s-resul-eb8d87f6eebc1ec5	land-checks	the gate and the criteria's check are land-checks'	land-merge
 check:tests/lem-land-shop.sh:a-request-that-came-from-a-bug-names-in-its-d3fd872f37faae7f	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's	land-merge

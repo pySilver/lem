@@ -36,16 +36,11 @@ does not own, the local stand-in each uses until then, and what other steps take
    with its exit, as `main`'s `cmd_red` printed them. Asked: the two docstrings say so. `Red`
    keeps the full shas in `inputs` and no 9-character `base` and `tip`, which a view shortens.
 
-7. **The contract a run of the checks ran against.** The step `criteria` gives
-   `model/criteria/contract.py` (`mark(task)`, `moved(task, seen)`) and asks that the checks keep
-   the contract they ran against, so that a change of the criteria after the run makes it hold no
-   more. `Checked` has no field for it. Asked: a field `contract` on `Checked` (the mark that
-   `mark(task)` gives), written by `checks`, and `checks.holds` due again when `moved(task,
-   checked.contract)`. Meanwhile the run reads the record again after its commands and refuses
-   `contract-moved` when the criteria (their tests too) changed since it began, and the
-   criteria's check refuses to write a run of criteria that changed while it ran
-   (`model/landing/checks.py`, `moved`); once `contract.py` is on this branch, `moved` takes the
-   contract's mark beside the tests, which the mark does not hold.
+7. **The contract a run of the checks ran against.** The run takes `contract.mark(task)` before
+   its first command, refuses `contract-moved` when `contract.moved` says so after the commands
+   and before a passed run's record, and compares the criteria's tests beside it, which the mark
+   does not hold (`model/landing/checks.py`, `moved`). Still asked: `Checked.contract`, so that
+   `checks.holds` is due again when the mark moves after the run.
 
 ## For `core` (`ports/git.py`) and `land-base` (`adapters/git_cli.py`)
 
@@ -94,17 +89,14 @@ Asked: a `GitTree` part of the port with these, and the adapter's methods; then 
 
 ## For `settings`
 
-9. This machine's start number of the load gate, `[load] start` of `machine.toml` (0 takes the
-   gate away, a negative number is refused): `app/landing/checks_machine.py` reads it with
-   `tomllib` until `settings/machine.py` does; its fix names `lem settings set load.start 40
-   --machine`.
+9. Done: the gate reads `machine_of(home, environ).load.start` (`app/landing/checks_gate.py`,
+   `start_of`).
 
 ## For `land-base`
 
-10. `base` keeps the polish pass through a rebase (`land.through_rebase`: each commit the pass
-    names, by its place from the tip, when the rebase kept the branch's commits one for one).
-    Until it does, the checks after a rebase find the pass's last commit gone from the tip and
-    give the pass back (item 6).
+10. Done by `land-base` (`app/landing/base_polish.py`): `base` renames the pass's last commit
+    through a rebase. The checks still look that the tip holds it before their first command
+    (item 6), which gives the pass back after a rewrite that is no rebase of `base`.
 11. `Checked.own_checks` (the task that adds the checks: no command on the main checkout, the
     branch brings them) is not written by the checks: `landing.md` E, "No checks", is
     `land-base`'s.
@@ -136,7 +128,16 @@ Asked: a `GitTree` part of the port with these, and the adapter's methods; then 
     step. A term after the run is judged changes nothing, and the lock goes once its record is
     written. `tests/journeys/landing/test_checks.py` holds both, with `--stop` from another process:
     `test_status_names_a_run_that_waits_and_a_stop_there_ends_it_before_its_first_command` and
-    `test_a_stop_ends_the_command_that_runs_with_what_it_started_and_keeps_the_run_stopped`.
+    `test_a_stop_ends_the_command_that_runs_with_what_it_started_and_keeps_the_run_stopped`;
+    and with the real drop, `test_the_owners_drop_stops_the_running_checks_then_drops_the_task`.
+
+## Not taken from `criteria`
+
+15. `lem criteria red` and `inputs` read the criteria from the record (`Task.criteria`, which
+    `lem criteria record` writes with its digest `of_tests`), not again from the plan through
+    `app/criteria/show.shown_of`. The contract's mark and the tests' comparison hold the run to
+    what the record says now; a read of the plan's file at each run is open, for the owner of the
+    criteria to ask.
 
 ## Done in a file of another step, on the brief's word
 

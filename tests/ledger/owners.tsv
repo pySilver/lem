@@ -373,7 +373,7 @@ check:tests/lem-land-shop.sh:a-commit-subject-is-refused-when-the-branch-7654c93
 check:tests/lem-land-shop.sh:a-conflict-on-the-rebase-after-a-red-base-is-c879b7f9884d255b	land-base
 check:tests/lem-land-shop.sh:a-conflict-with-the-base-names-its-files-and-9976014b4497686f	land-base
 check:tests/lem-land-shop.sh:a-file-moved-on-the-base-counts-as-a-change-2c3ce64ab7b988ec	land-merge
-check:tests/lem-land-shop.sh:a-first-task-that-brings-the-gate-on-its-own-f734d653fef7d01d	land-checks
+check:tests/lem-land-shop.sh:a-first-task-that-brings-the-gate-on-its-own-f734d653fef7d01d	land-base
 check:tests/lem-land-shop.sh:a-fix-is-reviewed-only-after-the-machine-che-2ee9e4020def8f4a	land-review
 check:tests/lem-land-shop.sh:a-landed-task-does-not-land-again-764bbeb0f68241e8	land-merge
 check:tests/lem-land-shop.sh:a-merge-agent-that-ends-twice-with-no-answer-7219aa0fb920f8ca	land-merge
@@ -382,7 +382,7 @@ check:tests/lem-land-shop.sh:a-merge-github-refuses-says-github-s-line-ke-b86ec4
 check:tests/lem-land-shop.sh:a-merge-whose-real-parent-on-github-is-not-t-e097894c75b6e467	land-merge
 check:tests/lem-land-shop.sh:a-move-of-the-base-that-a-revert-undid-after-ab9f63352b1f3609	land-merge
 check:tests/lem-land-shop.sh:a-plan-of-four-tasks-with-no-plan-talk-is-no-7299403f55c58fb9	land-propose
-check:tests/lem-land-shop.sh:a-project-with-no-gate-command-lands-nothing-ad4cdca96c61e197	land-checks
+check:tests/lem-land-shop.sh:a-project-with-no-gate-command-lands-nothing-ad4cdca96c61e197	land-base
 check:tests/lem-land-shop.sh:a-read-that-says-another-round-merges-nothin-a6f90382ea28627b	land-merge
 check:tests/lem-land-shop.sh:a-rebase-that-changes-nothing-of-the-change-16900f7b23124240	land-base
 check:tests/lem-land-shop.sh:a-red-gate-exits-1-with-each-command-s-resul-eb8d87f6eebc1ec5	land-checks
