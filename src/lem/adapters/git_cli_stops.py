@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lem.adapters.git_cli_names import listed
+from lem.adapters.git_cli_shell import GIT
+from lem.ports.faults import Unanswered
 
 if TYPE_CHECKING:
     from lem.adapters.git_cli_shell import Shell
@@ -29,7 +31,11 @@ def conflicted(shell: Shell, where: Path) -> tuple[str, ...]:
     conflict, which it stages by itself with `rerere.autoupdate`, still waits for a
     builder."""
     for which in ("--diff-filter=U", "--cached"):
-        found = listed(shell.raw(where, "diff", which, "-z", "--name-only").stdout)
+        ran = shell.raw(where, "diff", which, "-z", "--name-only")
+        if ran.returncode:
+            said = ran.stderr.decode(errors="replace").strip()
+            raise Unanswered(GIT, said or f"git diff exited {ran.returncode}")
+        found = listed(ran.stdout)
         if found:
             return tuple(sorted(found))
     return ()

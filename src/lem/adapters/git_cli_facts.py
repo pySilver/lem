@@ -4,7 +4,7 @@
 from pathlib import Path
 
 from lem.adapters.git_cli_names import listed
-from lem.adapters.git_cli_shell import GIT, Shell
+from lem.adapters.git_cli_shell import GIT, Shell, last_words
 from lem.adapters.git_cli_stops import ABSOLUTE, conflicted, rebase_folder, too_old
 from lem.ports.faults import Unanswered
 from lem.ports.git_facts import Commit, Conflict, DiffStat, RebaseState
@@ -28,7 +28,9 @@ class History(Shell):
 
     def merge_base(self, where: Path, first: str, second: str) -> str | None:
         ran = self.tried(where, "merge-base", first, second)
-        return ran.stdout.strip() or None
+        if ran.returncode > 1:
+            raise Unanswered(GIT, last_words(ran))
+        return None if ran.returncode else ran.stdout.strip()
 
     def is_ancestor(self, where: Path, older: str, newer: str) -> bool:
         ran = self.tried(where, "merge-base", "--is-ancestor", older, newer)
