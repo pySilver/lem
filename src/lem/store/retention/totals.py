@@ -57,7 +57,7 @@ def waits_of(entries: tuple[Entry, ...], now: datetime) -> Totals:
     `now` for the newest."""
     seconds: list[tuple[str, int]] = []
     ends = [*(one.at for one in entries[1:]), now]
-    for entry, end in zip(entries, ends, strict=True):
+    for entry, end in zip(entries, ends, strict=False):
         name = wait_of(entry)
         if name is not None:
             seconds.append((name, between(entry.at, end)))
