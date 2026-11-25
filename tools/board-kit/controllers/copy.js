@@ -13,9 +13,14 @@ export default class extends Controller {
       const area = Object.assign(document.createElement('textarea'), { value: this.textValue })
       document.body.append(area)
       area.select()
-      document.execCommand('copy')
-      area.remove()
+      let copied = false
+      try { copied = document.execCommand('copy') } finally { area.remove() }
+      if (!copied) {
+        this.element.setAttribute('data-js-copy-failed', '')
+        return
+      }
     }
+    this.element.removeAttribute('data-js-copy-failed')
     this.element.setAttribute('data-js-done', '')
     clearTimeout(this.timer)
     this.timer = setTimeout(() => this.element.removeAttribute('data-js-done'), 1500)

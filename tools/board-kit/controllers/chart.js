@@ -72,7 +72,6 @@ export default class extends Controller {
 // original's and a page holds no id twice
 function copyOf (svg) {
   const copy = renamed(svg.cloneNode(true), id => `${id}-large`)
-  copy.removeAttribute('style')
   return copy
 }
 

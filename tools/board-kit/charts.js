@@ -1,93 +1,32 @@
-// The board's charts: a fenced `mermaid` block of a document, drawn in the board's palette. The diagram
-// library is large (vendor/mermaid.min.js, mermaid 11.12.0), so a page loads it only when it has a chart:
-// the first chart adds its <script>, from the address that the document holding it names
-// (`data-lem-mermaid`, which the server writes only on a document with a chart), one of the server's own
-// files. Each chart is drawn once for its palette, and again when the palette changes (light or dark).
-// The drawing keeps its own size as `data-w` and `data-h`, and the chart controller fits it to its box
-// and opens it large. Under the drawing a "source" disclosure holds the chart's text; a chart that does
-// not parse shows that text with the parser's first line.
+// The first Mermaid fence loads the board's local Pele asset. The chart keeps its source and
+// intrinsic size for the large view, and takes its colors from the board's CSS.
 let loading = null
 let made = 0
 
 function library () {
-  if (window.mermaid) return Promise.resolve(window.mermaid)
+  if (window.pele) return Promise.resolve(window.pele)
   if (loading) return loading
-  const src = document.querySelector('[data-lem-mermaid]')?.dataset.lemMermaid
-  if (!src) return Promise.resolve(null)
-  loading = new Promise(resolve => {
+  const kit = document.querySelector('script[src$="/vendor/board-app.js"]')
+  if (!kit) return Promise.reject(new Error('The board kit has no asset address'))
+  loading = new Promise((resolve, reject) => {
     const script = document.createElement('script')
-    script.src = src
+    script.src = new URL('pele.js', kit.src).href
     script.async = true
     script.dataset.turboTrack = 'dynamic'
-    script.onload = () => resolve(window.mermaid ?? null)
-    script.onerror = () => { loading = null; resolve(null) }
+    script.onload = () => {
+      if (window.pele) resolve(window.pele)
+      else reject(new Error('Pele did not start'))
+    }
+    script.onerror = () => {
+      script.remove()
+      reject(new Error('Pele did not load'))
+    }
     document.head.append(script)
+  }).catch(error => {
+    loading = null
+    throw error
   })
   return loading
-}
-
-const palette = () => document.documentElement.dataset.palette === 'dark' ? 'dark' : 'light'
-
-// the board's palette as mermaid's theme variables, read from lem.css at the time of the drawing
-function theme () {
-  const css = getComputedStyle(document.documentElement)
-  const v = name => css.getPropertyValue(name).trim()
-  const dark = palette() === 'dark'
-  return {
-    startOnLoad: false,
-    securityLevel: 'strict',
-    theme: 'base',
-    darkMode: dark,
-    htmlLabels: false,
-    fontFamily: v('--sans') || 'system-ui, sans-serif',
-    flowchart: { useMaxWidth: false, htmlLabels: false, padding: 12, nodeSpacing: 36, rankSpacing: 44, curve: 'basis' },
-    sequence: { useMaxWidth: false, mirrorActors: false, boxMargin: 8, messageFontSize: 13, actorFontSize: 13, noteFontSize: 13 },
-    state: { useMaxWidth: false },
-    themeVariables: {
-      darkMode: dark,
-      fontSize: '13.5px',
-      fontFamily: v('--sans'),
-      background: v('--bg'),
-      mainBkg: v('--card'),
-      primaryColor: v('--card'),
-      primaryTextColor: v('--fg'),
-      primaryBorderColor: v('--line-strong'),
-      secondaryColor: v('--card-hi'),
-      secondaryTextColor: v('--fg'),
-      secondaryBorderColor: v('--line-strong'),
-      tertiaryColor: v('--bg'),
-      tertiaryTextColor: v('--fg'),
-      tertiaryBorderColor: v('--line'),
-      lineColor: v('--dim'),
-      textColor: v('--fg'),
-      nodeBorder: v('--line-strong'),
-      clusterBkg: v('--bg'),
-      clusterBorder: v('--line'),
-      edgeLabelBackground: v('--bg'),
-      titleColor: v('--fg'),
-      actorBkg: v('--card'),
-      actorBorder: v('--line-strong'),
-      actorTextColor: v('--fg'),
-      actorLineColor: v('--line-strong'),
-      signalColor: v('--dim'),
-      signalTextColor: v('--fg'),
-      labelBoxBkgColor: v('--card'),
-      labelBoxBorderColor: v('--line-strong'),
-      labelTextColor: v('--fg'),
-      loopTextColor: v('--fg'),
-      noteBkgColor: v('--card-hi'),
-      noteBorderColor: v('--line-strong'),
-      noteTextColor: v('--fg'),
-      activationBkgColor: v('--card-hi'),
-      activationBorderColor: v('--line-strong'),
-      sequenceNumberColor: v('--bg'),
-      stateBkg: v('--card'),
-      stateLabelColor: v('--fg'),
-      compositeBackground: v('--bg'),
-      altBackground: v('--card-hi'),
-      transitionColor: v('--dim'),
-    },
-  }
 }
 
 // an icon of the page's sprite (the server puts the chart's icons into a page that has a chart): the
@@ -120,7 +59,7 @@ function frame (chart) {
 }
 
 // Gives every id inside a drawing a new name (`to(id)`), with each reference to it in an attribute or in
-// the drawing's <style>: mermaid names the nodes of each chart alike (`flowchart-A-0`), and a page holds
+// the drawing's <style>: a renderer can name the nodes of each chart alike (`flowchart-A-0`), and a page holds
 // no id twice.
 export function renamed (svg, to) {
   const ids = new Map([svg, ...svg.querySelectorAll('[id]')].filter(n => n.id).map(n => [n.id, to(n.id)]).filter(([a, b]) => a !== b))
@@ -129,6 +68,9 @@ export function renamed (svg, to) {
   for (const node of [svg, ...svg.querySelectorAll('*')]) {
     for (const attr of [...node.attributes]) {
       if (attr.name === 'id') { if (ids.has(attr.value)) node.id = ids.get(attr.value) } else if (attr.value.includes('#')) node.setAttribute(attr.name, swap(attr.value))
+      else if (['aria-labelledby', 'aria-describedby'].includes(attr.name)) {
+        node.setAttribute(attr.name, attr.value.split(/\s+/).map(id => ids.get(id) ?? id).join(' '))
+      }
     }
     if (node.localName === 'style') node.textContent = swap(node.textContent)
   }
@@ -136,7 +78,7 @@ export function renamed (svg, to) {
 }
 
 // The drawing as the chart controller sizes it: its own width and height from its viewBox, and no size
-// of mermaid's, so that nothing but the controller sets how large it shows; and its ids its own.
+// from the renderer, so that nothing but the controller sets how large it shows; and its ids its own.
 function settle (svg) {
   renamed(svg, id => (id === svg.id || id.startsWith(`${svg.id}`) ? id : `${svg.id}-${id}`))
   const box = svg.viewBox?.baseVal
@@ -151,7 +93,7 @@ function settle (svg) {
 
 function failed (chart, why) {
   chart.classList.add('chart-bad')
-  chart.dataset.drawn = palette()
+  chart.dataset.drawn = 'failed'
   chart.replaceChildren()
   const said = document.createElement('div')
   said.className = 'chart-err'
@@ -161,36 +103,36 @@ function failed (chart, why) {
   chart.append(said, pre)
 }
 
-// draws the charts under ROOT that are not drawn for the palette shown, one after another
-let queue = Promise.resolve()
-export function draw (root = document) {
-  const charts = [...root.querySelectorAll('.chart[data-src]')].filter(c => c.dataset.drawn !== palette() && !c.classList.contains('chart-bad'))
-  if (!charts.length) return queue
-  for (const chart of charts) frame(chart)
-  queue = queue.then(async () => {
-    const mermaid = await library()
-    if (!mermaid) { for (const chart of charts) failed(chart, 'the diagram library did not load'); return }
-    mermaid.initialize(theme())
-    for (const chart of charts) {
-      if (!chart.isConnected || chart.dataset.drawn === palette()) continue
-      try {
-        const { svg } = await mermaid.render(`lem-chart-${++made}`, chart.dataset.src)
-        const box = chart.querySelector(':scope > .chart-svg')
-        box.innerHTML = svg
-        const drawn = box.querySelector('svg')
-        if (drawn) settle(drawn)
-        chart.dataset.drawn = palette()
-        chart.dispatchEvent(new CustomEvent('lem:chart', { bubbles: false }))
-      } catch (error) {
-        failed(chart, String(error?.message ?? error).split('\n').find(line => line.trim()) ?? 'it does not parse')
-      } finally {
-        // mermaid leaves a measuring element in the body when a render fails
-        document.getElementById(`dlem-chart-${made}`)?.remove()
-      }
+// The SVG inherits its palette, so a theme change leaves its pan and zoom intact.
+export async function draw (root = document) {
+  const charts = [...root.querySelectorAll('.chart[data-src]:not([data-drawn])')]
+  await Promise.all(charts.map(async chart => {
+    chart.dataset.drawn = 'loading'
+    try {
+      const pele = await library()
+      if (!chart.isConnected) return
+      frame(chart)
+      const css = getComputedStyle(chart)
+      const id = `lem-chart-${++made}`
+      const { svg } = pele.render(chart.dataset.src, {
+        idPrefix: id,
+        autoDirection: false,
+        responsive: false,
+        links: false,
+        images: false,
+        fontFamily: css.getPropertyValue('--sans').trim(),
+        fontFamilyMono: css.getPropertyValue('--mono').trim(),
+        fontSize: 13.5,
+      })
+      const box = chart.querySelector(':scope > .chart-svg')
+      box.innerHTML = svg
+      const drawing = box.querySelector('svg')
+      drawing.id = id
+      settle(drawing)
+      chart.dataset.drawn = 'done'
+      chart.dispatchEvent(new CustomEvent('lem:chart'))
+    } catch (error) {
+      failed(chart, String(error?.message ?? error).split('\n').find(line => line.trim()) ?? 'It did not parse')
     }
-  })
-  return queue
+  }))
 }
-
-// a change of the palette (lem.js sets data-palette) draws every chart of the page again
-new MutationObserver(() => draw(document)).observe(document.documentElement, { attributes: true, attributeFilter: ['data-palette'] })
