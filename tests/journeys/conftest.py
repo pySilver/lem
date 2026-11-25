@@ -1,21 +1,24 @@
 """Each journey has a home folder of Lem of its own, with the load gate taken away.
 
-The entry gives a whole run one home (`tests/conftest.py`), and the load gate keeps the
-machine's line and its last start there (`app/landing/checks_gate.py`): a run of the checks in
-one journey would wait at the gate behind the start of another journey's run, a minute on the
-real clock, and on whatever load the machine has. So each journey starts with a home of its own
-whose `machine.toml` sets `[load] start = 0`, no gate; a journey that tests the gate sets its own
-number there (`tests/journeys/landing/test_checks.py`, `machine`).
+The entry gives each pytest process one home (`tests/conftest.py`). The load gate keeps the
+machine's line and its last start there (`app/landing/checks_gate.py`), so one journey could
+wait behind another on the same worker. Each journey starts with a home of its own whose
+`machine.toml` sets `[load] start = 0`. A journey that tests the gate sets its own number there
+(`tests/journeys/landing/test_checks.py`, `machine`).
 """
 
+import os
+import socket
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
+from lem.board import machine
 from lem.kernel import folders
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from collections.abc import Callable
 
 NO_GATE = "[load]\nstart = 0\n"
 
@@ -27,3 +30,27 @@ def own_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     home = folders.home_for_writing({"XDG_CONFIG_HOME": str(tmp_path / "own-config")})
     (home / "machine.toml").write_text(NO_GATE)
     return home
+
+
+@pytest.fixture
+def free_port() -> Callable[[], int]:
+    """Give each server a loopback port the tests keep for it until the run ends."""
+    claims = Path(os.environ[folders.TEST_ROOT]) / "journey-ports"
+    claims.mkdir(exist_ok=True)
+
+    def claim() -> int:
+        # The child takes a port number, so the socket closes before the child binds.
+        # Claim the number while the socket is bound so another worker cannot take it.
+        while True:
+            with socket.socket() as sock:
+                sock.bind(("127.0.0.1", 0))
+                port = sock.getsockname()[1]
+                if port in {machine.PORT, machine.DOOR_PORT}:
+                    continue
+                try:
+                    (claims / str(port)).touch(exist_ok=False)
+                except FileExistsError:
+                    continue
+                return port
+
+    return claim

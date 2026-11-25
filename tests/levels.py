@@ -20,8 +20,10 @@ FOLDERS = ("unit", "model", "histories", "contract", "journeys", "hooks", "brows
 # A level's other folders: the ledger's check is a unit case of its own folder.
 BESIDE = (("unit", ("ledger",)),)
 LEVELS = ("gates", *FOLDERS, "full")
-# The unit level runs on this many pytest-xdist workers: the 72 cases of tests/unit/core took
-# 19.1 s in one process and 9.5 s on four (2026-11-25, the owner's Mac, load average 6 to 8).
+# Use four pytest-xdist workers for unit and journeys. On the owner's Mac (2026-11-25),
+# 72 core unit cases took 19.1 s in one process and 9.5 s on four (load average 6 to 8).
+# The journeys builder measured 1,155 s in one process (load average 9 to 20). The trial in
+# the fast-journeys brief passed all 277 cases in 368 s on four. Use the tested count.
 WORKERS = 4
 # One full run at a time on a machine: two at once took the load average over 400 and slowed
 # every time-bound check (the design's part 8). A fixed path, read before the entry sets TMPDIR.
@@ -131,9 +133,8 @@ def full_run_lock(path: Path) -> Iterator[None]:
 
 
 def parallel(level: str, *, snapshots: bool) -> list[str]:
-    """pytest's arguments for xdist's workers: the unit level's, but when inline-snapshot
-    writes values, which it does in one process only."""
-    if level != "unit" or snapshots:
+    """xdist's workers for unit and journeys. Inline-snapshot writes in one process."""
+    if level not in {"unit", "journeys"} or snapshots:
         return []
     return ["-p", "xdist", "--numprocesses", str(WORKERS)]
 

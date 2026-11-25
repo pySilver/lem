@@ -98,14 +98,14 @@ def test_dynamic_xfail():
 def test_parameters(number):
     assert number
 """
-# The unit level runs on xdist's workers and the model level in one process: the protocol holds
-# on both. A subtest's parameters cross from a worker as text.
-LEVELS = ("unit", "model")
+# The unit and journeys levels run on xdist's workers. The model level runs in one process.
+# A subtest's parameters cross from a worker as text.
+LEVELS = ("unit", "journeys", "model")
 
 
 def probe_lines(level: str) -> list[str]:
     """The result line of each probe case, at `level`."""
-    size = "'2'" if level == "unit" else "2"
+    size = "2" if level == "model" else "'2'"
     marked = "a case marked to fail is no check"
     return [
         f"FAIL {level}.test_probe.Cases.test_expected_failure: {marked}",
@@ -393,11 +393,11 @@ def test_a_hard_exit_cannot_pass_or_leave_its_temporary_folder(
         ),
     )
     ran = run_entry(tmp_path, "--level", level)
-    if level == "unit":
+    if level != "model":
         # Any of the four workers may take the case, so the line names the one that did.
         crashed = re.fullmatch(
-            r"FAIL unit\.test_hard_exit\.test_exit: worker 'gw[0-3]' crashed while "
-            r"running 'tests/unit/test_hard_exit\.py::test_exit'",
+            rf"FAIL {level}\.test_hard_exit\.test_exit: worker 'gw[0-3]' crashed while "
+            rf"running 'tests/{level}/test_hard_exit\.py::test_exit'",
             ran.stdout.splitlines()[1],
         )
         assert crashed is not None, ran.stdout
