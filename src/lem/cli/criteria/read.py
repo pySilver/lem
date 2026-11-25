@@ -8,17 +8,23 @@
 `project.read_form`): the personas asked and answered, each family that answered, each
 silent persona and why, the criteria read and flagged, whether the families split, and the
 digest of the criteria read (`lem criteria digest`); `start` and `silent` take none of it.
-A stub until the step `criteria` builds it: it refuses `not-built`.
+`silent` ends the read that started as one in which nobody answered, for a panel that gave
+nothing to count.
 """
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import click
 import msgspec
 
+from lem.app.criteria import persona
+from lem.cli import place
 from lem.cli.checks import Given, is_given
-from lem.cli.stub import not_built
 from lem.cli.words import choice
+from lem.model.criteria import reads
+
+if TYPE_CHECKING:
+    from lem.records.approvals import PersonaRead
 
 type Moment = Literal["start", "done", "silent"]
 type By = Literal["lem", "lead"]
@@ -43,9 +49,27 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     digest: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `criteria` builds `lem criteria read`."""
-    raise not_built("criteria read", "criteria")
+def found_of(call: Call) -> reads.Found | None:
+    """What a `done` read found, or None for its start and its silence."""
+    if call.moment != "done" or call.digest is None:
+        return None
+    return reads.Found(
+        asked=call.asked or 0,
+        answered=call.answered or 0,
+        families=call.families,
+        silent=tuple(reads.silent_of(said) for said in call.silent),
+        criteria=call.criteria or 0,
+        flagged=call.flagged or 0,
+        split=call.split,
+        digest=call.digest,
+    )
+
+
+def run(call: Call) -> PersonaRead:
+    """Write the read's start, what it found, or its silence."""
+    return persona.noted(
+        place.folder(), call.slug, (call.moment, call.by), found_of(call)
+    )
 
 
 def fitted(given: Given) -> Given:

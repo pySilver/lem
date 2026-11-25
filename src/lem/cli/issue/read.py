@@ -1,14 +1,15 @@
 """`lem issue read`: one issue of origin's repository, by number or address.
 
-    lem issue read ISSUE
-
-A stub until the step `task` builds it: it refuses `not-built`.
+lem issue read ISSUE
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.tasks import ports
+from lem.app.tasks.issues import reading
+from lem.cli import place
+from lem.store import places
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +18,10 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     issue: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `task` builds `lem issue read`."""
-    raise not_built("issue read", "task")
+def run(call: Call) -> object:
+    """Read the issue: its words, state, people and comments; writes nothing."""
+    where = places.workspace(place.folder())
+    return reading.read(ports.bound(where), where, call.issue)
 
 
 COMMAND = click.Command(

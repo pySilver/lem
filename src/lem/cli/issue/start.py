@@ -1,14 +1,15 @@
 """`lem issue start`: the build started: the person signed in becomes the assignee.
 
-    lem issue start SLUG
-
-A stub until the step `task` builds it: it refuses `not-built`.
+lem issue start SLUG
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.tasks import ports
+from lem.app.tasks.issues import start
+from lem.cli import place
+from lem.store import places
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +18,10 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     slug: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `task` builds `lem issue start`."""
-    raise not_built("issue start", "task")
+def run(call: Call) -> object:
+    """Make the person signed in the assignee of an issue that has none."""
+    where = places.workspace(place.folder())
+    return start.start(ports.bound(where), where, call.slug)
 
 
 COMMAND = click.Command(
