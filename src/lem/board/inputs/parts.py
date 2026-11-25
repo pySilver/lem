@@ -11,7 +11,7 @@ from typing import Annotated, Literal
 
 import msgspec
 
-from lem.board.inputs.text import Href, Icon, Inline, Look, Plain
+from lem.board.inputs.text import Href, Icon, Inline, Look, Markdown, Plain
 
 # A moment with its zone, as every record holds it.
 type Moment = Annotated[datetime, msgspec.Meta(tz=True)]
@@ -75,6 +75,18 @@ class Row(Input, frozen=True, kw_only=True):
     subs: tuple[Inline, ...] = ()
     title: Plain | None = None
     time: Plain | None = None
+
+
+class Document(Input, frozen=True, kw_only=True):
+    """A markdown text the browser renders (a task's outcome, a breaker's document, the merge
+    review, a criterion's chart): its id (`md-KEY-DIGEST`, which a refresh keeps while the text
+    stays), the text, the address of the task's pictures it may show, and the folder its links
+    start from."""
+
+    id: Plain
+    text: Markdown
+    media: Href | None = None
+    folder: Plain | None = None
 
 
 class Note(Input, frozen=True, kw_only=True):
