@@ -4,11 +4,11 @@ checks (`main:land.read_line`, `unread`, `approval_said`), on the standard track
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from lem.app.landing.pr_inputs import Lines
 from lem.model.landing import propose_criteria
 from lem.records.decisions import CriterionChanged
 
 if TYPE_CHECKING:
+    from lem.app.landing.pr_inputs import Lines
     from lem.records.approvals import PersonaRead
     from lem.records.record import Record
     from lem.records.task import Task

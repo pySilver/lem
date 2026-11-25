@@ -1,43 +1,22 @@
-"""The last lines of the pull request's checks (`main:land.talked`, `untalked`,
+"""The last lines of the pull request's checks (`main:land.untalked`,
 `stand_in_line`, `careful_line`): the plan talk, or why a careful request had none; each seat
 that stood in for another, a fact and no reason of not green; and the careful call."""
 
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from lem.app.landing.pr_inputs import Lines
+from lem.app.landing import pr_talk
 from lem.model.landing import propose_careful, propose_gates
 from lem.model.landing.green_words import reason
 from lem.model.landing.review import newest
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
+    from lem.app.landing.pr_inputs import Lines
     from lem.model.landing.propose_facts import Facts
     from lem.records.record import Record
-    from lem.records.work import StandIn, Talk
+    from lem.records.work import StandIn
 
-# The counts of a plan talk after its turns and positions, one form for one and one for
-# more, in the words of the pull request.
-TALK_SAYS = MappingProxyType(
-    {
-        "questions": (
-            "question in the reviewer's first list",
-            "questions in the reviewer's first list",
-        ),
-        "repaired": ("repaired by the defender", "repaired by the defender"),
-        "design": (
-            "of the open ones a design choice",
-            "of the open ones a design choice",
-        ),
-        "unargued": (
-            "raised after the list and not argued",
-            "raised after the list and not argued",
-        ),
-        "root": ("repaired at the cause", "repaired at the cause"),
-        "layer": ("layer over a cited decision", "layers over a cited decision"),
-        "shared": ("decision two questions named", "decisions two questions named"),
-    }
-)
 SEATS = MappingProxyType(
     {"reviewer": "the reviewer", "planner": "the planner", "merger": "the merge agent"}
 )
@@ -52,21 +31,15 @@ ERRORS = MappingProxyType(
 )
 
 
-def many(count: int, forms: tuple[str, str]) -> str:
-    """A count with the form of its noun for one or for more."""
-    one, more = forms
-    return f"{count} {one if count == 1 else more}"
-
-
-def talked(talk: Talk) -> str:
-    """The plan talk: who argued it, its turns and positions, then each other count."""
-    counts = ", ".join(
-        many(getattr(talk, name), forms) for name, forms in TALK_SAYS.items()
-    )
-    turns = many(talk.turns, ("turn", "turns"))
-    settled = many(talk.settled, ("position", "positions"))
-    argued = f"{talk.reviewer} argued the plan with its defender, {turns}"
-    return f"- the plan talk: {argued}; {settled} settled by the two, {talk.open} left open; {counts}"
+def became(record: Record, facts: Facts) -> list[str]:
+    """How a request with no talk due became careful after its plan."""
+    shape = record.task.shape
+    how = ["by the request's shape"] if shape and shape.careful else []
+    if propose_careful.edits(facts):
+        how.append("by its change to the settings")
+    if propose_careful.review_call(record):
+        how.append("by its review")
+    return how
 
 
 def talk(record: Record, facts: Facts) -> Lines:
@@ -74,41 +47,40 @@ def talk(record: Record, facts: Facts) -> Lines:
     none since it became careful after its plan, and how."""
     held = record.task.talk
     if propose_gates.talk_due(record) and held is not None:
-        return (talked(held),)
-    how = [
-        *(
-            ["by the request's shape"]
-            if record.task.shape and record.task.shape.careful
-            else []
-        ),
-        *(["by its change to the settings"] if propose_careful.edits(facts) else []),
-        *(["by its review"] if propose_careful.review_call(record) else []),
-    ]
+        return (pr_talk.talked(held),)
+    how = became(record, facts)
     if not how:
         return ()
     listed = " and ".join(how)
     return (f"- no plan talk: the request became careful after its plan, {listed}",)
 
 
+def agent_of(line: str) -> str:
+    """The agent of a seat's line (`agent/model:effort`) by the name a person knows it by."""
+    agent = line.partition("/")[0].partition(":")[0]
+    return AGENTS.get(agent, agent)
+
+
 def stand_in(found: StandIn) -> str:
     """A seat that stood in for another: which, for which, and why."""
-    seat = SEATS[found.seat]
-    agent = found.failed.partition("/")[0].partition(":")[0]
-    why = f"{AGENTS.get(agent, agent)} {ERRORS[found.error]}"
+    seat, error = SEATS[found.seat], ERRORS[found.error]
+    agent = agent_of(found.failed)
     took = found.took or "nothing"
-    return f"- {seat} was `{took}` in place of `{found.failed}`: {why}"
+    return f"- {seat} was `{took}` in place of `{found.failed}`: {agent} {error}"
 
 
 def careful_line(record: Record, careful: tuple[str, ...]) -> str:
     """Whether the request is careful, each reason it is, and the newest review's call with
     its reason when the review said no."""
-    line = f"- careful: yes, {'; '.join(careful)}" if careful else "- careful: no"
+    listed = "; ".join(careful)
+    line = f"- careful: yes, {listed}" if careful else "- careful: no"
     last = newest(record.landing or Landing())
     if last is None or last.careful is None:
         return f"{line}; no review that answered made the call"
-    if not last.careful:
-        return f"{line}; the review says no: {reason(last.careful_why or 'no reason given')}"
-    return line
+    if last.careful:
+        return line
+    said = reason(last.careful_why or "no reason given")
+    return f"{line}; the review says no: {said}"
 
 
 def lines(

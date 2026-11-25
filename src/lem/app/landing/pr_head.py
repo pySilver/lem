@@ -47,5 +47,5 @@ def careful(proposal: Proposal) -> tuple[str, ...]:
 
 def blocks(record: Record, proposal: Proposal) -> tuple[Block, ...]:
     """The head's blocks."""
-    head = block(None, alone(record)) + block(None, careful(proposal))
-    return (verdict(proposal), *head)
+    without = block(None, alone(record))
+    return (verdict(proposal), *without, *block(None, careful(proposal)))

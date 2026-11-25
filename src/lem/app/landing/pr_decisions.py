@@ -6,11 +6,11 @@ one folded under the list."""
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from lem.app.landing.pr_inputs import Lines
 from lem.model.landing.green_words import taken_by, without_him
 from lem.records.decisions import Breaker, Taken
 
 if TYPE_CHECKING:
+    from lem.app.landing.pr_inputs import Lines
     from lem.records.record import Record
     from lem.records.task import Task
 

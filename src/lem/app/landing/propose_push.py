@@ -48,11 +48,12 @@ def pushed(context: Context, *, push: bool) -> Record:
     last = record.landing.pushed if record.landing else None
     made = sent(context, last) if push else world.tip
     record = context.write(record, partial(changes.landing, pushed=made))
+    slug = record.task.slug
     if made != world.tip:
         raise Refusal(
             "tip",
             f"the push sent {made}, not the checked {world.tip}: the branch moved",
-            f"lem land next {record.task.slug}: the new tip's checks come first",
+            f"lem land next {slug}: the new tip's checks come first",
         )
     return record
 

@@ -5,8 +5,8 @@ criterion during the build."""
 
 from typing import TYPE_CHECKING
 
+from lem.app.landing import pr_changes
 from lem.app.landing.pr_inputs import Block, Lines, block
-from lem.model.landing.green_words import change_why, reason, taken_over
 from lem.records.decisions import CriterionChanged
 from lem.records.landing.record import Landing
 
@@ -48,36 +48,8 @@ def criterion_lines(record: Record, criterion: Criterion) -> Lines:
     steps = tuple(f"   {step}" for step in criterion.case)
     tests = tuple(f"   - `{test.command}`: {gave}" for test in criterion.tests)
     untested = (f"   - no test: {criterion.no_test}",) if criterion.no_test else ()
-    return (f"{criterion.number}. {criterion.text}", *steps, *tests, *untested)
-
-
-def change_line(record: Record, change: CriterionChanged) -> str:
-    """One change of a criterion: what it was and is, why, who, and the approval of his
-    that took it over."""
-    was, now = (
-        " ".join((change.was or "").split()),
-        " ".join((change.now or "").split()),
-    )
-    said = f'was "{was}", now "{now}"'
-    if change.how != "changed":
-        said = f'added, "{now}"' if change.how == "added" else f'removed, was "{was}"'
-    who = ""
-    if change.decision is None:
-        who = (
-            " By the lead."
-            if change.by == "lead"
-            else f" By the personas: {change.said}"
-        )
-    later = taken_over(record, change)
-    after = f" Approved by the owner afterwards (approval {later})." if later else ""
-    return (
-        f"- criterion {change.criterion}: {said}. {why_of(record, change)}.{who}{after}"
-    )
-
-
-def why_of(record: Record, change: CriterionChanged) -> str:
-    """Why a criterion changed, without its own full stop."""
-    return reason(change_why(record, change))
+    first = f"{criterion.number}. {criterion.text}"
+    return (first, *steps, *tests, *untested)
 
 
 def listed(record: Record) -> Lines:
@@ -86,7 +58,7 @@ def listed(record: Record) -> Lines:
     criteria = record.task.criteria.criteria
     lines = tuple(line for found in criteria for line in criterion_lines(record, found))
     changes = tuple(
-        change_line(record, change)
+        pr_changes.change_line(record, change)
         for change in record.task.decisions
         if isinstance(change, CriterionChanged)
     )

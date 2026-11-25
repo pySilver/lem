@@ -25,6 +25,8 @@ if TYPE_CHECKING:
 type PullState = Literal["open", "closed", "merged"]
 
 GH = "gh"
+PR = "pr"
+JSON = "--json"
 UTF8 = "utf-8"
 # What in a caller's environment would aim gh or git at another repository than the checkout's.
 AIMED = frozenset(
@@ -32,7 +34,9 @@ AIMED = frozenset(
 )
 GITHUB = re.compile(r"github\.com[:/]+([^/]+/[^/]+?)(?:\.git)?/?$")
 # What gh says when it has no login for the host (`gh auth login`), in any of its forms.
-NO_LOGIN = re.compile(r"gh auth login|not logged in|authentication required", re.IGNORECASE)
+NO_LOGIN = re.compile(
+    r"gh auth login|not logged in|authentication required", re.IGNORECASE
+)
 # The longest a call to GitHub may take before it counts as no answer, in seconds
 # (unmeasured estimate; a first `gh pr create` took 8 to 12 seconds, trial-skeleton,
 # 2026-11-25).
@@ -102,11 +106,13 @@ class Gh:
     checkout: Path
     environ: Mapping[str, str]
 
-    def tried(self, *args: str, given: str | None = None) -> subprocess.CompletedProcess[str]:
+    def tried(
+        self, *args: str, given: str | None = None
+    ) -> subprocess.CompletedProcess[str]:
         """`gh ARGS` in the main checkout, whatever its exit code, with `given` on its
         standard input; a call of `gh pr` names the repository of the configured origin,
         whatever `GH_REPO` says."""
-        named = ("--repo", self.named()) if args[0] == "pr" else ()
+        named = ("--repo", self.named()) if args[0] == PR else ()
         try:
             return subprocess.run(
                 [GH, *args, *named],
@@ -114,7 +120,7 @@ class Gh:
                 capture_output=True,
                 text=True,
                 env=cleaned(self.environ),
-                input=given if given is not None else "",
+                input=given or "",
                 timeout=TIMEOUT,
                 check=False,
             )
@@ -164,6 +170,18 @@ class Gh:
             path = f"repos/{self.named()}/commits/{found}"
             found = self.said("api", path, "--jq", ".parents[0].sha").strip()
         return found
+
+    def viewed(self, number: int, depth: int = 1) -> Pull:
+        """The pull request `number` as the forge shows it now; `depth` is how many commits
+        a rebase merge of it replayed."""
+        said = self.said(PR, "view", str(number), JSON, FIELDS)
+        return self.pull_of(msgspec.json.decode(said, type=GhPull), depth)
+
+    def commits(self, number: int) -> int:
+        """How many commits the pull request holds: a rebase replays each."""
+        query = ("commits", "--jq", ".commits | length")
+        said = self.said(PR, "view", str(number), JSON, *query)
+        return int(said.strip() or "1")
 
     def pull_of(self, found: GhPull, depth: int = 1) -> Pull:
         """A pull request as the port gives it; a merged one with its merge's base."""

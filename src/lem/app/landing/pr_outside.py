@@ -11,11 +11,11 @@ import re
 from typing import TYPE_CHECKING
 
 from lem.app.landing import pr_reviews
-from lem.app.landing.pr_inputs import Lines
 from lem.model.landing.propose_lines import FILED, NOT_WORTH
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
+    from lem.app.landing.pr_inputs import Lines
     from lem.model.landing.propose_facts import Facts
     from lem.records.landing.review import Finding
     from lem.records.record import Record

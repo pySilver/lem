@@ -13,15 +13,21 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.adapters.forge_gh_shell import FIELDS, Gh, GhPull, cleaned, last_words
+from lem.adapters.forge_gh_shell import (
+    FIELDS,
+    JSON,
+    PR,
+    Gh,
+    GhPull,
+    cleaned,
+    last_words,
+)
 from lem.ports.faults import Unanswered
 from lem.ports.forge_facts import MergeDenied, MergeDone, MergeTaken, Repo
 
 if TYPE_CHECKING:
     from lem.ports.forge_facts import MergeMethod, MergeOutcome, MergeText, Pull
 
-JSON = "--json"
-PR = "pr"
 BODY = ("--body-file", "-")
 # What only GitHub's own answer to a merge says: its API's refusal, in its words.
 GITHUBS = (
@@ -64,20 +70,15 @@ class Pulls(Gh):
             *BODY,
             given=body,
         )
-        lines = made.strip().splitlines()
-        address = lines[-1].rstrip("/") if lines else ""
-        number = address.rsplit("/", 1)[-1]
-        if not number.isdigit():
-            raise Unanswered("gh", f"gh pr create printed no pull request address: {made!r}")
-        return self.pull(int(number))
+        return self.pull(number_of(made))
 
     def update_pull(self, number: int, title: str, body: str) -> Pull:
-        self.said(PR, "edit", str(number), "--title", title, *BODY, given=body)
+        words = ("--title", title, *BODY)
+        self.said(PR, "edit", str(number), *words, given=body)
         return self.pull(number)
 
     def pull(self, number: int) -> Pull:
-        said = self.said(PR, "view", str(number), JSON, FIELDS)
-        return self.pull_of(msgspec.json.decode(said, type=GhPull))
+        return self.viewed(number)
 
     def open_pulls(self) -> tuple[Pull, ...]:
         said = self.said(PR, "list", "--state", "open", "--limit", "100", JSON, FIELDS)
@@ -90,27 +91,10 @@ class Pulls(Gh):
     ) -> MergeOutcome:
         pinned = ("--match-head-commit", expected_head, f"--{method}")
         replayed = self.commits(number) if method == "rebase" else 1
-        words = ("--subject", text.subject, *BODY)
-        ran = self.tried(PR, "merge", str(number), *pinned, *words, given=text.body)
-        said = self.said(PR, "view", str(number), JSON, FIELDS)
-        found = self.pull_of(msgspec.json.decode(said, type=GhPull), replayed)
-        if ran.returncode and found.state != "merged":
-            return denied(ran)
-        if found.merge_commit and found.merged_head and found.base_parent:
-            return MergeDone(
-                commit=found.merge_commit,
-                merged_head=found.merged_head,
-                base_parent=found.base_parent,
-            )
-        return MergeTaken(
-            queued=found.queued or "GitHub took the merge and has not merged"
-        )
-
-
-    def commits(self, number: int) -> int:
-        """How many commits the pull request holds: a rebase replays each."""
-        said = self.said(PR, "view", str(number), JSON, "commits", "--jq", ".commits | length")
-        return int(said.strip() or "1")
+        words = (*pinned, "--subject", text.subject, *BODY)
+        called = (PR, "merge", str(number), *words)
+        ran = self.tried(*called, given=text.body)
+        return outcome(ran, self.viewed(number, replayed))
 
 
 class Refs(Gh):
@@ -136,6 +120,31 @@ class Refs(Gh):
             check=False,
         )
         return not ran.returncode
+
+
+def number_of(made: str) -> int:
+    """The number of the pull request whose address `gh pr create` printed last."""
+    lines = made.strip().splitlines() or [""]
+    address = lines[-1].rstrip("/")
+    number = address.rsplit("/", 1)[-1]
+    if not number.isdigit():
+        raise Unanswered(
+            "gh", f"gh pr create printed no pull request address: {made!r}"
+        )
+    return int(number)
+
+
+def outcome(ran: subprocess.CompletedProcess[str], found: Pull) -> MergeOutcome:
+    """What a merge call did, from the pull request as the forge shows it after it."""
+    if ran.returncode and found.state != "merged":
+        return denied(ran)
+    if found.merge_commit and found.merged_head and found.base_parent:
+        return MergeDone(
+            commit=found.merge_commit,
+            merged_head=found.merged_head,
+            base_parent=found.base_parent,
+        )
+    return MergeTaken(queued=found.queued or "GitHub took the merge and has not merged")
 
 
 def denied(ran: subprocess.CompletedProcess[str]) -> MergeDenied:

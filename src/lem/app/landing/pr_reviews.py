@@ -6,10 +6,9 @@ import re
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from lem.app.landing.pr_inputs import Lines
-from lem.records.landing.record import Landing
-
 if TYPE_CHECKING:
+    from lem.app.landing.pr_inputs import Lines
+    from lem.records.landing.record import Landing
     from lem.records.landing.review import Filed, Finding, Reviewed
 
 KIND_SAYS = MappingProxyType(
