@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from fakes.command import lem
-from fakes.repo import RealRepo
+from fakes.repo import RealRepo, run_git
 from lem.app.tasks import ports, worktree
 from lem.kernel.errors import Refusal
 from lem.records.task import Shape
@@ -101,3 +101,33 @@ def test_another_checkout_is_named_with_repo(tmp_path: Path) -> None:
     other.mkdir()
     ran = lem("task", "worktree", SLUG, "--checkout", str(other), cwd=repo.checkout)
     assert refusal(ran)["code"] == "checkout"
+
+
+def test_a_worktree_on_another_branch_than_the_one_asked_is_refused(
+    tmp_path: Path,
+) -> None:
+    repo, where = real(tmp_path)
+    lem("task", "worktree", SLUG, cwd=repo.checkout)
+    ran = lem("task", "worktree", SLUG, "--branch", f"fix/{SLUG}", cwd=repo.checkout)
+    assert refusal(ran)["code"] == "worktree-branch"
+    assert read(where, SLUG).task.branch == f"feat/{SLUG}"
+
+
+def test_an_origin_that_does_not_answer_cuts_from_the_local_base_and_says_so(
+    tmp_path: Path,
+) -> None:
+    repo, where = real(tmp_path)
+    run_git(repo.checkout, "remote", "set-url", "origin", str(tmp_path / "gone.git"))
+    made_tree = result(lem("task", "worktree", SLUG, cwd=repo.checkout))
+    assert "origin did not answer" in made_tree["said"]
+    assert (where.lem / "worktrees" / SLUG / "README.md").is_file()
+
+
+def test_a_branch_the_checkout_has_is_taken_as_it_is_with_no_fetch(
+    tmp_path: Path,
+) -> None:
+    repo, _where = real(tmp_path)
+    run_git(repo.checkout, "branch", f"feat/{SLUG}")
+    run_git(repo.checkout, "remote", "set-url", "origin", str(tmp_path / "gone.git"))
+    made_tree = result(lem("task", "worktree", SLUG, cwd=repo.checkout))
+    assert (made_tree["made"], "said" in made_tree) == (True, False)

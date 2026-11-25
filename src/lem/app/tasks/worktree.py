@@ -12,9 +12,8 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.tasks import ports, release, where
+from lem.app.tasks import heads, ports, release, where
 from lem.app.tasks.setup import Ran, set_up
-from lem.kernel.errors import Refusal
 from lem.records.base import Frozen
 from lem.settings.load import base_of, team_of
 from lem.store import places, tasks
@@ -34,32 +33,13 @@ class Made(Frozen, frozen=True, kw_only=True):
     worktree: str
     branch: str | None = None
     made: bool = False
+    said: str | None = None
     setup: tuple[Ran, ...] = ()
 
 
 def branched(record: Record, *, branch: str) -> Record:
     """The record with the task's branch."""
     return replace(record, task=replace(record.task, branch=branch))
-
-
-def added(
-    given: Ports, workspace: places.Workspace, path: Path, todo: tuple[str, str]
-) -> None:
-    """Fetch origin, refuse a new branch origin has, and add the worktree on the branch
-    `todo` names, cut from its start."""
-    branch, start = todo
-    checkout, git = workspace.checkout, given.git
-    git.fetch(checkout)
-    mine = git.tip(checkout, f"refs/heads/{branch}")
-    if mine is None and git.remote_head(checkout, branch) is not None:
-        raise Refusal(
-            "branch-taken",
-            f"origin has the branch {branch} already, and no task here holds it: somebody's "
-            "work, or a task of another machine",
-            "a task takes a branch of its own: add a word to the slug, or give another "
-            "--branch",
-        )
-    git.worktree_add(checkout, path, branch, start)
 
 
 def made(
@@ -75,9 +55,13 @@ def made(
     chosen = where.named(record, asked[0], team.branch)
     path = where.worktree(workspace, record.task.slug)
     fresh = not path.exists()
+    said = None
     if fresh:
-        todo = (chosen, start_of(asked[1], base_of(team)))
-        added(given, workspace, path, todo)
+        said = heads.cut(
+            given, workspace.checkout, path, (chosen, start_of(asked[1], base_of(team)))
+        )
+    else:
+        heads.on_branch(path, chosen)
     tasks.update(
         workspace.state,
         record.task.slug,
@@ -88,6 +72,7 @@ def made(
         worktree=str(path),
         branch=chosen,
         made=fresh,
+        said=said,
         setup=prepared(workspace, record, path, team.checks.setup if fresh else ()),
     )
 
