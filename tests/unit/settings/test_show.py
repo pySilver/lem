@@ -12,7 +12,7 @@ from fakes.repo import RealRepo, run_git
 from lem.settings import edit
 from lem.settings.machine import Load
 from lem.settings.show import load_now, shown
-from unit.settings.given import given
+from unit.settings.given import given, refusal_of
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -101,7 +101,7 @@ def test_the_main_checkout_is_found_whole_when_its_path_holds_a_line_break(
 def test_a_path_outside_any_checkout_is_refused(tmp_path: Path) -> None:
     ran = lem("path", "profile", cwd=tmp_path)
     assert ran.code == 1
-    assert ran.envelope()["refusal"]["code"] == "no-repository"
+    assert refusal_of(ran)["code"] == "no-repository"
 
 
 def test_reviewer_is_no_command_and_writes_nothing(tmp_path: Path) -> None:

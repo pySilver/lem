@@ -14,7 +14,7 @@ from fakes.repo import RealRepo, run_git
 from lem.app.init import template
 from lem.settings import described
 from lem.settings.team import Team
-from unit.settings.given import slug
+from unit.settings.given import refusal_of, slug
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -89,14 +89,14 @@ def test_init_refuses_a_settings_file_that_exists_and_changes_nothing(
     (repo.checkout / ".lem" / "settings.toml").write_text("# mine\n")
     ran = lem("init", cwd=repo.checkout)
     assert ran.code == 1
-    assert ran.envelope()["refusal"]["code"] == "settings-exist"
+    assert refusal_of(ran)["code"] == "settings-exist"
     assert (repo.checkout / ".lem" / "settings.toml").read_text() == "# mine\n"
 
 
 def test_init_refuses_an_origin_elsewhere_than_github(tmp_path: Path) -> None:
     repo = repository(tmp_path, url="https://gitlab.com/owner/repo.git")
     ran = lem("init", cwd=repo.checkout)
-    assert ran.envelope()["refusal"]["code"] == "not-github"
+    assert refusal_of(ran)["code"] == "not-github"
     assert not (repo.checkout / ".lem" / "settings.toml").exists()
 
 
@@ -112,8 +112,8 @@ def test_init_with_no_origin_writes_and_says_to_add_one(tmp_path: Path) -> None:
 def test_init_refuses_a_checkout_whose_base_it_cannot_tell(tmp_path: Path) -> None:
     repo = repository(tmp_path, head=False)
     ran = lem("init", cwd=repo.checkout)
-    assert ran.envelope()["refusal"]["code"] == "no-base"
-    assert "--base" in ran.envelope()["refusal"]["fix"]
+    assert refusal_of(ran)["code"] == "no-base"
+    assert "--base" in refusal_of(ran)["fix"]
 
 
 def test_init_over_another_tools_cast_links_and_moves_nothing(tmp_path: Path) -> None:

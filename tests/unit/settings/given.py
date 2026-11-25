@@ -12,6 +12,7 @@ from lem.settings.places import HOME, LOCAL, MACHINE, TEAM
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from fakes.command import Ran
     from lem.settings.load import Loaded
 
 
@@ -75,3 +76,10 @@ def slug(value: object) -> str:
     """A case's id of one parameter: its words in lower case, joined by hyphens."""
     words = re.findall(r"[a-z0-9]+", str(value).lower())
     return "-".join(words)[:40]
+
+
+def refusal_of(ran: Ran) -> dict[str, str]:
+    """The refusal a command printed; a case fails when it printed none."""
+    found = ran.envelope().get("refusal")
+    assert isinstance(found, dict), ran.stdout
+    return found
