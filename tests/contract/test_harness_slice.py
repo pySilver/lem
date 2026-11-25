@@ -188,3 +188,45 @@ def test_the_tokens_of_a_task_say_by_name_that_the_slice_reads_none(
 ) -> None:
     with pytest.raises(Fault, match=r"^tokens: "):
         bound(tmp_path).tokens((Transcript(path="/x", claude="c"),))
+
+
+def test_the_first_prompt_reads_past_a_bad_time_and_takes_text_blocks_only(
+    tmp_path: Path,
+) -> None:
+    state = tmp_path / ".lem" / "state"
+    brief = f"Read {state}/tasks/gift-note/session.md and follow it."
+    timed = transcript(
+        tmp_path / "c" / "timed.jsonl",
+        {**prompt(brief), "timestamp": "not a time"},
+        prompt("go on"),
+    )
+    pictured = transcript(
+        tmp_path / "c" / "pictured.jsonl",
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {"type": "text", "text": brief},
+                    {"type": "image", "source": {}},
+                ]
+            },
+        },
+    )
+    logged(state, "board-search", timed, "c1", 1)
+    logged(state, "board-search", pictured, "c2", 2)
+    harness = bound(tmp_path)
+    assert [one.claude for one in harness.transcripts("gift-note")] == ["c1"]
+    assert [one.claude for one in harness.transcripts("board-search")] == ["c2"]
+
+
+def test_a_record_whose_time_does_not_read_still_decides_the_turn(
+    tmp_path: Path,
+) -> None:
+    path = transcript(
+        tmp_path / "t.jsonl",
+        prompt("go"),
+        reply("tool_use", "Bash"),
+        {**reply("end_turn"), "timestamp": "2026-02-31T10:00:00Z"},
+    )
+    signs = bound(tmp_path).signs(Transcript(path=path, claude="c1"))
+    assert signs == Signs(sign=datetime(2026, 11, 25, 10, 5, tzinfo=UTC), turn="ended")

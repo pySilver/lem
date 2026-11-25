@@ -9,13 +9,12 @@ decides nothing, and any other runs (the forms read on the owner's Mac with Clau
 to 2.1.330, 2026-11-22 and 23). Only the transcript's end is read.
 """
 
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal
 
 from lem.adapters import claude_transcript
 
 if TYPE_CHECKING:
-    from datetime import datetime
     from pathlib import Path
 
 type Turn = Literal["runs", "ended"]
@@ -44,10 +43,18 @@ def newest_first(transcript: Path) -> list[claude_transcript.Entry]:
 def newest_sign(records: list[claude_transcript.Entry]) -> datetime | None:
     """The time of the newest `user` or `assistant` record of `records`, newest first."""
     turns = (entry for entry in records if entry.kind in {"user", "assistant"})
-    stamp = next((entry.timestamp for entry in turns if entry.timestamp), None)
-    if stamp is None or stamp.tzinfo:
-        return stamp
-    return stamp.replace(tzinfo=UTC)
+    stamps = (moment(entry.timestamp) for entry in turns)
+    return next((stamp for stamp in stamps if stamp is not None), None)
+
+
+def moment(stamp: str | None) -> datetime | None:
+    """The UTC moment of a record's time, or None for one that is not there or does not
+    read: such a record gives no sign."""
+    try:
+        found = datetime.fromisoformat(stamp or "")
+    except ValueError:
+        return None
+    return found if found.tzinfo else found.replace(tzinfo=UTC)
 
 
 def turn_of(records: list[claude_transcript.Entry]) -> Turn | None:
@@ -75,7 +82,16 @@ def user_turn(entry: claude_transcript.Entry) -> Turn | None:
     nothing, and any other record runs it."""
     if entry.kind != "user":
         return None
-    text = claude_transcript.text_of(entry)
+    text = text_of(entry)
     if text.startswith(INTERRUPT):
         return "ended"
     return None if text.startswith(LOCAL) else "runs"
+
+
+def text_of(entry: claude_transcript.Entry) -> str:
+    """The text of a record's message: its content when that is a text, else its text parts
+    joined by line ends."""
+    body = entry.message.body if entry.message else None
+    if isinstance(body, str):
+        return body
+    return "\n".join(part.text or "" for part in body or ())

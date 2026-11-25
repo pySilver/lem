@@ -2,7 +2,8 @@
 Claude Code (`harness_claude`).
 
 A transcript is one JSON record a line (`FOLDER/projects/NAME/ID.jsonl`). A record is read as
-`Entry`, past every key Lem does not read; a line that is no such record is passed over. The first
+`Entry`, past every key Lem does not read, its time as text, so that a time that does not read
+drops no record; a line that is no such record is passed over. The first
 prompt is the first `user` record that is not `isMeta`. A task's session starts with the launch
 line `Read .../.lem/state/tasks/SLUG/session.md and follow it.`, so a transcript whose first
 prompt is that line, whole, is that task's (the forms read on the owner's Mac with Claude Code
@@ -10,7 +11,6 @@ prompt is that line, whole, is that task's (the forms read on the owner's Mac wi
 """
 
 import re
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 import msgspec
@@ -46,7 +46,7 @@ class Entry(msgspec.Struct, frozen=True, kw_only=True):
     subagent's (a sidechain)."""
 
     kind: str = msgspec.field(default="", name="type")
-    timestamp: datetime | None = None
+    timestamp: str | None = None
     meta: bool = msgspec.field(default=False, name="isMeta")
     sidechain: bool = msgspec.field(default=False, name="isSidechain")
     message: Message | None = None
@@ -66,13 +66,18 @@ def entries(lines: Iterable[bytes]) -> Iterator[Entry]:
     return (entry for entry in decoded if entry is not None)
 
 
-def text_of(entry: Entry) -> str:
-    """The text of a record's message: its content when that is a text, else its text parts
-    joined by line ends."""
+def prompt_text(entry: Entry) -> str:
+    """The text of a prompt: its content when that is a text, its text blocks joined by line
+    ends, and none for a prompt that holds a block of another kind (`tokens.first_prompt` on
+    `main`)."""
     body = entry.message.body if entry.message else None
     if isinstance(body, str):
         return body
-    return "\n".join(part.text or "" for part in body or ())
+    parts = body or ()
+    kinds = {part.kind for part in parts}
+    if kinds - {"text"}:
+        return ""
+    return "\n".join(part.text or "" for part in parts)
 
 
 def task_named(transcript: Path) -> str | None:
@@ -84,5 +89,5 @@ def task_named(transcript: Path) -> str | None:
             prompt = next((entry for entry in users if not entry.meta), None)
     except OSError:
         return None
-    found = LAUNCH.fullmatch(text_of(prompt)) if prompt else None
+    found = LAUNCH.fullmatch(prompt_text(prompt)) if prompt else None
     return found["slug"] if found else None

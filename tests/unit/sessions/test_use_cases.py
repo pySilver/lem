@@ -437,3 +437,27 @@ def test_a_close_the_owner_cut_off_by_his_click_is_never_said_done(
     )
     assert got.closed is True
     assert "session-1" not in terminal.panes
+
+
+def test_a_transcript_that_gives_nothing_is_no_sign_read(tmp_path: Path) -> None:
+    harness = FakeHarness()
+    here = here_of(tmp_path, FakeTerminal(), harness)
+    made(here, status="shaping")
+    opening.open_session(here, SLUG, "new", None, MOMENT)
+    line = SessionLine(
+        at=MOMENT,
+        source="startup",
+        claude="c1",
+        transcript="/gone/c1.jsonl",
+        pane="session-1",
+        task=SLUG,
+    )
+    sessions.append(here.folder(SLUG), line)
+    harness.by_task[SLUG] = (Transcript(path="/gone/c1.jsonl", claude="c1"),)
+    (entry,) = listing.list_sessions(here)
+    assert (entry.live, entry.signs, entry.sign, entry.turn) == (
+        True,
+        False,
+        None,
+        None,
+    )

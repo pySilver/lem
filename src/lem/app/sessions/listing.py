@@ -3,7 +3,9 @@ terminal still has it, whether the owner looks at it, and its signs of work.
 
 The signs are those of the newest transcript the `session-start` hook put on record for that
 session (its line's `pane`), read through the harness: the newest sign and whether its turn runs.
-`signs` is false when no transcript of that session is on record. Whether an agent still runs in
+`signs` is false when no transcript of that session is on record, or when its transcript gave
+neither a sign nor a turn (one that does not read, or is gone): the guard then reads the task's
+own record alone. Whether an agent still runs in
 the session, and a shell command of it, are not read in this slice.
 """
 
@@ -99,10 +101,13 @@ def closed_why(noted: tuple[opened.Noted, ...], session: str) -> str | None:
 
 def signs_of(here: Here, slug: str, session: str) -> Signs | None:
     """The signs of the newest transcript of the session `session`; None when none of its
-    transcripts is on record."""
+    transcripts is on record, or when it gave neither a sign nor a turn."""
     lines = sessions.read(here.folder(slug))
     claudes = {line.claude for line in lines if line.pane == session}
     found = [
         one for one in here.ports.harness.transcripts(slug) if one.claude in claudes
     ]
-    return here.ports.harness.signs(found[-1]) if found else None
+    signs = here.ports.harness.signs(found[-1]) if found else None
+    if signs is None or (signs.sign is None and signs.turn is None):
+        return None
+    return signs
