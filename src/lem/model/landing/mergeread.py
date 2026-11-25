@@ -19,7 +19,6 @@ from lem.records.landing.propose import MergeRead
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
-    from lem.model.landing.world import World
     from lem.records.record import Record
 
 STEP = "merge-review"
@@ -56,13 +55,15 @@ def another_round(landing: Landing) -> MergeRead | None:
     return found[-1] if found else None
 
 
-def usable(landing: Landing, world: World) -> MergeRead | None:
-    """The newest settled read of the proposed tip whose base has origin's base tree now."""
+def latest(landing: Landing, tree: str | None = None) -> MergeRead | None:
+    """The newest settled read of the proposed tip: of a base with the tree `tree` (the read
+    that covers origin's base as it is now), or of any base (the merge agent's word for the
+    tip, beside which a merge on a moved base needs a safe read of that base)."""
     tip = landing.proposed.tip if landing.proposed else None
     found = [
         read
         for read in landing.reads
-        if read.tip == tip and read.base_tree == world.base_tree and settled(read)
+        if read.tip == tip and settled(read) and tree in {None, read.base_tree}
     ]
     return found[-1] if found else None
 

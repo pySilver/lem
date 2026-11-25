@@ -28,13 +28,16 @@ def checks_tree(context: Context) -> Sha:
 
 def trees_of(context: Context, pull: PullSeen | None) -> Trees:
     """The trees a merge is judged by: of the checks' base, and of the commit of the base the
-    forge's merge went onto (the checks' tree while the forge reports none, or the merge went
-    into another branch, which is no landing)."""
+    forge's merge went onto, fetched first when it is not origin's base as last read (the
+    checks' tree while the forge reports none, or the merge went into another branch, which
+    is no landing)."""
     checks = checks_tree(context)
     parent = None if pull is None else pull.base_parent
     into = pull is not None and pull.base == context.world.rules.base
     if parent is None or not into:
         return Trees(checks=checks, parent=checks)
+    if parent != context.world.base:
+        context.ports.git.fetch(context.workspace.checkout)
     tree = context.ports.git.tree(context.workspace.checkout, parent)
     return Trees(checks=checks, parent=tree)
 

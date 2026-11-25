@@ -79,7 +79,8 @@ def landed(
     )
     if local is None or world.local_in_base or local == head:
         return sweep
-    if rebased is not None and asks_rebase(world, merged, pushed):
+    apart = not (facts.after_merged or facts.inside_merged)
+    if apart and rebased is not None and asks_rebase(world, merged, pushed):
         said = merge_lines.after_push(
             world.branch,
             (local, head),

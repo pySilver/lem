@@ -110,10 +110,13 @@ def test_in_open_the_read_then_the_merge_by_whom_the_read_and_settings_say() -> 
     assert step_of(phases.due(opened(), owner)) == ("merge", "owner")
 
 
-def test_a_read_covers_its_base_by_its_tree_and_no_later_one() -> None:
-    assert phases.due(opened(), moved()).step == "merge-review"
-    empty = facing(base=MOVED)
-    assert step_of(phases.due(opened(), empty)) == ("merge", "merger")
+def test_a_moved_base_is_tried_then_read_once_lem_refused_it_for_the_base() -> None:
+    assert step_of(phases.due(opened(), moved())) == ("merge", "merger")
+    assert step_of(phases.due(opened(), facing(base=MOVED))) == ("merge", "merger")
+    refused = Refused(
+        tip=TIP, source="lem", kind="base", line="it moved", by="merger", at=MOMENT
+    )
+    assert phases.due(opened(refused=refused), moved()).step == "merge-review"
     safe = MergeRead(
         tip=TIP,
         base=MOVED,
@@ -123,12 +126,12 @@ def test_a_read_covers_its_base_by_its_tree_and_no_later_one() -> None:
         why="a document moved",
         at=MOMENT,
     )
-    assert step_of(phases.due(opened(reads=(READ, safe)), moved())) == (
-        "merge",
-        "merger",
-    )
+    covered = opened(reads=(READ, safe), refused=refused)
+    assert step_of(phases.due(covered, moved())) == ("merge", "merger")
     again = moved(base="d" * 40, base_tree="0" * 40)
-    assert phases.due(opened(reads=(READ, safe)), again).step == "merge-review"
+    assert step_of(phases.due(opened(reads=(READ, safe)), again)) == ("merge", "merger")
+    reverted = facing(base="d" * 40)
+    assert step_of(phases.due(opened(refused=refused), reverted)) == ("merge", "merger")
 
 
 def test_a_read_that_says_another_round_makes_a_new_round_due() -> None:

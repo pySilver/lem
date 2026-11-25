@@ -55,7 +55,7 @@ def careful(record: Record) -> bool:
 def authority(record: Record, world: World) -> str | None:
     """Why the merge agent may not merge, or None when it may (`main:land.merger_refusal`)."""
     landing = record.landing or Landing()
-    last, read = newest(landing), mergeread.usable(landing, world)
+    last, read = newest(landing), mergeread.latest(landing)
     found = (
         (landing.proposed is None or bool(landing.proposed.reasons), NOT_GREEN),
         (careful(record), CAREFUL),

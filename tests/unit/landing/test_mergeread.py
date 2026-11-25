@@ -106,7 +106,7 @@ def test_the_second_unusable_answer_on_an_unmoved_base_calls_the_owner_with_no_v
     assert mergeread.again(second) is None
     assert mergeread.settled(second)
     landing = replace(OPENED_LANDING, reads=(first, second))
-    assert mergeread.usable(landing, facing()) == second
+    assert mergeread.latest(landing, facing().base_tree) == second
 
 
 def test_no_answer_twice_on_an_unmoved_base_says_that_the_last_try_gave_none() -> None:
@@ -170,8 +170,10 @@ def test_a_read_is_usable_for_the_proposed_tip_on_its_base_tree_once_it_settles(
     read = first_read(UNMOVED, "merge\nIt holds.")
     landing = opened(reads=(read,)).landing
     assert landing is not None
-    assert mergeread.usable(landing, facing()) == read
-    assert mergeread.usable(landing, facing(base=MOVED)) == read
-    assert mergeread.usable(landing, moved()) is None
+    assert mergeread.latest(landing, facing().base_tree) == read
+    assert mergeread.latest(landing, facing(base=MOVED).base_tree) == read
+    assert mergeread.latest(landing, moved().base_tree) is None
     older = replace(read, tip=OTHER)
-    assert mergeread.usable(replace(landing, reads=(older,)), facing()) is None
+    assert mergeread.latest(replace(landing, reads=(older,)), TREE) is None
+    assert mergeread.latest(landing) == read
+    assert mergeread.latest(landing, MOVED_TREE) is None

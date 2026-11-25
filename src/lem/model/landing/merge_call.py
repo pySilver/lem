@@ -35,7 +35,7 @@ class Merging(Frozen, frozen=True, kw_only=True):
 def moved_line(landing: Landing, world: World) -> str | None:
     """The line of a merge on a base that a safe read of the merge agent covered, for the
     one commit's body; None on the checks' own base."""
-    read = mergeread.usable(landing, world)
+    read = mergeread.latest(landing, world.base_tree)
     if read is None or read.base_call != "safe":
         return None
     ran = landing.checked.base if landing.checked else world.base

@@ -18,7 +18,7 @@ from lem.model.landing import (
     review,
     start,
 )
-from lem.model.landing.mergeread import another_round, usable
+from lem.model.landing.mergeread import another_round, latest
 from lem.model.landing.world import Due, Held, World
 from lem.records.landing.record import Landing
 from lem.records.record import Record
@@ -63,10 +63,27 @@ def opened(record: Record, world: World) -> Due:
             "the merge agent's read of this tip says the moved base needs another round"
         )
         return Due(step="start", why=f"{why}: a new round")
-    if usable(landing, world) is None:
+    if read_due(landing, world):
         why = "no read of the merge agent covers this tip on origin's base as it is now"
         return Due(step="merge-review", why=why)
     return merge.due(record, world)
+
+
+def read_due(landing: Landing, world: World) -> bool:
+    """Whether the merge agent reads first: no read of the tip settled yet, or Lem refused
+    the merge of the tip for a base that moved and no read covers origin's base now. A merge
+    on a base that moved since the read is tried, and refused for the base under the merge
+    lock, which keeps that refusal (`landing.md` E, "Base moved, open PR")."""
+    if latest(landing) is None:
+        return True
+    refused = landing.refused
+    tip = landing.proposed.tip if landing.proposed else None
+    for_base = refused is not None and (refused.source, refused.kind, refused.tip) == (
+        "lem",
+        "base",
+        tip,
+    )
+    return for_base and latest(landing, world.base_tree) is None
 
 
 def settled(record: Record) -> Due | None:

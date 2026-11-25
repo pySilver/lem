@@ -88,7 +88,7 @@ def base_side(record: Record, world: World, checks_tree: str) -> Refusal | None:
     guard = protected(world.rules.base, world.rules, "merges")
     if guard is not None or world.base_tree == checks_tree:
         return guard
-    read = mergeread.usable(record.landing or Landing(), world)
+    read = mergeread.latest(record.landing or Landing(), world.base_tree)
     if read is not None and read.base_call == "safe":
         return None
     slug, branch = record.task.slug, world.rules.base

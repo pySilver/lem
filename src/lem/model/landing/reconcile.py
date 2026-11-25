@@ -88,7 +88,7 @@ def made(
 ) -> Merged:
     """The record of a merge the forge reports whole, into the task's base, by `who` (who
     merged and through what), judged by `trees`."""
-    read = mergeread.usable(landing, world)
+    read = mergeread.latest(landing, world.base_tree)
     merged = Merged(
         by=who[0],
         via=who[1],
