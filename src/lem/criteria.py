@@ -205,6 +205,7 @@ import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 # The record of the owner's answer to a row of the board, which his typed No on the
@@ -238,6 +239,14 @@ whole = lem_state.whole
 # that ignores a term running, with the lock free.
 GRACE = 3.0
 SERIAL_GRACE = 7.0
+# The number of hex digits kept in the test and approval digests, and in the digest of
+# the file's bytes shown to the owner (`shown_digest`).
+DIGEST_LENGTH = 12
+SHOWN_DIGEST_LENGTH = 16
+# How long a new wait gives the clock to move past the old block, and how often it
+# asks for the time in that interval, in seconds.
+WAIT_LIMIT = 1.5
+WAIT_POLL = 0.05
 # The track of a task, as the `Size:` line names it: `full`, the standard track with its
 # plan and lead, or `small`, the fast track of one builder.
 SIZES = ("full", "small")
@@ -290,7 +299,7 @@ PYTHON = re.compile(r"python(3(\.\d+)?)?")
 
 
 class CriteriaError(Exception):
-    pass
+    """A refusal from a read, approval, change or check of the criteria."""
 
 
 def run(
@@ -298,9 +307,9 @@ def run(
 ) -> subprocess.CompletedProcess:
     ran = subprocess.run(args, cwd=cwd, capture_output=True, text=True, check=False)
     if check and ran.returncode != 0:
-        raise CriteriaError(
-            f"{' '.join(args[:4])} failed: {(ran.stderr or ran.stdout).strip()}"
-        )
+        command = " ".join(args[:4])
+        said = (ran.stderr or ran.stdout).strip()
+        raise CriteriaError(f"{command} failed: {said}")
     return ran
 
 
@@ -308,9 +317,9 @@ def git(where: Path, *args: str, check: bool = True) -> str:
     ran = lem_state.run_git(where, list(args))
     if check and ran.returncode != 0:
         # the refusal of `run`, of the same command
-        raise CriteriaError(
-            f"{' '.join(ran.args[:4])} failed: {(ran.stderr or ran.stdout).strip()}"
-        )
+        command = " ".join(ran.args[:4])
+        said = (ran.stderr or ran.stdout).strip()
+        raise CriteriaError(f"{command} failed: {said}")
     return ran.stdout.strip()
 
 
@@ -339,13 +348,15 @@ def fenced_lines(lines: list[str], where: str, error: type[Exception]) -> set[in
     with less of the document than its writer wrote."""
     found, opened = closed_fences(lines)
     if opened is not None:
+        number = opened[2] + 1
+        fence = lines[opened[2]].strip()
         raise error(
-            f"{where}: line {opened[2] + 1} opens a code block that never closes "
-            f"({lines[opened[2]].strip()}), so each line after it reads as code and "
+            f"{where}: line {number} opens a code block that never closes "
+            f"({fence}), so each line after it reads as code and "
             "no heading after it counts; close the fence, or put a sample that holds "
             "fences of its own in a longer fence (```` around ```)"
         )
-    return {n for first, last, *_ in found for n in range(first, last + 1)}
+    return {index for first, last, *_ in found for index in range(first, last + 1)}
 
 
 def closed_fences(
@@ -356,16 +367,16 @@ def closed_fences(
     indent, or None."""
     found: list[tuple[int, int, str, int]] = []
     opened: tuple[str, int, int, str, int] | None = None
-    for i, line in enumerate(lines):
+    for index, line in enumerate(lines):
         mark = re.match(r"( *)(`{3,}|~{3,})(.*)$", line)
         if opened is None:
             if mark and not (mark.group(2)[0] == "`" and "`" in mark.group(3)):
-                info = mark.group(3).strip().split()
+                words = mark.group(3).strip().split()
                 opened = (
                     mark.group(2)[0],
                     len(mark.group(2)),
-                    i,
-                    info[0].lower() if info else "",
+                    index,
+                    words[0].lower() if words else "",
                     len(mark.group(1)),
                 )
             continue
@@ -375,7 +386,7 @@ def closed_fences(
             and len(mark.group(2)) >= opened[1]
             and not mark.group(3).strip()
         ):
-            found.append((opened[2], i, opened[3], opened[4]))
+            found.append((opened[2], index, opened[3], opened[4]))
             opened = None
     return found, opened
 
@@ -387,9 +398,13 @@ def parse(text: str, name: str) -> dict:  # noqa: C901, PLR0912, PLR0915 - over 
     # A plan may show the form in a code fence: what is inside one is an example, never
     # the section.
     blocks = fences(lines)
-    fenced = {i for first, last, _, _ in blocks for i in range(first, last + 1)}
+    fenced = {index for first, last, _, _ in blocks for index in range(first, last + 1)}
     start = next(
-        (i for i, line in enumerate(lines) if i not in fenced and HEADING.match(line)),
+        (
+            index
+            for index, line in enumerate(lines)
+            if index not in fenced and HEADING.match(line)
+        ),
         None,
     )
     if start is None:
@@ -399,9 +414,9 @@ def parse(text: str, name: str) -> dict:  # noqa: C901, PLR0912, PLR0915 - over 
         )
     end = next(
         (
-            i
-            for i in range(start + 1, len(lines))
-            if i not in fenced and lines[i].startswith("## ")
+            index
+            for index in range(start + 1, len(lines))
+            if index not in fenced and lines[index].startswith("## ")
         ),
         len(lines),
     )
@@ -409,28 +424,30 @@ def parse(text: str, name: str) -> dict:  # noqa: C901, PLR0912, PLR0915 - over 
     # indent; any other block is an example
     charts = {
         first: (last, indent)
-        for first, last, info, indent in blocks
-        if info == "mermaid" and start < first < end
+        for first, last, word, indent in blocks
+        if word == "mermaid" and start < first < end
     }
-    size = why = None
+    size = None
+    why = None
     criteria: list[dict] = []
     for number, line in enumerate(lines[start + 1 : end], start + 2):
-        i = number - 1
+        index = number - 1
         where = f"{name}:{number}"
-        if i in charts and criteria:
+        if index in charts and criteria:
             if criteria[-1]["chart"] is not None:
+                previous = criteria[-1]["n"]
                 raise CriteriaError(
-                    f"{where}: criterion {criteria[-1]['n']} has a chart already; "
+                    f"{where}: criterion {previous} has a chart already; "
                     "one chart for one criterion, and a chart of several goes under "
                     "`## How it works`, after the section"
                 )
-            last, indent = charts[i]
+            last, indent = charts[index]
             body = [
                 row[min(indent, len(row) - len(row.lstrip(" "))) :]
-                for row in lines[i + 1 : last]
+                for row in lines[index + 1 : last]
             ]
             criteria[-1]["chart"] = "\n".join(body).strip("\n") or None
-        if i in fenced or not line.strip():
+        if index in fenced or not line.strip():
             continue
         if size is None:
             found = SIZE.match(line.strip())
@@ -495,20 +512,26 @@ def parse(text: str, name: str) -> dict:  # noqa: C901, PLR0912, PLR0915 - over 
             criteria[-1]["case"].append(line.strip())
         elif criteria[-1]["case"]:
             # a step written over two lines
-            criteria[-1]["case"][-1] += " " + line.strip()
+            tail = f" {line.strip()}"
+            criteria[-1]["case"][-1] += tail
         else:
-            criteria[-1]["text"] += " " + line.strip()
+            tail = f" {line.strip()}"
+            criteria[-1]["text"] += tail
     if size is None or not criteria:
+        missing = "no criterion" if size else "no Size line"
         raise CriteriaError(
-            f"{name}: the `## Acceptance criteria` section holds no "
-            f"{'criterion' if size else 'Size line'}"
+            f"{name}: the `## Acceptance criteria` section holds {missing}"
         )
     if size == "small" and len(criteria) != 1:
         raise CriteriaError(
             f"{name}: a task on the fast track has one criterion, and this one has "
             f"{len(criteria)}: it takes the standard track"
         )
-    both = [s["n"] for s in criteria if s["tests"] and s["no_test"]]
+    both = [
+        criterion["n"]
+        for criterion in criteria
+        if criterion["tests"] and criterion["no_test"]
+    ]
     if both:
         raise CriteriaError(
             f"{name}: criterion {both[0]} names a test and says that it has none; "
@@ -517,12 +540,12 @@ def parse(text: str, name: str) -> dict:  # noqa: C901, PLR0912, PLR0915 - over 
     # one mark for this exact set of criteria and tests, their cases with them and their
     # charts not: a result of the check belongs to the set it ran on
     marked = [
-        {key: value for key, value in criterion.items() if key != "chart"}
+        {key: field for key, field in criterion.items() if key != "chart"}
         for criterion in criteria
     ]
     digest = hashlib.sha256(
         json.dumps([size, marked], sort_keys=True, ensure_ascii=False).encode()
-    ).hexdigest()[:12]
+    ).hexdigest()[:DIGEST_LENGTH]
     return {
         "size": size,
         "why": why,
@@ -536,15 +559,20 @@ def how_it_works(lines: list[str], fenced: set[int]) -> str | None:
     """The body of the plan's `## How it works`, as markdown: the chart of several
     criteria and the sentence it shows. None when the plan has none."""
     start = next(
-        (i for i, line in enumerate(lines) if i not in fenced and HOW.match(line)), None
+        (
+            index
+            for index, line in enumerate(lines)
+            if index not in fenced and HOW.match(line)
+        ),
+        None,
     )
     if start is None:
         return None
     end = next(
         (
-            i
-            for i in range(start + 1, len(lines))
-            if i not in fenced and re.match(r"#{1,2}\s", lines[i])
+            index
+            for index in range(start + 1, len(lines))
+            if index not in fenced and re.match(r"#{1,2}\s", lines[index])
         ),
         len(lines),
     )
@@ -559,7 +587,7 @@ def text_digest(size: str, texts: list[str]) -> str:
         json.dumps(
             [size, [" ".join(text.split()) for text in texts]], ensure_ascii=False
         ).encode()
-    ).hexdigest()[:12]
+    ).hexdigest()[:DIGEST_LENGTH]
 
 
 def against(read: dict, changes: dict, name: str, slug: str) -> None:
@@ -591,13 +619,17 @@ def against(read: dict, changes: dict, name: str, slug: str) -> None:
                 f"criterion {number} is {want!r}. {fix}"
             )
     if len(now) > len(expected):
+        end = len(expected)
+        position = end + 1
         raise CriteriaError(
-            f"criterion {len(expected) + 1} of {name}, {now[len(expected)]!r}, is not "
-            f"among the expected criteria, which end at {len(expected)}. {fix}"
+            f"criterion {position} of {name}, {now[end]!r}, is not "
+            f"among the expected criteria, which end at {end}. {fix}"
         )
     if len(now) < len(expected):
+        end = len(now)
+        position = end + 1
         raise CriteriaError(
-            f"{name} lacks criterion {len(now) + 1}, {expected[len(now)]!r}, which the "
+            f"{name} lacks criterion {position}, {expected[end]!r}, which the "
             f"expected criteria hold. {fix}"
         )
 
@@ -635,13 +667,12 @@ def project_now(repo: Path) -> tuple[dict, list[dict], Path]:
 
 class Task:
     def __init__(self, repo: Path, slug: str) -> None:
-        self.settings, tasks, state = project_now(repo)
+        settings, tasks, state = project_now(repo)
+        self.settings = settings
         record = next((task for task in tasks if task["slug"] == slug), None)
         if record is None:
-            raise CriteriaError(
-                f"no task {slug!r}; the tasks are: "
-                f"{', '.join(task['slug'] for task in tasks) or 'none yet'}"
-            )
+            listed = ", ".join(task["slug"] for task in tasks) or "none yet"
+            raise CriteriaError(f"no task {slug!r}; the tasks are: {listed}")
         self.mode = record.get("mode", "with-owner")
         # the date of the night that opened the task (its mark), or None for a task of
         # the day
@@ -671,10 +702,10 @@ class Task:
         while his mark says away is his own."""
         if self.night:
             return f"the night of {self.night} opened it"
-        for file in (self.directory / "brief.md", self.directory / "state.md"):
-            if file.is_file() and SOMEONE_ELSE in [
+        for path in (self.directory / "brief.md", self.directory / "state.md"):
+            if path.is_file() and SOMEONE_ELSE in [
                 line.strip()
-                for line in file.read_text(
+                for line in path.read_text(
                     encoding="utf-8", errors="replace"
                 ).splitlines()
             ]:
@@ -815,8 +846,8 @@ class Task:
             self.slug,
             event,
             *(
-                f"{key}:={json.dumps(value, ensure_ascii=False)}"
-                for key, value in fields.items()
+                f"{key}:={json.dumps(field, ensure_ascii=False)}"
+                for key, field in fields.items()
             ),
         )
 
@@ -833,14 +864,13 @@ def unstarted(command: str, where: Path) -> str | None:
     if not words:
         return None
     program = Path(words[0]).name
-    file = (
-        shell_script(words[1:])
-        if program in SHELLS
-        else python_script(words[1:])
-        if PYTHON.fullmatch(program)
-        else None
-    )
-    return file if file is not None and not (where / file).is_file() else None
+    if program in SHELLS:
+        name = shell_script(words[1:])
+    elif PYTHON.fullmatch(program):
+        name = python_script(words[1:])
+    else:
+        return None
+    return name if name is not None and not (where / name).is_file() else None
 
 
 def shell_script(words: list[str]) -> str | None:
@@ -880,12 +910,12 @@ def python_script(words: list[str]) -> str | None:
             return None
         if not word.startswith("-"):
             return word
-        for i, letter in enumerate(word[1:], start=1):
+        for index, letter in enumerate(word[1:], start=1):
             if letter in "cm":
                 # the module or the command is the operand: no script file to look for
                 return None
             if letter in "WX":
-                if i == len(word) - 1:
+                if index == len(word) - 1:
                     next(rest, None)
                 break
     return None
@@ -909,7 +939,7 @@ def needs_serial(command: str, serial: list[str]) -> bool:
         if not own or len(words) < len(own) or words[: len(own) - 1] != own[:-1]:
             continue
         word, last = words[len(own) - 1], own[-1]
-        if word == last or word.startswith(last.rstrip("/") + "/"):
+        if word == last or word.startswith(f"{last.rstrip('/')}/"):
             return True
     return False
 
@@ -1028,8 +1058,8 @@ def cmd_red(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limi
         for criterion in found["criteria"]
         for test in criterion["tests"]
     ]
-    for number, test in tests:
-        for file in test["files"]:
+    for number, check in tests:
+        for filename in check["files"]:
             # --: a name that starts with a hyphen is still a name
             kind = run(
                 [
@@ -1039,14 +1069,14 @@ def cmd_red(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limi
                     "cat-file",
                     "-t",
                     "--",
-                    f"{tip}:{file}",
+                    f"{tip}:{filename}",
                 ],
                 check=False,
             ).stdout.strip()
             if kind != "blob":
+                description = "a folder" if kind == "tree" else "not a file"
                 raise CriteriaError(
-                    f"criterion {number}: {file!r} is "
-                    f"{'a folder' if kind == 'tree' else 'not a file'} on the branch. "
+                    f"criterion {number}: {filename!r} is {description} on the branch. "
                     "Name each file that holds the test, one by one and relative to "
                     "the root: a folder would lay the change "
                     "itself over the base commit",
@@ -1056,7 +1086,7 @@ def cmd_red(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limi
         for criterion in found["criteria"]
         if criterion["no_test"]
     ]
-    laid = sorted({file for _, test in tests for file in test["files"]})
+    laid = sorted({name for _, test in tests for name in test["files"]})
     # what the base run lacks: every file the branch changed that is not a named
     # test file
     changed = [
@@ -1067,7 +1097,7 @@ def cmd_red(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limi
         if name
     ]
     run_without = sorted(set(changed) - set(laid))
-    results: list[dict] = []
+    outcomes: list[dict] = []
     setup: list[dict] = []
     if tests:
         # One check of a task at a time. The lock is the kernel's, and it goes when its
@@ -1166,10 +1196,9 @@ def cmd_red(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limi
                 stop()
                 said.seek(0)
                 if code != 0:
-                    raise CriteriaError(
-                        f"git {' '.join(args[:2])} failed: "
-                        f"{said.read().decode(errors='replace').strip()}"
-                    )
+                    command = " ".join(args[:2])
+                    error = said.read().decode(errors="replace").strip()
+                    raise CriteriaError(f"git {command} failed: {error}")
 
         def ended(*_: object) -> None:
             raise KeyboardInterrupt
@@ -1221,11 +1250,8 @@ def cmd_red(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limi
         finally:
             stop()
             signal.signal(signal.SIGTERM, before)
-            stuck = [
-                problem
-                for problem in (remove(task, place) for place in places.values())
-                if problem
-            ]
+            cleanup = (remove(task, path) for path in places.values())
+            stuck = [problem for problem in cleanup if problem]
             lock.close()
         # A worktree that stayed is said whatever else went wrong: the first failure
         # does not hide it.
@@ -1266,7 +1292,7 @@ def cmd_red(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limi
                     "is the change itself, make the test fail on it "
                     "and not stop before it"
                 )
-            results.append(
+            outcomes.append(
                 {
                     "criterion": number,
                     "command": test["command"],
@@ -1276,14 +1302,14 @@ def cmd_red(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limi
                     "problem": problem,
                 }
             )
-    ok = not any(result["problem"] for result in results)
+    ok = not any(outcome["problem"] for outcome in outcomes)
     task.log(
         "task.red",
         ok=ok,
         digest=found["digest"],
         base=base[:9],
         tip=tip[:9],
-        tests=results,
+        tests=outcomes,
         without_a_test=without,
         run_without=run_without,
     )
@@ -1294,7 +1320,7 @@ def cmd_red(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the limi
         "base": base[:9],
         "tip": tip[:9],
         "setup": setup,
-        "tests": results,
+        "tests": outcomes,
         "without_a_test": without,
         "run_without": run_without,
         "inputs": ran,
@@ -1329,9 +1355,9 @@ def newest_block(task: Task) -> dict | None:
     events = events_of(task, "task.state", "criteria.approved")
     at = next(
         (
-            i
-            for i in range(len(events) - 1, -1, -1)
-            if events[i]["event"] == "task.state"
+            index
+            for index in range(len(events) - 1, -1, -1)
+            if events[index]["event"] == "task.state"
         ),
         None,
     )
@@ -1374,13 +1400,15 @@ def owners_no(task: Task, block: dict | None) -> dict | None:
 # The automatic approvals, which no word of his gave in the moment: the read of a task
 # on the standard track from a complete request, and Lem's approval on the fast track in
 # his name (`by: lem`). Each is a task's first contract only.
-AUTOMATIC = {
-    "read": "a read freezes only the first contract",
-    "lem": (
-        "Lem approves the fast track's criterion in the owner's name "
-        "only as the first contract"
-    ),
-}
+AUTOMATIC = MappingProxyType(
+    {
+        "read": "a read freezes only the first contract",
+        "lem": (
+            "Lem approves the fast track's criterion in the owner's name "
+            "only as the first contract"
+        ),
+    }
+)
 
 
 def first_contract(task: Task, by: str) -> None:
@@ -1398,11 +1426,11 @@ def first_contract(task: Task, by: str) -> None:
         )
 
 
-def shown_digest(data: bytes) -> str:
+def shown_digest(raw: bytes) -> str:
     """The digest of a criteria file's bytes as the owner's page showed them, which the
     board's form carries back (`serve.py`, `criteria_waiting`): sha256, its first 16
     hex digits."""
-    return hashlib.sha256(data).hexdigest()[:16]
+    return hashlib.sha256(raw).hexdigest()[:SHOWN_DIGEST_LENGTH]
 
 
 def waits_for_him(task: Task, other: str, source: Path) -> str:
@@ -1419,7 +1447,7 @@ def waits_for_him(task: Task, other: str, source: Path) -> str:
 
 
 def cmd_approve(
-    task: Task, file: str, by: str, *, plan: bool = False, shown: str | None = None
+    task: Task, path: str, by: str, *, plan: bool = False, shown: str | None = None
 ) -> dict:
     """Keep the criteria that were approved, word for word, with a digest and a number
     of their own, and log the event. Each approval is a new one, also of a text approved
@@ -1428,10 +1456,10 @@ def cmd_approve(
     both pass. SHOWN is the digest of the bytes the owner's page showed
     (`shown_digest`): the file is read once, and those bytes are approved or
     nothing is."""
-    source = Path(file)
+    source = Path(path)
     if not source.is_file():
         raise CriteriaError(
-            f"{file} is not a file; --file names the criteria the owner approved, in "
+            f"{path} is not a file; --file names the criteria the owner approved, in "
             "the form `lem criteria --help` shows"
         )
     task.directory.mkdir(parents=True, exist_ok=True)
@@ -1455,39 +1483,42 @@ def approve_held(  # noqa: C901, PLR0912 - over the limit before the limit was s
         said = owners_no(task, newest_block(task))
         if said:
             raise CriteriaError(
-                "the owner said No to the criteria of this wait ("
-                + (
-                    "typed in the session"
-                    if said.get("from") == "session"
-                    else "on the board"
-                )
-                + f", at {said.get('at')}"
-                + (f", with the words {said['note']!r}" if said.get("note") else "")
-                + (
-                    "), and the first answer counts: nothing was approved. "
-                    f"The No changes the criteria: `lem criteria change {task.slug} "
-                    '--file FILE --words "THE OWNER\'S NOTE"` writes the changed text '
-                    f"and a new wait, or `lem criteria change {task.slug} --unchanged` "
-                    "a new wait of the same text when the note changes no criterion, "
-                )
-                + (
-                    "and the owner's yes to that text is the approval"
-                    if by == "owner"
-                    else (
-                        "and --alone approves that text while the task "
-                        "runs without the owner"
-                    )
+                "the owner said No to the criteria of this wait ({where}, at {at}"
+                "{note}), and the first answer counts: nothing was approved. "
+                "The No changes the criteria: `lem criteria change {slug} "
+                '--file FILE --words "THE OWNER\'S NOTE"` writes the changed text '
+                "and a new wait, or `lem criteria change {slug} --unchanged` "
+                "a new wait of the same text when the note changes no criterion, "
+                "{approval}".format(
+                    where=(
+                        "typed in the session"
+                        if said.get("from") == "session"
+                        else "on the board"
+                    ),
+                    at=f"{said.get('at')}",
+                    note=f", with the words {said['note']!r}"
+                    if said.get("note")
+                    else "",
+                    slug=task.slug,
+                    approval=(
+                        "and the owner's yes to that text is the approval"
+                        if by == "owner"
+                        else (
+                            "and --alone approves that text while the task "
+                            "runs without the owner"
+                        )
+                    ),
                 ),
             )
-    data = source.read_bytes()
-    if shown is not None and shown_digest(data) != shown:
+    raw = source.read_bytes()
+    if shown is not None and shown_digest(raw) != shown:
         raise CriteriaError(
             f"{source.name} changed since the page showed them (the page showed "
-            f"{shown}, the file is {shown_digest(data)} now): nothing was approved. "
+            f"{shown}, the file is {shown_digest(raw)} now): nothing was approved. "
             "Read the criteria again, then approve",
         )
     # the line ends a read in text mode gives, from the same bytes
-    text = data.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    text = raw.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
     read = parse(text, source.name)
     tested = [
         criterion["n"]
@@ -1573,21 +1604,18 @@ def approve_held(  # noqa: C901, PLR0912 - over the limit before the limit was s
         last = reads[-1] if reads else None
         if last is None or last.get("digest") != digest:
             raise CriteriaError(
-                (
-                    "--read freezes the criteria the newest `criteria.read` of "
-                    f"{task.slug} read, and "
-                )
-                + (
-                    "there is none"
-                    if last is None
-                    else (
-                        "that read was of the criteria with digest "
-                        f"{last.get('digest')}, and {source.name} has {digest}"
-                    )
-                )
-                + (
-                    ": run the read over these criteria first (`stages/plan.md`, "
-                    "step 1)"
+                "--read freezes the criteria the newest `criteria.read` of "
+                "{slug} read, and {found}: run the read over these criteria "
+                "first (`stages/plan.md`, step 1)".format(
+                    slug=task.slug,
+                    found=(
+                        "there is none"
+                        if last is None
+                        else (
+                            "that read was of the criteria with digest "
+                            f"{last.get('digest')}, and {source.name} has {digest}"
+                        )
+                    ),
                 ),
             )
         # a read nobody answered is started once more; after the second in a row the
@@ -1618,8 +1646,8 @@ def approve_held(  # noqa: C901, PLR0912 - over the limit before the limit was s
         [
             *before.get("history", []),
             {
-                key: value
-                for key, value in before.items()
+                key: field
+                for key, field in before.items()
                 if key not in ("history", "task", "text")
             },
         ]
@@ -1645,7 +1673,7 @@ def approve_held(  # noqa: C901, PLR0912 - over the limit before the limit was s
         "history": history,
     }
     task.approved_file.write_text(
-        json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        f"{json.dumps(record, indent=2, ensure_ascii=False)}\n", encoding="utf-8"
     )
     task.log(
         "criteria.approved",
@@ -1690,19 +1718,19 @@ def pairs(before: list[dict], after: list[dict]) -> list[dict]:
             found += [
                 {
                     "change": "changed",
-                    "before": shown_criterion(before[i]),
-                    "after": shown_criterion(after[j]),
+                    "before": shown_criterion(before[left]),
+                    "after": shown_criterion(after[right]),
                 }
-                for i, j in zip(range(i1, i2), range(j1, j2), strict=True)
+                for left, right in zip(range(i1, i2), range(j1, j2), strict=True)
             ]
             continue
         found += [
-            {"change": "removed", "before": shown_criterion(before[i])}
-            for i in range(i1, i2)
+            {"change": "removed", "before": shown_criterion(before[index])}
+            for index in range(i1, i2)
         ]
         found += [
-            {"change": "added", "after": shown_criterion(after[j])}
-            for j in range(j1, j2)
+            {"change": "added", "after": shown_criterion(after[index])}
+            for index in range(j1, j2)
         ]
     return found
 
@@ -1728,14 +1756,14 @@ def kept_before(directory: Path) -> dict | None:
     """The text before the newest change of the criteria, `criteria-before.json` in the
     task directory DIRECTORY (`ts`, the state block it was written under; `text`;
     `words`; `at`), or None."""
-    file = directory / BEFORE
+    path = directory / BEFORE
     try:
-        kept = json.loads(file.read_text(encoding="utf-8"))
+        kept = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return None
     except (OSError, ValueError) as error:
         raise CriteriaError(
-            f"{file} does not read as JSON ({error}); it is written by "
+            f"{path} does not read as JSON ({error}); it is written by "
             "`lem criteria change` only"
         ) from error
     if (
@@ -1744,7 +1772,7 @@ def kept_before(directory: Path) -> dict | None:
         or not isinstance(kept.get("text"), str)
     ):
         raise CriteriaError(
-            f"{file} has no `ts` and `text`; it is written by "
+            f"{path} has no `ts` and `text`; it is written by "
             "`lem criteria change` only"
         )
     return kept
@@ -1829,38 +1857,35 @@ def cmd_typed(task: Task, words: str) -> dict:
         except (lem_answers.AnswerError, OSError) as error:
             raise CriteriaError(f"the owner's No was not recorded: {error}") from error
     if not won and not (made.get("option") == "no" and made.get("from") == "session"):
+        answer = repr(made.get("label") or made.get("option"))
+        at = f"{made.get('at')}"
+        note = f", with the words {made['note']!r}" if made.get("note") else ""
         raise CriteriaError(
-            (
-                f"the owner's answer {made.get('label') or made.get('option')!r} to "
-                f"this wait came first, on the board at {made.get('at')}"
-            )
-            + (f", with the words {made['note']!r}" if made.get("note") else "")
-            + (
-                ": the typed No is not recorded. Take the board's answer "
-                "(`board_answer` of `lem project tasks`), and say in one line which "
-                "was taken and from where"
-            ),
+            f"the owner's answer {answer} to this wait came first, on the board "
+            f"at {at}{note}: the typed No is not recorded. Take the board's answer "
+            "(`board_answer` of `lem project tasks`), and say in one line which "
+            "was taken and from where",
         )
     return {"task": task.slug, "key": key, "recorded": won, "answer": made}
 
 
-def cmd_change(task: Task, file: str, words: str) -> dict:  # noqa: C901 - over the limit before the limit was set
+def cmd_change(task: Task, path: str, words: str) -> dict:  # noqa: C901 - over the limit before the limit was set
     """A change of the criteria from the owner's note: keep the text he answered, write
-    FILE as the task's `criteria.md`, log `criteria.changed`, and write the held block
+    PATH as the task's `criteria.md`, log `criteria.changed`, and write the held block
     CHANGED_WAIT, so that the criteria wait for his yes again. It approves nothing. It
     runs whole under the task's criteria.lock, the lock of `cmd_approve`. A change that
     stopped in the middle (`criteria-before.json` names the newest state block) is
-    finished from FILE, against the text it kept."""
+    finished from PATH, against the text it kept."""
     note = " ".join(words.split())
     if not note:
         raise CriteriaError(
             "change needs --words: the owner's note the change comes from, "
             "in the owner's words"
         )
-    source = Path(file)
+    source = Path(path)
     if not source.is_file():
         raise CriteriaError(
-            f"{file} is not a file; --file names the changed criteria, in the form "
+            f"{path} is not a file; --file names the changed criteria, in the form "
             "`lem criteria --help` shows, with no test lines"
         )
     text = source.read_bytes().decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
@@ -1888,8 +1913,9 @@ def cmd_change(task: Task, file: str, words: str) -> dict:  # noqa: C901 - over 
         key = row_key(task, block)
         made = answer_on_record(task, key)
         if made is not None and made.get("option") != "no":
+            answer = made.get("label") or made.get("option")
             raise CriteriaError(
-                f"the owner's answer {made.get('label') or made.get('option')!r} to "
+                f"the owner's answer {answer!r} to "
                 f"this wait came first, at {made.get('at')}: nothing was changed. "
                 "Take it, and say in one line which answer was taken and from where",
             )
@@ -1970,9 +1996,9 @@ def new_wait(task: Task, block: dict, line: str) -> dict:
     board only under a new key, which names its block to the second (lem_answers): a
     block written in the second of the one he answered would take his No on record for
     an answer to the new wait. At most one second of wait, in a run that fast."""
-    until = time.monotonic() + 1.5
+    until = time.monotonic() + WAIT_LIMIT
     while lem_clock.stamp() <= str(block["ts"]) and time.monotonic() < until:
-        time.sleep(0.05)
+        time.sleep(WAIT_POLL)
     return json.loads(script("project.py", task.repo, "state", task.slug, "held", line))
 
 
@@ -1997,8 +2023,9 @@ def cmd_unchanged(task: Task) -> dict:
                 f"{task.slug} --typed --words NOTE`",
             )
         if made.get("option") != "no":
+            answer = made.get("label") or made.get("option")
             raise CriteriaError(
-                f"the owner's answer {made.get('label') or made.get('option')!r} to "
+                f"the owner's answer {answer!r} to "
                 f"this wait came first, at {made.get('at')}: nothing was asked again. "
                 "Take it, and say in one line which answer was taken and from where",
             )
@@ -2053,8 +2080,9 @@ def cmd_pairs(task: Task) -> dict:
             f"its newest state block is {now}, not `held: {CHANGED_WAIT}`"
         )
     if kept is None:
+        path = task.directory / BEFORE
         raise CriteriaError(
-            f"{task.directory / BEFORE} is not there: the text before the change was "
+            f"{path} is not there: the text before the change was "
             "not kept; `lem criteria change` keeps it"
         )
     if not task.small_file.is_file():
@@ -2169,7 +2197,7 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
         ),
     )
     args = parser.parse_args(argv)
-    result: dict[str, Any]
+    reply: dict[str, Any]
     try:
         if args.file is not None and args.step not in ("approve", "change", "digest"):
             raise CriteriaError("--file goes with `approve`, `change` and `digest`")
@@ -2239,11 +2267,11 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
                 # refused before the plan is read, and again under the lock: a task with
                 # a contract keeps it
                 first_contract(task, "read")
-                result = cmd_approve(task, task.criteria()["plan"], "read", plan=True)
+                reply = cmd_approve(task, task.criteria()["plan"], "read", plan=True)
             elif args.file is None and args.small:
                 # Lem's approval in his name has one place, the task directory's
                 # criteria.md
-                result = cmd_approve(task, str(task.small_file), "lem")
+                reply = cmd_approve(task, str(task.small_file), "lem")
             elif args.file is None:
                 raise CriteriaError(
                     "approve needs --file: the criteria the owner approved, in the "
@@ -2252,23 +2280,23 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
             elif args.alone:
                 # the plan's own criteria carry the lead's test lines, which are no part
                 # of a criterion's text
-                result = cmd_approve(task, args.file, "alone", plan=True)
+                reply = cmd_approve(task, args.file, "alone", plan=True)
             else:
-                result = cmd_approve(
+                reply = cmd_approve(
                     task, args.file, "lem" if args.small else "owner", shown=args.shown
                 )
         elif args.step == "change":
             if args.pairs:
-                result = cmd_pairs(task)
+                reply = cmd_pairs(task)
             elif args.unchanged:
-                result = cmd_unchanged(task)
+                reply = cmd_unchanged(task)
             elif args.typed:
-                result = cmd_typed(task, args.words or "")
+                reply = cmd_typed(task, args.words or "")
             else:
-                result = cmd_change(task, args.file, args.words or "")
+                reply = cmd_change(task, args.file, args.words or "")
         elif args.step == "approved":
             kept = task.approved()
-            result = (
+            reply = (
                 {"task": task.slug, "approved": kept}
                 if kept
                 else {
@@ -2283,7 +2311,7 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
         elif args.step == "digest":
             if args.file is None:
                 found = task.criteria()
-                result = {
+                reply = {
                     "task": task.slug,
                     "of": found["plan"],
                     "digest": found["criteria_digest"],
@@ -2297,7 +2325,7 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
                 read = parse(
                     Path(args.file).read_text(encoding="utf-8"), Path(args.file).name
                 )
-                result = {
+                reply = {
                     "task": task.slug,
                     "of": args.file,
                     "digest": text_digest(
@@ -2306,24 +2334,24 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
                     ),
                 }
         elif args.step == "red":
-            result = cmd_red(task)
+            reply = cmd_red(task)
         elif args.step == "inputs":
-            result = cmd_inputs(task)
+            reply = cmd_inputs(task)
         else:
-            result = task.criteria()
+            reply = task.criteria()
             if args.step == "record":
                 task.log(
                     "task.criteria",
-                    size=result["size"],
-                    why=result["why"],
-                    digest=result["digest"],
-                    criteria=result["criteria"],
+                    size=reply["size"],
+                    why=reply["why"],
+                    digest=reply["digest"],
+                    criteria=reply["criteria"],
                 )
     except CriteriaError as error:
         sys.exit(f"criteria.py: {error}")
-    print(json.dumps(result, indent=2, ensure_ascii=False))
-    if args.step == "red" and not result["ok"]:
-        bad = next(test for test in result["tests"] if test["problem"])
+    print(json.dumps(reply, indent=2, ensure_ascii=False))
+    if args.step == "red" and not reply["ok"]:
+        bad = next(test for test in reply["tests"] if test["problem"])
         sys.exit(
             f"criteria.py: criterion {bad['criterion']}: "
             f"`{bad['command']}` {bad['problem']}"
