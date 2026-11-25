@@ -8,10 +8,11 @@ import pytest
 from msgspec.structs import replace
 
 from fakes.command import lem
-from fakes.records import MOMENT
+from fakes.records import MOMENT, record
 from fakes.repo import RealRepo, run_git
 from lem.app.tasks import park, resume
 from lem.kernel.errors import Refusal
+from lem.model.task import resumes
 from lem.records.decisions import Breaker, Taken
 from lem.records.holds import BreakerHold, OwnerHold, Parked, ReleaseHold
 from lem.records.journal.task import Summary
@@ -158,6 +159,7 @@ def test_a_dropped_task_with_its_breaker_goes_on_in_a_new_task(tmp_path: Path) -
     assert f"resumed from: {SLUG}; read handoff.md and breaker-3.md first" in brief
     assert (where.lem / "worktrees" / new / "README.md").is_file()
     assert read(where, SLUG).task.status == "dropped"
+    assert read(where, new).release == read(where, SLUG).release
     with pytest.raises(Refusal) as again:
         resume.resumed(where.checkout, SLUG)
     assert again.value.code == "resumed"
@@ -274,3 +276,11 @@ def test_a_parked_task_two_releases_back_stops_and_a_dropped_one_passes(
     assert isinstance(
         resume.release.checked(where.state, "old", ends=True).task.hold, ReleaseHold
     )
+
+
+def test_a_line_of_resumes_that_goes_round_is_refused() -> None:
+    first = record("first", status="dropped", resumed_from="second")
+    second = record("second", status="dropped", resumed_from="first")
+    with pytest.raises(Refusal) as refused:
+        resumes.next_slug("second", (first, second))
+    assert refused.value.code == "resume-line"

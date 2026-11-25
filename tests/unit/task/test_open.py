@@ -2,6 +2,7 @@
 and its claim, the backlog item's claim, the night, the queue, and the dropped task a new one goes
 on from."""
 
+import threading
 from typing import TYPE_CHECKING
 
 import msgspec
@@ -227,3 +228,30 @@ def test_from_a_tasks_worktree_the_state_is_the_main_checkouts(tmp_path: Path) -
     (worktree / ".git").write_text(f"gitdir: {git}\n", encoding="utf-8")
     ran = lem("task", "open", "other", "--ask", "add a gift note", cwd=worktree)
     assert result(ran)["folder"] == str(where.state / "tasks" / "other")
+
+
+def test_his_words_with_a_line_separator_read_back_as_one_ask(tmp_path: Path) -> None:
+    workspace(tmp_path)
+    words = "add a gift note\u2028and a card"
+    lem("task", "open", "gift-note", "--ask", words, cwd=tmp_path)
+    shown = result(lem("task", "show", "gift-note", cwd=tmp_path))
+    assert shown["ask"] == words
+
+
+def test_two_opens_at_one_moment_one_takes_the_ticket(tmp_path: Path) -> None:
+    where = workspace(tmp_path, LINEAR)
+    codes: list[str] = []
+
+    def one(slug: str) -> None:
+        try:
+            opened(where, slug, ticket="MBZ-12")
+            codes.append("opened")
+        except Refusal as refused:
+            codes.append(refused.code)
+
+    both = [threading.Thread(target=one, args=(slug,)) for slug in ("first", "second")]
+    for thread in both:
+        thread.start()
+    for thread in both:
+        thread.join(timeout=30)
+    assert sorted(codes) == ["opened", "ticket-held"]
