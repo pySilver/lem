@@ -1,0 +1,47 @@
+"""Where a task's files are: its folder in the state, its worktree under `.lem/worktrees/`,
+and the branch it works on.
+
+The worktrees' folder holds a `.gitignore` of `*`, so the main checkout's `git status` never
+shows a task's worktree (`project.cmd_worktree_dir` on `main`).
+"""
+
+from typing import TYPE_CHECKING
+
+from lem.kernel.errors import Refusal
+from lem.store import places
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from lem.records.record import Record
+
+WORKTREES = "worktrees"
+
+
+def worktrees(workspace: places.Workspace) -> Path:
+    """The folder of the tasks' worktrees, made with its ignore file when it is not there."""
+    folder = workspace.lem / WORKTREES
+    folder.mkdir(parents=True, exist_ok=True)
+    ignore = folder / ".gitignore"
+    if not ignore.is_file():
+        ignore.write_text("*\n", encoding="utf-8")
+    return folder
+
+
+def worktree(workspace: places.Workspace, slug: str) -> Path:
+    """The path of the worktree of the task `slug`."""
+    places.task_folder(workspace.state, slug)
+    return worktrees(workspace) / slug
+
+
+def branch(record: Record) -> str:
+    """The branch the task works on; refused before its worktree named one."""
+    named = record.task.branch
+    if named is None:
+        slug = record.task.slug
+        raise Refusal(
+            "no-branch",
+            f"{slug} has no branch yet",
+            f"lem task worktree {slug} makes its worktree on its branch",
+        )
+    return named
