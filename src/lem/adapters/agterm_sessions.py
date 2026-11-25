@@ -8,7 +8,8 @@ and a pane's environment may hold them in either.
 
 from typing import TYPE_CHECKING
 
-from lem.adapters.agterm_ctl import TOOL, Node, nodes_of, pane_of, said
+from lem.adapters.agterm_ctl import TOOL, said
+from lem.adapters.agterm_tree import Foreground, Node, nodes_of
 from lem.ports.faults import Unanswered
 from lem.ports.terminal import Mark, Pane, Unreadable
 
@@ -27,8 +28,6 @@ GLYPHS = (
     ("none", "idle"),
 )
 
-type Foreground = tuple[str, ...] | None
-
 
 class AgtermSessions:
     """The sessions: list, close, a line to one, its mark, its name."""
@@ -37,44 +36,45 @@ class AgtermSessions:
         """Keep the environment the command started with: its PATH, socket and window."""
         self.environ = environ
 
+    def nodes(self) -> tuple[Node, ...]:
+        """Every session of the tree."""
+        return nodes_of(said(self.environ, *TREE))
+
     def node(self, session: str) -> Node:
-        """The tree's node of the session `session`, or `Unanswered` for one that is gone."""
-        nodes = nodes_of(said(self.environ, *TREE))
+        """The session `session`, or `Unanswered` for one that is gone."""
         wanted = session.upper()
-        found = next((node for node in nodes if str(node["id"]).upper() == wanted), None)
-        if found is None:
+        found = (node for node in self.nodes() if node.id.upper() == wanted)
+        known = next(found, None)
+        if known is None:
             raise Unanswered(TOOL, f"no session {session}")
-        return found
+        return known
 
     def sessions(self) -> tuple[Pane, ...] | Unreadable:
         """Every session of agterm, or why it could not be read."""
         try:
-            return tuple(pane_of(node) for node in nodes_of(said(self.environ, *TREE)))
+            nodes = self.nodes()
         except Unanswered as unanswered:
             return Unreadable(why=unanswered.said)
+        return tuple(node.pane() for node in nodes)
 
     def close(self, session: str, *, when_unselected: bool) -> None:
         """Close the session with agterm's undo, but one the owner looks at when told so."""
-        if when_unselected and self.node(session).get("active"):
+        node = self.node(session)
+        if when_unselected and node.active:
             return
-        target = str(self.node(session)["id"])
-        said(self.environ, SESSION, "close", TARGET, target, "--undoable")
+        said(self.environ, SESSION, "close", TARGET, node.id, "--undoable")
 
     def tell(self, session: str, line: str) -> None:
         """Send `line` to the session's left pane, as mail that waits for its turn's end."""
-        target = str(self.node(session)["id"])
-        said(self.environ, "msg", "send", line, "--to", f"{target}:left", window=False)
+        target = self.node(session).id
+        pane = f"{target}:left"
+        said(self.environ, "msg", "send", line, "--to", pane, window=False)
 
     def mark(self, session: str, status: Mark) -> None:
         """Set the session's glyph in agterm's sidebar."""
-        target = str(self.node(session)["id"])
+        target = self.node(session).id
         glyph = dict(GLYPHS)[status]
         said(self.environ, SESSION, "status", glyph, TARGET, target)
-
-    def rename(self, session: str, name: str) -> None:
-        """Name the session `name` in agterm's sidebar."""
-        target = str(self.node(session)["id"])
-        said(self.environ, SESSION, "rename", name, TARGET, target)
 
 
 class AgtermLooks(AgtermSessions):
@@ -83,35 +83,20 @@ class AgtermLooks(AgtermSessions):
 
     def foregrounds(self) -> dict[str, Foreground]:
         """Each session's foreground: the words of the program in its main pane, empty for
-        a shell that holds it, None while agterm has not drawn the pane (`realized`)."""
-        nodes = nodes_of(said(self.environ, *TREE))
-        return {str(node["id"]): foreground_of(node) for node in nodes}
+        a shell that holds it, None while agterm has not drawn the pane."""
+        return {node.id: node.ground() for node in self.nodes()}
 
     def waiting(self, session: str, line: str) -> bool:
         """Whether `line` still waits in the mailbox of the session's left pane: `msg read`,
         which removes nothing."""
         node = self.node(session)
-        pane = f"{node['id']}:{left_pane(node)}"
-        return line in said(self.environ, "msg", "read", "--as", pane, "--json", window=False)
+        pane = f"{node.id}:{node.left()}"
+        printed = said(
+            self.environ, "msg", "read", "--as", pane, "--json", window=False
+        )
+        return line in printed
 
-
-def foreground_of(node: Node) -> Foreground:
-    """The words of a node's `foreground` (the argv of its main pane's program), empty when a
-    shell holds the pane, None while agterm has not drawn it."""
-    ground = node.get("foreground")
-    if isinstance(ground, list) and ground:
-        return tuple(str(word) for word in ground)
-    return None if node.get("realized") is False else ()
-
-
-def left_pane(node: Node) -> str:
-    """The id of the session's left pane, which a message reaches, else `left`."""
-    surfaces = node.get("surfaces")
-    found = (
-        str(surface["paneID"])
-        for surface in (surfaces if isinstance(surfaces, list) else ())
-        if isinstance(surface, dict)
-        and surface.get("kind") == "left"
-        and surface.get("paneID")
-    )
-    return next(found, "left")
+    def rename(self, session: str, name: str) -> None:
+        """Name the session `name` in agterm's sidebar."""
+        target = self.node(session).id
+        said(self.environ, SESSION, "rename", name, TARGET, target)
