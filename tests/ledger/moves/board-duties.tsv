@@ -1,0 +1,6 @@
+id	to	why
+duty:wake-inbox-question	addons-outside	the Inbox add-on (inbox.py) sends the question and its retry, and wakes the live session after the Inbox took it; the core's duties never import an add-on
+unit:tests/unit/test_serve.py:Duties.test_a_press_after_a_moved_base_is_refused_as_lem_lands_it_again	board-acts	the owner's press of Merge on the board is the act POST .../tasks/SLUG/merge (surfaces.md B); the server's duties make no press
+unit:tests/unit/test_serve.py:Duties.test_a_press_whose_request_read_the_model_before_his_refusal_runs_no_second_merge	board-acts	a press of the owner and its request's read of the task are the merge act's
+unit:tests/unit/test_serve.py:Duties.test_a_second_press_while_his_merge_stands_starts_nothing_and_says_it_stands	board-acts	a second press and the note it shows are the merge act's
+unit:tests/unit/test_serve.py:Duties.test_his_merge_that_a_moved_base_refused_stands_and_its_note_says_so	board-acts	the note of his own press after a moved base refused it is the merge act's; the server's standing merge says that his merge still stands (board/duties/merge_said.py)

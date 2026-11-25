@@ -225,6 +225,7 @@ check:tests/lem-state.sh:task-dir-puts-the-main-checkout-into-the-mac-ef066326ec
 check:tests/lem-state.sh:the-owner-s-status-is-one-mark-of-the-machin-14002fcda8c0c6c1	owner	the owner's status is `owner away|back`, the owner step's	task
 check:tests/lem-state.sh:the-owner-says-whether-he-is-there-away-make-3dcaed8f3ceff2b2	owner	the owner's away and back is the owner step's	task
 check:tests/lem-state.sh:the-watch-of-the-owner-s-mark-in-one-reposit-d366e4aca12f2cbd	owner	`owner watch` is the owner step's	task
+duty:wake-inbox-question	addons-outside	the Inbox add-on (inbox.py) sends the question and its retry, and wakes the live session after the Inbox took it; the core's duties never import an add-on	board-duties
 event:interview.end	task	the interview's text writes it as lem task span SLUG interview end, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	criteria
 event:interview.start	task	the interview's text writes it as lem task span SLUG interview start, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	criteria
 event:merge.ended	land-propose	the owner's merge ends in propose's Proposed.owner_merge (standing.standing gives stands or ended); the start over that ended it on main is task's	land-base
@@ -387,6 +388,10 @@ unit:tests/unit/test_release.py:Repository.test_the_repository_names_one_release
 unit:tests/unit/test_release.py:Rule.test_a_task_of_this_release_or_of_the_release_before_goes_on	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Rule.test_a_task_two_releases_back_stops_with_the_message_of_criterion_4	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Rule.test_a_task_with_no_mark_counts_as_begun_on_the_release_before_marks_and_goes_on	task	the release stop two releases back is task's	core
+unit:tests/unit/test_serve.py:Duties.test_a_press_after_a_moved_base_is_refused_as_lem_lands_it_again	board-acts	the owner's press of Merge on the board is the act POST .../tasks/SLUG/merge (surfaces.md B); the server's duties make no press	board-duties
+unit:tests/unit/test_serve.py:Duties.test_a_press_whose_request_read_the_model_before_his_refusal_runs_no_second_merge	board-acts	a press of the owner and its request's read of the task are the merge act's	board-duties
+unit:tests/unit/test_serve.py:Duties.test_a_second_press_while_his_merge_stands_starts_nothing_and_says_it_stands	board-acts	a second press and the note it shows are the merge act's	board-duties
+unit:tests/unit/test_serve.py:Duties.test_his_merge_that_a_moved_base_refused_stands_and_its_note_says_so	board-acts	the note of his own press after a moved base refused it is the merge act's; the server's standing merge says that his merge still stands (board/duties/merge_said.py)	board-duties
 unit:tests/unit/test_session.py:Load.test_a_negative_number_written_by_hand_is_refused	settings	the load line's number is [load] of the machine's file, which the step settings reads and checks	sessions
 unit:tests/unit/test_session.py:Load.test_a_new_machine_gates_at_forty	land-checks	the load line gates the checks, which land-checks runs	sessions
 unit:tests/unit/test_session.py:Load.test_his_number_wins_and_none_stays_none	settings	the machine's [load] number and its sources are the step settings's	sessions
