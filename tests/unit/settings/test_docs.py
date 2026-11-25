@@ -118,3 +118,16 @@ def test_no_text_of_lem_names_project_toml() -> None:
         if re.search(r"project(\.local)?\.toml", path.read_text(encoding="utf-8"))
     ]
     assert named == []
+
+
+def test_the_page_names_the_four_files_and_whose_each_is() -> None:
+    table = part("## The four files")
+    named = re.findall(r"^\| `([^`]+)` \| ([^|]+) \|", table, re.MULTILINE)
+    assert [name for name, _ in named] == [
+        ".lem/settings.toml",
+        ".lem/settings.local.toml",
+        "~/.config/lem/settings.toml",
+        "~/.config/lem/machine.toml",
+    ]
+    assert places.TEAM.as_posix() == named[0][0]
+    assert places.LOCAL.as_posix() == named[1][0]
