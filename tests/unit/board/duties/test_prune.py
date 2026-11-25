@@ -5,7 +5,7 @@ then each hour."""
 
 import json
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -46,9 +46,7 @@ def old_task(here: Here, slug: str = "old-task") -> None:
     (here.folder(slug) / "handoff.md").write_text("handoff\n")
 
 
-def lem(
-    capsys: pytest.CaptureFixture[str], where: Path, *argv: str
-) -> dict[str, object]:
+def lem(capsys: pytest.CaptureFixture[str], where: Path, *argv: str) -> dict[str, Any]:
     """`lem --repo WHERE ARGV` in this process: its envelope, with its exit code."""
     code = lazy.main(["--repo", str(where), *argv])
     return {**json.loads(capsys.readouterr().out), "code": code}
