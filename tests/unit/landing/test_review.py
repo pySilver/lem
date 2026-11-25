@@ -590,3 +590,17 @@ def test_a_record_that_does_not_read_is_refused_with_its_form(tmp_path: Path) ->
         review_files.said(bad)
     assert refused.value.code == "review-file"
     assert "careful_why" in refused.value.fix
+
+
+def test_no_change_is_proposed_without_a_review() -> None:
+    record = fresh()
+    assert phases.due(record, world()).step == "read"
+    assert review.holds(record, world()).why == "no review read the change yet"
+
+
+def test_the_review_is_not_due_before_the_checks_hold() -> None:
+    unchecked = task(**{**PREPARED, "checked": None, "reviews": (), "filed": ()})
+    assert phases.due(unchecked, world()).step == "checks"
+    other = replace(CHECKED, inputs="another digest of the commands")
+    changed = task(**{**PREPARED, "checked": other, "reviews": (), "filed": ()})
+    assert phases.due(changed, world()).step == "checks"

@@ -482,3 +482,52 @@ def test_a_worktree_with_a_change_nobody_committed_takes_no_filing(
         f"lem land start {SLUG} is the step that is due",
     )
     assert commits_of(world) == []
+
+
+def test_alike_reads_the_task_s_worktree_and_takes_its_words_one_line_each(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    what = tmp_path / "run.txt"
+    what.write_text(OVER["what"])
+    words = ("--where", "README.md", "--title", "no licence", "--what", str(what))
+    assert JOURNEY[0][1](capsys, world)["ok"] is True
+    no_tree = lem(capsys, world.checkout, "land", "alike", SLUG, *words)["refusal"]
+    assert (no_tree["code"], no_tree["fix"]) == (
+        "no-worktree",
+        f"lem task worktree {SLUG} makes it",
+    )
+    two = ("--where", "README.md", "--title", "two\nlines", "--what", str(what))
+    assert (
+        lem(capsys, world.checkout, "land", "alike", SLUG, *two)["refusal"]["code"]
+        == "line"
+    )
+    gone = (
+        "--where",
+        "README.md",
+        "--title",
+        "t",
+        "--what",
+        str(tmp_path / "gone.txt"),
+    )
+    assert (
+        lem(capsys, world.checkout, "land", "alike", SLUG, *gone)["refusal"]["code"]
+        == "what"
+    )
+
+
+def test_a_team_that_sends_no_finding_to_jev_asks_jev_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world, base={HELD: HELD_TEXT})
+    settings = world.checkout / ".lem" / "settings.toml"
+    settings.write_text(settings.read_text() + "\n[jev]\nfindings = false\n")
+    what = tmp_path / "run.txt"
+    what.write_text(OVER["what"])
+    judge = judge_of(world)
+    judge.same["no licence"] = (Score(score=0.9, path=str(world.worktree / HELD)),)
+    words = ("--where", "README.md", "--title", "no licence", "--what", str(what))
+    told = lem(capsys, world.checkout, "land", "alike", SLUG, *words)["result"]
+    assert told["jev"] == "Jev: not asked (off in the settings)"
+    assert judge.asked == []
