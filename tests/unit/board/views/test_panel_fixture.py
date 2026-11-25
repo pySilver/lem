@@ -35,4 +35,6 @@ def test_an_address_that_names_no_task_is_the_panel_that_says_so(
     found = panel(world(tmp_path), "no-such-task", "overview")
     assert found.missing is not None
     assert found.head is None
-    assert found.missing.said == "No task “no-such-task” is on record in this repository."
+    assert (
+        found.missing.said == "No task “no-such-task” is on record in this repository."
+    )

@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from fixtures.board.moments import NOW, ago
+from fixtures.board.moments import ago
 from lem.board.inputs.forms import Typed
+from lem.board.inputs.layout import Viewer
 from lem.board.views import owed
 from lem.board.views.panel.panel import panel
 from lem.records.questions import Answer
@@ -63,7 +64,12 @@ def test_the_large_card_of_a_breaker_sends_the_owner_to_its_document(
     assert found.breaker == (
         "Its document is the first card above: read it, then help, park or drop the task."
     )
-    assert (found.ways, found.answer, found.where, found.shown) == ((), None, None, None)
+    assert (found.ways, found.answer, found.where, found.shown) == (
+        (),
+        None,
+        None,
+        None,
+    )
 
 
 def test_a_parked_task_says_since_when_why_and_how_it_comes_back(
@@ -112,7 +118,9 @@ def test_the_owners_answer_on_record_shows_until_the_session_takes_it(
     tasks = tuple(changed if one is seen else one for one in afternoon.tasks)
     found = overview_of(dataclasses.replace(afternoon, tasks=tasks), GIFT)
     assert found.answered is not None
-    assert found.answered.took == "You picked Drop for breaker 1 at 15:55, from the phone."
+    assert (
+        found.answered.took == "You picked Drop for breaker 1 at 15:55, from the phone."
+    )
     assert found.answered.note == "the export changes next week"
     assert found.now.head == "Helped: its lead has not started yet"
 
@@ -135,13 +143,10 @@ def test_a_page_that_may_not_act_offers_no_answer_and_no_way_to_a_card(
     tmp_path: Path,
 ) -> None:
     afternoon = world(tmp_path)
-    viewer = afternoon.viewer.__class__(
-        host="studio", workspace="shop", base=afternoon.viewer.base
-    )
+    viewer = Viewer(host="studio", workspace="shop", base=afternoon.viewer.base)
     looking = dataclasses.replace(afternoon, viewer=viewer)
     assert overview_of(looking, "refund-rounding").cards[0].link is None
     breaker = overview_of(looking, GIFT).breaker
     assert breaker is not None
     assert breaker.answer is None
     assert breaker.where == "help in the task’s session."
-    assert NOW.tzinfo is not None

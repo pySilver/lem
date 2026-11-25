@@ -19,30 +19,37 @@ from lem.board.views.world import Clock, Forge, Place, Seen, World
 from lem.kernel import release
 from lem.model.owner.looks import Session
 from lem.records.record import Record
-from lem.records.task import Task
+from lem.records.task import Status, Task
 from unit.board.views.afternoon import world
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from lem.records.base import Moment
+    from lem.records.work import Span
 
 GIFT = "gift-note-in-export"
 PLACE = Place(repo="shop", base="main", path="/work/shop")
 
 
-def seen_of(status: str, *, spans: tuple = (), **beside: object) -> Seen:
-    """A task `fix-the-login` of `status` since an hour ago, with what lies beside it."""
+def seen_of(
+    status: Status,
+    *,
+    spans: tuple[Span, ...] = (),
+    session: Session | None = None,
+    worktree: bool = False,
+) -> Seen:
+    """A task `fix-the-login` of `status` since an hour ago, with its session and its
+    worktree."""
     task = Task(
         slug="fix-the-login",
         ask="fix the login",
         opened=ago(120),
-        status=status,  # pyrefly: the fixture names a status of the record
+        status=status,
         since=ago(60),
         spans=spans,
     )
     record = Record(release=release.running(), task=task)
-    return Seen(record=record, **beside)
+    return Seen(record=record, session=session, worktree=worktree)
 
 
 def alone(seen: Seen) -> World:
@@ -56,9 +63,9 @@ def alone(seen: Seen) -> World:
     )
 
 
-def session(*, live: bool, since: Moment | None = None) -> Session:
-    """The task's newest session."""
-    return Session(live=live, since=since or ago(90))
+def newest(*, live: bool) -> Session:
+    """The task's newest session, opened 90 minutes ago."""
+    return Session(live=live, since=ago(90))
 
 
 def test_a_merge_is_offered_while_open_and_not_while_the_forge_calls_it_conflicting(
@@ -126,13 +133,13 @@ def test_a_task_whose_phase_needs_an_agent_and_has_no_live_session_gets_the_butt
     """`main`'s `test_board_model.py` Sessions.test_a_task_whose_phase_needs_an_agent_and_
     has_no_live_session_is_a_row_and_gets_the_button: the header's button (the row is the
     model's)."""
-    gone = seen_of("building", session=session(live=False))
+    gone = seen_of("building", session=newest(live=False))
     head = panel(alone(gone), "fix-the-login", "overview").head
     assert head is not None
     assert head.acts is not None
     assert head.acts.session is not None
     assert head.acts.session.label == "Open a session"
-    working = seen_of("building", session=session(live=True))
+    working = seen_of("building", session=newest(live=True))
     found = panel(alone(working), "fix-the-login", "overview").head
     assert found is not None
     assert found.acts is None
@@ -142,19 +149,23 @@ def test_a_task_that_waits_only_for_his_merge_has_the_button() -> None:
     """`main`'s `test_board_model.py`
     Sessions.test_a_task_that_waits_only_for_his_merge_has_the_button_and_no_row: the
     header's button (the row is the model's)."""
-    seen = seen_of("open", session=session(live=False))
+    seen = seen_of("open", session=newest(live=False))
     assert opening.opens(alone(seen), seen)
 
 
-def test_the_board_offers_a_session_to_each_ended_task_that_phase_of_gives_one() -> None:
+def test_the_board_offers_a_session_to_each_ended_task_that_phase_of_gives_one() -> (
+    None
+):
     """`main`'s `test_board_model.py`
     Sessions.test_the_board_offers_a_session_to_each_ended_task_that_phase_of_gives_one."""
-    for status in sorted(ENDED):
+    ended: tuple[Status, ...] = ("landed", "answered", "dropped")
+    assert set(ended) == ENDED
+    for status in ended:
         for worktree in (True, False):
-            seen = seen_of(status, session=session(live=False), worktree=worktree)
+            seen = seen_of(status, session=newest(live=False), worktree=worktree)
             gets = phase_or_none(seen.record.task, worktree=worktree) is not None
             assert opening.opens(alone(seen), seen) is gets, (status, worktree)
-    landed = seen_of("landed", session=session(live=False), worktree=True)
+    landed = seen_of("landed", session=newest(live=False), worktree=True)
     assert opening.opens(alone(landed), landed)
 
 
@@ -163,9 +174,9 @@ def test_a_task_dropped_by_a_close_on_github_gets_the_button_only_while_its_work
 ):
     """`main`'s `test_board_model.py` Sessions.test_a_task_dropped_by_a_close_on_github_
     gets_the_button_only_while_its_worktree_stays."""
-    stays = seen_of("dropped", session=session(live=False), worktree=True)
+    stays = seen_of("dropped", session=newest(live=False), worktree=True)
     assert opening.opens(alone(stays), stays)
-    live = msgspec.structs.replace(stays, session=session(live=True))
+    live = msgspec.structs.replace(stays, session=newest(live=True))
     assert not opening.opens(alone(live), live)
     gone = msgspec.structs.replace(stays, worktree=False)
     assert not opening.opens(alone(gone), gone)

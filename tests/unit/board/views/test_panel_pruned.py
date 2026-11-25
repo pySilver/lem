@@ -129,9 +129,7 @@ def test_the_header_says_the_same_status_end_pull_request_and_track(
     def drawn(afternoon: World) -> tuple[object, ...]:
         seen: Seen = owed.seen(afternoon, INVOICE)
         rows = owed.of_task(afternoon, INVOICE)
-        found = head(
-            afternoon, seen, rows, standing.standing(seen, rows), acting=True
-        )
+        found = head(afternoon, seen, rows, standing.standing(seen, rows), acting=True)
         keyed = {fact.key: fact for fact in found.facts}
         return (found.pill, keyed["pr"], keyed["time"], found.key_line, keyed["type"])
 
@@ -169,13 +167,17 @@ def test_the_overview_opens_with_the_summary_and_no_tab_draws_an_empty_section(
     for tab, went in (
         (
             "criteria",
-            "Its acceptance criteria, their approval, the personas’ read and its "
-            "decisions went with its events",
+            (
+                "Its acceptance criteria, their approval, the personas’ read and its "
+                "decisions went with its events"
+            ),
         ),
         (
             "checks",
-            "Its runs of the checks, its review rounds and the proposal’s reasons went "
-            "with its events",
+            (
+                "Its runs of the checks, its review rounds and the proposal’s reasons went "
+                "with its events"
+            ),
         ),
         ("timeline", "Its timeline and its events went with its events"),
     ):
