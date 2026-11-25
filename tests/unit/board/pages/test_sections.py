@@ -18,7 +18,7 @@ from lem.board.inputs.switcher import Box, Failure, Workspaces
 from lem.board.inputs.task.artifacts import Artifacts, Body, Doc, Folder, Section, Shown
 from lem.board.inputs.task.cards import Asked, Breaker, Picture, Shot
 from lem.board.inputs.task.checks import Checks
-from lem.board.inputs.task.criteria import Approve
+from lem.board.inputs.task.criteria import Approve, Change, Pair, Side
 from lem.board.inputs.task.decisions import Criteria, Decision, Part
 from lem.board.inputs.task.head import Fact
 from lem.board.inputs.task.overview import Answered, Pruned
@@ -737,6 +737,60 @@ def test_approval_keeps_its_note_terms_and_read_key() -> None:
     assert "data-controller" not in passive.one(id_="approve-criteria").attrs
     assert not passive.one(id_="approve-criteria").all(cls="act-note")
     assert passive.one(cls="act-note").words() == note.said
+
+
+def test_changed_added_and_removed_criteria_use_the_responsive_comparison() -> None:
+    before = Side(
+        label="Before · criterion 1", text="Show 3 left.", steps=("Open the page.",)
+    )
+    after = Side(label="Now · criterion 1", text="Warn at 1 left.")
+    removed = Side(label="Removed · criterion 2", text="Show an empty row.")
+    added = Side(label="Added · criterion 3", text="Show when stock returns.")
+    change = Change(
+        said="The owner requested a stock warning.",
+        pairs=(
+            Pair(change="changed", sides=(before, after)),
+            Pair(change="removed", sides=(removed,)),
+            Pair(change="added", sides=(added,)),
+        ),
+    )
+    approve = Approve(
+        label="Approve the criteria", head="Read the change", change=change
+    )
+    tab = task(
+        shows="criteria",
+        criteria=msgspec.structs.replace(panel.CRITERIA, approve=approve),
+    )
+    comparison = tab.one(cls="cf-change")
+    assert comparison.one(cls="sub").words() == change.said
+    pairs = comparison.one(cls="cf-pairs").all(cls="cf-pair")
+    assert len(pairs) == 3
+    for pair, variant, sides in zip(
+        pairs,
+        ("cf-changed", "cf-removed", "cf-added"),
+        ((before, after), (removed,), (added,)),
+        strict=True,
+    ):
+        assert pair.has(variant)
+        assert [
+            part.one(cls="cf-label").words() for part in pair.all(cls="cf-side")
+        ] == [side.label for side in sides]
+    assert [part.has("cf-before") for part in comparison.all(cls="cf-side")] == [
+        True,
+        False,
+        True,
+        False,
+    ]
+    assert [part.has("cf-after") for part in comparison.all(cls="cf-side")] == [
+        False,
+        True,
+        False,
+        True,
+    ]
+    assert (
+        pairs[0].one(cls="cf-before").one(cls="cf-text").one(tag="li").words()
+        == before.steps[0]
+    )
 
 
 def test_waits_links_to_the_card_criteria_and_merge_and_can_jump_to_a_local_session() -> (

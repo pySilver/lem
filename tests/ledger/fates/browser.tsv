@@ -1,0 +1,51 @@
+id	fate	proof	note
+check:tests/lem-board-keys.sh:a-click-on-a-backlog-item-s-row-closes-the-b-bd2e41b1a6181f6b	kept	browser.test_views.test_search_click_opens_a_backlog_item_and_a_refresh_preserves_the_query	
+check:tests/lem-board-keys.sh:a-click-on-start-a-task-of-a-backlog-item-op-9ddd259a2c7a9c89	kept	browser.test_views.test_start_from_backlog_reaches_the_new_task_after_the_stream_refresh	
+check:tests/lem-board-keys.sh:a-new-event-while-the-box-is-open-keeps-it-o-1ca7e98b4f4848bd	kept	browser.test_views.test_search_click_opens_a_backlog_item_and_a_refresh_preserves_the_query	
+check:tests/lem-board-keys.sh:a-new-proposal-of-44-after-its-read-brings-t-571d7634f2bfa11d	kept	browser.test_sheets.test_merge_approval_requires_a_read_to_the_end_and_resets_after_a_new_proposal	
+check:tests/lem-board-keys.sh:a-sidebar-folded-in-a-window-1200-px-wide-sh-62696a60932d6de0	kept	browser.test_views.test_sidebar_fold_survives_the_switch_to_the_drawer_and_back	
+check:tests/lem-board-keys.sh:after-j-in-the-open-panel-or-a-click-on-a-ta-3931f68797ecb024	kept	browser.test_keys.test_enter_escape_arrows_and_clicks_in_the_task_panel	
+check:tests/lem-board-keys.sh:at-a-phone-s-width-a-tap-opens-the-stack-of-62d2a05d0a2a0c38	kept	browser.test_views.test_waits_stack_opens_both_rows_with_a_click_or_a_tap	
+check:tests/lem-board-keys.sh:cmd-k-on-activity-opens-the-search-with-the-5c5e0c1dc1c6ae2f	kept	browser.test_views.test_search_orders_filters_and_opens_the_selected_task	
+check:tests/lem-board-keys.sh:crdsrch-lists-board-card-search-first-and-ma-847bdcb8714a5918	kept	browser.test_views.test_search_orders_filters_and_opens_the_selected_task	
+check:tests/lem-board-keys.sh:each-of-the-ten-templates-of-lem-ask-put-up-f9827fde207f842a	kept	browser.test_cards.test_every_shipped_card_layout_fits_the_phone_and_the_file_keeps_desktop_keys	
+check:tests/lem-board-keys.sh:enter-on-a-marked-merge-row-in-its-task-s-st-fec72c4a0d59926d	kept	browser.test_keys.test_waits_keys_move_and_open_without_approving_a_merge	
+check:tests/lem-board-keys.sh:enter-on-crdsrch-closes-the-box-and-opens-th-d0e79fc830c86bf1	kept	browser.test_views.test_search_orders_filters_and_opens_the_selected_task	
+check:tests/lem-board-keys.sh:enter-on-the-marked-row-whose-interview-wait-049e6278c5eb5943	kept	browser.test_views.test_enter_or_a_click_selects_the_waiting_interview_session	
+check:tests/lem-board-keys.sh:enter-opens-the-panel-of-the-marked-card-by-aa4a5a0b8deb211f	kept	browser.test_keys.test_enter_escape_arrows_and_clicks_in_the_task_panel	
+check:tests/lem-board-keys.sh:escape-closes-the-box-with-no-pick-and-empti-1e22c85eba751553	kept	browser.test_views.test_search_from_the_backlog_or_a_panel_restores_focus	
+check:tests/lem-board-keys.sh:export-finds-the-parked-task-old-export-fix-3a38e5e08146e31f	kept	browser.test_views.test_search_orders_filters_and_opens_the_selected_task	
+check:tests/lem-board-keys.sh:from-the-second-card-of-building-l-and-the-r-22b94f8f30664d3d	kept	browser.test_keys.test_horizontal_keys_pass_folded_and_empty_columns	
+check:tests/lem-board-keys.sh:in-a-window-1200-px-wide-the-arrow-folds-the-76e5022ab826e85e	kept	browser.test_views.test_sidebar_fold_survives_the_switch_to_the_drawer_and_back	
+check:tests/lem-board-keys.sh:j-in-a-text-field-over-the-tasks-view-types-8581a1a01fadc5f6	kept	browser.test_keys.test_text_fields_modifiers_and_an_empty_kanban_let_the_keys_pass	
+check:tests/lem-board-keys.sh:l-and-h-pass-over-a-column-with-no-card-to-t-9b416ae9e04568e3	kept	browser.test_keys.test_horizontal_keys_pass_folded_and_empty_columns	
+check:tests/lem-board-keys.sh:on-a-desktop-s-screen-of-1440-x-900-the-merg-5b588f6feb402730	kept	browser.test_sheets.test_merge_on_a_desktop_has_a_button_below_the_text	
+check:tests/lem-board-keys.sh:on-a-desktop-s-screen-of-1440-x-900-the-park-caa7e7dd55c8d764	kept	browser.test_sheets.test_park_and_criteria_fit_a_tall_phone_and_stay_inline_on_desktop	
+check:tests/lem-board-keys.sh:on-a-phone-a-note-with-no-pick-on-the-card-i-5222936e02ec2870	kept	browser.test_cards.test_waits_opens_the_phone_card_and_records_only_an_option_with_its_note	
+check:tests/lem-board-keys.sh:on-a-phone-no-with-no-note-on-the-criteria-o-f6c86788d35bf4d4	kept	browser.test_sheets.test_no_on_criteria_requires_a_note_and_records_no_answer	
+check:tests/lem-board-keys.sh:on-a-phone-of-390-x-844-the-merge-step-of-44-7a4b7c4e1352b1b0	kept	browser.test_sheets.test_merge_sheet_on_the_phone_has_its_heading_reasons_facts_and_actions	
+check:tests/lem-board-keys.sh:on-a-phone-of-390-x-844-where-the-whole-text-2edf7501e004fd04	kept	browser.test_sheets.test_park_and_criteria_fit_a_tall_phone_and_stay_inline_on_desktop	
+check:tests/lem-board-keys.sh:on-a-phone-only-the-total-with-the-note-as-t-331f66d66000b6a6	kept	browser.test_cards.test_waits_opens_the_phone_card_and_records_only_an_option_with_its_note	
+check:tests/lem-board-keys.sh:on-a-phone-the-breaker-s-row-has-help-park-a-3c1be442e3f80e5c	kept	browser.test_sheets.test_breaker_drop_opens_a_confirm_sheet_and_carries_the_note	
+check:tests/lem-board-keys.sh:on-a-phone-the-row-of-refund-rounding-s-card-754aeea0de8c8b13	kept	browser.test_cards.test_waits_opens_the_phone_card_and_records_only_an_option_with_its_note	
+check:tests/lem-board-keys.sh:on-a-phone-the-tune-card-takes-a-tap-on-the-2667ea12b15f7a3f	kept	browser.test_cards.test_tune_records_the_slider_value_and_the_preset_it_started_from	
+check:tests/lem-board-keys.sh:on-a-phone-whose-screen-the-criteria-go-on-b-04e4e5f23a3d66d9	kept	browser.test_sheets.test_park_and_criteria_sheets_wait_for_a_read_when_the_screen_is_short	
+check:tests/lem-board-keys.sh:on-a-phone-whose-screen-the-park-s-text-goes-b439cf63f81968d2	kept	browser.test_sheets.test_park_and_criteria_sheets_wait_for_a_read_when_the_screen_is_short	
+check:tests/lem-board-keys.sh:on-a-wide-screen-the-stack-of-refund-line-on-5ebb50135c4bc574	kept	browser.test_views.test_waits_stack_opens_both_rows_with_a_click_or_a_tap	
+check:tests/lem-board-keys.sh:on-the-backlog-still-goes-to-its-filter-cmd-f65d10c4d870081f	kept	browser.test_views.test_search_from_the_backlog_or_a_panel_restores_focus	
+check:tests/lem-board-keys.sh:on-waits-for-you-with-no-mark-j-marks-the-fi-3284e07862a8891c	kept	browser.test_keys.test_waits_keys_move_and_open_without_approving_a_merge	
+check:tests/lem-board-keys.sh:the-card-of-criteria-that-changed-from-the-o-9f586bd811a03808	kept	browser.test_sheets.test_changed_criteria_stack_on_a_phone_and_sit_side_by_side_on_desktop	
+check:tests/lem-board-keys.sh:the-mark-stays-on-its-card-when-a-new-task-s-2c25b707e303efc2	kept	browser.test_keys.test_refresh_keeps_a_card_mark_until_the_card_moves	
+check:tests/lem-board-keys.sh:the-mark-stays-on-its-row-when-a-new-row-com-894bba08e74ab83f	kept	browser.test_keys.test_wait_mark_survives_a_new_interview_and_clears_when_the_row_leaves	
+check:tests/lem-board-keys.sh:the-merge-step-of-a-green-pull-request-whose-05fce295d20fb6ee	kept	browser.test_sheets.test_a_short_green_merge_is_ready_at_once_on_a_phone	
+check:tests/lem-board-keys.sh:the-tasks-view-s-line-of-keys-shows-under-th-99adb55a257db6ac	kept	browser.test_keys.test_task_keys_keep_the_mark_and_focus_together	
+check:tests/lem-board-keys.sh:the-tasks-view-says-its-keys-in-one-line-of-44963b7b70d1c642	kept	browser.test_keys.test_task_keys_keep_the_mark_and_focus_together	
+check:tests/lem-board-keys.sh:waits-for-you-says-its-keys-in-one-line-of-t-ed4f69f297e8b942	kept	browser.test_keys.test_waits_keys_move_and_open_without_approving_a_merge	
+check:tests/lem-board-keys.sh:while-the-text-of-44-goes-on-below-the-scree-b6e4757eab19f609	changed	browser.test_sheets.test_merge_approval_requires_a_read_to_the_end_and_resets_after_a_new_proposal	Amendment A4 names the control Approve.
+check:tests/lem-board-keys.sh:with-every-column-folded-no-key-marks-a-card-bd652702c323bc68	kept	browser.test_keys.test_text_fields_modifiers_and_an_empty_kanban_let_the_keys_pass	
+check:tests/lem-board-keys.sh:with-more-backlog-items-than-the-window-hold-7cc5d34404630a45	kept	browser.test_views.test_backlog_and_other_views_keep_the_key_line_at_the_foot	
+check:tests/lem-board-keys.sh:with-no-mark-j-marks-the-first-card-of-the-f-60063ce672f8c2ac	kept	browser.test_keys.test_task_keys_keep_the_mark_and_focus_together	
+check:tests/lem-board-keys.sh:with-no-script-on-a-phone-the-approval-shows-906d3001b5b2fc47	changed	browser.test_sheets.test_native_park_and_criteria_forms_send_the_question_and_record_the_answer	Both acts post to the task's answer route. Park sends its option and confirm along with the key.
+check:tests/lem-board-keys.sh:with-no-script-the-merge-step-of-44-is-one-p-c91f6044e6d69a1a	changed	browser.test_sheets.test_native_merge_form_submits_the_tip_and_the_board_records_the_approval	Amendment A4 records an approval of the shown tip before the merge runs.
+check:tests/lem-board-keys.sh:with-the-focus-in-the-open-panel-the-down-ar-f7d44558c998aa5b	kept	browser.test_keys.test_enter_escape_arrows_and_clicks_in_the_task_panel	
+ruling:no-stale-pull-request-and-a-folded-header-on-901ac30ef51fb4eb	kept	browser.test_sheets.test_the_phone_folds_the_header_and_the_board_rejects_stale_merge_state	
