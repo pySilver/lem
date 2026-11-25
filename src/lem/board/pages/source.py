@@ -54,7 +54,7 @@ def resolved(request: Request, provider: Source | None) -> Response:
         raise HTTPException(
             HTTPStatus.SERVICE_UNAVAILABLE, "The board's page inputs are not available."
         )
-    stamp = stamps.shown(request, space.state) if space else ""
+    stamp = stamps.shown(request, space.state).version if space else ""
     board = provider(request, space, stamp)
     unknown = request.path_params.get("unknown_tab")
     if unknown:

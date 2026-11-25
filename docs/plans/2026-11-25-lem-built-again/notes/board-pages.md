@@ -12,8 +12,8 @@ provider leaves the existing slice's Tasks and stream in place. The other worksp
 pages need the binding. Use the same provider to render the page after an act. Content
 of `GET /tasks/SLUG/raw/PATH` and `/media/PATH` belongs to `board-service`.
 
-Place `lem.board.pages.routes.FALLBACK_ROUTES` after the concrete page, act, ask
-and file routes, immediately before `aliases.ROUTES` in the server's routes. The
+Expand `lem.board.pages.routes.FALLBACK_ROUTES` inside `lem.board.push.routes.ROUTES`,
+immediately before `*aliases.ROUTES` and after the concrete file routes. The
 unknown-tab route asks the provider for Overview. The page uses its header and
 links to the valid tabs in the 404 panel.
 
@@ -22,9 +22,10 @@ base through `agterm`; a refusal's `error.why` is what the browser prints. The a
 must supply this address only on the local listener.
 
 The stream polls every 0.5 seconds and sends a ping every 10 seconds. These are the
-constants in `board/stream.py`. The route outside the slice uses a version of task
-records, sessions, session acts, the selected task's artifacts, the owner's presence,
-settings, the backlog, and the state files that affect a page. Bind
+constants in `board/stream.py`. The workspace version covers task records, sessions,
+session acts, the owner's presence, settings, the backlog, shared state files, and
+the act revision. The open stream also checks the selected task's files each poll.
+Changes to those files alone refresh the page with the same workspace version. Bind
 `app.state.act_revision` to a callable from the workspace's state folder to a
 stable string. Read a snapshot of the workspace's merge tokens and their note
 states from `board.acts.notes.NOTES` under its lock. The merge keys use the

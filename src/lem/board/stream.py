@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
     from starlette.requests import Request
 
+    type Look = Callable[[], str | stamps.ViewStamp]
+
 TICK_SECONDS = 0.5
 PING_SECONDS = 10
 REFRESH = '<turbo-stream action="refresh"></turbo-stream>'
@@ -36,24 +38,30 @@ def refresh(told: str) -> ServerSentEvent:
     return ServerSentEvent(data=REFRESH, id=told)
 
 
+def event_id(observed: str | stamps.ViewStamp) -> str:
+    """The workspace version, also when the stream watches more than the records."""
+    return observed if isinstance(observed, str) else observed.version
+
+
 def pinged() -> ServerSentEvent:
     """The sign of life of a quiet stream."""
     return ServerSentEvent(event="ping", data="ping")
 
 
 async def refreshed(
-    look: Callable[[], str], *, rendered: str | None, missed: bool
+    look: Look, *, rendered: str | None, missed: bool
 ) -> AsyncGenerator[ServerSentEvent]:
-    """Read a version again after each poll and refresh when it moves."""
+    """Compare the workspace version on open, and all watched stamps after a poll."""
     told = await anyio.to_thread.run_sync(look)
-    if owes(rendered=rendered, missed=missed, told=told):
-        yield refresh(told)
+    starting = event_id(told)
+    if owes(rendered=rendered, missed=missed, told=starting):
+        yield refresh(starting)
     while True:
         await anyio.sleep(TICK_SECONDS)
         now = await anyio.to_thread.run_sync(look)
         if now != told:
             told = now
-            yield refresh(now)
+            yield refresh(event_id(now))
 
 
 async def endpoint(request: Request) -> Response:

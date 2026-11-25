@@ -5,7 +5,6 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 import anyio
-import anyio.lowlevel
 import pytest
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -44,6 +43,7 @@ def test_turbo_refresh_and_quiet_ping_have_distinct_event_types() -> None:
 def at(home: Path, slug: str | None) -> Request:
     app = Starlette()
     app.state.home = home
+    app.state.act_revision = lambda _: ""
     return Request(
         {
             "type": "http",
@@ -54,21 +54,51 @@ def at(home: Path, slug: str | None) -> Request:
     )
 
 
-@pytest.mark.parametrize(
-    "leaf",
-    [
-        "checkout/.lem/state/tasks/a-task/task.json",
-        "checkout/.lem/state/tasks/a-task/sessions.jsonl",
-        "checkout/.lem/state/tasks/a-task/report.md",
-        "checkout/.lem/state/tasks/a-task/media/view.png",
-        "checkout/.lem/state/backlog/a.md",
-        "checkout/.lem/state/inbox.json",
-        "checkout/.lem/state/forge.json",
-        "checkout/.lem/settings.toml",
-        "checkout/docs/backlog/a.md",
-        "home/owner.json",
-    ],
-)
+def test_opening_or_closing_a_task_does_not_owe_a_refresh(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    report = state / "tasks" / "a-task" / "report.md"
+    report.parent.mkdir(parents=True)
+    report.write_text("The task's report", encoding="utf-8")
+    home = tmp_path / "home"
+    closed = stamps.shown(at(home, None), state)
+    request = at(home, "a-task")
+    task_page = stamps.shown(request, state)
+    request.scope["path_params"] = {}
+    opened = stamps.shown(request, state)
+    assert opened.watched == task_page.watched != closed.watched
+    report.with_name("task.json").write_text("A task record", encoding="utf-8")
+    changed = stamps.shown(request, state)
+    assert changed.version != closed.version
+
+    async def check() -> None:
+        for rendered, first in ((closed, opened), (opened, closed)):
+            readings = iter((first, changed))
+            async with aclosing(
+                stream.refreshed(
+                    readings.__next__, rendered=rendered.version, missed=False
+                )
+            ) as messages:
+                with anyio.fail_after(5):
+                    assert (await anext(messages)).id == changed.version
+
+    anyio.run(check)
+
+
+POLL_FILES = {
+    "checkout/.lem/state/tasks/a-task/task.json": True,
+    "checkout/.lem/state/tasks/a-task/sessions.jsonl": True,
+    "checkout/.lem/state/tasks/a-task/report.md": False,
+    "checkout/.lem/state/tasks/a-task/media/view.png": False,
+    "checkout/.lem/state/backlog/a.md": True,
+    "checkout/.lem/state/inbox.json": True,
+    "checkout/.lem/state/forge.json": True,
+    "checkout/.lem/settings.toml": True,
+    "checkout/docs/backlog/a.md": True,
+    "home/owner.json": True,
+}
+
+
+@pytest.mark.parametrize("leaf", POLL_FILES)
 def test_poll_notices_replacement_and_removal(tmp_path: Path, leaf: str) -> None:
     state = tmp_path / "checkout" / ".lem" / "state"
     state.mkdir(parents=True)
@@ -79,24 +109,23 @@ def test_poll_notices_replacement_and_removal(tmp_path: Path, leaf: str) -> None
     before = look()
 
     async def check() -> None:
-        async with anyio.create_task_group() as group:
-
-            async def change() -> None:
-                await anyio.lowlevel.checkpoint()
+        async with aclosing(
+            stream.refreshed(look, rendered=before.version, missed=True)
+        ) as messages:
+            with anyio.fail_after(5):
+                assert (await anext(messages)).id == before.version
                 replacement = path.with_suffix(".new")
                 replacement.write_text("other", encoding="utf-8")
                 replacement.replace(path)
-
-            async with aclosing(
-                stream.refreshed(look, rendered=before, missed=False)
-            ) as messages:
-                group.start_soon(change)
-                with anyio.fail_after(5):
-                    first = await anext(messages)
-                    assert first.id == look() != before
-                    path.unlink()
-                    second = await anext(messages)
-                    assert second.id == look() != first.id
+                first = await anext(messages)
+                assert first.id == look().version
+                path.unlink()
+                second = await anext(messages)
+                assert second.id == look().version
+                if POLL_FILES[leaf]:
+                    assert len({before.version, first.id, second.id}) == 3
+                else:
+                    assert first.id == second.id == before.version
 
     anyio.run(check)
 
@@ -121,7 +150,31 @@ def test_session_stop_refreshes_activity_without_an_open_task(tmp_path: Path) ->
     happened.parent.mkdir(parents=True)
     before = stamps.shown(request, state)
     happened.write_text('{"act":"stop"}\n', encoding="utf-8")
-    assert stamps.shown(request, state) != before
+    assert stamps.shown(request, state).version != before.version
+
+
+def test_merge_refusal_between_render_and_stream_open_sends_refresh(
+    tmp_path: Path,
+) -> None:
+    state = tmp_path / "state"
+    request = at(tmp_path / "home", None)
+    notes = {state: "running: Merging…"}
+    request.app.state.act_revision = notes.__getitem__
+    look = partial(stamps.shown, request, state)
+    before = look()
+    notes[state] = "refused: The base moved."
+
+    async def check() -> None:
+        async with aclosing(
+            stream.refreshed(look, rendered=before.version, missed=False)
+        ) as messages:
+            with anyio.fail_after(2):
+                message = await anext(messages)
+                assert message.data == stream.REFRESH
+                assert message.id == look().version != before.version
+                assert look().watched == before.watched
+
+    anyio.run(check)
 
 
 def test_merge_refusal_refreshes_after_the_last_file_write(tmp_path: Path) -> None:
@@ -135,14 +188,15 @@ def test_merge_refusal_refreshes_after_the_last_file_write(tmp_path: Path) -> No
     before = look()
     notes[other] = "refused: Another merge stopped."
     assert look() == before
-    notes[state] = "refused: The base moved."
 
     async def check() -> None:
         async with aclosing(
-            stream.refreshed(look, rendered=before, missed=False)
+            stream.refreshed(look, rendered=before.version, missed=True)
         ) as messages:
             with anyio.fail_after(2):
+                assert (await anext(messages)).id == before.version
+                notes[state] = "refused: The base moved."
                 message = await anext(messages)
-                assert message.id == look() != before
+                assert message.id == look().version != before.version
 
     anyio.run(check)

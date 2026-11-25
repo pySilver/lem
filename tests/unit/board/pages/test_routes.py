@@ -161,6 +161,7 @@ def client(tmp_path: Path) -> TestClient:
     )
     app.state.home = home
     app.state.page_inputs = inputs
+    app.state.act_revision = lambda _: ""
     return TestClient(app)
 
 
@@ -295,6 +296,13 @@ def test_workspace_index_reports_a_missing_input_provider(client: TestClient) ->
     answer = client.get("/")
     assert answer.status_code == 503
     assert "The board&#39;s page inputs are not available." in answer.text
+
+
+def test_workspace_page_requires_the_act_revision_binding(client: TestClient) -> None:
+    assert isinstance(client.app, Starlette)
+    del client.app.state.act_revision
+    with pytest.raises(AttributeError, match="act_revision"):
+        client.get(f"{WORKSPACE}/")
 
 
 def test_one_workspace_redirects_for_get_and_head(client: TestClient) -> None:
