@@ -13,7 +13,7 @@ from lem.board.views.artifacts.kinds import MARKDOWN, kind_of
 from lem.board.views.artifacts.mapped import Entry
 from lem.board.views.artifacts.pictures import shows_of
 from lem.board.views.artifacts.scratch import place
-from lem.board.views.artifacts.spots import GROUPS, PLAN, Spot
+from lem.board.views.artifacts.spots import DOCS, GROUPS, PLAN, PR_DOC, Spot
 
 if TYPE_CHECKING:
     from lem.board.views.artifacts.mapped import Map
@@ -30,7 +30,10 @@ def listed(path: str) -> bool:
 
 def entries_of(seen: Seen) -> tuple[Entry, ...]:
     """The task's files in the map's order: by section, the plan first, then by path."""
-    found = [entry_of(path) for path in seen.files if listed(path)]
+    landing = seen.record.landing
+    proposed = landing.proposed if landing else None
+    confirmed = proposed.text if proposed else None
+    found = [entry_of(path, confirmed) for path in seen.files if listed(path)]
     if seen.plan_file is not None:
         found.append(plan_of(seen.plan_file.stat.path))
     return tuple(sorted(found, key=order))
@@ -41,9 +44,10 @@ def plan_of(path: str) -> Entry:
     return Entry(path=path, spot=THE_PLAN, kind=MARKDOWN, first=True)
 
 
-def entry_of(path: str) -> Entry:
+def entry_of(path: str, confirmed: str | None) -> Entry:
     """A file of the folder, placed on the map."""
-    return Entry(path=path, spot=place(path), kind=kind_of(path))
+    spot = DOCS[PR_DOC] if path == confirmed else place(path)
+    return Entry(path=path, spot=spot, kind=kind_of(path))
 
 
 def order(entry: Entry) -> tuple[int, bool, str]:

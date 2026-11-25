@@ -5,8 +5,6 @@ document, or its first file. An HTML page takes the whole width.
 
 from typing import TYPE_CHECKING
 
-from lem.board.inputs.clock import stamp
-from lem.board.inputs.names import plural
 from lem.board.inputs.task.artifacts import Artifacts, Shown
 from lem.board.views.artifacts import kinds, meta
 from lem.board.views.artifacts.addresses import raw_href
@@ -66,22 +64,12 @@ def tabbed(
         sections=tuple(section_of(world, seen, one, path) for one in found.sections),
         work=tuple(folder_of(world, slug, pile, path) for pile in found.work),
         work_count=found.work_count,
-        said=said_of(world, seen, found),
+        said=meta.said_of(world, seen, found),
         shown=shown,
         empty=None if shown else empty_of(seen),
         chosen=chosen,
         wide=bool(chosen and shown and shown.alone),
     )
-
-
-def said_of(world: World, seen: Seen, found: Map) -> str:
-    """The line under the map: how many documents, and when the folder was read."""
-    if not seen.files:
-        return "The task has no file yet."
-    now = world.clock.now
-    count = plural(found.count, "document")
-    read = stamp(now, now, world.clock.zone)
-    return f"{count}, read {read}"
 
 
 def empty_of(seen: Seen) -> str:

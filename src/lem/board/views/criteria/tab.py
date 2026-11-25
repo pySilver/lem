@@ -10,11 +10,11 @@ from msgspec.structs import replace
 
 from lem.board.inputs.task.decisions import Criteria
 from lem.board.views.artifacts.documents import document
-from lem.board.views.checks.went import pruned, went
 from lem.board.views.criteria import approved, heads, ordered
 from lem.board.views.criteria.approve import approve
 from lem.board.views.criteria.listed import criteria_rows
 from lem.board.views.criteria.terms import track_words
+from lem.board.views.panel import pruned
 
 if TYPE_CHECKING:
     from lem.board.inputs.parts import Document
@@ -49,8 +49,8 @@ def how_of(seen: Seen) -> Document | None:
 
 def criteria(world: World, seen: Seen) -> Criteria:
     """The tab Criteria and decisions of the task `seen`."""
-    if pruned(seen):
-        return Criteria(went=went(world, seen, "criteria"))
+    if pruned.summary_of(seen) is not None:
+        return Criteria(went=pruned.went(world, seen, "criteria"))
     found = (heads.read_row(world, seen), approved.approval_row(world, seen))
     reads = tuple(row for row in found if row is not None)
     reads += approved.change_rows(world, seen)

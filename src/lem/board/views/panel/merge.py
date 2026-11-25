@@ -11,6 +11,7 @@ from lem.board.views import marks
 from lem.board.views.panel import confirm, merge_confirm, merge_facts, merge_said
 from lem.board.views.panel.common import careful_of
 from lem.board.views.reasons import reasons
+from lem.model.landing import merge as landing_merge
 
 if TYPE_CHECKING:
     from lem.board.inputs.task.steps import NotNow
@@ -33,8 +34,7 @@ def merge(world: World, seen: Seen, standing: Standing) -> Merge | NotNow:
         return confirm.not_now(world, seen.record.task.slug, said)
     landing = seen.record.landing
     green = bool(landing and landing.proposed and landing.proposed.green)
-    careful = careful_of(seen.record)
-    why = careful.why if careful and careful.careful else None
+    why = reason_careful(seen)
     return Merge(
         confirm=merge_confirm.confirm_of(world, seen, green=green),
         green=green,
@@ -53,6 +53,14 @@ def listed(world: World, seen: Seen) -> Reasons | None:
     return reasons(seen.record, "cf", world.viewer.view, world.viewer.base)
 
 
+def reason_careful(seen: Seen) -> str | None:
+    """The review's reason for a careful change, if it gave one."""
+    if not landing_merge.careful(seen.record):
+        return None
+    careful = careful_of(seen.record)
+    return careful.why if careful and careful.careful else ""
+
+
 def careful_chip(why: str) -> Chip:
     """The careful mark, with why as its hover."""
     return Chip(
@@ -62,5 +70,5 @@ def careful_chip(why: str) -> Chip:
 
 def careful_line(why: str) -> str:
     """Why the change is careful, and who merges it."""
-    said = why or "the review called it careful"
-    return f"**Careful:** {said} A careful change is merged by a person."
+    said = f"{why} " if why else ""
+    return f"**Careful:** {said}A careful change is merged by a person."

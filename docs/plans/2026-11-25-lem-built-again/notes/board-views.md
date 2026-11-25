@@ -8,11 +8,11 @@ it does not own.
 `src/lem/board/views/`: the board's views, pure functions from one value, `world.World` (the
 records of a workspace and what lies beside each, `world.Seen`), to the inputs of
 `board/inputs/`. Only `gather.py`, `folder.py`, `branch.py`, `inbox_read.py` and
-`backlog/read.py` read anything; every other module is a pure function of the world.
+`backlog/read.py` and `previews.py` read anything; every other module is a pure function of the world.
 
 - `gather.gather(checkout, ask.Ask) -> World`: the records through the store, Lem's acts on each
-  task's sessions (`app/sessions/log.py`), the files and the prose of each task's folder, the
-  plan in its worktree, the workspace's branch history setting, the
+  task's sessions (`app/sessions/log.py`), the file lists and facts, the prose the requested
+  view uses, the plan in its worktree, the workspace's branch history setting, the
   newest commit of each branch and the backlog items it adds (`branch.Branches`, a part of the
   `Git` port), the backlog (`backlog/read.py`), the owner's presence, the Inbox's record, and the
   mark of example tasks. A demo takes each session from the acts alone; any other board takes the
@@ -100,3 +100,12 @@ and Lem's first line of a task
   - `ask`: a card of an earlier session (`Question` has no session field: `notes/owner.md`).
   - `addons-outside`: the task's own session finding its row while its turn runs
     (`app/owner/scope.py`).
+
+### The hold's question at the join
+
+`rb/board-acts` owns `model/owner/hold_question.standing`. It is absent from this
+step's base. The local `board/views/hold_question.standing` reads the same plan
+and breaker keys, including renewed questions. At the join, import the model
+module in `board/views/offers.py` and remove the local stand-in. The receiver
+also derives the skip question from the hold. Use it for that case when the
+branches join.

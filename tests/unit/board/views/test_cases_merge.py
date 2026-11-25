@@ -58,6 +58,9 @@ def at(minutes: float) -> datetime:
 def opened(**landing: object) -> Seen:
     """The open pull request #41 of the task, with the landing's `landing` fields."""
     made = task(SLUG, f"pull request {PULL.url}", status="open")
+    proposed = landing.get("proposed")
+    if isinstance(proposed, Proposed):
+        landing.setdefault("pushed", proposed.tip)
     shaped = replace(Landing(phase="open", pull=PULL), **landing)
     return replace(made, record=replace(made.record, landing=shaped))
 
@@ -300,6 +303,7 @@ def test_a_merge_the_moved_base_refused_is_not_offered_again_until_the_next_prop
     after = replace(
         landing,
         proposed=replace(CAREFUL, tip=NEXT),
+        pushed=NEXT,
         reads=(),
         refused=None,
     )

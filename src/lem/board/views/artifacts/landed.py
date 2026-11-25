@@ -35,3 +35,11 @@ def proposal(record: Record) -> str:
     proposed = (record.landing or NO_LANDING).proposed
     shown = "no document: the proposal is on Checks and review" if proposed else None
     return either(record, shown, "not yet: the proposal writes it")
+
+
+def pending(record: Record) -> str:
+    """What the map says while an edit to the pull request text waits for the forge."""
+    proposed = (record.landing or NO_LANDING).proposed
+    return (
+        ". A newer text waits for GitHub." if proposed and proposed.text_waits else ""
+    )

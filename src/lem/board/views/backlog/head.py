@@ -31,7 +31,7 @@ def parse(raw: str) -> Head | str:
     """The head of an item's text, or why its front matter does not read."""
     try:
         post = frontmatter.loads(raw)
-    except yaml.YAMLError as error:
+    except (yaml.YAMLError, ValueError) as error:
         return f"its head is not YAML: {error}"
     body = post.content
     found = TITLE.search(body)

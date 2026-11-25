@@ -5,6 +5,7 @@ merge and the new round had a state of their own there)."""
 from typing import TYPE_CHECKING
 
 from lem.board.views.activity.told import ALERT, BAD, DONE, GATE, PAGE, YOU, Told
+from lem.model.landing import mergeread
 
 if TYPE_CHECKING:
     from lem.board.inputs.text import Look
@@ -48,7 +49,11 @@ def verdict_of(seen: MergeRead) -> tuple[Look, str]:
     """A read that calls the owner is his; one that merges is the landing's."""
     if seen.verdict == "call":
         return YOU, "it calls you"
-    return GATE, "it merges"
+    if seen.verdict == "merge":
+        return GATE, "it merges"
+    if not mergeread.settled(seen):
+        return GATE, "another read is due"
+    return YOU, "no verdict was recorded. The owner merges it."
 
 
 def said_by(seen: MergeRead) -> str:

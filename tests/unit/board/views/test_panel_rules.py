@@ -12,6 +12,7 @@ from fixtures.board.moments import NOW, ago
 from fixtures.board.receipt import SLUG
 from fixtures.board.shown import VERSION, VIEWER, ZONE
 from lem.app.sessions.phase import phase_or_none
+from lem.board.views import owed
 from lem.board.views.panel import heads, opening
 from lem.board.views.panel.panel import panel
 from lem.board.views.rule import ENDED
@@ -21,6 +22,7 @@ from lem.model.owner.looks import Session
 from lem.records.record import Record
 from lem.records.task import Status, Task
 from unit.board.views.afternoon import world
+from unit.board.views.test_cases_merge import PROPOSED, opened, read
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -148,9 +150,15 @@ def test_a_task_whose_phase_needs_an_agent_and_has_no_live_session_gets_the_butt
 def test_a_task_that_waits_only_for_his_merge_has_the_button() -> None:
     """`main`'s `test_board_model.py`
     Sessions.test_a_task_that_waits_only_for_his_merge_has_the_button_and_no_row: the
-    header's button (the row is the model's)."""
-    seen = seen_of("open", session=newest(live=False))
-    assert opening.opens(alone(seen), seen)
+    task's header offers a session, while Waits for you has only the merge and its review."""
+    seen = msgspec.structs.replace(
+        opened(proposed=PROPOSED, reads=(read("call"),)), session=newest(live=False)
+    )
+    found = alone(seen)
+    head = panel(found, seen.record.task.slug, "overview").head
+    assert head and head.acts and head.acts.session
+    assert head.acts.session.label == "Open a session"
+    assert [row.kind for row in owed.rows(found)] == ["review", "merge"]
 
 
 def test_the_board_offers_a_session_to_each_ended_task_that_phase_of_gives_one() -> (

@@ -33,7 +33,7 @@ def building(world: World, seen: Seen) -> Building | None:
         shots=shots.shots(seen.files, outcome, addresses.media_href(world, slug)),
         important=important_link(world, slug, count),
         filed=filed_line(filed),
-        on_branch=tuple((one.title, one.path) for one in filed or ()),
+        on_branch=tuple((filed_title(one), one.path) for one in filed or ()),
     )
 
 
@@ -86,3 +86,10 @@ def filed_line(filed: tuple[object, ...] | None) -> str | None:
         else "no backlog item filed"
     )
     return f"{said} · on the task’s branch"
+
+
+def filed_title(filed: Filed) -> str:
+    """The item's title with its problem, when its head does not read."""
+    if filed.problem is None:
+        return filed.title
+    return f"{filed.title} · {filed.problem}"

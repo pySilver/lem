@@ -8,7 +8,7 @@ from msgspec.structs import replace
 
 from lem.board.inputs.task.checks import Checks
 from lem.board.views.checks import commands, reviews
-from lem.board.views.checks.went import pruned, went
+from lem.board.views.panel import pruned
 
 if TYPE_CHECKING:
     from lem.board.views.world import Seen, World
@@ -21,8 +21,8 @@ NEITHER = "The task ended with no checks and no review on record"
 
 def checks(world: World, seen: Seen) -> Checks:
     """The tab Checks and review of the task `seen`."""
-    if pruned(seen):
-        return Checks(went=went(world, seen, "checks"))
+    if pruned.summary_of(seen) is not None:
+        return Checks(went=pruned.went(world, seen, "checks"))
     ended = seen.record.task.status in ENDED
     card = gates(world, seen, ended=ended)
     review = reviewed(world, seen, ended=ended)

@@ -33,7 +33,9 @@ CONFLICT = (
 def why_not(world: World, seen: Seen, standing: Standing) -> str | None:
     """Why there is nothing to merge now, or None while the board offers the merge."""
     record = seen.record
-    pending = recovery(record) or merge_state.said(record)
+    pending = (
+        recovery(record) or merge_state.said(record) or merge_state.proposal_fix(seen)
+    )
     if pending is not None:
         return pending
     conflict = record.task.slug in world.forge.conflicts

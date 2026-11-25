@@ -5,7 +5,8 @@ act, a sheet a phone reads to its end first. It is there while a row of what wai
 the criteria's (`owed.py`), and, once he answered on the board, it says his answer is on record
 until the task's session takes it.
 
-The task gets a question of the wait when the wait begins: until it does, the card has no form.
+The task gets a question when its wait begins. The form carries the mark of the file this page
+read, and it is offered only while that mark agrees with a mark on record.
 """
 
 from typing import TYPE_CHECKING
@@ -21,7 +22,6 @@ from lem.model.owner import answers
 if TYPE_CHECKING:
     from lem.board.views.world import Seen, World
 
-WAITING = "criteria.md"
 UNWRITTEN = (
     "The task’s session writes them to criteria.md in the task directory, and the board "
     "shows them here then. Until then, approve them in the task’s session."
@@ -51,14 +51,9 @@ def card(world: World, seen: Seen, took: str | None = None) -> Approve:
     """The card, with his answer on record, his answer form, or the words where the page
     may not act."""
     task = seen.record.task
-    text = seen.text(WAITING)
-    question = waits.question_of(task)
-    acts = (
-        took is None
-        and world.viewer.may_act
-        and text is not None
-        and question is not None
-    )
+    text = seen.text(asking.WAITING)
+    question = asking.shown_question(task, text)
+    acts = took is None and world.viewer.may_act and question is not None
     form = asking.form_of(world, task, question) if acts and question else None
     return Approve(
         label="Approve the criterion" if asking.fast(task) else "Approve the criteria",

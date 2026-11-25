@@ -14,6 +14,7 @@ from lem.board.inputs.forms import Field
 from lem.board.inputs.task.criteria import Pair, Side
 from lem.board.views import owed
 from lem.board.views.criteria.tab import criteria
+from lem.model.criteria import digest
 from lem.records.holds import OwnerHold
 from lem.records.questions import Answer
 from lem.records.work import Span
@@ -46,7 +47,15 @@ def test_the_criteria_changed_from_his_note_wait_for_his_yes_again(
     tmp_path: Path,
 ) -> None:
     found = world(tmp_path)
-    tab = criteria(found, owed.seen(found, STOCK))
+    seen = owed.seen(found, STOCK)
+    shown = digest.shown(STOCK_CRITERIA.encode())
+    questions = tuple(
+        replace(one, digest=shown) if one.id == STOCK_AGAIN else one
+        for one in seen.record.task.questions
+    )
+    task = replace(seen.record.task, questions=questions)
+    seen = replace(seen, record=replace(seen.record, task=task))
+    tab = criteria(again(found, seen), seen)
     card = tab.approve
     assert card is not None
     assert (card.label, card.head) == (
@@ -86,7 +95,7 @@ def test_the_criteria_changed_from_his_note_wait_for_his_yes_again(
     assert card.answer.question == "Approve the criteria?"
     assert card.answer.fields == (
         Field(name="key", shown=STOCK_AGAIN),
-        Field(name="digest", shown="5e2c8a90b1d4"),
+        Field(name="digest", shown=shown),
         Field(name="tab", shown="criteria"),
     )
     assert [choice.option for choice in card.answer.choices] == ["yes", "no"]

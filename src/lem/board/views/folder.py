@@ -7,7 +7,7 @@ from stat import S_ISREG
 from typing import TYPE_CHECKING
 
 from lem.app.sessions import log
-from lem.board.views.artifacts import kinds, listing
+from lem.board.views.artifacts import kinds, listing, spots
 from lem.board.views.facts import PlanFile, Stat
 from lem.store import tasks
 
@@ -60,7 +60,11 @@ def text_of(folder: Path, name: str) -> str | None:
         body = path.read_bytes()
     except OSError:
         return None
-    return None if b"\x00" in body else body.decode(errors="replace")
+    errors = "strict" if name == spots.CRITERIA_DOC else "replace"
+    try:
+        return None if b"\x00" in body else body.decode(errors=errors)
+    except UnicodeDecodeError:
+        return None
 
 
 def size_of(path: Path) -> int:
@@ -99,4 +103,4 @@ def plan_of(worktree: Path, plan: Plan | None) -> PlanFile | None:
     stat = stat_of(path, plan.path)
     if stat is None or not stat.size:
         return None
-    return PlanFile(stat=stat, text=text_of(worktree, plan.path))
+    return PlanFile(stat=stat, text=None)

@@ -132,7 +132,12 @@ def test_a_run_of_the_tests_says_nothing_of_the_polish_pass(tmp_path: Path) -> N
     the invoice's checks ran the criteria's tests themselves after its polish pass."""
     found = world(tmp_path)
     tab = criteria(found, owed.seen(found, INVOICE))
-    assert not any("polish pass" in said for _, said in tab.criteria[0].tests)
+    assert tab.criteria[0].tests == (
+        (
+            "sh tests/order-date.sh",
+            f"passes on the branch, fails on the base commit (checked on {SHORT})",
+        ),
+    )
 
 
 def test_approved_criteria_the_plan_has_not_recorded_wait_for_their_tests(

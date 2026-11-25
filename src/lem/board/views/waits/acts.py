@@ -10,9 +10,9 @@ from lem.board.inputs import names
 from lem.board.inputs.parts import Link
 from lem.board.inputs.waits import Acts
 from lem.board.views import answering, offers
+from lem.board.views.criteria import asking
 from lem.board.views.panel.opening import session_form
 from lem.board.views.waits import kinds
-from lem.records.holds import OwnerHold
 
 if TYPE_CHECKING:
     from lem.board.inputs.text import Press
@@ -38,21 +38,21 @@ def acts(world: World, seen: Seen, row: Row) -> Acts | None:
         asked = offers.open_question(seen.record.task, topic)
         answer = answering.form(world, asked, "row", UNDER) if asked else None
         return Acts(answer=answer) if answer else None
-    link = link_of(world, seen, row)
-    if link is not None:
-        return Acts(links=(link,))
     if (
         row.kind in {"session", "stopped"}
         and phase_or_none(seen.record.task, worktree=seen.worktree) is not None
     ):
         return Acts(forms=(session_form(world, seen, under=UNDER),))
-    return None
+    return link_or_criterion(world, seen, row)
 
 
-def link_of(world: World, seen: Seen, row: Row) -> Link | None:
-    """The way to the criteria's yes, a merge's confirm step, or a card of the session."""
+def link_or_criterion(world: World, seen: Seen, row: Row) -> Acts | None:
+    """The inline criterion or the link to an act the owner takes on another page."""
+    if row.kind == "criteria" and asking.fast(seen.record.task):
+        return asking.inline(world, seen)
     way = way_of(world, seen, row)
-    return linked(world, seen.record.task.slug, way) if way else None
+    link = linked(world, seen.record.task.slug, way) if way else None
+    return Acts(links=(link,)) if link else None
 
 
 def linked(world: World, slug: str, way: Way) -> Link:
@@ -88,8 +88,5 @@ def topic_of(seen: Seen, row: Row) -> str | None:
     plan, or the skip of the personas' read under his hold; None for any other row."""
     if row.kind in ASKED:
         return row.kind
-    hold = seen.record.task.hold
-    skips = (
-        row.kind == "held" and isinstance(hold, OwnerHold) and hold.on == "skip-read"
-    )
+    skips = row.kind == "held" and offers.skip_held(seen.record.task)
     return "skip" if skips else None

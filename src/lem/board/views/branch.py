@@ -7,8 +7,7 @@ says nothing, never that none was filed.
 
 from typing import TYPE_CHECKING, Protocol
 
-import frontmatter
-
+from lem.board.views.backlog import head
 from lem.board.views.facts import Commit, Filed
 
 if TYPE_CHECKING:
@@ -57,8 +56,7 @@ def filed_of(
         if in_folder(path, place.backlog) and git.show(checkout, since, path) is None
     ]
     return tuple(
-        Filed(path=path, title=title_of(git.show(checkout, tip, path), path))
-        for path in sorted(added)
+        filed_item(git.show(checkout, tip, path), path) for path in sorted(added)
     )
 
 
@@ -67,11 +65,13 @@ def in_folder(path: str, folder: str) -> bool:
     return path.endswith(".md") and path.rpartition("/")[0] == folder
 
 
-def title_of(body: bytes | None, path: str) -> str:
-    """The `# TITLE` of an item's text, else its file's stem."""
+def filed_item(body: bytes | None, path: str) -> Filed:
+    """The item, with its heading even when the front matter does not read."""
     raw = (body or b"").decode(errors="replace")
-    lines = frontmatter.loads(raw).content.splitlines()
-    headings = (line[2:] for line in lines if line.startswith("# "))
-    heading = next(headings, "").strip().replace("`", "")
-    stem = path.rpartition("/")[2]
-    return heading or stem.removesuffix(".md")
+    parsed = head.parse(raw)
+    stem = path.rpartition("/")[2].removesuffix(".md")
+    if isinstance(parsed, head.Head):
+        return Filed(path=path, title=parsed.title or stem)
+    heading = head.TITLE.search(raw)
+    title = heading[1].replace("`", "").strip() if heading else stem
+    return Filed(path=path, title=title or stem, problem=parsed)

@@ -25,7 +25,9 @@ def counts(review: Reviewed) -> tuple[int, int, int]:
 
 
 def verdict(review: Reviewed) -> str:
-    """`must-fix` while a finding must be fixed, else `clean`."""
+    """The result of an answered review, or that nobody reviewed it."""
+    if not review.answered:
+        return "not reviewed"
     return MUST_FIX if counts(review)[0] else "clean"
 
 

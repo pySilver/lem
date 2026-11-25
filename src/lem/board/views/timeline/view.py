@@ -8,32 +8,23 @@ with its events, and links to its Artifacts.
 
 from typing import TYPE_CHECKING
 
-from lem.board.inputs import names
-from lem.board.inputs.parts import Link
-from lem.board.inputs.task.overview import Went
 from lem.board.inputs.task.timeline import Timeline
 from lem.board.views import owed, standing
 from lem.board.views.activity import feed, happenings
+from lem.board.views.panel import pruned
 from lem.board.views.timeline import card, frame
-from lem.records.journal.task import Summary
 
 if TYPE_CHECKING:
     from lem.board.inputs.activity import Happened
     from lem.board.views.world import Seen, World
-
-WENT = (
-    "Its timeline and its events went with its events: they became one summary, as nothing "
-    "of the task happened for state.keep_days days after its end. The Overview shows what the "
-    "summary keeps and what its folder holds, and Artifacts lists the files that are there."
-)
 
 
 def timeline(world: World, slug: str) -> Timeline:
     """The tab of the task `slug`."""
     seen = owed.seen(world, slug)
     record = seen.record
-    if any(isinstance(entry, Summary) for entry in record.journal):
-        return Timeline(went=went(world, slug))
+    if pruned.summary_of(seen) is not None:
+        return Timeline(went=pruned.went(world, seen, "timeline"))
     look = standing.standing(seen, owed.of_task(world, slug)).look
     drawn = frame.frame_of(record, world.clock.now)
     rows = rows_of(world, seen)
@@ -66,21 +57,6 @@ def row_at(
         bare = row.told._replace(text="", sub="")
         row = row._replace(told=bare)
     return feed.row(world, None, f"tev-{place}", row)
-
-
-def went(world: World, slug: str) -> Went:
-    """What a pruned task's tab says, and the link to its Artifacts."""
-    href = names.task_href(
-        world.viewer.base, slug, "artifacts", under=world.viewer.view
-    )
-    artifacts = Link(
-        href=href,
-        label="Artifacts",
-        title="Open the tab Artifacts · key 5",
-        frame=True,
-        icon="folder",
-    )
-    return Went(id="went-timeline", said=WENT, artifacts=artifacts)
 
 
 def tab(world: World, seen: Seen) -> Timeline:

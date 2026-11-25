@@ -8,17 +8,22 @@ that every place an item names is still there.
 Each fixture of `tests/fixtures/board/` is what a view gives of this world.
 """
 
+from dataclasses import replace as change
 from typing import TYPE_CHECKING
+
+from msgspec.structs import replace
 
 from fixtures.board.beside import lay
 from fixtures.board.moments import NOW, sha
 from fixtures.board.receipt import TIP
 from fixtures.board.shown import VERSION, VIEWER, ZONE
+from lem.board.views import folder as documents
 from lem.board.views.ask import Ask
 from lem.board.views.backlog.ledger import Adding
 from lem.board.views.gather import gather
 from lem.board.views.world import Clock, Place
 from lem.ports.git_facts import Commit
+from lem.store import places
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -78,15 +83,15 @@ class AfternoonLedger:
         return ()
 
 
-def world(folder: Path, viewer: Viewer = VIEWER) -> World:
-    """The afternoon laid in `folder`, as the views read it for `viewer`."""
+def world(folder: Path, viewer: Viewer | None = None) -> World:
+    """The afternoon for one viewer, or all its fixture prose for direct view tests."""
     checkout = lay(folder)
     for name, body in CODE:
         path = checkout / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(body, encoding="utf-8")
     ask = Ask(
-        viewer=viewer,
+        viewer=viewer or VIEWER,
         clock=Clock(now=NOW, zone=ZONE),
         version=VERSION,
         place=PLACE,
@@ -94,4 +99,17 @@ def world(folder: Path, viewer: Viewer = VIEWER) -> World:
         git=AfternoonGit(),
         ledger=AfternoonLedger(),
     )
-    return gather(checkout, ask)
+    seen = gather(checkout, ask)
+    if viewer is not None:
+        return seen
+    state = places.state_of(checkout)
+    tasks = tuple(
+        replace(
+            task,
+            prose=documents.prose_of(
+                places.task_folder(state, task.record.task.slug), task.files
+            ),
+        )
+        for task in seen.tasks
+    )
+    return change(seen, tasks=tasks)

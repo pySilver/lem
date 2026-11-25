@@ -12,10 +12,11 @@ class Commit(Frozen, frozen=True, kw_only=True):
 
 
 class Filed(Frozen, frozen=True, kw_only=True):
-    """A backlog item the task's branch adds: its path and its title."""
+    """A backlog item the task's branch adds: its path, title and any problem with its head."""
 
     path: str
     title: str
+    problem: str | None = None
 
 
 class Stat(Frozen, frozen=True, kw_only=True):

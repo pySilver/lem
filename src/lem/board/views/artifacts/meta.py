@@ -4,10 +4,11 @@
 from typing import TYPE_CHECKING
 
 from lem.board.inputs.clock import stamp
-from lem.board.views.artifacts import kinds
+from lem.board.inputs.names import plural
+from lem.board.views.artifacts import kinds, landed
 
 if TYPE_CHECKING:
-    from lem.board.views.artifacts.mapped import Entry
+    from lem.board.views.artifacts.mapped import Entry, Map
     from lem.board.views.world import Seen, World
 
 KB = 1024
@@ -36,3 +37,15 @@ def size_of(size: int) -> str:
     if size < MB:
         return f"{kilo:.0f} KB"
     return f"{mega:.1f} MB"
+
+
+def said_of(world: World, seen: Seen, found: Map) -> str:
+    """The line under the map: its documents, its read and any pending pull request text."""
+    pending = landed.pending(seen.record)
+    if not seen.files:
+        ending = pending or "."
+        return f"The task has no file yet{ending}"
+    now = world.clock.now
+    count = plural(found.count, "document")
+    read = stamp(now, now, world.clock.zone)
+    return f"{count}, read {read}{pending}"

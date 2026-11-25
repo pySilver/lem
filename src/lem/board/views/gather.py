@@ -1,8 +1,8 @@
 """A workspace read once for a page (`board_model.Reader` on `main`): every task's record and what
 lies beside it, the owner's presence, the Inbox's record, and the mark of example tasks.
 
-This module, `folder.py`, `branch.py` and the reads of the backlog and the Inbox are the views'
-only reads; every other module of `views/` is a pure function of the `World` they make. The
+This module reads the workspace through the store, the backlog, the Inbox and the git port.
+`previews.py` reads the bodies the requested page uses. The views render the `World` they make. The
 terminal's list of sessions comes in from the server (`ask.Ask.listed`); with none, a board of
 example tasks takes each session from Lem's acts alone (`sessions.from_acts`), and any other
 board says that the sessions are not known.
@@ -13,7 +13,15 @@ from typing import TYPE_CHECKING
 
 from lem.app.owner import releases
 from lem.app.sessions import log
-from lem.board.views import branch, folder, inbox_read, looked, sessions, world
+from lem.board.views import (
+    branch,
+    folder,
+    inbox_read,
+    looked,
+    previews,
+    sessions,
+    world,
+)
 from lem.board.views.backlog import read as shelf
 from lem.settings import places as settings_places
 from lem.settings.load import team_of
@@ -66,16 +74,20 @@ def seen_of(checkout: Path, record: Record, ask: Ask, *, demo: bool) -> world.Se
     acts = log.read(where)
     session = sessions.of(record, acts, ask.listed, demo=demo)
     files = folder.files_of(where)
-    return world.Seen(
-        record=record,
-        acts=acts,
-        files=files,
-        prose=folder.prose_of(where, files),
-        plan_file=folder.plan_of(worktree, record.task.plan),
-        stats=folder.stats_of(where, files),
-        head=branch.head_of(ask.git, checkout, record.task, ask.place),
-        filed=branch.filed_of(ask.git, checkout, record.task, ask.place),
-        worktree=(worktree / ".git").exists(),
-        session=session,
-        stop=sessions.stop_of(record, acts, session),
+    return previews.read(
+        world.Seen(
+            record=record,
+            acts=acts,
+            files=files,
+            plan_file=folder.plan_of(worktree, record.task.plan),
+            stats=folder.stats_of(where, files),
+            head=branch.head_of(ask.git, checkout, record.task, ask.place),
+            filed=branch.filed_of(ask.git, checkout, record.task, ask.place),
+            worktree=(worktree / ".git").exists(),
+            session=session,
+            stop=sessions.stop_of(record, acts, session),
+        ),
+        ask.viewer,
+        where,
+        worktree,
     )

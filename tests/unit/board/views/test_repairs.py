@@ -111,7 +111,12 @@ def test_old_plan_question_has_no_answer_or_drop_form(state: str) -> None:
         hold = replace(hold, since=at(1))
     found = world(task(status=status, hold=hold, questions=(question,)))
     overview = panel(found, SLUG, "overview").overview
-    assert overview and overview.now.answer is None
+    assert overview
+    if state == "new-hold":
+        assert overview.now.answer is not None
+        assert all(field.shown != question.id for field in overview.now.answer.fields)
+    else:
+        assert overview.now.answer is None
     drop = panel(found, SLUG, "drop", opened=Opened(asked=Asked(key=question.id)))
     assert drop.drop is None and drop.not_now is not None
 
@@ -188,7 +193,7 @@ def test_breaker_confirmations_expire_before_the_new_question(minutes: int) -> N
     assert park.park is None and park.not_now is not None
     drop = panel(found, SLUG, "drop", opened=opened)
     assert drop.drop is None and drop.not_now is not None
-    assert panel(found, SLUG, "park").park is None
+    assert panel(found, SLUG, "park").park is not None
 
 
 @pytest.mark.parametrize("minutes", (-1, 0, 1))
@@ -247,7 +252,7 @@ def test_artifacts_preview_the_file_from_its_own_folder(
         write(checkout / filename, "# The plan in the main checkout\n")
     else:
         write(checkout / ".lem" / "state" / "tasks" / slug / filename, "One line\n")
-    found = artifacts_opened(gathered(tmp_path, found), filename)
+    found = gathered(tmp_path, artifacts_opened(found, filename))
     shown = artifacts(found, owed.seen(found, slug))
     assert shown and shown.chosen and shown.shown
     body = shown.shown.body
@@ -273,7 +278,7 @@ def test_artifacts_list_only_a_real_plan_and_show_its_file_facts(
         write(path, body)
         stamp = found.clock.now.timestamp()
         os.utime(path, (stamp, stamp))
-    found = artifacts_opened(gathered(tmp_path, found), plan.path)
+    found = gathered(tmp_path, artifacts_opened(found, plan.path))
     seen = owed.seen(found, RECEIPT.task.slug)
     tab = artifacts(found, seen)
     section = next(one for one in tab.sections if one.key == "plan")
