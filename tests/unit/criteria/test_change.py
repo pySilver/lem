@@ -13,6 +13,8 @@ from lem.kernel.errors import Refusal
 from lem.model.criteria import digest, waits
 from lem.model.criteria.pairs import pairs
 from lem.model.criteria.read import sheet_of
+from lem.records.criterion import Criterion
+from lem.records.holds import OwnerHold
 from lem.records.questions import Answer
 from lem.store import places, tasks
 from unit.criteria import world
@@ -50,6 +52,11 @@ def refused(call: Callable[..., object], *args: object) -> Refusal:
     return caught.value
 
 
+def number(criterion: Criterion | None) -> int:
+    """A side's number, 0 for a side a pair has not."""
+    return criterion.number if criterion else 0
+
+
 def criteria(text: str) -> tuple[str, ...]:
     return tuple(one.text for one in sheet_of(text, "x.md").criteria)
 
@@ -58,7 +65,7 @@ def test_one_changed_and_two_in_one_note_are_pairs_by_text() -> None:
     before = sheet_of(world.FULL, "a").criteria
     after = sheet_of(CHANGED, "b").criteria
     found = pairs(before, after)
-    assert [(one.change, one.before.number, one.after.number) for one in found] == [
+    assert [(one.change, number(one.before), number(one.after)) for one in found] == [
         ("changed", 2, 2)
     ]
     both = sheet_of(CHANGED.replace("1042 with the", "1043 with the"), "c").criteria
@@ -91,7 +98,7 @@ def test_an_added_criterion_and_a_new_line_break_that_is_no_change() -> None:
         + "3. A third, 7.\n"
     )
     found = pairs(before, sheet_of(after, "b").criteria)
-    assert [(one.change, one.after.number) for one in found] == [("added", 3)]
+    assert [(one.change, number(one.after)) for one in found] == [("added", 3)]
 
 
 def test_his_typed_no_is_the_answer_and_twice_is_one_record(checkout: Path) -> None:
@@ -136,7 +143,7 @@ def test_the_change_keeps_the_text_he_answered_and_writes_a_new_wait(
     task = world.read(checkout).task
     assert task.criteria.change is not None
     assert task.criteria.change.text == world.FULL
-    assert task.hold is not None
+    assert isinstance(task.hold, OwnerHold)
     assert task.hold.line == waits.CHANGED
     assert waits.said_no(task) is None
     assert said.question == task.questions[-1].id
@@ -219,7 +226,7 @@ def test_a_new_wait_of_the_same_text_takes_his_yes(checkout: Path) -> None:
     typed.typed(checkout, world.SLUG, "why two columns?")
     again = typed.unchanged(checkout, world.SLUG)
     task = world.read(checkout).task
-    assert task.hold is not None
+    assert isinstance(task.hold, OwnerHold)
     assert (again.words, task.hold.line) == ("why two columns?", waits.UNCHANGED)
     sheet = checkout / ".lem/state/tasks/gift-note/criteria.md"
     made = approve.approved(
