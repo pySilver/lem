@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
+from lem.model.task import span_marks
 from lem.records.holds import BreakerHold
 from lem.records.task import Task
 
@@ -109,7 +110,7 @@ def breaker_task(old: Task, new: str, breaker: int, now: Moment) -> Task:
         branch=f"{kind}/{new}",
         resumed_from=old.slug,
         ticket=None,
-        spans=(),
+        spans=span_marks.carried(old.spans),
     )
 
 

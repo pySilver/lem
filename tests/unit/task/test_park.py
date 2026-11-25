@@ -18,6 +18,7 @@ from lem.records.holds import BreakerHold, OwnerHold, Parked, ReleaseHold
 from lem.records.journal.task import Summary
 from lem.records.task import Shape
 from lem.records.tickets import Ticket
+from lem.records.work import Span
 from lem.store import places, tasks
 from unit.task.spaces import made, read, result, said, workspace
 
@@ -125,7 +126,11 @@ def real(tmp_path: Path) -> Workspace:
 def test_a_dropped_task_with_its_breaker_goes_on_in_a_new_task(tmp_path: Path) -> None:
     where = real(tmp_path)
     ticket = Ticket(tracker="linear", id="MBZ-12")
-    dropped_with_breaker(where, ticket=ticket, branch=f"fix/{SLUG}")
+    talk = Span(name="plan-talk", start=MOMENT, end=MOMENT)
+    open_lead = Span(name="lead", start=MOMENT)
+    dropped_with_breaker(
+        where, ticket=ticket, branch=f"fix/{SLUG}", spans=(talk, open_lead)
+    )
     run_git(where.checkout, "branch", f"fix/{SLUG}")
     back = resume.resumed(where.checkout, SLUG)
     new = f"{SLUG}-2"
@@ -160,6 +165,7 @@ def test_a_dropped_task_with_its_breaker_goes_on_in_a_new_task(tmp_path: Path) -
     assert (where.lem / "worktrees" / new / "README.md").is_file()
     assert read(where, SLUG).task.status == "dropped"
     assert read(where, new).release == read(where, SLUG).release
+    assert task.spans == (talk,)
     with pytest.raises(Refusal) as again:
         resume.resumed(where.checkout, SLUG)
     assert again.value.code == "resumed"
