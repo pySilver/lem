@@ -2,7 +2,7 @@
 
     lem land file SLUG [--again] [--same RN.M=PATH]... [--new RN.M]...
 
-The step `land-review` builds it (`app/landing/filing.py`).
+The step `land-review` builds it (`app/landing/filing_step.py`).
 """
 
 from typing import TYPE_CHECKING
@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import click
 import msgspec
 
-from lem.app.landing import filing
+from lem.app.landing import filing_step
 from lem.cli import place
 from lem.model.landing.filing_flags import Flags
 
@@ -30,7 +30,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 def run(call: Call) -> Envelope:
     """Give each defect outside the change its place."""
     flags = Flags(again=call.again, same=call.same, new=call.new)
-    return filing.run(place.folder(), call.slug, flags)
+    return filing_step.run(place.folder(), call.slug, flags)
 
 
 COMMAND = click.Command(

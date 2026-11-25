@@ -2,8 +2,8 @@
 (`alike` and `jev` of `landing.json` on `main`): for each finding's digest, the score of each
 item it was asked about, None for an item Jev gave no score.
 
-A stand-in, `tasks/SLUG/jev.json` written whole, until the task's record has a field for them
-(`notes/land-review.md`).
+A stand-in, `tasks/SLUG/jev-alike.json` written whole, until the task's record has a field for
+them (`notes/land-review.md`); `propose` keeps its own words of Jev in `jev.json`.
 """
 
 from typing import TYPE_CHECKING
@@ -15,7 +15,7 @@ from lem.kernel import files
 if TYPE_CHECKING:
     from pathlib import Path
 
-NAME = "jev.json"
+NAME = "jev-alike.json"
 type Scores = dict[str, float | None]
 
 

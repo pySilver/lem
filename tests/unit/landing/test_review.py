@@ -31,7 +31,7 @@ from lem.records.journal.task import SpanMark
 from lem.records.landing.checks import Lowered
 from lem.records.landing.record import Landing
 from lem.records.landing.review import Finding, Reviewed
-from lem.records.landing.start import Resolution
+from lem.records.landing.start import Based, Resolution
 from lem.records.task import Shape
 from lem.records.work import Plan
 from unit.landing.worlds import (
@@ -666,7 +666,7 @@ def test_a_tip_two_silent_reads_left_unread_has_no_review_that_clears_it() -> No
     assert review.newest(record.landing or Landing()) is None
     held = review.holds(record, world())
     assert held.why.startswith("not reviewed: two attempts in a row")
-    assert "no review read the change" in green.reasons(record)
+    assert any(one.startswith("not reviewed") for one in green.reasons(record, ()))
 
 
 def test_a_resolution_is_read_alone_only_after_a_review_that_left_no_must_fix() -> None:
@@ -777,3 +777,21 @@ def test_the_floor_a_review_was_recorded_under_holds_after_it() -> None:
         due_of(review.holds(task(**{**PREPARED, "reviews": (short,)}), world()))
         == "read"
     )
+
+
+def test_a_review_carries_over_a_rebase_git_showed_clean_and_its_must_fix_stays() -> (
+    None
+):
+    earlier = replace(REVIEWED, tip=OTHER, at=MOMENT.replace(minute=1))
+    based = Based(
+        tip=TIP, base=BASE, before=OTHER, carried=True, at=MOMENT.replace(minute=2)
+    )
+    record = task(**{**PREPARED, "reviews": (earlier,), "based": based})
+    assert review.holds(record, world()).why.startswith("the newest review covers")
+    must = replace(earlier, findings=(MUST_FIX,))
+    left = task(**{**PREPARED, "reviews": (must,), "based": based})
+    assert due_of(review.holds(left, world())) == "read"
+    uncarried = task(
+        **{**PREPARED, "reviews": (earlier,), "based": replace(based, carried=False)}
+    )
+    assert due_of(review.holds(uncarried, world())) == "read"

@@ -1,14 +1,14 @@
 """Whether a review covers the change as it is now (`landing.md` D, review coverage), and when
 the request goes on without one (`land.due_of` on `main`).
 
-A review covers the tip it read, and the commit `file` made after it with only the items of its
-defects: `file` moves the checks there and names the items in `items_after`, after the review.
-The carry over a clean rebase is `model/landing/carry.py`'s, which the step `land-base` builds.
+A review covers the tip it read, the tip a clean rebase made of it (`model/landing/carry.py`),
+and the commit `file` made after it with only the items of its defects: `file` moves the checks
+there and names the items in `items_after`, after the review.
 """
 
 from typing import TYPE_CHECKING, get_args
 
-from lem.model.landing import review_due, review_said
+from lem.model.landing import carry, review_due, review_said
 from lem.model.landing.world import Held
 
 if TYPE_CHECKING:
@@ -23,9 +23,10 @@ QUIET = "not reviewed: two attempts in a row, and no source answered"
 
 
 def covers(review: Reviewed, landing: Landing, world: World) -> bool:
-    """Whether the review covers the tip: the tip it read, or the commit `file` made after it
+    """Whether the review covers the tip: the tip it read, the tip `base` showed by git's
+    merge to be that tip on this base (`carry.source`), or the commit `file` made after it
     with only the items of its defects."""
-    if review.tip == world.tip:
+    if review.tip in {world.tip, carry.source(landing, world)}:
         return True
     checked = landing.checked
     if checked is None or not checked.items_after:

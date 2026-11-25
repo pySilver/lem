@@ -40,14 +40,10 @@ what other steps take from it. Each item names the file, what to change, and why
 
 ## For `settings`
 
-7. **`[flow] topics` and `[jev] findings`** are not in `Team` yet, and both must come from
-   the base branch's file, never another branch checked out in the main checkout
-   (`project.load` and `project.committed_settings` on `main`). `app/landing/review_settings.py`
-   reads them so itself: the working tree while the main checkout is on the base, else
-   `refs/heads/BASE:.lem/settings.toml`, else the working tree. Once `settings` is merged, its
-   loader of the base's file (the function that repaired it for `team_of`) gives `Team` with
-   `flow` and `jev`; `review.briefed`, `judge_same.checked` and `alike.asked_of` call it, and
-   `review_settings.py` goes.
+7. **Done at the join of 2026-11-25:** `review.briefed`, `judge_same.checked` and
+   `alike.asked_of` read `team_of(checkout).flow.topics` and `.jev.findings`, the base's
+   committed file while the main checkout is elsewhere; the stand-in `review_settings.py` is
+   gone.
 
 8b. **`lem rules`.** The brief gives the reviewer the command `lem --repo WORKTREE rules
    --range BASE..TIP` (`inputs.rules`), since `main`'s `cmd_read` listed the rule files from
@@ -56,12 +52,9 @@ what other steps take from it. Each item names the file, what to change, and why
 
 ## For `land-base`
 
-8. **The review's coverage over a rebase** (`landing.md` D, review coverage, `covers_one`).
-   `model/landing/review_cover.covers` is the stand-in: a review covers the tip it read, and the
-   commit `file` made after it (the checks moved there with `items_after`, after the review).
-   `model/landing/review.unmet` should call `carry.py`'s coverage for a clean rebase, for new
-   backlog files after the review (an edit of an item of the base asks for another review), and
-   for the removal of the task's own item. The ledger rows of those cases moved to you.
+8. **Done at the join:** `review_cover.covers` takes `carry.source(landing, world)`: a review
+   covers the tip a clean rebase made of the tip it read; a must-fix it left stays open.
+
 9. **The owner's careful on an open request** (`the-owner-s-careful-on-a-task-whose-pull-req`,
    moved to you): `start` takes it in again; the review's floor is full once item 3 gives the
    word a field.
@@ -122,6 +115,15 @@ what other steps take from it. Each item names the file, what to change, and why
 16c. **An open item that leaves the tip.** A `same` place whose item the tip no longer holds
     is given its place again by the next `file` (`filing_asks.again_of`); `filing.holds` sees it
     once the world has the backlog's paths (item 16).
+
+16d. **Done at the join:** `lem land file SLUG --again` also runs where `propose` is due, so the
+    fix of propose's `item-gone` and `item-refuted` runs (`app/landing/filing_step.py`); with
+    `--again` an over-bar defect whose open item now says `worth: no` gets an item of its own
+    that names it. The alike scores are kept in `tasks/SLUG/jev-alike.json`, beside propose's
+    `jev.json`, which they no longer write over.
+16e. **Two copies of one rule.** `model/landing/careful.py` (the review's floor) and
+    `propose_careful.py` (propose's reasons) both judge an edit of Lem's settings; one of them
+    should call the other (for `land-text` or `close`, which sees both).
 
 ## For `land-merge`
 

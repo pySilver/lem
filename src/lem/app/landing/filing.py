@@ -14,16 +14,13 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing import backlog, changes, filing_commits, judge_same, step
+from lem.app.landing import backlog, changes, filing_commits, judge_same
 from lem.kernel.errors import Refusal
 from lem.model.landing import filing, filing_flags
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from lem.app.landing import frame
-    from lem.kernel.envelope import Envelope
     from lem.records.landing.review import Filed
     from lem.records.record import Record
 
@@ -69,8 +66,3 @@ def act(context: frame.Context, *, flags: filing_flags.Flags) -> tuple[Filed, ..
     done = filing_commits.committed(context, placed.writes)
     context.write(context.record, partial(filed, places=placed.filed, done=done))
     return placed.filed
-
-
-def run(folder: Path, slug: str, flags: filing_flags.Flags) -> Envelope:
-    """`lem land file SLUG [--again] [--same RN.M=PATH]... [--new RN.M]...`."""
-    return step.landed(folder, slug, "file", partial(act, flags=flags))

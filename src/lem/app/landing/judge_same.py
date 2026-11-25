@@ -10,10 +10,11 @@ team's settings nothing is sent.
 
 from typing import TYPE_CHECKING
 
-from lem.app.landing import jev_kept, jev_staged, review_settings
+from lem.app.landing import jev_kept, jev_staged
 from lem.model.landing import alike
 from lem.model.landing.items import Defect
 from lem.ports import judge as port
+from lem.settings.load import team_of
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -83,6 +84,12 @@ def found_for(
     return alike.line_of(finding.id, finding.title, found) if found else ""
 
 
+def sends(checkout: Path) -> bool:
+    """Whether the team sends a finding's text to Jev: `jev.findings` of the base's settings
+    file (`settings.load.team_of`)."""
+    return team_of(checkout).jev.findings
+
+
 def checked(
     context: Context, asks: tuple[Finding, ...], shelf: Shelf
 ) -> Refusal | None:
@@ -91,9 +98,7 @@ def checked(
     holds."""
     if not asks or not shelf.shelved:
         return None
-    if not review_settings.read(
-        context.ports.git, context.workspace.checkout, context.world.rules.base
-    ).jev.findings:
+    if not sends(context.workspace.checkout):
         return None
     kept = jev_kept.read(context.folder)
     lines = [found_for(context, one, shelf, kept) for one in asks]

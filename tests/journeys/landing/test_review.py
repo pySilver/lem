@@ -606,7 +606,7 @@ def test_a_tip_that_two_silent_reads_left_unread_is_not_green_and_no_agent_merge
     assert next_step(capsys, world)["result"]["step"] == "propose"
     proposed = proposal(capsys, world)["result"]
     assert proposed["green"] is False
-    assert "no review read the change" in proposed["reasons"]
+    assert any(one.startswith("not reviewed") for one in proposed["reasons"])
     assert world.record()["landing"]["proposed"]["who_acts"] == "owner"
 
 
@@ -790,3 +790,23 @@ def test_the_review_is_told_of_each_existing_test_the_change_edits(
     changed(capsys, world, {"tests/test_readme.py": "assert 1\n"}, "test: one")
     told = brief(capsys, world)["result"]["brief"]["inputs"]
     assert told["edited"] == [{"path": "tests/test_readme.py", "kind": "test"}]
+
+
+def test_again_runs_when_propose_names_it_for_an_open_item_the_owner_set_to_worth_no(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world, base={HELD: HELD_TEXT})
+    reviewed(capsys, world, outside=[{**OVER, "open": HELD}])
+    assert file_step()(capsys, world)["result"][0]["disposition"] == "same"
+    refuted = HELD_TEXT.replace("worth: later", "worth: no")
+    changed(capsys, world, {HELD: refuted}, "docs(backlog): the owner says no")
+    reviewed(capsys, world)
+    assert next_step(capsys, world)["result"]["step"] == "propose"
+    refused = proposal(capsys, world)["refusal"]
+    assert refused["code"] == "item-refuted"
+    again = file_step("--again")(capsys, world)
+    assert again["ok"] is True, again
+    assert [(one["disposition"], one["cites"]) for one in again["result"]] == [
+        ("item", HELD)
+    ]

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import alike_words, backlog, frame, judge_same, review_settings
+from lem.app.landing import alike_words, backlog, frame, judge_same
 from lem.app.tasks import where
 from lem.kernel.envelope import Envelope
 from lem.kernel.errors import Refusal
@@ -103,10 +103,7 @@ def asked_of(
     worktree = worktree_of(workspace, slug)
     tip = ports.git.tip(worktree, "HEAD") or ""
     shelved = backlog.at_tip(ports.git, worktree, tip)
-    if (
-        not shelved
-        or not review_settings.read(ports.git, workspace.checkout).jev.findings
-    ):
+    if not shelved or not judge_same.sends(workspace.checkout):
         return shelved, OFF
     staging = places.task_folder(workspace.state, slug) / judge_same.STAGED
     return shelved, judge_same.asked(ports.judge, staging, defect, shelved, {})

@@ -4,6 +4,8 @@ name, and those that get a file of their own with no word on them."""
 
 from typing import TYPE_CHECKING
 
+from lem.model.landing import items
+
 if TYPE_CHECKING:
     from lem.model.landing import filing_place
     from lem.model.landing.filing_plan import Place, Waiting
@@ -25,7 +27,31 @@ def again_of(
     with `--again` each item `file` filed that the tip no longer holds."""
     paths = (filed.path for filed in landing.filed if filed.disposition == "same")
     left = tuple(path for path in paths if path and path not in shelf.paths)
-    return (*left, *(gone_of(landing, shelf) if again else ()))
+    if not again:
+        return left
+    return (*left, *gone_of(landing, shelf), *refuted_of(landing, shelf))
+
+
+def refuted_of(landing: Landing, shelf: filing_place.Shelf) -> tuple[str, ...]:
+    """The open items an over-bar defect was the same as that say `worth: no` at the tip now:
+    `--again` gives such a defect an item of its own that names the old one (propose's
+    `item-refuted`)."""
+    over = {
+        finding.id
+        for review in landing.reviews
+        for finding in review.findings
+        if finding.against == "over"
+    }
+    same = (
+        one
+        for one in landing.filed
+        if one.disposition == "same" and one.finding in over
+    )
+    return tuple(
+        one.path
+        for one in same
+        if one.path and items.worth_of(shelf.shelved, one.path) == "no"
+    )
 
 
 def free_of(left: Waiting, shelf: filing_place.Shelf) -> set[str]:

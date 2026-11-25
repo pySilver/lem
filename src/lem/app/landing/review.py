@@ -17,13 +17,13 @@ from lem.app.landing import (
     review_changes,
     review_facts,
     review_files,
-    review_settings,
     step,
 )
 from lem.kernel.envelope import Envelope, Next
 from lem.kernel.errors import Refusal
 from lem.model.landing import review, review_due
 from lem.records.base import Frozen
+from lem.settings.load import team_of
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -54,9 +54,7 @@ def known(context: frame.Context) -> tuple[review_facts.Gathered, review_due.Fac
 def briefed(context: frame.Context) -> Briefed:
     """Publish the brief of the review that is due, and start its span."""
     found, facts = known(context)
-    topics = review_settings.read(
-        context.ports.git, context.workspace.checkout, context.world.rules.base
-    ).flow.topics
+    topics = team_of(context.workspace.checkout).flow.topics
     brief = review_brief.made(context, found, facts, topics)
     context.write(
         context.record,

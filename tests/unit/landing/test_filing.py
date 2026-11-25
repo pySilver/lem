@@ -623,3 +623,21 @@ def test_the_request_is_json_and_an_answer_of_another_type_is_no_answer(
         why="no answer"
     )
     assert sent[0].headers["content-type"] == "application/json"
+
+
+def test_again_files_an_over_defect_whose_open_item_now_says_worth_no() -> None:
+    held = f"{FOLDER}/held.md"
+    filed = Filed(finding="r1.1", disposition="same", path=held, line="seen")
+    record = record_of(finding(open=held), filed=(filed,))
+    owners = shelf((held, written(PADS, "no", WHY)))
+    plain = filing.decide(record, world(), owners, filing_flags.Flags())
+    assert not isinstance(plain, Refusal) and plain.filed == ()
+    again = filing.decide(record, world(), owners, filing_flags.Flags(again=True))
+    assert not isinstance(again, Refusal)
+    assert [(one.disposition, one.cites) for one in again.filed] == [("item", held)]
+
+
+def test_the_alike_scores_keep_a_file_of_their_own_beside_proposes_jev_words() -> None:
+    from lem.app.landing import jev_kept, propose_jev
+
+    assert jev_kept.NAME != propose_jev.KEPT
