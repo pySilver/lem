@@ -10,7 +10,16 @@ yes-or-no form with the same two texts, the form the `Judge` adapter sends: the 
 is an unmeasured estimate until the sample is read again.
 """
 
+from typing import TYPE_CHECKING
+
+from lem.adapters import judge_jev, judge_jev_ask
 from lem.adapters import judge_jev_wire as wire
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from lem.ports.judge import NotAsked
+    from lem.records.corrections import Correction
 
 FLAG_AT = 0.3
 NAME = "lesson"
@@ -35,8 +44,28 @@ NO_LESSON = (
 )
 
 
-def request(model: str, previous: str, owner: str) -> wire.Request:
+def request_of(model: str, previous: str, owner: str) -> wire.Request:
     """The request of one message: the agent's last message, the owner's reply, the question."""
     state = {"the agent's last message": previous, "the owner's reply": owner}
     asked = wire.question(ASKED, LESSON, NO_LESSON)
     return wire.Request(model=model, state=state, questions={NAME: asked})
+
+
+def asked(
+    jev: judge_jev_ask.Asker, correction: Correction
+) -> dict[str, float] | NotAsked:
+    """Jev's answer to the message, or why there is none: a request over Jev's limit is never
+    sent, and nothing is cut down to fit."""
+    request = request_of(jev.model, correction.previous, correction.owner)
+    if wire.size_of(request) > wire.LIMIT_BYTES:
+        return judge_jev_ask.TOO_LONG
+    return jev.sent(request)
+
+
+def asker_of(environ: Mapping[str, str]) -> judge_jev_ask.Asker:
+    """Jev with the key, address and model of the environment, as the `Judge` adapter binds."""
+    return judge_jev_ask.Asker(
+        key=environ.get(judge_jev.KEY) or None,
+        url=environ.get("JEV_API_URL", "").strip() or judge_jev.URL,
+        model=environ.get("JEV_MODEL", "").strip() or judge_jev.MODEL,
+    )

@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.adapters import judge_jev, judge_jev_ask
+from lem.adapters import judge_jev_ask
 from lem.addons.corrections import question, queue, switch
 from lem.kernel.errors import Refusal
 from lem.ports.judge import NotAsked
@@ -52,9 +52,8 @@ def worked(
         return Worked(
             queued=False, p_lesson=None, why="the machine says no to the queue"
         )
-    jev = asker or asker_of(environ)
-    said = jev.sent(question.request(jev.model, correction.previous, correction.owner))
-    return judged(state, correction, said, now)
+    jev = asker or question.asker_of(environ)
+    return judged(state, correction, question.asked(jev, correction), now)
 
 
 def state_of(given: Path) -> Path:
@@ -85,15 +84,6 @@ def taken(given: Path) -> Correction:
             f"{given} held no correction ({error})",
             "only the correction hook writes the file",
         ) from error
-
-
-def asker_of(environ: Mapping[str, str]) -> judge_jev_ask.Asker:
-    """Jev with the key, address and model of the environment, as the `Judge` adapter binds."""
-    return judge_jev_ask.Asker(
-        key=environ.get(judge_jev.KEY) or None,
-        url=environ.get("JEV_API_URL", "").strip() or judge_jev.URL,
-        model=environ.get("JEV_MODEL", "").strip() or judge_jev.MODEL,
-    )
 
 
 def judged(
