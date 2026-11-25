@@ -66,7 +66,7 @@ with each of its lines and that one. Your report says the same. A task he named 
      for the fast track do not reach a lead: the fast track has one builder and no plan
      (`stages/new.md`, "The fast track"), and a task that needs the standard track after all comes to you
      with his approval of its criteria for that track. A plan's criteria always say `Size: full`:
-     `criteria.py` and `land.py` refuse a plan that says `Size: small`;
+     `lem criteria record` and the landing refuse a plan that says `Size: small`;
    - with no approved criteria (the standard track from a complete request), write them.
      A criterion is one business rule of the request in plain language with one concrete example,
      with real names and values: what a person of the project would see, never how the code does

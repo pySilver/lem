@@ -102,7 +102,7 @@ ladder, or the owner's help on a breaker; a decision the personas settled is `--
 "who picked what"`, and the lead's own change that is nobody's decision, such as a typo in an
 example, is `--by lead`. `lem criteria record` refuses the plan until its criteria are the expected ones,
 word for word, and the pull request is not green for each change but one his help led to. A plan's
-`Size:` line always says `full`, and `criteria.py` refuses a plan that says `Size: small`: a build
+`Size:` line always says `full`, and `lem criteria record` refuses a plan that says `Size: small`: a build
 never moves a task from the standard track to the fast track, which has no plan, and the track is
 no choice of this section. A plan that departs from a direction (`directions.md`) is a decision of
 this section too, with the direction in `--what`.
