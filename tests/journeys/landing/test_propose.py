@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 import pytest
 from msgspec.structs import replace
 
+from fakes.outside import FakeJudge
 from fakes.repo import git_env, run_git
 from journeys.test_skeleton import (
     JOURNEY,
@@ -21,6 +22,7 @@ from journeys.test_skeleton import (
     SUBJECT,
     Killed,
     World,
+    built,
     command,
     due,
     lem,
@@ -33,6 +35,7 @@ from lem.adapters import forge_gh
 from lem.app import wiring
 from lem.ports.faults import Unanswered
 from lem.ports.place import Place
+from lem.records.landing.review import Filed, Finding
 from lem.store import tasks
 
 if TYPE_CHECKING:
@@ -170,9 +173,19 @@ def again(record: Record) -> Record:
 
 
 def new_round(
-    capsys: pytest.CaptureFixture[str], world: World, *, keep_pull: bool = True
+    capsys: pytest.CaptureFixture[str],
+    world: World,
+    *,
+    keep_pull: bool = True,
+    teammate: bool = False,
 ) -> None:
-    """A builder's fix after the proposal, and the round's steps up to `propose`."""
+    """A builder's fix after the proposal, and the round's steps up to `propose`; with
+    `teammate`, a teammate's commit on the task's branch on origin, which the builder brings
+    in first."""
+    if teammate:
+        world.repo.outside_commit(f"docs/{SLUG}", {"NOTE.md": b"a teammate's line\n"})
+        run_git(world.worktree, "fetch", "--quiet", "origin")
+        run_git(world.worktree, "merge", "--quiet", "--ff-only", f"origin/docs/{SLUG}")
     (world.worktree / "README.md").write_text("The README says receive, twice.\n")
     run_git(world.worktree, "commit", "--quiet", "--all", "--message", "docs: twice")
     state = world.checkout / ".lem" / "state"
@@ -250,3 +263,130 @@ def test_notes_with_a_finding_and_no_bar_call_are_refused_before_any_push(
         world.written("notes.md", "none\n"),
     )
     assert title["refusal"]["code"] == "title"
+
+
+# ---- the review of 2026-11-25 ----
+
+NOTES_OK = "- `README.md`: says it twice now; under: one reader reads one line\n"
+
+
+def test_a_teammate_commit_the_branch_brought_in_and_the_checks_covered_is_pushed_over(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge-review")
+    new_round(capsys, world, teammate=True)
+    envelope = propose_with(capsys, world, NOTES_OK)
+    assert envelope["ok"] is True, envelope
+    pushed = world.record()["landing"]["pushed"]
+    assert world.repo.head_of(f"docs/{SLUG}") == pushed
+    assert world.forge.pull(1).head == pushed
+    assert "a teammate's line" in run_git(
+        world.repo.origin, "show", f"{pushed}:NOTE.md"
+    )
+
+
+def test_a_finding_whose_item_left_the_tip_is_refused_before_any_push(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "propose")
+    state = world.checkout / ".lem" / "state"
+    found = tasks.read(state, SLUG)
+    landing = found.landing
+    assert landing is not None
+    review = landing.reviews[-1]
+    over = Finding(
+        id=f"r{review.attempt}.9",
+        level="nit",
+        where="README.md",
+        title="the README has no license line",
+        what="README.md names no license",
+        against="over",
+    )
+    review = replace(
+        review, findings=(*review.findings, over), to_file=(*review.to_file, over.id)
+    )
+    held = Filed(finding=over.id, disposition="same", path="docs/backlog/no-license.md")
+    changed = replace(
+        found,
+        landing=replace(
+            landing,
+            reviews=(*landing.reviews[:-1], review),
+            filed=(*landing.filed, held),
+        ),
+    )
+    tasks.update(state, SLUG, lambda record: changed, found.revision)
+    refused = proposal(capsys, world)
+    assert refused["refusal"]["code"] == "item-gone"
+    assert world.acts.counted()["push"] == 0
+    assert world.forge.pulls == {}
+
+
+def test_jev_stops_the_proposal_once_for_a_finding_it_reads_over_the_bar(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "propose")
+    judge = wiring.bound(
+        Place(checkout=world.checkout, home=tmp_path, environ={})
+    ).judge
+    assert isinstance(judge, FakeJudge)
+    line = "- `README.md`: the second line is long; under: one reader reads one line"
+    judge.over["`README.md`: the second line is long"] = 0.85
+    refused = propose_with(capsys, world, f"{line}\n")
+    assert refused["refusal"]["code"] == "jev-over"
+    assert "Jev: 0.85" in refused["refusal"]["why"]
+    assert world.acts.counted()["push"] == 0
+    envelope = propose_with(capsys, world, f"{line}\n")
+    assert envelope["ok"] is True, envelope
+    assert len(judge.asked) == 1
+    assert f"{line}; Jev: 0.85" in world.forge.bodies[1].splitlines()
+
+
+def careful_built(capsys: pytest.CaptureFixture[str], world: World) -> dict:
+    """The builder's change, which edits Lem's own settings beside the README."""
+    (world.worktree / "README.md").write_text("The README says receive.\n")
+    settings = world.worktree / ".lem" / "settings.toml"
+    settings.write_text(settings.read_text() + "# the checks of the README\n")
+    run_git(world.worktree, "commit", "--quiet", "--all", "--message", "docs: receive")
+    with (world.task_folder / "criteria.md").open("a") as found:
+        found.write("   - no test: the change keeps behavior; the suite holds it\n")
+    return {"ok": True}
+
+
+def test_an_edit_of_lems_settings_needs_the_full_set_and_the_owner_merges_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    for verb, step in JOURNEY:
+        if verb == "propose":
+            break
+        envelope = (careful_built if step is built else step)(capsys, world)
+        assert envelope["ok"] is True, envelope
+    notes = "none\n\n## Migration\n\nnone\n"
+    refused = propose_with(capsys, world, notes)
+    assert refused["refusal"]["code"] == "review-floor"
+    # `lem land read` asks for no review here: the review's floor that knows an edit of
+    # Lem's settings is `land-review`'s (notes/land-propose.md); its record is written as
+    # `read --record` would write the full set's
+    state = world.checkout / ".lem" / "state"
+    found = tasks.read(state, SLUG)
+    assert found.landing is not None
+    last = found.landing.reviews[-1]
+    whole = replace(
+        last, attempt=last.attempt + 1, kind="full", findings=(), to_file=()
+    )
+    reviewed = replace(found.landing, reviews=(*found.landing.reviews, whole))
+    tasks.update(
+        state, SLUG, lambda record: replace(record, landing=reviewed), found.revision
+    )
+    envelope = propose_with(capsys, world, notes)
+    assert envelope["ok"] is True, envelope
+    found = envelope["result"]
+    assert (found["careful"], found["who_acts"], found["green"]) == (
+        True,
+        "owner",
+        False,
+    )
+    assert found["reasons"][0].startswith("careful on the fast track (the change edits")

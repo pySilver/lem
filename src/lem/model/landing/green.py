@@ -57,9 +57,10 @@ def unread(record: Record) -> tuple[str, ...]:
 
 
 def review(landing: Landing) -> tuple[str, ...]:
-    """The reason of the review: none answered, or the newest left a must-fix."""
+    """The reason of the review: none answered, two attempts after the newest answered one
+    nobody answered (`main:land.due_of`), or the newest left a must-fix."""
     last = newest(landing)
-    if last is None and len(landing.reviews) >= SILENT_REVIEWS:
+    if silent(landing) >= SILENT_REVIEWS:
         return ("not reviewed: the review was started twice and no source answered",)
     if last is None:
         return ("no review read the change",)
@@ -70,6 +71,16 @@ def review(landing: Landing) -> tuple[str, ...]:
     if left:
         return (f"the review left {left} must-fix",)
     return ()
+
+
+def silent(landing: Landing) -> int:
+    """How many attempts in a row, the newest last, nobody answered."""
+    count = 0
+    for each in reversed(landing.reviews):
+        if each.answered:
+            break
+        count += 1
+    return count
 
 
 def change_reason(record: Record, change: CriterionChanged) -> str:

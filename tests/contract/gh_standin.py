@@ -63,8 +63,11 @@ def printed(found: object) -> None:
     sys.stdout.write(f"{text}\n")
 
 
-def outside(state: State, words: list[str]) -> object:
-    """What gh prints for `repo view` and for `api` (a commit's first parent)."""
+def outside(forge: LocalForge, state: State, words: list[str]) -> object:
+    """What gh prints for `repo view` and for `api`: a pull request's `commits`, GitHub's
+    total, which no list caps, or a commit's first parent."""
+    if "/pulls/" in words[1]:
+        return counted(state, forge.pull(int(words[1].rsplit("/", 1)[-1])))
     if words[0] == "repo":
         if option(words, "--jq") == ".nameWithOwner":
             return state.name
@@ -146,7 +149,7 @@ def aimed(state: State, words: list[str]) -> None:
         words[2] if words[:2] == ["repo", "view"] else None
     )
     if words[0] == "api":
-        named = words[1].removeprefix("repos/").rsplit("/commits/", 1)[0]
+        named = "/".join(words[1].removeprefix("repos/").split("/")[:2])
     if named != state.name:
         raise Unanswered(
             "gh", f"Could not resolve to a Repository with the name '{named}'"
@@ -157,7 +160,7 @@ def answered(forge: LocalForge, state: State, words: list[str]) -> object:
     """What gh prints for `words`."""
     aimed(state, words)
     if words[0] in {"repo", "api"}:
-        return outside(state, words)
+        return outside(forge, state, words)
     if words[1] in {"list", "create"}:
         return listed(forge, words)
     number = int(words[2])

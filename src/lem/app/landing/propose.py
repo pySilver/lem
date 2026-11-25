@@ -1,7 +1,8 @@
 """`lem land propose`: the pull request's text, the push of the tip and the pull request
 (`landing.md` C, row 7; E, "Push recorded first"; `stages/land.md` step 6).
 
-The gates come first, each a refusal before anything is written or pushed; then the text is
+The gates come first, each a refusal before anything is written or pushed, then Jev's one read
+of each finding called under the bar, which may stop the step once; then the text is
 published at a path of its own, the push carries a lease on Lem's last push and is recorded
 before the forge's call, and the forge's pull request is the task's own, edited, or a new one.
 A run cut off anywhere finds what it did in git and on the forge.
@@ -13,7 +14,14 @@ from typing import TYPE_CHECKING
 import msgspec
 from msgspec.structs import replace
 
-from lem.app.landing import pr_text, propose_made, propose_push, propose_seen, step
+from lem.app.landing import (
+    pr_text,
+    propose_made,
+    propose_marks,
+    propose_push,
+    propose_seen,
+    step,
+)
 from lem.kernel.errors import Refusal
 from lem.model.landing import propose
 
@@ -31,6 +39,7 @@ def written(context: Context, title: str, notes: str) -> tuple[propose.Proposal,
     proposal = propose.decide(context.record, context.world, facts, title)
     if isinstance(proposal, Refusal):
         raise proposal
+    proposal, facts = propose_marks.marked(context, proposal, facts)
     return proposal, pr_text.body(context.record, proposal, facts)
 
 

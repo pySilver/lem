@@ -15,13 +15,10 @@ from lem.model.landing import (
     green,
     merge,
     propose_careful,
-    propose_criteria,
-    propose_doubts,
     propose_gates,
     propose_lines,
     propose_notes,
 )
-from lem.model.landing.invariants import protected
 from lem.model.landing.propose_facts import small
 from lem.model.landing.world import Due, Held, PullSeen, World
 from lem.records.base import Frozen
@@ -81,37 +78,26 @@ def adopted(record: Record, world: World) -> Refusal | PullSeen | None:
             f"pull request {others[0].number} is open on {world.branch} at "
             f"{others[0].head}, a head Lem did not push: it is somebody else's, and Lem "
             "does not push over it or rewrite its text",
-            "give the task a branch of its own (git branch -m NEW-NAME in the worktree), "
-            f"then lem land propose {slug} again",
+            "the owner closes that pull request on GitHub, or asks its author to, then "
+            f"lem land propose {slug} again; the task's branch is on its record, so a "
+            "rename in the worktree alone does not give it another",
         )
     if pull is not None:
         return pull
     return world.candidates[0] if world.candidates else None
 
 
-def gates(record: Record, world: World, facts: Facts) -> Refusal | None:
-    """The first gate of the build the request does not pass, or None."""
-    found = (
-        protected(world.branch, world.rules, "pushes"),
-        propose_gates.own_item(record, facts),
-        propose_gates.untalked(record),
-        propose_criteria.unread(record),
-        propose_criteria.silent(record),
-        propose_doubts.doubted(record),
-        propose_doubts.unapproved(record),
-        propose_gates.gone(record, facts),
-        propose_gates.waiting(record),
-    )
-    return next((refusal for refusal in found if refusal is not None), None)
-
-
 def written(
-    record: Record, facts: Facts, notes: propose_notes.Notes, title: str
+    record: Record,
+    facts: Facts,
+    notes: propose_notes.Notes,
+    title: str,
+    *,
+    careful: bool,
 ) -> Refusal | None:
     """The first gate of the notes and the title the request does not pass, or None: the
     headings the notes hold, and a finding nobody filed, which reaches the pull request only
     with a bar call and its reason or as an item the tip holds, whoever wrote its line."""
-    careful = bool(propose_careful.why(record, facts))
     held = propose_lines.wanted(small=small(record), careful=careful)
     lacking = propose_lines.missing(notes, held, record.task.slug)
     found = propose_lines.bare(notes, small=small(record), in_tip=facts.in_tip)
@@ -138,7 +124,7 @@ def made(record: Record, world: World, careful: tuple[str, ...]) -> Proposed:
         green=not reasons,
         reasons=reasons,
         careful=bool(careful),
-        who_acts=merge.who(world, reasons),
+        who_acts="owner" if careful else merge.who(world, reasons),
         at=world.now,
     )
 
@@ -150,14 +136,14 @@ def decide(
     notes = propose_notes.parsed(facts.notes)
     if isinstance(notes, Refusal):
         return notes
+    careful = propose_careful.why(record, facts)
     adopt = (
-        gates(record, world, facts)
-        or written(record, facts, notes, title)
+        propose_gates.gates(record, world, facts, careful=bool(careful))
+        or written(record, facts, notes, title, careful=bool(careful))
         or adopted(record, world)
     )
     if isinstance(adopt, Refusal):
         return adopt
-    careful = propose_careful.why(record, facts)
     return Proposal(
         push=world.remote != world.tip,
         adopt=adopt,

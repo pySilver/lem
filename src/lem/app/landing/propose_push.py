@@ -16,6 +16,7 @@ from lem.records.landing.record import Pull
 if TYPE_CHECKING:
     from lem.app.landing.frame import Context
     from lem.model.landing.propose import Proposal
+    from lem.model.landing.world import World
     from lem.records.record import Record
 
 
@@ -45,8 +46,7 @@ def pushed(context: Context, *, push: bool) -> Record:
     """Push the tip when origin lacks it, and record the commit sent before any call to the
     forge; a commit that is not the checked tip is recorded, and refused."""
     record, world = context.record, context.world
-    last = record.landing.pushed if record.landing else None
-    made = sent(context, last) if push else world.tip
+    made = sent(context, lease(record, world)) if push else world.tip
     record = context.write(record, partial(changes.landing, pushed=made))
     slug = record.task.slug
     if made != world.tip:
@@ -56,6 +56,15 @@ def pushed(context: Context, *, push: bool) -> Record:
             f"lem land next {slug}: the new tip's checks come first",
         )
     return record
+
+
+def lease(record: Record, world: World) -> str | None:
+    """The commit of origin's branch the push may replace: Lem's last push, or what origin
+    holds when the checked tip holds it, a teammate's commit the builder brought in and the
+    checks covered (`main:land.Task.own_remote`); none for a branch origin lacks."""
+    if world.remote is None or world.remote_in_tip:
+        return world.remote
+    return record.landing.pushed if record.landing else None
 
 
 def asked(context: Context, number: int | None, words: tuple[str, str]) -> Pull:

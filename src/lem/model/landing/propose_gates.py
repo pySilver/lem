@@ -1,15 +1,24 @@
 """The refusals of `propose` that the build leaves (`main:land.cmd_propose`): the task's own
-backlog item still on its branch, a plan talk its plan called for and nobody held, an item a
-review's finding was filed as and a later commit removed, a breaker that waits for the owner,
-and a title that is not one line."""
+backlog item still on its branch, a plan talk its plan called for and nobody held, a breaker
+that waits for the owner, a careful change that did not get the full set, and a title that is
+not one line."""
 
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
+from lem.model.landing import (
+    propose_criteria,
+    propose_doubts,
+    propose_filed,
+)
+from lem.model.landing.invariants import protected
+from lem.model.landing.review import newest
 from lem.records.decisions import Breaker, Taken
+from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
     from lem.model.landing.propose_facts import Facts
+    from lem.model.landing.world import World
     from lem.records.record import Record
 
 # A plan of more tasks than this is large: a plan talk before any code. The three-touches
@@ -63,30 +72,6 @@ def untalked(record: Record) -> Refusal | None:
     )
 
 
-def gone(record: Record, facts: Facts) -> Refusal | None:
-    """An item a review's finding was filed as, removed after it was filed: none is lost,
-    and none is raised again."""
-    filed = record.landing.filed if record.landing else ()
-    lost = [
-        found
-        for found in filed
-        if found.disposition == "item" and found.path and found.path not in facts.in_tip
-    ]
-    slug = record.task.slug
-    if not lost:
-        return None
-    others = len(lost) - 1
-    more = f", and {others} more" if others else ""
-    return Refusal(
-        "item-gone",
-        f"the item {lost[0].path} of the finding {lost[0].finding} was removed after it "
-        f"was filed{more}",
-        f"a builder puts it back with lem land file {slug} --again, then this step runs "
-        "again; when the owner does not want it, the item stays with `worth: no` and his "
-        "reason in it, never deleted",
-    )
-
-
 def waiting(record: Record) -> Refusal | None:
     """A request is never proposed over a breaker that stopped its build and that the owner
     did not help on."""
@@ -122,3 +107,39 @@ def titled(title: str) -> Refusal | None:
         "--title is one line: the subject of the change",
         "give the report's commit subject as --title",
     )
+
+
+def floor(record: Record, *, careful: bool) -> Refusal | None:
+    """A careful request gets the project's full set, whatever made it careful after its
+    review began: an edit of Lem's own settings too (`main:land.due_of`)."""
+    last = newest(record.landing or Landing())
+    if last is None or last.kind == "full" or not careful:
+        return None
+    slug = record.task.slug
+    return Refusal(
+        "review-floor",
+        f"the request is careful, and its newest review was {last.kind}: a careful change "
+        "gets the project's full set",
+        f"lem land read {slug} says what a reviewer gets; run the full set, then record it "
+        f"with lem land read {slug} --record FILE",
+    )
+
+
+def gates(
+    record: Record, world: World, facts: Facts, *, careful: bool
+) -> Refusal | None:
+    """The first gate of the build the request does not pass, or None."""
+    found = (
+        protected(world.branch, world.rules, "pushes"),
+        own_item(record, facts),
+        untalked(record),
+        propose_criteria.unread(record),
+        propose_criteria.silent(record),
+        propose_doubts.doubted(record),
+        propose_doubts.unapproved(record),
+        propose_filed.gone(record, facts),
+        propose_filed.refuted(record, facts),
+        waiting(record),
+        floor(record, careful=careful),
+    )
+    return next((refusal for refusal in found if refusal is not None), None)

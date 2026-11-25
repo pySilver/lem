@@ -178,10 +178,11 @@ class Gh:
         return self.pull_of(msgspec.json.decode(said, type=GhPull), depth)
 
     def commits(self, number: int) -> int:
-        """How many commits the pull request holds: a rebase replays each."""
-        query = ("commits", "--jq", ".commits | length")
-        said = self.said(PR, "view", str(number), JSON, *query)
-        return int(said.strip() or "1")
+        """How many commits the pull request holds, GitHub's own total (REST `commits` of a
+        pull request): a rebase replays each. `gh pr view --json commits` lists at most 100
+        (gh 2.101.0 asks for `commits(first: 100)`, the review of 2026-11-25)."""
+        path = f"repos/{self.named()}/pulls/{number}"
+        return int(self.said("api", path, "--jq", ".commits").strip() or "1")
 
     def pull_of(self, found: GhPull, depth: int = 1) -> Pull:
         """A pull request as the port gives it; a merged one with its merge's base."""

@@ -45,14 +45,49 @@ bringing the task onto a moved base did (`main:land.synced`, `sync_line`) and th
 event's carried facts: both need the carry's result on the record (a field of `Based` or of
 the round), which `pr_head.blocks` would print after the careful line.
 
-## For `land-review`: the Jev read of the findings under the bar
+## For `core` and `land-base` (`ports/git.py`, `adapters/git_cli_acts.py`): push the checked commit
 
-`main:land.cmd_propose` asks Jev once about each finding called under the bar (each item the
-branch adds with `worth: no`, each `under:` line of the notes), refuses once when Jev reads one
-as over the bar (`jev-over`), and ends each such line of the text with Jev's score or why it was
-not asked (`jev_read`, `jev_marked`, `jev_notes`). Those rows are `land-review`'s; `propose` has
-the place for them: a gate after `propose.written` and the text's item lines
-(`app/landing/pr_outside.py: filing_line`, `pr_notes`). Meanwhile no line carries Jev's word.
+The review of 2026-11-25 (finding 1) found again what the slice's review found: `Git.push(worktree,
+branch, expect)` pushes `refs/heads/BRANCH:refs/heads/BRANCH`, the worktree's branch as it is at
+the push. A builder's commit between `propose`'s read of the branch and the push goes to origin,
+and, in a new round, becomes the open pull request's head. `propose` narrows it and never writes
+it down as checked: it refuses when the branch is not the checked tip before the push, and after
+it records the commit git sent and refuses when that is not the checked tip
+(`app/landing/propose_push.py: sent`, `pushed`). Only the port closes it. Asked, as
+`notes/slice-land.md` asked core first: `Git.push(worktree, branch, expect, commit: Sha)`, which
+pushes `COMMIT:refs/heads/BRANCH` with the lease on the destination, and the same in `ModelGit`
+and the Git contract. `propose` then passes `world.tip`.
+
+## For `task`: a branch of the task's own
+
+`main` read the worktree's current branch at each step, so its fix for somebody else's pull
+request on the task's branch was `git branch -m NEW-NAME`. Here the branch is on the task's
+record (`app/tasks/where.branch`), so a rename alone gives the task no other branch;
+`foreign-pull`'s fix now asks the owner to close that pull request. A command that renames the
+task's branch with its record (and `Git.branch_of`, asked in `notes/slice-land.md`) would let the
+fix name it again.
+
+## For `land-review`: Jev's adapter, and the floor of a careful change
+
+- `propose` asks Jev through the `Judge` port once about each finding called under the bar (each
+  item the branch adds with `worth: no`, each `under:` line of the parts that name a finding
+  nobody filed), keeps its word in the task's `jev.json`, refuses once (`jev-over`) when Jev
+  reads one at 0.7 or more, and ends each such line with `Jev: 0.85` or `Jev: not asked (why)`
+  (`model/landing/propose_jev.py`, `app/landing/propose_jev.py`, `propose_marks.py`). With no
+  adapter (`judge_jev` not built) each finding is "not asked" with that reason. A field of the
+  record for Jev's words would replace `jev.json` (for core). `main`'s second refusal of an item
+  that still says `worth: no` with no `Decided against:` line after Jev's refusal is not built.
+- A careful request whose newest review was not the full set is refused `review-floor` by
+  `propose`; `review.floor` knows only the shape's topics, so after that refusal `lem land read`
+  is not due and asks for nothing (journey
+  `test_an_edit_of_lems_settings_needs_the_full_set_and_the_owner_merges_it` writes the full
+  set's record by hand). The floor wants every careful reason: `model/landing/propose_careful.why`.
+- Two attempts nobody answered after an answered review of another tip are a reason of not green
+  (`green.silent`); `review.holds` still asks for another read there, where `main`'s `due_of`
+  sent it to the owner.
+- A `same` finding whose open item left the tip is refused `item-gone`, and an over-bar one whose
+  open item says `worth: no` at the tip is refused `item-refuted` with `lem land file SLUG
+  --again`, which the filing step builds.
 
 Also: `Reviewed` has no `verdict`; the text calls a review `must-fix` when it left one, else
 `clean`, as `main` did with the counts.

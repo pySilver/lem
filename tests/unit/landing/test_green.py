@@ -267,3 +267,12 @@ def test_the_careful_call_names_the_shape_the_plan_the_settings_and_the_review()
     )
     broken = Facts(changed=(".lem/settings.toml",), settings=Settings(after="[x\n"))
     assert "does not read as TOML" in propose_careful.why(full(), broken)[0]
+
+
+def test_two_silent_attempts_after_a_review_of_another_tip_are_not_green() -> None:
+    older = replace(REVIEWED, tip="9" * 40)
+    silent = replace(REVIEWED, attempt=2, answered=())
+    record = with_landing(small(), reviews=(older, silent, replace(silent, attempt=3)))
+    assert green.reasons(record, ()) == (
+        "not reviewed: the review was started twice and no source answered",
+    )

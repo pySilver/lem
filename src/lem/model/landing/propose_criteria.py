@@ -91,7 +91,7 @@ def skipped(task: Task) -> Refusal | None:
             f"the owner's yes to the criteria is kept with {APPROVE.format(slug)} "
             "(stages/interview.md, step 7)",
         )
-    if leads and min(leads) < his[-1].at:
+    if leads and min(leads) < his[0].at:
         return Refusal(
             "skip-late",
             f"a lead of {slug} started before the owner's approval that came after the "

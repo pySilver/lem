@@ -131,7 +131,8 @@ def test_a_careful_request_is_not_green_on_the_fast_track_and_the_owner_merges_i
 ):
     shape = Shape(type="docs", why="w", track="small", careful=("money",))
     notes = Facts(notes="none\n\n## Migration\n\nnone\n")
-    made = decided(small(shape=shape), notes)
+    full_set = (replace(REVIEWED, kind="full"),)
+    made = decided(with_landing(small(shape=shape), reviews=full_set), notes)
     assert not isinstance(made, Refusal)
     assert made.proposed.who_acts == "owner"
     assert made.proposed.careful
@@ -295,7 +296,10 @@ def test_notes_that_lack_a_heading_or_leave_a_fence_open_are_refused() -> None:
     quoted = Facts(notes=FULL_NOTES + "\n```\n## Decisions\n```\n")
     assert not isinstance(decided(full(), quoted), Refusal)
     shape = Shape(type="docs", why="w", track="small", careful=("money",))
-    assert code_of(decided(small(shape=shape), SMALL_NOTES)) == "notes-headings"
+    careful = with_landing(
+        small(shape=shape), reviews=(replace(REVIEWED, kind="full"),)
+    )
+    assert code_of(decided(careful, SMALL_NOTES)) == "notes-headings"
 
 
 HELD = frozenset(("docs/backlog/a-held-item.md",))
@@ -715,11 +719,18 @@ def test_an_item_under_the_bar_is_not_worth_it_and_a_cheap_one_nobody_fixed_is_a
 def test_the_heading_of_an_item_is_its_worth_at_the_tip_and_a_notes_line_naming_it_is_one() -> (
     None
 ):
+    from lem.app.landing.propose_items import head_of
+
     css = "docs/backlog/a-css-rule-matches-nothing.md"
+    # the items as the tip's files hold them: a bare `no` is the word, never false
     added = (
-        replace(ADDED[0], worth="no"),
-        ADDED[1],
-        Filing(path=css, title="a CSS rule matches nothing", worth="no"),
+        head_of(b"---\nworth: no\n---\n\n# load crashes on an empty file\n", LOAD_ITEM),
+        head_of(
+            b"---\nwhere: tests/unit/test_board_model.py\nworth: no\n---\n"
+            b"# two test classes come after the main guard\n",
+            GUARD_ITEM,
+        ),
+        head_of(b"---\nworth: no\n---\n# a CSS rule matches nothing\n", css),
     )
     notes = FULL_NOTES.replace(
         "## Filed in the backlog\n\nnone",
@@ -847,3 +858,126 @@ def test_notes_that_are_no_file_of_text_are_refused_by_name(tmp_path: Path) -> N
         assert str(missing) in refused.why
     else:
         raise AssertionError("a missing notes file is refused")
+
+
+# ---- the review of 2026-11-25 (findings 3, 5, 6, 7, 9) ----
+
+
+def test_a_finding_whose_open_item_is_gone_or_now_says_no_is_refused() -> None:
+    over = Finding(
+        id="r1.2", level="nit", where="a", title="t", what="w", against="over"
+    )
+    review = replace(
+        REVIEWED, findings=(*REVIEWED.findings, over), to_file=("r1.1", "r1.2")
+    )
+    held = Filed(finding="r1.2", disposition="same", path="docs/backlog/held.md")
+    record = with_landing(full(), reviews=(review,), filed=(*PREPARED["filed"], held))
+    assert code_of(decided(record)) == "item-gone"
+    there = Facts(
+        notes=FULL_NOTES,
+        in_tip=frozenset(("docs/backlog/held.md",)),
+        heads=(Filing(path="docs/backlog/held.md", title="t", worth="no"),),
+    )
+    assert code_of(decided(record, there)) == "item-refuted"
+    later = replace(there, heads=(Filing(path="docs/backlog/held.md", worth="later"),))
+    assert not isinstance(decided(record, later), Refusal)
+
+
+def test_a_careful_request_needs_the_full_set_and_the_owner_merges_it_green() -> None:
+    plan_free = full(
+        shape=Shape(type="feat", why="w", track="full", careful=("money",))
+    )
+    careful = Facts(notes=FULL_NOTES + "\n## Migration\n\nnone\n")
+    assert code_of(decided(plan_free, careful)) == "review-floor"
+    whole = with_landing(plan_free, reviews=(replace(REVIEWED, kind="full"),))
+    made = decided(whole, careful)
+    assert not isinstance(made, Refusal)
+    assert (made.proposed.green, made.proposed.who_acts) == (True, "owner")
+
+
+def test_the_first_approval_of_his_answers_his_word_to_skip_the_read() -> None:
+    record = full()
+    skipped = replace(
+        record.task.criteria,
+        reads=(),
+        skip="yes",
+        approvals=(approval(at=MOMENT), approval(number=2, at=LATER)),
+    )
+    lead = span("lead", MOMENT.replace(minute=30))
+    word = replace(record, task=replace(record.task, criteria=skipped, spans=(lead,)))
+    assert not isinstance(decided(word), Refusal)
+
+
+def test_an_item_head_keeps_its_worth_as_the_word_written() -> None:
+    from lem.app.landing import propose_items
+
+    head = propose_items.head_of(
+        b"---\nworth: no\nwhere: a.py\n---\n# A title\n", "p.md"
+    )
+    assert (head.title, head.worth) == ("A title", "no")
+    later = propose_items.head_of(b"---\nworth: later\n---\n\n# T\n", "q.md")
+    assert later.worth == "later"
+
+
+def test_a_closing_fence_indented_four_spaces_is_code_and_the_block_stays_open() -> (
+    None
+):
+    notes = FULL_NOTES + "\n```\nsample\n    ```\n"
+    assert code_of(decided(full(), Facts(notes=notes))) == "notes-fence"
+    closed = FULL_NOTES + "\n```\nsample\n   ```\n"
+    assert not isinstance(decided(full(), Facts(notes=closed)), Refusal)
+
+
+def test_a_full_change_with_no_read_or_a_doubt_is_refused_and_its_read_is_a_line() -> (
+    None
+):
+    record = full()
+    unread = replace(record.task.criteria, reads=())
+    assert code_of(
+        decided(replace(record, task=replace(record.task, criteria=unread)))
+    ) == ("no-read")
+    early = approval(at=MOMENT.replace(hour=9))
+    flagged = replace(
+        record.task.criteria, reads=(read(flagged=1),), approvals=(early,)
+    )
+    doubted = replace(record, task=replace(record.task, criteria=flagged))
+    assert code_of(decided(doubted)) == "criteria-doubt"
+    partial = read(asked=3, silent=(QUIET.silent[0],))
+    changed_after = replace(
+        record.task.criteria,
+        reads=(partial,),
+        digest="d2",
+        approvals=(replace(approval(), digest="d2"),),
+    )
+    later = replace(record, task=replace(record.task, criteria=changed_after))
+    made = decided(later)
+    assert not isinstance(made, Refusal)
+    assert made.proposed.green
+    lines = text_of(later).splitlines()
+    assert (
+        "- the criteria were read by 2 of 3 personas asked, two model families (opus, sol); "
+        "nobody confused; no answer from the buyer, opus (the model was at capacity); the "
+        "owner approved them on 2026-11-25"
+    ) in lines
+    assert (
+        "- the criteria changed after the personas' read, by the owner's approval 1, and "
+        "the change was not read"
+    ) in lines
+
+
+def test_a_pick_of_the_dialectic_is_a_line_with_its_reason_and_its_story() -> None:
+    where = picked(1, "Where the word goes", "the first line")
+    text = text_of(full(decisions=(where,)))
+    lines = text.splitlines()
+    assert lines[2] == (
+        '- decision 1 was taken without the owner (Where the word goes): "the first line", '
+        "by the dialectic"
+    )
+    decided_part = text.split("## Decisions of the build\n\n", 1)[1]
+    assert decided_part.startswith(
+        '- Where the word goes: "the first line", by the dialectic. A reads first.'
+    )
+    assert (
+        "<details><summary>Decision 1, its story: Where the word goes</summary>" in text
+    )
+    assert "**Why it could happen:** a split" in text

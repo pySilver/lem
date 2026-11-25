@@ -226,3 +226,18 @@ def test_a_create_that_prints_no_address_is_said_as_such() -> None:
     with pytest.raises(Unanswered, match="printed no pull request address"):
         forge_gh_pulls.number_of("Warning: 2 uncommitted changes\n")
     assert forge_gh_pulls.number_of("https://github.com/o/p/pull/12\n") == 12
+
+
+def test_a_rebase_counts_its_commits_from_githubs_total_not_a_list_it_caps(
+    tmp_path: Path,
+) -> None:
+    world = gh_world(tmp_path)
+    world.push("fix-the-login", {"a.txt": b"a\n"})
+    head = world.push("fix-the-login", {"b.txt": b"b\n"})
+    opened = world.forge.open_pull("fix-the-login", "main", "Fix", "body")
+    world.forge.merge(opened.number, head, "rebase", TEXT)
+    asked = [
+        call for call in world.calls() if call[0] == "api" and "/pulls/" in call[1]
+    ]
+    assert asked == [["api", "repos/owner/project/pulls/1", "--jq", ".commits"]]
+    assert not [call for call in world.calls() if "commits" in call and call[0] == "pr"]

@@ -35,12 +35,14 @@ class Settings(Frozen, frozen=True, kw_only=True):
 class Facts(Frozen, frozen=True, kw_only=True):
     """The facts of one proposal: the paths the branch changes against its merge base with
     the base, Lem's settings as it changes them, the items it adds to the backlog, which of
-    the paths `propose` asked about the tip holds, and the notes."""
+    the paths `propose` asked about the tip holds, the head of each of them that is an item, and
+    the notes."""
 
     changed: tuple[str, ...] = ()
     settings: Settings = Settings()
     added: tuple[Filing, ...] = ()
     in_tip: frozenset[str] = frozenset()
+    heads: tuple[Filing, ...] = ()
     notes: str = ""
 
 

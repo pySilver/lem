@@ -3,14 +3,19 @@
 the base, Lem's settings as it changes them, the items it adds to the backlog, and which of the
 paths `propose` asks about the tip holds."""
 
+from operator import attrgetter
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from msgspec.structs import replace
 
 from lem.app.landing import propose_items
 from lem.kernel.errors import Refusal
 from lem.model.landing.propose_careful import LOCAL, TEAM
 from lem.model.landing.propose_facts import Facts, Settings
 from lem.model.landing.propose_lines import named
+
+PATH = attrgetter("path")
 
 if TYPE_CHECKING:
     from lem.app.landing.frame import Context
@@ -58,19 +63,22 @@ def asked(record: Record, notes: str) -> set[str]:
 
 def gathered(context: Context, notes: str) -> Facts:
     """The facts of the proposal of the tip now, with the notes of the file `notes`."""
-    git, where = context.ports.git, context.worktree
     commits = span(context)
-    changed = git.diff_stat(where, *commits).paths
     written = notes_of(notes)
-    return Facts(
-        changed=changed,
-        settings=settings_of(git, where, commits),
-        added=propose_items.added(git, where, commits, changed),
-        in_tip=propose_items.held(
-            git, where, commits[1], asked(context.record, written)
-        ),
-        notes=written,
-    )
+    paths = asked(context.record, written)
+    heads = propose_items.held(context.ports.git, context.worktree, commits[1], paths)
+    facts = replace(branch(context, commits), heads=heads, notes=written)
+    return replace(facts, in_tip=frozenset(map(PATH, heads)))
+
+
+def branch(context: Context, commits: tuple[str, str]) -> Facts:
+    """What the branch changes against its merge base: its paths, Lem's settings and the
+    items it adds."""
+    git, where = context.ports.git, context.worktree
+    changed = git.diff_stat(where, *commits).paths
+    settings = settings_of(git, where, commits)
+    added = propose_items.added(git, where, commits, changed)
+    return Facts(changed=changed, settings=settings, added=added)
 
 
 def span(context: Context) -> tuple[str, str]:

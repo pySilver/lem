@@ -7,13 +7,10 @@ and the step would go on with less of the notes than their writer wrote.
 """
 
 import itertools
-from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
+from lem.model.landing import propose_fences
 from lem.records.base import Frozen
-
-if TYPE_CHECKING:
-    from markdown_it.token import Token
 
 # The line of each heading of the notes.
 type Starts = tuple[int, ...]
@@ -42,17 +39,6 @@ class Notes(Frozen, frozen=True, kw_only=True):
     parts: tuple[Part, ...] = ()
 
 
-def unclosed(token: Token, lines: list[str]) -> int | None:
-    """The line of a fenced block that runs to the end of the notes with no closing fence,
-    counted from 1; None for any other token."""
-    first, end = token.map or (0, 0)
-    if token.type != "fence" or end < len(lines):
-        return None
-    last = lines[end - 1].strip()
-    fenced = last.startswith(token.markup) and not last.strip("`~")
-    return None if end - 1 > first and fenced else first + 1
-
-
 def starts(text: str) -> Starts | Refusal:
     """The line of each `## ` heading of the notes, or the refusal of a block that never
     closes."""
@@ -63,7 +49,7 @@ def starts(text: str) -> Starts | Refusal:
     lines = text.splitlines()
     found: list[int] = []
     for token in MarkdownIt("commonmark").parse(text):
-        opened = unclosed(token, lines)
+        opened = propose_fences.unclosed(token, lines)
         if opened is not None:
             return Refusal(
                 "notes-fence",
