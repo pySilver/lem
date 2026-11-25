@@ -9,6 +9,7 @@ checkout where Lem is set up.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from lem.kernel.errors import Refusal
 from lem.settings import base, checked, files, places, seated
 from lem.settings.machine import HANDOFF_FLOOR, Machine
 from lem.settings.personal import Home, Local
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from lem.ports.git import GitPlaces
+    from lem.ports.git import GitFacts
 
 type Named = tuple[files.Tables, str]
 type Shape = type[Machine | Home | Team | Local]
@@ -33,28 +34,26 @@ SHAPES: tuple[tuple[places.Scope, Shape], ...] = (
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Where:
     """Where the four files are: the main checkout (None outside a set-up repository), Lem's
-    home folder, the environment that names it, and the git that reads the base."""
+    home folder, the environment that names it, the git that reads the base, and a file as an
+    edit would leave it, which is checked with the others before the edit is written."""
 
     checkout: Path | None
     home: Path
     environ: Mapping[str, str]
-    git: GitPlaces | None = None
+    git: GitFacts | None = None
+    # A file's tables as an edit would leave them, read in the place of the file on disk.
+    edited: tuple[tuple[places.Scope, files.Tables], ...] = ()
 
     def named(self, scope: places.Scope) -> str:
         """The name of one of the four files, as a refusal and `from` give it."""
         return places.named(scope, self.home, self.environ)
 
 
-def shape_of(scope: places.Scope) -> Shape:
-    """The struct of one of the four files."""
-    return next(shape for name, shape in SHAPES if name == scope)
-
-
 def check(tables: files.Tables, scope: places.Scope, name: str, where: Where) -> None:
     """Refuse a table, a key or a value of one file that Lem cannot use."""
     files.placed(tables, scope, where.named)
-    files.keyed(tables, shape_of(scope), name)
-    found = files.converted(tables, shape_of(scope), name)
+    files.keyed(tables, dict(SHAPES)[scope], name)
+    found = files.converted(tables, dict(SHAPES)[scope], name)
     seats = tables.get("seats")
     if isinstance(seats, dict):
         seated.seated(seats, name)
@@ -70,11 +69,43 @@ def source(scope: places.Scope, where: Where) -> Named:
     if scope == places.Scope.team and where.checkout is not None:
         body, name = base.team_text(where.checkout, where.git)
         return files.decoded(body, name), name
+    name = where.named(scope)
+    edited = dict(where.edited).get(scope)
+    if edited is not None:
+        return edited, name
     path = places.path_of(scope, where.home)
     if scope == places.Scope.local and where.checkout is not None:
         path = where.checkout / path
-    name = where.named(scope)
     return files.read(path, name), name
+
+
+def checked_source(scope: places.Scope, where: Where) -> Named:
+    """One file read and checked."""
+    tables, name = source(scope, where)
+    check(tables, scope, name, where)
+    return tables, name
+
+
+def sourced(scope: places.Scope, where: Where) -> Named:
+    """One file read and checked; a refusal of the base's committed file says where its fix
+    counts."""
+    try:
+        return checked_source(scope, where)
+    except Refusal as refused:
+        held = base.branch_of(refused.why)
+        if held is None:
+            raise
+        raise Refusal(
+            refused.code, refused.why, counted(held, refused.fix)
+        ) from refused
+
+
+def counted(held: str, fix: str) -> str:
+    """The fix of a line of the base `held`'s committed file."""
+    counts = (
+        f"Lem reads {base.OWN} as {held} has it, so a fix counts once it is committed"
+    )
+    return f"{counts} on {held}: {fix}"
 
 
 def read(where: Where, wanted: places.Scopes = places.NEAREST) -> list[Named]:
@@ -84,7 +115,5 @@ def read(where: Where, wanted: places.Scopes = places.NEAREST) -> list[Named]:
     for scope in wanted:
         if where.checkout is None and scope in places.REPOSITORY:
             continue
-        tables, name = source(scope, where)
-        check(tables, scope, name, where)
-        found.append((tables, name))
+        found.append(sourced(scope, where))
     return found

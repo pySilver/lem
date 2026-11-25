@@ -113,3 +113,13 @@ def test_reviewer_is_no_command_and_writes_nothing(tmp_path: Path) -> None:
 
 def test_the_edit_of_a_file_is_tomlkits_the_well_known_library() -> None:
     assert edit.tomlkit is tomlkit
+
+
+def test_the_load_gate_shows_its_threshold_where_lem_is_not_set_up(
+    tmp_path: Path,
+) -> None:
+    setup = given(tmp_path, machine="[load]\nstart = 60\n")
+    found = shown(None, setup.environ)
+    assert found.settings is None
+    assert found.load.start == 60
+    assert found.sources["load.start"] == "~/config/lem/machine.toml"

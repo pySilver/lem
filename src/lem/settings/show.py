@@ -25,11 +25,13 @@ if TYPE_CHECKING:
 
 
 class LoadNow(Frozen, frozen=True, kw_only=True):
-    """The load average now, the cores, and the gate: `open`, `closed` with the number the
-    checks wait for, or None where the machine took the gate away (`load.start = 0`)."""
+    """The load average now, the cores, the threshold under which the checks start (0, no
+    gate), and the gate: `open`, `closed` with the number the checks wait for, or None where
+    the machine took the gate away."""
 
     now: float
     cores: int | None
+    start: float
     gate: str | None = None
 
 
@@ -44,6 +46,7 @@ class Shown(msgspec.Struct, frozen=True, kw_only=True):
     experts: tuple[Expert, ...] = ()
     places: dict[str, Placed] = msgspec.field(default_factory=dict)
     load: LoadNow
+    notice: str | None = None
 
 
 def load_now(given: Load) -> LoadNow:
@@ -56,7 +59,7 @@ def load_now(given: Load) -> LoadNow:
             if now < given.start
             else f"closed: the checks wait for a load below {given.start:g}"
         )
-    return LoadNow(now=now, cores=os.cpu_count(), gate=gate)
+    return LoadNow(now=now, cores=os.cpu_count(), start=given.start, gate=gate)
 
 
 def shown(checkout: Path | None, environ: Mapping[str, str]) -> Shown:
@@ -74,4 +77,5 @@ def shown(checkout: Path | None, environ: Mapping[str, str]) -> Shown:
         experts=experts_of(in_force.seats, environ),
         places=places_of(checkout, in_force.paths),
         load=load_now(in_force.load),
+        notice=found.notice,
     )

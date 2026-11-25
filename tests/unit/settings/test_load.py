@@ -346,9 +346,75 @@ def test_the_main_checkout_on_another_branch_reads_the_bases_commit(
     environ = {"HOME": str(tmp_path), "XDG_CONFIG_HOME": str(tmp_path / "config")}
     found = load.settings_of(repo.checkout, environ)
     assert found.settings.branch.land == "agent"
-    assert found.sources["branch.land"] == f"main:{TEAM}"
+    assert found.sources["branch.land"].startswith("main@")
     run_git(repo.checkout, "checkout", "--quiet", "main")
     (repo.checkout / TEAM).write_text("[branch]\nbase = 'main'\nland = 'owner'\n")
     on_base = load.settings_of(repo.checkout, environ)
     assert on_base.settings.branch.land == "owner"
     assert on_base.sources["branch.land"] == TEAM
+
+
+def committed_on(repo: RealRepo, branch: str, text: str) -> None:
+    """A commit of the team's file on `branch`, made from `main`, in the main checkout."""
+    run_git(repo.checkout, "checkout", "--quiet", "-B", branch, "main")
+    (repo.checkout / TEAM).write_text(text)
+    run_git(
+        repo.checkout,
+        "commit",
+        "--quiet",
+        "--all",
+        "--message",
+        f"settings of {branch}",
+    )
+
+
+def origin_head(repo: RealRepo, branch: str) -> None:
+    """Origin's default branch, as git keeps it."""
+    remotes = repo.checkout / ".git" / "refs" / "remotes" / "origin"
+    remotes.mkdir(parents=True, exist_ok=True)
+    (remotes / "HEAD").write_text(f"ref: refs/remotes/origin/{branch}\n")
+
+
+@pytest.mark.parametrize(
+    "topic_names", ["main", "topic"], ids=("names-main", "names-itself")
+)
+def test_the_base_the_defaults_file_names_gives_the_rules_on_another_branch(
+    tmp_path: Path, topic_names: str
+) -> None:
+    main = b"[branch]\nbase = 'release'\nland = 'agent'\n"
+    repo = RealRepo.init(tmp_path / "repo", {".lem/settings.toml": main})
+    origin_head(repo, "main")
+    committed_on(repo, "release", "[branch]\nbase = 'release'\nland = 'owner'\n")
+    run_git(repo.checkout, "checkout", "--quiet", "-B", "topic", "main")
+    (repo.checkout / TEAM).write_text(
+        f"[branch]\nbase = '{topic_names}'\nland = 'agent'\n"
+    )
+    environ = {"HOME": str(tmp_path), "XDG_CONFIG_HOME": str(tmp_path / "config")}
+    found = load.settings_of(repo.checkout, environ)
+    assert found.settings.branch.land == "owner"
+    assert found.sources["branch.land"].startswith("release@")
+    assert found.notice is not None
+    assert "not on release" in found.notice
+
+
+def test_a_base_named_with_no_file_of_its_own_is_refused(tmp_path: Path) -> None:
+    main = b"[branch]\nbase = 'gone'\n"
+    repo = RealRepo.init(tmp_path / "repo", {".lem/settings.toml": main})
+    origin_head(repo, "main")
+    run_git(repo.checkout, "checkout", "--quiet", "-b", "topic")
+    environ = {"HOME": str(tmp_path), "XDG_CONFIG_HOME": str(tmp_path / "config")}
+    with pytest.raises(Refusal) as caught:
+        load.settings_of(repo.checkout, environ)
+    assert caught.value.code == "settings-base"
+    assert "gone" in caught.value.why
+
+
+def test_a_wrong_line_on_the_base_says_where_its_fix_counts(tmp_path: Path) -> None:
+    main = b"[branch]\nbase = 'main'\nland = 'robot'\n"
+    repo = RealRepo.init(tmp_path / "repo", {".lem/settings.toml": main})
+    run_git(repo.checkout, "checkout", "--quiet", "-b", "topic")
+    (repo.checkout / TEAM).write_text("[branch]\nbase = 'main'\n")
+    environ = {"HOME": str(tmp_path), "XDG_CONFIG_HOME": str(tmp_path / "config")}
+    with pytest.raises(Refusal) as caught:
+        load.settings_of(repo.checkout, environ)
+    assert "a fix counts once it is committed on main" in caught.value.fix

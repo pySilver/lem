@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.records.base import Frozen
-from lem.settings import effective, files, places, reading
+from lem.settings import base, effective, files, places, reading
 from lem.settings.machine import Machine
 from lem.settings.team import Team
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from lem.ports.git import GitPlaces
+    from lem.ports.git import GitFacts
 
 type Environ = Mapping[str, str]
 
@@ -28,26 +28,43 @@ INIT = "lem init --base BRANCH writes it"
 
 
 class Loaded(Frozen, frozen=True, kw_only=True):
-    """The settings in force, and each key's `from`."""
+    """The settings in force, each key's `from`, and the line that says the team's file is the
+    base's commit, not the copy checked out in the main checkout."""
 
     settings: effective.Effective
     sources: dict[str, str]
+    notice: str | None = None
 
 
 def settings_of(
-    checkout: Path | None, environ: Environ, git: GitPlaces | None = None
+    checkout: Path | None, environ: Environ, git: GitFacts | None = None
 ) -> Loaded:
     """The settings in force for `checkout`, a main checkout where Lem is set up, or None
     outside one."""
     home = paths.home(environ)
-    where = reading.Where(checkout=checkout, home=home, environ=environ, git=git)
+    return loaded(reading.Where(checkout=checkout, home=home, environ=environ, git=git))
+
+
+def loaded(where: reading.Where) -> Loaded:
+    """The settings in force for the files of `where`, each checked."""
     named = reading.read(where)
     in_force = files.converted(
         effective.merged(named), effective.Effective, "the settings"
     )
     return Loaded(
-        settings=in_force,
-        sources=effective.sources(named),
+        settings=in_force, sources=effective.sources(named), notice=notice_of(named)
+    )
+
+
+def notice_of(named: list[effective.Named]) -> str | None:
+    """The line that says the team's file is the base's commit, or None."""
+    said = (base.branch_of(name) for _, name in named)
+    held = next((one for one in said if one), None)
+    if held is None:
+        return None
+    return (
+        f"the main checkout is not on {held}, so Lem reads {places.TEAM} as {held}'s "
+        "newest commit has it, not the copy checked out there"
     )
 
 
