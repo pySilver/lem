@@ -228,7 +228,7 @@ Each module's docstring says what it does and why; this list says where each thi
     shared lock), `clock.py` (a moment as text), `proc.py` (the stop of a
     process group), `plans.py` (a plan's file
     name), `sibling.py` (a sibling's command in the same process), `release.py` (a task's
-    `release.txt` and its stop two releases back) and `hooks.py` (`lem-hook`, the hooks' one entry).
+    `release.txt` and its stop two releases back) and `hooks.py` (`lem-hook`, every hook's entry).
 - `skills/lem/assets/`: what `lem serve` sends under `/assets/`. `board.css` is the board's look,
   the phone's too; `lem.css` and `lem.js` are the look and the palette every page of Lem shares, and
   a new page for the owner links both and brings no style of its own. `push.css` and `sw.js` are the
@@ -284,7 +284,7 @@ Each module's docstring says what it does and why; this list says where each thi
 - `.claude-plugin/` and `hooks/`: what Claude Code reads to load this repository as the plugin
   `lem`. `pyproject.toml` builds the app, the package with these files under `lem/data`
   (`hatch_build.py`: an editable install takes `checkout.pth` instead), whose one command is `lem`.
-  `hooks/hooks.json` starts, each through `hooks/run` and `lem-hook`, the correction hook, the SessionStart
+  `hooks/hooks.json` starts, each through `hooks/run`, the correction hook, the SessionStart
   hook of the board server, the two hooks of a task's session and lem-ask's Stop hook. Every text and message says `lem NAME`, so one permission rule, `Bash(lem *)`, covers them on every machine and
   after every update.
 - `agents/lem-builder.md`: the builder, as a Claude Code agent definition; its body is the builder's
