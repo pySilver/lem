@@ -15,7 +15,7 @@ from lem.addons.proposals import days, planning
 from lem.addons.proposals.judgment import Judgment
 from lem.addons.proposals.record import DayRecord, Passed, Refuted
 from lem.kernel import files
-from lem.store.reviewer_items import BACKLOG
+from lem.store import reviewer_items
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -27,8 +27,8 @@ if TYPE_CHECKING:
 
 def judged(state: Path, given: verdicts.VerdictsGiven, today: dt.date) -> Judgment:
     """Write the verdicts `given` on `today`: the items, then the records."""
-    folder = state / BACKLOG
-    with days.held(state):
+    folder = state / reviewer_items.BACKLOG
+    with reviewer_items.held(state):
         plan = planning.planned(folder, state, given, today)
         written(folder, plan)
         recorded(plan, today)

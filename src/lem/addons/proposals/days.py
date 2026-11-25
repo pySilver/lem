@@ -16,11 +16,8 @@ import msgspec
 from lem.addons.proposals import form, refusals
 from lem.addons.proposals.record import DayRecord, Kind
 from lem.kernel import files
-from lem.store import reviewer_items
 
 if TYPE_CHECKING:
-    from contextlib import AbstractContextManager
-    from io import TextIOWrapper
     from pathlib import Path
 
 # The folder of each kind of run in the state folder.
@@ -85,8 +82,3 @@ def dated(path: Path) -> bool:
         return dt.date.fromisoformat(path.stem).isoformat() == path.stem
     except ValueError:
         return False
-
-
-def held(state: Path) -> AbstractContextManager[TextIOWrapper]:
-    """The lock of the records and the reviewer's items, held while the block runs."""
-    return reviewer_items.held(state)

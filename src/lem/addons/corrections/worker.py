@@ -63,17 +63,27 @@ def worked(
 def state_of(given: Path) -> Path:
     """The state folder of the waiting correction `given`; refused for a file anywhere else,
     which the worker never reads or removes."""
-    folder = given.parent
+    folder = given.absolute().parent
     state = folder.parent
-    inside = folder.name == queue.WAITING and state.parent.name == ".lem"
-    if not inside or given.is_symlink() or not given.is_file():
-        raise Refusal(
-            "not-waiting",
-            f"{given} is no correction waiting in {queue.WAITING}/ of a state folder",
-            "only the correction hook starts the worker, with the file it wrote",
-        )
-    places.workspace(state.parent.parent)
-    return state
+    if folder.name != queue.WAITING or folder.resolve() != folder:
+        raise not_waiting(given)
+    where = places.workspace(state.parent.parent)
+    if (
+        folder != where.state / queue.WAITING
+        or given.is_symlink()
+        or not given.is_file()
+    ):
+        raise not_waiting(given)
+    return where.state
+
+
+def not_waiting(given: Path) -> Refusal:
+    """The file is not in the workspace's waiting folder."""
+    return Refusal(
+        "not-waiting",
+        f"{given} is no correction waiting in {queue.WAITING}/ of a state folder",
+        "only the correction hook starts the worker, with the file it wrote",
+    )
 
 
 def taken(given: Path) -> Correction:

@@ -58,6 +58,19 @@ def test_a_retro_with_no_proposal_writes_its_days_file_with_what_it_read(
         "dropped"
     }
     assert body["runs"][0]["at"] == "2026-11-23T06:55:00Z"
+    assert body["runs"][0]["proposals"] == []
+
+
+def test_a_run_without_its_proposals_list_is_refused(tmp_path: Path) -> None:
+    state = state_of(tmp_path)
+    add(state, "retro", [])
+    path = days.path_of(state, "retro", DAY)
+    fields = json.loads(path.read_text())
+    fields["runs"][0].pop("proposals", None)
+    path.write_text(json.dumps(fields))
+    with pytest.raises(Refusal) as caught:
+        listing.listed(state)
+    assert "missing required field `proposals`" in caught.value.why
 
 
 def test_a_second_retro_of_the_day_adds_after_the_first_and_keeps_its_verdicts(
@@ -293,6 +306,30 @@ def test_a_proposal_judged_once_is_not_judged_again_and_a_wrong_verdict_writes_n
     ]
     assert record(state, "retro") == before
     assert [path.name for path in (state / "backlog").iterdir()] == ["lesson-1.md"]
+
+
+@pytest.mark.parametrize(
+    "words", [{"passed": "lessons", "refuted": None}, {"passed": None, "refuted": "no"}]
+)
+def test_a_verdict_with_both_keys_is_refused_even_when_one_is_null(
+    tmp_path: Path, words: dict[str, str | None]
+) -> None:
+    state = state_of(tmp_path)
+    added = add(state, "retro", [proposal("lessons", "One")])
+    daily = days.path_of(state, "retro", DAY)
+    before = daily.read_bytes()
+    given = {
+        "verdicts": [{"proposal": added.names[0], **words}],
+        "titles": {"lessons": "Lessons"} if words["passed"] else {},
+    }
+    refused = refusal(
+        lem(
+            "proposals", "verdict", "--file", "-", stdin=json.dumps(given), cwd=tmp_path
+        )
+    )
+    assert "null" in refused["why"]
+    assert daily.read_bytes() == before
+    assert not (state / "backlog").exists()
 
 
 def test_criterion_3_a_refuted_proposal_is_a_worth_no_item_that_holds_its_reason(

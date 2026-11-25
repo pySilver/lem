@@ -14,6 +14,7 @@ from lem.addons.proposals import days, names
 from lem.addons.proposals.given import Given, RunGiven, checked
 from lem.addons.proposals.record import DayRecord, Kind, Proposal, Run
 from lem.records.base import Day, Frozen, Moment
+from lem.store import reviewer_items
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -48,7 +49,7 @@ def added(state: Path, kind: Kind, day: dt.date, run: RunGiven, now: Moment) -> 
     """Add the run `run` of `kind` to its record of `day`, under the records' lock."""
     path = days.path_of(state, kind, day)
     checked(run)
-    with days.held(state):
+    with reviewer_items.held(state):
         before = days.read(path, kind) or DayRecord(
             date=day,
             kind=kind,

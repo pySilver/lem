@@ -36,7 +36,7 @@ class Run(Frozen, frozen=True, kw_only=True):
 
     at: Moment
     read: str
-    proposals: tuple[int, ...] = ()
+    proposals: tuple[int, ...]
 
 
 class Refuted(Frozen, frozen=True, kw_only=True):

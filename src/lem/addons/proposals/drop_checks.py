@@ -3,10 +3,9 @@ open task started from it, and it names proposals that passed into it."""
 
 from typing import TYPE_CHECKING
 
-from lem.addons.proposals import heads
+from lem.addons.proposals import heads, item_files
 from lem.kernel.errors import Refusal
-from lem.model.task.claim import ENDED
-from lem.store import reviewer_items, tasks
+from lem.store import reviewer_items
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -51,13 +50,7 @@ def present(target: Path, path: str) -> str:
 
 def not_held(state: Path, path: str) -> None:
     """Refuse the drop while a task that has not ended started from the item."""
-    checkout = state.parent.parent
-    holding = (
-        record.task
-        for record in tasks.every(state)
-        if record.task.status not in ENDED
-        and reviewer_items.relative(checkout, record.task.backlog_item or "") == path
-    )
+    holding = (task for claimed, task in item_files.claims_of(state) if claimed == path)
     task = next(holding, None)
     if task is not None:
         raise Refusal(

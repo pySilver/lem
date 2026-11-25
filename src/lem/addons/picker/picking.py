@@ -2,7 +2,7 @@
 task picked: its live session, else its board (`picker.main` on `main`).
 
 An agterm keymap command starts it with a chord; the keymap is agterm's file, and `lem doctor`
-gives its line. A pick of a task whose newest session lives with its agent selects that session,
+gives its line. A pick of a task whose newest session still carries it selects that session,
 the owner's own act; a task with none, and the last row, open the board server's page of that
 task, or of all tasks, as `lem board --follow` does. Nothing is typed into a pane. Escape opens
 nothing and says nothing.
@@ -37,7 +37,7 @@ def picked(folder: Path, now: dt.datetime) -> Picked:
     chosen = chosen_row(here, found)
     if chosen is None:
         return Picked(picked=None)
-    live = None if chosen == row.ALL else sessions.live_session(here, chosen, now)
+    live = None if chosen == row.ALL else sessions.live_session(here, chosen)
     if live is None:
         board.opened(here.where.checkout, chosen)
         return Picked(picked=chosen, went="board")

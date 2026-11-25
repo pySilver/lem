@@ -6,8 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from lem.addons.picker import picking
-
 ROOT = Path(__file__).resolve().parents[4]
 SKILL = ROOT / "skills" / "lem"
 
@@ -104,9 +102,3 @@ def test_no_text_of_the_add_ons_is_of_the_old_form(parts: tuple[str, ...]) -> No
     said = SKILL.joinpath(*parts).read_text(encoding="utf-8")
     assert "<!-- lem: old form -->" not in said
     assert "lem project " not in said
-
-
-def test_a_chord_opens_the_list_of_the_tasks() -> None:
-    told = " ".join((picking.__doc__ or "").split())
-    assert "An agterm keymap command starts it with a chord" in told
-    assert "Escape opens nothing and says nothing" in told

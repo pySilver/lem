@@ -64,18 +64,17 @@ def split(
 
 def posted(
     client: httpx.Client, url: str, key: str, request: wire.Request, deadline: float
-) -> bytes | None:
-    """The reply's body to a request in Jev's JSON form, read until `deadline`; None for a
-    reply that failed or did not end by then (`jev.ask` on `main`)."""
+) -> bytes | NotAsked:
+    """The reply's body read until `deadline`, or why no reply was read."""
     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
     body = msgspec.json.encode(request)
     with client.stream("POST", url, content=body, headers=headers) as reply:
         if not reply.is_success:
-            return None
+            return NotAsked(why=f"HTTP {reply.status_code}")
         chunks: list[bytes] = []
         for chunk in reply.iter_bytes():
             if time.monotonic() > deadline:
-                return None
+                return NO_ANSWER
             chunks.append(chunk)
     return b"".join(chunks)
 
@@ -89,9 +88,12 @@ class Asker:
     model: str
     transport: httpx.BaseTransport | None = None
 
-    def sent(self, request: wire.Request) -> dict[str, float] | NotAsked:
+    def sent(
+        self, request: wire.Request, *, report_http_status: bool = False
+    ) -> dict[str, float] | NotAsked:
         """The scores of one request, or why it got none. The whole request, its reply read
-        to its end, is given `SECONDS`: a reply that trickles past them is no answer."""
+        to its end, is given `SECONDS`: a reply that trickles past them is no answer.
+        The correction log asks for the HTTP status of a failed reply."""
         if self.key is None:
             return NO_KEY
         deadline = time.monotonic() + SECONDS
@@ -100,7 +102,9 @@ class Asker:
                 body = posted(client, self.url, self.key, request, deadline)
         except httpx.HTTPError:
             return NO_ANSWER
-        scores = None if body is None else wire.scores_of(body, request)
+        if isinstance(body, NotAsked):
+            return body if report_http_status else NO_ANSWER
+        scores = wire.scores_of(body, request)
         return NO_ANSWER if scores is None else scores
 
     def over(self, defect: Defect, rule: str) -> Score | NotAsked:

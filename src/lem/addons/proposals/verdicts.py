@@ -33,8 +33,8 @@ class VerdictGiven(Frozen, frozen=True, kw_only=True, forbid_unknown_fields=True
     """One verdict: the proposal, and its reason or its area."""
 
     proposal: str
-    refuted: str | None = None
-    passed: Area | None = None
+    refuted: str | msgspec.UnsetType = msgspec.UNSET
+    passed: Area | msgspec.UnsetType = msgspec.UNSET
 
 
 class VerdictsGiven(Frozen, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -48,7 +48,7 @@ def call_of(verdict: VerdictGiven) -> tuple[str, str]:
     """`refuted` and its reason, or `passed` and its area; refused for both, or neither, or
     an empty reason."""
     given = (("refuted", verdict.refuted), ("passed", verdict.passed))
-    calls = [(word, said) for word, said in given if said is not None]
+    calls = [(word, said) for word, said in given if isinstance(said, str)]
     written = all(said.strip() for _, said in calls)
     if len(calls) != 1 or not written:
         raise Refusal(

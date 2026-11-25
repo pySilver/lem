@@ -59,7 +59,7 @@ def asked(
     request = request_of(jev.model, correction.previous, correction.owner)
     if wire.size_of(request) > wire.LIMIT_BYTES:
         return judge_jev_ask.TOO_LONG
-    return jev.sent(request)
+    return jev.sent(request, report_http_status=True)
 
 
 def asker_of(environ: Mapping[str, str]) -> judge_jev_ask.Asker:

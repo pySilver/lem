@@ -144,6 +144,24 @@ def test_a_failure_of_jev_is_a_line_of_the_log_and_the_list_counts_it_first(
     assert found.groups == ()
 
 
+@pytest.mark.parametrize("status", [401, 503])
+def test_the_correction_log_keeps_jevs_http_status(tmp_path: Path, status: int) -> None:
+    state = workspace(tmp_path / "repo").state
+    environ = home(tmp_path / "config")
+    transport = httpx.MockTransport(lambda _: httpx.Response(status, text=PROMPT))
+    asker = judge_jev_ask.Asker(
+        key="a-key", url="https://jev", model="m", transport=transport
+    )
+    worked = worker.worked(waiting(state), environ, NOW, asker)
+    assert not worked.queued
+    found = listing.listed(state, collect=True)
+    assert found.failures.newest is not None
+    error = found.failures.newest.error
+    assert error is not None
+    assert f"HTTP {status}" in error
+    assert PROMPT not in (state / queue.LOG).read_text()
+
+
 def test_with_no_yes_of_the_machine_nothing_is_sent_and_the_words_leave_no_file(
     tmp_path: Path,
 ) -> None:
@@ -206,6 +224,26 @@ def test_a_file_outside_the_waiting_folder_is_neither_read_nor_removed(
         worker.worked(stray, home(tmp_path / "config"), NOW, Jev(0.9).asker())
     assert caught.value.code == "not-waiting"
     assert stray.is_file()
+
+
+@pytest.mark.parametrize("redirected", [False, True])
+def test_the_worker_refuses_waiting_files_outside_the_workspace_queue(
+    tmp_path: Path, *, redirected: bool
+) -> None:
+    where = workspace(tmp_path / "repo")
+    archive = where.lem / "archive"
+    archive.mkdir()
+    stray = waiting(archive)
+    path = stray
+    if redirected:
+        (where.state / queue.WAITING).symlink_to(stray.parent, target_is_directory=True)
+        path = where.state / queue.WAITING / stray.name
+    jev = Jev(0.9)
+    with pytest.raises(Refusal) as caught:
+        worker.worked(path, home(tmp_path / "config"), NOW, jev.asker())
+    assert caught.value.code == "not-waiting"
+    assert stray.is_file()
+    assert not jev.sent
 
 
 def test_one_sentence_from_two_sessions_is_one_group_most_sessions_first(

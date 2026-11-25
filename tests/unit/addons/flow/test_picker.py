@@ -4,6 +4,8 @@ the ports, and the board's opening a stand-in that records what it was asked."""
 
 import datetime as dt
 import json
+import os
+import subprocess
 from dataclasses import replace as replace_dataclass
 from subprocess import CompletedProcess
 from typing import TYPE_CHECKING
@@ -19,11 +21,15 @@ from fakes.records import MOMENT, record
 from fakes.terminal import FakeTerminal
 from lem.adapters import terminal_agterm
 from lem.addons.picker import board, looks, picking, row, rows, sessions, words
+from lem.app.sessions import acts, log
 from lem.app.sessions.here import Here
+from lem.cli.doctor.look import Look as DoctorLook
+from lem.cli.doctor.picker import picker_row
+from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.owner import waiting
 from lem.ports.faults import Unanswered
-from lem.ports.terminal import PickRow
+from lem.ports.terminal import Pane, PickRow
 from lem.records.holds import BreakerHold, OwnerHold, Parked
 from lem.records.landing.record import Landing, Pull
 from lem.records.task import Shape
@@ -182,19 +188,46 @@ def chosen(monkeypatch: pytest.MonkeyPatch, here: Here, row_id: str | None) -> N
     terminal.picked = row_id
 
 
+@pytest.mark.parametrize(
+    ("foreground", "age", "lives"),
+    [(None, 90, True), ((), 30, True), ((), 90, False), (("claude",), 90, True)],
+)
 def test_a_pick_of_a_task_whose_session_lives_selects_that_session(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, opened: Board
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    opened: Board,
+    foreground: tuple[str, ...] | None,
+    age: int,
+    *,
+    lives: bool,
 ) -> None:
-    from lem.ports.terminal import Pane
-
-    terminal = FakeTerminal(panes={"s-7": Pane(id="s-7", name="fix-login")})
+    terminal = FakeTerminal(
+        panes={"s-7": Pane(id="s-7", name="fix-login")}, grounds={"s-7": foreground}
+    )
     here = here_of(tmp_path, terminal)
     chosen(monkeypatch, here, "fix-login")
-    monkeypatch.setattr(sessions, "live_session", lambda *_: "s-7")
-    went = picking.picked(tmp_path, NOW)
-    assert (went.picked, went.went, went.session) == ("fix-login", "session", "s-7")
-    assert terminal.panes["s-7"].selected
-    assert opened.opened == []
+    log.append(
+        here.folder("fix-login"),
+        acts.Open(
+            at=NOW - dt.timedelta(seconds=age),
+            session="s-7",
+            name="fix-login",
+            phase="build",
+            why="opened",
+        ),
+    )
+    monkeypatch.setattr(clock, "now", lambda: NOW)
+    went = picking.picked(tmp_path, NOW - dt.timedelta(seconds=80))
+    assert went.picked == "fix-login"
+    assert terminal.panes["s-7"].selected is lives
+    if lives:
+        assert (went.went, went.session, opened.opened) == ("session", "s-7", [])
+    else:
+        assert (went.went, went.session, opened.opened) == (
+            "board",
+            None,
+            ["fix-login"],
+        )
 
 
 def test_a_pick_with_no_live_session_and_the_last_row_open_the_board(
@@ -241,7 +274,9 @@ def test_a_folder_outside_lem_a_repository_with_no_task_and_its_rows(
     plain.mkdir()
     assert refusal(lem("picker", "--list", cwd=plain))["code"] == "no-repository"
     where = workspace(tmp_path / "repo")
-    assert refusal(lem("picker", "--list", cwd=where.checkout))["code"] == "no-task"
+    empty = lem("picker", "--list", cwd=where.checkout)
+    assert refusal(empty)["code"] == "no-task"
+    assert empty.stderr == ""
     made(where, "gift-note", ask="add a gift note")
     listed = printed(lem("picker", "--list", cwd=where.checkout))
     assert [one["id"] for one in listed] == ["gift-note", row.ALL]
@@ -250,6 +285,68 @@ def test_a_folder_outside_lem_a_repository_with_no_task_and_its_rows(
     (unset / ".git").mkdir(parents=True)
     (unset / ".lem").mkdir()
     assert refusal(lem("picker", "--list", cwd=unset))["code"] == "no-settings"
+
+
+def chord(
+    tmp_path: Path, checkout: Path, *, terminal_exits: int
+) -> subprocess.CompletedProcess[str]:
+    """Run the generated keymap command as agterm does, with a stand-in terminal."""
+    stand_in = tmp_path / "agtermctl"
+    stand_in.write_text(
+        '#!/bin/sh\n[ "$1" = pick ] || exit 99\ncat > "$PICK_ROWS"\n'
+        'if [ "$PICK_EXIT" = 1 ]; then echo "terminal refused the picker" >&2; fi\n'
+        'exit "$PICK_EXIT"\n'
+    )
+    stand_in.chmod(0o755)
+    environ = {
+        **os.environ,
+        "PATH": f"{tmp_path}:/usr/bin:/bin",
+        "PICK_ROWS": str(tmp_path / "rows.json"),
+        "PICK_EXIT": str(terminal_exits),
+        "AGT_SESSION_PWD": str(checkout),
+    }
+    look = DoctorLook(environ=environ, home=tmp_path, folder=checkout, brews=())
+    line = picker_row(look).line
+    assert line is not None
+    keymap, command = line.split(" --error-hud ", 1)
+    assert keymap.startswith("command ")
+    return subprocess.run(
+        ["/bin/sh", "-c", command],
+        cwd=checkout,
+        env=environ,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+
+
+def test_the_generated_picker_chord_gives_refusals_to_the_hud(tmp_path: Path) -> None:
+    checkout = workspace(tmp_path / "repo").checkout
+    empty = chord(tmp_path, checkout, terminal_exits=2)
+    assert empty.returncode == 1
+    assert len(empty.stderr.splitlines()) == 1
+    assert "there is no task yet" in empty.stderr
+    assert "/lem and a request opens one" in empty.stderr
+    assert not (tmp_path / "rows.json").exists()
+
+
+def test_the_generated_picker_chord_opens_the_list_of_the_tasks(tmp_path: Path) -> None:
+    where = workspace(tmp_path / "repo")
+    made(where, "gift-note", ask="add a gift note")
+    escaped = chord(tmp_path, where.checkout, terminal_exits=2)
+    assert (escaped.returncode, escaped.stderr) == (0, "")
+    rows = json.loads((tmp_path / "rows.json").read_bytes())
+    assert [one["id"] for one in rows] == ["gift-note", row.ALL]
+    assert rows[0]["label"] == "add a gift note"
+
+    refused = chord(tmp_path, where.checkout, terminal_exits=1)
+    assert refused.returncode == 1
+    assert len(refused.stderr.splitlines()) == 1
+    assert "terminal refused the picker" in refused.stderr
+    assert "lem picker --list prints the rows" in refused.stderr
 
 
 def test_brackets_in_the_first_label_reach_agterm_as_a_json_row(

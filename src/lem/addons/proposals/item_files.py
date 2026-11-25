@@ -2,12 +2,16 @@
 its title, the names already there, and the path a record keeps of one."""
 
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lem.store import reviewer_items
+from lem.model.task.claim import ENDED
+from lem.store import reviewer_items, tasks
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from collections.abc import Iterator
+
+    from lem.records.task import Task
 
 file_of = reviewer_items.file_of
 
@@ -28,10 +32,20 @@ def free_name(stem: str, taken: set[str]) -> str:
 
 
 def taken_names(folder: Path) -> set[str]:
-    """The names of the items in `folder`, none when it is not there."""
-    if not folder.is_dir():
-        return set()
-    return {path.name for path in folder.glob("*.md")}
+    """The names on disk or held by tasks, including items a merge retry can remove."""
+    written = {path.name for path in folder.glob("*.md")}
+    claimed = {Path(path).name for path, _ in claims_of(folder.parent)}
+    return written | claimed
+
+
+def claims_of(state: Path) -> Iterator[tuple[str, Task]]:
+    """Each reviewer item a task that has not ended holds, with that task."""
+    checkout = state.parent.parent
+    for record in tasks.every(state):
+        task = record.task
+        path = reviewer_items.relative(checkout, task.backlog_item or "")
+        if path is not None and task.status not in ENDED:
+            yield path, task
 
 
 def recorded(name: str) -> str:

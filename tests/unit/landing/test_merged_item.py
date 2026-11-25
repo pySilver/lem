@@ -13,6 +13,7 @@ from lem.app.landing import merged
 from lem.app.landing.frame import Context
 from lem.kernel.errors import Refusal
 from lem.store import tasks
+from unit.addons.flow.runs import add, judge, proposal
 from unit.landing.worlds import MERGED, OPENED, PULL, task, world
 from unit.task.spaces import workspace
 
@@ -76,3 +77,40 @@ def test_a_failed_item_removal_keeps_the_task_open_and_merged_retries(
     merged.act(replace_dataclass(context, record=record))
     assert not item.exists()
     assert tasks.read(state, slug).task.status == "landed"
+
+
+def test_a_merge_retry_leaves_the_item_of_a_later_verdict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context = ready(tmp_path)
+    state, slug = context.workspace.state, context.record.task.slug
+    old = tmp_path / ITEM
+    old.parent.mkdir()
+    old.write_text("# Lessons\n")
+
+    def cut_off(_context: Context) -> None:
+        raise InterruptedError
+
+    with monkeypatch.context() as patch:
+        patch.setattr(merged, "followed", cut_off)
+        with pytest.raises(InterruptedError):
+            merged.act(context)
+    assert not old.exists()
+    record = tasks.read(state, slug)
+    assert record.task.status == "open"
+
+    added = add(state, "retro", [proposal("lessons", "A new lesson")])
+    verdict = {"proposal": added.names[0], "passed": "lessons"}
+    made = judge(state, [verdict], {"lessons": "Lessons"}).items_made[0]
+    new = tmp_path / made.path
+    before = new.read_bytes()
+    merged.act(replace_dataclass(context, record=record))
+    assert new.is_file()
+    assert new.read_bytes() == before
+    assert new.name == "lessons-2.md"
+    assert tasks.read(state, slug).task.status == "landed"
+
+    next_run = add(state, "retro", [proposal("lessons", "A third lesson")])
+    verdict = {"proposal": next_run.names[0], "passed": "lessons"}
+    made = judge(state, [verdict], {"lessons": "Lessons"}).items_made[0]
+    assert made.path == ITEM

@@ -2,10 +2,9 @@
 
     lem picker [--list]
 
-An agterm keymap command starts it with a chord, in the session's folder (`lem --repo
-"$AGT_SESSION_PWD" picker`, the line `lem doctor` gives); a pick selects the task's live
-session, else opens its board (`addons/picker/picking.py`). With `--list` it prints the rows and
-opens nothing.
+An agterm keymap command starts it with a chord in the session's folder (the line `lem doctor`
+gives). A pick selects the task's live session, else opens its board. The chord reads refusals
+on standard error. With `--list` the command prints the rows and opens nothing.
 """
 
 from typing import TYPE_CHECKING
@@ -16,6 +15,7 @@ import msgspec
 from lem.addons.picker import looks, picking
 from lem.cli import place
 from lem.kernel import clock
+from lem.kernel.errors import Refusal
 
 if TYPE_CHECKING:
     from lem.ports.terminal import PickRow
@@ -33,7 +33,12 @@ def run(call: Call) -> picking.Picked | tuple[PickRow, ...]:
     if call.listing:
         _, found = looks.listed(place.folder(), now)
         return found
-    return picking.picked(place.folder(), now)
+    try:
+        return picking.picked(place.folder(), now)
+    except Refusal as refusal:
+        line = f"lem picker: {refusal.why}. {refusal.fix}"
+        click.echo(" ".join(line.split()), err=True)
+        raise
 
 
 COMMAND = click.Command(

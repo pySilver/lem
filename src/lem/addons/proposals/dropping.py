@@ -11,8 +11,9 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.addons.proposals import days, drop_checks, drop_records, item_files
+from lem.addons.proposals import drop_checks, drop_records, item_files
 from lem.records.base import Day, Frozen
+from lem.store import reviewer_items
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -32,7 +33,7 @@ def dropped(where: Workspace, given: str, today: dt.date) -> Dropped:
     """Drop the reviewer's item `given`, a path from the main checkout or whole under it."""
     path = drop_checks.reviewer_path(where.checkout, given)
     target = item_files.file_of(where.state, path)
-    with days.held(where.state):
+    with reviewer_items.held(where.state):
         named = drop_checks.droppable(where.state, target, path)
         drop_records.written(drop_records.kept(where.state, named, path, today))
         target.unlink()

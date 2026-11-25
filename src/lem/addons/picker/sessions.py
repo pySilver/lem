@@ -1,31 +1,27 @@
-"""The task's newest session as `lem session list` gives it, and the refusal of an agterm that
-does not answer."""
+"""The task's newest session while it still carries the task, and the refusal of an agterm
+that does not answer."""
 
 from typing import TYPE_CHECKING
 
-from lem.app.sessions import listing
+from lem.app.sessions import log, seen
+from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.ports.faults import Unanswered
 
 if TYPE_CHECKING:
-    import datetime as dt
-
     from lem.app.sessions.here import Here
 
 
-def live_session(here: Here, slug: str, now: dt.datetime) -> str | None:
-    """The task's newest session when it lives with its agent in it, else None."""
+def live_session(here: Here, slug: str) -> str | None:
+    """The task's newest session if it still carries the task at the time of the pick."""
+    opened = log.newest_open(log.read(here.folder(slug)))
+    if opened is None:
+        return None
     try:
-        found = listing.list_sessions(here, now)
+        shown = seen.look(here)
     except Unanswered as error:
         raise unreachable(error) from error
-    mine = (one for one in found if one.task == slug)
-    return next((one.session for one in mine if lives(one)), None)
-
-
-def lives(entry: listing.Listed) -> bool:
-    """Whether a task's newest session lives with its agent in it."""
-    return entry.live and entry.agent is True
+    return opened.session if shown.carries(opened, clock.now()) else None
 
 
 def unreachable(error: Unanswered) -> Refusal:
