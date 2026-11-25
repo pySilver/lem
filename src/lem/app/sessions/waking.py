@@ -5,12 +5,13 @@ The agent reads the task's files, never the line. A wake keeps the pull request'
 for, so that a conflict is woken once for each head. With no live session it opens one, as
 `open --why WHY`; but the owner's act on a task that then gets no session (a park) has nothing to
 wake, and is no refusal; and a thing of the task in the owner's Inbox opens no session, since it
-waits there for the session that comes. The guard's status message is `guard_acts.status`.
+waits there for the session that comes. A task two releases back gets no line but the one
+after its merge, whose session cleans it up. The guard's status message is `guard_steps.status`.
 """
 
 from typing import TYPE_CHECKING
 
-from lem.app.sessions import log, opening, seen
+from lem.app.sessions import log, opening, queued, seen
 from lem.app.sessions.acts import Wake, WakeWhy
 from lem.records.base import Frozen
 from lem.store import tasks
@@ -35,6 +36,8 @@ class Woken(Frozen, frozen=True, kw_only=True, omit_defaults=False):
 
 def wake(here: Here, slug: str, why: WakeWhy, head: str | None, now: datetime) -> Woken:
     """Send the line to the task's live session, or open one."""
+    if why != "merged":
+        queued.release_stop(tasks.read(here.where.state, slug).task)
     newest = log.newest_open(log.read(here.folder(slug)))
     pane = seen.look(here).carries(newest, now)
     if newest is None or pane is None:

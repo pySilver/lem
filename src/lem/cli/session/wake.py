@@ -16,10 +16,14 @@ from lem.app.sessions import guard_steps, here, waking
 from lem.cli import place
 from lem.cli.words import choice
 from lem.kernel import clock
+from lem.kernel.errors import Refusal
 
 if TYPE_CHECKING:
+    from lem.app.sessions.guard_rule import Step
     from lem.kernel.envelope import Envelope
 
+# The guard's own wake, its status message, which goes to the live session it names alone.
+GUARD: Step = "status"
 type Why = Literal["merged", "conflict", "refused", "queue", "owner", "inbox", "status"]
 
 
@@ -34,10 +38,18 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 def run(call: Call) -> Envelope:
     """Wake the task's session, or open one."""
+    guard = call.why == GUARD
+    if call.session is not None and not guard:
+        raise Refusal(
+            "session-option",
+            "--session goes with open --why stopped and wake --why status, the steps of the "
+            "guard of a stopped session",
+            f"leave --session out: {call.why} takes the task's newest session",
+        )
     bound = here.bound(place.folder())
     now = clock.now()
-    if call.why == "status":
-        acted = guard_steps.stepped(bound, call.slug, "status", call.session, now)
+    if guard:
+        acted = guard_steps.stepped(bound, call.slug, GUARD, call.session, now)
         return here.enveloped(acted, acted.say)
     woken = waking.wake(bound, call.slug, call.why, call.head, now)
     return here.enveloped(woken, woken.say)

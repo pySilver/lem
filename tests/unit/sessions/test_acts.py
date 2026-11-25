@@ -6,6 +6,7 @@ import dataclasses
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
+import msgspec
 import pytest
 
 from fakes.harness import FakeHarness
@@ -16,6 +17,7 @@ from lem.app.sessions import (
     closing_job,
     first_line,
     guard_steps,
+    handing,
     listing,
     log,
     opening,
@@ -23,11 +25,12 @@ from lem.app.sessions import (
     waits,
     waking,
 )
-from lem.cli.session import wait
+from lem.cli.session import open as open_leaf
+from lem.cli.session import wait, wake
 from lem.kernel.errors import Refusal
 from lem.ports.harness import Signs, Transcript
 from lem.ports.terminal import Pane
-from lem.records.holds import Blocked, OwnerHold, Parked
+from lem.records.holds import Blocked, OwnerHold, Parked, ReleaseHold
 from lem.records.sessions import SessionLine
 from lem.records.task import Shape
 from lem.store import sessions, tasks
@@ -392,3 +395,40 @@ def test_a_companion_whose_agent_ended_is_gone_once_the_wait_has_started(
     looks: list[float] = []
     got = waits.wait_for(here, asked, lambda: next(moments), looks.append)
     assert (got.gone, got.companion, looks) == (True, "S-PAIR", [0.0])
+
+
+def test_a_task_two_releases_back_gets_no_wake_but_its_merged_one(
+    tmp_path: Path,
+) -> None:
+    terminal = with_caller()
+    here = here_of(tmp_path, terminal)
+    made(here, status="open", lead="builder")
+    opening.open_session(here, SLUG, "new", None, MOMENT)
+    stop = ReleaseHold(
+        began="0.1.0", running="1.0.0", say="began two releases back", since=LATER
+    )
+    current = tasks.read(here.where.state, SLUG)
+    tasks.update(
+        here.where.state,
+        SLUG,
+        lambda one: msgspec.structs.replace(
+            one, task=msgspec.structs.replace(one.task, hold=stop)
+        ),
+        current.revision,
+    )
+    with pytest.raises(Refusal) as refused:
+        waking.wake(here, SLUG, "conflict", "c" * 40, LATER)
+    assert refused.value.code == "release"
+    assert terminal.told == []
+    with pytest.raises(Refusal):
+        handing.hand_on(here, SLUG, same=True, now=LATER)
+    merged = waking.wake(here, SLUG, "merged", None, LATER)
+    assert merged.woke is True
+
+
+def test_session_goes_only_with_the_guards_own_steps() -> None:
+    with pytest.raises(Refusal) as woken:
+        wake.run(wake.Call(slug=SLUG, why="conflict", session="S-OLD"))
+    with pytest.raises(Refusal) as opened:
+        open_leaf.run(open_leaf.Call(slug=SLUG, why="new", session="S-OLD"))
+    assert (woken.value.code, opened.value.code) == ("session-option", "session-option")

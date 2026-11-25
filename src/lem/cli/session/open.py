@@ -17,6 +17,7 @@ from lem.app.sessions import guard_steps, here, opening
 from lem.cli import place
 from lem.cli.words import choice
 from lem.kernel import clock
+from lem.kernel.errors import Refusal
 
 if TYPE_CHECKING:
     from lem.kernel.envelope import Envelope
@@ -45,6 +46,13 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 def run(call: Call) -> Envelope:
     """Open the task's session, or give the one that runs."""
+    if call.session is not None and call.why != "stopped":
+        raise Refusal(
+            "session-option",
+            "--session goes with open --why stopped and wake --why status, the steps of the "
+            "guard of a stopped session",
+            f"leave --session out: {call.why} takes the task's newest session",
+        )
     bound = here.bound(place.folder())
     if call.why == "stopped":
         acted = guard_steps.stepped(

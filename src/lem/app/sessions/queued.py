@@ -5,6 +5,7 @@ it or drops it (`session.queued_behind` on `main`)."""
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
+from lem.records.holds import ReleaseHold
 from lem.store import tasks
 
 if TYPE_CHECKING:
@@ -36,3 +37,12 @@ def behind(here: Here, task: Task) -> None:
         f"{task.slug} is queued after {task.after}, which is {status}: {waits}",
         f'the owner\'s word starts it now: lem task start {task.slug} --words "..."',
     )
+
+
+def release_stop(task: Task) -> None:
+    """Refuse a task two releases back (`lem_release.check` on `main`): its sessions, their
+    wakes and their changes of phase wait for the owner's drop or resume; only the cleanup
+    after a merge passes, as the caller decides."""
+    if isinstance(task.hold, ReleaseHold):
+        slug = task.slug
+        raise Refusal("release", task.hold.say, f"lem task show {slug} says the way on")

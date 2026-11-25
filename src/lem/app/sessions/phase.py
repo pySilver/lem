@@ -12,8 +12,9 @@ an ended one get no session, and are refused with the way on.
 
 from typing import TYPE_CHECKING, Literal
 
+from lem.app.sessions import queued
 from lem.kernel.errors import Refusal
-from lem.records.holds import BreakerHold, OwnerHold, Parked, ReleaseHold
+from lem.records.holds import BreakerHold, OwnerHold, Parked
 
 if TYPE_CHECKING:
     from lem.records.task import Status, Task
@@ -80,9 +81,9 @@ def refused(task: Task, *, worktree: bool) -> None:
             f"the task {slug} is parked: it gets no session until the owner resumes it",
             f"lem task resume {slug} brings it back",
         )
-    if isinstance(task.hold, ReleaseHold):
-        raise Refusal("release", task.hold.say, f"lem task show {slug} says the way on")
     cleans = task.status in {"landed", "dropped"} and worktree
+    if not cleans:
+        queued.release_stop(task)
     if task.status in ENDED and not cleans:
         raise Refusal(
             "ended",

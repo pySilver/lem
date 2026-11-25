@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.sessions import beside, handoff, log, opening
+from lem.app.sessions import beside, handoff, log, opening, queued
 from lem.app.sessions.phase import Phase, phase_noted
 from lem.kernel.errors import Refusal
 from lem.records.base import Frozen
@@ -94,6 +94,7 @@ def handed(here: Here, made: opening.Opened, old: str, ended: str) -> Handed:
 def ending(here: Here, slug: str, newest: Open, *, same: bool) -> str:
     """The phase that ends; refused while the record still gives it."""
     record = tasks.read(here.where.state, slug)
+    queued.release_stop(record.task)
     now = here.phase(record.task)
     if same:
         return now
