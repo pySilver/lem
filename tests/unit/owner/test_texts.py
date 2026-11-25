@@ -1,15 +1,14 @@
 """The rulings the owner's texts hold in one place (`docs/rulings/history.md`, "Kept in one place"):
 each is still in the text and the place the ruling names."""
 
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 from fakes.command import lem
 from lem.kernel import paths
 from lem.records.tickets import Ticket
+from lem.records.work import Investigation
 from unit.task.spaces import made, result, workspace
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from unit.task.spaces import rows as task_rows
 
 SKILL = paths.root() / "skills" / "lem"
 
@@ -63,11 +62,39 @@ def test_status_names_the_field_and_step_for_an_unpaid_ticket(tmp_path: Path) ->
     ticket = Ticket(tracker="github", id="#42", repo="o/r")
     made(where, "gift-note", status="dropped", ticket=ticket)
     shown = result(lem("task", "show", "gift-note", cwd=tmp_path))
-    assert shown["ticket"]["owed"] == ["dropped"]
+    ticket = shown["ticket"]
+    assert ticket["owed"] == ["dropped"]
+    field = "ticket.owed"
     status = text("stages/status.md")
-    assert "`ticket.owed`" in status
+    assert f"`{field}`" in status
+    assert f"`{field}`" in text("SKILL.md")
     assert "`lem issue STEP SLUG`" in status
     assert "`drop` for `dropped`" in status
+
+
+def test_status_reads_an_ended_tasks_answer_from_its_investigation(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    slug = "colored-label"
+    answer = "The label gets its color from the theme."
+    investigation = Investigation(kind="question", call="answer", line=answer)
+    made(where, slug, status="shaping", investigation=investigation)
+    folder = Path(result(lem("task", "dir", slug, cwd=tmp_path))["folder"])
+    report = folder / "investigation.md"
+    report.write_text(f"# Investigation\n\n## Cause\n{answer}\n", encoding="utf-8")
+    moved = result(
+        lem("task", "move", slug, "answered", "--line", answer, cwd=tmp_path)
+    )
+    assert moved["status"] == "answered"
+    (ended,) = task_rows(lem("task", "list", "--ended", cwd=tmp_path))
+    assert (ended["slug"], ended["status"]) == (slug, "answered")
+    assert answer not in str(ended)
+    assert answer in report.read_text(encoding="utf-8")
+    status = text("stages/status.md")
+    assert "`lem task list --ended`" in status
+    assert "read `investigation.md`" in status
+    assert "`lem task dir SLUG`" in status
 
 
 def test_the_holds_keep_what_has_no_options_and_a_block_leaves_no_document() -> None:

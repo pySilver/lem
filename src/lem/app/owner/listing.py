@@ -39,7 +39,7 @@ def listed(folder: Path, slug: str | None, now: datetime, today: date) -> Waitin
         rows=stacks.keyed(mine),
         tasks=stacked,
         sessions=Known(known=seen.unknown is None, said=seen.unknown),
-        forge=ForgeSeen(looked=seen.forge.looked),
+        forge=ForgeSeen(looked=seen.forge.looked, said=seen.forge.said),
         night_report=night_report(here.where.state, today),
         parked=stacks.parked(mine),
         count=len(stacked),

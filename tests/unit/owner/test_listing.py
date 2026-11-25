@@ -4,6 +4,7 @@ stacks, the count, one task's, the forge's conflict and last night's report (`ma
 after a dropped task", "in the morning the list marks a task the night held";
 `tests/lem-serve.sh` "lem project waiting lists the rows of the board's Waits for you")."""
 
+from dataclasses import replace as replace_dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -14,19 +15,26 @@ from msgspec.structs import replace
 
 from fakes.command import lem
 from fakes.records import MOMENT
-from lem.app.owner import listing
+from lem.app.owner import listing, looking
+from lem.app.sessions import acts, here, log
 from lem.kernel import clock
 from lem.model.owner import waiting
 from lem.model.task import release
+from lem.ports.harness import Signs, Transcript
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked
 from lem.records.landing.record import Landing, Pull
-from lem.store import tasks
+from lem.records.sessions import SessionLine
+from lem.store import sessions, tasks
 from unit.owner.looked import opened, proposed, read
+from unit.sessions.harness import SigningHarness
+from unit.sessions.terminal import AGENT, CALLER, with_caller
+from unit.sessions.world import here_of
 from unit.task.spaces import made, refusal, result, workspace
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.model.owner.looks import Look
     from lem.store.places import Workspace
 
 NOW = MOMENT + timedelta(hours=1)
@@ -69,6 +77,88 @@ def test_waiting_refuses_broken_settings_before_it_reads_the_forge(
     refused = refusal(lem("waiting", cwd=tmp_path))
     assert refused["code"] == "settings-toml"
     assert ".lem/settings.toml" in refused["why"]
+
+
+def test_waiting_keeps_the_owner_rows_when_the_forge_cache_is_bad(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    made(
+        where,
+        "stopped-build",
+        status="building",
+        hold=BreakerHold(number=2, since=MOMENT),
+    )
+    criteria = OwnerHold(on="criteria", line="approve the criteria", since=MOMENT)
+    made(where, "approve-me", status="shaping", hold=criteria)
+    path = where.state / "forge.json"
+    path.write_text("not json", encoding="utf-8")
+    found = result(lem("waiting", cwd=tmp_path))
+    assert [row["kind"] for row in found["rows"] if row["kind"] != "session"] == [
+        "breaker",
+        "criteria",
+    ]
+    assert found["forge"]["looked"] is None
+    assert "forge.json" in found["forge"]["said"]
+    assert path.read_text(encoding="utf-8") == "not json"
+
+
+def test_waiting_uses_one_task_snapshot_for_its_sessions(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    made(where, "gift-note")
+    with patch.object(tasks, "every", wraps=tasks.every) as every:
+        found = looking.looked(here.bound(tmp_path), NOW)
+    assert [one.record.task.slug for one in found.looks] == ["gift-note"]
+    every.assert_called_once_with(where.state)
+
+
+def working_look(tmp_path: Path, *, plan: bool, own: bool) -> Look:
+    terminal, harness = with_caller(), SigningHarness()
+    terminal.grounds[CALLER.id] = AGENT
+    site = here_of(tmp_path, terminal, harness)
+    if not own:
+        site = replace_dataclass(site, caller="S-OTHER")
+    slug = "gift-note"
+    hold = (
+        OwnerHold(on="plan", line="read the plan", since=MOMENT)
+        if plan
+        else BreakerHold(number=2, since=MOMENT)
+    )
+    made(site.where, slug, status="planned" if plan else "building", hold=hold)
+    log.append(
+        site.folder(slug),
+        acts.Open(session=CALLER.id, at=MOMENT, name=slug, phase="build", why="new"),
+    )
+    sessions.append(
+        site.folder(slug),
+        SessionLine(
+            at=MOMENT,
+            source="startup",
+            claude="owner",
+            transcript="/test/owner-transcript",
+            pane=CALLER.id,
+            task=slug,
+        ),
+    )
+    harness.by_task[slug] = (Transcript(path="/test/owner-transcript", claude="owner"),)
+    harness.signs_of["/test/owner-transcript"] = Signs(sign=NOW, turn="runs")
+    (found,) = looking.looked(site, NOW).looks
+    assert found.session is not None and found.session.live
+    return found
+
+
+@pytest.mark.parametrize(("own", "expected"), [(True, ["breaker"]), (False, [])])
+def test_a_running_breaker_is_visible_to_its_own_session(
+    tmp_path: Path, *, own: bool, expected: list[str]
+) -> None:
+    found = working_look(tmp_path, plan=False, own=own)
+    assert [row.kind for row in waiting.rows((found,), away=False, now=NOW)] == expected
+
+
+def test_a_plan_still_waits_for_the_owner_during_a_live_turn(tmp_path: Path) -> None:
+    found = working_look(tmp_path, plan=True, own=False)
+    assert found.session is not None and found.session.working
+    assert [row.kind for row in waiting.rows((found,), away=False, now=NOW)] == ["plan"]
 
 
 def test_waiting_groups_the_rows_once_to_build_and_count_the_stacks(

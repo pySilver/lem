@@ -33,10 +33,12 @@ files it does not own.
   "You" column and the merge page may read it.
 - **His answer to a question.** `lem.model.owner.answers.answer(task, question_id, digest,
   answer) -> Task` refuses `answered` (answered already, asked again, or a text that changed) and
-  `question` (no such question). A row whose question he answered on the board is no row until
+  `question` (no such question) or `option` (the question does not offer it). A row whose
+  question he answered on the board is no row until
   the task's session sets the question's `took_effect` (`answers.answered_hold`): the act that
   takes his answer (the session's command) sets it, and the board's act must not. A live session
-  whose turn runs also holds back the breaker or the owner's hold until the turn ends.
+  whose turn runs also holds back a breaker or an owner's hold until the turn ends. A plan
+  still waits, and a session that asks for its own rows has no turn in that look.
 - **`lem waiting`** prints the same rows (`rows`, `tasks` with each thing's `verb`, `count`) and
   the groups, so that the terminal, the phone and the Inbox list the same.
 
@@ -47,6 +49,7 @@ files it does not own.
 in `.lem/state/forge.json`. The forge duty writes it in that form (with `store`'s whole write),
 or moves the struct to `records/` and tells this step's owner; a conflict counts only at the head
 Lem proposed last (`forge.conflicts`).
+If the cache cannot be read, `lem waiting` gives `forge.said` and no forge facts.
 
 ## For `ask`: the cards
 

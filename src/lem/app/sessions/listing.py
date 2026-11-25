@@ -26,6 +26,8 @@ if TYPE_CHECKING:
     from lem.app.sessions.here import Here
     from lem.records.record import Record
 
+type Opened = tuple[Record, Open]
+
 
 class Listed(Frozen, frozen=True, kw_only=True, omit_defaults=False):
     """One task's newest session."""
@@ -50,10 +52,13 @@ class Listed(Frozen, frozen=True, kw_only=True, omit_defaults=False):
     turn: str | None
 
 
-def list_sessions(here: Here, now: datetime) -> tuple[Listed, ...]:
+def list_sessions(
+    here: Here, now: datetime, *, records: tuple[Record, ...] | None = None
+) -> tuple[Listed, ...]:
     """Each task's newest session that Lem opened, task by task; the terminal is asked once,
     and only when there is one."""
-    opened = opened_tasks(here)
+    snapshot = tasks.every(here.where.state) if records is None else records
+    opened = opened_tasks(here, snapshot)
     if not opened:
         return ()
     shown = seen.look(here)
@@ -61,9 +66,8 @@ def list_sessions(here: Here, now: datetime) -> tuple[Listed, ...]:
     return tuple(entries)
 
 
-def opened_tasks(here: Here) -> list[tuple[Record, Open]]:
+def opened_tasks(here: Here, records: tuple[Record, ...]) -> list[Opened]:
     """Each task Lem opened a session for, with its newest session."""
-    records = tasks.every(here.where.state)
     pairs = ((one, newest(here, one)) for one in records)
     return [(record, found) for record, found in pairs if found]
 

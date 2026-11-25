@@ -12,13 +12,12 @@ from typing import TYPE_CHECKING
 
 from lem.model.owner import answers, turns
 from lem.model.owner.looks import Row
-from lem.records.holds import Blocked, BreakerHold
+from lem.records.holds import Blocked, BreakerHold, OwnerHold
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from lem.model.owner.looks import Kind, Look
-    from lem.records.holds import OwnerHold
     from lem.records.task import Task
 
 PLAN: Kind = "plan"
@@ -27,24 +26,22 @@ PLAN: Kind = "plan"
 def hold_rows(look: Look, *, alone: bool) -> tuple[Row, ...]:
     """The row of the task's breaker or of the owner's wait in his turn, or none."""
     session = look.session
-    if session is not None and session.live and session.working:
-        return ()
+    working = session is not None and session.live and session.working
     task = look.record.task
     hold = task.hold
     if isinstance(hold, BreakerHold):
-        return breaker_rows(task, hold)
-    owner = turns.held(task)
-    if owner is None or not turns.his_turn(task, alone=alone):
+        return () if working else breaker_rows(task, hold)
+    if not isinstance(hold, OwnerHold) or not turns.his_turn(task, alone=alone):
         return ()
-    if answers.answered_hold(task, owner):
+    kind = kind_of(task, hold)
+    if (working and kind != PLAN) or answers.answered_hold(task, hold):
         return ()
-    kind = kind_of(task, owner)
     return (
         Row(
             kind=kind,
             key=key_of(kind, task.slug),
             task=task.slug,
-            since=owner.since,
+            since=hold.since,
         ),
     )
 

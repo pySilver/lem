@@ -8,6 +8,7 @@ board's views'.
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
+from lem.model.owner import merging
 from lem.records.holds import OwnerHold
 from lem.records.landing.record import Landing
 
@@ -89,6 +90,8 @@ def refused_verb(landing: Landing) -> str | None:
     """The verb of a refused merge of the proposed tip, by Lem or by GitHub, or None."""
     proposed, refused = landing.proposed, landing.refused
     if refused is None or proposed is None or refused.tip != proposed.tip:
+        return None
+    if merging.calls_after_base_refusal(landing, refused):
         return None
     if refused.source == "lem":
         return "The merge did not go through"

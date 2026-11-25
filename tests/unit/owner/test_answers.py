@@ -8,7 +8,9 @@ from msgspec.structs import replace
 
 from fakes.records import MOMENT, record
 from lem.kernel.errors import Refusal
-from lem.model.owner import answers
+from lem.model.owner import answers, waiting
+from lem.model.owner.looks import Look
+from lem.records.holds import OwnerHold
 from lem.records.questions import Answer, Question
 
 ASKED = Question(
@@ -29,6 +31,26 @@ def test_the_first_answer_counts() -> None:
     with pytest.raises(Refusal) as caught:
         answers.answer(answered, "plan-1", "d1", replace(YES, option="drop"))
     assert "the first answer counts" in caught.value.why
+
+
+def test_an_invalid_criterion_option_leaves_the_row_open() -> None:
+    question = replace(
+        ASKED, id="criterion-1", topic="criterion", options=("yes", "no")
+    )
+    before = record(
+        status="shaping",
+        hold=OwnerHold(on="criteria", line="approve the criteria", since=MOMENT),
+        questions=(question,),
+    )
+    with pytest.raises(Refusal) as caught:
+        answers.answer(
+            before.task, question.id, question.digest, replace(YES, option="later")
+        )
+    assert caught.value.code == "option"
+    assert "yes, no" in caught.value.fix
+    assert before.task.questions[0].answer is None
+    found = waiting.rows((Look(record=before),), away=False, now=MOMENT)
+    assert [row.kind for row in found] == ["criteria"]
 
 
 @pytest.mark.parametrize("minutes", [0, 1])

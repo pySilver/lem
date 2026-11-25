@@ -24,7 +24,7 @@ def stacked(scope: Scope) -> tuple[Stacked, ...]:
 
 def stack_of(group: Rows, scope: Scope) -> Stacked:
     """One task's stack."""
-    look = scope.look(group[0].task)
+    look = scope.looks[group[0].task]
     shown = briefs.brief(look.record)
     return Stacked(
         task=shown.task,

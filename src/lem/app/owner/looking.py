@@ -35,11 +35,12 @@ class Looked(Frozen, frozen=True, kw_only=True):
 
 def looked(here: Here, now: datetime) -> Looked:
     """The look at the workspace of `here` now."""
-    records = releases.with_stops(tasks.every(here.where.state))
-    shown, unknown = sessions.sessions_of(here, now)
+    records = tasks.every(here.where.state)
+    shown, unknown = sessions.sessions_of(here, now, records)
     seen = forge.read(here.where.state)
     looks = tuple(
-        look_of(here, record, shown, seen, known=unknown is None) for record in records
+        look_of(here, record, shown, seen, known=unknown is None)
+        for record in releases.with_stops(records)
     )
     return Looked(
         looks=looks,
@@ -54,7 +55,9 @@ def look_of(
 ) -> Look:
     """One task as the list reads it."""
     slug = record.task.slug
-    session = sessions.session_of(shown.get(slug), record.task.opened, known=known)
+    session = sessions.session_of(
+        shown.get(slug), record.task.opened, here.caller, known=known
+    )
     return Look(
         record=record,
         session=session,
