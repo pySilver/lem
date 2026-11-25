@@ -149,7 +149,7 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
    it, and you go on. A clear read asks nothing. While he is away, and for a task of the night
    (`night` in `lem task show SLUG`), ask nothing: take the standard track, and careful in doubt.
    For the order, when exactly one open task fits his words, take that one: step 7 queues the task
-   after it, and you log the read, `lem decisions log SLUG --by lem`, with the task you took and
+   after it, with `--fits` on its read, and you log the read, `lem decisions log SLUG --by lem`, with the task you took and
    his words. When none fits, or more than one, read the request with his words and no task to
    queue behind, and no path yet:
 
@@ -209,8 +209,8 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
      a backlog item that somebody other than the developer at the terminal wrote (its creator as
      the tracker gives it, or the author of the item's file in
      `git log`; in doubt it is somebody else's), and every item of the night, is a complete request
-     too and gets no interview, and its criteria wait for his yes: its brief carries the line
-     `request by: someone else`, and its lead stops for him after the personas' read, also when
+     too and gets no interview, and its criteria wait for his yes: its read takes
+     `--someone-else`, its brief carries the line `request by: someone else`, and its lead stops for him after the personas' read, also when
      nobody was confused (`stages/plan.md`, step 1). He reads on one page what will be built before
      it is built. Lem is no filter of the tickets that come in: nothing scans one for an attack,
      since the people who write a team's tickets are the team.
