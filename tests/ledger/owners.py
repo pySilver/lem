@@ -4,9 +4,9 @@
 import argparse
 import csv
 import json
+import os
 from pathlib import Path
 import re
-from tempfile import NamedTemporaryFile
 
 HERE = Path(__file__).resolve().parent
 
@@ -48,7 +48,7 @@ MODULES = {
 LAND_FUNCTIONS = {
     "land-base": """
         cmd_start start_locked keep_reviews moving_refusal cmd_base rebase_failed
-        merge_of pairs git_bytes git Task.need_landing Task.own_remote
+        merge_of pairs git_bytes git Task.need_landing Task.own_remote carry_merge
     """,
     "land-checks": """
         cmd_polish cmd_checks checks_body checks_run checks_run.end checks_ready
@@ -62,7 +62,7 @@ LAND_FUNCTIONS = {
     "land-propose": "cmd_propose gh_in not_github pr_text",
     "land-merge": """
         cmd_clean after_push cmd_merge cmd_merge_review merge_lock merge_locked
-        cmd_merged forge_done noted moved_line follow may_merge step carry_merge
+        cmd_merged forge_done noted moved_line follow may_merge step
         drop_forge_copy base_refusal remove_item
     """,
 }
@@ -118,8 +118,13 @@ UNIT_FILES = {
     "addons-outside": "experts cast inbox peers jev",
     "guides": "agents_md",
 }
+# A class goes with the function it tests: MovedBase tests `moved_carry` and the
+# standing merge (landing.md D, carry); TheNotesLines (`unfiled_lines`) and
+# ResumedRead (`approved_after`) are refusals of `cmd_propose`; ExpectedTip is
+# `cmd_merge`'s `--tip`; EventLog tests the readers of the journal, which core owns.
 LAND_CLASSES = {
-    "land-base": "KeepReviews ConflictNames RebaseUnshown RebaseFailed",
+    "core": "EventLog",
+    "land-base": "KeepReviews ConflictNames RebaseUnshown RebaseFailed MovedBase",
     "land-checks": """
         Bar FencedPlan UnclosedFence BarRefusal ChecksSay StaleBytecode RemoveBytecode
         Duration LastRun Overdue Resumed HeldRefusal SameChecks TakenFromPolish
@@ -128,23 +133,24 @@ LAND_CLASSES = {
         TheWait WaitsBehindSays
     """,
     "land-review": """
-        DefectsOutside TheItemOfADefect TheNotesLines EventLog ResumedRead
-        FailedAttempt ReadOfATip ExpectedTip BarFile JevAsk TheBarJevReads
-        TheFindingsUnderTheBar TheSpecOfAFinding TheReadOfEachFinding
+        DefectsOutside TheItemOfADefect FailedAttempt ReadOfATip BarFile JevAsk
+        TheBarJevReads TheFindingsUnderTheBar TheSpecOfAFinding TheReadOfEachFinding
         TheItemsThatMayHoldAFinding AnOverDefectOfARefutedItem JevOnTheLines
     """,
-    "land-propose": "InterviewApproved",
+    "land-propose": "InterviewApproved TheNotesLines ResumedRead",
     "land-merge": """
         TheSquashBody WhoMerges MergeReview MergeSeat MergeBriefPictures MergeBriefTry
-        MovedBase ForgeBase FirstDiffer ReadOfAMovedBase
+        ExpectedTip ForgeBase FirstDiffer ReadOfAMovedBase
     """,
 }
+# StartBehind (`release_behind`) and StoppedOpen test `act_start` and `act_session`.
 SERVE_CLASSES = {
+    "board-acts": "StartBehind StoppedOpen",
     "board-duties": """
         Duties MovedBaseRead StoppedSession DutyKey ForgeLookBesideAMerge Prune WorkingSession
     """,
     "board-service": """
-        Door Actions StartBehind Reads Notes StreamOpen Names StoppedOpen KeepDays
+        Door Actions Reads Notes StreamOpen Names KeepDays
         Look LogLook Configure SwitcherCount PeersTrouble DeepBody Install AskHome
     """,
 }
@@ -218,7 +224,7 @@ GUIDES = {
 # The old parser coalesces some surfaces that the rebuild splits. These are
 # the handlers named in surfaces.md A and in the old project and land parsers.
 PROJECT_COMMANDS = {
-    "handoff": "cmd_handoff", "init": "cmd_init", "load": "cmd_load",
+    "handoff": "cmd_handoff", "init": "cmd_init", "load": "cmd_load", "log": "cmd_log",
     "may-land": "cmd_may_land", "may-nap": "cmd_may_nap", "may-start": "cmd_may_start",
     "owner": "cmd_owner", "path": "cmd_path", "plan-file": "cmd_plan_file",
     "proposals": "proposals_command", "prune": "cmd_prune", "resume": "cmd_resume",
@@ -280,18 +286,21 @@ RULING_GROUPS = {
     "Choices of the maintaining session": "close",
 }
 
-# Match a path to the implementation part 9 gives the landing step. Paths
-# spanning multiple steps, or with no named landing implementation, go to land-text.
+# The "Proof owner" column of landing.md E, row for row. A path row missing here
+# has no owner, and owners.py refuses it; test_check.py holds the map to E.
 PATHS = {
+    "task": "start-over drop-during-a-step ticket-after-the-end",
     "land-base": """
-        recovery conflict-with-the-base rebase-refused-by-git merge-only-change relands
+        recovery no-checks teammate-commit conflict-with-the-base rebase-refused-by-git
+        merge-only-change conflicting-pr-on-the-forge relands
     """,
-    "land-checks": "red-base repair-limit fast-track-lowers-the-bar no-checks",
+    "land-checks": "red-base repair-limit fast-track-lowers-the-bar",
+    "land-review": "fast-track-turns-careful",
     "land-propose": "push-recorded-first",
     "land-merge": """
         base-moved-open-pr base-moved-after-a-safe-read two-unusable-answers
         two-unusable-answers-base-moved no-answer stale-tap owner-merge-refused-for-the-base
-        github-refuses stop-after-the-intent-before-the-call stop-after-the-call
+        github-refuses transport-fault stop-or-lost-reply-around-the-merge-call
         forge-took-the-call-not-merged-yet merge-taken-text-not-updated retarget-before-the-read
         retarget-after-the-locked-read merge-on-github-between-look-and-call
         the-parent-by-merge-method base-checkout-cannot-follow closed-on-github
@@ -330,18 +339,16 @@ def read_tsv(path, columns):
 
 
 def write_owners(path, owners):
-    temp_path = None
+    # A plain open, so the file gets the umask's mode (NamedTemporaryFile gives 0600).
+    temp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     try:
-        with NamedTemporaryFile(mode="w", dir=path.parent, encoding="utf-8",
-                                newline="", delete=False) as stream:
-            temp_path = Path(stream.name)
+        with temp_path.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.writer(stream, delimiter="\t", lineterminator="\n")
             writer.writerow(("id", "step"))
             writer.writerows(sorted(owners.items()))
         temp_path.replace(path)
     finally:
-        if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
+        temp_path.unlink(missing_ok=True)
 
 
 def file_steps(file, symbol=""):
@@ -399,13 +406,12 @@ def command_steps(name):
         return {"tree"}  # The two old command groups require a subcommand.
     leaf = args[0] if args else ""
     if group == "project":
-        if leaf == "log":
-            return {"task", "criteria"}  # The single old logger splits in the rebuild.
         return in_groups(PROJECT_FUNCTIONS, PROJECT_COMMANDS.get(leaf, ""))
     if group == "land":
         return in_groups(LAND_FUNCTIONS, "cmd_" + leaf.replace("-", "_"))
     if group == "serve":
-        return {"board-service", "addons-outside"}  # One old parser for both option sets.
+        # `serve.main` is "the rest" of serve.py; the peers options are its flags.
+        return {"board-service"}
     if group in COMMAND_GROUPS:
         return {COMMAND_LEAVES.get((group, leaf), COMMAND_GROUPS[group])}
     return set()
@@ -484,7 +490,7 @@ def candidates(row):
         step = RULING_GROUPS.get(section)
         return {step} if step else set()
     if kind == "path":
-        return in_groups(PATHS, key) or {"land-text"}
+        return in_groups(PATHS, key)
     if kind == "seam":
         return in_groups(SEAMS, key)
     return file_steps(file, section)
@@ -539,6 +545,10 @@ def main():
             invalid_judgments=sorted(
                 identity for identity, judgment in judgments.items()
                 if judgment["step"] not in STEPS or not judgment["why"].strip()
+            ),
+            # A misspelled step in a map above would own rows no builder reads.
+            unknown_steps=sorted(
+                identity for identity, step in owners.items() if step not in STEPS
             ),
         )
         if any(issues.values()):

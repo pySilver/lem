@@ -1,7 +1,6 @@
 id	step	why
-command:lem project log	task	Annex A names task and criteria. Let the step that owns the old log handler account for the shared command and cite the criteria replacement too.
-command:lem serve	board-service	The old command exposes both server and peer options. Let the owner of the old main handler account for the command and cite the peer leaves too.
-event:merge.ended	land-merge	Both start_locked and carry_merge write this event. The merge step owns the end of the owner's standing merge across both writers.
+event:merge.review	land-merge	Both carry_merge (land-base, carry) and cmd_merge_review write it. The merge review writes the event first; the carried copy repeats its verdict on a new tip.
+event:merge.stands	land-merge	Both carry_merge (land-base, carry) and cmd_merge_review write it. The owner's standing merge is the merge step's path (landing.md E, owner merge refused for the base).
 guide:docs/free-hour.md	addons-flow	Part 9 lists no owner for this private guide. It gives the night and retro proposal behavior to addons-flow.
 refusal:Task.kept:self-kept-file-does-not-read-as-json-error-l-b76b793bcede0539	core	The corrupt saved record can stop any landing step. Core owns the new record and its reader.
 refusal:Task.need_worktree:the-task-has-no-worktree-at-self-worktree-gi-f3a5fb58b23becc9	land-base	Several landing steps call the guard. Base owns the Git adapter and proves that landing commands refuse a missing or dirty worktree.
@@ -12,7 +11,7 @@ refusal:project_now:in-process:this-repository-has-no-lem-settings-toml-lem-0635
 refusal:project_now:str-error-177e167f5c0481a3	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.
 refusal:project_now:subprocess:this-repository-has-no-lem-settings-toml-lem-06352751880aed83	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.
 refusal:run:command-failed-words-e871f44407f5b36b	land-base	The shared command runner can fail at several steps. Land-base owns the Git adapter used by the landing.
-refusal:state_item_of_ask:lem-sibling-file-of-project-has-no-main-argv-aed5accf5caabc21	land-review	The old state lookup supports review and merge bookkeeping. The review step owns the interface between the task and its filed backlog item.
+refusal:state_item_of_ask:lem-sibling-file-of-project-has-no-main-argv-aed5accf5caabc21	tree	The refusal guards the in-process form of sibling.py, which tree owns and part 1 drops. Tree proves that no command reads another module through that form.
 refusal:step_lock:another-step-of-slug-runs-now-and-holds-its-3b9f0eb706f26999	core	The refusal protects all landing steps. The step-lock seam gives the new lock to core.
 refusal:step_lock:another-step-of-slug-runs-now-lem-land-holde-f182a4e3444c0eed	core	The refusal protects all landing steps. The step-lock seam gives the new lock to core.
 refusal:step_lock:the-checks-of-slug-already-run-when-a-second-e3890420b7002440	land-checks	This message describes the active check run and how it ends. The checks step owns the run and its status.

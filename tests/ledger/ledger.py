@@ -9,11 +9,12 @@ from dataclasses import dataclass, fields
 from hashlib import sha256
 from io import BytesIO
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
 import tarfile
-from tempfile import NamedTemporaryFile, TemporaryDirectory
+from tempfile import TemporaryDirectory
 
 
 HERE = Path(__file__).resolve().parent
@@ -1216,11 +1217,10 @@ def collect_commit(rev, root, source_notes):
 
 
 def write_rows(path, rows, saved):
-    temp_path = None
+    # A plain open, so the file gets the umask's mode (NamedTemporaryFile gives 0600).
+    temp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     try:
-        with NamedTemporaryFile(mode="w", dir=path.parent, encoding="utf-8",
-                                newline="", delete=False) as stream:
-            temp_path = Path(stream.name)
+        with temp_path.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.writer(stream, delimiter="\t", lineterminator="\n")
             writer.writerow(HEADER)
             for row in sorted(rows, key=lambda row: row.id):
@@ -1228,8 +1228,7 @@ def write_rows(path, rows, saved):
                 writer.writerow((row.id, row.kind, row.source, row.what, *marks))
         temp_path.replace(path)
     finally:
-        if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
+        temp_path.unlink(missing_ok=True)
 
 
 def main():
