@@ -46,6 +46,12 @@ class Facts(Frozen, frozen=True, kw_only=True):
     inside_merged: bool = False
     rebased: Rebased | None = None
 
+    @property
+    def apart(self) -> bool:
+        """Whether the tip and the merged head hold neither the other: only then does a
+        rebase's proof decide."""
+        return not (self.after_merged or self.inside_merged)
+
 
 class Sweep(Frozen, frozen=True, kw_only=True):
     """What `clean` removes: the worktree, the local branch, the forge's copy at the merged
@@ -79,8 +85,7 @@ def landed(
     )
     if local is None or world.local_in_base or local == head:
         return sweep
-    apart = not (facts.after_merged or facts.inside_merged)
-    if apart and rebased is not None and asks_rebase(world, merged, pushed):
+    if rebased is not None and facts.apart and asks_rebase(world, merged, pushed):
         said = merge_lines.after_push(
             world.branch,
             (local, head),

@@ -78,10 +78,10 @@ def read_due(landing: Landing, world: World) -> bool:
         return True
     refused = landing.refused
     tip = landing.proposed.tip if landing.proposed else None
-    for_base = refused is not None and (refused.source, refused.kind, refused.tip) == (
-        "lem",
-        "base",
-        tip,
+    for_base = (
+        refused is not None
+        and (refused.source, refused.kind) == ("lem", "base")
+        and refused.tip == tip
     )
     return for_base and latest(landing, world.base_tree) is None
 

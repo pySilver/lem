@@ -85,6 +85,15 @@ def test_the_merge_agent_merges_a_green_request_on_its_reads_merge() -> None:
         ({"reads": (replace(READ, verdict="call"),)}, None, None, "calls the owner"),
         ({"reads": ()}, None, None, "calls the owner"),
     ],
+    ids=[
+        "not green",
+        "careful proposal",
+        "careful shape",
+        "no careful call",
+        "the owner lands",
+        "the read calls him",
+        "no read",
+    ],
 )
 def test_the_merge_agent_may_not_merge_what_somebody_should_look_at_first(
     landing: dict[str, object],
@@ -279,3 +288,11 @@ def test_the_owners_standing_merge_goes_while_its_reasons_are_the_same() -> None
     assert code_of(merge.decide(ended, facing(), server, TREE)) == "tip"
     assert ended.landing is not None
     assert merge_standing.standing_of(ended.landing) is None
+
+
+def test_the_owners_word_merges_a_request_that_is_not_green() -> None:
+    red = opened(proposed=replace(OPENED["proposed"], reasons=NOT_GREEN, green=False))
+    assert code_of(merge.decide(red, facing(), BY_MERGER, TREE)) == "merger-rule"
+    made = merge.decide(red, facing(), BY_OWNER, TREE)
+    assert isinstance(made, merge_call.Merging)
+    assert made.intent.by == "owner"

@@ -1,0 +1,60 @@
+id	to	why
+check:tests/lem-land-shop.sh:a-base-run-again-after-a-propose-cut-off-aft-1c02b7df412e7352	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:a-base-that-moved-back-under-a-tip-a-rebase-700308f2fb6c6fdf	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:a-base-that-moved-by-a-document-is-refused-t-15ec8504fb0be0c2	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
+check:tests/lem-land-shop.sh:a-builder-s-rebase-that-stops-on-a-later-com-4269dd6551a12ff6	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:a-builder-who-resolves-the-conflict-with-the-15307ac9bd78fb88	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:a-commit-added-after-the-proposal-stays-on-t-f2938fe399e3b4ca	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:a-commit-after-the-rebase-that-follows-a-red-1f51da2d49e488f3	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:a-conflict-on-the-rebase-after-a-red-base-is-c879b7f9884d255b	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:a-conflict-with-the-base-names-its-files-and-9976014b4497686f	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:a-first-task-that-brings-the-gate-on-its-own-f734d653fef7d01d	land-checks	the gate and the criteria's check are land-checks'
+check:tests/lem-land-shop.sh:a-fix-is-reviewed-only-after-the-machine-che-2ee9e4020def8f4a	land-review	the review's rounds and records are land-review's
+check:tests/lem-land-shop.sh:a-merge-agent-whose-seat-fails-after-the-pul-9ad9f66ba0020edd	sessions	the merge agent's seat and its stand-in are the seats' (cli/seat/)
+check:tests/lem-land-shop.sh:a-plan-of-four-tasks-with-no-plan-talk-is-no-7299403f55c58fb9	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
+check:tests/lem-land-shop.sh:a-project-with-no-gate-command-lands-nothing-ad4cdca96c61e197	land-checks	the gate and the criteria's check are land-checks'
+check:tests/lem-land-shop.sh:a-rebase-that-changes-nothing-of-the-change-16900f7b23124240	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:a-red-gate-exits-1-with-each-command-s-resul-eb8d87f6eebc1ec5	land-checks	the gate and the criteria's check are land-checks'
+check:tests/lem-land-shop.sh:a-request-that-came-from-a-bug-names-in-its-d3fd872f37faae7f	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
+check:tests/lem-land-shop.sh:a-request-that-is-not-careful-with-a-must-fi-47613d70f8d269f3	land-review	the review's rounds and records are land-review's
+check:tests/lem-land-shop.sh:a-request-the-owner-called-careful-after-its-8bf78cd8c5c92d4f	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
+check:tests/lem-land-shop.sh:a-request-the-owner-called-careful-gets-the-c7149afffb1ea50b	land-review	the review's rounds and records are land-review's
+check:tests/lem-land-shop.sh:a-request-whose-plan-says-careful-is-not-pro-d6ee588cd26e661d	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
+check:tests/lem-land-shop.sh:a-resolution-whose-changed-line-and-whose-co-75f7aab64ebb9f01	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:a-review-is-written-down-from-a-file-with-it-3ef9e52577fa06bd	land-review	the review's rounds and records are land-review's
+check:tests/lem-land-shop.sh:a-review-whose-record-is-sent-again-after-a-147c43d34cc7554c	land-review	the review's rounds and records are land-review's
+check:tests/lem-land-shop.sh:a-second-rebase-after-a-red-base-starts-agai-cbe8caaba21c5dbe	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:a-start-over-moves-the-review-files-of-the-l-6b2c3585e7d05bc1	task	the start over is task's (landing.md E, Start over)
+check:tests/lem-land-shop.sh:a-talk-s-counts-agree-each-question-of-the-l-af2c7d2fce849072	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
+check:tests/lem-land-shop.sh:a-task-started-from-a-reviewer-s-item-of-the-eafd80c5b089c4ca	addons-flow	the reviewer's items of the state folder are addons-flow's; merged calls the removal once it exists
+check:tests/lem-land-shop.sh:a-tip-proposed-on-a-base-that-then-went-back-3ffa7e74ec5d19be	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
+check:tests/lem-land-shop.sh:after-its-plan-talk-a-plan-of-four-tasks-is-93690b8936d896f6	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
+check:tests/lem-land-shop.sh:after-its-plan-talk-a-request-whose-plan-say-e9f24c296b2ca101	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
+check:tests/lem-land-shop.sh:after-the-commands-the-gate-proves-each-crit-5362e24a8c4442ca	land-checks	the gate and the criteria's check are land-checks'
+check:tests/lem-land-shop.sh:an-open-task-takes-the-landing-line-again-an-67e9e83709e254b6	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:base-on-a-git-whose-range-diff-takes-no-path-09805d965eec0f61	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:base-rebases-onto-the-remote-s-base-branch-a-2c126ed5976bd27e	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:base-run-twice-with-no-move-of-the-base-in-o-c8ab8bb9ba3a97a3	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:base-runs-the-plain-rebase-and-carries-the-r-1c055e2144a0e1dc	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:gate-runs-every-command-with-its-output-in-a-ecf883e40b23b8b5	land-checks	the gate and the criteria's check are land-checks'
+check:tests/lem-land-shop.sh:no-step-runs-on-a-task-that-did-not-take-the-fc286ce6eba152ff	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:no-step-runs-toward-a-branch-the-settings-re-8ad11e8411b57845	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:nothing-is-proposed-before-its-review-for-a-66c8d8ffc80ab0b9	land-review	the review's rounds and records are land-review's
+check:tests/lem-land-shop.sh:ready-start-over-over-an-open-task-with-the-8cf1fa3b24b7da9b	task	the start over is task's (landing.md E, Start over)
+check:tests/lem-land-shop.sh:start-counts-an-open-task-s-new-landing-befo-3e3a4c41e105c4b4	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:start-puts-a-task-in-landing-and-a-second-ta-38e7b5b96b7345b6	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
+check:tests/lem-land-shop.sh:the-gate-refuses-to-run-before-the-base-was-d7865bd57af7036c	land-checks	the gate and the criteria's check are land-checks'
+check:tests/lem-land-shop.sh:the-notes-of-a-careful-request-say-whether-i-a148cb057d8ddc00	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
+check:tests/lem-land-shop.sh:the-owner-s-merge-that-a-moved-base-refused-5a18fe00063e45b1	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
+check:tests/lem-land-shop.sh:the-pull-request-is-opened-on-github-the-tas-3eba9a0191bd2909	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
+check:tests/lem-land-shop.sh:through-a-red-base-the-new-landing-goes-on-w-e7544b70136dee8e	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
+refusal:cmd_merge_review:no-seat-is-kept-with-the-brief-of-proposed-s-981b12780793523c	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/)
+refusal:remove_item:github-merged-url-and-the-file-of-the-backlo-a2106d1d41ac5ff8	addons-flow	the reviewer's items of the state folder are addons-flow's store; merged calls its removal once it exists
+ruling:a-plan-talk-s-record-is-taken-as-it-ran-a7746de98f0b73af	task	the plan talk's record is lem task talked
+unit:tests/unit/test_land.py:MergeSeat.test_a_later_base_keeps_the_earlier_brief_of_the_tip_and_a_new_tip_drops_them	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/); MergeRead.by takes the seat once sessions gives it
+unit:tests/unit/test_land.py:MergeSeat.test_a_merge_on_github_after_the_stand_in_failed_notes_its_line	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/); MergeRead.by takes the seat once sessions gives it
+unit:tests/unit/test_land.py:MergeSeat.test_a_stand_in_on_the_same_tip_and_base_takes_the_failed_seats_place	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/); MergeRead.by takes the seat once sessions gives it
+unit:tests/unit/test_land.py:MergeSeat.test_a_stand_in_that_failed_after_its_line_has_one_line_that_says_so	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/); MergeRead.by takes the seat once sessions gives it
+unit:tests/unit/test_land.py:MergeSeat.test_a_task_its_merge_agent_blocked_keeps_its_pull_request	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/); MergeRead.by takes the seat once sessions gives it
+unit:tests/unit/test_land.py:MergeSeat.test_the_record_names_the_seat_kept_with_its_brief	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/); MergeRead.by takes the seat once sessions gives it
+unit:tests/unit/test_land.py:ReadOfAMovedBase.test_a_carried_review_drops_its_call_on_the_base	land-propose	a merge read carried onto a new tip is written by propose

@@ -29,6 +29,7 @@ from journeys.test_skeleton import (
     upto,
 )
 from lem.app.landing import changes
+from lem.cli import lazy
 from lem.kernel import clock
 from lem.ports.faults import Unanswered
 from lem.store import tasks
@@ -41,6 +42,7 @@ if TYPE_CHECKING:
     from lem.ports.forge_facts import MergeMethod, MergeText
     from lem.records.landing.record import Landing
     from lem.records.record import Record
+    from lem.records.task import Status
     from lem.store.tasks import Change
 
 type Capsys = pytest.CaptureFixture[str]
@@ -100,7 +102,7 @@ def due(capsys: Capsys, world: World) -> dict[str, str]:
     return {**envelope["result"], "do": envelope["next"]["do"]}
 
 
-def landing(world: World) -> dict[str, object]:
+def landing(world: World) -> Envelope:
     return world.record()["landing"]
 
 
@@ -135,8 +137,15 @@ def test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read(
     assert calls(world) == 0
     assert landing(world)["refused"]["kind"] == "base"
     assert due(capsys, world)["step"] == "merge-review"
+    media = world.task_folder / "media"
+    media.mkdir()
+    (media / "after.png").write_bytes(b"a picture")
     briefed = brief(capsys, world)
     facts = (tmp_path / briefed["result"]["brief"]).read_text()
+    assert str(media / "after.png") in facts
+    assert '"checkout": "gh pr checkout 1"' in facts
+    assert facts.startswith("Read `skills/lem/prompts/merge.md`")
+    assert "https://github.com/owner/project/pull/1" in facts
     assert '"files": [\n      "NOTES.md"\n    ]' in facts
     assert '"overlap": []' in facts
     assert briefed["next"]["do"] == "spawn"
@@ -657,16 +666,19 @@ def test_a_dirty_worktree_is_not_cleaned(
     assert (world.worktree / "mine.txt").is_file()
 
 
-def ended_as(state: Path, status: str) -> None:
+def ended_as(state: Path, status: Status) -> None:
     """The task moved to `status` as a drop or an answer writes it."""
     record = tasks.read(state, SLUG)
     change = partial(changes.moved, status=status, line=status, now=clock.now())
     tasks.update(state, SLUG, change, record.revision)
 
 
-@pytest.mark.parametrize("status", ["dropped", "answered"])
+ENDS: tuple[Status, ...] = ("dropped", "answered")
+
+
+@pytest.mark.parametrize("status", ENDS)
 def test_a_dropped_or_answered_tasks_branch_stays_with_its_commits(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys, status: str
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys, status: Status
 ) -> None:
     world = made(tmp_path, monkeypatch)
     upto(capsys, world, "start")
@@ -822,3 +834,30 @@ def test_a_cut_after_an_effect_of_a_merge_on_a_moved_base_does_nothing_twice(
         assert counted[act] == 1, act
     assert text_of(world).count("Only NOTES.md moved") == 1
     assert world.repo.head_of(BRANCH) is None
+
+
+@pytest.mark.parametrize(
+    "words",
+    [
+        ("merge-review", "SLUG", "--file", "reply.md", "--no-answer"),
+        ("merge-review", "SLUG", "--tip", "0" * 40),
+        ("merge", "SLUG", "--by", "merger", "--standing"),
+    ],
+    ids=["an answer and none", "a tip with no answer", "the merger's standing merge"],
+)
+def test_a_wrong_call_of_the_merges_words_is_exit_2_before_any_look(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: Capsys,
+    words: tuple[str, ...],
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    argv = [
+        "--repo",
+        str(world.checkout),
+        "land",
+        *(SLUG if w == "SLUG" else w for w in words),
+    ]
+    assert lazy.main(argv) == 2
+    capsys.readouterr()
+    assert world.acts.done == []

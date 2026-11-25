@@ -35,6 +35,16 @@ def first_read(briefed: mergeread.Briefed, reply: str | None) -> MergeRead:
         ("It looks fine.\nVerdict: merge.", None),
         ("merger", None),
     ],
+    ids=[
+        "plain",
+        "verdict and base",
+        "bold",
+        "heading",
+        "quote",
+        "empty",
+        "verdict below",
+        "another word",
+    ],
 )
 def test_the_verdict_is_the_first_line(reply: str, verdict: str | None) -> None:
     assert merge_said.verdict_of(reply) == verdict
@@ -55,6 +65,7 @@ def test_the_verdict_is_the_first_line(reply: str, verdict: str | None) -> None:
         ("merge", None),
         ("merge\nIt holds.", None),
     ],
+    ids=["safe", "another round", "no why", "no second line", "no call"],
 )
 def test_the_call_on_a_moved_base_is_the_second_line_with_its_why(
     reply: str, call: tuple[str, str] | None
