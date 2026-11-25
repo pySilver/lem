@@ -1,5 +1,5 @@
 """The merge agent's review on a task's Overview (`board_task.merge_review_card` on `main`): the
-first card while the task is open and `merge-review.md` is in its folder, under its verdict."""
+first card while the task is open and its settled review covers the current proposal."""
 
 from typing import TYPE_CHECKING
 
@@ -28,12 +28,13 @@ def review(world: World, seen: Seen) -> Review | None:
         return None
     again = mergeread.another_round(record.landing)
     read = again or mergeread.latest(record.landing, seen.basis.tree)
-    calls = read is None or merging.calling(seen.merge_look()) is not None
-    calls = calls and again is None
+    if read is None:
+        return None
+    calls = again is None and merging.calling(seen.merge_look()) is not None
     return Review(
         calls=calls,
         head=heading(calls=calls, again=again is not None),
-        why=read.why if read else None,
+        why=read.why,
         at=written(world, read),
         text=reviewed(world, seen, text),
         artifact=artifact(world, record.task.slug, NAME),
@@ -57,10 +58,8 @@ def reviewed(world: World, seen: Seen, text: str) -> Document:
     return documents.document(f"merge-review-{slug}", text, forge, media=media)
 
 
-def written(world: World, read: MergeRead | None) -> When | None:
+def written(world: World, read: MergeRead) -> When:
     """How long ago the merge agent wrote it, with its clock time as the hover."""
-    if read is None:
-        return None
     return clock.since(read.at, world.clock.now, stamp(world, read.at))
 
 

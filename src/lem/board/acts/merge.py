@@ -30,24 +30,32 @@ ACT = approval.ACT
 
 
 def start_thread(asked: Asked, key: Merging, token: str) -> None:
-    """Record the approval, then start its merge."""
-    entry = noting.act_of(ACT, asked.asker, asked.now, option=asked.given.tip)
-    noting.noted(asked.state, asked.slug, entry)
-    thread = Thread(target=merging.merged, args=(asked, token, key), daemon=True)
-    if not MEMORY.of(asked.checkout).start_merge(asked.slug, thread):
-        NOTES.change(token, "refused", "Lem already runs this merge.")
-        NOTES.ended(key)
+    """Claim the task's merge slot before its worker can write the approval."""
+    kept = MEMORY.of(asked.checkout)
+    thread = Thread(target=launch, args=(asked, key, token), daemon=True)
+    try:
+        claimed = kept.start_merge(asked.slug, thread, owner_tip=asked.given.tip)
+    except RuntimeError as error:
+        said = f"The merge could not start: {error}."
+    else:
+        if claimed:
+            return
+        said = "Lem already runs this merge."
+    NOTES.change(token, "refused", said)
+    NOTES.ended(key)
 
 
 def launch(asked: Asked, key: Merging, token: str) -> None:
-    """Write the act before its merge runs, or release the slot on failure."""
+    """Record the act in the claimed worker, then run the merge."""
+    entry = noting.act_of(ACT, asked.asker, asked.now, option=asked.given.tip)
     try:
-        start_thread(asked, key, token)
+        noting.noted(asked.state, asked.slug, entry)
     except Refusal as refusal:
         said = line_of(refusal)
     except (Fault, OSError, RuntimeError) as error:
         said = f"The merge could not start: {error}."
     else:
+        merging.merged(asked, token, key)
         return
     NOTES.change(token, "refused", said)
     NOTES.ended(key)
@@ -58,7 +66,7 @@ def started(asked: Asked, key: Merging, note: Note) -> str:
     token of its note."""
     token, new = NOTES.started(key, note)
     if new:
-        launch(asked, key, token)
+        start_thread(asked, key, token)
     return token
 
 

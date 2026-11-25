@@ -40,6 +40,13 @@ class ViewStamp(msgspec.Struct, frozen=True):
         """The token of the page as drawn, including the selected task's files."""
         return f"{self.version}.{self.watched}" if self.watched else self.version
 
+    def with_live(self, revision: str) -> ViewStamp:
+        """Account for the terminal and base tree alongside the file stamps."""
+        if not revision:
+            return self
+        version = digest((), f"{self.version}:{revision}")
+        return ViewStamp(version=version, watched=self.watched)
+
 
 def stamped(path: Path) -> Stamp | None:
     """A file's name, inode, size and change time."""

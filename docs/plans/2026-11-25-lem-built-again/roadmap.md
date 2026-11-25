@@ -11,12 +11,15 @@ To refresh the owner's page after an edit: `/Users/Silver/Projects/GitHub/lem/.c
 
 ## Where we are
 
-- **2026-11-25 15:22 CET. Groups 0 to 2 are complete:** `rebuild` = `7a637e91` holds 16 of 35
-  steps. Its last join: gates 7 passed and 1 skip of 8; unit 2,259 passed and 23 skips of 2,282;
-  contract 169 of 169; hooks 42 passed and 5 skips of 47; journeys 192 of 192.
-- **Group 3** (`land-text`, `owner`, `board-inputs`) is built and in review; core round 2 builds.
-- **Next:** the two reviews of each built step, the joins, then each step drops its stand-ins
-  (Sol, Opus reviews), then group 4.
+- **2026-11-25 20:56 CET.** `rebuild` = `b3d2d4b6` holds 24 of 35 steps and core round 2.
+  Group 4 (the board) landed in one join: `board-duties`, `board-service`, `board-views`,
+  `board-pages` merged by Astra with the wiring their notes asked; Sol's challenge found 4 musts,
+  repaired; all seven levels passed (unit 3,671 and 16 skips of 3,687; contract 218; hooks 42 and 5
+  skips of 47; model 50; histories 31; journeys 232 of 232).
+- **Group 3** is on `rebuild`.
+- **Group 4** (the board) is on `rebuild`; it built from 15:33 on a base of `rebuild` with core round 2, `owner` and
+  `board-inputs` merged in (Astra moved every reader of the task wait to the list: `f3b82ece`).
+- **Next:** the second join (`addons-outside`, `addons-flow`, the seams repairs; Astra integrates now), `ask`'s approval and join, the stand-in drop round (Sol, Opus reviews), then group 6 (`journeys`, `browser`, `guides`), `pack-trial`, `mutation`, the trials, `close`; the cutover waits for the owner's word.
 - **Measure of progress:** the ledger holds 3,327 rows of today's behavior, each owned by one
   step. The steps of groups 0 to 2 own 1,881 of them (57%); every one of those rows has a fate and
   a proof (`tests/ledger/check.py --step STEP`).
@@ -27,16 +30,14 @@ To refresh the owner's page after an edit: `/Users/Silver/Projects/GitHub/lem/.c
 
 | Who | What | Since | Waits for |
 | --- | --- | --- | --- |
-| Opus | core round 2: every request of the steps to `core`; `Task.after` a list; `ticked`; the test entry fails on a file that does not collect | 14:45 | its report, then Sol and Astra review |
-| Sol | review of `land-text` (built: 9 texts, A1 A2 A3 A5, model and history tests, coverage of the landing's model 100%) | 15:22 | its findings |
-| Sol | checks each of Astra's 25 findings on the landing's seams (Astra overstates; each confirmed one gets a probe that becomes its failing test) | 15:06 | `audit-g2/verify/`; then Sol repairs the confirmed ones, Opus approves |
-| Sol | review of `owner`, round 2 (round 1: 15 findings, all repaired by Sol and committed `1b41f8e6`; unit 2,095 passed, 20 skipped) | 15:21 | no must left, then Astra |
-| Sol | repairs `board-inputs`: 10 findings (6 musts: a criteria fixture that refuses its own file, a merge test that accepts a wrong commit on the page, the forge clock and artifact links lost, a damaged picture, elapsed time across a clock change) | 15:19 | its repair; then Sol again |
+| Opus | reads Sol's whole `ask` build and approves (Astra's 12 findings repaired, `fec7a033`; gates; 2,016 unit cases); trial A1 moves to the trials step | 20:53 | approval, then the join |
+| Astra | integrates the second join on top of it: `addons-outside`, `addons-flow`, the seams repairs, and the retro fix that waited for both add-ons (`propose_made.py`) | 20:10 | the integration, then Sol's challenge |
 
-**Done since 14:30:** Sol's case sheets of 8 coming steps (about 880 rows: 760 with a direct proof on `main`, 79 with none); Astra's audit of the landing's seams (25 findings, 11 seams sound).
+**Done since 14:30:** group 3 and group 4 landed (`land-text`, `board-acts`, then the four other board steps in one join); `addons-flow`, `ask` and the seams repairs reviewed and repaired; Sol's case sheets of 8 coming steps (about 880 rows: 760 with a direct proof on `main`, 79 with none); Astra's audit of the landing's seams (25 findings, 11 seams sound).
 
-**Next:** each built step gets a review by Sol and one by Astra; then its join. Group 4 (the board)
-starts when `owner` and `board-inputs` are on `rebuild`.
+**Load:** at 20:56 the load average was about 8 on 10 cores. At 16:29 it was 52 to 82 (about 12 agents running test suites at once), and a hook timing case failed under it; new sessions wait while it is over about 20.
+
+**The joins:** approved steps now join in batches on one integration branch (Astra merges and wires, Sol challenges, all seven levels once): eight joins in a row at about 20 minutes each (unmeasured estimate) had become the slowest part.
 
 ## Decisions (newest first; the whole text of each is in `choices-for-the-owner.md` under its number)
 
@@ -45,6 +46,7 @@ to him: tell the session to change one).
 
 | # | Decision | By | Day, time |
 | --- | --- | --- | --- |
+| 24 | The board's views are 15,091 lines (the plan budgeted 3,800 for all of `board/`); the whole new board so far is 18,268 lines against 17,148 for the old board's model, pages and task panel on `main` (+7%): kept; the review cuts duplication; a size pass again at `close` | S | 11-25 17:03 |
 | 23 | Less Opus: Sol reviews first, Sol repairs, Astra reviews, Opus approves last; Astra integrates a join, Sol challenges it; Sol builds `board-pages`, `ask`, `addons-outside`, `browser`, `close`, mutation, trial scripts, stand-in drops, faster tests | O | 11-25 15:00 |
 | 22 | A feature larger than one pull request: a feature branch, part pull requests into it, one squashed pull request to the base; the feature is a task with parts; built after the cutover | O | 11-25 14:20 |
 | 21 | `Task.after` becomes a list, and `TicketAct` takes `ticked`, before release 1.0 | S | 11-25 14:20 |
@@ -87,19 +89,19 @@ Status: **done** (merged into `rebuild`), **join** (built, reviewed, in its join
 | 14 | `criteria` | 2 | done | 165 | the criteria and their check on the base |
 | 15 | `sessions` | 2 | done | 235 | sessions, hooks, transcripts, signs |
 | 16 | `settings` | 2 | done | 342 | the four settings files and their places |
-| — | core round 2 | — | building | | the steps' requests to `core`; `Task.after` a list; then stand-ins go |
+| — | core round 2 | — | done | | the steps' requests to `core`; `Task.after` a list; then stand-ins go |
 | — | merge line | — | next | | follow-up of `land-merge`: amendment A4 |
-| 17 | `land-text` | 3 | review | 33 | the landing's texts; amendments A1 to A3, A5 |
-| 18 | `owner` | 3 | repair | 33 | the owner's status, away and back |
-| 19 | `board-inputs` | 3 | repair | | what the board reads |
-| 20 | `board-views` | 4 | later | 199 | the board's model and views |
-| 21 | `board-pages` | 4 | later | 256 | the pages, assets, board kit; Pele (A7) |
-| 22 | `board-acts` | 4 | later | 116 | the owner's acts; the Approve button (A4) |
-| 23 | `board-duties` | 4 | later | 88 | the server's duties; the merge wait count (A4) |
-| 24 | `board-service` | 4 | later | 158 | the server, its stream (polling, A8), peers' door |
-| 25 | `ask` | 5 | later | 102 | the question pages |
-| 26 | `addons-flow` | 5 | later | 122 | the optional parts of the flow |
-| 27 | `addons-outside` | 5 | later | 160 | Jev, Linear, GitHub issues, peers |
+| 17 | `land-text` | 3 | done | 33 | the landing's texts; amendments A1 to A3, A5 |
+| 18 | `owner` | 3 | done | 33 | the owner's status, away and back |
+| 19 | `board-inputs` | 3 | done | | what the board reads |
+| 20 | `board-views` | 4 | done | 199 | the board's model and views |
+| 21 | `board-pages` | 4 | done | 256 | the pages, assets, board kit; Pele (A7) |
+| 22 | `board-acts` | 4 | done | 116 | the owner's acts; the Approve button (A4) |
+| 23 | `board-duties` | 4 | done | 88 | the server's duties; the merge wait count (A4) |
+| 24 | `board-service` | 4 | done | 158 | the server, its stream (polling, A8), peers' door |
+| 25 | `ask` | 5 | approval | 102 | the question pages |
+| 26 | `addons-flow` | 5 | join | 122 | the optional parts of the flow |
+| 27 | `addons-outside` | 5 | join | 160 | Jev, Linear, GitHub issues, peers |
 | 28 | `journeys` | 6 | later | | the journeys of the whole app |
 | 29 | `browser` | 6 | later | 49 | headless Chrome checks, no skip |
 | 30 | `guides` | 7 | later | 108 | README, docs, site in STE |

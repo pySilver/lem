@@ -8,7 +8,6 @@ from lem.board.pages import live, spaces, workspace
 from lem.board.views import pages, world
 from lem.board.views.backlog.wanted import wanted
 from lem.board.views.panel import confirm, opened
-from lem.settings.load import settings_of
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -27,17 +26,15 @@ def inputs(
         return spaces.index(
             state.counts.rows(state.home, state.facts.host), state.facts.host
         )
-    settings = settings_of(
-        space.checkout, request.app.state.environ, home=request.app.state.home
-    ).settings
-    drawn = workspace.read(request, space, settings.branch, version)
+    found = workspace.for_page(request, space)
+    drawn = workspace.read(request, found, version)
     query = request.query_params
 
     return pages.page(
         drawn,
         wanted(parse_qs(str(query))),
         live.note_of(query.get("note"), space.checkout, drawn.viewer.task),
-        selection(request, settings.state.keep_days),
+        selection(request, found.settings.state.keep_days),
         switcher=spaces.menu(workspace_rows(request, drawn), drawn.viewer.workspace),
     )
 

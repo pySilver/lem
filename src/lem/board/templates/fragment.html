@@ -2,5 +2,5 @@
 {% set native = board.frame.viewer.native %}
 {% set viewer = board.frame.viewer %}
 <turbo-frame id="task"{% if not native %} data-turbo-action="advance"{% endif %}>
-{% if board.panel %}{{ p.note(board.note) }}{% set panel = board.panel %}{% include 'task/panel.html' %}{% endif %}
+{% if board.panel %}{% set panel = board.panel %}{% include 'task/panel.html' %}{% endif %}
 </turbo-frame>

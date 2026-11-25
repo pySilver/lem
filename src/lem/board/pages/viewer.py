@@ -11,9 +11,11 @@ from lem.board.views import ask, world
 from lem.kernel import clock
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from starlette.requests import Request
 
-    from lem.app.sessions.here import Here
+    from lem.store.places import Workspace
 
 VIEWS: tuple[View, ...] = get_args(View.__value__)
 
@@ -45,10 +47,17 @@ def viewer_of(request: Request) -> Viewer:
     )
 
 
-def asking(request: Request, here: Here, base: str | None, version: str) -> ask.Ask:
-    """The settings, ports and viewer of a workspace at this request."""
-    checkout = here.where.checkout
-    now = clock.now().astimezone()
+def asking(
+    request: Request,
+    space: Workspace,
+    base: str | None,
+    version: str,
+    *,
+    at: datetime | None = None,
+) -> ask.Ask:
+    """The place and viewer of a workspace at this request."""
+    checkout = space.checkout
+    now = (at or clock.now()).astimezone()
     return ask.Ask(
         viewer=viewer_of(request),
         clock=world.Clock(now=now, zone=now.tzinfo or UTC),
@@ -57,5 +66,4 @@ def asking(request: Request, here: Here, base: str | None, version: str) -> ask.
             repo=checkout.name, base=base or "the base branch", path=str(checkout)
         ),
         home=request.app.state.home,
-        git=here.ports.git,
     )
