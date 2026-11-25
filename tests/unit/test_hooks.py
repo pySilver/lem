@@ -15,6 +15,7 @@ import time
 import typing
 import unittest
 from pathlib import Path
+from unittest import mock
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable
@@ -81,7 +82,9 @@ class HookStart(unittest.TestCase):
             capture_output=True,
             text=True,
             cwd=home,
-            env=isolated(home, **task),
+            # the plugin of this checkout, one version with the app: the check of
+            # the two versions is part of each start
+            env=isolated(home, CLAUDE_PLUGIN_ROOT=str(SRC.parent), **task),
             timeout=30,
             check=False,
         )
@@ -248,6 +251,179 @@ class NeverFails(unittest.TestCase):
         )
         claims = repo / ".lem" / "state" / "corrections-claims"
         self.assertEqual(sorted(claims.glob("*")) if claims.is_dir() else [], [])
+
+
+class TwoVersions(unittest.TestCase):
+    """The plugin Claude Code loaded and the app, each with a version in
+    `.claude-plugin/plugin.json`: the one line that names the one that is behind, and
+    what each selector does then."""
+
+    def half(self, version: str | None, *, text: str | None = None) -> str:
+        """A folder with a manifest of VERSION (TEXT as the file when given; no file
+        when both are None)."""
+        folder = Path(tempfile.mkdtemp(prefix="lem-half-"))
+        self.addCleanup(shutil.rmtree, folder)
+        (folder / ".claude-plugin").mkdir()
+        if text is None and version is not None:
+            text = json.dumps({"name": "lem", "version": version}, indent=2) + "\n"
+        if text is not None:
+            (folder / ".claude-plugin" / "plugin.json").write_text(
+                text, encoding="utf-8"
+            )
+        return str(folder)
+
+    def test_equal_versions_say_nothing(self) -> None:
+        self.assertIsNone(hooks.version_line(self.half("0.3.1"), self.half("0.3.1")))
+        # the same version in other bytes is the same version
+        self.assertIsNone(
+            hooks.version_line(
+                self.half(None, text='{"version": "0.3.1", "name": "lem"}'),
+                self.half("0.3.1"),
+            )
+        )
+
+    def test_the_line_names_the_one_that_is_behind_and_its_update(self) -> None:
+        old, new = self.half("0.3.1"), self.half("0.4.0")
+        self.assertEqual(
+            hooks.version_line(old, new),
+            f"lem: Lem's plugin 0.3.1 ({old}) is behind Lem's app 0.4.0; the owner "
+            "runs `claude plugin update lem@lem` and starts the session again",
+        )
+        self.assertEqual(
+            hooks.version_line(new, old),
+            f"lem: Lem's app 0.3.1 ({old}) is behind Lem's plugin 0.4.0; the owner "
+            "runs `brew upgrade pySilver/tap/lem` and starts the session again",
+        )
+        # 0.10 is newer than 0.9, by numbers
+        self.assertIn(
+            "Lem's plugin 0.9.0",
+            hooks.version_line(self.half("0.9.0"), self.half("0.10.0")) or "",
+        )
+        # a version that is not numbers has no order: both commands
+        said = hooks.version_line(self.half("trial"), self.half("0.3.1")) or ""
+        self.assertIn("are two versions", said)
+        self.assertIn("`brew upgrade pySilver/tap/lem` and `claude plugin", said)
+
+    def test_a_manifest_that_does_not_read_is_named_by_its_file(self) -> None:
+        app = self.half("0.3.1")
+        gone = self.half(None)
+        self.assertEqual(
+            hooks.version_line(gone, app),
+            f"lem: {gone}/.claude-plugin/plugin.json does not read (No such file or "
+            "directory), so Lem cannot tell whether its plugin and its app are one "
+            "version; the owner installs Lem's plugin again",
+        )
+        self.assertIn(
+            f"{gone}/.claude-plugin/plugin.json does not read",
+            hooks.version_line(app, gone) or "",
+        )
+        self.assertTrue(
+            (hooks.version_line(app, gone) or "").endswith("installs Lem again")
+        )
+        broken = self.half(None, text="{")
+        self.assertEqual(
+            hooks.version_line(broken, app),
+            f"lem: {broken}/.claude-plugin/plugin.json names no version, so Lem "
+            "cannot tell whether its plugin and its app are one version; the owner "
+            "installs that half again",
+        )
+
+    def test_the_app_root_is_paths_root(self) -> None:
+        from lem import paths
+
+        self.assertEqual(hooks.app_root(), str(paths.ROOT))
+
+    def selected(self, selector: str, plugin: str, env_file: str = "") -> tuple:
+        """What run(SELECTOR) prints with CLAUDE_PLUGIN_ROOT at PLUGIN, and whether
+        it called its handler, which prints `handled`."""
+        called = []
+
+        def handled() -> None:
+            called.append(selector)
+            print("handled")
+
+        with (
+            mock.patch.object(hooks, "handler", lambda _: handled),
+            mock.patch.dict(
+                os.environ,
+                {"CLAUDE_PLUGIN_ROOT": plugin, "CLAUDE_ENV_FILE": env_file},
+            ),
+        ):
+            return hooks.run(selector), called
+
+    def test_with_two_versions_only_session_start_says_so(self) -> None:
+        old = self.half("0.0.1")
+        for selector in ("corrections", "serve", "precompact", "stop"):
+            with self.subTest(selector=selector):
+                self.assertEqual(self.selected(selector, old), ("", []))
+        said, called = self.selected("session-start", old)
+        self.assertEqual(called, [])
+        self.assertEqual(
+            json.loads(said),
+            {"systemMessage": hooks.version_line(old, hooks.app_root() or "")},
+        )
+        self.assertTrue(said.endswith("\n"))
+
+    def test_with_one_version_each_handler_runs(self) -> None:
+        same = hooks.app_root() or ""
+        for selector in hooks.HANDLERS:
+            with self.subTest(selector=selector):
+                self.assertEqual(
+                    self.selected(selector, same), ("handled\n", [selector])
+                )
+
+    def test_session_start_keeps_the_plugins_folder_for_the_sessions_commands(
+        self,
+    ) -> None:
+        folder = Path(tempfile.mkdtemp(prefix="lem-env-"))
+        self.addCleanup(shutil.rmtree, folder)
+        env_file = folder / "env.sh"
+        env_file.write_text("export OTHER=1\n", encoding="utf-8")
+        plugin = folder / "it's a plugin"
+        shutil.copytree(
+            Path(hooks.app_root() or "") / ".claude-plugin", plugin / ".claude-plugin"
+        )
+        self.selected("session-start", str(plugin), str(env_file))
+        self.selected("stop", str(plugin), str(env_file))
+        written = env_file.read_text(encoding="utf-8")
+        self.assertEqual(
+            written,
+            "export OTHER=1\nexport LEM_PLUGIN_ROOT='" + str(folder) + "/it'\\''s a "
+            "plugin'\n",
+        )
+        # the line is shell: it gives the variable the folder as it is
+        said = subprocess.run(
+            ["/bin/sh", "-c", f'. {env_file}; printf %s "$LEM_PLUGIN_ROOT"'],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertEqual(said.stdout, str(plugin))
+        # no file named, or one that cannot be written: no line, and the hook goes on
+        self.assertEqual(
+            self.selected("session-start", str(plugin))[1], ["session-start"]
+        )
+        self.assertEqual(
+            self.selected("session-start", str(plugin), str(folder / "no" / "env"))[1],
+            ["session-start"],
+        )
+
+    def test_the_command_stops_with_the_same_line(self) -> None:
+        from lem import __main__ as entry
+
+        old = self.half("0.0.1")
+        with (
+            mock.patch.dict(os.environ, {"LEM_PLUGIN_ROOT": old}),
+            self.assertRaises(SystemExit) as stopped,
+        ):
+            entry.same_plugin()
+        self.assertEqual(
+            stopped.exception.code, hooks.version_line(old, hooks.app_root() or "")
+        )
+        for plugin in ("", hooks.app_root() or ""):
+            with mock.patch.dict(os.environ, {"LEM_PLUGIN_ROOT": plugin}):
+                self.assertIsNone(entry.same_plugin())
+        self.assertEqual(entry.NO_PLUGIN_CHECK, ("doctor",))
 
 
 class AskStopHook(unittest.TestCase):

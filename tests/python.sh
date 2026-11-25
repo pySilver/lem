@@ -41,3 +41,7 @@ in_checkout() {
     *) return 1 ;;
   esac
 }
+# A suite run in a Claude Code session whose SessionStart hook named Lem's plugin gets that plugin's
+# LEM_PLUGIN_ROOT, and a plugin of another version than the app under test would stop each `lem` of the run
+# (`lem.__main__.same_plugin`): the app under test is the one LEM_UNDER_TEST names, with no plugin to match.
+unset LEM_PLUGIN_ROOT CLAUDE_PLUGIN_ROOT CLAUDE_ENV_FILE

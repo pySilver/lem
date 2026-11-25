@@ -4,7 +4,8 @@ stdin.
 
     corrections      UserPromptSubmit: the correction hook (`corrections.cmd_hook`)
     serve            SessionStart: the start of the board server (`serve_hook`)
-    session-start    SessionStart: a task's session's records (`session_hook`)
+    session-start    SessionStart: a task's session's records (`session_hook`), and the
+                     check below
     precompact       PreCompact: a task's compaction summary's form (`session_hook`)
     stop             Stop: lem-ask's status at the end of a turn (`ask.hook_stop`)
 
@@ -17,6 +18,18 @@ nothing of the command line, and nothing of the package at its top: a handler's 
 is imported when its selector runs (`test_hooks.HookStart` holds each selector to its
 handler's own imports, and `lem doctor`'s row `hook modules` reads that this file has no
 import of the package at its top).
+
+The plugin Claude Code loaded (`CLAUDE_PLUGIN_ROOT`) and this app are two installs that
+each have a version, in `.claude-plugin/plugin.json`. When the two differ, every hook
+but `session-start` does nothing and says nothing; `session-start` says one line, as a
+`systemMessage`, that names the one that is behind and its update command
+(`version_line`). It also writes `export LEM_PLUGIN_ROOT=...` into the file
+`CLAUDE_ENV_FILE` names, which the session's Bash tool runs before each command, so that
+a command `lem` of that session stops with the same line (`__main__.cli`). With no
+`CLAUDE_PLUGIN_ROOT` there is no check. Claude Code's hooks reference, read 2026-11-25:
+a SessionStart hook's plain stdout is context for Claude, and `systemMessage` of a
+hook's JSON is a warning shown to the user; `CLAUDE_ENV_FILE` is given to SessionStart
+hooks, which append `export` lines to it.
 """
 
 import os
@@ -26,6 +39,130 @@ import sys
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+
+# What the app is, by the rule of `paths.root`, in `os.path` alone: pathlib is a cost a
+# hook that does nothing must not pay. The data folder in an installed app; else the
+# checkout this package is part of, when it holds the skill `lem`; else None.
+HERE = os.path.dirname(os.path.realpath(__file__))
+MANIFEST = os.path.join(".claude-plugin", "plugin.json")
+# The update command of each half, for the line that names the one that is behind.
+APP_UPDATE = "brew upgrade pySilver/tap/lem"
+PLUGIN_UPDATE = "claude plugin update lem@lem"
+
+
+def app_root() -> str | None:
+    """`paths.ROOT` of this app, or None where `paths` would stop."""
+    data = os.path.join(HERE, "data")
+    if os.path.isdir(data):
+        return data
+    checkout = os.path.dirname(os.path.dirname(HERE))
+    if os.path.isfile(os.path.join(checkout, "skills", "lem", "SKILL.md")):
+        return checkout
+    return None
+
+
+def numbers(version: object) -> tuple[int, ...] | None:
+    """`0.3.1` as (0, 3, 1); None for a version that is not numbers joined by dots."""
+    if not isinstance(version, str) or not version:
+        return None
+    parts = version.split(".")
+    if not all(part.isdigit() for part in parts):
+        return None
+    return tuple(int(part) for part in parts)
+
+
+def manifests(files: tuple[str, str]) -> list[bytes] | str:
+    """The bytes of the plugin's manifest and the app's, FILES; or the one line that
+    names the one that does not read."""
+    read = []
+    for file, fix in zip(
+        files, ("installs Lem's plugin again", "installs Lem again"), strict=True
+    ):
+        try:
+            with open(file, "rb") as manifest:
+                read.append(manifest.read())
+        except OSError as error:
+            return (
+                f"lem: {file} does not read ({error.strerror}), so Lem cannot tell "
+                f"whether its plugin and its app are one version; the owner {fix}"
+            )
+    return read
+
+
+def versions(files: tuple[str, str], read: list[bytes]) -> list[str] | str:
+    """The versions the manifests FILES name, from their bytes READ; or the one line
+    that names the one that names none."""
+    import json
+
+    found = []
+    for file, text in zip(files, read, strict=True):
+        try:
+            manifest = json.loads(text)
+        except ValueError:
+            manifest = None
+        version = manifest.get("version") if isinstance(manifest, dict) else None
+        if not isinstance(version, str) or not version:
+            return (
+                f"lem: {file} names no version, so Lem cannot tell whether its "
+                "plugin and its app are one version; the owner installs that half again"
+            )
+        found.append(version)
+    return found
+
+
+def version_line(plugin: str, app: str) -> str | None:
+    """The one line that says the plugin at PLUGIN and the app at APP (each a folder
+    with `.claude-plugin/plugin.json`) are of two versions, and which one is behind with
+    its update command; None when they are one version. A manifest that does not read
+    is named by its file. Two files of the same bytes are one version, with no parse."""
+    files = (os.path.join(plugin, MANIFEST), os.path.join(app, MANIFEST))
+    read = manifests(files)
+    if isinstance(read, str):
+        return read
+    if read[0] == read[1]:
+        return None
+    found = versions(files, read)
+    if isinstance(found, str):
+        return found
+    theirs, mine = found
+    return None if theirs == mine else behind(plugin, app, theirs, mine)
+
+
+def behind(plugin: str, app: str, theirs: str, mine: str) -> str:
+    """The line for the plugin at PLUGIN of the version THEIRS and the app at APP of
+    the version MINE, two versions: the one that is behind, with its update command."""
+    plugin_numbers, app_numbers = numbers(theirs), numbers(mine)
+    if plugin_numbers is None or app_numbers is None:
+        return (
+            f"lem: Lem's plugin {theirs} ({plugin}) and Lem's app {mine} ({app}) are "
+            f"two versions; the owner runs `{APP_UPDATE}` and `{PLUGIN_UPDATE}`, and "
+            "starts the session again"
+        )
+    if plugin_numbers < app_numbers:
+        return (
+            f"lem: Lem's plugin {theirs} ({plugin}) is behind Lem's app {mine}; "
+            f"the owner runs `{PLUGIN_UPDATE}` and starts the session again"
+        )
+    return (
+        f"lem: Lem's app {mine} ({app}) is behind Lem's plugin {theirs}; "
+        f"the owner runs `{APP_UPDATE}` and starts the session again"
+    )
+
+
+def keep_root(plugin: str) -> None:
+    """Append `export LEM_PLUGIN_ROOT='PLUGIN'` to the file CLAUDE_ENV_FILE names, when
+    it names one: the session's Bash tool runs that file before each command."""
+    target = os.environ.get("CLAUDE_ENV_FILE", "")
+    if not target:
+        return
+    quoted = "'" + plugin.replace("'", "'\\''") + "'"
+    try:
+        with open(target, "a", encoding="utf-8") as out:
+            out.write(f"export LEM_PLUGIN_ROOT={quoted}\n")
+    except OSError:
+        # the session's commands then run with no check, as in a plain shell
+        return
 
 
 # selector -> the module of this package and its function that handles it; a module is
@@ -71,8 +208,9 @@ def held(work: Callable[[], None]) -> str | None:
 
 
 def run(selector: str) -> str:
-    """What the hook SELECTOR prints: its handler's output when it ended well, else
-    nothing."""
+    """What the hook SELECTOR prints: its handler's output when it ended well, and
+    nothing when the plugin and the app are two versions, but for `session-start`,
+    which says so: see the module's text."""
     if selector not in HANDLERS:
         return ""
 
@@ -80,7 +218,18 @@ def run(selector: str) -> str:
         # the import too is held: a package that is not whole stops in it
         handler(selector)()
 
-    return held(work) or ""
+    plugin = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
+    app = app_root()
+    behind = version_line(plugin, app) if plugin and app else None
+    if selector != "session-start":
+        return "" if behind else held(work) or ""
+    if plugin:
+        keep_root(plugin)
+    if not behind:
+        return held(work) or ""
+    import json
+
+    return json.dumps({"systemMessage": behind}, ensure_ascii=False) + "\n"
 
 
 def cli() -> None:

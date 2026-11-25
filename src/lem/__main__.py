@@ -9,8 +9,12 @@ its stdin, stdout, stderr and exit status are the module's own.
     lem NAME ARGS...     the module NAME stands for; `lem NAME --help` is its own help
 
 One command, so that one permission rule (`Bash(lem *)`) holds on every machine and
-after every update. A name whose module's file is not in the package is refused in one
-line that names the file, before anything else (`whole`).
+after every update. In a session whose SessionStart hook named Lem's plugin in
+LEM_PLUGIN_ROOT, a name stops with one line and exit 1 when that plugin is of another
+version than this app, which the line names with its update command (`same_plugin`);
+`version`, `help` and `doctor` never stop for it. A name whose module's file is not in
+the package is refused in one line that names the file, before anything else
+(`whole`).
 
 Before a name, `lem NAME` takes a cheap look whether the board server of this machine
 runs: it reads the server's pid from `serve.pid` in Lem's home folder, which the
@@ -54,6 +58,9 @@ from lem import names  # noqa: E402 - after the line that puts the package on sy
 # reports it), and the question page and the Jev model, which the launcher before the
 # package ran as `lem-ask` and `lem-jev` with no look.
 NO_LOOK = ("serve", "board", "doctor", "ask", "jev")
+# The command that runs whatever the plugin's version, beside `version` and `help`: the
+# machine check, which says what is wrong.
+NO_PLUGIN_CHECK = ("doctor",)
 # The server's pid file and its log in Lem's home folder (lem.state.SERVE_PID and
 # SERVE_LOG), by name: the look imports none of Lem's modules but the table of names,
 # since that import was most of its cost (8 to 11 ms a call, medians of the builder of
@@ -90,6 +97,22 @@ def whole(name: str) -> str:
             "installs Lem again"
         )
     return module
+
+
+def same_plugin() -> None:
+    """Stop with exit 1 and one line when LEM_PLUGIN_ROOT, the plugin the session's
+    SessionStart hook found (`lem.hooks`), is of another version than this app
+    (`hooks.version_line`). With no LEM_PLUGIN_ROOT, a plain shell, the board server or
+    a test, there is no check."""
+    plugin = os.environ.get("LEM_PLUGIN_ROOT", "")
+    if not plugin:
+        return
+    from lem import hooks
+
+    app = hooks.app_root()
+    said = hooks.version_line(plugin, app) if app else None
+    if said:
+        sys.exit(said)
 
 
 def home() -> str | None:
@@ -228,6 +251,8 @@ def cli() -> None:
         )
         sys.exit(1)
     whole(name)
+    if name not in NO_PLUGIN_CHECK:
+        same_plugin()
     if name not in NO_LOOK:
         look_for_server()
     main(args)

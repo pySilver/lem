@@ -813,6 +813,36 @@ else
     fail "a hook line with no app:$said_all"
   fi
 fi
+# The plugin and the app of two versions: a plugin of 0.0.1, with this checkout's hooks, beside this app. The SessionStart line of a session says one
+# line as a systemMessage, which names the plugin as the one behind and its update, and writes LEM_PLUGIN_ROOT into the
+# file CLAUDE_ENV_FILE names; the line before a compaction does nothing. A command `lem NAME` with that LEM_PLUGIN_ROOT
+# stops with the same line and exit 1, but for `lem version`, `lem help` and `lem doctor`; with the plugin of this
+# checkout, or with no LEM_PLUGIN_ROOT, it runs.
+OLDPLUGIN=$WORK/old-plugin
+mkdir -p "$OLDPLUGIN/.claude-plugin" && printf '{"name": "lem", "version": "0.0.1"}\n' > "$OLDPLUGIN/.claude-plugin/plugin.json"
+cp -R "$PLUGIN_ROOT/hooks" "$OLDPLUGIN/hooks"
+: > "$WORK/session.env"
+started=$(hook_event session-start | in_hook /usr/bin:/bin env CLAUDE_PLUGIN_ROOT="$OLDPLUGIN" CLAUDE_ENV_FILE="$WORK/session.env" LEM_HOOK_BIN="$HOOK_BIN" \
+  /bin/sh -c "$(hook_lines | sed -n 3p)" 2>&1; echo "exit=$?")
+before=$(hook_event precompact | in_hook /usr/bin:/bin env CLAUDE_PLUGIN_ROOT="$OLDPLUGIN" LEM_HOOK_BIN="$HOOK_BIN" /bin/sh -c "$(hook_lines | sed -n 4p)" 2>&1; echo "exit=$?")
+message=$(head -n 1 <<<"$started" | field 'd["systemMessage"]' 2>&1 || true)
+version_of() { (cd "$HOOKHOME" && env -i PATH=/usr/bin:/bin HOME="$HOOKHOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LEM_SERVE=off "$@"; echo "exit=$?") 2>&1; }
+refused=$(version_of LEM_PLUGIN_ROOT="$OLDPLUGIN" "$LEM_UNDER_TEST" project --help)
+kept=""
+for words in version help "doctor --help"; do
+  # shellcheck disable=SC2086  # the words of the command, split as written
+  kept+="$(version_of LEM_PLUGIN_ROOT="$OLDPLUGIN" "$LEM_UNDER_TEST" $words | tail -n 1) "
+done
+same=$(version_of LEM_PLUGIN_ROOT="$PLUGIN_ROOT" "$LEM_UNDER_TEST" project --help | tail -n 1)
+plain=$(version_of "$LEM_UNDER_TEST" project --help | tail -n 1)
+if grep -qF "lem: Lem's plugin 0.0.1 ($OLDPLUGIN) is behind Lem's app" <<<"$message" && grep -qF "the owner runs \`claude plugin update lem@lem\` and starts the session again" <<<"$message" \
+  && [ "$(tail -n 1 <<<"$started")" = "exit=0" ] && [ "$(wc -l <<<"$started" | tr -d ' ')" = 2 ] \
+  && [ "$(cat "$WORK/session.env")" = "export LEM_PLUGIN_ROOT='$OLDPLUGIN'" ] && [ "$before" = "exit=0" ] \
+  && [ "$refused" = "$message"$'\n'"exit=1" ] && [ "$kept" = "exit=0 exit=0 exit=0 " ] && [ "$same" = "exit=0" ] && [ "$plain" = "exit=0" ]; then
+  pass "with a plugin of another version than the app, the SessionStart line says the one line that names the plugin as behind with its update, as a systemMessage, and writes LEM_PLUGIN_ROOT into CLAUDE_ENV_FILE, the line before a compaction does nothing, and a command with that LEM_PLUGIN_ROOT stops with the same line and exit 1 but for version, help and doctor"
+else
+  fail "two versions: $started / $before / $message / $(cat "$WORK/session.env") / $refused / $kept / $same / $plain"
+fi
 # The release before this one (lem_release.BEFORE), which each release moves: the version plugin.json held before its
 # newest change of version, as git shows it. A release that forgot to move it would stop every task of the release
 # before. A clone too shallow to hold that change cannot tell, and says so.
