@@ -323,3 +323,14 @@ class Story:
     def base_moved(self) -> None:
         """A teammate's merge moved origin's base to another tree."""
         self.effect(base=MOVED, base_tree=MOVED_TREE, base_in_tip=False)
+
+
+def opened(*, read: bool = True) -> Story:
+    """The plain landing open, with its read saying merge or with none yet."""
+    story = Story()
+    for act in (story.start, story.base, story.checks, story.read, story.file):
+        act()
+    story.propose()
+    if read:
+        story.merge_review("Verdict: merge. One word of the docs.")
+    return story

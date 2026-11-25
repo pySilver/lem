@@ -6,24 +6,13 @@ refusal, and stays, with the owner asked, while only an open request is visible.
 
 from msgspec.structs import replace
 
-from histories.story import TITLE, Story
+from histories.story import TITLE, Story, opened
 from lem.kernel import clock
 from lem.model.landing import merge, reconcile
 from lem.model.landing.merge_asked import Asked
 from unit.landing.worlds import OTHER, SEEN, TIP
 
 BY_MERGER = Asked(by="merger", via="server", subject=TITLE)
-
-
-def opened(*, read: bool = True) -> Story:
-    """The plain landing open, with its read saying merge or with none yet."""
-    story = Story()
-    for act in (story.start, story.base, story.checks, story.read, story.file):
-        act()
-    story.propose()
-    if read:
-        story.merge_review("Verdict: merge. One word of the docs.")
-    return story
 
 
 def merge_calls(story: Story) -> list[str]:

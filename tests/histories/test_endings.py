@@ -6,22 +6,12 @@ branch only when a base holds its tip; no step but the cleanup is due after the 
 import pytest
 from msgspec.structs import replace
 
-from histories.story import Story
+from histories.story import Story, opened
 from lem.model.landing import clean, invariants, start
 from lem.model.landing.merge_asked import Asked
 from unit.landing.worlds import SEEN, TIP
 
 ENDS_AFTER = ("merge-review", "merge", "start", "base", "checks", "read", "propose")
-
-
-def opened() -> Story:
-    """The plain landing open, its read saying merge."""
-    story = Story()
-    for act in (story.start, story.base, story.checks, story.read, story.file):
-        act()
-    story.propose()
-    story.merge_review("Verdict: merge. One word of the docs.")
-    return story
 
 
 def test_a_request_closed_on_the_forge_drops_the_task_and_its_cleanup_keeps_his_commits() -> (

@@ -15,6 +15,7 @@ from journeys.test_skeleton import (
     lem,
     made,
     reply,
+    upto,
 )
 from journeys.test_skeleton import (
     brief as merge_brief,
@@ -40,6 +41,20 @@ ITEM_BODY = (
     f"Seen outside the change by the builder of task {SLUG} (2026-11-17); "
     "the base commit has it.\n"
 ).encode()
+
+
+def test_checks_say_how_the_run_ended_in_the_command_that_ran_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "checks")
+    checked = lem(capsys, world.checkout, "land", "checks", SLUG)
+    assert checked["result"]["outcome"] == "passed"
+    end = next(
+        mark for mark in world.record()["journal"] if mark["kind"] == "check-end"
+    )
+    assert end["say"]
+    assert checked["say"] == end["say"]
 
 
 def call(

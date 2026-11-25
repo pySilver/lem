@@ -20,7 +20,8 @@ that is due.
   fix, and the round that `read` then asks for, are step 5, before `propose`; two rounds used go
   on to `propose`, not green, as step 5 says.
 - `propose`, with the title of the last proposal (the pull request's title on GitHub, `pull.title`
-  in the `result` of that `propose`) and `notes.md`: it pushes with a lease and keeps the pull request. Its
+  in the `result` of that `propose`) and `--notes "TASK_DIR/notes.md"`, where `TASK_DIR` is the task
+  directory's full path. The step pushes with a lease and keeps the pull request. Its
   `say` is your one line to the owner, as it is. Then `lem land next SLUG`: when it names the
   merge (the read of the resolution found nothing, and no call makes the request careful), the
   merge review of the tip before carried onto the new one, as step 7 says: start no merge agent.

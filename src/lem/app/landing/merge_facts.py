@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import merge_world
+from lem.app.landing import merge_artifacts, merge_world
 from lem.model.landing import merge
 from lem.records.base import Frozen, Sha
 from lem.records.landing.record import Pull
@@ -117,8 +117,8 @@ def facts_of(context: Context, landing: Landing, read: tuple[Pull, Proposed]) ->
         land=context.world.rules.land,
         owner_merges=merge.authority(context.record, context.world, verdict=False),
         relands=landing.relands,
-        pictures=found(context.folder, "media/**/*.*"),
-        filed=tuple(done.path for done in landing.filed if done.path),
+        pictures=merge_artifacts.pictures_of(context.folder),
+        filed=merge_artifacts.items_of(context, proposed),
         stand_ins=tuple(f"{one.seat}: {one.took}" for one in task.stand_ins),
         try_it={"worktree": worktree, "checkout": f"gh pr checkout {pull.number}"},
         base=context.world.base,

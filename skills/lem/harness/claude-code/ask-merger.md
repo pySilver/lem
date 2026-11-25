@@ -49,7 +49,7 @@ the step refuses: the first is refused, and the agent starts once more on the sa
 `ANSWER`; the second end of that brief is recorded as a second refused reply is (below), and its
 `next` says what follows.
 
-Then `lem land merge-review SLUG --file ANSWER --tip TIP --base BASE`, TIP and BASE being the
+Then `lem land merge-review SLUG --file "ANSWER" --tip TIP --base BASE`, TIP and BASE being the
 `tip` and the `base` of the brief's `result`, which the command of its `next` already holds. A
 reply the step refuses (no verdict, or no call on a moved base) is a new start of the agent on the
 same `BRIEF` and `ANSWER`. A second refused reply of that brief is recorded: on a moved base as

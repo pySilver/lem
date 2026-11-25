@@ -9,6 +9,7 @@ how an agent follows a text.
 """
 
 import re
+import shlex
 from pathlib import Path
 
 import msgspec
@@ -163,6 +164,79 @@ def test_the_conflict_wake_starts_a_round_before_it_asks_for_the_due_step() -> N
     said = text("stages/conflict.md")
     assert "Run `lem land start SLUG --conflicting` first." in said
     assert "Then use `lem land next SLUG` to find each step that is due." in said
+
+
+@pytest.mark.parametrize("stage", ["land", "conflict"])
+def test_propose_takes_the_quoted_full_path_to_the_tasks_notes(stage: str) -> None:
+    assert '--notes "TASK_DIR/notes.md"' in text(f"stages/{stage}.md")
+
+
+def test_the_merger_judges_items_from_both_backlog_headings() -> None:
+    said = text("prompts/merge.md")
+    read = said.split("## Read ", 1)[1].split("## A moved base", 1)[0]
+    decide = said.split("## Decide ", 1)[1]
+    assert "Open each item the branch adds (`filed`)" in read
+    assert "both `## Filed in the backlog` and `## Filed as not worth it`" in read
+    assert "any new item under either backlog heading" in decide
+
+
+def test_the_merge_prompt_gives_no_credit_to_silent_review_attempts() -> None:
+    said = text("prompts/merge.md")
+    assert "its checks passed and a review read the diff" not in said
+    assert "the review read every line" not in said
+    assert "If a recorded review answered, open its files in `reviews`" in said
+    assert "tell the owner that neither attempt got an answer" in said
+
+
+def test_a_must_fix_starts_a_builder_before_the_due_filing_step() -> None:
+    said = text("stages/land.md")
+    assert "before a fix builder starts too" not in said
+    assert (
+        "When `next` names `file`, file the recorded defects outside the change" in said
+    )
+    assert said.index("- *a must-fix*") < said.index("- *defects outside the change*")
+
+
+def test_an_interrupted_merge_reuses_its_arguments_and_a_squash_retry_takes_a_subject() -> (
+    None
+):
+    said = text("stages/land.md")
+    assert "Run the original `lem land merge` command with the same arguments" in said
+    assert (
+        '`lem land merge SLUG --by owner --tip TIP --checked MOMENT --message "SUBJECT"`'
+        in said
+    )
+    assert "Omit `--message` when `branch.history` is `keep`" in said
+
+
+def test_the_repair_builder_ends_the_job_that_it_started() -> None:
+    said = text("stages/land.md")
+    assert '`lem task span SLUG builder end --job "JOB"` with the same job' in said
+
+
+def test_the_stage_reads_the_completion_line_of_its_checks_run() -> None:
+    said = text("stages/land.md")
+    assert "Say the command's top-level `say`" in said
+    assert "`result.ended.say` from `lem land checks SLUG --status`" in said
+
+
+@pytest.mark.parametrize(
+    "name", ["stages/land.md", "harness/claude-code/ask-merger.md"]
+)
+def test_the_merge_reply_command_accepts_an_answer_path_with_spaces(name: str) -> None:
+    found = re.search(r"`(lem land merge-review SLUG --file [^`]+)`", text(name))
+    assert found is not None
+    path = "/Client Work/answer.md"
+    words = shlex.split(found[1].replace("ANSWER", path))
+    assert words[words.index("--file") + 1] == path
+
+
+def test_the_merger_opens_pictures_from_the_task_directory_and_links_them_relatively() -> (
+    None
+):
+    said = text("prompts/merge.md")
+    assert "Open each picture under `task_directory`" in said
+    assert "use its relative `media/NAME` path" in said
 
 
 def test_a_review_agent_that_chose_its_own_read_skips_the_tool_round() -> None:

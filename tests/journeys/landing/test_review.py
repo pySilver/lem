@@ -29,6 +29,7 @@ from journeys.test_skeleton import (
     parses,
     proposal,
 )
+from journeys.test_skeleton import brief as merge_brief
 from lem.app import wiring
 from lem.app.landing import changes, judge_same
 from lem.ports.judge import Score
@@ -643,6 +644,11 @@ def test_the_review_sees_the_builders_item_and_files_a_different_defect_at_its_p
     assert all(
         f"`{path}`" in world.forge.bodies[1] for path in (HELD, same_place, other_place)
     )
+    shown = merge_brief(capsys, world)
+    assert shown["ok"] is True, shown
+    body = world.task_folder.joinpath(shown["result"]["brief"]).read_text()
+    facts = json.loads(body.split("```json\n", 1)[1].split("\n```", 1)[0])
+    assert facts["filed"] == sorted((HELD, same_place, other_place))
 
 
 def test_a_resolution_after_a_must_fix_is_reviewed_whole(

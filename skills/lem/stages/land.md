@@ -176,9 +176,10 @@ their own `say`, and take the landing up as after a cut-off.
    and go on with whatever the owner talks about. The checks of each task in `landing` run in a
    background command of their own; one run of one task's checks at a time: every other step of
    the task waits for their end (`step-held`), so a step refused for them is not sent again
-   before then. Their end wakes you. Say the `say` of what the step printed once, as it is and
-   with no question, also in the middle of a talk about another topic; for a refusal before the
-   run started, say its `why`. Then act by how it ended:
+   before then. Their end wakes you. Say the command's top-level `say` once, as it is and with
+   no question, also in the middle of a talk about another topic. If the command gives no `say`,
+   use `result.ended.say` from `lem land checks SLUG --status` when `ended` is from this run.
+   For a refusal before the run started, say its `why`. Then act by how it ended:
    - exit 0, `passed` in its `result`: the step its `next` names, step 5, or, for a task brought
      onto the base after a conflict (`stages/conflict.md`), that path's read and its `propose`;
    - a refusal `red`, `criteria`, `tracked-change` or `bar` on the standard track: the repair
@@ -240,9 +241,20 @@ their own `say`, and take the landing up as after a cut-off.
      task's record, for the retro.
 
    What the record says decides the next step, which `next` names:
+   - *a must-fix*: when `next` names `read` again because the last review left a must-fix, that
+     read waits for the fix. `spawn-builder` with the brief below, the job "the fix of a
+     review's findings", and as its paths `reviews/review-N.md`, the task's plan, and each finding
+     of the record outside the change that the review called `cheap`, by its id, its `where` and
+     its title (`r1.3 src/app.py:load "the docstring says the opposite"`). It fixes each must-fix,
+     and each should that is cheap, with a test for what was wrong, and each cheap entry in a
+     commit of its own, which it names in its reply by its id. Then `lem land next SLUG` names
+     the checks and the second round, which is a round of the review tool at the least. A cheap
+     entry alone, in a record with no must-fix, starts no builder and no new run of the checks:
+     the pull request names it under "Seen, not filed".
    - *no must-fix*: step 6, once the defects outside the change have their place (below). The
      should findings stay open and go into the notes: a fix now would be a change nobody reviewed.
-   - *defects outside the change* (`next` names `file`): the review saw defects the base already
+   - *defects outside the change*: When `next` names `file`, file the recorded defects outside the change.
+     The review saw defects the base already
      has, and called each one by the bar of rule 6 of the builder's standing rules.
      `lem land file SLUG` writes one item in the backlog folder for each one over the bar and each
      one under it whose `open` item the tip does not hold, `worth: later` or `worth: no` as rule 6
@@ -257,20 +269,10 @@ their own `say`, and take the landing up as after a cut-off.
      key or no answer, nothing is named. Those commits ask for no `checks` again, since they hold no
      code and no test, and the review still covers the change: new files of the backlog folder are
      no change the review did not see. An item written by hand asks for the checks, as any other
-     commit does. Do this after every record that names some, before a fix builder starts too.
+     commit does.
      `propose` refuses while a defect over or under the bar has no item, and while an item is gone
      from the tip (`item-gone`): then `lem land file SLUG --again` puts it back. An item the owner
      does not want stays, with `worth: no` and his reason in it; it is never deleted.
-   - *a must-fix*: `next` names `read` again, with the why that the last review left a must-fix:
-     that read waits for the fix. `spawn-builder` with the brief below, the job "the fix of a
-     review's findings", and as its paths `reviews/review-N.md`, the task's plan, and each finding
-     of the record outside the change that the review called `cheap`, by its id, its `where` and
-     its title (`r1.3 src/app.py:load "the docstring says the opposite"`). It fixes each must-fix,
-     and each should that is cheap, with a test for what was wrong, and each cheap entry in a
-     commit of its own, which it names in its reply by its id. Then `lem land next SLUG` names
-     the checks and the second round, which is a round of the review tool at the least. A cheap
-     entry alone, in a record with no must-fix, starts no builder and no new run of the checks:
-     the pull request names it under "Seen, not filed".
    - *a source did not answer* (a usage limit, a model at capacity): the review counts. The
      record says who answered and who did not, and the pull request shows both. Do not run it
      again for that.
@@ -286,7 +288,8 @@ their own `say`, and take the landing up as after a cut-off.
    it is. It is green when the second round left no must-fix and nothing changed after it, and
    not green otherwise.
 6. **`propose`**, with `--title` and `--notes`. The title is the report's commit subject. The
-   notes are a file you write in the task directory, `notes.md` (`--notes notes.md`), from
+   notes are a file you write in the task directory, `notes.md`. Pass its full path with
+   `--notes "TASK_DIR/notes.md"`, where `TASK_DIR` is the task directory's full path. Write it from
    `report.md` and the last review's file. The fast track's notes are the should findings the review left, one line each
    with its file and its bar call, or the one word `none`, `## Fixed on the way` and `## Seen, not filed` from the
    builder's reply when it gave those lists, and `## Migration` when it is careful. Every other
@@ -395,7 +398,7 @@ their own `say`, and take the landing up as after a cut-off.
    the move second (`Base: safe.` or `Base: another round.`, with one sentence of why), what was
    built and why as a story, the results with each criterion whose test asserts less than it
    requires, each decision taken without the owner with why, and the task's time against what was
-   expected. When it ends, `lem land merge-review SLUG --file ANSWER --tip TIP --base BASE`, TIP
+   expected. When it ends, `lem land merge-review SLUG --file "ANSWER" --tip TIP --base BASE`, TIP
    and BASE being the `tip` and the `base` of that brief, writes the reply down as
    `merge-review.md`, word for word, and prints the read (`verdict`, `base_call` and `why`) and
    `next`. The read covers BASE and no later base. The answer of a brief of an earlier tip is
@@ -454,12 +457,14 @@ their own `say`, and take the landing up as after a cut-off.
    writes a `merge-wait` entry for the board ("waits for the merge of gift-note"), and reads the
    base branch after the first one merged. When the owner says to land several tasks, run their
    `merge` steps one after another, in the order he named them, or else the oldest proposal first.
-   Each merge is an intent on the task's record before the call to GitHub: a merge cut off before
-   GitHub's answer was written is due again as `lem land merge SLUG`, which reads what GitHub shows
-   first and calls it no second time. When GitHub shows the pull request still open, the step
-   refuses `intent` and asks the owner to check it on GitHub; only his word after that check sends
-   a new call, with the command the refusal prints (`lem land merge SLUG --by owner --tip TIP
-   --checked MOMENT`). When GitHub took the call and holds it in a queue, the record keeps that,
+   Each merge is an intent on the task's record before the call to GitHub. Run the original
+   `lem land merge` command with the same arguments if the run ended before it recorded GitHub's
+   answer. Lem reads what GitHub shows before any new call. When GitHub shows only an open pull
+   request, the step refuses `intent` and asks the owner to check it on GitHub. Only his word
+   after that check sends a new call. For a squash, run
+   `lem land merge SLUG --by owner --tip TIP --checked MOMENT --message "SUBJECT"` with the tip
+   and intent moment from the refusal and the report's commit subject. Omit `--message` when
+   `branch.history` is `keep`. When GitHub took the call and holds it in a queue, the record keeps that,
    and `lem land merged SLUG` takes its end, a merge or GitHub's words.
    - `--by merger` is the merge agent's, and the board's server runs it after step 7, never this
      session. The step refuses it (`merger-rule`) where `branch.land` is `owner`, for a careful
@@ -595,7 +600,8 @@ paths: what the step above gives this job
 Such a builder moves no status of the task, because the task stays in its landing, and its reply
 is what `prompts/landing.md` asks for. As it starts, mark its job for the board, `lem task span
 SLUG builder start --job "JOB"` with the job of its brief, and when it replies, `lem task span
-SLUG builder end`; the polish pass is the one job whose span `lem land polish` marks itself, as
+SLUG builder end --job "JOB"` with the same job. The polish pass is the one builder job whose span
+`lem land polish` marks itself, as
 `checks` and `read` mark the span of the checks and of a review that is due.
 
 A task queued `after` this one starts by itself when this one is `landed` or `answered`: the

@@ -7,12 +7,9 @@ across an effect. A task that does not exist is refused before any lock or look.
 
 from typing import TYPE_CHECKING
 
-import msgspec
-
-from lem.app.landing import frame, say
+from lem.app.landing import frame, say, step_reply
 from lem.app.landing.world import gather
 from lem.kernel import clock
-from lem.kernel.envelope import Envelope
 from lem.model.landing import phases
 from lem.store import places, steps, tasks
 
@@ -20,6 +17,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
+    from lem.kernel.envelope import Envelope
     from lem.model.landing.world import Due, Verb
     from lem.records.base import Moment
 
@@ -44,10 +42,7 @@ def allowed(context: frame.Context, verb: Verb) -> frame.Context:
 
 def looked(context: frame.Context) -> Due:
     """The due step after the act, from the record and the world as they are now."""
-    slug, now = context.record.task.slug, context.world.now
-    record = tasks.read(context.workspace.state, slug)
-    world = gather(context.ports, context.workspace, record, now, fetch=False)
-    return phases.due(record, world)
+    return step_reply.looked(context)
 
 
 def landed(folder: Path, slug: str, verb: Verb, act: Act) -> Envelope:
@@ -57,6 +52,4 @@ def landed(folder: Path, slug: str, verb: Verb, act: Act) -> Envelope:
     now = clock.now()
     with steps.step(workspace.state, slug, verb, now):
         context = allowed(opened(workspace, slug, now), verb)
-        outcome = msgspec.Raw(msgspec.json.encode(act(context)))
-        following = say.following(slug, looked(context))
-    return Envelope(ok=True, outcome=outcome, following=following)
+        return step_reply.finished(context, verb, act(context))
