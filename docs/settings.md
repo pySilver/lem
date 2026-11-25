@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # Settings
 
 Lem reads its settings from four files. An unknown key, a wrong value or a table in the wrong file
@@ -24,13 +23,20 @@ A setting that more than one file can hold comes from the nearest file that hold
 3. `~/.config/lem/settings.toml`
 4. Lem's default
 
-`lem project show` gives the file of each such value in `from`, or "Lem's default". No other file
-overrides `~/.config/lem/machine.toml`.
+`lem settings show` gives every value and, in `from`, the file of each value, or "Lem's default".
+No other file overrides `~/.config/lem/machine.toml`.
 
-Lem reads the rules that guard a change (the topics, the checks, who merges) from your main
-checkout, so a task branch cannot change them. In the worktree of a task, Lem reads `[flow]`,
-`[naps]` and `[state]` as your base branch has them. Lem reads `.lem/settings.local.toml` from your
-main checkout, also for a task.
+Lem reads `.lem/settings.toml` and `.lem/settings.local.toml` from your main checkout, also for a
+task, so a task branch cannot change the rules that guard a change (the topics, the checks, who
+merges). When your main checkout is on another branch than the base, Lem reads
+`.lem/settings.toml` as the newest commit of your base branch has it.
+
+`lem settings set KEY VALUE --local`, `--home` or `--machine` writes one line of
+`.lem/settings.local.toml`, `~/.config/lem/settings.toml` or `~/.config/lem/machine.toml`. KEY is
+`TABLE.KEY`, as in the tables below. VALUE `default` removes the line. The other lines and the
+comments of the file stay. Lem checks the file before it writes it: a wrong value stops the
+command, and the file stays as it was. No command writes `.lem/settings.toml`: you edit it and
+commit it.
 
 ## Where each table is valid
 
@@ -103,12 +109,11 @@ Lem takes each seat, and `seats.fallback`, from the first of four places that na
 3. `[seats]` in `~/.config/lem/settings.toml`: you, for all repositories;
 4. the default of Lem, in the table below.
 
-`lem project show` gives each seat and its place. `/lem set local NAME VALUE` writes a line of
-`.lem/settings.local.toml`, and `/lem set global NAME VALUE` writes a line of
-`~/.config/lem/settings.toml`. NAME is a seat or `fallback`. VALUE is a whole seat, one or two
-whole seats with a comma between them for `experts`, `false` for `fallback`, or `default`, which
-removes the line. The other lines and the comments of the file stay. No command writes
-`.lem/settings.toml`.
+`lem settings show` gives each seat and its place. `lem settings set seats.NAME VALUE --local`
+writes a line of `.lem/settings.local.toml`, and `lem settings set seats.NAME VALUE --home` writes
+a line of `~/.config/lem/settings.toml`. NAME is a seat or `fallback`. VALUE is a whole seat, one or
+two whole seats with a comma between them for `experts`, `false` for `fallback`, or `default`,
+which removes the line.
 
 When the agent of the reviewer, the planner or the merge agent gives an error, the fallback seat
 starts in its place, and the task goes on. An error is a program that is not on this computer, no
@@ -147,7 +152,7 @@ with the events. `/lem resume` cannot
 start a dropped task again after this: type `/lem` and its request to start a new task. The server
 also removes a question to the experts, the folder of a persona panel, a nap and a copy of the
 personas that nobody used for that number of days. To see what a number removes, type
-`lem project prune --dry-run --days 7`. This command removes and changes nothing.
+`lem prune --dry-run --days 7`. This command removes and changes nothing.
 
 | Setting | Default | Use |
 | --- | --- | --- |
@@ -183,15 +188,15 @@ these.
 
 | Table | What it can say |
 | --- | --- |
-| `[seats]` | a seat or `fallback` for this computer, in the same form. It replaces the line of the team. `/lem set local reviewer codex/gpt-6.2-sol:high` writes the reviewer, and `/lem set local reviewer default` removes it |
+| `[seats]` | a seat or `fallback` for this computer, in the same form. It replaces the line of the team. `lem settings set seats.reviewer codex/gpt-6.2-sol:high --local` writes the reviewer, and `lem settings set seats.reviewer default --local` removes it |
 | `[naps]` | only `on = false` |
 | `[state]` | only `keep_days`: the days for the old files of this computer. Lem uses this number on this computer, also when it is lower or higher than the number of the project |
 
 ## `~/.config/lem/settings.toml`
 
-Your settings for every repository on this computer. `/lem set global NAME VALUE` writes a line
-of `[seats]` and keeps the other lines. You write `[ask]` by hand. A repository file that names the
-same seat wins.
+Your settings for every repository on this computer. `lem settings set KEY VALUE --home` writes
+a line of `[seats]` or `[ask]` and keeps the other lines. A repository file that names the same
+seat wins.
 
 | Setting | Default | Use |
 | --- | --- | --- |
@@ -204,18 +209,16 @@ same seat wins.
 
 ## `~/.config/lem/machine.toml`
 
-The settings of this computer, for every repository on it. No other file overrides them. The
-commands below write this file, and each one keeps the other tables. When a table has a
-`[NAME]` line and one `key = value` line for each key, the command changes only those lines.
-The other lines and comments of the file stay. When the table has another form, such as
-`serve.port = 4536`, the command writes the file again, without its comments.
+The settings of this computer, for every repository on it. No other file overrides them.
+`lem settings set KEY VALUE --machine` writes a line of this file. The other lines, the other
+tables and the comments of the file stay, in any form of TOML.
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `load.start` | `40` | the load average under which the checks of a landing start. `lem project load --start N` sets it, and `lem project load --start none` writes `0`, which removes the limit |
-| `serve.port` | `4536` | the port of the board server. `lem serve --port N` sets it |
-| `serve.tailscale` | `false` | `true` opens the door for your phone. `/lem serve tailscale` and `/lem serve tailscale off` set it |
-| `serve.tailscale_port` | `4537` | the port of that door. `lem serve --tailscale-port N` sets it |
-| `peers.HOST` | none | the port of the door of another computer of the board, with its Tailscale name as `HOST`. `/lem serve join HOST` and `/lem serve leave HOST` write it |
-| `handoff.tokens` | `600000` | the number of tokens where the session of a task compacts. `0` lets Claude Code compact at its own limit. `lem project handoff --tokens N` sets it |
-| `corrections.collect` | `false` | `true` turns on [the correction queue](install.md#the-correction-queue) in every repository on this computer. `lem corrections collect yes` and `lem corrections collect no` set it |
+| `load.start` | `40` | the load average under which the checks of a landing start. `lem settings set load.start N --machine` sets it, and `lem settings set load.start none --machine` writes `0`, which removes the limit. `lem settings show` gives the load now and whether the checks wait |
+| `serve.port` | `4536` | the port of the board server. `lem settings set serve.port N --machine` sets it |
+| `serve.tailscale` | `false` | `true` opens the door for your phone. `lem serve door on` and `lem serve door off` set it |
+| `serve.tailscale_port` | `4537` | the port of that door. `lem settings set serve.tailscale_port N --machine` sets it |
+| `peers.HOST` | none | the port of the door of another computer of the board, with its Tailscale name as `HOST`. `lem serve join HOST` and `lem serve leave HOST` write it |
+| `handoff.tokens` | `600000` | the number of tokens where the session of a task compacts. `0` lets Claude Code compact at its own limit. `lem settings set handoff.tokens N --machine` sets it, and `default` gives Lem's number back |
+| `corrections.collect` | `false` | `true` turns on [the correction queue](install.md#the-correction-queue) in every repository on this computer. `lem settings set corrections.collect yes --machine` and `lem settings set corrections.collect no --machine` set it |
