@@ -1,20 +1,21 @@
 """The `corrections` hook: the owner's message, for the correction queue, on his machine's yes.
 
 It reads the message (`prompt`) only where `collect = true` under `[corrections]` in Lem's home
-`machine.toml` says yes, and only in a repository that uses Lem (`.lem/settings.toml`): with no
-such line, or a file that does not read, it sends nothing, since a message leaves the machine
-only on his yes. An empty message, a slash command and the text an agent's machinery puts into a
-user turn are no message of his. It prints nothing.
+`machine.toml` says yes, in a home folder this Lem made, and only in a repository that uses Lem
+(`.lem/settings.toml`) whose state folder is this Lem's or empty: with no such line, a file that
+does not read, or a folder of Lem 0.3, it sends nothing, since a message leaves the machine only on
+his yes. An empty message, a slash command and the text an agent's machinery puts into a user turn
+are no message of his.
 
-The hand-off of a message to the queue (the claim of one message for one judgment, the detached
-worker that asks Jev) is the step `sessions`'s: this hook decides which messages it would hand
-on, and hands none on yet.
+A message is claimed for one judgment (`claims.py`), written as one correction and handed to the
+worker that asks Jev (`handoff.py`). With no session id nothing tells this message from the same
+words of another session, so it is handed on with no claim; a claim that cannot be made costs a
+double judgment and a note in the queue's log, never the message. It prints nothing.
 """
 
 import os
-import tomllib
 
-from lem.hooks import raw, where
+from lem.hooks import claims, handoff, marker, other, raw, where
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -38,10 +39,14 @@ TEAM = ".lem/settings.toml"
 
 
 def answer(environ: Mapping[str, str], behind: str | None) -> str:
-    """Decide on the owner's message; say nothing."""
+    """Hand the owner's message on when the machine and the repository say yes; say nothing."""
     found = raw.event()
-    if typed(raw.text(found, "prompt")) and machine_says_yes(environ):
-        collects(found, environ)
+    prompt = raw.text(found, "prompt").strip()
+    if not typed(prompt) or not machine_says_yes(environ):
+        return ""
+    state = queue_of(found, environ)
+    if state is not None:
+        handed(found, environ, state, prompt)
     return ""
 
 
@@ -53,10 +58,12 @@ def typed(prompt: str) -> bool:
 
 
 def machine_says_yes(environ: Mapping[str, str]) -> bool:
-    """Whether Lem's home `machine.toml` says `collect = true` under `[corrections]`; anything
-    that does not read is a no."""
+    """Whether Lem's home `machine.toml` says `collect = true` under `[corrections]`, in a home
+    folder this Lem made; anything that does not read, and the home of Lem 0.3, is a no."""
+    import tomllib
+
     home = home_of(environ)
-    if home is None:
+    if home is None or not marker.has(home):
         return False
     try:
         machine = tomllib.loads(raw.read_bytes(f"{home}/machine.toml").decode())
@@ -66,14 +73,6 @@ def machine_says_yes(environ: Mapping[str, str]) -> bool:
     return isinstance(table, dict) and table.get("collect") is True
 
 
-def collects(found: raw.Event, environ: Mapping[str, str]) -> bool:
-    """Whether the message was typed in a repository that uses Lem."""
-    checkout = where.checkout_here(found, environ)
-    if checkout is None:
-        return False
-    return os.access(f"{checkout}/{TEAM}", os.F_OK)
-
-
 def home_of(environ: Mapping[str, str]) -> str | None:
     """Lem's home folder, by the rule of `kernel.paths.home`; None for a relative
     XDG_CONFIG_HOME, which each folder would read as another place."""
@@ -81,3 +80,62 @@ def home_of(environ: Mapping[str, str]) -> str | None:
     if not named:
         return f"{environ.get('HOME', '')}/.config/lem"
     return f"{named}/lem" if named.startswith("/") else None
+
+
+def queue_of(found: raw.Event, environ: Mapping[str, str]) -> str | None:
+    """The state folder that keeps the queue of the repository the message was typed in: its
+    main checkout's, when that uses Lem and the folder is this Lem's (marked now when absent or
+    empty); None anywhere else, for a folder of Lem 0.3, and for one a link puts in another
+    place."""
+    project = environ.get("CLAUDE_PROJECT_DIR")
+    checkout = where.checkout_of(raw.text(found, "cwd") or project or ".")
+    if checkout is None:
+        return None
+    team = f"{checkout}/{TEAM}"
+    state = f"{checkout}/{where.STATE}"
+    if not os.access(team, os.F_OK):
+        return None
+    if os.path.realpath(state) != state:
+        return None
+    return state if marker.ours(state, marker.STATE_EMPTY) else None
+
+
+def handed(
+    found: raw.Event, environ: Mapping[str, str], state: str, prompt: str
+) -> None:
+    """Claim the message, write it as a correction and start the worker on it. Nothing is
+    written when the app's own `lem` is not there (an app whose files are not whole), and a
+    claim of a message that was not handed on is given up, so another copy may judge it."""
+    command = other.own_command()
+    if not other.runnable(command):
+        return
+    session = raw.text(found, "session_id")
+    cwd = os.path.realpath(
+        raw.text(found, "cwd") or environ.get("CLAUDE_PROJECT_DIR") or "."
+    )
+    body = handoff.correction(session, cwd, prompt, raw.text(found, "transcript_path"))
+    claim = claimed(state, session, prompt)
+    if claim is None:
+        return
+    if not handoff.handed(state, body, command):
+        if claim:
+            handoff.gone(claim)
+        handoff.logged(
+            state, session, ("error", "the hook could not hand the message on")
+        )
+
+
+def claimed(state: str, session: str, prompt: str) -> str | None:
+    """The claim of the message (empty with no session id, or when no claim can be made), or
+    None when another copy holds it."""
+    if not session:
+        return ""
+    try:
+        return claims.claim(state, session, prompt)
+    except OSError as error:
+        note = (
+            f"the hook could not claim the message ({error}); it was handed on as usual, and "
+            "a second registration of the hook may queue it twice"
+        )
+        handoff.logged(state, session, ("note", note))
+        return ""

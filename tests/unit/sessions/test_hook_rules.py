@@ -3,13 +3,29 @@ the task's name, the framed line the store reads, the other `lem`, the correctio
 server's start, and the task's state after a compaction."""
 
 import json
+import os
+import time
 from typing import TYPE_CHECKING
 
+import msgspec
 import pytest
 
-from lem.hooks import corrections, other, precompact, serve, session, versions, where
+from lem.hooks import (
+    claims,
+    corrections,
+    handoff,
+    marker,
+    other,
+    precompact,
+    serve,
+    session,
+    transcript,
+    versions,
+    where,
+)
 from lem.kernel import folders, paths
 from lem.records import sessions as records
+from lem.records.corrections import Correction
 from lem.store import sessions
 
 if TYPE_CHECKING:
@@ -133,7 +149,7 @@ def test_a_correction_is_words_the_owner_typed(*, prompt: str, typed: bool) -> N
     assert corrections.typed(prompt) is typed
 
 
-def test_corrections_need_the_machines_yes_and_a_repository_of_lem(
+def test_corrections_need_the_machines_yes_in_a_home_of_this_lem(
     tmp_path: Path,
 ) -> None:
     home = tmp_path / "config"
@@ -141,18 +157,92 @@ def test_corrections_need_the_machines_yes_and_a_repository_of_lem(
     assert corrections.machine_says_yes(environ) is False
     (home / "lem").mkdir(parents=True)
     (home / "lem" / "machine.toml").write_text("[corrections]\ncollect = true\n")
+    # a home of Lem 0.3: its yes was the Lem before's
+    assert corrections.machine_says_yes(environ) is False
+    (home / "lem" / folders.MARKER).write_bytes(folders.FORM)
     assert corrections.machine_says_yes(environ) is True
     (home / "lem" / "machine.toml").write_text("[corrections\n")
     assert corrections.machine_says_yes(environ) is False
+    (home / "lem" / "machine.toml").write_text("[corrections]\ncollect = 1\n")
+    assert corrections.machine_says_yes(environ) is False
     assert corrections.machine_says_yes({"XDG_CONFIG_HOME": "relative"}) is False
+
+
+def test_the_queue_is_in_the_state_of_a_repository_of_lem_of_this_form(
+    tmp_path: Path,
+) -> None:
     repo = tmp_path / "repo"
+    state = repo / ".lem" / "state"
     (repo / ".git").mkdir(parents=True)
-    assert corrections.collects({"cwd": str(repo)}, {}) is False
-    (repo / ".lem" / "state").mkdir(parents=True)
+    event: dict[str, object] = {"cwd": str(repo)}
+    assert corrections.queue_of(event, {}) is None
+    (repo / ".lem").mkdir()
     (repo / ".lem" / "settings.toml").write_text("")
-    assert corrections.collects({"cwd": str(repo)}, {}) is False
-    (repo / ".lem" / "state" / folders.MARKER).write_bytes(folders.FORM)
-    assert corrections.collects({"cwd": str(repo)}, {}) is True
+    # an absent state folder is made and marked
+    assert corrections.queue_of(event, {}) == str(state.resolve())
+    assert (state / folders.MARKER).read_bytes() == folders.FORM
+    (state / folders.MARKER).unlink()
+    (state / "events.jsonl").write_text("")
+    assert corrections.queue_of(event, {}) is None
+    assert not (state / folders.MARKER).exists()
+    assert corrections.queue_of({}, {"CLAUDE_PROJECT_DIR": str(repo)}) is None
+
+
+def test_a_state_folder_with_only_its_ignore_file_is_marked(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    state.mkdir()
+    (state / ".gitignore").write_text("*\n")
+    assert marker.ours(str(state), marker.STATE_EMPTY) is True
+    assert (state / folders.MARKER).read_bytes() == folders.FORM
+    assert marker.ours(str(state), marker.STATE_EMPTY) is True
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".gitignore").write_text("*\n")
+    assert marker.ours(str(home), frozenset()) is False
+    assert (marker.FORM, where.MARKER) == (folders.FORM, folders.MARKER)
+
+
+def test_one_message_is_claimed_once_and_a_stale_claim_gives_way(
+    tmp_path: Path,
+) -> None:
+    state = str(tmp_path)
+    first = claims.claim(state, "c1", "fix the login")
+    assert first is not None
+    assert claims.claim(state, "c1", "fix the login") is None
+    assert claims.claim(state, "c2", "fix the login") is not None
+    assert claims.claim(state, "c1", "fix the logout") is not None
+    then = time.time() - claims.CLAIM_SECONDS
+    os.utime(first, (then, then))
+    assert claims.claim(state, "c1", "fix the login") == first
+    assert all("fix" not in path.name for path in (tmp_path / claims.CLAIMS).iterdir())
+
+
+def test_the_agents_last_text_is_read_across_a_line_separator(tmp_path: Path) -> None:
+    newest = "Pushed.\u2028Next: the review."
+    lines = (
+        {
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": "Old."}]},
+        },
+        {
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": newest}]},
+        },
+        {"type": "assistant", "message": {"content": "no blocks"}},
+        {"type": "user", "message": {"content": [{"type": "text", "text": "mine"}]}},
+        [1],
+    )
+    talk = tmp_path / "talk.jsonl"
+    talk.write_text("".join(f"{json.dumps(line)}\n" for line in lines) + "{cut off")
+    assert transcript.last_text(str(talk)) == newest
+    assert transcript.last_text(str(tmp_path / "none.jsonl")) == ""
+
+
+def test_a_correction_has_the_keys_msgspec_writes_for_its_struct() -> None:
+    body = handoff.correction("c1", "/repo", "fix the login", "/none.jsonl")
+    decoded = msgspec.json.decode(body, type=Correction)
+    assert decoded.previous == handoff.NO_PREVIOUS
+    assert json.loads(msgspec.json.encode(decoded)) == json.loads(body)
 
 
 def test_the_server_starts_in_a_repository_of_lem_unless_it_is_off(
