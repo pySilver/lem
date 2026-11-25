@@ -56,8 +56,8 @@ def newest_open(spans: Spans, name: SpanName) -> int | None:
 
 def checked(record: Record, *, run: Checked, end: CheckEnd) -> Record:
     """The record with the run of the checks, its span ended, and its end in the journal."""
-    changed = closed(changes.landing(record, checked=run), name="checks", at=end.at)
-    return changes.noted(changed, end)
+    landed = changes.landing(record, checked=run)
+    return changes.noted(closed(landed, name="checks", at=end.at), end)
 
 
 def reshaped(record: Record, *, line: str, at: Moment) -> Record:
