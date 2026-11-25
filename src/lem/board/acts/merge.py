@@ -9,14 +9,15 @@ nothing; a press while his approval stands starts nothing, and says so; a press 
 merge runs gets that merge's note.
 """
 
-import threading
+from threading import Thread
 from typing import TYPE_CHECKING
 
 from starlette.concurrency import run_in_threadpool
 
 from lem.board.acts import acting, approval, back, merging, noting
-from lem.board.acts.asked import Asked
+from lem.board.acts.asked import Asked, line_of
 from lem.board.acts.notes import NOTES
+from lem.kernel.errors import Fault, Refusal
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -27,17 +28,34 @@ if TYPE_CHECKING:
 ACT = approval.ACT
 
 
+def start_thread(asked: Asked, key: Merging, token: str) -> None:
+    """Record the approval, then start its merge."""
+    entry = noting.act_of(ACT, asked.asker, asked.now, option=asked.given.tip)
+    noting.noted(asked.state, asked.slug, entry)
+    thread = Thread(target=merging.merged, args=(asked, token, key), daemon=True)
+    thread.start()
+
+
+def launch(asked: Asked, key: Merging, token: str) -> None:
+    """Write the act before its merge runs, or release the slot on failure."""
+    try:
+        start_thread(asked, key, token)
+    except Refusal as refusal:
+        said = line_of(refusal)
+    except (Fault, OSError, RuntimeError) as error:
+        said = f"The merge could not start: {error}."
+    else:
+        return
+    NOTES.change(token, "refused", said)
+    NOTES.ended(key)
+
+
 def started(asked: Asked, key: Merging, note: Note) -> str:
     """Start the merge of his approval in a thread of its own, unless one runs, and give the
     token of its note."""
     token, new = NOTES.started(key, note)
     if new:
-        entry = noting.act_of(ACT, asked.asker, asked.now, option=asked.given.tip)
-        noting.noted(asked.state, asked.slug, entry)
-        thread = threading.Thread(
-            target=merging.merged, args=(asked, token, key), daemon=True
-        )
-        thread.start()
+        launch(asked, key, token)
     return token
 
 

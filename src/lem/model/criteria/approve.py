@@ -14,10 +14,10 @@ from msgspec.structs import replace
 from lem.kernel.errors import Refusal
 from lem.model.criteria import approvers, clear, digest, waits, yes
 from lem.model.criteria.read import Sheet
-from lem.records.approvals import Approval, ApprovedBy
-from lem.records.base import Frozen
+from lem.records import approvals, base
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from datetime import datetime
 
     from lem.records.criteria import Criteria
@@ -29,13 +29,13 @@ if TYPE_CHECKING:
 ENDS_WAIT = frozenset(("owner", "alone"))
 
 
-class Asked(Frozen, frozen=True, kw_only=True):
+class Asked(base.Frozen, frozen=True, kw_only=True):
     """An approval asked for: by whom, of which criteria, whether the task runs without the
     owner now, why its request is not his own sentence (None when it is), whether the
     criteria may carry the lead's test lines (the plan's own), and for his yes the question
     his page showed, where he gave it, and the mark of the bytes it showed."""
 
-    by: ApprovedBy
+    by: approvals.ApprovedBy
     sheet: Sheet
     alone: bool = False
     other: str | None = None
@@ -80,12 +80,12 @@ def untested_criterion(criterion: Criterion) -> Criterion:
     return replace(criterion, tests=(), no_test=None)
 
 
-def approval_of(task: Task, asked: Asked, now: datetime) -> Approval:
+def approval_of(task: Task, asked: Asked, now: datetime) -> approvals.Approval:
     """The approval `asked`, numbered after the task's last one."""
     sheet = asked.sheet
     kept = tuple(untested_criterion(one) for one in sheet.criteria)
     before = task.criteria.approvals
-    return Approval(
+    return approvals.Approval(
         number=len(before) + 1,
         at=now,
         by=asked.by,
@@ -98,7 +98,9 @@ def approval_of(task: Task, asked: Asked, now: datetime) -> Approval:
     )
 
 
-def recorded(criteria: Criteria, sheet: Sheet, approval: Approval) -> Criteria:
+def recorded(
+    criteria: Criteria, sheet: Sheet, approval: approvals.Approval
+) -> Criteria:
     """What the task knows of its criteria after `approval` of the criteria `sheet`."""
     return replace(
         criteria,
@@ -111,16 +113,23 @@ def recorded(criteria: Criteria, sheet: Sheet, approval: Approval) -> Criteria:
     )
 
 
-def approved(record: Record, *, asked: Asked, now: datetime) -> Record:
-    """The record with the approval `asked`; refused by the rules of who approves."""
+def approved(
+    record: Record,
+    *,
+    asked: Asked,
+    now: datetime,
+    answer: Callable[[Record], Record] | None = None,
+) -> Record:
+    """The approval and its answer in one record, after the rules of who approves."""
+    if answer is not None:
+        record = answer(record)
     task = record.task
     yes.page_of(task, asked.question)
     refusal = refusal_of(task, asked)
     if refusal is not None:
         raise refusal
-    if asked.by in ENDS_WAIT:
+    if answer is None and asked.by in ENDS_WAIT:
         task = yes.answered_yes(task, asked.via, asked.shown, now)
-    approval = approval_of(task, asked, now)
-    criteria = recorded(task.criteria, asked.sheet, approval)
+    criteria = recorded(task.criteria, asked.sheet, approval_of(task, asked, now))
     hold = waits.hold_after(task, ends=asked.by in ENDS_WAIT)
     return replace(record, task=replace(task, criteria=criteria, hold=hold))

@@ -15,15 +15,15 @@ import msgspec
 from starlette.concurrency import run_in_threadpool
 
 from lem.app.tasks.opening import REVIEWER_ITEMS
-from lem.board.acts import acting, back, child, slugs
-from lem.board.acts.asked import Asked, refused
+from lem.board.acts import acting, back, child
+from lem.board.acts import asked as owner
 from lem.board.acts.notes import Note
 from lem.kernel.errors import Refusal
+from lem.model.task import claim
 from lem.store import tasks
 
 if TYPE_CHECKING:
-    from starlette.requests import Request
-    from starlette.responses import Response
+    from starlette import requests, responses
 
 
 ACT = "drop"
@@ -35,7 +35,7 @@ class Dropped(msgspec.Struct, frozen=True, kw_only=True):
     proposals: tuple[str, ...] = ()
 
 
-def checked(asked: Asked) -> str:
+def checked(asked: owner.Asked) -> str:
     """The path of the item the drop names; refused for none, for an item of the backlog
     folder, and for one a task holds."""
     path = asked.given.path.strip()
@@ -48,7 +48,7 @@ def checked(asked: Asked) -> str:
             "nothing was dropped."
         )
         raise Refusal("item-folder", why, "remove it on a branch")
-    holding = slugs.holder(path, tasks.every(asked.state))
+    holding = claim.item_holder(path, tasks.every(asked.state))
     if holding is not None:
         why = f"This item has a task already: {holding.slug}, {holding.status}."
         raise Refusal("item-held", why, f"drop the task {holding.slug} first")
@@ -61,7 +61,7 @@ def names_of(outcome: msgspec.Raw | None) -> str:
     return ", ".join(msgspec.json.decode(outcome, type=Dropped).proposals)
 
 
-def said_of(asked: Asked) -> str:
+def said_of(asked: owner.Asked) -> str:
     """Drop the item, and say so."""
     path = checked(asked)
     printed = child.ran(asked.checkout, "proposals", "drop", path)
@@ -75,19 +75,19 @@ def said_of(asked: Asked) -> str:
     )
 
 
-def dropped(asked: Asked) -> Note:
+def dropped(asked: owner.Asked) -> Note:
     """Drop the reviewer's item, and the note."""
     try:
         said = said_of(asked)
     except Refusal as refusal:
-        return refused(ACT, None, refusal)
+        return owner.refused(ACT, None, refusal)
     return Note(act=ACT, state="done", said=said)
 
 
-async def endpoint(request: Request) -> Response:
+async def endpoint(request: requests.Request) -> responses.Response:
     """Drop the item, then the Backlog view with the note."""
     asked = await acting.asked_of(request)
-    if not isinstance(asked, Asked):
+    if not isinstance(asked, owner.Asked):
         return asked
     note = await run_in_threadpool(dropped, asked)
     return back.to_view(request, "backlog", note)

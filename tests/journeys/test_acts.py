@@ -107,7 +107,7 @@ def test_his_approval_from_the_confirm_step_lands_the_pull_request_as_his_word(
     assert note.said.startswith("Merged: pull request #")
     landing = world.record()["landing"]
     assert (landing["merged"]["by"], landing["merged"]["via"]) == ("owner", "board")
-    assert len(world.forge.merge_calls) == 1
+    assert world.forge.merge_calls == [(landing["pull"]["number"], tip)]
     acts = [one for one in world.record()["journal"] if one["kind"] == "owner-act"]
     assert [(one["act"], one["option"], one["via"]) for one in acts] == [
         ("merge", tip, "local")
@@ -140,6 +140,7 @@ def test_a_new_task_from_his_words_opens_its_record_and_its_session(
 ) -> None:
     world = made(tmp_path, monkeypatch)
     board = Board(world)
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
     monkeypatch.setenv("AGTERM_SESSION_ID", "S-MINE")
     place = Place(checkout=world.checkout, home=tmp_path, environ={})
     terminal = wiring.bound(place).terminal

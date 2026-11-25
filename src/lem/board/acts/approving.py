@@ -8,17 +8,16 @@ first counts. His No needs the same bytes: the page's mark is checked against th
 answer keeps it, so the session changes the text he read.
 """
 
+from functools import partial
 from typing import TYPE_CHECKING
 
 from lem.app.criteria import approve, texts, where
-from lem.board.acts import asking, noting, telling
+from lem.board.acts import recording, telling
 from lem.kernel.errors import Refusal
 from lem.model.criteria import digest
-from lem.store import tasks
 
 if TYPE_CHECKING:
     from lem.board.acts.asked import Asked
-    from lem.records.questions import Question
 
 NOTHING = "Nothing was recorded."
 CHANGED = (
@@ -42,23 +41,16 @@ def shown_of(asked: Asked) -> str:
     return mark
 
 
-def approval_of(asked: Asked, question: Question) -> approve.Asked:
-    """The approval in his name of the bytes his page showed, as his answer to `question`
-    when the record holds it."""
-    shown = shown_of(asked)
-    task = tasks.read(asked.state, asked.slug).task
-    named = question.id if asking.on_record(task, question) else None
-    return approve.Asked(by="owner", shown=shown, question=named, via="board")
-
-
-def approved(asked: Asked, question: Question) -> str:
+def approved(asked: Asked) -> str:
     """His yes to the criteria the page showed: their approval in his name, and the word to
     the task's session."""
-    approve.approved(asked.checkout, asked.slug, approval_of(asked, question))
-    entry = noting.act_of(
-        "approve", asked.asker, asked.now, question=question.id, option="yes"
+    shown = shown_of(asked)
+    answer = partial(recording.answering, asked=asked, digest=shown, act="approve")
+    approve.approved(
+        asked.checkout,
+        asked.slug,
+        approve.Asked(by="owner", shown=shown, answer=answer),
     )
-    noting.noted(asked.state, asked.slug, entry)
     told = telling.told(
         asked.checkout, asked.slug, asked.now, "it goes on to the build"
     )

@@ -87,7 +87,7 @@ first as a slice names that slice too; the step named owns it from group 2 on.
 | Reviewer item Drop | refused while a task builds it; the proposals record keeps it | `board-acts` |
 | Merge (confirm page; phone: active after reading to the end) | Approve (amendment A4): POST `.../tasks/SLUG/merge` with the shown tip; his approval stands through a moved base and a conflict, as the landing keeps it | `board-acts` |
 | Open a session | POST `.../tasks/SLUG/session` | `board-acts` |
-| Plan Build/Drop; breaker Help/Park/Drop (Help needs a note; Park and Drop confirm); Skip the persona read; Approve this criterion (No needs a note; shown digest current); Approve the criteria (No is a change); prior-release Approve | POST `.../tasks/SLUG/answer` with question id, option, note, shown digest | `board-acts` (rules: `owner`) |
+| Plan Build/Drop; breaker Help/Park/Drop (Help needs a note; Park and Drop confirm); Skip the persona read; Approve this criterion (No needs a note; shown digest current); Approve the criteria (No is a change) | POST `.../tasks/SLUG/answer` with question id, option, note, shown digest | `board-acts` (rules: `owner`) |
 | A note with no option; a wish to talk | refused, the row stays | `owner` |
 | First answer counts; the board says which took effect | `expect` on the question | `owner` |
 | A card answered on the board; its tune preview Replay (button or `R`) | POST `.../tasks/SLUG/cards/PAGE/answer`; the card page keeps `ask.js` | `ask` |

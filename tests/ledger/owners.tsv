@@ -167,7 +167,7 @@ check:tests/lem-board-act.sh:a-task-whose-stop-the-guard-logged-is-the-ro-277eb9
 check:tests/lem-board-act.sh:after-github-closed-a-pull-request-with-no-m-2f1f1f8af22836a0	board-duties
 check:tests/lem-board-act.sh:after-github-merged-a-pull-request-the-serve-af2cd62f23f46b58	board-duties
 check:tests/lem-board-act.sh:after-the-merge-agent-s-verdict-merge-the-se-39991341011e91ab	board-duties
-check:tests/lem-board-act.sh:drop-on-a-reviewer-s-item-removes-its-file-a-3e0563c19328408a	board-acts
+check:tests/lem-board-act.sh:drop-on-a-reviewer-s-item-removes-its-file-a-3e0563c19328408a	addons-flow
 check:tests/lem-board-act.sh:on-this-mac-a-row-of-waits-for-you-has-the-o-e86daedf052bb2d8	board-views
 check:tests/lem-board-act.sh:open-a-session-runs-lem-session-open-once-fo-f8a30fd2cf4a0fce	board-acts
 check:tests/lem-board-act.sh:the-standard-track-s-criteria-card-shows-eac-09c78d337985866c	board-acts

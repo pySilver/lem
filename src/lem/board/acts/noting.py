@@ -12,34 +12,15 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.kernel.errors import Refusal
+from lem.app.decisions.writing import updated
 from lem.records.journal.task import OwnerAct
-from lem.store import tasks
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from datetime import datetime
     from pathlib import Path
 
     from lem.board.acts.asker import Asker
     from lem.records.record import Record
-
-# How many times a write is made again over another write that came first.
-TRIES = 3
-STALE = "stale"
-
-
-def written(state: Path, slug: str, change: Callable[[Record], Record]) -> Record:
-    """Write `change` to the task's record, made again over a write that came first."""
-    for _ in range(TRIES - 1):
-        record = tasks.read(state, slug)
-        try:
-            return tasks.update(state, slug, change, record.revision)
-        except Refusal as refusal:
-            if refusal.code != STALE:
-                raise
-    record = tasks.read(state, slug)
-    return tasks.update(state, slug, change, record.revision)
 
 
 def with_act(record: Record, entry: OwnerAct) -> Record:
@@ -62,4 +43,4 @@ def act_of(
 
 def noted(state: Path, slug: str, entry: OwnerAct) -> Record:
     """Put the act in the task's journal."""
-    return written(state, slug, partial(with_act, entry=entry))
+    return updated(state, slug, partial(with_act, entry=entry))

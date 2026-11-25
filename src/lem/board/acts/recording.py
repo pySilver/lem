@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
+from lem.app.decisions.writing import updated
 from lem.board.acts import asking, checking, noting
 from lem.model.owner import answers
 from lem.records.questions import Answer
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
     from lem.records.task import Task
 
 
-def answer_of(question: Question, option: str, asked: Asked) -> Answer:
+def answer_of(option: str, asked: Asked) -> Answer:
     """His answer as the record keeps it."""
     asker = asked.asker
     return Answer(
@@ -49,12 +50,14 @@ def with_question(task: Task, question: Question) -> Task:
 def answered(task: Task, question: Question, option: str, asked: Asked) -> Task:
     """The task with his answer to `question`, shown with the digest of the form when the
     question has one."""
-    said = answer_of(question, option, asked)
+    said = answer_of(option, asked)
     shown = None if question.digest is None else asked.given.digest
     return answers.answer(with_question(task, question), question.id, shown, said)
 
 
-def answering(record: Record, *, asked: Asked, digest: str | None) -> Record:
+def answering(
+    record: Record, *, asked: Asked, digest: str | None = None, act: str = "answer"
+) -> Record:
     """The record with his answer to the question that waits, read again under the lock;
     `digest` is the mark of the criteria the page showed, given to a question of the
     criteria the record held none of."""
@@ -64,7 +67,7 @@ def answering(record: Record, *, asked: Asked, digest: str | None) -> Record:
         question = replace(question, digest=digest)
     task = answered(record.task, question, option, asked)
     entry = noting.act_of(
-        "answer", asked.asker, asked.now, question=question.id, option=option
+        act, asked.asker, asked.now, question=question.id, option=option
     )
     return noting.with_act(replace(record, task=task), entry)
 
@@ -73,4 +76,4 @@ def recorded(asked: Asked, digest: str | None = None) -> Record:
     """Write his answer; refused when its question waits no more, or its option may not
     stand. `digest` is the mark of the criteria the page showed, for his No to them."""
     change = partial(answering, asked=asked, digest=digest)
-    return noting.written(asked.state, asked.slug, change)
+    return updated(asked.state, asked.slug, change)

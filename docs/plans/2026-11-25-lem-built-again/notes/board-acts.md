@@ -26,7 +26,8 @@ note, never an error page.
 - **The key of an answer's form** is `lem.board.acts.asking.standing(task).id`: the record's
   question of the wait when it holds one asked since the wait began, else the wait's own id,
   `breaker:SLUG:N:STAMP`, `plan:SLUG:STAMP`, `skip:SLUG:STAMP` or `criterion:SLUG:STAMP` with
-  STAMP `clock.compact(hold.since)` (the fixture's ids have this form). The act writes that
+  STAMP `clock.compact(hold.since)` (the fixture's ids have this form). A resumed breaker's
+  stored question appends a number to STAMP. The act writes that
   question on the record with the answer when the record held none, so the view and the act
   never disagree on the id. `asking.OPTIONS` gives each topic's options in their order.
 - **The criteria's `digest`** is `model.criteria.digest.shown` of `criteria.md`'s bytes: the act
@@ -38,7 +39,8 @@ note, never an error page.
   `busy` "Approving…"), not "Merge pull request #44" as `fixtures/board/panel.MERGE_STEP` has it;
   the form is the same (`confirm=yes`, `tip`).
 - An answer on the board writes no `took_effect`: the task's session sets it
-  (`notes/owner.md`). A board park writes no answer at all: the hold goes aside with the park.
+  (`notes/owner.md`). Park saves the answer and the breaker's hold in one write. Resume keeps
+  that answer and stores a fresh question, including when the two acts fall in the same second.
 
 ## For `board-pages`
 
@@ -66,10 +68,18 @@ day's record keeps the drop, and removes the file; a refusal's why and fix are t
 The board refuses before it an empty path, an item of `docs/backlog`, and an item a task that did
 not end holds.
 
+The ledger row for file removal and the saved verdict moves to `addons-flow`. The board test
+uses a stand-in for the command. The rebuilt add-on's test must prove both effects, as
+`Drop.test_a_drop_removes_the_file_at_once_and_keeps_the_drop_in_the_retros_file` does on `main`.
+
 ## For `board-duties`
 
-An approval that stands is `Landing.standing` with `by_act` `board`; the merge duty carries it
-out after a safe read with `--standing --via server`, as the landing says. Six rows of
+An approval that stands is `Landing.standing` with `by_act` `board`. Under amendment A4, the checks
+run on the rebased task before it can merge on a moved base. A task red on its rebase leaves
+the line. A task checked on the current base goes first. The server records how many approved
+tasks wait at each merge. The merge duty carries out a standing approval with
+`--standing --via server` when the landing permits it. For a fresh approval, the landing
+checks the submitted tip again under the merge lock and the forge call uses that tip. Six rows of
 `lem-board-act.sh` about the server's merges and its look at the forge are moved to you
 (`tests/ledger/moves/board-acts.tsv`).
 

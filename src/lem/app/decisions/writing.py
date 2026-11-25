@@ -24,21 +24,32 @@ TRIES = 20
 STALE = "stale"
 
 
-def written[Outcome](state: Path, slug: str, make: Make[Outcome]) -> Outcome:
-    """Write the change `make` gives for the record as it is now, at its revision, and give
-    what `make` said with it."""
+def committed[Outcome](
+    state: Path, slug: str, make: Make[Outcome]
+) -> tuple[Record, Outcome]:
+    """Apply the change and give the saved record and the outcome made for its revision."""
     for _ in range(TRIES):
         record = tasks.read(state, slug)
         change, outcome = make(record)
         try:
-            tasks.update(state, slug, change, record.revision)
+            saved = tasks.update(state, slug, change, record.revision)
         except Refusal as refusal:
             if refusal.code != STALE:
                 raise
         else:
-            return outcome
+            return saved, outcome
     raise Refusal(
         STALE,
         f"{slug} was written {TRIES} times while this write waited",
         "run the command again",
     )
+
+
+def written[Outcome](state: Path, slug: str, make: Make[Outcome]) -> Outcome:
+    """Write the change and give the outcome made for its revision."""
+    return committed(state, slug, make)[1]
+
+
+def updated(state: Path, slug: str, change: Change) -> Record:
+    """Apply a pure change under the record lock and give the saved record."""
+    return committed(state, slug, lambda record: (change, None))[0]

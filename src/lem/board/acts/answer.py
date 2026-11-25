@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from starlette.responses import Response
 
     from lem.board.acts.asked import Asked
-    from lem.records.questions import Question
 
 ACT = "answer"
 ON_RECORD = "Your answer is on record: the task’s session takes it."
@@ -47,10 +46,10 @@ def told_of(asked: Asked, then: str) -> str:
     return f"{ON_RECORD} {told}"
 
 
-def criteria_said(asked: Asked, question: Question, option: str) -> str:
+def criteria_said(asked: Asked, option: str) -> str:
     """His Yes or No to the criteria."""
     if option == "yes":
-        return approving.approved(asked, question)
+        return approving.approved(asked)
     recording.recorded(asked, approving.shown_of(asked))
     return told_of(asked, CHANGES)
 
@@ -61,9 +60,9 @@ def said_of(asked: Asked) -> str:
     question = checking.question_of(task, asked.given.key)
     option = checking.checked(question, asked.given)
     if option == "park":
-        return parking.parked(asked, question)
+        return parking.parked(asked)
     if question.topic == waits.TOPIC:
-        return criteria_said(asked, question, option)
+        return criteria_said(asked, option)
     recording.recorded(asked)
     return told_of(asked, THEN[option])
 

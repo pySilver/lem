@@ -32,7 +32,7 @@ def item_of(asked: Asked, every: tuple[Record, ...]) -> Opening:
     if not (asked.checkout / path).is_file():
         why = f"No item {path} is in the backlog now: nothing was started."
         raise Refusal("item-gone", why, "read the backlog again")
-    holding = slugs.holder(path, every)
+    holding = claim.item_holder(path, every)
     if holding is not None:
         why = f"This item has a task already: {holding.slug}, {holding.status}."
         raise Refusal("item-held", why, f"go on with {holding.slug}")

@@ -53,7 +53,7 @@ class ClaudeHarness:
     def plugin_folder(self, plugin_dir: Path) -> Path | None:
         """The folder `--plugin-dir` names for this checkout, `plugin_dir`; None when the
         project loads the installed plugin."""
-        if claude_plugin.installed(self.place.checkout, self.place.environ):
+        if claude_plugin.selected(self.place.checkout, self.place.environ) is not None:
             return None
         return plugin_dir
 

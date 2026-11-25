@@ -6,14 +6,14 @@ with it, so a later answer to that question finds the task parked and says so, a
 gives the breaker back to answer anew (`app/tasks/park.py`).
 """
 
+from functools import partial
 from typing import TYPE_CHECKING
 
 from lem.app.tasks import park
-from lem.board.acts import noting, telling
+from lem.board.acts import recording, telling
 
 if TYPE_CHECKING:
     from lem.board.acts.asked import Asked
-    from lem.records.questions import Question
 
 # The longest line of why a park keeps, in characters: one line (`serve.WHY_CHARS` on `main`, a
 # guess).
@@ -21,14 +21,11 @@ WHY_CHARS = 300
 PARKED = "the owner parked it"
 
 
-def parked(asked: Asked, question: Question) -> str:
+def parked(asked: Asked) -> str:
     """Park the task with his line of why, and say what happens next."""
     why = asked.given.note[:WHY_CHARS] or PARKED
-    park.parked(asked.checkout, asked.slug, why)
-    entry = noting.act_of(
-        "park", asked.asker, asked.now, question=question.id, option="park"
-    )
-    noting.noted(asked.state, asked.slug, entry)
+    answer = partial(recording.answering, asked=asked, act="park")
+    park.parked(asked.checkout, asked.slug, why, answer=answer)
     told = telling.told(
         asked.checkout, asked.slug, asked.now, "it closes once you have left it"
     )

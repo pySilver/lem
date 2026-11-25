@@ -69,6 +69,7 @@ def made_app(home: Path, *, door: bool) -> TestClient:
 def board_of(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, door: bool) -> Board:
     """A board over a workspace in `tmp_path`, its acts on fakes."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
     home = folders.home_for_writing({"XDG_CONFIG_HOME": str(tmp_path / "config")})
     checkout = tmp_path / "shop"
     (checkout / ".git").mkdir(parents=True)

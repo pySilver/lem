@@ -14,6 +14,7 @@ from lem.board.acts.given import NOTE_CHARS, Given
 from lem.board.acts.notes import Note, Notes
 from lem.kernel.errors import Refusal
 from lem.model.criteria import waits
+from lem.model.task import claim
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked
 from lem.records.questions import Answer, Question
 
@@ -126,9 +127,9 @@ def test_a_task_is_named_by_five_plain_words_and_an_item_by_its_stem() -> None:
         "the-receipt-s-total"
     )
     holding = record("x", status="queued", backlog_item=path)
-    assert slugs.holder(path, (holding,)) == holding.task
+    assert claim.item_holder(path, (holding,)) == holding.task
     assert (
-        slugs.holder(
+        claim.item_holder(
             path, (replace(holding, task=replace(holding.task, status="landed")),)
         )
         is None

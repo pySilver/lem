@@ -14,7 +14,7 @@ from starlette.concurrency import run_in_threadpool
 
 from lem.app.sessions import here, opening
 from lem.app.tasks import open as opened
-from lem.board.acts import acting, back, noting, starting
+from lem.board.acts import acting, back, noting, plugin, starting
 from lem.board.acts.asked import Asked, refused
 from lem.board.acts.notes import Note
 from lem.kernel.errors import Fault, Refusal
@@ -46,6 +46,7 @@ def session_said(asked: Asked, slug: str) -> str:
 def task_of(asked: Asked) -> Opening:
     """Open the task the form names, and give what it opened with."""
     given = starting.opening_of(asked, tasks.every(asked.state))
+    plugin.checked(asked.checkout)
     opened.opened(asked.checkout, given)
     return given
 

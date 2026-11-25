@@ -46,13 +46,3 @@ def item_slug(path: str, every: tuple[Record, ...]) -> str:
     while f"{slug}-{number}" in known:
         number += 1
     return f"{slug}-{number}"
-
-
-def holder(path: str, every: tuple[Record, ...]) -> Task | None:
-    """The task that did not end and started from the item at `path`, or None."""
-    holding = (
-        record.task
-        for record in every
-        if record.task.backlog_item == path and record.task.status not in claim.ENDED
-    )
-    return next(holding, None)

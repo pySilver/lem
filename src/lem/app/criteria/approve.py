@@ -29,14 +29,15 @@ THE_CRITERIA = "the criteria approved"
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Asked:
     """An approval as the command or the board asks it: by whom, the file (None: the task's
-    own), the mark of the bytes his page showed, the question that page answered (the board
-    gives it), and where his yes was given."""
+    own), the mark of the bytes his page showed, and the question and source of his yes.
+    The board supplies a pure change to check and record its answer with the approval."""
 
     by: ApprovedBy
     path: Path | None = None
     shown: str | None = None
     question: str | None = None
     via: Via = "session"
+    answer: Change | None = None
 
 
 def make(
@@ -57,7 +58,7 @@ def make(
         shown=digest.shown(raw),
     )
     now = clock.now()
-    change = partial(approve.approved, asked=approving, now=now)
+    change = partial(approve.approved, asked=approving, now=now, answer=asked.answer)
     return change, approve.approval_of(record.task, approving, now)
 
 

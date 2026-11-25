@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
+from lem.model.task import breaker_question
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
 from lem.records.journal.task import StateNoted
 
@@ -58,8 +59,14 @@ def parked(record: Record, *, words: str, now: Moment) -> Record:
     task = record.task
     if isinstance(task.hold, Parked):
         return record
+    refusal = park_refusal(task)
+    if refusal is not None:
+        raise refusal
     entry = StateNoted(at=now, status=task.status, hold="parked", line=words)
-    hold = Parked(since=now, words=words)
+    saved = task.hold
+    if not isinstance(saved, (OwnerHold, BreakerHold, Blocked)):
+        saved = None
+    hold = Parked(since=now, words=words, held=saved)
     return replace(
         record, task=replace(task, hold=hold), journal=(*record.journal, entry)
     )
@@ -69,6 +76,9 @@ def resumed(record: Record, *, before: Hold | None, now: Moment) -> Record:
     """The record of a parked task with the hold its park put aside, and its status as it
     was."""
     task = record.task
+    if isinstance(before, BreakerHold):
+        task = breaker_question.renewed(task, before, now)
+        before = task.hold
     kind = None if before is None else type(before).__name__
     entry = StateNoted(at=now, status=task.status, hold=kind, line="resumed")
     return replace(

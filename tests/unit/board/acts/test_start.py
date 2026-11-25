@@ -10,12 +10,14 @@ import msgspec
 import pytest
 
 from fakes.records import MOMENT
+from lem.app.decisions import writing
 from lem.app.sessions import acts, log
 from lem.board.acts import backlog, child
 from lem.board.acts.notes import NOTES
 from lem.kernel import clock
 from lem.kernel.envelope import Envelope, Refused
-from lem.model.task import holds
+from lem.kernel.errors import Refusal
+from lem.model.task import claim, holds
 from lem.records.journal.task import OwnerAct
 from lem.store import places, tasks
 from unit.board.acts.acts import made, opened, read
@@ -26,6 +28,8 @@ if TYPE_CHECKING:
     import httpx
 
     from lem.board.acts.notes import Note
+    from lem.records.record import Record
+    from lem.records.task import Task
     from unit.board.acts.conftest import Board
 
 WORDS = "Add the gift note to the CSV export, please"
@@ -84,6 +88,86 @@ def test_his_words_name_the_task_by_their_first_five_plain_words_and_open_its_se
 def test_the_design_s_address_starts_a_task_too(board: Board) -> None:
     path, note = where_to(board.post("/tasks", {"words": WORDS}))
     assert (path, note.state) == (f"{board.base}/tasks/{SLUG}", "done")
+
+
+@pytest.mark.parametrize("enabled", (True, False))
+def test_start_checks_the_plugin_the_projects_session_will_load(
+    board: Board, monkeypatch: pytest.MonkeyPatch, *, enabled: bool
+) -> None:
+    home = board.home / "claude"
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(home))
+    installed = home / "plugins" / "installed_plugins.json"
+    installed.parent.mkdir(parents=True)
+    plugin = home / "cache" / "lem"
+    manifest = plugin / ".claude-plugin" / "plugin.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text('{"version": "0.1.0"}')
+    installed.write_bytes(
+        msgspec.json.encode(
+            {
+                "plugins": {
+                    "lem@lem": [
+                        {
+                            "scope": "project",
+                            "projectPath": str(board.checkout),
+                            "installPath": str(plugin),
+                            "version": "0.1.0",
+                        }
+                    ]
+                }
+            }
+        )
+    )
+    (board.checkout / ".claude").mkdir()
+    (board.checkout / ".claude" / "settings.local.json").write_bytes(
+        msgspec.json.encode({"enabledPlugins": {"lem@lem": enabled}})
+    )
+    before = tasks.every(board.state)
+    openings = tuple(board.terminal.openings)
+    path, note = where_to(board.post("/start", {"words": WORDS}))
+    if enabled:
+        assert (path, note.state) == (f"{board.base}/new", "refused")
+        assert "claude plugin update lem@lem" in note.said
+        assert tasks.every(board.state) == before
+        assert tuple(board.terminal.openings) == openings
+    else:
+        assert (path, note.state) == (f"{board.base}/tasks/{SLUG}", "done")
+
+
+def test_the_board_uses_the_task_rule_for_the_item_holder(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    item(board, ITEM)
+    holder = made(board, "item-task", status="building", backlog_item=ITEM)
+    seen: list[str] = []
+
+    def lookup(path: str, every: tuple[Record, ...]) -> Task:
+        assert holder in every
+        seen.append(path)
+        return holder.task
+
+    monkeypatch.setattr(claim, "item_holder", lookup, raising=False)
+    _, note = where_to(board.post("/start", {"item": ITEM}))
+    assert note.state == "refused"
+    with pytest.raises(Refusal, match="item-task"):
+        claim.claimed(holder, tasks.every(board.state), None)
+    assert seen == [ITEM, ITEM]
+
+
+def test_the_boards_journal_write_retries_as_long_as_a_decision_write(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    update = tasks.update
+    stale = iter(range(writing.TRIES - 1))
+
+    def busy(state: Path, slug: str, change: tasks.Change, expect: int) -> Record:
+        if next(stale, None) is not None:
+            raise Refusal("stale", "another write came first", "try again")
+        return update(state, slug, change, expect)
+
+    monkeypatch.setattr(tasks, "update", busy)
+    _, note = where_to(board.post("/start", {"words": WORDS}))
+    assert note.state == "done"
 
 
 def test_a_slug_that_runs_or_ended_or_no_words_is_refused_with_why(

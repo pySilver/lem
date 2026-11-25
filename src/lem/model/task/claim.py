@@ -94,25 +94,14 @@ def ticket_claim(made: Record, every: tuple[Record, ...], kind: Tracker | None) 
         raise holder_refusal(held, kind)
 
 
-def item_claim(made: Record, every: tuple[Record, ...]) -> None:
-    """Refuse `made` when an open task started from its backlog item already."""
-    path = made.task.backlog_item
-    if path is None:
-        return
-    holding = next(
-        (
-            other.task.slug
-            for other in every
-            if other.task.backlog_item == path and other.task.status not in ENDED
-        ),
-        None,
+def item_holder(path: str, every: tuple[Record, ...]) -> Task | None:
+    """The open task that started from the backlog item at `path`, if there is one."""
+    holding = (
+        record.task
+        for record in every
+        if record.task.backlog_item == path and record.task.status not in ENDED
     )
-    if holding is not None:
-        raise Refusal(
-            "item-held",
-            f"the open task {holding} started from the backlog item {path} already",
-            f"go on with {holding}, or drop it first",
-        )
+    return next(holding, None)
 
 
 def claimed(made: Record, every: tuple[Record, ...], kind: Tracker | None) -> Record:
@@ -120,5 +109,15 @@ def claimed(made: Record, every: tuple[Record, ...], kind: Tracker | None) -> Re
     the dropped task it goes on from: refused when its ticket or its item is held."""
     made = resumes.carried(made, every)
     ticket_claim(made, every, kind)
-    item_claim(made, every)
+    path = made.task.backlog_item
+    if path is None:
+        return made
+    holding = item_holder(path, every)
+    if holding is not None:
+        slug = holding.slug
+        raise Refusal(
+            "item-held",
+            f"the open task {slug} started from the backlog item {path} already",
+            f"go on with {slug}, or drop it first",
+        )
     return made

@@ -11,6 +11,7 @@ from fakes.command import lem
 from fakes.records import MOMENT, record
 from fakes.repo import RealRepo, run_git
 from lem.app.tasks import carry, park, resume
+from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.task import resumes
 from lem.ports.faults import Unanswered
@@ -56,13 +57,17 @@ def test_a_task_that_waits_is_parked_and_the_resume_brings_it_back(
     assert read(where, SLUG).task.hold is None
 
 
-def test_resume_finds_the_hold_before_the_park(tmp_path: Path) -> None:
+def test_resume_finds_the_hold_before_the_park(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     where = workspace(tmp_path)
     made(where, SLUG, status="building", hold=BreakerHold(number=2, since=MOMENT))
     park.parked(tmp_path, SLUG, "not now")
+    now = clock.now()
+    monkeypatch.setattr(clock, "now", lambda: now)
     back = resume.resumed(tmp_path, SLUG)
     assert back.breaker == 2
-    assert read(where, SLUG).task.hold == BreakerHold(number=2, since=MOMENT)
+    assert read(where, SLUG).task.hold == BreakerHold(number=2, since=now)
 
 
 @pytest.mark.parametrize(

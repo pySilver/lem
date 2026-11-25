@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
+from lem.hooks import versions
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
@@ -29,6 +31,8 @@ class Install(msgspec.Struct, frozen=True, kw_only=True):
 
     scope: str | None = None
     project: str | None = msgspec.field(default=None, name="projectPath")
+    folder: object = msgspec.field(default=None, name="installPath")
+    version: object = None
 
     def counts_for(self, checkout: Path) -> bool:
         """Whether Claude Code loads this install in `checkout`, a resolved path."""
@@ -38,17 +42,26 @@ class Install(msgspec.Struct, frozen=True, kw_only=True):
             return False
         return Path(self.project).resolve() == checkout
 
+    def rank(self) -> tuple[bool, tuple[int, ...]]:
+        """A project install takes precedence over a user install."""
+        numbers = (
+            versions.numbers(self.version) if isinstance(self.version, str) else None
+        )
+        return self.scope in PROJECT_SCOPES, numbers or ()
+
 
 class Installs(msgspec.Struct, frozen=True, kw_only=True):
     """Claude Code's list of installed plugins, by key."""
 
     plugins: dict[str, tuple[Install, ...]] = msgspec.field(default_factory=dict)
 
-    def listed_for(self, checkout: Path) -> bool:
-        """Whether an install of Lem's plugin counts for `checkout`."""
+    def selected_for(self, checkout: Path) -> Install | None:
+        """The newest install for this project, else the newest one for the user."""
         here = checkout.resolve()
-        installs = self.plugins.get(PLUGIN, ())
-        return any(each.counts_for(here) for each in installs)
+        installs = tuple(
+            each for each in self.plugins.get(PLUGIN, ()) if each.counts_for(here)
+        )
+        return max(installs, key=Install.rank, default=None)
 
 
 class Settings(msgspec.Struct, frozen=True, kw_only=True):
@@ -80,16 +93,19 @@ def decoded[Form](path: Path, form: type[Form]) -> Form | None:
         return None
 
 
-def installed(checkout: Path, environ: Mapping[str, str]) -> bool:
-    """Whether Claude Code loads Lem's installed plugin in `checkout`."""
+def selected(checkout: Path, environ: Mapping[str, str]) -> Install | None:
+    """The installed plugin Claude Code loads in `checkout`, if it loads one."""
     home = claude_home(environ)
     listed = decoded(home / "plugins" / "installed_plugins.json", Installs)
-    if listed is None or not listed.listed_for(checkout):
-        return False
+    if listed is None:
+        return None
     own = checkout / ".claude"
-    return turned_on(
-        (own / "settings.local.json", own / "settings.json", home / "settings.json")
+    checks = (
+        own / "settings.local.json",
+        own / "settings.json",
+        home / "settings.json",
     )
+    return listed.selected_for(checkout) if turned_on(checks) else None
 
 
 def turned_on(files: tuple[Path, ...]) -> bool:

@@ -11,7 +11,7 @@ import pytest
 from msgspec.structs import replace
 
 from fakes.records import MOMENT
-from lem.board.acts import merging
+from lem.board.acts import merging, noting
 from lem.board.acts.notes import NOTES
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
@@ -195,6 +195,54 @@ def test_a_merge_the_moved_base_refused_keeps_his_approval_standing(
     )
     token = token_of(board, {"tip": TIP, "confirm": "yes"})
     assert settled(board, token).state == "stands"
+
+
+def test_a_standing_approval_says_checks_run_on_the_rebase_and_red_leaves_the_line(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opened_pull(board)
+    standing = Standing(tip=TIP, reasons_digest="d", by_act="board", at=MOMENT)
+    monkeypatch.setattr(merge_standing, "standing_of", lambda record: standing)
+    note = note_of(board.post(MERGE, {"tip": TIP, "confirm": "yes"}))
+    assert note.state == "stands"
+    assert "checks the rebased task before it merges" in note.said
+    assert "If the checks fail, the task leaves the merge line." in note.said
+
+
+@pytest.mark.parametrize("fails", ("journal", "thread"))
+def test_a_failed_merge_start_refuses_that_click_and_the_next_one_can_run(
+    board: Board, monkeypatch: pytest.MonkeyPatch, fails: str
+) -> None:
+    opened_pull(board)
+    calls: list[Asked] = []
+    monkeypatch.setattr(merging.merge, "run", accepting(calls))
+
+    def no_write(*args: object) -> None:
+        raise Refusal("stale", "the task record changed", "approve again")
+
+    class StoppedThread:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        def start(self) -> None:
+            raise RuntimeError("cannot start thread")
+
+    fields = {"tip": TIP, "confirm": "yes"}
+    with monkeypatch.context() as patch:
+        if fails == "journal":
+            patch.setattr(noting, "noted", no_write)
+        else:
+            # Starlette's own threads must still start.
+            patch.setattr("lem.board.acts.merge.Thread", StoppedThread)
+        token = token_of(board, fields)
+        refused = NOTES.get(token)
+        assert refused is not None and refused.state == "refused"
+        assert calls == []
+        assert NOTES.running((str(board.checkout), SLUG)) is None
+    retry = token_of(board, fields)
+    assert retry != token
+    assert settled(board, retry).state == "done"
+    assert len(calls) == 1
 
 
 def test_any_other_refusal_of_the_merge_is_its_note(

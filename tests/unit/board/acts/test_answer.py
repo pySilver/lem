@@ -6,8 +6,11 @@ import threading
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
+import pytest
+
 from lem.app.criteria import typed
-from lem.board.acts import answer, given
+from lem.app.tasks import resume
+from lem.board.acts import answer, asking, given
 from lem.board.acts.asked import Asked
 from lem.board.acts.asker import Asker
 from lem.kernel import clock
@@ -19,6 +22,8 @@ from unit.board.acts.conftest import PHONE
 from unit.criteria import world
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from unit.board.acts.conftest import Board
 
 SINCE = world.EARLY
@@ -111,7 +116,7 @@ def test_criterion_6_drop_asks_for_its_confirm_and_after_it_is_on_record(
     assert read(board).task.status == "building"
 
 
-def test_a_park_puts_the_task_aside_and_a_later_drop_is_told_it_is_parked(
+def test_a_park_puts_the_task_aside_and_a_later_drop_is_told_which_answer_won(
     board: Board,
 ) -> None:
     breaker(board)
@@ -124,12 +129,58 @@ def test_a_park_puts_the_task_aside_and_a_later_drop_is_told_it_is_parked(
     hold = record.task.hold
     assert isinstance(hold, Parked)
     assert hold.words == "wait for the export's owner"
+    assert hold.held == BREAKER
+    (question,) = record.task.questions
+    assert question.answer is not None
+    assert (question.id, question.answer.option) == (KEY, "park")
     acts = [one for one in record.journal if isinstance(one, OwnerAct)]
     assert [(one.act, one.option) for one in acts] == [("park", "park")]
     later = {"key": KEY, "option": "drop", "confirm": "yes"}
     refused = note_of(board.post(ANSWER, later))
     assert refused.state == "refused"
-    assert "no longer waits: you parked it at" in refused.said
+    assert "You picked Park for the breaker at" in refused.said
+
+
+@pytest.mark.parametrize("resumed_at", (SINCE, SINCE + timedelta(minutes=1)))
+def test_resume_issues_a_new_breaker_key_and_keeps_the_old_park(
+    board: Board, monkeypatch: pytest.MonkeyPatch, resumed_at: datetime
+) -> None:
+    breaker(board)
+    monkeypatch.setattr(clock, "now", lambda: SINCE)
+    assert note_of(board.post(ANSWER, {"key": KEY, "option": "park"})).state == "done"
+    monkeypatch.setattr(clock, "now", lambda: resumed_at)
+    resume.resumed(board.checkout, SLUG)
+    current = asking.standing(read(board).task)
+    assert current is not None and current.id != KEY and current.answer is None
+    fields = {"key": KEY, "option": "drop", "confirm": "yes"}
+    old = note_of(board.post(ANSWER, fields))
+    assert old.state == "refused"
+    assert "You picked Park" in old.said
+    fresh = note_of(board.post(ANSWER, {**fields, "key": current.id}))
+    assert fresh.state == "done"
+
+
+def test_drop_between_parks_first_check_and_its_write_wins_alone(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    breaker(board)
+    parked = answer.parking.parked
+
+    def after_drop(asked: Asked) -> str:
+        drop = note_of(
+            board.post(ANSWER, {"key": KEY, "option": "drop", "confirm": "yes"})
+        )
+        assert drop.state == "done"
+        return parked(asked)
+
+    monkeypatch.setattr(answer.parking, "parked", after_drop)
+    note = note_of(board.post(ANSWER, {"key": KEY, "option": "park"}))
+    assert note.state == "refused"
+    assert "You picked Drop" in note.said
+    record = read(board)
+    assert record.task.hold == BREAKER
+    assert record.revision == 2
+    assert not (board.state / "tasks" / SLUG / "parked.json").exists()
 
 
 def test_an_answer_to_an_earlier_breaker_says_the_wait_began_again(
@@ -242,6 +293,50 @@ def test_criterion_6_yes_approves_the_bytes_the_page_showed(board: Board) -> Non
     assert task.hold is None
     acts = [one for one in read(board).journal if isinstance(one, OwnerAct)]
     assert [(one.act, one.option) for one in acts] == [("approve", "yes")]
+
+
+def test_two_yes_requests_past_the_first_check_write_one_approval_and_answer(
+    door: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shown = criteria(door)
+    fields = {"key": criteria_key(), "option": "yes", "digest": shown}
+    approved = answer.approving.approved
+
+    def after_first_yes(asked: Asked) -> str:
+        monkeypatch.setattr(answer.approving, "approved", approved)
+        first = door.client.post(
+            f"{door.base}{ANSWER}",
+            data={**fields, "words": HELP},
+            headers={"user-agent": PHONE},
+            follow_redirects=False,
+        )
+        assert note_of(first).state == "done"
+        return approved(asked)
+
+    monkeypatch.setattr(answer.approving, "approved", after_first_yes)
+    note = note_of(
+        door.client.post(f"{door.base}{ANSWER}", data=fields, follow_redirects=False)
+    )
+    assert note.state == "refused"
+    assert "You picked Yes" in note.said
+    record = read(door)
+    (approval,) = record.task.criteria.approvals
+    (question,) = record.task.questions
+    assert (approval.by, question.id, question.digest) == (
+        "owner",
+        criteria_key(),
+        shown,
+    )
+    said = question.answer
+    assert said is not None
+    assert (said.note, said.via, said.device, said.agent) == (
+        HELP,
+        "door",
+        "phone",
+        PHONE,
+    )
+    (entry,) = (one for one in record.journal if isinstance(one, OwnerAct))
+    assert (entry.act, entry.question, record.revision) == ("approve", question.id, 2)
 
 
 def test_his_typed_no_first_refuses_the_boards_yes_with_where_it_came_from(

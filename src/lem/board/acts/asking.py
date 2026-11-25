@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 from lem.kernel import clock
 from lem.model.criteria import waits
+from lem.model.task import breaker_question
 from lem.records.holds import BreakerHold, OwnerHold
 from lem.records.questions import Question, Topic
 
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 # Each topic's options, in the order the buttons show them.
 OPTIONS = MappingProxyType(
     {
-        "breaker": ("help", "park", "drop"),
+        "breaker": breaker_question.OPTIONS,
         "plan": ("build", "drop"),
         "skip": ("yes", "no"),
         "criterion": ("yes", "no"),
@@ -39,11 +40,9 @@ type Wait = tuple[Topic, Moment, str]
 
 def derived(topic: Topic, task: Task, since: Moment, words: str) -> Question:
     """The question of a wait the record holds none of, asked when the wait began."""
-    hold = task.hold
-    middle = f":{hold.number}" if isinstance(hold, BreakerHold) else ""
     stamp = clock.compact(since)
     return Question(
-        id=f"{topic}:{task.slug}{middle}:{stamp}",
+        id=f"{topic}:{task.slug}:{stamp}",
         topic=topic,
         question=words,
         options=OPTIONS[topic],
@@ -56,17 +55,6 @@ def recorded(task: Task, topic: str, since: Moment) -> Question | None:
     found = (one for one in reversed(task.questions) if one.topic == topic)
     newest = next(found, None)
     return newest if newest is not None and newest.asked >= since else None
-
-
-def wait_of(task: Task) -> Wait | None:
-    """The topic, the start and the words of the wait the board answers, or None."""
-    hold = task.hold
-    if isinstance(hold, BreakerHold):
-        words = f"Breaker {hold.number} of {task.slug}: help, park or drop the task?"
-        return "breaker", hold.since, words
-    if not isinstance(hold, OwnerHold):
-        return None
-    return owner_wait(task, hold)
 
 
 def owner_wait(task: Task, hold: OwnerHold) -> Wait | None:
@@ -82,7 +70,14 @@ def owner_wait(task: Task, hold: OwnerHold) -> Wait | None:
 
 def standing(task: Task) -> Question | None:
     """The question the board answers now for the task: the record's, or the wait's own."""
-    wait = wait_of(task)
+    hold = task.hold
+    if isinstance(hold, BreakerHold):
+        return recorded(task, "breaker", hold.since) or breaker_question.asked(
+            task, hold
+        )
+    if not isinstance(hold, OwnerHold):
+        return None
+    wait = owner_wait(task, hold)
     if wait is None:
         return None
     topic, since, words = wait
