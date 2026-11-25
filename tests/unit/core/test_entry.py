@@ -2,6 +2,7 @@
 commands of pyproject.toml."""
 
 import fcntl
+import os
 import subprocess
 import sys
 import threading
@@ -13,6 +14,8 @@ import pytest
 import gates
 import levels
 from fakes.command import Ran, lem
+from lem.hooks import versions
+from lem.kernel import paths
 
 BIN = Path(sys.executable).parent
 
@@ -47,7 +50,7 @@ def test_a_selection_the_entry_cannot_run_is_refused_with_its_fix(
 ) -> None:
     (tmp_path / "unit").mkdir()
     (tmp_path / "contract").mkdir()
-    for level, paths, said in (
+    for level, given, said in (
         ("gates", ["x"], "takes no paths"),
         ("full", ["x"], "takes no paths"),
         ("unit", [str(tmp_path / "contract")], "is not in"),
@@ -55,7 +58,7 @@ def test_a_selection_the_entry_cannot_run_is_refused_with_its_fix(
         ("model", [], "has no case yet"),
     ):
         with pytest.raises(levels.WrongCall, match=said):
-            levels.selection(tmp_path, level, paths)
+            levels.selection(tmp_path, level, given)
 
 
 def test_only_a_full_run_takes_the_machine_lock(
@@ -134,3 +137,51 @@ def test_a_commands_output_is_read_as_its_envelope(tmp_path: Path) -> None:
         stub.envelope()
     with pytest.raises(AssertionError, match="gave no result"):
         Ran(args=("x",), code=1, stdout='{"ok":false}', stderr="").result()
+
+
+def plugin_of(folder: Path, version: str) -> Path:
+    """A plugin folder whose manifest says `version`."""
+    (folder / ".claude-plugin").mkdir(parents=True)
+    (folder / ".claude-plugin" / "plugin.json").write_text(
+        f'{{"version": "{version}"}}'
+    )
+    return folder
+
+
+def test_a_plugin_of_another_version_stops_every_command_but_the_first_answers(
+    tmp_path: Path,
+) -> None:
+    own = versions.version_of(str(paths.root()))
+    old = plugin_of(tmp_path / "old", "0.0.1")
+    env = {**os.environ, "LEM_PLUGIN_ROOT": str(old)}
+    stopped = lem("land", "checks", "fix-the-login", cwd=tmp_path, env=env)
+    assert stopped.code == 1
+    refused = stopped.envelope()
+    assert refused["ok"] is False
+    assert refused["refusal"] == {
+        "code": "version",
+        "why": f"lem: Lem's plugin 0.0.1 ({old}) is behind Lem's app {own}; the owner "
+        "runs `claude plugin update lem@lem` and starts the session again",
+        "fix": "the owner updates the half that is behind and starts the session again",
+    }
+    for first in ("doctor", "version", "help"):
+        assert lem(first, cwd=tmp_path, env=env).code == 2
+    same = plugin_of(tmp_path / "same", own)
+    assert (
+        lem("land", cwd=tmp_path, env={**os.environ, "LEM_PLUGIN_ROOT": str(same)}).code
+        == 2
+    )
+
+
+def test_the_line_names_the_half_that_is_behind(tmp_path: Path) -> None:
+    plugin = plugin_of(tmp_path / "plugin", "2.0.0")
+    app = plugin_of(tmp_path / "app", "1.9.0")
+    assert versions.behind(str(plugin), str(plugin)) is None
+    assert "Lem's app 1.9.0" in (versions.behind(str(plugin), str(app)) or "")
+    assert "brew upgrade" in (versions.behind(str(plugin), str(app)) or "")
+    broken = tmp_path / "broken"
+    (broken / ".claude-plugin").mkdir(parents=True)
+    (broken / ".claude-plugin" / "plugin.json").write_text("{")
+    said = versions.behind(str(broken), str(app)) or ""
+    assert "are two versions" in said
+    assert "unreadable" in said
