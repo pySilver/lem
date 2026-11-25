@@ -8,9 +8,11 @@ sha1 digests, 40 hex characters. A merge and a rebase are three-way, path by pat
 sides changed to different bytes is a conflict.
 
 `outside_commit` and `outside_merge` stand for what someone else does on the remote: a
-teammate's push, a merge on GitHub. `Remote` is what `LocalForge` merges through.
+teammate's push, under the teammate's name, a merge on GitHub. `Remote` is what `LocalForge`
+merges through. `refused_commit` stands for a commit hook that refuses every commit.
 """
 
+import difflib
 import hashlib
 import shutil
 from dataclasses import dataclass, field
@@ -20,11 +22,19 @@ from lem.ports.faults import Unanswered
 from lem.ports.git_facts import Commit, Conflict, DiffStat, GitRefused, RebaseState
 
 if TYPE_CHECKING:
+    from collections.abc import Collection
     from pathlib import Path
 
     from lem.ports.forge_facts import MergeMethod
 
 type Tree = dict[str, bytes]
+type FilePatch = (
+    tuple[bytes | None, bytes | None] | tuple[bool, bool, tuple[bytes, ...]]
+)
+
+# The author of the commits a test makes, and of a teammate's, as `tests/fakes/repo.py` names them.
+OWN = "Lem Test"
+TEAMMATE = "A Teammate"
 
 
 def tree_id(tree: Tree) -> str:
@@ -34,6 +44,22 @@ def tree_id(tree: Tree) -> str:
         for path in sorted(tree)
     )
     return hashlib.sha1(f"tree\n{lines}".encode(), usedforsecurity=False).hexdigest()
+
+
+def file_patch(before: bytes | None, after: bytes | None) -> FilePatch:
+    """Compare text hunks without whitespace or line numbers, as Git compares patches."""
+    was, now = before or b"", after or b""
+    if b"\0" in was or b"\0" in now:
+        return before, after
+    patch = difflib.diff_bytes(
+        difflib.unified_diff,
+        was.splitlines(keepends=True),
+        now.splitlines(keepends=True),
+    )
+    lines = tuple(
+        b"".join(line.split()) for line in patch if not line.startswith(b"@@")
+    )
+    return before is None, after is None, lines
 
 
 @dataclass(frozen=True)
@@ -46,11 +72,12 @@ class Landed:
 
 @dataclass(frozen=True)
 class Stored:
-    """A commit in the model: its tree, parents and message."""
+    """A commit in the model: its tree, parents, message and author."""
 
     tree: Tree
     parents: tuple[str, ...]
     message: str
+    author: str = OWN
 
 
 @dataclass
@@ -91,6 +118,9 @@ class ModelGit:
     fetched: dict[str, str] = field(default_factory=dict)
     worktrees: dict[Path, Worktree] = field(default_factory=dict)
     count: int = 0
+    origin: str | None = "git@github.com:acme/shop.git"
+    refused_commit: str | None = None
+    ignored: set[str] = field(default_factory=set)
 
     # ---- making a world ----
 
@@ -105,12 +135,16 @@ class ModelGit:
         model.lay(checkout, dict(files))
         return model
 
-    def store(self, tree: Tree, parents: tuple[str, ...], message: str) -> str:
+    def store(
+        self, tree: Tree, parents: tuple[str, ...], message: str, author: str = OWN
+    ) -> str:
         """Keep a commit and give its sha."""
         self.count += 1
         body = f"{tree_id(tree)}\n{' '.join(parents)}\n{message}\n{self.count}"
         sha = hashlib.sha1(body.encode(), usedforsecurity=False).hexdigest()
-        self.objects[sha] = Stored(tree=tree, parents=parents, message=message)
+        self.objects[sha] = Stored(
+            tree=tree, parents=parents, message=message, author=author
+        )
         return sha
 
     def outside_commit(
@@ -126,7 +160,7 @@ class ModelGit:
             else:
                 tree[path] = body
         self.remote[branch] = self.store(
-            tree, (parent,), f"outside: {', '.join(files)}"
+            tree, (parent,), f"outside: {', '.join(files)}", TEAMMATE
         )
         return self.remote[branch]
 
@@ -142,14 +176,14 @@ class ModelGit:
         if isinstance(result, Conflict):
             raise Unanswered("git", f"the merge of {other} conflicts on {result.files}")
         self.remote[branch] = self.store(
-            {**result, **files}, (head, theirs), f"Merge {other}"
+            {**result, **files}, (head, theirs), f"Merge {other}", TEAMMATE
         )
         return self.remote[branch]
 
-    def lay(self, where: Path, tree: Tree) -> None:
-        """Make the files of `where` the files of `tree`."""
+    def lay(self, where: Path, tree: Tree, *, keep: Collection[str] = ()) -> None:
+        """Make the files of `where` the files of `tree`, with local files in `keep`."""
         for path in self.on_disk(where):
-            if path not in tree:
+            if path not in tree and path not in keep:
                 (where / path).unlink()
         for path, body in tree.items():
             target = where / path
@@ -247,7 +281,7 @@ class ModelGit:
                 return current, applied
             if applied == self.objects[current].tree and not reapply:
                 continue
-            current = self.store(applied, (current,), stored.message)
+            current = self.store(applied, (current,), stored.message, stored.author)
         return current, None
 
     def merge_in(self, where: Path, ref: str, files: dict[str, bytes]) -> str:
@@ -267,14 +301,27 @@ class ModelGit:
 
     def commits(self, where: Path, since: str, until: str) -> tuple[Commit, ...]:
         found = self.commits_of(self.must(where, since), self.must(where, until))
-        return tuple(
-            Commit(
-                sha=sha,
-                parents=self.objects[sha].parents,
-                subject=self.objects[sha].message.splitlines()[0],
-            )
-            for sha in found
+        return tuple(self.commit_of(sha) for sha in found)
+
+    def commit_of(self, sha: str) -> Commit:
+        """The commit `sha` as the port gives it."""
+        stored = self.objects[sha]
+        return Commit(
+            sha=sha,
+            parents=stored.parents,
+            subject=stored.message.splitlines()[0],
+            author=stored.author,
         )
+
+    def patch_of(self, sha: str) -> dict[str, FilePatch]:
+        """How the patch of `sha` compares to other patches, path by path."""
+        stored = self.objects[sha]
+        parent = self.objects[stored.parents[0]].tree if stored.parents else {}
+        return {
+            path: file_patch(parent.get(path), stored.tree.get(path))
+            for path in parent.keys() | stored.tree.keys()
+            if parent.get(path) != stored.tree.get(path)
+        }
 
     def diff_stat(self, where: Path, since: str, until: str) -> DiffStat:
         before = self.objects[self.must(where, since)].tree
@@ -295,6 +342,29 @@ class ModelGit:
         result = merged(start, self.objects[ours].tree, self.objects[theirs].tree)
         return result if isinstance(result, Conflict) else tree_id(result)
 
+    # ---- GitChanges ----
+
+    def files(self, where: Path, rev: str, folder: str) -> tuple[str, ...]:
+        tree = self.objects[self.must(where, rev)].tree
+        inside = f"{folder.strip('/')}/"
+        return tuple(sorted(path for path in tree if path.startswith(inside)))
+
+    def changed_paths(self, where: Path, since: str, until: str) -> tuple[str, ...]:
+        return self.diff_stat(where, since, until).paths
+
+    def left_out(self, where: Path, onto: str, tip: str) -> tuple[Commit, ...]:
+        base, head = self.must(where, onto), self.must(where, tip)
+        theirs = [
+            self.patch_of(sha)
+            for sha in self.commits_of(head, base)
+            if len(self.objects[sha].parents) == 1
+        ]
+        return tuple(
+            self.commit_of(sha)
+            for sha in self.commits_of(base, head)
+            if len(self.objects[sha].parents) == 1 and self.patch_of(sha) in theirs
+        )
+
     # ---- GitPlaces ----
 
     def main_checkout(self, start: Path) -> Path:
@@ -302,9 +372,26 @@ class ModelGit:
             raise Unanswered("git", f"{start} is not in a repository")
         return self.checkout
 
-    def clean(self, where: Path) -> bool:
+    def branch_of(self, where: Path) -> str | None:
+        return self.worktree(where).branch
+
+    def clean(self, where: Path, *, untracked: bool = True) -> bool:
         head = self.resolve(where, "HEAD")
-        return head is not None and self.on_disk(where) == self.objects[head].tree
+        if head is None:
+            return False
+        tree, disk = self.objects[head].tree, self.on_disk(where)
+        if any(disk.get(path) != body for path, body in tree.items()):
+            return False
+        extra = disk.keys() - tree.keys()
+        return not untracked or extra == self.ignored_paths(extra)
+
+    def ignored_paths(self, paths: set[str]) -> set[str]:
+        """The paths under the model's literal exclude entries."""
+        return {
+            path
+            for path in paths
+            if any(path == name or path.startswith(f"{name}/") for name in self.ignored)
+        }
 
     def show(self, where: Path, rev: str, path: str) -> bytes | None:
         return self.objects[self.must(where, rev)].tree.get(path)
@@ -314,6 +401,9 @@ class ModelGit:
 
     def remote_head(self, where: Path, branch: str) -> str | None:
         return self.fetched.get(branch)
+
+    def origin_url(self, where: Path) -> str | None:
+        return self.origin
 
     # ---- GitRewrite ----
 
@@ -344,7 +434,11 @@ class ModelGit:
         place.before_rebase = None
         self.lay(worktree, self.objects[self.must(worktree, "HEAD")].tree)
 
-    def commit(self, worktree: Path, message: str, paths: tuple[str, ...]) -> str:
+    def commit(
+        self, worktree: Path, message: str, paths: tuple[str, ...]
+    ) -> str | GitRefused:
+        if self.refused_commit is not None:
+            return GitRefused(said=self.refused_commit)
         place = self.worktree(worktree)
         head = self.must(worktree, "HEAD")
         tree = dict(self.objects[head].tree)
@@ -357,12 +451,14 @@ class ModelGit:
         self.branches[place.branch] = self.store(tree, (head,), message)
         return self.branches[place.branch]
 
-    def push(self, worktree: Path, branch: str, expect: str | None) -> str | GitRefused:
+    def push(
+        self, worktree: Path, branch: str, expect: str | None, *, commit: str
+    ) -> str | GitRefused:
         there = self.remote.get(branch)
         if there != expect:
             return GitRefused(said=f"stale info: {branch} is at {there}, not {expect}")
-        self.remote[branch] = self.fetched[branch] = self.branches[branch]
-        return self.branches[branch]
+        self.remote[branch] = self.fetched[branch] = self.must(worktree, commit)
+        return self.remote[branch]
 
     # ---- GitBranches ----
 
@@ -378,6 +474,35 @@ class ModelGit:
         self.worktree(path)
         del self.worktrees[path]
         shutil.rmtree(path)
+
+    def branch_add(self, checkout: Path, branch: str, start: str) -> str | GitRefused:
+        if branch in self.branches:
+            return GitRefused(said=f"fatal: a branch named '{branch}' already exists")
+        self.branches[branch] = self.must(checkout, start)
+        return self.branches[branch]
+
+    def reset(self, worktree: Path, commit: str, expect: str) -> str | GitRefused:
+        place = self.worktree(worktree)
+        if self.branches.get(place.branch) != expect:
+            return GitRefused(said=f"the branch is not at {expect}")
+        if not self.clean(worktree):
+            return GitRefused(said="the worktree has changes that no commit holds")
+        target = self.must(worktree, commit)
+        tree = self.objects[target].tree
+        local = self.on_disk(worktree).keys() - self.objects[expect].tree.keys()
+        if any(
+            path == tracked
+            or path.startswith(f"{tracked}/")
+            or tracked.startswith(f"{path}/")
+            for path in local
+            for tracked in tree
+        ):
+            return GitRefused(said="the reset would overwrite an untracked file")
+        if self.branches.get(place.branch) != expect:
+            return GitRefused(said=f"the branch is not at {expect}")
+        self.lay(worktree, tree, keep=local)
+        self.branches[place.branch] = target
+        return target
 
     def branch_delete(self, checkout: Path, branch: str, expect: str) -> bool:
         if self.branches.get(branch) != expect:

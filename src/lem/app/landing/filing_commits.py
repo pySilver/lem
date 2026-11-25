@@ -3,11 +3,12 @@ clean (`land.cmd_file` on `main`). A commit hook of the project may refuse the m
 has Lem's form: the items stay written and staged, a builder commits them in the project's form,
 and the next run finds each item by its defect."""
 
+import shlex
 from typing import TYPE_CHECKING
 
 from lem.kernel import files
 from lem.kernel.errors import Refusal
-from lem.ports.faults import Unanswered
+from lem.ports.git_facts import GitRefused
 from lem.records.base import Frozen
 
 if TYPE_CHECKING:
@@ -23,15 +24,21 @@ class Committed(Frozen, frozen=True, kw_only=True):
     tree: str
 
 
-def hook_refused(number: int, paths: tuple[str, ...], slug: str, said: str) -> Refusal:
+def hook_refused(
+    context: Context, number: int, paths: tuple[str, ...], said: str
+) -> Refusal:
     """The refusal of a commit the project's hook refused, with its words."""
-    listed = ", ".join(paths)
+    slug = context.record.task.slug
+    retry = shlex.join(
+        ("git", "-C", str(context.worktree), "commit", "-m", "MESSAGE", "--", *paths)
+    )
     return Refusal(
         "commit",
         f"the commit of the backlog items of review round {number} was refused, most likely "
         f"by a commit hook of the project: {said}",
-        f"a builder commits {listed} with a message in the form the hook asks for, never with "
-        f"--no-verify, then lem land file {slug} again finds each item by its defect",
+        f"the items are written and staged. A builder runs `{retry}` with a message in the "
+        f"form the hook asks for, never with --no-verify. Then `lem land file {slug}` "
+        "finds each item by its defect",
     )
 
 
@@ -49,10 +56,9 @@ def commit_round(context: Context, writes: tuple[Write, ...], number: int) -> No
     slug = context.record.task.slug
     paths = tuple(write.path for write in writes if write.round == number)
     message = f"docs(backlog): what review round {number} saw outside {slug}"
-    try:
-        context.ports.git.commit(context.worktree, message, paths)
-    except Unanswered as refused:
-        raise hook_refused(number, paths, slug, refused.said) from refused
+    made = context.ports.git.commit(context.worktree, message, paths)
+    if isinstance(made, GitRefused):
+        raise hook_refused(context, number, paths, made.said)
 
 
 def committed(context: Context, writes: tuple[Write, ...]) -> Committed:

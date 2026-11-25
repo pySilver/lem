@@ -27,6 +27,10 @@ AUTHOR = {
 }
 
 
+# The author of what the teammate pushes (`fakes.git.TEAMMATE` in the model).
+TEAMMATE = "A Teammate <teammate@example.com>"
+
+
 def git_env() -> dict[str, str]:
     """The environment every git of a test runs with: none of the caller's `GIT_*` (a
     `GIT_DIR` or a `GIT_CONFIG_GLOBAL` would send git to another repository or setting)."""
@@ -118,6 +122,8 @@ class RealRepo:
             self.teammate,
             "commit",
             "--quiet",
+            "--author",
+            TEAMMATE,
             "--message",
             f"outside: {', '.join(files)}",
         )
@@ -141,7 +147,15 @@ class RealRepo:
         )
         write(self.teammate, dict(files))
         run_git(self.teammate, "add", "--all")
-        run_git(self.teammate, "commit", "--quiet", "--message", f"Merge {other}")
+        run_git(
+            self.teammate,
+            "commit",
+            "--quiet",
+            "--author",
+            TEAMMATE,
+            "--message",
+            f"Merge {other}",
+        )
         run_git(self.teammate, "push", "--quiet", "origin", branch)
         return run_git(self.teammate, "rev-parse", "HEAD")
 

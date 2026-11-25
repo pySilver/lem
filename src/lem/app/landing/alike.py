@@ -105,8 +105,7 @@ def asked_of(
     shelved = backlog.at_tip(ports.git, worktree, tip)
     if not shelved or not judge_same.sends(workspace.checkout):
         return shelved, OFF
-    staging = places.task_folder(workspace.state, slug) / judge_same.STAGED
-    return shelved, judge_same.asked(ports.judge, staging, defect, shelved, {})
+    return shelved, judge_same.asked(ports.judge, defect, shelved, {})
 
 
 def run(folder: Path, slug: str, defect: Defect) -> Envelope:

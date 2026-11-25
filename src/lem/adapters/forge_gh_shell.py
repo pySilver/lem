@@ -42,7 +42,7 @@ NO_LOGIN = re.compile(
 # 2026-11-25).
 TIMEOUT = 120
 FIELDS = (
-    "number,url,title,body,state,headRefOid,headRefName,baseRefName,mergeable,"
+    "number,url,title,body,state,author,headRefOid,headRefName,baseRefName,mergeable,"
     "mergeCommit,autoMergeRequest"
 )
 STATES: Mapping[str, PullState] = MappingProxyType(
@@ -59,6 +59,12 @@ class Oid(msgspec.Struct, frozen=True):
     oid: str
 
 
+class Login(msgspec.Struct, frozen=True):
+    """A person as `gh` names one."""
+
+    login: str
+
+
 class GhPull(msgspec.Struct, frozen=True, rename="camel"):
     """A pull request as `gh pr view --json FIELDS` prints it."""
 
@@ -70,6 +76,7 @@ class GhPull(msgspec.Struct, frozen=True, rename="camel"):
     head_ref_oid: str
     head_ref_name: str
     base_ref_name: str
+    author: Login | None = None
     mergeable: Literal["MERGEABLE", "CONFLICTING", "UNKNOWN"] = "UNKNOWN"
     merge_commit: Oid | None = None
     auto_merge_request: dict[str, object] | None = None
@@ -194,6 +201,7 @@ class Gh:
             title=found.title,
             body=found.body,
             state=STATES[found.state],
+            author=found.author.login if found.author else None,
             head=found.head_ref_oid,
             head_ref=found.head_ref_name,
             base=found.base_ref_name,

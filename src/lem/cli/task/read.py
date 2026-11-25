@@ -16,7 +16,7 @@ from lem.app.tasks import shape as shaping
 from lem.cli import place
 from lem.cli.words import choice
 from lem.kernel.envelope import Envelope
-from lem.model.task.read import Queue
+from lem.model.task.read import Queue, Wait
 from lem.records.task import Shape
 
 type Kind = Literal[
@@ -24,7 +24,6 @@ type Kind = Literal[
 ]
 type Track = Literal["small", "full"]
 type Then = Literal["interview", "fast", "lead", "investigation"]
-type Wait = Literal["criteria", "interview"]
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -37,7 +36,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     careful: tuple[str, ...] = ()
     then: Then | None = None
     order: str | None = None
-    after: str | None = None
+    after: tuple[str, ...] = ()
     wait: Wait | None = None
     fits: bool = False
     someone_else: bool = False
@@ -85,7 +84,11 @@ COMMAND = click.Command(
         ),
         click.Option(["--then"], type=choice(Then), help="what comes next"),
         click.Option(["--order"], help="the owner's order, in his words"),
-        click.Option(["--after"], help="the task this one waits for"),
+        click.Option(
+            ["--after"],
+            multiple=True,
+            help="a task this one waits for, once for each; it waits for all of them",
+        ),
         click.Option(["--wait"], type=choice(Wait), help="what waits for the owner"),
         click.Option(
             ["--fits"],

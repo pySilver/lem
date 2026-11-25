@@ -31,7 +31,7 @@ from journeys.test_skeleton import (
 )
 from journeys.test_skeleton import brief as merge_brief
 from lem.app import wiring
-from lem.app.landing import changes, judge_same
+from lem.app.landing import changes
 from lem.ports.judge import Score
 from lem.ports.place import Place
 from lem.records.decisions import Taken
@@ -79,12 +79,6 @@ def judge_of(world: World) -> FakeJudge:
     """The Jev of the test's ports."""
     place = Place(checkout=world.checkout, home=world.folder / "home", environ={})
     return cast("FakeJudge", wiring.bound(place).judge)
-
-
-def staged(world: World, path: str) -> str:
-    """Where Lem writes an item, as the tip has it, for Jev's port to read
-    (`app/landing/jev_staged.py`)."""
-    return str(world.task_folder / judge_same.STAGED / path)
 
 
 def upto_review(
@@ -192,7 +186,10 @@ def test_the_brief_names_the_record_s_command_next_and_says_what_the_file_holds(
     assert told["inputs"]["worktree"] == str(world.worktree)
     assert told["small"] is True
     spans = world.record()["task"]["spans"]
-    assert [(span["name"], span["job"]) for span in spans] == [("review", "attempt 1")]
+    reviews = [span for span in spans if span["name"] == "review"]
+    assert [(span["name"], span["job"]) for span in reviews] == [
+        ("review", "attempt 1")
+    ]
     again = next_step(capsys, world)
     assert (again["result"]["step"], again["next"]["command"]) == (
         "read",
@@ -287,7 +284,7 @@ def test_jev_names_an_item_and_file_writes_nothing_until_same_or_new(
     text = "---\nworth: no\nwhere: LICENSE\n---\n# no licence file\n\nThere is no LICENSE.\n"
     upto_review(capsys, world, base={old: text})
     judge = judge_of(world)
-    judge.same[OVER["title"]] = (Score(score=0.8, path=staged(world, old)),)
+    judge.same[OVER["title"]] = (Score(score=0.8, path=old),)
     reviewed(capsys, world, outside=[OVER])
     refused = file_step()(capsys, world)["refusal"]
     assert refused["code"] == "jev-same"
@@ -326,7 +323,7 @@ def test_new_files_the_defect_as_its_own_item_and_leaves_the_one_jev_named(
     old = "docs/backlog/no-licence-file.md"
     text = "---\nworth: no\nwhere: LICENSE\n---\n# no licence file\n\nThere is no LICENSE.\n"
     upto_review(capsys, world, base={old: text})
-    judge_of(world).same[OVER["title"]] = (Score(score=0.8, path=staged(world, old)),)
+    judge_of(world).same[OVER["title"]] = (Score(score=0.8, path=old),)
     reviewed(capsys, world, outside=[OVER])
     assert file_step()(capsys, world)["refusal"]["code"] == "jev-same"
     new = file_step("--new", "r1.1")(capsys, world)
@@ -354,7 +351,7 @@ def test_alike_names_the_items_jev_reads_as_the_same_and_with_jev_not_asked_list
         str(what),
     )
     judge = judge_of(world)
-    judge.same["no licence"] = (Score(score=0.9, path=staged(world, HELD)),)
+    judge.same["no licence"] = (Score(score=0.9, path=HELD),)
     answered = lem(capsys, world.checkout, *words)
     assert answered["ok"] is True, answered
     named = answered["result"]
@@ -362,7 +359,7 @@ def test_alike_names_the_items_jev_reads_as_the_same_and_with_jev_not_asked_list
     assert [(one["path"], one["jev"]) for one in named["alike"]] == [
         (HELD, "Jev: 0.90")
     ]
-    assert not (world.task_folder / judge_same.STAGED).exists()
+    assert not (world.task_folder / "items-at-tip").exists()
     judge.key = False
     unasked = lem(capsys, world.checkout, *words)["result"]
     assert unasked["jev"] == "Jev: not asked (no key for Jev)"
@@ -466,14 +463,19 @@ def test_an_edit_of_lem_s_own_settings_gets_the_full_set_whatever_the_shape_says
     assert next_step(capsys, world)["result"]["step"] == "propose"
 
 
+@pytest.mark.parametrize("redirect", ["", " >&2"], ids=["stdout", "stderr"])
 def test_a_commit_hook_that_refuses_the_items_is_named_and_the_next_run_finds_them(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    redirect: str,
 ) -> None:
     world = made(tmp_path, monkeypatch)
     upto_review(capsys, world)
     hook = world.checkout / ".git" / "hooks" / "commit-msg"
     hook.write_text(
-        '#!/bin/sh\ngrep -q "^backlog: " "$1" || { echo "subject must start with backlog:" >&2; exit 1; }\n'
+        '#!/bin/sh\ngrep -q "^backlog: " "$1" || '
+        f'{{ echo "subject must start with backlog:"{redirect}; exit 1; }}\n'
     )
     hook.chmod(0o755)
     reviewed(capsys, world, outside=[OVER])
@@ -481,6 +483,7 @@ def test_a_commit_hook_that_refuses_the_items_is_named_and_the_next_run_finds_th
     assert refused["code"] == "commit"
     assert "subject must start with backlog:" in refused["why"]
     assert "never with --no-verify" in refused["fix"]
+    assert f"git -C {world.worktree} commit -m MESSAGE -- {HELD}" in refused["fix"]
     assert run_git(world.worktree, "diff", "--cached", "--name-only") == HELD
     run_git(
         world.worktree, "commit", "--quiet", "--message", "backlog: what the review saw"
@@ -555,7 +558,7 @@ def test_a_team_that_sends_no_finding_to_jev_asks_jev_nothing(
     what = tmp_path / "run.txt"
     what.write_text(OVER["what"])
     judge = judge_of(world)
-    judge.same["no licence"] = (Score(score=0.9, path=staged(world, HELD)),)
+    judge.same["no licence"] = (Score(score=0.9, path=HELD),)
     words = ("--where", "README.md", "--title", "no licence", "--what", str(what))
     told = lem(capsys, world.checkout, "land", "alike", SLUG, *words)["result"]
     assert told["jev"] == "Jev: not asked (off in the settings)"
@@ -812,7 +815,7 @@ def test_jev_and_the_topics_are_the_base_branch_s_when_the_main_checkout_is_on_a
         world.checkout, "commit", "--quiet", "--all", "--message", "chore: Jev again"
     )
     judge = judge_of(world)
-    judge.same["no licence"] = (Score(score=0.9, path=staged(world, HELD)),)
+    judge.same["no licence"] = (Score(score=0.9, path=HELD),)
     what = tmp_path / "run.txt"
     what.write_text(OVER["what"])
     words = ("--where", "README.md", "--title", "no licence", "--what", str(what))

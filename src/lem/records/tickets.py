@@ -10,9 +10,17 @@ from typing import Literal
 from lem.records.base import Frozen, Moment
 
 type Tracker = Literal["github", "linear"]
-# `assigned` is written before the act, `unassigned` only after an `assigned`.
+# `assigned` is written before the act, `unassigned` only after an `assigned`. `ticked` is in the
+# form before release 1.0, after which a new word would take two releases; no step writes it yet.
 type TicketAct = Literal[
-    "started", "assigned", "unassigned", "commented", "landed", "dropped", "answered"
+    "started",
+    "assigned",
+    "unassigned",
+    "commented",
+    "ticked",
+    "landed",
+    "dropped",
+    "answered",
 ]
 
 

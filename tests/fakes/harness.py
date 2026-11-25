@@ -28,7 +28,7 @@ class FakeHarness:
         return self.by_task.get(task, ())
 
     def signs(self, transcript: Transcript) -> Signs:
-        return self.signs_of.get(transcript.path, Signs())
+        return self.signs_of.get(transcript.path, Signs(read=False))
 
     def tokens(self, transcripts: tuple[Transcript, ...]) -> Tokens:
         total = Tokens()

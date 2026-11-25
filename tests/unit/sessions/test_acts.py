@@ -276,7 +276,7 @@ def test_a_new_session_goes_to_the_callers_workspace_before_the_after_tasks(
         workspace="W-2",
     )
     log.append(here.folder("first-task"), first)
-    made(here, after="first-task", lead="builder")
+    made(here, after=("first-task",), lead="builder")
     assert opening.open_session(here, SLUG, "queue", None, LATER).workspace == "W-1"
     made(here, "third", lead="builder")
     away = dataclasses.replace(here, caller=None)
@@ -367,6 +367,41 @@ def test_a_sessions_signs_are_its_own_transcripts_newest_and_any_shell(
     harness.signs_of["c4"] = Signs(sign=HOUR, turn="ended")
     read = signs.read_signs(here, SLUG, "Session-1")
     assert read == signs.Read(sign=LATER, shell=True, signs=True, turn="runs")
+
+
+@pytest.mark.parametrize("has_live_process", [False, True])
+def test_the_list_keeps_the_newest_timestamp_when_its_process_does_not_read(
+    tmp_path: Path, *, has_live_process: bool
+) -> None:
+    terminal, harness = with_caller(), SigningHarness()
+    here = here_of(tmp_path, terminal, harness)
+    made(here, status="building", lead="builder")
+    opening.open_session(here, SLUG, "new", None, MOMENT)
+    for claude in ("c1", "c2"):
+        sessions.append(
+            here.folder(SLUG),
+            SessionLine(
+                at=MOMENT,
+                source="startup",
+                claude=claude,
+                transcript=claude,
+                pane="session-1",
+                task=SLUG,
+            ),
+        )
+    harness.by_task[SLUG] = tuple(
+        Transcript(path=one, claude=one) for one in ("c1", "c2")
+    )
+    harness.signs_of["c1"] = Signs(sign=LATER, read=False)
+    if has_live_process:
+        harness.signs_of["c2"] = Signs(sign=MOMENT, shell=True, turn="runs")
+    entry = listing.list_sessions(here, HOUR)[0]
+    assert (entry.sign, entry.signs, entry.shell, entry.turn) == (
+        LATER,
+        has_live_process,
+        has_live_process,
+        "runs" if has_live_process else None,
+    )
 
 
 def test_wait_ends_at_a_hold_its_until_names_as_mains_states_did(

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from fakes.records import MOMENT, record
+from lem.model.criteria import contract
 from lem.model.landing import checks
 from lem.model.landing.world import PullSeen, Rules, World
 from lem.records.approvals import Approval
@@ -103,7 +104,14 @@ REVIEWED = Reviewed(
     at=MOMENT,
 )
 FILED = Filed(finding="r1.1", disposition="seen", line="under: small")
-PROPOSED = Proposed(tip=TIP, base=BASE, green=True, who_acts="merger", at=MOMENT)
+PROPOSED = Proposed(
+    tip=TIP,
+    base=BASE,
+    green=True,
+    who_acts="merger",
+    at=MOMENT,
+    contract=contract.mark(task().task),
+)
 PULL = Pull(number=1, url="https://github.com/o/p/pull/1", title="Fix")
 SEEN = PullSeen(
     number=1, url=PULL.url, title="Fix", state="open", head=TIP, base="main"

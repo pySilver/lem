@@ -2,7 +2,6 @@
 name: lem
 description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `serve`, `set`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. Each task gets an agterm session of its own, from its shape with the owner to its merge, with a fresh agent at each change of phase: a lead and its builders on the standard track, one builder on the fast track. Each branch goes through the machine checks and a review to a pull request that says green or not green, many at the same time, and a merge agent reads it. It reads the repository's own settings (`.lem/settings.toml`: checks, what must never go wrong, who lands) and its personas, lessons, rulings and rules, and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem serve\", \"put the board on my phone\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
 ---
-<!-- lem: old form -->
 
 # Lem
 
@@ -115,7 +114,7 @@ lem settings show
 
 `SKILL_DIR` is this skill's own directory. The output is the project's settings, resolved: each
 place Lem reads with whether it exists, the base branch, who lands, the commands of the checks and the topics of
-what must never go wrong (`flow.topics`). When `settings` is null the repository was never onboarded: only `init` and `status`
+what must never go wrong (`settings.flow.topics`). When `settings` is null the repository was never onboarded: only `init` and `status`
 run, and every other subcommand says so and stops. Read the project's `AGENTS.md` once per
 session; it is where a project says what its own scripts are (a worktree script, a landing
 script, a board). Read the project's lessons file (`places.lessons` in the output, `.lem/lessons.md`) when it exists: a
@@ -123,9 +122,11 @@ line that opens with the name of a stage or of a shipped skill is the owner's co
 for this repository, and you follow it where that text says otherwise. No line there lifts what a script
 refuses.
 
-`lem` is Lem's one command: `lem NAME ARGS...` runs the module of Lem's package that NAME stands
-for, a shipped skill's too (`lem experts`, `lem cast`), and `lem help` lists every name.
-Run Lem's scripts only through it. The harness file says where it comes from, and what to run
+`lem` is Lem's one command: `lem NOUN VERB ...` runs one command of Lem's package, a shipped
+skill's too (`lem experts brief`, `lem cast show`); `lem help` lists every noun, and `lem help
+NOUN` its verbs. Each prints one JSON document: `ok`, its `result`, a `say` for the owner, and
+`next`, what comes next; a refusal says its `code`, `why` and `fix`, with exit 1.
+Run Lem's commands only through it. The harness file says where it comes from, and what to run
 where the shell does not find it.
 
 ## Subcommands
@@ -148,12 +149,12 @@ runs, and follow it. Do not read the others. In a task's session, `be-careful`, 
 | `night` | unattended: takes backlog items, the smallest first, four at most (`/lem night N` takes N), and opens them one after another, each in its own session that runs it without the owner to its pull request; never an item of the reviewer's that the owner did not start. Where the project's `AGENTS.md` says its night proposes, it writes proposals for the morning's reviewer. Its session closes itself at its end | `stages/night.md` |
 | bare `/lem`, `status` | the one list of what waits for the owner, the board's own entries of "Waits for you" in the board's order, one for each task with its things under it, as the board's stacks: each breaker of a task, each task with no session, each task whose session the guard logged as stopped, each task whose criteria wait for his yes, each step of his, each task queued after a dropped task with "start SLUG now" and `/lem drop SLUG`, each blocked task, each plan to read, each merge review that calls him, each pull request with green or not, those of the night with the night's report, and where he answers each, with one line when the sessions are not known; and the board of all tasks. In a task's session, that task's line first | `stages/status.md` |
 | `status <task>` | the board of one task, and its session when something of it waits for him and none runs | `stages/status.md` |
-| `serve` | the board's server: `lem serve --ensure` starts it when none runs, and you say where the board is, its `url`, and its `tailscale` address when the door is open | `stages/status.md`, "The board's server" |
-| `serve tailscale`, or "put the board on my phone" | opens the tailnet door from now on (`lem serve --tailscale`) and says the address the phone opens; `serve tailscale off` closes it (`--tailscale-off`) | `stages/status.md`, "The board's server" |
-| `serve join HOST`, `serve leave HOST`, `serve peers` | another computer's boards on this one's address, under its name: `lem serve --join HOST`, `--leave HOST`, or `--peers`, the computers joined and whether each answers; say the JSON's `said` | `stages/status.md`, "The board's server" |
-| `serve stop` | ends the server (`lem serve --stop`); the next `lem` command of any session starts it again | `stages/status.md`, "The board's server" |
-| `read <ticket>` | reads one ticket of the tracker, by its id (`/lem read MBZ-12`) or its URL, and says what it holds; it opens no task and writes nothing to the ticket. With no tracker in `lem settings show`, say that the project has none | the tracker's skill (`load-skill` the one `tracker.kind` names), its "read" |
-| `set global NAME VALUE`, `set local NAME VALUE` | who sits in a seat, or the seat that stands in when one fails: NAME is `reviewer`, `planner`, `merger`, `session`, `experts` or `fallback`, and VALUE a whole seat (`/lem set global reviewer codex/gpt-6.2-sol:high`; a seat with no model or no effort is refused), one or two whole seats joined by a comma for `experts`, `false` for `fallback` only, or `default`, which removes the line. `global` writes `~/.config/lem/settings.toml`, for each repository on this machine that names none; `local` writes this repository's `.lem/settings.local.toml`, for this machine only; every other line of the file stays, and nothing writes `.lem/settings.toml`. Run `lem project set` with the same words, and say the seat it prints and its place (`from`) | no stage: the command prints what it wrote |
+| `serve` | the board's server: `lem serve ensure` starts it when none runs, and you say where the board is, its `url`, and its `tailscale` address when the door is open | `stages/status.md`, "The board's server" |
+| `serve tailscale`, or "put the board on my phone" | opens the tailnet door from now on (`lem serve door on`) and says the address the phone opens; `serve tailscale off` closes it (`lem serve door off`) | `stages/status.md`, "The board's server" |
+| `serve join HOST`, `serve leave HOST`, `serve peers` | another computer's boards on this one's address, under its name: `lem serve join HOST`, `lem serve leave HOST`, or `lem serve peers`, the computers joined and whether each answers; say the JSON's `said` | `stages/status.md`, "The board's server" |
+| `serve stop` | ends the server (`lem serve stop`); the next `lem` command of any session starts it again | `stages/status.md`, "The board's server" |
+| `read <ticket>` | reads one ticket of the tracker, by its id (`/lem read MBZ-12`) or its URL, and says what it holds; it opens no task and writes nothing to the ticket. With no `settings.tracker` in `lem settings show`, say that the project has none | the tracker's skill (`load-skill` the one `settings.tracker.kind` of `lem settings show` names), its "read" |
+| `set global NAME VALUE`, `set local NAME VALUE` | who sits in a seat, or the seat that stands in when one fails: NAME is `reviewer`, `planner`, `merger`, `session`, `experts` or `fallback`, and VALUE a whole seat (`/lem set global reviewer codex/gpt-6.2-sol:high`; a seat with no model or no effort is refused), one or two whole seats joined by a comma for `experts`, `false` for `fallback` only, or `default`, which removes the line. `global` writes `~/.config/lem/settings.toml`, for each repository on this machine that names none; `local` writes this repository's `.lem/settings.local.toml`, for this machine only; every other line of the file stays, and nothing writes `.lem/settings.toml`. Run `lem settings set seats.NAME VALUE --home` for `global` and `lem settings set seats.NAME VALUE --local` for `local`, and say the seat it prints and its place (`from`) | no stage: the command prints what it wrote |
 | a helper | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. Plain words start one too, with or without `/lem`: "let's brainstorm this" or "interview me about X" (`interview-me`), "argue both sides of ..." (`dialectic`), "why does this keep breaking" (`root-cause`), "what would the experts say" (`ask-expert`), "how would the users take this" (`panel`). Outside a session where `/lem` was typed a shipped skill never starts by itself. Lem's stages load `ask-expert`, `panel`, the tracker's skill (`linear` or `github`, the one `tracker.kind` names), `lem-ask` and `lem-gate` themselves: Lem opens its question page each time it asks him, and the gate is the first level of the ladder | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence, also in another task's session. Words that plainly say one of the rows above go there | `stages/new.md` |
 
@@ -187,8 +188,8 @@ so do the end of a command it runs in the background and a wake-up from the boar
   work, never a reason to stop.
 - **Decisions are logged, and the owner can overturn each.** Each decision made without the
   owner, each breaker and his help on it, through `lem decisions`: what, what
-  was chosen, by whom, why, and what it would take to undo. It writes `decisions.jsonl` in the
-  task's directory and an event for the board; nobody writes that file by hand. The report lists
+  was chosen, by whom, why, and what it would take to undo. It writes the decision into the
+  task's record and its journal, which the board draws; nobody writes the record by hand. The report lists
   them as decisions, never as questions, and the pull request lists each one from the record.
 - **A destructive or outward step is never yours.** Dropping data, rewriting shared history,
   touching production, bending a check, pushing to a branch the settings do not name: a lead trips
@@ -230,10 +231,10 @@ so do the end of a command it runs in the background and a wake-up from the boar
   machine's own `.lem/settings.local.toml` into git, is careful by the landing's own rule: the file is Lem's, it says who merges and where a task lands as well
   as what is careful and what the checks run, and a task rarely edits it.
 - **No count of tasks stops a start.** By day each start is the owner's own request: "Why block
-  him?" (2026-11-18). `lem project may-start SLUG` refuses only a task that gets no lead (in
-  `landing`, `open` or ended) and one queued `after:` a task that has not landed or been answered:
+  him?" (2026-11-18). `lem task may-start SLUG` refuses only a task that gets no lead (in
+  `landing`, `open` or ended) and one queued after a task that has not landed or been answered:
   behind a dropped one it prints the commands of his "start SLUG now", which an agent runs only as
-  a `may-start` printed them after his word.
+  `may-start` printed them after his word.
 - **What the owner has to understand is told as one run.** A decision you bring and a confusion
   the owner brings ("I thought X did Y", "why is this happening") get the same form: one
   concrete case in numbered steps, with real names and values, and where each step was read. For
@@ -261,29 +262,32 @@ so do the end of a command it runs in the background and a wake-up from the boar
 ## Where a task keeps its state
 
 ```bash
-lem project task-dir SLUG
+lem task dir SLUG
 ```
 
-It makes and prints the task's directory in Lem's state folder, `.lem/state/` of the main checkout,
-shared by every worktree, never committed and not removed with a worktree. It holds:
+It prints the task's directory in Lem's state folder, `.lem/state/tasks/SLUG/` of the main
+checkout, shared by every worktree, never committed and not removed with a worktree; `lem task
+open` makes it. It holds:
 
-- `ask.txt` and `task.md`: the owner's words as given, and the ask with its outcome. `ticket.txt`
-  holds the id of the tracker's ticket, for a task that came from one, `ticket-repo.txt` the
-  `OWNER/REPO` of a GitHub issue, and `ticket-steps.txt` what Lem did to that ticket; `lem project
-  tasks` gives them, and `ticket_owed`: what an ended task's ticket still waits for. The task that
-  holds a ticket has a mark for it in `.lem/state/tickets/`, a file named by the ticket's id
-  without its `#` that holds the slug, so that one ticket goes to one task at a time.
+- `task.json`: the task's one record, written whole and only through `lem`: the task (its ask,
+  type, track, status and hold, criteria, approvals, persona reads, decisions, questions, spans,
+  plan, investigation, plan talk and ticket), its landing, and a journal of what happened, in
+  order. `lem task show SLUG` prints the task's status and hold. Its `ticket.owed` lists what an
+  ended task's ticket still waits for. A task that holds a ticket holds it alone until it ends.
+- `sessions.jsonl` and `session-acts.jsonl`: each Claude Code session of the task, as its
+  `session-start` hook saw it, and each open, close and wake-up of Lem's (`lem session`).
+- `ask.txt` and `task.md`: the owner's words as given, and the ask with its outcome.
 - `session.md`: the first thing a task's session reads, which `lem session open` writes: the task,
   its phase, why the session opened, and where it works.
 - `handoff.md`: what the agent that leaves a phase, or trips the breaker, leaves for the next one,
   in the form of `templates/handoff.md`: what is settled, what is open, the next step, what failed,
-  and each file it changed with its status. The state is newer than an old handoff, and wins.
+  and each file it changed with its status. The record is newer than an old handoff, and wins.
 - `talk.md`: the turns of the session where the owner typed the request, word for word, which
   `lem session talk` copies. Like every file here, it never reaches git or a pull request.
 - `interview-notes.md`: each answer of the owner's that sets the outcome, one line each, which
   the interview writes as it comes, so that a session after it asks nothing again.
 - `criteria-read.md`: the personas' answers of the read of the criteria, each persona and family
-  with its words, which the interview writes beside its `criteria.read` event, so that a
+  with its words, which the interview writes beside `lem criteria read SLUG done`, so that a
   session after it puts his page up from it with no second read.
 - `scout.md`: the scout's report of the interview, facts of the code around the ask, which only the
   criteria use.
@@ -296,51 +300,30 @@ shared by every worktree, never committed and not removed with a worktree. It ho
 - `outside.md`: the defects outside the request that the interview found, one line each with its
   place. The landing's polish pass takes each one by the bar of rule 6 of the builder's standing
   rules.
-- `criteria.json`: the criteria the owner approved, word for word, with a digest, who approved them
-  and when, and the number of the approval, with the earlier approvals under `history`. For a
-  task on the standard track from a complete request the lead's read freezes them there too (`by: read`), which is never his yes. Only `lem criteria approve` writes it; `lem criteria approved SLUG` prints it, and the
-  plan's criteria must be those, with the test lines added.
-- `criteria.md`: the criteria that wait for his yes, as the interview, a lead's wait or a change from
-  his note writes them. On the fast track it is the one
-  criterion, approved in his name (a request that is not his own sentence: by him while he is
-  there, else without him), with the test line its builder adds under it, and it stands in
-  for a plan: a task on the fast track commits no plan, and `criteria.py` and `land.py` read the criterion
-  here when the branch has no plan file. On the standard track the criteria are read only from its plan.
+- `criteria.md`: the criteria that wait for his yes, as the interview, a lead's wait or a change
+  from his note writes them. On the fast track it is the one criterion, approved in his name (a
+  request that is not his own sentence: by him while he is there, else without him), with the test
+  line its builder adds under it, and it stands in for a plan: a task on the fast track commits no
+  plan, and the criteria and the landing read the criterion here when the branch has no plan
+  file. On the standard track the criteria are read only from its plan. Only `lem criteria
+  approve` approves them; `lem criteria approved SLUG` prints what he approved, word for word,
+  with its digest, who approved it and when, and the approvals before it. For a task on the
+  standard track from a complete request the lead's read freezes them too (`--read`), which is
+  never his yes. The plan's criteria must be those, with the test lines added.
 - `criteria-change.md`: the changed criteria a session writes from his note on the standard track,
-  before `lem criteria change` moves them into `criteria.md`, so that a session after a stop runs the
-  change again with the same file (`stages/interview.md`, step 6).
-- `criteria-before.json`: the text he answered before the newest change, with the `ts` of the state
-  block he answered, which `lem criteria change` writes; it holds no approval. The board and
-  `lem criteria change SLUG --pairs` show each changed criterion's text before beside its new text
-  from it, and a `ts` that is still the newest block's says the change stopped in the middle, when
-  the board takes no yes.
+  before `lem criteria change` moves them into `criteria.md`, so that a session after a stop runs
+  the change again with the same file (`stages/interview.md`, step 6). The record keeps the text
+  he answered before it; the board and `lem criteria change SLUG --pairs` show each changed
+  criterion's text before beside its new text.
 - `brief.md`: the lead's brief, or the fast track's builder's; `talk-brief.md`, the defender's.
-- `state.md`: newest block first, written only through the script.
 - `report.md`: what the lead did, rewritten whole at each stop. `stages/build.md` gives its form.
-- `decisions.jsonl`: each decision taken without the owner, each breaker and his help on it, one
-  line for each thing that happened, and each change of an approved criterion with its text before
-  and after. Written only through `lem decisions`; `lem decisions list SLUG` shows each
-  decision as it stands, and `lem decisions changes SLUG` the criterion changes with the criteria
-  they give.
 - `breaker-N.md`: the document a lead that tripped breaker N leaves for the owner, which the lead
-  writes as `breaker.md` and the record keeps under its number (`stages/breaker.md`); `resumed-from.txt` names the dropped task a resumed one came from
-  (`stages/park.md`).
-- `release.txt`: the release of Lem the task began on, which its open writes (`lem project task-dir`).
-  A command of Lem for a task begun two releases back stops with a message that names the way on,
-  `/lem drop`, then `/lem resume`, and logs `release.stop`, which the board shows as blocked
-  (`src/lem/release.py`).
+  writes as `breaker.md` and the record keeps under its number (`stages/breaker.md`).
 - `reports/`: one file per builder of a plan's task, which the lead reads.
-- `landing.json`, `polish.json`, `gate/`, `read.json`, `reviews/`, `notes.md`, `pr.md`,
-  `merge-brief-TIP-BASE.md`, `merge-answer-TIP-BASE.md` and `merge-review.md`: what the landing
-  keeps: its own record, what the polish pass was given, the output of each command of the checks,
-  what each review was given and what it found, the notes for the pull request, its text, and the
-  merge agent's brief and answer for each proposed tip and base, and its newest review.
-- `cards/`: each `lem-ask` card the task's session put up, `PAGEID.html` and `PAGEID.json` (what it
-  asks), and its one end, `PAGEID.end.json`, the first of a pick in the session, a dismissal, a
-  close or his answer on the board (`src/lem/cards.py`).
-- `answers/`: `KEY.json`, his answer on the board to a row it answers with its own buttons, one for
-  each row's key (`src/lem/answers.py`); `lem project tasks` gives the one of the newest state
-  block as `board_answer`.
+- What the landing keeps beside its record: the output of each command of the checks, what each
+  review was given and what it found, the notes for the pull request, each text of it, the merge
+  agent's brief and answer for each proposed tip and base, and its newest review,
+  `merge-review.md`.
 
 The plan of a task on the standard track is a file in the repository, in the settings' `plans` path.
 
@@ -349,64 +332,63 @@ kit) goes in the task directory too, never in `/tmp` or a session's scratch fold
 gone when a later task needs it.
 
 ```bash
-lem project state SLUG STATUS "one line" ["a further line" ...]
+lem task move SLUG STATUS [--line "one line"]
 ```
 
-It puts a block at the top of `state.md` with the clock's time. Write one at every stage boundary
-and before you stop. It refuses a move out of an ended state, a lead's state (`queued`,
-`building`, `planned`, `ready`) over a task in `landing` or `open`, and any state but `dropped` over a
-parked one: such a write is an agent that woke late, and `lem project resume` is the way out of `parked`. A landing that must start over is the one case, and `land.py` gives its
-command when it is one. The status says who acts next, and the phase of the task's session:
+It moves the task to STATUS with the stage's line, and every move is an entry of the record's
+journal, with the clock's time. It refuses a move the table below does not allow: a move out of
+an ended status, a lead's status over a task in `landing` or `open`, and any move but a drop of a
+parked task, since such a move is an agent that woke late (`lem task resume SLUG` is the way out
+of a park). A landing that must start over is the one case, `--start-over WHY`, and `lem land
+next SLUG` names it when it is one. The status says who acts next, and the phase of the task's
+session:
 
 | Status | Means | Who acts |
 | --- | --- | --- |
-| `queued` | the ask is written and nothing builds it: it needs the result of the task its `after:` line names, or the owner's words put it after that task | the board's server opens its session when that task is `landed` or `answered`, or wakes it when it still runs; the owner, when that task was dropped: the queued task's row of "Waits for you" names "start SLUG now" and `/lem drop SLUG` |
-| `building` | a lead plans or builds, or an investigator examines a bug or a question | the task's session |
+| `queued` | the ask is written and nothing builds it: it needs the result of the task it is queued after, or the owner's words put it after that task | the board's server opens its session when that task is `landed` or `answered`, or wakes it when it still runs; the owner, when that task was dropped: the queued task's row of "Waits for you" names "start SLUG now" and `/lem drop SLUG` |
+| `shaping` | its session reads the request: an investigation, the interview, the criteria | the task's session |
+| `building` | a lead plans or builds, or the fast track's builder works | the task's session |
 | `planned` | the plan is committed and nothing builds it: the plan talk runs, or the owner reads the plan | the defender, or the owner |
-| `held` | it waits for the owner: the interview, the criteria that wait for his yes, one more fact an investigation needs, a step that is his to do, or a breaker's document (`breaker N waits for the owner`); no choice of a build waits for him | the owner, in the task's session |
-| `blocked` | the task's session stopped on something it could not settle (a builder that ended twice with no report, a refused start), or the base is red (`the base is red`) and it waits for the task that repairs it; a failure of the machinery and no choice, so its one line names what to do and it leaves no breaker's document | the owner, from "Waits for you" or in the task's session; for `the base is red`, the task that repairs the base |
 | `ready` | the report is written and the branch waits for its checks | the landing's session |
 | `landing` | the checks and the review run on it, or a builder repairs what they showed | the landing's session |
 | `open` | it is proposed: its pull request is open on GitHub | the merge agent reads it and merges it; the owner, when it calls him |
 | `landed` | it is on the base branch | its session, for the cleanup |
-| `dropped` | nobody will build it | nobody |
 | `answered` | it ended with a report and nothing to merge: a question answered, or a bug that is none | nobody |
+| `dropped` | nobody will build it | nobody |
+
+Beside its status, a hold keeps a task where it is:
+
+| Hold | Means | Who clears it |
+| --- | --- | --- |
+| `owner` | it waits for the owner: the interview, the criteria that wait for his yes, the skip of the personas' read, one more fact an investigation needs, a step that is his to do, a plan to read, or an order that names no task Lem can tell; no choice of a build waits for him | the owner, in the task's session or on the board |
+| `breaker` | breaker N waits for his help, park or drop, with its document | the owner |
+| `blocked` | the task's session stopped on something it could not settle (a builder that ended twice with no report, a refused start, a seat that failed with no fallback), or the base is red and it waits for the task that repairs it; a failure of the machinery and no choice, so its one line names what to do and it leaves no breaker's document | the owner, from "Waits for you" or in the task's session; for a red base, the landing of the task that repairs it |
 | `parked` | the owner put it aside (`/lem park`): its worktree, branch and files stay | nobody, until his `/lem resume` |
+| `release` | it began two releases of Lem back: every command of Lem for it stops with the way on | his `/lem drop`, then `/lem resume` |
 
-Every state block is also an event in the log the board draws, with the newest commit of the
-task's worktree, so the board needs no second command from anyone. Six lines have a fixed form,
-because the board reads them: `lead: builder` (a lead plans or builds) or `lead: session` (the plan
-talk's pair runs), `small change: one builder` (the fast track's one builder, which is no lead),
-`plan committed` with `N tasks`, `task N of M`, `investigation: bug` or `investigation: question`
-(an investigator works before any lead), and `type: TYPE, because WHY`, which `state` refuses in
-another form. Three more lines of a `queued` block have a fixed form, because `lem project state`
-reads them for the task's first line (`stages/new.md`, steps 7 and 8 of "The request"): `the
-owner's order: "HIS WORDS"`, `then: the interview`, `then: the fast track` or `then: the lead`, and
-`the one open task that fits his words`. `state` refuses a line that starts as one of the three in
-another form; every other line is free. No state line names a session: `lem session` logs `session.open`, `session.close`
-and `session.wake`, and the board knows each task's session from them.
+What a stage tells the owner and the board has a typed command, never a line of a fixed form:
+`lem task read` (the type and why, the track, careful topics, what comes next, his order, the task
+it is queued after, and the wait for his answer), `lem task span SLUG lead|small|task start|end`
+(`--of N/M` for a task of the plan), `lem task planned SLUG --tasks N`, and `lem task investigated`.
+The record's lines name no session: `lem session` keeps each task's sessions, and the board knows
+them from it.
 
-A stage's start is an event too, so that the board's time card has a start and an end for each
-span (the owner's pick of 2026-11-17). Each has a fixed form that `lem project log` checks, and
-the event that already ends the stage ends it. Logged by the agent that runs the stage, where its
-stage text says: `interview.start` (before the first question; it ends at `interview.end`, once
-`task.md` is written again after the last question, and Lem's span of writing the criteria runs
-from there to the first `read.skip.asked`, `criteria.read.start` or `criteria.approved`;
-`read.skip.asked` as the interview asks him whether to skip the personas' read, in step 5 of
-`stages/interview.md`: the task is his again until he answers), `scout.start` and `scout` (as the
-scout starts and when its report is written), `criteria.read.start by=lem|lead` (it ends at
-`criteria.read`), `investigation.start type=fix|question` (it ends at `investigation`), and
-`builder.start job=JOB` for a builder's job, `task N of M`, `the small change` (the fast track's builder), `the repair of a
-conflict with the base`, `the repair of a failed check`, `the fix of a review's findings` or `the
-removal of the task's item` (it
-ends at the next state block or step of the landing). Logged by `land.py` itself:
-`polish.start before=TIP` (it ends at `polish`), `gate.start tip=TIP commands:=N`, the start of
-the checks (it ends at `gate.end`) and `review.start attempt:=N floor=KIND`, once for the
-attempt that is due (it ends at `review`). `plan.talk.start` and `plan.talk` have the same pairing.
+A stage's start is a span too, so that the board's time card has a start and an end for each
+(the owner's pick of 2026-11-17). Logged by the agent that runs the stage, where its stage text
+says: `lem task span SLUG interview start` (before the first question; it ends once `task.md` is
+written again after the last question, and Lem's span of writing the criteria runs from there to
+`lem criteria skip SLUG asked`, `lem criteria read SLUG start` or the approval), `lem task span
+SLUG scout start|end`, `lem criteria read SLUG start --by lem|lead` (it ends at `lem criteria read
+SLUG done`), `lem task span SLUG investigation start|end`, and `lem task span SLUG builder start
+--job JOB` for a builder's job (`task N of M`, `the small change`, `the repair of a conflict with
+the base`, `the repair of a failed check`, `the fix of a review's findings` or `the removal of the
+task's item`; it ends at the next move or step of the landing). The landing's commands log their
+own: the polish, the checks and each review. `lem task span SLUG plan-talk start|end` pairs the
+same way.
 
-Nothing else keeps a task's place. A session that was compacted or opened fresh reads the state
-first, then `handoff.md` where it is newer, then the report, and goes on. No session keeps notes of
-its own beside these files.
+Nothing else keeps a task's place. A session that was compacted or opened fresh reads the record
+first (`lem task show SLUG`), then `handoff.md` where it is newer, then the report, and goes on. No
+session keeps notes of its own beside these files.
 
 ## The board
 

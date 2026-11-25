@@ -33,6 +33,9 @@ SHOWN = (
 )
 # The exit of `agtermctl pick` when the owner closes the picker (`picker.CLOSED` on `main`).
 CLOSED = 2
+# The session a command runs in, as agterm names it in each pane's environment: its own name,
+# then its older one.
+CALLERS = ("AGTERM_SESSION_ID", "AGT_SESSION_ID")
 
 
 class AgtermTerminal(AgtermLooks):
@@ -88,6 +91,11 @@ class AgtermTerminal(AgtermLooks):
         """Select the session: the owner's own act only."""
         target = self.node(session).id
         said(self.environ, SESSION, "select", TARGET, target)
+
+    def here(self) -> str | None:
+        """The session the command runs in, from its pane's environment; None outside agterm."""
+        named = (self.environ.get(name, "").strip() for name in CALLERS)
+        return next((one for one in named if one), None)
 
     def picker(self, rows: tuple[str, ...], cwd: Path) -> str | None:
         """The row the owner picked in agterm's picker, or None when he closed it."""

@@ -2,13 +2,16 @@
 
     lem owner back [--words WORDS]
 
-A stub until the step `owner` builds it: it refuses `not-built`.
+It writes the machine's mark with the owner's words as typed, unless it changes nothing, and
+names this workspace's tasks his word changed (`app/owner/presence.py`).
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.owner import presence
+from lem.cli import place
+from lem.kernel import clock
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +20,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     words: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `owner` builds `lem owner back`."""
-    raise not_built("owner back", "owner")
+def run(call: Call) -> presence.Said:
+    """Mark the owner back, for every repository on this machine."""
+    return presence.said(place.folder(), call.words, clock.now(), away=False)
 
 
 COMMAND = click.Command(

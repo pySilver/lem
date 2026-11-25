@@ -75,13 +75,26 @@ class Talk(Frozen, frozen=True, kw_only=True):
     at: Moment
 
 
+type SeatError = Literal["missing", "login", "tokens", "model"]
+
+
+class FailedToo(Frozen, frozen=True, kw_only=True):
+    """The stand-in's own start failed as well: the kind of error, and what its agent said
+    (`stand_ins_of`, "then Codex gave an error too", on `main`)."""
+
+    error: SeatError
+    said: str | None = None
+
+
 class StandIn(Frozen, frozen=True, kw_only=True):
-    """A seat whose agent failed, and the fallback that stood in, until the owner's go on."""
+    """A seat whose agent failed, and the fallback that stood in, until the owner's go on;
+    `failed_too` when the fallback failed in turn."""
 
     seat: Literal["reviewer", "planner", "merger"]
     failed: str
-    error: Literal["missing", "login", "tokens", "model"]
+    error: SeatError
     said: str | None = None
     took: str | None = None
     at: Moment
     again: Moment | None = None
+    failed_too: FailedToo | None = None

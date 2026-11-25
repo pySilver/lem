@@ -1,6 +1,7 @@
 """The entry's lines and exit status, run on a scratch copy of it with a small suite of probes:
 one line for each case, a failed subtest fails its case, `os._exit` fails the run, the caller's
-pytest and Lem variables never reach a case, and a selection that collects nothing fails."""
+pytest, Lem, Jev and git variables never reach a case, a selection that collects nothing fails,
+and so does one in which a file does not collect."""
 
 import os
 import re
@@ -31,7 +32,15 @@ assert os.environ["LEM_SERVE"] == "off"
 assert tempfile.gettempdir() == os.environ["TMPDIR"]
 for name in ("HOME", "XDG_CONFIG_HOME", "TMPDIR"):
     assert os.environ[name] != os.environ["CALLER_" + name]
-for name in ("PYTHONPATH", "LEM_PLUGIN_ROOT", "AGTERM_SESSION_ID", "CLAUDE_PLUGIN_ROOT"):
+for name in (
+    "PYTHONPATH",
+    "LEM_PLUGIN_ROOT",
+    "AGTERM_SESSION_ID",
+    "CLAUDE_PLUGIN_ROOT",
+    "JEV_API_KEY",
+    "OPENROUTER_API_KEY",
+    "GIT_CONFIG_GLOBAL",
+):
     assert name not in os.environ, name
 
 class Cases(unittest.TestCase):
@@ -143,6 +152,9 @@ def run_entry(
         LEM_PLUGIN_ROOT=str(work),
         AGTERM_SESSION_ID="a-session-of-the-owner",
         CLAUDE_PLUGIN_ROOT=str(work),
+        JEV_API_KEY="a-key-of-the-owner",
+        OPENROUTER_API_KEY="a-key-of-the-owner",
+        GIT_CONFIG_GLOBAL=str(work / "the-owners.gitconfig"),
     )
     for name in ("HOME", "XDG_CONFIG_HOME", "TMPDIR"):
         folder = work / name
@@ -233,9 +245,13 @@ def test_collection_errors_prevent_cases_from_running(tmp_path: Path) -> None:
     shutil.copytree(tests / "model", tests / "unit")
     ran = run_entry(tmp_path, "--level", "model")
     assert_results(ran, 2, "collected 1")
+    assert ran.stdout.splitlines()[-1] == (
+        "total: collected 1, passed 0, skipped 0, failed 0, not collected 2"
+    )
     parallel = run_entry(tmp_path, "--level", "unit")
     assert parallel.returncode == 1
     assert parallel.stdout.count("collection failed: tests/unit/test_import.py") == 1
+    assert parallel.stdout.splitlines()[-1].endswith(", not collected 2")
     for detail in (
         "collection failed: tests/model/test_import.py",
         "ValueError: bad import",
@@ -243,6 +259,46 @@ def test_collection_errors_prevent_cases_from_running(tmp_path: Path) -> None:
         "test_generated: convert load_tests to discoverable tests",
     ):
         assert detail in ran.stdout
+
+
+def test_a_file_that_does_not_collect_fails_a_run_whose_other_cases_pass(
+    tmp_path: Path,
+) -> None:
+    scratch(
+        tmp_path,
+        test_good="def test_pass():\n    pass\n",
+        test_twice=(
+            "import pytest\n\n"
+            '@pytest.mark.parametrize("n", [1, 2], ids=["same", "same"])\n'
+            "def test_twice(n):\n    assert n\n"
+        ),
+    )
+    ran = run_entry(tmp_path, "--level", "unit")
+    assert_results(ran, 1, "collected 1", "ok   unit.test_good.test_pass")
+    assert "collection failed: tests/unit/test_twice.py" in ran.stdout
+    assert (
+        "test files that did not collect: 1; their cases are in no count" in ran.stdout
+    )
+    assert ran.stdout.splitlines()[-1] == (
+        "total: collected 1, passed 1, skipped 0, failed 0, not collected 1"
+    )
+
+
+def test_a_failed_collection_fails_a_session_pytest_called_ok() -> None:
+    with redirect_stdout(StringIO()) as output:
+        lines = Lines(Path())
+        lines.collected(["tests/unit/test_good.py::test_pass"])
+        lines.counts["ok"] = 1
+        lines.results.add("tests/unit/test_good.py::test_pass")
+        lines.pytest_collectreport(
+            pytest.CollectReport("tests/unit/test_twice.py", "failed", "bad ids", [])
+        )
+        session = Mock(spec=pytest.Session, exitstatus=pytest.ExitCode.OK)
+        lines.pytest_sessionfinish(session)
+    assert session.exitstatus == pytest.ExitCode.TESTS_FAILED
+    assert output.getvalue().splitlines()[-1] == (
+        "total: collected 1, passed 1, skipped 0, failed 0, not collected 1"
+    )
 
 
 def test_two_folders_may_each_hold_a_file_of_one_name(tmp_path: Path) -> None:

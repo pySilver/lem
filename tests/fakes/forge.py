@@ -49,6 +49,7 @@ class LocalForge:
 
     remote: Remote
     name: str = "owner/project"
+    login: str = "lem-test"
     pulls: dict[int, Pull] = field(default_factory=dict)
     bodies: dict[int, str] = field(default_factory=dict)
     merge_calls: list[tuple[int, str]] = field(default_factory=list)
@@ -94,6 +95,7 @@ class LocalForge:
             url=self.url(number),
             title=title,
             state="open",
+            author=self.login,
             head=sha,
             head_ref=head,
             base=base,

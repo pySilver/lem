@@ -9,6 +9,13 @@ from lem.records.journal.landing import (
     ReviewRound,
 )
 from lem.records.journal.merge import LandAgain, MergeNoted, ReadNoted, RefusalNoted
+from lem.records.journal.sessions import (
+    SessionClosed,
+    SessionOpened,
+    SessionStopped,
+    SessionWoken,
+    SessionWorked,
+)
 from lem.records.journal.task import (
     DecisionNoted,
     OwnerAct,
@@ -33,4 +40,9 @@ type Entry = (
     | RefusalNoted
     | MergeNoted
     | LandAgain
+    | SessionOpened
+    | SessionClosed
+    | SessionWoken
+    | SessionStopped
+    | SessionWorked
 )

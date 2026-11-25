@@ -51,3 +51,17 @@ def test_a_folder_in_no_repository_or_one_with_no_lem_is_refused(
         places.workspace(repo.checkout)
     assert bare.value.code == "no-lem"
     assert bare.value.fix.startswith("lem init --base BRANCH")
+
+
+def test_the_checkout_of_a_folder_needs_no_lem_and_is_found_from_a_worktree(
+    tmp_path: Path,
+) -> None:
+    repo = RealRepo.init(tmp_path / "repo", {"README.md": b"one\n"})
+    worktree = tmp_path / "fix-the-login"
+    run_git(repo.checkout, "worktree", "add", "--quiet", "-b", "fix", str(worktree))
+    checkout = repo.checkout.resolve()
+    assert places.checkout_of(repo.checkout) == checkout
+    assert places.checkout_of(worktree) == checkout
+    with pytest.raises(Refusal) as nowhere:
+        places.checkout_of(tmp_path)
+    assert nowhere.value.code == "no-repository"

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from lem.ports.harness import Signs, Tokens, Transcript
-from lem.ports.judge import Defect, NotAsked, Score
+from lem.ports.judge import Candidate, Defect, NotAsked, Score
 from lem.ports.notifier import Wait
 
 if TYPE_CHECKING:
@@ -44,7 +44,7 @@ class HarnessContract:
         assert harness.transcripts("no-such-task") == ()
         assert harness.tokens(()) == Tokens()
         gone = Transcript(path="/nowhere/gone.jsonl", claude="gone")
-        assert harness.signs(gone) == Signs()
+        assert harness.signs(gone) == Signs(read=False)
 
 
 class TrackerContract:
@@ -97,7 +97,8 @@ class JudgeContract:
         )
         over = judge.over_bar(defect)
         assert isinstance(over, NotAsked) or 0 <= over.score <= 1
-        same = judge.same_items(defect, ("docs/backlog/a.md",))
+        held = Candidate(path="docs/backlog/a.md", title="The login drops the session")
+        same = judge.same_items(defect, (held,))
         if not isinstance(same, NotAsked):
             assert all(
                 isinstance(score, Score) and score.path == "docs/backlog/a.md"

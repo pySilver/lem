@@ -1,42 +1,43 @@
-"""Whether a queued task may get its session now: a task queued after another waits until that
-one landed or was answered; a dropped one leaves it queued for the owner's word, which starts
-it or drops it (`session.queued_behind` on `main`)."""
+"""Whether a queued task may get its session now: a task queued after others waits until each
+of them landed or was answered; a dropped one leaves it queued for the owner's word, which
+starts it or drops it (`session.queued_behind` on `main`)."""
 
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
+from lem.model.task import behind as dependencies
 from lem.records.holds import ReleaseHold
 from lem.store import tasks
 
 if TYPE_CHECKING:
     from lem.app.sessions.here import Here
+    from lem.records.record import Record
     from lem.records.task import Task
 
-# The statuses that end a queued task's wait.
-DONE = ("landed", "answered")
+
+def record_of(here: Here, slug: str) -> Record | None:
+    """The dependency's record, or None when it does not read."""
+    try:
+        return tasks.read(here.where.state, slug)
+    except Refusal:
+        return None
 
 
 def behind(here: Here, task: Task) -> None:
-    """Refuse a queued task whose `after` task has not landed or been answered, or is not on
-    record: only the owner's word starts it then (`session.queued_behind` on `main`)."""
-    if task.status != "queued" or task.after is None:
+    """Refuse a queued task one of whose `after` tasks has not landed or been answered, or is
+    not on record, a dropped one first: only the owner's word starts it then
+    (`session.queued_behind` on `main`)."""
+    if task.status != "queued":
         return
-    try:
-        status = tasks.read(here.where.state, task.after).task.status
-    except Refusal:
-        status = "not on record"
-    if status in DONE:
-        return
-    waits = (
-        "it waits for the owner's word, which starts it or drops it"
-        if status == "dropped"
-        else (f"it opens when {task.after} landed or was answered")
+    records = (record_of(here, slug) for slug in task.after)
+    refused = dependencies.behind(
+        task, tuple(record for record in records if record is not None)
     )
-    raise Refusal(
-        "queued-after",
-        f"{task.slug} is queued after {task.after}, which is {status}: {waits}",
-        f'the owner\'s word starts it now: lem task start {task.slug} --words "..."',
-    )
+    if refused is not None:
+        start = dependencies.word(task.slug)
+        raise Refusal(
+            "queued-after", refused.why, f"the owner's word starts it now: {start}"
+        )
 
 
 def release_stop(task: Task) -> None:

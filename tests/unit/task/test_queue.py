@@ -13,6 +13,7 @@ from lem.kernel.errors import Refusal
 from lem.model.task.read import ORDER_WAIT, Queue
 from lem.records.holds import OwnerHold, Parked
 from lem.records.task import Shape
+from lem.store import tasks
 from unit.task.spaces import last_line, made, read, refusal, result, said, workspace
 
 if TYPE_CHECKING:
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.model.task.read import Wait
+    from lem.records.record import Record
     from lem.records.task import Status
     from lem.store.places import Workspace
 
@@ -70,11 +72,11 @@ def test_after_queues_the_task_and_his_order_is_kept_in_his_words(
     where = workspace(tmp_path)
     made(where, "first", status="building")
     made(where, SLUG, status="shaping")
-    shaped(where, Queue(after="first", order="after the footer"))
+    shaped(where, Queue(after=("first",), order="after the footer"))
     task = read(where, SLUG).task
     assert (task.status, task.after, task.order) == (
         "queued",
-        "first",
+        ("first",),
         "after the footer",
     )
 
@@ -100,11 +102,89 @@ def test_a_wait_is_the_owners_hold(tmp_path: Path, wait: Wait) -> None:
     assert hold.on == wait
 
 
+def test_the_read_command_records_a_request_hold(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    made(where, SLUG, status="shaping")
+    ran = lem(
+        "task",
+        "read",
+        SLUG,
+        "--type",
+        "fix",
+        "--why",
+        "the total is wrong",
+        "--track",
+        "small",
+        "--wait",
+        "request",
+        cwd=tmp_path,
+    )
+    assert ran.code == 0, ran.stdout + ran.stderr
+    hold = read(where, SLUG).task.hold
+    assert isinstance(hold, OwnerHold)
+    assert (hold.on, hold.line) == ("request", "the request waits for the owner")
+
+
 def test_after_names_another_task_of_the_workspace(tmp_path: Path) -> None:
     where = workspace(tmp_path)
     made(where, SLUG, status="shaping")
-    assert code(lambda: shaped(where, Queue(after="nothing"))) == "after"
-    assert code(lambda: shaped(where, Queue(after=SLUG))) == "after"
+    assert code(lambda: shaped(where, Queue(after=("nothing",)))) == "after"
+    assert code(lambda: shaped(where, Queue(after=(SLUG,)))) == "after"
+
+
+def test_the_read_stops_at_the_first_unknown_dependency(tmp_path: Path) -> None:
+    class UnreadName(str):
+        __slots__ = ()
+
+        def __hash__(self) -> int:
+            raise AssertionError(
+                "the first unknown dependency already decides the refusal"
+            )
+
+    where = workspace(tmp_path)
+    made(where, SLUG, status="shaping")
+    with pytest.raises(Refusal, match="first-missing is no other task"):
+        shaped(where, Queue(after=("first-missing", UnreadName("also-missing"))))
+
+
+@pytest.mark.parametrize(
+    ("status", "order", "new_order", "refused"),
+    [
+        ("building", "after both", None, "order"),
+        ("dropped", "after both", "after first", "order"),
+        ("dropped", None, None, "after-dropped"),
+    ],
+)
+def test_a_second_read_cannot_remove_a_dependency_that_needs_the_owners_word(
+    tmp_path: Path,
+    status: Status,
+    order: str | None,
+    new_order: str | None,
+    refused: str,
+) -> None:
+    where = workspace(tmp_path)
+    made(where, "first", status="landed")
+    made(where, "second", status=status)
+    made(where, SLUG, status="shaping")
+    shaped(where, Queue(after=("first", "second"), order=order))
+    prior = read(where, SLUG)
+    assert (
+        code(lambda: shaped(where, Queue(after=("first",), order=new_order))) == refused
+    )
+    assert read(where, SLUG) == prior
+    assert start.start(tmp_path, SLUG, "start gift-note now").status == "shaping"
+
+
+def test_a_second_read_keeps_the_owners_order_when_it_keeps_its_dependencies(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    made(where, "first", status="building")
+    made(where, SLUG, status="shaping")
+    shaped(where, Queue(after=("first",), order="after first"))
+    shaped(where, Queue(after=("first",)))
+    assert read(where, SLUG).task.order == "after first"
+    assert code(lambda: shaped(where)) == "order"
 
 
 def test_a_need_that_went_is_read_again_and_his_order_is_lifted_by_his_word_only(
@@ -112,10 +192,10 @@ def test_a_need_that_went_is_read_again_and_his_order_is_lifted_by_his_word_only
 ) -> None:
     where = workspace(tmp_path)
     made(where, "first", status="building")
-    made(where, SLUG, status="queued", after="first")
+    made(where, SLUG, status="queued", after=("first",))
     shaped(where)
     assert read(where, SLUG).task.status == "shaping"
-    made(where, "other", status="queued", after="first", order="after first")
+    made(where, "other", status="queued", after=("first",), order="after first")
     assert code(lambda: shaped(where, slug="other")) == "order"
 
 
@@ -137,7 +217,7 @@ def test_a_task_queued_behind_another_waits_for_its_end_or_his_word(
 ) -> None:
     where = workspace(tmp_path)
     made(where, "first", status=other)
-    made(where, SLUG, status="queued", after="first", order="after first")
+    made(where, SLUG, status="queued", after=("first",), order="after first")
     with pytest.raises(Refusal) as refused:
         start.may(tmp_path, SLUG)
     assert refused.value.code == refusal
@@ -147,7 +227,7 @@ def test_a_task_queued_behind_another_waits_for_its_end_or_his_word(
 def test_a_need_names_the_read_again_and_no_order(tmp_path: Path) -> None:
     where = workspace(tmp_path)
     made(where, "first", status="building")
-    made(where, SLUG, status="queued", after="first")
+    made(where, SLUG, status="queued", after=("first",))
     with pytest.raises(Refusal) as refused:
         start.may(tmp_path, SLUG)
     assert "with no --after" in refused.value.fix
@@ -160,8 +240,90 @@ def test_a_task_behind_one_that_landed_may_start_and_names_the_running_ones(
     where = workspace(tmp_path)
     made(where, "first", status=other)
     made(where, "busy", status="building")
-    made(where, SLUG, status="queued", after="first")
+    made(where, SLUG, status="queued", after=("first",))
     assert start.may(tmp_path, SLUG).running == ("busy",)
+
+
+def moved_to(where: Workspace, slug: str, status: Status) -> None:
+    """The task `slug` in `status` now, as a move of its record."""
+
+    def change(record: Record) -> Record:
+        return replace(record, task=replace(record.task, status=status))
+
+    tasks.update(where.state, slug, change, read(where, slug).revision)
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "refusal"),
+    [
+        ("landed", "building", "queued"),
+        ("open", "building", "queued"),
+        ("open", "dropped", "after-dropped"),
+        ("answered", "landed", None),
+    ],
+)
+def test_a_task_queued_behind_two_waits_for_each_and_a_dropped_one_for_his_word(
+    tmp_path: Path, first: Status, second: Status, refusal: str | None
+) -> None:
+    where = workspace(tmp_path)
+    made(where, "first", status=first)
+    made(where, "second", status=second)
+    made(where, SLUG, status="queued", after=("first", "second"))
+    if refusal is None:
+        assert start.may(tmp_path, SLUG).slug == SLUG
+        return
+    assert code(lambda: start.may(tmp_path, SLUG)) == refusal
+
+
+def test_the_refusal_of_a_task_behind_two_names_each_that_it_waits_for(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    made(where, "first", status="landed")
+    made(where, "second", status="building")
+    made(where, SLUG, status="queued", after=("first", "second"))
+    with pytest.raises(Refusal) as one:
+        start.may(tmp_path, SLUG)
+    assert one.value.why == (
+        f"{SLUG} is queued after second, which is building: it starts when second is "
+        "landed or answered"
+    )
+    moved_to(where, "first", "open")
+    with pytest.raises(Refusal) as both:
+        start.may(tmp_path, SLUG)
+    assert both.value.why == (
+        f"{SLUG} is queued after first, which is open, and second, which is building: "
+        "it starts when each of first and second is landed or answered"
+    )
+    assert "the result of first and second" in both.value.fix
+
+
+def test_after_given_twice_queues_the_read_behind_both(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    made(where, "first", status="building")
+    made(where, "second", status="shaping")
+    made(where, SLUG, status="shaping")
+    ran = lem(
+        "task",
+        "read",
+        SLUG,
+        "--type",
+        "feat",
+        "--why",
+        "a note",
+        "--track",
+        "full",
+        "--after",
+        "first",
+        "--after",
+        "second",
+        cwd=tmp_path,
+    )
+    assert ran.code == 0, ran.stdout + ran.stderr
+    task = read(where, SLUG).task
+    assert (task.status, task.after) == ("queued", ("first", "second"))
+    assert last_line(where, SLUG) == "queued after first and second"
+    assert code(lambda: shaped(where, Queue(after=("first", "nothing")))) == "after"
 
 
 @pytest.mark.parametrize(
@@ -183,12 +345,14 @@ def test_a_stale_wake_up_starts_no_lead(
 def test_his_word_starts_a_queued_task_and_keeps_his_words(tmp_path: Path) -> None:
     where = workspace(tmp_path)
     made(where, "first", status="dropped")
-    made(where, SLUG, status="queued", after="first", order="after first", shape=SHAPE)
+    made(
+        where, SLUG, status="queued", after=("first",), order="after first", shape=SHAPE
+    )
     moved = start.start(tmp_path, SLUG, "start gift-note now")
     record = read(where, SLUG)
     assert (moved.status, record.task.after, record.task.order) == (
         "shaping",
-        None,
+        (),
         None,
     )
     assert last_line(where, SLUG) == 'the owner\'s word: "start gift-note now"'
@@ -221,7 +385,7 @@ def test_the_read_says_the_first_line_and_show_gives_its_named_form(
 def test_a_stale_read_or_word_over_a_parked_task_keeps_the_park(tmp_path: Path) -> None:
     where = workspace(tmp_path)
     made(where, "first", status="building")
-    made(where, SLUG, status="queued", after="first", hold=Parked(since=MOMENT))
+    made(where, SLUG, status="queued", after=("first",), hold=Parked(since=MOMENT))
     assert code(lambda: shaped(where)) == "parked"
     assert code(lambda: start.start(tmp_path, SLUG, "start it")) == "parked"
     task = read(where, SLUG).task
@@ -231,12 +395,12 @@ def test_a_stale_read_or_word_over_a_parked_task_keeps_the_park(tmp_path: Path) 
 def test_a_move_does_not_go_around_a_queue(tmp_path: Path) -> None:
     where = workspace(tmp_path)
     made(where, "first", status="building")
-    made(where, SLUG, status="queued", after="first")
+    made(where, SLUG, status="queued", after=("first",))
     for status in ("building", "shaping"):
         ran = lem("task", "move", SLUG, status, cwd=tmp_path)
         assert refusal(ran)["code"] == "queued"
     made(where, "landed", status="landed")
-    made(where, "next", status="queued", after="landed")
+    made(where, "next", status="queued", after=("landed",))
     assert result(lem("task", "move", "next", "building", cwd=tmp_path))["status"] == (
         "building"
     )

@@ -37,12 +37,14 @@ class Transcript(Frozen, frozen=True, kw_only=True):
 
 
 class Signs(Frozen, frozen=True, kw_only=True):
-    """The signs of work of a session: its newest sign, a shell command that runs, and whether
-    a turn runs or ended."""
+    """The signs of work of a session: its newest sign, a shell command that runs, whether a
+    turn runs or ended, and whether its process could be read. The newest sign comes from the
+    transcript and can be known with `read=False`."""
 
     sign: Moment | None = None
     shell: bool = False
     turn: Literal["runs", "ended"] | None = None
+    read: bool = True
 
 
 class Tokens(Frozen, frozen=True, kw_only=True):

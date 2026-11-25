@@ -12,6 +12,7 @@ import re
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
+from lem.model.criteria import contract
 from lem.model.landing import merge_standing
 from lem.model.landing.world import Merger
 from lem.records.base import Frozen
@@ -130,10 +131,9 @@ def refusal(record: Record, world: World, asked: Asked) -> Refusal | None:
 
 
 def contract_moved(record: Record) -> bool:
-    """Whether the criteria were approved again after the proposal (`main:land.may_merge`
-    reads them as they stand): its evidence was made under another contract. The proposal
-    keeps no mark of `model/criteria/contract.py` yet (`notes/land-merge.md`), so the moment
-    of the newest approval stands in for it."""
+    """Whether the proposal's criteria differ from the task's current contract."""
     proposed = (record.landing or Landing()).proposed
-    approvals = record.task.criteria.approvals
-    return bool(proposed and approvals and approvals[-1].at > proposed.at)
+    return (
+        proposed is not None
+        and contract.moved(record.task, proposed.contract) is not None
+    )

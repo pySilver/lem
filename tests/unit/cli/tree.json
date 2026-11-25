@@ -64,7 +64,8 @@
             "--after": {
               "aliases": [],
               "value": true,
-              "required": false
+              "required": false,
+              "repeat": true
             },
             "--plan-only": {
               "aliases": [],
@@ -267,7 +268,8 @@
             "--after": {
               "aliases": [],
               "value": true,
-              "required": false
+              "required": false,
+              "repeat": true
             },
             "--wait": {
               "aliases": [],
@@ -275,7 +277,8 @@
               "required": false,
               "choices": [
                 "criteria",
-                "interview"
+                "interview",
+                "request"
               ]
             },
             "--fits": {

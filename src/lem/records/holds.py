@@ -6,8 +6,9 @@ from typing import Literal
 from lem.records.base import Moment, Slug, Tagged
 
 # What the owner's answer is awaited on.
+# `request` is the read of the request's one question (`stages/new.md` step 1).
 type OwnerWait = Literal[
-    "interview", "criteria", "skip-read", "fact", "step", "plan", "order"
+    "interview", "criteria", "skip-read", "fact", "step", "plan", "order", "request"
 ]
 
 
@@ -38,10 +39,12 @@ class Blocked(Tagged, tag="blocked", frozen=True, kw_only=True):
 
 
 class Parked(Tagged, tag="parked", frozen=True, kw_only=True):
-    """His park: the status stays, and his resume clears it."""
+    """His park: the status stays, and his resume clears it and gives back the hold the park
+    put aside (`held`: a breaker that waited waits again)."""
 
     since: Moment
     words: str | None = None
+    held: OwnerHold | BreakerHold | Blocked | None = None
 
 
 class ReleaseHold(Tagged, tag="release", frozen=True, kw_only=True):

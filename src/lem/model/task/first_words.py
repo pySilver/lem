@@ -29,21 +29,45 @@ def head(line: Line, named: str | None) -> Words:
 def waits(line: Line, named: str | None) -> Words:
     """What a queued task waits for, before the steps of its track, which run when the wait
     ends: his order (as he said, or the one open task that fits his words) with his word that
-    starts it before that, or the task it needs."""
+    starts it before that, or the tasks it needs."""
     task = line.task
-    if task.after is None:
+    if not task.after:
         return ()
     if task.order is None:
-        return (
-            f"It waits for {task.after}, and starts when that task lands or is answered.",
-        )
-    which = "as you said;"
-    if line.shape.fits:
-        words = task.order.replace('"', "'")
-        which = f'the one open task that fits "{words}";'
+        return (needs(task.after),)
+    which = ordered_by(line, task.order)
     slug = named or task.slug
+    needed = named_tasks(task.after)
     start = f'"start {slug} now" starts it before that.'
-    return (f"It waits for {task.after}, {which} {start}",)
+    return (f"It waits for {needed}, {which} {start}",)
+
+
+def ordered_by(line: Line, order: str) -> str:
+    """Whose order queued the task: his, as he said, or the one open task that fits it."""
+    if not line.shape.fits:
+        return "as you said;"
+    words = order.replace('"', "'")
+    return f'the one open task that fits "{words}";'
+
+
+def needs(after: tuple[str, ...]) -> str:
+    """The line of a task queued by a need: the tasks it waits for, and when it starts."""
+    needed = named_tasks(after)
+    ends = (
+        "that task lands or is answered"
+        if len(after) == 1
+        else "each of them lands or is answered"
+    )
+    return f"It waits for {needed}, and starts when {ends}."
+
+
+def named_tasks(slugs: tuple[str, ...]) -> str:
+    """The tasks a queued task waits for, as one phrase: `a`, `a and b`, `a, b and c`."""
+    if len(slugs) == 1:
+        return slugs[0]
+    head = ", ".join(slugs[:-1])
+    last = slugs[-1]
+    return f"{head} and {last}"
 
 
 def correction(named: str | None, *, fast: bool) -> str:

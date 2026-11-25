@@ -20,19 +20,25 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 
-def sent(context: Context, last: str | None) -> str:
-    """Push the task's branch with the lease of Lem's last push, when it is at the checked
-    tip; give the commit git sent. The port pushes a branch by its name, so the branch is
-    read before the push and the commit sent is read after it (`notes/slice-land.md`)."""
-    git, world = context.ports.git, context.world
-    slug = context.record.task.slug
-    if git.tip(context.worktree, f"refs/heads/{world.branch}") != world.tip:
+def checked_tip(context: Context) -> str:
+    """The checked tip, while the task's branch is at it; refused once the branch moved."""
+    world, slug = context.world, context.record.task.slug
+    there = context.ports.git.tip(context.worktree, f"refs/heads/{world.branch}")
+    if world.tip is None or there != world.tip:
         raise Refusal(
             "tip",
             f"{world.branch} moved after the step read it at {world.tip}",
             f"lem land next {slug}: the new tip's checks come first",
         )
-    made = git.push(context.worktree, world.branch, last)
+    return world.tip
+
+
+def sent(context: Context, last: str | None) -> str:
+    """Push the checked tip to the task's branch with the lease of Lem's last push, when the
+    branch is at it; give the commit git sent."""
+    world, slug = context.world, context.record.task.slug
+    tip = checked_tip(context)
+    made = context.ports.git.push(context.worktree, world.branch, last, commit=tip)
     if not isinstance(made, str):
         raise Refusal(
             "git-refused",

@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
     from fakes.harness import FakeHarness
     from lem.records.record import Record
+    from lem.records.task import Status
 
 SLUG = "gift-note"
 LATER = MOMENT + timedelta(minutes=5)
@@ -163,8 +164,8 @@ def test_a_new_session_goes_to_the_workspace_of_the_tasks_newest(
     [
         ({"hold": Parked(since=MOMENT)}, "parked"),
         ({"status": "landed"}, "ended"),
-        ({"after": "first-task"}, "queued-after"),
-        ({"after": "never-made"}, "queued-after"),
+        ({"after": ("first-task",)}, "queued-after"),
+        ({"after": ("never-made",)}, "queued-after"),
     ],
 )
 def test_open_refuses_a_task_that_gets_no_session_now(
@@ -193,8 +194,29 @@ def test_open_refuses_a_task_that_is_not_there_and_a_terminal_that_does_not_read
 def test_a_queued_task_opens_once_the_task_it_waits_for_landed(tmp_path: Path) -> None:
     here = here_of(tmp_path)
     made(here, "first-task", status="landed")
-    made(here, after="first-task", lead="builder")
+    made(here, after=("first-task",), lead="builder")
     assert opening.open_session(here, SLUG, "queue", None, MOMENT).phase == "build"
+
+
+@pytest.mark.parametrize("second", ["shaping", "dropped"])
+def test_the_session_refusal_names_all_pending_dependencies(
+    tmp_path: Path, second: Status
+) -> None:
+    here = here_of(tmp_path)
+    made(here, "first-task", status="building")
+    made(here, "second-task", status=second)
+    made(here, "done-task", status="answered")
+    made(here, after=("first-task", "second-task", "done-task"))
+    with pytest.raises(Refusal) as refused:
+        opening.open_session(here, SLUG, "queue", None, MOMENT)
+    assert refused.value.code == "queued-after"
+    assert "first-task" in refused.value.why
+    assert "second-task" in refused.value.why
+    assert "done-task" not in refused.value.why
+    if second == "dropped":
+        assert "the owner's word" in refused.value.why
+    else:
+        assert "each of first-task and second-task" in refused.value.why
 
 
 def building(here: Here) -> None:

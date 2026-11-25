@@ -1,6 +1,6 @@
 """`lem task open`: a task's record and its folder, under the workspace's claim lock.
 
-The task opens `shaping`, or `queued` behind the task `--after` names, with the owner's words as
+The task opens `shaping`, or `queued` behind the tasks `--after` names, with the owner's words as
 he gave them. A ticket, a backlog item and the dropped task it goes on from are claimed under the
 lock with the scan of every record (`model/task/claim.py`). The same words again under the same
 slug are a retry and pass; other words are another request under the same name.

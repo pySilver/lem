@@ -59,6 +59,7 @@ dev = [
     "wemake-python-styleguide>=1.9.0",
     "import-linter>=2.17",
     "httpx>=0.28.1",
+    "types-psutil>=7.2.2.20261122",
 ]
 
 [tool.uv]
@@ -307,3 +308,12 @@ layers = [
     "(store)",
     "(records) : kernel",
 ]
+
+# The top row's one crossing (the design's part 2): `board/app.py` imports the peers' routes by
+# their fixed path, and nothing else of the board imports an add-on.
+[[tool.importlinter.contracts]]
+name = "The board imports no add-on but the peers' routes"
+type = "forbidden"
+source_modules = ["lem.board"]
+forbidden_modules = ["lem.addons"]
+ignore_imports = ["lem.board.app -> lem.addons.peers.routes"]

@@ -1,0 +1,13 @@
+# The board's inputs are msgspec structs on one base of their own (`parts.Input`): msgspec reads
+# their annotations when it first encodes or decodes one, so the types they name are imported for
+# real, as the root's list says of the records' bases. The root's list, with that base beside it
+# (notes/board-inputs.md asks `core` to add it there, which makes this file go).
+extend = "../../../../pyproject.toml"
+
+[lint.flake8-type-checking]
+runtime-evaluated-base-classes = [
+    "msgspec.Struct",
+    "lem.records.base.Frozen",
+    "lem.records.base.Tagged",
+    "lem.board.inputs.parts.Input",
+]

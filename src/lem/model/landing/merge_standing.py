@@ -16,7 +16,8 @@ from typing import TYPE_CHECKING, Literal
 import msgspec
 
 from lem.kernel import files
-from lem.model.landing import green, standing
+from lem.model.criteria import contract
+from lem.model.landing import green
 from lem.records.landing.merge import Refused
 from lem.records.landing.propose import Standing
 
@@ -41,9 +42,9 @@ KINDS: MappingProxyType[str, Kind] = MappingProxyType(
 )
 
 
-def digest_of(reasons: tuple[str, ...]) -> str:
-    """One digest of the reasons a proposal is not green, which a standing merge keeps."""
-    return files.digest(msgspec.json.encode(reasons))
+def digest_of(reasons: tuple[str, ...], approved: str | None) -> str:
+    """One digest of the reasons and criteria the owner saw."""
+    return files.digest(msgspec.json.encode((reasons, approved)))
 
 
 def reasons_now(record: Record) -> tuple[str, ...]:
@@ -59,18 +60,18 @@ def reasons_now(record: Record) -> tuple[str, ...]:
 
 
 def standing_of(record: Record) -> Standing | None:
-    """The owner's merge that stands for the proposed tip: his own word refused for the base,
-    standing by `land-base`'s rule (`model/landing/standing.py`) with the reasons it is not
-    green read again now; or the one `propose` found standing on a new tip."""
+    """The owner's merge for this tip or one that carried onto it, while the reasons and
+    criteria he saw still hold."""
     landing = record.landing
     if landing is None or landing.standing is None or landing.proposed is None:
         return None
     judged = landing.proposed.owner_merge
-    if landing.standing.tip != landing.proposed.tip:
-        return landing.standing if judged and judged.state == "stands" else None
-    now = digest_of(reasons_now(record))
-    found = standing.standing(landing, now, carried=True)
-    return landing.standing if found and found.state == "stands" else None
+    if landing.standing.tip != landing.proposed.tip and (
+        judged is None or judged.state != "stands"
+    ):
+        return None
+    now = digest_of(reasons_now(record), contract.mark(record.task))
+    return landing.standing if landing.standing.reasons_digest == now else None
 
 
 def word(asked: Asked) -> bool:
@@ -99,14 +100,16 @@ def kept(
     record: Record, refusal: Refusal, asked: Asked, now: Moment
 ) -> tuple[Refused, Standing | None] | None:
     """What a refusal keeps, to write together: its `Refused`, and for the owner's own word
-    refused for the base his merge standing, with the reasons he saw."""
+    refused for the base his merge standing, with the reasons and criteria he saw."""
     refused = refused_of(record, refusal, asked, now)
     if refused is None:
         return None
     if refused.kind != BASE or not word(asked):
         return refused, None
     proposed = record.landing.proposed if record.landing else None
-    seen = digest_of(proposed.reasons if proposed else ())
+    if proposed is None:
+        return refused, None
+    seen = digest_of(proposed.reasons, proposed.contract)
     return refused, Standing(
         tip=refused.tip, reasons_digest=seen, by_act=asked.via, at=now
     )

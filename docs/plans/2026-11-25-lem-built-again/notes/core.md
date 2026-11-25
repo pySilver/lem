@@ -143,3 +143,34 @@ what changed. A test that needs a workspace makes one (`tests/fakes/repo.py`).
   `test_harness.py`).
 - Snapshots: `.venv/bin/python -I -B tests --level unit --snapshots create PATHS` writes the
   values `snapshot()` lacks; then `ruff format`.
+
+## Round 2: what each step can drop now
+
+The requests of groups 1 and 2, each with the API that replaces the stand-in.
+
+- `land-propose`: `Git.push(worktree, branch, expect, commit=SHA)` pushes `SHA:refs/heads/BRANCH`
+  (`propose_push.sent` passes the checked tip, so its read of the branch before the push can go);
+  `Pull.author`; `Proposed.contract`; `Landing.jev` (`JevRead`) for `jev.json`.
+- `land-base`: `Git.branch_of` (`app/landing/head.py` goes), `Git.reset(worktree, commit,
+  expect)`, `Git.left_out(where, onto, tip)` (commits the base holds by patch),
+  `Commit.author`, `Landing.taken`, `Based.reviewed`.
+- `land-review`: `Reviewed.counts` (`Counts`), `Landing.jev` (`JevRead`) for `jev-alike.json`,
+  `Task.owner_careful`, `Git.files(where, rev, folder)`, `Git.commit` gives `GitRefused` (moved
+  in `filing_commits`). The `Judge` port takes `Candidate`s: `jev_staged.py` is gone.
+- `land-merge`: `MergeAccepted.by` and `.via`, `Checked.base_tree`, `Proposed.contract`.
+- `land-checks`: `CheckWait` (reason `after`, `after`, `behind_repo`, `why`, `unread`, `say`),
+  `CheckEnd` (`seconds`, `tip`, `taken`), `Lowered.line`, `Checked.contract`, `.edited`,
+  `.not_covered`; of the `GitTree` part: `Git.changed_paths` (`-z`, no renames),
+  `Git.files`, `Git.origin_url`.
+- `criteria`: `Git.clean(where, untracked=False)`; `Criteria.waited`, `.skip_at`, `.changed`.
+- `sessions` and `slice-session`: the journal's `SessionOpened`, `SessionClosed`,
+  `SessionWoken`, `SessionStopped`, `SessionWorked` (`records/journal/sessions.py`, the
+  fields of `app/sessions/acts.py`); `Terminal.rename`, `.waiting`, `.foregrounds`, `.here`
+  (`beside.looks` and `here.CALLERS` go); `Signs.read`; `StandIn.failed_too`;
+  `Shape.first_line`.
+- `task`: `Parked.held` (`parked.json` goes), `OwnerWait` `request`, `Shape.first_line`,
+  `Task.after` a tuple, `Git.branch_add` (a branch with no worktree),
+  `lem.app.binding.bound_for(checkout, environ)` (beside `wiring`, which is at its 12 imports;
+  `app/tasks/ports.py` and `frame.bound` call it).
+- `settings`: `Git.origin_url`, `places.checkout_of`, `Git.changed_paths`; the entry fails a
+  run in which a file does not collect, and clears `GIT_*`.

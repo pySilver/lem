@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from lem.ports.faults import Unanswered
-from lem.ports.judge import Defect, NotAsked, Score
+from lem.ports.judge import Candidate, Defect, NotAsked, Score
 from lem.ports.tracker import Receipt, TicketView, TrackerStep
 
 if TYPE_CHECKING:
@@ -61,11 +61,12 @@ class FakeJudge:
     asked: list[Defect] = field(default_factory=list)
 
     def same_items(
-        self, defect: Defect, paths: tuple[str, ...]
+        self, defect: Defect, candidates: tuple[Candidate, ...]
     ) -> tuple[Score, ...] | NotAsked:
         if not self.key:
             return NotAsked(why="no key for Jev")
         self.asked.append(defect)
+        paths = {one.path for one in candidates}
         return tuple(
             score for score in self.same.get(defect.title, ()) if score.path in paths
         )

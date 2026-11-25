@@ -2,7 +2,7 @@
 terminal makes.
 
 A new session opens in the workspace of the task's newest session, else the caller's, else that
-of the task it is queued after, else that of the repository's newest session, while agterm still
+of a task it is queued after, else that of the repository's newest session, while agterm still
 has that workspace; with none of them it is refused (`session.workspace_for` on `main`).
 """
 
@@ -26,7 +26,7 @@ def workspace_for(here: Here, task: Task) -> str:
     found = (
         workspace_of(here, task.slug),
         caller.workspace if caller else None,
-        workspace_of(here, task.after),
+        *(workspace_of(here, after) for after in task.after),
         repository_newest(here),
     )
     chosen = next((space for space in found if space and space in known), None)

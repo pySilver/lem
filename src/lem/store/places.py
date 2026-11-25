@@ -72,18 +72,12 @@ def common_dir(dot_git: Path) -> Path:
     return (own / shared.read_text(encoding="utf-8").strip()).resolve()
 
 
-def workspace(folder: Path) -> Workspace:
-    """The workspace `folder` is in; refused when it is in no repository, in one where Lem is
-    not set up, or in one that holds the state of the Lem before."""
+def checkout_of(folder: Path) -> Path:
+    """The main checkout of the repository `folder` is in, from a task's worktree too, where
+    Lem need not be set up yet (`lem init` starts there); refused outside a repository."""
     start = folder.resolve()
-    found = next(
-        (
-            above / ".git"
-            for above in (start, *start.parents)
-            if (above / ".git").exists()
-        ),
-        None,
-    )
+    marks = (above / ".git" for above in (start, *start.parents))
+    found = next((mark for mark in marks if mark.exists()), None)
     if found is None:
         raise Refusal(
             "no-repository",
@@ -92,6 +86,13 @@ def workspace(folder: Path) -> Workspace:
         )
     checkout = common_dir(found).parent
     folders.inside_test_root(checkout)
+    return checkout
+
+
+def workspace(folder: Path) -> Workspace:
+    """The workspace `folder` is in; refused when it is in no repository, in one where Lem is
+    not set up, or in one that holds the state of the Lem before."""
+    checkout = checkout_of(folder)
     if not (checkout / ".lem").is_dir():
         raise Refusal(
             "no-lem",

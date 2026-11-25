@@ -665,22 +665,27 @@ def test_a_shell_of_another_claude_is_not_this_sessions(claude: Folder) -> None:
 
 def test_a_record_with_no_process_file_gives_no_signs(claude: Folder) -> None:
     other = claude.transcript("b0000001", prompt("go"), reply())
-    assert signs(other, SNAPSHOT_LINE) == Signs()
+    last = datetime(2026, 11, 25, 10, 5, tzinfo=UTC)
+    assert signs(other, SNAPSHOT_LINE) == Signs(sign=last, read=False)
     # The process file of another Claude Code folder is no file of the transcript's folder.
     elsewhere = Folder(claude.root.parent / "claude-other")
     elsewhere.process(PID, "a0000002")
     moved = claude.transcript("a0000002", prompt("go"), reply())
-    assert signs(moved, SNAPSHOT_LINE) == Signs()
+    assert signs(moved, SNAPSHOT_LINE) == Signs(sign=last, read=False)
     # A transcript outside the form `FOLDER/projects/NAME/ID.jsonl` has no folder.
-    assert signs(Transcript(path="/t.jsonl", claude="f0410fb9")) == Signs()
+    assert signs(Transcript(path="/t.jsonl", claude="f0410fb9")) == Signs(read=False)
 
 
 def test_a_process_file_whose_pid_is_gone_gives_no_signs(claude: Folder) -> None:
-    assert signs(own(claude), table=FakeTable({1: ("/sbin/launchd",)})) == Signs()
+    assert signs(own(claude), table=FakeTable({1: ("/sbin/launchd",)})) == Signs(
+        sign=ENDED_AT, read=False
+    )
 
 
 def test_a_process_table_that_could_not_be_read_gives_no_signs(claude: Folder) -> None:
-    assert signs(own(claude), table=UnreadTable()) == Signs()
+    found = signs(own(claude), table=UnreadTable())
+    assert (found.read, found.shell, found.turn) == (False, False, None)
+    assert found.sign == ENDED_AT
 
 
 def test_no_turn_when_the_signs_do_not_read_or_no_record_decides(
