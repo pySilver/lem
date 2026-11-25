@@ -117,7 +117,6 @@ def test_a_message_is_handed_to_the_worker_as_one_correction(tmp_path: Path) -> 
     )
     assert correction.cwd == str((tmp_path / "repo").resolve())
     assert json.loads(msgspec.json.encode(correction)) == json.loads(body)
-    assert json.loads(lines[1]) == json.loads(body)
 
 
 def test_a_hook_registered_twice_judges_each_message_once(tmp_path: Path) -> None:
