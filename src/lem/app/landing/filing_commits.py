@@ -8,19 +8,10 @@ from typing import TYPE_CHECKING
 from lem.kernel import files
 from lem.kernel.errors import Refusal
 from lem.ports.faults import Unanswered
-from lem.records.base import Frozen
 
 if TYPE_CHECKING:
     from lem.app.landing.frame import Context
     from lem.model.landing.filing_place import Write
-
-
-class Committed(Frozen, frozen=True, kw_only=True):
-    """What the commits left: the paths written, and the tip and its tree after them."""
-
-    written: tuple[str, ...] = ()
-    tip: str
-    tree: str
 
 
 def hook_refused(number: int, paths: tuple[str, ...], slug: str, said: str) -> Refusal:
@@ -55,11 +46,9 @@ def commit_round(context: Context, writes: tuple[Write, ...], number: int) -> No
         raise hook_refused(number, paths, slug, refused.said) from refused
 
 
-def committed(context: Context, writes: tuple[Write, ...]) -> Committed:
-    """Write each item, and commit them, one commit for each review round."""
+def committed(context: Context, writes: tuple[Write, ...]) -> tuple[str, ...]:
+    """Write and commit the items, one commit per review round, and give their paths."""
     written = wrote(context, writes)
     for number in sorted({each.round for each in writes}):
         commit_round(context, writes, number)
-    tip = context.ports.git.tip(context.worktree, "HEAD") or ""
-    tree = context.ports.git.tree(context.worktree, tip)
-    return Committed(written=written, tip=tip, tree=tree)
+    return written

@@ -10,26 +10,26 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
+from lem.app.landing import item_carry, pull_identity
 from lem.app.tasks import where
-from lem.kernel.errors import Refusal
-from lem.model.landing.world import PullSeen, Rules, World
-from lem.settings.load import base_of, team_of
+from lem.model.landing import destination
+from lem.model.landing import world as facts
+from lem.settings import load as settings_load
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.app.wiring import Ports
-    from lem.ports.forge_facts import Pull
     from lem.records.base import Moment
     from lem.records.record import Record
     from lem.store.places import Workspace
 
 
-def rules(workspace: Workspace) -> Rules:
+def rules(workspace: Workspace) -> facts.Rules:
     """The settings a landing reads, from the main checkout."""
-    team = team_of(workspace.checkout)
-    return Rules(
-        base=base_of(team),
+    team = settings_load.team_of(workspace.checkout)
+    return facts.Rules(
+        base=settings_load.base_of(team),
         land=team.branch.land,
         history=team.branch.history,
         protected=team.branch.protected,
@@ -38,18 +38,18 @@ def rules(workspace: Workspace) -> Rules:
     )
 
 
-def origin(ports: Ports, workspace: Workspace, record: Record, now: Moment) -> World:
+def origin(
+    ports: Ports, workspace: Workspace, record: Record, now: Moment
+) -> facts.World:
     """The world of origin's base, before the worktree and the branches are read."""
     found = rules(workspace)
+    base_ref = destination.recorded(record.landing) or found.base
+    found = replace(found, base=base_ref)
     git = ports.git
     base = git.remote_head(workspace.checkout, found.base)
     if base is None:
-        raise Refusal(
-            "no-base",
-            f"origin has no branch {found.base}, the base of .lem/settings.toml",
-            f"push {found.base} to origin, then run the step again",
-        )
-    return World(
+        raise destination.missing(found.base)
+    return facts.World(
         rules=found,
         branch=where.branch(record),
         base=base,
@@ -58,7 +58,7 @@ def origin(ports: Ports, workspace: Workspace, record: Record, now: Moment) -> W
     )
 
 
-def in_worktree(ports: Ports, path: Path, world: World) -> World:
+def in_worktree(ports: Ports, path: Path, world: facts.World) -> facts.World:
     """The worktree's facts: its tip and tree, clean, a rebase, and whether it holds origin's
     base. A worktree that is not there leaves them unset."""
     git = ports.git
@@ -75,7 +75,7 @@ def in_worktree(ports: Ports, path: Path, world: World) -> World:
     )
 
 
-def branches(ports: Ports, checkout: Path, world: World) -> World:
+def branches(ports: Ports, checkout: Path, world: facts.World) -> facts.World:
     """Origin's task branch and the local one, and what holds each."""
     git = ports.git
     remote = git.remote_head(checkout, world.branch)
@@ -90,42 +90,16 @@ def branches(ports: Ports, checkout: Path, world: World) -> World:
     )
 
 
-def seen(pull: Pull) -> PullSeen:
-    """A pull request as the landing reads it."""
-    return PullSeen(
-        number=pull.number,
-        url=pull.url,
-        title=pull.title,
-        body=pull.body,
-        state=pull.state,
-        head=pull.head,
-        base=pull.base,
-        queued=pull.queued,
-        merge_commit=pull.merge_commit,
-        merged_head=pull.merged_head,
-        base_parent=pull.base_parent,
-    )
-
-
-def pulls_of(ports: Ports, record: Record, world: World) -> World:
-    """The pull request on record, by its number; with none on record, every open one on the
-    task's branch, which `propose` judges (`model/landing/propose.adopted`)."""
-    landing = record.landing
-    if landing is not None and landing.pull is not None:
-        return replace(world, pull=seen(ports.forge.pull(landing.pull.number)))
-    found = ports.forge.find_pulls(world.branch, world.rules.base)
-    candidates = tuple(seen(pull) for pull in found if pull.state == "open")
-    return replace(world, candidates=candidates)
-
-
 def gather(
     ports: Ports, workspace: Workspace, record: Record, now: Moment, *, fetch: bool
-) -> World:
+) -> facts.World:
     """The world now, for the task of `record`; with `fetch`, after a fetch of origin."""
     if fetch:
         ports.git.fetch(workspace.checkout)
     world = origin(ports, workspace, record, now)
     path = where.worktree(workspace, record.task.slug)
     world = in_worktree(ports, path, world)
+    checked = record.landing.checked if record.landing else None
+    world = item_carry.gathered(ports.git, path, checked, world)
     world = branches(ports, workspace.checkout, world)
-    return pulls_of(ports, record, world)
+    return pull_identity.in_world(ports.forge, record, world)

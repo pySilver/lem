@@ -10,6 +10,7 @@ run, who merges and where a task lands (audit A1 and N5 of 2026-11-17 on `main`)
 import tomllib
 from typing import TYPE_CHECKING
 
+from lem.model.landing.careful_words import owner_says
 from lem.model.landing.green_words import reason
 from lem.model.landing.review import newest
 from lem.records.landing.record import Landing
@@ -82,11 +83,17 @@ def edits(facts: Facts) -> tuple[str, ...]:
 
 def why(record: Record, facts: Facts) -> tuple[str, ...]:
     """Each reason the request is careful; none when it is not: the shape's topics, the
-    plan's call, an edit of Lem's settings, and the newest review's call."""
+    owner's word, the plan's call, an edit of Lem's settings, and the newest review's call."""
     task = record.task
     topics = task.shape.careful if task.shape else ()
     plan = ("the plan says so",) if task.plan and task.plan.careful else ()
-    return topics + plan + edits(facts) + review_call(record)
+    return (
+        owner_says(record, owner=False)
+        + topics
+        + plan
+        + edits(facts)
+        + review_call(record)
+    )
 
 
 def review_call(record: Record) -> tuple[str, ...]:

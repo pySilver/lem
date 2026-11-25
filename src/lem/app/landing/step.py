@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import frame, say
+from lem.app.landing import frame, say, step_release
 from lem.app.landing.world import gather
 from lem.kernel import clock
 from lem.kernel.envelope import Envelope
@@ -20,21 +20,27 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from lem.model.landing.world import Due, Verb
+    from lem.model.landing import world
     from lem.records.base import Moment
 
 type Act = Callable[[frame.Context], object]
 
 
-def opened(workspace: places.Workspace, slug: str, now: Moment) -> frame.Context:
+def opened(
+    workspace: places.Workspace,
+    slug: str,
+    now: Moment,
+    *,
+    verb: world.Verb | None = None,
+) -> frame.Context:
     """The context of a step: the ports, the record and the world after a fetch."""
+    record = step_release.at_step(workspace.state, slug, verb)
     ports = frame.bound(workspace)
-    record = tasks.read(workspace.state, slug)
-    world = gather(ports, workspace, record, now, fetch=True)
-    return frame.Context(ports=ports, workspace=workspace, record=record, world=world)
+    found = gather(ports, workspace, record, now, fetch=True)
+    return frame.Context(ports=ports, workspace=workspace, record=record, world=found)
 
 
-def allowed(context: frame.Context, verb: Verb) -> frame.Context:
+def allowed(context: frame.Context, verb: world.Verb) -> frame.Context:
     """The context, when `verb` is the due step; else its refusal."""
     due = phases.due(context.record, context.world)
     if due.step != verb:
@@ -42,15 +48,15 @@ def allowed(context: frame.Context, verb: Verb) -> frame.Context:
     return context
 
 
-def looked(context: frame.Context) -> Due:
+def looked(context: frame.Context) -> world.Due:
     """The due step after the act, from the record and the world as they are now."""
     slug, now = context.record.task.slug, context.world.now
     record = tasks.read(context.workspace.state, slug)
-    world = gather(context.ports, context.workspace, record, now, fetch=False)
-    return phases.due(record, world)
+    found = gather(context.ports, context.workspace, record, now, fetch=False)
+    return phases.due(record, found)
 
 
-def landed(folder: Path, slug: str, verb: Verb, act: Act) -> Envelope:
+def landed(folder: Path, slug: str, verb: world.Verb, act: Act) -> Envelope:
     """Run the step `verb` of the task `slug` with its act, and give its envelope."""
     workspace = places.workspace(folder)
     tasks.read(workspace.state, slug)

@@ -11,8 +11,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing import changes, merge_world, reconcile
-from lem.app.landing.world import seen
+from lem.app.landing import changes, merge_world, pull_identity, reconcile
 from lem.model.landing.reconcile import landed
 from lem.ports.forge_facts import (
     MergeDenied,
@@ -30,10 +29,9 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 
-def merged_pull(context: Context, number: int, done: MergeDone) -> PullSeen:
+def merged_pull(pull: PullSeen, done: MergeDone) -> PullSeen:
     """The pull request after the forge merged it, its destination as the forge reports it,
     with the merge's own commits where the report lags behind the merge."""
-    pull = seen(context.ports.forge.pull(number))
     if pull.state == "merged":
         return pull
     return replace(
@@ -72,11 +70,12 @@ def answered(
     """Write what the forge answered the merge call of `intent` (`said`: the pull request's
     number and the answer): the merge, the queue that took it, or GitHub's refusal."""
     number, outcome = said
+    shown = pull_identity.checked(record, context.ports.forge.pull(number))
     if not isinstance(outcome, MergeDone):
         return reconcile.written(
             context, record, held(intent, outcome, context), intent.by
         )
-    pull = merged_pull(context, number, outcome)
+    pull = merged_pull(pull_identity.seen(shown), outcome)
     facts = (intent.by, intent.via, merge_world.trees_of(context, pull))
     return reconcile.written(
         context, record, landed(record, context.world, pull, facts), intent.by

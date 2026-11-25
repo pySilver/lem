@@ -17,6 +17,7 @@ import msgspec
 
 from lem.kernel import files
 from lem.model.landing import green, standing
+from lem.model.landing.careful_words import owner_says
 from lem.records.landing.merge import Refused
 from lem.records.landing.propose import Standing
 
@@ -48,13 +49,14 @@ def digest_of(reasons: tuple[str, ...]) -> str:
 
 def reasons_now(record: Record) -> tuple[str, ...]:
     """The reasons the proposal is not green, read again now (`green.reasons`). The careful
-    lines of the fast track are the proposal's own: they follow from the tip and the shape,
-    which a new proposal changes, and from a read of the settings' edit that only `propose`
-    makes."""
+    line of the fast track comes from the owner's word if he gave it, else from the proposal:
+    only `propose` reads the settings the change edits."""
     proposed = record.landing.proposed if record.landing else None
     seen = proposed.reasons if proposed else ()
     head = green.FAST.split("(", 1)[0]
-    fast = tuple(reason for reason in seen if reason.startswith(head))
+    fast = green.fast(record, owner_says(record, owner=False))
+    if not fast:
+        fast = tuple(reason for reason in seen if reason.startswith(head))
     return fast + green.reasons(record, ())
 
 

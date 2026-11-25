@@ -10,14 +10,12 @@ for the owner.
 
 import os
 import signal
-from functools import partial
 from typing import TYPE_CHECKING
 
-from lem.app.tasks import ports, release
+from lem.app.tasks import drop_pull, ports, release
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.task import holds, table
-from lem.settings.load import base_of, team_of
 from lem.store import places, steps, tasks
 
 DROPPED = "dropped"
@@ -42,16 +40,14 @@ def stop_checks(where: places.Workspace, slug: str) -> None:
 def merged_refusal(
     given: Ports | None, where: places.Workspace, record: Record
 ) -> None:
-    """Refuse the drop of a task whose pull request, the one on record, the forge merged into
-    the base its landing started on (`Started.base_ref`), not the settings' base of now."""
+    """Refuse the drop of a task the forge merged into its recorded base. Under the step
+    lock, keep a recovered pull request number so `merged` can finish the landing."""
     landing, slug = record.landing, record.task.slug
-    if landing is None or landing.pull is None:
+    if landing is None or (landing.pull is None and landing.pushed is None):
         return
     if landing.merged is None:
-        pull = (given or ports.bound(where)).forge.pull(landing.pull.number)
-        started = landing.started
-        base = started.base_ref if started else base_of(team_of(where.checkout))
-        if pull.state != "merged" or pull.base != base:
+        forge = (given or ports.bound(where)).forge
+        if not drop_pull.merged(forge, where, record, landing):
             return
     raise Refusal(
         "merged",
@@ -78,6 +74,10 @@ def dropped(
         if refused is not None:
             raise refused
         merged_refusal(given, where, record)
-        change = partial(holds.moved, status=DROPPED, line=line, now=now)
-        tasks.update(where.state, slug, change, record.revision)
+        tasks.update(
+            where.state,
+            slug,
+            lambda before: holds.moved(before, status=DROPPED, line=line, now=now),
+            record.revision,
+        )
     return table.Moved(slug=slug, was=record.task.status, status=DROPPED)

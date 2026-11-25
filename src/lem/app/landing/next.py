@@ -10,12 +10,12 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import following, frame
+from lem.app.landing import following, frame, step_release
 from lem.app.landing.world import gather
 from lem.kernel import clock
 from lem.kernel.envelope import Envelope
 from lem.model.landing import phases
-from lem.store import places, tasks
+from lem.store import places
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -44,7 +44,12 @@ def due_of(workspace: places.Workspace, record: Record) -> Due:
 def due_now(folder: Path, slug: str) -> Envelope:
     """The due step of the task `slug`, with the command that runs it."""
     workspace = places.workspace(folder)
-    due, squash = due_with(workspace, tasks.read(workspace.state, slug))
+    record = step_release.observed(workspace.state, slug)
+    due, squash = due_with(workspace, record)
+    step_release.reportable(record, due)
     encoded = msgspec.Raw(msgspec.json.encode(due))
-    then = following.following(slug, due, squash=squash)
-    return Envelope(ok=True, outcome=encoded, following=then)
+    return Envelope(
+        ok=True,
+        outcome=encoded,
+        following=following.following(slug, due, squash=squash),
+    )

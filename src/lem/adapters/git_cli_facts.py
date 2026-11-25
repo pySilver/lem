@@ -1,13 +1,21 @@
 """The facts of the `Git` port through real git: the history (`GitHistory`) and the checkouts
 (`GitPlaces`). None of them changes the repository."""
 
+from itertools import chain
+from os import fsdecode
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from lem.adapters.git_cli_names import listed
 from lem.adapters.git_cli_shell import GIT, Shell, last_words
 from lem.adapters.git_cli_stops import ABSOLUTE, conflicted, rebase_folder, too_old
 from lem.ports.faults import Unanswered
 from lem.ports.git_facts import Commit, Conflict, DiffStat, RebaseState
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+type StatRow = tuple[int, int, tuple[str, ...]]
 
 # A field of `git log`'s line: the sha, the parents, the subject, between tabs.
 LOG = "--format=%H%x09%P%x09%s"
@@ -41,12 +49,15 @@ class History(Shell):
         return tuple(commit_of(line) for line in listed.splitlines() if line)
 
     def diff_stat(self, where: Path, since: str, until: str) -> DiffStat:
-        listed = self.said(where, "diff", "--numstat", since, until)
-        rows = [line.split("\t", 2) for line in listed.splitlines() if line]
+        ran = self.raw(where, "diff", "--numstat", "-z", since, until, "--")
+        if ran.returncode:
+            said = ran.stderr.decode(errors="replace").strip()
+            raise Unanswered(GIT, said or f"git exited {ran.returncode}")
+        rows = tuple(numstat(ran.stdout))
         return DiffStat(
-            paths=tuple(row[2] for row in rows),
-            added=sum(counted(row[0]) for row in rows),
-            removed=sum(counted(row[1]) for row in rows),
+            paths=tuple(chain.from_iterable(row[2] for row in rows)),
+            added=sum(row[0] for row in rows),
+            removed=sum(row[1] for row in rows),
         )
 
     def merge_tree(self, where: Path, base: str, tip: str) -> str | Conflict:
@@ -94,6 +105,22 @@ def commit_of(line: str) -> Commit:
     return Commit(sha=sha, parents=tuple(parents.split()), subject=subject)
 
 
-def counted(number: str) -> int:
+def counted(number: bytes) -> int:
     """A count of `--numstat`; a binary file's `-` counts no line."""
     return int(number) if number.isdigit() else 0
+
+
+def names(path: bytes, fields: Iterator[bytes]) -> tuple[str, ...]:
+    """One path, or both paths Git puts after an empty path field for a rename."""
+    if path:
+        return (fsdecode(path),)
+    return fsdecode(next(fields)), fsdecode(next(fields))
+
+
+def numstat(packet: bytes) -> Iterator[StatRow]:
+    """The line counts and literal paths in Git's NUL-delimited numstat."""
+    fields = iter(packet.split(b"\0"))
+    for chunk in fields:
+        if chunk:
+            added, removed, path = chunk.split(b"\t", 2)
+            yield counted(added), counted(removed), names(path, fields)

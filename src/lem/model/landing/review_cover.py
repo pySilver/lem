@@ -2,11 +2,13 @@
 the request goes on without one (`land.due_of` on `main`).
 
 A review covers the tip it read, the tip a clean rebase made of it (`model/landing/carry.py`),
-and the commit `file` made after it with only the items of its defects: `file` moves the checks
-there and names the items in `items_after`, after the review.
+and the commits that only add items `file` named in `items_after`, when Git proves their
+history from the checked tip.
 """
 
 from typing import TYPE_CHECKING, get_args
+
+from msgspec.structs import replace
 
 from lem.model.landing import carry, review_due, review_said
 from lem.model.landing.world import Held
@@ -29,9 +31,11 @@ def covers(review: Reviewed, landing: Landing, world: World) -> bool:
     if review.tip in {world.tip, carry.source(landing, world)}:
         return True
     checked = landing.checked
-    if checked is None or not checked.items_after:
+    if checked is None or not world.items_from(checked.tip):
         return False
-    return checked.tip == world.tip and checked.at <= review.at
+    if review.tip in world.item_chain:
+        return True
+    return review.tip == carry.source(landing, replace(world, tip=checked.tip))
 
 
 def too_small(

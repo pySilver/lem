@@ -14,13 +14,13 @@ from lem.app.landing import changes
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.landing import merge_standing
+from lem.model.landing.merge_evidence import new_call_refusal
 from lem.records.journal.task import OwnerAct
 
 if TYPE_CHECKING:
     from lem.app.landing.frame import Context
+    from lem.model.landing import world
     from lem.model.landing.merge_asked import Asked
-    from lem.model.landing.world import Due, PullSeen
-    from lem.records.base import Moment
     from lem.records.landing.merge import MergeIntent
     from lem.records.record import Record
 
@@ -46,29 +46,24 @@ def unchecked(asked: Asked) -> None:
     )
 
 
-def noted(
-    record: Record, *, intent: MergeIntent, pull: PullSeen | None, now: Moment
-) -> Record:
-    """The record with the owner's word after his check, and what the forge showed then."""
-    shown = f"{pull.state} at {pull.head}" if pull else "no pull request"
-    entry = OwnerAct(
-        at=now,
-        act="merge again after his check of GitHub",
-        question=f"the merge call of {clock.compact(intent.at)}",
-        option=shown,
-    )
-    return changes.noted(record, entry)
-
-
 def heard(context: Context, record: Record, intent: MergeIntent) -> Record:
     """Note the owner's word over `intent`, and give the record after it."""
-    pull, now = context.world.pull, context.world.now
-    return context.write(
-        record, lambda before: noted(before, intent=intent, pull=pull, now=now)
+    stopped = new_call_refusal(record)
+    if stopped is not None:
+        raise stopped
+    pull = context.world.pull
+    shown = f"{pull.state} at {pull.head}" if pull else "no pull request"
+    stamp = clock.compact(intent.at)
+    entry = OwnerAct(
+        at=context.world.now,
+        act="merge again after his check of GitHub",
+        question=f"the merge call of {stamp}",
+        option=shown,
     )
+    return context.write(record, lambda before: changes.noted(before, entry))
 
 
-def admits(asked: Asked, context: Context, due: Due) -> bool:
+def admits(asked: Asked, context: Context, due: world.Due) -> bool:
     """Whether the owner's own word for the tip he saw is taken while the merge agent's read
     is due: as on `main`, his word needs no read; on a moved base it is refused for the base
     under the lock, and stands until a safe read."""

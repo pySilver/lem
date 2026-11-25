@@ -66,7 +66,7 @@ def ran(
     decides)."""
     now = clock.now()
     with steps.step(workspace.state, slug, verb, now):
-        context = step.opened(workspace, slug, now)
+        context = step.opened(workspace, slug, now, verb=verb)
         allowed(context, verb, admits)
         outcome = act(context)
         after = phases.settled(tasks.read(workspace.state, slug))

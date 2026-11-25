@@ -20,6 +20,7 @@ from lem.model.landing import (
     merge_standing,
     mergeread,
 )
+from lem.model.landing.careful_words import owner_says
 from lem.model.landing.review import newest
 from lem.model.landing.world import Due, Merger, World
 from lem.records.landing.record import Landing
@@ -47,10 +48,13 @@ def who(world: World, reasons: tuple[str, ...]) -> Merger:
 
 
 def careful(record: Record) -> bool:
-    """Whether the request is careful, by its proposal or by its shape: the owner merges
-    it."""
+    """Whether the proposal, the shape or the owner's word makes the request careful."""
     proposed, shape = (record.landing or Landing()).proposed, record.task.shape
-    return bool(proposed and proposed.careful) or bool(shape and shape.careful)
+    return (
+        bool(proposed and proposed.careful)
+        or bool(shape and shape.careful)
+        or bool(owner_says(record, owner=False))
+    )
 
 
 def authority(record: Record, world: World, *, verdict: bool = True) -> str | None:
@@ -126,7 +130,7 @@ def decide(
     is now; `checks_tree` is the tree of the base the checks ran on. What was asked (the tip
     the owner saw, his standing merge) is checked before any evidence, so that no refusal of
     an ask that does not hold can keep his merge standing (`main:land.cmd_merge`)."""
-    proposed = opened(record)
+    proposed = merge_evidence.new_call_refusal(record) or opened(record)
     if isinstance(proposed, Refusal):
         return proposed
     asked_now = merge_asked.refusal(record, world, asked)

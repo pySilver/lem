@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 
 SHA = "a" * 40
 SLUG = "gift-note"
+PULL_URL = "https://github.com/owner/project/pull/7"
 
 
 def moved(
@@ -276,7 +277,7 @@ def forge_with(where: Workspace, state: PullState, base: str = "main") -> LocalF
     """A forge whose pull request 7 is `state` on `base`."""
     pull = Pull(
         number=7,
-        url="https://github.com/owner/project/pull/7",
+        url=PULL_URL,
         title="Add a gift note",
         state=state,
         head=SHA,
@@ -294,7 +295,7 @@ def test_only_a_merge_into_the_tasks_base_defeats_the_drop(
     tmp_path: Path, state: PullState, base: str, *, dropped: bool
 ) -> None:
     where = workspace(tmp_path)
-    pull = LandingPull(number=7, url="u", title="t")
+    pull = LandingPull(number=7, url=PULL_URL, title="t")
     made(where, SLUG, status="open")
     tasks.update(
         where.state, SLUG, lambda one: replace(one, landing=Landing(pull=pull)), 1
@@ -380,7 +381,7 @@ def test_the_table_is_the_designs() -> None:
 def proposed(where: Workspace, base: str) -> None:
     """The task `SLUG` with pull request 7, its landing started on `base`."""
     started = Started(round=1, branch=f"feat/{SLUG}", base_ref=base, at=MOMENT)
-    pull = LandingPull(number=7, url="u", title="t")
+    pull = LandingPull(number=7, url=PULL_URL, title="t")
     landing = Landing(pull=pull, started=started)
     revision = read(where, SLUG).revision
     tasks.update(where.state, SLUG, lambda one: replace(one, landing=landing), revision)

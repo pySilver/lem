@@ -61,7 +61,9 @@ def polished(record: Record, world: World) -> Held | Due:
 def holds(record: Record, world: World) -> Held | Due:
     """Whether a passed run covers the tip with the commands as they are now."""
     checked = (record.landing or Landing()).checked
-    if checked is None or checked.tip != world.tip:
+    if checked is None or (
+        checked.tip != world.tip and not world.items_from(checked.tip)
+    ):
         return Due(step=STEP, why="no run of the checks covers this tip")
     if checked.inputs != inputs(world.rules):
         return Due(

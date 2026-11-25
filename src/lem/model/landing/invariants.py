@@ -47,13 +47,13 @@ def protected(branch: str, rules: Rules, does: str) -> Refusal | None:
 
 def target(destination: str, rules: Rules, url: str) -> Refusal | None:
     """Why a pull request that went, or goes, into `destination` is not the task's: its base
-    on the forge is not the base of the settings (H 2)."""
+    on the forge is not the task's base (H 2)."""
     if destination == rules.base:
         return None
     return Refusal(
         "target",
         f"the pull request {url} goes into {destination} on GitHub, not into {rules.base}, "
-        "the base of the task's settings: its base was changed there",
+        "the base of the task: its base was changed there",
         f"the owner sets its base back to {rules.base} on GitHub, or drops the task, or a "
         f"new task brings the change onto {rules.base}",
     )

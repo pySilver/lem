@@ -12,9 +12,11 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
-from lem.model.landing import checks, mergeread
+from lem.model.landing import checks, destination, mergeread
 from lem.model.landing.invariants import protected
 from lem.model.landing.world import Due, World
+from lem.model.task.release import guard
+from lem.model.task.table import held_refusal
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
@@ -24,17 +26,28 @@ if TYPE_CHECKING:
 TIP = "tip"
 
 
-def same_pull(record: Record, world: World) -> Refusal | None:
+def seat_refusal(record: Record) -> Refusal | None:
+    """A failed seat stops a new merge until the owner's go on."""
+    refused = held_refusal(record.task, "open")
+    return refused if refused is not None and refused.code == "seat-blocked" else None
+
+
+def new_call_refusal(record: Record) -> Refusal | None:
+    """A release stop or a seat block prevents a new call to the forge."""
+    return guard(record) or seat_refusal(record)
+
+
+def same_pull(record: Record, shown: tuple[int, str] | None) -> Refusal | None:
     """Why the pull request the forge shows is not the one on record: none, or another
     repository's or number's address (H 2, in the configured repository)."""
     landing, slug = record.landing or Landing(), record.task.slug
-    pull, kept = world.pull, landing.pull
-    if pull is not None and kept is not None and pull.url == kept.url:
+    kept = landing.pull
+    if kept is not None and shown == (kept.number, kept.url):
         return None
-    shown = pull.url if pull else "no pull request"
+    address = shown[1] if shown else "no pull request"
     return Refusal(
         "no-pull",
-        f"the forge shows {shown}, not the pull request on record: nothing was merged",
+        f"the forge shows {address}, not the pull request on record",
         f"lem land next {slug}",
     )
 
@@ -42,9 +55,11 @@ def same_pull(record: Record, world: World) -> Refusal | None:
 def forge_side(record: Record, world: World, proposed: Proposed) -> Refusal | None:
     """Why the pull request is not the one proposed: not the one on record, not open,
     retargeted before the merge, or at another head."""
-    slug, pull, base = record.task.slug, world.pull, world.rules.base
-    if pull is None:
-        return same_pull(record, world)
+    slug, pull = record.task.slug, world.pull
+    base = destination.recorded(record.landing) or world.rules.base
+    wrong = same_pull(record, (pull.number, pull.url) if pull else None)
+    if wrong is not None or pull is None:
+        return wrong
     if pull.state != "open":
         return Refusal(
             "closed",
@@ -55,7 +70,7 @@ def forge_side(record: Record, world: World, proposed: Proposed) -> Refusal | No
         return Refusal(
             "target",
             f"the pull request {pull.url} is on {pull.base} on GitHub, not on {base}, the "
-            "base of the task's settings: its base was changed there; nothing was merged",
+            "base of the task: its base was changed there; nothing was merged",
             f"gh pr edit {pull.number} --base {base}, then lem land merge {slug} again",
         )
     if pull.head != proposed.tip:
@@ -64,7 +79,7 @@ def forge_side(record: Record, world: World, proposed: Proposed) -> Refusal | No
             f"the pull request's head is {pull.head}, not the proposed {proposed.tip}",
             f"lem land next {slug} names the new round",
         )
-    return same_pull(record, world)
+    return None
 
 
 def covered(record: Record, world: World, tip: str) -> Refusal | None:
@@ -101,13 +116,14 @@ def our_side(record: Record, world: World, proposed: Proposed) -> Refusal | None
 def base_side(record: Record, world: World, checks_tree: str) -> Refusal | None:
     """Why origin's base may not take the merge: protected, or moved since the checks (by its
     tree) with no safe read of the merge agent that covers it now."""
-    guard = protected(world.rules.base, world.rules, "merges")
+    branch = destination.recorded(record.landing) or world.rules.base
+    guard = protected(branch, world.rules, "merges")
     if guard is not None or world.base_tree == checks_tree:
         return guard
     read = mergeread.latest(record.landing or Landing(), world.base_tree)
     if read is not None and read.base_call == "safe":
         return None
-    slug, branch = record.task.slug, world.rules.base
+    slug = record.task.slug
     return Refusal(
         "base",
         f"origin's {branch} moved after the checks ran, and no read of the merge agent "

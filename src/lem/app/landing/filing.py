@@ -4,9 +4,9 @@ on `main`).
 In a clean worktree only: the places are decided (`model.landing.filing`), Jev is asked whether
 a defect about to get a file of its own is one an item holds already, and nothing is written
 when it names one. Then each item is written and committed (`app/landing/filing_commits.py`),
-and the record names each place, and the checks moved to the new tip with the items in
-`items_after`, which ask for no check and no review again. A run cut off after a commit finds
-each item again by its defect.
+and the record names each place and the items in `items_after`. The checks and review cover
+the new tip only while Git proves that its later commits add those items alone. A run cut off
+after a commit finds each item again by its defect.
 """
 
 from functools import partial
@@ -38,17 +38,16 @@ def clean_or_refused(context: frame.Context) -> None:
 
 
 def filed(
-    record: Record, *, places: tuple[Filed, ...], done: filing_commits.Committed
+    record: Record, *, places: tuple[Filed, ...], written: tuple[str, ...]
 ) -> Record:
-    """The record with each place, a place given again replacing the one before, and the
-    checks moved to the commit `file` made with the items in `items_after`."""
+    """The record with each place and the new item paths, with the checked tip intact."""
     landing = record.landing or Landing()
     named = {place.finding for place in places}
     kept = tuple(one for one in landing.filed if one.finding not in named)
     checked = landing.checked
-    if done.written and checked is not None:
-        after = (*checked.items_after, *done.written)
-        checked = replace(checked, tip=done.tip, tree=done.tree, items_after=after)
+    if written and checked is not None:
+        after = (*checked.items_after, *written)
+        checked = replace(checked, items_after=after)
     return changes.landing(record, filed=(*kept, *places), checked=checked)
 
 
@@ -64,5 +63,5 @@ def act(context: frame.Context, *, flags: filing_flags.Flags) -> tuple[Filed, ..
     if refused is not None:
         raise refused
     done = filing_commits.committed(context, placed.writes)
-    context.write(context.record, partial(filed, places=placed.filed, done=done))
+    context.write(context.record, partial(filed, places=placed.filed, written=done))
     return placed.filed

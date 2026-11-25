@@ -83,6 +83,14 @@ class World(Frozen, frozen=True, kw_only=True):
     local_in_base: bool = False
     pull: PullSeen | None = None
     candidates: tuple[PullSeen, ...] = ()
+    item_chain: tuple[Sha, ...] = ()
+
+    def items_from(self, tip: Sha) -> bool:
+        """Whether the item-only history joins the checked tip to this tip."""
+        chain = self.item_chain
+        if not chain or chain[0] != tip:
+            return False
+        return chain[-1] == self.tip
 
 
 class Held(Frozen, frozen=True, kw_only=True):
