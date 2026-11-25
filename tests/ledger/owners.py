@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
-"""Assign each ledger row to the step that must account for it."""
+"""Assign each ledger row to the step that must account for it.
+
+The rules below give each row one step. Then each step's `moves/STEP.tsv` gives a row the rules
+gave it to the step that builds it; owners.tsv names the step that takes it, and
+owners-judged.tsv keeps each move with its reason and the step that gave it.
+"""
 
 import argparse
 import csv
 import json
 import os
 import re
+from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Mapping, Sequence
+    from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 
 HERE = Path(__file__).resolve().parent
 
@@ -398,7 +404,20 @@ SEAMS = {
 }
 
 LEDGER_HEADER = ("id", "kind", "source", "what", "fate", "proof", "note")
-JUDGED_HEADER = ("id", "step", "why")
+# A row of owners-judged.tsv with no `from` is the design's judgment, kept by hand; a row with a
+# `from` is a move, which owners.py writes again from moves/ on each run.
+JUDGED_HEADER = ("id", "step", "why", "from")
+MOVES_HEADER = ("id", "to", "why")
+# The lists of the moves owners.py refuses, as owners.py and check.py name them; beside them,
+# `move_files_unknown` names a moves file of no step.
+MOVE_ISSUES = (
+    "move_unknown_rows",
+    "move_bad_step",
+    "move_without_why",
+    "move_twice",
+    "move_not_owned",
+    "move_loop",
+)
 CITATION = re.compile(
     r"`((?:tests|src|skills|agents|docs|hooks|tools|\.[^/ ]+)/[^:` ]+|AGENTS\.md|README\.md)"
     r"(?:::(\w+))?"
@@ -420,17 +439,23 @@ def read_tsv(path: Path, columns: Sequence[str]) -> Iterator[Row]:
             yield row
 
 
-def write_owners(path: Path, owners: Mapping[str, str]) -> None:
+def write_table(
+    path: Path, header: Sequence[str], rows: Iterable[Sequence[str]]
+) -> None:
     # A plain open, so the file gets the umask's mode (NamedTemporaryFile gives 0600).
     temp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     try:
         with temp_path.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.writer(stream, delimiter="\t", lineterminator="\n")
-            writer.writerow(("id", "step"))
-            writer.writerows(sorted(owners.items()))
+            writer.writerow(header)
+            writer.writerows(rows)
         temp_path.replace(path)
     finally:
         temp_path.unlink(missing_ok=True)
+
+
+def write_owners(path: Path, owners: Mapping[str, str]) -> None:
+    write_table(path, ("id", "step"), sorted(owners.items()))
 
 
 def file_steps(file: str, symbol: str = "") -> set[str]:
@@ -680,10 +705,10 @@ def assign(
     return owners, {"no_owner": missing, "multiple_owners": multiple}
 
 
-def index(path: Path, columns: Sequence[str]) -> tuple[dict[str, Row], list[str]]:
+def index_rows(table: Iterable[Row]) -> tuple[dict[str, Row], list[str]]:
     indexed: dict[str, Row] = {}
     duplicates: set[str] = set()
-    for row in read_tsv(path, columns):
+    for row in table:
         identity = row["id"]
         if identity in indexed:
             duplicates.add(identity)
@@ -691,34 +716,204 @@ def index(path: Path, columns: Sequence[str]) -> tuple[dict[str, Row], list[str]
     return indexed, sorted(duplicates)
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--rows", type=Path, default=HERE / "rows.tsv")
-    parser.add_argument("--judged", type=Path, default=HERE / "owners-judged.tsv")
-    parser.add_argument("--out", type=Path, default=HERE / "owners.tsv")
-    args = parser.parse_args()
-    try:
-        rows, duplicate_rows = index(args.rows, LEDGER_HEADER)
-        judgments, duplicate_judgments = index(args.judged, JUDGED_HEADER)
-        owners, issues = assign(rows, judgments)
-        issues.update(
-            duplicate_rows=duplicate_rows,
-            duplicate_judgments=duplicate_judgments,
-            unknown_judgments=sorted(judgments.keys() - rows.keys()),
-            invalid_judgments=sorted(
+def index(path: Path, columns: Sequence[str]) -> tuple[dict[str, Row], list[str]]:
+    return index_rows(read_tsv(path, columns))
+
+
+def read_judged(path: Path) -> tuple[dict[str, Row], list[str], list[Row]]:
+    """The design's judgments by id, the ids it judges twice, and the moves the file keeps."""
+    table = list(read_tsv(path, JUDGED_HEADER))
+    judgments, duplicates = index_rows(row for row in table if not row["from"].strip())
+    return judgments, duplicates, [row for row in table if row["from"].strip()]
+
+
+class Move(NamedTuple):
+    """A line of moves/GIVER.tsv: the row the step GIVER gives to the step TO, and why."""
+
+    giver: str
+    row: str
+    to: str
+    why: str
+
+    def entry(self) -> dict[str, str]:
+        return {"id": self.row, "from": self.giver, "to": self.to}
+
+    def judged(self) -> Row:
+        return {"id": self.row, "step": self.to, "why": self.why, "from": self.giver}
+
+
+# The refused moves, by the name of their list in MOVE_ISSUES.
+type MoveIssues = defaultdict[str, list[dict[str, str]]]
+
+
+def read_moves(folder: Path) -> tuple[list[Move], list[str]]:
+    """Every line of each moves/STEP.tsv, and the files named for no step."""
+    moves: list[Move] = []
+    unknown: list[str] = []
+    for path in sorted(folder.glob("*.tsv")):
+        if path.stem not in STEPS:
+            unknown.append(path.name)
+            continue
+        moves.extend(
+            Move(path.stem, line["id"], line["to"].strip(), line["why"].strip())
+            for line in read_tsv(path, MOVES_HEADER)
+        )
+    return moves, unknown
+
+
+def move_refusal(move: Move, rows: Mapping[str, Row]) -> str | None:
+    """The list a move goes on by itself, whoever owns its row."""
+    if move.row not in rows:
+        return "move_unknown_rows"
+    if move.to not in STEPS or move.to == move.giver:
+        return "move_bad_step"
+    if not move.why:
+        return "move_without_why"
+    return None
+
+
+def follow(
+    start: str | None, moves: Mapping[str, Move], issues: MoveIssues
+) -> tuple[str | None, list[Move]]:
+    """The owner at the end of a row's chain of moves, and the moves the chain takes.
+
+    The chain starts at the owner the rules give and goes from giver to giver, so neither the
+    order of the files nor the order of their lines changes where it ends. A move by a step the
+    chain never reaches is refused, and so is a move back to a step of the chain.
+    """
+    owner = start
+    chain = [] if start is None else [start]
+    taken: list[Move] = []
+    givers: set[str] = set()
+    while owner is not None and (move := moves.get(owner)) is not None:
+        givers.add(owner)
+        if move.to in chain:
+            issues["move_loop"].append(
+                {"id": move.row, "chain": " > ".join([*chain, move.to])}
+            )
+            break
+        taken.append(move)
+        owner = move.to
+        chain.append(owner)
+    issues["move_not_owned"].extend(
+        {**move.entry(), "owner": owner or ""}
+        for giver, move in sorted(moves.items())
+        if giver not in givers
+    )
+    return owner, taken
+
+
+def apply_moves(
+    owners: Mapping[str, str],
+    moves: Iterable[Move],
+    rows: Mapping[str, Row],
+    issues: MoveIssues,
+) -> tuple[dict[str, str], list[Row]]:
+    """The owner of each row after the moves, and each move taken as a row of owners-judged."""
+    by_row: defaultdict[str, defaultdict[str, list[Move]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+    for move in moves:
+        if refusal := move_refusal(move, rows):
+            issues[refusal].append(move.entry())
+        else:
+            by_row[move.row][move.giver].append(move)
+    moved = dict(owners)
+    hops: list[Row] = []
+    for identity, givers in sorted(by_row.items()):
+        once: dict[str, Move] = {}
+        for giver, given in givers.items():
+            if len(given) == 1:
+                once[giver] = given[0]
+            else:
+                issues["move_twice"].extend(move.entry() for move in given)
+        owner, taken = follow(owners.get(identity), once, issues)
+        if owner is not None:
+            moved[identity] = owner
+        hops.extend(move.judged() for move in taken)
+    return moved, hops
+
+
+def judged_table(judgments: Mapping[str, Row], hops: Iterable[Row]) -> list[Row]:
+    """owners-judged.tsv by id: the design's judgment first, then each move in its chain's order."""
+    by_id: defaultdict[str, list[Row]] = defaultdict(list)
+    for identity, judgment in judgments.items():
+        by_id[identity].append(judgment)
+    for hop in hops:
+        by_id[hop["id"]].append(hop)
+    return [row for identity in sorted(by_id) for row in by_id[identity]]
+
+
+def in_order(entries: list[dict[str, str]]) -> list[dict[str, str]]:
+    return sorted(entries, key=lambda entry: sorted(entry.items()))
+
+
+class Assigned(NamedTuple):
+    """What owners.py gives: each row's owner, the table of owners-judged.tsv, and its refusals."""
+
+    owners: dict[str, str]
+    judged: list[Row]
+    issues: dict[str, object]
+
+
+def owners_of(rows_path: Path, judged_path: Path, moves_folder: Path) -> Assigned:
+    rows, duplicate_rows = index(rows_path, LEDGER_HEADER)
+    judgments, duplicate_judgments, _ = read_judged(judged_path)
+    ruled, issues = assign(rows, judgments)
+    moves, unknown_files = read_moves(moves_folder)
+    move_issues: MoveIssues = defaultdict(list)
+    owners, hops = apply_moves(ruled, moves, rows, move_issues)
+    return Assigned(
+        owners,
+        judged_table(judgments, hops),
+        {
+            **issues,
+            "duplicate_rows": duplicate_rows,
+            "duplicate_judgments": duplicate_judgments,
+            "unknown_judgments": sorted(judgments.keys() - rows.keys()),
+            "invalid_judgments": sorted(
                 identity
                 for identity, judgment in judgments.items()
                 if judgment["step"] not in STEPS or not judgment["why"].strip()
             ),
             # A misspelled step in a map above would own rows no builder reads.
-            unknown_steps=sorted(
-                identity for identity, step in owners.items() if step not in STEPS
+            "unknown_steps": sorted(
+                identity for identity, step in ruled.items() if step not in STEPS
             ),
-        )
-        if any(issues.values()):
-            print(json.dumps(issues, indent=2, sort_keys=True))
+            "move_files_unknown": unknown_files,
+            **{name: in_order(move_issues[name]) for name in MOVE_ISSUES},
+        },
+    )
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
+    parser.add_argument("--rows", type=Path, default=HERE / "rows.tsv")
+    parser.add_argument(
+        "--judged",
+        type=Path,
+        default=HERE / "owners-judged.tsv",
+        help="the design's judgments, read; written again with the moves",
+    )
+    parser.add_argument("--out", type=Path, default=HERE / "owners.tsv")
+    parser.add_argument(
+        "--moves",
+        type=Path,
+        default=HERE / "moves",
+        help="the folder of each step's moves/STEP.tsv",
+    )
+    args = parser.parse_args()
+    try:
+        assigned = owners_of(args.rows, args.judged, args.moves)
+        if any(assigned.issues.values()):
+            print(json.dumps(assigned.issues, indent=2, sort_keys=True))
             return 1
-        write_owners(args.out, owners)
+        write_owners(args.out, assigned.owners)
+        write_table(
+            args.judged,
+            JUDGED_HEADER,
+            ([row[column] for column in JUDGED_HEADER] for row in assigned.judged),
+        )
     except (OSError, ValueError, csv.Error) as error:
         print(json.dumps({"error": str(error)}))
         return 1

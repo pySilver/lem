@@ -2,9 +2,10 @@
 """Check that the rebuild accounts for each ledger row and proves its fate.
 
 The rule is the design's (part 8, the `close` row of part 9, builder-rules.md item 4): every
-row has one owner, as owners.py gives it; the owner, and only the owner, gives the row one fate
-in `fates/STEP.tsv`; every fate names its proof, a test or a trial check, and that proof passed;
-a changed or dropped row says why; a dropped ruling goes on the owner's list.
+row has one owner, as owners.py gives it after each step's `moves/STEP.tsv`; the owner, and only
+the owner, gives the row one fate in `fates/STEP.tsv`; every fate names its proof, a test or a
+trial check, and that proof passed; a changed or dropped row says why; a dropped ruling goes on
+the owner's list.
 """
 
 import argparse
@@ -17,7 +18,7 @@ import tarfile
 from collections import defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
@@ -58,6 +59,12 @@ def script(name: str) -> ModuleType:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+RULES = script("owners")
+# The keys of a report's entry that name a step, and those that name a chain of steps.
+STEP_KEYS = ("from", "to", "owners_tsv", "rules")
+CHAIN_KEYS = ("chain", "owners_judged_tsv", "moves")
 
 
 def read_tsv(path: Path, columns: list[str]) -> Iterator[TsvRow]:
@@ -165,28 +172,82 @@ def ledger_drift(directory: Path, rows: ById) -> dict[str, list[str]]:
     }
 
 
-def owner_drift(
-    directory: Path, owners: ById
-) -> tuple[frozenset[str], list[dict[str, str | None]]]:
-    """The rows whose owner in owners.tsv is not the one owners.py's rules give."""
-    rules = script("owners")
-    rows, _ = rules.index(directory / "rows.tsv", rules.LEDGER_HEADER)
-    judged, _ = rules.index(directory / "owners-judged.tsv", rules.JUDGED_HEADER)
-    ruled, _ = rules.assign(rows, judged)
+class Drift(NamedTuple):
+    """Where owners.tsv and owners-judged.tsv are not what owners.py gives, and its refusals."""
+
+    steps: frozenset[str]
+    owners: list[dict[str, str | None]]
+    judged: list[dict[str, str | None]]
+    moves: dict[str, list[Entry]]
+
+
+def chain(hops: list[TsvRow]) -> str:
+    """The steps a row's moves pass through, from the giver of the first: `core > task`."""
+    if not hops:
+        return ""
+    return " > ".join([hops[0]["from"], *(hop["step"] for hop in hops)])
+
+
+def judged_drift(
+    written: Iterable[TsvRow], given: Iterable[TsvRow]
+) -> list[dict[str, str | None]]:
+    """The rows whose moves in owners-judged.tsv are not the moves of moves/."""
+    sides: defaultdict[str, tuple[list[TsvRow], list[TsvRow]]] = defaultdict(
+        lambda: ([], [])
+    )
+    for side, hops in enumerate((written, given)):
+        for hop in hops:
+            sides[hop["id"]][side].append(
+                {key: hop[key].strip() for key in ("id", "step", "why", "from")}
+            )
+    return [
+        {"id": identity, "owners_judged_tsv": chain(kept), "moves": chain(moved)}
+        for identity, (kept, moved) in sorted(sides.items())
+        if kept != moved
+    ]
+
+
+def owner_drift(directory: Path, owners: ById) -> Drift:
+    """The rows whose owner in owners.tsv is not the one owners.py's rules and moves give."""
+    assigned = RULES.owners_of(
+        directory / "rows.tsv",
+        directory / "owners-judged.tsv",
+        directory / "moves",
+    )
+    ruled: dict[str, str] = assigned.owners
+    _, _, written = RULES.read_judged(directory / "owners-judged.tsv")
     given = {
         identity: claims[0]["step"]
         for identity, claims in owners.items()
         if len(claims) == 1
     }
-    return rules.STEPS, [
+    return Drift(
+        RULES.STEPS,
+        [
+            {
+                "id": identity,
+                "owners_tsv": given.get(identity),
+                "rules": ruled.get(identity),
+            }
+            for identity in sorted(ruled.keys() | given.keys())
+            if given.get(identity) != ruled.get(identity)
+        ],
+        judged_drift(written, (row for row in assigned.judged if row["from"].strip())),
         {
-            "id": identity,
-            "owners_tsv": given.get(identity),
-            "rules": ruled.get(identity),
-        }
-        for identity in sorted(ruled.keys() | given.keys())
-        if given.get(identity) != ruled.get(identity)
-    ]
+            name: assigned.issues[name]
+            for name in ("move_files_unknown", *RULES.MOVE_ISSUES)
+        },
+    )
+
+
+def involves(entry: Entry, step: str | None) -> bool:
+    """Whether a report's entry names STEP: a file's name is every step's."""
+    if step is None or isinstance(entry, str):
+        return True
+    named = {entry.get(key) for key in STEP_KEYS}
+    for key in CHAIN_KEYS:
+        named.update((entry.get(key) or "").split(" > "))
+    return step in named
 
 
 def fate_report(
@@ -222,6 +283,9 @@ LISTS = (
     "rows_unknown",
     "rows_edited",
     "owners_stale",
+    "judged_stale",
+    "move_files_unknown",
+    *RULES.MOVE_ISSUES,
     "duplicate_rows",
     "owner_unknown_row",
     "no_owner",
@@ -320,7 +384,8 @@ def check(
 ) -> dict[str, object]:
     rows = group_by_id(read_tsv(directory / "rows.tsv", ROW_COLUMNS))
     owners = group_by_id(read_tsv(directory / "owners.tsv", OWNER_COLUMNS))
-    steps, stale = owner_drift(directory, owners)
+    drift = owner_drift(directory, owners)
+    steps = drift.steps
     if step is not None and step not in steps:
         raise ValueError(
             f"{step} is not a step of part 9: give --step one of {' '.join(sorted(steps))}"
@@ -336,11 +401,12 @@ def check(
     if commit_read:
         for name, identities in ledger_drift(directory, rows).items():
             report[name].extend(identities)
-    report["owners_stale"] = [
-        entry
-        for entry in stale
-        if step is None or step in {entry["owners_tsv"], entry["rules"]}
-    ]
+    for name, entries in (
+        ("owners_stale", drift.owners),
+        ("judged_stale", drift.judged),
+        *drift.moves.items(),
+    ):
+        report[name] = [entry for entry in entries if involves(entry, step)]
     report["duplicate_rows"].extend(
         sorted(identity for identity, entries in rows.items() if len(entries) > 1)
     )
@@ -382,7 +448,10 @@ def main() -> int:
         "--ledger-dir",
         type=Path,
         default=HERE,
-        help="the folder of rows.tsv, owners.tsv, owners-judged.tsv, extra.tsv and fates/",
+        help=(
+            "the folder of rows.tsv, owners.tsv, owners-judged.tsv, extra.tsv, moves/ "
+            "and fates/"
+        ),
     )
     parser.add_argument(
         "--trials", type=Path, default=TRIALS, help="the folder of the trial files"
