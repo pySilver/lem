@@ -148,6 +148,20 @@ def test_a_record_with_a_key_the_prompt_does_not_name_is_refused() -> None:
         ({"outside": [{**DEFECT, "bar": "over", "item": "docs/backlog/x.md"}]}, "item"),
         ({"outside": [{**DEFECT, "bar": "under", "why": "two\nlines"}]}, "why"),
     ],
+    ids=[
+        "kind-another-word",
+        "count-under-0",
+        "count-true",
+        "answered-no-name",
+        "named-no-why",
+        "named-own-key",
+        "outside-a-count",
+        "outside-place-only",
+        "outside-no-bar",
+        "outside-another-bar",
+        "outside-own-key",
+        "outside-why-two-lines",
+    ],
 )
 def test_a_record_of_another_form_is_refused_by_the_key_that_is_wrong(
     body: dict, names: str
@@ -395,6 +409,7 @@ def test_each_reason_the_request_is_careful_in_main_s_order() -> None:
             "[checks] and [flow] of .lem/settings.toml",
         ),
     ],
+    ids=["untouched", "removed", "text-only", "not-toml", "tables"],
 )
 def test_every_edit_of_lem_s_own_settings_is_careful_by_this_code(
     seen: careful.Seen, says: str | None
