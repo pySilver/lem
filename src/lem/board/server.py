@@ -38,6 +38,11 @@ class Board(uvicorn.Server):
         """Stop at the next look of uvicorn's loop; a stop that ended already is done."""
         self.should_exit = True
 
+    def handle_signals(self) -> None:
+        """Make `stop_by` the handler of SIGINT and SIGTERM."""
+        for sign in (signal.SIGINT, signal.SIGTERM):
+            signal.signal(sign, self.stop_by)
+
 
 def bound(host: str, port: int) -> socket.socket:
     """A socket bound to the address; refused when another program holds it."""
@@ -92,8 +97,7 @@ def run(port: int, host: str = HOST, *, verbose: bool, home: Path) -> Served:
         timeout_graceful_shutdown=STOP_WAIT,
     )
     server = Board(config)
-    for sign in (signal.SIGINT, signal.SIGTERM):
-        signal.signal(sign, server.stop_by)
+    server.handle_signals()
     with sock:
         server.run(sockets=[sock])
     return Served(pid=facts.pid, port=facts.port, url=facts.url)
