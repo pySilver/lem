@@ -59,17 +59,21 @@ def run(call: Call) -> waits.waiting.Waited | first_line.FirstLine:
     return waits.wait_for(bound, wanted, clock.now, time.sleep)
 
 
+# The holds `--until` names beside the statuses, as `main`'s states named them.
+HOLDS = ("held", "blocked", "parked", "release")
+
+
 def statuses(words: str) -> tuple[str, ...]:
     """The statuses `--until` names; refused for a word that is no status."""
     stripped = map(str.strip, words.split(","))
     named = tuple(filter(None, stripped))
-    known = get_args(Status.__value__)
+    known = (*get_args(Status.__value__), *HOLDS)
     unknown = " ".join(word for word in named if word not in known)
     if unknown:
         listed = " ".join(known)
         raise Refusal(
             "until",
-            f"--until names {unknown}, which is no status of a task",
+            f"--until names {unknown}, which is no status or hold of a task",
             f"name statuses among {listed}, joined by commas",
         )
     return named

@@ -23,10 +23,11 @@ from lem.app.sessions import (
     waits,
     waking,
 )
+from lem.cli.session import wait
 from lem.kernel.errors import Refusal
 from lem.ports.harness import Signs, Transcript
 from lem.ports.terminal import Pane
-from lem.records.holds import OwnerHold, Parked
+from lem.records.holds import Blocked, OwnerHold, Parked
 from lem.records.sessions import SessionLine
 from lem.records.task import Shape
 from lem.store import sessions, tasks
@@ -356,3 +357,38 @@ def test_a_sessions_signs_are_its_own_transcripts_newest_and_any_shell(
     harness.signs_of["c4"] = Signs(sign=HOUR, turn="ended")
     read = signs.read_signs(here, SLUG, "Session-1")
     assert read == signs.Read(sign=LATER, shell=True, signs=True, turn="runs")
+
+
+def test_wait_ends_at_a_hold_its_until_names_as_mains_states_did(
+    tmp_path: Path,
+) -> None:
+    here = here_of(tmp_path)
+    block = Blocked(
+        why="the planner's seat failed",
+        fix="lem seat again",
+        seat="planner",
+        since=MOMENT,
+    )
+    made(here, status="building", lead="builder", hold=block)
+    asked = waits.Asked(slug=SLUG, until=("planned", "held", "blocked"), every=0.0)
+    got = waits.wait_for(here, asked, lambda: LATER, never)
+    assert (got.status, got.hold) == ("building", "blocked")
+    assert wait.statuses("planned,held,blocked") == ("planned", "held", "blocked")
+    with pytest.raises(Refusal) as refused:
+        wait.statuses("planned,waiting")
+    assert refused.value.code == "until"
+
+
+def test_a_companion_whose_agent_ended_is_gone_once_the_wait_has_started(
+    tmp_path: Path,
+) -> None:
+    terminal = with_caller()
+    terminal.panes["S-PAIR"] = Pane(id="S-PAIR", name="pair", workspace="W-1")
+    terminal.grounds["S-PAIR"] = ()
+    here = here_of(tmp_path, terminal)
+    made(here, status="building", lead="builder")
+    asked = waits.Asked(slug=SLUG, until=("ready",), companion="S-PAIR", every=0.0)
+    moments = iter((MOMENT, MOMENT, MOMENT + timedelta(seconds=61)))
+    looks: list[float] = []
+    got = waits.wait_for(here, asked, lambda: next(moments), looks.append)
+    assert (got.gone, got.companion, looks) == (True, "S-PAIR", [0.0])

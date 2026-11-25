@@ -13,14 +13,14 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.sessions import log, seen
+from lem.app.sessions import agents, log, seen
 from lem.kernel.errors import Refusal
 from lem.ports.faults import Unanswered
 from lem.records.base import Frozen, Moment
 from lem.store import tasks
 
 if TYPE_CHECKING:
-    from datetime import datetime
+    from datetime import datetime, timedelta
 
     from lem.app.sessions.here import Here
 
@@ -36,6 +36,7 @@ class Waited(Frozen, frozen=True, kw_only=True):
     task: str
     status: str
     since: Moment
+    hold: str | None = None
     gone: bool = False
     entry: msgspec.Raw | None = None
     session: str | None = None
@@ -84,10 +85,15 @@ def gone_session(here: Here, slug: str, now: datetime) -> str | None:
     return None if carried else newest.session
 
 
-def gone_companion(here: Here, companion: str) -> bool:
-    """Whether the companion `companion` of the waiting session is gone from the terminal;
-    False when the terminal did not answer."""
+def gone_companion(here: Here, companion: str, waited: timedelta) -> bool:
+    """Whether the companion `companion` of the waiting session is gone: not in the terminal,
+    or no agent runs in it once the wait has lasted `agents.STARTING` seconds
+    (`session.gone_companion` on `main`); False when the terminal did not answer."""
     try:
-        return seen.look(here).pane(companion) is None
+        shown = seen.look(here)
     except Refusal, Unanswered:
         return False
+    if shown.pane(companion) is None:
+        return True
+    started = waited.total_seconds() >= agents.STARTING
+    return started and agents.agent_runs(shown.ground(companion)) is False

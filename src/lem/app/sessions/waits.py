@@ -1,13 +1,13 @@
 """The loop of `lem session wait --until STATES | --event KIND`: one look at each turn, then a
 pause, until one of the ends of `waiting` comes."""
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.sessions import waiting
+from lem.app.sessions import wait_ends, waiting
 from lem.records.base import Frozen
+from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked
 from lem.store import tasks
 
 if TYPE_CHECKING:
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from lem.app.sessions.here import Here
+    from lem.records.holds import Hold
 
 type Clock = Callable[[], datetime]
 
@@ -54,54 +55,18 @@ def looked(
     entry = (
         waiting.entry_of(here, asked.slug, asked.event, before) if asked.event else None
     )
-    if entry is not None or task.status in asked.until:
-        return msgspec.structs.replace(base, entry=entry)
-    return gone(here, asked, base, now) or quiet(asked, base, began, now)
+    held = hold_word(task.hold)
+    if entry is not None or {task.status, held} & set(asked.until):
+        return msgspec.structs.replace(base, entry=entry, hold=held)
+    return wait_ends.otherwise(here, asked, base, (began, now))
 
 
-def gone(
-    here: Here, asked: Asked, base: waiting.Waited, now: datetime
-) -> waiting.Waited | None:
-    """The end by a companion or the task's session that is gone."""
-    slug = asked.slug
-    companion = asked.companion
-    if companion and waiting.gone_companion(here, companion):
-        say = (
-            f"the companion {companion} of {slug} is gone before the status came, and the "
-            f"task is {base.status}: read the plan's talk before anything else"
-        )
-        return msgspec.structs.replace(base, gone=True, companion=companion, say=say)
-    session = waiting.gone_session(here, slug, now)
-    if session is None:
+def hold_word(hold: Hold | None) -> str | None:
+    """The word `--until` names a hold by: `held` for the owner's or a breaker's, else
+    `blocked`, `parked` or `release`, as `main`'s states named them."""
+    if hold is None:
         return None
-    say = (
-        f"the session of {slug} is gone, and the task is {base.status}: nothing goes on with "
-        f"it until lem session open {slug} --why dead opens a fresh one"
-    )
-    return msgspec.structs.replace(base, gone=True, session=session, say=say)
-
-
-def quiet(
-    asked: Asked, base: waiting.Waited, began: datetime, now: datetime
-) -> waiting.Waited | None:
-    """The end by a file that has not changed for QUIET_SECONDS since the later of its last
-    change and the wait's start."""
-    if asked.quiet is None:
-        return None
-    since = max(changed(asked.quiet) or 0, began.timestamp())
-    if now.timestamp() - since < waiting.QUIET_SECONDS:
-        return None
-    say = (
-        f"{asked.quiet} has not changed for 45 minutes and no status came: read the screen of "
-        "each pane of the pair for one of the four errors of a seat, and run the same wait "
-        "again when neither shows one"
-    )
-    return msgspec.structs.replace(base, quiet=asked.quiet, say=say)
-
-
-def changed(path: str) -> float | None:
-    """When the file at `path` last changed, None while it is not there."""
-    try:
-        return Path(path).stat().st_mtime
-    except OSError:
-        return None
+    if isinstance(hold, (OwnerHold, BreakerHold)):
+        return "held"
+    words = (("blocked", Blocked), ("parked", Parked))
+    return next((word for word, kind in words if isinstance(hold, kind)), "release")
