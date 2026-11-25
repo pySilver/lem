@@ -19,6 +19,7 @@ from lem.kernel.errors import Refusal
 from lem.ports.harness import Seat, Signs, Transcript
 from lem.ports.terminal import Opening, Pane
 from lem.records.holds import Parked
+from lem.records.journal.task import StateNoted
 from lem.records.sessions import SessionLine
 from lem.records.task import Shape
 from lem.store import places, sessions, tasks
@@ -468,3 +469,39 @@ def test_a_transcript_that_gives_nothing_is_no_sign_read(tmp_path: Path) -> None
         None,
         None,
     )
+
+
+def test_the_prompts_handoff_of_a_session_that_led_its_task_through_the_build(
+    tmp_path: Path,
+) -> None:
+    prompt = (paths.root() / "skills/lem/prompts/session.md").read_text()
+    assert (
+        "a session that led its task from the shape through the build writes `from\n   build` at `ready`"
+        in prompt
+    )
+    terminal = with_caller()
+    here = here_of(tmp_path, terminal)
+    made(here, status="shaping")
+    opening.open_session(here, SLUG, "new", None, MOMENT)
+    here = dataclasses.replace(here, caller="session-1")
+    current = tasks.read(here.where.state, SLUG)
+    entries = (
+        StateNoted(at=LATER, status="building", line="the criteria are his"),
+        StateNoted(at=LATER, status="ready", line="the build is done"),
+    )
+    task = msgspec.structs.replace(current.task, status="ready", lead="session")
+    tasks.update(
+        here.where.state,
+        SLUG,
+        lambda one: msgspec.structs.replace(
+            one, task=task, journal=(*one.journal, *entries)
+        ),
+        current.revision,
+    )
+    folder = here.folder(SLUG)
+    (folder / "handoff.md").write_text(HANDOFF)
+    with pytest.raises(Refusal, match="the phase that ends is build"):
+        handing.hand_on(here, SLUG, same=False, now=LATER)
+    (folder / "handoff.md").write_text(HANDOFF.replace("from shape", "from build"))
+    got = handing.hand_on(here, SLUG, same=False, now=LATER)
+    assert (got.ended, got.phase) == ("build", "land")
