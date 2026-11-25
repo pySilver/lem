@@ -9,6 +9,7 @@ import pytest
 from msgspec.structs import replace
 
 from lem.app.criteria import approve, change, typed
+from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.criteria import digest, waits
 from lem.model.criteria.pairs import pairs
@@ -152,7 +153,10 @@ def test_the_change_keeps_the_text_he_answered_and_writes_a_new_wait(
     assert world.sheet(checkout, world.FULL).parent.joinpath("criteria.md").exists()
 
 
-def test_the_new_wait_is_a_new_question_also_in_the_same_second(checkout: Path) -> None:
+def test_the_new_wait_is_a_new_question_also_in_the_same_second(
+    checkout: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(clock, "now", lambda: world.EARLY)
     typed.typed(checkout, world.SLUG, NOTE)
     change.changed(checkout, world.SLUG, new_file(checkout), NOTE)
     task = world.read(checkout).task
@@ -312,7 +316,7 @@ def test_the_fast_track_and_an_approval_of_the_standard_track(tmp_path: Path) ->
     path = world.sheet(full, world.FULL)
     approve.approved(full, world.SLUG, approve.Asked(by="owner", path=path))
     held_since(full, "the criteria wait for the owner", approved_before=False)
-    assert refused(typed.typed, full, world.SLUG, NOTE).code == "answered-first"
+    assert refused(typed.typed, full, world.SLUG, NOTE).code == "approved"
     held_since(full, "the criteria wait for the owner", approved_before=True)
     assert refused(typed.typed, full, world.SLUG, NOTE).code == "approved"
 

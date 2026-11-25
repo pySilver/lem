@@ -106,7 +106,13 @@ def test_the_mark_of_a_file_and_of_the_criteria_as_they_stand(checkout: Path) ->
 def test_the_reads_start_and_end_and_a_wrong_form_is_refused(checkout: Path) -> None:
     persona.noted(checkout, world.SLUG, ("start", "lem"), None)
     found = reads.Found(
-        asked=3, answered=2, families=("opus",), criteria=2, flagged=1, digest="a" * 12
+        asked=3,
+        answered=2,
+        families=("opus",),
+        silent=(reads.silent_of("Olek, opus: no answer in 10 minutes"),),
+        criteria=2,
+        flagged=1,
+        digest="a" * 12,
     )
     done = persona.noted(checkout, world.SLUG, ("done", "lem"), found)
     assert done.ended is not None
