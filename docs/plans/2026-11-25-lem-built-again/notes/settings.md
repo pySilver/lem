@@ -74,7 +74,7 @@ line with `key="peers.HOST"`, and `word="default"` takes it out. Every such writ
    in this step: give two cases of one parametrized test the same id (or import a module that is
    gone, as `tests/unit/settings/rules/test_scope.py` did after `cli/rules/renames.py` went), then
    run `.venv/bin/python -I -B tests --level unit tests/unit/settings/rules/`. The run printed
-   `total: collected 46, passed 46, skipped 0, failed 0` and exited 0, with the file's 16 cases
+   `total: collected 46, passed 46, skipped 0, failed 0` and exited 0, with every case of the file
    left out; the words `collection failed: tests/unit/settings/rules/test_scope.py` stood only
    in the log above. A selection one of whose files fails to collect must fail the run (the
    design's part 8: "a run counts only when passed plus skipped equals collected").
