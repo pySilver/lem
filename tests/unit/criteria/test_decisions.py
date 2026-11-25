@@ -329,7 +329,7 @@ def test_the_breaker_needs_its_document_the_handoff_and_the_work_committed(
     )
     (folder / "handoff.md").write_text("## Settled\n", encoding="utf-8")
     worktree = world.worktree(checkout)
-    dirty = dataclasses.replace(ports, git=Dirty())
+    dirty = dataclasses.replace(ports, git=Dirty(checkout=checkout))
     assert (
         refused(breaker.tripped, dirty, checkout, world.SLUG, asked).code
         == "not-committed"
@@ -348,12 +348,11 @@ def test_the_breaker_needs_its_document_the_handoff_and_the_work_committed(
     )
 
 
-class Dirty:
+class Dirty(ModelGit):
     """A git whose every worktree has work no commit holds."""
 
-    @staticmethod
-    def clean(where: Path) -> bool:
-        return not where
+    def clean(self, where: Path) -> bool:
+        return not where.name
 
 
 def test_no_breaker_stops_a_landing(checkout: Path, ports: Ports) -> None:
