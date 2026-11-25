@@ -4,6 +4,7 @@ names them, and the environment that points at the home."""
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from lem.kernel import folders
 from lem.settings import load
 from lem.settings.places import HOME, LOCAL, MACHINE, TEAM
 
@@ -43,6 +44,8 @@ class Given:
         machine: str | None = None,
     ) -> Given:
         """Write each file the case names; `team` "" is an empty team's file."""
+        if home is not None or machine is not None:
+            folders.home_marked(self.home)
         git = self.checkout / ".git"
         git.mkdir(parents=True, exist_ok=True)
         (git / "HEAD").write_text("ref: refs/heads/main\n")
