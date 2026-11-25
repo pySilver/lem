@@ -21,7 +21,7 @@ from lem.records.landing.merge import MergeIntent
 from lem.records.landing.propose import Standing
 from lem.store import tasks
 from unit.board.duties.world import duty_of, landing_of, looked, opened
-from unit.owner.looked import TIP, proposed, read
+from unit.owner.looked import TIP, proposed, read, refused
 from unit.sessions.world import here_of
 
 if TYPE_CHECKING:
@@ -149,7 +149,10 @@ def test_a_merge_that_ran_says_so_and_one_refused_says_why(
     opened(here, "refused", proposed=proposed(), reads=(read("merge"),))
     duty.tick(duty_of(here, HOUR, kept))
     ended(kept)
-    assert kept.said["refused"] == "The merge did not go: GitHub refused it"
+    assert (
+        kept.said["refused"]
+        == "The merge did not go: GitHub refused it; the owner acts"
+    )
     said = capsys.readouterr().err
     assert (
         "lem serve: shop: `lem land merge goes --by merger --via server` started, with 1 "
@@ -184,3 +187,51 @@ def test_each_merge_the_server_starts_records_how_many_approved_tasks_wait(
     ]
     assert lines[0].behind == ("b-second", "c-third", "e-stands")
     assert lines[0].tip == TIP
+
+
+def test_his_standing_merge_that_the_base_refuses_again_still_stands_in_its_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    here = here_of(tmp_path)
+    standing_task(here, "stands")
+    asking(
+        monkeypatch, Refusal("base", "origin's base moved", "a read of the moved base")
+    )
+    kept = Kept()
+    duty.tick(duty_of(here, HOUR, kept))
+    ended(kept)
+    assert kept.said["stands"] == (
+        f"The owner's merge still stands for {TIP}, and Lem merges it when it may: origin's "
+        "base moved; a read of the moved base"
+    )
+
+
+def test_after_lems_base_refusal_the_server_merges_only_once_a_read_answers_it(
+    tmp_path: Path,
+) -> None:
+    here = here_of(tmp_path)
+    base = replace(refused("lem", "base"), by="merger")
+    found = opened(here, "x", proposed=proposed(), reads=(read("merge"),), refused=base)
+    assert duty.merger_of(found, LOOK, frozenset()) is None
+    answered = replace(found, landing=replace(landing_of(found), refused=None))
+    assert duty.merger_of(answered, LOOK, frozenset()) == "merger"
+    another = replace(read("merge"), base_call="another round")
+    again = replace(answered, landing=replace(landing_of(answered), reads=(another,)))
+    assert duty.merger_of(again, LOOK, frozenset()) is None
+    github = replace(
+        found, landing=replace(landing_of(found), refused=refused("github", "rule"))
+    )
+    assert duty.merger_of(github, LOOK, frozenset()) is None
+
+
+def test_a_failed_merge_waits_under_its_own_tip_and_read_and_a_wake_under_its_own_why(
+    tmp_path: Path,
+) -> None:
+    here = here_of(tmp_path)
+    found = opened(here, "x", proposed=proposed(), reads=(read("merge"),))
+    key = duty.key_of(found)
+    assert key == ("merge", "x", TIP, read("merge").at.isoformat())
+    other = replace(proposed(), tip="e" * 40)
+    moved = replace(found, landing=replace(landing_of(found), proposed=other))
+    assert duty.key_of(moved) != key
+    assert key != ("wake", "x", "queue")

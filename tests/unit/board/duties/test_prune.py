@@ -8,6 +8,7 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from msgspec.structs import replace
 
 from fakes.records import MOMENT, record
 from lem.board.duties import prune
@@ -16,6 +17,7 @@ from lem.cli import lazy
 from lem.cli.prune import days
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
+from lem.records.journal.task import StateNoted
 from lem.store import tasks
 from lem.store.retention import run
 from unit.board.duties.world import duty_of
@@ -192,3 +194,18 @@ def test_a_run_that_removed_only_an_empty_file_has_its_line(
     (here.folder("old-task") / "handoff.md").write_text("")
     prune.tick(duty_of(here, NOW))
     assert "removed 1 files" in capsys.readouterr().err
+
+
+def test_the_log_names_the_entries_a_run_folded_when_it_removed_no_file(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    here = here_of(tmp_path)
+    found = record("old-task", status="landed", since=MOMENT)
+    entry = StateNoted(at=MOMENT, status="landed", line="the pull request is merged")
+    tasks.create(here.where.state, replace(found, journal=(entry,)))
+    prune.tick(duty_of(here, NOW))
+    said = capsys.readouterr().err
+    assert "removed 0 files of 0 ended tasks" in said
+    assert (
+        "replaced the 1 journal entries of 1 such tasks with one summary each" in said
+    )

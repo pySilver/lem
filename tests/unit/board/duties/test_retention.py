@@ -17,6 +17,7 @@ from lem.model.task import ending
 from lem.records.journal.landing import CheckEnd, CheckWait, MergeWait
 from lem.records.journal.task import StateNoted, Summary, Total
 from lem.records.landing.record import Landing, Pull
+from lem.records.tickets import Ticket
 from lem.records.work import Investigation, Span, Talk
 from lem.store import tasks
 from lem.store.retention import fold, rules
@@ -322,3 +323,14 @@ def test_the_record_another_writer_changed_first_is_left_whole_for_the_next_run(
     assert run.skipped[0].why.startswith("old-task is at revision 2, not 1")
     assert ending.summarized(tasks.read(state, "old-task")) is False
     assert files(state, "old-task") == sorted((*SMALL, *OTHER))
+
+
+def test_a_pruned_tasks_ticket_and_the_steps_it_still_owes_stay_on_its_record(
+    state: Path,
+) -> None:
+    ticket = Ticket(tracker="github", id="12", repo="acme/shop")
+    landed(state, "old-task", ticket=ticket, night=MOMENT.date())
+    pruned(state, 30, "Lem's default", LATER, dry=False)
+    found = tasks.read(state, "old-task")
+    assert (found.task.ticket, found.task.night) == (ticket, MOMENT.date())
+    assert found.task.status == "landed"

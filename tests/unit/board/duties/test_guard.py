@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from fakes.records import MOMENT
-from lem.app.sessions import acts, guard_steps, log, opening
+from lem.app.sessions import acts, guard_acts, guard_steps, log, opening
 from lem.board.duties import guard
 from lem.board.duties.memory import Kept
 from lem.kernel.errors import Refusal
@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
     import pytest
 
+    from lem.app.sessions.guard_acts import Acted
     from lem.app.sessions.here import Here
 
 QUIET = MOMENT + timedelta(minutes=45)
@@ -142,3 +143,39 @@ def test_the_step_names_the_session_it_is_for_in_the_servers_log(
     assert (
         f"lem session wake {SLUG} --why status --session session-1: the session" in said
     )
+
+
+def test_a_step_that_acted_on_nothing_says_why_in_the_servers_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    here = here_of(tmp_path)
+    made(here, status="building", lead="builder")
+    opening.open_session(here, SLUG, "new", None, MOMENT)
+
+    def nothing(
+        _here: Here, slug: str, _step: str, session: str, _now: object
+    ) -> Acted:
+        return guard_acts.refused(slug, session, guard_acts.WORKING)
+
+    monkeypatch.setattr(guard_steps, "stepped", nothing)
+    guard.tick(duty_of(here, QUIET))
+    said = capsys.readouterr().err
+    assert (
+        f"--session session-1: Lem did nothing for {SLUG}: its session showed a sign"
+        in said
+    )
+
+
+def test_a_turn_read_after_an_unread_message_is_put_on_record_once(
+    tmp_path: Path,
+) -> None:
+    harness = SigningHarness()
+    here = here_of(tmp_path, with_caller(), harness)
+    made(here, status="building", lead="builder")
+    opening.open_session(here, SLUG, "new", None, MOMENT)
+    kept = Kept()
+    guard.tick(duty_of(here, QUIET, kept))
+    signing(here, harness, Signs(sign=QUIET + timedelta(minutes=1), turn="ended"))
+    guard.tick(duty_of(here, QUIET + timedelta(minutes=2), kept))
+    guard.tick(duty_of(here, QUIET + timedelta(minutes=3), kept))
+    assert kinds(here) == [("wake", "status"), ("worked", None)]

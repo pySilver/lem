@@ -14,7 +14,7 @@ import threading
 from typing import TYPE_CHECKING
 
 from lem.app.landing import merge
-from lem.board.duties import merge_line
+from lem.board.duties import merge_line, merge_said
 from lem.kernel.errors import Fault, Refusal
 from lem.model.landing.merge_asked import Asked
 from lem.settings.load import settings_of
@@ -86,12 +86,9 @@ def ran(duty: Duty, slug: str, asked: Asked, key: Key) -> None:
         merge.run(duty.checkout, slug, asked)
     except (Refusal, Fault) as error:
         duty.kept.ended(key, duty.now, ran=False)
-        duty.kept.said[slug] = f"The merge did not go: {error}"
+        duty.kept.said[slug] = merge_said.refused(duty.state, slug, error)
         duty.say(f"the server's merge of {slug} did not go: {error}")
         return
     duty.kept.ended(key, duty.now, ran=True)
-    duty.kept.said[slug] = (
-        f"Merged: {slug} is on the base. Within a minute the board's server wakes the task's "
-        "session, or opens one, which removes its worktree."
-    )
+    duty.kept.said[slug] = merge_said.MERGED.format(slug=slug)
     duty.say(f"the server merged {slug}")
