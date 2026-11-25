@@ -59,17 +59,18 @@ def woken(
     slug: str,
     why: WakeWhy,
     head: str | None = None,
-) -> None:
+) -> bool:
     """Wake the task's session for `why` unless that wake failed within the retry's wait; the
     wake's line, or why it failed, goes to the server's log."""
     key = ("wake", slug, why)
     if not duty.kept.due(key, duty.now):
-        return
+        return False
     try:
         said = waking.wake(duty.here, slug, why, head, duty.now).say
     except (Refusal, Fault) as error:
         duty.kept.ended(key, duty.now, ran=False)
         duty.say(f"lem session wake {slug} --why {why} failed: {error}")
-        return
+        return False
     duty.kept.ended(key, duty.now, ran=True)
     duty.say(f"lem session wake {slug} --why {why}: {said}")
+    return True

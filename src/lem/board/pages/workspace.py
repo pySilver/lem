@@ -51,7 +51,7 @@ def read(request: Request, found: snapshot.Snapshot, version: str) -> world.Worl
         wanted,
         git=found.here.ports.git,
         listed=found.listed,
-        basis=found.basis,
+        bases=found.bases,
     )
     drawn = gather.gather(space.checkout, wanted, found.records)
     return replace(

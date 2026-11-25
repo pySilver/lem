@@ -5,8 +5,8 @@ A merge is an intent written before the forge's call; under the merge lock an in
 is reconciled before any new call (`reconcile.py`), and the evidence is read again
 (`merge_evidence.py`). The merge agent merges a green request that is not careful, which the
 newest review made the careful call on, where the settings let it, on its read's `merge` for the
-tip and base. The owner's word merges the tip he saw (`merge_asked.py`), and his merge that a
-moved base refused stands until a safe read. `branch.history` squashes the branch into one
+tip and base. The owner's word merges the tip he saw (`merge_asked.py`). On a moved base, it
+stands while the rebased change takes its checks. `branch.history` squashes the branch into one
 commit, or lands its own commits (a rebase on the forge).
 """
 
@@ -148,10 +148,13 @@ def decide(
     if isinstance(proposed, Refusal):
         return proposed
     asked_now = merge_asked.refusal(record, world, asked)
+    landing = record.landing or Landing()
+    approved = asked.by == OWNER or landing.standing is not None
     refused = asked_now or (
-        merge_evidence.base_side(record, world, checks_tree)
-        or merge_evidence.forge_side(record, world, proposed)
-        or merge_evidence.our_side(record, world, proposed)
+        merge_evidence.forge_side(record, world, proposed)
+        or merge_evidence.changed_tip(record, proposed, world.tip)
+        or merge_evidence.base_side(record, world, checks_tree, approved=approved)
+        or merge_evidence.covered(record, world, proposed.tip)
     )
     refused = refused or merger_refusal(record, world, asked)
     if refused is not None:

@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from lem.records.landing.merge import Merger
 
 
-def started(duty: Duty, record: records.Record, by: Merger, key: Key) -> None:
+def started(duty: Duty, record: records.Record, by: Merger, key: Key) -> bool:
     """Start the proposed tip's merge in a thread; a failure waits under `key`."""
     slug = record.task.slug
     proposed = record.landing.proposed if record.landing else None
@@ -41,7 +41,7 @@ def started(duty: Duty, record: records.Record, by: Merger, key: Key) -> None:
     run = threading.Thread(
         target=ran, args=(duty, slug, asked, key), name=f"merge {slug}", daemon=True
     )
-    duty.kept.start_merge(slug, run)
+    return duty.kept.start_merge(slug, run)
 
 
 def subject_of(duty: Duty, record: records.Record) -> str | None:

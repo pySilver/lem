@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Literal
 
 from msgspec.structs import replace
 
-from lem.model.landing import merge, merge_standing, mergeread
+from lem.model.landing import merge, merge_recheck, merge_standing, mergeread
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
@@ -27,6 +27,7 @@ type Wait = Literal["owner", "reads", "merges", "relands"]
 
 OWNER: Wait = "owner"
 MERGES: Wait = "merges"
+RELANDS: Wait = "relands"
 
 
 def merge_wait(look: Look) -> Wait | None:
@@ -50,7 +51,7 @@ def proposed_wait(look: Look, landing: Landing) -> Wait:
     """Who waits on a proposal no merge was refused for: a new round, the owner's merge that
     stands, or the newest read of the tip."""
     if mergeread.another_round(landing) is not None:
-        return "relands"
+        return RELANDS
     read = mergeread.latest(landing, look.basis.tree)
     if read is None:
         return "reads"
@@ -66,8 +67,15 @@ def refused_wait(look: Look, landing: Landing, refused: Refused) -> Wait:
     the merge agent's to read, or a new round's; any other refusal is the owner's."""
     if refused.source != "lem" or refused.kind != "base":
         return OWNER
+    base = look.basis.base
+    if landing.standing is not None and base:
+        return (
+            RELANDS
+            if merge_recheck.moved(landing, base)
+            else proposed_wait(look, landing)
+        )
     if mergeread.another_round(landing) is not None:
-        return "relands"
+        return RELANDS
     if calls_after_base_refusal(
         landing,
         refused,

@@ -10,7 +10,12 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing import branch_checks, item_carry, pull_identity, review_item
+from lem.app.landing import (
+    branch_checks,
+    item_carry,
+    pull_identity,
+    review_item,
+)
 from lem.app.tasks import where
 from lem.model.landing import destination
 from lem.model.landing import world as facts

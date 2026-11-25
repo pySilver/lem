@@ -5,7 +5,7 @@ for the base branch and the forge (`serve.merge_in_thread` on `main`).
 The merge is the landing's (`app/landing/merge.py`), under the task's step lock and the
 workspace's merge lock, so two merges of one repository take turns. His approval is his own word
 for the tip he saw (`via` `board`): refused because the base moved, it stands, and the board's
-server carries it out after a safe read and passing checks on the rebased task. It stands
+server carries it out after passing checks on the rebased task. It stands
 through a new landing after a conflict too, while the reasons he saw are the same
 (`model/landing/merge_standing.py`). The note says what came of the act when the step ends.
 """
@@ -53,7 +53,7 @@ def stands(record: Record) -> str:
     return (
         f"Your approval of {what_of(record)} at {tip} stands: the base moved after the "
         "checks ran. Lem checks the rebased task before it merges. If the checks fail, "
-        "the task leaves the merge line. The merge agent reads what moved. Your approval "
+        "the task leaves the merge line. A builder repairs it. Your approval "
         "can carry to a new landing while the reasons you read are the same."
     )
 

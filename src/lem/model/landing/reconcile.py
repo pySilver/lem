@@ -6,8 +6,8 @@ and call", "Closed on GitHub").
 An intent on record is replaced by what the forge shows: the merge, a queue that took the call,
 a definite refusal, or the end of a request closed with no merge. With only an open pull request
 visible the intent stays, and the owner checks GitHub: a new call goes only on his word. A merge
-into another branch than the task's base is no landing. A merge whose base on the forge neither
-the checks nor a safe read covered lands, with a line that says so.
+into another branch than the task's base is no landing. A merge whose parent missed the required
+checks or safe read lands, with a line that says so.
 """
 
 from types import MappingProxyType
@@ -82,6 +82,18 @@ def line_of(
     warning = merge_lines.head_warning(landing, merged)
     if warning is not None:
         return warning, True
+    if (
+        merged.by == "owner"
+        and merged.via != "github"
+        and merged.parent != merged.base_checked
+    ):
+        return (
+            (
+                f"The checks ran on {base} at {merged.base_checked}. GitHub merged on "
+                f"{base} at {merged.parent}, which missed the checks for the owner's approval."
+            ),
+            True,
+        )
     if trees.parent == trees.checks:
         return None, False
     safe = [

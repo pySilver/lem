@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from lem.app.landing import changes
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
-from lem.model.landing import merge_standing
+from lem.model.landing import merge_recheck, merge_standing
 from lem.model.landing.merge_evidence import new_call_refusal
 from lem.records.journal.task import OwnerAct
 
@@ -64,9 +64,14 @@ def heard(context: Context, record: Record, intent: MergeIntent) -> Record:
 
 
 def admits(asked: Asked, context: Context, due: world.Due) -> bool:
-    """Whether the owner's own word for the tip he saw is taken while the merge agent's read
-    is due: as on `main`, his word needs no read; on a moved base it is refused for the base
-    under the lock, and stands until a safe read."""
+    """Take the owner's word beside a due read or a stale approval beside a due recheck.
+
+    The locked merge records a moved base and the session takes the new round.
+    """
+    if due.step == "start" and merge_recheck.moved(
+        context.record.landing, context.world.base
+    ):
+        return asked.standing or (merge_standing.word(asked) and asked.tip is not None)
     return (
         due.step == "merge-review"
         and merge_standing.word(asked)
