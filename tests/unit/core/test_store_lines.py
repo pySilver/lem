@@ -7,7 +7,7 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from fakes.records import MOMENT
-from lem.records.owner import Presence
+from lem.records.owner import Change, Presence
 from lem.records.sessions import SessionLine
 from lem.store import owner, sessions
 
@@ -71,9 +71,15 @@ def test_the_owner_is_there_until_he_says_he_is_away(tmp_path: Path) -> None:
     assert owner.read(tmp_path) == Presence()
     later = MOMENT + timedelta(hours=1)
     away = owner.change(tmp_path, "at the dentist", MOMENT, away=True)
-    assert away == Presence(away=True, since=MOMENT, words="at the dentist", seen=1)
+    went = Change(away=True, at=MOMENT, words="at the dentist")
+    assert away == Presence(
+        away=True, since=MOMENT, words="at the dentist", seen=1, changes=(went,)
+    )
     assert owner.change(tmp_path, "at the dentist", later, away=True) == away
     back = owner.change(tmp_path, None, later, away=False)
-    assert back == Presence(away=False, since=later, words=None, seen=2)
+    came = Change(away=False, at=later)
+    assert back == Presence(
+        away=False, since=later, words=None, seen=2, changes=(went, came)
+    )
     assert owner.change(tmp_path, None, later, away=False) == back
     assert owner.read(tmp_path) == back

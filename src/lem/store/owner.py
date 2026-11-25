@@ -7,7 +7,7 @@ import msgspec
 
 from lem.kernel import files, locks
 from lem.kernel.errors import Fault
-from lem.records.owner import Presence
+from lem.records.owner import Change, Presence
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -37,8 +37,10 @@ def change(home: Path, words: str | None, now: Moment, *, away: bool) -> Presenc
         before = read(home)
         if before.away == away and (not away or before.words == words):
             return before
-        seen = before.seen + 1
-        after = Presence(away=away, since=now, words=words, seen=seen)
+        changes = (*before.changes, Change(away=away, at=now, words=words))
+        after = Presence(
+            away=away, since=now, words=words, seen=len(changes), changes=changes
+        )
         files.write_whole(
             home / PRESENCE, b"".join((msgspec.json.encode(after), b"\n"))
         )

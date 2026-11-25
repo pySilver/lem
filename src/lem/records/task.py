@@ -64,6 +64,7 @@ class Task(Frozen, frozen=True, kw_only=True):
     after: Slug | None = None
     order: str | None = None
     mode: Literal["with-owner", "alone"] = "with-owner"
+    mode_since: Moment | None = None
     shape: Shape | None = None
     lead: Literal["builder", "session", "small"] | None = None
     plan: Plan | None = None
