@@ -1,14 +1,13 @@
 # Lem's package and the maintainer's tools. hatchling builds the package: the modules of
 # src/lem, and under lem/data the plugin's files that the app reads, at the names they have
 # here. uv installs it into .venv as an editable install, with the tools, at the versions of
-# uv.lock; ruff formats and lints, pyrefly checks the types.
+# uv.lock.
 #
-#     uv sync                      the package and the tools into .venv; .venv/bin/lem is the command
-#     uv build                     the sdist, and from it the wheel, into dist/
-#     uv run ruff format           the one format
-#     uv run ruff check --fix      the lint rules below
-#     uv run pyrefly check         the types
-#     bash tests/lint.sh           all of them, and the JavaScript's, as tests/all.sh runs them
+#     uv sync --locked                               the package and the tools into .venv
+#     uv build                                       the sdist, and from it the wheel, into dist/
+#     uv run ruff format                             the one format
+#     .venv/bin/python -I -B tests --level gates     ruff, pyrefly, wemake, import-linter, ESLint
+#     .venv/bin/python -I -B tests --level unit      the unit level (tests/__main__.py names the rest)
 
 [build-system]
 # An exact version, so that a build of one commit is the same build on every machine.
@@ -18,18 +17,21 @@ build-backend = "hatchling.build"
 [project]
 name = "lem"
 description = "Lem coordinates the agents that write code in one repository."
-# The release number has one place, .claude-plugin/plugin.json (tests/unit/test_release.py),
-# and the build reads it there ([tool.hatch.version]).
+# The release number has one place, .claude-plugin/plugin.json, and the build reads it there
+# ([tool.hatch.version]).
 dynamic = ["version"]
 # The Python Lem's code is written for. ruff takes its target version from this line.
 requires-python = ">=3.14"
 license = "MIT"
 license-files = ["LICENSE", "NOTICE"]
-dependencies = []
+dependencies = [
+    "click>=8.5.1",
+    "msgspec>=0.22.0",
+]
 
 [project.scripts]
-lem = "lem.__main__:cli"
-lem-hook = "lem.hooks:cli"
+lem = "lem.__main__:main"
+lem-hook = "lem.hooks.main:main"
 
 [dependency-groups]
 dev = [
@@ -39,6 +41,13 @@ dev = [
     # [build-system]
     "hatchling==1.33.0",
     "pytest==9.2.0",
+    "pytest-xdist>=3.8.0",
+    "hypothesis>=6.170.17",
+    "inline-snapshot>=0.37.0",
+    "coverage>=7.17.5",
+    "flake8>=7.5.0",
+    "wemake-python-styleguide>=1.9.0",
+    "import-linter>=2.17",
 ]
 
 [tool.uv]
@@ -54,7 +63,7 @@ cache-keys = [
     { file = ".claude-plugin/plugin.json" },
     # what a formula writes before its build (`lem version`'s commit)
     { file = "src/lem/build-commit" },
-    { file = "src/lem/**/*.py" },
+    { file = "src/lem/**/*" },
     { file = "skills/**/*" },
     { file = "agents/**/*" },
     { file = "hooks/**/*" },
@@ -105,13 +114,22 @@ packages = ["src/lem"]
 [tool.hatch.build.targets.wheel.hooks.custom]
 
 # ==== pytest ====
+# tests/__main__.py is the one entry; it names the files of a level, and this table is what
+# every run shares.
 [tool.pytest.ini_options]
 minversion = "9.2.0"
-testpaths = ["tests/unit"]
+testpaths = ["tests"]
 python_files = ["test*.py"]
-pythonpath = ["src"]
+# Lem's package, and the tests' own modules by their names (conftest, fakes, fixtures).
+pythonpath = ["src", "tests"]
 strict = true
-addopts = ["--disable-plugin-autoload", "-p", "no:cacheprovider"]
+# Each test file is imported by its path, so two folders may each hold a test_store.py. No
+# plugin loads that this list does not name: the owner's shell names its own in PYTEST_ADDOPTS.
+addopts = [
+    "--disable-plugin-autoload",
+    "-p", "no:cacheprovider",
+    "--import-mode=importlib",
+]
 
 # ==== ruff ====
 [tool.ruff]
@@ -124,7 +142,7 @@ extend-exclude = ["*.md"]
 # or a test puts on `sys.path`.
 src = [
     "src",
-    "tests/unit",
+    "tests",
 ]
 
 [tool.ruff.lint]
@@ -171,10 +189,8 @@ select = [
     "FURB",
     "RUF",
 ]
-# The size rules (C901 and PLR0911 to PLR0917) have ruff's own limits. A function that was over one
-# when the rules came, on 2026-11-24, carries `# noqa: RULE - over the limit before the limit was
-# set`. A new function gets no such mark; it is written under the limits, and a marked one
-# loses its mark when it is split.
+# The size rules (C901 and PLR0911 to PLR0917) have ruff's own limits, and wemake's are tighter
+# (.flake8). No line carries a `noqa`: a function over a limit is split.
 #
 # Left out, each for a reason:
 #   D     the docstrings keep their own voice (AGENTS.md), which is not pydocstyle's
@@ -199,15 +215,14 @@ ignore = [
 # the sign between the parts of a title as agterm shows it.
 allowed-confusables = ["’", "–", "×", "›"]
 
+[tool.ruff.lint.pycodestyle]
+# A line the formatter cannot wrap (a docstring, a comment, a string) may run to 100: the agreed
+# text of the design's part 9 (kernel/errors.py, kernel/envelope.py) has docstrings of 89 to 93.
+max-line-length = 100
+
 [tool.ruff.lint.per-file-ignores]
-# The entry keeps to os.path, whose import costs less than pathlib's, before its look at the
-# board server, and so does the hooks' entry, before a handler's own imports.
-"src/lem/__main__.py" = ["PTH"]
-"src/lem/hooks.py" = ["PTH"]
-# lem ask shows a path as its caller wrote it, in a page's address and in each message (`./x.json`,
-# a TMPDIR with `//`), and pathlib would rewrite that text.
-"src/lem/ask.py" = ["PTH"]
 "tests/**" = [
+    "S101", # a case says what it expects with pytest's assert, which inline-snapshot reads too
     "PLR2004", # a test compares with the value it expects
     "FBT003", # and passes it by position
     "PLR0913", # a helper that builds a record takes its fields
@@ -217,9 +232,6 @@ allowed-confusables = ["’", "–", "×", "›"]
     "S604", # a suite runs the shell line it checks
     "E501", # a test's name is its sentence, and a fixture is a text as it is; ruff format still wraps the code
 ]
-# A unit test puts src on sys.path before it imports lem, since the tests run with `python3 -I`,
-# which reads no PYTHONPATH.
-"tests/unit/*.py" = ["E402"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # The owner's ruling "Python 3.11 stays, in the modern form", written for 3.14 from the release
@@ -234,7 +246,7 @@ project-includes = ["**/*.py"]
 # The same folders as ruff's `src`.
 search-path = [
     "src",
-    "tests/unit",
+    "tests",
 ]
 # `project-excludes` is the one list of what is left out. A task's worktree is under `.lem/` and an
 # agent's under `.claude/`, both of which git ignores and both dot-folders: with the ignore files or
@@ -248,3 +260,25 @@ project-excludes = ["**/node_modules", "**/__pycache__", "**/.[!/.]*"]
 # error is one itself, so no ignore outlives its reason.
 unused-ignore = true
 unused-type-ignore = true
+
+# ==== import-linter ====
+# The layers of the design's part 2 (docs/plans/2026-11-25-lem-built-again.md): a package imports
+# only from the rows below it. A name in parentheses is held once its package exists. Names on one
+# row, joined by a colon, may import each other.
+# lem.hooks is no row: tests/unit/core/test_hooks_imports.py holds it to the standard library.
+[tool.importlinter]
+root_package = "lem"
+
+[[tool.importlinter.contracts]]
+name = "A package of Lem imports only from the rows below it"
+type = "layers"
+containers = ["lem"]
+layers = [
+    "(cli) : (board) : (addons)",
+    "(app)",
+    "(adapters) : (settings)",
+    "(ports)",
+    "(model)",
+    "(store)",
+    "(records) : kernel",
+]
