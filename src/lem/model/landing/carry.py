@@ -9,8 +9,7 @@ verdict, and over a conflict only where one read of the resolution found nothing
 
 from typing import TYPE_CHECKING
 
-from lem.model.landing.rebased import why_unshown
-from lem.records.landing.propose import MergeRead, OwnerMerge
+from lem.records.landing.propose import MergeRead
 
 if TYPE_CHECKING:
     from lem.model.landing.world import World
@@ -28,13 +27,15 @@ def newest(landing: Landing) -> Reviewed | None:
 def source(landing: Landing, world: World) -> Sha | None:
     """The tip whose review carried onto the tip now: the newest answered review, which `base`
     judged by git's merge of its tip onto this base, when that merge was the tip's tree and no
-    commit came after. None when no review carried."""
+    commit came after. A review recorded in the same second as `base` is no source: a moment
+    does not tell which came first (`notes/land-base.md` asks for the reviewed tip on
+    `Based`). None when no review carried."""
     review, based = newest(landing), landing.based
     if review is None or based is None or not based.carried:
         return None
     if based.tip != world.tip or based.base != world.base:
         return None
-    return review.tip if review.at <= based.at else None
+    return review.tip if review.at < based.at else None
 
 
 def covers(landing: Landing, world: World) -> bool:
@@ -46,18 +47,36 @@ def covers(landing: Landing, world: World) -> bool:
     return review.tip == world.tip or source(landing, world) is not None
 
 
-def real(landing: Landing) -> list[MergeRead]:
-    """The merge agent's reads with a real verdict, not an unusable answer, in their order."""
-    return [read for read in landing.reads if read.verdict and not read.no_answer]
+def proposed_carries(landing: Landing, world: World) -> bool:
+    """Whether the tip proposed before is the change now: the same tip on the same base, or the
+    tip whose review a rebase git showed carried onto the tip now (`land.tip_carry` on
+    `main`, `same` and `rebase`)."""
+    proposed = landing.proposed
+    if proposed is None:
+        return False
+    if proposed.tip == world.tip:
+        return proposed.base == world.base
+    return source(landing, world) == proposed.tip
+
+
+def latest(landing: Landing) -> MergeRead | None:
+    """The merge agent's newest read of the tip proposed before, when it gave a real verdict;
+    None after an unusable answer, which an older verdict never stands in for."""
+    proposed = landing.proposed
+    reads = [read for read in landing.reads if proposed and read.tip == proposed.tip]
+    if not reads:
+        return None
+    last = reads[-1]
+    return None if last.verdict is None or last.no_answer else last
 
 
 def read_carries(landing: Landing, world: World) -> MergeRead | None:
-    """The merge agent's read carried onto the tip a clean rebase made: a real verdict of the
-    tip whose review carried; else None."""
-    reads, carried = real(landing), source(landing, world)
-    if not reads or carried is None or reads[-1].tip != carried:
+    """The merge agent's read of the tip proposed before, carried onto the tip a clean rebase
+    made; else None."""
+    proposed, read = landing.proposed, latest(landing)
+    if proposed is None or read is None or proposed.tip == world.tip:
         return None
-    return moved(reads[-1], world)
+    return moved(read, world) if proposed_carries(landing, world) else None
 
 
 def moved(read: MergeRead, world: World) -> MergeRead:
@@ -71,19 +90,3 @@ def moved(read: MergeRead, world: World) -> MergeRead:
         carried_from=read.tip,
         at=world.now,
     )
-
-
-def standing(landing: Landing, digest: str, *, covered: bool) -> OwnerMerge | None:
-    """The owner's merge refused for the base: it stands while the review covers the change
-    and the reasons it was not green are the same; else it ended, with why."""
-    kept = landing.standing
-    if kept is None:
-        return None
-    if not covered:
-        why = (
-            why_unshown(landing.based) or "no review covers the change on the new base"
-        )
-        return OwnerMerge(state="ended", why=why)
-    if kept.reasons_digest != digest:
-        return OwnerMerge(state="ended", why="the reasons it is not green changed")
-    return OwnerMerge(state="stands", why="the change and its reasons stay")

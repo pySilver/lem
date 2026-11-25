@@ -46,13 +46,25 @@ def left_must_fix(landing: Landing) -> bool:
     )
 
 
+def tip_carries(landing: Landing, world: World, *, careful: bool) -> bool:
+    """Whether the tip proposed before carries onto the tip now through a builder's
+    resolution: the conflict met that tip, the resolution is the tip now on the base it was
+    made on, its one read was clean, the review before left no must-fix, and the request is
+    not careful (`land.tip_carry` on `main`, `resolution`)."""
+    resolution, proposed = landing.resolution, landing.proposed
+    if careful or resolution is None or proposed is None:
+        return False
+    if resolution.before != proposed.tip or resolution.after != world.tip:
+        return False
+    if resolution.base != world.base:
+        return False
+    return clean(read_of(landing)) and not left_must_fix(landing)
+
+
 def carries(landing: Landing, world: World, *, careful: bool) -> MergeRead | None:
-    """The read before carried onto the resolved tip, or None."""
-    resolution, reads = landing.resolution, carry.real(landing)
-    if careful or resolution is None or not reads:
+    """The merge agent's read of the tip proposed before, carried onto the resolved tip, or
+    None."""
+    read = carry.latest(landing)
+    if read is None or not tip_carries(landing, world, careful=careful):
         return None
-    if resolution.after != world.tip or resolution.base != world.base:
-        return None
-    if not clean(read_of(landing)) or left_must_fix(landing):
-        return None
-    return carry.moved(reads[-1], world)
+    return carry.moved(read, world)
