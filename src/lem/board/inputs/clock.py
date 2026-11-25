@@ -6,6 +6,7 @@ The rule is `main`'s `board_model.span`, `ago` and `stamp`; the moment of the pa
 come in as arguments, so the same records print the same words in a test.
 """
 
+from datetime import UTC
 from typing import TYPE_CHECKING
 
 from lem.board.inputs.parts import When
@@ -67,13 +68,15 @@ def stamp(moment: datetime, now: datetime, zone: tzinfo) -> str:
 
 def since(moment: datetime, now: datetime, title: Plain | None = None) -> When:
     """The length from `moment` to now, which the browser's clock moves on."""
-    shown = length((now - moment).total_seconds())
+    seconds = (now.astimezone(UTC) - moment.astimezone(UTC)).total_seconds()
+    shown = length(seconds)
     return When(at=moment, shown=shown, title=title, ticks="since")
 
 
 def gone(moment: datetime, now: datetime, title: Plain | None = None) -> When:
     """The time since `moment`, which the browser's clock moves on (`32m ago`)."""
-    shown = ago((now - moment).total_seconds())
+    seconds = (now.astimezone(UTC) - moment.astimezone(UTC)).total_seconds()
+    shown = ago(seconds)
     return When(at=moment, shown=shown, title=title, ticks="ago")
 
 

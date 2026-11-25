@@ -30,12 +30,24 @@ def title_of(slug: str) -> str:
 
 
 def task_href(
-    base: Href, slug: str, tab: str | None = None, under: View = "tasks"
+    base: Href,
+    slug: str,
+    tab: str | None = None,
+    under: View = "tasks",
+    *,
+    artifact: str | None = None,
 ) -> Href:
-    """The address of task `slug`, on `tab` (none for its Overview), over the view `under`."""
-    path = f"{base}/tasks/{quote(slug)}"
+    """The task's tab or artifact over the view `under`. Turbo needs the slash after a file."""
+    named = quote(slug, safe="")
+    path = f"{base}/tasks/{named}"
+    if artifact and not tab:
+        tab = "artifacts"
     if tab:
-        path = f"{path}/{tab}"
+        section = quote(tab)
+        path = f"{path}/{section}"
+    if artifact:
+        encoded = quote(artifact)
+        path = f"{path}/{encoded}/"
     return path if under == "tasks" else f"{path}?in={under}"
 
 

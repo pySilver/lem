@@ -8,7 +8,7 @@ the owner sees, and a view's rule that gives other words fails its case.
 import hashlib
 from zoneinfo import ZoneInfo
 
-from fixtures.board.moments import BASE, NOW, ago
+from fixtures.board.moments import BASE, ago
 from lem.board.inputs.layout import Viewer
 from lem.board.inputs.parts import Chip, Document, When
 
@@ -30,16 +30,6 @@ def since(minutes: float, shown: str, title: str | None = None) -> When:
 def gone(minutes: float, shown: str, title: str | None = None) -> When:
     """A time since `minutes` before now, which the browser's clock moves on."""
     return When(at=ago(minutes), shown=shown, title=title, ticks="ago")
-
-
-def clock(minutes: float, shown: str, title: str | None = None) -> When:
-    """A clock time, which stays as it is."""
-    return When(at=ago(minutes), shown=shown, title=title)
-
-
-def just_now() -> When:
-    """The moment of the page."""
-    return When(at=NOW, shown="just now", ticks="ago")
 
 
 def task(slug: str, tab: str | None = None, under: str | None = None) -> str:

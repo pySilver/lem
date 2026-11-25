@@ -60,7 +60,9 @@ built, and their first cases are the views' own.
   other from the task's (`test_a_card_counts_from_its_hold...`); a held task's state reads
   "Waits for you", and the search's chip names the status of the record (`Waits for you ·
   building`); the status bar counts the journals' entries (`118 entries`), in the place of
-  today's events; the tab Artifacts counts 7 documents by today's map (`main`'s
+  today's events. The receipt's Overview uses the record's `opened` time, 05:50 (10h 10m),
+  in place of the first state at 05:55 (10h 05m) in the saved showcase. The tab Artifacts counts
+  7 documents by today's map (`main`'s
   `artifacts.arrange` over the laid folder; today's 9 had `ask.txt`, `state.md` and the plan in
   the worktree, which the afternoon has not).
 - **`board-pages`.** Each template prints one input, with no rule: `Plain` escaped; `Inline`
@@ -72,11 +74,13 @@ built, and their first cases are the views' own.
   `Stack` of one thing is drawn as that thing's row alone; `Reasons` gives the ids
   `{id}-reasons` and `{id}-r{n}`; the `…` of a label is in the label. A page renders from the
   fixtures with no view: import `fixtures.board.frame`, `columns`, `waiting`, `shelves`,
-  `panel`.
+  `panel`. After a successful forge look, the topbar chip's `when` and
+  `Statusbar.forge_when` follow their label and use `data-ago` like the workspace read.
 - **`board-acts`.** Every form's action and fields: `key` is a `Question.id` of the record, and
   `digest`, `tab`, `in`, `option`, `confirm`, `tip`, `item`, `words` as `main`'s acts read them.
 - **`board-duties`.** The status bar's `forge` and `forge_title` are the words of the server's
-  look; a duty that failed is one of `Statusbar.problems`.
+  look. Its age comes from the server's look time. A duty that failed is one of
+  `Statusbar.problems`.
 - **`board-service`.** `Viewer` is what a request says (the listener, the client, the door, the
   cookie); `Head.stream` and `Head.version` are the stream's; `Workspaces`, `Box` and `Failure`
   are the pages outside a workspace.

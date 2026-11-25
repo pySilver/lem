@@ -59,8 +59,8 @@ class Phonebar(Input, frozen=True, kw_only=True):
 
 class Topbar(Input, frozen=True, kw_only=True):
     """The bar above the view: its name, what it holds in one line, the chips (the base
-    branch, the pull requests proposed, the look at GitHub, the tasks landed today), and the
-    way to a new task where the page may act."""
+    branch, the pull requests proposed, the look at GitHub with its age, the tasks landed
+    today), and the way to a new task where the page may act."""
 
     title: Plain
     summary: Plain
@@ -71,7 +71,7 @@ class Topbar(Input, frozen=True, kw_only=True):
 class Statusbar(Input, frozen=True, kw_only=True):
     """The status bar: what did not read (each a problem, the page's look bad), when the
     workspace's files were read and how many events (`147 events`), the look at the forge with
-    its hover and whether it failed, and the id of the line the stream writes `live` into."""
+    its age, hover and whether it failed, and the id of the line the stream writes `live` into."""
 
     problems: tuple[Plain, ...] = ()
     read: When
@@ -79,6 +79,7 @@ class Statusbar(Input, frozen=True, kw_only=True):
     forge: Inline
     forge_title: Plain
     forge_bad: bool = False
+    forge_when: When | None = None
     live: Plain
 
 

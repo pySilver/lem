@@ -41,3 +41,15 @@ class Page(Input, frozen=True, kw_only=True):
     activity: Activity | None = None
     new: NewTask | None = None
     panel: Panel | None = None
+
+    def __post_init__(self) -> None:
+        views = (
+            self.tasks,
+            self.older,
+            self.waits,
+            self.backlog,
+            self.activity,
+            self.new,
+        )
+        if sum(view is not None for view in views) != 1:
+            raise ValueError("the workspace page needs exactly one view")

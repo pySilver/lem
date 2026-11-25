@@ -2,10 +2,12 @@
 whole, each journal in the order of its moments, Lem's acts on their sessions beside them, and
 every file a record cites in its task's folder."""
 
+from hashlib import sha256
 from typing import TYPE_CHECKING
 
 import msgspec
 
+from fixtures.board import panel
 from fixtures.board.beside import ACTS, RECORDS, lay
 from fixtures.board.moments import NOW
 from lem.app.sessions import log
@@ -77,8 +79,6 @@ def cited(slug: str) -> set[str]:
             paths |= {decision.document, decision.handoff}
     if record.task.investigation and record.task.investigation.report:
         paths.add(record.task.investigation.report)
-    if record.task.criteria.change:
-        paths.add(record.task.criteria.change.text)
     landing = record.landing
     if landing and landing.checked:
         paths |= {outcome.output for outcome in landing.checked.outcomes}
@@ -109,3 +109,17 @@ def test_the_records_are_the_form_this_release_writes_and_reads() -> None:
     for each in RECORDS:
         encoded = tasks.encode(each)
         assert msgspec.json.decode(encoded, type=type(each)) == each
+
+
+def test_the_overview_shows_the_two_receipts_from_the_showcase(tmp_path: Path) -> None:
+    # The two calls to receipt() in main:tests/board-showcase.py produce these PNGs.
+    state = places.state_of(lay(tmp_path))
+    media = places.task_folder(state, panel.SLUG) / "media"
+    assert panel.OVERVIEW.building
+    (shot,) = panel.OVERVIEW.building.shots
+    assert shot.before
+    names = [picture.src.rsplit("/", 1)[-1] for picture in (shot.before, shot.after)]
+    assert [sha256((media / name).read_bytes()).hexdigest() for name in names] == [
+        "f1867e74b53234dee82e893d6c5d589104f48039e0443b18c36215d5c430a92d",
+        "59e8c460fa8e186a3726fff065aa5adba44a6092ee046b7fabedecf1b7a07fb1",
+    ]

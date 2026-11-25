@@ -13,8 +13,11 @@ import msgspec
 import pytest
 
 import lem.board.inputs
+from fixtures.board import columns, frame, panel, waiting
 from lem.board.inputs.page import Page
-from lem.board.inputs.parts import Input, When
+from lem.board.inputs.parts import Chip, Input, Link, When
+from lem.board.inputs.task.panel import Missing, Panel
+from lem.board.inputs.task.steps import NotNow
 
 # The walking skeleton's kanban, which `board-views` and `board-pages` leave for `tasks.py`.
 SKELETON = "lem.board.inputs.kanban"
@@ -118,3 +121,64 @@ def test_an_input_refuses_a_key_it_does_not_know_and_a_fact_it_lacks() -> None:
         msgspec.json.decode(b'{"at":"2026-11-25T16:00:00Z"}', type=When)
     with pytest.raises(msgspec.ValidationError, match="timezone"):
         msgspec.json.decode(b'{"at":"2026-11-25T16:00:00","shown":"x"}', type=When)
+
+
+def test_the_forge_age_in_each_bar_ticks_from_the_forge_look() -> None:
+    read = frame.FRAME.statusbar.read
+    looked = When(at=read.at.replace(minute=58, hour=15), shown="2m ago", ticks="ago")
+    chip = Chip(label="checked", icon="eye", when=looked)
+    top = msgspec.structs.replace(frame.TOPBAR, chips=(chip,))
+    status = msgspec.structs.replace(
+        frame.FRAME.statusbar, forge="the board looked at GitHub", forge_when=looked
+    )
+    restored = msgspec.json.decode(
+        msgspec.json.encode(
+            msgspec.structs.replace(frame.FRAME, topbar=top, statusbar=status)
+        ),
+        type=type(frame.FRAME),
+    )
+    assert restored.topbar.chips[0].when == restored.statusbar.forge_when == looked
+    assert restored.statusbar.read == read
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {},
+        {"overview": panel.OVERVIEW},
+        {"merge": panel.MERGE, "overview": panel.OVERVIEW},
+    ],
+)
+def test_a_merge_panel_requires_its_confirm_body_or_an_explicit_refusal(
+    extra: dict[str, object],
+) -> None:
+    raw = msgspec.json.encode({"slug": panel.SLUG, "shows": "merge", **extra})
+    with pytest.raises(msgspec.ValidationError, match="panel"):
+        msgspec.json.decode(raw, type=Panel)
+
+
+def test_a_panel_keeps_an_explicit_refusal_or_missing_task() -> None:
+    back = Link(href=frame.FRAME.viewer.base, label="Back")
+    refusal = NotNow(id="merge", said="Lem merges it now", back=back)
+    missing = Missing(title="A task", said="No task has this name", back=back.href)
+    for expected in (
+        Panel(slug=panel.SLUG, shows="merge", not_now=refusal),
+        Panel(slug=panel.SLUG, shows="merge", missing=missing),
+    ):
+        assert (
+            msgspec.json.decode(msgspec.json.encode(expected), type=Panel) == expected
+        )
+
+
+@pytest.mark.parametrize(
+    "views", [{}, {"tasks": columns.TASKS, "waits": waiting.WAITS}]
+)
+def test_a_workspace_page_requires_exactly_one_view(views: dict[str, object]) -> None:
+    raw = msgspec.json.encode({"frame": frame.FRAME, **views})
+    with pytest.raises(msgspec.ValidationError, match="view"):
+        msgspec.json.decode(raw, type=Page)
+
+
+def test_a_workspace_page_can_keep_a_panel_with_its_one_view() -> None:
+    expected = Page(frame=frame.FRAME, tasks=columns.TASKS, panel=panel.MERGE_STEP)
+    assert msgspec.json.decode(msgspec.json.encode(expected), type=Page) == expected

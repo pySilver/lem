@@ -3,26 +3,34 @@ each fact it prints agrees with the records it is made from, so that a view made
 inputs from these records draws today's board."""
 
 import hashlib
+import re
 from typing import TYPE_CHECKING
 
 import msgspec
 import pytest
 
 from fixtures.board import columns, frame, panel, shelves, waiting
-from fixtures.board.beside import BACKLOG, RECORDS, REVIEWED
+from fixtures.board.beside import BACKLOG, RECORDS, REVIEWED, lay
+from fixtures.board.held import STOCK, STOCK_BEFORE
 from fixtures.board.moments import BASE
+from lem.app.criteria.stopped import unmoved
+from lem.app.criteria.where import Here
 from lem.board.inputs.backlog import Backlog
 from lem.board.inputs.page import Frame
 from lem.board.inputs.parts import Document
 from lem.board.inputs.task.panel import Panel
 from lem.board.inputs.tasks import Tasks
 from lem.board.inputs.waits import Waits
+from lem.model.criteria import digest
+from lem.model.criteria.read import sheet_of
 from lem.records.decisions import Taken
 from lem.records.holds import BreakerHold, OwnerHold, Parked
 from lem.records.record import Record
+from lem.store import places
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from pathlib import Path
 
 BY_SLUG = {each.task.slug: each for each in RECORDS}
 RECEIPT = BY_SLUG["refund-line-on-receipt"]
@@ -156,6 +164,34 @@ def test_the_sidebar_counts_what_waits_and_the_search_finds_every_task_once() ->
     assert sorted(found) == sorted(BY_SLUG)
 
 
+def test_the_workspace_switcher_uses_the_saved_tasks_pages_fallback() -> None:
+    assert frame.FRAME.sidebar.switcher.title == "shop"
+
+
+def test_the_open_criteria_question_accepts_the_file_shown_to_the_owner(
+    tmp_path: Path,
+) -> None:
+    here = Here(workspace=places.workspace(lay(tmp_path)), slug=STOCK.task.slug)
+    raw = here.sheet.read_bytes()
+    unmoved(here, STOCK, raw, here.sheet)
+    question = next(each for each in STOCK.task.questions if each.answer is None)
+    assert question.digest == digest.shown(raw)
+    sheet = STOCK.task.criteria
+    assert sheet.size and sheet.change
+    assert sheet.digest == digest.of_tests(sheet.size, sheet.criteria)
+    assert (
+        sheet.change.before
+        == sheet.reads[0].digest
+        == digest.of_texts(
+            sheet.size,
+            sheet_of(sheet.change.text, "the criteria before the note").criteria,
+        )
+    )
+    assert STOCK.task.questions[0].digest == digest.shown(sheet.change.text.encode())
+    assert sheet.change.before == digest.of_texts(sheet.size, STOCK_BEFORE)
+    assert sheet.change.after == digest.of_texts(sheet.size, sheet.criteria)
+
+
 def test_the_status_bar_counts_every_entry_of_the_afternoons_journals() -> None:
     entries = sum(len(each.journal) for each in RECORDS)
     assert entries == frame.ENTRIES
@@ -203,6 +239,47 @@ def test_the_panel_prints_the_landing_the_decisions_and_the_criteria_of_its_reco
         waiting.MERGE.reasons,
     ):
         assert reasons and len(reasons.rows) == len(landing.proposed.reasons)
+
+
+def test_the_merge_confirm_shows_the_prefix_of_the_tip_it_submits() -> None:
+    form = panel.MERGE.confirm.form
+    assert form
+    tip = next(field.shown for field in form.fields if field.name == "tip")
+    commit = next(fact for fact in panel.MERGE.facts if fact.key == "commit")
+    # The saved showcase page prints a 12-digit prefix, with the full tip in the form.
+    assert (commit.term, commit.text, commit.mono) == ("Commit", tip[:12], True)
+
+
+def test_the_merge_confirm_shows_each_proposed_reason_and_its_links() -> None:
+    landing = RECEIPT.landing
+    reasons = panel.MERGE.reasons
+    assert landing and landing.proposed and landing.pull and reasons
+    # The saved confirm page links decision 1 and PR #44, in the first and last rows.
+    number, url = landing.pull.number, landing.pull.url
+    pull = f"#{number}"
+    last = f"request [{pull}]({url}) answers"
+    refs = [row.ref for row in reasons.rows]
+    link = refs[0]
+    assert link
+    assert (link.label, link.href, link.anchor, link.frame) == (
+        "decision 1",
+        f"{BASE}/tasks/{RECEIPT.task.slug}/criteria",
+        "dec-1",
+        True,
+    )
+    assert refs[1:] == [None, None, None]
+    assert reasons.rows[-1].detail[0].endswith(last)
+    # The proposal is plain prose. The page splits it into headings, labels and detail.
+    shown = [
+        " ".join((row.head, row.about or "", *row.detail)).replace(
+            last, f"request {pull} answers"
+        )
+        for row in reasons.rows
+    ]
+    words = re.compile(r"[\w#]+")
+    assert [words.findall(row.casefold()) for row in shown] == [
+        words.findall(reason.casefold()) for reason in landing.proposed.reasons
+    ]
 
 
 def test_a_step_of_an_act_draws_the_header_with_no_act_and_no_tab_shown() -> None:
