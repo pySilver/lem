@@ -111,6 +111,11 @@ def lem_file(folder: Path) -> str:
     return str(path)
 
 
+def searched(path: str) -> dict[str, str]:
+    """An environment whose search path is `path`, with a home of no links."""
+    return {"PATH": path, "HOME": "/nowhere"}
+
+
 def test_another_lem_first_is_named_by_its_real_path(tmp_path: Path) -> None:
     own = lem_file(tmp_path / "app" / "bin")
     old = lem_file(tmp_path / "old")
@@ -118,15 +123,16 @@ def test_another_lem_first_is_named_by_its_real_path(tmp_path: Path) -> None:
     linked.mkdir()
     (linked / "lem").symlink_to(own)
     app = str(tmp_path / "app" / "bin")
-    assert other.other_lem(f"{tmp_path / 'none'}:{app}", own) is None
-    assert other.other_lem(f"{linked}:{old}", own) is None
-    said = other.other_lem(f"{tmp_path / 'old'}:{linked}", own)
+    assert other.other_lem(searched(f"{tmp_path / 'none'}:{app}"), own) is None
+    assert other.other_lem(searched(f"{linked}:{old}"), own) is None
+    said = other.other_lem(searched(f"{tmp_path / 'old'}:{linked}"), own)
     assert said == (
         f"lem: {old} comes first on PATH, and it is not Lem's command {own}; the owner "
         f"puts {linked} before {tmp_path / 'old'} in his PATH"
     )
     assert (
-        other.other_lem(f"{tmp_path / 'old'}", str(tmp_path / "gone" / "lem")) is None
+        other.other_lem(searched(f"{tmp_path / 'old'}"), str(tmp_path / "gone" / "lem"))
+        is None
     )
 
 
@@ -283,5 +289,45 @@ def test_a_hard_link_of_the_apps_command_is_the_app(tmp_path: Path) -> None:
     (tmp_path / "hard").mkdir()
     (tmp_path / "hard" / "lem").hardlink_to(own)
     assert other.same(str(tmp_path / "hard" / "lem"), own)
-    assert other.other_lem(f"{tmp_path / 'hard'}", own) is None
+    assert other.other_lem(searched(f"{tmp_path / 'hard'}"), own) is None
     assert other.same(own, str(tmp_path / "gone")) is False
+
+
+def test_a_homebrew_keg_is_named_by_the_folder_homebrew_links_it_into(
+    tmp_path: Path,
+) -> None:
+    keg = tmp_path / "brew" / "Cellar" / "lem" / "1.0.0" / "libexec" / "bin"
+    own = lem_file(keg)
+    old = lem_file(tmp_path / "old")
+    brew = tmp_path / "brew" / "bin"
+    unlinked = other.other_lem(searched(f"{tmp_path / 'old'}:/usr/bin"), own)
+    assert unlinked == (
+        f"lem: {old} comes first on PATH, and it is not Lem's command {own}; the owner runs "
+        f"`brew link lem` and puts {brew} before {tmp_path / 'old'} in his PATH"
+    )
+    brew.mkdir()
+    (brew / "lem").symlink_to("../Cellar/lem/1.0.0/libexec/bin/lem")
+    linked = other.other_lem(searched(f"{tmp_path / 'old'}:/usr/bin"), own)
+    assert linked == (
+        f"lem: {old} comes first on PATH, and it is not Lem's command {own}; the owner puts "
+        f"{brew} before {tmp_path / 'old'} in his PATH"
+    )
+    assert str(keg) not in (linked or "").rpartition("owner")[2]
+
+
+def test_a_tool_of_uv_is_named_by_the_folder_uv_links_it_into(tmp_path: Path) -> None:
+    own = lem_file(tmp_path / "uv" / "tools" / "lem" / "bin")
+    old = lem_file(tmp_path / "old")
+    links = tmp_path / "home" / ".local" / "bin"
+    links.mkdir(parents=True)
+    (links / "lem").symlink_to(own)
+    environ = {"PATH": str(tmp_path / "old"), "HOME": str(tmp_path / "home")}
+    assert other.other_lem(environ, own) == (
+        f"lem: {old} comes first on PATH, and it is not Lem's command {own}; the owner puts "
+        f"{links} before {tmp_path / 'old'} in his PATH"
+    )
+    environ["XDG_BIN_HOME"] = str(tmp_path / "elsewhere")
+    assert other.other_lem(environ, own) == (
+        f"lem: {old} comes first on PATH, and it is not Lem's command {own}; the owner puts "
+        f"{tmp_path / 'uv' / 'tools' / 'lem' / 'bin'} before {tmp_path / 'old'} in his PATH"
+    )
