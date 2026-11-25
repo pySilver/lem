@@ -36,7 +36,7 @@ class Past(Frozen, frozen=True, kw_only=True):
     taken_over_by: int | None = None
 
 
-class Changes(Frozen, frozen=True, kw_only=True):
+class Changes(Frozen, frozen=True, kw_only=True, omit_defaults=False):
     """The approvals, the changes of the newest one in order, every change with what took it
     over, and the expected criteria (None with no approval)."""
 

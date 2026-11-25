@@ -30,7 +30,7 @@ class Ended(Frozen, frozen=True, kw_only=True):
     says: str
 
 
-class Pending(Frozen, frozen=True, kw_only=True):
+class Pending(Frozen, frozen=True, kw_only=True, omit_defaults=False):
     """The breakers that wait, those of parked tasks, and the tasks that ended."""
 
     waiting: tuple[Waits, ...] = ()
