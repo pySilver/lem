@@ -5,13 +5,14 @@ and each verb is a leaf module of its own. A leaf's outcome is printed as the en
 (`output.py`): exit 0 done, 1 a refusal, 2 a wrong call (Click's own, on standard error), 3 a
 fault, whose traceback goes to `lem.log` (`faults.py`, loaded only on a fault). `help` and
 `version` print text and JSON of their own, with no envelope; `lem` alone is `lem help`.
+`lem --repo PATH NOUN ...` runs a command for the folder PATH (`place.py`).
 """
 
 import importlib
 
 import click
 
-from lem.cli import nouns, output
+from lem.cli import nouns, output, place
 from lem.cli.group import LazyGroup
 from lem.kernel.errors import Fault, Refusal
 
@@ -24,6 +25,7 @@ ROOT = LazyGroup(
     "lem",
     "Lem coordinates the agents that write code in one repository.",
     (*nouns.NOUNS, *OWN),
+    options=[place.OPTION],
 )
 
 

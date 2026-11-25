@@ -249,6 +249,44 @@ def test_an_outcome_is_printed_in_the_envelope_with_exit_0(
     assert called(capsys, "land", "next", "x") == (0, '{"ok":true}\n', "")
 
 
+def test_repo_before_the_noun_reaches_the_leaf_and_after_it_is_a_wrong_call(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from lem.cli import place
+    from lem.cli.land import next as due
+
+    monkeypatch.setattr(due, "run", lambda call: str(place.folder()))
+    named = called(capsys, "--repo", str(tmp_path), "land", "next", "x")
+    assert named == (
+        0,
+        json.dumps(
+            {"ok": True, "result": str(tmp_path.resolve())}, separators=(",", ":")
+        )
+        + "\n",
+        "",
+    )
+    monkeypatch.chdir(tmp_path)
+    assert json.loads(called(capsys, "land", "next", "x")[1])["result"] == str(
+        Path.cwd()
+    )
+    for argv in (
+        ("land", "next", "x", "--repo", str(tmp_path)),
+        ("land", "--repo", str(tmp_path), "next", "x"),
+        ("--repo", str(tmp_path / "gone"), "land", "next", "x"),
+    ):
+        code, out, err = called(capsys, *argv)
+        assert (code, out) == (2, ""), argv
+        assert err.startswith("Usage: lem"), argv
+
+
+def test_repo_is_shown_once_at_the_root(capsys: pytest.CaptureFixture[str]) -> None:
+    assert "--repo" in called(capsys, "help")[1]
+    assert "--repo" not in called(capsys, "land", "--help")[1]
+    assert "--repo" not in called(capsys, "land", "start", "--help")[1]
+
+
 def test_lem_version_prints_root_version_and_commit_as_json(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

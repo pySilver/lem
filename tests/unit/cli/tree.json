@@ -6,6 +6,11 @@
       ],
       "value": false,
       "required": false
+    },
+    "--repo": {
+      "aliases": [],
+      "value": true,
+      "required": false
     }
   },
   "positionals": [],

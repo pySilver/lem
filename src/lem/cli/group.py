@@ -5,10 +5,14 @@ a module when the parser reaches its name, so a call loads one leaf and the tabl
 """
 
 import importlib
+from typing import TYPE_CHECKING
 
 import click
 
 from lem.kernel.errors import Fault
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 # A table of the tree: each name with the dotted path of the module that holds its `COMMAND`.
 type Table = tuple[tuple[str, str], ...]
@@ -28,10 +32,12 @@ class LazyGroup(click.Group):
         table: Table,
         *,
         default: str | None = None,
+        options: Sequence[click.Parameter] = (),
     ) -> None:
-        """Keep the table, and the verb a call with no verb takes."""
+        """Keep the table, the verb a call with no verb takes, and the group's own options."""
         super().__init__(
             name,
+            params=list(options),
             help=about,
             context_settings={"help_option_names": ["-h", "--help"]},
         )

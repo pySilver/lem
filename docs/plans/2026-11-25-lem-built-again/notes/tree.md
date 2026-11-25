@@ -28,7 +28,15 @@ What `tree` needs in files it does not own, and the two local seams it built unt
    on standard output, exit 0 (as on `main`). Once `tree` is merged that case fails; it wants
    `lem` alone to exit 0 with `Usage: lem` on standard output, or a call such as
    `lem land start x` (exit 1, a `not-built` envelope). `tests/unit/cli/test_tree.py` holds both.
-5. No new dependency and no gate setting: Click and msgspec are enough for the tree.
+5. **The workspace of a call.** `lem --repo PATH NOUN ...` is one option of the root, before
+   the noun; a folder that does not exist is a wrong call (exit 2). `cli/place.py`'s `folder()`
+   gives the folder the call names, resolved, else the working directory, and nothing more: a
+   leaf's `run` reads it with no word of its own in `Call`. `core`, or the step that first reads
+   the workspace (`settings`, `store/`), gives the function that turns that folder into the
+   workspace: the main checkout (from a task's worktree too) and its `.lem/`, with a refusal that
+   names the fix when the folder is in no repository. Every leaf then calls
+   `that_function(place.folder())`, never `Path.cwd()`.
+6. No new dependency and no gate setting: Click and msgspec are enough for the tree.
 
 ## For the steps that fill a leaf
 

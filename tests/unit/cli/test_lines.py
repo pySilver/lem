@@ -91,6 +91,10 @@ def test_a_comment_a_redirection_and_a_heredoc_are_not_read() -> None:
 
 
 def test_an_option_belongs_to_the_level_it_stands_at() -> None:
+    assert wrong("lem --repo WORKTREE land base SLUG") == []
+    assert "`lem land` takes no option --repo" in wrong(
+        "lem land --repo WORKTREE base SLUG"
+    )
     assert wrong("lem task show SLUG --repo WORKTREE") == [
         "`lem task show` takes no option --repo"
     ]
