@@ -65,13 +65,19 @@ def keys() -> tuple[str, ...]:
     )
 
 
+def held(tables: Tables, name: str) -> dict[str, str]:
+    """Each `table.key` one file holds, and the file's name."""
+    found: dict[str, str] = {}
+    for table, body in tables.items():
+        keys_held = body if isinstance(body, dict) else {}
+        dotted = (f"{table}.{key}" for key in keys_held)
+        found.update(dict.fromkeys(dotted, name))
+    return found
+
+
 def sources(files: Sequence[Named]) -> dict[str, str]:
     """Each `table.key` in force and the name of the file it comes from, or Lem's default."""
-    held = {
-        f"{table}.{key}": name
-        for tables, name in reversed(files)
-        for table, body in tables.items()
-        if isinstance(body, dict)
-        for key in body
-    }
-    return dict.fromkeys(keys(), places.DEFAULT) | held
+    found = dict.fromkeys(keys(), places.DEFAULT)
+    for tables, name in reversed(files):
+        found.update(held(tables, name))
+    return found

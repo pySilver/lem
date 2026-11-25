@@ -7,13 +7,26 @@ it; the question page's defaults are the developer's. A value that more than one
 comes from the nearest file that holds it, in the order of NEAREST, else Lem's default.
 """
 
+import enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-type File = Literal["machine", "home", "team", "local"]
+
+class Scope(enum.StrEnum):
+    """One of the four files: this machine's, the developer's for every repository, the
+    team's, and the developer's for one repository."""
+
+    machine = enum.auto()
+    home = enum.auto()
+    team = enum.auto()
+    local = enum.auto()
+
+
+type Scopes = tuple[Scope, ...]
+type Valid = tuple[tuple[str, Scopes], ...]
 
 LEM = Path(".lem")
 TEAM = LEM / "settings.toml"
@@ -24,35 +37,37 @@ MACHINE = "machine.toml"
 # Where a value no file names comes from.
 DEFAULT = "Lem's default"
 # The first file that holds a key gives its value.
-NEAREST: tuple[File, ...] = ("local", "team", "home", "machine")
+NEAREST: Scopes = (Scope.local, Scope.team, Scope.home, Scope.machine)
 # The order in which a refusal names the files where a table is valid.
-ORDER: tuple[File, ...] = ("machine", "home", "team", "local")
+ORDER: Scopes = tuple(Scope)
+# The files of a repository, read only in one.
+REPOSITORY: Scopes = (Scope.team, Scope.local)
+MACHINE_ONLY: Scopes = (Scope.machine,)
+TEAM_ONLY: Scopes = (Scope.team,)
 # Each table, and the files where it is valid.
-TABLES: tuple[tuple[str, tuple[File, ...]], ...] = (
-    ("load", ("machine",)),
-    ("serve", ("machine",)),
-    ("peers", ("machine",)),
-    ("handoff", ("machine",)),
-    ("corrections", ("machine",)),
-    ("seats", ("home", "team", "local")),
-    ("ask", ("home",)),
-    ("flow", ("team",)),
-    ("checks", ("team",)),
-    ("branch", ("team",)),
-    ("paths", ("team",)),
-    ("tracker", ("team",)),
-    ("jev", ("team",)),
-    ("naps", ("team", "local")),
-    ("state", ("team", "local")),
+TABLES: Valid = (
+    ("load", MACHINE_ONLY),
+    ("serve", MACHINE_ONLY),
+    ("peers", MACHINE_ONLY),
+    ("handoff", MACHINE_ONLY),
+    ("corrections", MACHINE_ONLY),
+    ("seats", (Scope.home, *REPOSITORY)),
+    ("ask", (Scope.home,)),
+    ("flow", TEAM_ONLY),
+    ("checks", TEAM_ONLY),
+    ("branch", TEAM_ONLY),
+    ("paths", TEAM_ONLY),
+    ("tracker", TEAM_ONLY),
+    ("jev", TEAM_ONLY),
+    ("naps", REPOSITORY),
+    ("state", REPOSITORY),
 )
 NAMES = tuple(table for table, _ in TABLES)
-# The tables valid in the team's file only: what guards the project.
-TEAM_ONLY = tuple(table for table, files in TABLES if files == ("team",))
 
 
-def valid(table: str) -> tuple[File, ...]:
+def valid(table: str) -> Scopes:
     """The files where `table` may stand; none for a table Lem does not know."""
-    return next((files for name, files in TABLES if name == table), ())
+    return next((scopes for name, scopes in TABLES if name == table), ())
 
 
 def shown(path: Path, environ: Mapping[str, str]) -> str:
@@ -60,15 +75,20 @@ def shown(path: Path, environ: Mapping[str, str]) -> str:
     any other path as it is."""
     user = environ.get("HOME")
     if user and path.is_relative_to(user):
-        return f"~/{path.relative_to(user).as_posix()}"
+        relative = path.relative_to(user).as_posix()
+        return f"~/{relative}"
     return str(path)
 
 
-def named(file: File, home: Path, environ: Mapping[str, str]) -> str:
-    """The name of one of the four files, as a refusal and `from` give it; `home` is Lem's
-    home folder."""
-    if file == "team":
-        return TEAM.as_posix()
-    if file == "local":
-        return LOCAL.as_posix()
-    return shown(home / (MACHINE if file == "machine" else HOME), environ)
+def path_of(scope: Scope, home: Path) -> Path:
+    """The path of one file: a repository's relative to its checkout, the others in Lem's
+    home folder `home`."""
+    if scope in REPOSITORY:
+        return TEAM if scope == Scope.team else LOCAL
+    name = MACHINE if scope == Scope.machine else HOME
+    return home / name
+
+
+def named(scope: Scope, home: Path, environ: Mapping[str, str]) -> str:
+    """The name of one of the four files, as a refusal and `from` give it."""
+    return shown(path_of(scope, home), environ)

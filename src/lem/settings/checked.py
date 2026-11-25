@@ -1,6 +1,6 @@
 """The rules of a settings value that its type alone does not hold: a path stays inside the
 checkout, a plan's file name holds its slug once, the base is not protected, the compaction
-number is one Claude Code takes, and every seat reads by the rule of its seat.
+number is one Claude Code takes.
 """
 
 import re
@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
-from lem.settings import seats
 
 if TYPE_CHECKING:
     from lem.settings.machine import Handoff
@@ -89,16 +88,3 @@ def handoff(given: Handoff, name: str, floor: int) -> None:
             f"is under {floor}, which Claude Code refuses",
             f"write 0 for Claude Code's own trigger, or {floor} or more",
         )
-
-
-def seated(raw: dict[str, object], name: str) -> None:
-    """Refuse a seat of `[seats]` as one file writes it that does not read by its rule; a
-    file that names none passes."""
-    for key, line in raw.items():
-        listed = line if isinstance(line, list) else [line]
-        for number, one in enumerate(listed):
-            if isinstance(one, str) and key in seats.NAMES:
-                where = f"{name}: seats.{key}" + (
-                    f"[{number}]" if key == "experts" else ""
-                )
-                seats.parsed(one, key, where)

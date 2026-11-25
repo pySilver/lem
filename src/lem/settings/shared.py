@@ -18,10 +18,12 @@ SEAT = "claude/opus:high"
 EXPERTS = ("claude/fable:high", "codex/gpt-6.2-astra:high")
 KEEP_DAYS = 30
 
+type Days = Annotated[int, msgspec.Meta(ge=1)]
 type Experts = Annotated[tuple[Words, ...], msgspec.Meta(min_length=1, max_length=2)]
 type Fallback = Words | Literal[False]
 type Style = Literal["refined", "minimal", "bold", "terminal"]
 type Review = Literal["auto", "always", "never"] | bool
+type Statuses = dict[Literal["asking", "answered"], tuple[Words, ...]]
 
 
 class Seats(Table, frozen=True, kw_only=True):
@@ -97,7 +99,7 @@ class Ask(Table, frozen=True, kw_only=True):
         False
     )
     status: Annotated[
-        dict[Literal["asking", "answered"], tuple[Words, ...]],
+        Statuses,
         msgspec.Meta(
             description='ask.status: {asking = ["blocked"], answered = ["active"]}'
         ),

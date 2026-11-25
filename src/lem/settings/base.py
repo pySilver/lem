@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 REF = "ref: refs/heads/"
 ORIGIN = "ref: refs/remotes/origin/"
+OWN = places.TEAM.as_posix()
 
 
 def symbolic(path: Path, prefix: str) -> str | None:
@@ -38,9 +39,10 @@ def symbolic(path: Path, prefix: str) -> str | None:
 def named_base(body: bytes | None) -> str | None:
     """The `branch.base` a text of the team's file names; None when it names none or does
     not read, which the load refuses itself."""
+    text = (body or b"").decode("utf-8", errors="replace")
     try:
-        branch = tomllib.loads((body or b"").decode("utf-8")).get("branch", {})
-    except tomllib.TOMLDecodeError, UnicodeDecodeError:
+        branch = tomllib.loads(text).get("branch", {})
+    except tomllib.TOMLDecodeError:
         return None
     base = branch.get("base") if isinstance(branch, dict) else None
     return base if isinstance(base, str) and base.strip() else None
@@ -59,14 +61,20 @@ def team_text(checkout: Path, git: GitPlaces | None = None) -> tuple[bytes | Non
     its name for a message: `.lem/settings.toml`, or `BASE:.lem/settings.toml`."""
     path = checkout / places.TEAM
     working = path.read_bytes() if path.is_file() else None
-    own = places.TEAM.as_posix()
-    head = symbolic(checkout / ".git" / "HEAD", REF)
     candidates = bases(checkout, working)
-    if not candidates or head in candidates:
-        return working, own
+    if not candidates or symbolic(checkout / ".git" / "HEAD", REF) in candidates:
+        return working, OWN
+    return committed(checkout, candidates, git) or (working, OWN)
+
+
+def committed(
+    checkout: Path, candidates: tuple[str, ...], git: GitPlaces | None
+) -> tuple[bytes, str] | None:
+    """The team's file as the first of `candidates` that holds it has it, and its name;
+    None when none does."""
     shown = git or GitCli(environ=os.environ)
     for branch in candidates:
-        body = shown.show(checkout, f"refs/heads/{branch}", own)
+        body = shown.show(checkout, f"refs/heads/{branch}", OWN)
         if body is not None:
-            return body, f"{branch}:{own}"
-    return working, own
+            return body, f"{branch}:{OWN}"
+    return None

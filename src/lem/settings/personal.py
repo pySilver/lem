@@ -11,7 +11,7 @@ from typing import Annotated, Literal
 
 import msgspec
 
-from lem.settings.shared import Ask, Seats
+from lem.settings.shared import Ask, Days, Seats
 from lem.settings.table import Table
 
 
@@ -30,10 +30,8 @@ class LocalState(Table, frozen=True, kw_only=True):
     """`[state]` of the local file: this machine's own days."""
 
     keep_days: Annotated[
-        int | None,
-        msgspec.Meta(
-            ge=1, description="state.keep_days: a whole number of days, 1 or more"
-        ),
+        Days | None,
+        msgspec.Meta(description="state.keep_days: a whole number of days, 1 or more"),
     ] = None
 
 
