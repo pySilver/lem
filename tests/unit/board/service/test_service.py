@@ -4,9 +4,11 @@ before a command, the board's cookie, the list of workspaces by hand, `lem board
 session a server leaves, and the stream's poll."""
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
@@ -15,7 +17,9 @@ import msgspec
 import pytest
 
 from fakes.records import record
+from fakes.terminal import FakeTerminal
 from lem.board import (
+    companion,
     editing,
     install,
     look,
@@ -28,14 +32,17 @@ from lem.board import (
     tailscale,
     workspaces,
 )
+from lem.board import counts as counts_module
 from lem.cli.board.command import Call, checked
 from lem.kernel.errors import Refusal
+from lem.ports.terminal import Pane
 from lem.store import places, tasks
 from unit.board.service import tailscale_stand_in as stand_in
 from unit.board.service.given import workspace_at
 
 if TYPE_CHECKING:
     from lem.board.facts import Install
+from lem.board.counts import Counts
 
 
 def test_the_tailnet_name_is_the_address_and_the_short_host_name_its_alias(
@@ -317,3 +324,52 @@ def test_the_stream_polls_the_files_the_pages_read_beside_the_records(
     }[which]
     told = anyio.run(first_refresh, state, home, change)
     assert told == stream.version(state)
+
+
+def test_a_page_of_lem_to_read_opens_as_a_companion_of_the_session_never_over_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    terminal = FakeTerminal(panes={"S1": Pane(id="S1", name="task")}, caller="S1")
+    monkeypatch.setattr(
+        companion.wiring, "bound", lambda place: SimpleNamespace(terminal=terminal)
+    )
+    page = tmp_path / "handover.html"
+    page.write_text("<p>read me</p>")
+    opened = companion.page_opened(tmp_path, str(page), None)
+    assert (opened.name, opened.beside) == ("handover", "S1")
+    assert terminal.shown == [("S1", page.as_uri(), "companion")]
+    text = tmp_path / "notes.md"
+    text.write_text("# notes")
+    with pytest.raises(Refusal):
+        companion.page_opened(tmp_path, str(text), None)
+    terminal.caller = None
+    with pytest.raises(Refusal) as refused:
+        companion.page_opened(tmp_path, str(page), "Hand-over")
+    assert refused.value.code == "no-session"
+
+
+def test_a_workspaces_counts_are_kept_a_while_and_counted_now_for_its_own_page(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "home"
+    checkout = workspace_at(tmp_path / "shop")
+    workspaces.noted(home, checkout)
+    state = places.state_of(checkout)
+    counts = Counts()
+    [first] = counts.rows(home, "studio")
+    assert first.building == 0
+    tasks.create(state, record("fix-the-login", status="building"))
+    [kept] = counts.rows(home, "studio")
+    assert kept.building == 0
+    [fresh] = counts.rows(home, "studio", fresh="shop")
+    assert fresh.building == 1
+    clock = iter([10_000.0, 10_000.0])
+    monkeypatch.setattr(counts_module.time, "monotonic", lambda: next(clock))
+    shutil.rmtree(checkout / ".lem")
+    assert counts.rows(home, "studio") == ()
+
+
+def test_a_quiet_stream_sends_a_ping_of_its_own_that_turbo_does_not_render() -> None:
+    ping = stream.pinged()
+    assert (ping.event, ping.data) == ("ping", "ping")
+    assert stream.refresh("v1").event is None

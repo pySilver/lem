@@ -204,6 +204,7 @@ def test_what_the_worker_shows_before_any_push_is_the_fixed_line(board: Board) -
     assert board.main().get("/api/push/latest").json()["body"] == (
         "Something waits for you in Lem"
     )
+    assert board.main().head("/api/push/latest").status_code == 200
 
 
 def test_a_device_its_service_no_longer_knows_goes_and_the_token_is_used_again(
