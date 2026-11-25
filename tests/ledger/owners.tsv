@@ -517,11 +517,11 @@ check:tests/lem-serial.sh:a-red-gate-command-leaves-the-serial-command-1d4cee46f
 check:tests/lem-serial.sh:a-run-that-is-stopped-ends-its-command-with-0c7150d652c0569c	land-checks
 check:tests/lem-serial.sh:a-stale-lock-file-of-a-dead-process-does-not-9a59a233aa0f9402	land-checks
 check:tests/lem-serial.sh:a-stop-of-the-check-of-the-criteria-during-a-313c325de20d18ac	land-checks
-check:tests/lem-serial.sh:a-task-s-new-worktree-gets-checks-setup-one-c87187177cd29b61	land-checks
+check:tests/lem-serial.sh:a-task-s-new-worktree-gets-checks-setup-one-c87187177cd29b61	task
 check:tests/lem-serial.sh:serial-passes-the-command-s-exit-status-thro-dfeeeef16fadc7e8	land-checks
 check:tests/lem-serial.sh:the-check-of-the-criteria-runs-a-test-whose-fe17b1e458c858b7	land-checks
 check:tests/lem-serial.sh:the-checks-run-each-checks-serial-command-af-148435fe1f1f70ab	land-checks
-check:tests/lem-serial.sh:this-repository-s-own-checks-setup-gives-a-t-40d811a6cfd20b89	land-checks
+check:tests/lem-serial.sh:this-repository-s-own-checks-setup-gives-a-t-40d811a6cfd20b89	task
 check:tests/lem-serial.sh:two-runs-at-one-moment-take-turns-the-second-7bdc282924a5939a	land-checks
 check:tests/lem-serve.sh:a-back-gesture-from-a-task-s-criteria-tab-to-bc77fd75f3553a05	board-service
 check:tests/lem-serve.sh:a-breaker-is-one-row-of-waits-for-you-its-do-0fac0d6a6b5e2d8a	board-service
@@ -1094,9 +1094,9 @@ path:owner-merge-refused-for-the-base	land-merge
 path:push-recorded-first	land-propose
 path:rebase-refused-by-git	land-base
 path:recovery	land-base
-path:red-base	land-checks
+path:red-base	land-text
 path:relands	land-base
-path:repair-limit	land-checks
+path:repair-limit	land-text
 path:retarget-after-the-locked-read	land-merge
 path:retarget-before-the-read	land-merge
 path:stale-tap	land-merge
@@ -1301,7 +1301,7 @@ refusal:step_lock:the-checks-of-slug-run-when-and-their-end-co-02e83b578737b735	
 refusal:step_lock:the-step-lock-path-cannot-be-opened-error-st-ae7e636d44cca621	core
 refusal:task_file:path-is-not-a-file-flag-names-a-file-by-its-c39509a3ecc2e8d0	land-review
 refusal:task_file:path-is-not-a-file-in-the-working-directory-ce99925e12bdcf2d	land-review
-refusal:tasks_of:the-task-s-plan-has-no-tasks-section-with-nu-6659c5cb144e22e1	land-checks
+refusal:tasks_of:the-task-s-plan-has-no-tasks-section-with-nu-6659c5cb144e22e1	land-review
 refusal:wait_for_load:str-error-177e167f5c0481a3	land-checks
 route:GET /	board-pages
 route:GET /api/push/key	board-service
@@ -1398,7 +1398,7 @@ ruling:a-fresh-merge-agent-reads-every-proposed-tas-409a0a7b7fed3783	land-text
 ruling:a-full-change-has-one-approval-and-no-ceremo-df95495175e0f875	criteria
 ruling:a-guide-of-docs-aims-at-under-800-words-or-a-196afe5b7d8fa945	guides
 ruling:a-helper-starts-from-plain-words-5c4605127c21159a	task
-ruling:a-lowered-bar-a-new-suppression-a-skipped-or-110297d0eb925f42	land-checks
+ruling:a-lowered-bar-a-new-suppression-a-skipped-or-110297d0eb925f42	land-propose
 ruling:a-machine-failure-stops-a-task-as-blocked-wi-4ff41a52e60568a6	owner
 ruling:a-night-s-brake-with-two-or-more-of-its-pull-4046f7086b51724a	addons-flow
 ruling:a-page-for-the-owner-has-the-board-s-look-eedfe5b171a9f36d	board-views
@@ -2408,9 +2408,9 @@ unit:tests/unit/test_land.py:ExpectedTip.test_the_tip_that_was_proposed	land-mer
 unit:tests/unit/test_land.py:FailedAttempt.test_a_review_agent_that_died	land-review
 unit:tests/unit/test_land.py:FailedAttempt.test_a_review_that_answered_or_found_something_is_none	land-review
 unit:tests/unit/test_land.py:FailedAttempt.test_no_reason_is_none	land-review
-unit:tests/unit/test_land.py:FencedPlan.test_a_heading_inside_a_fence_of_a_task_ends_no_section	land-checks
+unit:tests/unit/test_land.py:FencedPlan.test_a_heading_inside_a_fence_of_a_task_ends_no_section	land-review
 unit:tests/unit/test_land.py:FencedPlan.test_a_heading_inside_a_fence_of_the_bar_ends_no_section	land-checks
-unit:tests/unit/test_land.py:FencedPlan.test_a_heading_inside_a_fence_of_the_notes_ends_no_section	land-checks
+unit:tests/unit/test_land.py:FencedPlan.test_a_heading_inside_a_fence_of_the_notes_ends_no_section	land-propose
 unit:tests/unit/test_land.py:FirstDiffer.test_the_first_pair_that_differs	land-merge
 unit:tests/unit/test_land.py:FirstDiffer.test_the_same_trees_name_no_commit	land-merge
 unit:tests/unit/test_land.py:ForgeBase.test_another_base_is_named	land-merge
@@ -2588,8 +2588,8 @@ unit:tests/unit/test_land.py:TheWait.test_a_run_behind_another_logs_the_first_an
 unit:tests/unit/test_land.py:TheWait.test_a_stop_in_the_wait_logs_the_runs_one_end_stopped	land-checks
 unit:tests/unit/test_land.py:TheWait.test_a_stop_in_the_wait_takes_the_run_out_of_the_line	land-checks
 unit:tests/unit/test_land.py:UnclosedFence.test_a_plan_s_bar	land-checks
-unit:tests/unit/test_land.py:UnclosedFence.test_a_plan_s_tasks	land-checks
-unit:tests/unit/test_land.py:UnclosedFence.test_the_notes	land-checks
+unit:tests/unit/test_land.py:UnclosedFence.test_a_plan_s_tasks	land-review
+unit:tests/unit/test_land.py:UnclosedFence.test_the_notes	land-propose
 unit:tests/unit/test_land.py:WaitsBehindSays.test_the_line_for_each_why	land-checks
 unit:tests/unit/test_land.py:WaitsBehindSays.test_the_waits_of_status_name_the_first_and_why	land-checks
 unit:tests/unit/test_land.py:WaitsBehindSays.test_two_waits_of_one_moment_say_which_is_first_in_the_line	land-checks
@@ -3302,13 +3302,13 @@ unit:tests/unit/test_task_rules.py:TypeLine.test_a_type_that_is_none_of_the_eigh
 unit:tests/unit/test_task_rules.py:TypeLine.test_a_type_with_its_reason	task
 unit:tests/unit/test_task_rules.py:TypeLine.test_a_type_without_its_reason	task
 unit:tests/unit/test_task_rules.py:TypeLine.test_each_of_the_eight_types_is_taken	task
-unit:tests/unit/test_the_bar.py:TheBar.test_each_file_that_sends_an_agent_to_a_defect_names_the_bar_of_rule_6	land-checks
-unit:tests/unit/test_the_bar.py:TheBar.test_no_other_file_of_lem_copies_a_part_of_the_bar	land-checks
-unit:tests/unit/test_the_bar.py:TheBar.test_rule_6_gives_a_defect_under_the_bar_a_file_and_cheap_no_room_for_code	land-checks
-unit:tests/unit/test_the_bar.py:TheBar.test_rule_6_keeps_a_plan_builder_to_its_list	land-checks
-unit:tests/unit/test_the_bar.py:TheBar.test_rule_6_says_its_limit_what_is_cheap_and_the_three_outcomes	land-checks
-unit:tests/unit/test_the_bar.py:TheBar.test_the_bar_is_in_rule_6_and_nowhere_else_in_the_builder	land-checks
-unit:tests/unit/test_the_bar.py:TheBar.test_the_parts_are_the_bars_own	land-checks
+unit:tests/unit/test_the_bar.py:TheBar.test_each_file_that_sends_an_agent_to_a_defect_names_the_bar_of_rule_6	land-text
+unit:tests/unit/test_the_bar.py:TheBar.test_no_other_file_of_lem_copies_a_part_of_the_bar	land-text
+unit:tests/unit/test_the_bar.py:TheBar.test_rule_6_gives_a_defect_under_the_bar_a_file_and_cheap_no_room_for_code	land-text
+unit:tests/unit/test_the_bar.py:TheBar.test_rule_6_keeps_a_plan_builder_to_its_list	land-text
+unit:tests/unit/test_the_bar.py:TheBar.test_rule_6_says_its_limit_what_is_cheap_and_the_three_outcomes	land-text
+unit:tests/unit/test_the_bar.py:TheBar.test_the_bar_is_in_rule_6_and_nowhere_else_in_the_builder	land-text
+unit:tests/unit/test_the_bar.py:TheBar.test_the_parts_are_the_bars_own	land-text
 unit:tests/unit/test_tokens.py:FirstPrompt.test_a_fork_logged_under_another_task_counts_for_the_task_its_first_prompt_names_once	sessions
 unit:tests/unit/test_tokens.py:FirstPrompt.test_a_fork_named_in_the_summary_of_an_ended_task_counts_for_the_open_task_its_first_prompt_names	sessions
 unit:tests/unit/test_tokens.py:FirstPrompt.test_a_transcript_that_is_gone_is_missing_for_its_records_task_only	sessions

@@ -1,0 +1,155 @@
+id	fate	proof	note
+check:tests/lem-serial.sh:a-red-gate-command-leaves-the-serial-command-1d4cee46f924122a	kept	journeys.landing.test_checks.test_a_red_command_leaves_the_serial_commands_out	
+check:tests/lem-serial.sh:a-run-that-is-stopped-ends-its-command-with-0c7150d652c0569c	kept	journeys.landing.test_checks.test_a_stopped_serial_run_ends_its_command_and_exits_as_the_signal_says	
+check:tests/lem-serial.sh:a-stale-lock-file-of-a-dead-process-does-not-9a59a233aa0f9402	kept	journeys.landing.test_checks.test_a_stale_lock_file_of_a_dead_process_does_not_block	
+check:tests/lem-serial.sh:a-stop-of-the-check-of-the-criteria-during-a-313c325de20d18ac	kept	journeys.landing.test_checks_red.test_a_stopped_run_ends_its_tests_removes_its_worktrees_and_frees_the_serial_lock	
+check:tests/lem-serial.sh:serial-passes-the-command-s-exit-status-thro-dfeeeef16fadc7e8	changed	journeys.landing.test_checks.test_serial_passes_the_exit_status_through_runs_one_line_in_the_shell_and_refuses_none	`lem serial -- COMMAND` (the tree has no `project` noun): exit status through, one word through the shell; a call with no command is Click's own wrong call (exit 2), a blank one is refused `serial-call`
+check:tests/lem-serial.sh:the-check-of-the-criteria-runs-a-test-whose-fe17b1e458c858b7	kept	journeys.landing.test_checks_red.test_a_serial_test_runs_under_the_serial_lock_on_the_branch_and_on_the_base	
+check:tests/lem-serial.sh:the-checks-run-each-checks-serial-command-af-148435fe1f1f70ab	changed	journeys.landing.test_checks.test_the_checks_run_each_serial_command_after_the_commands_under_the_one_lock	each command's outcome is on the record (`Checked.outcomes`, `serial` true) with its output published under checks/, not a `gate` event
+check:tests/lem-serial.sh:two-runs-at-one-moment-take-turns-the-second-7bdc282924a5939a	kept	journeys.landing.test_checks.test_two_runs_at_one_moment_take_turns_and_the_second_says_who_holds_the_lock	
+command:lem land checks	kept	journeys.landing.test_checks.test_a_stop_ends_the_command_that_runs_with_what_it_started_and_keeps_the_run_stopped	
+command:lem land polish	kept	journeys.landing.test_checks.test_the_polish_pass_keeps_its_start_and_its_run_which_the_checks_take	
+command:lem project serial	changed	journeys.landing.test_checks.test_serial_passes_the_exit_status_through_runs_one_line_in_the_shell_and_refuses_none	`lem serial -- COMMAND` (surfaces.md A); the tree has no `project` noun
+event:gate	changed	journeys.landing.test_checks.test_the_checks_run_each_serial_command_after_the_commands_under_the_one_lock	each command's end is an `Outcome` of `Checked.outcomes` and a `CommandEnd` of the run's `CheckEnd`, not an event per command
+event:gate.end	changed	journeys.landing.test_checks.test_the_checks_run_each_serial_command_after_the_commands_under_the_one_lock	each command's end is an `Outcome` of `Checked.outcomes` and a `CommandEnd` of the run's `CheckEnd`, not an event per command
+event:gate.start	changed	journeys.landing.test_checks.test_the_checks_run_each_serial_command_after_the_commands_under_the_one_lock	each command's end is an `Outcome` of `Checked.outcomes` and a `CommandEnd` of the run's `CheckEnd`, not an event per command
+event:gate.wait	changed	journeys.landing.test_checks.test_the_checks_run_each_serial_command_after_the_commands_under_the_one_lock	each command's end is an `Outcome` of `Checked.outcomes` and a `CommandEnd` of the run's `CheckEnd`, not an event per command
+event:polish	changed	journeys.landing.test_checks.test_the_polish_pass_keeps_its_start_and_its_run_which_the_checks_take	`Landing.polished` (before, after, commits, filed, run) and the polish span's end
+event:polish.start	changed	journeys.landing.test_checks.test_the_polish_pass_keeps_its_start_and_its_run_which_the_checks_take	`Landing.polished` (before, after, commits, filed, run) and the polish span's end
+event:task.red	changed	journeys.landing.test_checks_red.test_a_test_that_passes_on_the_branch_and_fails_on_the_base_holds	the run is `task.criteria.red` on the record (records/red.py), not an event
+path:fast-track-lowers-the-bar	kept	journeys.landing.test_checks.test_a_fast_track_change_that_lowers_the_bar_takes_the_standard_track	
+refusal:checks_ready:error-538d13854c089b4b	kept	journeys.landing.test_checks_red.test_a_criterion_with_neither_a_test_nor_a_reason_is_refused	
+refusal:checks_ready:lem-land-base-task-slug-comes-first-the-chec-5c4267fb57b1c361	changed	journeys.test_skeleton.test_a_fast_track_task_lands_and_each_step_is_the_due_one	the due step decides: `checks` before `base` is refused `not-due`, its fix naming `lem land base`
+refusal:checks_ready:task-slug-takes-the-standard-track-and-no-po-e6452f9f744d0d6d	changed	journeys.landing.test_checks.test_the_polish_pass_keeps_its_start_and_its_run_which_the_checks_take	the polish row is due (landing.md C 3) with this why, so `checks` is `not-due`
+refusal:checks_ready:the-checks-have-no-command-to-run-and-checks-3c713728d20050eb	changed	unit.landing.test_checks.test_no_command_holds_no_result	refused `no-checks` by `checks.decide`; `start` holds no command first (landing.md C 1)
+refusal:checks_ready:the-polish-pass-started-at-before-short-and-105d076077c316ab	changed	unit.landing.test_checks.test_no_pass_or_one_not_done_runs_the_tests	the polish row stays due with this why while the pass is not done
+refusal:checks_ready:the-tip-does-not-hold-the-polish-pass-s-last-031e675a40249f24	kept	journeys.landing.test_checks.test_checks_on_a_tip_that_lost_the_pass_give_the_pass_back	
+refusal:checks_run:a-command-of-the-checks-changed-what-git-tra-edad9c3c95834e05	kept	journeys.landing.test_checks.test_a_command_that_changes_the_tree_it_judges_is_refused[a tracked file]	
+refusal:checks_run:a-command-of-the-checks-made-a-commit-on-the-6747550b87d26e43	kept	journeys.landing.test_checks.test_a_command_that_changes_the_tree_it_judges_is_refused[a commit]	
+refusal:checks_run:a-task-on-the-fast-track-does-not-lower-the-a3da63942c94731e	kept	journeys.landing.test_checks.test_a_fast_track_change_that_lowers_the_bar_takes_the_standard_track	
+refusal:checks_run:checks_ready:the-checks-were-stopped-before-their-first-c-79c3ee4b1d2ad9ac	kept	journeys.landing.test_checks.test_status_names_a_run_that_waits_and_a_stop_there_ends_it_before_its_first_command	
+refusal:checks_run:the-change-lowers-the-bar-with-no-reason-giv-5288a69a7ff9b53c	kept	unit.landing.test_bar.test_the_standard_track_names_the_plans_section	
+refusal:checks_run:the-checks-are-red-on-len-red-command-s-fail-28503eb6599b01cb	kept	journeys.landing.test_checks.test_a_red_command_leaves_the_serial_commands_out	
+refusal:checks_run:the-checks-were-stopped-and-the-command-that-ad99a21e12c1cc3e	kept	journeys.landing.test_checks.test_a_stop_ends_the_command_that_runs_with_what_it_started_and_keeps_the_run_stopped	
+refusal:checks_run:wait_for_load:the-checks-were-stopped-before-their-first-c-79c3ee4b1d2ad9ac	kept	journeys.landing.test_checks.test_status_names_a_run_that_waits_and_a_stop_there_ends_it_before_its_first_command	
+refusal:checks_run:why-c17ef5a20cee2e07	kept	journeys.landing.test_checks_red.test_a_test_that_passes_on_the_base_too_does_not_hold	
+refusal:checks_stop:the-checks-of-task-slug-run-in-process-pid-w-a3841caada5a5da5	kept	unit.landing.test_checks.test_checks_another_user_runs_are_not_stopped	
+refusal:checks_stop:the-checks-of-task-slug-were-asked-to-stop-a-1ccede8b0eb1298d	kept	unit.landing.test_checks.test_a_run_that_does_not_end_after_its_stop_is_refused_with_the_way_on	
+refusal:cmd_polish:after-the-polish-pass-the-tests-of-the-crite-c890c275fe207b74	kept	journeys.landing.test_checks.test_a_pass_after_which_the_criteria_do_not_hold_is_refused	
+refusal:cmd_polish:lem-land-base-task-slug-comes-first-the-poli-af89414e7b73239c	changed	journeys.landing.test_checks.test_the_polish_pass_keeps_its_start_and_its_run_which_the_checks_take	the due step decides: `polish` before `base` is refused `not-due`, its fix naming the due step
+refusal:cmd_polish:no-polish-pass-started-for-this-landing-lem-4897828ed3109585	kept	journeys.landing.test_checks.test_the_polish_pass_keeps_its_start_and_its_run_which_the_checks_take	
+refusal:cmd_polish:the-branch-no-longer-holds-before-short-the-57907910adc9b029	kept	journeys.landing.test_checks.test_a_pass_that_changed_the_plan_or_rewrote_the_branch_is_refused	
+refusal:cmd_polish:the-fast-track-has-no-polish-pass-its-builde-5e0356a4aff9b92c	changed	journeys.landing.test_checks.test_the_polish_pass_keeps_its_start_and_its_run_which_the_checks_take	on the fast track the polish row is never due, so `lem land polish` is refused `not-due` naming `checks`; `polish.small` keeps the old words for a call past the due rule
+refusal:cmd_polish:the-polish-pass-changed-what-it-may-not-list-be1d216d9ff15bc4	kept	journeys.landing.test_checks.test_a_pass_that_changed_the_plan_or_rewrote_the_branch_is_refused	
+refusal:cmd_polish:the-polish-pass-of-this-landing-is-done-alre-dfd343608ee3ba8b	changed	journeys.landing.test_checks.test_the_polish_pass_keeps_its_start_and_its_run_which_the_checks_take	a done pass holds its row, so `lem land polish` is refused `not-due`; `polish.unstarted` keeps the old words
+refusal:line_join:the-line-of-the-load-gate-holds-path-for-a-r-6001d27cfd2270b1	kept	unit.landing.test_checks.test_a_second_entry_of_one_process_is_refused	
+refusal:line_wanted:str-error-177e167f5c0481a3	kept	unit.landing.test_checks.test_the_runs_own_repository_whose_state_does_not_read_refuses_the_run	
+refusal:remove_bytecode:the-checks-cannot-remove-the-ignored-path-th-994c5ae65a344914	kept	unit.landing.test_checks.test_a_folder_that_cannot_go_refuses_with_the_fix	
+refusal:stale_bytecode:git-check-ignore-failed-words-8b4780b59c50dc8d	kept	unit.landing.test_checks.test_a_git_that_fails_is_refused_in_its_words	one refusal `git` for every failed git of the tree's look, in git's words
+refusal:stale_bytecode:git-ls-files-ignored-failed-words-2e4dcd6df0e1c394	kept	unit.landing.test_checks.test_a_git_that_fails_is_refused_in_its_words	
+refusal:step_lock:the-checks-of-slug-already-run-when-a-second-e3890420b7002440	kept	unit.landing.test_checks.test_a_second_run_of_the_checks_is_refused_because_they_already_run	
+refusal:step_lock:the-checks-of-slug-run-when-and-their-end-co-02e83b578737b735	kept	unit.landing.test_checks.test_another_step_waits_for_the_end_of_the_checks	
+refusal:wait_for_load:str-error-177e167f5c0481a3	kept	unit.landing.test_checks.test_this_machines_number_is_read_and_a_wrong_one_refused	
+ruling:the-checks-remove-what-their-own-commands-le-5cb45dd6079a95db	kept	journeys.landing.test_checks.test_the_checks_remove_what_their_commands_leave	
+unit:tests/unit/test_land.py:AGoneRunLosesItsPlace.test_a_half_written_entry_with_no_holder_is_removed	kept	unit.landing.test_checks.test_a_half_written_entry_with_no_holder_is_removed	
+unit:tests/unit/test_land.py:AGoneRunLosesItsPlace.test_an_entry_whose_process_ended_is_removed_and_the_next_run_starts	kept	unit.landing.test_checks.test_an_entry_whose_process_ended_is_removed_and_the_next_run_starts	
+unit:tests/unit/test_land.py:AGoneRunLosesItsPlace.test_an_entry_whose_process_still_runs_keeps_its_place	kept	unit.landing.test_checks.test_an_entry_whose_process_still_runs_keeps_its_place	
+unit:tests/unit/test_land.py:ASecondWaitCountsFromItsStart.test_the_second_wait_goes_after_a_wait_that_began_before_it	kept	unit.landing.test_checks.test_the_second_wait_goes_after_a_wait_that_began_before_it	
+unit:tests/unit/test_land.py:Bar.test_a_coverage_threshold_that_went_down	kept	unit.landing.test_bar.test_a_coverage_threshold_that_went_down	
+unit:tests/unit/test_land.py:Bar.test_a_deleted_test_file_is_one_entry	kept	unit.landing.test_bar.test_a_deleted_test_file_is_one_entry	
+unit:tests/unit/test_land.py:Bar.test_a_document_may_quote_a_mark	kept	unit.landing.test_bar.test_a_document_may_quote_a_mark	
+unit:tests/unit/test_land.py:Bar.test_a_file_with_no_suffix_is_read_as_its_first_line_names	kept	unit.landing.test_bar.test_a_file_with_no_suffix_is_read_as_its_first_line_names	
+unit:tests/unit/test_land.py:Bar.test_a_flaky_decorator	kept	unit.landing.test_bar.test_a_flaky_decorator	
+unit:tests/unit/test_land.py:Bar.test_a_focus_mark_is_named_without_its_parenthesis	kept	unit.landing.test_bar.test_a_focus_mark_is_named_without_its_parenthesis	
+unit:tests/unit/test_land.py:Bar.test_a_line_with_many_marks_is_walked_once	kept	unit.landing.test_bar.test_a_line_with_many_marks_is_walked_once	
+unit:tests/unit/test_land.py:Bar.test_a_mark_is_named_as_far_as_its_tool_obeys_it	kept	unit.landing.test_bar.test_a_mark_is_named_as_far_as_its_tool_obeys_it[# mypy: ignore-errors-# mypy: ignore-errors]	
+unit:tests/unit/test_land.py:Bar.test_a_mark_put_beside_an_old_one_is_the_one_new_mark	kept	unit.landing.test_bar.test_a_mark_put_beside_an_old_one_is_the_one_new_mark	
+unit:tests/unit/test_land.py:Bar.test_a_method_of_a_focus_or_skip_marks_name_is_no_mark	kept	unit.landing.test_bar.test_a_method_of_a_focus_or_skip_marks_name_is_no_mark	
+unit:tests/unit/test_land.py:Bar.test_a_new_mark_in_a_string_counts_as_a_noqa_in_one	kept	unit.landing.test_bar.test_a_new_mark_in_a_string_counts_as_a_noqa_in_one	
+unit:tests/unit/test_land.py:Bar.test_a_new_suppression_lowers_the_bar	kept	unit.landing.test_bar.test_a_new_suppression_lowers_the_bar	
+unit:tests/unit/test_land.py:Bar.test_a_pyrefly_a_ty_and_a_file_wide_ruff_suppression	kept	unit.landing.test_bar.test_a_pyrefly_a_ty_and_a_file_wide_ruff_suppression	
+unit:tests/unit/test_land.py:Bar.test_a_removed_line_that_starts_with_two_dashes_is_no_header	kept	unit.landing.test_bar.test_a_removed_line_that_starts_with_two_dashes_is_no_header	
+unit:tests/unit/test_land.py:Bar.test_a_second_mark_of_one_kind_on_a_line_counts	kept	unit.landing.test_bar.test_a_second_mark_of_one_kind_on_a_line_counts	
+unit:tests/unit/test_land.py:Bar.test_a_skip_of_a_whole_module	kept	unit.landing.test_bar.test_a_skip_of_a_whole_module	
+unit:tests/unit/test_land.py:Bar.test_a_suppression_that_got_wider_is_a_new_one	kept	unit.landing.test_bar.test_a_suppression_that_got_wider_is_a_new_one	
+unit:tests/unit/test_land.py:Bar.test_a_suppression_that_only_got_a_space_is_none	kept	unit.landing.test_bar.test_a_suppression_that_only_got_a_space_is_none	
+unit:tests/unit/test_land.py:Bar.test_a_test_file_moved_out_of_the_tests	kept	unit.landing.test_bar.test_a_test_file_moved_out_of_the_tests	
+unit:tests/unit/test_land.py:Bar.test_an_added_line_that_starts_with_two_pluses_is_no_header	kept	unit.landing.test_bar.test_an_added_line_that_starts_with_two_pluses_is_no_header	
+unit:tests/unit/test_land.py:Bar.test_an_assertion_out_of_a_rust_module	kept	unit.landing.test_bar.test_an_assertion_out_of_a_rust_module	
+unit:tests/unit/test_land.py:Bar.test_an_old_mark_cancels_a_new_one_only_on_its_own_line	kept	unit.landing.test_bar.test_an_old_mark_cancels_a_new_one_only_on_its_own_line	
+unit:tests/unit/test_land.py:Bar.test_each_form_ruff_and_pyrefly_obey	kept	unit.landing.test_bar.test_each_form_ruff_and_pyrefly_obey[x = 1  # NOQA-# NOQA]	
+unit:tests/unit/test_land.py:Bar.test_fewer_assertions_in_a_test_file	kept	unit.landing.test_bar.test_fewer_assertions_in_a_test_file	
+unit:tests/unit/test_land.py:Bar.test_marks_in_a_runners_settings	kept	unit.landing.test_bar.test_marks_in_a_runners_settings	
+unit:tests/unit/test_land.py:Bar.test_the_kinds_of_file_the_bar_has_no_marks_for	kept	unit.landing.test_bar.test_the_kinds_of_file_the_bar_has_no_marks_for	
+unit:tests/unit/test_land.py:Bar.test_the_plan_gives_each_file_its_reason	kept	unit.landing.test_bar.test_the_plan_gives_each_file_its_reason	
+unit:tests/unit/test_land.py:Bar.test_the_tests_snapshots_and_settings_the_change_edits	kept	unit.landing.test_bar.test_the_tests_snapshots_and_settings_the_change_edits	
+unit:tests/unit/test_land.py:BarRefusal.test_a_reason_for_each_file_is_no_refusal	kept	unit.landing.test_bar.test_a_reason_for_each_file_is_no_refusal	
+unit:tests/unit/test_land.py:BarRefusal.test_the_fast_track_has_no_plan_and_names_the_standard_track	kept	unit.landing.test_bar.test_the_fast_track_has_no_plan_and_names_the_standard_track	
+unit:tests/unit/test_land.py:BarRefusal.test_the_standard_track_names_the_plans_section	kept	unit.landing.test_bar.test_the_standard_track_names_the_plans_section	
+unit:tests/unit/test_land.py:ChecksSay.test_a_passed_run_names_the_review	kept	unit.landing.test_checks.test_a_passed_run_names_the_review	
+unit:tests/unit/test_land.py:ChecksSay.test_a_passed_run_with_no_review_due_names_the_proposal	kept	unit.landing.test_checks.test_a_passed_run_with_no_review_due_names_the_proposal	
+unit:tests/unit/test_land.py:ChecksSay.test_a_red_run_names_each_command_and_the_repair	kept	unit.landing.test_checks.test_a_red_run_names_each_command_and_the_repair	
+unit:tests/unit/test_land.py:ChecksSay.test_a_refused_run_names_what_was_refused	kept	unit.landing.test_checks.test_a_refused_run_names_what_was_refused	
+unit:tests/unit/test_land.py:ChecksSay.test_a_stopped_run_waits_for_the_owner	kept	unit.landing.test_checks.test_a_stopped_run_waits_for_the_owner	
+unit:tests/unit/test_land.py:ChecksSay.test_another_result_is_refused	changed	unit.landing.test_checks.test_another_result_is_refused	an outcome is a typed Literal: another one is refused where a record or an entry is read (msgspec), and pyrefly holds every call
+unit:tests/unit/test_land.py:ChecksSay.test_no_line_asks_a_question	kept	unit.landing.test_checks.test_no_line_asks_a_question	
+unit:tests/unit/test_land.py:Duration.test_the_forms	kept	unit.landing.test_checks.test_the_forms	
+unit:tests/unit/test_land.py:FencedPlan.test_a_heading_inside_a_fence_of_the_bar_ends_no_section	kept	unit.landing.test_bar.test_a_heading_inside_a_fence_of_the_bar_ends_no_section	
+unit:tests/unit/test_land.py:HeldRefusal.test_a_second_run_of_the_checks_is_refused_because_they_already_run	kept	unit.landing.test_checks.test_a_second_run_of_the_checks_is_refused_because_they_already_run	
+unit:tests/unit/test_land.py:HeldRefusal.test_a_step_that_holds_the_lock_is_named	kept	unit.landing.test_checks.test_a_step_that_holds_the_lock_is_named	
+unit:tests/unit/test_land.py:HeldRefusal.test_another_step_waits_for_the_end_of_the_checks	kept	unit.landing.test_checks.test_another_step_waits_for_the_end_of_the_checks	
+unit:tests/unit/test_land.py:LastRun.test_no_passed_run_is_none	changed	unit.landing.test_checks.test_no_passed_run_is_none	the last passed run is read from the records of the workspace (its CheckEnd and the checks' span), not the event log
+unit:tests/unit/test_land.py:LastRun.test_the_newest_passed_end_of_any_task	changed	unit.landing.test_checks.test_the_newest_passed_end_of_any_task	the last passed run is read from the records of the workspace (its CheckEnd and the checks' span), not the event log
+unit:tests/unit/test_land.py:OneLineForTheMachine.test_a_landing_of_one_repository_starts_before_a_later_one_of_another	kept	unit.landing.test_checks.test_a_landing_of_one_repository_starts_before_a_later_one_of_another	
+unit:tests/unit/test_land.py:Overdue.test_a_short_last_run_is_no_measure_in_the_first_minute	kept	unit.landing.test_checks.test_a_short_last_run_is_no_measure_in_the_first_minute	
+unit:tests/unit/test_land.py:Overdue.test_more_than_three_times_is_overdue	kept	unit.landing.test_checks.test_more_than_three_times_is_overdue	
+unit:tests/unit/test_land.py:Overdue.test_the_floor_is_one_minute	kept	unit.landing.test_checks.test_the_floor_is_one_minute	
+unit:tests/unit/test_land.py:Overdue.test_the_line_says_both_lengths_and_the_stop	kept	unit.landing.test_checks.test_the_line_says_both_lengths_and_the_stop	
+unit:tests/unit/test_land.py:Overdue.test_with_no_last_run_nothing_is_overdue	kept	unit.landing.test_checks.test_with_no_last_run_nothing_is_overdue	
+unit:tests/unit/test_land.py:RemoveBytecode.test_a_folder_goes_and_a_link_inside_it_is_not_followed	kept	unit.landing.test_checks.test_a_folder_goes_and_a_link_inside_it_is_not_followed	
+unit:tests/unit/test_land.py:RemoveBytecode.test_a_folder_that_cannot_go_refuses_with_the_fix	kept	unit.landing.test_checks.test_a_folder_that_cannot_go_refuses_with_the_fix	
+unit:tests/unit/test_land.py:RemoveBytecode.test_a_folder_whose_parent_is_outside_the_worktree_stays	kept	unit.landing.test_checks.test_a_folder_whose_parent_is_outside_the_worktree_stays	
+unit:tests/unit/test_land.py:RemoveBytecode.test_a_link_or_a_file_of_that_name_stays	kept	unit.landing.test_checks.test_a_link_or_a_file_of_that_name_stays	
+unit:tests/unit/test_land.py:Resumed.test_a_passed_end_is_past_and_the_landing_goes_on_from_its_first_step	changed	unit.landing.test_checks.test_a_passed_end_is_past_and_the_landing_goes_on_from_its_first_step	the moment is written as the board writes one (`2026-11-19T10:22Z`, kernel.clock.minute)
+unit:tests/unit/test_land.py:Resumed.test_a_stopped_end_waits_for_the_owner	kept	unit.landing.test_checks.test_a_stopped_end_waits_for_the_owner	
+unit:tests/unit/test_land.py:Resumed.test_the_end_as_status_prints_it	changed	unit.landing.test_checks.test_the_end_as_status_prints_it	the end is read from the record's CheckEnd and span; its `result` is the same key
+unit:tests/unit/test_land.py:SameChecks.test_a_command_added_or_removed	changed	unit.landing.test_checks.test_a_command_added_or_removed	the checks' definitions are one digest of the commands and the serial ones (`checks.inputs`), compared by `checks.holds`
+unit:tests/unit/test_land.py:SameChecks.test_a_command_moved_to_serial	changed	unit.landing.test_checks.test_a_command_moved_to_serial	the checks' definitions are one digest of the commands and the serial ones (`checks.inputs`), compared by `checks.holds`
+unit:tests/unit/test_land.py:SameChecks.test_no_command_holds_no_result	changed	unit.landing.test_checks.test_no_command_holds_no_result	the checks' definitions are one digest of the commands and the serial ones (`checks.inputs`), compared by `checks.holds`
+unit:tests/unit/test_land.py:SameChecks.test_the_commands_that_ran	changed	unit.landing.test_checks.test_the_commands_that_ran	the checks' definitions are one digest of the commands and the serial ones (`checks.inputs`), compared by `checks.holds`
+unit:tests/unit/test_land.py:StaleBytecode.test_a_cache_at_any_depth_goes	kept	unit.landing.test_checks.test_a_cache_at_any_depth_goes	
+unit:tests/unit/test_land.py:StaleBytecode.test_a_cache_inside_an_ignored_folder_stays_with_it	kept	unit.landing.test_checks.test_a_cache_inside_an_ignored_folder_stays_with_it	
+unit:tests/unit/test_land.py:StaleBytecode.test_every_other_ignored_entry_stays	kept	unit.landing.test_checks.test_every_other_ignored_entry_stays	
+unit:tests/unit/test_land.py:StaleBytecode.test_git_paths_reach_the_removal_as_git_named_them	changed	unit.landing.test_checks.test_git_paths_reach_the_removal_as_git_named_them	proved through real git in a repository of its own, where a carriage return in a folder's name reaches the removal as it is
+unit:tests/unit/test_land.py:StaleBytecode.test_the_folders_above_are_each_proper_folder_once	kept	unit.landing.test_checks.test_the_folders_above_are_each_proper_folder_once	
+unit:tests/unit/test_land.py:TakenFromPolish.test_a_base_branch_that_moved_on_with_the_same_merge_base_changes_nothing	changed	unit.landing.test_checks.test_the_tip_the_pass_ended_on_takes_its_result_and_names_the_pass_and_its_commit	the five inputs (records.red.Inputs: tip, merge base, plan, setup, serial) are one digest; the same merge base gives the same digest, so the pass's run is taken
+unit:tests/unit/test_land.py:TakenFromPolish.test_a_commit_after_the_pass_runs_the_tests	changed	unit.landing.test_checks.test_another_plan_file_runs_the_tests	the five inputs are one digest: another tip is another digest, and the tests run
+unit:tests/unit/test_land.py:TakenFromPolish.test_a_merge_base_that_moved_under_the_same_tip_runs_the_tests	changed	unit.landing.test_checks.test_another_plan_file_runs_the_tests	the five inputs are one digest: another merge base is another digest, and the tests run
+unit:tests/unit/test_land.py:TakenFromPolish.test_a_pass_with_no_commits_runs_the_tests	kept	unit.landing.test_checks.test_a_pass_with_no_commits_runs_the_tests	
+unit:tests/unit/test_land.py:TakenFromPolish.test_a_rebased_tip_runs_the_tests_though_after_has_its_new_name	changed	unit.landing.test_checks.test_another_plan_file_runs_the_tests	the five inputs are one digest: a rebased tip is another digest, and the tests run
+unit:tests/unit/test_land.py:TakenFromPolish.test_after_decides_nothing_when_the_inputs_are_the_same	kept	unit.landing.test_checks.test_after_decides_nothing_when_the_inputs_are_the_same	
+unit:tests/unit/test_land.py:TakenFromPolish.test_another_plan_file_runs_the_tests	kept	unit.landing.test_checks.test_another_plan_file_runs_the_tests	
+unit:tests/unit/test_land.py:TakenFromPolish.test_another_serial_or_setup_runs_the_tests	changed	unit.landing.test_checks.test_another_plan_file_runs_the_tests	the five inputs are one digest: another serial or setup is another digest, and the tests run
+unit:tests/unit/test_land.py:TakenFromPolish.test_no_inputs_now_or_a_run_with_none_runs_the_tests	kept	unit.landing.test_checks.test_no_inputs_now_or_a_run_with_none_runs_the_tests	
+unit:tests/unit/test_land.py:TakenFromPolish.test_no_pass_or_one_not_done_runs_the_tests	kept	unit.landing.test_checks.test_no_pass_or_one_not_done_runs_the_tests	
+unit:tests/unit/test_land.py:TakenFromPolish.test_the_end_of_the_checks_names_the_commit_of_a_taken_result_and_nothing_for_a_run	changed	journeys.landing.test_checks.test_the_polish_pass_keeps_its_start_and_its_run_which_the_checks_take	a taken run is each `CriterionCheck.taken_at` on the record (notes/land-checks.md 2); the journey shows the checks run no test after a pass
+unit:tests/unit/test_land.py:TakenFromPolish.test_the_fast_track_runs_the_tests	kept	unit.landing.test_checks.test_the_fast_track_runs_the_tests	
+unit:tests/unit/test_land.py:TakenFromPolish.test_the_tip_the_pass_ended_on_takes_its_result_and_names_the_pass_and_its_commit	kept	unit.landing.test_checks.test_the_tip_the_pass_ended_on_takes_its_result_and_names_the_pass_and_its_commit	
+unit:tests/unit/test_land.py:TheLoadStillDecides.test_alone_under_the_number_a_run_starts_at_its_first_look	kept	unit.landing.test_checks.test_alone_under_the_number_a_run_starts_at_its_first_look	
+unit:tests/unit/test_land.py:TheLoadStillDecides.test_the_first_in_the_line_does_not_start_while_the_load_is_above_the_number	kept	unit.landing.test_checks.test_the_first_in_the_line_does_not_start_while_the_load_is_above_the_number	
+unit:tests/unit/test_land.py:TheLoadStillDecides.test_the_next_start_comes_a_minute_after_the_one_before	kept	unit.landing.test_checks.test_the_next_start_comes_a_minute_after_the_one_before	
+unit:tests/unit/test_land.py:TheLongestWaitStartsFirst.test_the_order_puts_the_wait_that_began_first_first	kept	unit.landing.test_checks.test_the_order_puts_the_wait_that_began_first_first	
+unit:tests/unit/test_land.py:TheLongestWaitStartsFirst.test_the_run_that_looks_first_waits_behind_the_longer_wait	kept	unit.landing.test_checks.test_the_run_that_looks_first_waits_behind_the_longer_wait	
+unit:tests/unit/test_land.py:TheWait.test_a_run_behind_another_logs_the_first_and_why_then_starts_when_it_left	changed	unit.landing.test_checks.test_a_run_behind_another_logs_the_first_and_why_then_starts_when_it_left	the wait is a CheckWait in the journal and checks-wait.json (notes/land-checks.md 1), not a `gate.wait` event
+unit:tests/unit/test_land.py:TheWait.test_a_stop_in_the_wait_logs_the_runs_one_end_stopped	changed	journeys.landing.test_checks.test_status_names_a_run_that_waits_and_a_stop_there_ends_it_before_its_first_command	a stop at the gate is the run's one CheckEnd `stopped`, in a real child stopped by `--stop`
+unit:tests/unit/test_land.py:TheWait.test_a_stop_in_the_wait_takes_the_run_out_of_the_line	kept	unit.landing.test_checks.test_a_stop_in_the_wait_takes_the_run_out_of_the_line	
+unit:tests/unit/test_land.py:UnclosedFence.test_a_plan_s_bar	kept	unit.landing.test_bar.test_a_plan_s_bar[```markdown\n## Notes\n\n1. a line of the sample\n-0]	
+unit:tests/unit/test_land.py:WaitsBehindSays.test_the_line_for_each_why	kept	unit.landing.test_checks.test_the_line_for_each_why	
+unit:tests/unit/test_land.py:WaitsBehindSays.test_the_waits_of_status_name_the_first_and_why	kept	unit.landing.test_checks.test_the_waits_of_status_name_the_first_and_why	
+unit:tests/unit/test_land.py:WaitsBehindSays.test_two_waits_of_one_moment_say_which_is_first_in_the_line	kept	unit.landing.test_checks.test_two_waits_of_one_moment_say_which_is_first_in_the_line	
+unit:tests/unit/test_land.py:WantedGoesFirst.test_a_task_queued_after_the_entries_were_made_counts_at_the_next_look	kept	unit.landing.test_checks.test_a_task_queued_after_the_entries_were_made_counts_at_the_next_look	
+unit:tests/unit/test_land.py:WantedGoesFirst.test_another_repository_whose_state_does_not_read_counts_as_wanted_by_no_task	kept	unit.landing.test_checks.test_another_repository_whose_state_does_not_read_counts_as_wanted_by_no_task	
+unit:tests/unit/test_land.py:WantedGoesFirst.test_the_order_puts_a_wanted_landing_before_a_longer_wait	kept	unit.landing.test_checks.test_the_order_puts_a_wanted_landing_before_a_longer_wait	
+unit:tests/unit/test_land.py:WantedGoesFirst.test_the_repair_of_a_red_base_starts_before_the_longest_wait	kept	unit.landing.test_checks.test_the_repair_of_a_red_base_starts_before_the_longest_wait	
+unit:tests/unit/test_land.py:WantedGoesFirst.test_the_runs_own_repository_whose_state_does_not_read_refuses_the_run	kept	unit.landing.test_checks.test_the_runs_own_repository_whose_state_does_not_read_refuses_the_run	
+unit:tests/unit/test_land.py:WantedGoesFirst.test_the_tasks_waited_for_are_read_from_queued_and_red_base_blocks	kept	unit.landing.test_checks.test_the_tasks_waited_for_are_read_from_queued_and_red_base_blocks	
