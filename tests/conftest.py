@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from lem.store.guard import TEST_ROOT
 from levels import LEVELS
 
 if TYPE_CHECKING:
@@ -38,8 +39,9 @@ CLEARED_NAMES = ("PYTHONPATH", "CLAUDE_PLUGIN_ROOT", "CLAUDE_ENV_FILE")
 
 
 def isolate(config: pytest.Config, root: Path | None) -> None:
-    """Point HOME, XDG_CONFIG_HOME and TMPDIR into `root`, turn the board server off, and clear
-    what the caller's shell would leak into a test."""
+    """Point HOME, XDG_CONFIG_HOME and TMPDIR into `root`, turn the board server off, start in
+    a folder of `root` that is in no repository, name `root` as the one place a test may hold a
+    workspace, and clear what the caller's shell would leak into a test."""
     stack = ExitStack()
     config.add_cleanup(stack.close)
     if root is None:
@@ -47,6 +49,9 @@ def isolate(config: pytest.Config, root: Path | None) -> None:
             stack.enter_context(tempfile.TemporaryDirectory(prefix="lem-test-"))
         )
     patch = stack.enter_context(pytest.MonkeyPatch.context())
+    # An xdist worker keeps the root of the run, under which its own root and every case's
+    # tmp_path are.
+    run_root = os.environ.get(TEST_ROOT) if hasattr(config, "workerinput") else None
     for name in tuple(os.environ):
         if name.startswith(CLEARED_PREFIXES) or name in CLEARED_NAMES:
             patch.delenv(name)
@@ -61,6 +66,12 @@ def isolate(config: pytest.Config, root: Path | None) -> None:
     patch.setattr(tempfile, "tempdir", str(root / "tmp"))
     patch.setattr(sys, "dont_write_bytecode", True)
     patch.setenv("LEM_SERVE", "off")
+    # No test reaches the workspace of the checkout it runs in: the store refuses a workspace
+    # outside this root (lem.store.guard), and every test starts in a folder of no repository.
+    patch.setenv(TEST_ROOT, run_root or str(root))
+    work = root / "work"
+    work.mkdir()
+    patch.chdir(work)
 
 
 class Setup:
@@ -161,10 +172,10 @@ def pytest_addoption(pluginmanager: pytest.PytestPluginManager) -> None:
         pluginmanager.register(Setup())
 
 
-def dotted(path: Path) -> str:
-    """A test file's name for its cases: its path from the tests' folder (or from the folder
-    the run started in), with dots, so two folders may each hold a test_store.py."""
-    for base in (HERE, Path.cwd()):
+def dotted(path: Path, rootdir: Path) -> str:
+    """A test file's name for its cases: its path from the tests' folder (or from pytest's
+    root), with dots, so two folders may each hold a test_store.py."""
+    for base in (HERE, rootdir):
         if path.is_relative_to(base):
             return ".".join(path.relative_to(base).with_suffix("").parts)
     return path.stem
@@ -173,7 +184,7 @@ def dotted(path: Path) -> str:
 def case_name(rootdir: Path, nodeid: str) -> str:
     """`unit.core.test_store.Races.test_stale_expect`, and `[params]` for a parametrized one."""
     where, *names = nodeid.split("::")
-    return ".".join((dotted(rootdir / where), *names))
+    return ".".join((dotted(rootdir / where, rootdir), *names))
 
 
 def shared_case(item: pytest.Item) -> str | None:

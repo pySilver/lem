@@ -620,11 +620,12 @@ def test_a_command_whose_module_is_not_there_names_the_file_and_the_repair(
 def test_repo_before_help_version_and_doctor_reaches_them(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
     argv: tuple[str, ...],
     code: int,
 ) -> None:
     stand_in_runs(monkeypatch, "doctor")
-    assert called(capsys, "--repo", str(ROOT), *argv)[0] == code
+    assert called(capsys, "--repo", str(tmp_path), *argv)[0] == code
 
 
 @pytest.mark.parametrize(
@@ -647,7 +648,7 @@ def test_the_version_check_lets_help_version_and_doctor_through_past_repo(
     (plugin / ".claude-plugin").mkdir(parents=True)
     (plugin / ".claude-plugin" / "plugin.json").write_text('{"version": "999.0.0"}')
     env = {**os.environ, "LEM_PLUGIN_ROOT": str(plugin)}
-    ran = command.lem(*argv, cwd=ROOT, env=env)
+    ran = command.lem(*argv, cwd=tmp_path, env=env)
     assert ran.code == code, ran
     if code == 1:
         refusal = ran.envelope()["refusal"]

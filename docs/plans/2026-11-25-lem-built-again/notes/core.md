@@ -59,6 +59,30 @@ made in a worktree by hand (`git merge --no-ff --no-commit REF`, the files writt
 so that the case "a rebase drops a merge commit and the edit only it made" runs on real git.
 The refusal that follows from it (`land.cmd_base`, the merge-only change) is yours.
 
+## For the plan: the state of the Lem before
+
+- **The rule.** The store reads nothing of a state folder of the Lem before and writes nothing
+  into it: every read and write of `lem.store` (tasks, claims, the step lock, sessions,
+  `state_of`, `workspace`) refuses `old-state` there, with the fix that names the owner's cutover
+  and `lem doctor` (the owner's ruling: his repositories start over; the wipe is his act).
+- **The marker.** `.lem/state/lem-state.json`, the bytes `{"form": 1}` and a line end, published
+  by a link (the first writer wins, the same bytes are no change) by the store's first write into
+  an absent folder or one that holds only `.gitignore`. A folder with the marker is of this form;
+  one with anything else and no marker is the Lem before's (`lem.store.guard.form`, one look).
+- **`doctor` and the cutover.** `doctor` names a repository whose state folder is of the Lem
+  before (`guard.form(state) == "old"`) and the cutover's step; the cutover moves that folder
+  away, after which the first write of the new Lem makes a folder of this form. The hooks write
+  `sessions.jsonl` with the standard library: `sessions` gives them the same one look.
+
+## Every step: no test reaches a real workspace
+
+The entry starts every test in a folder of its own temporary root, in no repository, and sets
+`LEM_TEST_ROOT` to that root; while it is set, the store faults on a workspace or a state folder
+outside it (`lem.store.guard.inside_test_root`). `tests/fakes/command.lem` runs in the test's own
+folder when no `cwd` is named and refuses a `cwd` outside the root. The entry compares the
+checkout's own `.lem/state/tasks` before and after a run and fails the run with the names of
+what changed. A test that needs a workspace makes one (`tests/fakes/repo.py`).
+
 ## Every step: what the core gives
 
 - A command's output: `tests/fakes/command.py`, `lem(*args, cwd=...)` and `Ran.envelope()`,
