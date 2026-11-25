@@ -1,7 +1,6 @@
 """Small worlds for the rules of the views: a few tasks made from records a case names, each
 with its session, at a fixed minute, for the owner on this Mac."""
 
-import dataclasses
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -43,13 +42,7 @@ def task(slug: str = "gift-note", line: str | None = None, **fields: object) -> 
     return Seen(record=made, session=live())
 
 
-def world(*tasks: Seen, now: datetime = NOW, **fields: object) -> World:
-    """The world of `tasks` at `now`, with the world's `fields` over the defaults."""
-    made = World(
-        viewer=VIEWER,
-        clock=Clock(now=now, zone=UTC),
-        version="v",
-        place=PLACE,
-        tasks=tasks,
-    )
-    return dataclasses.replace(made, **fields) if fields else made
+def world(*tasks: Seen, now: datetime = NOW) -> World:
+    """The world of `tasks` at `now`."""
+    clock = Clock(now=now, zone=UTC)
+    return World(viewer=VIEWER, clock=clock, version="v", place=PLACE, tasks=tasks)
