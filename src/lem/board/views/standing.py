@@ -52,7 +52,7 @@ YOURS = frozenset(
     )
 )
 CHECKS = frozenset(("ready", "landing", "open"))
-YOU: Look = "you"
+YOU: Column = "you"
 # An open task whose merge is not his: the merge agent reads it, the server merges it, or its
 # session lands it again.
 MERGE_WAITS = MappingProxyType(
@@ -71,8 +71,10 @@ def standing(seen: Seen, rows: tuple[Row, ...]) -> Standing:
     mine = any(row.kind in YOURS for row in rows)
     said = said_of(seen, mine=mine)
     column = column_of(seen, mine=mine)
-    if column == YOU and said.look != YOU:
-        said = rule.Said(YOU, "You", said.label, said.icon, live=said.live)
+    if column == YOU and said.look != rule.HELD.look:
+        said = rule.Said(
+            rule.HELD.look, rule.HELD.who, said.label, said.icon, live=said.live
+        )
     return Standing(
         column=column,
         look=said.look,
