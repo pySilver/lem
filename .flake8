@@ -1,0 +1,7 @@
+# wemake-python-styleguide over src/lem, with its own limits (7 members a module, 12 imports,
+# 5 locals, cognitive complexity 12) and none of ours. flake8 runs it alone: ruff holds the
+# rules that flake8's other plugins would. tests/ has ruff and pyrefly only.
+#
+#     .venv/bin/flake8 src/lem
+[flake8]
+select = WPS
