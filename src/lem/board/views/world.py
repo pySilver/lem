@@ -9,18 +9,18 @@ and a test builds it from the records it holds.
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from lem.app.sessions.acts import Act
+from lem.model.owner.looks import Session, Stop
 from lem.records.base import Frozen, Sha
 from lem.records.owner import Presence
+from lem.records.record import Record
 
 if TYPE_CHECKING:
     from datetime import datetime, tzinfo
 
-    from lem.app.sessions.acts import Act
     from lem.board.inputs.layout import Viewer
     from lem.board.views.backlog_read import Shelved
     from lem.board.views.inbox_read import Inbox
-    from lem.model.owner.looks import Session, Stop
-    from lem.records.record import Record
 
 
 class Commit(Frozen, frozen=True, kw_only=True):

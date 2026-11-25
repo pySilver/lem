@@ -21,21 +21,25 @@ def files_of(folder: Path) -> tuple[str, ...]:
     is not there."""
     if not folder.is_dir():
         return ()
-    found = (
-        path.relative_to(folder).as_posix() for path in folder.rglob("*") if path.is_file()
-    )
-    return tuple(sorted(name for name in found if name not in OWN))
+    paths = (path for path in folder.rglob("*") if path.is_file())
+    names = (path.relative_to(folder).as_posix() for path in paths)
+    return tuple(sorted(name for name in names if name not in OWN))
 
 
-def prose_of(folder: Path, files: tuple[str, ...]) -> tuple[tuple[str, str], ...]:
+type Prose = tuple[tuple[str, str], ...]
+
+
+def prose_of(folder: Path, files: tuple[str, ...]) -> Prose:
     """The text of each markdown file of the folder, by its path; a file that does not read
     is left out."""
-    read: list[tuple[str, str]] = []
-    for name in files:
-        if not name.endswith(PROSE):
-            continue
-        try:
-            read.append((name, (folder / name).read_text(encoding="utf-8")))
-        except (OSError, UnicodeDecodeError):
-            continue
-    return tuple(read)
+    names = (name for name in files if name.endswith(PROSE))
+    found = ((name, text_of(folder / name)) for name in names)
+    return tuple((name, text) for name, text in found if text is not None)
+
+
+def text_of(path: Path) -> str | None:
+    """The text of a file, or None when it does not read."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError, UnicodeDecodeError:
+        return None

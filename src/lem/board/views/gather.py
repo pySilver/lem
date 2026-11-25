@@ -20,12 +20,9 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from lem.app.sessions.acts import Act
     from lem.app.sessions.listing import Listed
     from lem.board.inputs.layout import Viewer
     from lem.board.views.world import Clock, Place
-    from lem.model.owner.looks import Session
-    from lem.ports.git import GitFacts
     from lem.records.record import Record
 
 DEMO = "demo"
@@ -44,7 +41,7 @@ class Ask:
     version: str
     place: Place
     home: Path
-    git: GitFacts | None = None
+    git: branch.Branches | None = None
     listed: Mapping[str, Listed] | None = None
 
 
@@ -74,7 +71,7 @@ def seen_of(checkout: Path, record: Record, ask: Ask, *, demo: bool) -> Seen:
     task = record.task
     where = places.task_folder(places.state_of(checkout), task.slug)
     acts = log.read(where)
-    session = session_of(record, acts, ask, demo=demo)
+    session = sessions.of(record, acts, ask.listed, demo=demo)
     files = folder.files_of(where)
     return Seen(
         record=record,
@@ -87,14 +84,3 @@ def seen_of(checkout: Path, record: Record, ask: Ask, *, demo: bool) -> Seen:
         session=session,
         stop=sessions.stop_of(record, acts, session),
     )
-
-
-def session_of(
-    record: Record, acts: tuple[Act, ...], ask: Ask, *, demo: bool
-) -> Session | None:
-    """The task's session: from the terminal's list, from Lem's acts in a demo, or not known."""
-    if demo:
-        return sessions.from_acts(record, acts)
-    if ask.listed is None:
-        return None
-    return sessions.from_list(record, ask.listed.get(record.task.slug))

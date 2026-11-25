@@ -5,7 +5,7 @@ Each fact is None when git is not asked or cannot tell (no branch, no merge base
 says nothing, never that none was filed.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 import frontmatter
 
@@ -15,12 +15,22 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.board.views.world import Place
-    from lem.ports.git import GitFacts
+    from lem.ports.git_facts import Commit as Logged
     from lem.records.task import Task
 
 
+class Branches(Protocol):
+    """The facts of the `Git` port that a task's board reads."""
+
+    def tip(self, where: Path, ref: str) -> str | None: ...
+    def merge_base(self, where: Path, first: str, second: str) -> str | None: ...
+    def commits(self, where: Path, since: str, until: str) -> tuple[Logged, ...]: ...
+    def changed_paths(self, where: Path, since: str, until: str) -> tuple[str, ...]: ...
+    def show(self, where: Path, rev: str, path: str) -> bytes | None: ...
+
+
 def head_of(
-    git: GitFacts | None, checkout: Path, task: Task, place: Place
+    git: Branches | None, checkout: Path, task: Task, place: Place
 ) -> Commit | None:
     """The newest commit of the task's branch, or None."""
     tip = git.tip(checkout, task.branch) if git and task.branch else None
@@ -33,7 +43,7 @@ def head_of(
 
 
 def filed_of(
-    git: GitFacts | None, checkout: Path, task: Task, place: Place
+    git: Branches | None, checkout: Path, task: Task, place: Place
 ) -> tuple[Filed, ...] | None:
     """The backlog items the task's branch adds, or None when git cannot tell."""
     tip = git.tip(checkout, task.branch) if git and task.branch else None
@@ -59,8 +69,9 @@ def in_folder(path: str, folder: str) -> bool:
 
 def title_of(body: bytes | None, path: str) -> str:
     """The `# TITLE` of an item's text, else its file's stem."""
-    text = frontmatter.loads((body or b"").decode(errors="replace")).content
-    heading = next(
-        (line[2:].strip() for line in text.splitlines() if line.startswith("# ")), ""
-    )
-    return heading.replace("`", "") or path.rpartition("/")[2].removesuffix(".md")
+    raw = (body or b"").decode(errors="replace")
+    lines = frontmatter.loads(raw).content.splitlines()
+    headings = (line[2:] for line in lines if line.startswith("# "))
+    heading = next(headings, "").strip().replace("`", "")
+    stem = path.rpartition("/")[2]
+    return heading or stem.removesuffix(".md")

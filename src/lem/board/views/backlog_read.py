@@ -18,7 +18,7 @@ class AddedBy(Frozen, frozen=True, kw_only=True):
     pull: str | None = None
 
 
-class Item(Frozen, frozen=True, kw_only=True):
+class Entry(Frozen, frozen=True, kw_only=True):
     """One item: its path from the main checkout's root, its key on the page (the file's stem,
     `-STEM` for a reviewer's item), whether it is the reviewer's, its head's `worth`, `where`
     and `added`, its title and text, the commit that added it (None while git has no such
@@ -46,6 +46,6 @@ class Shelved(Frozen, frozen=True, kw_only=True):
 
     folder: str
     reviewer: str
-    items: tuple[Item, ...] = ()
+    entries: tuple[Entry, ...] = ()
     read: Moment
     problem: str | None = None
