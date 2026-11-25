@@ -95,7 +95,7 @@ uv sync                        # .venv: Lem from this checkout, editable, and it
 bash tests/all.sh              # every suite below at once, one log each, a line of ok, FAIL and SKIP per suite
 bash tests/all.sh --installed  # the journeys on LEM_UNDER_TEST or a wheel installed apart
 .venv/bin/python tests/pick.py --base main  # the suites for what the branch changed (or name the files)
-.venv/bin/python -B -m unittest discover -s tests/unit  # the unit level; all.sh runs it as the suite unit
+.venv/bin/python -I -B tests/unit  # the unit level, under pytest; all.sh runs it as the suite unit
 ```
 
 The loop: the unit level after each edit; while a task is in work, only the one block that holds
