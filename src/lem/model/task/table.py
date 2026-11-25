@@ -12,6 +12,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
+from lem.records.base import Frozen
 from lem.records.holds import Blocked, Parked
 
 if TYPE_CHECKING:
@@ -35,6 +36,16 @@ MOVES = MappingProxyType(
         "open": "ready dropped",
     }
 )
+
+
+class Moved(Frozen, frozen=True, kw_only=True):
+    """A move: the task, the status it left, and the one it is in."""
+
+    slug: str
+    was: str
+    status: str
+
+
 WAKE = "a reply or a message about it that comes now is a stale wake-up: nothing is written"
 
 
