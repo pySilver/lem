@@ -5,6 +5,7 @@ E)."""
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from lem.adapters.forge_gh_pulls import Pulls
 from lem.app.landing import pull_identity
 from lem.model.landing.clean import Facts, Rebased
 from lem.model.landing.reconcile import Trees
@@ -85,6 +86,8 @@ def dequeued_of(context: Context) -> str | None:
     pull, landing = context.world.pull, context.record.landing
     if pull is None or pull.state != "open" or pull.queued or landing is None:
         return None
+    if isinstance(context.ports.forge, Pulls):
+        return context.world.dequeued
     shown = pull_identity.checked(context.record, context.ports.forge.pull(pull.number))
     return shown.dequeued
 

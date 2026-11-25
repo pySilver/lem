@@ -13,7 +13,7 @@ from lem.model.landing.world import Due, Held, Rules
 from lem.records.holds import Blocked, Parked
 from lem.records.journal.merge import LandAgain
 from lem.records.journal.task import StateNoted
-from lem.records.landing.start import Resolution
+from lem.records.landing.start import Resolution, Started
 from unit.landing.worlds import (
     BRANCH,
     MOMENT,
@@ -26,7 +26,6 @@ from unit.landing.worlds import (
 )
 
 if TYPE_CHECKING:
-    from lem.records.landing.start import Started
     from lem.records.record import Record
 
 FACTS = start.Facts()
@@ -113,15 +112,10 @@ def test_with_no_command_of_the_checks_start_blocks_the_task_and_then_takes_it_b
     assert begin.begun(blocked, taken).task.hold is None
 
 
-def test_a_branch_that_brings_its_own_checks_is_named_and_refused_by_the_owning_step() -> (
-    None
-):
-    own = start.Facts(own_commands=("make test",))
-    refused = start.decide(task("ready"), world(rules=BARE), own, conflicting=False)
-    assert code_of(refused) == "no-checks"
-    assert isinstance(refused, Refusal)
-    assert "make test" in refused.why
-    assert "land-checks" in refused.why
+def test_a_branch_that_brings_the_first_checks_can_start() -> None:
+    rules = replace(BARE, commands=("make test",), own_checks=True)
+    found = start.decide(task("ready"), world(rules=rules), FACTS, conflicting=False)
+    assert isinstance(found, Started)
 
 
 def test_another_hold_keeps_the_task_where_it_is() -> None:

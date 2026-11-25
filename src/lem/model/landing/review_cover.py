@@ -28,6 +28,8 @@ def covers(review: Reviewed, landing: Landing, world: World) -> bool:
     """Whether the review covers the tip: the tip it read, the tip `base` showed by git's
     merge to be that tip on this base (`carry.source`), or the commit `file` made after it
     with only the items of its defects."""
+    if review.tip == world.own_item_removed_from:
+        return True
     if review.tip in {world.tip, carry.source(landing, world)}:
         return True
     checked = landing.checked

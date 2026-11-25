@@ -165,7 +165,7 @@ def reconciled(
     if pull is not None and pull.state == "closed":
         return None
     if pull is not None and pull.queued:
-        return MergeAccepted(tip=intent.tip, at=world.now, queued=pull.queued)
+        return MergeAccepted(tip=intent.tip, at=intent.at, queued=pull.queued)
     if pull is not None and dequeued:
         return Refused(
             tip=intent.tip,

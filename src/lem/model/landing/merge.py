@@ -65,12 +65,12 @@ def authority(record: Record, world: World, *, verdict: bool = True) -> str | No
     landing = record.landing or Landing()
     last, read = newest(landing), mergeread.latest(landing, world.base_tree)
     found = (
+        (careful(record), CAREFUL),
         (
-            landing.proposed is None or bool(merge_standing.reasons_now(record)),
+            landing.proposed is None or bool(merge_standing.reasons_now(record, world)),
             NOT_GREEN,
         ),
         (merge_asked.contract_moved(record), MOVED),
-        (careful(record), CAREFUL),
         (last is None or last.careful is None, NO_CALL),
         (world.rules.land == OWNER, LAND_OWNER),
         (verdict and (read is None or read.verdict != "merge"), CALLS),
@@ -84,7 +84,7 @@ def due(record: Record, world: World) -> Due:
     why = authority(record, world)
     if why is None:
         return Due(step=STEP, why="the merge agent's read says merge", by="merger")
-    if merge_standing.standing_of(record) is not None:
+    if merge_standing.standing_of(record, world) is not None:
         slug = record.task.slug
         said = (
             "the owner's merge stands: the board's server merges it "

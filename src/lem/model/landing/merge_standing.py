@@ -10,13 +10,12 @@ it out after a safe read. Only his word makes a standing merge: a refusal of the
 of the server's or of his standing merge never does.
 """
 
-from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 
 import msgspec
 
 from lem.kernel import files
-from lem.model.landing import green, standing
+from lem.model.landing import green
 from lem.model.landing.careful_words import owner_says
 from lem.records.landing.merge import Refused
 from lem.records.landing.propose import Standing
@@ -24,6 +23,7 @@ from lem.records.landing.propose import Standing
 if TYPE_CHECKING:
     from lem.kernel.errors import Refusal
     from lem.model.landing.merge_asked import Asked
+    from lem.model.landing.world import World
     from lem.records.base import Moment
     from lem.records.record import Record
 
@@ -31,14 +31,12 @@ if TYPE_CHECKING:
 type Kind = Literal["base", "rule", "tip", "target"]
 BASE: Kind = "base"
 TIP: Kind = "tip"
-KINDS: MappingProxyType[str, Kind] = MappingProxyType(
-    {
-        BASE: BASE,
-        "merger-rule": "rule",
-        TIP: TIP,
-        "checks-changed": TIP,
-        "target": "target",
-    }
+KINDS: tuple[tuple[str, Kind], ...] = (
+    (BASE, BASE),
+    ("merger-rule", "rule"),
+    (TIP, TIP),
+    ("checks-changed", TIP),
+    ("target", "target"),
 )
 
 
@@ -47,7 +45,7 @@ def digest_of(reasons: tuple[str, ...]) -> str:
     return files.digest(msgspec.json.encode(reasons))
 
 
-def reasons_now(record: Record) -> tuple[str, ...]:
+def reasons_now(record: Record, world: World | None = None) -> tuple[str, ...]:
     """The reasons the proposal is not green, read again now (`green.reasons`). The careful
     line of the fast track comes from the owner's word if he gave it, else from the proposal:
     only `propose` reads the settings the change edits."""
@@ -57,10 +55,10 @@ def reasons_now(record: Record) -> tuple[str, ...]:
     fast = green.fast(record, owner_says(record, owner=False))
     if not fast:
         fast = tuple(reason for reason in seen if reason.startswith(head))
-    return fast + green.reasons(record, ())
+    return fast + green.reasons(record, (), world)
 
 
-def standing_of(record: Record) -> Standing | None:
+def standing_of(record: Record, world: World | None = None) -> Standing | None:
     """The owner's merge that stands for the proposed tip: his own word refused for the base,
     standing by `land-base`'s rule (`model/landing/standing.py`) with the reasons it is not
     green read again now; or the one `propose` found standing on a new tip."""
@@ -68,11 +66,12 @@ def standing_of(record: Record) -> Standing | None:
     if landing is None or landing.standing is None or landing.proposed is None:
         return None
     judged = landing.proposed.owner_merge
-    if landing.standing.tip != landing.proposed.tip:
-        return landing.standing if judged and judged.state == "stands" else None
-    now = digest_of(reasons_now(record))
-    found = standing.standing(landing, now, carried=True)
-    return landing.standing if found and found.state == "stands" else None
+    if judged and judged.state == "ended":
+        return None
+    if landing.standing.tip != landing.proposed.tip and judged is None:
+        return None
+    now = digest_of(reasons_now(record, world))
+    return landing.standing if now == landing.standing.reasons_digest else None
 
 
 def word(asked: Asked) -> bool:
@@ -81,13 +80,18 @@ def word(asked: Asked) -> bool:
     return asked.by == "owner" and not asked.standing and asked.via != "server"
 
 
+def kind_of(code: str) -> Kind | None:
+    """The kind of a refusal the merge keeps."""
+    return next((kind for name, kind in KINDS if name == code), None)
+
+
 def refused_of(
     record: Record, refusal: Refusal, asked: Asked, now: Moment
 ) -> Refused | None:
     """The refusal kept for the proposed tip: the merge agent's by Lem's rules, or the
     owner's own word for the base; None for any other, which keeps nothing."""
     proposed = record.landing.proposed if record.landing else None
-    kind = KINDS.get(refusal.code)
+    kind = kind_of(refusal.code)
     keeps = asked.by == "merger" or (kind == BASE and word(asked))
     if proposed is None or kind is None or not keeps:
         return None

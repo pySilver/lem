@@ -23,10 +23,20 @@ import pytest
 from msgspec.structs import replace
 
 from fakes.repo import run_git
-from journeys.test_skeleton import SLUG, Killed, World, lem, made, upto
+from journeys.test_skeleton import (
+    CRITERIA,
+    NO_TEST,
+    SLUG,
+    Killed,
+    World,
+    lem,
+    made,
+    upto,
+)
 from lem.app.landing import checks_criteria, checks_gate, checks_run, frame
 from lem.cli import lazy
 from lem.kernel import folders
+from lem.model.criteria import read
 from lem.records.criterion import CriterionTest
 from lem.records.work import Plan
 from lem.store import places, tasks
@@ -519,15 +529,22 @@ def test_a_stopped_serial_run_ends_its_command_and_exits_as_the_signal_says(
 PLAN = "docs/plans/receive.md"
 
 
-def standard(world: World) -> None:
-    """The task takes the standard track, with its plan in the branch."""
-    committed(
-        world, PLAN, "# receive\n\n## Tasks\n\n1. Say receive.\n", "docs: the plan"
-    )
+def standard(world: World, tests: str = NO_TEST) -> None:
+    """The task takes the standard track, with its recorded criteria in the plan."""
+    plan = CRITERIA.replace("Size: small", "Size: full") + tests
+    committed(world, PLAN, plan + "\n## Tasks\n\n1. Say receive.\n", "docs: the plan")
+    sheet = read.sheet_of(plan, PLAN)
 
     def full(found: Record) -> Record:
         shape = found.task.shape and replace(found.task.shape, track="full")
-        task = replace(found.task, shape=shape, plan=Plan(path=PLAN))
+        criteria = replace(
+            found.task.criteria,
+            size=sheet.size,
+            why=sheet.why,
+            digest=sheet.digest,
+            criteria=sheet.criteria,
+        )
+        task = replace(found.task, shape=shape, plan=Plan(path=PLAN), criteria=criteria)
         return replace(found, task=task)
 
     state = world.checkout / ".lem" / "state"
@@ -602,17 +619,7 @@ def test_a_pass_after_which_the_criteria_do_not_hold_is_refused(
     world: World, capsys: pytest.CaptureFixture[str]
 ) -> None:
     committed(world, "check.sh", "grep -q receive README.md\n", "test: the word")
-    standard(world)
-    test = CriterionTest(command="sh check.sh", files=("check.sh",))
-
-    def tested(found: Record) -> Record:
-        criteria = found.task.criteria
-        criterion = replace(criteria.criteria[0], tests=(test,), no_test=None)
-        changed = replace(criteria, criteria=(criterion,))
-        return replace(found, task=replace(found.task, criteria=changed))
-
-    state = world.checkout / ".lem" / "state"
-    tasks.update(state, SLUG, tested, tasks.read(state, SLUG).revision)
+    standard(world, "   - test: `sh check.sh` in `check.sh`\n")
     polish(capsys, world)
     committed(world, "README.md", "The README says recieve.\n", "docs: undo")
     refused = polish(capsys, world, "--done")["refusal"]

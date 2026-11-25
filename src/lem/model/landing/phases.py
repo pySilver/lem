@@ -65,6 +65,13 @@ def pending(record: Record, world: World, landing: Landing) -> Due | None:
     refused = seat_refusal(record)
     if refused is not None:
         return Due(step="wait", why=f"{refused.why}; {refused.fix}")
+    checked = checks.holds(record, world)
+    if (
+        isinstance(checked, Due)
+        and landing.proposed
+        and landing.proposed.tip == world.tip
+    ):
+        return Due(step="start", why=f"{checked.why}: a new round")
     return left
 
 

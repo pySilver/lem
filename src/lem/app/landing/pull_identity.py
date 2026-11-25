@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
+from lem.adapters import forge_gh_queue
+from lem.adapters.forge_gh_pulls import Pulls
 from lem.kernel.errors import Refusal
 from lem.model.landing import world as facts
 from lem.model.landing.merge_evidence import same_pull
@@ -80,7 +82,25 @@ def in_world(forge: Forge, record: Record, world: facts.World) -> facts.World:
     landing = record.landing
     if landing is not None and landing.pull is not None:
         pull = checked(record, forge.pull(landing.pull.number))
-        return replace(world, pull=seen(pull))
+        return observed(forge, record, world, pull)
     found = forge.find_pulls(world.branch, world.rules.base)
     candidates = tuple(seen(pull) for pull in found if pull.state == "open")
     return replace(world, candidates=candidates)
+
+
+def observed(
+    forge: Forge, record: Record, world: facts.World, pull: Pull
+) -> facts.World:
+    """Keep observed queue evidence only for the outstanding call of this pull request."""
+    world = replace(world, pull=seen(pull))
+    landing = record.landing
+    attempt = (landing.intent or landing.accepted) if landing else None
+    if pull.state != "open" or attempt is None or not isinstance(forge, Pulls):
+        return world
+    queue = forge_gh_queue.queue(forge, pull.number, attempt.tip, attempt.at)
+    queued = queue.queued or pull.queued
+    return replace(
+        world,
+        pull=seen(replace(pull, queued=None if queue.dequeued else queued)),
+        dequeued=queue.dequeued,
+    )

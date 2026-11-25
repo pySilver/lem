@@ -40,7 +40,7 @@ class Asked(Frozen, frozen=True, kw_only=True):
     checked: str | None = None
 
 
-def tip_why(record: Record, asked: Asked) -> str | None:
+def tip_why(record: Record, asked: Asked, world: World) -> str | None:
     """Why the tip the caller saw is not the proposed one: not a whole commit, his standing
     merge that no longer stands, the owner's word for another tip, or another tip."""
     proposed = (record.landing or Landing()).proposed
@@ -53,7 +53,7 @@ def tip_why(record: Record, asked: Asked) -> str | None:
             f"--tip is not a whole commit: {tip}",
         ),
         (
-            asked.standing and merge_standing.standing_of(record) is None,
+            asked.standing and merge_standing.standing_of(record, world) is None,
             f"no merge of the owner's stands for {shown}: the proposal ended it",
         ),
         (
@@ -68,9 +68,9 @@ def tip_why(record: Record, asked: Asked) -> str | None:
     return next((pair[1] for pair in found if pair[0]), None)
 
 
-def tip_refusal(record: Record, asked: Asked) -> Refusal | None:
+def tip_refusal(record: Record, asked: Asked, world: World) -> Refusal | None:
     """Why the merge may not go for the tip the caller saw (`tip_why`)."""
-    why = tip_why(record, asked)
+    why = tip_why(record, asked, world)
     if why is None:
         return None
     slug = record.task.slug
@@ -123,7 +123,7 @@ def message_refusal(world: World, asked: Asked) -> Refusal | None:
 def refusal(record: Record, world: World, asked: Asked) -> Refusal | None:
     """The first reason the merge may not go as asked."""
     return (
-        tip_refusal(record, asked)
+        tip_refusal(record, asked, world)
         or github_refusal(record, asked)
         or message_refusal(world, asked)
     )

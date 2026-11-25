@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
+from lem.adapters.forge_gh_pulls import after_merge
 from lem.app.landing import changes, merge_world, pull_identity, reconcile
 from lem.model.landing.reconcile import landed
 from lem.ports.forge_facts import (
@@ -33,6 +34,8 @@ def merged_pull(pull: PullSeen, done: MergeDone) -> PullSeen:
     """The pull request after the forge merged it, its destination as the forge reports it,
     with the merge's own commits where the report lags behind the merge."""
     if pull.state == "merged":
+        if (pull.merge_commit, pull.merged_head) == (done.commit, done.merged_head):
+            return replace(pull, base_parent=done.base_parent)
         return pull
     return replace(
         pull,
@@ -50,7 +53,7 @@ def held(
     refusal in its words."""
     now = context.world.now
     if isinstance(outcome, MergeTaken):
-        return MergeAccepted(tip=intent.tip, at=now, queued=outcome.queued)
+        return MergeAccepted(tip=intent.tip, at=intent.at, queued=outcome.queued)
     return Refused(
         tip=intent.tip,
         source="github",
@@ -70,11 +73,14 @@ def answered(
     """Write what the forge answered the merge call of `intent` (`said`: the pull request's
     number and the answer): the merge, the queue that took it, or GitHub's refusal."""
     number, outcome = said
-    shown = pull_identity.checked(record, context.ports.forge.pull(number))
     if not isinstance(outcome, MergeDone):
+        pull_identity.checked(record, context.ports.forge.pull(number))
         return reconcile.written(
             context, record, held(intent, outcome, context), intent.by
         )
+    shown = pull_identity.checked(
+        record, after_merge(context.ports.forge, number, outcome)
+    )
     pull = merged_pull(pull_identity.seen(shown), outcome)
     facts = (intent.by, intent.via, merge_world.trees_of(context, pull))
     return reconcile.written(

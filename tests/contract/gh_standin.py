@@ -15,7 +15,7 @@ from pathlib import Path
 import msgspec
 
 from fakes.forge import LocalForge
-from fakes.repo import RealRepo, git_env
+from fakes.repo import RealRepo, git_env, run_git
 from lem.ports.faults import Unanswered
 from lem.ports.forge_facts import MergeDenied, MergeMethod, MergeText, Pull
 
@@ -67,12 +67,20 @@ def outside(forge: LocalForge, state: State, words: list[str]) -> object:
     """What gh prints for `repo view` and for `api`: a pull request's `commits`, GitHub's
     total, which no list caps, or a commit's first parent."""
     if "/pulls/" in words[1]:
-        return counted(state, forge.pull(int(words[1].rsplit("/", 1)[-1])))
+        requested = words[1].split("/pulls/", 1)[1]
+        number = int(requested.split("/", 1)[0])
+        pull = forge.pull(number)
+        if "--slurp" in words:
+            commits = run_git(Path(state.origin), "rev-list", "--reverse", span(pull))
+            return [[git_commit(state, sha) for sha in commits.splitlines()]]
+        return counted(state, pull)
     if words[0] == "repo":
         if option(words, "--jq") == ".nameWithOwner":
             return state.name
         return {"nameWithOwner": state.name, "url": f"https://github.com/{state.name}"}
     sha = words[1].rsplit("/", 1)[-1]
+    if "--jq" not in words:
+        return git_commit(state, sha)
     ran = subprocess.run(
         ["git", "-C", state.origin, "rev-parse", f"{sha}^1"],
         capture_output=True,
@@ -91,6 +99,25 @@ def body_of(words: list[str]) -> str:
     return option(words, "--body") or ""
 
 
+def span(pull: Pull) -> str:
+    return f"{pull.base_parent or f'refs/heads/{pull.base}'}..{pull.head}"
+
+
+def git_commit(state: State, sha: str) -> dict[str, object]:
+    commit = run_git(
+        Path(state.origin), "show", "-s", "--format=%an%x00%ae%x00%aI%x00%P%x00%B", sha
+    )
+    name, email, date, parents, message = commit.split("\0", 4)
+    return {
+        "sha": sha,
+        "parents": [{"sha": parent} for parent in parents.split()],
+        "commit": {
+            "author": {"name": name, "email": email, "date": date},
+            "message": message,
+        },
+    }
+
+
 def counted(state: State, pull: Pull) -> int:
     """How many commits the pull request's head holds that its base lacks."""
     ran = subprocess.run(
@@ -100,7 +127,7 @@ def counted(state: State, pull: Pull) -> int:
             state.origin,
             "rev-list",
             "--count",
-            f"refs/heads/{pull.base}..{pull.head}",
+            span(pull),
         ],
         capture_output=True,
         text=True,

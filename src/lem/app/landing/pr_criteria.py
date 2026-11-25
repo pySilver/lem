@@ -35,9 +35,12 @@ def request(record: Record) -> tuple[Block, ...]:
 def proved(record: Record, number: int) -> bool:
     """Whether the checks saw the criterion's tests fail on the base and pass on the tip."""
     checked = (record.landing or Landing()).checked
-    runs = checked.criteria if checked else ()
-    return any(
-        run.criterion == number and run.red_on_base and run.green_on_tip for run in runs
+    if checked is None or checked.criteria_digest != record.task.criteria.digest:
+        return False
+    runs = checked.criteria
+    matching = [run for run in runs if run.criterion == number]
+    return bool(matching) and all(
+        run.red_on_base and run.green_on_tip for run in matching
     )
 
 

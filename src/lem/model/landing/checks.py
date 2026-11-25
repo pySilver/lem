@@ -26,10 +26,13 @@ POLISH = "polish"
 SHORT = 9
 
 
-def inputs(rules: Rules) -> str:
-    """One digest of the checks' definitions, the commands and the serial ones, in their order
-    (`land.same_checks` on `main`): a change of either makes a passed run hold no more."""
-    return files.digest(msgspec.json.encode((rules.commands, rules.serial)))
+def inputs(rules: Rules, plan: str | None = None) -> str:
+    """One digest of the commands, serial, setup, source of the commands, and plan path."""
+    return files.digest(
+        msgspec.json.encode(
+            (rules.commands, rules.serial, rules.setup, rules.own_checks, plan)
+        )
+    )
 
 
 def polished(record: Record, world: World) -> Held | Due:
@@ -65,14 +68,20 @@ def holds(record: Record, world: World) -> Held | Due:
         checked.tip != world.tip and not world.items_from(checked.tip)
     ):
         return Due(step=STEP, why="no run of the checks covers this tip")
-    if checked.inputs != inputs(world.rules):
+    plan = record.task.plan
+    plan_path = plan.path if plan else None
+    if checked.inputs != inputs(world.rules, plan_path):
         return Due(
             step=STEP,
-            why="the commands of the checks are not the ones that ran (checks.commands "
-            "and checks.serial of the main checkout's .lem/settings.toml changed since)",
+            why="the check definitions changed since the run: commands, serial, setup "
+            "or the plan path",
         )
     if checked.outcome != "passed":
         return Due(step=STEP, why=f"the checks of this tip are {checked.outcome}")
+    if checked.criteria_digest != record.task.criteria.digest:
+        return Due(
+            step=STEP, why="the tests of the criteria changed since the checks ran"
+        )
     return Held(why="the checks passed on this tip")
 
 
@@ -121,7 +130,11 @@ def moved(before: Criteria, now: Criteria) -> Refusal | None:
     them, changed since it began (`land.checks_body` on `main` read them again after the
     commands). The contract's own mark (`model/criteria/contract.py`) takes this place once the
     step `criteria` joins."""
-    if before.criteria == now.criteria and before.approvals == now.approvals:
+    if (before.digest, before.criteria, before.approvals) == (
+        now.digest,
+        now.criteria,
+        now.approvals,
+    ):
         return None
     return Refusal(
         "contract-moved",

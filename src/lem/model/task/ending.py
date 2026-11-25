@@ -56,6 +56,7 @@ def started_over(record: Record, why: str) -> Record:
     changed = replace(
         landing,
         reviews=(),
+        filed=(),
         reads=(),
         standing=None,
         archived=archived,

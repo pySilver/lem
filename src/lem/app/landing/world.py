@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing import item_carry, pull_identity
+from lem.app.landing import branch_checks, item_carry, pull_identity, review_item
 from lem.app.tasks import where
 from lem.model.landing import destination
 from lem.model.landing import world as facts
@@ -35,6 +35,7 @@ def rules(workspace: Workspace) -> facts.Rules:
         protected=team.branch.protected,
         commands=team.checks.commands,
         serial=team.checks.serial,
+        setup=team.checks.setup,
     )
 
 
@@ -99,7 +100,9 @@ def gather(
     world = origin(ports, workspace, record, now)
     path = where.worktree(workspace, record.task.slug)
     world = in_worktree(ports, path, world)
+    world = branch_checks.gathered(ports.git, path, world)
     checked = record.landing.checked if record.landing else None
     world = item_carry.gathered(ports.git, path, checked, world)
+    world = review_item.gathered(ports.git, path, record, world)
     world = branches(ports, workspace.checkout, world)
     return pull_identity.in_world(ports.forge, record, world)

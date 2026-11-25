@@ -28,11 +28,9 @@ STARTS = frozenset(("ready", "landing", "open"))
 
 class Facts(Frozen, frozen=True, kw_only=True):
     """What `start` reads beside the world: whether the worktree's HEAD is the task's branch
-    at its tip, and the commands the branch's own settings bring while the main checkout's
-    name none."""
+    at its tip."""
 
     on_branch: bool = True
-    own_commands: tuple[str, ...] = ()
 
 
 def holds(record: Record, world: World) -> Held | Due:
@@ -84,7 +82,7 @@ def ready(record: Record, world: World, facts: Facts) -> Refusal | None:
     if refused is not None:
         return refused
     if not world.rules.commands:
-        return start_said.no_checks(record, own=facts.own_commands)
+        return start_said.no_checks(record)
     return None
 
 

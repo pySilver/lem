@@ -42,6 +42,8 @@ class Rules(Frozen, frozen=True, kw_only=True):
     protected: tuple[str, ...] = ()
     commands: tuple[str, ...] = ()
     serial: tuple[str, ...] = ()
+    setup: tuple[str, ...] = ()
+    own_checks: bool = False
 
 
 class PullSeen(Frozen, frozen=True, kw_only=True):
@@ -84,6 +86,8 @@ class World(Frozen, frozen=True, kw_only=True):
     pull: PullSeen | None = None
     candidates: tuple[PullSeen, ...] = ()
     item_chain: tuple[Sha, ...] = ()
+    own_item_removed_from: Sha | None = None
+    dequeued: str | None = None
 
     def items_from(self, tip: Sha) -> bool:
         """Whether the item-only history joins the checked tip to this tip."""
