@@ -3,14 +3,17 @@
 
 from pathlib import Path
 
-from lem.adapters.git_cli_shell import GIT, Shell, last_words
+from lem.adapters.git_cli_names import listed
+from lem.adapters.git_cli_shell import GIT, Shell
+from lem.adapters.git_cli_stops import ABSOLUTE, conflicted, rebase_folder, too_old
 from lem.ports.faults import Unanswered
 from lem.ports.git_facts import Commit, Conflict, DiffStat, RebaseState
 
 # A field of `git log`'s line: the sha, the parents, the subject, between tabs.
 LOG = "--format=%H%x09%P%x09%s"
-REBASE_FOLDERS = ("rebase-merge", "rebase-apply")
-ABSOLUTE = "--path-format=absolute"
+# git's three-way merge with no write to a worktree, an index or a ref, the base as its first
+# side as a rebase applies them, and the files of a conflict by the names git wrote.
+MERGE_TREE = ("--write-tree", "--name-only", "-z", "--no-messages")
 
 
 class History(Shell):
@@ -45,13 +48,13 @@ class History(Shell):
         )
 
     def merge_tree(self, where: Path, base: str, tip: str) -> str | Conflict:
-        ran = self.tried(where, "merge-tree", "--write-tree", "--name-only", base, tip)
-        lines = ran.stdout.splitlines()
-        if ran.returncode > 1 or not lines:
-            raise Unanswered(GIT, last_words(ran))
+        ran = self.raw(where, "merge-tree", *MERGE_TREE, base, tip)
+        tree, _, named = ran.stdout.partition(b"\0")
+        if ran.returncode > 1 or not tree:
+            raise Unanswered(GIT, too_old(self, where, ran.stderr))
         if ran.returncode:
-            return Conflict(files=tuple(conflicted(lines)))
-        return lines[0]
+            return Conflict(files=tuple(sorted(listed(named))))
+        return tree.decode()
 
 
 class Places(Shell):
@@ -73,20 +76,14 @@ class Places(Shell):
         return self.blob(where, spec)
 
     def rebase_state(self, where: Path) -> RebaseState | None:
-        folders = (self.git_path(where, name) for name in REBASE_FOLDERS)
-        folder = next((found for found in folders if found.is_dir()), None)
+        folder = rebase_folder(self, where)
         if folder is None:
             return None
         onto = (folder / "onto").read_text(encoding="utf-8").strip()
-        stopped = self.said(where, "diff", "--name-only", "--diff-filter=U")
-        return RebaseState(onto=onto, files=tuple(stopped.splitlines()))
+        return RebaseState(onto=onto, files=conflicted(self, where))
 
     def remote_head(self, where: Path, branch: str) -> str | None:
         return self.commit_at(where, f"refs/remotes/origin/{branch}")
-
-    def git_path(self, where: Path, name: str) -> Path:
-        """The path of `name` in the git folder of the worktree `where`."""
-        return Path(self.said(where, "rev-parse", ABSOLUTE, "--git-path", name))
 
 
 def commit_of(line: str) -> Commit:
@@ -98,9 +95,3 @@ def commit_of(line: str) -> Commit:
 def counted(number: str) -> int:
     """A count of `--numstat`; a binary file's `-` counts no line."""
     return int(number) if number.isdigit() else 0
-
-
-def conflicted(lines: list[str]) -> list[str]:
-    """The files `git merge-tree --name-only` names after the tree, up to its blank line."""
-    named = lines[1:]
-    return named[: named.index("")] if "" in named else named

@@ -64,19 +64,27 @@ class Shell:
             raise Unanswered(GIT, f"{where} has no commit at HEAD")
         return found
 
-    def blob(self, where: Path, spec: str) -> bytes:
-        """The bytes of the object `spec` (`REV:PATH`), as git keeps them."""
+    def raw(self, where: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
+        """`git -C WHERE ARGS` with its output as git wrote it, whatever its exit code: for a
+        read in which a path may hold a byte that is not UTF-8."""
         try:
-            ran = subprocess.run(
-                [GIT, "-C", str(where), "cat-file", "blob", spec],
+            return subprocess.run(
+                [GIT, "-C", str(where), *args],
                 capture_output=True,
                 env=own(self.environ),
                 stdin=subprocess.DEVNULL,
                 timeout=TIMEOUT,
-                check=True,
+                check=False,
             )
-        except (OSError, subprocess.SubprocessError) as error:
+        except (OSError, subprocess.TimeoutExpired) as error:
             raise Unanswered(GIT, str(error)) from error
+
+    def blob(self, where: Path, spec: str) -> bytes:
+        """The bytes of the object `spec` (`REV:PATH`), as git keeps them."""
+        ran = self.raw(where, "cat-file", "blob", spec)
+        if ran.returncode:
+            said = ran.stderr.decode(errors="replace").strip()
+            raise Unanswered(GIT, said or f"git exited {ran.returncode}")
         return ran.stdout
 
 
@@ -84,6 +92,13 @@ def own(environ: Mapping[str, str]) -> dict[str, str]:
     """The environment of a call, but what would aim git at another repository than the
     folder named."""
     return {name: word for name, word in environ.items() if name not in AIMED}
+
+
+def all_words(ran: subprocess.CompletedProcess[str]) -> str:
+    """Everything git said on its errors, each line of it, as one line; "nothing" when it
+    said nothing (`land.rebase_failed` on `main`)."""
+    lines = (line.strip() for line in ran.stderr.splitlines())
+    return " / ".join(line for line in lines if line).rstrip(".") or "nothing"
 
 
 def last_words(ran: subprocess.CompletedProcess[str]) -> str:
