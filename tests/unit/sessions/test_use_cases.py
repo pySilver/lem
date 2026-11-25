@@ -163,8 +163,8 @@ def test_a_new_session_goes_to_the_workspace_of_the_tasks_newest(
     [
         ({"hold": Parked(since=MOMENT)}, "parked"),
         ({"status": "landed"}, "ended"),
-        ({"after": "first-task"}, "queued-after"),
-        ({"after": "never-made"}, "queued-after"),
+        ({"after": ("first-task",)}, "queued-after"),
+        ({"after": ("never-made",)}, "queued-after"),
     ],
 )
 def test_open_refuses_a_task_that_gets_no_session_now(
@@ -193,7 +193,7 @@ def test_open_refuses_a_task_that_is_not_there_and_a_terminal_that_does_not_read
 def test_a_queued_task_opens_once_the_task_it_waits_for_landed(tmp_path: Path) -> None:
     here = here_of(tmp_path)
     made(here, "first-task", status="landed")
-    made(here, after="first-task", lead="builder")
+    made(here, after=("first-task",), lead="builder")
     assert opening.open_session(here, SLUG, "queue", None, MOMENT).phase == "build"
 
 

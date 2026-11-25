@@ -26,7 +26,9 @@ GITHUB = f'{SETTINGS}[tracker]\nkind = "github"\n'
 LINEAR = f'{SETTINGS}[tracker]\nkind = "linear"\n'
 
 
-def opened(where: Workspace, slug: str = "gift-note", **words: str | bool) -> str:
+def opened(
+    where: Workspace, slug: str = "gift-note", **words: str | bool | tuple[str, ...]
+) -> str:
     """Open `slug` with `words` over the owner's plain ask; its status."""
     asked = msgspec.convert({"slug": slug, "ask": "add a gift note", **words}, Asked)
     return opening.opened(where.checkout, asked).status
@@ -190,9 +192,9 @@ def test_a_night_task_runs_alone_from_its_opening(tmp_path: Path) -> None:
 
 def test_after_queues_the_task_and_plan_only_is_kept(tmp_path: Path) -> None:
     where = workspace(tmp_path)
-    assert opened(where, after="first", plan_only=True) == "queued"
+    assert opened(where, after=("first",), plan_only=True) == "queued"
     task = read(where, "gift-note").task
-    assert (task.after, task.plan_only) == ("first", True)
+    assert (task.after, task.plan_only) == (("first",), True)
 
 
 def test_a_resumed_task_takes_the_ticket_of_the_task_it_goes_on_from_and_no_other(

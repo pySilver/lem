@@ -37,7 +37,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     careful: tuple[str, ...] = ()
     then: Then | None = None
     order: str | None = None
-    after: str | None = None
+    after: tuple[str, ...] = ()
     wait: Wait | None = None
     fits: bool = False
     someone_else: bool = False
@@ -85,7 +85,11 @@ COMMAND = click.Command(
         ),
         click.Option(["--then"], type=choice(Then), help="what comes next"),
         click.Option(["--order"], help="the owner's order, in his words"),
-        click.Option(["--after"], help="the task this one waits for"),
+        click.Option(
+            ["--after"],
+            multiple=True,
+            help="a task this one waits for, once for each; it waits for all of them",
+        ),
         click.Option(["--wait"], type=choice(Wait), help="what waits for the owner"),
         click.Option(
             ["--fits"],

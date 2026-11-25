@@ -276,7 +276,7 @@ def test_a_new_session_goes_to_the_callers_workspace_before_the_after_tasks(
         workspace="W-2",
     )
     log.append(here.folder("first-task"), first)
-    made(here, after="first-task", lead="builder")
+    made(here, after=("first-task",), lead="builder")
     assert opening.open_session(here, SLUG, "queue", None, LATER).workspace == "W-1"
     made(here, "third", lead="builder")
     away = dataclasses.replace(here, caller=None)

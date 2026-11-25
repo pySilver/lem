@@ -20,12 +20,14 @@ class Started(Frozen, frozen=True, kw_only=True):
 
 class Based(Frozen, frozen=True, kw_only=True):
     """`base`: the tip after the rebase onto `base`, the tip before it, whether the review and
-    checks carried over it, and what the rebase changed that no review has shown."""
+    checks carried over it and the reviewed tip that carry was judged for, and what the rebase
+    changed that no review has shown."""
 
     tip: Sha
     base: Sha
     before: Sha
     carried: bool
+    reviewed: Sha | None = None
     unshown_paths: tuple[str, ...] = ()
     unshown_commits: tuple[Sha, ...] = ()
     at: Moment

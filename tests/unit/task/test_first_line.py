@@ -95,7 +95,7 @@ def test_the_fast_track_of_someone_elses_ticket_waits_for_his_yes() -> None:
         f"approve its criterion. {WRONG_FAST}"
     )
     # queued behind another task, the wait comes first, then the steps, then his yes
-    queued = replace(footer, status="queued", after="footer-text")
+    queued = replace(footer, status="queued", after=("footer-text",))
     assert (
         "It waits for footer-text, and starts when that task lands or is answered. Then "
         "the fast track: one builder, the checks, one read, then the pull request. "
@@ -244,7 +244,7 @@ def test_a_queued_task_says_what_it_waits_for() -> None:
         "Put the gift note on the label too",
         shaped("feat", "fast"),
         status="queued",
-        after="gift-note-in-export",
+        after=("gift-note-in-export",),
         branch="feat/note-on-label",
     )
     assert say(label) == (
@@ -262,7 +262,7 @@ def test_a_task_queued_by_his_order_says_so_and_his_word_that_starts_it() -> Non
         "After one-lem-parallel-landings: unit cases for the functions that are pure today",
         shaped("test", "interview"),
         status="queued",
-        after="one-lem-parallel-landings",
+        after=("one-lem-parallel-landings",),
         order="After one-lem-parallel-landings",
         branch="test/tests-at-the-unit-level",
     )
@@ -294,7 +294,7 @@ def test_a_task_put_after_the_one_task_that_fits_says_which() -> None:
         "when the gift note lands, keep the notes in their order",
         shaped("feat", "interview", fits=True),
         status="queued",
-        after="gift-note-in-export",
+        after=("gift-note-in-export",),
         order='when the "gift note" lands',
     )
     assert (
@@ -324,7 +324,7 @@ def test_a_task_held_for_his_order_gets_its_first_line_with_his_answer() -> None
     # the hold names no path: no line while he is away
     assert say(held, read) is None
     # his answer "after gift-note-in-export": queued, with his order kept
-    answered = replace(held, hold=None, status="queued", after="gift-note-in-export")
+    answered = replace(held, hold=None, status="queued", after=("gift-note-in-export",))
     assert say(answered, read) == (
         'feat: "the export keeps the notes in their order". Branch '
         "feat/export-notes-in-order. It waits for gift-note-in-export, as you said; "
@@ -355,7 +355,7 @@ def test_a_task_that_waits_by_a_need_says_the_wait() -> None:
         "After gift-note-in-export: the export keeps the notes in their order",
         shaped("feat", "interview"),
         status="queued",
-        after="gift-note-in-export",
+        after=("gift-note-in-export",),
     )
     assert say(need) == (
         'feat: "after gift-note-in-export: the export keeps the notes in their order". '

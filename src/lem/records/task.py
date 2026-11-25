@@ -33,7 +33,8 @@ type Then = Literal["interview", "fast", "lead", "investigation"]
 
 class Shape(Frozen, frozen=True, kw_only=True):
     """The shape `task read` gave: the type and why, the track, the careful topics, what comes
-    next, whether the words fit one open task, and whether someone else asked."""
+    next, whether the words fit one open task, whether someone else asked, and the first line
+    the session said of the task."""
 
     type: TaskType
     why: str
@@ -42,12 +43,14 @@ class Shape(Frozen, frozen=True, kw_only=True):
     then: Then | None = None
     fits: bool = False
     someone_else: bool = False
+    first_line: str | None = None
 
 
 class Task(Frozen, frozen=True, kw_only=True):
     """One task. `ask` is the owner's words, or the backlog item's path it started from
-    (`backlog_item`); `after` and `order` queue it behind another task and by his words;
-    `mode` says whether it runs with the owner or alone (a night task)."""
+    (`backlog_item`); `after` and `order` queue it behind other tasks, all of them, and by his
+    words; `mode` says whether it runs with the owner or alone (a night task); `owner_careful`
+    is when the owner said the task is careful until its merge (`/lem be-careful`)."""
 
     slug: Slug
     ask: str
@@ -61,11 +64,12 @@ class Task(Frozen, frozen=True, kw_only=True):
     ticket: Ticket | None = None
     night: Day | None = None
     plan_only: bool = False
-    after: Slug | None = None
+    after: tuple[Slug, ...] = ()
     order: str | None = None
     mode: Literal["with-owner", "alone"] = "with-owner"
     mode_since: Moment | None = None
     shape: Shape | None = None
+    owner_careful: Moment | None = None
     lead: Literal["builder", "session", "small"] | None = None
     plan: Plan | None = None
     investigation: Investigation | None = None

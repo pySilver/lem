@@ -32,15 +32,22 @@ class NotGreen(Tagged, tag="not-green", frozen=True, kw_only=True):
 
 
 class CheckWait(Tagged, tag="check-wait", frozen=True, kw_only=True):
-    """The checks wait: for the load to fall under `start_below`, or behind another run, at a
-    place in the line. Written on each change of reason or place."""
+    """The checks wait: for the load to fall under `start_below`, a minute after the run of
+    `after`, or behind another run at a place in the line, with that run's repository when it is
+    not this one, why it goes first, the repositories whose state did not read, and the line for
+    the owner (`land.wait_for_load` on `main`). Written on each change of reason or place."""
 
     at: Moment
-    reason: Literal["load", "behind"]
+    reason: Literal["load", "behind", "after"]
     load: float | None = None
     start_below: float | None = None
     behind: Slug | None = None
     position: int | None = None
+    after: Slug | None = None
+    behind_repo: str | None = None
+    why: Literal["wanted", "longer", "first"] | None = None
+    unread: tuple[str, ...] = ()
+    say: str | None = None
 
 
 class CommandEnd(Frozen, frozen=True, kw_only=True):
@@ -52,12 +59,17 @@ class CommandEnd(Frozen, frozen=True, kw_only=True):
 
 
 class CheckEnd(Tagged, tag="check-end", frozen=True, kw_only=True):
-    """The checks ended: the outcome, the line for the owner, and each command."""
+    """The checks ended: the outcome, the line for the owner, each command, how long the run
+    took, the tip it ran on, and the commit of the polish pass whose run of the criteria's tests
+    it took (`gate.end` on `main`)."""
 
     at: Moment
     outcome: Literal["passed", "red", "refused", "stopped"]
     say: str
     commands: tuple[CommandEnd, ...] = ()
+    seconds: int | None = None
+    tip: Sha | None = None
+    taken: Sha | None = None
 
 
 class MergeWait(Tagged, tag="merge-wait", frozen=True, kw_only=True):

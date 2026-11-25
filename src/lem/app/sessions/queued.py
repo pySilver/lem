@@ -1,6 +1,6 @@
-"""Whether a queued task may get its session now: a task queued after another waits until that
-one landed or was answered; a dropped one leaves it queued for the owner's word, which starts
-it or drops it (`session.queued_behind` on `main`)."""
+"""Whether a queued task may get its session now: a task queued after others waits until each
+of them landed or was answered; a dropped one leaves it queued for the owner's word, which
+starts it or drops it (`session.queued_behind` on `main`)."""
 
 from typing import TYPE_CHECKING
 
@@ -16,25 +16,36 @@ if TYPE_CHECKING:
 DONE = ("landed", "answered")
 
 
-def behind(here: Here, task: Task) -> None:
-    """Refuse a queued task whose `after` task has not landed or been answered, or is not on
-    record: only the owner's word starts it then (`session.queued_behind` on `main`)."""
-    if task.status != "queued" or task.after is None:
-        return
+def status_of(here: Here, slug: str) -> str:
+    """The status of the task `slug`, or `not on record`."""
     try:
-        status = tasks.read(here.where.state, task.after).task.status
+        return tasks.read(here.where.state, slug).task.status
     except Refusal:
-        status = "not on record"
-    if status in DONE:
+        return "not on record"
+
+
+def behind(here: Here, task: Task) -> None:
+    """Refuse a queued task one of whose `after` tasks has not landed or been answered, or is
+    not on record, a dropped one first: only the owner's word starts it then
+    (`session.queued_behind` on `main`)."""
+    if task.status != "queued":
         return
-    waits = (
+    statuses = ((after, status_of(here, after)) for after in task.after)
+    waits = sorted(
+        ((after, status) for after, status in statuses if status not in DONE),
+        key=lambda pair: pair[1] != "dropped",
+    )
+    if not waits:
+        return
+    after, status = waits[0]
+    then = (
         "it waits for the owner's word, which starts it or drops it"
         if status == "dropped"
-        else (f"it opens when {task.after} landed or was answered")
+        else (f"it opens when {after} landed or was answered")
     )
     raise Refusal(
         "queued-after",
-        f"{task.slug} is queued after {task.after}, which is {status}: {waits}",
+        f"{task.slug} is queued after {after}, which is {status}: {then}",
         f'the owner\'s word starts it now: lem task start {task.slug} --words "..."',
     )
 

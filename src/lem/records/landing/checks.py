@@ -29,12 +29,13 @@ class CriterionCheck(Frozen, frozen=True, kw_only=True):
 
 
 class Lowered(Frozen, frozen=True, kw_only=True):
-    """A file whose bar the change lowered (a removed test, an assertion loosened): the
-    builder's reason, and the reviewer's answer to it, which `land.not_green` on `main` shows
-    beside it."""
+    """A file whose bar the change lowered (a removed test, an assertion loosened): the marked
+    line (160 characters at most, `land.bar_of` on `main`), the builder's reason, and the
+    reviewer's answer to it, which `land.not_green` on `main` shows beside it."""
 
     path: str
     how: str
+    line: str | None = None
     reason: str | None = None
     reviewer: str | None = None
 
@@ -55,18 +56,25 @@ class Removed(Frozen, frozen=True, kw_only=True):
 
 
 class Checked(Frozen, frozen=True, kw_only=True):
-    """`checks` on a tip: its tree and base, one digest of the inputs (commands, serial, setup,
-    plan file), each command's outcome, the criteria, the bar, the size, whether the change
-    brought its own checks, what was removed, and the backlog items `file` committed after."""
+    """`checks` on a tip: its tree, its base and the base's tree, one digest of the inputs that
+    make a passed run hold no more (the commands and the serial ones, `land.same_checks` on
+    `main`), the criteria's contract mark it ran under, each command's outcome, the criteria,
+    the bar with the existing tests the change edits and the kinds of file it has no marks
+    for, the size, whether the change brought its own checks, what was removed, and the backlog
+    items `file` committed after."""
 
     tip: Sha
     tree: Sha
     base: Sha
+    base_tree: Sha | None = None
     inputs: str
+    contract: str | None = None
     outcome: Literal["passed", "red", "refused", "stopped"]
     outcomes: tuple[Outcome, ...] = ()
     criteria: tuple[CriterionCheck, ...] = ()
     lowered: tuple[Lowered, ...] = ()
+    edited: tuple[str, ...] = ()
+    not_covered: tuple[str, ...] = ()
     size: ChangeSize | None = None
     own_checks: bool = False
     removed: Removed | None = None

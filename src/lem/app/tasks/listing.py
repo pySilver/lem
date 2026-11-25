@@ -46,7 +46,7 @@ class Row(Frozen, frozen=True, kw_only=True):
     type: str | None = None
     track: str | None = None
     branch: str | None = None
-    after: str | None = None
+    after: tuple[str, ...] = ()
     order: str | None = None
     plan_only: bool = False
     night: Day | None = None

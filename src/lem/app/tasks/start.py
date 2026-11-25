@@ -39,7 +39,7 @@ def may(folder: Path, slug: str) -> queue.May:
 def started(record: Record, *, status: Status, words: str, now: Moment) -> Record:
     """The record of a queued task his word starts: no queue, no wait for his order, and
     his words in the journal's line."""
-    unqueued = replace(record, task=replace(record.task, after=None, order=None))
+    unqueued = replace(record, task=replace(record.task, after=(), order=None))
     line = f'the owner\'s word: "{words}"'
     return holds.moved(unqueued, status=status, line=line, now=now)
 

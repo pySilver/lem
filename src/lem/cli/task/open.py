@@ -2,7 +2,7 @@
 
     lem task open SLUG --ask WORDS [--ticket ID] [--branch B] ...
 
-The task opens `shaping`, or `queued` behind `--after`; a ticket, a backlog item and the
+The task opens `shaping`, or `queued` behind each `--after`; a ticket, a backlog item and the
 dropped task `--from` names are claimed under the workspace lock (`app/tasks/open.py`).
 """
 
@@ -23,7 +23,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     ticket_repo: str | None = None
     branch: str | None = None
     night: str | None = None
-    after: str | None = None
+    after: tuple[str, ...] = ()
     plan_only: bool = False
     backlog_item: str | None = None
     origin: str | None = None
@@ -54,7 +54,11 @@ COMMAND = click.Command(
             ["--branch"], help="the branch the task takes, when it is not TYPE/SLUG"
         ),
         click.Option(["--night"], help="the night that opens the task, YYYY-MM-DD"),
-        click.Option(["--after"], help="the task this one waits for"),
+        click.Option(
+            ["--after"],
+            multiple=True,
+            help="a task this one waits for, once for each; it waits for all of them",
+        ),
         click.Option(
             ["--plan-only"],
             is_flag=True,

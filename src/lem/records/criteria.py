@@ -24,7 +24,8 @@ class Pair(Frozen, frozen=True, kw_only=True):
 
 class Change(Frozen, frozen=True, kw_only=True):
     """The owner's change of the criteria: the text he answered, his words, the pairs, and the
-    digests before and after. Only the newest is kept."""
+    digests before and after. Only the newest is kept whole; `Criteria.changed` keeps the moment
+    of each."""
 
     at: Moment
     text: str
@@ -34,10 +35,20 @@ class Change(Frozen, frozen=True, kw_only=True):
     after: str | None = None
 
 
+class Waited(Frozen, frozen=True, kw_only=True):
+    """The criteria's wait for the owner's yes (`criteria_waited` on `main`): when it began, and
+    the approval that ended it, by its number, once one did."""
+
+    since: Moment
+    ended_by: int | None = None
+
+
 class Criteria(Frozen, frozen=True, kw_only=True):
     """What a task knows of its criteria: the size and its reason, the parsed criteria and how
-    the change works, the approvals, the persona reads, the skip of a read, the change that
-    waits, and the newest run that the tests pass on the branch and fail on the base."""
+    the change works, the approvals and the newest wait for one, the persona reads, the skip of
+    a read and when the owner said yes to it, the change that waits and the moment of each
+    change from his notes, and the newest run that the tests pass on the branch and fail on
+    the base."""
 
     size: Size | None = None
     why: str | None = None
@@ -45,7 +56,10 @@ class Criteria(Frozen, frozen=True, kw_only=True):
     how: str | None = None
     digest: str | None = None
     approvals: tuple[Approval, ...] = ()
+    waited: Waited | None = None
     reads: tuple[PersonaRead, ...] = ()
     skip: Literal["asked", "yes", "no"] | None = None
+    skip_at: Moment | None = None
     change: Change | None = None
+    changed: tuple[Moment, ...] = ()
     red: Red | None = None
