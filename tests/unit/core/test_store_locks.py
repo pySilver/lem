@@ -7,12 +7,13 @@ import sys
 import threading
 from typing import TYPE_CHECKING
 
+import msgspec
 import pytest
 
 from fakes.records import MOMENT, record
 from lem.kernel import locks
 from lem.kernel.errors import Refusal
-from lem.store import steps, tasks, workspace
+from lem.store import step_refusals, steps, tasks, workspace
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -57,13 +58,23 @@ def test_a_second_step_is_refused_with_the_holder_named(tmp_path: Path) -> None:
         ):
             pass
         assert refused.value.code == "step-held"
-        assert "lem land checks fix-the-login (since 2026-11-25T10:00Z" in (
-            refused.value.why
+        assert refused.value.why.startswith(
+            "the checks of fix-the-login run (since 2026-11-25T10:00Z, in process "
+        )
+        assert refused.value.why.endswith(
+            "`lem land checks fix-the-login --status` says whether they still run"
         )
         assert (
             refused.value.fix
-            == "wait for it to end, then run lem land base fix-the-login"
+            == "wait for it to end, then run lem land base fix-the-login again"
         )
+        with (
+            pytest.raises(Refusal) as again,
+            steps.step(tmp_path, "fix-the-login", "checks", MOMENT),
+        ):
+            pass
+        assert "already run" in again.value.why
+        assert "a second run is refused" in again.value.why
     assert steps.holder_of(lock) is None
     assert probe(lock) == "free"
 
@@ -104,8 +115,39 @@ def test_a_drop_waits_for_the_step_and_then_holds_the_lock(tmp_path: Path) -> No
 
 
 def test_a_lock_named_by_no_holder_is_refused_without_a_name(tmp_path: Path) -> None:
-    refusal = steps.refusal("fix-the-login", "base", None)
-    assert refusal.why == "another step of fix-the-login holds its lock"
+    refusal = step_refusals.refusal("fix-the-login", "base", None)
+    assert (
+        refusal.why
+        == "another step of fix-the-login runs now and holds its lock (step.lock)"
+    )
+
+
+def test_a_folder_at_the_lock_is_refused_with_its_repair(tmp_path: Path) -> None:
+    tasks.create(tmp_path, record())
+    lock = tmp_path / "tasks" / "fix-the-login" / "step.lock"
+    lock.mkdir()
+    with (
+        pytest.raises(Refusal) as refused,
+        steps.step(tmp_path, "fix-the-login", "base", MOMENT),
+    ):
+        pass
+    assert refused.value.code == "step-lock"
+    assert refused.value.fix == (
+        f"it holds no state: remove it (rm -r {lock}), then run lem land base "
+        "fix-the-login again"
+    )
+
+
+def test_a_holder_that_died_is_named_by_no_look(tmp_path: Path) -> None:
+    tasks.create(tmp_path, record())
+    lock = tmp_path / "tasks" / "fix-the-login" / "step.lock"
+    gone = subprocess.Popen([sys.executable, "-I", "-c", "pass"])
+    gone.wait(timeout=30)
+    lock.write_bytes(
+        msgspec.json.encode(steps.Holder(step="checks", pid=gone.pid, since=MOMENT))
+    )
+    assert steps.holder_of(lock) is None
+    assert probe(lock) == "free"
 
 
 def test_two_claims_of_one_ticket_publish_one_task(tmp_path: Path) -> None:

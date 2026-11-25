@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
+from lem.kernel import release
 from lem.records.journal.task import StateNoted
 from lem.records.record import Record
 from lem.records.task import Task
@@ -20,7 +21,7 @@ def record(slug: str = "fix-the-login", **task: object) -> Record:
     made = Task(
         slug=slug, ask="fix the login", opened=MOMENT, status="queued", since=MOMENT
     )
-    return Record(release="1.0.0", task=msgspec.structs.replace(made, **task))
+    return Record(release=release.running(), task=msgspec.structs.replace(made, **task))
 
 
 def noted(line: str) -> Callable[[Record], Record]:

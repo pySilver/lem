@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.kernel import files, locks
+from lem.kernel import files, locks, release
 from lem.kernel.errors import Fault, Refusal
-from lem.records.record import Record
+from lem.records.record import SCHEMA, Record
 from lem.store import places
 
 if TYPE_CHECKING:
@@ -27,9 +27,35 @@ type Change = Callable[[Record], Record]
 
 
 def encode(record: Record) -> bytes:
-    """A record as its file holds it: JSON with two spaces of indent, and a line end."""
+    """A record as its file holds it: JSON with two spaces of indent, and a line end. A record
+    this release would not read back (an abbreviated commit, a time with no zone) is a fault,
+    never a file."""
     formatted = msgspec.json.format(msgspec.json.encode(record), indent=2)
+    try:
+        msgspec.json.decode(formatted, type=Record)
+    except msgspec.ValidationError as error:
+        slug = record.task.slug
+        raise Fault(f"the record of {slug} would not read back: {error}") from error
     return b"".join((formatted, b"\n"))
+
+
+def writable(record: Record, running: str) -> None:
+    """Refuse a write of a record that a newer form or a newer release wrote: the write would
+    drop what this release does not know."""
+    slug = record.task.slug
+    if record.schema != SCHEMA:
+        raise Refusal(
+            "record-form",
+            f"the record of {slug} is of form {record.schema}, and this Lem writes form "
+            f"{SCHEMA}",
+            "the owner updates Lem, then runs the command again",
+        )
+    if release.newer(record.release, running):
+        raise Refusal(
+            "newer-release",
+            f"{slug} began on Lem {record.release}, which is newer than this Lem, {running}",
+            "the owner updates Lem, then runs the command again",
+        )
 
 
 def read(state: Path, slug: str) -> Record:
@@ -68,10 +94,11 @@ def create(state: Path, record: Record) -> Record:
 
 def update(state: Path, slug: str, change: Change, expect: int) -> Record:
     """Apply `change` to the record at revision `expect`, and write it as the next revision;
-    refused when another write came first."""
+    refused when another write came first, or when the record is of a newer form or release."""
     folder = places.task_folder(state, slug)
     with locks.held(folder / LOCK):
         record = read(state, slug)
+        writable(record, release.running())
         if record.revision != expect:
             raise Refusal(
                 "stale",

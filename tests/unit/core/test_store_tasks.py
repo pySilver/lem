@@ -8,8 +8,10 @@ import msgspec
 import pytest
 
 from fakes.records import MOMENT, noted, record
+from lem.kernel import release
 from lem.kernel.errors import Fault, Refusal
 from lem.records.journal.task import StateNoted
+from lem.records.landing.record import Landing
 from lem.records.record import Record
 from lem.store import places, tasks
 
@@ -20,7 +22,7 @@ def test_a_created_task_reads_back_at_revision_one(tmp_path: Path) -> None:
     assert tasks.read(tmp_path, "fix-the-login") == made
     written = (tmp_path / "tasks" / "fix-the-login" / "task.json").read_text()
     assert written.startswith(
-        '{\n  "schema": 1,\n  "release": "1.0.0",\n  "revision": 1,'
+        f'{{\n  "schema": 1,\n  "release": "{release.running()}",\n  "revision": 1,'
     )
     assert written.endswith("}\n")
 
@@ -143,3 +145,46 @@ def test_the_state_folder_hides_itself_from_git(tmp_path: Path) -> None:
     assert state == tmp_path / ".lem" / "state"
     assert (state / ".gitignore").read_text() == "*\n"
     assert places.state_of(tmp_path) == state
+
+
+def test_a_record_of_a_newer_form_or_release_reads_but_is_never_written_over(
+    tmp_path: Path,
+) -> None:
+    tasks.create(tmp_path, record())
+    path = tmp_path / "tasks" / "fix-the-login" / "task.json"
+    kept = path.read_text()
+    newer_form = kept.replace('"schema": 1,', '"schema": 2,').replace(
+        '"ask":', '"asked_by": "a teammate",\n    "ask":'
+    )
+    for body, code in (
+        (newer_form, "record-form"),
+        (
+            kept.replace(f'"release": "{release.running()}"', '"release": "9.0.0"'),
+            "newer-release",
+        ),
+    ):
+        path.write_text(body)
+        assert tasks.read(tmp_path, "fix-the-login").task.ask == "fix the login"
+        with pytest.raises(Refusal) as refused:
+            tasks.update(tmp_path, "fix-the-login", noted("lost"), expect=1)
+        assert refused.value.code == code
+        assert path.read_text() == body
+
+
+def test_a_record_that_would_not_read_back_is_never_written(tmp_path: Path) -> None:
+    tasks.create(tmp_path, record())
+
+    def abbreviated(before: Record) -> Record:
+        return msgspec.structs.replace(before, landing=Landing(pushed="abc1234"))
+
+    with pytest.raises(Fault, match=r"\$\.landing\.pushed"):
+        tasks.update(tmp_path, "fix-the-login", abbreviated, expect=1)
+    bad_moment = msgspec.structs.replace(
+        record("other"),
+        task=msgspec.structs.replace(
+            record("other").task, opened=MOMENT.replace(tzinfo=None)
+        ),
+    )
+    with pytest.raises(Fault, match="would not read back"):
+        tasks.create(tmp_path, bad_moment)
+    assert [found.task.slug for found in tasks.every(tmp_path)] == ["fix-the-login"]

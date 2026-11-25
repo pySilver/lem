@@ -3,9 +3,9 @@
 A reader finds the old file or the new one, never a part: the text goes to a temporary file of a
 unique name in the same folder, is synced, and replaces the file in one rename, after which the
 folder is synced too, so that the rename outlives a cut of the power. An artifact that a record
-cites by its digest is published at a path of its own before the citation, and is never written
-again with other bytes: a cut-off between the two leaves an artifact that nothing cites, never a
-citation of a changed file.
+cites by its digest is published at a path of its own before the citation, by a link that only
+the first writer wins, and is never written again with other bytes: a cut-off between the two
+leaves an artifact that nothing cites, never a citation of a changed file.
 """
 
 import contextlib
@@ -44,13 +44,19 @@ def digest(body: bytes) -> str:
 
 
 def publish(path: Path, body: bytes) -> str:
-    """Publish `body` at `path` once, and give its digest. The same bytes again are no
-    change; other bytes at a published path are a fault of the caller, which names each body
-    by its round, number or digest."""
-    if path.exists():
-        if path.read_bytes() != body:
-            raise Fault(f"{path} is published already, with other bytes")
-        return digest(body)
+    """Publish `body` at `path` once, and give its digest. The synced file takes the name by a
+    link, which fails when the name is taken, so of two writers one wins; the same bytes again
+    are no change, and other bytes at a published path are a fault of the caller, which names
+    each body by its round, number or digest."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    write_whole(path, body)
+    prefix = f".{path.name}."
+    with tempfile.NamedTemporaryFile(dir=path.parent, prefix=prefix) as stream:
+        stream.write(body)
+        stream.flush()
+        os.fsync(stream.fileno())
+        with contextlib.suppress(FileExistsError):
+            os.link(stream.name, path)
+    sync_folder(path.parent)
+    if path.read_bytes() != body:
+        raise Fault(f"{path} is published already, with other bytes")
     return digest(body)

@@ -35,3 +35,12 @@ def tried(path: Path) -> Iterator[TextIOWrapper | None]:
             yield None
             return
         yield stream
+
+
+def taken(stream: TextIOWrapper) -> bool:
+    """Take the lock of an open lock file when nobody holds it; False at once when one does."""
+    try:
+        fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return False
+    return True

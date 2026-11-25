@@ -5,6 +5,7 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 from datetime import UTC, datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
@@ -44,6 +45,36 @@ def test_an_artifact_is_published_once_and_never_changed(tmp_path: Path) -> None
     with pytest.raises(Fault, match="published already"):
         files.publish(path, b"[]")
     assert path.read_bytes() == b"{}"
+
+
+def test_of_writers_at_once_of_one_artifact_one_wins_and_the_rest_are_refused(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "reviews" / "review-1.json"
+    start = threading.Barrier(8)
+    won: list[bytes] = []
+    refused: list[bytes] = []
+
+    def publish(body: bytes) -> None:
+        start.wait()
+        try:
+            files.publish(path, body)
+        except Fault:
+            refused.append(body)
+        else:
+            won.append(body)
+
+    writers = [
+        threading.Thread(target=publish, args=(f"review {n}".encode(),))
+        for n in range(8)
+    ]
+    for writer in writers:
+        writer.start()
+    for writer in writers:
+        writer.join()
+    assert (len(won), len(refused)) == (1, 7)
+    assert path.read_bytes() == won[0]
+    assert sorted(found.name for found in path.parent.iterdir()) == ["review-1.json"]
 
 
 def test_a_tried_lock_gives_none_while_held_and_the_lock_after(tmp_path: Path) -> None:

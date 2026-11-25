@@ -7,16 +7,16 @@ drop waits. The lock is the open file's, so it ends with its process, and no pro
 starts holds it (`seam:step-lock-not-inherited`).
 """
 
+import fcntl
 import os
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.kernel import clock, locks
-from lem.kernel.errors import Refusal
+from lem.kernel import locks
 from lem.records.base import Frozen, Moment
-from lem.store import places
+from lem.store import places, step_refusals
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -34,26 +34,25 @@ class Holder(Frozen, frozen=True, kw_only=True):
     since: Moment
 
 
-def holder_of(path: Path) -> Holder | None:
-    """The holder the lock file names, or None when it names none."""
+def alive(pid: int) -> bool:
+    """Whether the process `pid` is there (another user's counts)."""
     try:
-        return msgspec.json.decode(path.read_bytes(), type=Holder)
-    except FileNotFoundError, msgspec.DecodeError:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def holder_of(path: Path) -> Holder | None:
+    """The holder the lock file names, while its process lives; None when it names none, or a
+    process that is gone (`land.running_checks` on `main`): the lock of a dead holder is free."""
+    try:
+        holder = msgspec.json.decode(path.read_bytes(), type=Holder)
+    except OSError, msgspec.DecodeError:
         return None
-
-
-def refusal(slug: str, step: str, holder: Holder | None) -> Refusal:
-    """The refusal of `step` while another holds the lock."""
-    if holder is None:
-        why = f"another step of {slug} holds its lock"
-    else:
-        since = clock.minute(holder.since)
-        why = (
-            f"lem land {holder.step} {slug} (since {since}, process {holder.pid}) runs"
-        )
-    return Refusal(
-        "step-held", why, f"wait for it to end, then run lem land {step} {slug}"
-    )
+    return holder if alive(holder.pid) else None
 
 
 @contextmanager
@@ -69,14 +68,22 @@ def named(stream: TextIOWrapper, holder: Holder) -> Iterator[None]:
         stream.flush()
 
 
+def opened(path: Path, slug: str, step: str) -> TextIOWrapper:
+    """The step lock's file, opened; a file that cannot be is refused with its repair."""
+    try:
+        return path.open("a+", encoding="utf-8")
+    except OSError as error:
+        raise step_refusals.unopened(path, slug, step, error) from error
+
+
 @contextmanager
 def step(state: Path, slug: str, name: str, now: Moment) -> Iterator[None]:
     """Hold the step lock of `slug` for the step `name`; refused at once while another holds
     it."""
     path = places.task_folder(state, slug) / LOCK
-    with locks.tried(path) as stream:
-        if stream is None:
-            raise refusal(slug, name, holder_of(path))
+    with opened(path, slug, name) as stream:
+        if not locks.taken(stream):
+            raise step_refusals.refusal(slug, name, holder_of(path))
         with named(stream, Holder(step=name, pid=os.getpid(), since=now)):
             yield
 
@@ -86,8 +93,7 @@ def waited(state: Path, slug: str, name: str, now: Moment) -> Iterator[None]:
     """Hold the step lock of `slug` for `name`, waiting for the step that holds it: a drop's
     write, after it stopped the running checks."""
     path = places.task_folder(state, slug) / LOCK
-    with (
-        locks.held(path) as stream,
-        named(stream, Holder(step=name, pid=os.getpid(), since=now)),
-    ):
-        yield
+    with opened(path, slug, name) as stream:
+        fcntl.flock(stream, fcntl.LOCK_EX)
+        with named(stream, Holder(step=name, pid=os.getpid(), since=now)):
+            yield
