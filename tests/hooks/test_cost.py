@@ -131,3 +131,20 @@ def test_a_selector_takes_at_most_55_ms_at_p95(selector: str, tmp_path: Path) ->
     workspace(tmp_path / "repo")
     took = p95(selector, started(tmp_path / "repo"))
     assert took <= BUDGET, f"{selector}: p95 {took:.1f} ms over {RUNS} runs"
+
+
+def test_a_session_that_is_no_tasks_reads_no_event_and_imports_no_json(
+    tmp_path: Path,
+) -> None:
+    workspace(tmp_path / "repo")
+    call = (
+        "import os; from lem.hooks import main; main.run('session-start', os.environ)"
+    )
+    added = imported(
+        call, started(tmp_path / "repo"), CLAUDE_PLUGIN_ROOT=str(ROOT)
+    ) - imported("pass", b"")
+    assert "json" not in added
+    with_task = imported(
+        call, started(tmp_path / "repo"), LEM_TASK=SLUG, CLAUDE_PLUGIN_ROOT=str(ROOT)
+    )
+    assert "json" in with_task
