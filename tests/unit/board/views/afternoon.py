@@ -14,8 +14,9 @@ from fixtures.board.beside import lay
 from fixtures.board.moments import NOW, sha
 from fixtures.board.receipt import TIP
 from fixtures.board.shown import VERSION, VIEWER, ZONE
+from lem.board.views.ask import Ask
 from lem.board.views.backlog.ledger import Adding
-from lem.board.views.gather import Ask, gather
+from lem.board.views.gather import gather
 from lem.board.views.world import Clock, Place
 from lem.ports.git_facts import Commit
 
