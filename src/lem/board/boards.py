@@ -56,7 +56,7 @@ def task_checked(space: places.Workspace, slug: str) -> None:
 
 def demo_marked(space: places.Workspace) -> None:
     """Mark the state folder as holding example tasks, for good: every board of it says so."""
-    (space.state / workspaces.DEMO).write_bytes(DEMO_TEXT)
+    (places.state_of(space.checkout) / workspaces.DEMO).write_bytes(DEMO_TEXT)
 
 
 def page_of(named: str) -> Path:
