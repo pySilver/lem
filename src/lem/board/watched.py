@@ -13,6 +13,7 @@ import contextlib
 import hashlib
 from typing import TYPE_CHECKING
 
+from lem.settings import placed
 from lem.store import places
 
 if TYPE_CHECKING:
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 # The files of the state folder the pages read beside the records, and the globs of folders.
 STATE_FILES = ("demo", "forge.json", "inbox.json")
 STATE_GLOBS = ("tasks/*/task.json", "backlog/*")
+BACKLOG = dict(placed.FIXED)["backlog"]
 SETTINGS = ("settings.toml", "settings.local.toml")
 OWNER = "owner.json"
 DIGITS = 16
@@ -43,6 +45,7 @@ def paths_of(state: Path, home: Path, task: str | None) -> Iterable[Path]:
     yield from (state / name for name in STATE_FILES)
     for pattern in STATE_GLOBS:
         yield from state.glob(pattern)
+    yield from (lem.parent / BACKLOG).glob("*.md")
     yield from (lem / name for name in SETTINGS)
     yield home / OWNER
     if task and places.SLUG.fullmatch(task):

@@ -11,7 +11,7 @@ import msgspec
 
 from lem.adapters.notify_push import PushNotifier
 from lem.board import listener
-from lem.board.push import listing
+from lem.board.push import body, listing
 from lem.board.push.reads import json_of
 from lem.kernel.errors import Refusal
 
@@ -22,8 +22,6 @@ if TYPE_CHECKING:
     from starlette.responses import Response
 
 type Work = Callable[[Request], Awaitable[object]]
-# What a device posts, at most, in bytes.
-MOST = 4096
 NOT_HERE = (
     "The board's notifications are turned on only from the board's own page, on this Mac "
     "or through the tailnet door."
@@ -37,18 +35,14 @@ class Asked(msgspec.Struct, frozen=True, kw_only=True):
 
 
 async def given[Form](request: Request, form: type[Form]) -> Form:
-    """The request's JSON body in `form`; refused when it is no such object of at most MOST
+    """The request's JSON body in `form`; refused when it is no such object of at most `body.MOST`
     bytes, or comes from no page of the board."""
     refused = listener.act_refusal(request)
     if refused is not None:
         raise Refusal("not-here", NOT_HERE, "open the board's own page")
-    body = await request.body()
-    if not body or len(body) > MOST:
-        raise Refusal(
-            "no-json", f"the request carries no JSON of at most {MOST} bytes", ""
-        )
+    document = await body.read(request)
     try:
-        return msgspec.json.decode(body, type=form)
+        return msgspec.json.decode(document, type=form)
     except (msgspec.DecodeError, RecursionError) as error:
         raise Refusal(
             "no-json", f"the request carries no subscription ({error})", ""

@@ -30,12 +30,6 @@ class Changed(msgspec.Struct, frozen=True, kw_only=True):
 def added(home: Path, folder: Path) -> Changed:
     """Put the main checkout of `folder` on the list."""
     space = places.workspace(folder)
-    if not space.lem.is_dir():
-        raise Refusal(
-            "not-set-up",
-            f"{space.checkout} has no .lem folder: Lem is not set up there",
-            f"run /lem init in {space.checkout} first",
-        )
     path = str(space.checkout.resolve())
     changed = workspaces.changed(home, path, add=True)
     return Changed(checkout=path, changed=changed, workspaces=workspaces.listed(home))

@@ -17,7 +17,6 @@ import msgspec
 
 from lem.adapters import notify_push_devices as devices
 from lem.board.push import said, waits
-from lem.kernel.errors import Fault, Refusal
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -27,8 +26,6 @@ if TYPE_CHECKING:
 # How often the watcher looks, in seconds. A guess: a phone needs no fresher news
 # (`push.LOOK_SECONDS` on `main`).
 LOOK = 5.0
-# What a look that failed may raise: a refusal or fault of Lem, a file that does not read.
-FAILED = (Refusal, Fault, OSError, ValueError)
 
 
 @dataclass
@@ -74,7 +71,7 @@ class Watcher:
                 return
             try:
                 await anyio.to_thread.run_sync(self.look, self.notifier.now())
-            except FAILED as error:
+            except waits.FAILED as error:
                 self.told(f"{type(error).__name__}: {error}")
             else:
                 self.told(None)

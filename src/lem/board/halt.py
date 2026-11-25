@@ -1,15 +1,16 @@
 """The stop of the board server: sent on the one connection that asked who serves, so that it
 reaches the server that answered as this build's server of this home folder and no other (a
 connection the server closed after its answer is no connection to stop on, and nothing is
-sent), and the wait until its port is free."""
+sent), and the wait until its port and home claim are free."""
 
 import socket
 import time
 from http import HTTPStatus
 from http.client import HTTPConnection, HTTPException
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lem.board import client
+from lem.board import claim, client
 from lem.kernel.errors import Refusal
 
 if TYPE_CHECKING:
@@ -56,9 +57,10 @@ def free(port: int, host: str) -> bool:
 
 
 def gone(port: int, facts: Facts, host: str) -> None:
-    """Wait until nothing listens on the port the stopped server held."""
+    """Wait for the server to close its listener and release its home claim."""
     deadline = time.monotonic() + STOP_WAIT
-    while not free(port, host):
+    home = Path(facts.home)
+    while not free(port, host) or not claim.released(home):
         if time.monotonic() > deadline:
             raise Refusal(
                 "stop-late",

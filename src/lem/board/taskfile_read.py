@@ -6,7 +6,7 @@ from contextlib import ExitStack
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
-from lem.store import places
+from lem.store import guard, places
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -44,13 +44,16 @@ def read(state: Path, slug: str, path: str, *, media: bool = False) -> bytes | N
     if not parts or any(part.startswith(".") for part in parts):
         return None
     try:
-        return inside(state.resolve(), slug, parts, media=media)
+        return inside(state, slug, parts, media=media)
     except OSError, Refusal, ValueError:
         return None
 
 
 def inside(state: Path, slug: str, parts: list[str], *, media: bool) -> bytes | None:
     """Resolve the roots and the file before the descriptor-relative open."""
+    if state.resolve() != state:
+        return None
+    guard.readable(state)
     task = task_root(state, slug)
     if task is None:
         return None

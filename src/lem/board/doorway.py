@@ -66,6 +66,7 @@ def opened(environ: Mapping[str, str], folder: Path) -> Doorway:
 def closed(environ: Mapping[str, str], folder: Path) -> Doorway:
     """Close the door from now on, and take Lem's entry out of `tailscale serve`."""
     port = machine.settings(paths.home(environ)).tailscale_port
+    machine.guarded(port, environ)
     written(environ, folder, OFF)
     shown = ensure.ensure(environ, folder)
     cli = tailscale.cli(environ)

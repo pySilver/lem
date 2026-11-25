@@ -8,6 +8,7 @@ import pytest
 
 from fakes.records import MOMENT, record
 from lem.board.facts import HEADER, MARK
+from lem.kernel.folders import MARKER
 from lem.records.holds import OwnerHold
 from lem.store import tasks
 
@@ -156,6 +157,29 @@ def test_task_files_refuse_a_slot_that_links_to_a_sibling_task(board: Board) -> 
         linked = f"/studio/shop/tasks/update-docs/{artifact}"
         assert board.main().get(linked).status_code == 404
         assert board.main().head(linked).status_code == 404
+
+
+@pytest.mark.parametrize("state", ["old", "linked"])
+def test_raw_and_media_refuse_old_or_relocated_state(
+    board: Board, tmp_path: Path, state: str
+) -> None:
+    tasks.create(board.state, record("fix-the-login"))
+    folder = board.state / "tasks" / "fix-the-login"
+    (folder / "talk.html").write_text("<p>the talk</p>")
+    (folder / "media").mkdir()
+    (folder / "media" / "shot.png").write_bytes(PNG)
+    if state == "old":
+        (board.state / MARKER).unlink()
+    else:
+        outside = tmp_path / "other-checkout" / ".lem"
+        outside.mkdir(parents=True)
+        moved = board.state.rename(outside / "state")
+        board.state.symlink_to(moved, target_is_directory=True)
+    urls = [
+        f"/studio/shop/tasks/fix-the-login/{artifact}"
+        for artifact in ("raw/talk.html", "media/shot.png")
+    ]
+    assert [board.main().get(url).status_code for url in urls] == [404, 404]
 
 
 @pytest.mark.parametrize(

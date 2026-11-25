@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from fakes.command import Ran
 
 APPLE = "https://web.push.apple.com/QGuQyavXutnMH"
+FCM = "https://fcm.googleapis.com/fcm/send/abc"
 
 
 @pytest.fixture
@@ -158,6 +159,30 @@ def test_a_moved_port_and_an_opened_door_replace_the_server_and_one_serves_the_m
     assert supervisor.ended_within(WAIT)
 
 
+def test_an_invalid_unrelated_setting_refuses_the_door_change_before_any_stop(
+    tmp_path: Path, env: dict[str, str], supervisor: Supervisor
+) -> None:
+    repo = workspace_at(tmp_path / "repo")
+    port, door = free_port(), free_port()
+    supervisor.ports.append(port)
+    machine(env, port, door)
+    started = result(lem("serve", "ensure", cwd=repo, env=serving(env)))
+    settings = lem_home(env) / "machine.toml"
+    invalid = settings.read_text() + '\n[load]\nstart = "fast"\n'
+    settings.write_text(invalid)
+    cli = Path(env["LEM_TAILSCALE"])
+    before = stand_in.calls(cli)
+
+    refused = lem("serve", "door", "off", cwd=repo, env=serving(env))
+
+    assert refused.code == 1
+    assert "load.start" in refused.stdout
+    assert settings.read_text() == invalid
+    assert stand_in.calls(cli) == before
+    kept = facts_of(port)
+    assert (kept["pid"], kept["door"]) == (started["pid"], door)
+
+
 def test_a_command_starts_the_server_detached_when_none_lives_and_off_starts_none(
     tmp_path: Path, env: dict[str, str], supervisor: Supervisor
 ) -> None:
@@ -226,7 +251,7 @@ def test_the_list_of_workspaces_changes_by_hand_and_lists_its_counts(
     assert refusal_code(refused) == "not-listed"
 
 
-def test_a_device_turned_on_through_the_server_gets_a_recorded_push(
+def test_all_devices_turned_on_through_the_server_get_a_recorded_push(
     tmp_path: Path, env: dict[str, str]
 ) -> None:
     repo = workspace_at(tmp_path / "repo")
@@ -240,18 +265,19 @@ def test_a_device_turned_on_through_the_server_gets_a_recorded_push(
             facts_of(port)
             base = f"http://127.0.0.1:{port}"
             page = {"Origin": base, "Sec-Fetch-Site": "same-origin"}
-            body = {"endpoint": APPLE, "keys": {"p256dh": "k", "auth": "a"}}
-            on = httpx.post(f"{base}/api/push/subscribe", json=body, headers=page)
-            assert on.json()["on"] is True
+            for endpoint in (APPLE, FCM):
+                body = {"endpoint": endpoint, "keys": {"p256dh": "k", "auth": "a"}}
+                on = httpx.post(f"{base}/api/push/subscribe", json=body, headers=page)
+                assert on.json()["on"] is True
             far = httpx.post(
                 f"{base}/api/push/subscribe",
                 json=body,
                 headers={"Origin": "https://evil.example"},
             )
             assert far.status_code == 403
-            assert httpx.get(f"{base}/api/server").json()["push"]["devices"][0][
-                "device"
-            ]
+            devices = httpx.get(f"{base}/api/server").json()["push"]["devices"]
+            assert len(devices) == 2
+            assert all(device["device"] for device in devices)
             proc.send_signal(signal.SIGTERM)
             proc.communicate(timeout=WAIT)
         finally:
@@ -259,7 +285,9 @@ def test_a_device_turned_on_through_the_server_gets_a_recorded_push(
                 proc.terminate()
                 proc.wait(WAIT)
     tested = result(lem("serve", "push-test", cwd=repo, env=env))
-    assert tested["devices"] == 1
-    assert tested["results"][0]["status"] == 201
-    [line] = (lem_home(env) / "push-record.jsonl").read_text().splitlines()
-    assert json.loads(line)["endpoint"] == APPLE
+    assert tested["devices"] == 2
+    assert [reply["status"] for reply in tested["results"]] == [201, 201]
+    lines = (lem_home(env) / "push-record.jsonl").read_text().splitlines()
+    assert sorted(json.loads(line)["endpoint"] for line in lines) == sorted(
+        (APPLE, FCM)
+    )

@@ -61,7 +61,9 @@ def main() -> None:
         sys.stdout.buffer.write(msgspec.json.encode(refused))
         sys.stdout.buffer.write(b"\n")
         sys.exit(1)
-    look.looked(first_word(argv), os.environ)
+    first = first_word(argv)
+    if first in dict(lazy.ROOT.table):
+        look.looked(first, os.environ)
     sys.exit(lazy.main(argv))
 
 

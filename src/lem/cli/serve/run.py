@@ -16,9 +16,10 @@ from typing import TYPE_CHECKING
 import click
 import msgspec
 
-from lem.board import vacant, workspaces
+from lem.board import claim, machine, vacant, workspaces
 from lem.cli import place
 from lem.kernel import folders, paths
+from lem.kernel.errors import Refusal
 from lem.settings.machine import HIGHEST_PORT
 
 if TYPE_CHECKING:
@@ -39,11 +40,18 @@ def run(call: Call) -> Served:
     """Serve the board in this process until it stops, and say which server it was."""
     host = call.host or HOST
     home = paths.home(os.environ)
-    port = vacant.vacant(home, os.environ, call.port, host)
-    home = folders.home_for_writing(os.environ)
-    workspaces.noted(home, place.folder())
-    server = importlib.import_module("lem.board.server")
-    return server.run(port, host, verbose=call.verbose, home=home)
+    port = machine.port_of(home, os.environ, call.port)
+    try:
+        folders.home_marked(home)
+    except Refusal:
+        # An older home stays as it is. Name its live server when it has one.
+        vacant.vacant(home, os.environ, port, host)
+        raise
+    with claim.held(home):
+        vacant.vacant(home, os.environ, port, host)
+        workspaces.noted(home, place.folder())
+        server = importlib.import_module("lem.board.server")
+        return server.run(port, host, verbose=call.verbose, home=home)
 
 
 COMMAND = click.Command(

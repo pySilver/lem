@@ -13,6 +13,7 @@ both: the port a request came to tells them apart.
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
+import anyio
 from starlette.middleware import Middleware
 from starlette.responses import PlainTextResponse
 
@@ -70,14 +71,14 @@ class Shield:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        refused = self.refusal(scope)
+        refused = await self.refusal(scope)
         if refused is None:
             await self.app(scope, receive, send)
             return
         answer = PlainTextResponse(refused, status_code=HTTPStatus.FORBIDDEN)
         await answer(scope, receive, send)
 
-    def refusal(self, scope: Scope) -> str | None:
+    async def refusal(self, scope: Scope) -> str | None:
         """The line of the 403 of the request of `scope`, None when it is read."""
         headers = [
             (name.decode("latin-1"), word.decode("latin-1"))
@@ -85,7 +86,9 @@ class Shield:
         ]
         door = self.door
         if door is not None and scope["server"][1] == door.port:
-            return door.refusal(doors.seen_of(headers), scope["method"])
+            return await anyio.to_thread.run_sync(
+                door.refusal, doors.seen_of(headers), scope["method"]
+            )
         hosts = [word for name, word in headers if name == "host"]
         return host_refusal(hosts, self.port, self.listen)
 

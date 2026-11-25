@@ -303,6 +303,51 @@ def test_a_push_uses_the_canonical_workspace_name_and_link(
     assert latest.url == "/studio/shop/tasks/add-a-flag"
 
 
+def test_a_bad_workspace_does_not_stop_a_healthy_workspaces_push(
+    board: Board, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    other = workspace_at(tmp_path / "broken")
+    workspaces.changed(board.home, str(board.checkout.resolve()), add=False)
+    workspaces.noted(board.home, other)
+    workspaces.noted(board.home, board.checkout)
+    state = places.state_of(other)
+    tasks.create(state, record("fix-the-login"))
+    subscribed(board)
+    watcher = board.app.state.watcher
+    assert watcher.look(0.0) == 0
+    (state / "tasks" / "fix-the-login" / "task.json").write_text("{")
+    held = OwnerHold(on="criteria", line="approve the criteria", since=MOMENT)
+    tasks.create(board.state, record("add-a-flag", status="building", hold=held))
+
+    assert watcher.look(10.0) == 1
+    latest = devices.read(board.home).latest
+    assert latest is not None
+    assert latest.url == "/studio/shop/tasks/add-a-flag"
+    assert "skip broken" in capsys.readouterr().err
+
+
+def test_a_workspace_name_change_does_not_repeat_a_push(
+    board: Board, tmp_path: Path
+) -> None:
+    other = workspace_at(tmp_path / "elsewhere" / "shop")
+    workspaces.noted(board.home, other)
+    state = places.state_of(other)
+    subscribed(board)
+    watcher = board.app.state.watcher
+    assert watcher.look(0.0) == 0
+    held = OwnerHold(on="criteria", line="approve the criteria", since=MOMENT)
+    tasks.create(state, record("add-a-flag", status="building", hold=held))
+    assert watcher.look(10.0) == 1
+    workspaces.changed(board.home, str(board.checkout.resolve()), add=False)
+
+    assert watcher.look(20.0) == 0
+    tasks.create(state, record("tidy-the-docs", status="building", hold=held))
+    assert watcher.look(30.0) == 1
+    latest = devices.read(board.home).latest
+    assert latest is not None
+    assert latest.url == "/studio/shop/tasks/tidy-the-docs"
+
+
 def test_no_push_goes_for_a_held_task_while_its_session_works_and_one_when_its_turn_ended() -> (
     None
 ):
@@ -316,7 +361,10 @@ def test_no_push_goes_for_a_held_task_while_its_session_works_and_one_when_its_t
         look = Look(record=held, session=session, worktree=True)
         return Looked(looks=(look,), presence=Presence(), forge=ForgeLook())
 
-    assert waits.news_in(seen, "shop", looked(working), 0.0) == []
-    assert waits.news_in(seen, "shop", looked(working), 10.0) == []
-    [(_, _, row)] = waits.news_in(seen, "shop", looked(idle), 20.0)
+    working_look = waits.Found("shop", "/shop", looked(working))
+    assert waits.news_in(seen, working_look, 0.0) == []
+    assert waits.news_in(seen, working_look, 10.0) == []
+    [(_, _, row)] = waits.news_in(
+        seen, waits.Found("shop", "/shop", looked(idle)), 20.0
+    )
     assert row.kind == "breaker"
