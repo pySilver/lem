@@ -26,7 +26,6 @@ from journeys.test_server_slice import (
     WAIT,
     Supervisor,
     facts_of,
-    free_port,
     lem_home,
     listening,
     refusal_code,
@@ -38,7 +37,7 @@ from lem.store import places, tasks
 from unit.board.service import tailscale_stand_in as stand_in
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     from fakes.command import Ran
 
@@ -87,7 +86,7 @@ def result(ran: Ran) -> dict[str, Any]:
 
 
 def test_the_door_lets_the_owner_in_publishes_its_entry_and_closes_with_it(
-    tmp_path: Path, env: dict[str, str]
+    tmp_path: Path, env: dict[str, str], free_port: Callable[[], int]
 ) -> None:
     repo = workspace_at(tmp_path / "repo")
     port, door = free_port(), free_port()
@@ -134,7 +133,10 @@ def test_the_door_lets_the_owner_in_publishes_its_entry_and_closes_with_it(
 
 
 def test_a_moved_port_and_an_opened_door_replace_the_server_and_one_serves_the_machine(
-    tmp_path: Path, env: dict[str, str], supervisor: Supervisor
+    tmp_path: Path,
+    env: dict[str, str],
+    supervisor: Supervisor,
+    free_port: Callable[[], int],
 ) -> None:
     repo = workspace_at(tmp_path / "repo")
     first, second, door = free_port(), free_port(), free_port()
@@ -160,7 +162,10 @@ def test_a_moved_port_and_an_opened_door_replace_the_server_and_one_serves_the_m
 
 
 def test_an_invalid_unrelated_setting_refuses_the_door_change_before_any_stop(
-    tmp_path: Path, env: dict[str, str], supervisor: Supervisor
+    tmp_path: Path,
+    env: dict[str, str],
+    supervisor: Supervisor,
+    free_port: Callable[[], int],
 ) -> None:
     repo = workspace_at(tmp_path / "repo")
     port, door = free_port(), free_port()
@@ -184,7 +189,10 @@ def test_an_invalid_unrelated_setting_refuses_the_door_change_before_any_stop(
 
 
 def test_a_command_starts_the_server_detached_when_none_lives_and_off_starts_none(
-    tmp_path: Path, env: dict[str, str], supervisor: Supervisor
+    tmp_path: Path,
+    env: dict[str, str],
+    supervisor: Supervisor,
+    free_port: Callable[[], int],
 ) -> None:
     repo = workspace_at(tmp_path / "repo")
     port = free_port()
@@ -203,7 +211,10 @@ def test_a_command_starts_the_server_detached_when_none_lives_and_off_starts_non
 
 
 def test_lem_board_gives_a_tasks_address_and_marks_example_tasks_for_good(
-    tmp_path: Path, env: dict[str, str], supervisor: Supervisor
+    tmp_path: Path,
+    env: dict[str, str],
+    supervisor: Supervisor,
+    free_port: Callable[[], int],
 ) -> None:
     repo = workspace_at(tmp_path / "repo")
     state = places.state_of(repo)
@@ -252,7 +263,7 @@ def test_the_list_of_workspaces_changes_by_hand_and_lists_its_counts(
 
 
 def test_all_devices_turned_on_through_the_server_get_a_recorded_push(
-    tmp_path: Path, env: dict[str, str]
+    tmp_path: Path, env: dict[str, str], free_port: Callable[[], int]
 ) -> None:
     repo = workspace_at(tmp_path / "repo")
     port = free_port()
