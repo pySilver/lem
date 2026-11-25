@@ -2,16 +2,20 @@
 
     lem session close SLUG --why handoff|ended|owner [--session ID] [--when-unselected]
 
-A stub until the step `slice-session` builds it: it refuses `not-built`.
+It puts the close on record, then closes the session, never one the owner has selected
+(`app/sessions/closing.py`).
 """
 
+import time
 from typing import Literal
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.sessions import closing, here
+from lem.cli import place
 from lem.cli.words import choice
+from lem.kernel import clock
 
 type Why = Literal["handoff", "ended", "owner"]
 
@@ -29,9 +33,11 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     every: float = EVERY
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `slice-session` builds `lem session close`."""
-    raise not_built("session close", "slice-session")
+def run(call: Call) -> closing.Closed:
+    """Close the task's session once nobody looks at it."""
+    bound = here.bound(place.folder())
+    asked = msgspec.convert(msgspec.structs.asdict(call), closing.Closing)
+    return closing.close_session(bound, asked, time.sleep, clock.now)
 
 
 COMMAND = click.Command(

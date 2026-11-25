@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{ board.title }}</title>
+<meta name="turbo-refresh-method" content="morph">
+<meta name="turbo-refresh-scroll" content="preserve">
+<meta name="turbo-prefetch" content="false">
+<link rel="icon" type="image/png" sizes="64x64" href="{{ board.assets }}/icons/icon-64.png" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/png" sizes="64x64" href="{{ board.assets }}/icons/icon-64-night.png" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="{{ board.assets }}/lem.css" data-turbo-track="reload">
+<script src="{{ board.assets }}/lem.js" data-turbo-track="reload"></script>
+<link rel="stylesheet" href="{{ board.assets }}/board.css" data-turbo-track="reload">
+<script src="{{ board.assets }}/vendor/board-app.js" defer data-turbo-track="reload"></script>
+</head>
+<body class="app">
+<div class="shell" id="shell">
+<aside class="side">
+<div class="brand"><b>Lem</b><span>{{ board.workspace }}</span></div>
+</aside>
+<div class="main">
+<header class="bar"><h1>{% block heading %}{% endblock %}</h1></header>
+<main class="stage" id="stage">{% block view %}{% endblock %}</main>
+<footer class="status" id="status">
+<span class="st-right"><span class="st-live" id="live-{{ board.host }}-{{ board.workspace }}" data-turbo-permanent data-controller="stream" data-stream-url-value="{{ board.stream }}" data-stream-since-value="{{ board.version }}">connecting…</span></span>
+</footer>
+</div>
+</div>
+</body>
+</html>
