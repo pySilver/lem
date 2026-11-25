@@ -55,6 +55,8 @@ class Shell:
     def commit_at(self, where: Path, rev: str) -> str | None:
         """The commit `rev` names in `where`, or None when it names none."""
         ran = self.tried(where, "rev-parse", "--verify", QUIET, f"{rev}^{{commit}}")
+        if ran.returncode:
+            return None
         return ran.stdout.strip() or None
 
     def head(self, where: Path) -> str:

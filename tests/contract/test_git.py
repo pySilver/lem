@@ -13,7 +13,7 @@ import pytest
 
 from contract.suites.git import FILES, GitContract, commit_file, task_worktree
 from fakes.repo import RealRepo, git_env, run_git, write
-from lem.adapters import git_cli
+from lem.adapters import git_cli, git_cli_shell
 from lem.adapters.git_cli_names import shown
 from lem.ports.faults import Unanswered
 from lem.ports.git_facts import Conflict, GitRefused
@@ -216,3 +216,47 @@ def test_a_git_with_no_write_tree_is_a_fault_that_names_its_version(
     assert "needs git 2.38 or newer" in said
     assert "says git version 2.37.0" in said
     assert "the owner updates git" in said
+
+
+def stand_in(folder: Path, body: str) -> dict[str, str]:
+    """An environment whose `git` is a stand-in script of `body`, first on the path."""
+    folder.mkdir(parents=True, exist_ok=True)
+    script = folder / "git"
+    script.write_text(f"#!/bin/sh\n{body}\n")
+    script.chmod(script.stat().st_mode | stat.S_IXUSR)
+    return {**git_env(), "PATH": f"{folder}{os.pathsep}{os.environ['PATH']}"}
+
+
+def adapter(tmp_path: Path, body: str) -> git_cli.GitCli:
+    """The adapter with a stand-in git of `body`."""
+    environ = stand_in(tmp_path / "bin", body)
+    return git_cli.bind(
+        Place(checkout=tmp_path, home=tmp_path / "home", environ=environ)
+    )
+
+
+def test_git_reads_nothing_on_its_standard_input(tmp_path: Path) -> None:
+    git = adapter(tmp_path, f'cat > "{tmp_path}/read"; echo done')
+    assert git.said(tmp_path, "status") == "done"
+    assert (tmp_path / "read").read_bytes() == b""
+
+
+def test_a_run_is_given_back_whole_and_only_said_raises_on_a_failure(
+    tmp_path: Path,
+) -> None:
+    git = adapter(tmp_path, "echo out; echo first >&2; echo last >&2; exit 3")
+    ran = git.tried(tmp_path, "status")
+    assert (ran.returncode, ran.stdout, ran.stderr) == (3, "out\n", "first\nlast\n")
+    with pytest.raises(Unanswered) as raised:
+        git.said(tmp_path, "status")
+    assert raised.value.said == "last"
+    assert git.commit_at(tmp_path, "HEAD") is None
+
+
+def test_a_git_that_runs_past_its_limit_is_a_fault(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(git_cli_shell, "TIMEOUT", 0.2)
+    git = adapter(tmp_path, "exec sleep 5")
+    with pytest.raises(Unanswered, match="timed out"):
+        git.tried(tmp_path, "fetch")
