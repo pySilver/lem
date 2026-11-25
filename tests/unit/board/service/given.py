@@ -16,6 +16,8 @@ from lem.store import places
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from starlette.applications import Starlette
+
     from lem.board.door import Door
 
 MAIN = 4999
@@ -32,7 +34,7 @@ class Board:
     home: Path
     checkout: Path
     state: Path
-    app: object
+    app: Starlette
     stops: list[str] = field(default_factory=list)
 
     def main(self, client: tuple[str, int] = ("127.0.0.1", 50000)) -> TestClient:
@@ -70,13 +72,13 @@ def made(tmp_path: Path, door: Door | None) -> Board:
         tailnet=None if door is None else door.url(),
         started=MOMENT,
     )
-    board = Board(home, checkout, places.state_of(checkout), None)
+    stops: list[str] = []
     serving = Serving(
         home=home,
         environ=os.environ,
         listen="127.0.0.1",
-        stop=lambda: board.stops.append("stop"),
+        stop=lambda: stops.append("stop"),
         door=door,
     )
-    board.app = app.made(facts, serving)
-    return board
+    made_app = app.made(facts, serving)
+    return Board(home, checkout, places.state_of(checkout), made_app, stops)
