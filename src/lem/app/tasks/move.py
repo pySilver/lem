@@ -54,7 +54,9 @@ def moved(
     if status == "dropped":
         return drop.dropped(where, slug, line)
     record = release.checked(where.state, slug)
-    refused = table.refusal(record.task, status, start_over)
+    refused = table.refusal(record.task, status, start_over) or table.gate(
+        record, status, tasks.every(where.state)
+    )
     if refused is not None:
         raise refused
     checked(where, record, status)

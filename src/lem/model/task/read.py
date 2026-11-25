@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Literal
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
-from lem.model.task import holds
+from lem.model.task import holds, table
 from lem.records.base import Frozen
 
 if TYPE_CHECKING:
@@ -46,6 +46,9 @@ def refusal(record: Record, queue: Queue, others: frozenset[str]) -> Refusal | N
     or no task, or it drops the queue of his order."""
     task = record.task
     slug = task.slug
+    held = table.held_refusal(task, task.status)
+    if held is not None:
+        return held
     if task.status not in READABLE:
         return Refusal(
             "status",

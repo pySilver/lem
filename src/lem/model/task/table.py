@@ -12,10 +12,12 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
+from lem.model.task import queue
 from lem.records.base import Frozen
 from lem.records.holds import Blocked, Parked
 
 if TYPE_CHECKING:
+    from lem.records.record import Record
     from lem.records.task import Status, Task
 
 ENDED = frozenset(("landed", "dropped", "answered"))
@@ -31,8 +33,8 @@ MOVES = MappingProxyType(
         "shaping": "building answered queued dropped",
         "building": "queued planned ready shaping answered dropped",
         "planned": "building dropped",
-        "ready": "building dropped",
-        "landing": "ready shaping dropped",
+        "ready": "building shaping dropped",
+        "landing": "ready shaping planned dropped",
         "open": "ready dropped",
     }
 )
@@ -122,3 +124,20 @@ def refusal(task: Task, status: Status, start_over: str | None) -> Refusal | Non
         f"{slug} is {now}: lem task move takes it to {listed}, not to {status}",
         "the table of statuses is the design's part 3; lem task show SLUG says where it is",
     )
+
+
+def gate(record: Record, status: Status, every: tuple[Record, ...]) -> Refusal | None:
+    """The refusals that read past the task: a queue a move may not go around (the owner's
+    word or the end of the task it waits for lifts it), and a track that no longer changes
+    once the task's pull request exists."""
+    task = record.task
+    if task.status == "queued" and status in {"shaping", "building"}:
+        return queue.behind(task, every)
+    pull = record.landing.pull if record.landing else None
+    if status == "shaping" and pull is not None:
+        return Refusal(
+            MOVE,
+            f"{task.slug} has its pull request {pull.url}: its track no longer changes",
+            "a new request changes it (/lem new)",
+        )
+    return None

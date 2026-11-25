@@ -13,7 +13,7 @@ from lem.kernel.errors import Refusal
 from lem.model.task.read import ORDER_WAIT, Queue
 from lem.records.holds import OwnerHold, Parked
 from lem.records.task import Shape
-from unit.task.spaces import last_line, made, read, result, said, workspace
+from unit.task.spaces import last_line, made, read, refusal, result, said, workspace
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -216,3 +216,27 @@ def test_the_read_says_the_first_line_and_show_gives_its_named_form(
         "--then", "fast", cwd=tmp_path,
     )  # fmt: skip
     assert "first_line" not in result(lem("task", "show", "night", cwd=tmp_path))
+
+
+def test_a_stale_read_or_word_over_a_parked_task_keeps_the_park(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    made(where, "first", status="building")
+    made(where, SLUG, status="queued", after="first", hold=Parked(since=MOMENT))
+    assert code(lambda: shaped(where)) == "parked"
+    assert code(lambda: start.start(tmp_path, SLUG, "start it")) == "parked"
+    task = read(where, SLUG).task
+    assert (task.status, isinstance(task.hold, Parked)) == ("queued", True)
+
+
+def test_a_move_does_not_go_around_a_queue(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    made(where, "first", status="building")
+    made(where, SLUG, status="queued", after="first")
+    for status in ("building", "shaping"):
+        ran = lem("task", "move", SLUG, status, cwd=tmp_path)
+        assert refusal(ran)["code"] == "queued"
+    made(where, "landed", status="landed")
+    made(where, "next", status="queued", after="landed")
+    assert result(lem("task", "move", "next", "building", cwd=tmp_path))["status"] == (
+        "building"
+    )

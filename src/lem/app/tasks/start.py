@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
     from lem.records.base import Moment
     from lem.records.record import Record
-    from lem.records.task import Status
+    from lem.records.task import Status, Task
 
 
 def may(folder: Path, slug: str) -> queue.May:
@@ -44,18 +44,26 @@ def started(record: Record, *, status: Status, words: str, now: Moment) -> Recor
     return holds.moved(unqueued, status=status, line=line, now=now)
 
 
+def startable(task: Task) -> None:
+    """Refuse his word over a task that is not queued, or that a park or a seat's block
+    holds."""
+    held = table.held_refusal(task, "building")
+    if held is not None:
+        raise held
+    if task.status != "queued":
+        raise Refusal(
+            "start",
+            f"{task.slug} is {task.status}: the owner's word starts a queued task",
+            f"lem task may-start {task.slug} says whether it may start",
+        )
+
+
 def start(folder: Path, slug: str, words: str) -> table.Moved:
     """His "start SLUG now": the queued task starts."""
     state = places.workspace(folder).state
     record = release.checked(state, slug)
-    task = record.task
-    if task.status != "queued":
-        raise Refusal(
-            "start",
-            f"{slug} is {task.status}: the owner's word starts a queued task",
-            f"lem task may-start {slug} says whether it may start",
-        )
-    status = queue.started_in(task)
+    startable(record.task)
+    status = queue.started_in(record.task)
     change = partial(started, status=status, words=words, now=clock.now())
     tasks.update(state, slug, change, record.revision)
-    return table.Moved(slug=slug, was=task.status, status=status)
+    return table.Moved(slug=slug, was=record.task.status, status=status)

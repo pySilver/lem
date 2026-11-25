@@ -429,3 +429,31 @@ def test_a_merge_that_lands_while_the_drop_waits_defeats_it(tmp_path: Path) -> N
     waiting.join(timeout=30)
     assert outcome == ["merged"]
     assert read(where, SLUG).task.status == "landing"
+
+
+def test_the_owners_standard_track_takes_a_ready_task_until_its_pull_request(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    made(where, SLUG, status="ready")
+    assert moved(where, "shaping").status == "shaping"
+    made(where, "other", status="ready")
+    revision = read(where, "other").revision
+    pull = LandingPull(number=7, url="https://github.com/o/p/pull/7", title="t")
+    tasks.update(
+        where.state,
+        "other",
+        lambda one: replace(one, landing=Landing(pull=pull)),
+        revision,
+    )
+    with pytest.raises(Refusal) as refused:
+        move.moved(where.checkout, "other", "shaping", ())
+    assert "track no longer changes" in refused.value.why
+
+
+def test_a_landing_that_missed_its_plan_talk_goes_back_to_planned(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    made(where, SLUG, status="landing")
+    assert moved(where, "planned").status == "planned"
