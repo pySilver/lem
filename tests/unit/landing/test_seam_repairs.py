@@ -174,6 +174,11 @@ def test_stale_checks_on_an_open_pr_get_a_new_round_even_after_a_refusal() -> No
     merge_step.allowed(Mock(record=after, world=current), "start", None)
 
 
+def test_checks_of_the_same_tip_are_due_on_a_new_base_in_preparing() -> None:
+    record = task(**{**PREPARED, "based": replace(BASED, base=NEW)})
+    assert phases.due(record, world(base=NEW)).step == "checks"
+
+
 def test_a_new_attempt_cannot_inherit_the_disposition_of_an_archived_finding() -> None:
     prior = replace(NIT, title="first defect", against="over", why=None)
     kept_filing = Filed(

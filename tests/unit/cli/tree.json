@@ -216,7 +216,7 @@
             "--after": {
               "aliases": [],
               "value": true,
-              "required": false
+              "required": true
             }
           },
           "positionals": [

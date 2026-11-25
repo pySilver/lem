@@ -68,8 +68,6 @@ def started_over(record: Record, why: str) -> Record:
         landing,
         round=landing.round + 1,
         phase="preparing",
-        based=None,
-        checked=None,
         reviews=(),
         filed=(),
         resolution=None,

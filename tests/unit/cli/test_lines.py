@@ -234,6 +234,13 @@ def texts_with_lines() -> list[str]:
     ]
 
 
+def test_the_red_base_step_names_how_to_set_and_clear_the_hold() -> None:
+    stage = reading.ROOT / "skills/lem/stages/land.md"
+    lines = {line.text for line in reading.lines_in(stage)}
+    assert "lem task red-base SLUG --after REPAIR" in lines
+    assert 'lem task move SLUG ready --line "the base is green again"' in lines
+
+
 @pytest.mark.parametrize("name", texts_with_lines())
 def test_each_line_of_a_text_is_one_the_tree_takes_or_the_text_is_marked(
     name: str,

@@ -53,10 +53,10 @@ def preparing(record: Record, world: World) -> Due:
         return Due(step=MERGED, why="the forge shows the pull request merged")
     repair = red_base.dependency(record.task)
     if repair is not None:
-        command = red_base.command(record.task.slug)
+        way_on = red_base.way_on(record.task.slug, repair)
         return Due(
             step="wait",
-            why=f"the base is red: {command} clears the hold after {repair} lands",
+            why=f"the base is red: {way_on}",
         )
     for rule in PREPARING:
         found = rule(record, world)

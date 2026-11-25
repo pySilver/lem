@@ -114,8 +114,7 @@ def test_start_over_archives_the_previous_review_of_the_same_tip(
     archived = active.parent / "landing-1" / active.name
     assert archived.is_file()
     assert not active.exists()
-    for verb in ("base", "checks"):
-        assert lem(capsys, world.checkout, "land", verb, SLUG)["ok"]
+    assert next_step(capsys, world)["result"]["step"] == "read"
     refused = lem(
         capsys, world.checkout, "land", "read", SLUG, "--record", str(archived)
     )
@@ -146,12 +145,13 @@ def test_an_unchanged_open_tip_runs_the_new_commands_and_proposes_again(
     assert next_step(capsys, world)["result"]["step"] == "merge"
 
 
-def test_start_over_at_the_open_tip_runs_a_fresh_landing(
+def test_start_over_at_the_open_tip_keeps_the_checks_and_runs_a_fresh_review(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     world = made(tmp_path, monkeypatch)
     upto(capsys, world, "merge")
     previous = world.record()["landing"]
+    commands = world.acts.done.count("command")
     reset = lem(
         capsys,
         world.checkout,
@@ -164,10 +164,10 @@ def test_start_over_at_the_open_tip_runs_a_fresh_landing(
     )
     assert reset["ok"], reset
     assert next_step(capsys, world)["result"]["step"] == "start"
-    for verb in ("start", "base", "checks"):
-        assert next_step(capsys, world)["result"]["step"] == verb
-        assert lem(capsys, world.checkout, "land", verb, SLUG)["ok"]
+    assert command("land", "start", "SLUG")(capsys, world)["ok"]
     assert next_step(capsys, world)["result"]["step"] == "read"
+    assert world.record()["landing"]["checked"] == previous["checked"]
+    assert world.acts.done.count("command") == commands
     assert reviewed(capsys, world)["result"]["attempt"] == 1
     updated = proposal(capsys, world)
     assert updated["ok"], updated

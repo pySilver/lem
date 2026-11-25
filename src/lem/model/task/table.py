@@ -12,7 +12,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
-from lem.model.task import queue, red_base
+from lem.model.task import queue
 from lem.records.base import Frozen
 from lem.records.holds import Blocked, Parked
 
@@ -66,13 +66,6 @@ def held_refusal(task: Task, status: Status) -> Refusal | None:
             f"{slug} is blocked: the seat {hold.seat} failed, and only the owner's go on "
             "lifts that block",
             f"lem seat again {slug} on his word; a drop ends it",
-        )
-    after = red_base.dependency(task)
-    if after is not None and status != DROPPED:
-        return Refusal(
-            "red-base",
-            f"{slug} waits for {after} to repair its base",
-            f"after {after} lands, {red_base.command(slug)} clears the block",
         )
     return None
 
