@@ -36,6 +36,13 @@ does not own, the local stand-in each uses until then, and what other steps take
    with its exit, as `main`'s `cmd_red` printed them. Asked: the two docstrings say so. `Red`
    keeps the full shas in `inputs` and no 9-character `base` and `tip`, which a view shortens.
 
+7. **The contract a run of the checks ran against.** The step `criteria` gives
+   `model/criteria/contract.py` (`mark(task)`, `moved(task, seen)`) and asks that the checks keep
+   the contract they ran against, so that a change of the criteria after the run makes it hold no
+   more. `Checked` has no field for it. Asked: a field `contract` on `Checked` (the mark that
+   `mark(task)` gives), written by `checks`, and `checks.holds` due again when `moved(task,
+   checked.contract)`. No stand-in is built meanwhile: a run holds whatever criteria it ran with.
+
 ## For `core` (`ports/git.py`) and `land-base` (`adapters/git_cli.py`)
 
 The facts and acts below are git calls the checks, the bar, the polish pass and the criteria's
@@ -114,6 +121,18 @@ Asked: a `GitTree` part of the port with these, and the adapter's methods; then 
     load average is over 40 a run waits at the gate, 15 s a look. `tests/journeys/landing/
     test_checks.py` sets `[load] start = 1000` in the test's home first; the skeleton could do the
     same in `made()`.
+
+## For `task`: a drop while the checks run
+
+14. The drop sends a term to a `checks` holder of the step lock and then waits for the lock
+    (`store.steps.waited`). The checks hold their own handler of a term from the gate to their
+    record (`app/landing/checks_stop.py`): a term at the gate ends the run before its first command
+    (its `CheckEnd` is `stopped`), and a term while a command runs ends that command's process group
+    and keeps the run `stopped`; then the step exits 1 with `stopped`, and the lock goes with the
+    step. A term after the run is judged changes nothing, and the lock goes once its record is
+    written. `tests/journeys/landing/test_checks.py` holds both, with `--stop` from another process:
+    `test_status_names_a_run_that_waits_and_a_stop_there_ends_it_before_its_first_command` and
+    `test_a_stop_ends_the_command_that_runs_with_what_it_started_and_keeps_the_run_stopped`.
 
 ## Done in a file of another step, on the brief's word
 
