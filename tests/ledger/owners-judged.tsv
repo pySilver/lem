@@ -2,6 +2,31 @@ id	step	why	from
 check:tests/lem-command.sh:a-second-sync-of-a-copy-of-this-checkout-wit-bed0612a5c4eb8a6	pack-trial	the build and sync of the app are core's packaging; P1 installs and checks it	tree
 check:tests/lem-command.sh:the-wheel-built-from-the-sdist-with-the-mani-5829869ffee83f44	pack-trial	the wheel's contents are core's packaging; P1 installs the formula	tree
 check:tests/lem-command.sh:the-wheel-check-refuses-a-wheel-s-file-that-bc7b89e9005246a7	pack-trial	the check of the wheel's files against git belongs with the packaging trial	tree
+check:tests/lem-land-backlog.sh:a-line-the-session-wrote-by-hand-under-seen-b16e5ff7cc38a7f9	land-propose	propose refuses a notes line under Seen with no bar call	land-review
+check:tests/lem-land-backlog.sh:a-new-item-in-the-backlog-folder-after-a-rev-8517d3761ed62042	land-base	a review's coverage of new backlog files and of an edited base item is carry.py's (landing.md D, review coverage)	land-review
+check:tests/lem-land-backlog.sh:a-repository-whose-team-settings-say-finding-0a8efbfdd7dac6fe	land-propose	each line under the bar saying Jev was not asked is propose's read; land-review's alike and file send nothing with jev.findings false (journeys.landing.test_review.test_a_team_that_sends_no_finding_to_jev_asks_jev_nothing)	land-review
+check:tests/lem-land-backlog.sh:a-task-started-from-a-backlog-item-stops-at-6071fd102835c6d6	land-propose	propose's own-item refusal; the review's coverage of the item's removal is carry.py's	land-review
+check:tests/lem-land-backlog.sh:an-item-that-was-on-the-branch-before-the-re-b394e80f4ad2e05a	land-propose	propose stops at a filed item gone from the tip; file --again is built and proved by unit.landing.test_filing.test_an_item_that_was_filed_and_then_removed_stops_file_and_again_puts_it_back	land-review
+check:tests/lem-land-backlog.sh:jev-reads-each-finding-called-under-the-bar-6c26b4f18684b4ff	land-propose	Jev's read of the findings under the bar runs in propose	land-review
+check:tests/lem-land-backlog.sh:the-merge-agent-s-brief-lists-each-item-the-5d9b1c9345c325ed	land-merge	the merge agent's brief is merge-review's; the bar file's name is model/landing/jev_bar.named	land-review
+check:tests/lem-land-backlog.sh:the-review-is-told-of-the-branch-s-items-and-87aabd968234f8d1	land-text	the review is told of the branch's items (inputs.filed of the brief, built here); that a defect at an item's place gets its own item is the review prompt's rule, read by a real review	land-review
+check:tests/lem-land-backlog.sh:two-rounds-that-saw-defects-outside-the-chan-2dbe0a5afd753102	land-propose	each round's items committed alone is built here (filing_commits); propose waiting for each and the pull request naming each item are propose's	land-review
+check:tests/lem-land-review.sh:a-branch-that-commits-the-machine-s-own-sett-35ce6111863dc4fc	land-propose	the pull request's line and the person's merge are propose's, from model/landing/careful.reasons; the full set is the review's floor (unit.landing.test_review.test_a_commit_of_one_machine_s_own_settings_is_careful_and_says_how)	land-review
+check:tests/lem-land-review.sh:a-branch-that-edits-the-flow-table-of-its-ow-6b084b242fc7fbfc	land-propose	the pull request's line and the person's merge are propose's, from model/landing/careful.reasons; the full set and the main checkout's settings are the review's (journeys.landing.test_review.test_an_edit_of_lem_s_own_settings_gets_the_full_set_whatever_the_shape_says)	land-review
+check:tests/lem-land-review.sh:a-change-of-one-space-or-the-same-edit-in-an-ff9aac3f54572925	land-base	a change's identity across a rebase is carry.py's review coverage	land-review
+check:tests/lem-land-review.sh:a-change-that-adds-a-suppression-is-refused-7c441497ae45f6a1	land-checks	the bar's refusal at the checks	land-review
+check:tests/lem-land-review.sh:a-full-change-s-checks-waits-for-the-polish-7ae462cde1e8ae18	land-checks	the polish pass	land-review
+check:tests/lem-land-review.sh:a-polish-pass-that-was-done-stays-done-when-348b4aecfc9eb59a	land-checks	the polish pass	land-review
+check:tests/lem-land-review.sh:a-task-that-ran-without-the-owner-is-not-gre-8f2051c7e5ab37b5	land-propose	green and its reasons	land-review
+check:tests/lem-land-review.sh:a-task-that-ran-without-the-owner-with-nothi-eaa1eb014cebc08a	land-propose	green and its reasons	land-review
+check:tests/lem-land-review.sh:polish-done-refuses-a-worktree-with-changes-159932c29a5012b8	land-checks	the polish pass	land-review
+check:tests/lem-land-review.sh:polish-logs-polish-start-once-with-the-tip-t-5e98204756f17849	land-checks	the polish pass	land-review
+check:tests/lem-land-review.sh:the-checks-on-the-tip-the-polish-pass-ended-65ac0c082c825118	land-checks	the checks taken from the polish pass	land-review
+check:tests/lem-land-review.sh:the-gate-finds-the-polish-pass-on-its-tip-wi-e2795df22f30cdfa	land-checks	the checks and the polish pass	land-review
+check:tests/lem-land-review.sh:the-merge-agent-merges-a-green-request-whose-98d062678522adfc	land-merge	who merges, by the newest review's careful call	land-review
+check:tests/lem-land-review.sh:the-owner-s-careful-on-a-task-whose-pull-req-44ad2840b1b93d22	land-base	start takes an open request into the landing again; the owner's careful word needs a field of the task (notes/land-review.md)	land-review
+check:tests/lem-land-review.sh:the-pull-request-s-checks-say-how-many-commi-41dca83e3532add8	land-propose	the pull request's checks section	land-review
+check:tests/lem-land-review.sh:with-a-reason-for-each-file-in-the-plan-the-d13ea3e05afa6b96	land-propose	the text that opens with each lowered bar and the not-green reason; the review's word on each lowered bar is built here (unit.landing.test_review.test_a_lowered_bar_the_record_says_nothing_of_is_refused_and_its_word_is_kept)	land-review
 event:merge.review	land-merge	Both carry_merge (land-base, carry) and cmd_merge_review write it. The merge review writes the event first; the carried copy repeats its verdict on a new tip.	
 event:merge.stands	land-merge	Both carry_merge (land-base, carry) and cmd_merge_review write it. The owner's standing merge is the merge step's path (landing.md E, owner merge refused for the base).	
 guide:docs/free-hour.md	addons-flow	Part 9 lists no owner for this private guide. It gives the night and retro proposal behavior to addons-flow.	
@@ -10,6 +35,7 @@ refusal:Task.need_worktree:the-task-has-no-worktree-at-self-worktree-gi-f3a5fb58
 refusal:Task.need_worktree:the-worktree-has-changes-nobody-committed-di-28ed3d6b4cace16f	land-base	Several landing steps call the guard. Base owns the Git adapter and proves that landing commands refuse a missing or dirty worktree.	
 refusal:Task.read_states:no-task-self-slug-r-the-tasks-are-listed-dcfa95bd75c3e27d	task	The old landing lookup reports an unknown slug. The task step provides the new task lookup.	
 refusal:events_of:line-number-of-log-is-not-json-error-the-log-2ee7b7abc2391f5f	core	The old landing reads the log for checks, review, PR text and merge. Core owns the journal store and its read errors.	
+refusal:jev_read:len-refused-finding-s-called-under-the-bar-w-cf5889e34951e174	land-propose	propose's refusal jev-over	land-review
 refusal:project_now:in-process:this-repository-has-no-lem-settings-toml-lem-06352751880aed83	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.	
 refusal:project_now:str-error-177e167f5c0481a3	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.	
 refusal:project_now:subprocess:this-repository-has-no-lem-settings-toml-lem-06352751880aed83	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.	
@@ -26,6 +52,7 @@ refusal:task_file:path-is-not-a-file-in-the-working-directory-ce99925e12bdcf2d	t
 refusal:task_file:path-is-not-a-file-in-the-working-directory-ce99925e12bdcf2d	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
 ruling:a-lowered-bar-a-new-suppression-a-skipped-or-110297d0eb925f42	land-checks	The shell suite belongs to review, and the Bar cases belong to checks. Checks owns the lowered-bar finding that must reach the PR.	
 ruling:a-partial-review-is-a-review-6471c81a4fd37ad9	land-review	The cited suites span review, propose and merge. Review owns the floor and the selection that can satisfy it.	
+ruling:a-polish-pass-is-a-step-of-the-flow-529aff33ed530ce8	land-checks	the polish pass	land-review
 ruling:a-project-can-close-branches-003115363c11829e	land-base	Settings defines the protected names, and landing enforces them. The surfaces annex gives the old may-land contract to land-base.	
 ruling:a-release-is-a-change-of-the-plugin-s-versio-eef0c0acef8044d0	core	The text is in AGENTS.md, and the value is in the manifest. Core owns the manifest and packaging value.	
 ruling:a-task-has-a-type-and-a-track-and-they-are-t-8f98808a3ad23f65	task	Both the task and settings suites cite the ruling. The task step owns the two values and their display in the first line.	
@@ -45,9 +72,11 @@ ruling:the-size-of-a-change-decides-its-path-5ef69d536294de8c	owner	The main ski
 ruling:the-time-card-gets-exact-start-times-d2c4849e7fd2e8ef	task	The main skill tells agents to log stage starts, and the project source names the start events. The task step owns those span records.	
 ruling:the-trials-of-2026-11-21-a-task-s-session-sa-b7fb034987197ddd	sessions	The historical row joins session startup and onboarding. Let the session owner account for the first-line handoff and cite onboarding separately.	
 ruling:without-codex-one-expert-answers-alone-5a3515f2f428be0e	addons-outside	Settings exposes the available seats, and the experts add-on runs the one-expert path.	
+unit:tests/unit/test_land.py:JevOnTheLines.test_the_lines_end_with_jev_s_read	land-propose	the end of each line of the pull request's text with Jev's read is propose's text; land-review gives Judge.over_bar and model/landing/jev_bar.py (notes/land-review.md)	land-review
 unit:tests/unit/test_land.py:ProtectedBranch.test_a_protected_name_is_refused_and_named	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.	
 unit:tests/unit/test_land.py:ProtectedBranch.test_a_task_branch_that_is_not_protected	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.	
 unit:tests/unit/test_land.py:ProtectedBranch.test_the_base_is_refused	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.	
+unit:tests/unit/test_land.py:ReadOfATip.test_each_tip_and_base_has_its_own_brief_and_answer_file	land-merge	the merge agent's brief and answer files are merge-review's	land-review
 unit:tests/unit/test_land.py:TaskFile.test_a_file_in_neither_place_is_refused_with_both	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.	
 unit:tests/unit/test_land.py:TaskFile.test_a_file_in_neither_place_is_refused_with_both	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
 unit:tests/unit/test_land.py:TaskFile.test_a_relative_path_that_the_working_directory_lacks_is_the_task_directorys	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.	
@@ -56,6 +85,12 @@ unit:tests/unit/test_land.py:TaskFile.test_an_absolute_path_is_taken_as_it_is	tr
 unit:tests/unit/test_land.py:TaskFile.test_an_absolute_path_is_taken_as_it_is	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
 unit:tests/unit/test_land.py:TaskFile.test_the_working_directory_comes_first	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.	
 unit:tests/unit/test_land.py:TaskFile.test_the_working_directory_comes_first	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
+unit:tests/unit/test_land.py:TheFindingsUnderTheBar.test_an_item_of_worth_no_without_its_reason	land-propose	the findings Jev reads at propose come from the branch's worth: no items and the notes' under: lines, which propose parses; land-review gives the item reader (model/landing/items.py) and Judge.over_bar	land-review
+unit:tests/unit/test_land.py:TheFindingsUnderTheBar.test_the_lines_of_the_notes_that_propose_checks	land-propose	the findings Jev reads at propose come from the branch's worth: no items and the notes' under: lines, which propose parses; land-review gives the item reader (model/landing/items.py) and Judge.over_bar	land-review
+unit:tests/unit/test_land.py:TheReadOfEachFinding.test_a_refused_item_with_no_reason_is_refused_until_it_has_one	land-propose	Jev's one read of each finding under the bar, its refusal jev-over once, and its keep run in propose; land-review gives Judge.over_bar and model/landing/jev_bar.py	land-review
+unit:tests/unit/test_land.py:TheReadOfEachFinding.test_a_score_over_the_line_refuses_once_and_the_second_answer_stands	land-propose	Jev's one read of each finding under the bar, its refusal jev-over once, and its keep run in propose; land-review gives Judge.over_bar and model/landing/jev_bar.py	land-review
+unit:tests/unit/test_land.py:TheReadOfEachFinding.test_a_score_under_the_line_goes_on_and_off_in_the_settings_sends_nothing	land-propose	Jev's one read of each finding under the bar, its refusal jev-over once, and its keep run in propose; land-review gives Judge.over_bar and model/landing/jev_bar.py	land-review
+unit:tests/unit/test_land.py:TheReadOfEachFinding.test_no_key_is_kept_and_not_asked_again	land-propose	Jev's one read of each finding under the bar, its refusal jev-over once, and its keep run in propose; land-review gives Judge.over_bar and model/landing/jev_bar.py	land-review
 unit:tests/unit/test_release.py:Before.test_the_release_before_is_older_than_plugin_json	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Check.test_a_command_that_ends_the_task_logs_the_same_stop_and_goes_on	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Check.test_a_pass_holds_for_the_commands_of_one_command_and_for_no_command_after_it	task	the release stop two releases back is task's	core
