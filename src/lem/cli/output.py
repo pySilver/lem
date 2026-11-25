@@ -39,9 +39,9 @@ def refused(refusal: Refusal) -> int:
     return REFUSED
 
 
-def failed(line: str, log: str) -> int:
-    """Print a fault: one line for the owner, and the log that holds its traceback."""
-    printed(Envelope(ok=False, fault=Failed(line=line, log=log)))
+def failed(fault: Failed) -> int:
+    """Print a fault: one line for the owner, and where its traceback is."""
+    printed(Envelope(ok=False, fault=fault))
     return FAILED
 
 

@@ -3,12 +3,13 @@
 `lem NOUN VERB ARGS...`: the nouns are in `nouns.py`, each noun's verbs in its own `verbs.py`,
 and each verb is a leaf module of its own. A leaf's outcome is printed as the envelope
 (`output.py`): exit 0 done, 1 a refusal, 2 a wrong call (Click's own, on standard error), 3 a
-fault, whose traceback goes to `lem.log` (`faults.py`, loaded only on a fault). `help` and
+fault, whose traceback goes to `lem.log` (`lem.kernel.logs`, loaded only on a fault). `help` and
 `version` print text and JSON of their own, with no envelope; `lem` alone is `lem help`.
 `lem --repo PATH NOUN ...` runs a command for the folder PATH (`place.py`).
 """
 
 import importlib
+import os
 
 import click
 
@@ -34,8 +35,8 @@ def main(argv: list[str]) -> int:
     try:
         return contained(argv or ["help"])
     except Fault as fault:
-        logged = importlib.import_module("lem.cli.faults").logged(fault)
-        return output.failed(*logged)
+        logs = importlib.import_module("lem.kernel.logs")
+        return output.failed(logs.logged(fault, argv, os.environ))
 
 
 def contained(argv: list[str]) -> int:

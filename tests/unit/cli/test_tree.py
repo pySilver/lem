@@ -14,6 +14,7 @@ import click
 import msgspec
 import pytest
 
+from fakes import command
 from lem.cli import lazy, nouns
 from lem.cli.group import LazyGroup
 from unit.cli import shapes
@@ -345,7 +346,7 @@ def test_a_fault_exits_3_with_one_line_and_its_traceback_in_lem_log(
     assert fault["fault"]["line"] == "Lem failed: RuntimeError: the record is torn"
     assert log == Path(os.environ["XDG_CONFIG_HOME"]) / "lem" / "lem.log"
     logged = log.read_text(encoding="utf-8")
-    assert "a fault of Lem" in logged
+    assert "lem land start x" in logged
     assert "Traceback" in logged
     assert "RuntimeError: the record" in logged
 
@@ -388,9 +389,9 @@ def test_a_fault_with_a_relative_home_goes_to_stderr_and_writes_no_file_here(
     monkeypatch.setattr(start, "run", broken)
     code, out, err = called(capsys, "land", "start", "x")
     assert code == 3
-    assert json.loads(out)["fault"]["log"] == (
-        "standard error: XDG_CONFIG_HOME=local is no absolute folder"
-    )
+    log = json.loads(out)["fault"]["log"]
+    assert log.startswith("standard error: the log could not be written (")
+    assert "XDG_CONFIG_HOME is 'local', a relative path" in log
     assert "RuntimeError: the record is torn" in err
     assert list(tmp_path.iterdir()) == []
 
@@ -594,6 +595,37 @@ def test_repo_before_help_version_and_doctor_reaches_them(
     assert called(capsys, "--repo", str(ROOT), *argv)[0] == code
 
 
+@pytest.mark.parametrize(
+    ("argv", "code"),
+    [
+        (("--repo", ".", "help"), 0),
+        (("--repo", ".", "version"), 0),
+        (("--repo", ".", "doctor"), 1),
+        (("--repo=.", "doctor"), 1),
+        (("help",), 0),
+        (("--repo", ".", "land", "start", "x"), 1),
+    ],
+    ids=lambda value: " ".join(value) if isinstance(value, tuple) else str(value),
+)
+def test_the_version_check_lets_help_version_and_doctor_through_past_repo(
+    tmp_path: Path, argv: tuple[str, ...], code: int
+) -> None:
+    plugin = tmp_path / "plugin"
+    (plugin / ".claude-plugin").mkdir(parents=True)
+    (plugin / ".claude-plugin" / "plugin.json").write_text('{"version": "999.0.0"}')
+    env = {**os.environ, "LEM_PLUGIN_ROOT": str(plugin)}
+    ran = command.lem(*argv, cwd=ROOT, env=env)
+    assert ran.code == code, ran
+    if code == 1:
+        refusal = ran.envelope()["refusal"]
+        assert isinstance(refusal, dict)
+        if argv[-1] == "doctor":
+            assert refusal["code"] == "not-built"
+        else:
+            assert refusal["code"] == "version"
+            assert "is behind Lem's plugin 999.0.0" in refusal["why"]
+
+
 def test_a_help_option_after_a_noun_with_a_default_verb_is_the_nouns_help(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -631,7 +663,7 @@ def test_a_call_loads_its_own_leaf_and_no_other_noun_and_nothing_heavy() -> None
     assert others == ["lem.cli.land", "lem.cli.land.start", "lem.cli.land.verbs"]
     assert [name for name in loaded if name.split(".")[0] in HEAVY] == []
     # help, version and the fault's log load only when a call needs them
-    for name in ("lem.cli.usage", "lem.cli.version", "lem.cli.faults", "traceback"):
+    for name in ("lem.cli.usage", "lem.cli.version", "lem.kernel.logs", "traceback"):
         assert name not in loaded, name
 
 

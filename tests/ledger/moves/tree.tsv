@@ -1,0 +1,10 @@
+id	to	why
+check:tests/lem-command.sh:a-second-sync-of-a-copy-of-this-checkout-wit-bed0612a5c4eb8a6	pack-trial	the build and sync of the app are core's packaging; P1 installs and checks it
+check:tests/lem-command.sh:the-wheel-built-from-the-sdist-with-the-mani-5829869ffee83f44	pack-trial	the wheel's contents are core's packaging; P1 installs the formula
+check:tests/lem-command.sh:the-wheel-check-refuses-a-wheel-s-file-that-bc7b89e9005246a7	pack-trial	the check of the wheel's files against git belongs with the packaging trial
+refusal:task_file:path-is-not-a-file-flag-names-a-file-by-its-c39509a3ecc2e8d0	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing
+refusal:task_file:path-is-not-a-file-in-the-working-directory-ce99925e12bdcf2d	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing
+unit:tests/unit/test_land.py:TaskFile.test_a_file_in_neither_place_is_refused_with_both	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing
+unit:tests/unit/test_land.py:TaskFile.test_a_relative_path_that_the_working_directory_lacks_is_the_task_directorys	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing
+unit:tests/unit/test_land.py:TaskFile.test_an_absolute_path_is_taken_as_it_is	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing
+unit:tests/unit/test_land.py:TaskFile.test_the_working_directory_comes_first	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing

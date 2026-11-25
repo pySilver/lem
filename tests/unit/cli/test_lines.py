@@ -2,9 +2,16 @@
 `<!-- lem: old form -->`, which this case reports as a skip with the count of its old lines.
 `reading.py` says where a line is and how it is read; its rules are cases here too."""
 
+import re
+from typing import TYPE_CHECKING
+
 import pytest
 
+from lem.cli import nouns
 from unit.cli import parsing, reading, shapes
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 TREE = shapes.tree()
 # The lines the reader cannot read, each with why.
@@ -265,3 +272,106 @@ def test_each_line_of_a_text_is_one_the_tree_takes_or_the_text_is_marked(
 def test_every_line_of_allowed_is_still_given() -> None:
     given = {line.text for path in reading.texts() for line in reading.lines_in(path)}
     assert [text for text in ALLOWED if text not in given] == []
+
+
+# A script of Lem's run by its path (`python3 SKILL_DIR/scripts/land.py`, `bash .../run.sh`,
+# `python src/lem/land.py`), or by its file's name (`land.py merged SLUG`), also across a line break.
+SCRIPT_NAMES = "|".join((*(noun for noun, _ in nouns.NOUNS), "project", "issues"))
+PATH_FORM = re.compile(r"(?:python3?|bash)\s+\S*(?:scripts|src/lem)/[\w/-]+\.(?:py|sh)")
+SHORT_FORM = re.compile(rf"`(?:{SCRIPT_NAMES})\.py\s+[-a-z\[]")
+# The section of the harness that gives the command's fallback by its path.
+FALLBACK = (reading.ROOT / "skills/lem/harness/claude-code.md", "## lem")
+
+
+def script_lines(path: Path) -> list[str]:
+    """The lines of PATH a script form is looked for in: no comment of a script, and not the
+    harness's section on the fallback."""
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    inside = False
+    for number, line in enumerate(lines):
+        if path == FALLBACK[0] and line.startswith("## "):
+            inside = line == FALLBACK[1]
+        comment = path.suffix in {".py", ".html"} and line.lstrip().startswith(
+            ("#", "//")
+        )
+        if inside or comment:
+            lines[number] = ""
+    return lines
+
+
+def test_no_text_or_message_tells_anyone_to_run_a_script_of_lems_by_its_path() -> None:
+    root = reading.ROOT
+    found = []
+    for path in sorted(
+        [*root.glob("skills/**/*"), *root.glob("agents/**/*"), *root.glob("src/**/*")]
+    ):
+        if not path.is_file() or path.suffix not in {
+            ".md",
+            ".html",
+            ".json",
+            ".py",
+            "",
+        }:
+            continue
+        lines = script_lines(path)
+        forms = [SHORT_FORM] if path.suffix == ".py" else [SHORT_FORM, PATH_FORM]
+        for number, line in enumerate(lines):
+            pair = line + "\n" + (lines[number + 1] if number + 1 < len(lines) else "")
+            if any(
+                m.start() < len(line) for form in forms for m in form.finditer(pair)
+            ):
+                found.append(
+                    f"{path.relative_to(root)}:{number + 1}: {line.strip()[:100]}"
+                )
+    assert found == []
+
+
+def test_the_script_forms_are_found_in_a_text() -> None:
+    assert PATH_FORM.search("run `python3 SKILL_DIR/scripts/land.py merged SLUG`")
+    assert PATH_FORM.search("python src/lem/cli/lazy.py")
+    assert SHORT_FORM.search("then `land.py merged SLUG`")
+    assert not SHORT_FORM.search("then `lem land merged SLUG`")
+
+
+# The one rule `Bash(lem *)` covers a plain call: a `lem` call inside `$(...)`, before a pipe
+# into another command or beside `&&` or `||` is a compound command it does not cover. A `|`
+# between two options of a synopsis is no pipe.
+CALL = r"\blem\s+[a-z-]"
+COMPOUND = (
+    re.compile(r"\$\(\s*lem\s"),
+    re.compile(r"(?:\s\|\s|&&|\|\|)\s*" + CALL),
+    re.compile(CALL + r"[^\n]*?\s(?:\|\s+[a-z]|&&|\|\|)"),
+)
+
+
+def compound_lines(text: str) -> list[int]:
+    """The numbers of the lines of TEXT whose code block line or code span holds a compound
+    `lem` call."""
+    found = []
+    fence = False
+    for number, line in enumerate(text.splitlines(), start=1):
+        if line.lstrip().startswith("```"):
+            fence = not fence
+            continue
+        pieces = [line] if fence else re.findall(r"`([^`]+)`", line)
+        if any(form.search(piece) for piece in pieces for form in COMPOUND):
+            found.append(number)
+    return found
+
+
+def test_no_text_gives_a_lem_call_in_a_compound_command() -> None:
+    root = reading.ROOT
+    found = [
+        f"{path.relative_to(root)}:{number}"
+        for path in sorted([*root.glob("skills/**/*.md"), *root.glob("agents/**/*.md")])
+        for number in compound_lines(path.read_text(encoding="utf-8"))
+    ]
+    assert found == []
+
+
+def test_a_compound_lem_call_is_found_and_a_synopsis_is_not() -> None:
+    assert compound_lines("`x=$(lem waiting)`") == [1]
+    assert compound_lines("```\nlem waiting | jq .\n```") == [2]
+    assert compound_lines("`cd W && lem land base SLUG`") == [1]
+    assert compound_lines("`lem session wait SLUG (--until S | --event E)`") == []
+    assert compound_lines("`lem land merge SLUG --by owner|merger`") == []
