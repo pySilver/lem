@@ -1,8 +1,11 @@
 """The board's Starlette app: five route tables joined by fixed imports, and the server's facts.
 
-Each table is a module of its own step: the pages, the owner's acts, the cards of `lem ask`, the
-server's own addresses with the notifications, and the boards of a peer. A step fills its module
-and never edits this one. The server holds no truth: every page reads the files at its request.
+Each table is a module of its own step: the boards of a peer, the pages, the owner's acts, the
+cards of `lem ask`, and the server's own addresses with the notifications. A step fills its
+module and never edits this one. The peers' table comes first, as `serve.Handler.answer` on
+`main` looks for a peer before any address of this machine: an address under a peer's name is
+that peer's, and its table matches only the names of the peers joined. The server holds no
+truth: every page reads the files at its request.
 """
 
 from typing import TYPE_CHECKING
@@ -15,21 +18,25 @@ from lem.board.acts import routes as acts
 from lem.board.ask import routes as ask
 from lem.board.pages import routes as pages
 from lem.board.push import routes as push
-from lem.kernel.errors import Fault
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
+    from starlette.routing import BaseRoute
+
     from lem.board.facts import Facts
 
-ROUTES = (
-    *pages.ROUTES,
-    *acts.ROUTES,
-    *ask.ROUTES,
-    *push.ROUTES,
-    *peers.ROUTES,
-)
+
+def routes() -> list[BaseRoute]:
+    """The five tables, read when the app is made, the peers' first."""
+    return [
+        *peers.ROUTES,
+        *pages.ROUTES,
+        *acts.ROUTES,
+        *ask.ROUTES,
+        *push.ROUTES,
+    ]
 
 
 def made(
@@ -38,9 +45,9 @@ def made(
     """The app of the server `facts`, for Lem's home folder `home`, listening on `listen`;
     `stop` ends the server after the answer that calls it."""
     app = Starlette(
-        routes=list(ROUTES),
-        middleware=shield.hosts(listen),
-        exception_handlers={Fault: shield.faulted},
+        routes=routes(),
+        middleware=shield.hosts(facts.port, listen),
+        exception_handlers=shield.handlers(),
         lifespan=life.lifespan(facts, home),
     )
     app.state.facts = facts

@@ -32,10 +32,23 @@ rest of `serve.py`'s job into modules of their own, all under `board/`:
 - `serve_file.py`: `serve.json` replaces `serve.pid`, written by the app's life at its start and
   removed at its clean stop only while it names that pid. `__main__`'s look reads it
   (`notes/core.md`, "the silent server start").
-- `install.py` (the replace rule, pure), `client.py` (the questions to a port, `http.client`),
-  `start.py` (the detached start: `python -B -P -s -m lem serve run --port N` with
-  `PYTHONPATH` set to the starting install's package folder, so the server runs that install),
-  `ensure.py` (`ensure`, `stop`, the serve lock with a deadline).
+- `install.py` (the replace rule, pure), `client.py` (one connection to a port and the look at
+  who serves), `heard.py` (what an answer is, pure: this build's server, which must carry
+  `Lem-Server: lem`, its own port and this home; or the release before this one, `Server:
+  lem-serve`, by its `config`; anything else refused), `halt.py` (the stop, sent on the
+  connection that asked, and the wait until the port refuses connections), `lock.py` (the serve
+  lock with a deadline), `start.py` (the detached start: `python -B -P -s -m lem serve run --port
+  N` with `PYTHONPATH` set to the starting install's package folder, so the server runs that
+  install; the log starts again empty past 1,000,000 bytes, as on `main`), `ensure.py`,
+  `stopping.py` and `vacant.py` (`serve run`'s look before it serves).
+- The order of every board command: it reads its home folder, its port and who serves there;
+  decides; and only then takes the serve lock, reads the port again under it, writes, or sends a
+  stop. A server of the release before this one is never stopped by this build and keeps every
+  file of its home folder: `ensure` and `stop` say which install serves (`Shown.another_install`),
+  `serve run` and `lem board` refuse `other-install`. `serve stop` leaves a server of another
+  install of this build too. `lem board` under `LEM_SERVE=off` asks nothing and writes nothing.
+- The main listener's `Host` check is `main`'s (`shield.py`): one `Host`, a name of its own with
+  its port or without, else 403 with the address to open. The peers' table is matched first.
 - `machine.py`: the port and the guard of the owner's two ports, and the machine's name.
 - `workspaces.py`: `workspaces.json`, a list of absolute paths, and the names of the addresses.
 - `life.py` (`serve.json` and the duties' loop while the server lives), `shield.py` (the `Host`
@@ -47,6 +60,16 @@ rest of `serve.py`'s job into modules of their own, all under `board/`:
 - `lem serve run` takes `--port N` (`tests/unit/cli/tree.json` written again). `serve run`,
   `serve ensure` and `lem board --no-open` put the workspace of the call on the list, since
   `serve add` is not built.
+
+## For `core`: the layers of the top row
+
+The contract in `pyproject.toml` joins `cli`, `board` and `addons` with `:`, so they may import
+each other, and `lint-imports` keeps it. The plan's part 2 permits "one import across the top
+row", from `board/app.py` to `lem.addons.peers.routes`; the cli packages of the add-ons
+(`addons-flow`, `addons-outside`: "their `cli/` packages") must import `lem.addons`, and `cli/serve/`
+and `cli/board/` start and ask the board server, so that sentence can hold only between `board`
+and `addons`. Asked: a second contract, `forbidden`, from `lem.board` to `lem.addons`, with
+`ignore_imports = ["lem.board.app -> lem.addons.peers.routes"]`.
 
 ## For `settings`
 

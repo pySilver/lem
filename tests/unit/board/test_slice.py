@@ -5,22 +5,45 @@ refresh after a record changes, and the rules of `lem serve` that read no networ
 import os
 import pwd
 import re
+import threading
 from dataclasses import dataclass
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import anyio
 import msgspec
 import pytest
+from starlette.responses import PlainTextResponse
+from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from fakes.records import MOMENT, record
-from lem.board import app, install, machine, serve_file, stream, workspaces
+from lem.addons.peers import routes as peers
+from lem.board import (
+    app,
+    ensure,
+    heard,
+    install,
+    machine,
+    serve_file,
+    shield,
+    start,
+    stopping,
+    stream,
+    workspaces,
+)
+from lem.board.client import Reply
 from lem.board.duties import runner
-from lem.board.facts import Facts, Install
+from lem.board.facts import HEADER, MARK, Facts, Install
+from lem.board.pages import kanban
 from lem.kernel import release
 from lem.kernel.errors import Refusal
 from lem.records.holds import OwnerHold
 from lem.store import places, tasks
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 SECTION = re.compile(
     r'<section class="col [^"]*" id="col-([a-z]+)"(.*?)</section>', re.DOTALL
@@ -37,6 +60,7 @@ class Board:
     state: Path
     address: str
     stops: list[str]
+    facts: Facts
 
 
 def workspace_at(folder: Path) -> Path:
@@ -68,7 +92,7 @@ def board(tmp_path: Path) -> Board:
     )
     client = TestClient(made, base_url="http://127.0.0.1", client=("127.0.0.1", 50000))
     state = places.state_of(checkout)
-    return Board(client, home, state, f"/{host}/my-repo/", stops)
+    return Board(client, home, state, f"/{host}/my-repo/", stops, facts)
 
 
 def columns(page: str) -> dict[str, str]:
@@ -189,9 +213,32 @@ def test_the_stop_is_taken_from_a_program_here_and_refused_from_a_page_or_elsewh
     assert board.stops == ["stop"]
 
 
-def test_a_request_that_names_another_host_reads_nothing(board: Board) -> None:
-    answer = board.client.get(board.address, headers={"Host": "evil.example"})
-    assert answer.status_code == 400
+@pytest.mark.parametrize(
+    "host", ["evil.example", "127.0.0.1:1", "localhost:80", "evil.example:4999"]
+)
+def test_a_request_that_names_another_host_or_port_reads_nothing_and_says_where_to_go(
+    board: Board, host: str
+) -> None:
+    answer = board.client.get(board.address, headers={"Host": host})
+    assert answer.status_code == 403
+    assert answer.text == (
+        "This address is not the board's own on this Mac: open it as "
+        "http://127.0.0.1:4999/."
+    )
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1", "127.0.0.1:4999", "LOCALHOST:4999"])
+def test_a_request_that_names_the_listener_by_its_own_name_is_read(
+    board: Board, host: str
+) -> None:
+    assert board.client.get(board.address, headers={"Host": host}).status_code == 200
+
+
+def test_a_request_with_two_hosts_or_none_reads_nothing() -> None:
+    assert shield.host_refusal(["127.0.0.1", "127.0.0.1"], 4999, "127.0.0.1")
+    assert shield.host_refusal([], 4999, "127.0.0.1")
+    assert shield.host_refusal(["[::1]:4999"], 4999, "127.0.0.1") is None
+    assert shield.host_refusal(["10.0.0.2:4999"], 4999, "10.0.0.2") is None
 
 
 async def first_event(state: Path, *, rendered: str | None, missed: bool) -> object:
@@ -368,3 +415,250 @@ def test_each_duty_path_is_a_module_whose_tick_runs_for_a_workspace(
 ) -> None:
     runner.tick(board.home)
     assert len(runner.DUTIES) == 7
+
+
+def test_a_head_of_the_stream_answers_its_headers_and_ends(board: Board) -> None:
+    answers: list[object] = []
+    asked = threading.Thread(
+        target=lambda: answers.append(board.client.head(f"{board.address}stream")),
+        daemon=True,
+    )
+    asked.start()
+    asked.join(10)
+    assert len(answers) == 1, "HEAD of the stream did not end"
+    answer = answers[0]
+    assert getattr(answer, "status_code", None) == 200
+    assert getattr(answer, "headers", {})["content-type"].startswith(
+        "text/event-stream"
+    )
+
+
+def test_a_write_between_the_pages_two_reads_leaves_the_page_owing_a_refresh(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tasks.create(board.state, record("fix-the-login"))
+    reads: list[str] = []
+
+    def after_first(
+        name: str, real: Callable[[Path], object]
+    ) -> Callable[[Path], object]:
+        def read(state: Path) -> object:
+            found = real(state)
+            reads.append(name)
+            if len(reads) == 1:
+                tasks.create(state, record("add-a-flag"))
+            return found
+
+        return read
+
+    monkeypatch.setattr(
+        kanban.stream, "version", after_first("version", stream.version)
+    )
+    monkeypatch.setattr(kanban.tasks, "every", after_first("records", tasks.every))
+    page = board.client.get(board.address).text
+    monkeypatch.undo()
+    shown = re.search(r'data-stream-since-value="([0-9a-f]+)"', page)
+    assert shown is not None
+    on_page = 'id="card-add-a-flag"' in page
+    owed = stream.owes(
+        rendered=shown[1], missed=False, told=stream.version(board.state)
+    )
+    assert on_page or owed
+    assert reads == ["version", "records"]
+
+
+def test_the_peers_table_is_matched_before_the_addresses_of_this_machine(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def peer(request: object) -> PlainTextResponse:
+        return PlainTextResponse("the peer's page")
+
+    monkeypatch.setattr(peers, "ROUTES", (Route("/other-mac/{rest:path}", peer),))
+    made = app.made(
+        board.facts,
+        home=board.home,
+        listen="127.0.0.1",
+        stop=lambda: None,
+    )
+    client = TestClient(made, base_url="http://127.0.0.1")
+    assert client.get("/other-mac/repo/").text == "the peer's page"
+    assert client.get(board.address).status_code == 200
+
+
+def test_the_start_log_starts_again_empty_past_its_cap(tmp_path: Path) -> None:
+    log = tmp_path / start.LOG
+    log.write_bytes(b"x" * (start.LOG_CAP + 1))
+    start.trimmed(log)
+    assert log.read_bytes() == b""
+    log.write_bytes(b"kept\n")
+    start.trimmed(log)
+    assert log.read_bytes() == b"kept\n"
+    start.trimmed(tmp_path / "none.log")
+
+
+def test_ensure_reads_the_port_again_under_the_serve_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = tmp_path / "config"
+    home = config / "lem"
+    home.mkdir(parents=True)
+    settings = home / machine.MACHINE
+    settings.write_text("[serve]\nport = 5101\n")
+    environ = {"HOME": str(tmp_path), "XDG_CONFIG_HOME": str(config)}
+    real_ask = ensure.client.ask
+
+    def ask_then_change(port: int, home: Path) -> object:
+        found = real_ask(port, home)
+        settings.write_text("[serve]\nport = 5102\n")
+        return found
+
+    started: list[int] = []
+
+    def recorded(port: int, home: Path, environ: object) -> Facts:
+        started.append(port)
+        return facts_of(port, home)
+
+    monkeypatch.setattr(ensure.client, "ask", ask_then_change)
+    monkeypatch.setattr(ensure.start, "started", recorded)
+    shown = ensure.ensure(environ, tmp_path)
+    assert started == [5102]
+    assert shown.started is True
+
+
+def facts_of(port: int, home: Path) -> Facts:
+    return Facts(
+        pid=os.getpid(),
+        port=port,
+        url=f"http://127.0.0.1:{port}/",
+        host="mac",
+        install=install.install_of(),
+        home=str(home),
+        started=MOMENT,
+    )
+
+
+class StandIn(ThreadingHTTPServer):
+    """A board server of this build, in this test's process: what it was asked, by which
+    client port, and whether it closes each connection after its answer."""
+
+    def __init__(self, home: Path, *, closes: bool) -> None:
+        super().__init__(("127.0.0.1", 0), Answering)
+        self.facts = facts_of(self.server_address[1], home)
+        self.closes = closes
+        self.seen: list[tuple[str, int]] = []
+
+    def ended(self) -> None:
+        """Stop serving and close the port, as a server does at its stop."""
+        self.shutdown()
+        self.server_close()
+
+
+class Answering(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    @property
+    def stand_in(self) -> StandIn:
+        return cast("StandIn", self.server)
+
+    def answer(self, body: bytes) -> None:
+        self.stand_in.seen.append((self.command, self.client_address[1]))
+        self.send_response(200)
+        self.send_header(HEADER, MARK)
+        self.send_header("Content-Length", str(len(body)))
+        if self.stand_in.closes:
+            self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self) -> None:
+        self.answer(msgspec.json.encode(self.stand_in.facts))
+
+    def do_POST(self) -> None:
+        self.answer(b"the board server stops")
+        threading.Thread(target=self.stand_in.ended, daemon=True).start()
+
+
+def stand_in(tmp_path: Path, *, closes: bool) -> tuple[StandIn, dict[str, str]]:
+    config = tmp_path / "config"
+    home = config / "lem"
+    home.mkdir(parents=True)
+    server = StandIn(home, closes=closes)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    port = server.server_address[1]
+    (home / machine.MACHINE).write_text(f"[serve]\nport = {port}\n")
+    return server, {"HOME": str(tmp_path), "XDG_CONFIG_HOME": str(config)}
+
+
+def test_the_stop_goes_on_the_connection_that_asked_who_serves(tmp_path: Path) -> None:
+    server, environ = stand_in(tmp_path, closes=False)
+    try:
+        said = stopping.stop(environ)
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert said.stopped is True
+    asked = [port for method, port in server.seen if method == "GET"]
+    posted = [port for method, port in server.seen if method == "POST"]
+    assert len(posted) == 1
+    assert posted[0] == asked[-1]
+
+
+def test_no_stop_is_sent_when_the_server_closed_the_connection_it_answered_on(
+    tmp_path: Path,
+) -> None:
+    server, environ = stand_in(tmp_path, closes=True)
+    try:
+        with pytest.raises(Refusal) as refused:
+            stopping.stop(environ)
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert refused.value.code == "stop-refused"
+    assert [method for method, _ in server.seen] == ["GET", "GET"]
+
+
+def reply(
+    body: object, *, marker: str = MARK, server: str = "", status: int = 200
+) -> Reply:
+    return Reply(
+        status=status, marker=marker, server=server, body=msgspec.json.encode(body)
+    )
+
+
+def test_an_answer_is_this_builds_server_only_with_its_mark_its_port_and_its_home(
+    tmp_path: Path,
+) -> None:
+    facts = facts_of(5101, tmp_path)
+    assert heard.judged(reply(facts), port=5101, home=tmp_path) == facts
+    for wrong, port in (
+        (reply(facts, marker="lemx"), 5101),
+        (reply(facts, marker=""), 5101),
+        (reply(facts, status=202), 5101),
+        (reply(facts), 5102),
+    ):
+        with pytest.raises(Refusal) as refused:
+            heard.judged(wrong, port=port, home=tmp_path)
+        assert refused.value.code == "port-held"
+    with pytest.raises(Refusal) as refused:
+        heard.judged(reply(facts), port=5101, home=tmp_path / "other")
+    assert refused.value.code == "other-home"
+
+
+def test_an_answer_of_the_release_before_is_another_install_of_its_home(
+    tmp_path: Path,
+) -> None:
+    before = {
+        "pid": 77,
+        "version": "version 0.3.1",
+        "install": {"version": "0.3.1", "commit": None, "package": "/old", "stamp": 5},
+        "config": str(tmp_path),
+        "url": "http://127.0.0.1:4536/",
+        "port": 4536,
+    }
+    said = reply(before, marker="", server="lem-serve Python/3.14.0")
+    other = heard.judged(said, port=4536, home=tmp_path)
+    assert isinstance(other, heard.Other)
+    assert "release 0.3.1 from /old (pid 77)" in heard.which(other)
+    with pytest.raises(Refusal) as refused:
+        heard.judged(said, port=4536, home=tmp_path / "other")
+    assert refused.value.code == "other-home"

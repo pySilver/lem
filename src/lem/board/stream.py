@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 import anyio
 from sse_starlette import EventSourceResponse, ServerSentEvent
+from starlette.responses import Response
 from watchfiles import awatch
 
 from lem.board.pages import place
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
 TICK_MS = 500
 PING_SECONDS = 10
 REFRESH = '<turbo-stream action="refresh"></turbo-stream>'
+EVENTS = "text/event-stream"
 RECORDS = "tasks/*/task.json"
 # The hex digits of a version: enough that two versions of one folder never meet.
 DIGITS = 16
@@ -88,9 +90,11 @@ async def events(
                 yield refresh(now)
 
 
-async def endpoint(request: Request) -> EventSourceResponse:
-    """The stream of the workspace of the request's address."""
+async def endpoint(request: Request) -> Response:
+    """The stream of the workspace of the request's address; to HEAD, its headers alone."""
     space = place.workspace(request)
+    if request.method == "HEAD":
+        return Response(media_type=EVENTS)
     state = places.state_of(space.checkout)
     missed = "since" in request.query_params or "last-event-id" in request.headers
     told = events(state, rendered=request.query_params.get("rendered"), missed=missed)

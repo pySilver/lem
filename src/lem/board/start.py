@@ -6,12 +6,15 @@ that the server runs the install whose `lem serve ensure` decided to start it, w
 comes first on the PATH.
 """
 
+import contextlib
+import os
 import subprocess
 import sys
 import time
 from typing import TYPE_CHECKING
 
 from lem.board import client
+from lem.board.facts import Facts
 from lem.kernel import clock, paths
 from lem.kernel.errors import Refusal
 
@@ -19,9 +22,10 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from lem.board.facts import Facts
 
 LOG = "serve.log"
+# The size past which the log starts again empty at a start (`serve.LOG_CAP` on `main`).
+LOG_CAP = 1_000_000
 # How long a start may take until the server answers, in seconds, and how often it is asked.
 START_WAIT = 10.0
 POLL = 0.1
@@ -36,6 +40,13 @@ def command(port: int) -> list[str]:
     return [sys.executable, "-B", "-P", "-s", "-m", "lem", *words]
 
 
+def trimmed(log: Path) -> None:
+    """Empty the log when it grew past LOG_CAP."""
+    with contextlib.suppress(FileNotFoundError):
+        if log.stat().st_size > LOG_CAP:
+            os.truncate(log, 0)
+
+
 def launched(
     port: int, home: Path, environ: Mapping[str, str]
 ) -> subprocess.Popen[bytes]:
@@ -43,6 +54,7 @@ def launched(
     home.mkdir(parents=True, exist_ok=True)
     package = str(paths.PACKAGE.parent)
     moment = clock.now().isoformat()
+    trimmed(home / LOG)
     with (home / LOG).open("ab") as log:
         log.write(f"{moment} lem serve ensure: port {port}\n".encode())
         log.flush()
@@ -79,7 +91,7 @@ def started(port: int, home: Path, environ: Mapping[str, str]) -> Facts:
         if code is not None:
             raise ended(code, home)
         facts = client.ask(port, home)
-        if facts is not None and facts.pid == child.pid:
+        if isinstance(facts, Facts) and facts.pid == child.pid:
             # it runs on its own now: nobody waits for its status
             child.returncode = 0
             return facts

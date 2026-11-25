@@ -10,8 +10,10 @@ import msgspec
 
 from lem.records.base import Moment
 
-# The header of the server's own answer, which no other program on the port sends.
+# The header of the server's own answer and its one value, which no other program on the
+# port sends.
 HEADER = "Lem-Server"
+MARK = "lem"
 
 
 class Install(msgspec.Struct, frozen=True, kw_only=True):
@@ -41,7 +43,8 @@ class Facts(msgspec.Struct, frozen=True, kw_only=True):
 
 class Shown(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     """What `lem serve ensure` prints: whether a server runs, whether this call started it,
-    who it is, and a line when it did not do what was asked."""
+    who it is, a line when it did not do what was asked, and whether the server is of another
+    install that this call leaves as it is."""
 
     running: bool
     started: bool
@@ -50,6 +53,7 @@ class Shown(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     host: str | None = None
     install: Install | None = None
     said: str | None = None
+    another_install: bool = False
 
 
 class Stopped(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):

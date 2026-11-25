@@ -16,7 +16,7 @@ from starlette.responses import PlainTextResponse, Response
 from starlette.routing import Route
 
 from lem.board import stub
-from lem.board.facts import HEADER
+from lem.board.facts import HEADER, MARK
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -31,7 +31,7 @@ async def server(request: Request) -> Response:
     return Response(
         msgspec.json.encode(request.app.state.facts),
         media_type="application/json",
-        headers={HEADER: "lem"},
+        headers={HEADER: MARK},
     )
 
 

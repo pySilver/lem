@@ -74,9 +74,15 @@ def owners_home(environ: Mapping[str, str]) -> bool:
     return paths.home(environ) == paths.home({"HOME": real})
 
 
+def allowed(port: int, environ: Mapping[str, str]) -> bool:
+    """Whether a command of the home folder of `environ` may contact or serve `port`: not
+    one of the owner's two, unless the home folder is his."""
+    return port not in {PORT, DOOR_PORT} or owners_home(environ)
+
+
 def guarded(port: int, environ: Mapping[str, str]) -> int:
     """`port`, unless it is one of the owner's two and the home folder is not his."""
-    if port in {PORT, DOOR_PORT} and not owners_home(environ):
+    if not allowed(port, environ):
         raise Refusal(
             "owner-port",
             f"port {port} is the owner's own board server's, and {paths.home(environ)} "

@@ -1,22 +1,29 @@
 """The board server as a process of its own, in the test's own home folder of Lem, on a free
 port that is never the owner's: `lem serve run` serves the kanban and its stream and stops clean;
 `lem serve ensure` starts one server and keeps it, and another install replaces it only at a
-higher release; `lem serve stop` ends it; the owner's two ports are refused before anything runs.
+higher release; `lem serve stop` ends it; the owner's two ports are refused before anything
+runs; and with a server of the release before this one in the home folder, every command leaves
+it and every file of the home folder as they are.
 
-Every server a case starts is stopped by that case, and its pid is checked gone at the end.
+Each case holds the servers it starts: the foreground one by its `Popen`, a detached one by a
+supervisor that knows each by its pid, its start time and its command line (its port is the
+case's own), registered from the process table and never from what a command printed, and that
+signals a process only while all three still match.
 """
 
 import json
 import os
-import re
 import shutil
 import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
+from dataclasses import dataclass, field
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 import pytest
@@ -32,7 +39,7 @@ if TYPE_CHECKING:
 
 ROOT = Path(__file__).resolve().parents[2]
 WAIT = 20.0
-SINCE = re.compile(r'data-stream-since-value="([0-9a-f]+)"')
+SINCE = "data-stream-since-value="
 
 
 def free_port() -> int:
@@ -50,35 +57,81 @@ def listening(port: int) -> bool:
         return sock.connect_ex(("127.0.0.1", port)) == 0
 
 
-def alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    return True
+@dataclass(frozen=True)
+class Identity:
+    """A process as the process table names it: its pid, its start and its command line."""
+
+    pid: int
+    started: str
+    command: str
 
 
-def ended(pid: int) -> None:
-    """Stop the server `pid` that a case started, when it still runs, and wait for its end."""
-    assert pid != 3311, "the owner's server is never a test's"
-    if not alive(pid):
-        return
-    os.kill(pid, signal.SIGTERM)
-    deadline = time.monotonic() + WAIT
-    while alive(pid) and time.monotonic() < deadline:
-        time.sleep(0.1)
-    if alive(pid):
-        os.kill(pid, signal.SIGKILL)
+def table() -> list[Identity]:
+    """Every process of the machine, from `ps`."""
+    ran = subprocess.run(
+        ["ps", "-A", "-o", "pid=,lstart=,command="],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    found = []
+    for line in ran.stdout.splitlines():
+        words = line.split(maxsplit=6)
+        if len(words) == 7:
+            found.append(Identity(int(words[0]), " ".join(words[1:6]), words[6]))
+    return found
+
+
+@dataclass
+class Supervisor:
+    """The detached servers of a case: those whose command serves one of its ports."""
+
+    ports: list[int] = field(default_factory=list)
+    known: dict[int, Identity] = field(default_factory=dict)
+
+    def serves(self, identity: Identity) -> bool:
+        return any(
+            identity.command.endswith(f"serve run --port {port}") for port in self.ports
+        )
+
+    def running(self) -> list[Identity]:
+        """The case's servers that run now, each registered as it is seen."""
+        now = [identity for identity in table() if self.serves(identity)]
+        for identity in now:
+            self.known.setdefault(identity.pid, identity)
+        return now
+
+    def end_all(self) -> None:
+        """Stop each server of the case that still runs as the same process."""
+        self.running()
+        for identity in self.known.values():
+            for sign in (signal.SIGTERM, signal.SIGKILL):
+                if not self.same(identity):
+                    break
+                os.kill(identity.pid, sign)
+                deadline = time.monotonic() + WAIT
+                while self.same(identity) and time.monotonic() < deadline:
+                    time.sleep(0.1)
+
+    def ended_within(self, seconds: float) -> bool:
+        """Whether every server of the case ended within `seconds`: a server frees its port
+        a moment before its process ends."""
+        deadline = time.monotonic() + seconds
+        while self.running() and time.monotonic() < deadline:
+            time.sleep(0.1)
+        return not self.running()
+
+    @staticmethod
+    def same(identity: Identity) -> bool:
+        return identity in table()
 
 
 @pytest.fixture
-def servers() -> Iterator[list[int]]:
-    """The pids of the servers a case started, each stopped at its end."""
-    pids: list[int] = []
-    yield pids
-    for pid in pids:
-        ended(pid)
-    assert not [pid for pid in pids if alive(pid)]
+def supervisor() -> Iterator[Supervisor]:
+    held = Supervisor()
+    yield held
+    held.end_all()
+    assert held.running() == []
 
 
 @pytest.fixture
@@ -105,7 +158,7 @@ def workspace_at(folder: Path) -> Path:
     return folder
 
 
-def facts_of(port: int) -> dict[str, object]:
+def facts_of(port: int) -> dict[str, Any]:
     """What the server on the port says of itself, once it answers."""
     deadline = time.monotonic() + WAIT
     while True:
@@ -132,41 +185,44 @@ def next_refresh(lines: Iterator[str]) -> str:
 
 
 def test_serve_run_serves_the_kanban_and_its_stream_and_stops_clean(
-    tmp_path: Path, env: dict[str, str], servers: list[int]
+    tmp_path: Path, env: dict[str, str]
 ) -> None:
     repo = workspace_at(tmp_path / "repo")
     state = places.state_of(repo)
     tasks.create(state, record("fix-the-login"))
     port = free_port()
     command = [LEM, "--repo", str(repo), "serve", "run", "--port", str(port)]
-    proc = subprocess.Popen(
+    with subprocess.Popen(
         command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-    )
-    servers.append(proc.pid)
-    facts = facts_of(port)
-    assert (facts["pid"], facts["home"]) == (proc.pid, str(lem_home(env)))
-    served = json.loads((lem_home(env) / "serve.json").read_text())
-    assert served["pid"] == proc.pid
-    base = f"http://127.0.0.1:{port}/{facts['host']}/repo/"
-    page = httpx.get(base)
-    assert page.status_code == 200
-    assert 'id="card-fix-the-login"' in page.text
-    shown = SINCE.search(page.text)
-    assert shown is not None
-    timeout = httpx.Timeout(WAIT)
-    with httpx.stream(
-        "GET", f"{base}stream?rendered={shown[1]}", timeout=timeout
-    ) as reply:
-        assert reply.headers["content-type"].startswith("text/event-stream")
-        lines = reply.iter_lines()
-        tasks.create(state, record("add-a-flag"))
-        told = next_refresh(lines)
-        assert told == stream.version(state) != shown[1]
-        assert 'id="card-add-a-flag"' in httpx.get(base).text
-        proc.send_signal(signal.SIGTERM)
-        # the stream ends when the server stops: else the read times out
-        list(lines)
-    out, err = proc.communicate(timeout=WAIT)
+    ) as proc:
+        try:
+            facts = facts_of(port)
+            assert (facts["pid"], facts["home"]) == (proc.pid, str(lem_home(env)))
+            served = json.loads((lem_home(env) / "serve.json").read_text())
+            assert served["pid"] == proc.pid
+            base = f"http://127.0.0.1:{port}/{facts['host']}/repo/"
+            page = httpx.get(base)
+            assert page.status_code == 200
+            assert 'id="card-fix-the-login"' in page.text
+            shown = page.text.split(SINCE, 1)[1].split('"')[1]
+            head = httpx.head(f"{base}stream", timeout=WAIT)
+            assert head.headers["content-type"].startswith("text/event-stream")
+            with httpx.stream(
+                "GET", f"{base}stream?rendered={shown}", timeout=httpx.Timeout(WAIT)
+            ) as reply:
+                lines = reply.iter_lines()
+                tasks.create(state, record("add-a-flag"))
+                told = next_refresh(lines)
+                assert told == stream.version(state) != shown
+                assert 'id="card-add-a-flag"' in httpx.get(base).text
+                proc.send_signal(signal.SIGTERM)
+                # the stream ends when the server stops: else the read times out
+                list(lines)
+            out, err = proc.communicate(timeout=WAIT)
+        finally:
+            if proc.poll() is None:
+                proc.terminate()
+                proc.wait(WAIT)
     assert proc.returncode == 0, err
     assert json.loads(out)["result"]["pid"] == proc.pid
     assert not (lem_home(env) / "serve.json").exists()
@@ -207,46 +263,67 @@ def ensured_by(source: Path, repo: Path, env: dict[str, str]) -> dict[str, Any]:
     return json.loads(ran.stdout)["result"]
 
 
+def result(ran: Ran) -> dict[str, Any]:
+    found = ran.result()
+    assert isinstance(found, dict), ran
+    return cast("dict[str, Any]", found)
+
+
 def test_serve_ensure_keeps_one_server_and_another_install_replaces_it_only_when_higher(
-    tmp_path: Path, env: dict[str, str], servers: list[int]
+    tmp_path: Path, env: dict[str, str], supervisor: Supervisor
 ) -> None:
     repo = workspace_at(tmp_path / "repo")
     port = free_port()
+    supervisor.ports.append(port)
     (lem_home(env) / "machine.toml").write_text(f"[serve]\nport = {port}\n")
-    first = lem("serve", "ensure", cwd=repo, env=serving(env)).result()
-    assert isinstance(first, dict)
-    servers.append(first["pid"])
+    first = result(lem("serve", "ensure", cwd=repo, env=serving(env)))
     assert (first["running"], first["started"]) == (True, True)
-    again = lem("serve", "ensure", cwd=repo, env=serving(env)).result()
-    assert isinstance(again, dict)
+    [one] = supervisor.running()
+    assert one.pid == first["pid"]
+    again = result(lem("serve", "ensure", cwd=repo, env=serving(env)))
     assert (again["started"], again["pid"]) == (False, first["pid"])
-    off = lem("serve", "ensure", cwd=repo, env=env).result()
-    assert isinstance(off, dict)
+    off = result(lem("serve", "ensure", cwd=repo, env=env))
     assert (off["started"], off["pid"]) == (False, first["pid"])
     assert "LEM_SERVE=off" in off["said"]
-    board = lem("board", "--no-open", cwd=repo, env=serving(env)).result()
-    assert isinstance(board, dict)
+    board = result(lem("board", "--no-open", cwd=repo, env=serving(env)))
     assert board["url"] == f"http://127.0.0.1:{port}/{first['host']}/repo/"
     assert httpx.get(board["url"]).status_code == 200
+    assert supervisor.running() == [one]
 
     same = ensured_by(make_install(tmp_path / "same", release.running()), repo, env)
     assert (same["started"], same["pid"]) == (False, first["pid"])
     assert same["said"] == "another install of Lem serves"
     newer = ensured_by(make_install(tmp_path / "newer", "99.0.0"), repo, env)
-    servers.append(newer["pid"])
     assert newer["started"] is True
-    assert newer["pid"] != first["pid"]
-    assert newer["install"]["package"] == str(
-        (tmp_path / "newer" / "src" / "lem").resolve()
-    )
-    assert not alive(first["pid"])
+    package = (tmp_path / "newer" / "src" / "lem").resolve()
+    assert newer["install"]["package"] == str(package)
+    [replacing] = supervisor.running()
+    assert replacing.pid == newer["pid"] != one.pid
 
-    stopped = lem("serve", "stop", cwd=repo, env=serving(env)).result()
-    assert stopped == {"stopped": True, "pid": newer["pid"], "version": "99.0.0"}
+    left = result(lem("serve", "stop", cwd=repo, env=serving(env)))
+    assert left["stopped"] is False
+    assert "another install of Lem serves: release 99.0.0" in left["said"]
+    stopped = subprocess.run(
+        [sys.executable, "-B", "-P", "-s", "-m", "lem", "serve", "stop"],
+        cwd=repo,
+        env={**serving(env), "PYTHONPATH": str(package.parent)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    said = json.loads(stopped.stdout)["result"]
+    assert said == {"stopped": True, "pid": newer["pid"], "version": "99.0.0"}
     assert not listening(port)
-    none = lem("serve", "stop", cwd=repo, env=serving(env)).result()
-    assert isinstance(none, dict)
+    assert supervisor.ended_within(WAIT)
+    none = result(lem("serve", "stop", cwd=repo, env=serving(env)))
     assert none["stopped"] is False
+
+
+def refusal_code(ran: Ran) -> object:
+    refusal = ran.envelope()["refusal"]
+    assert isinstance(refusal, dict)
+    return refusal["code"]
 
 
 @pytest.mark.parametrize("port", [machine.PORT, machine.DOOR_PORT])
@@ -261,7 +338,113 @@ def test_the_owners_ports_are_refused_before_anything_runs(
         assert (refused.code, refusal_code(refused)) == (1, "owner-port")
 
 
-def refusal_code(ran: Ran) -> object:
-    refusal = ran.envelope()["refusal"]
-    assert isinstance(refusal, dict)
-    return refusal["code"]
+class Before(ThreadingHTTPServer):
+    """A board server of the release before this one, in this test's process, as `main`'s
+    `serve.py` answers `GET /api/server`; it records each request it gets."""
+
+    def __init__(self, home: Path) -> None:
+        super().__init__(("127.0.0.1", 0), Answering)
+        port = self.server_address[1]
+        self.facts = {
+            "pid": 77,
+            "version": f"version {release.running()}",
+            "install": {
+                "version": release.running(),
+                "commit": None,
+                "package": "/opt/homebrew/Cellar/lem/0.3.1/libexec/lib/lem",
+                "stamp": None,
+            },
+            "root": "/opt/homebrew/Cellar/lem/0.3.1/libexec/lib/lem/data",
+            "config": str(home),
+            "started": "2026-11-24T00:31:16Z",
+            "port": port,
+            "url": f"http://127.0.0.1:{port}/",
+            "host": "this-mac",
+            "aliases": [],
+            "tailscale": None,
+            "tailscale_port": None,
+            "push": {"devices": 0},
+        }
+        self.seen: list[str] = []
+
+
+class Answering(BaseHTTPRequestHandler):
+    server_version = "lem-serve"
+
+    @property
+    def before(self) -> Before:
+        return cast("Before", self.server)
+
+    def do_GET(self) -> None:
+        self.before.seen.append(f"GET {self.path}")
+        body = json.dumps(self.before.facts).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self) -> None:
+        self.before.seen.append(f"POST {self.path}")
+        self.send_response(202)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+
+def files_of(*folders: Path) -> dict[str, bytes]:
+    """Every file under the folders, by its path, with its bytes."""
+    return {
+        str(path): path.read_bytes()
+        for folder in folders
+        for path in sorted(folder.rglob("*"))
+        if path.is_file()
+    }
+
+
+def test_a_server_of_the_release_before_keeps_its_port_and_every_file_of_its_home(
+    tmp_path: Path, env: dict[str, str], supervisor: Supervisor
+) -> None:
+    home = lem_home(env)
+    repo = workspace_at(tmp_path / "repo")
+    before = Before(home)
+    port = before.server_address[1]
+    supervisor.ports.append(port)
+    threading.Thread(target=before.serve_forever, daemon=True).start()
+    (home / "machine.toml").write_text(f"[serve]\nport = {port}\n")
+    (home / "workspaces.json").write_text('[\n  "/Users/someone/project"\n]\n')
+    (home / "serve.pid").write_text(f"77 {port}\n")
+    (home / "serve.lock").write_text("")
+    (home / "serve.log").write_text("a line of the server of the release before\n")
+    kept = files_of(home, repo)
+    other = free_port()
+    calls = (
+        (("serve", "ensure"), serving(env), None),
+        (("serve", "ensure"), env, None),
+        (("serve", "stop"), serving(env), None),
+        (("serve", "stop"), env, None),
+        (("serve", "run"), env, "other-install"),
+        (("serve", "run", "--port", str(other)), env, "other-install"),
+        (("board", "--no-open"), serving(env), "other-install"),
+    )
+    try:
+        for words, environ, refused in calls:
+            ran = lem(*words, cwd=repo, env=environ)
+            if refused is None:
+                said = result(ran)
+                assert "release " + release.running() in said["said"], words
+                assert said.get("started", False) is False
+                assert said.get("stopped", False) is False
+            else:
+                assert (ran.code, refusal_code(ran)) == (1, refused), words
+            assert files_of(home, repo) == kept, words
+            assert not listening(other)
+        asked = len(before.seen)
+        ran = lem("board", "--no-open", cwd=repo, env=env)
+        assert (ran.code, refusal_code(ran)) == (1, "no-server")
+        assert len(before.seen) == asked
+        assert files_of(home, repo) == kept
+    finally:
+        before.shutdown()
+        before.server_close()
+    assert [seen for seen in before.seen if seen.startswith("POST")] == []
+    assert supervisor.running() == []

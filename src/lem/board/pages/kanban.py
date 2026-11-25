@@ -13,12 +13,15 @@ if TYPE_CHECKING:
 
 
 def page(request: Request) -> Response:
-    """The kanban of the workspace the address names, at the version of its records."""
+    """The kanban of the workspace the address names. The version it shows is read before
+    the records: a write between the two reads makes the version older than the page, so that
+    the stream owes the page a refresh, never newer, which would hide the write."""
     space = place.workspace(request)
+    version = stream.version(space.state)
     board = kanban.kanban(
         tasks.every(space.state),
         host=request.path_params["host"],
         workspace=request.path_params["workspace"],
-        version=stream.version(space.state),
+        version=version,
     )
     return render.page(request, "kanban.html", board)

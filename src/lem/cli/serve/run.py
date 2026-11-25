@@ -4,7 +4,9 @@
 
 It serves until a stop, SIGTERM or Ctrl-C, on the port named, else the machine's `[serve] port`.
 A home folder of Lem that is not the owner's (a test's, a trial's) never takes the owner's two
-ports. Run in a workspace, it puts that workspace on the list the server shows.
+ports. It looks first at its port and the home folder's own, and serves, and writes, only when
+no board server answers on either. Run in a workspace, it puts that workspace on the list the
+server shows.
 """
 
 import importlib
@@ -14,7 +16,7 @@ from typing import TYPE_CHECKING
 import click
 import msgspec
 
-from lem.board import machine, workspaces
+from lem.board import machine, vacant, workspaces
 from lem.cli import place
 from lem.kernel import paths
 
@@ -35,7 +37,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 def run(call: Call) -> Served:
     """Serve the board in this process until it stops, and say which server it was."""
     home = paths.home(os.environ)
-    port = machine.port_of(home, os.environ, call.port)
+    port = vacant.vacant(home, os.environ, call.port)
     workspaces.noted(home, place.folder())
     server = importlib.import_module("lem.board.server")
     return server.run(port, call.host or HOST, verbose=call.verbose, home=home)
