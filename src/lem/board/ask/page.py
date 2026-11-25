@@ -16,22 +16,28 @@ def endpoint(request: Request) -> Response:
     folder, page, asked = where.located(request)
     if not request.url.path.endswith("/"):
         return redirected(request)
-    headers = {
-        "Content-Security-Policy": csp.policy(),
-        "Cache-Control": "no-store",
-        "X-Content-Type-Options": "nosniff",
-        "ETag": f'"{asked.digest}"',
-    }
     try:
         body = saved.html(folder, page, asked.digest)
     except FileNotFoundError:
         return Response(status_code=HTTPStatus.NOT_FOUND)
-    headers["Content-Length"] = str(len(body))
     return Response(
         b"" if request.method == "HEAD" else body,
-        headers=headers,
+        headers=headers_for(body, asked.digest),
         media_type="text/html",
     )
+
+
+def headers_for(body: bytes, digest: str | None) -> dict[str, str]:
+    """Bind the browser's navigation and script policy to the verified page."""
+    etag = f'"{digest}"'
+    return {
+        "Content-Security-Policy": csp.policy(body),
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Length": str(len(body)),
+        "ETag": etag,
+        "Server-Timing": f"card-digest;desc={etag}",
+    }
 
 
 def redirected(request: Request) -> RedirectResponse:

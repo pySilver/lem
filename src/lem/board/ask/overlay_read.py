@@ -6,10 +6,18 @@ from typing import TYPE_CHECKING
 import msgspec
 
 from lem.adapters import agterm_ctl
+from lem.kernel.errors import Fault
 from lem.ports.faults import Unanswered
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+# agterm's pageExitCode (SocketClient.swift at 01489b93).
+PAGE_EXITS = (("submitted", 0), ("pending", 1), ("dismissed", 2))
+
+
+class PageRefused(Fault):
+    """agterm answered the result request with a refusal."""
 
 
 class PageOutcome(msgspec.Struct, frozen=True, kw_only=True):
@@ -34,6 +42,15 @@ class Reply(msgspec.Struct, frozen=True, kw_only=True):
     error: str | None = None
     answer: OutcomeFields | None = msgspec.field(name="result", default=None)
 
+    def accepts(self, verb: str, status: int) -> bool:
+        """A result read uses the page state as its exit status."""
+        if not self.ok or self.error:
+            return True
+        if verb != "result":
+            return status == 0
+        kind = self.answer.outcome.kind if self.answer else None
+        return (kind, status) in PAGE_EXITS
+
 
 def reply(environ: Mapping[str, str], *words: str, window: bool = True) -> Reply:
     """Ask agterm for a reply in its wire form."""
@@ -45,8 +62,10 @@ def reply(environ: Mapping[str, str], *words: str, window: bool = True) -> Reply
     except msgspec.DecodeError as error:
         said = (ran.stderr or ran.stdout).strip() or f"exit {ran.returncode}"
         raise Unanswered(agterm_ctl.TOOL, said) from error
-    if ran.returncode and not decoded.error:
-        raise Unanswered(agterm_ctl.TOOL, f"exit {ran.returncode}")
+    if not decoded.accepts(words[0], ran.returncode):
+        raise Unanswered(
+            agterm_ctl.TOOL, f"unexpected {words[0]} exit {ran.returncode}"
+        )
     return decoded
 
 
@@ -54,7 +73,8 @@ def outcome(environ: Mapping[str, str], page: str) -> PageOutcome:
     """Read a page's act, or say why agterm gave no result."""
     told = reply(environ, "result", "--page", page, window=False)
     if not told.ok or told.error or told.answer is None:
-        raise Unanswered(agterm_ctl.TOOL, told.error or "the page state is unknown")
+        why = told.error or "the page state is unknown"
+        raise PageRefused(f"{agterm_ctl.TOOL}: {why}")
     return told.answer.outcome
 
 

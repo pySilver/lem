@@ -53,6 +53,8 @@ def cropped(block: Spec, kind: str, ref: Spec, words: str) -> str:
         first, last = lines_of(selection, len(lines))
         if kind == CODE:
             block.setdefault("start", first)
+            named = ref["file"]
+            block.setdefault("title", f"{named}:{first}-{last}")
         return "\n".join(lines[first - 1 : last])
     if kind == CODE and len(lines) > CODE_LIMIT:
         raise invalid(f"the code block exceeds {CODE_LIMIT} lines; give a line range")

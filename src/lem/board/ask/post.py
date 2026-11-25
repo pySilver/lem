@@ -9,6 +9,7 @@ from starlette.responses import JSONResponse, Response
 from lem.board import listener
 from lem.board.acts.asker import asker_of
 from lem.board.ask import accept, body, where
+from lem.board.ask.overlay_read import PageRefused
 from lem.kernel.errors import Refusal
 from lem.ports.faults import Unanswered
 
@@ -50,7 +51,7 @@ def answer(asked: accept.AtCard, posted: Posted) -> Response:
         status, words = accept.accepted(asked, posted)
     except Refusal as error:
         return said(HTTPStatus.CONFLICT, f"{error.why} {error.fix}")
-    except Unanswered as error:
+    except (Unanswered, PageRefused) as error:
         return said(
             HTTPStatus.CONFLICT, f"The board cannot confirm the card is open. {error}"
         )

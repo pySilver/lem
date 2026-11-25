@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from lem.board.ask import ends, keys
+from lem.board.ask import ends, keys, receipts
 from lem.cli.ask import utf8
 
 if TYPE_CHECKING:
@@ -69,7 +69,7 @@ def present(raw: Words, page: str, *, source: str = "session") -> Words:
 
 def on_record(folder: Path, page: str, picked: Answer) -> Words:
     """The first answer, from the board or the session."""
-    raw = ends.recorded(folder, page, picked)
+    raw = receipts.read(keys.copies(folder, page), picked.at)
     printed = present(raw, page, source=picked.source)
     if picked.source == "board":
         printed.update(

@@ -1,8 +1,11 @@
 """Fields the question page reads before it draws a spec."""
 
+from difflib import get_close_matches
 from typing import Literal
 
 import msgspec
+
+NO_NEARBY: frozenset[str] = frozenset()
 
 
 class Page(
@@ -38,11 +41,13 @@ class Question(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=
     context: object = None
     body: object = None
     recommendation: str = ""
-    mode: Literal["single", "multi", "text", "tune"] | None = None
+    mode: Literal["single", "multi", "text", "tune"] | msgspec.UnsetType = msgspec.UNSET
     min: int = 0
     max: int | None = None
-    layout: Literal["list", "grid", "compare", "inline"] | None = None
-    columns: int | None = None
+    layout: Literal["list", "grid", "compare", "inline"] | msgspec.UnsetType = (
+        msgspec.UNSET
+    )
+    columns: int | msgspec.UnsetType = msgspec.UNSET
     expanded: bool = False
     optional: bool = False
     text: bool | dict[str, object] = True
@@ -85,3 +90,20 @@ class Control(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=T
     options: list[str | int | float] | None = None
     on: object = None
     off: object = None
+
+
+def converted[Shape: msgspec.Struct](
+    wires: dict[str, object],
+    shape: type[Shape],
+    *,
+    nearby: frozenset[str] = NO_NEARBY,
+) -> Shape:
+    """Check the fields and suggest a known name for a misspelled one."""
+    known = {field.encode_name for field in msgspec.structs.fields(shape)}
+    unknown = sorted(wires.keys() - known)
+    if unknown:
+        key = unknown[0]
+        near = get_close_matches(key, sorted(known | nearby), n=1)
+        hint = f"; did you mean {near[0]!r}?" if near else ""
+        raise ValueError(f"unknown field {key!r}{hint}")
+    return msgspec.convert(wires, shape)

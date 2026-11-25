@@ -2,19 +2,20 @@
 
 from typing import TYPE_CHECKING
 
-from lem.app.sessions import log
+from lem.app.owner.sessions import agent_is_live
+from lem.app.sessions import agents, beside, log
 from lem.app.wiring import bound
 from lem.board.ask.overlay_read import outcome
 from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.ports.place import Place
-from lem.ports.terminal import Unreadable
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
     from lem.board.ask.shape import Card
+    from lem.ports.terminal import Terminal
 
 
 def check(folder: Path, card: Card, environ: Mapping[str, str]) -> None:
@@ -30,20 +31,23 @@ def check(folder: Path, card: Card, environ: Mapping[str, str]) -> None:
 
 
 def current(folder: Path, session: str, environ: Mapping[str, str]) -> None:
-    """Reject an older session's card, or a session missing from agterm's list."""
+    """Reject an older session's card, or a session without a running agent."""
     newest = log.newest_open(log.read(folder))
     if newest is None or not log.same(newest.session, session):
         raise gone()
     checkout = folder.parents[3]
     place = Place(checkout=checkout, home=paths.home(environ), environ=environ)
-    terminal = bound(place).terminal
-    panes = terminal.sessions()
-    if isinstance(panes, Unreadable):
-        raise Refusal(
-            "ask-session-unreadable", panes.why, "The owner can use the session."
-        )
-    if not any(log.same(pane.id, session) for pane in panes):
+    if not running(bound(place).terminal, session):
         raise gone()
+
+
+def running(terminal: Terminal, session: str) -> bool:
+    """Check the agent in the named pane from one terminal read."""
+    grounds = beside.looks(terminal).foregrounds()
+    for pane, words in grounds.items():
+        if log.same(pane, session):
+            return agent_is_live(listed=True, agent=agents.agent_runs(words))
+    return False
 
 
 def gone() -> Refusal:

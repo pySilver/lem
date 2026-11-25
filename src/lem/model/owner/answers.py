@@ -63,7 +63,10 @@ def refused(
     if why is not None:
         return Refusal("answered", why, "the owner reads the question as it is now")
     closed = answer_wait.why_closed(task, asked)
-    if closed is not None:
+    if closed is not None and (asked.topic, given.source, given.option) not in (
+        ("card", "session", "closed"),
+        ("card", "session", "dismissed"),
+    ):
         return Refusal(
             "question",
             closed,

@@ -8,6 +8,8 @@ but the design in part 2 names one crossing only. Move these eight shared module
 `app/asking/` at the join and update the imports in this step and its tests. Keep HTTP routes,
 request checks and responses in `board/ask/`. The overlay adapter can move to
 `adapters/terminal_agterm` when its port has typed operations for open, result and close.
+Move the trusted script hash and page marker from `board/ask/csp.py` to `app/asking/` too.
+Keep the HTTP policy in `board/ask/`.
 
 The task's card key starts with `card:` and ends with the page id, as the views expect. It
 puts the question, HTML digest and first end in `task.json`. The same write appends the

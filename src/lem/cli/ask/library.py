@@ -18,8 +18,12 @@ def has_charts(node: object) -> bool:
     return isinstance(node, str) and bool(FENCE.search(node))
 
 
-def script_of(root: Path) -> str:
-    """Pele is part of the page so a file and an overlay need no network."""
-    path = root / "skills" / "lem" / "assets" / "vendor" / "pele.js"
-    script = path.read_text(encoding="utf-8")
-    return f"<script>{script}</script>"
+def scripts_of(root: Path, spec: object) -> tuple[str, ...]:
+    """The installed runtime and, for a chart, the bundled Pele library."""
+    skills = root / "skills"
+    runtime = skills / "lem-ask" / "runtime" / "ask.js"
+    script = runtime.read_text(encoding="utf-8")
+    if not has_charts(spec):
+        return (script,)
+    pele = skills / "lem" / "assets" / "vendor" / "pele.js"
+    return pele.read_text(encoding="utf-8"), script

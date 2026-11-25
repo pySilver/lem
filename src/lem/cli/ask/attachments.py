@@ -1,11 +1,12 @@
 """Put local attachments into a question page so it can stand on its own."""
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lem.cli.ask import images, sourced
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from lem.cli.ask.spec import Spec
 
 
@@ -26,9 +27,4 @@ def fill(block: Spec, base: Path) -> None:
         ref = block.get(kind)
         if isinstance(ref, dict) and "file" in ref:
             sourced.fill(block, kind, ref, base)
-    image = block.get("image")
-    if isinstance(image, str) and not image.startswith(
-        ("http://", "https://", "data:")
-    ):
-        path = Path(base, Path(image).expanduser())
-        block["image"] = images.encoded(path)
+    images.attach(block, base)

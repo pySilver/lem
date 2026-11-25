@@ -33,6 +33,7 @@ class Agterm:
     shown: str | None = None
     outcome: str | None = None
     payload: str | None = None
+    error: str | None = None
     calls: list[tuple[str, ...]] = field(default_factory=list)
     silent: bool = False
 
@@ -46,8 +47,12 @@ class Agterm:
             self.shown = words[words.index("--html") + 1]
             return self.reply(words, {"pageID": PAGE})
         if words[:3] == ("session", "overlay", "result"):
+            outcome = self.outcome or "pending"
             return self.reply(
-                words, {"pageOutcome": {"outcome": self.outcome, "value": self.payload}}
+                words,
+                {"pageOutcome": {"outcome": outcome, "value": self.payload}},
+                status={"submitted": 0, "pending": 1, "dismissed": 2}[outcome],
+                error=self.error,
             )
         if words[:3] == ("session", "overlay", "close"):
             self.shown = None
@@ -65,10 +70,14 @@ class Agterm:
 
     @staticmethod
     def reply(
-        words: tuple[str, ...], result: dict | None = None, *, error: str | None = None
+        words: tuple[str, ...],
+        result: dict | None = None,
+        *,
+        error: str | None = None,
+        status: int = 0,
     ) -> CompletedProcess[str]:
         body = {"ok": error is None, "result": result or {}, "error": error}
-        return CompletedProcess(words, int(error is not None), json.dumps(body), "")
+        return CompletedProcess(words, 1 if error else status, json.dumps(body), "")
 
 
 @pytest.fixture
@@ -82,7 +91,17 @@ def terminal(monkeypatch: pytest.MonkeyPatch) -> Agterm:
 
 
 @pytest.fixture
-def board(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Board]:
+def task_terminal() -> FakeTerminal:
+    return FakeTerminal(
+        panes={SESSION: Pane(id=SESSION, name=SLUG)},
+        grounds={SESSION: ("claude",)},
+    )
+
+
+@pytest.fixture
+def board(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, task_terminal: FakeTerminal
+) -> Iterator[Board]:
     """A workspace with a task whose current session is the overlay stand-in."""
     board = made(tmp_path, None)
     tasks.create(board.state, records.record(SLUG, status="shaping"))
@@ -92,10 +111,9 @@ def board(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Board]:
             at=records.MOMENT, session=SESSION, name=SLUG, phase="shape", why="open"
         ),
     )
-    live = FakeTerminal(panes={SESSION: Pane(id=SESSION, name=SLUG)})
     monkeypatch.setenv("LEM_TASK", SLUG)
     monkeypatch.chdir(board.checkout)
     with patch.object(live_card, "bound") as bound:
-        bound.return_value.terminal = live
+        bound.return_value.terminal = task_terminal
         yield board
-        assert live.told == live.closed == live.shown == []
+        assert task_terminal.told == task_terminal.closed == task_terminal.shown == []

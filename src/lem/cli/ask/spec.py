@@ -3,8 +3,6 @@
 import sys
 from pathlib import Path
 
-import msgspec
-
 from lem.cli.ask import spec_types as shape
 from lem.cli.ask import utf8
 from lem.cli.ask.spec_question import FIELDS, own, questions
@@ -70,7 +68,7 @@ def check_page(wires: Spec, *, multi: bool) -> None:
     if not multi:
         names = FIELDS & wires.keys()
         top = {key: wires[key] for key in names}
-    page = msgspec.convert(top, shape.Page)
+    page = shape.converted(top, shape.Page)
     if not size_ok(page.size):
         raise ValueError("size needs auto, full, or a percent from 1 to 100")
     questions(page, wires, multi=multi)

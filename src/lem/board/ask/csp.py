@@ -1,18 +1,25 @@
 """The scripts a question page can run on the board's origin."""
 
+import re
 from base64 import b64encode
 from hashlib import sha256
 
-from lem.kernel import paths
+META = 'meta name="lem-card-scripts" content='
+HASHES = re.compile(rb"'sha256-[A-Za-z0-9+/]{43}='(?: 'sha256-[A-Za-z0-9+/]{43}=')*")
 
 
-def policy() -> str:
-    """Only the installed runtime and chart library may run as scripts."""
-    root = paths.root() / "skills"
-    script = root / "lem-ask" / "runtime" / "ask.js"
-    charts = root / "lem" / "assets" / "vendor" / "pele.js"
-    trusted = (script, charts)
-    sources = " ".join(hashed(path.read_bytes()) for path in trusted)
+def marker(scripts: tuple[str, ...]) -> str:
+    """Keep the trusted hashes inside the page the task cites by digest."""
+    sources = " ".join(hashed(script.encode("utf-8")) for script in scripts)
+    return f'<{META}"{sources}">'
+
+
+def policy(body: bytes) -> str:
+    """Only the trusted scripts in the verified page may run."""
+    prefix = f'<{META}"'.encode("ascii")
+    _, _, marked = body.partition(prefix)
+    listed, _, _ = marked.partition(b'"')
+    sources = listed.decode("ascii") if HASHES.fullmatch(listed) else "'none'"
     return (
         f"script-src {sources}; connect-src 'self'; form-action 'none'; base-uri 'none'; "
         "object-src 'none'; frame-src 'none'; frame-ancestors 'self'"

@@ -23,12 +23,12 @@ def own(wires: dict[str, object]) -> dict[str, object]:
 
 def question_of(wires: dict[str, object], fallback: str, title: str) -> str:
     """Check the question and give the id its page uses."""
-    question = msgspec.convert(own(wires), shape.Question)
+    question = shape.converted(own(wires), shape.Question, nearby=FIELDS)
     named = question.id or fallback
     if not (question.prompt or title):
         raise ValueError(f"question {named!r} has no prompt")
     for control in question.controls or ():
-        msgspec.convert(own(control), shape.Control)
+        shape.converted(own(control), shape.Control)
     options_of(question.options or [], named)
     return named
 
@@ -62,7 +62,7 @@ def option_of(wire: str | dict[str, object], index: int) -> str:
     option = (
         shape.Option(id=wire, label=wire)
         if isinstance(wire, str)
-        else msgspec.convert(own(wire), shape.Option)
+        else shape.converted(own(wire), shape.Option)
     )
     named = option.id or f"o{index}"
     if POSITION.fullmatch(option.label or named) and not says_what(option):

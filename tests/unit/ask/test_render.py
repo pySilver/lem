@@ -71,7 +71,7 @@ def test_attachment_lines_and_images_stay_in_the_standalone_file(
     assert blocks[0] == {
         "code": "two\nthree",
         "start": 2,
-        "title": "code.py",
+        "title": "code.py:2-3",
         "lang": "py",
     }
     assert blocks[1]["image"] == "data:image/png;base64,bGl0dGxlIGltYWdl"
@@ -124,3 +124,81 @@ def test_counted_option_with_explanation_passes_and_plain_page_has_no_chart_bund
 def test_unreadable_json_number_refuses_with_a_fix() -> None:
     with pytest.raises(Refusal, match="no readable JSON"):
         spec.parse('{"prompt":"A?","_large":' + "9" * 5500 + "}")
+
+
+@pytest.mark.parametrize("key", ["mode", "layout", "columns"])
+@pytest.mark.parametrize("multi", [False, True])
+def test_null_question_fields_are_refused(
+    tmp_path: Path, key: str, *, multi: bool
+) -> None:
+    question: spec.Spec = {"prompt": "Keep it?", key: None}
+    given: spec.Spec = {"questions": [question]} if multi else question
+    with pytest.raises(Refusal, match=key):
+        html.build(given, tmp_path)
+    assert html.build({"prompt": "Keep it?"}, tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("given", "mistake", "suggestion"),
+    [
+        ({"prompt": "Keep it?", "subtitel": "Change"}, "subtitel", "subtitle"),
+        ({"prompt": "Keep it?", "layuot": "list"}, "layuot", "layout"),
+        (
+            {"prompt": "Keep it?", "options": [{"label": "Yes", "detailz": "Change"}]},
+            "detailz",
+            "detail",
+        ),
+    ],
+)
+def test_misspelled_spec_keys_name_the_fix(
+    tmp_path: Path, given: spec.Spec, mistake: str, suggestion: str
+) -> None:
+    with pytest.raises(Refusal, match=mistake) as refused:
+        html.build(given, tmp_path)
+    assert f"did you mean {suggestion!r}?" in refused.value.why
+
+
+def test_missing_local_images_show_alt_text(
+    tmp_path: Path,
+) -> None:
+    asked: spec.Spec = {
+        "prompt": "Keep it?",
+        "context": [
+            {"image": "missing.png", "alt": "A preview of the export"},
+            {"image": "other.png"},
+        ],
+    }
+    page = html.build(asked, tmp_path).decode()
+    assert page_spec(page)["context"] == [
+        {"image": "", "alt": "A preview of the export"},
+        {"image": "", "alt": "missing image: other.png"},
+    ]
+
+
+def test_render_refuses_bad_home_ask_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cases = (
+        ("[ask]\nbrowser = 2026-11-23", "ask.browser", "true or false"),
+        ('[ask]\nstyle = "minmal"', "ask.style", '"minimal"'),
+        ('[ask]\nreview = "sometimes"', "ask.review", '"never"'),
+        ('[ask]\nsize = "big"', "ask.size", "percent"),
+        ('[ask.status]\nasking = "blocked"', "ask.status", "asking"),
+        ('[ask]\nstlye = "bold"', "ask.stlye", "did you mean style"),
+        ("ask = 5", "ask", "correct"),
+        ("[ask", "TOML", "correct"),
+    )
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    settings = tmp_path / "lem" / "settings.toml"
+    settings.parent.mkdir()
+    named = tmp_path / "spec.json"
+    named.write_text('{"prompt":"Keep it?"}')
+    target = tmp_path / "card.html"
+    for toml, why, fix in cases:
+        settings.write_text(toml)
+        assert lazy.main(["ask", "render", str(named), "--out", str(target)]) == 1
+        refused = json.loads(capsys.readouterr().out)["refusal"]
+        assert str(settings) in refused["why"]
+        assert why in refused["why"]
+        assert fix in refused["fix"]
+        assert not target.exists()

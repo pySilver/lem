@@ -17,9 +17,10 @@ from lem.kernel.errors import Refusal
 from lem.model.owner import held
 from lem.model.owner.looks import Look, Session
 from lem.store import tasks
-from unit.ask.conftest import PAGE, SLUG
+from unit.ask.conftest import PAGE, SESSION, SLUG
 
 if TYPE_CHECKING:
+    from fakes.terminal import FakeTerminal
     from lem.records.questions import Answer, Question
     from unit.ask.conftest import Agterm
     from unit.board.service.given import Board
@@ -79,9 +80,11 @@ def test_page_routes_return_the_exact_overlay_and_only_trusted_scripts(
         assert page.content == saved.html(folder, PAGE, asked.digest)
         assert page.content.decode() == Path(opened["file"]).read_text(encoding="utf-8")
         assert head.headers["etag"] == f'"{asked.digest}"'
+        assert head.headers["content-length"] == str(len(page.content))
         assert head.content == b""
         trusted = paths.root() / "skills" / "lem-ask" / "runtime" / "ask.js"
         policy = head.headers["content-security-policy"]
+        assert page.headers["content-security-policy"] == policy
         assert csp.hashed(trusted.read_bytes()) in policy
         for rule in ("form-action 'none'", "base-uri 'none'", "frame-ancestors 'self'"):
             assert rule in policy
@@ -102,6 +105,7 @@ def test_board_answer_is_the_waiters_result_and_the_only_end(
     show(terminal, capsys)
     with board.main() as client:
         digest = client.head(ROUTE).headers["etag"].strip('"')
+        before_post = len(terminal.calls)
         taken = client.post(
             ROUTE + "/answer",
             json=posted(digest, text="For the export"),
@@ -113,6 +117,10 @@ def test_board_answer_is_the_waiters_result_and_the_only_end(
     assert taken.status_code == 200
     assert second.status_code == 409
     assert "Write a dash" in second.json()["said"]
+    assert terminal.calls[before_post:] == [
+        ("session", "overlay", "result", "--page", PAGE, "--json"),
+    ]
+    assert terminal.shown is not None
     assert lazy.main(["ask", "wait", PAGE, "--no-status"]) == 0
     picked = json.loads(capsys.readouterr().out)["result"]
     assert picked["outcome"] == "answered"
@@ -129,7 +137,128 @@ def test_board_answer_is_the_waiters_result_and_the_only_end(
         "card.asked",
         "card.answered",
     ]
-    assert not [call for call in terminal.calls if "submit" in call]
+
+
+def test_board_refuses_a_card_when_its_agent_exits_to_the_shell(
+    board: Board,
+    terminal: Agterm,
+    task_terminal: FakeTerminal,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    show(terminal, capsys)
+    task_terminal.grounds[SESSION] = ("/bin/zsh",)
+    with board.main() as client:
+        digest = client.head(ROUTE).headers["etag"].strip('"')
+        got = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
+    assert got.status_code == 409
+    assert "no longer runs" in got.json()["said"]
+    assert tasks.read(board.state, SLUG).task.questions[0].answer is None
+
+
+@pytest.mark.parametrize("overlay_read_fails", [False, True])
+def test_wait_keeps_the_board_pick_and_names_a_later_overlay_pick(
+    board: Board,
+    terminal: Agterm,
+    capsys: pytest.CaptureFixture[str],
+    *,
+    overlay_read_fails: bool,
+) -> None:
+    show(terminal, capsys)
+    with board.main() as client:
+        digest = client.head(ROUTE).headers["etag"].strip('"')
+        response = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
+    assert response.status_code == 200
+    assert terminal.shown is not None
+    terminal.outcome = "submitted"
+    terminal.payload = json.dumps(
+        {
+            "status": "answered",
+            "answers": {"answer": {"selected": ["o1"], "labels": ["Keep"]}},
+        }
+    )
+    terminal.error = "no such page" if overlay_read_fails else None
+    assert lazy.main(["ask", "wait", PAGE, "--no-status"]) == 0
+    picked = json.loads(capsys.readouterr().out)["result"]
+    assert picked["from"] == "board"
+    assert picked["answers"]["answer"]["labels"] == ["Write a dash"]
+    assert "Write a dash was recorded" in picked["said"]
+    if not overlay_read_fails:
+        assert "The later act in the session was Keep." in picked["said"]
+    assert terminal.shown is None
+    record = tasks.read(board.state, SLUG)
+    assert [row.act for row in record.journal if hasattr(row, "act")] == [
+        "card.asked",
+        "card.answered",
+    ]
+
+
+def test_board_receipt_keeps_empty_selections_for_text_and_optional_prompts(
+    board: Board,
+    terminal: Agterm,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    spec = tmp_path / "text.json"
+    spec.write_text(
+        json.dumps(
+            {
+                "questions": [
+                    {"id": "note", "prompt": "Why?"},
+                    {
+                        "id": "skip",
+                        "prompt": "Anything else?",
+                        "optional": True,
+                        "options": ["Yes"],
+                    },
+                ]
+            }
+        )
+    )
+    assert lazy.main(["ask", "ask", str(spec), "--no-wait"]) == 0
+    opened = json.loads(capsys.readouterr().out)["result"]
+    assert terminal.shown == opened["file"]
+    with board.main() as client:
+        digest = client.head(ROUTE).headers["etag"].strip('"')
+        picked = {
+            "status": "answered",
+            "digest": digest,
+            "answers": {"note": {"text": "For the export"}, "skip": {}},
+        }
+        assert (
+            client.post(ROUTE + "/answer", json=picked, headers=ORIGIN).status_code
+            == 200
+        )
+    assert lazy.main(["ask", "wait", PAGE, "--no-status"]) == 0
+    receipt = json.loads(capsys.readouterr().out)["result"]
+    assert receipt["answers"] == {
+        "note": {"selected": [], "labels": [], "text": "For the export"},
+        "skip": {"selected": [], "labels": []},
+    }
+
+
+def test_board_uses_the_saved_runtime_hash_after_an_update(
+    board: Board,
+    terminal: Agterm,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    opened = show(terminal, capsys)
+    root = paths.root()
+    runtime = Path("skills/lem-ask/runtime/ask.js")
+    original = (root / runtime).read_bytes()
+    newer = tmp_path / "new-release"
+    chart = Path("skills/lem/assets/vendor/pele.js")
+    for path in (runtime, chart):
+        (newer / path).parent.mkdir(parents=True, exist_ok=True)
+        (newer / path).write_bytes((root / path).read_bytes() + b"\n// new release\n")
+    monkeypatch.setattr(paths, "root", lambda: newer)
+    with board.main() as client:
+        served = client.get(ROUTE + "/")
+    policy = served.headers["content-security-policy"]
+    assert served.content == Path(opened["file"]).read_bytes()
+    assert csp.hashed(original) in policy
+    assert csp.hashed((newer / runtime).read_bytes()) not in policy
 
 
 def test_an_overlay_answer_already_at_the_mac_wins(

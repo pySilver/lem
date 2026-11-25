@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from lem.cli.ask.overlay import Display
 from lem.cli.ask.spec import invalid, size_ok
+from lem.kernel.errors import Refusal
 from lem.settings.load import settings_of
 
 if TYPE_CHECKING:
@@ -24,7 +25,16 @@ VISUAL = ('"preview"', '"mermaid"', '"chart"', '"image"', '"stats"', '"table"')
 
 def defaults() -> Ask:
     """The settings of the owner, with the defaults in the settings schema."""
-    return settings_of(None).settings.ask
+    loaded = settings_of(None)
+    pref = loaded.settings.ask
+    if not size_ok(pref.size):
+        where = loaded.sources["ask.size"]
+        raise Refusal(
+            "settings",
+            f"{where}: ask.size = {pref.size!r} is invalid",
+            'give ask.size a percent from 1 to 100, "auto" or "full"',
+        )
+    return pref
 
 
 def apply(spec: Spec, pref: Ask, call: Shown | None = None) -> None:

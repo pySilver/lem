@@ -57,6 +57,9 @@ def commit(at: AtCard, posted: Posted) -> tuple[HTTPStatus, str]:
         at=ends.time_of_answer(),
     )
     wire = msgspec.to_builtins(posted)
+    for picked in wire["answers"].values():
+        picked.setdefault("selected", [])
+        picked.setdefault("labels", [])
     won, kept = ends.finish(at.folder, at.shown, proposed, wire)
     if not won:
         return taken(kept)

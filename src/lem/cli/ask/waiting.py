@@ -5,6 +5,7 @@ import time
 from typing import TYPE_CHECKING
 
 from lem.board.ask import keys
+from lem.board.ask.overlay_read import PageRefused
 from lem.cli.ask import answer, card_wait, glyph, temp_pages
 from lem.cli.ask.spec import invalid
 from lem.ports.faults import Unanswered
@@ -56,13 +57,17 @@ def marked_wait(here: Context, page: str, timeout: float, pref: Ask) -> answer.W
 def until(here: Context, page: str, timeout: float) -> answer.Words:
     """Poll the two places, with the task's first answer as the record."""
     deadline = time.monotonic() + timeout
-    for found in polling(here, page):
-        if found is not None:
-            return found
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            return pending(page)
-        time.sleep(min(POLL, remaining))
+    try:
+        for found in polling(here, page):
+            if found is not None:
+                return found
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                hint = f"run lem ask wait {page}"
+                return {"outcome": "pending", "pageID": page, "hint": hint}
+            time.sleep(min(POLL, remaining))
+    except PageRefused as error:
+        return unavailable(page, error)
     raise AssertionError("the overlay poll did not return an outcome")
 
 
@@ -75,7 +80,7 @@ def polling(here: Context, page: str) -> Iterator[answer.Words | None]:
         except Unanswered as error:
             unreadable += 1
             if unreadable >= UNREADABLE_LIMIT:
-                yield {"outcome": "unavailable", "pageID": page, "said": str(error)}
+                yield unavailable(page, error)
                 return
             yield None
         else:
@@ -88,7 +93,7 @@ def poll(here: Context, page: str) -> answer.Words | None:
     kept = card_wait.recorded(here, page)
     if kept is not None:
         if kept.get("from") == "board":
-            card_wait.close_board_answer(here, page)
+            card_wait.after_board(here, page, kept)
         return kept
     told = here.overlay.outcome(page)
     if told.kind == "submitted":
@@ -100,6 +105,6 @@ def poll(here: Context, page: str) -> answer.Words | None:
     return None
 
 
-def pending(page: str) -> answer.Words:
-    """Tell the caller how to read a question whose wait expired."""
-    return {"outcome": "pending", "pageID": page, "hint": f"run lem ask wait {page}"}
+def unavailable(page: str, error: Unanswered | PageRefused) -> answer.Words:
+    """Tell the caller why agterm could not give the page's outcome."""
+    return {"outcome": "unavailable", "pageID": page, "said": str(error)}

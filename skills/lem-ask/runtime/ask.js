@@ -600,10 +600,12 @@
     page.hash = ''
     return page.href
   }
-  async function pageDigest () {
-    const reply = await fetch(location.href, { method: 'HEAD', cache: 'no-store' })
-    if (!reply.ok) throw new Error('Load the card again')
-    return (reply.headers.get('etag') || '').replace(/^"|"$/g, '')
+  function pageDigest () {
+    // This is the response that supplied the document, even if the address has changed.
+    const navigation = performance.getEntriesByType('navigation')[0]
+    const digest = navigation?.serverTiming?.find(entry => entry.name === 'card-digest')?.description
+    if (!digest) throw new Error('Load the card again')
+    return digest
   }
   async function deliver (v) {
     if (finished) return; finished = true
@@ -613,7 +615,7 @@
       if (location.protocol.startsWith('http')) {
         // A path relative to the page: the browser fallback serves it at / and takes /answer, and the
         // board serves a card under .../cards/PAGEID/ and takes the card's own answer route there.
-        const posted = ON_BOARD ? { ...v, digest: await pageDigest() } : v
+        const posted = ON_BOARD ? { ...v, digest: pageDigest() } : v
         const r = await fetch(answerURL(), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(posted) })
         let reply = {}
         try { reply = JSON.parse((await r.text()) || '{}') || {} } catch (e) { reply = {} }

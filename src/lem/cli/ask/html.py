@@ -4,6 +4,7 @@ import json
 from html import escape
 from typing import TYPE_CHECKING
 
+from lem.board.ask import csp
 from lem.cli.ask import attachments, library
 from lem.cli.ask.spec import check
 from lem.kernel import paths
@@ -17,8 +18,13 @@ TITLE_CHARS = 120  # the HTML head's title, as on main
 
 
 def build(spec: Spec, base: Path) -> bytes:
-    """Build the same page for a file, an overlay and the board."""
+    """Check the spec at the standalone render entry."""
     check(spec)
+    return assemble(spec, base)
+
+
+def assemble(spec: Spec, base: Path) -> bytes:
+    """Build the same page for a file, an overlay and the board."""
     attachments.attach(spec, base)
     return frame(spec).encode("utf-8")
 
@@ -28,14 +34,14 @@ def frame(spec: Spec) -> str:
     root = paths.root()
     runtime = root / "skills" / "lem-ask" / "runtime"
     css = (runtime / "ask.css").read_text(encoding="utf-8")
-    script = (runtime / "ask.js").read_text(encoding="utf-8")
-    charts = library.script_of(root) if library.has_charts(spec) else ""
+    scripts = library.scripts_of(root, spec)
+    embedded = "".join(f"<script>{script}</script>" for script in scripts)
     return (
         '<!doctype html><html><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        f"<title>{title_of(spec)}</title><style>{css}</style></head>"
+        f"{csp.marker(scripts)}<title>{title_of(spec)}</title><style>{css}</style></head>"
         '<body><div id="app"></div><script type="application/json" id="hd-spec">'
-        f"{script_json(spec)}</script>{charts}<script>{script}</script></body></html>"
+        f"{script_json(spec)}</script>{embedded}</body></html>"
     )
 
 

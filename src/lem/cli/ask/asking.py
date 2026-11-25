@@ -1,11 +1,13 @@
 """Show a question to the owner and return its outcome."""
 
 import os
+import sys
 from typing import TYPE_CHECKING
 
 from lem.board.ask import form, saved
 from lem.cli.ask import browser, context, glyph, html, preferences, temp_pages, waiting
 from lem.cli.ask.spec import check
+from lem.kernel import errors
 from lem.ports.faults import Unanswered
 
 OUTCOME = "outcome"
@@ -40,7 +42,7 @@ def in_overlay(
 ) -> Words:
     """Open this session's question and let it wait on both surfaces."""
     display = preferences.display(spec, pref, call)
-    body = html.build(spec, base)
+    body = html.assemble(spec, base)
     path = temp_pages.page_file(body, quiet=call.no_status)
     try:
         opened = here.overlay.opening(path, display)
@@ -64,7 +66,11 @@ def opened_page(
     page, path = opened
     if here.task is not None:
         card = form.metadata(spec, page, here.overlay.session)
-        saved.keep(here.task, card, path.read_bytes())
+        try:
+            saved.keep(here.task, card, path.read_bytes())
+        except (OSError, errors.Fault, errors.Refusal) as error:
+            sys.stderr.write(f"lem ask: the board does not show card {page}: {error}\n")
+            here = context.Context(overlay=here.overlay, task=None)
     if call.no_wait:
         return left_open(here, call, pref, page, path)
     return waiting.wait(here, page, call, pref)

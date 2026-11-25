@@ -24,11 +24,6 @@ def time_of_answer() -> datetime:
     return datetime.now(UTC)
 
 
-def recorded(folder: Path, page: str, answer: questions.Answer) -> Payload:
-    """Read the answer the task's record cites."""
-    return receipts.read(keys.copies(folder, page), answer.at)
-
-
 def finish(
     folder: Path, asked: questions.Question, answer: questions.Answer, payload: Payload
 ) -> tuple[bool, questions.Answer]:

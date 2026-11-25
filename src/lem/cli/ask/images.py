@@ -2,22 +2,39 @@
 
 import base64
 import mimetypes
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lem.cli.ask.spec import invalid
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from lem.cli.ask.spec import Spec
 
 # The largest embedded image, the same bound as on main.
 IMAGE_BYTES = 8 * 1024 * 1024
 
 
-def encoded(path: Path) -> str:
-    """The image in a data URI, with a bound on what the page reads."""
+def attach(block: Spec, base: Path) -> None:
+    """Replace a local image with a data URI or its alternative text."""
+    image = block.get("image")
+    if not isinstance(image, str) or image.startswith(("http://", "https://", "data:")):
+        return
+    path = Path(base, Path(image).expanduser())
+    embedded = encoded(path)
+    block["image"] = embedded or ""
+    if embedded is None:
+        block.setdefault("alt", f"missing image: {image}")
+
+
+def encoded(path: Path) -> str | None:
+    """The image as a data URI, or None when there is no image file."""
+    if not path.is_file():
+        return None
     try:
         with path.open("rb") as stream:
             picture = stream.read(IMAGE_BYTES + 1)
+    except FileNotFoundError, IsADirectoryError:
+        return None
     except OSError as error:
         raise invalid(f"the image {path} could not be read: {error}") from error
     if len(picture) > IMAGE_BYTES:

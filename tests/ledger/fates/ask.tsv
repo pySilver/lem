@@ -38,7 +38,7 @@ check:tests/test-ask.sh:every-page-so-far-wrote-nothing-under-cache-9db47ab6eefa
 check:tests/test-ask.sh:expect:name-38a30440f20648d7	changed	unit.ask.test_overlay.test_spec_default_verb_and_named_demo_open_their_pages	Page outcomes are in the envelope and all have exit zero.
 check:tests/test-ask.sh:page-loads-n-611004f0e4c84ff7	kept	A2	
 check:tests/test-ask.sh:q-option-syntax-dfe195f4fc4c067c	kept	unit.ask.test_overlay.test_short_option_keeps_the_reason_and_normalizes_half_characters	
-check:tests/test-ask.sh:refuses:name-38a30440f20648d7	kept	"unit.ask.test_render.test_invalid_specs_refuse_before_the_owner_sees_them[{""questions"": [""x""]}]"	
+check:tests/test-ask.sh:refuses:name-38a30440f20648d7	kept	unit.ask.test_render.test_render_refuses_bad_home_ask_settings	The refusal names the home settings file and gives its fix.
 check:tests/test-ask.sh:render-n-7be517faf4c88b6d	kept	unit.ask.test_render.test_every_template_and_demo_renders_without_a_download	
 check:tests/test-ask.sh:the-browser-takes-a-posted-json-value-that-i-bb0b02c9097f649b	kept	A4	
 check:tests/test-ask.sh:the-page-posts-its-answer-to-the-answer-rout-369a4e58c6c76c60	kept	A2	
@@ -62,13 +62,13 @@ route:HEAD /{host}/{workspace}/tasks/{slug}/cards/{page}	kept	unit.ask.test_card
 route:HEAD /{host}/{workspace}/tasks/{slug}/cards/{page}/	kept	unit.ask.test_card.test_page_routes_return_the_exact_overlay_and_only_trusted_scripts	
 route:POST /{host}/{workspace}/tasks/{slug}/cards/{page}/answer	kept	unit.ask.test_card.test_board_answer_is_the_waiters_result_and_the_only_end	
 ruling:lem-asks-through-its-question-page-fae73fa46b0dcc92	kept	A1	
-text:skills/lem-ask/SKILL.md	changed	unit.ask.test_overlay.test_spec_default_verb_and_named_demo_open_their_pages	The command texts use the new outcome envelope and wait commands.
-text:skills/lem/harness/claude-code/ask-owner.md	changed	unit.ask.test_overlay.test_spec_default_verb_and_named_demo_open_their_pages	The command texts use the new outcome envelope and wait commands.
+text:skills/lem-ask/SKILL.md	changed	unit.ask.test_overlay.test_skill_names_the_cli_outcomes_and_resume_command	The command texts use the new outcome envelope and wait commands.
+text:skills/lem/harness/claude-code/ask-owner.md	changed	unit.ask.test_overlay.test_harness_names_the_cli_outcomes_and_resume_command	The command texts use the new outcome envelope and wait commands.
 unit:tests/unit/test_ask.py:HalfACharacterInASpec.test_a_quick_question_writes_its_page_as_valid_utf8	kept	unit.ask.test_overlay.test_short_option_keeps_the_reason_and_normalizes_half_characters	
 unit:tests/unit/test_ask.py:HalfACharacterInASpec.test_a_spec_from_a_file_writes_its_page_as_valid_utf8	kept	unit.ask.test_render.test_strings_stay_utf8_and_cannot_close_the_spec_script	
 unit:tests/unit/test_ask.py:LoadSpec.test_json_python_cannot_hold_in_a_spec_is_refused_with_a_message	kept	unit.ask.test_render.test_unreadable_json_number_refuses_with_a_fix	
 unit:tests/unit/test_ask.py:Submitted.test_a_lone_surrogate_prints_as_valid_utf8_and_the_answer_stays	kept	unit.ask.test_rules.test_posted_note_keeps_half_a_character_as_utf8	
-unit:tests/unit/test_ask.py:Submitted.test_json_python_cannot_hold_is_kept_as_its_text	kept	unit.ask.test_overlay.test_wait_timeout_can_resume_and_last_wait_controls_the_stop_word	
+unit:tests/unit/test_ask.py:Submitted.test_json_python_cannot_hold_is_kept_as_its_text	kept	unit.ask.test_overlay.test_unreadable_overlay_json_returns_the_original_text	The waiter returns the original wire text for oversized integers and deep JSON.
 unit:tests/unit/test_ask.py:WaitWord.test_the_last_wait_holds_over_the_way_the_page_opened	kept	unit.ask.test_overlay.test_wait_timeout_can_resume_and_last_wait_controls_the_stop_word	
 unit:tests/unit/test_board_model.py:Cards.test_a_card_of_an_earlier_session_or_of_a_session_that_does_not_run_has_no_row	kept	A3	The POST refuses an earlier session. The wait row still needs the model change in notes/ask.md.
 unit:tests/unit/test_cards.py:FirstEndCounts.test_a_close_or_a_dismissal_is_an_end_too	kept	unit.ask.test_overlay.test_close_keeps_an_end_for_the_waiter	
@@ -90,7 +90,7 @@ unit:tests/unit/test_hooks.py:AskStopHook.test_an_agtermctl_that_hangs_ends_the_
 unit:tests/unit/test_serve.py:DeepBody.test_a_cards_answer_nested_past_the_limit_is_refused_as_no_json	kept	unit.ask.test_card.test_bad_answers_and_an_older_session_leave_the_card_open	
 unit:tests/unit/test_serve_cards.py:Agterm.test_criterion_4_an_answer_or_a_dismissal_agterm_holds_is_refused_and_an_open_page_is_not	kept	unit.ask.test_card.test_an_overlay_answer_already_at_the_mac_wins	
 unit:tests/unit/test_serve_cards.py:Agterm.test_when_agterm_does_not_answer_the_board_says_what_it_said	kept	unit.ask.test_card.test_unreadable_terminal_leaves_the_card_open	
-unit:tests/unit/test_serve_cards.py:Answer.test_a_card_of_a_session_that_no_longer_runs_takes_no_answer	kept	unit.ask.test_card.test_bad_answers_and_an_older_session_leave_the_card_open	
+unit:tests/unit/test_serve_cards.py:Answer.test_a_card_of_a_session_that_no_longer_runs_takes_no_answer	kept	unit.ask.test_card.test_board_refuses_a_card_when_its_agent_exits_to_the_shell	The pane stays listed after the agent exits.
 unit:tests/unit/test_serve_cards.py:Answer.test_a_dismissal_of_the_page_records_nothing	kept	unit.ask.test_card.test_bad_answers_and_an_older_session_leave_the_card_open	
 unit:tests/unit/test_serve_cards.py:Answer.test_an_answer_the_read_takes_and_the_end_cannot_walk_is_refused_as_no_json	kept	unit.ask.test_card.test_bad_answers_and_an_older_session_leave_the_card_open	
 unit:tests/unit/test_serve_cards.py:Answer.test_criterion_2_and_9_a_pick_with_a_note_is_on_record_as_the_owners_with_the_card_its_option_note_time_and_device	changed	unit.ask.test_card.test_board_answer_is_the_waiters_result_and_the_only_end	The task answer and journal cite the immutable answer artifact.

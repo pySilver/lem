@@ -3,6 +3,7 @@
 import click
 import msgspec
 
+from lem.board.ask.overlay_read import PageRefused
 from lem.cli.ask import asking, card_wait, context, waiting
 from lem.ports.faults import Unanswered
 
@@ -20,7 +21,7 @@ def run(call: Call) -> asking.Words:
         return asking.no_terminal()
     try:
         return close(here, call.page_id)
-    except Unanswered as error:
+    except (Unanswered, PageRefused) as error:
         return {"outcome": "unavailable", "said": str(error)}
 
 

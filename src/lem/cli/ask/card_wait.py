@@ -4,6 +4,7 @@ import sys
 from typing import TYPE_CHECKING
 
 from lem.board.ask import ends, saved
+from lem.board.ask.overlay_read import PageRefused
 from lem.cli.ask import answer
 from lem.ports.faults import Unanswered
 from lem.records.questions import Answer
@@ -56,9 +57,26 @@ def final_answer(
     printed = answer.on_record(folder, page, kept)
     if later is not None:
         race = later.label if later.option == "answered" else later.option
-        said = printed.get("said", ends.description(kept))
-        printed["said"] = f"{said} The later act in the session was {race}."
+        printed.setdefault("said", ends.description(kept))
+        name_later(printed, race)
     return printed
+
+
+def after_board(here: Context, page: str, kept: answer.Words) -> None:
+    """Read a later overlay pick before closing the board's answered card."""
+    try:
+        told = here.overlay.outcome(page)
+    except OSError, Unanswered, PageRefused:
+        told = None
+    if told is not None and told.kind == "submitted":
+        name_later(kept, answer.label(answer.submitted(told.payload)))
+    close_board_answer(here, page)
+
+
+def name_later(kept: answer.Words, race: str) -> None:
+    """Name the later act alongside the one that counted."""
+    said = kept["said"]
+    kept["said"] = f"{said} The later act in the session was {race}."
 
 
 def close_board_answer(here: Context, page: str) -> None:

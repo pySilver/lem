@@ -23,7 +23,7 @@ def question(spec: Spec, base: Path, call: Shown) -> Words:
     """Wait on the browser for this call's lifetime."""
     if call.no_wait:
         return {OUTCOME: "unavailable", "hint": "--no-wait requires an agterm overlay"}
-    return ask(document.build(spec, base), call.timeout)
+    return ask(document.assemble(spec, base), call.timeout)
 
 
 def ask(html: bytes, timeout: float) -> Words:
