@@ -89,6 +89,11 @@ def test_a_task_that_waits_for_the_owner_is_parked_and_comes_back_as_it_was(
     assert hold(world) == "Parked"
     assert status(world) == "shaping"
     assert refused(capsys, world, "task", "may-start", SLUG)["code"]
+    found = ok(capsys, world, "waiting")["result"]
+    assert (found["held"], [one["task"] for one in found["parked"]]) == ([], [SLUG])
+    late = refused(capsys, world, "task", "move", SLUG, "building")
+    assert late["code"]
+    assert status(world) == "shaping"
     back = ok(capsys, world, "task", "resume", SLUG)["result"]
     assert (back["resumed"], back["status"]) == ("parked", "shaping")
     assert hold(world) == "OwnerHold"
@@ -209,6 +214,9 @@ def test_a_queued_task_starts_when_the_one_before_lands_and_on_his_word_after_a_
     assert (row["task"], row["start"]) == ("behind", "start behind now")
     started = ok(capsys, world, "task", "start", "behind", "--words", HIS)["result"]
     assert (started["was"], started["status"]) == ("queued", "shaping")
+    journal = tasks.read(world.checkout / places.STATE, "behind").journal
+    lines = [getattr(entry, "line", None) for entry in journal]
+    assert f'the owner\'s word: "{HIS}"' in lines
     assert ok(capsys, world, "waiting")["result"]["after_dropped"] == []
     assert (
         ok(capsys, world, "task", "may-start", "behind")["result"]["slug"] == "behind"
@@ -365,8 +373,11 @@ def test_a_dropped_task_with_a_breaker_goes_on_in_a_new_task_from_its_commits(
     assert hold(world, new) == "BreakerHold"
     worktree = world.checkout / ".lem" / "worktrees" / new
     assert run_git(worktree, "rev-parse", "HEAD") == tip
-    copied = places.task_folder(world.checkout / places.STATE, new) / "handoff.md"
-    assert copied.read_text().startswith("## Settled")
+    folder = places.task_folder(world.checkout / places.STATE, new)
+    assert (folder / "handoff.md").read_text().startswith("## Settled")
+    assert (folder / "breaker-1.md").read_text() == DOCUMENT
+    state = world.checkout / places.STATE
+    assert tasks.read(state, new).release == tasks.read(state, SLUG).release
     again = refused(capsys, world, "task", "resume", SLUG)
     assert again["code"] == "resumed"
 
@@ -401,6 +412,9 @@ def test_a_task_the_release_stop_held_is_dropped_and_goes_on_as_a_new_request(
     stopped = refused(capsys, world, "task", "move", SLUG, "ready")
     assert stopped["code"] == "release"
     assert hold(world) == "ReleaseHold"
+    assert status(world) == "building"
+    (row,) = ok(capsys, world, "waiting")["result"]["blocked"]
+    assert (row["task"], row["line"]) == (SLUG, stopped["why"])
     assert refused(capsys, world, "task", "resume", SLUG)["code"] == "release"
     drop(capsys, world)
     assert hold(world) == "ReleaseHold"
