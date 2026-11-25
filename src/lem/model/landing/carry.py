@@ -25,37 +25,45 @@ def newest(landing: Landing) -> Reviewed | None:
     return answered[-1] if answered else None
 
 
-def covers(landing: Landing, tip: Sha | None) -> bool:
-    """Whether the newest answered review covers the change at `tip`: it read this tip, or
-    `base` put the tip it read onto the base by a rebase git's merge shows."""
+def source(landing: Landing, world: World) -> Sha | None:
+    """The tip whose review carried onto the tip now: the newest answered review, which `base`
+    judged by git's merge of its tip onto this base, when that merge was the tip's tree and no
+    commit came after. None when no review carried."""
     review, based = newest(landing), landing.based
-    if review is None or tip is None:
+    if review is None or based is None or not based.carried:
+        return None
+    if based.tip != world.tip or based.base != world.base:
+        return None
+    return review.tip if review.at <= based.at else None
+
+
+def covers(landing: Landing, world: World) -> bool:
+    """Whether the newest answered review covers the change at the tip now: it read this tip,
+    or `base` showed that the tip it read is this tip on this base."""
+    review = newest(landing)
+    if review is None or world.tip is None:
         return False
-    if review.tip == tip:
-        return True
-    return (
-        based is not None
-        and based.carried
-        and based.tip == tip
-        and based.before == review.tip
-    )
+    return review.tip == world.tip or source(landing, world) is not None
+
+
+def real(landing: Landing) -> list[MergeRead]:
+    """The merge agent's reads with a real verdict, not an unusable answer, in their order."""
+    return [read for read in landing.reads if read.verdict and not read.no_answer]
 
 
 def read_carries(landing: Landing, world: World) -> MergeRead | None:
-    """The merge agent's read carried onto the tip a clean rebase made: a real verdict (not an
-    unusable answer) of the tip the rebase started from, a rebase whose merge git shows, and no
-    commit after it; else None."""
-    based = landing.based
-    reads = [read for read in landing.reads if read.verdict and not read.no_answer]
-    if based is None or not reads or not based.carried:
+    """The merge agent's read carried onto the tip a clean rebase made: a real verdict of the
+    tip whose review carried; else None."""
+    reads, carried = real(landing), source(landing, world)
+    if not reads or carried is None or reads[-1].tip != carried:
         return None
-    if based.tip != world.tip:
-        return None
-    read = reads[-1]
-    if read.tip != based.before or based.base != world.base:
-        return None
+    return moved(reads[-1], world)
+
+
+def moved(read: MergeRead, world: World) -> MergeRead:
+    """The read `read` carried onto the tip and base now."""
     return MergeRead(
-        tip=based.tip,
+        tip=world.tip or read.tip,
         base=world.base,
         base_tree=world.base_tree,
         verdict=read.verdict,
