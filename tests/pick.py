@@ -176,6 +176,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
         ("lem-machine", "lem-state", "lem-command"),
     ),
+    # the plugin's one hook line's shell file
+    (("hooks/run",), ("shellcheck",)),
     (
         (
             "src/lem/doctor.py",

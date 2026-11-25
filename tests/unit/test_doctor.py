@@ -68,9 +68,9 @@ def identity(entry: dict) -> str:
 
 class HookEntries(unittest.TestCase):
     """Which entries of a settings file's `UserPromptSubmit` hooks are the correction
-    hook: the plugin's line now, the line before the package, and nothing else."""
+    hook: the plugin's line, the app's entry, and nothing else."""
 
-    PLUGIN = 'python3 "${CLAUDE_PLUGIN_ROOT}/src/lem/python.py" corrections hook'
+    PLUGIN = '/bin/sh "$CLAUDE_PLUGIN_ROOT/hooks/run" corrections 2>/dev/null || :'
 
     def entries(self, *commands: str) -> list[str]:
         with tempfile.TemporaryDirectory() as folder:
@@ -82,97 +82,101 @@ class HookEntries(unittest.TestCase):
             )
             return [hook["command"] for hook in doctor.hook_entries(file)]
 
-    def test_the_plugins_line_of_now_and_of_before_the_package_are_the_hook(
-        self,
-    ) -> None:
+    def test_the_plugins_line_and_the_apps_entry_are_the_hook(self) -> None:
         lines = [
             self.PLUGIN,
-            (
-                'if [ -f "${CLAUDE_PLUGIN_ROOT}/src/lem/python.py" ] && command -v '
-                'python3 >/dev/null; then python3 "${CLAUDE_PLUGIN_ROOT}/src/lem/'
-                'python.py" corrections hook; fi'
-            ),
-            "python3 /home/o/lem/src/lem/python.py corrections hook",
-            (
-                'python3 "/r/skills/lem/scripts/lem_python.py" '
-                '"/r/skills/lem/scripts/corrections.py" hook'
-            ),
-            "LEM_JEV=/x/jev python3 /elsewhere/corrections.py hook",
+            "sh /Users/o/lem/hooks/run corrections",
+            "/opt/homebrew/opt/lem/libexec/bin/lem-hook corrections",
+            "LEM_JEV=/x/jev lem-hook corrections",
         ]
         self.assertEqual(self.entries(*lines), lines)
 
-    def test_another_module_or_command_of_python_py_is_not(self) -> None:
+    def test_another_selector_or_an_old_line_is_not(self) -> None:
         self.assertEqual(
             self.entries(
-                'python3 "${CLAUDE_PLUGIN_ROOT}/src/lem/python.py" serve_hook',
-                'python3 "${CLAUDE_PLUGIN_ROOT}/src/lem/python.py" session_hook',
-                'python3 "${CLAUDE_PLUGIN_ROOT}/src/lem/python.py" corrections list',
-                "python3 /r/src/lem/python.py hook",
-                "lem corrections hook",
+                '/bin/sh "$CLAUDE_PLUGIN_ROOT/hooks/run" serve 2>/dev/null || :',
+                "lem-hook session-start",
+                "lem corrections list",
+                "lem-hook correctionsx",
+                # the lines before the app, which no install has: no reader of them
+                'python3 "${CLAUDE_PLUGIN_ROOT}/src/lem/python.py" corrections hook',
+                "python3 /elsewhere/corrections.py hook",
             ),
             [],
         )
 
 
 class HookModules(unittest.TestCase):
-    """The row of the modules the plugin's hooks start: a hook whose module is gone or
-    does not compile ends with nothing printed (python.py `run`), so this row is where
-    the owner learns it. The review of 2026-11-24."""
+    """The row of the plugin's hooks: a hook that cannot start ends with nothing
+    printed (`lem.hooks`), so this row is where the owner learns it. The review of
+    2026-11-24, and the plugin's `hooks/run` since the hooks start the app."""
 
-    def test_the_plugin_of_this_repository_is_whole(self) -> None:
-        row = doctor.hook_modules(ROOT)
+    PACKAGE = ROOT / "src" / "lem"
+    HANDLED = ("hooks", "serve_hook", "session_hook", "ask")
+
+    def test_the_plugin_and_the_app_of_this_repository_are_whole(self) -> None:
+        row = doctor.hook_modules(ROOT, self.PACKAGE)
         self.assertEqual(
             (row["name"], row["need"], row["found"]), ("hook modules", "required", True)
         )
-        for name in ("python.py", "corrections.py", "serve_hook.py", "session_hook.py"):
+        self.assertTrue(
+            row["detail"].startswith(
+                "corrections, serve, session-start, precompact, stop from "
+            ),
+            row["detail"],
+        )
+        for name in ("hooks.py", "corrections.py", "serve_hook.py", "session_hook.py"):
             self.assertIn(name, row["detail"])
 
-    def test_a_module_that_is_gone_or_does_not_compile_is_named_with_the_fix(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            (root / "hooks").mkdir()
-            (root / "hooks" / "hooks.json").write_bytes(
-                (ROOT / "hooks" / "hooks.json").read_bytes()
-            )
-            package = root / "src" / "lem"
-            package.mkdir(parents=True)
-            for name in ("python", "session_hook", "ask"):
-                (package / f"{name}.py").write_text("x = 1\n", encoding="utf-8")
-            (package / "serve_hook.py").write_text("def (:\n", encoding="utf-8")
-            row = doctor.hook_modules(root)
-        self.assertFalse(row["found"])
-        self.assertEqual(
-            row["detail"],
-            "corrections.py is missing; serve_hook.py does not compile (line 1)",
-        )
-        self.assertIn("install the plugin again", row["without_it"])
-
-    def plugin(self, folder: str, manifest: str | None) -> Path:
+    def plugin(self, folder: str, manifest: str | None, *, run: bool = True) -> Path:
         """A plugin's folder in FOLDER whose hooks file holds MANIFEST (none when None),
-        with each module the hooks start whole, and `corrections.py` importing
-        `state.py`, which is not there."""
-        root = Path(folder)
-        package = root / "src" / "lem"
+        with `hooks/run` unless RUN is false."""
+        root = Path(folder) / "plugin"
+        (root / "hooks").mkdir(parents=True)
+        if manifest is not None:
+            (root / "hooks" / "hooks.json").write_text(manifest, encoding="utf-8")
+        if run:
+            (root / "hooks" / "run").write_text("exit 0\n", encoding="utf-8")
+        return root
+
+    def package(self, folder: str) -> Path:
+        """An app's package in FOLDER with each module the hooks start whole, and
+        `corrections.py` importing `state.py`, which is not there."""
+        package = Path(folder) / "app" / "lem"
         package.mkdir(parents=True)
-        for name in ("python", "serve_hook", "session_hook", "ask"):
+        for name in self.HANDLED:
             (package / f"{name}.py").write_text("x = 1\n", encoding="utf-8")
         (package / "corrections.py").write_text(
             "import json\n\nfrom lem import state as lem_state\n\n\n"
             "def later() -> None:\n    from lem import project\n",
             encoding="utf-8",
         )
-        if manifest is not None:
-            (root / "hooks").mkdir()
-            (root / "hooks" / "hooks.json").write_text(manifest, encoding="utf-8")
-        return root
+        return package
+
+    def lines(self) -> str:
+        return (ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8")
+
+    def test_a_module_that_is_gone_or_does_not_compile_is_named_with_the_fix(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            package = self.package(folder)
+            (package / "corrections.py").unlink()
+            (package / "serve_hook.py").write_text("def (:\n", encoding="utf-8")
+            row = doctor.hook_modules(self.plugin(folder, self.lines()), package)
+        self.assertFalse(row["found"])
+        self.assertEqual(
+            row["detail"],
+            "corrections.py is missing; serve_hook.py does not compile (line 1)",
+        )
+        self.assertIn("Lem's app again", row["without_it"])
 
     def test_a_hooks_file_that_is_gone_or_reads_another_way_is_a_failing_row(
         self,
     ) -> None:
         # the review of 2026-11-24 on 233a4728: each gave `found` true, and the last
         # raised AttributeError
+        line = '/bin/sh "$CLAUDE_PLUGIN_ROOT/hooks/run" {} 2>/dev/null || :'
         for manifest, said in (
             (None, "hooks/hooks.json is missing"),
             ("{", "hooks/hooks.json is not JSON (line 1)"),
@@ -182,14 +186,67 @@ class HookModules(unittest.TestCase):
                 '{"hooks": {"Stop": [{"hooks": "x"}]}}',
                 "hooks/hooks.json is not a table of hooks",
             ),
+            # a line of another form, the line before the app among them, and a
+            # selector lem-hook does not know
+            (
+                json.dumps(
+                    {"hooks": {"Stop": [{"hooks": [{"command": "python3 x.py stop"}]}]}}
+                ),
+                (
+                    "hooks/hooks.json has a line that is not Lem's: 'python3 x.py "
+                    "stop', which no lem-hook runs"
+                ),
+            ),
+            (
+                json.dumps(
+                    {
+                        "hooks": {
+                            "Stop": [{"hooks": [{"command": line.format("sleep")}]}]
+                        }
+                    }
+                ),
+                (
+                    "hooks/hooks.json has a line that is not Lem's: "
+                    f"{line.format('sleep')!r}, which no lem-hook runs"
+                ),
+            ),
         ):
             with (
                 self.subTest(manifest=manifest),
                 tempfile.TemporaryDirectory() as folder,
             ):
-                row = doctor.hook_modules(self.plugin(folder, manifest))
+                package = self.package(folder)
+                (package / "state.py").write_text("x = 1\n", encoding="utf-8")
+                row = doctor.hook_modules(self.plugin(folder, manifest), package)
                 self.assertEqual((row["found"], row["detail"]), (False, said))
-                self.assertIn("install the plugin again", row["without_it"])
+                self.assertIn("installs the plugin again", row["without_it"])
+
+    def test_a_plugin_with_no_hooks_run_is_a_failing_row(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            package = self.package(folder)
+            (package / "state.py").write_text("x = 1\n", encoding="utf-8")
+            row = doctor.hook_modules(
+                self.plugin(folder, self.lines(), run=False), package
+            )
+        self.assertEqual((row["found"], row["detail"]), (False, "hooks/run is missing"))
+
+    def test_a_hooks_py_that_imports_the_package_at_its_top_is_a_failing_row(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            package = self.package(folder)
+            (package / "state.py").write_text("x = 1\n", encoding="utf-8")
+            (package / "hooks.py").write_text(
+                "from lem import project\n", encoding="utf-8"
+            )
+            (package / "project.py").write_text("x = 1\n", encoding="utf-8")
+            row = doctor.hook_modules(self.plugin(folder, self.lines()), package)
+        self.assertFalse(row["found"])
+        self.assertEqual(
+            row["detail"],
+            "hooks.py imports project at its top, which every hook would pay at its "
+            "start",
+        )
 
     def test_a_module_that_a_hooks_module_imports_at_its_top_is_checked(
         self,
@@ -197,15 +254,16 @@ class HookModules(unittest.TestCase):
         # the review of 2026-11-24: with `state.py` gone, which corrections.py imports
         # at its top, the row was whole and the hook ended with nothing printed
         with tempfile.TemporaryDirectory() as folder:
-            root = self.plugin(folder, (ROOT / "hooks" / "hooks.json").read_text())
-            row = doctor.hook_modules(root)
+            package = self.package(folder)
+            plugin = self.plugin(folder, self.lines())
+            row = doctor.hook_modules(plugin, package)
             self.assertEqual(
                 (row["found"], row["detail"]), (False, "state.py is missing")
             )
             # an import inside a function is the hook's later path, which its own
             # call reports
-            (root / "src" / "lem" / "state.py").write_text("x = 1\n", encoding="utf-8")
-            row = doctor.hook_modules(root)
+            (package / "state.py").write_text("x = 1\n", encoding="utf-8")
+            row = doctor.hook_modules(plugin, package)
         self.assertTrue(row["found"])
         self.assertIn("state.py", row["detail"])
         self.assertNotIn("project.py", row["detail"])

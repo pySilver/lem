@@ -9,9 +9,8 @@ at once: the session never waits for the server. Anywhere else it does nothing. 
 prints nothing, since Claude Code takes a SessionStart hook's output as context, and it
 exits 0 whatever happens, a failure too: the board server is no part of a session.
 
-The plugin starts it through `python.py` beside this file, which runs it under a
-Python of 3.14 or newer when the first `python3` is older, and leaves the session silent
-when the machine has none.
+The plugin starts it through Lem's app, `lem-hook serve` (`hooks.py` beside this
+file).
 """
 
 import sys

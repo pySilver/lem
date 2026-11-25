@@ -284,7 +284,7 @@ Each module's docstring says what it does and why; this list says where each thi
 - `.claude-plugin/` and `hooks/`: what Claude Code reads to load this repository as the plugin
   `lem`. `pyproject.toml` builds the app, the package with these files under `lem/data`
   (`hatch_build.py`: an editable install takes `checkout.pth` instead), whose one command is `lem`.
-  `hooks/hooks.json` starts, each through `src/lem/python.py`, the correction hook, the SessionStart
+  `hooks/hooks.json` starts, each through `hooks/run` and `lem-hook`, the correction hook, the SessionStart
   hook of the board server, the two hooks of a task's session and lem-ask's Stop hook. Every text and message says `lem NAME`, so one permission rule, `Bash(lem *)`, covers them on every machine and
   after every update.
 - `agents/lem-builder.md`: the builder, as a Claude Code agent definition; its body is the builder's

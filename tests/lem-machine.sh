@@ -716,7 +716,7 @@ else
 fi
 
 # The plugin form: the files Claude Code reads to load this repository as the plugin `lem`.
-# shellcheck disable=SC2016  # ${CLAUDE_PLUGIN_ROOT} is the text of the hook's command, for Claude Code to fill
+# shellcheck disable=SC2016  # $CLAUDE_PLUGIN_ROOT is the text of the hook's command, for Claude Code to fill
 if "$PY" -c 'import json, os, re, sys
 root = sys.argv[1]
 manifest = json.load(open(f"{root}/.claude-plugin/plugin.json"))
@@ -724,24 +724,119 @@ market = json.load(open(f"{root}/.claude-plugin/marketplace.json"))
 ok = (manifest["name"] == "lem" and re.fullmatch(r"\d+\.\d+\.\d+", manifest.get("version") or "") is not None
       and [(p["name"], p["source"], p.get("version")) for p in market["plugins"]] == [("lem", {"source": "github", "repo": "pySilver/lem", "ref": "v" + manifest["version"]}, manifest["version"])]
       and not os.path.exists(f"{root}/bin") and not os.path.exists(f"{root}/scripts/setup.py")
-      and all(os.access(f"{root}/{script}", os.X_OK) for script in ("src/lem/ask.py", "src/lem/jev.py")))
+      and os.access(f"{root}/hooks/run", os.X_OK))
 hooks = json.load(open(f"{root}/hooks/hooks.json"))["hooks"]
 commands = {event: [h["command"] for group in groups for h in group["hooks"]] for event, groups in hooks.items()}
-main = "\"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\""
-def launch(module):
-    return f"if [ -f {main} ] && command -v python3 >/dev/null; then python3 {main} {module}; fi"
-session = launch("session_hook")
+def launch(selector):
+    return f"/bin/sh \"$CLAUDE_PLUGIN_ROOT/hooks/run\" {selector} 2>/dev/null || :"
 matchers = {event: [group.get("matcher") for group in groups] for event, groups in hooks.items()}
-ok = ok and commands == {"UserPromptSubmit": [launch("corrections hook")],
-                         "SessionStart": [launch("serve_hook"), session],
-                         "PreCompact": [session],
-                         "Stop": [launch("ask hook-stop")]}
+timeouts = [h.get("timeout") for groups in hooks.values() for group in groups for h in group["hooks"]]
+ok = ok and commands == {"UserPromptSubmit": [launch("corrections")],
+                         "SessionStart": [launch("serve"), launch("session-start")],
+                         "PreCompact": [launch("precompact")],
+                         "Stop": [launch("stop")]}
 ok = ok and matchers["SessionStart"] == ["startup|resume", "startup|resume|clear|compact|fork"] and matchers["PreCompact"] == ["auto|manual"]
-ok = ok and matchers["Stop"] == [None] and hooks["Stop"][0]["hooks"][0].get("async") is True
+ok = ok and matchers["Stop"] == [None] and hooks["Stop"][0]["hooks"][0].get("async") is True and timeouts == [10, 5, 5, 5, None]
 sys.exit(not ok)' "$PWD"; then
-  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin, from GitHub at the tag of that release and with its version; the plugin has no bin/, since the command lem is the app's; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, a task session's hooks of a compaction and of each session's start, and lem-ask's Stop hook in the background, each started by the plugin's own path through src/lem/python.py with its module's name, and only when that file and a python3 are there"
+  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin, from GitHub at the tag of that release and with its version; the plugin has no bin/, since the command lem is the app's; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, a task session's hooks of each session's start and of a compaction, and lem-ask's Stop hook in the background, each one line that runs the plugin's hooks/run with its selector of lem-hook"
 else
   fail "the plugin files in .claude-plugin and hooks"
+fi
+# Each line of hooks/hooks.json as Claude Code runs it, through `sh -c` (code.claude.com/docs/en/hooks, "Shell form",
+# read 2026-11-24), with CLAUDE_PLUGIN_ROOT at this checkout and LEM_HOOK_BIN at the lem-hook beside the lem under test:
+# in a task's session of a repository, each gives what its handler gives run alone, the summary's form before a
+# compaction and the task's files after it among them, with the app's folder first on PATH and on a PATH of /usr/bin:/bin
+# alone (a Claude Code that a GUI app started). With no app the line ends with exit 0 and no output: LEM_HOOK_BIN at a file that is not there or a relative
+# path, no app in any place, and an app that exits 3 after it printed.
+HOOKHOME=$WORK/hookhome
+TASKREPO=$WORK/hook-task-repo
+mkdir -p "$HOOKHOME" "$TASKREPO/.lem/state/tasks/gift-note"
+git init -q -b main "$TASKREPO"
+printf '%s\n' '# the team' > "$TASKREPO/.lem/settings.toml"
+printf '%s\n\n%s\n' 'phase: build, step 2' 'older block' > "$TASKREPO/.lem/state/tasks/gift-note/state.md"
+printf '%s\n' '## Settled' 'the plan' > "$TASKREPO/.lem/state/tasks/gift-note/handoff.md"
+HOOK_BIN=$(dirname "$LEM_UNDER_TEST")/lem-hook
+PLUGIN_ROOT=$PWD
+hook_lines() { "$PY" -c 'import json, sys; [print(h["command"]) for groups in json.load(open(sys.argv[1]))["hooks"].values() for group in groups for h in group["hooks"]]' "$PWD/hooks/hooks.json"; }
+# hook_event SELECTOR: the event Claude Code gives that hook in the task's repository
+hook_event() {
+  case $1 in
+    corrections) printf '{"hook_event_name": "UserPromptSubmit", "prompt": "never push", "session_id": "S1", "cwd": "%s"}' "$TASKREPO" ;;
+    session-start) printf '{"hook_event_name": "SessionStart", "source": "compact", "session_id": "S1", "transcript_path": "/t.jsonl", "cwd": "%s"}' "$TASKREPO" ;;
+    precompact) printf '{"hook_event_name": "PreCompact", "trigger": "auto", "cwd": "%s"}' "$TASKREPO" ;;
+    *) printf '{"hook_event_name": "SessionStart", "source": "startup", "cwd": "%s"}' "$TASKREPO" ;;
+  esac
+}
+# in_hook PATH COMMAND...: COMMAND in the environment a hook has, with no agterm, a home of its own and the task's
+in_hook() {
+  local path=$1
+  shift
+  (cd "$TASKREPO" && env -i PATH="$path" HOME="$HOOKHOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" LEM_SERVE=off LEM_TASK=gift-note \
+    CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 "$@")
+}
+# outcome OUTPUT CODE: OUTPUT, then `exit=CODE` on a line of its own; OUTPUT as $(...) has it, with no newline at its end,
+# which a hook's text keeps as context all the same
+outcome() { if [ -n "$1" ]; then printf '%s\nexit=%s\n' "$1" "$2"; else printf 'exit=%s\n' "$2"; fi; }
+# run_line LINE PATH [VAR=VALUE...]: the line through sh -c, its event on stdin; prints its outcome
+run_line() {
+  local line=$1 path=$2 selector said code=0
+  shift 2
+  selector=$(sed -n 's/.*hooks\/run" \([a-z-]*\) .*/\1/p' <<<"$line")
+  said=$(hook_event "$selector" | in_hook "$path" env "$@" /bin/sh -c "$line" 2>&1) || code=$?
+  outcome "$said" "$code"
+}
+same=yes
+shown=""
+while IFS= read -r line; do
+  selector=$(sed -n 's/.*hooks\/run" \([a-z-]*\) .*/\1/p' <<<"$line")
+  handler=$("$PY" -c 'import sys; sys.path.insert(0, sys.argv[1]); from lem import hooks; print(*hooks.HANDLERS[sys.argv[2]])' "$PWD/src" "$selector")
+  read -r module function <<<"$handler"
+  code=0
+  alone=$(hook_event "$selector" | in_hook /usr/bin:/bin "$PY" -B -c "import sys; sys.path.insert(0, sys.argv[1]); from lem import $module; $module.$function()" "$PWD/src" 2>&1) || code=$?
+  alone=$(outcome "$alone" "$code")
+  for path in "$(dirname "$HOOK_BIN"):/usr/bin:/bin" /usr/bin:/bin; do
+    said=$(run_line "$line" "$path" LEM_HOOK_BIN="$HOOK_BIN")
+    [ "$said" = "$alone" ] || { same=no; shown+=" [$selector on $path: $said, alone: $alone]"; }
+  done
+  shown+=" $selector:$(wc -l <<<"$alone" | tr -d ' ')"
+done < <(hook_lines)
+compacted=$(run_line "$(hook_lines | sed -n 3p)" /usr/bin:/bin LEM_HOOK_BIN="$HOOK_BIN")
+summary=$(run_line "$(hook_lines | sed -n 4p)" /usr/bin:/bin LEM_HOOK_BIN="$HOOK_BIN")
+if [ "$same" = yes ] && grep -qF "phase: build, step 2" <<<"$compacted" && grep -qF "the plan" <<<"$compacted" \
+  && grep -qF "This summary is the handoff of task gift-note" <<<"$summary" && [ "$(tail -n 1 <<<"$summary")" = "exit=0" ]; then
+  pass "each line of hooks/hooks.json, run through sh -c with LEM_HOOK_BIN at the app's lem-hook, gives what its handler gives run alone, the task's files after a compaction and the summary's form before one among them, on a PATH of /usr/bin:/bin too"
+else
+  fail "the hook lines against their handlers:$shown / $compacted / $summary"
+fi
+quiet=yes
+said_all=""
+mkdir -p "$WORK/failing-app"
+printf '%s\n' '#!/bin/sh' 'echo "a traceback"' 'echo "on stderr" >&2' 'exit 3' > "$WORK/failing-app/lem-hook"
+chmod +x "$WORK/failing-app/lem-hook"
+while IFS= read -r line; do
+  for case in "LEM_HOOK_BIN=$WORK/no-such-app/lem-hook" "LEM_HOOK_BIN=relative/lem-hook" "LEM_HOOK_BIN=$WORK/failing-app/lem-hook"; do
+    said=$(run_line "$line" /usr/bin:/bin "$case")
+    [ "$said" = "exit=0" ] || { quiet=no; said_all+=" [$case: $said]"; }
+  done
+done < <(hook_lines)
+if [ "$quiet" = yes ]; then
+  pass "a hook line with LEM_HOOK_BIN at a file that is not there, at a relative path, or at an app that prints and exits 3 ends with exit 0 and no output"
+else
+  fail "a hook line with no app or a failing one:$said_all"
+fi
+if [ -e /opt/homebrew/opt/lem/libexec/bin/lem-hook ] || [ -e /usr/local/opt/lem/libexec/bin/lem-hook ]; then
+  skip "a hook line with no app in any place: this machine has Homebrew's Lem, which the line finds"
+else
+  none=yes
+  while IFS= read -r line; do
+    said=$(run_line "$line" /usr/bin:/bin)
+    [ "$said" = "exit=0" ] || { none=no; said_all+=" [$said]"; }
+  done < <(hook_lines)
+  if [ "$none" = yes ] && [ ! -e "$HOOKHOME/.local/bin" ]; then
+    pass "a hook line with no LEM_HOOK_BIN and no app in any place (no Homebrew Lem, a home with no .local/bin) ends with exit 0 and no output"
+  else
+    fail "a hook line with no app:$said_all"
+  fi
 fi
 # The release before this one (lem_release.BEFORE), which each release moves: the version plugin.json held before its
 # newest change of version, as git shows it. A release that forgot to move it would stop every task of the release
@@ -781,7 +876,7 @@ fi
 # The correction hook comes with Lem's plugin. A settings file that also names the hook is a second place: the
 # machine check names each file with the entry to delete from it by hand, never says to remove the plugin, and never
 # fails the machine for it.
-want=$("$PY" -c 'import shlex, sys; print("python3 " + shlex.quote(sys.argv[1]) + " hook")' "$PWD/skills/lem/scripts/corrections.py")
+want=$("$PY" -c 'import shlex, sys; print("/bin/sh " + shlex.quote(sys.argv[1]) + " corrections")' "$PWD/hooks/run")
 with_hook() { "$PY" -c 'import json, sys; json.dump({"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": sys.argv[2], "timeout": 10}]}]}, **json.loads(sys.argv[3])}, open(sys.argv[1], "w"))' "$@"; }
 entry_of() { "$PY" -c 'import json, sys; print(json.dumps({"type": "command", "command": sys.argv[1], "timeout": 10}))' "$1"; }
 hookrow() { doctor | field '[(t["need"], t["found"], t["detail"], t["without_it"], d["ok"]) for t in d["tools"] if t["name"] == "correction hook"]'; }
@@ -800,7 +895,7 @@ with_hook "$MACHINE/.claude/settings.local.json" "$want" '{"enabledPlugins": {"l
 off=$(hookrow)
 rm "$MACHINE/.claude/settings.local.json"
 # a form added by hand to the repository's shared settings comes out by hand, and the file is committed
-with_hook "$MACHINE/.claude/settings.json" "LEM_JEV=/x/jev python3 /elsewhere/corrections.py hook" '{}'
+with_hook "$MACHINE/.claude/settings.json" "LEM_JEV=/x/jev /opt/homebrew/opt/lem/libexec/bin/lem-hook corrections" '{}'
 shared_fix=$(hookfield without_it || true)
 rm -r "$MACHINE/.claude"
 if [ "$alone" = "[]" ] && [ "$plugin_detail" = "registered 2 times for this repository: $MACHINE/.claude/settings.local.json, the plugin lem@lem" ] \
@@ -809,7 +904,7 @@ if [ "$alone" = "[]" ] && [ "$plugin_detail" = "registered 2 times for this repo
   && grep -qF "it does not see managed settings, a session's --settings, or a plugin loaded for one session by a flag" <<<"$plugin_fix" \
   && [ "$plugin_need" = "[('project', False, True)]" ] \
   && [ "$three" = "registered 3 times for this repository: $FAKEHOME/.claude/settings.json, $MACHINE/.claude/settings.local.json, the plugin lem@lem" ] && [ "$off" = "[]" ] \
-  && grep -qF "$MACHINE/.claude/settings.json: delete the entry $(entry_of "LEM_JEV=/x/jev python3 /elsewhere/corrections.py hook") from the UserPromptSubmit hooks of $MACHINE/.claude/settings.json by hand, and commit that." <<<"$shared_fix"; then
+  && grep -qF "$MACHINE/.claude/settings.json: delete the entry $(entry_of "LEM_JEV=/x/jev /opt/homebrew/opt/lem/libexec/bin/lem-hook corrections") from the UserPromptSubmit hooks of $MACHINE/.claude/settings.json by hand, and commit that." <<<"$shared_fix"; then
   pass "a settings file that also holds the hook beside Lem's plugin is named with the entry to delete from it by hand, never the plugin, and never fails the machine; the plugin alone, or switched off there, gets no row; an entry in the shared settings is a change to commit"
 else
   fail "doctor with the hook beside the plugin: $alone / $plugin_detail / $plugin_fix / $plugin_need / $three / $off / $shared_fix"

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" ] && command -v python3 >/dev/null; then python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" corrections hook; fi",
+            "command": "/bin/sh \"$CLAUDE_PLUGIN_ROOT/hooks/run\" corrections 2>/dev/null || :",
             "timeout": 10
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" ] && command -v python3 >/dev/null; then python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" serve_hook; fi",
+            "command": "/bin/sh \"$CLAUDE_PLUGIN_ROOT/hooks/run\" serve 2>/dev/null || :",
             "timeout": 5
           }
         ]
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" ] && command -v python3 >/dev/null; then python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" session_hook; fi",
+            "command": "/bin/sh \"$CLAUDE_PLUGIN_ROOT/hooks/run\" session-start 2>/dev/null || :",
             "timeout": 5
           }
         ]
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" ] && command -v python3 >/dev/null; then python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" session_hook; fi",
+            "command": "/bin/sh \"$CLAUDE_PLUGIN_ROOT/hooks/run\" precompact 2>/dev/null || :",
             "timeout": 5
           }
         ]
@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" ] && command -v python3 >/dev/null; then python3 \"${CLAUDE_PLUGIN_ROOT}/src/lem/python.py\" ask hook-stop; fi",
+            "command": "/bin/sh \"$CLAUDE_PLUGIN_ROOT/hooks/run\" stop 2>/dev/null || :",
             "async": true
           }
         ]

@@ -353,12 +353,18 @@ class TheHomeFoldersWriters(unittest.TestCase):
         )
 
     def test_the_hooks_reach_no_writer(self) -> None:
-        # the plugin's hooks are these four modules, each the first word after the
-        # launcher's path, as the machine check reads them; the board server's starts
+        # the plugin's hooks are these selectors of lem-hook, as the machine check
+        # reads them, and these four modules run them; the board server's starts
         # `serve.py --ensure`, which writes no setting
+        from lem import hooks
+
+        selectors = doctor.hook_selectors(paths.ROOT / "hooks" / "hooks.json")
         self.assertEqual(
-            doctor.hook_module_names(paths.ROOT / "hooks" / "hooks.json"),
-            ["python", "corrections", "serve_hook", "session_hook", "ask"],
+            selectors, ["corrections", "serve", "session-start", "precompact", "stop"]
+        )
+        self.assertEqual(
+            {hooks.HANDLERS[selector][0] for selector in selectors},
+            {"corrections", "serve_hook", "session_hook", "ask"},
         )
         self.assertIn(
             '"--ensure"]', (paths.PACKAGE / "serve_hook.py").read_text(encoding="utf-8")

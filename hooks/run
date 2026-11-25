@@ -1,0 +1,28 @@
+#!/bin/sh
+# The plugin's one hook line: `/bin/sh "$CLAUDE_PLUGIN_ROOT/hooks/run" SELECTOR` (hooks.json)
+# runs Lem's app, `lem-hook SELECTOR`, with the hook's event on stdin. The plugin has no
+# Python of its own, so this finds the app: $LEM_HOOK_BIN when it is set (an absolute path: a
+# test, CI, a checkout's .venv/bin/lem-hook, a trial), else Homebrew's on Apple silicon, then on
+# Intel, then uv's tool folder. A PATH is never read: a Claude Code that a GUI app started has
+# /usr/bin:/bin alone. The hook's output is passed on only when it exited 0, and the end is
+# exit 0 with no output when no app is found or the app fails: a hook never fails a session.
+if [ -n "${LEM_HOOK_BIN:-}" ]; then
+  case $LEM_HOOK_BIN in
+    /*) set -- "${1:-}" "$LEM_HOOK_BIN" ;;
+    *) exit 0 ;;
+  esac
+else
+  set -- "${1:-}" /opt/homebrew/opt/lem/libexec/bin/lem-hook \
+    /usr/local/opt/lem/libexec/bin/lem-hook \
+    "${XDG_BIN_HOME:-$HOME/.local/bin}/lem-hook"
+fi
+name=$1
+shift
+for app do
+  [ -x "$app" ] || continue
+  if reply=$("$app" "$name" 2>/dev/null); then
+    [ -z "$reply" ] || printf '%s\n' "$reply"
+  fi
+  break
+done
+exit 0

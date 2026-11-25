@@ -70,9 +70,8 @@ The hook half speaks Claude Code's hook contract: the event on stdin with `promp
 its path: a hook has no `PATH` to count on. LEM_JEV, when set, names another command
 with the same contract.
 
-The plugin starts the hook through `python.py` beside this file, which runs it under
-a Python of 3.14 or newer when the first `python3` is older, and leaves the session
-silent when the machine has none.
+The plugin starts the hook through Lem's app, `lem-hook corrections` (`hooks.py`
+beside this file), which leaves the session silent whatever happens.
 """  # noqa: E501 - the usage table of `--help` keeps its columns
 
 import argparse

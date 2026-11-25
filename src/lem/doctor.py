@@ -273,11 +273,9 @@ def lem_plugin(home: Path, root: Path | None) -> str | None:
 
 
 # The correction hook in a settings file, in any form added by hand: the plugin's line,
-# whose core is `python3 /PATH/src/lem/python.py corrections hook`, or as it was before
-# the package (`python3 /PATH/corrections.py hook`).
-HOOK_FORM = re.compile(
-    r"(?:corrections\.py|python\.py['\"]?\s+corrections)['\"]?\s+hook\b"
-)
+# whose core is `"$CLAUDE_PLUGIN_ROOT/hooks/run" corrections`, or the app's entry itself
+# (`lem-hook corrections`).
+HOOK_FORM = re.compile(r"(?:hooks/run|lem-hook)['\"]?\s+corrections\b")
 
 
 def hook_entries(file: Path) -> list[dict]:
@@ -384,10 +382,19 @@ def correction_hook() -> list[dict]:
     ]
 
 
-def hook_module_names(hooks_file: Path) -> list[str]:
-    """The modules that the plugin's hooks file starts through `src/lem/python.py`, each
-    once in their order, after python.py itself. A file that cannot be read, or that
-    reads another way than a table of hooks, raises ValueError with what is wrong."""
+# The one form of each line of the plugin's hooks file, with its selector.
+HOOK_LINE = re.compile(
+    r'/bin/sh "\$CLAUDE_PLUGIN_ROOT/hooks/run" ([a-z-]+) 2>/dev/null \|\| :'
+)
+
+
+def hook_selectors(hooks_file: Path) -> list[str]:
+    """The selectors of `lem-hook` that the plugin's hooks file starts through
+    `hooks/run`, each once in their order. A file that cannot be read, that reads
+    another way than a table of hooks, or that has a line of another form or a selector
+    `lem-hook` does not know, raises ValueError with what is wrong."""
+    from lem import hooks as lem_hooks
+
     shown = f"{hooks_file.parent.name}/{hooks_file.name}"
     try:
         manifest = json.loads(hooks_file.read_text(encoding="utf-8"))
@@ -403,12 +410,17 @@ def hook_module_names(hooks_file: Path) -> list[str]:
     commands = hook_commands(manifest)
     if commands is None:
         raise ValueError(f"{shown} is not a table of hooks")
-    names = ["python"]
+    selectors: list[str] = []
     for command in commands:
-        found = re.search(r"python\.py\"?\s+(\w+)", command)
-        if found and found[1] not in names:
-            names.append(found[1])
-    return names
+        found = HOOK_LINE.fullmatch(command)
+        if not found or found[1] not in lem_hooks.HANDLERS:
+            raise ValueError(
+                f"{shown} has a line that is not Lem's: {command!r}, which no "
+                "lem-hook runs"
+            )
+        if found[1] not in selectors:
+            selectors.append(found[1])
+    return selectors
 
 
 def hook_commands(manifest: object) -> list[str] | None:
@@ -447,53 +459,79 @@ def package_imports(tree: ast.Module) -> list[str]:
     return found
 
 
-def hook_modules(root: Path = paths.ROOT) -> dict:
-    """The row of the modules the plugin's hooks start (`hooks/hooks.json`), of
-    `src/lem/python.py`, and of each module of the package that one of them imports at
-    its top, each read and compiled. A hook whose module is gone or does not compile
-    ends with nothing printed (python.py `run`), so this row is where the owner learns
-    it; so does a hooks file that is gone or reads another way."""
-    package = root / "src" / "lem"
+def module_imports(package: Path, name: str) -> tuple[str | None, list[str]]:
+    """What is wrong with the module NAME of PACKAGE, read and compiled (None when it is
+    whole), and the modules of the package it imports at its top."""
+    path = package / f"{name}.py"
     try:
-        names = hook_module_names(root / "hooks" / "hooks.json")
+        text = path.read_bytes()
+        compile(text, str(path), "exec")
+    except FileNotFoundError:
+        return f"{name}.py is missing", []
+    except OSError as error:
+        return f"{name}.py cannot be read ({error.strerror})", []
+    except (SyntaxError, ValueError) as error:
+        line = getattr(error, "lineno", None)
+        return (
+            f"{name}.py does not compile"
+            + (f" (line {line})" if line is not None else ""),
+            [],
+        )
+    return None, package_imports(ast.parse(text, str(path)))
+
+
+def hook_modules(plugin: Path = paths.ROOT, package: Path = paths.PACKAGE) -> dict:
+    """The row of the plugin's hooks: the plugin's folder PLUGIN has `hooks/run` and a
+    hooks file whose every line starts a selector `lem-hook` knows, and the app's
+    package PACKAGE has `hooks.py`, with no import of the package at its top, and each
+    module a selector runs and each module of the package that one of them imports at
+    its top, each read and compiled. A hook that cannot start ends with nothing printed
+    (`lem.hooks`), so this row is where the owner learns it."""
+    from lem import hooks as lem_hooks
+
+    broken = []
+    if not (plugin / "hooks" / "run").is_file():
+        broken.append("hooks/run is missing")
+    try:
+        selectors = hook_selectors(plugin / "hooks" / "hooks.json")
     except ValueError as error:
-        names, broken = [], [str(error)]
-    else:
-        broken = []
+        selectors = []
+        broken.append(str(error))
+    names = ["hooks"]
+    for selector in selectors:
+        module = lem_hooks.HANDLERS[selector][0]
+        if module not in names:
+            names.append(module)
     for name in names:
-        path = package / f"{name}.py"
-        try:
-            text = path.read_bytes()
-            compile(text, str(path), "exec")
-        except FileNotFoundError:
-            broken.append(f"{name}.py is missing")
+        problem, imported = module_imports(package, name)
+        if problem:
+            broken.append(problem)
             continue
-        except OSError as error:
-            broken.append(f"{name}.py cannot be read ({error.strerror})")
-            continue
-        except (SyntaxError, ValueError) as error:
-            line = getattr(error, "lineno", None)
+        if name == "hooks" and imported:
             broken.append(
-                f"{name}.py does not compile"
-                + (f" (line {line})" if line is not None else "")
+                "hooks.py imports " + ", ".join(imported) + " at its top, which every "
+                "hook would pay at its start"
             )
-            continue
-        for found in package_imports(ast.parse(text, str(path))):
+        for found in imported:
             if found not in names:
                 names.append(found)
     return {
         "name": "hook modules",
         "need": "required",
         "found": not broken,
-        "detail": "; ".join(broken) or ", ".join(f"{name}.py" for name in names),
+        "detail": "; ".join(broken)
+        or (
+            f"{', '.join(selectors)} from {plugin / 'hooks' / 'hooks.json'}; "
+            + ", ".join(f"{name}.py" for name in names)
+        ),
         "used_for": (
             "the hooks of the plugin: the correction hook, the start of the board "
-            "server and the records of a task's session"
+            "server, the records of a task's session and lem-ask's status at a stop"
         ),
         "without_it": (
-            "a hook whose module is missing or does not compile, or a hooks file that "
-            "is gone or reads another way, does nothing and says nothing; install the "
-            "plugin again"
+            "a hook that cannot start does nothing and says nothing; when a file of "
+            "the plugin is named, the owner installs the plugin again (`claude plugin "
+            "update lem@lem`), and when a module is named, Lem's app again"
         ),
     }
 

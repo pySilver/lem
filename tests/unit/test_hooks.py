@@ -92,7 +92,7 @@ class HookStart(unittest.TestCase):
         return names - {"imported package"}, ran.stdout, ran.returncode
 
     def test_lem_hook_loads_nothing_on_its_way_to_the_handler(self) -> None:
-        self.assertEqual(set(hooks.HANDLERS), set(ALONE))
+        self.assertEqual(hooks.HANDLERS, ALONE)
         for selector, task, event in self.HOOKS:
             with self.subTest(selector=selector, task=task):
                 started, said, status = self.loaded(

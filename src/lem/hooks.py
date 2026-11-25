@@ -13,9 +13,10 @@ that is not whole (`paths` stops with SystemExit), a handler that raises or exit
 than 0, ends in exit 0 with nothing on stdout or stderr: Claude Code takes a hook's
 output as context, and a PreCompact hook's exit 2 blocks the compaction. A handler's
 output is held while it runs and printed only when it ended well. This file imports
-nothing of the command line, and nothing a handler does not need: each handler's module
-is imported in its own function (`test_hooks.HookStart` holds each selector to its
-handler's own imports).
+nothing of the command line, and nothing of the package at its top: a handler's module
+is imported when its selector runs (`test_hooks.HookStart` holds each selector to its
+handler's own imports, and `lem doctor`'s row `hook modules` reads that this file has no
+import of the package at its top).
 """
 
 import os
@@ -27,42 +28,28 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-def corrections() -> None:
-    from lem import corrections as lem_corrections
-
-    lem_corrections.cmd_hook()
-
-
-def serve() -> None:
-    from lem import serve_hook
-
-    serve_hook.main()
-
-
-def session() -> None:
-    from lem import session_hook
-
-    session_hook.main()
-
-
-def stop() -> None:
-    from lem import ask
-
-    ask.hook_stop()
-
-
-# selector -> its handler
+# selector -> the module of this package and its function that handles it; a module is
+# imported when its selector runs
 HANDLERS = {
-    "corrections": corrections,
-    "serve": serve,
-    "session-start": session,
-    "precompact": session,
-    "stop": stop,
+    "corrections": ("corrections", "cmd_hook"),
+    "serve": ("serve_hook", "main"),
+    "session-start": ("session_hook", "main"),
+    "precompact": ("session_hook", "main"),
+    "stop": ("ask", "hook_stop"),
 }
 
 
-def held(handler: Callable[[], None]) -> str | None:
-    """Run HANDLER with its stdout and stderr held; what it printed on stdout when it
+def handler(selector: str) -> Callable[[], None]:
+    """The function that handles SELECTOR, with its module imported."""
+    module, function = HANDLERS[selector]
+    name = f"lem.{module}"
+    # __import__, not importlib: no module more at a hook's start
+    __import__(name)
+    return getattr(sys.modules[name], function)
+
+
+def held(work: Callable[[], None]) -> str | None:
+    """Run WORK with its stdout and stderr held; what it printed on stdout when it
     ended well (returned, or exited 0), else None."""
     import io
 
@@ -70,7 +57,7 @@ def held(handler: Callable[[], None]) -> str | None:
     buffer = io.StringIO()
     sys.stdout, sys.stderr = buffer, io.StringIO()
     try:
-        handler()
+        work()
     except SystemExit as stopped:
         well = stopped.code in (None, 0)
     except BaseException:  # noqa: BLE001 - a hook that fails must not fail the session
@@ -86,10 +73,14 @@ def held(handler: Callable[[], None]) -> str | None:
 def run(selector: str) -> str:
     """What the hook SELECTOR prints: its handler's output when it ended well, else
     nothing."""
-    handler = HANDLERS.get(selector)
-    if handler is None:
+    if selector not in HANDLERS:
         return ""
-    return held(handler) or ""
+
+    def work() -> None:
+        # the import too is held: a package that is not whole stops in it
+        handler(selector)()
+
+    return held(work) or ""
 
 
 def cli() -> None:
