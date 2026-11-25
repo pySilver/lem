@@ -4,6 +4,9 @@ SIGTERM or Ctrl-C, which end every stream first.
 The socket is bound here before uvicorn starts, so that a port another program holds is a
 refusal that names it, and the server's facts carry the port it holds. Its stop from
 `POST /api/server/stop` is the same SIGTERM a `kill` sends, which uvicorn takes as a clean stop.
+uvicorn raises that signal again once it stopped; the handler it then finds again is `Board`'s,
+so that the command ends with its envelope and exit 0, and a signal before uvicorn's own handler
+is set stops the server as soon as it started.
 """
 
 import os
@@ -21,10 +24,19 @@ from lem.kernel.errors import Refusal
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from types import FrameType
 
 HOST = "127.0.0.1"
 # How long the stop waits for the answers that run, in seconds.
 STOP_WAIT = 10
+
+
+class Board(uvicorn.Server):
+    """uvicorn's server, with the handler of the signals that stop it outside uvicorn's own."""
+
+    def stop_by(self, sign: int, frame: FrameType | None) -> None:
+        """Stop at the next look of uvicorn's loop; a stop that ended already is done."""
+        self.should_exit = True
 
 
 def bound(host: str, port: int) -> socket.socket:
@@ -79,6 +91,9 @@ def run(port: int, host: str = HOST, *, verbose: bool, home: Path) -> Served:
         server_header=False,
         timeout_graceful_shutdown=STOP_WAIT,
     )
+    server = Board(config)
+    for sign in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sign, server.stop_by)
     with sock:
-        uvicorn.Server(config).run(sockets=[sock])
+        server.run(sockets=[sock])
     return Served(pid=facts.pid, port=facts.port, url=facts.url)

@@ -39,7 +39,7 @@ class Facts(msgspec.Struct, frozen=True, kw_only=True):
     started: Moment
 
 
-class Shown(msgspec.Struct, frozen=True, kw_only=True):
+class Shown(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     """What `lem serve ensure` prints: whether a server runs, whether this call started it,
     who it is, and a line when it did not do what was asked."""
 
@@ -52,7 +52,7 @@ class Shown(msgspec.Struct, frozen=True, kw_only=True):
     said: str | None = None
 
 
-class Stopped(msgspec.Struct, frozen=True, kw_only=True):
+class Stopped(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     """What `lem serve stop` prints: whether a server ended, which, or why none did."""
 
     stopped: bool
