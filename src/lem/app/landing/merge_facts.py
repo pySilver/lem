@@ -115,7 +115,7 @@ def facts_of(context: Context, landing: Landing, read: tuple[Pull, Proposed]) ->
         not_green=proposed.reasons,
         careful=proposed.careful,
         land=context.world.rules.land,
-        owner_merges=merge.authority(context.record, context.world),
+        owner_merges=merge.authority(context.record, context.world, verdict=False),
         relands=landing.relands,
         pictures=found(context.folder, "media/**/*.*"),
         filed=tuple(done.path for done in landing.filed if done.path),

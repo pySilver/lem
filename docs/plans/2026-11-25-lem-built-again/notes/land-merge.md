@@ -10,13 +10,13 @@ what to change, and why, and what `land-merge` does meanwhile.
    slice did; a queue's end is written with the proposal's `who_acts` as `by`. Asked: `by` and
    `via` on `MergeAccepted`, written from the intent it replaces (`app/landing/merge_called.py:
    held`), which `app/landing/merged.py: adopted` then reads.
-2. **The owner's explicit word after his check of GitHub has no record.** With an intent on
-   record and only an open pull request visible, a new call goes on `lem land merge --by owner
-   --tip TIP` (not `--via server`, not `--standing`; `app/landing/merge.py: explicit`). An agent
-   that sends the owner's own command again after a fault is read as his word too: GitHub then
-   refuses a second merge of a merged request, so nothing merges twice, but the design asks for
-   his word after the check. Asked: `MergeIntent.asked: Moment | None`, set when the reconcile
-   keeps the intent and asks him; a new call then needs an owner's call made after `asked`.
+2. **The owner's explicit word after his check of GitHub** needs no new field: with an intent
+   on record and only an open pull request visible, a new call goes only on `lem land merge
+   SLUG --by owner --tip TIP --checked MOMENT`, the moment of that call, which the refusal
+   that asks him to check GitHub prints and the first command cannot carry
+   (`app/landing/merge_word.py`). The word is noted as an `OwnerAct` with what the forge
+   showed. `--checked` is a new option of `lem land merge`; `tests/unit/cli/tree.json` is
+   written again for it (for `tree`, and `surfaces.md` A's row of `land merge`).
 3. **`Checked` has the base's sha, not its tree.** A move of the base is read by tree
    (`landing.md` D: a revert or an empty commit moves nothing), so each merge step reads
    `git.tree(checked.base)` again (`app/landing/merge_world.py: checks_tree`). A `base_tree`

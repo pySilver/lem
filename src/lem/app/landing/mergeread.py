@@ -25,7 +25,8 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 WHOLE = merge_asked.WHOLE
-# The reply as the owner reads it beside the read: agent prose, written whole, never cited.
+# The reply of the read that settles, as the owner reads it beside the read: agent prose,
+# written whole, never cited; for an agent that gave none, the reason in its place.
 REVIEW = "merge-review.md"
 # The tip and the base of the brief a reply answers, as the step printed them.
 type Answered = tuple[str, str] | None
@@ -91,12 +92,12 @@ def act(
     )
     if isinstance(read, Refusal):
         raise read
-    if text is not None:
-        files.write_whole(context.folder / REVIEW, text.encode())
     context.write(context.record, partial(noted, read=read))
     again = mergeread.again(read)
     if again is not None:
         raise again
+    shown = f"No answer of the merge agent: {read.why}.\n" if text is None else text
+    files.write_whole(context.folder / REVIEW, shown.encode())
     return read
 
 
@@ -118,5 +119,5 @@ def run(
     """`lem land merge-review SLUG [--file FILE|--no-answer --tip TIP --base BASE]`."""
     given = partial(act, reply=reply, brief=brief, no_answer=no_answer)
     return merge_step.landed(
-        folder, slug, mergeread.STEP, given, told=partial(told, slug)
+        folder, slug, mergeread.STEP, given, merge_step.Hooks(told=partial(told, slug))
     )

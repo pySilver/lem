@@ -15,6 +15,7 @@ from lem.app.landing import (
     merge_called,
     merge_lock,
     merge_step,
+    merge_word,
     merge_world,
     reconcile,
 )
@@ -31,17 +32,6 @@ if TYPE_CHECKING:
     from lem.records.landing.merge import MergeIntent
 
 
-def explicit(asked: Asked, intent: MergeIntent, found: object) -> bool:
-    """Whether a new call goes over the intent on record: only while GitHub shows the pull
-    request open with nothing of the call (`found`, the reconcile's refusal), on the owner's
-    explicit word for its tip after his check, never the merge agent's, the server's or his
-    standing merge."""
-    if not isinstance(found, Refusal) or found.code != "intent":
-        return False
-    owners = asked.by == "owner" and not asked.standing
-    return owners and asked.via != "server" and asked.tip == intent.tip
-
-
 def shown(context: Context, intent: MergeIntent) -> Refusal | Found:
     """What the forge shows of the intent on record: the merge, the queue, the queue's end,
     the end of a closed request, or the refusal that keeps the intent."""
@@ -55,10 +45,13 @@ def locked(context: Context, asked: Asked) -> object:
     record, else merge on the evidence as it is now."""
     record = context.record
     intent = record.landing.intent if record.landing else None
-    if intent is not None:
+    if intent is None:
+        merge_word.unchecked(asked)
+    else:
         found = shown(context, intent)
-        if not explicit(asked, intent, found):
+        if not merge_word.explicit(asked, intent, found):
             return reconcile.written(context, record, found, intent.by)
+        record = merge_word.heard(context, record, intent)
     tree = merge_world.checks_tree(context)
     decided = merge.decide(record, context.world, asked, tree)
     if isinstance(decided, Refusal):
@@ -74,5 +67,7 @@ def act(context: Context, *, asked: Asked) -> object:
 
 
 def run(folder: Path, slug: str, asked: Asked) -> Envelope:
-    """`lem land merge SLUG --by owner|merger [--message M] [--via V] [--standing] [--tip T]`."""
-    return merge_step.landed(folder, slug, merge.STEP, partial(act, asked=asked))
+    """`lem land merge SLUG --by owner|merger [--message M] [--via V] [--standing] [--tip T]
+    [--checked MOMENT]`."""
+    hooks = merge_step.Hooks(admits=partial(merge_word.admits, asked))
+    return merge_step.landed(folder, slug, merge.STEP, partial(act, asked=asked), hooks)

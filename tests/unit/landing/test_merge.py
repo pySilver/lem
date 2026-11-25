@@ -14,6 +14,7 @@ from lem.model.landing.merge_asked import Asked
 from lem.model.landing.world import Rules
 from lem.records.landing.merge import MergeIntent, Refused
 from lem.records.landing.propose import MergeRead, Standing
+from lem.records.landing.review import Finding
 from lem.records.task import Shape
 from unit.landing.merges import (
     BY_MERGER,
@@ -21,6 +22,7 @@ from unit.landing.merges import (
     MOVED,
     MOVED_TREE,
     SUBJECT,
+    alone,
     code_of,
     facing,
     moved,
@@ -53,7 +55,9 @@ SAFE = MergeRead(
     at=MOMENT,
 )
 KEEP = Rules(base="main", history="keep", commands=("true",))
-NOT_GREEN = ("the checks did not pass",)
+MUST = Finding(
+    id="r1.2", level="must-fix", where="a.py", title="no", what="it", against="over"
+)
 
 
 def test_the_merge_agent_merges_a_green_request_on_its_reads_merge() -> None:
@@ -67,19 +71,14 @@ def test_the_merge_agent_merges_a_green_request_on_its_reads_merge() -> None:
 @pytest.mark.parametrize(
     ("landing", "shape", "rules", "why"),
     [
-        (
-            {"proposed": replace(OPENED["proposed"], reasons=NOT_GREEN)},
-            None,
-            None,
-            "not green",
-        ),
+        ({"reviews": (replace(REVIEWED, findings=(MUST,)),)}, None, None, "not green"),
         (
             {"proposed": replace(OPENED["proposed"], careful=True)},
             None,
             None,
             "careful",
         ),
-        ({}, ("money",), None, "careful"),
+        ({}, ("money",), None, "not green"),
         ({"reviews": (replace(REVIEWED, careful=None),)}, None, None, "careful call"),
         ({}, None, Rules(base="main", land="owner", commands=("true",)), "branch.land"),
         ({"reads": (replace(READ, verdict="call"),)}, None, None, "calls the owner"),
@@ -243,14 +242,14 @@ def test_after_githubs_refusal_only_the_owners_word_merges_that_tip() -> None:
     )
 
 
-def test_a_refusal_for_the_base_keeps_lems_refusal_and_the_owners_merge_standing() -> (
+def test_only_the_owners_own_word_refused_for_the_base_keeps_his_merge_standing() -> (
     None
 ):
-    landing = opened().landing
-    assert landing is not None
-    refusal = merge.decide(opened(), moved(), BY_OWNER, TREE)
+    record = opened()
+    refusal = merge.decide(record, moved(), BY_OWNER, TREE)
+    assert code_of(refusal) == "base"
     assert isinstance(refusal, Refusal)
-    held = merge_standing.kept(landing, refusal, ("owner", "board"), MOMENT)
+    held = merge_standing.kept(record, refusal, BY_OWNER, MOMENT)
     assert held is not None
     refused, standing = held
     assert (refused.source, refused.kind, refused.by, refused.tip) == (
@@ -262,36 +261,84 @@ def test_a_refusal_for_the_base_keeps_lems_refusal_and_the_owners_merge_standing
     assert standing == Standing(
         tip=TIP, reasons_digest=merge_standing.digest_of(()), by_act="board", at=MOMENT
     )
-    by_merger = merge_standing.kept(landing, refusal, ("merger", "server"), MOMENT)
-    assert by_merger is not None
-    assert by_merger[1] is None
-    other = Refusal("tip", "another tip", "read it")
-    assert merge_standing.kept(landing, other, ("owner", "board"), MOMENT) is None
+    server = Asked(by="owner", via="server", standing=True, subject=SUBJECT)
+    for asked in (BY_MERGER, server, replace(BY_OWNER, via="server")):
+        found = merge_standing.kept(record, refusal, asked, MOMENT)
+        assert found is None or found[1] is None, asked
+
+
+def test_a_stale_tap_or_a_standing_merge_with_none_is_refused_before_the_base() -> None:
+    stale = merge.decide(opened(), moved(), replace(BY_OWNER, tip=OTHER), TREE)
+    assert code_of(stale) == "tip"
+    server = Asked(by="owner", via="server", standing=True, subject=SUBJECT)
+    assert code_of(merge.decide(opened(), moved(), server, TREE)) == "tip"
+
+
+def test_the_merge_agents_refusals_by_lems_rules_are_kept_for_its_tip() -> None:
+    record = opened()
+    moved_head = merge.decide(
+        record, facing(pull=replace(SEEN, head=OTHER)), BY_MERGER, TREE
+    )
+    assert isinstance(moved_head, Refusal)
+    held = merge_standing.kept(record, moved_head, BY_MERGER, MOMENT)
+    assert held is not None
+    assert (held[0].kind, held[0].by, held[1]) == ("tip", "merger", None)
+    assert moved_head.fix in held[0].line
+    rule = merge.decide(alone(), facing(), BY_MERGER, TREE)
+    assert isinstance(rule, Refusal)
+    kept_rule = merge_standing.kept(alone(), rule, BY_MERGER, MOMENT)
+    assert kept_rule is not None
+    assert kept_rule[0].kind == "rule"
+    assert merge_standing.kept(record, moved_head, BY_OWNER, MOMENT) is None
+
+
+def test_under_the_lock_a_push_of_another_commit_or_another_pull_request_is_refused() -> (
+    None
+):
+    pushed = opened(pushed=OTHER)
+    assert code_of(merge.decide(pushed, facing(), BY_OWNER, TREE)) == "tip"
+    elsewhere = facing(pull=replace(SEEN, url="https://github.com/other/repo/pull/1"))
+    assert code_of(merge.decide(opened(), elsewhere, BY_OWNER, TREE)) == "no-pull"
+
+
+def test_the_merge_agent_reads_its_greenness_again_under_the_lock() -> None:
+    record = alone()
+    kept = record.landing
+    assert kept is not None
+    still = replace(record, landing=replace(kept, proposed=OPENED["proposed"]))
+    assert code_of(merge.decide(still, facing(), BY_MERGER, TREE)) == "merger-rule"
+
+
+def test_the_brief_says_who_merges_by_the_rules_before_any_verdict() -> None:
+    first = opened(reads=())
+    assert merge.authority(first, facing()) is not None
+    assert merge.authority(first, facing(), verdict=False) is None
+    assert merge.authority(alone(reads=()), facing(), verdict=False) is not None
 
 
 def test_the_owners_standing_merge_goes_while_its_reasons_are_the_same() -> None:
-    proposed = replace(OPENED["proposed"], reasons=NOT_GREEN, green=False)
+    record = alone()
+    proposed = record.landing.proposed if record.landing else None
+    assert proposed is not None
     standing = Standing(
         tip=TIP,
-        reasons_digest=merge_standing.digest_of(NOT_GREEN),
+        reasons_digest=merge_standing.digest_of(proposed.reasons),
         by_act="board",
         at=MOMENT,
     )
-    stands = opened(proposed=proposed, standing=standing)
+    stands = alone(standing=standing)
     server = Asked(by="owner", via="server", standing=True, subject=SUBJECT)
     made = merge.decide(stands, facing(), server, TREE)
     assert isinstance(made, merge_call.Merging)
     assert made.intent.by == "owner"
-    ended = opened(
-        proposed=replace(proposed, reasons=("another reason",)), standing=standing
-    )
+    other = replace(standing, reasons_digest=merge_standing.digest_of(("another",)))
+    ended = alone(standing=other)
     assert code_of(merge.decide(ended, facing(), server, TREE)) == "tip"
-    assert ended.landing is not None
-    assert merge_standing.standing_of(ended.landing) is None
+    assert merge_standing.standing_of(ended) is None
 
 
 def test_the_owners_word_merges_a_request_that_is_not_green() -> None:
-    red = opened(proposed=replace(OPENED["proposed"], reasons=NOT_GREEN, green=False))
+    red = alone()
     assert code_of(merge.decide(red, facing(), BY_MERGER, TREE)) == "merger-rule"
     made = merge.decide(red, facing(), BY_OWNER, TREE)
     assert isinstance(made, merge_call.Merging)

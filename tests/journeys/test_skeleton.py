@@ -342,7 +342,7 @@ def brief(capsys: pytest.CaptureFixture[str], world: World) -> Envelope:
 def reply(capsys: pytest.CaptureFixture[str], world: World) -> Envelope:
     """The merge agent's reply to the brief, with its tip and base."""
     said = world.written(
-        "reply.md", "merge\n\nOne word; the checks and the read hold.\n"
+        "reply.md", "Verdict: merge\n\nOne word; the checks and the read hold.\n"
     )
     words = ("--file", said, "--tip", world.told["tip"], "--base", world.told["base"])
     return lem(capsys, world.checkout, "land", "merge-review", SLUG, *words)

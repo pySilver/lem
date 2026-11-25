@@ -6,7 +6,7 @@ check:tests/lem-land-shop.sh:a-landed-task-does-not-land-again-764bbeb0f68241e8	
 check:tests/lem-land-shop.sh:a-merge-agent-that-ends-twice-with-no-answer-7219aa0fb920f8ca	changed	journeys.landing.test_merge.test_no_answer_twice_is_an_unusable_answer_twice	after a revert the read of the checks' tree covers again; two ends with no answer call the owner
 check:tests/lem-land-shop.sh:a-merge-github-refuses-says-github-s-line-ke-b86ec49cd5127bfe	kept	journeys.landing.test_merge.test_after_githubs_refusal_the_owners_word_lands_it	
 check:tests/lem-land-shop.sh:a-merge-whose-real-parent-on-github-is-not-t-e097894c75b6e467	kept	journeys.landing.test_merge.test_a_merge_on_github_between_the_look_and_the_call_lands_uncovered	
-check:tests/lem-land-shop.sh:a-move-of-the-base-that-a-revert-undid-after-ab9f63352b1f3609	changed	unit.landing.test_phases.test_a_moved_base_is_tried_then_read_once_lem_refused_it_for_the_base	the read of the checks' tree covers the reverted base again, with no new brief
+check:tests/lem-land-shop.sh:a-move-of-the-base-that-a-revert-undid-after-ab9f63352b1f3609	changed	unit.landing.test_phases.test_a_read_covers_one_base_by_its_tree_and_a_moved_base_is_read_first	the read of the checks' tree covers the reverted base again, with no new brief
 check:tests/lem-land-shop.sh:a-read-that-says-another-round-merges-nothin-a6f90382ea28627b	kept	journeys.landing.test_merge.test_a_read_that_says_another_round_makes_a_new_round_and_no_new_brief	the carry of the merge review onto the new landing is land-propose's
 check:tests/lem-land-shop.sh:a-safe-read-of-a-moved-base-still-calls-the-14c03399fadccd32	kept	unit.landing.test_merge.test_a_careful_request_with_a_safe_read_still_calls_the_owner	
 check:tests/lem-land-shop.sh:after-the-merge-on-github-the-state-is-lande-ba855e5d5134b6ad	kept	journeys.landing.test_merge.test_a_main_checkout_that_cannot_follow_is_left_with_gits_words	
@@ -14,7 +14,7 @@ check:tests/lem-land-shop.sh:clean-refuses-a-task-that-has-not-landed-39102b164c
 check:tests/lem-land-shop.sh:clean-removes-a-landed-task-s-worktree-and-i-6987e61c986177ab	kept	journeys.test_skeleton.test_a_fast_track_task_lands_and_each_step_is_the_due_one	
 check:tests/lem-land-shop.sh:clean-removes-an-answered-task-s-worktree-an-6597c5718bb01b9c	kept	journeys.landing.test_merge.test_a_dropped_or_answered_tasks_branch_stays_with_its_commits[answered]	
 check:tests/lem-land-shop.sh:clean-removes-the-landed-task-s-branch-when-158bf9f0f6c754da	kept	journeys.landing.test_merge.test_a_cut_after_an_effect_of_a_merge_on_a_moved_base_does_nothing_twice[worktree_remove-1]	
-check:tests/lem-land-shop.sh:merge-refuses-when-the-base-moved-by-a-file-0d99065187f50afe	kept	journeys.landing.test_merge.test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read	
+check:tests/lem-land-shop.sh:merge-refuses-when-the-base-moved-by-a-file-0d99065187f50afe	changed	journeys.landing.test_merge.test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read	the merge agent's merge on a moved base is not due: the read of what moved is due first
 check:tests/lem-land-shop.sh:on-a-base-that-did-not-move-a-first-answer-w-a884b12fdc58f578	kept	journeys.landing.test_merge.test_two_unusable_answers_on_an_unmoved_base_call_the_owner_and_no_read_is_due	
 check:tests/lem-land-shop.sh:on-a-base-that-did-not-move-a-merge-agent-th-ebad24e9d3d52a09	kept	journeys.landing.test_merge.test_no_answer_twice_is_an_unusable_answer_twice	
 check:tests/lem-land-shop.sh:on-a-moved-base-where-the-owner-merges-a-mer-7d2e213f66e4bb47	kept	journeys.landing.test_merge.test_two_unusable_answers_on_a_moved_base_are_another_round	
@@ -33,7 +33,7 @@ event:merge.start	changed	journeys.landing.test_merge.test_a_cut_after_an_effect
 event:merge.wait	changed	journeys.landing.test_merge.test_a_cut_after_an_effect_of_a_merge_on_a_moved_base_does_nothing_twice[merge-1]	a typed MergeWait journal entry with the slug that holds the lock (merge_lock.waits); no case holds two merges at once yet
 path:base-checkout-cannot-follow	kept	journeys.landing.test_merge.test_a_main_checkout_that_cannot_follow_is_left_with_gits_words	
 path:base-moved-after-a-safe-read	kept	journeys.landing.test_merge.test_a_safe_read_covers_its_base_and_no_later_one	
-path:base-moved-open-pr	kept	journeys.landing.test_merge.test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read	
+path:base-moved-open-pr	changed	journeys.landing.test_merge.test_the_owners_merge_refused_for_the_base_stands_and_the_server_merges_it	on a moved base the read of what moved is due first (C: no read covers the base now); the owner's own word is taken beside it and refused for the base, his merge standing; the merge agent's is not due
 path:clean-dirty	kept	journeys.landing.test_merge.test_a_dirty_worktree_is_not_cleaned	
 path:clean-dropped-or-answered	kept	journeys.landing.test_merge.test_a_dropped_or_answered_tasks_branch_stays_with_its_commits[dropped]	
 path:clean-landed	kept	journeys.landing.test_merge.test_a_branch_rebased_after_its_push_goes_when_it_holds_the_same_change	
@@ -48,7 +48,7 @@ path:owner-merge-refused-for-the-base	kept	journeys.landing.test_merge.test_the_
 path:retarget-after-the-locked-read	kept	journeys.landing.test_merge.test_a_retarget_after_the_locked_read_is_no_landing_and_cleans_nothing	
 path:retarget-before-the-read	kept	journeys.landing.test_merge.test_a_retarget_before_the_merge_is_refused_with_the_edit_that_puts_it_back	
 path:stale-tap	kept	journeys.landing.test_merge.test_a_stale_tap_merges_nothing	
-path:stop-or-lost-reply-around-the-merge-call	kept	journeys.landing.test_merge.test_a_cut_after_an_effect_of_a_merge_on_a_moved_base_does_nothing_twice[write:intent-1]	with the owner's explicit word over a kept intent: lem land merge --by owner --tip TIP (not the server, not --standing)
+path:stop-or-lost-reply-around-the-merge-call	kept	journeys.landing.test_merge.test_a_replay_of_the_owners_own_command_after_a_lost_reply_sends_nothing	the owner's word over a kept intent is lem land merge --by owner --tip TIP --checked MOMENT, the moment of that call, which the first command cannot carry; it is noted with what the forge showed
 path:the-parent-by-merge-method	kept	journeys.landing.test_merge.test_a_merge_that_keeps_the_branchs_commits_rebases_and_its_parent_is_the_old_base	
 path:transport-fault	kept	journeys.landing.test_merge.test_a_transport_fault_before_the_call_keeps_nothing_and_the_next_try_lands	
 path:two-unusable-answers	kept	journeys.landing.test_merge.test_two_unusable_answers_on_an_unmoved_base_call_the_owner_and_no_read_is_due	
@@ -84,7 +84,7 @@ refusal:may_merge:no-merge-review-of-the-proposed-tip-is-on-re-60bb3e7a1bef945c	
 refusal:may_merge:no-review-that-answered-made-the-careful-cal-55ec15e7ad4de64d	kept	unit.landing.test_merge.test_the_merge_agent_may_not_merge_what_somebody_should_look_at_first[no careful call]	
 refusal:may_merge:the-merge-review-calls-the-owner-he-reads-it-febc2454fee5d1f6	kept	unit.landing.test_merge.test_the_merge_agent_may_not_merge_what_somebody_should_look_at_first[the read calls him]	
 refusal:may_merge:the-request-is-not-green-listed-so-the-owner-d68ed8caf63f4973	kept	unit.landing.test_merge.test_the_merge_agent_may_not_merge_what_somebody_should_look_at_first[not green]	
-refusal:merge_lock:the-merge-lock-path-cannot-be-opened-error-s-2411a0741d40c13a	changed	journeys.landing.test_merge.test_a_transport_fault_before_the_call_keeps_nothing_and_the_next_try_lands	the merge lock is kernel.locks.held; a lock that cannot be opened is a fault (exit 3, lem.log), which keeps nothing
+refusal:merge_lock:the-merge-lock-path-cannot-be-opened-error-s-2411a0741d40c13a	changed	journeys.landing.test_merge.test_a_merge_lock_that_cannot_be_opened_is_a_fault_that_keeps_nothing	the merge lock is kernel.locks.held; a lock that cannot be opened is a fault (exit 3, lem.log), which keeps nothing
 refusal:merge_locked:branch-history-is-keep-the-branch-s-own-comm-9d791ee9fa31e515	kept	journeys.landing.test_merge.test_a_merge_that_keeps_the_branchs_commits_rebases_and_its_parent_is_the_old_base	
 refusal:merge_locked:branch-history-is-squash-pass-message-with-t-583f67207f908f64	kept	unit.landing.test_merge.test_the_merge_as_asked_is_refused_and_no_intent_is_written[no subject]	
 refusal:merge_locked:github-refused-the-merge-of-url-line-6e1a8bf5efc96dae	kept	journeys.landing.test_merge.test_after_githubs_refusal_the_owners_word_lands_it	
@@ -92,7 +92,7 @@ refusal:merge_locked:github-s-answer-for-the-pull-request-url-nam-eca4589b757399
 refusal:merge_locked:github-took-the-merge-and-the-pull-request-i-d730dbeac8f1663e	changed	journeys.landing.test_merge.test_a_queue_that_took_the_call_is_written_and_merged_handles_its_end	the queue's acceptance is written (MergeAccepted) and merge ends ok; merged is due
 refusal:merge_locked:no-green-check-is-on-record-for-this-tip-run-9ca62e47b05a8aac	kept	unit.landing.test_merge.test_a_merge_is_refused_on_the_evidence_read_again_under_the_lock[red checks]	
 refusal:merge_locked:no-merge-of-the-owner-s-stands-for-the-propo-029d5a1cc87d8fee	kept	unit.landing.test_merge.test_the_merge_as_asked_is_refused_and_no_intent_is_written[no standing]	
-refusal:merge_locked:onto-moved-after-the-checks-ran-by-files-lis-31207743aeef7b13	changed	journeys.landing.test_merge.test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read	the move is by tree, not by files; the refusal names merge-review
+refusal:merge_locked:onto-moved-after-the-checks-ran-by-files-lis-31207743aeef7b13	changed	journeys.landing.test_merge.test_the_owners_merge_refused_for_the_base_stands_and_the_server_merges_it	the move is by tree, not by files; the read of what moved is due first, and the owner's word on a moved base is refused base, naming merge-review
 refusal:merge_locked:onto-moved-after-the-checks-ran-by-files-lis-b6bc163785df863a	changed	journeys.landing.test_merge.test_a_read_that_says_another_round_makes_a_new_round_and_no_new_brief	after a read that said another round, start is due and merge is refused not-due
 refusal:merge_locked:onto-moved-after-the-checks-ran-by-files-lis-e78852339b972a06	changed	journeys.landing.test_merge.test_two_unusable_answers_on_a_moved_base_are_another_round	after another round recorded for want of an answer, start is due
 refusal:merge_locked:task-slug-has-no-pull-request-on-record-lem-e8aacada5d0b4f52	kept	unit.landing.test_merge.test_a_merge_is_refused_on_the_evidence_read_again_under_the_lock[no pull request]	
@@ -108,7 +108,7 @@ refusal:step:tip-and-base-go-with-file-or-no-answer-the-t-1d162e90dec1986f	chang
 seam:pr-text-edit-fails	changed	journeys.landing.test_merge.test_a_failed_edit_of_the_text_leaves_it_waiting_and_merged_tries_again	the newer text is published as pr-ROUND-DIGEST.md and waits in proposed.text_waits; proposed.text cites the text the forge confirmed
 unit:tests/unit/test_land.py:ExpectedTip.test_a_tip_proposed_after_it_is_refused	kept	unit.landing.test_merge.test_the_merge_as_asked_is_refused_and_no_intent_is_written[the merger's old tip]	
 unit:tests/unit/test_land.py:ExpectedTip.test_an_empty_or_short_tip_is_refused	kept	unit.landing.test_merge.test_the_merge_as_asked_is_refused_and_no_intent_is_written[a short tip]	
-unit:tests/unit/test_land.py:ExpectedTip.test_the_tip_that_was_proposed	kept	unit.landing.test_merge.test_the_merge_agent_merges_a_green_request_on_its_reads_merge	
+unit:tests/unit/test_land.py:ExpectedTip.test_the_tip_that_was_proposed	kept	unit.landing.test_merge.test_the_owners_word_merges_a_request_that_is_not_green	
 unit:tests/unit/test_land.py:FirstDiffer.test_the_first_pair_that_differs	changed	journeys.landing.test_merge.test_a_branch_changed_after_its_push_stays_with_the_commands_that_show_it	the line gives the range-diff that shows the difference, not the first commit that differs
 unit:tests/unit/test_land.py:FirstDiffer.test_the_same_trees_name_no_commit	changed	journeys.landing.test_merge.test_a_branch_changed_after_its_push_stays_with_the_commands_that_show_it	the line gives the range-diff that shows the difference, not the first commit that differs
 unit:tests/unit/test_land.py:ForgeBase.test_another_base_is_named	kept	unit.landing.test_invariants.test_a_pull_request_into_another_branch_is_not_the_tasks	
@@ -123,7 +123,7 @@ unit:tests/unit/test_land.py:MergeReview.test_the_verdict_is_the_first_line	kept
 unit:tests/unit/test_land.py:MergeReview.test_the_why_of_a_second_answer_with_no_verdict_says_what_the_two_answers_hold	kept	unit.landing.test_mergeread.test_the_second_unusable_answer_on_an_unmoved_base_calls_the_owner_with_no_verdict	
 unit:tests/unit/test_land.py:MergeReview.test_the_why_of_a_second_end_with_no_answer_says_that_the_last_try_gave_none	kept	unit.landing.test_mergeread.test_no_answer_twice_on_an_unmoved_base_says_that_the_last_try_gave_none	
 unit:tests/unit/test_land.py:ReadOfAMovedBase.test_a_base_no_read_covered_is_named	kept	unit.landing.test_reconcile.test_a_merge_on_github_between_the_look_and_the_call_lands_uncovered	
-unit:tests/unit/test_land.py:ReadOfAMovedBase.test_a_read_on_the_checks_base_answers_lems_base_refusal_too	changed	unit.landing.test_phases.test_a_moved_base_is_tried_then_read_once_lem_refused_it_for_the_base	a read covers its base by tree: after a revert the read of the checks' tree covers again with no new read
+unit:tests/unit/test_land.py:ReadOfAMovedBase.test_a_read_on_the_checks_base_answers_lems_base_refusal_too	changed	unit.landing.test_phases.test_a_read_covers_one_base_by_its_tree_and_a_moved_base_is_read_first	a read covers its base by tree: after a revert the read of the checks' tree covers again with no new read
 unit:tests/unit/test_land.py:ReadOfAMovedBase.test_a_record_with_no_verdict_answers_no_refusal	kept	journeys.landing.test_merge.test_two_unusable_answers_on_a_moved_base_are_another_round	
 unit:tests/unit/test_land.py:ReadOfAMovedBase.test_a_safe_read_answers_only_lems_base_refusal_of_its_tip	kept	journeys.landing.test_merge.test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read	
 unit:tests/unit/test_land.py:ReadOfAMovedBase.test_a_safe_read_covers_its_own_base	kept	unit.landing.test_mergeread.test_a_read_is_usable_for_the_proposed_tip_on_its_base_tree_once_it_settles	

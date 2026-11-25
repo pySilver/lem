@@ -1571,6 +1571,11 @@
               "aliases": [],
               "value": true,
               "required": false
+            },
+            "--checked": {
+              "aliases": [],
+              "value": true,
+              "required": false
             }
           },
           "positionals": [

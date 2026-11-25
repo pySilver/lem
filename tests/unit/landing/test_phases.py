@@ -19,6 +19,7 @@ from unit.landing.merges import (
     INTENT,
     MOVED,
     MOVED_TREE,
+    alone,
     facing,
     moved,
     opened,
@@ -110,13 +111,9 @@ def test_in_open_the_read_then_the_merge_by_whom_the_read_and_settings_say() -> 
     assert step_of(phases.due(opened(), owner)) == ("merge", "owner")
 
 
-def test_a_moved_base_is_tried_then_read_once_lem_refused_it_for_the_base() -> None:
-    assert step_of(phases.due(opened(), moved())) == ("merge", "merger")
+def test_a_read_covers_one_base_by_its_tree_and_a_moved_base_is_read_first() -> None:
+    assert phases.due(opened(), moved()).step == "merge-review"
     assert step_of(phases.due(opened(), facing(base=MOVED))) == ("merge", "merger")
-    refused = Refused(
-        tip=TIP, source="lem", kind="base", line="it moved", by="merger", at=MOMENT
-    )
-    assert phases.due(opened(refused=refused), moved()).step == "merge-review"
     safe = MergeRead(
         tip=TIP,
         base=MOVED,
@@ -126,12 +123,61 @@ def test_a_moved_base_is_tried_then_read_once_lem_refused_it_for_the_base() -> N
         why="a document moved",
         at=MOMENT,
     )
-    covered = opened(reads=(READ, safe), refused=refused)
-    assert step_of(phases.due(covered, moved())) == ("merge", "merger")
+    assert step_of(phases.due(opened(reads=(READ, safe)), moved())) == (
+        "merge",
+        "merger",
+    )
     again = moved(base="d" * 40, base_tree="0" * 40)
-    assert step_of(phases.due(opened(reads=(READ, safe)), again)) == ("merge", "merger")
+    assert phases.due(opened(reads=(READ, safe)), again).step == "merge-review"
     reverted = facing(base="d" * 40)
-    assert step_of(phases.due(opened(refused=refused), reverted)) == ("merge", "merger")
+    assert step_of(phases.due(opened(reads=(READ, safe)), reverted)) == (
+        "merge",
+        "merger",
+    )
+
+
+def test_a_verdict_of_another_base_gives_no_authority_on_this_one() -> None:
+    called = MergeRead(
+        tip=TIP,
+        base=MOVED,
+        base_tree=MOVED_TREE,
+        verdict="call",
+        base_call="safe",
+        why="the owner reads it",
+        at=MOMENT,
+    )
+    later = MergeRead(
+        tip=TIP,
+        base="d" * 40,
+        base_tree="0" * 40,
+        verdict="merge",
+        base_call="safe",
+        why="fine",
+        at=MOMENT,
+    )
+    back = opened(reads=(READ, called, later))
+    assert step_of(phases.due(back, moved())) == ("merge", "owner")
+
+
+def test_a_refusal_lem_kept_of_the_merge_agents_merge_waits_for_the_owner() -> None:
+    refused = Refused(
+        tip=TIP,
+        source="lem",
+        kind="tip",
+        line="the head moved; read it",
+        by="merger",
+        at=MOMENT,
+    )
+    due = phases.due(opened(refused=refused), facing())
+    assert step_of(due) == ("merge", "owner")
+    assert "Lem refused the merge agent's merge of this tip: the head moved" in due.why
+
+
+def test_a_merge_on_github_during_a_new_round_is_bookkept_first() -> None:
+    merged = facing(pull=replace(SEEN, state="merged"))
+    record = task("landing", **{**PREPARED, "pull": OPENED["pull"]})
+    assert phases.due(record, merged).step == "merged"
+    assert phases.due(task("landing", **PREPARED), merged).step != "merged"
 
 
 def test_a_read_that_says_another_round_makes_a_new_round_due() -> None:
@@ -200,17 +246,18 @@ def test_a_merge_into_another_base_waits_with_its_line() -> None:
 
 
 def test_the_owners_standing_merge_is_the_servers_to_carry_out() -> None:
-    reasons = ("the checks did not pass",)
+    record = alone()
+    proposed = record.landing.proposed if record.landing else None
+    assert proposed is not None
     standing = Standing(
-        tip=TIP, reasons_digest=digest_of(reasons), by_act="board", at=MOMENT
+        tip=TIP, reasons_digest=digest_of(proposed.reasons), by_act="board", at=MOMENT
     )
-    proposed = replace(OPENED["proposed"], reasons=reasons, green=False)
-    record = opened(proposed=proposed, standing=standing)
-    due = phases.due(record, facing())
+    stands = alone(standing=standing)
+    due = phases.due(stands, facing())
     assert step_of(due) == ("merge", "owner")
     assert "--standing" in due.why
-    ended = opened(proposed=replace(proposed, reasons=("another",)), standing=standing)
-    assert "--standing" not in phases.due(ended, facing()).why
+    other = replace(standing, reasons_digest=digest_of(("another",)))
+    assert "--standing" not in phases.due(alone(standing=other), facing()).why
 
 
 def test_after_the_merge_its_bookkeeping_the_cleanup_and_the_end() -> None:

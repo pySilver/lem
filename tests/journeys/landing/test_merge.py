@@ -132,11 +132,10 @@ def test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read(
     world = made(tmp_path, monkeypatch)
     upto(capsys, world, "merge")
     moved(world)
-    refused = MERGE(capsys, world)["refusal"]
-    assert refused["code"] == "base"
-    assert calls(world) == 0
-    assert landing(world)["refused"]["kind"] == "base"
     assert due(capsys, world)["step"] == "merge-review"
+    assert MERGE(capsys, world)["refusal"]["code"] == "not-due"
+    assert calls(world) == 0
+    assert "refused" not in landing(world)
     media = world.task_folder / "media"
     media.mkdir()
     (media / "after.png").write_bytes(b"a picture")
@@ -155,7 +154,6 @@ def test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read(
     )
     safe = answered(capsys, world, SAFE)
     assert safe["result"]["base_call"] == "safe"
-    assert "refused" not in landing(world)
     assert MERGE(capsys, world)["ok"] is True
     assert calls(world) == 1
     body = run_git(world.repo.origin, "log", "-1", "--format=%B", "main")
@@ -176,11 +174,10 @@ def test_a_safe_read_covers_its_base_and_no_later_one(
     world = made(tmp_path, monkeypatch)
     upto(capsys, world, "merge")
     moved(world)
-    assert MERGE(capsys, world)["refusal"]["code"] == "base"
     assert read(capsys, world, SAFE)["ok"] is True
     moved(world, "LATER.md")
-    assert MERGE(capsys, world)["refusal"]["code"] == "base"
     assert due(capsys, world)["step"] == "merge-review"
+    assert MERGE(capsys, world)["refusal"]["code"] == "not-due"
     assert read(capsys, world, SAFE)["ok"] is True
     assert MERGE(capsys, world)["ok"] is True
     assert calls(world) == 1
@@ -192,7 +189,6 @@ def test_a_read_that_says_another_round_makes_a_new_round_and_no_new_brief(
     world = made(tmp_path, monkeypatch)
     upto(capsys, world, "merge")
     moved(world)
-    assert MERGE(capsys, world)["refusal"]["code"] == "base"
     said = read(capsys, world, ROUND)
     assert said["result"]["base_call"] == "another round"
     assert due(capsys, world)["step"] == "start"
@@ -240,11 +236,14 @@ def test_two_unusable_answers_on_a_moved_base_are_another_round(
     world = made(tmp_path, monkeypatch)
     upto(capsys, world, "merge")
     moved(world)
-    assert MERGE(capsys, world)["refusal"]["code"] == "base"
     assert read(capsys, world, "Verdict: merge.\n")["refusal"]["code"] == "no-verdict"
     second = answered(capsys, world, None)
     assert second["result"]["base_call"] == "another round"
     assert "could not be recorded twice" in second["result"]["why"]
+    review = (world.task_folder / "merge-review.md").read_text()
+    assert review.startswith(
+        "No answer of the merge agent: the merge agent's answer could"
+    )
     assert due(capsys, world)["step"] == "start"
     assert calls(world) == 0
 
@@ -365,9 +364,59 @@ def test_with_only_an_open_pull_request_a_new_call_goes_on_the_owners_word_alone
         "the owner checks https://github.com/owner/project/pull/1"
     )
     assert calls(world) == 0
-    assert owner(capsys, world)["ok"] is True
+    assert owner(capsys, world)["refusal"]["code"] == "intent"
+    assert owner(capsys, world, *checked(refused))["ok"] is True
     assert calls(world) == 1
+    acts = [
+        entry for entry in world.record()["journal"] if entry["kind"] == "owner-act"
+    ]
+    assert acts[-1]["option"].startswith("open at ")
     landed(capsys, world)
+
+
+def checked(refused: Envelope) -> tuple[str, str]:
+    """The owner's word after his check, as the refusal that asked him for it names it."""
+    return ("--checked", refused["fix"].rsplit("--checked ", 1)[1])
+
+
+def test_a_replay_of_the_owners_own_command_after_a_lost_reply_sends_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    lose(monkeypatch, world)
+    assert owner(capsys, world)["code"] == 3
+    assert landing(world)["intent"]["by"] == "owner"
+    refused = owner(capsys, world)["refusal"]
+    assert refused["code"] == "intent"
+    assert calls(world) == 0
+    stale = owner(capsys, world, "--checked", "20200101T000000Z")["refusal"]
+    assert stale["code"] == "intent"
+    assert calls(world) == 0
+    assert owner(capsys, world, *checked(refused))["ok"] is True
+    assert calls(world) == 1
+
+
+def test_the_owners_checked_word_with_no_call_on_record_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    refused = owner(capsys, world, "--checked", "20261125T100000Z")["refusal"]
+    assert refused["code"] == "checked"
+    assert calls(world) == 0
+
+
+def test_a_merge_lock_that_cannot_be_opened_is_a_fault_that_keeps_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    (world.checkout / ".lem" / "state" / "locks" / "merge.lock").mkdir(parents=True)
+    before = world.record()
+    assert MERGE(capsys, world)["code"] == 3
+    assert world.record() == before
+    assert calls(world) == 0
 
 
 # ---- the forge's answers: a queue, a text edit that fails, a retarget, a merge between ----
@@ -414,7 +463,6 @@ def test_a_failed_edit_of_the_text_leaves_it_waiting_and_merged_tries_again(
     world = made(tmp_path, monkeypatch)
     upto(capsys, world, "merge")
     moved(world)
-    assert MERGE(capsys, world)["refusal"]["code"] == "base"
     assert read(capsys, world, SAFE)["ok"] is True
     assert MERGE(capsys, world)["ok"] is True
     world.forge.fail_edits = True
@@ -726,28 +774,28 @@ def news(before: Record, after: Record) -> list[str]:
     return [name for name, new in found if new]
 
 
-def refused_for_the_base(capsys: Capsys, world: World) -> Envelope:
-    found = MERGE(capsys, world)
-    return found if found.get("ok") else {**found, "expected": found["refusal"]["code"]}
-
-
 def safe_read(capsys: Capsys, world: World) -> Envelope:
     return answered(capsys, world, SAFE)
 
 
 def merged_on_the_safe_read(capsys: Capsys, world: World) -> Envelope:
     """The merge agent's merge; after a stop between the intent and the call, the owner's
-    word after his check of GitHub."""
+    word after his check of GitHub, as the refusal names it."""
     found = MERGE(capsys, world)
     if found.get("refusal", {}).get("code") == "intent":
-        return owner(capsys, world)
+        return owner(capsys, world, *checked(found["refusal"]))
     return found
+
+
+def tapped(capsys: Capsys, world: World) -> Envelope:
+    """The owner's merge of the tip he saw, on a base that moved: refused for the base."""
+    return owner(capsys, world)
 
 
 # The steps after origin's base moved, each with the step `lem land next` names before it and
 # the refusal it ends with, if any.
 FLOW: tuple[tuple[str, Callable[[Capsys, World], Envelope], str | None], ...] = (
-    ("merge", MERGE, "base"),
+    ("merge", tapped, "base"),
     ("merge-review", brief, None),
     ("merge-review", safe_read, None),
     ("merge", merged_on_the_safe_read, None),
@@ -834,6 +882,10 @@ def test_a_cut_after_an_effect_of_a_merge_on_a_moved_base_does_nothing_twice(
         assert counted[act] == 1, act
     assert text_of(world).count("Only NOTES.md moved") == 1
     assert world.repo.head_of(BRANCH) is None
+    proposed = landing(world)["proposed"]
+    assert "text_waits" not in proposed
+    cited = (world.task_folder / proposed["text"]).read_text()
+    assert cited == text_of(world)
 
 
 @pytest.mark.parametrize(
@@ -861,3 +913,47 @@ def test_a_wrong_call_of_the_merges_words_is_exit_2_before_any_look(
     assert lazy.main(argv) == 2
     capsys.readouterr()
     assert world.acts.done == []
+
+
+def again(state: Path) -> None:
+    """A new round begun, as `lem land start` of an open task writes it (the step
+    `land-base` builds that start): the task landing, its landing preparing round 2."""
+    record = tasks.read(state, SLUG)
+
+    def begun(before: Record) -> Record:
+        moved = changes.moved(before, "landing", "a new round", clock.now())
+        return changes.landing(moved, phase="preparing", round=2, relands=1)
+
+    tasks.update(state, SLUG, begun, record.revision)
+
+
+def test_a_merge_on_github_while_a_new_round_runs_is_written_down_and_lands(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    (world.worktree / "MORE.md").write_text("one more\n")
+    run_git(world.worktree, "add", "MORE.md")
+    run_git(world.worktree, "commit", "--quiet", "--message", "one more")
+    assert due(capsys, world)["step"] == "start"
+    again(world.checkout / ".lem" / "state")
+    world.forge.outside_merge(1)
+    assert due(capsys, world)["step"] == "merged"
+    bookkept = MERGED(capsys, world)
+    assert bookkept["ok"] is True, bookkept
+    assert world.record()["task"]["status"] == "landed"
+    assert landing(world)["merged"]["via"] == "github"
+
+
+def test_a_linked_worktree_that_holds_the_base_follows_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    run_git(world.checkout, "switch", "--quiet", "-c", "elsewhere")
+    holder = tmp_path / "base-checkout"
+    run_git(world.checkout, "worktree", "add", "--quiet", str(holder), "main")
+    assert MERGE(capsys, world)["ok"] is True
+    assert MERGED(capsys, world)["ok"] is True
+    assert "left_behind" not in landing(world)["merged"]
+    assert run_git(holder, "rev-parse", "HEAD") == world.repo.head_of("main")

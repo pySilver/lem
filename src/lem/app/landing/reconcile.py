@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from lem.app.landing.frame import Context
     from lem.model.landing.merge_asked import Asked
     from lem.model.landing.world import Merger
+    from lem.records.landing.propose import Standing
     from lem.records.record import Record
 
 type Found = Merged | MergeAccepted | Refused | None
@@ -78,19 +79,20 @@ def written(
     return found
 
 
+def stood(record: Record, *, held: tuple[Refused, Standing | None]) -> Record:
+    """The record with a refusal kept for its tip and, for the owner's own word refused for
+    the base, his merge standing: one write, so a stop never keeps one without the other."""
+    refused, standing = held
+    changed = taken(record, found=refused)
+    if standing is None:
+        return changed
+    return changes.landing(changed, standing=standing)
+
+
 def kept(context: Context, record: Record, refusal: Refusal, asked: Asked) -> Refusal:
-    """Keep what a refusal of the merge for the base keeps, Lem's refusal of the tip and the
-    owner's merge standing, and give the refusal (`main:land.cmd_merge`)."""
-    landing = record.landing
-    if landing is None:
-        return refusal
-    held = merge_standing.kept(
-        landing, refusal, (asked.by, asked.via), context.world.now
-    )
-    if held is None:
-        return refusal
-    keep, standing = held
-    after = context.write(record, partial(taken, found=keep))
-    if standing is not None and merge_standing.standing_of(landing) is None:
-        context.write(after, partial(changes.landing, standing=standing))
+    """Keep what a refusal of the merge keeps (`model/landing/merge_standing.py`), and give
+    the refusal."""
+    held = merge_standing.kept(record, refusal, asked, context.world.now)
+    if held is not None:
+        context.write(record, partial(stood, held=held))
     return refusal

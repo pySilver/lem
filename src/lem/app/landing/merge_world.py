@@ -2,10 +2,12 @@
 judged by, the queue's end, and the facts of a branch the cleanup decides on (`landing.md` D and
 E)."""
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lem.model.landing.clean import Facts, Rebased
 from lem.model.landing.reconcile import Trees
+from lem.store import places
 
 if TYPE_CHECKING:
     from lem.app.landing.frame import Context
@@ -83,3 +85,27 @@ def dequeued_of(context: Context) -> str | None:
     if pull is None or pull.state != "open" or pull.queued or landing is None:
         return None
     return context.ports.forge.pull(pull.number).dequeued
+
+
+def base_checkout(context: Context) -> Path | None:
+    """The checkout that holds the base branch: the main one, or a linked worktree of the
+    repository whose HEAD is that branch (`main:land.follow`); None when none does. Read from
+    git's own files, as `store.places` reads them."""
+    checkout = context.workspace.checkout
+    wanted = LOCAL.format(context.world.rules.base)
+    common = places.common_dir(checkout / ".git")
+    if headed(common, wanted):
+        return checkout
+    for linked in sorted((common / "worktrees").glob("*")):
+        if headed(linked, wanted):
+            named = (linked / "gitdir").read_text(encoding="utf-8").strip()
+            return Path(named).parent
+    return None
+
+
+def headed(gitdir: Path, ref: str) -> bool:
+    """Whether the git directory `gitdir` has the branch `ref` checked out."""
+    head = gitdir / "HEAD"
+    if not head.is_file():
+        return False
+    return head.read_text(encoding="utf-8").strip() == f"ref: {ref}"

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
+from lem.model.landing import green
 from lem.model.landing.merge_asked import Asked
 from lem.model.landing.reconcile import Trees
 from lem.records.landing.merge import MergeIntent
@@ -59,3 +60,18 @@ def code_of(found: object) -> str:
     """The code of a refusal; a case fails on anything else."""
     assert isinstance(found, Refusal), found
     return found.code
+
+
+def alone(**landing: object) -> Record:
+    """An open task whose criteria the owner did not approve (it ran without him): not green,
+    with the proposal saying so as it was proposed."""
+    record = opened(**landing)
+    criteria = record.task.criteria
+    approvals = tuple(replace(one, by="alone") for one in criteria.approvals)
+    task = replace(record.task, criteria=replace(criteria, approvals=approvals))
+    made = replace(record, task=task)
+    reasons = green.reasons(made)
+    proposed = replace(OPENED["proposed"], reasons=reasons, green=False)
+    kept = made.landing
+    assert kept is not None
+    return replace(made, landing=replace(kept, proposed=proposed))

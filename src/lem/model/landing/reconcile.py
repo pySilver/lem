@@ -10,10 +10,12 @@ into another branch than the task's base is no landing. A merge whose base on th
 the checks nor a safe read covered lands, with a line that says so.
 """
 
+from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
+from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.landing import merge_lines, mergeread
 from lem.model.landing.invariants import target
@@ -25,6 +27,14 @@ from lem.records.landing.record import Landing
 if TYPE_CHECKING:
     from lem.records.record import Record
 
+RECONCILED = "a merge call is on record: it is reconciled first"
+# Who refused a merge kept for its tip, as the due step says it.
+SAID = MappingProxyType(
+    {
+        "lem": "Lem refused the merge agent's merge",
+        "github": "GitHub refused the merge",
+    }
+)
 type Found = Merged | MergeAccepted | Refused | None
 
 
@@ -39,22 +49,26 @@ class Trees(Frozen, frozen=True, kw_only=True):
 def pending(landing: Landing, world: World) -> Due | None:
     """What a merge call left, which comes before anything else of an open request: an
     intent to reconcile, a merge into another base that waits for the owner, the forge's
-    merge, queue or end to write down, or GitHub's refusal of this tip, which only the owner's
-    word merges after."""
-    pull, proposed, refused = world.pull, landing.proposed, landing.refused
-    tip = proposed.tip if proposed else None
+    merge, queue or end to write down, or a refusal kept for this tip, GitHub's or Lem's of
+    the merge agent's merge, after which only the owner's word merges it."""
+    pull, refused = world.pull, landing.refused
+    tip = landing.proposed.tip if landing.proposed else None
     if landing.intent is not None:
-        why = "a merge call is on record: it is reconciled first"
-        return Due(step="merge", why=why, by=landing.intent.by)
-    if refused is not None and refused.tip == tip and refused.kind == "target":
+        return Due(step="merge", why=RECONCILED, by=landing.intent.by)
+    elsewhere = (
+        pull is not None and pull.state == "merged" and pull.base != world.rules.base
+    )
+    if refused is not None and refused.tip == tip and elsewhere:
         return Due(step="wait", why=refused.line)
     if landing.accepted is not None or (pull is not None and pull.state != "open"):
         return Due(step="merged", why="the forge took the merge, or ended the request")
-    if refused is None or refused.source != "github" or refused.tip != tip:
+    if refused is None or refused.tip != tip or refused.kind == "base":
         return None
-    why = f"GitHub refused the merge of this tip: {refused.line}"
+    said = SAID[refused.source]
     return Due(
-        step="merge", why=f"{why}; the owner acts on GitHub, then merges it", by="owner"
+        step="merge",
+        why=f"{said} of this tip: {refused.line}; the owner's word merges it",
+        by="owner",
     )
 
 
@@ -96,7 +110,9 @@ def made(
         merged_head=pull.merged_head or "",
         parent=pull.base_parent or "",
         destination=pull.base,
-        base_checked=landing.checked.base if landing.checked else "",
+        base_checked=landing.checked.base
+        if landing.checked
+        else pull.base_parent or "",
         base_merged=pull.base_parent or "",
         base_read=read.base if read else None,
         at=world.now,
@@ -157,13 +173,13 @@ def reconciled(
             at=world.now,
         )
     url = pull.url if pull else "the pull request"
-    slug = record.task.slug
+    slug, stamp = record.task.slug, clock.compact(intent.at)
     return Refusal(
         "intent",
-        f"a merge call for {intent.tip} went out, and GitHub shows {url} open: the call may "
-        "not have reached it, and no new call goes unasked",
+        f"a merge call for {intent.tip} went out at {stamp}, and GitHub shows {url} open: "
+        "the call may not have reached it, and no new call goes unasked",
         f"the owner checks {url} on GitHub; when it is not merged there, his word merges it: "
-        f"lem land merge {slug} --by owner --tip {intent.tip}",
+        f"lem land merge {slug} --by owner --tip {intent.tip} --checked {stamp}",
     )
 
 

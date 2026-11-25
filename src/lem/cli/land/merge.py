@@ -1,6 +1,7 @@
 """`lem land merge`: merge the pull request, on the owner's word or the merger's.
 
     lem land merge SLUG --by owner|merger [--message M] [--via V] [--standing] [--tip TIP]
+        [--checked MOMENT]
 
 The step `land-merge` owns it.
 """
@@ -31,6 +32,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     via: Via = "session"
     standing: bool = False
     tip: str | None = None
+    checked: str | None = None
 
 
 def run(call: Call) -> Envelope:
@@ -41,6 +43,7 @@ def run(call: Call) -> Envelope:
         tip=call.tip,
         standing=call.standing,
         subject=call.message,
+        checked=call.checked,
     )
     return merge.run(place.folder(), call.slug, asked)
 
@@ -71,6 +74,13 @@ COMMAND = click.Command(
             help="with --by owner: his merge that a moved base refused, still standing",
         ),
         click.Option(["--tip"], help="the whole commit the caller saw"),
+        click.Option(
+            ["--checked"],
+            help=(
+                "the moment of a merge call on record that the owner checked on GitHub: "
+                "his word for a new call over it"
+            ),
+        ),
     ],
     callback=lambda **words: run(msgspec.convert(given(words), Call)),
     help="Merge the pull request, on the owner's word or the merger's.",

@@ -28,19 +28,23 @@ OWNER: Merger = "owner"
 
 class Asked(Frozen, frozen=True, kw_only=True):
     """A merge asked for: who, through what, the whole commit the caller saw, whether it is
-    the owner's standing merge, and the subject of the one commit of a squash."""
+    the owner's standing merge, the subject of the one commit of a squash, and the moment of
+    the merge call on record whose outcome the owner checked on GitHub (`checked`): his word
+    for a new call over it, a word the first call cannot carry."""
 
     by: Merger
     via: Via
     tip: str | None = None
     standing: bool = False
     subject: str | None = None
+    checked: str | None = None
 
 
-def tip_why(landing: Landing, asked: Asked) -> str | None:
+def tip_why(record: Record, asked: Asked) -> str | None:
     """Why the tip the caller saw is not the proposed one: not a whole commit, his standing
     merge that no longer stands, the owner's word for another tip, or another tip."""
-    shown = landing.proposed.tip if landing.proposed else None
+    proposed = (record.landing or Landing()).proposed
+    shown = proposed.tip if proposed else None
     tip = asked.tip
     word = asked.by == OWNER and not asked.standing
     found = (
@@ -49,7 +53,7 @@ def tip_why(landing: Landing, asked: Asked) -> str | None:
             f"--tip is not a whole commit: {tip}",
         ),
         (
-            asked.standing and merge_standing.standing_of(landing) is None,
+            asked.standing and merge_standing.standing_of(record) is None,
             f"no merge of the owner's stands for {shown}: the proposal ended it",
         ),
         (
@@ -66,7 +70,7 @@ def tip_why(landing: Landing, asked: Asked) -> str | None:
 
 def tip_refusal(record: Record, asked: Asked) -> Refusal | None:
     """Why the merge may not go for the tip the caller saw (`tip_why`)."""
-    why = tip_why(record.landing or Landing(), asked)
+    why = tip_why(record, asked)
     if why is None:
         return None
     slug = record.task.slug

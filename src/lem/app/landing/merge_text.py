@@ -93,7 +93,18 @@ def edited(context: Context, record: Record) -> Record:
     if merged is None or merged.text_updated:
         return record
     line = line_of(context, landing)
-    body = merge_lines.noted_body(pull.body, line) if line and pull else None
-    if body is None or pull is None:
+    if line is None or pull is None:
         return context.write(record, partial(confirmed, text=None))
+    body = merge_lines.noted_body(pull.body, line)
+    if body is None:
+        return observed(context, record, pull.body)
     return sent(context, record, (pull, body))
+
+
+def observed(context: Context, record: Record, body: str) -> Record:
+    """The forge holds the line already (an edit that a stop cut off before its record):
+    the body it shows is published by its digest and cited as the confirmed text, and the
+    text that waited is cleared."""
+    named = named_of(record, body)
+    files.publish(context.folder / named, body.encode())
+    return context.write(record, partial(confirmed, text=named))

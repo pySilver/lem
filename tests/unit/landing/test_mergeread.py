@@ -26,24 +26,28 @@ def first_read(briefed: mergeread.Briefed, reply: str | None) -> MergeRead:
 @pytest.mark.parametrize(
     ("reply", "verdict"),
     [
-        ("merge\n\nOne word; the checks hold.", "merge"),
+        ("Verdict: merge\n\nOne word; the checks hold.", "merge"),
         ("Verdict: merge.\nBase: safe.", "merge"),
-        ("**Verdict:** call. The owner reads it.", "call"),
-        ("# call the owner", "call"),
-        ("> Merge", "merge"),
+        ("# Verdict: call. The owner reads it.", "call"),
+        ("> Verdict: Merge", "merge"),
+        ("**Verdict:** call. The owner reads it.", None),
         ("", None),
         ("It looks fine.\nVerdict: merge.", None),
-        ("merger", None),
+        ("merge", None),
+        ("Merge conflicts remain.", None),
+        ("Call the owner.", None),
     ],
     ids=[
         "plain",
         "verdict and base",
-        "bold",
         "heading",
         "quote",
+        "a bold label",
         "empty",
         "verdict below",
-        "another word",
+        "no label",
+        "prose that starts with merge",
+        "prose that starts with call",
     ],
 )
 def test_the_verdict_is_the_first_line(reply: str, verdict: str | None) -> None:
@@ -58,14 +62,15 @@ def test_the_verdict_is_the_first_line(reply: str, verdict: str | None) -> None:
             ("safe", "Only a document moved."),
         ),
         (
-            "merge\n**Base:** another round, a function it calls was renamed",
+            "Verdict: merge\nBase: another round, a function it calls was renamed",
             ("another round", "a function it calls was renamed"),
         ),
-        ("merge\nBase: safe.", None),
-        ("merge", None),
-        ("merge\nIt holds.", None),
+        ("Verdict: merge\nBase: safe.", None),
+        ("Verdict: merge", None),
+        ("Verdict: merge\nIt holds.", None),
+        ("Verdict: merge\nSafe only after the failing test passes.", None),
     ],
-    ids=["safe", "another round", "no why", "no second line", "no call"],
+    ids=["safe", "another round", "no why", "no second line", "no call", "no label"],
 )
 def test_the_call_on_a_moved_base_is_the_second_line_with_its_why(
     reply: str, call: tuple[str, str] | None
@@ -74,7 +79,7 @@ def test_the_call_on_a_moved_base_is_the_second_line_with_its_why(
 
 
 def test_a_verdict_is_recorded_with_its_sentence_never_the_word_alone() -> None:
-    read = first_read(UNMOVED, "merge\n\nOne word; the checks hold.\n")
+    read = first_read(UNMOVED, "Verdict: merge\n\nOne word; the checks hold.\n")
     assert (read.verdict, read.why, read.base, read.base_tree) == (
         "merge",
         "One word; the checks hold.",
@@ -83,7 +88,7 @@ def test_a_verdict_is_recorded_with_its_sentence_never_the_word_alone() -> None:
     )
     said = first_read(UNMOVED, "Verdict: call. The criterion is not met.")
     assert (said.verdict, said.why) == ("call", "The criterion is not met.")
-    bare = first_read(UNMOVED, "merge")
+    bare = first_read(UNMOVED, "Verdict: merge")
     assert (bare.verdict, bare.why) == ("merge", None)
 
 
@@ -169,16 +174,20 @@ def test_a_reply_of_another_tip_or_with_no_proposal_or_after_another_round_is_re
         == "no-pull"
     )
     said = replace(
-        first_read(ON_MOVED, "merge\nBase: another round, it renamed f."), tip=TIP
+        first_read(ON_MOVED, "Verdict: merge\nBase: another round, it renamed f."),
+        tip=TIP,
     )
     after = task("open", **{**OPENED, "reads": (said,)})
-    assert code_of(mergeread.decide(after, UNMOVED, "merge", MOMENT)) == "another-round"
+    assert (
+        code_of(mergeread.decide(after, UNMOVED, "Verdict: merge", MOMENT))
+        == "another-round"
+    )
 
 
 def test_a_read_is_usable_for_the_proposed_tip_on_its_base_tree_once_it_settles() -> (
     None
 ):
-    read = first_read(UNMOVED, "merge\nIt holds.")
+    read = first_read(UNMOVED, "Verdict: merge\nIt holds.")
     landing = opened(reads=(read,)).landing
     assert landing is not None
     assert mergeread.latest(landing, facing().base_tree) == read
@@ -188,3 +197,10 @@ def test_a_read_is_usable_for_the_proposed_tip_on_its_base_tree_once_it_settles(
     assert mergeread.latest(replace(landing, reads=(older,)), TREE) is None
     assert mergeread.latest(landing) == read
     assert mergeread.latest(landing, MOVED_TREE) is None
+
+
+def test_prose_with_no_label_is_an_answer_that_cannot_be_recorded() -> None:
+    said = "Merge conflicts remain.\nSafe only after the failing test passes.\n"
+    read = first_read(ON_MOVED, said)
+    assert (read.verdict, read.base_call) == (None, None)
+    assert code_of(mergeread.again(read)) == "no-verdict"

@@ -40,7 +40,12 @@ ENDS = frozenset(("dropped", "answered"))
 
 
 def preparing(record: Record, world: World) -> Due:
-    """The first row of `preparing` whose evidence does not hold."""
+    """The first row of `preparing` whose evidence does not hold; first, a pull request on
+    record that the forge merged or closed meanwhile (the owner's merge on GitHub while a new
+    round runs its checks, `main:land.cmd_merged`), whose bookkeeping comes before any row."""
+    pull = world.pull
+    if (record.landing or Landing()).pull and pull and pull.state != "open":
+        return Due(step="merged", why=f"the forge shows the pull request {pull.state}")
     for rule in PREPARING:
         found = rule(record, world)
         if isinstance(found, Due):
@@ -63,27 +68,10 @@ def opened(record: Record, world: World) -> Due:
             "the merge agent's read of this tip says the moved base needs another round"
         )
         return Due(step="start", why=f"{why}: a new round")
-    if read_due(landing, world):
+    if latest(landing, world.base_tree) is None:
         why = "no read of the merge agent covers this tip on origin's base as it is now"
         return Due(step="merge-review", why=why)
     return merge.due(record, world)
-
-
-def read_due(landing: Landing, world: World) -> bool:
-    """Whether the merge agent reads first: no read of the tip settled yet, or Lem refused
-    the merge of the tip for a base that moved and no read covers origin's base now. A merge
-    on a base that moved since the read is tried, and refused for the base under the merge
-    lock, which keeps that refusal (`landing.md` E, "Base moved, open PR")."""
-    if latest(landing) is None:
-        return True
-    refused = landing.refused
-    tip = landing.proposed.tip if landing.proposed else None
-    for_base = (
-        refused is not None
-        and (refused.source, refused.kind) == ("lem", "base")
-        and refused.tip == tip
-    )
-    return for_base and latest(landing, world.base_tree) is None
 
 
 def settled(record: Record) -> Due | None:

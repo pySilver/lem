@@ -24,14 +24,27 @@ if TYPE_CHECKING:
 TIP = "tip"
 
 
+def same_pull(record: Record, world: World) -> Refusal | None:
+    """Why the pull request the forge shows is not the one on record: none, or another
+    repository's or number's address (H 2, in the configured repository)."""
+    landing, slug = record.landing or Landing(), record.task.slug
+    pull, kept = world.pull, landing.pull
+    if pull is not None and kept is not None and pull.url == kept.url:
+        return None
+    shown = pull.url if pull else "no pull request"
+    return Refusal(
+        "no-pull",
+        f"the forge shows {shown}, not the pull request on record: nothing was merged",
+        f"lem land next {slug}",
+    )
+
+
 def forge_side(record: Record, world: World, proposed: Proposed) -> Refusal | None:
-    """Why the pull request is not the one proposed: none, not open, retargeted before the
-    merge, or at another head."""
+    """Why the pull request is not the one proposed: not the one on record, not open,
+    retargeted before the merge, or at another head."""
     slug, pull, base = record.task.slug, world.pull, world.rules.base
     if pull is None:
-        return Refusal(
-            "no-pull", f"{slug} has no pull request", f"lem land next {slug}"
-        )
+        return same_pull(record, world)
     if pull.state != "open":
         return Refusal(
             "closed",
@@ -51,7 +64,7 @@ def forge_side(record: Record, world: World, proposed: Proposed) -> Refusal | No
             f"the pull request's head is {pull.head}, not the proposed {proposed.tip}",
             f"lem land next {slug} names the new round",
         )
-    return None
+    return same_pull(record, world)
 
 
 def covered(record: Record, world: World, tip: str) -> Refusal | None:
@@ -70,13 +83,16 @@ def covered(record: Record, world: World, tip: str) -> Refusal | None:
 
 
 def our_side(record: Record, world: World, proposed: Proposed) -> Refusal | None:
-    """Why the proposal is not what the checks covered: a local tip that moved, or no passed
-    run of the checks of that tip as they are now."""
-    if world.tip != proposed.tip:
+    """Why the proposal is not what Lem pushed and the checks covered: a local tip that
+    moved, a push on record of another commit, or no passed run of the checks of that tip as
+    they are now."""
+    pushed = (record.landing or Landing()).pushed
+    if proposed.tip != world.tip or pushed != proposed.tip:
         slug = record.task.slug
         return Refusal(
             TIP,
-            f"the task's branch is at {world.tip}, not the proposed {proposed.tip}",
+            f"the task's branch is at {world.tip} and Lem pushed {pushed} last, not the "
+            f"proposed {proposed.tip}",
             f"lem land next {slug} names the new round",
         )
     return covered(record, world, proposed.tip)

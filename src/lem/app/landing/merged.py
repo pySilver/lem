@@ -66,13 +66,11 @@ def adopted(context: Context) -> Record | None:
 
 
 def followed(context: Context) -> str | None:
-    """Fast-forward the main checkout to origin's base; the line of a checkout that stays."""
-    git, checkout = context.ports.git, context.workspace.checkout
+    """Fast-forward the checkout that holds the base, the main one or a linked worktree, to
+    origin's base; the line of a checkout that stays. With none, nothing follows."""
+    git, checkout = context.ports.git, merge_world.base_checkout(context)
     base = context.world.rules.base
-    head = git.tip(checkout, "HEAD")
-    if head != git.tip(checkout, f"refs/heads/{base}"):
-        return f"the main checkout is not on {base}: it stays where it is"
-    if head == context.world.base:
+    if checkout is None or git.tip(checkout, "HEAD") == context.world.base:
         return None
     made = git.fast_forward(checkout, f"origin/{base}")
     if isinstance(made, str):
@@ -97,7 +95,7 @@ def act(context: Context) -> object:
     """Write down what the forge shows, put the merge's line into the pull request's text,
     let the main checkout follow, and land the task."""
     record = context.record
-    if record.landing is not None and record.landing.phase == "open":
+    if record.landing is not None and record.landing.phase in {"open", "preparing"}:
         record = adopted(context)
         if record is None:
             return context.world.pull

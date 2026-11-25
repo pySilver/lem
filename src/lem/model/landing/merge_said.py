@@ -1,9 +1,11 @@
 """What the merge agent's reply says, and the lines Lem writes of a reply it cannot record
 (`landing.md` E, "Two unusable answers"; `main:land.verdict_of`, `base_call_of`, `unread_why`).
 
-The verdict is the first line that is not empty, `merge` or `call`, after a `Verdict:` and past
-the marks of markdown. On a base that moved after the checks, the second such line is the call
-on the move, `safe` or `another round`, then one sentence of why.
+The verdict is the first line that is not empty, past a heading's, a quote's or a bold mark:
+`Verdict: merge` or `Verdict: call`, the label required, as `main:land.VERDICT` reads it. On a
+base that moved after the checks, the second such line is `Base: safe` or `Base: another round`,
+the label required, then one sentence of why. A line without its label is no verdict, so prose
+("Merge conflicts remain.") never reads as one.
 """
 
 import re
@@ -16,11 +18,11 @@ if TYPE_CHECKING:
 
 type Verdict = Literal["merge", "call"]
 type BaseCall = Literal["safe", "another round"]
-VERDICT = re.compile(r"(?:verdict\s*:\s*)?\**\s*(merge|call)\b", re.IGNORECASE)
+VERDICT = re.compile(r"Verdict:\s*(merge|call)\b", re.IGNORECASE)
 BASE_CALL = re.compile(
-    r"(?:base\s*:\s*)?\**\s*(safe|another round)\b[\s.:;,*-]*(.*)", re.IGNORECASE
+    r"Base:\s*(safe|another round)\b[.:;,]?\**\s*(.*)", re.IGNORECASE
 )
-# The marks a line may open with: a heading's, a quote's, a bold mark.
+# The marks a line may open with: a heading's, a quote's, a bold mark (`main:land.line_verdict`).
 OPENING = "#*> \t"
 # What may stand between the verdict and its sentence of why.
 TRIM = " .:;,*-"
