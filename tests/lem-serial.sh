@@ -11,7 +11,7 @@ AL=$WORK/serial
 git init -q -b main "$AL" && ident "$AL"
 project --repo "$AL" init --base main >/dev/null
 git -C "$AL" add -A && git -C "$AL" commit -q -m "chore: start"
-serial() { "$PY" -B "$MAIN" project --repo "$AL" serial "$@"; }
+serial() { "$LEM" project --repo "$AL" serial "$@"; }
 LOCK=$AL/.lem/state/serial.lock
 
 # The exit status of the command is the exit of the run; a command of one word list runs as it is, one line runs in the shell.
@@ -45,7 +45,7 @@ else
 fi
 
 # A run that is stopped ends its command's process group, what that command started too, and frees the lock.
-"$PY" -B "$MAIN" project --repo "$AL" serial -- sh -c "sleep 60 & echo \$! > '$WORK/child'; wait" 2> "$WORK/stopped.err" &
+"$LEM" project --repo "$AL" serial -- sh -c "sleep 60 & echo \$! > '$WORK/child'; wait" 2> "$WORK/stopped.err" &
 held=$!
 soon test -s "$WORK/child"
 child=$(cat "$WORK/child")
@@ -65,7 +65,7 @@ fi
 printf '%s\n' "pid 99999, since 2026-11-17T09:00:00Z, in /nowhere: make e2e" > "$LOCK"
 started=$SECONDS
 stale=$(serial -- echo through 2>&1)
-"$PY" -B "$MAIN" project --repo "$AL" serial -- sh -c "echo \$\$ > '$WORK/orphan'; exec sleep 60" &
+"$LEM" project --repo "$AL" serial -- sh -c "echo \$\$ > '$WORK/orphan'; exec sleep 60" &
 killed=$!
 soon test -s "$WORK/orphan"
 kill -KILL "$killed"
@@ -128,7 +128,7 @@ printf '%s\n' "grep -q 'sh tests/e2e' '$LOCK' || exit 3" 'grep -qx two b.txt' > 
 git -C "$tree" add -A && git -C "$tree" commit -q -m "test: the criterion in the e2e suite"
 # shellcheck disable=SC2016  # the backticks are the criterion line's own
 "$PY" -I -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("`sh tests/serial-criterion.sh` in `tests/serial-criterion.sh`", "`sh tests/e2e/b.sh` in `tests/e2e/b.sh`"))' "$directory/criteria.md"
-held=$("$PY" -B "$MAIN" criteria --repo "$AL" red serial-criterion 2>&1 || true)
+held=$("$LEM" criteria --repo "$AL" red serial-criterion 2>&1 || true)
 if [ "$(field '(d["ok"], [(t["command"], t["on_branch"], t["on_base"]) for t in d["tests"]])' <<<"$held" 2>&1)" = "(True, [('sh tests/e2e/b.sh', 0, 2)])" ]; then
   pass "the check of the criteria runs a test whose command starts with a checks.serial command under the one lock, on the branch and on the base commit"
 else
@@ -138,7 +138,7 @@ fi
 # its own cleanup, which kills the test, before the check kills the wrapper; nothing of the test is left, and the lock is free.
 printf '%s\n' "trap '' TERM; sleep 67 & echo \$! > '$WORK/crit-serial.pid'; wait" > "$tree/tests/e2e/b.sh"
 git -C "$tree" commit -q -am "test: a criterion's test that ignores a term"
-"$PY" -B "$MAIN" criteria --repo "$AL" red serial-criterion > "$WORK/crit-serial.out" 2>&1 &
+"$LEM" criteria --repo "$AL" red serial-criterion > "$WORK/crit-serial.out" 2>&1 &
 checking=$!
 soon test -s "$WORK/crit-serial.pid"
 kill -TERM "$checking"
@@ -163,7 +163,7 @@ printf '%s\n' 'deps/' > "$SU/.gitignore" && echo readme > "$SU/README.md"
 git -C "$SU" add -A && git -C "$SU" commit -q -m "chore: a project whose tests need what the setup installs"
 directory=$(project --repo "$SU" task-dir readme-fix --ask "Fix the README.")
 printf '%s\n' '## Acceptance criteria' '' 'Size: small, because the request is one sentence.' '' '1. The README says hello.' > "$directory/criteria.md"
-"$PY" -B "$MAIN" criteria --repo "$SU" approve readme-fix --file "$directory/criteria.md" --small >/dev/null
+"$LEM" criteria --repo "$SU" approve readme-fix --file "$directory/criteria.md" --small >/dev/null
 printf '%s\n' '   - no test: the change keeps behavior; the suite holds it' >> "$directory/criteria.md"
 made=$(project --repo "$SU" worktree readme-fix docs/readme-fix | field '(d["made"], d["setup"])' 2>&1 || true)
 tree=$(project --repo "$SU" worktree-dir readme-fix)

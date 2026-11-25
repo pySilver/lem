@@ -39,9 +39,9 @@ else
 fi
 # Outside a repository there is no state folder, and the script says why.
 mkdir -p "$WORK/no-repo"
-err=$(cd "$WORK/no-repo" && "$PY" -B "$MAIN" project state-dir 2>&1 || true)
-code=$(cd "$WORK/no-repo" && status_of "$PY" -B "$MAIN" project state-dir)
-corr_err=$("$PY" -B "$PWD/src/lem/__main__.py" corrections --repo "$WORK/no-repo" list 2>&1 || true)
+err=$(cd "$WORK/no-repo" && "$LEM" project state-dir 2>&1 || true)
+code=$(cd "$WORK/no-repo" && status_of "$LEM" project state-dir)
+corr_err=$("$LEM" corrections --repo "$WORK/no-repo" list 2>&1 || true)
 if [ "$code" = 1 ] && grep -qF "is not inside a git checkout" <<<"$err" && grep -qF "is not inside a git checkout" <<<"$corr_err" && [ ! -e "$WORK/no-repo/.lem" ]; then
   pass "outside a repository the state folder is refused with exit 1 and the reason, and nothing is made"
 else
@@ -115,8 +115,8 @@ if [ -f "$MACHINE/lem/owner.jsonl" ]; then
 fi
 relative=$(XDG_CONFIG_HOME=config project --repo "$FIRST" waiting 2>&1 || true)
 mkdir -p "$WORK/home"
-homed=$(env -u XDG_CONFIG_HOME HOME="$WORK/home" "$PY" -B "$MAIN" project --repo "$FIRST" owner away --words "I'm away" | field 'd["written"]')
-env -u XDG_CONFIG_HOME HOME="$WORK/home" "$PY" -B "$MAIN" project --repo "$FIRST" owner back --words "I'm back" >/dev/null
+homed=$(env -u XDG_CONFIG_HOME HOME="$WORK/home" "$LEM" project --repo "$FIRST" owner away --words "I'm away" | field 'd["written"]')
+env -u XDG_CONFIG_HOME HOME="$WORK/home" "$LEM" project --repo "$FIRST" owner back --words "I'm back" >/dev/null
 if [ "$fresh" = "(False, None, None, 0)/(False, None, None, 0)" ] && [ "$made" = none ] \
   && [ "$in_second" = "(True, '$away_at', '/lem im-away', 1)" ] && [ "$in_first" = "(False, '$back_at', '/lem im-back', 2)" ] \
   && [ "$mark" = "[('owner', None, True, 'owner', '$FIRST'), ('owner', None, False, 'owner', '$SECOND')]" ] && [ "$in_logs" = 0 ] \
@@ -148,7 +148,7 @@ fi
 # an away in the first with that record; started with a `seen` that is no longer the count, it ends at once; an away and a back written in one
 # second, which share their `ts`, end it too, since the count is its cursor. It writes nothing to the mark, a stop ends
 # it with exit 1, and it is refused outside a repository and without a count it can take.
-watch_in() { XDG_CONFIG_HOME=$MACHINE "$PY" -B "$MAIN" project --repo "$SECOND" owner watch "$@"; }
+watch_in() { XDG_CONFIG_HOME=$MACHINE "$LEM" project --repo "$SECOND" owner watch "$@"; }
 # at_once ARGS...: the watch of the second repository with a clock that refuses a wait, so that "at once" is no count of
 # seconds: a watch that sleeps before its next look ends here with that message
 at_once() {
@@ -204,7 +204,7 @@ stopped_code=0
 wait "$stopper" || stopped_code=$?
 no_seen=$(watch_in 2>&1 || true)
 negative=$(watch_in --seen -1 2>&1 || true)
-outside=$(cd "$WORK/no-repo" && XDG_CONFIG_HOME=$MACHINE "$PY" -B "$MAIN" project owner watch --seen 0 2>&1 || true)
+outside=$(cd "$WORK/no-repo" && XDG_CONFIG_HOME=$MACHINE "$LEM" project owner watch --seen 0 2>&1 || true)
 if [ "$watched" = 0 ] && [ "$took" -lt 15 ] && [ "$heard" = "(True, '$away_at', '/lem im-away', $((seen + 1)))" ] \
   && [ "$stale" = "(True, '$away_at', $lines)" ] && [ "$(grep -c '' "$MACHINE/lem/owner.jsonl")" = "$kept" ] \
   && [ "$paired" = "(True, '$again_ts', $((before_pair + 2)))" ] && [ "$kept" = "$((before_pair + 2))" ] \
@@ -229,7 +229,7 @@ project --repo "$PR" state old-landed landed "main: pull request 1 is merged" >/
 project --repo "$PR" state young-landed landed "main: pull request 2 is merged" >/dev/null
 project --repo "$PR" state still-open building "lead: builder" >/dev/null
 project --repo "$PR" state old-dropped building "lead: builder" >/dev/null
-"$PY" -B "$MAIN" decisions --repo "$PR" log old-dropped --what "Which name?" --chose "A" --why "It reads plainly." --by lead >/dev/null
+"$LEM" decisions --repo "$PR" log old-dropped --what "Which name?" --chose "A" --why "It reads plainly." --by lead >/dev/null
 project --repo "$PR" state old-dropped dropped "nobody will build it" >/dev/null
 mkdir -p "$PS/tasks/broken-state" && printf 'not a state line\n' > "$PS/tasks/broken-state/state.md"
 OLD=$PS/tasks/old-landed

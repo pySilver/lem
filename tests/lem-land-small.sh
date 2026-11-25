@@ -13,7 +13,7 @@ project --repo "$SMALL" init --base main >/dev/null
 printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$SMALL/.lem/settings.toml"
 git -C "$SMALL" add -A && git -C "$SMALL" commit -q -m "chore: start" && on_github "$SMALL"
 s() { land --repo "$SMALL" "$@"; }
-criteria() { "$PY" -B "$MAIN" criteria --repo "$SMALL" "$@"; }
+criteria() { "$LEM" criteria --repo "$SMALL" "$@"; }
 dir_of() { echo "$SMALL/.lem/state/tasks/$1"; }
 # small_in SLUG SIZE: a task whose one criterion is in its task directory, approved as Lem does it for SIZE
 # (`small` in his name, with no --file, `full` by him), with a worktree on its branch and no plan on it

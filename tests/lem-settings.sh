@@ -234,7 +234,7 @@ settings '[branch]' 'base = "master"' '[paths]' 'rulings = "docs/rulings"'
 stopped_codes="" stopped_said=0
 for command in "project show" "project path rulings" "project plan-file header-names" "project prune --dry-run" "project may-nap" "corrections list"; do
   read -r -a argv <<<"$command"
-  if [ "${argv[0]}" = project ]; then run=("$PY" -B "$MAIN" project); else run=("$PY" -B "$MAIN" corrections); fi
+  if [ "${argv[0]}" = project ]; then run=("$LEM" project); else run=("$LEM" corrections); fi
   code=0
   said=$("${run[@]}" --repo "$OLD" "${argv[@]:1}" 2>&1) || code=$?
   stopped_codes="$stopped_codes $code"
@@ -1016,7 +1016,7 @@ else
   fail "a start through log: $started / $odd_job_code $odd_job"
 fi
 # a breaker that stopped the investigation while the task built, which nobody helped on before the task ended
-breaker_doc "$ans_dir" && "$PY" -B "$PWD/src/lem/__main__.py" decisions --repo "$ANS" breaker zero-after-refund --cause irreversible --irreversible data >/dev/null
+breaker_doc "$ans_dir" && "$LEM" decisions --repo "$ANS" breaker zero-after-refund --cause irreversible --irreversible data >/dev/null
 # `answered` needs the report and a record whose call ends the task; it takes no place and keeps its slug.
 no_report=$(project --repo "$ANS" state zero-after-refund answered "not a bug: a refund is a credit note" 2>&1 || true)
 printf '%s\n' '# Investigation' '' 'Reproduced: yes.' > "$ans_dir/investigation.md"
@@ -1043,8 +1043,8 @@ else
   fail "the state answered: $no_report / $goes_on / $answered / $places / $unreported / $free / $taken"
 fi
 # A breaker of an answered task waits for nobody, and the task takes no new decision.
-ended=$("$PY" -B "$PWD/src/lem/__main__.py" decisions --repo "$ANS" pending | field '(d["waiting"], [(e["task"], e["status"], e["breakers"]) for e in d["ended"]])' 2>&1 || true)
-again=$("$PY" -B "$PWD/src/lem/__main__.py" decisions --repo "$ANS" log zero-after-refund --by lead --what "Keep the test" --chose "keep it" --why "it pins the behavior" 2>&1 || true)
+ended=$("$LEM" decisions --repo "$ANS" pending | field '(d["waiting"], [(e["task"], e["status"], e["breakers"]) for e in d["ended"]])' 2>&1 || true)
+again=$("$LEM" decisions --repo "$ANS" log zero-after-refund --by lead --what "Keep the test" --chose "keep it" --why "it pins the behavior" 2>&1 || true)
 if [ "$ended" = "([], [('zero-after-refund', 'answered', [1])])" ] && grep -qF "zero-after-refund is answered" <<<"$again" \
   && [ "$(grep -c '' "$ANS/.lem/state/tasks/zero-after-refund/decisions.jsonl")" = 1 ]; then
   pass "an answered task has no breaker that waits: pending puts it with the tasks that ended, and a new decision of it is refused"
@@ -1150,7 +1150,7 @@ else
 fi
 
 # The criteria of a task: read from the top of its plan, and each one held by a test that fails on the base commit.
-criteria() { "$PY" -B "$MAIN" criteria --repo "$ST" "$@"; }
+criteria() { "$LEM" criteria --repo "$ST" "$@"; }
 ST=$WORK/criteria-repo
 git init -q -b main "$ST" && git -C "$ST" config user.name t && git -C "$ST" config user.email t@t
 mkdir -p "$ST/tests" "$ST/docs/plans" && echo 'echo "1042,None"' > "$ST/export.sh" && git -C "$ST" add -A && git -C "$ST" commit -q -m start
@@ -1298,7 +1298,7 @@ second=$(criteria red export-has-the-gift-note 2>&1 || true)
 kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
 # A check that is stopped ends the command it runs, and leaves no worktree.
 sed -i.bak "s|^setup = .*\$|setup = [\"sleep $NAP2\"]|" "$ST/.lem/settings.toml" && rm "$ST/.lem/settings.toml.bak"
-"$PY" -B "$MAIN" criteria --repo "$ST" red export-has-the-gift-note > "$WORK/stopped.out" 2>&1 &
+"$LEM" criteria --repo "$ST" red export-has-the-gift-note > "$WORK/stopped.out" 2>&1 &
 check=$!
 napping() { pgrep -f "sleep ${NAP2/./\\.}" >/dev/null 2>&1; }
 soon napping
@@ -1440,7 +1440,7 @@ if grep -qF "criterion 3 of 2026-11-16-approved-note.md, 'The note file ends wit
 else
   fail "an extra criterion at the end of the plan: $extra / $red_extra"
 fi
-adecide() { "$PY" -B "$PWD/src/lem/__main__.py" decisions --repo "$ST" "$@"; }
+adecide() { "$LEM" decisions --repo "$ST" "$@"; }
 t1='The note file holds the gift note of order 1042: "for Ania".'
 t2='An order with no gift note has the line "1043," and no word after the comma.'
 c1='The note file holds the gift note of order 1042, "for Ania".'
@@ -1558,7 +1558,7 @@ project --repo "$ST" task-dir locked-note >/dev/null
   "$ST/.lem/state/tasks/locked-note/criteria.lock" > "$WORK/criteria-lock.out" &
 holder=$!
 soon test -s "$WORK/criteria-lock.out"
-"$PY" -B "$MAIN" criteria --repo "$ST" approve locked-note --file "$WORK/reapproved.md" > "$WORK/his-approval.out" 2>&1 &
+"$LEM" criteria --repo "$ST" approve locked-note --file "$WORK/reapproved.md" > "$WORK/his-approval.out" 2>&1 &
 his=$!
 sleep 0.5
 while_held=$([ -e "$ST/.lem/state/tasks/locked-note/criteria.json" ] && echo written || echo waits)
@@ -1615,7 +1615,7 @@ else
   fail "a first backlog item: $(head -c 500 "$WORK/backlog.json")"
 fi
 # lem board: what it refuses before it asks the board server (tests/lem-serve.sh opens the board, with a server).
-board() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$MAIN" board "$@"; }
+board() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$LEM" board "$@"; }
 err=$(board --repo "$OLD" --no-open --task no-such-task 2>&1 || true)
 if [ "$(status_of board --repo "$OLD" --no-open --task no-such-task)" = 1 ] && grep -q "the tasks are: .*second-task" <<<"$err" \
   && [ "$(status_of board --repo "$OLD")" = 1 ] && grep -qF "not inside an agterm session" <<<"$(board --repo "$OLD" 2>&1 || true)"; then
@@ -1642,15 +1642,15 @@ printf '%s\n' '#!/bin/sh' 'echo "$*" >> "$AGT_CALLS"' 'case "$1" in tree) cat "$
 chmod +x "$FAKE/agtermctl"
 printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [{"id": "CCC", "name": "lem c"}]}]}}}' > "$WORK/tree.json"
 mkdir -p "$WORK/pages" && echo '<html><body>built</body></html>' > "$WORK/pages/page.html" && echo 'text' > "$WORK/pages/notes.md"
-showpage() { : > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree.json" AGTERM_SESSION_ID=CCC AGTERM_SOCKET=/none "$PY" -B "$MAIN" board "$@"; }
+showpage() { : > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree.json" AGTERM_SESSION_ID=CCC AGTERM_SOCKET=/none "$LEM" board "$@"; }
 first=$(showpage --page "$WORK/pages/page.html" --name "gift-note page")
 first_calls=$(cat "$WORK/calls")
 printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [{"id": "CCC", "name": "lem c"},' \
   "{\"id\": \"PP\", \"name\": \"gift-note page\", \"content\": \"page\", \"parent\": \"CCC\", \"htmlOverlays\": [{\"file\": \"$WORK/pages/page.html\"}]}]}]}}}" > "$WORK/tree-page.json"
-again=$(: > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree-page.json" AGTERM_SESSION_ID=CCC AGTERM_SOCKET=/none "$PY" -B "$MAIN" board --page "$WORK/pages/page.html" --name "gift-note page")
+again=$(: > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree-page.json" AGTERM_SESSION_ID=CCC AGTERM_SOCKET=/none "$LEM" board --page "$WORK/pages/page.html" --name "gift-note page")
 again_calls=$(cat "$WORK/calls")
 not_page=$(showpage --page "$WORK/pages/notes.md" 2>&1 || true)
-outside=$(env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$MAIN" board --page "$WORK/pages/page.html" 2>&1 || true)
+outside=$(env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$LEM" board --page "$WORK/pages/page.html" 2>&1 || true)
 if [ "$(field '(d["companion"], d["reloaded"], d["parent"], d["name"])' <<<"$first")" = "('NEW', False, 'CCC', 'gift-note page')" ] \
   && grep -q "session overlay open --html $WORK/pages/page.html --cwd $WORK/pages --js --companion --target CCC" <<<"$first_calls" \
   && ! grep -q "overlay open --html [^ ]* --cwd [^ ]* --target" <<<"$first_calls" \

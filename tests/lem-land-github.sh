@@ -74,7 +74,7 @@ else:
 print(out)
 PY
 printf '%s\n' '#!/bin/sh' "exec '$PY' -I '$WORK/gh.py' \"\$@\"" > "$WORK/bin/gh" && chmod +x "$WORK/bin/gh"
-gh_land() { PATH="$WORK/bin:$PATH" GH_STATE="$WORK/gh.json" GH_ORIGIN="$GHO" "$PY" -B "$MAIN" land --repo "$GHS" "$@"; }
+gh_land() { PATH="$WORK/bin:$PATH" GH_STATE="$WORK/gh.json" GH_ORIGIN="$GHO" "$LEM" land --repo "$GHS" "$@"; }
 gh_state() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2], {"d": d}))' "$WORK/gh.json" "$1"; }
 # gh_set PYTHON [FILE]: change the stand-in's pull requests as the forge would, written whole, since a landing step may read them at that moment
 gh_set() { "$PY" -c 'import json, os, sys; d = json.load(open(sys.argv[2])); exec(sys.argv[1]); json.dump(d, open(sys.argv[2] + ".set", "w")); os.replace(sys.argv[2] + ".set", sys.argv[2])' "$1" "${2:-$WORK/gh.json}"; }
@@ -305,8 +305,8 @@ gh_checked pr-guards && gh_land read pr-guards --record "$(clean pr-guards 1)" >
 mkdir -p "$WORK/no-gh" "$WORK/bad-bin"
 ln -s "$(command -v git)" "$WORK/no-gh/git"
 printf '%s\n' '#!/bin/sh' 'echo "HTTP 502: the forge is down" >&2' 'exit 1' > "$WORK/bad-bin/gh" && chmod +x "$WORK/bad-bin/gh"
-no_gh=$(PATH="$WORK/no-gh" "$PY" -B "$MAIN" land --repo "$GHS" propose pr-guards --title "fix: twelve" --notes "$NOTES" 2>&1 || true)
-down=$(PATH="$WORK/bad-bin:$PATH" "$PY" -B "$MAIN" land --repo "$GHS" propose pr-guards --title "fix: twelve" --notes "$NOTES" 2>&1 || true)
+no_gh=$(PATH="$WORK/no-gh" "$LEM" land --repo "$GHS" propose pr-guards --title "fix: twelve" --notes "$NOTES" 2>&1 || true)
+down=$(PATH="$WORK/bad-bin:$PATH" "$LEM" land --repo "$GHS" propose pr-guards --title "fix: twelve" --notes "$NOTES" 2>&1 || true)
 unproposed=$(grep -c '"event": "proposed", "task": "pr-guards"' "$GHS/.lem/state/events.jsonl" || true)
 unopened=$(status_in "$GHS" pr-guards)
 number=$(gh_land propose pr-guards --title "fix: twelve" --notes "$NOTES" | field 'd["pull_request"]["number"]')
@@ -488,7 +488,7 @@ printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands
 printf 'l%s\n' 1 2 3 4 5 6 7 8 9 > "$GWS/shop.txt"
 git -C "$GWS" add -A && git -C "$GWS" commit -q -m "chore: start" && git -C "$GWS" push -q origin main
 GW=$WORK/gw.json
-gw_land() { PATH="$WORK/bin:$PATH" GH_STATE="$GW" GH_ORIGIN="$GWO" "$PY" -B "$MAIN" land --repo "$GWS" "$@"; }
+gw_land() { PATH="$WORK/bin:$PATH" GH_STATE="$GW" GH_ORIGIN="$GWO" "$LEM" land --repo "$GWS" "$@"; }
 gw_state() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2], {"d": d}))' "$GW" "$1"; }
 # line_task SLUG small|full LINE TEXT: a task that writes TEXT on line LINE of shop.txt, with the test `grep -q TEXT shop.txt`, `ready`
 line_task() {
@@ -498,7 +498,7 @@ line_task() {
   git -C "$GWS" worktree add -q "$tree" -b "fix/$1" main
   if [ "$2" = small ]; then
     printf '%s\n' '## Acceptance criteria' '' 'Size: small, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$directory/criteria.md"
-    "$PY" -B "$MAIN" criteria --repo "$GWS" approve "$1" --file "$directory/criteria.md" --small >/dev/null
+    "$LEM" criteria --repo "$GWS" approve "$1" --file "$directory/criteria.md" --small >/dev/null
     printf '%s\n' "   - test: \`sh tests/$1.sh\` in \`tests/$1.sh\`" >> "$directory/criteria.md"
   else
     plan_in "$tree" "$1" "sh tests/$1.sh"

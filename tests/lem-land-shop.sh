@@ -495,7 +495,8 @@ checked not-clean
 # A run that is cut off before the review is written down leaves nothing, the next run writes it
 # down once, and the same record sent again is refused: one review never takes two rounds. A copy
 # of the package whose project.py refuses the `review` event stands in for the kill. The copy is in a folder of the
-# plugin's shape, whose plugin.json names this Lem's release, which each step reads (lem_release).
+# plugin's shape, whose plugin.json names this Lem's release, which each step reads (lem_release). The copy is of the
+# checkout's package on purpose, the one run that is not the lem under test; every other step is.
 CUT=$WORK/cut/src/lem
 mkdir -p "$WORK/cut/src" "$WORK/cut/.claude-plugin" && cp "$PWD/.claude-plugin/plugin.json" "$WORK/cut/.claude-plugin/"
 cp -R "$PWD/src/lem" "$CUT"

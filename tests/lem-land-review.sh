@@ -22,7 +22,7 @@ app_py old old > "$LOCAL/app.py"
 printf '%s\n' 'pub fn one() -> i32 { 1 }' '#[cfg(test)]' 'mod tests {' '    #[test]' '    fn it_is_one() { assert_eq!(super::one(), 1); }' '}' > "$LOCAL/lib.rs"
 git -C "$LOCAL" add -A && git -C "$LOCAL" commit -q -m "chore: start" && on_github "$LOCAL"
 local_land() { land --repo "$LOCAL" "$@"; }
-lcriteria() { "$PY" -B "$MAIN" criteria --repo "$LOCAL" "$@"; }
+lcriteria() { "$LEM" criteria --repo "$LOCAL" "$@"; }
 
 # The polish pass: after the task's own work and before the machine checks, a fresh builder takes out
 # what the change left behind, and the script checks what it committed. Here the test is the builder.
@@ -375,7 +375,7 @@ local_land clean call-kept >/dev/null
 # A task that ran without the owner: green when nothing of his was decided without him, with the line that says when it
 # ran so, and a decision the gate or the personas settled stays green, its line with the votes and the model families. The
 # merge agent merges it as any other. Here the owner says that he is away.
-ldecide() { "$PY" -B "$MAIN" decisions --repo "$LOCAL" "$@"; }
+ldecide() { "$LEM" decisions --repo "$LOCAL" "$@"; }
 task_in "$LOCAL" quiet-run quiet.txt quiet
 read_in "$LOCAL" quiet-run
 ldecide log quiet-run --what "The file's name" --chose quiet.txt --by gate --why "docs/rulings.md, Names: A file is named for what it holds." >/dev/null
