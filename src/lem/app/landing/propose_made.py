@@ -9,6 +9,7 @@ from msgspec.structs import replace
 from lem.app.landing import changes
 from lem.records.base import Frozen
 from lem.records.journal.landing import NotGreen
+from lem.records.journal.proposal import ProposalNoted
 from lem.records.landing.record import Pull
 
 if TYPE_CHECKING:
@@ -41,6 +42,10 @@ def opened(
         record, proposed=made, pull=pull, phase="open", refused=None
     )
     changed = carried(changed, made, read)
+    proposal = ProposalNoted(
+        at=made.at, tip=made.tip, green=made.green, reasons=made.reasons
+    )
+    changed = changes.noted(changed, proposal)
     if made.reasons:
         entry = NotGreen(at=made.at, tip=made.tip, reasons=made.reasons)
         changed = changes.noted(changed, entry)

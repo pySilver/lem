@@ -106,7 +106,8 @@ no lesson by itself.
    a pick past the personas, a breaker and the owner's help on it), the "not verified" and
    "outside defects" lines of each `report.md`, and each task's record
    (`.lem/state/tasks/SLUG/task.json`). Read `landing.proposed` for the latest proposal's
-   `at`, `green` and `reasons`. In `journal`, read `review-round` entries for
+   `at`, `green` and `reasons`. In `journal`, read one `proposed` entry per proposal for its
+   `at`, `tip`, `green` and `reasons`. Read `review-round` entries for
    `review.counts` and `review.answered`, `not-green` entries for `tip` and `reasons`,
    and `careful-missed` entries for `round` and `why`. Use each entry's `at` for the date
    of the read. Read the owner's corrections from the

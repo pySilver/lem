@@ -9,6 +9,7 @@ from lem.records.journal.landing import (
     ReviewRound,
 )
 from lem.records.journal.merge import LandAgain, MergeNoted, ReadNoted, RefusalNoted
+from lem.records.journal.proposal import ProposalNoted
 from lem.records.journal.sessions import (
     SessionClosed,
     SessionOpened,
@@ -32,6 +33,7 @@ type Entry = (
     | Summary
     | ReviewRound
     | CarefulMissed
+    | ProposalNoted
     | NotGreen
     | CheckWait
     | CheckEnd
