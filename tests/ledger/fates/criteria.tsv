@@ -1,5 +1,5 @@
 id	fate	proof	note
-check:tests/lem-decisions.sh:a-decision-of-the-lead-or-of-the-personas-is-027ff6cd1e69d324	changed	unit.criteria.test_decisions.test_the_personas_settle_with_two_votes_or_more_all_for_the_option_taken	each decision is a typed field of the record and a DecisionNoted line of its journal, not a line of decisions.jsonl and an event of events.jsonl
+check:tests/lem-decisions.sh:a-decision-of-the-lead-or-of-the-personas-is-027ff6cd1e69d324	changed	unit.criteria.test_decisions.test_a_decision_is_written_with_its_number_and_a_line_of_the_journal	each decision is a typed field of the record and a DecisionNoted line of its journal, not a line of decisions.jsonl and an event of events.jsonl
 check:tests/lem-decisions.sh:a-dropped-or-landed-task-has-no-breaker-that-aee66e2db9cca5cf	kept	unit.criteria.test_decisions.test_a_dropped_or_landed_task_takes_no_new_decision_breaker_or_help	
 check:tests/lem-decisions.sh:a-dropped-or-landed-task-takes-no-new-decisi-0ce79460057ef70a	kept	unit.criteria.test_decisions.test_a_dropped_or_landed_task_takes_no_new_decision_breaker_or_help	
 check:tests/lem-decisions.sh:an-argument-that-is-not-utf-8-text-is-refuse-e1cce05e044bfb73	changed	unit.criteria.test_decisions.test_an_argument_that_is_not_utf_8_text_is_refused_before_it_is_written	the words a decision keeps are refused when they are no UTF-8 text (model/decisions/words.py); no record holds other bytes to name, since the store writes JSON it reads back
@@ -27,26 +27,26 @@ event:task.criteria	changed	unit.criteria.test_show.test_the_fast_tracks_criteri
 ruling:a-choice-that-matters-is-logged-also-when-no-9d4eb88971e30a6e	kept	unit.criteria.test_decisions.test_a_decision_is_written_with_its_number_and_a_line_of_the_journal	
 ruling:a-complete-ticket-that-someone-else-wrote-ne-d89baa9115e3e268	kept	unit.criteria.test_approve.test_a_request_someone_else_wrote_waits_for_his_yes_while_he_is_there	
 ruling:a-criterion-a-persona-doubted-stays-as-writt-08a81fdbb5825070	kept	unit.criteria.test_approve.test_a_doubt_or_a_read_of_other_criteria_waits_for_the_owner	
-ruling:a-full-change-has-one-approval-and-no-ceremo-df95495175e0f875	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	
-ruling:a-plan-may-end-with-a-documentation-task-95be3c557aee2044	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/plan.md]	
+ruling:a-full-change-has-one-approval-and-no-ceremo-df95495175e0f875	kept	unit.criteria.test_texts.test_each_ruling_the_step_carries_is_in_its_text[a-full-change-has-one-approval]	
+ruling:a-plan-may-end-with-a-documentation-task-95be3c557aee2044	kept	unit.criteria.test_texts.test_each_ruling_the_step_carries_is_in_its_text[a-plan-may-end-with-a-documentation-task]	
 ruling:each-label-of-a-chart-is-quoted-2bd1e5e8703511d5	kept	unit.criteria.test_decisions.test_charts_that_are_refused	
-ruling:each-task-of-a-plan-gets-a-fresh-builder-2dcda388e94197b8	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/build.md]	
-ruling:every-project-of-lem-has-personas-and-a-pane-fe2c929f506712ec	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	
+ruling:each-task-of-a-plan-gets-a-fresh-builder-2dcda388e94197b8	kept	unit.criteria.test_texts.test_each_ruling_the_step_carries_is_in_its_text[each-task-of-a-plan-gets-a-fresh-builder]	
+ruling:every-project-of-lem-has-personas-and-a-pane-fe2c929f506712ec	kept	unit.criteria.test_texts.test_each_ruling_the_step_carries_is_in_its_text[every-project-of-lem-has-personas]	
 ruling:in-doubt-a-decision-climbs-a-ladder-of-opini-7a6c39c14a19336d	kept	unit.criteria.test_decisions.test_the_personas_settle_with_two_votes_or_more_all_for_the_option_taken	
-ruling:lem-brings-its-own-builder-agent-0f71b63116439ed6	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[agents/lem-builder.md]	
-ruling:most-requests-have-an-interview-and-his-chec-acf6c9b219b25f86	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	
+ruling:lem-brings-its-own-builder-agent-0f71b63116439ed6	kept	unit.criteria.test_texts.test_each_ruling_the_step_carries_is_in_its_text[lem-brings-its-own-builder-agent]	
+ruling:most-requests-have-an-interview-and-his-chec-acf6c9b219b25f86	kept	unit.criteria.test_texts.test_each_ruling_the_step_carries_is_in_its_text[most-requests-have-an-interview]	
 ruling:one-approved-line-of-a-task-is-an-acceptance-208409292eba1494	kept	unit.criteria.test_show.test_the_fast_tracks_criterion_needs_its_approval_and_is_recorded	
 ruling:only-a-circuit-breaker-stops-a-task-with-a-d-09965ab77610b2a0	kept	unit.criteria.test_decisions.test_the_breaker_needs_its_document_the_handoff_and_the_work_committed	
-ruling:the-build-asks-him-nothing-and-the-ladder-al-07ada183e6dede15	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/ladder.md]	
+ruling:the-build-asks-him-nothing-and-the-ladder-al-07ada183e6dede15	kept	unit.criteria.test_texts.test_each_ruling_the_step_carries_is_in_its_text[the-build-asks-him-nothing]	
 ruling:the-owner-learns-at-the-end-what-was-decided-29632a6358628535	kept	unit.criteria.test_decisions.test_a_decision_is_written_with_its_number_and_a_line_of_the_journal	
-ruling:the-personas-read-first-and-their-confusion-823e765806d6e125	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	
+ruling:the-personas-read-first-and-their-confusion-823e765806d6e125	kept	unit.criteria.test_texts.test_each_ruling_the_step_carries_is_in_its_text[the-personas-read-first]	
 ruling:the-personas-read-of-the-acceptance-criteria-ca847eb956ef6aae	kept	unit.criteria.test_show.test_his_word_on_the_skip_holds_the_task_and_gives_the_interview_back	
-ruling:the-plan-talk-is-a-pair-in-a-companion-that-e62981d3b3ff105c	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/talk.md]	
-ruling:the-plan-talk-is-predictably-short-over-a-cl-81e13476db8aab0d	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/talk.md]	
-ruling:the-question-gate-stays-hidden-and-may-decid-a14e59b21f1f606c	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem-gate/SKILL.md]	
-ruling:the-session-s-answers-to-his-notes-that-aske-0e92ef5165197389	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/plan.md]	
-ruling:two-builders-of-one-plan-that-run-at-one-mom-1e17a4eb98f2b674	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[agents/lem-builder.md]	
-ruling:when-the-personas-flag-a-criterion-and-give-39adc06590ffe6b5	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	
+ruling:the-plan-talk-is-a-pair-in-a-companion-that-e62981d3b3ff105c	kept	unit.criteria.test_texts.test_each_ruling_the_step_carries_is_in_its_text[the-plan-talk-is-a-pair]	
+ruling:the-plan-talk-is-predictably-short-over-a-cl-81e13476db8aab0d	kept	unit.criteria.test_texts.test_each_ruling_the_step_carries_is_in_its_text[the-plan-talk-is-predictably-short]	
+ruling:the-question-gate-stays-hidden-and-may-decid-a14e59b21f1f606c	kept	unit.criteria.test_texts.test_each_ruling_the_step_carries_is_in_its_text[the-question-gate-stays-hidden]	
+ruling:the-session-s-answers-to-his-notes-that-aske-0e92ef5165197389	kept	unit.criteria.test_texts.test_each_ruling_the_step_carries_is_in_its_text[the-session-s-answers-to-his-notes]	
+ruling:two-builders-of-one-plan-that-run-at-one-mom-1e17a4eb98f2b674	kept	unit.criteria.test_texts.test_each_ruling_the_step_carries_is_in_its_text[two-builders-of-one-plan]	
+ruling:when-the-personas-flag-a-criterion-and-give-39adc06590ffe6b5	kept	unit.criteria.test_texts.test_each_ruling_the_step_carries_is_in_its_text[when-the-personas-flag-a-criterion]	
 text:agents/lem-builder.md	changed	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[agents/lem-builder.md]	its lines name lem serial and lem proposals
 text:skills/lem-dialectic/SKILL.md	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem-dialectic/SKILL.md]	
 text:skills/lem-gate/SKILL.md	kept	unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem-gate/SKILL.md]	
@@ -96,9 +96,9 @@ unit:tests/unit/test_criteria_change.py:HisTypedNo.test_an_approval_after_the_wa
 unit:tests/unit/test_criteria_change.py:HisTypedNo.test_his_typed_no_then_a_yes_from_the_board_is_refused	changed	unit.criteria.test_approve.test_his_no_on_record_refuses_his_yes_and_an_approval_without_him	his No on the wait's question refuses every yes to it; the board's own answer rule is the step owner's (surfaces.md B, rules: owner)
 unit:tests/unit/test_criteria_change.py:HisTypedNo.test_his_typed_no_twice_is_one_record	kept	unit.criteria.test_change.test_his_typed_no_is_the_answer_and_twice_is_one_record	
 unit:tests/unit/test_criteria_change.py:HisYesToTheChange.test_his_yes_after_the_change	kept	unit.criteria.test_change.test_his_yes_after_the_change_approves_the_text_the_page_showed	
-unit:tests/unit/test_criteria_change.py:OneLock.test_his_yes_first_refuses_the_change	changed	unit.criteria.test_change.test_a_board_answer_that_came_first_refuses_his_typed_no	one record lock and a revision check (store.tasks.update) instead of criteria.lock; a write that comes second is made again on the record as it is
-unit:tests/unit/test_criteria_change.py:OneLock.test_the_change_first_refuses_a_yes_to_the_text_before_it	kept	unit.criteria.test_approve.test_a_file_that_changed_after_the_page_is_not_approved	
-unit:tests/unit/test_criteria_change.py:OneLock.test_the_yes_reads_its_file_under_the_lock	changed	unit.criteria.test_approve.test_the_yes_waits_while_a_change_stopped_before_its_file	the yes reads its file at each try of its write, and is refused while the wait shows other bytes than the file, instead of a read under criteria.lock
+unit:tests/unit/test_criteria_change.py:OneLock.test_his_yes_first_refuses_the_change	changed	unit.criteria.test_review.test_a_page_of_an_older_question_approves_nothing_and_a_yes_answers_the_wait	his yes is written on the wait's question with the approval, and ends the wait; a change after it is refused, under criteria.lock as on main
+unit:tests/unit/test_criteria_change.py:OneLock.test_the_change_first_refuses_a_yes_to_the_text_before_it	kept	unit.criteria.test_review.test_a_change_first_refuses_a_yes_to_the_text_before_it	
+unit:tests/unit/test_criteria_change.py:OneLock.test_the_yes_reads_its_file_under_the_lock	kept	unit.criteria.test_approve.test_the_yes_waits_while_a_change_stopped_before_its_file	the yes and every change hold criteria.lock as on main; after a stop between a change's record and its file, the yes is refused while the wait shows other bytes than the file
 unit:tests/unit/test_criteria_change.py:Pairs.test_a_removal_keeps_the_next_criterion_as_it_was	kept	unit.criteria.test_change.test_a_removal_keeps_the_next_criterion_as_it_was	
 unit:tests/unit/test_criteria_change.py:Pairs.test_an_added_criterion_and_a_new_line_break_that_is_no_change	kept	unit.criteria.test_change.test_an_added_criterion_and_a_new_line_break_that_is_no_change	
 unit:tests/unit/test_criteria_change.py:Pairs.test_one_changed	kept	unit.criteria.test_change.test_one_changed_and_two_in_one_note_are_pairs_by_text	
