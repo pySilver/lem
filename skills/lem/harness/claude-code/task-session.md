@@ -45,10 +45,9 @@ installed, Claude Code 2.1.330) showed:
 
 `lem session open` puts the model and the effort of `seats.session` on the launch line
 (`claude/opus:high` when no file names the seat); a part that a named seat leaves out is the
-owner's default of Claude Code. When this Lem is not the installed plugin (its folder is
-outside `~/.claude/plugins/`, or outside `plugins/` of `CLAUDE_CONFIG_DIR`), the line adds
-`--plugin-dir` with that folder, so that the task's session runs the Lem that opened it. That holds
-where no Lem is installed: with an older Lem installed for the project, the `lem` on such a session's
+owner's default of Claude Code. When the project has no enabled install of the plugin `lem@lem`, the
+line adds `--plugin-dir` with the app's own data folder, which has the plugin's shape, so that the
+task's session loads the plugin of the same build as the app. That holds where no Lem is installed: with an older Lem installed for the project, the `lem` on such a session's
 `PATH` is the installed one (lem-scratch, Claude Code 2.1.330, 2026-11-21), so a clone is tried with
 the installed plugin switched off. A launch with `--model` and `--effort` ran (the same day). Not run yet: a relaunch of agterm in its
 rerun mode, which starts each session's command again: the agent then starts from its first

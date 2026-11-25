@@ -32,11 +32,11 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
    `seats.planner`, parsed from its one line, `claude/MODEL:EFFORT`. Keep its `seat`, the line you
    opened: a failure names it. A defender's seat always names its model and its effort. The seat's
    `agent` can only be `claude`, since this agent's file is the only one the contract was checked in.
-   `PLUGIN` is the `plugin_dir` that `lem session plugin-dir` prints, so that the defender runs the
-   Lem of the session that opens it, as the task's session runs the Lem that opened it
-   (`task-session.md`): when this Lem is not the installed plugin (its folder is outside
-   `~/.claude/plugins/`, or outside `plugins/` of `CLAUDE_CONFIG_DIR`), it is that folder; when it
-   is the installed plugin, it is null, and the line leaves out `--plugin-dir \"PLUGIN\"`.
+   `PLUGIN` is the `plugin_dir` that `lem session --repo MAIN plugin-dir` prints, so that the
+   defender loads the plugin of the same build as the app, as the task's session does
+   (`task-session.md`): when the project has no enabled install of the plugin `lem@lem`, it is the
+   app's own data folder; when it loads the installed plugin, it is null, and the line leaves out
+   `--plugin-dir \"PLUGIN\"`.
 2. **Confirm it runs**: the command prints the new session's id; keep it, since the lead's wait
    takes it (`lem session wait SLUG --until planned,held,blocked --companion ID --quiet
    TASK_DIR/talk-turns.md`). In `agtermctl tree --json` the node with that id has a `foreground`

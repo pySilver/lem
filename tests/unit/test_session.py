@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from lem import project, session, session_hook
+from lem import paths, project, session, session_hook
 from lem import state as lem_state
 
 # the folder of this checkout of Lem
@@ -1024,17 +1024,58 @@ class Launch(unittest.TestCase):
         )
         self.assertNotIn("CLAUDE_CODE_AUTO_COMPACT_WINDOW", seated)
 
-    def test_a_lem_that_is_not_the_installed_plugin_names_its_folder(self) -> None:
-        home = {"CLAUDE_CONFIG_DIR": "/lem-unit/claude"}
-        self.assertIsNone(
-            session.plugin_dir(
-                Path("/lem-unit/claude/plugins/cache/lem/lem/1.2.0"), home
-            )
+    def claude_home(self, installs: list[dict], settings: dict | None = None) -> dict:
+        """A CLAUDE_CONFIG_DIR whose list of installed plugins holds INSTALLS of
+        lem@lem, with the user's SETTINGS."""
+        home = Path(tempfile.mkdtemp(prefix="lem-claude-"))
+        self.addCleanup(shutil.rmtree, home)
+        (home / "plugins").mkdir()
+        (home / "plugins" / "installed_plugins.json").write_text(
+            json.dumps({"version": 2, "plugins": {"lem@lem": installs}}),
+            encoding="utf-8",
+        )
+        if settings is not None:
+            (home / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
+        return {"CLAUDE_CONFIG_DIR": str(home)}
+
+    def test_a_project_with_no_installed_plugin_gets_the_apps_own_data(
+        self,
+    ) -> None:
+        main = Path(tempfile.mkdtemp(prefix="lem-main-"))
+        self.addCleanup(shutil.rmtree, main)
+        app = str(session.PLUGIN)
+        project_install = {"scope": "project", "projectPath": str(main)}
+        for installs, settings, wanted in (
+            ([], None, app),
+            ([{"scope": "user"}], None, None),
+            ([project_install], None, None),
+            # an install for another project, or one switched off, is none here
+            ([{"scope": "project", "projectPath": "/elsewhere"}], None, app),
+            ([{"scope": "user"}], {"enabledPlugins": {"lem@lem": False}}, app),
+        ):
+            with self.subTest(installs=installs, settings=settings):
+                self.assertEqual(
+                    session.plugin_dir(main, self.claude_home(installs, settings)),
+                    wanted,
+                )
+        # the project's own settings say it before the user's
+        (main / ".claude").mkdir()
+        (main / ".claude" / "settings.local.json").write_text(
+            json.dumps({"enabledPlugins": {"lem@lem": False}}), encoding="utf-8"
         )
         self.assertEqual(
-            session.plugin_dir(Path("/lem-unit/clones/lem"), home),
-            "/lem-unit/clones/lem",
+            session.plugin_dir(main, self.claude_home([project_install])), app
         )
+        # outside a repository, an install for the user alone counts
+        self.assertIsNone(
+            session.plugin_dir(None, self.claude_home([{"scope": "user"}]))
+        )
+        self.assertEqual(
+            session.plugin_dir(None, self.claude_home([project_install])), app
+        )
+        self.assertEqual(session.PLUGIN, paths.ROOT)
+
+    def test_the_launch_line_names_the_folder_it_is_given(self) -> None:
         line = session.launch_line(
             "/bin/zsh", SLUG, self.BRIEF, None, {}, "/lem-unit/clones/lem"
         )
@@ -1046,26 +1087,27 @@ class Launch(unittest.TestCase):
 
     def test_the_plan_talks_pair_reads_the_same_folder(self) -> None:
         # the lead writes the pair's launch line itself
-        # (harness/claude-code/plan-talk.md), with the `plugin_dir` this command prints:
-        # a clone's folder, or null for the installed plugin
+        # (harness/claude-code/plan-talk.md), with the `plugin_dir` this command prints
+        # for the project of --repo
         import contextlib
         import io
 
-        def printed(root: str) -> dict:
+        repo = Path(tempfile.mkdtemp(prefix="lem-repo-"))
+        self.addCleanup(shutil.rmtree, repo)
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+
+        def printed(installs: list[dict]) -> dict:
             out = io.StringIO()
             with (
-                mock.patch.object(session, "PLUGIN", Path(root)),
-                mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": "/lem-unit/claude"}),
+                mock.patch.dict(os.environ, self.claude_home(installs)),
                 contextlib.redirect_stdout(out),
             ):
-                session.main(["plugin-dir"])
+                session.main(["--repo", str(repo), "plugin-dir"])
             return json.loads(out.getvalue())
 
+        self.assertEqual(printed([]), {"plugin_dir": str(session.PLUGIN)})
         self.assertEqual(
-            printed("/lem-unit/clones/lem"), {"plugin_dir": "/lem-unit/clones/lem"}
-        )
-        self.assertEqual(
-            printed("/lem-unit/claude/plugins/cache/lem/lem/1.2.0"),
+            printed([{"scope": "project", "projectPath": str(repo)}]),
             {"plugin_dir": None},
         )
 

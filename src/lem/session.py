@@ -41,9 +41,8 @@ fresh agent.
     lem session list             each task's newest session: live, agent, selected, the phase the task is
                                  in now and the one the session opened in, unanswered, and its signs
                                  of work (sign, shell, signs, turn)
-    lem session plugin-dir       the folder that `--plugin-dir` names on a launch line of this Lem, or
-                                 null when this Lem is the installed plugin: the task's session and
-                                 the plan talk's pair run the Lem that opened them
+    lem session plugin-dir       the folder that `--plugin-dir` names on a launch line of this Lem, the
+                                 app's own data, or null when the project loads the installed plugin
 
 The phase comes from the task's state, never from an argument: no state block, or `held`
 for the interview or the criteria (any hold but a breaker's), is `shape`; a task on the
@@ -79,13 +78,12 @@ started in a worktree has none of it. In lem-scratch on 2026-11-21 a landing ses
 opened in its worktree found no `lem` command and no builder agent, and stopped as
 `blocked`. N is `[handoff] tokens` of the machine (`lem project handoff`); with 0 the
 variable is left out. `--model` and `--effort` follow only when `seats.session` names
-them. `--plugin-dir ROOT` follows when this Lem is not the installed plugin, ROOT being
-the folder of the plugin these scripts are in, so that the task's session runs the Lem
-that opened it: a folder under Claude Code's plugin folders (`plugins/` of
-`CLAUDE_CONFIG_DIR`, else of `~/.claude`) is the installed plugin and gets no flag; any
-other is a clone loaded with `claude --plugin-dir`, or a branch before its release
-(`plugin_dir`). `plugin-dir` prints that folder, or null, for the one launch line Lem
-does not write itself: the plan talk's pair, which the lead opens under its session
+them. `--plugin-dir ROOT` follows when the project has no enabled install of the
+plugin `lem@lem` in Claude Code's list (`plugins/` of `CLAUDE_CONFIG_DIR`, else of
+`~/.claude`), ROOT being the app's own data folder, which has the plugin's shape, so
+that the task's session loads the plugin of the same build as the app; a project that
+loads the installed plugin gets no flag (`plugin_dir`). `plugin-dir` prints that folder,
+or null, for the project of `--repo`, for the one launch line Lem does not write itself: the plan talk's pair, which the lead opens under its session
 (`harness/claude-code/plan-talk.md`). The workspace is the one the task's newest session
 was in, else the caller's, else that of the task its `after:` line names, else the
 repository's newest. It logs `session.open` with the session, its name, the phase, why
@@ -237,7 +235,8 @@ from lem import signs as lem_signs
 from lem import state as lem_state
 
 SKILL = paths.SKILL
-# the folder of the plugin this package is in: src/lem is two levels under it
+# the app's own data folder, which has the plugin's shape: what `--plugin-dir` names
+# where the project has no install of the plugin
 PLUGIN = paths.ROOT
 
 PHASES = ("shape", "build", "land", "fast")
@@ -741,16 +740,58 @@ def handoff_form(text: str, slug: str) -> dict:  # noqa: C901, PLR0912 - over th
     }
 
 
-def plugin_dir(root: Path, environ: Mapping[str, str]) -> str | None:
-    """What `--plugin-dir` names on the launch line of a task's session and of the plan
-    talk's pair (`lem session plugin-dir`): None when ROOT, this Lem's plugin folder, is
-    under Claude Code's plugin folders (`plugins/` of CLAUDE_CONFIG_DIR, else of
-    `~/.claude`), where the new session loads it as the installed plugin; else ROOT, so
-    that the session runs this Lem and not the one that is installed."""
+# The plugin a project installs from Lem's marketplace, by its key in Claude Code's list
+# of installed plugins and its `enabledPlugins`.
+PLUGIN_KEY = "lem@lem"
+
+
+def plugin_installed(main: Path | None, environ: Mapping[str, str]) -> bool:
+    """Whether Claude Code loads the plugin PLUGIN_KEY in the checkout MAIN (None:
+    outside a repository): an install for the user, or for MAIN
+    (`lem_release.installs`), that the settings leave on. The repository's local
+    settings say it first, then its shared ones, then the user's
+    (code.claude.com/docs/en/settings-reference, `enabledPlugins`, read 2026-11-17);
+    with no word an install is on."""
+    listed = lem_release.installs(environ)
+    plugins = listed.get("plugins") if isinstance(listed, dict) else None
+    entries = plugins.get(PLUGIN_KEY) if isinstance(plugins, dict) else None
+    here = os.path.realpath(main) if main is not None else None
+    if not any(
+        isinstance(entry, dict)
+        and (
+            entry.get("scope") in lem_release.USER_SCOPES
+            or (
+                entry.get("scope") in lem_release.PROJECT_SCOPES
+                and isinstance(entry.get("projectPath"), str)
+                and os.path.realpath(entry["projectPath"]) == here
+            )
+        )
+        for entry in (entries if isinstance(entries, list) else [])
+    ):
+        return False
     home = Path(environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
-    plugins = (home / "plugins").resolve()
-    found = root.resolve()
-    return None if found == plugins or plugins in found.parents else str(found)
+    files = (
+        [main / ".claude" / name for name in ("settings.local.json", "settings.json")]
+        if main is not None
+        else []
+    )
+    for file in [*files, home / "settings.json"]:
+        try:
+            said = json.loads(file.read_text(encoding="utf-8")).get("enabledPlugins")
+        except OSError, ValueError, AttributeError:
+            continue
+        if isinstance(said, dict) and isinstance(said.get(PLUGIN_KEY), bool):
+            return said[PLUGIN_KEY]
+    return True
+
+
+def plugin_dir(main: Path | None, environ: Mapping[str, str]) -> str | None:
+    """What `--plugin-dir` names on the launch line of a task's session and of the plan
+    talk's pair (`lem session plugin-dir`): None when the project MAIN loads Lem's
+    plugin from its marketplace install (`plugin_installed`); else this app's own data
+    folder, `paths.ROOT`, which has the plugin's shape, so that the session loads the
+    plugin of the same build as the app."""
+    return None if plugin_installed(main, environ) else str(PLUGIN)
 
 
 def launch_line(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
@@ -1329,15 +1370,15 @@ def cmd_open(
             raise SessionError(str(error)) from error
         worktree = facts["worktree"]
         brief = directory / BRIEF
+        main = project.main_checkout(root)
         line = launch_line(
             login_shell(),
             slug,
             brief,
             tokens,
             facts["settings"]["seats"]["session"],
-            plugin_dir(PLUGIN, os.environ),
+            plugin_dir(main, os.environ),
         )
-        main = project.main_checkout(root)
         brief.write_text(
             brief_text(slug, phase, why, directory, main, worktree), encoding="utf-8"
         )
@@ -2657,17 +2698,23 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
     commands.add_parser(
         "plugin-dir",
         help=(
-            "the folder that --plugin-dir names on a launch line of this Lem, or null "
-            "when this Lem is the installed plugin"
+            "the folder that --plugin-dir names on a launch line of this Lem, the "
+            "app's own data, or null when the project loads the installed plugin"
         ),
     )
     args = parser.parse_args(argv)
     if args.command == "plugin-dir":
-        # no repository: the answer is this Lem's folder alone, which the plan talk's
-        # pair takes too
+        # the project of --repo, whose install of the plugin decides; outside a
+        # repository only an install for the user does
+        try:
+            main: Path | None = project.main_checkout(
+                project.repo_root(Path(args.repo))
+            )
+        except project.SettingsError:
+            main = None
         print(
             json.dumps(
-                {"plugin_dir": plugin_dir(PLUGIN, os.environ)},
+                {"plugin_dir": plugin_dir(main, os.environ)},
                 indent=2,
                 ensure_ascii=False,
             )

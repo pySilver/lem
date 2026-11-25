@@ -155,8 +155,8 @@ To run a clone of Lem in one session, load its folder as the plugin
 claude --plugin-dir /path/to/lem   # for this session only
 ```
 
-A task's session that `lem session open` starts gets `--plugin-dir` with the clone's folder when
-no Lem is installed (`plugin_dir` in `session.py`), and so does the plan talk's pair, whose lead
+A task's session that `lem session open` starts gets `--plugin-dir` with the app's root when the
+project has no Lem installed (`plugin_dir` in `session.py`), and so does the plan talk's pair, whose lead
 reads that folder from `lem session plugin-dir`. With an older Lem installed for the project, the
 `lem` on that session's `PATH` is still the installed one (lem-scratch, Claude Code 2.1.330,
 2026-11-21): a real task is tried with the release installed.
