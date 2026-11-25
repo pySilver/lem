@@ -4,6 +4,7 @@ stacks, the count, one task's, the forge's conflict and last night's report (`ma
 after a dropped task", "in the morning the list marks a task the night held";
 `tests/lem-serve.sh` "lem project waiting lists the rows of the board's Waits for you")."""
 
+from dataclasses import replace as replace_dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -14,23 +15,152 @@ from msgspec.structs import replace
 
 from fakes.command import lem
 from fakes.records import MOMENT
-from lem.app.owner import listing
+from fakes.repo import RealRepo, run_git
+from lem.app.landing import reconcile
+from lem.app.owner import listing, looking, stacks
+from lem.app.owner.scope import Scope
+from lem.app.sessions import acts, here, log
 from lem.kernel import clock
+from lem.kernel.errors import Refusal
+from lem.model.decisions import criterion
+from lem.model.landing import merge, phases
 from lem.model.owner import waiting
+from lem.model.owner.looks import Row
 from lem.model.task import release
+from lem.ports.harness import Signs, Transcript
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked
+from lem.records.landing.merge import Merged
 from lem.records.landing.record import Landing, Pull
-from lem.store import tasks
+from lem.records.sessions import SessionLine
+from lem.store import sessions, tasks
+from unit.landing.merges import BY_MERGER, facing
+from unit.landing.merges import opened as proposed_landing
+from unit.landing.worlds import CRITERION, TREE
 from unit.owner.looked import opened, proposed, read
-from unit.task.spaces import made, refusal, result, workspace
+from unit.sessions.harness import SigningHarness
+from unit.sessions.terminal import AGENT, CALLER, with_caller
+from unit.sessions.world import here_of
+from unit.task.spaces import SETTINGS, made, refusal, result, workspace
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.model.owner.looks import Look
     from lem.store.places import Workspace
 
 NOW = MOMENT + timedelta(hours=1)
 NIGHT = date(2026, 11, 25)
+
+
+def test_waiting_shows_the_review_of_the_base_that_returned(tmp_path: Path) -> None:
+    repo = RealRepo.init(tmp_path, {"README.md": b"base A\n"})
+    where = workspace(repo.checkout)
+    base_a = run_git(repo.checkout, "rev-parse", "origin/main")
+    tree_a = run_git(repo.checkout, "rev-parse", "origin/main^{tree}")
+    base_b = repo.outside_commit("main", {"README.md": b"base B\n"})
+    run_git(repo.checkout, "fetch", "origin")
+    tree_b = run_git(repo.checkout, "rev-parse", "origin/main^{tree}")
+    call = replace(read("call"), base=base_a, base_tree=tree_a)
+    safe = replace(
+        read("merge", why="Base B is safe."), base=base_b, base_tree=tree_b, at=NOW
+    )
+    task = opened(proposed=proposed(), reads=(call, safe)).record
+    tasks.create(where.state, task)
+    base_again = repo.outside_commit("main", {"README.md": b"base A\n"})
+    run_git(repo.checkout, "fetch", "origin")
+    assert base_again != base_a
+    assert run_git(repo.checkout, "rev-parse", "origin/main^{tree}") == tree_a
+    world = facing(tip=call.tip, base=base_again, base_tree=tree_a)
+    assert phases.opened(task, world).by == "owner"
+
+    found = result(lem("waiting", cwd=repo.checkout))
+    assert [row["kind"] for row in found["rows"]] == ["review", "merge"]
+    assert found["reviews"][0]["why"] == call.why
+    assert found["pull_requests"][0]["merge_review"]["base_tree"] == tree_a
+
+
+def test_waiting_does_not_ask_for_a_merge_after_the_forge_merged_it(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    task = opened(proposed=proposed(), reads=(read("call"),)).record
+    merged = Merged(
+        by="owner",
+        via="board",
+        commit="e" * 40,
+        merged_head="a" * 40,
+        parent="b" * 40,
+        destination="main",
+        base_checked="b" * 40,
+        base_merged="b" * 40,
+        at=NOW,
+        text_updated=False,
+    )
+    changed = reconcile.taken(task, found=merged)
+    assert changed.task.status == "open"
+    due = phases.settled(changed)
+    assert due is not None and due.step == "merged"
+    tasks.create(where.state, changed)
+
+    found = result(lem("waiting", cwd=tmp_path))
+    assert found["reviews"] == found["pull_requests"] == found["rows"] == []
+
+
+def test_waiting_uses_the_current_setting_for_who_merges(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    record = proposed_landing()
+    tasks.create(where.state, record)
+    assert result(lem("waiting", cwd=tmp_path))["rows"] == []
+    (where.lem / "settings.toml").write_text(
+        SETTINGS + 'land = "owner"\n', encoding="utf-8"
+    )
+    world = facing()
+    current = replace(world, rules=replace(world.rules, land="owner"))
+    stopped = merge.decide(record, current, BY_MERGER, TREE)
+    assert isinstance(stopped, Refusal) and stopped.code == "merger-rule"
+
+    found = result(lem("waiting", cwd=tmp_path))
+    assert [row["kind"] for row in found["rows"]] == ["review", "merge"]
+    assert found["reviews"][0]["why"] == merge.LAND_OWNER
+
+
+def test_waiting_shows_the_criterion_change_that_bars_the_merge_agent(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    record = proposed_landing()
+    assert not isinstance(merge.decide(record, facing(), BY_MERGER, TREE), Refusal)
+    asked = criterion.Asked(
+        how="changed",
+        number=CRITERION.number,
+        was=CRITERION.text,
+        now="The login works with a hardware key.",
+        why="the login requires a hardware key",
+        by="lead",
+    )
+    changed = criterion.recorded(record, asked=asked, now=NOW)
+    refusal = merge.decide(changed, facing(), BY_MERGER, TREE)
+    assert isinstance(refusal, Refusal)
+    assert refusal.code == "merger-rule"
+    tasks.create(where.state, changed)
+    found = result(lem("waiting", cwd=tmp_path))
+    assert [row["kind"] for row in found["rows"]] == ["review", "merge"]
+    assert found["reviews"][0]["why"] in refusal.why
+    pull = found["pull_requests"][0]
+    assert pull["green"] is False
+    assert any("criterion 1 changed" in line for line in pull["not_green"])
+
+
+def test_waiting_constructs_keyed_rows_in_keyed() -> None:
+    given = (
+        Row(kind="breaker", key="breaker:gift-note:2", task="gift-note", since=MOMENT),
+        Row(kind="plan", key="plan:read-me", task="read-me", since=MOMENT),
+    )
+    with patch.object(stacks, "key_of", create=True, side_effect=AssertionError):
+        found = stacks.keyed(Scope(rows=given, looks={}, slug=None))
+    assert [(row.key, row.kind, row.task) for row in found] == [
+        (row.key, row.kind, row.task) for row in given
+    ]
 
 
 def put_open(
@@ -69,6 +199,88 @@ def test_waiting_refuses_broken_settings_before_it_reads_the_forge(
     refused = refusal(lem("waiting", cwd=tmp_path))
     assert refused["code"] == "settings-toml"
     assert ".lem/settings.toml" in refused["why"]
+
+
+def test_waiting_keeps_the_owner_rows_when_the_forge_cache_is_bad(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    made(
+        where,
+        "stopped-build",
+        status="building",
+        hold=BreakerHold(number=2, since=MOMENT),
+    )
+    criteria = OwnerHold(on="criteria", line="approve the criteria", since=MOMENT)
+    made(where, "approve-me", status="shaping", hold=criteria)
+    path = where.state / "forge.json"
+    path.write_text("not json", encoding="utf-8")
+    found = result(lem("waiting", cwd=tmp_path))
+    assert [row["kind"] for row in found["rows"] if row["kind"] != "session"] == [
+        "breaker",
+        "criteria",
+    ]
+    assert found["forge"]["looked"] is None
+    assert "forge.json" in found["forge"]["said"]
+    assert path.read_text(encoding="utf-8") == "not json"
+
+
+def test_waiting_uses_one_task_snapshot_for_its_sessions(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    made(where, "gift-note")
+    with patch.object(tasks, "every", wraps=tasks.every) as every:
+        found = looking.looked(here.bound(tmp_path), NOW)
+    assert [one.record.task.slug for one in found.looks] == ["gift-note"]
+    every.assert_called_once_with(where.state)
+
+
+def working_look(tmp_path: Path, *, plan: bool, own: bool) -> Look:
+    terminal, harness = with_caller(), SigningHarness()
+    terminal.grounds[CALLER.id] = AGENT
+    site = here_of(tmp_path, terminal, harness)
+    if not own:
+        site = replace_dataclass(site, caller="S-OTHER")
+    slug = "gift-note"
+    hold = (
+        OwnerHold(on="plan", line="read the plan", since=MOMENT)
+        if plan
+        else BreakerHold(number=2, since=MOMENT)
+    )
+    made(site.where, slug, status="planned" if plan else "building", hold=hold)
+    log.append(
+        site.folder(slug),
+        acts.Open(session=CALLER.id, at=MOMENT, name=slug, phase="build", why="new"),
+    )
+    sessions.append(
+        site.folder(slug),
+        SessionLine(
+            at=MOMENT,
+            source="startup",
+            claude="owner",
+            transcript="/test/owner-transcript",
+            pane=CALLER.id,
+            task=slug,
+        ),
+    )
+    harness.by_task[slug] = (Transcript(path="/test/owner-transcript", claude="owner"),)
+    harness.signs_of["/test/owner-transcript"] = Signs(sign=NOW, turn="runs")
+    (found,) = looking.looked(site, NOW).looks
+    assert found.session is not None and found.session.live
+    return found
+
+
+@pytest.mark.parametrize(("own", "expected"), [(True, ["breaker"]), (False, [])])
+def test_a_running_breaker_is_visible_to_its_own_session(
+    tmp_path: Path, *, own: bool, expected: list[str]
+) -> None:
+    found = working_look(tmp_path, plan=False, own=own)
+    assert [row.kind for row in waiting.rows((found,), away=False, now=NOW)] == expected
+
+
+def test_a_plan_still_waits_for_the_owner_during_a_live_turn(tmp_path: Path) -> None:
+    found = working_look(tmp_path, plan=True, own=False)
+    assert found.session is not None and found.session.working
+    assert [row.kind for row in waiting.rows((found,), away=False, now=NOW)] == ["plan"]
 
 
 def test_waiting_groups_the_rows_once_to_build_and_count_the_stacks(
@@ -111,7 +323,8 @@ def test_each_group_holds_the_rows_of_its_kind_with_its_facts(tmp_path: Path) ->
     made(where, "stuck", status="landing", opened=start, hold=blocked)
     dropped_at = MOMENT + timedelta(minutes=5)
     made(where, "first", status="dropped", since=dropped_at)
-    made(where, "second", status="queued", after=("first",))
+    made(where, "next", status="dropped", since=dropped_at)
+    made(where, "second", status="queued", after=("first", "next"))
     made(where, "aside", status="planned", hold=Parked(since=MOMENT, words="later"))
     landing = opened(
         "merge-me", proposed=proposed(green=False, who="owner"), reads=(read("call"),)
@@ -132,15 +345,18 @@ def test_each_group_holds_the_rows_of_its_kind_with_its_facts(tmp_path: Path) ->
     assert datetime.fromisoformat(after["since"]) == dropped_at
     assert (after["task"], after["after"], after["start"], after["drop"]) == (
         "second",
-        "first",
+        ["first", "next"],
         "start second now",
         "/lem drop second",
+    )
+    assert after["verb"] == (
+        "first and next were dropped: your word starts or ends this task"
     )
     pull = found["pull_requests"][0]
     assert (pull["pull_request"]["number"], pull["green"], pull["not_green"]) == (
         44,
         False,
-        ["the review left a must-fix"],
+        ["the review left 1 must-fix"],
     )
     assert pull["merge_review"]["verdict"] == "call"
     assert found["reviews"][0]["why"] == "Verdict: call. It needs you."
@@ -211,15 +427,16 @@ def test_a_nights_pull_request_and_held_task_carry_its_night(tmp_path: Path) -> 
         ("night-full", 45, NIGHT, False),
         ("night-small", 46, NIGHT, True),
     ):
-        landing = Landing(
-            phase="open",
+        found = opened(
+            slug,
             pull=Pull(
                 number=number, url=f"https://github.com/o/r/pull/{number}", title=slug
             ),
             proposed=proposed(green=green, who="owner"),
             reads=(read("call"),),
         )
-        put_open(where, slug, landing, night=night)
+        assert found.record.landing is not None
+        put_open(where, slug, found.record.landing, night=night)
     nights = where.state / "night"
     nights.mkdir()
     (nights / "2026-11-23.md").write_text("old", encoding="utf-8")

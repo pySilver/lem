@@ -8,6 +8,9 @@ or is deleted only at the commit named, and is never deleted while a worktree ha
 
 from typing import TYPE_CHECKING
 
+from lem.adapters.git_cli_facts import clean
+from lem.adapters.git_cli_ref import reset_under_lock
+from lem.adapters.git_cli_reset import ignored_collision
 from lem.adapters.git_cli_shell import GIT, QUIET, Shell, all_words, last_words
 from lem.adapters.git_cli_stops import conflicted, rebase_folder
 from lem.ports.faults import Unanswered
@@ -36,7 +39,7 @@ class Rewrite(Shell):
         stopped = conflicted(self, worktree) if rebase_folder(self, worktree) else ()
         if stopped:
             return Conflict(files=stopped)
-        return GitRefused(said=all_words(ran))
+        return GitRefused(said=all_words(ran.stderr))
 
     def abort(self, worktree: Path) -> None:
         self.said(worktree, "rebase", "--abort")
@@ -48,7 +51,7 @@ class Rewrite(Shell):
         made = ("commit", QUIET, "--message", message, "--", *paths)
         ran = self.tried(worktree, *made)
         if ran.returncode:
-            return GitRefused(said=all_words(ran))
+            return GitRefused(said=all_words(ran.stderr or ran.stdout))
         return self.head(worktree)
 
     def push(
@@ -98,10 +101,15 @@ class Branches(Shell):
     def reset(self, worktree: Path, commit: str, expect: str) -> str | GitRefused:
         if self.head(worktree) != expect:
             return GitRefused(said=f"the branch is not at {expect}")
-        if not tracked_clean(self, worktree):
+        if not clean(self, worktree):
             return GitRefused(said="the worktree has changes that no commit holds")
-        self.said(worktree, "reset", QUIET, "--hard", commit)
-        return self.head(worktree)
+        target = self.commit_at(worktree, commit)
+        if target is None:
+            return GitRefused(said=f"{commit} names no commit")
+        collision = ignored_collision(self, worktree, expect, target)
+        if collision is not None:
+            return collision
+        return reset_under_lock(self, worktree, target, expect)
 
     def branch_delete(self, checkout: Path, branch: str, expect: str) -> bool:
         if self.checked_out(checkout, branch):
@@ -124,8 +132,3 @@ class Branches(Shell):
         """Whether a worktree of the repository has `branch` checked out."""
         listed = self.said(checkout, WORKTREE, "list", "--porcelain")
         return f"branch {HEADS}{branch}" in listed.splitlines()
-
-
-def tracked_clean(shell: Shell, where: Path) -> bool:
-    """Whether what git tracks in `where` is as HEAD holds it."""
-    return not shell.said(where, "status", "--porcelain", "--untracked-files=no")

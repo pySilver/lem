@@ -165,7 +165,7 @@ OVERVIEW = Overview(
     ),
     building=Building(
         goal="The receipt gets a new line",
-        outcome=document(f"outcome-{SLUG}", OUTCOME, media=MEDIA),
+        outcome=document(f"outcome-{SLUG}", OUTCOME, media=MEDIA, charts=True),
         shots=(
             Shot(
                 id="shots-receipt",
@@ -223,7 +223,7 @@ OVERVIEW = Overview(
             Phase(name="Proposed", sub="not green", current=True),
             Phase(name="Landed"),
         ),
-        ring=Ring(done=2, current=2, total=2, big="2/2", small="plan tasks"),
+        ring=Ring(done=2, current=0, total=2, big="2/2", small="plan tasks"),
         stats=(
             Stat(
                 label="Who works on it",
@@ -265,7 +265,7 @@ OVERVIEW = Overview(
     ),
 )
 CRITERIA = Criteria(
-    how=document(f"how-{SLUG}", HOW),
+    how=document(f"how-{SLUG}", HOW, charts=True),
     criteria_said=(
         "standard track, because the receipt gets a new line and a rule for a refund "
         "larger than the total."
@@ -301,7 +301,7 @@ CRITERIA = Criteria(
                     )
                 ),
             ),
-            chart=document(f"crit-{SLUG}-1", f"```mermaid\n{CHART}\n```"),
+            chart=document(f"crit-{SLUG}-1", f"```mermaid\n{CHART}\n```", charts=True),
             tests=(("sh tests/refund.sh", "not checked yet"),),
         ),
         Criterion(
@@ -354,7 +354,9 @@ CRITERIA = Criteria(
                 who="Taken by the dialectic, because the total stands under what changed it",
             ),
             chart=document(
-                f"dec-{SLUG}-1", f"```mermaid\n{DECISION_CHART.strip()}\n```"
+                f"dec-{SLUG}-1",
+                f"```mermaid\n{DECISION_CHART.strip()}\n```",
+                charts=True,
             ),
             parts=(
                 Part(

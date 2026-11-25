@@ -24,7 +24,7 @@ def stacked(scope: Scope) -> tuple[Stacked, ...]:
 
 def stack_of(group: Rows, scope: Scope) -> Stacked:
     """One task's stack."""
-    look = scope.look(group[0].task)
+    look = scope.looks[group[0].task]
     shown = briefs.brief(look.record)
     return Stacked(
         task=shown.task,
@@ -45,12 +45,14 @@ def thing_of(row: Row, look: Look) -> Thing:
 
 def keyed(scope: Scope) -> tuple[Keyed, ...]:
     """The rows by their keys, as the phone shows them."""
-    return tuple(map(key_of, scope.rows))
-
-
-def key_of(row: Row) -> Keyed:
-    """One row by its key."""
-    return Keyed(key=row.key, kind=row.kind, task=row.task)
+    return tuple(
+        Keyed(
+            key=row.key,
+            kind=row.kind,
+            task=row.task,
+        )
+        for row in scope.rows
+    )
 
 
 def parked(scope: Scope) -> tuple[Entry, ...]:

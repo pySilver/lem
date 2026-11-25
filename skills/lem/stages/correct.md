@@ -97,7 +97,7 @@ directory stays, `handoff.md` and each breaker's document (`breaker-N.md`) with 
 from them and from the branch (`stages/park.md`), and for a task the release stop blocked a new
 request from its notes and its branch; say so in the line that tells him it is dropped. A task queued after this one does not
 start: it stays `queued` for his word (step 7 of "The request", `stages/new.md`). The same line
-that tells him this one is dropped names each such task as one that now waits for his word, "start
-SLUG now" or `/lem drop SLUG`: after the drop, `lem waiting` lists each under
-`after_dropped`, with this task as its `after`. Last, the task's session closes: typed there, as its
+that tells him this one is dropped names each such task as one that waits for his word, "start
+SLUG now" or `/lem drop SLUG`: in `lem waiting`, take each `after_dropped` entry whose `after`
+list contains the slug of the task just dropped. Last, the task's session closes: typed there, as its
 last act (`prompts/session.md`, "The end"); typed elsewhere, `lem session close SLUG --why owner`.

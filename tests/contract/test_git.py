@@ -13,13 +13,14 @@ import pytest
 
 from contract.suites.git import FILES, GitContract, commit_file, task_worktree
 from fakes.repo import RealRepo, git_env, run_git, write
-from lem.adapters import git_cli, git_cli_shell
+from lem.adapters import git_cli, git_cli_acts, git_cli_shell
 from lem.adapters.git_cli_names import shown
 from lem.ports.faults import Unanswered
 from lem.ports.git_facts import Conflict, GitRefused
 from lem.ports.place import Place
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 
@@ -53,6 +54,23 @@ class RealWorld:
         hook.write_text(f"#!/bin/sh\necho '{said}' >&2\nexit 1\n")
         hook.chmod(0o755)
 
+    def ignore(self, path: str) -> None:
+        exclude = self.checkout / ".git" / "info" / "exclude"
+        with exclude.open("a", encoding="utf-8") as rules:
+            rules.write(f"\n/{path}\n")
+
+    def after_reset_tip_check(
+        self, patch: pytest.MonkeyPatch, act: Callable[[], None]
+    ) -> None:
+        clean = git_cli_acts.clean
+
+        def checked(shell: git_cli_shell.Shell, folder: Path) -> bool:
+            found = clean(shell, folder)
+            act()
+            return found
+
+        patch.setattr(git_cli_acts, "clean", checked)
+
 
 def real_world(folder: Path, environ: dict[str, str] | None = None) -> RealWorld:
     """A repository of `FILES` on `main`, pushed and fetched, and git with the test's
@@ -67,6 +85,70 @@ def real_world(folder: Path, environ: dict[str, str] | None = None) -> RealWorld
 class TestGitCli(GitContract):
     def world(self, folder: Path) -> RealWorld:
         return real_world(folder)
+
+
+def test_reset_refuses_an_ignored_file_at_an_alias_of_the_target(
+    tmp_path: Path,
+) -> None:
+    world = real_world(tmp_path)
+    where = task_worktree(world)
+    target = commit_file(world, where, "ENV", b"tracked\n")
+    (where / "ENV").unlink()
+    current = world.git.commit(where, "remove ENV", ("ENV",))
+    assert isinstance(current, str), current
+    world.ignore("env")
+    local = where / "env"
+    local.write_bytes(b"local only\n")
+    if not (where / "ENV").exists():
+        pytest.skip("the file system distinguishes these names")
+    assert world.git.clean(where)
+    refused = world.git.reset(where, target, current)
+    assert isinstance(refused, GitRefused), refused
+    assert local.read_bytes() == b"local only\n"
+    assert world.git.tip(where, "HEAD") == current
+
+
+@pytest.mark.parametrize("subject", ["change a", "change a\u2028with a note"])
+def test_history_keeps_tabs_in_the_author_and_line_separators_in_the_subject(
+    tmp_path: Path, subject: str
+) -> None:
+    author = "Ada\tLovelace"
+    world = real_world(tmp_path, {**git_env(), "GIT_AUTHOR_NAME": author})
+    where = task_worktree(world)
+    base = world.git.tip(where, "HEAD")
+    assert base is not None
+    write(where, {"a.txt": b"a\n"})
+    tip = world.git.commit(where, subject, ("a.txt",))
+    assert isinstance(tip, str), tip
+    commit_file(world, where, "b.txt", b"b\n")
+    commits = world.git.commits(where, base, "HEAD")
+    assert [(one.sha, one.author, one.subject) for one in commits] == [
+        (tip, author, subject),
+        (world.git.tip(where, "HEAD"), author, "change b.txt"),
+    ]
+    world.outside_commit("main", {"a.txt": b"a\n"})
+    world.git.fetch(where)
+    assert world.git.left_out(where, "origin/main", "HEAD") == commits[:1]
+
+
+def test_a_commit_refusal_uses_stdout_when_git_has_no_stderr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    world = real_world(tmp_path)
+    where = task_worktree(world)
+    write(where, {"a.txt": b"a\n"})
+    tried = git_cli_shell.Shell.tried
+
+    def refuse_commit(
+        shell: git_cli_shell.Shell, folder: Path, *args: str
+    ) -> subprocess.CompletedProcess[str]:
+        if args[0] == "commit":
+            return subprocess.CompletedProcess(args, 1, "use a backlog subject\n", "")
+        return tried(shell, folder, *args)
+
+    monkeypatch.setattr(git_cli_shell.Shell, "tried", refuse_commit)
+    refused = world.git.commit(where, "add a", ("a.txt",))
+    assert refused == GitRefused(said="use a backlog subject")
 
 
 def test_a_checkout_on_another_branch_at_the_same_commit_does_not_follow(

@@ -7,9 +7,10 @@ the browser's tip prints them.
 """
 
 from lem.board.inputs.activity import Happened, Tick
-from lem.board.inputs.parts import Input, Moment, Note
+from lem.board.inputs.parts import Input, Note
 from lem.board.inputs.task.overview import Went
 from lem.board.inputs.text import Look, Plain
+from lem.records.base import Moment
 
 
 class Band(Input, frozen=True, kw_only=True):

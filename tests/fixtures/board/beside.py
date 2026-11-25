@@ -9,20 +9,17 @@ into a workspace of its own, its records through the store.
 
 import json
 import zlib
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 from fixtures.board import prose
 from fixtures.board.ended import EXPORT, FOOTER, INVOICE
-from fixtures.board.held import CHECK, FEE, GIFT, STOCK
+from fixtures.board.held import CHECK, FEE, GIFT, STOCK, STOCK_CRITERIA
 from fixtures.board.moments import TODAY, ago
 from fixtures.board.receipt import RECEIPT
 from fixtures.board.working import CART, COUPON, ROUNDING
 from lem.app.sessions import log
 from lem.app.sessions.acts import Act, Close, CloseWhy, Open
 from lem.store import places, tasks
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 RECORDS = (
     CART,
@@ -101,20 +98,6 @@ The refund line is in, under the items, and the total under it.
 ![The receipt of order 1042 after a refund of 30.00 EUR](media/receipt-after.png)
 *The refund reads `-30.00` in green; the total under it is 70.00.*
 """
-# The criteria of the stock line as its session changed them from the owner's note, which wait
-# for his yes again.
-STOCK_CRITERIA = """## Acceptance criteria
-
-Size: full, because the product page gets a new line.
-
-1. A product with 3 in stock says "3 left" under its price, and one with 1 in stock says "Only 1 left" in the warning color: the blue mug, with 1 in stock, says "Only 1 left".
-2. A product with none in stock says "Sold out" and no number.
-"""
-# A picture's bytes: the smallest PNG, one white pixel.
-PNG = bytes.fromhex(
-    "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de"
-    "0000000c4944415408d763f8ffff3f0005fe02fea7d6a4b40000000049454e44ae426082"
-)
 FILES = (
     (
         "gift-note-in-export",
@@ -150,6 +133,7 @@ FILES = (
     ("refund-line-on-receipt", "built.md", prose.RECEIPT_BUILT),
     ("refund-line-on-receipt", "page.html", prose.RECEIPT_PAGE),
 )
+# The pictures from `receipt()` in `main:tests/board-showcase.py`.
 PICTURES = (
     ("refund-line-on-receipt", "media/receipt-before.png"),
     ("refund-line-on-receipt", "media/receipt-after.png"),
@@ -372,7 +356,8 @@ def lay(folder: Path) -> Path:
     for slug, name, body in FILES:
         write(places.task_folder(state, slug) / name, body)
     for slug, name in PICTURES:
-        write(places.task_folder(state, slug) / name, PNG)
+        picture = Path(__file__).parent / name
+        write(places.task_folder(state, slug) / name, picture.read_bytes())
     for name, body in BACKLOG:
         write(checkout / name, body)
     for name, body in REVIEWED:

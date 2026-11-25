@@ -20,23 +20,27 @@ files it does not own.
   `presence`, `unknown`: why the sessions are not known, `forge`). `here` is
   `lem.app.sessions.here.bound(folder)`. The terminal is asked only when a task has a session on
   record. A known missing session has `live=False`. An unreadable list gives no session facts.
-  The look applies release stops to open tasks without a write.
+  The look applies release stops to open tasks without a write. Its `read_after_refusal` carries
+  the journal's order of the settled merge read and the base refusal.
 - **The verb of a row**, in the board's words: `lem.model.owner.verbs.verb(row, task, landing)`.
   Where he acts, the icon and how the time reads stay `board-views`'s (`board_model.wait_say` on
   `main`). An unresolved merge intent says "Check the pull request on GitHub."
 - **His presence.** `lem.store.owner.read(home)` (`Presence`: `away`, `since`, `words`, `seen`,
   `changes`); whether a task runs without him now is `lem.model.owner.presence.alone(task,
   presence)`, and the spans it ran without him `lem.model.owner.spans.spans(task, presence)`.
-- **The merge's wait.** `lem.model.owner.merging.merge_wait(record)`: `owner`, `reads`, `merges`,
-  `relands`, or None for a task that is not open (`board_model.merge_wait` on `main`), from the
-  record alone. An unresolved merge intent waits for the owner to check GitHub. The kanban's
-  "You" column and the merge page may read it.
+- **The merge's wait.** `lem.model.owner.merging.merge_wait(record, read_after_refusal=...)`:
+  `owner`, `reads`, `merges`, `relands`, or None for a task that is not open
+  (`board_model.merge_wait` on `main`). Pass the look's `read_after_refusal` so the order holds
+  when a read and a refusal share a second. An unresolved merge intent waits for the owner to
+  check GitHub. The kanban's "You" column and the merge page may read it.
 - **His answer to a question.** `lem.model.owner.answers.answer(task, question_id, digest,
   answer) -> Task` refuses `answered` (answered already, asked again, or a text that changed) and
-  `question` (no such question). A row whose question he answered on the board is no row until
+  `question` (no such question) or `option` (the question does not offer it). A row whose
+  question he answered on the board is no row until
   the task's session sets the question's `took_effect` (`answers.answered_hold`): the act that
   takes his answer (the session's command) sets it, and the board's act must not. A live session
-  whose turn runs also holds back the breaker or the owner's hold until the turn ends.
+  whose turn runs also holds back a breaker or an owner's hold until the turn ends. A plan
+  still waits, and a session that asks for its own rows has no turn in that look.
 - **`lem waiting`** prints the same rows (`rows`, `tasks` with each thing's `verb`, `count`) and
   the groups, so that the terminal, the phone and the Inbox list the same.
 
@@ -47,6 +51,7 @@ files it does not own.
 in `.lem/state/forge.json`. The forge duty writes it in that form (with `store`'s whole write),
 or moves the struct to `records/` and tells this step's owner; a conflict counts only at the head
 Lem proposed last (`forge.conflicts`).
+If the cache cannot be read, `lem waiting` gives `forge.said` and no forge facts.
 
 ## For `ask`: the cards
 
@@ -68,10 +73,5 @@ fated `changed` by this step until then.
 ## For `core` (`records/owner.py`)
 
 `Change` keeps no repository he typed his word in (`repo` on `main`, which no script acted on).
-`store.owner.change` writes an away with new words over an away; `lem owner away` does not call it
-then, since a word that changes nothing writes nothing (`main`).
-
-## One choice of this step, open to the owner
-
-- `lem owner watch` reads only the machine's mark, so it is no longer refused outside a
-  repository; it refuses a missing `--seen` (`seen`) and turns a stop into the refusal `stopped`.
+The store compares the owner's presence under its lock. A second away or back leaves the first
+word in the mark and keeps its count.

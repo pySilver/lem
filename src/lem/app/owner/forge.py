@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.kernel.errors import Fault
 from lem.records.base import Frozen, Moment, Sha, Slug
 
 if TYPE_CHECKING:
@@ -31,23 +30,22 @@ class Seen(Frozen, frozen=True, kw_only=True):
 
 
 class Look(Frozen, frozen=True, kw_only=True):
-    """The server's last look at the forge: when, and each task's pull request."""
+    """The server's last look at the forge, or why it could not be read."""
 
     looked: Moment | None = None
     seen: dict[Slug, Seen] = msgspec.field(default_factory=dict)
+    said: str | None = None
 
 
 def read(state: Path) -> Look:
-    """The last look; no file is none yet."""
+    """The last look; a damaged cache gives no forge facts and says why."""
     path = state / LOOK
     try:
         return msgspec.json.decode(path.read_bytes(), type=Look)
     except FileNotFoundError:
         return Look()
-    except msgspec.DecodeError as error:
-        raise Fault(
-            f"{path} is no look of the board's server at the forge: {error}"
-        ) from error
+    except (OSError, msgspec.DecodeError) as error:
+        return Look(said=f"Lem could not read the forge facts in {path}: {error}")
 
 
 def conflicts(look: Look, record: Record) -> bool:

@@ -19,19 +19,21 @@ if TYPE_CHECKING:
 type Listed = dict[str, listing.Listed]
 
 
-def sessions_of(here: Here, now: datetime) -> tuple[Listed, str | None]:
+def sessions_of(
+    here: Here, now: datetime, records: tuple[Record, ...]
+) -> tuple[Listed, str | None]:
     """Each task's newest session by task, or none and why the terminal could not say."""
     try:
-        found = listing.list_sessions(here, now)
+        found = listing.list_sessions(here, now, records=records)
     except Refusal as refusal:
         return {}, f"the task sessions are not known: {refusal.why}"
     return {entry.task: entry for entry in found}, None
 
 
 def session_of(
-    entry: listing.Listed | None, opened: datetime, *, known: bool
+    entry: listing.Listed | None, opened: datetime, caller: str | None, *, known: bool
 ) -> Session | None:
-    """No session facts when the terminal could not say, else the pane and its agent."""
+    """No facts when the terminal could not say, and no turn for the session that asks."""
     if not known:
         return None
     if entry is None:
@@ -41,7 +43,7 @@ def session_of(
         live=live,
         since=entry.since,
         unanswered=live and entry.unanswered,
-        working=entry.turn == "runs",
+        working=entry.turn == "runs" and not log.same(entry.session, caller),
     )
 
 

@@ -25,7 +25,7 @@ STATE = ".lem/state/backlog"
 def start(path: str) -> ActForm:
     """The form that starts a task from the item at `path`."""
     return ActForm(
-        action=f"{BASE}/start",
+        action=f"{BASE}/tasks",
         label="Start a task",
         icon="play",
         press="go",

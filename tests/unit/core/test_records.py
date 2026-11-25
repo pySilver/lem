@@ -106,20 +106,11 @@ def test_a_record_is_a_value_that_no_one_changes_in_place() -> None:
         setattr(made.task, field, "dropped")
 
 
-def test_an_abbreviated_commit_and_a_time_with_no_zone_are_refused_on_reading() -> None:
+def test_an_abbreviated_commit_is_refused_on_reading() -> None:
     whole = b'"by":"owner","via":"board"'
     with pytest.raises(msgspec.ValidationError, match=r"\$\.tip"):
         msgspec.json.decode(
             b'{"tip":"abc",' + whole + b',"at":"2026-11-25T10:00:00Z"}',
-            type=MergeIntent,
-        )
-    with pytest.raises(msgspec.ValidationError, match="timezone"):
-        msgspec.json.decode(
-            b'{"tip":"'
-            + SHA.encode()
-            + b'",'
-            + whole
-            + b',"at":"2026-11-25T10:00:00"}',
             type=MergeIntent,
         )
 

@@ -2,6 +2,7 @@
 mark: the cases of `main`'s `tests/unit/test_owner.py::Spans`, as calls with records."""
 
 from datetime import UTC, date, datetime
+from unittest.mock import patch
 
 from fakes.records import record
 from lem.model.owner import marks, spans
@@ -97,4 +98,24 @@ def test_two_aways_of_one_day_task_are_two_spans() -> None:
     assert [(span.start, span.end, span.started.words) for span in found] == [
         (at(10), at(11), "lunch"),
         (at(15), at(17), "away"),
+    ]
+
+
+def test_each_away_span_reuses_the_same_collection() -> None:
+    task = record(opened=at(9)).task
+    history = presence(
+        away(at(10), "lunch"),
+        back(at(11), "back"),
+        away(at(15), "away"),
+        back(at(17), "here"),
+    )
+    with patch.object(spans, "moved", wraps=spans.moved) as moved:
+        found = spans.spans(task, history)
+    collections = [call.args[0] for call in moved.call_args_list]
+    assert len(collections) == len(history.changes)
+    assert all(one is collections[0] for one in collections)
+    assert isinstance(found, tuple)
+    assert [(span.start, span.end) for span in found] == [
+        (at(10), at(11)),
+        (at(15), at(17)),
     ]

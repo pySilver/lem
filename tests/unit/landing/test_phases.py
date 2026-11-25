@@ -250,13 +250,16 @@ def test_the_owners_standing_merge_is_the_servers_to_carry_out() -> None:
     proposed = record.landing.proposed if record.landing else None
     assert proposed is not None
     standing = Standing(
-        tip=TIP, reasons_digest=digest_of(proposed.reasons), by_act="board", at=MOMENT
+        tip=TIP,
+        reasons_digest=digest_of(proposed.reasons, proposed.contract),
+        by_act="board",
+        at=MOMENT,
     )
     stands = alone(standing=standing)
     due = phases.due(stands, facing())
     assert step_of(due) == ("merge", "owner")
     assert "--standing" in due.why
-    other = replace(standing, reasons_digest=digest_of(("another",)))
+    other = replace(standing, reasons_digest=digest_of(("another",), proposed.contract))
     assert "--standing" not in phases.due(alone(standing=other), facing()).why
 
 

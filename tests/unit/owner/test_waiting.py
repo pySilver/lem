@@ -4,13 +4,20 @@ JSON what waits for the owner", `tests/unit/test_board_model.py` `WaitingByTask`
 `AfterDropped`, `InterviewTurns`, `SeatThatFailed`)."""
 
 from datetime import date, timedelta
+from typing import TYPE_CHECKING
+from unittest.mock import patch
 
+import pytest
 from msgspec.structs import replace
 
 from fakes.records import MOMENT, record
+from lem.app.landing import mergeread, reconcile
+from lem.app.owner import briefs, listing
+from lem.kernel.errors import Refusal
 from lem.model.criteria import change, waits
-from lem.model.landing.merge import LAND_OWNER
-from lem.model.owner import merging, verbs, waiting
+from lem.model.landing.merge import LAND_OWNER, MOVED
+from lem.model.landing.merge_standing import kept
+from lem.model.owner import merges, merging, verbs, waiting
 from lem.model.owner.looks import Look
 from lem.records.approvals import PersonaRead
 from lem.records.criteria import Criteria
@@ -25,6 +32,9 @@ from lem.records.holds import (
 from lem.records.landing.merge import MergeAccepted, MergeIntent
 from lem.records.questions import Answer, Question
 from lem.records.work import Span
+from lem.store import tasks
+from unit.landing.merges import BY_OWNER
+from unit.landing.worlds import CRITERION
 from unit.owner.looked import (
     LATER,
     gone,
@@ -37,6 +47,10 @@ from unit.owner.looked import (
     seen,
     stop,
 )
+from unit.task.spaces import workspace
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 NOW = MOMENT + timedelta(hours=1)
 
@@ -138,7 +152,7 @@ def test_a_task_queued_after_a_dropped_task_waits_for_his_word() -> None:
     after = look("second", status="queued", after=("first",))
     assert rows(dropped, after) == [("after_dropped", "after_dropped:second")]
     found = waiting.rows((dropped, after), away=False, now=NOW)
-    assert found[0].after == "first"
+    assert found[0].after == ("first",)
     assert found[0].since == LATER
     queued_later = look("second", status="queued", after=("first",), since=NOW)
     found = waiting.rows((dropped, queued_later), away=False, now=NOW)
@@ -149,6 +163,14 @@ def test_a_task_queued_after_a_dropped_task_waits_for_his_word() -> None:
     assert rows(dropped, started) == []
 
 
+def test_the_after_dropped_row_ends_on_drop_or_when_a_queue_clears_after() -> None:
+    dropped = look("first", status="dropped")
+    queued = look("second", status="queued", after=("first",))
+    assert rows(dropped, queued) == [("after_dropped", "after_dropped:second")]
+    assert rows(dropped, look("second", status="dropped", after=("first",))) == []
+    assert rows(dropped, look("second", status="queued")) == []
+
+
 def test_a_block_is_his_unless_it_waits_for_the_task_that_repairs_the_base() -> None:
     mine = Blocked(why="a builder ended twice", fix="tell it what to do", since=MOMENT)
     base = replace(mine, after="fix-the-base")
@@ -156,13 +178,13 @@ def test_a_block_is_his_unless_it_waits_for_the_task_that_repairs_the_base() -> 
     assert rows(look(status="landing", hold=base)) == []
 
 
-def test_the_first_drop_in_queue_order_gives_the_owner_one_action() -> None:
-    queue = look("last", status="queued", after=("missing", "next", "first"))
+def test_all_drops_in_queue_order_give_the_owner_one_action() -> None:
+    queue = look("last", status="queued", after=("missing", "next", "first", "next"))
     first = look("first", status="dropped")
     next_drop = look("next", status="dropped", since=LATER)
     found = waiting.rows((first, next_drop, queue), away=False, now=NOW)
     assert [(row.key, row.after, row.since) for row in found] == [
-        ("after_dropped:last", "next", LATER)
+        ("after_dropped:last", ("next", "first"), LATER)
     ]
 
 
@@ -233,12 +255,44 @@ def test_a_merge_the_agent_or_the_server_takes_is_not_his() -> None:
     ]
 
 
+def test_a_new_criteria_approval_gives_the_merge_to_the_owner() -> None:
+    ready = opened(proposed=proposed(), reads=(read("merge"),))
+    assert merging.merge_wait(ready) == "merges"
+    criteria = ready.record.task.criteria
+    lines = (replace(CRITERION, text="The login works with a hardware key."),)
+    approval = replace(
+        criteria.approvals[-1], number=2, at=MOMENT, by="owner", criteria=lines
+    )
+    task = replace(
+        ready.record.task,
+        criteria=replace(
+            criteria, approvals=(*criteria.approvals, approval), criteria=lines
+        ),
+    )
+    changed = replace(ready, record=replace(ready.record, task=task))
+    assert merging.merge_wait(changed) == "owner"
+    found = waiting.rows((changed,), away=False, now=NOW)
+    assert [(row.kind, row.why) for row in found] == [
+        ("review", MOVED),
+        ("merge", None),
+    ]
+    pull = briefs.entry_of(found[-1], changed)
+    assert pull.green is False and pull.not_green == (MOVED,)
+
+
+def test_merge_rows_ask_who_merges_once() -> None:
+    ready = opened(proposed=proposed(who="owner"), reads=(read("call"),))
+    with patch.object(merging, "merge_wait", wraps=merging.merge_wait) as wait:
+        assert [row.kind for row in merges.merge_rows(ready)] == ["review", "merge"]
+    wait.assert_called_once_with(ready)
+
+
 def test_an_unresolved_merge_intent_asks_for_a_check_on_github() -> None:
     proposal = proposed()
     intent = MergeIntent(tip=proposal.tip, by="merger", via="session", at=LATER)
     uncertain = opened(proposed=proposal, reads=(read("merge"),), intent=intent)
     found = waiting.rows((uncertain,), away=False, now=NOW)
-    assert merging.merge_wait(uncertain.record) == "owner"
+    assert merging.merge_wait(uncertain) == "owner"
     assert [(row.kind, row.since) for row in found] == [("merge", LATER)]
     task = uncertain.record.task
     assert verbs.verb(found[0], task, uncertain.record.landing) == (
@@ -262,6 +316,56 @@ def test_a_refused_merge_is_his_unless_the_merge_agent_reads_the_moved_base() ->
         ("review", "review:gift-note"),
         ("merge", "merge:gift-note"),
     ]
+
+
+def test_a_review_after_a_base_refusal_offers_the_owner_the_merge_again() -> None:
+    old = refused("lem", "base")
+    called = opened(
+        proposed=proposed(), refused=old, reads=(replace(read(None), attempts=2),)
+    )
+    found = waiting.rows((called,), away=False, now=NOW)
+    task, landing = called.record.task, called.record.landing
+    assert [verbs.verb(row, task, landing) for row in found] == [
+        "Read the merge review",
+        "Merge the pull request #44",
+    ]
+    assert landing is not None and landing.refused == old
+    other = opened(
+        proposed=proposed(), refused=refused("lem", "rule"), reads=landing.reads
+    )
+    assert verbs.verb(found[-1], other.record.task, other.record.landing) == (
+        "The merge did not go through"
+    )
+
+
+@pytest.mark.parametrize(
+    "read_first", [True, False], ids=["read-first", "refusal-first"]
+)
+def test_a_read_and_base_refusal_in_the_same_second_follow_their_write_order(
+    tmp_path: Path, *, read_first: bool
+) -> None:
+    review = replace(read(None), attempts=2, at=MOMENT)
+    record = opened(proposed=proposed()).record
+    if read_first:
+        record = mergeread.noted(record, read=review)
+    base_moved = Refusal("base", "the base moved", "read the moved base")
+    held = kept(record, base_moved, BY_OWNER, MOMENT)
+    assert held is not None
+    record = reconcile.stood(record, held=held)
+    if not read_first:
+        record = mergeread.noted(record, read=review)
+
+    tasks.create(workspace(tmp_path).state, record)
+    found = listing.listed(tmp_path, None, NOW, NOW.date())
+    expected = (
+        [] if read_first else ["Read the merge review", "Merge the pull request #44"]
+    )
+    assert [
+        thing.verb
+        for stack in found.tasks
+        for thing in stack.things
+        if thing.kind in {"review", "merge"}
+    ] == expected
 
 
 def test_the_forges_conflict_is_said_on_the_merge() -> None:

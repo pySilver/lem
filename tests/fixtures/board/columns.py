@@ -46,6 +46,7 @@ YOU = Column(
     key="you",
     look="you",
     title="Waits for you",
+    total=3,
     empty="Nothing waits for you",
     cards=(
         TaskCard(
@@ -117,6 +118,7 @@ BUILD = Column(
     key="build",
     look="lead",
     title="Building",
+    total=2,
     empty="No task builds",
     cards=(
         TaskCard(
@@ -175,6 +177,7 @@ CHECKS = Column(
     key="checks",
     look="gate",
     title="Checks and review",
+    total=1,
     empty="No branch is checked or reviewed",
     cards=(
         TaskCard(
@@ -195,6 +198,7 @@ DONE = Column(
     key="done",
     look="done",
     title="Done",
+    total=3,
     empty="Nothing landed yet",
     cards=(
         TaskCard(

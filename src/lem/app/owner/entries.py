@@ -24,7 +24,7 @@ class Entry(Frozen, frozen=True, kw_only=True):
     unread: bool | None = None
     page: str | None = None
     prompt: str | None = None
-    after: Slug | None = None
+    after: tuple[Slug, ...] | None = None
     start: str | None = None
     drop: str | None = None
     verb: str | None = None

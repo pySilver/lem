@@ -2,6 +2,7 @@
 date on another day, a task's title and address, and a pull request's link."""
 
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -9,6 +10,11 @@ import pytest
 from lem.board.inputs import clock, names
 from lem.board.inputs.parts import When
 from lem.records.landing.record import Pull
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from lem.board.inputs.text import View
 
 NOW = datetime(2026, 11, 25, 16, 0, tzinfo=UTC)
 ZONE = ZoneInfo("UTC")
@@ -35,6 +41,10 @@ def test_a_length_keeps_its_seconds_under_ten_minutes_and_its_minutes_under_two_
     seconds: float, shown: str
 ) -> None:
     assert clock.length(seconds) == shown
+
+
+def test_the_length_formatter_has_no_separate_hours_formatter() -> None:
+    assert not hasattr(clock, "hours_of")
 
 
 @pytest.mark.parametrize(
@@ -71,6 +81,28 @@ def test_a_moment_as_the_page_prints_it_keeps_the_moment_and_says_how_it_moves()
     )
 
 
+def test_the_repeated_hour_counts_as_an_hour_of_elapsed_time() -> None:
+    zone = ZoneInfo("America/New_York")
+    first = datetime(2026, 11, 1, 1, 15, tzinfo=zone)
+    second = first.replace(fold=1)
+    assert clock.since(first, second).shown == "1h 00m"
+    assert clock.gone(first, second).shown == "1h 00m ago"
+
+
+@pytest.mark.parametrize("formatter", [clock.since, clock.gone])
+@pytest.mark.parametrize("naive", ["began", "now"])
+def test_elapsed_time_requires_a_zone_for_both_moments(
+    formatter: Callable[[datetime, datetime], When], naive: str
+) -> None:
+    began, now = NOW - timedelta(hours=1), NOW
+    if naive == "began":
+        began = began.replace(tzinfo=None)
+    else:
+        now = now.replace(tzinfo=None)
+    with pytest.raises(ValueError, match="time zone"):
+        formatter(began, now)
+
+
 def test_a_title_is_the_slug_in_words_and_an_empty_slug_is_a_task() -> None:
     assert names.title_of("report-dates-stay-whole") == "Report dates stay whole"
     assert names.title_of("") == "A task"
@@ -86,6 +118,45 @@ def test_a_task_address_names_its_tab_and_the_view_under_its_panel_but_the_kanba
         == "/studio/shop/tasks/fix-it/criteria?in=waits"
     )
     assert names.task_href(base, "fix-it", None, "tasks") == "/studio/shop/tasks/fix-it"
+
+
+@pytest.mark.parametrize(
+    ("under", "suffix"),
+    [
+        ("new", ""),
+        ("tasks", ""),
+        ("waits", "?in=waits"),
+        ("backlog", "?in=backlog"),
+        ("activity", "?in=activity"),
+        ("done", "?in=done"),
+    ],
+)
+def test_overview_omits_its_tab_and_keeps_only_a_view_it_can_open_over(
+    under: View, suffix: str
+) -> None:
+    address = "/studio/shop/tasks/fix-it"
+    assert (
+        names.task_href("/studio/shop", "fix-it", "overview", under) == address + suffix
+    )
+    assert (
+        names.task_href("/studio/shop", "fix-it", "criteria", under)
+        == f"{address}/criteria{suffix}"
+    )
+
+
+def test_an_artifact_address_quotes_its_path_and_keeps_the_slash_before_the_view() -> (
+    None
+):
+    assert (
+        names.task_href(
+            "/studio/shop", "fix-it", "artifacts", "waits", artifact="gate/check #1.log"
+        )
+        == "/studio/shop/tasks/fix-it/artifacts/gate/check%20%231.log/?in=waits"
+    )
+    assert (
+        names.task_href("/studio/shop", "fix-it", artifact="report.md")
+        == "/studio/shop/tasks/fix-it/artifacts/report.md/"
+    )
 
 
 def test_a_pull_request_links_to_the_forge_by_its_number_or_its_repository_and_number() -> (

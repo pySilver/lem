@@ -81,9 +81,9 @@ class Shell:
         except (OSError, subprocess.TimeoutExpired) as error:
             raise Unanswered(GIT, str(error)) from error
 
-    def blob(self, where: Path, spec: str) -> bytes:
-        """The bytes of the object `spec` (`REV:PATH`), as git keeps them."""
-        ran = self.raw(where, "cat-file", "blob", spec)
+    def output(self, where: Path, *args: str) -> bytes:
+        """The bytes git gives for `args`, or `Unanswered` with git's words."""
+        ran = self.raw(where, *args)
         if ran.returncode:
             said = ran.stderr.decode(errors="replace").strip()
             raise Unanswered(GIT, said or f"git exited {ran.returncode}")
@@ -96,10 +96,9 @@ def own(environ: Mapping[str, str]) -> dict[str, str]:
     return {name: word for name, word in environ.items() if name not in AIMED}
 
 
-def all_words(ran: subprocess.CompletedProcess[str]) -> str:
-    """Everything git said on its errors, each line of it, as one line; "nothing" when it
-    said nothing (`land.rebase_failed` on `main`)."""
-    lines = (line.strip() for line in ran.stderr.splitlines())
+def all_words(said: str) -> str:
+    """Git's words on one line, or "nothing" when it said nothing."""
+    lines = (line.strip() for line in said.splitlines())
     return " / ".join(line for line in lines if line).rstrip(".") or "nothing"
 
 

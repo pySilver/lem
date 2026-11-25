@@ -46,6 +46,13 @@ class Stop(Frozen, frozen=True, kw_only=True):
     restarted: bool = True
 
 
+class MergeBasis(Frozen, frozen=True, kw_only=True):
+    """The workspace's last fetched base tree and current landing setting."""
+
+    tree: Sha | None = None
+    land: Literal["agent", "owner"] | None = None
+
+
 class Look(Frozen, frozen=True, kw_only=True):
     """One task as the list reads it: its record and the look at the world."""
 
@@ -54,6 +61,8 @@ class Look(Frozen, frozen=True, kw_only=True):
     stop: Stop | None = None
     worktree: bool = False
     conflict: bool = False
+    basis: MergeBasis = MergeBasis()
+    read_after_refusal: bool | None = None
 
 
 class Row(Frozen, frozen=True, kw_only=True):
@@ -67,13 +76,15 @@ class Row(Frozen, frozen=True, kw_only=True):
     deaf: bool = False
     unread: bool = False
     restarted: bool = True
-    after: Slug | None = None
+    after: tuple[Slug, ...] = ()
     say: str | None = None
     card: str | None = None
     prompt: str | None = None
     why: str | None = None
     tip: Sha | None = None
     conflict: bool = False
+    base_tree: Sha | None = None
+    read_after_refusal: bool | None = None
 
 
 type Rows = tuple[Row, ...]

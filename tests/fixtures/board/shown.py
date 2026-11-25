@@ -8,7 +8,7 @@ the owner sees, and a view's rule that gives other words fails its case.
 import hashlib
 from zoneinfo import ZoneInfo
 
-from fixtures.board.moments import BASE, NOW, ago
+from fixtures.board.moments import BASE, ago
 from lem.board.inputs.layout import Viewer
 from lem.board.inputs.parts import Chip, Document, When
 
@@ -32,16 +32,6 @@ def gone(minutes: float, shown: str, title: str | None = None) -> When:
     return When(at=ago(minutes), shown=shown, title=title, ticks="ago")
 
 
-def clock(minutes: float, shown: str, title: str | None = None) -> When:
-    """A clock time, which stays as it is."""
-    return When(at=ago(minutes), shown=shown, title=title)
-
-
-def just_now() -> When:
-    """The moment of the page."""
-    return When(at=NOW, shown="just now", ticks="ago")
-
-
 def task(slug: str, tab: str | None = None, under: str | None = None) -> str:
     """The address of a task, its tab, and the view under its panel."""
     path = f"{BASE}/tasks/{slug}" + (f"/{tab}" if tab else "")
@@ -54,9 +44,16 @@ def kind(name: str, why: str) -> Chip:
 
 
 def document(
-    key: str, text: str, media: str | None = None, folder: str | None = None
+    key: str,
+    text: str,
+    media: str | None = None,
+    folder: str | None = None,
+    *,
+    charts: bool = False,
 ) -> Document:
     """A markdown text under the id a refresh keeps while the text stays: `md-KEY-` and the
     first twelve of the SHA-256 of `KEY|TEXT` (`main`'s `board_pages.md_block`)."""
     digest = hashlib.sha256(f"{key}|{text}".encode()).hexdigest()[:12]
-    return Document(id=f"md-{key}-{digest}", text=text, media=media, folder=folder)
+    return Document(
+        id=f"md-{key}-{digest}", text=text, media=media, folder=folder, charts=charts
+    )

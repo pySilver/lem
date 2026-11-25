@@ -15,6 +15,7 @@ import pytest
 from lem.ports.git_facts import Conflict, GitRefused
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from lem.ports.git import Git
@@ -37,6 +38,10 @@ class GitWorld(Protocol):
     ) -> str: ...
     def merge_in(self, where: Path, ref: str, files: dict[str, bytes]) -> str: ...
     def refuse_commits(self, said: str) -> None: ...
+    def ignore(self, path: str) -> None: ...
+    def after_reset_tip_check(
+        self, patch: pytest.MonkeyPatch, act: Callable[[], None]
+    ) -> None: ...
 
 
 def task_worktree(world: GitWorld, name: str = "fix-the-login") -> Path:
@@ -242,6 +247,21 @@ class GitContract:
         assert world.git.branch_of(world.checkout) == "main"
         assert world.git.origin_url(world.checkout)
 
+    def test_an_update_push_sends_the_checked_commit_under_the_existing_lease(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        branch = "fix-the-login"
+        where = task_worktree(world, branch)
+        first = commit_file(world, where, "a.txt", b"first\n")
+        assert world.git.push(where, branch, None, commit=first) == first
+        checked = commit_file(world, where, "a.txt", b"checked\n")
+        later = commit_file(world, where, "a.txt", b"later\n")
+        assert world.git.push(where, branch, first, commit=checked) == checked
+        world.git.fetch(where)
+        assert world.git.remote_head(where, branch) == checked
+        assert world.git.tip(where, "HEAD") == later
+
     def test_a_clean_of_tracked_files_only_reads_past_an_untracked_file(
         self, tmp_path: Path
     ) -> None:
@@ -299,18 +319,36 @@ class GitContract:
         assert [one.author for one in ours] == ["Lem Test"]
         assert [one.author for one in outside] == ["A Teammate"]
 
+    def test_path_facts_name_the_files_that_git_can_read(self, tmp_path: Path) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        base = world.git.tip(where, "HEAD")
+        assert base is not None
+        path = "docs/backlog/less<than\na.md"
+        tip = commit_file(world, where, path, b"the item\n")
+        listed = world.git.files(where, tip, "docs/backlog")
+        changed = world.git.changed_paths(where, base, tip)
+        assert listed == changed == (path,)
+        assert world.git.show(where, tip, listed[0]) == b"the item\n"
+
     def test_the_commits_a_base_holds_already_by_their_patch_are_left_out(
         self, tmp_path: Path
     ) -> None:
         world = self.world(tmp_path)
         where = task_worktree(world)
         same = commit_file(world, where, "a.txt", b"a\n")
+        spaced = commit_file(world, where, "sum.py", b"sum = 1\n")
         commit_file(world, where, "b.txt", b"b\n")
         assert world.git.left_out(where, "main", "HEAD") == ()
         world.outside_commit("main", {"a.txt": b"a\n"})
+        world.outside_commit("main", {"sum.py": b"sum=1\n"})
+        world.outside_commit("main", {"b.txt": b"different\n"})
         world.git.fetch(where)
         found = world.git.left_out(where, "origin/main", "HEAD")
-        assert [(one.sha, one.subject) for one in found] == [(same, "change a.txt")]
+        assert [(one.sha, one.subject) for one in found] == [
+            (same, "change a.txt"),
+            (spaced, "change sum.py"),
+        ]
 
     def test_a_branch_is_added_with_no_worktree_once(self, tmp_path: Path) -> None:
         world = self.world(tmp_path)
@@ -348,3 +386,87 @@ class GitContract:
         assert isinstance(refused, GitRefused)
         assert "the hook says no" in refused.said
         assert world.git.tip(where, "HEAD") == before
+
+    def test_a_reset_preserves_a_commit_made_after_its_tip_check(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        before = commit_file(world, where, "a.txt", b"a\n")
+        expected = commit_file(world, where, "b.txt", b"b\n")
+        committed: list[str] = []
+
+        def commit_during_reset() -> None:
+            committed.append(commit_file(world, where, "c.txt", b"new work\n"))
+
+        with monkeypatch.context() as patch:
+            world.after_reset_tip_check(patch, commit_during_reset)
+            refused = world.git.reset(where, before, expected)
+
+        assert len(committed) == 1
+        assert world.git.tip(where, "HEAD") == committed[0]
+        assert (where / "b.txt").read_bytes() == b"b\n"
+        assert (where / "c.txt").read_bytes() == b"new work\n"
+        assert world.git.clean(where)
+        assert isinstance(refused, GitRefused)
+
+    def test_reset_refuses_to_replace_an_untracked_file(self, tmp_path: Path) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        before = world.git.tip(where, "HEAD")
+        assert before is not None
+        path = where / "README.md"
+        path.unlink()
+        removed = world.git.commit(where, "remove the readme", (path.name,))
+        assert isinstance(removed, str), removed
+        path.write_bytes(b"unsaved\n")
+        assert world.git.clean(where, untracked=False)
+        assert isinstance(world.git.reset(where, before, removed), GitRefused)
+        assert path.read_bytes() == b"unsaved\n"
+        assert world.git.tip(where, "HEAD") == removed
+
+    @pytest.mark.parametrize(
+        ("tracked", "local"),
+        [
+            pytest.param("env", "env", id="file"),
+            pytest.param("env", "env/local", id="local-folder"),
+            pytest.param("env/tracked", "env", id="target-folder"),
+        ],
+    )
+    def test_reset_refuses_to_replace_ignored_data(
+        self, tmp_path: Path, tracked: str, local: str
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        target = commit_file(world, where, tracked, b"tracked\n")
+        (where / tracked).unlink()
+        current = world.git.commit(where, "remove the tracked file", (tracked,))
+        assert isinstance(current, str), current
+        world.ignore("env")
+        path = where / local
+        if path.is_dir():
+            path.rmdir()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"local only\n")
+        assert world.git.clean(where)
+        assert isinstance(world.git.reset(where, target, current), GitRefused)
+        assert path.read_bytes() == b"local only\n"
+        assert world.git.tip(where, "HEAD") == current
+
+    def test_reset_keeps_ignored_data_beside_a_restored_file(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        target = commit_file(world, where, "env/tracked", b"tracked\n")
+        (where / "env/tracked").unlink()
+        current = world.git.commit(where, "remove the tracked file", ("env/tracked",))
+        assert isinstance(current, str), current
+        world.ignore("env")
+        path = where / "env/local"
+        path.parent.mkdir(exist_ok=True)
+        path.write_bytes(b"local only\n")
+        assert world.git.clean(where)
+        assert world.git.reset(where, target, current) == target
+        assert path.read_bytes() == b"local only\n"
+        assert (where / "env/tracked").read_bytes() == b"tracked\n"

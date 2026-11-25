@@ -6,15 +6,12 @@ default out of its JSON: the fixture of a page decodes strictly, so a field a vi
 fill is a failure, never a page that prints less.
 """
 
-from datetime import datetime
-from typing import Annotated, Literal
+from typing import Literal
 
 import msgspec
 
 from lem.board.inputs.text import Href, Icon, Inline, Look, Markdown, Plain, Press
-
-# A moment with its zone, as every record holds it.
-type Moment = Annotated[datetime, msgspec.Meta(tz=True)]
+from lem.records.base import Moment
 
 
 class Input(
@@ -57,7 +54,7 @@ class Link(Input, frozen=True, kw_only=True):
 
 class Chip(Input, frozen=True, kw_only=True):
     """A small mark: its words (`**2** landed today`), its icon and look, its hover, whether it
-    moves (a step that runs), and where it links when it does (a pull request)."""
+    moves (a step that runs), where it links (a pull request), and an age after its words."""
 
     label: Inline
     icon: Icon | None = None
@@ -65,6 +62,7 @@ class Chip(Input, frozen=True, kw_only=True):
     title: Plain | None = None
     live: bool = False
     link: Link | None = None
+    when: When | None = None
 
 
 class Row(Input, frozen=True, kw_only=True):
@@ -85,13 +83,14 @@ class Row(Input, frozen=True, kw_only=True):
 class Document(Input, frozen=True, kw_only=True):
     """A markdown text the browser renders (a task's outcome, a breaker's document, the merge
     review, a criterion's chart): its id (`md-KEY-DIGEST`, which a refresh keeps while the text
-    stays), the text, the address of the task's pictures it may show, and the folder its links
-    start from."""
+    stays), the text, the address of the task's pictures it may show, the folder its links
+    start from, and whether it needs the Mermaid library."""
 
     id: Plain
     text: Markdown
     media: Href | None = None
     folder: Plain | None = None
+    charts: bool = False
 
 
 class Note(Input, frozen=True, kw_only=True):

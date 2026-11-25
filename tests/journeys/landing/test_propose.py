@@ -18,11 +18,13 @@ from fakes.outside import FakeJudge
 from fakes.repo import git_env, run_git
 from journeys.test_skeleton import (
     JOURNEY,
+    MERGE,
     REVIEW,
     SLUG,
     SUBJECT,
     Killed,
     World,
+    brief,
     built,
     command,
     due,
@@ -30,6 +32,7 @@ from journeys.test_skeleton import (
     made,
     next_step,
     proposal,
+    reply,
     review,
     upto,
 )
@@ -385,3 +388,9 @@ def test_an_edit_of_lems_settings_needs_the_full_set_and_the_owner_merges_it(
         False,
     )
     assert found["reasons"][0].startswith("careful on the fast track (the change edits")
+    assert brief(capsys, world)["ok"] is True
+    assert reply(capsys, world)["result"]["verdict"] == "merge"
+    assert MERGE(capsys, world)["refusal"]["code"] == "merger-rule"
+    assert world.record()["task"]["status"] == "open"
+    assert world.forge.pull(found["pull"]["number"]).state == "open"
+    assert world.forge.merge_calls == []

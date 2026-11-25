@@ -173,8 +173,6 @@ def test_a_host_or_workspace_the_board_does_not_have_is_404(
         ("GET", "/h/w/waits", "board-pages"),
         ("GET", "/h/w/tasks/fix-the-login", "board-pages"),
         ("GET", "/h/w/tasks/fix-the-login/merge", "board-pages"),
-        ("POST", "/h/w/tasks/fix-the-login/merge", "board-acts"),
-        ("POST", "/h/w/tasks", "board-acts"),
         ("GET", "/h/w/tasks/fix-the-login/cards/p1/", "ask"),
         ("POST", "/h/w/tasks/fix-the-login/cards/p1/answer", "ask"),
         ("GET", "/push/key", "board-service"),
@@ -190,6 +188,13 @@ def test_an_address_not_built_answers_501_with_the_step_that_builds_it(
     said = answer.json()
     assert said["step"] == step
     assert f"the step `{step}` builds it" in said["why"]
+
+
+@pytest.mark.parametrize("path", ["tasks/fix-the-login/merge", "tasks"])
+def test_a_board_act_requires_the_boards_own_origin(board: Board, path: str) -> None:
+    answer = board.client.post(f"{board.address}{path}")
+    assert answer.status_code == 403
+    assert "board's own page" in answer.text
 
 
 def test_api_server_says_who_serves_with_its_own_header(board: Board) -> None:

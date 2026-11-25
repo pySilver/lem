@@ -112,7 +112,6 @@ WAITING = (
         ),
     ),
 )
-SAYS = "5 wait for you · 2 build · 1 in checks and review"
 SIDEBAR = Sidebar(
     repo="shop",
     repo_title="shop · tasks land on main",
@@ -170,7 +169,7 @@ SIDEBAR = Sidebar(
         ),
     ),
     flags=(Flag(kind="demo", title=f"Demo data: {DEMO[0].lower()}{DEMO[1:]}"),),
-    switcher=Switcher(name="shop", title=f"shop: {SAYS}\n/work/shop"),
+    switcher=Switcher(name="shop", title="shop"),
 )
 
 

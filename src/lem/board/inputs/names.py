@@ -30,13 +30,29 @@ def title_of(slug: str) -> str:
 
 
 def task_href(
-    base: Href, slug: str, tab: str | None = None, under: View = "tasks"
+    base: Href,
+    slug: str,
+    tab: str | None = None,
+    under: View = "tasks",
+    *,
+    artifact: str | None = None,
 ) -> Href:
-    """The address of task `slug`, on `tab` (none for its Overview), over the view `under`."""
-    path = f"{base}/tasks/{quote(slug)}"
-    if tab:
-        path = f"{path}/{tab}"
-    return path if under == "tasks" else f"{path}?in={under}"
+    """The task's tab or artifact over the view `under`. Turbo needs the slash after a file."""
+    named = quote(slug, safe="")
+    path = f"{base}/tasks/{named}"
+    if artifact and not tab:
+        tab = "artifacts"
+    if tab and (tab != "overview" or artifact):
+        section = quote(tab)
+        path = f"{path}/{section}"
+    if artifact:
+        encoded = quote(artifact)
+        path = f"{path}/{encoded}/"
+    return (
+        f"{path}?in={under}"
+        if under in {"waits", "backlog", "activity", "done"}
+        else path
+    )
 
 
 def repository(pull: Pull) -> str | None:

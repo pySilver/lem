@@ -42,12 +42,14 @@ class TaskCard(Input, frozen=True, kw_only=True):
 
 
 class Column(Input, frozen=True, kw_only=True):
-    """A column: its key and look, its title, its words when empty, whether the owner folded
-    it, its cards, and Done's link to the tasks it has no card for."""
+    """A column: its key and look, its title, its total before any limit on its cards, its
+    words when empty, whether the owner folded it, its cards, and Done's link to the tasks
+    it has no card for."""
 
     key: Plain
     look: Look
     title: Plain
+    total: int
     empty: Plain
     folded: bool = False
     cards: tuple[TaskCard, ...] = ()

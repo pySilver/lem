@@ -26,10 +26,11 @@ class Known(Frozen, frozen=True, kw_only=True, omit_defaults=False):
     said: str | None
 
 
-class ForgeSeen(Frozen, frozen=True, kw_only=True, omit_defaults=False):
-    """When the board's server last looked at the forge."""
+class ForgeSeen(Frozen, frozen=True, kw_only=True):
+    """When the board's server last looked at the forge, or why its look could not be read."""
 
     looked: Moment | None
+    said: str | None = None
 
 
 class NightReport(Frozen, frozen=True, kw_only=True):

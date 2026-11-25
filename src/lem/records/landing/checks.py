@@ -55,6 +55,13 @@ class Removed(Frozen, frozen=True, kw_only=True):
     bytecode: tuple[str, ...] = ()
 
 
+class Edited(Frozen, frozen=True, kw_only=True):
+    """An existing file of the tests that the change edits, and its kind."""
+
+    path: str
+    kind: Literal["snapshot", "test configuration", "test"]
+
+
 class Checked(Frozen, frozen=True, kw_only=True):
     """`checks` on a tip: its tree, its base and the base's tree, one digest of the inputs that
     make a passed run hold no more (the commands and the serial ones, `land.same_checks` on
@@ -73,7 +80,7 @@ class Checked(Frozen, frozen=True, kw_only=True):
     outcomes: tuple[Outcome, ...] = ()
     criteria: tuple[CriterionCheck, ...] = ()
     lowered: tuple[Lowered, ...] = ()
-    edited: tuple[str, ...] = ()
+    edited: tuple[Edited, ...] = ()
     not_covered: tuple[str, ...] = ()
     size: ChangeSize | None = None
     own_checks: bool = False

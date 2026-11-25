@@ -272,8 +272,8 @@ open` makes it. It holds:
 - `task.json`: the task's one record, written whole and only through `lem`: the task (its ask,
   type, track, status and hold, criteria, approvals, persona reads, decisions, questions, spans,
   plan, investigation, plan talk and ticket), its landing, and a journal of what happened, in
-  order. `lem task show SLUG` prints it, with `ticket_owed`: what an ended task's ticket still
-  waits for. A task that holds a ticket holds it alone until it ends.
+  order. `lem task show SLUG` prints the task's status and hold. Its `ticket.owed` lists what an
+  ended task's ticket still waits for. A task that holds a ticket holds it alone until it ends.
 - `sessions.jsonl` and `session-acts.jsonl`: each Claude Code session of the task, as its
   `session-start` hook saw it, and each open, close and wake-up of Lem's (`lem session`).
 - `ask.txt` and `task.md`: the owner's words as given, and the ask with its outcome.

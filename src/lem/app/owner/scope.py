@@ -44,10 +44,6 @@ class Scope:
     slug: str | None
     looks: Mapping[str, Look]
 
-    def look(self, slug: str) -> Look:
-        """The look of the task `slug`."""
-        return self.looks[slug]
-
 
 def scoped(seen: Looked, slug: str | None, now: datetime) -> Scope:
     """The rows of every task, or of the task `slug`."""
@@ -63,7 +59,7 @@ def grouped(scope: Scope) -> dict[str, tuple[Entry, ...]]:
     for row in scope.rows:
         group = GROUPS.get(row.kind)
         if group is not None:
-            look = scope.look(row.task)
+            look = scope.looks[row.task]
             groups[group].append(briefs.entry_of(row, look))
     return {name: tuple(groups[name]) for name in groups}
 
@@ -73,7 +69,7 @@ def breakers(scope: Scope) -> tuple[Waits, ...]:
     task."""
     found = filter(is_breaker, scope.rows)
     slugs = dict.fromkeys(row.task for row in found)
-    named = tuple(scope.look(slug).record.task for slug in slugs)
+    named = tuple(scope.looks[slug].record.task for slug in slugs)
     return pending(named, named=False).waiting
 
 

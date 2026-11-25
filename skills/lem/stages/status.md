@@ -57,9 +57,9 @@ kind in the group of its own name), as the list below gives them:
 6. `cards`: each card the task's live session put up and waits on, with its `prompt`; he answers it
    on the board or on the card in the session;
 7. `after_dropped`: each task queued after a task that was dropped, with its words as they are:
-   the dropped task (`after`), "start SLUG now" (`start`), which starts it without that task's
-   result, and `/lem drop SLUG` (`drop`), which ends it, either one typed in any Lem session of this
-   repository, since no session runs the task;
+   the list of its dropped dependencies (`after`), "start SLUG now" (`start`), which lifts the
+   queue and starts it, and `/lem drop SLUG` (`drop`), which ends it. He can type either one in
+   any Lem session of this repository, since no session runs the task;
 8. `blocked`: each task its session stopped on something it cannot settle alone, with its `line`
    and its `fix`, or the release stop's message as its `line`; he answers in the task's session or
    with `/lem drop SLUG`;
@@ -77,10 +77,16 @@ kind in the group of its own name), as the list below gives them:
 When `sessions.known` is false, say in one line that the tasks' sessions are not known, with
 `sessions.said`: no task with no session can show then.
 
+When `forge.said` is present, say why the forge facts are unknown, in one line.
+
 When `count` is 0, say "nothing waits for you" in one line. The tasks in `parked` wait for nobody
 and are not counted: name them in one line after the list. Then what builds and what each other
-task waits on, from `lem task list`, and what landed today, and what was answered today with its
-answer in one line, from `lem task list --ended`.
+task waits on, from `lem task list`. From `lem task list --ended`, say what landed today and
+what was answered today, by `status` and `since` in the owner's clock. For each answered task,
+read `investigation.md` in the folder that `lem task dir SLUG` prints. If the report is gone,
+read `task.json` in that folder. Use `task.investigation.line` or, if it is absent, the newest
+state's `line` in the journal (the summary's `last_state.line` after retention). Give the
+answer in one line.
 
 **Where he answers.** A breaker, criteria, a held step and an interview are answered in the task's
 own session: name it for each, from `lem session list`. Its newest session must have both `live`

@@ -57,3 +57,26 @@ class Panel(Input, frozen=True, kw_only=True):
     card: Card | None = None
     not_now: NotNow | None = None
     missing: Missing | None = None
+
+    def __post_init__(self) -> None:
+        bodies = (
+            self.overview,
+            self.criteria,
+            self.checks,
+            self.timeline,
+            self.artifacts,
+            self.merge,
+            self.park,
+            self.drop,
+            self.card,
+            self.not_now,
+            self.missing,
+        )
+        if sum(body is not None for body in bodies) != 1:
+            raise ValueError("the panel needs exactly one body")
+        if self.missing is not None:
+            return
+        if self.not_now is not None and self.shows in {"merge", "park", "drop", "card"}:
+            return
+        if getattr(self, self.shows) is None:
+            raise ValueError("the panel body must match its tab or step")

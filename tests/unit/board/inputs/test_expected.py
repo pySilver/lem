@@ -3,26 +3,37 @@ each fact it prints agrees with the records it is made from, so that a view made
 inputs from these records draws today's board."""
 
 import hashlib
+import re
 from typing import TYPE_CHECKING
 
 import msgspec
 import pytest
 
 from fixtures.board import columns, frame, panel, shelves, waiting
-from fixtures.board.beside import BACKLOG, RECORDS, REVIEWED
+from fixtures.board.beside import BACKLOG, RECORDS, REVIEWED, lay
+from fixtures.board.held import STOCK, STOCK_BEFORE
 from fixtures.board.moments import BASE
+from lem.app.criteria.stopped import unmoved
+from lem.app.criteria.where import Here
 from lem.board.inputs.backlog import Backlog
 from lem.board.inputs.page import Frame
 from lem.board.inputs.parts import Document
+from lem.board.inputs.task.head import Fact
 from lem.board.inputs.task.panel import Panel
 from lem.board.inputs.tasks import Tasks
 from lem.board.inputs.waits import Waits
+from lem.model.criteria import digest
+from lem.model.criteria.read import sheet_of
 from lem.records.decisions import Taken
 from lem.records.holds import BreakerHold, OwnerHold, Parked
 from lem.records.record import Record
+from lem.store import places
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from pathlib import Path
+
+    from lem.board.inputs.task.steps import Merge
 
 BY_SLUG = {each.task.slug: each for each in RECORDS}
 RECEIPT = BY_SLUG["refund-line-on-receipt"]
@@ -156,6 +167,34 @@ def test_the_sidebar_counts_what_waits_and_the_search_finds_every_task_once() ->
     assert sorted(found) == sorted(BY_SLUG)
 
 
+def test_the_workspace_switcher_uses_the_saved_tasks_pages_fallback() -> None:
+    assert frame.FRAME.sidebar.switcher.title == "shop"
+
+
+def test_the_open_criteria_question_accepts_the_file_shown_to_the_owner(
+    tmp_path: Path,
+) -> None:
+    here = Here(workspace=places.workspace(lay(tmp_path)), slug=STOCK.task.slug)
+    raw = here.sheet.read_bytes()
+    unmoved(here, STOCK, raw, here.sheet)
+    question = next(each for each in STOCK.task.questions if each.answer is None)
+    assert question.digest == digest.shown(raw)
+    sheet = STOCK.task.criteria
+    assert sheet.size and sheet.change
+    assert sheet.digest == digest.of_tests(sheet.size, sheet.criteria)
+    assert (
+        sheet.change.before
+        == sheet.reads[0].digest
+        == digest.of_texts(
+            sheet.size,
+            sheet_of(sheet.change.text, "the criteria before the note").criteria,
+        )
+    )
+    assert STOCK.task.questions[0].digest == digest.shown(sheet.change.text.encode())
+    assert sheet.change.before == digest.of_texts(sheet.size, STOCK_BEFORE)
+    assert sheet.change.after == digest.of_texts(sheet.size, sheet.criteria)
+
+
 def test_the_status_bar_counts_every_entry_of_the_afternoons_journals() -> None:
     entries = sum(len(each.journal) for each in RECORDS)
     assert entries == frame.ENTRIES
@@ -172,6 +211,38 @@ def test_the_backlog_shows_every_item_and_the_task_that_holds_one() -> None:
     held = [entry for entry in entries if entry.holds.held_by]
     holders = [each.task for each in RECORDS if each.task.backlog_item]
     assert [entry.path for entry in held] == [task.backlog_item for task in holders]
+
+
+def test_the_backlog_starts_a_task_at_the_workspace_tasks_route() -> None:
+    item = shelves.FOOTER_ITEM
+    form = item.holds.start
+    assert form
+    assert (form.action, [(field.name, field.shown) for field in form.fields]) == (
+        f"{BASE}/tasks",
+        [("item", item.path)],
+    )
+
+
+def test_only_the_documents_with_charts_request_the_chart_library() -> None:
+    building = panel.OVERVIEW.building
+    decision = panel.CRITERIA.decisions[0]
+    criterion = panel.CRITERIA.criteria[0]
+    assert building and building.outcome and panel.CRITERIA.how
+    assert decision.chart and criterion.chart and shelves.FOOTER_ITEM.body
+    assert building.outcome.charts
+    assert panel.CRITERIA.how.charts
+    assert decision.chart.charts
+    assert criterion.chart.charts
+    assert not shelves.FOOTER_ITEM.body.charts
+
+
+def test_the_proposed_receipt_counts_each_plan_task_as_finished() -> None:
+    task = RECEIPT.task
+    phases = panel.OVERVIEW.phases
+    assert task.status == "open" and task.plan and phases and phases.ring
+    finished = sum(span.name == "task" and span.end is not None for span in task.spans)
+    ring = phases.ring
+    assert (ring.done, ring.current, ring.total) == (finished, 0, task.plan.tasks)
 
 
 def test_the_panel_prints_the_landing_the_decisions_and_the_criteria_of_its_record() -> (
@@ -203,6 +274,154 @@ def test_the_panel_prints_the_landing_the_decisions_and_the_criteria_of_its_reco
         waiting.MERGE.reasons,
     ):
         assert reasons and len(reasons.rows) == len(landing.proposed.reasons)
+
+
+def test_the_merge_confirm_shows_the_prefix_of_the_tip_it_submits() -> None:
+    form = panel.MERGE.confirm.form
+    assert form
+    tip = next(field.shown for field in form.fields if field.name == "tip")
+    commit = next(fact for fact in panel.MERGE.facts if fact.key == "commit")
+    # The saved showcase page prints a 12-digit prefix, with the full tip in the form.
+    assert (commit.term, commit.text, commit.mono) == ("Commit", tip[:12], True)
+
+
+def assert_merge_target(merge: Merge) -> None:
+    landing = RECEIPT.landing
+    assert landing and landing.pull and landing.started
+    pull_rows = [
+        fact
+        for fact in merge.facts
+        if fact.key == "pr" or fact.term == "Pull request" or fact.link is not None
+    ]
+    into_rows = [
+        fact for fact in merge.facts if fact.key == "into" or fact.term == "Into"
+    ]
+    assert len(pull_rows) == 1
+    assert len(into_rows) == 1
+    assert (pull_rows[0].key, pull_rows[0].term) == ("pr", "Pull request")
+    assert (into_rows[0].key, into_rows[0].term) == ("into", "Into")
+    link = pull_rows[0].link
+    assert link
+    assert (link.label, link.href, into_rows[0].text) == (
+        f"acme/shop#{landing.pull.number}",
+        landing.pull.url,
+        landing.started.base_ref,
+    )
+    form = merge.confirm.form
+    assert form
+    assert merge.confirm.eyebrow == f"Merge #{landing.pull.number} · confirm"
+    assert form.label == f"Merge pull request #{landing.pull.number}"
+
+
+def test_the_merge_confirm_links_to_the_pull_and_names_its_base_branch() -> None:
+    assert_merge_target(panel.MERGE)
+
+
+def assert_merge_verdict(merge: Merge) -> None:
+    landing = RECEIPT.landing
+    assert landing and landing.proposed
+    green = landing.proposed.green
+    assert (merge.green, merge.word) == (green, "Green" if green else "Not green")
+    assert merge.confirm.form and merge.confirm.sheet
+
+
+def test_the_merge_confirm_matches_the_proposals_verdict_and_uses_a_sheet() -> None:
+    assert_merge_verdict(panel.MERGE)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"green": True},
+        {"word": "Green"},
+        {"confirm": msgspec.structs.replace(panel.MERGE.confirm, sheet=False)},
+    ],
+    ids=("flag", "word", "sheet"),
+)
+def test_the_merge_confirm_check_refuses_false_green_and_a_disabled_sheet(
+    changes: dict[str, object],
+) -> None:
+    merge = msgspec.structs.replace(panel.MERGE, **changes)
+    with pytest.raises(AssertionError):
+        assert_merge_verdict(merge)
+
+
+@pytest.mark.parametrize(
+    ("wrong_pull", "wrong_base"),
+    [(True, True), (True, False), (False, True)],
+    ids=("both", "pull", "base"),
+)
+def test_the_merge_target_check_rejects_conflicting_rows(
+    *, wrong_pull: bool, wrong_base: bool
+) -> None:
+    other_rows = []
+    if wrong_pull:
+        other_pull = msgspec.structs.replace(
+            panel.PULL,
+            label="acme/shop#99",
+            href="https://github.com/acme/shop/pull/99",
+        )
+        other_rows.append(Fact(key="pr", term="Pull request", link=other_pull))
+    if wrong_base:
+        other_rows.append(Fact(key="into", term="Into", text="release", mono=True))
+    merge = msgspec.structs.replace(
+        panel.MERGE, facts=(*other_rows, *panel.MERGE.facts)
+    )
+    with pytest.raises(AssertionError):
+        assert_merge_target(merge)
+
+
+@pytest.mark.parametrize(
+    ("wrong_heading", "wrong_button"),
+    [(True, True), (True, False), (False, True)],
+    ids=("both", "heading", "button"),
+)
+def test_the_merge_target_check_rejects_conflicting_text(
+    *, wrong_heading: bool, wrong_button: bool
+) -> None:
+    confirm = panel.MERGE.confirm
+    form = confirm.form
+    assert form
+    if wrong_heading:
+        confirm = msgspec.structs.replace(confirm, eyebrow="Merge #99 · confirm")
+    if wrong_button:
+        form = msgspec.structs.replace(form, label="Merge pull request #99")
+        confirm = msgspec.structs.replace(confirm, form=form)
+    merge = msgspec.structs.replace(panel.MERGE, confirm=confirm)
+    with pytest.raises(AssertionError):
+        assert_merge_target(merge)
+
+
+def test_the_merge_confirm_shows_each_proposed_reason_and_its_links() -> None:
+    landing = RECEIPT.landing
+    reasons = panel.MERGE.reasons
+    assert landing and landing.proposed and landing.pull and reasons
+    # The saved confirm page links decision 1 and PR #44, in the first and last rows.
+    number, url = landing.pull.number, landing.pull.url
+    pull = f"#{number}"
+    last = f"request [{pull}]({url}) answers"
+    refs = [row.ref for row in reasons.rows]
+    link = refs[0]
+    assert link
+    assert (link.label, link.href, link.anchor, link.frame) == (
+        "decision 1",
+        f"{BASE}/tasks/{RECEIPT.task.slug}/criteria",
+        "dec-1",
+        True,
+    )
+    assert refs[1:] == [None, None, None]
+    assert reasons.rows[-1].detail[0].endswith(last)
+    # The proposal is plain prose. The page splits it into headings, labels and detail.
+    shown = [
+        " ".join((row.head, row.about or "", *row.detail)).replace(
+            last, f"request {pull} answers"
+        )
+        for row in reasons.rows
+    ]
+    words = re.compile(r"[\w#]+")
+    assert [words.findall(row.casefold()) for row in shown] == [
+        words.findall(reason.casefold()) for reason in landing.proposed.reasons
+    ]
 
 
 def test_a_step_of_an_act_draws_the_header_with_no_act_and_no_tab_shown() -> None:

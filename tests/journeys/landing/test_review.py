@@ -29,6 +29,7 @@ from journeys.test_skeleton import (
     parses,
     proposal,
 )
+from journeys.test_skeleton import brief as merge_brief
 from lem.app import wiring
 from lem.app.landing import changes
 from lem.ports.judge import Score
@@ -462,14 +463,19 @@ def test_an_edit_of_lem_s_own_settings_gets_the_full_set_whatever_the_shape_says
     assert next_step(capsys, world)["result"]["step"] == "propose"
 
 
+@pytest.mark.parametrize("redirect", ["", " >&2"], ids=["stdout", "stderr"])
 def test_a_commit_hook_that_refuses_the_items_is_named_and_the_next_run_finds_them(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    redirect: str,
 ) -> None:
     world = made(tmp_path, monkeypatch)
     upto_review(capsys, world)
     hook = world.checkout / ".git" / "hooks" / "commit-msg"
     hook.write_text(
-        '#!/bin/sh\ngrep -q "^backlog: " "$1" || { echo "subject must start with backlog:" >&2; exit 1; }\n'
+        '#!/bin/sh\ngrep -q "^backlog: " "$1" || '
+        f'{{ echo "subject must start with backlog:"{redirect}; exit 1; }}\n'
     )
     hook.chmod(0o755)
     reviewed(capsys, world, outside=[OVER])
@@ -477,6 +483,7 @@ def test_a_commit_hook_that_refuses_the_items_is_named_and_the_next_run_finds_th
     assert refused["code"] == "commit"
     assert "subject must start with backlog:" in refused["why"]
     assert "never with --no-verify" in refused["fix"]
+    assert f"git -C {world.worktree} commit -m MESSAGE -- {HELD}" in refused["fix"]
     assert run_git(world.worktree, "diff", "--cached", "--name-only") == HELD
     run_git(
         world.worktree, "commit", "--quiet", "--message", "backlog: what the review saw"
@@ -609,6 +616,42 @@ def test_a_tip_that_two_silent_reads_left_unread_is_not_green_and_no_agent_merge
     assert proposed["green"] is False
     assert any(one.startswith("not reviewed") for one in proposed["reasons"])
     assert world.record()["landing"]["proposed"]["who_acts"] == "owner"
+
+
+def test_the_review_sees_the_builders_item_and_files_a_different_defect_at_its_place(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world)
+    changed(capsys, world, {HELD: HELD_TEXT}, "docs: the builder files a defect")
+    told = brief(capsys, world)["result"]["brief"]["inputs"]
+    assert told["filed"] == [
+        {"path": HELD, "where": OVER["where"], "title": OVER["title"]}
+    ]
+
+    other_run = "README.md links to a deleted license file"
+    review = recorded(capsys, world, outside=[{**OVER, "what": other_run}, UNDER])
+    assert review["ok"] is True, review
+    filed = file_step()(capsys, world)
+    assert filed["ok"] is True, filed
+    same_place = "docs/backlog/the-readme-names-no-licence-readme.md"
+    other_place = "docs/backlog/the-notes-have-no-date.md"
+    assert [item["path"] for item in filed["result"]] == [same_place, other_place]
+    assert (world.worktree / HELD).read_text() == HELD_TEXT
+    assert other_run in (world.worktree / same_place).read_text()
+    assert UNDER["what"] in (world.worktree / other_place).read_text()
+    assert len(commits_of(world)) == 1
+
+    proposed = proposal(capsys, world)
+    assert proposed["result"]["green"] is True
+    assert all(
+        f"`{path}`" in world.forge.bodies[1] for path in (HELD, same_place, other_place)
+    )
+    shown = merge_brief(capsys, world)
+    assert shown["ok"] is True, shown
+    body = world.task_folder.joinpath(shown["result"]["brief"]).read_text()
+    facts = json.loads(body.split("```json\n", 1)[1].split("\n```", 1)[0])
+    assert facts["filed"] == sorted((HELD, same_place, other_place))
 
 
 def test_a_resolution_after_a_must_fix_is_reviewed_whole(

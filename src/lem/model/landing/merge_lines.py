@@ -42,11 +42,12 @@ def noted_body(body: str, line: str) -> str | None:
     return f"{kept}\n\n{line}\n" if kept else f"{line}\n"
 
 
-def squash_body(slug: str, moved: str | None) -> str:
-    """The body of the one commit a squash makes: the line of a merge on a moved base, when
-    there is one, and last the line `Lem task: SLUG` by which the board names the task."""
-    named = f"Lem task: {slug}"
-    return f"{moved}\n\n{named}" if moved else named
+def squash_body(slug: str, moved: str | None, decided: str | None = None) -> str:
+    """The body of the one commit a squash makes: the task's decisions, when it has some; the
+    line of a merge on a moved base, when there is one; and last the line `Lem task: SLUG` by
+    which the board names the task."""
+    parts = (decided, moved, f"Lem task: {slug}")
+    return "\n\n".join(part for part in parts if part)
 
 
 def after_push(branch: str, shas: Pair, bases: Pair, *, same: bool) -> str:

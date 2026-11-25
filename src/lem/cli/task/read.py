@@ -16,7 +16,7 @@ from lem.app.tasks import shape as shaping
 from lem.cli import place
 from lem.cli.words import choice
 from lem.kernel.envelope import Envelope
-from lem.model.task.read import Queue
+from lem.model.task.read import Queue, Wait
 from lem.records.task import Shape
 
 type Kind = Literal[
@@ -24,7 +24,6 @@ type Kind = Literal[
 ]
 type Track = Literal["small", "full"]
 type Then = Literal["interview", "fast", "lead", "investigation"]
-type Wait = Literal["criteria", "interview"]
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):

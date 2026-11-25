@@ -12,6 +12,7 @@ teammate's push, under the teammate's name, a merge on GitHub. `Remote` is what 
 merges through. `refused_commit` stands for a commit hook that refuses every commit.
 """
 
+import difflib
 import hashlib
 import shutil
 from dataclasses import dataclass, field
@@ -21,11 +22,15 @@ from lem.ports.faults import Unanswered
 from lem.ports.git_facts import Commit, Conflict, DiffStat, GitRefused, RebaseState
 
 if TYPE_CHECKING:
+    from collections.abc import Collection
     from pathlib import Path
 
     from lem.ports.forge_facts import MergeMethod
 
 type Tree = dict[str, bytes]
+type FilePatch = (
+    tuple[bytes | None, bytes | None] | tuple[bool, bool, tuple[bytes, ...]]
+)
 
 # The author of the commits a test makes, and of a teammate's, as `tests/fakes/repo.py` names them.
 OWN = "Lem Test"
@@ -39,6 +44,22 @@ def tree_id(tree: Tree) -> str:
         for path in sorted(tree)
     )
     return hashlib.sha1(f"tree\n{lines}".encode(), usedforsecurity=False).hexdigest()
+
+
+def file_patch(before: bytes | None, after: bytes | None) -> FilePatch:
+    """Compare text hunks without whitespace or line numbers, as Git compares patches."""
+    was, now = before or b"", after or b""
+    if b"\0" in was or b"\0" in now:
+        return before, after
+    patch = difflib.diff_bytes(
+        difflib.unified_diff,
+        was.splitlines(keepends=True),
+        now.splitlines(keepends=True),
+    )
+    lines = tuple(
+        b"".join(line.split()) for line in patch if not line.startswith(b"@@")
+    )
+    return before is None, after is None, lines
 
 
 @dataclass(frozen=True)
@@ -99,6 +120,7 @@ class ModelGit:
     count: int = 0
     origin: str | None = "git@github.com:acme/shop.git"
     refused_commit: str | None = None
+    ignored: set[str] = field(default_factory=set)
 
     # ---- making a world ----
 
@@ -158,10 +180,10 @@ class ModelGit:
         )
         return self.remote[branch]
 
-    def lay(self, where: Path, tree: Tree) -> None:
-        """Make the files of `where` the files of `tree`."""
+    def lay(self, where: Path, tree: Tree, *, keep: Collection[str] = ()) -> None:
+        """Make the files of `where` the files of `tree`, with local files in `keep`."""
         for path in self.on_disk(where):
-            if path not in tree:
+            if path not in tree and path not in keep:
                 (where / path).unlink()
         for path, body in tree.items():
             target = where / path
@@ -291,12 +313,12 @@ class ModelGit:
             author=stored.author,
         )
 
-    def patch_of(self, sha: str) -> dict[str, tuple[bytes | None, bytes | None]]:
-        """What the commit `sha` changed over its first parent, path by path."""
+    def patch_of(self, sha: str) -> dict[str, FilePatch]:
+        """How the patch of `sha` compares to other patches, path by path."""
         stored = self.objects[sha]
         parent = self.objects[stored.parents[0]].tree if stored.parents else {}
         return {
-            path: (parent.get(path), stored.tree.get(path))
+            path: file_patch(parent.get(path), stored.tree.get(path))
             for path in parent.keys() | stored.tree.keys()
             if parent.get(path) != stored.tree.get(path)
         }
@@ -358,9 +380,18 @@ class ModelGit:
         if head is None:
             return False
         tree, disk = self.objects[head].tree, self.on_disk(where)
-        if untracked:
-            return disk == tree
-        return all(disk.get(path) == body for path, body in tree.items())
+        if any(disk.get(path) != body for path, body in tree.items()):
+            return False
+        extra = disk.keys() - tree.keys()
+        return not untracked or extra == self.ignored_paths(extra)
+
+    def ignored_paths(self, paths: set[str]) -> set[str]:
+        """The paths under the model's literal exclude entries."""
+        return {
+            path
+            for path in paths
+            if any(path == name or path.startswith(f"{name}/") for name in self.ignored)
+        }
 
     def show(self, where: Path, rev: str, path: str) -> bytes | None:
         return self.objects[self.must(where, rev)].tree.get(path)
@@ -454,11 +485,24 @@ class ModelGit:
         place = self.worktree(worktree)
         if self.branches.get(place.branch) != expect:
             return GitRefused(said=f"the branch is not at {expect}")
-        if not self.clean(worktree, untracked=False):
+        if not self.clean(worktree):
             return GitRefused(said="the worktree has changes that no commit holds")
-        self.branches[place.branch] = self.must(worktree, commit)
-        self.lay(worktree, self.objects[self.branches[place.branch]].tree)
-        return self.branches[place.branch]
+        target = self.must(worktree, commit)
+        tree = self.objects[target].tree
+        local = self.on_disk(worktree).keys() - self.objects[expect].tree.keys()
+        if any(
+            path == tracked
+            or path.startswith(f"{tracked}/")
+            or tracked.startswith(f"{path}/")
+            for path in local
+            for tracked in tree
+        ):
+            return GitRefused(said="the reset would overwrite an untracked file")
+        if self.branches.get(place.branch) != expect:
+            return GitRefused(said=f"the branch is not at {expect}")
+        self.lay(worktree, tree, keep=local)
+        self.branches[place.branch] = target
+        return target
 
     def branch_delete(self, checkout: Path, branch: str, expect: str) -> bool:
         if self.branches.get(branch) != expect:

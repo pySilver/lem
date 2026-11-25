@@ -7,15 +7,16 @@ from lem.board.inputs.text import Href, Plain
 
 class Space(Input, frozen=True, kw_only=True):
     """A workspace of a machine: its id, its name (`studio/shop` with two machines), its path,
-    what it says (`2 wait for you · 3 build`, `not reachable · last answer 5m ago`), the
-    address of its board, whether it is this board, whether something waits there, and whether
-    its machine answers."""
+    what it says (`2 wait for you · 3 build`, `not reachable · last answer 5m ago`), its hover
+    with the fix when its machine does not answer, the address of its board, whether it is
+    this board, whether something waits there, and whether its machine answers."""
 
     id: Plain
     name: Plain
     host: Plain | None = None
     path: Plain | None = None
     says: Plain
+    title: Plain | None = None
     href: Href | None = None
     here: bool = False
     waits: bool = False

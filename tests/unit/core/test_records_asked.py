@@ -17,7 +17,7 @@ from lem.records.journal.sessions import (
     SessionWoken,
     SessionWorked,
 )
-from lem.records.landing.checks import Checked, Lowered
+from lem.records.landing.checks import Checked, Edited, Lowered
 from lem.records.landing.merge import MergeAccepted
 from lem.records.landing.propose import Proposed
 from lem.records.landing.record import Landing
@@ -61,7 +61,7 @@ def landing() -> Landing:
         lowered=(
             Lowered(path="tests/test_a.py", how="a test removed", line="def test_a"),
         ),
-        edited=("tests/test_a.py",),
+        edited=(Edited(path="tests/login.snap", kind="snapshot"),),
         not_covered=(".rs",),
         at=MOMENT,
     )
@@ -158,6 +158,14 @@ def test_the_owners_wait_on_a_request_and_a_park_over_his_wait_read_back() -> No
     assert round_trip(record(hold=parked)).task.hold == parked
 
 
+def test_checks_round_trip_the_path_and_kind_of_an_edited_snapshot() -> None:
+    entry = {"path": "tests/login.snap", "kind": "snapshot"}
+    checked = landing().checked
+    written = msgspec.json.encode(checked)
+    assert msgspec.json.decode(written)["edited"] == [entry]
+    assert msgspec.json.decode(written, type=Checked) == checked
+
+
 def test_a_record_written_before_the_asked_keys_reads_each_at_its_default() -> None:
     before = msgspec.json.encode(
         {
@@ -174,12 +182,20 @@ def test_a_record_written_before_the_asked_keys_reads_each_at_its_default() -> N
         }
     )
     landing_before = (
-        b'{"pushed":"' + TIP.encode() + b'","accepted":{"tip":"' + TIP.encode()
+        b'{"pushed":"'
+        + TIP.encode()
+        + b'","accepted":{"tip":"'
+        + TIP.encode()
         + b'","at":"2026-11-25T10:00:00Z","queued":"queued"},'
-        b'"checked":{"tip":"' + TIP.encode() + b'","tree":"' + TREE.encode()
-        + b'","base":"' + BASE.encode() + b'","inputs":"x","outcome":"passed",'
+        b'"checked":{"tip":"'
+        + TIP.encode()
+        + b'","tree":"'
+        + TREE.encode()
+        + b'","base":"'
+        + BASE.encode()
+        + b'","inputs":"x","outcome":"passed",'
         b'"at":"2026-11-25T10:00:00Z"}}'
-    )  # fmt: skip
+    )
     read = msgspec.json.decode(before, type=Record)
     assert (read.task.after, read.task.owner_careful, read.task.criteria.changed) == (
         (),

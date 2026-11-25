@@ -4,9 +4,9 @@
 Over the bar it is an item with `worth: later`, under it one with `worth: no` that ends with the
 review's reason, cheap a line of the pull request. One that an open item of the tip holds gets
 no second file, but an over defect whose open item says `worth: no` gets a new `worth: later`
-item that names the old one, which stays as it is. An item's name is the first of its names
-that holds this very defect already (a second round saw it word for word, or a run cut off after
-its commit), else the first that is free: an extra item is the price, never a lost one.
+item that names the old one, which stays as it is. An item takes the first name that is free or
+holds this very defect already (a second round saw it word for word, or a run cut off after its
+commit).
 """
 
 from typing import TYPE_CHECKING, Literal
@@ -75,16 +75,18 @@ def seen_line(finding: Finding, held: str | None = None) -> str:
 
 
 def named(shelf: Shelf, defect: items.Defect, old: str | None) -> tuple[str, bool]:
-    """The path of the defect's item, and whether a file there holds it already. `old`, the
-    `worth: no` item a new one goes beside, is never its item."""
-    by_path = {found.path: found for found in shelf.shelved}
-    for name in names_for(defect):
-        path = f"{shelf.folder}/{name}"
-        if path != old and items.holds(by_path.get(path), defect):
-            return path, True
-        if path not in shelf.paths | shelf.taken:
-            return path, False
-    raise AssertionError("names_for gives names without end")
+    """The first name that holds the defect or is free, and whether it holds the defect.
+
+    The old item a new one goes beside cannot hold it. `names_for` never runs out.
+    """
+    indexed = {one.path: one for one in shelf.shelved}
+    occupied = shelf.paths | shelf.taken
+    paths = map(f"{shelf.folder}/{{0}}".format, names_for(defect))
+    while True:
+        path = next(paths)
+        held = path != old and items.holds(indexed.get(path), defect)
+        if held or path not in occupied:
+            return path, held
 
 
 def itemized(

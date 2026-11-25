@@ -13,6 +13,7 @@ from fixtures.board.make import (
     record,
 )
 from fixtures.board.moments import ago
+from lem.model.criteria import digest
 from lem.records.criteria import Change, Criteria, Pair
 from lem.records.decisions import Breaker
 from lem.records.holds import BreakerHold, OwnerHold, Parked
@@ -185,6 +186,20 @@ STOCK_AFTER = (
     ),
     STOCK_BEFORE[1],
 )
+STOCK_SHEET = """## Acceptance criteria
+
+Size: full, because the product page gets a new line.
+
+1. {first}
+2. {second}
+"""
+STOCK_PRIOR = STOCK_SHEET.format(
+    first=STOCK_BEFORE[0].text, second=STOCK_BEFORE[1].text
+)
+STOCK_CRITERIA = STOCK_SHEET.format(
+    first=STOCK_AFTER[0].text, second=STOCK_AFTER[1].text
+)
+STOCK_BEFORE_DIGEST = digest.of_texts("full", STOCK_BEFORE)
 STOCK_SPANS = (ran("scout", 30.5, 28), ran("interview", 30, 22))
 STOCK_ASKED = "criterion:stock-on-product-page:20261125T154600Z"
 STOCK_AGAIN = "criterion:stock-on-product-page:20261125T155200Z"
@@ -211,19 +226,19 @@ STOCK = record(
             size="full",
             why="the product page gets a new line.",
             criteria=STOCK_AFTER,
-            digest="5e2c8a90b1d4",
-            reads=(read(19, 14, 2, "cd041f31a939", flagged=1),),
+            digest=digest.of_tests("full", STOCK_AFTER),
+            reads=(read(19, 14, 2, STOCK_BEFORE_DIGEST, flagged=1),),
             change=Change(
                 at=ago(8),
-                text="criteria.md",
+                text=STOCK_PRIOR,
                 words=STOCK_NOTE,
                 pairs=(
                     Pair(
                         change="changed", before=STOCK_BEFORE[0], after=STOCK_AFTER[0]
                     ),
                 ),
-                before="cd041f31a939",
-                after="5e2c8a90b1d4",
+                before=STOCK_BEFORE_DIGEST,
+                after=digest.of_texts("full", STOCK_AFTER),
             ),
         ),
         questions=(
@@ -232,7 +247,7 @@ STOCK = record(
                 topic="criterion",
                 question="Approve the criteria?",
                 options=("yes", "no"),
-                digest="cd041f31a939",
+                digest=digest.shown(STOCK_PRIOR.encode()),
                 asked=ago(14),
                 answer=Answer(
                     option="no",
@@ -251,7 +266,7 @@ STOCK = record(
                 topic="criterion",
                 question="Approve the criteria?",
                 options=("yes", "no"),
-                digest="5e2c8a90b1d4",
+                digest=digest.shown(STOCK_CRITERIA.encode()),
                 asked=ago(8),
             ),
         ),

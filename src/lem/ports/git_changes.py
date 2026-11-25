@@ -1,8 +1,7 @@
 """The `Git` port's facts of paths (the design's part 4): the files of a folder at a commit, the
 paths a range changed, and the commits of a branch that a base holds already by their patch.
 
-A path is shown as the `git` adapter shows every name (`adapters/git_cli_names.py`): one line,
-each path once.
+The names are filesystem paths, ready for another call that names a file.
 """
 
 from typing import TYPE_CHECKING, Protocol

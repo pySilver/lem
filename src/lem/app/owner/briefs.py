@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.app.owner.entries import Entry
-from lem.model.landing import mergeread
+from lem.model.landing import merge, merge_asked, merge_standing, mergeread
 from lem.model.owner import verbs
 from lem.records.holds import Blocked, OwnerHold, ReleaseHold
 from lem.records.journal.task import StateNoted
@@ -66,7 +66,7 @@ def entry_of(row: Row, look: Look) -> Entry:
 
 
 def kept_entry(row: Row, look: Look, found: Entry) -> Entry:
-    """The entry of a task queued after a dropped one, a block, or a merge."""
+    """The entry of a queue with its dropped tasks, a block, or a merge."""
     record = look.record
     slug = record.task.slug
     if row.kind == "after_dropped":
@@ -78,7 +78,7 @@ def kept_entry(row: Row, look: Look, found: Entry) -> Entry:
     if row.kind == "blocked":
         return blocked_entry(record, found)
     if row.kind == "merge":
-        return pull_entry(record, found, conflict=row.conflict)
+        return pull_entry(row, look, found)
     return found
 
 
@@ -92,20 +92,24 @@ def blocked_entry(record: Record, found: Entry) -> Entry:
     return found
 
 
-def pull_entry(record: Record, found: Entry, *, conflict: bool) -> Entry:
+def pull_entry(row: Row, look: Look, found: Entry) -> Entry:
     """A pull request's entry: its address, green or why not, the forge's conflict, the merge
     agent's newest read of the tip, and a refusal of its merge."""
+    record = look.record
     landing = record.landing or Landing()
     proposed = landing.proposed
+    reasons = merge_standing.reasons_now(record) if proposed else None
+    if proposed is not None and not reasons and merge_asked.contract_moved(record):
+        reasons = (merge.MOVED,)
     refused = landing.refused
     if refused is not None and (proposed is None or refused.tip != proposed.tip):
         refused = None
     return replace(
         found,
         pull_request=landing.pull,
-        green=proposed.green if proposed else None,
-        not_green=proposed.reasons if proposed else None,
-        conflict=conflict,
-        merge_review=mergeread.latest(landing),
+        green=not reasons if proposed else None,
+        not_green=reasons,
+        conflict=row.conflict,
+        merge_review=mergeread.latest(landing, look.basis.tree),
         merge_refused=refused,
     )

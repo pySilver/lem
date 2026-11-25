@@ -13,11 +13,12 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
+from lem.model.owner import answer_wait
 from lem.model.owner.hold_question import standing
 from lem.model.task import owner_question
-from lem.records.holds import BreakerHold, OwnerHold
 
 if TYPE_CHECKING:
+    from lem.records.holds import OwnerHold
     from lem.records.questions import Answer, Question
     from lem.records.task import Task
 
@@ -35,7 +36,7 @@ def answered_hold(task: Task, hold: OwnerHold) -> bool:
 def answer(task: Task, question_id: str, digest: str | None, given: Answer) -> Task:
     """The task with his answer to the question `question_id`, shown with `digest`; refused
     for a question the task does not hold, one answered already, one a newer question of its
-    topic replaced, and a digest that is not the one the question shows."""
+    topic replaced, a digest that is not the one the question shows, or an invalid option."""
     found = [one for one in task.questions if one.id == question_id]
     if not found:
         raise Refusal(
@@ -44,7 +45,7 @@ def answer(task: Task, question_id: str, digest: str | None, given: Answer) -> T
             f"lem task show {task.slug} names the questions that wait",
         )
     asked = found[0]
-    refusal = refused(task, asked, digest)
+    refusal = refused(task, asked, digest, given)
     if refusal is not None:
         raise refusal
     updated = replace(asked, answer=given)
@@ -54,12 +55,32 @@ def answer(task: Task, question_id: str, digest: str | None, given: Answer) -> T
     return replace(task, questions=questions)
 
 
-def refused(task: Task, asked: Question, digest: str | None) -> Refusal | None:
-    """Why an answer to `asked` with `digest` may not count, or None."""
+def refused(
+    task: Task, asked: Question, digest: str | None, given: Answer
+) -> Refusal | None:
+    """Why an answer to `asked` may not count, or None."""
     why = why_refused(task, asked, digest)
-    if why is None:
-        return None
-    return Refusal("answered", why, "the owner reads the question as it is now")
+    if why is not None:
+        return Refusal("answered", why, "the owner reads the question as it is now")
+    closed = answer_wait.why_closed(task, asked)
+    if closed is not None:
+        return Refusal(
+            "question",
+            closed,
+            f"lem task show {task.slug} names the questions that wait",
+        )
+    option = given.option
+    if option not in asked.options:
+        choices = ", ".join(asked.options)
+        return Refusal(
+            "option",
+            f"{option!r} is no option of {asked.id}",
+            f"the owner chooses one of: {choices}",
+        )
+    needs_note = (asked.topic, option) in {("criterion", "no"), ("breaker", "help")}
+    if needs_note and not (given.note and given.note.strip()):
+        return Refusal("note", f"{option!r} needs a note", "add the owner's words")
+    return None
 
 
 def why_refused(task: Task, asked: Question, digest: str | None) -> str | None:
@@ -78,10 +99,11 @@ def newer_of(task: Task, asked: Question) -> str | None:
     """The id of the question that replaced `asked`, or None. Cards are independent."""
     if asked.topic == "card":
         return None
-    if isinstance(task.hold, (BreakerHold, OwnerHold)):
-        newest = standing(task)
-    else:
+    newest = standing(task)
+    if newest is None:
         newest = newest_of(task, asked.topic)
+    elif newest.topic != asked.topic or newest not in task.questions:
+        return None
     return newest.id if newest is not None and newest.id != asked.id else None
 
 

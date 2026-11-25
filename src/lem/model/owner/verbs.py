@@ -8,6 +8,7 @@ board's views'.
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
+from lem.model.owner import merging
 from lem.records.holds import OwnerHold
 from lem.records.landing.record import Landing
 
@@ -49,11 +50,13 @@ def verb(row: Row, task: Task, landing: Landing | None) -> str:
 
 
 def asked_verb(row: Row, task: Task) -> str:
-    """The verb of a breaker, a task queued after a dropped one, a card, or his wait."""
+    """The verb of a breaker, a task queued after dropped tasks, a card, or his wait."""
     if row.kind == "breaker":
         return f"Read the breaker of {task.slug}"
     if row.kind == "after_dropped":
-        return f"{row.after} was dropped: your word starts or ends this task"
+        names = " and ".join(row.after)
+        verb = "was" if len(row.after) == 1 else "were"
+        return f"{names} {verb} dropped: your word starts or ends this task"
     if row.kind == "card":
         return capital(row.prompt or "the task's session asks you")
     return capital(held_line(task))
@@ -74,7 +77,7 @@ def merge_verb(row: Row, landing: Landing) -> str:
     """The verb of a merge that waits for the owner: a refusal, a conflict, or his merge."""
     if landing.intent is not None:
         return "Check the pull request on GitHub"
-    refused = refused_verb(landing)
+    refused = refused_verb(row, landing)
     if refused is not None:
         return refused
     if row.conflict:
@@ -85,10 +88,17 @@ def merge_verb(row: Row, landing: Landing) -> str:
     return f"Merge the pull request #{pull.number}"
 
 
-def refused_verb(landing: Landing) -> str | None:
+def refused_verb(row: Row, landing: Landing) -> str | None:
     """The verb of a refused merge of the proposed tip, by Lem or by GitHub, or None."""
     proposed, refused = landing.proposed, landing.refused
     if refused is None or proposed is None or refused.tip != proposed.tip:
+        return None
+    if merging.calls_after_base_refusal(
+        landing,
+        refused,
+        base_tree=row.base_tree,
+        read_after_refusal=row.read_after_refusal,
+    ):
         return None
     if refused.source == "lem":
         return "The merge did not go through"

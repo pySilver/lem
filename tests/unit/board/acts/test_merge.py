@@ -18,6 +18,7 @@ from lem.board.acts import merging, noting
 from lem.board.acts.notes import NOTES
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
+from lem.model.criteria import contract
 from lem.model.landing import merge_standing
 from lem.records.holds import BreakerHold
 from lem.records.landing.merge import MergeAccepted, Refused
@@ -155,7 +156,9 @@ def test_an_approval_already_on_record_stands_when_the_forge_reports_a_conflict(
     opened_pull(board)
     before = read(board)
     assert before.landing is not None
-    reasons = merge_standing.digest_of(merge_standing.reasons_now(before))
+    reasons = merge_standing.digest_of(
+        merge_standing.reasons_now(before), contract.mark(before.task)
+    )
     standing = Standing(tip=TIP, reasons_digest=reasons, by_act="board", at=MOMENT)
     landing = replace(before.landing, standing=standing)
     saved = tasks.update(
@@ -188,7 +191,9 @@ def test_githubs_refusal_of_the_current_tip_allows_a_fresh_approval(
         by="owner",
         at=MOMENT,
     )
-    reasons = merge_standing.digest_of(merge_standing.reasons_now(before))
+    reasons = merge_standing.digest_of(
+        merge_standing.reasons_now(before), contract.mark(before.task)
+    )
     standing = Standing(tip=TIP, reasons_digest=reasons, by_act="board", at=MOMENT)
     landing = replace(before.landing, standing=standing)
     tasks.update(

@@ -277,7 +277,8 @@
               "required": false,
               "choices": [
                 "criteria",
-                "interview"
+                "interview",
+                "request"
               ]
             },
             "--fits": {

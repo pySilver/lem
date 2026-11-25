@@ -10,7 +10,7 @@ moved base refused stands until a safe read. `branch.history` squashes the branc
 commit, or lands its own commits (a rebase on the forge).
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
@@ -34,7 +34,7 @@ CAREFUL = "the request is careful: the owner merges it, whatever the settings sa
 NO_CALL = "no review that answered made the careful call for this change"
 LAND_OWNER = 'branch.land is "owner" in .lem/settings.toml: the owner merges every task'
 CALLS = "the merge agent's read of this tip and base calls the owner"
-MOVED = "the criteria were approved again after the proposal, which was made for others"
+MOVED = "the criteria changed since the pull request was proposed"
 OWNER: Merger = "owner"
 
 
@@ -53,13 +53,22 @@ def careful(record: Record) -> bool:
     return bool(proposed and proposed.careful) or bool(shape and shape.careful)
 
 
-def authority(record: Record, world: World, *, verdict: bool = True) -> str | None:
+def authority(
+    record: Record,
+    world: World | None = None,
+    *,
+    verdict: bool = True,
+    land: Literal["agent", "owner"] | None = None,
+) -> str | None:
     """Why the merge agent may not merge, or None when it may (`main:land.merger_refusal`):
     the reasons it is not green read again now, careful, no careful call, the settings, and,
     with `verdict`, the read that covers origin's base now, one read for the tip and that
-    base. Without `verdict` it is what the merge agent's brief says before it reads."""
+    base. Without `verdict` it is what the merge agent's brief says before it reads. The
+    owner list passes the current landing setting when it has it."""
     landing = record.landing or Landing()
-    last, read = newest(landing), mergeread.latest(landing, world.base_tree)
+    last = newest(landing)
+    read = mergeread.latest(landing, world.base_tree if world else None)
+    current_land = world.rules.land if world else land
     found = (
         (
             landing.proposed is None or bool(merge_standing.reasons_now(record)),
@@ -68,7 +77,12 @@ def authority(record: Record, world: World, *, verdict: bool = True) -> str | No
         (merge_asked.contract_moved(record), MOVED),
         (careful(record), CAREFUL),
         (last is None or last.careful is None, NO_CALL),
-        (world.rules.land == OWNER, LAND_OWNER),
+        (
+            bool(landing.proposed and landing.proposed.who_acts == OWNER)
+            if current_land is None
+            else current_land == OWNER,
+            LAND_OWNER,
+        ),
         (verdict and (read is None or read.verdict != "merge"), CALLS),
     )
     return next((pair[1] for pair in found if pair[0]), None)
