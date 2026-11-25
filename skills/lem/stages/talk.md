@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # talk
 
 The plan talk of a careful or large plan, before any code. This is the defender's stage: the
@@ -23,16 +22,16 @@ with checkout. So the questions are a closed list, each gets one repair, and a q
 comes back stops, as revmux stops a loop whose finding of the last round arrives again. The
 rules:
 
-- **Open the seat** with `second-opinion`, on the seat that `lem project --repo WORKTREE seat SLUG
+- **Open the seat** with `second-opinion`, on the seat that `lem --repo WORKTREE seat show SLUG
   reviewer` prints, at its effort, and log its start at the talk's first open, so that the board
   draws the talk from it:
 
   ```bash
-  lem project --repo WORKTREE log SLUG plan.talk.start reviewer=AGENT
+  lem --repo WORKTREE task span SLUG plan-talk start --by AGENT
   ```
 
   The first message names the plan's path, the worktree, the task, the rule files
-  `lem project rules` prints for the plan's files, and the code the plan rests on, by path and
+  `lem rules` prints for the plan's files, and the code the plan rests on, by path and
   symbol, and asks for the full list.
 - **The list closes with the reviewer's first turn.** That turn is a full read of the plan: a
   numbered list of questions, the most expensive first, each with the position of the plan it
@@ -49,8 +48,8 @@ rules:
   watches that file: a talk whose file has not changed for 45 minutes wakes the lead, which reads
   both screens for an error (`stages/plan.md`, step 4).
 - **A talk that goes on.** When `talk-turns.md` is there as you start, an agent of the talk before
-  you stopped: go on from it, never from a new list. Open the reviewer on the seat `lem project
-  seat` prints, and make its first message name the plan and the rest as above, then the list and
+  you stopped: go on from it, never from a new list. Open the reviewer on the seat `lem seat
+  show` prints, and make its first message name the plan and the rest as above, then the list and
   the turns so far, word for word from the file, and the questions still open. That reviewer's
   first turn answers the open questions by their numbers; the list stays closed, and a question
   it raises is "raised, not argued". A line `N: repairing` with no commit: read the branch's log
@@ -60,8 +59,8 @@ rules:
   list.
 - **A seat that fails.** A reviewer whose agent gives one of the four errors of `second-opinion`,
   at its open or later in the talk, is replaced the same way, in the same pane: `second-opinion`
-  says what `lem project seat-failed` prints and what you open then, and the new reviewer goes on
-  from `talk-turns.md` as above. A block ends the talk: after `seat-failed` wrote `blocked`, close
+  says what `lem seat failed` prints and what you open then, and the new reviewer goes on
+  from `talk-turns.md` as above. A block ends the talk: after `lem seat failed` wrote `blocked`, close
   the reviewer's pane and stop, with no record and no event. The owner's "go on" opens the pair
   again, and its defender goes on from the file.
 - **One repair per question.** For each question, repair the plan and commit, or refute the
@@ -143,10 +142,10 @@ Commit every repair before any code. Then write the record into the plan, as a s
 - what changed in the plan, by question and by task.
 Agreement carries no authority: the review before the pull request reads a settled position
 as a claim, not as a fact. Then close the reviewer's pane (the harness file, `second-opinion`)
-and write the one event the landing reads:
+and write the one record the landing reads:
 
 ```bash
-lem project --repo WORKTREE log SLUG plan.talk reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N
+lem --repo WORKTREE task talked SLUG --reviewer AGENT --turns N --questions N --settled N --open N --repaired N --design N --unargued N --root N --layer N --shared N
 ```
 
 `turns` counts each message of either side, of every reviewer that sat and every defender, as
@@ -157,7 +156,7 @@ changed the plan; `unargued`, the questions raised after the list; `root`, the r
 changed a decision of the plan; `layer`, the layers over a cited decision that stayed; and
 `shared`, the decisions that two questions named. The script refuses a record of fewer than two
 turns: a floor against an empty record, not a measure of a good talk. A talk of no question is
-the reviewer's empty list and your close, `turns:=2 questions:=0` with every other count 0, and
+the reviewer's empty list and your close, `--turns 2 --questions 0` with every other count 0, and
 the script refuses a question raised after an empty list in a talk of two turns, since no turn
 was left to raise it in. It refuses counts that do not agree: settled and open that do not add
 up to questions, more design choices than open questions, more repairs than questions, and more

@@ -1,0 +1,83 @@
+"""The owner's drop of a task, from any status that is not ended (the design's part 11, choice
+4; `landing.md` E, "Drop during a step").
+
+It reads the record through the release stop (a drop passes it, and leaves the hold for the
+resume), stops the task's checks when they run, waits for the landing's step lock, and reads the
+record again under it. When the forge merged the task's pull request into its base meanwhile, the
+drop is refused and the task lands; else the task is `dropped`, and its pull request stays open
+for the owner.
+"""
+
+import os
+import signal
+from functools import partial
+from typing import TYPE_CHECKING
+
+from lem.app.tasks import ports, release
+from lem.kernel import clock
+from lem.kernel.errors import Refusal
+from lem.model.task import holds, table
+from lem.settings.load import base_of, team_of
+from lem.store import places, steps, tasks
+
+DROPPED = "dropped"
+
+if TYPE_CHECKING:
+    from lem.app.wiring import Ports
+    from lem.records.record import Record
+
+
+def stop_checks(where: places.Workspace, slug: str) -> None:
+    """Stop the task's checks when they run: a term to the step that holds the lock for
+    them, whose handler stops its commands and lets the lock go."""
+    path = places.task_folder(where.state, slug) / steps.LOCK
+    holder = steps.holder_of(path)
+    if holder is not None and holder.step == "checks":
+        try:
+            os.kill(holder.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            return
+
+
+def merged_refusal(
+    given: Ports | None, where: places.Workspace, record: Record
+) -> None:
+    """Refuse the drop of a task whose pull request, the one on record, the forge merged into
+    the base its landing started on (`Started.base_ref`), not the settings' base of now."""
+    landing, slug = record.landing, record.task.slug
+    if landing is None or landing.pull is None:
+        return
+    if landing.merged is None:
+        pull = (given or ports.bound(where)).forge.pull(landing.pull.number)
+        started = landing.started
+        base = started.base_ref if started else base_of(team_of(where.checkout))
+        if pull.state != "merged" or pull.base != base:
+            return
+    raise Refusal(
+        "merged",
+        f"the forge merged the pull request of {slug} into its base while the drop waited: "
+        "only such a merge defeats a drop, and the task lands",
+        f"lem land merged {slug}",
+    )
+
+
+def dropped(
+    where: places.Workspace, slug: str, line: str, given: Ports | None = None
+) -> table.Moved:
+    """Drop the task `slug` with the owner's reason `line`; `given` are the ports a test
+    holds."""
+    before = release.checked(where.state, slug, ends=True)
+    refused = table.refusal(before.task, DROPPED, None)
+    if refused is not None:
+        raise refused
+    stop_checks(where, slug)
+    now = clock.now()
+    with steps.waited(where.state, slug, "drop", now):
+        record = tasks.read(where.state, slug)
+        refused = table.refusal(record.task, DROPPED, None)
+        if refused is not None:
+            raise refused
+        merged_refusal(given, where, record)
+        change = partial(holds.moved, status=DROPPED, line=line, now=now)
+        tasks.update(where.state, slug, change, record.revision)
+    return table.Moved(slug=slug, was=record.task.status, status=DROPPED)

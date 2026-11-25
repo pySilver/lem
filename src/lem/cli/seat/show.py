@@ -2,7 +2,8 @@
 
     lem seat show SLUG ROLE
 
-A stub until the step `sessions` builds it: it refuses `not-built`.
+The fallback while it stands in for the task, else the seat the settings name, with where it
+comes from (`app/sessions/seats.py`).
 """
 
 from typing import Literal
@@ -10,7 +11,8 @@ from typing import Literal
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.sessions import here, seating, seats
+from lem.cli import place
 from lem.cli.words import choice
 
 type Role = Literal["reviewer", "planner", "merger", "session"]
@@ -23,9 +25,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     role: Role
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `sessions` builds `lem seat show`."""
-    raise not_built("seat show", "sessions")
+def run(call: Call) -> seating.Shown:
+    """The seat in use for the task's role."""
+    return seats.shown(here.bound(place.folder()), call.slug, call.role)
 
 
 COMMAND = click.Command(

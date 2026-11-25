@@ -2,13 +2,14 @@
 
     lem task list [--ended]
 
-A stub until the step `task` builds it: it refuses `not-built`.
+The open tasks, the ended ones too with `--ended` (`app/tasks/listing.py`).
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.tasks import listing
+from lem.cli import place
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +18,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     ended: bool = False
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `task` builds `lem task list`."""
-    raise not_built("task list", "task")
+def run(call: Call) -> tuple[listing.Row, ...]:
+    """Every task with its status and hold."""
+    return listing.listed(place.folder(), ended=call.ended)
 
 
 COMMAND = click.Command(

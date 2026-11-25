@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # Claude Code: second-opinion
 
 A part of `../claude-code.md`, read when a session opens the reviewer's pane.
@@ -6,9 +5,9 @@ A part of `../claude-code.md`, read when a session opens the reviewer's pane.
 ## second-opinion
 
 The reviewer is a second agent in the split pane of the session that asks (the pair of a plan
-talk, for a careful or large plan); the owner reads both panes. Its seat is the one that `lem
-project seat SLUG reviewer` prints, and no other: the seat in use for the task, parsed as `lem
-project show` parses one, with its `agent` (`claude` or `codex`), its `model`, its `effort`,
+talk, for a careful or large plan); the owner reads both panes. Its seat is the one that `lem seat
+show SLUG reviewer` prints, and no other: the seat in use for the task, parsed as `lem
+settings show` gives one, with its `agent` (`claude` or `codex`), its `model`, its `effort`,
 `seat`, the line as written, and `from`. `from` is `stand-in` while a stand-in holds that seat for
 the task, else the path of the file the seat comes from (the repository's `.lem/settings.local.toml`,
 its `.lem/settings.toml`, or `~/.config/lem/settings.toml`), or `Lem's default`, which is
@@ -19,8 +18,8 @@ The owner sets the seat with `/lem set local reviewer AGENT/MODEL:EFFORT` for on
 this machine, or `/lem set global ...` for each repository on it that names none. Never change the
 seat by yourself, and never write a file of the settings.
 
-**When the reviewer's agent gives an error**, it is one of four, each a KIND of `lem project
-seat-failed`:
+**When the reviewer's agent gives an error**, it is one of four, each a KIND of `lem seat
+failed`:
 
 - `missing`: the program is not on this Mac, `command not found: codex` (or `claude`) on the
   pane's screen;
@@ -38,15 +37,15 @@ owner (`mark-waiting`) first, then say it in one line, the last text of your tur
 four, run
 
 ```bash
-lem project seat-failed SLUG reviewer --seat "LINE" --error KIND --said "ITS WORDS"
+lem seat failed SLUG reviewer --seat "LINE" --error KIND --said "ITS WORDS"
 ```
 
-`LINE` is the `seat` you opened, as `lem project seat` printed it, and `ITS WORDS` the agent's own
+`LINE` is the `seat` you opened, as `lem seat show` printed it, and `ITS WORDS` the agent's own
 line of the error. The command alone decides, and you take what it prints:
 
 - a seat to open: close the pane (`agtermctl session split close --target "$AGTERM_SESSION_ID"
   --socket "$AGTERM_SOCKET"`), say its `say` in one line, and open that seat at step 2. It is the
-  fallback seat, which stands in for the reviewer from now on: the next `lem project seat SLUG
+  fallback seat, which stands in for the reviewer from now on: the next `lem seat show SLUG
   reviewer` prints it too.
 - `blocked: true`: the task is `blocked` with the seat and the error, and "Waits for you" shows
   it. Close the pane, say its `say` in one line, and stop: the talk ends with the block, and the
@@ -102,7 +101,7 @@ for the seat that failed. The report says "same family" when it is.
        Claude Code settings.
      Keep the quotes around each value you put in: a skill's folder with a space splits a bare
      path, and zsh stops a bare model such as `opus[1m]` with "no matches found".
-     `MODEL` and `EFFORT` are the `model` and the `effort` that `lem project seat SLUG reviewer`
+     `MODEL` and `EFFORT` are the `model` and the `effort` that `lem seat show SLUG reviewer`
      printed.
    - read the model and the effort back from the pane's status line, and name those in the
      report, never the ones you asked for. When the status line shows no model or no effort (a
@@ -110,7 +109,7 @@ for the seat that failed. The report says "same family" when it is.
      seat's value.
    - read `agtermctl tree --json` and confirm the session's `splitForeground` is that agent, then
      `mailbox-chat.py status` again. A pane whose agent is gone, or whose screen shows one of the
-     four errors above, is a seat that failed: run `lem project seat-failed` as above.
+     four errors above, is a seat that failed: run `lem seat failed` as above.
    - Codex asks "Trust this folder?" the first time it starts in a repository, and it saves the
      answer in the owner's Codex configuration. That answer is the owner's: tell the owner that
      the reviewer's pane waits for it, and do not type into the pane. `mailbox-chat.py status`
@@ -119,7 +118,7 @@ for the seat that failed. The report says "same family" when it is.
    the same line without typing; in the other restore modes it is refused.
 3. **Send the request** through the `mailbox-chat` skill: the plan's path, the directory to work
    in, the task it belongs to and the rule files
-   that cover it (`lem project rules`, with the plan's files or `--range`). A message that names git goes from a file, never a heredoc.
+   that cover it (`lem rules`, with the plan's files or `--range`). A message that names git goes from a file, never a heredoc.
 4. **The reply arrives in this pane by itself.** Never poll for it, and check every claim it makes
    about the code with your own read before you act on it.
    A reply that may not be whole ("so far", a numbered point with no end) is answered in the same

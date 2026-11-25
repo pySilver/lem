@@ -7,8 +7,6 @@ task's status, hold and newest state line from `task.json`, and `handoff.md` as 
 whole files and wait on no lock: `task.json` is written whole, by a rename.
 """
 
-import json
-
 from lem.hooks import raw, where
 
 TYPE_CHECKING = False
@@ -82,6 +80,8 @@ def restored(folder: str) -> str:
 
 def newest_state(folder: str) -> str:
     """The task's status, its hold, and its newest state line, from `task.json`."""
+    import json
+
     try:
         record = json.loads(raw.read_bytes(f"{folder}/task.json"))
     except OSError, ValueError:

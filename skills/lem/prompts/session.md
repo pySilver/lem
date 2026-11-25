@@ -126,9 +126,10 @@ comes), `ready` (the landing comes). Hand it on, in this order:
    sees a subagent, so only you know.
 2. **The record** that ends your phase: `lem task move SLUG STATUS --line "WHY"`.
 3. **`handoff.md`** in the task directory, whole, in the form of `SKILL_DIR/templates/handoff.md`:
-   the line `task: SLUG · from PHASE · written: TIME`, PHASE being the phase this session opened
-   in (`phase:` of `session.md`; `lem session next` refuses another and names the one it wants),
-   then what is settled, what is open, the next
+   the line `task: SLUG · from PHASE · written: TIME`, PHASE being the phase that ends by the
+   task's record (a session that led its task from the shape through the build writes `from
+   build` at `ready`; `lem session next` refuses another and names the one it wants), then what
+   is settled, what is open, the next
    step, what failed, and each file you changed by its path with its status. Link a plan, a record
    or a commit by its path or its id, and copy no text of it.
 4. `lem session next SLUG`. It opens the next session and prints its `say`, and `close` in its

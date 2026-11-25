@@ -2,7 +2,10 @@
 
     lem task span SLUG NAME start|end [--of N/M] [--job J] [--by B]
 
-A stub until the step `task` builds it: it refuses `not-built`.
+A start that takes no field refuses one, a task of the plan takes `--of N/M`, a builder's job is
+one of its jobs, the plan talk names its reviewer with `--by`, and the lead its kind; an end
+needs an open span of its name, and a second start of an open span is refused
+(`model/task/span_forms.py`).
 """
 
 from typing import Literal
@@ -10,8 +13,11 @@ from typing import Literal
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.tasks import spans
+from lem.cli import place
 from lem.cli.words import choice
+from lem.model.task.span_forms import Given
+from lem.store import places
 
 type Edge = Literal["start", "end"]
 
@@ -27,9 +33,17 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     by: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `task` builds `lem task span`."""
-    raise not_built("task span", "task")
+def run(call: Call) -> spans.Marked:
+    """Mark the start or the end of the span, now."""
+    state = places.workspace(place.folder()).state
+    given = Given(
+        name=call.name,
+        edge=call.edge,
+        of=call.of,
+        job=call.job,
+        by=call.by,
+    )
+    return spans.marked(state, call.slug, given)
 
 
 COMMAND = click.Command(

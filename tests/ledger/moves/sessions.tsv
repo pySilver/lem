@@ -1,0 +1,11 @@
+id	to	why
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_page_opened_with_no_status_keeps_its_choice_at_the_stop	ask	the open card's mark (agterm status, rechecked) reads the card's page and its no-status choice, which `ask` (board/ask/) defines; hooks/stop.py says nothing until then
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_status_call_that_cannot_start_prints_nothing	ask	the agtermctl status calls of the mark are `ask`'s with the card's page
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_wait_with_no_status_holds_for_a_page_opened_without_it	ask	the word of `lem ask wait` (main's WAIT_WORD file) is `ask`'s to define
+unit:tests/unit/test_hooks.py:AskStopHook.test_an_agtermctl_that_hangs_ends_the_hook_silent_and_leaves_no_process	ask	the agtermctl calls of the mark, each with its bound (main's STOP_CALL), come with the mark
+unit:tests/unit/test_session.py:Load.test_a_negative_number_written_by_hand_is_refused	settings	the load line's number is [load] of the machine's file, which the step settings reads and checks
+unit:tests/unit/test_session.py:Load.test_a_new_machine_gates_at_forty	land-checks	the load line gates the checks, which land-checks runs
+unit:tests/unit/test_session.py:Load.test_his_number_wins_and_none_stays_none	settings	the machine's [load] number and its sources are the step settings's
+unit:tests/unit/test_session.py:Seat.test_the_machine_file_refuses_the_seats_and_names_the_home_settings	settings	which file may hold [seats] is the settings' table places (settings/places.py)
+unit:tests/unit/test_session.py:Tokens.test_the_command_writes_the_number_and_default_takes_it_out_keeping_the_other_tables	settings	the number is written by `lem settings set handoff.tokens N --machine`, the step settings's
+unit:tests/unit/test_session.py:Tokens.test_under_the_floor_a_negative_a_bool_and_a_float_are_refused	settings	the check of [handoff] tokens on a write is the settings' edit; the harness refuses such a number on read (contract.test_harness.test_a_compaction_number_claude_code_would_refuse_is_refused)

@@ -2,22 +2,40 @@
 
     lem session plugin-dir
 
-A stub until the step `sessions` builds it: it refuses `not-built`.
+The folder `--plugin-dir` names on a launch line of this Lem, the app's own data, or null when
+the project loads the installed plugin.
 """
+
+import os
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.adapters import harness_claude
+from lem.cli import place
+from lem.kernel import paths
+from lem.ports.place import Place
+from lem.store import places
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """The words of `lem session plugin-dir`."""
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `sessions` builds `lem session plugin-dir`."""
-    raise not_built("session plugin-dir", "sessions")
+class Folder(msgspec.Struct, frozen=True, kw_only=True):
+    """The folder `--plugin-dir` names, null where the project loads the installed plugin:
+    the key the plan talk's pair reads (`harness/claude-code/plan-talk.md`)."""
+
+    plugin_dir: str | None
+
+
+def run(call: Call) -> Folder:
+    """The folder --plugin-dir names, or None."""
+    where = places.workspace(place.folder())
+    home = paths.home(os.environ)
+    at = Place(checkout=where.checkout, home=home, environ=os.environ)
+    folder = harness_claude.bind(at).plugin_folder(paths.root())
+    return Folder(plugin_dir=None if folder is None else str(folder))
 
 
 COMMAND = click.Command(

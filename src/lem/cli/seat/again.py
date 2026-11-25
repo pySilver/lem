@@ -2,13 +2,21 @@
 
     lem seat again SLUG
 
-A stub until the step `sessions` builds it: it refuses `not-built`.
+It clears the block a seat's error left, and ends each stand-in of that seat
+(`app/sessions/seats_again.py`).
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.sessions import here, seats_again
+from lem.cli import place
+from lem.kernel import clock
+
+if TYPE_CHECKING:
+    from lem.records.task import Task
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +25,10 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     slug: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `sessions` builds `lem seat again`."""
-    raise not_built("seat again", "sessions")
+def run(call: Call) -> Task:
+    """Try the seat the settings name again."""
+    bound = here.bound(place.folder())
+    return seats_again.again(bound, call.slug, clock.now()).task
 
 
 COMMAND = click.Command(

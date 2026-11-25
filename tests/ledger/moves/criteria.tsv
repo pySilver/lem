@@ -1,0 +1,25 @@
+id	to	why
+check:tests/lem-decisions.sh:a-dropped-task-stays-dropped-and-its-resume-4cb48ada68901d88	task	a dropped task's resume as a new task is task resume (task's leaf)
+check:tests/lem-decisions.sh:a-lead-whose-task-needs-another-task-s-resul-0f3ddd6189435167	task	the queue behind another task and may-start are task move, task may-start (task's leaves)
+check:tests/lem-decisions.sh:a-parked-task-gets-no-lead-takes-no-late-sta-a55a45734936af39	task	park and resume are task park and task resume; the help on a parked task's breaker is criteria's test_a_parked_task_takes_his_help_after_its_resume
+check:tests/lem-decisions.sh:a-resume-whose-new-worktree-s-setup-fails-ke-d7385594085043ab	task	a resume and its new worktree's setup are task resume and task worktree
+check:tests/lem-decisions.sh:a-resumed-task-keeps-the-owner-s-approval-af-fad51e2ec671502a	task	a resume copies the old task's record (its approvals, reads and decisions) into the new one: task resume
+check:tests/lem-decisions.sh:a-task-queued-after-a-dropped-task-by-a-need-7cc86fd22ba0eb5b	owner	the rows of what waits for the owner are lem waiting (owner's)
+check:tests/lem-decisions.sh:a-task-the-night-opened-runs-without-the-own-c20756bad8992c82	owner	a night task's mode in the list and in what waits, and the brake, are task list and lem waiting
+check:tests/lem-decisions.sh:a-task-two-releases-back-stops-at-its-first-417a4d8879a707ca	task	the release stop two releases back is task's (notes/core.md)
+check:tests/lem-decisions.sh:his-start-it-for-a-task-queued-behind-a-drop-c3c61905db4d491a	task	his start of a queued task is task start --words (task's)
+check:tests/lem-decisions.sh:in-the-morning-the-list-marks-a-task-the-nig-bb6d28f81023b85a	owner	the morning's list of what waits and the night's report are lem waiting and status (owner's)
+check:tests/lem-decisions.sh:waiting-lists-in-one-json-what-waits-for-the-6d70049e2e7ff4df	owner	lem waiting lists what waits for the owner in its nine groups (owner's); its breakers come from decisions pending
+event:interview.end	task	the interview's text writes it as lem task span SLUG interview end, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]
+event:interview.start	task	the interview's text writes it as lem task span SLUG interview start, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]
+event:plan.talk	task	the talk's text writes it as lem task talked SLUG (task's leaf, the record's Talk); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/talk.md]
+event:plan.talk.start	task	the interview's text writes it as lem task span SLUG plan-talk start, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/talk.md]
+event:scout	task	the interview's text writes it as lem task span SLUG scout end, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]
+event:scout.start	task	the interview's text writes it as lem task span SLUG scout start, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]
+ruling:the-first-run-is-in-a-scratch-repository-730e013a974955df	trials	the first run in a scratch repository, then a real project, is checked by the trials (S5 a scratch task to its PR; R9 a scratch copy of a real project)
+unit:tests/unit/test_criteria.py:Inputs.test_a_read_that_refuses_refuses_the_inputs_before_git_is_asked	land-checks	criteria inputs is land-checks' leaf (plan part 9, row criteria: but red and inputs)
+unit:tests/unit/test_criteria.py:Inputs.test_the_base_commit_is_the_merge_base_of_the_tip_and_origins_base_branch	land-checks	criteria inputs is land-checks' leaf (plan part 9, row criteria: but red and inputs)
+unit:tests/unit/test_criteria.py:Inputs.test_the_five_inputs_of_a_run	land-checks	criteria inputs is land-checks' leaf (plan part 9, row criteria: but red and inputs)
+unit:tests/unit/test_criteria.py:Inputs.test_with_no_origin_the_base_branch_itself	land-checks	criteria inputs is land-checks' leaf (plan part 9, row criteria: but red and inputs)
+unit:tests/unit/test_criteria.py:Unstarted.test_a_shell_on_a_file_the_base_lacks_is_named	land-checks	criteria.unstarted belongs to cmd_red, which land-checks builds (plan part 9)
+unit:tests/unit/test_criteria.py:Unstarted.test_python_on_a_file_the_base_lacks	land-checks	criteria.unstarted belongs to cmd_red, which land-checks builds (plan part 9)

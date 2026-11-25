@@ -3,7 +3,6 @@ name: lem-linear
 description: "Lem's tracker skill for Linear: reads a ticket into a task, moves it and comments the landing. Lem's stages load it; the owner reads one ticket with `/lem read KEY`."
 disable-model-invocation: true
 ---
-<!-- lem: old form -->
 
 # Linear, as Lem's tracker
 
@@ -18,7 +17,7 @@ asks for that ticket in his own words.
 
 ## The settings
 
-`lem project show` prints `tracker`. When it is null, the project has no tracker: say so and stop.
+`lem settings show` prints `tracker`. When it is null, the project has no tracker: say so and stop.
 The one exception is "check" at onboarding, before the table is written. The table has one key,
 `kind`, which is `linear` here. Everything else is read from the ticket and from Linear, never
 from a setting: the team, the server and the status.
@@ -94,17 +93,17 @@ alone: give him what step 1 gives, in a few lines, and start nothing.
 
 ## What was done to a ticket is written down
 
-`lem project tasks` gives, for a task that came from a ticket, `ticket` and `ticket_steps`: what
-Lem did to that ticket so far. Before a write, look there: a step that is listed was done, and
-it is never done again. After a write that the server took, write the step down at once:
+`lem task show SLUG` gives, for a task that came from a ticket, its ticket and the steps written
+down: what Lem did to that ticket so far. Before a write, look there: a step that is listed was
+done, and it is never done again. After a write that the server took, write the step down at
+once:
 
 ```bash
-lem project ticket-step SLUG started|commented|landed|dropped|answered
+lem task ticket SLUG started|commented|landed|dropped|answered
 ```
 
-`SKILL_DIR` is the `lem` skill's directory. `ticket_owed` in the same output is what an ended
-task's ticket still waits for: a later session sees there what a session before it did not
-finish.
+The same output says what an ended task's ticket still waits for: a later session sees there what
+a session before it did not finish.
 
 A session can also be cut off between the two: the server took a comment, and the step was not
 written down yet. So each comment of Lem's ends with a line of its own, `lem: SLUG landed`,
@@ -136,8 +135,8 @@ request is merged or the ready branch is on the base branch, and not before.
    already there (an automation of Linear moves it when its pull request merges) is left as it
    is; otherwise `save_issue` with that status. Then write the step `landed` down.
 
-A landed task's ticket is finished when `ticket_owed` is empty. Until then the landing still
-owes the ticket this procedure, and each step of it skips what is done.
+A landed task's ticket is finished when `lem task show SLUG` says it owes nothing. Until then the
+landing still owes the ticket this procedure, and each step of it skips what is done.
 
 ## drop
 
@@ -156,8 +155,8 @@ not one, or answered the question, and nothing is merged (`stages/investigate.md
 not wanted, while the task has a finding for them; so an answer has its own comment.
 
 1. Unless `answered` is written down, or a comment on the ticket ends with `lem: SLUG answered`:
-   `save_comment` with the answer as the task's state gives it in one line (the newest
-   `investigation` in `lem project tasks`: its `line`, and its `where` when it has one), and, while
+   `save_comment` with the answer as the task's record gives it in one line (its investigation, as
+   `lem task investigated` wrote it: the `line`, and the `where` when it has one), and, while
    the task's directory holds the report (`investigation.md`), that it is there, not on the
    ticket. Its last line is `lem: SLUG answered`.
    Then write the step `answered` down.
