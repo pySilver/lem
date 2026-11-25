@@ -3,14 +3,15 @@
     lem jev check SPEC
 
 It prints the model, the questions, the address and where the key comes from.
-
-A stub until the step `addons-outside` builds it: it refuses `not-built`.
 """
+
+import os
+import sys
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.addons.jev import client, questions
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -19,9 +20,12 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     spec: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `addons-outside` builds `lem jev check`."""
-    raise not_built("jev check", "addons-outside")
+def run(call: Call) -> client.Check:
+    """Check the spec from a path or standard input."""
+    target = client.config(os.environ)
+    raw = sys.stdin.buffer.read() if call.spec == "-" else b""
+    asked = questions.build(questions.load(call.spec, raw), target.model)
+    return client.check(asked, target, os.environ)
 
 
 COMMAND = click.Command(

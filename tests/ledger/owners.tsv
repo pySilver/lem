@@ -97,7 +97,7 @@ act:Task panel/criteria	board-pages
 act:Task panel/details	board-pages
 act:Task panel/expand	board-pages
 act:Task panel/merge	board-pages
-act:Task panel/open-inbox	addons-outside
+act:Task panel/open-inbox	board-views
 act:Task panel/open-pr	board-pages
 act:Task panel/open-session	board-acts
 act:Task panel/open-ticket	board-pages
@@ -689,7 +689,7 @@ check:tests/lint.sh:uv-lock-check-uv-lock-holds-what-pyproject-t-640a5a12c6ef8bd
 check:tests/shellcheck.sh:shellcheck-file-2f02f6932eb514b4	core
 check:tests/test-ask-expert.sh:a-brief-names-the-profile-and-each-persona-b-18e211361584c977	addons-outside
 check:tests/test-ask-expert.sh:a-question-in-words-gets-a-folder-of-its-own-d5ba0f976817bbd7	addons-outside
-check:tests/test-ask-expert.sh:a-question-s-folder-goes-with-lem-project-pr-4e05c52716ca1884	addons-outside
+check:tests/test-ask-expert.sh:a-question-s-folder-goes-with-lem-project-pr-4e05c52716ca1884	board-duties
 check:tests/test-ask-expert.sh:an-open-question-asks-for-an-answer-in-words-9ef28f431223b39b	addons-outside
 check:tests/test-ask-expert.sh:experts-py-left-no-pycache-also-of-the-scrip-cba9ca08be53a6fa	addons-outside
 check:tests/test-ask-expert.sh:seat-names-the-experts-for-one-call-by-the-l-8e344c5147e7c521	addons-outside

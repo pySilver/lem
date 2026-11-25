@@ -1,0 +1,159 @@
+id	fate	proof	note
+check:tests/lem-machine.sh:lem-jev-names-a-jev-timeout-that-is-no-numbe-0235f49ad91c520a	changed	unit.addons.outside.test_jev.test_check_command_reads_stdin_and_rejects_non_utf8	The CLI prints a structured refusal. The spec still reports its error and sends nothing.
+check:tests/lem-machine.sh:lem-jev-takes-its-key-from-jev-api-key-alone-42ca08d2497f55ae	changed	unit.addons.outside.test_jev.test_provider_uses_only_jev_key_and_never_sends_during_check	Use httpx and the CLI envelope. The same key and decisions wire format apply.
+check:tests/lem-peers.sh:a-machine-that-never-answers-is-joined-all-t-0b14a6d469328b28	kept	journeys.test_peers.test_join_survives_no_answer_and_the_entry_retains_a_peers_last_rows	
+check:tests/lem-peers.sh:a-peer-s-kanban-task-page-and-files-come-thr-fbf19bacc6f52140	changed	journeys.test_peers.test_peer_pages_assets_union_and_loop_guard	Use Starlette to relay the rendered kanban and assets. The switcher is checked at the board callback and peer writes are refused.
+check:tests/lem-peers.sh:a-peer-s-stream-through-alpha-delivers-its-r-db379718654e8691	changed	journeys.test_peers.test_relay_closes_a_silent_peer_stream_at_disconnect	The relay leaves the stream open until the ASGI disconnect event instead of watching a socket.
+check:tests/lem-peers.sh:a-request-with-lem-hop-is-never-forwarded-to-465847e624ac1a7f	kept	journeys.test_peers.test_peer_pages_assets_union_and_loop_guard	
+check:tests/lem-peers.sh:join-asks-the-machine-once-and-writes-it-int-acb1969d675ce6c2	changed	journeys.test_peers.test_join_survives_no_answer_and_the_entry_retains_a_peers_last_rows	Use lem serve join HOST. The board uses a workspace callback for the combined list.
+check:tests/test-ask-expert.sh:a-brief-names-the-profile-and-each-persona-b-18e211361584c977	kept	unit.addons.outside.test_experts.test_brief_and_shared_pick	
+check:tests/test-ask-expert.sh:a-question-in-words-gets-a-folder-of-its-own-d5ba0f976817bbd7	kept	unit.addons.outside.test_experts.test_brief_and_shared_pick	
+check:tests/test-ask-expert.sh:an-open-question-asks-for-an-answer-in-words-9ef28f431223b39b	kept	unit.addons.outside.test_experts.test_open_question_persists_words_and_never_picks	
+check:tests/test-ask-expert.sh:experts-py-left-no-pycache-also-of-the-scrip-cba9ca08be53a6fa	kept	unit.addons.outside.test_experts.test_cli_envelope_and_no_bytecode	
+check:tests/test-ask-expert.sh:seat-names-the-experts-for-one-call-by-the-l-8e344c5147e7c521	kept	unit.addons.outside.test_experts.test_seat_names_and_unavailable_codex	
+check:tests/test-ask-expert.sh:the-experts-are-the-settings-seats-experts-t-5c26d0509bfef9ff	kept	unit.addons.outside.test_experts.test_seat_names_and_unavailable_codex	
+check:tests/test-ask-expert.sh:with-no-codex-on-the-machine-one-expert-answ-7d5aaf167f18355d	kept	unit.addons.outside.test_experts.test_seat_names_and_unavailable_codex	
+check:tests/test-gate-panel.sh:a-branch-that-edits-its-cast-keeps-its-own-8d2e333b619140d1	kept	unit.addons.outside.test_cast.test_default_branch_updates_reach_a_worktree_without_its_own_edit	
+check:tests/test-gate-panel.sh:a-default-branch-named-trunk-is-found-withou-2497a0701953583f	kept	unit.addons.outside.test_cast.test_default_branch_updates_reach_a_worktree_without_its_own_edit	
+check:tests/test-gate-panel.sh:a-persona-s-frontmatter-names-its-seats-and-c0f45707ae38e1e9	kept	unit.addons.outside.test_cast.test_frontmatter_and_copy	
+check:tests/test-gate-panel.sh:a-project-with-no-personas-has-a-setup-that-7421702d9c353d1b	kept	unit.addons.outside.test_cast.test_missing_and_stale_cast_and_init	
+check:tests/test-gate-panel.sh:a-project-with-no-profile-gets-none-never-a-8bce99f16f9f26ce	kept	unit.addons.outside.test_cast.test_missing_and_stale_cast_and_init	
+check:tests/test-gate-panel.sh:a-repo-that-does-not-exist-is-refused-4859a53c0bb37f14	changed	unit.addons.outside.test_cast.test_index_only_and_invalid_settings_are_refused	The root --repo option refuses a missing directory with Click's wrong-call status.
+check:tests/test-gate-panel.sh:a-settings-file-lem-refuses-stops-the-panel-30eeee51e9e82067	kept	unit.addons.outside.test_cast.test_index_only_and_invalid_settings_are_refused	
+check:tests/test-gate-panel.sh:a-worktree-holding-an-unchanged-older-cast-r-6d83d45537ff6ce4	kept	unit.addons.outside.test_cast.test_default_branch_updates_reach_a_worktree_without_its_own_edit	
+check:tests/test-gate-panel.sh:a-worktree-older-than-the-cast-finds-the-cas-2cc269b6ccbd4939	kept	unit.addons.outside.test_cast.test_missing_and_stale_cast_and_init	
+check:tests/test-gate-panel.sh:a-worktree-older-than-the-cast-reads-it-from-cbc2b5b701a89e52	kept	unit.addons.outside.test_cast.test_default_branch_updates_reach_a_worktree_without_its_own_edit	
+check:tests/test-gate-panel.sh:after-the-push-it-still-reads-the-default-br-0f54abd9b8ca76ff	kept	unit.addons.outside.test_cast.test_default_branch_updates_reach_a_worktree_without_its_own_edit	
+check:tests/test-gate-panel.sh:an-edit-to-the-profile-on-the-default-branch-71725321a6f20e2c	kept	unit.addons.outside.test_cast.test_default_branch_updates_reach_a_worktree_without_its_own_edit	
+check:tests/test-gate-panel.sh:an-index-with-no-persona-file-is-not-a-cast-0a14c4c666a4c2fe	kept	unit.addons.outside.test_cast.test_index_only_and_invalid_settings_are_refused	
+check:tests/test-gate-panel.sh:cast-py-left-no-pycache-2c6df31207c14aec	kept	unit.addons.outside.test_cast.test_checkout_uses_its_own_people_and_profile	
+check:tests/test-gate-panel.sh:commits-that-leave-the-profile-unchanged-sha-a86d3c594c4ea4d6	kept	unit.addons.outside.test_cast.test_default_branch_updates_reach_a_worktree_without_its_own_edit	
+check:tests/test-gate-panel.sh:every-shipped-skill-has-disable-model-invoca-b5acdd08fcef6623	kept	unit.addons.outside.test_texts.test_shipped_skill_activation_and_description	
+check:tests/test-gate-panel.sh:init-copies-the-built-in-cast-into-a-new-pro-45b62fb9f5ad87b2	kept	unit.addons.outside.test_cast.test_missing_and_stale_cast_and_init	
+check:tests/test-gate-panel.sh:init-refuses-a-cast-folder-that-holds-only-a-72f8d03a8d58f347	kept	unit.addons.outside.test_cast.test_index_only_and_invalid_settings_are_refused	
+check:tests/test-gate-panel.sh:init-refuses-a-project-that-already-has-a-ca-4a3488fc955d7ea8	kept	unit.addons.outside.test_cast.test_missing_and_stale_cast_and_init	
+check:tests/test-gate-panel.sh:init-refuses-a-worktree-whose-default-branch-c3ec5c513ca1cb19	kept	unit.addons.outside.test_cast.test_missing_and_stale_cast_and_init	
+check:tests/test-gate-panel.sh:persona-files-under-config-personas-cast-ans-8a391901db105e3f	kept	unit.addons.outside.test_cast.test_missing_and_stale_cast_and_init	
+check:tests/test-gate-panel.sh:run-dir-in-a-worktree-makes-the-folder-in-th-c79ca4f5eb4d16a2	changed	unit.addons.outside.test_cast.test_panel_folder_lives_in_the_main_checkout	The command returns the created folder in result.dir.
+check:tests/test-gate-panel.sh:run-dir-makes-a-dated-folder-in-lem-s-state-b9ec9d17a37d6020	changed	unit.addons.outside.test_cast.test_panel_folder_lives_in_the_main_checkout	The command returns the created folder in result.dir.
+check:tests/test-gate-panel.sh:run-dir-refuses-a-folder-that-already-exists-5b5ce41e61fead4b	changed	unit.addons.outside.test_cast.test_panel_folder_lives_in_the_main_checkout	The command returns the created folder in result.dir.
+check:tests/test-gate-panel.sh:the-checkout-s-profile-is-read-beside-the-pr-fd58c36f7dadf279	kept	unit.addons.outside.test_cast.test_checkout_uses_its_own_people_and_profile	
+check:tests/test-gate-panel.sh:the-project-s-own-people-are-the-cast-and-no-3150f9497f158672	kept	unit.addons.outside.test_cast.test_checkout_uses_its_own_people_and_profile	
+check:tests/test-gate-panel.sh:the-same-worktree-reads-the-default-branch-s-3735d3e3d1f0ce86	kept	unit.addons.outside.test_cast.test_default_branch_updates_reach_a_worktree_without_its_own_edit	
+check:tests/test-gate-panel.sh:when-the-local-default-branch-is-behind-the-531c8d1567c9898e	kept	unit.addons.outside.test_cast.test_default_branch_updates_reach_a_worktree_without_its_own_edit	
+command:lem cast	changed	unit.addons.outside.test_cast.test_checkout_uses_its_own_people_and_profile	Use lem --repo PATH cast show. The root owns --repo and the command prints a result envelope.
+command:lem cast init	changed	unit.addons.outside.test_cast.test_missing_and_stale_cast_and_init	Use lem --repo PATH cast show. The root owns --repo and the command prints a result envelope.
+command:lem cast run-dir	changed	unit.addons.outside.test_cast.test_panel_folder_lives_in_the_main_checkout	Use lem --repo PATH cast show. The root owns --repo and the command prints a result envelope.
+command:lem experts	changed	unit.addons.outside.test_experts.test_cli_envelope_and_no_bytecode	Use lem --repo PATH experts. The root owns --repo and both verbs print a result envelope.
+command:lem experts brief	changed	unit.addons.outside.test_experts.test_cli_envelope_and_no_bytecode	Use lem --repo PATH experts. The root owns --repo and both verbs print a result envelope.
+command:lem experts record	changed	unit.addons.outside.test_experts.test_cli_envelope_and_no_bytecode	Use lem --repo PATH experts. The root owns --repo and both verbs print a result envelope.
+command:lem jev	changed	unit.addons.outside.test_jev.test_check_command_reads_stdin_and_rejects_non_utf8	jev ask and jev check print the result envelope. The jev noun still defaults to ask.
+command:lem jev check	changed	unit.addons.outside.test_jev.test_check_command_reads_stdin_and_rejects_non_utf8	jev ask and jev check print the result envelope. The jev noun still defaults to ask.
+duty:close-peer-stream	changed	journeys.test_peers.test_relay_closes_a_silent_peer_stream_at_disconnect	The relay listens for the ASGI disconnect event and closes its upstream response on cancellation.
+duty:forget-inbox-note	kept	unit.addons.outside.test_inbox.test_note_needs_no_agent_and_no_withdrawal	
+duty:inbox-blocked	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
+duty:inbox-breaker	kept	unit.addons.outside.test_inbox.test_breaker_question_includes_the_document_for_the_current_hold	The question includes the current breaker's document when it reads.
+duty:inbox-merge	kept	unit.addons.outside.test_inbox.test_reviewed_merge_binds_the_question_to_the_full_commit	
+duty:inbox-order	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
+duty:inbox-other-question	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
+duty:inbox-plan	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
+duty:poll-inbox	kept	unit.addons.outside.test_inbox.test_poll_isolated_per_workspace_and_skips_unknown_sessions	
+duty:poll-peers	kept	unit.addons.outside.test_peers.test_registry_keeps_fresh_rows_and_reloads_port_changes	
+duty:relay-peer-read	kept	journeys.test_peers.test_join_survives_no_answer_and_the_entry_retains_a_peers_last_rows	
+duty:reload-peers	kept	unit.addons.outside.test_peers.test_registry_keeps_fresh_rows_and_reloads_port_changes	
+duty:retry-inbox-send	kept	unit.addons.outside.test_inbox.test_failed_send_retries_the_same_payload_and_wakes_once	
+duty:send-inbox-note	kept	unit.addons.outside.test_inbox.test_note_needs_no_agent_and_no_withdrawal	
+duty:send-inbox-question	kept	unit.addons.outside.test_inbox.test_failed_send_retries_the_same_payload_and_wakes_once	
+duty:wake-inbox-reply	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
+duty:withdraw-inbox-question	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
+route:GET /{peer}/{rest...}	kept	journeys.test_peers.test_peer_pages_assets_union_and_loop_guard	
+route:HEAD /{peer}/{rest...}	kept	journeys.test_peers.test_peer_pages_assets_union_and_loop_guard	
+ruling:a-persona-s-file-names-its-models-1fbe7c7b1a74ca06	kept	unit.addons.outside.test_cast.test_frontmatter_and_copy	
+ruling:lem-ask-expert-takes-a-question-in-words-or-c516b11b7f7e1b01	kept	unit.addons.outside.test_texts.test_expert_skill_and_harness_use_the_result_and_root_repo_option	
+ruling:the-experts-know-the-personas-24ba7b7b466c6a5a	kept	unit.addons.outside.test_experts.test_brief_and_shared_pick	
+ruling:the-jev-model-comes-through-any-provider-e890c29fdee60c19	kept	unit.addons.outside.test_jev.test_provider_uses_only_jev_key_and_never_sends_during_check	
+ruling:without-codex-one-expert-answers-alone-5a3515f2f428be0e	kept	unit.addons.outside.test_experts.test_seat_names_and_unavailable_codex	
+text:skills/lem-ask-expert/SKILL.md	changed	unit.addons.outside.test_texts.test_expert_skill_and_harness_use_the_result_and_root_repo_option	Use the rebuilt root option and read the command's result envelope.
+text:skills/lem-panel/SKILL.md	changed	unit.addons.outside.test_texts.test_panel_skill_and_messages_use_the_cast_and_jev_results	Use the rebuilt root option and read the command's result envelope.
+text:skills/lem/harness/claude-code/ask-experts.md	changed	unit.addons.outside.test_texts.test_expert_skill_and_harness_use_the_result_and_root_repo_option	Use the rebuilt root option and read the command's result envelope.
+unit:tests/unit/test_cast.py:Frontmatter.test_a_blank_line_and_a_comment_are_skipped	kept	unit.addons.outside.test_cast.test_frontmatter_and_copy	
+unit:tests/unit/test_cast.py:Frontmatter.test_a_file_with_no_frontmatter_is_the_person_whole	kept	unit.addons.outside.test_cast.test_frontmatter_and_copy	
+unit:tests/unit/test_cast.py:Frontmatter.test_a_frontmatter_never_closed_another_key_and_a_line_twice_are_refused_with_the_file	kept	unit.addons.outside.test_cast.test_invalid_frontmatter_names_the_file_and_fix	
+unit:tests/unit/test_cast.py:Frontmatter.test_the_seats_are_read_and_the_text_after_it_is_the_person	kept	unit.addons.outside.test_cast.test_frontmatter_and_copy	
+unit:tests/unit/test_cast.py:Person.test_a_copy_read_again_takes_the_time_of_the_read	kept	unit.addons.outside.test_cast.test_frontmatter_and_copy	
+unit:tests/unit/test_cast.py:Person.test_a_file_with_a_frontmatter_is_read_without_it	kept	unit.addons.outside.test_cast.test_frontmatter_and_copy	
+unit:tests/unit/test_cast.py:Person.test_a_file_with_no_frontmatter_is_read_where_it_is	kept	unit.addons.outside.test_cast.test_frontmatter_and_copy	
+unit:tests/unit/test_cast.py:Seats.test_a_codex_seat_with_no_codex_is_left_out	kept	unit.addons.outside.test_cast.test_frontmatter_and_copy	
+unit:tests/unit/test_cast.py:Seats.test_a_file_names_its_seats_each_with_its_parts_and_its_name	kept	unit.addons.outside.test_cast.test_frontmatter_and_copy	
+unit:tests/unit/test_cast.py:Seats.test_a_file_with_no_seats_answers_as_the_panel_always_did	kept	unit.addons.outside.test_cast.test_frontmatter_and_copy	
+unit:tests/unit/test_cast.py:Seats.test_a_seat_the_settings_would_refuse_is_refused_with_the_file_and_the_line_to_write	kept	unit.addons.outside.test_cast.test_invalid_frontmatter_names_the_file_and_fix	
+unit:tests/unit/test_cast.py:Seats.test_two_seats_of_one_name_are_refused	kept	unit.addons.outside.test_cast.test_invalid_frontmatter_names_the_file_and_fix	
+unit:tests/unit/test_experts.py:Audience.test_a_project_with_no_profile_says_so	kept	unit.addons.outside.test_experts.test_open_question_persists_words_and_never_picks	
+unit:tests/unit/test_experts.py:Audience.test_the_brief_holds_the_part_before_the_answer	kept	unit.addons.outside.test_experts.test_open_question_persists_words_and_never_picks	The open brief puts the audience before the answer instructions.
+unit:tests/unit/test_experts.py:Audience.test_the_part_names_the_profile_and_each_persona_by_its_path_and_says_how_to_weigh_them	kept	unit.addons.outside.test_experts.test_brief_and_shared_pick	
+unit:tests/unit/test_experts.py:WhoTheyAre.test_a_file_with_no_such_part_gives_its_first_paragraph_and_no_quote	kept	unit.addons.outside.test_experts.test_persona_excerpt_uses_identity_first_and_ends_at_a_sentence	
+unit:tests/unit/test_experts.py:WhoTheyAre.test_a_long_part_is_cut_at_a_sentence_end_to_be_read_in_a_minute	kept	unit.addons.outside.test_experts.test_persona_excerpt_uses_identity_first_and_ends_at_a_sentence	
+unit:tests/unit/test_experts.py:WhoTheyAre.test_the_heading_and_the_who_they_are_part	kept	unit.addons.outside.test_experts.test_persona_excerpt_uses_identity_first_and_ends_at_a_sentence	
+unit:tests/unit/test_inbox.py:CardRows.test_a_card_of_a_tasks_session_is_no_thing_of_the_inbox	kept	unit.addons.outside.test_inbox.test_board_only_rows_and_forked_sessions_do_not_receive_questions	
+unit:tests/unit/test_inbox.py:Door.test_a_failed_call_is_kept_as_the_problem_and_the_next_look_sends_the_same_key_once	kept	unit.addons.outside.test_inbox.test_failed_send_retries_the_same_payload_and_wakes_once	
+unit:tests/unit/test_inbox.py:Door.test_criterion_7_no_inbox_or_no_tailnet_address_sends_nothing_and_keeps_why	kept	unit.addons.outside.test_inbox.test_door_status_and_loopback_boundary	
+unit:tests/unit/test_inbox.py:HeldBack.test_a_held_back_thing_is_neither_withdrawn_forgotten_nor_sent_away_or_not	kept	unit.addons.outside.test_inbox.test_away_gates_new_sends_and_preserves_held_entries	
+unit:tests/unit/test_inbox.py:HeldBack.test_the_question_stays_open_while_the_woken_turn_runs_and_nothing_is_sent_when_it_ends	kept	unit.addons.outside.test_inbox.test_held_keys_match_breakers_and_plans_while_a_session_works	
+unit:tests/unit/test_inbox.py:ReleaseStop.test_a_task_two_releases_back_gets_a_note_with_the_stops_message	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
+unit:tests/unit/test_inbox.py:ReviewOne.test_a_failed_send_goes_again_only_while_he_is_away_for_the_same_thing_and_wakes_the_session	kept	unit.addons.outside.test_inbox.test_failed_send_retries_the_same_payload_and_wakes_once	
+unit:tests/unit/test_inbox.py:ReviewOne.test_a_session_that_has_not_logged_its_claude_session_yet_gets_nothing_until_it_does	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
+unit:tests/unit/test_inbox.py:ReviewOne.test_a_withdrawal_says_where_the_wait_went_without_naming_the_mac	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
+unit:tests/unit/test_inbox.py:ReviewOne.test_after_im_back_a_session_that_ends_leaves_the_open_question	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
+unit:tests/unit/test_inbox.py:ReviewOne.test_the_merge_question_names_the_whole_commit_that_lem_land_merge_takes	kept	unit.addons.outside.test_inbox.test_reviewed_merge_binds_the_question_to_the_full_commit	
+unit:tests/unit/test_inbox.py:ReviewTwo.test_a_refusal_of_the_withdrawals_shape_is_a_problem_and_never_his_answer	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
+unit:tests/unit/test_inbox.py:ReviewTwo.test_a_task_whose_session_stopped_gets_a_note_that_asks_nothing	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
+unit:tests/unit/test_inbox.py:ReviewTwo.test_the_note_of_a_stop_lem_cannot_read_says_so_and_names_no_fresh_session_that_took_its_place	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
+unit:tests/unit/test_inbox.py:ReviewTwo.test_the_note_of_a_stop_logged_over_a_standing_one_names_no_fresh_session	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
+unit:tests/unit/test_inbox.py:ReviewTwo.test_while_away_with_no_tailnet_address_a_new_session_keeps_the_question_until_one_can_follow	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
+unit:tests/unit/test_inbox.py:Sends.test_a_demo_and_a_workspace_whose_sessions_are_not_known_yet_send_nothing	kept	unit.addons.outside.test_inbox.test_poll_isolated_per_workspace_and_skips_unknown_sessions	
+unit:tests/unit/test_inbox.py:Sends.test_a_fork_is_not_the_tasks_session_and_a_session_that_does_not_answer_gets_a_note	kept	unit.addons.outside.test_inbox.test_board_only_rows_and_forked_sessions_do_not_receive_questions	
+unit:tests/unit/test_inbox.py:Sends.test_criterion_1_a_breaker_while_he_is_away_reaches_the_inbox_once_as_the_tasks_session	kept	unit.addons.outside.test_inbox.test_failed_send_retries_the_same_payload_and_wakes_once	
+unit:tests/unit/test_inbox.py:Sends.test_criterion_2_every_row_of_waits_for_you_is_a_thing_and_the_merge_review_and_merge_one	kept	unit.addons.outside.test_inbox.test_board_only_rows_and_forked_sessions_do_not_receive_questions	
+unit:tests/unit/test_inbox.py:Sends.test_criterion_3_a_thing_that_waits_when_the_mark_comes_is_sent_then	kept	unit.addons.outside.test_inbox.test_away_gates_new_sends_and_preserves_held_entries	
+unit:tests/unit/test_inbox.py:Sends.test_criterion_4_with_no_away_mark_nothing_goes_to_the_inbox_and_nothing_is_asked	kept	unit.addons.outside.test_inbox.test_away_gates_new_sends_and_preserves_held_entries	
+unit:tests/unit/test_inbox.py:Sends.test_criterion_8_a_task_with_no_session_gets_a_note_with_no_question_and_the_boards_link	kept	unit.addons.outside.test_inbox.test_note_needs_no_agent_and_no_withdrawal	
+unit:tests/unit/test_inbox.py:Sends.test_the_calls_keep_the_data_folder_and_drop_the_variables_that_name_a_session	changed	unit.addons.outside.test_inbox.test_failed_send_retries_the_same_payload_and_wakes_once	The HTTP tool call uses the running local Inbox, the project path and an explicit Claude Code session.
+unit:tests/unit/test_inbox.py:Sends.test_the_note_of_a_session_that_does_not_answer_says_what_is_true_and_what_acts	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
+unit:tests/unit/test_inbox.py:Withdraws.test_a_new_proposal_is_a_new_merge_question_and_a_refused_merge_a_note	kept	unit.addons.outside.test_inbox.test_merge_polls_replace_the_tip_then_send_the_refusal_as_a_note	The test compares successive Inbox looks at a proposal, its replacement and a refused merge.
+unit:tests/unit/test_inbox.py:Withdraws.test_a_question_he_answered_in_the_inbox_gets_nothing_and_leaves_the_record	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
+unit:tests/unit/test_inbox.py:Withdraws.test_after_im_back_a_question_its_row_no_longer_asks_is_withdrawn_and_nothing_new_is_sent	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
+unit:tests/unit/test_inbox.py:Withdraws.test_criterion_5_an_answer_at_the_mac_withdraws_the_question_as_the_same_session	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
+unit:tests/unit/test_inbox.py:Withdraws.test_criterion_9_at_im_back_the_open_question_stays_and_a_new_session_gets_nothing_new	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
+unit:tests/unit/test_inbox.py:Withdraws.test_while_away_a_new_session_a_newer_block_and_a_new_tip_each_withdraw_and_send_again	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
+unit:tests/unit/test_jev.py:Build.test_a_choice_is_sent_with_its_choices_as_criteria	kept	unit.addons.outside.test_jev.test_request_criteria_and_optional_noul_criteria	
+unit:tests/unit/test_jev.py:Build.test_a_noul_takes_both_yes_and_no_each_with_text_or_neither	kept	unit.addons.outside.test_jev.test_invalid_question_shapes	
+unit:tests/unit/test_jev.py:Build.test_a_noul_with_choices_and_a_choice_with_yes_or_no_are_refused	kept	unit.addons.outside.test_jev.test_invalid_question_shapes	
+unit:tests/unit/test_jev.py:Build.test_a_noul_with_yes_and_no_sends_them_as_criteria_true_and_false	kept	unit.addons.outside.test_jev.test_request_criteria_and_optional_noul_criteria	
+unit:tests/unit/test_jev.py:Build.test_a_noul_without_yes_and_no_is_sent_without_criteria	kept	unit.addons.outside.test_jev.test_request_criteria_and_optional_noul_criteria	
+unit:tests/unit/test_jev.py:Build.test_a_question_with_no_type_or_another_type_is_refused_with_the_two_types	kept	unit.addons.outside.test_jev.test_invalid_question_shapes	
+unit:tests/unit/test_jev.py:Build.test_a_state_is_a_non_empty_string_object_or_array	kept	unit.addons.outside.test_jev.test_state_shape_and_exact_byte_limit	
+unit:tests/unit/test_jev.py:Build.test_a_state_object_counts_the_bytes_of_its_json_text	kept	unit.addons.outside.test_jev.test_state_shape_and_exact_byte_limit	
+unit:tests/unit/test_jev.py:Build.test_a_string_state_counts_its_utf8_bytes	kept	unit.addons.outside.test_jev.test_state_shape_and_exact_byte_limit	
+unit:tests/unit/test_jev.py:Build.test_each_type_needs_instructions_and_a_choice_two_choices_with_a_meaning	kept	unit.addons.outside.test_jev.test_invalid_question_shapes	
+unit:tests/unit/test_jev.py:Read.test_a_choice_with_no_probabilities_is_a_failed_request_that_names_the_question	kept	unit.addons.outside.test_jev.test_reply_checks_every_question_and_returns_cost	
+unit:tests/unit/test_jev.py:Read.test_a_noul_of_0_or_1_reads_and_a_reply_with_no_cost_reads_as_null	kept	unit.addons.outside.test_jev.test_reply_checks_every_question_and_returns_cost	
+unit:tests/unit/test_jev.py:Read.test_a_noul_with_no_number_is_a_failed_request_that_names_the_question	kept	unit.addons.outside.test_jev.test_reply_checks_every_question_and_returns_cost	
+unit:tests/unit/test_jev.py:Read.test_a_reply_that_misses_a_question_or_is_no_object_is_a_failed_request	kept	unit.addons.outside.test_jev.test_reply_checks_every_question_and_returns_cost	
+unit:tests/unit/test_jev.py:Read.test_each_answer_carries_its_type_and_what_its_type_has	kept	unit.addons.outside.test_jev.test_reply_checks_every_question_and_returns_cost	
+unit:tests/unit/test_peers.py:DeepJson.test_a_list_in_the_header_nested_past_the_limit_is_none	kept	unit.addons.outside.test_peers.test_malformed_or_deep_json_does_not_escape_as_an_exception	
+unit:tests/unit/test_peers.py:DeepJson.test_a_peers_answer_nested_past_the_limit_is_no_json	kept	unit.addons.outside.test_peers.test_malformed_or_deep_json_does_not_escape_as_an_exception	
+unit:tests/unit/test_peers.py:List.test_a_machine_that_does_not_answer_keeps_its_last_rows_grayed_with_its_last_answer	kept	unit.addons.outside.test_peers.test_board_rows_use_local_addresses_and_keep_unreachable_rows	
+unit:tests/unit/test_peers.py:List.test_a_peer_of_this_machines_own_name_is_left_out	kept	unit.addons.outside.test_peers.test_registry_keeps_fresh_rows_and_reloads_port_changes	
+unit:tests/unit/test_peers.py:List.test_a_peers_page_gets_the_entrys_list_with_its_own_rows_fresh_in_their_place	kept	unit.addons.outside.test_peers.test_board_rows_use_local_addresses_and_keep_unreachable_rows	
+unit:tests/unit/test_peers.py:List.test_one_machine_lists_as_it_does_with_no_peer	kept	unit.addons.outside.test_peers.test_board_rows_use_local_addresses_and_keep_unreachable_rows	
+unit:tests/unit/test_peers.py:List.test_two_machines_each_row_names_its_machine_and_its_address_is_built_here	kept	unit.addons.outside.test_peers.test_board_rows_use_local_addresses_and_keep_unreachable_rows	
+unit:tests/unit/test_peers.py:List.test_what_waits_comes_first_across_machines_and_a_machine_that_does_not_answer_last	kept	unit.addons.outside.test_peers.test_board_rows_use_local_addresses_and_keep_unreachable_rows	
+unit:tests/unit/test_peers.py:Loop.test_a_request_of_another_server_is_never_forwarded_and_every_request_to_a_peer_says_so	kept	journeys.test_peers.test_peer_pages_assets_union_and_loop_guard	
+unit:tests/unit/test_peers.py:Names.test_a_name_is_one_label_and_a_full_name_of_this_tailnet_is_cut_to_it	kept	unit.addons.outside.test_peers.test_dns_names_and_ports	
+unit:tests/unit/test_peers.py:Names.test_another_tailnet_a_word_that_is_no_label_and_a_bad_port_are_refused	kept	unit.addons.outside.test_peers.test_dns_names_and_ports	
+unit:tests/unit/test_peers.py:Passing.test_a_redirect_stays_inside_the_peers_addresses	kept	unit.addons.outside.test_peers.test_header_allowlist_and_redirect_namespace	
+unit:tests/unit/test_peers.py:Passing.test_a_test_names_a_peers_address_and_the_server_s_name	changed	journeys.test_peers.test_peer_pages_assets_union_and_loop_guard	The journey injects a transport and address resolver instead of global test environment overrides.
+unit:tests/unit/test_peers.py:Passing.test_only_the_boards_own_cookie_and_the_headers_a_page_needs_pass	kept	unit.addons.outside.test_peers.test_header_allowlist_and_redirect_namespace	
+unit:tests/unit/test_peers.py:Table.test_a_join_or_a_leave_refuses_a_table_with_a_bad_line_and_keeps_its_neighbors	kept	unit.addons.outside.test_peers.test_table_changes_preserve_other_settings_and_check_before_write	
+unit:tests/unit/test_peers.py:Table.test_the_list_refuses_a_table_with_a_bad_line_and_the_board_keeps_why	kept	unit.addons.outside.test_peers.test_table_changes_preserve_other_settings_and_check_before_write	
+unit:tests/unit/test_peers.py:Table.test_the_read_and_the_write_of_a_join_and_a_leave_are_under_one_lock	kept	unit.addons.outside.test_peers.test_concurrent_peer_edits_keep_both_hosts	

@@ -6,7 +6,7 @@ file's stem, or the slug of a question-specific persona), `PERSONAS` (the person
 `seats_from` is `default` and whose `sol` seat is not left out, each as its `person` path with its
 stem), `CAST_LAYER` (the `layer` and `source` `lem cast` printed, as
 "project (checkout)", "project (master at 1a2b3c4d5)", "user" or "built-in"), `PROFILE_PATH`
-(the `profile` path `lem cast` printed, or "none") and the two profile fields below before
+(the `result.profile.path` that `lem cast` printed, or "none") and the two profile fields below before
 sending:
 
 - `PROFILE_READ`: with a profile, "First read PROFILE_PATH whole: it says what the project is, how

@@ -1,14 +1,13 @@
 """`lem cast run-dir`: make a panel's own folder for a task.
 
-    lem cast run-dir SLUG
-
-A stub until the step `addons-outside` builds it: it refuses `not-built`.
+lem cast run-dir SLUG
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.addons.cast import setup
+from lem.cli.place import folder
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +16,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     slug: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `addons-outside` builds `lem cast run-dir`."""
-    raise not_built("cast run-dir", "addons-outside")
+def run(call: Call) -> dict[str, str]:
+    """Run the cast command for the active worktree."""
+    return {"dir": setup.run_dir(folder(), call.slug)}
 
 
 COMMAND = click.Command(

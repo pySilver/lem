@@ -1,4 +1,5 @@
 id	step	why	from
+act:Task panel/open-inbox	board-views	The board view owns the task action. The Inbox add-on supplies its thread or absence reason through link.shown.	addons-outside
 act:Task panel/park	board-views	The renderer prints a fact link. The view supplies the park link only for a task that may park.	board-pages
 check:tests/lem-board-act.sh:a-card-of-a-task-s-live-session-takes-a-pick-72edefe8a0dc54aa	ask	a card answered on the board is POST .../cards/PAGE/answer, board/ask/ (surfaces.md B)	board-acts
 check:tests/lem-board-act.sh:a-merge-that-meets-the-base-another-merge-mo-ba46911d673fc366	board-duties	the server's merge of a standing approval after the new landing is the merge duty's; this step proves the approval that stands (journeys.test_acts.test_on_a_base_another_merge_moved_his_approval_stands_and_a_second_press_merges_nothing)	board-acts
@@ -258,6 +259,7 @@ check:tests/lem-state.sh:task-dir-puts-the-main-checkout-into-the-mac-ef066326ec
 check:tests/lem-state.sh:the-owner-s-status-is-one-mark-of-the-machin-14002fcda8c0c6c1	owner	the owner's status is `owner away|back`, the owner step's	task
 check:tests/lem-state.sh:the-owner-says-whether-he-is-there-away-make-3dcaed8f3ceff2b2	owner	the owner's away and back is the owner step's	task
 check:tests/lem-state.sh:the-watch-of-the-owner-s-mark-in-one-reposit-d366e4aca12f2cbd	owner	`owner watch` is the owner step's	task
+check:tests/test-ask-expert.sh:a-question-s-folder-goes-with-lem-project-pr-4e05c52716ca1884	board-duties	The retention store owns expiration. The brief does not prune any question.	addons-outside
 duty:wake-inbox-question	addons-outside	the Inbox add-on (inbox.py) sends the question and its retry, and wakes the live session after the Inbox took it; the core's duties never import an add-on	board-duties
 duty:watch-owner	board-pages	a change of the owner's mark that no record shows reaches an open page through the stream (board/stream.py), which board-pages owns; the views read his presence at each page (World.presence)	board-views
 event:interview.end	task	the interview's text writes it as lem task span SLUG interview end, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	criteria

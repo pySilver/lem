@@ -33,7 +33,9 @@ class Made(Frozen, frozen=True, kw_only=True, omit_defaults=False):
 def opened(record: Record, *, made: Proposed, pull: Pull) -> Record:
     """The record with the proposal, the pull request and the phase `open`; a request that
     is not green names its reasons in the journal."""
-    changed = changes.landing(record, proposed=made, pull=pull, phase="open")
+    changed = changes.landing(
+        record, proposed=made, pull=pull, phase="open", refused=None
+    )
     if made.reasons:
         entry = NotGreen(at=made.at, tip=made.tip, reasons=made.reasons)
         changed = changes.noted(changed, entry)

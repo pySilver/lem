@@ -1,14 +1,18 @@
 """`lem experts record`: record one expert's answer.
 
-    lem experts record --folder DIR --expert NAME [--seat S]...
-
-A stub until the step `addons-outside` builds it: it refuses `not-built`.
+lem experts record --folder DIR --expert NAME [--seat S]...
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.addons.experts import record
+from lem.cli.place import folder
+
+if TYPE_CHECKING:
+    from lem.addons.experts.records import Summary
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -19,9 +23,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     seats: tuple[str, ...] = ()
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `addons-outside` builds `lem experts record`."""
-    raise not_built("experts record", "addons-outside")
+def run(call: Call) -> Summary:
+    """Run the experts command in the active checkout."""
+    return record.record(folder(), call.folder, call.expert)
 
 
 COMMAND = click.Command(

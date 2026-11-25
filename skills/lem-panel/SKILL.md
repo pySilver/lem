@@ -3,8 +3,6 @@ name: lem-panel
 description: "Lem's persona panel: the project's personas answer one question or read one text. Lem's stages load it; the owner calls it as `/lem panel`."
 disable-model-invocation: true
 ---
-<!-- lem: old form -->
-
 # Persona panel
 
 A hard question never reaches the user cold. Before it does, the people it affects answer it,
@@ -18,7 +16,7 @@ each from what they would actually see, and the user gets a card instead of a li
   measure at full scale first, or how fresh a copy of the data must be. A technical question brings
   the people who run and build the system, never a shopper.
 - **It does not run** on a question the code, a test, a probe or an existing ruling can answer.
-  Check the project's rulings first (the list `lem project path rulings` prints): a ruled question is quoted,
+  Check the project's rulings first (the list `lem path rulings` prints): a ruled question is quoted,
   never re-asked.
 - **It does not decide intent or taste.** "Do we want this at all" and "which looks right" stay
   the user's. The panel can still tell the user what each choice looks like to the people it
@@ -26,7 +24,7 @@ each from what they would actually see, and the user gets a card instead of a li
 
 ## The project profile
 
-The project's profile (`.lem/profile.md`, unless the project's settings name another path) says what the project is: the product, who uses
+The project's profile (`.lem/profile.md`) says what the project is: the product, who uses
 it and where, its scale, the rules every answer works within, the tools and versions it runs,
 what a newcomer gets wrong, and the teams to compare with. Every persona reads it before its own file, and so do the practice scout and
 the moderator. Without it a persona judges a fifty-million-item catalog as if it held a thousand,
@@ -35,21 +33,21 @@ owner answered with "There is no such thing in FASHION as ILLUSTRATION" (mybaze 
 2026-11).
 
 Each project writes its own from `references/profile-template.md`; no other profile
-stands in for it. `lem cast` prints its path as `profile`, from the checkout or, like the
-cast, from the default branch when the checkout has none or holds only an unchanged older copy. When `profile` is null, the panel still
+stands in for it. `lem cast` prints its path in `result.profile.path`, from the checkout or, like the
+cast, from the default branch when the checkout has none or holds only an unchanged older copy. When `result.profile` is null, the panel still
 runs and every card and review says "no project profile"; offer once to draft one from the
 project's own documents, for the user to finish and commit.
 
 ## The people
 
 The cast is a folder of persona files, one person each, with a `README.md` index: the project's
-personas folder (`.lem/personas/`, unless its settings name another path), the project's own
+personas folder (`.lem/personas/`), the project's own
 people (in one shop project a shopper, a merchant, an ops admin, the engineer on call and the
 CEO).
 
 A panel asks the project's own people and nobody else's. Resolve the cast before every panel
 with `lem cast`, which prints the layer, its source, the
-index and each persona's path as JSON. Every project that uses Lem has personas, written at its
+index and each persona's path in the JSON envelope's `result`. Every project that uses Lem has personas, written at its
 onboarding. When the command exits 1 the project has none: its setup is not finished. Run no
 panel, write no card in a panel's name, and tell the one who asked what the command said, with
 the step that writes the personas. Generic people never stand in for a project's own: a panel of
@@ -98,7 +96,7 @@ they are, what they want, what they notice, what they never see.
 ## Steps
 
 The panel's files live in one directory, `PANEL_DIR`: the folder
-`lem cast run-dir <slug>` makes and prints,
+`lem cast run-dir SLUG` makes and prints in `result.dir`,
 `panels/<YYYY-MM-DD>-<slug>/` in Lem's state folder (`.lem/state/` of the main checkout), which
 git never shows. A `codex exec` seat writes its answer there through `-o`. A paired Codex writes
 the Sol answers there itself, so its sandbox has to reach the main checkout: one started in another
@@ -239,7 +237,7 @@ Without Codex, a fresh Opus subagent challenges instead, and the card says so.
 ### 5. The framing check
 
 Ask Jev whether the card is framed for the user, with the "Framing check" spec from
-`references/messages.md` through `lem jev`, a name of Lem's command `lem`. On "not
+`references/messages.md` through `lem jev ask SPEC`. Read its answer in `result.answers`. On "not
 framed", send the moderator Jev's verdict and the spec's criteria, once, and check again: the
 verdict is one answer for the whole card and names no criterion, so the moderator reads the card
 against each. A card that still fails goes to the user with the check's result on it, never

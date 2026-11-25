@@ -1,0 +1,3 @@
+id	to	why
+act:Task panel/open-inbox	board-views	The board view owns the task action. The Inbox add-on supplies its thread or absence reason through link.shown.
+check:tests/test-ask-expert.sh:a-question-s-folder-goes-with-lem-project-pr-4e05c52716ca1884	board-duties	The retention store owns expiration. The brief does not prune any question.
