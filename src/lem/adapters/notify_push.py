@@ -123,9 +123,9 @@ def kept(
         held.append(msgspec.structs.replace(before, devices=left, last=last))
 
 
-def raw(last: Last) -> msgspec.Raw:
+def raw(last: Last) -> dict[str, object]:
     """The last push as the file keeps it."""
-    return msgspec.Raw(msgspec.json.encode(last))
+    return msgspec.to_builtins(last)
 
 
 def gone_of(chosen: tuple[devices.Device, ...], replies: Replies) -> frozenset[str]:

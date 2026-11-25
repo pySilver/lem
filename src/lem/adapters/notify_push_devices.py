@@ -67,7 +67,7 @@ class Push(Frozen, frozen=True, kw_only=True):
     devices: tuple[Device, ...] = ()
     seen: dict[str, Memory] = msgspec.field(default_factory=dict)
     latest: Said | None = None
-    last: msgspec.Raw | None = None
+    last: dict[str, object] | None = None
 
     def holding(self, kept: tuple[Device, ...]) -> Push:
         """The file with the devices `kept`."""

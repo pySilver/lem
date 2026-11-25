@@ -17,12 +17,15 @@ from starlette.middleware import Middleware
 from starlette.responses import PlainTextResponse
 
 from lem.board import door as doors
+from lem.board.renamed import Aliased
 from lem.kernel.errors import Fault
 
 if TYPE_CHECKING:
     from starlette.requests import Request
     from starlette.responses import Response
     from starlette.types import ASGIApp, ExceptionHandler, Receive, Scope, Send
+
+    from lem.board.facts import Facts
 
 LOOPBACK_NAMES = ("127.0.0.1", "localhost", "[::1]")
 
@@ -87,9 +90,13 @@ class Shield:
         return host_refusal(hosts, self.port, self.listen)
 
 
-def shields(port: int, listen: str, door: doors.Door | None) -> list[Middleware]:
-    """The check of each listener: the main one on `listen:port`, and the door."""
-    return [Middleware(Shield, port=port, listen=listen, door=door)]
+def shields(facts: Facts, listen: str, door: doors.Door | None) -> list[Middleware]:
+    """The check of each listener, the main one on `listen` and the door, then the redirect
+    of the machine's other name."""
+    return [
+        Middleware(Shield, port=facts.port, listen=listen, door=door),
+        Middleware(Aliased, host=facts.host, aliases=facts.aliases),
+    ]
 
 
 def handlers() -> dict[Any, ExceptionHandler]:

@@ -42,7 +42,7 @@ def made(facts: Facts, serving: Serving) -> Starlette:
     """The app of the server `facts`."""
     app = Starlette(
         routes=routes(),
-        middleware=shield.shields(facts.port, serving.listen, serving.door),
+        middleware=shield.shields(facts, serving.listen, serving.door),
         exception_handlers=shield.handlers(),
         lifespan=life.lifespan(facts, serving.home, serving.watcher),
     )

@@ -3,8 +3,9 @@ machine's other name goes to the same page under its name in every address; an a
 machine's name in it goes to the same page under it, or to the workspace's Tasks for a view no
 page has; and a workspace's address with no final slash gets it. Anything else is 404.
 
-These are the last routes of the app, so that every page, act and file of the board is matched
-first.
+The machine's other name is turned away before any route (`renamed.Aliased`), since a page's address
+would take it as a machine's name; the rest are the last routes of the app, so that every page,
+act and file of the board is matched first.
 """
 
 from functools import partial

@@ -82,7 +82,7 @@ class Shown(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     added and the workspaces it wants (never its endpoint), the last push, and a problem."""
 
     devices: tuple[push_file.Device, ...] = ()
-    last: msgspec.Raw | None = None
+    last: dict[str, object] | None = None
     problem: str | None = None
 
 
