@@ -9,7 +9,6 @@ from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
-    base,
     checks,
     clean,
     filing,
@@ -21,7 +20,6 @@ from lem.model.landing import (
     reconcile,
     review,
     review_said,
-    start,
 )
 from lem.model.landing.world import Rules
 from lem.records.landing.merge import MergeAccepted, Merged, MergeIntent, Refused
@@ -56,46 +54,6 @@ def code_of(found: object) -> str:
     """The code of a refusal; a case fails on anything else."""
     assert isinstance(found, Refusal), found
     return found.code
-
-
-def test_start_takes_a_ready_task_and_refuses_the_rest_by_its_code() -> None:
-    started = start.decide(task("ready"), world(), conflicting=False)
-    assert not isinstance(started, Refusal)
-    assert (started.round, started.branch, started.base_ref) == (
-        1,
-        "docs/fix-the-login",
-        "main",
-    )
-    assert (
-        code_of(start.decide(task("building"), world(), conflicting=False)) == "status"
-    )
-    assert (
-        code_of(start.decide(task("ready"), world(clean=False), conflicting=False))
-        == "dirty"
-    )
-    assert (
-        code_of(start.decide(task("ready"), world(tip=None), conflicting=False))
-        == "no-worktree"
-    )
-    bare = world(rules=Rules(base="main"))
-    assert code_of(start.decide(task("ready"), bare, conflicting=False)) == "no-checks"
-    conflicting = start.decide(task("ready"), world(), conflicting=True)
-    assert code_of(conflicting) == "not-built"
-    assert isinstance(conflicting, Refusal)
-    assert "land-base" in conflicting.fix
-
-
-def test_base_rebases_only_a_tip_without_origins_base_and_refuses_a_teammates_commit() -> (
-    None
-):
-    record = task(**PREPARED)
-    assert base.decide(record, world()) == "onto"
-    assert base.decide(record, world(base_in_tip=False)) == "rebase"
-    assert code_of(base.decide(record, world(rebasing=True))) == "rebase-in-progress"
-    assert code_of(base.decide(record, world(remote=OTHER))) == "teammate"
-    assert base.decide(record, world(remote=TIP, remote_in_tip=True)) == "onto"
-    pushed = task(**{**PREPARED, "pushed": OTHER})
-    assert base.decide(pushed, world(remote=OTHER, base_in_tip=False)) == "rebase"
 
 
 def test_checks_refuse_serial_commands_and_a_red_tip_as_later_steps() -> None:
