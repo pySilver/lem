@@ -431,7 +431,10 @@ def test_a_task_visit_compares_its_rendered_token_at_stream_open(
     workspace = re.search(r'data-stream-since-value="([^"]+)"', page)
     assert workspace is not None
     assert f'data-stream-task="" data-stream-rendered="{workspace[1]}"' in page
+    task = board.main().get(f"/studio/shop/tasks/{SLUG}").text
     rendered = watched.look(board.state, board.home, SLUG).rendered
+    assert f'data-stream-task="{SLUG}" data-stream-rendered="{rendered}"' in task
+    assert f'data-stream-since-value="{workspace[1]}"' in task
     if changed:
         report.write_text("the report changed after the render")
     script = Path(__file__).with_name("stream_visit.mjs")

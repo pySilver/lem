@@ -54,12 +54,16 @@ def resolved(request: Request, provider: Source | None) -> Response:
         raise HTTPException(
             HTTPStatus.SERVICE_UNAVAILABLE, "The board's page inputs are not available."
         )
-    stamp = stamps.shown(request, space.state).rendered if space else ""
-    board = provider(request, space, stamp)
+    stamp = stamps.shown(request, space.state) if space else None
+    board = provider(request, space, stamp.version if stamp else "")
     unknown = request.path_params.get("unknown_tab")
     if unknown:
         board = task_tab.missing(board, unknown)
-    return render.page(board, fragment=request.headers.get("turbo-frame") == "task")
+    return render.page(
+        board,
+        fragment=request.headers.get("turbo-frame") == "task",
+        rendered=stamp.rendered if stamp else "",
+    )
 
 
 def route(base: str, name: str) -> Route:

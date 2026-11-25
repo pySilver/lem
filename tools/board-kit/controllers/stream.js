@@ -76,7 +76,6 @@ export default class extends Controller {
     document.addEventListener('turbo:visit', this.onRestore)
     document.addEventListener('turbo:load', this.onLoad)
     document.addEventListener('turbo:frame-load', this.onVisit)
-    window.addEventListener('popstate', this.onVisit)
     this.timer = setInterval(() => this.tick(), 1000)
     this.open()
   }
@@ -90,7 +89,6 @@ export default class extends Controller {
     document.removeEventListener('turbo:visit', this.onRestore)
     document.removeEventListener('turbo:load', this.onLoad)
     document.removeEventListener('turbo:frame-load', this.onVisit)
-    window.removeEventListener('popstate', this.onVisit)
     clearInterval(this.timer)
     this.close()
   }
@@ -103,9 +101,7 @@ export default class extends Controller {
   open () {
     this.close()
     this.watching = this.task()
-    const marker = document.getElementById('task')?.dataset.streamTask === this.watching
-      ? document.getElementById('task')
-      : document.querySelector(`[data-stream-rendered][data-stream-task="${this.watching}"]`)
+    const marker = document.querySelector(`[data-stream-rendered][data-stream-task="${this.watching}"]`)
     const rendered = marker?.dataset.streamRendered ?? ''
     const id = this.owed ? `since=${encodeURIComponent(this.lastId)}` : `rendered=${encodeURIComponent(rendered)}`
     this.again = this.owed

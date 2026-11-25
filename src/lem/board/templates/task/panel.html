@@ -1,5 +1,5 @@
 {% from 'task/shared.html' import back %}
-<section class="panel{% if panel.artifacts and panel.artifacts.wide %} page-open{% endif %}" id="panel" data-task="{{ panel.slug }}" aria-label="The task" data-controller="panel">
+<section class="panel{% if panel.artifacts and panel.artifacts.wide %} page-open{% endif %}" id="panel" data-task="{{ panel.slug }}" data-stream-task="{{ panel.slug }}" data-stream-rendered="{{ rendered }}" aria-label="The task" data-controller="panel">
 <div class="p-grip" role="separator" aria-orientation="vertical" aria-label="The panel's width" data-controller="splitter" data-action="pointerdown->splitter#start dblclick->splitter#reset" title="Drag to resize. Double-click for the usual width."></div>
 {% if panel.head %}{% set head = panel.head %}{% include 'task/head.html' %}
 {% elif panel.missing %}

@@ -41,12 +41,16 @@ HEADERS = MappingProxyType(
 )
 
 
-def section(name: str, board: msgspec.Struct) -> str:
+def section(name: str, board: msgspec.Struct, rendered: str = "") -> str:
     """The HTML of one template and its input."""
-    return ENV.get_template(name).render(board=board, symbols=SYMBOLS)
+    return ENV.get_template(name).render(
+        board=board, symbols=SYMBOLS, rendered=rendered
+    )
 
 
-def page(board: Page | Workspaces, *, fragment: bool = False) -> Response:
+def page(
+    board: Page | Workspaces, *, fragment: bool = False, rendered: str = ""
+) -> Response:
     """A workspace page, its Turbo frame, or the workspace index."""
     if isinstance(board, Workspaces):
         return workspaces(board)
@@ -56,7 +60,9 @@ def page(board: Page | Workspaces, *, fragment: bool = False) -> Response:
     status = HTTPStatus.OK
     if board.panel and board.panel.missing and not board.panel.missing.found:
         status = HTTPStatus.NOT_FOUND
-    return HTMLResponse(section(name, board), status_code=status, headers=HEADERS)
+    return HTMLResponse(
+        section(name, board, rendered), status_code=status, headers=HEADERS
+    )
 
 
 def workspaces(board: Workspaces) -> Response:
