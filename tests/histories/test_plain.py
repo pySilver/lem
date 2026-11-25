@@ -78,12 +78,25 @@ def test_propose_holds_only_while_the_forge_has_the_tip_as_lem_pushed_it() -> No
     made = story.proposal()
     assert isinstance(made, propose.Proposal)
     story.write(proposed=made.proposed)
-    assert story.due().why == "the tip is not on the forge as Lem pushed it"
+    assert story.due().step == "propose"
+    assert story.due().why == "no pull request proposes this tip"
+    story.write(phase="open")
+    story.moved("open")
+    assert (
+        propose.holds(story.record, story.world).why
+        == "the tip is not on the forge as Lem pushed it"
+    )
     story.push(made)
-    assert story.due().why == "the tip is not on the forge as Lem pushed it"
+    assert (
+        propose.holds(story.record, story.world).why
+        == "the tip is not on the forge as Lem pushed it"
+    )
     story.request(made)
     story.effect(pull=replace(SEEN, head=OTHER))
-    assert story.due().why == "the pull request's head is not this tip"
+    assert (
+        propose.holds(story.record, story.world).why
+        == "the pull request's head is not this tip"
+    )
     story.request(made)
     assert propose.holds(story.record, story.world) == Held(
         why="pull request 1 proposes this tip"
