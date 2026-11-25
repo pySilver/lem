@@ -2,7 +2,8 @@
 `gh` adapter when `land-propose` builds it (against a scratch repository, trial S3).
 
 A test file subclasses `ForgeContract` as `Test...` and gives `world`: a forge over a remote
-with one commit on `main`, and a hand that pushes a branch as someone else. A forge that merges
+with one commit on `main`, a hand that pushes a branch as someone else, and a look at a branch of
+the remote that does not go through the forge. A forge that merges
 through a queue gives `MergeTaken` where these cases expect `MergeDone`; `settle` then finishes
 the merge, as the queue would.
 """
@@ -28,6 +29,7 @@ class ForgeWorld(Protocol):
     def forge(self) -> Forge: ...
 
     def push(self, branch: str, files: dict[str, bytes | None]) -> str: ...
+    def head(self, branch: str) -> str | None: ...
     def settle(self, number: int, outcome: MergeOutcome) -> MergeOutcome: ...
 
 
@@ -65,9 +67,9 @@ class ForgeContract:
         world = self.world(tmp_path)
         world.push("fix-the-login", {"a.txt": b"a\n"})
         opened = world.forge.open_pull("fix-the-login", "main", "Fix", "body")
-        assert (
-            world.forge.update_pull(opened.number, "Fixed", "new body").title == "Fixed"
-        )
+        updated = world.forge.update_pull(opened.number, "Fixed", "new body")
+        assert (updated.title, updated.body) == ("Fixed", "new body")
+        assert world.forge.pull(opened.number).body == "new body"
         with pytest.raises(Exception, match="already exists"):
             world.forge.open_pull("fix-the-login", "main", "Again", "body")
 
@@ -88,19 +90,22 @@ class ForgeContract:
     ) -> None:
         world = self.world(tmp_path)
         head = world.push("fix-the-login", {"a.txt": b"a\n"})
+        base = world.head("main")
         opened = world.forge.open_pull("fix-the-login", "main", "Fix", "body")
         outcome = world.settle(
             opened.number, world.forge.merge(opened.number, head, "squash", TEXT)
         )
         assert isinstance(outcome, MergeDone)
         assert outcome.merged_head == head
+        assert outcome.base_parent == base
         merged = world.forge.pull(opened.number)
         assert (merged.state, merged.base, merged.merged_head) == (
             "merged",
             "main",
             head,
         )
-        assert merged.merge_commit == outcome.commit
+        assert (merged.merge_commit, merged.base_parent) == (outcome.commit, base)
+        assert world.head("main") == outcome.commit
         assert opened.number not in {pull.number for pull in world.forge.open_pulls()}
 
     def test_a_branch_copy_is_deleted_only_at_the_commit_named(
@@ -110,4 +115,6 @@ class ForgeContract:
         first = world.push("fix-the-login", {"a.txt": b"a\n"})
         second = world.push("fix-the-login", {"a.txt": b"b\n"})
         assert not world.forge.delete_ref("refs/heads/fix-the-login", first)
+        assert world.head("fix-the-login") == second
         assert world.forge.delete_ref("refs/heads/fix-the-login", second)
+        assert world.head("fix-the-login") is None

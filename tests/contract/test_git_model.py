@@ -23,6 +23,9 @@ class ModelWorld:
     ) -> str:
         return self.git.outside_commit(branch, files, start)
 
+    def merge_in(self, where: Path, ref: str, files: dict[str, bytes]) -> str:
+        return self.git.merge_in(where, ref, files)
+
 
 class TestModelGit(GitContract):
     def world(self, folder: Path) -> ModelWorld:

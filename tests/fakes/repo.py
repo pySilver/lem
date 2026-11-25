@@ -11,10 +11,13 @@ import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from fakes.git import Landed
 from lem.ports.git_facts import Conflict
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from lem.ports.forge_facts import MergeMethod
 
 AUTHOR = {
     "GIT_AUTHOR_NAME": "Lem Test",
@@ -116,6 +119,27 @@ class RealRepo:
         run_git(self.teammate, "push", "--quiet", "origin", branch)
         return run_git(self.teammate, "rev-parse", "HEAD")
 
+    def outside_merge_commit(
+        self, branch: str, other: str, files: dict[str, bytes]
+    ) -> str:
+        """A merge commit of the origin's `other` into its `branch` that the teammate pushes,
+        with `files` edited in the merge itself."""
+        run_git(self.teammate, "fetch", "--quiet", "origin")
+        run_git(self.teammate, "checkout", "--quiet", "-B", branch, f"origin/{branch}")
+        run_git(
+            self.teammate,
+            "merge",
+            "--quiet",
+            "--no-ff",
+            "--no-commit",
+            f"origin/{other}",
+        )
+        write(self.teammate, dict(files))
+        run_git(self.teammate, "add", "--all")
+        run_git(self.teammate, "commit", "--quiet", "--message", f"Merge {other}")
+        run_git(self.teammate, "push", "--quiet", "origin", branch)
+        return run_git(self.teammate, "rev-parse", "HEAD")
+
     def head_of(self, branch: str) -> str | None:
         """The origin's `branch`, or None."""
         listed = run_git(
@@ -126,11 +150,11 @@ class RealRepo:
         )
         return listed or None
 
-    def merge_into(
-        self, base: str, head: str, *, squash: bool, message: str
+    def tree_of_merge(
+        self, ours: str, theirs: str, base: str | None = None
     ) -> str | Conflict:
-        """Merge the commit `head` into the origin's `base`, as the forge does."""
-        target = run_git(self.origin, "rev-parse", f"refs/heads/{base}")
+        """The tree `git merge-tree` makes of two commits in the origin, or the conflict."""
+        chosen = [f"--merge-base={base}"] if base else []
         ran = subprocess.run(
             [
                 "git",
@@ -139,8 +163,9 @@ class RealRepo:
                 "merge-tree",
                 "--write-tree",
                 "--name-only",
-                target,
-                head,
+                *chosen,
+                ours,
+                theirs,
             ],
             capture_output=True,
             text=True,
@@ -158,10 +183,44 @@ class RealRepo:
             return Conflict(files=files)
         if ran.returncode:
             raise AssertionError(f"git merge-tree in {self.origin}: {ran.stderr}")
-        parents = ["-p", target] if squash else ["-p", target, "-p", head]
-        made = run_git(self.origin, "commit-tree", lines[0], *parents, "-m", message)
+        return lines[0]
+
+    def merge_into(
+        self, base: str, head: str, *, method: MergeMethod, message: str
+    ) -> Landed | Conflict:
+        """Merge the commit `head` into the origin's `base`, as the forge does: one squashed
+        commit, a merge commit, or each commit but a merge replayed."""
+        target = run_git(self.origin, "rev-parse", f"refs/heads/{base}")
+        if method == "rebase":
+            made = self.replayed(target, head)
+            if isinstance(made, Conflict):
+                return made
+        else:
+            tree = self.tree_of_merge(target, head)
+            if isinstance(tree, Conflict):
+                return tree
+            parents = (
+                ["-p", target] if method == "squash" else ["-p", target, "-p", head]
+            )
+            made = run_git(self.origin, "commit-tree", tree, *parents, "-m", message)
         run_git(self.origin, "update-ref", f"refs/heads/{base}", made, target)
-        return made
+        return Landed(commit=made, base_parent=target)
+
+    def replayed(self, onto: str, head: str) -> str | Conflict:
+        """Each commit of `head` that `onto` lacks, but a merge, replayed onto `onto`."""
+        listed = run_git(
+            self.origin, "rev-list", "--reverse", "--no-merges", f"{onto}..{head}"
+        )
+        current = onto
+        for sha in listed.split():
+            tree = self.tree_of_merge(current, sha, base=f"{sha}^")
+            if isinstance(tree, Conflict):
+                return tree
+            message = run_git(self.origin, "log", "-1", "--format=%B", sha)
+            current = run_git(
+                self.origin, "commit-tree", tree, "-p", current, "-m", message
+            )
+        return current
 
     def delete_remote(self, branch: str, expect: str) -> bool:
         """Delete the origin's `branch` only at `expect`."""

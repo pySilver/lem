@@ -5,12 +5,14 @@ It merges the way GitHub does (a squash or a merge commit onto the base, pinned 
 named), and a test sets what GitHub would do besides: a merge that waits in a queue
 (`queue`), a rule that refuses (`refuse`), a merge another hand made (`outside_merge`), a
 retarget (`retarget`), a closed pull request (`close`), a pull request GitHub calls conflicting
-(`conflicting`), a report that lags behind a merge (`lag`), and an edit of the text that fails
-(`fail_edits`). `merge_calls` counts every merge call, as trial R5 does.
+(`conflicting`), a report that lags behind a merge (`lag`), an edit of the text that fails
+(`fail_edits`), and a request the queue removes (`dequeue`). The queue merges only the head
+it accepted, of a request still open; else it removes the request and says why, as GitHub
+does. `merge_calls` counts every merge call, as trial R5 does.
 """
 
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from msgspec.structs import replace
 
@@ -27,14 +29,17 @@ from lem.ports.forge_facts import (
 )
 from lem.ports.git_facts import Conflict
 
+if TYPE_CHECKING:
+    from fakes.git import Landed
+
 
 class Remote(Protocol):
     """What the forge merges through: the remote's branches."""
 
     def head_of(self, branch: str) -> str | None: ...
     def merge_into(
-        self, base: str, head: str, *, squash: bool, message: str
-    ) -> str | Conflict: ...
+        self, base: str, head: str, *, method: MergeMethod, message: str
+    ) -> Landed | Conflict: ...
     def delete_remote(self, branch: str, expect: str) -> bool: ...
 
 
@@ -93,6 +98,7 @@ class LocalForge:
             head_ref=head,
             base=base,
             mergeable="mergeable",
+            body=body,
         )
         self.pulls[number] = pull
         self.bodies[number] = body
@@ -101,7 +107,7 @@ class LocalForge:
     def update_pull(self, number: int, title: str, body: str) -> Pull:
         if self.fail_edits:
             raise Unanswered("gh", "HTTP 502: the edit of the pull request failed")
-        self.pulls[number] = replace(self.pulls[number], title=title)
+        self.pulls[number] = replace(self.pulls[number], title=title, body=body)
         self.bodies[number] = body
         return self.pull(number)
 
@@ -132,7 +138,7 @@ class LocalForge:
             return MergeDenied(kind="rule", said=self.refuse)
         if self.queue:
             self.waiting[number] = (expected_head, method, text)
-            self.pulls[number] = replace(pull, queued="the merge queue")
+            self.pulls[number] = replace(pull, queued="the merge queue", dequeued=None)
             return MergeTaken(queued="the merge queue")
         return self.merged(number, method, text)
 
@@ -148,21 +154,41 @@ class LocalForge:
         pull = self.fresh(self.pulls[number])
         message = f"{text.subject} (#{number})\n\n{text.body}"
         made = self.remote.merge_into(
-            pull.base, pull.head, squash=method == "squash", message=message
+            pull.base, pull.head, method=method, message=message
         )
         if isinstance(made, Conflict):
-            self.pulls[number] = replace(pull, mergeable="conflicting")
+            self.pulls[number] = replace(pull, mergeable="conflicting", queued=None)
             return MergeDenied(kind="base", said="the merge has conflicts")
         self.lagging[number] = (pull, self.lag)
         self.pulls[number] = replace(
-            pull, state="merged", queued=None, merge_commit=made, merged_head=pull.head
+            pull,
+            state="merged",
+            queued=None,
+            merge_commit=made.commit,
+            merged_head=pull.head,
+            base_parent=made.base_parent,
         )
-        return MergeDone(commit=made, merged_head=pull.head)
+        return MergeDone(
+            commit=made.commit, merged_head=pull.head, base_parent=made.base_parent
+        )
 
     def settle(self, number: int) -> MergeOutcome:
-        """The queue reaches the pull request: it merges."""
-        _head, method, text = self.waiting.pop(number)
+        """The queue reaches the pull request: it merges the head it accepted, of a request
+        still open; else it removes the request from the queue, and says why."""
+        accepted, method, text = self.waiting.pop(number)
+        pull = self.fresh(self.pulls[number])
+        if pull.state != "open":
+            self.dequeue(number, f"the pull request was {pull.state}")
+            return MergeDenied(kind="rule", said=f"the pull request is {pull.state}")
+        if pull.head != accepted:
+            self.dequeue(number, "the head moved after the merge was queued")
+            return MergeDenied(kind="tip", said="Head branch was modified")
         return self.merged(number, method, text)
+
+    def dequeue(self, number: int, why: str) -> None:
+        """The queue removes the pull request, with its reason (a check that failed)."""
+        self.waiting.pop(number, None)
+        self.pulls[number] = replace(self.pulls[number], queued=None, dequeued=why)
 
     def outside_merge(self, number: int) -> MergeOutcome:
         """Someone merges the pull request on GitHub."""

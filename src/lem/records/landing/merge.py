@@ -11,7 +11,8 @@ from typing import Literal
 from lem.records.base import Frozen, Moment, Sha
 
 type Merger = Literal["owner", "merger"]
-type Via = Literal["session", "server", "board"]
+# Where a merge was asked for; `github` is a merge someone made on GitHub, which Lem saw.
+type Via = Literal["session", "server", "board", "github"]
 
 
 class Refused(Frozen, frozen=True, kw_only=True):

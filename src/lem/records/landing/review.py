@@ -33,8 +33,9 @@ class Named(Frozen, frozen=True, kw_only=True):
 
 class Reviewed(Frozen, frozen=True, kw_only=True):
     """One review attempt, as `read --record` took it: the tip, what it read (the change or a
-    conflict's resolution, its scope), the floor and kind, the careful call and why, who
-    answered and who was silent, the findings, and which go to `file`."""
+    conflict's resolution, its scope), the floor and kind, the careful call and why (None for a
+    silent attempt, which made none, as `land.cmd_read` on `main` records it), who answered and
+    who was silent, the findings, and which go to `file`."""
 
     attempt: int
     tip: Sha
@@ -42,7 +43,7 @@ class Reviewed(Frozen, frozen=True, kw_only=True):
     scope: Literal["resolution", "whole"]
     floor: Literal["read", "round", "full"]
     kind: Literal["read", "round", "full"]
-    careful: bool
+    careful: bool | None = None
     careful_why: str | None = None
     answered: tuple[str, ...] = ()
     silent: tuple[Named, ...] = ()

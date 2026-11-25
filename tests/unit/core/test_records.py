@@ -10,8 +10,11 @@ from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHo
 from lem.records.journal.entry import Entry
 from lem.records.journal.landing import CheckWait
 from lem.records.journal.merge import RefusalNoted
+from lem.records.journal.task import StateNoted, Summary
+from lem.records.landing.checks import Lowered
 from lem.records.landing.merge import MergeIntent, Refused
 from lem.records.landing.record import Landing, Pull
+from lem.records.landing.review import Reviewed
 from lem.records.record import Record
 
 SHA = "a" * 40
@@ -101,3 +104,57 @@ def test_a_record_is_a_value_that_no_one_changes_in_place() -> None:
     field = "status"
     with pytest.raises(AttributeError):
         setattr(made.task, field, "dropped")
+
+
+def test_an_abbreviated_commit_and_a_time_with_no_zone_are_refused_on_reading() -> None:
+    whole = b'"by":"owner","via":"board"'
+    with pytest.raises(msgspec.ValidationError, match=r"\$\.tip"):
+        msgspec.json.decode(
+            b'{"tip":"abc",' + whole + b',"at":"2026-11-25T10:00:00Z"}',
+            type=MergeIntent,
+        )
+    with pytest.raises(msgspec.ValidationError, match="timezone"):
+        msgspec.json.decode(
+            b'{"tip":"'
+            + SHA.encode()
+            + b'",'
+            + whole
+            + b',"at":"2026-11-25T10:00:00"}',
+            type=MergeIntent,
+        )
+
+
+def test_a_silent_review_attempt_made_no_careful_call() -> None:
+    silent = (
+        b'{"attempt":2,"tip":"' + SHA.encode() + b'","of":"change","scope":"whole",'
+        b'"floor":"read","kind":"read","silent":[{"name":"codex","why":"no answer"}],'
+        b'"at":"2026-11-25T10:00:00Z"}'
+    )
+    assert msgspec.json.decode(silent, type=Reviewed).careful is None
+
+
+def test_a_lowered_bar_keeps_the_builders_reason_and_the_reviewers_answer() -> None:
+    lowered = Lowered(
+        path="tests/test_login.py",
+        how="a test removed",
+        reason="the test checked the old form",
+        reviewer="the new form has its own test",
+    )
+    assert msgspec.json.decode(msgspec.json.encode(lowered), type=Lowered) == lowered
+
+
+def test_a_folded_journal_keeps_why_the_task_ended() -> None:
+    last = StateNoted(
+        at=MOMENT, status="dropped", line="the owner dropped it: wrong ask"
+    )
+    summary = Summary(
+        at=MOMENT,
+        statuses=("queued", "building", "dropped"),
+        last_state=last,
+        first=MOMENT,
+        last=MOMENT,
+        entries=12,
+    )
+    read = msgspec.json.decode(msgspec.json.encode(summary), type=Entry)
+    assert isinstance(read, Summary)
+    assert read.last_state == last

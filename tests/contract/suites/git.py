@@ -3,7 +3,8 @@
 
 A test file subclasses `GitContract` as `Test...` and gives `world`: a repository with one
 commit of `README.md` on `main`, pushed and fetched, its main checkout, a folder for worktrees,
-and a hand that pushes a commit as someone else.
+a hand that pushes a commit as someone else, and one that makes a merge commit in a worktree
+(`git merge --no-ff`, with files edited in the merge itself).
 """
 
 from typing import TYPE_CHECKING, Protocol
@@ -33,6 +34,7 @@ class GitWorld(Protocol):
     def outside_commit(
         self, branch: str, files: dict[str, bytes | None], start: str = "main"
     ) -> str: ...
+    def merge_in(self, where: Path, ref: str, files: dict[str, bytes]) -> str: ...
 
 
 def task_worktree(world: GitWorld, name: str = "fix-the-login") -> Path:
@@ -187,6 +189,24 @@ class GitContract:
         assert isinstance(
             world.git.fast_forward(world.checkout, "origin/main"), GitRefused
         )
+
+    def test_a_rebase_drops_a_merge_commit_and_the_edit_only_it_made(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        commit_file(world, where, "a.txt", b"a\n")
+        world.outside_commit("main", {"other.txt": b"o\n"})
+        world.git.fetch(where)
+        merge = world.merge_in(where, "origin/main", {"merge-only.txt": b"m\n"})
+        assert world.git.show(where, merge, "merge-only.txt") == b"m\n"
+        rebased = world.git.rebase(where, "origin/main", reapply=False)
+        assert isinstance(rebased, str)
+        assert world.git.show(where, rebased, "a.txt") == b"a\n"
+        assert world.git.show(where, rebased, "merge-only.txt") is None
+        assert [
+            c.subject for c in world.git.commits(where, "origin/main", rebased)
+        ] == ["change a.txt"]
 
     def test_an_existing_worktree_path_is_a_fault(self, tmp_path: Path) -> None:
         world = self.world(tmp_path)

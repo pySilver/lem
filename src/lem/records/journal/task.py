@@ -58,11 +58,13 @@ class Total(Frozen, frozen=True, kw_only=True):
 
 class Summary(Tagged, tag="summary", frozen=True, kw_only=True):
     """What retention keeps of a folded journal (`project.summary_of` on `main`): the run of
-    statuses, the first and last moments, the pull request, the shape, the proposal, the
-    investigation, the plan talk, the night, and the totals of spans and waits."""
+    statuses, the last state with its line (why a task ended), the first and last moments, the
+    pull request, the proposal, the plan talk, and the totals of spans and waits. The task's own
+    fields (type, track, lead, careful, investigation, night) stay on the task."""
 
     at: Moment
     statuses: tuple[str, ...]
+    last_state: StateNoted | None = None
     first: Moment
     last: Moment
     entries: int

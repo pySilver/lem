@@ -30,6 +30,9 @@ class LocalWorld:
     def push(self, branch: str, files: dict[str, bytes | None]) -> str:
         return self.remote.outside_commit(branch, files)
 
+    def head(self, branch: str) -> str | None:
+        return self.remote.head_of(branch)
+
     def settle(self, number: int, outcome: MergeOutcome) -> MergeOutcome:
         return self.forge.settle(number) if isinstance(outcome, MergeTaken) else outcome
 
@@ -128,3 +131,54 @@ def test_a_failed_edit_keeps_the_text_before(tmp_path: Path) -> None:
     with pytest.raises(Unanswered, match="502"):
         forge.update_pull(1, "Fixed", "the new text")
     assert forge.bodies[1] == "body"
+
+
+def test_the_queue_merges_only_the_head_it_took_of_a_request_still_open(
+    tmp_path: Path,
+) -> None:
+    forge, remote, head = opened(tmp_path, queue=True)
+    base = remote.head_of("main")
+    assert isinstance(forge.merge(1, head, "squash", TEXT), MergeTaken)
+    remote.outside_commit("fix-the-login", {"a.txt": b"later\n"})
+    assert forge.settle(1) == MergeDenied(kind="tip", said="Head branch was modified")
+    removed = forge.pull(1)
+    assert (removed.state, removed.queued, removed.dequeued) == (
+        "open",
+        None,
+        "the head moved after the merge was queued",
+    )
+    assert remote.head_of("main") == base
+    plain, _remote, _head = opened(tmp_path / "plain")
+    assert (plain.pull(1).queued, plain.pull(1).dequeued) == (None, None)
+
+
+def test_the_queue_does_not_merge_a_closed_request_and_says_so(tmp_path: Path) -> None:
+    forge, remote, head = opened(tmp_path, queue=True)
+    base = remote.head_of("main")
+    forge.merge(1, head, "squash", TEXT)
+    forge.close(1)
+    assert isinstance(forge.settle(1), MergeDenied)
+    assert forge.pull(1).dequeued == "the pull request was closed"
+    assert remote.head_of("main") == base
+
+
+def test_a_queue_that_removes_a_request_says_why(tmp_path: Path) -> None:
+    forge, _remote, head = opened(tmp_path, queue=True)
+    forge.merge(1, head, "squash", TEXT)
+    forge.dequeue(1, "a required check failed")
+    assert (forge.pull(1).queued, forge.pull(1).dequeued) == (
+        None,
+        "a required check failed",
+    )
+
+
+def test_a_rebase_merge_replays_each_commit_onto_the_base(tmp_path: Path) -> None:
+    forge, remote, _head = opened(tmp_path)
+    second = remote.outside_commit("fix-the-login", {"b.txt": b"b\n"})
+    base = remote.head_of("main")
+    done = forge.merge(1, second, "rebase", TEXT)
+    assert isinstance(done, MergeDone)
+    assert done.base_parent == base
+    tip = remote.objects[done.commit]
+    assert len(tip.parents) == 1
+    assert remote.objects[tip.parents[0]].parents == (base,)

@@ -29,11 +29,14 @@ class CriterionCheck(Frozen, frozen=True, kw_only=True):
 
 
 class Lowered(Frozen, frozen=True, kw_only=True):
-    """A file whose bar the change lowered (a removed test, an assertion loosened), and why."""
+    """A file whose bar the change lowered (a removed test, an assertion loosened): the
+    builder's reason, and the reviewer's answer to it, which `land.not_green` on `main` shows
+    beside it."""
 
     path: str
     how: str
     reason: str | None = None
+    reviewer: str | None = None
 
 
 class ChangeSize(Frozen, frozen=True, kw_only=True):

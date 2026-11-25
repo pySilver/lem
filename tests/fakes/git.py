@@ -22,6 +22,8 @@ from lem.ports.git_facts import Commit, Conflict, DiffStat, GitRefused, RebaseSt
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.ports.forge_facts import MergeMethod
+
 type Tree = dict[str, bytes]
 
 
@@ -32,6 +34,14 @@ def tree_id(tree: Tree) -> str:
         for path in sorted(tree)
     )
     return hashlib.sha1(f"tree\n{lines}".encode(), usedforsecurity=False).hexdigest()
+
+
+@dataclass(frozen=True)
+class Landed:
+    """A merge the remote made: its commit, and the commit of the base it went onto."""
+
+    commit: str
+    base_parent: str
 
 
 @dataclass(frozen=True)
@@ -120,6 +130,22 @@ class ModelGit:
         )
         return self.remote[branch]
 
+    def outside_merge_commit(
+        self, branch: str, other: str, files: dict[str, bytes]
+    ) -> str:
+        """A merge commit of the remote's `other` into its `branch` that someone else pushed,
+        with `files` edited in the merge itself."""
+        head, theirs = self.remote[branch], self.remote[other]
+        common = self.merge_base(self.checkout, head, theirs)
+        start = self.objects[common].tree if common else {}
+        result = merged(start, self.objects[head].tree, self.objects[theirs].tree)
+        if isinstance(result, Conflict):
+            raise Unanswered("git", f"the merge of {other} conflicts on {result.files}")
+        self.remote[branch] = self.store(
+            {**result, **files}, (head, theirs), f"Merge {other}"
+        )
+        return self.remote[branch]
+
     def lay(self, where: Path, tree: Tree) -> None:
         """Make the files of `where` the files of `tree`."""
         for path in self.on_disk(where):
@@ -198,15 +224,46 @@ class ModelGit:
         return self.must(where, older) in self.ancestors(self.must(where, newer))
 
     def commits_of(self, since: str, until: str) -> list[str]:
-        """The commits of `until` that `since` lacks, oldest first, first parents only."""
-        known = self.ancestors(since)
-        line: list[str] = []
-        current: str | None = until
-        while current is not None and current not in known:
-            line.append(current)
-            parents = self.objects[current].parents
-            current = parents[0] if parents else None
-        return line[::-1]
+        """The commits of `until` that `since` lacks, oldest first (`git rev-list --reverse`):
+        a commit is stored after its parents, so the order of storing is an order of history."""
+        wanted = self.ancestors(until) - self.ancestors(since)
+        return [sha for sha in self.objects if sha in wanted]
+
+    def replayed(
+        self, onto: str, head: str, *, reapply: bool
+    ) -> tuple[str, Conflict | None]:
+        """Replay the commits of `head` that `onto` lacks onto `onto`, as `git rebase` does:
+        a merge commit is dropped, with any edit only it made, and a commit whose change `onto`
+        holds already is dropped too unless `reapply`. The new tip, or where it stopped and
+        the conflict."""
+        current = onto
+        for sha in self.commits_of(onto, head):
+            stored = self.objects[sha]
+            if len(stored.parents) > 1:
+                continue
+            parent = self.objects[stored.parents[0]].tree if stored.parents else {}
+            applied = merged(parent, self.objects[current].tree, stored.tree)
+            if isinstance(applied, Conflict):
+                return current, applied
+            if applied == self.objects[current].tree and not reapply:
+                continue
+            current = self.store(applied, (current,), stored.message)
+        return current, None
+
+    def merge_in(self, where: Path, ref: str, files: dict[str, bytes]) -> str:
+        """A merge commit of `ref` into the worktree's branch, made by hand, with `files`
+        edited in the merge itself: the change a plain rebase drops."""
+        place = self.worktree(where)
+        head, other = self.must(where, "HEAD"), self.must(where, ref)
+        common = self.merge_base(where, head, other)
+        start = self.objects[common].tree if common else {}
+        result = merged(start, self.objects[head].tree, self.objects[other].tree)
+        if isinstance(result, Conflict):
+            raise Unanswered("git", f"the merge of {ref} conflicts on {result.files}")
+        made = self.store({**result, **files}, (head, other), f"Merge {ref}")
+        self.branches[place.branch] = made
+        self.lay(where, self.objects[made].tree)
+        return made
 
     def commits(self, where: Path, since: str, until: str) -> tuple[Commit, ...]:
         found = self.commits_of(self.must(where, since), self.must(where, until))
@@ -272,18 +329,11 @@ class ModelGit:
         if not self.clean(worktree):
             return GitRefused(said="cannot rebase: you have unstaged changes")
         head, target = self.must(worktree, "HEAD"), self.must(worktree, onto)
-        current = target
-        for sha in self.commits_of(target, head):
-            stored = self.objects[sha]
-            parent = self.objects[stored.parents[0]].tree if stored.parents else {}
-            applied = merged(parent, self.objects[current].tree, stored.tree)
-            if isinstance(applied, Conflict):
-                place.rebase = RebaseState(onto=target, files=applied.files)
-                place.before_rebase = head
-                return applied
-            if applied == self.objects[current].tree and not reapply:
-                continue
-            current = self.store(applied, (current,), stored.message)
+        current, stopped = self.replayed(target, head, reapply=reapply)
+        if stopped is not None:
+            place.rebase = RebaseState(onto=target, files=stopped.files)
+            place.before_rebase = head
+            return stopped
         self.branches[place.branch] = current
         self.lay(worktree, self.objects[current].tree)
         return current
@@ -352,18 +402,25 @@ class ModelGit:
         return self.remote.get(branch)
 
     def merge_into(
-        self, base: str, head: str, *, squash: bool, message: str
-    ) -> str | Conflict:
-        """Merge the commit `head` into the remote's `base`, as the forge does."""
+        self, base: str, head: str, *, method: MergeMethod, message: str
+    ) -> Landed | Conflict:
+        """Merge the commit `head` into the remote's `base`, as the forge does: one squashed
+        commit, a merge commit, or each commit replayed."""
         target = self.remote[base]
+        if method == "rebase":
+            made, stopped = self.replayed(target, head, reapply=False)
+            if stopped is not None:
+                return stopped
+            self.remote[base] = made
+            return Landed(commit=made, base_parent=target)
         common = self.merge_base(self.checkout, target, head)
         start = self.objects[common].tree if common else {}
         result = merged(start, self.objects[target].tree, self.objects[head].tree)
         if isinstance(result, Conflict):
             return result
-        parents = (target,) if squash else (target, head)
+        parents = (target,) if method == "squash" else (target, head)
         self.remote[base] = self.store(result, parents, message)
-        return self.remote[base]
+        return Landed(commit=self.remote[base], base_parent=target)
 
     def delete_remote(self, branch: str, expect: str) -> bool:
         """Delete the remote's `branch` only at `expect`."""
