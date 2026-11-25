@@ -1,6 +1,5 @@
-"""`lem criteria read` and `lem criteria skip`: the personas' read of the criteria, its start and
-what it found, and the owner's word on its skip (`project.cmd_log` of `criteria.read`,
-`criteria.read.start` and `read.skip.asked` on `main`)."""
+"""`lem criteria read`: the personas' read of the criteria, its start and what it found
+(`project.cmd_log` of `criteria.read` and `criteria.read.start` on `main`)."""
 
 from functools import partial
 from typing import TYPE_CHECKING, Literal
@@ -11,14 +10,14 @@ from lem.app.criteria import where
 from lem.app.decisions.writing import Change, written
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
-from lem.model.criteria import reads, skip
+from lem.model.criteria import reads
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.records.approvals import PersonaRead
-    from lem.records.criteria import Criteria
     from lem.records.record import Record
+    from lem.records.task import Task
 
 type Moment = Literal["start", "done", "silent"]
 type By = Literal["lem", "lead"]
@@ -30,11 +29,14 @@ def noting(
     moment: Moment, by: By, found: reads.Found | None, record: Record
 ) -> tuple[Change, PersonaRead]:
     """The read's start, its result, or its silence, on the record as it is."""
-    now, task = clock.now(), record.task
+    now = clock.now()
     if moment == "start":
-        task = reads.started(task, by, now)
-    else:
-        task = reads.ended(task, by, now, found)
+        return written_read(reads.started(record.task, by, now))
+    return written_read(reads.ended(record.task, by, now, found))
+
+
+def written_read(task: Task) -> tuple[Change, PersonaRead]:
+    """The write of `task`, and its newest read."""
     return partial(replace, task=task), task.criteria.reads[-1]
 
 
@@ -56,15 +58,3 @@ def noted(
             )
     here = where.here_of(folder, slug)
     return written(here.workspace.state, slug, partial(noting, moment, by, found))
-
-
-def skipping(word: skip.Word, record: Record) -> tuple[Change, Criteria]:
-    """His word on the skip, on the record as it is."""
-    task = skip.skipped(record.task, word, clock.now())
-    return partial(replace, task=task), task.criteria
-
-
-def skipped(folder: Path, slug: str, word: skip.Word) -> Criteria:
-    """`lem criteria skip SLUG asked|yes|no`."""
-    here = where.here_of(folder, slug)
-    return written(here.workspace.state, slug, partial(skipping, word))
