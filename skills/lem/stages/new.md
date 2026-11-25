@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # new
 
 `/lem new <what>`, or `/lem <what>` in plain words, in any session, opens one task in an agterm
@@ -22,12 +21,12 @@ not ended holds, and names that task.
    "read"): what the read gives as the ask is the ask, word for word (the ticket's text, its title
    only when the text is empty, never the comments under it), and that is what `--ask` takes in
    step 3. When the settings have no tracker, say that this project has none, and ask the owner
-   for the ask in his words. When `lem project tasks` already lists a task with this ticket that is
+   for the ask in his words. When `lem task list` already lists a task with this ticket that is
    not `dropped` or `answered`, open no second one: say which task it is and where it stands.
 2. **The slug.** Two to five plain words that say what the owner gets ("report-dates-stay-whole"),
    never a code. A slug that a `landed`, an `answered` or a `dropped` task has is taken, since that
    task's files stay under it (past `state.keep_days`, its small record alone), and so is the slug
-   of an open task with other words: add a word, as `task-dir` says when it refuses.
+   of an open task with other words: add a word, as `lem task open` says when it refuses.
 3. **The task directory**, with the ask as the owner gave it:
 
    ```bash
@@ -55,9 +54,9 @@ not ended holds, and names that task.
    when no turn of his starts with those words.
 5. **Open its session**: `lem session open SLUG --why new`. It opens with no focus: the owner stays
    here, and the task's session never takes the focus, also when it has a question only he can
-   answer (`prompts/session.md`, "While the owner is needed"). `task-dir` and `session open`
-   put the repository's main checkout into the machine's list of workspaces, so the board's server
-   shows it from its first task, as "Starting" until its session writes a state. Say its `say` in one line,
+   answer (`prompts/session.md`, "While the owner is needed"). `lem task open` and `lem session
+   open` put the repository's main checkout into the machine's list of workspaces, so the board's
+   server shows it from its first task, as "Starting" until its session records its read. Say its `say` in one line,
    start its `then` (`lem session wait SLUG --first-line`) with `run-in-background`, and go back
    to what this session was doing. When that command ends, say its `say` as it is, in one line:
    the task's first line, where the owner corrects its read. When its `say` is null, say nothing.
@@ -67,8 +66,9 @@ not ended holds, and names that task.
 
 The task's own session, in the shape, from its first message.
 
-**A request a resume made.** A task directory that holds `resumed-from.txt` and no state is the
-new request `lem project resume` made from a task the release stop blocked (`stages/park.md`). It
+**A request a resume made.** A task whose record names the task it came from (`resumed_from` in
+`lem task show SLUG`) and holds no read yet is the new request `lem task resume` made from a task
+the release stop blocked (`stages/park.md`). It
 holds the notes of the task it came from: `task.md`, `criteria.md`, `handoff.md` and the others
 the old task had. Read them before the first question, and take the steps below from them: ask
 only what they do not answer, and put the old `criteria.md` to the owner as the proposal of the
@@ -102,13 +102,14 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
    `/lem plan` asks for a plan to read, and a plan is the standard track's: the ask takes the
    standard track, with its interview, its criteria, the personas' read and his yes, and the lead
    stops at the committed plan; the line of step 8 says so ("Standard track, because you asked for
-   its plan: ..."). A plan's criteria always say `Size: full`, and `criteria.py` and `land.py`
+   its plan: ..."). A plan's criteria always say `Size: full`, and `lem criteria` and `lem land`
    refuse a plan that says `Size: small`.
    In the same look, read the ask's words against each topic of `flow.topics` in `lem settings
    show`, the sentences of what must never go wrong here. No code matches a topic and no file
    name settles one: the question is whether the change the ask wants could reach that thing.
-   When it could, the task's first state block carries the line `careful: WHAT IT COULD REACH`
-   (`careful: this changes how a customer is charged`), and the line of step 8 names it first.
+   When it could, the read of the request (step 8) takes `--careful "WHAT IT COULD REACH"`, once
+   for each topic (`--careful "this changes how a customer is charged"`), and the line of step 8
+   names it first.
    When the investigator's report or the scout's comes in, read its facts against the topics
    again: a topic it finds in reach that the ask's words did not show is told to the owner in one
    line, the same way (the scout lists the topics in reach, with the file and symbol that show
@@ -118,7 +119,7 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
    In the same look, read whether the owner's words put the whole task after another task: "after
    X", "when X lands", "once X is merged", with capital letters and a colon or without, whether or
    not the task needs anything of X. That is his order, and step 7 queues the task by it. X is a
-   task that `lem project tasks` lists, named by its slug or in his own words ("when the gift note
+   task that `lem task list` lists, named by its slug or in his own words ("when the gift note
    task lands"). Words with "after" that order no tasks are no order: "after a refund the invoice
    shows 0" is a symptom; and an ask that only names a task ("the card of gift-note-in-export cuts
    its title") is about that task, not after it. A task that landed or was answered has met his
@@ -129,12 +130,12 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
    a read for the one question below.
    **One question when the read is not clear.** When the words and what you looked at do not
    settle the track, the type, whether it is careful or the order, ask once, in one line with your
-   guess first, after the state `held` with the line `the request waits for one answer` (`lem
-   project state SLUG held "the request waits for one answer"`), so that the board shows the
-   question as his: "I read this as a fix for the fast track: one rule in `shop/dates.py`. Fast track?
-   (y/n)", or "Is the 0 wrong today, a fix, or do you want a new rule for refunds, a feat?" (his
-   example of 2026-11-16: "From such input its kinda hard to deduct if we want to investigate the
-   bug or its a feature request."). A question on the order names each answer, so that no answer
+   guess first, before the read of step 8: "I read this as a fix for the fast track: one rule in
+   `shop/dates.py`. Fast track? (y/n)", or "Is the 0 wrong today, a fix, or do you want a new rule
+   for refunds, a feat?" (his example of 2026-11-16: "From such input its kinda hard to deduct if
+   we want to investigate the bug or its a feature request."). The task stays `shaping` with no
+   read on record while the question waits, so a session that takes it up asks it again. A
+   question on the order names each answer, so that no answer
    has two readings: each open task that fits his words, and "no order": "Queue this after
    gift-note-in-export, after gift-note-on-invoice, or no order?". When one task fits, or none,
    it names your guess, another task and "no order": "Queue this after gift-note-in-export, after
@@ -146,22 +147,27 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
    answer" --words "HIS WORDS"`, and step 7 still reads the need. An answer that still names no
    task you can tell holds the task for him, as below. One question at most; his answer settles
    it, and you go on. A clear read asks nothing. While he is away, and for a task of the night
-   (`night` in `lem project tasks`), ask nothing: take the standard track, and careful in doubt.
+   (`night` in `lem task show SLUG`), ask nothing: take the standard track, and careful in doubt.
    For the order, when exactly one open task fits his words, take that one: step 7 queues the task
-   after it, its queued block and the line of step 8 say which task you took, and you log the read,
-   `lem decisions log SLUG --by lem`. When none fits, or more than one, write the state `held` with
-   the first line `the order waits for the owner: "HIS WORDS"`, the words of his that give the
-   order on one line, and the type line; it puts the task into the list of what waits for him (`lem
-   project waiting`). That block names no path, so it prints no `say`: the task gets its first line
-   when he answers, since a line said while he is away reaches nobody, and its row in "Waits for
-   you" tells him that it waits. Start nothing: the task waits for his answer to the one question
-   (`prompts/session.md`, "What comes next"). Then the first block that names its path prints the
-   first line, with the type line of the hold when it has none: the `queued` block of step 7 for a
-   task he names, or the first block of step 8 for "no order". The type goes into
-   `task.md` with its reason, and as the line `type: TYPE, because WHY` into the task's first state
-   block (step 8); `lem project state` refuses that line in any other form, and `lem project
-   tasks` gives it as `type`. When he changes the type later, write a state block with the new
-   line.
+   after it, and you log the read, `lem decisions log SLUG --by lem`, with the task you took and
+   his words. When none fits, or more than one, read the request with his words and no task to
+   queue behind, and no path yet:
+
+   ```bash
+   lem task read SLUG --type TYPE --why "WHY" --track full --order "HIS WORDS"
+   ```
+
+   `--order` takes the words of his that give the order, on one line. With no `--after`, it puts
+   the hold `owner: order` on the task, and the task into the list of what waits for him (`lem
+   waiting`). A read that names no path prints no `say`: the task gets its first line when he
+   answers, since a line said while he is away reaches nobody, and its row in "Waits for you"
+   tells him that it waits. Start nothing: the task waits for his answer to the one question
+   (`prompts/session.md`, "What comes next"). His answer is the read again, with the path: with
+   `--after` and the task he names it is the queue of step 7, and for "no order" it is the read of
+   step 8 with no `--order`. The type goes into `task.md` with its reason, and as `--type` and
+   `--why` of the read (step 8); `lem task show SLUG` gives it as `type`. When he changes the type
+   later, read the request again with his type; `lem task read` refuses a task past its shape, and
+   its refusal names the way on.
 2. **The branch** is `<type>/<slug>` with the type of step 1, unless the project's `AGENTS.md`
    gives its own scheme, or a resume made it (above). For a question, choose the type of the change its answer would most likely
    lead to, and say why in one line after the line of step 8; its branch gets a commit only when
@@ -210,8 +216,8 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
      since the people who write a team's tickets are the team.
    - *the standard track with an interview*, for every other ask: the interview, then the criteria
      he approves, here in this session: at step 8, read `stages/interview.md` and follow it.
-   Steps 5 to 7 write what the line of step 8 reads, and step 8 writes the task's first state
-   block, which says that line; a task that waits by step 7 gets its first block there.
+   Steps 5 to 7 write what the line of step 8 reads, and step 8 records the read of the request,
+   which says that line; a task that waits by step 7 gets its read there.
 5. **The fast track's criterion and brief**: on the fast track, steps 1 and 2 of "The fast track"
    below, now, so that the line of step 8 quotes the criterion.
 6. **The brief** of a lead, on the standard track, also one with an interview: write it now, with
@@ -250,22 +256,17 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
    the need after them (step 1). The scout and the criteria then read a base without the earlier
    task's result: a criterion that the result makes false is a change of the criteria, and the pull
    request is not green for it.
-   Then write the later one's state as `queued`. Its first line is his order, `the owner's order:
-   "HIS WORDS"`, the words of his that give the order as he typed them, on one line (a line break
-   becomes a space), or for a need what the task needs from the earlier one, in one line. Then the
-   line `after: SLUG` of the earlier one, the type line of step 1 and the `careful:` line of step 1
-   when a topic is in reach (each when no block before it has one: the hold of step 1 has them),
-   and the line of the path that step 8 takes when the wait ends: `then: the interview`, `then: the
-   fast track` or `then: the lead`, or for an investigation that comes first (step 4) its line
-   `investigation: bug` or `investigation: question` in its place. A task you put after the one
-   open task that fits his words, while he was away (step 1), gets the line `the one open task that
-   fits his words`. The first line is read from the order, the `then:` line and that line, so `lem
-   project state` refuses a line that starts as one of them in another form, with the form in its
-   message. It is the first block that names the task's path, also after the hold of step 1: say
-   its `say` as step 8 says.
+   Then queue the later one: the read of step 8 with `--after SLUG` of the earlier one, which
+   moves it to `queued`. For his order, add `--order "HIS WORDS"`, the words of his that give the
+   order as he typed them, on one line (a line break becomes a space); the record keeps them. For
+   a need, put what the task needs from the earlier one in one line of `handoff.md`. The read
+   carries the type of step 1, each `--careful` topic of step 1, and the path that step 8 takes
+   when the wait ends: `--then interview`, `--then fast` or `--then lead`, or `--then
+   investigation` for an investigation that comes first (step 4). It is the first read that names
+   the task's path, also after the hold of step 1: say its `say` as step 8 says.
 
    ```bash
-   lem project state SLUG queued "the owner's order: \"After gift-note-in-export\"" "after: gift-note-in-export" "type: feat, because WHY" "then: the interview"
+   lem task read SLUG --type feat --why "WHY" --track full --then interview --order "After gift-note-in-export" --after gift-note-in-export
    ```
 
    Write `handoff.md` (`prompts/session.md`, "A change of phase"), and close this session, `lem
@@ -276,29 +277,26 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
    never comes: it stays `queued`, no session opens for it, and the owner says whether it starts
    without that result or is dropped too. Its row of "Waits for you" names his two words, "start
    SLUG now" and `/lem drop SLUG`, which he types in any Lem session of this repository. `lem
-   project may-start SLUG` refuses it, and prints the commands of his "start SLUG now", composed
-   from the task's newest block: for his order, the log of his words, then the `queued` block again
-   with each of its lines but the `after:` line and with `the owner's order was removed: "HIS
-   WORDS"`; for a need, that block alone. On his word (his "start it", too, where the talk is about
-   this task), run `lem project may-start SLUG` once more and run the commands it prints then, as
-   printed, with his words in place of `HIS WORDS` as it says; never ones printed before his word,
-   since a `/lem standard-track SLUG` between the two changes the block they copy. Then the task
-   goes on as `stages/start.md`, "`/lem build`", says. On his `/lem drop SLUG`, drop it
+   task may-start SLUG` refuses it, and names his word. On his word (his "start it", too, where the
+   talk is about this task), run `lem task start SLUG --words "HIS WORDS"`, with his words as he
+   typed them: it records them and takes the task out of the queue. Then the task goes on as
+   `stages/start.md`, "`/lem build`", says. On his `/lem drop SLUG`, drop it
    (`stages/correct.md`, "drop"). A dropped task is no task to queue behind again: what a task
    started past it still needs is planned inside it. Only his word removes his
    order before that task lands or is answered: his "start SLUG now" (`stages/start.md`, "`/lem
    build`"). Two asks that only name the same thing (the same screen, the same file, the same
    function) each start on their own. Do not read the code to find an overlap the asks do not show;
    the landing settles that one, as a conflict at its rebase (`stages/land.md`, step 2).
-8. **The first state block, and the line.** The task's first state block names its path and
-   carries the type line of step 1, and the `careful:` line of step 1 when a topic is in reach.
-   After the hold of an order that named no task (step 1), it is the first block after his answer
-   that names the path, and the hold's type and `careful:` lines stand for its own.
-   The path's first step writes it, before anyone starts:
-   - with an interview, here, then `stages/interview.md`:
+8. **The read of the request, and the line.** The read names the task's path (`--then`) and
+   carries the type of step 1, its reason, the track, and each `--careful` topic of step 1 when a
+   topic is in reach. After the hold of an order that named no task (step 1), it is the read after
+   his answer that names the path.
+   The path's first step records it, before anyone starts:
+   - with an interview, here, then `stages/interview.md`; `--wait interview` puts the hold `owner:
+     interview` on the task:
 
      ```bash
-     lem project state SLUG held "the interview waits for the owner" "type: feat, because WHY"
+     lem task read SLUG --type feat --why "WHY" --track full --then interview --wait interview
      ```
 
    - an investigation: step 1 of `stages/investigate.md`, after the worktree, then its step 2;
@@ -308,22 +306,21 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
      ```bash
      lem task read SLUG --type TYPE --why "WHY" --track small --then fast
      lem task worktree SLUG
-     lem task move SLUG building --line "small change: one builder"
+     lem task move SLUG building
      ```
 
-     For a ticket or an item somebody else wrote, while he is there, the first block is the wait
-     for his yes of "The fast track", step 1, and the builder's block comes after his yes;
-   - the standard track from a complete request: steps 1 to 3 of `stages/start.md`, the state
-     `building` with `lead: builder`. This session is the lead: then follow `brief.md`; nothing is
-     handed over, since nothing was said yet that the lead would lose;
-   - a task that waits: the `queued` block of step 7. When its wait ends, its session takes the
-     path of its `then:` or `investigation:` line here (`prompts/session.md`, "What comes next"),
-     and that block, no longer the first, prints no `say`.
+     For a ticket or an item somebody else wrote, while he is there, the read is the wait for his
+     yes of "The fast track", step 1, and the move to `building` comes after his yes;
+   - the standard track from a complete request: the read with `--track full --then lead`, then
+     steps 1 to 3 of `stages/start.md`. This session is the lead: then follow `brief.md`; nothing
+     is handed over, since nothing was said yet that the lead would lose;
+   - a task that waits: the queue of step 7. When its wait ends, its session takes the path of its
+     `then` here (`prompts/session.md`, "What comes next"), and prints no `say` for it again.
 
-   That `lem project state` call prints `say`, the task's first line to the owner, which the script
-   composes from the task's files: the type, the criterion of `criteria.md` or else the outcome of
+   That `lem task read` prints `say`, the task's first line to the owner, which Lem composes from
+   the record and the task's files: the type, the criterion of `criteria.md` or else the outcome of
    `task.md` (else the ask) in his words, the branch of the brief or of the worktree, the track with
-   its steps, what he must do, and the `careful:` line first. **Say the `say` as it is, as your
+   its steps, what he must do, and the careful topic first. **Say the `say` as it is, as your
    first words to him in this session** (after the one question of step 1, when the read needed
    it), and no more. No scout, investigator or builder starts before it is said: the branch, the
    track and a careful topic are in no other line, and it is where he corrects your read. On the
@@ -339,11 +336,12 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
    was away, says which: `It waits for gift-note-in-export, the one open task that fits "when the
    gift note lands"; ...`. A task that waits by a need says `It waits for gift-note-in-export, and
    starts when that task lands or is answered.` in the same place. The first line of a task held
-   for his order comes with his answer, one time. A call that prints no `say` for a task of the
-   day, other than that hold, wrote no first block: look at its lines again. A decision you took for him at step 3 is a second line, in your words.
+   for his order comes with his answer, one time. A read that prints no `say` for a task of the
+   day, other than that hold, names no path: look at its options again. A decision you took for
+   him at step 3 is a second line, in your words.
    Nothing repeats the first line later: the next thing he hears is a question of the interview,
    the criteria, or the pull request; the board shows it on the task's Overview until its next
-   block. A task of the night gets no `say` and tells nobody: the night's report names it.
+   move. A task of the night gets no `say` and tells nobody: the night's report names it.
 
 ## The fast track
 
@@ -366,19 +364,19 @@ queued task").
    With `--small` the file is that `criteria.md`, and the command needs no `--file`.
    It stays there and is never committed: the fast track has no plan, and its builder adds the
    test line under the criterion in that file. An approval in his name is only ever a task's first
-   contract: the script refuses it once any approval exists. The personas do not read it; the pull
+   contract: `lem criteria approve` refuses it once any approval exists. The personas do not read it; the pull
    request says so.
-   A request that is not his own sentence, a task of the night (`night` in `lem project tasks`) or a
-   ticket or an item somebody else wrote, gets no approval in his name: write the brief of step 2
-   first, with the line `request by: someone else` for such a ticket or item. The script refuses
-   `--small` for such a task, `--alone` for his own request, and `--alone` while the task runs with
-   him (`mode` in `lem project tasks`):
+   A request that is not his own sentence, a task of the night (`night` in `lem task show SLUG`)
+   or a ticket or an item somebody else wrote, gets no approval in his name: write the brief of
+   step 2 first, with the line `request by: someone else` for such a ticket or item. `lem criteria
+   approve` refuses `--small` for such a task, `--alone` for his own request, and `--alone` while
+   the task runs with him (`mode` in `lem task show SLUG`):
    - *While he is there*, the criterion of a ticket or an item somebody else wrote waits for his
-     yes before its builder starts: nobody at the terminal read that request. Its first block, at
-     step 8 of "The request", is this wait, with the type line of step 1:
+     yes before its builder starts: nobody at the terminal read that request. Its read, at step 8
+     of "The request", is this wait: `--wait criteria` puts the hold `owner: criteria` on the task.
 
      ```bash
-     lem project state SLUG held "the criteria wait for the owner: a small change that someone else asked for" "type: fix, because WHY"
+     lem task read SLUG --type fix --why "WHY" --track small --then fast --wait criteria
      ```
 
      Say its `say`, which tells him that the criterion waits for his yes. Then show him the
@@ -391,12 +389,12 @@ queued task").
      request is green for it. A change of his goes into `criteria.md` in his words first, then the
      same approval. A yes he gave on the board is on record already (`by: owner` in `lem criteria
      approved SLUG`), and the board's server wakes this session for it. After his approval,
-     `stages/start.md`, whose `building` block carries no type line, since the wait has it: it
-     starts the one builder. His No on the board carries his words on what the criterion should
-     say (`note` of `board_answer`, `prompts/session.md`, "His answer on the board"): they are a
-     change of his, written into `criteria.md` in his words, and then this held block is written
-     again, so that the board asks his yes to the new text in a new row. His "standard", or a change that makes it more than one plain change, takes the
-     standard track as `/lem standard-track` does.
+     `stages/start.md`: it starts the one builder. His No on the board carries his words on what
+     the criterion should say (`note` of `board_answer`, `prompts/session.md`, "His answer on the
+     board"): they are a change of his, written into `criteria.md` in his words, and then the read
+     with `--wait criteria` is given again, so that the board asks his yes to the new text in a new
+     row. His "standard", or a change that makes it more than one plain change, takes the standard
+     track as `/lem standard-track` does.
    - *A task of the night, and such a ticket or item while he is away*: `lem criteria approve SLUG
      --file TASK_DIR/criteria.md --alone`, and its builder starts with no wait. Its pull request is
      then not green, since he did not approve the criterion, and the merge agent calls him. When
@@ -414,9 +412,8 @@ queued task").
 
    For a ticket or an item somebody else wrote, add `request by: someone else`, as step 6 of "The
    request" says. Steps 1 and 2 come at step 5 of "The request". Then its steps 7 and 8: its
-   builder starts as `stages/start.md` says, after the state `building` with the lines `small
-   change: one builder` and the type line of step 1, whose `say` is the first line. There is no
-   lead: the one builder is the fresh builder of the one task, as the owner's rule on a fresh
+   builder starts as `stages/start.md` says, after the move to `building`; the read of step 8
+   printed the first line. There is no lead: the one builder is the fresh builder of the one task, as the owner's rule on a fresh
    builder for each task has it.
 3. **When it stops**, its reply is its report, of six lines at most, and you write `report.md`
    in the task directory from it word for word, but for its line of pictures: each picture it
@@ -428,12 +425,20 @@ queued task").
      there, up to its pull request with no question on the way: the push and the pull request of
      `lem land propose` are the owner's standing word in the settings he approved, not a step to
      ask about;
-   - `held` with `the criteria wait for the owner: the small change is a full change` (a line the
-     record keeps in these words, and the board says as "the task takes the standard track"): its builder
-     found a topic in reach, a second rule, a decision the criterion does not settle, a lowered bar,
-     or more than one plain change. Tell him in one line that it takes the standard track and why, from
-     the report. Write the lead's brief of step 6 of "The request" over the fast track's, then
-     take `stages/interview.md` here: it reads the builder's `report.md` as the scout's report,
+   - `shaping` with the line `the criteria wait for the owner: the small change is a full change`
+     (a line the record keeps in these words, and the board says as "the task takes the standard
+     track"): its builder found a topic in reach, a second rule, a decision the criterion does not
+     settle, a lowered bar, or more than one plain change. Tell him in one line that it takes the
+     standard track and why, from the report. Read the request again for the standard track, with
+     the type, its reason and the careful topics of the read before (`lem task show SLUG`) and a
+     topic the builder found:
+
+     ```bash
+     lem task read SLUG --type TYPE --why "WHY" --track full --then interview --wait interview
+     ```
+
+     Write the lead's brief of step 6 of "The request" over the fast track's, then take
+     `stages/interview.md` here: it reads the builder's `report.md` as the scout's report,
      and its commits stay on the branch for the lead. His approval of the criteria on the
      standard track replaces the fast track's. So does an approval with `--alone` while the task
      still runs without him (a night's task, or his away mark), also over a fast-track approval
