@@ -23,19 +23,17 @@ def merged_of(context: frame.Context, tip: Sha | None) -> Merged:
     return Clash(files=made.files) if isinstance(made, Conflict) else made
 
 
-def polish(context: frame.Context, tip: Sha) -> Sha | None:
-    """The polish pass's last commit by its name on the tip a rebase made: the commit as far
-    from the tip as it was from the tip before. None when it needs no new name or is not in
-    the tip before."""
-    git, start = context.ports.git, context.world.tip
-    polished = (context.record.landing or Landing()).polished
-    last = polished.after if polished else None
-    if last is None or start is None or start == tip:
-        return None
-    if not git.is_ancestor(context.worktree, last, start):
-        return None
-    count = len(git.commits(context.worktree, last, start))
-    return git.tip(context.worktree, f"{tip}~{count}")
+def resolved_files(context: frame.Context, tip: Sha) -> tuple[str, ...]:
+    """The files of a builder's resolution, once he rebased past the conflict: each file git's
+    merge of the tip before the conflict onto the base meets a conflict in, so that a later
+    commit's stop on another file is read too."""
+    found = (context.record.landing or Landing()).resolution
+    if found is None or found.after != found.before:
+        return ()
+    if found.before == tip:
+        return ()
+    merged = merged_of(context, found.before)
+    return merged.files if isinstance(merged, Clash) else ()
 
 
 def differ_of(context: frame.Context, merged: Merged, tree: Sha) -> tuple[str, ...]:
@@ -66,4 +64,21 @@ def after(context: frame.Context, tip: Sha, merged: Merged) -> base.After:
         merged=merged,
         differ=differ_of(context, merged, tree),
         reviewed=reviewed_of(context, tip),
+        resolved=resolved_files(context, tip),
     )
+
+
+def recovered(context: frame.Context) -> Sha | None:
+    """The tip before a rebase a stop cut between the rebase and its record: the record's mark
+    names it (`base_kept.marked`), git's `ORIG_HEAD` names it too, and the tip now is another
+    commit. None otherwise, a builder's resolution of a conflict among them."""
+    landing = context.record.landing or Landing()
+    based, waiting = landing.based, landing.resolution
+    if based is None or based.before != based.tip:
+        return None
+    if based.tip == context.world.tip:
+        return None
+    if waiting is not None and waiting.after == waiting.before:
+        return None
+    found = context.ports.git.tip(context.worktree, "ORIG_HEAD")
+    return based.tip if found == based.tip else None

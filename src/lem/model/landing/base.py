@@ -10,9 +10,7 @@ from git's merge of the tip before it onto the base (`rebased.py`, `carry.py`).
 
 from typing import TYPE_CHECKING, Literal
 
-from msgspec.structs import replace
-
-from lem.model.landing import base_said, rebased
+from lem.model.landing import base_empty, base_said, rebased
 from lem.model.landing.world import Due, Held, World
 from lem.records.base import Frozen, Sha
 from lem.records.landing.record import Landing
@@ -28,18 +26,25 @@ type Move = Literal["onto", "rebase"]
 
 
 class Facts(Frozen, frozen=True, kw_only=True):
-    """What `base` reads before it acts: the commits of the tip that origin's base lacks, and
-    each commit of origin's task branch that a teammate made, as a line."""
+    """What `base` reads before it acts: the commits of the tip that origin's base lacks, each
+    commit of origin's task branch that a teammate made (as a line) and neither the tip nor
+    origin's base holds, whether the worktree's HEAD is the task's branch, and the tip before
+    the last rebase (`ORIG_HEAD`) while it holds a change origin's base lacks."""
 
     ahead: int
     theirs: tuple[str, ...] = ()
+    on_branch: bool = True
+    orig: Sha | None = None
+    dropped: bool = False
 
 
 class After(Frozen, frozen=True, kw_only=True):
     """What `base` reads after its move: the tip and its tree, the commits it has that origin's
     base lacks, git's merge of the tip before onto the base (None with no rebase) and the paths
     where the tip's tree differs from it, git's merge of the newest reviewed tip onto the base,
-    and the commits the rebase left out."""
+    the commits the rebase left out, the files of a builder's resolution, and the tip before
+    a rebase a stop cut before its record (`before`), which the record's mark and git's
+    `ORIG_HEAD` both name."""
 
     tip: Sha
     tree: Sha
@@ -48,6 +53,8 @@ class After(Frozen, frozen=True, kw_only=True):
     differ: tuple[str, ...] = ()
     reviewed: rebased.Merged = None
     left_out: tuple[Sha, ...] = ()
+    resolved: tuple[str, ...] = ()
+    before: Sha | None = None
 
 
 def foreign(landing: Landing, world: World) -> bool:
@@ -78,21 +85,21 @@ def holds(record: Record, world: World) -> Held | Due:
 def decide(record: Record, world: World, facts: Facts, where: str) -> Refusal | Move:
     """Whether the branch needs a rebase, or why it may not have one now; `where` is the
     worktree, which a fix names."""
-    landing = record.landing or Landing()
-    if world.rebasing:
-        return base_said.in_progress(record, where)
-    if foreign(landing, world):
-        return base_said.teammate(record, world, facts.theirs, where)
+    refused = base_said.blocked(record, world, facts, where)
+    if refused is not None:
+        return refused
     if not facts.ahead:
-        lost = base_said.lost(record, world, landing.based, where)
-        return lost or base_said.nothing(record)
-    return "onto" if world.base_in_tip else "rebase"
+        return base_empty.empty(record, world, facts, where)
+    if world.base_in_tip:
+        return "onto"
+    again = base_said.again(record, world, where) if facts.dropped else None
+    return again or "rebase"
 
 
 def judged(world: World, after: After) -> Based:
     """What `base` records of its move: where the tip is, whether the review carried, and what
     the rebase did not show it kept."""
-    before = world.tip or after.tip
+    before = after.before or world.tip or after.tip
     merged = after.merged
     paths = () if merged is None else rebased.unshown(merged, after.differ)
     return Based(
@@ -104,14 +111,3 @@ def judged(world: World, after: After) -> Based:
         unshown_commits=after.left_out if paths else (),
         at=world.now,
     )
-
-
-def emptied(
-    record: Record, world: World, based: Based, ahead: int, where: str
-) -> Refusal | None:
-    """The refusal of a rebase that left the branch no commit of its own: a change that sat
-    only in a merge commit, which a rebase drops, or nothing to land."""
-    if ahead:
-        return None
-    now = replace(world, tip=based.tip)
-    return base_said.lost(record, now, based, where) or base_said.nothing(record)

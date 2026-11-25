@@ -9,6 +9,7 @@ twice.
 """
 
 import stat
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -30,11 +31,12 @@ from journeys.test_skeleton import (
     parses,
     upto,
 )
+from lem.adapters import git_cli
+from lem.ports.faults import Unanswered
+from lem.records.landing.start import Polished
 from lem.store import tasks
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from lem.records.record import Record
 
 START = command("land", "start", "SLUG")
@@ -211,15 +213,21 @@ def test_a_rebase_git_refuses_keeps_nothing_and_gives_gits_words(
     )
     assert "the owner removes what git names" in said["fix"]
     assert head(world) == tip
-    assert world.record() == before
+    # nothing kept: the mark of the rebase is undone with it
+    after = world.record()
+    assert (after["task"], after["landing"]) == (before["task"], before["landing"])
     run_git(world.checkout, "config", "--unset", "core.hooksPath")
     ok(BASE(capsys, world))
     assert head(world) != tip
     assert due(capsys, world) == "checks"
 
 
+@pytest.mark.parametrize("run", ["whole", "cut-after-the-rebase"])
 def test_a_rebase_that_drops_a_merge_only_change_is_refused_with_the_tip_before_it(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    run: str,
 ) -> None:
     world = made(tmp_path, monkeypatch)
     upto(capsys, world, "start")
@@ -234,14 +242,21 @@ def test_a_rebase_that_drops_a_merge_only_change_is_refused_with_the_tip_before_
     world.repo.outside_commit("main", {"MORE.md": b"more\n"})
     ok(START(capsys, world))
     tip = head(world)
+    if run != "whole":
+        # a stop between the rebase and its record: the tip before it is still named
+        world.acts.cut = ("rebase", 1)
+        with pytest.raises(Killed):
+            BASE(capsys, world)
+        capsys.readouterr()
+        assert head(world) != tip
     said = refused(BASE(capsys, world), "merge-only")
-    assert "README.md" in said["why"]
     assert f"was at {tip}" in said["why"]
     assert f"reset --hard {tip}" in said["fix"]
-    assert landing(world)["based"]["unshown_paths"] == ["README.md"]
+    assert "dropped ends the task" in said["fix"]
     assert due(capsys, world) == "base"
     again = refused(BASE(capsys, world), "merge-only")
     assert f"reset --hard {tip}" in again["fix"]
+    assert world.acts.done.count("rebase") == 1
 
 
 def test_a_conflicting_pull_request_wakes_a_new_round_counted_in_relands(
@@ -329,3 +344,237 @@ def test_a_cut_after_the_abort_of_a_stopped_rebase_stops_it_again_and_keeps_it_o
     assert head(world) == tip
     assert landing(world)["resolution"]["files"] == ["README.md"]
     assert world.acts.done.count("rebase") == 2
+
+
+def commit_in(world: World, path: str, body: str, subject: str) -> str:
+    """A builder's commit of one file in the task's worktree."""
+    (world.worktree / path).write_text(body)
+    run_git(world.worktree, "add", path)
+    run_git(world.worktree, "commit", "--quiet", "--message", subject)
+    return head(world)
+
+
+def polished_at(world: World, after: str) -> None:
+    """A polish pass on record whose last commit is `after`, as `land-checks` writes it."""
+    state = world.checkout / ".lem" / "state"
+
+    def change(record: Record) -> Record:
+        landing_now = record.landing
+        assert landing_now is not None
+        assert landing_now.started is not None
+        made_pass = Polished(before=after, after=after, at=landing_now.started.at)
+        return replace(record, landing=replace(landing_now, polished=made_pass))
+
+    tasks.update(state, SLUG, change, world.record()["revision"])
+
+
+@pytest.mark.parametrize("run", ["whole", "cut-after-the-first-rebase"])
+def test_a_second_rebase_never_loses_a_commit_the_first_left_out(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    run: str,
+) -> None:
+    # main's probe of two rebases (tests/lem-land-shop.sh, mb-probe): a red base repeats the
+    # feature's edit, git leaves the feature out of the first rebase, and the base reverts
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "start")
+    commit_in(world, "feature.txt", "new\n", "feat: the feature")
+    first = commit_in(world, "label.txt", "new\n", "feat: the label")
+    ok(START(capsys, world))
+    polished_at(world, first)
+    red = world.repo.outside_commit(
+        "main", {"feature.txt": b"new\n", "broken.txt": b"broken\n"}
+    )
+    if run != "whole":
+        world.acts.cut = ("rebase", 1)
+        with pytest.raises(Killed):
+            BASE(capsys, world)
+        capsys.readouterr()
+    ok(BASE(capsys, world))
+    subjects = run_git(world.worktree, "log", "--format=%s", "origin/main..HEAD")
+    assert "feat: the feature" not in subjects
+    assert landing(world)["based"]["before"] == first
+    # the pass's commits were not each kept: it runs again
+    assert "after" not in landing(world)["polished"]
+    world.repo.outside_commit("main", {"feature.txt": None, "broken.txt": None})
+    assert due(capsys, world) == "base"
+    said = refused(BASE(capsys, world), "rebase-again")
+    assert f"reset --hard {first}" in said["fix"]
+    run_git(world.worktree, "reset", "--quiet", "--hard", first)
+    ok(BASE(capsys, world))
+    assert run_git(world.worktree, "show", "HEAD:feature.txt") == "new"
+    assert run_git(world.worktree, "show", "HEAD:label.txt") == "new"
+    assert run_git(world.worktree, "merge-base", "--is-ancestor", red, "HEAD") == ""
+    assert world.acts.done.count("rebase") == 2
+    assert due(capsys, world) == "checks"
+
+
+@pytest.mark.parametrize("run", ["whole", "cut-after-the-rebase"])
+def test_the_rebase_goes_onto_the_base_it_read_though_origin_moves_meanwhile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    run: str,
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "base")
+    tip = head(world)
+    polished_at(world, tip)
+    read = run_git(world.repo.origin, "rev-parse", "main")
+    merge_tree, late = git_cli.GitCli.merge_tree, []
+
+    def moving(self: git_cli.GitCli, where: Path, onto: str, made_tip: str) -> object:
+        found = merge_tree(self, where, onto, made_tip)
+        if not late:
+            # another task's fetch moves origin/main between the look and the rebase
+            late.append(world.repo.outside_commit("main", {"LATE.md": b"late\n"}))
+            run_git(world.checkout, "fetch", "--quiet", "origin")
+        return found
+
+    monkeypatch.setattr(git_cli.GitCli, "merge_tree", moving)
+    if run != "whole":
+        world.acts.cut = ("rebase", 1)
+        with pytest.raises(Killed):
+            BASE(capsys, world)
+        capsys.readouterr()
+    else:
+        based = ok(BASE(capsys, world))["result"]
+        assert based["base"] == read
+        assert landing(world)["polished"]["after"] == head(world)
+    assert run_git(world.worktree, "merge-base", "--is-ancestor", read, "HEAD") == ""
+    assert not (world.worktree / "LATE.md").exists()
+    assert due(capsys, world) == "base"
+    ok(BASE(capsys, world))
+    assert (world.worktree / "LATE.md").is_file()
+    assert world.acts.done.count("rebase") == 2
+    assert due(capsys, world) == "checks"
+
+
+def test_a_detached_head_at_the_branchs_own_commit_starts_no_landing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "start")
+    run_git(world.worktree, "checkout", "--quiet", "--detach")
+    said = refused(START(capsys, world), "off-branch")
+    assert f"switch {BRANCH}" in said["fix"]
+    assert world.record()["task"]["status"] == "ready"
+    run_git(world.worktree, "switch", "--quiet", BRANCH)
+    ok(START(capsys, world))
+    run_git(world.worktree, "checkout", "--quiet", "--detach")
+    tip = head(world)
+    refused(BASE(capsys, world), "off-branch")
+    assert world.acts.done.count("rebase") == 0
+    run_git(world.worktree, "switch", "--quiet", BRANCH)
+    assert head(world) == tip
+    ok(BASE(capsys, world))
+
+
+def test_a_rebase_whose_abort_leaves_head_detached_names_it_and_keeps_the_mark(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # main's locked-ref case (tests/lem-land-guards.sh): the lock of the branch's ref held
+    # through the rebase's last update of it leaves HEAD detached at the rebased commit
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "base")
+    tip = head(world)
+    common = run_git(
+        world.worktree, "rev-parse", "--path-format=absolute", "--git-common-dir"
+    )
+    lock = Path(common) / "refs" / "heads" / f"{BRANCH}.lock"
+    lock.touch()
+    said = refused(BASE(capsys, world), "git-refused")
+    lock.unlink()
+    moved = head(world)
+    assert moved != tip
+    assert f"HEAD is detached at {moved[:9]}" in said["why"]
+    assert f"`git -C {world.worktree} switch {BRANCH}` puts it back" in said["why"]
+    assert "the worktree is as it was" not in said["why"]
+    assert landing(world)["based"]["before"] == tip
+    run_git(world.worktree, "switch", "--quiet", BRANCH)
+    assert head(world) == tip
+    ok(BASE(capsys, world))
+    assert world.acts.done.count("rebase") == 2
+
+
+def test_an_abort_that_fails_keeps_no_conflict_and_names_the_rebase_left(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "base")
+    conflict_on_main(world)
+    tip = head(world)
+
+    def failing(self: git_cli.GitCli, worktree: Path) -> None:
+        raise Unanswered("git", "fatal: could not abort")
+
+    monkeypatch.setattr(git_cli.GitCli, "abort", failing)
+    said = refused(BASE(capsys, world), "conflict")
+    assert "its abort left the worktree not as it was" in said["why"]
+    assert f"`git -C {world.worktree} rebase --abort`" in said["why"]
+    assert "resolution" not in landing(world)
+    monkeypatch.undo()
+    run_git(world.worktree, "rebase", "--abort")
+    assert head(world) == tip
+
+
+def test_a_resolution_holds_every_file_a_later_commit_stopped_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "checks")
+    commit_in(world, "NOTES.md", "our note\n", "docs: our note")
+    tip = head(world)
+    world.repo.outside_commit(
+        "main",
+        {"README.md": b"The README says hello.\n", "NOTES.md": b"their note\n"},
+    )
+    said = refused(BASE(capsys, world), "conflict")
+    assert "README.md" in said["why"]
+    assert landing(world)["resolution"]["files"] == ["README.md"]
+    # the builder resolves each stop of his own rebase
+    with pytest.raises(AssertionError):
+        run_git(world.worktree, "-c", "core.editor=true", "rebase", "origin/main")
+    (world.worktree / "README.md").write_text(README)
+    run_git(world.worktree, "add", "README.md")
+    with pytest.raises(AssertionError):
+        run_git(world.worktree, "-c", "core.editor=true", "rebase", "--continue")
+    (world.worktree / "NOTES.md").write_text("our note\n")
+    run_git(world.worktree, "add", "NOTES.md")
+    run_git(world.worktree, "-c", "core.editor=true", "rebase", "--continue")
+    ok(BASE(capsys, world))
+    resolution = landing(world)["resolution"]
+    assert resolution["files"] == ["NOTES.md", "README.md"]
+    assert (resolution["before"], resolution["after"]) == (tip, head(world))
+
+
+def test_a_conflict_wake_never_starts_a_round_over_a_merge_call_on_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    world.acts.cut = ("write:intent", 1)
+    with pytest.raises(Killed):
+        command("land", "merge", "SLUG", "--by", "merger", "--message", "fix")(
+            capsys, world
+        )
+    capsys.readouterr()
+    world.forge.conflicting(landing(world)["pull"]["number"])
+    said = refused(CONFLICTING(capsys, world), "not-due")
+    assert "reconciled first" in said["why"]
+    kept = landing(world)
+    assert (kept.get("phase"), kept.get("relands", 0)) == ("open", 0)
+    assert kept["intent"] is not None
+    assert world.forge.merge_calls == []
+
+
+def test_a_remote_task_branch_the_base_holds_is_no_teammates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "base")
+    on_main = run_git(world.repo.origin, "rev-parse", "main")
+    run_git(world.repo.origin, "update-ref", f"refs/heads/{BRANCH}", on_main)
+    ok(BASE(capsys, world))
+    assert due(capsys, world) == "checks"

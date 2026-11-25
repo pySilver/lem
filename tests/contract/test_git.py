@@ -260,3 +260,27 @@ def test_a_git_that_runs_past_its_limit_is_a_fault(
     git = adapter(tmp_path, "exec sleep 5")
     with pytest.raises(Unanswered, match="timed out"):
         git.tried(tmp_path, "fetch")
+
+
+def test_a_merge_tree_puts_the_base_first_as_the_rebase_does(tmp_path: Path) -> None:
+    # a `merge=union` file keeps both sides' lines, the first side's first: the order of
+    # merge_tree's arguments is the rebase's only when the base comes first
+    world = real_world(tmp_path)
+    write(
+        world.checkout,
+        {".gitattributes": b"notes.txt merge=union\n", "notes.txt": b"0\n"},
+    )
+    run_git(world.checkout, "add", "--all")
+    run_git(world.checkout, "commit", "--quiet", "--message", "notes")
+    run_git(world.checkout, "push", "--quiet", "origin", "main")
+    where = task_worktree(world)
+    tip = commit_file(world, where, "notes.txt", b"0\nours\n")
+    world.outside_commit("main", {"notes.txt": b"0\ntheirs\n"})
+    world.git.fetch(where)
+    foreseen = world.git.merge_tree(where, "origin/main", tip)
+    reversed_order = world.git.merge_tree(where, tip, "origin/main")
+    assert foreseen != reversed_order
+    rebased = world.git.rebase(where, "origin/main", reapply=False)
+    assert isinstance(rebased, str)
+    assert world.git.tree(where, rebased) == foreseen
+    assert world.git.show(where, rebased, "notes.txt") == b"0\ntheirs\nours\n"

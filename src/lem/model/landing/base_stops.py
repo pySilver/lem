@@ -14,13 +14,14 @@ if TYPE_CHECKING:
 
 class Aborted(Frozen, frozen=True, kw_only=True):
     """The worktree after the abort, looked at and never taken on trust: whether a rebase is
-    still in progress, the commit of the task's branch, the commit of HEAD, and the worktree's
-    path."""
+    still in progress, the commit of the task's branch, the commit of HEAD, the worktree's
+    path, and the branch HEAD is on (None when detached)."""
 
     rebasing: bool
     branch_tip: Sha | None
     head: Sha | None
     where: str
+    on: str | None = None
 
 
 def left(world: World, aborted: Aborted) -> str:
@@ -48,8 +49,11 @@ def branch_moved(world: World, aborted: Aborted) -> str:
         return ""
     at = (aborted.branch_tip or "no commit")[:9]
     # on the branch, HEAD moves with a reset; off it, the branch is set by its name
-    on = aborted.head is not None and aborted.head == aborted.branch_tip
-    back = f"reset --hard {before}" if on else f"branch -f {branch} {before}"
+    back = (
+        f"reset --hard {before}"
+        if aborted.on == branch
+        else f"branch -f {branch} {before}"
+    )
     return (
         f"the branch {branch} is at {at}, not at its tip before the rebase {before} "
         f"(`git -C {aborted.where} {back}` puts it back)"
@@ -58,12 +62,13 @@ def branch_moved(world: World, aborted: Aborted) -> str:
 
 def head_off(world: World, aborted: Aborted) -> str:
     """A HEAD the abort left off the branch: detached, or on another branch."""
-    if aborted.head == aborted.branch_tip:
+    if aborted.on == world.branch:
         return ""
     head = (aborted.head or "no commit")[:9]
+    on = f"on {aborted.on}" if aborted.on else f"detached at {head}"
     return (
-        f"HEAD is at {head}, not on the branch {world.branch} "
-        f"(`git -C {aborted.where} switch --force {world.branch}` puts it back)"
+        f"HEAD is {on}, not on the branch {world.branch} "
+        f"(`git -C {aborted.where} switch {world.branch}` puts it back)"
     )
 
 

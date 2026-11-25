@@ -7,38 +7,42 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.records.landing.record import Landing
-from lem.records.landing.start import Resolution
+from lem.records.landing.start import Based, Resolution
 
 if TYPE_CHECKING:
+    from lem.model.landing.rebased import Paths
     from lem.model.landing.world import World
     from lem.records.base import Sha
-    from lem.records.landing.start import Based
+    from lem.records.landing.start import Polished
     from lem.records.record import Record
 
 
-def resolved(landing: Landing, based: Based) -> Resolution | None:
+def resolved(
+    landing: Landing, based: Based, files: tuple[str, ...]
+) -> Resolution | None:
     """The resolution of a conflict this landing met, once a builder rebased the branch past
-    it: the tip he made, on the base he made it on. One that waits keeps its tip before."""
+    it: the tip he made, on the base he made it on, with every file git's merge meets a
+    conflict in (`files`). One that waits keeps its tip before."""
     found = landing.resolution
     if found is None or found.after != found.before:
         return found
     if based.tip == found.before:
         return found
-    return replace(found, after=based.tip, base=based.base)
+    joined = tuple(sorted({*found.files, *files}))
+    return replace(found, after=based.tip, base=based.base, files=joined)
 
 
-def kept(record: Record, based: Based, polish: Sha | None) -> Record:
-    """The record with the branch on the base, a waiting resolution resolved, and the polish
-    pass's last commit by its name after the rebase (`polish`)."""
+def kept(
+    record: Record, based: Based, polished: Polished | None, files: Paths = ()
+) -> Record:
+    """The record with the branch on the base, a waiting resolution resolved with `files`,
+    and the polish pass carried through the rebase (`polished`; None keeps it as it is)."""
     landing = record.landing or Landing()
-    polished = landing.polished
-    if polished is not None and polish is not None:
-        polished = replace(polished, after=polish)
     changed = replace(
         landing,
         based=based,
-        resolution=resolved(landing, based),
-        polished=polished,
+        resolution=resolved(landing, based, files),
+        polished=polished or landing.polished,
     )
     return replace(record, landing=changed)
 
@@ -55,3 +59,20 @@ def conflicted(record: Record, world: World, files: tuple[str, ...]) -> Record:
     else:
         waiting = Resolution(files=files, before=tip, after=tip, base=world.base)
     return replace(record, landing=replace(landing, resolution=waiting))
+
+
+def marked(record: Record, world: World, fork: Sha) -> Record:
+    """The record before a rebase: the tip as it is, on the commit it forked from origin's
+    base (`fork`), so that a stop between the rebase and its record still names the tip
+    before it, which git's `ORIG_HEAD` confirms (`base_after.recovered`)."""
+    landing = record.landing or Landing()
+    tip, now = world.tip or fork, world.now
+    mark = Based(tip=tip, base=fork, before=tip, carried=False, at=now)
+    changed = replace(landing, based=mark)
+    return replace(record, landing=changed)
+
+
+def unmarked(record: Record, based: Based | None) -> Record:
+    """The record with `based` as it was before the mark of a rebase that was undone."""
+    landing = record.landing or Landing()
+    return replace(record, landing=replace(landing, based=based))

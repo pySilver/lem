@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import frame, say, step
+from lem.app.landing import frame, head, say, step
 from lem.kernel import clock
 from lem.kernel.envelope import Envelope
 from lem.kernel.errors import Refusal
-from lem.model.landing import begin, start
+from lem.model.landing import begin, reconcile, start
 from lem.store import places, steps, tasks
 
 if TYPE_CHECKING:
@@ -54,8 +54,9 @@ def own_commands(context: frame.Context) -> tuple[str, ...]:
 def act(context: frame.Context, *, conflicting: bool) -> Started:
     """Record the start of the round, or the block of a task with no command of the checks."""
     record, world = context.record, context.world
+    on = head.branch_of(context.worktree) if world.tip else None
     facts = start.Facts(
-        on_branch=world.local == world.tip, own_commands=own_commands(context)
+        on_branch=on == world.branch, own_commands=own_commands(context)
     )
     started = start.decide(record, world, facts, conflicting=conflicting)
     if isinstance(started, Refusal):
@@ -69,11 +70,16 @@ def act(context: frame.Context, *, conflicting: bool) -> Started:
 
 
 def called(context: frame.Context) -> bool:
-    """Whether the forge calls the task's pull request conflicting now."""
+    """Whether the forge calls the task's open pull request conflicting at the proposed head,
+    with no merge call on record to reconcile first: a merge intent or an accepted call is
+    settled before any new round (`reconcile.pending`)."""
     landing = context.record.landing
-    if landing is None or landing.pull is None:
+    if landing is None or landing.pull is None or landing.proposed is None:
         return False
-    return context.ports.forge.pull(landing.pull.number).mergeable == "conflicting"
+    if landing.phase != "open" or reconcile.pending(landing, context.world) is not None:
+        return False
+    pull = context.ports.forge.pull(landing.pull.number)
+    return pull.mergeable == "conflicting" and pull.head == landing.proposed.tip
 
 
 def woken(folder: Path, slug: str) -> Envelope:
