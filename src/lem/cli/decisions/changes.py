@@ -2,13 +2,20 @@
 
     lem decisions changes SLUG
 
-A stub until the step `criteria` builds it: it refuses `not-built`.
+The approved criteria, each recorded change of them in order, and the criteria they give,
+which the plan's criteria must be.
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.decisions import listing
+from lem.cli import place
+
+if TYPE_CHECKING:
+    from lem.model.decisions.changes import Changes
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +24,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     slug: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `criteria` builds `lem decisions changes`."""
-    raise not_built("decisions changes", "criteria")
+def run(call: Call) -> Changes:
+    """The approvals, the changes of the newest one, and the criteria they give."""
+    return listing.changes_of(place.folder(), call.slug)
 
 
 COMMAND = click.Command(

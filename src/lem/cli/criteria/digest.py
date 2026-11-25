@@ -2,13 +2,17 @@
 
     lem criteria digest SLUG [--file FILE]
 
-A stub until the step `criteria` builds it: it refuses `not-built`.
+The mark of the `Size` line and the criteria's texts, each with its case, without their tests:
+what an approval keeps and what the record of the personas' read names.
 """
+
+from pathlib import Path
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.criteria import marks
+from lem.cli import place
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -18,9 +22,10 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     path: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `criteria` builds `lem criteria digest`."""
-    raise not_built("criteria digest", "criteria")
+def run(call: Call) -> marks.Mark:
+    """The mark of the criteria of FILE, or of the task's criteria as they stand."""
+    named = Path(call.path) if call.path else None
+    return marks.marked(place.folder(), call.slug, named)
 
 
 COMMAND = click.Command(
