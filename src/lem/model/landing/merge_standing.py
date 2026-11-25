@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Literal
 import msgspec
 
 from lem.kernel import files
-from lem.model.landing import green
+from lem.model.landing import green, standing
 from lem.records.landing.merge import Refused
 from lem.records.landing.propose import Standing
 
@@ -46,16 +46,31 @@ def digest_of(reasons: tuple[str, ...]) -> str:
     return files.digest(msgspec.json.encode(reasons))
 
 
+def reasons_now(record: Record) -> tuple[str, ...]:
+    """The reasons the proposal is not green, read again now (`green.reasons`). The careful
+    lines of the fast track are the proposal's own: they follow from the tip and the shape,
+    which a new proposal changes, and from a read of the settings' edit that only `propose`
+    makes."""
+    proposed = record.landing.proposed if record.landing else None
+    seen = proposed.reasons if proposed else ()
+    head = green.FAST.split("(", 1)[0]
+    fast = tuple(reason for reason in seen if reason.startswith(head))
+    return fast + green.reasons(record, ())
+
+
 def standing_of(record: Record) -> Standing | None:
-    """The owner's merge that stands for the proposed tip: refused for the base, with the
-    reasons it is not green, read again now, the ones he saw."""
+    """The owner's merge that stands for the proposed tip: his own word refused for the base,
+    standing by `land-base`'s rule (`model/landing/standing.py`) with the reasons it is not
+    green read again now; or the one `propose` found standing on a new tip."""
     landing = record.landing
-    proposed = landing.proposed if landing else None
-    standing = landing.standing if landing else None
-    if proposed is None or standing is None or standing.tip != proposed.tip:
+    if landing is None or landing.standing is None or landing.proposed is None:
         return None
-    now = digest_of(green.reasons(record))
-    return standing if standing.reasons_digest == now else None
+    judged = landing.proposed.owner_merge
+    if landing.standing.tip != landing.proposed.tip:
+        return landing.standing if judged and judged.state == "stands" else None
+    now = digest_of(reasons_now(record))
+    found = standing.standing(landing, now, carried=True)
+    return landing.standing if found and found.state == "stands" else None
 
 
 def word(asked: Asked) -> bool:

@@ -68,7 +68,7 @@ def heard(context: Context, record: Record, intent: MergeIntent) -> Record:
     )
 
 
-def admits(asked: Asked, due: Due) -> bool:
+def admits(asked: Asked, context: Context, due: Due) -> bool:
     """Whether the owner's own word for the tip he saw is taken while the merge agent's read
     is due: as on `main`, his word needs no read; on a moved base it is refused for the base
     under the lock, and stands until a safe read."""

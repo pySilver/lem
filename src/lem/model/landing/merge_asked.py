@@ -127,3 +127,13 @@ def refusal(record: Record, world: World, asked: Asked) -> Refusal | None:
         or github_refusal(record, asked)
         or message_refusal(world, asked)
     )
+
+
+def contract_moved(record: Record) -> bool:
+    """Whether the criteria were approved again after the proposal (`main:land.may_merge`
+    reads them as they stand): its evidence was made under another contract. The proposal
+    keeps no mark of `model/criteria/contract.py` yet (`notes/land-merge.md`), so the moment
+    of the newest approval stands in for it."""
+    proposed = (record.landing or Landing()).proposed
+    approvals = record.task.criteria.approvals
+    return bool(proposed and approvals and approvals[-1].at > proposed.at)

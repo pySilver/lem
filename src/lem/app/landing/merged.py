@@ -14,7 +14,14 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing import changes, merge_step, merge_text, merge_world, reconcile
+from lem.app.landing import (
+    changes,
+    merge_step,
+    merge_text,
+    merge_world,
+    merged_beside,
+    reconcile,
+)
 from lem.kernel.errors import Refusal
 from lem.model.landing import reconcile as rules
 from lem.store import tasks
@@ -107,4 +114,5 @@ def act(context: Context) -> object:
 
 def run(folder: Path, slug: str) -> Envelope:
     """`lem land merged SLUG`."""
-    return merge_step.landed(folder, slug, "merged", act)
+    hooks = merge_step.Hooks(admits=merged_beside.admits)
+    return merge_step.landed(folder, slug, "merged", act, hooks)

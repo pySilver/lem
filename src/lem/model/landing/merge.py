@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
-    green,
     merge_asked,
     merge_call,
     merge_evidence,
@@ -35,6 +34,7 @@ CAREFUL = "the request is careful: the owner merges it, whatever the settings sa
 NO_CALL = "no review that answered made the careful call for this change"
 LAND_OWNER = 'branch.land is "owner" in .lem/settings.toml: the owner merges every task'
 CALLS = "the merge agent's read of this tip and base calls the owner"
+MOVED = "the criteria were approved again after the proposal, which was made for others"
 OWNER: Merger = "owner"
 
 
@@ -61,7 +61,11 @@ def authority(record: Record, world: World, *, verdict: bool = True) -> str | No
     landing = record.landing or Landing()
     last, read = newest(landing), mergeread.latest(landing, world.base_tree)
     found = (
-        (landing.proposed is None or bool(green.reasons(record)), NOT_GREEN),
+        (
+            landing.proposed is None or bool(merge_standing.reasons_now(record)),
+            NOT_GREEN,
+        ),
+        (merge_asked.contract_moved(record), MOVED),
         (careful(record), CAREFUL),
         (last is None or last.careful is None, NO_CALL),
         (world.rules.land == OWNER, LAND_OWNER),

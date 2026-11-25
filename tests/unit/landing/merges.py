@@ -70,7 +70,7 @@ def alone(**landing: object) -> Record:
     approvals = tuple(replace(one, by="alone") for one in criteria.approvals)
     task = replace(record.task, criteria=replace(criteria, approvals=approvals))
     made = replace(record, task=task)
-    reasons = green.reasons(made)
+    reasons = green.reasons(made, ())
     proposed = replace(OPENED["proposed"], reasons=reasons, green=False)
     kept = made.landing
     assert kept is not None

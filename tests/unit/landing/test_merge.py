@@ -3,6 +3,7 @@ what is read again under the merge lock before the intent, the owner's word for 
 his standing merge, GitHub's refusal of a tip, the subject of a squash, and what a refusal for a
 moved base keeps (`landing.md` C, D, E and H 2)."""
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -78,7 +79,7 @@ def test_the_merge_agent_merges_a_green_request_on_its_reads_merge() -> None:
             None,
             "careful",
         ),
-        ({}, ("money",), None, "not green"),
+        ({}, ("money",), None, "careful"),
         ({"reviews": (replace(REVIEWED, careful=None),)}, None, None, "careful call"),
         ({}, None, Rules(base="main", land="owner", commands=("true",)), "branch.land"),
         ({"reads": (replace(READ, verdict="call"),)}, None, None, "calls the owner"),
@@ -343,3 +344,20 @@ def test_the_owners_word_merges_a_request_that_is_not_green() -> None:
     made = merge.decide(red, facing(), BY_OWNER, TREE)
     assert isinstance(made, merge_call.Merging)
     assert made.intent.by == "owner"
+
+
+def test_criteria_approved_again_after_the_proposal_take_the_merge_from_the_agent() -> (
+    None
+):
+    record = opened()
+    criteria = record.task.criteria
+    later = replace(criteria.approvals[-1], at=MOMENT + timedelta(minutes=5))
+    again = replace(criteria, approvals=(*criteria.approvals, later))
+    moved_contract = replace(record, task=replace(record.task, criteria=again))
+    found = merge.authority(moved_contract, facing())
+    assert found is not None
+    assert "approved again after the proposal" in found
+    assert (
+        code_of(merge.decide(moved_contract, facing(), BY_MERGER, TREE))
+        == "merger-rule"
+    )

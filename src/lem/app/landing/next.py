@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 
-def due_of(workspace: places.Workspace, record: Record) -> tuple[Due, bool]:
+def due_with(workspace: places.Workspace, record: Record) -> tuple[Due, bool]:
     """The due step of the record's task, and whether its merge squashes the branch; from the
     record when it alone decides, else gathered now."""
     found = phases.settled(record)
@@ -35,10 +35,16 @@ def due_of(workspace: places.Workspace, record: Record) -> tuple[Due, bool]:
     return phases.due(record, world), world.rules.history == "squash"
 
 
+def due_of(workspace: places.Workspace, record: Record) -> Due:
+    """The due step of the record's task, from the record when it alone decides, else
+    gathered now."""
+    return due_with(workspace, record)[0]
+
+
 def due_now(folder: Path, slug: str) -> Envelope:
     """The due step of the task `slug`, with the command that runs it."""
     workspace = places.workspace(folder)
-    due, squash = due_of(workspace, tasks.read(workspace.state, slug))
+    due, squash = due_with(workspace, tasks.read(workspace.state, slug))
     encoded = msgspec.Raw(msgspec.json.encode(due))
     then = following.following(slug, due, squash=squash)
     return Envelope(ok=True, outcome=encoded, following=then)

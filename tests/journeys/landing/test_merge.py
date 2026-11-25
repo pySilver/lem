@@ -957,3 +957,15 @@ def test_a_linked_worktree_that_holds_the_base_follows_it(
     assert MERGED(capsys, world)["ok"] is True
     assert "left_behind" not in landing(world)["merged"]
     assert run_git(holder, "rev-parse", "HEAD") == world.repo.head_of("main")
+
+
+def test_a_request_closed_on_github_while_a_new_round_runs_is_dropped_by_merged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    again(world.checkout / ".lem" / "state")
+    world.forge.close(1)
+    assert due(capsys, world)["step"] != "merged"
+    assert MERGED(capsys, world)["ok"] is True
+    assert world.record()["task"]["status"] == "dropped"

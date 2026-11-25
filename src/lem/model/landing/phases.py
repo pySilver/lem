@@ -34,6 +34,7 @@ PREPARING: tuple[Rule, ...] = (
     filing.holds,
     propose.holds,
 )
+MERGED = "merged"
 LANDS = frozenset(("ready", "landing", "open", "landed"))
 # A task that ended with no landing, whose worktree and branch `clean` removes.
 ENDS = frozenset(("dropped", "answered"))
@@ -41,11 +42,13 @@ ENDS = frozenset(("dropped", "answered"))
 
 def preparing(record: Record, world: World) -> Due:
     """The first row of `preparing` whose evidence does not hold; first, a pull request on
-    record that the forge merged or closed meanwhile (the owner's merge on GitHub while a new
-    round runs its checks, `main:land.cmd_merged`), whose bookkeeping comes before any row."""
+    record that the forge merged meanwhile (the owner's merge on GitHub while a new round runs
+    its checks, `main:land.cmd_merged`), whose bookkeeping comes before any row. A request
+    closed meanwhile is refused by `propose`, which names `merged`, taken beside it
+    (`app/landing/merged.py: admits`)."""
     pull = world.pull
-    if (record.landing or Landing()).pull and pull and pull.state != "open":
-        return Due(step="merged", why=f"the forge shows the pull request {pull.state}")
+    if (record.landing or Landing()).pull and pull and pull.state == MERGED:
+        return Due(step=MERGED, why="the forge shows the pull request merged")
     for rule in PREPARING:
         found = rule(record, world)
         if isinstance(found, Due):

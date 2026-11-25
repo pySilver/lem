@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 type Act = Callable[[Context], object]
 type Told = Callable[[object], Next | None]
-type Admits = Callable[[Due], bool]
+type Admits = Callable[[Context, Due], bool]
 
 
 class Hooks(msgspec.Struct, frozen=True, kw_only=True):
@@ -49,6 +49,15 @@ def refused(workspace: places.Workspace, slug: str, verb: Verb) -> None:
         raise say.not_due(slug, verb, early)
 
 
+def allowed(context: Context, verb: Verb, admits: Admits | None) -> None:
+    """Refuse the step `verb` unless it is the due one, or one that `admits` takes beside
+    it."""
+    due = phases.due(context.record, context.world)
+    beside = admits is not None and admits(context, due)
+    if due.step != verb and not beside:
+        raise say.not_due(context.record.task.slug, verb, due)
+
+
 def ran(
     workspace: places.Workspace, slug: str, verb: Verb, act: Act, admits: Admits | None
 ) -> tuple[Context, object, Due]:
@@ -58,9 +67,7 @@ def ran(
     now = clock.now()
     with steps.step(workspace.state, slug, verb, now):
         context = step.opened(workspace, slug, now)
-        due = phases.due(context.record, context.world)
-        if due.step != verb and not (admits is not None and admits(due)):
-            raise say.not_due(slug, verb, due)
+        allowed(context, verb, admits)
         outcome = act(context)
         after = phases.settled(tasks.read(workspace.state, slug))
         return context, outcome, after or step.looked(context)

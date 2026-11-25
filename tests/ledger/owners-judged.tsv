@@ -2,6 +2,83 @@ id	step	why	from
 check:tests/lem-command.sh:a-second-sync-of-a-copy-of-this-checkout-wit-bed0612a5c4eb8a6	pack-trial	the build and sync of the app are core's packaging; P1 installs and checks it	tree
 check:tests/lem-command.sh:the-wheel-built-from-the-sdist-with-the-mani-5829869ffee83f44	pack-trial	the wheel's contents are core's packaging; P1 installs the formula	tree
 check:tests/lem-command.sh:the-wheel-check-refuses-a-wheel-s-file-that-bc7b89e9005246a7	pack-trial	the check of the wheel's files against git belongs with the packaging trial	tree
+check:tests/lem-decisions.sh:a-dropped-task-stays-dropped-and-its-resume-4cb48ada68901d88	task	a dropped task's resume as a new task is task resume (task's leaf)	criteria
+check:tests/lem-decisions.sh:a-lead-whose-task-needs-another-task-s-resul-0f3ddd6189435167	task	the queue behind another task and may-start are task move, task may-start (task's leaves)	criteria
+check:tests/lem-decisions.sh:a-parked-task-gets-no-lead-takes-no-late-sta-a55a45734936af39	task	park and resume are task park and task resume; the help on a parked task's breaker is criteria's test_a_parked_task_takes_his_help_after_its_resume	criteria
+check:tests/lem-decisions.sh:a-resume-whose-new-worktree-s-setup-fails-ke-d7385594085043ab	task	a resume and its new worktree's setup are task resume and task worktree	criteria
+check:tests/lem-decisions.sh:a-resumed-task-keeps-the-owner-s-approval-af-fad51e2ec671502a	task	a resume copies the old task's record (its approvals, reads and decisions) into the new one: task resume	criteria
+check:tests/lem-decisions.sh:a-task-queued-after-a-dropped-task-by-a-need-7cc86fd22ba0eb5b	owner	the rows of what waits for the owner are lem waiting (owner's)	criteria
+check:tests/lem-decisions.sh:a-task-the-night-opened-runs-without-the-own-c20756bad8992c82	owner	a night task's mode in the list and in what waits, and the brake, are task list and lem waiting	criteria
+check:tests/lem-decisions.sh:a-task-two-releases-back-stops-at-its-first-417a4d8879a707ca	task	the release stop two releases back is task's (notes/core.md)	criteria
+check:tests/lem-decisions.sh:his-start-it-for-a-task-queued-behind-a-drop-c3c61905db4d491a	task	his start of a queued task is task start --words (task's)	criteria
+check:tests/lem-decisions.sh:in-the-morning-the-list-marks-a-task-the-nig-bb6d28f81023b85a	owner	the morning's list of what waits and the night's report are lem waiting and status (owner's)	criteria
+check:tests/lem-decisions.sh:waiting-lists-in-one-json-what-waits-for-the-6d70049e2e7ff4df	owner	lem waiting lists what waits for the owner in its nine groups (owner's); its breakers come from decisions pending	criteria
+check:tests/lem-land-backlog.sh:a-line-the-session-wrote-by-hand-under-seen-b16e5ff7cc38a7f9	land-propose	propose refuses a notes line under Seen with no bar call	land-review
+check:tests/lem-land-backlog.sh:a-new-item-in-the-backlog-folder-after-a-rev-8517d3761ed62042	land-base	a review's coverage of new backlog files and of an edited base item is carry.py's (landing.md D, review coverage)	land-review
+check:tests/lem-land-backlog.sh:a-repository-whose-team-settings-say-finding-0a8efbfdd7dac6fe	land-propose	each line under the bar saying Jev was not asked is propose's read; land-review's alike and file send nothing with jev.findings false (journeys.landing.test_review.test_a_team_that_sends_no_finding_to_jev_asks_jev_nothing)	land-review
+check:tests/lem-land-backlog.sh:a-task-started-from-a-backlog-item-stops-at-6071fd102835c6d6	land-propose	propose's own-item refusal; the review's coverage of the item's removal is carry.py's	land-review
+check:tests/lem-land-backlog.sh:an-item-that-was-on-the-branch-before-the-re-b394e80f4ad2e05a	land-propose	propose stops at a filed item gone from the tip; file --again is built and proved by unit.landing.test_filing.test_an_item_that_was_filed_and_then_removed_stops_file_and_again_puts_it_back	land-review
+check:tests/lem-land-backlog.sh:jev-reads-each-finding-called-under-the-bar-6c26b4f18684b4ff	land-propose	Jev's read of the findings under the bar runs in propose	land-review
+check:tests/lem-land-backlog.sh:the-merge-agent-s-brief-lists-each-item-the-5d9b1c9345c325ed	land-merge	the merge agent's brief is merge-review's; the bar file's name is model/landing/jev_bar.named	land-review
+check:tests/lem-land-backlog.sh:the-review-is-told-of-the-branch-s-items-and-87aabd968234f8d1	land-text	the review is told of the branch's items (inputs.filed of the brief, built here); that a defect at an item's place gets its own item is the review prompt's rule, read by a real review	land-review
+check:tests/lem-land-backlog.sh:two-rounds-that-saw-defects-outside-the-chan-2dbe0a5afd753102	land-propose	each round's items committed alone is built here (filing_commits); propose waiting for each and the pull request naming each item are propose's	land-review
+check:tests/lem-land-github.sh:a-branch-changed-after-its-push-whose-pushed-e231f26c2bfe89b6	land-merge	clean keeps or removes the branch after the merge: land-merge's clean	land-propose
+check:tests/lem-land-github.sh:a-branch-the-landing-rebased-after-its-push-0d1a7a5bb94334fb	land-merge	clean after a rebase after the push: land-merge's clean (after_push)	land-propose
+check:tests/lem-land-github.sh:a-branch-the-landing-rebased-after-its-push-488c80283a7b2565	land-merge	clean after a rebase after the push: land-merge's clean (after_push)	land-propose
+check:tests/lem-land-github.sh:a-careful-change-after-a-conflict-the-read-o-ad956493606a706c	land-base	what carries over a conflict's resolution, and the owner's merge it ends, is carry (land-base) and the standing merge	land-propose
+check:tests/lem-land-github.sh:a-careful-change-keeps-its-review-through-a-8ece881b59db8e48	land-base	the review's carry over a rebase is land-base's carry	land-propose
+check:tests/lem-land-github.sh:a-conflict-after-a-merge-base-stops-on-the-f-f4b7e614d6d47e26	land-base	base's conflict, the resolution's read and the carry are land-base's	land-propose
+check:tests/lem-land-github.sh:a-new-task-s-worktree-starts-from-origin-s-b-5b968321c7a08a7f	task	a task's worktree is task's (task worktree)	land-propose
+check:tests/lem-land-github.sh:a-pull-request-a-commit-on-the-base-made-con-3b8f188ae63e3a9f	land-base	start --conflicting and the synced line are land-base's	land-propose
+check:tests/lem-land-github.sh:a-pull-request-closed-on-the-forge-with-no-m-9f9c636881cd5685	land-merge	merged writes a closed pull request's task dropped: land-merge's merged	land-propose
+check:tests/lem-land-github.sh:a-pull-request-is-merged-through-the-forge-o-3d51a909ce991dca	land-merge	the merge through the forge: land-merge	land-propose
+check:tests/lem-land-github.sh:a-pull-request-is-not-merged-over-a-base-tha-1e7870baeeae2d2c	land-merge	a merge over a moved base: land-merge	land-propose
+check:tests/lem-land-github.sh:a-pull-request-whose-base-was-changed-on-git-c59c5d5297e026b1	land-merge	a retarget refused at the merge: land-merge	land-propose
+check:tests/lem-land-github.sh:a-task-is-not-opened-under-a-slug-whose-bran-e7864b74ce3a81d3	task	task open's refusal of a taken branch: task	land-propose
+check:tests/lem-land-github.sh:a-teammate-s-commit-on-the-task-s-branch-sto-8207ed77d85d6bdb	land-base	base's teammate refusal: land-base	land-propose
+check:tests/lem-land-github.sh:after-a-merge-an-open-task-with-no-conflict-9ab9e1e1b3bd03e1	land-base	a new round onto a moved base, what carries and its one line: land-base's start, base and carry	land-propose
+check:tests/lem-land-github.sh:after-a-merge-the-forge-made-as-one-commit-t-aeede728a86c6bc8	land-merge	clean after a squash: land-merge	land-propose
+check:tests/lem-land-github.sh:after-an-update-branch-on-the-forge-and-a-me-226bd9af46795342	land-merge	clean after an Update branch: land-merge	land-propose
+check:tests/lem-land-github.sh:after-the-merge-the-worktree-and-the-branch-e0dae355a8804dc5	land-merge	clean: land-merge	land-propose
+check:tests/lem-land-github.sh:an-open-task-whose-last-review-left-a-must-f-0dead4e126644e05	land-merge	the end of the owner's standing merge over a rebase is the Proposed.owner_merge that land-merge's standing reads, from land-base's carry	land-propose
+check:tests/lem-land-github.sh:merge-merges-no-pull-request-whose-head-on-t-6f5a0b3e4ac8aacb	land-merge	the merge's head and state checks: land-merge	land-propose
+check:tests/lem-land-github.sh:merged-on-a-pull-request-that-is-still-open-102ab6ff38ab9cbf	land-merge	merged on an open pull request and waiting's conflict: land-merge	land-propose
+check:tests/lem-land-guards.sh:a-file-that-was-untracked-before-the-gate-is-a495a2382e12fd27	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
+check:tests/lem-land-guards.sh:a-file-with-no-suffix-is-read-with-the-marks-a17cfe730d0a166e	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
+check:tests/lem-land-guards.sh:a-gate-command-s-process-group-ends-with-it-474c0dfe08699c33	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
+check:tests/lem-land-guards.sh:a-gate-command-that-writes-a-cache-folder-an-a87fa448811582a8	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
+check:tests/lem-land-guards.sh:a-gate-with-no-command-to-run-refuses-and-re-e9c4966fb9a4dc42	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
+check:tests/lem-land-guards.sh:a-green-result-is-for-the-commands-that-ran-c984b42ac8255e75	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
+check:tests/lem-land-guards.sh:a-task-branch-the-owner-protected-after-its-36360647d694c7c1	land-propose	propose's push to a protected branch; clean's half is land-merge's	land-base
+check:tests/lem-land-guards.sh:a-test-file-moved-out-of-the-tests-lowers-th-95d737ea4238b0f3	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
+check:tests/lem-land-guards.sh:an-ignored-pycache-that-was-there-before-the-5622e4f89a238630	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
+check:tests/lem-land-guards.sh:propose-refuses-notes-that-are-no-file-and-a-767052da2cb01f3e	land-propose	propose's refusals	land-base
+check:tests/lem-land-guards.sh:stop-ends-the-checks-during-a-command-during-36cd3443c2934c93	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
+check:tests/lem-land-guards.sh:the-bar-sees-a-deselect-a-k-not-a-rerun-and-7f69714a94ff97cc	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
+check:tests/lem-land-guards.sh:the-check-of-the-criteria-refuses-a-branch-w-3a18df348cbf486b	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
+check:tests/lem-land-guards.sh:the-gate-refuses-a-command-that-edits-a-trac-3374f56fa4492787	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
+check:tests/lem-land-guards.sh:while-the-checks-run-a-second-run-is-refused-8e9f2d71b3bf87e6	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
+check:tests/lem-land-local.sh:a-plan-that-says-size-small-is-refused-by-th-d55a804a9fae20d2	criteria	the criteria's refusal of a plan that says Size: small, with polish's and the gate's: criteria (and land-checks)	land-propose
+check:tests/lem-land-local.sh:a-read-by-the-lead-with-one-model-family-in-44f308ca5d3ce791	criteria	the read's record form, the lead's freeze and its later change are criteria's (lem criteria read); the read's line is proved by unit.landing.test_propose.test_the_personas_read_and_his_approval_in_the_checks	land-propose
+check:tests/lem-land-local.sh:a-read-freezes-only-the-first-contract-of-a-2f9f32ad22761560	criteria	the freeze of a read: criteria	land-propose
+check:tests/lem-land-local.sh:for-a-full-change-from-a-complete-request-hi-220251e845454336	criteria	his word to skip the read on a complete request is refused when it is given (lem criteria skip), which the criteria step builds	land-propose
+check:tests/lem-land-local.sh:without-the-owner-the-criteria-are-approved-7d6e6a9261f90d06	criteria	when an approval by:alone may be given is criteria approve --alone's rule	land-propose
+check:tests/lem-land-review.sh:a-branch-that-commits-the-machine-s-own-sett-35ce6111863dc4fc	land-propose	the pull request's line and the person's merge are propose's, from model/landing/careful.reasons; the full set is the review's floor (unit.landing.test_review.test_a_commit_of_one_machine_s_own_settings_is_careful_and_says_how)	land-review
+check:tests/lem-land-review.sh:a-branch-that-edits-the-flow-table-of-its-ow-6b084b242fc7fbfc	land-propose	the pull request's line and the person's merge are propose's, from model/landing/careful.reasons; the full set and the main checkout's settings are the review's (journeys.landing.test_review.test_an_edit_of_lem_s_own_settings_gets_the_full_set_whatever_the_shape_says)	land-review
+check:tests/lem-land-review.sh:a-change-of-one-space-or-the-same-edit-in-an-ff9aac3f54572925	land-base	a change's identity across a rebase is carry.py's review coverage	land-review
+check:tests/lem-land-review.sh:a-change-that-adds-a-suppression-is-refused-7c441497ae45f6a1	land-checks	the bar's refusal at the checks	land-review
+check:tests/lem-land-review.sh:a-full-change-s-checks-waits-for-the-polish-7ae462cde1e8ae18	land-checks	the polish pass	land-review
+check:tests/lem-land-review.sh:a-polish-pass-that-was-done-stays-done-when-348b4aecfc9eb59a	land-checks	the polish pass	land-review
+check:tests/lem-land-review.sh:a-task-that-ran-without-the-owner-is-not-gre-8f2051c7e5ab37b5	land-propose	green and its reasons	land-review
+check:tests/lem-land-review.sh:a-task-that-ran-without-the-owner-with-nothi-eaa1eb014cebc08a	land-propose	green and its reasons	land-review
+check:tests/lem-land-review.sh:polish-done-refuses-a-worktree-with-changes-159932c29a5012b8	land-checks	the polish pass	land-review
+check:tests/lem-land-review.sh:polish-logs-polish-start-once-with-the-tip-t-5e98204756f17849	land-checks	the polish pass	land-review
+check:tests/lem-land-review.sh:the-checks-on-the-tip-the-polish-pass-ended-65ac0c082c825118	land-checks	the checks taken from the polish pass	land-review
+check:tests/lem-land-review.sh:the-gate-finds-the-polish-pass-on-its-tip-wi-e2795df22f30cdfa	land-checks	the checks and the polish pass	land-review
+check:tests/lem-land-review.sh:the-merge-agent-merges-a-green-request-whose-98d062678522adfc	land-merge	who merges, by the newest review's careful call	land-review
+check:tests/lem-land-review.sh:the-owner-s-careful-on-a-task-whose-pull-req-44ad2840b1b93d22	land-base	start takes an open request into the landing again; the owner's careful word needs a field of the task (notes/land-review.md)	land-review
+check:tests/lem-land-review.sh:the-pull-request-s-checks-say-how-many-commi-41dca83e3532add8	land-propose	the pull request's checks section	land-review
+check:tests/lem-land-review.sh:with-a-reason-for-each-file-in-the-plan-the-d13ea3e05afa6b96	land-propose	the text that opens with each lowered bar and the not-green reason; the review's word on each lowered bar is built here (unit.landing.test_review.test_a_lowered_bar_the_record_says_nothing_of_is_refused_and_its_word_is_kept)	land-review
 check:tests/lem-land-shop.sh:a-base-run-again-after-a-propose-cut-off-aft-1c02b7df412e7352	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)	land-merge
 check:tests/lem-land-shop.sh:a-base-that-moved-back-under-a-tip-a-rebase-700308f2fb6c6fdf	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)	land-merge
 check:tests/lem-land-shop.sh:a-base-that-moved-by-a-document-is-refused-t-15ec8504fb0be0c2	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's	land-merge
@@ -51,15 +128,124 @@ check:tests/lem-land-shop.sh:the-notes-of-a-careful-request-say-whether-i-a148cb
 check:tests/lem-land-shop.sh:the-owner-s-merge-that-a-moved-base-refused-5a18fe00063e45b1	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's	land-merge
 check:tests/lem-land-shop.sh:the-pull-request-is-opened-on-github-the-tas-3eba9a0191bd2909	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's	land-merge
 check:tests/lem-land-shop.sh:through-a-red-base-the-new-landing-goes-on-w-e7544b70136dee8e	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's	land-merge
+check:tests/lem-machine.sh:a-claim-folder-that-cannot-be-made-still-que-82426ece104d39eb	sessions	the correction hook's claim and queue write (lem-hook corrections, with the queue's write): sessions	settings
+check:tests/lem-machine.sh:a-hook-line-with-lem-hook-bin-at-a-file-that-77c47f5908885070	sessions	hooks/run: sessions	settings
+check:tests/lem-machine.sh:a-hook-line-with-no-lem-hook-bin-and-no-app-f98b86a503650ccf	sessions	hooks/run: sessions	settings
+check:tests/lem-machine.sh:a-hook-whose-own-directory-was-removed-still-30bc2ef3a51eb4be	sessions	the correction hook: sessions	settings
+check:tests/lem-machine.sh:a-lesson-without-its-sentence-or-without-its-895c435f2cb27a8a	addons-flow	corrections record and lessons: addons-flow	settings
+check:tests/lem-machine.sh:a-queue-line-that-was-cut-off-and-a-line-tha-ae64b1e2fdd933c9	addons-flow	corrections list: addons-flow	settings
+check:tests/lem-machine.sh:a-recorded-group-leaves-the-list-and-lessons-83a9fb52351982b1	addons-flow	corrections list and lessons: addons-flow	settings
+check:tests/lem-machine.sh:each-line-of-hooks-hooks-json-run-through-sh-cfb6e941630ada57	sessions	hooks.json and hooks/run: sessions	settings
+check:tests/lem-machine.sh:lem-jev-names-a-jev-timeout-that-is-no-numbe-0235f49ad91c520a	addons-outside	lem jev: addons-outside	settings
+check:tests/lem-machine.sh:lem-jev-takes-its-key-from-jev-api-key-alone-42ca08d2497f55ae	addons-outside	lem jev: addons-outside	settings
+check:tests/lem-machine.sh:lem-release-before-is-the-version-plugin-jso-38e6d82129bcd310	task	the release stop two releases back is task's (core's moves give it the release tests)	settings
+check:tests/lem-machine.sh:one-sentence-from-two-sessions-is-one-group-fed7aa6b9f59fdca	addons-flow	the correction worker's groups: addons-flow	settings
+check:tests/lem-machine.sh:the-builder-s-definition-names-its-model-and-596589b79561e30a	criteria	the check reads agents/lem-builder.md, the builder's definition, which the step criteria owns	settings
+check:tests/lem-machine.sh:the-hook-does-not-wait-for-its-input-to-clos-0a6f4598d82a6641	sessions	the correction hook: sessions	settings
+check:tests/lem-machine.sh:the-machine-s-yes-holds-in-each-repository-o-585fa6601d0eba52	sessions	the correction hook's gate on the machine's yes: sessions	settings
+check:tests/lem-machine.sh:the-plugin-manifest-names-lem-and-a-version-8c1134923dd2a142	pack-trial	plugin.json and marketplace.json at a release: pack-trial owns marketplace.json	settings
+check:tests/lem-machine.sh:the-same-words-in-the-same-session-after-the-54f27fd33cee9442	sessions	the correction hook's claim: sessions	settings
+check:tests/lem-machine.sh:three-copies-of-the-hook-on-one-message-star-d51cac098de4519e	sessions	the correction hook's claim: sessions	settings
+check:tests/lem-machine.sh:two-messages-of-one-second-in-one-session-ar-88fe44436cd2fe83	addons-flow	the queue's entries and record: addons-flow	settings
+check:tests/lem-machine.sh:two-messages-of-one-session-and-one-sentence-bc9b67a5f2740193	sessions	the correction hook's claims: sessions	settings
+check:tests/lem-machine.sh:when-the-detached-half-cannot-start-the-hook-7b7b8eb14d6a2d0d	sessions	the correction hook: sessions	settings
+check:tests/lem-machine.sh:with-a-plugin-of-another-version-than-the-ap-db7846b2d42bb9bf	sessions	session-start's version line (seam:hooks-on-mismatch): sessions	settings
+check:tests/lem-machine.sh:with-the-machine-s-yes-the-hook-prints-nothi-8da58326de71f6bf	sessions	the correction hook: sessions	settings
+check:tests/lem-machine.sh:without-the-machine-s-yes-no-line-a-no-a-fil-cb04d6eede14e819	sessions	the correction hook's gate: sessions	settings
+check:tests/lem-settings.sh:a-change-of-the-criteria-from-the-owner-s-no-a0d1f764b606c526	criteria	criteria change from the owner's note: criteria.py	settings
+check:tests/lem-settings.sh:a-criterion-is-not-held-by-a-test-that-passe-64bc73540e3702fc	land-checks	criteria red, the check on the base: land-checks owns cli/criteria/red	settings
+check:tests/lem-settings.sh:a-criterion-the-plan-adds-after-the-approved-0979d516640d165f	criteria	criteria show and red over a plan: criteria.py	settings
+check:tests/lem-settings.sh:a-dropped-task-holds-its-issue-while-it-owes-5aa3c910c1beca45	task	the claim of a ticket and lem issue: task	settings
+check:tests/lem-settings.sh:a-dropped-task-holds-its-ticket-while-it-owe-258d1c53004db5f8	task	the claim of a ticket: task	settings
+check:tests/lem-settings.sh:a-landed-task-keeps-its-issue-for-good-a-new-56ac93e9239b2431	task	the claim of a ticket: task	settings
+check:tests/lem-settings.sh:a-landing-record-that-is-not-json-or-not-an-bdbae82b5846d046	land-base	the landing's record read at its start: land-base	settings
+check:tests/lem-settings.sh:a-page-of-lem-to-read-opens-as-a-page-compan-4ddf462dc815f1f4	board-service	lem board --page: board-service owns cli/board	settings
+check:tests/lem-settings.sh:a-plan-s-name-is-paths-plan-file-yyyy-mm-dd-ce39bd6563974042	task	task plan-file reads paths.plan_file (settings/team.py); the pattern's rules are held by test_load	settings
+check:tests/lem-settings.sh:a-plan-whose-criteria-are-not-the-approved-o-b01cb394e16d66dd	criteria	criteria show over a plan: criteria.py	settings
+check:tests/lem-settings.sh:a-plan-whose-criteria-are-the-approved-ones-add0f31f4f471ea5	criteria	criteria show over a plan: criteria.py	settings
+check:tests/lem-settings.sh:a-plan-with-no-criteria-section-no-size-a-sm-19cf17b5e4c74483	criteria	criteria read of a plan: criteria.py	settings
+check:tests/lem-settings.sh:a-slug-that-is-not-hyphenated-lower-case-wor-da5743990303b154	task	a task's slug at task open: task	settings
+check:tests/lem-settings.sh:a-state-block-that-state-did-not-write-has-n-030a16f62b1f9d0d	task	task states: task	settings
+check:tests/lem-settings.sh:a-state-written-from-the-task-s-worktree-car-97084ca2b041a54f	task	task states: task	settings
+check:tests/lem-settings.sh:a-task-held-for-an-order-that-names-no-task-6f5502e39a2e9a99	task	task read --order: task	settings
+check:tests/lem-settings.sh:a-task-in-the-landing-or-proposed-takes-no-s-e381983380a127c6	task	task move refusals: task	settings
+check:tests/lem-settings.sh:a-task-is-answered-only-with-its-investigati-bf3b4e870e674a0c	task	task investigated and answered: task	settings
+check:tests/lem-settings.sh:a-task-keeps-the-ticket-its-ask-came-from-no-70c96591b7aa9405	task	task open --ticket: task	settings
+check:tests/lem-settings.sh:a-test-that-needs-what-a-fresh-worktree-lack-90229619d87444bd	land-checks	criteria red and checks.setup in its worktrees: land-checks	settings
+check:tests/lem-settings.sh:an-answered-task-has-no-breaker-that-waits-p-9620d670fab184da	criteria	decisions pending and breaker: criteria	settings
+check:tests/lem-settings.sh:an-answered-task-holds-its-ticket-until-the-0eee93cd9bdf0d62	task	the claim of a ticket: task	settings
+check:tests/lem-settings.sh:an-approval-checks-and-writes-under-the-task-c2f94642230522fa	criteria	criteria approve: criteria	settings
+check:tests/lem-settings.sh:an-approval-has-a-number-of-its-own-his-appr-dd539e414f6b23ae	criteria	criteria approve: criteria	settings
+check:tests/lem-settings.sh:an-ended-task-stays-ended-no-state-moves-it-7eeee1c148441977	task	task move and may-start: task	settings
+check:tests/lem-settings.sh:an-opening-refused-after-its-claim-of-the-is-fe34e3d9093c1835	task	task open's claim: task	settings
+check:tests/lem-settings.sh:an-unknown-task-is-refused-with-the-names-of-7cebab97723b1914	task	an unknown task's refusal: task (lem board's part: board-service)	settings
+check:tests/lem-settings.sh:approve-keeps-the-criteria-the-owner-approve-1cd7bc7c03e33282	criteria	criteria approve: criteria	settings
+check:tests/lem-settings.sh:board-demo-marks-the-state-folder-s-tasks-as-5a944f41425974ea	board-service	lem board --demo: board-service	settings
+check:tests/lem-settings.sh:each-night-logo-is-the-day-logo-s-drawing-in-fc4058fece46ef4c	guides	the logo's night files (assets/night.py): guides owns the public files	settings
+check:tests/lem-settings.sh:each-run-of-the-check-has-a-worktree-and-a-s-28c3579a2b39098b	land-checks	criteria red's worktrees: land-checks	settings
+check:tests/lem-settings.sh:each-state-block-is-one-event-with-the-ask-a-5226901ff0f6998e	task	task states and the journal: task	settings
+check:tests/lem-settings.sh:his-next-approval-starts-the-criterion-chang-a3174f1f820d55ba	criteria	criteria approve and change: criteria	settings
+check:tests/lem-settings.sh:lem-s-approval-of-a-small-change-in-his-name-813d628dcbb18b02	criteria	criteria approve --small: criteria	settings
+check:tests/lem-settings.sh:log-appends-any-other-event-a-number-typed-a-b6613312701116fa	task	project log is typed task commands (surfaces A): task	settings
+check:tests/lem-settings.sh:log-refuses-a-plan-talk-s-record-whose-count-256d245612bb5712	task	task talked: task	settings
+check:tests/lem-settings.sh:log-refuses-a-state-event-an-unknown-task-a-b18e8a1658a80ecb	task	typed task commands: task	settings
+check:tests/lem-settings.sh:log-refuses-an-investigation-s-record-in-ano-045cd1994514e99b	task	task investigated: task	settings
+check:tests/lem-settings.sh:log-takes-a-builder-s-start-in-its-form-and-fffa5dbfe89121c1	task	task span: task	settings
+check:tests/lem-settings.sh:may-land-refuses-a-protected-branch-any-bran-4c64691ae3d28039	land-base	may-land is dropped, each landing step refuses protected itself (surfaces A): land-base	settings
+check:tests/lem-settings.sh:may-start-lets-a-task-start-whatever-builds-81f83a2a97136d8c	task	task may-start: task	settings
+check:tests/lem-settings.sh:night-py-keeps-the-night-sky-s-colors-as-wri-649fa3b42e7190fe	guides	assets/night.py: guides	settings
+check:tests/lem-settings.sh:red-runs-each-criterion-s-tests-in-a-worktre-b792ad423ab35de1	land-checks	criteria red: land-checks	settings
+check:tests/lem-settings.sh:state-prints-the-task-s-first-line-as-say-fo-d5cc5fcd3febc433	task	task read's first line: task	settings
+check:tests/lem-settings.sh:state-puts-a-block-with-the-clock-s-time-abo-6e5c171655a3ae91	task	task states: task	settings
+check:tests/lem-settings.sh:state-refuses-a-status-no-task-has-a-task-th-57d726669b77658e	task	task move: task	settings
+check:tests/lem-settings.sh:state-refuses-a-type-line-without-its-reason-0dee6992653b3228	task	task read --type --why: task	settings
+check:tests/lem-settings.sh:state-refuses-the-owner-s-order-a-then-line-0e6d6cfa10059720	task	task read --order --then: task	settings
+check:tests/lem-settings.sh:task-dir-ask-keeps-the-owner-s-words-for-the-70208d692053d934	task	task open --ask: task	settings
+check:tests/lem-settings.sh:task-dir-run-in-a-worktree-makes-the-task-s-c1c255515bdb9163	task	task open from a worktree: task	settings
+check:tests/lem-settings.sh:tasks-says-what-a-landing-proposed-the-pull-470e79c662cae49f	task	task show: task	settings
+check:tests/lem-settings.sh:the-board-s-backlog-has-each-item-with-its-w-a54e981a89291cac	board-views	the board's backlog: board-views	settings
+check:tests/lem-settings.sh:the-criteria-are-read-from-the-top-of-the-ta-e8f41e9986a5e6b5	criteria	criteria record: criteria	settings
+check:tests/lem-settings.sh:the-first-item-of-a-backlog-folder-that-git-2732138b1deba6ac	board-views	the board's backlog: board-views	settings
+check:tests/lem-settings.sh:the-header-of-the-onboarding-page-carries-th-2f45982791704f5e	board-pages	skills/lem/assets/handover.html: board-pages owns skills/lem/assets	settings
+check:tests/lem-settings.sh:the-landing-s-own-moves-stay-blocked-landing-385503c7bbd1d814	task	task move through the landing's states: task	settings
+check:tests/lem-settings.sh:the-onboarding-s-page-pattern-links-one-styl-c560b8c1dadbafcf	board-pages	skills/lem/assets/handover.html, lem.css, lem.js: board-pages	settings
+check:tests/lem-settings.sh:ticket-step-assigned-keeps-the-login-on-its-dcfd1e3a05f8ebdc	task	task ticket: task	settings
+check:tests/lem-settings.sh:ticket-step-writes-each-thing-lem-did-to-a-t-b5983e1972615b93	task	task ticket: task	settings
+check:tests/lem-settings.sh:with-the-tracker-github-ticket-42-and-ticket-77155207052c74ef	task	task open --ticket with github: task	settings
+check:tests/lem-settings.sh:worktree-dir-names-a-path-under-a-folder-git-1303eda99515f1fa	task	task worktree --path: task	settings
+check:tests/lem-settings.sh:worktree-dir-refuses-settings-whose-plans-fo-6e22565f942eb6c2	task	task worktree; the refusal of plans at the root is held by test_load's root case	settings
+check:tests/lem-state.sh:a-task-of-one-repository-ran-without-the-own-f6a97251b38f1f0b	owner	a task's span without the owner is read from his status, the owner step's (`model/owner/presence`)	task
+check:tests/lem-state.sh:lem-project-prune-keeps-by-this-machine-s-ow-ab5ac57c5dd66e44	board-duties	the prune is `store/retention.py` and `cli/prune/`	task
+check:tests/lem-state.sh:lem-project-prune-leaves-a-task-that-ended-b-76e04663fc345d82	board-duties	the prune is `store/retention.py` and `cli/prune/`	task
+check:tests/lem-state.sh:lem-project-prune-replaces-the-events-of-a-t-1b0e276b96ba9377	board-duties	the prune is `store/retention.py` and `cli/prune/`	task
+check:tests/lem-state.sh:task-dir-puts-the-main-checkout-into-the-mac-ef066326ecca51c7	board-service	`workspaces.json` is the board's file (`board/workspaces.py`), which app/ may not import; `serve run|ensure` and `lem board` put the workspace there	task
+check:tests/lem-state.sh:the-owner-s-status-is-one-mark-of-the-machin-14002fcda8c0c6c1	owner	the owner's status is `owner away|back`, the owner step's	task
+check:tests/lem-state.sh:the-owner-says-whether-he-is-there-away-make-3dcaed8f3ceff2b2	owner	the owner's away and back is the owner step's	task
+check:tests/lem-state.sh:the-watch-of-the-owner-s-mark-in-one-reposit-d366e4aca12f2cbd	owner	`owner watch` is the owner step's	task
+event:interview.end	task	the interview's text writes it as lem task span SLUG interview end, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	criteria
+event:interview.start	task	the interview's text writes it as lem task span SLUG interview start, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	criteria
+event:merge.ended	land-propose	the owner's merge ends in propose's Proposed.owner_merge (standing.standing gives stands or ended); the start over that ended it on main is task's	land-base
 event:merge.review	land-merge	Both carry_merge (land-base, carry) and cmd_merge_review write it. The merge review writes the event first; the carried copy repeats its verdict on a new tip.	
 event:merge.stands	land-merge	Both carry_merge (land-base, carry) and cmd_merge_review write it. The owner's standing merge is the merge step's path (landing.md E, owner merge refused for the base).	
+event:plan.talk	task	the talk's text writes it as lem task talked SLUG (task's leaf, the record's Talk); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/talk.md]	criteria
+event:plan.talk.start	task	the interview's text writes it as lem task span SLUG plan-talk start, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/talk.md]	criteria
+event:scout	task	the interview's text writes it as lem task span SLUG scout end, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	criteria
+event:scout.start	task	the interview's text writes it as lem task span SLUG scout start, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	criteria
 guide:docs/free-hour.md	addons-flow	Part 9 lists no owner for this private guide. It gives the night and retro proposal behavior to addons-flow.	
 refusal:Task.kept:self-kept-file-does-not-read-as-json-error-l-b76b793bcede0539	core	The corrupt saved record can stop any landing step. Core owns the new record and its reader.	
 refusal:Task.need_worktree:the-task-has-no-worktree-at-self-worktree-gi-f3a5fb58b23becc9	land-base	Several landing steps call the guard. Base owns the Git adapter and proves that landing commands refuse a missing or dirty worktree.	
 refusal:Task.need_worktree:the-worktree-has-changes-nobody-committed-di-28ed3d6b4cace16f	land-base	Several landing steps call the guard. Base owns the Git adapter and proves that landing commands refuse a missing or dirty worktree.	
 refusal:Task.read_states:no-task-self-slug-r-the-tasks-are-listed-dcfa95bd75c3e27d	task	The old landing lookup reports an unknown slug. The task step provides the new task lookup.	
 refusal:cmd_merge_review:no-seat-is-kept-with-the-brief-of-proposed-s-981b12780793523c	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/)	land-merge
+refusal:cmd_propose:the-newest-criteria-read-of-task-slug-does-n-9088bc4785082449	criteria	the read's form is the typed record lem criteria read SLUG done writes, refused when it is written	land-propose
+refusal:cmd_propose:the-newest-plan-talk-of-task-slug-does-not-h-e50742cd847859f4	task	the plan talk's form is the typed record lem task talked writes, refused when it is written	land-propose
 refusal:events_of:line-number-of-log-is-not-json-error-the-log-2ee7b7abc2391f5f	core	The old landing reads the log for checks, review, PR text and merge. Core owns the journal store and its read errors.	
+refusal:jev_read:len-refused-finding-s-called-under-the-bar-w-cf5889e34951e174	land-propose	propose's refusal jev-over	land-review
+refusal:keep_reviews:entry-is-not-a-move-of-the-review-files-that-0f1594039aa4983b	task	the review files of a landing before move only on a start over, which is task's (landing.md E); the new record keeps them in Landing.archived	land-base
+refusal:keep_reviews:entry-is-not-a-move-of-the-review-files-that-1e52772a03684830	task	the review files of a landing before move only on a start over, which is task's (landing.md E); the new record keeps them in Landing.archived	land-base
+refusal:keep_reviews:entry-is-not-a-move-of-the-review-files-that-5822fe589e48481b	task	the review files of a landing before move only on a start over, which is task's (landing.md E); the new record keeps them in Landing.archived	land-base
+refusal:keep_reviews:entry-is-not-a-move-of-the-review-files-that-8d7610f76f23d011	task	the review files of a landing before move only on a start over, which is task's (landing.md E); the new record keeps them in Landing.archived	land-base
+refusal:keep_reviews:the-review-files-of-the-landing-before-could-d4bfd0ecc3381417	task	the review files of a landing before move only on a start over, which is task's (landing.md E); the new record keeps them in Landing.archived	land-base
 refusal:project_now:in-process:this-repository-has-no-lem-settings-toml-lem-06352751880aed83	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.	
 refusal:project_now:str-error-177e167f5c0481a3	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.	
 refusal:project_now:subprocess:this-repository-has-no-lem-settings-toml-lem-06352751880aed83	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.	
@@ -75,14 +261,18 @@ refusal:task_file:path-is-not-a-file-flag-names-a-file-by-its-c39509a3ecc2e8d0	t
 refusal:task_file:path-is-not-a-file-flag-names-a-file-by-its-c39509a3ecc2e8d0	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
 refusal:task_file:path-is-not-a-file-in-the-working-directory-ce99925e12bdcf2d	tree	The old shared helper resolves flags for the review record, the PR notes, the merge answer and the alike finding. The tree step owns the parameter contract.	
 refusal:task_file:path-is-not-a-file-in-the-working-directory-ce99925e12bdcf2d	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
+ruling:a-helper-starts-from-plain-words-5c4605127c21159a	owner	SKILL.md holds it (line 157), which the owner step rewrites	task
 ruling:a-lowered-bar-a-new-suppression-a-skipped-or-110297d0eb925f42	land-checks	The shell suite belongs to review, and the Bar cases belong to checks. Checks owns the lowered-bar finding that must reach the PR.	
 ruling:a-partial-review-is-a-review-6471c81a4fd37ad9	land-review	The cited suites span review, propose and merge. Review owns the floor and the selection that can satisfy it.	
+ruling:a-plan-never-makes-a-change-small-621f632e0f01d609	criteria	the ruling is held where a plan's Size line is read: criteria (with its check row a-plan-that-says-size-small)	land-propose
 ruling:a-plan-talk-s-record-is-taken-as-it-ran-a7746de98f0b73af	task	the plan talk's record is lem task talked	land-merge
+ruling:a-polish-pass-is-a-step-of-the-flow-529aff33ed530ce8	land-checks	the polish pass	land-review
 ruling:a-project-can-close-branches-003115363c11829e	land-base	Settings defines the protected names, and landing enforces them. The surfaces annex gives the old may-land contract to land-base.	
 ruling:a-release-is-a-change-of-the-plugin-s-versio-eef0c0acef8044d0	core	The text is in AGENTS.md, and the value is in the manifest. Core owns the manifest and packaging value.	
 ruling:a-task-has-a-type-and-a-track-and-they-are-t-8f98808a3ad23f65	task	Both the task and settings suites cite the ruling. The task step owns the two values and their display in the first line.	
 ruling:after-a-merge-lem-repairs-only-a-pull-reques-de2df01c57704a81	board-duties	The old tests span the forge and board acts. The server duty decides which pull request needs to wake after a merge.	
 ruling:an-address-for-each-workspace-and-task-two-m-a37b5f8ad1f73ae3	board-service	The citations span server routes, peers and push. Let the server owner account for the address contract and cite peers and push.	
+ruling:as-a-plugin-the-correction-hook-comes-with-t-d03cc05f979d8c62	sessions	the correction hook comes with the plugin through hooks/hooks.json and hooks/run, which sessions owns; its source is a check of the plugin manifest, not a row of the doctor	settings
 ruling:checks-keeps-three-keys-and-alone-is-serial-8a60ebdb4c074d50	settings	The serial suite checks order, and the ruling names the settings keys. Settings owns their names and accepted form.	
 ruling:each-label-of-a-chart-is-quoted-2bd1e5e8703511d5	criteria	The rule appears in AGENTS.md and the task writing prompt. Criteria owns the writing prompt that applies it to task charts.	
 ruling:his-away-status-is-one-mark-of-the-machine-a-b2c57fa6764dfabb	owner	The cited tasks and decisions use the rule. Owner owns the machine-wide status and the rule for when a task runs without him.	
@@ -92,21 +282,53 @@ ruling:the-backlog-is-a-part-of-lem-and-its-view-is-a965c3d0b64637e0	board-servi
 ruling:the-board-is-served-and-the-server-draws-it-e4797a5c484faf42	board-service	The old server and the main skill both say it. The board application owns the served surface.	
 ruling:the-checks-remove-what-their-own-commands-le-5cb45dd6079a95db	land-checks	The guard suite demonstrates the behavior and onboarding advises about it. The checks step owns restoration after a check command.	
 ruling:the-first-line-of-a-task-is-composed-by-lem-0da372939db2417f	task	The task step composes the line, and the session presents it. The source of the line owns the row.	
+ruling:the-first-run-is-in-a-scratch-repository-730e013a974955df	trials	the first run in a scratch repository, then a real project, is checked by the trials (S5 a scratch task to its PR; R9 a scratch copy of a real project)	criteria
+ruling:the-jev-model-comes-through-any-provider-e890c29fdee60c19	addons-outside	lem jev and its key JEV_API_KEY: addons-outside (the Judge adapter: land-review)	settings
 ruling:the-session-s-answers-to-his-notes-that-aske-0e92ef5165197389	criteria	The historical row joins three rules. Criteria owns the plan instruction that uses task dependencies. Cite settings and shipped names as well.	
 ruling:the-size-of-a-change-decides-its-path-5ef69d536294de8c	owner	The main skill selects the path and the small prompt applies it. The owner step takes the final main skill in part 9.	
 ruling:the-time-card-gets-exact-start-times-d2c4849e7fd2e8ef	task	The main skill tells agents to log stage starts, and the project source names the start events. The task step owns those span records.	
 ruling:the-trials-of-2026-11-21-a-task-s-session-sa-b7fb034987197ddd	sessions	The historical row joins session startup and onboarding. Let the session owner account for the first-line handoff and cite onboarding separately.	
 ruling:without-codex-one-expert-answers-alone-5a3515f2f428be0e	addons-outside	Settings exposes the available seats, and the experts add-on runs the one-expert path.	
+unit:tests/unit/test_criteria.py:Inputs.test_a_read_that_refuses_refuses_the_inputs_before_git_is_asked	land-checks	criteria inputs is land-checks' leaf (plan part 9, row criteria: but red and inputs)	criteria
+unit:tests/unit/test_criteria.py:Inputs.test_the_base_commit_is_the_merge_base_of_the_tip_and_origins_base_branch	land-checks	criteria inputs is land-checks' leaf (plan part 9, row criteria: but red and inputs)	criteria
+unit:tests/unit/test_criteria.py:Inputs.test_the_five_inputs_of_a_run	land-checks	criteria inputs is land-checks' leaf (plan part 9, row criteria: but red and inputs)	criteria
+unit:tests/unit/test_criteria.py:Inputs.test_with_no_origin_the_base_branch_itself	land-checks	criteria inputs is land-checks' leaf (plan part 9, row criteria: but red and inputs)	criteria
+unit:tests/unit/test_criteria.py:Unstarted.test_a_shell_on_a_file_the_base_lacks_is_named	land-checks	criteria.unstarted belongs to cmd_red, which land-checks builds (plan part 9)	criteria
+unit:tests/unit/test_criteria.py:Unstarted.test_python_on_a_file_the_base_lacks	land-checks	criteria.unstarted belongs to cmd_red, which land-checks builds (plan part 9)	criteria
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_page_opened_with_no_status_keeps_its_choice_at_the_stop	ask	the open card's mark (agterm status, rechecked) reads the card's page and its no-status choice, which `ask` (board/ask/) defines; hooks/stop.py says nothing until then	sessions
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_status_call_that_cannot_start_prints_nothing	ask	the agtermctl status calls of the mark are `ask`'s with the card's page	sessions
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_wait_with_no_status_holds_for_a_page_opened_without_it	ask	the word of `lem ask wait` (main's WAIT_WORD file) is `ask`'s to define	sessions
+unit:tests/unit/test_hooks.py:AskStopHook.test_an_agtermctl_that_hangs_ends_the_hook_silent_and_leaves_no_process	ask	the agtermctl calls of the mark, each with its bound (main's STOP_CALL), come with the mark	sessions
+unit:tests/unit/test_land.py:JevOnTheLines.test_the_lines_end_with_jev_s_read	land-propose	the end of each line of the pull request's text with Jev's read is propose's text; land-review gives Judge.over_bar and model/landing/jev_bar.py (notes/land-review.md)	land-review
+unit:tests/unit/test_land.py:KeepReviews.test_a_folder_is_made_only_for_a_reviews_file	task	the move of the review files of a landing before is the start over's, which is task's (landing.md E)	land-base
+unit:tests/unit/test_land.py:KeepReviews.test_a_hidden_review_file_moves_and_only_the_finders_file_stays	task	the move of the review files of a landing before is the start over's, which is task's (landing.md E)	land-base
+unit:tests/unit/test_land.py:KeepReviews.test_a_move_cut_off_halfway_ends_in_the_same_folder	task	the move of the review files of a landing before is the start over's, which is task's (landing.md E)	land-base
+unit:tests/unit/test_land.py:KeepReviews.test_a_record_kept_in_a_landing_folder_is_of_a_landing_before	task	the move of the review files of a landing before is the start over's, which is task's (landing.md E)	land-base
+unit:tests/unit/test_land.py:KeepReviews.test_a_record_reached_through_a_link_into_or_out_of_an_archive_is_refused	task	the move of the review files of a landing before is the start over's, which is task's (landing.md E)	land-base
+unit:tests/unit/test_land.py:KeepReviews.test_a_staging_name_that_is_not_a_cut_off_move_is_refused_before_a_move	task	the move of the review files of a landing before is the start over's, which is task's (landing.md E)	land-base
+unit:tests/unit/test_land.py:KeepReviews.test_the_review_tools_folder_of_a_task_named_landing_n_moves	task	the move of the review files of a landing before is the start over's, which is task's (landing.md E)	land-base
 unit:tests/unit/test_land.py:MergeSeat.test_a_later_base_keeps_the_earlier_brief_of_the_tip_and_a_new_tip_drops_them	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/); MergeRead.by takes the seat once sessions gives it	land-merge
 unit:tests/unit/test_land.py:MergeSeat.test_a_merge_on_github_after_the_stand_in_failed_notes_its_line	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/); MergeRead.by takes the seat once sessions gives it	land-merge
 unit:tests/unit/test_land.py:MergeSeat.test_a_stand_in_on_the_same_tip_and_base_takes_the_failed_seats_place	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/); MergeRead.by takes the seat once sessions gives it	land-merge
 unit:tests/unit/test_land.py:MergeSeat.test_a_stand_in_that_failed_after_its_line_has_one_line_that_says_so	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/); MergeRead.by takes the seat once sessions gives it	land-merge
 unit:tests/unit/test_land.py:MergeSeat.test_a_task_its_merge_agent_blocked_keeps_its_pull_request	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/); MergeRead.by takes the seat once sessions gives it	land-merge
 unit:tests/unit/test_land.py:MergeSeat.test_the_record_names_the_seat_kept_with_its_brief	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/); MergeRead.by takes the seat once sessions gives it	land-merge
+unit:tests/unit/test_land.py:MovedBase.test_a_covered_change_with_an_open_must_fix_keeps_its_reason	land-review	a must-fix stays open through a carry in review.holds and its reason	land-base
+unit:tests/unit/test_land.py:MovedBase.test_a_rebase_from_a_tip_a_proposal_pushed_names_no_commit	land-propose	the line of the pull request's text about a moved base (main's sync_line) is propose's	land-base
+unit:tests/unit/test_land.py:MovedBase.test_a_resolved_conflict_that_no_review_covered_keeps_the_reviews_reason	land-review	the read of a resolution, its careful call, the items filed after it and why no review covers are the review's	land-base
+unit:tests/unit/test_land.py:MovedBase.test_a_rounds_careful_call_holds_against_a_resolution_read_that_makes_none	land-review	the read of a resolution, its careful call, the items filed after it and why no review covers are the review's	land-base
+unit:tests/unit/test_land.py:MovedBase.test_a_second_rebase_after_a_resolution_says_that_the_base_moved_again	land-propose	the line of the pull request's text about a moved base (main's sync_line) is propose's	land-base
+unit:tests/unit/test_land.py:MovedBase.test_only_a_rule_of_lem_is_kept_for_the_tip	land-merge	a merge refusal kept for the tip is the merge's Refused	land-base
+unit:tests/unit/test_land.py:MovedBase.test_the_items_filed_after_a_clean_read_of_the_resolution_keep_its_carry	land-review	the read of a resolution, its careful call, the items filed after it and why no review covers are the review's	land-base
+unit:tests/unit/test_land.py:MovedBase.test_the_line_of_a_carried_review_names_its_open_must_fix	land-propose	the line of the pull request's text about a moved base (main's sync_line) is propose's	land-base
+unit:tests/unit/test_land.py:MovedBase.test_the_line_of_a_moved_base_says_what_carried	land-propose	the line of the pull request's text about a moved base (main's sync_line) is propose's	land-base
+unit:tests/unit/test_land.py:MovedBase.test_the_line_of_a_resolution_read_names_its_kind	land-propose	the line of the pull request's text about a moved base (main's sync_line) is propose's	land-base
+unit:tests/unit/test_land.py:MovedBase.test_why_no_review_covers_the_change_names_the_newest_reviews_reason	land-review	the read of a resolution, its careful call, the items filed after it and why no review covers are the review's	land-base
 unit:tests/unit/test_land.py:ProtectedBranch.test_a_protected_name_is_refused_and_named	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.	
 unit:tests/unit/test_land.py:ProtectedBranch.test_a_task_branch_that_is_not_protected	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.	
 unit:tests/unit/test_land.py:ProtectedBranch.test_the_base_is_refused	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.	
 unit:tests/unit/test_land.py:ReadOfAMovedBase.test_a_carried_review_drops_its_call_on_the_base	land-propose	a merge read carried onto a new tip is written by propose	land-merge
+unit:tests/unit/test_land.py:ReadOfATip.test_each_tip_and_base_has_its_own_brief_and_answer_file	land-merge	the merge agent's brief and answer files are merge-review's	land-review
 unit:tests/unit/test_land.py:TaskFile.test_a_file_in_neither_place_is_refused_with_both	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.	
 unit:tests/unit/test_land.py:TaskFile.test_a_file_in_neither_place_is_refused_with_both	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
 unit:tests/unit/test_land.py:TaskFile.test_a_relative_path_that_the_working_directory_lacks_is_the_task_directorys	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.	
@@ -115,6 +337,23 @@ unit:tests/unit/test_land.py:TaskFile.test_an_absolute_path_is_taken_as_it_is	tr
 unit:tests/unit/test_land.py:TaskFile.test_an_absolute_path_is_taken_as_it_is	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
 unit:tests/unit/test_land.py:TaskFile.test_the_working_directory_comes_first	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.	
 unit:tests/unit/test_land.py:TaskFile.test_the_working_directory_comes_first	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
+unit:tests/unit/test_land.py:TheFindingsUnderTheBar.test_an_item_of_worth_no_without_its_reason	land-propose	the findings Jev reads at propose come from the branch's worth: no items and the notes' under: lines, which propose parses; land-review gives the item reader (model/landing/items.py) and Judge.over_bar	land-review
+unit:tests/unit/test_land.py:TheFindingsUnderTheBar.test_the_lines_of_the_notes_that_propose_checks	land-propose	the findings Jev reads at propose come from the branch's worth: no items and the notes' under: lines, which propose parses; land-review gives the item reader (model/landing/items.py) and Judge.over_bar	land-review
+unit:tests/unit/test_land.py:TheReadOfEachFinding.test_a_refused_item_with_no_reason_is_refused_until_it_has_one	land-propose	Jev's one read of each finding under the bar, its refusal jev-over once, and its keep run in propose; land-review gives Judge.over_bar and model/landing/jev_bar.py	land-review
+unit:tests/unit/test_land.py:TheReadOfEachFinding.test_a_score_over_the_line_refuses_once_and_the_second_answer_stands	land-propose	Jev's one read of each finding under the bar, its refusal jev-over once, and its keep run in propose; land-review gives Judge.over_bar and model/landing/jev_bar.py	land-review
+unit:tests/unit/test_land.py:TheReadOfEachFinding.test_a_score_under_the_line_goes_on_and_off_in_the_settings_sends_nothing	land-propose	Jev's one read of each finding under the bar, its refusal jev-over once, and its keep run in propose; land-review gives Judge.over_bar and model/landing/jev_bar.py	land-review
+unit:tests/unit/test_land.py:TheReadOfEachFinding.test_no_key_is_kept_and_not_asked_again	land-propose	Jev's one read of each finding under the bar, its refusal jev-over once, and its keep run in propose; land-review gives Judge.over_bar and model/landing/jev_bar.py	land-review
+unit:tests/unit/test_land_text.py:Due.test_a_change_after_the_review_gets_another	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_a_change_with_no_review_gets_one_read	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_a_large_plan_gets_a_round	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_a_must_fix_asks_for_a_round_after_its_fix	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_a_reviewed_change_needs_none	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_after_two_rounds_the_request_waits_for_the_owner	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_an_item_filed_in_the_backlog_after_the_review_is_covered	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_careful_after_one_read_asks_for_the_full_set	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_the_read_of_a_resolution_names_each_file_its_rebase_changed	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_two_reviews_nobody_answered	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:TheDocuments.test_a_label_ends_at_its_colon_and_never_inside_a_quote	board-pages	land.label is read by board_task.py only (an option's label on the board)	land-propose
 unit:tests/unit/test_release.py:Before.test_the_release_before_is_older_than_plugin_json	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Check.test_a_command_that_ends_the_task_logs_the_same_stop_and_goes_on	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Check.test_a_pass_holds_for_the_commands_of_one_command_and_for_no_command_after_it	task	the release stop two releases back is task's	core
@@ -139,7 +378,62 @@ unit:tests/unit/test_release.py:Repository.test_the_repository_names_one_release
 unit:tests/unit/test_release.py:Rule.test_a_task_of_this_release_or_of_the_release_before_goes_on	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Rule.test_a_task_two_releases_back_stops_with_the_message_of_criterion_4	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Rule.test_a_task_with_no_mark_counts_as_begun_on_the_release_before_marks_and_goes_on	task	the release stop two releases back is task's	core
+unit:tests/unit/test_session.py:Load.test_a_negative_number_written_by_hand_is_refused	settings	the load line's number is [load] of the machine's file, which the step settings reads and checks	sessions
+unit:tests/unit/test_session.py:Load.test_a_new_machine_gates_at_forty	land-checks	the load line gates the checks, which land-checks runs	sessions
+unit:tests/unit/test_session.py:Load.test_his_number_wins_and_none_stays_none	settings	the machine's [load] number and its sources are the step settings's	sessions
+unit:tests/unit/test_session.py:Seat.test_the_machine_file_refuses_the_seats_and_names_the_home_settings	settings	which file may hold [seats] is the settings' table places (settings/places.py)	sessions
+unit:tests/unit/test_session.py:Tokens.test_the_command_writes_the_number_and_default_takes_it_out_keeping_the_other_tables	settings	the number is written by `lem settings set handoff.tokens N --machine`, the step settings's	sessions
+unit:tests/unit/test_session.py:Tokens.test_under_the_floor_a_negative_a_bool_and_a_float_are_refused	settings	the check of [handoff] tokens on a write is the settings' edit; the harness refuses such a number on read (contract.test_harness.test_a_compaction_number_claude_code_would_refuse_is_refused)	sessions
 unit:tests/unit/test_state.py:RunGit.test_a_closed_stdin_reads_as_empty	land-base	git's runner is the git_cli adapter, which land-base builds	core
 unit:tests/unit/test_state.py:RunGit.test_a_run_is_given_back_whole_and_a_failure_is_not_raised	land-base	git's runner is the git_cli adapter, which land-base builds	core
 unit:tests/unit/test_state.py:RunGit.test_git_gives_the_output_or_none	land-base	git's runner is the git_cli adapter, which land-base builds	core
 unit:tests/unit/test_state.py:RunGit.test_the_time_limit_is_raised_by_the_runner_and_none_by_git	land-base	git's runner is the git_cli adapter, which land-base builds	core
+unit:tests/unit/test_task.py:MayLand.test_a_branch_that_is_not_the_base	land-base	`project may-land` is dropped; each landing step refuses `protected` itself (surfaces.md A)	task
+unit:tests/unit/test_task.py:MayLand.test_a_protected_branch	land-base	`project may-land` is dropped; each landing step refuses `protected` itself (surfaces.md A)	task
+unit:tests/unit/test_task.py:MayLand.test_settings_that_name_no_base	land-base	`project may-land` is dropped; each landing step refuses `protected` itself (surfaces.md A)	task
+unit:tests/unit/test_task.py:Prune.test_each_call	board-duties	`lem prune` is `cli/prune/`	task
+unit:tests/unit/test_task.py:SmallRecord.test_a_run_past_the_cutoff_by_its_time_leaves_an_old_ended_task_its_small_record_only	board-duties	what an old ended task keeps is retention, `store/retention.py` and `cli/prune/`	task
+unit:tests/unit/test_task.py:SmallRecord.test_a_ticket_step_a_pruned_task_still_owes_stays_shown	board-duties	what an old ended task keeps is retention, `store/retention.py` and `cli/prune/`	task
+unit:tests/unit/test_task.py:SmallRecord.test_a_young_ended_task_and_an_open_one_keep_every_file	board-duties	what an old ended task keeps is retention, `store/retention.py` and `cli/prune/`	task
+unit:tests/unit/test_task.py:SmallRecord.test_tasks_reads_a_pruned_task_as_before_and_a_second_prune_changes_nothing	board-duties	what an old ended task keeps is retention, `store/retention.py` and `cli/prune/`	task
+unit:tests/unit/test_task.py:Summarized.test_a_dry_run_names_the_task_with_the_count_of_its_events_and_changes_no_file	board-duties	the journal's summary after state.keep_days is retention, `store/retention.py` and `cli/prune/`	task
+unit:tests/unit/test_task.py:Summarized.test_a_second_prune_leaves_the_log_as_it_is	board-duties	the journal's summary after state.keep_days is retention, `store/retention.py` and `cli/prune/`	task
+unit:tests/unit/test_task.py:Summarized.test_a_state_and_a_transcript_written_from_other_processes_while_prune_writes_are_in_the_new_log	board-duties	the journal's summary after state.keep_days is retention, `store/retention.py` and `cli/prune/`	task
+unit:tests/unit/test_task.py:Summarized.test_a_summary_with_a_newer_event_is_summarized_again_over_the_old_one	board-duties	the journal's summary after state.keep_days is retention, `store/retention.py` and `cli/prune/`	task
+unit:tests/unit/test_task.py:Summarized.test_an_append_waits_for_the_lock_of_the_log	board-duties	the journal's summary after state.keep_days is retention, `store/retention.py` and `cli/prune/`	task
+unit:tests/unit/test_task.py:Summarized.test_an_append_with_no_lock_between_the_read_and_the_replace_goes_on_in_the_new_log	board-duties	the journal's summary after state.keep_days is retention, `store/retention.py` and `cli/prune/`	task
+unit:tests/unit/test_task.py:Summarized.test_an_old_ended_task_becomes_one_summary_and_every_other_line_stays_as_it_was	board-duties	the journal's summary after state.keep_days is retention, `store/retention.py` and `cli/prune/`	task
+unit:tests/unit/test_task.py:Summarized.test_tasks_read_the_investigation_from_the_summary	board-duties	the journal's summary after state.keep_days is retention, `store/retention.py` and `cli/prune/`	task
+unit:tests/unit/test_task.py:Summarized.test_tasks_read_the_same_night_and_times_from_the_summary	board-duties	the journal's summary after state.keep_days is retention, `store/retention.py` and `cli/prune/`	task
+unit:tests/unit/test_task.py:Summarized.test_the_log_command_refuses_a_summary	board-duties	the journal's summary after state.keep_days is retention, `store/retention.py` and `cli/prune/`	task
+unit:tests/unit/test_task_rules.py:FailedLine.test_another_seat_or_form_is_refused	sessions	the seat that failed is `seat failed`, the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:FailedLine.test_the_line_of_each_seat_and_its_seat	sessions	the seat that failed is `seat failed`, the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_a_count_that_is_no_whole_number	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_a_digest_that_is_not_the_twelve_characters	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_a_missing_or_an_unknown_field	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_a_read_in_its_form	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_a_read_in_which_nobody_answered_in_its_form	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_a_read_in_which_nobody_answered_with_a_family_a_flag_or_an_unnamed_source	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_a_split_that_is_no_boolean	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_a_split_with_one_family	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_by_someone_else	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_families_that_are_no_list_of_names_each_once	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_fewer_answered_than_asked_with_nobody_named	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_fewer_than_two_personas_asked	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_more_answered_than_asked	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_no_criterion_or_more_flagged_than_read	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:ReadForm.test_silent_sources_without_their_name_and_why	criteria	`criteria read SLUG done` and its form are the criteria's (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:SeatCall.test_a_fallback_whose_agent_cannot_sit_in_the_planners_seat_blocks	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:SeatCall.test_a_project_with_no_fallback_blocks_in_the_words_of_criterion_5	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:SeatCall.test_the_fallback_stands_in_for_a_reviewer_with_no_tokens	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:SeatCall.test_the_merge_agent_takes_a_codex_fallback	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:SeatCall.test_the_stand_in_that_fails_too_and_a_fallback_that_is_the_named_seat_block	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:SeatCommands.test_a_codex_reviewer_with_no_tokens_takes_the_fallback_and_keeps_it	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:SeatCommands.test_a_leads_state_never_comes_over_a_seats_block	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:SeatCommands.test_a_planner_whose_fallback_is_codex_blocks	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:SeatCommands.test_a_project_with_no_fallback_blocks_waits_for_the_owner_and_his_go_on_tries_the_seat_again	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:SeatCommands.test_a_slow_agent_or_a_wrong_line_is_no_seat_that_failed	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:SeatCommands.test_a_stand_in_that_fails_too_blocks_and_the_go_on_ends_the_stand_in	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:SeatCommands.test_the_events_and_open_over_a_block_are_the_commands_own	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:SeatCommands.test_the_experts_and_the_session_take_no_fallback	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
+unit:tests/unit/test_task_rules.py:SeatCommands.test_the_owners_go_on_over_a_merge_agents_block_gives_open_with_its_pull_request	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task

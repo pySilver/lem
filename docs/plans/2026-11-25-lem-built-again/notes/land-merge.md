@@ -84,3 +84,27 @@ what to change, and why, and what `land-merge` does meanwhile.
 12. The removal of a reviewer's item at the landing (`main:land.remove_item`) and the merge
     agent's seat with its stand-in on the same brief (`merge_seats`, `merger_noted`) were not
     built here; their ledger rows are in `tests/ledger/moves/land-merge.tsv`.
+
+## After the join of `rebuild` (land-base, land-propose, criteria, land-review, settings)
+
+13. **For `land-propose`: the carried merge read and the standing merge are written at the
+    proposal.** `carry.read_carries(landing, world)` and `resolution.carries(landing, world,
+    careful=...)` read `landing.proposed` as the tip proposed before, so only `propose`, before
+    it writes the new proposal, can call them. Asked: `propose` appends the read they give to
+    `landing.reads` (with `carried_from`) and sets `Proposed.merge_review = "carried"`; the
+    merge's end then takes it as the read that covers the base (`mergeread.latest(landing,
+    base_tree)`), with no new brief. Likewise `standing.standing(landing, digest, carried=...)`
+    at the proposal: `propose` writes its `OwnerMerge` into `Proposed.owner_merge`. The merge's
+    end reads that judgment for a standing merge of an earlier tip
+    (`merge_standing.standing_of`), and for the same tip calls `standing.standing` itself with
+    the reasons read again now. Only the owner's own word makes a `Standing`
+    (`merge_standing.kept`): `standing.py` judges one, it never makes one.
+14. **For `core` and `land-propose`: the criteria's contract mark on the proposal.**
+    `criteria`'s `contract.moved(task, seen)` needs the mark the proposal was made under
+    (`Proposed.contract`, asked in `notes/criteria.md`). Until it exists, the merge agent's
+    authority is refused when the newest approval of the criteria is later than the proposal
+    (`merge_asked.contract_moved`); with the field, it calls `contract.moved(task,
+    proposed.contract)` instead.
+15. **The green reasons under the lock.** `green.reasons(record, careful)` takes the careful
+    reasons that only `propose` reads (the settings' edit); the merge's end reads them again
+    with the fast track's careful lines taken from the proposal (`merge_standing.reasons_now`).
