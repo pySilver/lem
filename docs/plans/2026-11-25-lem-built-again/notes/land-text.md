@@ -91,3 +91,20 @@ on the way` (`notes/land-merge.md` item 6), which is still open.
 
 `notes/land-review.md` item 16e: `model/landing/careful.py` and `propose_careful.py` both judge an
 edit of Lem's settings. No text of `land-text` holds either; left for `close`.
+
+## For `land-base` and `land-merge` (`model/landing/phases.py`): a new round that waits for nothing
+
+`tests/model/` found a record that is due `wait` in `preparing`: a new round (`round=2`,
+`relands=1`) whose every row holds (the same tip, checks, review, proposal, push and pull request),
+so no step moves the phase back to `open` and the task waits for nothing. A real path needs
+origin's base to move onto a commit the tip already holds, so that the new round's rebase changes
+nothing; only generated cases reach `phases.py`'s last line. `propose` due again (it moves the
+phase), or `preparing` that gives `open` when its proposal holds, closes it.
+
+## For `land-checks` and `land-review`: a cut-off after `file`'s commit
+
+The cut-off property of `tests/model/test_due.py` fails for `file`: its commit of the items moves
+the tip before the record that moves `checked` with `items_after`, so a cut-off between them makes
+the checks due, then a read (`notes/land-review.md` item 11). The case leaves `file` out of its
+effects until the checks carry over commits that only add backlog items (`notes/land-checks.md`
+item 7).
