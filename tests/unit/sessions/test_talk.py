@@ -27,7 +27,7 @@ def agent(text: str, at: str) -> dict[str, object]:
     return {"type": "assistant", "timestamp": at, "message": {"content": parts}}
 
 
-TALK = (
+TALK: tuple[object, ...] = (
     owner("an old topic", "2026-11-25T09:00:00Z"),
     agent("an old answer", "2026-11-25T09:00:05Z"),
     owner(
@@ -55,7 +55,7 @@ TALK = (
 )
 
 
-def transcript(home: Path, records: tuple[dict[str, object], ...]) -> dict[str, str]:
+def transcript(home: Path, records: tuple[object, ...]) -> dict[str, str]:
     """A transcript of the session `c1` under Claude Code's folder `home`, and the
     environment that names it."""
     path = home / "projects" / "repo" / "c1.jsonl"

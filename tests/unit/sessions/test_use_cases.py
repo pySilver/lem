@@ -246,7 +246,8 @@ def test_next_opens_the_next_phase_after_a_handoff_in_its_form(tmp_path: Path) -
     assert got.close == (
         f"lem session close {SLUG} --session session-1 --why handoff --when-unselected"
     )
-    assert [line.why for line in log.read(folder)] == ["new", "handoff"]
+    opens = [line for line in log.read(folder) if isinstance(line, acts.Open)]
+    assert [line.why for line in opens] == ["new", "handoff"]
     assert "phase: build" in (folder / brief.BRIEF).read_text()
 
 
