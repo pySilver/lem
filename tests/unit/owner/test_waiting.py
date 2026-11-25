@@ -127,6 +127,8 @@ def test_a_task_queued_after_a_dropped_task_waits_for_his_word() -> None:
     assert found[0].after == "first"
     assert rows(look("first", status="building"), after) == []
     assert rows(look("first", status="landed"), after) == []
+    started = look("second", status="building", after="first")
+    assert rows(dropped, started) == []
 
 
 def test_a_block_is_his_unless_it_waits_for_the_task_that_repairs_the_base() -> None:
