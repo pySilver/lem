@@ -29,9 +29,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 def run(call: Call) -> Worked:
     """Judge the correction, and queue it when it is a lesson. Jev's client loads here, and
     only for this command."""
-    from lem.addons.corrections import worker
+    from lem.addons.corrections.worker import worked
 
-    return worker.worked(Path(call.payload), os.environ, clock.now())
+    return worked(Path(call.payload), os.environ, clock.now())
 
 
 COMMAND = click.Command(
