@@ -10,8 +10,6 @@ copy would drift from the rule the agents read.
 
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[3]
 BUILDER = ROOT / "agents/lem-builder.md"
 # The bar, word for word as rule 6 gives it.
@@ -63,58 +61,57 @@ def test_the_bar_is_in_rule_6_and_nowhere_else_in_the_builder() -> None:
     assert BAR in rule_6()
 
 
-@pytest.mark.parametrize(
-    "words",
-    [
-        (
-            "The bar binds Lem's agents only: an item a person writes, or asks an agent to "
-            "file, is filed whatever the bar."
-        ),
-        (
-            "A defect is cheap when its fix is text that does not run (a comment, a "
-            "docstring, a sentence of a document), or when a check of the project reports it "
-            "and the check's rerun shows it fixed."
-        ),
-        "A refactor, or the removal of code that looks unused, is not cheap",
-        (
-            "a commit of its own whose message names it, as "
-            "`fixed on the way: FILE, what was wrong`"
-        ),
-        "A cheap defect alone never starts a builder or a new run of the checks",
-        '"Fixed on the way": the file, the commit and what was wrong',
-        (
-            "Look in the backlog folder of the base for an open item that names the same "
-            "defect"
-        ),
-        (
-            "One item with `worth: no`, which the pull request lists under "
-            '"Filed as not worth it"'
-        ),
-        (
-            "One item with `worth: later`, which the pull request lists under "
-            '"Filed in the backlog"'
-        ),
-        "the optional line `Decided against: REASON`",
-    ],
+# What rule 6 says of its limit, of a cheap defect and of the three outcomes.
+SAYS = (
+    (
+        "The bar binds Lem's agents only: an item a person writes, or asks an agent to "
+        "file, is filed whatever the bar."
+    ),
+    (
+        "A defect is cheap when its fix is text that does not run (a comment, a "
+        "docstring, a sentence of a document), or when a check of the project reports it "
+        "and the check's rerun shows it fixed."
+    ),
+    "A refactor, or the removal of code that looks unused, is not cheap",
+    (
+        "a commit of its own whose message names it, as "
+        "`fixed on the way: FILE, what was wrong`"
+    ),
+    "A cheap defect alone never starts a builder or a new run of the checks",
+    '"Fixed on the way": the file, the commit and what was wrong',
+    (
+        "Look in the backlog folder of the base for an open item that names the same "
+        "defect"
+    ),
+    (
+        "One item with `worth: no`, which the pull request lists under "
+        '"Filed as not worth it"'
+    ),
+    (
+        "One item with `worth: later`, which the pull request lists under "
+        '"Filed in the backlog"'
+    ),
+    "the optional line `Decided against: REASON`",
 )
-def test_rule_6_says_its_limit_what_is_cheap_and_the_three_outcomes(words: str) -> None:
-    assert words in rule_6()
+# The words rule 6 once had, which let a defect under the bar live only in a pull request's
+# text, where the next review raised it again.
+NOT_SAID = (
+    "No file, and no `worth: no` item",
+    "its fix changes no behavior and needs no new test",
+    '"Seen, not filed": its place and why it is under the bar',
+)
 
 
-@pytest.mark.parametrize(
-    "words",
-    [
-        "No file, and no `worth: no` item",
-        "its fix changes no behavior and needs no new test",
-        '"Seen, not filed": its place and why it is under the bar',
-    ],
-)
-def test_rule_6_gives_a_defect_under_the_bar_a_file_and_cheap_no_room_for_code(
-    words: str,
-) -> None:
-    # an under defect that lived only in a pull request's text was raised again by the next
-    # review
-    assert words not in rule_6()
+def test_rule_6_says_its_limit_what_is_cheap_and_the_three_outcomes() -> None:
+    rule = rule_6()
+    assert [words for words in SAYS if words not in rule] == []
+
+
+def test_rule_6_gives_a_defect_under_the_bar_a_file_and_cheap_no_room_for_code() -> (
+    None
+):
+    rule = rule_6()
+    assert [words for words in NOT_SAID if words in rule] == []
 
 
 def test_rule_6_keeps_a_plan_builder_to_its_list() -> None:
@@ -123,11 +120,13 @@ def test_rule_6_keeps_a_plan_builder_to_its_list() -> None:
     )
 
 
-@pytest.mark.parametrize("name", NAMERS)
-def test_each_file_that_sends_an_agent_to_a_defect_names_the_bar_of_rule_6(
-    name: str,
-) -> None:
-    assert "the bar of rule 6" in flat((ROOT / name).read_text(encoding="utf-8"))
+def test_each_file_that_sends_an_agent_to_a_defect_names_the_bar_of_rule_6() -> None:
+    unnamed = [
+        name
+        for name in NAMERS
+        if "the bar of rule 6" not in flat((ROOT / name).read_text(encoding="utf-8"))
+    ]
+    assert unnamed == []
 
 
 def test_no_other_file_of_lem_copies_a_part_of_the_bar() -> None:
