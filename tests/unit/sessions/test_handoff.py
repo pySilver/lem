@@ -103,3 +103,11 @@ def test_a_changed_file_with_no_status_is_named_in_the_refusal() -> None:
     )
     with pytest.raises(Refusal, match=r"these lines have none: '- src/a\.py'"):
         handoff.form(text, "gift-note")
+
+
+def test_every_part_it_lacks_is_named_in_one_refusal() -> None:
+    first = "task: gift-note · from build · written: 2026-11-25T10:07Z\n"
+    with pytest.raises(Refusal) as refused:
+        handoff.form(first, "gift-note")
+    for part in ("Settled", "Open", "Next step", "Failed", "Changed files"):
+        assert f"## {part}" in refused.value.why

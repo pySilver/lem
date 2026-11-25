@@ -519,3 +519,14 @@ def test_the_turn_is_the_one_of_the_transcript_whose_main_thread_wrote_the_newes
     harness.signs_of["c2"] = Signs(sign=LATER, turn="runs")
     read = signs.read_signs(here, SLUG, "S-1")
     assert (read.sign, read.turn) == (HOUR, "runs")
+
+
+def test_the_inbox_wakes_a_live_session_and_opens_none(tmp_path: Path) -> None:
+    terminal = with_caller()
+    here = here_of(tmp_path, terminal)
+    made(here, status="building", lead="builder")
+    opening.open_session(here, SLUG, "new", None, MOMENT)
+    woken = waking.wake(here, SLUG, "inbox", None, LATER)
+    assert (woken.woke, woken.opened, woken.session) == (True, False, "session-1")
+    assert terminal.told == [("session-1", f"lem: {SLUG} inbox")]
+    assert len(terminal.openings) == 1

@@ -157,3 +157,21 @@ def test_the_commands_refuse_a_state_folder_of_lem_0_3_and_change_nothing(
     after = {str(path): path.read_bytes() for path in repo.rglob("*") if path.is_file()}
     assert after == before
     assert not [call for call in standin.calls() if call[:2] == ["session", "new"]]
+
+
+def test_the_plan_talks_pair_reads_the_folder_the_launch_line_names(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    (repo / ".lem").mkdir()
+    places.state_of(repo)
+    config = tmp_path / "claude-config"
+    env = {**os.environ, "CLAUDE_CONFIG_DIR": str(config)}
+    given = lem("--repo", str(repo), "session", "plugin-dir", cwd=tmp_path, env=env)
+    assert given.result() == {"plugin_dir": str(paths.root())}
+    listed = {"plugins": {"lem@lem": [{"scope": "user"}]}}
+    (config / "plugins").mkdir(parents=True)
+    (config / "plugins" / "installed_plugins.json").write_text(json.dumps(listed))
+    installed = lem("--repo", str(repo), "session", "plugin-dir", cwd=tmp_path, env=env)
+    assert installed.result() == {"plugin_dir": None}

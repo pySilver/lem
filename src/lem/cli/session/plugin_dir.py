@@ -22,13 +22,20 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     """The words of `lem session plugin-dir`."""
 
 
-def run(call: Call) -> str | None:
+class Folder(msgspec.Struct, frozen=True, kw_only=True):
+    """The folder `--plugin-dir` names, null where the project loads the installed plugin:
+    the key the plan talk's pair reads (`harness/claude-code/plan-talk.md`)."""
+
+    plugin_dir: str | None
+
+
+def run(call: Call) -> Folder:
     """The folder --plugin-dir names, or None."""
     where = places.workspace(place.folder())
     home = paths.home(os.environ)
     at = Place(checkout=where.checkout, home=home, environ=os.environ)
     folder = harness_claude.bind(at).plugin_folder(paths.root())
-    return None if folder is None else str(folder)
+    return Folder(plugin_dir=None if folder is None else str(folder))
 
 
 COMMAND = click.Command(
