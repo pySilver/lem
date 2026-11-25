@@ -698,7 +698,7 @@ class Bar(unittest.TestCase):
         line = "it.only(1);" * count
         marks = [
             re.compile(mark)
-            for suffixes, found in land.BAR.items()
+            for suffixes, found in land.BAR_MARKS.items()
             if ".js" in suffixes
             for mark in found
         ]
@@ -4434,7 +4434,7 @@ class TheBarJevReads(unittest.TestCase):
                 land.jev_entry(
                     {"where": "a.py", "title": "T", "run": "r"},
                     sends=True,
-                    bar=(None, name),
+                    rule=(None, name),
                 ),
                 {"not_asked": "no bar in .claude/agents/lem-builder.md"},
             )

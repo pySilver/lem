@@ -829,6 +829,7 @@ import unicodedata
 from collections import Counter, deque
 from datetime import UTC, date, datetime
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, TextIO, cast
 
 from lem import clock as lem_clock
@@ -923,6 +924,17 @@ SILENT_READS = 2
 # The commits of origin's copy of a branch that a refusal names one by one; it counts
 # the rest. The length of the text, not a measurement.
 NAMED_COMMITS = 10
+# The characters kept in a patch id of the change.
+PATCH_ID_LENGTH = 16
+# The characters of a commit wherever the landing names one in short: the names of
+# the files of a merge brief and its answer, the range-diff of a resolution
+# (`due_of`), and the refusals of `read` and `merge-review`.
+REVIEW_COMMIT_LENGTH = 12
+# The characters kept from a line that shows a mark of the bar.
+BAR_LINE_LENGTH = 160
+# Where the time starts and ends in the event log's ISO timestamp.
+TIME_START = 11
+TIME_END = 16
 # The plan's own call whether the task is careful, as `stages/plan.md` step 2 has the
 # lead write it: one line under the plan's title, before its first `##` heading. A line
 # further down is no call: the plan talk's record or a fenced block may quote one.
@@ -942,7 +954,9 @@ SETTINGS_FILE = ".lem/settings.toml"
 LOCAL_SETTINGS_FILE = ".lem/settings.local.toml"
 # What a decision of the build did to its criterion, as a line of the pull request
 # says it.
-CHANGE_HOW = {"changed": "changed", "added": "was added", "removed": "was removed"}
+CHANGE_HOW = MappingProxyType(
+    {"changed": "changed", "added": "was added", "removed": "was removed"}
+)
 # The form of the one event that records the personas' read of a task's criteria.
 READ_FORM = (
     "`by=lem|lead asked:=N answered:=N families:='[...]' silent:='[...]' criteria:=N "
@@ -952,10 +966,12 @@ READ_FORM = (
 # when every criterion names only the developer (`stages/interview.md`, step 5): one
 # decision of his that `decisions.py log --by owner` writes, known by these two texts
 # word for word.
-READ_SKIP = {
-    "what": "the personas' read of the criteria",
-    "chose": "no read: the criteria name only the developer",
-}
+READ_SKIP = MappingProxyType(
+    {
+        "what": "the personas' read of the criteria",
+        "chose": "no read: the criteria name only the developer",
+    }
+)
 # The state line of a task whose criteria wait for the owner's yes, as `project.py`
 # writes it (`CRITERIA_WAIT` there), and the one such line that is no wait for his yes:
 # the fast track's builder found a full change, and that task goes to an interview
@@ -971,7 +987,7 @@ WAIT_ENDS = ("owner", "alone")
 # never writes twice).
 CHANGED_WAIT = "the criteria wait for the owner: changed from the owner's note"
 # How many model families read the criteria, in the words of the pull request.
-FAMILIES = {1: "one model family", 2: "two model families"}
+FAMILIES = MappingProxyType({1: "one model family", 2: "two model families"})
 # The form of the one event that records a plan talk, as `talk_form` in `project.py`
 # checks it.
 TALK_FORM = (
@@ -981,46 +997,55 @@ TALK_FORM = (
 # The counts of a plan talk after its turns and positions, in the words of the pull
 # request, one form for one and one for more. A count the event holds and this table
 # does not is shown by its name.
-TALK_SAYS = {
-    "questions": (
-        "question in the reviewer's first list",
-        "questions in the reviewer's first list",
-    ),
-    "repaired": ("repaired by the defender", "repaired by the defender"),
-    "design": ("of the open ones a design choice", "of the open ones a design choice"),
-    "unargued": (
-        "raised after the list and not argued",
-        "raised after the list and not argued",
-    ),
-    "root": ("repaired at the cause", "repaired at the cause"),
-    "layer": ("layer over a cited decision", "layers over a cited decision"),
-    "shared": ("decision two questions named", "decisions two questions named"),
-}
+TALK_SAYS = MappingProxyType(
+    {
+        "questions": (
+            "question in the reviewer's first list",
+            "questions in the reviewer's first list",
+        ),
+        "repaired": ("repaired by the defender", "repaired by the defender"),
+        "design": (
+            "of the open ones a design choice",
+            "of the open ones a design choice",
+        ),
+        "unargued": (
+            "raised after the list and not argued",
+            "raised after the list and not argued",
+        ),
+        "root": ("repaired at the cause", "repaired at the cause"),
+        "layer": ("layer over a cited decision", "layers over a cited decision"),
+        "shared": ("decision two questions named", "decisions two questions named"),
+    }
+)
 # What every event has and the talk's line says first, so it is no count after the
 # positions; and the bound of turns its rules give, which `project.py log` adds and the
 # line names only when the talk went over it.
 TALK_FIRST = ("ts", "event", "task", "reviewer", "turns", "settled", "open", "bound")
 # Who took a decision of the record, as the text of a pull request names them.
-TAKEN_BY = {
-    "lead": "the lead",
-    "gate": "the gate",
-    "personas": "the personas",
-    "dialectic": "the dialectic",
-    "owner": "the owner",
-    "lem": "Lem",
-    "experts": "the experts",
-}
+TAKEN_BY = MappingProxyType(
+    {
+        "lead": "the lead",
+        "gate": "the gate",
+        "personas": "the personas",
+        "dialectic": "the dialectic",
+        "owner": "the owner",
+        "lem": "Lem",
+        "experts": "the experts",
+    }
+)
 # The two causes of the circuit breaker, as a line of the pull request says them
 # (`decisions.py` CAUSES).
-BREAKER_SAYS = {
-    "irreversible": "the next step could not be reversed by a later no",
-    "criteria": "no option of the ladder kept the approved criteria",
-}
+BREAKER_SAYS = MappingProxyType(
+    {
+        "irreversible": "the next step could not be reversed by a later no",
+        "criteria": "no option of the ladder kept the approved criteria",
+    }
+)
 # The levels of the ladder whose decision, taken without the owner, is never green: past
 # the personas.
 PAST_PERSONAS = ("dialectic", "experts")
 # The name of each track, by the word of the `Size:` line that the criteria keep.
-TRACKS = {"small": "fast", "full": "standard"}
+TRACKS = MappingProxyType({"small": "fast", "full": "standard"})
 # The first line of a green pull request, one wording for the fast track and the
 # standard track.
 GREEN = (
@@ -1036,7 +1061,7 @@ DEFECT = ("where", "title", "what")
 # the project that the check's rerun shows fixed).
 BARS = ("over", "under", "cheap")
 # The calls that make an item, each with the `worth` of the item `file` writes for it.
-FILED_BARS = {"over": "later", "under": "no"}
+FILED_BARS = MappingProxyType({"over": "later", "under": "no"})
 # The headings of the pull request's text for what was seen outside the change, after
 # the notes' `## Filed in the backlog`, in this order.
 NOT_WORTH = "## Filed as not worth it"
@@ -1123,56 +1148,60 @@ DOCS = (".md", ".rst", ".adoc")
 # which no runner's docs write as a mark (Jasmine, Mocha, Jest, Vitest and Playwright,
 # read 2026-11-24); a mark of the form `test.describe.only(` is Playwright's own, and
 # counts after a dot.
-BAR = {
-    (".py",): (
-        r"#\s*(?i:noqa)(?![-\w])",
-        r"#\s*type:\s*ignore(?![-\w])",
-        r"#\s*pyright:\s*ignore(?![-\w])",
-        r"#\s*pyrefly:\s*ignore(?:-errors)?(?![-\w])",
-        r"#\s*ty:\s*ignore(?![-\w])",
-        r"#\s*(?:ruff|flake8)\s*:\s*(?i:noqa)(?![-\w])",
-        r"#\s*ruff\s*:\s*(?:disable|file-ignore|ignore)(?=\s*\[)",
-        r"#[^#\n]*?isort: ?skip\w*",
-        r"#\s*(?:ruff:\s*)?isort:\s*off(?![-\w])",
-        r"#\s*fmt:\s*(?:off|skip)(?![-\w])",
-        r"#\s*yapf:\s*disable(?![-\w])",
-        r"#\s*pyre-(?:ignore-all-errors|(?:ignore|fixme)(?![-\w]))",
-        r"#\s*pyre:\s*ignore(?![-\w])",
-        r"#\s*mypy:\s*ignore(?:-errors)?(?![-\w])",
-        r"#\s*zuban:\s*ignore(?![-\w])",
-        r"#\s*pylint:\s*disable",
-        r"#\s*nosec",
-        r"\bpytest\.mark\.(skip|xfail)",
-        r"\bunittest\.skip",
-        r"\bpytest\.skip(?=\()",
-        r"\bpytest\.mark\.(flaky|retry)\b",
-        r"^\s*@flaky\b",
-    ),
-    (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"): (
-        r"eslint-disable",
-        r"@ts-ignore",
-        r"@ts-expect-error",
-        r"@ts-nocheck",
-        r"\b(it|test|describe)\.(skip|todo|only)(?=\()",
-        r"(?<!\.)\bx(it|test|describe)(?=\()",
-        r"(?<!\.)\bf(it|describe)(?=\()",
-        r"\bjest\.retryTimes(?=\()",
-        r"\bthis\.retries(?=\()",
-    ),
-    (".go",): (r"//\s*nolint", r"\bt\.Skip(f|Now)?(?=\()"),
-    (".rs",): (r"#!?\[allow\(", r"#\[ignore\b"),
-    (".java", ".kt"): (r"@Disabled", r"@Ignore", r"@SuppressWarnings"),
-    (".sh", ".bash"): (r"#\s*shellcheck\s+disable",),
-}
+BAR_MARKS = MappingProxyType(
+    {
+        (".py",): (
+            r"#\s*(?i:noqa)(?![-\w])",
+            r"#\s*type:\s*ignore(?![-\w])",
+            r"#\s*pyright:\s*ignore(?![-\w])",
+            r"#\s*pyrefly:\s*ignore(?:-errors)?(?![-\w])",
+            r"#\s*ty:\s*ignore(?![-\w])",
+            r"#\s*(?:ruff|flake8)\s*:\s*(?i:noqa)(?![-\w])",
+            r"#\s*ruff\s*:\s*(?:disable|file-ignore|ignore)(?=\s*\[)",
+            r"#[^#\n]*?isort: ?skip\w*",
+            r"#\s*(?:ruff:\s*)?isort:\s*off(?![-\w])",
+            r"#\s*fmt:\s*(?:off|skip)(?![-\w])",
+            r"#\s*yapf:\s*disable(?![-\w])",
+            r"#\s*pyre-(?:ignore-all-errors|(?:ignore|fixme)(?![-\w]))",
+            r"#\s*pyre:\s*ignore(?![-\w])",
+            r"#\s*mypy:\s*ignore(?:-errors)?(?![-\w])",
+            r"#\s*zuban:\s*ignore(?![-\w])",
+            r"#\s*pylint:\s*disable",
+            r"#\s*nosec",
+            r"\bpytest\.mark\.(skip|xfail)",
+            r"\bunittest\.skip",
+            r"\bpytest\.skip(?=\()",
+            r"\bpytest\.mark\.(flaky|retry)\b",
+            r"^\s*@flaky\b",
+        ),
+        (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"): (
+            r"eslint-disable",
+            r"@ts-ignore",
+            r"@ts-expect-error",
+            r"@ts-nocheck",
+            r"\b(it|test|describe)\.(skip|todo|only)(?=\()",
+            r"(?<!\.)\bx(it|test|describe)(?=\()",
+            r"(?<!\.)\bf(it|describe)(?=\()",
+            r"\bjest\.retryTimes(?=\()",
+            r"\bthis\.retries(?=\()",
+        ),
+        (".go",): (r"//\s*nolint", r"\bt\.Skip(f|Now)?(?=\()"),
+        (".rs",): (r"#!?\[allow\(", r"#\[ignore\b"),
+        (".java", ".kt"): (r"@Disabled", r"@Ignore", r"@SuppressWarnings"),
+        (".sh", ".bash"): (r"#\s*shellcheck\s+disable",),
+    }
+)
 # A file with no suffix is read with the marks of the language its first line names
 # (`#!`), as ruff checks such a file of Python when a project names it in its
 # `extend-include` and ShellCheck reads a shell script by its `#!`: each interpreter
 # here with the suffix whose marks it takes. Another
 # interpreter, or no `#!`, takes no marks, as a file with no suffix took none before.
-SHEBANG = {
-    "python": ".py",
-    **dict.fromkeys(("sh", "bash", "dash", "ksh"), ".sh"),
-}
+SHEBANG = MappingProxyType(
+    {
+        "python": ".py",
+        **dict.fromkeys(("sh", "bash", "dash", "ksh"), ".sh"),
+    }
+)
 # The bytes of a file's first line that are read for its `#!`: an interpreter's path
 # and name fit in it, and a built file of one long line is never read whole.
 SHEBANG_READ = 256
@@ -1204,7 +1233,7 @@ WORKFLOW = re.compile(r"(^|/)\.github/workflows/[^/]+\.ya?ml$")
 SNAPSHOT = re.compile(r"(^|/)__snapshots__/|\.snap$|\.ambr$|\.approved\.[A-Za-z0-9]+$")
 # Files that are neither code nor documentation: no language's marks apply, and none
 # is missed.
-DATA = (
+DATA_SUFFIXES = (
     ".txt",
     ".json",
     ".toml",
@@ -1238,7 +1267,7 @@ INLINE_TESTS = (".rs",)
 
 
 class LandError(Exception):
-    pass
+    """A landing step cannot go on."""
 
 
 class ForgeSaid(LandError):
@@ -1267,9 +1296,9 @@ def run(
 ) -> subprocess.CompletedProcess:
     ran = subprocess.run(args, cwd=cwd, capture_output=True, text=True, check=False)
     if check and ran.returncode != 0:
-        raise LandError(
-            f"{' '.join(args[:4])} failed: {(ran.stderr or ran.stdout).strip()}"
-        )
+        command = " ".join(args[:4])
+        words = (ran.stderr or ran.stdout).strip()
+        raise LandError(f"{command} failed: {words}")
     return ran
 
 
@@ -1277,9 +1306,9 @@ def git(where: Path, *args: str, check: bool = True) -> str:
     ran = lem_state.run_git(where, list(args))
     if check and ran.returncode != 0:
         # the refusal of `run`, of the same command
-        raise LandError(
-            f"{' '.join(ran.args[:4])} failed: {(ran.stderr or ran.stdout).strip()}"
-        )
+        command = " ".join(ran.args[:4])
+        words = (ran.stderr or ran.stdout).strip()
+        raise LandError(f"{command} failed: {words}")
     return ran.stdout.strip()
 
 
@@ -1346,7 +1375,8 @@ class Task:
     it kept."""
 
     def __init__(self, repo: Path, slug: str) -> None:
-        self.settings, tasks, state = project_now(repo)
+        settings, tasks, state = project_now(repo)
+        self.settings = settings
         self.slug = slug
         self.base = self.settings["branch"]["base"]
         self.repo = repo
@@ -1393,16 +1423,14 @@ class Task:
     def read_states(self, tasks: list[dict] | None = None) -> None:
         """This task's record, as the state files say now."""
         tasks = (
-            tasks
-            if tasks is not None
-            else json.loads(script("project.py", self.repo, "tasks").stdout)
+            json.loads(script("project.py", self.repo, "tasks").stdout)
+            if tasks is None
+            else tasks
         )
         record = next((task for task in tasks if task["slug"] == self.slug), None)
         if record is None:
-            raise LandError(
-                f"no task {self.slug!r}; the tasks are: "
-                f"{', '.join(task['slug'] for task in tasks) or 'none yet'}"
-            )
+            listed = ", ".join(task["slug"] for task in tasks) or "none yet"
+            raise LandError(f"no task {self.slug!r}; the tasks are: {listed}")
         self.record: dict[str, Any] = record
 
     def need_worktree(self) -> None:
@@ -1470,10 +1498,9 @@ class Task:
                 "request the task has on the forge",
             ) from error
 
-    def keep(self, **values: object) -> None:
-        write_whole(
-            self.kept_file, json.dumps({**self.kept(), **values}, indent=2) + "\n"
-        )
+    def keep(self, **fields: object) -> None:
+        text = json.dumps({**self.kept(), **fields}, indent=2)
+        write_whole(self.kept_file, f"{text}\n")
 
     def state(self, status: str, *lines: str) -> None:
         script(
@@ -1531,7 +1558,7 @@ class Task:
             on_base = parsed.get("checks", {}).get("commands", [])
         except tomllib.TOMLDecodeError:
             on_base = []
-        return (tip, True) if not on_base else ([], False)
+        return ([], False) if on_base else (tip, True)
 
     def fetch(self) -> None:
         if self.remote:
@@ -1581,17 +1608,14 @@ class Task:
             # Lem's: the branch took them in
             self.keep(taken=there)
             return there
+        commits = (line.split("\0", 2) for line in theirs[:NAMED_COMMITS])
         named = "; ".join(
-            f'{sha[:9]} {author} "{subject}"'
-            for sha, author, subject in (
-                line.split("\0", 2) for line in theirs[:NAMED_COMMITS]
-            )
+            f'{short} {author} "{subject}"'
+            for sha, author, subject in commits
+            for short in (sha[:9],)
         )
-        more = (
-            f", and {len(theirs) - NAMED_COMMITS} more"
-            if len(theirs) > NAMED_COMMITS
-            else ""
-        )
+        remaining = len(theirs) - NAMED_COMMITS
+        more = f", and {remaining} more" if len(theirs) > NAMED_COMMITS else ""
         raise LandError(
             f"origin's {branch} holds {len(theirs)} commit(s) that Lem did not push "
             f"and the task's branch does not hold: {named}{more}. A push would remove "
@@ -1674,9 +1698,10 @@ def keep_reviews(task: Task) -> None:
     for entry in staged:
         why = moving_refusal(entry, staged, earlier)
         if why:
+            destination = reviews / entry.name[1:]
             raise LandError(
                 f"{entry} is not a move of the review files that was cut off halfway: "
-                f"{why}. Nothing moved. `mv {entry} {reviews / entry.name[1:]}` gives "
+                f"{why}. Nothing moved. `mv {entry} {destination}` gives "
                 "it a name of its own, which the next move takes with the rest; then "
                 f"run `lem land start {task.slug}` again"
             )
@@ -1687,9 +1712,9 @@ def keep_reviews(task: Task) -> None:
         number = 1 + max(
             (
                 int(found[1])
-                for entry in entries
-                if is_landing(entry, task.slug)
-                and (found := LANDING_FOLDER.fullmatch(entry.name))
+                for review in entries
+                if is_landing(review, task.slug)
+                and (found := LANDING_FOLDER.fullmatch(review.name))
             ),
             default=0,
         )
@@ -1730,8 +1755,9 @@ def moving_refusal(entry: Path, staged: list[Path], earlier: list[Path]) -> str 
         return f"{landing} is there already, the name it takes at its end"
     both = sorted({one.name for one in earlier} & {one.name for one in entry.iterdir()})
     if both:
+        listed = ", ".join(both)
         return (
-            f"{', '.join(both)} is in it and at the top of {entry.parent} both, which "
+            f"{listed} is in it and at the top of {entry.parent} both, which "
             "a move never leaves"
         )
     return None
@@ -1794,9 +1820,9 @@ def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C90
             ).splitlines()
             if name != task.base
         ]
-        branch = task.kept().get("branch") or (
-            pointing[0] if len(pointing) == 1 else "BRANCH"
-        )
+        branch = task.kept().get("branch")
+        if not branch:
+            branch = pointing[0] if len(pointing) == 1 else "BRANCH"
         raise LandError(
             "the task's worktree is on no branch (a detached HEAD), and the landing "
             f"needs the task's branch: `git -C {task.worktree} switch {branch}` puts "
@@ -1817,9 +1843,9 @@ def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C90
             # once for a task (`stages/polish.md`): a pass that is done stays while the
             # branch holds its last commit, and `base` carries it through the rebase.
             forge = {
-                key: value
-                for key, value in kept.items()
-                if key in ("pr", "pushed", "taken", "jev") and value
+                key: field
+                for key, field in kept.items()
+                if key in ("pr", "pushed", "taken", "jev") and field
             }
             polish = kept.get("polish")
             if (
@@ -1835,10 +1861,9 @@ def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C90
                 # His standing merge ends with the record: a fact of the log, which the
                 # board shows, logged before the deletion, so that a run cut between the
                 # two still told it (a rerun logs it twice).
-                why = (
-                    "the landing started over: "
-                    f"{(task.block_lines() or ['no reason given'])[0]}"
-                )
+                blocked = (task.block_lines() or ["no reason given"])[0]
+                why = f"the landing started over: {blocked}"
+                proposed = str(tap.get("tip"))[:9]
                 script(
                     "project.py",
                     task.main,
@@ -1846,7 +1871,7 @@ def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C90
                     task.slug,
                     "merge.ended",
                     "by=owner",
-                    f"tip={str(tap.get('tip'))[:9]}",
+                    f"tip={proposed}",
                     f"why={why}",
                 )
                 ended = f"ended: {why}; the owner merges it again"
@@ -1902,14 +1927,12 @@ def start_locked(task: Task, *, conflicting: bool = False) -> dict:  # noqa: C90
     if not task.gate()[0]:
         if not again:
             task.state("blocked", NO_GATE)
+        owner_merge = f". The owner's merge {ended}" if ended else ""
         raise LandError(
-            (
-                f"{NO_GATE}, so nothing would show that the change works; "
-                "the task is `blocked`. Add the commands to checks.commands in "
-                ".lem/settings.toml, or, for the task that sets up the checks, in its "
-                f"own branch's, then run `lem land start {task.slug}` again"
-            )
-            + (f". The owner's merge {ended}" if ended else ""),
+            f"{NO_GATE}, so nothing would show that the change works; "
+            "the task is `blocked`. Add the commands to checks.commands in "
+            ".lem/settings.toml, or, for the task that sets up the checks, in its "
+            f"own branch's, then run `lem land start {task.slug}` again{owner_merge}",
         )
     if task.record["status"] != "landing":
         # kept here because `clean` needs the branch after the worktree, which names it,
@@ -2023,7 +2046,8 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
         else None
     )
     if unshown:
-        carries = covered = False
+        carries = False
+        covered = False
         uncovered = unshown
     if rebased.returncode != 0:
         # A rebase that git stopped for a builder is still in progress, with a file in
@@ -2048,20 +2072,17 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
             # git refused the rebase, or stopped it, for a reason no builder resolves
             # (a hook of git, a lock), and nothing is kept: the words say where the
             # worktree is now
-            raise LandError(
-                rebase_failed(
-                    task.onto,
-                    rebased.stderr,
-                    f"the worktree is not as it was: {left}"
-                    if left
-                    else "the worktree is as it was"
-                    if before == entry
-                    else (
-                        f"the branch is at {before[:9]}, the tip before the rebase "
-                        "Lem made in this landing, from which this step starts again"
-                    ),
+            if left:
+                where = f"the worktree is not as it was: {left}"
+            elif before == entry:
+                where = "the worktree is as it was"
+            else:
+                before_short = before[:9]
+                where = (
+                    f"the branch is at {before_short}, the tip before the rebase "
+                    "Lem made in this landing, from which this step starts again"
                 )
-            )
+            raise LandError(rebase_failed(task.onto, rebased.stderr, where))
         task.keep(
             conflict={
                 "before": pending["before"] if pending else before,
@@ -2104,18 +2125,19 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
                 indent=2,
             )
         )
+        how = ""
+        if skipped:
+            command = " ".join(rebasing)
+            named = commits_named(skipped)
+            how = (
+                f" with `{command}`, which applies every commit of the "
+                "branch: the plain rebase leaves out each commit whose patch the base "
+                f"holds ({named}), and would lose one the base took out again"
+            )
         raise LandError(
             f"the rebase onto {task.onto} stopped on {len(conflicts)} file(s) and was "
-            "undone; a builder resolves it in the worktree"
-            + (
-                f" with `{' '.join(rebasing)}`, which applies every commit of the "
-                "branch: the plain rebase leaves out each commit whose patch the base "
-                f"holds ({commits_named(skipped)}), and would lose one the base took "
-                "out again"
-                if skipped
-                else ""
-            )
-            + ", then this step runs again",
+            f"undone; a builder resolves it in the worktree{how}, "
+            "then this step runs again",
         )
     tip = git(task.worktree, "rev-parse", "HEAD")
     ahead = int(git(task.worktree, "rev-list", "--count", f"{onto}..HEAD"))
@@ -2133,10 +2155,11 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
         if unshown:
             loss = {"from": before, "to": tip, "why": unshown}
             task.keep(rebase_uncovered=loss)
+        prior = str(loss["from"])[:9]
         raise LandError(
             f"the rebase onto {task.onto} left the branch no commit that "
             f"{task.onto} lacks, and {loss['why']}. The branch was at "
-            f"{str(loss['from'])[:9]} before it: `git -C {task.worktree} reset --hard "
+            f"{prior} before it: `git -C {task.worktree} reset --hard "
             f"{loss['from']}` puts it back. A change that sits only in a merge commit "
             "goes into a commit of its own, which a rebase keeps, then this step runs "
             "again; when the work reached the base another way, "
@@ -2224,7 +2247,8 @@ def cmd_base(task: Task) -> dict:  # noqa: C901, PLR0912, PLR0915 - over the lim
         updates["reads"] = reads
         updates["rebase_carried"] = {"from": origin, "to": tip}
         carried = {"round": reads[last]["round"], "must_fix": reads[last]["must_fix"]}
-    if tip != origin and not (covered if resolved else carries):
+    reviewed = covered if resolved else carries
+    if tip != origin and not reviewed:
         # the tip a rebase made while no review covered the change, and why: the words
         # of the owner's merge that `propose` of this tip ends
         updates["rebase_uncovered"] = {"from": origin, "to": tip, "why": uncovered}
@@ -2278,6 +2302,7 @@ def rebase_notes(kept: dict, *, moved: bool, onto: str, tip: str) -> tuple[dict,
             (one for one in notes.values() if one and one.get("to") == tip), None
         )
         made_on = str(kept.get("base"))[:9]
+        onto_short = onto[:9]
         return (
             {
                 "rebase_carried": None,
@@ -2286,7 +2311,7 @@ def rebase_notes(kept: dict, *, moved: bool, onto: str, tip: str) -> tuple[dict,
                     "to": tip,
                     "why": (
                         f"the base moved from {made_on}, which the rebase was made "
-                        f"onto, to {onto[:9]}, under the same tip"
+                        f"onto, to {onto_short}, under the same tip"
                     ),
                 }
                 if made
@@ -2346,18 +2371,22 @@ def rebase_unshown(
             "HEAD^{tree}",
             tree,
         ).split(b"\0")
+        onto_short = onto[:9]
+        listed = ", ".join(shown_name(path) for path in paths if path)
         why = (
             f"{REBASE_UNSHOWN}: its tip is not git's merge of the tip before it onto "
-            f"{onto[:9]} in {', '.join(shown_name(path) for path in paths if path)}"
+            f"{onto_short} in {listed}"
         )
     else:
+        onto_short = onto[:9]
+        listed = ", ".join(conflicts) or "a path git did not name"
         why = (
-            f"{REBASE_UNSHOWN}: git's merge of the tip before it onto {onto[:9]} met a "
-            f"conflict in {', '.join(conflicts) or 'a path git did not name'}"
+            f"{REBASE_UNSHOWN}: git's merge of the tip before it onto {onto_short} "
+            f"met a conflict in {listed}"
         )
     if skipped:
-        why += (
-            "; the rebase left out each commit whose patch the base holds: "
+        why = (
+            f"{why}; the rebase left out each commit whose patch the base holds: "
             f"{commits_named(skipped)}, and `git cherry-pick HASH` brings one back if "
             "the base took it out again"
         )
@@ -2394,7 +2423,8 @@ def left_out(where: Path, onto: str, before: str) -> list[tuple[str, str]]:
 
 def commits_named(commits: list[tuple[str, str]]) -> str:
     """COMMITS, each its hash and its subject, as a person reads them in a line."""
-    return ", ".join(f"{sha[:9]} ({subject})" for sha, subject in commits)
+    short = ((sha[:9], subject) for sha, subject in commits)
+    return ", ".join(f"{sha} ({subject})" for sha, subject in short)
 
 
 def rebase_left(task: Task, before: str) -> str:
@@ -2412,20 +2442,22 @@ def rebase_left(task: Task, before: str) -> str:
     on = git(where, "symbolic-ref", "-q", "--short", "HEAD", check=False)
     tip = git(where, "rev-parse", "-q", "--verify", f"refs/heads/{branch}", check=False)
     if tip != before:
+        tip_short = tip[:9] or "no commit"
+        before_short = before[:9]
+        command = (
+            f"reset --hard {before}" if on == branch else f"branch -f {branch} {before}"
+        )
         left.append(
-            f"the branch {branch} is at {tip[:9] or 'no commit'}, not at its tip "
-            f"before the rebase {before[:9]} (`git -C {where} "
-            + (
-                f"reset --hard {before}"
-                if on == branch
-                else f"branch -f {branch} {before}"
-            )
-            + "` puts it back)"
+            f"the branch {branch} is at {tip_short}, not at its tip "
+            f"before the rebase {before_short} (`git -C {where} {command}` "
+            "puts it back)"
         )
     if on != branch:
         head = git(where, "rev-parse", "-q", "--verify", "HEAD", check=False)
+        head_short = head[:9]
+        checkout = f"on {on}" if on else f"detached at {head_short}"
         left.append(
-            f"HEAD is {f'on {on}' if on else f'detached at {head[:9]}'}, not on the "
+            f"HEAD is {checkout}, not on the "
             f"branch {branch} (`git -C {where} switch {branch}` puts it back)"
         )
     return "; ".join(left)
@@ -2486,9 +2518,10 @@ def rebase_failed(onto: str, said: str, where: str) -> str:
     words = " / ".join(line.strip() for line in said.splitlines() if line.strip())
     words = words.rstrip(".")
     back = ", puts the worktree back as named," if "not as it was" in where else ""
+    words = words or "nothing"
     return (
         f"the rebase onto {onto} failed with no file in conflict, and {where}; git "
-        f"said: {words or 'nothing'}. Nothing is kept for a builder: the owner removes "
+        f"said: {words}. Nothing is kept for a builder: the owner removes "
         "what git names (a hook of git that refuses the rebase, a lock that another "
         f"git holds){back} and this step runs again"
     )
@@ -2521,6 +2554,8 @@ UNSHOWN = ("Cc", "Cf", "Zl", "Zp")
 
 # what `surrogateescape` decodes a byte 0x80 to 0xFF that is not UTF-8 to
 SURROGATES = (0xDC80, 0xDCFF)
+# The first byte that surrogateescape maps into SURROGATES.
+SURROGATE_BYTE_START = 0x80
 
 
 def shown_name(raw: bytes) -> str:
@@ -2534,35 +2569,39 @@ def shown_name(raw: bytes) -> str:
     for at, char in enumerate(raw.decode(errors="surrogateescape")):
         code = ord(char)
         if SURROGATES[0] <= code <= SURROGATES[1]:
-            shown.append(f"<0x{code - SURROGATES[0] + 0x80:02X}>")
+            byte = format(code - SURROGATES[0] + SURROGATE_BYTE_START, "02X")
+            shown.append(f"<0x{byte}>")
         elif (
             unicodedata.category(char) in UNSHOWN
             or char == "<"
             or (char == '"' and at == 0)
         ):
-            shown.append(f"<U+{code:04X}>")
+            point = format(code, "04X")
+            shown.append(f"<U+{point}>")
         else:
             shown.append(char)
     return "".join(shown)
 
 
 # git's escapes of a quoted path (`core.quotePath`), other than the octal ones
-QUOTED = {
-    b"a": b"\a",
-    b"b": b"\b",
-    b"t": b"\t",
-    b"n": b"\n",
-    b"v": b"\v",
-    b"f": b"\f",
-    b"r": b"\r",
-    b'"': b'"',
-    b"\\": b"\\",
-}
+QUOTED = MappingProxyType(
+    {
+        b"a": b"\a",
+        b"b": b"\b",
+        b"t": b"\t",
+        b"n": b"\n",
+        b"v": b"\v",
+        b"f": b"\f",
+        b"r": b"\r",
+        b'"': b'"',
+        b"\\": b"\\",
+    }
+)
 
 
 def kept_name(name: str) -> str:
-    """A file's name as a conflict's record keeps it. A record of a release before
-    `conflicted` keeps a name as git quoted it (`"caf\\303\\251.txt"`, quotes and all),
+    r"""A file's name as a conflict's record keeps it. A record of a release before
+    `conflicted` keeps a name as git quoted it (`"caf\303\251.txt"`, quotes and all),
     which is read as the name it stands for and shown as `shown_name` shows it; any
     other name is kept as it is. A name `shown_name` gives never opens with `"`, so no
     name of the new form is read as quoted, and a quoted one always opens with it."""
@@ -2611,20 +2650,21 @@ def rebased_files(where: Path, before: str, after: str) -> list[str]:
         ).split(b"\0")
         if line.startswith(b"-\t-\t")
     }
-    return sorted(
-        shown_name(os.fsencode(name))
-        for name in {*blobs[0], *blobs[1]}
-        if (
-            blobs[0].get(name) != blobs[1].get(name)
-            if name in binary
-            else any(
-                # with --no-patch, only the pairs' lines: `N:  SHA = N:  SHA SUBJECT`
+    names = {*blobs[0], *blobs[1]}
+    moved = []
+    for name in names:
+        if name in binary:
+            differs = blobs[0].get(name) != blobs[1].get(name)
+        else:
+            # with --no-patch, only the pairs' lines: `N:  SHA = N:  SHA SUBJECT`
+            differs = any(
                 line.split()[2] != b"="
                 for line in pairs(where, before, after, name)
                 if line.strip()
             )
-        )
-    )
+        if differs:
+            moved.append(shown_name(os.fsencode(name)))
+    return sorted(moved)
 
 
 def left_blobs(where: Path, spec: str) -> dict[str, list[bytes]]:
@@ -2714,15 +2754,15 @@ def test_files(found: dict) -> list[str]:
     """The files that hold a criterion's test, as the plan names them."""
     return sorted(
         {
-            file
+            path
             for criterion in found["criteria"]
             for test in criterion["tests"]
-            for file in test["files"]
+            for path in test["files"]
         }
     )
 
 
-def cmd_polish(task: Task, *, done: bool) -> dict:  # noqa: C901, PLR0912 - over the limit before the limit was set
+def cmd_polish(task: Task, *, done: bool) -> dict:  # noqa: C901 - over the limit before the limit was set
     """The polish pass: what its builder gets, and after the builder, the check of what
     it did."""
     task.need_landing()
@@ -2742,6 +2782,7 @@ def cmd_polish(task: Task, *, done: bool) -> dict:  # noqa: C901, PLR0912 - over
             "branch as it will be checked"
         )
     tip = git(task.worktree, "rev-parse", "HEAD")
+    tip_short = tip[:9]
     # what the pass may not change: the test files of the criteria and the plan that
     # names them; a fast track's criteria file is in the task directory, which no
     # commit holds
@@ -2773,7 +2814,7 @@ def cmd_polish(task: Task, *, done: bool) -> dict:  # noqa: C901, PLR0912 - over
                 "log",
                 task.slug,
                 "polish.start",
-                f"before={tip[:9]}",
+                f"before={tip_short}",
             )
         base = git(task.worktree, "merge-base", polish["before"], task.onto)
         report, outside = task.directory / "report.md", task.directory / "outside.md"
@@ -2803,15 +2844,17 @@ def cmd_polish(task: Task, *, done: bool) -> dict:  # noqa: C901, PLR0912 - over
             "starts it and prints what its builder gets"
         )
     if polish.get("done"):
+        after_short = str(polish.get("after"))[:9]
         raise LandError(
             "the polish pass of this landing is done already, at "
-            f"{str(polish.get('after'))[:9]}; a builder of the landing after it has "
+            f"{after_short}; a builder of the landing after it has "
             "the same list in its brief"
         )
     before = polish["before"]
     if not holds_commit(task, before, tip):
+        before_short = str(before)[:9]
         raise LandError(
-            f"the branch no longer holds {str(before)[:9]}, the tip the polish pass "
+            f"the branch no longer holds {before_short}, the tip the polish pass "
             "started at: its builder rewrote the task's commits, which no builder of "
             "the pass does. Put the branch back on its own commits (git reflog names "
             "them), then run this again",
@@ -2822,7 +2865,7 @@ def cmd_polish(task: Task, *, done: bool) -> dict:  # noqa: C901, PLR0912 - over
     touched: dict[str, list[str]] = {}
     for line in commits:
         commit = line.split(" ", 1)[0]
-        for file in git(
+        for changed_path in git(
             task.worktree,
             "diff-tree",
             "--no-commit-id",
@@ -2831,59 +2874,63 @@ def cmd_polish(task: Task, *, done: bool) -> dict:  # noqa: C901, PLR0912 - over
             "-r",
             commit,
         ).splitlines():
-            touched.setdefault(file, []).append(commit[:9])
+            touched.setdefault(changed_path, []).append(commit[:9])
     # What counts is what the pass leaves: a commit that changed a criterion's test and
     # one that put it back leave the contract as it was.
     differs = set(changed(task, before, tip))
     wrong = [
-        f"{file} (by {', '.join(touched.get(file, []))})"
-        for file in frozen
-        if file in differs
+        f"{one} (by {by})"
+        for one in frozen
+        if one in differs
+        for by in (", ".join(touched.get(one, [])),)
     ]
     if wrong:
+        listed = "; ".join(wrong)
         raise LandError(
-            f"the polish pass changed what it may not: {'; '.join(wrong)}. "
+            f"the polish pass changed what it may not: {listed}. "
             "A criterion's test and the plan are the task's contract, and the pass "
             "changes no behavior: a builder reverts those commits (`git revert`), "
             "and this step runs again",
         )
-    result: dict = {
+    pass_record: dict = {
         "task": task.slug,
         "before": before,
         "after": tip,
-        "commits": [line.split(" ", 1)[1] if " " in line else "" for line in commits],
+        "commits": [row.split(" ", 1)[1] if " " in row else "" for row in commits],
+        "criteria": None,
     }
     if commits:
         held = script("criteria.py", task.main, "red", task.slug, check=False)
         if held.returncode != 0:
+            why = held.stderr.strip().removeprefix("criteria.py: ")
             raise LandError(
                 "after the polish pass the tests of the criteria do not hold: "
-                f"{held.stderr.strip().removeprefix('criteria.py: ')}. "
+                f"{why}. "
                 "The pass changes no behavior: a builder finds the commit of the pass "
                 "that broke it and takes it out, and this step runs again",
             )
-        result["criteria"] = json.loads(held.stdout)
-    else:
-        result["criteria"] = None
+        pass_record["criteria"] = json.loads(held.stdout)
     folder = backlog_of(task)
-    added = [
-        row.split("\t", 1)[1]
+    pass_record["filed"] = [
+        path
         for row in git(
             task.worktree, "diff", "--name-status", "--no-renames", before, tip
         ).splitlines()
         if row.startswith("A\t")
+        for path in (row.split("\t", 1)[1],)
+        if path.startswith(f"{folder}/")
     ]
-    result["filed"] = [path for path in added if path.startswith(folder + "/")]
+    before_short = before[:9]
     script(
         "project.py",
         task.worktree,
         "log",
         task.slug,
         "polish",
-        f"before={before[:9]}",
-        f"after={tip[:9]}",
+        f"before={before_short}",
+        f"after={tip_short}",
         f"commits:={len(commits)}",
-        f"filed:={json.dumps(result['filed'])}",
+        f"filed:={json.dumps(pass_record['filed'])}",
     )
     # the pass's result of the criteria's tests, with the inputs its run reported: the
     # checks take it in place of a run of their own when those inputs are the same when
@@ -2894,11 +2941,11 @@ def cmd_polish(task: Task, *, done: bool) -> dict:  # noqa: C901, PLR0912 - over
             "after": tip,
             "done": True,
             "commits": len(commits),
-            "filed": result["filed"],
-            "criteria": result["criteria"],
+            "filed": pass_record["filed"],
+            "criteria": pass_record["criteria"],
         }
     )
-    return result
+    return pass_record
 
 
 def polish_missing(task: Task, tip: str, found: dict) -> str | None:
@@ -2911,8 +2958,9 @@ def polish_missing(task: Task, tip: str, found: dict) -> str | None:
         return None
     polish = task.kept().get("polish")
     if polish and not polish.get("done"):
+        before_short = str(polish.get("before"))[:9]
         return (
-            f"the polish pass started at {str(polish.get('before'))[:9]} and is not "
+            f"the polish pass started at {before_short} and is not "
             f"done: after its builder, `lem land polish {task.slug} --done` checks "
             "what it did"
         )
@@ -2923,9 +2971,10 @@ def polish_missing(task: Task, tip: str, found: dict) -> str | None:
             "does it, and `--done` checks it"
         )
     if not holds_commit(task, polish.get("after"), tip):
+        after_short = str(polish.get("after"))[:9]
         return (
             "the tip does not hold the polish pass's last commit "
-            f"({str(polish.get('after'))[:9]}): the branch was rewritten after the "
+            f"({after_short}): the branch was rewritten after the "
             "pass by something else than `lem land base`. The pass runs again: "
             f"`lem land polish {task.slug}`, its builder, and `--done`"
         )
@@ -2994,7 +3043,7 @@ def change(task: Task) -> dict:
     # patch id is not used: it ignores spaces and places, and either can be the whole of
     # a change.
     raw = git(task.worktree, "diff", "--raw", "--no-abbrev", "--no-renames", base, tip)
-    patch = hashlib.sha256(raw.encode()).hexdigest()[:16]
+    patch = hashlib.sha256(raw.encode()).hexdigest()[:PATCH_ID_LENGTH]
     # The same listing path by path, with NUL ends so that no path is quoted: each file
     # with its mode and blob on the base and on the tip. A review keeps it, so that what
     # was added after the review is known file by file (`covers`).
@@ -3017,20 +3066,25 @@ def change(task: Task) -> dict:
         path: head.lstrip(":").split()
         for head, path in zip(listed[0::2], listed[1::2], strict=False)
     }
-    contents = {
+    blobs = {
         path: {"base": head[2], "tip": head[3], "modes": head[:2]}
         for path, head in heads.items()
     }
     counted = git(
         task.worktree, "diff", "--numstat", "--no-renames", base, tip
     ).splitlines()
-    lines = sum(int(n) for row in counted for n in row.split("\t")[:2] if n.isdigit())
+    lines = sum(
+        int(count)
+        for row in counted
+        for count in row.split("\t")[:2]
+        if count.isdigit()
+    )
     return {
         "tip": tip,
         "base": base,
         "files": changed(task, base, tip),
         "patch": patch,
-        "contents": contents,
+        "contents": blobs,
         "lines": lines,
     }
 
@@ -3049,15 +3103,15 @@ def task_item(task: Task) -> str | None:
     """The backlog item the task was started from, by `item_of_ask` over its `ask.txt`
     and the base commit of its branch: the path relative to the root, or None when the
     task has no such item."""
-    file = task.directory / "ask.txt"
-    if not file.is_file():
+    path = task.directory / "ask.txt"
+    if not path.is_file():
         return None
     base = git(task.worktree, "merge-base", "HEAD", task.onto, check=False)
     if not base:
         return None
     roots = (str(task.main), str(task.main.resolve()))
     return item_of_ask(
-        file.read_text(encoding="utf-8", errors="replace"),
+        path.read_text(encoding="utf-8", errors="replace"),
         backlog_of(task),
         roots,
         lambda path: file_at(task, base, path),
@@ -3113,28 +3167,29 @@ def state_item_of_ask(ask: str, state: Path) -> str | None:
 def state_item(task: Task) -> str | None:
     """The reviewer's item the task was started from, by `state_item_of_ask` over its
     `ask.txt`, or None."""
-    file = task.directory / "ask.txt"
-    if not file.is_file():
+    path = task.directory / "ask.txt"
+    if not path.is_file():
         return None
     return state_item_of_ask(
-        file.read_text(encoding="utf-8", errors="replace"), task.state_folder
+        path.read_text(encoding="utf-8", errors="replace"), task.state_folder
     )
 
 
-def remove_item(state: Path, item: str, slug: str, url: str) -> bool:
-    """Remove the file of the reviewer's item ITEM (`state_item`) from the state folder
+def remove_item(state: Path, path: str, slug: str, url: str) -> bool:
+    """Remove the file of the reviewer's item PATH (`state_item`) from the state folder
     STATE, for the task SLUG whose pull request URL GitHub merged. False when it is gone
     already, which is no error. A removal that fails raises the landing's error, so the
     task stays `open` and the next `lem land merged` tries again."""
-    file = state / "backlog" / item.rpartition("/")[2]
+    entry = state / "backlog" / path.rpartition("/")[2]
     try:
-        file.unlink()
+        entry.unlink()
     except FileNotFoundError:
         return False
     except OSError as error:
+        why = error.strerror or error
         raise LandError(
             f"GitHub merged {url}, and the file of the backlog item the task was "
-            f"started from, {file}, was not removed ({error.strerror or error}); "
+            f"started from, {entry}, was not removed ({why}); "
             f"the task stays open, and `lem land merged {slug}` tries again"
         ) from error
     return True
@@ -3151,7 +3206,7 @@ def covers(task: Task, read: dict, now: dict, own: str | None = None) -> bool:
 def covered(folder: str, read: dict, now: dict, own: str | None = None) -> bool:
     """`covers`, with the backlog folder given: the rule alone, which reads no file."""
     return any(
-        covers_one(folder, seen, now, own) for seen in [read, *read.get("carried", [])]
+        covers_one(folder, seen, now, own) for seen in (read, *read.get("carried", []))
     )
 
 
@@ -3208,7 +3263,7 @@ def covers_one(folder: str, read: dict, now: dict, own: str | None = None) -> bo
         and all(
             (
                 set(now["contents"][path]["base"]) == {"0"}
-                and path.startswith(folder + "/")
+                and path.startswith(f"{folder}/")
             )
             or (path == own and set(now["contents"][path]["tip"]) == {"0"})
             for path in extra
@@ -3217,21 +3272,21 @@ def covers_one(folder: str, read: dict, now: dict, own: str | None = None) -> bo
 
 
 def defects_of(
-    value: object, attempt: int, folder: str, at_base: Callable[[str], bool]
+    entries: object, attempt: int, folder: str, at_base: Callable[[str], bool]
 ) -> list[dict]:
     """The defects outside the change as the record of ATTEMPT names them, each with the
     review's call on it (`bar`, `why`, `open`) and its number (`r2.1`); `0` is none, and
     a count is refused. FOLDER is the backlog folder, and AT_BASE tells whether a path
     is a file at the base commit: an `open` names an item that was there."""
-    if isinstance(value, int) and not isinstance(value, bool) and value == 0:
+    if isinstance(entries, int) and not isinstance(entries, bool) and entries == 0:
         return []
-    if not isinstance(value, list) or not all(
-        isinstance(item, dict)
-        and set(DEFECT) <= set(item)
-        and all(isinstance(item[key], str) and item[key].strip() for key in DEFECT)
-        and "\n" not in item["where"] + item["title"]
-        and slug_of(item["title"])
-        for item in value
+    if not isinstance(entries, list) or not all(
+        isinstance(entry, dict)
+        and set(DEFECT) <= set(entry)
+        and all(isinstance(entry[key], str) and entry[key].strip() for key in DEFECT)
+        and "\n" not in entry["where"] + entry["title"]
+        and slug_of(entry["title"])
+        for entry in entries
     ):
         raise LandError(
             "`outside` is the list of the defects the review saw outside the change, "
@@ -3241,20 +3296,22 @@ def defects_of(
             "and 0 is none",
         )
     found = []
-    for place, item in enumerate(value, start=1):
-        number, title = f"r{attempt}.{place}", item["title"].strip()
-        extra = set(item) - {*DEFECT, "bar", "why", "open"}
+    for place, entry in enumerate(entries, start=1):
+        number, title = f"r{attempt}.{place}", entry["title"].strip()
+        extra = set(entry) - {*DEFECT, "bar", "why", "open"}
         if extra:
+            unknown = ", ".join(sorted(extra))
             raise LandError(
                 f'the defect {number} outside the change ("{title}") has '
-                f"{', '.join(sorted(extra))}: an entry of `outside` holds `where`, "
+                f"{unknown}: an entry of `outside` holds `where`, "
                 "`title`, `what`, `bar`, and `why` and `open` where they apply"
             )
-        call, why, open_ = item.get("bar"), item.get("why"), item.get("open")
+        call, why, open_ = entry.get("bar"), entry.get("why"), entry.get("open")
         if call not in BARS:
+            given = "no `bar`" if call is None else f"the bar {call!r}"
             raise LandError(
                 f'the defect {number} outside the change ("{title}") has '
-                f"{'no `bar`' if call is None else f'the bar {call!r}'}: "
+                f"{given}: "
                 "`bar` is the review's call by the bar of rule 6 of the builder's "
                 'standing rules, "over" (an item with `worth: later`), "under" (an '
                 'item with `worth: no`) or "cheap" (its fix is text that does not run, '
@@ -3269,15 +3326,16 @@ def defects_of(
                 f'("{title}") is one line of text'
             )
         if call != "over" and why is None:
+            called = "under the bar" if call == "under" else "cheap"
             raise LandError(
                 f'the defect {number} outside the change ("{title}") is {call}, and '
                 "has no `why`: one line that says why it is "
-                f"{'under the bar' if call == 'under' else 'cheap'}"
+                f"{called}"
             )
         if open_ is not None and not (
             isinstance(open_, str)
             and open_ == open_.strip()
-            and open_.startswith(folder + "/")
+            and open_.startswith(f"{folder}/")
             and "\\" not in open_
             and Path(open_).as_posix() == open_
             and ".." not in Path(open_).parts
@@ -3292,10 +3350,10 @@ def defects_of(
             )
         found.append(
             {
-                **{key: item[key].strip() for key in DEFECT},
+                **{key: entry[key].strip() for key in DEFECT},
                 "bar": call,
-                **({"why": why.strip()} if why is not None else {}),
-                **({"open": open_} if open_ is not None else {}),
+                **({} if why is None else {"why": why.strip()}),
+                **({} if open_ is None else {"open": open_}),
                 "number": number,
             }
         )
@@ -3363,9 +3421,9 @@ def seen_line(defect: dict) -> str:
     script writes always passes."""
     line = f"- `{defect['where']}`: {defect['title']}"
     if defect.get("why"):
-        line += f"; {defect['bar']}: {defect['why']}"
+        line = f"{line}; {defect['bar']}: {defect['why']}"
     if defect.get("open"):
-        line += f"; an open item holds it, `{defect['open']}`"
+        line = f"{line}; an open item holds it, `{defect['open']}`"
     return line
 
 
@@ -3379,14 +3437,14 @@ def outside_parts(
     that is not among them (a file of the base that holds the same defect) follows the
     review's call. FIXED is the text of the notes under `## Fixed on the way`, whose
     lines name the cheap entries a builder fixed by their numbers."""
-    items, seen = list(added), []
+    entries, seen = list(added), []
     for read in reads:
         if not read["answered"]:
             continue
         for defect in outside_of(read):
             if defect.get("item"):
-                if all(item["item"] != defect["item"] for item in items):
-                    items.append(
+                if all(entry["item"] != defect["item"] for entry in entries):
+                    entries.append(
                         {
                             "item": defect["item"],
                             "title": defect["title"],
@@ -3395,20 +3453,21 @@ def outside_parts(
                     )
             elif not (defect["bar"] == "cheap" and named_by(defect["number"], fixed)):
                 seen.append(seen_line(defect))
-    filed, not_worth = item_lines(items)
+    filed, not_worth = item_lines(entries)
     return filed, not_worth, seen
 
 
-def item_lines(items: list[dict]) -> tuple[list[str], list[str]]:
+def item_lines(entries: list[dict]) -> tuple[list[str], list[str]]:
     """The line of each item, `- `PATH`: TITLE`, under the heading its `worth` gives:
     `## Filed as not worth it` for `no`, `## Filed in the backlog` for any other."""
     filed: list[str] = []
     not_worth: list[str] = []
-    for item in items:
-        line = f"- `{item['item']}`" + (
-            f": {item['title']}" if item.get("title") else ""
+    for entry in entries:
+        title = f": {entry['title']}" if entry.get("title") else ""
+        line = f"- `{entry['item']}`{title}"
+        into = (
+            not_worth if (entry.get("worth") or "").strip().lower() == "no" else filed
         )
-        into = not_worth if (item.get("worth") or "").strip().lower() == "no" else filed
         if line not in into:
             into.append(line)
     return filed, not_worth
@@ -3536,7 +3595,7 @@ def outside_words(read: dict, fixed: str) -> str:
     defects = outside_of(read)
     if not defects:
         return ""
-    items = [defect["item"] for defect in defects if defect.get("item")]
+    paths = [defect["item"] for defect in defects if defect.get("item")]
     mended = sum(
         1
         for defect in defects
@@ -3544,15 +3603,15 @@ def outside_words(read: dict, fixed: str) -> str:
         and defect["bar"] == "cheap"
         and named_by(defect["number"], fixed)
     )
-    seen = len(defects) - len(items) - mended
+    seen = len(defects) - len(paths) - mended
+    plural = "" if len(defects) == 1 else "s"
+    listed = ", ".join(f"`{path}`" for path in paths)
+    filed = f", filed as {listed}" if paths else ""
+    repaired = f"; {mended} fixed on the way" if mended else ""
+    unfiled = f"; {seen} seen, not filed" if seen else ""
     return (
-        (
-            f"; it saw {len(defects)} defect{'' if len(defects) == 1 else 's'} outside "
-            "the change"
-        )
-        + (", filed as " + ", ".join(f"`{item}`" for item in items) if items else "")
-        + (f"; {mended} fixed on the way" if mended else "")
-        + (f"; {seen} seen, not filed" if seen else "")
+        f"; it saw {len(defects)} defect{plural} outside the change"
+        f"{filed}{repaired}{unfiled}"
     )
 
 
@@ -3615,7 +3674,7 @@ def with_outside(
     at = {name: index for index, (name, _) in enumerate(parts)}
     own_filed = lines_of(parts[at[FILED]][1]) if FILED in at else []
     own_not = lines_of(parts[at[NOT_WORTH]][1]) if NOT_WORTH in at else []
-    items = dict(
+    by_heading = dict(
         zip(
             (FILED, NOT_WORTH),
             placed(own_filed, own_not, filed, not_worth),
@@ -3623,14 +3682,14 @@ def with_outside(
         )
     )
     for heading, own in ((FILED, own_filed), (NOT_WORTH, own_not)):
-        if heading in at and items[heading] != own:
+        if heading in at and by_heading[heading] != own:
             # its lines as `placed` put them; a heading the notes hold keeps its `none`
             # when no line is left
-            parts[at[heading]] = (heading, ["", *(items[heading] or ["none"]), ""])
+            parts[at[heading]] = (heading, ["", *(by_heading[heading] or ["none"]), ""])
     order = (FILED, NOT_WORTH, FIXED, SEEN)
     for heading, more in (
-        (FILED, items[FILED]),
-        (NOT_WORTH, items[NOT_WORTH]),
+        (FILED, by_heading[FILED]),
+        (NOT_WORTH, by_heading[NOT_WORTH]),
         (SEEN, seen),
     ):
         if not more:
@@ -3650,7 +3709,9 @@ def with_outside(
             parts[place - 1][1].append("")
         parts.insert(place, (heading, ["", *more, ""]))
     out = [*head, *(line for name, lines in parts for line in (name, *lines))]
-    return "\n".join(out) + ("\n" if notes.endswith("\n") else "")
+    text = "\n".join(out)
+    ending = "\n" if notes.endswith("\n") else ""
+    return f"{text}{ending}"
 
 
 def slug_of(text: str) -> str:
@@ -3677,12 +3738,12 @@ def names_for(defect: dict) -> Iterator[str]:
         number += 1
 
 
-def item_of(file: Path) -> tuple[dict[str, str], list[str]] | None:
+def item_of(path: Path) -> tuple[dict[str, str], list[str]] | None:
     """An item of the backlog as the item format has it: its front matter, and its lines
     after it, of which the first is its title (`# TITLE`). None for a file that is no
     such item."""
     try:
-        text = file.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8")
     except OSError, UnicodeDecodeError:
         return None
     return item_text(text)
@@ -3694,8 +3755,8 @@ def item_text(text: str) -> tuple[dict[str, str], list[str]] | None:
     head = re.match(r"---\n(.*?)\n---\n", text, re.DOTALL)
     if head:
         for line in head.group(1).splitlines():
-            key, _, value = line.partition(":")
-            front[key.strip()] = value.strip()
+            key, _, field = line.partition(":")
+            front[key.strip()] = field.strip()
         text = text[head.end() :]
     lines = text.strip().splitlines()
     if not lines or not lines[0].startswith("# "):
@@ -3703,14 +3764,14 @@ def item_text(text: str) -> tuple[dict[str, str], list[str]] | None:
     return front, lines
 
 
-def holds(file: Path, defect: dict) -> bool:
+def holds(path: Path, defect: dict) -> bool:
     """Whether an item file is this defect: the same `where`, the same title, and the
     defect's run as paragraphs of the body, word for word. Any other text of the body,
     the owner's reason for a `worth: no` or a later note, leaves it the same defect."""
-    item = item_of(file)
-    if item is None:
+    parsed = item_of(path)
+    if parsed is None:
         return False
-    front, lines = item
+    front, lines = parsed
     if front.get("where") != defect["where"] or lines[0][2:].strip() != defect["title"]:
         return False
     # Paragraphs as `file` writes them: `what` stripped, a blank line between
@@ -3755,8 +3816,8 @@ def base_items(task: Task, base: str) -> list[dict]:
     is an item, for the reviewer, who names in `open` the one that holds a defect
     it sees."""
     return [
-        {key: item[key] for key in ("item", "where", "title")}
-        for item in items_at(task, base)
+        {key: entry[key] for key in ("item", "where", "title")}
+        for entry in items_at(task, base)
     ]
 
 
@@ -3778,7 +3839,7 @@ def items_at(task: Task, commit: str) -> list[dict]:
                 "--name-only",
                 commit,
                 "--",
-                folder + "/",
+                f"{folder}/",
             ]
         ).stdout.split("\0")
         if path
@@ -3797,21 +3858,21 @@ def items_at(task: Task, commit: str) -> list[dict]:
         head, at = out[at:end].split(), end + 1
         present = len(head) == 3  # noqa: PLR2004 - git's head of an object it found: its name, type and size
         size = int(head[2]) if present else 0
-        item = (
+        parsed = (
             item_text(out[at : at + size].decode("utf-8", errors="replace"))
             if present
             else None
         )
-        at += size + (1 if present else 0)
-        found.append(item_facts(path, item))
+        at += size + present
+        found.append(item_facts(path, parsed))
     return found
 
 
-def item_facts(path: str, item: tuple[dict[str, str], list[str]] | None) -> dict:
+def item_facts(path: str, parsed: tuple[dict[str, str], list[str]] | None) -> dict:
     """What `alike` and the reviewer are told of the file at PATH, from `item_text`: its
     `where`, its title, its `worth` and the first line of its body, each None where it
     has none."""
-    front, lines = item or ({}, [])
+    front, lines = parsed or ({}, [])
     first = next((line.strip() for line in lines[1:] if line.strip()), None)
     return {
         "item": path,
@@ -3827,8 +3888,8 @@ def worth_at(task: Task, commit: str, path: str) -> str | None:
     shown = run(
         ["git", "-C", str(task.worktree), "show", f"{commit}:{path}"], check=False
     )
-    item = item_text(shown.stdout) if shown.returncode == 0 else None
-    worth = item[0].get("worth") if item else None
+    parsed = item_text(shown.stdout) if shown.returncode == 0 else None
+    worth = parsed[0].get("worth") if parsed else None
     return worth.strip().lower() if worth else None
 
 
@@ -3847,7 +3908,7 @@ def someone_elses(task: Task) -> bool:
         and SOMEONE_ELSE
         in [
             str(line).strip()
-            for line in [record.get("text", ""), *record.get("lines", [])]
+            for line in (record.get("text", ""), *record.get("lines", []))
         ]
         for record in events_of(task)
     )
@@ -3929,14 +3990,13 @@ def settings_edit(task: Task, now: dict) -> str | None:
             f"the change leaves {SETTINGS_FILE} in a form that does not read as TOML, "
             "so what it says is careful cannot be told"
         )
-    edited = sorted(
-        name for name in {*before, *after} if before.get(name) != after.get(name)
-    )
-    what = (
-        f"{' and '.join(f'[{name}]' for name in edited)} of {SETTINGS_FILE}"
-        if edited
-        else f"the text of {SETTINGS_FILE}, and no value in it"
-    )
+    names = {*before, *after}
+    edited = sorted(name for name in names if before.get(name) != after.get(name))
+    if edited:
+        listed = " and ".join(f"[{name}]" for name in edited)
+        what = f"{listed} of {SETTINGS_FILE}"
+    else:
+        what = f"the text of {SETTINGS_FILE}, and no value in it"
     return f"the change edits {what}, {guards}"
 
 
@@ -3962,13 +4022,12 @@ def local_settings_edit(task: Task, now: dict) -> str | None:
         in_commit(task, now["base"], LOCAL_SETTINGS_FILE),
         in_commit(task, now["tip"], LOCAL_SETTINGS_FILE),
     )
-    how = (
-        "adds"
-        if after and not before
-        else "removes"
-        if before and not after
-        else "changes"
-    )
+    if after and not before:
+        how = "adds"
+    elif before and not after:
+        how = "removes"
+    else:
+        how = "changes"
     return (
         f"the change {how} {LOCAL_SETTINGS_FILE}, one machine's own settings, which "
         "git does not track: tracked, that machine's seats, naps and days the state "
@@ -4022,7 +4081,8 @@ def unfenced(text: str, where: str) -> str:
     """TEXT with each line of a fenced code block blank (`fenced_lines`)."""
     lines = text.splitlines()
     fenced = fenced_lines(lines, where)
-    return "".join(f"{'' if n in fenced else line}\n" for n, line in enumerate(lines))
+    kept = ("" if number in fenced else line for number, line in enumerate(lines))
+    return "".join(f"{line}\n" for line in kept)
 
 
 def tasks_of(plan: str, where: str) -> int:
@@ -4043,7 +4103,7 @@ def tasks_of(plan: str, where: str) -> int:
     return count
 
 
-def bar(task: Task, base: str, tip: str, plan: str, where: str) -> dict:
+def check_bar(task: Task, base: str, tip: str, plan: str, where: str) -> dict:
     """Where the change lowers the bar, each with the reason the plan gives for that
     file, or none. PLAN is the plan's text and WHERE its file."""
     # -M: a file that moved is one file, so its tests are not counted as gone and
@@ -4109,7 +4169,7 @@ def hunk_size(header: str) -> list[int]:
     found = HUNK.match(header)
     if not found:
         return [0, 0]
-    return [int(count) if count is not None else 1 for count in found.groups()]
+    return [1 if count is None else int(count) for count in found.groups()]
 
 
 def bar_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before the limit was set
@@ -4151,7 +4211,8 @@ def bar_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before the
     # each coverage threshold's numbers before and after, whatever file of a runner's
     # settings holds it
     thresholds: dict[str, dict[str, list[tuple[float, str]]]] = {}
-    file = old = ""
+    path = ""
+    old = ""
     marks: list[re.Pattern] = []
     settings: list[re.Pattern] = []
     # the lines of the hunk still to come, those that went and those that came, by its
@@ -4166,32 +4227,32 @@ def bar_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before the
             old = line[6:] if line.startswith("--- a/") else ""
         elif line.startswith("+++ "):
             # a file that is gone has its lines counted under the name it had
-            file = line[6:] if line.startswith("+++ b/") else old
-            if Path(file).suffix.lower() in DOCS:
+            path = line[6:] if line.startswith("+++ b/") else old
+            if Path(path).suffix.lower() in DOCS:
                 # a document may quote a mark, the plan's own reason for one too
-                file = ""
+                path = ""
             # a file with no suffix takes the marks of its first line's language
-            suffix = Path(file).suffix.lower() or (kinds or {}).get(file, "")
+            suffix = Path(path).suffix.lower() or (kinds or {}).get(path, "")
             marks = [
                 re.compile(mark)
-                for suffixes, found in BAR.items()
-                if file and suffix in suffixes
+                for suffixes, found in BAR_MARKS.items()
+                if path and suffix in suffixes
                 for mark in found
             ]
             settings = [
                 re.compile(mark)
                 for mark in TEST_CONFIG_MARKS
-                if file and TEST_CONFIG.search(file)
+                if path and TEST_CONFIG.search(path)
             ]
-            hunked.append((file, marks, settings, []))
+            hunked.append((path, marks, settings, []))
         elif line.startswith("@@"):
             due = hunk_size(line)
             if hunked:
                 hunked[-1][3].append(([], []))
-        if inside and file:
+        if inside and path:
             if hunked and hunked[-1][3] and (marks or settings):
                 hunked[-1][3][-1][line[0] == "+"].append(line[1:])
-            if TEST_CONFIG.search(file) or WORKFLOW.search(file):
+            if TEST_CONFIG.search(path) or WORKFLOW.search(path):
                 for found in THRESHOLD.finditer(line[1:]):
                     name, number = (
                         (found.group(1), found.group(2))
@@ -4199,18 +4260,21 @@ def bar_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before the
                         else (found.group(3), found.group(4))
                     )
                     thresholds.setdefault(name, {"-": [], "+": []})[line[0]].append(
-                        (float(number), file)
+                        (float(number), path)
                     )
             if (
-                TEST_FILE.search(file) or Path(file).suffix.lower() in INLINE_TESTS
+                TEST_FILE.search(path) or Path(path).suffix.lower() in INLINE_TESTS
             ) and ASSERTS.search(line[1:]):
-                asserts[file] = asserts.get(file, 0) + (
-                    1 if line.startswith("-") else -1
-                )
+                delta = 1 if line.startswith("-") else -1
+                asserts[path] = asserts.get(path, 0) + delta
     for name, its, kinds_of, hunks in hunked:
         lowered += [
-            {"file": name, "what": hit.group(0), "line": line.strip()[:160]}
-            for hit, line in new_marks(hunks, its, kinds_of)
+            {
+                "file": name,
+                "what": hit.group(0),
+                "line": marked.strip()[:BAR_LINE_LENGTH],
+            }
+            for hit, marked in new_marks(hunks, its, kinds_of)
         ]
     for name, fewer in sorted(asserts.items()):
         if fewer > 0:
@@ -4224,24 +4288,24 @@ def bar_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before the
         after = min(number for number, _ in numbers["+"]) if numbers["+"] else None
         if after is None or after < before:
             said = (
-                f"{name} went from {before:g} to {after:g}"
-                if after is not None
-                else f"{name} ({before:g}) is gone"
+                f"{name} ({before:g}) is gone"
+                if after is None
+                else f"{name} went from {before:g} to {after:g}"
             )
             lowered.append({"file": where, "what": said, "line": ""})
     edited = []
     for row in rows:
-        status, name, *moved = row.split("\t")
+        status, path_before, *moved = row.split("\t")
         # a test file that moved out of the tests is one the tests no longer run, as a
         # deleted one
         gone = status == "D" or (
             status.startswith("R") and moved and not TEST_FILE.search(moved[0])
         )
-        if gone and TEST_FILE.search(name):
-            lowered = [entry for entry in lowered if entry["file"] != name]
+        if gone and TEST_FILE.search(path_before):
+            lowered = [entry for entry in lowered if entry["file"] != path_before]
             lowered.append(
                 {
-                    "file": name,
+                    "file": path_before,
                     "what": "a test file is deleted"
                     if status == "D"
                     else f"a test file is moved out of the tests, to {moved[0]}",
@@ -4250,28 +4314,30 @@ def bar_of(  # noqa: C901, PLR0912, PLR0913, PLR0915 - over the limit before the
             )
         # an existing file a reviewer reads first: a test, a snapshot, a runner's or a
         # workflow's settings the change edits
-        now = moved[0] if moved else name
-        kind = (
-            "snapshot"
-            if SNAPSHOT.search(now)
-            else "test configuration"
-            if TEST_CONFIG.search(now) or WORKFLOW.search(now)
-            else "test"
-            if TEST_FILE.search(now)
-            else None
-        )
+        now = moved[0] if moved else path_before
+        if SNAPSHOT.search(now):
+            kind = "snapshot"
+        elif TEST_CONFIG.search(now) or WORKFLOW.search(now):
+            kind = "test configuration"
+        elif TEST_FILE.search(now):
+            kind = "test"
+        else:
+            kind = None
         if kind and (status == "M" or (status.startswith("R") and status != "R100")):
             edited.append({"file": now, "kind": kind})
     for entry in lowered:
         entry["reason"] = reasons.get(entry["file"])
-    covered = {suffix for suffixes in BAR for suffix in suffixes}
+    covered = {suffix for suffixes in BAR_MARKS for suffix in suffixes}
     not_covered = sorted(
-        {Path(name).suffix.lower() for name in files} - covered - set(DOCS) - set(DATA)
+        {Path(one).suffix.lower() for one in files}
+        - covered
+        - set(DOCS)
+        - set(DATA_SUFFIXES)
     )
     return {
         "lowered": lowered,
         "not_covered": not_covered,
-        "edited": sorted(edited, key=lambda entry: entry["file"]),
+        "edited": sorted(edited, key=lambda edit: edit["file"]),
     }
 
 
@@ -4299,12 +4365,9 @@ def marks_of(
         if starts[at + 1] > starts[at]:
             following = starts[at + 1]
         ends[at] = following
-    own = [(hit, text[starts[at] : ends[at]]) for at, hit in enumerate(hits)]
-    own += [
-        (hit, text[hit.start() :])
-        for hit in (mark.search(text) for mark in settings)
-        if hit
-    ]
+    own = [(hit, text[starts[place] : ends[place]]) for place, hit in enumerate(hits)]
+    matches = (mark.search(text) for mark in settings)
+    own += [(hit, text[hit.start() :]) for hit in matches if hit]
     return [(hit, " ".join(words.split())) for hit, words in own]
 
 
@@ -4325,14 +4388,12 @@ def new_marks(
     ]
     pairs = same_lines(hunks, found)
     new = []
-    for h, (_, came) in enumerate(hunks):
-        for a, line in enumerate(came):
-            was = pairs.get((h, a))
-            left = Counter(
-                (hit.re.pattern, own)
-                for hit, own in ([] if was is None else found[was[0]][0][was[1]])
-            )
-            for hit, own in found[h][1][a]:
+    for hunk_at, (_, came) in enumerate(hunks):
+        for came_at, line in enumerate(came):
+            was = pairs.get((hunk_at, came_at))
+            previous = [] if was is None else found[was[0]][0][was[1]]
+            left = Counter((hit.re.pattern, own) for hit, own in previous)
+            for hit, own in found[hunk_at][1][came_at]:
                 if left[(hit.re.pattern, own)]:
                     left[(hit.re.pattern, own)] -= 1
                 else:
@@ -4352,31 +4413,31 @@ def same_lines(
     lines that changed. Each removed line is one added line's at most."""
     pairs: dict[tuple[int, int], tuple[int, int]] = {}
     moved: dict[str, deque[tuple[int, int]]] = {}
-    for h, (gone, _) in enumerate(hunks):
-        for r, line in enumerate(gone):
-            moved.setdefault(" ".join(line.split()), deque()).append((h, r))
-    for h, (_, came) in enumerate(hunks):
-        for a, line in enumerate(came):
+    for hunk_at, (gone, _) in enumerate(hunks):
+        for gone_at, line in enumerate(gone):
+            moved.setdefault(" ".join(line.split()), deque()).append((hunk_at, gone_at))
+    for hunk_at, (_, came) in enumerate(hunks):
+        for came_at, line in enumerate(came):
             spare = moved.get(" ".join(line.split()))
             if spare:
-                pairs[(h, a)] = spare.popleft()
+                pairs[(hunk_at, came_at)] = spare.popleft()
     used = set(pairs.values())
-    for h, hunk in enumerate(hunks):
-        same_in_hunk(h, hunk, found[h], pairs, used)
+    for hunk_at, hunk in enumerate(hunks):
+        same_in_hunk(hunk_at, hunk, found[hunk_at], pairs, used)
     return pairs
 
 
 def same_in_hunk(
-    h: int,
+    hunk_at: int,
     hunk: tuple[list[str], list[str]],
     found: list[list[list[tuple[re.Match, str]]]],
     pairs: dict[tuple[int, int], tuple[int, int]],
     used: set[tuple[int, int]],
 ) -> None:
-    """`same_lines` in the hunk H of a file, its lines that went and came (HUNK) and
-    the marks FOUND on each: each added line that PAIRS holds no removed line for yet
-    takes the removed line of its hunk, not USED, that kept its code, or else the next
-    one in the hunk's order. PAIRS and USED take each pair."""
+    """`same_lines` in the hunk HUNK_AT of a file, its lines that went and came (HUNK)
+    and the marks FOUND on each: each added line that PAIRS holds no removed line for
+    yet takes the removed line of its hunk, not USED, that kept its code, or else the
+    next one in the hunk's order. PAIRS and USED take each pair."""
     gone, came = hunk
 
     def code(line: str, hits: list[tuple[re.Match, str]]) -> str:
@@ -4384,19 +4445,19 @@ def same_in_hunk(
         return " ".join(line[:first].split())
 
     kept: dict[str, deque[int]] = {}
-    for r, line in enumerate(gone):
-        if (h, r) not in used:
-            kept.setdefault(code(line, found[0][r]), deque()).append(r)
-    for a, line in enumerate(came):
-        spare = kept.get(code(line, found[1][a]))
-        if (h, a) not in pairs and spare:
-            pairs[(h, a)] = (h, spare.popleft())
-            used.add(pairs[(h, a)])
-    rest = deque(r for r in range(len(gone)) if (h, r) not in used)
-    for a in range(len(came)):
-        if (h, a) not in pairs and rest:
-            pairs[(h, a)] = (h, rest.popleft())
-            used.add(pairs[(h, a)])
+    for gone_at, line in enumerate(gone):
+        if (hunk_at, gone_at) not in used:
+            kept.setdefault(code(line, found[0][gone_at]), deque()).append(gone_at)
+    for came_at, line in enumerate(came):
+        spare = kept.get(code(line, found[1][came_at]))
+        if (hunk_at, came_at) not in pairs and spare:
+            pairs[(hunk_at, came_at)] = (hunk_at, spare.popleft())
+            used.add(pairs[(hunk_at, came_at)])
+    rest = deque(place for place in range(len(gone)) if (hunk_at, place) not in used)
+    for came_at in range(len(came)):
+        if (hunk_at, came_at) not in pairs and rest:
+            pairs[(hunk_at, came_at)] = (hunk_at, rest.popleft())
+            used.add(pairs[(hunk_at, came_at)])
 
 
 def bar_refusal(lowered: list[dict], *, small: bool) -> str | None:
@@ -4428,7 +4489,7 @@ def bar_refusal(lowered: list[dict], *, small: bool) -> str | None:
 STEP_LOCK = "step.lock"
 
 # What a run of the checks ends as, in its `gate.end` event.
-RESULTS = ("passed", "red", "refused", "stopped")
+CHECK_OUTCOMES = ("passed", "red", "refused", "stopped")
 
 # The checks are overdue when they run more than this many times as long as their last
 # finished run: the owner's "three times longer than their last finished run" (criterion
@@ -4484,11 +4545,13 @@ def load_now() -> float:
 # The words of `why` in a wait behind another run: the first in the line is one another
 # task waits for and this run is not, its wait began earlier, or the two began at one
 # moment and the tie-break put it first.
-BEHIND_WHY = {
-    "wanted": "which another task waits for",
-    "longer": "which waits longer",
-    "first": "which is first in the line",
-}
+BEHIND_WHY = MappingProxyType(
+    {
+        "wanted": "which another task waits for",
+        "longer": "which waits longer",
+        "first": "which is first in the line",
+    }
+)
 # The line of a task that its session blocked because the base branch fails a check
 # (`stages/land.md`, step 4, the same words as `lem_board_model.BASE_RED`): its `after:`
 # line names the repair it waits for.
@@ -4511,9 +4574,12 @@ def wait_say(  # noqa: PLR0913 - over the limit before the limit was set
     repository when that is not this run's, and `unread` the repositories whose state
     did not read at this look."""
     if behind:
-        other = behind + (f" of {Path(behind_repo).name}" if behind_repo else "")
+        other = behind
+        if behind_repo:
+            other = f"{behind} of {Path(behind_repo).name}"
+        words = BEHIND_WHY[why or "first"]
         said = (
-            f"{slug}: the checks wait behind {other}, {BEHIND_WHY[why or 'first']}; "
+            f"{slug}: the checks wait behind {other}, {words}; "
             f"they start below {start:g}"
         )
     elif after:
@@ -4566,9 +4632,9 @@ def waited_for(state: Path, project: ModuleType) -> set[str]:
     of a block. A task gone between the list of the folder and the read of its file is
     no task."""
     named = set()
-    for file in sorted((state / "tasks").glob("*/state.md")):
+    for path in sorted((state / "tasks").glob("*/state.md")):
         try:
-            blocks = project.blocks_of(project.text_of(file))
+            blocks = project.blocks_of(project.text_of(path))
         except FileNotFoundError:
             continue
         if not blocks:
@@ -4623,25 +4689,26 @@ def line_join(folder: Path, slug: str, repo: str, pid: int) -> dict:
     `PID.json`, locked for the whole wait, with the task, its repository and the time
     its wait began, written whole once."""
     folder.mkdir(parents=True, exist_ok=True)
-    file = folder / f"{pid}.json"
+    path = folder / f"{pid}.json"
     # "a+" and a truncate after the lock: a file is emptied only by the one that
     # holds it
-    handle = file.open("a+", encoding="utf-8")
+    out = path.open("a+", encoding="utf-8")
     try:
-        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(out, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
-        handle.close()
+        out.close()
         raise LandError(
-            f"the line of the load gate holds {file} for a run that still waits, with "
+            f"the line of the load gate holds {path} for a run that still waits, with "
             f"this process's id {pid}; `lem land checks --status` of the "
             "task says which run waits"
         ) from None
     entry = {"task": slug, "repo": repo, "since": time.time()}
-    handle.seek(0)
-    handle.truncate()
-    handle.write(json.dumps({"pid": pid, **entry}) + "\n")
-    handle.flush()
-    return {**entry, "name": file.name, "file": file, "handle": handle}
+    out.seek(0)
+    out.truncate()
+    text = json.dumps({"pid": pid, **entry})
+    out.write(f"{text}\n")
+    out.flush()
+    return {**entry, "name": path.name, "file": path, "handle": out}
 
 
 def line_leave(own: dict) -> None:
@@ -4660,19 +4727,19 @@ def line_live(folder: Path, own_name: str) -> list[dict]:
     died in the middle of its write), and its file is removed. Nothing else ends
     an entry."""
     live = []
-    for file in sorted(folder.glob("*.json")):
-        if file.name == own_name:
+    for path in sorted(folder.glob("*.json")):
+        if path.name == own_name:
             continue
         try:
-            handle = file.open("r", encoding="utf-8")
+            stream = path.open("r", encoding="utf-8")
         except FileNotFoundError:
             continue
-        with handle:
+        with stream:
             try:
-                fcntl.flock(handle, fcntl.LOCK_SH | fcntl.LOCK_NB)
+                fcntl.flock(stream, fcntl.LOCK_SH | fcntl.LOCK_NB)
             except BlockingIOError:
                 try:
-                    record = json.loads(handle.read())
+                    record = json.loads(stream.read())
                 except ValueError:
                     record = None
                 # a held file is written whole under LOAD_LOCK, which this look holds;
@@ -4688,12 +4755,12 @@ def line_live(folder: Path, own_name: str) -> list[dict]:
                             "task": record["task"],
                             "repo": record["repo"],
                             "since": record["since"],
-                            "name": file.name,
+                            "name": path.name,
                         }
                     )
                 continue
             with contextlib.suppress(FileNotFoundError):
-                file.unlink()
+                path.unlink()
     return live
 
 
@@ -4713,7 +4780,7 @@ def gate_look(lock: TextIO, folder: Path, own: dict, load: float, start: float) 
             "go": False,
             "reason": "behind",
             "behind": first["task"],
-            "behind_repo": first["repo"] if first["repo"] != own["repo"] else None,
+            "behind_repo": None if first["repo"] == own["repo"] else first["repo"],
             "why": line_why(first, own),
             "unread": unread,
         }
@@ -4739,9 +4806,8 @@ def gate_look(lock: TextIO, folder: Path, own: dict, load: float, start: float) 
         }
     lock.seek(0)
     lock.truncate()
-    lock.write(
-        json.dumps({"at": time.time(), "task": own["task"], "repo": own["repo"]}) + "\n"
-    )
+    text = json.dumps({"at": time.time(), "task": own["task"], "repo": own["repo"]})
+    lock.write(f"{text}\n")
     lock.flush()
     line_leave(own)
     return {"go": True, "unread": unread}
@@ -4775,10 +4841,10 @@ def wait_for_load(task: Task, pid: int | None = None) -> dict | None:
                 return {"start": None, "waited": waited} if waited else None
             load = load_now()
             folder.mkdir(parents=True, exist_ok=True)
-            with (home / lem_state.LOAD_LOCK).open("a+", encoding="utf-8") as handle:
+            with (home / lem_state.LOAD_LOCK).open("a+", encoding="utf-8") as lock:
                 # one look at a time on the machine: no look reads the line while
                 # another changes it
-                fcntl.flock(handle, fcntl.LOCK_EX)
+                fcntl.flock(lock, fcntl.LOCK_EX)
                 if own is None:
                     own = line_join(
                         folder,
@@ -4786,7 +4852,7 @@ def wait_for_load(task: Task, pid: int | None = None) -> dict | None:
                         str(task.main),
                         os.getpid() if pid is None else pid,
                     )
-                look = gate_look(handle, folder, own, load, start)
+                look = gate_look(lock, folder, own, load, start)
             if look["go"]:
                 own = None
                 return {"start": start, "load": load, "waited": waited}
@@ -4863,12 +4929,14 @@ def duration(seconds: float) -> str:
     minutes, rest = divmod(int(seconds), 60)
     if not minutes:
         return f"{rest} s"
-    return f"{minutes} min" + (f" {rest} s" if rest else "")
+    if rest:
+        return f"{minutes} min {rest} s"
+    return f"{minutes} min"
 
 
 def checks_say(
     slug: str,
-    result: str,
+    outcome: str,
     *,
     red: list[str] | None = None,
     refused: str | None = None,
@@ -4878,29 +4946,30 @@ def checks_say(
     result and the next step, with no question. `red` names the commands that failed,
     `refused` what the checks refused, and `next_due` is what `due` says after a passed
     run (`review`, `none` or `owner`)."""
-    if result == "passed":
+    if outcome == "passed":
         if next_due in ("none", "owner"):
             return (
                 f"{slug}: the checks passed; no review is due, so it is proposed, "
                 "nothing for you"
             )
         return f"{slug}: the checks passed; the review runs, nothing for you"
-    if result == "red":
+    if outcome == "red":
+        failed = " and ".join(red or ["a command"])
         return (
-            f"{slug}: the checks are red on {' and '.join(red or ['a command'])}; "
+            f"{slug}: the checks are red on {failed}; "
             "a builder repairs it, nothing for you"
         )
-    if result == "refused":
+    if outcome == "refused":
+        why = refused or "the step met an error"
         return (
             f"{slug}: the checks refused the change: "
-            f"{refused or 'the step met an error'}; a builder repairs it, "
+            f"{why}; a builder repairs it, "
             "nothing for you"
         )
-    if result == "stopped":
+    if outcome == "stopped":
         return f"{slug}: the checks were stopped; the landing waits for your word"
-    raise ValueError(
-        f"a run of the checks ends as one of {', '.join(RESULTS)}, not {result!r}"
-    )
+    outcomes = ", ".join(CHECK_OUTCOMES)
+    raise ValueError(f"a run of the checks ends as one of {outcomes}, not {outcome!r}")
 
 
 def last_seconds(events: list[dict]) -> int | None:
@@ -4943,15 +5012,15 @@ def resumed_line(slug: str, end: dict) -> str:
     next step as it is now, not as the session that saw the run end took it. A stopped
     run waits for the owner's word; after any other, the landing goes on from its first
     step, as after a cut-off."""
-    result = end.get("result")
+    outcome = end.get("result")
     after = (
         "the landing waits for your word"
-        if result == "stopped"
+        if outcome == "stopped"
         else "the landing goes on from its first step, as after a cut-off"
     )
     return (
         f"{slug}: its last run of the checks ended at {utc(end['ts'])}, "
-        f"{result}; {after}"
+        f"{outcome}; {after}"
     )
 
 
@@ -5035,33 +5104,33 @@ def step_lock(task: Task, step: str) -> Generator[None]:
     (Popen closes it in them), so a server a command left behind does not hold it."""
     path = task.directory / STEP_LOCK
     try:
-        handle = path.open("a+", encoding="utf-8")
+        lock = path.open("a+", encoding="utf-8")
     except OSError as error:
         raise LandError(
             f"the step lock {path} cannot be opened ({error.strerror}); "
             f"it holds no state, so remove it (`rm -r {path}`) and run "
             f"`lem land {step} {task.slug}` again",
         ) from error
-    with handle:
+    with lock:
         try:
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise LandError(held_refusal(task.slug, step, holder_of(path))) from None
-        handle.seek(0)
-        handle.truncate()
-        handle.write(
+        lock.seek(0)
+        lock.truncate()
+        lock.write(
             json.dumps({"step": step, "pid": os.getpid(), "since": lem_clock.stamp()})
             + "\n"
         )
-        handle.flush()
+        lock.flush()
         try:
             yield
         finally:
             # the holder's line goes with the hold, so that a look at the file never
             # names a step that ended
-            handle.seek(0)
-            handle.truncate()
-            handle.flush()
+            lock.seek(0)
+            lock.truncate()
+            lock.flush()
 
 
 def running_checks(task: Task) -> dict | None:
@@ -5270,6 +5339,7 @@ def checks_run(task: Task, flags: dict) -> dict:
         tip, found, commands = checks_ready(task)
     except KeyboardInterrupt:
         raise LandError(stopped) from None
+    tip_short = tip[:9]
     try:
         # the load gate, after every refusal the step makes before it runs anything, so
         # that a run that would be refused does not wait first
@@ -5287,7 +5357,7 @@ def checks_run(task: Task, flags: dict) -> dict:
                 "gate.end",
                 "result=stopped",
                 "seconds:=0",
-                f"tip={tip[:9]}",
+                f"tip={tip_short}",
                 f"say={checks_say(task.slug, 'stopped')}",
             )
         raise LandError(stopped) from None
@@ -5308,7 +5378,7 @@ def checks_run(task: Task, flags: dict) -> dict:
             ended.append(how)
             # a run that took the polish pass's result logs no `task.red`: its end names
             # the pass's commit
-            taken = taken_at(result.get("criteria"))
+            taken = taken_at(run_record.get("criteria"))
             script(
                 "project.py",
                 task.worktree,
@@ -5317,7 +5387,7 @@ def checks_run(task: Task, flags: dict) -> dict:
                 "gate.end",
                 f"result={how}",
                 f"seconds:={round(time.monotonic() - started)}",
-                f"tip={tip[:9]}",
+                f"tip={tip_short}",
                 *([f"taken={taken}"] if taken else []),
                 f"say={say}",
             )
@@ -5326,16 +5396,17 @@ def checks_run(task: Task, flags: dict) -> dict:
     # chance to clean up (a kill) leaves none for its tip either.
     task.keep(gated=None, tree=None)
     # the start of the checks: the board draws them from here to their last result
+    total = len(commands) + len(serial)
     script(
         "project.py",
         task.worktree,
         "log",
         task.slug,
         "gate.start",
-        f"tip={tip[:9]}",
-        f"commands:={len(commands) + len(serial)}",
+        f"tip={tip_short}",
+        f"commands:={total}",
     )
-    result: dict = {
+    run_record: dict = {
         "task": task.slug,
         "tip": tip,
         "green": None,
@@ -5344,16 +5415,16 @@ def checks_run(task: Task, flags: dict) -> dict:
     }
     try:
         outcome, refusal = checks_body(
-            task, flags, tip, found, commands, serial, logs, result
+            task, flags, tip, found, commands, serial, logs, run_record
         )
         flags["done"] = True
     except KeyboardInterrupt:
         # a stop: what ran is ended, and no result is kept
         flags["done"] = True
         task.keep(gated=None, tree=None)
-        result.update(result="stopped", say=checks_say(task.slug, "stopped"))
-        end("stopped", result["say"])
-        print(json.dumps(result, indent=2))
+        run_record.update(result="stopped", say=checks_say(task.slug, "stopped"))
+        end("stopped", run_record["say"])
+        print(json.dumps(run_record, indent=2))
         raise LandError(
             "the checks were stopped, and the command that ran is ended with what it "
             f"started; `lem land checks {task.slug}` runs them again"
@@ -5363,17 +5434,17 @@ def checks_run(task: Task, flags: dict) -> dict:
         # the error is the step's exit
         flags["done"] = True
         task.keep(gated=None, tree=None)
-        result.update(result="refused", say=checks_say(task.slug, "refused"))
+        run_record.update(result="refused", say=checks_say(task.slug, "refused"))
         with contextlib.suppress(LandError):
             # the error may be the event log's own: the step's error is the one to say
-            end("refused", result["say"])
-        print(json.dumps(result, indent=2))
+            end("refused", run_record["say"])
+        print(json.dumps(run_record, indent=2))
         raise
-    end(outcome, result["say"])
+    end(outcome, run_record["say"])
     if refusal:
-        print(json.dumps(result, indent=2))
+        print(json.dumps(run_record, indent=2))
         raise LandError(refusal)
-    return result
+    return run_record
 
 
 def checks_ready(task: Task) -> tuple[str, dict, list[str]]:
@@ -5421,26 +5492,26 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
     commands: list[str],
     serial: list[str],
     logs: Path,
-    result: dict,
+    run_record: dict,
 ) -> tuple[str, str | None]:
     """The run itself: the commands, the serial ones, the criteria's tests (or the
-    polish pass's result of them, `taken_from_polish`) and the bar. It fills `result`
-    with what the step prints, its `say` among it, and gives back how the run ends and
-    the refusal to exit with, none for a passed run."""
+    polish pass's result of them, `taken_from_polish`) and the bar. It fills
+    `run_record` with what the step prints, its `say` among it, and gives back how the
+    run ends and the refusal to exit with, none for a passed run."""
     # An ignored `__pycache__` that was there before the run is a leftover of someone's
     # Python (a builder's test run without `-B`), not of these commands, and a suite
     # that looks for bytecode would go red on it with no defect of the code. Python
     # rebuilds it from the source, so it goes before the first command; every other
     # ignored file stays. Each folder is named once it is gone.
-    result["removed_bytecode"] = []
+    run_record["removed_bytecode"] = []
     for folder in stale_bytecode(task):
         remove_bytecode(task, folder)
-        result["removed_bytecode"].append(folder)
+        run_record["removed_bytecode"].append(folder)
     # What git does not know before the first command. `need_worktree` refused any such
     # file, so this is empty unless something wrote one since; it is taken all the same,
     # so that the removal after the run can never reach a file that was there before it.
     there = untracked(task)
-    results = result["commands"]
+    runs = run_record["commands"]
     running: list[subprocess.Popen] = []
     grace = GRACE
     output = logs / "01.log"
@@ -5452,9 +5523,10 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
             ],
             start=1,
         ):
-            if apart and any(entry["exit"] != 0 for entry in results):
+            if apart and any(entry["exit"] != 0 for entry in runs):
                 break
-            output = logs / f"{number:02d}.log"
+            log_name = format(number, "02d")
+            output = logs / f"{log_name}.log"
             line: str | list[str] = command
             grace = SERIAL_GRACE if apart else GRACE
             if apart:
@@ -5469,14 +5541,14 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
                     "--",
                     command,
                 ]
-            with output.open("w", encoding="utf-8") as handle:
+            with output.open("w", encoding="utf-8") as out:
                 # a group of its own, as criteria.py runs a test: what the command
                 # starts ends with it
                 proc = subprocess.Popen(
                     line,
                     shell=not apart,
                     cwd=task.worktree,
-                    stdout=handle,
+                    stdout=out,
                     stderr=subprocess.STDOUT,
                     stdin=subprocess.DEVNULL,
                     start_new_session=True,
@@ -5492,7 +5564,7 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
                 if text.strip()
             ]
             last = lines[-1].strip() if lines else ""
-            results.append(
+            runs.append(
                 {
                     "command": command,
                     "exit": code,
@@ -5501,6 +5573,7 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
                     **({"serial": True} if apart else {}),
                 }
             )
+            tip_short = tip[:9]
             script(
                 "project.py",
                 task.worktree,
@@ -5510,7 +5583,7 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
                 f"command={command}",
                 f"exit:={code}",
                 f"last={last}",
-                f"tip={tip[:9]}",
+                f"tip={tip_short}",
                 *(["serial:=true"] if apart else []),
             )
     finally:
@@ -5526,19 +5599,20 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
         for path in removed:
             remove_left(task, path)
         if removed:
-            with output.open("a", encoding="utf-8") as handle:
-                handle.write(
+            with output.open("a", encoding="utf-8") as out:
+                listed = ", ".join(removed)
+                out.write(
                     "land.py removed what the commands of the checks left untracked: "
-                    f"{', '.join(removed)}\n"
+                    f"{listed}\n"
                 )
-        result["removed_untracked"] = removed
-    green = all(entry["exit"] == 0 for entry in results)
-    result.update(green=green, polish=task.kept().get("polish"))
+        run_record["removed_untracked"] = removed
+    green = all(entry["exit"] == 0 for entry in runs)
+    run_record.update(green=green, polish=task.kept().get("polish"))
     # A command of the checks that changed a tracked file, or made a commit, changed the
     # tree it just judged.
     dirty = git(task.worktree, "status", "--porcelain")
     if green and dirty:
-        result.update(
+        run_record.update(
             result="refused",
             say=checks_say(
                 task.slug,
@@ -5554,7 +5628,7 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
         )
     moved = git(task.worktree, "rev-parse", "HEAD")
     if green and moved != tip:
-        result.update(
+        run_record.update(
             result="refused",
             say=checks_say(
                 task.slug,
@@ -5562,19 +5636,22 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
                 refused="a command of the checks made a commit on the branch",
             ),
         )
+        tip_short = tip[:9]
+        moved_short = moved[:9]
         return "refused", (
             "a command of the checks made a commit on the branch "
-            f"({tip[:9]}..{moved[:9]}), so its result is about another tree: "
+            f"({tip_short}..{moved_short}), so its result is about another tree: "
             "make the command commit nothing, put the branch back with "
             f"`git -C {task.worktree} reset --hard {tip}`, then run this again"
         )
     if not green:
-        red = [entry["command"] for entry in results if entry["exit"] != 0]
-        result.update(result="red", say=checks_say(task.slug, "red", red=red))
+        red = [entry["command"] for entry in runs if entry["exit"] != 0]
+        run_record.update(result="red", say=checks_say(task.slug, "red", red=red))
+        failed = "; ".join(red)
         return (
             "red",
             (
-                f"the checks are red on {len(red)} command(s): {'; '.join(red)}. "
+                f"the checks are red on {len(red)} command(s): {failed}. "
                 "A builder reads the output files; the checks are never edited to pass"
             ),
         )
@@ -5585,16 +5662,17 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
     def criteria_refused(stderr: str) -> tuple[str, str]:
         """The run refused by the check of the criteria, in the words its
         script gave."""
-        result.update(
+        run_record.update(
             result="refused",
             say=checks_say(
                 task.slug, "refused", refused="the check of the criteria did not pass"
             ),
         )
+        why = stderr.strip().removeprefix("criteria.py: ")
         return (
             "refused",
             (
-                f"{stderr.strip().removeprefix('criteria.py: ')}. A builder repairs "
+                f"{why}. A builder repairs "
                 "the test or the plan; the check is never edited to pass"
             ),
         )
@@ -5606,7 +5684,7 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
         # counts. It refuses as a run of the tests would.
         read = script("criteria.py", task.main, "inputs", task.slug, check=False)
         if read.returncode != 0:
-            result["criteria"] = None
+            run_record["criteria"] = None
             return criteria_refused(read.stderr)
         taken = taken_from_polish(
             task.kept().get("polish"), json.loads(read.stdout)["inputs"], small=False
@@ -5614,28 +5692,28 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
     if taken:
         # the pass ran these tests on this tip, against this base commit, plan file and
         # settings: they run no second time
-        result["criteria"] = taken
+        run_record["criteria"] = taken
     else:
         held = criteria_red(task)
         try:
-            result["criteria"] = json.loads(held.stdout)
+            run_record["criteria"] = json.loads(held.stdout)
         except ValueError:
-            result["criteria"] = None
+            run_record["criteria"] = None
         if held.returncode != 0:
             return criteria_refused(held.stderr)
     # The fast track gives no reason for a lowered bar: it has no plan, and a lowered
     # bar never takes the fast track.
     plan = "" if found["small"] else Path(found["plan"]).read_text(encoding="utf-8")
     now = change(task)
-    result["bar"] = bar(task, now["base"], tip, plan, found["plan"])
-    result["size"] = {
+    run_record["bar"] = check_bar(task, now["base"], tip, plan, found["plan"])
+    run_record["size"] = {
         "files": len(now["files"]),
         "lines": now["lines"],
         "in_parts": now["lines"] > READ_AT,
     }
-    refused = bar_refusal(result["bar"]["lowered"], small=found["small"])
+    refused = bar_refusal(run_record["bar"]["lowered"], small=found["small"])
     if refused:
-        result.update(
+        run_record.update(
             result="refused",
             say=checks_say(
                 task.slug,
@@ -5649,7 +5727,7 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
     except LandError:
         # `read` says what stops it; the next step is still the review's
         next_due = "review"
-    result.update(
+    run_record.update(
         result="passed", say=checks_say(task.slug, "passed", next_due=next_due)
     )
     # From here a stop changes nothing: the run passed, and its result is kept whole.
@@ -5658,10 +5736,10 @@ def checks_body(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0915, PLR0917 - ov
         gated=tip,
         tree=git(task.worktree, "rev-parse", f"{tip}^{{tree}}"),
         checks={
-            "commands": results,
-            "criteria": result["criteria"],
-            "bar": result["bar"],
-            "size": result["size"],
+            "commands": runs,
+            "criteria": run_record["criteria"],
+            "bar": run_record["bar"],
+            "size": run_record["size"],
         },
     )
     return "passed", None
@@ -5728,8 +5806,8 @@ def bytecode_of(listed: list[str], ignored: set[str]) -> list[str]:
 
 
 def nul_paths(output: bytes) -> list[str]:
-    """The paths of git's `-z` output, each as the file system names it: never through
-    text mode, which turns a `\\r` in a name into `\\n`."""
+    r"""The paths of git's `-z` output, each as the file system names it: never through
+    text mode, which turns a `\r` in a name into `\n`."""
     return [os.fsdecode(entry) for entry in output.split(b"\0") if entry]
 
 
@@ -5751,10 +5829,8 @@ def stale_bytecode(task: Task) -> list[str]:
         check=False,
     )
     if listed.returncode != 0:
-        raise LandError(
-            "git ls-files --ignored failed: "
-            f"{listed.stderr.decode(errors='replace').strip()}"
-        )
+        words = listed.stderr.decode(errors="replace").strip()
+        raise LandError(f"git ls-files --ignored failed: {words}")
     paths = nul_paths(listed.stdout)
     above = folders_above(bytecode_candidates(paths))
     if not above:
@@ -5763,7 +5839,7 @@ def stale_bytecode(task: Task) -> list[str]:
     # read as `x` at the top; `./` before it makes git read it as it is, and git prints
     # it back with its `./`. With no `--no-index`, a folder that holds a tracked file is
     # never printed. Exit 1 is "none of them".
-    asked = b"".join(os.fsencode(f"./{folder}") + b"\0" for folder in above)
+    asked = b"".join(os.fsencode(f"./{folder}\0") for folder in above)
     said = subprocess.run(
         [*where, "check-ignore", "--no-index", "--stdin", "-z"],
         input=asked,
@@ -5771,9 +5847,8 @@ def stale_bytecode(task: Task) -> list[str]:
         check=False,
     )
     if said.returncode not in (0, 1):
-        raise LandError(
-            f"git check-ignore failed: {said.stderr.decode(errors='replace').strip()}"
-        )
+        words = said.stderr.decode(errors="replace").strip()
+        raise LandError(f"git check-ignore failed: {words}")
     return bytecode_of(
         paths, {path.removeprefix("./") for path in nul_paths(said.stdout)}
     )
@@ -5806,13 +5881,13 @@ def remove_left(task: Task, path: str) -> None:
     that it leaves empty, up to the worktree's root. A link is removed as a link,
     never followed."""
     root = task.worktree.resolve()
-    file = root / path
+    left = root / path
     # git lists no file under a linked folder, so the folder that holds it is inside
     # the worktree
-    if not file.parent.resolve().is_relative_to(root):
+    if not left.parent.resolve().is_relative_to(root):
         return
-    file.unlink(missing_ok=True)
-    folder = file.parent
+    left.unlink(missing_ok=True)
+    folder = left.parent
     while folder != root and folder.is_relative_to(root):
         try:
             folder.rmdir()
@@ -5921,6 +5996,10 @@ def due_of(  # noqa: C901, PLR0911, PLR0912, PLR0913 - over the limit before the
         # Anything committed after the resolution makes it a change like any other,
         # which the rules below review whole.
         files = ", ".join(resolution["files"])
+        base_short = resolution["base"][:REVIEW_COMMIT_LENGTH]
+        before_short = resolution["before"][:REVIEW_COMMIT_LENGTH]
+        onto_short = resolution["onto"][:REVIEW_COMMIT_LENGTH]
+        after_short = resolution["after"][:REVIEW_COMMIT_LENGTH]
         facts.update(
             floor="full" if why_careful else "read",
             attempt=len(reads) + 1,
@@ -5932,8 +6011,8 @@ def due_of(  # noqa: C901, PLR0911, PLR0912, PLR0913 - over the limit before the
                 },
                 "range_diff": (
                     "git range-diff "
-                    f"{resolution['base'][:12]}..{resolution['before'][:12]} "
-                    f"{resolution['onto'][:12]}..{resolution['after'][:12]}"
+                    f"{base_short}..{before_short} "
+                    f"{onto_short}..{after_short}"
                 ),
             },
         )
@@ -5998,8 +6077,9 @@ def due_of(  # noqa: C901, PLR0911, PLR0912, PLR0913 - over the limit before the
         # reviewed by the round before it
         sized = rounds[-1] if last.get("of") == "resolution" and rounds else last
         if KINDS.index(sized["kind"]) < KINDS.index(floor):
+            kind = KIND_SAYS[sized["kind"]]
             unmet.append(
-                f"it was {KIND_SAYS[sized['kind']]}, and this change gets "
+                f"it was {kind}, and this change gets "
                 f"{KIND_SAYS[floor]} at the least ({why})"
             )
     if last and not unmet:
@@ -6019,9 +6099,10 @@ def due_of(  # noqa: C901, PLR0911, PLR0912, PLR0913 - over the limit before the
             **facts,
         }
     if len(rounds) >= ROUNDS:
+        listed = ", and ".join(unmet)
         return {
             "due": "owner",
-            "why": f"two rounds reviewed it: {', and '.join(unmet)}",
+            "why": f"two rounds reviewed it: {listed}",
             **facts,
         }
     if silent >= SILENT_REVIEWS:
@@ -6114,10 +6195,8 @@ def untalked(task: Task, state: dict) -> str | None:
         ),
         *(["by its review"] if call and call["careful"] else []),
     ]
-    return (
-        "- no plan talk: the request became careful after "
-        f"its plan, {' and '.join(how)}"
-    )
+    listed = " and ".join(how)
+    return f"- no plan talk: the request became careful after its plan, {listed}"
 
 
 def careful_line(task: Task, state: dict) -> str:
@@ -6125,15 +6204,15 @@ def careful_line(task: Task, state: dict) -> str:
     reason it is, and the newest review's call with its reason when the review
     said no."""
     call = review_call(task)
-    line = (
-        "- careful: yes, " + "; ".join(state["careful"])
-        if state["careful"]
-        else "- careful: no"
-    )
+    if state["careful"]:
+        reasons = "; ".join(state["careful"])
+        line = f"- careful: yes, {reasons}"
+    else:
+        line = "- careful: no"
     if call is None:
-        return line + "; no review that answered made the call"
+        return f"{line}; no review that answered made the call"
     if not call["careful"]:
-        return line + f"; the review says no: {reason(call['why'])}"
+        return f"{line}; the review says no: {reason(call['why'])}"
     return line
 
 
@@ -6143,14 +6222,15 @@ def talked(talk: dict) -> str:
     the event holds, in the event's order."""
 
     def many(count: int, one: str, more: str) -> str:
-        return f"{count} {one if count == 1 else more}"
+        form = one if count == 1 else more
+        return f"{count} {form}"
 
     counts = [
-        many(value, *TALK_SAYS[key]) if key in TALK_SAYS else f"{key}: {value}"
-        for key, value in talk.items()
+        many(number, *TALK_SAYS[key]) if key in TALK_SAYS else f"{key}: {number}"
+        for key, number in talk.items()
         if key not in TALK_FIRST
-        and isinstance(value, int)
-        and not isinstance(value, bool)
+        and isinstance(number, int)
+        and not isinstance(number, bool)
     ]
     bound = talk.get("bound")
     over = (
@@ -6161,12 +6241,14 @@ def talked(talk: dict) -> str:
         if isinstance(bound, int) and talk["turns"] > bound
         else ""
     )
+    listed = ", ".join(counts)
+    ending = f"; {listed}" if counts else ""
     return (
         f"- the plan talk: {talk['reviewer']} argued the plan with its defender, "
         f"{many(talk['turns'], 'turn', 'turns')}{over}; "
         f"{many(talk['settled'], 'position', 'positions')} settled by the two, "
-        f"{talk['open']} left open"
-    ) + (f"; {', '.join(counts)}" if counts else "")
+        f"{talk['open']} left open{ending}"
+    )
 
 
 def stand_ins_of(events: list[dict]) -> list[dict]:
@@ -6213,17 +6295,17 @@ def stand_in_line(stand_in: dict) -> str:
     itself, that too."""
     name = lem_state.SEAT_NAMES.get(stand_in["seat"], stand_in["seat"])
     failed, took = stand_in["failed"], stand_in["took"]
-    why = (
-        f"{lem_state.agent_name(failed)} "
-        f"{lem_state.SEAT_ERRORS[stand_in['error']]['pr']}"
-    )
+    agent = lem_state.agent_name(failed)
+    error = lem_state.SEAT_ERRORS[stand_in["error"]]["pr"]
+    why = f"{agent} {error}"
     too = stand_in["failed_too"]
     if not too:
         return f"- {name} was `{took}` in place of `{failed}`: {why}"
+    agent_too = lem_state.agent_name(took)
+    error_too = lem_state.SEAT_ERRORS[too["error"]]["pr"]
     return (
         f"- {name} was to be `{took}` in place of `{failed}`: {why}; "
-        f"then {lem_state.agent_name(took)} gave an error too: "
-        f"{lem_state.agent_name(took)} {lem_state.SEAT_ERRORS[too['error']]['pr']}"
+        f"then {agent_too} gave an error too: {agent_too} {error_too}"
     )
 
 
@@ -6264,9 +6346,11 @@ def polished(polish: dict) -> str:
     `polish --done` logged. The checks refuse a task on the standard track with no pass
     that is done."""
     commits, filed = polish["commits"], len(polish["filed"])
+    commit_plural = "" if commits == 1 else "s"
+    filed_plural = "" if filed == 1 else "s"
     return (
-        f"- the polish pass: {commits} commit{'' if commits == 1 else 's'}, {filed} "
-        f"item{'' if filed == 1 else 's'} filed in the backlog"
+        f"- the polish pass: {commits} commit{commit_plural}, {filed} "
+        f"item{filed_plural} filed in the backlog"
     )
 
 
@@ -6313,7 +6397,8 @@ def read_form(read: dict) -> bool:
         and all(isinstance(name, str) and name.strip() for name in families)
         and isinstance(silent, list)
         and all(
-            isinstance(item, dict) and set(item) == {"name", "why"} for item in silent
+            isinstance(entry, dict) and set(entry) == {"name", "why"}
+            for entry in silent
         )
         and isinstance(read.get("split"), bool)
         and isinstance(read.get("digest"), str)
@@ -6356,7 +6441,7 @@ def read_skipped(task: Task) -> tuple[dict | None, str | None]:
             if record.get("event") == "task.state"
             and any(
                 line.startswith("lead:")
-                for line in [record.get("text", ""), *record.get("lines", [])]
+                for line in (record.get("text", ""), *record.get("lines", []))
             )
         ),
         None,
@@ -6457,7 +6542,7 @@ def criteria_waited(events: list[dict]) -> dict | None:
         and record.get("status") == "held"
         and any(
             str(line).startswith(CRITERIA_WAIT) and not FAST_GREW.search(str(line))
-            for line in [record.get("text", ""), *record.get("lines", [])]
+            for line in (record.get("text", ""), *record.get("lines", []))
         )
     ]
     if not waits:
@@ -6482,33 +6567,32 @@ def approval_said(found: dict, waited: dict | None) -> str:
     approval = found.get("approved")
     if waited:
         end = waited["end"]
-        said = (
-            f"the criteria waited for the owner's yes from {utc(waited['from'])}, "
-            + (
-                f"and the owner gave it on {utc(end['ts'])}"
-                if end["by"] == "owner"
-                else (
-                    "and the wait ended without the owner: "
-                    f"approved on {utc(end['ts'])} while the task ran without the owner"
-                )
+        began = utc(waited["from"])
+        if end["by"] == "owner":
+            approved = f"and the owner gave it on {utc(end['ts'])}"
+        else:
+            approved = (
+                "and the wait ended without the owner: "
+                f"approved on {utc(end['ts'])} while the task ran without the owner"
             )
-        )
+        said = f"the criteria waited for the owner's yes from {began}, {approved}"
         if (
             approval
             and approval["by"] == "owner"
             and approval["number"] != end.get("number")
         ):
-            said += (
-                "; the owner approved them "
-                f"{'again ' if end['by'] == 'owner' else ''}on {approval['at'][:10]}"
-            )
+            again = "again " if end["by"] == "owner" else ""
+            day = approval["at"][:10]
+            said = f"{said}; the owner approved them {again}on {day}"
         return said
     # a plan is the standard track's: its criteria are the owner's approval, or the
     # lead's freeze by a read, which is not his
     if approval and approval["by"] == "owner":
-        return f"the owner approved them on {approval['at'][:10]}"
+        day = approval["at"][:10]
+        return f"the owner approved them on {day}"
     if approval and approval["by"] == "alone":
-        return f"approved on {approval['at'][:10]} while the task ran without the owner"
+        day = approval["at"][:10]
+        return f"approved on {day} while the task ran without the owner"
     return ""
 
 
@@ -6519,9 +6603,9 @@ def changed_after_read(events: list[dict]) -> int:
     approved at the end. 0 with no read."""
     read = next(
         (
-            i
-            for i in range(len(events) - 1, -1, -1)
-            if events[i].get("event") == "criteria.read"
+            place
+            for place in range(len(events) - 1, -1, -1)
+            if events[place].get("event") == "criteria.read"
         ),
         None,
     )
@@ -6541,8 +6625,9 @@ def changes_said(changed: int) -> str:
     the read."""
     if not changed:
         return ""
+    times = "once" if changed == 1 else f"{changed} times"
     return (
-        f"; the criteria changed {'once' if changed == 1 else f'{changed} times'} "
+        f"; the criteria changed {times} "
         "after the personas' read, from the owner's notes"
     )
 
@@ -6564,52 +6649,49 @@ def read_line(  # noqa: PLR0913, PLR0917 - over the limit before the limit was s
     if read and not read["answered"]:
         # propose refuses the first such read, so this is the second in a row at
         # the least
+        ending = (
+            f"; {approved}"
+            if approved
+            else "; the build started with no wait for the owner"
+        )
+        changes = changes_said(changed)
         return (
-            (
-                f"- the criteria were not read by the personas: {quiet_reads} reads in "
-                f"a row, and none of the {read['asked']} personas asked answered"
-            )
-            + changes_said(changed)
-            + (
-                f"; {approved}"
-                if approved
-                else "; the build started with no wait for the owner"
-            )
+            f"- the criteria were not read by the personas: {quiet_reads} reads in "
+            f"a row, and none of the {read['asked']} personas asked "
+            f"answered{changes}{ending}"
         )
     if read:
         count = len(read["families"])
+        families = FAMILIES.get(count, f"{count} model families")
+        listed = ", ".join(read["families"])
+        answered = read["answered"]
+        asked = read["asked"]
+        if read["flagged"]:
+            noun = "criterion" if read["criteria"] == 1 else "criteria"
+            flagged = f"{read['flagged']} of {read['criteria']} {noun} flagged"
+        else:
+            flagged = "nobody confused"
+        split = "; the two families split" if read["split"] else ""
+        silent = "".join(
+            f"; no answer from {source['name']} ({source['why']})"
+            for source in read["silent"]
+        )
+        changes = changes_said(changed)
         line = (
-            (
-                f"- the criteria were read by {read['answered']} of {read['asked']} "
-                f"personas asked, {FAMILIES.get(count, f'{count} model families')} "
-                f"({', '.join(read['families'])}); "
-            )
-            + (
-                "nobody confused"
-                if not read["flagged"]
-                else (
-                    f"{read['flagged']} of {read['criteria']} "
-                    f"{'criterion' if read['criteria'] == 1 else 'criteria'} flagged"
-                )
-            )
-            + ("; the two families split" if read["split"] else "")
-            + "".join(
-                f"; no answer from {source['name']} ({source['why']})"
-                for source in read["silent"]
-            )
-            + changes_said(changed)
+            f"- the criteria were read by {answered} of {asked} personas asked, "
+            f"{families} ({listed}); {flagged}{split}{silent}{changes}"
         )
         if approved:
             return f"{line}; {approved}"
-        return line + "; the build started with no wait for the owner"
+        return f"{line}; the build started with no wait for the owner"
     if skipped:
+        day = skipped["word"]["at"][:10]
         return (
             "- the criteria: not read by the personas, on the owner's word "
-            f"({skipped['word']['at'][:10]}); the owner approved them"
+            f"({day}); the owner approved them"
         )
-    return "- the criteria: no read by the personas is on record" + (
-        f"; {approved}" if approved else ""
-    )
+    ending = f"; {approved}" if approved else ""
+    return f"- the criteria: no read by the personas is on record{ending}"
 
 
 def unread(read: dict | None, found: dict) -> str | None:
@@ -6631,42 +6713,42 @@ def unread(read: dict | None, found: dict) -> str | None:
         and approval["at"] >= when(read)
         and approval["digest"] != read["digest"]
     ]
-    what = [
-        *([f"by the owner's approval {his[-1]['number']}"] if his else []),
-        *(
-            ["by a change of the build"]
-            if any(change["at"] >= when(read) for change in found.get("history", []))
-            else []
-        ),
-    ]
+    what = []
+    if his:
+        number = his[-1]["number"]
+        what.append(f"by the owner's approval {number}")
+    if any(change["at"] >= when(read) for change in found.get("history", [])):
+        what.append("by a change of the build")
+    listed = " and ".join(what)
+    ending = f", {listed}" if what else ""
     return (
         "- the criteria changed after the personas' "
-        f"read{', ' + ' and '.join(what) if what else ''}, and the change was not read"
+        f"read{ending}, and the change was not read"
     )
 
 
-def named(value: object, where: str) -> list[dict]:
+def named(entries: object, where: str) -> list[dict]:
     """A list of names, each with its why: the profiles of a round, or the sources that
     did not answer."""
-    if not isinstance(value, list) or not all(
-        isinstance(item, dict)
-        and set(item) == {"name", "why"}
-        and all(isinstance(text, str) and text.strip() for text in item.values())
-        for item in value
+    if not isinstance(entries, list) or not all(
+        isinstance(entry, dict)
+        and set(entry) == {"name", "why"}
+        and all(isinstance(text, str) and text.strip() for text in entry.values())
+        for entry in entries
     ):
         raise LandError(
             f'`{where}` is a list of {{"name": ..., "why": ...}}, '
             "each with both as text"
         )
-    return value
+    return entries
 
 
-def same_checks(results: list[dict], commands: list[str], serial: list[str]) -> bool:
+def same_checks(runs: list[dict], commands: list[str], serial: list[str]) -> bool:
     """Whether a kept result of the checks (its `commands`, each with its `serial` flag)
     ran the commands the checks have now, in their order: the plain ones, then the
     serial ones. With no command there is no result to hold: only the task that adds one
     lands (`docs/settings.md`, `[checks]`)."""
-    ran = [(entry.get("command"), bool(entry.get("serial"))) for entry in results]
+    ran = [(entry.get("command"), bool(entry.get("serial"))) for entry in runs]
     now = [
         *((command, False) for command in commands),
         *((command, True) for command in serial),
@@ -6713,7 +6795,7 @@ def gate_holds(task: Task, tip: str) -> bool:
         return True
     if not gated or not holds_commit(task, gated, tip):
         return False
-    items = {
+    paths = {
         defect["item"]
         for read in kept.get("reads", [])
         if read["answered"]
@@ -6726,7 +6808,7 @@ def gate_holds(task: Task, tip: str) -> bool:
             task.worktree, "diff", "--name-status", "--no-renames", gated, tip
         ).splitlines()
     ]
-    if not rows or not all(status == "A" and path in items for status, path in rows):
+    if not rows or not all(status == "A" and path in paths for status, path in rows):
         return False
     task.keep(gated=tip, tree=git(task.worktree, "rev-parse", f"{tip}^{{tree}}"))
     return True
@@ -6751,10 +6833,10 @@ def items_added(task: Task, base: str) -> list[dict]:
     ]
     found = []
     for _, path in rows:
-        if not path.startswith(folder + "/"):
+        if not path.startswith(f"{folder}/"):
             continue
-        item = item_of(task.worktree / path)
-        front, lines = item or ({}, [])
+        parsed = item_of(task.worktree / path)
+        front, lines = parsed or ({}, [])
         found.append(
             {
                 "item": path,
@@ -6777,11 +6859,11 @@ def branch_items(task: Task) -> list[dict]:
         if defect.get("item")
     }
     return [
-        item
-        for item in items_added(
+        entry
+        for entry in items_added(
             task, git(task.worktree, "merge-base", "HEAD", task.onto)
         )
-        if item["item"] not in written
+        if entry["item"] not in written
     ]
 
 
@@ -6827,6 +6909,10 @@ def bar_condition(text: str) -> str | None:
     return found.group(1).strip() if found else None
 
 
+# The characters kept in a digest that identifies a Jev finding.
+FINDING_KEY_LENGTH = 16
+
+
 def finding_key(where: str, title: str, run: str) -> str:
     """The digest Jev's entry of a finding is kept by: its `where`, its title and its
     run, as `holds` tells two defects apart, so two runs of one place and title are two
@@ -6836,19 +6922,19 @@ def finding_key(where: str, title: str, run: str) -> str:
         json.dumps(
             [where.strip(), title.strip(), "\n\n".join(paragraphs(run))]
         ).encode()
-    ).hexdigest()[:16]
+    ).hexdigest()[:FINDING_KEY_LENGTH]
 
 
 def item_finding(
-    path: str, item: tuple[dict[str, str], list[str]] | None
+    path: str, parsed: tuple[dict[str, str], list[str]] | None
 ) -> dict | None:
     """The finding of an item of the backlog that says `worth: no`, from `item_of`: its
     `where`, its title and its run, the body without its `Decided against:` line, and
     whether that line gives a reason. None for a file that is no item, or one of
     another worth."""
-    if item is None:
+    if parsed is None:
         return None
-    front, lines = item
+    front, lines = parsed
     if (front.get("worth") or "").strip().lower() != "no":
         return None
     decided = [line for line in lines[1:] if re.match(r"(?i)\s*decided against:", line)]
@@ -6901,16 +6987,16 @@ def under_findings(
     parts `propose` checks (`called_bodies`)."""
     found = [
         finding
-        for item in added
-        if (item.get("worth") or "").strip().lower() == "no"
-        for finding in [item_finding(item["item"], read_item(item["item"]))]
+        for entry in added
+        if (entry.get("worth") or "").strip().lower() == "no"
+        for finding in (item_finding(entry["item"], read_item(entry["item"])),)
         if finding
     ]
     found += [
         finding
         for body in called_bodies(notes, small=small)
         for entry in entries_of(body)
-        for finding in [line_finding(entry)]
+        for finding in (line_finding(entry),)
         if finding
     ]
     return found
@@ -6960,8 +7046,10 @@ def ask_jev(spec: dict) -> dict:
     except ValueError, KeyError, TypeError:
         return {"not_asked": "no answer"}
     if not all(
-        isinstance(p, (int, float)) and not isinstance(p, bool) and 0 <= p <= 1
-        for p in said.values()
+        isinstance(score, (int, float))
+        and not isinstance(score, bool)
+        and 0 <= score <= 1
+        for score in said.values()
     ):
         return {"not_asked": "no answer"}
     return {"answers": said}
@@ -6990,16 +7078,16 @@ def jev_spec(finding: dict, condition: str) -> dict:
 
 
 def jev_entry(
-    finding: dict, *, sends: bool, bar: tuple[str | None, str] | None
+    finding: dict, *, sends: bool, rule: tuple[str | None, str] | None
 ) -> dict:
     """Jev's entry for one finding that has none yet: `{score, asked_at}`, or
     `{not_asked: WHY}`: `off in the settings` when SENDS is false, `no bar in FILE` when
-    BAR, the condition of rule 6 and the file's name, has no condition; else what
+    RULE, the condition of rule 6 and the file's name, has no condition; else what
     `ask_jev` says. Nothing is sent but by `ask_jev`."""
     if not sends:
         return {"not_asked": "off in the settings"}
     # with SENDS, `jev_read` read the bar before the first finding it asks about
-    condition, name = cast("tuple[str | None, str]", bar)
+    condition, name = cast("tuple[str | None, str]", rule)
     if condition is None:
         return {"not_asked": f"no bar in {name}"}
     said = ask_jev(jev_spec(finding, condition))
@@ -7074,7 +7162,8 @@ def jev_marked(body: list[str], endings: dict) -> list[str]:
             said = endings["lines"].get(finding["key"]) if finding else None
         last = out[span[-1]].rstrip()
         if said and not JEV_SAID.search(last):
-            out[span[-1]] = last.rstrip(";") + f"; {said}"
+            last = last.rstrip(";")
+            out[span[-1]] = f"{last}; {said}"
     return out
 
 
@@ -7096,9 +7185,11 @@ def jev_notes(notes: str, *, small: bool, endings: dict) -> str:
         )
         for heading, lines in parts
     ]
-    return "\n".join(
+    text = "\n".join(
         [*head, *(line for heading, lines in parts for line in (heading, *lines))]
-    ) + ("\n" if notes.endswith("\n") else "")
+    )
+    ending = "\n" if notes.endswith("\n") else ""
+    return f"{text}{ending}"
 
 
 def jev_read(task: Task, notes: str, *, small: bool) -> dict:
@@ -7116,34 +7207,32 @@ def jev_read(task: Task, notes: str, *, small: bool) -> dict:
     )
     kept = dict(task.kept().get("jev") or {})
     sends = jev_sends(task.settings)
-    bar = None
+    rule = None
     for finding in findings:
         if finding["key"] in kept:
             continue
-        if sends and bar is None:
-            file, name = bar_path(task.main)
+        if sends and rule is None:
+            path, name = bar_path(task.main)
             try:
-                bar = (bar_condition(file.read_text(encoding="utf-8")), name)
+                rule = (bar_condition(path.read_text(encoding="utf-8")), name)
             except OSError, UnicodeDecodeError:
-                bar = (None, name)
-        kept[finding["key"]] = jev_entry(finding, sends=sends, bar=bar)
+                rule = (None, name)
+        kept[finding["key"]] = jev_entry(finding, sends=sends, rule=rule)
         task.keep(jev=kept)
     refused, kept = jev_refused(findings, kept)
     if refused:
         task.keep(jev=kept)
-        named = "; ".join(
-            (f"`{finding['item']}`" if finding.get("item") else f'"{finding["line"]}"')
-            + f" (Jev: {score:.2f}"
-            + (
-                (
-                    "; refused before, and the item still says `worth: no` with no "
-                    "`Decided against:` line)"
+        descriptions = []
+        for entry, score, again in refused:
+            label = f"`{entry['item']}`" if entry.get("item") else f'"{entry["line"]}"'
+            if again:
+                descriptions.append(
+                    f"{label} (Jev: {score:.2f}; refused before, and the item still "
+                    "says `worth: no` with no `Decided against:` line)"
                 )
-                if again
-                else ")"
-            )
-            for finding, score, again in refused
-        )
+            else:
+                descriptions.append(f"{label} (Jev: {score:.2f})")
+        named = "; ".join(descriptions)
         raise LandError(
             f"{len(refused)} finding(s) called under the bar, which Jev reads as over "
             f"it at {JEV_OVER} or more: {named}. Jev reads this as over the bar: "
@@ -7156,13 +7245,14 @@ def jev_read(task: Task, notes: str, *, small: bool) -> dict:
     return jev_endings(findings, kept)
 
 
-def alike_question(item: dict) -> dict:
+def alike_question(entry: dict) -> dict:
     """The question of `alike` about one item of the backlog: whether the finding, the
     state, is the same defect as the item, told by its title, its `where` and the first
     line of its body, each that it has; both meanings, as jev.py asks for both
     or neither."""
-    told = [f"title: {item['title'] or item['item']}"] + [
-        f"{key}: {item[key]}" for key in ("where", "first") if item.get(key)
+    title = entry["title"] or entry["item"]
+    told = [f"title: {title}"] + [
+        f"{key}: {entry[key]}" for key in ("where", "first") if entry.get(key)
     ]
     return {
         "type": "noul",
@@ -7188,19 +7278,20 @@ def finding_state(finding: dict) -> dict:
 
 
 def alike_specs(
-    finding: dict, items: list[dict], fits: Callable[[dict], bool]
+    finding: dict, entries: list[dict], fits: Callable[[dict], bool]
 ) -> list[dict] | None:
     """The requests of `alike` for FINDING: the finding as the state of each, and one
-    question for each of ITEMS (`alike_question`, named `iN` by the item's place), in as
-    many requests as FITS, which says whether a request is under jev.py's limit, needs.
+    question for each of ENTRIES (`alike_question`, named `iN` by the item's place),
+    in as many requests as FITS, which says whether a request is under jev.py's limit,
+    needs.
     Jev answers each question alone, so every item is asked, and none is left out by its
     place. None when the state with one question alone does not fit: that item cannot
     be asked."""
     state = finding_state(finding)
     specs: list[dict] = []
     questions: dict = {}
-    for place, item in enumerate(items):
-        name, question = f"i{place}", alike_question(item)
+    for place, entry in enumerate(entries):
+        name, question = f"i{place}", alike_question(entry)
         if fits({"state": state, "questions": {**questions, name: question}}):
             questions[name] = question
             continue
@@ -7226,9 +7317,9 @@ def jev_fits(spec: dict) -> bool:
 
 
 def ask_alike(
-    finding: dict, items: list[dict], *, sends: bool, known: dict | None = None
+    finding: dict, entries: list[dict], *, sends: bool, known: dict | None = None
 ) -> dict:
-    """Jev's read of whether FINDING is the same defect as each of ITEMS:
+    """Jev's read of whether FINDING is the same defect as each of ENTRIES:
     `{"scores": {PATH: P}}` for every item, or `{"not_asked": WHY}` when any request got
     no answer (or SENDS is false: `off in the settings`), so that the agent then reads
     every item. KNOWN holds the scores of this finding an earlier run kept, by the
@@ -7238,7 +7329,7 @@ def ask_alike(
     if not sends:
         return {"not_asked": "off in the settings"}
     scores = dict(known or {})
-    ask = [item for item in items if item["item"] not in scores]
+    ask = [entry for entry in entries if entry["item"] not in scores]
     specs = alike_specs(finding, ask, jev_fits) if ask else []
     if specs is None:
         return {"not_asked": "too long"}
@@ -7252,14 +7343,14 @@ def ask_alike(
                 for name, score in said["answers"].items()
             }
         )
-    return {"scores": {item["item"]: scores[item["item"]] for item in items}}
+    return {"scores": {entry["item"]: scores[entry["item"]] for entry in entries}}
 
 
-def alike_named(scores: dict, items: list[dict]) -> list[dict]:
+def alike_named(scores: dict, entries: list[dict]) -> list[dict]:
     """The items `alike` names: those whose score is at or over SAME_AT, the highest
     first, ALIKE_MOST at most, each with its path, title, `where`, `worth` and
     Jev's score."""
-    by_path = {item["item"]: item for item in items}
+    by_path = {entry["item"]: entry for entry in entries}
     named = sorted(
         (
             path
@@ -7278,11 +7369,11 @@ def alike_named(scores: dict, items: list[dict]) -> list[dict]:
     ]
 
 
-def flag_line(flag: str, value: str) -> str:
-    """VALUE of FLAG, stripped, when it is one line of text; a LandError otherwise."""
-    if not value.strip() or "\n" in value.strip():
-        raise LandError(f"{flag} is one line of text, and it is {value!r}")
-    return value.strip()
+def flag_line(flag: str, text: str) -> str:
+    """TEXT of FLAG, stripped, when it is one line of text; a LandError otherwise."""
+    if not text.strip() or "\n" in text.strip():
+        raise LandError(f"{flag} is one line of text, and it is {text!r}")
+    return text.strip()
 
 
 def cmd_alike(task: Task, where: str, title: str, what: str) -> dict:
@@ -7306,25 +7397,25 @@ def cmd_alike(task: Task, where: str, title: str, what: str) -> dict:
             "for an item's file name"
         )
     try:
-        run_ = Path(what).read_text(encoding="utf-8").strip()
+        run_text = Path(what).read_text(encoding="utf-8").strip()
     except (OSError, UnicodeDecodeError) as error:
         raise LandError(
             "--what names the file of the finding's run, "
             f"and {what} does not read ({error})"
         ) from error
-    if not run_:
+    if not run_text:
         raise LandError(
             "--what names the file of the finding's run, what happens with the input, "
             f"and {what} is empty"
         )
-    finding["run"] = run_
-    items = items_at(task, "HEAD")
+    finding["run"] = run_text
+    entries = items_at(task, "HEAD")
     out = {
         "task": task.slug,
         "finding": {"where": finding["where"], "title": finding["title"]},
-        "items": len(items),
+        "items": len(entries),
     }
-    if not items:
+    if not entries:
         return {
             **out,
             "alike": [],
@@ -7333,15 +7424,15 @@ def cmd_alike(task: Task, where: str, title: str, what: str) -> dict:
                 "finding by the bar of rule 6"
             ),
         }
-    said = ask_alike(finding, items, sends=jev_sends(task.settings))
+    said = ask_alike(finding, entries, sends=jev_sends(task.settings))
     if "not_asked" in said:
         return {
             **out,
             "alike": [],
             "jev": f"Jev: not asked ({said['not_asked']})",
             "read": [
-                {key: item[key] for key in ("item", "title", "where", "worth")}
-                for item in items
+                {key: entry[key] for key in ("item", "title", "where", "worth")}
+                for entry in entries
             ],
             "next": (
                 "Jev was not asked: read the items of `read` whose title or `where` is "
@@ -7349,7 +7440,7 @@ def cmd_alike(task: Task, where: str, title: str, what: str) -> dict:
                 "the items `alike` names"
             ),
         }
-    named = alike_named(said["scores"], items)
+    named = alike_named(said["scores"], entries)
     if not named:
         return {
             **out,
@@ -7385,20 +7476,21 @@ def item_body(  # noqa: PLR0913, PLR0917 - over the limit before the limit was s
     call, the run, the line of the old item SAME_AS when the defect is one that item
     holds and it says `worth: no` (`NOW_OVER`), where it was seen, and for an item under
     the bar the review's `why` as its last line, `Decided against: WHY`."""
+    worth = FILED_BARS[defect["bar"]]
     text = (
-        (
-            f"---\nworth: {FILED_BARS[defect['bar']]}\n"
-            f"where: {defect['where']}\nadded: {today}\n---\n"
-            f"# {defect['title']}\n\n{defect['what']}\n\n"
-        )
-        + (f"{NOW_OVER.format(same_as)}\n\n" if same_as else "")
-        + (
-            f"Seen outside the change by review round {round_} of task {slug} "
-            f"({seen}); the base commit has it.\n"
-        )
+        f"---\nworth: {worth}\n"
+        f"where: {defect['where']}\nadded: {today}\n---\n"
+        f"# {defect['title']}\n\n{defect['what']}\n\n"
+    )
+    if same_as:
+        previous = NOW_OVER.format(same_as)
+        text = f"{text}{previous}\n\n"
+    text = (
+        f"{text}Seen outside the change by review round {round_} of task {slug} "
+        f"({seen}); the base commit has it.\n"
     )
     if defect["bar"] == "under" and defect.get("why"):
-        text += f"\nDecided against: {defect['why']}\n"
+        text = f"{text}\nDecided against: {defect['why']}\n"
     return text
 
 
@@ -7412,10 +7504,10 @@ def item_name(
     its item."""
     for name in names_for(defect):
         path = f"{folder}/{name}"
-        file = worktree / path
-        if path != old and holds(file, defect):
+        candidate = worktree / path
+        if path != old and holds(candidate, defect):
             return path, True
-        if not (file.exists() or file.is_symlink()):
+        if not (candidate.exists() or candidate.is_symlink()):
             return path, False
     raise AssertionError("names_for gives names without end")
 
@@ -7426,17 +7518,17 @@ def same_flags(
     """The defects `--same rN.M=PATH` names, each with its item: a file of the backlog
     folder FOLDER that IN_TIP finds in the tip. A LandError for any other form."""
     found: dict[str, str] = {}
-    for value in said:
-        number, _, path = value.partition("=")
+    for flag in said:
+        number, _, path = flag.partition("=")
         number, path = number.strip(), path.strip()
         if (
             not re.fullmatch(r"r\d+\.\d+", number)
-            or not path.startswith(folder + "/")
+            or not path.startswith(f"{folder}/")
             or ".." in Path(path).parts
             or not in_tip(path)
         ):
             raise LandError(
-                f"--same {value!r} is no defect and item: it is `--same rN.M=PATH`, "
+                f"--same {flag!r} is no defect and item: it is `--same rN.M=PATH`, "
                 "the number of a defect (`r1.2`) and the path of the item of the "
                 f"backlog folder {folder} that holds it, a file of the task's tip, as "
                 "`lem land file` named it",
@@ -7480,11 +7572,12 @@ def cmd_file(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit 
         return in_tree(task, tip, path)
 
     named_same = same_flags(list(same_said), folder, in_tip)
-    named_new = {value.strip() for value in new_said}
+    named_new = {name.strip() for name in new_said}
     both = sorted(set(named_same) & named_new)
     if both:
+        listed = ", ".join(both)
         raise LandError(
-            f"{', '.join(both)} is named by both --same and --new: a defect is the "
+            f"{listed} is named by both --same and --new: a defect is the "
             "item it names, or a defect of its own"
         )
     filed, same, open_, gone, written = [], [], [], [], {}
@@ -7522,42 +7615,40 @@ def cmd_file(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit 
             todo.append((read, defect, None))
     stray = sorted((set(named_same) | named_new) - free)
     if stray:
+        named = ", ".join(stray)
+        available = ", ".join(sorted(free))
+        ending = (
+            f", and the ones here are {available}" if free else ", and none waits here"
+        )
         raise LandError(
-            (
-                f"{', '.join(stray)} is no defect that waits for an item with no open "
-                "item of its own: --same and --new name such a defect by its number"
-            )
-            + (
-                f", and the ones here are {', '.join(sorted(free))}"
-                if free
-                else ", and none waits here"
-            ),
+            f"{named} is no defect that waits for an item with no open item of its "
+            f"own: --same and --new name such a defect by its number{ending}",
         )
     alike = check_alike(
         task,
         [
-            (read, defect)
-            for read, defect, old in todo
+            (review, finding)
+            for review, finding, old in todo
             if old is None
-            and not defect.get("item")
-            and defect["number"] not in named_new
-            and not item_name(task.worktree, folder, defect)[1]
+            and not finding.get("item")
+            and finding["number"] not in named_new
+            and not item_name(task.worktree, folder, finding)[1]
         ],
         tip,
     )
-    for number, path in named_same.items():
+    for number, same_path in named_same.items():
         next(
-            defect
-            for read in reads
-            for defect in outside_of(read)
-            if defect["number"] == number
-        )["open"] = path
-    for read, defect, old in todo:
-        path, held = item_name(task.worktree, folder, defect, old)
+            finding
+            for review in reads
+            for finding in outside_of(review)
+            if finding["number"] == number
+        )["open"] = same_path
+    for review, finding, old in todo:
+        path, held = item_name(task.worktree, folder, finding, old)
         entry = {
-            "round": read["round"],
-            "number": defect["number"],
-            "title": defect["title"],
+            "round": review["round"],
+            "number": finding["number"],
+            "title": finding["title"],
             "item": path,
         }
         if held:
@@ -7567,17 +7658,17 @@ def cmd_file(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit 
             write_whole(
                 task.worktree / path,
                 item_body(
-                    defect,
-                    read["round"],
+                    finding,
+                    review["round"],
                     task.slug,
-                    read.get("date", today),
+                    review.get("date", today),
                     today,
                     old,
                 ),
             )
             filed.append(entry)
-            written.setdefault(read["round"], []).append(path)
-        defect["item"] = path
+            written.setdefault(review["round"], []).append(path)
+        finding["item"] = path
     # One commit for each round, of its new items and nothing else: the worktree was
     # clean. A commit hook of the project may refuse the message, which has Lem's form
     # and not the project's: the items stay written, and a builder commits them in the
@@ -7604,29 +7695,32 @@ def cmd_file(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit 
                 " ".join((made.stderr or made.stdout).split())
                 or f"git exited {made.returncode} and said nothing"
             )
+            listed = ", ".join(paths)
+            arguments = " ".join(paths)
             raise LandError(
                 f"the commit of the backlog items of review round {number} was "
                 f"refused, most likely by a commit hook of the project: {said}. "
                 "The items are written and staged in the worktree "
-                f"({', '.join(paths)}): a builder commits them with a message in the "
+                f"({listed}): a builder commits them with a message in the "
                 f"form the hook asks for (`git -C {task.worktree} commit -m MESSAGE -- "
-                f"{' '.join(paths)}`), never with --no-verify, then "
+                f"{arguments}`), never with --no-verify, then "
                 f"`lem land file {task.slug}` runs again and finds "
                 "each item by its defect",
             )
     before, tip = tip, git(task.worktree, "rev-parse", "HEAD")
     if filed or same:
-        items = [{**entry, "new": True} for entry in filed] + [
+        entries = [{**entry, "new": True} for entry in filed] + [
             {**entry, "new": False} for entry in same
         ]
+        tip_short = tip[:9]
         script(
             "project.py",
             task.worktree,
             "log",
             task.slug,
             "review.filed",
-            f"items:={json.dumps(items)}",
-            f"tip={tip[:9]}",
+            f"items:={json.dumps(entries)}",
+            f"tip={tip_short}",
         )
     # A run cut off after its commit finds each item again by its defect, so this write
     # comes last; a resolution or a rebase whose tip these commits moved names the new
@@ -7656,8 +7750,8 @@ def check_alike(
     backlog folder at TIP holds no item."""
     if not waiting:
         return {}
-    items = items_at(task, tip)
-    if not items:
+    entries = items_at(task, tip)
+    if not entries:
         return {defect["number"]: "no item to compare" for _, defect in waiting}
     kept = dict(task.kept().get("alike") or {})
     sends = jev_sends(task.settings)
@@ -7670,12 +7764,12 @@ def check_alike(
             "run": defect["what"],
         }
         key = finding_key(defect["where"], defect["title"], defect["what"])
-        read = ask_alike(finding, items, sends=sends, known=kept.get(key))
+        read = ask_alike(finding, entries, sends=sends, known=kept.get(key))
         if "not_asked" in read:
             said[defect["number"]] = f"Jev: not asked ({read['not_asked']})"
             continue
         kept[key] = read["scores"]
-        found = alike_named(read["scores"], items)
+        found = alike_named(read["scores"], entries)
         if found:
             named.append((defect, found))
         else:
@@ -7684,15 +7778,16 @@ def check_alike(
         task.keep(alike=kept)
     if named:
         listed = "; ".join(
-            f'{defect["number"]} "{defect["title"]}" (`{defect["where"]}`): '
+            f'{one["number"]} "{one["title"]}" (`{one["where"]}`): '
             + ", ".join(
                 (
-                    f'`{item["item"]}` "{item["title"]}" ({item["jev"]}, '
-                    f"worth: {item['worth'] or 'none'})"
+                    f'`{entry["item"]}` "{entry["title"]}" ({entry["jev"]}, '
+                    f"worth: {worth})"
                 )
-                for item in found
+                for entry in found
+                for worth in (entry["worth"] or "none",)
             )
-            for defect, found in named
+            for one, found in named
         )
         first = named[0][0]["number"]
         raise LandError(
@@ -7709,24 +7804,24 @@ def check_alike(
     return said
 
 
-def task_file(value: str, flag: str, directory: Path, here: Path) -> str:
-    """The file a step's FLAG names: VALUE from the working directory HERE (or an
-    absolute path), else a relative VALUE in the task's DIRECTORY. A LandError that
+def task_file(path: str, flag: str, directory: Path, here: Path) -> str:
+    """The file a step's FLAG names: PATH from the working directory HERE (or an
+    absolute path), else a relative PATH in the task's DIRECTORY. A LandError that
     names each place it looked when neither has it."""
-    given = Path(value)
+    given = Path(path)
     first = given if given.is_absolute() else here / given
     if first.is_file():
         return str(first)
     if given.is_absolute():
         raise LandError(
-            f"{value} is not a file; {flag} names a file, by its path or by its name "
+            f"{path} is not a file; {flag} names a file, by its path or by its name "
             f"in the task directory {directory}"
         )
     second = directory / given
     if second.is_file():
         return str(second)
     raise LandError(
-        f"{value} is not a file in the working directory ({first}) nor in the task "
+        f"{path} is not a file in the working directory ({first}) nor in the task "
         f"directory ({second}); {flag} names a file by its path, "
         "or by its path inside the task directory"
     )
@@ -7744,8 +7839,8 @@ def failed_attempt(said: dict) -> bool:
         and isinstance(silent, list)
         and bool(silent)
         and all(
-            isinstance(item, dict) and str(item.get("why") or "").strip()
-            for item in silent
+            isinstance(source, dict) and str(source.get("why") or "").strip()
+            for source in silent
         )
         and not any(said.get(key) for key in ("must_fix", "should", "nit", "outside"))
     )
@@ -7762,9 +7857,12 @@ def record_tip_refusal(said: object, tip: str, slug: str) -> str | None:
             "`tip` in the record is the whole commit the review read, 40 hex digits, "
             f"as `lem land read {slug}` printed it, and it is {said!r}"
         )
+    said_short = said[:REVIEW_COMMIT_LENGTH]
+    tip_short = tip[:REVIEW_COMMIT_LENGTH]
     return (
-        f"the record is of the review of {said[:12]}, and the branch is at {tip[:12]} "
-        "now: that review read another change, and it is not written down. "
+        f"the record is of the review of {said_short}, and the branch is at "
+        f"{tip_short} now: that review read another change, and it is not written "
+        "down. "
         f"`lem land read {slug}` says what is due for this one"
     )
 
@@ -7836,8 +7934,8 @@ def cmd_read(task: Task, record: str | None) -> dict:  # noqa: C901, PLR0912, PL
             "resolution": state["resolution"],
             "reads": [
                 {
-                    key: value
-                    for key, value in read.items()
+                    key: field
+                    for key, field in read.items()
                     if key not in ("contents", "carried")
                 }
                 for read in reads
@@ -7847,9 +7945,12 @@ def cmd_read(task: Task, record: str | None) -> dict:  # noqa: C901, PLR0912, PL
                 # the owner's words as given, and the request as Lem wrote it down,
                 # where the task has them
                 **{
-                    name: str(task.directory / file)
-                    for name, file in (("words", "ask.txt"), ("request", "task.md"))
-                    if (task.directory / file).is_file()
+                    name: str(task.directory / path)
+                    for name, path in (
+                        ("words", "ask.txt"),
+                        ("request", "task.md"),
+                    )
+                    if (task.directory / path).is_file()
                 },
                 "plan": criteria_of(task)["plan"],
                 "range": f"{state['base']}..{state['tip']}",
@@ -7907,24 +8008,23 @@ def cmd_read(task: Task, record: str | None) -> dict:  # noqa: C901, PLR0912, PL
         or set(said) - known
         or not {"attempt", "tip", "kind", "answered"} <= set(said)
     ):
+        allowed = ", ".join(sorted(known))
         raise LandError(
             "the record is one object with `attempt`, `tip`, `kind` and `answered`, "
-            f"and of the others what applies: {', '.join(sorted(known))}"
+            f"and of the others what applies: {allowed}"
         )
     # A record that is sent again, after a run that was cut off or by mistake, must not
     # count as a second review: it says which start of the review it is, and only the
     # next one is taken.
     if said["attempt"] != state["attempt"]:
+        ending = (
+            "that review is written down already"
+            if said["attempt"] in [read.get("attempt") for read in reads]
+            else "`lem land read` prints the number a record carries"
+        )
         raise LandError(
-            (
-                f"the record says attempt {said['attempt']!r}, and the next review of "
-                f"this task is attempt {state['attempt']}: "
-            )
-            + (
-                "that review is written down already"
-                if said["attempt"] in [read.get("attempt") for read in reads]
-                else "`lem land read` prints the number a record carries"
-            ),
+            f"the record says attempt {said['attempt']!r}, and the next review of "
+            f"this task is attempt {state['attempt']}: {ending}",
         )
     # The attempt counts the records, not the tips: the record also names the tip its
     # review read.
@@ -7933,13 +8033,13 @@ def cmd_read(task: Task, record: str | None) -> dict:  # noqa: C901, PLR0912, PL
         raise LandError(stale)
     kind = said["kind"]
     if kind not in KINDS:
-        raise LandError(
-            f"`kind` is one of {', '.join(KINDS)}: "
-            f"{'; '.join(f'{name} is {says}' for name, says in KIND_SAYS.items())}"
-        )
+        kinds = ", ".join(KINDS)
+        described = "; ".join(f"{name} is {says}" for name, says in KIND_SAYS.items())
+        raise LandError(f"`kind` is one of {kinds}: {described}")
     if KINDS.index(kind) < KINDS.index(state["floor"]):
+        floor = KIND_SAYS[state["floor"]]
         raise LandError(
-            f"this change gets {KIND_SAYS[state['floor']]} at the least "
+            f"this change gets {floor} at the least "
             f"({state['why']}), and the record says {KIND_SAYS[kind]}"
         )
     # The careful call is the review's own reading of the diff against the project's
@@ -8015,14 +8115,19 @@ def cmd_read(task: Task, record: str | None) -> dict:  # noqa: C901, PLR0912, PL
         }
     )
     unsaid = [
-        file for file in lowered if file not in {entry["name"] for entry in bar_says}
+        path for path in lowered if path not in {entry["name"] for entry in bar_says}
     ]
     if answered and unsaid:
+        listed = ", ".join(unsaid)
         raise LandError(
-            f"the change lowers the bar in {', '.join(unsaid)} and the record says "
+            f"the change lowers the bar in {listed} and the record says "
             'nothing of it: `bar` holds one {"name": FILE, "why": WHAT THE REVIEW '
             "SAYS OF THE BUILDER'S REASON} for each such file",
         )
+    if answered:
+        verdict = "must-fix" if counts["must_fix"] else "clean"
+    else:
+        verdict = "not reviewed"
     entry = {
         "attempt": state["attempt"],
         "round": state["round"],
@@ -8037,11 +8142,7 @@ def cmd_read(task: Task, record: str | None) -> dict:  # noqa: C901, PLR0912, PL
         "careful": call,
         "careful_why": call_why.strip() if isinstance(call_why, str) else None,
         "date": date.today().isoformat(),  # noqa: DTZ011 - the review's day as a person reads it, the local one
-        "verdict": "not reviewed"
-        if not answered
-        else "must-fix"
-        if counts["must_fix"]
-        else "clean",
+        "verdict": verdict,
         "tip": state["tip"][:9],
         "patch": state["patch"],
         # the read of a builder's resolution of a conflict, which is no round of
@@ -8057,7 +8158,7 @@ def cmd_read(task: Task, record: str | None) -> dict:  # noqa: C901, PLR0912, PL
         "log",
         task.slug,
         "review",
-        *(f"{key}:={json.dumps(value)}" for key, value in entry.items()),
+        *(f"{key}:={json.dumps(field)}" for key, field in entry.items()),
     )
     # The contents of the change stay out of the log: only `covers` reads them, from the
     # kept record.
@@ -8151,10 +8252,9 @@ def not_green(task: Task, state: dict) -> list[str]:
         for entry in read.get("bar", [])
     }
     for entry in (kept.get("checks") or {}).get("bar", {}).get("lowered", []):
+        reply = said.get(entry["file"], ...)
         review = (
-            f"The review: {said[entry['file']]}"
-            if entry["file"] in said
-            else "No review said anything of it."
+            "No review said anything of it." if reply is ... else f"The review: {reply}"
         )
         reasons.append(
             f"the bar is lower in `{entry['file']}` ({entry['what']}). "
@@ -8164,11 +8264,12 @@ def not_green(task: Task, state: dict) -> list[str]:
     found = criteria_of(task)
     reasons.extend(
         (
-            f"criterion {change['criterion']} {CHANGE_HOW[change['how']]} during "
+            f"criterion {change['criterion']} {changed} during "
             f"the build: {change_why(task, change)}"
         )
         for change in found["history"]
         if change["taken_over_by"] is None and not owners_change(task, change)
+        for changed in (CHANGE_HOW[change["how"]],)
     )
     # criteria approved without him, which no approval of his took over: the newest
     # approval is the one that holds
@@ -8179,9 +8280,9 @@ def not_green(task: Task, state: dict) -> list[str]:
             if task.record.get("without_owner") or not someone_elses(task)
             else "without the owner, since someone else wrote the request"
         )
+        day = approval["at"][:10]
         reasons.append(
-            "the owner did not approve the criteria: they were approved "
-            f"on {approval['at'][:10]} {how}"
+            f"the owner did not approve the criteria: they were approved on {day} {how}"
         )
     for decision in task.decisions():
         if without_him(decision):
@@ -8226,21 +8327,27 @@ def without_owner(task: Task) -> str | None:
     words that started and ended each; none for a task that always ran with him."""
 
     def said(words: dict) -> str:
-        return (
-            f"{'the owner' if words.get('by') == 'owner' else 'Lem'}: "
-            f'"{words.get("words")}"'
-        )
+        speaker = "the owner" if words.get("by") == "owner" else "Lem"
+        return f'{speaker}: "{words.get("words")}"'
 
-    spans = [
-        f"from {utc(span['from'])} ({said(span['started'])})"
-        + (f" to {utc(span['to'])} ({said(span['ended'])})" if span["to"] else "")
-        for span in task.record.get("without_owner") or []
-    ]
-    return f"It ran without the owner {', and '.join(spans)}." if spans else None
+    spans = []
+    for span in task.record.get("without_owner") or []:
+        start = utc(span["from"])
+        began = said(span["started"])
+        if span["to"]:
+            end = utc(span["to"])
+            ended = said(span["ended"])
+            spans.append(f"from {start} ({began}) to {end} ({ended})")
+        else:
+            spans.append(f"from {start} ({began})")
+    listed = ", and ".join(spans)
+    return f"It ran without the owner {listed}." if spans else None
 
 
 def utc(stamp: str) -> str:
-    return f"{stamp[:10]} {stamp[11:16]} UTC"
+    day = stamp[:10]
+    hour = stamp[TIME_START:TIME_END]
+    return f"{day} {hour} UTC"
 
 
 def change_why(task: Task, change: dict) -> str:
@@ -8275,13 +8382,12 @@ def change_line(task: Task, change: dict) -> str:
         "added": f'added, "{now}"',
         "removed": f'removed, was "{was}"',
     }[change["how"]]
-    who = (
-        ""
-        if "decision" in change
-        else " By the lead."
-        if change["by"] == "lead"
-        else f" By the personas: {change['said']}"
-    )
+    if "decision" in change:
+        who = ""
+    elif change["by"] == "lead":
+        who = " By the lead."
+    else:
+        who = f" By the personas: {change['said']}"
     later = (
         f" Approved by the owner afterwards (approval {change['taken_over_by']})."
         if change.get("taken_over_by")
@@ -8319,9 +8425,9 @@ def breaker_lines(task: Task) -> list[str]:
     it ended."""
     out = []
     for breaker in task.breakers():
-        cause = BREAKER_SAYS[breaker["cause"]] + (
-            f" ({breaker['irreversible']})" if breaker.get("irreversible") else ""
-        )
+        cause = BREAKER_SAYS[breaker["cause"]]
+        if breaker.get("irreversible"):
+            cause = f"{cause} ({breaker['irreversible']})"
         ended = (
             f"the owner helped, decision {breaker['help']}"
             if breaker["state"] == "helped"
@@ -8337,7 +8443,9 @@ def breaker_lines(task: Task) -> list[str]:
 def decided(decision: dict) -> str:
     """One decision of the record as one line of the pull request: what, what was
     chosen, by whom, why."""
-    return f'- {decision["what"]}: "{decision["chose"]}"' + after(decision)
+    what, chose = decision["what"], decision["chose"]
+    taken = after(decision)
+    return f'- {what}: "{chose}"{taken}'
 
 
 def after(decision: dict) -> str:
@@ -8349,24 +8457,22 @@ def after(decision: dict) -> str:
     if decision["by"] == "owner" and "breaker" in decision:
         # his help on a breaker: the build stopped and he decided; nothing of it is a
         # cause of not green
-        line += f", his help on breaker {decision['breaker']}. {decision['why']}"
+        line = f"{line}, his help on breaker {decision['breaker']}. {decision['why']}"
     elif decision["by"] == "personas":
         # the one stop of the ladder past the gate that is green: how many voted, in how
         # many model families
         votes = decision["votes"]
         personas = {name.rpartition(", ")[0] or name for name, _ in votes}
         families = {name.rpartition(", ")[2] for name, _ in votes if ", " in name}
-        named = (
-            f", {FAMILIES.get(len(families), f'{len(families)} model families')}"
-            if families
-            else ""
-        )
-        line += (
-            f": {len(votes)} votes of {len(personas)} personas{named}, "
+        count = len(families)
+        family_count = FAMILIES.get(count, f"{count} model families")
+        named = f", {family_count}" if families else ""
+        line = (
+            f"{line}: {len(votes)} votes of {len(personas)} personas{named}, "
             f"all for it. {decision['why']}"
         )
     else:
-        line += f". {decision['why']}"
+        line = f"{line}. {decision['why']}"
     if decision.get("levels"):
         line += (
             " Each level: "
@@ -8374,7 +8480,7 @@ def after(decision: dict) -> str:
             + "."
         )
     if decision.get("words", decision["chose"]) != decision["chose"]:
-        line += f' The owner\'s words: "{decision["words"]}"'
+        line = f'{line} The owner\'s words: "{decision["words"]}"'
     return line
 
 
@@ -8399,17 +8505,12 @@ def criteria_check_line(held: dict) -> str:
         "fail on the base commit"
     )
     if taken:
-        line += (
-            f", taken from the polish pass at {str(taken['at'])[:9]}, and not run again"
-        )
-    return line + (
-        (
-            f"; {len(without)} "
-            f"{'criterion has' if len(without) == 1 else 'criteria have'} no test"
-        )
-        if without
-        else ""
-    )
+        taken_short = str(taken["at"])[:9]
+        line = f"{line}, taken from the polish pass at {taken_short}, and not run again"
+    if without:
+        has = "criterion has" if len(without) == 1 else "criteria have"
+        return f"{line}; {len(without)} {has} no test"
+    return line
 
 
 def criterion_lines(criterion: dict, *, chart: bool = False) -> list[str]:
@@ -8481,20 +8582,22 @@ def sync_line(sync: dict, base: str) -> str:
     )
     files = sync.get("conflict") or []
     if files and sync.get("resolved"):
-        line += (
-            f"; one conflict in {files[0]}"
-            if len(files) == 1
-            else f"; conflicts in {len(files)} files, {', '.join(files)}"
-        )
-        line += ", resolved by a builder"
+        if len(files) == 1:
+            line = f"{line}; one conflict in {files[0]}, resolved by a builder"
+        else:
+            listed = ", ".join(files)
+            line = (
+                f"{line}; conflicts in {len(files)} files, {listed}, "
+                "resolved by a builder"
+            )
     carry = sync.get("carry")
     for said in (
         carry["review"] if carry else review_line(sync.get("carried")),
         merge_line(carry),
     ):
         if said:
-            line += f"; {said}"
-    return line + "; the checks passed again"
+            line = f"{line}; {said}"
+    return f"{line}; the checks passed again"
 
 
 def review_line(carried: dict | None) -> str | None:
@@ -8504,42 +8607,42 @@ def review_line(carried: dict | None) -> str | None:
     carried none."""
     if not carried:
         return None
-    return "the review carried over the rebase" + (
-        ", and its open must-fix" if carried["must_fix"] else ""
-    )
+    if carried["must_fix"]:
+        return "the review carried over the rebase, and its open must-fix"
+    return "the review carried over the rebase"
 
 
-def edited_line(bar: dict) -> list[str]:
+def edited_line(marks: dict) -> list[str]:
     """The existing tests, snapshots and test configurations the change edits, as one
     line under the bar's: no mark finds a changed expectation, so a reviewer knows where
     to look first."""
-    edited = bar.get("edited") or []
+    edited = marks.get("edited") or []
     if not edited:
         return []
     kinds = [
         (kind, [entry["file"] for entry in edited if entry["kind"] == kind])
         for kind in ("test", "snapshot", "test configuration")
     ]
-    said = [
-        f"{len(files)} existing {kind if len(files) == 1 else kind + 's'} ("
-        + ", ".join(f"`{file}`" for file in files)
-        + ")"
-        for kind, files in kinds
-        if files
-    ]
-    return [
-        "- the change edits "
-        + (", ".join(said[:-1]) + " and " + said[-1] if len(said) > 1 else said[0])
-    ]
+    said = []
+    for kind, files in kinds:
+        if files:
+            count = len(files)
+            noun = kind if count == 1 else f"{kind}s"
+            listed = ", ".join(f"`{path}`" for path in files)
+            said.append(f"{count} existing {noun} ({listed})")
+    if len(said) > 1:
+        first = ", ".join(said[:-1])
+        last = said[-1]
+        listed = f"{first} and {last}"
+    else:
+        listed = said[0]
+    return [f"- the change edits {listed}"]
 
 
 def resolution_line(read: dict) -> str:
     """The read of a conflict's resolution as one line of the pull request's checks."""
-    who = (
-        f"answered: {', '.join(read['answered'])}"
-        if read["answered"]
-        else "no source answered"
-    )
+    names = ", ".join(read["answered"] or [])
+    who = f"answered: {names}" if read["answered"] else "no source answered"
     said = (
         (
             f"{read['verdict']}, {read['must_fix']} must-fix, {read['should']} should, "
@@ -8548,10 +8651,8 @@ def resolution_line(read: dict) -> str:
         if read["answered"]
         else "not reviewed"
     )
-    return (
-        f"- the read of the conflict's resolution ({KIND_SAYS[read['kind']]}; "
-        f"{who}): {said}"
-    )
+    kind = KIND_SAYS[read["kind"]]
+    return f"- the read of the conflict's resolution ({kind}; {who}): {said}"
 
 
 def head_lines(task: Task, state: dict) -> list[str]:
@@ -8571,18 +8672,17 @@ def head_lines(task: Task, state: dict) -> list[str]:
         out += [alone, ""]
     if state["careful"]:
         # a careful request is a person's to merge, green or not, and he reads why first
+        careful = "; ".join(reason(why) for why in state["careful"])
         out += [
-            (
-                "**Careful**, so the owner merges it: "
-                f"{'; '.join(reason(why) for why in state['careful'])}."
-            ),
+            f"**Careful**, so the owner merges it: {careful}.",
             "",
         ]
     moved = synced(task)
     if moved:
         # an open task brought onto a base that a merge moved: what happened to it since
         # the owner last read it
-        out += [moved[0].upper() + moved[1:] + ".", ""]
+        first, rest = moved[0].upper(), moved[1:]
+        out += [f"{first}{rest}.", ""]
     return out
 
 
@@ -8647,15 +8747,16 @@ def small_text(task: Task, notes: str, state: dict, jev: dict | None = None) -> 
         if task.record.get("night")
         else "someone else wrote the request"
     )
+    day = approval.get("at", "")[:10]
     by = {
         "lem": (
-            f" Lem approved it in the owner's name on {approval.get('at', '')[:10]}; "
+            f" Lem approved it in the owner's name on {day}; "
             "the personas did not read it."
         ),
         # a night's task, or a request someone else wrote: not the owner's own sentence,
         # so not his approval either
         "alone": (
-            f" Lem approved it on {approval.get('at', '')[:10]} without the owner "
+            f" Lem approved it on {day} without the owner "
             f"({opened_by}); the personas did not read it."
         ),
     }.get(approval.get("by", ""), "")
@@ -8665,14 +8766,21 @@ def small_text(task: Task, notes: str, state: dict, jev: dict | None = None) -> 
         f"The fast track, because {reason(found['why'])}.{by}",
         "",
     ]
-    out += criteria_lines(found, held)
-    out += [change_line(task, change) for change in found["history"]]
-    out += ["", "## Checks", ""]
-    out += [
-        f"- check, `{command['command']}`"
-        f"{' (serial, under the lock)' if command.get('serial') else ''}: "
-        f"{command['last'] or 'exit ' + str(command['exit'])}"
+    commands = (
+        (command, " (serial, under the lock)" if command.get("serial") else "")
         for command in checks.get("commands", [])
+    )
+    out += [
+        *criteria_lines(found, held),
+        *(change_line(task, change) for change in found["history"]),
+        "",
+        "## Checks",
+        "",
+        *(
+            f"- check, `{command['command']}`{serial}: {ran}"
+            for command, serial in commands
+            for ran in (command["last"] or f"exit {command['exit']}",)
+        ),
     ]
     cause = task.record.get("investigation")
     if cause and cause.get("type") == "fix":
@@ -8681,22 +8789,19 @@ def small_text(task: Task, notes: str, state: dict, jev: dict | None = None) -> 
             f"- the cause, as the investigation found it: {cause['line']}{where}"
         )
     lowered = (checks.get("bar") or {}).get("lowered", [])
+    listed = "; ".join(f"`{entry['file']}` ({entry['what']})" for entry in lowered)
     out.append(
-        "- the bar: no mark of a lowered bar found"
-        if not lowered
-        else "- the bar is lowered: "
-        + "; ".join(f"`{entry['file']}` ({entry['what']})" for entry in lowered)
+        f"- the bar is lowered: {listed}"
+        if lowered
+        else "- the bar: no mark of a lowered bar found"
     )
     out += edited_line(checks.get("bar") or {})
     for read in kept.get("reads", []):
         if read.get("of") == "resolution":
             out.append(resolution_line(read))
             continue
-        who = (
-            f"answered: {', '.join(read['answered'])}"
-            if read["answered"]
-            else "no source answered"
-        )
+        names = ", ".join(read["answered"] or [])
+        who = f"answered: {names}" if read["answered"] else "no source answered"
         said = (
             (
                 f"{read['verdict']}, {read['must_fix']} must-fix, {read['should']} "
@@ -8706,10 +8811,8 @@ def small_text(task: Task, notes: str, state: dict, jev: dict | None = None) -> 
             else "not reviewed"
         )
         said += outside_words(read, fixed)
-        out.append(
-            f"- the review, round {read['round']} ({KIND_SAYS[read['kind']]}; "
-            f"{who}): {said}"
-        )
+        kind = KIND_SAYS[read["kind"]]
+        out.append(f"- the review, round {read['round']} ({kind}; {who}): {said}")
     # each seat that stood in for another, a fact of the request and no reason of
     # not green
     out += stand_in_lines(task)
@@ -8748,14 +8851,15 @@ def small_text(task: Task, notes: str, state: dict, jev: dict | None = None) -> 
         (SEEN, [*own.get(SEEN, []), *seen]),
     ]
     tail = "".join(
-        f"\n\n{heading}\n\n" + "\n".join(lines) for heading, lines in ends if lines
+        f"\n\n{heading}\n\n{body}"
+        for heading, lines in ends
+        if lines
+        for body in ("\n".join(lines),)
     )
-    return (
-        "\n".join(out)
-        + ("\n\n" + rest if rest and rest.lower() != "none" else "")
-        + tail
-        + "\n"
-    )
+    text = "\n".join(out)
+    if rest and rest.lower() != "none":
+        text = f"{text}\n\n{rest}"
+    return f"{text}{tail}\n"
 
 
 def pr_text(  # noqa: C901, PLR0915 - over the limit before the limit was set
@@ -8811,11 +8915,9 @@ def pr_text(  # noqa: C901, PLR0915 - over the limit before the limit was set
     out += ["", "## Checks", ""]
     for command in checks.get("commands", []):
         code = command["exit"]
-        out.append(
-            f"- check, `{command['command']}`"
-            f"{' (serial, under the lock)' if command.get('serial') else ''}: "
-            f"{command['last'] or f'exit {code}'}"
-        )
+        serial = " (serial, under the lock)" if command.get("serial") else ""
+        ran = command["last"] or f"exit {code}"
+        out.append(f"- check, `{command['command']}`{serial}: {ran}")
     out.append(criteria_check_line(checked_criteria(checks)))
     out.append(polished(cast("dict", kept.get("polish"))))
     read = criteria_read_of(task)
@@ -8829,7 +8931,8 @@ def pr_text(  # noqa: C901, PLR0915 - over the limit before the limit was set
             changed_after_read(events_of(task)),
         )
     )
-    if changed := unread(read, found):
+    changed = unread(read, found)
+    if changed:
         out.append(changed)
     if (task.directory / "scout.md").is_file():
         # no path: the pull request is read on the forge, where a file of this machine
@@ -8849,9 +8952,9 @@ def pr_text(  # noqa: C901, PLR0915 - over the limit before the limit was set
         )
     lowered = (checks.get("bar") or {}).get("lowered", [])
     out.append(
-        "- the bar: no mark of a lowered bar found"
-        if not lowered
-        else "- the bar is lowered, with these reasons:"
+        "- the bar is lowered, with these reasons:"
+        if lowered
+        else "- the bar: no mark of a lowered bar found"
     )
     out += [
         f"  - `{entry['file']}` ({entry['what']}): {entry['reason']}"
@@ -8859,9 +8962,9 @@ def pr_text(  # noqa: C901, PLR0915 - over the limit before the limit was set
     ]
     out += edited_line(checks.get("bar") or {})
     if (checks.get("bar") or {}).get("not_covered"):
+        listed = ", ".join(checks["bar"]["not_covered"])
         out.append(
-            "- the bar has no marks of its own for files of these kinds: "
-            f"{', '.join(checks['bar']['not_covered'])}"
+            f"- the bar has no marks of its own for files of these kinds: {listed}"
         )
     size = checks.get("size") or {}
     out.append(
@@ -8872,11 +8975,8 @@ def pr_text(  # noqa: C901, PLR0915 - over the limit before the limit was set
         if read.get("of") == "resolution":
             out.append(resolution_line(read))
             continue
-        who = (
-            f"answered: {', '.join(read['answered'])}"
-            if read["answered"]
-            else "no source answered"
-        )
+        names = ", ".join(read["answered"] or [])
+        who = f"answered: {names}" if read["answered"] else "no source answered"
         quiet = "".join(
             f"; no answer from {source['name']} ({source['why']})"
             for source in read["silent"]
@@ -8890,9 +8990,9 @@ def pr_text(  # noqa: C901, PLR0915 - over the limit before the limit was set
             else "not reviewed"
         )
         found += outside_words(read, fixed)
+        kind = KIND_SAYS[read["kind"]]
         out.append(
-            f"- the review, round {read['round']} ({KIND_SAYS[read['kind']]}; "
-            f"{who}{quiet}): {found}"
+            f"- the review, round {read['round']} ({kind}; {who}{quiet}): {found}"
         )
         out += [
             f"  - ran {profile['name']}: {profile['why']}" for profile in read["ran"]
@@ -8905,10 +9005,12 @@ def pr_text(  # noqa: C901, PLR0915 - over the limit before the limit was set
         # propose refuses a request whose plan called for a talk with none on record, so
         # there is one here
         out.append(talked(cast("dict", talk_of(task))))
-    elif no_talk := untalked(task, state):
+    else:
         # careful after its plan: the full set ran and a person merges, so this is no
         # cause of not green
-        out.append(no_talk)
+        no_talk = untalked(task, state)
+        if no_talk:
+            out.append(no_talk)
     # each seat that stood in for another, a fact of the request and no reason of
     # not green
     out += stand_in_lines(task)
@@ -8933,7 +9035,9 @@ def pr_text(  # noqa: C901, PLR0915 - over the limit before the limit was set
         small=False,
         endings=jev,
     )
-    return "\n".join(out) + "\n\n" + no_media(notes).strip() + "\n"
+    text = "\n".join(out)
+    notes = no_media(notes).strip()
+    return f"{text}\n\n{notes}\n"
 
 
 # A picture of a task's `media/` folder, linked from a document: the task directory is
@@ -8946,12 +9050,15 @@ MEDIA = re.compile(
 def no_media(text: str) -> str:
     """The text with each link to a file of `media/` replaced by its caption: the forge
     has no such file."""
-    return MEDIA.sub(
-        lambda found: (
-            f"{found.group(2) or found.group(3)} (a picture on the task's board)"
-        ),
-        text,
-    )
+    parts = []
+    start = 0
+    for found in MEDIA.finditer(text):
+        caption = found.group(2) or found.group(3)
+        left, right = found.span()
+        parts.extend((text[start:left], f"{caption} (a picture on the task's board)"))
+        start = right
+    parts.append(text[start:])
+    return "".join(parts)
 
 
 def folded_stories(task: Task) -> list[str]:
@@ -8989,7 +9096,8 @@ def one_line(text: str, most: int = CELL) -> str:
     flat = " ".join(text.split())
     if len(flat) <= most:
         return flat
-    return flat[:most].rsplit(" ", 1)[0].rstrip(",;:.") + "…"
+    shortened = flat[:most].rsplit(" ", 1)[0].rstrip(",;:.")
+    return f"{shortened}…"
 
 
 def label(option: str) -> str:
@@ -9023,8 +9131,9 @@ def story_lines(decision: dict[str, Any]) -> list[str]:
         "reproduced": "reproduced",
         "derived": "derived from the code, not run",
     }.get(decision.get("case_was", ""), decision.get("case_was"))
+    how = f" ({known})" if known else ""
     out = [
-        f"**The case**{f' ({known})' if known else ''}:",
+        f"**The case**{how}:",
         "",
         *decision["case"].splitlines(),
         "",
@@ -9067,9 +9176,9 @@ def gh_in(where: Path, *args: str, check: bool = True) -> subprocess.CompletedPr
         stdin=subprocess.DEVNULL,
     )
     if check and ran.returncode != 0:
-        raise LandError(
-            f"gh {' '.join(args[:2])} failed: {(ran.stderr or ran.stdout).strip()}"
-        )
+        command = " ".join(args[:2])
+        words = (ran.stderr or ran.stdout).strip()
+        raise LandError(f"gh {command} failed: {words}")
     return ran
 
 
@@ -9137,8 +9246,9 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901,
     )
     state = due(task)
     if state["due"] == "review":
+        kind = KIND_SAYS[state["floor"]]
         raise LandError(
-            f"a review is due before anything is proposed, {KIND_SAYS[state['floor']]} "
+            f"a review is due before anything is proposed, {kind} "
             f"at the least ({state['why']}); `lem land read {task.slug}` "
             "says what a reviewer gets"
         )
@@ -9213,14 +9323,11 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901,
         and not approved_after(found, read)
         and not approved_alone(found, read)
     ):
-        doubt = (
-            (
-                f"{read['flagged']} flagged "
-                f"{'criterion' if read['flagged'] == 1 else 'criteria'}"
-            )
-            if read["flagged"]
-            else "a split between the two families"
-        )
+        if read["flagged"]:
+            noun = "criterion" if read["flagged"] == 1 else "criteria"
+            doubt = f"{read['flagged']} flagged {noun}"
+        else:
+            doubt = "a split between the two families"
         raise LandError(
             f"the newest read of {task.slug}'s criteria found {doubt}, and no approval "
             "of the owner's came after it: the criteria with the personas' answers on "
@@ -9284,17 +9391,14 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901,
     ]
     if gone:
         read, defect = gone[0]
+        more = len(gone) - 1
+        others = f", and {more} more" if more else ""
         raise LandError(
-            (
-                f'the item {defect["item"]} of the defect "{defect["title"]}" (review '
-                f"round {read['round']}) was removed after it was filed"
-            )
-            + (f", and {len(gone) - 1} more" if len(gone) > 1 else "")
-            + (
-                f": a builder puts it back with `lem land file {task.slug} --again`, "
-                "then this step runs again; when the owner does not want it, the item "
-                "stays with `worth: no` and the owner's reason in it, never deleted"
-            ),
+            f'the item {defect["item"]} of the defect "{defect["title"]}" (review '
+            f"round {read['round']}) was removed after it was filed{others}"
+            f": a builder puts it back with `lem land file {task.slug} --again`, "
+            "then this step runs again; when the owner does not want it, the item "
+            "stays with `worth: no` and the owner's reason in it, never deleted",
         )
     # A request is never proposed over a breaker that stopped its build and that the
     # owner did not help on.
@@ -9333,8 +9437,10 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901,
         if not re.search(rf"(?m)^{re.escape(heading)}\s*$", notes)
     ]
     if missing:
+        absent = ", ".join(missing)
+        required = ", ".join(wanted)
         raise LandError(
-            f"the notes lack {', '.join(missing)}: they hold {', '.join(wanted)}, each "
+            f"the notes lack {absent}: they hold {required}, each "
             "with what is true of this task or the one word `none`"
         )
     # A finding nobody filed reaches the pull request only with a bar call and its
@@ -9384,7 +9490,8 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901,
         )
     body = task.directory / "pr.md"
     write_whole(body, pr_text(task, notes, state, endings))
-    says = "green" if not reasons else f"not green: {'; '.join(reasons)}"
+    listed = "; ".join(reasons)
+    says = f"not green: {listed}" if reasons else "green"
     branch = git(task.worktree, "branch", "--show-current")
     # the name the push goes to, by the settings as they are now: the owner may protect
     # it after the worktree was made
@@ -9401,7 +9508,19 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901,
     # or the branch holds it: the lease names that commit, or no branch at all for a
     # first push.
     lease = task.own_remote(branch)
-    if not pr:
+    if pr:
+        state_now = viewed(task, pr)["state"]
+        if state_now != "OPEN":
+            action = (
+                "finishes the task"
+                if state_now == "MERGED"
+                else "writes the task dropped, and its branch keeps its commits"
+            )
+            raise LandError(
+                f"the pull request {pr['url']} is {state_now.lower()}: "
+                f"`lem land merged {task.slug}` {action}",
+            )
+    else:
         # A run that was cut off after the forge made the pull request wrote none down:
         # the forge knows it. Only a pull request whose head is the commit Lem pushed
         # for this task is its own; any other on the same branch name is somebody's, and
@@ -9428,9 +9547,10 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901,
         others = [found for found in there if found not in mine]
         if others:
             other = others[0]
+            author = (other.get("author") or {}).get("login") or "someone"
             raise LandError(
                 f"pull request #{other['number']} by "
-                f"{(other.get('author') or {}).get('login') or 'someone'} is open on "
+                f"{author} is open on "
                 f"{branch}, and its head is no commit Lem pushed for this task: "
                 "it is somebody else's, and Lem does not push over it or rewrite its "
                 "text. Give the task a branch of its own "
@@ -9438,18 +9558,6 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901,
                 "then run this step again",
             )
         pr = {"number": mine[0]["number"], "url": mine[0]["url"]} if mine else None
-    elif (state_now := viewed(task, pr)["state"]) != "OPEN":
-        raise LandError(
-            (
-                f"the pull request {pr['url']} is {state_now.lower()}: "
-                f"`lem land merged {task.slug}` "
-            )
-            + (
-                "finishes the task"
-                if state_now == "MERGED"
-                else "writes the task dropped, and its branch keeps its commits"
-            ),
-        )
     # With the lease of the one commit the push may replace: a commit that came in
     # between stops it.
     git(
@@ -9502,13 +9610,15 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901,
     # owner's merge
     carried_facts = []
     if kept.get("sync"):
+        merge_review = "carried" if carry["merge_review"] else "fresh"
         carried_facts = [
             *([f"review={carry['review']}"] if carry["review"] else []),
-            f"merge_review={'carried' if carry['merge_review'] else 'fresh'}",
+            f"merge_review={merge_review}",
             *([f"why={carry['merge_why']}"] if carry["merge_why"] else []),
             *([f"owner_merge={carry['owner_merge']}"] if carry["owner_merge"] else []),
             *([f"owner_why={carry['owner_why']}"] if carry["owner_why"] else []),
         ]
+    tip_short = tip[:9]
     script(
         "project.py",
         task.worktree,
@@ -9517,7 +9627,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:  # noqa: C901,
         "proposed",
         f"green:={json.dumps(not reasons)}",
         f"not_green:={json.dumps(reasons)}",
-        f"tip={tip[:9]}",
+        f"tip={tip_short}",
         *carried_facts,
     )
     moved = synced(task)
@@ -9558,6 +9668,8 @@ def carry_merge(  # noqa: PLR0913, PLR0917 - over the limit before the limit was
     `merge_review_why` (why a fresh merge agent reads the task, after a moved base) and
     `owner_merge` (`stands`, the reason it ended, or null)."""
     old = kept.get("proposed")
+    tip_short = tip[:9]
+    old_short = str(old)[:9]
     out: dict = {
         "merge_review": None,
         "merge_review_why": carry["merge_why"],
@@ -9574,9 +9686,9 @@ def carry_merge(  # noqa: PLR0913, PLR0917 - over the limit before the limit was
             review={"verdict": "merge"},
         )
         calls = review.get("verdict") == "call" or refusal is not None
-        why = refusal or (
-            review.get("why") if review.get("verdict") == "call" else None
-        )
+        why = refusal
+        if not why:
+            why = review.get("why") if review.get("verdict") == "call" else None
         review = carried_review(review, tip, calls=calls, why=why, old=old)
         task.keep(merge_review=review)
         script(
@@ -9588,8 +9700,8 @@ def carry_merge(  # noqa: PLR0913, PLR0917 - over the limit before the limit was
             f"verdict={review['verdict']}",
             f"calls:={json.dumps(calls)}",
             f"by={review.get('by')}",
-            f"tip={tip[:9]}",
-            f"carried={str(old)[:9]}",
+            f"tip={tip_short}",
+            f"carried={old_short}",
             *([f"why={why}"] if why else []),
         )
         out["merge_review"] = "carried"
@@ -9606,8 +9718,8 @@ def carry_merge(  # noqa: PLR0913, PLR0917 - over the limit before the limit was
             task.slug,
             "merge.stands",
             "by=owner",
-            f"tip={tip[:9]}",
-            f"from={str(old)[:9]}",
+            f"tip={tip_short}",
+            f"from={old_short}",
         )
         out["owner_merge"] = (
             "stands: the board's server merges it after the checks and the "
@@ -9624,8 +9736,8 @@ def carry_merge(  # noqa: PLR0913, PLR0917 - over the limit before the limit was
             task.slug,
             "merge.ended",
             "by=owner",
-            f"tip={tip[:9]}",
-            f"from={str(old)[:9]}",
+            f"tip={tip_short}",
+            f"from={old_short}",
             f"why={carry['owner_why']}",
         )
         out["owner_merge"] = f"ended: {carry['owner_why']}; the owner merges it again"
@@ -9659,9 +9771,10 @@ def follow(task: Task) -> str | None:
         for line in (followed.stderr or followed.stdout).strip().splitlines()
         if line.strip()
     ]
+    last = why[-1] if why else "nothing"
     return (
         f"{task.base_checkout} did not follow origin/{task.base}, and nothing in it "
-        f"was changed. git said: {why[-1] if why else 'nothing'}"
+        f"was changed. git said: {last}"
     )
 
 
@@ -9691,8 +9804,9 @@ def merger_refusal(  # noqa: PLR0911, PLR0913 - over the limit before the limit 
             f"({careful[0]}); it waits as `open` for his word"
         )
     if reasons:
+        listed = "; ".join(reasons)
         return (
-            f"the request is not green ({'; '.join(reasons)}), so the owner merges it; "
+            f"the request is not green ({listed}), so the owner merges it; "
             "it waits as `open` for his word"
         )
     # The merge agent merges only on the newest review's "not careful": a record with no
@@ -9753,8 +9867,10 @@ def tip_carry(  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit
         # kept no base of its proposal carries as before.
         on, base = kept.get("proposed_on"), kept.get("base")
         if on and on != base:
+            on_short = on[:9]
+            base_short = str(base)[:9]
             return None, (
-                f"the base moved from {on[:9]} to {str(base)[:9]}, under the same tip"
+                f"the base moved from {on_short} to {base_short}, under the same tip"
             )
         return "same", None
     if rebased == {"from": old, "to": new}:
@@ -9774,9 +9890,11 @@ def tip_carry(  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit
             # forge refused its edit, or it was cut off), and a rebase of this landing
             # started from it: the tip proposed before is not where the rebase
             # started, and no commit need have come.
+            pushed_short = pushed[:9]
+            old_short = old[:9]
             return None, (
-                f"the rebase started from {pushed[:9]}, which a proposal pushed and "
-                f"did not keep, not from the tip proposed before, {old[:9]}"
+                f"the rebase started from {pushed_short}, which a proposal pushed and "
+                f"did not keep, not from the tip proposed before, {old_short}"
             )
         return None, "a commit came after the tip proposed before"
     met = "the rebase met a conflict, and"
@@ -9808,9 +9926,11 @@ def tip_carry(  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit
         # a base that moved under the same tip (a `base` that moved nothing after it
         # went back): the change holds what moved between the two, which no read saw,
         # as a note of a rebase holds only on its own base (`rebase_notes`)
+        onto_short = str(resolution.get("onto"))[:9]
+        base_short = str(kept.get("base"))[:9]
         return None, (
-            f"{met} the base moved from {str(resolution.get('onto'))[:9]}, which its "
-            f"resolution was made onto, to {str(kept.get('base'))[:9]}, under the "
+            f"{met} the base moved from {onto_short}, which its "
+            f"resolution was made onto, to {base_short}, under the "
             "same tip"
         )
     if not (read and read["answered"]):
@@ -9820,12 +9940,10 @@ def tip_carry(  # noqa: C901, PLR0911, PLR0912 - over the limit before the limit
             and one.get("tip") == new[:9]
             for one in reads
         )
+        outcome = "did not answer" if silent else "did not run"
         return (
             None,
-            (
-                f"{met} the read of its resolution "
-                f"{'did not answer' if silent else 'did not run'}"
-            ),
+            f"{met} the read of its resolution {outcome}",
         )
     rounds = [one for one in reads if one["answered"] and one.get("of") != "resolution"]
     if why_careful:
@@ -9910,15 +10028,15 @@ def moved_carry(
     how, why = tip_carry(kept, new, why_careful)
     resolution = kept.get("resolution")
     read = resolution_read(kept)
-    review = review_line((kept.get("sync") or {}).get("carried")) or (
-        (
-            "one read of the resolution"
-            if read["kind"] == "read"
-            else f"a read of the resolution by {KIND_SAYS[read['kind']]}"
-        )
-        if resolution and resolution.get("before") == old and read and read["answered"]
-        else None
-    )
+    review = review_line((kept.get("sync") or {}).get("carried"))
+    if not review:
+        on_resolution = resolution and resolution.get("before") == old
+        if on_resolution and read and read["answered"]:
+            if read["kind"] == "read":
+                review = "one read of the resolution"
+            else:
+                kind = KIND_SAYS[read["kind"]]
+                review = f"a read of the resolution by {kind}"
     out: dict = {
         "how": how,
         "why": why,
@@ -10082,9 +10200,9 @@ def forge_done(task: Task, view: dict) -> dict:
             f"`lem land merged {task.slug}` tries again"
         ),
     )
-    item = state_item(task)
+    path = state_item(task)
     removed = (
-        remove_item(task.state_folder, item, task.slug, pr["url"]) if item else False
+        remove_item(task.state_folder, path, task.slug, pr["url"]) if path else False
     )
     # the commit of the branch that the forge merged: `clean` removes the branch only
     # when it holds nothing after it
@@ -10102,7 +10220,7 @@ def forge_done(task: Task, view: dict) -> dict:
         "merged": merged,
         "left_behind": left_behind,
         "base_read": line,
-        **({"item": {"path": item, "removed": removed}} if item else {}),
+        **({"item": {"path": path, "removed": removed}} if path else {}),
         **({"uncovered": f"{task.slug}: {line}"} if uncovered else {}),
     }
 
@@ -10140,8 +10258,10 @@ def noted_body(body: str, line: str, replaces: str | None = None) -> str | None:
     lines = body.rstrip("\n").split("\n")
     if replaces is not None and replaces in lines:
         lines[lines.index(replaces)] = line
-        return "\n".join(lines) + "\n"
-    return body.rstrip("\n") + "\n\n" + line + "\n"
+        text = "\n".join(lines)
+        return f"{text}\n"
+    text = body.rstrip("\n")
+    return f"{text}\n\n{line}\n"
 
 
 def noted(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
@@ -10171,9 +10291,10 @@ def noted(  # noqa: PLR0913, PLR0917 - over the limit before the limit was set
             for one in (edited.stderr or edited.stdout).splitlines()
             if one.strip()
         ]
+        error = said[-1] if said else edited.returncode
         raise LandError(
             f"{what} did not reach the pull request's text (gh pr edit said: "
-            f"{said[-1] if said else edited.returncode}); {then}"
+            f"{error}); {then}"
         )
 
 
@@ -10211,9 +10332,10 @@ def cmd_merged(task: Task) -> dict:
         task.record["status"] not in ("open", "landing")
         and not merger_blocked(task.record)
     ) or not task.kept().get("pr"):
+        present = "a" if task.kept().get("pr") else "no"
         raise LandError(
             f"the task is {task.record['status']!r} and has "
-            f"{'a' if task.kept().get('pr') else 'no'} pull request; this step is for "
+            f"{present} pull request; this step is for "
             "a task whose pull request the owner merged"
         )
     view = viewed(task)
@@ -10244,14 +10366,12 @@ def cmd_merged(task: Task) -> dict:
     task.keep(
         forge={"mergeable": view.get("mergeable"), "head": view.get("headRefOid")}
     )
-    raise LandError(
-        "the pull request is not merged yet"
-        + (
-            f", and the forge calls it conflicting with {task.base}"
-            if view.get("mergeable") == "CONFLICTING"
-            else ""
-        )
+    conflict = (
+        f", and the forge calls it conflicting with {task.base}"
+        if view.get("mergeable") == "CONFLICTING"
+        else ""
     )
+    raise LandError(f"the pull request is not merged yet{conflict}")
 
 
 # The fields of a pull request one look at the forge reads (the board's server,
@@ -10301,32 +10421,33 @@ def merge_lock(
     reads the base branch after it takes it."""
     path = task.directory.parent.parent / MERGE_LOCK
     try:
-        handle = path.open("a+", encoding="utf-8")
+        lock = path.open("a+", encoding="utf-8")
     except OSError as error:
         raise LandError(
             f"the merge lock {path} cannot be opened ({error.strerror}); "
             f"it holds no state, so remove it (`rm -r {path}`) and run "
             f"`lem land merge {task.slug}` again"
         ) from error
-    with handle:
+    with lock:
         try:
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             holder = holder_of(path)
             other = holder.get("task") if holder else None
+            blocker = other or "another task"
             script(
                 "project.py",
                 task.main,
                 "log",
                 task.slug,
                 "merge.wait",
-                f"after={other or 'another task'}",
-                f"say={task.slug}: waits for the merge of {other or 'another task'}",
+                f"after={blocker}",
+                f"say={task.slug}: waits for the merge of {blocker}",
             )
-            fcntl.flock(handle, fcntl.LOCK_EX)
-        handle.seek(0)
-        handle.truncate()
-        handle.write(
+            fcntl.flock(lock, fcntl.LOCK_EX)
+        lock.seek(0)
+        lock.truncate()
+        lock.write(
             json.dumps(
                 {
                     "step": "merge",
@@ -10337,7 +10458,7 @@ def merge_lock(
             )
             + "\n"
         )
-        handle.flush()
+        lock.flush()
         script(
             "project.py",
             task.main,
@@ -10351,9 +10472,9 @@ def merge_lock(
         try:
             yield
         finally:
-            handle.seek(0)
-            handle.truncate()
-            handle.flush()
+            lock.seek(0)
+            lock.truncate()
+            lock.flush()
 
 
 def start_after(task: Task, *, standing: bool) -> list[str]:
@@ -10369,7 +10490,8 @@ def start_after(task: Task, *, standing: bool) -> list[str]:
         else None
     )
     if covered and covered != kept.get("base"):
-        return [f"after={READ_AFTER}", f"base={covered[:9]}"]
+        covered_short = covered[:9]
+        return [f"after={READ_AFTER}", f"base={covered_short}"]
     return ["after=a re-check"] if standing else []
 
 
@@ -10425,12 +10547,13 @@ def task_time(events: list[dict], slug: str) -> dict:
                 "so nothing says what to expect"
             ),
         }
+    plural = "" if len(earlier) == 1 else "s"
     return {
         "seconds": span(slug),
         "expected": round(statistics.median(span(name) for name in earlier)),
         "from": (
             f"the median of {len(earlier)} earlier "
-            f"task{'' if len(earlier) == 1 else 's'} of {which}, from the first event "
+            f"task{plural} of {which}, from the first event "
             "to the proposal, in the event log"
         ),
     }
@@ -10540,9 +10663,8 @@ def unread_why(lower: str | None, refusal: str | None) -> str:
         if lower
         else "its last answer gives no verdict at all"
     )
-    return f"the merge agent twice gave no verdict on its first line; {last}" + (
-        f"; {refusal}" if refusal else ""
-    )
+    ending = f"; {refusal}" if refusal else ""
+    return f"the merge agent twice gave no verdict on its first line; {last}{ending}"
 
 
 # The start of the why of a merge review that is another round because the merge agent's
@@ -10567,8 +10689,9 @@ def round_unrecorded(review: object, tip: str) -> str | None:
         or review.get("base_call") != "another round"
     ):
         return None
+    start = re.escape(UNRECORDED)
     found = re.fullmatch(
-        re.escape(UNRECORDED) + r" \((.+)\), and in doubt the checks run again",
+        rf"{start} \((.+)\), and in doubt the checks run again",
         str(review.get("base_why") or ""),
     )
     return found[1] if found else None
@@ -10579,10 +10702,11 @@ def unanswered_why(refusal: str | None) -> str:
     calls the owner. The try before it may have been an answer with no verdict, which
     the count of `merge_unread` does not tell apart, so the why says only what holds
     of both; then the reason the merge agent may not merge (REFUSAL), if any."""
+    ending = f"; {refusal}" if refusal else ""
     return (
         "the merge agent twice gave no answer with a verdict on its first line; "
-        "its last try ended with no answer"
-    ) + (f"; {refusal}" if refusal else "")
+        f"its last try ended with no answer{ending}"
+    )
 
 
 def moved_of(
@@ -10597,12 +10721,8 @@ def moved_of(
     every move since the checks."""
     if not files:
         return None
-    commits = [
-        {"commit": commit, "subject": subject}
-        for commit, _, subject in (
-            line.partition("\0") for line in log.splitlines() if line.strip()
-        )
-    ]
+    rows = (line.partition("\0") for line in log.splitlines() if line.strip())
+    commits = [{"commit": commit, "subject": subject} for commit, _, subject in rows]
     mine = set(own)
     return {
         "checks_ran_on": checks_ran_on,
@@ -10664,9 +10784,11 @@ def base_line(base: str, checks_ran_on: str, merged_on: str, why: str) -> str:
     """The record of a merge on a base that moved after the checks, for the pull
     request's text and the merge commit: the base the checks ran on, the base it merged
     on, and the merge agent's sentence of why."""
+    checks_short = checks_ran_on[:9]
+    merged_short = merged_on[:9]
     return (
-        f"The checks ran on {base} at {checks_ran_on[:9]}; it merged on {base} at "
-        f"{merged_on[:9]}, after the merge agent's read of what moved: {why}"
+        f"The checks ran on {base} at {checks_short}; it merged on {base} at "
+        f"{merged_short}, after the merge agent's read of what moved: {why}"
     )
 
 
@@ -10674,10 +10796,13 @@ def uncovered_line(base: str, checks_ran_on: str, real: str, read: str) -> str:
     """The record of a merge whose real base on GitHub is not the one the merge agent's
     read covered: a merge outside Lem came between Lem's look at the base and its merge
     call, which nothing can undo."""
+    checks_short = checks_ran_on[:9]
+    real_short = real[:9]
+    read_short = read[:9]
     return (
-        f"The checks ran on {base} at {checks_ran_on[:9]}; it merged on {base} at "
-        f"{real[:9]}, which no read of the merge agent covered (its read covered "
-        f"{read[:9]}): a merge on GitHub came between Lem's look at the base and its "
+        f"The checks ran on {base} at {checks_short}; it merged on {base} at "
+        f"{real_short}, which no read of the merge agent covered (its read covered "
+        f"{read_short}): a merge on GitHub came between Lem's look at the base and its "
         "merge, and nothing undoes it"
     )
 
@@ -10698,11 +10823,9 @@ def moved_refusal(  # noqa: PLR0913 - over the limit before the limit was set
     because the merge agent's answer could not be recorded twice (UNRECORDED, what was
     wrong with it). COVERED is the base an earlier read with `Base: safe.` covered,
     which covers no later base."""
-    said = (
-        f"{onto} moved after the checks ran, by files "
-        f"({', '.join(files[:NAMED_FILES])}"
-        f"{', ...' if len(files) > NAMED_FILES else ''})"
-    )
+    listed = ", ".join(files[:NAMED_FILES])
+    ellipsis = ", ..." if len(files) > NAMED_FILES else ""
+    said = f"{onto} moved after the checks ran, by files ({listed}{ellipsis})"
     if round_said:
         then = (
             (
@@ -10726,11 +10849,12 @@ def moved_refusal(  # noqa: PLR0913 - over the limit before the limit was set
             f"{said}, and {read}; {AGAIN}. The merge review is kept with the review, "
             f"and {then}"
         )
-    earlier = (
-        f"; the read of {covered[:9]} said safe, and it covers no later base"
-        if covered
-        else ""
-    )
+    earlier = ""
+    if covered:
+        covered_short = covered[:9]
+        earlier = (
+            f"; the read of {covered_short} said safe, and it covers no later base"
+        )
     then = (
         (
             "the owner's merge stands, and goes through after a read that says "
@@ -10758,8 +10882,8 @@ def carried_review(
     now. Its call on a moved base is dropped: the new landing's checks ran on the new
     base, so a read of an older one says nothing of it."""
     kept = {
-        key: value
-        for key, value in review.items()
+        key: field
+        for key, field in review.items()
         if key not in ("base", "base_call", "base_why")
     }
     return {**kept, "tip": tip, "calls": calls, "why": why, "carried_from": old}
@@ -10782,7 +10906,11 @@ def seats_kept(kept: object, tip: str, base: str, seat: dict) -> dict:
     of an earlier tip go."""
     earlier = kept if isinstance(kept, dict) else {}
     return {
-        **{key: value for key, value in earlier.items() if key.startswith(f"{tip}-")},
+        **{
+            key: previous
+            for key, previous in earlier.items()
+            if key.startswith(f"{tip}-")
+        },
         f"{tip}-{base}": seat,
     }
 
@@ -10797,20 +10925,24 @@ def seat_of_brief(kept: object, tip: str, base: str) -> dict | None:
 def brief_file(task: Task, tip: str, base: str) -> Path:
     """The merge agent's brief of a proposed tip on one base, so that the brief of a
     later base never takes the place of the one an agent was started with."""
-    return task.directory / f"merge-brief-{tip[:12]}-{base[:12]}.md"
+    tip_short = tip[:REVIEW_COMMIT_LENGTH]
+    base_short = base[:REVIEW_COMMIT_LENGTH]
+    return task.directory / f"merge-brief-{tip_short}-{base_short}.md"
 
 
 def answer_file(task: Task, tip: str, base: str) -> Path:
     """The file the merge agent's answer goes to, one for each proposed tip and base, so
     that the answer of a read of an earlier proposal, or of an earlier base, never takes
     the place of the newest one's."""
-    return task.directory / f"merge-answer-{tip[:12]}-{base[:12]}.md"
+    tip_short = tip[:REVIEW_COMMIT_LENGTH]
+    base_short = base[:REVIEW_COMMIT_LENGTH]
+    return task.directory / f"merge-answer-{tip_short}-{base_short}.md"
 
 
 def moved_facts(task: Task, checks_ran_on: str, base_now: str, tip: str) -> dict | None:
     """`moved_of` from git: what moved on the base between the checks' base and
     BASE_NOW, beside the files of the task's change from the checks' base to TIP."""
-    files = changed(task, checks_ran_on, base_now) if base_now != checks_ran_on else []
+    files = [] if base_now == checks_ran_on else changed(task, checks_ran_on, base_now)
     if not files:
         return None
     log = git(task.worktree, "log", "--format=%h%x00%s", f"{checks_ran_on}..{base_now}")
@@ -10855,15 +10987,16 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
         # a read of this tip said the moved base needs another round, or Lem recorded
         # one for want of an answer: its refusal is answered by the new landing alone
         unrecorded = round_unrecorded(kept.get("merge_review"), tip)
+        tip_short = tip[:9]
         raise LandError(
             (
-                f"the merge agent's answer for {tip[:9]} could not be recorded twice "
+                f"the merge agent's answer for {tip_short} could not be recorded twice "
                 f"({unrecorded}), so in doubt the moved base gets another round of the "
                 f"checks, and no later read answers that; {AGAIN}"
             )
             if unrecorded
             else (
-                f"the merge agent's read of {tip[:9]} said that the moved base needs "
+                f"the merge agent's read of {tip_short} said that the moved base needs "
                 f"another round of the checks, and no later read answers that; {AGAIN}"
             )
         )
@@ -10889,8 +11022,8 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
         base = base_now if moved else kept["base"]
         found = criteria_of(task)
         files: dict[str, str | list[str]] = {
-            name: str(task.directory / file)
-            for name, file in (
+            name: str(task.directory / path)
+            for name, path in (
                 ("pull_request_text", "pr.md"),
                 ("words", "ask.txt"),
                 ("request", "task.md"),
@@ -10898,7 +11031,7 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
                 ("notes", "notes.md"),
                 ("investigation", "investigation.md"),
             )
-            if (task.directory / file).is_file()
+            if (task.directory / path).is_file()
         }
         # each breaker's document, the newest last (decisions.py keeps them
         # as breaker-N.md)
@@ -10919,7 +11052,7 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
             "criteria": found["plan"],
             "files": files,
             "reviews": sorted(
-                str(file) for file in (task.directory / "reviews").glob("review-*.md")
+                str(path) for path in (task.directory / "reviews").glob("review-*.md")
             )
             if (task.directory / "reviews").is_dir()
             else [],
@@ -10945,8 +11078,8 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
             # the agent reads against the bar of rule 6 in the file `bar` names, the one
             # the project's builders read
             "filed": [
-                {"item": item["item"], "title": item["title"]}
-                for item in items_added(task, kept["base"])
+                {"item": entry["item"], "title": entry["title"]}
+                for entry in items_added(task, kept["base"])
             ],
             "bar": bar_file(task.main),
             # how the owner tries the branch himself, the last line of a review that
@@ -11012,9 +11145,11 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
             "brief the merge agent read"
         )
     if read_tip != tip:
+        read_tip_short = read_tip[:REVIEW_COMMIT_LENGTH]
+        proposed_short = tip[:REVIEW_COMMIT_LENGTH]
         raise LandError(
-            f"the merge agent's answer is of {read_tip[:12]}, and the proposal is "
-            f"{tip[:12]} now: it read an earlier proposal, and its answer is not "
+            f"the merge agent's answer is of {read_tip_short}, and the proposal is "
+            f"{proposed_short} now: it read an earlier proposal, and its answer is not "
             f"written down. `lem land merge-review {task.slug}` writes the brief of "
             "this one, and a fresh merge agent reads it",
         )
@@ -11022,8 +11157,9 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
         not re.fullmatch(r"[0-9a-f]{40}", read_on)
         or not brief_file(task, tip, read_on).is_file()
     ):
+        proposed_short = tip[:REVIEW_COMMIT_LENGTH]
         raise LandError(
-            f"--base is {read_on!r}, and no brief of {tip[:12]} on that base was "
+            f"--base is {read_on!r}, and no brief of {proposed_short} on that base was "
             f"written: --base is the whole commit `lem land merge-review {task.slug}` "
             "printed as `base` with the brief the merge agent read; "
             "its answer is not written down",
@@ -11031,9 +11167,11 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
     # the seat that read: the one kept with the brief, never a new read of the settings
     seat = seat_of_brief(kept.get("merge_seats"), tip, read_on)
     if seat is None:
+        proposed_short = tip[:REVIEW_COMMIT_LENGTH]
+        read_on_short = read_on[:REVIEW_COMMIT_LENGTH]
         raise LandError(
-            f"no seat is kept with the brief of {tip[:12]} on {read_on[:12]}, so the "
-            "record could not name the seat that read it: "
+            f"no seat is kept with the brief of {proposed_short} on {read_on_short}, "
+            "so the record could not name the seat that read it: "
             f"`lem land merge-review {task.slug}` writes the brief again with its "
             "seat, and a fresh merge agent reads it"
         )
@@ -11047,7 +11185,7 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
                 "--file names the merge agent's reply"
             ) from error
     moved = read_on != kept["base"]
-    verdict = verdict_of(text) if text is not None else None
+    verdict = None if text is None else verdict_of(text)
     call = base_call_of(text) if moved and text is not None else None
     problem, short = None, ""
     if text is None:
@@ -11094,25 +11232,22 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
     calls = verdict == "call" or refusal is not None or owner
     if owner:
         why = (
-            unread_why(lower_verdict(text), refusal)
-            if text is not None
-            else unanswered_why(refusal)
+            unanswered_why(refusal)
+            if text is None
+            else unread_why(lower_verdict(text), refusal)
         )
     else:
-        why = refusal or (
-            next(line for line in text.splitlines() if line.strip())
-            .strip()
-            .lstrip("#*> ")
-            .strip()
-            if verdict == "call" and text is not None
-            else None
-        )
+        why = refusal or None
+        if not why and verdict == "call" and text is not None:
+            why = next(line for line in text.splitlines() if line.strip())
+            why = why.strip().lstrip("#*> ").strip()
     if text is None:
         # no answer to write down: the record's reason stands in its place, so the
         # owner who opens merge-review.md reads why there is no review. On a moved base
         # that is another round, whose why holds; a rule that keeps the merge from the
         # agent says what the owner does with a review, which no review asks of him here
-        text = f"No answer of the merge agent: {call[1] if call else why}.\n"
+        answer_why = call[1] if call else why
+        text = f"No answer of the merge agent: {answer_why}.\n"
     # the merge agent's stand-ins go into the pull request's text before the read is
     # written down, so a failed edit leaves the read to record again
     merger_noted(
@@ -11123,9 +11258,8 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
             f"`lem land merge-review {task.slug}` tries again"
         ),
     )
-    write_whole(
-        task.directory / "merge-review.md", text if text.endswith("\n") else text + "\n"
-    )
+    written = text if text.endswith("\n") else f"{text}\n"
+    write_whole(task.directory / "merge-review.md", written)
     review = {
         "tip": tip,
         "verdict": verdict,
@@ -11140,6 +11274,8 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
     task.keep(merge_review=review, merge_unread=None)
     # one event for each read, with its call on the base and its why, so the log keeps
     # every read's reason after merge-review.md is written over
+    tip_short = tip[:9]
+    read_on_short = read_on[:9]
     script(
         "project.py",
         task.main,
@@ -11149,12 +11285,13 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
         *([f"verdict={verdict}"] if verdict else []),
         f"calls:={json.dumps(calls)}",
         f"by={seat['seat']}",
-        f"tip={tip[:9]}",
+        f"tip={tip_short}",
         *([f"why={why}"] if why else []),
-        f"base={read_on[:9]}",
+        f"base={read_on_short}",
         *([f"base_call={call[0]}", f"base_why={call[1]}"] if call else []),
     )
     stands = False
+    base_verdict = call[0] if call else None
     if call and call[0] == "another round":
         # The read keeps a refusal of kind `base` for its tip, as a moved base's refusal
         # is kept: the server wakes the session, the board says it lands again, and only
@@ -11204,12 +11341,12 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
             "from=lem",
             "kind=base",
             f"said={said}",
-            f"tip={tip[:9]}",
+            f"tip={tip_short}",
         )
     elif read_answers(
         kept.get("merge_refused"),
         tip,
-        call[0] if call else None,
+        base_verdict,
         on_checks_base=not moved,
         verdict=verdict,
     ):
@@ -11221,6 +11358,7 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
         tap = kept.get("owner_tap")
         if isinstance(tap, dict) and tap.get("tip") == tip:
             stands = True
+            read_after = READ_AFTER if moved else READ_BACK
             script(
                 "project.py",
                 task.main,
@@ -11228,32 +11366,32 @@ def cmd_merge_review(  # noqa: C901, PLR0912, PLR0915 - over the limit before th
                 task.slug,
                 "merge.stands",
                 "by=owner",
-                f"tip={tip[:9]}",
-                f"after={READ_AFTER if moved else READ_BACK}",
-                f"base={read_on[:9]}",
+                f"tip={tip_short}",
+                f"after={read_after}",
+                f"base={read_on_short}",
             )
     if call and call[0] == "another round":
-        after = (
-            (
+        if unrecorded:
+            after = (
                 f"the merge agent's answer could not be recorded twice ({unrecorded}), "
                 "so in doubt the moved base gets another round of the checks"
-                if unrecorded
-                else "the merge agent says that the moved base needs another round of "
+            )
+        else:
+            after = (
+                "the merge agent says that the moved base needs another round of "
                 "the checks"
             )
-            + f": the task lands again, and the owner is not asked; {AGAIN}"
-        ) + (
-            (
-                "; the owner's merge stands through the new landing while the "
+        after = f"{after}: the task lands again, and the owner is not asked; {AGAIN}"
+        if (kept.get("owner_tap") or {}).get("tip") == tip:
+            after = (
+                f"{after}; the owner's merge stands through the new landing while the "
                 "change and the reasons it is not green stay the same"
             )
-            if (kept.get("owner_tap") or {}).get("tip") == tip
-            else ""
-        )
     elif stands:
+        read_base = f" at {read_on_short}" if moved else ""
         after = (
             "the owner's merge stands: the board's server merges it on "
-            f"{task.base}{f' at {read_on[:9]}' if moved else ''} (`lem land merge "
+            f"{task.base}{read_base} (`lem land merge "
             f"{task.slug} --by owner --via server --standing`), and the owner is not "
             f"asked again; wait for the wake-up `lem: {task.slug} merged`, or "
             f"`lem: {task.slug} refused`"
@@ -11300,9 +11438,11 @@ def expected_refusal(
             "nothing was merged"
         )
     if expected != proposed:
+        expected_short = expected[:9]
+        proposed_short = str(proposed)[:9]
         return (
-            f"the merge was asked for {expected[:9]}, and the proposal is "
-            f"{str(proposed)[:9]} now: the branch was proposed again since, and "
+            f"the merge was asked for {expected_short}, and the proposal is "
+            f"{proposed_short} now: the branch was proposed again since, and "
             "nothing was merged. The new proposal is read again "
             f"(`lem land merge-review {slug}`), and the owner's word "
             "is for the commit he saw"
@@ -11376,6 +11516,7 @@ def cmd_merge(  # noqa: PLR0913 - over the limit before the limit was set
                             "at": lem_clock.stamp(),
                         }
                     )
+                tip_short = tip[:9]
                 script(
                     "project.py",
                     task.main,
@@ -11387,7 +11528,7 @@ def cmd_merge(  # noqa: PLR0913 - over the limit before the limit was set
                     "from=lem",
                     f"kind={error.kind}",
                     f"said={error}",
-                    f"tip={tip[:9]}",
+                    f"tip={tip_short}",
                 )
             raise
 
@@ -11467,7 +11608,7 @@ def merge_locked(  # noqa: C901, PLR0912, PLR0915 - over the limit before the li
     # tree, so an empty commit on either moves nothing.
     task.fetch()
     base_now = git(task.worktree, "rev-parse", task.onto)
-    moved = changed(task, kept["base"], base_now) if base_now != kept["base"] else []
+    moved = [] if base_now == kept["base"] else changed(task, kept["base"], base_now)
     record: dict = {}
     if moved:
         review = merge_review_of(task)
@@ -11542,6 +11683,7 @@ def merge_locked(  # noqa: C901, PLR0912, PLR0915 - over the limit before the li
                 "at": lem_clock.stamp(),
             }
         )
+        tip_short = tip[:9]
         script(
             "project.py",
             task.main,
@@ -11552,10 +11694,11 @@ def merge_locked(  # noqa: C901, PLR0912, PLR0915 - over the limit before the li
             f"via={via}",
             "from=github",
             f"said={line}",
-            f"tip={tip[:9]}",
+            f"tip={tip_short}",
         )
+        url = kept["pr"]["url"]
         raise ForgeSaid(
-            f"GitHub refused the merge of {kept['pr']['url']}: {line}. "
+            f"GitHub refused the merge of {url}: {line}. "
             "It waits for the owner as `open`"
         )
     # who merged, and who ran the call: the merge agent's merge is the board's server's
@@ -11563,13 +11706,9 @@ def merge_locked(  # noqa: C901, PLR0912, PLR0915 - over the limit before the li
     # checks and the reviews were checked again; one on a moved base ran after the merge
     # agent's read of it, whose line `forge_done` writes into the pull request's text
     # once GitHub holds the merge
-    task.keep(
-        merged_by={
-            "by": by,
-            "via": via,
-            **(record or ({"after": "a re-check"} if standing else {})),
-        }
-    )
+    if not record:
+        record = {"after": "a re-check"} if standing else {}
+    task.keep(merged_by={"by": by, "via": via, **record})
     view = viewed(task)
     if view["state"] != "MERGED":
         raise ForgeSaid(
@@ -11643,9 +11782,11 @@ def after_push(task: Task, branch: str, tip: str, merged: str) -> tuple[bool, st
         check=False,
     )
     if together.returncode not in (0, 1):
+        merged_short = merged[:9]
+        base_short = base_tip[:9]
+        why = (together.stderr or together.stdout).strip()
         raise LandError(
-            f"git merge-tree of {merged[:9]} onto {base_tip[:9]} failed: "
-            f"{(together.stderr or together.stdout).strip()}"
+            f"git merge-tree of {merged_short} onto {base_short} failed: {why}"
         )
     tree = together.stdout.split()[0]
     theirs = git(
@@ -11663,9 +11804,11 @@ def after_push(task: Task, branch: str, tip: str, merged: str) -> tuple[bool, st
                 f"branch has {len(ours)}"
             )
         )
+        tip_short = tip[:9]
+        merged_short = merged[:9]
         return True, (
-            f"{branch} was rebased after its push: its tip {tip[:9]} holds the same "
-            f"change as {merged[:9]}, the head Lem pushed, "
+            f"{branch} was rebased after its push: its tip {tip_short} holds the same "
+            f"change as {merged_short}, the head Lem pushed, "
             f"and the forge merged {commits}"
         )
     named = None
@@ -11697,10 +11840,9 @@ def after_push(task: Task, branch: str, tip: str, merged: str) -> tuple[bool, st
                 [git(where, "rev-parse", f"{commit}^{{tree}}") for commit in ours],
             )
             if place is not None:
-                named = (
-                    f"its commit {ours[place][:9]} "
-                    f'"{git(where, "log", "-1", "--format=%s", ours[place])}"'
-                )
+                commit_short = ours[place][:9]
+                subject = git(where, "log", "-1", "--format=%s", ours[place])
+                named = f'its commit {commit_short} "{subject}"'
     if not named:
         files = [
             name
@@ -11709,16 +11851,20 @@ def after_push(task: Task, branch: str, tip: str, merged: str) -> tuple[bool, st
             ).splitlines()
             if name
         ]
+        listed = ", ".join(files)
         named = (
-            f"the files {', '.join(files)}"
-            if files
-            else "a change one merge of it cannot carry"
+            f"the files {listed}" if files else "a change one merge of it cannot carry"
         )
+    merged_short = merged[:9]
+    tip_short = tip[:9]
+    base_merged_short = base_merged[:9]
+    base_short = base_tip[:9]
     return False, (
-        f"{branch} was changed after its push: the forge merged {merged[:9]}, the head "
-        f"Lem pushed, and the tip {tip[:9]} differs from it in {named}. "
-        f"`git range-diff {base_merged[:9]}..{merged[:9]} {base_tip[:9]}..{tip[:9]}` "
-        f"shows the difference, and `git branch -D {branch}` removes the branch"
+        f"{branch} was changed after its push: the forge merged {merged_short}, "
+        f"the head Lem pushed, and the tip {tip_short} differs from it in {named}. "
+        f"`git range-diff {base_merged_short}..{merged_short} "
+        f"{base_short}..{tip_short}` shows the difference, and "
+        f"`git branch -D {branch}` removes the branch"
     )
 
 
@@ -11740,8 +11886,9 @@ def drop_forge_copy(task: Task, branch: str, removed: dict) -> None:
     ]
     there = next((commit for commit, name in listed if name == ref), None)
     if there and there != kept.get("merged_head"):
+        there_short = there[:9]
         removed["remote_left"] = (
-            f"origin has {there[:9]} on {branch}, which is not the commit the "
+            f"origin has {there_short} on {branch}, which is not the commit the "
             "forge merged; it stays"
         )
     elif there:
@@ -11880,13 +12027,16 @@ def cmd_clean(task: Task) -> dict:  # noqa: C901, PLR0912 - over the limit befor
             # forge's merge of the base after it, and this checkout may not hold that
             # head at all.
             if under(merged, tip):
+                merged_short = merged[:9]
                 after = (
-                    f"; the forge merged {merged[:9]}, and the "
+                    f"; the forge merged {merged_short}, and the "
                     "branch has commits after it"
                 )
             elif under(tip, merged):
+                merged_short = merged[:9]
                 after = (
-                    f"; the forge merged {merged[:9]}, which holds the tip of {branch} "
+                    f"; the forge merged {merged_short}, which holds the tip of "
+                    f"{branch} "
                     'and a commit made on the forge after it (its "Update branch"), '
                     "so the branch holds nothing that was not merged: "
                     f"`git branch -D {branch}` removes it"
@@ -11923,8 +12073,9 @@ def cmd_clean(task: Task) -> dict:  # noqa: C901, PLR0912 - over the limit befor
                     }
                 return {"task": task.slug, **removed, "branch_left": said}
             else:
+                merged_short = merged[:9]
                 after = (
-                    f"; the forge merged {merged[:9]}, which is not the tip of "
+                    f"; the forge merged {merged_short}, which is not the tip of "
                     f"{branch} and which this checkout does not hold: a commit made on "
                     'the forge after the tip, as its "Update branch" makes. '
                     f"`git log {branch}` shows what the branch holds, and "
@@ -12211,11 +12362,11 @@ def main(argv: list[str] | None = None) -> None:  # noqa: PLR0915 - over the lim
             raise LandError(stopped)
         if args.command == "checks" and (args.status or args.stop):
             # a look and a stop take no lock: they are about the run that holds it
-            result = checks_stop(task) if args.stop else checks_status(task)
+            outcome = checks_stop(task) if args.stop else checks_status(task)
         elif args.command == "alike":
             # a read that writes nothing, which a builder runs while it files by hand,
             # between two steps
-            result = cmd_alike(
+            outcome = cmd_alike(
                 task,
                 args.where,
                 args.title,
@@ -12223,10 +12374,10 @@ def main(argv: list[str] | None = None) -> None:  # noqa: PLR0915 - over the lim
             )
         else:
             with step_lock(task, args.command):
-                result = step(task, args)
+                outcome = step(task, args)
     except LandError as error:
         sys.exit(f"land.py: {error}")
-    print(json.dumps(result, indent=2))
+    print(json.dumps(outcome, indent=2))
 
 
 if __name__ == "__main__":
