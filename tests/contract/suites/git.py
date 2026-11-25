@@ -37,6 +37,7 @@ class GitWorld(Protocol):
     ) -> str: ...
     def merge_in(self, where: Path, ref: str, files: dict[str, bytes]) -> str: ...
     def refuse_commits(self, said: str) -> None: ...
+    def ignore(self, path: str) -> None: ...
 
 
 def task_worktree(world: GitWorld, name: str = "fix-the-login") -> Path:
@@ -390,3 +391,49 @@ class GitContract:
         assert isinstance(world.git.reset(where, before, removed), GitRefused)
         assert path.read_bytes() == b"unsaved\n"
         assert world.git.tip(where, "HEAD") == removed
+
+    @pytest.mark.parametrize(
+        ("tracked", "local"),
+        [
+            pytest.param("env", "env", id="file"),
+            pytest.param("env", "env/local", id="local-folder"),
+            pytest.param("env/tracked", "env", id="target-folder"),
+        ],
+    )
+    def test_reset_refuses_to_replace_ignored_data(
+        self, tmp_path: Path, tracked: str, local: str
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        target = commit_file(world, where, tracked, b"tracked\n")
+        (where / tracked).unlink()
+        current = world.git.commit(where, "remove the tracked file", (tracked,))
+        assert isinstance(current, str), current
+        world.ignore("env")
+        path = where / local
+        if path.is_dir():
+            path.rmdir()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"local only\n")
+        assert world.git.clean(where)
+        assert isinstance(world.git.reset(where, target, current), GitRefused)
+        assert path.read_bytes() == b"local only\n"
+        assert world.git.tip(where, "HEAD") == current
+
+    def test_reset_keeps_ignored_data_beside_a_restored_file(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        target = commit_file(world, where, "env/tracked", b"tracked\n")
+        (where / "env/tracked").unlink()
+        current = world.git.commit(where, "remove the tracked file", ("env/tracked",))
+        assert isinstance(current, str), current
+        world.ignore("env")
+        path = where / "env/local"
+        path.parent.mkdir(exist_ok=True)
+        path.write_bytes(b"local only\n")
+        assert world.git.clean(where)
+        assert world.git.reset(where, target, current) == target
+        assert path.read_bytes() == b"local only\n"
+        assert (where / "env/tracked").read_bytes() == b"tracked\n"

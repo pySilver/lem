@@ -21,6 +21,7 @@ from lem.ports.faults import Unanswered
 from lem.ports.git_facts import Commit, Conflict, DiffStat, GitRefused, RebaseState
 
 if TYPE_CHECKING:
+    from collections.abc import Collection
     from pathlib import Path
 
     from lem.ports.forge_facts import MergeMethod
@@ -99,6 +100,7 @@ class ModelGit:
     count: int = 0
     origin: str | None = "git@github.com:acme/shop.git"
     refused_commit: str | None = None
+    ignored: set[str] = field(default_factory=set)
 
     # ---- making a world ----
 
@@ -158,10 +160,10 @@ class ModelGit:
         )
         return self.remote[branch]
 
-    def lay(self, where: Path, tree: Tree) -> None:
-        """Make the files of `where` the files of `tree`."""
+    def lay(self, where: Path, tree: Tree, *, keep: Collection[str] = ()) -> None:
+        """Make the files of `where` the files of `tree`, with local files in `keep`."""
         for path in self.on_disk(where):
-            if path not in tree:
+            if path not in tree and path not in keep:
                 (where / path).unlink()
         for path, body in tree.items():
             target = where / path
@@ -358,9 +360,18 @@ class ModelGit:
         if head is None:
             return False
         tree, disk = self.objects[head].tree, self.on_disk(where)
-        if untracked:
-            return disk == tree
-        return all(disk.get(path) == body for path, body in tree.items())
+        if any(disk.get(path) != body for path, body in tree.items()):
+            return False
+        extra = disk.keys() - tree.keys()
+        return not untracked or extra == self.ignored_paths(extra)
+
+    def ignored_paths(self, paths: set[str]) -> set[str]:
+        """The paths under the model's literal exclude entries."""
+        return {
+            path
+            for path in paths
+            if any(path == name or path.startswith(f"{name}/") for name in self.ignored)
+        }
 
     def show(self, where: Path, rev: str, path: str) -> bytes | None:
         return self.objects[self.must(where, rev)].tree.get(path)
@@ -456,9 +467,20 @@ class ModelGit:
             return GitRefused(said=f"the branch is not at {expect}")
         if not self.clean(worktree):
             return GitRefused(said="the worktree has changes that no commit holds")
-        self.branches[place.branch] = self.must(worktree, commit)
-        self.lay(worktree, self.objects[self.branches[place.branch]].tree)
-        return self.branches[place.branch]
+        target = self.must(worktree, commit)
+        tree = self.objects[target].tree
+        local = self.on_disk(worktree).keys() - self.objects[expect].tree.keys()
+        if any(
+            path == tracked
+            or path.startswith(f"{tracked}/")
+            or tracked.startswith(f"{path}/")
+            for path in local
+            for tracked in tree
+        ):
+            return GitRefused(said="the reset would overwrite an untracked file")
+        self.lay(worktree, tree, keep=local)
+        self.branches[place.branch] = target
+        return target
 
     def branch_delete(self, checkout: Path, branch: str, expect: str) -> bool:
         if self.branches.get(branch) != expect:

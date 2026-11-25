@@ -53,6 +53,11 @@ class RealWorld:
         hook.write_text(f"#!/bin/sh\necho '{said}' >&2\nexit 1\n")
         hook.chmod(0o755)
 
+    def ignore(self, path: str) -> None:
+        exclude = self.checkout / ".git" / "info" / "exclude"
+        with exclude.open("a", encoding="utf-8") as rules:
+            rules.write(f"\n/{path}\n")
+
 
 def real_world(folder: Path, environ: dict[str, str] | None = None) -> RealWorld:
     """A repository of `FILES` on `main`, pushed and fetched, and git with the test's
@@ -67,6 +72,27 @@ def real_world(folder: Path, environ: dict[str, str] | None = None) -> RealWorld
 class TestGitCli(GitContract):
     def world(self, folder: Path) -> RealWorld:
         return real_world(folder)
+
+
+def test_reset_refuses_an_ignored_file_at_an_alias_of_the_target(
+    tmp_path: Path,
+) -> None:
+    world = real_world(tmp_path)
+    where = task_worktree(world)
+    target = commit_file(world, where, "ENV", b"tracked\n")
+    (where / "ENV").unlink()
+    current = world.git.commit(where, "remove ENV", ("ENV",))
+    assert isinstance(current, str), current
+    world.ignore("env")
+    local = where / "env"
+    local.write_bytes(b"local only\n")
+    if not (where / "ENV").exists():
+        pytest.skip("the file system distinguishes these names")
+    assert world.git.clean(where)
+    refused = world.git.reset(where, target, current)
+    assert isinstance(refused, GitRefused), refused
+    assert local.read_bytes() == b"local only\n"
+    assert world.git.tip(where, "HEAD") == current
 
 
 @pytest.mark.parametrize("subject", ["change a", "change a\u2028with a note"])

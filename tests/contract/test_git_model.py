@@ -29,6 +29,9 @@ class ModelWorld:
     def refuse_commits(self, said: str) -> None:
         self.git.refused_commit = said
 
+    def ignore(self, path: str) -> None:
+        self.git.ignored.add(path)
+
 
 class TestModelGit(GitContract):
     def world(self, folder: Path) -> ModelWorld:
