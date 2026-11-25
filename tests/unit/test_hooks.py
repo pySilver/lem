@@ -1,6 +1,6 @@
 """lem-hook, the one entry of the plugin's hooks (`lem.hooks`): what each selector's
-process loads, and that a hook never fails a session, in a package that is not whole
-too.
+process loads, that a hook never fails a session, in a package that is not whole too,
+and the Stop hook's runs with a stand-in agtermctl.
 
     .venv/bin/python -B -m unittest discover -s tests/unit
 """
@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import typing
 import unittest
 from pathlib import Path
@@ -247,6 +248,250 @@ class NeverFails(unittest.TestCase):
         )
         claims = repo / ".lem" / "state" / "corrections-claims"
         self.assertEqual(sorted(claims.glob("*")) if claims.is_dir() else [], [])
+
+
+class AskStopHook(unittest.TestCase):
+    """The plugin's Stop hook, `lem-hook stop`, which runs at the end of every turn of
+    every session: what its process loads with no question page open, and that
+    it stays silent and ends on its own when agtermctl hangs or cannot start, with a
+    stand-in agtermctl for agterm."""
+
+    # What only the page server, the browser fallback, the mermaid download, an
+    # embedded image and the command line of `lem ask` use.
+    NOT_FOR_THE_HOOK = frozenset(
+        {
+            "argparse",
+            "base64",
+            "hashlib",
+            "http.client",
+            "http.server",
+            "mimetypes",
+            "secrets",
+            "socketserver",
+            "urllib.request",
+            "webbrowser",
+        }
+    )
+    NO_PAGE = (
+        'echo \'{"ok": true, "result": {"tree": {"workspaces": [{"sessions": '
+        '[{"id": "S1", "status": "active", "htmlOverlays": []}]}]}}}\'\n'
+    )
+
+    def setUp(self) -> None:
+        self.home = Path(tempfile.mkdtemp(prefix="lem-stop-"))
+        self.addCleanup(shutil.rmtree, self.home)
+
+    def run_hook(
+        self, standin: str | None, limit: float = 30
+    ) -> tuple[set, str, str, int, float]:
+        """Run the hook through lem-hook with -X importtime, in a session S1 whose
+        agtermctl is a shell script of the body STANDIN (no agterm when None): the
+        modules it loaded, its stdout, its stderr without the import lines, its exit
+        status and its seconds."""
+        env = {
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": str(self.home),
+            "XDG_CONFIG_HOME": str(self.home / "config"),
+            "TMPDIR": str(self.home),
+            "LEM_SERVE": "off",
+        }
+        if standin is not None:
+            ctl = self.home / "agtermctl"
+            ctl.write_text("#!/bin/sh\n" + standin, encoding="utf-8")
+            ctl.chmod(0o755)
+            env.update(AGTERM_ENABLED="1", AGTERM_SESSION_ID="S1", AGTERMCTL=str(ctl))
+        started = time.monotonic()
+        ran = subprocess.run(
+            [
+                sys.executable,
+                "-B",
+                "-X",
+                "importtime",
+                "-c",
+                ENTRY,
+                str(SRC),
+                "stop",
+            ],
+            input=json.dumps({"hook_event_name": "Stop"}),
+            capture_output=True,
+            text=True,
+            cwd=self.home,
+            env=env,
+            timeout=limit,
+            check=False,
+        )
+        seconds = time.monotonic() - started
+        lines = ran.stderr.splitlines()
+        names = {
+            line.rsplit("|", 1)[1].strip()
+            for line in lines
+            if line.startswith("import time:") and "|" in line
+        }
+        said = "\n".join(line for line in lines if not line.startswith("import time:"))
+        return names, ran.stdout, said, ran.returncode, seconds
+
+    def test_with_no_page_open_it_loads_nothing_of_the_page_server(self) -> None:
+        for case, standin in (("outside agterm", None), ("no page", self.NO_PAGE)):
+            with self.subTest(case=case):
+                loaded, out, said, status, _ = self.run_hook(standin)
+                self.assertEqual((out, said, status), ("", "", 0))
+                self.assertEqual(loaded & self.NOT_FOR_THE_HOOK, set())
+
+    def test_an_agtermctl_that_hangs_ends_the_hook_silent_and_leaves_no_process(
+        self,
+    ) -> None:
+        marker = str(self.home / "hangs")
+        _, out, said, status, seconds = self.run_hook(
+            f"exec {sys.executable} -c 'import time; time.sleep(60)' {marker}\n"
+        )
+        self.assertEqual((out, said, status), ("", "", 0))
+        self.assertLess(seconds, 10)
+        left = subprocess.run(
+            ["pgrep", "-f", marker], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(left.stdout, "")
+
+    @staticmethod
+    def entry(words: list[str]) -> list[str]:
+        """The arguments of Python that run WORDS: the hook `stop` through lem-hook,
+        else `lem WORDS` through the package's entry."""
+        if words == ["stop"]:
+            return ["-c", ENTRY, str(SRC), "stop"]
+        return [str(SRC / "lem" / "__main__.py"), *words]
+
+    def env(self, standin: str) -> dict:
+        """The environment of a session S1 whose agtermctl is a shell script of the body
+        STANDIN."""
+        ctl = self.home / "agtermctl"
+        ctl.write_text("#!/bin/sh\n" + standin, encoding="utf-8")
+        ctl.chmod(0o755)
+        return {
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": str(self.home),
+            "XDG_CONFIG_HOME": str(self.home / "config"),
+            "TMPDIR": str(self.home),
+            "LEM_SERVE": "off",
+            "AGTERM_ENABLED": "1",
+            "AGTERM_SESSION_ID": "S1",
+            "AGTERMCTL": str(ctl),
+        }
+
+    def one_page(self, calls: Path) -> dict:
+        """The environment of a session S1 whose stand-in agtermctl writes each call
+        into CALLS, opens one page P1 and shows it in the tree while it stays
+        unanswered."""
+        shown = self.home / "shown"
+        return self.env(
+            f'echo "$*" >> "{calls}"\n'
+            'case "$1 $2 $3" in\n'
+            '"session overlay open")\n'
+            '  while [ $# -gt 0 ]; do [ "$1" = --html ] && echo "$2" > '
+            f'"{shown}"; shift; done\n'
+            '  echo \'{"ok": true, "result": {"pageID": "P1"}}\' ;;\n'
+            "tree*)\n"
+            '  printf \'{"ok": true, "result": {"tree": {"workspaces": [{"sessions": '
+            '[{"id": "S1", "status": "active", "htmlOverlays": [{"id": "P1", '
+            f'"file": "%s"}}]}}]}}]}}}}}}\\n\' "$(cat "{shown}")" ;;\n'
+            '*) echo \'{"ok": true, "result": {"pageOutcome": '
+            '{"pageID": "P1", "outcome": "pending"}}}\' ;;\n'
+            "esac\n"
+        )
+
+    def test_a_page_opened_with_no_status_keeps_its_choice_at_the_stop(self) -> None:
+        # the review's run of 2026-11-24: `lem ask q 'Continue?' yes no --no-status
+        # --timeout 0` leaves its page open and sets no status; the Stop hook then
+        # sets none either
+        calls = self.home / "calls"
+        env = self.one_page(calls)
+        for words, given in (
+            (
+                ["ask", "q", "Continue?", "yes", "no", "--no-status", "--timeout", "0"],
+                "",
+            ),
+            (["stop"], json.dumps({"hook_event_name": "Stop"})),
+        ):
+            subprocess.run(
+                [sys.executable, "-B", *self.entry(words)],
+                input=given,
+                capture_output=True,
+                text=True,
+                cwd=self.home,
+                env=env,
+                timeout=30,
+                check=False,
+            )
+        said = calls.read_text(encoding="utf-8").splitlines()
+        self.assertTrue(any(line.startswith("tree") for line in said), said)
+        self.assertEqual(
+            [line for line in said if line.startswith("session status")], []
+        )
+
+    def test_a_wait_with_no_status_holds_for_a_page_opened_without_it(self) -> None:
+        # the page opens with the status left to `lem ask`, and the caller's last word,
+        # `lem ask wait P1 --no-status`, asks for none: the wait sent none, and the
+        # Stop hook sent `blocked --auto-reset` for the page all the same
+        calls = self.home / "calls"
+        env = self.one_page(calls)
+        sent = []
+        for words, given in (
+            (["ask", "q", "Continue?", "yes", "no", "--no-wait"], ""),
+            (["ask", "wait", "P1", "--no-status", "--timeout", "0"], ""),
+            (["stop"], json.dumps({"hook_event_name": "Stop"})),
+        ):
+            subprocess.run(
+                [sys.executable, "-B", *self.entry(words)],
+                input=given,
+                capture_output=True,
+                text=True,
+                cwd=self.home,
+                env=env,
+                timeout=30,
+                check=False,
+            )
+            said = calls.read_text(encoding="utf-8").splitlines()
+            calls.write_text("", encoding="utf-8")
+            sent.append([line for line in said if line.startswith("session status")])
+        self.assertEqual(sent, [[], [], []])
+
+    def test_a_stdin_that_stays_open_does_not_keep_the_hook_alive(self) -> None:
+        # the review's run of 2026-11-24: the Stop JSON through a pipe that stays open
+        with subprocess.Popen(
+            [sys.executable, "-B", "-c", ENTRY, str(SRC), "stop"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=self.home,
+            env=self.env(self.NO_PAGE),
+        ) as hook:
+            stdin = hook.stdin
+            if stdin is None:
+                self.fail("the hook has no pipe for its input")
+            stdin.write(json.dumps({"hook_event_name": "Stop"}).encode())
+            stdin.flush()
+            try:
+                status = hook.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                hook.kill()
+                hook.wait()
+                status = None
+            stdin.close()
+            out = hook.stdout.read() if hook.stdout else b""
+        self.assertEqual((status, out), (0, b""))
+
+    def test_a_status_call_that_cannot_start_prints_nothing(self) -> None:
+        # the tree shows a page of lem-ask twice; after the second look the stand-in
+        # can no longer be started, so the hook's status call fails
+        page = self.home / "lem-ask" / "p.html"
+        count = self.home / "looks"
+        _, out, said, status, _ = self.run_hook(
+            f'echo x >> "{count}"\n'
+            f'[ "$(wc -l < "{count}")" -ge 2 ] && chmod -x "$0"\n'
+            'echo \'{"ok": true, "result": {"tree": {"workspaces": [{"sessions": '
+            f'[{{"id": "S1", "status": "active", "htmlOverlays": [{{"id": "P1", '
+            f'"file": "{page}"}}]}}]}}]}}}}}}\'\n'
+        )
+        self.assertEqual(count.read_text().count("x"), 2)
+        self.assertEqual((out, said, status), ("", "", 0))
 
 
 if __name__ == "__main__":

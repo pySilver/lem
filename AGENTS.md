@@ -228,7 +228,7 @@ Each module's docstring says what it does and why; this list says where each thi
     shared lock), `clock.py` (a moment as text), `proc.py` (the stop of a
     process group), `plans.py` (a plan's file
     name), `sibling.py` (a sibling's command in the same process), `release.py` (a task's
-    `release.txt` and its stop two releases back) and `python.py` (a newer Python for the hooks).
+    `release.txt` and its stop two releases back) and `hooks.py` (`lem-hook`, the hooks' one entry).
 - `skills/lem/assets/`: what `lem serve` sends under `/assets/`. `board.css` is the board's look,
   the phone's too; `lem.css` and `lem.js` are the look and the palette every page of Lem shares, and
   a new page for the owner links both and brings no style of its own. `push.css` and `sw.js` are the

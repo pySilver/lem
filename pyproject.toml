@@ -117,11 +117,6 @@ src = [
     "tests/unit",
 ]
 
-[tool.ruff.per-file-target-version]
-# The file the plugin's hooks start under whatever `python3` a machine has, the system's 3.9
-# on a Mac, and which finds the newer Python for the rest.
-"src/lem/python.py" = "py39"
-
 [tool.ruff.lint]
 select = [
     "F", "E", "W", # pyflakes and pycodestyle
@@ -187,7 +182,6 @@ ignore = [
     "S603", # Lem's work is to run git, gh, agtermctl and a project's own checks,
     "S607", # each named in a list of arguments, found on PATH,
     "S606", # and a launcher becomes the script it starts (os.execv)
-    "UP036", # python.py tells an old python3 what Lem needs, so those lines must stay
     "N818", # an exception is named for what happened (Refusal, NotFound)
 ]
 
@@ -196,11 +190,10 @@ ignore = [
 allowed-confusables = ["’", "–", "×", "›"]
 
 [tool.ruff.lint.per-file-ignores]
-# The file every hook starts under any python3 keeps to os.path and to what Python 3.9 has,
-# and the entry to os.path, whose import costs less than pathlib's, before its look at the board
-# server.
-"src/lem/python.py" = ["PTH"]
+# The entry keeps to os.path, whose import costs less than pathlib's, before its look at the
+# board server, and so does the hooks' entry, before a handler's own imports.
 "src/lem/__main__.py" = ["PTH"]
+"src/lem/hooks.py" = ["PTH"]
 # lem ask shows a path as its caller wrote it, in a page's address and in each message (`./x.json`,
 # a TMPDIR with `//`), and pathlib would rewrite that text.
 "src/lem/ask.py" = ["PTH"]

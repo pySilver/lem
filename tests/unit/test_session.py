@@ -1565,12 +1565,27 @@ class Hooks(unittest.TestCase):
             env["LEM_TASK"] = task
         if pane:
             env["AGTERM_SESSION_ID"] = pane
+        # the hook as the plugin starts it, `lem-hook SELECTOR`, with no plugin to
+        # check against and no `lem` on its PATH
+        for name in ("CLAUDE_PLUGIN_ROOT", "CLAUDE_ENV_FILE", "LEM_PLUGIN_ROOT"):
+            env.pop(name, None)
+        env["PATH"] = "/usr/bin:/bin"
+        selector = (
+            "precompact"
+            if event.get("hook_event_name") == "PreCompact"
+            else "session-start"
+        )
         return subprocess.run(
             [
                 sys.executable,
                 "-B",
-                str(ROOT_OF_LEM / "src/lem/python.py"),
-                "session_hook",
+                "-c",
+                (
+                    "import sys; sys.path.insert(0, sys.argv.pop(1)); "
+                    "from lem.hooks import cli; cli()"
+                ),
+                str(ROOT_OF_LEM / "src"),
+                selector,
             ],
             input=json.dumps({"cwd": str(self.repo), **event}),
             capture_output=True,

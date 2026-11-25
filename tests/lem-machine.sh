@@ -14,8 +14,6 @@ MACHINE=$WORK/machine-repo
 mkdir -p "$BIN" "$FAKEHOME"
 git init -q -b main "$MACHINE"
 ln -s "$(command -v git)" "$BIN/git"
-# the Python that runs these tests, as a python3.N on the PATH, where lem.python finds it
-ln -s "$PY" "$BIN/python3.$("$PY" -c 'import sys; print(sys.version_info[1])')"
 fake() { printf '#!/bin/sh\necho "%s"\n' "$2" > "$BIN/$1"; chmod +x "$BIN/$1"; }
 doctor() { (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$MAIN" doctor); }
 row() { field "next(t for t in d[\"tools\"] if t[\"name\"] == \"$1\")[\"$2\"]"; }
@@ -425,7 +423,7 @@ else
 fi
 rm -f "$CQ/.lem/state/corrections.jsonl" "$WORK/jev-called"
 queue_off
-# An input that stays open, and an old python3: the hook returns, with exit 0 and not a word. The
+# An input that stays open: the hook returns, with exit 0 and not a word. The
 # input stays open 15 seconds, and the hook returns in 10 at most, on a loaded machine too.
 started=$SECONDS
 out=$(hook hook < <(event "the input stays open" s0; sleep 15) 2>&1; echo "exit=$?")
@@ -433,29 +431,6 @@ if [ "$out" = "exit=0" ] && [ $((SECONDS - started)) -lt 10 ]; then
   pass "the hook does not wait for its input to close"
 else
   fail "the hook with an open input: $out after $((SECONDS - started))s"
-fi
-old=""
-for candidate in /usr/bin/python3 python3.9 python3.10; do
-  if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(sys.version_info >= (3, 14))' 2>/dev/null; then old=$candidate; break; fi
-done
-if [ -n "$old" ]; then
-  # The plugin's hook line under that python3: python.py starts the hook under a newer Python it
-  # finds, run from another repository than the one of the event, and the message is queued there.
-  git init -q -b main "$WORK/elsewhere"
-  launch=$PWD/src/lem/python.py
-  queue_on
-  out=$(cd "$WORK/elsewhere" && event "under an old python" s0 | env LEM_JEV="$WORK/jevbin/jev" JEV_P=0.9 JEV_CALLED="$WORK/jev-called" \
-    "$old" -B "$launch" corrections hook 2>&1; echo "exit=$?")
-  soon test -s "$CQ/.lem/state/corrections.jsonl"
-  if [ "$out" = "exit=0" ] && grep -qF '"owner": "under an old python"' "$CQ/.lem/state/corrections.jsonl" && [ ! -e "$CQ/.lem/state/corrections.log" ]; then
-    pass "under a python3 before 3.14 the plugin's hook line runs the hook under a newer Python it finds: exit 0, no output, and the message queued"
-  else
-    fail "the hook under $old: $out / $(cat "$CQ/.lem/state/corrections.jsonl" "$CQ/.lem/state/corrections.log" 2>&1)"
-  fi
-  rm -f "$CQ/.lem/state/corrections.jsonl" "$WORK/jev-called"
-  queue_off
-else
-  skip "the hook under a python3 before 3.14: none found"
 fi
 queue_on
 out=$(event "never push without asking" s1 | hook hook; echo "exit=$?")

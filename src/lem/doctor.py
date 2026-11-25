@@ -34,9 +34,8 @@ every repository.
 
     lem doctor
 
-The row `python3` names the Python that Lem's commands and hooks run under, which
-`python.py` finds when the first `python3` is older than 3.14, and fails with the
-fix when there is none.
+The row `python3` names the Python that Lem's commands and hooks run under: the
+app's own, the interpreter that runs this check.
 """
 
 import argparse
@@ -77,43 +76,21 @@ PLUGINS = Path(".claude") / "plugins"
 
 
 def python() -> dict:
-    """The Python of 3.14 or newer that `lem` and the plugin's hooks start Lem's scripts
-    with, found as they find it: the first `python3` on PATH, else the newest
-    `python3.N`, else Homebrew's, else one uv has."""
-    from lem import python as lem_python
-
-    def said(path: str) -> str:
-        return ".".join(map(str, lem_python.version(path) or ("an unknown version",)))
-
-    first = shutil.which("python3")
-    found = lem_python.find()
-    python3 = (
-        f"python3 is {said(first)} at {first}" if first else "python3 is not on PATH"
-    )
-    if found is not None and found == first:
-        detail = f"{said(found)} at {found}"
-    elif found is not None:
-        detail = (
-            f"{python3}; Lem's commands and hooks start {found} "
-            f"({said(found)}) in its place"
-        )
-    else:
-        detail = (
-            f"{python3}, and no python3.N of 3.14 or newer is on PATH, nor at "
-            f"{' or '.join(lem_python.FALLBACKS)}, and uv has none"
-        )
+    """The Python of Lem's app: the interpreter its commands and its hooks run under,
+    which is the one that runs this check, and its version."""
+    said = ".".join(map(str, sys.version_info[:3]))
     return {
         "name": "python3",
         "need": "required",
-        "found": found is not None,
-        "detail": detail,
+        "found": sys.version_info >= (3, 14),
+        "detail": f"Python {said} at {sys.executable}, Lem's app's own",
         "used_for": (
-            "every script of Lem, its commands and its hooks; the settings file is "
-            "read with a module that came with Python 3.11"
+            "every command of Lem and the plugin's hooks, which run in the app's own "
+            "Python"
         ),
         "without_it": (
-            "no command of Lem runs, and the plugin's hooks do nothing in a "
-            f"session; run {lem_python.FIX}"
+            "Lem's app is installed with a Python older than 3.14; the owner installs "
+            "Lem again (`brew reinstall pySilver/tap/lem`)"
         ),
     }
 

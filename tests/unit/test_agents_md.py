@@ -65,7 +65,12 @@ UNIT = re.compile(
 BLOCK = re.compile(r'tests/(?P<file>[\w-]+\.sh): "(?P<text>[^"]+)"')
 SCRIPT = re.compile(r"(?P<file>skills/\S+\.py): (?P<name>\w+)")
 # The paths the list names in another repository, each with where it is.
-ELSEWHERE = {".claude/rules": "the folder of rules in a project that adopts Lem"}
+ELSEWHERE = {
+    ".claude/rules": "the folder of rules in a project that adopts Lem",
+    # the ruling on Python names what held "until that release"; the file went with the
+    # release that brings Lem's own Python (2026-11-25), and his words stay as he ruled
+    "src/lem/python.py": "the file of a Lem before the app",
+}
 # The paths git ignores (`.lem/.gitignore`), which a clone never holds: one
 # machine's settings.
 IGNORED = (".lem/settings.local.toml",)

@@ -163,7 +163,7 @@ class HalfACharacterInASpec(unittest.TestCase):
 
 class WaitWord(unittest.TestCase):
     """The caller's last word on a page's status, which the Stop hook reads
-    (`quiet_page`); test_python.AskStopHook plays the run through python.py."""
+    (`quiet_page`); test_hooks.AskStopHook plays the run through lem-hook."""
 
     def test_the_last_wait_holds_over_the_way_the_page_opened(self) -> None:
         with (

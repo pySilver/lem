@@ -238,11 +238,3 @@ def main() -> None:
             else None
         )
         print(restored(slug, block, text, when))
-
-
-if __name__ == "__main__":
-    try:  # noqa: SIM105 - contextlib is one more import at the start of every session
-        main()
-    except BaseException:  # noqa: BLE001, S110 - a hook that fails must not fail the session
-        pass
-    sys.exit(0)
