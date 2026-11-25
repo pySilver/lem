@@ -27,7 +27,7 @@ from lem.model.landing import (
     phases,
 )
 from lem.model.landing.filing_place import Shelf
-from lem.ports.judge import Defect, NotAsked, Score
+from lem.ports.judge import Candidate, Defect, NotAsked, Score
 from lem.ports.place import Place
 from lem.records.landing.record import Landing
 from lem.records.landing.review import Filed, Finding, Reviewed
@@ -434,7 +434,8 @@ def test_no_key_starts_nothing(tmp_path: Path) -> None:
     sent: list[dict] = []
     judge = bound(tmp_path, answering(0.82, sent), key=None)
     assert judge.over_bar(DEFECT) == NotAsked(why="no key")
-    assert judge.same_items(DEFECT, ("a.md",)) == NotAsked(why="no key")
+    held = Candidate(path="a.md", title="an item")
+    assert judge.same_items(DEFECT, (held,)) == NotAsked(why="no key")
     assert sent == []
 
 
@@ -467,17 +468,21 @@ def test_a_request_past_its_seconds_is_no_answer(tmp_path: Path) -> None:
 def test_every_item_is_asked_in_requests_each_under_the_limit_and_comes_back_by_its_path(
     tmp_path: Path,
 ) -> None:
-    paths = []
-    for number in range(30):
-        path = tmp_path / f"item-{number}.md"
-        path.write_text(
-            f"---\nworth: later\nwhere: a.py\n---\n# title {number} {'w ' * 800}\n\nfirst line\n"
+    candidates = tuple(
+        Candidate(
+            path=f"docs/backlog/item-{number}.md",
+            title=f"title {number} {'w ' * 800}",
+            where="a.py",
+            first="first line",
         )
-        paths.append(str(path))
+        for number in range(30)
+    )
     sent: list[dict] = []
-    found = bound(tmp_path, answering(0.6, sent)).same_items(DEFECT, tuple(paths))
+    found = bound(tmp_path, answering(0.6, sent)).same_items(DEFECT, candidates)
     assert not isinstance(found, NotAsked)
-    assert sorted(str(score.path) for score in found) == sorted(paths)
+    assert sorted(str(score.path) for score in found) == sorted(
+        one.path for one in candidates
+    )
     assert len(sent) > 1
     sizes = [
         len(msgspec.json.encode(one["body"]["state"]))
@@ -496,12 +501,11 @@ def test_every_item_is_asked_in_requests_each_under_the_limit_and_comes_back_by_
 def test_a_state_that_does_not_fit_with_one_question_is_too_long(
     tmp_path: Path,
 ) -> None:
-    path = tmp_path / "item.md"
-    path.write_text("# an item\n")
+    held = Candidate(path="docs/backlog/item.md", title="an item")
     long = replace(DEFECT, what="x" * judge_jev_wire.LIMIT_BYTES)
-    assert bound(tmp_path, answering(0.5, [])).same_items(
-        long, (str(path),)
-    ) == NotAsked(why="too long")
+    assert bound(tmp_path, answering(0.5, [])).same_items(long, (held,)) == NotAsked(
+        why="too long"
+    )
 
 
 def test_the_request_and_reply_are_jev_s_own_form() -> None:

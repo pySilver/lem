@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from lem.adapters import judge_jev_ask
 from lem.kernel import paths
 from lem.model.landing import jev_bar
-from lem.ports.judge import Defect, NotAsked, Score
+from lem.ports.judge import Candidate, Defect, NotAsked, Score
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -38,10 +38,10 @@ class JevJudge:
         self.rule = rule
 
     def same_items(
-        self, defect: Defect, paths: tuple[str, ...]
+        self, defect: Defect, candidates: tuple[Candidate, ...]
     ) -> tuple[Score, ...] | NotAsked:
-        """Jev's score of each item at `paths` (files on disk) as the same defect."""
-        return self.asker.same(defect, paths)
+        """Jev's score of each item as the same defect, by its path."""
+        return self.asker.same(defect, candidates)
 
     def over_bar(self, defect: Defect) -> Score | NotAsked:
         """Jev's score of the defect as over the bar of rule 6."""

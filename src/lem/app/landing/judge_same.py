@@ -1,16 +1,15 @@
 """Jev's read of whether a finding is the same defect as each item of the backlog at the tip
 (`land.ask_alike` and `land.check_alike` on `main`), through the `Judge` port.
 
-Every item is asked, each that no earlier run asked about. The port reads each item at a path:
-each goes as the tip's commit has it (its title, `where` and first line), written into
-`STAGED` of the task's folder for the ask and removed after it, never as a builder's edit in
-the worktree has it (`land.cmd_alike` reads HEAD on `main`). With `jev.findings = false` in the
-team's settings nothing is sent.
+Every item is asked, each that no earlier run asked about, as the tip's commit has it (its
+title, `where` and first line), never as a builder's edit in the worktree has it
+(`land.cmd_alike` reads HEAD on `main`). With `jev.findings = false` in the team's settings
+nothing is sent.
 """
 
 from typing import TYPE_CHECKING
 
-from lem.app.landing import jev_kept, jev_staged
+from lem.app.landing import jev_kept
 from lem.model.landing import alike
 from lem.model.landing.items import Defect
 from lem.ports import judge as port
@@ -25,40 +24,38 @@ if TYPE_CHECKING:
     from lem.model.landing.items import BacklogItem
     from lem.records.landing.review import Finding
 
-# The folder of the task's folder where the items Jev is asked about are written for the ask.
-STAGED = "items-at-tip"
 type Shelved = tuple[BacklogItem, ...]
 type Said = tuple[port.Score, ...]
 
 
 def asked(
-    judge: port.Judge,
-    folder: Path,
-    defect: Defect,
-    shelved: Shelved,
-    known: jev_kept.Scores,
+    judge: port.Judge, defect: Defect, shelved: Shelved, known: jev_kept.Scores
 ) -> jev_kept.Scores | port.NotAsked:
     """The score of each item for the defect: those `known` kept, and Jev's for the rest;
-    None for an item Jev gave no score. `folder` is where the items are staged for the ask."""
+    None for an item Jev gave no score."""
     fresh = tuple(one for one in shelved if one.path not in known)
     if not fresh:
         return known
     told = port.Defect(where=defect.where, title=defect.title, what=defect.what)
-    said, named = jev_staged.asked_at(judge, folder, told, fresh)
+    said = judge.same_items(told, tuple(map(candidate_of, fresh)))
     if isinstance(said, port.NotAsked):
         return said
-    return {**known, **scores_of(said, named)}
+    return {**known, **scores_of(said, fresh)}
 
 
-def scores_of(said: Said, named: dict[str, str]) -> jev_kept.Scores:
+def candidate_of(one: BacklogItem) -> port.Candidate:
+    """An item of the backlog as Jev reads it: as the tip's commit holds it."""
+    return port.Candidate(
+        path=one.path, title=one.title, where=one.where, first=one.first
+    )
+
+
+def scores_of(said: Said, fresh: Shelved) -> jev_kept.Scores:
     """Jev's score of each item asked, by its path in the repository; None for an item it
     gave no score."""
-    fresh: jev_kept.Scores = dict.fromkeys(named.values())
-    for one in said:
-        relative = named.get(one.path or "")
-        if relative:
-            fresh[relative] = one.score
-    return fresh
+    found: jev_kept.Scores = dict.fromkeys(one.path for one in fresh)
+    scored = {one.path: one.score for one in said if one.path in found}
+    return {**found, **scored}
 
 
 def scored(scores: jev_kept.Scores) -> dict[str, float]:
@@ -74,9 +71,7 @@ def found_for(
     defect = Defect(where=finding.where, title=finding.title, what=finding.what)
     key = alike.key_of(defect)
     known = kept.alike.get(key, {})
-    said = asked(
-        context.ports.judge, context.folder / STAGED, defect, shelf.shelved, known
-    )
+    said = asked(context.ports.judge, defect, shelf.shelved, known)
     if isinstance(said, port.NotAsked):
         return ""
     kept.alike[key] = said
