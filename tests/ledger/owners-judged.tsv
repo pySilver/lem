@@ -89,10 +89,12 @@ check:tests/lem-land-shop.sh:a-commit-after-the-rebase-that-follows-a-red-1f51da
 check:tests/lem-land-shop.sh:a-conflict-on-the-rebase-after-a-red-base-is-c879b7f9884d255b	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)	land-merge
 check:tests/lem-land-shop.sh:a-conflict-with-the-base-names-its-files-and-9976014b4497686f	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)	land-merge
 check:tests/lem-land-shop.sh:a-first-task-that-brings-the-gate-on-its-own-f734d653fef7d01d	land-checks	the gate and the criteria's check are land-checks'	land-merge
+check:tests/lem-land-shop.sh:a-first-task-that-brings-the-gate-on-its-own-f734d653fef7d01d	land-base	"the task that brings the checks on its own branch is landing.md E ""No checks"", whose proof owner is land-base (start's hold and Checked.own_checks)"	land-checks
 check:tests/lem-land-shop.sh:a-fix-is-reviewed-only-after-the-machine-che-2ee9e4020def8f4a	land-review	the review's rounds and records are land-review's	land-merge
 check:tests/lem-land-shop.sh:a-merge-agent-whose-seat-fails-after-the-pul-9ad9f66ba0020edd	sessions	the merge agent's seat and its stand-in are the seats' (cli/seat/)	land-merge
 check:tests/lem-land-shop.sh:a-plan-of-four-tasks-with-no-plan-talk-is-no-7299403f55c58fb9	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's	land-merge
 check:tests/lem-land-shop.sh:a-project-with-no-gate-command-lands-nothing-ad4cdca96c61e197	land-checks	the gate and the criteria's check are land-checks'	land-merge
+check:tests/lem-land-shop.sh:a-project-with-no-gate-command-lands-nothing-ad4cdca96c61e197	land-base	"a project with no command is held `blocked: no checks` by start (landing.md E ""No checks""), land-base's"	land-checks
 check:tests/lem-land-shop.sh:a-rebase-that-changes-nothing-of-the-change-16900f7b23124240	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)	land-merge
 check:tests/lem-land-shop.sh:a-red-gate-exits-1-with-each-command-s-resul-eb8d87f6eebc1ec5	land-checks	the gate and the criteria's check are land-checks'	land-merge
 check:tests/lem-land-shop.sh:a-request-that-came-from-a-bug-names-in-its-d3fd872f37faae7f	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's	land-merge
@@ -152,6 +154,8 @@ check:tests/lem-machine.sh:when-the-detached-half-cannot-start-the-hook-7b7b8eb1
 check:tests/lem-machine.sh:with-a-plugin-of-another-version-than-the-ap-db7846b2d42bb9bf	sessions	session-start's version line (seam:hooks-on-mismatch): sessions	settings
 check:tests/lem-machine.sh:with-the-machine-s-yes-the-hook-prints-nothi-8da58326de71f6bf	sessions	the correction hook: sessions	settings
 check:tests/lem-machine.sh:without-the-machine-s-yes-no-line-a-no-a-fil-cb04d6eede14e819	sessions	the correction hook's gate: sessions	settings
+check:tests/lem-serial.sh:a-task-s-new-worktree-gets-checks-setup-one-c87187177cd29b61	task	checks.setup runs once in a task's new worktree, made by `lem task worktree`, which is task's	land-checks
+check:tests/lem-serial.sh:this-repository-s-own-checks-setup-gives-a-t-40d811a6cfd20b89	task	Lem's own .lem/settings.toml gives a new worktree its .venv through `lem task worktree`, which is task's	land-checks
 check:tests/lem-settings.sh:a-change-of-the-criteria-from-the-owner-s-no-a0d1f764b606c526	criteria	criteria change from the owner's note: criteria.py	settings
 check:tests/lem-settings.sh:a-criterion-is-not-held-by-a-test-that-passe-64bc73540e3702fc	land-checks	criteria red, the check on the base: land-checks owns cli/criteria/red	settings
 check:tests/lem-settings.sh:a-criterion-the-plan-adds-after-the-approved-0979d516640d165f	criteria	criteria show and red over a plan: criteria.py	settings
@@ -261,8 +265,10 @@ refusal:task_file:path-is-not-a-file-flag-names-a-file-by-its-c39509a3ecc2e8d0	t
 refusal:task_file:path-is-not-a-file-flag-names-a-file-by-its-c39509a3ecc2e8d0	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
 refusal:task_file:path-is-not-a-file-in-the-working-directory-ce99925e12bdcf2d	tree	The old shared helper resolves flags for the review record, the PR notes, the merge answer and the alike finding. The tree step owns the parameter contract.	
 refusal:task_file:path-is-not-a-file-in-the-working-directory-ce99925e12bdcf2d	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
+refusal:tasks_of:the-task-s-plan-has-no-tasks-section-with-nu-6659c5cb144e22e1	land-review	the plan's count of tasks decides which read the change gets, which is `read`'s (land.cmd_read on main)	land-checks
 ruling:a-helper-starts-from-plain-words-5c4605127c21159a	owner	SKILL.md holds it (line 157), which the owner step rewrites	task
 ruling:a-lowered-bar-a-new-suppression-a-skipped-or-110297d0eb925f42	land-checks	The shell suite belongs to review, and the Bar cases belong to checks. Checks owns the lowered-bar finding that must reach the PR.	
+ruling:a-lowered-bar-a-new-suppression-a-skipped-or-110297d0eb925f42	land-propose	a lowered bar with its reason makes the pull request not green: one of green's seven conditions (model/landing/green.py)	land-checks
 ruling:a-partial-review-is-a-review-6471c81a4fd37ad9	land-review	The cited suites span review, propose and merge. Review owns the floor and the selection that can satisfy it.	
 ruling:a-plan-never-makes-a-change-small-621f632e0f01d609	criteria	the ruling is held where a plan's Size line is read: criteria (with its check row a-plan-that-says-size-small)	land-propose
 ruling:a-plan-talk-s-record-is-taken-as-it-ran-a7746de98f0b73af	task	the plan talk's record is lem task talked	land-merge
@@ -299,6 +305,8 @@ unit:tests/unit/test_hooks.py:AskStopHook.test_a_page_opened_with_no_status_keep
 unit:tests/unit/test_hooks.py:AskStopHook.test_a_status_call_that_cannot_start_prints_nothing	ask	the agtermctl status calls of the mark are `ask`'s with the card's page	sessions
 unit:tests/unit/test_hooks.py:AskStopHook.test_a_wait_with_no_status_holds_for_a_page_opened_without_it	ask	the word of `lem ask wait` (main's WAIT_WORD file) is `ask`'s to define	sessions
 unit:tests/unit/test_hooks.py:AskStopHook.test_an_agtermctl_that_hangs_ends_the_hook_silent_and_leaves_no_process	ask	the agtermctl calls of the mark, each with its bound (main's STOP_CALL), come with the mark	sessions
+unit:tests/unit/test_land.py:FencedPlan.test_a_heading_inside_a_fence_of_a_task_ends_no_section	land-review	the plan's `## Tasks` section is read by `read`, which decides which review the change gets	land-checks
+unit:tests/unit/test_land.py:FencedPlan.test_a_heading_inside_a_fence_of_the_notes_ends_no_section	land-propose	the notes' sections are read by `propose` for the pull request's text	land-checks
 unit:tests/unit/test_land.py:JevOnTheLines.test_the_lines_end_with_jev_s_read	land-propose	the end of each line of the pull request's text with Jev's read is propose's text; land-review gives Judge.over_bar and model/landing/jev_bar.py (notes/land-review.md)	land-review
 unit:tests/unit/test_land.py:KeepReviews.test_a_folder_is_made_only_for_a_reviews_file	task	the move of the review files of a landing before is the start over's, which is task's (landing.md E)	land-base
 unit:tests/unit/test_land.py:KeepReviews.test_a_hidden_review_file_moves_and_only_the_finders_file_stays	task	the move of the review files of a landing before is the start over's, which is task's (landing.md E)	land-base
@@ -343,6 +351,8 @@ unit:tests/unit/test_land.py:TheReadOfEachFinding.test_a_refused_item_with_no_re
 unit:tests/unit/test_land.py:TheReadOfEachFinding.test_a_score_over_the_line_refuses_once_and_the_second_answer_stands	land-propose	Jev's one read of each finding under the bar, its refusal jev-over once, and its keep run in propose; land-review gives Judge.over_bar and model/landing/jev_bar.py	land-review
 unit:tests/unit/test_land.py:TheReadOfEachFinding.test_a_score_under_the_line_goes_on_and_off_in_the_settings_sends_nothing	land-propose	Jev's one read of each finding under the bar, its refusal jev-over once, and its keep run in propose; land-review gives Judge.over_bar and model/landing/jev_bar.py	land-review
 unit:tests/unit/test_land.py:TheReadOfEachFinding.test_no_key_is_kept_and_not_asked_again	land-propose	Jev's one read of each finding under the bar, its refusal jev-over once, and its keep run in propose; land-review gives Judge.over_bar and model/landing/jev_bar.py	land-review
+unit:tests/unit/test_land.py:UnclosedFence.test_a_plan_s_tasks	land-review	the plan's `## Tasks` section is read by `read`, which decides which review the change gets	land-checks
+unit:tests/unit/test_land.py:UnclosedFence.test_the_notes	land-propose	the notes' sections are read by `propose` for the pull request's text	land-checks
 unit:tests/unit/test_land_text.py:Due.test_a_change_after_the_review_gets_another	land-review	which review is due (land.due_of) is land-review's due	land-propose
 unit:tests/unit/test_land_text.py:Due.test_a_change_with_no_review_gets_one_read	land-review	which review is due (land.due_of) is land-review's due	land-propose
 unit:tests/unit/test_land_text.py:Due.test_a_large_plan_gets_a_round	land-review	which review is due (land.due_of) is land-review's due	land-propose
@@ -437,3 +447,10 @@ unit:tests/unit/test_task_rules.py:SeatCommands.test_a_stand_in_that_fails_too_b
 unit:tests/unit/test_task_rules.py:SeatCommands.test_the_events_and_open_over_a_block_are_the_commands_own	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
 unit:tests/unit/test_task_rules.py:SeatCommands.test_the_experts_and_the_session_take_no_fallback	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
 unit:tests/unit/test_task_rules.py:SeatCommands.test_the_owners_go_on_over_a_merge_agents_block_gives_open_with_its_pull_request	sessions	`seat show|failed|again` are the sessions' (surfaces.md A)	task
+unit:tests/unit/test_the_bar.py:TheBar.test_each_file_that_sends_an_agent_to_a_defect_names_the_bar_of_rule_6	land-text	the test reads rule 6 of agents/lem-builder.md and the prompts and stages that send an agent to a defect, which land-text rewrites in group 3; no module of land-checks holds that text	land-checks
+unit:tests/unit/test_the_bar.py:TheBar.test_no_other_file_of_lem_copies_a_part_of_the_bar	land-text	the test reads rule 6 of agents/lem-builder.md and the prompts and stages that send an agent to a defect, which land-text rewrites in group 3; no module of land-checks holds that text	land-checks
+unit:tests/unit/test_the_bar.py:TheBar.test_rule_6_gives_a_defect_under_the_bar_a_file_and_cheap_no_room_for_code	land-text	the test reads rule 6 of agents/lem-builder.md and the prompts and stages that send an agent to a defect, which land-text rewrites in group 3; no module of land-checks holds that text	land-checks
+unit:tests/unit/test_the_bar.py:TheBar.test_rule_6_keeps_a_plan_builder_to_its_list	land-text	the test reads rule 6 of agents/lem-builder.md and the prompts and stages that send an agent to a defect, which land-text rewrites in group 3; no module of land-checks holds that text	land-checks
+unit:tests/unit/test_the_bar.py:TheBar.test_rule_6_says_its_limit_what_is_cheap_and_the_three_outcomes	land-text	the test reads rule 6 of agents/lem-builder.md and the prompts and stages that send an agent to a defect, which land-text rewrites in group 3; no module of land-checks holds that text	land-checks
+unit:tests/unit/test_the_bar.py:TheBar.test_the_bar_is_in_rule_6_and_nowhere_else_in_the_builder	land-text	the test reads rule 6 of agents/lem-builder.md and the prompts and stages that send an agent to a defect, which land-text rewrites in group 3; no module of land-checks holds that text	land-checks
+unit:tests/unit/test_the_bar.py:TheBar.test_the_parts_are_the_bars_own	land-text	the test reads rule 6 of agents/lem-builder.md and the prompts and stages that send an agent to a defect, which land-text rewrites in group 3; no module of land-checks holds that text	land-checks
