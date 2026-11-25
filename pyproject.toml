@@ -29,6 +29,7 @@ dependencies = []
 
 [project.scripts]
 lem = "lem.__main__:cli"
+lem-hook = "lem.hooks:cli"
 
 [dependency-groups]
 dev = [

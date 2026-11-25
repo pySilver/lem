@@ -185,7 +185,7 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
         ("lem-machine", "lem-command"),
     ),
-    (("src/lem/python.py",), ("lem-command", "lem-machine")),
+    (("src/lem/python.py", "src/lem/hooks.py"), ("lem-command", "lem-machine")),
     # the package's build: lem-command builds the wheel and installs it outside the
     # checkout, and lem-serial runs this repository's own checks.setup, which makes a
     # new worktree's .venv from them

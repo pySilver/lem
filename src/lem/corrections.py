@@ -401,6 +401,12 @@ def cmd_hook() -> None:  # noqa: C901, PLR0912 - over the limit before the limit
             or not collects(cwd)
         ):
             return
+        # What can stop the hook comes before it writes: the package's files, whose
+        # `paths` stops with SystemExit when they are not whole, so that no claim and no
+        # file with the owner's words stays behind (the review of 2026-11-25).
+        from lem import paths
+
+        entry = str(paths.MAIN)
         # One message, one judgment, however many places registered the hook. The event
         # names no message, so the claim is of the session and the words. With no
         # session id nothing tells this message from the same words of another session:
@@ -443,10 +449,8 @@ def cmd_hook() -> None:  # noqa: C901, PLR0912 - over the limit before the limit
         handle, path = tempfile.mkstemp(prefix="lem-correction-", suffix=".json")
         with os.fdopen(handle, "w", encoding="utf-8") as file:
             json.dump(payload, file)
-        from lem import paths
-
         subprocess.Popen(
-            [sys.executable, "-B", str(paths.MAIN), "corrections", "worker", path],
+            [sys.executable, "-B", entry, "corrections", "worker", path],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
