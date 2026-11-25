@@ -53,12 +53,17 @@ def pending(landing: Landing, world: World) -> Due | None:
     the merge agent's merge, after which only the owner's word merges it."""
     pull, refused = world.pull, landing.refused
     tip = landing.proposed.tip if landing.proposed else None
-    if landing.intent is not None:
+    if landing.intent is not None and (pull is None or pull.state == "open"):
         return Due(step="merge", why=RECONCILED, by=landing.intent.by)
     elsewhere = (
         pull is not None and pull.state == "merged" and pull.base != world.rules.base
     )
-    if refused is not None and refused.tip == tip and elsewhere:
+    if (
+        refused is not None
+        and refused.tip == tip
+        and elsewhere
+        and landing.intent is None
+    ):
         return Due(step="wait", why=refused.line)
     if landing.accepted is not None or (pull is not None and pull.state != "open"):
         return Due(step="merged", why="the forge took the merge, or ended the request")

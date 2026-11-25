@@ -38,6 +38,7 @@ from lem.board.duties.memory import MEMORY
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.landing.merge_asked import Asked
+from lem.ports.faults import Unanswered
 from lem.records.holds import ReleaseHold
 from lem.store import places, steps, tasks
 
@@ -48,6 +49,7 @@ if TYPE_CHECKING:
     from lem.app.landing.frame import Context
     from lem.app.landing.merge_called import BeforeCall
     from lem.board.duties.context import Duty
+    from lem.ports.forge_facts import MergeMethod, MergeText
 
 type Capsys = pytest.CaptureFixture[str]
 LOOK = timedelta(seconds=180)
@@ -256,6 +258,54 @@ def test_the_server_reports_the_queue_and_reconciles_a_confirmed_dequeue(
     assert len(world.forge.merge_calls) == 1
 
 
+def test_the_server_finishes_a_confirmed_merge_after_a_lost_reply(
+    tmp_path: Path, own_home: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    served(world, own_home, monkeypatch)
+    call = world.forge.merge
+
+    def lost(
+        number: int, expected_head: str, method: MergeMethod, text: MergeText
+    ) -> None:
+        call(number, expected_head, method, text)
+        raise Unanswered("gh", "connection reset after the merge")
+
+    monkeypatch.setattr(world.forge, "merge", lost)
+    now = clock.now()
+    ticked(world, own_home, now)
+    assert world.record()["landing"]["intent"]["by"] == "merger"
+
+    ticked(world, own_home, now + LOOK)
+
+    assert world.record()["task"]["status"] == "landed"
+    landing = world.record()["landing"]
+    assert "intent" not in landing
+    assert (landing["merged"]["by"], landing["merged"]["via"]) == ("merger", "server")
+    assert len(world.forge.merge_calls) == 1
+
+
+def test_the_board_shows_the_recorded_end_of_a_queued_merge(
+    tmp_path: Path, own_home: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    served(world, own_home, monkeypatch)
+    world.forge.queue = True
+    now = clock.now()
+    ticked(world, own_home, now)
+    kept = MEMORY.of(world.checkout)
+    assert kept.said[SLUG].startswith("Queued:")
+
+    world.forge.settle(1)
+    ticked(world, own_home, now + LOOK)
+
+    assert world.record()["task"]["status"] == "landed"
+    assert kept.said[SLUG].startswith(f"Merged: {SLUG} is on the base.")
+    assert len(world.forge.merge_calls) == 1
+
+
 def test_bookkeeping_follows_a_server_merge_before_the_next_forge_poll(
     tmp_path: Path,
     own_home: Path,
@@ -330,11 +380,13 @@ def test_merge_line_records_only_forge_calls_and_counts_current_eligible_approva
     ]
 
 
+@pytest.mark.parametrize("blocked", ["lock-file", "lock-folder"])
 def test_an_unopenable_merge_lock_shows_the_repair_and_waits_from_failure_time(
     tmp_path: Path,
     own_home: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: Capsys,
+    blocked: str,
 ) -> None:
     world = made(tmp_path, monkeypatch)
     upto(capsys, world, "merge")
@@ -343,7 +395,13 @@ def test_an_unopenable_merge_lock_shows_the_repair_and_waits_from_failure_time(
     failed_at = now + timedelta(minutes=2)
     monkeypatch.setattr(clock, "now", lambda: failed_at)
     path = world.task_folder.parents[1] / "locks" / "merge.lock"
-    path.mkdir(parents=True)
+    if blocked == "lock-file":
+        path.mkdir(parents=True)
+    else:
+        path = path.parent
+        if path.is_dir():
+            path.rename(path.with_name("locks-before-test"))
+        path.write_text("this path is a file")
 
     ticked(world, own_home, now)
 

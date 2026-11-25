@@ -13,7 +13,6 @@ import msgspec
 from lem.app.landing import changes, merge_mutex
 from lem.kernel import locks
 from lem.records.journal.landing import MergeWait
-from lem.store import places
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -33,8 +32,8 @@ def waits(context: Context, path: Path) -> None:
 @contextmanager
 def held(context: Context) -> Iterator[None]:
     """Hold the workspace's merge lock, after a note of the merge it waits for, if any."""
-    path = places.locks_folder(context.workspace.state) / LOCK
     slug = context.record.task.slug
+    path = merge_mutex.folder(context.workspace.state, slug) / LOCK
     named = merge_mutex.Holder(task=slug, pid=os.getpid())
     with merge_mutex.opened(path, slug) as stream:
         if not locks.taken(stream):

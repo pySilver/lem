@@ -33,6 +33,8 @@ class State(msgspec.Struct, kw_only=True):
     lose: str | None = None
     # Whether gh has a login for the host: without one, every call says so and exits 4.
     login: bool = True
+    queue_events: list[dict[str, object]] = []
+    in_queue: bool = False
 
 
 def option(words: list[str], name: str) -> str | None:
@@ -67,6 +69,17 @@ def printed(found: object) -> None:
 def outside(forge: LocalForge, state: State, words: list[str]) -> object:
     """What gh prints for `repo view` and for `api`: a pull request's `commits`, GitHub's
     total, which no list caps, or a commit's first parent."""
+    if words[:2] == ["api", "graphql"]:
+        number = int(
+            next(word.split("=", 1)[1] for word in words if word.startswith("number="))
+        )
+        pull = forge.pull(number)
+        assert option(words, "--jq") == ".data.repository.pullRequest"
+        return {
+            **shaped(pull),
+            "mergeQueueEntry": {"id": "queue-entry"} if state.in_queue else None,
+            "timelineItems": {"nodes": state.queue_events[-1:]},
+        }
     if "/pulls/" in words[1]:
         return counted(state, forge.pull(int(words[1].rsplit("/", 1)[-1])))
     if words[0] == "repo":
@@ -149,7 +162,10 @@ def aimed(state: State, words: list[str]) -> None:
     named = option(words, "--repo") or (
         words[2] if words[:2] == ["repo", "view"] else None
     )
-    if words[0] == "api":
+    if words[:2] == ["api", "graphql"]:
+        fields = dict(word.split("=", 1) for word in words[2:] if "=" in word)
+        named = f"{fields.get('owner')}/{fields.get('repo')}"
+    elif words[0] == "api":
         named = "/".join(words[1].removeprefix("repos/").split("/")[:2])
     if named != state.name:
         raise Unanswered(

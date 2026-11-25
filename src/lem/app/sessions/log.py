@@ -12,9 +12,12 @@ import os
 from typing import TYPE_CHECKING
 
 import msgspec
+from msgspec.structs import replace
 
-from lem.app.sessions.acts import Act, Open
-from lem.store import guard
+from lem.app.sessions.acts import Act, Open, Wake
+from lem.kernel import locks
+from lem.model.task.table import ENDED
+from lem.store import guard, tasks
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -37,6 +40,15 @@ def append(folder: Path, act: Act) -> None:
         os.write(descriptor, frame)
 
 
+def reached(folder: Path, act: Open | Wake) -> None:
+    """Order a new open or wake beside the task's end under the journal's lock."""
+    state = folder.parents[1]
+    guard.writable(state)
+    with locks.held(folder / tasks.LOCK):
+        ended = tasks.read(state, folder.name).task.status in ENDED
+        append(folder, replace(act, after_end=ended))
+
+
 def read(folder: Path) -> tuple[Act, ...]:
     """Every readable act of the task folder, in the order written; refused in a state folder
     of the Lem before."""
@@ -45,16 +57,11 @@ def read(folder: Path) -> tuple[Act, ...]:
         body = (folder / ACTS).read_bytes()
     except FileNotFoundError:
         return ()
-    found = (decoded(raw) for raw in body.split(b"\n") if raw.strip())
-    return tuple(act for act in found if act is not None)
-
-
-def decoded(raw: bytes) -> Act | None:
-    """One line, or None when it is damaged."""
-    try:
-        return msgspec.json.decode(raw, type=Act)
-    except msgspec.DecodeError:
-        return None
+    found = []
+    for raw in filter(bytes.strip, body.split(b"\n")):
+        with contextlib.suppress(msgspec.DecodeError):
+            found.append(msgspec.json.decode(raw, type=Act))
+    return tuple(found)
 
 
 def same(one: str | None, other: str | None) -> bool:

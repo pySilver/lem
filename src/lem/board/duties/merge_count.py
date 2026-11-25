@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from lem.app.owner import forge
 from lem.board.duties import merge_line
 from lem.kernel import clock, errors
-from lem.model.landing import phases
+from lem.model.landing import merge_standing, phases
 from lem.model.owner import merging
 from lem.records.holds import ReleaseHold
 from lem.store import tasks
@@ -18,12 +18,33 @@ if TYPE_CHECKING:
 
 def eligible(record: Record, look: forge.Look) -> bool:
     """Whether an approval is still in the merge line."""
-    return (
-        phases.settled(record) is None
-        and not isinstance(record.task.hold, ReleaseHold)
-        and merging.merge_wait(record) == merging.MERGES
-        and not forge.conflicts(look, record)
+    if phases.settled(record) is not None or isinstance(record.task.hold, ReleaseHold):
+        return False
+    if standing_waits(record):
+        return True
+    return merging.merge_wait(record) == merging.MERGES and not forge.conflicts(
+        look, record
     )
+
+
+def standing_waits(record: Record) -> bool:
+    """A standing approval waits through the base work, unless the checks or forge refuse it."""
+    landing = record.landing
+    if landing is None or record.task.status not in {"open", "landing"}:
+        return False
+    if landing.intent is not None:
+        return False
+    if landing.checked is not None and landing.checked.outcome == "red":
+        return False
+    refused, proposed = landing.refused, landing.proposed
+    if (
+        refused is not None
+        and proposed is not None
+        and refused.tip == proposed.tip
+        and (refused.source != "lem" or refused.kind != "base")
+    ):
+        return False
+    return merge_standing.standing_of(record) is not None
 
 
 def waited(duty: Duty, slug: str, intent: merge.MergeIntent) -> merge_line.Waited:

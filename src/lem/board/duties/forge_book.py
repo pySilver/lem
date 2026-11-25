@@ -46,6 +46,12 @@ def run(duty: Duty, slug: str, number: int, state: str) -> None:
             failed(duty, key, state, error)
         return
     status = tasks.read(duty.state, slug).task.status
+    if status == "landed":
+        duty.kept.said[slug] = merge_said.MERGED.format(slug=slug)
+    if status == "dropped":
+        duty.kept.said[slug] = (
+            f"GitHub closed pull request {number} without a merge. The branch keeps its commits."
+        )
     duty.kept.done.add(key)
     finished(duty, key, f"{told}; `lem land merged {slug}` left it {status}")
 

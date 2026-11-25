@@ -61,8 +61,8 @@ def cleaned(duty: Duty, record: Record) -> None:
     slug = record.task.slug
     if duty.here.worktree(slug) is None:
         return
-    if not wakes.after_end(duty, slug, record.task.since):
-        wakes.woken(duty, slug, "merged", not_before=record.task.since)
+    if not wakes.after_end(duty, slug):
+        wakes.woken(duty, slug, "merged")
 
 
 def conflicted(duty: Duty, record: Record, look: forge.Look) -> bool:

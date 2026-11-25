@@ -8,6 +8,7 @@ import pytest
 from msgspec.structs import replace
 
 from fakes.records import MOMENT
+from lem.app.landing import changes
 from lem.app.landing.merged import CLOSED
 from lem.app.sessions import acts, log, opening
 from lem.board.duties import conflict, queue
@@ -63,6 +64,39 @@ def test_a_merge_wakes_the_tasks_session_once_while_its_worktree_stays(
     conflict.tick(duty_of(here, HOUR + timedelta(minutes=1), kept))
     assert wakes(here) == [("merged", None)]
     assert wakes(here, gone) == []
+
+
+@pytest.mark.parametrize(
+    ("opened_after", "seconds"), [(True, 0), (True, -1), (False, 0), (False, 1)]
+)
+def test_an_end_wake_uses_the_order_of_the_end_and_session_open(
+    tmp_path: Path, *, opened_after: bool, seconds: int
+) -> None:
+    terminal = with_caller()
+    here = here_of(tmp_path, terminal)
+    made(here, status="open")
+    worktree(here)
+    stamp = LATER + timedelta(seconds=seconds)
+    if not opened_after:
+        opening.open_session(here, SLUG, "owner", None, stamp)
+    current = tasks.read(here.where.state, SLUG)
+    tasks.update(
+        here.where.state,
+        SLUG,
+        lambda one: changes.moved(one, "landed", "the pull request is merged", LATER),
+        current.revision,
+    )
+    if opened_after:
+        opening.open_session(here, SLUG, "owner", None, stamp)
+
+    later = LATER + timedelta(days=31)
+    pruned(here.where.state, 30, "test", later, dry=False)
+    conflict.tick(duty_of(here, later))
+    conflict.tick(duty_of(here, later + timedelta(seconds=1)))
+
+    assert wakes(here) == (
+        [("owner", None)] if opened_after else [("owner", None), ("merged", None)]
+    )
 
 
 @pytest.mark.parametrize("seconds_before_end", [0, 1])

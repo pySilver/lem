@@ -38,6 +38,8 @@ def refused(state: Path, slug: str, error: Refusal | Fault) -> str:
     """The line of a merge that did not go: its why, the way on, and whether the owner's merge
     still stands."""
     why = said_of(error)
+    if isinstance(error, Refusal) and error.code == "github":
+        return f"The merge did not go: {why}"
     standing = merge_standing.standing_of(tasks.read(state, slug))
     if standing is None:
         return f"The merge did not go: {why}"

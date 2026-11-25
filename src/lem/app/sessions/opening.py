@@ -104,7 +104,7 @@ def launched(here: Here, task: Task, phase: Phase, why: str, now: datetime) -> O
         why=why,
         workspace=made.workspace,
     )
-    log.append(here.folder(task.slug), noted)
+    log.reached(here.folder(task.slug), noted)
     return Opened(
         task=task.slug,
         session=session,

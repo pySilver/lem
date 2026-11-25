@@ -42,6 +42,17 @@ def test_an_intent_becomes_the_merge_the_forge_shows() -> None:
     )
 
 
+def test_only_a_final_forge_result_makes_bookkeeping_due_with_an_intent() -> None:
+    record = opened(intent=INTENT)
+    assert record.landing is not None
+    for pull in (DONE, replace(SEEN, state="closed")):
+        due = reconcile.pending(record.landing, facing(pull=pull))
+        assert due is not None and due.step == "merged"
+    for pull in (SEEN, replace(SEEN, queued="the merge queue"), None):
+        due = reconcile.pending(record.landing, facing(pull=pull))
+        assert due is not None and due.step == "merge"
+
+
 def test_an_intent_becomes_the_queue_its_end_or_the_end_of_a_closed_request() -> None:
     record = opened(intent=INTENT)
     queued = facing(pull=replace(SEEN, queued="the merge queue"))

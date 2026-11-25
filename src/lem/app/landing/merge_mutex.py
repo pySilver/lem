@@ -6,7 +6,7 @@ import msgspec
 
 from lem.kernel.errors import Refusal
 from lem.records.base import Frozen
-from lem.store import steps
+from lem.store import places, steps
 
 if TYPE_CHECKING:
     from io import TextIOWrapper
@@ -27,6 +27,19 @@ def holder_of(path: Path) -> str | None:
     except OSError, msgspec.DecodeError:
         return None
     return holder.task if steps.alive(holder.pid) else None
+
+
+def folder(state: Path, slug: str) -> Path:
+    """Make the shared locks folder, or tell the owner how to repair its path."""
+    try:
+        return places.locks_folder(state)
+    except OSError as error:
+        raise Refusal(
+            "merge-lock",
+            f"the merge lock folder {error.filename} cannot be made: {error.strerror}",
+            f"the owner fixes access to the folder or removes it if it is not a directory, "
+            f"then runs lem land merge {slug} again",
+        ) from error
 
 
 def opened(path: Path, slug: str) -> TextIOWrapper:

@@ -16,6 +16,7 @@ from msgspec.structs import replace
 
 from lem.app.landing import (
     changes,
+    merge_lock,
     merge_step,
     merge_text,
     merge_world,
@@ -65,10 +66,7 @@ def adopted(context: Context) -> Record | None:
         line = f"{CLOSED}: {pull.url} is closed with no merge; the branch keeps its commits"
         context.write(record, partial(dropped, line=line, now=world.now))
         return None
-    facts = ("owner", "github", merge_world.trees_of(context, pull))
-    reconcile.written(
-        context, record, rules.landed(record, world, pull, facts), "owner"
-    )
+    reconcile.adopted(context, pull)
     return tasks.read(context.workspace.state, record.task.slug)
 
 
@@ -103,7 +101,13 @@ def act(context: Context) -> object:
     let the main checkout follow, and land the task."""
     record = context.record
     if record.landing is not None and record.landing.phase in {"open", "preparing"}:
-        record = adopted(context)
+        if record.landing.intent is None:
+            record = adopted(context)
+        else:
+            with merge_lock.held(context):
+                context = context.again()
+                merge_step.allowed(context, "merged", merged_beside.admits)
+                record = adopted(context)
         if record is None:
             return context.world.pull
     record = merge_text.edited(context, record)

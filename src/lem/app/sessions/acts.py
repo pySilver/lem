@@ -27,6 +27,7 @@ class Open(Tagged, tag="open", frozen=True, kw_only=True):
     phase: str
     why: str
     workspace: str | None = None
+    after_end: bool = False
 
 
 class Close(Tagged, tag="close", frozen=True, kw_only=True):
@@ -46,6 +47,7 @@ class Wake(Tagged, tag="wake", frozen=True, kw_only=True):
     why: WakeWhy
     head: str | None = None
     unread: bool = False
+    after_end: bool = False
 
 
 class Stopped(Tagged, tag="stopped", frozen=True, kw_only=True):

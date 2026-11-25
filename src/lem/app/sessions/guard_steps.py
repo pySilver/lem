@@ -36,7 +36,7 @@ def status(here: Here, slug: str, looked: guard_look.Looked, now: datetime) -> A
     here.ports.terminal.tell(session, f"lem: {slug} status")
     unread = not looked.facts.read
     asked = Wake(at=now, session=session, why="status", unread=unread)
-    log.append(here.folder(slug), asked)
+    log.reached(here.folder(slug), asked)
     say = (
         f"the session of {slug} got `lem: {slug} status`, which asks where the task stands "
         "and to go on with its next step"
@@ -88,7 +88,7 @@ def replaced(here: Here, slug: str, old: str, now: datetime) -> str | None:
     except Unanswered as unanswered:
         return str(unanswered)
     told = Wake(at=now, session=old, why="replaced")
-    log.append(here.folder(slug), told)
+    log.reached(here.folder(slug), told)
     return None
 
 

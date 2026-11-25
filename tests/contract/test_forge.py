@@ -145,6 +145,32 @@ def test_a_gh_with_no_login_is_refused_with_its_fix(tmp_path: Path) -> None:
     assert "gh auth login" in refused.value.fix
 
 
+def test_github_reports_a_confirmed_queue_removal_and_its_reason(
+    tmp_path: Path,
+) -> None:
+    world = gh_world(tmp_path)
+    world.push("fix-the-login", {"a.txt": b"a\n"})
+    opened = world.forge.open_pull("fix-the-login", "main", "Fix", "body")
+    assert (opened.queued, opened.dequeued) == (None, None)
+    state = json.loads(world.state.read_text())
+    added = {"__typename": "AddedToMergeQueueEvent"}
+    removed = {
+        "__typename": "RemovedFromMergeQueueEvent",
+        "reason": "a required check failed in the queue",
+    }
+    for events, active, queued, reason in (
+        ([added, removed], False, None, removed["reason"]),
+        ([removed, added], True, "the merge queue", None),
+        ([removed, added], False, None, None),
+        ([removed], True, "the merge queue", None),
+    ):
+        world.state.write_text(
+            json.dumps({**state, "queue_events": events, "in_queue": active})
+        )
+        pull = world.forge.pull(opened.number)
+        assert (pull.queued, pull.dequeued) == (queued, reason)
+
+
 def test_no_gh_on_the_path_is_refused_by_name(tmp_path: Path) -> None:
     world = gh_world(tmp_path)
     only_git = tmp_path / "only-git"

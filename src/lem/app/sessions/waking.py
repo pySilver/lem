@@ -45,7 +45,7 @@ def wake(here: Here, slug: str, why: WakeWhy, head: str | None, now: datetime) -
     line = f"lem: {slug} {why}"
     here.ports.terminal.tell(newest.session, line)
     woke = Wake(at=now, session=newest.session, why=why, head=head)
-    log.append(here.folder(slug), woke)
+    log.reached(here.folder(slug), woke)
     return Woken(
         task=slug,
         session=newest.session,
@@ -71,7 +71,7 @@ def opened(
     made = opening.open_session(here, slug, why, None, now)
     if head:
         woke = Wake(at=now, session=made.session, why=why, head=head)
-        log.append(here.folder(slug), woke)
+        log.reached(here.folder(slug), woke)
     return Woken(
         task=slug,
         session=made.session,

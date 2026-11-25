@@ -7,17 +7,20 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import msgspec
+import pytest
 from msgspec.structs import replace
 
 from fakes.records import MOMENT
 from lem.app.landing import merge
 from lem.app.owner import forge
 from lem.board.duties import merge as duty
+from lem.board.duties import merge_count
 from lem.board.duties.memory import Kept
 from lem.kernel import clock
 from lem.kernel.envelope import Envelope
 from lem.kernel.errors import Refusal
 from lem.model.landing import merge_standing
+from lem.records.landing.checks import Checked
 from lem.records.landing.merge import MergeIntent
 from lem.records.landing.propose import Standing
 from lem.store import tasks
@@ -27,8 +30,6 @@ from unit.sessions.world import here_of
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    import pytest
 
     from lem.app.landing.merge_called import BeforeCall
     from lem.app.sessions.here import Here
@@ -180,6 +181,55 @@ def test_his_standing_merge_that_the_base_refuses_again_still_stands_in_its_line
     assert kept.said["stands"] == (
         f"The owner's merge still stands for {TIP}, and Lem merges it when it may: origin's "
         "base moved; a read of the moved base"
+    )
+
+
+def test_a_github_refusal_calls_the_owner_even_with_standing_approval(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    here = here_of(tmp_path)
+    standing_task(here, "stands")
+    asking(
+        monkeypatch,
+        Refusal("github", "a required check failed", "the owner acts on GitHub"),
+    )
+    kept = Kept()
+    duty.tick(duty_of(here, HOUR, kept))
+    ended(kept)
+    assert kept.said["stands"] == (
+        "The merge did not go: a required check failed; the owner acts on GitHub"
+    )
+
+
+@pytest.mark.parametrize("stage", ["conflict", "moved-base", "rebasing", "red"])
+def test_the_merge_wait_count_keeps_standing_approval_until_rebase_checks_fail(
+    tmp_path: Path, stage: str
+) -> None:
+    here = here_of(tmp_path)
+    found = standing_task(here, "stands")
+    landing = landing_of(found)
+    if stage == "conflict":
+        looked(here, "stands", forge.CONFLICTING)
+    if stage == "moved-base":
+        landing = replace(landing, refused=refused("lem", "base"))
+    if stage in {"rebasing", "red"}:
+        found = replace(found, task=replace(found.task, status="landing"))
+        landing = replace(landing, phase="preparing")
+    if stage == "red":
+        checked = Checked(
+            tip=TIP, tree=TIP, base=TIP, inputs="inputs", outcome="red", at=HOUR
+        )
+        landing = replace(landing, checked=checked)
+    tasks.update(
+        here.where.state,
+        "stands",
+        lambda one: replace(found, landing=landing),
+        found.revision,
+    )
+    intent = MergeIntent(tip=TIP, by="merger", via="server", at=HOUR)
+    waited = merge_count.waited(duty_of(here, HOUR), "merges", intent)
+    assert (waited.waiting, waited.behind) == (
+        (0, ()) if stage == "red" else (1, ("stands",))
     )
 
 

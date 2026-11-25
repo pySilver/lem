@@ -6,20 +6,35 @@ a request it closed, a merge into another base, and what a refusal for a moved b
 from functools import partial
 from typing import TYPE_CHECKING
 
-from lem.app.landing import changes
+from lem.app.landing import changes, merge_world
 from lem.kernel.errors import Refusal
-from lem.model.landing import merge_standing
+from lem.model.landing import merge_standing, reconcile
 from lem.records.journal.merge import MergeNoted, RefusalNoted
 from lem.records.landing.merge import MergeAccepted, Merged, Refused
 
 if TYPE_CHECKING:
     from lem.app.landing.frame import Context
     from lem.model.landing.merge_asked import Asked
-    from lem.model.landing.world import Merger
+    from lem.model.landing.world import Merger, PullSeen
     from lem.records.landing.propose import Standing
     from lem.records.record import Record
 
 type Found = Merged | MergeAccepted | Refused | None
+
+
+def adopted(context: Context, pull: PullSeen) -> None:
+    """Record the confirmed merge, with the call's attribution when an intent stays."""
+    record = context.record
+    intent = record.landing.intent if record.landing else None
+    trees = merge_world.trees_of(context, pull)
+    if intent is None:
+        found = reconcile.landed(
+            record, context.world, pull, ("owner", "github", trees)
+        )
+        written(context, record, found, "owner")
+    else:
+        found = reconcile.reconciled(record, context.world, intent, trees)
+        written(context, record, found, intent.by)
 
 
 def taken(record: Record, *, found: Merged | MergeAccepted | Refused) -> Record:
