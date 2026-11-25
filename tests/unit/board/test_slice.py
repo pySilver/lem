@@ -1,5 +1,5 @@
 """The walking skeleton of the board, through Starlette's test client: the kanban of a workspace
-from its task records, an address not built yet, the server's own addresses, the stream's
+from its task records, a task's question card, the server's own addresses, the stream's
 refresh after a record changes, and the rules of `lem serve` that read no network."""
 
 import os
@@ -8,6 +8,7 @@ import re
 import threading
 from dataclasses import dataclass
 from functools import partial
+from hashlib import sha256
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -35,6 +36,7 @@ from lem.board import (
     watched,
     workspaces,
 )
+from lem.board.ask import form, saved
 from lem.board.client import Reply
 from lem.board.duties import runner
 from lem.board.facts import HEADER, MARK, Facts, Install
@@ -178,21 +180,68 @@ def test_a_host_or_workspace_the_board_does_not_have_is_404(
     assert board.client.request(method, path.format(host=host)).status_code == 404
 
 
-@pytest.mark.parametrize(
-    ("method", "path", "step"),
-    [
-        ("GET", "/h/w/tasks/fix-the-login/cards/p1/", "ask"),
-        ("POST", "/h/w/tasks/fix-the-login/cards/p1/answer", "ask"),
-    ],
-)
-def test_an_address_not_built_answers_501_with_the_step_that_builds_it(
-    board: Board, method: str, path: str, step: str
+@pytest.fixture
+def question_card(board: Board) -> tuple[str, bytes]:
+    slug = "fix-the-login"
+    tasks.create(board.state, record(slug, status="shaping"))
+    folder = places.task_folder(board.state, slug)
+    card = form.metadata({"prompt": "Keep the login?", "options": ["Keep"]}, "p1", "s1")
+    html = b"<!doctype html><title>Keep the login?</title>"
+    saved.keep(folder, card, html)
+    return f"{board.address}tasks/{slug}/cards/p1", html
+
+
+def test_the_card_redirects_and_serves_its_saved_page(
+    board: Board, question_card: tuple[str, bytes]
 ) -> None:
-    answer = board.client.request(method, path)
-    assert answer.status_code == 501
-    said = answer.json()
-    assert said["step"] == step
-    assert f"the step `{step}` builds it" in said["why"]
+    address, html = question_card
+    for method in ("GET", "HEAD"):
+        redirect = board.client.request(
+            method, f"{address}?in=waits", follow_redirects=False
+        )
+        assert redirect.status_code == 302
+        assert redirect.headers["location"] == f"{address}/?in=waits"
+
+    page = board.client.get(f"{address}/")
+    headers = board.client.head(f"{address}/")
+    assert page.status_code == headers.status_code == 200
+    assert page.content == html
+    assert headers.content == b""
+    for response in (page, headers):
+        assert response.headers["content-type"] == "text/html; charset=utf-8"
+        assert response.headers["content-length"] == str(len(html))
+        assert response.headers["etag"] == f'"{sha256(html).hexdigest()}"'
+        assert "frame-ancestors 'self'" in response.headers["content-security-policy"]
+
+
+def test_the_card_answer_checks_the_origin_digest_and_choice(
+    board: Board, question_card: tuple[str, bytes]
+) -> None:
+    address, html = question_card
+    endpoint = f"{address}/answer"
+    before = tasks.read(board.state, "fix-the-login")
+    digest = sha256(html).hexdigest()
+    answer = {
+        "status": "answered",
+        "digest": digest,
+        "answers": {"answer": {"selected": ["Keep"]}},
+    }
+    refused = board.client.post(endpoint, json=answer)
+    assert refused.status_code == 403
+    assert "own page" in refused.json()["said"]
+
+    origin = {"Origin": board.facts.url.rstrip("/")}
+    stale = board.client.post(
+        endpoint, headers=origin, json={**answer, "digest": "stale"}
+    )
+    assert stale.status_code == 409
+    assert "differs from the page the owner read" in stale.json()["said"]
+
+    wrong = {**answer, "answers": {"answer": {"selected": ["Replace"]}}}
+    unknown = board.client.post(endpoint, headers=origin, json=wrong)
+    assert unknown.status_code == 422
+    assert "choice the card did not show" in unknown.json()["said"]
+    assert tasks.read(board.state, "fix-the-login") == before
 
 
 @pytest.mark.parametrize("path", ["tasks/fix-the-login/merge", "tasks"])

@@ -1,15 +1,10 @@
-"""`lem ask wait`: wait for the answer of a page opened with `--no-wait`.
-
-    lem ask wait PAGE_ID [--timeout SECONDS] ...
-
-A stub until the step `ask` builds it: it refuses `not-built`.
-"""
+"""Read the answer to a question whose page is open."""
 
 import click
 import msgspec
 
+from lem.cli.ask import asking, context, preferences, waiting
 from lem.cli.ask.shown import Shown, options
-from lem.cli.stub import not_built
 
 
 class Call(Shown, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -18,9 +13,12 @@ class Call(Shown, frozen=True, kw_only=True, forbid_unknown_fields=True):
     page_id: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `ask` builds `lem ask wait`."""
-    raise not_built("ask wait", "ask")
+def run(call: Call) -> asking.Words:
+    """Resume the wait, even when the board already took the answer."""
+    here = context.here()
+    if here is None:
+        return asking.no_terminal()
+    return waiting.wait(here, call.page_id, call, preferences.defaults())
 
 
 COMMAND = click.Command(

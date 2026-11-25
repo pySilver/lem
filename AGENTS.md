@@ -234,7 +234,7 @@ Each module's docstring says what it does and why; this list says where each thi
   a new page for the owner links both and brings no style of its own. `push.css` and `sw.js` are the
   notifications', `icons/` the board's icons, and `handover.html` the pattern of the onboarding's
   page. `vendor/` holds what `tools/board-kit` builds: `board-app.js`, the board's one script,
-  `board-icons.json` and `mermaid.min.js`.
+  `board-icons.json` and `pele.js`.
 - `tools/board-kit/`: the maintainer's build of `vendor/`, which nobody who installs the plugin
   runs: the built files are committed. Its `README.md` says how to build and how to add a Stimulus
   controller to `controllers/`.

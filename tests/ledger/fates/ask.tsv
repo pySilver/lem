@@ -1,0 +1,105 @@
+id	fate	proof	note
+act:Question card/cancel	kept	A2	
+act:Question card/focus-note	kept	A2	
+act:Question card/keyboard-help	kept	A2	
+act:Question card/keyboard-pick	kept	A2	
+act:Question card/move-mark	kept	A2	
+act:Question card/navigate	kept	A2	
+act:Question card/note	kept	A2	
+act:Question card/open	kept	A1	
+act:Question card/option-details	kept	A2	
+act:Question card/pick-many	kept	A2	
+act:Question card/pick-one	kept	A2	
+act:Question card/replay-tune	kept	A2	
+act:Question card/reset-tune	kept	A2	
+act:Question card/result	kept	A1	
+act:Question card/retry	kept	A2	
+act:Question card/review	kept	A2	
+act:Question card/skip-optional	kept	A2	
+act:Question card/submit	kept	A1	
+act:Question card/text	kept	A2	
+act:Question card/tune	kept	A2	
+check:tests/lem-board-act.sh:a-card-of-a-task-s-live-session-takes-a-pick-72edefe8a0dc54aa	kept	A3	
+check:tests/lem-serve.sh:a-card-of-a-task-s-session-is-a-row-of-waits-9a2ccb2898010533	kept	A1	
+check:tests/test-ask.sh:a-counting-label-carrying-its-text-passes-2da8f53b053042ab	kept	unit.ask.test_render.test_counted_option_with_explanation_passes_and_plain_page_has_no_chart_bundle	
+check:tests/test-ask.sh:a-mermaid-fence-in-an-md-block-puts-the-merm-12520eca8f73a5bd	changed	unit.ask.test_render.test_attachment_lines_and_images_stay_in_the_standalone_file	A Mermaid fence embeds the installed Pele bundle.
+check:tests/test-ask.sh:a-page-of-one-question-shows-that-question-s-f120a99811a4788e	kept	A2	
+check:tests/test-ask.sh:a-question-s-own-context-and-body-are-shown-aae2834dac8818ae	kept	A2	
+check:tests/test-ask.sh:a-style-under-ask-of-the-home-settings-file-8fa633f66b3002ba	kept	unit.ask.test_rules.test_question_defaults_come_from_the_home_settings	
+check:tests/test-ask.sh:an-ask-of-every-key-with-review-true-is-take-3c0bc1677b802802	kept	unit.ask.test_rules.test_question_defaults_come_from_the_home_settings	
+check:tests/test-ask.sh:ask-js-parses-460e261b35a9a275	kept	gates.test_eslint_holds_the_javascript_to_its_style	
+check:tests/test-ask.sh:ask-py-is-executable-0c71bef996ef6de5	dropped	unit.ask.test_overlay.test_spec_default_verb_and_named_demo_open_their_pages	The shared lem entry point replaces the executable ask.py script.
+check:tests/test-ask.sh:ask-py-parses-c02502173b98b082	changed	unit.ask.test_overlay.test_spec_default_verb_and_named_demo_open_their_pages	The ask command loads its Python leaf through the shared lem entry.
+check:tests/test-ask.sh:at-900-px-a-wide-table-scrolls-inside-its-ow-be981343621e54a3	kept	A2	
+check:tests/test-ask.sh:busy-carries-the-page-id-only-for-a-question-c45d803cba56ce13	kept	unit.ask.test_overlay.test_q_opens_without_focus_then_busy_names_only_our_question	
+check:tests/test-ask.sh:card:1-c1b43b36df09f0bf	kept	A1	
+check:tests/test-ask.sh:code-from-a-file-da2caaa9901e0174	kept	unit.ask.test_render.test_attachment_lines_and_images_stay_in_the_standalone_file	
+check:tests/test-ask.sh:every-page-so-far-wrote-nothing-under-cache-9db47ab6eefa20be	kept	unit.ask.test_render.test_every_template_and_demo_renders_without_a_download	
+check:tests/test-ask.sh:expect:name-38a30440f20648d7	changed	unit.ask.test_overlay.test_spec_default_verb_and_named_demo_open_their_pages	Page outcomes are in the envelope and all have exit zero.
+check:tests/test-ask.sh:page-loads-n-611004f0e4c84ff7	kept	A2	
+check:tests/test-ask.sh:q-option-syntax-dfe195f4fc4c067c	kept	unit.ask.test_overlay.test_short_option_keeps_the_reason_and_normalizes_half_characters	
+check:tests/test-ask.sh:refuses:name-38a30440f20648d7	kept	"unit.ask.test_render.test_invalid_specs_refuse_before_the_owner_sees_them[{""questions"": [""x""]}]"	
+check:tests/test-ask.sh:render-n-7be517faf4c88b6d	kept	unit.ask.test_render.test_every_template_and_demo_renders_without_a_download	
+check:tests/test-ask.sh:the-browser-takes-a-posted-json-value-that-i-bb0b02c9097f649b	kept	A4	
+check:tests/test-ask.sh:the-page-posts-its-answer-to-the-answer-rout-369a4e58c6c76c60	kept	A2	
+check:tests/test-ask.sh:wait-gives-a-json-value-that-is-no-object-th-09eb2c068790b200	kept	unit.ask.test_overlay.test_wait_timeout_can_resume_and_last_wait_controls_the_stop_word	
+check:tests/test-ask.sh:why-61d2355da0117304	kept	A2	
+check:tests/test-ask.sh:with-no-ask-the-page-is-refined-and-config-l-673f298ca2c43467	kept	unit.ask.test_render.test_render_and_catalog_emit_one_json_document	
+command:lem ask	changed	unit.ask.test_overlay.test_spec_default_verb_and_named_demo_open_their_pages	The launch, file or listing appears inside the JSON envelope.
+command:lem ask ask	changed	unit.ask.test_overlay.test_spec_default_verb_and_named_demo_open_their_pages	Each page outcome has exit zero and appears in result.outcome.
+command:lem ask close	changed	unit.ask.test_overlay.test_close_keeps_an_end_for_the_waiter	Each page outcome has exit zero and appears in result.outcome.
+command:lem ask demo	changed	unit.ask.test_overlay.test_spec_default_verb_and_named_demo_open_their_pages	Each page outcome has exit zero and appears in result.outcome.
+command:lem ask q	changed	unit.ask.test_overlay.test_q_opens_without_focus_then_busy_names_only_our_question	Each page outcome has exit zero and appears in result.outcome.
+command:lem ask render	changed	unit.ask.test_render.test_render_and_catalog_emit_one_json_document	The launch, file or listing appears inside the JSON envelope.
+command:lem ask templates	changed	unit.ask.test_render.test_render_and_catalog_emit_one_json_document	The launch, file or listing appears inside the JSON envelope.
+command:lem ask wait	changed	unit.ask.test_overlay.test_wait_timeout_can_resume_and_last_wait_controls_the_stop_word	Each page outcome has exit zero and appears in result.outcome.
+event:card.answered	changed	unit.ask.test_card.test_board_answer_is_the_waiters_result_and_the_only_end	The card event goes in the task journal in the same write as the question.
+event:card.asked	changed	unit.ask.test_card.test_board_answer_is_the_waiters_result_and_the_only_end	The card event goes in the task journal in the same write as the question.
+event:card.closed	changed	unit.ask.test_overlay.test_close_keeps_an_end_for_the_waiter	The card event goes in the task journal in the same write as the question.
+route:GET /{host}/{workspace}/tasks/{slug}/cards/{page}	kept	unit.ask.test_card.test_page_routes_return_the_exact_overlay_and_only_trusted_scripts	
+route:GET /{host}/{workspace}/tasks/{slug}/cards/{page}/	kept	unit.ask.test_card.test_page_routes_return_the_exact_overlay_and_only_trusted_scripts	
+route:HEAD /{host}/{workspace}/tasks/{slug}/cards/{page}	kept	unit.ask.test_card.test_page_routes_return_the_exact_overlay_and_only_trusted_scripts	
+route:HEAD /{host}/{workspace}/tasks/{slug}/cards/{page}/	kept	unit.ask.test_card.test_page_routes_return_the_exact_overlay_and_only_trusted_scripts	
+route:POST /{host}/{workspace}/tasks/{slug}/cards/{page}/answer	kept	unit.ask.test_card.test_board_answer_is_the_waiters_result_and_the_only_end	
+ruling:lem-asks-through-its-question-page-fae73fa46b0dcc92	kept	A1	
+text:skills/lem-ask/SKILL.md	changed	unit.ask.test_overlay.test_spec_default_verb_and_named_demo_open_their_pages	The command texts use the new outcome envelope and wait commands.
+text:skills/lem/harness/claude-code/ask-owner.md	changed	unit.ask.test_overlay.test_spec_default_verb_and_named_demo_open_their_pages	The command texts use the new outcome envelope and wait commands.
+unit:tests/unit/test_ask.py:HalfACharacterInASpec.test_a_quick_question_writes_its_page_as_valid_utf8	kept	unit.ask.test_overlay.test_short_option_keeps_the_reason_and_normalizes_half_characters	
+unit:tests/unit/test_ask.py:HalfACharacterInASpec.test_a_spec_from_a_file_writes_its_page_as_valid_utf8	kept	unit.ask.test_render.test_strings_stay_utf8_and_cannot_close_the_spec_script	
+unit:tests/unit/test_ask.py:LoadSpec.test_json_python_cannot_hold_in_a_spec_is_refused_with_a_message	kept	unit.ask.test_render.test_unreadable_json_number_refuses_with_a_fix	
+unit:tests/unit/test_ask.py:Submitted.test_a_lone_surrogate_prints_as_valid_utf8_and_the_answer_stays	kept	unit.ask.test_rules.test_posted_note_keeps_half_a_character_as_utf8	
+unit:tests/unit/test_ask.py:Submitted.test_json_python_cannot_hold_is_kept_as_its_text	kept	unit.ask.test_overlay.test_wait_timeout_can_resume_and_last_wait_controls_the_stop_word	
+unit:tests/unit/test_ask.py:WaitWord.test_the_last_wait_holds_over_the_way_the_page_opened	kept	unit.ask.test_overlay.test_wait_timeout_can_resume_and_last_wait_controls_the_stop_word	
+unit:tests/unit/test_board_model.py:Cards.test_a_card_of_an_earlier_session_or_of_a_session_that_does_not_run_has_no_row	kept	A3	The POST refuses an earlier session. The wait row still needs the model change in notes/ask.md.
+unit:tests/unit/test_cards.py:FirstEndCounts.test_a_close_or_a_dismissal_is_an_end_too	kept	unit.ask.test_overlay.test_close_keeps_an_end_for_the_waiter	
+unit:tests/unit/test_cards.py:FirstEndCounts.test_an_answer_with_half_a_character_is_kept_as_valid_utf8	kept	unit.ask.test_rules.test_posted_note_keeps_half_a_character_as_utf8	
+unit:tests/unit/test_cards.py:FirstEndCounts.test_an_end_takes_its_form	changed	unit.ask.test_overlay.test_close_keeps_an_end_for_the_waiter	The task's question and typed answer keep the end.
+unit:tests/unit/test_cards.py:FirstEndCounts.test_the_board_first_then_the_session_reads_the_board	kept	unit.ask.test_card.test_board_answer_is_the_waiters_result_and_the_only_end	
+unit:tests/unit/test_cards.py:FirstEndCounts.test_the_session_first_then_the_board_is_told_what_took_effect	kept	unit.ask.test_card.test_an_overlay_answer_already_at_the_mac_wins	
+unit:tests/unit/test_cards.py:FirstEndCounts.test_threads_of_one_process_each_write_their_own_record_and_one_counts	kept	unit.ask.test_card.test_two_board_posts_take_one_answer	
+unit:tests/unit/test_cards.py:Keep.test_questions_take_the_ids_the_page_gives_them	kept	unit.ask.test_card.test_page_routes_return_the_exact_overlay_and_only_trusted_scripts	
+unit:tests/unit/test_cards.py:Keep.test_the_card_holds_its_page_and_what_it_asks_and_logs_card_asked	changed	unit.ask.test_card.test_board_answer_is_the_waiters_result_and_the_only_end	The page is an artifact and the event is in the task journal.
+unit:tests/unit/test_cards.py:NoAgterm.test_the_module_the_board_calls_answers_and_closes_no_page	kept	unit.ask.test_card.test_board_answer_is_the_waiters_result_and_the_only_end	
+unit:tests/unit/test_cards.py:TaskFolder.test_a_page_id_is_never_a_path	kept	unit.ask.test_card.test_a_page_id_is_never_a_path	
+unit:tests/unit/test_cards.py:TaskFolder.test_no_card_outside_a_task	kept	unit.ask.test_overlay.test_q_opens_without_focus_then_busy_names_only_our_question	
+unit:tests/unit/test_cards.py:TaskFolder.test_the_task_of_the_session_in_its_repository	kept	unit.ask.test_card.test_page_routes_return_the_exact_overlay_and_only_trusted_scripts	
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_page_opened_with_no_status_keeps_its_choice_at_the_stop	kept	A5	The CLI passes the status word. The sessions step owns the hook. A prior move prevents sending this row back.
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_status_call_that_cannot_start_prints_nothing	kept	A5	The CLI passes the status word. The sessions step owns the hook. A prior move prevents sending this row back.
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_wait_with_no_status_holds_for_a_page_opened_without_it	kept	A5	The CLI passes the status word. The sessions step owns the hook. A prior move prevents sending this row back.
+unit:tests/unit/test_hooks.py:AskStopHook.test_an_agtermctl_that_hangs_ends_the_hook_silent_and_leaves_no_process	kept	A5	The CLI passes the status word. The sessions step owns the hook. A prior move prevents sending this row back.
+unit:tests/unit/test_serve.py:DeepBody.test_a_cards_answer_nested_past_the_limit_is_refused_as_no_json	kept	unit.ask.test_card.test_bad_answers_and_an_older_session_leave_the_card_open	
+unit:tests/unit/test_serve_cards.py:Agterm.test_criterion_4_an_answer_or_a_dismissal_agterm_holds_is_refused_and_an_open_page_is_not	kept	unit.ask.test_card.test_an_overlay_answer_already_at_the_mac_wins	
+unit:tests/unit/test_serve_cards.py:Agterm.test_when_agterm_does_not_answer_the_board_says_what_it_said	kept	unit.ask.test_card.test_unreadable_terminal_leaves_the_card_open	
+unit:tests/unit/test_serve_cards.py:Answer.test_a_card_of_a_session_that_no_longer_runs_takes_no_answer	kept	unit.ask.test_card.test_bad_answers_and_an_older_session_leave_the_card_open	
+unit:tests/unit/test_serve_cards.py:Answer.test_a_dismissal_of_the_page_records_nothing	kept	unit.ask.test_card.test_bad_answers_and_an_older_session_leave_the_card_open	
+unit:tests/unit/test_serve_cards.py:Answer.test_an_answer_the_read_takes_and_the_end_cannot_walk_is_refused_as_no_json	kept	unit.ask.test_card.test_bad_answers_and_an_older_session_leave_the_card_open	
+unit:tests/unit/test_serve_cards.py:Answer.test_criterion_2_and_9_a_pick_with_a_note_is_on_record_as_the_owners_with_the_card_its_option_note_time_and_device	changed	unit.ask.test_card.test_board_answer_is_the_waiters_result_and_the_only_end	The task answer and journal cite the immutable answer artifact.
+unit:tests/unit/test_serve_cards.py:Answer.test_criterion_3_a_note_with_no_pick_and_a_wish_to_talk_are_refused_and_the_card_stays	kept	unit.ask.test_card.test_bad_answers_and_an_older_session_leave_the_card_open	
+unit:tests/unit/test_serve_cards.py:Answer.test_criterion_4_an_answer_after_the_sessions_pick_is_refused_with_what_took_effect	kept	unit.ask.test_card.test_an_overlay_answer_already_at_the_mac_wins	
+unit:tests/unit/test_serve_cards.py:Answer.test_criterion_4_an_answer_agterm_holds_from_the_mac_counts_first	kept	unit.ask.test_card.test_an_overlay_answer_already_at_the_mac_wins	
+unit:tests/unit/test_serve_cards.py:Answer.test_two_answers_of_the_board_at_once_record_one	kept	unit.ask.test_card.test_two_board_posts_take_one_answer	
+unit:tests/unit/test_serve_cards.py:Device.test_criterion_9_a_phone_is_named_by_its_user_agent_or_its_client_hint_and_anything_else_is_a_computer	kept	unit.ask.test_card.test_board_answer_is_the_waiters_result_and_the_only_end	
+unit:tests/unit/test_serve_cards.py:NoTyping.test_criterion_8_no_call_of_the_server_answers_closes_or_types_into_a_session	kept	unit.ask.test_card.test_board_answer_is_the_waiters_result_and_the_only_end	
+unit:tests/unit/test_serve_cards.py:Policy.test_criterion_1_the_page_runs_its_runtime_by_hash_and_no_script_form_or_base_of_its_spec	kept	unit.ask.test_card.test_page_routes_return_the_exact_overlay_and_only_trusted_scripts	
+unit:tests/unit/test_serve_cards.py:Refusal.test_a_tune_answer_with_moved_sliders_an_optional_question_left_empty_and_a_text_answer_are_answers	kept	unit.ask.test_rules.test_tune_optional_text_and_multi_use_the_saved_form	
+unit:tests/unit/test_serve_cards.py:Refusal.test_an_option_or_a_question_the_card_does_not_have_and_an_empty_text_are_refused	kept	unit.ask.test_card.test_bad_answers_and_an_older_session_leave_the_card_open	

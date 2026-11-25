@@ -1,0 +1,4 @@
+id	to	why
+check:tests/test-ask.sh:check:1-c1b43b36df09f0bf	sessions	The Stop hook and its behavior belong to the sessions step under lem-hook stop.
+check:tests/test-ask.sh:stop-hook-is-silent-and-exits-0-outside-agte-d6db9d8e55cfbe96	sessions	The Stop hook and its behavior belong to the sessions step under lem-hook stop.
+check:tests/test-ask.sh:the-plugin-s-stop-hook-silent-exit-0-outside-a2a1af868800d4ed	sessions	The Stop hook and its behavior belong to the sessions step under lem-hook stop.

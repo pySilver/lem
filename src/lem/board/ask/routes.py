@@ -1,11 +1,13 @@
-"""A `lem ask` card of a task's session on the board: its own page, and the owner's answer to
-it. Both answer 501 until the step `ask` builds them."""
+"""A question card's page, headers, and answer on the task's board."""
 
-from lem.board import stub
+from starlette.routing import Route
+
+from lem.board.ask import page, post
 
 CARD = "/{host}/{workspace}/tasks/{slug}/cards/{page}"
 
 ROUTES = (
-    *stub.routes("ask", "GET", f"{CARD}/{{path:path}}"),
-    *stub.routes("ask", "POST", f"{CARD}/answer"),
+    Route(f"{CARD}/", page.endpoint, methods=("GET",), name="ask-card"),
+    Route(CARD, page.endpoint, methods=("GET",), name="ask-card-no-slash"),
+    Route(f"{CARD}/answer", post.endpoint, methods=("POST",), name="ask-answer"),
 )

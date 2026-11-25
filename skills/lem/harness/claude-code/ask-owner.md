@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # Claude Code: ask-owner
 
 A part of `../claude-code.md`, read at the first question a session puts to the owner, and at the
@@ -10,8 +9,8 @@ first wake or reply that comes from his inbox (`inbox-reply`).
 option with what the owner would see and what it costs. Lem opens the page each time it asks; the
 owner types nothing for it. It is a part of Lem, not a tool of the machine: the machine check has
 no row for it, and no page for the owner lists it as one. Its command is `lem ask`,
-a name of Lem's command `lem`. Outside agterm it exits 3 and opens nothing; then ask in the conversation,
-as a numbered list with the recommended option first.
+a name of Lem's command `lem`. If `result.outcome` is `no-agterm`, ask in the conversation as a numbered list with the
+recommended option first.
 
 The question itself has one form whatever shows it: one concrete case, the options with what the
 owner would see for each, the recommended one with its reason, and the shortest way to answer.
@@ -22,22 +21,21 @@ file.
 
 When the owner is away, what waits for him reaches his inbox through the board's server, which is
 its one sender (`inbox-reply`, below). A session sends no question there itself: one that is not a
-thing of "Waits for you" (`lem project waiting`) waits for him in the session.
+thing of "Waits for you" (`lem waiting --task SLUG`) waits for him in the session.
 
 **A card in a task's session** waits for his answer with no time limit, and the session still
 takes a wake-up meanwhile: run `lem ask ask SPEC --timeout 86400` with the Bash tool's
 `run_in_background`, and without `--follow`, so that the card takes no focus. The session's turn
 then ends while the card is up, so a wake-up reaches it (the mailbox hook hands mail over between
-two turns, "A wake-up" in `task-session.md`), and the end of the command wakes it with the answer. Exit 4 after that wait is `lem ask wait PAGEID` the same way, again.
-Exit 2 (`dismissed`) is a card he closed with no answer. Exit 0 with `status: "chat"`, or a `text`
-with no option selected, is a question of his or a wish to talk: answer it in the session's
-conversation, and put the card up again with the same spec. The overlay covers that session only,
-so two tasks' sessions can show two cards at once, where one session shows one at a time (exit 5,
-`busy`). Not run yet: a card in a task's session.
+two turns, "A wake-up" in `task-session.md`), and the end of the command wakes it with the answer. For `result.outcome: "pending"`, run `lem ask wait PAGEID` the same way.
+The outcome `dismissed` means the owner closed the card. If the outcome is `chat`, or the
+answer has `text` and no selection on a choice question, answer the owner in the session's
+conversation and put up the same spec again. Each session can show one card. The outcome
+`busy` names the page when that session already shows one of its question pages.
 
 The card is on the board too: its row in "Waits for you" opens the same page, on the Mac or the
 phone, and his pick there ends the card's own command as a pick on the card does ("A card of a
-task's session" in lem-ask's `SKILL.md`); the command closes its own page first. The output's
+task's session" in lem-ask's `SKILL.md`); the command closes its own page first. The result's
 `from` says where the answer came from, `session` or `board`; a board answer also carries `via`
 (`local` or `door`), `device` (`phone` or `computer`) and a `said` line, and so does every answer
 when two came before the command read either. Say the `said` line in the session as it is, one
@@ -45,7 +43,7 @@ line: which answer was taken and from where. Then act on his pick as on his type
 decision `--by owner` with the note (the answer's `text`) as `--words`, and the card's `pageID`,
 `from`, `via` and `device` in `--why` ("his pick on the board, card PAGEID, via door, from the
 phone"), and go on. A note with no option and `chat`, above, stay as they are for a pick in the
-session: the board refuses both. Exit 2 with a `said` is a close or a dismissal on record.
+session: the board refuses both. The outcomes `closed` and `dismissed` end the card.
 
 ## inbox-reply
 
@@ -69,7 +67,7 @@ a thread only to answer a reply of his, as below.
 
 **The wake.** The server wakes the session with `lem: SLUG inbox` after it sent a question of the
 task, and after his reply came in a thread whose session no longer runs the task. Read `owner` of
-`lem project waiting`:
+`lem waiting --task SLUG`:
 
 - **He is away**, and this session waits for him on the task's row there: for a blocked task or
   an order of his that names no task, put up a card with a text answer, as "A card in a task's
@@ -89,11 +87,12 @@ task, and after his reply came in a thread whose session no longer runs the task
 message named (breaker N, the merge of the commit TIP, the plan, the blocked task, his order), and
 only while that thing still waits:
 
-1. Read `lem project tasks` before you act. When the task left that wait (his park on the board or
+1. Read `lem task show SLUG` before you act. When the task left that wait (his park on the board or
    his word at the Mac came first, the task is `parked`, a newer state block, another proposal than
    TIP), act on nothing. Answer in the thread, as yourself, that the question no longer applies and
    what took effect, as the board refuses a park whose breaker no longer waits (`act_park` in
-   `serve.py`). When its `board_answer` holds his answer from the board to that thing's row, the
+   `serve.py`). Read the task's `task.json` in the directory from `lem task dir SLUG`. If the matching
+   question there holds his answer from the board, the
    board's answer came first and counts: take it as `prompts/session.md`, "A wake-up", says, and
    say in one line in the session and in one line in the thread which answer was taken, from where,
    and that his reply came after it.
@@ -104,8 +103,8 @@ only while that thing still waits:
    and nothing is merged that he did not read; his "Not now" leaves the pull request open. An answer
    that asks something back or thinks aloud is no pick: say in the thread what you read, and wait
    for his yes there or at the Mac.
-3. Close the card when one is up (`lem ask close`: the card's own command then ends, as `dismissed`
-   by agterm's help, and that end is your close and needs no act), clear the waiting mark (its reverse in
+3. Close the card when one is up (`lem ask close`: the card's own command then returns the
+   outcome `closed`, which needs no act), clear the waiting mark (its reverse in
    `../claude-code.md`), and say in one line in the session and in one line in the thread that his
    answer came from the Inbox and what it did. Do this before the stage's own last act (the close
    of a parked or dropped task's session).
@@ -113,5 +112,4 @@ only while that thing still waits:
 A message from the Inbox that answers no such question (a tag, a reaction, a new thread of his, a
 reply with no answer picked) is his words in the session's conversation, never an answer to a thing
 that waits: answer it in its thread. When the thing of a card leaves its wait another way (his park
-on the board, a newer state block), close the card the same way. Not run yet: a reply of his from
-the Inbox in a task's session, and `lem ask close` on a real card.
+on the board, a newer state block), close the card the same way.
