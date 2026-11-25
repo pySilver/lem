@@ -66,7 +66,7 @@ def ok(envelope: Envelope) -> Envelope:
     return envelope
 
 
-def landing(world: World) -> dict[str, object]:
+def landing(world: World) -> Envelope:
     """The landing as the record holds it."""
     return world.record()["landing"]
 
