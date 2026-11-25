@@ -10,16 +10,16 @@ import msgspec
 import pytest
 
 from fakes.records import MOMENT
-from lem.app.decisions import writing
 from lem.app.sessions import acts, log
-from lem.board.acts import backlog, child
+from lem.app.tasks import taken
+from lem.board.acts import backlog, child, plugin
 from lem.board.acts.notes import NOTES
-from lem.kernel import clock
+from lem.kernel import clock, locks
 from lem.kernel.envelope import Envelope, Refused
 from lem.kernel.errors import Refusal
 from lem.model.task import claim, holds
 from lem.records.journal.task import OwnerAct
-from lem.store import places, tasks
+from lem.store import places, tasks, workspace
 from unit.board.acts.acts import made, opened, read
 
 if TYPE_CHECKING:
@@ -147,27 +147,78 @@ def test_the_board_uses_the_task_rule_for_the_item_holder(
         return holder.task
 
     monkeypatch.setattr(claim, "item_holder", lookup, raising=False)
-    _, note = where_to(board.post("/start", {"item": ITEM}))
-    assert note.state == "refused"
+    path, note = where_to(board.post("/start", {"item": ITEM}))
+    assert (path, note.state) == (f"{board.base}/tasks/item-task", "done")
     with pytest.raises(Refusal, match="item-task"):
         claim.claimed(holder, tasks.every(board.state), None)
     assert seen == [ITEM, ITEM]
 
 
-def test_the_boards_journal_write_retries_as_long_as_a_decision_write(
+def test_new_task_opens_even_when_a_later_journal_update_cannot_succeed(
     board: Board, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    update = tasks.update
-    stale = iter(range(writing.TRIES - 1))
-
-    def busy(state: Path, slug: str, change: tasks.Change, expect: int) -> Record:
-        if next(stale, None) is not None:
-            raise Refusal("stale", "another write came first", "try again")
-        return update(state, slug, change, expect)
+    def busy(*args: object) -> Record:
+        raise Refusal("stale", "another write came first", "try again")
 
     monkeypatch.setattr(tasks, "update", busy)
-    _, note = where_to(board.post("/start", {"words": WORDS}))
+    path, note = where_to(board.post("/start", {"words": WORDS}))
+    assert (path, note.state) == (f"{board.base}/tasks/{SLUG}", "done")
+    assert opens(board, SLUG) == ["new"]
+    entries = [
+        entry for entry in read(board, SLUG).journal if isinstance(entry, OwnerAct)
+    ]
+    assert [entry.act for entry in entries] == ["start"]
+
+
+def test_start_rechecks_the_item_after_drop_wins_the_claim(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    item(board, REVIEWER)
+    held_during_drop: list[bool] = []
+
+    def ran(checkout: Path, *words: str) -> Envelope:
+        lock = places.locks_folder(board.state) / workspace.LOCK
+        with locks.tried(lock) as available:
+            held_during_drop.append(available is None)
+        (checkout / words[-1]).unlink()
+        return Envelope(ok=True)
+
+    def after_drop(*args: object) -> None:
+        _, note = where_to(board.post("/backlog/drop", {"item": REVIEWER}))
+        assert note.state == "done"
+
+    monkeypatch.setattr(child, "ran", ran)
+    monkeypatch.setattr(taken, "checked", after_drop)
+    path, note = where_to(board.post("/start", {"item": REVIEWER}))
+    assert (path, note.state) == (f"{board.base}/backlog", "refused")
+    assert all(task.task.backlog_item != REVIEWER for task in tasks.every(board.state))
+    assert held_during_drop == [True]
+
+
+def test_two_starts_of_the_same_item_open_one_task_record_one_act_and_open_one_session(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    item(board, ITEM)
+    checked = plugin.checked
+    fields = {"item": ITEM}
+    first: list[str] = []
+
+    def after_first_start(checkout: Path) -> None:
+        monkeypatch.setattr(plugin, "checked", checked)
+        path, note = where_to(board.post("/start", fields))
+        assert note.state == "done"
+        first.append(path)
+
+    monkeypatch.setattr(plugin, "checked", after_first_start)
+    path, note = where_to(board.post("/start", fields))
+    assert [path] == first
     assert note.state == "done"
+    (saved,) = [
+        one for one in tasks.every(board.state) if one.task.backlog_item == ITEM
+    ]
+    entries = [one.act for one in saved.journal if isinstance(one, OwnerAct)]
+    assert entries == ["start"]
+    assert opens(board, saved.task.slug) == ["new"]
 
 
 def test_a_slug_that_runs_or_ended_or_no_words_is_refused_with_why(
@@ -193,7 +244,8 @@ def test_an_item_starts_as_its_stem_and_after_its_task_ended_with_2(
     assert (path, note.state) == (f"{board.base}/tasks/{stem}", "done")
     task = read(board, stem).task
     assert (task.ask, task.backlog_item) == (ITEM, ITEM)
-    _path, held = where_to(board.post("/start", {"item": ITEM}))
+    path, held = where_to(board.post("/start", {"item": ITEM}))
+    assert (path, held.state) == (f"{board.base}/tasks/{stem}", "done")
     assert held.said == f"This item has a task already: {stem}, shaping."
     ended = partial(holds.moved, status="dropped", line="dropped", now=MOMENT)
     tasks.update(board.state, stem, ended, read(board, stem).revision)
@@ -205,7 +257,7 @@ def test_an_item_outside_the_backlog_or_gone_starts_nothing(board: Board) -> Non
     path, outside = where_to(board.post("/start", {"item": "README.md"}))
     assert (path, outside.state) == (f"{board.base}/backlog", "refused")
     _path, gone = where_to(board.post("/start", {"item": ITEM}))
-    assert "No item" in gone.said
+    assert "the backlog item" in gone.said.lower()
 
 
 def dropped_by(monkeypatch: pytest.MonkeyPatch, printed: Envelope) -> list[tuple]:
@@ -242,7 +294,7 @@ def test_drop_is_refused_for_no_item_an_item_of_the_folder_and_one_a_task_holds(
     ]
     assert said[0].startswith("The drop names no item")
     assert "leaves it on a branch" in said[1]
-    assert said[2] == "This item has a task already: export-check, queued."
+    assert said[2].startswith("This item has a task already: export-check, queued.")
     assert calls == []
 
 

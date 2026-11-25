@@ -16,7 +16,7 @@ from msgspec.structs import replace
 
 from lem.records.base import Frozen
 
-type State = Literal["running", "done", "refused", "stands"]
+type State = Literal["running", "done", "refused", "stands", "uncertain"]
 type Merging = tuple[str, str]
 
 # How long a note stays, in seconds: long enough for a second look on the phone, short enough

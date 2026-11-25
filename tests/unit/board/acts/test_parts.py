@@ -142,9 +142,9 @@ def test_the_note_is_his_words_on_one_line_and_at_most_the_box_holds() -> None:
 
 
 def test_a_refusal_is_one_line_of_the_note() -> None:
-    assert line_of(
-        Refusal("x", "Pick an option first. Nothing was recorded.", "f")
-    ) == ("Pick an option first. Nothing was recorded.")
+    assert line_of(Refusal("x", "Nothing was recorded.", "pick an option first")) == (
+        "Nothing was recorded. Pick an option first."
+    )
     assert line_of(
         Refusal("no-task", "no task x here", "lem task list names the tasks")
     ) == ("No task x here: lem task list names the tasks.")

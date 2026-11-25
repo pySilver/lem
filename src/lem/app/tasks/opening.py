@@ -8,7 +8,7 @@ from lem.kernel import release
 from lem.kernel.errors import Refusal
 from lem.model.task import tickets
 from lem.records.base import Frozen, Moment
-from lem.records.journal.task import StateNoted
+from lem.records.journal.task import OwnerAct, StateNoted
 from lem.records.record import Record
 from lem.records.task import Task
 from lem.records.tickets import Ticket
@@ -35,6 +35,7 @@ class Asked(Frozen, frozen=True, kw_only=True):
     plan_only: bool = False
     backlog_item: str | None = None
     origin: str | None = None
+    owner_act: OwnerAct | None = None
 
 
 def ticket_of(asked: Asked, kind: Tracker | None) -> Ticket | None:
@@ -128,4 +129,5 @@ def fresh(
         mode_since=None if night is None else now,
     )
     entry = StateNoted(at=now, status=status, line="the task is open")
-    return Record(release=release.running(), task=task, journal=(entry,))
+    journal = (entry,) if asked.owner_act is None else (entry, asked.owner_act)
+    return Record(release=release.running(), task=task, journal=journal)

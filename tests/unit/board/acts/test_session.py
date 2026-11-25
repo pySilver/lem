@@ -10,6 +10,7 @@ from fakes.records import MOMENT
 from lem.app.sessions import acts, guard_steps, here, log
 from lem.board.acts import restarting
 from lem.kernel import clock
+from lem.ports.faults import Unanswered
 from lem.records.journal.task import OwnerAct
 from lem.store import places
 from unit.board.acts.acts import SLUG, made, note_of, opened, read
@@ -81,6 +82,23 @@ def test_the_button_opens_beside_the_stopped_session(board: Board) -> None:
     assert opens(board) == ["owner", "stopped"]
 
 
+def test_the_replacement_opens_even_when_agterm_cannot_rename_the_old_session(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stopped(board)
+
+    def rename(session: str, name: str) -> None:
+        raise Unanswered("agtermctl", "the old session disappeared")
+
+    monkeypatch.setattr(board.terminal, "rename", rename)
+    note = note_of(board.post(SESSION, {}))
+    assert note.state == "done"
+    assert "opened in agterm" in note.said
+    assert "agtermctl: the old session disappeared" in note.said
+    assert "agterm now names" not in note.said
+    assert opens(board) == ["owner", "stopped"]
+
+
 def test_a_stopped_session_that_is_gone_takes_the_open_of_a_task_with_none(
     board: Board,
 ) -> None:
@@ -98,7 +116,8 @@ def test_an_open_that_finds_work_says_so_and_opens_nothing(
     working = guard_steps.refused(SLUG, "session-1", "working")
     monkeypatch.setattr(guard_steps, "stepped", lambda *given: working)
     note = note_of(board.post(SESSION, {}))
-    assert (note.state, note.said) == ("refused", restarting.NOT_OPENED["working"])
+    assert note.state == "refused"
+    assert note.said.startswith(restarting.NOT_OPENED["working"])
     assert opens(board) == ["owner"]
 
 

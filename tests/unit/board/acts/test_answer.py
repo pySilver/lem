@@ -7,6 +7,7 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
+from msgspec.structs import replace
 
 from lem.app.criteria import typed
 from lem.app.tasks import resume
@@ -15,8 +16,11 @@ from lem.board.acts.asked import Asked
 from lem.board.acts.asker import Asker
 from lem.kernel import clock
 from lem.model.criteria import digest, waits
+from lem.model.owner import answers, turns
+from lem.records.approvals import PersonaRead
 from lem.records.holds import BreakerHold, OwnerHold, Parked
 from lem.records.journal.task import OwnerAct
+from lem.store import tasks
 from unit.board.acts.acts import SLUG, made, note_of, opened, read
 from unit.board.acts.conftest import PHONE
 from unit.criteria import world
@@ -120,7 +124,12 @@ def test_a_park_puts_the_task_aside_and_a_later_drop_is_told_which_answer_won(
     board: Board,
 ) -> None:
     breaker(board)
-    fields = {"key": KEY, "option": "park", "words": "wait for the export's owner"}
+    fields = {
+        "key": KEY,
+        "option": "park",
+        "confirm": "yes",
+        "words": "wait for the export's owner",
+    }
     note = note_of(board.post(ANSWER, fields))
     assert note.state == "done"
     assert note.said.startswith("The task is parked.")
@@ -141,13 +150,27 @@ def test_a_park_puts_the_task_aside_and_a_later_drop_is_told_which_answer_won(
     assert "You picked Park for the breaker at" in refused.said
 
 
+def test_park_without_confirmation_keeps_the_breaker_and_journal(board: Board) -> None:
+    breaker(board)
+    before = read(board)
+    note = note_of(board.post(ANSWER, {"key": KEY, "option": "park"}))
+    assert note.state == "refused"
+    assert "Park asks for a confirm first" in note.said
+    assert read(board) == before
+
+
+def test_the_board_and_the_answer_model_use_the_same_hold_question() -> None:
+    assert asking.standing is answers.standing
+
+
 @pytest.mark.parametrize("resumed_at", (SINCE, SINCE + timedelta(minutes=1)))
 def test_resume_issues_a_new_breaker_key_and_keeps_the_old_park(
     board: Board, monkeypatch: pytest.MonkeyPatch, resumed_at: datetime
 ) -> None:
     breaker(board)
     monkeypatch.setattr(clock, "now", lambda: SINCE)
-    assert note_of(board.post(ANSWER, {"key": KEY, "option": "park"})).state == "done"
+    fields = {"key": KEY, "option": "park", "confirm": "yes"}
+    assert note_of(board.post(ANSWER, fields)).state == "done"
     monkeypatch.setattr(clock, "now", lambda: resumed_at)
     resume.resumed(board.checkout, SLUG)
     current = asking.standing(read(board).task)
@@ -174,7 +197,7 @@ def test_drop_between_parks_first_check_and_its_write_wins_alone(
         return parked(asked)
 
     monkeypatch.setattr(answer.parking, "parked", after_drop)
-    note = note_of(board.post(ANSWER, {"key": KEY, "option": "park"}))
+    note = note_of(board.post(ANSWER, {"key": KEY, "option": "park", "confirm": "yes"}))
     assert note.state == "refused"
     assert "You picked Drop" in note.said
     record = read(board)
@@ -293,6 +316,35 @@ def test_criterion_6_yes_approves_the_bytes_the_page_showed(board: Board) -> Non
     assert task.hold is None
     acts = [one for one in read(board).journal if isinstance(one, OwnerAct)]
     assert [(one.act, one.option) for one in acts] == [("approve", "yes")]
+
+
+def test_an_old_criteria_form_cannot_answer_after_a_persona_read_starts(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shown = criteria(board)
+    approve = answer.approving.approved
+
+    def after_read_starts(asked: Asked) -> str:
+        before = read(board)
+        persona = PersonaRead(by="lem", started=SINCE)
+        pending = replace(before.task.criteria, reads=(persona,))
+        tasks.update(
+            board.state,
+            SLUG,
+            lambda record: replace(record, task=replace(record.task, criteria=pending)),
+            before.revision,
+        )
+        assert not turns.his_turn(read(board).task, alone=False)
+        return approve(asked)
+
+    monkeypatch.setattr(answer.approving, "approved", after_read_starts)
+    fields = {"key": criteria_key(), "option": "yes", "digest": shown}
+    note = note_of(board.post(ANSWER, fields, **{"user-agent": PHONE}))
+    assert note.state == "refused"
+    after = read(board)
+    assert (after.task.hold, after.task.criteria.approvals) == (world.WAITS, ())
+    assert after.task.questions == ()
+    assert not any(isinstance(one, OwnerAct) for one in after.journal)
 
 
 def test_two_yes_requests_past_the_first_check_write_one_approval_and_answer(
@@ -428,7 +480,7 @@ def test_a_plans_drop_asks_for_its_confirm_too(board: Board) -> None:
 
 def test_a_park_the_task_rules_refuse_records_nothing(board: Board) -> None:
     made(board, status="dropped", hold=BREAKER)
-    note = note_of(board.post(ANSWER, {"key": KEY, "option": "park"}))
+    note = note_of(board.post(ANSWER, {"key": KEY, "option": "park", "confirm": "yes"}))
     assert note.state == "refused"
     assert "an ended task stays ended" in note.said
     record = read(board)

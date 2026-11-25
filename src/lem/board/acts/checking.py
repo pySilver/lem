@@ -4,7 +4,7 @@
 The page names the question by its id. The answer is for the question the task's wait asks now,
 unanswered; one answered already says which answer took effect, and one whose wait ended or began
 again says what holds now. The option is one of the question's; Help and the criteria's No need
-the owner's words, and Drop its confirm.
+the owner's words, and Park and Drop their confirm.
 """
 
 from typing import TYPE_CHECKING
@@ -51,16 +51,17 @@ def option_of(question: Question, given: Given) -> str:
 
 def note_refusal(question: Question, option: str, given: Given) -> Refusal | None:
     """Why the option needs more than it got: words for Help and the criteria's No, the
-    confirm for Drop."""
+    confirm for Park and Drop."""
     if option == "help" and not given.note:
         why = f"Help needs your words for the lead. {NOTHING}"
         return Refusal("words", why, "write what the lead should hear")
     if question.topic == "criterion" and option == "no" and not given.note:
         why = f"No needs your words: what the criteria should say. {NOTHING}"
         return Refusal("words", why, "write what should change")
-    if option == "drop" and given.confirm != CONFIRM:
-        why = f"Drop asks for a confirm first: open Drop… and confirm there. {NOTHING}"
-        return Refusal("confirm", why, "confirm the drop on its step")
+    if option in {"park", "drop"} and given.confirm != CONFIRM:
+        label = asking.label_of(option)
+        why = f"{label} asks for a confirm first. {NOTHING}"
+        return Refusal("confirm", why, f"open {label}… and confirm there")
     return None
 
 

@@ -15,7 +15,8 @@ from msgspec.structs import replace
 
 from lem.app.decisions.writing import updated
 from lem.board.acts import asking, checking, noting
-from lem.model.owner import answers
+from lem.kernel.errors import Refusal
+from lem.model.owner import answers, turns
 from lem.records.questions import Answer
 
 if TYPE_CHECKING:
@@ -66,13 +67,24 @@ def answering(
     criteria the record held none of."""
     question = checking.question_of(record.task, asked.given.key)
     option = checking.checked(question, asked.given)
-    if question.topic == "criterion" and question.digest is None:
-        question = replace(question, digest=digest)
+    if question.topic == "criterion":
+        question = criteria_question(record.task, question, digest)
     task = answered(record.task, question, option, asked)
     entry = noting.act_of(
         act, asked.asker, asked.now, question=question.id, option=option
     )
     return noting.with_act(replace(record, task=task), entry)
+
+
+def criteria_question(task: Task, question: Question, digest: str | None) -> Question:
+    """The criteria's question, once no read has the owner's turn."""
+    if not turns.his_turn(task, alone=False):
+        raise Refusal(
+            "not-owner-turn",
+            "The criteria do not wait for the owner. Nothing was recorded.",
+            "read the task's page again after the persona read",
+        )
+    return replace(question, digest=digest) if question.digest is None else question
 
 
 def recorded(asked: Asked, digest: str | None = None) -> Record:

@@ -9,23 +9,30 @@ from his words opens its record and its session.
 """
 
 import os
+import threading
 import time
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlsplit
 
 from starlette.testclient import TestClient
 
-from fakes.records import MOMENT
+from fakes.records import MOMENT, record
+from fakes.repo import RealRepo
 from fakes.terminal import FakeTerminal
-from journeys.test_skeleton import SLUG, World, made, upto
+from journeys.test_skeleton import CRITERIA, SETTINGS, SLUG, World, made, upto
 from lem.app import wiring
 from lem.board import app, install, machine, workspaces
 from lem.board.acts.notes import NOTES
 from lem.board.facts import Facts
 from lem.kernel import paths
+from lem.model.criteria import digest
+from lem.model.task import owner_question
+from lem.ports.faults import Unanswered
 from lem.ports.place import Place
 from lem.ports.terminal import Pane
-from lem.store import tasks
+from lem.records.holds import OwnerHold
+from lem.records.journal.task import OwnerAct
+from lem.store import places, tasks
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -33,6 +40,7 @@ if TYPE_CHECKING:
     import pytest
 
     from lem.board.acts.notes import Note
+    from lem.ports.forge_facts import MergeMethod, MergeOutcome, MergeText
 
 PORT = 4998
 ORIGIN = f"http://127.0.0.1:{PORT}"
@@ -133,6 +141,89 @@ def test_on_a_base_another_merge_moved_his_approval_stands_and_a_second_press_me
     assert again is not None
     assert again.state == "stands"
     assert world.forge.merge_calls == []
+
+
+def test_a_lost_forge_reply_tells_the_owner_to_check_the_pull_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world, board, tip = proposed(tmp_path, monkeypatch, capsys)
+    merge = world.forge.merge
+
+    def lost(
+        number: int, head: str, method: MergeMethod, text: MergeText
+    ) -> MergeOutcome:
+        merge(number, head, method, text)
+        raise Unanswered("gh", "the connection closed before the reply")
+
+    monkeypatch.setattr(world.forge, "merge", lost)
+    token = board.post(f"/tasks/{SLUG}/merge", {"confirm": "yes", "tip": tip})
+    note = board.settled(token)
+    landing = world.record()["landing"]
+    pull = world.forge.pull(landing["pull"]["number"])
+    assert pull.state == "merged"
+    assert landing["intent"]["tip"] == tip
+    assert note.state == "uncertain", note.said
+    assert "Check the pull request on GitHub" in note.said
+    assert pull.url in note.said
+
+
+def test_criteria_approval_in_another_repository_does_not_wait_for_github(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world, board, tip = proposed(tmp_path, monkeypatch, capsys)
+    docs = RealRepo.init(tmp_path / "docs", {".lem/settings.toml": SETTINGS})
+    home = paths.home(os.environ)
+    workspaces.noted(home, docs.checkout)
+    host = machine.machine_name()
+    docs_name = workspaces.name_of(home, host, docs.checkout)
+    state = places.state_of(docs.checkout)
+    slug = "approve-the-docs"
+    hold = OwnerHold(
+        on="criteria", since=MOMENT, line="the criteria wait for the owner"
+    )
+    saved = tasks.create(state, record(slug, status="shaping", hold=hold))
+    question = owner_question.current(saved.task, hold)
+    assert question is not None
+    (places.task_folder(state, slug) / "criteria.md").write_text(CRITERIA)
+
+    reached, release = threading.Event(), threading.Event()
+    merge = world.forge.merge
+
+    def waits(
+        number: int, head: str, method: MergeMethod, text: MergeText
+    ) -> MergeOutcome:
+        reached.set()
+        assert release.wait(10), "the criteria approval waited for GitHub"
+        return merge(number, head, method, text)
+
+    monkeypatch.setattr(world.forge, "merge", waits)
+    token = board.post(f"/tasks/{SLUG}/merge", {"confirm": "yes", "tip": tip})
+    fields = {
+        "key": question.id,
+        "option": "yes",
+        "digest": digest.shown(CRITERIA.encode()),
+    }
+    try:
+        assert reached.wait(10), "the merge did not reach GitHub"
+        reply = board.client.post(
+            f"/{host}/{docs_name}/tasks/{slug}/answer",
+            data=fields,
+            headers=SENT,
+            follow_redirects=False,
+        )
+        assert reply.status_code == 303, reply.text
+        approval = tasks.read(state, slug)
+        assert [(one.by, one.number) for one in approval.task.criteria.approvals] == [
+            ("owner", 1)
+        ]
+        (entry,) = [one for one in approval.journal if isinstance(one, OwnerAct)]
+        assert entry.act == "approve"
+        running = NOTES.get(token)
+        assert running is not None and running.state == "running"
+    finally:
+        release.set()
+        note = board.settled(token)
+    assert note.state == "done", note.said
 
 
 def test_a_new_task_from_his_words_opens_its_record_and_its_session(

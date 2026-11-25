@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
-from lem.model.task import breaker_question, owner_question
+from lem.model.owner.hold_question import standing
+from lem.model.task import owner_question
 from lem.records.holds import BreakerHold, OwnerHold
 
 if TYPE_CHECKING:
@@ -77,11 +78,8 @@ def newer_of(task: Task, asked: Question) -> str | None:
     """The id of the question that replaced `asked`, or None. Cards are independent."""
     if asked.topic == "card":
         return None
-    hold = task.hold
-    if isinstance(hold, BreakerHold):
-        newest = breaker_question.current(task, hold)
-    elif isinstance(hold, OwnerHold):
-        newest = owner_question.current(task, hold)
+    if isinstance(task.hold, (BreakerHold, OwnerHold)):
+        newest = standing(task)
     else:
         newest = newest_of(task, asked.topic)
     return newest.id if newest is not None and newest.id != asked.id else None

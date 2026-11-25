@@ -6,6 +6,7 @@ of which name it.
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
+from lem.app.tasks.opening import REVIEWER_ITEMS
 from lem.app.tasks.opening import Asked as Opening
 from lem.board.acts import slugs
 from lem.kernel.errors import Refusal
@@ -18,24 +19,21 @@ if TYPE_CHECKING:
 # The longest words of a new task, in characters (`serve.WORDS_CHARS` on `main`).
 WORDS_CHARS = 2000
 # The folders a task starts from: the backlog's and the reviewer's.
-ITEM_FOLDERS = ("docs/backlog", ".lem/state/backlog")
+ITEM_FOLDERS = ("docs/backlog", REVIEWER_ITEMS)
+
+
+def reviewer_path(path: str) -> bool:
+    """Whether an item's path is in the reviewer's folder."""
+    return str(PurePosixPath(path).parent) == REVIEWER_ITEMS
 
 
 def item_of(asked: Asked, every: tuple[Record, ...]) -> Opening:
-    """The task of the backlog item the form names; refused for a path outside the backlog,
-    one that is not there, and one a task holds."""
+    """The task of the backlog item the form names; refused for a path outside the backlog."""
     path = asked.given.path.strip()
     parent = str(PurePosixPath(path).parent)
     if parent not in ITEM_FOLDERS or not path.endswith(".md"):
         why = f"{path} is no item of the backlog: nothing was started."
         raise Refusal("item", why, "read the backlog again")
-    if not (asked.checkout / path).is_file():
-        why = f"No item {path} is in the backlog now: nothing was started."
-        raise Refusal("item-gone", why, "read the backlog again")
-    holding = claim.item_holder(path, every)
-    if holding is not None:
-        why = f"This item has a task already: {holding.slug}, {holding.status}."
-        raise Refusal("item-held", why, f"go on with {holding.slug}")
     slug = slugs.item_slug(path, every)
     return Opening(slug=slug, ask=path, backlog_item=path)
 

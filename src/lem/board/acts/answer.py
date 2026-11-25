@@ -1,6 +1,6 @@
 """`POST /HOST/WORKSPACE/tasks/SLUG/answer`: the owner's answer to a question of the board, from
 its form: the question's id (`key`), the option, his note (`words`), the digest the page showed,
-and Drop's confirm (`serve.act_answer` on `main`; `surfaces.md` B).
+and the confirm for Park or Drop (`serve.act_answer` on `main`; `surfaces.md` B).
 
 A breaker takes Help, Park or Drop; a plan Build or Drop; the skip of the persona read and the
 criteria Yes or No. Park puts the task aside (`parking.py`), the criteria's Yes approves the

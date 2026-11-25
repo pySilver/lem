@@ -33,8 +33,8 @@ note, never an error page.
   never disagree on the id. `asking.OPTIONS` gives each topic's options in their order.
 - **The criteria's `digest`** is `model.criteria.digest.shown` of `criteria.md`'s bytes: the act
   compares it with the file, and the approval approves those bytes or nothing.
-- **Park and Drop** post to `.../answer` with `option` `park` or `drop` (Drop with `confirm=yes`);
-  the park's confirm step posts the same form with his line in `words`. There is no
+- **Park and Drop** post to `.../answer` with `option` `park` or `drop` and the hidden field
+  `confirm=yes` from their confirm steps. The Park step sends his line in `words`. There is no
   `.../park` or `.../approve` address.
 - **Amendment A4**: the merge's confirm step says Approve. The button's label is "Approve" (its
   `busy` "Approving…"), not "Merge pull request #44" as `fixtures/board/panel.MERGE_STEP` has it;
@@ -46,8 +46,9 @@ note, never an error page.
 ## For `board-pages`
 
 - **The note after an act**: the 303 names `?note=TOKEN`; `lem.board.acts.notes.NOTES.get(token)`
-  gives a `Note` (`task`, `act`, `state`: `running`, `done`, `refused` or `stands`, `said`), or
-  None once it is an hour old. The page makes it the `Page.note` input (`board/inputs/parts.Note`).
+  gives a `Note` (`task`, `act`, `state`: `running`, `done`, `refused`, `stands` or
+  `uncertain`, `said`), or None once it is an hour old. The page makes it the `Page.note` input
+  (`board/inputs/parts.Note`). For `uncertain`, show the instruction to check GitHub.
 - **The jump** is `POST {Head.jump}/{SESSION}` with no body, as the design names it, in the place
   of `main`'s `POST .../agterm/select` with `{"session": ...}`; it answers JSON `{"done": bool,
   "said": str}` as before. The `agterm` controller of `tools/board-kit` posts there.
@@ -66,8 +67,10 @@ note, never an error page.
 `lem proposals drop PATH` is run by the board as `lem --repo CHECKOUT proposals drop PATH`, with
 `LEM_SERVE=off`. It prints the envelope with `result.proposals`, the names of the proposals whose
 day's record keeps the drop, and removes the file; a refusal's why and fix are the board's note.
-The board refuses before it an empty path, an item of `docs/backlog`, and an item a task that did
-not end holds.
+The board refuses an empty path, an item of `docs/backlog`, and an item an open task holds.
+The board holds the workspace claim lock across the holder check and child call. When
+`addons-flow` implements the drop, the command must hold that lock across its own holder check
+and file removal. Move the lock to the command in the same change so both entry points use it.
 
 The ledger row for file removal and the saved verdict moves to `addons-flow`. The board test
 uses a stand-in for the command. The rebuilt add-on's test must prove both effects, as

@@ -40,6 +40,8 @@ def beside(asked: Asked) -> str | None:
     if not acted.acted:
         why = NOT_OPENED.get(acted.why or "", acted.say)
         raise Refusal("not-opened", why, "read the task's page again")
+    if acted.problem is not None:
+        return f"A session of the task opened in agterm. {GOES_ON} {acted.problem}"
     slug = asked.slug
     return (
         f"A session of the task opened in agterm beside the one that stopped, which "

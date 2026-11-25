@@ -5,12 +5,12 @@ approval stands, or that its merge runs (`serve.act_merge` on `main`).
 
 from typing import TYPE_CHECKING
 
+from lem.app.owner import forge
 from lem.app.tasks import release
-from lem.board.acts import merging
+from lem.board.acts import merge_status, merging
 from lem.board.acts.asked import refused
 from lem.board.acts.notes import Note
 from lem.kernel.errors import Refusal
-from lem.model.landing import merge_standing
 
 if TYPE_CHECKING:
     from lem.board.acts.asked import Asked
@@ -50,10 +50,16 @@ def note_of(asked: Asked) -> Note:
         record = checked(asked)
     except Refusal as refusal:
         return refused(ACT, asked.slug, refusal)
-    if merge_standing.standing_of(record) is not None:
+    if merge_status.standing(record) is not None:
         return Note(
             task=asked.slug, act=ACT, state="stands", said=merging.stands(record)
         )
+    if forge.conflicts(forge.read(asked.state), record):
+        why = (
+            "GitHub reports a conflicting pull request. "
+            "The task’s session brings it onto the base first."
+        )
+        return Note(task=asked.slug, act=ACT, state="refused", said=why)
     what = merging.what_of(record)
     said = (
         f"Lem merges {what} on your approval. The page shows the result when it ends."

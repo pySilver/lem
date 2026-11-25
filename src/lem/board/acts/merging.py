@@ -13,10 +13,10 @@ through a new landing after a conflict too, while the reasons he saw are the sam
 from typing import TYPE_CHECKING
 
 from lem.app.landing import merge
+from lem.board.acts import merge_status
 from lem.board.acts.asked import line_of
 from lem.board.acts.notes import NOTES, State
 from lem.kernel.errors import Fault, Refusal
-from lem.model.landing import merge_standing
 from lem.model.landing.merge_asked import Asked as Merging
 from lem.settings.load import settings_of
 from lem.store import tasks
@@ -48,7 +48,7 @@ def what_of(record: Record) -> str:
 
 def stands(record: Record) -> str:
     """The line of his approval that stands for the proposed tip."""
-    found = merge_standing.standing_of(record)
+    found = merge_status.standing(record)
     tip = found.tip[:SHORT] if found else "the proposed tip"
     return (
         f"Your approval of {what_of(record)} at {tip} stands: the base moved after the "
@@ -92,7 +92,9 @@ def said_of(asked: Asked) -> Said:
         merge.run(asked.checkout, asked.slug, asked_for(asked))
     except Refusal as refusal:
         record = tasks.read(asked.state, asked.slug)
-        if merge_standing.standing_of(record) is not None:
+        if refusal.code == "intent":
+            return "uncertain", line_of(refusal)
+        if merge_status.standing(record) is not None:
             return "stands", stands(record)
         return REFUSED, line_of(refusal)
     return outcome(tasks.read(asked.state, asked.slug), base)
@@ -105,7 +107,11 @@ def merged(asked: Asked, token: str, key: Key) -> None:
     try:
         said = said_of(asked)
     except Fault as fault:
-        said = (REFUSED, f"The merge failed: {fault}.")
+        pending = merge_status.uncertain(tasks.read(asked.state, asked.slug))
+        if pending is None:
+            said = (REFUSED, f"The merge failed: {fault}.")
+        else:
+            said = ("uncertain", pending)
     finally:
         NOTES.change(token, *said)
         NOTES.ended(key)

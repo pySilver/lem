@@ -37,13 +37,17 @@ class Asked:
 
 
 def line_of(refusal: Refusal) -> str:
-    """A refusal as one line of a note: its why, and the fix when the why does not end it."""
+    """A refusal's reason and its distinct recovery instruction."""
     why = refusal.why
-    if why.endswith("."):
+    fix = refusal.fix.rstrip(".")
+    if why.casefold().endswith(f"{fix.casefold()}."):
         return why
+    if why.endswith((".", "?", "!")):
+        sentence = fix[:1].upper() + fix[1:]
+        return f"{why} {sentence}."
     first = why[:1].upper()
     rest = why[1:]
-    return f"{first}{rest}: {refusal.fix}."
+    return f"{first}{rest}: {fix}."
 
 
 def refused(act: str, slug: str | None, refusal: Refusal) -> Note:

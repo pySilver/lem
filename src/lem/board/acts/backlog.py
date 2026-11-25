@@ -8,19 +8,18 @@ proposes it again: the proposals are an add-on, whose command runs as a process 
 (`child.py`). No task's journal gets the drop: no task is its.
 """
 
-from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 import msgspec
 from starlette.concurrency import run_in_threadpool
 
-from lem.app.tasks.opening import REVIEWER_ITEMS
-from lem.board.acts import acting, back, child
+from lem.board.acts import acting, back, child, starting
 from lem.board.acts import asked as owner
 from lem.board.acts.notes import Note
+from lem.kernel import locks
 from lem.kernel.errors import Refusal
 from lem.model.task import claim
-from lem.store import tasks
+from lem.store import places, tasks, workspace
 
 if TYPE_CHECKING:
     from starlette import requests, responses
@@ -35,24 +34,27 @@ class Dropped(msgspec.Struct, frozen=True, kw_only=True):
     proposals: tuple[str, ...] = ()
 
 
-def checked(asked: owner.Asked) -> str:
-    """The path of the item the drop names; refused for none, for an item of the backlog
-    folder, and for one a task holds."""
+def path_of(asked: owner.Asked) -> str:
+    """The path of the reviewer's item the drop names."""
     path = asked.given.path.strip()
     if not path:
         why = "The drop names no item: open the backlog again, and press Drop on the item."
         raise Refusal("item", why, "press Drop on the item")
-    if str(PurePosixPath(path).parent) != REVIEWER_ITEMS:
+    if not starting.reviewer_path(path):
         why = (
             f"{path} is an item of the backlog folder, which leaves it on a branch: "
             "nothing was dropped."
         )
         raise Refusal("item-folder", why, "remove it on a branch")
+    return path
+
+
+def unheld(asked: owner.Asked, path: str) -> None:
+    """Refuse the drop when a task claims the item."""
     holding = claim.item_holder(path, tasks.every(asked.state))
     if holding is not None:
         why = f"This item has a task already: {holding.slug}, {holding.status}."
         raise Refusal("item-held", why, f"drop the task {holding.slug} first")
-    return path
 
 
 def names_of(outcome: msgspec.Raw | None) -> str:
@@ -63,8 +65,11 @@ def names_of(outcome: msgspec.Raw | None) -> str:
 
 def said_of(asked: owner.Asked) -> str:
     """Drop the item, and say so."""
-    path = checked(asked)
-    printed = child.ran(asked.checkout, "proposals", "drop", path)
+    path = path_of(asked)
+    state = places.state_of(asked.checkout)
+    with locks.held(places.locks_folder(state) / workspace.LOCK):
+        unheld(asked, path)
+        printed = child.ran(asked.checkout, "proposals", "drop", path)
     if printed.refusal is not None:
         refused = printed.refusal
         raise Refusal(refused.code, refused.why, refused.fix)

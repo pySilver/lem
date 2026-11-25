@@ -7,17 +7,20 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
+import msgspec
 import pytest
 from msgspec.structs import replace
 
 from fakes.records import MOMENT
+from lem.app.landing import reconcile
+from lem.app.owner import forge
 from lem.board.acts import merging, noting
 from lem.board.acts.notes import NOTES
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.landing import merge_standing
 from lem.records.holds import BreakerHold
-from lem.records.landing.merge import MergeAccepted
+from lem.records.landing.merge import MergeAccepted, Refused
 from lem.records.landing.propose import Proposed, Standing
 from lem.records.landing.record import Landing, Pull
 from lem.store import tasks
@@ -115,8 +118,91 @@ def test_a_task_that_is_not_open_is_not_merged(board: Board) -> None:
     note = note_of(board.post(MERGE, {"tip": TIP, "confirm": "yes"}))
     assert (note.state, note.said) == (
         "refused",
-        f"{SLUG} is not open for a merge now: it is building.",
+        f"{SLUG} is not open for a merge now: it is building. Read the task's page again.",
     )
+
+
+def test_a_stale_merge_tip_tells_the_owner_to_read_the_confirm_step_again(
+    board: Board,
+) -> None:
+    opened_pull(board)
+    note = note_of(board.post(MERGE, {"tip": BASE, "confirm": "yes"}))
+    assert note.state == "refused"
+    assert note.said.endswith("Read the confirm step again.")
+
+
+def test_a_known_conflict_refuses_a_fresh_approval_before_it_can_stand(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opened_pull(board)
+    look = forge.Look(seen={SLUG: forge.Seen(head=TIP, mergeable=forge.CONFLICTING)})
+    (board.state / forge.LOOK).write_bytes(msgspec.json.encode(look))
+    before = read(board)
+    calls: list[Asked] = []
+    monkeypatch.setattr(merging.merge, "run", accepting(calls))
+    token = token_of(board, {"tip": TIP, "confirm": "yes"})
+    note = settled(board, token)
+    assert note.state == "refused"
+    assert "conflicting" in note.said
+    assert "brings it onto the base" in note.said
+    assert read(board) == before
+    assert calls == []
+
+
+def test_an_approval_already_on_record_stands_when_the_forge_reports_a_conflict(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opened_pull(board)
+    before = read(board)
+    assert before.landing is not None
+    reasons = merge_standing.digest_of(merge_standing.reasons_now(before))
+    standing = Standing(tip=TIP, reasons_digest=reasons, by_act="board", at=MOMENT)
+    landing = replace(before.landing, standing=standing)
+    saved = tasks.update(
+        board.state,
+        SLUG,
+        lambda record: replace(record, landing=landing),
+        before.revision,
+    )
+    look = forge.Look(seen={SLUG: forge.Seen(head=TIP, mergeable=forge.CONFLICTING)})
+    (board.state / forge.LOOK).write_bytes(msgspec.json.encode(look))
+    calls: list[Asked] = []
+    monkeypatch.setattr(merging.merge, "run", accepting(calls))
+    note = settled(board, token_of(board, {"tip": TIP, "confirm": "yes"}))
+    assert note.state == "stands"
+    assert read(board) == saved
+    assert calls == []
+
+
+def test_githubs_refusal_of_the_current_tip_allows_a_fresh_approval(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opened_pull(board)
+    before = read(board)
+    assert before.landing is not None
+    refused = Refused(
+        tip=TIP,
+        source="github",
+        kind="rule",
+        line="checks required",
+        by="owner",
+        at=MOMENT,
+    )
+    reasons = merge_standing.digest_of(merge_standing.reasons_now(before))
+    standing = Standing(tip=TIP, reasons_digest=reasons, by_act="board", at=MOMENT)
+    landing = replace(before.landing, standing=standing)
+    tasks.update(
+        board.state,
+        SLUG,
+        lambda record: reconcile.taken(replace(record, landing=landing), found=refused),
+        before.revision,
+    )
+    calls: list[Asked] = []
+    monkeypatch.setattr(merging.merge, "run", accepting(calls))
+    token = token_of(board, {"tip": TIP, "confirm": "yes"})
+    note = settled(board, token)
+    assert note.state == "done", note.said
+    assert [asked.tip for asked in calls] == [TIP]
 
 
 def test_his_approval_merges_as_his_word_through_the_board_and_says_what_came_of_it(

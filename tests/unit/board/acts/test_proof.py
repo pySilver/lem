@@ -10,6 +10,10 @@ CONFIRM = (
     "check:tests/lem-board-act.sh:"
     "a-merge-runs-only-from-its-confirm-step-whic-19fa3f5502064637"
 )
+WHILE_GITHUB_HOLDS = (
+    "check:tests/lem-board-act.sh:"
+    "while-github-holds-a-merge-from-the-board-th-60bb6d1ab4b705da"
+)
 
 
 def proof_of(key: str) -> str:
@@ -25,6 +29,15 @@ def test_the_merge_confirmation_row_cites_the_refusal_without_confirmation() -> 
     assert proof_of(CONFIRM).endswith(
         "test_a_merge_runs_only_from_its_confirm_step_and_for_the_tip_proposed_now"
         "[fields0-A merge runs only from its confirm step]"
+    )
+
+
+def test_the_merge_parallelism_row_cites_a_criteria_approval_in_another_repository() -> (
+    None
+):
+    assert proof_of(WHILE_GITHUB_HOLDS) == (
+        "journeys.test_acts."
+        "test_criteria_approval_in_another_repository_does_not_wait_for_github"
     )
 
 

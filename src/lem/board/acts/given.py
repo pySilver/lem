@@ -1,6 +1,6 @@
 """The form of an act, as the board's page posts it (`board/inputs/forms.py`): the question's id
 (`key`), the option, the owner's note (`words`), the digest the page showed, the confirm of a
-drop or a merge, the commit the merge's step showed (`tip`), a backlog item's path (`item`), the
+park, drop or merge, the commit the merge's step showed (`tip`), a backlog item's path (`item`), the
 view under the panel (`in`) and the tab (`tab`).
 
 A form is a few short fields and a note: one over `FORM_BYTES` is no form of the board's.

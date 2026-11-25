@@ -5,11 +5,12 @@ checkout) (`serve.act_start` on `main`; `surfaces.md` B).
 The task is `lem task open SLUG --ask ASK`, with his words, or the item's path, as its ask, and
 its session `lem session open SLUG --why new`, with no focus. The workspace's claim lock holds
 the scan of every record with the new one (`app/tasks/open.py`), so an item two starts name
-gets one task. A slug of a task that did not end is refused, and so is an item a task holds.
+gets one task. An item a task holds leads back to that task.
 """
 
 from typing import TYPE_CHECKING
 
+from msgspec.structs import replace
 from starlette.concurrency import run_in_threadpool
 
 from lem.app.sessions import here, opening
@@ -23,8 +24,6 @@ from lem.store import tasks
 if TYPE_CHECKING:
     from starlette.requests import Request
     from starlette.responses import Response
-
-    from lem.app.tasks.opening import Asked as Opening
 
 ACT = "start"
 
@@ -43,25 +42,29 @@ def session_said(asked: Asked, slug: str) -> str:
     )
 
 
-def task_of(asked: Asked) -> Opening:
-    """Open the task the form names, and give what it opened with."""
+def task_of(asked: Asked) -> opened.Opened:
+    """Open the task the form names, with its journal entry in the first record."""
     given = starting.opening_of(asked, tasks.every(asked.state))
     plugin.checked(asked.checkout)
-    opened.opened(asked.checkout, given)
-    return given
+    entry = noting.act_of(ACT, asked.asker, asked.now)
+    return opened.opened(asked.checkout, replace(given, owner_act=entry))
 
 
 def started(asked: Asked) -> Note:
     """Open the task and its session, and the note, which names the task once it is on
     record."""
     try:
-        given = task_of(asked)
+        made = task_of(asked)
     except Refusal as refusal:
         return refused(ACT, None, refusal)
-    entry = noting.act_of(ACT, asked.asker, asked.now)
-    noting.noted(asked.state, given.slug, entry)
-    said = session_said(asked, given.slug)
-    return Note(task=given.slug, act=ACT, state="done", said=said)
+    slug = made.slug
+    if not made.made:
+        if asked.given.path:
+            said = f"This item has a task already: {slug}, {made.status}."
+        else:
+            said = f"The task {slug} is on record already."
+        return Note(task=slug, act=ACT, state="done", said=said)
+    return Note(task=slug, act=ACT, state="done", said=session_said(asked, slug))
 
 
 async def endpoint(request: Request) -> Response:
