@@ -258,3 +258,25 @@ def test_set_local_from_a_tasks_worktree_writes_the_main_checkouts_file(
     assert shown["settings"]["seats"]["reviewer"] == "codex/gpt-6.2-sol:high"
     assert shown["from"]["seats.reviewer"] == ".lem/settings.local.toml"
     assert shown["seats"]["reviewer"]["agent"] == "codex"
+
+
+def test_a_set_the_repositorys_settings_refuse_writes_nothing(tmp_path: Path) -> None:
+    before = b"# the owner's\n[seats]\nmerger = 'codex'\n"
+    setup = given(tmp_path, team="[branch]\nbse = 'main'\n")
+    (setup.checkout / LOCAL).write_bytes(before)
+    with pytest.raises(Refusal) as caught:
+        set_in(setup, "seats.reviewer", "codex/a:high", Scope.local)
+    assert "did you mean base?" in caught.value.fix
+    assert (setup.checkout / LOCAL).read_bytes() == before
+
+
+def test_a_reset_keeps_the_owners_comment_on_the_tables_header(tmp_path: Path) -> None:
+    text = "[seats] # keep this note\nreviewer = 'codex/a:high'\n"
+    setup = given(tmp_path, local=text)
+    set_in(setup, "seats.reviewer", "default", Scope.local)
+    assert "# keep this note" in (setup.checkout / LOCAL).read_text()
+
+
+def test_set_writes_the_status_map_of_the_question_page(tmp_path: Path) -> None:
+    said = set_in(given(tmp_path), "ask.status", '{asking = ["blocked"]}', Scope.home)
+    assert said.in_force == {"asking": ("blocked",)}

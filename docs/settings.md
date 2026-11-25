@@ -34,8 +34,8 @@ merges). When your main checkout is on another branch than the base, Lem reads
 `lem settings set KEY VALUE --local`, `--home` or `--machine` writes one line of
 `.lem/settings.local.toml`, `~/.config/lem/settings.toml` or `~/.config/lem/machine.toml`. KEY is
 `TABLE.KEY`, as in the tables below. VALUE `default` removes the line. The other lines and the
-comments of the file stay. Lem checks the file before it writes it: a wrong value stops the
-command, and the file stays as it was. No command writes `.lem/settings.toml`: you edit it and
+comments of the file stay. Lem checks all the settings with the new line before it writes it: a
+wrong value in any file stops the command, and the file stays as it was. No command writes `.lem/settings.toml`: you edit it and
 commit it.
 
 ## Where each table is valid

@@ -7,9 +7,9 @@ its key takes, never checked here.
 """
 
 import contextlib
+import tomllib
 
 from lem.kernel.errors import Refusal
-from lem.settings import places
 
 DEFAULT = "default"
 EXPERTS = "seats.experts"
@@ -25,10 +25,8 @@ YES_NO = (
 # A word that one key takes for a number: the load gate's `none` takes the gate away.
 NUMBER_WORDS = (("load.start", "none", 0),)
 
-# What a table only the team's file holds takes: the edit of that file by hand.
-HAND = f"edit {places.TEAM} by hand and commit it: no command writes the team's file"
 
-type Typed = str | bool | int | float | list[str]
+type Typed = str | bool | int | float | list[str] | dict[str, object]
 
 
 def number(word: str) -> int | float | None:
@@ -57,12 +55,26 @@ def typed(key: str, word: str) -> Typed | None:
     """What `word` writes for `key`; None for `default`, which takes the line out."""
     if word == DEFAULT:
         return None
+    if word.startswith(("{", "[")):
+        return toml_value(key, word)
     if key == EXPERTS:
         return [part.strip() for part in word.split(",")]
     for found in (yes_or_no(word), number_word(key, word), number(word)):
         if found is not None:
             return found
     return word
+
+
+def toml_value(key: str, word: str) -> Typed:
+    """A value written as TOML writes it, an inline table or a list (`ask.status`)."""
+    try:
+        return tomllib.loads(f"value = {word}")["value"]
+    except tomllib.TOMLDecodeError as error:
+        raise Refusal(
+            "settings",
+            f"{key} = {word} does not read as TOML: {error}",
+            'write it as TOML writes it, as {asking = ["blocked"], answered = ["active"]}',
+        ) from error
 
 
 def table_key(key: str) -> tuple[str, str]:
@@ -75,20 +87,3 @@ def table_key(key: str) -> tuple[str, str]:
             "name it as docs/settings.md does, as seats.reviewer or load.start",
         )
     return table, name
-
-
-def writable(table: str, scope: places.Scope, named: str) -> None:
-    """Refuse a table the file of `scope` may not hold; the team's file is edited by hand."""
-    valid = places.valid(table)
-    if scope in valid:
-        return
-    raise Refusal(
-        "table-place", f"{named} may not hold [{table}]", where_written(valid)
-    )
-
-
-def where_written(valid: places.Scopes) -> str:
-    """The flags that write a table valid in `valid`, or the edit by hand of the team's file."""
-    flags = [f"--{one}" for one in valid if one != places.Scope.team]
-    listed = " or ".join(flags)
-    return f"write it with {listed}" if flags else HAND

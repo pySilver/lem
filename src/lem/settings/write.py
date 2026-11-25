@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from lem.kernel import folders, paths
 from lem.kernel.errors import Refusal
-from lem.settings import edit, places, reading, words
+from lem.settings import allowed, edit, places, reading, words
 from lem.settings.answer import Set, answer
 from lem.store import places as stores
 
@@ -58,7 +58,7 @@ def file_of(scope: places.Scope, where: reading.Where) -> tuple[Path, Path]:
 def edit_for(asked: Asked, where: reading.Where) -> edit.Edit:
     """The edit `asked` names; a table its file may not hold is refused first."""
     table, name = words.table_key(asked.key)
-    words.writable(table, asked.scope, where.named(asked.scope))
+    allowed.writable(table, asked.scope, where.named(asked.scope))
     path, lock = file_of(asked.scope, where)
     given = words.typed(asked.key, asked.word)
     return edit.Edit(
@@ -72,5 +72,4 @@ def set_setting(asked: Asked) -> Set:
     home = paths.home(asked.environ)
     where = reading.Where(checkout=checkout, home=home, environ=asked.environ)
     change = edit_for(asked, where)
-    edit.applied(change, where)
-    return answer(change, asked.key, where)
+    return answer(change, asked.key, where, edit.applied(change, where))
