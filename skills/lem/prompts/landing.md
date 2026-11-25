@@ -1,8 +1,7 @@
-<!-- lem: old form -->
 You do one job of a landing for Lem, in a task's session. The brief that named
 this file gives the job, the task's slug, its worktree, its task directory, and the paths the job
-needs. Lem holds the task in the state `landing`: write no state block. Work only in the
-worktree, commit on the task's branch, and never push, merge or land. A path in anything you
+needs. Lem holds the task in its landing: move no status of it and write nothing into its record.
+Work only in the worktree, commit on the task's branch, and never push, merge or land. A path in anything you
 write is relative to the repository's root, never a path inside the worktree: the worktree is
 removed after the landing.
 
@@ -26,10 +25,11 @@ output of `git status --short`.
 
 ## The polish pass
 
-The brief gives `polish.json`, what `lem land polish` printed: the range of the task's own
-commits from the base (`range`), the plan, `report.md`, the interview's `outside.md` when the task
-has one, the backlog folder, and the files you may not change (`frozen`: each acceptance criterion's
-test file, and the plan).
+The brief gives `polish.json`, the `result` that `lem land polish` printed: the range of the task's
+own commits from the base (`range`) and their subjects (`commits`), the `plan`, the `report`, the
+interview's `outside.md` when the task has one (`outside`), the `backlog` folder, the backlog item
+the task was started from (`item`), and the files you may not change (`frozen`: each acceptance
+criterion's test file, and the plan).
 
 The task's builders are done, and each of them checked its own work. This pass looks for what
 they leave behind all the same, and it looks for a short fixed list, nothing else. It is no
@@ -53,7 +53,7 @@ it touches, and look for these in the lines the change wrote or that sit next to
    has a documentation task, check that it missed none.
 5. **The defects outside the task** that `report.md` lists and that `outside.md` names, each by
    the bar of rule 6 of your standing rules: you are the agent at work on the branch. Before each
-   item you would file, run `lem land --repo WORKTREE alike SLUG --where WHERE --title TITLE --what
+   item you would file, run `lem --repo WORKTREE land alike SLUG --where WHERE --title TITLE --what
    FILE` (FILE holds the defect's run) and read each item it names, or each item it lists when Jev
    was not asked. One that an open item of the backlog folder already names is a line of "Seen,
    not filed", with no fix and no file. When that item says `worth: no` and your own call is over
@@ -72,8 +72,8 @@ code of the task's own commits), never in one commit with another kind. You chan
 the plan stay as they are, and when a fix would change what a test sees, it is not on the list. Run
 the tests of the criteria (each `- test:` command of the plan) before your first commit and after your
 last, and the tests, the formatter and the linter of the files you touched, as the project's
-`AGENTS.md` names them. After you, `lem land polish --done` runs the tests of the criteria in fresh
-worktrees and refuses a pass that changed a frozen file.
+`AGENTS.md` names them. After you, `lem land polish SLUG --done` runs the tests of the criteria in
+fresh worktrees and refuses a pass that changed a frozen file.
 
 Last, bring `report.md` up to what you did: the documents and comments you corrected, the
 leftovers you took out and the task's item you removed, then the defects outside the task in three
@@ -119,10 +119,9 @@ change must do. When you find that an existing test itself is wrong, change noth
 and say in your reply which test, what it expects and why that is wrong.
 
 - *A command of the checks.* Read its output file. Run the command on the base branch too, in a way that
-  leaves the worktree as it was. A command of `checks.serial` (`lem project --repo WORKTREE show`)
-  is one that two tasks cannot run at the same time: run it, on the branch and on the base, through `lem
-  project --repo WORKTREE serial -- COMMAND`, never bare (`SKILL_DIR` is
-  the directory above this file's). A failure the change caused, you fix and commit. A failure
+  leaves the worktree as it was. A command of `checks.serial` (`lem --repo WORKTREE settings show`)
+  is one that two tasks cannot run at the same time: run it, on the branch and on the base,
+  through `lem --repo WORKTREE serial -- COMMAND`, never bare. A failure the change caused, you fix and commit. A failure
   the base already has, you do not fix here and do not hide: say so, with the last line of the
   command on the base and on the branch.
 - *A criterion's test* that passes on the base commit too, or does not start there, does not hold
@@ -150,7 +149,7 @@ fails or the criterion it breaks.
    in a commit of its own: by rule 6 of your standing rules you are the agent at work on the
    branch. Name each in your reply by its number, with the file, the commit and what was wrong, so
    that the pull request lists it under "Fixed on the way"; the message of each commit names it
-   as rule 6 says. The rest you neither fix nor file: Lem's script filed an item for each of them
+   as rule 6 says. The rest you neither fix nor file: `lem land file` filed an item for each of them
    after the review, by the review's call, and the pull request names under "Seen, not filed" each
    one that an open item holds. An item of the backlog folder you leave as it is.
 4. Change nothing else. The next round reviews what you changed, and it is the last one.
