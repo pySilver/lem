@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # Claude Code: the plan talk's pair
 
 A part of `../claude-code.md`, read when a lead opens the pair (`open-task-session`).
@@ -28,12 +27,12 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
    `MAIN` is the main checkout, where the task's session stands too: the pair has the plugin and
    the folder's own Claude Code settings there, and reaches the task's worktree by its path, as
    the session does (`owner-steps.md`, "A folder's trust").
-   `MODEL` and `EFFORT` are the `model` and the `effort` that `lem project seat SLUG planner`
+   `MODEL` and `EFFORT` are the `model` and the `effort` that `lem seat show SLUG planner`
    prints, the seat in use for the task: a stand-in while one holds that seat, else the settings'
    `seats.planner`, parsed from its one line, `claude/MODEL:EFFORT`. Keep its `seat`, the line you
    opened: a failure names it. A defender's seat always names its model and its effort. The seat's
    `agent` can only be `claude`, since this agent's file is the only one the contract was checked in.
-   `PLUGIN` is the `plugin_dir` that `lem session --repo MAIN plugin-dir` prints, so that the
+   `PLUGIN` is the `plugin_dir` that `lem --repo MAIN session plugin-dir` prints, so that the
    defender loads the plugin of the same build as the app, as the task's session does
    (`task-session.md`): when the project has no enabled install of the plugin `lem@lem`, it is the
    app's own data folder; when it loads the installed plugin, it is null, and the line leaves out
@@ -55,7 +54,7 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
    of it (step 4), and run
 
    ```bash
-   lem project seat-failed SLUG planner --seat "LINE" --error KIND --said "ITS WORDS"
+   lem seat failed SLUG planner --seat "LINE" --error KIND --said "ITS WORDS"
    ```
 
    `LINE` being the `seat` you opened, `KIND` one of `missing`, `login`, `tokens` and `model`, and
