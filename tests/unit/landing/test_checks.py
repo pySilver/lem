@@ -26,6 +26,7 @@ from lem.app.landing import (
     checks_tree,
     checks_waits,
     checks_wanted,
+    checks_watch,
 )
 from lem.kernel.errors import Refusal
 from lem.model.landing import checks, checks_bytecode, checks_line, checks_said
@@ -1001,3 +1002,42 @@ def test_a_lock_file_of_no_holder_is_free_and_a_held_one_is_not(tmp_path: Path) 
         assert checks_queue.held(path) == checks_line.Entry(
             task="x", repo="/r", since=1.0
         )
+
+
+def test_a_second_entry_of_one_process_is_refused(line: Line) -> None:
+    entry_of_run = checks_line.Entry(
+        task=LEM_TASK, repo=str(line.lem), since=at("12:01")
+    )
+    line.own.append(checks_queue.joined(line.folder, entry_of_run, 4242))
+    with pytest.raises(Refusal) as refused:
+        checks_queue.joined(line.folder, entry_of_run, 4242)
+    assert refused.value.code == "line"
+    assert "4242.json for a run that still waits" in refused.value.why
+
+
+def test_a_git_that_fails_is_refused_in_its_words(tmp_path: Path) -> None:
+    with pytest.raises(Refusal) as refused:
+        checks_tree.stale(tmp_path)
+    assert refused.value.code == "git"
+    assert refused.value.why.startswith("git ls-files --others failed: ")
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="a root user may stop any process")
+def test_checks_another_user_runs_are_not_stopped() -> None:
+    with pytest.raises(Refusal) as refused:
+        checks_watch.termed(SLUG, 1)
+    assert refused.value.code == "stop"
+    assert refused.value.fix == "the user that started them stops them"
+
+
+def test_a_run_that_does_not_end_after_its_stop_is_refused_with_the_way_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / steps.LOCK
+    holder = steps.Holder(step="checks", pid=os.getpid(), since=MOMENT)
+    path.write_text(msgspec.json.encode(holder).decode())
+    monkeypatch.setattr(checks_watch, "STOP_WAIT", 0.3)
+    with pytest.raises(Refusal) as refused:
+        checks_watch.waited(SLUG, path, os.getpid())
+    assert refused.value.code == "stop"
+    assert f"`lem land checks {SLUG} --stop` asks again" in refused.value.fix
