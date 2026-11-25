@@ -3,6 +3,7 @@ invoice line on the standard track that landed from its interview to its merge, 
 its investigation answered."""
 
 from fixtures.board.make import (
+    RULES,
     approval,
     criterion,
     journal,
@@ -14,6 +15,7 @@ from fixtures.board.make import (
     record,
 )
 from fixtures.board.moments import ago, pull, sha
+from lem.model.landing import checks
 from lem.records.criteria import Criteria
 from lem.records.journal.landing import CheckEnd, CommandEnd, ReviewRound
 from lem.records.journal.merge import MergeNoted, ReadNoted
@@ -31,6 +33,7 @@ MAIN = sha("main before the afternoon")
 TERMS = 'The footer says "Terms and conditions".'
 FOOTER_TIP = sha("footer-terms-typo")
 FOOTER_CRITERIA = (criterion(1, TERMS),)
+FOOTER_DIGEST = "5677f2e003bc"
 FOOTER_SPANS = (
     ran("small", 51.5, 44, job="the small change"),
     ran("checks", 43, 39.5),
@@ -93,7 +96,7 @@ FOOTER = record(
             size="small",
             why="the request is one sentence.",
             criteria=FOOTER_CRITERIA,
-            digest="5677f2e003bc",
+            digest=FOOTER_DIGEST,
             approvals=(
                 approval(
                     52,
@@ -101,7 +104,7 @@ FOOTER = record(
                     "small",
                     FOOTER_CRITERIA,
                     "the request is one sentence.",
-                    "5677f2e003bc",
+                    FOOTER_DIGEST,
                 ),
             ),
         ),
@@ -124,7 +127,8 @@ FOOTER = record(
             tip=FOOTER_TIP,
             tree=sha("footer-terms-typo's tree"),
             base=MAIN,
-            inputs="5f1d0c7a2b3e",
+            inputs=checks.inputs(RULES),
+            criteria_digest=FOOTER_DIGEST,
             outcome="passed",
             outcomes=(
                 passed("make test", "212 passed", 1),
@@ -235,6 +239,8 @@ INVOICE_MERGED = Merged(
     base_merged=INVOICE_BASE,
     at=ago(160),
 )
+INVOICE_PLAN = Plan(path="docs/plans/2026-11-17-order-date-on-invoice.md", tasks=2)
+INVOICE_DIGEST = "d29b4ee0e29f"
 INVOICE = record(
     Task(
         slug="order-date-on-invoice",
@@ -250,13 +256,13 @@ INVOICE = record(
             then="interview",
         ),
         lead="builder",
-        plan=Plan(path="docs/plans/2026-11-17-order-date-on-invoice.md", tasks=2),
+        plan=INVOICE_PLAN,
         spans=INVOICE_SPANS,
         criteria=Criteria(
             size="full",
             why="the invoice gets a new line.",
             criteria=INVOICE_CRITERIA,
-            digest="d29b4ee0e29f",
+            digest=INVOICE_DIGEST,
             approvals=(
                 approval(
                     309,
@@ -271,11 +277,11 @@ INVOICE = record(
             red=Red(
                 ok=True,
                 at=ago(230.5),
-                digest="d29b4ee0e29f",
+                digest=INVOICE_DIGEST,
                 inputs=Inputs(
                     tip=INVOICE_TIP,
                     base=INVOICE_BASE,
-                    plan="docs/plans/2026-11-17-order-date-on-invoice.md",
+                    plan=INVOICE_PLAN.path,
                 ),
                 tests=(
                     RedTest(
@@ -322,7 +328,8 @@ INVOICE = record(
             tip=INVOICE_TIP,
             tree=sha("order-date-on-invoice's tree"),
             base=INVOICE_BASE,
-            inputs="5f1d0c7a2b3e",
+            inputs=checks.inputs(RULES, INVOICE_PLAN.path),
+            criteria_digest=INVOICE_DIGEST,
             outcome="passed",
             outcomes=(
                 passed("make test", "214 passed", 1),

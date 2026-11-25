@@ -6,17 +6,23 @@ from hashlib import sha256
 from typing import TYPE_CHECKING
 
 import msgspec
+import pytest
 
 from fixtures.board import panel
 from fixtures.board.beside import ACTS, RECORDS, lay
 from fixtures.board.moments import NOW
+from lem.app.landing import world
 from lem.app.sessions import log
+from lem.model.landing import checks
+from lem.model.landing.world import Held, World
 from lem.records.decisions import Breaker
 from lem.records.holds import Parked
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from lem.records.record import Record
 
 
 def test_each_task_of_the_afternoon_is_one_record_the_store_reads_back_whole(
@@ -39,6 +45,31 @@ def test_each_task_of_the_afternoon_is_one_record_the_store_reads_back_whole(
         "stock-on-product-page": "shaping",
         "why-export-is-slow": "answered",
     }
+
+
+@pytest.mark.parametrize(
+    "record",
+    [each for each in RECORDS if each.landing and each.landing.checked],
+    ids=lambda each: each.task.slug,
+)
+def test_the_afternoons_passed_checks_cover_the_proposed_tip(
+    record: Record, tmp_path: Path
+) -> None:
+    workspace = places.workspace(lay(tmp_path))
+    record = tasks.read(workspace.state, record.task.slug)
+    landing = record.landing
+    assert landing and landing.checked and landing.proposed and record.task.branch
+    rules = world.rules(workspace)
+    assert rules.commands == tuple(each.command for each in landing.checked.outcomes)
+    current = World(
+        rules=rules,
+        branch=record.task.branch,
+        base=landing.proposed.base,
+        base_tree=landing.checked.base_tree or "",
+        tip=landing.proposed.tip,
+        now=NOW,
+    )
+    assert checks.holds(record, current) == Held(why="the checks passed on this tip")
 
 
 def test_each_journal_is_in_the_order_of_its_moments_and_none_is_after_now() -> None:

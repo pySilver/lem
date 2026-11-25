@@ -14,6 +14,7 @@ from pathlib import Path
 from fixtures.board import prose
 from fixtures.board.ended import EXPORT, FOOTER, INVOICE
 from fixtures.board.held import CHECK, FEE, GIFT, STOCK, STOCK_CRITERIA
+from fixtures.board.make import RULES
 from fixtures.board.moments import TODAY, ago
 from fixtures.board.receipt import RECEIPT
 from fixtures.board.working import CART, COUPON, ROUNDING
@@ -346,6 +347,11 @@ def lay(folder: Path) -> Path:
     checkout = folder / "shop"
     (checkout / ".git").mkdir(parents=True)
     (checkout / ".lem").mkdir()
+    write(
+        checkout / ".lem/settings.toml",
+        f'[branch]\nbase = "{RULES.base}"\nland = "{RULES.land}"\n\n'
+        f"[checks]\ncommands = {json.dumps(RULES.commands)}\n",
+    )
     state = places.state_of(checkout)
     write(state / "demo", "The tasks in this folder are examples.\n")
     for each in RECORDS:

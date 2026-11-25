@@ -85,9 +85,6 @@ class Board:
 def afternoon(folder: Path) -> Path:
     """Put the demo's files in a real repository for the acts that need Git."""
     checkout = beside.lay(folder)
-    beside.write(
-        checkout / ".lem/settings.toml", '[branch]\nbase = "main"\nland = "owner"\n'
-    )
     beside.write(checkout / ".gitignore", ".lem/state/\n.lem/worktrees/\n")
     beside.write(
         checkout / "invoice/footer.py", "def footer(order):\n    return order.address\n"

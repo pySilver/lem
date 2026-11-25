@@ -22,11 +22,9 @@ from browser.chromium import PHONE
 from fakes.repo import RealRepo, git_env, run_git
 from fixtures.board.moments import NOW, sha
 from lem.adapters.git_cli import GitCli
-from lem.app.landing import world
 from lem.app.tasks import where
 from lem.board.duties import context, forge
 from lem.board.duties.memory import MEMORY
-from lem.model.landing.checks import inputs
 from lem.ports.forge_facts import Pull
 from lem.records.journal.task import OwnerAct
 from lem.store import places, tasks
@@ -256,7 +254,6 @@ def mergeable_receipt(board: Board) -> str:
         tip=tip,
         tree=run_git(worktree, "rev-parse", "HEAD^{tree}"),
         base=base,
-        inputs=inputs(world.rules(workspace)),
     )
     proposed = replace(landing.proposed, tip=tip, base=base)
     tasks.update(

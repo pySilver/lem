@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from fixtures.board.moments import ago
 from lem.kernel import release
+from lem.model.landing.world import Rules
 from lem.records.approvals import Approval, PersonaRead
 from lem.records.criterion import Criterion, CriterionTest
 from lem.records.journal.task import SpanMark, StateNoted
@@ -18,6 +19,8 @@ if TYPE_CHECKING:
     from lem.records.landing.record import Landing
     from lem.records.task import Task
     from lem.records.work import SpanName
+
+RULES = Rules(base="main", land="owner", commands=("make test", "make lint"))
 
 
 def ran(
