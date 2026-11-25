@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 import msgspec
 
 from lem.cli.doctor.checkouts import files_of, table_of
+from lem.kernel import folders
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -60,13 +61,16 @@ class Install(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def install_of(key: str, entry: Entry) -> Install | None:
-    """The install `entry` of the plugin `key`; None for an entry of no known scope."""
+    """The install `entry` of the plugin `key`; None for an entry of no known scope. Under the
+    test entry, a folder outside the test's own is a fault before any row reads it."""
     if entry.scope in FOR_USER:
         project = None
     elif entry.scope in FOR_PROJECT and entry.project:
         project = os.path.realpath(entry.project)
     else:
         return None
+    if entry.folder:
+        folders.inside_test_root(Path(entry.folder))
     return Install(
         key=key,
         scope=entry.scope,

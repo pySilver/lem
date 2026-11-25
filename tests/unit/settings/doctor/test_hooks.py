@@ -7,11 +7,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from lem.cli.doctor import plugins
 from lem.cli.doctor.correction_hook import correction_hook_rows
 from lem.cli.doctor.hook_bin import lem_hook_row, plugin_folder
 from lem.cli.doctor.hook_entries import hook_entries
 from lem.cli.doctor.hook_modules import hook_modules_row
 from lem.kernel import paths
+from lem.kernel.errors import Fault
 from unit.settings.doctor.stage import Stage, script
 
 if TYPE_CHECKING:
@@ -303,3 +305,12 @@ def test_with_no_plugin_the_hook_in_two_settings_files_is_named_with_the_plugin(
     assert f"{user}: delete the entry" in said
     assert f"{local}: delete the entry" in said
     assert "commit" not in said
+
+
+def test_a_plugin_folder_outside_the_tests_own_folder_is_never_read(
+    stage: Stage,
+) -> None:
+    listed = [{"scope": "user", "installPath": "/opt/homebrew/opt/lem/libexec"}]
+    stage.plugins({"plugins": {"lem@lem": listed}})
+    with pytest.raises(Fault, match="outside its own folder"):
+        plugins.installs(stage.home)

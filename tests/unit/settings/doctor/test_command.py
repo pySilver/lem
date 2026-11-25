@@ -71,7 +71,13 @@ def furnished(stage: Stage) -> Stage:
         stage.tool(name)
     for name in SKILLS:
         stage.write(f"home/.claude/skills/{name}/SKILL.md", "x")
-    stage.plugins({"plugins": {"lem@lem": [{"scope": "user", "installPath": "/x"}]}})
+    stage.plugins(
+        {
+            "plugins": {
+                "lem@lem": [{"scope": "user", "installPath": str(stage.root / "x")}]
+            }
+        }
+    )
     return stage
 
 

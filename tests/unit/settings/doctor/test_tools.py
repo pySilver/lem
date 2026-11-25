@@ -43,7 +43,13 @@ def furnished(stage: Stage) -> Stage:
         stage.tool(name)
     for name in SKILLS:
         stage.write(f"home/.claude/skills/{name}/SKILL.md", "x")
-    stage.plugins({"plugins": {"lem@lem": [{"scope": "user", "installPath": "/x"}]}})
+    stage.plugins(
+        {
+            "plugins": {
+                "lem@lem": [{"scope": "user", "installPath": str(stage.root / "x")}]
+            }
+        }
+    )
     return stage
 
 
@@ -255,7 +261,9 @@ def test_a_skill_counts_in_a_plugin_of_its_name_or_carried_by_a_plugin_of_anothe
         {
             "version": 2,
             "plugins": {
-                "webrev@cookbook": [{"scope": "user", "installPath": "/x"}],
+                "webrev@cookbook": [
+                    {"scope": "user", "installPath": str(stage.root / "x")}
+                ],
                 "tracking@cookbook": [{"scope": "user", "installPath": str(carried)}],
             },
         }
@@ -277,7 +285,7 @@ def test_a_plugin_list_of_another_shape_is_no_answer_and_the_cache_counts(
         "home/.claude/plugins/cache/cookbook/webrev/1.0/skills/webrev/SKILL.md", "x"
     )
     assert skill_row(look, skill_words.WEBREV).found
-    stage.plugins({"plugins": {"agdoc@x": [{"installPath": "/x"}]}})
+    stage.plugins({"plugins": {"agdoc@x": [{"installPath": str(stage.root / "x")}]}})
     assert not skill_row(look, skill_words.AGDOC).found
 
 

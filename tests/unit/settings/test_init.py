@@ -2,6 +2,7 @@
 makes: the team's file init writes, what it refuses, the places Lem reads, and the settings
 where Lem is not set up."""
 
+import os
 import re
 import tomllib
 from typing import TYPE_CHECKING
@@ -11,7 +12,7 @@ import pytest
 
 from fakes.command import lem
 from fakes.repo import RealRepo, run_git
-from lem.app.init import template
+from lem.app.init import origin, template
 from lem.settings import described
 from lem.settings.team import Team
 from unit.settings.given import refusal_of, slug
@@ -205,3 +206,32 @@ def test_show_where_lem_is_not_set_up_gives_no_settings_and_the_machines(
     assert lem("init", "--base", "main", "--codex", "no", cwd=repo.checkout).code == 0
     ignore = (repo.checkout / ".lem" / ".gitignore").read_text().splitlines()
     assert ignore == ["settings.local.toml", "state/"]
+
+
+def test_origin_is_the_checkouts_own_whatever_the_environment_names(
+    tmp_path: Path,
+) -> None:
+    repo = repository(tmp_path)
+    other = repository(tmp_path / "other", url="https://gitlab.com/x/y.git")
+    shared = tmp_path / "global.gitconfig"
+    shared.write_text('[remote "origin"]\n\turl = https://gitlab.com/a/b.git\n')
+    environ = {
+        **os.environ,
+        "GIT_DIR": str(other.checkout / ".git"),
+        "GIT_CONFIG_GLOBAL": str(shared),
+    }
+    assert origin.origin_url(repo.checkout, environ) == GITHUB
+    bare = repository(tmp_path / "bare", url=None)
+    assert origin.origin_url(bare.checkout, environ) is None
+
+
+def test_init_refuses_a_lem_folder_that_leads_out_of_the_checkout(
+    tmp_path: Path,
+) -> None:
+    repo = repository(tmp_path)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (repo.checkout / ".lem").symlink_to(elsewhere)
+    ran = lem("init", cwd=repo.checkout)
+    assert refusal_of(ran)["code"] == "lem-folder"
+    assert list(elsewhere.iterdir()) == []

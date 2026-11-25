@@ -70,10 +70,21 @@ line with `key="peers.HOST"`, and `word="default"` takes it out. Every such writ
    `machine.toml` and no marker as the Lem before's, so a developer who writes `machine.toml`
    into a new home before any Lem write is refused `old-state` by `settings set --machine` (seen
    in this step's tests, which mark the home first). Whether that is the rule you want is yours.
-5. **The test entry and a file that fails to collect.** While `test_set.py` had two cases of one
-   id, the run printed `total: collected 110, passed 110` and no failure, with the file's 36
-   cases left out; `collection failed` stood only in the log. A selection whose file fails to
-   collect should fail the run (the design's part 8).
+5. **The test entry passes a run in which a test file fails to collect.** Reproduction, seen twice
+   in this step: give two cases of one parametrized test the same id (or import a module that is
+   gone, as `tests/unit/settings/rules/test_scope.py` did after `cli/rules/renames.py` went), then
+   run `.venv/bin/python -I -B tests --level unit tests/unit/settings/rules/`. The run printed
+   `total: collected 46, passed 46, skipped 0, failed 0` and exited 0, with the file's 16 cases
+   left out; the words `collection failed: tests/unit/settings/rules/test_scope.py` stood only
+   in the log above. A selection one of whose files fails to collect must fail the run (the
+   design's part 8: "a run counts only when passed plus skipped equals collected").
+6. **Git's configuration in a test.** `tests/conftest.py` gives a test its own `HOME` and
+   `XDG_CONFIG_HOME`, and leaves `GIT_CONFIG_GLOBAL` and the other `GIT_*` variables of the
+   owner's shell. Every git a test starts then reads his global configuration. Asked: the
+   entry clears the `GIT_*` variables (as `tests/fakes/repo.git_env` does for its own git).
+   This step's own looks at git no longer depend on it: `app/init/origin.py` reads the
+   checkout's `--local` configuration with no `GIT_*` variable, and `cli/rules/ranged.py`
+   drops the variables that aim git elsewhere.
 
 ## For the text owners of `SKILL.md`, `stages/`, `prompts/`, `skills/lem-*`
 

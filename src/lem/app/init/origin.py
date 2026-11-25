@@ -22,19 +22,29 @@ if TYPE_CHECKING:
 GITHUB = re.compile(r"(https://|ssh://git@|git@)github\.com[:/]")
 # A look at git's own configuration takes far less than this (unmeasured estimate).
 TIMEOUT = 30
+GITS = "GIT_"
 
 
 def origin_url(checkout: Path, environ: Mapping[str, str]) -> str | None:
-    """The address of origin, None when the repository has none."""
+    """The address of origin as the checkout's own configuration names it, None when it
+    names none."""
     ran = subprocess.run(
-        ["git", "-C", str(checkout), "config", "--get", "remote.origin.url"],
+        ["git", "-C", str(checkout), "config", "--local", "--get", "remote.origin.url"],
         capture_output=True,
         text=True,
-        env=dict(environ),
+        env=own(environ),
+        stdin=subprocess.DEVNULL,
         timeout=TIMEOUT,
         check=False,
     )
     return ran.stdout.strip() or None
+
+
+def own(environ: Mapping[str, str]) -> dict[str, str]:
+    """The call's environment without git's own variables: none of them may aim the look at
+    another repository or another configuration than the checkout's."""
+    kept = environ.items()
+    return {name: said for name, said in kept if not name.startswith(GITS)}
 
 
 def on_github(url: str | None) -> None:

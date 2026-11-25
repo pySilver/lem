@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from lem.app.init import origin, template
 from lem.app.init.checkout import main_checkout
-from lem.kernel import files, paths
+from lem.kernel import files, folders, paths
 from lem.kernel.errors import Refusal
 from lem.records.base import Frozen
 from lem.settings import places, reading
@@ -63,6 +63,20 @@ def ignored(lem: Path) -> Path:
     return ignore
 
 
+def inside(checkout: Path, relative: Path) -> Path:
+    """`relative` in `checkout`, refused when a link leads it out of the checkout: init writes
+    nowhere else."""
+    path = checkout / relative
+    if not path.parent.resolve().is_relative_to(checkout.resolve()):
+        raise Refusal(
+            "lem-folder",
+            f"{path.parent} leads out of {checkout}",
+            f"make {path.parent} a folder of the checkout, then run init again",
+        )
+    folders.inside_test_root(path.parent.resolve())
+    return path
+
+
 def checked_text(checkout: Path, text: str, environ: Mapping[str, str]) -> None:
     """Refuse a text Lem would refuse as the team's file of `checkout`."""
     where = reading.Where(checkout=checkout, home=paths.home(environ), environ=environ)
@@ -75,7 +89,7 @@ def initialized(
 ) -> Initialized:
     """Write the team's settings of the repository `folder` is in."""
     checkout = main_checkout(folder)
-    path = checkout / places.TEAM
+    path = inside(checkout, places.TEAM)
     if path.exists():
         raise Refusal(
             "settings-exist", f"{path} already exists", f"edit {places.TEAM} by hand"
