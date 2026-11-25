@@ -38,13 +38,18 @@ def session_of(
         return None
     if entry is None:
         return Session(live=False, since=opened)
-    live = entry.live and entry.agent is True
+    live = agent_is_live(listed=entry.live, agent=entry.agent)
     return Session(
         live=live,
         since=entry.since,
         unanswered=live and entry.unanswered,
         working=entry.turn == "runs" and not log.same(entry.session, caller),
     )
+
+
+def agent_is_live(*, listed: bool, agent: bool | None) -> bool:
+    """A live task session has a listed pane and a running agent."""
+    return listed and agent is True
 
 
 def stop_of(here: Here, record: Record, session: Session | None) -> Stop | None:

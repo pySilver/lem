@@ -1,23 +1,23 @@
-"""`lem ask templates`: the question page's templates.
-
-    lem ask templates
-
-A stub until the step `ask` builds it: it refuses `not-built`.
-"""
+"""List the specs Lem ships as question templates."""
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.cli.ask import catalog
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """The words of `lem ask templates`."""
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `ask` builds `lem ask templates`."""
-    raise not_built("ask templates", "ask")
+def run(call: Call) -> dict[str, object]:
+    """Give the names and descriptions of the templates."""
+    group = "templates"
+    return {
+        "outcome": "listed",
+        group: catalog.listing(group),
+        "directory": str(catalog.folder(group)),
+    }
 
 
 COMMAND = click.Command(

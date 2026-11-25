@@ -1,17 +1,11 @@
-"""`lem ask ask`: one question to the owner as a page in agterm, from a spec.
-
-    lem ask [ask] [SPEC] [--follow] [--size N] [--style S] [--timeout SECONDS] ...
-
-`lem ask SPEC` is this verb: a first word that is no verb of `lem ask` is its spec. Every
-outcome is exit 0, in `result.outcome`. A stub until the step `ask` builds it: it refuses
-`not-built`.
-"""
+"""Show a question from a JSON spec."""
 
 import click
 import msgspec
 
+from lem.cli.ask import asking
+from lem.cli.ask import spec as specs
 from lem.cli.ask.shown import Shown, options
-from lem.cli.stub import not_built
 
 
 class Call(Shown, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -20,9 +14,10 @@ class Call(Shown, frozen=True, kw_only=True, forbid_unknown_fields=True):
     spec: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `ask` builds `lem ask ask`."""
-    raise not_built("ask ask", "ask")
+def run(call: Call) -> asking.Words:
+    """Read the spec and show it on the requested surface."""
+    spec, base = specs.load(call.spec)
+    return asking.ask(spec, base, call)
 
 
 COMMAND = click.Command(

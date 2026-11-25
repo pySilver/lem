@@ -5,13 +5,13 @@ disable-model-invocation: true
 allowed-tools: Bash(lem ask *)
 ---
 
-# lem-ask — ask the user with a page, not a prompt
+# lem-ask — the question page
 
 One command opens the question over **your own** agterm session, waits for the answer, and prints it as
 JSON. The runtime (layout, styles, charts, diagrams, sliders, keyboard) is prebuilt; you describe the
 question. The command is `lem ask`, a name of Lem's command `lem`.
 
-Run it with the Bash tool's `timeout: 600000`. It waits up to 570 s, then exits 4 with the page still open
+Run it with the Bash tool's `timeout: 600000`. It waits up to 570 s, then returns `result.outcome: "pending"` with the page still open
 (see [Waiting](#waiting)).
 
 ## When to ask with a page
@@ -24,11 +24,10 @@ Run it with the Bash tool's `timeout: 600000`. It waits up to 570 s, then exits 
   "go ahead?" on a step you just described.
 - **The user's own instructions win.** When their `CLAUDE.md` or `AGENTS.md` says how to ask questions,
   follow it; this section is the default, not an override.
-- **Don't check for agterm first.** Run `lem ask`: outside agterm it opens nothing and exits 3 with
-  `status: "no-agterm"`, and you ask in the terminal instead.
+- **Don't check for agterm first.** Run `lem ask`: outside agterm it returns `result.outcome: "no-agterm"`, and you ask in the terminal instead.
 - **Only the agent talking with the user asks.** A subagent, a plan executor or a background worker returns
   its question to whoever started it. In an unattended run (`claude -p`, where Claude Code sets
-  `CLAUDE_CODE_SESSION_ATTENDED=0`) `lem ask` refuses with exit 3 and opens nothing.
+  `CLAUDE_CODE_SESSION_ATTENDED=0`) `lem ask` returns `result.outcome: "unattended"` and opens nothing.
 
 ## Fastest: one line
 
@@ -59,15 +58,15 @@ Write the spec with your file-writing tool, to an absolute path in a scratch dir
 ```
 
 ```bash
-lem ask /tmp/session-storage.json
+lem ask ask /tmp/session-storage.json
 ```
 
 Relative paths inside the spec (images, `file` blocks) resolve beside the spec file.
 
-`lem ask -` reads the same spec from stdin and resolves those paths from the working directory. Keep it
+`lem ask ask -` reads the same spec from stdin and resolves those paths from the working directory. Keep it
 for a terminal. From an agent it needs a heredoc, and in a Claude Code worktree session the Bash guard
 reads a heredoc body as shell and refuses a `{` followed by a quote, which every spec holds: 16 of 17
-`lem ask - <<'JSON'` calls were refused in the author's worktree sessions (Claude Code 2.1.319 to 2.1.322).
+`lem ask ask - <<'JSON'` calls were refused in the author's worktree sessions (Claude Code 2.1.319 to 2.1.322).
 
 ## Write the question first
 
@@ -114,7 +113,7 @@ When there *are* standard values (4/8/16 px, a design-system scale), offer them 
 When the value is continuous or purely taste, give sliders: the user sees the result while dragging.
 Combine them: options to pick a direction, then a `controls` question to fine-tune it (see `demos/ui-kit`).
 
-`lem ask templates` lists the templates and prints their directory; read one and fill it. `lem ask demo NAME`
+`lem ask templates` gives the templates and their directory in `result`; read one and fill it. `lem ask demo NAME`
 opens one, as do the larger showcases in `demos/` (`motion`, `ui-kit`, `auth-flow`, `rollout`, `pricing`) —
 read those for combinations.
 
@@ -142,8 +141,8 @@ from the file. Point at the file instead and `lem ask` reads it when it builds t
 ## The answer
 
 ```json
-{"status": "answered", "pageID": "…",
- "answers": {"answer": {"selected": ["redis"], "labels": ["Redis"], "text": "but only for prod"}}}
+{"ok": true, "result": {"outcome": "answered", "pageID": "…",
+ "answers": {"answer": {"selected": ["redis"], "labels": ["Redis"], "text": "but only for prod"}}}}
 ```
 
 - `answers` is keyed by question id (`answer` for a single-question spec, `q1`, `q2`… when unnamed).
@@ -154,20 +153,19 @@ from the file. Point at the file instead and `lem ask` reads it when it builds t
 - `extra` appears when page JavaScript called `api.setExtra(...)`.
 - `from` appears on the answer of a card in a task's session of Lem: `session` for a pick on the card,
   `board` for the owner's answer on Lem's board (see [A card of a task's session](#a-card-of-a-tasks-session)).
-- Exit 0 `status: "chat"` (with `text`): the user pressed **Discuss in chat** — they want to talk it
-  through in the terminal. Stop and ask there; do not pick for them.
-- Exit 2 `status: "dismissed"`: closed unanswered (⌘W). Treat as "not now": don't re-open the same
-  question in a loop; say what you need in the terminal.
-- Exit 3: no way to show it — `status: "no-agterm"` (this session is not in agterm) or `"unattended"` (see
-  [When to ask](#when-to-ask-with-a-page)). Ask in the terminal; in an unattended run don't ask at all.
-- Exit 4 `status: "pending"`: still open after `--timeout` (see [Waiting](#waiting)).
-- Exit 5 `status: "busy"`: the session already shows an overlay. With a `pageID`, it is a question page still
-  open on this session — almost always your own earlier question, left pending by a timeout or a call that
-  was cut off: `lem ask wait <pageID>` for its answer before asking anything new. Without one, it belongs to
-  another tool (a diff review, a plan annotation): ask in the terminal, and never close an overlay you did
-  not open.
-- Exit 1 `status: "error"`: the spec or agterm failed; the `error` says which, including a key the page would
-  drop (with the one it probably meant) and an option that only counts. Fix the spec and ask again.
+Every page outcome has exit 0. Read `result.outcome`:
+
+- `chat` with `text`: the owner pressed **Discuss in chat**. Take the question back to the terminal.
+- `dismissed`: the owner closed the page without an answer (⌘W).
+- `no-agterm`: ask in the terminal, or use the browser when the owner wants it.
+- `unattended`: leave the question for an attended session.
+- `pending`: the overlay stays up after the wait. Run `lem ask wait PAGEID`.
+- `busy`: the session already shows an overlay. If the result names a question page, run
+  `lem ask wait PAGEID`. If it gives no page id, ask in the terminal.
+- `refused`: the task cannot take the card's answer. Read `result.said` for the reason.
+- `unavailable`: the terminal or browser could not show or read the page. Read the result's reason.
+
+A refused spec has exit 1 and `refusal.why` with the reason. Exit 2 is a wrong command line.
 
 ## Spec reference
 
@@ -244,7 +242,7 @@ use the image block. Any block takes `title`, `caption` and `card: true`.
 | Block | Shape |
 | --- | --- |
 | markdown | `"text"` or `{"md": "text"}` |
-| diagram | `{"mermaid": "flowchart LR\n A --> B"}`, or a ` ```mermaid ` fence in markdown — any mermaid type (flowchart, sequence, class, state, ER, gantt, gitGraph). In labels avoid `#` (starts an entity: `#1` truncates the line) and `%` (comment marker in gantt); add `todayMarker off` to a gantt |
+| diagram | `{"mermaid": "flowchart LR\n A --> B"}`, or a ` ```mermaid ` fence in markdown — the local chart library draws Mermaid syntax and leaves the source visible if a chart cannot draw |
 | chart | `{"chart": {"type": "bar"\|"line"\|"area"\|"hbar"\|"donut"\|"pie", "labels": [...], "series": [{"name", "values", "color"}], "unit": " ms"}}` — `values` alone for one series. Optional: `title`, `highlight` (index or label; not donut/pie), `marks: [{"value", "label"}]` (threshold lines), `min`, `max`, `height`; donut/pie `colors`, `center`, `size`; hbar `labelWidth` |
 | stat tiles | `{"stats": [{"label", "value", "delta", "good": true\|false\|null, "sub"}]}` |
 | image | `{"image": "/abs/or/relative.png", "height": 160, "fit": "cover", "alt": "…"}` — local files are embedded (up to 8 MB); a missing one shows its alt text |
@@ -307,60 +305,47 @@ key and the value. Per call, a flag or the same key in the spec wins:
 - Opens over **your** session (`$AGTERM_SESSION_ID`), never the one the user is looking at, and does not
   switch them to it unless you pass `--follow`. While it waits, the sidebar shows the amber blinking
   "asking" triangle (the same glyph a built-in question gets); it goes back to "working" when answered.
-  Status hooks that post a "working" or "done" glyph at the end of a turn would cover a question still
-  waiting in the background; lem-ask's Stop hook, which the plugin registers, re-posts the asking glyph
-  when a turn ends with a question page still open, set to clear when the user visits. `--no-status`
-  leaves the glyph alone, the Stop hook's too; on a page you `wait` for, the last `wait` decides.
+  `--no-status` leaves the glyph alone. The last call of `lem ask wait PAGEID` sets the choice.
 - `--chromeless` hides the overlay's title strip.
-- Outside agterm it opens nothing (exit 3, `no-agterm`). With `--browser` it serves the page on `127.0.0.1`
+- Outside agterm it returns the outcome `no-agterm`. With `--browser` it serves the page on `127.0.0.1`
   and opens the default browser instead, inside agterm too; `browser = true` under `[ask]` in the user's
-  defaults does the same outside agterm only. The answer comes back the same way, and closing the tab counts
-  as dismissed. That path lives only as
+  defaults does the same outside agterm only. The answer comes back the same way, and closing the tab gives the outcome `dismissed`. That path lives only as
   long as the command: no `--no-wait`, and a timed-out browser question cannot be resumed.
-- `AGTERMCTL` points at `agtermctl` when it is not on `PATH`.
-- Mermaid is downloaded once to `~/.cache/lem/` (`$XDG_CACHE_HOME/lem`) on first use and checked against a pinned sha256 on
-  every use; offline, or on a mismatch, diagrams show as source and stderr says why.
+- `AGTERMCTL` names the `agtermctl` executable when it is not on `PATH`.
+- The page carries the bundled chart library when a block uses Mermaid. A rendered file needs no
+  download to draw a chart.
 - Generated pages land in `$TMPDIR/lem-ask/` and are pruned after a day. `lem ask render spec.json -o out.html`
   builds one without opening it (for checking a spec).
 
 ## Waiting
 
-Default wait is 570 s so it fits one Bash call. When it exits 4 with `"status": "pending"`, the page is
-still up: run `lem ask wait <pageID>` to keep waiting. `lem ask wait` is for that case (and a `busy` reply
-naming your page); an answered question needs nothing more. If the Bash call runs past its own `timeout`
-anyway, the question is not lost: in Claude Code 2.1.296 (measured in auto mode) the harness moves the
-call to the background instead of killing it, and the answer arrives as its completion notice. For a question the user may take long over, run
-`lem ask … --no-wait` (prints the `pageID` at once) and later `lem ask wait <pageID>`, or run the whole command
-with the Bash tool's `run_in_background: true` — you are notified when the user answers. In the background,
-add `--timeout 86400`: the 570 s default exists only for foreground calls. A question whose answer the next
-step does not depend on can wait in the background while you do that step; one that decides what you do
-next is asked in the foreground. A timed-out wait leaves the "asking" glyph up, since the question is still
-open, set to clear when the user visits the session to answer or close it. When the question was answered
-somewhere else, `lem ask close` (or `lem ask close <pageID>` for that page only) closes the page this session
-shows, only when it is one of lem-ask's, and prints `"status": "closed"`, or `"gone"` when none is up; the
-waiting call then ends as `dismissed`, which needs no act.
+The default wait is 570 s so it fits one Bash call. The outcome `pending` gives a page id;
+run `lem ask wait PAGEID` to resume the wait. A command with `--no-wait` gives the
+outcome `open` and its page id immediately. To wait in the background, set the Bash tool's
+`run_in_background: true` and give the command `--timeout 86400`. The 570 s limit is for
+foreground calls. The overlay remains open after the wait ends.
+
+Run `lem ask close PAGEID` to close one question this session shows. Run `lem ask close` to
+close the current question. The result is `closed` or `gone`. If an answer already counted,
+the command gives that answer.
 
 ## A card of a task's session
 
-In a task's session of Lem (`LEM_TASK` names the task, and the repository it runs in has that task's
-folder in its state folder), each card is kept in `cards/` of the task's folder: `PAGEID.html`, a copy of
-the page agterm shows, and `PAGEID.json`, what it asks (its questions, their options, whether it offers
-to talk). It is logged as `card.asked`, and Lem's board shows the card from there and takes its answer.
-A run outside a task keeps nothing.
+If `LEM_TASK` names a task in the repository, Lem keeps the page and its questions in the task's
+`cards/` folder. It adds the card's question and digest to `task.json`. The same page opens from
+the board's **Waits for you** list. A question from an ordinary terminal session has no task card.
 
-On the board the page offers no **Discuss in chat**, since the board takes an answer with a note and never a
-wish to talk; in agterm it keeps it. On a touch screen (the board on a phone) the page shows no key hints.
+The board takes a choice with a note, a text answer to a text question, or the values of a tune
+question. On a touch screen the page hides the keyboard hints. Save questions for the conversation
+for the task's session, where the page offers **Discuss in chat**.
 
-A card ends once, in `cards/PAGEID.end.json`, and the first end recorded counts: a pick or a dismissal on
-the card in the session, a `lem ask close`, or the owner's answer on the board.
+A card ends once. The overlay wait and the board both read the first end on the task record.
 
-- A pick on the card carries `"from": "session"`.
-- The board's answer ends the `lem ask ask` or `wait` that waits on the card: it closes its own page and
-  prints the answer as the card's own, with `"from": "board"`, `via` (`local`, the board on this Mac, or
-  `door`, through the tailnet), `device` (`phone` or `computer`) and a `said` line, exit 0. A `lem ask
-  wait <pageID>` after an exit 4 finds an answer the board took in between.
-- When the board's answer was recorded first, a pick, a dismissal or a `lem ask close` in the session is
-  not taken: the output is the board's answer, exit 0, with a `said` line that names both.
+- `result.from` is `session` for the overlay or `board` for the board.
+- A board answer also gives `via` (`local` or `door`), `device` (`phone` or `computer`), and
+  a `said` line. The overlay waiter closes its page when it reads the board's answer.
+- If the owner answers on the board after a wait returns `pending`, `lem ask wait PAGEID` reads
+  the answer from the task record. A later answer or close leaves the first result in place.
 
 ## Recommending
 

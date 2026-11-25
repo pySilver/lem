@@ -181,14 +181,8 @@ Basecamp, LLC), and [marked](https://github.com/markedjs/marked) 11.2.0, MIT lic
 (Copyright (c) 2018+, MarkedJS; Copyright (c) 2011-2018, Christopher Jeffrey), whose
 license file also carries the license of Markdown, below.
 
-`skills/lem/assets/vendor/mermaid.min.js` is [mermaid](https://github.com/mermaid-js/mermaid)
-11.12.0 as its package ships it, MIT licensed (Copyright (c) 2014 - 2022 Knut Sveidqvist).
-The file bundles mermaid's dependencies, each under its own license, which comes with each
-package on npm: DOMPurify (Apache License 2.0 or Mozilla Public License 2.0; the bundle
-keeps its license line), d3 (ISC), d3-sankey (BSD-3-Clause), and @braintree/sanitize-url,
-@iconify/utils, @mermaid-js/parser, cytoscape, cytoscape-cose-bilkent, cytoscape-fcose,
-dagre-d3-es, dayjs, katex, khroma, lodash-es, marked, roughjs, stylis, ts-dedent and uuid
-(MIT).
+`skills/lem/assets/vendor/pele.js` is [Pele](https://www.npmjs.com/package/pele) 1.13.0
+as its package ships it, with its MIT license in `skills/lem/assets/vendor/pele-LICENSE.txt`.
 
 No change was made to any of them. The MIT license of each:
 

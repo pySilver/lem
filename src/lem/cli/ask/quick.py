@@ -1,15 +1,13 @@
-"""`lem ask q`: one question to the owner, with its options, in one line.
+"""Show one question with the options in the command words."""
 
-    lem ask q PROMPT [OPTIONS]... [--multi] [--context TEXT] [--title TITLE] ...
-
-A stub until the step `ask` builds it: it refuses `not-built`.
-"""
+from pathlib import Path
 
 import click
 import msgspec
 
+from lem.cli.ask import asking
 from lem.cli.ask.shown import Shown, options
-from lem.cli.stub import not_built
+from lem.cli.ask.utf8 import whole
 
 
 class Call(Shown, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -22,9 +20,33 @@ class Call(Shown, frozen=True, kw_only=True, forbid_unknown_fields=True):
     title: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `ask` builds `lem ask q`."""
-    raise not_built("ask q", "ask")
+def run(call: Call) -> asking.Words:
+    """Make the short form into a question spec."""
+    asked: dict[str, object] = {"prompt": whole(call.prompt)}
+    if call.options:
+        asked["options"] = [
+            option(raw, index) for index, raw in enumerate(call.options, 1)
+        ]
+        asked["width"] = "narrow"
+    if call.multi:
+        asked["mode"] = "multi"
+    if call.context:
+        asked["context"] = whole(call.context)
+    if call.title:
+        asked["title"] = whole(call.title)
+    return asking.ask(asked, Path.cwd(), call)
+
+
+def option(raw: str, index: int) -> dict[str, object]:
+    """A label, optional subtitle, and the reason for a recommendation."""
+    label, _, rest = whole(raw).lstrip("*").partition("|")
+    subtitle, _, why = rest.partition("|")
+    marked: dict[str, object] = {"id": f"o{index}", "label": label.strip()}
+    if subtitle.strip():
+        marked["subtitle"] = subtitle.strip()
+    if raw.startswith("*"):
+        marked["recommended"] = why.strip() or True
+    return marked
 
 
 COMMAND = click.Command(

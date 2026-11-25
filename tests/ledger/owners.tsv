@@ -707,7 +707,7 @@ check:tests/test-ask.sh:ask-py-parses-c02502173b98b082	ask
 check:tests/test-ask.sh:at-900-px-a-wide-table-scrolls-inside-its-ow-be981343621e54a3	ask
 check:tests/test-ask.sh:busy-carries-the-page-id-only-for-a-question-c45d803cba56ce13	ask
 check:tests/test-ask.sh:card:1-c1b43b36df09f0bf	ask
-check:tests/test-ask.sh:check:1-c1b43b36df09f0bf	ask
+check:tests/test-ask.sh:check:1-c1b43b36df09f0bf	sessions
 check:tests/test-ask.sh:code-from-a-file-da2caaa9901e0174	ask
 check:tests/test-ask.sh:every-page-so-far-wrote-nothing-under-cache-9db47ab6eefa20be	ask
 check:tests/test-ask.sh:expect:name-38a30440f20648d7	ask
@@ -715,10 +715,10 @@ check:tests/test-ask.sh:page-loads-n-611004f0e4c84ff7	ask
 check:tests/test-ask.sh:q-option-syntax-dfe195f4fc4c067c	ask
 check:tests/test-ask.sh:refuses:name-38a30440f20648d7	ask
 check:tests/test-ask.sh:render-n-7be517faf4c88b6d	ask
-check:tests/test-ask.sh:stop-hook-is-silent-and-exits-0-outside-agte-d6db9d8e55cfbe96	ask
+check:tests/test-ask.sh:stop-hook-is-silent-and-exits-0-outside-agte-d6db9d8e55cfbe96	sessions
 check:tests/test-ask.sh:the-browser-takes-a-posted-json-value-that-i-bb0b02c9097f649b	ask
 check:tests/test-ask.sh:the-page-posts-its-answer-to-the-answer-rout-369a4e58c6c76c60	ask
-check:tests/test-ask.sh:the-plugin-s-stop-hook-silent-exit-0-outside-a2a1af868800d4ed	ask
+check:tests/test-ask.sh:the-plugin-s-stop-hook-silent-exit-0-outside-a2a1af868800d4ed	sessions
 check:tests/test-ask.sh:wait-gives-a-json-value-that-is-no-object-th-09eb2c068790b200	ask
 check:tests/test-ask.sh:why-61d2355da0117304	ask
 check:tests/test-ask.sh:with-no-ask-the-page-is-refined-and-config-l-673f298ca2c43467	ask

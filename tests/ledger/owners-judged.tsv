@@ -259,6 +259,9 @@ check:tests/lem-state.sh:the-owner-s-status-is-one-mark-of-the-machin-14002fcda8
 check:tests/lem-state.sh:the-owner-says-whether-he-is-there-away-make-3dcaed8f3ceff2b2	owner	the owner's away and back is the owner step's	task
 check:tests/lem-state.sh:the-watch-of-the-owner-s-mark-in-one-reposit-d366e4aca12f2cbd	owner	`owner watch` is the owner step's	task
 check:tests/test-ask-expert.sh:a-question-s-folder-goes-with-lem-project-pr-4e05c52716ca1884	board-duties	The retention store owns expiration. The brief does not prune any question.	addons-outside
+check:tests/test-ask.sh:check:1-c1b43b36df09f0bf	sessions	The Stop hook and its behavior belong to the sessions step under lem-hook stop.	ask
+check:tests/test-ask.sh:stop-hook-is-silent-and-exits-0-outside-agte-d6db9d8e55cfbe96	sessions	The Stop hook and its behavior belong to the sessions step under lem-hook stop.	ask
+check:tests/test-ask.sh:the-plugin-s-stop-hook-silent-exit-0-outside-a2a1af868800d4ed	sessions	The Stop hook and its behavior belong to the sessions step under lem-hook stop.	ask
 duty:wake-inbox-question	addons-outside	the Inbox add-on (inbox.py) sends the question and its retry, and wakes the live session after the Inbox took it; the core's duties never import an add-on	board-duties
 duty:watch-owner	board-pages	a change of the owner's mark that no record shows reaches an open page through the stream (board/stream.py), which board-pages owns; the views read his presence at each page (World.presence)	board-views
 event:interview.end	task	the interview's text writes it as lem task span SLUG interview end, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	criteria

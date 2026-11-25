@@ -1,14 +1,13 @@
-"""`lem ask render`: render a spec into an HTML file, attachments kept.
+"""Render the question spec into an HTML file with its attachments."""
 
-    lem ask render SPEC --out FILE
-
-A stub until the step `ask` builds it: it refuses `not-built`.
-"""
+from pathlib import Path
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.cli.ask import html, preferences, spec
+from lem.kernel import files
+from lem.kernel.errors import Refusal
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -18,9 +17,21 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     out: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `ask` builds `lem ask render`."""
-    raise not_built("ask render", "ask")
+def run(call: Call) -> dict[str, str]:
+    """Write the stand-alone page and name it for the owner."""
+    asked, base = spec.load(call.spec)
+    preferences.apply(asked, preferences.defaults())
+    page = html.build(asked, base)
+    target = Path(call.out).expanduser().resolve()
+    try:
+        files.write_whole(target, page)
+    except OSError as error:
+        raise Refusal(
+            "ask-output",
+            str(error),
+            "give lem ask render a writable --out path",
+        ) from error
+    return {"outcome": "rendered", "file": str(target)}
 
 
 COMMAND = click.Command(

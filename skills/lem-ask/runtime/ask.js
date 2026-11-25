@@ -5,9 +5,9 @@
 (function () {
   'use strict'
   const SPEC = JSON.parse(document.getElementById('hd-spec').textContent)
-  // Lem's board serves a card of a task's session at .../cards/PAGEID/ (serve.py, `card_page`) and takes an
+  // Lem's board serves a card of a task's session at .../cards/PAGEID/ (the card route) and takes an
   // answer with a note, never a wish to talk: there the page offers no "Discuss in chat", nor its keys.
-  const ON_BOARD = location.protocol.startsWith('http') && /\/cards\/[^/]+\/$/.test(location.pathname)
+  const ON_BOARD = location.protocol.startsWith('http') && /\/cards\/[^/]+\/?$/.test(location.pathname)
   const CHAT = SPEC.chat !== false && !ON_BOARD
   const KEYS = '123456789'
   const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e }
@@ -19,8 +19,6 @@
     probe.style.color = ''; probe.style.color = `var(${name})`
     return getComputedStyle(probe).color
   }
-  const rgbOf = (c) => (c.match(/[\d.]+/g) || [0, 0, 0]).slice(0, 3).map(Number)
-  const mix = (a, b, t) => { const x = rgbOf(a); const y = rgbOf(b); return '#' + x.map((v, i) => Math.round(v * t + y[i] * (1 - t)).toString(16).padStart(2, '0')).join('') }
 
   // ---------- markdown (small, safe subset) ----------
   let mermaidN = 0
@@ -307,56 +305,33 @@
 
   // block() queues js and mermaid work; flush() runs whatever is queued. A controls preview is rebuilt on
   // every change, so it flushes after each redraw, not only once at startup.
-  let ready = false; let mermaidReady = false; let mermaidChain = Promise.resolve()
+  let ready = false
   function flush () {
     // A `js` block is code the spec's author wrote for this page, run as `function(el, api)` (SKILL.md).
+    if (ON_BOARD) blockJS.length = 0
     // eslint-disable-next-line no-new-func
     blockJS.splice(0).forEach(([el, code]) => { try { new Function('el', 'api', code)(el, api) } catch (e) { el.appendChild($('pre', 'hd-err', 'js: ' + esc(e.message || e))) } })
     const els = pendingMermaid.splice(0)
-    if (els.length) mermaidChain = mermaidChain.then(() => renderMermaid(els))
+    renderMermaid(els)
   }
-  async function renderMermaid (els) {
-    if (!window.mermaid) { els.forEach((el) => el.classList.add('err')); return }
-    if (!mermaidReady) { mermaidReady = true; initMermaid() }
+  function renderMermaid (els) {
     for (const el of els) {
-      try { const { svg } = await window.mermaid.render(el.id + '-svg', el.dataset.src); el.innerHTML = svg } catch (e) { el.classList.add('err'); el.appendChild($('div', 'hd-err', 'mermaid: ' + esc(e.message || e))) }
+      try {
+        if (!window.pele) throw new Error('The drawing library did not load')
+        const { svg } = window.pele.render(el.dataset.src, {
+          idPrefix: el.id,
+          autoDirection: false,
+          links: false,
+          images: false,
+          fontFamily: '-apple-system, system-ui, sans-serif',
+          fontSize: 14
+        })
+        el.innerHTML = svg
+      } catch (error) {
+        el.classList.add('err')
+        el.appendChild($('div', 'hd-err', 'The chart did not draw: ' + esc(error.message)))
+      }
     }
-  }
-  function initMermaid () {
-    const fg = css('--fg'); const bg = getComputedStyle(document.body).backgroundColor; const acc = css('--accent')
-    const dark = rgbOf(bg).reduce((a, b) => a + b, 0) < 384; const hex = (c) => mix(c, c, 1)
-    try {
-      window.mermaid.initialize({
-        startOnLoad: false,
-        securityLevel: 'strict',
-        theme: 'base',
-        fontFamily: '-apple-system, system-ui, sans-serif',
-        themeVariables: {
-          darkMode: dark,
-          background: hex(bg),
-          mainBkg: mix(acc, bg, 0.16),
-          primaryColor: mix(acc, bg, 0.16),
-          primaryBorderColor: mix(acc, bg, 0.75),
-          primaryTextColor: hex(fg),
-          nodeTextColor: hex(fg),
-          lineColor: mix(fg, bg, 0.5),
-          textColor: hex(fg),
-          secondaryColor: mix(css('--ok'), bg, 0.16),
-          tertiaryColor: mix(fg, bg, 0.06),
-          clusterBkg: mix(fg, bg, 0.04),
-          clusterBorder: mix(fg, bg, 0.22),
-          edgeLabelBackground: hex(bg),
-          noteBkgColor: mix(css('--warn'), bg, 0.15),
-          noteTextColor: hex(fg),
-          actorBkg: mix(acc, bg, 0.16),
-          actorBorder: mix(acc, bg, 0.75),
-          actorTextColor: hex(fg),
-          signalColor: hex(fg),
-          signalTextColor: hex(fg),
-          fontSize: '14px'
-        }
-      })
-    } catch (e) { /* initialize is best effort */ }
   }
 
   // ---------- questions ----------
@@ -367,7 +342,7 @@
     controls: (q.controls || []).map((c) => Object.assign({ type: 'range' }, c)),
     values: {},
     from: null,
-    options: (q.options || []).map((o, i) => (typeof o === 'string' ? { id: o, label: o } : Object.assign({ id: o.id || 'o' + (i + 1) }, o))),
+    options: (q.options || []).map((o, i) => (typeof o === 'string' ? { id: o, label: o } : Object.assign({}, o, { id: o.id || 'o' + (i + 1) }))),
     sel: new Set(),
     hl: 0,
     el: null,
@@ -618,6 +593,20 @@
     })
     deliver({ status: 'answered', answers })
   }
+  function answerURL () {
+    const page = new URL(location.href)
+    page.pathname = page.pathname.replace(/\/?$/, '/answer')
+    page.search = ''
+    page.hash = ''
+    return page.href
+  }
+  function pageDigest () {
+    // This is the response that supplied the document, even if the address has changed.
+    const navigation = performance.getEntriesByType('navigation')[0]
+    const digest = navigation?.serverTiming?.find(entry => entry.name === 'card-digest')?.description
+    if (!digest) throw new Error('Load the card again')
+    return digest
+  }
   async function deliver (v) {
     if (finished) return; finished = true
     const value = JSON.stringify(v)
@@ -626,7 +615,8 @@
       if (location.protocol.startsWith('http')) {
         // A path relative to the page: the browser fallback serves it at / and takes /answer, and the
         // board serves a card under .../cards/PAGEID/ and takes the card's own answer route there.
-        const r = await fetch('answer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: value })
+        const posted = ON_BOARD ? { ...v, digest: pageDigest() } : v
+        const r = await fetch(answerURL(), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(posted) })
         let reply = {}
         try { reply = JSON.parse((await r.text()) || '{}') || {} } catch (e) { reply = {} }
         const said = typeof reply.said === 'string' ? reply.said : ''
@@ -806,7 +796,7 @@
   ready = true; flush()
   // The spec's top-level `script` is its author's code too, run once with `api` (SKILL.md).
   // eslint-disable-next-line no-new-func
-  if (SPEC.script) { try { new Function('api', SPEC.script)(api) } catch (e) { app.appendChild($('pre', 'hd-err', 'script: ' + esc(e.message || e))) } }
-  if (!window.agterm && location.protocol.startsWith('http')) { window.addEventListener('pagehide', () => { if (!finished) navigator.sendBeacon('answer', JSON.stringify({ status: 'dismissed' })) }) }
+  if (SPEC.script && !ON_BOARD) { try { new Function('api', SPEC.script)(api) } catch (e) { app.appendChild($('pre', 'hd-err', 'script: ' + esc(e.message || e))) } }
+  if (!window.agterm && location.protocol.startsWith('http')) { window.addEventListener('pagehide', () => { if (!finished) navigator.sendBeacon(answerURL(), JSON.stringify({ status: 'dismissed' })) }) }
   window.focus()
 })()
