@@ -1,41 +1,76 @@
-"""The files a range of commits changes, through the `Git` port: `BASE..TIP`, or `BASE...TIP`
-from the commit the two share. A side left out is HEAD, as git reads it."""
+"""The files a range of commits changes: `BASE..TIP`, or `BASE...TIP` from the commit the two
+share. A side left out is HEAD, as git reads it.
+
+The two ends are the `Git` port's facts. The names come from `git diff --name-only --no-renames
+-z` itself, as on `main`: a moved file under its old name and its new one, and each name as git
+keeps it, with no quoting and no short form to read back (an arrow in a name is part of the
+name). The port has no such fact yet (`notes/settings.md`, for `core`).
+"""
 
 import os
+import subprocess
 from typing import TYPE_CHECKING
 
 from lem.app import wiring
-from lem.cli.rules.renames import unfolded
 from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.ports.place import Place
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
     from lem.ports.git import GitFacts
-    from lem.store.places import Workspace
 
 TWO_DOTS = ".."
 THREE_DOTS = "..."
 HEAD = "HEAD"
 RANGE = "range"
 FIX = "name a range of commits this repository holds: BASE..TIP"
+# What would send git to another repository than the one named.
+AIMED = frozenset(("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE"))
+# A diff of names takes far less than this (unmeasured estimate).
+TIMEOUT = 120
+DIFF = ("diff", "--name-only", "--no-renames", "-z")
 
 
-def range_names(space: Workspace, root: Path, commits: str) -> tuple[str, ...]:
+def range_names(root: Path, commits: str) -> tuple[str, ...]:
     """The paths the range `commits` changes in the checkout `root`, a moved file under both
     its names."""
-    git = git_of(space)
-    since, until = ends(git, root, commits)
-    listed = git.diff_stat(root, since, until).paths
-    return tuple(name for shown in listed for name in unfolded(shown))
-
-
-def git_of(space: Workspace) -> GitFacts:
-    """The `Git` port, bound for this call."""
     environ = os.environ
-    place = Place(checkout=space.checkout, home=paths.home(environ), environ=environ)
+    git = git_of(root, environ)
+    since, until = ends(git, root, commits)
+    return changed(root, (since, until), environ)
+
+
+def changed(
+    root: Path, between: tuple[str, str], environ: Mapping[str, str]
+) -> tuple[str, ...]:
+    """The names `git diff --name-only --no-renames -z` gives between two commits."""
+    ran = subprocess.run(
+        ["git", "-C", str(root), *DIFF, *between],
+        capture_output=True,
+        env=own(environ),
+        stdin=subprocess.DEVNULL,
+        timeout=TIMEOUT,
+        check=False,
+    )
+    if ran.returncode:
+        words = os.fsdecode(ran.stderr).strip()
+        asked = " ".join(between)
+        raise Refusal(RANGE, f"git diff {asked} failed: {words}", FIX)
+    listed = ran.stdout.split(b"\0")
+    return tuple(os.fsdecode(name) for name in listed if name)
+
+
+def own(environ: Mapping[str, str]) -> dict[str, str]:
+    """The call's environment without what would aim git at another repository."""
+    return {name: said for name, said in environ.items() if name not in AIMED}
+
+
+def git_of(root: Path, environ: Mapping[str, str]) -> GitFacts:
+    """The `Git` port, bound for this call."""
+    place = Place(checkout=root, home=paths.home(environ), environ=environ)
     return wiring.bound(place).git
 
 

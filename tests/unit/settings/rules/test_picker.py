@@ -323,3 +323,19 @@ def test_a_task_worktree_names_its_own_files_and_reads_its_own_rules(
         "50-branch.md",
         "20-models.md",
     ] or "50-branch.md" in names(found)
+
+
+def test_a_file_whose_name_holds_an_arrow_is_that_one_file(tmp_path: Path) -> None:
+    checkout = rules_repo(tmp_path)
+    commit(checkout, "docs: an arrow", {"docs/a => b.md": b"x\n"})
+    found = answer(lem("rules", "--range", "HEAD~1..HEAD", cwd=checkout))
+    assert found["files"] == ["docs/a => b.md"]
+
+
+def test_a_repository_where_lem_is_not_set_up_gets_its_rules(tmp_path: Path) -> None:
+    checkout = RealRepo.init(
+        tmp_path / "repo",
+        {".claude/rules/all.md": b"# every path\n", "src/a.py": b""},
+    ).checkout
+    found = answer(lem("rules", "src/a.py", cwd=checkout))
+    assert [rule["scope"] for rule in found["rules"]] == ["every path"]

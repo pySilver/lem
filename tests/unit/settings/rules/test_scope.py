@@ -1,11 +1,9 @@
-"""What the picker reads from a rule file's frontmatter (`rule_scope`), and how it reads the
-names of a range from the `Git` port's short form of a moved file (`unfolded`)."""
+"""What the picker reads from a rule file's frontmatter (`rule_scope`)."""
 
 from typing import TYPE_CHECKING
 
 import pytest
 
-from lem.cli.rules.renames import unfolded
 from lem.cli.rules.scope import rule_scope
 from lem.kernel.errors import Refusal
 
@@ -102,32 +100,3 @@ def test_a_paths_that_names_no_glob_or_is_no_list_is_refused_with_the_fix(
     assert refused.value.code == "rule-scope"
     assert refused.value.why == said
     assert '`  - "GLOB"`' in refused.value.fix
-
-
-@pytest.mark.parametrize(
-    ("shown", "names"),
-    [
-        ("src/x.ts", ("src/x.ts",)),
-        ("{src => lib}/x.ts", ("src/x.ts", "lib/x.ts")),
-        ("src/{a => b}/x.ts", ("src/a/x.ts", "src/b/x.ts")),
-        ("src/{ => sub}/x.ts", ("src/x.ts", "src/sub/x.ts")),
-        ("x.ts => sub/x.ts", ("x.ts", "sub/x.ts")),
-        ('"docs/na\\303\\257ve.md"', ("docs/naïve.md",)),
-        ('"a\\tb.md" => c.md', ("a\tb.md", "c.md")),
-        ('c.md => "d\\"e.md"', ("c.md", 'd"e.md')),
-    ],
-    ids=[
-        "one",
-        "folder",
-        "inner",
-        "empty-side",
-        "no-common",
-        "quoted",
-        "quoted-old",
-        "quoted-new",
-    ],
-)
-def test_a_moved_file_counts_under_both_names_and_a_quoted_name_as_itself(
-    shown: str, names: tuple[str, ...]
-) -> None:
-    assert unfolded(shown) == names

@@ -7,6 +7,7 @@ its own branch, and its rules are the ones its branch holds.
 import os
 from pathlib import Path
 
+from lem.kernel import folders
 from lem.kernel.errors import Refusal
 
 NO_NAMES = ("", ".", "..")
@@ -14,9 +15,17 @@ NO_NAMES = ("", ".", "..")
 
 def checkout_of(folder: Path) -> Path:
     """The checkout `folder` is in: the nearest folder up from it that holds `.git`, a
-    worktree's own too. The caller has found the workspace first, so there is one."""
+    worktree's own too; refused outside one."""
     start = folder.resolve()
-    return next(filter(holds_git, (start, *start.parents)))
+    found = next(filter(holds_git, (start, *start.parents)), None)
+    if found is None:
+        raise Refusal(
+            "no-repository",
+            f"{start} is in no git repository",
+            "run it inside a repository's checkout, or name one with lem --repo PATH",
+        )
+    folders.inside_test_root(found)
+    return found
 
 
 def holds_git(folder: Path) -> bool:

@@ -4,7 +4,8 @@
 
 A file is named relative to the checkout the call starts in, or by its absolute path; a range
 adds each file its commits change, a moved file under its old name and its new one. The rules
-are read from `.claude/rules` of that checkout, where the agent loads them by itself.
+are read from `.claude/rules` of that checkout, where the agent loads them by itself, in any
+repository, with Lem set up there or not, as on `main`.
 """
 
 import click
@@ -15,7 +16,6 @@ from lem.cli.checks import at_least_one
 from lem.cli.rules.named import checkout_of, named
 from lem.cli.rules.picked import Picked, picked
 from lem.cli.rules.ranged import range_names
-from lem.store import places
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -27,11 +27,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 def run(call: Call) -> Picked:
     """The rule files that hold for the files the call names and the range's files."""
-    start = place.folder()
-    space = places.workspace(start)
-    root = checkout_of(start)
+    root = checkout_of(place.folder())
     given = tuple(named(root, word) for word in call.files)
-    ranged = range_names(space, root, call.commits) if call.commits else ()
+    ranged = range_names(root, call.commits) if call.commits else ()
     return picked(root, tuple(sorted({*given, *ranged})))
 
 
