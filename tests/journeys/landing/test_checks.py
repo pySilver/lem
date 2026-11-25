@@ -17,7 +17,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import IO, TYPE_CHECKING, Any
 
 import pytest
 from msgspec.structs import replace
@@ -107,6 +107,21 @@ HELD = (
 )
 
 
+def release_once_waited(builder: IO[str], probe: str) -> None:
+    """Let the builder's serial lock go once the checks' `lem serial` of `probe` runs and has
+    had a moment to find the lock held and wait (a second, an unmeasured estimate)."""
+    deadline = time.monotonic() + REACH
+    while time.monotonic() < deadline:
+        listed = subprocess.run(
+            ["ps", "-Ao", "command="], capture_output=True, text=True, check=False
+        ).stdout
+        if any("serial" in line and probe in line for line in listed.splitlines()):
+            time.sleep(1.0)
+            break
+        time.sleep(0.1)
+    builder.close()
+
+
 def test_the_checks_run_each_serial_command_after_the_commands_under_the_one_lock(
     world: World, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -117,13 +132,13 @@ def test_the_checks_run_each_serial_command_after_the_commands_under_the_one_loc
     places.locks_folder(world.checkout / ".lem" / "state")
     builder = lock_path(world).open("a+")
     fcntl.flock(builder, fcntl.LOCK_EX)
-    let_go = threading.Timer(2.0, builder.close)
+    let_go = threading.Thread(target=release_once_waited, args=(builder, str(probe)))
     let_go.start()
     try:
         envelope = checks(capsys, world)
     finally:
-        let_go.cancel()
         builder.close()
+        let_go.join(timeout=REACH)
     assert envelope["ok"] is True, envelope
     outcomes = record_of(world)["landing"]["checked"]["outcomes"]
     assert [(one.get("serial", False), one["passed"]) for one in outcomes] == [
