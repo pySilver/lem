@@ -19,6 +19,7 @@ from lem.app.sessions import (
     listing,
     log,
     opening,
+    signs,
     waits,
     waking,
 )
@@ -322,3 +323,36 @@ def test_the_guard_watches_no_task_with_a_hold(tmp_path: Path) -> None:
     got = guard_steps.stepped(here, SLUG, "status", "session-1", HOUR)
     assert (got.acted, got.why) == (False, "status")
     assert tasks.read(here.where.state, SLUG).task.hold == hold
+
+
+def test_a_sessions_signs_are_its_own_transcripts_newest_and_any_shell(
+    tmp_path: Path,
+) -> None:
+    harness = FakeHarness()
+    here = here_of(tmp_path, with_caller(), harness)
+    made(here, status="building", lead="builder")
+    assert signs.read_signs(here, SLUG, "SESSION-1") == signs.Read()
+    for claude, pane in (
+        ("c1", "session-1"),
+        ("c2", "SESSION-1"),
+        ("c3", "S-OLD"),
+        ("c4", None),
+    ):
+        line = SessionLine(
+            at=MOMENT,
+            source="startup",
+            claude=claude,
+            transcript=claude,
+            pane=pane,
+            task=SLUG,
+        )
+        sessions.append(here.folder(SLUG), line)
+    harness.by_task[SLUG] = tuple(
+        Transcript(path=one, claude=one) for one in ("c1", "c2", "c3", "c4")
+    )
+    harness.signs_of["c1"] = Signs(sign=MOMENT, turn="ended", shell=True)
+    harness.signs_of["c2"] = Signs(sign=LATER, turn="runs")
+    harness.signs_of["c3"] = Signs(sign=HOUR, turn="ended")
+    harness.signs_of["c4"] = Signs(sign=HOUR, turn="ended")
+    read = signs.read_signs(here, SLUG, "Session-1")
+    assert read == signs.Read(sign=LATER, shell=True, signs=True, turn="runs")

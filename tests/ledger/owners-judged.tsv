@@ -45,6 +45,10 @@ ruling:the-size-of-a-change-decides-its-path-5ef69d536294de8c	owner	The main ski
 ruling:the-time-card-gets-exact-start-times-d2c4849e7fd2e8ef	task	The main skill tells agents to log stage starts, and the project source names the start events. The task step owns those span records.	
 ruling:the-trials-of-2026-11-21-a-task-s-session-sa-b7fb034987197ddd	sessions	The historical row joins session startup and onboarding. Let the session owner account for the first-line handoff and cite onboarding separately.	
 ruling:without-codex-one-expert-answers-alone-5a3515f2f428be0e	addons-outside	Settings exposes the available seats, and the experts add-on runs the one-expert path.	
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_page_opened_with_no_status_keeps_its_choice_at_the_stop	ask	the open card's mark (agterm status, rechecked) reads the card's page and its no-status choice, which `ask` (board/ask/) defines; hooks/stop.py says nothing until then	sessions
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_status_call_that_cannot_start_prints_nothing	ask	the agtermctl status calls of the mark are `ask`'s with the card's page	sessions
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_wait_with_no_status_holds_for_a_page_opened_without_it	ask	the word of `lem ask wait` (main's WAIT_WORD file) is `ask`'s to define	sessions
+unit:tests/unit/test_hooks.py:AskStopHook.test_an_agtermctl_that_hangs_ends_the_hook_silent_and_leaves_no_process	ask	the agtermctl calls of the mark, each with its bound (main's STOP_CALL), come with the mark	sessions
 unit:tests/unit/test_land.py:ProtectedBranch.test_a_protected_name_is_refused_and_named	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.	
 unit:tests/unit/test_land.py:ProtectedBranch.test_a_task_branch_that_is_not_protected	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.	
 unit:tests/unit/test_land.py:ProtectedBranch.test_the_base_is_refused	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.	
@@ -80,6 +84,12 @@ unit:tests/unit/test_release.py:Repository.test_the_repository_names_one_release
 unit:tests/unit/test_release.py:Rule.test_a_task_of_this_release_or_of_the_release_before_goes_on	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Rule.test_a_task_two_releases_back_stops_with_the_message_of_criterion_4	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Rule.test_a_task_with_no_mark_counts_as_begun_on_the_release_before_marks_and_goes_on	task	the release stop two releases back is task's	core
+unit:tests/unit/test_session.py:Load.test_a_negative_number_written_by_hand_is_refused	settings	the load line's number is [load] of the machine's file, which the step settings reads and checks	sessions
+unit:tests/unit/test_session.py:Load.test_a_new_machine_gates_at_forty	land-checks	the load line gates the checks, which land-checks runs	sessions
+unit:tests/unit/test_session.py:Load.test_his_number_wins_and_none_stays_none	settings	the machine's [load] number and its sources are the step settings's	sessions
+unit:tests/unit/test_session.py:Seat.test_the_machine_file_refuses_the_seats_and_names_the_home_settings	settings	which file may hold [seats] is the settings' table places (settings/places.py)	sessions
+unit:tests/unit/test_session.py:Tokens.test_the_command_writes_the_number_and_default_takes_it_out_keeping_the_other_tables	settings	the number is written by `lem settings set handoff.tokens N --machine`, the step settings's	sessions
+unit:tests/unit/test_session.py:Tokens.test_under_the_floor_a_negative_a_bool_and_a_float_are_refused	settings	the check of [handoff] tokens on a write is the settings' edit; the harness refuses such a number on read (contract.test_harness.test_a_compaction_number_claude_code_would_refuse_is_refused)	sessions
 unit:tests/unit/test_state.py:RunGit.test_a_closed_stdin_reads_as_empty	land-base	git's runner is the git_cli adapter, which land-base builds	core
 unit:tests/unit/test_state.py:RunGit.test_a_run_is_given_back_whole_and_a_failure_is_not_raised	land-base	git's runner is the git_cli adapter, which land-base builds	core
 unit:tests/unit/test_state.py:RunGit.test_git_gives_the_output_or_none	land-base	git's runner is the git_cli adapter, which land-base builds	core
