@@ -10,6 +10,8 @@ from git's merge of the tip before it onto the base (`rebased.py`, `carry.py`).
 
 from typing import TYPE_CHECKING, Literal
 
+from msgspec.structs import replace
+
 from lem.model.landing import base_said, rebased
 from lem.model.landing.world import Due, Held, World
 from lem.records.base import Frozen, Sha
@@ -111,4 +113,5 @@ def emptied(
     only in a merge commit, which a rebase drops, or nothing to land."""
     if ahead:
         return None
-    return base_said.lost(record, world, based, where) or base_said.nothing(record)
+    now = replace(world, tip=based.tip)
+    return base_said.lost(record, now, based, where) or base_said.nothing(record)
