@@ -83,13 +83,14 @@ class Row(Input, frozen=True, kw_only=True):
 class Document(Input, frozen=True, kw_only=True):
     """A markdown text the browser renders (a task's outcome, a breaker's document, the merge
     review, a criterion's chart): its id (`md-KEY-DIGEST`, which a refresh keeps while the text
-    stays), the text, the address of the task's pictures it may show, and the folder its links
-    start from."""
+    stays), the text, the address of the task's pictures it may show, the folder its links
+    start from, and whether it needs the Mermaid library."""
 
     id: Plain
     text: Markdown
     media: Href | None = None
     folder: Plain | None = None
+    charts: bool = False
 
 
 class Note(Input, frozen=True, kw_only=True):

@@ -50,6 +50,8 @@ No fixture holds Activity, the Timeline, Artifacts, the page of older tasks (Don
 ended tasks), the page of a new task, `/`, or the panel of another task: their structs are
 built, and their first cases are the views' own.
 
+**For `board-views`.** Move `pull_link` and `pull_chip` from `board/inputs/names.py` to `board/views/`, which owns the pull request's display rules.
+
 ## What each step of group 4 may count on
 
 - **`board-views`.** Its case: `lay(tmp_path)` and the facts beside the records (`shown.VIEWER`,

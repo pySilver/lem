@@ -14,6 +14,8 @@ from lem.records.landing.record import Pull
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from lem.board.inputs.text import View
+
 NOW = datetime(2026, 11, 25, 16, 0, tzinfo=UTC)
 ZONE = ZoneInfo("UTC")
 
@@ -116,6 +118,30 @@ def test_a_task_address_names_its_tab_and_the_view_under_its_panel_but_the_kanba
         == "/studio/shop/tasks/fix-it/criteria?in=waits"
     )
     assert names.task_href(base, "fix-it", None, "tasks") == "/studio/shop/tasks/fix-it"
+
+
+@pytest.mark.parametrize(
+    ("under", "suffix"),
+    [
+        ("new", ""),
+        ("tasks", ""),
+        ("waits", "?in=waits"),
+        ("backlog", "?in=backlog"),
+        ("activity", "?in=activity"),
+        ("done", "?in=done"),
+    ],
+)
+def test_overview_omits_its_tab_and_keeps_only_a_view_it_can_open_over(
+    under: View, suffix: str
+) -> None:
+    address = "/studio/shop/tasks/fix-it"
+    assert (
+        names.task_href("/studio/shop", "fix-it", "overview", under) == address + suffix
+    )
+    assert (
+        names.task_href("/studio/shop", "fix-it", "criteria", under)
+        == f"{address}/criteria{suffix}"
+    )
 
 
 def test_an_artifact_address_quotes_its_path_and_keeps_the_slash_before_the_view() -> (

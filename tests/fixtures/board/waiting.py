@@ -17,41 +17,6 @@ STOCK = "stock-on-product-page"
 CART = "cart-total-after-coupon"
 WAITS_FOR_YOU = "Waits for you"
 MERGE_STATE = "Waits for the merge"
-TYPED = "Your words, as you would type them in the session"
-
-
-def answer(slug: str, key: str, row: str, question: str, label: str) -> AnswerForm:
-    """The answer to a breaker on a row of the view: help, or park or drop, each of the two
-    after its confirm step."""
-    return AnswerForm(
-        id=f"answer-row-{row}",
-        action=f"{BASE}/tasks/{slug}/answer",
-        question=question,
-        fields=(Field(name="key", shown=key), Field(name="in", shown="waits")),
-        note=TextBox(
-            name="words",
-            id=f"ans-row-shop-{row}",
-            label=label,
-            placeholder=TYPED,
-            rows=2,
-        ),
-        choices=(
-            Choice(option="help", label="Help", icon="circle-question", press="go"),
-            Choice(
-                option="park",
-                label="Park…",
-                icon="folder",
-                confirm=f"{BASE}/tasks/{slug}/park",
-            ),
-            Choice(
-                option="drop",
-                label="Drop…",
-                icon="xmark",
-                press="risk",
-                confirm=f"{BASE}/tasks/{slug}/drop",
-            ),
-        ),
-    )
 
 
 def one(wait: Wait, slug: str, title: str, state: str) -> Stack:
@@ -85,12 +50,34 @@ BREAKER = Wait(
     ),
     sub="No option keeps the criteria you approved",
     acts=Acts(
-        answer=answer(
-            GIFT,
-            GIFT_KEY,
-            GIFT_ID,
-            f"Breaker 1 of {GIFT}: help, park or drop the task?",
-            "Help needs your words for the lead",
+        answer=AnswerForm(
+            id=f"answer-row-{GIFT_ID}",
+            action=f"{BASE}/tasks/{GIFT}/answer",
+            question=f"Breaker 1 of {GIFT}: help, park or drop the task?",
+            fields=(Field(name="key", shown=GIFT_KEY), Field(name="in", shown="waits")),
+            note=TextBox(
+                name="words",
+                id=f"ans-row-shop-{GIFT_ID}",
+                label="Help needs your words for the lead",
+                placeholder="Your words, as you would type them in the session",
+                rows=2,
+            ),
+            choices=(
+                Choice(option="help", label="Help", icon="circle-question", press="go"),
+                Choice(
+                    option="park",
+                    label="Park…",
+                    icon="folder",
+                    confirm=f"{BASE}/tasks/{GIFT}/park",
+                ),
+                Choice(
+                    option="drop",
+                    label="Drop…",
+                    icon="xmark",
+                    press="risk",
+                    confirm=f"{BASE}/tasks/{GIFT}/drop",
+                ),
+            ),
         ),
     ),
     where=(

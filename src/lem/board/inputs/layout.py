@@ -12,8 +12,9 @@ from lem.board.inputs.text import Href, Inline, Plain, View
 
 class Viewer(Input, frozen=True, kw_only=True):
     """Who asks for the page: the machine and the workspace of its address and their base
-    (`/studio/shop`), the view under the panel, the task, tab and file the address opens; whether
-    the page is for this Mac (the agterm jump), whether it may act (on this Mac or through the
+    (`/studio/shop`), the view under the panel, the task, tab and file the address opens, and
+    the question key and the owner's words sent to a confirm step. Whether the page is for
+    this Mac (the agterm jump), whether it may act (on this Mac or through the
     tailnet door), whether it is the Hotwire Native app (every link a whole visit); and the
     cookie: the folded columns, the folded sidebar, the panel across the whole width, its width
     in pixels, and the task's header open."""
@@ -25,6 +26,8 @@ class Viewer(Input, frozen=True, kw_only=True):
     task: Plain | None = None
     tab: Plain = "overview"
     path: Plain | None = None
+    key: Plain | None = None
+    words: Plain | None = None
     local: bool = False
     may_act: bool = False
     native: bool = False

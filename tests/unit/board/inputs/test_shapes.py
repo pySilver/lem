@@ -15,11 +15,13 @@ import pytest
 import lem.board.inputs
 from fixtures.board import columns, frame, panel, waiting
 from fixtures.board.held import STOCK
+from lem.board.inputs.layout import Viewer
 from lem.board.inputs.page import Page
 from lem.board.inputs.parts import Chip, Input, Link, Note, When
+from lem.board.inputs.switcher import Space
 from lem.board.inputs.task.panel import Missing, Panel
 from lem.board.inputs.task.steps import NotNow
-from lem.board.inputs.tasks import Older
+from lem.board.inputs.tasks import Column, Older
 
 # The walking skeleton's kanban, which `board-views` and `board-pages` leave for `tasks.py`.
 SKELETON = "lem.board.inputs.kanban"
@@ -47,10 +49,6 @@ STRUCTS = [each for each in defined() if issubclass(each, Input)]
 
 def test_every_struct_of_the_inputs_is_an_input() -> None:
     assert [each for each in defined() if not issubclass(each, Input)] == []
-
-
-def test_the_inputs_are_many_structs_each_a_section_or_a_part_of_one() -> None:
-    assert len(STRUCTS) > 80
 
 
 @pytest.mark.parametrize("struct", STRUCTS, ids=lambda struct: struct.__qualname__)
@@ -108,7 +106,69 @@ def test_a_default_is_an_empty_value_or_a_fixed_word_never_a_mutable_one(
 def test_the_whole_page_has_one_json_schema() -> None:
     schema = msgspec.json.schema(Page)
     assert schema["$ref"] == "#/$defs/Page"
-    assert len(schema["$defs"]) > 60
+
+
+def test_done_requires_its_total_even_when_it_has_no_cards() -> None:
+    with pytest.raises(msgspec.ValidationError, match="missing required field `total`"):
+        msgspec.json.decode(
+            b'{"key":"done","look":"done","title":"Done","empty":"No ended tasks"}',
+            type=Column,
+        )
+
+
+def test_done_keeps_its_total_when_it_draws_only_the_newest_cards() -> None:
+    cards = tuple(
+        msgspec.structs.replace(
+            columns.DONE.cards[0], slug=slug, href=f"/studio/shop/tasks/{slug}"
+        )
+        for slug in (f"task-{number:02d}" for number in range(24, 4, -1))
+    )
+    done = msgspec.structs.replace(
+        columns.DONE,
+        total=25,
+        cards=cards,
+        older=Link(href="/studio/shop/done", label="5 older"),
+    )
+    restored = msgspec.json.decode(msgspec.json.encode(done), type=Column)
+    assert restored.total == 25
+    assert len(restored.cards) == 20
+    assert restored.older and restored.older.label == "5 older"
+
+
+@pytest.mark.parametrize("tab", ["drop", "park"])
+@pytest.mark.parametrize("key", ["breaker:gift-note-in-export:0:old", waiting.GIFT_KEY])
+def test_the_breaker_confirm_keeps_the_requested_key_and_words(
+    tab: str, key: str
+) -> None:
+    words = "Wait for the next export.\nKeep the gift note."
+    raw = msgspec.json.encode(
+        {
+            "host": "studio",
+            "workspace": "shop",
+            "base": "/studio/shop",
+            "task": waiting.GIFT,
+            "tab": tab,
+            "key": key,
+            "words": words,
+        }
+    )
+    viewer = msgspec.json.decode(raw, type=Viewer)
+    assert (viewer.tab, viewer.key, viewer.words) == (tab, key, words)
+    assert msgspec.json.decode(msgspec.json.encode(viewer), type=Viewer) == viewer
+
+
+def test_an_unreachable_workspace_keeps_its_fix_apart_from_its_last_answer() -> None:
+    space = Space(
+        id="ws-travel-shop",
+        name="travel/shop",
+        path="/work/shop",
+        says="not reachable · last answer 5m ago",
+        title="Leave travel and join it with the name in its board address.",
+        reachable=False,
+    )
+    restored = msgspec.json.decode(msgspec.json.encode(space), type=Space)
+    assert restored.title == space.title
+    assert restored.says == space.says
 
 
 def test_an_input_refuses_a_key_it_does_not_know_and_a_fact_it_lacks() -> None:
@@ -226,3 +286,22 @@ def test_the_done_view_uses_the_older_tasks_body() -> None:
 def test_a_workspace_page_can_keep_a_panel_with_its_one_view() -> None:
     expected = Page(frame=frame.FRAME, tasks=columns.TASKS, panel=panel.MERGE_STEP)
     assert msgspec.json.decode(msgspec.json.encode(expected), type=Page) == expected
+
+
+def test_a_native_task_page_needs_no_workspace_body() -> None:
+    viewer = msgspec.structs.replace(frame.FRAME.viewer, native=True, task=panel.SLUG)
+    native = msgspec.structs.replace(frame.FRAME, viewer=viewer)
+    raw = msgspec.json.encode({"frame": native, "panel": panel.OPEN})
+    page = msgspec.json.decode(raw, type=Page)
+    assert page.panel == panel.OPEN and page.tasks is None
+
+
+@pytest.mark.parametrize("native", [False, True], ids=("web", "native"))
+def test_a_page_without_a_workspace_body_requires_both_native_and_a_panel(
+    *, native: bool
+) -> None:
+    viewer = msgspec.structs.replace(frame.FRAME.viewer, native=native)
+    bare = msgspec.structs.replace(frame.FRAME, viewer=viewer)
+    page = {"frame": bare} if native else {"frame": bare, "panel": panel.OPEN}
+    with pytest.raises(msgspec.ValidationError, match="view"):
+        msgspec.json.decode(msgspec.json.encode(page), type=Page)

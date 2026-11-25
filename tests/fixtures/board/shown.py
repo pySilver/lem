@@ -44,9 +44,16 @@ def kind(name: str, why: str) -> Chip:
 
 
 def document(
-    key: str, text: str, media: str | None = None, folder: str | None = None
+    key: str,
+    text: str,
+    media: str | None = None,
+    folder: str | None = None,
+    *,
+    charts: bool = False,
 ) -> Document:
     """A markdown text under the id a refresh keeps while the text stays: `md-KEY-` and the
     first twelve of the SHA-256 of `KEY|TEXT` (`main`'s `board_pages.md_block`)."""
     digest = hashlib.sha256(f"{key}|{text}".encode()).hexdigest()[:12]
-    return Document(id=f"md-{key}-{digest}", text=text, media=media, folder=folder)
+    return Document(
+        id=f"md-{key}-{digest}", text=text, media=media, folder=folder, charts=charts
+    )

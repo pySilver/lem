@@ -30,7 +30,7 @@ class Frame(Input, frozen=True, kw_only=True):
 
 class Page(Input, frozen=True, kw_only=True):
     """A page of a workspace: its frame, the result of an act above the view, the one view of
-    its address, and the panel of the task it opens."""
+    its address, and the panel of the task it opens. A native task page has the panel alone."""
 
     frame: Frame
     note: Note | None = None
@@ -51,7 +51,10 @@ class Page(Input, frozen=True, kw_only=True):
             self.activity,
             self.new,
         )
-        if sum(body is not None for body in views) != 1:
+        count = sum(body is not None for body in views)
+        if count == 0 and self.frame.viewer.native and self.panel is not None:
+            return
+        if count != 1:
             raise ValueError("the workspace page needs exactly one view")
         view = self.frame.viewer.view
         field = "older" if view == "done" else view

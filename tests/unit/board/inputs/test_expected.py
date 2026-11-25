@@ -213,6 +213,38 @@ def test_the_backlog_shows_every_item_and_the_task_that_holds_one() -> None:
     assert [entry.path for entry in held] == [task.backlog_item for task in holders]
 
 
+def test_the_backlog_starts_a_task_at_the_workspace_tasks_route() -> None:
+    item = shelves.FOOTER_ITEM
+    form = item.holds.start
+    assert form
+    assert (form.action, [(field.name, field.shown) for field in form.fields]) == (
+        f"{BASE}/tasks",
+        [("item", item.path)],
+    )
+
+
+def test_only_the_documents_with_charts_request_the_chart_library() -> None:
+    building = panel.OVERVIEW.building
+    decision = panel.CRITERIA.decisions[0]
+    criterion = panel.CRITERIA.criteria[0]
+    assert building and building.outcome and panel.CRITERIA.how
+    assert decision.chart and criterion.chart and shelves.FOOTER_ITEM.body
+    assert building.outcome.charts
+    assert panel.CRITERIA.how.charts
+    assert decision.chart.charts
+    assert criterion.chart.charts
+    assert not shelves.FOOTER_ITEM.body.charts
+
+
+def test_the_proposed_receipt_counts_each_plan_task_as_finished() -> None:
+    task = RECEIPT.task
+    phases = panel.OVERVIEW.phases
+    assert task.status == "open" and task.plan and phases and phases.ring
+    finished = sum(span.name == "task" and span.end is not None for span in task.spans)
+    ring = phases.ring
+    assert (ring.done, ring.current, ring.total) == (finished, 0, task.plan.tasks)
+
+
 def test_the_panel_prints_the_landing_the_decisions_and_the_criteria_of_its_record() -> (
     None
 ):
@@ -283,6 +315,35 @@ def assert_merge_target(merge: Merge) -> None:
 
 def test_the_merge_confirm_links_to_the_pull_and_names_its_base_branch() -> None:
     assert_merge_target(panel.MERGE)
+
+
+def assert_merge_verdict(merge: Merge) -> None:
+    landing = RECEIPT.landing
+    assert landing and landing.proposed
+    green = landing.proposed.green
+    assert (merge.green, merge.word) == (green, "Green" if green else "Not green")
+    assert merge.confirm.form and merge.confirm.sheet
+
+
+def test_the_merge_confirm_matches_the_proposals_verdict_and_uses_a_sheet() -> None:
+    assert_merge_verdict(panel.MERGE)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"green": True},
+        {"word": "Green"},
+        {"confirm": msgspec.structs.replace(panel.MERGE.confirm, sheet=False)},
+    ],
+    ids=("flag", "word", "sheet"),
+)
+def test_the_merge_confirm_check_refuses_false_green_and_a_disabled_sheet(
+    changes: dict[str, object],
+) -> None:
+    merge = msgspec.structs.replace(panel.MERGE, **changes)
+    with pytest.raises(AssertionError):
+        assert_merge_verdict(merge)
 
 
 @pytest.mark.parametrize(

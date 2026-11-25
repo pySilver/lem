@@ -42,13 +42,17 @@ def task_href(
     path = f"{base}/tasks/{named}"
     if artifact and not tab:
         tab = "artifacts"
-    if tab:
+    if tab and (tab != "overview" or artifact):
         section = quote(tab)
         path = f"{path}/{section}"
     if artifact:
         encoded = quote(artifact)
         path = f"{path}/{encoded}/"
-    return path if under == "tasks" else f"{path}?in={under}"
+    return (
+        f"{path}?in={under}"
+        if under in {"waits", "backlog", "activity", "done"}
+        else path
+    )
 
 
 def repository(pull: Pull) -> str | None:
