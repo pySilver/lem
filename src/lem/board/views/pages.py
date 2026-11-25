@@ -10,11 +10,12 @@ the backlog's filter is the address's query (`want`), and the result of an act c
 from typing import TYPE_CHECKING
 
 from lem.board.inputs.page import Page
-from lem.board.views import tasks
-from lem.board.views.backlog import groups, search, view
+from lem.board.views import viewed
 from lem.board.views.backlog.wanted import Wanted
-from lem.board.views.frame.page import Beside, frame
-from lem.board.views.waits import view as waits
+from lem.board.views.frame import backlogged
+from lem.board.views.frame.page import frame
+from lem.board.views.panel.opened import NOTHING_OPENED, Opened
+from lem.board.views.shown import panel_of
 
 if TYPE_CHECKING:
     from lem.board.inputs.parts import Note
@@ -23,25 +24,17 @@ if TYPE_CHECKING:
 NOTHING = Wanted()
 
 
-def page(world: World, want: Wanted = NOTHING, note: Note | None = None) -> Page:
-    """The page the world's viewer asks for."""
-    shown = world.viewer.view
-    return Page(
-        frame=frame(world, beside(world)),
+def page(
+    world: World,
+    want: Wanted = NOTHING,
+    note: Note | None = None,
+    opened: Opened = NOTHING_OPENED,
+) -> Page:
+    """The page the world's viewer asks for; `opened` is what the address of a step of the
+    task's panel names."""
+    framed = Page(
+        frame=frame(world, backlogged.beside(world)),
         note=note,
-        tasks=tasks.tasks(world) if shown == "tasks" else None,
-        waits=waits.waits(world) if shown == "waits" else None,
-        backlog=view.backlog(world, want) if shown == "backlog" else None,
+        panel=panel_of(world, opened),
     )
-
-
-def beside(world: World) -> Beside:
-    """What the frame takes of the backlog: the Backlog key's count, the search's rows of
-    items, and the Backlog view's keys."""
-    records = tuple(seen.record for seen in world.tasks)
-    keys = view.KEYS if world.viewer.view == "backlog" else None
-    return Beside(
-        backlog=groups.undecided(world.backlog, records),
-        keys=keys,
-        entries=search.search_rows(world.backlog, records, world.viewer.base),
-    )
+    return viewed.with_view(framed, world, want)
