@@ -12,12 +12,12 @@ seat the settings name opens again.
 """
 
 from functools import partial
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.sessions import seating
-from lem.records.holds import Blocked
+from lem.app.sessions import seat_lines, seating
+from lem.kernel.errors import Refusal
 from lem.records.journal.task import StateNoted
 from lem.store import tasks
 
@@ -26,16 +26,8 @@ if TYPE_CHECKING:
     from lem.records.record import Record
     from lem.records.work import StandIn
 
-type Failing = Literal["reviewer", "planner", "merger"]
-type Error = Literal["missing", "login", "tokens", "model"]
-STAND_IN = "stand-in"
-# Each error's words in the line of a stand-in or a block (`state.SEAT_ERRORS` on `main`).
-ERRORS = (
-    ("missing", "its program is not on this Mac"),
-    ("login", "it is not logged in"),
-    ("tokens", "it has no tokens left"),
-    ("model", "it does not know the model"),
-)
+# The statuses of a task that ended: no seat of it runs any more.
+ENDED = frozenset(("landed", "answered", "dropped"))
 
 
 def standing(record: Record, role: str) -> StandIn | None:
@@ -51,18 +43,22 @@ def shown(here: Here, slug: str, role: seating.Role) -> seating.Shown:
     held = standing(tasks.read(here.where.state, slug), role)
     if held is None:
         return seating.seat_of(role, here.where.checkout, here.home)
-    return seating.parsed(held.took, role, f"the stand-in of {role}", STAND_IN)
+    return seating.parsed(
+        held.took, role, f"the stand-in of {role}", seat_lines.STAND_IN
+    )
 
 
-def failed(here: Here, slug: str, failure: StandIn) -> Record:
+def failed(here: Here, slug: str, failure: StandIn) -> seat_lines.Decision:
     """Put a seat's error on the task's record: the fallback stands in, or the task is
-    blocked."""
+    blocked; the decision, with its line for the owner."""
     seating.parsed(failure.failed, failure.seat, "--seat", "--seat")
     fallback = seating.seat_of("fallback", here.where.checkout, here.home)
     took = replace(failure, took=took_seat(failure, fallback))
     record = tasks.read(here.where.state, slug)
-    change = partial(with_failure, failure=took, line=said(took))
-    return tasks.update(here.where.state, slug, change, record.revision)
+    tasks.update(
+        here.where.state, slug, partial(with_failure, failure=took), record.revision
+    )
+    return seat_lines.Decision.of(slug, took)
 
 
 def took_seat(failure: StandIn, fallback: seating.Shown) -> str | None:
@@ -75,29 +71,22 @@ def took_seat(failure: StandIn, fallback: seating.Shown) -> str | None:
     return fallback.seat if allowed else None
 
 
-def with_failure(record: Record, *, failure: StandIn, line: str) -> Record:
-    """The record with the stand-in, or with the block when no fallback took the seat."""
+def with_failure(record: Record, *, failure: StandIn) -> Record:
+    """The record with the stand-in; with no fallback, the block, unless the task waits for
+    the owner already, whose hold stays (the block is on its journal and its stand-ins, and
+    his go on clears it). Refused for a task that ended: a late error blocks nothing."""
     task = record.task
+    if task.status in ENDED:
+        raise Refusal(
+            "ended",
+            f"{task.slug} is {task.status}: no seat of an ended task runs any more",
+            "nothing: the error came after the task's end",
+        )
     held = None if failure.took else "blocked"
-    entry = StateNoted(at=failure.at, status=task.status, hold=held, line=line)
-    if held:
-        task = replace(task, hold=blocked(task.slug, failure, line))
+    entry = StateNoted(
+        at=failure.at, status=task.status, hold=held, line=seat_lines.said(failure)
+    )
+    if held and task.hold is None:
+        task = replace(task, hold=seat_lines.blocked(task.slug, failure))
     changed = replace(task, stand_ins=(*task.stand_ins, failure))
     return replace(record, task=changed, journal=(*record.journal, entry))
-
-
-def blocked(slug: str, failure: StandIn, line: str) -> Blocked:
-    """The block of a seat no fallback could take."""
-    fix = f"lem seat again {slug} once the owner has fixed it"
-    return Blocked(why=line, fix=fix, seat=failure.seat, since=failure.at)
-
-
-def said(failure: StandIn) -> str:
-    """The line of a seat's error: the stand-in that took its place, or why none could."""
-    why = dict(ERRORS)[failure.error]
-    head = f"the {failure.seat}'s seat `{failure.failed}` gave an error: {why}"
-    if failure.took is not None:
-        return (
-            f"{head}; `{failure.took}` stands in for it, and the pull request says so"
-        )
-    return f"{head}, and no fallback may stand in for it"

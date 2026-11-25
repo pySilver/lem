@@ -28,25 +28,15 @@ type Places = tuple[tuple[Path, str], ...]
 type Role = Literal["reviewer", "planner", "merger", "session", "fallback"]
 
 # Each role: the agents that may sit in it, whether its seat is written whole, and why.
+BOTH = ("claude", "codex")
+CLAUDE = ("claude",)
 ROLES = MappingProxyType(
     {
-        "reviewer": (
-            "claude codex",
-            True,
-            "the agents that can sit in the reviewer's pane",
-        ),
-        "planner": ("claude", True, "the harness was checked in Claude Code only"),
-        "merger": (
-            "claude codex",
-            False,
-            "the agents a merge agent starts with, read-only",
-        ),
-        "session": ("claude", False, "a task's session runs Claude Code only for now"),
-        "fallback": (
-            "claude codex",
-            True,
-            "the agents Lem can start in a seat's place",
-        ),
+        "reviewer": (BOTH, True, "the agents that can sit in the reviewer's pane"),
+        "planner": (CLAUDE, True, "the harness was checked in Claude Code only"),
+        "merger": (BOTH, False, "the agents a merge agent starts with, read-only"),
+        "session": (CLAUDE, False, "a task's session runs Claude Code only for now"),
+        "fallback": (BOTH, True, "the agents Lem can start in a seat's place"),
     }
 )
 # Lem's own seat of each role (the owner, 2026-11-22 and 2026-11-23: `claude/opus:high`).

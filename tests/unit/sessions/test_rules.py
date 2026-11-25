@@ -118,6 +118,9 @@ def test_a_seat_is_agent_model_and_effort(
         ("session", "claude opus", "seat"),
         ("session", "claude/a:b:c", "seat"),
         ("session", 3, "seat"),
+        ("planner", "cl/opus:high", "seat-agent"),
+        ("reviewer", "dex/opus:high", "seat-agent"),
+        ("session", "a/opus:high", "seat-agent"),
     ],
 )
 def test_a_seat_not_in_its_form_or_of_an_agent_that_may_not_sit_is_refused(

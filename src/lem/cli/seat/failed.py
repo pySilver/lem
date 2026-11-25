@@ -8,20 +8,17 @@ The fallback stands in from then on, or the task is blocked with the seat named
 (`app/sessions/seats.py`).
 """
 
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import click
 import msgspec
 
-from lem.app.sessions import here, seats
+from lem.app.sessions import here, seat_lines, seats
 from lem.cli import place
 from lem.cli.words import choice
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.records.work import StandIn
-
-if TYPE_CHECKING:
-    from lem.records.task import Task
 
 type Role = Literal["reviewer", "planner", "merger"]
 type Error = Literal["missing", "login", "tokens", "model"]
@@ -37,7 +34,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     said: str | None = None
 
 
-def run(call: Call) -> Task:
+def run(call: Call) -> seat_lines.Decision:
     """The fallback stands in, or the task is blocked."""
     said = call.said
     if said is not None and (not said.strip() or "\n" in said):
@@ -53,7 +50,7 @@ def run(call: Call) -> Task:
         said=said.strip() if said else None,
         at=clock.now(),
     )
-    return seats.failed(here.bound(place.folder()), call.slug, failure).task
+    return seats.failed(here.bound(place.folder()), call.slug, failure)
 
 
 COMMAND = click.Command(
