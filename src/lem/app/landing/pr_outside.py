@@ -1,49 +1,56 @@
 """What was seen outside the change, in the pull request's text (`main:land.outside_parts`,
-`item_lines`, `seen_line`, `placed`): each item the branch adds to the backlog under the
-heading its `worth` at the tip gives, and a line for each defect a review saw that has no item
-and that no line under the notes' `## Fixed on the way` names by its number.
+`item_lines`, `seen_line`): each item the branch adds to the backlog, or a review's finding was
+filed as, under the heading its `worth` at the tip gives, and a line for each defect a review saw
+that has no item and that no builder fixed on the way."""
 
-A notes line that names an item takes the place of the step's line of it, so no item is written
-twice and none under the other heading.
-"""
-
-import re
 from typing import TYPE_CHECKING
 
-from lem.app.landing import pr_reviews
+from lem.app.landing.pr_words import mended, outside
+from lem.model.landing.propose_facts import Filing
 from lem.model.landing.propose_lines import FILED, NOT_WORTH
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from lem.app.landing.pr_inputs import Lines
     from lem.model.landing.propose_facts import Facts
     from lem.records.landing.review import Finding
     from lem.records.record import Record
 
-type Heading = str
+type Headed = dict[str, list[str]]
 
 
-def entries(landing: Landing, facts: Facts) -> list[tuple[str, str | None, str | None]]:
-    """Each item the branch adds, with its title and `worth` at the tip, then each item a
-    review's finding was filed as that the branch does not add (one of the base holds it)."""
-    found = [(item.path, item.title, item.worth) for item in facts.added]
-    paths = {path for path, _, _ in found}
-    findings = {one.id: one for review in landing.reviews for one in review.findings}
+def reviewed(landing: Landing, paths: set[str]) -> list[Filing]:
+    """Each item a review's finding was filed as that is not among `paths` (an item of the
+    base that holds the same defect), with the finding's title and the item's worth."""
+    titles = {
+        one.id: one.title for review in landing.reviews for one in review.findings
+    }
+    found = []
     for filed in landing.filed:
-        defect = findings.get(filed.finding)
         if filed.path and filed.path not in paths:
             paths.add(filed.path)
-            found.append((filed.path, defect.title if defect else None, filed.worth))
+            title = titles.get(filed.finding)
+            found.append(Filing(path=filed.path, title=title, worth=filed.worth))
     return found
 
 
-def items(landing: Landing, facts: Facts) -> dict[Heading, list[str]]:
-    """The line of each item, `- `PATH`: TITLE`, under the heading its `worth` gives."""
-    by: dict[Heading, list[str]] = {FILED: [], NOT_WORTH: []}
-    for path, title, worth in entries(landing, facts):
-        said = f": {title}" if title else ""
-        heading = NOT_WORTH if (worth or "").strip().lower() == "no" else FILED
-        by[heading].append(f"- `{path}`{said}")
+def filing_line(filing: Filing) -> str:
+    """An item's line: `- `PATH`: TITLE`."""
+    said = f": {filing.title}" if filing.title else ""
+    return f"- `{filing.path}`{said}"
+
+
+def headed(landing: Landing, facts: Facts) -> Headed:
+    """The line of each item under the heading its `worth` gives: the items the branch
+    adds, then the review's that the branch does not."""
+    added = list(facts.added)
+    every = added + reviewed(landing, {one.path for one in added})
+    by: Headed = {FILED: [], NOT_WORTH: []}
+    for filing in every:
+        worth = (filing.worth or "").strip().lower()
+        by[NOT_WORTH if worth == "no" else FILED].append(filing_line(filing))
     return by
 
 
@@ -61,60 +68,21 @@ def seen_line(found: Finding) -> str:
 def seen(landing: Landing, fixed: str) -> Lines:
     """Each defect a review saw that has no item and that a builder did not fix on the
     way."""
-    filed = {found.finding: found for found in landing.filed}
-    return tuple(
-        seen_line(found)
-        for review in landing.reviews
-        if review.answered
-        for found in pr_reviews.outside(review)
-        if not (found.id in filed and filed[found.id].path)
-        and not pr_reviews.mended(found, filed.get(found.id), fixed)
-    )
+    places = {found.finding: found for found in landing.filed}
+    filed = {found.finding for found in landing.filed if found.path}
+    left = (found for found in defects_of(landing) if found.id not in filed)
+    kept = (found for found in left if not mended(fixed, places, found))
+    return tuple(map(seen_line, kept))
 
 
-def names_item(line: str, path: str) -> bool:
-    """Whether a line names the item at `path`, and not another whose path starts the
-    same."""
-    return re.search(rf"(?<![\w./-]){re.escape(path)}(?![\w./-])", line) is not None
+def defects_of(landing: Landing) -> Iterator[Finding]:
+    """Each defect outside the change of each review that someone answered."""
+    for review in landing.reviews:
+        if review.answered:
+            yield from outside(review)
 
 
-def placed(
-    own: dict[Heading, Lines], steps: dict[Heading, list[str]]
-) -> dict[Heading, Lines]:
-    """The lines under `## Filed in the backlog` and `## Filed as not worth it`: the notes'
-    own lines, then the step's. A notes line that names an item the step lists takes the
-    place of the step's line, under the heading the item's `worth` gives."""
-    lists = {heading: list(lines) for heading, lines in steps.items()}
-    where = {
-        line.split("`")[1]: heading
-        for heading, lines in lists.items()
-        for line in lines
-    }
-    slot = {
-        line.split("`")[1]: at
-        for lines in lists.values()
-        for at, line in enumerate(lines)
-    }
-    kept: dict[Heading, list[str]] = {FILED: [], NOT_WORTH: []}
-    taken: set[str] = set()
-    for heading, lines in own.items():
-        for line in lines:
-            path = next((path for path in where if names_item(line, path)), None)
-            if path is None:
-                kept[heading].append(line)
-            elif path in taken:
-                lists[where[path]].append(line)
-            else:
-                taken.add(path)
-                lists[where[path]][slot[path]] = line
-    return {
-        heading: (*kept[heading], *lists[heading]) for heading in (FILED, NOT_WORTH)
-    }
-
-
-def parts(
-    record: Record, facts: Facts, fixed: str
-) -> tuple[dict[Heading, list[str]], Lines]:
+def parts(record: Record, facts: Facts, fixed: str) -> tuple[Headed, Lines]:
     """The step's item lines by heading, and its seen lines."""
     landing = record.landing or Landing()
-    return items(landing, facts), seen(landing, fixed)
+    return headed(landing, facts), seen(landing, fixed)

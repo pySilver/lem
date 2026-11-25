@@ -1,15 +1,17 @@
-"""The reviews in the pull request's checks (`main:land.pr_text`, `outside_words`,
-`resolution_line`): each attempt with its kind, who answered and who did not, what it found in
-the change, and what it saw outside the change: filed as items, fixed on the way, or seen."""
+"""The reviews in the pull request's checks (`main:land.pr_text`, `resolution_line`): each
+attempt with its kind, who answered and who did not, what it found in the change and what it
+saw outside it, and on the standard track why each profile ran or was left out."""
 
-import re
+from collections import Counter
 from types import MappingProxyType
 from typing import TYPE_CHECKING
+
+from lem.app.landing.pr_words import words
 
 if TYPE_CHECKING:
     from lem.app.landing.pr_inputs import Lines
     from lem.records.landing.record import Landing
-    from lem.records.landing.review import Filed, Finding, Reviewed
+    from lem.records.landing.review import Reviewed
 
 KIND_SAYS = MappingProxyType(
     {
@@ -19,78 +21,58 @@ KIND_SAYS = MappingProxyType(
     }
 )
 LEVELS = ("must-fix", "should", "nit")
+QUIET = "; no answer from {0.name} ({0.why})"
+RAN = "  - ran {0.name}: {0.why}"
+LEFT = "  - left out {0.name}: {0.why}"
 
 
-def named_by(number: str, text: str) -> bool:
-    """Whether a text names a finding by its number (`r1.3`), and not another that starts
-    the same (`r1.30`, `r11.3`)."""
-    return re.search(rf"(?<![\w.]){re.escape(number)}(?![\w]|\.\d)", text) is not None
-
-
-def outside(review: Reviewed) -> tuple[Finding, ...]:
-    """The defects a review saw outside the change."""
-    return tuple(found for found in review.findings if found.id in review.to_file)
-
-
-def mended(found: Finding, filed: Filed | None, fixed: str) -> bool:
-    """Whether a builder fixed a cheap defect on the way: filed so, or named by its number
-    under the notes' `## Fixed on the way`."""
-    named = found.against == "cheap" and named_by(found.id, fixed)
-    return named or (filed is not None and filed.disposition == "cheap-fixed")
-
-
-def words(review: Reviewed, landing: Landing, fixed: str) -> str:
-    """What one review saw outside the change: how many, the items they were filed as, how
-    many were fixed on the way, how many are seen and not filed; nothing for none."""
-    defects = outside(review)
-    if not defects:
-        return ""
-    filed = {found.finding: found for found in landing.filed}
-    paths = [
-        filed[found.id].path
-        for found in defects
-        if found.id in filed and filed[found.id].path
-    ]
-    fixes = sum(1 for found in defects if mended(found, filed.get(found.id), fixed))
-    seen = len(defects) - len(paths) - fixes
-    plural = "" if len(defects) == 1 else "s"
-    said = f"; it saw {len(defects)} defect{plural} outside the change"
-    if paths:
-        said += ", filed as " + ", ".join(f"`{path}`" for path in paths)
-    if fixes:
-        said += f"; {fixes} fixed on the way"
-    return said + (f"; {seen} seen, not filed" if seen else "")
+def levels_of(review: Reviewed) -> Counter[str]:
+    """How many findings of each level a review found in the change."""
+    change = (one for one in review.findings if one.id not in review.to_file)
+    return Counter(one.level for one in change)
 
 
 def found(review: Reviewed) -> str:
     """What a review found in the change: its call and the count of each level."""
     if not review.answered:
         return "not reviewed"
-    change = [found for found in review.findings if found.id not in review.to_file]
-    counts = {level: sum(1 for one in change if one.level == level) for level in LEVELS}
+    counts = levels_of(review)
     call = "must-fix" if counts["must-fix"] else "clean"
-    listed = ", ".join(f"{count} {level}" for level, count in counts.items())
-    return f"{call}, {listed}"
+    return f"{call}, {counted(counts)}"
+
+
+def counted(counts: Counter[str]) -> str:
+    """Each level with its count, in the order of `LEVELS`."""
+    pairs = ((counts[level], level) for level in LEVELS)
+    return ", ".join(f"{count} {level}" for count, level in pairs)
+
+
+def who(review: Reviewed, *, full: bool) -> str:
+    """Who answered, and on the standard track who did not and why."""
+    names = ", ".join(review.answered)
+    said = f"answered: {names}" if review.answered else "no source answered"
+    if not full:
+        return said
+    return said + "".join(map(QUIET.format, review.silent))
+
+
+def profiles(review: Reviewed) -> Lines:
+    """Why each profile of a round ran or was left out."""
+    ran = tuple(map(RAN.format, review.ran))
+    return ran + tuple(map(LEFT.format, review.left_out))
 
 
 def review_line(review: Reviewed, landing: Landing, fixed: str, *, full: bool) -> Lines:
-    """One review: its kind, who answered and who did not, what it found, what it saw
-    outside the change, and on the standard track why each profile ran or was left out."""
-    names = ", ".join(review.answered)
-    who = f"answered: {names}" if review.answered else "no source answered"
-    kind = KIND_SAYS[review.kind]
+    """One review attempt, or the read of a conflict's resolution."""
+    kind, answered = KIND_SAYS[review.kind], who(review, full=full)
     if review.of == "resolution":
+        said = found(review)
         return (
-            f"- the read of the conflict's resolution ({kind}; {who}): {found(review)}",
+            f"- the read of the conflict's resolution ({kind}; {answered}): {said}",
         )
-    quiet = "".join(f"; no answer from {one.name} ({one.why})" for one in review.silent)
     said = found(review) + words(review, landing, fixed)
-    line = f"- the review, round {review.attempt} ({kind}; {who}{quiet if full else ''}): {said}"
-    if not full:
-        return (line,)
-    ran = tuple(f"  - ran {one.name}: {one.why}" for one in review.ran)
-    left = tuple(f"  - left out {one.name}: {one.why}" for one in review.left_out)
-    return (line, *ran, *left)
+    line = f"- the review, round {review.attempt} ({kind}; {answered}): {said}"
+    return (line, *profiles(review)) if full else (line,)
 
 
 def lines(landing: Landing, fixed: str, *, full: bool) -> Lines:
