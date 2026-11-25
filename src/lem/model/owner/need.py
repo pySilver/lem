@@ -5,7 +5,7 @@
 minutes after that session or the task opened. `deaf`: its session lives and left a wake-up
 unanswered. The list skips the row when it cannot tell if the session lives, and for a parked
 task. An open task needs its session only while the merge agent reads it, which the session
-starts. A queued task needs one only once the task it waits for landed or was answered. A landed or
+starts. A queued task needs one once all the tasks it waits for landed or were answered. A landed or
 dropped task needs one while its worktree is there, since its cleanup is the session's.
 """
 
@@ -62,8 +62,10 @@ def needs_agent(look: Look, tasks: Mapping[str, Task]) -> bool:
     if task.status == "open":
         return merge_wait(look.record) == "reads"
     if task.status == "queued":
-        before = tasks.get(task.after or "")
-        return before is not None and before.status in DONE
+        return bool(task.after) and all(
+            before is not None and before.status in DONE
+            for before in map(tasks.get, task.after)
+        )
     return True
 
 

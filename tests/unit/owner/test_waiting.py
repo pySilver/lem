@@ -135,17 +135,17 @@ def test_criteria_asked_again_in_the_same_second_wait_for_an_answer() -> None:
 
 def test_a_task_queued_after_a_dropped_task_waits_for_his_word() -> None:
     dropped = look("first", status="dropped", since=LATER)
-    after = look("second", status="queued", after="first")
+    after = look("second", status="queued", after=("first",))
     assert rows(dropped, after) == [("after_dropped", "after_dropped:second")]
     found = waiting.rows((dropped, after), away=False, now=NOW)
     assert found[0].after == "first"
     assert found[0].since == LATER
-    queued_later = look("second", status="queued", after="first", since=NOW)
+    queued_later = look("second", status="queued", after=("first",), since=NOW)
     found = waiting.rows((dropped, queued_later), away=False, now=NOW)
     assert found[0].since == NOW
     assert rows(look("first", status="building"), after) == []
     assert rows(look("first", status="landed"), after) == []
-    started = look("second", status="building", after="first")
+    started = look("second", status="building", after=("first",))
     assert rows(dropped, started) == []
 
 
@@ -154,6 +154,27 @@ def test_a_block_is_his_unless_it_waits_for_the_task_that_repairs_the_base() -> 
     base = replace(mine, after="fix-the-base")
     assert rows(look(status="landing", hold=mine)) == [("blocked", "blocked:gift-note")]
     assert rows(look(status="landing", hold=base)) == []
+
+
+def test_the_first_drop_in_queue_order_gives_the_owner_one_action() -> None:
+    queue = look("last", status="queued", after=("missing", "next", "first"))
+    first = look("first", status="dropped")
+    next_drop = look("next", status="dropped", since=LATER)
+    found = waiting.rows((first, next_drop, queue), away=False, now=NOW)
+    assert [(row.key, row.after, row.since) for row in found] == [
+        ("after_dropped:last", "next", LATER)
+    ]
+
+
+def test_a_queued_task_needs_a_session_when_each_predecessor_finished() -> None:
+    queue = seen(look("last", status="queued", after=("first", "next")), session=gone())
+    first = look("first", status="landed")
+    assert rows(first, queue) == []
+    assert rows(first, look("next", status="building"), queue) == []
+    assert rows(first, look("next", status="answered"), queue) == [
+        ("session", "session:last")
+    ]
+    assert rows(seen(look("last", status="queued"), session=gone())) == []
 
 
 def test_a_task_two_releases_back_has_the_stops_one_row_only() -> None:
@@ -173,7 +194,7 @@ def test_a_parked_task_has_no_row() -> None:
     assert (
         rows(
             look("first", status="dropped"),
-            look("second", status="queued", after="first", hold=parked),
+            look("second", status="queued", after=("first",), hold=parked),
         )
         == []
     )
@@ -334,10 +355,10 @@ def test_the_list_orders_by_kind_then_by_moment_and_stacks_by_task() -> None:
 
 
 def test_the_verbs_say_the_owners_act() -> None:
-    task = record("second", status="queued", after="first").task
+    task = record("second", status="queued", after=("first",)).task
     pair = (
         look("first", status="dropped"),
-        look("second", status="queued", after="first"),
+        look("second", status="queued", after=("first",)),
     )
     row = waiting.rows(pair, away=False, now=NOW)[0]
     assert (

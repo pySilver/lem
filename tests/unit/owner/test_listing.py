@@ -111,7 +111,7 @@ def test_each_group_holds_the_rows_of_its_kind_with_its_facts(tmp_path: Path) ->
     made(where, "stuck", status="landing", opened=start, hold=blocked)
     dropped_at = MOMENT + timedelta(minutes=5)
     made(where, "first", status="dropped", since=dropped_at)
-    made(where, "second", status="queued", after="first")
+    made(where, "second", status="queued", after=("first",))
     made(where, "aside", status="planned", hold=Parked(since=MOMENT, words="later"))
     landing = opened(
         "merge-me", proposed=proposed(green=False, who="owner"), reads=(read("call"),)
@@ -167,8 +167,8 @@ def test_each_group_holds_the_rows_of_its_kind_with_its_facts(tmp_path: Path) ->
 def test_a_task_named_lists_only_its_own(tmp_path: Path) -> None:
     where = workspace(tmp_path)
     made(where, "first", status="dropped")
-    made(where, "second", status="queued", after="first")
-    made(where, "third", status="queued", after="first")
+    made(where, "second", status="queued", after=("first",))
+    made(where, "third", status="queued", after=("first",))
     found = result(lem("waiting", "--task", "third", cwd=tmp_path))
     assert [row["task"] for row in found["rows"]] == ["third"]
     assert found["count"] == 1

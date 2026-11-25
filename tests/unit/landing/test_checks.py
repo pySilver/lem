@@ -543,7 +543,7 @@ def queued(repo: Path, slug: str, after: str, *, red: bool = False) -> None:
         )
         tasks.create(state, record(slug, status="ready", hold=hold))
         return
-    tasks.create(state, record(slug, status="queued", after=after))
+    tasks.create(state, record(slug, status="queued", after=(after,)))
 
 
 @dataclass
@@ -659,7 +659,11 @@ def test_the_tasks_waited_for_are_read_from_queued_and_red_base_blocks(
     line: Line,
 ) -> None:
     queued(line.lem, "new-sessions-open-at-tail", "fix-red-base", red=True)
-    queued(line.lem, "board-filters", "fix-flaky-test")
+    state = places.state_of(line.lem)
+    tasks.create(
+        state,
+        record("board-filters", status="queued", after=("fix-flaky-test", "fix-board")),
+    )
     # blocked for another reason: no wait for a landing
     hold = Blocked(
         why="a builder ended two times with no report",
@@ -667,10 +671,15 @@ def test_the_tasks_waited_for_are_read_from_queued_and_red_base_blocks(
         after="other-one",
         since=MOMENT,
     )
-    state = places.state_of(line.lem)
     tasks.create(state, record("two-builders-failed", status="ready", hold=hold))
-    tasks.create(state, record("started-since", status="building", after="an-old-one"))
-    assert checks_wanted.waited_for(state) == {"fix-red-base", "fix-flaky-test"}
+    tasks.create(
+        state, record("started-since", status="building", after=("an-old-one",))
+    )
+    assert checks_wanted.waited_for(state) == {
+        "fix-red-base",
+        "fix-flaky-test",
+        "fix-board",
+    }
 
 
 def test_the_repair_of_a_red_base_starts_before_the_longest_wait(line: Line) -> None:

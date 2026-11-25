@@ -29,21 +29,19 @@ def waited_for(state: Path) -> frozenset[str]:
     """The tasks another open task of the repository whose state folder is `state` waits for:
     the `after` of each queued task, and of each task blocked because the base is red."""
     return frozenset(
-        named
-        for record in tasks.every(state)
-        if (named := after_of(record)) is not None
+        named for record in tasks.every(state) for named in after_of(record)
     )
 
 
-def after_of(record: Record) -> str | None:
-    """The task the record's task waits for, by the rule of `waited_for`."""
+def after_of(record: Record) -> tuple[str, ...]:
+    """The tasks the record's task waits for, by the rule of `waited_for`."""
     task = record.task
     if task.status == "queued":
         return task.after
     hold = task.hold
-    if isinstance(hold, Blocked) and hold.why == BASE_RED:
-        return hold.after
-    return None
+    if isinstance(hold, Blocked) and hold.why == BASE_RED and hold.after is not None:
+        return (hold.after,)
+    return ()
 
 
 def wanted(

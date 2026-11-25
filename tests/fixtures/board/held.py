@@ -283,7 +283,7 @@ CHECK = record(
         since=ago(7),
         hold=Parked(since=ago(6), words="the check waits for the new export"),
         backlog_item=ITEM,
-        after="refund-rounding",
+        after=("refund-rounding",),
     ),
     None,
     journal(

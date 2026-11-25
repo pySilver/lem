@@ -78,10 +78,14 @@ def after_rows(look: Look, tasks: Mapping[str, Task]) -> tuple[Row, ...]:
     """The row of a queued task whose task before it was dropped: only his word starts it or
     ends it."""
     task = look.record.task
-    if task.status != "queued" or task.after is None:
+    if task.status != "queued":
         return ()
-    before = tasks.get(task.after)
-    if before is None or before.status != "dropped":
+    predecessors = map(tasks.get, task.after)
+    before = next(
+        (one for one in predecessors if one is not None and one.status == "dropped"),
+        None,
+    )
+    if before is None:
         return ()
     key = f"after_dropped:{task.slug}"
     row = Row(
@@ -89,7 +93,7 @@ def after_rows(look: Look, tasks: Mapping[str, Task]) -> tuple[Row, ...]:
         key=key,
         task=task.slug,
         since=max(task.since, before.since),
-        after=task.after,
+        after=before.slug,
     )
     return (row,)
 
