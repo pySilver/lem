@@ -10,6 +10,7 @@ import pytest
 from fakes.records import MOMENT
 from lem.adapters.tracker_gh_facts import Comment
 from lem.app.tasks.issues import ends, land, reading, start
+from lem.kernel import paths
 from lem.kernel.envelope import Envelope
 from lem.kernel.errors import Refusal
 from lem.model.task import tickets
@@ -599,3 +600,13 @@ def test_a_closed_issue_at_a_drop_is_said_to_be_closed_by_someone_else(
     w.fake.issues[42] = gift_note(state="closed")
     _, say = ended(w, "drop")
     assert say == "issue #42 of acme/shop is closed already, by someone else than Lem"
+
+
+# The owner's ruling of 2026-11-14
+
+
+@pytest.mark.parametrize("skill", ["lem-github", "lem-linear"])
+def test_the_check_of_a_tracker_is_no_command_of_the_owners(skill: str) -> None:
+    text = (paths.root() / "skills" / skill / "SKILL.md").read_text(encoding="utf-8")
+    check = text.split("\n## check\n", 1)[1].split("\n## ", 1)[0]
+    assert "no command the owner has to know" in " ".join(check.split())
