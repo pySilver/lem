@@ -9,7 +9,7 @@ from starlette.responses import HTMLResponse, Response
 from starlette.routing import Route
 
 from lem.board.inputs.switcher import Failure
-from lem.board.pages import place, render, stamps, task_tab
+from lem.board.pages import fallback, place, render, stamps, task_tab
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -51,10 +51,15 @@ def resolved(request: Request, provider: Source | None) -> Response:
     """Read the workspace version before its inputs."""
     space = place.workspace(request) if "workspace" in request.path_params else None
     if provider is None:
-        raise HTTPException(
-            HTTPStatus.SERVICE_UNAVAILABLE, "The board's page inputs are not available."
+        if space is None or request.state.page_route != "tasks":
+            raise HTTPException(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                "The board's page inputs are not available.",
+            )
+        return render.page(
+            fallback.inputs(request, space, stamps.shown(request, space.state).version)
         )
-    stamp = stamps.shown(request, space.state) if space else None
+    stamp = stamps.shown(request, space.state, space) if space else None
     board = provider(request, space, stamp.version if stamp else "")
     unknown = request.path_params.get("unknown_tab")
     if unknown:

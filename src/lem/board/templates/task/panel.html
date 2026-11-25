@@ -11,9 +11,10 @@
 {% endfor %}</nav>
 {% endif %}
 {% if panel.missing %}
-<div class="tabbody" id="tb-missing"><p>{{ panel.missing.said }}</p></div>
+<div class="tabbody" id="tb-missing">{{ p.note(board.note) }}<p>{{ panel.missing.said }}</p></div>
 {% else %}
 <div class="tabbody{% if panel.artifacts %} arts-panel{% endif %}" id="tb-{{ panel.shows }}">
+{{ p.note(board.note) }}
 {% if panel.not_now %}{% include 'task/not-now.html' %}
 {% elif panel.overview %}{% set tab = panel.overview %}{% include 'task/overview.html' %}
 {% elif panel.criteria %}{% set tab = panel.criteria %}{% include 'task/criteria.html' %}

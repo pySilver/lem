@@ -169,7 +169,10 @@ SIDEBAR = Sidebar(
         ),
     ),
     flags=(Flag(kind="demo", title=f"Demo data: {DEMO[0].lower()}{DEMO[1:]}"),),
-    switcher=Switcher(name="shop", title="shop"),
+    switcher=Switcher(
+        name="shop",
+        title="shop: 5 wait for you · 2 build · 1 in checks and review\n/work/shop",
+    ),
 )
 
 

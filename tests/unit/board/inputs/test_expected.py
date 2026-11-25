@@ -167,8 +167,11 @@ def test_the_sidebar_counts_what_waits_and_the_search_finds_every_task_once() ->
     assert sorted(found) == sorted(BY_SLUG)
 
 
-def test_the_workspace_switcher_uses_the_saved_tasks_pages_fallback() -> None:
-    assert frame.FRAME.sidebar.switcher.title == "shop"
+def test_the_lone_workspace_hover_has_its_counts_and_path() -> None:
+    assert frame.FRAME.sidebar.switcher.title.splitlines() == [
+        "shop: 5 wait for you · 2 build · 1 in checks and review",
+        "/work/shop",
+    ]
 
 
 def test_the_open_criteria_question_accepts_the_file_shown_to_the_owner(

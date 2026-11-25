@@ -16,13 +16,33 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 
-def eligible(record: Record, look: forge.Look, basis: merge_look.MergeBasis) -> bool:
+def eligible(
+    record: Record,
+    look: forge.Look,
+    basis: merge_look.MergeBasis,
+    owner_tip: str | None,
+) -> bool:
     """Whether an approval is still in the merge line."""
     if phases.settled(record) is not None or isinstance(record.task.hold, ReleaseHold):
         return False
     if standing_waits(record):
         return True
-    return merge_look.server_merges(record, basis) and not forge.conflicts(look, record)
+    approved = board_waits(record, owner_tip) or merge_look.server_merges(record, basis)
+    return approved and not forge.conflicts(look, record)
+
+
+def board_waits(record: Record, owner_tip: str | None) -> bool:
+    """A live board approval still waits to reach the forge for its exact tip."""
+    landing = record.landing
+    if owner_tip is None or record.task.status != "open" or landing is None:
+        return False
+    proposed = landing.proposed
+    return (
+        proposed is not None
+        and proposed.tip == owner_tip
+        and landing.intent is None
+        and landing.accepted is None
+    )
 
 
 def standing_waits(record: Record) -> bool:
@@ -50,8 +70,13 @@ def waited(duty: Duty, slug: str, intent: merge.MergeIntent) -> merge_line.Waite
     look = forge_look.current(duty)
     records = releases.with_stops(tasks.every(duty.state))
     basis = merge_look.basis_of(duty.here, records)
-    approved = (one.task.slug for one in records if eligible(one, look, basis))
-    behind = tuple(name for name in approved if name != slug)
+    approvals = duty.kept.approvals()
+    behind = tuple(
+        one.task.slug
+        for one in records
+        if one.task.slug != slug
+        and eligible(one, look, basis, approvals.get(one.task.slug))
+    )
     return merge_line.Waited(
         at=clock.now(),
         task=slug,

@@ -17,7 +17,7 @@ from lem.board import life, shield
 from lem.board import serving as service
 from lem.board.acts import routes as acts
 from lem.board.ask import routes as ask
-from lem.board.pages import joined, live, provider
+from lem.board.pages import joined, live, observations, provider
 from lem.board.pages import routes as pages
 from lem.board.push import routes as push
 
@@ -50,6 +50,7 @@ def made(facts: Facts, serving: service.Serving) -> Starlette:
     app.state.peer_spaces = peers.spaces
     app.state.peer_own_rows = joined.local_rows
     app.state.page_inputs = provider.inputs
+    app.state.workspace_inputs = observations.Observations().of
     app.state.act_revision = live.revision
     app.state.facts = facts
     app.state.watcher = watcher

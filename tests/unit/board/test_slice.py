@@ -6,6 +6,8 @@ import os
 import pwd
 import re
 import threading
+from collections.abc import AsyncGenerator
+from contextlib import aclosing
 from dataclasses import dataclass
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,6 +17,7 @@ from typing import TYPE_CHECKING, cast
 import anyio
 import msgspec
 import pytest
+from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
@@ -38,7 +41,6 @@ from lem.board import (
 from lem.board.client import Reply
 from lem.board.duties import runner
 from lem.board.facts import HEADER, MARK, Facts, Install
-from lem.board.pages import stamps
 from lem.board.serving import Serving
 from lem.kernel import folders, release
 from lem.kernel.errors import Refusal
@@ -47,6 +49,8 @@ from lem.store import places, tasks
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from starlette.applications import Starlette
 
 SECTION = re.compile(
     r'<section class="col [^"]*" id="col-([a-z]+)"(.*?)</section>', re.DOTALL
@@ -133,6 +137,52 @@ def test_an_empty_workspace_shows_each_column_with_its_line(board: Board) -> Non
     page = board.client.get(board.address).text
     for line in ("Nothing waits for you", "No task builds", "Nothing landed yet"):
         assert line in page
+
+
+@pytest.mark.parametrize("missing", [True, False])
+def test_tasks_and_its_stream_work_without_a_page_provider(
+    board: Board, *, missing: bool
+) -> None:
+    server = cast("Starlette", board.client.app)
+    if missing:
+        del server.state.page_inputs
+    else:
+        server.state.page_inputs = None
+    del server.state.act_revision
+    del server.state.environ
+    tasks.create(board.state, record("fix-the-login", status="building"))
+    page = board.client.get(board.address)
+    assert page.status_code == 200
+    assert 'id="card-fix-the-login"' in page.text
+    version = re.search(r'data-stream-since-value="([^"]+)"', page.text)
+    assert version is not None
+    path = f"{board.address}stream"
+    assert f'data-stream-url-value="{path}"' in page.text
+    tasks.create(board.state, record("add-a-flag"))
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "app": server,
+            "headers": [],
+            "path_params": {"host": board.facts.host, "workspace": "my-repo"},
+            "query_string": f"rendered={version[1]}".encode(),
+        }
+    )
+
+    async def check() -> None:
+        response = await stream.endpoint(request)
+        assert isinstance(response, stream.EventSourceResponse)
+        events = response.body_iterator
+        assert isinstance(events, AsyncGenerator)
+        async with aclosing(events):
+            with anyio.fail_after(2):
+                event = await anext(events)
+        assert isinstance(event, stream.ServerSentEvent)
+        assert event.data == stream.REFRESH and event.id != version[1]
+
+    anyio.run(check)
+    assert board.client.get(f"{board.address}waits").status_code == 503
 
 
 def test_a_task_whose_words_hold_markup_is_printed_as_text(board: Board) -> None:
@@ -471,7 +521,7 @@ def test_a_write_between_the_pages_two_reads_leaves_the_page_owing_a_refresh(
 
         return read
 
-    monkeypatch.setattr(stamps, "shown", after_first("version", stamps.shown))
+    monkeypatch.setattr(watched, "look", after_first("version", watched.look))
     monkeypatch.setattr(tasks, "every", after_first("records", tasks.every))
     page = board.client.get(board.address).text
     monkeypatch.undo()
