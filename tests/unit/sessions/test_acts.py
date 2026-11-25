@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 import msgspec
 import pytest
 
-from fakes.harness import FakeHarness
 from fakes.records import MOMENT
 from lem.app.sessions import (
     acts,
@@ -38,12 +37,14 @@ from lem.records.journal.task import StateNoted
 from lem.records.sessions import SessionLine
 from lem.records.task import Shape
 from lem.store import sessions, tasks
+from unit.sessions.harness import SigningHarness
 from unit.sessions.terminal import CALLER, LookingTerminal, with_caller
 from unit.sessions.world import SLUG, here_of, made
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from fakes.harness import FakeHarness
     from lem.app.sessions.here import Here
 
 LATER = MOMENT + timedelta(minutes=5)
@@ -226,7 +227,7 @@ def signed(here_harness: FakeHarness, path: str, signs: Signs) -> None:
 def test_the_list_says_whether_an_agent_runs_and_how_a_wake_went_unanswered(
     tmp_path: Path,
 ) -> None:
-    terminal, harness = with_caller(), FakeHarness()
+    terminal, harness = with_caller(), SigningHarness()
     here = here_of(tmp_path, terminal, harness)
     made(here, status="building", lead="builder")
     opening.open_session(here, SLUG, "new", None, MOMENT)
@@ -338,7 +339,7 @@ def test_the_guard_watches_no_task_with_a_hold(tmp_path: Path) -> None:
 def test_a_sessions_signs_are_its_own_transcripts_newest_and_any_shell(
     tmp_path: Path,
 ) -> None:
-    harness = FakeHarness()
+    harness = SigningHarness()
     here = here_of(tmp_path, with_caller(), harness)
     made(here, status="building", lead="builder")
     assert signs.read_signs(here, SLUG, "SESSION-1") == signs.Read()
@@ -491,3 +492,30 @@ def test_a_restart_whose_old_pane_is_gone_says_so_and_keeps_its_fresh_session(
         act.session for act in log.read(here.folder(SLUG)) if isinstance(act, acts.Open)
     ]
     assert opens == ["session-1", "session-2"]
+
+
+def test_the_turn_is_the_one_of_the_transcript_whose_main_thread_wrote_the_newest_turn(
+    tmp_path: Path,
+) -> None:
+    harness = SigningHarness()
+    here = here_of(tmp_path, with_caller(), harness)
+    made(here, status="building", lead="builder")
+    for claude in ("c1", "c2"):
+        line = SessionLine(
+            at=MOMENT,
+            source="startup",
+            claude=claude,
+            transcript=claude,
+            pane="S-1",
+            task=SLUG,
+        )
+        sessions.append(here.folder(SLUG), line)
+    harness.by_task[SLUG] = tuple(
+        Transcript(path=one, claude=one) for one in ("c1", "c2")
+    )
+    # c1's main thread ended first; a subagent of it wrote the newest sign of all
+    harness.signs_of["c1"] = Signs(sign=HOUR, turn="ended")
+    harness.mains["c1"] = MOMENT
+    harness.signs_of["c2"] = Signs(sign=LATER, turn="runs")
+    read = signs.read_signs(here, SLUG, "S-1")
+    assert (read.sign, read.turn) == (HOUR, "runs")

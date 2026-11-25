@@ -1,10 +1,11 @@
 """What the terminal's and the harness's adapters give beside their ports, which a task's session
 needs: a session's new name, the program in its main pane, a line still in its mailbox, and the
-folder `--plugin-dir` names.
+newest sign of a transcript's main thread.
 
 `notes/sessions.md` asks `core` to put them on the ports (`Terminal.rename`, `Pane.agent`, a read
-of the mailbox, `Harness.plugin_folder`). Until then a use case takes them here, and a terminal or
-a harness that lacks them is a fault that names what it lacks, never a session run without them.
+of the mailbox, a main-thread sign on `Signs`). Until then a use case takes them here, and a
+terminal or a harness that lacks them is a fault that names what it lacks, never a session run
+without them.
 """
 
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
@@ -13,7 +14,9 @@ from lem.kernel.errors import Fault
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-    from pathlib import Path
+    from datetime import datetime
+
+    from lem.ports.harness import Transcript
 
 # The words of the program in a session's main pane: empty for a shell that holds it, None while
 # the terminal has not drawn the pane.
@@ -30,11 +33,11 @@ class Looks(Protocol):
 
 
 @runtime_checkable
-class Plugins(Protocol):
-    """The harness's folder for `--plugin-dir`, None where the project loads the installed
-    plugin."""
+class MainSigns(Protocol):
+    """The harness's newest sign of a transcript's main thread alone, beside its port's
+    `signs` (which counts its subagents too)."""
 
-    def plugin_folder(self, plugin_dir: Path) -> Path | None: ...
+    def main_sign(self, transcript: Transcript) -> datetime | None: ...
 
 
 def looks(terminal: object) -> Looks:
@@ -47,11 +50,11 @@ def looks(terminal: object) -> Looks:
     )
 
 
-def plugins(harness: object) -> Plugins:
-    """The harness's plugin folder; a fault for a harness that has none."""
-    if isinstance(harness, Plugins):
+def main_signs(harness: object) -> MainSigns:
+    """The harness's main-thread signs; a fault for a harness that has none."""
+    if isinstance(harness, MainSigns):
         return harness
     raise Fault(
-        f"{type(harness).__name__} gives no plugin_folder: a task's session needs it "
-        "beside the Harness port (notes/sessions.md)"
+        f"{type(harness).__name__} gives no main_sign: a task's session needs it beside the "
+        "Harness port (notes/sessions.md)"
     )

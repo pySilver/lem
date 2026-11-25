@@ -21,6 +21,7 @@ from lem.adapters import (
     claude_plugin,
     claude_processes,
     claude_signs,
+    claude_tail,
     claude_tokens,
     claude_transcript,
 )
@@ -28,6 +29,8 @@ from lem.ports.harness import Missing, Seat, Signs, Tokens, Transcript
 from lem.store import places, sessions
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from lem.ports.place import Place
     from lem.records.sessions import SessionLine
 
@@ -85,6 +88,15 @@ class ClaudeHarness:
         return None if found else Missing(error="missing", said="no claude on the PATH")
 
 
+class ClaudeHarnessLooks(ClaudeHarness):
+    """The port, and what a task's session reads beside it."""
+
+    def main_sign(self, transcript: Transcript) -> datetime | None:
+        """The newest sign of the transcript's main thread alone, beside the port: the
+        session's turn is that of the transcript whose main thread wrote the newest turn."""
+        return claude_tail.file_sign(Path(transcript.path))
+
+
 def logged(state: Path) -> list[SessionLine]:
     """Every session line of every task of the workspace, by the time each started."""
     folder = state / "tasks"
@@ -96,6 +108,6 @@ def logged(state: Path) -> list[SessionLine]:
     return sorted(lines, key=lambda line: line.at)
 
 
-def bind(place: Place) -> ClaudeHarness:
+def bind(place: Place) -> ClaudeHarnessLooks:
     """Claude Code for the place's workspace, with this machine's process table."""
-    return ClaudeHarness(place, claude_processes.Machine())
+    return ClaudeHarnessLooks(place, claude_processes.Machine())

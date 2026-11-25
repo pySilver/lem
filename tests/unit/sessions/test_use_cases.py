@@ -10,7 +10,6 @@ import pytest
 
 from fakes.forge import LocalForge
 from fakes.git import ModelGit
-from fakes.harness import FakeHarness
 from fakes.ports import fake_ports
 from fakes.records import MOMENT, record
 from lem.app.sessions import acts, brief, closing, handing, listing, log, opening
@@ -23,12 +22,14 @@ from lem.records.holds import Parked
 from lem.records.sessions import SessionLine
 from lem.records.task import Shape
 from lem.store import places, sessions, tasks
+from unit.sessions.harness import SigningHarness
 from unit.sessions.terminal import CALLER, with_caller
 from unit.sessions.terminal import LookingTerminal as FakeTerminal
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from fakes.harness import FakeHarness
     from lem.records.record import Record
 
 SLUG = "gift-note"
@@ -82,7 +83,7 @@ def made(here: Here, slug: str = SLUG, **fields: object) -> Record:
 def test_open_writes_the_brief_and_opens_in_the_main_checkout_in_the_callers_workspace(
     tmp_path: Path,
 ) -> None:
-    terminal, harness = with_caller(), FakeHarness()
+    terminal, harness = with_caller(), SigningHarness()
     here = here_of(tmp_path, terminal, harness)
     made(here)
     got = opening.open_session(here, SLUG, "new", None, MOMENT)
@@ -331,7 +332,7 @@ def test_close_refuses_a_session_lem_did_not_open_for_the_task(tmp_path: Path) -
 def test_list_gives_each_tasks_newest_session_with_its_phase_now_and_its_signs(
     tmp_path: Path,
 ) -> None:
-    terminal, harness = with_caller(), FakeHarness()
+    terminal, harness = with_caller(), SigningHarness()
     here = here_of(tmp_path, terminal, harness)
     made(here, status="shaping")
     made(here, "quiet-task")
@@ -446,7 +447,7 @@ def test_a_close_the_owner_cut_off_by_his_click_is_never_said_done(
 
 
 def test_a_transcript_that_gives_nothing_is_no_sign_read(tmp_path: Path) -> None:
-    harness = FakeHarness()
+    harness = SigningHarness()
     here = here_of(tmp_path, with_caller(), harness)
     made(here, status="shaping")
     opening.open_session(here, SLUG, "new", None, MOMENT)

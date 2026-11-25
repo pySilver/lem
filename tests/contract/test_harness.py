@@ -637,6 +637,9 @@ def test_a_newer_subagent_gives_the_sign_and_never_the_turn(claude: Folder) -> N
     write(meta, prompt("x", "2026-11-22T12:00:00Z"))
     newer = datetime(2026, 11, 22, 10, 51, tzinfo=UTC)
     assert signs(transcript) == Signs(sign=newer, turn="ended")
+    # beside the port: the main thread's own newest sign, which picks a session's turn
+    looks = harness_claude.bind(place(Path(transcript.path).parent))
+    assert looks.main_sign(transcript) == ENDED_AT
 
 
 def test_a_bash_command_of_the_session_is_a_shell(claude: Folder) -> None:

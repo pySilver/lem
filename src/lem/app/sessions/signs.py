@@ -12,15 +12,21 @@ session. With no transcript that reads, the signs do not read, and the guard rea
 record alone.
 """
 
+from functools import partial
 from typing import TYPE_CHECKING
 
-from lem.app.sessions import log
+from lem.app.sessions import beside, log
 from lem.records.base import Frozen, Moment
 from lem.store import sessions
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from lem.app.sessions.here import Here
     from lem.ports.harness import Signs, Transcript
+
+
+type Pairs = tuple[tuple[Transcript, Signs], ...]
 
 
 class Read(Frozen, frozen=True, kw_only=True, omit_defaults=False):
@@ -31,6 +37,12 @@ class Read(Frozen, frozen=True, kw_only=True, omit_defaults=False):
     shell: bool = False
     signs: bool = False
     turn: str | None = None
+
+    @classmethod
+    def reads(cls, signs: Signs) -> bool:
+        """Whether a transcript's signs read: the harness gives none for one it cannot
+        read."""
+        return signs.sign is not None or signs.turn is not None or signs.shell
 
 
 def own_transcripts(here: Here, slug: str, session: str) -> tuple[Transcript, ...]:
@@ -45,25 +57,36 @@ def own_transcripts(here: Here, slug: str, session: str) -> tuple[Transcript, ..
 def read_signs(here: Here, slug: str, session: str) -> Read:
     """The signs of the agterm session `session` of the task; not read when none of its
     transcripts reads."""
+    harness = here.ports.harness
     found = own_transcripts(here, slug, session)
-    signs = [here.ports.harness.signs(one) for one in found]
-    return combined(tuple(one for one in signs if read(one)))
-
-
-def read(signs: Signs) -> bool:
-    """Whether a transcript's signs read: the harness gives none for one it cannot read."""
-    return signs.sign is not None or signs.turn is not None or signs.shell
-
-
-def combined(signs: tuple[Signs, ...]) -> Read:
-    """The signs of the session over its transcripts' signs that read."""
-    if not signs:
+    pairs = [(one, harness.signs(one)) for one in found]
+    kept = tuple(pair for pair in pairs if Read.reads(pair[1]))
+    if not kept:
         return Read()
+    return combined(kept, beside.main_signs(harness))
+
+
+def combined(kept: Pairs, mains: beside.MainSigns) -> Read:
+    """The signs of the session over its transcripts' signs that read: the newest sign of
+    all, a shell of any, and the turn of the transcript whose main thread wrote the newest
+    turn."""
+    signs = tuple(pair[1] for pair in kept)
     newest = max(signs, key=signed)
+    main = max(kept, key=partial(main_stamp, mains))[1]
     shell = any(one.shell for one in signs)
-    return Read(sign=newest.sign, shell=shell, signs=True, turn=newest.turn)
+    return Read(sign=newest.sign, shell=shell, signs=True, turn=main.turn)
+
+
+def main_stamp(mains: beside.MainSigns, pair: tuple[Transcript, Signs]) -> float:
+    """The newest sign of a transcript's main thread, as a number to compare."""
+    return stamp(mains.main_sign(pair[0]))
 
 
 def signed(signs: Signs) -> float:
-    """The moment of a transcript's newest sign, as a number to compare; 0 with none."""
-    return signs.sign.timestamp() if signs.sign else 0
+    """A transcript's newest sign, as a number to compare."""
+    return stamp(signs.sign)
+
+
+def stamp(moment: datetime | None) -> float:
+    """A moment as a number to compare; 0 with none."""
+    return moment.timestamp() if moment else 0

@@ -2,8 +2,9 @@
 
 A session Lem opens is made with `--no-select`, so it never takes the focus, and goes after the
 last session of its workspace in the one `session new` (`--after` that session, whose workspace
-it takes; agterm refuses `--after` beside `--workspace`, so an empty workspace is named alone), so the one the owner keeps first stays
-first and nothing more is asked of agterm between a session's making and its record. Its command
+it takes; agterm refuses `--after` beside `--workspace`, so an empty workspace is named alone),
+so the one the owner keeps first stays first and nothing more is asked of agterm between a
+session's making and its record. Its command
 runs in the owner's login shell, so that his PATH finds the agent. A workspace not named is
 agterm's own choice: the use case names one (`app/sessions/placing.py`). A page is shown as a
 companion of the session or in its overlay, never by selecting it; only the owner's own act
