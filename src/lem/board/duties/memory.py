@@ -36,12 +36,15 @@ class Kept:
     done: set[Key] = field(default_factory=set)
     failed: dict[Key, datetime] = field(default_factory=dict)
     merging: dict[str, threading.Thread] = field(default_factory=dict)
+    owner_tips: dict[str, str] = field(default_factory=dict)
     said: dict[str, str] = field(default_factory=dict)
     problems: dict[str, str] = field(default_factory=dict)
 
     merge_lock: threading.Lock = field(default_factory=threading.Lock)
 
-    def start_merge(self, slug: str, thread: threading.Thread) -> bool:
+    def start_merge(
+        self, slug: str, thread: threading.Thread, *, owner_tip: str | None = None
+    ) -> bool:
         """Start one merge per task, whether a duty or the owner asked for it."""
         with self.merge_lock:
             current = self.merging.get(slug)
@@ -49,7 +52,20 @@ class Kept:
                 return False
             thread.start()
             self.merging[slug] = thread
+            if owner_tip is None:
+                self.owner_tips.pop(slug, None)
+            else:
+                self.owner_tips[slug] = owner_tip
             return True
+
+    def approvals(self) -> dict[str, str]:
+        """The tips the owner approved in this server's live workers."""
+        with self.merge_lock:
+            return {
+                slug: tip
+                for slug, tip in self.owner_tips.items()
+                if self.merging[slug].is_alive()
+            }
 
     def due(self, key: Key, now: datetime) -> bool:
         """Whether the duty `key` may run now: it never failed, or RETRY has passed since."""

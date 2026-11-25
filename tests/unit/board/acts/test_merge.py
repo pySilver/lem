@@ -11,21 +11,26 @@ import msgspec
 import pytest
 from msgspec.structs import replace
 
-from fakes.records import MOMENT
-from lem.app.landing import reconcile
+from fakes.records import MOMENT, record
+from lem.app.landing import merge_lock, reconcile
 from lem.app.owner import forge
+from lem.app.sessions.here import bound
 from lem.board.acts import merging, noting
 from lem.board.acts.notes import NOTES
-from lem.kernel import clock
+from lem.board.duties import context, merge_count
+from lem.board.duties.memory import MEMORY
+from lem.kernel import clock, locks
 from lem.kernel.errors import Refusal
 from lem.model.criteria import contract
 from lem.model.landing import merge_standing
 from lem.records.holds import BreakerHold
-from lem.records.landing.merge import MergeAccepted, Refused
-from lem.records.landing.propose import Proposed, Standing
+from lem.records.landing.merge import MergeAccepted, MergeIntent, Refused
+from lem.records.landing.propose import MergeRead, Proposed, Standing
 from lem.records.landing.record import Landing, Pull
-from lem.store import tasks
+from lem.store import places, tasks
 from unit.board.acts.acts import SLUG, made, note_of, read
+from unit.board.acts.conftest import PHONE
+from unit.board.pages.markup import Parsed
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -254,6 +259,78 @@ def test_a_second_press_while_the_merge_runs_gets_that_merges_note(
     assert calls == [SLUG]
 
 
+def test_a_press_while_a_duty_holds_the_merge_slot_writes_no_act(board: Board) -> None:
+    opened_pull(board)
+    before = read(board)
+    kept = MEMORY.of(board.checkout)
+    release = threading.Event()
+    worker = threading.Thread(target=release.wait, args=(10,))
+    assert kept.start_merge(SLUG, worker)
+    try:
+        token = token_of(board, {"tip": TIP, "confirm": "yes"})
+        note = settled(board, token)
+        assert (note.state, note.said) == ("refused", "Lem already runs this merge.")
+        assert read(board) == before
+    finally:
+        release.set()
+        worker.join()
+
+
+def test_the_merge_line_counts_refund_while_its_board_approval_waits(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    refund = "refund"
+    first = "receipt"
+    calling = MergeRead(tip=TIP, base=BASE, base_tree=BASE, verdict="call", at=MOMENT)
+    landing = Landing(phase="open", pull=PULL, proposed=PROPOSED, reads=(calling,))
+    tasks.create(board.state, replace(record(refund, status="open"), landing=landing))
+    lock = places.locks_folder(board.state) / merge_lock.LOCK
+    reached = threading.Event()
+
+    def waits(folder: Path, slug: str, asked: Asked, *, before_call: object) -> None:
+        with locks.tried(lock) as found:
+            assert found is None
+            reached.set()
+        with locks.held(lock):
+            pass
+
+    monkeypatch.setattr(merging.merge, "run", waits)
+    kept = MEMORY.of(board.checkout)
+    duty = context.Duty(name="shop", here=bound(board.checkout), now=MOMENT, kept=kept)
+    intent = MergeIntent(tip=BASE, by="merger", via="server", at=MOMENT)
+    assert merge_count.waited(duty, first, intent).waiting == 0
+    try:
+        with locks.held(lock):
+            note = note_of(
+                board.post(f"/tasks/{refund}/merge", {"tip": TIP, "confirm": "yes"})
+            )
+            assert note.state == "running"
+            assert reached.wait(5)
+            waited = merge_count.waited(duty, first, intent)
+            assert (waited.waiting, waited.behind) == (1, (refund,))
+    finally:
+        if worker := kept.merging.get(refund):
+            worker.join()
+    assert merge_count.waited(duty, first, intent).waiting == 0
+
+
+def test_a_stale_approval_note_is_inside_the_phone_task_panel(board: Board) -> None:
+    opened_pull(board)
+    response = board.post(MERGE, {"tip": BASE, "confirm": "yes"})
+    frame = board.client.get(
+        response.headers["location"],
+        headers={
+            "Turbo-Frame": "task",
+            "User-Agent": PHONE,
+        },
+    )
+    assert frame.status_code == 200
+    panel = Parsed(frame.text).root.one(id_="panel")
+    note = panel.one(cls="act-note")
+    assert note.has("a-bad")
+    assert "Read the confirm step again." in note.words()
+
+
 def test_a_press_while_his_approval_stands_starts_nothing_and_says_it_stands(
     board: Board, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -326,8 +403,8 @@ def test_a_failed_merge_start_refuses_that_click_and_the_next_one_can_run(
             # Starlette's own threads must still start.
             patch.setattr("lem.board.acts.merge.Thread", StoppedThread)
         token = token_of(board, fields)
-        refused = NOTES.get(token)
-        assert refused is not None and refused.state == "refused"
+        refused = settled(board, token)
+        assert refused.state == "refused"
         assert calls == []
         assert NOTES.running((str(board.checkout), SLUG)) is None
     retry = token_of(board, fields)

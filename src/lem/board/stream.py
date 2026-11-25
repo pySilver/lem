@@ -61,7 +61,7 @@ async def endpoint(request: Request) -> Response:
     if request.method == "HEAD":
         return Response(media_type=EVENTS)
     missed = "since" in request.query_params or "last-event-id" in request.headers
-    look = partial(stamps.shown, request, space.state)
+    look = partial(stamps.shown, request, space.state, space)
     told = refreshed(look, rendered=request.query_params.get("rendered"), missed=missed)
     return EventSourceResponse(
         told,

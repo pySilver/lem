@@ -14,7 +14,7 @@ from lem.app.landing.mergeread import noted
 from lem.app.owner import forge
 from lem.board.views import offers, owed, sessions, standing, tasks, telling
 from lem.board.views.checks import tab
-from lem.board.views.panel import heads, now
+from lem.board.views.panel import heads, now, review
 from lem.board.views.panel import waiting as panel_waiting
 from lem.board.views.waits import view as waits_view
 from lem.board.views.where import where
@@ -22,6 +22,7 @@ from lem.board.views.world import Forge
 from lem.model.criteria import contract
 from lem.model.landing import merge_said, merge_standing
 from lem.model.owner import merging
+from lem.model.owner.looks import MergeBasis
 from lem.model.task import release
 from lem.records.holds import Blocked, ReleaseHold
 from lem.records.journal.landing import CheckWait
@@ -161,6 +162,19 @@ def test_a_merge_review_that_calls_him_comes_before_the_merge_and_a_new_proposal
     assert waits(opened(proposed=PROPOSED, reads=(read("merge"),))) == []
     again = opened(proposed=replace(PROPOSED, tip=NEXT), reads=(read("call"),))
     assert (wait_of(again), waits(again)) == ("reads", [])
+
+
+def test_the_overview_hides_a_merge_verdict_from_an_old_base_tree() -> None:
+    seen = replace(
+        opened(proposed=PROPOSED, reads=(read("merge"),)),
+        prose=((review.NAME, "Verdict: merge."),),
+        basis=MergeBasis(tree=BASE),
+    )
+    card = review.review(world(seen), seen)
+    assert card is not None and not card.calls
+    stale = replace(seen, basis=MergeBasis(tree=MOVED))
+    assert wait_of(stale) == "reads"
+    assert review.review(world(stale), stale) is None
 
 
 def test_a_proposal_waits_for_his_merge_with_its_number_and_green() -> None:
