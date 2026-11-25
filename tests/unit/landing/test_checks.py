@@ -1174,3 +1174,12 @@ def test_a_pass_of_a_contract_that_moved_since_it_began_is_not_written() -> None
     with pytest.raises(Refusal) as refused:
         checks_kept.kept(moved, world=world(), verdict=verdict, at=MOMENT)
     assert refused.value.code == "contract-moved"
+
+
+def test_with_no_origin_the_base_branch_itself(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    assert checks_red_places.onto_of(tmp_path, "main") == "main"
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "remote", "add", "origin", "/x"], check=True
+    )
+    assert checks_red_places.onto_of(tmp_path, "main") == "origin/main"

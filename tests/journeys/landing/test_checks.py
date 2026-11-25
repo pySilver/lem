@@ -133,6 +133,8 @@ def test_the_checks_run_each_serial_command_after_the_commands_under_the_one_loc
     log = (world.task_folder / outcomes[1]["output"]).read_text()
     assert "another serial test holds the lock" in log
     assert outcomes[1]["last"] == "held"
+    size = record_of(world)["landing"]["checked"]["size"]
+    assert (size["files"], size["lines"]) == (1, 2)
     assert due(capsys, world) == "read"
 
 
@@ -748,3 +750,13 @@ def test_the_owners_drop_stops_the_running_checks_then_drops_the_task(
     assert found["task"]["status"] == "dropped"
     assert found["landing"]["checked"]["outcome"] == "stopped"
     assert checks(capsys, world, "--status")["result"]["running"] is False
+
+
+def test_a_file_untracked_before_the_checks_is_not_removed_and_start_refuses_it(
+    world: World, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (world.worktree / "mine.txt").write_text("the builder's own\n")
+    refused = checks(capsys, world)["refusal"]
+    assert refused["code"] == "not-due"
+    assert "changes nobody committed" in refused["why"]
+    assert (world.worktree / "mine.txt").is_file()
