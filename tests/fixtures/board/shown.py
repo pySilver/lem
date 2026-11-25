@@ -5,11 +5,12 @@ They spell a value; they make none of its words, so that the expected inputs rea
 the owner sees, and a view's rule that gives other words fails its case.
 """
 
+import hashlib
 from zoneinfo import ZoneInfo
 
 from fixtures.board.moments import BASE, NOW, ago
 from lem.board.inputs.layout import Viewer
-from lem.board.inputs.parts import Chip, When
+from lem.board.inputs.parts import Chip, Document, When
 
 # The zone the afternoon's board shows its clock in.
 ZONE = ZoneInfo("UTC")
@@ -50,3 +51,12 @@ def task(slug: str, tab: str | None = None, under: str | None = None) -> str:
 def kind(name: str, why: str) -> Chip:
     """The chip of a request's type."""
     return Chip(label=name, icon="flag", title=TYPE.format(kind=name, why=why))
+
+
+def document(
+    key: str, text: str, media: str | None = None, folder: str | None = None
+) -> Document:
+    """A markdown text under the id a refresh keeps while the text stays: `md-KEY-` and the
+    first twelve of the SHA-256 of `KEY|TEXT` (`main`'s `board_pages.md_block`)."""
+    digest = hashlib.sha256(f"{key}|{text}".encode()).hexdigest()[:12]
+    return Document(id=f"md-{key}-{digest}", text=text, media=media, folder=folder)

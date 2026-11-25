@@ -4,8 +4,8 @@ by the worth each gives itself, with the filter of the address and its chips."""
 from typing import Literal
 
 from lem.board.inputs.forms import ActForm
-from lem.board.inputs.parts import Chip, Input, Link
-from lem.board.inputs.text import Href, Inline, Look, Markdown, Plain
+from lem.board.inputs.parts import Chip, Document, Input, Link
+from lem.board.inputs.text import Href, Inline, Look, Plain
 
 # The worth an item gives itself, and `unset` for one that gives none.
 type Worth = Literal["yes", "later", "unset", "no"]
@@ -21,11 +21,13 @@ class Added(Input, frozen=True, kw_only=True):
 
 
 class Holds(Input, frozen=True, kw_only=True):
-    """What the owner may do with an item: the task that builds it and its words; else the
-    start and the drop (where the page may act) with their note; else the line he types in a
-    session, which a button copies; or why no line would keep its path."""
+    """What the owner may do with an item: the task that builds it and the words after it
+    (`(parked) builds this item.`); else the start and the drop (where the page may act) with
+    their note; else the line he types in a session, which a button copies; or why no line
+    would keep its path."""
 
-    held: Inline | None = None
+    held_by: Link | None = None
+    held: Plain | None = None
     start: ActForm | None = None
     drop: ActForm | None = None
     note: Plain | None = None
@@ -48,7 +50,7 @@ class Entry(Input, frozen=True, kw_only=True):
     where_problem: Plain | None = None
     new: bool = False
     added: Added | None = None
-    body: Markdown | None = None
+    body: Document | None = None
     holds: Holds
 
 

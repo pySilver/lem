@@ -43,7 +43,6 @@ FOOTER_REVIEW = Reviewed(
     scope="whole",
     floor="read",
     kind="read",
-    careful=False,
     answered=("codex",),
     findings=(
         Finding(
@@ -194,7 +193,6 @@ INVOICE_REVIEW = Reviewed(
     scope="whole",
     floor="round",
     kind="round",
-    careful=False,
     answered=("codex", "claude"),
     ran=(Named(name="correctness", why="the invoice changes"),),
     left_out=(Named(name="security", why="no input is read"),),

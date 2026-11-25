@@ -19,7 +19,7 @@ from lem.records.decisions import Story, Taken
 from lem.records.journal.landing import CheckEnd, CommandEnd, NotGreen, ReviewRound
 from lem.records.journal.merge import ReadNoted
 from lem.records.journal.task import DecisionNoted
-from lem.records.landing.checks import ChangeSize, Checked, CriterionCheck, Lowered
+from lem.records.landing.checks import ChangeSize, Checked, Lowered
 from lem.records.landing.propose import MergeRead, Proposed
 from lem.records.landing.record import Landing, Pull
 from lem.records.landing.review import Finding, Named, Reviewed
@@ -145,8 +145,6 @@ FIRST = Reviewed(
     scope="whole",
     floor="round",
     kind="round",
-    careful=True,
-    careful_why="the total a customer pays changes",
     answered=ANSWERED,
     ran=CORRECTNESS,
     findings=(
@@ -178,8 +176,6 @@ SECOND = Reviewed(
     scope="whole",
     floor="round",
     kind="round",
-    careful=True,
-    careful_why="the total a customer pays changes",
     answered=ANSWERED,
     ran=CORRECTNESS,
     findings=(
@@ -272,10 +268,6 @@ RECEIPT = record(
                 passed("make test", "214 passed", 1),
                 passed("make lint", "All checks passed", 2),
             ),
-            criteria=(
-                CriterionCheck(criterion=1, red_on_base=True, green_on_tip=True),
-                CriterionCheck(criterion=2, red_on_base=True, green_on_tip=True),
-            ),
             lowered=(
                 Lowered(
                     path="tests/test_receipt.py",
@@ -300,7 +292,6 @@ RECEIPT = record(
             base=BASE,
             green=False,
             reasons=REASONS,
-            careful=True,
             notes_path="decisions.md",
             text="pr.md",
             who_acts="owner",
