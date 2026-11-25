@@ -2,7 +2,9 @@
 
     lem task read SLUG --type T --why W --track small|full ...
 
-The plain form of the fast track, as the step `slice-land` built it; the step `task` owns it.
+The read replaces the fixed lines of a request (`type:`, `then:`, `careful:`, `after:`, the
+owner's order); `--fits` says the owner's words fit one open task, `--someone-else` that someone
+else wrote the request (`model/task/read.py`). Its `say` is the task's first line.
 """
 
 from typing import Literal
@@ -13,7 +15,8 @@ import msgspec
 from lem.app.tasks import shape as shaping
 from lem.cli import place
 from lem.cli.words import choice
-from lem.model.landing.world import later
+from lem.kernel.envelope import Envelope
+from lem.model.task.read import Queue
 from lem.records.task import Shape
 
 type Kind = Literal[
@@ -36,20 +39,26 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     order: str | None = None
     after: str | None = None
     wait: Wait | None = None
+    fits: bool = False
+    someone_else: bool = False
 
 
-def run(call: Call) -> Shape:
-    """Record the read of the request; a queue and a wait are the step `task`'s."""
-    if call.order or call.after or call.wait:
-        raise later("`lem task read --order|--after|--wait`", "task")
+def run(call: Call) -> Envelope:
+    """Record the read of the request, its queue and its wait; say the first line."""
     shape = Shape(
         type=call.kind,
         why=call.why,
         track=call.track,
         careful=call.careful,
         then=call.then,
+        fits=call.fits,
+        someone_else=call.someone_else,
     )
-    return shaping.shaped(place.folder(), call.slug, shape)
+    queue = Queue(after=call.after, order=call.order, wait=call.wait)
+    record = shaping.shaped(place.folder(), call.slug, shape, queue)
+    outcome = msgspec.Raw(msgspec.json.encode(record.task.shape))
+    say = shaping.said(place.folder(), record)
+    return Envelope(ok=True, outcome=outcome, say=say)
 
 
 COMMAND = click.Command(
@@ -78,6 +87,16 @@ COMMAND = click.Command(
         click.Option(["--order"], help="the owner's order, in his words"),
         click.Option(["--after"], help="the task this one waits for"),
         click.Option(["--wait"], type=choice(Wait), help="what waits for the owner"),
+        click.Option(
+            ["--fits"],
+            is_flag=True,
+            help="the owner's words fit the one open task --after names",
+        ),
+        click.Option(
+            ["--someone-else"],
+            is_flag=True,
+            help="someone else wrote the request: its criterion waits for his yes",
+        ),
     ],
     callback=lambda **given: run(msgspec.convert(given, Call)),
     help="Record the read of a request: type, track and what comes next.",

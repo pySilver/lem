@@ -1,14 +1,15 @@
 """`lem issue land`: the task landed: one comment, and the issue is closed.
 
-    lem issue land SLUG
-
-A stub until the step `task` builds it: it refuses `not-built`.
+lem issue land SLUG
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.tasks import ports
+from lem.app.tasks.issues import land
+from lem.cli import place
+from lem.store import places
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +18,10 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     slug: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `task` builds `lem issue land`."""
-    raise not_built("issue land", "task")
+def run(call: Call) -> object:
+    """Post the landing's comment, then close the issue as completed."""
+    where = places.workspace(place.folder())
+    return land.land(ports.bound(where), where, call.slug)
 
 
 COMMAND = click.Command(

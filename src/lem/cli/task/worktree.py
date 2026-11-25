@@ -2,15 +2,17 @@
 
     lem task worktree SLUG [--path] [--branch B] [--checkout DIR]
 
-The plain form of the fast track, as the step `slice-land` built it; the step `task` owns it.
+Made on its branch, cut from origin's base after a fetch, with `checks.setup` run once in it
+(`app/tasks/worktree.py`); `--path` prints where it is and makes nothing.
 """
+
+from pathlib import Path
 
 import click
 import msgspec
 
 from lem.app.tasks import worktree
 from lem.cli import place
-from lem.model.landing.world import later
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -23,11 +25,12 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 
 def run(call: Call) -> worktree.Made:
-    """Make the task's worktree, or print its path; `--checkout` is the step `task`'s."""
-    if call.checkout:
-        raise later("`lem task worktree --checkout`", "task")
-    folder = place.folder()
-    return worktree.worktree(folder, call.slug, path_only=call.path, branch=call.branch)
+    """Make the task's worktree, or print its path."""
+    checkout = None if call.checkout is None else Path(call.checkout)
+    asked = (call.branch, checkout)
+    return worktree.worktree(
+        place.folder(), call.slug, path_only=call.path, asked=asked
+    )
 
 
 COMMAND = click.Command(

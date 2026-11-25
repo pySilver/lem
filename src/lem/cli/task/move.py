@@ -2,10 +2,12 @@
 
     lem task move SLUG STATUS [--line L]... [--start-over WHY]
 
-The plain form of the fast track, as the step `slice-land` built it; the step `task` owns it.
+A move by the table of statuses (`model/task/table.py`); `dropped` is the owner's drop, under
+the landing's step lock (`app/tasks/drop.py`); `--start-over WHY` gives a task with its landing
+back to `ready`, only where the landing's refusal names it.
 """
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import click
 import msgspec
@@ -13,7 +15,9 @@ import msgspec
 from lem.app.tasks import move
 from lem.cli import place
 from lem.cli.words import choice
-from lem.model.landing.world import later
+
+if TYPE_CHECKING:
+    from lem.model.task.table import Moved
 
 type Status = Literal[
     "queued",
@@ -38,11 +42,11 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     start_over: str | None = None
 
 
-def run(call: Call) -> move.Moved:
-    """Move the task; a drop and a start over are the step `task`'s."""
-    if call.start_over or call.status == "dropped":
-        raise later("`lem task move SLUG dropped|--start-over`", "task")
-    return move.moved(place.folder(), call.slug, call.status, call.lines)
+def run(call: Call) -> Moved:
+    """Move the task."""
+    return move.moved(
+        place.folder(), call.slug, call.status, call.lines, call.start_over
+    )
 
 
 COMMAND = click.Command(

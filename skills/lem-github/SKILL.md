@@ -3,7 +3,6 @@ name: lem-github
 description: "Lem's tracker skill for GitHub Issues: reads an issue into a task, assigns it when the build starts, and comments and closes it when the task lands. Lem's stages load it; the owner reads one issue with `/lem read 42`."
 disable-model-invocation: true
 ---
-<!-- lem: old form -->
 
 # GitHub Issues, as Lem's tracker
 
@@ -20,7 +19,7 @@ What Lem writes to an issue is public in the repository: the assignee, the comme
 
 ## The settings
 
-`lem project show` prints `tracker`. When it is null, the project has no tracker: say so and stop.
+`lem settings show` prints `tracker`. When it is null, the project has no tracker: say so and stop.
 The one exception is "check" at onboarding, before the table is written. The table has one key,
 `kind`, which is `github` here. Everything else is read from origin and from GitHub, never from a
 setting: the repository is the one `remote.origin.url` names, at every step.
@@ -28,8 +27,9 @@ setting: the repository is the one `remote.origin.url` names, at every step.
 ## The command
 
 Every step is one line of `lem issue`, which runs GitHub's `gh` against origin's repository and
-prints one JSON object. A refusal exits 1 with a line that names the fix; say that line to the
-owner, and do not work around it. `gh` must be installed and signed in (`gh auth login`); no MCP
+prints one JSON document: its `result`, and in `say` a line for the owner when there is one. A
+refusal exits 1 with its `why` and the `fix` that names the way on; say them to the owner, and do
+not work around it. `gh` must be installed and signed in (`gh auth login`); no MCP
 server is involved. Never call `gh` yourself for a step of this skill: the command holds the order
 of each write and its record, and the tests hold the command.
 
@@ -45,12 +45,13 @@ no command the owner has to know.
 lem issue check
 ```
 
-It gives `repository` (origin's `OWNER/REPO`), `gh`, `signed_in`, `issues_on`, `has_issues` (at
-least one issue, open or closed) and `missing`, each item with its `what` and its `fix`: `gh` not
-installed, `gh` not signed in, the issues off in the repository's settings, or an origin that is
-not on GitHub. It exits 1 when `missing` is not empty. Say the result in one or two lines: the
-repository and that its issues are on, or each missing thing with its fix. Ask nothing, write
-nothing to the settings, and change nothing on GitHub.
+It gives `repository` (origin's `OWNER/REPO`), `gh`, `signed_in`, `issues_on` and `has_issues`
+(at least one issue, open or closed), and in `say` the line that the issues are on. When
+something is missing (`gh` not installed, `gh` not signed in, the issues off in the repository's
+settings, or an origin that is not on GitHub), it is refused: `why` names each missing thing and
+`fix` the fix of each, in the same order. Say the result in one or two lines: the repository and
+that its issues are on, or each missing thing with its fix. Ask nothing, write nothing to the
+settings, and change nothing on GitHub.
 
 ## read
 
@@ -64,8 +65,9 @@ lem issue read 42
 1. It gives, for `stages/new.md`: `id` (`#42`), `repository`, `url`, `title`, `text` (the body as
    written), `state` (`open` or `closed`) and `state_reason`, `labels`, `author` (the login of the
    person who opened the issue), `assignees`, and `comments`, each with its `author`, `at` and
-   `text`, apart from the text. `task_dir` is the arguments `lem project task-dir` takes for it:
-   `--ticket #42 --ticket-repo OWNER/REPO`, the repository of the issue that was read.
+   `text`, apart from the text. `task_open` is what `lem task open SLUG --ask WORDS --ticket ID
+   --ticket-repo OWNER/REPO` takes for it: the issue's id and the repository of the issue that
+   was read.
 2. The address of an issue of another repository, such as the upstream of a fork, is refused: the
    message names origin's repository and says that Lem reads the issues of origin. Say it to the
    owner; the work then starts from his own words.
@@ -83,10 +85,11 @@ procedure alone: give him what step 1 gives, in a few lines, and start nothing.
 
 ## What was done to an issue is written down
 
-`lem project tasks` gives, for a task that came from an issue, `ticket` (`#42`), `ticket_repo`,
-`ticket_steps`, `ticket_assignee` (the login Lem set out to add) and `ticket_owed`: what an ended
-task's issue still waits for. `lem issue` reads them before each write and writes each step down
-through `lem project ticket-step` itself, after `gh` took it, so a step is never done twice:
+`lem task show SLUG` gives, for a task that came from an issue, its ticket (`#42`), the
+repository, the steps written down, the login Lem set out to add as the assignee, and what an
+ended task's issue still waits for. `lem issue` reads them before each write and writes each step
+down itself, through `lem task ticket SLUG STEP`, after `gh` took it, so a step is never done
+twice:
 
 - `assigned LOGIN` is written before the add, with the login, and `unassigned` when Lem removed
   that assignee again or the add failed;
@@ -100,11 +103,11 @@ step a task still owes with one line: `lem issue STEP SLUG`.
 
 Each write refuses a task in a status the step does not belong to, a task whose issue another task
 holds now (a resume went on from it, and that task owes the issue nothing), and an origin that
-names another repository than the task's `ticket_repo`: the refusal names both and the fix, origin
-set back or the owner writing to the issue by hand.
+names another repository than the task's issue: the refusal names both and the fix, origin set
+back or the owner writing to the issue by hand.
 
-Each write gives `did` (what `gh` did on the issue), `wrote` (the steps written down), `state`,
-`assignees` and `says`: a line for the owner, or null.
+Each write gives `did` (what `gh` did on the issue), `wrote` (the steps written down), `state` and
+`assignees`, and a line for the owner in `say` when there is one.
 
 ## start
 
@@ -115,8 +118,8 @@ lem issue start SLUG
 ```
 
 An issue with no assignee gets the person signed in to `gh`. An issue that has an assignee keeps
-its assignees, and Lem adds nobody. When `says` is not null (the assignee is another person, or
-`gh` could not assign), tell the owner that line, and build on. A second start writes nothing. A
+its assignees, and Lem adds nobody. When `say` is there (the assignee is another person, or `gh`
+could not assign), tell the owner that line, and build on. A second start writes nothing. A
 refusal (`gh` not signed in) is one line to the owner too; the build goes on.
 
 ## land
@@ -132,9 +135,10 @@ lem issue land SLUG
    it was green or not green when it was proposed. Its last line is `lem: SLUG landed`.
 2. The issue is closed as completed. An issue that is closed already stays as it is.
 
-A landed task's issue is finished when `ticket_owed` is empty. Until then the landing still owes
-the issue this line, and each run skips what is done. The pull request's text holds `Issue: #42`,
-so GitHub links the two both ways; it has no word that closes the issue, since Lem closes it.
+A landed task's issue is finished when `lem task show SLUG` says it owes nothing. Until then the
+landing still owes the issue this line, and each run skips what is done. The pull request's text
+holds `Issue: #42`, so GitHub links the two both ways; it has no word that closes the issue, since
+Lem closes it.
 
 ## drop
 
@@ -149,7 +153,7 @@ lem issue drop SLUG
    `lem: SLUG dropped`.
 2. The assignee Lem added at the start is removed, whoever is signed in to `gh` now. Every other
    assignee stays.
-3. The issue stays open: tell the owner the line `says` gives. Whether it closes is his call.
+3. The issue stays open: tell the owner the line `say` gives. Whether it closes is his call.
 
 ## answer
 
@@ -162,11 +166,11 @@ for them; so an answer has its own comment.
 lem issue answer SLUG
 ```
 
-1. One comment with the answer as the task's state gives it (the newest `investigation`: its
-   `line`, and its `where` when it has one), and, while the task's directory holds the report, that
+1. One comment with the answer as the task's record gives it (its investigation: the `line`, and
+   the `where` when it has one), and, while the task's directory holds the report, that
    it is there, not on the issue. Its last line is `lem: SLUG answered`.
 2. The assignee Lem added goes, as for a drop.
-3. The issue stays open: tell the owner the line `says` gives. Whether an answer closes it is his
+3. The issue stays open: tell the owner the line `say` gives. Whether an answer closes it is his
    call.
 
 `gh` is signed in as a person, so GitHub shows that person as the author of the comment, the

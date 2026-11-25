@@ -2,13 +2,20 @@
 
     lem task may-start SLUG
 
-A stub until the step `task` builds it: it refuses `not-built`.
+Refused, with the way on, while it is queued behind a task not landed or answered, behind a
+dropped one, parked, with its landing, or ended (`model/task/queue.py`).
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.tasks import start
+from lem.cli import place
+
+if TYPE_CHECKING:
+    from lem.model.task.queue import May
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +24,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     slug: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `task` builds `lem task may-start`."""
-    raise not_built("task may-start", "task")
+def run(call: Call) -> May:
+    """Whether the task may start now, and the tasks that load the machine."""
+    return start.may(place.folder(), call.slug)
 
 
 COMMAND = click.Command(
