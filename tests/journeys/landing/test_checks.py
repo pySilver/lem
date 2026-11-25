@@ -4,8 +4,8 @@
 
 Every `lem` runs in this process through the tree (`lem.cli.lazy.main`), with the skeleton's
 ports, but where a stop needs a process of its own: then a runner script binds the same ports
-in a child, and the test ends it in a `finally`. The machine's start number is set high, so that
-the load of a busy machine never holds a case at the gate it does not test.
+in a child, and the test ends it in a `finally`. The machine has no load gate, so that
+no case waits at the gate it does not test (`tests/journeys/conftest.py`).
 """
 
 import fcntl
@@ -60,8 +60,8 @@ def settings(world: World, commands: str, serial: str = "[]") -> None:
 def world(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> World:
-    """The skeleton's task, up to the step `checks`, on a machine whose gate lets it start."""
-    machine("1000")
+    """The skeleton's task, up to the step `checks`, on a machine with no load gate
+    (`tests/journeys/conftest.py`); a case that tests the gate sets its own number."""
     made_world = made(tmp_path, monkeypatch)
     upto(capsys, made_world, "checks")
     return made_world
@@ -775,3 +775,15 @@ def test_a_file_untracked_before_the_checks_is_not_removed_and_start_refuses_it(
     assert refused["code"] == "not-due"
     assert "changes nobody committed" in refused["why"]
     assert (world.worktree / "mine.txt").is_file()
+
+
+def test_two_runs_of_the_checks_in_one_process_wait_on_no_clock_and_no_other_test(
+    world: World, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert checks(capsys, world)["ok"] is True
+    settings(world, '["test -f README.md", "true"]')
+    started = time.monotonic()
+    assert checks(capsys, world)["ok"] is True
+    kinds = [entry["kind"] for entry in record_of(world)["journal"]]
+    assert "check-wait" not in kinds
+    assert time.monotonic() - started < REACH / 2
