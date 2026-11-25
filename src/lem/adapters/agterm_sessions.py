@@ -9,9 +9,9 @@ and a pane's environment may hold them in either.
 from typing import TYPE_CHECKING
 
 from lem.adapters.agterm_ctl import TOOL, said
-from lem.adapters.agterm_tree import Foreground, Node, nodes_of
+from lem.adapters.agterm_tree import Node, nodes_of
 from lem.ports.faults import Unanswered
-from lem.ports.terminal import Mark, Pane, Unreadable
+from lem.ports.terminal import Foreground, Mark, Pane, Unreadable
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

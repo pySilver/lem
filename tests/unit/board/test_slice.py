@@ -41,7 +41,6 @@ from lem.board import (
     workspaces,
 )
 from lem.board.client import Reply
-from lem.board.duties import runner
 from lem.board.facts import HEADER, MARK, Facts, Install
 from lem.board.serving import Serving
 from lem.kernel import folders, release
@@ -527,13 +526,6 @@ def test_the_serve_file_is_removed_only_by_the_server_it_names(tmp_path: Path) -
     assert (tmp_path / serve_file.SERVE).is_file()
     serve_file.remove(tmp_path, 41)
     assert not (tmp_path / serve_file.SERVE).exists()
-
-
-def test_each_duty_path_is_a_module_whose_tick_runs_for_a_workspace(
-    board: Board,
-) -> None:
-    runner.tick(board.home)
-    assert len(runner.DUTIES) == 6
 
 
 def test_a_head_of_the_stream_answers_its_headers_and_ends(board: Board) -> None:

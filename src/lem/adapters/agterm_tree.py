@@ -11,11 +11,7 @@ import msgspec
 
 from lem.adapters.agterm_ctl import TOOL
 from lem.ports.faults import Unanswered
-from lem.ports.terminal import Pane
-
-# The words of the program in a session's main pane: empty for a shell that holds it, None while
-# agterm has not drawn the pane.
-type Foreground = tuple[str, ...] | None
+from lem.ports.terminal import Foreground, Pane
 
 
 class Surface(msgspec.Struct, frozen=True, kw_only=True):

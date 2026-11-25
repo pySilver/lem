@@ -96,13 +96,14 @@ class AgtermTerminal(AgtermLooks):
 
     def here(self) -> str | None:
         """The session the command runs in, from its pane's environment; None outside agterm."""
-        named = (self.environ.get(name, "").strip() for name in CALLERS)
+        named = (self.environ.get(name, "") for name in CALLERS)
         return next((one for one in named if one), None)
 
     def picker(self, rows: tuple[PickRow, ...], cwd: Path) -> str | None:
         """The id the owner picked in agterm's picker, or None when he closed it."""
+        callers = (self.environ.get(name, "").strip() for name in CALLERS)
         sockets = (self.environ.get(name) for name in SOCKETS)
-        if not self.here() or not any(sockets):
+        if not any(callers) or not any(sockets):
             raise Unanswered(TOOL, "the owner opens the picker from an agterm session")
         ran = ctl(
             self.environ,

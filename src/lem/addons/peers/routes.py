@@ -11,13 +11,10 @@ from starlette.routing import Match, Route
 from lem.addons.peers import registry, relay, requests, rows
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from starlette.responses import Response
     from starlette.types import Scope
 
 type Rows = tuple[rows.Row, ...]
-type OwnRows = Callable[[Request], Rows]
 
 
 def peers(request: Request) -> registry.Registry:
