@@ -22,10 +22,11 @@ from lem.model.task import ending, table
 from lem.ports.forge_facts import Pull
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
 from lem.records.journal.task import StateNoted
-from lem.records.landing.propose import Proposed, Standing
+from lem.records.landing.propose import MergeRead, Proposed, Standing
 from lem.records.landing.record import Landing
 from lem.records.landing.record import Pull as LandingPull
 from lem.records.landing.review import Reviewed
+from lem.records.landing.start import Started
 from lem.records.work import Investigation
 from lem.store import steps, tasks
 from unit.task.spaces import last_line, made, read, result, workspace
@@ -196,8 +197,13 @@ def landing() -> Landing:
     )
     proposed = Proposed(tip=SHA, base=SHA, green=True, who_acts="owner", at=MOMENT)
     standing = Standing(tip=SHA, reasons_digest="d", by_act="merge", at=MOMENT)
+    carried = MergeRead(tip=SHA, base=SHA, base_tree=SHA, carried_from=SHA, at=MOMENT)
     return Landing(
-        phase="open", reviews=(review,), proposed=proposed, standing=standing
+        phase="open",
+        reviews=(review,),
+        reads=(carried,),
+        proposed=proposed,
+        standing=standing,
     )
 
 
@@ -208,6 +214,8 @@ def test_the_start_over_archives_the_reviews_and_ends_the_owners_merge(
     made(where, SLUG, status="open")
     record = read(where, SLUG)
     with_landing = replace(record, landing=landing())
+    assert with_landing.landing is not None
+    assert with_landing.landing.reads
     started = ending.started_over(with_landing, "the record of the review is broken")
     assert started.landing is not None
     assert (started.landing.reviews, started.landing.reads) == ((), ())
@@ -367,3 +375,57 @@ def test_the_table_is_the_designs() -> None:
         "open",
     }
     assert all("dropped" in moves.split() for moves in table.MOVES.values())
+
+
+def proposed(where: Workspace, base: str) -> None:
+    """The task `SLUG` with pull request 7, its landing started on `base`."""
+    started = Started(round=1, branch=f"feat/{SLUG}", base_ref=base, at=MOMENT)
+    pull = LandingPull(number=7, url="u", title="t")
+    landing = Landing(pull=pull, started=started)
+    revision = read(where, SLUG).revision
+    tasks.update(where.state, SLUG, lambda one: replace(one, landing=landing), revision)
+
+
+@pytest.mark.parametrize(
+    ("merged_into", "refused"), [("main", True), ("stable", False)]
+)
+def test_the_drop_reads_the_base_its_landing_started_on_not_the_settings_of_now(
+    tmp_path: Path, merged_into: str, *, refused: bool
+) -> None:
+    where = workspace(tmp_path, '[branch]\nbase = "stable"\n')
+    made(where, SLUG, status="open")
+    proposed(where, "main")
+    forge = forge_with(where, "merged", merged_into)
+    given = fake_ports(ModelGit(checkout=where.checkout), forge)
+    if not refused:
+        assert drop.dropped(where, SLUG, "not wanted", given).status == "dropped"
+        return
+    with pytest.raises(Refusal) as found:
+        drop.dropped(where, SLUG, "not wanted", given)
+    assert (found.value.code, found.value.fix) == ("merged", f"lem land merged {SLUG}")
+
+
+def test_a_merge_that_lands_while_the_drop_waits_defeats_it(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    made(where, SLUG, status="landing")
+    forge = forge_with(where, "open")
+    given = fake_ports(ModelGit(checkout=where.checkout), forge)
+    outcome: list[str] = []
+
+    def dropping() -> None:
+        try:
+            drop.dropped(where, SLUG, "not wanted", given)
+            outcome.append("dropped")
+        except Refusal as refused:
+            outcome.append(refused.code)
+
+    with steps.step(where.state, SLUG, "propose", MOMENT):
+        waiting = threading.Thread(target=dropping)
+        waiting.start()
+        time.sleep(0.5)
+        proposed(where, "main")
+        forge.pulls[7] = replace(forge.pulls[7], state="merged")
+        assert outcome == []
+    waiting.join(timeout=30)
+    assert outcome == ["merged"]
+    assert read(where, SLUG).task.status == "landing"

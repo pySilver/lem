@@ -42,13 +42,15 @@ def stop_checks(where: places.Workspace, slug: str) -> None:
 def merged_refusal(
     given: Ports | None, where: places.Workspace, record: Record
 ) -> None:
-    """Refuse the drop of a task whose pull request the forge merged into its base."""
+    """Refuse the drop of a task whose pull request, the one on record, the forge merged into
+    the base its landing started on (`Started.base_ref`), not the settings' base of now."""
     landing, slug = record.landing, record.task.slug
     if landing is None or landing.pull is None:
         return
     if landing.merged is None:
         pull = (given or ports.bound(where)).forge.pull(landing.pull.number)
-        base = base_of(team_of(where.checkout))
+        started = landing.started
+        base = started.base_ref if started else base_of(team_of(where.checkout))
         if pull.state != "merged" or pull.base != base:
             return
     raise Refusal(
