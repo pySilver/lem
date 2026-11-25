@@ -13,6 +13,7 @@ from hypothesis import HealthCheck, settings
 from hypothesis import strategies as st
 from msgspec.structs import replace
 
+from lem.model.criteria import contract
 from lem.model.landing import checks, merge_standing
 from lem.model.landing.merge_asked import Asked
 from lem.model.landing.merge_standing import digest_of
@@ -267,7 +268,12 @@ def landings(draw: st.DrawFn, phase: str) -> Landing:
     )
     standing = Standing(
         tip=draw(shas()),
-        reasons_digest=draw(one_of(digest_of(()), digest_of(("x",)))),
+        reasons_digest=draw(
+            one_of(
+                digest_of(proposed.reasons, proposed.contract),
+                digest_of(("x",), proposed.contract),
+            )
+        ),
         by_act="board",
         at=draw(moments()),
     )
@@ -339,7 +345,7 @@ def opened_landings(draw: st.DrawFn) -> Record:
     plain = draw(mostly(task("open", **{**OPENED, "reads": (READ,)}), alone()))
     kept = plain.landing
     assert kept is not None
-    seen = digest_of(merge_standing.reasons_now(plain))
+    seen = digest_of(merge_standing.reasons_now(plain), contract.mark(plain.task))
     stands = Standing(tip=TIP, reasons_digest=seen, by_act="board", at=MOMENT)
     safe = replace(READ, base=MOVED, base_tree=MOVED_TREE, base_call="safe")
     picks = {

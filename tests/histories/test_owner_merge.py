@@ -7,12 +7,13 @@ from msgspec.structs import replace
 
 from histories.story import TITLE, Story
 from lem.kernel.errors import Refusal
+from lem.model.criteria import contract
 from lem.model.landing import merge, merge_standing, standing
 from lem.model.landing.merge_asked import Asked
 from lem.records.landing.propose import OwnerMerge
 from unit.landing.merges import alone, facing
 from unit.landing.proposals import changed
-from unit.landing.worlds import TIP, TREE
+from unit.landing.worlds import CRITERION, TIP, TREE
 
 WORD = Asked(by="owner", via="board", tip=TIP, subject=TITLE)
 SERVER = Asked(by="owner", via="server", standing=True, subject=TITLE)
@@ -56,7 +57,14 @@ def test_his_word_refused_for_the_base_stands_and_the_server_merges_after_a_safe
 def test_his_merge_ends_when_the_reasons_it_is_not_green_change() -> None:
     story = refused_for_the_base()
     story.merge_review(SAFE)
-    change = changed(5, "changed", 1, "the login takes a code.")
+    change = changed(
+        5,
+        "changed",
+        CRITERION.number,
+        "the login takes a code.",
+        was=CRITERION.text,
+        now="The login takes a code.",
+    )
     task = story.record.task
     story.record = replace(story.record, task=replace(task, decisions=(change,)))
     assert merge_standing.standing_of(story.record) is None
@@ -74,7 +82,9 @@ def test_his_merge_ends_when_the_reasons_it_is_not_green_change() -> None:
 def test_a_new_round_whose_rebase_showed_no_carry_ends_his_merge() -> None:
     story = refused_for_the_base()
     landing = story.landing
-    digest = merge_standing.digest_of(merge_standing.reasons_now(story.record))
+    digest = merge_standing.digest_of(
+        merge_standing.reasons_now(story.record), contract.mark(story.record.task)
+    )
     assert standing.standing(landing, digest, carried=True) == OwnerMerge(
         state="stands", why="the change and its reasons stay"
     )

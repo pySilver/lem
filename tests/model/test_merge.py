@@ -31,7 +31,7 @@ from model.landings import (
     opened_landings,
 )
 from unit.landing.merges import BY_MERGER, facing, opened
-from unit.landing.worlds import APPROVED, TREE
+from unit.landing.worlds import APPROVED, CRITERION, TREE
 
 if TYPE_CHECKING:
     from lem.model.landing.merge_asked import Asked
@@ -111,7 +111,7 @@ def test_a_merge_goes_only_with_the_merger_s_authority_or_the_owner_s_word(
         )
 
 
-def test_a_later_criterion_approval_refuses_an_otherwise_valid_agent_merge() -> None:
+def test_approval_of_changed_criteria_refuses_an_otherwise_valid_agent_merge() -> None:
     record = opened()
     world = facing()
     assert isinstance(
@@ -124,8 +124,11 @@ def test_a_later_criterion_approval_refuses_an_otherwise_valid_agent_merge() -> 
         by="owner",
         replaces=APPROVED.number,
         at=APPROVED.at + timedelta(seconds=1),
+        criteria=(replace(CRITERION, text="The login takes a code."),),
     )
-    criteria = replace(record.task.criteria, approvals=(APPROVED, later))
+    criteria = replace(
+        record.task.criteria, approvals=(APPROVED, later), criteria=later.criteria
+    )
     changed = replace(record, task=replace(record.task, criteria=criteria))
     found = merge.decide(changed, world, BY_MERGER, TREE)
     assert isinstance(found, Refusal)
