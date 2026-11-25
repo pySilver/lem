@@ -74,6 +74,7 @@ def test_a_session_opens_starts_shows_its_signs_and_closes(tmp_path: Path) -> No
         "transcript_path": str(transcript),
         "source": "startup",
         "cwd": str(repo),
+        "hook_event_name": "SessionStart",
     }
     hook_env = {
         **env,
@@ -84,6 +85,7 @@ def test_a_session_opens_starts_shows_its_signs_and_closes(tmp_path: Path) -> No
     }
     subprocess.run(
         ["/bin/sh", f"{ROOT}/hooks/run", "session-start"],
+        cwd=tmp_path,
         input=json.dumps(event).encode(),
         env=hook_env,
         check=True,
