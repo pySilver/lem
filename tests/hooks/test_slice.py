@@ -297,6 +297,7 @@ def imported(*command: str) -> set[str]:
         command,
         input=b"{}",
         env={**os.environ, "PATH": GUI_PATH, "PYTHONPROFILEIMPORTTIME": "1"},
+        cwd=tempfile.gettempdir(),
         capture_output=True,
         timeout=30,
         check=False,
