@@ -347,11 +347,14 @@ def test_the_main_checkout_on_another_branch_reads_the_bases_commit(
     found = load.settings_of(repo.checkout, environ)
     assert found.settings.branch.land == "agent"
     assert found.sources["branch.land"].startswith("main@")
+    assert found.notice is not None
+    assert "the main checkout is not on main" in found.notice
     run_git(repo.checkout, "checkout", "--quiet", "main")
     (repo.checkout / TEAM).write_text("[branch]\nbase = 'main'\nland = 'owner'\n")
     on_base = load.settings_of(repo.checkout, environ)
     assert on_base.settings.branch.land == "owner"
     assert on_base.sources["branch.land"] == TEAM
+    assert on_base.notice is None
 
 
 def committed_on(repo: RealRepo, branch: str, text: str) -> None:
@@ -418,3 +421,46 @@ def test_a_wrong_line_on_the_base_says_where_its_fix_counts(tmp_path: Path) -> N
     with pytest.raises(Refusal) as caught:
         load.settings_of(repo.checkout, environ)
     assert "a fix counts once it is committed on main" in caught.value.fix
+
+
+SEAT_LINES = (
+    ("reviewer", "codex/r-{0}:high"),
+    ("planner", "claude/p-{0}:high"),
+    ("merger", "codex:{0}"),
+    ("session", "claude:{0}"),
+    ("fallback", "claude/f-{0}:high"),
+)
+PLACES = (("local", LOCAL), ("team", TEAM), ("home", HOME))
+
+
+@pytest.mark.parametrize(
+    ("seat", "line"), SEAT_LINES, ids=[one for one, _ in SEAT_LINES]
+)
+def test_each_seat_from_each_of_the_four_places(
+    tmp_path: Path, seat: str, line: str
+) -> None:
+    for skipped in range(len(PLACES) + 1):
+        files = {
+            place: f"[seats]\n{seat} = '{line.format(place)}'\n"
+            for place, _ in PLACES[skipped:]
+        }
+        found = given(tmp_path / str(skipped), **files).loaded()
+        if skipped == len(PLACES):
+            assert found.sources[f"seats.{seat}"] == DEFAULT
+            continue
+        place, name = PLACES[skipped]
+        assert getattr(found.settings.seats, seat) == line.format(place)
+        assert found.sources[f"seats.{seat}"] == name
+
+
+def test_a_branch_keeps_its_commits_and_its_owner_merges_when_the_file_says_so(
+    tmp_path: Path,
+) -> None:
+    found = given(
+        tmp_path, team="[branch]\nhistory = 'keep'\nland = 'owner'\n"
+    ).loaded()
+    assert (found.settings.branch.history, found.settings.branch.land) == (
+        "keep",
+        "owner",
+    )
+    assert found.sources["branch.history"] == TEAM

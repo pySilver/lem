@@ -9,6 +9,7 @@ import pytest
 
 from fakes.command import lem
 from fakes.repo import RealRepo, run_git
+from lem.kernel import locks
 from lem.kernel.errors import Refusal
 from lem.settings import edit, reading
 from lem.settings.places import LOCAL, Scope
@@ -280,3 +281,29 @@ def test_a_reset_keeps_the_owners_comment_on_the_tables_header(tmp_path: Path) -
 def test_set_writes_the_status_map_of_the_question_page(tmp_path: Path) -> None:
     said = set_in(given(tmp_path), "ask.status", '{asking = ["blocked"]}', Scope.home)
     assert said.in_force == {"asking": ("blocked",)}
+
+
+def test_a_second_writer_waits_for_the_lock_and_keeps_the_first_ones_line(
+    tmp_path: Path,
+) -> None:
+    setup = given(tmp_path, machine="[load]\nstart = 9\n")
+    where = reading.Where(checkout=None, home=setup.home, environ=setup.environ)
+    lock = setup.home / "machine.lock"
+    second = edit.Edit(
+        scope=Scope.machine,
+        path=setup.home / "machine.toml",
+        lock=lock,
+        table="handoff",
+        key="tokens",
+        given=200_000,
+    )
+    writer = threading.Thread(target=edit.applied, args=(second, where))
+    with locks.held(lock):
+        writer.start()
+        writer.join(timeout=0.5)
+        assert writer.is_alive()
+        (setup.home / "machine.toml").write_text("[load]\nstart = 12\n")
+    writer.join()
+    assert (setup.home / "machine.toml").read_text() == (
+        "[load]\nstart = 12\n\n[handoff]\ntokens = 200000\n"
+    )
