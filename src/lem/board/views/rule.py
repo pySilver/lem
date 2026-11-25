@@ -47,6 +47,7 @@ INVESTIGATES = Said("lead", "The investigator", "Investigating", "eye", live=Tru
 WORKS = Said(OWN, "The task's session", "Works on your answer", "play", live=True)
 READING = Said(QUIET, LEM, "The personas read the criteria", "users", live=True)
 WRITES = Said(OWN, LEM, "Lem writes the criteria", PAGE, live=True)
+GOES_ON = Said(OWN, LEM, "Lem goes on without you", "play", live=True)
 
 
 def investigates(task: Task) -> bool:

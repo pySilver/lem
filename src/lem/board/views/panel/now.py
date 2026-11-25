@@ -10,7 +10,7 @@ from lem.board.views import answering, offers
 from lem.board.views.panel import heads, lines, now_parts, shown, ways
 from lem.board.views.panel.answer import answer
 from lem.model.owner import presence
-from lem.records.holds import BreakerHold, OwnerHold, Parked
+from lem.records.holds import BreakerHold, OwnerHold, Parked, ReleaseHold
 
 if TYPE_CHECKING:
     from lem.board.inputs.forms import AnswerForm, Way
@@ -97,8 +97,11 @@ def ways_of(
 
 def answer_of(world: World, seen: Seen) -> AnswerForm | None:
     """The answer to a plan that waits for the owner's read, or to the skip of the personas'
-    read, until his answer is on record."""
+    read, until his answer is on record; none of a task two releases back, whose drop is the
+    way on."""
     task = seen.record.task
+    if isinstance(task.hold, ReleaseHold):
+        return None
     for topic in ("plan", "skip"):
         asked = offers.open_question(task, topic)
         if asked is not None:

@@ -131,12 +131,15 @@ def status_said(seen: Seen) -> rule.Said:
 
 def turn_said(seen: Seen) -> rule.Said:
     """The words of a task the owner's hold or a breaker holds while it is not his turn: its
-    session works on his answer, the personas read the criteria, or Lem writes them."""
+    session works on his answer, Lem goes on without him while the task runs alone, the
+    personas read the criteria, or Lem writes them."""
     task = seen.record.task
     session = seen.session
     if session is not None and session.live and session.working:
         return rule.WORKS
     hold = turns.held(task)
+    if hold is not None and seen.alone and hold.on in turns.GOES_ON:
+        return rule.GOES_ON
     if hold is not None and turns.reading(task, hold.since):
         return rule.READING
     if isinstance(task.hold, BreakerHold):
@@ -145,9 +148,9 @@ def turn_said(seen: Seen) -> rule.Said:
 
 
 def since_of(seen: Seen) -> Moment:
-    """Since when the task is where it is: the owner's hold or a breaker counts from its own
-    moment, every other place from the task's status."""
+    """Since when the task is where it is: a hold (his, a breaker's, a block, his park) counts
+    from its own moment, every other place from the task's status."""
     task = seen.record.task
-    if isinstance(task.hold, OwnerHold | BreakerHold | Parked):
+    if isinstance(task.hold, OwnerHold | BreakerHold | Blocked | Parked):
         return task.hold.since
     return task.since

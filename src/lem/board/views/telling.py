@@ -9,7 +9,7 @@ Its hover is `hovers.py`'s.
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from lem.board.views import stopped, words
+from lem.board.views import stopped, turns, words
 from lem.records.journal.landing import CheckEnd, CheckWait, MergeWait
 from lem.records.journal.task import StateNoted, Summary
 
@@ -48,7 +48,7 @@ def line(record: Record, standing: Standing, title: str) -> str:
     waits = waiting(record) or answered(record.task)
     if waits is not None:
         return waits
-    shown = said(record)
+    shown = turns.said(record, standing.label) or said(record)
     if not shown:
         return standing.label
     label = standing.label

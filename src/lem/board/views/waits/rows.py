@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from lem.board.inputs import clock, names
 from lem.board.inputs.waits import Wait
-from lem.board.views import offers, sessions, standing, where, words
+from lem.board.views import offers, sessions, standing, turns, where, words
 from lem.board.views.waits import acts, facts, kinds
 from lem.model.owner import verbs
 from lem.records.holds import OwnerHold
@@ -54,7 +54,8 @@ def verb_of(seen: Seen, row: Row) -> str:
     task = seen.record.task
     hold = task.hold
     if row.kind == "held" and isinstance(hold, OwnerHold) and row.say is None:
-        return words.capital(words.said(hold.line))
+        skip = hold.on == "skip-read"
+        return turns.SKIP if skip else words.capital(words.said(hold.line))
     return verbs.verb(row, task, seen.record.landing)
 
 

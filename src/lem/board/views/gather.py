@@ -10,8 +10,9 @@ board says that the sessions are not known.
 
 from typing import TYPE_CHECKING
 
+from lem.app.owner import releases
 from lem.app.sessions import log
-from lem.board.views import branch, folder, inbox_read, sessions
+from lem.board.views import branch, folder, inbox_read, looked, sessions
 from lem.board.views.backlog import read as shelf
 from lem.board.views.world import Seen, World
 from lem.store import owner, places, tasks
@@ -31,20 +32,20 @@ def gather(checkout: Path, ask: Ask) -> World:
     """The workspace of the main checkout `checkout` as the views read it."""
     state = places.state_of(checkout)
     demo = (state / DEMO).is_file()
-    found = tuple(
-        seen_of(checkout, record, ask, demo=demo) for record in tasks.every(state)
-    )
-    known = demo or ask.listed is not None
+    presence = owner.read(ask.home)
+    records = releases.with_stops(tasks.every(state))
+    found = tuple(seen_of(checkout, record, ask, demo=demo) for record in records)
     return World(
         viewer=ask.viewer,
         clock=ask.clock,
         version=ask.version,
         place=ask.place,
-        tasks=found,
-        unknown=None if known else UNKNOWN,
-        presence=owner.read(ask.home),
+        tasks=tuple(looked.alone(seen, presence) for seen in found),
+        unknown=None if demo or ask.listed is not None else UNKNOWN,
+        presence=presence,
         backlog=shelf.read(checkout, ask.place, ask.ledger, ask.clock.now),
         inbox=inbox_read.read(state),
+        forge=looked.forge_of(state, records),
         demo=demo,
     )
 

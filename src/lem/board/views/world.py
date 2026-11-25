@@ -29,7 +29,8 @@ class Seen(Frozen, frozen=True, kw_only=True):
     folder, the size and time of each, their text read as it is (`task.md`, a breaker's
     document, the merge review), the newest commit of its branch, the backlog items its branch
     adds (None when git cannot tell), whether its worktree is there, its live session as the
-    terminal shows it, and the guard's stop that stands over it."""
+    terminal shows it, the guard's stop that stands over it, and whether it runs without the
+    owner now (he is away, or the night opened it)."""
 
     record: Record
     acts: tuple[Act, ...] = ()
@@ -41,6 +42,7 @@ class Seen(Frozen, frozen=True, kw_only=True):
     worktree: bool = False
     session: Session | None = None
     stop: Stop | None = None
+    alone: bool = False
 
     def text(self, name: str) -> str | None:
         """The prose of the file `name` of the task's folder, or None when it is not there."""

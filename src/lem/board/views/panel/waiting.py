@@ -66,10 +66,11 @@ def answered(seen: Seen, rows: Rows) -> str:
         ),
         None,
     )
+    after = next((row.after for row in rows if row.after), None)
     if gone is None:
-        return answer(task)
+        return answer(task, after)
     if len(rows) > 1:
-        then = f" {answer(task)}"
+        then = f" {answer(task, after)}"
     else:
         then = "" if closed(task) else f" Or type /lem drop {task.slug} to end it."
     return where(seen, gone) + then
