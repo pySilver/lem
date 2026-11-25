@@ -55,10 +55,18 @@ def last_of(entry: Path, dated: Dated) -> datetime | None:
         return None
     if dated == DAY:
         return newest_write(entry) if DAY_NAME.fullmatch(entry.name) else None
-    found = NAP_NAME.fullmatch(entry.name)
+    return nap_time(entry.name)
+
+
+def nap_time(name: str) -> datetime | None:
+    """The UTC time in a nap's name, if it names a calendar date."""
+    found = NAP_NAME.fullmatch(name)
     if found is None:
         return None
-    return datetime.strptime(found["time"], NAP_TIME).replace(tzinfo=UTC)
+    try:
+        return datetime.strptime(found["time"], NAP_TIME).replace(tzinfo=UTC)
+    except ValueError:
+        return None
 
 
 def entries_of(removal: Removal, top: Path) -> list[Path]:

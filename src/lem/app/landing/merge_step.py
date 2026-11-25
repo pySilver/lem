@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING
 import msgspec
 
 from lem.app.landing import following, say, step
-from lem.kernel import clock
-from lem.kernel.envelope import Envelope
+from lem.app.tasks import release
+from lem.kernel import clock, envelope
 from lem.model.landing import phases
 from lem.store import places, steps, tasks
 
@@ -22,11 +22,10 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.app.landing.frame import Context
-    from lem.kernel.envelope import Next
     from lem.model.landing.world import Due, Verb
 
 type Act = Callable[[Context], object]
-type Told = Callable[[object], Next | None]
+type Told = Callable[[object], envelope.Next | None]
 type Admits = Callable[[Context, Due], bool]
 
 
@@ -66,6 +65,8 @@ def ran(
     decides)."""
     now = clock.now()
     with steps.step(workspace.state, slug, verb, now):
+        if verb == "merge":
+            release.checked(workspace.state, slug)
         context = step.opened(workspace, slug, now)
         allowed(context, verb, admits)
         outcome = act(context)
@@ -73,7 +74,9 @@ def ran(
         return context, outcome, after or step.looked(context)
 
 
-def then_of(context: Context, outcome: object, due: Due, told: Told | None) -> Next:
+def then_of(
+    context: Context, outcome: object, due: Due, told: Told | None
+) -> envelope.Next:
     """What comes next: the act's own line, else the due step's command."""
     said = None if told is None else told(outcome)
     squash = context.world.rules.history == "squash"
@@ -83,13 +86,13 @@ def then_of(context: Context, outcome: object, due: Due, told: Told | None) -> N
 
 def landed(
     folder: Path, slug: str, verb: Verb, act: Act, hooks: Hooks = NONE
-) -> Envelope:
+) -> envelope.Envelope:
     """Run the step `verb` of the task `slug` with its act, and give its envelope; `hooks`
     give the act's own line of what comes next, and the due step it is taken beside."""
     workspace = places.workspace(folder)
     refused(workspace, slug, verb)
     context, outcome, due = ran(workspace, slug, verb, act, hooks.admits)
     then = then_of(context, outcome, due, hooks.told)
-    return Envelope(
+    return envelope.Envelope(
         ok=True, outcome=msgspec.Raw(msgspec.json.encode(outcome)), following=then
     )

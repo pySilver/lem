@@ -34,6 +34,7 @@ class MergeIntent(Frozen, frozen=True, kw_only=True):
     by: Merger
     via: Via
     at: Moment
+    queue_before: str | None = None
 
 
 class MergeAccepted(Frozen, frozen=True, kw_only=True):
@@ -46,6 +47,7 @@ class MergeAccepted(Frozen, frozen=True, kw_only=True):
     queued: str
     by: Merger | None = None
     via: Via | None = None
+    queue_before: str | None = None
 
 
 class Merged(Frozen, frozen=True, kw_only=True):

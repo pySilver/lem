@@ -21,10 +21,10 @@ from lem.app.landing import (
     merge_text,
     merge_world,
     merged_beside,
+    merged_queue,
     reconcile,
 )
-from lem.kernel.errors import Refusal
-from lem.model.landing import reconcile as rules
+from lem.records.landing.merge import MergeAccepted
 from lem.store import tasks
 
 if TYPE_CHECKING:
@@ -45,28 +45,18 @@ def dropped(record: Record, *, line: str, now: Moment) -> Record:
     return changes.landing(moved, intent=None, accepted=None)
 
 
-def waiting(context: Context) -> Refusal:
-    """What an open request shows to `merged`: the queue's end in GitHub's words, written
-    down, or that it is not merged yet."""
-    dequeued = merge_world.dequeued_of(context)
-    found = rules.queued(context.record, context.world, dequeued=dequeued)
-    if isinstance(found, Refusal):
-        return found
-    return reconcile.refused(context, context.record, found)
-
-
-def adopted(context: Context) -> Record | None:
+def adopted(context: Context) -> Record | MergeAccepted | None:
     """The record with what the forge shows of the request written down: its merge, or its
     close, which drops the task (None: nothing more is done); an open one is refused."""
     record, world = context.record, context.world
     pull = world.pull
     if pull is None or pull.state == "open":
-        raise waiting(context)
+        return merged_queue.recorded(context)
     if pull.state == "closed":
         line = f"{CLOSED}: {pull.url} is closed with no merge; the branch keeps its commits"
         context.write(record, partial(dropped, line=line, now=world.now))
         return None
-    reconcile.adopted(context, pull)
+    reconcile.adopted(context, record, pull)
     return tasks.read(context.workspace.state, record.task.slug)
 
 
@@ -108,6 +98,8 @@ def act(context: Context) -> object:
                 context = context.again()
                 merge_step.allowed(context, "merged", merged_beside.admits)
                 record = adopted(context)
+        if isinstance(record, MergeAccepted):
+            return record
         if record is None:
             return context.world.pull
     record = merge_text.edited(context, record)

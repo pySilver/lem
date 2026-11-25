@@ -47,8 +47,11 @@ def merging(record: Record, world: World, asked: Asked, tip: Sha) -> Merging:
     """The call `asked` for of the proposed `tip`: its intent, and a squash with the
     report's subject and a body that names the task, after the line of a merge on a base a
     safe read covered; or a rebase that keeps the branch's commits."""
-    by, via = asked.by, asked.via
-    intent = MergeIntent(tip=tip, by=by, via=via, at=world.now)
+    event = world.pull.queue_event if world.pull else None
+    before = event.id if event else ""
+    intent = MergeIntent(
+        tip=tip, by=asked.by, via=asked.via, at=world.now, queue_before=before
+    )
     if world.rules.history == "keep":
         return Merging(intent=intent, method="rebase", subject="", body="")
     body = merge_lines.squash_body(

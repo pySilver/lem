@@ -16,7 +16,6 @@ from lem.store.retention.answer import Pruned
 from lem.store.retention.folders import old_folders
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from datetime import datetime
     from pathlib import Path
 
@@ -70,8 +69,9 @@ def kept_of(
     removal: files.Removal, counts: Pruned, aged: list[Record], now: datetime
 ) -> Pruned:
     """Fold each old task's journal and remove its files, and the totals of both."""
-    summarized = each(lambda one: old.folded(removal, one, now), aged)
-    kept = each(lambda one: old.files_of(removal, one), aged)
+    kept_by_task = [old.keep(removal, one, counts.before, now) for one in aged]
+    summarized = tuple(one for one, _ in kept_by_task if one is not None)
+    kept = tuple(one for _, one in kept_by_task if one is not None)
     return msgspec.structs.replace(
         counts,
         tasks=kept,
@@ -80,11 +80,3 @@ def kept_of(
         files=sum(len(one.files) for one in kept),
         bytes=sum(one.bytes for one in kept),
     )
-
-
-def each[Done](
-    act: Callable[[Record], Done | None], aged: list[Record]
-) -> tuple[Done, ...]:
-    """What `act` did for each old task, for each where it did something."""
-    found = [act(one) for one in aged]
-    return tuple(one for one in found if one is not None)

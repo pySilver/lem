@@ -34,6 +34,8 @@ def line_of(context: Context, landing: Landing) -> str | None:
     merged = landing.merged
     if merged is None:
         return None
+    if merged.uncovered is not None:
+        return merged.uncovered
     tree = context.ports.git.tree(context.workspace.checkout, merged.parent)
     trees = reconcile.Trees(checks=merge_world.checks_tree(context), parent=tree)
     return reconcile.line_of(landing, merged, trees, context.world.rules.base)[0]

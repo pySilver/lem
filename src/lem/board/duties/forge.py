@@ -11,8 +11,9 @@ again for that pull request.
 
 from typing import TYPE_CHECKING
 
+from lem.app.landing.world import seen
 from lem.board.duties import forge_book, forge_look
-from lem.model.landing import phases
+from lem.model.landing import phases, queue_evidence
 from lem.store import tasks
 
 if TYPE_CHECKING:
@@ -70,11 +71,10 @@ def reconcile_state(duty: Duty, slug: str, pull: Pull) -> str | None:
     """The forge result to pass to the landing, if any."""
     if pull.state != "open":
         return pull.state
-    if pull.dequeued and not pull.queued:
-        landing = tasks.read(duty.state, slug).landing
-        if landing is not None and landing.accepted is not None:
-            return forge_book.DEQUEUED
-    return None
+    if not pull.queued and not pull.dequeued:
+        return None
+    landing = tasks.read(duty.state, slug).landing
+    return None if landing is None else queue_evidence.action(landing, seen(pull))
 
 
 def merging(duty: Duty, slug: str, running: frozenset[str]) -> bool:

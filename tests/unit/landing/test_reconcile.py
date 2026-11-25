@@ -3,10 +3,13 @@ intent replaced by the merge, the queue, the queue's end or the end of a closed 
 while only an open pull request is visible; a merge into another base; the parent of a merge
 by its method; the line of a merge on a moved base, covered or not (`landing.md` E)."""
 
+from datetime import timedelta
+
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
-from lem.model.landing import merge_lines, reconcile
+from lem.model.landing import merge_lines, reconcile, reconcile_queue
+from lem.model.landing.queue_evidence import Event
 from lem.model.landing.reconcile import Trees
 from lem.model.landing.world import Rules
 from lem.records.landing.merge import MergeAccepted, Merged, Refused
@@ -55,14 +58,23 @@ def test_only_a_final_forge_result_makes_bookkeeping_due_with_an_intent() -> Non
 
 def test_an_intent_becomes_the_queue_its_end_or_the_end_of_a_closed_request() -> None:
     record = opened(intent=INTENT)
-    queued = facing(pull=replace(SEEN, queued="the merge queue"))
+    added = Event(id="entry", at=MOMENT + timedelta(seconds=1))
+    removed = Event(id="removal", at=MOMENT + timedelta(seconds=2))
+    queued = facing(pull=replace(SEEN, queued="the merge queue", queue_event=added))
     assert reconcile.reconciled(record, queued, INTENT, SAME) == MergeAccepted(
-        tip=TIP, at=MOMENT, queued="the merge queue"
+        tip=TIP,
+        at=MOMENT,
+        queued="the merge queue",
+        by="merger",
+        via="server",
     )
-    dequeued = "a required check failed"
-    assert reconcile.reconciled(
-        record, facing(), INTENT, SAME, dequeued=dequeued
-    ) == Refused(
+    dequeued = replace(
+        SEEN,
+        dequeued="a required check failed",
+        queue_event=removed,
+        queue_entered=added,
+    )
+    assert reconcile.reconciled(record, facing(pull=dequeued), INTENT, SAME) == Refused(
         tip=TIP,
         source="github",
         kind="rule",
@@ -140,11 +152,15 @@ def test_an_empty_commit_on_the_base_is_no_move() -> None:
 def test_the_queue_that_ends_keeps_githubs_words_and_a_waiting_one_is_refused() -> None:
     accepted = MergeAccepted(tip=TIP, at=MOMENT, queued="the merge queue")
     record = opened(accepted=accepted)
-    waiting = reconcile.queued(
+    waiting = reconcile_queue.queued(
         record, facing(pull=replace(SEEN, queued="the merge queue"))
     )
     assert code_of(waiting) == "queued"
-    ended = reconcile.queued(record, facing(), dequeued="a check failed")
+    removed = Event(id="removal", at=MOMENT + timedelta(seconds=1))
+    ended = reconcile_queue.queued(
+        record,
+        facing(pull=replace(SEEN, dequeued="a check failed", queue_event=removed)),
+    )
     assert isinstance(ended, Refused)
     assert (ended.source, ended.line, ended.tip, ended.by) == (
         "github",
@@ -160,3 +176,55 @@ def test_the_parent_is_the_forges_word_for_either_method() -> None:
     found = reconcile.landed(opened(), keep, replayed, ("owner", "board", SAME))
     assert isinstance(found, Merged)
     assert (found.parent, found.base_merged) == (BASE, BASE)
+
+
+def test_a_different_head_merged_after_a_lost_reply_is_external_and_uncovered() -> None:
+    record = opened(intent=INTENT)
+    other = replace(DONE, head=OTHER, merged_head=OTHER)
+    found = reconcile.reconciled(record, facing(pull=other), INTENT, SAME)
+
+    assert isinstance(found, Merged)
+    assert (found.by, found.via) == ("owner", "github")
+    assert found.uncovered is not None
+    assert TIP in found.uncovered and OTHER in found.uncovered
+    assert not found.text_updated
+
+
+def test_a_queue_entry_at_a_different_head_does_not_answer_the_intent() -> None:
+    added = Event(id="entry", at=MOMENT + timedelta(seconds=1))
+    other = replace(SEEN, head=OTHER, queued="the merge queue", queue_event=added)
+    found = reconcile.reconciled(
+        opened(intent=INTENT), facing(pull=other), INTENT, SAME
+    )
+
+    assert code_of(found) == "intent"
+
+
+def test_a_queue_entry_carries_its_own_head() -> None:
+    added = Event(id="entry", at=MOMENT + timedelta(seconds=1), head=OTHER)
+    pull = replace(SEEN, queued="the merge queue", queue_event=added)
+    found = reconcile.reconciled(opened(intent=INTENT), facing(pull=pull), INTENT, SAME)
+
+    assert code_of(found) == "intent"
+
+
+def test_a_removal_after_the_call_cannot_match_an_entry_from_before_it() -> None:
+    prior = Event(id="prior-entry", at=MOMENT - timedelta(seconds=1), head=TIP)
+    removed = Event(id="removal", at=MOMENT + timedelta(seconds=1), head=TIP)
+    pull = replace(
+        SEEN, dequeued="a check failed", queue_event=removed, queue_entered=prior
+    )
+    found = reconcile.reconciled(opened(intent=INTENT), facing(pull=pull), INTENT, SAME)
+
+    assert code_of(found) == "intent"
+
+
+def test_a_queue_entry_already_visible_in_the_same_second_cannot_answer_the_call() -> (
+    None
+):
+    entry = Event(id="visible-entry", at=MOMENT, head=TIP)
+    intent = replace(INTENT, queue_before=entry.id)
+    pull = replace(SEEN, queued="the merge queue", queue_event=entry)
+    found = reconcile.reconciled(opened(intent=intent), facing(pull=pull), intent, SAME)
+
+    assert code_of(found) == "intent"

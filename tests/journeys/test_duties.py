@@ -32,7 +32,7 @@ from journeys.test_skeleton import (
 )
 from lem.adapters.git_cli import GitCli
 from lem.app import wiring
-from lem.app.landing import merge
+from lem.app.landing import changes, merge, merged
 from lem.board.duties import merge_line, runner
 from lem.board.duties.memory import MEMORY
 from lem.kernel import clock
@@ -40,6 +40,7 @@ from lem.kernel.errors import Refusal
 from lem.model.landing.merge_asked import Asked
 from lem.ports.faults import Unanswered
 from lem.records.holds import ReleaseHold
+from lem.records.landing.merge import MergeIntent
 from lem.store import places, steps, tasks
 
 if TYPE_CHECKING:
@@ -529,3 +530,107 @@ def test_the_server_makes_the_merge_agents_merge_and_records_the_approved_tasks_
     assert world.record()["task"]["status"] == "landed"
     assert len(world.forge.merge_calls) == 1
     assert SUBJECT in run_git(world.repo.origin, "log", "-1", "--format=%s", "main")
+
+
+def test_the_landing_refuses_an_old_release_before_the_forge_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    path = world.task_folder / tasks.RECORD
+    current = tasks.read(world.task_folder.parents[1], SLUG)
+    path.write_bytes(tasks.encode(replace(current, release="0.2.0")))
+
+    with pytest.raises(Refusal) as caught:
+        merge.run(
+            world.checkout,
+            SLUG,
+            Asked(by="merger", via="server", subject=SUBJECT),
+        )
+
+    assert caught.value.code == "release"
+    assert world.forge.merge_calls == []
+
+    world.forge.outside_merge(1)
+    merged.run(world.checkout, SLUG)
+
+    assert world.record()["task"]["status"] == "landed"
+
+
+def test_the_server_recovers_a_lost_queue_reply_without_a_second_merge_call(
+    tmp_path: Path, own_home: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    served(world, own_home, monkeypatch)
+    world.forge.queue = True
+    call = world.forge.merge
+
+    def lost(
+        number: int, expected_head: str, method: MergeMethod, text: MergeText
+    ) -> None:
+        call(number, expected_head, method, text)
+        raise Unanswered("gh", "connection reset after the queue took the merge")
+
+    monkeypatch.setattr(world.forge, "merge", lost)
+    now = clock.now()
+    ticked(world, own_home, now)
+    assert "intent" in world.record()["landing"]
+
+    ticked(world, own_home, now + LOOK)
+
+    landing = world.record()["landing"]
+    assert "intent" not in landing
+    assert landing["accepted"]["queued"] == "the merge queue"
+    assert MEMORY.of(world.checkout).said[SLUG].startswith("Queued:")
+    assert len(world.forge.merge_calls) == 1
+
+
+def test_an_old_queue_removal_does_not_answer_a_later_call(
+    tmp_path: Path, own_home: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    served(world, own_home, monkeypatch)
+    state = world.task_folder.parents[1]
+    current = tasks.read(state, SLUG)
+    now = clock.now()
+    world.forge.dequeue(1, "a check failed before the new call")
+    assert current.landing is not None and current.landing.proposed is not None
+    tip = current.landing.proposed.tip
+    intent = MergeIntent(
+        tip=tip, by="merger", via="server", at=now + timedelta(seconds=1)
+    )
+    tasks.update(
+        state, SLUG, lambda one: changes.landing(one, intent=intent), current.revision
+    )
+
+    # The explicit landing entry reconciles the intent without permission for another call.
+    with pytest.raises(Refusal) as caught:
+        merge.run(world.checkout, SLUG, Asked(by="merger", via="server", tip=tip))
+
+    assert caught.value.code == "intent"
+    assert world.record()["landing"]["intent"]["tip"] == tip
+    assert world.forge.merge_calls == []
+
+
+def test_the_wrong_base_remedy_survives_a_bookkeeping_retry(
+    tmp_path: Path, own_home: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    served(world, own_home, monkeypatch)
+    world.repo.outside_commit("release", {"RELEASE.md": b"a release\n"})
+    world.forge.retarget(1, "release")
+    world.forge.outside_merge(1)
+    now = clock.now()
+    ticked(world, own_home, now)
+    kept = MEMORY.of(world.checkout)
+    problem = f"merged:{SLUG}"
+    assert "drops the task" in kept.problems[problem]
+
+    ticked(world, own_home, now + 2 * LOOK)
+
+    assert "drops the task" in kept.problems[problem]
+    assert "brings the change onto main" in kept.problems[problem]
+    assert world.record()["task"]["status"] == "open"

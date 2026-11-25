@@ -22,19 +22,14 @@ if TYPE_CHECKING:
 type Found = Merged | MergeAccepted | Refused | None
 
 
-def adopted(context: Context, pull: PullSeen) -> None:
-    """Record the confirmed merge, with the call's attribution when an intent stays."""
-    record = context.record
-    intent = record.landing.intent if record.landing else None
+def adopted(context: Context, record: Record, pull: PullSeen) -> object:
+    """Record the confirmed merge and attribute it to the call that named its head."""
+    landing = record.landing
+    call = (landing.intent or landing.accepted) if landing else None
+    by = (call.by or "owner") if call else "owner"
     trees = merge_world.trees_of(context, pull)
-    if intent is None:
-        found = reconcile.landed(
-            record, context.world, pull, ("owner", "github", trees)
-        )
-        written(context, record, found, "owner")
-    else:
-        found = reconcile.reconciled(record, context.world, intent, trees)
-        written(context, record, found, intent.by)
+    found = reconcile.landed(record, context.world, pull, (by, "github", trees))
+    return written(context, record, found, by)
 
 
 def taken(record: Record, *, found: Merged | MergeAccepted | Refused) -> Record:
@@ -79,7 +74,7 @@ def written(
                 tip=tip,
                 source="lem",
                 kind="target",
-                line=found.why,
+                line=f"{found.why}. {found.fix}",
                 by=by,
                 at=context.world.now,
             )

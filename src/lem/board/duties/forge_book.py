@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 BOOKKEEPING = "merged:"
 DEQUEUED = "dequeued"
+QUEUED = "queued"
+QUEUE_RESULTS = frozenset((DEQUEUED, QUEUED))
 
 
 def forgotten(duty: Duty, open_tasks: Collection[str]) -> None:
@@ -36,7 +38,7 @@ def run(duty: Duty, slug: str, number: int, state: str) -> None:
         return
     told = f"pull request {number} of {slug} is {state} on GitHub"
     try:
-        merged.run(duty.checkout, slug)
+        outcome = merged.run(duty.checkout, slug)
     except (Refusal, Fault) as error:
         if state == DEQUEUED and isinstance(error, Refusal) and error.code == "github":
             line = merge_said.refused(duty.state, slug, error)
@@ -52,14 +54,17 @@ def run(duty: Duty, slug: str, number: int, state: str) -> None:
         duty.kept.said[slug] = (
             f"GitHub closed pull request {number} without a merge. The branch keeps its commits."
         )
-    duty.kept.done.add(key)
+    if state == QUEUED:
+        duty.kept.said[slug] = merge_said.completed(slug, outcome)
+    if state not in QUEUE_RESULTS:
+        duty.kept.done.add(key)
     finished(duty, key, f"{told}; `lem land merged {slug}` left it {status}")
 
 
 def key_of(slug: str, number: int, state: str) -> Key:
     """The bookkeeping key. A dequeue can happen before the request closes or merges."""
     closed = ("merged", slug, str(number))
-    return (*closed, DEQUEUED) if state == DEQUEUED else closed
+    return (*closed, state) if state in QUEUE_RESULTS else closed
 
 
 def finished(duty: Duty, key: Key, line: str) -> None:
@@ -73,9 +78,10 @@ def failed(duty: Duty, key: Key, state: str, error: Refusal | Fault) -> None:
     """Keep the failure until the next try."""
     slug = key[1]
     number = key[2]
+    why = merge_said.said_of(error)
     line = (
         f"`lem land merged {slug}` failed after GitHub called pull request "
-        f"{number} {state}: {error}; the board tries it again in a few minutes"
+        f"{number} {state}: {why}; the board tries it again in a few minutes"
     )
     duty.kept.ended(key, duty.now, ran=False)
     duty.kept.problems[problem_key(key)] = line

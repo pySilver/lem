@@ -11,10 +11,13 @@ from fakes.records import MOMENT
 from lem.app.landing import changes
 from lem.app.landing.merged import CLOSED
 from lem.app.sessions import acts, log, opening
+from lem.app.tasks import shape
 from lem.board.duties import conflict, queue
 from lem.board.duties.memory import Kept
+from lem.model.task.read import Queue
 from lem.records.holds import ReleaseHold
 from lem.records.journal.task import StateNoted
+from lem.records.task import Shape
 from lem.store import tasks
 from lem.store.retention.run import pruned
 from unit.board.duties.world import duty_of, landing_of, looked, opened
@@ -260,17 +263,20 @@ def test_a_queued_task_whose_session_lives_is_woken_and_a_dropped_one_waits(
 
 
 def test_a_task_queued_again_behind_a_second_task_gets_its_turn_when_that_one_ends(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     here = here_of(tmp_path)
     made(here, "first", status="landed", since=LATER)
     made(here, status="queued", after=("first",), lead="builder", since=LATER)
     queue.tick(duty_of(here, LATER + timedelta(minutes=1)))
     made(here, "second", status="landed", since=HOUR)
-    task = replace(
-        tasks.read(here.where.state, SLUG).task, after=("second",), since=HOUR
+    monkeypatch.setattr(shape.clock, "now", lambda: HOUR)
+    shape.shaped(
+        here.where.checkout,
+        SLUG,
+        Shape(type="fix", why="a fix", track="small"),
+        Queue(after=("second",)),
     )
-    tasks.update(here.where.state, SLUG, lambda one: replace(one, task=task), 1)
     queue.tick(duty_of(here, HOUR + timedelta(minutes=1)))
     assert [why for why, _ in wakes(here)] == ["queue", "queue"]
 
@@ -294,3 +300,26 @@ def test_no_queued_task_opens_while_the_terminal_cannot_say_which_sessions_live(
     queue.tick(duty_of(here, HOUR, duty.kept))
     assert duty.kept.problems == {}
     assert wakes(here) == [("queue", None)]
+
+
+def test_the_release_stop_prevents_conflict_but_permits_cleanup(
+    tmp_path: Path,
+) -> None:
+    here = here_of(tmp_path)
+    found = opened(here, SLUG, proposed=proposed())
+    path = here.folder(SLUG) / tasks.RECORD
+    path.write_bytes(tasks.encode(replace(found, release="0.2.0")))
+    looked(here, SLUG, "CONFLICTING")
+    conflict.tick(duty_of(here, HOUR))
+    assert wakes(here) == []
+
+    worktree(here)
+    current = tasks.read(here.where.state, SLUG)
+    tasks.update(
+        here.where.state,
+        SLUG,
+        lambda one: changes.moved(one, "landed", "merged on GitHub", HOUR),
+        current.revision,
+    )
+    conflict.tick(duty_of(here, HOUR + timedelta(minutes=1)))
+    assert wakes(here) == [("merged", None)]

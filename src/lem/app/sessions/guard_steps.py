@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from lem.app.sessions import beside, guard_look, guard_stop, log, opening
 from lem.app.sessions.acts import Wake, Worked
 from lem.app.sessions.guard_acts import Acted, refusal, refused
+from lem.app.tasks import release
 from lem.kernel import locks
 from lem.ports.faults import Unanswered
 
@@ -23,6 +24,7 @@ def stepped(
     """Take the guard's `step` for the task when it is still due, in the task's lock."""
     folder = here.folder(slug)
     with locks.held(folder / opening.LOCK):
+        release.checked(here.where.state, slug)
         looked = guard_look.looked(here, slug, now)
         why = refusal(looked, step, named, now)
         if why is not None or looked.session is None:

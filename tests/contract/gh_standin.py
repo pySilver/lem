@@ -77,8 +77,15 @@ def outside(forge: LocalForge, state: State, words: list[str]) -> object:
         assert option(words, "--jq") == ".data.repository.pullRequest"
         return {
             **shaped(pull),
-            "mergeQueueEntry": {"id": "queue-entry"} if state.in_queue else None,
-            "timelineItems": {"nodes": state.queue_events[-1:]},
+            "mergeQueueEntry": {
+                "__typename": "MergeQueueEntry",
+                "id": "queue-entry",
+                "createdAt": "2026-11-25T11:00:00Z",
+                "head": {"oid": pull.head},
+            }
+            if state.in_queue
+            else None,
+            "timelineItems": {"nodes": state.queue_events[-2:]},
         }
     if "/pulls/" in words[1]:
         return counted(state, forge.pull(int(words[1].rsplit("/", 1)[-1])))

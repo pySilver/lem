@@ -13,6 +13,7 @@ step names the session it is for, and looks once more in the task's lock before 
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
+from lem.app.owner import releases
 from lem.app.sessions import guard_look, guard_steps
 from lem.app.sessions.guard_due import due
 from lem.app.sessions.guard_rule import GUARDED
@@ -37,7 +38,7 @@ WORDS = MappingProxyType(
 
 def tick(duty: Duty) -> None:
     """Take the step due for each task the guard watches."""
-    records = tasks.every(duty.state)
+    records = releases.with_stops(tasks.every(duty.state))
     watched = [one.task.slug for one in records if one.task.status in GUARDED]
     held = {one.task.slug for one in records if one.task.hold is not None}
     slugs = [slug for slug in watched if slug not in held]

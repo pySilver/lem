@@ -13,14 +13,17 @@ from fakes.git import ModelGit
 from fakes.records import MOMENT
 from lem.app.landing import merged
 from lem.app.owner import forge
+from lem.board.duties import conflict, forge_look, merge, runner, seams
 from lem.board.duties import forge as duty
-from lem.board.duties import forge_look, runner, seams
 from lem.board.duties.memory import Kept
 from lem.kernel.errors import Refusal
+from lem.model.landing.invariants import target
+from lem.model.landing.world import Rules
 from lem.ports.faults import Unanswered
 from lem.ports.forge_facts import Mergeable, Pull
-from unit.board.duties.world import duty_of, opened
-from unit.owner.looked import TIP, proposed
+from unit.board.duties.test_wakes import wakes
+from unit.board.duties.world import duty_of, looked, opened
+from unit.owner.looked import TIP, proposed, read
 from unit.sessions.world import here_of
 
 if TYPE_CHECKING:
@@ -208,7 +211,7 @@ def test_a_failed_bookkeeping_is_the_boards_problem_and_is_tried_again_after_fiv
     assert ran == ["gift-note"]
     assert kept.problems == {
         "merged:gift-note": "`lem land merged gift-note` failed after GitHub called pull "
-        "request 44 closed: the step lock is held; the board tries it again in a few minutes"
+        "request 44 closed: the step lock is held; wait; the board tries it again in a few minutes"
     }
     booking(monkeypatch)
     duty.tick(duty_of(here, HOUR + timedelta(minutes=6), kept))
@@ -242,3 +245,46 @@ def test_a_problem_of_a_task_that_no_longer_has_a_pull_request_open_is_forgotten
     duty.tick(duty_of(here, HOUR, kept))
     assert kept.problems == {"merged:gift-note": "old"}
     assert found.task.status == "open"
+
+
+def test_a_forge_write_failure_keeps_the_fresh_conflict_for_both_duties(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    here = here_of(tmp_path)
+    slug = "gift-note"
+    opened(here, slug, proposed=proposed(), reads=(read("merge"),))
+    pulled(here, mergeable="conflicting")
+    looked(here, slug, "MERGEABLE")
+
+    def unavailable(path: Path, body: bytes) -> None:
+        raise OSError("forge.json cannot be replaced")
+
+    board = duty_of(here, HOUR)
+    with monkeypatch.context() as patch:
+        patch.setattr(forge_look.files, "write_whole", unavailable)
+        duty.tick(board)
+    started: list[str] = []
+    monkeypatch.setattr(merge.merge_run, "started", lambda *_: started.append(slug))
+
+    merge.tick(board)
+    conflict.tick(board)
+
+    assert started == []
+    assert [(why, head) for why, head in wakes(here) if head] == [("conflict", TIP)]
+
+
+def test_a_merge_into_another_branch_shows_the_owners_remedy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    here = here_of(tmp_path)
+    opened(here, "gift-note", proposed=proposed())
+    pulled(here, state="merged")
+    refusal = target("release", Rules(base="main"), "https://github.com/o/r/pull/44")
+    assert refusal is not None
+    booking(monkeypatch, refusal)
+    board = duty_of(here, HOUR)
+
+    duty.tick(board)
+
+    assert "drops the task" in board.kept.problems["merged:gift-note"]
+    assert "brings the change onto main" in board.kept.problems["merged:gift-note"]

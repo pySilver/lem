@@ -15,8 +15,8 @@ a new proposal makes a new try at the next tick.
 
 from typing import TYPE_CHECKING
 
-from lem.app.owner import forge
-from lem.board.duties import merge_run
+from lem.app.owner import forge, releases
+from lem.board.duties import forge_look, merge_run
 from lem.model.landing import merge_standing, mergeread, phases
 from lem.model.owner import merging
 from lem.records.holds import ReleaseHold
@@ -33,8 +33,8 @@ if TYPE_CHECKING:
 
 def tick(duty: Duty) -> None:
     """Start the merge of each task whose merge is the server's now."""
-    look = forge.read(duty.state)
-    for record in tasks.every(duty.state):
+    look = forge_look.current(duty)
+    for record in releases.with_stops(tasks.every(duty.state)):
         merged(duty, record, look)
 
 

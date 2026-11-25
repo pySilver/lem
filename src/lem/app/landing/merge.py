@@ -35,8 +35,7 @@ def shown(context: Context, intent: MergeIntent) -> Refusal | Found:
     """What the forge shows of the intent on record: the merge, the queue, the queue's end,
     the end of a closed request, or the refusal that keeps the intent."""
     trees = merge_world.trees_of(context, context.world.pull)
-    dequeued = merge_world.dequeued_of(context)
-    return reconciled(context.record, context.world, intent, trees, dequeued=dequeued)
+    return reconciled(context.record, context.world, intent, trees)
 
 
 def locked(

@@ -19,8 +19,8 @@ watched, and its session waits for the owner's drop or resume.
 from typing import TYPE_CHECKING
 
 from lem.app.landing.merged import CLOSED
-from lem.app.owner import forge
-from lem.board.duties import wakes
+from lem.app.owner import forge, releases
+from lem.board.duties import forge_look, wakes
 from lem.records.holds import ReleaseHold
 from lem.store import tasks
 from lem.store.retention.fold import last_state_of, past_of
@@ -32,8 +32,8 @@ if TYPE_CHECKING:
 
 def tick(duty: Duty) -> None:
     """Wake each task whose pull request owes its session a wake."""
-    look = forge.read(duty.state)
-    for record in tasks.every(duty.state):
+    look = forge_look.current(duty)
+    for record in releases.with_stops(tasks.every(duty.state)):
         if ended(record):
             cleaned(duty, record)
         elif watched(record) and not conflicted(duty, record, look):

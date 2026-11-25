@@ -27,6 +27,7 @@ from lem.records.tickets import Ticket
 from lem.records.work import Investigation, Span, Talk
 from lem.store import guard, sessions, tasks
 from lem.store.retention import fold, rules
+from lem.store.retention import run as retention_run
 from lem.store.retention.run import pruned
 from lem.store.retention.said import said
 from unit.owner.looked import proposed
@@ -36,7 +37,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.records.record import Record
-    from lem.store.tasks import Change
 
 ENDED = MOMENT + timedelta(days=1)
 LATER = ENDED + timedelta(days=40)
@@ -417,14 +417,13 @@ def test_the_record_another_writer_changed_first_is_left_whole_for_the_next_run(
     state: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     landed(state, "old-task")
-    update = tasks.update
+    aged = retention_run.aged_of
 
-    def raced(where: Path, slug: str, change: Change, expect: int) -> Record:
-        update(where, slug, lambda one: one, expect)
-        monkeypatch.setattr(tasks, "update", update)
-        return update(where, slug, change, expect)
+    def raced(records: list[Record], calls: list[rules.Call]) -> list[Record]:
+        tasks.update(state, "old-task", lambda one: one, 1)
+        return aged(records, calls)
 
-    monkeypatch.setattr(tasks, "update", raced)
+    monkeypatch.setattr(retention_run, "aged_of", raced)
     run = pruned(state, 30, "Lem's default", LATER, dry=False)
     assert run.summarized == ()
     assert run.tasks == ()
@@ -442,3 +441,75 @@ def test_a_pruned_tasks_ticket_and_the_steps_it_still_owes_stay_on_its_record(
     found = tasks.read(state, "old-task")
     assert (found.task.ticket, found.task.night) == (ticket, MOMENT.date())
     assert found.task.status == "landed"
+
+
+def test_a_record_from_a_backup_folder_cannot_prune_the_live_task(state: Path) -> None:
+    old = landed(state, "invoice")
+    folder = state / "tasks" / "invoice"
+    backup = folder.with_name("invoice-backup")
+    backup.mkdir()
+    (backup / "task.json").write_bytes(tasks.encode(old))
+    live = replace(old, task=replace(old.task, status="building"))
+    (folder / "task.json").write_bytes(tasks.encode(live))
+
+    run = pruned(state, 30, "test", LATER, dry=False)
+
+    assert (folder / "report.md").is_file()
+    assert tasks.read(state, "invoice") == live
+    assert [one.path for one in run.skipped] == ["tasks/invoice-backup"]
+
+
+@pytest.mark.parametrize("dry", [True, False])
+def test_a_summary_from_a_newer_release_cannot_prune_the_task(
+    state: Path, *, dry: bool
+) -> None:
+    old = landed(state, "invoice")
+    summary = rules.folded_into(old, summary=fold.summary_of(old, LATER))
+    path = state / "tasks" / "invoice" / "task.json"
+    path.write_bytes(tasks.encode(replace(summary, release="999.0.0")))
+    lock = path.parent / tasks.LOCK
+    lock.unlink()
+
+    run = pruned(state, 30, "test", LATER, dry=dry)
+
+    assert run.tasks == ()
+    assert (path.parent / "report.md").is_file()
+    assert not lock.exists()
+    assert [one.path for one in run.skipped] == ["tasks/invoice"]
+
+
+def test_a_cleanup_wake_after_classification_keeps_the_whole_task(
+    state: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old = landed(state, "invoice")
+    folder = state / "tasks" / "invoice"
+    aged = retention_run.aged_of
+
+    def woke(records: list[Record], calls: list[rules.Call]) -> list[Record]:
+        found = aged(records, calls)
+        assert found == [old]
+        log.reached(folder, acts.Wake(at=LATER, session="session-1", why="merged"))
+        return found
+
+    monkeypatch.setattr(retention_run, "aged_of", woke)
+    run = pruned(state, 30, "test", LATER, dry=False)
+
+    assert tasks.read(state, "invoice") == old
+    assert (folder / "report.md").is_file()
+    assert run.tasks == ()
+    assert log.read(folder)[-1].at == LATER
+
+
+def test_an_invalid_nap_date_does_not_stop_the_other_folders(state: Path) -> None:
+    guard.writable(state)
+    invalid = state / "naps" / "2026-02-30-0900"
+    valid = invalid.with_name("2026-03-01-0900")
+    for folder in (invalid, valid):
+        folder.mkdir(parents=True)
+        (folder / "notes.md").write_text("a note\n")
+
+    run = pruned(state, 30, "test", LATER, dry=False)
+
+    assert invalid.is_dir()
+    assert not valid.exists()
+    assert [one.path for one in run.folders] == ["naps/2026-03-01-0900"]

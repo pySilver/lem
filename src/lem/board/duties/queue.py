@@ -10,6 +10,7 @@ which sessions live, and a queued task behind a dropped one waits for the owner'
 
 from typing import TYPE_CHECKING
 
+from lem.app.owner import releases
 from lem.app.sessions.queued import DONE
 from lem.board.duties import wakes
 from lem.store import tasks
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
 
 def tick(duty: Duty) -> None:
     """Give its turn to each queued task whose tasks before it ended."""
-    records = tasks.every(duty.state)
+    records = releases.with_stops(tasks.every(duty.state))
     statuses = {record.task.slug: record.task.status for record in records}
     owed = [record for record in records if turn(record, statuses)]
     if not owed or not wakes.known(duty):

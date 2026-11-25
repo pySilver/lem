@@ -4,6 +4,7 @@ this server runs the merge; the count of approved tasks that wait at each (the m
 the wait of a merge that failed, which a new read ends."""
 
 from datetime import timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import msgspec
@@ -23,14 +24,12 @@ from lem.model.landing import merge_standing
 from lem.records.landing.checks import Checked
 from lem.records.landing.merge import MergeIntent
 from lem.records.landing.propose import Standing
-from lem.store import tasks
+from lem.store import steps, tasks
 from unit.board.duties.world import duty_of, landing_of, looked, opened
 from unit.owner.looked import TIP, proposed, read, refused
 from unit.sessions.world import here_of
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from lem.app.landing.merge_called import BeforeCall
     from lem.app.sessions.here import Here
     from lem.model.landing.merge_asked import Asked
@@ -262,3 +261,31 @@ def test_a_failed_merge_waits_under_its_own_tip_and_read_and_a_wake_under_its_ow
     moved = replace(found, landing=replace(landing_of(found), proposed=other))
     assert duty.key_of(moved) != key
     assert key != ("wake", "x", "queue")
+
+
+def test_a_standing_merge_with_the_step_lock_held_tells_the_owner_to_wait(
+    tmp_path: Path,
+) -> None:
+    here = here_of(tmp_path)
+    standing_task(here, "stands")
+    board = duty_of(here, HOUR)
+
+    with steps.step(here.where.state, "stands", "merge-review", HOUR):
+        duty.tick(board)
+        ended(board.kept)
+
+    line = board.kept.said["stands"]
+    assert "lem land merge-review stands" in line
+    assert "wait for it to end, then run lem land merge stands again" in line
+
+
+def test_the_ledger_names_the_standing_merge_step_lock_test() -> None:
+    path = Path(__file__).parents[3] / "ledger" / "fates" / "board-duties.tsv"
+    row = "Duties.test_his_standing_merge_whose_step_lock_is_held_is_refused_with_land_s_line"
+    (proof,) = (
+        line.split("\t")[2]
+        for line in path.read_text().splitlines()
+        if line.split("\t")[0].endswith(row)
+    )
+    test = test_a_standing_merge_with_the_step_lock_held_tells_the_owner_to_wait
+    assert proof == f"unit.board.duties.test_merge.{test.__name__}"

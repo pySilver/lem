@@ -13,12 +13,11 @@ A writer appends a line end, the JSON and a line end in one `os.write`, so two w
 mix their bytes; a reader skips an empty line and a damaged one.
 """
 
-import contextlib
-import os
 from typing import TYPE_CHECKING
 
 import msgspec
 
+from lem.kernel import files
 from lem.records.base import Frozen, Moment, Sha, Slug
 from lem.records.landing.merge import Merger
 from lem.store import guard
@@ -28,8 +27,6 @@ if TYPE_CHECKING:
 
 
 LINE = "merge-line.jsonl"
-# Read and write for the owner, read for the rest, as a file the shell makes.
-MODE = 0o644
 
 
 class Waited(Frozen, frozen=True, kw_only=True, omit_defaults=False):
@@ -47,12 +44,7 @@ class Waited(Frozen, frozen=True, kw_only=True, omit_defaults=False):
 def noted(state: Path, waited: Waited) -> None:
     """Append one merge's line to the state folder's file."""
     guard.writable(state)
-    frame = b"".join((b"\n", msgspec.json.encode(waited), b"\n"))
-    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
-    descriptor = os.open(state / LINE, flags, MODE)
-    with contextlib.ExitStack() as stack:
-        stack.callback(os.close, descriptor)
-        os.write(descriptor, frame)
+    files.append_frame(state / LINE, msgspec.json.encode(waited))
 
 
 def read(state: Path) -> tuple[Waited, ...]:

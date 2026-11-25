@@ -54,12 +54,6 @@ MERGEABLE: Mapping[str, Mergeable] = MappingProxyType(
 )
 
 
-class Oid(msgspec.Struct, frozen=True):
-    """A commit as `gh` names it."""
-
-    oid: str
-
-
 class Login(msgspec.Struct, frozen=True):
     """A person as `gh` names one."""
 
@@ -79,9 +73,9 @@ class GhPull(msgspec.Struct, frozen=True, rename="camel"):
     base_ref_name: str
     author: Login | None = None
     mergeable: Literal["MERGEABLE", "CONFLICTING", "UNKNOWN"] = "UNKNOWN"
-    merge_commit: Oid | None = None
+    merge_commit: forge_gh_queue.Oid | None = None
     auto_merge_request: dict[str, object] | None = None
-    merge_queue_entry: dict[str, str] | None = None
+    merge_queue_entry: forge_gh_queue.Event | None = None
     timeline_items: forge_gh_queue.Timeline | None = None
 
     def queued(self) -> str | None:
@@ -206,6 +200,7 @@ class Gh:
         done = found.state == "MERGED" and merged is not None
         queued = found.queued()
         open_unqueued = found.state == "OPEN" and queued is None
+        latest = found.timeline_items.latest() if found.timeline_items else None
         return Pull(
             number=found.number,
             url=found.url,
@@ -218,7 +213,11 @@ class Gh:
             base=found.base_ref_name,
             mergeable=MERGEABLE[found.mergeable],
             queued=queued,
-            dequeued=forge_gh_queue.removed(found.timeline_items)
+            dequeued=forge_gh_queue.removed(latest) if open_unqueued else None,
+            queue_event=forge_gh_queue.evidence(
+                latest, queued, found.merge_queue_entry
+            ),
+            queue_entered=forge_gh_queue.entered(found.timeline_items)
             if open_unqueued
             else None,
             merge_commit=merged,

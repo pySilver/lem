@@ -8,14 +8,13 @@ may hold them in either.
 """
 
 import contextlib
-import os
 from typing import TYPE_CHECKING
 
 import msgspec
 from msgspec.structs import replace
 
 from lem.app.sessions.acts import Act, Open, Wake
-from lem.kernel import locks
+from lem.kernel import files, locks
 from lem.model.task.table import ENDED
 from lem.store import guard, tasks
 
@@ -24,20 +23,13 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 ACTS = "session-acts.jsonl"
-# Read and write for the owner, read for the rest, as a file the shell makes.
-MODE = 0o644
 
 
 def append(folder: Path, act: Act) -> None:
     """Append one framed line to the task folder's file of acts; refused in a state folder of
     the Lem before."""
     guard.writable(folder.parents[1])
-    frame = b"".join((b"\n", msgspec.json.encode(act), b"\n"))
-    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
-    descriptor = os.open(folder / ACTS, flags, MODE)
-    with contextlib.ExitStack() as stack:
-        stack.callback(os.close, descriptor)
-        os.write(descriptor, frame)
+    files.append_frame(folder / ACTS, msgspec.json.encode(act))
 
 
 def reached(folder: Path, act: Open | Wake) -> None:

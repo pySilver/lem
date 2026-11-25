@@ -83,8 +83,14 @@ def written(duty: Duty, pulls: Pulls) -> None:
         for slug, pull in pulls.items()
     }
     look = forge.Look(looked=duty.now, seen=seen)
+    duty.kept.look = look
     guard.writable(duty.state)
     try:
         files.write_whole(duty.state / forge.LOOK, msgspec.json.encode(look))
     except OSError as error:
         duty.say(f"the forge's look was not written to {forge.LOOK}: {error}")
+
+
+def current(duty: Duty) -> forge.Look:
+    """The latest observation, or the file left by the last server before the first look."""
+    return duty.kept.look or forge.read(duty.state)

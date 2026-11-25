@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.app.owner.forge import Look
+
 # How long a duty that failed waits before its next try. A guess (2026-11-21): long beside a
 # tick, so a missing agterm does not run a command every tick, and short beside the owner's day;
 # the board's "no session" row tells him meanwhile.
@@ -29,6 +31,7 @@ class Kept:
     """What the server keeps of one workspace between ticks."""
 
     looked: datetime | None = None
+    look: Look | None = None
     pruned: datetime | None = None
     done: set[Key] = field(default_factory=set)
     failed: dict[Key, datetime] = field(default_factory=dict)

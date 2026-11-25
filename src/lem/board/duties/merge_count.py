@@ -2,8 +2,8 @@
 
 from typing import TYPE_CHECKING
 
-from lem.app.owner import forge
-from lem.board.duties import merge_line
+from lem.app.owner import forge, releases
+from lem.board.duties import forge_look, merge_line
 from lem.kernel import clock, errors
 from lem.model.landing import merge_standing, phases
 from lem.model.owner import merging
@@ -49,8 +49,8 @@ def standing_waits(record: Record) -> bool:
 
 def waited(duty: Duty, slug: str, intent: merge.MergeIntent) -> merge_line.Waited:
     """The count and names of the other approved tasks at this call."""
-    look = forge.read(duty.state)
-    records = tasks.every(duty.state)
+    look = forge_look.current(duty)
+    records = releases.with_stops(tasks.every(duty.state))
     others = (one for one in records if one.task.slug != slug)
     behind = tuple(one.task.slug for one in others if eligible(one, look))
     return merge_line.Waited(
