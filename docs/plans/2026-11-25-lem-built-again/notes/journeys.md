@@ -29,6 +29,25 @@ done. The journey named proves it as written, or as the note says. The owner wri
 | `task` | `path:drop-during-a-step` | `journeys.test_park_drop.test_a_drop_during_the_checks_stops_them_and_takes_the_step_lock`, `test_a_drop_waits_for_another_step_and_drops_after_it`, `test_a_merge_on_the_forge_while_the_drop_waits_defeats_it_and_the_task_lands` |
 | `task` | `path:ticket-after-the-end` | `journeys.test_hard_paths.test_a_ticket_step_owed_at_the_end_is_paid_after_it_and_the_ticket_stays_the_tasks` |
 
+## 4. For `core`: the journeys level on four workers
+
+The design's aim for the journeys level is 4 minutes. On 2026-11-25 the level took 1,155 s for
+277 cases in one process, at a load average of 9 to 20, while two other worktrees ran their own
+journeys. The 251 cases before this step took 1,080 s the same evening. The 26 cases of this step
+took 100 s alone, at a load average of 9. With `tests/levels.py`'s `parallel` giving the journeys
+level the unit level's four xdist workers (a probe: the line changed, one run, the line put
+back), all 277 cases passed in 368 s, at a load average of 14 to 15. The request: let `parallel`
+give the journeys level the same workers. A journey has its own home, folder and ports already
+(`tests/journeys/conftest.py`).
+
+## 5. For `ledger`: a proof that names a parametrized test
+
+`check.py` takes a proof only by its exact name, so a proof that names a parametrized test
+without its case is "not in the results" though each case passed. This step pointed four such
+proofs at their first case (in `fates/addons-flow.tsv`, `fates/land-review.tsv` twice and
+`fates/board-duties.tsv`). A fix at the source: `Results.why_not` takes a name `NAME` as passed
+when the results hold one or more `NAME[CASE]` lines and each of them passed.
+
 ## 3. Rows of kinds path, check, act and seam with no fate, in steps that are done
 
 The check of every step (`tests/ledger/check.py`, 2026-11-25) gives 182 such rows with no fate
