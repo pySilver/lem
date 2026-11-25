@@ -13,7 +13,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 
 from lem.board.inputs.text import Look
-from lem.board.views import rule
+from lem.board.views import rule, stopped
 from lem.model.owner import merging, turns
 from lem.records.base import Frozen, Moment
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
@@ -118,6 +118,9 @@ def status_said(seen: Seen) -> rule.Said:
     task = record.task
     if isinstance(task.hold, Blocked) and task.status not in rule.ENDED:
         return rule.BLOCKED
+    end = stopped.ended(record)
+    if end is not None:
+        return stopped.ENDS[end.outcome]
     merge = MERGE_WAITS.get(merging.merge_wait(record) or "")
     if merge is not None:
         return merge

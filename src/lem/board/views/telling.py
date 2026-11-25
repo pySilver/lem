@@ -9,7 +9,7 @@ Its hover is `hovers.py`'s.
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from lem.board.views import words
+from lem.board.views import stopped, words
 from lem.records.journal.landing import CheckEnd, CheckWait, MergeWait
 from lem.records.journal.task import StateNoted, Summary
 
@@ -42,6 +42,9 @@ WAITING = frozenset(("landing", "open"))
 
 def line(record: Record, standing: Standing, title: str) -> str:
     """The card's line in the column titled `title`."""
+    end = stopped.ended(record)
+    if end is not None:
+        return words.capital(stopped.line(record, end))
     waits = waiting(record) or answered(record.task)
     if waits is not None:
         return waits
