@@ -3,18 +3,20 @@ own over the team's in both orders and from a task's worktree, `--days` with a d
 log line of a run that did something and none for a quiet one, and the run at the first tick,
 then each hour."""
 
+import ast
 import json
 from datetime import timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
 from msgspec.structs import replace
 
 from fakes.records import MOMENT, record
+from lem.app import retention_days as days
 from lem.board.duties import prune
 from lem.board.duties.memory import Kept
 from lem.cli import lazy
-from lem.cli.prune import days
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.records.journal.task import StateNoted
@@ -25,13 +27,21 @@ from unit.sessions.world import here_of
 
 if TYPE_CHECKING:
     from datetime import datetime
-    from pathlib import Path
 
     from lem.app.sessions.here import Here
     from lem.store.retention.answer import Pruned
 
 HOUR = timedelta(seconds=3600)
 NOW = MOMENT + timedelta(days=100)
+
+
+def test_prune_duty_has_no_dependency_on_the_cli() -> None:
+    assert prune.__file__ is not None
+    module = ast.parse(Path(prune.__file__).read_text())
+    imports = [
+        node.module for node in ast.walk(module) if isinstance(node, ast.ImportFrom)
+    ]
+    assert all(not name or not name.startswith("lem.cli") for name in imports)
 
 
 def settings(here: Here, team: int | None, local: int | None) -> None:

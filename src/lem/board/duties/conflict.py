@@ -22,8 +22,8 @@ from lem.app.landing.merged import CLOSED
 from lem.app.owner import forge
 from lem.board.duties import wakes
 from lem.records.holds import ReleaseHold
-from lem.records.journal.task import StateNoted
 from lem.store import tasks
+from lem.store.retention.fold import last_state_of, past_of
 
 if TYPE_CHECKING:
     from lem.board.duties.context import Duty
@@ -51,9 +51,9 @@ def ended(record: Record) -> bool:
     status = record.task.status
     if status == "landed":
         return True
-    states = [entry for entry in record.journal if isinstance(entry, StateNoted)]
-    last = states[-1].line if states else None
-    return status == "dropped" and (last or "").startswith(CLOSED)
+    last = last_state_of(past_of(record), record.journal)
+    line = (last.line or "") if last else ""
+    return status == "dropped" and line.startswith(CLOSED)
 
 
 def cleaned(duty: Duty, record: Record) -> None:
@@ -61,8 +61,8 @@ def cleaned(duty: Duty, record: Record) -> None:
     slug = record.task.slug
     if duty.here.worktree(slug) is None:
         return
-    if not wakes.since(duty, slug, record.task.since):
-        wakes.woken(duty, slug, "merged")
+    if not wakes.after_end(duty, slug, record.task.since):
+        wakes.woken(duty, slug, "merged", not_before=record.task.since)
 
 
 def conflicted(duty: Duty, record: Record, look: forge.Look) -> bool:

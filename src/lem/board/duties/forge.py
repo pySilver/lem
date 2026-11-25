@@ -11,20 +11,14 @@ again for that pull request.
 
 from typing import TYPE_CHECKING
 
-from lem.app.landing import merged
-from lem.board.duties import forge_look
-from lem.kernel.errors import Fault, Refusal
+from lem.board.duties import forge_book, forge_look
+from lem.model.landing import phases
 from lem.store import tasks
 
 if TYPE_CHECKING:
-    from collections.abc import Collection
-
     from lem.board.duties.context import Duty
     from lem.ports.forge_facts import Pull
     from lem.records.record import Record
-
-# The board's problem of a bookkeeping that failed, by its task.
-BOOKKEEPING = "merged:"
 
 
 def tick(duty: Duty) -> None:
@@ -32,8 +26,10 @@ def tick(duty: Duty) -> None:
     ended there. The merges this server runs are read before the look and again at each pull
     request: a merge that ends during the look is still left to itself."""
     running = duty.kept.running()
-    numbers = numbered(tasks.every(duty.state))
-    forgotten(duty, numbers.keys())
+    records = tasks.every(duty.state)
+    numbers = numbered(records)
+    forge_book.forgotten(duty, numbers.keys())
+    recorded(duty, records, numbers, running)
     if not numbers:
         duty.kept.problems.pop(forge_look.PROBLEM, None)
         return
@@ -41,9 +37,44 @@ def tick(duty: Duty) -> None:
     if pulls is None:
         return
     forge_look.written(duty, pulls)
+    observed(duty, pulls, running)
+
+
+def recorded(
+    duty: Duty,
+    records: tuple[Record, ...],
+    numbers: dict[str, int],
+    running: frozenset[str],
+) -> None:
+    """Finish a merge the record already knows about, without waiting for the next poll."""
+    for record in records:
+        slug = record.task.slug
+        due = phases.settled(record)
+        if slug in numbers and due is not None and due.step == phases.MERGED:
+            number = numbers.pop(slug)
+            if not merging(duty, slug, running):
+                forge_book.run(duty, slug, number, phases.MERGED)
+
+
+def observed(duty: Duty, pulls: forge_look.Pulls, running: frozenset[str]) -> None:
+    """Send a forge close, merge or confirmed dequeue to landing for bookkeeping."""
     for slug, pull in pulls.items():
-        if pull.state != "open" and not merging(duty, slug, running):
-            booked(duty, slug, pull)
+        if merging(duty, slug, running):
+            continue
+        state = reconcile_state(duty, slug, pull)
+        if state is not None:
+            forge_book.run(duty, slug, pull.number, state)
+
+
+def reconcile_state(duty: Duty, slug: str, pull: Pull) -> str | None:
+    """The forge result to pass to the landing, if any."""
+    if pull.state != "open":
+        return pull.state
+    if pull.dequeued and not pull.queued:
+        landing = tasks.read(duty.state, slug).landing
+        if landing is not None and landing.accepted is not None:
+            return forge_book.DEQUEUED
+    return None
 
 
 def merging(duty: Duty, slug: str, running: frozenset[str]) -> bool:
@@ -59,40 +90,3 @@ def numbered(records: tuple[Record, ...]) -> dict[str, int]:
         if record.task.status == "open" and pull is not None:
             found[record.task.slug] = pull.number
     return found
-
-
-def forgotten(duty: Duty, open_tasks: Collection[str]) -> None:
-    """Forget the problem of a bookkeeping whose task has no pull request open any more."""
-    stale = [
-        key
-        for key in duty.kept.problems
-        if key.startswith(BOOKKEEPING)
-        and key.removeprefix(BOOKKEEPING) not in open_tasks
-    ]
-    for key in stale:
-        duty.kept.problems.pop(key)
-
-
-def booked(duty: Duty, slug: str, pull: Pull) -> None:
-    """Run the bookkeeping of the pull request the forge ended, once, and again after a
-    failure only when the retry's wait has passed."""
-    key = ("merged", slug, str(pull.number))
-    if not duty.kept.owed(key, duty.now):
-        return
-    told = f"pull request {pull.number} of {slug} is {pull.state} on GitHub"
-    try:
-        merged.run(duty.checkout, slug)
-    except (Refusal, Fault) as error:
-        line = (
-            f"`lem land merged {slug}` failed after GitHub called pull request "
-            f"{pull.number} {pull.state}: {error}; the board tries it again in a few minutes"
-        )
-        duty.kept.ended(key, duty.now, ran=False)
-        duty.kept.problems[f"{BOOKKEEPING}{slug}"] = line
-        duty.say(line)
-        return
-    duty.kept.done.add(key)
-    duty.kept.ended(key, duty.now, ran=True)
-    duty.kept.problems.pop(f"{BOOKKEEPING}{slug}", None)
-    status = tasks.read(duty.state, slug).task.status
-    duty.say(f"{told}; `lem land merged {slug}` left it {status}")

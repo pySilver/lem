@@ -8,27 +8,45 @@ agent's merge that the server makes, with the count of approved tasks that waite
 import json
 import shutil
 from datetime import timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import anyio
 import pytest
+from msgspec.structs import replace
 
 from fakes.forge import LocalForge
 from fakes.git import ModelGit
 from fakes.ports import fake_ports
 from fakes.repo import run_git
-from journeys.test_skeleton import BRANCH, SUBJECT, World, made, upto
+from journeys.landing.test_merge import ROUND, SAFE, moved, owner, read
+from journeys.test_skeleton import (
+    BRANCH,
+    JOURNEY,
+    SLUG,
+    SUBJECT,
+    World,
+    due,
+    made,
+    upto,
+)
 from lem.adapters.git_cli import GitCli
 from lem.app import wiring
+from lem.app.landing import merge
 from lem.board.duties import merge_line, runner
 from lem.board.duties.memory import MEMORY
 from lem.kernel import clock
-from lem.store import places
+from lem.kernel.errors import Refusal
+from lem.model.landing.merge_asked import Asked
+from lem.records.holds import ReleaseHold
+from lem.store import places, steps, tasks
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
+    from datetime import datetime
 
+    from lem.app.landing.frame import Context
+    from lem.app.landing.merge_called import BeforeCall
     from lem.board.duties.context import Duty
 
 type Capsys = pytest.CaptureFixture[str]
@@ -179,6 +197,232 @@ def served(world: World, home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The world's checkout on the machine's list, its origin on GitHub."""
     listed(home, world.checkout)
     monkeypatch.setattr(GitCli, "origin_url", github)
+
+
+def ticked(world: World, home: Path, now: datetime) -> None:
+    """Run a tick and wait for its merge to finish."""
+    runner.tick(home, now)
+    for run in MEMORY.of(world.checkout).merging.values():
+        run.join()
+
+
+def test_a_stale_server_request_leaves_the_newly_reviewed_tip_untouched(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: Capsys,
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    before = world.record()
+    current = before["landing"]["proposed"]["tip"]
+    stale = "a" * 40
+    assert stale != current
+
+    with pytest.raises(Refusal) as caught:
+        merge.run(
+            world.checkout,
+            SLUG,
+            Asked(by="merger", via="server", tip=stale, subject=SUBJECT),
+        )
+
+    assert caught.value.code == "tip"
+    assert world.record() == before
+    assert world.forge.merge_calls == []
+
+
+def test_the_server_reports_the_queue_and_reconciles_a_confirmed_dequeue(
+    tmp_path: Path,
+    own_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: Capsys,
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    served(world, own_home, monkeypatch)
+    world.forge.queue = True
+    now = clock.now()
+    ticked(world, own_home, now)
+    assert world.record()["landing"]["accepted"]["queued"] == "the merge queue"
+    queued = MEMORY.of(world.checkout).said[SLUG]
+
+    world.forge.dequeue(1, "a required check failed in the queue")
+    ticked(world, own_home, now + LOOK)
+
+    landing = world.record()["landing"]
+    assert "accepted" not in landing
+    assert landing["refused"]["line"] == "a required check failed in the queue"
+    assert "the merge queue" in queued
+    assert not queued.startswith("Merged:")
+    assert len(world.forge.merge_calls) == 1
+
+
+def test_bookkeeping_follows_a_server_merge_before_the_next_forge_poll(
+    tmp_path: Path,
+    own_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: Capsys,
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    served(world, own_home, monkeypatch)
+    now = clock.now()
+    ticked(world, own_home, now)
+    kept = MEMORY.of(world.checkout)
+    thread = kept.merging[SLUG]
+    assert kept.said[SLUG].startswith(f"Merged: {SLUG} is on the base.")
+
+    ticked(world, own_home, now + timedelta(seconds=1))
+
+    assert world.record()["task"]["status"] == "landed"
+    assert kept.merging[SLUG] is thread
+    assert kept.said[SLUG].startswith(f"Merged: {SLUG} is on the base.")
+    assert len(world.forge.merge_calls) == 1
+
+
+def test_merge_line_records_only_forge_calls_and_counts_current_eligible_approvals(
+    tmp_path: Path,
+    own_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: Capsys,
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    served(world, own_home, monkeypatch)
+    state = world.task_folder.parents[1]
+    now = clock.now()
+    with steps.step(state, SLUG, "merge-review", now):
+        ticked(world, own_home, now)
+    refused_lines = merge_line.read(state)
+
+    found = tasks.read(state, SLUG)
+    hold = ReleaseHold(began="0.1.0", running="0.3.0", say="old release", since=now)
+    tasks.create(
+        state, replace(found, task=replace(found.task, slug="held", hold=hold))
+    )
+    tasks.create(state, replace(found, task=replace(found.task, slug="just-finished")))
+    tasks.create(state, replace(found, task=replace(found.task, slug="still-waiting")))
+    decide = merge.locked
+
+    def finish_another_before_the_call(
+        context: Context, asked: Asked, before_call: BeforeCall | None
+    ) -> object:
+        other = tasks.read(state, "just-finished")
+        tasks.update(
+            state,
+            "just-finished",
+            lambda record: replace(record, task=replace(record.task, status="landed")),
+            other.revision,
+        )
+        return decide(context, asked, before_call)
+
+    monkeypatch.setattr(merge, "locked", finish_another_before_the_call)
+    kept = MEMORY.of(world.checkout)
+    kept.failed.clear()
+    with (
+        steps.step(state, "just-finished", "merged", now),
+        steps.step(state, "still-waiting", "merge-review", now),
+    ):
+        ticked(world, own_home, now + timedelta(seconds=1))
+
+    assert refused_lines == ()
+    assert [(one.task, one.waiting, one.behind) for one in merge_line.read(state)] == [
+        (SLUG, 1, ("still-waiting",))
+    ]
+
+
+def test_an_unopenable_merge_lock_shows_the_repair_and_waits_from_failure_time(
+    tmp_path: Path,
+    own_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: Capsys,
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    served(world, own_home, monkeypatch)
+    now = clock.now()
+    failed_at = now + timedelta(minutes=2)
+    monkeypatch.setattr(clock, "now", lambda: failed_at)
+    path = world.task_folder.parents[1] / "locks" / "merge.lock"
+    path.mkdir(parents=True)
+
+    ticked(world, own_home, now)
+
+    kept = MEMORY.of(world.checkout)
+    line = kept.said[SLUG]
+    assert str(path) in line and "remove" in line and "lem land merge" in line
+    assert tuple(kept.failed.values()) == (failed_at,)
+    assert world.forge.merge_calls == []
+
+
+def test_the_server_carries_out_the_owners_merge_after_a_safe_read(
+    tmp_path: Path,
+    own_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: Capsys,
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    served(world, own_home, monkeypatch)
+    moved(world)
+    assert owner(capsys, world)["refusal"]["code"] == "base"
+    now = clock.now()
+    ticked(world, own_home, now)
+    assert world.forge.merge_calls == []
+    assert read(capsys, world, SAFE)["ok"] is True
+    ticked(world, own_home, now + timedelta(seconds=1))
+    merged = world.record()["landing"]["merged"]
+    assert (merged["by"], merged["via"]) == ("owner", "server")
+    assert len(world.forge.merge_calls) == 1
+
+
+def test_the_server_merges_the_reviewed_new_tip_after_a_new_round(
+    tmp_path: Path,
+    own_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: Capsys,
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    served(world, own_home, monkeypatch)
+    old = world.record()["landing"]["proposed"]["tip"]
+    moved(world)
+    assert owner(capsys, world)["refusal"]["code"] == "base"
+    assert read(capsys, world, ROUND)["ok"] is True
+    now = clock.now()
+    ticked(world, own_home, now)
+    assert world.forge.merge_calls == []
+    for verb, step in JOURNEY:
+        if verb == "merge":
+            break
+        if verb is not None and due(capsys, world) == verb:
+            answer = step(capsys, world)
+            assert answer["ok"] is True, answer
+    tip = world.record()["landing"]["proposed"]["tip"]
+    assert tip != old
+    ticked(world, own_home, now + timedelta(seconds=1))
+    merged = world.record()["landing"]["merged"]
+    assert (merged["by"], merged["via"], merged["merged_head"]) == (
+        "merger",
+        "server",
+        tip,
+    )
+    assert len(world.forge.merge_calls) == 1
+
+
+def test_the_ledger_names_journeys_for_the_new_tip_safe_read_and_merge_result() -> None:
+    path = Path(__file__).parents[1] / "ledger" / "fates" / "board-duties.tsv"
+    rows = {
+        line.split("\t")[0]: line.split("\t")[2]
+        for line in path.read_text().splitlines()[1:]
+    }
+    proofs = {
+        "duty:publish-merge-result": test_the_server_reports_the_queue_and_reconciles_a_confirmed_dequeue,
+        "Duties.test_after_a_moved_base_the_session_lands_it_again_and_the_server_merges_the_new_tip": test_the_server_merges_the_reviewed_new_tip_after_a_new_round,
+        "MovedBaseRead.test_the_owners_merge_a_moved_base_refused_goes_through_on_a_safe_read": test_the_server_carries_out_the_owners_merge_after_a_safe_read,
+    }
+    for suffix, test in proofs.items():
+        (proof,) = (proof for key, proof in rows.items() if key.endswith(suffix))
+        assert proof == f"journeys.test_duties.{test.__name__}"
 
 
 def test_a_pull_request_merged_on_github_gets_its_bookkeeping_and_the_task_lands(

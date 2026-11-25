@@ -14,8 +14,8 @@ from typing import TYPE_CHECKING
 import click
 import msgspec
 
+from lem.app import retention_days
 from lem.cli import place
-from lem.cli.prune import days
 from lem.kernel import clock
 from lem.kernel.envelope import Envelope
 from lem.kernel.errors import Refusal
@@ -37,7 +37,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 def run(call: Call) -> Envelope:
     """Remove what the state folder no longer needs, or say what would go."""
     where = places.workspace(place.folder())
-    keep, source = days.kept(where.checkout, call.days, dry=call.dry_run)
+    keep, source = retention_days.kept(where.checkout, call.days, dry=call.dry_run)
     now = clock.now()
     pruned = retention.pruned(where.state, keep, source, now, dry=call.dry_run)
     if pruned.failed:

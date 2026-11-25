@@ -40,6 +40,8 @@ def records_of(removal: Removal) -> list[Record]:
 def read(removal: Removal, folder: Path) -> Record | None:
     """The record of the task folder `folder`, or None when it does not read, which is
     named."""
+    if removal.link(folder / tasks.RECORD):
+        return None
     try:
         return tasks.read(removal.top, folder.name)
     except (Refusal, Fault) as error:
@@ -51,7 +53,7 @@ def folded(removal: Removal, record: Record, now: datetime) -> Folded | None:
     """Fold the old task's journal into its summary and clear its citations, unless it is
     folded already; what was folded. A record another writer changed first is left for the
     next run."""
-    if rules.folded_already(record):
+    if rules.folded_already(record) and record == rules.cleared(record):
         return None
     task = record.task
     entries = len(record.journal)

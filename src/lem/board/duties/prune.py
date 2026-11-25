@@ -8,7 +8,7 @@ failure.
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from lem.cli.prune import days
+from lem.app import retention_days
 from lem.store.retention import run, said
 
 if TYPE_CHECKING:
@@ -27,7 +27,7 @@ def tick(duty: Duty) -> None:
     if pruned is not None and duty.now - pruned < SECONDS:
         return
     duty.kept.pruned = duty.now
-    keep, source = days.kept(duty.checkout, None, dry=False)
+    keep, source = retention_days.kept(duty.checkout, None, dry=False)
     found = run.pruned(duty.state, keep, source, duty.now, dry=False)
     if not said.quiet(found):
         duty.say(said.logged(found))

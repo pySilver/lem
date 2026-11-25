@@ -35,9 +35,9 @@ that `tests/unit/board/test_slice.py` counts.
 - The owner's press of Merge runs `app/landing/merge.run` itself. When it runs in a thread of
   the server, put the thread in `MEMORY.of(checkout).merging[slug]`: the forge duty then leaves
   the pull request's bookkeeping to the merge, and the merge duty starts no second merge.
-- Amendment A4 counts approved tasks at each merge the server starts. For his press too, append
-  `merge_line.Waited` with `merge_line.noted(state, merge_run.waited_of(duty, record, "owner",
-  records))`, or build the `Waited` directly (`merge_line.approved(records, slug)`).
+- Amendment A4 counts approved tasks when the forge call goes. For his press too, pass
+  `before_call=partial(merge_count.at_call, duty, slug)` to `app.landing.merge.run`.
+  The callback reads the current records under both landing locks.
 - Four rows of his press moved to you (`tests/ledger/moves/board-duties.tsv`): a press after a
   moved base, a press whose request read the task before his refusal, a second press while his
   merge stands, and the note of his own press that a moved base refused.
@@ -58,7 +58,7 @@ none when no session lives. The board imports no add-on.
 
 ## For `core` (`records/`)
 
-- **A4's record.** At each merge it starts, the server appends one framed line `{at, task, tip,
+- **A4's record.** At each forge call to merge, the server appends one framed line `{at, task, tip,
   by, waiting, behind}` to `.lem/state/merge-line.jsonl` (`board/duties/merge_line.py`,
   `Waited`): `waiting` is how many approved tasks waited besides the one that merged. It is the
   server's record, as `forge.json` is. Asked, when a journal entry suits better: `waiting` and
@@ -67,7 +67,8 @@ none when no session lives. The board imports no add-on.
   of the files that go: the landing's evidence (checks, reviews, filed items, the resolution,
   the merge reads' briefs, Jev's reads, the proposal's text and notes, the polish pass's files),
   the decisions (amendment A2 puts them in the merge commit's text) and the investigation's
-  report path.
+  report path. Of the criteria only their size stays. The dates in the two session logs count
+  toward the task's age.
 
 ## For `sessions`
 
@@ -84,7 +85,7 @@ one of the repository's newest session of any task).
 - `store/retention.py` is the package `store/retention/` (`rules`, `fold`, `totals`, `files`,
   `trees`, `folders`, `old`, `answer`, `run`, `said`): one module held more than wemake's seven
   members and twelve imports.
-- `cli/prune/days.py` reads `state.keep_days` and its source for `lem prune` and the hourly run.
+- `app/retention_days.py` reads `state.keep_days` and its source for `lem prune` and the hourly run.
 - The small record keeps `session-acts.jsonl` beside `sessions.jsonl`: Lem's acts on the
   sessions are the stand-in of journal entries (notes/sessions.md), and without them the end
   wake would wake a pruned task whose worktree stays.

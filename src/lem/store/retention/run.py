@@ -10,11 +10,10 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
+from lem.store import guard
+from lem.store.retention import activity, files, old
 from lem.store.retention.answer import Pruned
-from lem.store.retention.files import Removal, refused_link
 from lem.store.retention.folders import old_folders
-from lem.store.retention.old import files_of, folded, records_of
-from lem.store.retention.rules import Call, call_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -22,12 +21,14 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.records.record import Record
+    from lem.store.retention.rules import Call
 
 
 def pruned(state: Path, keep: int, source: str, now: datetime, *, dry: bool) -> Pruned:
     """Run retention over `state` with `keep` days, the number's source named, at `now`."""
-    refused_link(state)
-    removal = Removal(top=state.resolve(), dry=dry)
+    files.refused_link(state)
+    guard.readable(state)
+    removal = files.Removal(top=state.resolve(), dry=dry)
     cutoff = now - timedelta(days=keep)
     begun = Pruned(
         dry_run=dry, keep_days=keep, source=source, before=cutoff, state=str(state)
@@ -43,11 +44,11 @@ def pruned(state: Path, keep: int, source: str, now: datetime, *, dry: bool) -> 
     )
 
 
-def tasks_of(removal: Removal, begun: Pruned, now: datetime) -> Pruned:
+def tasks_of(removal: files.Removal, begun: Pruned, now: datetime) -> Pruned:
     """Keep each old task to its small record, and count the tasks by what retention does
     with each."""
-    records = records_of(removal)
-    calls = [call_of(record, begun.before) for record in records]
+    records = old.records_of(removal)
+    calls = [activity.call_of(removal.top, record, begun.before) for record in records]
     return kept_of(removal, counted(begun, calls), aged_of(records, calls), now)
 
 
@@ -66,11 +67,11 @@ def counted(begun: Pruned, calls: list[Call]) -> Pruned:
 
 
 def kept_of(
-    removal: Removal, counts: Pruned, aged: list[Record], now: datetime
+    removal: files.Removal, counts: Pruned, aged: list[Record], now: datetime
 ) -> Pruned:
     """Fold each old task's journal and remove its files, and the totals of both."""
-    summarized = each(lambda one: folded(removal, one, now), aged)
-    kept = each(lambda one: files_of(removal, one), aged)
+    summarized = each(lambda one: old.folded(removal, one, now), aged)
+    kept = each(lambda one: old.files_of(removal, one), aged)
     return msgspec.structs.replace(
         counts,
         tasks=kept,

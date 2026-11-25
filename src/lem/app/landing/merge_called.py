@@ -6,7 +6,6 @@ The intent stays when the call ends with no answer (a lost reply raises `Unanswe
 only what the forge shows replaces it, under the merge lock, before any new call.
 """
 
-from functools import partial
 from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
@@ -14,23 +13,21 @@ from msgspec.structs import replace
 from lem.app.landing import changes, merge_world, reconcile
 from lem.app.landing.world import seen
 from lem.model.landing.reconcile import landed
-from lem.ports.forge_facts import (
-    MergeDenied,
-    MergeDone,
-    MergeOutcome,
-    MergeTaken,
-    MergeText,
-)
-from lem.records.landing.merge import MergeAccepted, MergeIntent, Refused
+from lem.ports import forge_facts
+from lem.records.landing import merge as facts
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from lem.app.landing.frame import Context
     from lem.model.landing.merge_call import Merging
     from lem.model.landing.world import PullSeen
     from lem.records.record import Record
 
+type BeforeCall = Callable[[facts.MergeIntent], None]
 
-def merged_pull(context: Context, number: int, done: MergeDone) -> PullSeen:
+
+def merged_pull(context: Context, number: int, done: forge_facts.MergeDone) -> PullSeen:
     """The pull request after the forge merged it, its destination as the forge reports it,
     with the merge's own commits where the report lags behind the merge."""
     pull = seen(context.ports.forge.pull(number))
@@ -46,14 +43,16 @@ def merged_pull(context: Context, number: int, done: MergeDone) -> PullSeen:
 
 
 def held(
-    intent: MergeIntent, outcome: MergeDenied | MergeTaken, context: Context
-) -> MergeAccepted | Refused:
+    intent: facts.MergeIntent,
+    outcome: forge_facts.MergeDenied | forge_facts.MergeTaken,
+    context: Context,
+) -> facts.MergeAccepted | facts.Refused:
     """What the forge holds of a call it did not merge: the queue that took it, or GitHub's
     refusal in its words."""
     now = context.world.now
-    if isinstance(outcome, MergeTaken):
-        return MergeAccepted(tip=intent.tip, at=now, queued=outcome.queued)
-    return Refused(
+    if isinstance(outcome, forge_facts.MergeTaken):
+        return facts.MergeAccepted(tip=intent.tip, at=now, queued=outcome.queued)
+    return facts.Refused(
         tip=intent.tip,
         source="github",
         kind=outcome.kind,
@@ -66,29 +65,35 @@ def held(
 def answered(
     context: Context,
     record: Record,
-    intent: MergeIntent,
-    said: tuple[int, MergeOutcome],
+    intent: facts.MergeIntent,
+    said: tuple[int, forge_facts.MergeOutcome],
 ) -> object:
     """Write what the forge answered the merge call of `intent` (`said`: the pull request's
     number and the answer): the merge, the queue that took it, or GitHub's refusal."""
     number, outcome = said
-    if not isinstance(outcome, MergeDone):
+    if not isinstance(outcome, forge_facts.MergeDone):
         return reconcile.written(
             context, record, held(intent, outcome, context), intent.by
         )
     pull = merged_pull(context, number, outcome)
-    facts = (intent.by, intent.via, merge_world.trees_of(context, pull))
+    proof = (intent.by, intent.via, merge_world.trees_of(context, pull))
     return reconcile.written(
-        context, record, landed(record, context.world, pull, facts), intent.by
+        context, record, landed(record, context.world, pull, proof), intent.by
     )
 
 
-def called(context: Context, record: Record, merging: Merging) -> object:
+def called(
+    context: Context, record: Record, merging: Merging, before_call: BeforeCall | None
+) -> object:
     """Write the intent, call the forge's merge pinned to its tip, and write its answer. A
     call that ends with no answer raises and leaves the intent for the reconcile."""
     intent = merging.intent
     number = record.landing.pull.number if record.landing and record.landing.pull else 0
-    written = context.write(record, partial(changes.landing, intent=intent))
-    text = MergeText(subject=merging.subject, body=merging.body)
+    written = context.write(
+        record, lambda before: changes.landing(before, intent=intent)
+    )
+    text = forge_facts.MergeText(subject=merging.subject, body=merging.body)
+    if before_call is not None:
+        before_call(intent)
     outcome = context.ports.forge.merge(number, intent.tip, merging.method, text)
     return answered(context, written, intent, (number, outcome))

@@ -3,18 +3,19 @@ that stands, never while the forge calls the request conflicting, a call waits o
 this server runs the merge; the count of approved tasks that wait at each (the merge line); and
 the wait of a merge that failed, which a new read ends."""
 
-import threading
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
+import msgspec
 from msgspec.structs import replace
 
 from fakes.records import MOMENT
 from lem.app.landing import merge
 from lem.app.owner import forge
 from lem.board.duties import merge as duty
-from lem.board.duties import merge_line
 from lem.board.duties.memory import Kept
+from lem.kernel import clock
+from lem.kernel.envelope import Envelope
 from lem.kernel.errors import Refusal
 from lem.model.landing import merge_standing
 from lem.records.landing.merge import MergeIntent
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
 
     import pytest
 
+    from lem.app.landing.merge_called import BeforeCall
     from lem.app.sessions.here import Here
     from lem.model.landing.merge_asked import Asked
     from lem.records.record import Record
@@ -43,10 +45,15 @@ def asking(
     """The merges the server asks for, each refused with `refusal` when one is named."""
     asked: list[Asked] = []
 
-    def merged(folder: Path, slug: str, given: Asked) -> None:
+    def merged(
+        folder: Path, slug: str, given: Asked, *, before_call: BeforeCall | None
+    ) -> Envelope:
         asked.append(given)
         if refusal is not None:
             raise refusal
+        return Envelope(
+            ok=True, outcome=msgspec.Raw(msgspec.json.encode({"commit": TIP}))
+        )
 
     monkeypatch.setattr(merge, "run", merged)
     return asked
@@ -120,7 +127,9 @@ def test_a_failed_merge_waits_for_its_own_read_only(
     asked = asking(monkeypatch, Refusal("lock", "the merge lock is held", "wait"))
     kept = Kept()
     for minutes in (0, 1, 4):
-        duty.tick(duty_of(here, HOUR + timedelta(minutes=minutes), kept))
+        moment = HOUR + timedelta(minutes=minutes)
+        monkeypatch.setattr(clock, "now", lambda at=moment: at)
+        duty.tick(duty_of(here, moment, kept))
         ended(kept)
     assert len(asked) == 1
     newer = replace(read("merge"), at=HOUR)
@@ -154,39 +163,7 @@ def test_a_merge_that_ran_says_so_and_one_refused_says_why(
         == "The merge did not go: GitHub refused it; the owner acts"
     )
     said = capsys.readouterr().err
-    assert (
-        "lem serve: shop: `lem land merge goes --by merger --via server` started, with 1 "
-        "other approved tasks waiting"
-    ) in said
-
-
-def test_each_merge_the_server_starts_records_how_many_approved_tasks_wait(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    here = here_of(tmp_path)
-    for slug in ("a-first", "b-second", "c-third"):
-        opened(here, slug, proposed=proposed(), reads=(read("merge"),))
-    opened(here, "d-calls", proposed=proposed(), reads=(read("call"),))
-    standing_task(here, "e-stands")
-    gate = threading.Event()
-
-    def held(folder: Path, slug: str, given: Asked) -> None:
-        gate.wait()
-
-    monkeypatch.setattr(merge, "run", held)
-    kept = Kept()
-    duty.tick(duty_of(here, HOUR, kept))
-    gate.set()
-    ended(kept)
-    lines = merge_line.read(here.where.state)
-    assert [(one.task, one.by, one.waiting) for one in lines] == [
-        ("a-first", "merger", 3),
-        ("b-second", "merger", 3),
-        ("c-third", "merger", 3),
-        ("e-stands", "owner", 3),
-    ]
-    assert lines[0].behind == ("b-second", "c-third", "e-stands")
-    assert lines[0].tip == TIP
+    assert "lem serve: shop: Merged: goes is on the base." in said
 
 
 def test_his_standing_merge_that_the_base_refuses_again_still_stands_in_its_line(

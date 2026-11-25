@@ -17,7 +17,7 @@ import msgspec
 from lem.app.init.origin import GITHUB
 from lem.app.owner import forge
 from lem.kernel import files
-from lem.kernel.errors import Fault
+from lem.kernel.errors import Fault, Refusal
 from lem.store import guard
 
 if TYPE_CHECKING:
@@ -56,17 +56,21 @@ def looked(duty: Duty, numbers: dict[str, int]) -> Pulls | None:
         pulls = {
             slug: duty.here.ports.forge.pull(number) for slug, number in numbers.items()
         }
-    except Fault as fault:
-        duty.kept.problems[PROBLEM] = problem_of(str(fault))
+    except (Fault, Refusal) as error:
+        problem = problem_of(error)
+        duty.kept.problems[PROBLEM] = problem
+        duty.say(problem)
         return None
     duty.kept.problems.pop(PROBLEM, None)
     return pulls
 
 
-def problem_of(said: str) -> str:
+def problem_of(error: Fault | Refusal) -> str:
     """The board's line for a look the forge did not answer."""
-    why = said
-    if SIGNED_OUT.search(said):
+    why = str(error)
+    if isinstance(error, Refusal):
+        why = f"{error.why}. {error.fix}"
+    elif SIGNED_OUT.search(why):
         why = "`gh` is not signed in to github.com (`gh auth login` signs it in)"
     return f"the board cannot ask GitHub about the open pull requests: {why}"
 

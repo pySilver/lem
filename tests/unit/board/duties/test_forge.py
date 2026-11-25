@@ -14,7 +14,7 @@ from fakes.records import MOMENT
 from lem.app.landing import merged
 from lem.app.owner import forge
 from lem.board.duties import forge as duty
-from lem.board.duties import forge_look
+from lem.board.duties import forge_look, runner, seams
 from lem.board.duties.memory import Kept
 from lem.kernel.errors import Refusal
 from lem.ports.faults import Unanswered
@@ -136,6 +136,46 @@ def test_a_look_the_forge_does_not_answer_is_the_boards_problem_in_its_words(
     monkeypatch.undo()
     duty.tick(duty_of(here, HOUR + 2 * LOOK, kept))
     assert kept.problems == {}
+
+
+def test_the_runner_keeps_the_forge_problem_until_the_next_successful_poll(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    here = here_of(tmp_path)
+    opened(here, "gift-note", proposed=proposed())
+    kept = Kept()
+    runner.ticked(duty_of(here, HOUR, kept))
+    assert "no pull request 44" in kept.problems["forge"]
+    runner.ticked(duty_of(here, HOUR + timedelta(seconds=1), kept))
+    assert "no pull request 44" in kept.problems["forge"]
+
+    def signed_out(number: int) -> Pull:
+        raise Refusal(
+            "forge-auth", "GitHub authentication is required", "run gh auth login"
+        )
+
+    with monkeypatch.context() as patch:
+        patch.setattr(here.ports.forge, "pull", signed_out)
+        runner.ticked(duty_of(here, HOUR + LOOK, kept))
+        assert "run gh auth login" in kept.problems["forge"]
+    pulled(here)
+    runner.ticked(duty_of(here, HOUR + 2 * LOOK, kept))
+    assert "forge" not in kept.problems
+
+
+def test_a_duty_refusal_keeps_its_repair_in_the_returned_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def refused(_duty: object) -> None:
+        raise Refusal(
+            "access", "the forge refused access", "the owner runs gh auth login"
+        )
+
+    monkeypatch.setattr(duty, "tick", refused)
+    failed = seams.failure(duty.__name__, duty_of(here_of(tmp_path), HOUR))
+    assert failed == "Refusal: the forge refused access. the owner runs gh auth login"
 
 
 def test_a_pull_request_merged_or_closed_on_github_gets_its_bookkeeping_once(

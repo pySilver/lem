@@ -47,14 +47,32 @@ def since(duty: Duty, slug: str, moment: datetime, whys: Collection[str] = ()) -
     return any(not whys or act.why in whys for act in later)
 
 
-def woken(duty: Duty, slug: str, why: WakeWhy, head: str | None = None) -> None:
+def after_end(duty: Duty, slug: str, moment: datetime) -> bool:
+    """Whether a session got the wake for this task's one end or opened after it."""
+    reached = log.read(duty.here.folder(slug))
+    return any(
+        isinstance(act, Open | Wake)
+        and (act.at > moment or (act.why == "merged" and act.at == moment))
+        for act in reached
+    )
+
+
+def woken(
+    duty: Duty,
+    slug: str,
+    why: WakeWhy,
+    head: str | None = None,
+    *,
+    not_before: datetime | None = None,
+) -> None:
     """Wake the task's session for `why` unless that wake failed within the retry's wait; the
     wake's line, or why it failed, goes to the server's log."""
     key = ("wake", slug, why)
     if not duty.kept.due(key, duty.now):
         return
+    moment = max(duty.now, not_before or duty.now)
     try:
-        said = waking.wake(duty.here, slug, why, head, duty.now).say
+        said = waking.wake(duty.here, slug, why, head, moment).say
     except (Refusal, Fault) as error:
         duty.kept.ended(key, duty.now, ran=False)
         duty.say(f"lem session wake {slug} --why {why} failed: {error}")

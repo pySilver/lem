@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from lem.app.owner import forge
 from lem.board.duties import merge_run
-from lem.model.landing import merge_standing, mergeread
+from lem.model.landing import merge_standing, mergeread, phases
 from lem.model.owner import merging
 from lem.records.holds import ReleaseHold
 from lem.store import tasks
@@ -34,19 +34,16 @@ if TYPE_CHECKING:
 def tick(duty: Duty) -> None:
     """Start the merge of each task whose merge is the server's now."""
     look = forge.read(duty.state)
-    records = tasks.every(duty.state)
-    for record in records:
-        merged(duty, record, look, records)
+    for record in tasks.every(duty.state):
+        merged(duty, record, look)
 
 
-def merged(
-    duty: Duty, record: Record, look: forge.Look, records: tuple[Record, ...]
-) -> None:
+def merged(duty: Duty, record: Record, look: forge.Look) -> None:
     """Start the task's merge when it is the server's now, and no failure of it waits."""
     by = merger_of(record, look, duty.kept.running())
     key = key_of(record)
     if by is not None and duty.kept.due(key, duty.now):
-        merge_run.started(duty, record, by, records, key)
+        merge_run.started(duty, record, by, key)
 
 
 def merger_of(
@@ -55,7 +52,9 @@ def merger_of(
     """Who the server merges the task for now: the owner, whose merge stands, or the merge
     agent; None when its merge is not the server's to make now."""
     landing = record.landing
-    if landing is None or merging.merge_wait(record) != merging.MERGES:
+    if landing is None or phases.settled(record) is not None:
+        return None
+    if merging.merge_wait(record) != merging.MERGES:
         return None
     waits = landing.intent is not None or landing.accepted is not None
     held = isinstance(record.task.hold, ReleaseHold)

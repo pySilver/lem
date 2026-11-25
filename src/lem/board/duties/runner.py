@@ -42,6 +42,7 @@ DUTIES = (
 # The look at the forge, whose failure the board words as its own, and the keeping, whose
 # failure is a line in the server's log only.
 LOOK = "forge"
+LOOK_FAILURE = "forge-duty"
 KEEP = "prune"
 DEMO = "demo"
 
@@ -72,7 +73,8 @@ def ticked(duty: context.Duty) -> None:
         failed = failure(path, duty)
         short = path.rsplit(".", 1)[-1]
         if short != KEEP:
-            noted(duty, short, worded(short, failed))
+            name = LOOK_FAILURE if short == LOOK else short
+            noted(duty, name, worded(short, failed))
         elif failed is not None:
             duty.say(f"lem prune failed: {failed}")
 

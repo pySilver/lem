@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Literal
 
 from msgspec.structs import replace
 
+from lem.records.criteria import Criteria
 from lem.records.journal.task import Summary
 
 if TYPE_CHECKING:
@@ -76,7 +77,12 @@ def cleared(record: Record) -> Record:
     task = record.task
     found = task.investigation
     investigation = replace(found, report=None) if found else None
-    task = replace(task, decisions=(), investigation=investigation)
+    task = replace(
+        task,
+        criteria=Criteria(size=task.criteria.size),
+        decisions=(),
+        investigation=investigation,
+    )
     landing = cleared_landing(record.landing) if record.landing else None
     return replace(record, task=task, landing=landing)
 

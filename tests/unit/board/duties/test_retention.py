@@ -13,13 +13,19 @@ import pytest
 from msgspec.structs import replace
 
 from fakes.records import MOMENT, record
+from lem.app.sessions import acts, log
+from lem.kernel.errors import Refusal
 from lem.model.task import ending
+from lem.records.approvals import Approval
+from lem.records.criteria import Criteria
+from lem.records.criterion import Criterion
 from lem.records.journal.landing import CheckEnd, CheckWait, MergeWait
 from lem.records.journal.task import StateNoted, Summary, Total
 from lem.records.landing.record import Landing, Pull
+from lem.records.sessions import SessionLine
 from lem.records.tickets import Ticket
 from lem.records.work import Investigation, Span, Talk
-from lem.store import tasks
+from lem.store import guard, sessions, tasks
 from lem.store.retention import fold, rules
 from lem.store.retention.run import pruned
 from lem.store.retention.said import said
@@ -104,6 +110,107 @@ def files(state: Path, slug: str) -> list[str]:
         for path in folder.rglob("*")
         if path.is_file() or path.is_symlink()
     )
+
+
+@pytest.mark.parametrize("dry", [True, False])
+def test_prune_refuses_old_state_before_it_touches_an_expert_folder(
+    state: Path, *, dry: bool
+) -> None:
+    (state / "events.jsonl").write_text("{}\n")
+    expert = state / "experts" / "old"
+    expert.mkdir(parents=True)
+    brief = expert / "brief.md"
+    brief.write_text("the expert's brief\n")
+    for path in (brief, expert):
+        os.utime(path, (MOMENT.timestamp(), MOMENT.timestamp()))
+
+    try:
+        with pytest.raises(Refusal, match=r"Lem 0\.3") as caught:
+            pruned(state, 30, "test", LATER, dry=dry)
+        assert caught.value.code == "old-state"
+    finally:
+        assert brief.read_text() == "the expert's brief\n"
+
+
+def test_prune_leaves_the_whole_task_when_task_json_is_a_link(state: Path) -> None:
+    landed(state, "old-task")
+    folder = state / "tasks" / "old-task"
+    record_path = folder / "task.json"
+    outside = state.parent / "old-record.json"
+    record_path.rename(outside)
+    record_path.symlink_to(outside)
+    before = files(state, "old-task")
+    snapshot = outside.read_bytes()
+
+    run = pruned(state, 30, "test", LATER, dry=False)
+
+    assert [one.path for one in run.skipped] == ["tasks/old-task/task.json"]
+    assert record_path.is_symlink()
+    assert files(state, "old-task") == before
+    assert outside.read_bytes() == snapshot
+
+
+@pytest.mark.parametrize("activity", ["transcript", "session-act"])
+def test_prune_keeps_a_task_with_recent_session_activity(
+    state: Path, activity: str
+) -> None:
+    slug = "old-task"
+    landed(state, slug)
+    folder = state / "tasks" / slug
+    recent = LATER - timedelta(days=1)
+    if activity == "transcript":
+        sessions.append(
+            folder,
+            SessionLine(
+                at=recent,
+                source="resume",
+                claude="claude-1",
+                transcript="/transcripts/claude-1.jsonl",
+                task=slug,
+            ),
+        )
+    else:
+        log.append(folder, acts.Wake(at=recent, session="session-1", why="merged"))
+    before = files(state, slug)
+
+    run = pruned(state, 30, "test", LATER, dry=False)
+
+    assert (run.young, run.old) == (1, 0)
+    assert files(state, slug) == before
+
+
+def test_prune_keeps_the_size_and_removes_the_criteria_and_approval_history(
+    state: Path,
+) -> None:
+    criterion = Criterion(number=1, text="Keep the gift note")
+    approval = Approval(
+        number=1,
+        at=MOMENT,
+        by="owner",
+        size="small",
+        why="one file",
+        digest="approved",
+        criteria=(criterion,),
+        how="write it",
+    )
+    history = Criteria(
+        size="small",
+        why="one file",
+        criteria=(criterion,),
+        how="write it",
+        approvals=(approval,),
+        digest="approved",
+        changed=(MOMENT,),
+    )
+    landed(state, "old-task", criteria=history)
+
+    pruned(state, 30, "test", LATER, dry=False)
+
+    found = tasks.read(state, "old-task")
+    assert found.task.criteria == Criteria(size="small")
+    (summary,) = found.journal
+    assert isinstance(summary, Summary)
+    assert summary.statuses == ("building", "open", "landed")
 
 
 def test_a_run_past_the_cutoff_leaves_an_old_ended_task_its_small_record_only(
@@ -273,6 +380,7 @@ def test_a_failed_removal_is_named_and_the_next_run_finishes_it(state: Path) -> 
 def test_the_old_folders_of_the_experts_panels_naps_and_casts_copies_go(
     state: Path,
 ) -> None:
+    guard.writable(state)
     old = (LATER - timedelta(days=31)).timestamp()
     made = {
         "experts/2026-10-01-a-question/brief.md": True,

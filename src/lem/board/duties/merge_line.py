@@ -1,4 +1,4 @@
-"""How many approved tasks wait at each merge the board server starts: one framed line of
+"""How many approved tasks wait at each server call to merge: one framed line of
 `merge-line.jsonl` in the state folder for each (the owner's choice of 2026-11-25, the merge
 line: "the board server records, at each merge, how many approved tasks wait").
 
@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.model.owner import merging
 from lem.records.base import Frozen, Moment, Sha, Slug
 from lem.records.landing.merge import Merger
 from lem.store import guard
@@ -27,7 +26,6 @@ from lem.store import guard
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from lem.records.record import Record
 
 LINE = "merge-line.jsonl"
 # Read and write for the owner, read for the rest, as a file the shell makes.
@@ -44,15 +42,6 @@ class Waited(Frozen, frozen=True, kw_only=True, omit_defaults=False):
     by: Merger
     waiting: int
     behind: tuple[Slug, ...]
-
-
-def approved(records: tuple[Record, ...], slug: str) -> tuple[str, ...]:
-    """The approved tasks besides `slug`, by name."""
-    return tuple(
-        one.task.slug
-        for one in records
-        if one.task.slug != slug and merging.merge_wait(one) == merging.MERGES
-    )
 
 
 def noted(state: Path, waited: Waited) -> None:

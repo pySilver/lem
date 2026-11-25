@@ -407,14 +407,16 @@ def test_the_owners_checked_word_with_no_call_on_record_is_refused(
     assert calls(world) == 0
 
 
-def test_a_merge_lock_that_cannot_be_opened_is_a_fault_that_keeps_nothing(
+def test_a_merge_lock_that_cannot_be_opened_is_a_refusal_that_keeps_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
 ) -> None:
     world = made(tmp_path, monkeypatch)
     upto(capsys, world, "merge")
     (world.checkout / ".lem" / "state" / "locks" / "merge.lock").mkdir(parents=True)
     before = world.record()
-    assert MERGE(capsys, world)["code"] == 3
+    envelope = MERGE(capsys, world)
+    assert envelope["code"] == 1
+    assert envelope["refusal"]["code"] == "merge-lock"
     assert world.record() == before
     assert calls(world) == 0
 

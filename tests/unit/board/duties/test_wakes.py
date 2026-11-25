@@ -4,6 +4,7 @@ refused merge, and the turn of a queued task, each once, on the fake terminal.""
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
+import pytest
 from msgspec.structs import replace
 
 from fakes.records import MOMENT
@@ -14,6 +15,7 @@ from lem.board.duties.memory import Kept
 from lem.records.holds import ReleaseHold
 from lem.records.journal.task import StateNoted
 from lem.store import tasks
+from lem.store.retention.run import pruned
 from unit.board.duties.world import duty_of, landing_of, looked, opened
 from unit.owner.looked import proposed, refused
 from unit.sessions.terminal import with_caller
@@ -61,6 +63,39 @@ def test_a_merge_wakes_the_tasks_session_once_while_its_worktree_stays(
     conflict.tick(duty_of(here, HOUR + timedelta(minutes=1), kept))
     assert wakes(here) == [("merged", None)]
     assert wakes(here, gone) == []
+
+
+@pytest.mark.parametrize("seconds_before_end", [0, 1])
+def test_an_end_wake_counts_when_the_tick_stamp_is_at_or_before_the_end(
+    tmp_path: Path, seconds_before_end: int
+) -> None:
+    here = here_of(tmp_path)
+    made(here, status="landed", since=LATER)
+    worktree(here)
+    tick = LATER - timedelta(seconds=seconds_before_end)
+
+    conflict.tick(duty_of(here, tick))
+    conflict.tick(duty_of(here, HOUR))
+
+    assert wakes(here) == [("merged", None)]
+
+
+def test_a_pruned_forge_close_still_wakes_the_tasks_session(tmp_path: Path) -> None:
+    here = here_of(tmp_path)
+    found = made(here, status="dropped", since=LATER)
+    entry = StateNoted(at=LATER, status="dropped", line=f"{CLOSED}: #44 is closed")
+    tasks.update(
+        here.where.state,
+        SLUG,
+        lambda one: replace(one, journal=(entry,)),
+        found.revision,
+    )
+    worktree(here)
+    pruned(here.where.state, 30, "test", LATER + timedelta(days=31), dry=False)
+
+    conflict.tick(duty_of(here, LATER + timedelta(days=31)))
+
+    assert wakes(here) == [("merged", None)]
 
 
 def test_a_task_the_forge_closed_is_woken_and_one_dropped_otherwise_is_not(
