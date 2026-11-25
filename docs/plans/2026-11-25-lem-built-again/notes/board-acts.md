@@ -85,3 +85,12 @@ nothing added. If a later act takes a file, `python-multipart` is the library to
   (`fixtures/board/shelves.py`) post to `.../start`, as `main` did. Both addresses take the form.
 - The design names the jump `POST /HOST/WS/agterm/SESSION`; `main` and its script used
   `.../agterm/select`. The design's address is built; `board-pages` moves the script.
+
+## For the owner of `tests/unit/board/test_slice.py` (`slice-board`'s file)
+
+`test_an_address_not_built_answers_501_with_the_step_that_builds_it` holds two rows of this
+step, `("POST", "/h/w/tasks/fix-the-login/merge", "board-acts")` and `("POST", "/h/w/tasks",
+"board-acts")`. Both addresses are built now, and a form with no `Origin` gets 403 from the
+main listener's check, so both cases fail after the join (seen in this worktree:
+`T unit tests/unit/board/`, 545 collected, 2 failed, those two). Asked: remove the two rows.
+This step did not edit the file, which it does not own.
