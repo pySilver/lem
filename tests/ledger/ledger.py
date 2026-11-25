@@ -18,6 +18,8 @@ from tempfile import TemporaryDirectory
 
 
 HERE = Path(__file__).resolve().parent
+# The commit of main that the ledger reads: the proof of concept of the design.
+REV = "bf6d2836"
 
 
 @dataclass(frozen=True)
@@ -1233,7 +1235,7 @@ def write_rows(path, rows, saved):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--rev", default="bf6d2836", help="commit to read (default: %(default)s)")
+    parser.add_argument("--rev", default=REV, help="commit to read (default: %(default)s)")
     parser.add_argument("--out", type=Path, default=HERE / "rows.tsv")
     parser.add_argument("--keep", type=Path, help="copy fate, proof and note from this TSV by ID")
     parser.add_argument("--counts", action="store_true", help="print totals and source file counts as JSON")
