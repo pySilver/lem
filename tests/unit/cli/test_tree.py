@@ -209,6 +209,30 @@ def test_a_fault_exits_3_with_one_line_and_its_traceback_in_lem_log(
     assert "RuntimeError: the record" in logged
 
 
+def test_a_fault_whose_log_cannot_be_written_goes_to_stderr_and_says_why(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from lem.cli.land import start
+
+    def broken(call: start.Call) -> None:
+        raise RuntimeError("the record is torn")
+
+    blocked = tmp_path / "a-file"
+    blocked.write_text("")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(blocked))
+    monkeypatch.setattr(start, "run", broken)
+    code, out, err = called(capsys, "land", "start", "x")
+    assert code == 3
+    log = json.loads(out)["fault"]["log"]
+    assert log.startswith(
+        f"standard error: {blocked}/lem/lem.log could not be written ("
+    )
+    assert "Traceback" in err
+    assert "RuntimeError: the record is torn" in err
+
+
 def test_an_outcome_is_printed_in_the_envelope_with_exit_0(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -296,6 +320,9 @@ def test_a_call_loads_its_own_leaf_and_no_other_noun_and_nothing_heavy() -> None
     ]
     assert others == ["lem.cli.land", "lem.cli.land.start", "lem.cli.land.verbs"]
     assert [name for name in loaded if name.split(".")[0] in HEAVY] == []
+    # help, version and the fault's log load only when a call needs them
+    for name in ("lem.cli.usage", "lem.cli.version", "lem.cli.faults", "traceback"):
+        assert name not in loaded, name
 
 
 def test_the_command_lem_runs_the_tree_from_its_entry() -> None:

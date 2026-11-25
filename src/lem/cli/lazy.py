@@ -3,36 +3,49 @@
 `lem NOUN VERB ARGS...`: the nouns are in `nouns.py`, each noun's verbs in its own `verbs.py`,
 and each verb is a leaf module of its own. A leaf's outcome is printed as the envelope
 (`output.py`): exit 0 done, 1 a refusal, 2 a wrong call (Click's own, on standard error), 3 a
-fault, whose traceback goes to `lem.log`. `help` and `version` print text and JSON of their
-own, with no envelope; `lem` alone is `lem help`.
+fault, whose traceback goes to `lem.log` (`faults.py`, loaded only on a fault). `help` and
+`version` print text and JSON of their own, with no envelope; `lem` alone is `lem help`.
 """
 
-import logging
+import importlib
 
 import click
 
-from lem.cli import faults, nouns, output, usage, version
+from lem.cli import nouns, output
 from lem.cli.group import LazyGroup
-from lem.kernel.errors import Refusal
+from lem.kernel.errors import Fault, Refusal
 
+# The two commands of `lem` itself, after the nouns, each loaded only when a call names it.
+OWN = (
+    ("help", "lem.cli.usage"),
+    ("version", "lem.cli.version"),
+)
 ROOT = LazyGroup(
     "lem",
     "Lem coordinates the agents that write code in one repository.",
-    nouns.NOUNS,
-    eager=(usage.COMMAND, version.COMMAND),
+    (*nouns.NOUNS, *OWN),
 )
 
 
 def main(argv: list[str]) -> int:
     """Run the command `argv` names, print its envelope, and give its exit code."""
     try:
-        return clicked(argv or ["help"])
+        return contained(argv or ["help"])
+    except Fault as fault:
+        logged = importlib.import_module("lem.cli.faults").logged(fault)
+        return output.failed(*logged)
+
+
+def contained(argv: list[str]) -> int:
+    """Run the call: a refusal is printed, and any other failure becomes a `Fault`."""
+    try:
+        return clicked(argv)
     except Refusal as refusal:
         return output.refused(refusal)
     except Exception as error:
-        with faults.logged() as where:
-            logging.getLogger(faults.LOGGER).exception("a fault of Lem")
-            return output.failed(faults.line(error), where)
+        kind = type(error).__name__
+        said = " ".join(str(error).split())
+        raise Fault(f"Lem failed: {kind}: {said}") from error
 
 
 def clicked(argv: list[str]) -> int:

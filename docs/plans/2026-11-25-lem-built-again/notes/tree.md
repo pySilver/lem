@@ -4,11 +4,14 @@ What `tree` needs in files it does not own, and the two local seams it built unt
 
 ## For `core`
 
-1. **The log of a fault.** `src/lem/cli/faults.py` is a local seam: on a fault, `lazy.main` sends
-   the traceback through the logger named `lem` (`faults.LOGGER`) to `lem.log` in Lem's home
-   folder (`$XDG_CONFIG_HOME/lem`, else `~/.config/lem`), and prints the path in the envelope's
-   `fault.log`. A log that cannot be written goes to standard error, and `fault.log` says why.
-   When `kernel/` has its log, `faults.logged` and `faults.home` call it, and the seam goes.
+1. **The log of a fault.** `src/lem/cli/faults.py` is a local seam: on a fault, `lazy.main`
+   imports it (only then, so a call that succeeds loads none of it) and `faults.logged` appends
+   the time and the traceback to `lem.log` in Lem's home folder (`$XDG_CONFIG_HOME/lem`, else
+   `~/.config/lem`); the envelope's `fault.log` names the file. A log that cannot be written
+   gets the traceback on standard error, and `fault.log` says why. When `kernel/` has its log,
+   `faults.logged` and `faults.home` call it, and the seam goes. Keep `logging` and `traceback`
+   out of a command's path: `logging` cost about 5 ms a call (unmeasured estimate: one
+   `import click, msgspec.json, logging` against the same without it, least of 10, no bytecode).
 2. **The root of Lem's files.** `src/lem/cli/version.py` has its own `root()`: the package's
    `data` folder in an installed app, else the checkout when it holds `skills/lem/SKILL.md`, else
    a `Fault` that names both (`main`'s `paths.root`). `__main__.py`'s version check needs the

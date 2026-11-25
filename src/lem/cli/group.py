@@ -5,14 +5,10 @@ a module when the parser reaches its name, so a call loads one leaf and the tabl
 """
 
 import importlib
-from typing import TYPE_CHECKING
 
 import click
 
 from lem.kernel.errors import Fault
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
 
 # A table of the tree: each name with the dotted path of the module that holds its `COMMAND`.
 type Table = tuple[tuple[str, str], ...]
@@ -32,12 +28,10 @@ class LazyGroup(click.Group):
         table: Table,
         *,
         default: str | None = None,
-        eager: Sequence[click.Command] = (),
     ) -> None:
-        """Keep the table; `eager` are commands that need no import, as `help`."""
+        """Keep the table, and the verb a call with no verb takes."""
         super().__init__(
             name,
-            commands=eager,
             help=about,
             context_settings={"help_option_names": ["-h", "--help"]},
         )
@@ -45,15 +39,13 @@ class LazyGroup(click.Group):
         self.default = default
 
     def list_commands(self, ctx: click.Context) -> list[str]:
-        """The names in the table's order, then the eager commands."""
-        return [*(name for name, _ in self.table), *self.commands]
+        """The names in the table's order."""
+        return [name for name, _ in self.table]
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
         """The command `cmd_name` names, its module imported now; None for no command."""
         path = dict(self.table).get(cmd_name)
-        if path is None:
-            return super().get_command(ctx, cmd_name)
-        return loaded(path)
+        return None if path is None else loaded(path)
 
     def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
         """Put the default verb before a first word that is no verb and no help option."""

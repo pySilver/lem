@@ -1,21 +1,19 @@
 """Where a fault of Lem goes: its traceback to `lem.log` in Lem's home folder, a line to the owner.
 
-A local seam until `kernel/` has the log of every part of Lem
+`lazy.main` loads this module only on a fault, so a call that succeeds pays nothing for it. A
+local seam until `kernel/` has the log of every part of Lem
 (`docs/plans/2026-11-25-lem-built-again/notes/tree.md`).
 """
 
-import logging
 import os
 import sys
-from contextlib import contextmanager
+import traceback
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
-
-# The logger a fault is written with, which `logged` points at `lem.log`.
-LOGGER = "lem"
+    from lem.kernel.errors import Fault
 
 
 def home() -> Path:
@@ -25,39 +23,24 @@ def home() -> Path:
     return config / "lem"
 
 
-@contextmanager
-def logged() -> Generator[str]:
-    """Send the logger LOGGER to `lem.log` while the block runs, and give where it went.
+def logged(fault: Fault) -> tuple[str, str]:
+    """Append the fault's traceback to `lem.log`; give its line and where the traceback went.
 
-    A log that cannot be written sends the record to standard error, and the place says why.
+    A log that cannot be written gets the traceback on standard error, and the place says why.
     """
     path = home() / "lem.log"
+    moment = datetime.now(UTC).isoformat(timespec="seconds")
+    record = "".join((f"{moment} a fault of Lem\n", *traceback.format_exception(fault)))
     try:
-        sink = opened(path)
+        appended(path, record)
     except OSError as why:
-        sink = logging.StreamHandler(sys.stderr)
-        where = f"standard error: {path} could not be written ({why})"
-    else:
-        where = str(path)
-    sink.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
-    log = logging.getLogger(LOGGER)
-    log.propagate = False
-    log.addHandler(sink)
-    try:
-        yield where
-    finally:
-        log.removeHandler(sink)
-        sink.close()
+        sys.stderr.write(record)
+        return str(fault), f"standard error: {path} could not be written ({why})"
+    return str(fault), str(path)
 
 
-def opened(path: Path) -> logging.Handler:
-    """A handler that appends to the file at `path`, its folder made when it is not there."""
+def appended(path: Path, record: str) -> None:
+    """Append `record` to the file at `path`, its folder made when it is not there."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    return logging.FileHandler(path, encoding="utf-8")
-
-
-def line(error: BaseException) -> str:
-    """The fault in one line for the owner."""
-    kind = type(error).__name__
-    said = " ".join(str(error).split())
-    return f"Lem failed: {kind}: {said}"
+    with path.open("a", encoding="utf-8") as log:
+        log.write(record)
