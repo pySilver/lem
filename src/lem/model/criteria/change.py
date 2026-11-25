@@ -105,6 +105,14 @@ def changed(
     he answered and the marks of both sides."""
     no_first(task)
     before, after = sides
+    tested = [one.number for one in after.criteria if one.tests or one.no_test]
+    if tested:
+        raise Refusal(
+            "test-lines",
+            f"criterion {tested[0]} has a test line, and the criteria that wait for his yes "
+            "have none",
+            "take the test lines out: the lead adds them in the plan",
+        )
     if before.size != "full" or after.size != "full":
         raise Refusal(
             "not-full",

@@ -75,3 +75,32 @@ def small_plan(sheet: Sheet, name: str) -> Refusal | None:
         "a plan's criteria are the standard track's: Size: full, because WHY; one plain "
         'change keeps its criterion in criteria.md (stages/new.md, "The fast track")',
     )
+
+
+def checked(
+    sheet: Sheet, changes: Changes, name: str, *, small: bool
+) -> Refusal | None:
+    """Why the criteria of the file `name` may not stand as the task's."""
+    if small and sheet.size != "small":
+        return Refusal(
+            "not-small",
+            f"{name} says Size: {sheet.size}, and only a fast-track task keeps its criterion "
+            "in the task's folder",
+            "the criteria of a standard-track task are at the top of its plan",
+        )
+    if small and changes.approved is None:
+        return Refusal(
+            "unapproved",
+            f"the fast track's criterion in {name} has no approval",
+            "Lem approves it in the owner's name before its builder starts: lem criteria "
+            "approve SLUG --small",
+        )
+    return None if small else small_plan(sheet, name)
+
+
+def standing(
+    sheet: Sheet, changes: Changes, name: str, slug: str, *, small: bool
+) -> Refusal | None:
+    """Why the criteria of the file `name` may not stand as the task `slug`'s, or None."""
+    found = against(sheet, changes, name, slug)
+    return found or checked(sheet, changes, name, small=small)

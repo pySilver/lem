@@ -1,84 +1,79 @@
-"""`lem criteria approve --small`: Lem approves the one criterion of a fast-track task in the
-owner's name, from the task's `criteria.md`.
+"""`lem criteria approve`: keep the criteria that were approved, word for word, with their mark
+and a number of their own (`criteria.cmd_approve` on `main`).
 
-It is only ever the task's first contract: a task with an approval is refused. The digest is of
-the size and the criteria's sentences, so an approval names the text it approved. The owner's
-approval with `--file`, the lead's with `--read`, `--alone` and a request someone else wrote are
-the step `criteria`'s.
+The owner's yes approves FILE as it is, or, with `--shown`, the bytes his page showed and nothing
+else. `--small` is Lem's approval of a fast-track task's one criterion in his name, from the
+task's `criteria.md`; `--read` the lead's freeze of the plan's criteria after a clear read;
+`--alone` an approval while the task runs without him, a night's task or while he is away.
 """
 
-import hashlib
+from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING
 
-import msgspec
-from msgspec.structs import replace
-
-from lem.app.criteria import sheet
+from lem.app.criteria import mode, show, stopped, texts, where
+from lem.app.decisions.writing import Change, written
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
-from lem.records.approvals import Approval
-from lem.store import places, tasks
+from lem.model.criteria import approve, digest
+from lem.model.criteria.read import sheet_of
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.records.approvals import Approval, ApprovedBy
     from lem.records.record import Record
 
-DIGEST = 16
+THE_CRITERIA = "the criteria approved"
 
 
-def digest_of(read: sheet.Sheet) -> str:
-    """One mark of the size and the criteria's sentences (`criteria.text_digest` on `main`)."""
-    texts = [" ".join(criterion.text.split()) for criterion in read.criteria]
-    encoded = msgspec.json.encode([read.size, texts])
-    return hashlib.sha256(encoded).hexdigest()[:DIGEST]
+@dataclass(frozen=True, kw_only=True, slots=True)
+class Asked:
+    """An approval as the command asks it: by whom, the file (None: the task's own), and the
+    mark of the bytes his page showed."""
+
+    by: ApprovedBy
+    path: Path | None = None
+    shown: str | None = None
 
 
-def check(slug: str, found: Record, read: sheet.Sheet) -> None:
-    """Refuse an approval in his name that is not a fast-track task's first contract."""
-    if found.task.criteria.approvals:
-        raise Refusal(
-            "approved",
-            f"{slug} has an approval already; Lem approves in his name only the first",
-            "the owner approves a change of the criteria himself",
-        )
-    if read.size != "small" or len(read.criteria) != 1:
-        raise Refusal(
-            "not-small",
-            f"--small approves one criterion of size small, and {sheet.NAME} has "
-            f"{len(read.criteria)} of size {read.size}",
-            "a task with more than one criterion takes the standard track",
-        )
-
-
-def with_approval(found: Record, *, approval: Approval) -> Record:
-    """The record with the approval and the criteria it approved."""
-    criteria = replace(
-        found.task.criteria,
-        size=approval.size,
-        why=approval.why,
-        criteria=approval.criteria,
-        digest=approval.digest,
-        approvals=(approval,),
+def unchanged_since(path: Path, raw: bytes, shown: str | None) -> None:
+    """Refuse a file whose bytes are not the ones his page showed."""
+    if shown is None or digest.shown(raw) == shown:
+        return
+    raise Refusal(
+        "shown-changed",
+        f"{path.name} changed since the page showed it (the page showed {shown}): nothing "
+        "was approved",
+        "read the criteria again, then approve",
     )
-    return replace(found, task=replace(found.task, criteria=criteria))
 
 
-def approved(folder: Path, slug: str) -> Approval:
-    """Approve the one criterion of `criteria.md` in the owner's name."""
-    state = places.workspace(folder).state
-    found = tasks.read(state, slug)
-    read = sheet.sheet_of(places.task_folder(state, slug) / sheet.NAME)
-    check(slug, found, read)
-    approval = Approval(
-        number=1,
-        at=clock.now(),
-        by="lem",
-        size=read.size,
-        why=read.why,
-        digest=digest_of(read),
-        criteria=read.criteria,
+def make(
+    here: where.Here, asked: Asked, path: Path, record: Record
+) -> tuple[Change, Approval]:
+    """The approval of the file `path` for the record as it is, and what it approves."""
+    raw = texts.bytes_of(path, THE_CRITERIA)
+    unchanged_since(path, raw, asked.shown)
+    stopped.unmoved(here, record, raw, path)
+    approving = approve.Asked(
+        by=asked.by,
+        sheet=sheet_of(texts.text_of(raw, path), path.name),
+        alone=mode.alone(record),
+        other=mode.not_his(record),
+        plan=asked.by in {"read", "alone"},
     )
-    tasks.update(state, slug, partial(with_approval, approval=approval), found.revision)
-    return approval
+    now = clock.now()
+    change = partial(approve.approved, asked=approving, now=now)
+    return change, approve.approval_of(record.task, approving, now)
+
+
+def approved(folder: Path, slug: str, asked: Asked) -> Approval:
+    """Approve the criteria of `asked` for the task `slug`."""
+    here = where.here_of(folder, slug)
+    path = asked.path
+    if asked.by == "read":
+        path, _ = show.source(here, here.read())
+    elif path is None:
+        path = here.sheet
+    return written(here.workspace.state, slug, partial(make, here, asked, path))
