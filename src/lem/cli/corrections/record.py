@@ -2,7 +2,8 @@
 
     lem corrections record ID --decision D --verdict V [--target FILE] [--lesson L]
 
-A stub until the step `addons-flow` builds it: it refuses `not-built`.
+A lesson needs `--lesson` and `--target`; a lesson that went into a proposal of the retro is
+`--verdict proposed`, with the proposal's name in its sentence (`addons/corrections/reviewing.py`).
 """
 
 from typing import Literal
@@ -10,8 +11,11 @@ from typing import Literal
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.addons.corrections import reviewing
+from lem.cli import place
 from lem.cli.words import choice
+from lem.kernel import clock
+from lem.store import places
 
 type Decision = Literal["lesson", "not_lesson"]
 type Verdict = Literal[
@@ -29,9 +33,17 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     lesson: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `addons-flow` builds `lem corrections record`."""
-    raise not_built("corrections record", "addons-flow")
+def run(call: Call) -> reviewing.Recorded:
+    """Write what was decided about the group."""
+    state = places.state_of(places.workspace(place.folder()).checkout)
+    review = reviewing.Review(
+        gid=call.entry,
+        decision=call.decision,
+        verdict=call.verdict,
+        target=call.target,
+        lesson=call.lesson,
+    )
+    return reviewing.recorded(state, review, clock.now())
 
 
 COMMAND = click.Command(
