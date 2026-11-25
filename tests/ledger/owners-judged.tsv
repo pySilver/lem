@@ -1,0 +1,49 @@
+id	step	why
+event:merge.review	land-merge	Both carry_merge (land-base, carry) and cmd_merge_review write it. The merge review writes the event first; the carried copy repeats its verdict on a new tip.
+event:merge.stands	land-merge	Both carry_merge (land-base, carry) and cmd_merge_review write it. The owner's standing merge is the merge step's path (landing.md E, owner merge refused for the base).
+guide:docs/free-hour.md	addons-flow	Part 9 lists no owner for this private guide. It gives the night and retro proposal behavior to addons-flow.
+refusal:Task.kept:self-kept-file-does-not-read-as-json-error-l-b76b793bcede0539	core	The corrupt saved record can stop any landing step. Core owns the new record and its reader.
+refusal:Task.need_worktree:the-task-has-no-worktree-at-self-worktree-gi-f3a5fb58b23becc9	land-base	Several landing steps call the guard. Base owns the Git adapter and proves that landing commands refuse a missing or dirty worktree.
+refusal:Task.need_worktree:the-worktree-has-changes-nobody-committed-di-28ed3d6b4cace16f	land-base	Several landing steps call the guard. Base owns the Git adapter and proves that landing commands refuse a missing or dirty worktree.
+refusal:Task.read_states:no-task-self-slug-r-the-tasks-are-listed-dcfa95bd75c3e27d	task	The old landing lookup reports an unknown slug. The task step provides the new task lookup.
+refusal:events_of:line-number-of-log-is-not-json-error-the-log-2ee7b7abc2391f5f	core	The old landing reads the log for checks, review, PR text and merge. Core owns the journal store and its read errors.
+refusal:project_now:in-process:this-repository-has-no-lem-settings-toml-lem-06352751880aed83	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.
+refusal:project_now:str-error-177e167f5c0481a3	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.
+refusal:project_now:subprocess:this-repository-has-no-lem-settings-toml-lem-06352751880aed83	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.
+refusal:run:command-failed-words-e871f44407f5b36b	land-base	The shared command runner can fail at several steps. Land-base owns the Git adapter used by the landing.
+refusal:state_item_of_ask:lem-sibling-file-of-project-has-no-main-argv-aed5accf5caabc21	tree	The refusal guards the in-process form of sibling.py, which tree owns and part 1 drops. Tree proves that no command reads another module through that form.
+refusal:step_lock:another-step-of-slug-runs-now-and-holds-its-3b9f0eb706f26999	core	The refusal protects all landing steps. The step-lock seam gives the new lock to core.
+refusal:step_lock:another-step-of-slug-runs-now-lem-land-holde-f182a4e3444c0eed	core	The refusal protects all landing steps. The step-lock seam gives the new lock to core.
+refusal:step_lock:the-checks-of-slug-already-run-when-a-second-e3890420b7002440	land-checks	This message describes the active check run and how it ends. The checks step owns the run and its status.
+refusal:step_lock:the-checks-of-slug-run-when-and-their-end-co-02e83b578737b735	land-checks	This message describes the active check run and how it ends. The checks step owns the run and its status.
+refusal:step_lock:the-step-lock-path-cannot-be-opened-error-st-ae7e636d44cca621	core	The file-open failure can stop any landing step. The step-lock seam gives the new lock to core.
+refusal:task_file:path-is-not-a-file-flag-names-a-file-by-its-c39509a3ecc2e8d0	tree	The old shared helper resolves flags for the review record, the PR notes, the merge answer and the alike finding. The tree step owns the parameter contract.
+refusal:task_file:path-is-not-a-file-in-the-working-directory-ce99925e12bdcf2d	tree	The old shared helper resolves flags for the review record, the PR notes, the merge answer and the alike finding. The tree step owns the parameter contract.
+ruling:a-lowered-bar-a-new-suppression-a-skipped-or-110297d0eb925f42	land-checks	The shell suite belongs to review, and the Bar cases belong to checks. Checks owns the lowered-bar finding that must reach the PR.
+ruling:a-partial-review-is-a-review-6471c81a4fd37ad9	land-review	The cited suites span review, propose and merge. Review owns the floor and the selection that can satisfy it.
+ruling:a-project-can-close-branches-003115363c11829e	land-base	Settings defines the protected names, and landing enforces them. The surfaces annex gives the old may-land contract to land-base.
+ruling:a-release-is-a-change-of-the-plugin-s-versio-eef0c0acef8044d0	core	The text is in AGENTS.md, and the value is in the manifest. Core owns the manifest and packaging value.
+ruling:a-task-has-a-type-and-a-track-and-they-are-t-8f98808a3ad23f65	task	Both the task and settings suites cite the ruling. The task step owns the two values and their display in the first line.
+ruling:after-a-merge-lem-repairs-only-a-pull-reques-de2df01c57704a81	board-duties	The old tests span the forge and board acts. The server duty decides which pull request needs to wake after a merge.
+ruling:an-address-for-each-workspace-and-task-two-m-a37b5f8ad1f73ae3	board-service	The citations span server routes, peers and push. Let the server owner account for the address contract and cite peers and push.
+ruling:checks-keeps-three-keys-and-alone-is-serial-8a60ebdb4c074d50	settings	The serial suite checks order, and the ruling names the settings keys. Settings owns their names and accepted form.
+ruling:each-label-of-a-chart-is-quoted-2bd1e5e8703511d5	criteria	The rule appears in AGENTS.md and the task writing prompt. Criteria owns the writing prompt that applies it to task charts.
+ruling:his-away-status-is-one-mark-of-the-machine-a-b2c57fa6764dfabb	owner	The cited tasks and decisions use the rule. Owner owns the machine-wide status and the rule for when a task runs without him.
+ruling:lem-brings-its-own-builder-agent-0f71b63116439ed6	criteria	Doctor checks for the file. Criteria owns the builder definition that the ruling specifies.
+ruling:no-stale-pull-request-and-a-folded-header-on-901ac30ef51fb4eb	board-pages	Forge duties supply fresh data, and the folded header is a page behavior. Let the page step account for both at the render boundary.
+ruling:the-backlog-is-a-part-of-lem-and-its-view-is-a965c3d0b64637e0	board-service	The cited suites span settings, board acts and the server. The cited board route and filter preserve the tab visible to the owner.
+ruling:the-board-is-served-and-the-server-draws-it-e4797a5c484faf42	board-service	The old server and the main skill both say it. The board application owns the served surface.
+ruling:the-checks-remove-what-their-own-commands-le-5cb45dd6079a95db	land-checks	The guard suite demonstrates the behavior and onboarding advises about it. The checks step owns restoration after a check command.
+ruling:the-first-line-of-a-task-is-composed-by-lem-0da372939db2417f	task	The task step composes the line, and the session presents it. The source of the line owns the row.
+ruling:the-session-s-answers-to-his-notes-that-aske-0e92ef5165197389	criteria	The historical row joins three rules. Criteria owns the plan instruction that uses task dependencies. Cite settings and shipped names as well.
+ruling:the-size-of-a-change-decides-its-path-5ef69d536294de8c	owner	The main skill selects the path and the small prompt applies it. The owner step takes the final main skill in part 9.
+ruling:the-time-card-gets-exact-start-times-d2c4849e7fd2e8ef	task	The main skill tells agents to log stage starts, and the project source names the start events. The task step owns those span records.
+ruling:the-trials-of-2026-11-21-a-task-s-session-sa-b7fb034987197ddd	sessions	The historical row joins session startup and onboarding. Let the session owner account for the first-line handoff and cite onboarding separately.
+ruling:without-codex-one-expert-answers-alone-5a3515f2f428be0e	addons-outside	Settings exposes the available seats, and the experts add-on runs the one-expert path.
+unit:tests/unit/test_land.py:ProtectedBranch.test_a_protected_name_is_refused_and_named	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.
+unit:tests/unit/test_land.py:ProtectedBranch.test_a_task_branch_that_is_not_protected	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.
+unit:tests/unit/test_land.py:ProtectedBranch.test_the_base_is_refused	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.
+unit:tests/unit/test_land.py:TaskFile.test_a_file_in_neither_place_is_refused_with_both	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.
+unit:tests/unit/test_land.py:TaskFile.test_a_relative_path_that_the_working_directory_lacks_is_the_task_directorys	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.
+unit:tests/unit/test_land.py:TaskFile.test_an_absolute_path_is_taken_as_it_is	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.
+unit:tests/unit/test_land.py:TaskFile.test_the_working_directory_comes_first	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.
