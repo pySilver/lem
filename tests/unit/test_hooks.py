@@ -42,9 +42,10 @@ ALONE = {
 
 
 def isolated(home: Path, **more: str) -> dict:
-    """The environment of a hook in a home of its own, with no board server."""
+    """The environment of a hook in a home of its own, with no board server, and a PATH
+    with no `lem`, whose SessionStart hook would name one that is not this app's."""
     return {
-        "PATH": os.environ.get("PATH", ""),
+        "PATH": "/usr/bin:/bin",
         "HOME": str(home),
         "XDG_CONFIG_HOME": str(home / "config"),
         "TMPDIR": str(home),
@@ -346,7 +347,12 @@ class TwoVersions(unittest.TestCase):
             mock.patch.object(hooks, "handler", lambda _: handled),
             mock.patch.dict(
                 os.environ,
-                {"CLAUDE_PLUGIN_ROOT": plugin, "CLAUDE_ENV_FILE": env_file},
+                {
+                    "CLAUDE_PLUGIN_ROOT": plugin,
+                    "CLAUDE_ENV_FILE": env_file,
+                    # no `lem` on it, so that the one line said is the versions'
+                    "PATH": "",
+                },
             ),
         ):
             return hooks.run(selector), called
@@ -424,6 +430,110 @@ class TwoVersions(unittest.TestCase):
             with mock.patch.dict(os.environ, {"LEM_PLUGIN_ROOT": plugin}):
                 self.assertIsNone(entry.same_plugin())
         self.assertEqual(entry.NO_PLUGIN_CHECK, ("doctor",))
+
+
+class AnotherLem(unittest.TestCase):
+    """The first `lem` on the SessionStart hook's PATH against the app's own command, by
+    file identity, never run: one line when it is another file, none when no `lem` is
+    on PATH or it is the app's."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp(prefix="lem-path-"))
+        self.addCleanup(shutil.rmtree, self.root)
+        self.own = self.command("app/libexec/bin", "#!/bin/sh\necho app\n")
+
+    def command(self, folder: str, text: str, *, mode: int = 0o755) -> str:
+        path = self.root / folder / "lem"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        path.chmod(mode)
+        return str(path)
+
+    def link(self, folder: str, target: str) -> str:
+        path = self.root / folder / "lem"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.symlink_to(target)
+        return str(path)
+
+    def search(self, *folders: str) -> str:
+        return os.pathsep.join(str(self.root / folder) for folder in folders)
+
+    def test_no_lem_or_the_apps_own_says_nothing(self) -> None:
+        (self.root / "empty").mkdir()
+        linked = self.link("brew/bin", self.own)
+        self.assertIsNone(hooks.other_lem(self.search("empty"), self.own))
+        self.assertIsNone(hooks.other_lem("", self.own))
+        self.assertIsNone(hooks.other_lem(self.search("app/libexec/bin"), self.own))
+        # Homebrew's link to the app is the app
+        self.assertIsNone(hooks.other_lem(self.search("empty", "brew/bin"), self.own))
+        self.assertTrue(Path(linked).is_symlink())
+        # a file that cannot run is no command
+        self.command("plain", "not a program", mode=0o644)
+        self.assertIsNone(hooks.other_lem(self.search("plain", "brew/bin"), self.own))
+
+    def test_another_lem_first_is_named_with_the_folder_to_put_before_it(self) -> None:
+        other = self.command("tools", "#!/bin/sh\necho other\n")
+        self.link("brew/bin", self.own)
+        self.assertEqual(
+            hooks.other_lem(self.search("tools", "brew/bin"), self.own),
+            f"lem: {other} comes first on PATH, and it is not Lem's command "
+            f"{self.own}; the owner puts {self.root / 'brew/bin'} before "
+            f"{self.root / 'tools'} in his PATH",
+        )
+        # the app not on PATH: its own folder
+        self.assertIn(
+            f"the owner puts {self.root / 'app/libexec/bin'} before",
+            hooks.other_lem(self.search("tools"), self.own) or "",
+        )
+        # a copy of the same bytes is another file
+        copy = self.command("copy", "#!/bin/sh\necho app\n")
+        self.assertIn(
+            f"lem: {copy} comes first",
+            hooks.other_lem(self.search("copy", "brew/bin"), self.own) or "",
+        )
+
+    def test_an_app_with_no_command_says_nothing(self) -> None:
+        self.command("tools", "#!/bin/sh\n")
+        self.assertIsNone(
+            hooks.other_lem(self.search("tools"), str(self.root / "gone" / "lem"))
+        )
+
+    def test_session_start_says_it_and_keeps_the_tasks_context(self) -> None:
+        other = self.command("tools", "#!/bin/sh\n")
+
+        def handled() -> None:
+            print("the task's context")
+
+        def silent() -> None:
+            pass
+
+        for work, wanted in ((handled, "the task's context\n"), (silent, None)):
+            with (
+                self.subTest(work=work.__name__),
+                mock.patch.object(hooks, "handler", lambda _, work=work: work),
+                mock.patch.object(hooks, "own_command", lambda: self.own),
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        "PATH": self.search("tools"),
+                        "CLAUDE_PLUGIN_ROOT": hooks.app_root() or "",
+                        "CLAUDE_ENV_FILE": "",
+                    },
+                ),
+            ):
+                said = json.loads(hooks.run("session-start"))
+                self.assertTrue(said["systemMessage"].startswith(f"lem: {other} "))
+                self.assertEqual(
+                    said.get("hookSpecificOutput"),
+                    {
+                        "hookEventName": "SessionStart",
+                        "additionalContext": wanted,
+                    }
+                    if wanted
+                    else None,
+                )
+                # the other hooks never say it
+                self.assertNotIn("systemMessage", hooks.run("precompact"))
 
 
 class AskStopHook(unittest.TestCase):

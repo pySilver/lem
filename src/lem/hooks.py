@@ -5,7 +5,7 @@ stdin.
     corrections      UserPromptSubmit: the correction hook (`corrections.cmd_hook`)
     serve            SessionStart: the start of the board server (`serve_hook`)
     session-start    SessionStart: a task's session's records (`session_hook`), and the
-                     check below
+                     two checks below
     precompact       PreCompact: a task's compaction summary's form (`session_hook`)
     stop             Stop: lem-ask's status at the end of a turn (`ask.hook_stop`)
 
@@ -26,10 +26,12 @@ but `session-start` does nothing and says nothing; `session-start` says one line
 (`version_line`). It also writes `export LEM_PLUGIN_ROOT=...` into the file
 `CLAUDE_ENV_FILE` names, which the session's Bash tool runs before each command, so that
 a command `lem` of that session stops with the same line (`__main__.cli`). With no
-`CLAUDE_PLUGIN_ROOT` there is no check. Claude Code's hooks reference, read 2026-11-25:
-a SessionStart hook's plain stdout is context for Claude, and `systemMessage` of a
-hook's JSON is a warning shown to the user; `CLAUDE_ENV_FILE` is given to SessionStart
-hooks, which append `export` lines to it.
+`CLAUDE_PLUGIN_ROOT` there is no check. `session-start` also says one line when the
+first `lem` on its PATH is another file than this app's own command (`other_lem`),
+which it compares by identity and never runs. Claude Code's hooks reference, read
+2026-11-25: a SessionStart hook's plain stdout is context for Claude, and
+`systemMessage` of a hook's JSON is a warning shown to the user; `CLAUDE_ENV_FILE` is
+given to SessionStart hooks, which append `export` lines to it.
 """
 
 import os
@@ -150,6 +152,50 @@ def behind(plugin: str, app: str, theirs: str, mine: str) -> str:
     )
 
 
+def runnable(path: str) -> bool:
+    return os.path.isfile(path) and os.access(path, os.X_OK)
+
+
+def same_file(one: str, other: str) -> bool:
+    """Whether the two paths are one file, after their links; False when one is not
+    there."""
+    try:
+        return os.path.samefile(os.path.realpath(one), os.path.realpath(other))
+    except OSError:
+        return False
+
+
+def other_lem(search: str, own: str) -> str | None:
+    """The one line that says the first `lem` on the search path SEARCH is another file
+    than OWN, this app's command, and which folder must come before its folder; None
+    when no `lem` is on SEARCH, when it is OWN, or when OWN is not there. Neither is
+    run."""
+    folders = [folder for folder in search.split(os.pathsep) if folder]
+    first = next(
+        (
+            os.path.join(folder, "lem")
+            for folder in folders
+            if runnable(os.path.join(folder, "lem"))
+        ),
+        None,
+    )
+    if first is None or not runnable(own) or same_file(first, own):
+        return None
+    mine = next(
+        (folder for folder in folders if same_file(os.path.join(folder, "lem"), own)),
+        os.path.dirname(own),
+    )
+    return (
+        f"lem: {first} comes first on PATH, and it is not Lem's command {own}; "
+        f"the owner puts {mine} before {os.path.dirname(first)} in his PATH"
+    )
+
+
+def own_command() -> str:
+    """This app's command `lem`: the one beside the interpreter that runs this hook."""
+    return os.path.join(os.path.dirname(sys.executable), "lem")
+
+
 def keep_root(plugin: str) -> None:
     """Append `export LEM_PLUGIN_ROOT='PLUGIN'` to the file CLAUDE_ENV_FILE names, when
     it names one: the session's Bash tool runs that file before each command."""
@@ -225,11 +271,24 @@ def run(selector: str) -> str:
         return "" if behind else held(work) or ""
     if plugin:
         keep_root(plugin)
-    if not behind:
-        return held(work) or ""
+    lines = [
+        line
+        for line in (behind, other_lem(os.environ.get("PATH", ""), own_command()))
+        if line
+    ]
+    said = "" if behind else held(work) or ""
+    if not lines:
+        return said
     import json
 
-    return json.dumps({"systemMessage": behind}, ensure_ascii=False) + "\n"
+    shown: dict[str, object] = {"systemMessage": "\n".join(lines)}
+    if said.strip():
+        # the task's context, which plain stdout gives when there is no line to say
+        shown["hookSpecificOutput"] = {
+            "hookEventName": "SessionStart",
+            "additionalContext": said,
+        }
+    return json.dumps(shown, ensure_ascii=False) + "\n"
 
 
 def cli() -> None:
