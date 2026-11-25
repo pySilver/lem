@@ -9,6 +9,7 @@ session starts from; `phase:` is also what the PreCompact hook reads (`hooks/pre
 from typing import TYPE_CHECKING
 
 from lem.kernel import files
+from lem.store import guard
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -27,5 +28,6 @@ def write(folder: Path, facts: Mapping[str, str]) -> Path:
     lines = (f"{name}: {fact}" for name, fact in facts.items())
     text = "\n".join((FIRST, "", *lines, ""))
     path = folder / BRIEF
+    guard.writable(folder.parents[1])
     files.write_whole(path, text.encode())
     return path

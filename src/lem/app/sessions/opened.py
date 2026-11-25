@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Literal
 import msgspec
 
 from lem.records.base import Moment, Tagged
+from lem.store import guard
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -46,7 +47,9 @@ type Noted = Open | Close
 
 
 def append(folder: Path, noted: Noted) -> None:
-    """Append one framed line to the task folder's file of sessions opened and closed."""
+    """Append one framed line to the task folder's file of sessions opened and closed; refused
+    in a state folder of the Lem before."""
+    guard.writable(folder.parents[1])
     frame = b"".join((b"\n", msgspec.json.encode(noted), b"\n"))
     flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
     descriptor = os.open(folder / OPENED, flags, MODE)
@@ -56,7 +59,9 @@ def append(folder: Path, noted: Noted) -> None:
 
 
 def read(folder: Path) -> tuple[Noted, ...]:
-    """Every readable line of the task folder's file, in the order written."""
+    """Every readable line of the task folder's file, in the order written; refused in a
+    state folder of the Lem before."""
+    guard.readable(folder.parents[1])
     try:
         body = (folder / OPENED).read_bytes()
     except FileNotFoundError:

@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pytest
 
+from lem.kernel import folders
 from lem.store import sessions
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -54,6 +55,7 @@ def workspace(folder: Path) -> Path:
     (folder / ".git").mkdir(parents=True)
     (folder / ".lem" / "state" / "tasks" / SLUG).mkdir(parents=True)
     (folder / ".lem" / "settings.toml").write_text("")
+    (folder / ".lem" / "state" / folders.MARKER).write_bytes(folders.FORM)
     return folder / ".lem" / "state" / "tasks" / SLUG
 
 
@@ -291,12 +293,13 @@ def test_another_lem_first_on_the_path_is_named_and_never_run(tmp_path: Path) ->
     assert not ran_mark.exists()
 
 
-def imported(*command: str) -> set[str]:
-    """The modules a command of this Python imports, from `PYTHONPROFILEIMPORTTIME`."""
+def imported(code: str, stdin: bytes, **environ: str) -> set[str]:
+    """The modules that `python -c CODE` imports, from `-X importtime`. The hook is called
+    through `main.run`, not its entry, whose `os._exit` would cut off the last lines."""
     ran = subprocess.run(
-        command,
-        input=b"{}",
-        env={**os.environ, "PATH": GUI_PATH, "PYTHONPROFILEIMPORTTIME": "1"},
+        [sys.executable, "-X", "importtime", "-c", code],
+        input=stdin,
+        env={**os.environ, "PATH": GUI_PATH, **environ},
         cwd=tempfile.gettempdir(),
         capture_output=True,
         timeout=30,
@@ -309,19 +312,61 @@ def imported(*command: str) -> set[str]:
     return {row.strip() for row in rows} - {"package"}
 
 
+# What `json` brings with it on Python 3.14, which every hook that reads an event pays.
+JSON = frozenset(
+    (
+        "json",
+        "_json",
+        "re",
+        "_sre",
+        "enum",
+        "functools",
+        "_functools",
+        "collections",
+        "_collections",
+        "operator",
+        "_operator",
+        "keyword",
+        "reprlib",
+        "types",
+        "_types",
+        "copyreg",
+        "itertools",
+    )
+)
+# What each selector may import beyond Python's own start, by its top-level name: an import a
+# later change adds (`pathlib`, `subprocess` on the common path, a library) fails here, on any
+# machine and at any load, before it shows in the time of a hook.
+ALLOWED = {
+    "stop": frozenset(("importlib", "io", "select")),
+    "session-start": frozenset(("importlib", "io", "select")) | JSON,
+    "precompact": frozenset(("importlib", "io", "select")) | JSON,
+    "serve": frozenset(("importlib", "io", "select")) | JSON,
+    "corrections": frozenset(
+        ("importlib", "io", "select", "tomllib", "datetime", "_datetime", "__future__")
+    )
+    | JSON,
+}
+
+
 @pytest.mark.parametrize("selector", SELECTORS)
-def test_a_selector_imports_the_standard_library_and_lem_hooks_only(
-    selector: str,
+def test_a_selector_imports_only_its_allowed_list(
+    selector: str, tmp_path: Path
 ) -> None:
-    start = imported(sys.executable, "-c", "pass")
-    hook = imported(str(HOOK), selector)
-    added = {name for name in hook - start if name.split(".")[0] != "lem"}
-    outside = {
-        name for name in added if name.split(".")[0] not in sys.stdlib_module_names
-    }
-    lem = {name for name in hook if name.split(".")[0] == "lem"}
+    workspace(tmp_path / "repo")
+    event = json.loads(started(tmp_path / "repo"))
+    stdin = json.dumps({**event, "prompt": "fix the login"}).encode()
+    start = imported("pass", b"")
+    call = f"import os; from lem.hooks import main; main.run({selector!r}, os.environ)"
+    hook = imported(call, stdin, LEM_TASK=SLUG, CLAUDE_PLUGIN_ROOT=str(ROOT))
+    added = hook - start
+    outside = {name.split(".")[0] for name in added} - ALLOWED[selector] - {"lem"}
+    lem = {name for name in added if name.split(".")[0] == "lem"}
     assert outside == set()
-    assert lem <= {"lem", "lem.hooks"} | {name for name in lem if "lem.hooks." in name}
+    assert lem <= {"lem", "lem.hooks"} | {
+        name for name in lem if name.startswith("lem.hooks.")
+    }
+    assert "lem.hooks.main" in lem
 
 
 def p95(selector: str, stdin: bytes) -> float:
@@ -335,8 +380,18 @@ def p95(selector: str, stdin: bytes) -> float:
     return taken[math.ceil(0.95 * RUNS) - 1]
 
 
+# The one-minute load average above which a time is no measure of the hook (the orchestrator's
+# decision of 2026-11-25: several builders ran on this Mac, and the same code gave 44 ms at a
+# load of 8 and 57 ms at a load of 10). The packaging trial's check P4 measures every selector
+# on a quiet machine before the cutover, and is the binding number.
+QUIET = 4.0
+
+
 @pytest.mark.parametrize("selector", SELECTORS)
 def test_a_selector_takes_at_most_55_ms_at_p95(selector: str, tmp_path: Path) -> None:
+    load = os.getloadavg()[0]
+    if load > QUIET:
+        pytest.skip(f"load average {load:.1f} over {QUIET}: not measured")
     workspace(tmp_path / "repo")
     took = p95(selector, started(tmp_path / "repo"))
     assert took <= BUDGET, f"{selector}: p95 {took:.1f} ms over {RUNS} runs"
@@ -445,3 +500,35 @@ def test_a_plugin_whose_manifest_does_not_read_is_named_with_its_fix(
     assert said.endswith(
         "the owner installs Lem's plugin again and starts the session again"
     )
+
+
+def files_of(folder: Path) -> dict[str, bytes]:
+    """Each file under `folder`, by its path, with its bytes."""
+    return {
+        str(path): path.read_bytes()
+        for path in sorted(folder.rglob("*"))
+        if path.is_file()
+    }
+
+
+def test_a_state_folder_of_lem_0_3_is_neither_written_nor_read(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    (repo / ".lem" / "state" / "tasks" / SLUG).mkdir(parents=True)
+    (repo / ".lem" / "settings.toml").write_text("")
+    (repo / ".lem" / "state" / "events.jsonl").write_text('{"event": "task.state"}\n')
+    (repo / ".lem" / "state" / "tasks" / SLUG / "state.md").write_text("building\n")
+    (repo / ".lem" / "state" / "tasks" / SLUG / "handoff.md").write_text("task: x\n")
+    before = files_of(repo)
+    compact = json.loads(started(repo, "compact"))
+    inputs = (
+        started(repo),
+        json.dumps(compact).encode(),
+        json.dumps({**compact, "hook_event_name": "PreCompact"}).encode(),
+        json.dumps({"prompt": "fix the login", "cwd": str(repo)}).encode(),
+    )
+    for selector in SELECTORS:
+        for stdin in inputs:
+            ran = hooked(selector, stdin)
+            assert (ran.returncode, ran.stdout, ran.stderr) == (0, b"", b""), selector
+    assert files_of(repo) == before

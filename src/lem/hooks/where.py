@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 STATE = ".lem/state"
+# The marker of a state folder this Lem made (`kernel.folders.MARKER`). A state folder without
+# it holds the files of Lem 0.3, which no hook of this Lem writes into or reads.
+MARKER = "lem-state.json"
 # The letters of a task's name, as `store.places.SLUG` holds them.
 SLUG_LETTERS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789-")
 
@@ -67,22 +70,28 @@ def checkout_of(folder: str) -> str | None:
     return parent(common_dir(f"{here}/.git"))
 
 
-def folder_of(found: raw.Event, environ: Mapping[str, str]) -> str:
-    """The folder the session runs in: the event's, else Claude Code's project, else this
-    process's own."""
+def checkout_here(found: raw.Event, environ: Mapping[str, str]) -> str | None:
+    """The main checkout of the folder the session runs in (the event's, else Claude Code's
+    project, else this process's own) when its state folder is one this Lem made, with the
+    marker; None outside a repository, and for a state folder of Lem 0.3."""
     project = environ.get("CLAUDE_PROJECT_DIR")
-    return raw.text(found, "cwd") or project or "."
+    checkout = checkout_of(raw.text(found, "cwd") or project or ".")
+    marker = f"{checkout}/{STATE}/{MARKER}"
+    return checkout if checkout and os.access(marker, os.F_OK) else None
 
 
 def task_folder(found: raw.Event, environ: Mapping[str, str]) -> str | None:
     """The folder of the session's task in the state of its main checkout, or None for a
-    session that is no task's, whose task has no folder there, or whose folder a link puts in
-    another place: a hook touches no file of another checkout."""
+    session that is no task's, whose task has no folder there, whose folder a link puts in
+    another place, or whose state folder is Lem 0.3's: a hook touches no file of another
+    checkout, nor of the Lem before."""
     slug = slug_of(environ)
     if slug is None:
         return None
-    checkout = checkout_of(folder_of(found, environ))
+    checkout = checkout_here(found, environ)
+    if checkout is None:
+        return None
     folder = f"{checkout}/{STATE}/tasks/{slug}"
-    if checkout is None or not raw.is_folder(folder):
+    if not raw.is_folder(folder):
         return None
     return folder if os.path.realpath(folder) == folder else None

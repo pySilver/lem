@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from lem.hooks import corrections, other, precompact, serve, session, versions, where
-from lem.kernel import paths
+from lem.kernel import folders, paths
 from lem.records import sessions as records
 from lem.store import sessions
 
@@ -67,8 +67,12 @@ def test_the_framed_line_is_one_the_store_reads(tmp_path: Path) -> None:
     assert frame is not None
     assert frame.startswith(b"\n")
     assert frame.endswith(b"\n")
-    (tmp_path / sessions.SESSIONS).write_bytes(b'{"v": 1, "cut off' + frame)
-    read = sessions.read(tmp_path)
+    state = tmp_path / "state"
+    task = state / "tasks" / "gift-note"
+    task.mkdir(parents=True)
+    (state / folders.MARKER).write_bytes(folders.FORM)
+    (task / sessions.SESSIONS).write_bytes(b'{"v": 1, "cut off' + frame)
+    read = sessions.read(task)
     assert [(line.source, line.claude, line.pane) for line in read] == [
         ("fork", "c1", "S-1")
     ]
@@ -144,8 +148,10 @@ def test_corrections_need_the_machines_yes_and_a_repository_of_lem(
     repo = tmp_path / "repo"
     (repo / ".git").mkdir(parents=True)
     assert corrections.collects({"cwd": str(repo)}, {}) is False
-    (repo / ".lem").mkdir()
+    (repo / ".lem" / "state").mkdir(parents=True)
     (repo / ".lem" / "settings.toml").write_text("")
+    assert corrections.collects({"cwd": str(repo)}, {}) is False
+    (repo / ".lem" / "state" / folders.MARKER).write_bytes(folders.FORM)
     assert corrections.collects({"cwd": str(repo)}, {}) is True
 
 
@@ -156,8 +162,11 @@ def test_the_server_starts_in_a_repository_of_lem_unless_it_is_off(
     (repo / ".git").mkdir(parents=True)
     event: dict[str, object] = {"cwd": str(repo)}
     assert serve.wanted(event, {}) is False
-    (repo / ".lem").mkdir()
+    (repo / ".lem" / "state").mkdir(parents=True)
     (repo / ".lem" / "settings.toml").write_text("")
+    (repo / ".lem" / "state" / "events.jsonl").write_text("")
+    assert serve.wanted(event, {}) is False
+    (repo / ".lem" / "state" / folders.MARKER).write_bytes(folders.FORM)
     assert serve.wanted(event, {}) is True
     assert serve.wanted(event, {"LEM_SERVE": "off"}) is False
     assert serve.wanted({}, {"CLAUDE_PROJECT_DIR": str(repo)}) is True

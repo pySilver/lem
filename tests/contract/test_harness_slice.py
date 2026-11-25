@@ -16,7 +16,7 @@ from lem.kernel.errors import Fault, Refusal
 from lem.ports.harness import Missing, Seat, Signs, Transcript
 from lem.ports.place import Place
 from lem.records.sessions import SessionLine
-from lem.store import sessions
+from lem.store import guard, sessions
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -85,6 +85,7 @@ def prompt(text: str, at: str = "2026-11-25T10:00:00Z") -> dict[str, object]:
 
 def logged(state: Path, slug: str, path: str, claude: str, minute: int) -> None:
     """The line `session-start` appends for a session of `slug`, started at `minute`."""
+    guard.writable(state)
     folder = state / "tasks" / slug
     folder.mkdir(parents=True, exist_ok=True)
     at = AT.replace(minute=minute)

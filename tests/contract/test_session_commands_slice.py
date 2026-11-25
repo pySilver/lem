@@ -110,3 +110,39 @@ def test_a_session_opens_starts_shows_its_signs_and_closes(tmp_path: Path) -> No
     assert isinstance(after, list)
     assert [(entry["live"], entry["closed"]) for entry in after] == [(False, "ended")]
     assert not [call for call in standin.calls() if "select" in call]
+
+
+def test_the_commands_refuse_a_state_folder_of_lem_0_3_and_change_nothing(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    (repo / ".lem" / "state" / "tasks" / SLUG).mkdir(parents=True)
+    (repo / ".lem" / "state" / "events.jsonl").write_text('{"event": "task.state"}\n')
+    (repo / ".lem" / "state" / "tasks" / SLUG / "state.md").write_text("building\n")
+    standin = install(tmp_path / "agterm", [MINE])
+    env = {
+        **{
+            name: value
+            for name, value in os.environ.items()
+            if not name.startswith(("AGTERM_", "CLAUDE_"))
+        },
+        **standin.environ(AGTERM_SESSION_ID="S-MINE"),
+    }
+    before = {
+        str(path): path.read_bytes() for path in repo.rglob("*") if path.is_file()
+    }
+    for words in (
+        ("open", SLUG, "--why", "new"),
+        ("next", SLUG),
+        ("close", SLUG, "--why", "ended"),
+        ("list",),
+    ):
+        ran = lem("session", *words, cwd=repo, env=env)
+        assert ran.code == 1, (words, ran.stdout, ran.stderr)
+        refusal = ran.envelope()["refusal"]
+        assert isinstance(refusal, dict)
+        assert refusal["code"] == "old-state", words
+    after = {str(path): path.read_bytes() for path in repo.rglob("*") if path.is_file()}
+    assert after == before
+    assert not [call for call in standin.calls() if call[:2] == ["session", "new"]]

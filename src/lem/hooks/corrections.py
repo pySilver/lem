@@ -68,7 +68,7 @@ def machine_says_yes(environ: Mapping[str, str]) -> bool:
 
 def collects(found: raw.Event, environ: Mapping[str, str]) -> bool:
     """Whether the message was typed in a repository that uses Lem."""
-    checkout = where.checkout_of(where.folder_of(found, environ))
+    checkout = where.checkout_here(found, environ)
     if checkout is None:
         return False
     return os.access(f"{checkout}/{TEAM}", os.F_OK)

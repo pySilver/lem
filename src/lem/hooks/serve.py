@@ -31,7 +31,7 @@ def wanted(found: dict[str, object], environ: Mapping[str, str]) -> bool:
     and the session's repository uses Lem."""
     if environ.get("LEM_SERVE") == "off":
         return False
-    checkout = where.checkout_of(where.folder_of(found, environ))
+    checkout = where.checkout_here(found, environ)
     if checkout is None:
         return False
     return os.access(f"{checkout}/{TEAM}", os.F_OK)
