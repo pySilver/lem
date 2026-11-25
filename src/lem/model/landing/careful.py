@@ -108,7 +108,7 @@ def reasons(record: Record, edits: Edits) -> tuple[str, ...]:
     plan = task.plan.careful if task.plan else None
     edited = (settings_reason(edits.settings), local_reason(edits.local))
     return (
-        *(f"the request is careful: {topic}" for topic in topics),
+        *topics,
         *((f"the plan says so: {plan}",) if plan else ()),
         *(reason for reason in edited if reason),
         *review_reason(record.landing or Landing()),
