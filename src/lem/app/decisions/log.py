@@ -21,9 +21,9 @@ if TYPE_CHECKING:
 
 def taking(asked: log.Logged, record: Record) -> tuple[Change, Taken]:
     """The decision `asked` for the record as it is."""
-    change = partial(log.logged, asked=asked, now=clock.now())
-    after = change(record)
-    return change, after.task.decisions[-1]
+    now = clock.now()
+    taken = log.taken_of(asked, len(record.task.decisions) + 1, now)
+    return partial(log.logged, asked=asked, now=now), taken
 
 
 def charted(path: str | None) -> str | None:

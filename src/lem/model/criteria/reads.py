@@ -9,7 +9,7 @@ criteria go on unread.
 """
 
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from msgspec.structs import asdict, replace
 
@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 
     from lem.records.task import Task
 
+# Who runs a read: Lem in the task's session, or the lead.
+type By = Literal["lem", "lead"]
 # Every project's cast has two people or more.
 LEAST = 2
 MARK = re.compile(f"[0-9a-f]{{{LENGTH}}}")
@@ -82,7 +84,7 @@ def refused(found: Found) -> str | None:
     return next((why for wrong, why in wrongs if wrong), None)
 
 
-def ended(task: Task, by: str, now: datetime, found: Found | None) -> Task:
+def ended(task: Task, by: By, now: datetime, found: Found | None) -> Task:
     """The task whose newest open read by `by` ended with `found`, or, with None, in silence:
     nobody answered. With no open read, the read starts and ends now."""
     fresh = PersonaRead(by=by, started=now)
@@ -95,7 +97,7 @@ def ended(task: Task, by: str, now: datetime, found: Found | None) -> Task:
     return replace(task, criteria=replace(task.criteria, reads=(*before, done)))
 
 
-def started(task: Task, by: str, now: datetime) -> Task:
+def started(task: Task, by: By, now: datetime) -> Task:
     """The task with a read that starts now."""
     read = PersonaRead(by=by, started=now)
     reads = (*task.criteria.reads, read)

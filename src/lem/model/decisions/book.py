@@ -52,7 +52,8 @@ def added(record: Record, decision: Decision, now: datetime) -> Record:
     """The record with one more decision, and its line in the journal."""
     task = record.task
     writable(task)
-    noted = DecisionNoted(at=now, id=decision.id, what=decision.kind)
+    kind = str(decision.__struct_config__.tag)
+    noted = DecisionNoted(at=now, id=decision.id, what=kind)
     decisions = (*task.decisions, decision)
     return replace(
         record,
