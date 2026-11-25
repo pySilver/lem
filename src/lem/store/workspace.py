@@ -9,7 +9,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from lem.kernel import locks
-from lem.store import places, tasks
+from lem.store import guard, places, tasks
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -23,5 +23,6 @@ type Claim = Callable[[tuple[Record, ...]], Record]
 
 def claimed(state: Path, claim: Claim) -> Record:
     """Under the workspace lock, give `claim` every record and create the record it gives."""
+    guard.writable(state)
     with locks.held(places.locks_folder(state) / LOCK):
         return tasks.create(state, claim(tasks.every(state)))

@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 import msgspec
 
 from lem.records.sessions import VERSION, SessionLine
+from lem.store import guard
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -26,6 +27,7 @@ MODE = 0o644
 
 def append(folder: Path, line: SessionLine) -> None:
     """Append one framed line to the task folder's sessions file."""
+    guard.writable(folder.parents[1])
     frame = b"".join((b"\n", msgspec.json.encode(line), b"\n"))
     flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
     descriptor = os.open(folder / SESSIONS, flags, MODE)
@@ -45,6 +47,7 @@ def decoded(raw: bytes) -> SessionLine | None:
 
 def read(folder: Path) -> tuple[SessionLine, ...]:
     """Every readable session of the task folder, in the order written."""
+    guard.readable(folder.parents[1])
     try:
         body = (folder / SESSIONS).read_bytes()
     except FileNotFoundError:

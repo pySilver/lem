@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% block heading %}Tasks{% endblock %}
+{% block view %}
+<div class="board-wrap">
+<div class="view kanban" id="kanban">
+{% for lane in board.lanes %}
+<section class="col a-{{ lane.actor }}" id="col-{{ lane.key }}" aria-label="{{ lane.title }}">
+<div class="col-head"><i></i><span class="col-name">{{ lane.title }}</span><em>{{ lane.cards | length }}</em></div>
+<div class="col-body" id="col-body-{{ lane.key }}">
+{% for card in lane.cards %}
+<article class="tc s-{{ card.status }}" id="card-{{ card.slug }}" data-task="{{ card.slug }}">
+<div class="tc-top"><span class="tc-title">{{ card.slug }}</span><div class="tc-time" title="in this state since {{ card.since }}">{{ card.since }}</div></div>
+<div class="tc-ask" title="{{ card.ask }}">{{ card.ask }}</div>
+<div class="tc-line"><i></i><span>{{ card.line }}</span></div>
+</article>
+{% else %}
+<div class="col-empty">{{ lane.empty }}</div>
+{% endfor %}
+</div>
+</section>
+{% endfor %}
+</div>
+</div>
+{% endblock %}

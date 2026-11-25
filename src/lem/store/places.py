@@ -16,20 +16,19 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from lem.kernel import folders
 from lem.kernel.errors import Refusal
+from lem.store import guard
 
 STATE = Path(".lem") / "state"
 SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
 def state_of(checkout: Path) -> Path:
-    """The state folder of the main checkout `checkout`, made with its ignore file when it is
-    not there."""
+    """The state folder of the main checkout `checkout`, made with its ignore file and its
+    marker when it is not there; refused when it holds the state of the Lem before."""
     state = checkout / STATE
-    state.mkdir(parents=True, exist_ok=True)
-    ignore = state / ".gitignore"
-    if not ignore.is_file():
-        ignore.write_text("*\n", encoding="utf-8")
+    guard.writable(state)
     return state
 
 
@@ -74,8 +73,8 @@ def common_dir(dot_git: Path) -> Path:
 
 
 def workspace(folder: Path) -> Workspace:
-    """The workspace `folder` is in; refused when it is in no repository, or in one where Lem
-    is not set up."""
+    """The workspace `folder` is in; refused when it is in no repository, in one where Lem is
+    not set up, or in one that holds the state of the Lem before."""
     start = folder.resolve()
     found = next(
         (
@@ -92,10 +91,12 @@ def workspace(folder: Path) -> Workspace:
             "run it inside a repository's checkout, or name one with lem --repo PATH",
         )
     checkout = common_dir(found).parent
+    folders.inside_test_root(checkout)
     if not (checkout / ".lem").is_dir():
         raise Refusal(
             "no-lem",
             f"Lem is not set up in {checkout}: it has no .lem folder",
             "lem init --base BRANCH sets it up, or lem --repo PATH names another repository",
         )
+    guard.readable(checkout / STATE)
     return Workspace(checkout=checkout, lem=checkout / ".lem", state=checkout / STATE)

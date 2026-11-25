@@ -59,6 +59,69 @@ made in a worktree by hand (`git merge --no-ff --no-commit REF`, the files writt
 so that the case "a rebase drops a merge commit and the edit only it made" runs on real git.
 The refusal that follows from it (`land.cmd_base`, the merge-only change) is yours.
 
+## For the plan: the folders of the Lem before
+
+- **The rule.** The new Lem never writes into a repository's `.lem/state/` or into Lem's home
+  folder when that folder holds the files of Lem 0.3, and reads nothing of such a state folder:
+  it refuses `old-state`, with the fix that names the owner's cutover and `lem doctor` (his
+  ruling: his repositories start over; the move of the old files is his act).
+- **The marker.** `lem-state.json`, the bytes `{"form": 1}` and a line end, in either folder,
+  published by a link (the first writer wins, the same bytes are no change) by the first write of
+  the new Lem into the folder when it is absent or empty (a state folder may hold `.gitignore`).
+  A folder with the marker is of this form; one with anything else and no marker is the Lem
+  before's (`lem.kernel.folders.form`, one look).
+- **`doctor` and the cutover.** `doctor` names each folder whose form is `old` (the home, and the
+  state folder of each workspace) with the cutover's step; the cutover moves those files away,
+  after which the first write of the new Lem marks the folder.
+
+## Every step: the one way to write into the home or a state folder
+
+- The home: `lem.kernel.folders.home_for_writing(environ)` gives the home's path for a write;
+  `board/`, `settings/`, the add-ons and every other writer of `serve.json`, `workspaces.json`,
+  `machine.toml`, `push.json` or a file of its own there call it, never `paths.home` (which is
+  for reads). `store.owner.change` and `kernel.logs.logged` already do.
+- A state folder: every function of `lem.store` passes `lem.store.guard` (`readable`,
+  `writable`); a step that writes a file of its own into `.lem/state/` calls
+  `guard.writable(state)` first.
+
+## `sessions`: the hooks' look at the marker
+
+The hooks import nothing of `lem` outside `lem.hooks`, never print and never fail; they do
+nothing (no write, exit 0) in a folder of the Lem before. The few lines, for the state folder
+(`allowed` = `{".gitignore"}`) and the home (`allowed` = empty):
+
+```python
+MARKER = "lem-state.json"
+FORM = b'{"form": 1}\n'
+
+
+def ours(folder, allowed):
+    """Whether this Lem may write into folder; marks an absent or empty one."""
+    if os.path.isfile(os.path.join(folder, MARKER)):
+        return True
+    try:
+        if not set(os.listdir(folder)) <= allowed:
+            return False  # the files of the Lem before: do nothing
+    except FileNotFoundError:
+        os.makedirs(folder, exist_ok=True)
+    try:
+        handle = os.open(os.path.join(folder, MARKER), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    except FileExistsError:
+        return True  # another writer marked it first, with the same bytes
+    os.write(handle, FORM)
+    os.close(handle)
+    return True
+```
+
+## Every step: no test reaches a real workspace
+
+The entry starts every test in a folder of its own temporary root, in no repository, and sets
+`LEM_TEST_ROOT` to that root; while it is set, the store and the home's writer fault on a
+workspace, a state folder or a home outside it (`lem.kernel.folders.inside_test_root`). `tests/fakes/command.lem` runs in the test's own
+folder when no `cwd` is named and refuses a `cwd` outside the root. The entry compares the
+checkout's own `.lem/state/tasks` before and after a run and fails the run with the names of
+what changed. A test that needs a workspace makes one (`tests/fakes/repo.py`).
+
 ## Every step: what the core gives
 
 - A command's output: `tests/fakes/command.py`, `lem(*args, cwd=...)` and `Ran.envelope()`,

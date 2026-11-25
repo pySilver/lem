@@ -2287,6 +2287,12 @@
               "value": true,
               "required": false
             },
+            "--port": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
             "--verbose": {
               "aliases": [],
               "value": false,
