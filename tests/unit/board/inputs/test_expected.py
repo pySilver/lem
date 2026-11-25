@@ -18,6 +18,7 @@ from lem.app.criteria.where import Here
 from lem.board.inputs.backlog import Backlog
 from lem.board.inputs.page import Frame
 from lem.board.inputs.parts import Document
+from lem.board.inputs.task.head import Fact
 from lem.board.inputs.task.panel import Panel
 from lem.board.inputs.tasks import Tasks
 from lem.board.inputs.waits import Waits
@@ -31,6 +32,8 @@ from lem.store import places
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
+
+    from lem.board.inputs.task.steps import Merge
 
 BY_SLUG = {each.task.slug: each for each in RECORDS}
 RECEIPT = BY_SLUG["refund-line-on-receipt"]
@@ -250,17 +253,82 @@ def test_the_merge_confirm_shows_the_prefix_of_the_tip_it_submits() -> None:
     assert (commit.term, commit.text, commit.mono) == ("Commit", tip[:12], True)
 
 
-def test_the_merge_confirm_links_to_the_pull_and_names_its_base_branch() -> None:
+def assert_merge_target(merge: Merge) -> None:
     landing = RECEIPT.landing
     assert landing and landing.pull and landing.started
-    facts = {fact.key: fact for fact in panel.MERGE.facts}
-    link = facts["pr"].link
+    pull_rows = [
+        fact
+        for fact in merge.facts
+        if fact.key == "pr" or fact.term == "Pull request" or fact.link is not None
+    ]
+    into_rows = [
+        fact for fact in merge.facts if fact.key == "into" or fact.term == "Into"
+    ]
+    assert len(pull_rows) == 1
+    assert len(into_rows) == 1
+    assert (pull_rows[0].key, pull_rows[0].term) == ("pr", "Pull request")
+    assert (into_rows[0].key, into_rows[0].term) == ("into", "Into")
+    link = pull_rows[0].link
     assert link
-    assert (link.label, link.href, facts["into"].text) == (
+    assert (link.label, link.href, into_rows[0].text) == (
         f"acme/shop#{landing.pull.number}",
         landing.pull.url,
         landing.started.base_ref,
     )
+    form = merge.confirm.form
+    assert form
+    assert merge.confirm.eyebrow == f"Merge #{landing.pull.number} · confirm"
+    assert form.label == f"Merge pull request #{landing.pull.number}"
+
+
+def test_the_merge_confirm_links_to_the_pull_and_names_its_base_branch() -> None:
+    assert_merge_target(panel.MERGE)
+
+
+@pytest.mark.parametrize(
+    ("wrong_pull", "wrong_base"),
+    [(True, True), (True, False), (False, True)],
+    ids=("both", "pull", "base"),
+)
+def test_the_merge_target_check_rejects_conflicting_rows(
+    *, wrong_pull: bool, wrong_base: bool
+) -> None:
+    other_rows = []
+    if wrong_pull:
+        other_pull = msgspec.structs.replace(
+            panel.PULL,
+            label="acme/shop#99",
+            href="https://github.com/acme/shop/pull/99",
+        )
+        other_rows.append(Fact(key="pr", term="Pull request", link=other_pull))
+    if wrong_base:
+        other_rows.append(Fact(key="into", term="Into", text="release", mono=True))
+    merge = msgspec.structs.replace(
+        panel.MERGE, facts=(*other_rows, *panel.MERGE.facts)
+    )
+    with pytest.raises(AssertionError):
+        assert_merge_target(merge)
+
+
+@pytest.mark.parametrize(
+    ("wrong_heading", "wrong_button"),
+    [(True, True), (True, False), (False, True)],
+    ids=("both", "heading", "button"),
+)
+def test_the_merge_target_check_rejects_conflicting_text(
+    *, wrong_heading: bool, wrong_button: bool
+) -> None:
+    confirm = panel.MERGE.confirm
+    form = confirm.form
+    assert form
+    if wrong_heading:
+        confirm = msgspec.structs.replace(confirm, eyebrow="Merge #99 · confirm")
+    if wrong_button:
+        form = msgspec.structs.replace(form, label="Merge pull request #99")
+        confirm = msgspec.structs.replace(confirm, form=form)
+    merge = msgspec.structs.replace(panel.MERGE, confirm=confirm)
+    with pytest.raises(AssertionError):
+        assert_merge_target(merge)
 
 
 def test_the_merge_confirm_shows_each_proposed_reason_and_its_links() -> None:
