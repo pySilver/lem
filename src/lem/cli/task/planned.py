@@ -2,13 +2,17 @@
 
     lem task planned SLUG --tasks N [--careful WHY] [--large]
 
-A stub until the step `task` builds it: it refuses `not-built`.
+The task goes from `building` to `planned`, with its plan file, the newest of the name
+`lem task plan-file SLUG` gives in the task's worktree.
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.tasks import planned
+from lem.cli import place
+from lem.records.work import Plan
+from lem.store import places
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -20,9 +24,15 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     large: bool = False
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `task` builds `lem task planned`."""
-    raise not_built("task planned", "task")
+def run(call: Call) -> Plan:
+    """Record the plan, and move the task to `planned`."""
+    words = Plan(
+        path="",
+        tasks=call.tasks,
+        careful=call.careful,
+        large=call.large,
+    )
+    return planned.planned(places.workspace(place.folder()), call.slug, words)
 
 
 COMMAND = click.Command(

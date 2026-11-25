@@ -8,7 +8,8 @@ shows a task's worktree (`project.cmd_worktree_dir` on `main`).
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
-from lem.store import guard, places
+from lem.records.base import Frozen
+from lem.store import guard, places, tasks
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -70,3 +71,28 @@ def named(record: Record, asked: str | None, rules: Branch) -> str:
             "name another with --branch",
         )
     return chosen
+
+
+def checkout_refusal(workspace: places.Workspace, checkout: Path | None) -> None:
+    """Refuse a `--checkout` that is not the workspace's main checkout."""
+    if checkout is None or checkout.resolve() == workspace.checkout:
+        return
+    raise Refusal(
+        "checkout",
+        f"{checkout} is not the main checkout of this workspace, {workspace.checkout}",
+        f"lem --repo {checkout} task worktree SLUG makes it from that repository",
+    )
+
+
+class Folder(Frozen, frozen=True, kw_only=True):
+    """A task's folder in the state."""
+
+    slug: str
+    folder: str
+
+
+def folder_of(start: Path, slug: str) -> Folder:
+    """The folder of the task `slug`; refused when there is no such task."""
+    state = places.workspace(start).state
+    tasks.read(state, slug)
+    return Folder(slug=slug, folder=str(places.task_folder(state, slug)))

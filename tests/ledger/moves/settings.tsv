@@ -1,0 +1,89 @@
+id	to	why
+check:tests/lem-machine.sh:a-claim-folder-that-cannot-be-made-still-que-82426ece104d39eb	sessions	the correction hook's claim and queue write (lem-hook corrections, with the queue's write): sessions
+check:tests/lem-machine.sh:a-hook-line-with-lem-hook-bin-at-a-file-that-77c47f5908885070	sessions	hooks/run: sessions
+check:tests/lem-machine.sh:a-hook-line-with-no-lem-hook-bin-and-no-app-f98b86a503650ccf	sessions	hooks/run: sessions
+check:tests/lem-machine.sh:a-hook-whose-own-directory-was-removed-still-30bc2ef3a51eb4be	sessions	the correction hook: sessions
+check:tests/lem-machine.sh:a-lesson-without-its-sentence-or-without-its-895c435f2cb27a8a	addons-flow	corrections record and lessons: addons-flow
+check:tests/lem-machine.sh:a-queue-line-that-was-cut-off-and-a-line-tha-ae64b1e2fdd933c9	addons-flow	corrections list: addons-flow
+check:tests/lem-machine.sh:a-recorded-group-leaves-the-list-and-lessons-83a9fb52351982b1	addons-flow	corrections list and lessons: addons-flow
+check:tests/lem-machine.sh:each-line-of-hooks-hooks-json-run-through-sh-cfb6e941630ada57	sessions	hooks.json and hooks/run: sessions
+check:tests/lem-machine.sh:lem-jev-names-a-jev-timeout-that-is-no-numbe-0235f49ad91c520a	addons-outside	lem jev: addons-outside
+check:tests/lem-machine.sh:lem-jev-takes-its-key-from-jev-api-key-alone-42ca08d2497f55ae	addons-outside	lem jev: addons-outside
+check:tests/lem-machine.sh:lem-release-before-is-the-version-plugin-jso-38e6d82129bcd310	task	the release stop two releases back is task's (core's moves give it the release tests)
+check:tests/lem-machine.sh:one-sentence-from-two-sessions-is-one-group-fed7aa6b9f59fdca	addons-flow	the correction worker's groups: addons-flow
+check:tests/lem-machine.sh:the-hook-does-not-wait-for-its-input-to-clos-0a6f4598d82a6641	sessions	the correction hook: sessions
+check:tests/lem-machine.sh:the-machine-s-yes-holds-in-each-repository-o-585fa6601d0eba52	sessions	the correction hook's gate on the machine's yes: sessions
+check:tests/lem-machine.sh:the-plugin-manifest-names-lem-and-a-version-8c1134923dd2a142	pack-trial	plugin.json and marketplace.json at a release: pack-trial owns marketplace.json
+check:tests/lem-machine.sh:the-same-words-in-the-same-session-after-the-54f27fd33cee9442	sessions	the correction hook's claim: sessions
+check:tests/lem-machine.sh:three-copies-of-the-hook-on-one-message-star-d51cac098de4519e	sessions	the correction hook's claim: sessions
+check:tests/lem-machine.sh:two-messages-of-one-second-in-one-session-ar-88fe44436cd2fe83	addons-flow	the queue's entries and record: addons-flow
+check:tests/lem-machine.sh:two-messages-of-one-session-and-one-sentence-bc9b67a5f2740193	sessions	the correction hook's claims: sessions
+check:tests/lem-machine.sh:when-the-detached-half-cannot-start-the-hook-7b7b8eb14d6a2d0d	sessions	the correction hook: sessions
+check:tests/lem-machine.sh:with-a-plugin-of-another-version-than-the-ap-db7846b2d42bb9bf	sessions	session-start's version line (seam:hooks-on-mismatch): sessions
+check:tests/lem-machine.sh:with-the-machine-s-yes-the-hook-prints-nothi-8da58326de71f6bf	sessions	the correction hook: sessions
+check:tests/lem-machine.sh:without-the-machine-s-yes-no-line-a-no-a-fil-cb04d6eede14e819	sessions	the correction hook's gate: sessions
+check:tests/lem-settings.sh:a-change-of-the-criteria-from-the-owner-s-no-a0d1f764b606c526	criteria	criteria change from the owner's note: criteria.py
+check:tests/lem-settings.sh:a-criterion-is-not-held-by-a-test-that-passe-64bc73540e3702fc	land-checks	criteria red, the check on the base: land-checks owns cli/criteria/red
+check:tests/lem-settings.sh:a-criterion-the-plan-adds-after-the-approved-0979d516640d165f	criteria	criteria show and red over a plan: criteria.py
+check:tests/lem-settings.sh:a-dropped-task-holds-its-issue-while-it-owes-5aa3c910c1beca45	task	the claim of a ticket and lem issue: task
+check:tests/lem-settings.sh:a-dropped-task-holds-its-ticket-while-it-owe-258d1c53004db5f8	task	the claim of a ticket: task
+check:tests/lem-settings.sh:a-landed-task-keeps-its-issue-for-good-a-new-56ac93e9239b2431	task	the claim of a ticket: task
+check:tests/lem-settings.sh:a-landing-record-that-is-not-json-or-not-an-bdbae82b5846d046	land-base	the landing's record read at its start: land-base
+check:tests/lem-settings.sh:a-page-of-lem-to-read-opens-as-a-page-compan-4ddf462dc815f1f4	board-service	lem board --page: board-service owns cli/board
+check:tests/lem-settings.sh:a-plan-s-name-is-paths-plan-file-yyyy-mm-dd-ce39bd6563974042	task	task plan-file reads paths.plan_file (settings/team.py); the pattern's rules are held by test_load
+check:tests/lem-settings.sh:a-plan-whose-criteria-are-not-the-approved-o-b01cb394e16d66dd	criteria	criteria show over a plan: criteria.py
+check:tests/lem-settings.sh:a-plan-whose-criteria-are-the-approved-ones-add0f31f4f471ea5	criteria	criteria show over a plan: criteria.py
+check:tests/lem-settings.sh:a-plan-with-no-criteria-section-no-size-a-sm-19cf17b5e4c74483	criteria	criteria read of a plan: criteria.py
+check:tests/lem-settings.sh:a-slug-that-is-not-hyphenated-lower-case-wor-da5743990303b154	task	a task's slug at task open: task
+check:tests/lem-settings.sh:a-state-block-that-state-did-not-write-has-n-030a16f62b1f9d0d	task	task states: task
+check:tests/lem-settings.sh:a-state-written-from-the-task-s-worktree-car-97084ca2b041a54f	task	task states: task
+check:tests/lem-settings.sh:a-task-held-for-an-order-that-names-no-task-6f5502e39a2e9a99	task	task read --order: task
+check:tests/lem-settings.sh:a-task-in-the-landing-or-proposed-takes-no-s-e381983380a127c6	task	task move refusals: task
+check:tests/lem-settings.sh:a-task-is-answered-only-with-its-investigati-bf3b4e870e674a0c	task	task investigated and answered: task
+check:tests/lem-settings.sh:a-task-keeps-the-ticket-its-ask-came-from-no-70c96591b7aa9405	task	task open --ticket: task
+check:tests/lem-settings.sh:a-test-that-needs-what-a-fresh-worktree-lack-90229619d87444bd	land-checks	criteria red and checks.setup in its worktrees: land-checks
+check:tests/lem-settings.sh:an-answered-task-has-no-breaker-that-waits-p-9620d670fab184da	criteria	decisions pending and breaker: criteria
+check:tests/lem-settings.sh:an-answered-task-holds-its-ticket-until-the-0eee93cd9bdf0d62	task	the claim of a ticket: task
+check:tests/lem-settings.sh:an-approval-checks-and-writes-under-the-task-c2f94642230522fa	criteria	criteria approve: criteria
+check:tests/lem-settings.sh:an-approval-has-a-number-of-its-own-his-appr-dd539e414f6b23ae	criteria	criteria approve: criteria
+check:tests/lem-settings.sh:an-ended-task-stays-ended-no-state-moves-it-7eeee1c148441977	task	task move and may-start: task
+check:tests/lem-settings.sh:an-opening-refused-after-its-claim-of-the-is-fe34e3d9093c1835	task	task open's claim: task
+check:tests/lem-settings.sh:an-unknown-task-is-refused-with-the-names-of-7cebab97723b1914	task	an unknown task's refusal: task (lem board's part: board-service)
+check:tests/lem-settings.sh:approve-keeps-the-criteria-the-owner-approve-1cd7bc7c03e33282	criteria	criteria approve: criteria
+check:tests/lem-settings.sh:board-demo-marks-the-state-folder-s-tasks-as-5a944f41425974ea	board-service	lem board --demo: board-service
+check:tests/lem-settings.sh:each-night-logo-is-the-day-logo-s-drawing-in-fc4058fece46ef4c	guides	the logo's night files (assets/night.py): guides owns the public files
+check:tests/lem-settings.sh:each-run-of-the-check-has-a-worktree-and-a-s-28c3579a2b39098b	land-checks	criteria red's worktrees: land-checks
+check:tests/lem-settings.sh:each-state-block-is-one-event-with-the-ask-a-5226901ff0f6998e	task	task states and the journal: task
+check:tests/lem-settings.sh:his-next-approval-starts-the-criterion-chang-a3174f1f820d55ba	criteria	criteria approve and change: criteria
+check:tests/lem-settings.sh:lem-s-approval-of-a-small-change-in-his-name-813d628dcbb18b02	criteria	criteria approve --small: criteria
+check:tests/lem-settings.sh:log-appends-any-other-event-a-number-typed-a-b6613312701116fa	task	project log is typed task commands (surfaces A): task
+check:tests/lem-settings.sh:log-refuses-a-plan-talk-s-record-whose-count-256d245612bb5712	task	task talked: task
+check:tests/lem-settings.sh:log-refuses-a-state-event-an-unknown-task-a-b18e8a1658a80ecb	task	typed task commands: task
+check:tests/lem-settings.sh:log-refuses-an-investigation-s-record-in-ano-045cd1994514e99b	task	task investigated: task
+check:tests/lem-settings.sh:log-takes-a-builder-s-start-in-its-form-and-fffa5dbfe89121c1	task	task span: task
+check:tests/lem-settings.sh:may-land-refuses-a-protected-branch-any-bran-4c64691ae3d28039	land-base	may-land is dropped, each landing step refuses protected itself (surfaces A): land-base
+check:tests/lem-settings.sh:may-start-lets-a-task-start-whatever-builds-81f83a2a97136d8c	task	task may-start: task
+check:tests/lem-settings.sh:night-py-keeps-the-night-sky-s-colors-as-wri-649fa3b42e7190fe	guides	assets/night.py: guides
+check:tests/lem-settings.sh:red-runs-each-criterion-s-tests-in-a-worktre-b792ad423ab35de1	land-checks	criteria red: land-checks
+check:tests/lem-settings.sh:state-prints-the-task-s-first-line-as-say-fo-d5cc5fcd3febc433	task	task read's first line: task
+check:tests/lem-settings.sh:state-puts-a-block-with-the-clock-s-time-abo-6e5c171655a3ae91	task	task states: task
+check:tests/lem-settings.sh:state-refuses-a-status-no-task-has-a-task-th-57d726669b77658e	task	task move: task
+check:tests/lem-settings.sh:state-refuses-a-type-line-without-its-reason-0dee6992653b3228	task	task read --type --why: task
+check:tests/lem-settings.sh:state-refuses-the-owner-s-order-a-then-line-0e6d6cfa10059720	task	task read --order --then: task
+check:tests/lem-settings.sh:task-dir-ask-keeps-the-owner-s-words-for-the-70208d692053d934	task	task open --ask: task
+check:tests/lem-settings.sh:task-dir-run-in-a-worktree-makes-the-task-s-c1c255515bdb9163	task	task open from a worktree: task
+check:tests/lem-settings.sh:tasks-says-what-a-landing-proposed-the-pull-470e79c662cae49f	task	task show: task
+check:tests/lem-settings.sh:the-board-s-backlog-has-each-item-with-its-w-a54e981a89291cac	board-views	the board's backlog: board-views
+check:tests/lem-settings.sh:the-criteria-are-read-from-the-top-of-the-ta-e8f41e9986a5e6b5	criteria	criteria record: criteria
+check:tests/lem-settings.sh:the-first-item-of-a-backlog-folder-that-git-2732138b1deba6ac	board-views	the board's backlog: board-views
+check:tests/lem-settings.sh:the-header-of-the-onboarding-page-carries-th-2f45982791704f5e	board-pages	skills/lem/assets/handover.html: board-pages owns skills/lem/assets
+check:tests/lem-settings.sh:the-landing-s-own-moves-stay-blocked-landing-385503c7bbd1d814	task	task move through the landing's states: task
+check:tests/lem-settings.sh:the-onboarding-s-page-pattern-links-one-styl-c560b8c1dadbafcf	board-pages	skills/lem/assets/handover.html, lem.css, lem.js: board-pages
+check:tests/lem-settings.sh:ticket-step-assigned-keeps-the-login-on-its-dcfd1e3a05f8ebdc	task	task ticket: task
+check:tests/lem-settings.sh:ticket-step-writes-each-thing-lem-did-to-a-t-b5983e1972615b93	task	task ticket: task
+check:tests/lem-settings.sh:with-the-tracker-github-ticket-42-and-ticket-77155207052c74ef	task	task open --ticket with github: task
+check:tests/lem-settings.sh:worktree-dir-names-a-path-under-a-folder-git-1303eda99515f1fa	task	task worktree --path: task
+check:tests/lem-settings.sh:worktree-dir-refuses-settings-whose-plans-fo-6e22565f942eb6c2	task	task worktree; the refusal of plans at the root is held by test_load's root case
+ruling:the-jev-model-comes-through-any-provider-e890c29fdee60c19	addons-outside	lem jev and its key JEV_API_KEY: addons-outside (the Judge adapter: land-review)
+check:tests/lem-machine.sh:the-builder-s-definition-names-its-model-and-596589b79561e30a	criteria	the check reads agents/lem-builder.md, the builder's definition, which the step criteria owns
+ruling:as-a-plugin-the-correction-hook-comes-with-t-d03cc05f979d8c62	sessions	the correction hook comes with the plugin through hooks/hooks.json and hooks/run, which sessions owns; its source is a check of the plugin manifest, not a row of the doctor

@@ -42,13 +42,14 @@ class Message(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Entry(msgspec.Struct, frozen=True, kw_only=True):
-    """One record of a transcript: its type, time and message, and whether it is meta or a
-    subagent's (a sidechain)."""
+    """One record of a transcript: its type, time and message, and whether it is meta, a
+    subagent's (a sidechain), or a compaction's summary."""
 
     kind: str = msgspec.field(default="", name="type")
     timestamp: str | None = None
     meta: bool = msgspec.field(default=False, name="isMeta")
     sidechain: bool = msgspec.field(default=False, name="isSidechain")
+    compacted: bool = msgspec.field(default=False, name="isCompactSummary")
     message: Message | None = None
 
 

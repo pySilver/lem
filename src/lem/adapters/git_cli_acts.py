@@ -8,7 +8,8 @@ has it.
 
 from typing import TYPE_CHECKING
 
-from lem.adapters.git_cli_shell import GIT, QUIET, Shell, last_words
+from lem.adapters.git_cli_shell import GIT, QUIET, Shell, all_words, last_words
+from lem.adapters.git_cli_stops import conflicted, rebase_folder
 from lem.ports.faults import Unanswered
 from lem.ports.git_facts import Conflict, GitRefused
 
@@ -32,10 +33,10 @@ class Rewrite(Shell):
         ran = self.tried(worktree, "rebase", QUIET, *chosen, onto)
         if not ran.returncode:
             return self.head(worktree)
-        stopped = self.said(worktree, "diff", "--name-only", "--diff-filter=U")
+        stopped = conflicted(self, worktree) if rebase_folder(self, worktree) else ()
         if stopped:
-            return Conflict(files=tuple(stopped.splitlines()))
-        return GitRefused(said=last_words(ran))
+            return Conflict(files=stopped)
+        return GitRefused(said=all_words(ran))
 
     def abort(self, worktree: Path) -> None:
         self.said(worktree, "rebase", "--abort")

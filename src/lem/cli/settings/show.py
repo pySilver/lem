@@ -1,16 +1,20 @@
-"""`lem settings show`: every setting, each with the file it comes from.
+"""`lem settings show`: every setting in force, each with the file it comes from.
 
     lem settings show
 
-The plain form of the fast track, as the step `slice-land` built it; the step `settings` owns it.
+The settings of the workspace of the call; outside a repository where Lem is set up (no
+`.lem/settings.toml`), `settings` is null and the machine's values and the load still show.
 """
+
+import os
 
 import click
 import msgspec
 
 from lem.cli import place
 from lem.kernel.errors import Refusal
-from lem.settings.load import Shown, show
+from lem.settings.places import TEAM
+from lem.settings.show import Shown, shown
 from lem.store import places
 
 
@@ -19,14 +23,15 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 
 def run(call: Call) -> Shown:
-    """The settings of the workspace; none where Lem is not set up."""
+    """The settings of the workspace; its machine's alone where Lem is not set up."""
     try:
         checkout = places.workspace(place.folder()).checkout
     except Refusal as refused:
         if refused.code != "no-lem":
             raise
-        return show(None)
-    return show(checkout)
+        return shown(None, os.environ)
+    onboarded = (checkout / TEAM).is_file()
+    return shown(checkout if onboarded else None, os.environ)
 
 
 COMMAND = click.Command(

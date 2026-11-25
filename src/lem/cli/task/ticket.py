@@ -2,7 +2,8 @@
 
     lem task ticket SLUG STEP [--login LOGIN]
 
-A stub until the step `task` builds it: it refuses `not-built`.
+Written once, after the tracker took it (`assigned` before, with the login), and accepted
+after the task's end (`app/tasks/ticket.py`).
 """
 
 from typing import Literal
@@ -10,7 +11,8 @@ from typing import Literal
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.tasks import ticket
+from lem.cli import place
 from lem.cli.words import choice
 
 type Step = Literal[
@@ -26,9 +28,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     login: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `task` builds `lem task ticket`."""
-    raise not_built("task ticket", "task")
+def run(call: Call) -> ticket.Shown:
+    """Write the step down, and give the ticket as it is now."""
+    return ticket.stepped(place.folder(), call.slug, call.step, call.login)
 
 
 COMMAND = click.Command(

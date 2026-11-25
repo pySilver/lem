@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # build
 
 The lead's second stage. Each task of the plan gets a fresh builder with a context of its own.
@@ -34,7 +33,7 @@ you the start of one, write the state `blocked` with that refusal, and stop.
      works` chart. They are the builder's contract beside the prose: where its reading of the
      task's section and a story or a chart differ, the story and the chart are right, and it says
      so in its report;
-   - the rule files that cover the files it will touch, as `lem project rules FILE ...`
+   - the rule files that cover the files it will touch, as `lem rules FILE ...`
      prints them for the files the plan names for the task, and the project's lessons;
    - the report file, `reports/NN-<task>.md` in the task directory, and, for a task that changes
      what a person sees or builds a flow, `SKILL_DIR/prompts/writing.md` for the picture and the
@@ -45,8 +44,8 @@ you the start of one, write the state `blocked` with that refusal, and stop.
      change. The owner: "what worked for us is to run only subset of tests during plan execution,
      not the whole suite that takes ages. whole test suite run at the very late stage"
      (2026-11-17);
-   - when the settings' `checks.serial` names commands (`lem project show`), those commands, and the
-     line that runs a test of such a suite: `lem project --repo WORKTREE
+   - when the settings' `checks.serial` names commands (`lem settings show`), those commands, and the
+     line that runs a test of such a suite: `lem --repo WORKTREE
      serial -- COMMAND`, with `SKILL_DIR` and `WORKTREE` written out. Two tasks cannot run such a
      test at the same time (fixed ports, one database, a browser), and several builders may run at one moment, so
      it runs under that one lock and never bare: "e2e is a bit of different beast as it may have
@@ -59,8 +58,8 @@ you the start of one, write the state `blocked` with that refusal, and stop.
    Read the report file, never a summary of it. When a builder's reply is the report itself,
    because its agent refused it the write, put that text into the report file word for word.
    Write the state `building` with the line `task N of M` when a builder starts, and log its
-   start for the board, `lem project --repo WORKTREE log SLUG
-   builder.start "job=task N of M"`: two builders may run at one time, and a state block names
+   start for the board, `lem --repo WORKTREE task span SLUG
+   builder start --job "task N of M"`: two builders may run at one time, and a state block names
    only the newest.
 2. **A builder that stops** reports why in its file. Where it goes depends on what stopped it:
    - *a failure nobody can explain after two tries*: the `lem-root-cause` skill, before
@@ -85,7 +84,7 @@ task (`stages/breaker.md`). A decision of the plan takes these steps too (`stage
 script, which also puts it on the board:
 
 ```bash
-lem decisions --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead [--undo TEXT]
+lem --repo WORKTREE decisions log SLUG --what TEXT --chose TEXT --why TEXT --by lead [--undo TEXT]
 ```
 
 A criterion the owner approved, or that the lead's read froze on the standard track from a complete
@@ -93,7 +92,7 @@ request (`lem criteria approved SLUG`), changes in the plan only with its own re
 before the commit that changes it, with its text before and after:
 
 ```bash
-lem decisions --repo WORKTREE criterion SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT | --removed N --was TEXT) --why TEXT (--decision ID | --by lead|personas [--said TEXT])
+lem --repo WORKTREE decisions criterion SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT | --removed N --was TEXT) --why TEXT (--decision ID | --by lead|personas [--said TEXT])
 ```
 
 N is the criterion's number as the criteria stand after every earlier change;
@@ -101,9 +100,9 @@ N is the criterion's number as the criteria stand after every earlier change;
 of criterion N then. `--decision ID` names the decision of the record that led to it: a pick of the
 ladder, or the owner's help on a breaker; a decision the personas settled is `--by personas --said
 "who picked what"`, and the lead's own change that is nobody's decision, such as a typo in an
-example, is `--by lead`. `criteria.py` refuses the plan until its criteria are the expected ones,
+example, is `--by lead`. `lem criteria record` refuses the plan until its criteria are the expected ones,
 word for word, and the pull request is not green for each change but one his help led to. A plan's
-`Size:` line always says `full`, and `criteria.py` refuses a plan that says `Size: small`: a build
+`Size:` line always says `full`, and `lem criteria record` refuses a plan that says `Size: small`: a build
 never moves a task from the standard track to the fast track, which has no plan, and the track is
 no choice of this section. A plan that departs from a direction (`directions.md`) is a decision of
 this section too, with the direction in `--what`.
@@ -150,7 +149,7 @@ owner reads.
   list means the test's failure proved nothing, and the helper belongs among the criterion's files.
   Repair what the check names before the task is `ready`, and give its last line here. A project
   whose tests need more than a fresh worktree has says what in the settings' `checks.setup`, which
-  `lem project worktree` runs in each worktree it makes; when that is missing, it is an outside
+  `lem task worktree` runs in each worktree it makes; when that is missing, it is an outside
   defect for your report, not yours to set;
 - **not verified**: what you could not or did not check;
 - **decisions**: each one taken without the owner, with why and what it would take to undo, by

@@ -17,7 +17,6 @@ and the line of another `lem` first on the PATH (`other.py`). Claude Code's hook
 JSON is a warning shown to the user.
 """
 
-import json
 import time
 
 from lem.hooks import other, precompact, raw, where
@@ -39,7 +38,7 @@ def answer(environ: Mapping[str, str], behind: str | None) -> str:
     plugin = environ.get("CLAUDE_PLUGIN_ROOT", "")
     if plugin:
         keep_root(environ.get("CLAUDE_ENV_FILE", ""), plugin)
-    another = other.other_lem(environ.get("PATH", ""), other.own_command())
+    another = other.other_lem(environ, other.own_command())
     lines = [line for line in (behind, another) if line]
     said = "" if behind else recorded(environ)
     return shown(lines, said) if lines else said
@@ -48,6 +47,8 @@ def answer(environ: Mapping[str, str], behind: str | None) -> str:
 def shown(lines: list[str], said: str) -> str:
     """The lines for the owner as a `systemMessage`, and the task's context `said` beside them
     as the session's context."""
+    import json
+
     message: dict[str, object] = {"systemMessage": "\n".join(lines)}
     if said.strip():
         message["hookSpecificOutput"] = {
@@ -61,7 +62,10 @@ def shown(lines: list[str], said: str) -> str:
 def recorded(environ: Mapping[str, str]) -> str:
     """Put the session on record in its task's folder, and give the task's context after a
     compaction once its line is on record; nothing for a session that is no task's, for an
-    input that is no SessionStart event, or when the folder does not take the line."""
+    input that is no SessionStart event, or when the folder does not take the line. A session
+    that is no task's reads no event, and does not pay for `json`."""
+    if where.slug_of(environ) is None:
+        return ""
     found = raw.event()
     try:
         folder = task_of(found, environ)
@@ -96,6 +100,8 @@ def framed(found: raw.Event, folder: str, environ: Mapping[str, str]) -> bytes |
     }
     if not all(line.values()) or line[SOURCE] not in SOURCES:
         return None
+    import json
+
     pane = environ.get("AGTERM_SESSION_ID", "").strip() or None
     encoded = json.dumps({**line, "pane": pane}, ensure_ascii=False).encode()
     return b"".join((b"\n", encoded, b"\n"))
