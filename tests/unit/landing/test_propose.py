@@ -46,6 +46,8 @@ from unit.landing.worlds import (
 )
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from lem.records.record import Record
 
 SMALL_NOTES = Facts(notes="none\n")
@@ -808,3 +810,40 @@ def test_the_careful_line_and_the_review_lines_on_the_standard_track() -> None:
     assert (
         "**Careful**, so the owner merges it: the review says so: it charges." in later
     )
+
+
+def test_propose_is_not_due_while_its_checks_review_or_filing_do_not_hold() -> None:
+    from lem.model.landing import checks, phases
+
+    record = task(**PREPARED)
+    assert phases.due(record, world()).step == "propose"
+    red = with_landing(record, checked=replace(CHECKED, outcome="red"))
+    assert phases.due(red, world()).step == "checks"
+    moved = with_landing(record, checked=replace(CHECKED, inputs="other"))
+    assert moved.landing is not None
+    assert moved.landing.checked is not None
+    assert moved.landing.checked.inputs != checks.inputs(world().rules)
+    assert phases.due(moved, world()).step == "checks"
+    assert phases.due(with_landing(record, reviews=()), world()).step == "read"
+    assert phases.due(with_landing(record, filed=()), world()).step == "file"
+
+
+def test_the_base_branch_and_a_protected_one_take_no_push() -> None:
+    record = task(**PREPARED)
+    on_base = propose.decide(record, world(branch="main"), SMALL_NOTES, "docs: x")
+    assert code_of(on_base) == "protected"
+    assert isinstance(on_base, Refusal)
+    assert on_base.why.startswith("main is the base branch")
+
+
+def test_notes_that_are_no_file_of_text_are_refused_by_name(tmp_path: Path) -> None:
+    from lem.app.landing import propose_seen
+
+    missing = tmp_path / "notes.md"
+    try:
+        propose_seen.notes_of(str(missing))
+    except Refusal as refused:
+        assert refused.code == "notes"
+        assert str(missing) in refused.why
+    else:
+        raise AssertionError("a missing notes file is refused")

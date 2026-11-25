@@ -220,3 +220,9 @@ def test_a_lost_reply_after_the_merge_gives_the_merge_the_forge_shows(
     outcome = world.forge.merge(opened.number, head, "squash", TEXT)
     assert isinstance(outcome, MergeDone)
     assert outcome.merged_head == head
+
+
+def test_a_create_that_prints_no_address_is_said_as_such() -> None:
+    with pytest.raises(Unanswered, match="printed no pull request address"):
+        forge_gh_pulls.number_of("Warning: 2 uncommitted changes\n")
+    assert forge_gh_pulls.number_of("https://github.com/o/p/pull/12\n") == 12
