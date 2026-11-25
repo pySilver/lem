@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from lem.cli.doctor.project_rows import mode_rows, persona_rows, scope_rows
+from lem.cli.doctor.personas import persona_rows
+from lem.cli.doctor.project_rows import mode_rows, scope_rows
 from lem.cli.doctor.row import reported
 from unit.settings.doctor.stage import Stage
 
@@ -110,3 +111,14 @@ def test_a_lem_repository_with_no_personas_or_one_gets_its_row_and_no_other_plac
     (two,) = persona_rows(stage.look(tree))
     assert two.detail == f"2 ({repo.resolve() / '.lem' / 'personas'})"
     assert reported((none, one, two)).ok
+
+
+def test_a_persona_that_does_not_read_is_named_with_its_fix(stage: Stage) -> None:
+    repo = stage.repository()
+    stage.write("repo/.lem/personas/clerk.md", "x")
+    bad = repo / ".lem" / "personas" / "shopper.md"
+    bad.write_bytes(b"\xff\xfe a person\n")
+    (row,) = persona_rows(stage.look(repo))
+    assert row.found is False
+    assert "shopper.md is not UTF-8" in (row.detail or "")
+    assert "save it as UTF-8" in (row.without_it or "")

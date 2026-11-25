@@ -5,9 +5,9 @@ turns it on: JEV_API_KEY, the one name Lem reads for it. The key is never printe
 from typing import TYPE_CHECKING
 
 from lem.cli.doctor.checkouts import main_checkout
-from lem.cli.doctor.machine_rows import machine_file, settled
+from lem.cli.doctor.machine_rows import machine_file
 from lem.cli.doctor.row import OPTIONAL, REQUIRED, Row
-from lem.kernel.errors import Refusal
+from lem.hooks.corrections import machine_says_yes
 from lem.settings import places
 
 if TYPE_CHECKING:
@@ -27,13 +27,10 @@ JEV_WHERE = (
 
 
 def collects(look: Look) -> bool:
-    """Whether the correction queue is on here: the machine says yes, and the repository of
-    the call uses Lem. Anything that does not read is a no."""
-    try:
-        on = settled(look).settings.corrections.collect
-    except Refusal:
-        return False
-    if not on:
+    """Whether the correction queue is on here, by the hook's own reading: `machine.toml`
+    says yes, and the repository of the call uses Lem. Another file that does not read
+    changes nothing of it, as it changes nothing for the hook."""
+    if not machine_says_yes(look.environ):
         return False
     checkout = main_checkout(look.folder)
     return checkout is not None and (checkout / places.TEAM).is_file()

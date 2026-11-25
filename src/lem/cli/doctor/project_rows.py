@@ -12,15 +12,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lem.cli.doctor import plugins
-from lem.cli.doctor.checkouts import files_of, main_checkout, roots, table_of
+from lem.cli.doctor.checkouts import files_of, roots, table_of
 from lem.cli.doctor.mode_words import MEETS, SILENT, TO_AUTO, UNKNOWN
 from lem.cli.doctor.row import PROJECT, Row
 
 if TYPE_CHECKING:
     from lem.cli.doctor.look import Look
 
-README = "README.md"
-PERSONAS = Path(".lem") / "personas"
 TEAM = Path(".lem") / "settings.toml"
 
 
@@ -106,41 +104,6 @@ def scope_rows(look: Look) -> tuple[Row, ...]:
                 "message (a median of 99.4 ms over 20 runs, Python 3.15.2, one Mac, 2026-11-17). "
                 f"`claude plugin uninstall {key} --scope user` removes that install; then "
                 f"`claude plugin install {key} --scope project` in each repository that uses Lem"
-            ),
-        ),
-    )
-
-
-def personas_in(folder: Path) -> int:
-    """How many personas the cast folder holds: each Markdown file but its README."""
-    return len([one for one in folder.glob("*.md") if one.name != README])
-
-
-def persona_rows(look: Look) -> tuple[Row, ...]:
-    """In a repository where Lem is set up: how many people a panel asks. The cast is the
-    main checkout's, which a task's worktree older than the cast does not have."""
-    root = main_checkout(look.folder)
-    if root is None or not (root / TEAM).is_file():
-        return ()
-    folder = root / PERSONAS
-    count = personas_in(folder)
-    second = ""
-    if count == 1:
-        second = ": a panel needs a second person who would notice other things"
-    return (
-        Row(
-            name="project personas",
-            need=PROJECT,
-            found=count > 0,
-            detail=f"{count} ({folder}){second}",
-            used_for=(
-                "the people a panel asks before a hard question reaches the owner: every "
-                "project of Lem has two or more"
-            ),
-            without_it=(
-                "the project's setup is not finished and no panel can run; `/lem init` in "
-                "this repository asks who a decision here affects and writes them, and "
-                "leaves the settings that are there as they are"
             ),
         ),
     )

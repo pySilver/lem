@@ -107,3 +107,13 @@ def test_where_the_machine_collects_corrections_the_key_is_required_in_a_lem_rep
     assert jev_row(stage.look(checkout)).need == "optional"
     machine(stage, "")
     assert jev_row(stage.look(checkout)).need == "optional"
+
+
+def test_the_jev_key_reads_the_hooks_switch_whatever_another_file_says(
+    stage: Stage,
+) -> None:
+    checkout = stage.repository()
+    machine(stage, "[corrections]\ncollect = true\n")
+    stage.write("config/lem/settings.toml", "[seats\n")
+    row = jev_row(stage.look(checkout))
+    assert (row.need, row.found) == ("required", False)
