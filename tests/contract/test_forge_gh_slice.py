@@ -113,4 +113,6 @@ def test_a_rebase_merge_is_refused_by_name_and_calls_nothing(tmp_path: Path) -> 
 )
 def test_githubs_refusal_is_read_by_its_words(said: str, kind: str) -> None:
     ran = subprocess.CompletedProcess(["gh"], 1, stdout="", stderr=f"{said}\n")
-    assert forge_gh_pulls.denied(ran) == MergeDenied(kind=kind, said=said)
+    assert forge_gh_pulls.denied(ran) == msgspec.convert(
+        {"kind": kind, "said": said}, MergeDenied
+    )
