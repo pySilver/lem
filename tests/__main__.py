@@ -122,7 +122,10 @@ def main() -> int:
         parser.error(str(wrong))
     snapshots = [f"--inline-snapshot={called.snapshots}"] if called.snapshots else []
     with levels.lock_of(called.level):
-        return run_in_child(["--lem-level", called.level, *snapshots, *chosen])
+        workers = levels.parallel(called.level, snapshots=bool(snapshots))
+        return run_in_child(
+            ["--lem-level", called.level, *workers, *snapshots, *chosen]
+        )
 
 
 if __name__ == "__main__":

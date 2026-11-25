@@ -16,6 +16,9 @@ if TYPE_CHECKING:
 # The levels with a folder of their own, in the order a full run takes them.
 FOLDERS = ("unit", "model", "histories", "contract", "journeys", "hooks", "browser")
 LEVELS = ("gates", *FOLDERS, "full")
+# The unit level runs on this many pytest-xdist workers: the 72 cases of tests/unit/core took
+# 19.1 s in one process and 9.5 s on four (2026-11-25, the owner's Mac, load average 6 to 8).
+WORKERS = 4
 # One full run at a time on a machine: two at once took the load average over 400 and slowed
 # every time-bound check (the design's part 8). A fixed path, read before the entry sets TMPDIR.
 FULL_LOCK = Path("/tmp/lem-full-run.lock")
@@ -68,6 +71,14 @@ def full_run_lock(path: Path) -> Iterator[None]:
             )
             fcntl.flock(held, fcntl.LOCK_EX)
         yield
+
+
+def parallel(level: str, *, snapshots: bool) -> list[str]:
+    """pytest's arguments for xdist's workers: the unit level's, but when inline-snapshot
+    writes values, which it does in one process only."""
+    if level != "unit" or snapshots:
+        return []
+    return ["-p", "xdist", "--numprocesses", str(WORKERS)]
 
 
 def lock_of(level: str) -> AbstractContextManager[None]:

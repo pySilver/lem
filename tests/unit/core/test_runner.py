@@ -87,33 +87,45 @@ def test_dynamic_xfail():
 def test_parameters(number):
     assert number
 """
-PROBE_LINES = (
-    "FAIL unit.test_probe.Cases.test_expected_failure: a case marked to fail is no check",
-    "FAIL unit.test_probe.Cases.test_fail: AssertionError: call failed",
-    "ok   unit.test_probe.Cases.test_pass",
-    "SKIP unit.test_probe.Cases.test_skip: needs a device",
-    "FAIL unit.test_probe.Cases.test_subtests: Cases.test_subtests (size=2): AssertionError: child failed",
-    "FAIL unit.test_probe.Cases.test_unexpected_success: a case marked to fail is no check",
-    "FAIL unit.test_probe.test_setup_error: ValueError: bad setup",
-    "FAIL unit.test_probe.test_teardown_error: ValueError: bad teardown",
-    "FAIL unit.test_probe.test_marked_success: a case marked to fail is no check",
-    "FAIL unit.test_probe.test_dynamic_xfail: a case marked to fail is no check",
-    "ok   unit.test_probe.test_parameters[one]",
-    "ok   unit.test_probe.test_parameters[two]",
-)
+# The unit level runs on xdist's workers and the model level in one process: the protocol holds
+# on both. A subtest's parameters cross from a worker as text.
+LEVELS = ("unit", "model")
 
 
-def scratch(work: Path, **files: str) -> Path:
-    """A checkout in `work` with a copy of the entry, the real .venv, and `files` in
-    tests/unit; its folder of tests."""
+def probe_lines(level: str) -> list[str]:
+    """The result line of each probe case, at `level`."""
+    size = "'2'" if level == "unit" else "2"
+    marked = "a case marked to fail is no check"
+    return [
+        f"FAIL {level}.test_probe.Cases.test_expected_failure: {marked}",
+        f"FAIL {level}.test_probe.Cases.test_fail: AssertionError: call failed",
+        f"ok   {level}.test_probe.Cases.test_pass",
+        f"SKIP {level}.test_probe.Cases.test_skip: needs a device",
+        (
+            f"FAIL {level}.test_probe.Cases.test_subtests: "
+            f"Cases.test_subtests (size={size}): AssertionError: child failed"
+        ),
+        f"FAIL {level}.test_probe.Cases.test_unexpected_success: {marked}",
+        f"FAIL {level}.test_probe.test_setup_error: ValueError: bad setup",
+        f"FAIL {level}.test_probe.test_teardown_error: ValueError: bad teardown",
+        f"FAIL {level}.test_probe.test_marked_success: {marked}",
+        f"FAIL {level}.test_probe.test_dynamic_xfail: {marked}",
+        f"ok   {level}.test_probe.test_parameters[one]",
+        f"ok   {level}.test_probe.test_parameters[two]",
+    ]
+
+
+def scratch(work: Path, level: str = "unit", **files: str) -> Path:
+    """A checkout in `work` with a copy of the entry, the real .venv, and `files` in the
+    folder of `level`; its folder of tests."""
     tests = work / "tests"
-    (tests / "unit").mkdir(parents=True)
+    (tests / level).mkdir(parents=True)
     for name in ENTRY_FILES:
         shutil.copy(TESTS / name, tests / name)
     shutil.copy(ROOT / "pyproject.toml", work / "pyproject.toml")
     (work / ".venv").symlink_to(ROOT / ".venv")
     for name, text in files.items():
-        (tests / "unit" / f"{name}.py").write_text(text)
+        (tests / level / f"{name}.py").write_text(text)
     return tests
 
 
@@ -148,16 +160,17 @@ def run_entry(
 def assert_results(
     ran: subprocess.CompletedProcess[str], code: int, *lines: str, ended: bool = True
 ) -> None:
-    """The exit status, the result lines in order, then only detail lines, and the total
-    when pytest `ended`."""
+    """The exit status, the collected line, the result lines in any order (xdist's workers
+    finish in theirs), then only detail lines, and the total when pytest `ended`."""
     said = ran.stdout.splitlines()
     results = [
         line
         for line in said
         if line.startswith(("collected ", "ok ", "FAIL ", "SKIP "))
     ]
-    assert (ran.returncode, results) == (code, list(lines)), ran.stdout + ran.stderr
-    assert said[: len(lines)] == list(lines)
+    got = (ran.returncode, results[:1], sorted(results[1:]))
+    assert got == (code, list(lines[:1]), sorted(lines[1:])), ran.stdout + ran.stderr
+    assert sorted(said[: len(lines)]) == sorted(lines)
     if ended:
         assert said[-1].startswith("total: "), said[-1]
         said.pop()
@@ -165,12 +178,13 @@ def assert_results(
         assert not detail or detail.startswith("  "), detail
 
 
+@pytest.mark.parametrize("level", LEVELS)
 def test_each_case_has_one_line_and_the_exit_tells_whether_the_run_passed(
-    tmp_path: Path,
+    tmp_path: Path, level: str
 ) -> None:
-    scratch(tmp_path, test_probe=CASES)
-    ran = run_entry(tmp_path, "--level", "unit", "tests/unit/test_probe.py")
-    assert_results(ran, 1, "collected 12", *PROBE_LINES)
+    scratch(tmp_path, level, test_probe=CASES)
+    ran = run_entry(tmp_path, "--level", level, f"tests/{level}/test_probe.py")
+    assert_results(ran, 1, "collected 12", *probe_lines(level))
     for detail in (
         "Captured stdout",
         "  ok   false result",
@@ -191,7 +205,7 @@ def test_individual_reports_choose_the_result() -> None:
         ("skipped", ("test_probe.py", 1, "Skipped: off"), f"SKIP {name}: off"),
     ):
         with redirect_stdout(StringIO()) as output:
-            lines = Lines()
+            lines = Lines(Path())
             report = pytest.TestReport(
                 name, ("test_probe.py", 1, name), {}, outcome, detail, "call"
             )
@@ -203,6 +217,7 @@ def test_individual_reports_choose_the_result() -> None:
 def test_collection_errors_prevent_cases_from_running(tmp_path: Path) -> None:
     tests = scratch(
         tmp_path,
+        "model",
         test_import='raise ValueError("bad import")\n',
         test_generated=(
             "import unittest\n\n"
@@ -213,13 +228,16 @@ def test_collection_errors_prevent_cases_from_running(tmp_path: Path) -> None:
         ),
         test_good="def test_pass():\n    pass\n",
     )
-    assert (tests / "unit" / "test_good.py").is_file()
-    ran = run_entry(tmp_path, "--level", "unit")
+    shutil.copytree(tests / "model", tests / "unit")
+    ran = run_entry(tmp_path, "--level", "model")
     assert_results(ran, 2, "collected 1")
+    parallel = run_entry(tmp_path, "--level", "unit")
+    assert parallel.returncode == 1
+    assert parallel.stdout.count("collection failed: tests/unit/test_import.py") == 1
     for detail in (
-        "collection failed: tests/unit/test_import.py",
+        "collection failed: tests/model/test_import.py",
         "ValueError: bad import",
-        "collection failed: tests/unit/test_generated.py",
+        "collection failed: tests/model/test_generated.py",
         "test_generated: convert load_tests to discoverable tests",
     ):
         assert detail in ran.stdout
@@ -250,7 +268,7 @@ def test_a_selection_that_collects_nothing_fails(tmp_path: Path) -> None:
 
 def test_cases_that_do_not_add_up_to_the_collected_fail_the_run() -> None:
     with redirect_stdout(StringIO()) as output:
-        lines = Lines()
+        lines = Lines(Path())
         lines.names = {"a": "a", "b": "b"}
         lines.counts["ok"] = 1
         session = Mock(spec=pytest.Session, exitstatus=pytest.ExitCode.OK)
@@ -300,11 +318,13 @@ def test_module_cleanups_run_even_after_setup_or_teardown_fails(
     assert (tmp_path / "teardown_torn_down").exists()
 
 
+@pytest.mark.parametrize("level", LEVELS)
 def test_a_hard_exit_cannot_pass_or_leave_its_temporary_folder(
-    tmp_path: Path,
+    tmp_path: Path, level: str
 ) -> None:
     scratch(
         tmp_path,
+        level,
         test_hard_exit=(
             "import os\n"
             "from pathlib import Path\n\n"
@@ -313,9 +333,19 @@ def test_a_hard_exit_cannot_pass_or_leave_its_temporary_folder(
             "    os._exit(0)\n"
         ),
     )
-    ran = run_entry(tmp_path, "--level", "unit")
-    assert_results(ran, 1, "collected 1", ended=False)
-    assert "the test process exited before pytest returned" in ran.stderr
+    ran = run_entry(tmp_path, "--level", level)
+    if level == "unit":
+        crashed = (
+            "FAIL unit.test_hard_exit.test_exit: worker 'gw0' crashed while running "
+            "'tests/unit/test_hard_exit.py::test_exit'"
+        )
+        assert_results(ran, 1, "collected 1", crashed)
+        assert ran.stdout.splitlines()[-1] == (
+            "total: collected 1, passed 0, skipped 0, failed 1"
+        )
+    else:
+        assert_results(ran, 1, "collected 1", ended=False)
+        assert "the test process exited before pytest returned" in ran.stderr
     assert not Path((tmp_path / "temp_root").read_text()).parent.exists()
 
 
