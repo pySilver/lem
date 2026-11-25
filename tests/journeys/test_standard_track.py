@@ -9,12 +9,17 @@ the fast track, whose world this module takes; `lem land next` names each landin
 it runs.
 """
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
 
 from fakes.repo import run_git
+from fakes.terminal import FakeTerminal
 from journeys.test_skeleton import REVIEW, SLUG, lem, made, parses
+from lem.app import wiring
+from lem.ports.place import Place
+from lem.ports.terminal import Pane
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -86,6 +91,11 @@ def commit(world: World, files: dict[str, str], subject: str) -> str:
 def shaped(capsys: Capsys, world: World) -> None:
     """The request's read and the interview: his criteria, approved by his yes."""
     ok(capsys, world, "task", "open", SLUG, "--ask", "the README says recieve; fix it")
+    interviewed(capsys, world)
+
+
+def interviewed(capsys: Capsys, world: World) -> None:
+    """The read of the open request and its interview: his criteria, approved by his yes."""
     ok(
         capsys,
         world,
@@ -109,10 +119,19 @@ def shaped(capsys: Capsys, world: World) -> None:
     ok(capsys, world, "task", "span", SLUG, "interview", "end")
 
 
-def planned(capsys: Capsys, world: World, tasks: str = TASKS) -> str:
-    """The lead's plan, in the task's worktree, and its count: the task is `planned`."""
+def started(capsys: Capsys, world: World) -> None:
+    """The build's start: the task's worktree, and the task `building`."""
     ok(capsys, world, "task", "worktree", SLUG)
     ok(capsys, world, "task", "move", SLUG, "building", "--line", "the lead plans")
+
+
+def planned(
+    capsys: Capsys, world: World, tasks: str = TASKS, *, start: bool = True
+) -> str:
+    """The lead's plan, in the task's worktree, and its count: the task is `planned`; the
+    build starts first unless `start` is false."""
+    if start:
+        started(capsys, world)
     ok(capsys, world, "task", "span", SLUG, "lead", "start", "--by", "session")
     name = ok(capsys, world, "task", "plan-file", SLUG)["result"]["path"]
     commit(world, {name: CRITERIA + TESTS + tasks}, "docs: the plan")
@@ -282,3 +301,88 @@ def test_a_plan_of_four_tasks_is_proposed_only_after_its_plan_talk(
     assert talks == [talk]
     merged(capsys, world)
     assert world.record()["task"]["status"] == "landed"
+
+
+HANDOFF = """task: {slug} · from {phase} · written: {written}
+
+## Settled
+
+- {settled}
+
+## Open
+
+- none
+
+## Next step
+
+{next}
+
+## Failed
+
+- none
+
+## Changed files
+
+- none
+"""
+
+
+def handed(
+    capsys: Capsys,
+    world: World,
+    monkeypatch: pytest.MonkeyPatch,
+    leaving: tuple[str, str],
+    settled: str,
+) -> Envelope:
+    """The handoff of the session that leaves, `leaving` (its id and its phase), and the
+    session of the next phase, which that session opens."""
+    session, phase = leaving
+    monkeypatch.setenv("AGTERM_SESSION_ID", session)
+    then = "the next phase's first step"
+    written = datetime.now(UTC).strftime("%Y-%m-%dT%H:%MZ")
+    text = HANDOFF.format(
+        slug=SLUG, phase=phase, written=written, settled=settled, next=then
+    )
+    (world.task_folder / "handoff.md").write_text(text)
+    return ok(capsys, world, "session", "next", SLUG)
+
+
+def test_each_phase_of_a_standard_task_has_a_session_of_its_own(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    terminal = wiring.bound(
+        Place(checkout=world.checkout, home=tmp_path, environ={})
+    ).terminal
+    assert isinstance(terminal, FakeTerminal)
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    monkeypatch.setenv("AGTERM_SESSION_ID", "S-MINE")
+    terminal.panes["S-MINE"] = Pane(id="S-MINE", name="main", workspace="W-1")
+    ok(capsys, world, "task", "open", SLUG, "--ask", "the README says recieve; fix it")
+    opened = ok(capsys, world, "session", "open", SLUG, "--why", "new")
+    assert (opened["result"]["phase"], opened["result"]["workspace"]) == (
+        "shape",
+        "W-1",
+    )
+    assert opened["next"]["command"] == f"lem session wait {SLUG} --first-line"
+    interviewed(capsys, world)
+    first = ok(capsys, world, "session", "wait", SLUG, "--first-line")["result"]
+    assert first["gone"] is False
+    started(capsys, world)
+    shape = (opened["result"]["session"], "shape")
+    build = handed(capsys, world, monkeypatch, shape, "the criteria, approved")
+    assert build["result"]["phase"] == "build"
+    plan = planned(capsys, world, start=False)
+    built(capsys, world, plan)
+    leaving = (build["result"]["session"], "build")
+    land = handed(capsys, world, monkeypatch, leaving, f"the plan {plan}, built")
+    assert land["result"]["phase"] == "land"
+    prepared(capsys, world)
+    step(capsys, world, "propose")
+    merged(capsys, world)
+    closed = ok(capsys, world, "session", "close", SLUG, "--why", "ended")["result"]
+    assert closed["closed"] is True
+    assert [one.name for one in terminal.openings] == [SLUG, SLUG, SLUG]
+    assert terminal.closed == [land["result"]["session"]]
+    listed = ok(capsys, world, "session", "list")["result"]
+    assert [(one["task"], one["opened_in"]) for one in listed] == [(SLUG, "land")]

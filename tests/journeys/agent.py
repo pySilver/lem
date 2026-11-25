@@ -88,10 +88,13 @@ def small_built(
     files: dict[str, str],
     subject: str,
     *opening: str,
+    opened: bool = False,
 ) -> None:
-    """A fast-track task `slug` opened (with the words `opening` too), approved by Lem in the
-    owner's name, built with one commit of `files`, and `ready`."""
-    ok(capsys, world, "task", "open", slug, "--ask", subject, *opening)
+    """A fast-track task `slug` opened (with the words `opening` too) unless it is `opened`
+    already, approved by Lem in the owner's name, built with one commit of `files`, and
+    `ready`."""
+    if not opened:
+        ok(capsys, world, "task", "open", slug, "--ask", subject, *opening)
     read = ("--type", "fix", "--why", "one file", "--track", "small", "--then", "fast")
     ok(capsys, world, "task", "read", slug, *read)
     folder = world.checkout / ".lem" / "state" / "tasks" / slug
