@@ -41,7 +41,11 @@ does not own, the local stand-in each uses until then, and what other steps take
    the contract they ran against, so that a change of the criteria after the run makes it hold no
    more. `Checked` has no field for it. Asked: a field `contract` on `Checked` (the mark that
    `mark(task)` gives), written by `checks`, and `checks.holds` due again when `moved(task,
-   checked.contract)`. No stand-in is built meanwhile: a run holds whatever criteria it ran with.
+   checked.contract)`. Meanwhile the run reads the record again after its commands and refuses
+   `contract-moved` when the criteria (their tests too) changed since it began, and the
+   criteria's check refuses to write a run of criteria that changed while it ran
+   (`model/landing/checks.py`, `moved`); once `contract.py` is on this branch, `moved` takes the
+   contract's mark beside the tests, which the mark does not hold.
 
 ## For `core` (`ports/git.py`) and `land-base` (`adapters/git_cli.py`)
 
