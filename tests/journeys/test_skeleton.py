@@ -615,10 +615,12 @@ def test_a_lost_reply_after_the_merge_is_reconciled_and_lands_with_one_call(
     faulted = MERGE(capsys, world)
     assert (faulted["code"], faulted["ok"]) == (3, False)
     assert world.record()["landing"]["intent"] is not None
-    assert due(capsys, world) == "merge"
-    assert MERGE(capsys, world)["ok"] is True
-    for step in (command("land", "merged", "SLUG"), command("land", "clean", "SLUG")):
-        assert step(capsys, world)["ok"] is True
+    assert due(capsys, world) == "merged"
+    assert command("land", "merged", "SLUG")(capsys, world)["ok"] is True
+    assert world.record()["landing"].get("intent") is None
+    assert len(world.forge.merge_calls) == 1
+    assert due(capsys, world) == "clean"
+    assert command("land", "clean", "SLUG")(capsys, world)["ok"] is True
     assert_landed(world)
 
 
