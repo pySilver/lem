@@ -6,6 +6,7 @@ defect's place by the review's call, the item `file` writes, the words `--same`,
 
 import itertools
 import json
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -530,3 +531,95 @@ def test_an_item_and_the_moment_of_the_review_name_where_it_was_seen() -> None:
         "Seen outside the change by review round 1 of task fix-the-login (2026-11-25)"
         in text
     )
+
+
+# The cases of the review round of 2026-11-25 (Astra's findings, each failed before its fix).
+
+
+def test_a_file_git_does_not_track_settles_no_defect_and_only_takes_its_name() -> None:
+    private = f"{FOLDER}/private-note.md"
+    name = f"{FOLDER}/format-day-pads-the-day-with-a-space.md"
+    there = Shelf(folder=FOLDER, paths=frozenset(), taken=frozenset({private, name}))
+    record = record_of(finding())
+    same = filing.decide(
+        record, world(), there, filing_flags.Flags(same=(f"r1.1={private}",))
+    )
+    assert refused_of(same).code == "same"
+    opened = record_of(finding(open=private))
+    placed = filing.decide(opened, world(), there, filing_flags.Flags())
+    assert not isinstance(placed, Refusal)
+    assert placed.filed[0].disposition == "item"
+    assert (
+        placed.writes[0].path
+        == f"{FOLDER}/format-day-pads-the-day-with-a-space-dates-format-day.md"
+    )
+
+
+def test_a_defect_whose_open_item_left_the_tip_waits_for_its_place_again() -> None:
+    held = f"{FOLDER}/held.md"
+    filed = Filed(finding="r1.1", disposition="same", path=held, line="seen")
+    record = record_of(finding(open=held), filed=(filed,))
+    placed = filing.decide(record, world(), shelf(), filing_flags.Flags())
+    assert not isinstance(placed, Refusal)
+    assert [(one.finding, one.disposition) for one in placed.filed] == [
+        ("r1.1", "item")
+    ]
+    assert len(placed.writes) == 1
+    still = filing.decide(
+        record, world(), shelf((held, written(PADS, "later"))), filing_flags.Flags()
+    )
+    assert not isinstance(still, Refusal) and still.filed == ()
+
+
+def test_an_item_found_by_its_defect_keeps_the_worth_its_file_says() -> None:
+    path = f"{FOLDER}/format-day-pads-the-day-with-a-space.md"
+    owners = shelf((path, written(PADS, "no", "the owner: nobody reads the day")))
+    placed = filing.decide(
+        record_of(finding(against="over")), world(), owners, filing_flags.Flags()
+    )
+    assert not isinstance(placed, Refusal)
+    assert (placed.filed[0].path, placed.filed[0].worth, placed.writes) == (
+        path,
+        "no",
+        (),
+    )
+
+
+def test_a_reply_that_trickles_past_the_whole_request_s_seconds_is_no_answer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(judge_jev_ask, "SECONDS", 0.3)
+    seen: list[dict] = []
+
+    class Trickle(httpx.SyncByteStream):
+        def __iter__(self):  # noqa: ANN204 - httpx's own protocol
+            for _ in range(8):
+                time.sleep(0.1)
+                yield b" "
+
+    def slow(request: httpx.Request) -> httpx.Response:
+        seen.append(request.extensions["timeout"])
+        return httpx.Response(200, stream=Trickle())
+
+    started = time.monotonic()
+    assert bound(tmp_path, httpx.MockTransport(slow)).over_bar(DEFECT) == NotAsked(
+        why="no answer"
+    )
+    assert time.monotonic() - started < 0.7
+    assert seen[0]["read"] <= 0.3
+
+
+def test_the_request_is_json_and_an_answer_of_another_type_is_no_answer(
+    tmp_path: Path,
+) -> None:
+    sent: list[httpx.Request] = []
+
+    def choice(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        body = {"answers": {"over": {"type": "choice", "noul": 0.9}}}
+        return httpx.Response(200, json=body)
+
+    assert bound(tmp_path, httpx.MockTransport(choice)).over_bar(DEFECT) == NotAsked(
+        why="no answer"
+    )
+    assert sent[0].headers["content-type"] == "application/json"

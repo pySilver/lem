@@ -20,8 +20,12 @@ def gone_of(landing: Landing, shelf: filing_place.Shelf) -> tuple[str, ...]:
 def again_of(
     landing: Landing, shelf: filing_place.Shelf, *, again: bool
 ) -> tuple[str, ...]:
-    """The items `--again` writes once more: each `file` filed that the tip no longer holds."""
-    return gone_of(landing, shelf) if again else ()
+    """The places given again: each open item a defect was the same as that the tip no
+    longer holds (`land.to_file` on `main` reads the open item's presence each time), and
+    with `--again` each item `file` filed that the tip no longer holds."""
+    paths = (filed.path for filed in landing.filed if filed.disposition == "same")
+    left = tuple(path for path in paths if path and path not in shelf.paths)
+    return (*left, *(gone_of(landing, shelf) if again else ()))
 
 
 def free_of(left: Waiting, shelf: filing_place.Shelf) -> set[str]:

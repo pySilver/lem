@@ -3,6 +3,7 @@ against the items of the backlog, as many questions in each request as fit under
 so that every item is asked (`land.jev_spec`, `land.alike_specs` and `land.ask_jev` on
 `main`)."""
 
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,9 +14,9 @@ from lem.adapters import judge_jev_wire as wire
 from lem.model.landing import items
 from lem.ports.judge import Defect, NotAsked, Score
 
-# The seconds one request may take before it is "no answer": the read only adds a line, and a
-# landing should not wait for it. A guess (2026-11-23), not a measurement (`JEV_SECONDS` on
-# `main`).
+# The seconds one whole request may take, its reply read to its end, before it is "no answer":
+# the read only adds a line, and a landing should not wait for it. A guess (2026-11-23), not a
+# measurement (`JEV_SECONDS` on `main`).
 SECONDS = 20.0
 NO_KEY = NotAsked(why="no key")
 NO_ANSWER = NotAsked(why="no answer")
@@ -69,6 +70,24 @@ def split(
     return [wire.Request(model=model, state=state, questions=group) for group in groups]
 
 
+def posted(
+    client: httpx.Client, url: str, key: str, request: wire.Request, deadline: float
+) -> bytes | None:
+    """The reply's body to a request in Jev's JSON form, read until `deadline`; None for a
+    reply that failed or did not end by then (`jev.ask` on `main`)."""
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    body = msgspec.json.encode(request)
+    with client.stream("POST", url, content=body, headers=headers) as reply:
+        if not reply.is_success:
+            return None
+        chunks: list[bytes] = []
+        for chunk in reply.iter_bytes():
+            if time.monotonic() > deadline:
+                return None
+            chunks.append(chunk)
+    return b"".join(chunks)
+
+
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Asker:
     """Jev at one address, with one key and one model."""
@@ -79,18 +98,17 @@ class Asker:
     transport: httpx.BaseTransport | None = None
 
     def sent(self, request: wire.Request) -> dict[str, float] | NotAsked:
-        """The scores of one request, or why it got none."""
+        """The scores of one request, or why it got none. The whole request, its reply read
+        to its end, is given `SECONDS`: a reply that trickles past them is no answer."""
         if self.key is None:
             return NO_KEY
-        headers = {"Authorization": f"Bearer {self.key}"}
+        deadline = time.monotonic() + SECONDS
         try:
             with httpx.Client(transport=self.transport, timeout=SECONDS) as client:
-                reply = client.post(
-                    self.url, content=msgspec.json.encode(request), headers=headers
-                )
+                body = posted(client, self.url, self.key, request, deadline)
         except httpx.HTTPError:
             return NO_ANSWER
-        scores = wire.scores_of(reply.content, request) if reply.is_success else None
+        scores = None if body is None else wire.scores_of(body, request)
         return NO_ANSWER if scores is None else scores
 
     def over(self, defect: Defect, rule: str) -> Score | NotAsked:

@@ -35,11 +35,6 @@ def hook_refused(number: int, paths: tuple[str, ...], slug: str, said: str) -> R
     )
 
 
-def round_paths(writes: tuple[Write, ...], number: int) -> tuple[str, ...]:
-    """The paths of one review round's items."""
-    return tuple(write.path for write in writes if write.round == number)
-
-
 def wrote(context: Context, writes: tuple[Write, ...]) -> tuple[str, ...]:
     """Write each item into the worktree; the paths written."""
     for pending in writes:
@@ -52,7 +47,7 @@ def wrote(context: Context, writes: tuple[Write, ...]) -> tuple[str, ...]:
 def commit_round(context: Context, writes: tuple[Write, ...], number: int) -> None:
     """Commit one review round's items alone; a refusal of git's is refused in its words."""
     slug = context.record.task.slug
-    paths = round_paths(writes, number)
+    paths = tuple(write.path for write in writes if write.round == number)
     message = f"docs(backlog): what review round {number} saw outside {slug}"
     try:
         context.ports.git.commit(context.worktree, message, paths)

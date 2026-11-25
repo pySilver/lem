@@ -38,7 +38,8 @@ class Briefed(Frozen, frozen=True, kw_only=True):
 
     attempt: int
     tip: str
-    floor: review_due.Floor
+    floor: str
+    floor_why: str
     path: str
     record: str
     brief: review_brief.Brief
@@ -53,7 +54,9 @@ def known(context: frame.Context) -> tuple[review_facts.Gathered, review_due.Fac
 def briefed(context: frame.Context) -> Briefed:
     """Publish the brief of the review that is due, and start its span."""
     found, facts = known(context)
-    topics = review_settings.read(context.workspace.checkout).flow.topics
+    topics = review_settings.read(
+        context.ports.git, context.workspace.checkout, context.world.rules.base
+    ).flow.topics
     brief = review_brief.made(context, found, facts, topics)
     context.write(
         context.record,
@@ -63,6 +66,7 @@ def briefed(context: frame.Context) -> Briefed:
         attempt=brief.attempt,
         tip=brief.tip,
         floor=brief.floor,
+        floor_why=brief.floor_why,
         path=review_brief.published(context, brief),
         record=brief.record,
         brief=brief,
@@ -71,7 +75,13 @@ def briefed(context: frame.Context) -> Briefed:
 
 def taken(context: frame.Context, *, path: str) -> Reviewed:
     """Record the review of the file at `path`, or refuse it."""
-    read = review_files.said(review_files.task_file(path, context.folder))
+    found = review_files.task_file(path, context.folder)
+    before = review_files.landing_before(
+        context.folder, found, context.record.task.slug
+    )
+    if before is not None:
+        raise before
+    read = review_files.said(found)
     _, facts = known(context)
     attempt = review.decide(context.record, context.world, read, facts)
     if isinstance(attempt, Refusal):

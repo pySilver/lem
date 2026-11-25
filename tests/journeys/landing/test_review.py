@@ -11,7 +11,9 @@ import json
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
+from msgspec.structs import replace
 
+from fakes.records import MOMENT
 from fakes.repo import run_git
 from journeys.test_skeleton import (
     JOURNEY,
@@ -28,14 +30,20 @@ from journeys.test_skeleton import (
     proposal,
 )
 from lem.app import wiring
+from lem.app.landing import changes, judge_same
 from lem.ports.judge import Score
 from lem.ports.place import Place
+from lem.records.decisions import Taken
+from lem.records.landing.record import Landing
+from lem.records.landing.start import Resolution
+from lem.store import tasks
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
     from fakes.outside import FakeJudge
+    from lem.records.record import Record
 
 type Envelope = dict[str, Any]
 OVER = {
@@ -70,6 +78,12 @@ def judge_of(world: World) -> FakeJudge:
     """The Jev of the test's ports."""
     place = Place(checkout=world.checkout, home=world.folder / "home", environ={})
     return cast("FakeJudge", wiring.bound(place).judge)
+
+
+def staged(world: World, path: str) -> str:
+    """Where Lem writes an item, as the tip has it, for Jev's port to read
+    (`app/landing/jev_staged.py`)."""
+    return str(world.task_folder / judge_same.STAGED / path)
 
 
 def upto_review(
@@ -161,10 +175,17 @@ def test_the_brief_names_the_record_s_command_next_and_says_what_the_file_holds(
     assert following["command"] == f"lem land read {SLUG} --record FILE"
     assert "reviews/review-1.json in the task's folder" in following["why"]
     told = json.loads((world.task_folder / envelope["result"]["path"]).read_text())
-    assert (told["attempt"], told["tip"], told["floor"]["kind"]) == (
+    assert (told["attempt"], told["tip"], told["floor"]) == (
         1,
         envelope["result"]["tip"],
         "read",
+    )
+    assert told["floor_why"].startswith("nothing asks for more than one read")
+    assert envelope["result"]["floor"] == "read"
+    assert told["inputs"]["ask"] == "the README says recieve; fix it"
+    assert (
+        told["inputs"]["rules"]
+        == f"lem --repo {world.worktree} rules --range {told['inputs']['range']}"
     )
     assert told["inputs"]["range"].endswith(f"..{told['tip']}")
     assert told["inputs"]["worktree"] == str(world.worktree)
@@ -265,7 +286,7 @@ def test_jev_names_an_item_and_file_writes_nothing_until_same_or_new(
     text = "---\nworth: no\nwhere: LICENSE\n---\n# no licence file\n\nThere is no LICENSE.\n"
     upto_review(capsys, world, base={old: text})
     judge = judge_of(world)
-    judge.same[OVER["title"]] = (Score(score=0.8, path=str(world.worktree / old)),)
+    judge.same[OVER["title"]] = (Score(score=0.8, path=staged(world, old)),)
     reviewed(capsys, world, outside=[OVER])
     refused = file_step()(capsys, world)["refusal"]
     assert refused["code"] == "jev-same"
@@ -304,9 +325,7 @@ def test_new_files_the_defect_as_its_own_item_and_leaves_the_one_jev_named(
     old = "docs/backlog/no-licence-file.md"
     text = "---\nworth: no\nwhere: LICENSE\n---\n# no licence file\n\nThere is no LICENSE.\n"
     upto_review(capsys, world, base={old: text})
-    judge_of(world).same[OVER["title"]] = (
-        Score(score=0.8, path=str(world.worktree / old)),
-    )
+    judge_of(world).same[OVER["title"]] = (Score(score=0.8, path=staged(world, old)),)
     reviewed(capsys, world, outside=[OVER])
     assert file_step()(capsys, world)["refusal"]["code"] == "jev-same"
     new = file_step("--new", "r1.1")(capsys, world)
@@ -334,7 +353,7 @@ def test_alike_names_the_items_jev_reads_as_the_same_and_with_jev_not_asked_list
         str(what),
     )
     judge = judge_of(world)
-    judge.same["no licence"] = (Score(score=0.9, path=str(world.worktree / HELD)),)
+    judge.same["no licence"] = (Score(score=0.9, path=staged(world, HELD)),)
     answered = lem(capsys, world.checkout, *words)
     assert answered["ok"] is True, answered
     named = answered["result"]
@@ -342,6 +361,7 @@ def test_alike_names_the_items_jev_reads_as_the_same_and_with_jev_not_asked_list
     assert [(one["path"], one["jev"]) for one in named["alike"]] == [
         (HELD, "Jev: 0.90")
     ]
+    assert not (world.task_folder / judge_same.STAGED).exists()
     judge.key = False
     unasked = lem(capsys, world.checkout, *words)["result"]
     assert unasked["jev"] == "Jev: not asked (no key for Jev)"
@@ -432,9 +452,13 @@ def test_an_edit_of_lem_s_own_settings_gets_the_full_set_whatever_the_shape_says
     )
     assert command("land", "checks", "SLUG")(capsys, world)["ok"] is True
     told = brief(capsys, world)["result"]
-    assert told["floor"]["kind"] == "full"
-    assert "the change edits [branch] of .lem/settings.toml" in told["floor"]["why"]
+    assert told["floor"] == "full"
+    assert "the change edits [branch] of .lem/settings.toml" in told["floor_why"]
     assert recorded(capsys, world)["refusal"]["code"] == "under-floor"
+    full = {"kind": "full", "left_out": [], "careful": False}
+    assert recorded(capsys, world, **full)["ok"] is True
+    assert world.record()["landing"]["reviews"][-1]["floor"] == "full"
+    assert next_step(capsys, world)["result"]["step"] == "propose"
 
 
 def test_a_commit_hook_that_refuses_the_items_is_named_and_the_next_run_finds_them(
@@ -526,8 +550,243 @@ def test_a_team_that_sends_no_finding_to_jev_asks_jev_nothing(
     what = tmp_path / "run.txt"
     what.write_text(OVER["what"])
     judge = judge_of(world)
-    judge.same["no licence"] = (Score(score=0.9, path=str(world.worktree / HELD)),)
+    judge.same["no licence"] = (Score(score=0.9, path=staged(world, HELD)),)
     words = ("--where", "README.md", "--title", "no licence", "--what", str(what))
     told = lem(capsys, world.checkout, "land", "alike", SLUG, *words)["result"]
     assert told["jev"] == "Jev: not asked (off in the settings)"
     assert judge.asked == []
+
+
+# The cases of the review round of 2026-11-25 (Astra's findings, each failed before its fix).
+
+
+def changed(
+    capsys: pytest.CaptureFixture[str],
+    world: World,
+    files: dict[str, str],
+    subject: str,
+) -> None:
+    """A builder's commit of `files` in the worktree, and the checks on it."""
+    for path, text in files.items():
+        target = world.worktree / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+    run_git(world.worktree, "add", "--all")
+    run_git(world.worktree, "commit", "--quiet", "--message", subject)
+    assert command("land", "checks", "SLUG")(capsys, world)["ok"] is True
+
+
+def written_into_record(world: World, change: Callable[[Record], Record]) -> None:
+    """A change of the task's record, as another step's command writes it."""
+    state = world.checkout / ".lem" / "state"
+    found = tasks.read(state, SLUG)
+    tasks.update(state, SLUG, change, found.revision)
+
+
+QUIET = {
+    "answered": [],
+    "silent": [{"name": "the review agent", "why": "it ended with no files"}],
+    "ran": [],
+    "careful": None,
+    "careful_why": None,
+}
+
+
+def test_a_tip_that_two_silent_reads_left_unread_is_not_green_and_no_agent_merges_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world)
+    reviewed(capsys, world)
+    changed(
+        capsys, world, {"README.md": "The README says receive, twice.\n"}, "docs: twice"
+    )
+    reviewed(capsys, world, **QUIET)
+    reviewed(capsys, world, **QUIET)
+    assert next_step(capsys, world)["result"]["step"] == "propose"
+    proposed = proposal(capsys, world)["result"]
+    assert proposed["green"] is False
+    assert "no review read the change" in proposed["reasons"]
+    assert world.record()["landing"]["proposed"]["who_acts"] == "owner"
+
+
+def test_a_resolution_after_a_must_fix_is_reviewed_whole(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world)
+    reviewed(capsys, world, must_fix=1)
+    before = world.told["tip"]
+    changed(
+        capsys, world, {"NOTES.md": "resolved\n"}, "fix: the conflict and the must-fix"
+    )
+    after = run_git(world.worktree, "rev-parse", "HEAD")
+    resolution = Resolution(
+        files=("NOTES.md",), before=before, after=after, base=before
+    )
+    written_into_record(
+        world, lambda found: changes.landing(found, resolution=resolution)
+    )
+    told = brief(capsys, world)["result"]
+    assert (told["floor"], told["brief"].get("resolution")) == ("round", None)
+
+
+def test_a_resolution_after_a_clean_review_gets_one_read_with_its_range_diff(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world)
+    reviewed(capsys, world)
+    before = world.told["tip"]
+    changed(capsys, world, {"NOTES.md": "resolved\n"}, "fix: the conflict")
+    after = run_git(world.worktree, "rev-parse", "HEAD")
+    resolution = Resolution(
+        files=("NOTES.md",), before=before, after=after, base=before
+    )
+    written_into_record(
+        world, lambda found: changes.landing(found, resolution=resolution)
+    )
+    told = brief(capsys, world)["result"]["brief"]
+    assert told["resolution"]["files"] == ["NOTES.md"]
+    assert told["range_diff"].startswith("git range-diff ")
+
+
+def test_the_owner_s_careful_word_during_the_landing_asks_for_the_full_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world)
+    reviewed(capsys, world)
+    assert next_step(capsys, world)["result"]["step"] == "propose"
+    said = Taken(
+        id=1,
+        at=MOMENT,
+        what="whether the task is careful",
+        chose="careful until its merge",
+        why="the README is what a customer reads",
+        by="owner",
+    )
+    written_into_record(
+        world, lambda found: replace(found, task=replace(found.task, decisions=(said,)))
+    )
+    (world.task_folder / "brief.md").write_text("careful: the owner says so\n")
+    assert next_step(capsys, world)["result"]["step"] == "read"
+    told = brief(capsys, world)["result"]
+    assert (told["floor"], told["brief"]["floor_why"]) == (
+        "full",
+        "the request is careful: the owner says so",
+    )
+    assert recorded(capsys, world)["refusal"]["code"] == "under-floor"
+
+
+def test_a_report_of_a_landing_before_does_not_count_again_at_the_same_tip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world)
+    reviewed(capsys, world)
+    reviews = world.task_folder / "reviews"
+    (reviews / "landing-1").mkdir()
+    (reviews / "review-1.json").rename(reviews / "landing-1" / "review-1.json")
+
+    def started_over(found: Record) -> Record:
+        landing = found.landing or Landing()
+        return changes.landing(found, reviews=(), archived=landing.reviews)
+
+    written_into_record(world, started_over)
+    assert brief(capsys, world)["result"]["attempt"] == 1
+    old = lem(
+        capsys,
+        world.checkout,
+        "land",
+        "read",
+        SLUG,
+        "--record",
+        "reviews/landing-1/review-1.json",
+    )
+    assert old["refusal"]["code"] == "landing-before"
+
+
+def test_a_same_whose_open_item_left_the_base_is_filed_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world, base={HELD: HELD_TEXT})
+    opened = {**OVER, "bar": "under", "why": "nobody reads it", "open": HELD}
+    reviewed(capsys, world, outside=[opened])
+    assert file_step()(capsys, world)["result"][0]["disposition"] == "same"
+    changed(
+        capsys, world, {"README.md": "The README says receive, again.\n"}, "docs: again"
+    )
+    run_git(world.worktree, "rm", "--quiet", HELD)
+    run_git(world.worktree, "commit", "--quiet", "--message", "docs: the item is gone")
+    assert command("land", "checks", "SLUG")(capsys, world)["ok"] is True
+    reviewed(capsys, world, outside=[CHEAP])
+    placed = {one["finding"]: one for one in file_step()(capsys, world)["result"]}
+    assert placed["r1.1"]["disposition"] == "item"
+
+
+def test_an_item_the_owner_set_to_worth_no_keeps_his_no_in_the_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    owners = (
+        HELD_TEXT.replace("worth: later", "worth: no")
+        + "\nDecided against: the owner: no licence yet\n"
+    )
+    upto_review(capsys, world, base={HELD: owners})
+    reviewed(capsys, world, outside=[OVER])
+    [placed] = file_step()(capsys, world)["result"]
+    assert (placed["path"], placed["worth"]) == (HELD, "no")
+    assert commits_of(world) == []
+
+
+def test_an_edit_of_the_settings_file_s_mode_alone_gets_the_full_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world)
+    run_git(world.worktree, "update-index", "--chmod=+x", ".lem/settings.toml")
+    run_git(world.worktree, "commit", "--quiet", "--message", "chore: the settings run")
+    run_git(world.worktree, "checkout", "--quiet", "--", ".lem/settings.toml")
+    assert command("land", "checks", "SLUG")(capsys, world)["ok"] is True
+    assert brief(capsys, world)["result"]["floor"] == "full"
+
+
+def test_jev_and_the_topics_are_the_base_branch_s_when_the_main_checkout_is_on_another(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world, base={HELD: HELD_TEXT})
+    settings = world.checkout / ".lem" / "settings.toml"
+    plain = settings.read_text()
+    settings.write_text(
+        plain
+        + '\n[flow]\ntopics = ["a customer is charged"]\n\n[jev]\nfindings = false\n'
+    )
+    run_git(world.checkout, "commit", "--quiet", "--all", "--message", "chore: no Jev")
+    run_git(world.checkout, "checkout", "--quiet", "-b", "elsewhere")
+    settings.write_text(plain)
+    run_git(
+        world.checkout, "commit", "--quiet", "--all", "--message", "chore: Jev again"
+    )
+    judge = judge_of(world)
+    judge.same["no licence"] = (Score(score=0.9, path=staged(world, HELD)),)
+    what = tmp_path / "run.txt"
+    what.write_text(OVER["what"])
+    words = ("--where", "README.md", "--title", "no licence", "--what", str(what))
+    told = lem(capsys, world.checkout, "land", "alike", SLUG, *words)["result"]
+    assert told["jev"] == "Jev: not asked (off in the settings)"
+    assert judge.asked == []
+    topics = brief(capsys, world)["result"]["brief"]["inputs"]["topics"]
+    assert topics == ["a customer is charged"]
+
+
+def test_the_review_is_told_of_each_existing_test_the_change_edits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world, base={"tests/test_readme.py": "assert True\n"})
+    changed(capsys, world, {"tests/test_readme.py": "assert 1\n"}, "test: one")
+    told = brief(capsys, world)["result"]["brief"]["inputs"]
+    assert told["edited"] == [{"path": "tests/test_readme.py", "kind": "test"}]

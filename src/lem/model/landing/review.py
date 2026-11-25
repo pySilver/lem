@@ -32,9 +32,11 @@ RESOLVED = "a builder resolved a conflict with the base: one read of what it cha
 
 
 def newest(landing: Landing) -> Reviewed | None:
-    """The newest attempt that some reviewer answered."""
-    answered = [review for review in landing.reviews if review.answered]
-    return answered[-1] if answered else None
+    """The newest attempt, when some reviewer answered it. None while the newest attempt is
+    one nobody answered: a review was due after the last answered one, so that one clears
+    nothing, and the request goes on as not reviewed (`land.due_of` on `main`)."""
+    found = landing.reviews[-1] if landing.reviews else None
+    return found if found is not None and found.answered else None
 
 
 def must_fix(review: Reviewed) -> int:

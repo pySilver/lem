@@ -23,11 +23,14 @@ type Worth = Literal["later", "no"]
 
 
 class Shelf(Frozen, frozen=True, kw_only=True):
-    """The backlog folder at the tip: every file's path, and each item read."""
+    """The backlog folder at the tip: the path of each file git has there, each item read,
+    and the names taken on disk besides, a file git does not track among them. Only a file
+    of the tip holds a defect; no name on disk is written over."""
 
     folder: str
     paths: frozenset[str] = frozenset()
     shelved: tuple[items.BacklogItem, ...] = ()
+    taken: frozenset[str] = frozenset()
 
 
 class Write(Frozen, frozen=True, kw_only=True):
@@ -79,7 +82,7 @@ def named(shelf: Shelf, defect: items.Defect, old: str | None) -> tuple[str, boo
         path = f"{shelf.folder}/{name}"
         if path != old and items.holds(by_path.get(path), defect):
             return path, True
-        if path not in shelf.paths:
+        if path not in shelf.paths | shelf.taken:
             return path, False
     raise AssertionError("names_for gives names without end")
 
@@ -90,11 +93,16 @@ def itemized(
     """The item of a defect over or under the bar, and its file to write unless one holds it."""
     worth: Worth = "later" if finding.against == "over" else "no"
     path, there = named(shelf, defect_of(finding), old)
+    if there:
+        return Filed(
+            finding=finding.id,
+            disposition="item",
+            path=path,
+            worth=items.worth_of(shelf.shelved, path),
+        ), None
     filed = Filed(
         finding=finding.id, disposition="item", path=path, worth=worth, cites=old
     )
-    if there:
-        return filed, None
     written = Written(
         worth=worth, added=seen.today, seen=seen.line(), why=finding.why, cites=old
     )

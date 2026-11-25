@@ -67,11 +67,17 @@ def silent_run(landing: Landing) -> int:
 
 
 def resolution_due(landing: Landing, world: World) -> Resolution | None:
-    """A builder's resolution of a conflict whose one read is due: made on this very tip
-    after a review covered the change, and not read yet. A commit after it makes the change
-    one the rules of a change review whole."""
+    """A builder's resolution of a conflict whose one read is due: made on this very tip,
+    not read yet, after the newest answered review read the tip before the rebase and left no
+    must-fix (`land.cmd_base` and `land.due_of` on `main`). A commit after it, or a must-fix
+    the review left, makes the change one the rules of a change review whole."""
     found = landing.resolution
     if found is None or found.read is not None or found.after != world.tip:
+        return None
+    answered = [review for review in landing.reviews if review.answered]
+    if not answered or answered[-1].tip != found.before:
+        return None
+    if any(finding.level == "must-fix" for finding in answered[-1].findings):
         return None
     return found
 

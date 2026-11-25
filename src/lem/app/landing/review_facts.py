@@ -7,16 +7,20 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import backlog, review_edits
-from lem.model.landing import careful, review_due
+from lem.app.landing import backlog, review_edited, review_edits
+from lem.model.landing import careful, careful_words, review_due
 from lem.records.base import Frozen
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from pathlib import Path
 
     from lem.app.landing.frame import Context
     from lem.model.landing.items import BacklogItem
+
+
+OWNER_LINE = f"careful: {careful_words.OWNER_SAYS}"
 
 
 class Seen(Frozen, frozen=True, kw_only=True):
@@ -39,6 +43,7 @@ class Gathered(Frozen, frozen=True, kw_only=True):
     at_base: frozenset[str]
     backlog: Told = ()
     filed: Told = ()
+    edited: tuple[review_edited.Edited, ...] = ()
 
 
 def told(found: Iterable[BacklogItem]) -> Told:
@@ -46,23 +51,40 @@ def told(found: Iterable[BacklogItem]) -> Told:
     return msgspec.convert(tuple(found), Told, from_attributes=True)
 
 
+def filed_by_others(context: Context, there: frozenset[str]) -> Told:
+    """The items the branch adds that no review's filing wrote: the builder's and the
+    polish pass's."""
+    written = {filed.path for filed in (context.record.landing or Landing()).filed}
+    tip = context.world.tip or ""
+    found = backlog.added(context.ports.git, context.worktree, tip, there)
+    return told(one for one in found if one.path not in written)
+
+
 def gathered(context: Context) -> Gathered:
-    """The facts of the change from origin's base to the worktree's tip."""
+    """The facts of the change from origin's base to the worktree's tip: one diff, and one
+    look at the base's backlog files."""
     git, worktree = context.ports.git, context.worktree
     span = (context.world.base, context.world.tip or "")
     stat = git.diff_stat(worktree, *span)
-    written = {filed.path for filed in (context.record.landing or Landing()).filed}
+    there = backlog.files_at_base(git, worktree, span[0], stat.paths)
     return Gathered(
         lines=stat.added + stat.removed,
-        edits=review_edits.edits(git, worktree, span),
-        at_base=backlog.files_at_base(git, worktree, *span),
-        backlog=told(backlog.at_base(git, worktree, *span)),
-        filed=told(
-            found
-            for found in backlog.added(git, worktree, *span)
-            if found.path not in written
-        ),
+        edits=review_edits.edits(git, worktree, span, stat.paths),
+        at_base=there,
+        backlog=told(backlog.at_base(git, worktree, span[0], there)),
+        filed=filed_by_others(context, there),
+        edited=review_edited.edited(git, worktree, span, stat.paths),
     )
+
+
+def owner_said(folder: Path) -> bool:
+    """Whether the task's brief holds the owner's careful word, the line `be-careful` writes
+    (`land.owner_says_careful` on `main`)."""
+    brief = folder / "brief.md"
+    if not brief.is_file():
+        return False
+    lines = brief.read_text(encoding="utf-8", errors="replace").splitlines()
+    return OWNER_LINE in {line.strip() for line in lines}
 
 
 def facts(context: Context, found: Gathered) -> review_due.Facts:
@@ -70,7 +92,9 @@ def facts(context: Context, found: Gathered) -> review_due.Facts:
     checked = (context.record.landing or Landing()).checked
     paths = {one.path for one in checked.lowered} if checked else set()
     return review_due.Facts(
-        careful=careful.reasons(context.record, found.edits),
+        careful=careful.reasons(
+            context.record, found.edits, owner=owner_said(context.folder)
+        ),
         folder=backlog.FOLDER,
         at_base=found.at_base,
         lowered=tuple(sorted(paths)),

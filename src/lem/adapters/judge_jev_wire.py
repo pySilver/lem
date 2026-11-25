@@ -45,9 +45,10 @@ class Request(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Answer(msgspec.Struct, frozen=True, kw_only=True):
-    """One answer: the probability of yes."""
+    """One answer: its type, which a yes or no question's is, and the probability of yes."""
 
     noul: float
+    kind: str = msgspec.field(default="noul", name="type")
 
 
 class Reply(msgspec.Struct, frozen=True, kw_only=True):
@@ -79,6 +80,8 @@ def scores_of(body: bytes, asked: Request) -> dict[str, float] | None:
         return None
     said = {name: answer.noul for name, answer in reply.answers.items()}
     if set(said) != set(asked.questions):
+        return None
+    if any(answer.kind != "noul" for answer in reply.answers.values()):
         return None
     if not all(0 <= score <= 1 for score in said.values()):
         return None

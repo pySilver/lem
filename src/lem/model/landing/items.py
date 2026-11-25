@@ -9,6 +9,7 @@ a later note) leaves it the same defect.
 """
 
 import re
+from typing import Literal
 
 from lem.records.base import Frozen
 
@@ -87,3 +88,12 @@ def holds(found: BacklogItem | None, defect: Defect) -> bool:
     run = SEPARATOR.join(paragraphs(defect.what))
     body = SEPARATOR.join(found.paragraphs)
     return f"{SEPARATOR}{run}{SEPARATOR}" in f"{SEPARATOR}{body}{SEPARATOR}"
+
+
+def worth_of(
+    shelved: tuple[BacklogItem, ...], path: str
+) -> Literal["later", "no"] | None:
+    """The worth the item at `path` says, `later` or `no`; None for another word or no item.
+    The owner's word in the file stands over a review's call."""
+    said = {found.path: found.worth for found in shelved}.get(path)
+    return said if said in {"later", "no"} else None

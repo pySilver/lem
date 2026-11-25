@@ -16,6 +16,7 @@ from lem.app.landing import review_changes, review_files
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
     careful,
+    green,
     phases,
     review,
     review_due,
@@ -24,11 +25,12 @@ from lem.model.landing import (
 )
 from lem.model.landing.review_said import Named, Outside, Said
 from lem.model.landing.world import Due
+from lem.records.decisions import Taken
 from lem.records.journal.landing import CarefulMissed, ReviewRound
 from lem.records.journal.task import SpanMark
 from lem.records.landing.checks import Lowered
 from lem.records.landing.record import Landing
-from lem.records.landing.review import Finding
+from lem.records.landing.review import Finding, Reviewed
 from lem.records.landing.start import Resolution
 from lem.records.task import Shape
 from lem.records.work import Plan
@@ -501,7 +503,8 @@ def test_the_review_covers_its_tip_and_the_commit_file_made_after_it() -> None:
 
 def test_a_resolution_of_a_conflict_gets_one_read_of_what_it_changed() -> None:
     resolution = Resolution(files=("a.py",), before=OTHER, after=TIP, base=BASE)
-    record = task(**{**PREPARED, "resolution": resolution})
+    before = replace(REVIEWED, tip=OTHER)
+    record = task(**{**PREPARED, "reviews": (before,), "resolution": resolution})
     assert review.holds(record, world()).why.startswith("a builder resolved a conflict")
     made = review.decide(record, world(), said(attempt=2), FACTS)
     assert not isinstance(made, Refusal)
@@ -632,3 +635,145 @@ def test_the_review_is_not_due_before_the_checks_hold() -> None:
     other = replace(CHECKED, inputs="another digest of the commands")
     changed = task(**{**PREPARED, "checked": other, "reviews": (), "filed": ()})
     assert phases.due(changed, world()).step == "checks"
+
+
+# The cases of the review round of 2026-11-25 (Astra's findings, each failed before its fix).
+
+MUST_FIX = Finding(
+    id="r1.c1", level="must-fix", where="r", title="t", what="w", against="over"
+)
+QUIET = (Named(name="codex", why="at capacity"),)
+
+
+def silent_on(attempt: int, tip: str) -> Reviewed:
+    """An attempt nobody answered, of `tip`."""
+    return replace(
+        REVIEWED,
+        attempt=attempt,
+        tip=tip,
+        answered=(),
+        findings=(),
+        to_file=(),
+        careful=None,
+        silent=review_said.kept(QUIET),
+    )
+
+
+def test_a_tip_two_silent_reads_left_unread_has_no_review_that_clears_it() -> None:
+    cleared = replace(REVIEWED, tip=OTHER, findings=(), to_file=())
+    reviews = (cleared, silent_on(2, TIP), silent_on(3, TIP))
+    record = task(**{**PREPARED, "reviews": reviews, "filed": ()})
+    assert review.newest(record.landing or Landing()) is None
+    held = review.holds(record, world())
+    assert held.why.startswith("not reviewed: two attempts in a row")
+    assert "no review read the change" in green.reasons(record)
+
+
+def test_a_resolution_is_read_alone_only_after_a_review_that_left_no_must_fix() -> None:
+    resolution = Resolution(files=("a.py",), before=OTHER, after=TIP, base=BASE)
+    left = replace(REVIEWED, tip=OTHER, findings=(MUST_FIX,), to_file=())
+    record = task(**{**PREPARED, "reviews": (left,), "resolution": resolution})
+    assert review_due.resolution_due(record.landing or Landing(), world()) is None
+    made = review.decide(
+        record, world(), said(attempt=2, kind="round", ran=QUIET), FACTS
+    )
+    assert not isinstance(made, Refusal)
+    assert (made.of, made.scope) == ("change", "whole")
+    clean = replace(left, findings=())
+    cleared = task(**{**PREPARED, "reviews": (clean,), "resolution": resolution})
+    assert review_due.resolution_due(cleared.landing or Landing(), world()) is not None
+    elsewhere = replace(clean, tip=BASE)
+    other = task(**{**PREPARED, "reviews": (elsewhere,), "resolution": resolution})
+    assert review_due.resolution_due(other.landing or Landing(), world()) is None
+
+
+OWNER_SAYS = Taken(
+    id=1,
+    at=MOMENT,
+    what="whether the task is careful",
+    chose="careful until its merge",
+    why="the export reaches the customer's invoice",
+    by="owner",
+)
+
+
+def test_the_owner_s_careful_word_raises_the_floor_to_the_full_set() -> None:
+    made = task(**PREPARED)
+    words = replace(made, task=replace(made.task, decisions=(OWNER_SAYS,)))
+    assert careful.reasons(words, careful.Edits())[0] == "the owner says so"
+    assert due_of(review.holds(words, world())) == "read"
+    assert (
+        review_due.floor(
+            words, careful.reasons(words, careful.Edits()), resolution=False
+        ).kind
+        == "full"
+    )
+    brief_only = careful.reasons(made, careful.Edits(), owner=True)
+    assert brief_only == ("the owner says so",)
+
+
+def test_a_record_of_a_landing_before_is_refused_as_named_and_through_a_link(
+    tmp_path: Path,
+) -> None:
+    folder = tmp_path / "tasks" / "gift-note"
+    kept = folder / "reviews" / "landing-1"
+    kept.mkdir(parents=True)
+    (kept / "review-1.json").write_text("{}")
+    found = review_files.landing_before(folder, kept / "review-1.json", "gift-note")
+    assert found is not None and found.code == "landing-before"
+    link = tmp_path / "elsewhere.json"
+    link.symlink_to(kept / "review-1.json")
+    assert review_files.landing_before(folder, link, "gift-note") is not None
+    moving = folder / "reviews" / ".landing-2.moving"
+    moving.mkdir()
+    (moving / "review-1.json").write_text("{}")
+    assert (
+        review_files.landing_before(folder, moving / "review-1.json", "gift-note")
+        is not None
+    )
+    (folder / "reviews" / "review-1.json").write_text("{}")
+    assert (
+        review_files.landing_before(
+            folder, folder / "reviews" / "review-1.json", "gift-note"
+        )
+        is None
+    )
+    own = tmp_path / "tasks" / "landing-1"
+    (own / "reviews" / "landing-1").mkdir(parents=True)
+    (own / "reviews" / "landing-1" / "r.json").write_text("{}")
+    assert (
+        review_files.landing_before(
+            own, own / "reviews" / "landing-1" / "r.json", "landing-1"
+        )
+        is None
+    )
+
+
+def test_a_partial_review_is_a_review_and_keeps_who_did_not_answer() -> None:
+    partial = said(nit=1, silent=QUIET)
+    made = review.decide(fresh(), world(), partial, FACTS)
+    assert not isinstance(made, Refusal)
+    assert (made.answered, [one.name for one in made.silent]) == (
+        ("claude",),
+        ["codex"],
+    )
+    assert [finding.id for finding in made.findings] == ["r1.c1"]
+    record = task(**{**PREPARED, "reviews": (made,), "filed": ()})
+    assert review.holds(record, world()).why.startswith("the newest review covers")
+
+
+def test_the_floor_a_review_was_recorded_under_holds_after_it() -> None:
+    edited = careful.Edits(
+        settings=careful.Seen(touched=True, base="a = 1\n", tip="a = 2\n")
+    )
+    record = fresh()
+    facts = review_due.Facts(careful=careful.reasons(record, edited))
+    assert code_of(review.decide(record, world(), said(), facts)) == "under-floor"
+    ran = (Named(name="all", why="the settings"),)
+    made = review.decide(record, world(), said(kind="full", ran=ran), facts)
+    assert not isinstance(made, Refusal) and made.floor == "full"
+    short = replace(made, kind="read")
+    assert (
+        due_of(review.holds(task(**{**PREPARED, "reviews": (short,)}), world()))
+        == "read"
+    )

@@ -95,22 +95,26 @@ def worktree_of(workspace: places.Workspace, slug: str) -> Path:
 
 
 def asked_of(
-    workspace: places.Workspace, worktree: Path, defect: Defect
+    workspace: places.Workspace, slug: str, defect: Defect
 ) -> tuple[tuple[BacklogItem, ...], Said]:
-    """The items at the tip, and Jev's scores of the finding against them, or why Jev was not
-    asked."""
+    """The items at the tip of the task's worktree, and Jev's scores of the finding against
+    them, or why Jev was not asked."""
     ports = frame.bound(workspace)
+    worktree = worktree_of(workspace, slug)
     tip = ports.git.tip(worktree, "HEAD") or ""
     shelved = backlog.at_tip(ports.git, worktree, tip)
-    if not shelved or not review_settings.read(workspace.checkout).jev.findings:
+    if (
+        not shelved
+        or not review_settings.read(ports.git, workspace.checkout).jev.findings
+    ):
         return shelved, OFF
-    return shelved, judge_same.asked(ports.judge, worktree, defect, shelved, {})
+    staging = places.task_folder(workspace.state, slug) / judge_same.STAGED
+    return shelved, judge_same.asked(ports.judge, staging, defect, shelved, {})
 
 
 def run(folder: Path, slug: str, defect: Defect) -> Envelope:
     """`lem land alike SLUG --where PLACE --title TITLE --what FILE`."""
-    workspace = places.workspace(folder)
-    shelved, said = asked_of(workspace, worktree_of(workspace, slug), defect)
+    shelved, said = asked_of(places.workspace(folder), slug, defect)
     base = Told(
         task=slug,
         finding=alike_words.Finding(where=defect.where, title=defect.title),

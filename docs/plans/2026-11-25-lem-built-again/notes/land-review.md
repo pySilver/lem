@@ -14,15 +14,19 @@ what other steps take from it. Each item names the file, what to change, and why
    by this run or the next. Asked: `Landing.jev: tuple[JevRead, ...]` with `{key, path | None,
    score | None, asked_at}`. Until then `app/landing/jev_kept.py` keeps them in
    `tasks/SLUG/jev.json`, written whole; retention may drop it with the other files.
-3. **`records/task.py`: the owner's careful word.** `main` read it from the brief
-   (`careful: the owner says so`, `land.owner_says_careful`), and `/lem be-careful` writes it.
-   The record has no field for it; `Shape.careful` holds the shape's topics, which
-   `model/landing/careful.reasons` takes as careful. Asked: a field the task step writes (for
-   example `Task.careful_by_owner: str | None`), which `careful.reasons` will read first.
+3. **The owner's careful word.** `/lem be-careful` (`stages/correct.md`) writes the brief's
+   line `careful: the owner says so` and logs his decision (`--by owner --what "whether the
+   task is careful" --chose "careful until its merge"`). `model/landing/careful_words.owner_says`
+   reads the decision from `Task.decisions`, which `review.holds` sees, and
+   `app/landing/review_facts.owner_said` reads the brief's line for `read`. A field of the task
+   for the word would replace both; until then a stage that writes the line logs the decision
+   too.
 4. **`ports/judge.py`: what `same_items` is told.** The design names `same_items(defect,
-   items)`; the port takes `paths`. The adapter now reads each item from its path on disk (the
-   worktree is clean when `file` or `alike` asks), so it works as it is; an `Item` struct
-   (`path, title, where, first`) in the port would spare the adapter the read.
+   items)`; the port takes `paths`, which the adapter reads. Jev must judge the items as the
+   tip's commit has them, never a builder's edit on disk, so `app/landing/jev_staged.py` writes
+   each item's title, `where` and first line, read from git, into `tasks/SLUG/items-at-tip/` for
+   the one ask and removes the folder after it. An `Item` struct (`path, title, where, first`)
+   in the port removes that stand-in.
 5. **`ports/git.py`: two facts and one answer.** (a) `files(where, rev, folder) -> tuple[str,
    ...]` (`git ls-tree -r --name-only`): `app/landing/backlog.py` lists the backlog folder from
    the worktree's disk and reads each file with `show`, and finds the base's files as the tip's
@@ -36,10 +40,19 @@ what other steps take from it. Each item names the file, what to change, and why
 
 ## For `settings`
 
-7. **`[flow] topics` and `[jev] findings`** are not in `Team` yet. `app/landing/review_settings.py`
-   reads the two keys from the main checkout's `.lem/settings.toml` with `tomllib` (topics `()`,
-   findings `true` when the file says nothing, as `project.jev_of` on `main`). Replace it with
-   the settings' structs and remove the module.
+7. **`[flow] topics` and `[jev] findings`** are not in `Team` yet, and both must come from
+   the base branch's file, never another branch checked out in the main checkout
+   (`project.load` and `project.committed_settings` on `main`). `app/landing/review_settings.py`
+   reads them so itself: the working tree while the main checkout is on the base, else
+   `refs/heads/BASE:.lem/settings.toml`, else the working tree. Once `settings` is merged, its
+   loader of the base's file (the function that repaired it for `team_of`) gives `Team` with
+   `flow` and `jev`; `review.briefed`, `judge_same.checked` and `alike.asked_of` call it, and
+   `review_settings.py` goes.
+
+8b. **`lem rules`.** The brief gives the reviewer the command `lem --repo WORKTREE rules
+   --range BASE..TIP` (`inputs.rules`), since `main`'s `cmd_read` listed the rule files from
+   `project.cmd_rules`, which is `settings`' (`cli/rules/command.py` refuses `not-built`). Once
+   it is built, `review_brief.inputs` calls its function and lists the files.
 
 ## For `land-base`
 
@@ -66,6 +79,11 @@ what other steps take from it. Each item names the file, what to change, and why
     (`tests/journeys/landing/test_review.py`, the cut). With your carry over commits that only
     add backlog files, that cut lands on `file` again; so does a builder's commit of the items
     after a commit hook refused `file`'s.
+11b. **The bar's `edited` list** (`land.check_bar` on `main`: the existing tests, snapshots and
+    test configurations the change edits, which the reviewer reads first, prompt step 5) is no
+    field of `Checked`. `app/landing/review_edited.py` computes it for the brief with `main`'s
+    patterns; asked: `Checked.edited: tuple[Edited, ...]` written by the checks, after which the
+    brief copies it and the stand-in goes.
 12. **The review's word on a lowered bar** is written into `checked.lowered[].reviewer` by `read
     --record`, and `read` refuses a record that says nothing of a lowered file (`bar`).
 
@@ -94,6 +112,17 @@ what other steps take from it. Each item names the file, what to change, and why
     that works: a builder commits the item back. Asked of the owner of `app/landing/world.py`:
     `World.backlog: frozenset[str]`, after which `filing.holds` makes `file` due for a gone item.
 
+16b. **No review clears a tip it did not read.** `model/landing/review.newest` is None while
+    the newest attempt is one nobody answered: a review was due after the last answered one,
+    so after two silent attempts `green.review` gives "no review read the change" and the
+    merge agent does not merge it (`land.not_green` adds `due_of`'s why on `main`). A check of
+    the review's floor in propose compares with `Reviewed.floor`, which `read --record`
+    records from every careful reason, a settings edit and the owner's word among them; or it
+    calls `review.holds`, which reads that floor.
+16c. **An open item that leaves the tip.** A `same` place whose item the tip no longer holds
+    is given its place again by the next `file` (`filing_asks.again_of`); `filing.holds` sees it
+    once the world has the backlog's paths (item 16).
+
 ## For `land-merge`
 
 17. **The bar file of the merge brief**: `model/landing/jev_bar.named(own=...)` and
@@ -101,7 +130,8 @@ what other steps take from it. Each item names the file, what to change, and why
 
 ## For `land-text`
 
-18. `lem land read SLUG` publishes the brief as `reviews/read-N-DIGEST.json` in the task's folder
+18. `lem land read SLUG` publishes the brief (its floor is `floor`, one word, and `floor_why`;
+    a resolution's read has `range_diff`; `inputs` has `ask`, `rules` and `edited`) as `reviews/read-N-DIGEST.json` in the task's folder
     and names it in `result.path`; `result.record` is where the agent writes its record
     (`reviews/review-N.json`), and `next` is `lem land read SLUG --record FILE` (`do: spawn`,
     `job: review`). `--record` takes a path from the working directory or inside the task's

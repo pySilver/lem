@@ -12,6 +12,7 @@ commit of `.lem/settings.local.toml`, one machine's own and untracked by design,
 import tomllib
 from typing import TYPE_CHECKING
 
+from lem.model.landing import careful_words
 from lem.records.base import Frozen
 from lem.records.landing.record import Landing
 
@@ -91,25 +92,16 @@ def local_reason(seen: Seen) -> str | None:
     )
 
 
-def review_reason(landing: Landing) -> tuple[str, ...]:
-    """The careful call of the newest review that answered, when it says careful."""
-    answered = [review for review in landing.reviews if review.answered]
-    call = answered[-1] if answered else None
-    if call is None or not call.careful:
-        return ()
-    why = call.careful_why
-    return (f"the review says so: {why}",)
-
-
-def reasons(record: Record, edits: Edits) -> tuple[str, ...]:
+def reasons(record: Record, edits: Edits, *, owner: bool = False) -> tuple[str, ...]:
     """Each reason the request is careful, in `main`'s order; none when it is not."""
     task = record.task
     topics = task.shape.careful if task.shape else ()
     plan = task.plan.careful if task.plan else None
     edited = (settings_reason(edits.settings), local_reason(edits.local))
     return (
+        *careful_words.owner_says(record, owner=owner),
         *topics,
         *((f"the plan says so: {plan}",) if plan else ()),
         *(reason for reason in edited if reason),
-        *review_reason(record.landing or Landing()),
+        *careful_words.review_reason(record.landing or Landing()),
     )
