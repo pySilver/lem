@@ -2,7 +2,8 @@
 
     lem path NAME
 
-A stub until the step `settings` builds it: it refuses `not-built`.
+The absolute path in the main checkout, from a task's worktree too, and whether it is there;
+the plans folder and the rulings file as the team's settings name them.
 """
 
 from typing import Literal, get_args
@@ -10,7 +11,10 @@ from typing import Literal, get_args
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.cli import place
+from lem.settings.load import team_of
+from lem.settings.placed import Placed, places_of
+from lem.store import places
 
 type Name = Literal[
     "profile",
@@ -48,9 +52,10 @@ def placed(ctx: click.Context, place: click.Parameter, word: str) -> str:
     return word
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `settings` builds `lem path`."""
-    raise not_built("path", "settings")
+def run(call: Call) -> Placed:
+    """The place NAME names in the workspace of the call."""
+    checkout = places.workspace(place.folder()).checkout
+    return places_of(checkout, team_of(checkout).paths)[call.name]
 
 
 COMMAND = click.Command(

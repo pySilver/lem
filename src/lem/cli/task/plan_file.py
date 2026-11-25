@@ -2,13 +2,16 @@
 
     lem task plan-file SLUG [--date DAY]
 
-A stub until the step `task` builds it: it refuses `not-built`.
+The name comes from `[paths] plan_file` of the team's file (`YYYY-MM-DD-<slug>.md` unless it
+says otherwise), in `[paths] plans`; `found` is the plan the task has now.
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.tasks import plans
+from lem.cli import place
+from lem.store import places
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -18,9 +21,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     date: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `task` builds `lem task plan-file`."""
-    raise not_built("task plan-file", "task")
+def run(call: Call) -> plans.PlanFile:
+    """The name of the task's plan, and the plan it has now."""
+    return plans.plan_file(places.workspace(place.folder()), call.slug, call.date)
 
 
 COMMAND = click.Command(

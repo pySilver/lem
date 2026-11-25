@@ -70,7 +70,9 @@ Size: small, because it is one word of the README.
 """
 NO_TEST = "   - no test: the change keeps behavior; the suite holds it\n"
 # The review agent's record, in the form `prompts/review.md` gives it; its attempt and tip are
-# the ones `lem land read` printed.
+# the ones `lem land read` printed. Its defect outside the change is cheap: a line of the pull
+# request, which `file` writes no item and no commit for (an item is
+# `tests/journeys/landing/test_review.py`'s).
 REVIEW = {
     "kind": "read",
     "ran": [{"name": "claude", "why": "one read of one word"}],
@@ -85,7 +87,7 @@ REVIEW = {
             "where": "README.md",
             "title": "the README has no heading",
             "what": "README.md starts with a sentence",
-            "bar": "under",
+            "bar": "cheap",
             "why": "a heading changes nothing a reader of one line needs",
         }
     ],
@@ -327,7 +329,7 @@ def review(capsys: pytest.CaptureFixture[str], world: World) -> Envelope:
 
 def proposal(capsys: pytest.CaptureFixture[str], world: World) -> Envelope:
     """The pull request, with the agent's title and notes."""
-    notes = world.written("notes.md", "No decision was taken; nothing is left open.\n")
+    notes = world.written("notes.md", "none\n")
     title = ("--title", SUBJECT, "--notes", notes)
     return lem(capsys, world.checkout, "land", "propose", SLUG, *title)
 
@@ -342,7 +344,7 @@ def brief(capsys: pytest.CaptureFixture[str], world: World) -> Envelope:
 def reply(capsys: pytest.CaptureFixture[str], world: World) -> Envelope:
     """The merge agent's reply to the brief, with its tip and base."""
     said = world.written(
-        "reply.md", "merge\n\nOne word; the checks and the read hold.\n"
+        "reply.md", "Verdict: merge\n\nOne word; the checks and the read hold.\n"
     )
     words = ("--file", said, "--tip", world.told["tip"], "--base", world.told["base"])
     return lem(capsys, world.checkout, "land", "merge-review", SLUG, *words)
@@ -487,7 +489,10 @@ def test_a_fast_track_task_lands_and_each_step_is_the_due_one(
     text = (world.task_folder / named).read_text()
     assert text.startswith("**Green.**")
     assert "   - no test: the change keeps behavior; the suite holds it" in text
-    assert "- r1.1: under: a heading changes nothing a reader of one line needs" in text
+    assert (
+        "- `README.md`: the README has no heading; cheap: a heading changes nothing a "
+        "reader of one line needs"
+    ) in text
 
 
 # Each act of the plain path, by its name and its count among the acts of that name; the second
@@ -641,9 +646,9 @@ def test_githubs_refusal_is_kept_in_its_words_and_waits_for_the_owner(
     assert landing["refused"]["line"] == "Required status check is expected"
     assert "intent" not in landing or landing["intent"] is None
     envelope = next_step(capsys, world)
-    assert envelope["result"]["step"] == "wait"
+    assert (envelope["result"]["step"], envelope["result"]["by"]) == ("merge", "owner")
     assert envelope["next"]["do"] == "wait"
-    assert MERGE(capsys, world)["refusal"]["code"] == "not-due"
+    assert MERGE(capsys, world)["refusal"]["code"] == "github"
     assert len(world.forge.merge_calls) == 1
 
 
@@ -657,7 +662,7 @@ def test_the_squash_takes_the_reports_subject_and_names_the_task(
     assert world.forge.merge_calls == []
     assert MERGE(capsys, world)["ok"] is True
     said = run_git(world.repo.origin, "log", "-1", "--format=%B", "main")
-    assert said.startswith(f"{SUBJECT} (#1)")
+    assert said.startswith(f"{SUBJECT}\n")
     assert said.rstrip().endswith(f"Lem task: {SLUG}")
 
 
@@ -671,7 +676,10 @@ def test_a_cut_after_the_pull_requests_edit_adopts_it_and_edits_it_no_more(
         proposal(capsys, world)
     capsys.readouterr()
     world.acts.cut = ("update_pull", 1)
-    notes = world.written("notes.md", "The notes, written again after the stop.\n")
+    notes = world.written(
+        "notes.md",
+        "- `README.md`: written again after the stop; under: one line says it\n",
+    )
     words = ("--title", SUBJECT, "--notes", notes)
     with pytest.raises(Killed):
         command("land", "propose", "SLUG", *words)(capsys, world)
@@ -761,11 +769,19 @@ def test_a_careful_small_task_is_not_green_and_the_merge_agent_does_not_merge_it
             }
             record = world.written("review.json", said)
             run = command("land", "read", "SLUG", "--record", record)
+        if step is proposal:
+            # a careful request's notes say whether it holds a migration
+            notes = world.written("notes.md", "none\n\n## Migration\n\nnone\n")
+            run = command(
+                "land", "propose", "SLUG", "--title", SUBJECT, "--notes", notes
+            )
         envelope = run(capsys, world)
         assert envelope["ok"] is True, envelope
     proposed = world.record()["landing"]["proposed"]
     assert proposed["green"] is False
-    assert "the request is careful: a customer is charged" in proposed["reasons"]
+    assert proposed["reasons"][0].startswith(
+        "careful on the fast track (a customer is charged): it took the fast track"
+    )
     assert next_step(capsys, world)["next"]["do"] == "wait"
     assert MERGE(capsys, world)["refusal"]["code"] == "merger-rule"
     assert world.forge.merge_calls == []

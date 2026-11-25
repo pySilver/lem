@@ -2,7 +2,8 @@
 
     lem land base SLUG
 
-The plain path, as the step `slice-land` built it; the step `land-base` owns it.
+Built by the step `land-base`: the plain rebase, judged from git's merges, a conflict kept for a
+builder, and what git refused in its own words.
 """
 
 from typing import TYPE_CHECKING

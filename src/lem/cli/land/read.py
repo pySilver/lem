@@ -2,7 +2,7 @@
 
     lem land read SLUG [--record FILE]
 
-The plain path, as the step `slice-land` built it; the step `land-review` owns it.
+The step `land-review` builds it (`app/landing/review.py`).
 """
 
 from typing import TYPE_CHECKING

@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # Claude Code: a task's own session
 
 A part of `../claude-code.md`, read when a session opens one (`open-task-session`), copies a talk,
@@ -55,15 +54,15 @@ rerun mode, which starts each session's command again: the agent then starts fro
 message, and `prompts/session.md` reads the state before anything else, so it goes on or stops.
 
 `lem session close SLUG [--session ID] --why ...` logs the close and then runs `agtermctl session
-close --target ID --undoable`. An `ID` is refused unless a `session.open` of that task names it (an
-older session of the task counts). It refuses a session the owner has selected; with
+close --target ID --undoable`. An `ID` is refused unless Lem opened it for that task (an older session of the
+task counts). It refuses a session the owner has selected; with
 `--when-unselected` it looks every 5 seconds (a guess) and closes it once he left it, so it runs in
 the background; a wake of that session meanwhile ends the wait with no close (`closed: false`,
 `woken: true`). `lem session list` gives each task's newest session: whether it lives, runs an
 agent and is selected, the phase its task is in now (`phase`) and the one it opened in
 (`opened_in`), `unanswered`, a wake-up still in its mailbox after 10 minutes, or one that no turn
 followed when its signs read (never the guard's status message), and for a live session its signs of work from Claude Code's own files
-(`signs.py`): `sign`, the time of the newest turn of its main thread or a subagent, `shell`,
+(the harness's reader, `adapters/claude_signs.py`): `sign`, the time of the newest turn of its main thread or a subagent, `shell`,
 whether a shell command of it runs, `signs`, whether the two could be read, and `turn`, whether
 the newest turn of its main thread runs (`runs`), ended (`ended`), or cannot be told (null).
 
@@ -79,7 +78,7 @@ with `"closed": false`. Not run yet in a session a real job opened.
 ## The context's number
 
 `N` is `[handoff] tokens` of `~/.config/lem/machine.toml`, the owner's number for all his
-repositories: 600,000 when the file has none, written with `lem project handoff --tokens N|default`
+repositories: 600,000 when the file has none, written with `lem settings set handoff.tokens N --machine`
 and shown by `lem doctor`. With 0 Lem sets nothing, and Claude Code compacts at its own trigger,
 "at about 967K tokens by default" on a 1M window (Claude Code's model-config page, read
 2026-11-21). Claude Code refuses a window under 100,000, and so does Lem. Past the number Claude

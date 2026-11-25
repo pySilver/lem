@@ -2,7 +2,7 @@
 
     lem land file SLUG [--again] [--same RN.M=PATH]... [--new RN.M]...
 
-The plain path, as the step `slice-land` built it; the step `land-review` owns it.
+The step `land-review` builds it (`app/landing/filing_step.py`).
 """
 
 from typing import TYPE_CHECKING
@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING
 import click
 import msgspec
 
-from lem.app.landing import filing
+from lem.app.landing import filing_step
 from lem.cli import place
-from lem.model.landing.world import later
+from lem.model.landing.filing_flags import Flags
 
 if TYPE_CHECKING:
     from lem.kernel.envelope import Envelope
@@ -28,10 +28,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 
 def run(call: Call) -> Envelope:
-    """File the findings; `--again`, `--same` and `--new` are the step `land-review`'s."""
-    if call.again or call.same or call.new:
-        raise later("`lem land file --again|--same|--new`", "land-review")
-    return filing.run(place.folder(), call.slug)
+    """Give each defect outside the change its place."""
+    flags = Flags(again=call.again, same=call.same, new=call.new)
+    return filing_step.run(place.folder(), call.slug, flags)
 
 
 COMMAND = click.Command(

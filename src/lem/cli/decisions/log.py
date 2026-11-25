@@ -2,16 +2,32 @@
 
     lem decisions log SLUG --what W --chose C --why Y --by LEVEL ...
 
-A stub until the step `criteria` builds it: it refuses `not-built`.
+`--why` holds the gate's cite, `--said` what the personas answered. `--option` is each option the
+decision had, "LABEL: what the person sees after it", `--vote` each persona's answer, "PERSONA,
+FAMILY=OPTION", one for each model family, and `--level` what each level that ran answered,
+"NAME=ANSWER". `--by personas` takes two votes or more, each for the option `--chose` names;
+`--unsettled` goes with `--by lead`. `owner` is a word of the owner's: his help on breaker N
+(`--breaker N`, which settles it, with his words in `--words`), a word nobody asked for, or his
+yes to skip the personas' read; `lem` one that Lem took before the task had a lead. An important
+decision, `--by dialectic`, `--by experts` or `--unsettled`, carries its story: `--case`,
+`--case-was` and `--cause`, which any other decision may carry too. `--chart FILE` is one
+mermaid chart, its flowchart texts in double quotes.
 """
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.decisions import log as logging
+from lem.app.landing.frame import bound
+from lem.cli import place
 from lem.cli.words import choice
+from lem.model.decisions.log import Logged
+from lem.store import places
+
+if TYPE_CHECKING:
+    from lem.records.decisions import Taken
 
 type By = Literal["lead", "gate", "personas", "dialectic", "experts", "owner", "lem"]
 
@@ -38,9 +54,30 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     words: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `criteria` builds `lem decisions log`."""
-    raise not_built("decisions log", "criteria")
+def logged_of(call: Call) -> Logged:
+    """The decision the words give."""
+    return Logged(
+        what=call.what,
+        chose=call.chose,
+        why=call.why,
+        by=call.by,
+        said=call.said,
+        undo=call.undo,
+        options=call.options,
+        votes=call.votes,
+        levels=call.levels,
+        unsettled=call.unsettled,
+        story=(call.case, call.case_was, call.cause),
+        breaker=call.breaker,
+        words=call.words,
+    )
+
+
+def run(call: Call) -> Taken:
+    """Write the decision, with the number the record gives it."""
+    folder = place.folder()
+    ports = bound(places.workspace(folder))
+    return logging.logged(ports, folder, call.slug, logged_of(call), call.chart)
 
 
 COMMAND = click.Command(

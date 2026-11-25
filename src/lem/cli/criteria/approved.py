@@ -2,13 +2,15 @@
 
     lem criteria approved SLUG
 
-A stub until the step `criteria` builds it: it refuses `not-built`.
+The newest approval, with its criteria, or null and why: a task with none has its plan's
+criteria as their one source.
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.criteria import marks
+from lem.cli import place
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +19,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     slug: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `criteria` builds `lem criteria approved`."""
-    raise not_built("criteria approved", "criteria")
+def run(call: Call) -> marks.Approved:
+    """The newest approval of the task's criteria, or None."""
+    return marks.approved(place.folder(), call.slug)
 
 
 COMMAND = click.Command(

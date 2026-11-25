@@ -277,6 +277,16 @@
                 "criteria",
                 "interview"
               ]
+            },
+            "--fits": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--someone-else": {
+              "aliases": [],
+              "value": false,
+              "required": false
             }
           },
           "positionals": [
@@ -669,7 +679,7 @@
           "positionals": [
             {
               "name": "target",
-              "count": "1"
+              "count": "?"
             }
           ]
         }
@@ -1568,6 +1578,11 @@
               "required": false
             },
             "--tip": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--checked": {
               "aliases": [],
               "value": true,
               "required": false

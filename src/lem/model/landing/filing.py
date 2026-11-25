@@ -1,17 +1,18 @@
-"""`file`: every finding of the newest review gets its place (`landing.md` C, row 6; D,
-filing).
+"""`file`: every defect a review saw outside the change gets its place (`landing.md` C, row 6;
+D, filing; `land.cmd_file` on `main`).
 
-The plain path places a finding under the bar, or a cheap one nobody fixed, as `seen`: a line of
-the pull request with its reason. A finding over the bar becomes a backlog item in a commit of
-its own, and `--same`, `--new` and `--again` judge an item that holds it already: those are the
-step `land-review`'s.
+It holds while each defect of the reviews that answered has its place. `decide` gives each
+waiting defect its place (`model/landing/filing_place.py`) and the items to write, one commit
+for each review round; `--same` and `--new` judge an item Jev named, and `--again` writes once
+more an item `file` filed that the tip no longer holds.
 """
 
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
-from lem.model.landing.review import newest
-from lem.model.landing.world import Due, Held, World, later
+from lem.model.landing import filing_asks, filing_flags, filing_place, filing_plan
+from lem.model.landing.world import Due, Held, World
+from lem.records.base import Frozen
 from lem.records.landing.record import Landing
 from lem.records.landing.review import Filed, Finding
 
@@ -21,46 +22,78 @@ if TYPE_CHECKING:
 STEP = "file"
 
 
-def unfiled(landing: Landing) -> tuple[Finding, ...]:
-    """The findings of the newest review that wait for their place."""
-    last = newest(landing)
-    if last is None:
-        return ()
-    done = {filed.finding for filed in landing.filed}
+class Placed(Frozen, frozen=True, kw_only=True):
+    """Each waiting defect's place, the items to write, and the defects Jev is asked about
+    before anything is written: those that get a file of their own with no word of the
+    owner's agent on them."""
+
+    filed: tuple[Filed, ...] = ()
+    writes: tuple[filing_place.Write, ...] = ()
+    asks: tuple[Finding, ...] = ()
+
+    @classmethod
+    def made(
+        cls, left: filing_plan.Waiting, places: list[filing_plan.Place], named: set[str]
+    ) -> Placed:
+        """The places of the waiting defects `left`; `named` are those `--same` and `--new`
+        judged."""
+        return cls(
+            filed=tuple(filed for filed, _ in places),
+            writes=tuple(write for _, write in places if write is not None),
+            asks=filing_asks.asks_of(left, places, named),
+        )
+
+
+def waiting(landing: Landing, again: tuple[str, ...] = ()) -> filing_plan.Waiting:
+    """Each defect of an answered review that waits for its place, with its review: one with
+    no place yet, and each whose item `again` names."""
+    done = {filed.finding for filed in landing.filed if filed.path not in again}
     return tuple(
-        finding
-        for finding in last.findings
-        if finding.id in last.to_file and finding.id not in done
+        (review, finding)
+        for review in landing.reviews
+        if review.answered
+        for finding in review.findings
+        if finding.id in review.to_file and finding.id not in done
     )
 
 
 def holds(record: Record, world: World) -> Held | Due:
-    """Whether every finding of the newest review has its place."""
-    waiting = unfiled(record.landing or Landing())
-    if waiting:
-        return Due(step=STEP, why=f"{len(waiting)} findings wait for their place")
-    return Held(why="every finding has its place")
-
-
-def placed(finding: Finding) -> Refusal | Filed:
-    """One finding's place: seen with its reason, or the refusal of an item."""
-    if finding.against == "over":
-        return later(
-            f"the backlog item of {finding.id}, a finding over the bar", "land-review"
+    """Whether every defect of the reviews that answered has its place."""
+    left = waiting(record.landing or Landing())
+    if left:
+        return Due(
+            step=STEP,
+            why=f"{len(left)} defects outside the change wait for their place",
         )
-    reason = finding.why or "no reason given"
-    return Filed(
-        finding=finding.id,
-        disposition="seen",
-        line=f"{finding.against}: {reason}",
+    return Held(why="every defect outside the change has its place")
+
+
+def refused(
+    landing: Landing, shelf: filing_place.Shelf, flags: filing_flags.Flags, slug: str
+) -> Refusal | dict[str, str]:
+    """The defects `--same` names with their items, or why the words may not be taken."""
+    same = filing_flags.same_of(flags, shelf.folder, shelf.paths)
+    if isinstance(same, Refusal):
+        return same
+    gone = filing_asks.gone_of(landing, shelf)
+    again = filing_asks.again_of(landing, shelf, again=flags.again)
+    free = filing_asks.free_of(waiting(landing, again), shelf)
+    found = (
+        filing_flags.both_refused(same, flags)
+        or filing_flags.stray_refused({*same, *flags.new}, free)
+        or filing_flags.gone_refused(gone, slug, again=flags.again)
     )
+    return found or same
 
 
-def decide(record: Record, world: World) -> Refusal | tuple[Filed, ...]:
-    """The place of each finding that waits, or the refusal of the first that may not have
-    one here."""
-    places = [placed(finding) for finding in unfiled(record.landing or Landing())]
-    refused = next((place for place in places if isinstance(place, Refusal)), None)
-    if refused is not None:
-        return refused
-    return tuple(place for place in places if isinstance(place, Filed))
+def decide(
+    record: Record, world: World, shelf: filing_place.Shelf, flags: filing_flags.Flags
+) -> Refusal | Placed:
+    """Each waiting defect's place, or why none may be given now."""
+    landing, slug = record.landing or Landing(), record.task.slug
+    same = refused(landing, shelf, flags, slug)
+    if isinstance(same, Refusal):
+        return same
+    left = waiting(landing, filing_asks.again_of(landing, shelf, again=flags.again))
+    places = filing_plan.places_of(record, world, left, shelf, same)
+    return Placed.made(left, places, {*same, *flags.new})

@@ -2,13 +2,18 @@
 
     lem task talked SLUG --reviewer AGENT --turns N ...
 
-A stub until the step `task` builds it: it refuses `not-built`.
+The counts agree with each other (`model/task/talk.py`), and the record ends the talk's span,
+which `lem task span SLUG plan-talk start --by AGENT` began.
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.tasks import talked
+from lem.cli import place
+from lem.kernel import clock
+from lem.records.work import Talk
+from lem.store import places
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -28,9 +33,23 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     shared: int
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `task` builds `lem task talked`."""
-    raise not_built("task talked", "task")
+def run(call: Call) -> talked.Talked:
+    """Write the plan talk's counts."""
+    counts = Talk(
+        reviewer=call.reviewer,
+        turns=call.turns,
+        questions=call.questions,
+        settled=call.settled,
+        open=call.left_open,
+        repaired=call.repaired,
+        design=call.design,
+        unargued=call.unargued,
+        root=call.root,
+        layer=call.layer,
+        shared=call.shared,
+        at=clock.now(),
+    )
+    return talked.talked(places.workspace(place.folder()).state, call.slug, counts)
 
 
 COMMAND = click.Command(

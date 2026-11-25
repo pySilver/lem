@@ -2,13 +2,19 @@
 
     lem land alike SLUG --where PLACE --title TITLE --what FILE
 
-A stub until the step `land-review` builds it: it refuses `not-built`.
+The step `land-review` builds it (`app/landing/alike.py`).
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.landing import alike, alike_words
+from lem.cli import place
+
+if TYPE_CHECKING:
+    from lem.kernel.envelope import Envelope
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -20,9 +26,10 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     what: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `land-review` builds `lem land alike`."""
-    raise not_built("land alike", "land-review")
+def run(call: Call) -> Envelope:
+    """Name the items Jev reads as the same defect as the finding."""
+    defect = alike_words.defect_of(call.where, call.title, call.what)
+    return alike.run(place.folder(), call.slug, defect)
 
 
 COMMAND = click.Command(

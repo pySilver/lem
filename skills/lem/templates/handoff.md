@@ -1,10 +1,9 @@
-<!-- lem: old form -->
 task: SLUG · from PHASE · written: YYYY-MM-DDTHH:MMZ
 
 <!--
 The handoff of a task's session: what the agent that leaves knows and the next one needs. Three
 readers share this form: the fresh agent of the next phase, the summary of a compaction (the
-PreCompact hook gives it these five headings) and `lem project resume`. The task's state block is
+PreCompact hook gives it these five headings) and `lem task resume`. The task's state block is
 the truth; this file says how the work stands inside it, and a reader follows the state where this
 file is older. Link a plan, a record or a commit by its path or its id, and copy none of their
 text. PHASE is shape, build, land or fast, the phase of the session that leaves; the time is UTC.

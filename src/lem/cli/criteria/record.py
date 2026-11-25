@@ -2,7 +2,8 @@
 
     lem criteria record SLUG
 
-The plain form of the fast track, as the step `slice-land` built it; the step `criteria` owns it.
+What `lem criteria show` gives, kept in the task's record, which the checks and the pull
+request read: the builder runs it once the test lines are in.
 """
 
 from typing import TYPE_CHECKING
@@ -10,11 +11,11 @@ from typing import TYPE_CHECKING
 import click
 import msgspec
 
-from lem.app.criteria import record
+from lem.app.criteria import show
 from lem.cli import place
 
 if TYPE_CHECKING:
-    from lem.app.criteria.sheet import Sheet
+    from lem.model.criteria.standing import Shown
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -23,9 +24,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     slug: str
 
 
-def run(call: Call) -> Sheet:
-    """Read the task's `criteria.md` into its record."""
-    return record.recorded(place.folder(), call.slug)
+def run(call: Call) -> Shown:
+    """Keep the task's criteria as they stand in its record."""
+    return show.recorded(place.folder(), call.slug)
 
 
 COMMAND = click.Command(

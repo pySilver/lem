@@ -2,7 +2,11 @@
 
     lem decisions criterion SLUG (--changed N|--added N|--removed N) --why WHY ...
 
-A stub until the step `criteria` builds it: it refuses `not-built`.
+N is the criterion's number in the criteria as they stand after every earlier change (`lem
+decisions changes SLUG` gives them); `--was` and `--now` are its whole text, its sentence and the
+steps of its case, word for word. `--decision` names the decision of the record that led to the
+change; without one, `--by lead` is the lead's own change and `--by personas` the personas' clear
+pick, with `--said`.
 """
 
 from typing import Literal
@@ -10,8 +14,11 @@ from typing import Literal
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.decisions import criterion
+from lem.cli import place
+from lem.cli.checks import exactly_one
 from lem.cli.words import choice
+from lem.model.decisions.criterion import Asked
 
 type By = Literal["lead", "personas"]
 
@@ -31,9 +38,29 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     said: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `criteria` builds `lem decisions criterion`."""
-    raise not_built("decisions criterion", "criteria")
+def asked_of(call: Call) -> Asked:
+    """The change the words give."""
+    if call.changed is not None:
+        how, number = "changed", call.changed
+    elif call.added is not None:
+        how, number = "added", call.added
+    else:
+        how, number = "removed", call.removed or 0
+    return Asked(
+        how=how,
+        number=number,
+        was=call.was,
+        now=call.now,
+        why=call.why,
+        decision=call.decision,
+        by=call.by,
+        said=call.said,
+    )
+
+
+def run(call: Call) -> criterion.Criteria:
+    """Write the change, and give the criteria as they stand after it."""
+    return criterion.recorded(place.folder(), call.slug, asked_of(call))
 
 
 COMMAND = click.Command(
@@ -76,6 +103,8 @@ COMMAND = click.Command(
             ["--said"], help="with --by personas: who answered and what each picked"
         ),
     ],
-    callback=lambda **given: run(msgspec.convert(given, Call)),
+    callback=lambda **given: run(
+        msgspec.convert(exactly_one(given, "changed", "added", "removed"), Call)
+    ),
     help="Log the change of one criterion in the build.",
 )

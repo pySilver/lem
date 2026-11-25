@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # init: onboarding a repository
 
 `/lem init` takes a repository from nothing to a first task: it checks the machine, examines the
@@ -9,7 +8,7 @@ once per repository and stops before any task. The audit of 2026-11-16 counted a
 questions and several offers before the first task, each a page, and 20 to 40 minutes to it (an
 unmeasured estimate).
 
-Keep the onboarding's notes in its own task directory: `lem project task-dir onboarding --ask
+Keep the onboarding's notes in its own task directory: `lem task open onboarding --ask
 "Set up Lem in this repository"`. Write its state as any task's, so that the status and the
 board show it and never a directory with no state: `held` with the line `the onboarding's
 drafts wait for you` when the hand-over page is shown, and at the end `landed` or `dropped`, as
@@ -19,7 +18,7 @@ every later status listed a task whose state nobody wrote (2026-11-17).
 On a repository that already has `.lem/settings.toml`, `/lem init` finishes an onboarding: it
 changes no setting that is there. Run step 1, skip the command of step 4 (it refuses a settings
 file that exists, and that is right), and do steps 2, 3 and 5 only for what is missing or
-unfinished: a path `lem project show` marks as not existing, and a cast of fewer than two
+unfinished: a place `lem settings show` marks as not existing, and a cast of fewer than two
 personas, which the `project personas` row of step 1 shows. That row never stops the
 onboarding: writing the personas is what this stage is for.
 
@@ -78,7 +77,7 @@ onboarding directory, every line with the path it was read from:
 - the files Lem reads that the repository keeps in another place than Lem's: a cast or a profile
   outside `.lem/` (`.personas/cast`, `.personas/profile.md`), worktrees outside `.lem/worktrees`,
   rules for the code outside `.claude/rules`, a backlog outside `docs/backlog`. Each has one place
-  and no setting (`lem project show`, `places`), so Lem links none: each is a move of the owner's,
+  and no setting (`lem settings show`, `places`), so Lem links none: each is a move of the owner's,
   `git mv FROM TO`, which the hand-over page names with both paths. The review tool's folder is
   `.revmux`, that tool's own.
 
@@ -131,7 +130,7 @@ for a yes. Stop after the third.
 ## 4. Write the settings
 
 ```bash
-lem project init --base BRANCH --codex yes
+lem init --base BRANCH --codex yes
 ```
 
 Then edit `.lem/settings.toml` with the three answers and the assumptions of step 6:
@@ -147,7 +146,7 @@ Then edit `.lem/settings.toml` with the three answers and the assumptions of ste
   repository, and a builder runs a test of it through the same lock. With no sign it stays empty
   and nothing about it is said;
 - `checks.setup`: what a new worktree needs before its tests can run (`uv sync`, `npm ci`), from
-  the lock files and the test configuration in `examined.md`. `lem project worktree` runs it one
+  the lock files and the test configuration in `examined.md`. `lem task worktree` runs it one
   time in each worktree it makes;
 - the sentences of what must never go wrong (`flow.topics`) the owner confirmed;
 - `branch.land = "agent"`: the merge agent reads each proposed task and merges a green one that is
@@ -205,7 +204,7 @@ owner at a merge: every merge goes through the task's pull request on GitHub, un
 rules.
 
 Run each command of the checks once, at the root, for the last line the hand-over page shows, and each
-`checks.serial` command through `lem project serial -- COMMAND`. Then look at
+`checks.serial` command through `lem serial -- COMMAND`. Then look at
 what they left that git neither tracks nor ignores (`git status --porcelain --untracked-files=all`):
 a cache of Python's bytecode, a coverage file, a build folder. Propose an ignore line for each kind
 in the repository's ignore file, `.gitignore` when it has none, in the onboarding's commit, and
@@ -219,7 +218,7 @@ scratch repository, 2026-11-17).
 
 ## 5. Generate what is absent
 
-For each place of `lem project show` (`places`) that is marked as not existing, write a draft,
+For each place of `lem settings show` (`places`) that is marked as not existing, write a draft,
 except where step 2 found the same files in another place: those are the owner's move, named on
 the page, and no draft takes their place. A cast of fewer than two personas is completed, and no
 persona file that is there is overwritten.
@@ -234,7 +233,7 @@ persona file that is there is overwritten.
   owner can make it a person.
 - **No rules for the code.** They are the harness's, in `.claude/rules`, which Claude Code loads by
   itself: Lem writes none and offers none, and only names the files that cover a change to the
-  agents that load nothing by themselves (`lem project rules`).
+  agents that load nothing by themselves (`lem rules`).
 - **A paragraph for the project's agent document**, as a proposal: that the rules are in
   `.claude/rules`, that a file's `paths:` says which files it covers and a file without it covers
   all, and that an agent reads the ones that cover what it changes. With it an agent that runs
@@ -267,19 +266,20 @@ else, or that git tracks already, is the developer's: leave it out of the commit
 page with the keys it holds beside the plugin's. He commits it himself, and nothing waits for it.
 
 **The correction queue, one time for this machine.** Its switch is the machine's, for every
-repository on it, so only the first onboarding on a machine asks about it. When `lem project show`
-gives `corrections.from` as "Lem's default", ask the owner before the page (`ask-owner`), yes
+repository on it, so only the first onboarding on a machine asks about it. When `lem settings show`
+gives `corrections.collect` in `from` as "Lem's default", ask the owner before the page (`ask-owner`), yes
 recommended, in these words or closer ones: with the queue on, each message he types, in every
 repository on this machine that uses Lem, other than a command that starts with `/`, goes with the
 agent's message before it to the provider of the Jev model, OpenRouter or the one `JEV_API_URL`
 names, under the key of whoever typed it, and the ones that may hold a lesson are kept for the
 retro in a file of that repository that is never committed; without it, a correction is learned in
 the session it was given in and nowhere else. The line `collect = false` under `[corrections]` in
-`~/.config/lem/machine.toml` turns it off, and `lem corrections collect no` writes that line. The
+`~/.config/lem/machine.toml` turns it off, and `lem settings set corrections.collect no --machine`
+writes that line. The
 check's "Jev key" row says whether this session has a key (`JEV_API_KEY`); without one the queue
-stays empty and its log fills, so say that too. Run `lem corrections collect yes` or `lem
-corrections collect no` with his answer, whichever it is, so that no later onboarding asks again.
-When `corrections.from` names the file, ask nothing about the queue and write nothing: one line of
+stays empty and its log fills, so say that too. Run `lem settings set corrections.collect yes --machine` or
+`lem settings set corrections.collect no --machine` with his answer, whichever it is, so that no
+later onboarding asks again. When `from` names a file for `corrections.collect`, ask nothing about the queue and write nothing: one line of
 the page says what the machine's switch says, its file, and the command that changes it. The hook
 comes with the plugin, so nothing is registered and he has nothing to run.
 
@@ -365,8 +365,8 @@ The page and your last message end with the three replies you take, in these wor
   settings the base branch does not have yet. When the
   settings name commands of the checks, run them on the branch first and do not land on a red result; a
   new project names none, and its onboarding lands without them. Never hand him git commands to
-  type. Then write the state `landed` with that line (`lem project state onboarding landed
-  "main is at COMMIT: Lem's settings and drafts"`). Open your answer with what you did
+  type. Then write the state `landed` with that line (`lem task move onboarding landed
+  --line "main is at COMMIT: Lem's settings and drafts"`). Open your answer with what you did
   ("Landed: pull request #N, `main` is at ..."). On the first onboarding
   the answer to "land it" opened with "It is not a Lem task, so /lem land does not apply", and
   the owner took it for a refusal of a landing that then happened (2026-11-15).

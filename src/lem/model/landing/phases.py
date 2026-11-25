@@ -18,7 +18,7 @@ from lem.model.landing import (
     review,
     start,
 )
-from lem.model.landing.mergeread import usable
+from lem.model.landing.mergeread import another_round, latest
 from lem.model.landing.world import Due, Held, World
 from lem.records.landing.record import Landing
 from lem.records.record import Record
@@ -34,11 +34,21 @@ PREPARING: tuple[Rule, ...] = (
     filing.holds,
     propose.holds,
 )
+MERGED = "merged"
 LANDS = frozenset(("ready", "landing", "open", "landed"))
+# A task that ended with no landing, whose worktree and branch `clean` removes.
+ENDS = frozenset(("dropped", "answered"))
 
 
 def preparing(record: Record, world: World) -> Due:
-    """The first row of `preparing` whose evidence does not hold."""
+    """The first row of `preparing` whose evidence does not hold; first, a pull request on
+    record that the forge merged meanwhile (the owner's merge on GitHub while a new round runs
+    its checks, `main:land.cmd_merged`), whose bookkeeping comes before any row. A request
+    closed meanwhile is refused by `propose`, which names `merged`, taken beside it
+    (`app/landing/merged.py: admits`)."""
+    pull = world.pull
+    if (record.landing or Landing()).pull and pull and pull.state == MERGED:
+        return Due(step=MERGED, why="the forge shows the pull request merged")
     for rule in PREPARING:
         found = rule(record, world)
         if isinstance(found, Due):
@@ -47,8 +57,8 @@ def preparing(record: Record, world: World) -> Due:
 
 
 def opened(record: Record, world: World) -> Due:
-    """The due step of an open pull request: what a merge call left, a new round, the merge
-    agent's read, then the merge."""
+    """The due step of an open pull request: what a merge call left, a new round (a tip that
+    moved, a read that says another round), the merge agent's read, then the merge."""
     landing = record.landing or Landing()
     left = reconcile.pending(landing, world)
     if left is not None:
@@ -56,23 +66,47 @@ def opened(record: Record, world: World) -> Due:
     proposed = landing.proposed
     if proposed is None or proposed.tip != world.tip:
         return Due(step="start", why="the tip moved after the proposal: a new round")
-    if usable(landing, world) is None:
-        why = "no read of the merge agent covers this tip"
+    if another_round(landing) is not None:
+        why = (
+            "the merge agent's read of this tip says the moved base needs another round"
+        )
+        return Due(step="start", why=f"{why}: a new round")
+    if latest(landing, world.base_tree) is None:
+        why = "no read of the merge agent covers this tip on origin's base as it is now"
         return Due(step="merge-review", why=why)
     return merge.due(record, world)
 
 
-def due(record: Record, world: World) -> Due:
-    """The step that is due for the task now, and why."""
+def settled(record: Record) -> Due | None:
+    """The due step that the record alone decides, with no look at git or the forge: a task
+    not ready to land, one that ended, a landing after the forge's merge; None while the
+    landing prepares or its pull request is open, which the world decides."""
     landing = record.landing or Landing()
     status = record.task.status
+    if status in ENDS:
+        return ended(landing)
     if status not in LANDS:
         return Due(step="none", why=f"the task is {status}: it lands once it is ready")
-    if landing.phase == "open":
+    if landing.phase in {"merged", "ended"}:
+        return after(record)
+    return None
+
+
+def due(record: Record, world: World) -> Due:
+    """The step that is due for the task now, and why."""
+    found = settled(record)
+    if found is not None:
+        return found
+    if (record.landing or Landing()).phase == "open":
         return opened(record, world)
-    if landing.phase == "preparing":
-        return preparing(record, world)
-    return after(record)
+    return preparing(record, world)
+
+
+def ended(landing: Landing) -> Due:
+    """The step of a task dropped or answered: its cleanup, then nothing."""
+    if landing.phase == "ended":
+        return Due(step="done", why="the task ended, and its cleanup ran")
+    return Due(step="clean", why="the task ended: its worktree goes")
 
 
 def after(record: Record) -> Due:
