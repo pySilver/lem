@@ -4,8 +4,6 @@ description: "Lem's experts: two models of two families, or one without Codex, a
 disable-model-invocation: true
 argument-hint: '[question in words]'
 ---
-<!-- lem: old form -->
-
 # Ask the experts
 
 Two experts of two model families answer one question from one brief, each on its own, at the
@@ -17,8 +15,7 @@ then provide context directly in command `/lem ask-expert what would be the best
 kind of problem` or just type the `/lem ask-expert` and assume the skill knows what to ask from the
 context", 2026-11-17).
 
-Who they are is the settings' `seats.experts`, one or two seats `agent/model:effort`, which `lem
-project show` prints with Lem's default where the project and this machine name none, each `here`
+Who they are is the settings' `seats.experts`, one or two seats `agent/model:effort`, which `lem settings show` prints with Lem's default where the project and this machine name none, each `here`
 when its agent is on this machine. Only those answer: without Codex, one expert answers alone. An
 expert's name is the last word of its model. The script prints each one with its name, its seat, its agent, its model and
 its effort.
@@ -55,7 +52,7 @@ task's worktree when it belongs to a task, else the one this session works in.
 1. **The brief.**
 
    ```bash
-   lem experts --repo CHECKOUT brief --question "TEXT" [--context "TEXT"] [--option "TEXT" ...] [--file PATH ...]
+   lem --repo CHECKOUT experts brief --question "TEXT" [--context "TEXT"] [--option "TEXT" ...] [--file PATH ...]
    ```
 
    `--context` is what is being decided and why it came up, in a few sentences; `--option` names an
@@ -63,7 +60,8 @@ task's worktree when it belongs to a task, else the one this session works in.
    file that matters, relative to the checkout. The script makes a folder for the question in Lem's
    state folder, `experts/DATE-TIME-WORDS/`, and writes `brief.md` there. It prints the folder's
    name (`folder`), the brief's path, each expert with its seat and its answer file, and the
-   checkout the experts read. It removes the folders whose last write is older than 30 days first.
+   checkout the experts read, all in the JSON envelope's `result`. The workspace's prune duty
+   removes old question folders according to `state.keep_days`.
 
 2. **Start every expert in `experts` at once, in the background**, through `ask-experts` in the
    harness file of your agent (`harness/` in the `lem` skill's directory), each on its seat. Each
@@ -75,10 +73,10 @@ task's worktree when it belongs to a task, else the one this session works in.
    says who writes it), and:
 
    ```bash
-   lem experts --repo CHECKOUT record --folder FOLDER --expert NAME
+   lem --repo CHECKOUT experts record --folder FOLDER --expert NAME
    ```
 
-   It writes the answer into the folder's `record.json` and prints the record: each answer, the
+   It writes the answer into the folder's `record.json` and prints the record in `result`: each answer, the
    pick all of them share (`agree`, for a question with options) and who is still to answer
    (`waiting`). It refuses an answer that is not in the brief's form, and a pick that is no option.
    Then ask that expert once more with the same brief. When the second answer is refused too, or

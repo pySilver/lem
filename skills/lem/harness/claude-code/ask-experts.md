@@ -4,8 +4,8 @@ A part of `../claude-code.md`, read when a session starts the experts.
 
 ## ask-experts
 
-Both in one message, so that they start at one moment; `BRIEF`, `WORKTREE` and each answer file
-are the paths `lem experts brief` printed.
+Start the experts in one message. Read `BRIEF`, `WORKTREE` and each answer file from the
+`result` of `lem experts brief`.
 
 Each entry of the `experts` list that `lem experts brief` printed is one expert to start, from the
 settings' `seats.experts` or from the brief's `--seat`: its `name`, which is the `--expert` word of
@@ -22,7 +22,7 @@ Start each by its agent, and never with a model or an effort the entry does not 
   so the brief's "change no file" is what keeps it from a write there. It runs in the
   background, and its reply reaches you as its message: write that reply into its answer file
   word for word, without the indent Claude Code puts before each line of a subagent's report,
-  then run `lem experts record`.
+  then record it with `lem --repo WORKTREE experts record --folder FOLDER --expert NAME`.
 - an entry whose `agent` is `codex`: the `Bash`
   tool with `run_in_background`, on this line, with `-m "MODEL"` only when the entry names a model
   and `-c "model_reasoning_effort=EFFORT"` only when it names an effort:
@@ -35,8 +35,5 @@ Start each by its agent, and never with a model or an effort the entry does not 
   `Client Work` holds a space, which splits a bare path into two words. `-` reads the prompt from
   stdin, and the brief file is that stdin, so it ends: a Codex in the background whose stdin stays
   open waits for input and never starts (seen 2026-11-16, a headless Codex review). `-o` writes its last message into the answer file. You are told when the command
-  exits; then run `lem experts record`. A non-zero exit, or an answer file that is not there, is
-  an expert that did not answer: the skill's step 3 says what follows.
-
-Not run yet: the two experts started from a `lem-builder` or from a task's session (Claude Code
-2.1.325 and codex-cli 0.169.0 ran them from a subagent on 2026-11-16).
+  exits; then record the answer with the same command. A non-zero exit, or an answer file that is
+  not there, is an expert that did not answer: the skill's step 3 says what follows.
