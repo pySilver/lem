@@ -17,12 +17,12 @@ if TYPE_CHECKING:
     from lem.records.task import Shape
 
 
-def shaped(record: Record, *, shape: Shape) -> Record:
+def with_shape(record: Record, *, shape: Shape) -> Record:
     """The record with the shape."""
     return replace(record, task=replace(record.task, shape=shape))
 
 
-def read(folder: Path, slug: str, shape: Shape) -> Shape:
+def shaped(folder: Path, slug: str, shape: Shape) -> Shape:
     """Record the shape of the task `slug`."""
     state = places.workspace(folder).state
     record = tasks.read(state, slug)
@@ -33,5 +33,5 @@ def read(folder: Path, slug: str, shape: Shape) -> Shape:
             f"{slug} is {status}: its read is recorded while it is shaping",
             f"lem task move {slug} shaping first, when its read changes",
         )
-    tasks.update(state, slug, partial(shaped, shape=shape), record.revision)
+    tasks.update(state, slug, partial(with_shape, shape=shape), record.revision)
     return shape

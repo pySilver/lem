@@ -56,7 +56,7 @@ def local_tables(checkout: Path) -> None:
         )
 
 
-def load(checkout: Path) -> Team:
+def team_of(checkout: Path) -> Team:
     """The team's settings of the main checkout `checkout`."""
     path = checkout / places.TEAM
     if not path.is_file():
@@ -87,4 +87,4 @@ def show(checkout: Path | None) -> Shown:
     """The settings as `lem settings show` prints them; None where Lem is not set up."""
     if checkout is None:
         return Shown()
-    return Shown(settings=load(checkout), source=str(checkout / places.TEAM))
+    return Shown(settings=team_of(checkout), source=str(checkout / places.TEAM))

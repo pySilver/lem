@@ -2,13 +2,20 @@
 
     lem land merge-review SLUG [--file FILE|--no-answer] [--tip TIP] [--base BASE]
 
-A stub until the step `land-merge` builds it: it refuses `not-built`.
+The plain path, as the step `slice-land` built it; the step `land-merge` owns it.
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
+from lem.app.landing import mergeread
+from lem.cli import place
 from lem.cli.stub import not_built
+
+if TYPE_CHECKING:
+    from lem.kernel.envelope import Envelope
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -21,9 +28,13 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     base: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `land-merge` builds `lem land merge-review`."""
-    raise not_built("land merge-review", "land-merge")
+def run(call: Call) -> Envelope:
+    """Write the merge agent's brief, or its reply; `--no-answer` is the step
+    `land-merge`'s."""
+    if call.no_answer:
+        raise not_built("land merge-review --no-answer", "land-merge")
+    brief = (call.tip, call.base) if call.tip and call.base else None
+    return mergeread.run(place.folder(), call.slug, call.reply, brief)
 
 
 COMMAND = click.Command(

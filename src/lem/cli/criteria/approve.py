@@ -2,13 +2,20 @@
 
     lem criteria approve SLUG [--file FILE] [--small|--read|--alone] [--shown DIGEST]
 
-A stub until the step `slice-land` builds it: it refuses `not-built`.
+The plain form of the fast track, as the step `slice-land` built it; the step `criteria` owns it.
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
+from lem.app.criteria import approve
+from lem.cli import place
 from lem.cli.stub import not_built
+
+if TYPE_CHECKING:
+    from lem.records.approvals import Approval
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -22,9 +29,13 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     shown: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `slice-land` builds `lem criteria approve`."""
-    raise not_built("criteria approve", "slice-land")
+def run(call: Call) -> Approval:
+    """Approve the fast track's criterion in the owner's name; his own approval, the lead's
+    and one without him are the step `criteria`'s."""
+    others = (call.path, call.read, call.alone, call.shown)
+    if not call.small or any(others):
+        raise not_built("criteria approve --file|--read|--alone|--shown", "criteria")
+    return approve.approved(place.folder(), call.slug)
 
 
 COMMAND = click.Command(

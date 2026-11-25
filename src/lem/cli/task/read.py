@@ -2,7 +2,7 @@
 
     lem task read SLUG --type T --why W --track small|full ...
 
-A stub until the step `slice-land` builds it: it refuses `not-built`.
+The plain form of the fast track, as the step `slice-land` built it; the step `task` owns it.
 """
 
 from typing import Literal
@@ -10,8 +10,11 @@ from typing import Literal
 import click
 import msgspec
 
+from lem.app.tasks import shape as shaping
+from lem.cli import place
 from lem.cli.stub import not_built
 from lem.cli.words import choice
+from lem.records.task import Shape
 
 type Kind = Literal[
     "feat", "fix", "docs", "refactor", "perf", "test", "chore", "question"
@@ -35,9 +38,18 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     wait: Wait | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `slice-land` builds `lem task read`."""
-    raise not_built("task read", "slice-land")
+def run(call: Call) -> Shape:
+    """Record the read of the request; a queue and a wait are the step `task`'s."""
+    if call.order or call.after or call.wait:
+        raise not_built("task read --order|--after|--wait", "task")
+    shape = Shape(
+        type=call.kind,
+        why=call.why,
+        track=call.track,
+        careful=call.careful,
+        then=call.then,
+    )
+    return shaping.shaped(place.folder(), call.slug, shape)
 
 
 COMMAND = click.Command(

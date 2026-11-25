@@ -2,13 +2,19 @@
 
     lem criteria record SLUG
 
-A stub until the step `slice-land` builds it: it refuses `not-built`.
+The plain form of the fast track, as the step `slice-land` built it; the step `criteria` owns it.
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.criteria import record
+from lem.cli import place
+
+if TYPE_CHECKING:
+    from lem.app.criteria.sheet import Sheet
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +23,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     slug: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `slice-land` builds `lem criteria record`."""
-    raise not_built("criteria record", "slice-land")
+def run(call: Call) -> Sheet:
+    """Read the task's `criteria.md` into its record."""
+    return record.recorded(place.folder(), call.slug)
 
 
 COMMAND = click.Command(

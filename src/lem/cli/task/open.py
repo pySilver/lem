@@ -2,13 +2,20 @@
 
     lem task open SLUG --ask WORDS [--ticket ID] [--branch B] ...
 
-A stub until the step `slice-land` builds it: it refuses `not-built`.
+The plain form of the fast track, as the step `slice-land` built it; the step `task` owns it.
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
+from lem.app.tasks import open as opening
+from lem.cli import place
 from lem.cli.stub import not_built
+
+if TYPE_CHECKING:
+    from lem.app.tasks.open import Opened
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -26,9 +33,15 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     origin: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `slice-land` builds `lem task open`."""
-    raise not_built("task open", "slice-land")
+def run(call: Call) -> Opened:
+    """Open the task; the other words are the step `task`'s."""
+    others = (call.ticket, call.ticket_repo, call.night, call.after, call.backlog_item)
+    if any(others) or call.origin or call.plan_only:
+        raise not_built(
+            "task open --ticket|--night|--after|--plan-only|--item|--from", "task"
+        )
+    ask, branch = call.ask, call.branch
+    return opening.opened(place.folder(), call.slug, ask=ask, branch=branch)
 
 
 COMMAND = click.Command(

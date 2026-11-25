@@ -2,13 +2,20 @@
 
     lem land file SLUG [--again] [--same RN.M=PATH]... [--new RN.M]...
 
-A stub until the step `land-review` builds it: it refuses `not-built`.
+The plain path, as the step `slice-land` built it; the step `land-review` owns it.
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
+from lem.app.landing import filing
+from lem.cli import place
 from lem.cli.stub import not_built
+
+if TYPE_CHECKING:
+    from lem.kernel.envelope import Envelope
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -20,9 +27,11 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     new: tuple[str, ...] = ()
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `land-review` builds `lem land file`."""
-    raise not_built("land file", "land-review")
+def run(call: Call) -> Envelope:
+    """File the findings; `--again`, `--same` and `--new` are the step `land-review`'s."""
+    if call.again or call.same or call.new:
+        raise not_built("land file --again|--same|--new", "land-review")
+    return filing.run(place.folder(), call.slug)
 
 
 COMMAND = click.Command(

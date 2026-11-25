@@ -2,12 +2,14 @@
 
     lem task worktree SLUG [--path] [--branch B] [--checkout DIR]
 
-A stub until the step `slice-land` builds it: it refuses `not-built`.
+The plain form of the fast track, as the step `slice-land` built it; the step `task` owns it.
 """
 
 import click
 import msgspec
 
+from lem.app.tasks import worktree
+from lem.cli import place
 from lem.cli.stub import not_built
 
 
@@ -20,9 +22,12 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     checkout: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `slice-land` builds `lem task worktree`."""
-    raise not_built("task worktree", "slice-land")
+def run(call: Call) -> worktree.Made:
+    """Make the task's worktree, or print its path; `--checkout` is the step `task`'s."""
+    if call.checkout:
+        raise not_built("task worktree --checkout", "task")
+    folder = place.folder()
+    return worktree.worktree(folder, call.slug, path_only=call.path, branch=call.branch)
 
 
 COMMAND = click.Command(

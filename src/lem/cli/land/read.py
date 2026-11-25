@@ -2,13 +2,19 @@
 
     lem land read SLUG [--record FILE]
 
-A stub until the step `land-review` builds it: it refuses `not-built`.
+The plain path, as the step `slice-land` built it; the step `land-review` owns it.
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.landing import review
+from lem.cli import place
+
+if TYPE_CHECKING:
+    from lem.kernel.envelope import Envelope
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -18,9 +24,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     record: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `land-review` builds `lem land read`."""
-    raise not_built("land read", "land-review")
+def run(call: Call) -> Envelope:
+    """Say what review is due, or record the one the agent ran."""
+    return review.run(place.folder(), call.slug, call.record)
 
 
 COMMAND = click.Command(

@@ -2,7 +2,7 @@
 
     lem task move SLUG STATUS [--line L]... [--start-over WHY]
 
-A stub until the step `slice-land` builds it: it refuses `not-built`.
+The plain form of the fast track, as the step `slice-land` built it; the step `task` owns it.
 """
 
 from typing import Literal
@@ -10,6 +10,8 @@ from typing import Literal
 import click
 import msgspec
 
+from lem.app.tasks import move
+from lem.cli import place
 from lem.cli.stub import not_built
 from lem.cli.words import choice
 
@@ -36,9 +38,11 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     start_over: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `slice-land` builds `lem task move`."""
-    raise not_built("task move", "slice-land")
+def run(call: Call) -> move.Moved:
+    """Move the task; a drop and a start over are the step `task`'s."""
+    if call.start_over or call.status == "dropped":
+        raise not_built("task move SLUG dropped|--start-over", "task")
+    return move.moved(place.folder(), call.slug, call.status, call.lines)
 
 
 COMMAND = click.Command(

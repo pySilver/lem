@@ -2,14 +2,21 @@
 
     lem land checks SLUG [--status|--stop]
 
-A stub until the step `land-checks` builds it: it refuses `not-built`.
+The plain path, as the step `slice-land` built it; the step `land-checks` owns it.
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
+from lem.app.landing import checks_run
+from lem.cli import place
 from lem.cli.checks import at_most_one
 from lem.cli.stub import not_built
+
+if TYPE_CHECKING:
+    from lem.kernel.envelope import Envelope
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -20,9 +27,11 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     stop: bool = False
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `land-checks` builds `lem land checks`."""
-    raise not_built("land checks", "land-checks")
+def run(call: Call) -> Envelope:
+    """Run the checks; `--status` and `--stop` are the step `land-checks`'s."""
+    if call.status or call.stop:
+        raise not_built("land checks --status|--stop", "land-checks")
+    return checks_run.run(place.folder(), call.slug)
 
 
 COMMAND = click.Command(
