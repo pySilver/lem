@@ -11,7 +11,7 @@ from typing import Annotated, Literal
 
 import msgspec
 
-from lem.board.inputs.text import Href, Icon, Inline, Look, Markdown, Plain
+from lem.board.inputs.text import Href, Icon, Inline, Look, Markdown, Plain, Press
 
 # A moment with its zone, as every record holds it.
 type Moment = Annotated[datetime, msgspec.Meta(tz=True)]
@@ -40,7 +40,9 @@ class When(Input, frozen=True, kw_only=True):
 
 class Link(Input, frozen=True, kw_only=True):
     """A link: where it goes, its words, its hover, whether it opens a tab of its own (the
-    forge), whether it opens in the task's panel, and whether it is the page shown now."""
+    forge), whether it opens in the task's panel, whether it is the page shown now, its icon,
+    its look as a button (`Merge…` is a step that cannot be undone), and the row of the page it
+    opens that it shows first (`dec-1`)."""
 
     href: Href
     label: Inline
@@ -48,13 +50,16 @@ class Link(Input, frozen=True, kw_only=True):
     out: bool = False
     frame: bool = False
     current: bool = False
+    icon: Icon | None = None
+    press: Press | None = None
+    anchor: Plain | None = None
 
 
 class Chip(Input, frozen=True, kw_only=True):
-    """A small mark: its words, its icon and look, its hover, whether it moves (a step that
-    runs), and where it links when it does (a pull request)."""
+    """A small mark: its words (`**2** landed today`), its icon and look, its hover, whether it
+    moves (a step that runs), and where it links when it does (a pull request)."""
 
-    label: Plain
+    label: Inline
     icon: Icon | None = None
     look: Look | None = None
     title: Plain | None = None

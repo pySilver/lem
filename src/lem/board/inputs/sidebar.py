@@ -2,18 +2,21 @@
 waits for the owner (one row for each task, its most pressing thing first), the views, and the
 rail it folds into."""
 
+from typing import Literal
+
 from lem.board.inputs.parts import Input, When
 from lem.board.inputs.switcher import Switcher
 from lem.board.inputs.text import Href, Icon, Inline, Look, Plain
 
 
 class Notice(Input, frozen=True, kw_only=True):
-    """A notice at the top of the sidebar (demo data, the owner away, a blocked task, a status
-    no stage writes): its id, look and icon, its first words in bold, what it says, and the task
-    it names."""
+    """A notice at the top of the sidebar: its id and kind (demo data, the owner away, a
+    blocked task, a status no stage writes), its look and icon, its first words in bold, what
+    it says, and the task it names."""
 
     id: Plain
-    look: Look
+    kind: Literal["demo", "away", "blocked", "unknown"]
+    look: Look | None = None
     icon: Icon | None = None
     head: Plain | None = None
     said: Inline
@@ -43,14 +46,16 @@ class Waiting(Input, frozen=True, kw_only=True):
 
 class ViewButton(Input, frozen=True, kw_only=True):
     """A view of the workspace (Tasks, Waits for you, Backlog, Activity): its key, its words
-    and icon, its address, its key on the keyboard, its count and that count's hover (none
-    where the view counts nothing or did not read), and whether it is the view shown."""
+    and icon, its address, its key on the keyboard, its hover on the folded rail (`5 tasks wait
+    for you`, `Tasks · key T`), its count and that count's hover (none where the view counts
+    nothing or did not read), whether it is the view shown, and its look."""
 
     key: Plain
     label: Plain
     icon: Icon
     href: Href
     kbd: Plain
+    rail_title: Plain
     count: int | None = None
     count_title: Plain | None = None
     current: bool = False
