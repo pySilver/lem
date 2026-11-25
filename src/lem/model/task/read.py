@@ -14,12 +14,15 @@ from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
 from lem.model.task import holds, table
+from lem.model.task.behind import after_dropped, word
 from lem.records.base import Frozen
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from lem.records.base import Moment
     from lem.records.record import Record
-    from lem.records.task import Shape, Status
+    from lem.records.task import Shape, Status, Task
 
 type Wait = Literal["criteria", "interview", "request"]
 
@@ -43,12 +46,9 @@ class Queue(Frozen, frozen=True, kw_only=True):
     wait: Wait | None = None
 
 
-def strangers(queue: Queue, others: frozenset[str]) -> list[str]:
-    """The names of `--after` that are none of `others`, the task's own among them."""
-    return [one for one in queue.after if one not in others]
-
-
-def refusal(record: Record, queue: Queue, others: frozenset[str]) -> Refusal | None:
+def refusal(
+    record: Record, queue: Queue, others: Mapping[str, Status]
+) -> Refusal | None:
     """Why the read may not be written: the task is past its shape, its queue names itself
     or no task, or it drops the queue of his order."""
     task = record.task
@@ -62,22 +62,31 @@ def refusal(record: Record, queue: Queue, others: frozenset[str]) -> Refusal | N
             f"{slug} is {task.status}: its read is written while it is shaping or queued",
             f"lem task move {slug} shaping first, when its read changes",
         )
-    wrong = strangers(queue, others - {slug})
-    if wrong:
-        return Refusal(
-            "after",
-            f"--after names the task {slug} waits for, and {wrong[0]} is no other task "
-            "here",
-            "lem task list names the tasks",
-        )
-    dropped_order = task.order is not None and bool(task.after)
-    if dropped_order and not queue.after and queue.order is None:
+    for one in queue.after:
+        if one == slug or one not in others:
+            return Refusal(
+                "after",
+                f"--after names the task {slug} waits for, and {one} is no other task "
+                "here",
+                "lem task list names the tasks",
+            )
+    return removal_refusal(task, queue, others)
+
+
+def removal_refusal(
+    task: Task, queue: Queue, others: Mapping[str, Status]
+) -> Refusal | None:
+    """Only the owner's word removes an ordered dependency or one that was dropped."""
+    removed = tuple(one for one in task.after if one not in queue.after)
+    if removed and task.order is not None:
         return Refusal(
             "order",
-            f"{slug} is queued by the owner's order, and only his word removes it",
-            f'lem task start {slug} --words "HIS WORDS"',
+            f"{task.slug} is queued by the owner's order, and only his word removes it",
+            word(task.slug),
         )
-    return None
+    dropped_names = (one for one in removed if others.get(one) == "dropped")
+    dropped = tuple((one, "dropped") for one in dropped_names)
+    return after_dropped(task, dropped) if dropped else None
 
 
 def moved_to(after: tuple[str, ...]) -> tuple[Status, str]:
@@ -92,9 +101,14 @@ def moved_to(after: tuple[str, ...]) -> tuple[Status, str]:
 def queued(record: Record, queue: Queue, now: Moment) -> Record:
     """The record with the queue the read asks for: queued behind `after`, or shaping."""
     was = record.task.status
-    task = replace(record.task, after=queue.after, order=queue.order)
+    order = record.task.order if record.task.after else None
+    if order is None:
+        order = queue.order
+    record = replace(
+        record,
+        task=replace(record.task, after=queue.after, order=order),
+    )
     status, line = moved_to(queue.after)
-    record = replace(record, task=task)
     if status == was:
         return record
     return holds.moved(record, status=status, line=line, now=now)

@@ -21,12 +21,17 @@ def shaped(folder: Path, slug: str, shape: Shape, queue: reading.Queue) -> Recor
     """Record the read of the task `slug`, and give its record as written."""
     where = places.workspace(folder)
     record = release.checked(where.state, slug)
-    others = frozenset(one.task.slug for one in tasks.every(where.state))
+    known = (one.task for one in tasks.every(where.state))
+    others = {task.slug: task.status for task in known}
     refused = reading.refusal(record, queue, others)
     if refused is not None:
         raise refused
-    change = partial(reading.read, shape=shape, queue=queue, now=clock.now())
-    return tasks.update(where.state, slug, change, record.revision)
+    return tasks.update(
+        where.state,
+        slug,
+        partial(reading.read, shape=shape, queue=queue, now=clock.now()),
+        record.revision,
+    )
 
 
 def said(folder: Path, record: Record) -> str | None:

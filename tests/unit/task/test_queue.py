@@ -106,9 +106,19 @@ def test_the_read_command_records_a_request_hold(tmp_path: Path) -> None:
     where = workspace(tmp_path)
     made(where, SLUG, status="shaping")
     ran = lem(
-        "task", "read", SLUG, "--type", "fix", "--why", "the total is wrong",
-        "--track", "small", "--wait", "request", cwd=tmp_path,
-    )  # fmt: skip
+        "task",
+        "read",
+        SLUG,
+        "--type",
+        "fix",
+        "--why",
+        "the total is wrong",
+        "--track",
+        "small",
+        "--wait",
+        "request",
+        cwd=tmp_path,
+    )
     assert ran.code == 0, ran.stdout + ran.stderr
     hold = read(where, SLUG).task.hold
     assert isinstance(hold, OwnerHold)
@@ -120,6 +130,61 @@ def test_after_names_another_task_of_the_workspace(tmp_path: Path) -> None:
     made(where, SLUG, status="shaping")
     assert code(lambda: shaped(where, Queue(after=("nothing",)))) == "after"
     assert code(lambda: shaped(where, Queue(after=(SLUG,)))) == "after"
+
+
+def test_the_read_stops_at_the_first_unknown_dependency(tmp_path: Path) -> None:
+    class UnreadName(str):
+        __slots__ = ()
+
+        def __hash__(self) -> int:
+            raise AssertionError(
+                "the first unknown dependency already decides the refusal"
+            )
+
+    where = workspace(tmp_path)
+    made(where, SLUG, status="shaping")
+    with pytest.raises(Refusal, match="first-missing is no other task"):
+        shaped(where, Queue(after=("first-missing", UnreadName("also-missing"))))
+
+
+@pytest.mark.parametrize(
+    ("status", "order", "new_order", "refused"),
+    [
+        ("building", "after both", None, "order"),
+        ("dropped", "after both", "after first", "order"),
+        ("dropped", None, None, "after-dropped"),
+    ],
+)
+def test_a_second_read_cannot_remove_a_dependency_that_needs_the_owners_word(
+    tmp_path: Path,
+    status: Status,
+    order: str | None,
+    new_order: str | None,
+    refused: str,
+) -> None:
+    where = workspace(tmp_path)
+    made(where, "first", status="landed")
+    made(where, "second", status=status)
+    made(where, SLUG, status="shaping")
+    shaped(where, Queue(after=("first", "second"), order=order))
+    prior = read(where, SLUG)
+    assert (
+        code(lambda: shaped(where, Queue(after=("first",), order=new_order))) == refused
+    )
+    assert read(where, SLUG) == prior
+    assert start.start(tmp_path, SLUG, "start gift-note now").status == "shaping"
+
+
+def test_a_second_read_keeps_the_owners_order_when_it_keeps_its_dependencies(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    made(where, "first", status="building")
+    made(where, SLUG, status="shaping")
+    shaped(where, Queue(after=("first",), order="after first"))
+    shaped(where, Queue(after=("first",)))
+    assert read(where, SLUG).task.order == "after first"
+    assert code(lambda: shaped(where)) == "order"
 
 
 def test_a_need_that_went_is_read_again_and_his_order_is_lifted_by_his_word_only(
@@ -239,9 +304,21 @@ def test_after_given_twice_queues_the_read_behind_both(tmp_path: Path) -> None:
     made(where, "second", status="shaping")
     made(where, SLUG, status="shaping")
     ran = lem(
-        "task", "read", SLUG, "--type", "feat", "--why", "a note", "--track", "full",
-        "--after", "first", "--after", "second", cwd=tmp_path,
-    )  # fmt: skip
+        "task",
+        "read",
+        SLUG,
+        "--type",
+        "feat",
+        "--why",
+        "a note",
+        "--track",
+        "full",
+        "--after",
+        "first",
+        "--after",
+        "second",
+        cwd=tmp_path,
+    )
     assert ran.code == 0, ran.stdout + ran.stderr
     task = read(where, SLUG).task
     assert (task.status, task.after) == ("queued", ("first", "second"))

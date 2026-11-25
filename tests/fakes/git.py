@@ -12,6 +12,7 @@ teammate's push, under the teammate's name, a merge on GitHub. `Remote` is what 
 merges through. `refused_commit` stands for a commit hook that refuses every commit.
 """
 
+import difflib
 import hashlib
 import shutil
 from dataclasses import dataclass, field
@@ -27,6 +28,9 @@ if TYPE_CHECKING:
     from lem.ports.forge_facts import MergeMethod
 
 type Tree = dict[str, bytes]
+type FilePatch = (
+    tuple[bytes | None, bytes | None] | tuple[bool, bool, tuple[bytes, ...]]
+)
 
 # The author of the commits a test makes, and of a teammate's, as `tests/fakes/repo.py` names them.
 OWN = "Lem Test"
@@ -40,6 +44,22 @@ def tree_id(tree: Tree) -> str:
         for path in sorted(tree)
     )
     return hashlib.sha1(f"tree\n{lines}".encode(), usedforsecurity=False).hexdigest()
+
+
+def file_patch(before: bytes | None, after: bytes | None) -> FilePatch:
+    """Compare text hunks without whitespace or line numbers, as Git compares patches."""
+    was, now = before or b"", after or b""
+    if b"\0" in was or b"\0" in now:
+        return before, after
+    patch = difflib.diff_bytes(
+        difflib.unified_diff,
+        was.splitlines(keepends=True),
+        now.splitlines(keepends=True),
+    )
+    lines = tuple(
+        b"".join(line.split()) for line in patch if not line.startswith(b"@@")
+    )
+    return before is None, after is None, lines
 
 
 @dataclass(frozen=True)
@@ -293,12 +313,12 @@ class ModelGit:
             author=stored.author,
         )
 
-    def patch_of(self, sha: str) -> dict[str, tuple[bytes | None, bytes | None]]:
-        """What the commit `sha` changed over its first parent, path by path."""
+    def patch_of(self, sha: str) -> dict[str, FilePatch]:
+        """How the patch of `sha` compares to other patches, path by path."""
         stored = self.objects[sha]
         parent = self.objects[stored.parents[0]].tree if stored.parents else {}
         return {
-            path: (parent.get(path), stored.tree.get(path))
+            path: file_patch(parent.get(path), stored.tree.get(path))
             for path in parent.keys() | stored.tree.keys()
             if parent.get(path) != stored.tree.get(path)
         }
@@ -478,6 +498,8 @@ class ModelGit:
             for tracked in tree
         ):
             return GitRefused(said="the reset would overwrite an untracked file")
+        if self.branches.get(place.branch) != expect:
+            return GitRefused(said=f"the branch is not at {expect}")
         self.lay(worktree, tree, keep=local)
         self.branches[place.branch] = target
         return target

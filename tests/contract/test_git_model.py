@@ -7,7 +7,10 @@ from contract.suites.git import FILES, GitContract
 from fakes.git import ModelGit
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
+
+    import pytest
 
 
 @dataclass(frozen=True)
@@ -31,6 +34,18 @@ class ModelWorld:
 
     def ignore(self, path: str) -> None:
         self.git.ignored.add(path)
+
+    def after_reset_tip_check(
+        self, patch: pytest.MonkeyPatch, act: Callable[[], None]
+    ) -> None:
+        clean = self.git.clean
+
+        def checked(folder: Path) -> bool:
+            found = clean(folder)
+            act()
+            return found
+
+        patch.setattr(self.git, "clean", checked)
 
 
 class TestModelGit(GitContract):

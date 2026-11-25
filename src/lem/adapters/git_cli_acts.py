@@ -9,6 +9,7 @@ or is deleted only at the commit named, and is never deleted while a worktree ha
 from typing import TYPE_CHECKING
 
 from lem.adapters.git_cli_facts import clean
+from lem.adapters.git_cli_ref import reset_under_lock
 from lem.adapters.git_cli_reset import ignored_collision
 from lem.adapters.git_cli_shell import GIT, QUIET, Shell, all_words, last_words
 from lem.adapters.git_cli_stops import conflicted, rebase_folder
@@ -102,13 +103,13 @@ class Branches(Shell):
             return GitRefused(said=f"the branch is not at {expect}")
         if not clean(self, worktree):
             return GitRefused(said="the worktree has changes that no commit holds")
-        collision = ignored_collision(self, worktree, expect, commit)
+        target = self.commit_at(worktree, commit)
+        if target is None:
+            return GitRefused(said=f"{commit} names no commit")
+        collision = ignored_collision(self, worktree, expect, target)
         if collision is not None:
             return collision
-        ran = self.tried(worktree, "reset", QUIET, "--keep", commit)
-        if ran.returncode:
-            return GitRefused(said=last_words(ran))
-        return self.head(worktree)
+        return reset_under_lock(self, worktree, target, expect)
 
     def branch_delete(self, checkout: Path, branch: str, expect: str) -> bool:
         if self.checked_out(checkout, branch):

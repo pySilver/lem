@@ -13,13 +13,14 @@ import pytest
 
 from contract.suites.git import FILES, GitContract, commit_file, task_worktree
 from fakes.repo import RealRepo, git_env, run_git, write
-from lem.adapters import git_cli, git_cli_shell
+from lem.adapters import git_cli, git_cli_acts, git_cli_shell
 from lem.adapters.git_cli_names import shown
 from lem.ports.faults import Unanswered
 from lem.ports.git_facts import Conflict, GitRefused
 from lem.ports.place import Place
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 
@@ -57,6 +58,18 @@ class RealWorld:
         exclude = self.checkout / ".git" / "info" / "exclude"
         with exclude.open("a", encoding="utf-8") as rules:
             rules.write(f"\n/{path}\n")
+
+    def after_reset_tip_check(
+        self, patch: pytest.MonkeyPatch, act: Callable[[], None]
+    ) -> None:
+        clean = git_cli_acts.clean
+
+        def checked(shell: git_cli_shell.Shell, folder: Path) -> bool:
+            found = clean(shell, folder)
+            act()
+            return found
+
+        patch.setattr(git_cli_acts, "clean", checked)
 
 
 def real_world(folder: Path, environ: dict[str, str] | None = None) -> RealWorld:

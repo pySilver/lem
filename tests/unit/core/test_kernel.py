@@ -10,10 +10,12 @@ import time
 from datetime import UTC, datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
+import msgspec
 import pytest
 
 from lem.kernel import clock, files, locks, logs, paths, procs, release
 from lem.kernel.errors import Fault, Refusal
+from lem.records.landing.merge import MergeIntent
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -27,6 +29,11 @@ def test_a_moment_is_utc_to_the_second_and_shown_two_ways() -> None:
     east = MOMENT.astimezone(timezone(timedelta(hours=2)))
     assert clock.minute(east) == "2026-11-24T10:18Z"
     assert clock.compact(east) == "20261124T101818Z"
+    without_zone = msgspec.json.encode(
+        {"tip": "a" * 40, "by": "owner", "via": "board", "at": "2026-11-25T10:00:00"}
+    )
+    with pytest.raises(msgspec.ValidationError, match="timezone"):
+        msgspec.json.decode(without_zone, type=MergeIntent)
 
 
 def test_a_file_is_written_whole_and_leaves_no_temporary_file(tmp_path: Path) -> None:

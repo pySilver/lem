@@ -38,8 +38,8 @@ class Transcript(Frozen, frozen=True, kw_only=True):
 
 class Signs(Frozen, frozen=True, kw_only=True):
     """The signs of work of a session: its newest sign, a shell command that runs, whether a
-    turn runs or ended, and whether they read at all: a transcript whose process is gone gives
-    `Signs(read=False)`, which a live session with no turn yet is not."""
+    turn runs or ended, and whether its process could be read. The newest sign comes from the
+    transcript and can be known with `read=False`."""
 
     sign: Moment | None = None
     shell: bool = False

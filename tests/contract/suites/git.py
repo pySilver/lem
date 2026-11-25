@@ -15,6 +15,7 @@ import pytest
 from lem.ports.git_facts import Conflict, GitRefused
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from lem.ports.git import Git
@@ -38,6 +39,9 @@ class GitWorld(Protocol):
     def merge_in(self, where: Path, ref: str, files: dict[str, bytes]) -> str: ...
     def refuse_commits(self, said: str) -> None: ...
     def ignore(self, path: str) -> None: ...
+    def after_reset_tip_check(
+        self, patch: pytest.MonkeyPatch, act: Callable[[], None]
+    ) -> None: ...
 
 
 def task_worktree(world: GitWorld, name: str = "fix-the-login") -> Path:
@@ -333,12 +337,18 @@ class GitContract:
         world = self.world(tmp_path)
         where = task_worktree(world)
         same = commit_file(world, where, "a.txt", b"a\n")
+        spaced = commit_file(world, where, "sum.py", b"sum = 1\n")
         commit_file(world, where, "b.txt", b"b\n")
         assert world.git.left_out(where, "main", "HEAD") == ()
         world.outside_commit("main", {"a.txt": b"a\n"})
+        world.outside_commit("main", {"sum.py": b"sum=1\n"})
+        world.outside_commit("main", {"b.txt": b"different\n"})
         world.git.fetch(where)
         found = world.git.left_out(where, "origin/main", "HEAD")
-        assert [(one.sha, one.subject) for one in found] == [(same, "change a.txt")]
+        assert [(one.sha, one.subject) for one in found] == [
+            (same, "change a.txt"),
+            (spaced, "change sum.py"),
+        ]
 
     def test_a_branch_is_added_with_no_worktree_once(self, tmp_path: Path) -> None:
         world = self.world(tmp_path)
@@ -376,6 +386,29 @@ class GitContract:
         assert isinstance(refused, GitRefused)
         assert "the hook says no" in refused.said
         assert world.git.tip(where, "HEAD") == before
+
+    def test_a_reset_preserves_a_commit_made_after_its_tip_check(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        before = commit_file(world, where, "a.txt", b"a\n")
+        expected = commit_file(world, where, "b.txt", b"b\n")
+        committed: list[str] = []
+
+        def commit_during_reset() -> None:
+            committed.append(commit_file(world, where, "c.txt", b"new work\n"))
+
+        with monkeypatch.context() as patch:
+            world.after_reset_tip_check(patch, commit_during_reset)
+            refused = world.git.reset(where, before, expected)
+
+        assert len(committed) == 1
+        assert world.git.tip(where, "HEAD") == committed[0]
+        assert (where / "b.txt").read_bytes() == b"b\n"
+        assert (where / "c.txt").read_bytes() == b"new work\n"
+        assert world.git.clean(where)
+        assert isinstance(refused, GitRefused)
 
     def test_reset_refuses_to_replace_an_untracked_file(self, tmp_path: Path) -> None:
         world = self.world(tmp_path)
