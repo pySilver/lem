@@ -4,7 +4,8 @@ cmd_checks` and `checks_run` on `main`).
 Before anything runs: a command to run, the polish pass in the tip, and the load gate
 (`checks_ready.py`). Then the commands, the serial ones when the others passed, and the judgment
 (`checks_verdict.py`). A term from `--stop` holds from the gate to the judgment
-(`checks_stop.py`): it ends what runs, and the run is kept as stopped. A refusal of the run
+(`checks_stop.py`): it ends what runs, and the run is kept as stopped; once the run is judged
+the handler still holds, so that a term changes nothing and the result is kept whole. A refusal of the run
 itself ends it as refused. Each end is one `CheckEnd` in the journal, with the run on record and
 the checks' span ended.
 """
@@ -41,8 +42,8 @@ def act(context: frame.Context) -> Checked:
         checks_ready.written(context, begun)
         verdict = checks_verdict.judged(context, began)
         stopper.done = True
-    keep = partial(checks_kept.kept, world=context.world, verdict=verdict)
-    checks_ready.written(context, partial(keep, at=clock.now()))
+        keep = partial(checks_kept.kept, world=context.world, verdict=verdict)
+        checks_ready.written(context, partial(keep, at=clock.now()))
     if verdict.refusal is not None:
         raise verdict.refusal
     return verdict.run
