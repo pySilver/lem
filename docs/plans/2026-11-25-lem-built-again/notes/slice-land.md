@@ -42,6 +42,16 @@ What the tree's cases need, before any unit run of a branch that has built leave
 Until then the unit level of this branch has 20 failing cases of `test_tree.py`, each a built
 leaf answering for itself instead of `not-built`; `slice-land`'s report lists them.
 
+## For `core`: the wiring case names an adapter that is built now
+
+`tests/unit/core/test_wiring.py::test_a_port_with_no_adapter_refuses_every_call_by_name` expects
+`lem.adapters.git_cli` to be unbound. `slice-land` builds it (and `lem.adapters.forge_gh`), so
+`bound.git.tip(tmp_path, "HEAD")` answers None for a folder with no repository and the case
+fails. It holds again with an adapter that stays unbuilt through group 2 in the place of
+`git_cli` (`lem.adapters.tracker_github`'s `read`, or `judge_jev`, which the case already
+checks). The builder did not run `tests/unit/core` after the orchestrator's stop of
+2026-11-25; this failure is read from the code, not from a run.
+
 ## For `core`: a fact the Git port lacks
 
 `GitPlaces` has no fact of the branch a checkout is on. `lem land merged` fast-forwards the main
