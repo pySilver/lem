@@ -53,6 +53,7 @@ def shown(found: Found, *, started: bool, said: str | None = None) -> Shown:
         pid=found.pid,
         url=found.url,
         host=found.host,
+        tailnet=found.tailnet,
         install=found.install,
         said=said,
     )

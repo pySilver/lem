@@ -18,6 +18,7 @@ from lem.kernel.errors import Refusal
 from lem.store import places
 
 WORKSPACES = "workspaces.json"
+DEMO = "demo"
 LOCK = "workspaces.lock"
 # The server's own words in its addresses, which no workspace may be named.
 RESERVED = ("api", "assets", "push", "manifest.webmanifest", "sw.js")
@@ -42,21 +43,30 @@ def listed(home: Path) -> tuple[str, ...]:
 
 
 def noted(home: Path, folder: Path) -> places.Workspace | None:
-    """Put the main checkout of the workspace `folder` is in on the list, unless it is there;
-    None when the folder is in no workspace, which a machine's server needs none of. A home
-    folder of Lem 0.3 is refused before any write."""
+    """Put the main checkout of the workspace `folder` is in on the list, unless it is there
+    or its state folder holds example tasks (`lem board --demo`, which `lem serve add` still
+    adds by hand); None when the folder is in no workspace, which a machine's server needs
+    none of. A home folder of Lem 0.3 is refused before any write."""
     try:
         space = places.workspace(folder)
     except Refusal:
         return None
+    if not (space.state / DEMO).is_file():
+        changed(home, str(space.checkout.resolve()), add=True)
+    return space
+
+
+def changed(home: Path, path: str, *, add: bool) -> bool:
+    """Put `path` on the list, or take it out; whether the list changed."""
     folders.home_marked(home)
-    path = str(space.checkout.resolve())
     with locks.held(home / LOCK):
         before = listed(home)
-        if path not in before:
-            after = msgspec.json.encode((*before, path))
-            files.write_whole(home / WORKSPACES, after)
-    return space
+        after = tuple(one for one in before if one != path)
+        if add:
+            after = before if path in before else (*after, path)
+        if after != before:
+            files.write_whole(home / WORKSPACES, msgspec.json.encode(after))
+    return after != before
 
 
 def word(text: str) -> str:
@@ -84,13 +94,6 @@ def named(paths: tuple[str, ...], host: str) -> Names:
         taken.add(name)
         names.append((name, path))
     return tuple(names)
-
-
-def name_of(home: Path, host: str, checkout: Path) -> str | None:
-    """The name of a listed main checkout in the board's addresses."""
-    path = str(checkout.resolve())
-    names = named(listed(home), host)
-    return next((name for name, at in names if at == path), None)
 
 
 def found(home: Path, host: str, name: str) -> places.Workspace | None:

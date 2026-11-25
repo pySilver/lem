@@ -2,13 +2,18 @@
 
     lem serve add DIR
 
-A stub until the step `board-service` builds it: it refuses `not-built`.
+The main checkout of the repository DIR is in goes on the machine's list, which the board server
+shows at its next look; a checkout where Lem is not set up is refused.
 """
+
+import os
+from pathlib import Path
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.board import editing
+from lem.kernel import folders
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +22,10 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     folder: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `board-service` builds `lem serve add`."""
-    raise not_built("serve add", "board-service")
+def run(call: Call) -> editing.Changed:
+    """Put the repository on the list."""
+    home = folders.home_for_writing(os.environ)
+    return editing.added(home, Path(call.folder))
 
 
 COMMAND = click.Command(

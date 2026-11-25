@@ -2,15 +2,21 @@
 
     lem serve door on|off
 
-A stub until the step `board-service` builds it: it refuses `not-built`.
+`on` checks what the door needs, writes `serve.tailscale = true` into the machine's settings,
+and makes sure the server runs with the door: a second listener on 127.0.0.1 behind
+`tailscale serve --bg --https=PORT`, which lets in only the owner's own Tailscale login. `off`
+writes `false`, makes sure the server runs without it, and takes Lem's entry out of
+`tailscale serve`. Funnel is never used.
 """
 
+import os
 from typing import Literal
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.board import doorway
+from lem.cli import place
 from lem.cli.words import choice
 
 type State = Literal["on", "off"]
@@ -22,9 +28,11 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     state: State
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `board-service` builds `lem serve door`."""
-    raise not_built("serve door", "board-service")
+def run(call: Call) -> doorway.Doorway:
+    """Open or close the door, and say what runs now."""
+    if call.state == "on":
+        return doorway.opened(os.environ, place.folder())
+    return doorway.closed(os.environ, place.folder())
 
 
 COMMAND = click.Command(
