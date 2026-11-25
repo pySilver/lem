@@ -4,39 +4,28 @@ What `tree` needs in files it does not own, and the two local seams it built unt
 
 ## For `core`
 
-1. **The log of a fault.** `src/lem/cli/faults.py` is a local seam: on a fault, `lazy.main`
-   imports it (only then, so a call that succeeds loads none of it) and `faults.logged` appends
-   the time and the traceback to `lem.log` in Lem's home folder (`$XDG_CONFIG_HOME/lem`, else
-   `~/.config/lem`); the envelope's `fault.log` names the file. A log that cannot be written
-   gets the traceback on standard error, and `fault.log` says why. When `kernel/` has its log,
-   `faults.logged` and `faults.home` call it, and the seam goes. Keep `logging` and `traceback`
-   out of a command's path: `logging` cost about 5 ms a call (unmeasured estimate: one
-   `import click, msgspec.json, logging` against the same without it, least of 10, no bytecode).
-2. **The root of Lem's files.** `src/lem/cli/version.py` has its own `root()`: the package's
-   `data` folder in an installed app, else the checkout when it holds `skills/lem/SKILL.md`, else
-   a `Fault` that names both (`main`'s `paths.root`). `__main__.py`'s version check needs the
-   same root. When `kernel/` names it, `version.root` calls it.
-3. **What `__main__.py` lets through before a command.** The tree answers `help` and `version`
-   itself (`lem` alone is `lem help`; `-h` and `--help` work at every level). Part 5 says they
-   answer before the version check and the server start, so `__main__.main` skips both for an
-   empty `argv` and a first word `help`, `version`, `-h` or `--help`; the version check also
-   lets `doctor` through, and the server start skips `serve`, `board`, `doctor`, `ask` and `jev`
-   (`main`'s `NO_LOOK`). Then `sys.exit(lazy.main(sys.argv[1:]))`, as now.
-4. **A case of `tests/unit/core/` that the tree changes.**
-   `test_entry.test_the_two_commands_run_their_stubs_and_say_nothing` expects `lem` alone to exit
-   2 with no output: the first commit's stub. With the tree, `lem` alone is `lem help`: the help
-   on standard output, exit 0 (as on `main`). Once `tree` is merged that case fails; it wants
-   `lem` alone to exit 0 with `Usage: lem` on standard output, or a call such as
-   `lem land start x` (exit 1, a `not-built` envelope). `tests/unit/cli/test_tree.py` holds both.
-5. **The workspace of a call.** `lem --repo PATH NOUN ...` is one option of the root, before
+`core` answered items 1 to 5 in `notes/core.md` ("`tree`: the five notes"). What stays open on
+this branch is the switch to them, which waits for `rebuild` merged into `rb/tree`:
+
+1. **The log of a fault.** `src/lem/cli/faults.py` is a local seam, imported only on a fault.
+   It appends the time and the traceback to `lem.log` in Lem's home folder, and sends them to
+   standard error with the reason when the home is relative or cannot be written
+   (`test_tree.py` holds both). The switch: `lazy.main` calls
+   `lem.kernel.logs.logged(fault, argv, os.environ)` and prints the `Failed` it gives, and the
+   seam goes.
+2. **The root of Lem's files.** `src/lem/cli/version.py`'s `root()` follows the rule of `main`'s
+   `paths.root`. The switch: it calls `lem.kernel.paths.root()`.
+3. **`--repo` before the noun and the version check.** `rebuild`'s `__main__.first_word` reads
+   the first word past `--repo PATH` and `--repo=PATH`, so `lem --repo . doctor`, `help` and
+   `version` pass the check (finding 8 of the review). The tree's side is in `test_tree.py`
+   (`test_repo_before_help_version_and_doctor_reaches_them`). After the merge, a case through
+   `tests/fakes/command.py` with `LEM_PLUGIN_ROOT` set to another version shows it end to end.
+4. **The workspace of a call.** `lem --repo PATH NOUN ...` is one option of the root, before
    the noun; a folder that does not exist is a wrong call (exit 2). `cli/place.py`'s `folder()`
-   gives the folder the call names, resolved, else the working directory, and nothing more: a
-   leaf's `run` reads it with no word of its own in `Call`. `core`, or the step that first reads
-   the workspace (`settings`, `store/`), gives the function that turns that folder into the
-   workspace: the main checkout (from a task's worktree too) and its `.lem/`, with a refusal that
-   names the fix when the folder is in no repository. Every leaf then calls
-   `that_function(place.folder())`, never `Path.cwd()`.
-6. No new dependency and no gate setting: Click and msgspec are enough for the tree.
+   gives the folder the call names, resolved, else the working directory, and nothing more.
+   Every leaf calls `lem.store.places.workspace(place.folder())` (`notes/core.md` item 5),
+   never `Path.cwd()`.
+5. No new dependency and no gate setting: Click and msgspec are enough for the tree.
 
 ## For the steps that fill a leaf
 
@@ -49,5 +38,9 @@ What `tree` needs in files it does not own, and the two local seams it built unt
   it says `say` or `next`; it raises `Refusal` for a refusal. `lem ask` returns every outcome.
 - A choice is a `type X = Literal[...]` alias and `type=choice(X)` (`cli/words.py`), so each
   value is written once.
+- A rule of the call that Click's parser does not hold (exactly one, at most one, at least one
+  of some words) is `cli/checks.py`, in the leaf's callback, so that a wrong call is exit 2
+  before `run`; a rule of one leaf only is a small function of that leaf (`criteria/read.py`,
+  `task/investigated.py`). Keep them when `run` is filled.
 - A text the step rewrites loses its first line `<!-- lem: old form -->` (after the front matter
   in a skill); `tests/unit/cli/test_lines.py` fails on a mark over a text with no old line.

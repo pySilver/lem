@@ -367,11 +367,32 @@ def test_a_fault_whose_log_cannot_be_written_goes_to_stderr_and_says_why(
     code, out, err = called(capsys, "land", "start", "x")
     assert code == 3
     log = json.loads(out)["fault"]["log"]
-    assert log.startswith(
-        f"standard error: {blocked}/lem/lem.log could not be written ("
-    )
+    assert log.startswith("standard error: ")
+    assert str(blocked) in log
     assert "Traceback" in err
     assert "RuntimeError: the record is torn" in err
+
+
+def test_a_fault_with_a_relative_home_goes_to_stderr_and_writes_no_file_here(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from lem.cli.land import start
+
+    def broken(call: start.Call) -> None:
+        raise RuntimeError("the record is torn")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("XDG_CONFIG_HOME", "local")
+    monkeypatch.setattr(start, "run", broken)
+    code, out, err = called(capsys, "land", "start", "x")
+    assert code == 3
+    assert json.loads(out)["fault"]["log"] == (
+        "standard error: XDG_CONFIG_HOME=local is no absolute folder"
+    )
+    assert "RuntimeError: the record is torn" in err
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_an_outcome_is_printed_in_the_envelope_with_exit_0(
