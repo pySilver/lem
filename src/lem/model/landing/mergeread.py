@@ -21,21 +21,18 @@ type Verdict = Literal["merge", "call"]
 VERDICTS: tuple[Verdict, ...] = ("merge", "call")
 
 
+def read_of(landing: Landing) -> MergeRead | None:
+    """The newest read with a verdict for the proposed tip, on whatever base it read."""
+    proposed = landing.proposed
+    tip = proposed.tip if proposed else None
+    found = [read for read in landing.reads if read.verdict and read.tip == tip]
+    return found[-1] if found else None
+
+
 def usable(landing: Landing, world: World) -> MergeRead | None:
     """The newest read with a verdict for the proposed tip on origin's base now."""
-    proposed = landing.proposed
-    if proposed is None:
-        return None
-    return next(
-        (
-            read
-            for read in reversed(landing.reads)
-            if read.verdict is not None
-            and read.tip == proposed.tip
-            and read.base == world.base
-        ),
-        None,
-    )
+    read = read_of(landing)
+    return read if read is not None and read.base == world.base else None
 
 
 def verdict_of(reply: str) -> Verdict | None:

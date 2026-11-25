@@ -19,10 +19,10 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 
-def uncovered(landing: Landing, parent: str, world: World) -> str | None:
+def uncovered(landing: Landing, parent: str) -> str | None:
     """The line for a merge onto a base that neither the checks nor the merge read covered."""
     checked = landing.checked
-    read = mergeread.usable(landing, world)
+    read = mergeread.read_of(landing)
     covered = {checked.base if checked else None, read.base if read else None}
     if parent in covered:
         return None
@@ -39,7 +39,7 @@ def landed(
         return later(f"a merge into {pull.base}, not the task's base", "land-merge")
     if not (pull.merge_commit and pull.merged_head and pull.base_parent and checked):
         return later("a merge whose commit the forge does not report", "land-merge")
-    read = mergeread.usable(landing, world)
+    read = mergeread.read_of(landing)
     return Merged(
         by=who[0],
         via=who[1],
@@ -50,7 +50,7 @@ def landed(
         base_checked=checked.base,
         base_merged=pull.base_parent,
         base_read=read.base if read else None,
-        uncovered=uncovered(landing, pull.base_parent, world),
+        uncovered=uncovered(landing, pull.base_parent),
         at=world.now,
     )
 
