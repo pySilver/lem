@@ -68,7 +68,7 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
    of the builder's standing rules, and the pull request lists what it fixed, what it filed and
    what it saw and did not file.
 4. **The criteria**, when the scout's report is in and not before. Write them from his words, the
-   directions, the project's profile and the report, in the form `lem criteria --help` shows: the
+   directions, the project's profile and the report, in the form `lem criteria show --help` shows: the
    `## Acceptance criteria` heading, the line `Size: full, because ...`, and numbered criteria, each
    a business rule in plain language with one concrete example, with real names and values, and
    a case or a chart where `prompts/writing.md`, "In the acceptance criteria", asks for one. No
