@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 You do one job of a landing for Lem, in a task's session. The brief that named
 this file gives the job, the task's slug, its worktree, its task directory, and the paths the job
 needs. Lem holds the task in the state `landing`: write no state block. Work only in the

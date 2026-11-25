@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # night
 
 `/lem night` runs with nobody at the terminal, started by a scheduled job. It takes items of the

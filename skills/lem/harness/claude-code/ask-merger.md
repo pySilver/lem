@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # Claude Code: ask-merger
 
 A part of `../claude-code.md`, read when a landing starts the merge agent.

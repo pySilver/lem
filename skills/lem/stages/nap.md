@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # nap
 
 A nap is an optional part of Lem, and the owner's own nap routine is its model. A fresh agent reads

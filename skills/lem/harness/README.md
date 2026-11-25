@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # The harness contract
 
 A stage of Lem says what to do. How an agent starts a builder, asks the owner or loads

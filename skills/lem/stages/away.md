@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # `im-away`, `im-back`
 
 Read when the owner says that he is away or back again, and when the watch of his mark ends, and

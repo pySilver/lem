@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # Claude Code: ask-owner
 
 A part of `../claude-code.md`, read at the first question a session puts to the owner, and at the

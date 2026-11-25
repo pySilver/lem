@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # The start of the build
 
 Every start of a task's build goes this way: the owner's yes to the criteria, a complete request,

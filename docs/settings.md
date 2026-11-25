@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # Settings
 
 Lem reads its settings from four files. An unknown key, a wrong value or a table in the wrong file

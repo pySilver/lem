@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # Claude Code
 
 You run in Claude Code. This file answers `README.md` beside it.

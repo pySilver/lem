@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # status
 
 A bare `/lem`, `/lem status` and `/lem status <task>`, in any session. Open the board first

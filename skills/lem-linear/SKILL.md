@@ -3,6 +3,7 @@ name: lem-linear
 description: "Lem's tracker skill for Linear: reads a ticket into a task, moves it and comments the landing. Lem's stages load it; the owner reads one ticket with `/lem read KEY`."
 disable-model-invocation: true
 ---
+<!-- lem: old form -->
 
 # Linear, as Lem's tracker
 

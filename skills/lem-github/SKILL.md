@@ -3,6 +3,7 @@ name: lem-github
 description: "Lem's tracker skill for GitHub Issues: reads an issue into a task, assigns it when the build starts, and comments and closes it when the task lands. Lem's stages load it; the owner reads one issue with `/lem read 42`."
 disable-model-invocation: true
 ---
+<!-- lem: old form -->
 
 # GitHub Issues, as Lem's tracker
 

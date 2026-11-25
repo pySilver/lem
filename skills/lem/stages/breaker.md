@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # The circuit breaker
 
 Read by a lead, or a plan talk's defender, when the breaker trips, and at no other time. The build

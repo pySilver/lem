@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # A pull request that became conflicting
 
 A part of `stages/land.md`, read only when GitHub calls this task's open pull request conflicting.

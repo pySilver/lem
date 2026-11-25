@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # A decision in doubt: the ladder
 
 Read by a lead or a plan talk's defender at a decision in doubt, and by a task's session in the

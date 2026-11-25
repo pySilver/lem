@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # Claude Code: second-opinion
 
 A part of `../claude-code.md`, read when a session opens the reviewer's pane.

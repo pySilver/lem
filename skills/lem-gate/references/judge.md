@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # The judge's prompt
 
 Fill `QUESTION_FILE` and `REPO` before sending.

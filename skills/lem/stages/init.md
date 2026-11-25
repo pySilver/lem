@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # init: onboarding a repository
 
 `/lem init` takes a repository from nothing to a first task: it checks the machine, examines the

@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # new
 
 `/lem new <what>`, or `/lem <what>` in plain words, in any session, opens one task in an agterm

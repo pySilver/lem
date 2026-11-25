@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # Claude Code: the plan talk's pair
 
 A part of `../claude-code.md`, read when a lead opens the pair (`open-task-session`).

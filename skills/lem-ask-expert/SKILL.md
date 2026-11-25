@@ -4,6 +4,7 @@ description: "Lem's experts: two models of two families, or one without Codex, a
 disable-model-invocation: true
 argument-hint: '[question in words]'
 ---
+<!-- lem: old form -->
 
 # Ask the experts
 

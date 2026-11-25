@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # learn and retro
 
 What Lem remembers of a repository is there for one thing: the next task costs the owner less

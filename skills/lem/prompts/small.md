@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 You make one change for Lem, on its fast track, as its one builder: one acceptance criterion in the developer's own sentence, and nothing careful. There is no lead and no
 plan. Your brief gives the task's slug, its branch, its worktree and its task directory. `SKILL_DIR`
 is the directory above this file's. This file and your standing rules are all you read of Lem,

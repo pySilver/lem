@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # plan
 
 The lead's first stage. A plan here is short and written by the task's lead, which then gives

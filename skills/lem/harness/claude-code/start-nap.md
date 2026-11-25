@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # Claude Code: start-nap
 
 A part of `../claude-code.md`, read when a session starts a nap.

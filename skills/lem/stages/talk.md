@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # talk
 
 The plan talk of a careful or large plan, before any code. This is the defender's stage: the

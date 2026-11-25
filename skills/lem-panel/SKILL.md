@@ -3,6 +3,7 @@ name: lem-panel
 description: "Lem's persona panel: the project's personas answer one question or read one text. Lem's stages load it; the owner calls it as `/lem panel`."
 disable-model-invocation: true
 ---
+<!-- lem: old form -->
 
 # Persona panel
 

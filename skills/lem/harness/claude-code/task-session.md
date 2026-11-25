@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # Claude Code: a task's own session
 
 A part of `../claude-code.md`, read when a session opens one (`open-task-session`), copies a talk,

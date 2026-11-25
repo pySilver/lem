@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # `be-careful`, `standard-track`, `drop`
 
 Read when the owner corrects a task: `/lem be-careful [task]`, `/lem standard-track [task]`,

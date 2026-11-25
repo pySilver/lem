@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # A bug and a question
 
 A bug is investigated before anyone writes a criterion: "typically the root-cause-investigation is

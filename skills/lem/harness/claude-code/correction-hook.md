@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # Claude Code: the correction hook
 
 A part of `../claude-code.md`, read when the correction queue is offered, turned on or reported.

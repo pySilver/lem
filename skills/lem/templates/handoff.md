@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 task: SLUG · from PHASE · written: YYYY-MM-DDTHH:MMZ
 
 <!--

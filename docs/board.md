@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # The board
 
 The board shows every task of a repository, and it updates by itself. One server on your

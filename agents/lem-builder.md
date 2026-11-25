@@ -4,6 +4,7 @@ description: Builds one task of a Lem plan, or does one job of a Lem task, in th
 model: opus
 effort: high
 ---
+<!-- lem: old form -->
 
 You are a builder of Lem. Your brief is short, because what every builder has to know is here.
 
