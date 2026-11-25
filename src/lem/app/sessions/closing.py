@@ -1,14 +1,18 @@
 """`lem session close`: put the close of a task's session on record, then close it.
 
 Never a session the owner has selected: refused, or with `when_unselected` waited for until he
-has left it. With a session named, only one that Lem opened for the task. The record comes first,
-since a session that closes itself ends with this command; a session the terminal no longer has
-is put on record as closed and given as not closed by Lem.
+has left it. With a session named, only one that Lem opened for the task, an older one too, since
+a handoff closes the one before it. The record comes first, since a session that closes itself
+ends with this command; a session the terminal no longer has is put on record as closed and given
+as not closed by Lem. A close that waits ends with no close and no record when the session is
+woken while it waits (a queued task's `lem: SLUG queue`): it has work again, and the close of its
+next change of phase or of its end is the one that closes it.
 """
 
 from typing import TYPE_CHECKING, Literal
 
-from lem.app.sessions import opened, placing
+from lem.app.sessions import log, seen
+from lem.app.sessions.acts import Act, Close, Open, Wake
 from lem.kernel.errors import Refusal
 from lem.records.base import Frozen
 
@@ -18,7 +22,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.app.sessions.here import Here
-    from lem.ports.terminal import Pane
 
 type Why = Literal["handoff", "ended", "owner"]
 
@@ -33,14 +36,37 @@ class Closing(Frozen, frozen=True, kw_only=True):
     when_unselected: bool = False
     every: float
 
+    def outcome(self, session: str, *, closed: bool, woken: bool = False) -> Closed:
+        """The close's outcome for `session`."""
+        return Closed(
+            task=self.slug, session=session, why=self.why, closed=closed, woken=woken
+        )
+
+    def refuse_or_wait(
+        self, session: str, name: str, pause: Callable[[float], None]
+    ) -> None:
+        """Refuse a close of the session the owner looks at, or wait one look when it
+        waits."""
+        if not self.when_unselected:
+            raise Refusal(
+                "selected",
+                f"the owner has the session {name} selected, and Lem never closes a "
+                "session he looks at",
+                f"lem session close {self.slug} --session {session} --why {self.why} "
+                "--when-unselected closes it once he left it",
+            )
+        pause(self.every)
+
 
 class Closed(Frozen, frozen=True, kw_only=True, omit_defaults=False):
-    """The session, why, and whether Lem closed it (false: the terminal had it no more)."""
+    """The session, why, whether Lem closed it (false: the terminal had it no more, or it was
+    woken), and whether a wake kept it open."""
 
     task: str
     session: str
     why: Why
     closed: bool
+    woken: bool = False
 
 
 def close_session(
@@ -49,56 +75,66 @@ def close_session(
     pause: Callable[[float], None],
     clock: Callable[[], datetime],
 ) -> Closed:
-    """Close the task's session once nobody looks at it, and put the close on record first;
-    when the owner selects it in the moment of the close, wait again or refuse."""
+    """Close the task's session once nobody looks at it, and put the close on record first."""
     folder = here.folder(closing.slug)
-    session = chosen(closing, opened.read(folder))
-    while True:
-        pane = unselected(here, closing, session, pause)
-        noted(folder, session, closing.why, clock)
-        if pane is None:
-            return Closed(
-                task=closing.slug, session=session, why=closing.why, closed=False
-            )
-        here.ports.terminal.close(session, when_unselected=True)
-        if session not in placing.listed(here):
-            return Closed(
-                task=closing.slug, session=session, why=closing.why, closed=True
-            )
-        if not closing.when_unselected:
-            raise looked_at(closing, session, pane.name)
+    session = chosen(closing, log.read(folder))
+    wakes = woken(folder, session)
+    closed = None
+    while closed is None:
+        if closing.when_unselected and woken(folder, session) > wakes:
+            return closing.outcome(session, closed=False, woken=True)
+        closed = once(here, closing, session, pause, clock)
+    return closing.outcome(session, closed=closed)
+
+
+def once(
+    here: Here,
+    closing: Closing,
+    session: str,
+    pause: Callable[[float], None],
+    clock: Callable[[], datetime],
+) -> bool | None:
+    """One look and, when nobody looks at the session, its close: whether Lem closed it, False
+    when the terminal had it no more, None when the owner looks at it and the close waits."""
+    pane = seen.listed(here).get(session.upper())
+    if pane is not None and pane.selected:
+        closing.refuse_or_wait(session, pane.name, pause)
+        return None
+    noted(here.folder(closing.slug), session, closing.why, clock)
+    if pane is None:
+        return False
+    here.ports.terminal.close(session, when_unselected=True)
+    return None if session.upper() in seen.listed(here) else True
+
+
+def woken(folder: Path, session: str) -> int:
+    """How many wakes of `session` are on record: counted, not timed, since a moment has
+    whole seconds and a wake may come in the second the close started."""
+    return sum(
+        isinstance(act, Wake) for act in log.of_session(log.read(folder), session)
+    )
 
 
 def noted(folder: Path, session: str, why: Why, clock: Callable[[], datetime]) -> None:
     """Put the close of `session` on record, once."""
-    closes = (line for line in opened.read(folder) if isinstance(line, opened.Close))
-    if not any(line.session == session for line in closes):
-        close = opened.Close(at=clock(), session=session, why=why)
-        opened.append(folder, close)
+    acts = log.of_session(log.read(folder), session)
+    if not any(isinstance(act, Close) for act in acts):
+        log.append(folder, Close(at=clock(), session=session, why=why))
 
 
-def looked_at(closing: Closing, session: str, name: str) -> Refusal:
-    """The refusal of a close of the session the owner looks at."""
-    return Refusal(
-        "selected",
-        f"the owner has the session {name} selected, and Lem never closes a session he "
-        "looks at",
-        f"lem session close {closing.slug} --session {session} --why {closing.why} "
-        "--when-unselected closes it once he left it",
-    )
-
-
-def chosen(closing: Closing, noted: tuple[opened.Noted, ...]) -> str:
-    """The session to close: the one named, when Lem opened it for the task, else the
-    task's newest."""
+def chosen(closing: Closing, acts: tuple[Act, ...]) -> str:
+    """The session to close: the one named, when Lem opened it for the task, else the task's
+    newest."""
     slug = closing.slug
-    opens = [line.session for line in noted if isinstance(line, opened.Open)]
-    if closing.session is not None and closing.session not in opens:
+    opens = [act.session for act in acts if isinstance(act, Open)]
+    named = closing.session
+    mine = [one for one in opens if log.same(one, named)]
+    if named is not None and not mine:
         raise Refusal(
             "not-the-tasks",
-            f"{closing.session} is no session of {slug}: Lem opened no such session for it",
-            "lem session list gives each task's session; leave out --session to close the "
-            "task's newest",
+            f"{named} is no session of {slug}: Lem opened no such session for it",
+            "lem session list gives each task's session; close a session under its own "
+            f"task, or leave out --session to close {slug}'s newest",
         )
     if not opens:
         raise Refusal(
@@ -106,18 +142,4 @@ def chosen(closing: Closing, noted: tuple[opened.Noted, ...]) -> str:
             f"no session of {slug} is on record: there is nothing to close",
             "lem session list gives each task's session",
         )
-    return closing.session or opens[-1]
-
-
-def unselected(
-    here: Here, closing: Closing, session: str, pause: Callable[[float], None]
-) -> Pane | None:
-    """The session once the owner has no longer selected it, or None when the terminal has
-    it no more; refused while he looks at it, unless the close waits."""
-    pane = placing.listed(here).get(session)
-    while pane is not None and pane.selected:
-        if not closing.when_unselected:
-            raise looked_at(closing, session, pane.name)
-        pause(closing.every)
-        pane = placing.listed(here).get(session)
-    return pane
+    return mine[0] if mine else opens[-1]

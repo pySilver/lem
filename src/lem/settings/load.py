@@ -1,75 +1,90 @@
-"""The settings of a workspace, read from its main checkout: the team's file whole, and a
-local file that may not hold a table of the team's (`settings/places.py`).
+"""Lem's settings for one checkout on this machine: the values in force, each with the file it
+comes from (`reading.py` reads and checks the four files).
 
-Read from the main checkout, never from a task's worktree, so that a branch cannot change the
-checks or the base it is judged by. A slice of the step `settings`: the home file, the machine's
-file and the seats come with it.
+The team's file is the main checkout's: a task's worktree reads the same settings, so a branch
+cannot change the checks, the base or the topics it is judged by. With no team's file Lem is
+not set up there, and only the machine's and the developer's files are read.
 """
 
-import tomllib
+import os
 from typing import TYPE_CHECKING
 
-import msgspec
-
+from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.records.base import Frozen
-from lem.settings import places
+from lem.settings import base, effective, files, places, reading
+from lem.settings.machine import Machine
 from lem.settings.team import Team
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
+
+    from lem.ports.git import GitFacts
+
+type Environ = Mapping[str, str]
 
 INIT = "lem init --base BRANCH writes it"
 
 
-class Shown(Frozen, frozen=True, kw_only=True):
-    """What `lem settings show` prints: the settings, or None where Lem is not set up, and
-    the file they come from."""
+class Loaded(Frozen, frozen=True, kw_only=True):
+    """The settings in force, each key's `from`, and the line that says the team's file is the
+    base's commit, not the copy checked out in the main checkout."""
 
-    settings: Team | None = None
-    source: str | None = msgspec.field(default=None, name="from")
-
-
-def tables(path: Path) -> dict[str, object]:
-    """The tables of one TOML file; a file that is not TOML is refused with its line."""
-    try:
-        return tomllib.loads(path.read_text(encoding="utf-8"))
-    except tomllib.TOMLDecodeError as error:
-        raise Refusal(
-            "settings-toml",
-            f"{path} is not TOML: {error}",
-            f"correct {path}, then run the command again",
-        ) from error
+    settings: effective.Effective
+    sources: dict[str, str]
+    notice: str | None = None
 
 
-def local_tables(checkout: Path) -> None:
-    """Refuse a local file that holds a table only the team's file may."""
-    path = checkout / places.LOCAL
-    if not path.is_file():
-        return
-    found = [name for name in places.TEAM_ONLY if name in tables(path)]
-    if found:
-        raise Refusal(
-            "table-place",
-            f"{path} holds [{found[0]}], which only {places.TEAM} may hold",
-            f"move [{found[0]}] into {places.TEAM}, in git, or remove it",
-        )
+def settings_of(
+    checkout: Path | None,
+    environ: Environ | None = None,
+    git: GitFacts | None = None,
+    home: Path | None = None,
+) -> Loaded:
+    """The settings in force for `checkout`, a main checkout where Lem is set up, or None
+    outside one; the environment is the process's unless named, and Lem's home folder is
+    `home`, else the one the environment names."""
+    given = os.environ if environ is None else environ
+    found = home or paths.home(given)
+    return loaded(reading.Where(checkout=checkout, home=found, environ=given, git=git))
+
+
+def loaded(where: reading.Where) -> Loaded:
+    """The settings in force for the files of `where`, each checked."""
+    named = reading.read(where)
+    in_force = files.converted(
+        effective.merged(named), effective.Effective, "the settings"
+    )
+    return Loaded(
+        settings=in_force, sources=effective.sources(named), notice=notice_of(named)
+    )
+
+
+def notice_of(named: list[effective.Named]) -> str | None:
+    """The line that says the team's file is the base's commit, or None."""
+    said = (base.branch_of(name) for _, name in named)
+    held = next((one for one in said if one), None)
+    if held is None:
+        return None
+    return (
+        f"the main checkout is not on {held}, so Lem reads {places.TEAM} as {held}'s "
+        "newest commit has it, not the copy checked out there"
+    )
 
 
 def team_of(checkout: Path) -> Team:
-    """The team's settings of the main checkout `checkout`."""
+    """The team's settings of the main checkout `checkout`; refused where Lem is not set up,
+    and when the team's or the local file does not read."""
     path = checkout / places.TEAM
     if not path.is_file():
         raise Refusal("no-settings", f"{path} is not there", INIT)
-    local_tables(checkout)
-    try:
-        return msgspec.convert(tables(path), Team)
-    except msgspec.ValidationError as error:
-        raise Refusal(
-            "settings",
-            f"{path}: {error}",
-            "correct the line as docs/settings.md says, then run the command again",
-        ) from error
+    where = reading.Where(
+        checkout=checkout, home=paths.home(os.environ), environ=os.environ
+    )
+    named = reading.read(where, places.REPOSITORY)
+    team, name = named[0]
+    return files.converted(team, Team, name)
 
 
 def base_of(team: Team) -> str:
@@ -83,8 +98,9 @@ def base_of(team: Team) -> str:
     return team.branch.base
 
 
-def show(checkout: Path | None) -> Shown:
-    """The settings as `lem settings show` prints them; None where Lem is not set up."""
-    if checkout is None:
-        return Shown()
-    return Shown(settings=team_of(checkout), source=str(checkout / places.TEAM))
+def machine_of(home: Path, environ: Mapping[str, str]) -> Machine:
+    """This machine's file in Lem's home folder `home`, checked; its defaults when it is not
+    there. `environ` names the file in a refusal (`~/.config/lem/machine.toml`)."""
+    where = reading.Where(checkout=None, home=home, environ=environ)
+    tables, name = reading.read(where, (places.Scope.machine,))[0]
+    return files.converted(tables, Machine, name)

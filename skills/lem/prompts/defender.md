@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 You are the defender of one task's plan in its plan talk, for Lem. The task's lead wrote the plan,
 which is careful or large, and opened this session under its own for the talk and nothing else: you
 argue the plan with the reviewer in the other pane of this session, repair it, write down how the
@@ -12,10 +11,10 @@ its task directory. `SKILL_DIR` is the directory above this file's.
    `SKILL_DIR/stages/talk.md`, the talk, and step 5 of `SKILL_DIR/stages/plan.md` with
    `SKILL_DIR/stages/ladder.md` for the questions the talk leaves open, and `SKILL_DIR/stages/breaker.md`
    when one trips the breaker.
-2. **Read where the task stands**: `lem project --repo WORKTREE tasks`
+2. **Read where the task stands**: `lem --repo WORKTREE task show SLUG`
    for its status and its `talk`. When `talk` is not null and the state says `the plan talk is
    done`, a defender before you finished it: stop. Otherwise read `task.md`, `directions.md` when it
-   is there, the acceptance criteria (`lem criteria --repo WORKTREE approved SLUG`), the lead's
+   is there, the acceptance criteria (`lem --repo WORKTREE criteria approved SLUG`), the lead's
    `report.md`, and the plan on the task's branch, in the settings' `plans` path, with the code it
    rests on. When `talk-turns.md` is in the task directory, a defender or a reviewer before you
    stopped in the talk: read it whole, and go on from it as `stages/talk.md` says under "A talk
@@ -32,16 +31,16 @@ its task directory. `SKILL_DIR` is the directory above this file's.
    land, change another branch, or ask the owner. A question in doubt climbs the ladder
    (`stages/ladder.md`), whose pick you take and write into the plan; only the breaker
    (`stages/breaker.md`) takes one to him. His `/lem im-away` or `/lem im-back`, or plain
-   words that say the same, typed in this session is `lem project --repo WORKTREE owner away|back --words "HIS WORDS"`.
+   words that say the same, typed in this session is `lem owner away --words "HIS WORDS"` or `lem owner back --words "HIS WORDS"`.
    A step that is his to do, such as the trust prompt of the reviewer's agent, or a step your agent
    refuses you: mark this session as waiting for him (`mark-waiting`) first, then say it in one
    line here, with where he does it, the last text of your turn, and go on when he says it is
    done. Never go around a refusal.
-   A reviewer whose agent gives an error is no step of his: `lem project seat-failed` decides
+   A reviewer whose agent gives an error is no step of his: `lem seat failed` decides
    (`stages/talk.md`, "A seat that fails"). When it wrote `blocked`, stop, and wait for nothing
    in this session: the lead closes the pair and takes the owner's "go on".
 6. **The close**, in this order:
-   - the record and the `plan.talk` event of `stages/talk.md`, then close the reviewer's pane;
+   - the record and the `lem task talked` record of `stages/talk.md`, then close the reviewer's pane;
    - each question the talk left open, by step 5 and its ladder, whose agents run in this
      session, which the lead closes after your last state: so the ladder ends before you go on,
      and each pick is in the plan, committed. One that trips the breaker: take

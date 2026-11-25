@@ -1,5 +1,6 @@
 """What every command of a task's session starts from: the workspace of the folder it runs in,
-its ports bound to their adapters, the task's folder and record, and the envelope it prints."""
+its ports bound to their adapters, the terminal's session it runs in, Lem's home folder, and the
+envelope it prints."""
 
 import os
 from dataclasses import dataclass
@@ -8,9 +9,9 @@ from typing import TYPE_CHECKING
 import msgspec
 
 from lem.app import wiring
-from lem.app.sessions.phase import Phase, phase_of
+from lem.app.sessions.phase import Phase, phase_of, phase_or_none
 from lem.kernel import paths
-from lem.kernel.envelope import Envelope
+from lem.kernel.envelope import Envelope, Next
 from lem.ports.place import Place
 from lem.store import places
 
@@ -21,18 +22,20 @@ if TYPE_CHECKING:
 
 # Where a task's worktree is, under the main checkout.
 WORKTREES = ".lem/worktrees"
-# The session a command runs in, as agterm names it in each pane's environment: the slice's
-# stand-in for a `Terminal.here()` (notes/slice-session.md).
-CALLER = "AGTERM_SESSION_ID"
+# The session a command runs in, as agterm names it in each pane's environment (its own name,
+# then its older one): the one agterm name in `app/`, until the port says who calls
+# (notes/sessions.md).
+CALLERS = ("AGTERM_SESSION_ID", "AGT_SESSION_ID")
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Here:
-    """A workspace, its ports, and the terminal's session the command runs in."""
+    """A workspace, its ports, the terminal's session the command runs in, and Lem's home."""
 
     where: places.Workspace
     ports: wiring.Ports
     caller: str | None = None
+    home: Path | None = None
 
     def folder(self, slug: str) -> Path:
         """The folder of the task `slug`; refused for a name that is no task's."""
@@ -47,18 +50,24 @@ class Here:
         """The phase of the task's session now; refused for a task that gets none."""
         return phase_of(task, worktree=self.worktree(task.slug) is not None)
 
+    def phase_or_none(self, task: Task) -> Phase | None:
+        """The phase of the task's session now; None for a task that gets none."""
+        return phase_or_none(task, worktree=self.worktree(task.slug) is not None)
+
 
 def bound(folder: Path) -> Here:
     """The workspace of `folder`, with each port bound to its adapter."""
     where = places.workspace(folder)
-    place = Place(
-        checkout=where.checkout, home=paths.home(os.environ), environ=os.environ
-    )
-    caller = os.environ.get(CALLER) or None
-    return Here(where=where, ports=wiring.bound(place), caller=caller)
+    home = paths.home(os.environ)
+    place = Place(checkout=where.checkout, home=home, environ=os.environ)
+    callers = [os.environ[name] for name in CALLERS if os.environ.get(name)]
+    caller = callers[0] if callers else None
+    return Here(where=where, ports=wiring.bound(place), caller=caller, home=home)
 
 
-def enveloped(outcome: msgspec.Struct, say: str) -> Envelope:
-    """The envelope of a command of a session: its outcome, and the line for the owner."""
+def enveloped(outcome: msgspec.Struct, say: str, then: str | None = None) -> Envelope:
+    """The envelope of a command of a session: its outcome, the line for the owner, and the
+    command the caller runs next in the background, when there is one."""
     encoded = msgspec.Raw(msgspec.json.encode(outcome))
-    return Envelope(ok=True, outcome=encoded, say=say)
+    following = None if then is None else Next(act="run", command=then)
+    return Envelope(ok=True, outcome=encoded, say=say, following=following)

@@ -1,57 +1,79 @@
-"""The record a review agent writes, in the form `prompts/review.md` gives it ("The record of a
-review" of `lem land --help` on `main`), read strictly: a key it does not name is refused.
+"""The record a review agent writes, `reviews/review-N.json`, in the form step 8 of
+`prompts/review.md` gives it, read strictly: a key the prompt does not name, a count under 0, a
+kind or a call by the bar it does not list, or a name with no why is refused by the decoder,
+which names the key (`land.cmd_read` and `land.defects_of` on `main`).
 
 The record counts the change's findings (`must_fix`, `should`, `nit`) and lists the defects the
 review saw outside the change (`outside`). The task's record keeps each as a finding: the counts
-as findings `rA.cN` that only count, the defects outside as `rA.N`, which `file` places. A
-lowered bar's answer and an item of the base that holds a defect are the steps `land-checks`'
-and `land-review`'s.
+as findings `rA.cN` that only count, the defects outside as `rA.N`, which `file` places.
 """
 
-from typing import Literal
+from typing import Annotated, Literal
 
 import msgspec
 
-from lem.kernel.errors import Refusal
-from lem.model.landing.world import World, later
-from lem.records.base import Frozen, Sha
-from lem.records.landing.review import BarPlace, Finding, Named
+from lem.records.base import Frozen
+from lem.records.landing import review as records
+from lem.records.landing.review import BarPlace, Finding
 
 type Kind = Literal["read", "round", "full"]
 type Level = Literal["must-fix", "should", "nit"]
+# A text of one line with a word in it; a run (`what`) may hold several lines.
+type Line = Annotated[str, msgspec.Meta(pattern=r"^[^\n]*\S[^\n]*$")]
+type Text = Annotated[str, msgspec.Meta(pattern=r"\S")]
+type Count = Annotated[int, msgspec.Meta(ge=0)]
 # The mark of a finding that only counts one of the change's findings by its level.
 COUNTED = "c"
+
+
+class Named(Frozen, frozen=True, kw_only=True, forbid_unknown_fields=True):
+    """A profile of the round, or a source that did not answer, with why."""
+
+    name: Line
+    why: Line
 
 
 class Outside(Frozen, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """A defect the base commit has too: where, its title, the run that shows it, the
     review's call by the bar, why, and the item of the base that holds it."""
 
-    where: str
-    title: str
-    what: str
+    where: Line
+    title: Line
+    what: Text
     against: BarPlace = msgspec.field(name="bar")
-    why: str | None = None
+    why: Line | None = None
     open: str | None = None
 
 
 class Said(Frozen, frozen=True, kw_only=True, forbid_unknown_fields=True):
-    """`review-N.json` as the review agent writes it."""
+    """`review-N.json` as the review agent writes it. `outside` is a list; 0 says none, as
+    `main` took it."""
 
     attempt: int
-    tip: Sha
+    tip: str
     kind: Kind
+    answered: tuple[Line, ...]
     ran: tuple[Named, ...] = ()
     left_out: tuple[Named, ...] = ()
-    answered: tuple[str, ...] = ()
     silent: tuple[Named, ...] = ()
     lowered: tuple[Named, ...] = msgspec.field(default=(), name="bar")
-    must_fix: int = 0
-    should: int = 0
-    nit: int = 0
-    outside: tuple[Outside, ...] = ()
+    must_fix: Count = 0
+    should: Count = 0
+    nit: Count = 0
+    outside: tuple[Outside, ...] | Literal[0] = ()
     careful: bool | None = None
-    careful_why: str | None = None
+    careful_why: Line | None = None
+
+
+def kept(entries: tuple[Named, ...]) -> tuple[records.Named, ...]:
+    """Names with their why, as the task's record keeps them."""
+    made = records.Named
+    return tuple(made(name=one.name, why=one.why) for one in entries)
+
+
+def defects(said: Said) -> tuple[Outside, ...]:
+    """The defects outside the change; 0 is none."""
+    return () if said.outside == 0 else said.outside
 
 
 def levels_of(said: Said) -> list[Level]:
@@ -78,43 +100,3 @@ def counted(said: Said) -> tuple[Finding, ...]:
         )
         for place, level in enumerate(levels_of(said), 1)
     )
-
-
-def outside_of(said: Said) -> tuple[Finding, ...]:
-    """The defects outside the change, each numbered by the attempt and its place."""
-    return tuple(
-        Finding(
-            id=f"r{said.attempt}.{place}",
-            level="nit",
-            where=found.where,
-            title=found.title,
-            what=found.what,
-            against=found.against,
-            why=found.why,
-            open=found.open,
-        )
-        for place, found in enumerate(said.outside, 1)
-    )
-
-
-def of_form(said: Said, attempt: int, world: World) -> Refusal | None:
-    """Why the record is not one of the attempt that is due, for the tip now."""
-    if said.attempt != attempt:
-        return Refusal(
-            "attempt",
-            f"the record is of attempt {said.attempt}, and the attempt due is {attempt}",
-            "the review writes the attempt that lem land read printed",
-        )
-    if said.tip != world.tip:
-        return Refusal(
-            "tip",
-            f"the record is of {said.tip}, and the branch's tip is {world.tip} now",
-            "lem land read SLUG prints the tip the review reads; review that tip",
-        )
-    if said.lowered:
-        return later("the review's answer on a lowered bar", "land-checks")
-    if any(found.open for found in said.outside):
-        return later(
-            "a defect outside the change that an item of the base holds", "land-review"
-        )
-    return None

@@ -1,6 +1,7 @@
 """Open, next, close and list of a task's session, on the fake terminal and harness: the brief,
 the launch line, no focus, the record of each open and close, and each refusal."""
 
+import dataclasses
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -9,24 +10,27 @@ import pytest
 
 from fakes.forge import LocalForge
 from fakes.git import ModelGit
-from fakes.harness import FakeHarness
 from fakes.ports import fake_ports
 from fakes.records import MOMENT, record
-from fakes.terminal import FakeTerminal
-from lem.app.sessions import brief, closing, handing, listing, opened, opening
+from lem.app.sessions import acts, brief, closing, handing, listing, log, opening
 from lem.app.sessions.here import Here
 from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.ports.harness import Seat, Signs, Transcript
 from lem.ports.terminal import Opening, Pane
 from lem.records.holds import Parked
+from lem.records.journal.task import StateNoted
 from lem.records.sessions import SessionLine
 from lem.records.task import Shape
 from lem.store import places, sessions, tasks
+from unit.sessions.harness import SigningHarness
+from unit.sessions.terminal import CALLER, with_caller
+from unit.sessions.terminal import LookingTerminal as FakeTerminal
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from fakes.harness import FakeHarness
     from lem.records.record import Record
 
 SLUG = "gift-note"
@@ -68,8 +72,8 @@ def here_of(
     (checkout / ".lem").mkdir(exist_ok=True)
     places.state_of(checkout)
     git = ModelGit(checkout=checkout)
-    ports = fake_ports(git, LocalForge(remote=git), terminal, harness)
-    return Here(where=places.workspace(checkout), ports=ports)
+    ports = fake_ports(git, LocalForge(remote=git), terminal or with_caller(), harness)
+    return Here(where=places.workspace(checkout), ports=ports, caller="S-MINE")
 
 
 def made(here: Here, slug: str = SLUG, **fields: object) -> Record:
@@ -77,10 +81,10 @@ def made(here: Here, slug: str = SLUG, **fields: object) -> Record:
     return tasks.create(here.where.state, record(slug, **fields))
 
 
-def test_open_writes_the_brief_and_opens_in_the_main_checkout_with_no_workspace_named(
+def test_open_writes_the_brief_and_opens_in_the_main_checkout_in_the_callers_workspace(
     tmp_path: Path,
 ) -> None:
-    terminal, harness = FakeTerminal(), FakeHarness()
+    terminal, harness = with_caller(), SigningHarness()
     here = here_of(tmp_path, terminal, harness)
     made(here)
     got = opening.open_session(here, SLUG, "new", None, MOMENT)
@@ -96,13 +100,13 @@ def test_open_writes_the_brief_and_opens_in_the_main_checkout_with_no_workspace_
         f"main checkout: {tmp_path}",
         "worktree: none yet",
     ]
-    assert harness.launches == [
-        (Seat(agent="claude"), str(path), tmp_path, paths.root())
-    ]
+    # Lem's default seat of a task's session, `claude/opus:high` (the owner, 2026-11-22)
+    seat = Seat(agent="claude", model="opus", effort="high")
+    assert harness.launches == [(seat, str(path), tmp_path, paths.root())]
     assert [(o.name, o.cwd, o.command, o.workspace) for o in terminal.openings] == [
-        (SLUG, str(tmp_path), ("claude-1",), None)
+        (SLUG, str(tmp_path), ("claude-1",), "W-1")
     ]
-    assert [line.session for line in opened.read(here.folder(SLUG))] == ["session-1"]
+    assert [line.session for line in log.read(here.folder(SLUG))] == ["session-1"]
     assert not any(pane.selected for pane in terminal.panes.values())
 
 
@@ -118,21 +122,21 @@ class LosingTerminal(FakeTerminal):
 def test_a_session_made_is_on_record_before_the_terminal_is_asked_again(
     tmp_path: Path,
 ) -> None:
-    here = here_of(tmp_path, LosingTerminal())
+    here = here_of(tmp_path, LosingTerminal(panes={CALLER.id: CALLER}))
     made(here)
     got = opening.open_session(here, SLUG, "new", None, MOMENT)
-    assert [line.session for line in opened.read(here.folder(SLUG))] == [got.session]
+    assert [line.session for line in log.read(here.folder(SLUG))] == [got.session]
 
 
 def test_a_second_open_gives_the_session_that_runs(tmp_path: Path) -> None:
-    terminal = FakeTerminal()
+    terminal = with_caller()
     here = here_of(tmp_path, terminal)
     made(here)
     opening.open_session(here, SLUG, "new", None, MOMENT)
     again = opening.open_session(here, SLUG, "dead", None, LATER)
     assert (again.session, again.already) == ("session-1", True)
     assert len(terminal.openings) == 1
-    assert opening.said(again) == f"{SLUG} already runs in the session `{SLUG}`"
+    assert again.said() == f"{SLUG} already runs in the session `{SLUG}`"
     terminal.close("session-1", when_unselected=False)
     fresh = opening.open_session(here, SLUG, "dead", None, LATER)
     assert (fresh.session, fresh.already) == ("session-2", False)
@@ -141,14 +145,14 @@ def test_a_second_open_gives_the_session_that_runs(tmp_path: Path) -> None:
 def test_a_new_session_goes_to_the_workspace_of_the_tasks_newest(
     tmp_path: Path,
 ) -> None:
-    terminal = FakeTerminal()
+    terminal = with_caller()
     terminal.panes["S-HIS"] = Pane(id="S-HIS", name="notes", workspace="W-2")
     here = here_of(tmp_path, terminal)
     made(here)
-    old = opened.Open(
+    old = acts.Open(
         at=MOMENT, session="S-OLD", name=SLUG, phase="shape", why="new", workspace="W-2"
     )
-    opened.append(here.folder(SLUG), old)
+    log.append(here.folder(SLUG), old)
     got = opening.open_session(here, SLUG, "dead", None, LATER)
     assert terminal.openings[-1].workspace == "W-2"
     assert got.workspace == "W-2"
@@ -172,7 +176,7 @@ def test_open_refuses_a_task_that_gets_no_session_now(
     with pytest.raises(Refusal) as refused:
         opening.open_session(here, SLUG, "new", None, MOMENT)
     assert refused.value.code == code
-    assert opened.read(here.folder(SLUG)) == ()
+    assert log.read(here.folder(SLUG)) == ()
 
 
 def test_open_refuses_a_task_that_is_not_there_and_a_terminal_that_does_not_read(
@@ -209,10 +213,11 @@ def building(here: Here) -> None:
 
 
 def test_next_opens_the_next_phase_after_a_handoff_in_its_form(tmp_path: Path) -> None:
-    terminal = FakeTerminal()
+    terminal = with_caller()
     here = here_of(tmp_path, terminal)
     made(here, status="shaping")
     opening.open_session(here, SLUG, "new", None, MOMENT)
+    here = dataclasses.replace(here, caller="session-1")
     with pytest.raises(Refusal) as same:
         handing.hand_on(here, SLUG, same=False, now=LATER)
     assert same.value.code == "same-phase"
@@ -243,14 +248,17 @@ def test_next_opens_the_next_phase_after_a_handoff_in_its_form(tmp_path: Path) -
     assert got.close == (
         f"lem session close {SLUG} --session session-1 --why handoff --when-unselected"
     )
-    assert [line.why for line in opened.read(folder)] == ["new", "handoff"]
+    opens = [line for line in log.read(folder) if isinstance(line, acts.Open)]
+    assert [line.why for line in opens] == ["new", "handoff"]
     assert "phase: build" in (folder / brief.BRIEF).read_text()
+    assert terminal.renamed == [("session-1", f"{SLUG} · handed off")]
 
 
 def test_next_with_same_opens_a_fresh_session_of_the_same_phase(tmp_path: Path) -> None:
     here = here_of(tmp_path)
     made(here, status="shaping")
     opening.open_session(here, SLUG, "new", None, MOMENT)
+    here = dataclasses.replace(here, caller="session-1")
     (here.folder(SLUG) / "handoff.md").write_text(HANDOFF)
     got = handing.hand_on(here, SLUG, same=True, now=LATER)
     assert (got.phase, got.ended, got.old) == ("shape", "shape", "session-1")
@@ -268,7 +276,7 @@ def closing_of(**fields: object) -> closing.Closing:
 def test_close_never_closes_the_session_he_looks_at_and_waits_when_told(
     tmp_path: Path,
 ) -> None:
-    terminal = FakeTerminal()
+    terminal = with_caller()
     here = here_of(tmp_path, terminal)
     made(here)
     opening.open_session(here, SLUG, "new", None, MOMENT)
@@ -291,9 +299,7 @@ def test_close_never_closes_the_session_he_looks_at_and_waits_when_told(
     assert (got.session, got.closed, looks) == ("session-1", True, [5.0])
     assert terminal.closed == ["session-1"]
     closes = [
-        line
-        for line in opened.read(here.folder(SLUG))
-        if isinstance(line, opened.Close)
+        line for line in log.read(here.folder(SLUG)) if isinstance(line, acts.Close)
     ]
     assert [(line.session, line.why, line.at) for line in closes] == [
         ("session-1", "handoff", LATER)
@@ -304,8 +310,8 @@ def test_close_never_closes_the_session_he_looks_at_and_waits_when_told(
         len(
             [
                 line
-                for line in opened.read(here.folder(SLUG))
-                if isinstance(line, opened.Close)
+                for line in log.read(here.folder(SLUG))
+                if isinstance(line, acts.Close)
             ]
         )
         == 1
@@ -327,7 +333,7 @@ def test_close_refuses_a_session_lem_did_not_open_for_the_task(tmp_path: Path) -
 def test_list_gives_each_tasks_newest_session_with_its_phase_now_and_its_signs(
     tmp_path: Path,
 ) -> None:
-    terminal, harness = FakeTerminal(), FakeHarness()
+    terminal, harness = with_caller(), SigningHarness()
     here = here_of(tmp_path, terminal, harness)
     made(here, status="shaping")
     made(here, "quiet-task")
@@ -356,7 +362,7 @@ def test_list_gives_each_tasks_newest_session_with_its_phase_now_and_its_signs(
         Transcript(path="/t/c-new", claude="c-new"),
     )
     harness.signs_of["/t/c-new"] = Signs(sign=LATER, turn="runs")
-    found = {entry.task: entry for entry in listing.list_sessions(here)}
+    found = {entry.task: entry for entry in listing.list_sessions(here, LATER)}
     assert sorted(found) == ["gift-note", "gone-task"]
     mine, gone = found[SLUG], found["gone-task"]
     assert (mine.session, mine.phase, mine.opened_in, mine.live, mine.selected) == (
@@ -380,7 +386,7 @@ def test_list_asks_the_terminal_nothing_when_no_session_was_opened(
 ) -> None:
     here = here_of(tmp_path, FakeTerminal(unreadable="agterm does not answer"))
     made(here)
-    assert listing.list_sessions(here) == ()
+    assert listing.list_sessions(here, LATER) == ()
 
 
 def test_next_from_an_old_session_after_another_took_over_is_refused(
@@ -390,7 +396,9 @@ def test_next_from_an_old_session_after_another_took_over_is_refused(
     made(here, status="shaping")
     opening.open_session(here, SLUG, "new", None, MOMENT)
     (here.folder(SLUG) / "handoff.md").write_text(HANDOFF)
-    handing.hand_on(here, SLUG, same=True, now=LATER)
+    handing.hand_on(
+        dataclasses.replace(here, caller="session-1"), SLUG, same=True, now=LATER
+    )
     from_the_first = Here(where=here.where, ports=here.ports, caller="session-1")
     with pytest.raises(Refusal) as refused:
         handing.hand_on(from_the_first, SLUG, same=True, now=LATER)
@@ -417,7 +425,7 @@ class ClickedTerminal(FakeTerminal):
 def test_a_close_the_owner_cut_off_by_his_click_is_never_said_done(
     tmp_path: Path,
 ) -> None:
-    terminal = ClickedTerminal()
+    terminal = ClickedTerminal(panes={CALLER.id: CALLER})
     here = here_of(tmp_path, terminal)
     made(here)
     opening.open_session(here, SLUG, "new", None, MOMENT)
@@ -440,8 +448,8 @@ def test_a_close_the_owner_cut_off_by_his_click_is_never_said_done(
 
 
 def test_a_transcript_that_gives_nothing_is_no_sign_read(tmp_path: Path) -> None:
-    harness = FakeHarness()
-    here = here_of(tmp_path, FakeTerminal(), harness)
+    harness = SigningHarness()
+    here = here_of(tmp_path, with_caller(), harness)
     made(here, status="shaping")
     opening.open_session(here, SLUG, "new", None, MOMENT)
     line = SessionLine(
@@ -454,10 +462,46 @@ def test_a_transcript_that_gives_nothing_is_no_sign_read(tmp_path: Path) -> None
     )
     sessions.append(here.folder(SLUG), line)
     harness.by_task[SLUG] = (Transcript(path="/gone/c1.jsonl", claude="c1"),)
-    (entry,) = listing.list_sessions(here)
+    (entry,) = listing.list_sessions(here, LATER)
     assert (entry.live, entry.signs, entry.sign, entry.turn) == (
         True,
         False,
         None,
         None,
     )
+
+
+def test_the_prompts_handoff_of_a_session_that_led_its_task_through_the_build(
+    tmp_path: Path,
+) -> None:
+    prompt = (paths.root() / "skills/lem/prompts/session.md").read_text()
+    assert (
+        "a session that led its task from the shape through the build writes `from\n   build` at `ready`"
+        in prompt
+    )
+    terminal = with_caller()
+    here = here_of(tmp_path, terminal)
+    made(here, status="shaping")
+    opening.open_session(here, SLUG, "new", None, MOMENT)
+    here = dataclasses.replace(here, caller="session-1")
+    current = tasks.read(here.where.state, SLUG)
+    entries = (
+        StateNoted(at=LATER, status="building", line="the criteria are his"),
+        StateNoted(at=LATER, status="ready", line="the build is done"),
+    )
+    task = msgspec.structs.replace(current.task, status="ready", lead="session")
+    tasks.update(
+        here.where.state,
+        SLUG,
+        lambda one: msgspec.structs.replace(
+            one, task=task, journal=(*one.journal, *entries)
+        ),
+        current.revision,
+    )
+    folder = here.folder(SLUG)
+    (folder / "handoff.md").write_text(HANDOFF)
+    with pytest.raises(Refusal, match="the phase that ends is build"):
+        handing.hand_on(here, SLUG, same=False, now=LATER)
+    (folder / "handoff.md").write_text(HANDOFF.replace("from shape", "from build"))
+    got = handing.hand_on(here, SLUG, same=False, now=LATER)
+    assert (got.ended, got.phase) == ("build", "land")

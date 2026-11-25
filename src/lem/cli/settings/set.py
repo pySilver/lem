@@ -2,15 +2,19 @@
 
     lem settings set KEY VALUE --local|--home|--machine
 
-Exactly one of the three files, by its switch. A stub until the step `settings` builds it: it
-refuses `not-built`.
+Exactly one of the three files, by its switch; `default` takes the line out. No command writes
+the team's file. The edit's library loads only when a setting is written (`settings/write.py`).
 """
+
+import importlib
+import os
 
 import click
 import msgspec
 
+from lem.cli import place
 from lem.cli.checks import exactly_one
-from lem.cli.stub import not_built
+from lem.settings.places import Scope
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -23,9 +27,18 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     machine: bool = False
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `settings` builds `lem settings set`."""
-    raise not_built("settings set", "settings")
+def run(call: Call) -> object:
+    """Write the setting into the file the call's switch names."""
+    scope = next(one for one in Scope if getattr(call, one.value, False))
+    writer = importlib.import_module("lem.settings.write")
+    asked = writer.Asked(
+        key=call.key,
+        word=call.setting,
+        scope=scope,
+        folder=place.folder(),
+        environ=os.environ,
+    )
+    return writer.set_setting(asked)
 
 
 COMMAND = click.Command(

@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # Claude Code
 
 You run in Claude Code. This file answers `README.md` beside it.
@@ -57,7 +56,7 @@ Do not load a skill whose instructions are already in context.
 - the rules folder. Claude Code loads `.claude/rules/` by itself: a file with a `paths:` list
   when a matching file is read, the others in every session. Codex and the review tool's agents
   load nothing by themselves, so a brief, a review request and a review round name the files
-  `lem project rules` prints. That command reads the same `paths:` list with the glob forms
+  `lem rules` prints. That command reads the same `paths:` list with the glob forms
   Claude Code's page on that folder gives (read 2026-11-15), and finds rule files in subfolders
   and through links as that page says Claude Code does. For a review round, the files go into
   the review context the `revmux:revmux` skill writes, as paths to read first. A linked file in
@@ -109,8 +108,8 @@ and the mailbox.
 
 ## run-in-background
 
-The `Bash` tool with `run_in_background`, on the plain command as the stage gives it: `lem project
-owner watch --seen N` for the watch of the owner's mark, `lem land checks SLUG` for the task's
+The `Bash` tool with `run_in_background`, on the plain command as the stage gives it: `lem owner watch
+--seen N` for the watch of the owner's mark, `lem land checks SLUG` for the task's
 checks, `lem session wait SLUG --until STATE,...` for the end of another session's work (it looks
 every 10 seconds, a guess; it also ends when that task's session is gone from agterm's tree, with
 `"gone": true`, its `session`, the task's `status` and a `say` that names `lem session open SLUG
@@ -124,10 +123,8 @@ the name of each background task you started, and while one runs start no second
 and tells you when the command exits, also while the session waits between two of the owner's
 messages: the Bash tool's description in Claude Code 2.1.328 (read 2026-11-19) says that it
 "re-invokes you when it exits", and the end of a background `codex exec` woke an idle session
-on 2026-11-19. Then read the output file it named: the command's JSON on exit 0; on exit 1 the
-JSON of checks that were red, refused or stopped, with its `say`, before the last line, `land.py:
-...`, which alone is there for any other refusal, and for the watch of the mark its last line,
-`project.py: ...`. The tool's limit of 10 minutes (600000 ms, the
+on 2026-11-19. Then read the output file it named: the command's one JSON document, its `result` on exit 0
+and its `refusal`, with the `code`, the `why` and the `fix`, on exit 1. The tool's limit of 10 minutes (600000 ms, the
 same description) is the foreground's, so a check suite of twelve minutes runs to its end here.
 
 A background command that an earlier session started is not yours, and its end wakes that session
@@ -152,7 +149,7 @@ session list` gives as `session`; compare the two with no regard to case.
 `agtermctl session status blocked --blink --auto-reset --target "$AGTERM_SESSION_ID"`: the sidebar
 marks the session, and the mark goes back to idle once the owner visits it (the options of
 `agtermctl session status --help`, read 2026-11-21). Run (lem, 2026-11-23): other status hooks set
-the session `active` again at the end of its turn. The plugin's Stop hook (`lem ask hook-stop`) sets
+the session `active` again at the end of its turn. The plugin's Stop hook (the plugin's `stop` hook) sets
 it `blocked` again while a page of `lem-ask` is open; a question asked in the terminal loses its mark.
 
 Its reverse, for an answer that came from elsewhere while the owner never visited the session

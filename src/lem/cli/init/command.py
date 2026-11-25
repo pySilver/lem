@@ -2,17 +2,18 @@
 
     lem init [--base BRANCH] [--codex yes|no]
 
-With no `--base`, the base is origin's default branch (`origin/HEAD`), as on `main`.
-
-A stub until the step `settings` builds it: it refuses `not-built`.
+With no `--base`, the base is origin's default branch (`origin/HEAD`), as on `main`. It
+refuses a settings file that is there; the onboarding (`stages/init.md`) writes the rest.
 """
 
+import os
 from typing import Literal
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.init.setup import Initialized, initialized
+from lem.cli import place
 from lem.cli.words import choice
 
 type Codex = Literal["yes", "no"]
@@ -25,9 +26,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     codex: Codex = "yes"
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `settings` builds `lem init`."""
-    raise not_built("init", "settings")
+def run(call: Call) -> Initialized:
+    """Write the team's settings of the repository of the call."""
+    return initialized(place.folder(), call.base, call.codex, os.environ)
 
 
 COMMAND = click.Command(

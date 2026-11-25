@@ -1,43 +1,42 @@
 """`read`: the review before the pull request, by an agent that did not build the change
 (`landing.md` C, row 5; D, review coverage).
 
-The review holds while its newest answered attempt read this very tip, left no must-fix and was
-of the floor's kind at the least. A record of another attempt or tip is refused; a third round,
-a second silent attempt, a review's carry over a rebase or a commit of filed items, and the read
-of a conflict's resolution are the step `land-review`'s, refused by name.
+The review holds while the newest answered attempt covers the tip, left no must-fix, and was of
+its floor at the least; or once two rounds were used, or two attempts in a row were silent:
+then the request goes on to the owner, not green. It covers the tip it read, and the commits
+`file` made after it, which only add the backlog items of its defects (`Checked.items_after`).
+The carry over a clean rebase is `model/landing/carry.py`'s, which the step `land-base` builds.
 """
 
-from typing import TYPE_CHECKING, get_args
+from functools import partial
+from typing import TYPE_CHECKING
 
-from lem.kernel.errors import Refusal
-from lem.model.landing import review_said
-from lem.model.landing.world import Due, Held, World, later
+from lem.model.landing import (
+    careful,
+    review_cover,
+    review_due,
+    review_form,
+    review_outside,
+    review_said,
+)
+from lem.model.landing.world import Due, Held, World
 from lem.records.landing.record import Landing
 from lem.records.landing.review import Reviewed
 
 if TYPE_CHECKING:
+    from lem.kernel.errors import Refusal
     from lem.records.record import Record
 
 STEP = "read"
-KINDS: tuple[review_said.Kind, ...] = get_args(review_said.Kind.__value__)
-# The rounds of a review the plain path takes; a third is the step `land-review`'s.
-ROUNDS = 2
-
-
-def floor(record: Record) -> review_said.Kind:
-    """The least review the change gets: the full set for a careful request, a round after a
-    review that found a must-fix, else one read."""
-    shape = record.task.shape
-    if shape is not None and shape.careful:
-        return "full"
-    reviews = (record.landing or Landing()).reviews
-    return "round" if any(must_fix(review) for review in reviews) else "read"
+RESOLVED = "a builder resolved a conflict with the base: one read of what it changed"
 
 
 def newest(landing: Landing) -> Reviewed | None:
-    """The newest attempt that some reviewer answered."""
-    answered = [review for review in landing.reviews if review.answered]
-    return answered[-1] if answered else None
+    """The newest attempt, when some reviewer answered it. None while the newest attempt is
+    one nobody answered: a review was due after the last answered one, so that one clears
+    nothing, and the request goes on as not reviewed (`land.due_of` on `main`)."""
+    found = landing.reviews[-1] if landing.reviews else None
+    return found if found is not None and found.answered else None
 
 
 def must_fix(review: Reviewed) -> int:
@@ -45,85 +44,87 @@ def must_fix(review: Reviewed) -> int:
     return sum(finding.level == "must-fix" for finding in review.findings)
 
 
-def holds(record: Record, world: World) -> Held | Due:
-    """Whether the newest answered review covers this tip and left no must-fix."""
-    last = newest(record.landing or Landing())
-    if last is None:
-        return Due(step=STEP, why="no review read the change yet")
-    if last.tip != world.tip:
-        return Due(step=STEP, why="the tip changed after the last review")
-    if must_fix(last):
-        return Due(step=STEP, why=f"the last review left {must_fix(last)} must-fix")
-    if KINDS.index(last.kind) < KINDS.index(floor(record)):
-        return Due(
-            step=STEP, why=f"the change gets the {floor(record)} set at the least"
-        )
-    return Held(why=f"review {last.attempt} read this tip and left no must-fix")
-
-
-def limits(landing: Landing, said: review_said.Said) -> Refusal | None:
-    """Why the attempt passes the plain path's bounds: a third round, or a second attempt
-    nobody answered, is the step `land-review`'s."""
-    answered = [review for review in landing.reviews if review.answered]
-    if said.answered and len(answered) >= ROUNDS:
-        return later("a third round of the review", "land-review")
-    if not said.answered and len(landing.reviews) > len(answered):
-        return later(
-            "a second attempt of the review that nobody answered", "land-review"
-        )
-    return None
-
-
-def refusal(record: Record, said: review_said.Said) -> Refusal | None:
-    """Why the review as written down is not one this change may take."""
-    slug, least = record.task.slug, floor(record)
-    if KINDS.index(said.kind) < KINDS.index(least):
-        return Refusal(
-            "under-floor",
-            f"this change gets the {least} set at the least, and the review was {said.kind}",
-            f"run the {least} set, then lem land read {slug} --record FILE",
-        )
-    if said.answered and said.careful is None:
-        return Refusal(
-            "no-careful-call",
-            "the review made no careful call: whether the change reaches what must never "
-            "go wrong",
-            f"the review says careful true or false, with why, in FILE for {slug}",
-        )
-    if said.careful and said.kind != "full":
-        return Refusal(
-            "careful-not-full",
-            "the review calls the change careful, and a careful change gets the full set",
-            f"run the project's full set, then lem land read {slug} --record FILE",
-        )
-    return None
-
-
-def decide(record: Record, world: World, said: review_said.Said) -> Refusal | Reviewed:
-    """The review attempt to record for the tip now, or why it is refused."""
+def unmet(record: Record, review: Reviewed | None, world: World) -> tuple[str, ...]:
+    """What the newest answered review leaves open for the change as it is now."""
+    if review is None:
+        return ("no review read the change yet",)
     landing = record.landing or Landing()
-    attempt = len(landing.reviews) + 1
-    refused = (
-        review_said.of_form(said, attempt, world)
-        or limits(landing, said)
-        or refusal(record, said)
+    least = review_due.floor(
+        record, careful.reasons(record, careful.Edits()), resolution=False
     )
-    if refused is not None:
-        return refused
-    outside = review_said.outside_of(said)
+    left = (
+        f"the last one left {must_fix(review)} must-fix" if must_fix(review) else None,
+        None
+        if review_cover.covers(review, landing, world)
+        else "nobody reviewed what changed after it",
+        review_cover.too_small(review, landing, least),
+    )
+    return tuple(reason for reason in left if reason)
+
+
+def holds(record: Record, world: World) -> Held | Due:
+    """Whether a review covers the change as it is now, or the request goes on without one."""
+    landing = record.landing or Landing()
+    if review_due.resolution_due(landing, world) is not None:
+        return review_cover.resolution_held(landing) or Due(step=STEP, why=RESOLVED)
+    left = unmet(record, newest(landing), world)
+    if not left:
+        return Held(why="the newest review covers this change, with no must-fix")
+    gone = review_cover.gone_on(landing, left)
+    return gone or Due(step=STEP, why=left[0])
+
+
+def floor_of(record: Record, world: World, facts: review_due.Facts) -> review_due.Floor:
+    """The floor of the review that is due, a conflict's resolution or the change."""
+    landing = record.landing or Landing()
+    resolution = review_due.resolution_due(landing, world) is not None
+    return review_due.floor(record, facts.careful, resolution=resolution)
+
+
+def refused(
+    record: Record, world: World, said: review_said.Said, facts: review_due.Facts
+) -> Refusal | None:
+    """Why the review as written down is not one this change may take."""
+    slug = record.task.slug
+    least = floor_of(record, world, facts)
+    recorded = tuple(review.attempt for review in (record.landing or Landing()).reviews)
+    checks = (
+        partial(review_form.attempt_refused, said, len(recorded) + 1, recorded),
+        partial(review_form.tip_refused, said.tip, world.tip or "", slug),
+        partial(review_form.under_floor, said, least, slug),
+        partial(review_form.call_refused, said, slug),
+        partial(review_form.names_refused, said),
+        partial(review_outside.refused, said, facts.folder, facts.at_base),
+        partial(review_form.bar_refused, said, facts.lowered),
+    )
+    found = (check() for check in checks)
+    return next((refusal for refusal in found if refusal), None)
+
+
+def decide(
+    record: Record, world: World, said: review_said.Said, facts: review_due.Facts
+) -> Refusal | Reviewed:
+    """The review attempt to record for the tip now, or why it is refused."""
+    found = refused(record, world, said, facts)
+    if found is not None:
+        return found
+    landing = record.landing or Landing()
+    resolution = review_due.resolution_due(landing, world) is not None
+    outside = review_outside.findings(said)
+    last = newest(landing)
     return Reviewed(
-        attempt=attempt,
+        attempt=said.attempt,
         tip=said.tip,
-        of="change",
-        scope="whole",
-        floor=floor(record),
+        of="resolution" if resolution else "change",
+        scope="resolution" if resolution and last and not must_fix(last) else "whole",
+        floor=floor_of(record, world, facts).kind,
         kind=said.kind,
         careful=said.careful,
         careful_why=said.careful_why,
         answered=said.answered,
-        silent=said.silent,
-        ran=said.ran,
-        left_out=said.left_out,
+        silent=review_said.kept(said.silent),
+        ran=review_said.kept(said.ran),
+        left_out=review_said.kept(said.left_out),
         findings=review_said.counted(said) + outside,
         to_file=tuple(finding.id for finding in outside),
         at=world.now,

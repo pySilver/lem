@@ -2,7 +2,8 @@
 
     lem land start SLUG [--conflicting]
 
-The plain path, as the step `slice-land` built it; the step `land-base` owns it.
+Built by the step `land-base`: a round begins, goes on after a cut, or starts again for an open
+task, counted in its relands.
 """
 
 from typing import TYPE_CHECKING

@@ -16,9 +16,10 @@ from typing import TYPE_CHECKING
 import click
 import msgspec
 
-from lem.board import machine, vacant, workspaces
+from lem.board import vacant, workspaces
 from lem.cli import place
 from lem.kernel import folders, paths
+from lem.settings.machine import HIGHEST_PORT
 
 if TYPE_CHECKING:
     from lem.board.facts import Served
@@ -49,7 +50,7 @@ COMMAND = click.Command(
         click.Option(["--host"], help="the address to listen on (default: 127.0.0.1)"),
         click.Option(
             ["--port"],
-            type=click.IntRange(1, machine.HIGHEST_PORT),
+            type=click.IntRange(1, HIGHEST_PORT),
             help="the port to serve (default: [serve] port of machine.toml)",
         ),
         click.Option(["--verbose"], is_flag=True, help="log each request on stderr"),

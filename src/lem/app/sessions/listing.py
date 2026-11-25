@@ -1,26 +1,29 @@
-"""`lem session list`: each task's newest session, with the phase its task is in now, whether the
-terminal still has it, whether the owner looks at it, and its signs of work.
+"""`lem session list`: each task's newest session, with the phase its task is in now and the one
+it opened in, whether the terminal still has it, whether an agent runs in it, whether the owner
+looks at it, whether its newest wake went unanswered, and its signs of work (`session.cmd_list`
+on `main`).
 
-The signs are those of the newest transcript the `session-start` hook put on record for that
-session (its line's `pane`), read through the harness: the newest sign and whether its turn runs.
-`signs` is false when no transcript of that session is on record, or when its transcript gave
-neither a sign nor a turn (one that does not read, or is gone): the guard then reads the task's
-own record alone. Whether an agent still runs in
-the session, and a shell command of it, are not read in this slice.
+A session that no longer carries its task (gone, or a shell its agent left) has no signs: `sign`
+and `turn` null, `shell` and `signs` false. The terminal is asked only when a task has a session
+on record.
 """
 
 from typing import TYPE_CHECKING
 
-from lem.app.sessions import opened, placing
+import msgspec
+
+from lem.app.sessions import agents, log, seen, signs
+from lem.app.sessions.acts import Close
 from lem.app.sessions.phase import Phase
-from lem.kernel.errors import Fault, Refusal
+from lem.app.sessions.unheard import Unheard, unheard_of
 from lem.records.base import Frozen, Moment
-from lem.store import sessions, tasks
+from lem.store import tasks
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
+    from lem.app.sessions.acts import Open
     from lem.app.sessions.here import Here
-    from lem.ports.harness import Signs
-    from lem.ports.terminal import Pane
     from lem.records.record import Record
 
 
@@ -36,78 +39,78 @@ class Listed(Frozen, frozen=True, kw_only=True, omit_defaults=False):
     since: Moment
     workspace: str | None
     live: bool
+    agent: bool | None
     selected: bool
     closed: str | None
+    unanswered: bool
+    unheard: Unheard | None
     sign: Moment | None
-    turn: str | None
+    shell: bool
     signs: bool
+    turn: str | None
 
 
-def list_sessions(here: Here) -> tuple[Listed, ...]:
-    """Each task's newest session that Lem opened, task by task; the terminal is asked only
-    when there is one."""
+def list_sessions(here: Here, now: datetime) -> tuple[Listed, ...]:
+    """Each task's newest session that Lem opened, task by task; the terminal is asked once,
+    and only when there is one."""
+    opened = opened_tasks(here)
+    if not opened:
+        return ()
+    shown = seen.look(here)
+    entries = (entry(here, shown, *pair, now) for pair in opened)
+    return tuple(entries)
+
+
+def opened_tasks(here: Here) -> list[tuple[Record, Open]]:
+    """Each task Lem opened a session for, with its newest session."""
     records = tasks.every(here.where.state)
-    opens = [record for record in records if has_open(here, record)]
-    panes = placing.listed(here) if opens else {}
-    return tuple(entry(here, record, panes) for record in opens)
+    pairs = ((one, newest(here, one)) for one in records)
+    return [(record, found) for record, found in pairs if found]
 
 
-def has_open(here: Here, record: Record) -> bool:
-    """Whether Lem opened a session for the task of `record`."""
-    noted = opened.read(here.folder(record.task.slug))
-    return opened.newest_open(noted) is not None
+def newest(here: Here, record: Record) -> Open | None:
+    """The newest session Lem opened for the task of `record`."""
+    return log.newest_open(log.read(here.folder(record.task.slug)))
 
 
-def entry(here: Here, record: Record, panes: dict[str, Pane]) -> Listed:
-    """The entry of the task of `record`, a task Lem opened a session for."""
+def entry(
+    here: Here, shown: seen.Seen, record: Record, opened: Open, now: datetime
+) -> Listed:
+    """The entry of the task of `record`, whose newest session is `opened`."""
     slug = record.task.slug
-    noted = opened.read(here.folder(slug))
-    newest = opened.newest_open(noted)
-    if newest is None:
-        raise Fault(f"the open of {slug}'s session is gone from its record")
-    pane = panes.get(newest.session)
-    signs = signs_of(here, slug, newest.session) if pane else None
+    pane = shown.pane(opened.session)
+    read = read_now(here, shown, slug, opened, now)
+    heard = unheard_of(here, slug, opened.session, read, now) if pane else None
     return Listed(
         task=slug,
-        session=newest.session,
-        name=pane.name if pane else newest.name,
-        phase=phase_now(here, record),
-        opened_in=newest.phase,
-        why=newest.why,
-        since=newest.at,
-        workspace=newest.workspace,
+        session=opened.session,
+        name=pane.name if pane else opened.name,
+        phase=here.phase_or_none(record.task),
+        opened_in=opened.phase,
+        why=opened.why,
+        since=opened.at,
+        workspace=opened.workspace,
         live=pane is not None,
+        agent=agents.agent_runs(shown.ground(opened.session)) if pane else False,
         selected=bool(pane and pane.selected),
-        closed=closed_why(noted, newest.session),
-        sign=signs.sign if signs else None,
-        turn=signs.turn if signs else None,
-        signs=signs is not None,
+        closed=closed_why(here, slug, opened.session),
+        unanswered=heard is not None,
+        unheard=heard,
+        **msgspec.structs.asdict(read),
     )
 
 
-def phase_now(here: Here, record: Record) -> Phase | None:
-    """The phase the task is in now; None for a task that gets no session."""
-    try:
-        return here.phase(record.task)
-    except Refusal:
-        return None
+def read_now(
+    here: Here, shown: seen.Seen, slug: str, opened: Open, now: datetime
+) -> signs.Read:
+    """The signs of the session while it carries its task, else none."""
+    if shown.carries(opened, now) is None:
+        return signs.Read()
+    return signs.read_signs(here, slug, opened.session)
 
 
-def closed_why(noted: tuple[opened.Noted, ...], session: str) -> str | None:
+def closed_why(here: Here, slug: str, session: str) -> str | None:
     """Why Lem closed the session `session`, or None while it did not."""
-    closes = (line for line in noted if isinstance(line, opened.Close))
-    return next((line.why for line in closes if line.session == session), None)
-
-
-def signs_of(here: Here, slug: str, session: str) -> Signs | None:
-    """The signs of the newest transcript of the session `session`; None when none of its
-    transcripts is on record, or when it gave neither a sign nor a turn."""
-    lines = sessions.read(here.folder(slug))
-    claudes = {line.claude for line in lines if line.pane == session}
-    found = [
-        one for one in here.ports.harness.transcripts(slug) if one.claude in claudes
-    ]
-    signs = here.ports.harness.signs(found[-1]) if found else None
-    if signs is None or (signs.sign is None and signs.turn is None):
-        return None
-    return signs
+    acts = log.of_session(log.read(here.folder(slug)), session)
+    closes = [act.why for act in acts if isinstance(act, Close)]
+    return closes[0] if closes else None
