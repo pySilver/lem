@@ -26,9 +26,13 @@ second, which today keeps an act before work of the same second.
    itself, the one agterm name in `app/`. A `Terminal.here() -> str | None` would hold it.
 3. `Harness.plugin_folder(plugin_dir) -> Path | None`: the adapter has it beside the port, and
    `lem session plugin-dir` calls it on the Claude Code adapter directly.
-4. `Signs.read: bool`: a transcript whose process is gone gives `Signs()`, which the app reads as
+4. A transcript's main-thread sign: a session's turn is the one of the transcript whose main
+   thread wrote the newest turn, and `Signs.sign` counts the subagents too. The Claude Code
+   adapter gives `main_sign(transcript)` beside the port (`ClaudeHarnessLooks`), taken through
+   `beside.main_signs`. Asked: a `main` field on `Signs`.
+5. `Signs.read: bool`: a transcript whose process is gone gives `Signs()`, which the app reads as
    "not read" (`app/sessions/signs.py: read`); a live session with no turn yet looks the same.
-5. `pyproject.toml`: `psutil` is a dependency (commit `fcac0bc8`); `types-psutil` in the dev group
+6. `pyproject.toml`: `psutil` is a dependency (commit `fcac0bc8`); `types-psutil` in the dev group
    would end pyrefly's untyped-import warning.
 
 ## For `settings`
@@ -64,6 +68,15 @@ second, which today keeps an act before work of the same second.
 - `lem session open` does not put the workspace on `workspaces.json` (`project.register_checkout`
   on `main`): that file is `board-service`'s; the open could call its writer, or the board's
   start could list the workspace.
+
+## For the plan: where the correction queue is
+
+`main` keeps the queue in the project's state folder ("The queue is one file for one project:
+`corrections.jsonl` in Lem's state folder", `corrections.py` docstring at `bf6d2836`), and so
+does the hook; the design's part 3 lists "the correction queue" under the home folder. The
+review of this step asked for the home. The step keeps `main`'s place, which `[corrections]
+collect` of the machine's file (one yes for the machine) does not change; the orchestrator
+decides, and `addons-flow`'s worker follows.
 
 ## For `ask` and `addons-flow`
 
