@@ -10,6 +10,7 @@ from fakes.records import MOMENT, record
 from lem.kernel.errors import Refusal
 from lem.model.owner import answers, waiting
 from lem.model.owner.looks import Look
+from lem.model.task import owner_question
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked
 from lem.records.questions import Answer, Question
 
@@ -110,10 +111,10 @@ def test_an_old_page_cannot_answer_a_question_that_no_longer_waits(
     assert caught.value.code == "question"
 
 
-@pytest.mark.parametrize("minutes", [0, 1])
-def test_an_answer_to_a_question_asked_again_is_refused(minutes: int) -> None:
-    again = replace(ASKED, id="plan-2", asked=MOMENT + timedelta(minutes=minutes))
-    task = record(questions=(ASKED, again)).task
+def test_an_answer_to_a_question_asked_again_is_refused() -> None:
+    first = record(status="planned", hold=PLAN_HOLD, questions=(ASKED,)).task
+    task = owner_question.renewed(first, PLAN_HOLD)
+    again = task.questions[-1]
     with pytest.raises(Refusal) as caught:
         answers.answer(task, ASKED.id, "d1", YES)
     assert caught.value.why == f"{ASKED.id} was asked again as {again.id}"

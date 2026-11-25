@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from lem.board.acts.asking import label_of
 from lem.kernel.errors import Refusal
+from lem.model.owner import answers
 from lem.records.holds import Parked
 
 if TYPE_CHECKING:
@@ -56,9 +57,9 @@ def answered(question: Question, answer: Answer) -> Refusal:
     )
 
 
-def gone(task: Task, standing: Question | None, topic: str | None) -> Refusal:
+def gone(task: Task, standing: Question | None, key: str, topic: str) -> Refusal:
     """The refusal of an answer whose question waits no more: what holds the task now."""
-    if standing is not None and standing.topic == topic:
+    if standing is not None and answers.replaces(standing, key, topic):
         since = hhmm(standing.asked)
         why = (
             f"“{standing.question}” waits again since {since}, and the page you answered "

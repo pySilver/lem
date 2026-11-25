@@ -34,7 +34,7 @@ def question_of(task: Task, key: str) -> Question:
     topic = key.split(":", 1)[0]
     if found is not None:
         topic = found.topic
-    raise effect.gone(task, standing, topic)
+    raise effect.gone(task, standing, key, topic)
 
 
 def option_of(question: Question, given: Given) -> str:

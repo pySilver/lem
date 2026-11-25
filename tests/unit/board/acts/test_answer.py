@@ -10,16 +10,22 @@ import pytest
 from msgspec.structs import replace
 
 from lem.app.criteria import typed
-from lem.app.tasks import resume
+from lem.app.tasks import park, resume
 from lem.board.acts import answer, asking, given
 from lem.board.acts.asked import Asked
 from lem.board.acts.asker import Asker
 from lem.kernel import clock
+from lem.kernel.errors import Refusal
 from lem.model.criteria import digest, waits
+from lem.model.decisions import breaker as breaker_rules
+from lem.model.decisions import log
 from lem.model.owner import answers, turns
+from lem.model.task import holds
 from lem.records.approvals import PersonaRead
+from lem.records.decisions import Breaker
 from lem.records.holds import BreakerHold, OwnerHold, Parked
 from lem.records.journal.task import OwnerAct
+from lem.records.questions import Answer
 from lem.store import tasks
 from unit.board.acts.acts import SLUG, made, note_of, opened, read
 from unit.board.acts.conftest import PHONE
@@ -28,6 +34,7 @@ from unit.criteria import world
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from lem.records.record import Record
     from unit.board.acts.conftest import Board
 
 SINCE = world.EARLY
@@ -207,14 +214,73 @@ def test_drop_between_parks_first_check_and_its_write_wins_alone(
 
 
 def test_an_answer_to_an_earlier_breaker_says_the_wait_began_again(
-    board: Board,
+    board: Board, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    again = BreakerHold(number=2, since=SINCE + timedelta(hours=1))
-    made(board, status="building", hold=again)
+    breaker(board)
+    monkeypatch.setattr(clock, "now", lambda: SINCE + timedelta(minutes=1))
+    park.parked(board.checkout, SLUG, "wait for the export's owner")
+    monkeypatch.setattr(clock, "now", lambda: SINCE + timedelta(minutes=2))
+    resume.resumed(board.checkout, SLUG)
+    before = read(board)
     note = note_of(board.post(ANSWER, {"key": KEY, "option": "help", "words": HELP}))
     assert note.state == "refused"
-    assert "waits again since" in note.said
-    assert read(board).task.questions == ()
+    assert "Breaker 1" in note.said and "waits again since" in note.said
+    assert read(board) == before
+
+
+def trip_and_resume(record: Record, number: int, at: datetime) -> Record:
+    stopped = Breaker(
+        id=number,
+        at=at,
+        cause="criteria",
+        what="The export would lose a note",
+        document=f"breaker-{number}.md",
+        handoff="handoff.md",
+    )
+    tripped = breaker_rules.tripped(record, breaker=stopped, why=stopped.what, now=at)
+    parked = holds.parked(tripped, words="read the export", now=at)
+    return holds.resumed(
+        parked, before=tripped.task.hold, now=at + timedelta(minutes=1)
+    )
+
+
+@pytest.mark.parametrize("route", ("model", "board"))
+def test_a_later_breaker_does_not_replace_a_settled_breaker(
+    board: Board, route: str
+) -> None:
+    initial = made(board, status="building")
+    first = trip_and_resume(initial, 1, SINCE)
+    (old,) = first.task.questions
+    help_at = SINCE + timedelta(minutes=2)
+    helped = log.Logged(
+        what="Keep the gift note",
+        chose="keep it",
+        why=HELP,
+        by="owner",
+        breaker=1,
+        words=HELP,
+    )
+    settled = log.logged(first, asked=helped, now=help_at)
+    assert settled.task.hold is None
+    later = trip_and_resume(settled, 3, SINCE + timedelta(minutes=3))
+
+    if route == "model":
+        sent = Answer(
+            option="help", label="Help", note=HELP, source="board", at=help_at
+        )
+        with pytest.raises(Refusal) as caught:
+            answers.answer(later.task, old.id, old.digest, sent)
+        assert caught.value.code == "question"
+        assert caught.value.why == f"{old.id} no longer waits for the owner"
+    else:
+        tasks.update(board.state, SLUG, lambda _: later, initial.revision)
+        before = read(board)
+        fields = {"key": old.id, "option": "help", "words": HELP}
+        note = note_of(board.post(ANSWER, fields))
+        assert note.state == "refused"
+        assert "no longer waits" in note.said
+        assert "Nothing was recorded." in note.said
+        assert read(board) == before
 
 
 def test_a_key_that_no_longer_waits_says_what_holds_now_and_records_nothing(

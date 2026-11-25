@@ -15,7 +15,7 @@ from msgspec.structs import replace
 from lem.kernel.errors import Refusal
 from lem.model.owner import answer_wait
 from lem.model.owner.hold_question import standing
-from lem.model.task import owner_question
+from lem.model.task import owner_question, question_keys
 
 if TYPE_CHECKING:
     from lem.records.holds import OwnerHold
@@ -96,18 +96,18 @@ def why_refused(task: Task, asked: Question, digest: str | None) -> str | None:
 
 
 def newer_of(task: Task, asked: Question) -> str | None:
-    """The id of the question that replaced `asked`, or None. Cards are independent."""
-    if asked.topic == "card":
-        return None
-    newest = standing(task)
-    if newest is None:
-        newest = newest_of(task, asked.topic)
-    elif newest.topic != asked.topic or newest not in task.questions:
-        return None
-    return newest.id if newest is not None and newest.id != asked.id else None
+    """The id of the active question that replaced `asked`, or None."""
+    current = standing(task)
+    if current is not None and replaces(current, asked.id, asked.topic):
+        return current.id
+    return None
 
 
-def newest_of(task: Task, topic: str) -> Question | None:
-    """The last question of `topic` in record order, even when two share a moment."""
-    matches = (one for one in reversed(task.questions) if one.topic == topic)
-    return next(matches, None)
+def replaces(current: Question, key: str, topic: str) -> bool:
+    """Whether the active question renews the same hold that asked `key`."""
+    if current.topic != topic or topic == "card" or current.id == key:
+        return False
+    if topic == "breaker":
+        breaker = current.id.rpartition(":")[0]
+        return breaker == key.rpartition(":")[0]
+    return question_keys.base_of(current.id) == question_keys.base_of(key)
