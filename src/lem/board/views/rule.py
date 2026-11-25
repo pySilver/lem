@@ -29,7 +29,7 @@ OWN: Look = "lem"
 STATUS = MappingProxyType(
     {
         "queued": Said(QUIET, LEM, "Queued", "clock"),
-        "shaping": Said(OWN, LEM, "Shaping", "comments", live=True),
+        "shaping": Said(OWN, LEM, "Shaping", "magnifying-glass", live=True),
         "building": Said("lead", AGENT, "Building", "code", live=True),
         "planned": Said(OWN, LEM, "Planned", PAGE),
         "ready": Said("gate", LEM, "Ready for its checks", "flag"),
