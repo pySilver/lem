@@ -30,8 +30,10 @@ of part E is also a `path` row of `tests/ledger/extra.tsv`, proved by its journe
 | `Cleaned` | `worktree_gone`, `branch_gone`, `forge_branch_gone`, `branch_left`, `rebased` | `clean` |
 
 Lem-written artifacts that the record cites by digest are at distinct paths (`reviews/review-N`,
-`merge-brief-TIP-BASE`, `checks/ROUND-N-COMMAND.log`, `pr-ROUND.md`); a cut-off update never
-changes a cited file. Agent-written prose (`handoff.md`, `report.md`, `notes.md`) is read as it is
+`merge-brief-TIP-BASE`, `checks/ROUND-N-COMMAND.log`, and a distinct `pr-ROUND-DIGEST.md` for
+each body of the pull request's text, whose previous citation stays until the forge confirms
+the new body); a cut-off update never changes a cited file. Agent-written prose
+(`handoff.md`, `report.md`, `notes.md`) is read as it is
 and never cited by digest. **[pair-settled]**
 
 ## B. The phases
@@ -40,7 +42,7 @@ and never cited by digest. **[pair-settled]**
 | --- | --- | --- |
 | `preparing` | `start` (from `ready`, or from `open` on a new round) | `propose`: `open`; a red base: task `ready`, hold `blocked: the base is red, after: SLUG`; a fast task that needs the full track: `shaping`; a missed plan talk: `planned` with `needs a session: careful` or `large, N tasks`; his drop: `ended` |
 | `open` | `propose` | `merged`; a new round; closed on the forge or his drop: `ended` |
-| `merged` | the forge's merge into the task's base, seen by `merge` or `merged` | `clean`: task `landed` |
+| `merged` | the forge's merge into the task's base, seen by `merge` or `merged` | once the merge's bookkeeping succeeds, task `landed` at once, before `clean`; a refusal of `clean` leaves `landed` |
 | `ended` | `clean`, or a drop's `clean` | none |
 
 ## C. The due step (`model/landing/phases.py: due(landing, task, world) -> Due`)
@@ -61,10 +63,14 @@ In `preparing`, the first row whose evidence does not hold is due:
 | 6 | `file` | every finding has a disposition (D, filing) |
 | 7 | `propose` | `proposed.tip == tip`, the forge's head is `tip`, `pushed == tip` |
 
-In `open`: when `intent` is set, `reconcile` is due first (part E, the three intent rows): it
-reads the forge and ends with `Merged`, `MergeAccepted`, a definite `Refused`, or the intent
-cleared; it never sends a second merge call (`merge_locked`). When `accepted` is set, `merged`
-is due while the forge says the pull request is queued; else `mergeread` when no usable read covers (tip, base now); else
+In `open`: under the merge lock, an `intent` is reconciled before any new call. The intent is
+replaced by the observed merge (`Merged`), the accepted queue (`MergeAccepted`) or a definite
+refusal (`Refused`, read from the merge call's own reply as `merge_locked` does). If only an
+open pull request is visible, the intent stays and the owner is asked to check GitHub; a new
+call goes only on his explicit word after that check. While `accepted` is on record, `merged`
+handles every forge result: merged, closed, and a confirmed end of the queue. A second
+unusable answer for the same tip and base makes no new read due (`unread_next`).
+Else `mergeread` when no usable read covers (tip, base now); else
 `merge` when invariant 2's authority holds; else `wait`. In `merged`: `clean`. `next` names the
 due step or the wait and its why.
 
@@ -88,47 +94,50 @@ due step or the wait and its why.
 
 ## E. The hard paths
 
-| Path | Trigger | Due, and result | Owner sees |
-| --- | --- | --- | --- |
-| Start over | `task move SLUG ready --start-over WHY`, only where a refusal names it | reviews to `archived`, attempts from 1, `standing` and carried reads cleared, `owner_merge: ended: the landing started over: WHY` | WHY |
-| Recovery | a cut-off, a red base, a stop | `start` keeps the record whole | nothing |
-| Push recorded first | a cut-off after the push, before the PR write | `pushed` is kept before the forge call; the next `propose` adopts only an open PR whose head is `pushed`; another PR on the branch is somebody's: refused with `git branch -m` | the line (`cmd_propose`) |
-| Red base | a red command also red on the base | a repair task, hold `blocked: the base is red, after: SLUG`; landed: `ready`, start again; gone session: open once, then tell; dropped repair: wait for his word | one line |
-| Repair limit | two builders on one failure | hold `blocked` | the row, its push |
-| Fast track turns careful | the review's careful call | full set, owner merges, not green | the reason |
-| Fast track lowers the bar | `checks` finds it | status `shaping`, hold `owner: interview` | one line |
-| No checks | `checks.commands` empty on the main checkout | hold `blocked: no checks`; the task that adds them lands not green | the row |
-| Teammate commit | a remote commit Lem did not push | `base` and `propose` refuse with each commit and the `git pull --rebase`; then `start`; checks and a read | the refusal |
-| Conflict with the base | rebase stops on files | undone, files named; a builder resolves; `base` keeps the polish pass | nothing |
-| Rebase refused by git | a hook or a lock | nothing kept; git's words; HEAD state after the abort with the commands that restore it | git's words |
-| Merge-only change | the rebase would drop it | refused with the tip and `git reset --hard` | the line |
-| Conflicting PR on the forge | `mergeable: CONFLICTING` at a head, once per head | wake; `start --conflicting`, `base` (the polish pass kept), `checks`, one read of the resolution (no round; whole change when the earlier review left a must-fix or a commit after changed the resolution; full set if careful), `propose` | `synced` |
-| Base moved, open PR | merge refused `kind: base` | `mergeread` with what moved since the checks' base; `safe`: merge on that base; `another round`: new round; no new brief of that tip | one line for a new round |
-| Base moved after a safe read | the base tree is not the read's | refused, read again | nothing |
-| Two unusable answers | no verdict twice, base unmoved | recorded as `call` with no verdict, why names the line (`unread_next`) | "Read the merge review" |
-| | no base call twice, base moved | recorded as `another round` | one line |
-| No answer | `--no-answer` | an unusable answer | as above |
-| Stale tap | the board's merge with a tip not the proposed one | refused; zero forge merge calls | why |
-| Owner merge refused for the base | his merge, base moved | `Refused(by owner, base)`, `standing`; safe: the server merges `--by owner --standing`; another round: `propose` prints `stands` or `ended` | nothing, or "Your merge ended" |
-| GitHub refuses | a rule of the base branch | `Refused(github, verbatim)`; no automatic retry of that tip | the line |
-| Transport fault | `gh` or `git` failed | nothing kept; the server retries in minutes | nothing |
-| Stop after the intent, before the call | the process ends between `MergeIntent` and the forge call | `reconcile`: the forge says open and not queued, so the intent is cleared and `merge` is due again under the lock; the forge says merged, so `Merged` is recorded (the call was made after all) | nothing |
-| Stop after the call | the process ends after the forge took the call | `reconcile`: merged gives `Merged`; queued gives `MergeAccepted`, and `merged` polls while the forge says queued; open and not queued with a refusal line on the forge gives a definite `Refused` | nothing, or the line |
-| Forge took the call, not merged yet | a queue or a check | `MergeAccepted`; `merged` polls while queued; a queue that ends unmerged clears it, and the forge's reason is a `Refused(github)` | the line, if refused |
-| Merge taken, text not updated | the PR text edit failed | `text_updated: false`, exit 1; `merged` retries the edit | nothing |
-| Retarget before the read | PR base is not the task's | merge refused with `gh pr edit N --base B` | the line |
-| Retarget after the locked read | the forge reports a `destination` that is not the task's base | not landed: the task stays `open` with `Refused(lem, target)`, nothing cleaned, the branch kept (`base_refusal`, merged case) | the line: drop it, or a new task brings the change |
-| Merge on GitHub between look and call | the right destination, but the parent's tree is not the tree the checks or the safe read covered | landed, with `uncovered` in the PR text and the landed state (`moved_line`) | one line |
-| The parent, by merge method | to find the parent of the merge | squash: the merge commit's first parent; keep history: the parent before the first replayed commit (`merged~commits`, `moved_line`) | nothing |
-| Base checkout cannot follow | `merge --ff-only` refused | `left_behind`, git's words, nothing changed | the line (`follow`) |
-| Closed on GitHub | closed, not merged | `dropped`, "the pull request was closed on the forge"; tracker drop; `clean` | one line |
-| Clean, landed | after the merge | the local branch goes when the base holds its tip, its tip is `merged_head`, or its tip holds `merged_head`'s change rebased after Lem's last push (`after_push`: `merged_head` merged onto the tip's base gives the tip's tree); a divergent local branch stays with `branch_left`, `range-diff` and `branch -D`; a tip the forge did not merge, or merged inside its own head, keeps branch and forge copy, exit 1 (`cmd_clean`) | the line |
-| Clean, the forge's copy | after the merge | deleted by full ref name with a lease on `pushed` when it is `merged_head`, also when the rebase proof above fails; a failure is said, the next run tries again (`drop_forge_copy`) | the line |
-| Clean, dropped or answered | after the end | the worktree goes; the local branch goes only when its tip is an ancestor of origin's base or of the local base; else it stays with `branch -D` (a dropped task's commits; an answered task's, with its reproducing test) | the line |
-| Clean, dirty | changes or own files in the worktree | refused | the line |
-| Drop during a step | his drop, from any status that is not ended (part 3's table; a release-stopped task too) | stops running checks, takes the step lock, rereads the record; merged meanwhile: refused, the task lands; else `dropped`, the PR stays open for him **[decided]** | the line |
-| Ticket after the end | a stop before the tracker step | `ticket_owed`; `task ticket` accepted after the end | nothing |
-| Relands | each admitted new round | `relands + 1`, a journal entry; shown in the merge brief; no bound | in the brief |
+Each row names its proof owner: `task` for Start over, Drop during a step and Ticket after
+the end; for the other rows, the step of part 9 that owns the landing command that produces
+the result. Its `path` row's proof is that step's test.
+
+| Path | Trigger | Due, and result | Owner sees | Proof owner |
+| --- | --- | --- | --- | --- |
+| Start over | `task move SLUG ready --start-over WHY`, only where a refusal names it | reviews to `archived`, attempts from 1, `standing` and carried reads cleared, `owner_merge: ended: the landing started over: WHY` | WHY | `task` |
+| Recovery | a cut-off, a red base, a stop | `start` keeps the record whole | nothing | `land-base` |
+| Push recorded first | a cut-off after the push, before the PR write | `pushed` is kept before the forge call; the next `propose` adopts only an open PR whose head is `pushed`; another PR on the branch is somebody's: refused with `git branch -m` | the line (`cmd_propose`) | `land-propose` |
+| Red base | a red command also red on the base | a repair task, hold `blocked: the base is red, after: SLUG`; landed: `ready`, start again; gone session: open once, then tell; dropped repair: wait for his word | one line | `land-checks` |
+| Repair limit | two builders on one failure | hold `blocked` | the row, its push | `land-checks` |
+| Fast track turns careful | the review's careful call | full set, owner merges, not green | the reason | `land-review` |
+| Fast track lowers the bar | `checks` finds it | status `shaping`, hold `owner: interview` | one line | `land-checks` |
+| No checks | `checks.commands` empty on the main checkout | hold `blocked: no checks`; the task that adds them lands not green | the row | `land-base` |
+| Teammate commit | a remote commit Lem did not push | `base` and `propose` refuse with each commit and the `git pull --rebase`; then `start`; checks and a read | the refusal | `land-base` |
+| Conflict with the base | rebase stops on files | undone, files named; a builder resolves; `base` keeps the polish pass | nothing | `land-base` |
+| Rebase refused by git | a hook or a lock | nothing kept; git's words; HEAD state after the abort with the commands that restore it | git's words | `land-base` |
+| Merge-only change | the rebase would drop it | refused with the tip and `git reset --hard` | the line | `land-base` |
+| Conflicting PR on the forge | `mergeable: CONFLICTING` at a head, once per head | wake; `start --conflicting`, `base` (the polish pass kept), `checks`, one read of the resolution (no round; whole change when the earlier review left a must-fix or a commit after changed the resolution; full set if careful), `propose` | `synced` | `land-base` |
+| Base moved, open PR | merge refused `kind: base` | `mergeread` with what moved since the checks' base; `safe`: merge on that base; `another round`: new round; no new brief of that tip | one line for a new round | `land-merge` |
+| Base moved after a safe read | the base tree is not the read's | refused, read again | nothing | `land-merge` |
+| Two unusable answers | a second unusable answer for the same tip and base, base unmoved | it waits for the owner: a `call` with no verdict, why names the line (`unread_next`); no new read for that tip and base | "Read the merge review" | `land-merge` |
+| | the same, base moved | it requires a new round (`another round`); carry still requires a real verdict | one line | `land-merge` |
+| No answer | `--no-answer` | an unusable answer | as above | `land-merge` |
+| Stale tap | the board's merge with a tip not the proposed one | refused; zero forge merge calls | why | `land-merge` |
+| Owner merge refused for the base | his merge, base moved | `Refused(by owner, base)`, `standing`; safe: the server merges `--by owner --standing`; another round: `propose` prints `stands` or `ended` | nothing, or "Your merge ended" | `land-merge` |
+| GitHub refuses | a rule of the base branch | `Refused(github, verbatim)`; no automatic retry of that tip | the line | `land-merge` |
+| Transport fault | `gh` or `git` failed | nothing kept; the server retries in minutes | nothing | `land-merge` |
+| Stop or lost reply around the merge call | the process ends after `MergeIntent`, before or after the call, or the call's reply is lost | under the merge lock, `reconcile` replaces the intent with the observed merge, the accepted queue or a definite refusal; with only an open pull request visible, the intent stays and the owner is asked to check GitHub; a new call only on his explicit word after that check; R5 counts the merge calls | "check the pull request on GitHub" | `land-merge` |
+| Forge took the call, not merged yet | a queue or a check | `MergeAccepted`; while it is on record, `merged` handles every forge result: merged, closed, a confirmed end of the queue (its reason a `Refused(github)`) | the line, if refused | `land-merge` |
+| Merge taken, text not updated | the PR text edit failed | `text_updated: false`, exit 1; `merged` retries the edit | nothing | `land-merge` |
+| Retarget before the read | PR base is not the task's | merge refused with `gh pr edit N --base B` | the line | `land-merge` |
+| Retarget after the locked read | the forge reports a `destination` that is not the task's base | not landed: the task stays `open` with `Refused(lem, target)`, nothing cleaned, the branch kept (`base_refusal`, merged case) | the line: drop it, or a new task brings the change | `land-merge` |
+| Merge on GitHub between look and call | the right destination, but the parent's tree is not the tree the checks or the safe read covered | landed, with `uncovered` in the PR text and the landed state (`moved_line`) | one line | `land-merge` |
+| The parent, by merge method | to find the parent of the merge | squash: the merge commit's first parent; keep history: the parent before the first replayed commit (`merged~commits`, `moved_line`) | nothing | `land-merge` |
+| Base checkout cannot follow | `merge --ff-only` refused | `left_behind`, git's words, nothing changed | the line (`follow`) | `land-merge` |
+| Closed on GitHub | closed, not merged | `dropped`, "the pull request was closed on the forge"; tracker drop; `clean` | one line | `land-merge` |
+| Clean, landed | after the merge | the local branch goes when the base holds its tip, its tip is `merged_head`, or its tip holds `merged_head`'s change rebased after Lem's last push (`after_push`: `merged_head` merged onto the tip's base gives the tip's tree); a divergent local branch stays with `branch_left`, `range-diff` and `branch -D`; a tip the forge did not merge, or merged inside its own head, keeps branch and forge copy, exit 1 (`cmd_clean`) | the line | `land-merge` |
+| Clean, the forge's copy | an authorized cleanup | only the full forge ref at `merged_head` is deleted, with a lease on that commit; in the divergent rebase case only when `merged_head == pushed`, even if the local rebase proof fails; a failed deletion is retried (`cmd_clean`, `drop_forge_copy`) | the line | `land-merge` |
+| Clean, dropped or answered | after the end | the worktree goes; the local branch goes only when its tip is an ancestor of origin's base or of the local base; else it stays with `branch -D` (a dropped task's commits; an answered task's, with its reproducing test) | the line | `land-merge` |
+| Clean, dirty | changes or own files in the worktree | refused | the line | `land-merge` |
+| Drop during a step | his drop, from any status that is not ended (part 3's table; a release-stopped task too) | stops running checks, takes the step lock, rereads the record; merged meanwhile into the task's base: refused, the task lands (only such a merge defeats the drop); else `dropped`, the PR stays open for him **[decided]** | the line | `task` |
+| Ticket after the end | a stop before the tracker step | `ticket_owed`; `task ticket` accepted after the end | nothing | `task` |
+| Relands | each admitted new round | `relands + 1`, a journal entry; shown in the merge brief; no bound | in the brief | `land-base` |
 
 ## F. The refusals kept, by step
 
@@ -146,7 +155,7 @@ rows are the complete list; these are their codes.
 | `file` | `jev-same` (`--same`/`--new`) · `item-gone` (`--again`) |
 | `propose` | `unfiled` · `no-bar-call` · `jev-over` (once per finding) · `breaker` · `plan-talk` · `criteria-silent` · `own-item` · `foreign-pull` (a PR on the branch at a head Lem did not push) · `closed` (the PR is merged or closed: `merged` comes first) |
 | `merge-review` | `old-tip` · `another-round` · `no-verdict` |
-| `merge` | `status` · `no-pull` · `merger-rule` · `tip` · `target` · `base` · `checks-changed` · `intent` (a merge intent is on record: `reconcile` first) · `accepted` (the forge holds the call: `merged` polls) |
+| `merge` | `status` · `no-pull` · `merger-rule` · `tip` · `target` · `base` · `checks-changed` · `intent` (a merge intent is on record: `reconcile` first; a new call only on the owner's word after his check) · `accepted` (the forge holds the call: `merged` polls) |
 | `clean` | `dirty` · `unmerged` |
 | `task move dropped` | `merged` (the forge merged during the drop's wait) |
 

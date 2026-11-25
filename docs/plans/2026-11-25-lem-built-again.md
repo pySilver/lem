@@ -101,6 +101,9 @@ records   kernel
 hooks: the standard library only (json, os, sys, tomllib, fcntl)
 ```
 
+Import-linter permits one import across the top row: the fixed import from `board/app.py`
+to `lem.addons.peers.routes`. `slice-board` owns that stub until `addons-outside`.
+
 **Sizes**, lines of Python [between F's 25,600 and A's 18,200]: kernel, records and store
 2,000; settings 700; model 4,000 (the landing 2,000); ports and adapters 2,800; app 4,000; cli
 1,600; board 3,800; hooks 500; add-ons 2,600. About 22,000 give or take 4,000, against 66,270
@@ -154,7 +157,8 @@ board/
 ```
 
 `slice-board` writes `board/app.py` and `duties/runner.py` once, with every route module and duty
-path, and each such module as a stub with an empty tuple. From group 4 `board-service` owns
+path, and each such module as a stub with an empty tuple, `lem.addons.peers.routes` among
+them (its stub is `slice-board`'s until `addons-outside`). From group 4 `board-service` owns
 `app.py`, and no other step edits it: each step owns only the modules `app.py` names. A template
 only loops and prints over `inputs/`; `tools/board-kit` is carried.
 
@@ -179,9 +183,9 @@ process [probe, 2026-11-25, median of 21], so cost did not decide this.
 published whole before the citation, at a distinct path (numbered, or named by tip and base), so
 a cut-off never changes a cited file. Agent-written prose (`handoff.md`, `report.md`, `notes.md`,
 the interview's files) is read as it is and never cited by digest. The pull request's text:
-`pr-ROUND.md` is the draft; the record cites the last text the forge confirmed; the board shows
-the confirmed text and, while an edit waits, one line that a newer text waits for GitHub
-(part 8, seams).
+each body is a distinct `pr-ROUND-DIGEST.md`, and the record keeps citing the previous body
+until the forge confirms the new one; the board shows the confirmed text and, while an edit
+waits, one line that a newer text waits for GitHub (part 8, seams).
 
 **The sessions of a task** [pair-settled]. A hook never writes `task.json`. The `session-start`
 hook appends one framed record, one `os.write` of `"\n" + json + "\n"`, with `{v, at, source,
@@ -274,7 +278,9 @@ keep the reviewer's choices, the repair briefs and the owner's words [pair-settl
 tree of `surfaces.md` A is fixed in `tree` as stubs that refuse `not-built`.
 
 **`lem` before a command** (`__main__.cli`, `look_for_server`, `NO_LOOK` on `main`). `help` and
-`version` answer first. A command whose environment has `LEM_PLUGIN_ROOT` compares that
+`version` answer first. The envelope applies to dispatched commands: `help` prints text, and
+`version` prints JSON with the top-level keys `root`, `version` and `commit`. A command whose
+environment has `LEM_PLUGIN_ROOT` compares that
 `plugin.json` with its own version; on a mismatch `doctor` still answers and every other command
 refuses with the one line that names the one behind. Then, except for `serve`, `board`,
 `doctor`, `ask` and `jev`, it starts the server detached and silently when the pid file names no
@@ -310,8 +316,9 @@ only; the install guide and `doctor` name the one-time question and its allow ru
 **Old command forms held to the tree.** A unit test parses every `lem ...` line in `skills/`,
 `agents/`, `docs/` (not `plans/`), `README.md` and `site/` against the tree. A file that still
 has an old form carries the first line `<!-- lem: old form -->`; `tree` marks every such file
-(`docs/board.md`, which calls `lem serve --ensure`, among them), its owning step removes the mark,
-the test reports each marked file as a skip, and `close` requires none.
+(`docs/board.md`, which calls `lem serve --ensure`, among them). Each step removes the old-form
+mark from each checked file it rewrites; the test reports each marked file as a skip, and
+`close` requires none.
 
 ## 6. The settings
 
@@ -356,7 +363,7 @@ variable and `PYTHONPATH` and sets its own `HOME`, `XDG_CONFIG_HOME`, `TMPDIR` a
 nothing fails; a failed subtest fails its case; `os._exit` fails the run; a missing browser is a
 skip. `--level full` takes the machine lock `/tmp/lem-full-run.lock` (fixed before the entry
 sets its own `TMPDIR`) and waits: two full runs at once took the load average over 400 and slowed
-every time-bound check [seen]. A gate runs when its inputs exist (ESLint once
+every time-bound check [seen]. Each gate runs when its inputs exist (ESLint once
 `eslint.config.mjs` exists; an import-linter contract once its packages exist).
 
 | Level | Proves | Needs | Aim |
@@ -382,12 +389,11 @@ columns, adds the `path` rows (one for each row of `landing.md` E) and the `seam
 row with no owner or with two.
 
 **The rule of every step.** A step takes the ledger rows it owns and, before it is done, gives
-each a fate and a proof in its own `tests/ledger/fates/STEP.tsv` (`id fate proof note`):
-`kept` and `changed` need a proof (a test id of its own, or a trial check id); `changed` and
-`dropped` need a reason in `note`; `dropped` needs a proof too where a test can show that the
-absence does no harm. A row it cannot place goes into its report with why, never silently away.
-A dropped `ruling` row goes on the owner's list. `check.py` reads the last full run and the
-trial files: every row owned, fated, and its proof passed.
+each a fate in its own `tests/ledger/fates/STEP.tsv` (`id fate proof note`). Every fate
+names its test or trial check. A changed or dropped row also needs a reason. `close` checks
+that each named proof passed. A row a step cannot place goes into its report with why, never
+silently away. A dropped `ruling` row goes on the owner's list. `check.py` reads the last full
+run and the trial files. Each `path` row names its proof owner in `landing.md` E.
 
 **Seams: behavior no other kind shows** (`extra.tsv`, kind `seam`).
 
@@ -512,24 +518,25 @@ and `tests/conftest.py` are the runner of part 8, from `main`'s `tests/unit/__ma
 | Id | Builds, and owns | Needs | Verify | Who; review |
 | --- | --- | --- | --- | --- |
 | `ledger` | `tests/ledger/` but `fates/`: `ledger.py`, `rows.tsv`, `extra.tsv` (the `path` and `seam` rows), `owners.py`, `owners.tsv`, `check.py`; exempt from `core`'s removal of `tests/`. `owners.py` places, by id, the rows its rules cannot: `command:lem land alike` → `land-review`; `route:GET /{host}/{workspace}/stream` → `board-pages` (the owner of `stream.py`); `ruling:a-correction-hook-registered-twice-judges-ea-f309bf034a652b95` → `sessions`; `act:Question card/replay-tune` → `ask`; `event:builder.start` → `task`; `guide:docs/settings.md` → `settings` | nothing | `ledger.py` twice on `bf6d2836`, the outputs equal byte for byte; `--counts` equals the kinds above; `owners.py` exits 0 (no row with none or two) | Sol; Opus |
-| `core` | `pyproject.toml` (packaging from `main`: hatchling, `lem/data`, `cache-keys`, `checkout.pth`, `hatch_build.py`, the two scripts), `uv.lock`, gate configs, `.github/workflows/ci.yml`, `.claude-plugin/plugin.json`, `src/lem/__main__.py`, `kernel/`, `records/` (all of part 3, `landing.md` A and I), `store/`, `ports/`, `app/wiring.py`, `src/lem/hooks/main.py` (stub), `tests/__main__.py`, `tests/conftest.py`, `tests/fakes/`, `tests/contract/` (each port's suite, run against the fakes); removes the old `src/lem` and `tests/` but `tests/ledger/` | nothing | `T gates`; `T unit tests/unit/core/`; `T contract tests/contract/` (fakes) | Opus; Astra |
+| `core` | `pyproject.toml` (packaging from `main`: hatchling, `lem/data`, `cache-keys`, `checkout.pth`, `hatch_build.py`, the two scripts), `uv.lock`, gate configs, `.github/workflows/ci.yml`, `.claude-plugin/plugin.json`, `src/lem/__main__.py`, `kernel/`, `records/` (all of part 3, `landing.md` A and I), `store/`, `ports/`, `app/wiring.py`, `src/lem/hooks/main.py` (stub), `tests/__main__.py`, `tests/conftest.py`, `tests/fakes/`, `tests/unit/core/`, `tests/contract/` (each port's suite, run against the fakes); removes the old `src/lem` and `tests/` but `tests/ledger/` | nothing | `T gates`; `T unit tests/unit/core/`; `T contract tests/contract/` (fakes) | Opus; Astra |
 | `tree` | `src/lem/cli/` (lazy, nouns, output, version, every `verbs.py`, every leaf as a stub with its params from `surfaces.md` A); the old-form mark on every file the stage-line test reads; `tests/unit/cli/` | `core`'s first commit | `T unit tests/unit/cli/` (`lem help`, every lazy path imports, every `lem` line parses or its file is marked) | Opus; Sol |
 
-**Group 1, at the same time.** Each makes slice versions that group 2 owns later. What trial S4
-needs is here in a minimal form.
+**Group 1, at the same time.** Each makes slice versions that group 2 owns later. What trials S4
+to S6 need is here in a minimal form. Each slice verifies with the fakes of group 0 for the
+ports of the other slices. The three own disjoint files.
 
 | Id | Builds, and owns | Needs | Verify | Who; review |
 | --- | --- | --- | --- | --- |
-| `slice-land` | a fast-track task from `task open` to `landed`, each landing step plain, real git and `LocalForge`: `model/landing/*`, `app/landing/*`, `cli/land/*`, `cli/task/{open,read,worktree}.py`, `cli/criteria/approve.py`, `app/tasks/`, `app/criteria/approve.py`, slice `git_cli`, `forge_gh`; texts `SKILL.md`, `stages/new.md`, `stages/land.md`, `prompts/small.md` (fast track only); tests `tests/journeys/test_skeleton.py`, `tests/contract/test_forge_gh_slice.py` | group 0 | `T journeys tests/journeys/test_skeleton.py`; `T contract tests/contract/test_forge_gh_slice.py` | Opus; Astra |
-| `slice-board` | `board/{app,server,stream}.py`, every route module and duty path as a stub, one kanban page from record fixtures, `cli/serve/{ensure,stop}.py`, `cli/board/`; tests `tests/unit/board/test_slice.py`, `tests/journeys/test_server_slice.py` | group 0 | those two | Opus; Sol |
-| `slice-session` | `hooks/hooks.json`, `hooks/run` (from `main`), `src/lem/hooks/` (the five selectors, slice), `cli/session/{open,next,close,list}.py`, slice `terminal_agterm`, `harness_claude`; tests `tests/hooks/test_slice.py`, `tests/contract/test_terminal_slice.py` | group 0 | `T hooks tests/hooks/test_slice.py`; `T contract tests/contract/test_terminal_slice.py` | Opus; Astra |
+| `slice-land` | a fast-track task from `task open` to `landed`, each landing step plain, real git and `LocalForge`: `model/landing/*`, `app/landing/*`, `cli/land/*`, `cli/task/{open,read,worktree,move}.py`, `cli/criteria/{approve,record}.py`, `cli/settings/show.py`, `app/tasks/`, `app/criteria/{approve,record}.py`, the slice settings reader (`settings/{team,places,load}.py`), slice `git_cli`, `forge_gh`; texts `SKILL.md`, `stages/new.md`, `stages/land.md`, `prompts/small.md` (fast track only); tests `tests/journeys/test_skeleton.py`, `tests/contract/test_forge_gh_slice.py` | group 0 | `T journeys tests/journeys/test_skeleton.py`; `T contract tests/contract/test_forge_gh_slice.py` | Opus; Astra |
+| `slice-board` | `board/{app,server,stream}.py`, every route module and duty path as a stub, the stub `addons/peers/routes.py` (until `addons-outside`), one kanban page from the scratch workspace's records, `cli/serve/{ensure,stop,run}.py` (`serve run` on an explicit scratch port, with the automatic start off), `cli/board/`; tests `tests/unit/board/test_slice.py`, `tests/journeys/test_server_slice.py` | group 0 | `T unit tests/unit/board/test_slice.py`; `T journeys tests/journeys/test_server_slice.py` | Opus; Sol |
+| `slice-session` | `hooks/hooks.json`, `hooks/run` (from `main`), `src/lem/hooks/` (the five selectors, slice), `cli/session/{open,next,close,list}.py`, `app/sessions/`, slice `terminal_agterm`, `harness_claude`; text: the fast path of `skills/lem/prompts/session.md`; tests `tests/hooks/test_slice.py`, `tests/contract/test_terminal_slice.py` | group 0 | `T hooks tests/hooks/test_slice.py`; `T contract tests/contract/test_terminal_slice.py` | Opus; Astra |
 
 **Group 2, at the same time** (one trial and nine builders). The landing steps' journeys run on
 the slice versions of the other stages and need no stage text.
 
 | Id | Builds, and owns | Needs | Verify | Who; review |
 | --- | --- | --- | --- | --- |
-| `trial-skeleton` | a scratch tap with a formula of `rebuild`; `2026-11-25-lem-built-again/trials/skeleton.md`. Checks: S1 `brew install --build-from-source --skip-link` from the scratch tap; S2 `lem version` from the formula's path; S3 `forge_gh`'s contract suite against a scratch GitHub repository; S4 `session-start` through `hooks/run` writes `LEM_PLUGIN_ROOT`; S5 a fast-track task from `/lem` to a merged PR in that repository; S6 the board shows it; S7 the owner's running server of release 0.3.1 (ports 4536, 4537) untouched | group 1 | S1 to S7 passed in the file | Session; Sol |
+| `trial-skeleton` | a scratch tap with a formula of `rebuild`; `2026-11-25-lem-built-again/trials/skeleton.md`. Checks: S1 `brew install --build-from-source --skip-link` from the scratch tap; S2 `lem version` from the formula's path; S3 `forge_gh`'s contract suite against a scratch GitHub repository; S4 `session-start` through `hooks/run` writes `LEM_PLUGIN_ROOT`, with `LEM_HOOK_BIN` set to the scratch formula's absolute `lem-hook`; S5 a fast-track task from `/lem` to a merged PR in that repository, in a session that loads the matching scratch plugin; S6 the board (`serve run` on a scratch port) shows it. In S4 and S5 the formula's commands come first on the session's `PATH`; S7 the owner's running server of release 0.3.1 (ports 4536, 4537) untouched | group 1 | S1 to S7 passed in the file | Session; Sol |
 | `land-base` | `model/landing/{start,base,carry}.py`, `app/landing/{start,base}.py`, `cli/land/{start,base}.py`, `adapters/git_cli.py`; tests `tests/unit/landing/test_{start,base,carry}.py`, `tests/contract/test_git.py`, `tests/journeys/landing/test_base.py` | group 1 | `T unit tests/unit/landing/test_start.py tests/unit/landing/test_base.py tests/unit/landing/test_carry.py`; `T contract tests/contract/test_git.py`; `T journeys tests/journeys/landing/test_base.py` | Opus; Astra |
 | `land-checks` | `model/landing/{checks,bar}.py`, `app/landing/{polish,checks_gate,checks_run,checks_tree,checks_criteria}.py`, `cli/land/{polish,checks}.py`, `cli/serial/`, `cli/criteria/{red,inputs}.py`; tests `tests/unit/landing/test_{checks,bar}.py`, `tests/journeys/landing/test_checks.py` | group 1 | `T unit tests/unit/landing/test_checks.py tests/unit/landing/test_bar.py`; `T journeys tests/journeys/landing/test_checks.py` | Opus; Sol |
 | `land-review` | `model/landing/{review,filing}.py`, `app/landing/{review,filing}.py`, `cli/land/{read,file,alike}.py`, `adapters/judge_jev.py`; tests `tests/unit/landing/test_{review,filing}.py`, `tests/journeys/landing/test_review.py` | group 1 | `T unit tests/unit/landing/test_review.py tests/unit/landing/test_filing.py`; `T journeys tests/journeys/landing/test_review.py` | Opus; Astra |
@@ -577,9 +584,9 @@ they replace have 16,421 lines (`wc -l src/lem/board_{pages,task,model}.py`).
 | `guides` | the public files only: `README.md`, `docs/{flow,when-lem-needs-you,pull-request,board,install,linear,github-issues}.md`, `site/`, `.github/workflows/pages.yml`, `AGENTS.md`; tests `tests/unit/guides/` | `journeys`, `browser` | `T unit tests/unit/guides/` (the `lem` lines, links, the site's copy step) | Opus; Sol |
 | `pack-trial` | the tap branch of `pySilver/homebrew-tap`, `.claude-plugin/marketplace.json`, `trials/pack.md`. Checks: P1 the tagged formula and the marketplace plugin together, `--skip-link`, own home; P2 the version line both ways; P3 a GUI-started Claude Code reaches `lem-hook`; P4 p95 for each selector at most 55 ms; P5 `lem doctor` with every required row found; P6 the read-outside question once, then its allow rule | `guides` | P1 to P6 passed | Session; Sol |
 | `mutation` | the tests that `mutmut` over `model/landing` shows missing | `pack-trial` | no surviving mutant without a test | Sol runs, Opus writes; Astra |
-| `trials` | `trials/real.md`. Checks: R1 the standard track with interview, criteria, persona read, plan and talk; R2 a breaker, help, park, drop; R3 a conflict between two tasks; R4 a moved base, safe and another round; R5 a stop on each side of the forge's merge call (after the intent, after the call), and a stop in the checks; R6 the phone through the door, a card and a merge; R7 two servers joined; R8 a night task to its PR; R9 a task on a scratch copy of a real project | `mutation` | R1 to R9 passed; a defect becomes a new step | Session; Sol, Astra |
-| `close` | `tests/ledger/fates/close.tsv` (the rows of the maintaining session's choices) | `trials` | `T full` once; `check.py` finds every row owned, fated and proved by a passed test or a passed trial check; no old-form mark | Sol; Opus |
-| `cutover` | part 10 | `close` | the owner's word | the owner |
+| `trials` | `trials/real.md`. Checks: R1 the standard track with interview, criteria, persona read, plan and talk; R2 a breaker, help, park, drop; R3 a conflict between two tasks; R4 a moved base, safe and another round; R5 a stop on each side of the forge's merge call and a lost reply, with the count of merge calls across the stop and the reconcile, and a stop in the checks; R6 the phone through the door, a card and a merge; R7 two servers joined; R8 a night task to its PR; R9 a task on a scratch copy of a real project | `mutation` | R1 to R9 passed; a defect becomes a new step | Session; Sol, Astra |
+| `close` | `tests/ledger/fates/close.tsv` (the rows of the maintaining session's choices) | `trials` | `T full` once; `check.py` finds every row owned and fated, and each named proof passed (a test or a trial check); no old-form mark | Sol; Opus |
+| `cutover` | part 10 | `close` | the owner's word | The owner builds and reviews |
 
 **Ledger ownership.** `owners.py` assigns by this table and the by-id list of `ledger`; it
 refuses a row with no owner or with two.
@@ -623,7 +630,7 @@ naps, night" → `addons-flow`; "Choices of the maintaining session" → `close`
 | 2 | `core` | 0 | nothing | Opus | Astra | `gates`, `unit tests/unit/core/`, `contract tests/contract/` |
 | 3 | `tree` | 0 | `core`'s first commit | Opus | Sol | `unit tests/unit/cli/` |
 | 4 | `slice-land` | 1 | group 0 | Opus | Astra | `journeys .../test_skeleton.py`, `contract .../test_forge_gh_slice.py` |
-| 5 | `slice-board` | 1 | group 0 | Opus | Sol | `unit .../board/test_slice.py`, `journeys .../test_server_slice.py` |
+| 5 | `slice-board` | 1 | group 0 | Opus | Sol | `unit tests/unit/board/test_slice.py`, `journeys tests/journeys/test_server_slice.py` |
 | 6 | `slice-session` | 1 | group 0 | Opus | Astra | `hooks .../test_slice.py`, `contract .../test_terminal_slice.py` |
 | 7 | `trial-skeleton` | 2 | group 1 | Session | Sol | S1 to S7 |
 | 8 | `land-base` | 2 | group 1 | Opus | Astra | its unit, contract and journey files |

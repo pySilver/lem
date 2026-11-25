@@ -23,10 +23,10 @@ worktree and a branch. These rules hold in every step; your step's brief adds th
    names it as dropped.
 4. `tests/ledger/rows.tsv` and `tests/ledger/owners.tsv`: the ledger of what `main` does, and
    the step that owns each row. Your rows are the ones `owners.tsv` gives your step id. Each
-   gets a `fate` (`kept`, `changed`, `dropped`); a `kept` and a `changed` row get a `proof` (the
-   id of a test of yours that passes and proves it); a `changed` and a `dropped` row say why in
-   `note`; a `dropped` row gets a proof too where a test can show that the absence does no
-   harm. Write these into `tests/ledger/fates/STEP.tsv` (the columns `id fate proof note`),
+   gets a `fate` (`kept`, `changed`, `dropped`). Every fate names its test or trial check in
+   `proof`. A changed or dropped row also needs a reason, in `note`. `close` checks that each
+   named proof passed.
+   Write these into `tests/ledger/fates/STEP.tsv` (the columns `id fate proof note`),
    never into `rows.tsv`. A row you cannot place goes into your report with why, never
    silently away. Until `owners.tsv` is on the branch, your brief names your sources.
 
@@ -40,8 +40,8 @@ worktree and a branch. These rules hold in every step; your step's brief adds th
   `docs/plans/2026-11-25-lem-built-again/notes/STEP.md`, build against a local stand-in or a
   fixture, and say so in your report. `kernel/errors.py`, `kernel/envelope.py`, `records/` and
   `ports/` change only this way: every step builds on them.
-- A text of the plugin that you rewrite to the new commands loses its first line
-  `<!-- lem: old form -->`; a text you do not rewrite keeps it.
+- Remove the old-form mark (`<!-- lem: old form -->`) from each checked file you rewrite; a
+  file you do not rewrite keeps it.
 - Commit as you go, small commits, messages `type(scope): subject` in this repository's voice
   (read `git log --oneline -20 main`).
 
@@ -78,7 +78,7 @@ worktree and a branch. These rules hold in every step; your step's brief adds th
 
 ## Before you report
 
-1. Run your step's verify commands and the gates, in the form
+1. Run your step's verify commands and the gates (each gate when its inputs exist), in the form
    `.venv/bin/python -I -B tests --level LEVEL PATHS` (after `uv sync --locked` in your
    worktree). A selection that collects nothing is a failure. Never run `--level full`: one
    full run at a time on this Mac is the orchestrator's.

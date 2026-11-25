@@ -5,13 +5,14 @@ concept's commands (`tests/unit/commands.json`), board acts (`docs/board.md`, `s
 (`hooks/hooks.json`), doctor checks (`doctor.py: main`) and settings keys (`docs/settings.md`),
 at `main` `bf6d2836`. "Step" is the step id of the design's part 9. This annex is the map; the
 behavior ledger (`tests/ledger/rows.tsv` and `extra.tsv`) is the complete list, and a row this
-annex misses is placed by the step that owns its source.
+annex misses is placed by the step that owns its source. A command that group 1 builds
+first as a slice names that slice too; the step named owns it from group 2 on.
 
 ## A. Commands
 
 | Today | New | Step |
 | --- | --- | --- |
-| `project show` | `settings show` (each value with `from`, the places, `settings: null` when not onboarded) | `settings` |
+| `project show` | `settings show` (each value with `from`, the places, `settings: null` when not onboarded) | `settings` (slice: `slice-land`) |
 | `project path NAME` | `path NAME` (`lessons`, `rulings`, `plans`, `profile`, `cast`, `state`, `backlog`) | `settings` |
 | `project may-land BRANCH` | dropped: each step refuses `protected` itself | `land-base` |
 | `project worktree-dir SLUG` | `task worktree SLUG --path` | `task` |
@@ -21,7 +22,7 @@ annex misses is placed by the step that owns its source.
 | `project plan-file SLUG --date` | `task plan-file SLUG [--date]` | `task` |
 | `project rules FILES --range` | `rules [FILES] [--range]` | `settings` |
 | `project task-dir SLUG --ask --ticket --ticket-repo --branch --night` | `task open SLUG --ask WORDS [--ticket ID] [--ticket-repo R] [--branch B] [--night YYYY-MM-DD] [--after SLUG] [--plan-only] [--item PATH] [--from SLUG]`; `task dir SLUG` | `task` |
-| `project state SLUG STATUS LINES --start-over` | `task move SLUG STATUS [--line L]... [--start-over WHY]`; `dropped` by his drop from any status that is not ended, by the transitions of the design's part 3 (`correct.md`, "drop"), under the step lock | `task` |
+| `project state SLUG STATUS LINES --start-over` | `task move SLUG STATUS [--line L]... [--start-over WHY]`; `dropped` by his drop from any status that is not ended, by the transitions of the design's part 3 (`correct.md`, "drop"), under the step lock | `task` (slice of `task move`: `slice-land`) |
 | (lines `type: T, because WHY`, `then:`, `the owner's order:`) | `task read SLUG --type T --why W --track small\|full [--careful TOPIC]... [--then interview\|fast\|lead\|investigation] [--order WORDS] [--after SLUG] [--wait criteria\|interview]` | `task` |
 | (lines `lead: builder`, `small change: one builder`, `plan committed N tasks`, `task N of M`) | `task span SLUG lead\|small\|task --of N/M start\|end`; `task planned SLUG --tasks N [--careful WHY] [--large]` | `task` |
 | `project seat SLUG SEAT` | `seat show SLUG ROLE` | `sessions` |
@@ -55,14 +56,14 @@ annex misses is placed by the step that owns its source.
 | `land merged SLUG` | same | `land-merge` |
 | `land clean SLUG` | same | `land-merge` |
 | (none) | `land next SLUG`: the due step and why | `land-merge` |
-| `criteria STEP SLUG` (approve, approved, change, digest, show, record, red, inputs; `--file --small --read --alone --shown --words --typed --pairs --unchanged`) | `criteria VERB SLUG`, the same verbs and options; `--repo` dropped | `criteria` (`red`, `inputs`: `land-checks`) |
+| `criteria STEP SLUG` (approve, approved, change, digest, show, record, red, inputs; `--file --small --read --alone --shown --words --typed --pairs --unchanged`) | `criteria VERB SLUG`, the same verbs and options; `--repo` dropped | `criteria` (`red`, `inputs`: `land-checks`; slices of `approve`, `record`: `slice-land`) |
 | `decisions log\|criterion\|changes\|breaker\|pending\|list` | same | `criteria` |
 | `board --repo --task --follow --no-open --demo --page --name` | same, `--repo` dropped | `board-service` |
-| `serve --ensure --stop --tailscale --tailscale-off --port --tailscale-port --host --verbose --add --remove --list --push-test` | `serve ensure\|stop\|run [--host] [--verbose]\|door on\|off\|add DIR\|remove DIR\|list\|push-test`; ports by `settings set` | `board-service` |
+| `serve --ensure --stop --tailscale --tailscale-off --port --tailscale-port --host --verbose --add --remove --list --push-test` | `serve ensure\|stop\|run [--host] [--verbose]\|door on\|off\|add DIR\|remove DIR\|list\|push-test`; ports by `settings set` | `board-service` (slices of `ensure`, `stop`, `run`: `slice-board`) |
 | `serve --join --leave --peers` | `serve join HOST\|leave HOST\|peers` | `addons-outside` |
 | (a `lem` command) | starts the server detached, silently, when its pid file names no live process (`__main__.look_for_server`); not for `help` and `version` (they answer first) and not for `serve`, `board`, `doctor`, `ask`, `jev` (`__main__.NO_LOOK`); `LEM_SERVE=off` stops it | `board-service` |
 | `picker --repo --list` | `picker [--list]` | `addons-flow` |
-| `session open\|next\|close\|close-job\|handoff\|talk\|wake\|stopped\|worked\|wait\|list\|plugin-dir` | same, same options | `sessions` |
+| `session open\|next\|close\|close-job\|handoff\|talk\|wake\|stopped\|worked\|wait\|list\|plugin-dir` | same, same options | `sessions` (slices of `open`, `next`, `close`, `list`: `slice-session`) |
 | `doctor` | same (D) | `settings` |
 | `corrections hook` | `lem-hook corrections` | `sessions` |
 | `corrections list\|lessons\|worker PAYLOAD\|show ID\|record ID ...` | same | `addons-flow` |
@@ -71,7 +72,7 @@ annex misses is placed by the step that owns its source.
 | `issue check\|read\|start\|land\|drop\|answer` | same | `task` |
 | `ask ask SPEC`, `ask q`, `ask wait`, `ask close`, `ask demo`, `ask templates`, `ask render SPEC --out` (attachments kept) | same; outcomes in `result.outcome` | `ask` |
 | `ask hook-stop` | `lem-hook stop` | `sessions` |
-| `help`, `version`, `doctor` on a version mismatch | answer as today; every other command refuses with the one line (`__main__.cli`) | `tree` |
+| `help`, `version`, `doctor` on a version mismatch | answer as today; every other command refuses with the one line (`__main__.cli`). The envelope applies to dispatched commands: `help` prints text; `version` prints JSON with the top-level keys `root`, `version` and `commit` (`__main__.version`) | `tree` |
 
 ## B. Board acts and addresses
 
