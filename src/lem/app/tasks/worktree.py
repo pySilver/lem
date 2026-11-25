@@ -12,7 +12,8 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.tasks import ports, release, setup, where
+from lem.app.tasks import ports, release, where
+from lem.app.tasks.setup import Ran, set_up
 from lem.kernel.errors import Refusal
 from lem.records.base import Frozen
 from lem.settings.load import base_of, team_of
@@ -23,7 +24,6 @@ if TYPE_CHECKING:
 
     from lem.app.wiring import Ports
     from lem.records.record import Record
-    from lem.settings.team import Team
 
 type Asked = tuple[str | None, Path | None]
 
@@ -34,7 +34,7 @@ class Made(Frozen, frozen=True, kw_only=True):
     worktree: str
     branch: str | None = None
     made: bool = False
-    setup: tuple[setup.Ran, ...] = ()
+    setup: tuple[Ran, ...] = ()
 
 
 def branched(record: Record, *, branch: str) -> Record:
@@ -76,35 +76,35 @@ def made(
     path = where.worktree(workspace, record.task.slug)
     fresh = not path.exists()
     if fresh:
-        added(given, workspace, path, (chosen, start_of(team, asked[1])))
+        todo = (chosen, start_of(asked[1], base_of(team)))
+        added(given, workspace, path, todo)
     tasks.update(
         workspace.state,
         record.task.slug,
         partial(branched, branch=chosen),
         record.revision,
     )
-    commands = team.checks.setup if fresh else ()
     return Made(
         worktree=str(path),
         branch=chosen,
         made=fresh,
-        setup=set_up(workspace, record, path, commands),
+        setup=prepared(workspace, record, path, team.checks.setup if fresh else ()),
     )
 
 
-def start_of(team: Team, start: str | None) -> str:
+def start_of(start: str | None, base: str) -> str:
     """Where a new branch is cut from: the start asked for, else origin's base."""
-    return start or f"origin/{base_of(team)}"
+    return start or f"origin/{base}"
 
 
-def set_up(
+def prepared(
     workspace: places.Workspace, record: Record, path: Path, commands: tuple[str, ...]
-) -> tuple[setup.Ran, ...]:
+) -> tuple[Ran, ...]:
     """Run `checks.setup` in the worktree just made, with its log in the task's folder."""
     if not commands:
         return ()
     folder = places.task_folder(workspace.state, record.task.slug)
-    return setup.set_up(commands, path, folder)
+    return set_up(commands, path, folder)
 
 
 def worktree(folder: Path, slug: str, *, path_only: bool, asked: Asked) -> Made:
