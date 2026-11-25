@@ -1,25 +1,32 @@
-"""What stands between a request and the board: the one `Host` the main listener reads a
-request for, and the page of a failure.
+"""What stands between a request and the board: the check of the listener it came to, and the
+page of a failure.
 
-A request reaches the board only when it carries one `Host`, and that is a name of the main
-listener's own: 127.0.0.1, localhost, [::1] or the address it listens on, with its port or
-without (`serve.own_names` and `serve.host_refusal` on `main`). A page of another site whose
-name the site points at this machine (DNS rebinding) carries that site's name, so the board's
-files never reach that site's script; it gets a 403 that names the address to open.
+The main listener reads a request only when it carries one `Host`, a name of its own: 127.0.0.1,
+localhost, [::1] or the address it listens on, with its port or without (`serve.own_names` and
+`serve.host_refusal` on `main`). A page of another site whose name the site points at this
+machine (DNS rebinding) carries that site's name, so the board's files never reach that site's
+script; it gets a 403 that names the address to open. The door, the second listener, checks
+every request against the owner's Tailscale login instead (`board/door.py`). One app serves
+both: the port a request came to tells them apart.
 """
 
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
+import anyio
 from starlette.middleware import Middleware
 from starlette.responses import PlainTextResponse
 
+from lem.board import door as doors
+from lem.board.renamed import Aliased
 from lem.kernel.errors import Fault
 
 if TYPE_CHECKING:
     from starlette.requests import Request
     from starlette.responses import Response
     from starlette.types import ASGIApp, ExceptionHandler, Receive, Scope, Send
+
+    from lem.board.facts import Facts
 
 LOOPBACK_NAMES = ("127.0.0.1", "localhost", "[::1]")
 
@@ -46,34 +53,53 @@ def host_refusal(seen: list[str], port: int, listen: str) -> str | None:
     return None
 
 
-class OwnHost:
-    """The main listener's check of `Host`, before any route."""
+class Shield:
+    """The check of the listener a request came to, before any route: the door's at the
+    door's port, else the main listener's `Host`."""
 
-    def __init__(self, app: ASGIApp, *, port: int, listen: str) -> None:
-        """Keep the app, and the port and address the listener serves."""
+    def __init__(
+        self, app: ASGIApp, *, port: int, listen: str, door: doors.Door | None
+    ) -> None:
+        """Keep the app, the main listener's port and address, and the door, if open."""
         self.app = app
         self.port = port
         self.listen = listen
+        self.door = door
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        """Answer 403 to a request of another `Host`, and pass every other on."""
+        """Answer 403 to a request the listener does not read, and pass every other on."""
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        seen = [
-            word.decode("latin-1") for name, word in scope["headers"] if name == b"host"
-        ]
-        refused = host_refusal(seen, self.port, self.listen)
+        refused = await self.refusal(scope)
         if refused is None:
             await self.app(scope, receive, send)
             return
         answer = PlainTextResponse(refused, status_code=HTTPStatus.FORBIDDEN)
         await answer(scope, receive, send)
 
+    async def refusal(self, scope: Scope) -> str | None:
+        """The line of the 403 of the request of `scope`, None when it is read."""
+        headers = [
+            (name.decode("latin-1"), word.decode("latin-1"))
+            for name, word in scope["headers"]
+        ]
+        door = self.door
+        if door is not None and scope["server"][1] == door.port:
+            return await anyio.to_thread.run_sync(
+                door.refusal, doors.seen_of(headers), scope["method"]
+            )
+        hosts = [word for name, word in headers if name == "host"]
+        return host_refusal(hosts, self.port, self.listen)
 
-def hosts(port: int, listen: str) -> list[Middleware]:
-    """The check of `Host` for the listener on `listen:port`."""
-    return [Middleware(OwnHost, port=port, listen=listen)]
+
+def shields(facts: Facts, listen: str, door: doors.Door | None) -> list[Middleware]:
+    """The check of each listener, the main one on `listen` and the door, then the redirect
+    of the machine's other name."""
+    return [
+        Middleware(Shield, port=facts.port, listen=listen, door=door),
+        Middleware(Aliased, host=facts.host, aliases=facts.aliases),
+    ]
 
 
 def handlers() -> dict[Any, ExceptionHandler]:

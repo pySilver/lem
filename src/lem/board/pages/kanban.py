@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from lem.board import stream
+from lem.board import watched
 from lem.board.pages import place, render
 from lem.board.views import kanban
 from lem.store import tasks
@@ -17,7 +17,7 @@ def page(request: Request) -> Response:
     the records: a write between the two reads makes the version older than the page, so that
     the stream owes the page a refresh, never newer, which would hide the write."""
     space = place.workspace(request)
-    version = stream.version(space.state)
+    version = watched.look(space.state, request.app.state.home)
     board = kanban.kanban(
         tasks.every(space.state),
         host=request.path_params["host"],

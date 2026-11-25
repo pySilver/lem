@@ -1,12 +1,13 @@
-"""`lem board`: open the board of all tasks, or of one task.
+"""`lem board`: open the board of all tasks, or of one task, or a page of Lem, as a companion.
 
     lem board [--task SLUG] [--follow] [--no-open] [--demo] [--page FILE [--name NAME]]
 
-Built so far: `lem board --no-open`, which makes sure the server runs, puts the workspace on its
-list and prints the address of the workspace's board. With `LEM_SERVE=off` it asks no server and
-writes nothing; a server of another install is left as it is, and the command says which.
-Opening it as a companion, a task's board, the example tasks and a page refuse `not-built` until
-the step `board-service` builds them.
+It makes sure the board server runs, puts the workspace on its list, and opens the address of
+the workspace's board, or of one task's, as a page companion of the session that asks;
+`--no-open` prints the address and opens nothing. `--demo` marks the state folder as holding
+example tasks, for good. `--page FILE` opens that HTML file the same way, and `--name` names its
+companion. With `LEM_SERVE=off` it asks no server and starts none; a server of another install
+is left as it is, and the command says which.
 """
 
 import os
@@ -14,18 +15,10 @@ import os
 import click
 import msgspec
 
-from lem.board import ensure, workspaces
+from lem.board import boards, companion
 from lem.cli import place
-from lem.cli.stub import DESIGN, NOT_BUILT
-from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.store import places
-
-
-class Address(msgspec.Struct, frozen=True, kw_only=True):
-    """The address of a workspace's board."""
-
-    url: str
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -39,37 +32,46 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     name: str | None = None
 
 
-def built(call: Call) -> None:
-    """Refuse what is not built: every call but `--no-open` alone."""
-    unbuilt = (call.task, call.follow, call.demo, call.page, call.name)
-    if any(unbuilt) or not call.no_open:
+def checked(call: Call) -> None:
+    """Refuse the words that do not go together."""
+    if call.page is not None and (call.task or call.demo or call.no_open):
         raise Refusal(
-            NOT_BUILT,
-            "`lem board` opens no page yet: only lem board --no-open is built",
-            f"the step `board-service` builds it ({DESIGN}, part 9)",
+            "board-words",
+            "--page opens one file; --task, --demo and --no-open belong to the board",
+            "give --page alone, or the board's words alone",
+        )
+    if call.follow:
+        raise Refusal(
+            "board-follow",
+            "--follow selects the companion, and the terminal's port gives no companion's "
+            "id to select yet",
+            "open it without --follow, and select the companion by hand",
+        )
+    if call.name is not None and call.page is None:
+        raise Refusal(
+            "board-words",
+            "--name goes with --page: the board names itself",
+            "drop --name",
         )
 
 
-def run(call: Call) -> Address:
-    """Make sure the server runs, and give the address of this workspace's board."""
-    built(call)
-    if os.environ.get("LEM_SERVE") == ensure.NO_START:
-        raise Refusal(
-            "no-server",
-            "LEM_SERVE=off is set: lem board asks no server and starts none",
-            "unset LEM_SERVE",
-        )
-    space = places.workspace(place.folder())
-    shown = ensure.ensure(os.environ, space.checkout)
-    if shown.another_install:
-        raise Refusal("other-install", f"{shown.said}", "use that install's lem board")
-    if shown.url is None or shown.host is None:
-        raise Refusal(
-            "no-server", f"no board server runs: {shown.said}", "run it again"
-        )
-    home = paths.home(os.environ)
-    name = workspaces.name_of(home, shown.host, space.checkout)
-    return Address(url=f"{shown.url}{shown.host}/{name}/")
+def run(call: Call) -> boards.Opened:
+    """Open the board, a task's board or a page, or give the board's address."""
+    checked(call)
+    folder = place.folder()
+    if call.page is not None:
+        return companion.page_opened(folder, call.page, call.name)
+    space = places.workspace(folder)
+    if call.task is not None:
+        boards.task_checked(space, call.task)
+    if call.demo:
+        boards.demo_marked(space)
+    if call.no_open:
+        return boards.address(os.environ, space, call.task)
+    terminal, here = companion.beside(folder)
+    opened = boards.address(os.environ, space, call.task)
+    terminal.show(here, opened.url, "companion")
+    return msgspec.structs.replace(opened, beside=here)
 
 
 COMMAND = click.Command(

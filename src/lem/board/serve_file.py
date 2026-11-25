@@ -24,14 +24,18 @@ def write(home: Path, facts: Facts) -> None:
     files.write_whole(home / SERVE, msgspec.json.encode(facts))
 
 
+def read(home: Path) -> Facts | None:
+    """The facts the file holds; None when there is none or it does not read."""
+    try:
+        return msgspec.json.decode((home / SERVE).read_bytes(), type=Facts)
+    except OSError, msgspec.DecodeError:
+        return None
+
+
 def remove(home: Path, pid: int) -> None:
     """Remove the file at a clean stop, only while it still names the process `pid`: a server
     that replaced this one keeps its own."""
-    path = home / SERVE
-    try:
-        named = msgspec.json.decode(path.read_bytes(), type=Facts).pid
-    except OSError, msgspec.DecodeError:
-        return
-    if named == pid:
+    found = read(home)
+    if found is not None and found.pid == pid:
         with contextlib.suppress(FileNotFoundError):
-            path.unlink()
+            (home / SERVE).unlink()

@@ -11,8 +11,18 @@ out for that one call.
 
 from typing import TYPE_CHECKING
 
-from lem.board import client, halt, heard, install, lock, machine, start, workspaces
+from lem.board import (
+    addresses,
+    client,
+    heard,
+    install,
+    lock,
+    machine,
+    start,
+    workspaces,
+)
 from lem.board.facts import Facts, Shown
+from lem.board.halt import stopped
 from lem.kernel import paths
 
 if TYPE_CHECKING:
@@ -43,37 +53,84 @@ def shown(found: Found, *, started: bool, said: str | None = None) -> Shown:
         pid=found.pid,
         url=found.url,
         host=found.host,
+        tailnet=found.tailnet,
         install=found.install,
         said=said,
     )
 
 
-def kept(found: Found) -> Shown | None:
+def kept(found: Found, door: int | None, *, moved: bool = False) -> Shown | None:
     """The outcome when the server that runs stays, else None: this install replaces it."""
     if found is None:
         return None
     if isinstance(found, heard.Other):
         return shown(found, started=False)
     mine = install.install_of()
-    if install.replaces(mine, found.install, settings_differ=found.door is not None):
+    differ = moved or found.door != door
+    if install.replaces(mine, found.install, settings_differ=differ):
         return None
     said = None if found.install == mine else "another install of Lem serves"
     return shown(found, started=False, said=said)
 
 
+def rebound(
+    home: Path,
+    target: addresses.Address,
+    door: int | None,
+    environ: Mapping[str, str],
+) -> Shown | None:
+    """Keep or stop a server of this home folder at another address."""
+    named = addresses.recorded(home, environ)
+    if named is None or named == target:
+        return None
+    port = named[1]
+    with client.opened(port, named[0]) as connection:
+        try:
+            found = client.looked(connection, port, home)
+        except heard.Unrelated:
+            return None
+        stays = kept(found, door, moved=port != target[1])
+        if stays is not None:
+            return stays
+        if isinstance(found, Facts) and connection is not None:
+            stopped(connection, port, found)
+    return None
+
+
 def held(home: Path, environ: Mapping[str, str], folder: Path) -> Shown:
-    """`ensure` with the serve lock held: the port read again, the server that runs kept
-    or stopped on the connection that asked, and one of this install started."""
-    port = machine.port_of(home, environ)
+    """Check both ports under the serve lock, before any server stops."""
+    settings = machine.settings(home)
+    port = machine.guarded(settings.port, environ)
+    door = None
+    if settings.tailscale:
+        door = machine.guarded(settings.tailscale_port, environ)
+    stays = kept(addresses.alternate(home, environ, port), door)
+    if stays is not None:
+        if not stays.another_install:
+            workspaces.noted(home, folder)
+        return stays
+    return managed(home, environ, folder, port, door)
+
+
+def managed(
+    home: Path,
+    environ: Mapping[str, str],
+    folder: Path,
+    port: int,
+    door: int | None,
+) -> Shown:
+    """After the ports check, keep or replace the server of this home folder."""
     with client.opened(port) as connection:
         found = client.looked(connection, port, home)
-        stays = kept(found)
+        stays = kept(found, door) or rebound(
+            home, (client.LOOPBACK, port), door, environ
+        )
         if stays is not None:
             if not stays.another_install:
                 workspaces.noted(home, folder)
             return stays
         if isinstance(found, Facts) and connection is not None:
-            halt.stopped(connection, port, found)
+            stopped(connection, port, found)
     facts = start.started(port, home, environ)
     workspaces.noted(home, folder)
     return shown(facts, started=True)
@@ -84,7 +141,7 @@ def ensure(environ: Mapping[str, str], folder: Path) -> Shown:
     `folder` goes on its list when this build's server serves."""
     home = paths.home(environ)
     port = machine.port_of(home, environ)
-    found = client.ask(port, home)
+    found = addresses.alternate(home, environ, port) or client.ask(port, home)
     if isinstance(found, heard.Other):
         return shown(found, started=False)
     if environ.get("LEM_SERVE") == NO_START:

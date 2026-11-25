@@ -88,3 +88,13 @@ def handoff(given: Handoff, name: str, floor: int) -> None:
             f"is under {floor}, which Claude Code refuses",
             f"write 0 (Claude Code's own trigger), or {floor} or more",
         )
+
+
+def serve_ports(port: int, door: int) -> None:
+    """Refuse one port for two open listeners."""
+    if door == port:
+        raise Refusal(
+            "door-port",
+            f"the main port and the door's port are both {port}",
+            "give the door a port of its own: lem settings set serve.tailscale_port N --machine",
+        )

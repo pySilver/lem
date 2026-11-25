@@ -5,7 +5,8 @@ machine's settings, `lem.settings.load.machine_of`). The
 owner's own server listens on PORT and on its door's DOOR_PORT, so a server of any other home
 folder (a test's, a trial's) is refused both: nothing it runs may answer there in the owner's
 place, nor stop his server to take its port. The first part of every address of the board is
-the machine's name, its short host name as a workspace's name is written.
+the machine's name: its first label on the tailnet when Tailscale runs, else its short host
+name, as a workspace's name is written.
 """
 
 import os
@@ -65,5 +66,16 @@ def port_of(home: Path, environ: Mapping[str, str], given: int | None = None) ->
 
 
 def machine_name() -> str:
-    """This machine's name in the board's addresses: its short host name, as a word."""
+    """This machine's short host name, as a word of an address."""
     return workspaces.word(socket.gethostname().split(".")[0]) or "this-mac"
+
+
+def names_of(tailnet_name: str | None) -> tuple[str, tuple[str, ...]]:
+    """The machine's name in every address of the board and its other name, which goes to
+    the same page: the first label of its name on the tailnet, with the short host name as the
+    other when the two differ; else the short host name alone (`serve.names_of` on `main`)."""
+    short = machine_name()
+    first = workspaces.word((tailnet_name or "").split(".")[0])
+    if not first:
+        return short, ()
+    return first, () if first == short else (short,)

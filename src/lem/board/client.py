@@ -33,11 +33,11 @@ class Reply(msgspec.Struct, frozen=True, kw_only=True):
     body: bytes
 
 
-def silent(port: int, error: Exception) -> Refusal:
+def silent(host: str, port: int, error: Exception) -> Refusal:
     """The refusal of a port that takes connections and gives no answer."""
     return Refusal(
         "port-held",
-        f"port {port} on {LOOPBACK} takes connections and gave no answer ({error})",
+        f"port {port} on {host} takes connections and gave no answer ({error})",
         f"end the program that holds it (lsof -nP -iTCP:{port} -sTCP:LISTEN names it), "
         "or name another port",
     )
@@ -55,22 +55,22 @@ def asked(connection: HTTPConnection, method: str, path: str) -> Reply:
     )
 
 
-def connected(port: int) -> HTTPConnection | None:
+def connected(port: int, host: str) -> HTTPConnection | None:
     """A connection to the port, or None when nothing listens there."""
-    connection = HTTPConnection(LOOPBACK, port, timeout=ASK_WAIT)
+    connection = HTTPConnection(host, port, timeout=ASK_WAIT)
     try:
         connection.connect()
     except ConnectionRefusedError:
         return None
     except OSError as error:
-        raise silent(port, error) from error
+        raise silent(host, port, error) from error
     return connection
 
 
 @contextmanager
-def opened(port: int) -> Iterator[HTTPConnection | None]:
+def opened(port: int, host: str = LOOPBACK) -> Iterator[HTTPConnection | None]:
     """One connection to the port while the block runs, or None when nothing listens."""
-    connection = connected(port)
+    connection = connected(port, host)
     with ExitStack() as stack:
         if connection is not None:
             stack.callback(connection.close)
@@ -86,11 +86,11 @@ def looked(
     try:
         reply = asked(connection, "GET", SERVER)
     except (OSError, HTTPException) as error:
-        raise silent(port, error) from error
+        raise silent(connection.host, port, error) from error
     return heard.judged(reply, port=port, home=home)
 
 
-def ask(port: int, home: Path) -> Facts | heard.Other | None:
+def ask(port: int, home: Path, host: str = LOOPBACK) -> Facts | heard.Other | None:
     """Who serves the port, on a connection of its own: None when nothing listens."""
-    with opened(port) as connection:
+    with opened(port, host) as connection:
         return looked(connection, port, home)

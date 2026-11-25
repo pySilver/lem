@@ -4,7 +4,7 @@
 the root's `--repo PATH`. In a session whose
 `session-start` hook named Lem's plugin in `LEM_PLUGIN_ROOT`, every other command refuses with
 the one line that names the half that is behind, when the plugin and this app are two versions
-(the design's part 5).
+(the design's part 5). Then it starts the board server when none lives (`board/look.py`).
 """
 
 import os
@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
+from lem.board import look
 from lem.cli import lazy
 from lem.hooks import versions
 from lem.kernel import paths
@@ -60,6 +61,9 @@ def main() -> None:
         sys.stdout.buffer.write(msgspec.json.encode(refused))
         sys.stdout.buffer.write(b"\n")
         sys.exit(1)
+    first = first_word(argv)
+    if first in dict(lazy.ROOT.table):
+        look.looked(first, os.environ)
     sys.exit(lazy.main(argv))
 
 

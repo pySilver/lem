@@ -28,29 +28,33 @@ class Install(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Facts(msgspec.Struct, frozen=True, kw_only=True):
-    """Who serves: the process, its port and address, the machine's name in its addresses,
-    the install, Lem's home folder, the door's port (none yet), and since when."""
+    """Who serves: the process, its port and address, the machine's name in its addresses and
+    its other name, the install, Lem's home folder, the door's port and its address on the
+    tailnet (none while the door is closed), and since when."""
 
     pid: int
     port: int
     url: str
     host: str
+    aliases: tuple[str, ...] = ()
     install: Install
     home: str
     door: int | None = None
+    tailnet: str | None = None
     started: Moment
 
 
 class Shown(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     """What `lem serve ensure` prints: whether a server runs, whether this call started it,
-    who it is, a line when it did not do what was asked, and whether the server is of another
-    install that this call leaves as it is."""
+    who it is and its address through the tailnet door, a line when it did not do what was
+    asked, and whether the server is of another install that this call leaves as it is."""
 
     running: bool
     started: bool
     pid: int | None = None
     url: str | None = None
     host: str | None = None
+    tailnet: str | None = None
     install: Install | None = None
     said: str | None = None
     another_install: bool = False

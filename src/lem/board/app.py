@@ -18,14 +18,13 @@ from lem.board.acts import routes as acts
 from lem.board.ask import routes as ask
 from lem.board.pages import routes as pages
 from lem.board.push import routes as push
+from lem.board.serving import SHARED
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-    from pathlib import Path
-
     from starlette.routing import BaseRoute
 
     from lem.board.facts import Facts
+    from lem.board.serving import Serving
 
 
 def routes() -> list[BaseRoute]:
@@ -39,18 +38,17 @@ def routes() -> list[BaseRoute]:
     ]
 
 
-def made(
-    facts: Facts, *, home: Path, listen: str, stop: Callable[[], None]
-) -> Starlette:
-    """The app of the server `facts`, for Lem's home folder `home`, listening on `listen`;
-    `stop` ends the server after the answer that calls it."""
+def made(facts: Facts, serving: Serving) -> Starlette:
+    """The app of the server `facts`."""
+    watcher = serving.watcher_of(facts.host)
     app = Starlette(
         routes=routes(),
-        middleware=shield.hosts(facts.port, listen),
+        middleware=shield.shields(facts, serving.listen, serving.door),
         exception_handlers=shield.handlers(),
-        lifespan=life.lifespan(facts, home),
+        lifespan=life.lifespan(facts, serving.home, watcher),
     )
     app.state.facts = facts
-    app.state.home = home
-    app.state.stop = stop
+    app.state.watcher = watcher
+    for name in SHARED:
+        setattr(app.state, name, getattr(serving, name))
     return app

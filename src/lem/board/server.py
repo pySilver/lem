@@ -9,24 +9,25 @@ so that the command ends with its envelope and exit 0, and a signal before uvico
 is set stops the server as soon as it started.
 """
 
+import contextlib
 import os
 import signal
-import socket
-from functools import partial
 from typing import TYPE_CHECKING
 
 import uvicorn
 
-from lem.board import app, install, machine
-from lem.board.facts import Facts, Served
-from lem.kernel import clock
-from lem.kernel.errors import Refusal
+from lem.board import app, listening, opening
+from lem.board.facts import Served
+from lem.board.serving import Serving
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from socket import socket
     from types import FrameType
 
-HOST = "127.0.0.1"
+    from starlette.types import ASGIApp
+
+HOST = listening.HOST
 # How long the stop waits for the answers that run, in seconds.
 STOP_WAIT = 10
 
@@ -44,48 +45,28 @@ class Board(uvicorn.Server):
             signal.signal(sign, self.stop_by)
 
 
-def bound(host: str, port: int) -> socket.socket:
-    """A socket bound to the address; refused when another program holds it."""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    try:
-        sock.bind((host, port))
-    except OSError as error:
-        sock.close()
-        raise Refusal(
-            "port-held",
-            f"{host}:{port} cannot be served ({error.strerror})",
-            f"end the program that holds it (lsof -nP -iTCP:{port} -sTCP:LISTEN names "
-            "it), or name another port: lem serve run --port N",
-        ) from error
-    return sock
-
-
-def described(sock: socket.socket, host: str, home: Path) -> Facts:
-    """The facts of the server that serves `sock`."""
-    port = sock.getsockname()[1]
-    return Facts(
-        pid=os.getpid(),
-        port=port,
-        url=f"http://{host}:{port}/",
-        host=machine.machine_name(),
-        install=install.install_of(),
-        home=str(home),
-        started=clock.now(),
-    )
-
-
 def run(port: int, host: str = HOST, *, verbose: bool, home: Path) -> Served:
-    """Serve the board on `host:port` until the server stops."""
-    sock = bound(host, port)
-    facts = described(sock, host, home)
-    board = app.made(
-        facts,
+    """Serve the board on `host:port`, and the door when the settings open it, until the
+    server stops."""
+    opening.detached(os.environ)
+    door = opening.door_of(home, os.environ, port)
+    held = listening.sockets(host, port, door)
+    facts = opening.facts_of(held[0], host, home, door)
+    serving = Serving(
         home=home,
+        environ=os.environ,
         listen=host,
-        stop=partial(os.kill, facts.pid, signal.SIGTERM),
+        stop=listening.stop_of(facts.pid),
+        door=door,
     )
-    config = uvicorn.Config(
+    board = app.made(facts, serving)
+    served(Board(config_of(board, verbose=verbose)), held)
+    return Served(pid=facts.pid, port=facts.port, url=facts.url)
+
+
+def config_of(board: ASGIApp, *, verbose: bool) -> uvicorn.Config:
+    """uvicorn's settings for the board's app."""
+    return uvicorn.Config(
         board,
         http="h11",
         ws="none",
@@ -94,10 +75,15 @@ def run(port: int, host: str = HOST, *, verbose: bool, home: Path) -> Served:
         log_level="info" if verbose else "warning",
         access_log=verbose,
         server_header=False,
+        proxy_headers=False,
         timeout_graceful_shutdown=STOP_WAIT,
     )
-    server = Board(config)
+
+
+def served(server: Board, held: list[socket]) -> None:
+    """Serve on the sockets until the server stops, and close them."""
     server.handle_signals()
-    with sock:
-        server.run(sockets=[sock])
-    return Served(pid=facts.pid, port=facts.port, url=facts.url)
+    with contextlib.ExitStack() as stack:
+        for sock in held:
+            stack.enter_context(sock)
+        server.run(sockets=held)

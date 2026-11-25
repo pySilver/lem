@@ -35,22 +35,17 @@ class Other(msgspec.Struct, frozen=True, kw_only=True):
     config: str
 
 
-def held_by_another(port: int, why: str) -> Refusal:
-    """The refusal of a port that something else holds."""
-    return Refusal(
+class Unrelated(Refusal):
+    """A reply that does not come from a board server for this home folder."""
+
+
+def held(port: int, why: str, *, unrelated: bool = False) -> Refusal:
+    """The refusal of an occupied port, with the reply's identity when it is known."""
+    kind = Unrelated if unrelated else Refusal
+    return kind(
         "port-held",
-        f"port {port} on 127.0.0.1 {why}",
+        f"port {port} {why}",
         f"end it (lsof -nP -iTCP:{port} -sTCP:LISTEN names it), or name another port",
-    )
-
-
-def elsewhere(port: int, pid: int, home: str) -> Refusal:
-    """The refusal of a port that the board server of another home folder holds."""
-    return Refusal(
-        "other-home",
-        f"port {port} is held by the board server (pid {pid}) of another home folder of "
-        f"Lem, {home}",
-        "name another port for this home folder",
     )
 
 
@@ -59,22 +54,25 @@ def decoded[Form](reply: Reply, port: int, form: type[Form]) -> Form:
     try:
         return msgspec.json.decode(reply.body, type=form)
     except msgspec.DecodeError as error:
-        raise held_by_another(port, f"answers as no board server ({error})") from error
+        raise held(port, f"answers as no board server ({error})") from error
 
 
 def found(reply: Reply, port: int) -> Facts | Other:
     """Who answered, of whatever home folder; anything but a board server is refused."""
+    before = reply.server.startswith(BEFORE)
+    marked = reply.marker == MARK
     if reply.status != HTTPStatus.OK:
-        raise held_by_another(port, f"answered /api/server with {reply.status}")
-    if reply.server.startswith(BEFORE):
+        why = f"answered /api/server with {reply.status}"
+        raise held(port, why, unrelated=not (before or marked))
+    if before:
         return decoded(reply, port, Other)
-    if reply.marker != MARK:
-        raise held_by_another(
-            port, "is held by a program that is no board server of Lem"
+    if not marked:
+        raise held(
+            port, "is held by a program that is no board server of Lem", unrelated=True
         )
     facts = decoded(reply, port, Facts)
     if facts.port != port:
-        raise held_by_another(port, f"answers for port {facts.port}")
+        raise held(port, f"answers for port {facts.port}")
     return facts
 
 
@@ -84,7 +82,12 @@ def judged(reply: Reply, *, port: int, home: Path) -> Facts | Other:
     who = found(reply, port)
     named = who.config if isinstance(who, Other) else who.home
     if named != str(home):
-        raise elsewhere(port, who.pid, named)
+        raise Unrelated(
+            "other-home",
+            f"port {port} is held by the board server (pid {who.pid}) of another home folder of "
+            f"Lem, {named}",
+            "name another port for this home folder",
+        )
     return who
 
 
