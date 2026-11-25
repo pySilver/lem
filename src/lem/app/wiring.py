@@ -50,12 +50,18 @@ class Unbound:
         raise Fault(f"{name}: the port's adapter {self.module} is not built")
 
 
+def unbuilt(missing: str, module: str) -> bool:
+    """Whether the module that was not found is the adapter's own, or its package: a module
+    the adapter imports and lacks is a fault, never an unbound port."""
+    return missing.startswith("lem.") and f"{module}.".startswith(f"{missing}.")
+
+
 def adapter(module: str, place: Place) -> object:
     """The adapter of `module` bound to `place`, or `Unbound` when the module is not built."""
     try:
         found = importlib.import_module(module)
     except ModuleNotFoundError as missing:
-        if missing.name != module:
+        if not unbuilt(missing.name or "", module):
             raise
         return Unbound(module)
     return found.bind(place)

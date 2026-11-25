@@ -1,0 +1,71 @@
+"""`Ports`: a test builds them from its fakes; the app binds each port to its adapter, and a
+port whose adapter is not built refuses every call."""
+
+import dataclasses
+import importlib
+import types
+from typing import TYPE_CHECKING
+
+import pytest
+
+from fakes.forge import LocalForge
+from fakes.git import ModelGit
+from fakes.ports import fake_ports
+from fakes.terminal import FakeTerminal
+from lem.app import wiring
+from lem.kernel.errors import Fault
+from lem.ports.judge import Defect
+from lem.ports.place import Place
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+def place(tmp_path: Path) -> Place:
+    """A place in `tmp_path`."""
+    return Place(checkout=tmp_path, home=tmp_path / "home", environ={})
+
+
+def test_a_port_with_no_adapter_refuses_every_call_by_name(tmp_path: Path) -> None:
+    bound = wiring.bound(place(tmp_path))
+    with pytest.raises(
+        Fault, match=r"tip: the port's adapter lem\.adapters\.git_cli is not built"
+    ):
+        bound.git.tip(tmp_path, "HEAD")
+    with pytest.raises(Fault, match=r"lem\.adapters\.judge_jev"):
+        bound.judge.over_bar(Defect(where="w", title="t", what="x"))
+
+
+def test_an_adapter_that_exists_is_bound_to_the_place(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    made = FakeTerminal()
+    module = types.SimpleNamespace(bind=lambda where: (made, where)[0])
+    real = importlib.import_module
+
+    def found(name: str) -> object:
+        return module if name == "lem.adapters.terminal_agterm" else real(name)
+
+    monkeypatch.setattr(importlib, "import_module", found)
+    assert wiring.bound(place(tmp_path)).terminal is made
+
+
+def test_a_module_an_adapter_needs_and_lacks_is_no_silent_unbound(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def broken(name: str) -> object:
+        raise ModuleNotFoundError("No module named 'psutil'", name="psutil")
+
+    monkeypatch.setattr(importlib, "import_module", broken)
+    with pytest.raises(ModuleNotFoundError, match="psutil"):
+        wiring.bound(place(tmp_path))
+
+
+def test_a_test_builds_the_ports_from_its_fakes_and_replaces_one(
+    tmp_path: Path,
+) -> None:
+    git = ModelGit.init(tmp_path / "checkout", {"README.md": b"one\n"})
+    ports = fake_ports(git, LocalForge(remote=git))
+    assert ports.git is git
+    other = FakeTerminal()
+    assert dataclasses.replace(ports, terminal=other).terminal is other
