@@ -2,8 +2,8 @@
 
     lem settings show
 
-The settings of the workspace of the call; outside a repository where Lem is set up,
-`settings` is null and the machine's values and the load still show.
+The settings of the workspace of the call; outside a repository where Lem is set up (no
+`.lem/settings.toml`), `settings` is null and the machine's values and the load still show.
 """
 
 import os
@@ -13,6 +13,7 @@ import msgspec
 
 from lem.cli import place
 from lem.kernel.errors import Refusal
+from lem.settings.places import TEAM
 from lem.settings.show import Shown, shown
 from lem.store import places
 
@@ -29,7 +30,8 @@ def run(call: Call) -> Shown:
         if refused.code != "no-lem":
             raise
         return shown(None, os.environ)
-    return shown(checkout, os.environ)
+    onboarded = (checkout / TEAM).is_file()
+    return shown(checkout if onboarded else None, os.environ)
 
 
 COMMAND = click.Command(

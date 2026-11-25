@@ -33,9 +33,9 @@ class LoadNow(Frozen, frozen=True, kw_only=True):
     gate: str | None = None
 
 
-class Shown(Frozen, frozen=True, kw_only=True):
+class Shown(msgspec.Struct, frozen=True, kw_only=True):
     """The settings in force and the file of each value, the seats' parts, the experts, the
-    places, and the load now."""
+    places, and the load now; `settings` is null where Lem is not set up, and says so."""
 
     checkout: str | None = None
     settings: Effective | None = None
