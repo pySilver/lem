@@ -357,3 +357,33 @@ def test_a_wrong_call_is_refused_before_pytest_starts(tmp_path: Path) -> None:
         ran = run_entry(tmp_path, *args)
         assert (ran.returncode, ran.stdout) == (2, ""), ran.stderr
         assert said in ran.stderr
+
+
+def test_snapshots_create_writes_the_missing_values_through_the_entry(
+    tmp_path: Path,
+) -> None:
+    tests = scratch(
+        tmp_path,
+        test_snap=(
+            "from inline_snapshot import snapshot\n\n\n"
+            "def test_value():\n    assert 1 + 1 == snapshot()\n"
+        ),
+    )
+    missing = run_entry(tmp_path, "--level", "unit")
+    assert_results(
+        missing,
+        1,
+        "collected 1",
+        "FAIL unit.test_snap.test_value: "
+        "AssertionError: your snapshot is missing a value run pytest with "
+        "--inline-snapshot=create",
+    )
+    created = run_entry(tmp_path, "--level", "unit", "--snapshots", "create")
+    assert created.returncode == 1, created.stdout + created.stderr
+    assert "snapshot(2)" in (tests / "unit" / "test_snap.py").read_text()
+    assert_results(
+        run_entry(tmp_path, "--level", "unit"),
+        0,
+        "collected 1",
+        "ok   unit.test_snap.test_value",
+    )

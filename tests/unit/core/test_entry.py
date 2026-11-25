@@ -12,6 +12,7 @@ import pytest
 
 import gates
 import levels
+from fakes.command import Ran, lem
 
 BIN = Path(sys.executable).parent
 
@@ -121,3 +122,15 @@ def test_the_two_commands_run_their_stubs_and_say_nothing() -> None:
             "",
             "",
         )
+
+
+def test_a_commands_output_is_read_as_its_envelope(tmp_path: Path) -> None:
+    printed = Ran(args=("x",), code=0, stdout='{"ok":true,"result":[1,2]}', stderr="")
+    assert printed.envelope() == {"ok": True, "result": [1, 2]}
+    assert printed.result() == [1, 2]
+    stub = lem("help", cwd=tmp_path)
+    assert (stub.code, stub.stdout) == (2, "")
+    with pytest.raises(AssertionError, match="printed no JSON object"):
+        stub.envelope()
+    with pytest.raises(AssertionError, match="gave no result"):
+        Ran(args=("x",), code=1, stdout='{"ok":false}', stderr="").result()
