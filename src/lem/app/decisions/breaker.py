@@ -35,7 +35,7 @@ def made_of(record: Record, asked: stopping.Asked, path: Path) -> tuple[Breaker,
         at=clock.now(),
         cause=asked.cause,
         what=title,
-        document=breaker.kept_name(number),
+        document=breaker.KEPT.format(number=number),
         handoff=breaker.HANDOFF,
         irreversible=asked.kind,
     )

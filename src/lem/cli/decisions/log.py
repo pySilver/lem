@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING, Literal
 import click
 import msgspec
 
-from lem.app.decisions import bound
 from lem.app.decisions import log as logging
+from lem.app.landing.frame import bound
 from lem.cli import place
 from lem.cli.words import choice
 from lem.model.decisions.log import Logged
@@ -76,7 +76,7 @@ def logged_of(call: Call) -> Logged:
 def run(call: Call) -> Taken:
     """Write the decision, with the number the record gives it."""
     folder = place.folder()
-    ports = bound.ports_of(places.workspace(folder).checkout)
+    ports = bound(places.workspace(folder))
     return logging.logged(ports, folder, call.slug, logged_of(call), call.chart)
 
 

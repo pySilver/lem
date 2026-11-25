@@ -14,9 +14,9 @@ from typing import TYPE_CHECKING, Literal
 import click
 import msgspec
 
-from lem.app.decisions import bound
 from lem.app.decisions import breaker as breaking
 from lem.app.decisions.stopping import Asked
+from lem.app.landing.frame import bound
 from lem.cli import place
 from lem.cli.words import choice
 from lem.store import places
@@ -40,7 +40,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 def run(call: Call) -> Breaker:
     """Trip the breaker, and hold the task."""
     folder = place.folder()
-    ports = bound.ports_of(places.workspace(folder).checkout)
+    ports = bound(places.workspace(folder))
     asked = Asked(cause=call.cause, kind=call.irreversible, document=call.document)
     return breaking.tripped(ports, folder, call.slug, asked)
 

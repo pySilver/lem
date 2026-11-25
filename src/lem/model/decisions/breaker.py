@@ -45,13 +45,10 @@ KINDS = MappingProxyType(
     }
 )
 HANDOFF = "handoff.md"
+# The name the record keeps breaker N's document under, beside `breaker.md`, so that a later
+# breaker of the task never writes over it.
+KEPT = "breaker-{number}.md"
 LANDING = frozenset(("landing", "open"))
-
-
-def kept_name(number: int) -> str:
-    """The name the record keeps breaker `number`'s document under, beside `breaker.md`, so a
-    later breaker of the task never writes over it."""
-    return f"breaker-{number}.md"
 
 
 def why_of(cause: Cause, kind: Kind | None) -> str:
