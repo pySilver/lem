@@ -38,8 +38,8 @@ def usable(landing: Landing, world: World) -> MergeRead | None:
 def verdict_of(reply: str) -> Verdict | None:
     """The verdict on the reply's first line: its first word, `merge` or `call`."""
     lines = reply.strip().splitlines() or [""]
-    heading = lines[0].strip(" *#:.").lower()
-    first = heading.split(" ", 1)[0]
+    said = lines[0].strip().split(" ", 1)[0]
+    first = said.strip("*#:._`").lower()
     return next((word for word in VERDICTS if word == first), None)
 
 
