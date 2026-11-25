@@ -48,7 +48,8 @@ def test_a_handoff_in_its_form_says_its_phase_and_time() -> None:
         (WHOLE.replace("## Failed", "## Failures"), "## Failed"),
         (WHOLE.replace("gift-note", "other-task"), "a first line"),
         (WHOLE.replace("from build", "from lunch"), "a first line"),
-        (WHOLE.replace("Land it.", "```\n## Not a heading\n```"), "## Next step"),
+        (WHOLE.replace("## Failed", "```\n## Failed\n```"), "## Failed"),
+        (WHOLE.replace("10:07Z", "10:07Z").replace("11-25", "02-31"), "a first line"),
         ("", "a first line"),
     ],
 )
@@ -57,3 +58,17 @@ def test_what_a_handoff_lacks_is_named(text: str, lacks: str) -> None:
         handoff.form(text, "gift-note")
     assert refused.value.code == "handoff-form"
     assert lacks in refused.value.why
+
+
+def test_a_code_block_is_words_of_its_part_and_never_a_heading() -> None:
+    fenced = WHOLE.replace("Land it.", "```\n## Not a heading\n```")
+    assert handoff.form(fenced, "gift-note").phase == "build"
+    longer = WHOLE.replace("Land it.", "````\n```\n## Not a heading\n```\n````")
+    assert handoff.form(longer, "gift-note").phase == "build"
+
+
+def test_a_code_block_that_never_closes_is_refused() -> None:
+    with pytest.raises(Refusal) as refused:
+        handoff.form(WHOLE.replace("Land it.", "```\nLand it."), "gift-note")
+    assert refused.value.code == "handoff-form"
+    assert "never closes" in refused.value.why
