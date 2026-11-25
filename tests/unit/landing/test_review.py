@@ -795,3 +795,46 @@ def test_a_review_carries_over_a_rebase_git_showed_clean_and_its_must_fix_stays(
         **{**PREPARED, "reviews": (earlier,), "based": replace(based, carried=False)}
     )
     assert due_of(review.holds(uncarried, world())) == "read"
+
+
+def test_a_rounds_careful_call_holds_against_a_resolution_read_that_calls_it_not() -> (
+    None
+):
+    called = replace(
+        REVIEWED,
+        tip=OTHER,
+        kind="full",
+        careful=True,
+        careful_why="it reaches the payments",
+    )
+    solved = replace(
+        REVIEWED,
+        attempt=2,
+        of="resolution",
+        careful=False,
+        careful_why="it reaches none",
+    )
+    record = task(**{**PREPARED, "reviews": (called, solved)})
+    assert careful.reasons(record, careful.Edits()) == (
+        "the review says so: it reaches the payments",
+    )
+
+
+def test_the_items_filed_after_a_clean_read_of_the_resolution_keep_its_cover() -> None:
+    resolution = Resolution(files=("a.py",), before=OTHER, after=TIP, base=BASE, read=2)
+    clean = replace(REVIEWED, tip=OTHER, findings=())
+    solved = replace(
+        REVIEWED, attempt=2, of="resolution", scope="resolution", findings=()
+    )
+    filed_after = replace(CHECKED, tip=BASE, items_after=("docs/backlog/x.md",))
+    record = task(
+        **{
+            **PREPARED,
+            "reviews": (clean, solved),
+            "resolution": resolution,
+            "checked": filed_after,
+        }
+    )
+    assert review.holds(record, world(tip=BASE)).why.startswith(
+        "the newest review covers"
+    )

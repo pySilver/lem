@@ -7,6 +7,7 @@ from lem.records.decisions import Taken
 
 if TYPE_CHECKING:
     from lem.records.landing.record import Landing
+    from lem.records.landing.review import Reviewed
     from lem.records.record import Record
 
 # The owner's careful word, as the brief's line and the reason say it, and the question his
@@ -29,11 +30,18 @@ def owner_says(record: Record, *, owner: bool) -> tuple[str, ...]:
     return (OWNER_SAYS,) if decided or owner else ()
 
 
-def review_reason(landing: Landing) -> tuple[str, ...]:
-    """The careful call of the newest review that answered, when it says careful."""
+def standing(landing: Landing) -> list[Reviewed]:
+    """The answered reviews whose careful call stands: the newest round of the change and
+    each read of a resolution after it."""
     answered = [review for review in landing.reviews if review.answered]
-    call = answered[-1] if answered else None
-    if call is None or not call.careful:
-        return ()
-    why = call.careful_why
-    return (f"the review says so: {why}",)
+    rounds = [at for at, review in enumerate(answered) if review.of == "change"]
+    first = rounds[-1] if rounds else len(answered) - 1
+    return answered[max(first, 0) :]
+
+
+def review_reason(landing: Landing) -> tuple[str, ...]:
+    """The careful call of the standing reviews: a read of a resolution that calls the change
+    not careful takes back no call of the round (prompt step 1, `land.moved_carry` on
+    `main`)."""
+    called = [review.careful_why for review in standing(landing) if review.careful]
+    return (f"the review says so: {called[0]}",) if called else ()
