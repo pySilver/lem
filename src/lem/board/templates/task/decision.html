@@ -1,0 +1,27 @@
+{% import 'parts.html' as p %}
+{% macro decision_row(part, native, cases) %}
+<details class="dec a-{{ part.look }}" id="{{ 'dec' if part.kind == 'decision' else 'breaker' }}-{{ part.id }}"{% if part.important %} open{% endif %}>
+<summary><span class="dec-what">{{ part.what }}</span> <span class="dec-choice">{{ part.chose | inline | safe }}</span> <small>{{ part.who }}</small>{% if part.mark %}<em>{{ part.mark }}</em>{% endif %}</summary>
+<div class="dec-body">
+{% if part.important %}<p>{{ part.important }}</p>{% endif %}
+{% if part.story %}{% set story = part.story %}
+<div class="story">
+{% if story.case_was %}<small>{{ story.case_was }}</small>{% endif %}
+{{ cases(story.cases) }}
+{% if story.cause %}<p>{{ story.cause | inline | safe }}</p>{% endif %}
+{% for option in story.options %}
+<div class="option{% if option.taken %} taken{% endif %}"><b>{{ option.label }}</b>{% if option.leads %} {{ option.leads | inline | safe }}{% endif %}
+{% if option.picked %}<small>{{ option.picked | join(', ') }}</small>{% endif %}</div>
+{% endfor %}
+{% if story.none_taken %}<p>{{ story.none_taken | inline | safe }}</p>{% endif %}
+{% if story.who %}<p>{{ story.who | inline | safe }}</p>{% endif %}
+</div>{% endif %}
+{% if part.chart %}{{ p.document(part.chart) }}{% endif %}
+{% for detail in part.parts %}<section><h3>{{ detail.label }}</h3>
+{% if detail.text %}<p>{{ detail.text | inline | safe }}</p>{% endif %}
+{% for line in detail.lines %}<p>{{ line | inline | safe }}</p>{% endfor %}
+{% for link in detail.links %}{{ p.href(link, native) }}{% endfor %}
+</section>{% endfor %}
+</div>
+</details>
+{% endmacro %}

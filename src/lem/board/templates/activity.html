@@ -1,0 +1,19 @@
+{% import 'events.html' as events %}
+<div class="view scroll activity" id="activity">
+<section class="card tl" id="time"><h2>Where the time went</h2>
+<div class="tl-rows">
+{% for lane in view.lanes %}
+<div class="tl-row" id="tl-{{ lane.slug }}">{{ p.href(lane.task, native, 'tl-label') }}
+<div class="tl-track">
+{% if view.now is not none %}<i class="tl-now" style="left:{{ view.now }}%"></i>{% endif %}
+{% for stretch in lane.stretches %}
+<span class="tl-{{ 'dot' if stretch.dot else 'seg' }} s-{{ stretch.status }} a-{{ stretch.look }}{% if stretch.live %} live{% endif %}" tabindex="0" style="left:{{ stretch.left }}%;{% if not stretch.dot %}width:max(2px, {{ stretch.width }}%){% endif %}" title="{{ stretch.title }}" aria-label="{{ stretch.title }}"></span>
+{% endfor %}
+</div></div>
+{% else %}<p class="empty">No task has a state yet.</p>{% endfor %}
+</div>
+<div class="tl-axis"><b class="tl-day">{{ view.day }}</b><div class="tl-ticks">{{ events.ticks(view.ticks) }}</div></div>
+<div class="legend">{% for shade in view.shades %}<span class="a-{{ shade.look }}{% if shade.status %} s-{{ shade.status }}{% endif %}" title="{{ shade.title }}"><i></i>{{ shade.label }}</span>{% endfor %}</div>
+</section>
+{{ events.feed(view.events, view.feed, native) }}
+</div>

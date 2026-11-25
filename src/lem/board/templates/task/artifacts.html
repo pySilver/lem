@@ -1,0 +1,37 @@
+{% import 'task/shared.html' as task %}
+{% macro documents(parts) %}
+{% for doc in parts %}
+<div class="a-row{% if doc.selected %} sel{% endif %}" id="{{ doc.id }}">
+<a class="a-doc" href="{{ doc.href | address }}"{{ p.frame_attrs(native) }} title="{{ doc.path }}"{% if doc.selected %} aria-current="page"{% endif %}>{{ p.icon(doc.icon) }} {{ doc.title }}</a>
+{% for link in doc.attached %}{{ p.href(link, native, 'a-rec') }}{% endfor %}
+</div>{% endfor %}
+{% endmacro %}
+<div class="arts{% if tab.chosen %} chosen{% endif %}" id="arts" data-controller="artifacts" data-artifacts-task-value="{{ panel.slug }}">
+<aside class="arts-side" id="arts-side" data-artifacts-target="side">
+{% for section in tab.sections %}<section class="art-tree" id="art-{{ section.key }}"><h3>{{ section.name }}</h3>
+{{ documents(section.docs) }}
+{% if section.empty %}<p>{{ section.empty }}</p>{% endif %}</section>{% endfor %}
+{% if tab.work %}<section class="art-tree" id="art-work"><h3>Working files <small>{{ tab.work_count }}</small></h3>
+{% for folder in tab.work %}
+{% if folder.name %}<details class="art-folder"{% if folder.id %} id="{{ folder.id }}"{% endif %}{% if folder.open %} open{% endif %}><summary>{{ folder.name }}</summary>{{ documents(folder.docs) }}</details>
+{% else %}{{ documents(folder.docs) }}{% endif %}
+{% endfor %}</section>{% endif %}
+<p class="art-tally{% if tab.problem %} bad{% endif %}">{{ tab.said }}</p>
+</aside>
+<div class="arts-view" id="arts-view">
+{% if tab.shown %}{% set shown = tab.shown %}{% set body = shown.body %}
+<header class="av-head">{{ p.icon(shown.icon) }}<div><h2>{{ shown.title }}</h2><p>{{ shown.meta }}</p></div>
+{{ p.copy(shown.path, 'Copy path') }}{% if shown.alone %}<a href="{{ shown.alone | address }}" target="_blank" rel="noopener">Open on its own</a>{% endif %}
+</header>
+<div class="av-body{% if body.frame %} frame{% endif %}" id="av-body">
+{% if body.document %}{{ p.document(body.document) }}{% endif %}
+{% if body.text is not none %}<pre class="art-text">{{ body.text }}</pre>{% endif %}
+{% if body.lines %}<pre class="art-text">{% for line in body.lines %}<span>{{ line }}</span>{{ '\n' }}{% endfor %}</pre>{% endif %}
+{% if body.frame %}<iframe class="art-html" src="{{ body.frame | address }}" title="{{ shown.title }}" sandbox></iframe>{% endif %}
+{% if body.picture %}{{ task.picture(body.picture) }}{% endif %}
+{% if body.record %}{{ p.href(body.record, native) }}{% endif %}
+{% if body.said %}<p>{{ body.said }}</p>{% endif %}
+</div><p class="art-where">{{ body.where }}</p>
+{% elif tab.empty %}<p class="empty">{{ tab.empty }}</p>{% endif %}
+</div>
+</div>

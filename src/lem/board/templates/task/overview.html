@@ -1,0 +1,38 @@
+{% import 'forms.html' as f %}
+{% import 'task/shared.html' as task %}
+{{ p.note(tab.note) }}
+{% if tab.pruned %}<section class="card building" id="pruned"><h2>Earlier events</h2><p>{{ tab.pruned.events }}</p><p>{{ tab.pruned.kept }}</p><p>{{ tab.pruned.went }}</p><p>{{ tab.pruned.files }}</p>{{ p.href(tab.pruned.artifacts, native) }}</section>{% endif %}
+{% if tab.answered %}<section class="card" id="answered"><b>{{ tab.answered.took }}</b>{% if tab.answered.note %}<p>{{ tab.answered.note | inline | safe }}</p>{% endif %}</section>{% endif %}
+{% if tab.cards or tab.cards_said %}<section class="card" id="open-cards"><h2>{{ tab.cards_said or 'Questions from the session' }}</h2>
+{% for asked in tab.cards %}<div id="asked-{{ asked.page }}">{{ asked.prompt | inline | safe }} {{ p.when(asked.since) }}{% if asked.link %} {{ p.href(asked.link, native) }}{% endif %}</div>{% endfor %}
+</section>{% endif %}
+{% if tab.review %}{% set card = tab.review %}
+<section class="card building a-{{ 'you' if card.calls else 'ok' }}" id="merge-review" aria-label="The merge review"><header class="card-head"><h2{% if card.why %} title="{{ card.why }}"{% endif %}>{{ card.head }}</h2>{% if card.at %}{{ p.when(card.at) }}{% endif %}</header>
+{{ p.document(card.text) }}{{ p.href(card.artifact, native) }}</section>
+{% endif %}
+{% if tab.parked %}<section class="card building" id="parked-card"><h2>Parked</h2><p>{{ tab.parked.since }}</p><p>{{ tab.parked.why | inline | safe }}</p>{% if tab.parked.resume %}<code>{{ tab.parked.resume }}</code> {{ p.copy(tab.parked.resume, 'Copy the resume command') }}{% endif %}</section>{% endif %}
+{% if tab.breaker %}{% set card = tab.breaker %}
+<section class="card building a-{{ 'you' if card.waits else 'quiet' }}" id="breaker"><header class="card-head"><h2 title="{{ card.why }}">{{ card.head }}</h2>{{ p.when(card.at) }}</header>
+{% if card.document %}{{ p.document(card.document) }}{% endif %}
+{% if card.missing %}<p>{{ card.missing }}</p>{% endif %}
+{{ p.href(card.artifact, native) }}{% if card.handoff %} {{ p.href(card.handoff, native) }}{% endif %}
+{% if card.where %}<p>{{ card.where | inline | safe }}</p>{% endif %}
+{% if card.answer %}{{ f.answer(card.answer) }}{% endif %}
+{{ f.ways(card.ways, native) }}
+</section>{% endif %}
+{% if tab.building %}{% set card = tab.building %}
+<section class="card building" id="building" aria-label="What we are building">
+<header class="card-head"><h2>What we are building</h2></header><p>{{ card.goal }}</p>
+{% if card.outcome %}{{ p.document(card.outcome) }}{% endif %}
+{{ task.shots(card.shots) }}
+{% if card.important %}{{ p.href(card.important, native) }}{% endif %}
+{% if card.filed %}<p>{{ card.filed }}</p>{% endif %}
+{% if card.on_branch %}<ul>{% for title, path in card.on_branch %}<li>{{ title }} <code>{{ path }}</code></li>{% endfor %}</ul>{% endif %}
+</section>{% endif %}
+{% if tab.verdict %}{% set card = tab.verdict %}
+<section class="card verdict a-{{ card.look }}" id="verdict" role="status" aria-label="Green or not green">{{ p.icon(card.icon) }} <b>{{ card.word }}</b>
+{% if card.text %} {{ card.text | inline | safe }}{% endif %}
+{% if card.reasons %}{{ p.reasons(card.reasons, native) }}{% endif %}
+</section>{% endif %}
+{% if not tab.pruned %}{% set now = tab.now %}{% include 'task/now.html' %}{% endif %}
+{% if tab.phases %}{% set phases = tab.phases %}{% include 'task/progress.html' %}{% endif %}

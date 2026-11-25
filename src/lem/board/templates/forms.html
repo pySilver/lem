@@ -1,0 +1,33 @@
+{% import 'parts.html' as p %}
+{% macro fields(parts) -%}
+{% for field in parts %}<input type="hidden" name="{{ field.name }}" value="{{ field.shown }}">{% endfor %}
+{%- endmacro %}
+{% macro box(part) -%}
+{% if part.label %}<label for="{{ part.id }}">{{ part.label }}</label>{% endif %}
+{% if part.rows == 1 %}<input type="text" name="{{ part.name }}" id="{{ part.id }}" maxlength="{{ part.longest }}" value="{{ part.words }}"{% if part.placeholder %} placeholder="{{ part.placeholder }}"{% endif %}{% if part.required %} required{% endif %}>
+{% else %}<textarea rows="{{ part.rows }}" name="{{ part.name }}" id="{{ part.id }}" maxlength="{{ part.longest }}"{% if part.placeholder %} placeholder="{{ part.placeholder }}"{% endif %}{% if part.required %} required{% endif %}>{{ part.words }}</textarea>{% endif %}
+{%- endmacro %}
+{% macro act(part, cls='act-form') -%}
+<form class="{{ cls }}" method="post" action="{{ part.action | address }}">
+{{ fields(part.fields) }}
+{% if part.box %}{{ box(part.box) }}{% endif %}
+<button type="submit" class="btn {{ part.press }}" data-turbo-submits-with="{{ part.busy }}">{{ p.icon(part.icon) }}<span>{{ part.label }}</span></button>
+</form>
+{%- endmacro %}
+{% macro answer(part) -%}
+<form class="act-form answer-form" method="post" action="{{ part.action | address }}" id="{{ part.id }}" aria-label="{{ part.question }}">
+{{ fields(part.fields) }}<p class="ans-q">{{ part.question }}</p>{{ box(part.note) }}
+<div class="ans-acts">
+{% for choice in part.choices %}
+<button class="btn {{ choice.press }}" type="submit" name="option" value="{{ choice.option }}"{% if choice.confirm %} formaction="{{ choice.confirm | address }}" formmethod="get" formnovalidate{% endif %}>{{ p.icon(choice.icon) }}<span>{{ choice.label }}</span></button>
+{% endfor %}
+</div></form>
+{%- endmacro %}
+{% macro ways(parts, native) -%}
+{% for way in parts %}<div class="answer-way {{ way.kind }}">{{ way.said | inline | safe }}
+{% if way.jump %}{{ p.jump(way.jump, 'Open the session', 'btn') }}{% endif %}
+{% if way.form %}{{ act(way.form) }}{% endif %}
+{% if way.link %}{{ p.href(way.link, native) }}{% endif %}
+{% for typed in way.typed %}<div><code>{{ typed.command }}</code> {{ p.copy(typed.command, 'Copy command') }} {{ typed.does }}</div>{% endfor %}
+</div>{% endfor %}
+{%- endmacro %}

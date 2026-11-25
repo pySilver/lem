@@ -1,0 +1,13 @@
+{% import 'parts.html' as p %}
+{% macro ticks(parts) %}
+{% for tick in parts %}<span class="tl-tick{% if tick.first %} first{% endif %}{% if tick.last %} last{% endif %}" style="left:{{ tick.left }}%">{% if tick.date %}<small>{{ tick.date }}</small>{% endif %}{{ tick.clock }}</span>{% endfor %}
+{% endmacro %}
+{% macro feed(events, rows, native) %}
+<section class="card feed" id="events"><h2>Events</h2><p class="card-sub">{{ events }}</p>
+{% for happened in rows %}
+<div class="row ev a-{{ happened.look }}" id="{{ happened.id }}"><span class="fi">{{ p.icon(happened.icon) }}</span>
+<div class="rtext">{% if happened.task %}{{ p.href(happened.task, native) }} {% endif %}<b>{{ happened.head }}</b>
+{% if happened.text %}{% if happened.mono %}<code>{{ happened.text }}</code>{% else %}{{ happened.text | inline | safe }}{% endif %}{% endif %}
+{% if happened.sub %}<div class="sub">{{ happened.sub | inline | safe }}</div>{% endif %}</div>{{ p.when(happened.at, 'rtime') }}
+</div>{% endfor %}</section>
+{% endmacro %}

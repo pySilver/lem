@@ -1,0 +1,25 @@
+<div class="board-wrap" data-controller="columns">
+<nav class="ktabs" id="ktabs" aria-label="The columns">
+{% for column in view.columns %}
+<button class="ktab a-{{ column.look }}{% if column.cards %} some{% endif %}" type="button" id="ktab-{{ column.key }}" data-columns-target="tab" data-action="columns#show" data-columns-index-param="{{ loop.index0 }}"><i></i>{{ column.title }}<em>{{ column.cards | length }}</em></button>
+{% endfor %}
+</nav>
+<div class="view kanban" id="kanban" data-columns-target="board" data-controller="cursor" data-cursor-item-value="article.tc" data-cursor-group-value="section.col" data-cursor-link-value=".tc-link" data-action="keydown@window->cursor#key click->cursor#pick">
+{% for column in view.columns %}
+<section class="col a-{{ column.look }}{% if column.folded %} folded{% endif %}" id="col-{{ column.key }}" aria-label="{{ column.title }}" data-action="click->fold#column" data-fold-key-param="{{ column.key }}">
+<div class="col-head"><i></i><span class="col-name">{{ column.title }}</span><em>{{ column.cards | length }}</em>
+<button class="ibtn" type="button" data-action="fold#column" data-fold-key-param="{{ column.key }}" title="{{ 'Unfold' if column.folded else 'Fold' }} the column" aria-label="Fold or unfold {{ column.title }}">{{ p.icon('chevron-left') }}</button></div>
+<div class="col-body" id="col-body-{{ column.key }}">
+{% for card in column.cards %}
+<article class="tc s-{{ card.status }} a-{{ card.look }}{% if card.selected %} sel{% endif %}" id="card-{{ card.slug }}" data-task="{{ card.slug }}">
+<div class="tc-top"><a class="tc-title tc-link" href="{{ card.href | address }}"{{ p.frame_attrs(native) }}{% if card.selected %} aria-current="page"{% endif %}>{{ card.title }}</a><div class="tc-time"{% if card.since.title %} title="{{ card.since.title }}"{% endif %}>{{ p.when(card.since) }}</div></div>
+{% if card.ask %}<div class="tc-ask" title="{{ card.ask }}">{{ card.ask }}</div>{% endif %}
+<div class="tc-line{% if card.live %} live{% endif %}"{% if card.line_title %} title="{{ card.line_title }}"{% endif %}><i></i><span>{{ card.line | inline | safe }}</span></div>
+{% if card.progress %}<div class="mini" title="{{ card.progress.title }}"><span style="width:{{ card.progress.done }}%"></span><span class="cur" style="left:{{ card.progress.done }}%;width:{{ card.progress.width }}%"></span></div>{% endif %}
+<div class="tc-chips">{% for chip in card.chips %}{{ p.chip(chip, native) }}{% endfor %}</div>
+</article>
+{% else %}<div class="col-empty">{{ column.empty }}</div>{% endfor %}
+{% if column.older %}{{ p.href(column.older, native, 'older-row') }}{% endif %}
+</div></section>
+{% endfor %}
+</div></div>

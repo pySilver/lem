@@ -1,0 +1,17 @@
+<section class="card" id="progress">
+<header class="card-head"><h2>Progress</h2></header>
+<div class="prog">
+<div class="ring-wrap">
+{% set ring = phases.ring %}
+<svg class="ring" viewBox="0 0 136 136" aria-hidden="true">
+<circle class="todo" cx="68" cy="68" r="54"></circle>
+{% if ring.total %}<circle class="done" cx="68" cy="68" r="54" pathLength="{{ ring.total }}" stroke-dasharray="{{ ring.done }} {{ ring.total }}" transform="rotate(-90 68 68)"></circle>
+{% if ring.current %}<circle class="cur" cx="68" cy="68" r="54" pathLength="{{ ring.total }}" stroke-dasharray="{{ ring.current }} {{ ring.total }}" stroke-dashoffset="-{{ ring.done }}" transform="rotate(-90 68 68)"></circle>{% endif %}{% endif %}
+</svg>
+<div class="ring-center"><b>{{ ring.big }}</b><span>{{ ring.small }}</span></div>
+</div>
+<div class="phases a-{{ phases.look }}">
+{% for phase in phases.phases %}<div class="phase{% if phase.past %} past{% endif %}{% if phase.current %} cur{% endif %}"><i></i><b>{{ phase.name }}</b>{% if phase.sub %}<small>{{ phase.sub }}</small>{% endif %}</div>{% endfor %}
+</div>
+<dl class="stats">{% for stat in phases.stats %}<div class="stat{% if stat.look %} {{ stat.look }}{% endif %}"><dt class="sk">{{ stat.label }}</dt><dd class="sv">{% if stat.when %}{{ p.when(stat.when) }}{% else %}{{ stat.shown }}{% endif %}</dd><dd class="ss">{{ stat.said }}</dd></div>{% endfor %}</dl>
+</div></section>

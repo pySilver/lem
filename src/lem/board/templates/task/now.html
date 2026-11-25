@@ -1,0 +1,16 @@
+{% import 'forms.html' as f %}
+<section class="card now a-{{ now.look }}{% if now.live %} live{% endif %}" id="now"{% if now.title %} title="{{ now.title }}"{% endif %}>
+{% if now.opening %}<p class="now-said">{{ now.opening | inline | safe }}</p>{% endif %}
+<div class="now-in"><span class="fi">{{ p.icon(now.icon) }}</span><div class="now-body"><div class="now-eyebrow">{{ now.who }}</div><h2 class="now-head">{{ now.head | inline | safe }}</h2>
+{% if now.shown %}<p>{{ now.shown | inline | safe }}</p>{% endif %}
+{% if now.more %}<p>{{ now.more | inline | safe }}</p>{% endif %}
+{% if now.found %}<p>{{ now.found | inline | safe }}</p>{% endif %}
+{% if now.report %}<p><code>{{ now.report }}</code></p>{% endif %}
+{% if now.where %}<p><b>Where you answer:</b> {{ now.where | inline | safe }}</p>{% endif %}
+{% if now.breaker %}<p>{{ now.breaker }}</p>{% endif %}
+{{ f.ways(now.ways, native) }}
+{% if now.answer %}{{ f.answer(now.answer) }}{% endif %}
+</div></div>
+<footer class="now-next"><span>Updated {{ p.when(now.foot.updated) }}</span><span title="{{ now.foot.note }}">{{ p.when(now.foot.timer) }}</span>
+{% if now.foot.jump %}{{ p.jump(now.foot.jump, 'Open the session') }}{% endif %}</footer>
+</section>

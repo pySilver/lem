@@ -1,0 +1,23 @@
+{% import 'parts.html' as p %}
+{% macro pushes(where) %}
+<section class="push push-{{ where }}" id="push-{{ where }}" data-controller="push" aria-label="Notifications on this device">
+<span class="fi">{{ p.icon('bell') }}</span>
+<div class="push-main"><div class="push-top"><b>Notify this device when something waits</b>
+<span class="push-state" data-for="busy">…</span>
+<span class="push-state" data-for="insecure">Secure address required</span>
+<span class="push-state" data-for="home">Home Screen first</span>
+<span class="push-state" data-for="none">Unavailable</span>
+<span class="push-state" data-for="blocked">Blocked</span>
+<span class="push-state" data-for="off">Off</span>
+<span class="push-state" data-for="on">On</span></div>
+<p class="push-say" data-for="insecure">Open the board through the tailnet door or on this Mac at 127.0.0.1.</p>
+<p class="push-say" data-for="home">Tap Share, then Add to Home Screen. Open Lem from the Home Screen.</p>
+<p class="push-say" data-for="none">This browser has no web push.</p>
+<p class="push-say" data-for="blocked">Allow notifications for this site in the browser settings. Then load this page again.</p>
+</div>
+<div class="push-acts">
+<button class="btn go" type="button" data-for="off" data-action="push#on">Turn on</button>
+<button class="btn" type="button" data-for="on" data-action="push#test">Send a test</button>
+<button class="btn" type="button" data-for="on" data-action="push#off">Turn off</button>
+</div></section>
+{% endmacro %}

@@ -1,0 +1,16 @@
+{% macro space_name(name, host) -%}
+{% if host %}<span class="ws-host">{{ host }}</span>{% endif %}<b>{{ name }}</b>
+{%- endmacro %}
+{% if switch.groups %}
+<details class="ws" data-menu id="ws-switcher">
+<summary class="ws-cur" title="{{ switch.title }}">{{ space_name(switch.name, switch.host) }}{% if switch.waiting %}<em title="{{ switch.waiting_title }}">{{ switch.waiting }}</em>{% endif %}{{ p.icon('chevron-down') }}</summary>
+<div class="ws-menu" aria-label="{{ switch.menu }}">
+{% for group in switch.groups %}<div class="ws-group"{% if group.id %} id="{{ group.id }}"{% endif %}>
+<div class="ws-head">{{ group.head }}</div>
+{% for space in group.spaces %}
+{% if space.reachable and space.href %}<a href="{{ space.href | address }}" id="{{ space.id }}" class="ws-item{% if space.waits %} a-you{% endif %}"{% if space.here %} aria-current="true"{% endif %} title="{{ space.path or space.name }}">{{ space_name(space.name, space.host) }}<small class="ws-c">{{ space.says }}</small></a>
+{% else %}<span id="{{ space.id }}" class="ws-item off">{{ space_name(space.name, space.host) }}<small class="ws-c">{{ space.says }}</small></span>{% endif %}
+{% endfor %}</div>{% endfor %}
+{% if switch.every %}<a class="ws-all" href="/">{{ switch.every }}</a>{% endif %}
+</div></details>
+{% else %}<span class="ws-one" title="{{ switch.title }}">{{ space_name(switch.name, switch.host) }}</span>{% endif %}

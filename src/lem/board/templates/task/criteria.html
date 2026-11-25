@@ -1,0 +1,33 @@
+{% import 'forms.html' as f %}
+{% from 'task/shared.html' import went %}
+{% from 'task/decision.html' import decision_row %}
+{% macro cases(parts) %}
+{% for case in parts %}{% if case.label %}<h4>{{ case.label }}</h4>{% endif %}<ol class="case">{% for step in case.steps %}<li>{{ step | inline | safe }}</li>{% endfor %}</ol>{% endfor %}
+{% endmacro %}
+{% if not tab.approve or not (tab.approve.answer or tab.approve.form) %}{{ p.note(tab.note) }}{% endif %}
+{% if tab.approve %}{% set approve = tab.approve %}{% include 'task/approve.html' %}{% endif %}
+{% if tab.went %}{{ went(tab.went, native) }}
+{% elif tab.ended %}<p class="empty">{{ tab.ended }}</p>
+{% else %}
+{% if tab.how %}<section class="card how" id="how-card"><h2>How it works</h2>{{ p.document(tab.how) }}</section>{% endif %}
+<section class="card" id="criteria"><header class="card-head"><h2>Criteria</h2>{% if tab.criteria_said %}<p>{{ tab.criteria_said }}</p>{% endif %}</header>
+{% for read in tab.reads %}{{ p.row(read) }}{% endfor %}
+{% for criterion in tab.criteria %}
+<details class="dec a-{{ criterion.look }}" id="{{ criterion.id }}">
+<summary>{{ p.icon(criterion.icon) }} <b>{{ criterion.number }}.</b> <span class="dec-what">{{ criterion.text | inline | safe }}</span>{% if criterion.label %}<small>{{ criterion.label }}</small>{% endif %}</summary>
+<div class="dec-body">
+{% if criterion.note %}<p>{{ criterion.note }}</p>{% endif %}
+{{ cases(criterion.cases) }}
+{% if criterion.chart %}{{ p.document(criterion.chart) }}{% endif %}
+{% for name, evidence in criterion.tests %}<div><code>{{ name }}</code> {{ evidence }}</div>{% endfor %}
+{% if criterion.no_test %}<p>{{ criterion.no_test }}</p>{% endif %}
+</div></details>
+{% endfor %}
+{% if tab.criteria_empty %}<p class="empty">{{ tab.criteria_empty }}</p>{% endif %}
+</section>
+<section class="card" id="decisions"><header class="card-head"><h2>Decisions</h2>{% if tab.decisions_said %}<p>{{ tab.decisions_said }}</p>{% endif %}</header>
+{% for decision in tab.decisions %}{{ decision_row(decision, native, cases) }}{% endfor %}
+{% for orphan in tab.orphans %}{{ p.row(orphan) }}{% endfor %}
+{% if tab.decisions_empty %}<p class="empty">{{ tab.decisions_empty }}</p>{% endif %}
+</section>
+{% endif %}

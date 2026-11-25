@@ -1,0 +1,28 @@
+{% import 'events.html' as events %}
+{% from 'task/shared.html' import went %}
+{% macro tip(head, sub, start, end, fill=none) -%}
+data-head="{{ head }}"{% if sub %} data-sub="{{ sub }}"{% endif %} data-from="{{ start | milliseconds }}" data-to="{{ (end | milliseconds) if end else 'now' }}"{% if fill %} data-fill="{{ fill }}"{% endif %} data-action="focus->tip#move blur->tip#hide" tabindex="0" aria-label="{{ head }}{% if sub %} · {{ sub }}{% endif %}"
+{%- endmacro %}
+{{ p.note(tab.note) }}
+{{ went(tab.went, native) }}
+{% if tab.time %}{% set time = tab.time %}
+<section class="card a-{{ time.look }}" id="tl-card"><header class="card-head"><h2>Where the time went</h2>
+<div class="legend"><span class="whole">{{ time.whole }}</span>{% for track in time.tracks %}{% if track.held %}<span title="{{ track.held_title }}"><i style="background:{{ track.fill }}"></i>{{ track.label }} {{ track.held }}</span>{% endif %}{% endfor %}{% if time.over %}<span class="over">{{ time.over }}</span>{% endif %}</div>
+</header>
+<div class="tt-plot" data-controller="tip" data-action="pointermove->tip#move pointerleave->tip#hide click->tip#move">
+<div class="tt-back" style="grid-row:1 / {{ time.tracks | length + 2 }}">
+{% for tick in time.ticks %}<i class="tt-grid" style="left:{{ tick.left }}%"></i>{% endfor %}
+{% if time.now is not none %}<i class="tt-now" style="left:{{ time.now }}%"></i>{% endif %}
+{% for band in time.bands %}<div class="tt-band{% if band.odd %} odd{% endif %}{% if band.now %} live{% endif %}" id="{{ band.id }}" style="left:{{ band.left }}%;width:{{ band.width }}%" {{ tip(band.head, band.sub, band.start, band.end) }}><em>{{ band.short }}</em></div>{% endfor %}
+</div>
+{% for track in time.tracks %}<span class="tt-label" style="grid-row:{{ loop.index }}">{{ track.label }}</span>
+<div class="tt-track" id="tt-{{ track.key }}" style="grid-row:{{ loop.index }}">
+{% for spell in track.spells %}<span class="tt-seg{% if spell.live %} live{% endif %}" id="{{ spell.id }}" style="left:{{ spell.left }}%;width:{{ spell.width }}%;background:{{ track.fill }}" {{ tip(spell.head, spell.sub, spell.start, spell.end, track.fill) }}></span>{% endfor %}
+{% for mark in track.marks %}<span class="tt-mark" id="{{ mark.id }}" style="left:{{ mark.left }}%;background:{{ track.fill }}" {{ tip(mark.head, mark.sub, mark.at, mark.at, track.fill) }}></span>{% endfor %}
+</div>{% endfor %}
+<div class="tt-day" style="grid-row:{{ time.tracks | length + 1 }}">{{ time.day }}</div>
+<div class="tt-axis" style="grid-row:{{ time.tracks | length + 1 }}">{{ events.ticks(time.ticks) }}</div>
+<div class="tt-tip" data-tip-target="box" role="tooltip" hidden></div>
+</div></section>
+{% endif %}
+{% if tab.events is not none %}{{ events.feed(tab.events, tab.feed, native) }}{% endif %}

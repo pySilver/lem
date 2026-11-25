@@ -1,0 +1,4 @@
+{% from 'assets.html' import head %}
+<!doctype html>
+<html lang="en"><head>{{ head(board.title ~ ' · Lem', '/assets', false) }}</head>
+<body><main class="plain"><h1>{{ board.title }}</h1><p>{{ board.said }}</p>{% if board.fix %}<p>{{ board.fix }}</p>{% endif %}<a href="/">Workspaces</a></main></body></html>

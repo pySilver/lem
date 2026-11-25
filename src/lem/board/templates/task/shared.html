@@ -1,0 +1,27 @@
+{% import 'parts.html' as p %}
+{% macro facts(parts, native, cls='facts') -%}
+{% if parts %}<dl class="{{ cls }}">{% for fact in parts %}
+<div class="fact{% if fact.yours %} a-you{% endif %}" style="display: contents" id="fact-{{ fact.key }}"{% if fact.title %} title="{{ fact.title }}"{% endif %}>
+<dt>{{ fact.term }}</dt><dd>
+{% if fact.bold %}<b>{{ fact.bold }}</b> {% endif %}
+{% if fact.text %}{% if fact.mono %}<code>{{ fact.text }}</code>{% else %}{{ fact.text | inline | safe }}{% endif %}{% endif %}
+{% if fact.link %}{{ p.href(fact.link, native) }}{% endif %}
+{% if fact.when %}{{ p.when(fact.when) }}{% endif %}
+{% if fact.copy %}{{ p.copy(fact.copy, 'Copy ' ~ (fact.term | lower)) }}{% endif %}
+{% if fact.jump %}{{ p.jump(fact.jump, 'Open the session', 'btn') }}{% endif %}
+{% if fact.sub %}<small>{{ fact.sub | inline | safe }}</small>{% endif %}
+</dd></div>{% endfor %}</dl>{% endif %}
+{%- endmacro %}
+{% macro picture(part) -%}
+<a href="{{ part.href | address }}" target="_blank" rel="noopener"><img src="{{ part.src | address }}" alt="{{ part.alt }}" loading="lazy"></a>
+{%- endmacro %}
+{% macro shots(parts) -%}
+{% for shot in parts %}<figure class="pair-card" id="{{ shot.id }}">
+<div class="md-pair">
+{% if shot.before %}<div>{{ picture(shot.before) }}<small>Before</small></div>{% endif %}
+<div>{{ picture(shot.after) }}<small>After</small></div>
+</div><figcaption>{{ shot.caption }}</figcaption></figure>{% endfor %}
+{%- endmacro %}
+{% macro went(part, native) -%}
+{% if part %}<section class="card" id="{{ part.id }}"><p>{{ part.said }}</p>{{ p.href(part.artifacts, native) }}</section>{% endif %}
+{%- endmacro %}

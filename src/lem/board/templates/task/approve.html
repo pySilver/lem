@@ -1,0 +1,22 @@
+{% set sheet = approve.sheet and (approve.answer or approve.form) %}
+<section class="card confirm{% if sheet %} cf-sheet{% endif %}" aria-label="{{ approve.label }}" id="approve-criteria"{% if sheet %} data-controller="sheet" data-sheet-key-value="{{ approve | read_key }}"{% endif %}>
+{% if approve.answer or approve.form %}{{ p.note(tab.note) }}{% endif %}
+<header class="cf-head"{% if sheet %} data-sheet-target="head" tabindex="-1"{% endif %}><div class="eyebrow">{{ approve.label }}</div><h2>{{ approve.head }}</h2>{% if approve.read %}<p>{{ approve.read }}</p>{% endif %}</header>
+<div class="cf-body"{% if sheet %} data-sheet-target="body"{% endif %}>
+{% if approve.change %}{% set change = approve.change %}
+<div class="criteria-change">{{ change.said | inline | safe }}
+{% if change.error %}<p>{{ change.error }}</p>{% endif %}
+{% for pair in change.pairs %}<div class="change-pair {{ pair.change }}">{% for side in pair.sides %}<section><h3>{{ side.label }}</h3><p>{{ side.text | inline | safe }}</p>{% if side.steps %}<ol>{% for step in side.steps %}<li>{{ step | inline | safe }}</li>{% endfor %}</ol>{% endif %}</section>{% endfor %}</div>{% endfor %}
+</div>{% endif %}
+{% if approve.criteria %}{{ p.document(approve.criteria) }}{% endif %}
+{% if approve.plain %}<noscript><pre>{{ approve.plain }}</pre></noscript>{% endif %}
+</div>
+<div class="cf-foot">
+{% if approve.say %}<p>{{ approve.say }}</p>{% endif %}
+{% if approve.took %}<p>{{ approve.took }}</p>{% endif %}
+{% if approve.words %}<p>{{ approve.words }}</p>{% endif %}
+{% if approve.answer %}{{ f.answer(approve.answer) }}{% endif %}
+{% if approve.form %}{{ f.act(approve.form) }}{% endif %}
+{% if approve.back %}{{ p.href(approve.back, native, 'cf-back') }}{% endif %}
+</div>
+</section>

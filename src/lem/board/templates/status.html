@@ -1,0 +1,7 @@
+{% set status = frame.statusbar %}
+<footer class="status" id="status">
+<span class="st-left">{% for problem in status.problems %}<span class="bad">{{ problem }}</span>{% endfor %}
+<span>read {{ p.when(status.read) }} · {{ status.events }}</span></span>
+<span class="st-right"><span class="st-forge{% if status.forge_bad %} bad{% endif %}" title="{{ status.forge_title }}">{{ status.forge | inline | safe }}</span>
+<span class="st-live" id="{{ status.live }}" data-turbo-permanent data-controller="stream" data-stream-url-value="{{ frame.head.stream }}" data-stream-since-value="{{ frame.head.version }}">connecting…</span></span>
+</footer>

@@ -1,0 +1,27 @@
+{% import 'forms.html' as f %}
+{% from 'task/shared.html' import facts %}
+{% set step = panel.merge or panel.park or panel.drop or panel.card %}
+{% if step %}
+{% set confirm = step.confirm %}
+{% set sheet = confirm.sheet and confirm.form %}
+<section class="card confirm a-{{ confirm.look }}{% if sheet %} cf-sheet{% endif %}" id="{{ panel.card.keep if panel.card else 'confirm' }}" aria-label="{{ confirm.label }}"{% if panel.card %} data-keep="{{ panel.card.keep }}"{% endif %}{% if sheet %} data-controller="sheet" data-sheet-key-value="{{ step | read_key }}"{% endif %}>
+<header class="cf-head"{% if sheet %} data-sheet-target="head" tabindex="-1"{% endif %}><div class="eyebrow">{{ confirm.eyebrow }}</div><h2>{{ confirm.label }}</h2></header>
+<div class="cf-body"{% if sheet %} data-sheet-target="body"{% endif %}>
+{% if panel.merge %}
+<div class="cf-verdict a-{{ 'ok' if step.green else 'you' }}"><b>{{ step.word }}</b>{% if step.careful %} {{ p.chip(step.careful, native) }}{% endif %}</div>
+<p>{{ step.sub }}</p>
+{% if step.reasons %}{{ p.reasons(step.reasons, native) }}{% endif %}
+{% if step.careful_why %}<p>{{ step.careful_why | inline | safe }}</p>{% endif %}
+{{ facts(step.facts, native, 'facts cf-facts') }}
+<p>{{ step.note }}</p>
+{% elif panel.card %}
+<iframe class="card-frame" src="{{ step.frame | address }}" title="{{ step.title }}"></iframe>
+{% else %}<p>{{ step.what | inline | safe }}</p><p>{{ step.said | inline | safe }}</p>{% endif %}
+</div>
+<div class="cf-foot">
+{% if confirm.words %}<p>{{ confirm.words | inline | safe }}</p>{% endif %}
+{% if confirm.form %}{{ f.act(confirm.form) }}{% endif %}
+{% if confirm.back %}{{ p.href(confirm.back, native, 'cf-back') }}{% endif %}
+</div>
+</section>
+{% endif %}

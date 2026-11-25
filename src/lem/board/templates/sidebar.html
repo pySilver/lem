@@ -1,0 +1,47 @@
+<aside class="side" id="side" aria-label="Lem">
+<div class="brand">
+<picture class="mark"><source media="(prefers-color-scheme: dark)" srcset="{{ assets }}/icons/icon-64-night.png"><img src="{{ assets }}/icons/icon-64.png" alt=""></picture>
+<div><div class="b-name">Lem</div><div class="b-repo" title="{{ side.repo_title }}">{{ side.repo }}</div></div>
+<i class="beacon{% if side.beacon_bad %} bad{% endif %}" title="{{ side.beacon }}"></i>
+</div>
+<div class="notices">
+{% for notice in side.notices %}
+<div class="notice {{ notice.kind }}{% if notice.look %} a-{{ notice.look }}{% endif %}" id="{{ notice.id }}">
+{{ p.icon(notice.icon) }}<div>{% if notice.head %}<b>{{ notice.head }}</b> {% endif %}{{ notice.said | inline | safe }}
+{% if notice.task %}<a href="{{ notice.task | address }}"{{ p.frame_attrs(native) }}>{{ notice.task_title }}</a>{% endif %}
+</div></div>
+{% endfor %}
+</div>
+<div class="side-head" title="{{ side.waits_title }}">Waits for you <em{% if side.waits_count %} class="you"{% endif %}>{{ side.waits_count }}</em></div>
+<div class="wlist{% if side.waits_count > 3 %} many{% endif %}" id="waits" role="list" aria-label="Waits for you" data-controller="edges">
+{% for wait in side.waits %}
+<a class="wi a-{{ wait.look }}{% if wait.selected %} sel{% endif %}" id="{{ wait.id }}" data-task="{{ wait.slug }}" href="{{ wait.href | address }}"{{ p.frame_attrs(native) }} title="{{ wait.title }}"{% if wait.selected %} aria-current="true"{% endif %}>
+<span class="fi">{{ p.icon(wait.icon) }}</span><span class="wi-verb">{{ wait.verb | inline | safe }}</span>{{ p.when(wait.since, 'wi-time') }}
+<span class="wi-task">{{ wait.task }}</span>{% if wait.things > 1 %}<small class="wi-n">{{ wait.things }} things</small>{% endif %}
+</a>{% endfor %}
+</div>
+<div class="side-head">Views</div>
+<nav class="views" id="views" aria-label="Views">
+{% for view in side.views %}
+<a id="view-{{ view.key }}" class="vbtn{% if view.current %} current{% endif %}{% if view.look %} a-{{ view.look }}{% endif %}" href="{{ view.href | address }}" data-hotkey="Key{{ view.kbd | upper }}" title="{{ view.rail_title }}"{% if view.current %} aria-current="true"{% endif %}>
+{{ p.icon(view.icon) }}<span>{{ view.label }}</span>{% if view.count is not none %}<em{% if view.count_title %} title="{{ view.count_title }}"{% endif %}>{{ view.count }}</em>{% endif %}<kbd>{{ view.kbd }}</kbd>
+</a>{% endfor %}
+</nav>
+<nav class="rail" aria-label="Workspace views">
+{% for view in side.views %}
+<a class="rbtn{% if view.look %} a-{{ view.look }}{% endif %}" href="{{ view.href | address }}" data-hotkey="Key{{ view.kbd | upper }}" title="{{ view.rail_title }}" aria-label="{{ view.rail_title }}"{% if view.current %} aria-current="true"{% endif %}>
+{{ p.icon(view.icon) }}{% if view.count %}<em>{{ view.count }}</em>{% endif %}
+</a>
+{% endfor %}
+{% if side.flags %}<hr>{% endif %}
+{% for flag in side.flags %}
+{% set mark = 'moon' if flag.kind == 'away' else 'triangle-exclamation' %}
+{% if flag.href %}<a href="{{ flag.href | address }}" class="rbtn {{ flag.kind }}{% if flag.look %} a-{{ flag.look }}{% endif %}" title="{{ flag.title }}" aria-label="{{ flag.title }}">{{ p.icon(mark) }}{% if flag.count is not none %}<em>{{ flag.count }}</em>{% endif %}</a>
+{% else %}<span class="rbtn {{ flag.kind }}{% if flag.look %} a-{{ flag.look }}{% endif %}" title="{{ flag.title }}" aria-label="{{ flag.title }}">{{ p.icon(mark) }}{% if flag.count is not none %}<em>{{ flag.count }}</em>{% endif %}</span>{% endif %}
+{% endfor %}
+</nav>
+{% from 'push.html' import pushes %}{{ pushes('side') }}
+<div class="side-foot" id="side-foot">{% set switch = side.switcher %}{% include 'switcher.html' %}
+<button class="ibtn" id="side-fold" type="button" data-action="fold#side" title="{{ 'Unfold' if viewer.rail else 'Fold' }} the sidebar" aria-label="{{ 'Unfold' if viewer.rail else 'Fold' }} the sidebar">{{ p.icon('chevron-left') }}</button>
+</div>
+</aside>
