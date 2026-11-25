@@ -3,8 +3,9 @@ C, "In `open`"; E, "Stop or lost reply around the merge call").
 
 An intent on record is replaced by what the forge shows: the merge, a queue that took the call,
 or nothing yet. With only an open pull request visible the intent stays, and the owner checks
-GitHub: a new call goes only on his word. A closed request and a retarget after the read are the
-step `land-merge`'s.
+GitHub: a new call goes only on his word. The plain path edits no pull request's text after the
+merge, so a merge is written with `text_updated` false. A closed request, a retarget after the
+read and that edit are the step `land-merge`'s.
 """
 
 from typing import TYPE_CHECKING
@@ -51,6 +52,7 @@ def landed(
         base_merged=pull.base_parent,
         base_read=read.base if read else None,
         uncovered=uncovered(landing, pull.base_parent),
+        text_updated=False,
         at=world.now,
     )
 

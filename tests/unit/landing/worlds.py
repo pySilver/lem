@@ -118,6 +118,7 @@ MERGED = Merged(
     destination="main",
     base_checked=BASE,
     base_merged=BASE,
+    text_updated=False,
     at=MOMENT,
 )
 # Each point of the plain landing, as the landing's fields so far.
