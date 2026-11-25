@@ -9,7 +9,7 @@ from msgspec.structs import replace
 from fakes.records import MOMENT
 from lem.app.landing.merged import CLOSED
 from lem.app.sessions import acts, log, opening
-from lem.board.duties import conflict, ended, queue
+from lem.board.duties import conflict, queue
 from lem.board.duties.memory import Kept
 from lem.records.holds import ReleaseHold
 from lem.records.journal.task import StateNoted
@@ -57,8 +57,8 @@ def test_a_merge_wakes_the_tasks_session_once_while_its_worktree_stays(
     gone = made(here, "no-worktree", status="landed", since=LATER).task.slug
     worktree(here)
     kept = Kept()
-    ended.tick(duty_of(here, HOUR, kept))
-    ended.tick(duty_of(here, HOUR + timedelta(minutes=1), kept))
+    conflict.tick(duty_of(here, HOUR, kept))
+    conflict.tick(duty_of(here, HOUR + timedelta(minutes=1), kept))
     assert wakes(here) == [("merged", None)]
     assert wakes(here, gone) == []
 
@@ -78,7 +78,7 @@ def test_a_task_the_forge_closed_is_woken_and_one_dropped_otherwise_is_not(
             found.revision,
         )
         worktree(here, slug)
-    ended.tick(duty_of(here, HOUR))
+    conflict.tick(duty_of(here, HOUR))
     assert wakes(here, "closed-task") == [("merged", None)]
     assert wakes(here, "own-drop") == []
 

@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 type Capsys = pytest.CaptureFixture[str]
 LOOK = timedelta(seconds=180)
-NAMES = ("forge", "merge", "conflict", "ended", "queue", "guard", "notify", "prune")
+NAMES = ("forge", "merge", "conflict", "queue", "guard", "notify", "prune")
 
 
 def workspace(folder: Path) -> Path:

@@ -1,6 +1,6 @@
 """The board server's duties across tasks: every TICK seconds, for each workspace on the list,
-its look at the forge, then each duty of DUTIES, then the keeping of its state folder, one at a
-time, never on a request's path (`serve.forge_loop` on `main`).
+each duty of DUTIES in its order, one at a time, never on a request's path (`serve.forge_loop`
+on `main`): the look at the forge first, the keeping of the state folder last.
 
 Each duty is a module of this folder with `tick(duty)`, found by its fixed path. One failure
 costs no other: a failed look at the forge is its board's problem, and the duties, the keeping
@@ -30,16 +30,19 @@ if TYPE_CHECKING:
 # How often the duties run, in seconds (`serve.FORGE_TICK` on `main`): a guess, short beside
 # the forge's three minutes.
 TICK = 20
-LOOK = "lem.board.duties.forge"
 DUTIES = (
+    "lem.board.duties.forge",
     "lem.board.duties.merge",
     "lem.board.duties.conflict",
-    "lem.board.duties.ended",
     "lem.board.duties.queue",
     "lem.board.duties.guard",
     "lem.board.duties.notify",
+    "lem.board.duties.prune",
 )
-KEEP = "lem.board.duties.prune"
+# The look at the forge, whose failure the board words as its own, and the keeping, whose
+# failure is a line in the server's log only.
+LOOK = "forge"
+KEEP = "prune"
 DEMO = "demo"
 
 
@@ -64,24 +67,23 @@ def spaces(home: Path) -> Iterator[tuple[str, Workspace]]:
 
 
 def ticked(duty: context.Duty) -> None:
-    """One workspace's tick: the look, the duties, the keeping, each failure kept apart."""
-    looked = failure(LOOK, duty)
-    noted(
-        duty,
-        "look",
-        None if looked is None else f"the board's look at GitHub failed: {looked}",
-    )
+    """One workspace's tick: each duty, each failure kept apart."""
     for path in DUTIES:
         failed = failure(path, duty)
         short = path.rsplit(".", 1)[-1]
-        noted(
-            duty,
-            short,
-            None if failed is None else f"the board's duty {short} failed: {failed}",
-        )
-    kept = failure(KEEP, duty)
-    if kept is not None:
-        duty.say(f"lem prune failed: {kept}")
+        if short != KEEP:
+            noted(duty, short, worded(short, failed))
+        elif failed is not None:
+            duty.say(f"lem prune failed: {failed}")
+
+
+def worded(short: str, failed: str | None) -> str | None:
+    """The board's problem of a duty that failed, or None."""
+    if failed is None:
+        return None
+    if short == LOOK:
+        return f"the board's look at GitHub failed: {failed}"
+    return f"the board's duty {short} failed: {failed}"
 
 
 def noted(duty: context.Duty, name: str, problem: str | None) -> None:
