@@ -30,6 +30,11 @@ does not own, the local stand-in each uses until then, and what other steps take
    make a passed run hold no more are the commands and the serial ones (`land.same_checks`), so
    the digest is of those two (`model/landing/checks.py`, `inputs`). The five inputs of the
    criteria's run are `records.red.Inputs`, digested into `PassRun.inputs`.
+6. **`records/red.py`, two docstrings.** `Inputs` says "the plan's digest"; `lem criteria red`
+   keeps the plan's path there (`record.task.plan.path`, None on the fast track), as `main`'s
+   `inputs` did. `Red.setup` says "a setup command that failed"; the run keeps every setup run,
+   with its exit, as `main`'s `cmd_red` printed them. Asked: the two docstrings say so. `Red`
+   keeps the full shas in `inputs` and no 9-character `base` and `tip`, which a view shortens.
 
 ## For `core` (`ports/git.py`) and `land-base` (`adapters/git_cli.py`)
 
@@ -45,10 +50,12 @@ shell (`adapters/git_cli_shell.py`, with `own(os.environ)`) in a stand-in module
   and status (`diff --name-status -M`), the paths that differ (`--name-only --no-renames`), the
   paths a change adds (`--diff-filter=A`), the paths one commit touched (`diff-tree`), and a
   file's first line at a commit (`cat-file blob`, 256 bytes at most).
-- `app/landing/checks_red_*.py` and `checks_criteria.py`: a detached worktree at a commit
-  (`worktree add --detach`), the test files laid over the base (`checkout TIP -- FILES`), and a
-  worktree removed whole, a locked one too (`worktree unlock`, `remove --force --force`,
-  `prune`); each in a process group of its own, since a hook may leave a process.
+- `app/landing/checks_red_*.py` and `checks_criteria.py`: the worktree's HEAD (`rev-parse`),
+  the merge base with origin's base, whether the checkout has an origin (`remote get-url`), the
+  paths the branch changed, a detached worktree at a commit (`worktree add --detach`), the test
+  files laid over the base (`checkout TIP -- FILES`), and a worktree removed whole, a locked one
+  too (`worktree unlock`, `remove --force --force`, `prune`, `worktree list`); the acts each in
+  a process group of its own, since a hook may leave a process.
 
 Asked: a `GitTree` part of the port with these, and the adapter's methods; then the stand-ins go.
 
