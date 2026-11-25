@@ -15,8 +15,10 @@ from lem.kernel.errors import Refusal
 from lem.model.task import plans as names
 from lem.records.holds import Parked
 from lem.records.journal.task import StateNoted
+from lem.records.task import Shape
 from lem.records.work import Plan
 from lem.settings.load import settings_of
+from lem.store import places
 from unit.task import spaces
 
 if TYPE_CHECKING:
@@ -144,6 +146,28 @@ def test_planned_is_refused_with_no_plan_no_task_or_another_status(
     with pytest.raises(Refusal) as shaping:
         planned.planned(where, "shaped", WORDS)
     assert shaping.value.code == "move"
+
+
+def test_a_standard_track_task_needs_a_plan_even_with_criteria_in_its_folder(
+    tmp_path: Path,
+) -> None:
+    where = spaces.workspace(tmp_path / "repo")
+    shape = Shape(type="feat", why="the export has a new field", track="full")
+    spaces.made(where, SLUG, status="building", shape=shape)
+    worktree = where.lem / "worktrees" / SLUG
+    (worktree / ".git").mkdir(parents=True)
+    sheet = places.task_folder(where.state, SLUG) / "criteria.md"
+    sheet.write_text(
+        "## Acceptance criteria\n\nSize: full, because the export changes.\n\n"
+        "1. Order 1042 has its gift note in the CSV row.\n"
+        "   - no test: the owner checks the CSV file.\n"
+    )
+    shown = lem("criteria", "show", SLUG, cwd=where.checkout)
+    assert spaces.refusal(shown)["code"] == "not-small"
+    with pytest.raises(Refusal) as caught:
+        planned.planned(where, SLUG, WORDS)
+    assert caught.value.code == "no-plan"
+    assert spaces.read(where, SLUG).task.plan is None
 
 
 def test_build_takes_a_slug_or_a_plan_file(tmp_path: Path) -> None:

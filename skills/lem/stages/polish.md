@@ -7,7 +7,8 @@ and the review, so that the review reads the code as it will merge. Rules and re
 what this pass catches: "Polishing step, sadly is unavoidable (most likely). I've tried many rules
 etc but polishing step shows that there are some drifted comments, ugly code, leftovers and so on
 always to be found" (the owner, 2026-11-16). `lem land polish SLUG` prints what the pass works on
-and keeps the tip it starts at; keep its output as `polish.json` in the task directory.
+and keeps the tip it starts at, and the board shows the pass from then on; keep its `result` as
+`polish.json` in the task directory.
 `spawn-builder` with the brief at the end of `stages/land.md`, the job "the polish pass", and as its
 path that file. The builder looks for a short fixed list and nothing else, inside the task's own
 commits (`prompts/landing.md` has the list): a comment the change made false, a leftover, code that
@@ -19,15 +20,16 @@ under it. Before each item it files, it runs `lem land alike SLUG` and reads the
 hold the same defect; an item that says `worth: no` of a defect it calls over the bar gets a new
 `worth: later` item beside it that names it. And the item the task
 was started from, `item` in `polish.json`, which it removes. It changes no behavior. Then `lem land polish SLUG --done` checks what it committed: it
-refuses a worktree with changes nobody committed, a change of a criterion's test file or of the
-plan, and tests of the criteria that no longer pass on the branch and fail on the base commit; a
-refusal goes back to a builder with the same job and the step's message. Otherwise it logs the pass
-and keeps its run of the criteria's tests, which `checks` takes in place of its own while that run's
+refuses a worktree with changes nobody committed (`dirty`), a branch that no longer holds the tip
+the pass started at (`rewritten`), a change of a criterion's test file or of the plan (`frozen`),
+and tests of the criteria that no longer pass on the branch and fail on the base commit
+(`criteria`); a refusal goes back to a builder with the same job and the refusal's `why` and
+`fix`. Otherwise it keeps the pass on the task's record, with its run of the criteria's tests, which `checks` takes in place of its own while that run's
 inputs stay the same (step 4 of `stages/land.md`), and the pull request's checks say how many
 commits it made and how many items it filed. The pass
 runs once for a task, here, and never after each task of a plan; a builder of a later job of this
-landing has the same list in its brief. So when the landing comes back here from a later step and
-`lem land polish` prints `"done": true`, go on to step 4 of `stages/land.md`. `checks` refuses a
+landing has the same list in its brief. So when the landing comes back from a later step,
+`lem land next SLUG` names the step after this one while the tip still holds the pass. `checks` refuses a
 task on the standard track with no pass on the tip it checks. A rewrite of the branch after the pass asks for the
 pass again, and so does a rebase of `base` in which git leaves out one of the branch's commits:
 `checks` says so.

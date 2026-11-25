@@ -58,8 +58,7 @@ def names_for(defect: Defect) -> Iterator[str]:
     yield f"{slug}.md"
     if longer != slug:
         yield f"{longer}.md"
-    for number in itertools.count(2):
-        yield f"{longer}-{number}.md"
+    yield from map(f"{longer}-{{0}}.md".format, itertools.count(2))
 
 
 def body(defect: Defect, written: Written) -> str:

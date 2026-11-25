@@ -8,6 +8,7 @@ is cut off after each of its effects (`Killed`), before its record: `lem land ne
 cut step again or the one after it, the cut command runs again, and nothing is done twice.
 """
 
+import json
 from functools import partial
 from typing import TYPE_CHECKING
 
@@ -138,10 +139,14 @@ def test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read(
     assert "refused" not in landing(world)
     media = world.task_folder / "media"
     media.mkdir()
-    (media / "after.png").write_bytes(b"a picture")
+    (media / "detail").mkdir()
+    for name in ("after.png", "detail/phone.WEBP", ".hidden.png", "notes.txt"):
+        (media / name).write_bytes(b"an artifact")
     briefed = brief(capsys, world)
     facts = (tmp_path / briefed["result"]["brief"]).read_text()
-    assert str(media / "after.png") in facts
+    shown = json.loads(facts.split("```json\n", 1)[1].split("\n```", 1)[0])
+    assert shown["task_directory"] == str(world.task_folder)
+    assert shown["pictures"] == ["media/after.png", "media/detail/phone.WEBP"]
     assert '"checkout": "gh pr checkout 1"' in facts
     assert facts.startswith("Read `skills/lem/prompts/merge.md`")
     assert "https://github.com/owner/project/pull/1" in facts

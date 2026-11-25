@@ -166,6 +166,11 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 - **GitHub pull requests are the one way to land.** The button on GitHub and `/lem land` are the
   same merge, a task's branch is never merged by hand, and a merge asks no prompt. (2026-11-17,
   2026-11-18, 2026-11-20)
+- **The board's button says Approve, the approval stands through a moved base and a conflict,
+  and before an approved task merges on a moved base the checks run on the task rebased onto that base.**
+  A task red on its rebase leaves the line and comes back after a builder's fix. Its session calls the
+  owner only when the fix needs a criterion to change or a breaker applies. A task whose checks ran on the
+  current base merges first. The board server records how many approved tasks wait at each merge. (2026-11-25)
 
 ## A task's session, and whether he is there
 

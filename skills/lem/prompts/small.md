@@ -6,7 +6,8 @@ and for a change to what a person sees, "A picture" and "A screenshot" in
 
 1. **Read the criterion** in `criteria.md` in the task directory, and the ask in `task.md`. When
    `investigation.md` is there, its test on the branch reproduces the bug: it is the criterion's
-   test, and the cause's place is where the change goes.
+   test, and the cause's place is where the change goes. A section `## Review hint` after the
+   criterion is the review's input: leave it as it is.
 2. **Make the change**, after the rule files `lem --repo
    WORKTREE rules FILE ...` prints for your files, and the lessons (`lem path lessons`).
    A change to what a person sees (a page, a screen, a dialog, the text a command prints for a
@@ -78,8 +79,8 @@ and for a change to what a person sees, "A picture" and "A screenshot" in
      item's path and its `worth`), each `none` when it has nothing;
    - whether the fast track still fits, and why in a few words.
 
-   No proof of the state and record commands: their scripts refuse what is wrong, and the task's
-   session reads the state. The first real fast-track builder's report ran to twenty lines, most of them that proof
+   No proof of the commands that move the task and record its criterion: they refuse what is
+   wrong, and the task's session reads the task's record. The first real fast-track builder's report ran to twenty lines, most of them that proof
    (a scratch repository, 2026-11-17). Move the task first, `lem --repo
    WORKTREE task move SLUG ready --line "the change is built"`,
    and then reply. You write no report file: the task's session writes `report.md` from your reply. The agent

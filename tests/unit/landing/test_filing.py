@@ -21,6 +21,7 @@ from lem.model.landing import (
     alike,
     filing,
     filing_flags,
+    filing_place,
     item_names,
     items,
     jev_bar,
@@ -34,6 +35,8 @@ from lem.records.landing.review import Filed, Finding, Reviewed
 from unit.landing.worlds import MOMENT, PREPARED, REVIEWED, task, world
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from lem.records.record import Record
 
 FOLDER = "docs/backlog"
@@ -138,6 +141,26 @@ def test_an_item_is_named_by_its_title_then_its_place_then_a_number() -> None:
     ]
     assert item_names.slug_of("!!") == ""
     assert len(item_names.slug_of("word " * 40)) <= item_names.SLUG_AT
+
+
+def test_filing_indexes_the_shelf_once_across_name_collisions() -> None:
+    scans: list[None] = []
+
+    class Counted(tuple[items.BacklogItem, ...]):
+        __slots__ = ()
+
+        def __iter__(self) -> Iterator[items.BacklogItem]:
+            scans.append(None)
+            return super().__iter__()
+
+    first, second, third = (
+        f"{FOLDER}/{name}" for name in itertools.islice(item_names.names_for(PADS), 3)
+    )
+    other = written(replace(PADS, what="a different run"), "later")
+    found = shelf((first, other), (second, other))
+    indexed = replace(found, shelved=Counted(found.shelved))
+    assert filing_place.named(indexed, PADS, None) == (third, False)
+    assert len(scans) == 1
 
 
 # Each defect's place.
