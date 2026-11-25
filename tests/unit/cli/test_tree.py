@@ -1,6 +1,12 @@
 """The command tree of `lem`: its help, its two tables, each leaf's words against its `Call`,
 the stubs' refusal, the exit codes of the envelope, `lem version`, and the tree as `tree.json`
-holds it."""
+holds it.
+
+A leaf is a stub while its module uses `stub.not_built`; a step that fills it drops that import,
+and its own tests take the leaf over. No case here runs a filled leaf's `run`: a case that needs
+a call to reach a leaf puts a stand-in in the place of `run`. The count of the stubs left is the
+skip of `test_no_leaf_is_a_stub_any_more`, which `close` sees pass.
+"""
 
 import importlib
 import json
@@ -15,7 +21,7 @@ import msgspec
 import pytest
 
 from fakes import command
-from lem.cli import lazy, nouns
+from lem.cli import lazy, nouns, stub
 from lem.cli.group import LazyGroup
 from unit.cli import shapes
 
@@ -42,8 +48,16 @@ def leaves() -> list[Leaf]:
     return found
 
 
+def is_stub(path: str) -> bool:
+    """Whether the leaf at PATH is still a stub: its module uses `stub.not_built`, which the
+    step that fills the leaf no longer imports (ruff refuses an import nobody uses)."""
+    return getattr(importlib.import_module(path), "not_built", None) is stub.not_built
+
+
 LEAVES = leaves()
 IDS = [" ".join(words) for words, _ in LEAVES]
+STUBS = [(words, path) for words, path in LEAVES if is_stub(path)]
+STUB_IDS = [" ".join(words) for words, _ in STUBS]
 
 
 def steps() -> set[str]:
@@ -76,34 +90,6 @@ CHECKED: dict[tuple[str, ...], list[str]] = {
     ("session", "wait"): ["--event", "builder.start"],
     ("session", "handoff"): ["--check"],
 }
-# Each option whose word in `Call` is not its flag's: the flag, by the leaf's words, and the field
-# its value goes to. Any other option's value goes to the field its flag names, so that two
-# options that exchange their destinations fail.
-RENAMED = {
-    "rules --range": "commits",
-    "task open --item": "backlog_item",
-    "task open --from": "origin",
-    "task move --line": "lines",
-    "task read --type": "kind",
-    "task investigated --result": "found",
-    "task talked --open": "left_open",
-    "picker --list": "listing",
-    "proposals add --file": "path",
-    "proposals verdict --file": "path",
-    "land merge-review --file": "reply",
-    "criteria approve --file": "path",
-    "criteria change --file": "path",
-    "criteria digest --file": "path",
-    "criteria read --family": "families",
-    "decisions log --option": "options",
-    "decisions log --vote": "votes",
-    "decisions log --level": "levels",
-    "session talk --from": "start",
-    "experts brief --option": "options",
-    "experts brief --file": "files",
-    "experts brief --seat": "seats",
-    "experts record --seat": "seats",
-}
 
 
 def minimal(command: click.Command) -> list[str]:
@@ -129,10 +115,20 @@ def distinct(param: click.Parameter, number: int) -> str:
     return f"{param.name}-{number}"
 
 
-def destination(words: tuple[str, ...], option: click.Option) -> str:
-    """The field of `Call` an option's value goes to: its flag's, unless RENAMED says."""
-    flag = shapes.long_flag(option)
-    return RENAMED.get(f"{' '.join(words)} {flag}", flag.lstrip("-").replace("-", "_"))
+def flag_name(option: click.Option) -> str:
+    """The word of `Call` an option's long flag names: `--case-was` is `case_was`."""
+    return shapes.long_flag(option).lstrip("-").replace("-", "_")
+
+
+def stand_in_runs(monkeypatch: pytest.MonkeyPatch, noun: str) -> None:
+    """Put a stand-in in the place of `run` of every leaf of NOUN: it gives the leaf's words, so
+    a case sees which leaf a call reached and nothing of the leaf runs."""
+    for words, path in LEAVES:
+        if words[0] == noun:
+            reached = " ".join(words)
+            monkeypatch.setattr(
+                importlib.import_module(path), "run", lambda call, said=reached: said
+            )
 
 
 def parsed(command: click.Command, argv: list[str]) -> dict[str, object]:
@@ -226,10 +222,9 @@ def test_each_word_of_a_call_reaches_the_field_it_names(
         many = param.multiple or param.nargs == -1
         if isinstance(param, click.Option):
             argv += [shapes.long_flag(param), word]
-            field = destination(words, param)
         else:
             argv.append(word)
-            field = param.name
+        field = str(param.name)
         converted = param.type.convert(word, param, None)
         sent[field] = (converted,) if many else converted
     call = msgspec.convert(parsed(command, argv), module.Call)
@@ -237,10 +232,29 @@ def test_each_word_of_a_call_reaches_the_field_it_names(
         assert getattr(call, field) == word, field
     for flag in flags:
         given = msgspec.convert(parsed(command, [*argv, flag.opts[0]]), module.Call)
-        assert getattr(given, destination(words, flag)) is True, flag.opts[0]
+        assert getattr(given, str(flag.name)) is True, flag.opts[0]
 
 
 @pytest.mark.parametrize(("words", "path"), LEAVES, ids=IDS)
+def test_no_option_takes_the_field_another_option_names_by_its_flag(
+    words: tuple[str, ...], path: str
+) -> None:
+    options = [
+        param
+        for param in importlib.import_module(path).COMMAND.params
+        if isinstance(param, click.Option)
+    ]
+    for option in options:
+        if option.name == flag_name(option):
+            continue
+        others = {flag_name(other) for other in options if other is not option}
+        assert option.name not in others, (
+            f"{shapes.long_flag(option)} of `lem {' '.join(words)}` fills {option.name}, "
+            "the field another option names by its flag"
+        )
+
+
+@pytest.mark.parametrize(("words", "path"), STUBS, ids=STUB_IDS)
 def test_each_stub_refuses_not_built_and_names_a_step_of_the_plan(
     capsys: pytest.CaptureFixture[str], words: tuple[str, ...], path: str
 ) -> None:
@@ -256,6 +270,11 @@ def test_each_stub_refuses_not_built_and_names_a_step_of_the_plan(
     named = NOT_BUILT.search(refusal["fix"])
     assert named is not None
     assert named.group(1) in steps()
+
+
+def test_no_leaf_is_a_stub_any_more() -> None:
+    if STUBS:
+        pytest.skip(f"{len(STUBS)} leaves are still stubs")
 
 
 @pytest.mark.parametrize(
@@ -481,11 +500,15 @@ def test_lem_version_prints_root_version_and_commit_as_json(
     ids=lambda value: " ".join(value) if isinstance(value, tuple) else value,
 )
 def test_the_default_verb_takes_a_first_word_that_names_no_verb(
-    capsys: pytest.CaptureFixture[str], argv: tuple[str, ...], command: str
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    argv: tuple[str, ...],
+    command: str,
 ) -> None:
+    stand_in_runs(monkeypatch, argv[0])
     code, out, _ = called(capsys, *argv)
-    assert code == 1
-    assert f"`lem {command}`" in json.loads(out)["refusal"]["why"]
+    assert code == 0
+    assert json.loads(out)["result"] == command
 
 
 @pytest.mark.parametrize(
@@ -552,12 +575,17 @@ def test_the_default_verb_takes_a_first_word_that_names_no_verb(
     ],
     ids=" ".join,
 )
-def test_a_call_the_rules_take_reaches_its_stub(
-    capsys: pytest.CaptureFixture[str], argv: tuple[str, ...]
+def test_a_call_the_rules_take_reaches_its_leaf(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    argv: tuple[str, ...],
 ) -> None:
+    stand_in_runs(monkeypatch, argv[0])
     code, out, err = called(capsys, *argv)
-    assert (code, err) == (1, "")
-    assert json.loads(out)["refusal"]["code"] == "not-built"
+    assert (code, err) == (0, "")
+    assert argv[: len(json.loads(out)["result"].split())] == tuple(
+        json.loads(out)["result"].split()
+    )
 
 
 def test_path_plan_file_names_the_command_of_a_plans_file(
@@ -586,12 +614,16 @@ def test_a_command_whose_module_is_not_there_names_the_file_and_the_repair(
 
 @pytest.mark.parametrize(
     ("argv", "code"),
-    [(("help",), 0), (("version",), 0), (("doctor",), 1)],
+    [(("help",), 0), (("version",), 0), (("doctor",), 0)],
     ids=lambda value: " ".join(value) if isinstance(value, tuple) else str(value),
 )
 def test_repo_before_help_version_and_doctor_reaches_them(
-    capsys: pytest.CaptureFixture[str], argv: tuple[str, ...], code: int
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    argv: tuple[str, ...],
+    code: int,
 ) -> None:
+    stand_in_runs(monkeypatch, "doctor")
     assert called(capsys, "--repo", str(ROOT), *argv)[0] == code
 
 
@@ -600,10 +632,11 @@ def test_repo_before_help_version_and_doctor_reaches_them(
     [
         (("--repo", ".", "help"), 0),
         (("--repo", ".", "version"), 0),
-        (("--repo", ".", "doctor"), 1),
-        (("--repo=.", "doctor"), 1),
+        (("--repo", ".", "doctor", "--help"), 0),
+        (("--repo=.", "doctor", "--help"), 0),
         (("help",), 0),
         (("--repo", ".", "land", "start", "x"), 1),
+        (("--repo", ".", "land", "start", "--help"), 1),
     ],
     ids=lambda value: " ".join(value) if isinstance(value, tuple) else str(value),
 )
@@ -619,11 +652,8 @@ def test_the_version_check_lets_help_version_and_doctor_through_past_repo(
     if code == 1:
         refusal = ran.envelope()["refusal"]
         assert isinstance(refusal, dict)
-        if argv[-1] == "doctor":
-            assert refusal["code"] == "not-built"
-        else:
-            assert refusal["code"] == "version"
-            assert "is behind Lem's plugin 999.0.0" in refusal["why"]
+        assert refusal["code"] == "version"
+        assert "is behind Lem's plugin 999.0.0" in refusal["why"]
 
 
 def test_a_help_option_after_a_noun_with_a_default_verb_is_the_nouns_help(
@@ -644,7 +674,7 @@ def test_the_tree_is_the_one_tree_json_holds() -> None:
 
 def test_a_call_loads_its_own_leaf_and_no_other_noun_and_nothing_heavy() -> None:
     probe = (
-        "import sys; from lem.cli import lazy; lazy.main(['land', 'start', 'x']); "
+        "import sys; from lem.cli import lazy; lazy.main(['land', 'start', '--help']); "
         "print(' '.join(sorted(sys.modules)))"
     )
     ran = subprocess.run(
@@ -670,11 +700,18 @@ def test_a_call_loads_its_own_leaf_and_no_other_noun_and_nothing_heavy() -> None
 def test_the_command_lem_runs_the_tree_from_its_entry() -> None:
     command = ROOT / ".venv" / "bin" / "lem"
     assert command.is_file(), f"{command} is not there: run `uv sync` in the checkout"
-    stub = subprocess.run(
-        [command, "land", "start", "x"], capture_output=True, text=True, check=False
+    helped = subprocess.run(
+        [command, "land", "start", "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
     )
-    assert stub.returncode == 1
-    assert json.loads(stub.stdout)["refusal"]["code"] == "not-built"
+    assert helped.returncode == 0
+    assert helped.stdout.startswith("Usage: lem land start ")
+    wrong = subprocess.run(
+        [command, "tickets"], capture_output=True, text=True, check=False
+    )
+    assert (wrong.returncode, wrong.stdout) == (2, "")
     version = subprocess.run(
         [command, "version"], capture_output=True, text=True, check=False
     )
