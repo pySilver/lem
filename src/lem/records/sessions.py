@@ -11,9 +11,10 @@ from lem.records.base import Frozen, Moment, Slug
 VERSION = 1
 
 
-class SessionLine(Frozen, frozen=True, kw_only=True):
+class SessionLine(Frozen, frozen=True, kw_only=True, omit_defaults=False):
     """A session started: when, from what (`startup`, `resume`, `clear`, `compact`, `fork`), its
-    Claude Code id and transcript, its agterm pane, and the task it was started for."""
+    Claude Code id and transcript, its agterm pane, and the task it was started for. Every
+    field is written, its form too."""
 
     version: int = msgspec.field(default=VERSION, name="v")
     at: Moment

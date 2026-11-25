@@ -14,9 +14,9 @@ from lem.records.task import Task
 SCHEMA = 1
 
 
-class Record(Frozen, frozen=True, kw_only=True):
+class Record(Frozen, frozen=True, kw_only=True, omit_defaults=False):
     """A task's whole record: its form, its release, its revision, the task, its landing, and
-    its journal."""
+    its journal. Every field is written, its form too, which a default would leave out."""
 
     schema: int = SCHEMA
     release: str

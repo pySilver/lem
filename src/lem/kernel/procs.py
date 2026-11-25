@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 type Environment = Mapping[str, str]
-type Output = IO[bytes] | None
+type Output = IO[bytes] | int | None
 
 # How often the wait for a whole group looks whether a process of it is left, in seconds.
 POLL = 0.05
@@ -29,14 +29,15 @@ def start_group(
     argv: list[str], cwd: Path, env: Environment, output: Output
 ) -> subprocess.Popen[bytes]:
     """Start `argv` in `cwd` as the leader of a new process group, its output and errors both
-    to `output` (None: the caller's), and nothing on its standard input."""
+    to `output` (a file, a `subprocess` constant, or None for the caller's), and nothing on its
+    standard input."""
     return subprocess.Popen(
         argv,
         cwd=cwd,
         env=env,
         stdin=subprocess.DEVNULL,
         stdout=output,
-        stderr=subprocess.STDOUT if output else None,
+        stderr=None if output is None else subprocess.STDOUT,
         start_new_session=True,
     )
 
@@ -57,8 +58,9 @@ def group_gone(proc: subprocess.Popen[bytes], seconds: float) -> bool:
     return False
 
 
-def signalled(proc: subprocess.Popen[bytes], sign: signal.Signals) -> bool:
-    """Send `sign` to the group of `proc`; False when the group is gone or not this user's."""
+def signalled(proc: subprocess.Popen[bytes], sign: int) -> bool:
+    """Send `sign` to the group of `proc` (0 only asks whether it is there); False when the
+    group is gone or not this user's."""
     try:
         os.killpg(proc.pid, sign)
     except ProcessLookupError, PermissionError:
@@ -72,7 +74,7 @@ def leader_ended(proc: subprocess.Popen[bytes], grace: float) -> bool:
         proc.wait(timeout=grace)
     except subprocess.TimeoutExpired:
         return False
-    return not signalled(proc, signal.Signals(0))
+    return not signalled(proc, 0)
 
 
 def stop_group(
