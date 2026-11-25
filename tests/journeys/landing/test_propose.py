@@ -18,6 +18,7 @@ from fakes.outside import FakeJudge
 from fakes.repo import git_env, run_git
 from journeys.test_skeleton import (
     JOURNEY,
+    REVIEW,
     SLUG,
     SUBJECT,
     Killed,
@@ -29,6 +30,7 @@ from journeys.test_skeleton import (
     made,
     next_step,
     proposal,
+    review,
     upto,
 )
 from lem.adapters import forge_gh
@@ -359,28 +361,21 @@ def test_an_edit_of_lems_settings_needs_the_full_set_and_the_owner_merges_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     world = made(tmp_path, monkeypatch)
-    for verb, step in JOURNEY:
-        if verb == "propose":
+    for _verb, step in JOURNEY:
+        if step is review:
             break
         envelope = (careful_built if step is built else step)(capsys, world)
         assert envelope["ok"] is True, envelope
+    # the review's floor knows the edit of Lem's settings (`land-review`): a read is refused,
+    # and the full set is taken
+    assert review(capsys, world)["refusal"]["code"] == "under-floor"
+    full = {**REVIEW, "kind": "full", "left_out": []}
+    said = {**full, "attempt": int(world.told["attempt"]), "tip": world.told["tip"]}
+    record = world.written("review.json", said)
+    taken = command("land", "read", "SLUG", "--record", record)(capsys, world)
+    assert taken["ok"] is True, taken
+    assert command("land", "file", "SLUG")(capsys, world)["ok"] is True
     notes = "none\n\n## Migration\n\nnone\n"
-    refused = propose_with(capsys, world, notes)
-    assert refused["refusal"]["code"] == "review-floor"
-    # `lem land read` asks for no review here: the review's floor that knows an edit of
-    # Lem's settings is `land-review`'s (notes/land-propose.md); its record is written as
-    # `read --record` would write the full set's
-    state = world.checkout / ".lem" / "state"
-    found = tasks.read(state, SLUG)
-    assert found.landing is not None
-    last = found.landing.reviews[-1]
-    whole = replace(
-        last, attempt=last.attempt + 1, kind="full", findings=(), to_file=()
-    )
-    reviewed = replace(found.landing, reviews=(*found.landing.reviews, whole))
-    tasks.update(
-        state, SLUG, lambda record: replace(record, landing=reviewed), found.revision
-    )
     envelope = propose_with(capsys, world, notes)
     assert envelope["ok"] is True, envelope
     found = envelope["result"]
