@@ -13,7 +13,6 @@ from lem.kernel.errors import Refusal
 from lem.model.criteria import digest, waits
 from lem.model.criteria.pairs import pairs
 from lem.model.criteria.read import sheet_of
-from lem.records.criterion import Criterion
 from lem.records.holds import OwnerHold
 from lem.records.questions import Answer
 from lem.store import places, tasks
@@ -23,6 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
+    from lem.records.criterion import Criterion
     from lem.records.record import Record
 
 NOTE = "criterion 2 must also cover empty rows"
