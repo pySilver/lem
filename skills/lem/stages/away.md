@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # `im-away`, `im-back`
 
 Read when the owner says that he is away or back again, and when the watch of his mark ends, and
@@ -18,8 +17,9 @@ for words he typed in this session. A text for him says "without you", never "al
 
 ## His word
 
-`lem project owner away --words "HIS WORDS"`, or `lem project owner back --words "HIS WORDS"`. It
-writes the machine's mark: from away on, every task that did not end, in every repository on this
+`lem owner away --words "HIS WORDS"`, or `lem owner back --words "HIS WORDS"`. It
+writes the machine's mark (`owner.json` in Lem's home folder), and a word that changes nothing
+(away while he is away, back while he is there) writes nothing, `written: false`: from away on, every task that did not end, in every repository on this
 machine, runs without him, and so does each task opened while he is away; from back on, every task
 that ran without him comes back to him, except a night's, which runs without him until it ends.
 Say in one line what it means: the interviews and the criteria go on without him, a breaker waits
@@ -36,22 +36,22 @@ one, take "When the watch ends" at once.
 ## The watch
 
 A task's session in the shape keeps one watch of his mark in the background while it waits for
-him, never two: read `owner` of `lem project waiting`, and `run-in-background` with `lem project
-owner watch --seen N`, N being its `seen`, the number of records in the mark. It looks at the mark
-once every 5 seconds (a guess, not a measurement) and ends with exit 0 and his status (`away`,
-`since`, `words`, `seen`) as soon as the mark holds another number of records than N. Its end wakes
-you: take "When the watch ends", then start it again with the `seen` it gave. A watch that ends
-with exit 1 was stopped, or the mark has a line that does not read (its message names the file
-and the line): start no other until that reason is gone. No other session keeps one, and a task
+him, never two: read `owner` of `lem waiting`, and `run-in-background` with `lem owner watch --seen N`, N
+being its `seen`, the number of his words in the mark. It looks at the mark once every 5 seconds
+(a guess, not a measurement) and ends with exit 0 and his status (`away`, `since`, `words`,
+`seen`) as soon as the mark holds another number of words than N. Its end wakes you: take "When
+the watch ends", then start it again with the `seen` it gave. A watch that ends with exit 1 was
+stopped (its refusal `stopped`), and one that ends with exit 3 found a mark that does not read
+(its line names the file): start no other until that reason is gone. No other session keeps one, and a task
 of the night acts on none: it runs without him until it ends.
 
 ## When the watch ends
 
-- **Away**: the shape goes on without him, with no question to him, except a task held with `the
-  order waits for the owner`.
-  - *An order of his that names no task you can tell*: the task held with `the order waits for the
-    owner` waits for him, and nothing of it starts; his back asks its one question
-    (`prompts/session.md`, "What comes next").
+- **Away**: the shape goes on without him, with no question to him, except a task held for his
+  order (`lem task show SLUG`: the hold `owner` on `order`).
+  - *An order of his that names no task you can tell*: the task held for his order waits for him,
+    and nothing of it starts; his back asks its one question (`prompts/session.md`, "What comes
+    next").
   - *An interview*: the steps of `stages/interview.md` go on with your guess for each question
     left, each logged, `lem decisions log SLUG --by lem --what "THE QUESTION" --chose "YOUR GUESS"
     --why WHY`. The personas' read runs, since nobody can skip it now. Each criterion it flagged is
@@ -59,11 +59,11 @@ of the night acts on none: it runs without him until it ends.
     step 7. The read's answers go into the pull request.
   - *Criteria that wait for his yes*: settle each flagged criterion as below, then `lem criteria
     approve SLUG --file FILE --alone` with the criteria as the ladder left them, and the start of
-    the build (`stages/start.md`). A task held with `the criteria wait for the owner: a small change
-    that someone else asked for` is on the fast track: FILE is its `criteria.md`, and the start
-    starts its one builder. A task held with `the criteria wait for the owner: the small
-    change is a full change` has had no interview yet: it takes the interview without him, from its
-    first question.
+    the build (`stages/start.md`). A task whose criteria wait with the line `the criteria wait for
+    the owner: a small change that someone else asked for` is on the fast track: FILE is its
+    `criteria.md`, and the start starts its one builder. A task whose criteria wait with the line
+    `the criteria wait for the owner: the small change is a full change` has had no interview yet:
+    it takes the interview without him, from its first question.
   - *His No to the criteria on record* (on the board, or typed before he left): `--alone` refuses
     the text he said No to. Make the change from his note first, with no page while he is away: as
     `stages/interview.md`, step 6 says, or on the fast track as "The fast track" of
