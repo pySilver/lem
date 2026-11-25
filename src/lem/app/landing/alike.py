@@ -59,7 +59,7 @@ class Told(Frozen, frozen=True, kw_only=True):
     task: str
     finding: alike_words.Finding
     count: int = msgspec.field(name="items")
-    named: tuple[same.Alike, ...] = msgspec.field(default=(), name="alike")
+    named: tuple[same.Alike, ...] = msgspec.field(name="alike")
     jev: str | None = None
     read: tuple[Listed, ...] = ()
     next: str
@@ -111,8 +111,12 @@ def run(folder: Path, slug: str, defect: Defect) -> Envelope:
     """`lem land alike SLUG --where PLACE --title TITLE --what FILE`."""
     workspace = places.workspace(folder)
     shelved, said = asked_of(workspace, worktree_of(workspace, slug), defect)
-    finding = alike_words.Finding(where=defect.where, title=defect.title)
-    outcome = told(
-        Told(task=slug, finding=finding, count=len(shelved), next=""), shelved, said
+    base = Told(
+        task=slug,
+        finding=alike_words.Finding(where=defect.where, title=defect.title),
+        count=len(shelved),
+        named=(),
+        next="",
     )
-    return Envelope(ok=True, outcome=msgspec.Raw(msgspec.json.encode(outcome)))
+    encoded = msgspec.json.encode(told(base, shelved, said))
+    return Envelope(ok=True, outcome=msgspec.Raw(encoded))
