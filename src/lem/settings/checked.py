@@ -73,9 +73,9 @@ def paths(checkout: Path, given: Paths, name: str) -> None:
 def branch(given: Branch, name: str) -> None:
     """Refuse a base that is protected, which no task could land on."""
     if given.base in given.protected:
-        raise wrong(
-            f"{name}: branch.base = {given.base!r}",
-            "is in branch.protected, so no task could land",
+        raise Refusal(
+            "protected",
+            f"{name}: branch.base = {given.base!r} is in branch.protected, so no task could land",
             "take the base out of branch.protected",
         )
 
