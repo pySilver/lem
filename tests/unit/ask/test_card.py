@@ -9,8 +9,9 @@ from typing import TYPE_CHECKING
 import pytest
 
 from fakes import records
+from lem.app.asking import ends, keys, saved
 from lem.app.sessions import acts, log
-from lem.board.ask import csp, ends, keys, saved
+from lem.board.ask import csp
 from lem.cli import lazy
 from lem.kernel import paths
 from lem.kernel.errors import Refusal

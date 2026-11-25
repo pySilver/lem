@@ -2,14 +2,15 @@
 
 ## For the join
 
-The owned worktree's local stand-in is `board/ask/{ends,form,keys,overlay_read,receipts,saved,shape,updates}.py`.
-The CLI and board both use it. The import-linter configuration permits their shared layer,
-but the design in part 2 names one crossing only. Move these eight shared modules into
-`app/asking/` at the join and update the imports in this step and its tests. Keep HTTP routes,
-request checks and responses in `board/ask/`. The overlay adapter can move to
+The overlay adapter can move to
 `adapters/terminal_agterm` when its port has typed operations for open, result and close.
-Move the trusted script hash and page marker from `board/ask/csp.py` to `app/asking/` too.
+Move the trusted script hash and page marker from `board/ask/csp.py` to `app/asking/`.
 Keep the HTTP policy in `board/ask/`.
+
+The ask step changed `src/lem/model/owner/answers.py` (`refused`) so the session can close or
+dismiss its card after the task is parked or ends. It changed `src/lem/app/owner/sessions.py`
+(`session_of`, `agent_is_live`) so the board's answer route and the owner's wait list use the
+same rule for a live agent. At the join, run `.venv/bin/python -I -B tests --level unit tests/unit/owner/`.
 
 The task's card key starts with `card:` and ends with the page id, as the views expect. It
 puts the question, HTML digest and first end in `task.json`. The same write appends the

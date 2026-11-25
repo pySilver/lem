@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 
 from starlette.responses import RedirectResponse, Response
 
-from lem.board.ask import csp, saved, where
+from lem.app.asking import saved
+from lem.board.ask import csp, where
 
 if TYPE_CHECKING:
     from starlette.requests import Request

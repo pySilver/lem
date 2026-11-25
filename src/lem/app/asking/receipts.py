@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.board.ask import keys
+from lem.app.asking import keys
 from lem.kernel import files, locks
 
 if TYPE_CHECKING:

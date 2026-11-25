@@ -162,6 +162,7 @@ Every page outcome has exit 0. Read `result.outcome`:
 - `pending`: the overlay stays up after the wait. Run `lem ask wait PAGEID`.
 - `busy`: the session already shows an overlay. If the result names a question page, run
   `lem ask wait PAGEID`. If it gives no page id, ask in the terminal.
+- `refused`: the task cannot take the card's answer. Read `result.said` for the reason.
 - `unavailable`: the terminal or browser could not show or read the page. Read the result's reason.
 
 A refused spec has exit 1 and `refusal.why` with the reason. Exit 2 is a wrong command line.

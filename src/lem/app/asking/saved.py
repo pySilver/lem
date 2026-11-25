@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 import msgspec
 from msgspec.structs import replace
 
-from lem.board.ask import keys, updates
-from lem.board.ask.shape import Card
+from lem.app.asking import keys, updates
+from lem.app.asking.shape import Card
 from lem.kernel import clock, errors, files
 from lem.records.journal.task import OwnerAct
 from lem.records.questions import Question

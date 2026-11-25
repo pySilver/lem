@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from lem.board.ask import ends, keys, receipts
+from lem.app.asking import ends, keys, receipts
 from lem.cli.ask import utf8
 
 if TYPE_CHECKING:

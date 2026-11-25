@@ -3,18 +3,21 @@
 import sys
 from typing import TYPE_CHECKING
 
-from lem.board.ask import ends, saved
-from lem.board.ask.overlay_read import PageRefused
+from lem.app.asking import ends, saved
+from lem.app.asking.overlay_read import PageRefused
 from lem.cli.ask import answer
+from lem.kernel.errors import Refusal
 from lem.ports.faults import Unanswered
 from lem.records.questions import Answer
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from lem.board.ask.shape import End
+    from lem.app.asking.shape import End
     from lem.cli.ask.context import Context
     from lem.records.questions import Question
+
+SAID = "said"
 
 
 def recorded(here: Context, page: str) -> answer.Words | None:
@@ -45,8 +48,11 @@ def keep(
     folder: Path, asked: Question, proposal: Answer, raw: answer.Words
 ) -> answer.Words:
     """The session result, with the first end from either surface."""
-    won, kept = ends.finish(folder, asked, proposal, raw)
     page = asked.id.removeprefix("card:")
+    try:
+        won, kept = ends.finish(folder, asked, proposal, raw)
+    except Refusal as refusal:
+        return {"outcome": "refused", "pageID": page, SAID: refusal.why}
     return final_answer(folder, page, kept, None if won else proposal)
 
 
@@ -57,7 +63,7 @@ def final_answer(
     printed = answer.on_record(folder, page, kept)
     if later is not None:
         race = later.label if later.option == "answered" else later.option
-        printed.setdefault("said", ends.description(kept))
+        printed.setdefault(SAID, ends.description(kept))
         name_later(printed, race)
     return printed
 
@@ -75,8 +81,8 @@ def after_board(here: Context, page: str, kept: answer.Words) -> None:
 
 def name_later(kept: answer.Words, race: str) -> None:
     """Name the later act alongside the one that counted."""
-    said = kept["said"]
-    kept["said"] = f"{said} The later act in the session was {race}."
+    said = kept[SAID]
+    kept[SAID] = f"{said} The later act in the session was {race}."
 
 
 def close_board_answer(here: Context, page: str) -> None:

@@ -5,7 +5,7 @@ import json
 import msgspec
 from starlette.requests import ClientDisconnect, Request
 
-from lem.board.ask.shape import Posted
+from lem.app.asking.shape import Posted
 
 LIMIT = 65536  # the card's JSON limit on main
 DEPTH = 64  # unmeasured estimate for nested custom answer fields

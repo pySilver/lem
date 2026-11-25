@@ -2,10 +2,10 @@
 
 from typing import TYPE_CHECKING
 
+from lem.app.asking.overlay_read import outcome
 from lem.app.owner.sessions import agent_is_live
 from lem.app.sessions import agents, beside, log
 from lem.app.wiring import bound
-from lem.board.ask.overlay_read import outcome
 from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.ports.place import Place
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from lem.board.ask.shape import Card
+    from lem.app.asking.shape import Card
     from lem.ports.terminal import Terminal
 
 

@@ -7,7 +7,7 @@ from msgspec.structs import replace
 from lem.kernel.errors import Refusal
 
 if TYPE_CHECKING:
-    from lem.board.ask.shape import Pick, Posted, Prompt
+    from lem.app.asking.shape import Pick, Posted, Prompt
 
 SESSION = "The owner can ask a question back in the task’s session."
 RELOAD = "The owner can load the card again."

@@ -7,13 +7,14 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
+from lem.app.asking import ends, saved
 from lem.board.acts.asker import Asker
-from lem.board.ask import ends, live_card, saved, verify
+from lem.board.ask import live_card, verify
 from lem.kernel.errors import Refusal
 from lem.records.questions import Answer, Question
 
 if TYPE_CHECKING:
-    from lem.board.ask.shape import Posted
+    from lem.app.asking.shape import Posted
 
 
 class AtCard(msgspec.Struct, frozen=True, kw_only=True):

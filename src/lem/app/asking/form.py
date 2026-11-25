@@ -2,7 +2,7 @@
 
 import msgspec
 
-from lem.board.ask.shape import Card, Mode, Option, Prompt
+from lem.app.asking.shape import Card, Mode, Option, Prompt
 
 type Spec = dict[str, object]
 

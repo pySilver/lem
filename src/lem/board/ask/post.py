@@ -6,17 +6,17 @@ from typing import TYPE_CHECKING
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse, Response
 
+from lem.app.asking.overlay_read import PageRefused
 from lem.board import listener
 from lem.board.acts.asker import asker_of
 from lem.board.ask import accept, body, where
-from lem.board.ask.overlay_read import PageRefused
 from lem.kernel.errors import Refusal
 from lem.ports.faults import Unanswered
 
 if TYPE_CHECKING:
     from starlette.requests import Request
 
-    from lem.board.ask.shape import Posted
+    from lem.app.asking.shape import Posted
 
 
 async def endpoint(request: Request) -> Response:

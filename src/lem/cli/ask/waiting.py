@@ -4,8 +4,8 @@ import math
 import time
 from typing import TYPE_CHECKING
 
-from lem.board.ask import keys
-from lem.board.ask.overlay_read import PageRefused
+from lem.app.asking import keys
+from lem.app.asking.overlay_read import PageRefused
 from lem.cli.ask import answer, card_wait, glyph, temp_pages
 from lem.cli.ask.spec import invalid
 from lem.ports.faults import Unanswered

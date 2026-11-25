@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lem.board.ask import keys
+from lem.app.asking import keys
 from lem.kernel import files
 
 if TYPE_CHECKING:

@@ -3,7 +3,7 @@
 import click
 import msgspec
 
-from lem.board.ask.overlay_read import PageRefused
+from lem.app.asking.overlay_read import PageRefused
 from lem.cli.ask import asking, card_wait, context, waiting
 from lem.ports.faults import Unanswered
 

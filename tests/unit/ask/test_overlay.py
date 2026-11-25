@@ -113,6 +113,15 @@ def test_stopped_task_refuses_new_picks_but_can_retire_its_card(
     with board.main() as client:
         refused = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
         assert refused.status_code == 409
+    terminal.outcome = "submitted"
+    terminal.payload = '"Keep"'
+    late = result(capsys, ["wait", PAGE, "--no-status"])
+    why = (
+        f"card:{PAGE} no longer waits for the owner"
+        if stopped == "parked"
+        else f"{SLUG} is dropped: an ended task stays ended"
+    )
+    assert late == {"outcome": "refused", "pageID": PAGE, "said": why}
     terminal.outcome = None if ended == "closed" else "dismissed"
     words = ["close", PAGE] if ended == "closed" else ["wait", PAGE, "--no-status"]
     assert result(capsys, words)["outcome"] == ended

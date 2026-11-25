@@ -1,11 +1,13 @@
-"""Card answers of each mode, defaults, and the browser's outcome loop."""
+"""Shared card modules, answer modes, defaults, and the browser's outcome loop."""
 
+from importlib.util import find_spec
 from typing import TYPE_CHECKING, cast
 
 import pytest
 
-from lem.board.ask import body, form, verify
-from lem.board.ask.shape import Pick, Posted
+from lem.app.asking import form
+from lem.app.asking.shape import Pick, Posted
+from lem.board.ask import body, verify
 from lem.cli.ask import browser, preferences
 from lem.kernel.errors import Refusal
 from lem.settings.shared import Ask
@@ -15,6 +17,22 @@ if TYPE_CHECKING:
 
     from lem.cli.ask.answer import Words
     from lem.cli.ask.browser_http import BrowserServer
+
+
+def test_card_modules_live_in_the_shared_app_layer() -> None:
+    assert find_spec("lem.app.asking") is not None
+    for module in (
+        "ends",
+        "form",
+        "keys",
+        "overlay_read",
+        "receipts",
+        "saved",
+        "shape",
+        "updates",
+    ):
+        assert find_spec(f"lem.app.asking.{module}") is not None
+        assert find_spec(f"lem.board.ask.{module}") is None
 
 
 def test_tune_optional_text_and_multi_use_the_saved_form() -> None:

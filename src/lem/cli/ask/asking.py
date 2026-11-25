@@ -4,7 +4,7 @@ import os
 import sys
 from typing import TYPE_CHECKING
 
-from lem.board.ask import form, saved
+from lem.app.asking import form, saved
 from lem.cli.ask import browser, context, glyph, html, preferences, temp_pages, waiting
 from lem.cli.ask.spec import check
 from lem.kernel import errors

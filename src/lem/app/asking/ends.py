@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.board.ask import keys, receipts, saved, updates
+from lem.app.asking import keys, receipts, saved, updates
 from lem.kernel.errors import Refusal
 from lem.model.owner import answers
 from lem.records.journal import task as journal_entry
