@@ -459,14 +459,19 @@ def test_an_edit_of_lem_s_own_settings_gets_the_full_set_whatever_the_shape_says
     assert next_step(capsys, world)["result"]["step"] == "propose"
 
 
+@pytest.mark.parametrize("redirect", ["", " >&2"], ids=["stdout", "stderr"])
 def test_a_commit_hook_that_refuses_the_items_is_named_and_the_next_run_finds_them(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    redirect: str,
 ) -> None:
     world = made(tmp_path, monkeypatch)
     upto_review(capsys, world)
     hook = world.checkout / ".git" / "hooks" / "commit-msg"
     hook.write_text(
-        '#!/bin/sh\ngrep -q "^backlog: " "$1" || { echo "subject must start with backlog:" >&2; exit 1; }\n'
+        '#!/bin/sh\ngrep -q "^backlog: " "$1" || '
+        f'{{ echo "subject must start with backlog:"{redirect}; exit 1; }}\n'
     )
     hook.chmod(0o755)
     reviewed(capsys, world, outside=[OVER])
@@ -474,6 +479,7 @@ def test_a_commit_hook_that_refuses_the_items_is_named_and_the_next_run_finds_th
     assert refused["code"] == "commit"
     assert "subject must start with backlog:" in refused["why"]
     assert "never with --no-verify" in refused["fix"]
+    assert f"git -C {world.worktree} commit -m MESSAGE -- {HELD}" in refused["fix"]
     assert run_git(world.worktree, "diff", "--cached", "--name-only") == HELD
     run_git(
         world.worktree, "commit", "--quiet", "--message", "backlog: what the review saw"

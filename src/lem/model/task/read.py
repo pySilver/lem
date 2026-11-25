@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from lem.records.record import Record
     from lem.records.task import Shape, Status
 
-type Wait = Literal["criteria", "interview"]
+type Wait = Literal["criteria", "interview", "request"]
 
 READABLE = frozenset(("shaping", "queued"))
 ORDER_WAIT = "the order waits for the owner"
@@ -29,6 +29,7 @@ WAITS = MappingProxyType(
     {
         "criteria": "the criteria wait for the owner",
         "interview": "the interview waits for the owner",
+        "request": "the request waits for the owner",
     }
 )
 

@@ -10,9 +10,8 @@ from lem.adapters.git_cli_stops import ABSOLUTE, conflicted, rebase_folder, too_
 from lem.ports.faults import Unanswered
 from lem.ports.git_facts import Commit, Conflict, DiffStat, RebaseState
 
-# A field of `git log`'s line: the sha, the parents, the author's name, the subject, between
-# tabs.
-LOG = "--format=%H%x09%P%x09%an%x09%s"
+# The sha, parents, author and subject on one `git log` line, with NUL between fields.
+LOG_FIELDS = "%H%x00%P%x00%an%x00%s"
 # git's three-way merge with no write to a worktree, an index or a ref, the base as its first
 # side as a rebase applies them, and the files of a conflict by the names git wrote.
 MERGE_TREE = ("--write-tree", "--name-only", "-z", "--no-messages")
@@ -39,8 +38,11 @@ class History(Shell):
         return not ran.returncode
 
     def commits(self, where: Path, since: str, until: str) -> tuple[Commit, ...]:
-        listed = self.said(where, "log", "--reverse", LOG, f"{since}..{until}")
-        return tuple(commit_of(line) for line in listed.splitlines() if line)
+        found = self.output(
+            where, "log", "--reverse", f"--format={LOG_FIELDS}", f"{since}..{until}"
+        )
+        lines = found.decode().split("\n")
+        return tuple(commit_of(line) for line in lines if line)
 
     def diff_stat(self, where: Path, since: str, until: str) -> DiffStat:
         listed = self.said(where, "diff", "--numstat", since, until)
@@ -73,14 +75,13 @@ class Places(Shell):
         return self.said(where, "branch", "--show-current") or None
 
     def clean(self, where: Path, *, untracked: bool = True) -> bool:
-        files = "--untracked-files=normal" if untracked else "--untracked-files=no"
-        return not self.said(where, "status", "--porcelain", files)
+        return clean(self, where, untracked=untracked)
 
     def show(self, where: Path, rev: str, path: str) -> bytes | None:
         spec = f"{rev}:{path}"
         if self.tried(where, "cat-file", "-e", spec).returncode:
             return None
-        return self.blob(where, spec)
+        return self.output(where, "cat-file", "blob", spec)
 
     def rebase_state(self, where: Path) -> RebaseState | None:
         folder = rebase_folder(self, where)
@@ -99,8 +100,8 @@ class Places(Shell):
 
 
 def commit_of(line: str) -> Commit:
-    """One line of `LOG` as a commit."""
-    sha, parents, author, subject = line.split("\t", 3)
+    """One line of `LOG_FIELDS` as a commit."""
+    sha, parents, author, subject = line.split("\0", 3)
     return Commit(
         sha=sha, parents=tuple(parents.split()), author=author, subject=subject
     )
@@ -109,3 +110,9 @@ def commit_of(line: str) -> Commit:
 def counted(number: str) -> int:
     """A count of `--numstat`; a binary file's `-` counts no line."""
     return int(number) if number.isdigit() else 0
+
+
+def clean(shell: Shell, where: Path, *, untracked: bool = True) -> bool:
+    """Whether the worktree and index hold only what the commit holds."""
+    files = "--untracked-files=normal" if untracked else "--untracked-files=no"
+    return not shell.said(where, "status", "--porcelain", files)

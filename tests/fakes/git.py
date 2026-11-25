@@ -454,7 +454,7 @@ class ModelGit:
         place = self.worktree(worktree)
         if self.branches.get(place.branch) != expect:
             return GitRefused(said=f"the branch is not at {expect}")
-        if not self.clean(worktree, untracked=False):
+        if not self.clean(worktree):
             return GitRefused(said="the worktree has changes that no commit holds")
         self.branches[place.branch] = self.must(worktree, commit)
         self.lay(worktree, self.objects[self.branches[place.branch]].tree)

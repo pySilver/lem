@@ -35,19 +35,20 @@ def behind(task: Task, every: tuple[Record, ...]) -> Refusal | None:
     waits = waited(task, every)
     if not waits:
         return None
-    dropped = [after for after, status in waits if status == "dropped"]
-    if dropped:
-        return after_dropped(task.slug, dropped[0])
+    if any(status == "dropped" for _, status in waits):
+        return after_dropped(task, waits)
     return still_queued(task, waits)
 
 
-def after_dropped(slug: str, dropped: str) -> Refusal:
+def after_dropped(task: Task, waits: Waits) -> Refusal:
     """The refusal of a task queued after one that was dropped: the owner's word decides."""
+    slug = task.slug
+    ordered = sorted(waits, key=lambda pair: pair[1] != "dropped")
+    which = ", and ".join(map(described, ordered))
     return Refusal(
         "after-dropped",
-        f"{slug} is queued after {dropped}, which was dropped, so the result it waited "
-        f'for never came: it waits for the owner\'s word, "start {slug} now" or '
-        f"/lem drop {slug}",
+        f"{slug} is queued after {which}. A dropped task leaves it waiting for "
+        f'the owner\'s word, "start {slug} now" or /lem drop {slug}',
         f"on his word, {word(slug)}; on his drop, lem task move {slug} dropped",
     )
 

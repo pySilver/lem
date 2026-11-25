@@ -69,6 +69,49 @@ class TestGitCli(GitContract):
         return real_world(folder)
 
 
+@pytest.mark.parametrize("subject", ["change a", "change a\u2028with a note"])
+def test_history_keeps_tabs_in_the_author_and_line_separators_in_the_subject(
+    tmp_path: Path, subject: str
+) -> None:
+    author = "Ada\tLovelace"
+    world = real_world(tmp_path, {**git_env(), "GIT_AUTHOR_NAME": author})
+    where = task_worktree(world)
+    base = world.git.tip(where, "HEAD")
+    assert base is not None
+    write(where, {"a.txt": b"a\n"})
+    tip = world.git.commit(where, subject, ("a.txt",))
+    assert isinstance(tip, str), tip
+    commit_file(world, where, "b.txt", b"b\n")
+    commits = world.git.commits(where, base, "HEAD")
+    assert [(one.sha, one.author, one.subject) for one in commits] == [
+        (tip, author, subject),
+        (world.git.tip(where, "HEAD"), author, "change b.txt"),
+    ]
+    world.outside_commit("main", {"a.txt": b"a\n"})
+    world.git.fetch(where)
+    assert world.git.left_out(where, "origin/main", "HEAD") == commits[:1]
+
+
+def test_a_commit_refusal_uses_stdout_when_git_has_no_stderr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    world = real_world(tmp_path)
+    where = task_worktree(world)
+    write(where, {"a.txt": b"a\n"})
+    tried = git_cli_shell.Shell.tried
+
+    def refuse_commit(
+        shell: git_cli_shell.Shell, folder: Path, *args: str
+    ) -> subprocess.CompletedProcess[str]:
+        if args[0] == "commit":
+            return subprocess.CompletedProcess(args, 1, "use a backlog subject\n", "")
+        return tried(shell, folder, *args)
+
+    monkeypatch.setattr(git_cli_shell.Shell, "tried", refuse_commit)
+    refused = world.git.commit(where, "add a", ("a.txt",))
+    assert refused == GitRefused(said="use a backlog subject")
+
+
 def test_a_checkout_on_another_branch_at_the_same_commit_does_not_follow(
     tmp_path: Path,
 ) -> None:

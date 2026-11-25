@@ -102,6 +102,19 @@ def test_a_wait_is_the_owners_hold(tmp_path: Path, wait: Wait) -> None:
     assert hold.on == wait
 
 
+def test_the_read_command_records_a_request_hold(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    made(where, SLUG, status="shaping")
+    ran = lem(
+        "task", "read", SLUG, "--type", "fix", "--why", "the total is wrong",
+        "--track", "small", "--wait", "request", cwd=tmp_path,
+    )  # fmt: skip
+    assert ran.code == 0, ran.stdout + ran.stderr
+    hold = read(where, SLUG).task.hold
+    assert isinstance(hold, OwnerHold)
+    assert (hold.on, hold.line) == ("request", "the request waits for the owner")
+
+
 def test_after_names_another_task_of_the_workspace(tmp_path: Path) -> None:
     where = workspace(tmp_path)
     made(where, SLUG, status="shaping")

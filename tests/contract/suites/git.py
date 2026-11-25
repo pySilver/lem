@@ -242,6 +242,21 @@ class GitContract:
         assert world.git.branch_of(world.checkout) == "main"
         assert world.git.origin_url(world.checkout)
 
+    def test_an_update_push_sends_the_checked_commit_under_the_existing_lease(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        branch = "fix-the-login"
+        where = task_worktree(world, branch)
+        first = commit_file(world, where, "a.txt", b"first\n")
+        assert world.git.push(where, branch, None, commit=first) == first
+        checked = commit_file(world, where, "a.txt", b"checked\n")
+        later = commit_file(world, where, "a.txt", b"later\n")
+        assert world.git.push(where, branch, first, commit=checked) == checked
+        world.git.fetch(where)
+        assert world.git.remote_head(where, branch) == checked
+        assert world.git.tip(where, "HEAD") == later
+
     def test_a_clean_of_tracked_files_only_reads_past_an_untracked_file(
         self, tmp_path: Path
     ) -> None:
@@ -299,6 +314,18 @@ class GitContract:
         assert [one.author for one in ours] == ["Lem Test"]
         assert [one.author for one in outside] == ["A Teammate"]
 
+    def test_path_facts_name_the_files_that_git_can_read(self, tmp_path: Path) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        base = world.git.tip(where, "HEAD")
+        assert base is not None
+        path = "docs/backlog/less<than\na.md"
+        tip = commit_file(world, where, path, b"the item\n")
+        listed = world.git.files(where, tip, "docs/backlog")
+        changed = world.git.changed_paths(where, base, tip)
+        assert listed == changed == (path,)
+        assert world.git.show(where, tip, listed[0]) == b"the item\n"
+
     def test_the_commits_a_base_holds_already_by_their_patch_are_left_out(
         self, tmp_path: Path
     ) -> None:
@@ -348,3 +375,18 @@ class GitContract:
         assert isinstance(refused, GitRefused)
         assert "the hook says no" in refused.said
         assert world.git.tip(where, "HEAD") == before
+
+    def test_reset_refuses_to_replace_an_untracked_file(self, tmp_path: Path) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        before = world.git.tip(where, "HEAD")
+        assert before is not None
+        path = where / "README.md"
+        path.unlink()
+        removed = world.git.commit(where, "remove the readme", (path.name,))
+        assert isinstance(removed, str), removed
+        path.write_bytes(b"unsaved\n")
+        assert world.git.clean(where, untracked=False)
+        assert isinstance(world.git.reset(where, before, removed), GitRefused)
+        assert path.read_bytes() == b"unsaved\n"
+        assert world.git.tip(where, "HEAD") == removed

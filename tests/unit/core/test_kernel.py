@@ -87,27 +87,39 @@ def test_a_tried_lock_gives_none_while_held_and_the_lock_after(tmp_path: Path) -
 
 
 def test_a_group_stop_ends_what_the_command_left_behind(tmp_path: Path) -> None:
-    left = tmp_path / "left.pid"
+    child_script = (
+        "import signal, sys, time\n"
+        "def finish(*_):\n"
+        "    time.sleep(0.2)\n"
+        "    print('child done', flush=True)\n"
+        "    sys.exit(0)\n"
+        "signal.signal(signal.SIGTERM, finish)\n"
+        "print('child ready', flush=True)\n"
+        "signal.pause()\n"
+    )
     script = (
-        "import subprocess, sys, time\n"
-        "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
-        f"open({str(left)!r}, 'w').write(str(child.pid))\n"
-        "time.sleep(60)\n"
+        "import signal, subprocess, sys\n"
+        "signal.signal(signal.SIGTERM, lambda *_: None)\n"
+        "sys.exit(subprocess.call([sys.executable, '-c', sys.argv[1]]))\n"
     )
     proc = procs.start_group(
-        [sys.executable, "-I", "-c", script], tmp_path, dict(os.environ), None
+        [sys.executable, "-I", "-c", script, child_script],
+        tmp_path,
+        dict(os.environ),
+        subprocess.PIPE,
     )
     try:
-        while not left.exists() or not left.read_text():
-            assert proc.poll() is None
-        child = int(left.read_text())
+        assert proc.stdout is not None
+        assert proc.stdout.readline() == b"child ready\n"
         procs.stop_group(proc, 5, 5, whole_group=True)
         assert procs.group_gone(proc, 5)
-        assert gone(child)
+        assert proc.communicate(timeout=5)[0] == b"child done\n"
+        assert proc.returncode == 0
     finally:
         if proc.poll() is None:
-            os.killpg(proc.pid, signal.SIGKILL)
-            proc.wait()
+            procs.stop_group(proc, 5, 5, whole_group=True)
+        if proc.stdout is not None:
+            proc.stdout.close()
 
 
 def test_a_leader_that_ignores_a_term_gets_the_kill(tmp_path: Path) -> None:
