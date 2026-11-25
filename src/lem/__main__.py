@@ -1,6 +1,7 @@
 """The command `lem`: the version check, then the command tree on the arguments it was given.
 
-`help` and `version` answer first, and `doctor` whatever the versions. In a session whose
+`help` and `version` answer first, and `doctor` whatever the versions; the first word is read past
+the root's `--repo PATH`. In a session whose
 `session-start` hook named Lem's plugin in `LEM_PLUGIN_ROOT`, every other command refuses with
 the one line that names the half that is behind, when the plugin and this app are two versions
 (the design's part 5).
@@ -24,10 +25,21 @@ if TYPE_CHECKING:
 UNCHECKED = ("help", "--help", "-h", "version", "doctor")
 
 
+def first_word(argv: list[str]) -> str | None:
+    """The command's first word, past the root's `--repo PATH` or `--repo=PATH`."""
+    words = list(argv)
+    if words and words[0] == "--repo":
+        words = words[2:]
+    elif words and words[0].startswith("--repo="):
+        words = words[1:]
+    return words[0] if words else None
+
+
 def refusal(argv: list[str], environ: Mapping[str, str]) -> Envelope | None:
     """The refusal of a command whose session loaded a plugin of another version."""
     plugin = environ.get("LEM_PLUGIN_ROOT", "")
-    if not plugin or not argv or argv[0] in UNCHECKED:
+    first = first_word(argv)
+    if not plugin or first is None or first in UNCHECKED:
         return None
     line = versions.behind(plugin, str(paths.root()))
     if line is None:

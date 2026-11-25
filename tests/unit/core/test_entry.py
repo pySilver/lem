@@ -184,6 +184,13 @@ def test_a_plugin_of_another_version_stops_every_command_but_the_first_answers(
     }
     for first in ((), ("doctor",), ("version",), ("help",), ("-h",), ("--help",)):
         assert '"code":"version"' not in lem(*first, cwd=tmp_path, env=env).stdout
+    for repo in (("--repo", str(tmp_path)), (f"--repo={tmp_path}",)):
+        assert (
+            '"code":"version"' not in lem(*repo, "doctor", cwd=tmp_path, env=env).stdout
+        )
+        assert '"code":"version"' not in lem(*repo, cwd=tmp_path, env=env).stdout
+        behind = lem(*repo, "land", "checks", "fix-the-login", cwd=tmp_path, env=env)
+        assert '"code":"version"' in behind.stdout
     same = plugin_of(tmp_path / "same", own)
     agreed = {**os.environ, "LEM_PLUGIN_ROOT": str(same)}
     assert '"code":"version"' not in lem("land", cwd=tmp_path, env=agreed).stdout
