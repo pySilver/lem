@@ -65,15 +65,15 @@ class Delivery(Frozen, frozen=True, kw_only=True):
         )
 
 
-class Saved(Inbox, frozen=True, kw_only=True):
-    """The add-on's door and deliveries, or the flat view saved in a board fixture."""
+class Saved(Frozen, frozen=True, kw_only=True):
+    """The add-on's door and deliveries."""
 
-    door: Inbox | None = None
+    door: Inbox = Inbox()
     entries: tuple[Delivery, ...] = ()
+    problem: str | None = None
 
     def shown(self) -> Inbox:
-        if self.door is None:
-            return self
+        """The door and deliveries as the board shows them."""
         sent = tuple(entry.shown() for entry in self.entries)
         return msgspec.structs.replace(self.door, problem=self.problem, sent=sent)
 

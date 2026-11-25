@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.sessions import beside, handoff, log, opening, queued
+from lem.app.sessions import handoff, log, opening, queued
 from lem.app.sessions.phase import Phase, phase_noted
 from lem.kernel.errors import Refusal
 from lem.records.base import Frozen
@@ -78,7 +78,7 @@ def handed(here: Here, made: opening.Opened, old: str, ended: str) -> Handed:
             f"another session of {slug} runs already, {made.name} ({made.session})",
             f"this one closes with {close}",
         )
-    beside.looks(here.ports.terminal).rename(old, f"{slug} · handed off")
+    here.ports.terminal.rename(old, f"{slug} · handed off")
     return Handed(
         task=slug,
         session=made.session,

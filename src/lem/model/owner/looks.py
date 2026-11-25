@@ -47,10 +47,11 @@ class Stop(Frozen, frozen=True, kw_only=True):
 
 
 class MergeBasis(Frozen, frozen=True, kw_only=True):
-    """The workspace's last fetched base tree and current landing setting."""
+    """The workspace's last fetched base commit and tree, and its landing setting."""
 
     tree: Sha | None = None
     land: Literal["agent", "owner"] | None = None
+    base: Sha | None = None
 
 
 class Look(Frozen, frozen=True, kw_only=True):

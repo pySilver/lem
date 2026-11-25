@@ -5,6 +5,7 @@ by its method; the line of a merge on a moved base, covered or not (`landing.md`
 
 from datetime import timedelta
 
+import pytest
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
@@ -147,6 +148,28 @@ def test_an_empty_commit_on_the_base_is_no_move() -> None:
     found = reconcile.landed(opened(), facing(), onto, ("owner", "github", SAME))
     assert isinstance(found, Merged)
     assert (found.uncovered, found.text_updated, found.parent) == (None, True, OTHER)
+
+
+@pytest.mark.parametrize("tree", [TREE, MOVED_TREE], ids=["same tree", "safe read"])
+def test_an_owner_call_lands_with_a_warning_if_the_actual_parent_missed_checks(
+    tree: str,
+) -> None:
+    call = replace(INTENT, by="owner", via="board")
+    pull = replace(DONE, base_parent=MOVED)
+    record = opened(intent=call, reads=(SAFE,))
+    found = reconcile.reconciled(
+        record, facing(pull=pull), call, Trees(checks=TREE, parent=tree)
+    )
+    assert isinstance(found, Merged)
+    assert (found.by, found.via, found.base_checked, found.parent) == (
+        "owner",
+        "board",
+        BASE,
+        MOVED,
+    )
+    assert found.uncovered is not None
+    assert BASE[:9] in found.uncovered and MOVED[:9] in found.uncovered
+    assert not found.text_updated
 
 
 def test_the_queue_that_ends_keeps_githubs_words_and_a_waiting_one_is_refused() -> None:

@@ -3,9 +3,8 @@
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
-from lem.app.owner import looking, sessions
+from lem.app.owner import merge_bases, sessions
 from lem.kernel import clock
-from lem.model.owner.looks import MergeBasis
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -25,7 +24,7 @@ class Snapshot:
     records: tuple[Record, ...]
     listed: sessions.Listed | None
     unknown: str | None
-    basis: MergeBasis
+    bases: merge_bases.Bases
 
     def revision(self) -> str:
         """The session facts the views use, the reason they are unknown, and the base tree."""
@@ -34,8 +33,10 @@ class Snapshot:
             (slug, sessions.session_of(entry, entry.since, None, known=True))
             for slug, entry in sorted(showed.items())
         )
-        words = (visible, self.unknown, self.basis.tree)
-        return repr(words) if any(words) else ""
+        refs = tuple(sorted(self.bases.refs.items()))
+        if visible or self.unknown or refs:
+            return repr((visible, self.unknown, refs))
+        return ""
 
 
 def capture(
@@ -53,7 +54,7 @@ def capture(
         records=records,
         listed=None if unknown else listed,
         unknown=unknown,
-        basis=looking.basis_of(here, settings.branch, records),
+        bases=merge_bases.gathered(here, settings.branch, records),
     )
 
 
@@ -61,12 +62,10 @@ def with_files(
     found: Snapshot, settings: Effective, records: tuple[Record, ...]
 ) -> Snapshot:
     """Read a page with fresh files and the shared terminal and base facts."""
-    branch = settings.branch
-    tree = found.basis.tree if found.settings.branch.base == branch.base else None
     return replace(
         found,
         settings=settings,
         records=records,
         at=clock.now(),
-        basis=MergeBasis(tree=tree, land=branch.land),
+        bases=replace(found.bases, settings=settings.branch),
     )

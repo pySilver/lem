@@ -43,12 +43,12 @@ def differ_of(context: frame.Context, merged: Merged, tree: Sha) -> tuple[str, .
     return context.ports.git.diff_stat(context.worktree, merged, tree).paths
 
 
-def reviewed_of(context: frame.Context, tip: Sha) -> Merged:
-    """git's merge of the newest reviewed tip onto the base, when a review read another tip."""
+def reviewed_tip(context: frame.Context, tip: Sha) -> Sha | None:
+    """The newest reviewed tip, when a review read another tip."""
     review = carry.newest(context.record.landing or Landing())
     if review is None or review.tip == tip:
         return None
-    return merged_of(context, review.tip)
+    return review.tip
 
 
 def after(context: frame.Context, tip: Sha, merged: Merged) -> base.After:
@@ -57,13 +57,15 @@ def after(context: frame.Context, tip: Sha, merged: Merged) -> base.After:
     reviewed tip onto the base."""
     git, where = context.ports.git, context.worktree
     tree = git.tree(where, tip)
+    reviewed = reviewed_tip(context, tip)
     return base.After(
         tip=tip,
         tree=tree,
         ahead=len(git.commits(where, context.world.base, tip)),
         merged=merged,
         differ=differ_of(context, merged, tree),
-        reviewed=reviewed_of(context, tip),
+        reviewed=merged_of(context, reviewed),
+        reviewed_tip=reviewed,
         resolved=resolved_files(context, tip),
     )
 

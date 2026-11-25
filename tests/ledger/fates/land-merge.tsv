@@ -45,10 +45,10 @@ event:merge.refused	changed	journeys.landing.test_merge.test_a_moved_base_is_ref
 event:merge.review	changed	journeys.landing.test_merge.test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read	a typed journal entry ReadNoted with the MergeRead record
 event:merge.stands	changed	journeys.landing.test_merge.test_the_owners_merge_refused_for_the_base_stands_and_the_server_merges_it	the Standing record on the landing, which due() reads; no event
 event:merge.start	changed	journeys.landing.test_merge.test_a_cut_after_an_effect_of_a_merge_on_a_moved_base_does_nothing_twice[write:intent-1]	the MergeIntent written under the merge lock before the call takes its place
-event:merge.wait	changed	journeys.landing.test_merge.test_a_cut_after_an_effect_of_a_merge_on_a_moved_base_does_nothing_twice[merge-1]	a typed MergeWait journal entry with the slug that holds the lock (merge_lock.waits); no case holds two merges at once yet
+event:merge.wait	changed	journeys.landing.test_merge.test_a_merge_wait_names_the_task_that_holds_the_lock	a typed MergeWait journal entry with the slug that holds the lock (merge_lock.waits)
 path:base-checkout-cannot-follow	kept	journeys.landing.test_merge.test_a_main_checkout_that_cannot_follow_is_left_with_gits_words	
 path:base-moved-after-a-safe-read	kept	journeys.landing.test_merge.test_a_safe_read_covers_its_base_and_no_later_one	
-path:base-moved-open-pr	changed	journeys.landing.test_merge.test_the_owners_merge_refused_for_the_base_stands_and_the_server_merges_it	on a moved base the read of what moved is due first (C: no read covers the base now); the owner's own word is taken beside it and refused for the base, his merge standing; the merge agent's is not due
+path:base-moved-open-pr	changed	journeys.landing.test_merge.test_the_owners_merge_refused_for_the_base_stands_and_the_server_merges_it	the owner's approval stands through the rebase and checks on the new base
 path:clean-dirty	kept	journeys.landing.test_merge.test_a_dirty_worktree_is_not_cleaned	
 path:clean-dropped-or-answered	kept	journeys.landing.test_merge.test_a_dropped_or_answered_tasks_branch_stays_with_its_commits[dropped]	
 path:clean-landed	kept	journeys.landing.test_merge.test_a_branch_rebased_after_its_push_goes_when_it_holds_the_same_change	
@@ -59,7 +59,7 @@ path:github-refuses	kept	journeys.landing.test_merge.test_after_githubs_refusal_
 path:merge-on-github-between-look-and-call	kept	journeys.landing.test_merge.test_a_merge_on_github_between_the_look_and_the_call_lands_uncovered	
 path:merge-taken-text-not-updated	kept	journeys.landing.test_merge.test_a_failed_edit_of_the_text_leaves_it_waiting_and_merged_tries_again	
 path:no-answer	kept	journeys.landing.test_merge.test_no_answer_twice_is_an_unusable_answer_twice	
-path:owner-merge-refused-for-the-base	kept	journeys.landing.test_merge.test_the_owners_merge_refused_for_the_base_stands_and_the_server_merges_it	
+path:owner-merge-refused-for-the-base	changed	journeys.landing.test_merge.test_the_owners_merge_refused_for_the_base_stands_and_the_server_merges_it	the server uses the approval after the rebased tip passes the checks
 path:retarget-after-the-locked-read	kept	journeys.landing.test_merge.test_a_retarget_after_the_locked_read_is_no_landing_and_cleans_nothing	
 path:retarget-before-the-read	kept	journeys.landing.test_merge.test_a_retarget_before_the_merge_is_refused_with_the_edit_that_puts_it_back	
 path:stale-tap	kept	journeys.landing.test_merge.test_a_stale_tap_merges_nothing	
@@ -107,7 +107,7 @@ refusal:merge_locked:github-s-answer-for-the-pull-request-url-nam-eca4589b757399
 refusal:merge_locked:github-took-the-merge-and-the-pull-request-i-d730dbeac8f1663e	changed	journeys.landing.test_merge.test_a_queue_that_took_the_call_is_written_and_merged_handles_its_end	the queue's acceptance is written (MergeAccepted) and merge ends ok; merged is due
 refusal:merge_locked:no-green-check-is-on-record-for-this-tip-run-9ca62e47b05a8aac	kept	unit.landing.test_merge.test_a_merge_is_refused_on_the_evidence_read_again_under_the_lock[red checks]	
 refusal:merge_locked:no-merge-of-the-owner-s-stands-for-the-propo-029d5a1cc87d8fee	kept	unit.landing.test_merge.test_the_merge_as_asked_is_refused_and_no_intent_is_written[no standing]	
-refusal:merge_locked:onto-moved-after-the-checks-ran-by-files-lis-31207743aeef7b13	changed	journeys.landing.test_merge.test_the_owners_merge_refused_for_the_base_stands_and_the_server_merges_it	the move is by tree, not by files; the read of what moved is due first, and the owner's word on a moved base is refused base, naming merge-review
+refusal:merge_locked:onto-moved-after-the-checks-ran-by-files-lis-31207743aeef7b13	changed	journeys.landing.test_merge.test_the_owners_merge_refused_for_the_base_stands_and_the_server_merges_it	a different base commit refuses the approved merge until its rebased tip passes the checks
 refusal:merge_locked:onto-moved-after-the-checks-ran-by-files-lis-b6bc163785df863a	changed	journeys.landing.test_merge.test_a_read_that_says_another_round_makes_a_new_round_and_no_new_brief	after a read that said another round, start is due and merge is refused not-due
 refusal:merge_locked:onto-moved-after-the-checks-ran-by-files-lis-e78852339b972a06	changed	journeys.landing.test_merge.test_two_unusable_answers_on_a_moved_base_are_another_round	after another round recorded for want of an answer, start is due
 refusal:merge_locked:task-slug-has-no-pull-request-on-record-lem-e8aacada5d0b4f52	kept	unit.landing.test_merge.test_a_merge_is_refused_on_the_evidence_read_again_under_the_lock[no pull request]	

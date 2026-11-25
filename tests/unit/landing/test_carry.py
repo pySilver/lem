@@ -5,14 +5,25 @@ tip proposed before, as `land.tip_carry` and `land.moved_carry` on `main` anchor
 
 from datetime import timedelta
 
+import pytest
 from msgspec.structs import replace
 
-from lem.model.landing import carry, rebased, resolution, standing
+from lem.model.landing import (
+    base,
+    carry,
+    merge_standing,
+    proposal_carry,
+    rebased,
+    resolution,
+    standing,
+)
 from lem.model.landing.rebased import Clash
+from lem.records.landing.merge import Refused
 from lem.records.landing.propose import OwnerMerge, Standing
 from lem.records.landing.record import Landing
 from lem.records.landing.review import Finding
 from lem.records.landing.start import Resolution
+from unit.landing.merges import opened
 from unit.landing.worlds import (
     BASE,
     BASED,
@@ -101,6 +112,31 @@ def test_a_review_in_the_same_second_as_base_is_no_source_of_a_carry() -> None:
     assert not carry.covers(landing, NOW)
 
 
+def test_base_records_the_review_it_proved_in_the_same_second() -> None:
+    before = world(tip=TIP, base=MOVED, now=MOMENT)
+    after = base.After(
+        tip=NEW, tree=TREE, ahead=1, merged=TREE, reviewed=TREE, reviewed_tip=TIP
+    )
+    based = base.judged(before, after)
+    assert based.reviewed == TIP
+    landing = Landing(reviews=(REVIEWED,), based=based)
+    assert carry.source(landing, NOW) == TIP
+    new_review = replace(REVIEWED, attempt=2, tip=OTHER)
+    assert (
+        carry.source(replace(landing, reviews=(*landing.reviews, new_review)), NOW)
+        is None
+    )
+
+
+def test_a_second_clean_rebase_keeps_the_already_carried_proposal() -> None:
+    prior = replace(PROPOSED, tip=OTHER)
+    based = replace(CARRIED, before=OTHER)
+    landing = replace(MOVED_ON, proposed=prior, based=based)
+    assert carry.proposed_carries(landing, NOW)
+    unshown = replace(based, carried=False, unshown_paths=("a.txt",))
+    assert not carry.proposed_carries(replace(landing, based=unshown), NOW)
+
+
 def test_only_a_review_of_the_change_that_someone_answered_covers_it() -> None:
     silent = replace(REVIEWED, attempt=2, tip=OTHER, answered=())
     resolution_read = replace(REVIEWED, attempt=3, tip=OTHER, of="resolution")
@@ -156,6 +192,28 @@ RESOLVED = Landing(
     resolution=RESOLUTION,
     proposed=PROPOSED,
 )
+
+
+@pytest.mark.parametrize("red", [False, True], ids=["passed", "red then passed"])
+def test_a_nit_on_the_resolution_ends_approval_even_after_red_checks(
+    *, red: bool
+) -> None:
+    digest = merge_standing.digest_of(PROPOSED.reasons, PROPOSED.contract)
+    approval = Standing(tip=TIP, reasons_digest=digest, by_act="board", at=MOMENT)
+    nit = replace(MUST, level="nit", against=None)
+    refusal = Refused(
+        tip=NEW, source="lem", kind="rule", by="owner", line="red", at=MOMENT
+    )
+    record = opened(
+        resolution=RESOLUTION,
+        reviews=(REVIEWED, replace(RESOLUTION_READ, findings=(nit,))),
+        standing=approval,
+        refused=refusal if red else None,
+    )
+    proposed, _ = proposal_carry.judged(
+        record, NOW, replace(PROPOSED, tip=NEW, base=MOVED)
+    )
+    assert proposed.owner_merge is not None and proposed.owner_merge.state == "ended"
 
 
 def test_a_clean_read_of_a_resolution_carries_the_merge_read_and_the_owners_merge() -> (

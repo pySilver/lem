@@ -1,7 +1,6 @@
 """A fast-track repair with a criterion's test, with or without a builder's backlog item."""
 
 import shlex
-from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
 import pytest
@@ -135,10 +134,14 @@ def span_marks(world: World) -> list[tuple[str, str]]:
     ]
 
 
-@pytest.mark.skipif(
-    find_spec("lem.app.landing.checks_record") is None,
-    reason="the land-checks step supplies the criterion run, check spans, and polish refusal",
-)
+def assert_landed_tree(origin: Path, *, with_item: bool) -> None:
+    plans = run_git(origin, "ls-tree", "-r", "--name-only", "main", "--", "docs/plans")
+    assert plans == ""
+    assert run_git(origin, "show", "main:report.css") == "td { white-space: nowrap; }"
+    if with_item:
+        assert run_git(origin, "show", f"main:{ITEM}") == ITEM_BODY.decode().rstrip()
+
+
 @pytest.mark.parametrize("with_item", [False, True], ids=["clean", "with-item"])
 def test_the_fast_track_checks_its_criterion_once_and_lands(
     tmp_path: Path,
@@ -220,12 +223,7 @@ def test_the_fast_track_checks_its_criterion_once_and_lands(
     call(capsys, world, "land", "merged")
     assert world.record()["task"]["status"] == "landed"
     assert world.forge.merge_calls == [(pull["number"], checked["tip"])]
-    if with_item:
-        assert (
-            run_git(world.repo.origin, "show", f"main:{ITEM}")
-            == ITEM_BODY.decode().rstrip()
-        )
-    assert not (world.worktree / "docs/plans").exists()
+    assert_landed_tree(world.repo.origin, with_item=with_item)
     assert runs.read_text().splitlines() == [
         "ran with item" if with_item else "ran",
         "ran",

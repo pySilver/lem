@@ -5,8 +5,9 @@ from typing import TYPE_CHECKING
 
 from lem.app.landing import changes, checks_record
 from lem.model.criteria import contract
-from lem.model.landing import checks_said, phases
+from lem.model.landing import checks_said, merge_recheck, phases
 from lem.records.journal.landing import CheckEnd, CommandEnd
+from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
     from lem.app.landing.checks_verdict import Verdict
@@ -45,6 +46,14 @@ def kept(record: Record, *, world: World, verdict: Verdict, at: Moment) -> Recor
             raise refused
     end = end_of(record, world, verdict, at)
     changed = checks_record.checked(record, run=verdict.run, end=end)
+    refused = merge_recheck.red(
+        record.landing or Landing(),
+        verdict.run,
+        end,
+        code=None if verdict.refusal is None else verdict.refusal.code,
+    )
+    if refused is not None:
+        changed = changes.landing(changed, refused=refused)
     if not verdict.reshape:
         return changed
     slug = record.task.slug

@@ -6,8 +6,8 @@ The merge agent's merge refused by Lem's rules is kept for its tip (`Refused`), 
 tries that tip no more and the owner reads why. The owner's own word, for the tip he saw, refused
 because the base moved, is kept with his merge standing: it stands while the proposal's tip and
 the reasons it is not green, read again now, are the ones he saw, and the board's server carries
-it out after a safe read. Only his word makes a standing merge: a refusal of the merge agent's,
-of the server's or of his standing merge never does.
+it out after checks on the rebased change. Only his word makes a standing merge. The server
+can record that the base moved again for an approval that already stands.
 """
 
 from typing import TYPE_CHECKING, Literal
@@ -70,7 +70,9 @@ def standing_of(record: Record, world: World | None = None) -> Standing | None:
         return None
     if landing.standing.tip != landing.proposed.tip and judged is None:
         return None
-    now = digest_of(reasons_now(record, world), contract.mark(record.task))
+    running = landing.phase == "preparing" and landing.checked is None
+    reasons = landing.proposed.reasons if running else reasons_now(record, world)
+    now = digest_of(reasons, contract.mark(record.task))
     return landing.standing if now == landing.standing.reasons_digest else None
 
 
@@ -92,7 +94,8 @@ def refused_of(
     owner's own word for the base; None for any other, which keeps nothing."""
     proposed = record.landing.proposed if record.landing else None
     kind = kind_of(refusal.code)
-    keeps = asked.by == "merger" or (kind == BASE and word(asked))
+    approved = word(asked) or asked.standing
+    keeps = asked.by == "merger" or (kind == BASE and approved)
     if proposed is None or kind is None or not keeps:
         return None
     line = f"{refusal.why}; {refusal.fix}"

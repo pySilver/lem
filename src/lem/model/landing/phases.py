@@ -19,6 +19,7 @@ from lem.model.landing import (
     start,
 )
 from lem.model.landing.merge_evidence import seat_refusal
+from lem.model.landing.merge_recheck import due as recheck_due
 from lem.model.landing.mergeread import another_round, latest
 from lem.model.landing.world import Due, Held, World
 from lem.model.task import red_base
@@ -80,7 +81,7 @@ def pending(record: Record, world: World, landing: Landing) -> Due | None:
         and landing.proposed.tip == world.tip
     ):
         return Due(step="start", why=f"{checked.why}: a new round")
-    return left
+    return left or recheck_due(landing, world)
 
 
 def opened(record: Record, world: World) -> Due:

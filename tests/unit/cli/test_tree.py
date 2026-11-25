@@ -1,11 +1,7 @@
 """The command tree of `lem`: its help, its two tables, each leaf's words against its `Call`,
-the stubs' refusal, the exit codes of the envelope, `lem version`, and the tree as `tree.json`
-holds it.
+the exit codes of the envelope, `lem version`, and the tree as `tree.json` holds it.
 
-A leaf is a stub while its module uses `stub.not_built`; a step that fills it drops that import,
-and its own tests take the leaf over. No case here runs a filled leaf's `run`: a case that needs
-a call to reach a leaf puts a stand-in in the place of `run`. The count of the stubs left is the
-skip of `test_no_leaf_is_a_stub_any_more`, which `close` sees pass.
+A case that sends a call to a leaf puts a stand-in in the place of `run`.
 """
 
 import importlib
@@ -21,14 +17,11 @@ import msgspec
 import pytest
 
 from fakes import command
-from lem.cli import lazy, nouns, stub
+from lem.cli import lazy, nouns
 from lem.cli.group import LazyGroup
 from unit.cli import shapes
 
 ROOT = Path(__file__).resolve().parents[3]
-DESIGN = ROOT / "docs" / "plans" / "2026-11-25-lem-built-again.md"
-STEP_ROW = re.compile(r"^\| \d+ \| `([a-z-]+)` \|", re.MULTILINE)
-NOT_BUILT = re.compile(r"the step `([a-z-]+)` builds it")
 # What no leaf may load when it is imported: the board's, the add-ons' and the settings'
 # libraries, and the commands of another noun.
 HEAVY = ("starlette", "uvicorn", "jinja2", "httpx", "tomlkit", "psutil", "pywebpush")
@@ -48,21 +41,8 @@ def leaves() -> list[Leaf]:
     return found
 
 
-def is_stub(path: str) -> bool:
-    """Whether the leaf at PATH is still a stub: its module uses `stub.not_built`, which the
-    step that fills the leaf no longer imports (ruff refuses an import nobody uses)."""
-    return getattr(importlib.import_module(path), "not_built", None) is stub.not_built
-
-
 LEAVES = leaves()
 IDS = [" ".join(words) for words, _ in LEAVES]
-STUBS = [(words, path) for words, path in LEAVES if is_stub(path)]
-STUB_IDS = [" ".join(words) for words, _ in STUBS]
-
-
-def steps() -> set[str]:
-    """The step ids of the design's table "All steps, in order"."""
-    return set(STEP_ROW.findall(DESIGN.read_text(encoding="utf-8")))
 
 
 def called(capsys: pytest.CaptureFixture[str], *argv: str) -> tuple[int, str, str]:
@@ -70,38 +50,6 @@ def called(capsys: pytest.CaptureFixture[str], *argv: str) -> tuple[int, str, st
     code = lazy.main(list(argv))
     out, err = capsys.readouterr()
     return code, out, err
-
-
-def sample(param: click.Parameter) -> str:
-    """A word PARAM takes."""
-    if isinstance(param.type, click.Choice):
-        return str(param.type.choices[0])
-    if isinstance(param.type, click.types.IntParamType):
-        return "1"
-    if isinstance(param.type, click.types.FloatParamType):
-        return "1.5"
-    return "x"
-
-
-# The words a leaf needs beyond its required ones, for a rule of `cli/checks.py` or its own.
-CHECKED: dict[tuple[str, ...], list[str]] = {
-    ("rules",): ["--range", "main..HEAD"],
-    ("settings", "set"): ["--local"],
-    ("session", "wait"): ["--event", "builder.start"],
-    ("session", "handoff"): ["--check"],
-}
-
-
-def minimal(command: click.Command) -> list[str]:
-    """The fewest words COMMAND takes: one for each argument and option it requires."""
-    words: list[str] = []
-    for param in command.params:
-        if not param.required:
-            continue
-        if isinstance(param, click.Option):
-            words.append(shapes.long_flag(param))
-        words.append(sample(param))
-    return words
 
 
 def distinct(param: click.Parameter, number: int) -> str:
@@ -252,29 +200,6 @@ def test_no_option_takes_the_field_another_option_names_by_its_flag(
             f"{shapes.long_flag(option)} of `lem {' '.join(words)}` fills {option.name}, "
             "the field another option names by its flag"
         )
-
-
-@pytest.mark.parametrize(("words", "path"), STUBS, ids=STUB_IDS)
-def test_each_stub_refuses_not_built_and_names_a_step_of_the_plan(
-    capsys: pytest.CaptureFixture[str], words: tuple[str, ...], path: str
-) -> None:
-    command = importlib.import_module(path).COMMAND
-    argv = [*words, *minimal(command), *CHECKED.get(words, [])]
-    code, out, err = called(capsys, *argv)
-    assert (code, err) == (1, "")
-    envelope = json.loads(out)
-    assert envelope["ok"] is False
-    refusal = envelope["refusal"]
-    assert refusal["code"] == "not-built"
-    assert f"`lem {' '.join(words)}`" in refusal["why"]
-    named = NOT_BUILT.search(refusal["fix"])
-    assert named is not None
-    assert named.group(1) in steps()
-
-
-def test_no_leaf_is_a_stub_any_more() -> None:
-    if STUBS:
-        pytest.skip(f"{len(STUBS)} leaves are still stubs")
 
 
 @pytest.mark.parametrize(

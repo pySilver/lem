@@ -3,9 +3,7 @@ design's part 4).
 
 A test builds `Ports` from its fakes (`tests/fakes`), or replaces one port of the bound set
 (`dataclasses.replace`). The app binds each port to its first adapter with `bound`: the module
-named, imported only then, whose `bind(place)` gives the port. A port whose adapter is not built
-yet is `Unbound`, which refuses every call with a fault that names it, so that nothing runs on a
-port that is not there.
+named, imported only then, whose `bind(place)` gives the port.
 """
 
 import importlib
@@ -50,21 +48,9 @@ class Unbound:
         raise Fault(f"{name}: the port's adapter {self.module} is not built")
 
 
-def unbuilt(missing: str, module: str) -> bool:
-    """Whether the module that was not found is the adapter's own, or its package: a module
-    the adapter imports and lacks is a fault, never an unbound port."""
-    return missing.startswith("lem.") and f"{module}.".startswith(f"{missing}.")
-
-
 def adapter(module: str, place: Place) -> object:
-    """The adapter of `module` bound to `place`, or `Unbound` when the module is not built."""
-    try:
-        found = importlib.import_module(module)
-    except ModuleNotFoundError as missing:
-        if not unbuilt(missing.name or "", module):
-            raise
-        return Unbound(module)
-    return found.bind(place)
+    """The adapter of `module` bound to `place`."""
+    return importlib.import_module(module).bind(place)
 
 
 def bound(place: Place) -> Ports:

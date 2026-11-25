@@ -23,11 +23,10 @@ removal fails, the task stays open and the refusal names the file and `lem land 
 - `tests/journeys/landing/test_merge.py` (`land-merge`) checks that `lem land merged` removes the item after a Lem or GitHub merge and keeps it after a close without a merge.
 - `tests/ledger/fates/land-merge.tsv` (`land-merge`) adds proof rows for removal after a merge, an item already gone, and a failed removal that `lem land merged` can retry.
 
-## After `land-propose` and `addons-outside` join
+## Proposal history for the retro
 
-Round 2's finding 5 waits for both steps to join. The retro loses earlier green proposals when
-`app/landing/propose_made.py` replaces the latest proposal and journals only proposals with reasons.
-The fix belongs there. Write a journal entry for each proposal so the retro can read each one.
+`app/landing/propose_made.py` records every proposal as `ProposalNoted`, including green ones.
+The retro reads those entries to include earlier proposals.
 
 ## For `board-duties`: the naps in `lem prune`
 

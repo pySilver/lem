@@ -12,7 +12,7 @@ with the restart or the stop.
 
 from typing import TYPE_CHECKING, Literal
 
-from lem.app.sessions import beside, log
+from lem.app.sessions import log
 from lem.app.sessions.acts import Wake
 from lem.records.base import Frozen
 
@@ -44,7 +44,7 @@ def unheard_of(
     if (now - wake.at).total_seconds() < UNANSWERED_AFTER:
         return None
     line = f"lem: {slug} {wake.why}"
-    if beside.looks(here.ports.terminal).waiting(session, line):
+    if here.ports.terminal.waiting(session, line):
         return Unheard(why=wake.why, line="waits")
     return taken(wake, signs)
 

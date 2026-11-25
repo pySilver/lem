@@ -239,31 +239,32 @@ ACTS: tuple[tuple[str, tuple[Act, ...]], ...] = (
         ),
     ),
 )
-# The board server's record of what it sent to the owner's Inbox: the breaker of the gift note,
-# as `main`'s `lem_inbox.Watcher` writes it. A page shows it only while he is away.
+# The board server's record of what it sent to the owner's Inbox: the breaker of the gift note.
+# A page shows it only while he is away.
+INBOX_MESSAGE = "msg_01DEMOGIFTNOTEBREAKER1"
+INBOX_KEY = "breaker:gift-note-in-export:1:20261125T154000Z"
 INBOX = {
-    "running": True,
-    "url": "http://plannotator.localhost:50026/",
-    "tailnet_url": INBOX_TAILNET,
-    "why": None,
-    "said": "",
-    "problem": None,
-    "sent": [
+    "door": {
+        "running": True,
+        "url": "http://plannotator.localhost:50026/",
+        "tailnet_url": INBOX_TAILNET,
+    },
+    "entries": [
         {
-            "key": "breaker:gift-note-in-export:1:20261125T154000Z",
-            "task": "gift-note-in-export",
-            "kind": "breaker",
-            "form": "question",
-            "asks": True,
-            "session": "6f1c2a9e-demo",
-            "tip": None,
-            "message_id": "msg_01DEMOGIFTNOTEBREAKER1",
-            "thread_id": "msg_01DEMOGIFTNOTEBREAKER1",
-            "thread_url": (
-                "http://plannotator.localhost:50026/#thread=msg_01DEMOGIFTNOTEBREAKER1"
-            ),
-            "questions": ["q1"],
-            "woke": [],
+            "wait": {
+                "key": INBOX_KEY,
+                "task": "gift-note-in-export",
+                "kind": "breaker",
+                "since": "2026-11-25T15:40:00Z",
+                "asks": True,
+                "session": "6f1c2a9e-demo",
+            },
+            "key": INBOX_KEY,
+            "sent": {
+                "message_id": INBOX_MESSAGE,
+                "thread_id": INBOX_MESSAGE,
+                "url": f"http://plannotator.localhost:50026/#thread={INBOX_MESSAGE}",
+            },
         }
     ],
 }

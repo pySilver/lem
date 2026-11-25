@@ -5,17 +5,16 @@ what it needs in files it does not own.
 
 ## What the duties are
 
-`board/duties/runner.py` runs the seven duty paths of the design's part 2 in this order at each
-tick (20 s), for each workspace on the list but one whose state folder holds `demo`: `forge`,
-`merge`, `conflict`, `queue`, `guard`, `notify`, `prune`. Each is `tick(duty)` over a
+`board/duties/runner.py` runs six duty paths in this order at each tick (20 s), for each
+workspace on the list but one whose state folder holds `demo`: `forge`, `merge`, `conflict`,
+`queue`, `guard`, `prune`. Each is `tick(duty)` over a
 `context.Duty` (the workspace's name, a `Here` with its ports bound for the server's environment,
 the moment, and `memory.Kept`). A duty calls the `app` function of its command in this process;
 no `lem` subprocess runs. One failure costs no other (`seams.py`): the forge's is the board's
 problem "the board's look at GitHub failed: ...", another duty's "the board's duty NAME failed:
 ...", the prune's one line of the server's log.
 
-The end wake (`wake … merged`) is part of `conflict.py`, so that the runner keeps the seven paths
-that `tests/unit/board/test_slice.py` counts.
+The end wake (`wake … merged`) is part of `conflict.py`.
 
 ## For `board-views` and `board-pages`
 
@@ -44,9 +43,7 @@ that `tests/unit/board/test_slice.py` counts.
 
 ## For `board-service`
 
-- `duties/notify.py` is the path of the push of each new wait (`duty:push-new-waits`, yours). It
-  is a stub that does nothing; fill it, with `adapters/notify_push.py`. This step hands the file
-  to you.
+- The Push watcher in `board/life.py` handles each new wait (`duty:push-new-waits`).
 - `runner.tick(home, now=None)` and `runner.loop(home, stopping)` keep their places in
   `board/life.py`.
 

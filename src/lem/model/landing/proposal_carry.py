@@ -4,13 +4,27 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.model.landing import carry, merge_standing, standing
+from lem.model.landing import carry, merge_recheck, merge_standing, review, standing
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
     from lem.model.landing.world import World
     from lem.records.landing.propose import MergeRead, Proposed
     from lem.records.record import Record
+
+
+def repaired(record: Record, landing: Landing, world: World) -> bool:
+    """A builder's repair after red checks needs an answered review of the repaired change."""
+    if not merge_recheck.repair(landing):
+        return False
+    resolution, proposed = landing.resolution, landing.proposed
+    if (
+        resolution is not None
+        and proposed is not None
+        and resolution.before == proposed.tip
+    ):
+        return False
+    return not review.unmet(record, review.newest(landing), world)
 
 
 def resolved(landing: Landing, world: World) -> bool:
@@ -67,7 +81,9 @@ def judged(
     approval = standing.standing(
         landing,
         merge_standing.digest_of(proposed.reasons, proposed.contract),
-        carried=resolved_carry or carry.proposed_carries(landing, world),
+        carried=resolved_carry
+        or carry.proposed_carries(landing, world)
+        or repaired(record, landing, world),
     )
     why = (
         "The merge review carries after the read of the resolution."

@@ -4,7 +4,7 @@ version, the place, Lem's home, git's facts, and the terminal's list of sessions
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from lem.model.owner.looks import MergeBasis
+from lem.app.owner.merge_bases import Bases
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -28,7 +28,7 @@ class Ask:
     version: str
     place: Place
     home: Path
-    basis: MergeBasis = field(default_factory=MergeBasis)
+    bases: Bases = field(default_factory=Bases)
     git: Branches | None = None
     ledger: Ledger | None = None
     listed: Mapping[str, Listed] | None = None
