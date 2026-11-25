@@ -8,6 +8,9 @@ if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page, Request
 
 WAIT = 15000
+# Design part 8 gives the browser level three minutes. On main, a proposal
+# took over 15 seconds to arrive under load (confirm_checks, 2026-11-23).
+STREAM_WAIT = 180_000
 RECEIPT = "refund-line-on-receipt"
 STOCK = "stock-on-product-page"
 GIFT = "gift-note-in-export"

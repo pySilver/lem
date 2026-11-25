@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import uvicorn
 
+from browser.board_ui import STREAM_WAIT
 from fakes.forge import LocalForge
 from fakes.git import ModelGit
 from fakes.ports import fake_ports
@@ -56,7 +57,7 @@ class Terminal(FakeTerminal):
 
     def open(self, opening: Opening) -> str:
         self.requested.set()
-        if self.pause and not self.proceed.wait(20):
+        if self.pause and not self.proceed.wait(STREAM_WAIT / 1000 + 20):
             raise AssertionError("the browser case did not release the session open")
         return super().open(opening)
 

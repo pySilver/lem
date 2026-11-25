@@ -2,6 +2,7 @@
 
 import re
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 from msgspec.structs import replace
 from playwright.sync_api import expect
@@ -12,7 +13,7 @@ from browser.board_ui import (
     RECEIPT,
     ROUNDING,
     STOCK,
-    WAIT,
+    STREAM_WAIT,
     box,
     posts,
     visit,
@@ -133,7 +134,7 @@ def test_horizontal_keys_pass_folded_and_empty_columns(
 
     fold.click()
     move(board, "coupon-has-a-slug", "landed")
-    expect(page.locator("#col-checks article.tc")).to_have_count(0, timeout=WAIT)
+    expect(page.locator("#col-checks article.tc")).to_have_count(0, timeout=STREAM_WAIT)
     nearest = page.locator("#col-done article.tc").evaluate_all("""cards => {
       const mid = n => { const b = n.getBoundingClientRect(); return b.top + b.height / 2 }
       const center = mid(document.querySelector('#card-cart-total-after-coupon'))
@@ -229,10 +230,12 @@ def test_refresh_keeps_a_card_mark_until_the_card_moves(
         page.keyboard.press(key)
     marked(page, CART)
     seed(board, "keys-new-task", "The new card of the browser case")
-    expect(page.locator("#col-build #card-keys-new-task")).to_be_visible(timeout=WAIT)
+    expect(page.locator("#col-build #card-keys-new-task")).to_be_visible(
+        timeout=STREAM_WAIT
+    )
     marked(page, CART)
     move(board, CART, "landing")
-    expect(page.locator(f"#col-checks #card-{CART}")).to_be_visible(timeout=WAIT)
+    expect(page.locator(f"#col-checks #card-{CART}")).to_be_visible(timeout=STREAM_WAIT)
     expect(page.locator("#kanban [data-js-cur]")).to_have_count(0)
     page.keyboard.press("j")
     marked(page, first_in(page, "you"))
@@ -271,6 +274,9 @@ def test_waits_keys_move_and_open_without_approving_a_merge(
     wait_mark(page, merge)
     page.keyboard.press("Enter")
     panel(page, RECEIPT)
+    path = urlsplit(board.task(RECEIPT)).path
+    page.wait_for_url(lambda address: urlsplit(address).path == path)
+    expect(page.locator("#confirm")).to_have_count(0)
     assert not sent
     page.keyboard.press("Escape")
     expect(page.locator("#panel")).to_have_count(0)
@@ -293,10 +299,10 @@ def test_wait_mark_survives_a_new_interview_and_clears_when_the_row_leaves(
     )
     expect(
         page.locator("#waits-list article[data-task=keys-new-interview]")
-    ).to_be_visible(timeout=WAIT)
+    ).to_be_visible(timeout=STREAM_WAIT)
     expect(selected).to_have_id(previous)
     move(board, slug, "landed")
-    expect(page.locator(f"#{previous}")).to_have_count(0, timeout=WAIT)
+    expect(page.locator(f"#{previous}")).to_have_count(0, timeout=STREAM_WAIT)
     expect(selected).to_have_count(0)
     page.keyboard.press("j")
     wait_mark(page, page.locator("#waits-list > article, #waits-list > details").first)

@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 
 from playwright.sync_api import expect
 
-from browser.board_ui import RECEIPT, WAIT, box, visit
+from browser.board_ui import RECEIPT, STREAM_WAIT, WAIT, box, visit
 from browser.chromium import PHONE
 from browser.test_keys import panel, seed, wait_mark
 from fixtures.board import beside, make
@@ -157,9 +157,9 @@ def test_search_click_opens_a_backlog_item_and_a_refresh_preserves_the_query(
     seed(board, "fix-zip-output", "Fix zip output")
     seed(board, "a-card-from-the-stream", "A card from the stream")
     added = page.locator("#sr-task-a-card-from-the-stream")
-    expect(added).to_be_visible(timeout=WAIT)
+    expect(added).to_be_visible(timeout=STREAM_WAIT)
     excluded = page.locator("#sr-task-fix-zip-output")
-    expect(excluded).to_be_attached(timeout=WAIT)
+    expect(excluded).to_be_attached(timeout=STREAM_WAIT)
     expect(excluded).to_have_attribute("data-js-out", "")
     expect(excluded).to_be_hidden()
     expect(page.locator(QUERY)).to_have_value("card")
@@ -297,7 +297,9 @@ def test_start_from_backlog_reaches_the_new_task_after_the_stream_refresh(
     visit(page, f"{board.url}/backlog", "#backlog")
     item = page.locator("#item-invoice-footer-wraps")
     item.locator("summary").click()
-    expect(page.locator("#status .st-live")).to_contain_text("live")
+    expect(page.locator("#status .st-live")).to_contain_text(
+        "live", timeout=STREAM_WAIT
+    )
     page.evaluate("""document.addEventListener('turbo:before-stream-render', event => {
       if (event.detail.newStream?.action === 'refresh') {
         queueMicrotask(() => { window.heldBacklogRefresh = event.defaultPrevented })
@@ -310,7 +312,9 @@ def test_start_from_backlog_reaches_the_new_task_after_the_stream_refresh(
         backlog_item(
             board, "browser-refresh", "This item arrives while the start waits"
         )
-        page.wait_for_function("window.heldBacklogRefresh === true", timeout=WAIT)
+        page.wait_for_function(
+            "window.heldBacklogRefresh === true", timeout=STREAM_WAIT
+        )
         expect(page.locator("#item-browser-refresh")).to_have_count(0)
         expect(item).to_have_attribute("open", "")
     finally:

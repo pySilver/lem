@@ -1,4 +1,4 @@
-"""Render the complete keyboard guide for Tasks and Waits."""
+"""Render the complete keyboard guides for the board."""
 
 from msgspec.structs import replace
 
@@ -35,3 +35,9 @@ def test_the_key_lines_put_a_middle_dot_between_actions() -> None:
     ):
         found = Parsed(section("page.html", page)).root.one(id_=identity)
         assert found.words() == words
+
+
+def test_the_search_key_line_puts_a_middle_dot_between_actions() -> None:
+    page = Page(frame=frame.FRAME, tasks=columns.TASKS)
+    found = Parsed(section("page.html", page)).root.one(id_="search-keys")
+    assert found.words() == "↑ ↓ move · Enter open · Esc close"

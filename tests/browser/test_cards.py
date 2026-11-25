@@ -7,7 +7,7 @@ import pytest
 from msgspec.structs import replace
 from playwright.sync_api import expect
 
-from browser.board_ui import ROUNDING, WAIT, in_screen, posts, visit
+from browser.board_ui import ROUNDING, STREAM_WAIT, in_screen, posts, visit
 from browser.chromium import PHONE
 from fixtures.board.working import CARD, CARD_PROMPT
 from lem.app import wiring
@@ -184,7 +184,7 @@ def test_waits_opens_the_phone_card_and_records_only_an_option_with_its_note(
     assert accepted.value.ok
     expect(card.locator(".hd-done")).to_contain_text(SUCCESS)
     check_rounding_answer(cards, note)
-    expect(row).to_have_count(0, timeout=WAIT)
+    expect(row).to_have_count(0, timeout=STREAM_WAIT)
     assert page.evaluate("window.waitsPage") is True
 
 

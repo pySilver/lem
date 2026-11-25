@@ -7,7 +7,17 @@ from urllib.parse import parse_qs
 from msgspec.structs import replace
 from playwright.sync_api import expect
 
-from browser.board_ui import GIFT, RECEIPT, STOCK, WAIT, box, in_screen, posts, visit
+from browser.board_ui import (
+    GIFT,
+    RECEIPT,
+    STOCK,
+    STREAM_WAIT,
+    WAIT,
+    box,
+    in_screen,
+    posts,
+    visit,
+)
 from browser.chromium import PHONE
 from fakes.repo import RealRepo, git_env, run_git
 from fixtures.board.moments import NOW, sha
@@ -31,9 +41,6 @@ if TYPE_CHECKING:
 
 SHORT_PHONE = (390, 664)
 SMALL_PHONE = (390, 400)
-# Design part 8 gives the browser level three minutes. On main, a proposal
-# took over 15 seconds to arrive under load (confirm_checks, 2026-11-23).
-STREAM_WAIT = 180_000
 CONFIRM = "#confirm"
 APPROVAL = "#approve-criteria"
 GATE = "Read to the end ↓"
@@ -365,7 +372,9 @@ def test_the_phone_folds_the_header_and_the_board_rejects_stale_merge_state(
     )
     forge.tick(duty)
     assert board.record(RECEIPT).task.status == "dropped", duty.kept.problems
-    expect(phone.locator("#p-head .pill")).to_contain_text("Dropped", timeout=WAIT)
+    expect(phone.locator("#p-head .pill")).to_contain_text(
+        "Dropped", timeout=STREAM_WAIT
+    )
     expect(phone.locator("#p-head .p-acts a").filter(has_text="Merge")).to_have_count(0)
     assert not board.forge.merge_calls
 
