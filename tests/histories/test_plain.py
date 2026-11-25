@@ -41,7 +41,7 @@ def test_a_fast_task_lands_from_ready_through_each_step_to_its_end() -> None:
     story.merge(BY_MERGER)
     assert story.calls[-1] == f"merge squash {TIP}"
     story.forge_merged()
-    assert story.due().step == "merge"
+    assert story.due().step == "merged"
     story.reconcile()
     assert (story.landing.phase, story.record.task.status) == ("merged", "open")
     assert story.due().step == "merged"

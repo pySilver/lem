@@ -82,8 +82,8 @@ def test_a_merge_call_cut_off_before_its_record_is_reconciled_and_never_called_t
     story.merge(BY_MERGER)
     story.forge_merged()
     found = story.due()
-    assert (found.step, found.by) == ("merge", "merger")
-    assert found.why == "a merge call is on record: it is reconciled first"
+    assert (found.step, found.by) == ("merged", None)
+    assert found.why == "the forge took the merge, or ended the request"
     story.reconcile()
     merged = story.landing.merged
     assert merged is not None
