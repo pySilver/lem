@@ -203,3 +203,16 @@ def test_the_start_holds_while_its_round_started_and_the_worktree_lands() -> Non
     assert isinstance(start.holds(task(**PREPARED), world(clean=False)), Due)
     assert isinstance(start.holds(task(**PREPARED), world(rules=BARE)), Due)
     assert isinstance(start.holds(task(**PREPARED), world()), Held)
+
+
+def test_a_ready_task_with_its_round_started_is_due_to_start_again() -> None:
+    back = task("ready", **PREPARED)
+    assert start.holds(back, world()).why == (
+        "the task came back ready: its landing goes on"
+    )
+
+
+def test_a_rebase_in_progress_is_no_dirty_worktree_for_start() -> None:
+    moving = world(clean=False, rebasing=True)
+    assert start_said.unready(task("ready"), moving) is None
+    assert isinstance(start.holds(task(**PREPARED), moving), Held)
