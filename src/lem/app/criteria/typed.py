@@ -84,7 +84,8 @@ def typed(folder: Path, slug: str, words: str) -> Answered:
             "--words: his note, what the criteria say",
         )
     here = where.here_of(folder, slug)
-    return written(here.workspace.state, slug, partial(answering, here, note))
+    with here.held():
+        return written(here.workspace.state, slug, partial(answering, here, note))
 
 
 def asking(here: where.Here, record: Record) -> tuple[Change, Again]:
@@ -106,4 +107,5 @@ def asking(here: where.Here, record: Record) -> tuple[Change, Again]:
 def unchanged(folder: Path, slug: str) -> Again:
     """`lem criteria change SLUG --unchanged`."""
     here = where.here_of(folder, slug)
-    return written(here.workspace.state, slug, partial(asking, here))
+    with here.held():
+        return written(here.workspace.state, slug, partial(asking, here))

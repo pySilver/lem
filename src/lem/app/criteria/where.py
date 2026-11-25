@@ -13,15 +13,19 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from lem.app.tasks import where
+from lem.kernel import locks
 from lem.kernel.errors import Refusal
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
+    from contextlib import AbstractContextManager
+    from io import TextIOWrapper
     from pathlib import Path
 
     from lem.records.record import Record
 
 NAME = "criteria.md"
+LOCK = "criteria.lock"
 PLANS = "docs/plans"
 DAY = r"\d{4}-\d{2}-\d{2}"
 
@@ -48,6 +52,12 @@ class Here:
     def worktree(self) -> Path:
         """The task's worktree, which nothing here makes."""
         return self.workspace.lem / where.WORKTREES / self.slug
+
+    def held(self) -> AbstractContextManager[TextIOWrapper]:
+        """The task's criteria lock, which a change of its criteria and an approval of them
+        hold over their write of the record and of `criteria.md` (`criteria.lock` on
+        `main`): of two at one time, one ends before the other reads."""
+        return locks.held(self.folder / LOCK)
 
     def read(self) -> Record:
         """The task's record."""

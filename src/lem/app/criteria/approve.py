@@ -9,18 +9,17 @@ task's `criteria.md`; `--read` the lead's freeze of the plan's criteria after a 
 
 from dataclasses import dataclass
 from functools import partial
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lem.app.criteria import mode, show, stopped, texts, where
 from lem.app.decisions.writing import Change, written
 from lem.kernel import clock
-from lem.kernel.errors import Refusal
 from lem.model.criteria import approve, digest
 from lem.model.criteria.read import sheet_of
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
+    from lem.model.criteria.yes import Via
     from lem.records.approvals import Approval, ApprovedBy
     from lem.records.record import Record
 
@@ -29,24 +28,15 @@ THE_CRITERIA = "the criteria approved"
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Asked:
-    """An approval as the command asks it: by whom, the file (None: the task's own), and the
-    mark of the bytes his page showed."""
+    """An approval as the command or the board asks it: by whom, the file (None: the task's
+    own), the mark of the bytes his page showed, the question that page answered (the board
+    gives it), and where his yes was given."""
 
     by: ApprovedBy
     path: Path | None = None
     shown: str | None = None
-
-
-def unchanged_since(path: Path, raw: bytes, shown: str | None) -> None:
-    """Refuse a file whose bytes are not the ones his page showed."""
-    if shown is None or digest.shown(raw) == shown:
-        return
-    raise Refusal(
-        "shown-changed",
-        f"{path.name} changed since the page showed it (the page showed {shown}): nothing "
-        "was approved",
-        "read the criteria again, then approve",
-    )
+    question: str | None = None
+    via: Via = "session"
 
 
 def make(
@@ -54,7 +44,7 @@ def make(
 ) -> tuple[Change, Approval]:
     """The approval of the file `path` for the record as it is, and what it approves."""
     raw = texts.bytes_of(path, THE_CRITERIA)
-    unchanged_since(path, raw, asked.shown)
+    stopped.unchanged_since(path, raw, asked.shown)
     stopped.unmoved(here, record, raw, path)
     approving = approve.Asked(
         by=asked.by,
@@ -62,6 +52,9 @@ def make(
         alone=mode.alone(record),
         other=mode.not_his(record),
         plan=asked.by in {"read", "alone"},
+        question=asked.question,
+        via=asked.via,
+        shown=digest.shown(raw),
     )
     now = clock.now()
     change = partial(approve.approved, asked=approving, now=now)
@@ -73,7 +66,8 @@ def approved(folder: Path, slug: str, asked: Asked) -> Approval:
     here = where.here_of(folder, slug)
     path = asked.path
     if asked.by == "read":
-        path, _ = show.source(here, here.read())
+        path = Path(show.shown_of(here, here.read()).plan)
     elif path is None:
         path = here.sheet
-    return written(here.workspace.state, slug, partial(make, here, asked, path))
+    with here.held():
+        return written(here.workspace.state, slug, partial(make, here, asked, path))

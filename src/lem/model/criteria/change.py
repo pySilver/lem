@@ -31,8 +31,9 @@ TAKE = "take that answer, and say in one line which answer was taken and from wh
 
 def changeable(task: Task, size: Size | None) -> Refusal | None:
     """Why the criteria of `task`, whose file says `size`, take no change from his note now:
-    they wait for no yes, an approval came after the wait began, the standard track has an
-    approval, or the task is on the fast track."""
+    they wait for no yes (his yes ended the wait), the standard track has an approval, or the
+    task is on the fast track. An answer of his to the wait itself is its question's
+    (`no_first`), so an approval in the second the task began to wait answers nothing."""
     slug, hold = task.slug, waits.hold_of(task)
     approvals = task.criteria.approvals
     kept = approvals[-1] if approvals else None
@@ -42,13 +43,6 @@ def changeable(task: Task, size: Size | None) -> Refusal | None:
             f"the criteria of {slug} do not wait for the owner's yes",
             "a change from his note is made while the interview's criteria, or a wait of "
             "the criteria, are held for his yes",
-        )
-    if kept is not None and kept.at >= hold.since:
-        return Refusal(
-            FIRST,
-            f"approval {kept.number} (by {kept.by}, at {kept.at}) came after the wait he "
-            "answered, and the first answer counts: nothing was changed",
-            f"the task goes on from that approval; {TAKE}",
         )
     if kept is not None and kept.size == "full":
         return Refusal(

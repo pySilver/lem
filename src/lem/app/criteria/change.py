@@ -33,6 +33,7 @@ def changing(here: where.Here, words: str, text: str, record: Record) -> Made:
     again = note.resumed(task, digest.shown(text.encode()))
     if not again:
         raw = texts.bytes_of(here.sheet, "the criteria that wait for his yes")
+        stopped.unmoved(here, record, raw, here.sheet)
         answered = texts.text_of(raw, here.sheet)
         task = note.fresh(task, (answered, text), words, clock.now())
     said = note.shown_of(task, str(here.sheet), text, again=again)
@@ -50,8 +51,9 @@ def changed(folder: Path, slug: str, path: Path, words: str) -> note.Shown:
         )
     text = texts.text_of(texts.bytes_of(path, "the changed criteria"), path)
     here = where.here_of(folder, slug)
-    said = written(here.workspace.state, slug, partial(changing, here, note, text))
-    files.write_whole(here.sheet, text.encode())
+    with here.held():
+        said = written(here.workspace.state, slug, partial(changing, here, note, text))
+        files.write_whole(here.sheet, text.encode())
     return said
 
 

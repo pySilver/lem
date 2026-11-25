@@ -30,3 +30,15 @@ def unmoved(here: Here, record: Record, raw: bytes, path: Path) -> None:
         f'lem criteria change {here.slug} --file FILE --words "HIS NOTE" again with the same '
         "file ends the change; then put the criteria to him again",
     )
+
+
+def unchanged_since(path: Path, raw: bytes, shown: str | None) -> None:
+    """Refuse a file whose bytes are not the ones his page showed."""
+    if shown is None or digest.shown(raw) == shown:
+        return
+    raise Refusal(
+        "shown-changed",
+        f"{path.name} changed since the page showed it (the page showed {shown}): nothing "
+        "was approved",
+        "read the criteria again, then approve",
+    )
