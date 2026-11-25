@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from lem.kernel import clock, release
 from lem.model.task import release as rule
+from lem.records.holds import ReleaseHold
 from lem.store import tasks
 
 if TYPE_CHECKING:
@@ -26,8 +27,9 @@ def checked(state: Path, slug: str, *, ends: bool = False) -> Record:
     running = release.running()
     if not rule.stops(record, running, rule.BEFORE):
         return record
-    change = partial(rule.held, running=running, now=clock.now())
-    record = tasks.update(state, slug, change, record.revision)
+    if not isinstance(record.task.hold, ReleaseHold):
+        change = partial(rule.held, running=running, now=clock.now())
+        record = tasks.update(state, slug, change, record.revision)
     if not ends:
         raise rule.refusal(record)
     return record

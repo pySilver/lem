@@ -6,7 +6,7 @@ import subprocess
 import sys
 import threading
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import pytest
 from msgspec.structs import replace
@@ -21,18 +21,21 @@ from lem.kernel.errors import Refusal
 from lem.model.task import ending, table
 from lem.ports.forge_facts import Pull
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
+from lem.records.journal.task import StateNoted
 from lem.records.landing.propose import Proposed, Standing
 from lem.records.landing.record import Landing
 from lem.records.landing.record import Pull as LandingPull
 from lem.records.landing.review import Reviewed
 from lem.records.work import Investigation
 from lem.store import steps, tasks
-from unit.task.spaces import made, read, workspace
+from unit.task.spaces import last_line, made, read, result, workspace
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.records.task import Status
+
+    type PullState = Literal["open", "closed", "merged"]
     from lem.store.places import Workspace
 
 SHA = "a" * 40
@@ -46,10 +49,10 @@ def moved(
     return move.moved(where.checkout, SLUG, status, lines, start_over)
 
 
-def refusal(where: Workspace, status: Status, **kwargs: object) -> str:
+def refusal(where: Workspace, status: Status, start_over: str | None = None) -> str:
     """The code of the refusal of a move of `SLUG` to `status`."""
     with pytest.raises(Refusal) as refused:
-        moved(where, status, **kwargs)
+        moved(where, status, start_over=start_over)
     return refused.value.code
 
 
@@ -75,7 +78,9 @@ def test_each_move_of_the_table_is_taken_and_journaled(
     made(where, SLUG, status=was)
     assert moved(where, status, "the lead's line").status == status
     record = read(where, SLUG)
-    assert (record.task.status, record.journal[-1].line) == (status, "the lead's line")
+    entry = record.journal[-1]
+    assert isinstance(entry, StateNoted)
+    assert (record.task.status, entry.line) == (status, "the lead's line")
 
 
 @pytest.mark.parametrize(
@@ -223,11 +228,11 @@ def test_the_flag_writes_the_line_under_why_and_a_plain_ready_has_none(
     where = workspace(tmp_path)
     made(where, SLUG, status="landing")
     moved(where, "ready", start_over="the checks' record is broken")
-    line = read(where, SLUG).journal[-1].line
+    line = last_line(where, SLUG)
     assert line == f"{ending.START_OVER}: the checks' record is broken"
     made(where, "plain", status="building")
     move.moved(where.checkout, "plain", "ready", ("the report is written",))
-    assert read(where, "plain").journal[-1].line == "the report is written"
+    assert last_line(where, "plain") == "the report is written"
     assert refusal(where, "building", start_over="why") == "start-over"
 
 
@@ -259,7 +264,7 @@ def test_a_drop_of_a_task_two_releases_back_keeps_the_stop_for_the_resume(
     assert isinstance(read(where, SLUG).task.hold, ReleaseHold)
 
 
-def forge_with(where: Workspace, state: str, base: str = "main") -> LocalForge:
+def forge_with(where: Workspace, state: PullState, base: str = "main") -> LocalForge:
     """A forge whose pull request 7 is `state` on `base`."""
     pull = Pull(
         number=7,
@@ -278,7 +283,7 @@ def forge_with(where: Workspace, state: str, base: str = "main") -> LocalForge:
     [("merged", "main", False), ("open", "main", True), ("merged", "other", True)],
 )
 def test_only_a_merge_into_the_tasks_base_defeats_the_drop(
-    tmp_path: Path, state: str, base: str, *, dropped: bool
+    tmp_path: Path, state: PullState, base: str, *, dropped: bool
 ) -> None:
     where = workspace(tmp_path)
     pull = LandingPull(number=7, url="u", title="t")
@@ -347,8 +352,8 @@ def test_the_command_drops_with_the_owners_reason(tmp_path: Path) -> None:
     where = workspace(tmp_path)
     made(where, SLUG, status="building")
     ran = lem("task", "move", SLUG, "dropped", "--line", "not wanted", cwd=tmp_path)
-    assert ran.result() == {"slug": SLUG, "was": "building", "status": "dropped"}
-    assert read(where, SLUG).journal[-1].line == "not wanted"
+    assert result(ran) == {"slug": SLUG, "was": "building", "status": "dropped"}
+    assert last_line(where, SLUG) == "not wanted"
 
 
 def test_the_table_is_the_designs() -> None:

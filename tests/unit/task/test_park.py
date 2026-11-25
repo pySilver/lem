@@ -18,7 +18,7 @@ from lem.records.journal.task import Summary
 from lem.records.task import Shape
 from lem.records.tickets import Ticket
 from lem.store import places, tasks
-from unit.task.spaces import made, read, workspace
+from unit.task.spaces import made, read, result, said, workspace
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -252,9 +252,9 @@ def test_the_command_parks_and_resumes(tmp_path: Path) -> None:
     where = workspace(tmp_path)
     made(where, SLUG, status="queued")
     parked = lem("task", "park", SLUG, "--why", "after the release", cwd=tmp_path)
-    assert parked.result()["resumed"] == "parked"
+    assert result(parked)["resumed"] == "parked"
     again = lem("task", "resume", SLUG, cwd=tmp_path)
-    assert again.envelope()["say"].endswith("from where it was put aside")
+    assert said(again).endswith("from where it was put aside")
     assert read(where, SLUG).task.hold is None
 
 

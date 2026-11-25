@@ -4,6 +4,7 @@ on from."""
 
 from typing import TYPE_CHECKING
 
+import msgspec
 import pytest
 
 from fakes.command import lem
@@ -12,7 +13,7 @@ from lem.app.tasks import open as opening
 from lem.app.tasks.opening import Asked
 from lem.kernel.errors import Refusal
 from lem.records.tickets import Ticket, TicketStep
-from unit.task.spaces import SETTINGS, made, read, workspace
+from unit.task.spaces import SETTINGS, made, read, refusal, result, workspace
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -23,9 +24,9 @@ GITHUB = f'{SETTINGS}[tracker]\nkind = "github"\n'
 LINEAR = f'{SETTINGS}[tracker]\nkind = "linear"\n'
 
 
-def opened(where: Workspace, slug: str = "gift-note", **words: object) -> str:
+def opened(where: Workspace, slug: str = "gift-note", **words: str | bool) -> str:
     """Open `slug` with `words` over the owner's plain ask; its status."""
-    asked = Asked(slug=slug, ask="add a gift note", **words)
+    asked = msgspec.convert({"slug": slug, "ask": "add a gift note", **words}, Asked)
     return opening.opened(where.checkout, asked).status
 
 
@@ -212,7 +213,7 @@ def test_outside_a_repository_the_open_is_refused_and_nothing_is_made(
 ) -> None:
     ran = lem("task", "open", "gift-note", "--ask", "add a gift note", cwd=tmp_path)
     assert ran.code == 1
-    assert ran.envelope()["refusal"]["code"] == "no-repository"
+    assert refusal(ran)["code"] == "no-repository"
     assert list(tmp_path.iterdir()) == []
 
 
@@ -225,4 +226,4 @@ def test_from_a_tasks_worktree_the_state_is_the_main_checkouts(tmp_path: Path) -
     worktree.mkdir(parents=True)
     (worktree / ".git").write_text(f"gitdir: {git}\n", encoding="utf-8")
     ran = lem("task", "open", "other", "--ask", "add a gift note", cwd=worktree)
-    assert ran.result()["folder"] == str(where.state / "tasks" / "other")
+    assert result(ran)["folder"] == str(where.state / "tasks" / "other")
