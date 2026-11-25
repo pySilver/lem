@@ -1,61 +1,92 @@
-"""The unit level as a suite of tests/all.sh: `.venv/bin/python -B tests/unit`.
+"""Run the unit level with the line protocol of tests/all.sh.
 
-It runs what `.venv/bin/python -B -m unittest discover -s tests/unit` runs, on the app's
-own Python, the checkout's .venv that `uv sync` makes, and refuses another, and prints it in the form every
-suite prints (tests/checks.sh): `collected N`, then one line for each case, `ok   ID`, `FAIL ID: WHY`
-or `SKIP ID: WHY`, then the traceback of each case that failed. One unittest case is one check. The
-exit is 1 when a case failed or the lines do not add up to the cases collected: a case whose
-subtest failed prints no line of its own, so its count does not add up.
+Use `.venv/bin/python -I -B tests/unit [SELECTOR]` for isolated runs, because a unit file run by its path uses the caller's environment.
 """
 
+import os
+import signal
+import subprocess
 import sys
-import unittest
+import tempfile
+from contextlib import suppress
 from pathlib import Path
-from types import TracebackType
 
 HERE = Path(__file__).resolve().parent
-# the checkout's .venv, the one Python the unit level runs on
-VENV = HERE.parents[1] / ".venv"
-# what unittest hands a result for a case that failed: sys.exc_info()'s form
-ExcInfo = (
-    tuple[type[BaseException], BaseException, TracebackType] | tuple[None, None, None]
-)
+ROOT = HERE.parents[1]
+VENV = ROOT / ".venv"
 
 
-class Lines(unittest.TestResult):
-    """A result that prints one line for each case as it ends."""
+def run_pytest(root: Path, args: list[str]) -> int:
+    sys.dont_write_bytecode = True
+    sys.path.insert(0, str(HERE))
+    for name in tuple(os.environ):
+        if name.startswith("PYTEST_"):
+            del os.environ[name]
+    os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.printed = 0
+    import pytest
 
-    def say(self, line: str) -> None:
-        print(line, flush=True)
-        self.printed += 1
+    from conftest import UnitSetup
 
-    def addSuccess(self, test: unittest.TestCase) -> None:  # noqa: N802 - unittest's name
-        super().addSuccess(test)
-        self.say(f"ok   {test.id()}")
+    code = pytest.main(
+        [
+            "-c",
+            str(ROOT / "pyproject.toml"),
+            "-p",
+            "no:terminal",
+            "--lem-lines",
+            *args,
+        ],
+        plugins=[UnitSetup(root)],
+    )
+    (root / "completed").touch()
+    return code
 
-    def addFailure(self, test: unittest.TestCase, err: ExcInfo) -> None:  # noqa: N802 - unittest's name
-        super().addFailure(test, err)
-        self.say(f"FAIL {test.id()}: {self.failures[-1][1].strip().splitlines()[-1]}")
 
-    def addError(self, test: unittest.TestCase, err: ExcInfo) -> None:  # noqa: N802 - unittest's name
-        super().addError(test, err)
-        self.say(f"FAIL {test.id()}: {self.errors[-1][1].strip().splitlines()[-1]}")
+def run_in_child() -> int:
+    child: subprocess.Popen[bytes] | None = None
+    terminated = False
 
-    def addSkip(self, test: unittest.TestCase, reason: str) -> None:  # noqa: N802 - unittest's name
-        super().addSkip(test, reason)
-        self.say(f"SKIP {test.id()}: {reason}")
+    def terminate(signum: int, _frame: object) -> None:
+        nonlocal terminated
+        terminated = True
+        if child is not None:
+            # Popen.wait may hold its lock when this handler runs.
+            with suppress(ProcessLookupError):
+                os.kill(child.pid, signum)
 
-    def addExpectedFailure(self, test: unittest.TestCase, err: ExcInfo) -> None:  # noqa: N802 - unittest's name
-        super().addExpectedFailure(test, err)
-        self.say(f"FAIL {test.id()}: a case marked to fail is no check")
-
-    def addUnexpectedSuccess(self, test: unittest.TestCase) -> None:  # noqa: N802 - unittest's name
-        super().addUnexpectedSuccess(test)
-        self.say(f"FAIL {test.id()}: a case marked to fail is no check")
+    # The child stays in the caller's process group, so Ctrl-C reaches pytest.
+    old_int = signal.signal(signal.SIGINT, lambda *_: None)
+    old_term = signal.signal(signal.SIGTERM, terminate)
+    try:
+        with tempfile.TemporaryDirectory(prefix="lem-unit-") as directory:
+            root = Path(directory)
+            command = [
+                sys.executable,
+                "-I",
+                "-B",
+                "-c",
+                (
+                    "import runpy, sys; from pathlib import Path; "
+                    "run = runpy.run_path(sys.argv[1])['run_pytest']; "
+                    "sys.exit(run(Path(sys.argv[2]), sys.argv[3:]))"
+                ),
+                str(HERE / "__main__.py"),
+                str(root),
+                *sys.argv[1:],
+            ]
+            with subprocess.Popen(command) as child:
+                if terminated:
+                    terminate(signal.SIGTERM, None)
+                code = child.wait()
+            child = None
+            if code == 0 and not (root / "completed").is_file():
+                print("the unit process exited before pytest returned", file=sys.stderr)
+                return 1
+    finally:
+        signal.signal(signal.SIGTERM, old_term)
+        signal.signal(signal.SIGINT, old_int)
+    return 128 - code if code < 0 else code
 
 
 def main() -> int:
@@ -63,20 +94,11 @@ def main() -> int:
         print(
             f"FAIL the unit level runs on {VENV / 'bin' / 'python'}, not on "
             f"{sys.executable}: run uv sync at the root of the checkout, then "
-            ".venv/bin/python -B tests/unit"
+            ".venv/bin/python -I -B tests/unit"
         )
         return 1
-    # the test files set it too, but only after their own import, which would leave
-    # their cache
-    sys.dont_write_bytecode = True
-    suite = unittest.defaultTestLoader.discover(str(HERE), top_level_dir=str(HERE))
-    collected = suite.countTestCases()
-    print(f"collected {collected}", flush=True)
-    result = Lines()
-    suite.run(result)
-    for test, trace in [*result.failures, *result.errors]:
-        print(f"\n== {test.id()}\n{trace}")
-    return 0 if result.wasSuccessful() and result.printed == collected else 1
+
+    return run_in_child()
 
 
 if __name__ == "__main__":

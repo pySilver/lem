@@ -38,6 +38,7 @@ dev = [
     # the build backend's own types, for pyrefly's check of hatch_build.py: the version of
     # [build-system]
     "hatchling==1.33.0",
+    "pytest==9.2.0",
 ]
 
 [tool.uv]
@@ -102,6 +103,15 @@ packages = ["src/lem"]
 # hatch_build.py: an editable install takes no copy of the plugin's files, and runs with no
 # bytecode written into the checkout.
 [tool.hatch.build.targets.wheel.hooks.custom]
+
+# ==== pytest ====
+[tool.pytest.ini_options]
+minversion = "9.2.0"
+testpaths = ["tests/unit"]
+python_files = ["test*.py"]
+pythonpath = ["src"]
+strict = true
+addopts = ["--disable-plugin-autoload", "-p", "no:cacheprovider"]
 
 # ==== ruff ====
 [tool.ruff]
@@ -168,7 +178,7 @@ select = [
 #
 # Left out, each for a reason:
 #   D     the docstrings keep their own voice (AGENTS.md), which is not pydocstyle's
-#   PT    the tests are unittest's, so that they need only Python
+#   PT    the unit level keeps its unittest cases under pytest
 #   T20   a script's output is what it prints
 #   INP   Lem's one package is src/lem; the tests and the tools are files run by their path
 #   EM    with TRY003 below: a refusal's message is written where it is raised

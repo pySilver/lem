@@ -6,7 +6,7 @@
     .venv/bin/python tests/pick.py --check       the map's own check, a suite of tests/all.sh
 
 It prints one command for each suite to run, `bash tests/NAME.sh` (the unit level's is
-`.venv/bin/python -B -m unittest discover -s tests/unit`), then `bash tests/shellcheck.sh`
+`.venv/bin/python -I -B tests/unit`), then `bash tests/shellcheck.sh`
 with the suite files that changed, and lines that start with `#` for what it found: a file no
 suite reads is named with "nothing reads it", and a file the map does not know runs the whole
 suite (`bash tests/all.sh`). The Chrome suites, test-ask and test-site, run only for
@@ -34,10 +34,10 @@ TESTS = ROOT / "tests"
 EVERYTHING = "all"
 # The suites that are not a file tests/NAME.sh of their own: the map's check, and the
 # unit level, one file or more for each module in tests/unit/, which tests/all.sh runs
-# as `.venv/bin/python -B tests/unit`.
+# as `.venv/bin/python -I -B tests/unit`.
 COMMANDS = {
     "pick": ".venv/bin/python tests/pick.py --check",
-    "unit": ".venv/bin/python -B -m unittest discover -s tests/unit",
+    "unit": ".venv/bin/python -I -B tests/unit",
     EVERYTHING: "bash tests/all.sh",
 }
 CHROME = ("test-ask", "test-site")
@@ -50,6 +50,7 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     # Lem's package, and the suites that run it, directly or through a module that
     # calls it. The unit level calls their functions, and every file of it is its own.
     (("src/lem/*", "tests/unit/*"), ("unit",)),
+    (("pyproject.toml", "uv.lock"), ("unit",)),
     # the one entry, its table of names and the plugin's folders, through which every
     # suite runs a command of Lem
     (
