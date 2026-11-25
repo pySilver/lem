@@ -351,7 +351,7 @@ def test_the_breaker_needs_its_document_the_handoff_and_the_work_committed(
 class Dirty(ModelGit):
     """A git whose every worktree has work no commit holds."""
 
-    def clean(self, where: Path) -> bool:
+    def clean(self, where: Path, *, untracked: bool = True) -> bool:
         return not where.name
 
 

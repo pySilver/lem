@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from lem.kernel import files
 from lem.kernel.errors import Refusal
-from lem.ports.faults import Unanswered
+from lem.ports.git_facts import GitRefused
 from lem.records.base import Frozen
 
 if TYPE_CHECKING:
@@ -49,10 +49,9 @@ def commit_round(context: Context, writes: tuple[Write, ...], number: int) -> No
     slug = context.record.task.slug
     paths = tuple(write.path for write in writes if write.round == number)
     message = f"docs(backlog): what review round {number} saw outside {slug}"
-    try:
-        context.ports.git.commit(context.worktree, message, paths)
-    except Unanswered as refused:
-        raise hook_refused(number, paths, slug, refused.said) from refused
+    made = context.ports.git.commit(context.worktree, message, paths)
+    if isinstance(made, GitRefused):
+        raise hook_refused(number, paths, slug, made.said)
 
 
 def committed(context: Context, writes: tuple[Write, ...]) -> Committed:

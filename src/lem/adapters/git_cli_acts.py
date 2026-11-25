@@ -1,9 +1,9 @@
 """The acts of the `Git` port through real git: a task branch's rewrite (`GitRewrite`) and the
 worktrees and branches (`GitBranches`).
 
-A push carries a lease on the commit Lem pushed last, or on no branch at all when it is new
-(`landing.md` H 3); a branch is deleted only at the commit named, and never while a worktree
-has it.
+A push sends the commit named, never what the branch holds by then, with a lease on the commit
+Lem pushed last, or on no branch at all when it is new (`landing.md` H 3); a branch moves back
+or is deleted only at the commit named, and is never deleted while a worktree has it.
 """
 
 from typing import TYPE_CHECKING
@@ -41,23 +41,30 @@ class Rewrite(Shell):
     def abort(self, worktree: Path) -> None:
         self.said(worktree, "rebase", "--abort")
 
-    def commit(self, worktree: Path, message: str, paths: tuple[str, ...]) -> str:
+    def commit(
+        self, worktree: Path, message: str, paths: tuple[str, ...]
+    ) -> str | GitRefused:
         self.said(worktree, "add", "--all", "--", *paths)
-        self.said(worktree, "commit", QUIET, "--message", message, "--", *paths)
+        made = ("commit", QUIET, "--message", message, "--", *paths)
+        ran = self.tried(worktree, *made)
+        if ran.returncode:
+            return GitRefused(said=all_words(ran))
         return self.head(worktree)
 
-    def push(self, worktree: Path, branch: str, expect: str | None) -> str | GitRefused:
+    def push(
+        self, worktree: Path, branch: str, expect: str | None, *, commit: str
+    ) -> str | GitRefused:
         ref = HEADS + branch
         there = self.on_origin(worktree, ref)
         if there != (expect or ""):
             # git checks no lease for a push that changes nothing, so it is read here too
             return GitRefused(said=f"stale info: origin's {ref} is not {expect}")
         lease = f"--force-with-lease={ref}:{there}"
-        both = f"{ref}:{ref}"
-        ran = self.tried(worktree, "push", QUIET, lease, "origin", both)
+        sent = f"{commit}:{ref}"
+        ran = self.tried(worktree, "push", QUIET, lease, "origin", sent)
         if ran.returncode:
             return GitRefused(said=last_words(ran))
-        return self.said(worktree, "rev-parse", ref)
+        return commit
 
     def on_origin(self, where: Path, ref: str) -> str:
         """The commit origin has at `ref` now, or an empty text when it has none."""
@@ -66,8 +73,9 @@ class Rewrite(Shell):
 
 
 class Branches(Shell):
-    """Add and remove a worktree, delete a branch at the commit named, and fast-forward a
-    checkout that is on the branch of the ref (`origin/main` moves `main` only)."""
+    """Add and remove a worktree, add a branch, move a branch back and delete one at the
+    commit named, and fast-forward a checkout that is on the branch of the ref (`origin/main`
+    moves `main` only)."""
 
     def worktree_add(self, checkout: Path, path: Path, branch: str, start: str) -> None:
         if path.exists():
@@ -80,6 +88,20 @@ class Branches(Shell):
 
     def worktree_remove(self, checkout: Path, path: Path) -> None:
         self.said(checkout, WORKTREE, "remove", str(path))
+
+    def branch_add(self, checkout: Path, branch: str, start: str) -> str | GitRefused:
+        ran = self.tried(checkout, "branch", "--no-track", branch, start)
+        if ran.returncode:
+            return GitRefused(said=last_words(ran))
+        return self.said(checkout, "rev-parse", HEADS + branch)
+
+    def reset(self, worktree: Path, commit: str, expect: str) -> str | GitRefused:
+        if self.head(worktree) != expect:
+            return GitRefused(said=f"the branch is not at {expect}")
+        if not tracked_clean(self, worktree):
+            return GitRefused(said="the worktree has changes that no commit holds")
+        self.said(worktree, "reset", QUIET, "--hard", commit)
+        return self.head(worktree)
 
     def branch_delete(self, checkout: Path, branch: str, expect: str) -> bool:
         if self.checked_out(checkout, branch):
@@ -102,3 +124,8 @@ class Branches(Shell):
         """Whether a worktree of the repository has `branch` checked out."""
         listed = self.said(checkout, WORKTREE, "list", "--porcelain")
         return f"branch {HEADS}{branch}" in listed.splitlines()
+
+
+def tracked_clean(shell: Shell, where: Path) -> bool:
+    """Whether what git tracks in `where` is as HEAD holds it."""
+    return not shell.said(where, "status", "--porcelain", "--untracked-files=no")

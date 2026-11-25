@@ -47,6 +47,12 @@ class RealWorld:
         run_git(where, "commit", "--quiet", "--message", f"Merge {ref}")
         return run_git(where, "rev-parse", "HEAD")
 
+    def refuse_commits(self, said: str) -> None:
+        hook = self.checkout / ".git" / "hooks" / "pre-commit"
+        hook.parent.mkdir(parents=True, exist_ok=True)
+        hook.write_text(f"#!/bin/sh\necho '{said}' >&2\nexit 1\n")
+        hook.chmod(0o755)
+
 
 def real_world(folder: Path, environ: dict[str, str] | None = None) -> RealWorld:
     """A repository of `FILES` on `main`, pushed and fetched, and git with the test's
@@ -284,3 +290,14 @@ def test_a_merge_tree_puts_the_base_first_as_the_rebase_does(tmp_path: Path) -> 
     assert isinstance(rebased, str)
     assert world.git.tree(where, rebased) == foreseen
     assert world.git.show(where, rebased, "notes.txt") == b"0\ntheirs\nours\n"
+
+
+def test_a_detached_head_is_on_no_branch_and_a_checkout_with_no_origin_names_none(
+    tmp_path: Path,
+) -> None:
+    world = real_world(tmp_path)
+    where = task_worktree(world)
+    run_git(where, "checkout", "--quiet", "--detach")
+    assert world.git.branch_of(where) is None
+    run_git(world.checkout, "remote", "remove", "origin")
+    assert world.git.origin_url(world.checkout) is None

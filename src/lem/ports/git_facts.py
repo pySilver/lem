@@ -18,11 +18,13 @@ class GitRefused(Frozen, frozen=True, kw_only=True):
 
 
 class Commit(Frozen, frozen=True, kw_only=True):
-    """A commit: its sha, its parents, its subject, and the id of its patch."""
+    """A commit: its sha, its parents, its subject, its author's name, and the id of its
+    patch."""
 
     sha: Sha
     parents: tuple[Sha, ...]
     subject: str
+    author: str | None = None
     patch_id: str | None = None
 
 

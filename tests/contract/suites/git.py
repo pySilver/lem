@@ -3,8 +3,9 @@
 
 A test file subclasses `GitContract` as `Test...` and gives `world`: a repository with one
 commit of `README.md` on `main`, pushed and fetched, its main checkout, a folder for worktrees,
-a hand that pushes a commit as someone else, and one that makes a merge commit in a worktree
-(`git merge --no-ff`, with files edited in the merge itself).
+a hand that pushes a commit as someone else (the teammate, by name), one that makes a merge
+commit in a worktree (`git merge --no-ff`, with files edited in the merge itself), and one that
+puts a commit hook in place that refuses every commit.
 """
 
 from typing import TYPE_CHECKING, Protocol
@@ -35,6 +36,7 @@ class GitWorld(Protocol):
         self, branch: str, files: dict[str, bytes | None], start: str = "main"
     ) -> str: ...
     def merge_in(self, where: Path, ref: str, files: dict[str, bytes]) -> str: ...
+    def refuse_commits(self, said: str) -> None: ...
 
 
 def task_worktree(world: GitWorld, name: str = "fix-the-login") -> Path:
@@ -46,8 +48,11 @@ def task_worktree(world: GitWorld, name: str = "fix-the-login") -> Path:
 
 def commit_file(world: GitWorld, where: Path, path: str, body: bytes) -> str:
     """Write and commit one file in a worktree."""
+    (where / path).parent.mkdir(parents=True, exist_ok=True)
     (where / path).write_bytes(body)
-    return world.git.commit(where, f"change {path}", (path,))
+    made = world.git.commit(where, f"change {path}", (path,))
+    assert isinstance(made, str), made
+    return made
 
 
 class GitContract:
@@ -67,6 +72,7 @@ class GitContract:
         (where / "a.txt").write_bytes(b"a\n")
         assert not world.git.clean(where)
         made = world.git.commit(where, "add a", ("a.txt",))
+        assert isinstance(made, str), made
         assert world.git.clean(where)
         assert world.git.tip(where, "HEAD") == made
         assert len(made) == 40
@@ -148,14 +154,14 @@ class GitContract:
         world = self.world(tmp_path)
         where = task_worktree(world)
         first = commit_file(world, where, "a.txt", b"a\n")
-        assert world.git.push(where, "fix-the-login", None) == first
-        again = world.git.push(where, "fix-the-login", None)
+        assert world.git.push(where, "fix-the-login", None, commit=first) == first
+        again = world.git.push(where, "fix-the-login", None, commit=first)
         assert isinstance(again, GitRefused)
         second = commit_file(world, where, "a.txt", b"aa\n")
-        assert world.git.push(where, "fix-the-login", first) == second
+        assert world.git.push(where, "fix-the-login", first, commit=second) == second
         teammate = world.outside_commit("fix-the-login", {"t.txt": b"t\n"})
         third = commit_file(world, where, "a.txt", b"aaa\n")
-        refused = world.git.push(where, "fix-the-login", second)
+        refused = world.git.push(where, "fix-the-login", second, commit=third)
         assert isinstance(refused, GitRefused)
         world.git.fetch(where)
         assert world.git.remote_head(where, "fix-the-login") == teammate
@@ -213,3 +219,132 @@ class GitContract:
         task_worktree(world)
         with pytest.raises(Exception, match="already exists"):
             task_worktree(world)
+
+    def test_a_push_sends_the_commit_named_and_not_a_later_one_of_the_branch(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        checked = commit_file(world, where, "a.txt", b"a\n")
+        later = commit_file(world, where, "b.txt", b"b\n")
+        sent = world.git.push(where, "fix-the-login", None, commit=checked)
+        assert sent == checked
+        world.git.fetch(where)
+        assert world.git.remote_head(where, "fix-the-login") == checked
+        assert world.git.tip(where, "HEAD") == later
+
+    def test_the_branch_a_checkout_is_on_and_origins_address(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        assert world.git.branch_of(where) == "fix-the-login"
+        assert world.git.branch_of(world.checkout) == "main"
+        assert world.git.origin_url(world.checkout)
+
+    def test_a_clean_of_tracked_files_only_reads_past_an_untracked_file(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        (where / "new.txt").write_bytes(b"n\n")
+        assert not world.git.clean(where)
+        assert world.git.clean(where, untracked=False)
+        (where / "README.md").write_bytes(b"changed\n")
+        assert not world.git.clean(where, untracked=False)
+
+    def test_the_files_of_a_folder_at_a_commit_and_the_paths_a_range_changed(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        base = world.git.tip(where, "HEAD")
+        assert base is not None
+        commit_file(world, where, "docs/backlog/b.md", b"b\n")
+        commit_file(world, where, "docs/backlog/a.md", b"a\n")
+        tip = commit_file(world, where, "other.txt", b"o\n")
+        folder = "docs/backlog"
+        assert world.git.files(where, tip, folder) == (
+            "docs/backlog/a.md",
+            "docs/backlog/b.md",
+        )
+        assert world.git.files(where, base, folder) == ()
+        assert world.git.changed_paths(where, base, tip) == (
+            "docs/backlog/a.md",
+            "docs/backlog/b.md",
+            "other.txt",
+        )
+        (where / "docs/backlog/a.md").rename(where / "docs/backlog/c.md")
+        moved = world.git.commit(
+            where, "move a", ("docs/backlog/a.md", "docs/backlog/c.md")
+        )
+        assert isinstance(moved, str)
+        assert world.git.changed_paths(where, tip, moved) == (
+            "docs/backlog/a.md",
+            "docs/backlog/c.md",
+        )
+
+    def test_a_commit_names_its_author_and_a_teammates_names_the_teammate(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        base = world.git.tip(where, "HEAD")
+        assert base is not None
+        commit_file(world, where, "a.txt", b"a\n")
+        theirs = world.outside_commit("main", {"t.txt": b"t\n"})
+        world.git.fetch(where)
+        ours = world.git.commits(where, base, "HEAD")
+        outside = world.git.commits(where, base, theirs)
+        assert [one.author for one in ours] == ["Lem Test"]
+        assert [one.author for one in outside] == ["A Teammate"]
+
+    def test_the_commits_a_base_holds_already_by_their_patch_are_left_out(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        same = commit_file(world, where, "a.txt", b"a\n")
+        commit_file(world, where, "b.txt", b"b\n")
+        assert world.git.left_out(where, "main", "HEAD") == ()
+        world.outside_commit("main", {"a.txt": b"a\n"})
+        world.git.fetch(where)
+        found = world.git.left_out(where, "origin/main", "HEAD")
+        assert [(one.sha, one.subject) for one in found] == [(same, "change a.txt")]
+
+    def test_a_branch_is_added_with_no_worktree_once(self, tmp_path: Path) -> None:
+        world = self.world(tmp_path)
+        base = world.git.tip(world.checkout, "main")
+        assert world.git.branch_add(world.checkout, "spare", "main") == base
+        assert world.git.tip(world.checkout, "spare") == base
+        again = world.git.branch_add(world.checkout, "spare", "main")
+        assert isinstance(again, GitRefused)
+
+    def test_a_branch_moves_back_only_from_the_commit_named_and_with_nothing_unsaved(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        before = commit_file(world, where, "a.txt", b"a\n")
+        after = commit_file(world, where, "b.txt", b"b\n")
+        assert isinstance(world.git.reset(where, before, before), GitRefused)
+        (where / "a.txt").write_bytes(b"unsaved\n")
+        assert isinstance(world.git.reset(where, before, after), GitRefused)
+        (where / "a.txt").write_bytes(b"a\n")
+        assert world.git.reset(where, before, after) == before
+        assert world.git.tip(where, "HEAD") == before
+        assert not (where / "b.txt").exists()
+        assert world.git.clean(where)
+
+    def test_a_commit_a_hook_refuses_is_gits_refusal_in_its_words(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        before = world.git.tip(where, "HEAD")
+        world.refuse_commits("the hook says no")
+        (where / "a.txt").write_bytes(b"a\n")
+        refused = world.git.commit(where, "add a", ("a.txt",))
+        assert isinstance(refused, GitRefused)
+        assert "the hook says no" in refused.said
+        assert world.git.tip(where, "HEAD") == before

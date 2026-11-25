@@ -1,5 +1,6 @@
 """The facts of the `Git` port through real git: the history (`GitHistory`) and the checkouts
-(`GitPlaces`). None of them changes the repository."""
+(`GitPlaces`); the paths (`GitChanges`) are `git_cli_changes.py`. None of them changes the
+repository."""
 
 from pathlib import Path
 
@@ -9,8 +10,9 @@ from lem.adapters.git_cli_stops import ABSOLUTE, conflicted, rebase_folder, too_
 from lem.ports.faults import Unanswered
 from lem.ports.git_facts import Commit, Conflict, DiffStat, RebaseState
 
-# A field of `git log`'s line: the sha, the parents, the subject, between tabs.
-LOG = "--format=%H%x09%P%x09%s"
+# A field of `git log`'s line: the sha, the parents, the author's name, the subject, between
+# tabs.
+LOG = "--format=%H%x09%P%x09%an%x09%s"
 # git's three-way merge with no write to a worktree, an index or a ref, the base as its first
 # side as a rebase applies them, and the files of a conflict by the names git wrote.
 MERGE_TREE = ("--write-tree", "--name-only", "-z", "--no-messages")
@@ -60,16 +62,19 @@ class History(Shell):
 
 
 class Places(Shell):
-    """The main checkout, a worktree's cleanness and rebase, a file at a commit, and the
-    remote's branch as last fetched."""
+    """The main checkout, the branch a checkout is on, a worktree's cleanness and rebase, a file
+    at a commit, the remote's branch as last fetched, and origin's address."""
 
     def main_checkout(self, start: Path) -> Path:
         common = self.said(start, "rev-parse", ABSOLUTE, "--git-common-dir")
         return Path(common).parent
 
-    def clean(self, where: Path) -> bool:
-        listed = self.said(where, "status", "--porcelain", "--untracked-files=normal")
-        return not listed
+    def branch_of(self, where: Path) -> str | None:
+        return self.said(where, "branch", "--show-current") or None
+
+    def clean(self, where: Path, *, untracked: bool = True) -> bool:
+        files = "--untracked-files=normal" if untracked else "--untracked-files=no"
+        return not self.said(where, "status", "--porcelain", files)
 
     def show(self, where: Path, rev: str, path: str) -> bytes | None:
         spec = f"{rev}:{path}"
@@ -87,11 +92,18 @@ class Places(Shell):
     def remote_head(self, where: Path, branch: str) -> str | None:
         return self.commit_at(where, f"refs/remotes/origin/{branch}")
 
+    def origin_url(self, where: Path) -> str | None:
+        # the checkout's own configuration only, as `lem init` reads it (notes/settings.md)
+        named = ("config", "--local", "--get", "remote.origin.url")
+        return self.tried(where, *named).stdout.strip() or None
+
 
 def commit_of(line: str) -> Commit:
     """One line of `LOG` as a commit."""
-    sha, parents, subject = line.split("\t", 2)
-    return Commit(sha=sha, parents=tuple(parents.split()), subject=subject)
+    sha, parents, author, subject = line.split("\t", 3)
+    return Commit(
+        sha=sha, parents=tuple(parents.split()), author=author, subject=subject
+    )
 
 
 def counted(number: str) -> int:
