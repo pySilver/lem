@@ -7,7 +7,7 @@ import pytest
 from msgspec.structs import replace
 from playwright.sync_api import expect
 
-from browser.board_ui import ROUNDING, WAIT, in_screen, visit
+from browser.board_ui import ROUNDING, WAIT, in_screen, posts, visit
 from browser.chromium import PHONE
 from fixtures.board.working import CARD, CARD_PROMPT
 from lem.app import wiring
@@ -69,11 +69,11 @@ def kept(board: Board, page: str, asked: Spec, base: Path) -> bytes:
     return rendered
 
 
-def template(board: Board, name: str) -> tuple[str, bytes]:
+def template(board: Board, name: str) -> tuple[str, bytes, Spec]:
     path = catalog.folder("templates") / f"{name}.json"
     asked, base = spec.load(str(path))
     page = f"browser-{name}"
-    return page, kept(board, page, asked, base)
+    return page, kept(board, page, asked, base), asked
 
 
 def open_card(page: Page, board: Board, key: str) -> None:
@@ -106,7 +106,6 @@ def show_rounding(board: Board) -> None:
             {"id": "line", "label": "Each line"},
             {"id": "total", "label": "Only the total"},
         ],
-        "review": "never",
     }
     kept(board, CARD, asked, board.checkout)
 
@@ -117,6 +116,19 @@ def answer(board: Board, page: str) -> Answer:
     return question.answer
 
 
+def check_rounding_answer(board: Board, note: str) -> None:
+    recorded = answer(board, CARD)
+    assert (recorded.label, recorded.note, recorded.device, recorded.source) == (
+        "Only the total",
+        note,
+        "phone",
+        "board",
+    )
+    found = receipts.read(keys.copies(folder(board), CARD), recorded.at)
+    assert isinstance(found["answers"], dict)
+    assert found["answers"]["answer"]["selected"] == ["total"]
+
+
 def test_waits_opens_the_phone_card_and_records_only_an_option_with_its_note(
     cards: Board,
     window: OpenWindow,
@@ -124,6 +136,7 @@ def test_waits_opens_the_phone_card_and_records_only_an_option_with_its_note(
     show_rounding(cards)
     page = window(PHONE, phone=True).pages[0]
     visit(page, f"{cards.url}/waits", "#waits-list")
+    page.evaluate("window.waitsPage = true")
     row = page.locator(f"#wait-card-{CARD}")
     expect(row).to_contain_text(CARD_PROMPT)
     row.locator(".wr-verb").tap()
@@ -137,37 +150,49 @@ def test_waits_opens_the_phone_card_and_records_only_an_option_with_its_note(
     expect(
         card.get_by_role("button", name="Discuss in chat", include_hidden=True)
     ).to_have_count(0)
-    note = "as the receipts do"
-    card.locator(".hd-q.cur textarea").fill(note)
-    submit = card.locator(".hd-foot button.primary")
+    field = card.locator(".hd-q.cur textarea")
+    review = card.locator(".hd-review.cur")
+    review_title = review.get_by_text("Review your answers", exact=True)
+    review_button = card.get_by_role("button", name="Review", exact=True)
+    send = card.get_by_role("button", name="Send answers", exact=True)
+    sent = posts(page)
+    field.fill("why not both?")
+    review_button.tap()
+    expect(review_title).to_be_visible()
+    expect(review.locator(".hd-note")).to_have_text("why not both?")
+    assert not sent
     with page.expect_response(lambda reply: reply.request.method == "POST") as rejected:
-        submit.tap()
+        send.tap()
     assert rejected.value.status == 422
     expect(card.locator(".hd-status")).to_contain_text("task’s session")
     asked = saved.question(folder(cards), CARD)
     assert asked is not None and asked.answer is None
     expect(row).to_have_count(1)
 
+    review.locator(".hd-ritem").get_by_text("Edit", exact=True).tap()
+    expect(review).to_have_count(0)
+    note = "as the receipts do"
+    field.fill(note)
     card.get_by_text("Only the total", exact=True).tap()
+    review_button.tap()
+    expect(review_title).to_be_visible()
+    expect(review.locator(".hd-chip")).to_have_text("Only the total")
+    expect(review.locator(".hd-note")).to_have_text(note)
+    assert len(sent) == 1
     with page.expect_response(lambda reply: reply.request.method == "POST") as accepted:
-        submit.tap()
+        send.tap()
     assert accepted.value.ok
     expect(card.locator(".hd-done")).to_contain_text(SUCCESS)
-    recorded = answer(cards, CARD)
-    assert (recorded.label, recorded.note, recorded.device, recorded.source) == (
-        "Only the total",
-        note,
-        "phone",
-        "board",
-    )
+    check_rounding_answer(cards, note)
     expect(row).to_have_count(0, timeout=WAIT)
+    assert page.evaluate("window.waitsPage") is True
 
 
 def test_tune_records_the_slider_value_and_the_preset_it_started_from(
     cards: Board,
     window: OpenWindow,
 ) -> None:
-    page_id, _ = template(cards, "tune")
+    page_id, _, _ = template(cards, "tune")
     page = window(PHONE, phone=True).pages[0]
     open_card(page, cards, page_id)
     page.locator(".hd-label").filter(has_text="Soft").tap()
@@ -253,8 +278,23 @@ def check_layout(page: Page) -> None:
         assert info[0] >= 24 and info[1] >= 24 and info[2], info
 
 
-def tap_options(page: Page) -> None:
+def tap_options(page: Page, question: Spec) -> None:
     choices = page.locator(".hd-q.cur .hd-opts > .hd-opt")
+    options = question.get("options", [])
+    assert isinstance(options, list)
+    labels = [
+        option if isinstance(option, str) else option.get("label") or option["id"]
+        for option in options
+    ]
+    expect(choices).to_have_count(len(labels))
+    assert (
+        choices.locator(".hd-label").evaluate_all("""nodes => nodes.map(node => {
+      const label = node.cloneNode(true)
+      label.querySelectorAll('.hd-key, .hd-badge, .hd-tag').forEach(part => part.remove())
+      return label.textContent.trim()
+    })""")
+        == labels
+    )
     for option in choices.all():
         label = option.locator(".hd-label")
         if "on" in (option.get_attribute("class") or "").split():
@@ -280,17 +320,26 @@ def test_every_shipped_card_layout_fits_the_phone_and_the_file_keeps_desktop_key
     phone = window(PHONE, phone=True).pages[0]
     for name in TEMPLATES:
         with subtests.test(card=name):
-            page_id, rendered = template(board, name)
+            page_id, rendered, asked = template(board, name)
             open_card(phone, board, page_id)
             tabs = phone.locator(".hd-tab")
-            if tabs.count():
-                for tab in tabs.all():
-                    tab.tap()
-                    check_layout(phone)
-                    tap_options(phone)
-            else:
+            questions = asked.get("questions", [asked])
+            assert isinstance(questions, list)
+            has_tabs = len(questions) > 1
+            expect(tabs).to_have_count(len(questions) if has_tabs else 0)
+            if has_tabs:
+                expect(tabs.locator(".h")).to_have_text(
+                    [q.get("header") or q["prompt"] for q in questions]
+                )
+            for index, question in enumerate(questions):
+                if has_tabs:
+                    tabs.nth(index).tap()
+                    expect(tabs.nth(index)).to_have_class(re.compile(r"\bcur\b"))
+                expect(phone.locator(".hd-q.cur .hd-prompt")).to_have_text(
+                    question["prompt"]
+                )
                 check_layout(phone)
-                tap_options(phone)
+                tap_options(phone, question)
             if name == "pick":
                 pick = tmp_path / "pick.html"
                 pick.write_bytes(rendered)

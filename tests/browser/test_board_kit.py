@@ -15,10 +15,7 @@ from lem.board.inputs.task.artifacts import Artifacts, Body, Folder, Section, Sh
 from lem.board.pages.render import section
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     import pytest
-    from playwright.sync_api import Route
 
     from browser.conftest import OpenWindow
     from browser.server import Board
@@ -149,16 +146,14 @@ def test_installed_kit_runs_in_chromium(
                     "</body>",
                     f"<script>{PROBE.read_text(encoding='utf-8')}</script></body>",
                 )
-                page.route(url, html_page(source))
+                page.route(
+                    url,
+                    lambda route, *, body=source: route.fulfill(
+                        content_type="text/html", body=body
+                    ),
+                )
                 page.route("**/stream?**", lambda route: route.abort())
                 page.goto(url)
                 expect(page.locator("body")).to_have_attribute(
                     "data-probe-result", "passed"
                 )
-
-
-def html_page(source: str) -> Callable[[Route], None]:
-    def sent(route: Route) -> None:
-        route.fulfill(content_type="text/html", body=source)
-
-    return sent

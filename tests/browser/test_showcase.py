@@ -13,19 +13,38 @@ from typing import TYPE_CHECKING
 from playwright.sync_api import expect
 
 from browser.board_ui import RECEIPT, visit
-from browser.chromium import DESKTOP, PHONE
+from browser.chromium import DESKTOP, PHONE, dimensions
+from browser.test_sheets import CONFIRM, GATE, SHORT_PHONE, button, scroll_end, sheet
 from fixtures.board.moments import NOW
 
 if TYPE_CHECKING:
+    from playwright.sync_api import Page
+
     from browser.conftest import OpenWindow
     from browser.server import Board
 
 ROOT = Path(__file__).resolve().parents[2]
+PUBLISHED = ("board", "task", "backlog", "phone")
 
 
-def dimensions(shot: bytes) -> tuple[int, int]:
-    assert shot[:8] == b"\x89PNG\r\n\x1a\n"
-    return int.from_bytes(shot[16:20]), int.from_bytes(shot[20:24])
+def set_scene(page: Page, name: str) -> None:
+    if name == "story":
+        outcome = page.locator("#building")
+        chart = outcome.locator(".chart[data-drawn=done] .chart-svg svg")
+        expect(chart).to_be_visible()
+        outcome.get_by_text("After:", exact=True).evaluate("""after => {
+          const tab = after.closest('.tabbody')
+          tab.scrollTop += after.getBoundingClientRect().top - tab.getBoundingClientRect().top - 14
+        }""")
+        expect(chart).to_be_in_viewport()
+    if name in {"phone-merge-off", "phone-merge-on"}:
+        found = sheet(page)
+        expect(button(found)).to_have_text(GATE)
+        expect(button(found)).to_be_disabled()
+        if name == "phone-merge-on":
+            scroll_end(found)
+            expect(button(found)).to_have_text("Approve")
+            expect(button(found)).to_be_enabled()
 
 
 def test_the_demo_afternoon_draws_the_documented_pictures(
@@ -33,14 +52,24 @@ def test_the_demo_afternoon_draws_the_documented_pictures(
     window: OpenWindow,
     tmp_path: Path,
 ) -> None:
+    task = board.task(RECEIPT)
+    waits = f"{board.url}/waits"
+    merge = board.task(RECEIPT, "/merge")
     screens = (
         ("board", f"{board.url}/", "#kanban", DESKTOP),
-        ("task", board.task(RECEIPT), "#merge-review", DESKTOP),
+        ("task", task, "#merge-review", DESKTOP),
         ("backlog", f"{board.url}/backlog", "#backlog", DESKTOP),
         ("phone", f"{board.url}/", "#kanban", PHONE),
+        ("waits", waits, "#waits-list", DESKTOP),
+        ("phone-waits", waits, "#waits-list", PHONE),
+        ("story", task, "#building", DESKTOP),
+        ("phone-review", task, "#merge-review", PHONE),
+        ("phone-merge-off", merge, CONFIRM, SHORT_PHONE),
+        ("phone-merge-on", merge, CONFIRM, SHORT_PHONE),
     )
-    for dark, size in product((False, True), (DESKTOP, PHONE)):
-        context = window(size, phone=size == PHONE, dark=dark, scale=2)
+    themes = ("light", "dark")
+    for theme, size in product(themes, (DESKTOP, PHONE, SHORT_PHONE)):
+        context = window(size, phone=size != DESKTOP, dark=theme == "dark", scale=2)
         page = context.pages[0]
         page.clock.set_fixed_time(NOW)
         for name, url, marker, screen in screens:
@@ -48,7 +77,7 @@ def test_the_demo_afternoon_draws_the_documented_pictures(
                 continue
             visit(page, url, marker)
             page.evaluate("document.fonts.ready")
-            theme = "dark" if dark else "light"
+            set_scene(page, name)
             assert page.evaluate(
                 "theme => matchMedia('(prefers-color-scheme: ' + theme + ')').matches",
                 theme,
@@ -58,8 +87,11 @@ def test_the_demo_afternoon_draws_the_documented_pictures(
             assert dimensions(shot) == (size[0] * 2, size[1] * 2)
         context.close()
     if os.environ.get("UPDATE_LEM_SCREENS") == "1":
-        for shot in sorted(tmp_path.glob("*.png")):
-            (ROOT / "assets" / "screens" / shot.name).write_bytes(shot.read_bytes())
+        for name, theme in product(PUBLISHED, themes):
+            filename = f"{name}-{theme}.png"
+            (ROOT / "assets" / "screens" / filename).write_bytes(
+                (tmp_path / filename).read_bytes()
+            )
 
 
 def test_the_task_chart_opens_zooms_pans_and_fits_with_the_button_and_zero(

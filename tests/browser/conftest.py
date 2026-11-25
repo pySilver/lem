@@ -29,9 +29,10 @@ class OpenWindow(Protocol):
 
 
 @pytest.fixture(scope="session")
-def playwright() -> Iterator[Playwright]:
+def playwright(pytestconfig: pytest.Config) -> Iterator[Playwright]:
     with pytest.MonkeyPatch.context() as patch:
-        patch.setenv("PLAYWRIGHT_BROWSERS_PATH", chromium.installed())
+        launch_dir = pytestconfig.invocation_params.dir
+        patch.setenv("PLAYWRIGHT_BROWSERS_PATH", chromium.installed(launch_dir))
         with sync_playwright() as driver:
             yield driver
 

@@ -93,8 +93,8 @@ def test_task_keys_keep_the_mark_and_focus_together(
     page = window().pages[0]
     visit(page, f"{board.url}/", "#kanban")
     keys = page.locator("#kanban-keys")
-    expect(keys.locator("span")).to_have_text(
-        ["J K ↑ ↓ move", "H L ← → column", "Enter open", "Esc close"]
+    expect(keys).to_have_text(
+        "J K ↑ ↓ move · H L ← → column · Enter open · Esc close", use_inner_text=True
     )
     expect(page.locator("#kanban")).to_have_attribute("data-controller", "cursor")
     _, y, _, height = box(keys)
@@ -251,8 +251,9 @@ def test_waits_keys_move_and_open_without_approving_a_merge(
     page = window().pages[0]
     visit(page, f"{board.url}/waits", "#waits-list")
     sent = posts(page)
-    groups = page.locator("#waits-keys span")
-    expect(groups).to_have_text(["J K ↑ ↓ move", "Enter go or open"])
+    expect(page.locator("#waits-keys")).to_have_text(
+        "J K ↑ ↓ move · Enter go or open", use_inner_text=True
+    )
     expect(page.locator("#waits-list")).to_have_attribute("data-controller", "cursor")
     rows = page.locator("#waits-list > article, #waits-list > details")
     expect(page.locator("#waits-list [data-js-cur]")).to_have_count(0)

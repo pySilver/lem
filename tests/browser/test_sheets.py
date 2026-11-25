@@ -9,11 +9,14 @@ from playwright.sync_api import expect
 
 from browser.board_ui import GIFT, RECEIPT, STOCK, WAIT, box, in_screen, posts, visit
 from browser.chromium import PHONE
-from fakes.repo import git_env, run_git
+from fakes.repo import RealRepo, git_env, run_git
 from fixtures.board.moments import NOW, sha
 from lem.adapters.git_cli import GitCli
+from lem.app.landing import world
+from lem.app.tasks import where
 from lem.board.duties import context, forge
 from lem.board.duties.memory import MEMORY
+from lem.model.landing.checks import inputs
 from lem.ports.forge_facts import Pull
 from lem.records.journal.task import OwnerAct
 from lem.store import places, tasks
@@ -28,6 +31,9 @@ if TYPE_CHECKING:
 
 SHORT_PHONE = (390, 664)
 SMALL_PHONE = (390, 400)
+# Design part 8 gives the browser level three minutes. On main, a proposal
+# took over 15 seconds to arrive under load (confirm_checks, 2026-11-23).
+STREAM_WAIT = 180_000
 CONFIRM = "#confirm"
 APPROVAL = "#approve-criteria"
 GATE = "Read to the end ↓"
@@ -87,17 +93,21 @@ def scroll_end(found: Locator) -> None:
 def gated(found: Locator, page: Page, label: str) -> None:
     expect(found).to_have_css("position", "fixed")
     expect(found.locator(".cf-head")).to_be_focused()
+    tap_while_gated(found, page)
+    scroll_end(found)
+    expect(button(found)).to_have_text(label)
+    expect(button(found)).to_be_enabled()
+
+
+def tap_while_gated(found: Locator, page: Page) -> None:
     control = button(found)
     expect(control).to_have_text(GATE)
-    expect(control).to_have_attribute("aria-disabled", "true")
+    expect(control).to_be_disabled()
     sent = posts(page)
     # The element remains a native submit button. Tap its center even while ARIA says off.
     left, top, width, height = box(control)
     page.touchscreen.tap(left + width / 2, top + height / 2)
     expect(control).to_have_text(GATE)
-    scroll_end(found)
-    expect(control).to_have_text(label)
-    expect(control).to_be_enabled()
     assert not sent
 
 
@@ -170,16 +180,20 @@ def test_merge_approval_requires_a_read_to_the_end_and_resets_after_a_new_propos
         ("a shorter proposal", 3),
     ):
         tip = repropose(board, mark, reasons)
-        expect(shown.locator("#fact-commit code")).to_have_text(tip[:12], timeout=WAIT)
-        expect(button(shown)).to_have_text(GATE)
+        expect(shown.locator("#fact-commit code")).to_have_text(
+            tip[:12], timeout=STREAM_WAIT
+        )
         assert body.evaluate("body => body.scrollTop") == 0
         assert body.evaluate("body => body.scrollHeight > body.clientHeight")
+        tap_while_gated(shown, page)
         if reasons == 4:
             body.evaluate(
                 "body => { body.scrollTop = body.scrollHeight - body.clientHeight - 12 }"
             )
             assert body.evaluate("body => body.scrollTop") > 0
             expect(button(shown)).to_have_text(GATE)
+    scroll_end(shown)
+    expect(button(shown)).to_be_enabled()
 
 
 def test_a_short_green_merge_is_ready_at_once_on_a_phone(
@@ -211,10 +225,62 @@ def test_merge_on_a_desktop_has_a_button_below_the_text(
     expect(shown.get_by_role("link", name="Back", exact=True)).to_be_visible()
 
 
+def mergeable_receipt(board: Board) -> str:
+    """Give the demo proposal a local worktree and a pull request the fake forge can merge."""
+    checkout = board.checkout
+    origin = checkout.parent / "origin.git"
+    run_git(checkout, "init", "--quiet", "--bare", str(origin))
+    run_git(checkout, "remote", "add", "origin", str(origin))
+    run_git(checkout, "push", "--quiet", "origin", "main")
+    before = board.record(RECEIPT)
+    landing, branch = before.landing, before.task.branch
+    assert landing and landing.pull and landing.checked and landing.proposed and branch
+    workspace = places.workspace(checkout)
+    worktree = where.worktree(workspace, RECEIPT)
+    run_git(checkout, "worktree", "add", "--quiet", "-b", branch, str(worktree), "main")
+    (worktree / "receipt.txt").write_text("Show the refund\n", encoding="utf-8")
+    run_git(worktree, "add", "receipt.txt")
+    run_git(worktree, "commit", "--quiet", "-m", "Show the refund")
+    run_git(worktree, "push", "--quiet", "origin", branch)
+    tip = run_git(worktree, "rev-parse", "HEAD")
+    base = run_git(checkout, "rev-parse", "main")
+    checked = replace(
+        landing.checked,
+        tip=tip,
+        tree=run_git(worktree, "rev-parse", "HEAD^{tree}"),
+        base=base,
+        inputs=inputs(world.rules(workspace)),
+    )
+    proposed = replace(landing.proposed, tip=tip, base=base)
+    tasks.update(
+        board.state,
+        RECEIPT,
+        lambda record: replace(
+            record,
+            landing=replace(landing, proposed=proposed, pushed=tip, checked=checked),
+        ),
+        before.revision,
+    )
+    board.forge.remote = RealRepo(origin, checkout, worktree, "main")
+    pull = landing.pull
+    board.forge.pulls[pull.number] = Pull(
+        number=pull.number,
+        url=pull.url,
+        title=pull.title,
+        state="open",
+        head=tip,
+        head_ref=branch,
+        base="main",
+        mergeable="mergeable",
+    )
+    return tip
+
+
 def test_native_merge_form_submits_the_tip_and_the_board_records_the_approval(
     board: Board,
     window: OpenWindow,
 ) -> None:
+    tip = mergeable_receipt(board)
     page = window(PHONE, phone=True, scripts=False).pages[0]
     url = merge_url(board)
     visit(page, url, CONFIRM, scripts=False)
@@ -222,7 +288,7 @@ def test_native_merge_form_submits_the_tip_and_the_board_records_the_approval(
     expect(shown).not_to_have_attribute("data-js-sheet", "")
     no_fixed_parts(shown)
     below_text(shown)
-    tip = approved_tip(board).tip
+    expect(shown.locator("#fact-commit code")).to_have_text(tip[:12])
     with page.expect_request(lambda request: request.method == "POST") as submit:
         button(shown).tap()
     request = submit.value
@@ -234,11 +300,14 @@ def test_native_merge_form_submits_the_tip_and_the_board_records_the_approval(
     }
     expect(page.locator("#panel")).to_be_visible(timeout=WAIT)
     expect(page).to_have_url(re.compile(r"[?&]note="))
-    expect(page.locator("#panel .act-note").first).to_be_visible()
-    # The demo has no mergeable forge PR. Check the approval that entered the worker.
     worker = MEMORY.of(board.checkout).merging[RECEIPT]
     worker.join(timeout=10)
     assert not worker.is_alive()
+    page.reload()
+    note = page.locator("#panel .act-note").first
+    expect(note).to_contain_text("Merged: pull request #44 is on main.")
+    assert board.forge.merge_calls == [(44, tip)]
+    assert board.forge.pull(44).state == "merged"
     assert any(
         isinstance(entry, OwnerAct) and entry.act == "merge" and entry.option == tip
         for entry in board.record(RECEIPT).journal

@@ -2,6 +2,7 @@
 
 import re
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 from playwright.sync_api import expect
 
@@ -66,9 +67,15 @@ def test_search_orders_filters_and_opens_the_selected_task(
     page = window().pages[0]
     visit(page, f"{board.url}/activity")
     search_open(page)
-    results = page.locator("#search-list [data-search-target=row]:not([data-js-out])")
-    expect(results.first).to_have_attribute("data-js-cur", "")
-    expect(results.first).to_have_id("sr-task-gift-note-in-export")
+    visible = page.locator("#search-list [data-search-target=row]:visible")
+    expect(visible.first).to_have_attribute("data-js-cur", "")
+    expect(visible.first).to_have_id("sr-task-gift-note-in-export")
+    assert visible.evaluate_all(
+        "rows => rows.every(row => row.hasAttribute('data-open'))"
+    )
+    ended = page.locator("#search-list #sr-task-footer-terms-typo")
+    expect(ended).to_be_attached()
+    expect(ended).to_be_hidden()
     matches = query(page, "crdsrch")
     expect(matches.first).to_have_id(f"sr-task-{TASK}")
     expect(matches.first).to_have_attribute("data-js-cur", "")
@@ -147,9 +154,14 @@ def test_search_click_opens_a_backlog_item_and_a_refresh_preserves_the_query(
     query(page, "card")
     chosen = page.locator(f"#sr-task-{TASK}")
     expect(chosen).to_have_attribute("data-js-cur", "")
+    seed(board, "fix-zip-output", "Fix zip output")
     seed(board, "a-card-from-the-stream", "A card from the stream")
     added = page.locator("#sr-task-a-card-from-the-stream")
     expect(added).to_be_visible(timeout=WAIT)
+    excluded = page.locator("#sr-task-fix-zip-output")
+    expect(excluded).to_be_attached(timeout=WAIT)
+    expect(excluded).to_have_attribute("data-js-out", "")
+    expect(excluded).to_be_hidden()
     expect(page.locator(QUERY)).to_have_value("card")
     expect(page.locator(QUERY)).to_be_focused()
     expect(chosen).to_have_attribute("data-js-cur", "")
@@ -233,18 +245,23 @@ def test_sidebar_fold_survives_the_switch_to_the_drawer_and_back(
     visit(page, f"{board.url}/")
     shell = page.locator("#shell")
     fold = page.locator("#side-fold")
+    links = page.locator("#views a.vbtn:visible")
+    views = {"view-tasks", "view-waits", "view-backlog", "view-activity"}
+    assert set(links.evaluate_all("links => links.map(link => link.id)")) == views
     fold.click()
     expect(shell).to_have_class(re.compile(r"\brailed\b"))
     expect(fold).to_have_attribute("title", "Unfold the sidebar")
+    expect(links).to_have_count(0)
     page.set_viewport_size({"width": 700, "height": 900})
     page.locator('[data-action="drawer#open"]').click()
     expect(shell).to_have_attribute("data-js-drawer", "")
     expect(fold).to_be_visible()
     fold.click()
     expect(shell).not_to_have_class(re.compile(r"\brailed\b"))
-    expect(page.get_by_role("link", name="Backlog", exact=False).first).to_be_visible()
+    assert set(links.evaluate_all("links => links.map(link => link.id)")) == views
     page.set_viewport_size({"width": 1200, "height": 900})
     expect(fold).to_have_attribute("title", "Fold the sidebar")
+    assert set(links.evaluate_all("links => links.map(link => link.id)")) == views
 
 
 def test_backlog_and_other_views_keep_the_key_line_at_the_foot(
@@ -301,6 +318,8 @@ def test_start_from_backlog_reaches_the_new_task_after_the_stream_refresh(
     expect(page.locator("#panel")).to_be_visible(timeout=WAIT)
     slug = page.locator("#panel").get_attribute("data-task")
     assert slug
+    path = urlsplit(board.task(slug)).path
+    page.wait_for_url(lambda address: urlsplit(address).path == path, timeout=WAIT)
     assert (
         board.record(slug).task.backlog_item == "docs/backlog/invoice-footer-wraps.md"
     )
