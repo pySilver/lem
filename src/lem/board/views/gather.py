@@ -71,7 +71,7 @@ def seen_of(checkout: Path, record: Record, ask: Ask, *, demo: bool) -> world.Se
         acts=acts,
         files=files,
         prose=folder.prose_of(where, files),
-        plan_text=plan_text(worktree, record),
+        plan_file=folder.plan_of(worktree, record.task.plan),
         stats=folder.stats_of(where, files),
         head=branch.head_of(ask.git, checkout, record.task, ask.place),
         filed=branch.filed_of(ask.git, checkout, record.task, ask.place),
@@ -79,11 +79,3 @@ def seen_of(checkout: Path, record: Record, ask: Ask, *, demo: bool) -> world.Se
         session=session,
         stop=sessions.stop_of(record, acts, session),
     )
-
-
-def plan_text(worktree: Path, record: Record) -> str | None:
-    """The recorded plan of the task, in its own worktree."""
-    plan = record.task.plan
-    if plan is None or not (worktree / ".git").exists():
-        return None
-    return folder.text_of(worktree, plan.path)

@@ -9,7 +9,7 @@ Its hover is `hovers.py`'s.
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from lem.board.views import stopped, turns, words
+from lem.board.views import merge_state, stopped, turns, words
 from lem.records.journal.landing import CheckEnd, CheckWait, MergeWait
 from lem.records.journal.merge import LandAgain
 from lem.records.journal.task import SpanMark, StateNoted, Summary
@@ -46,7 +46,7 @@ def line(record: Record, standing: Standing, title: str) -> str:
     end = stopped.ended(record)
     if end is not None:
         return words.capital(stopped.line(record, end))
-    waits = waiting(record) or answered(record.task)
+    waits = waiting(record) or merge_state.said(record) or answered(record.task)
     if waits is not None:
         return waits
     shown = turns.said(record, standing.label) or said(record)
@@ -96,6 +96,9 @@ def waiting(record: Record) -> str | None:
     entries = filter(wait_mark, reversed(record.journal))
     newest = next(entries, None)
     if isinstance(newest, MergeWait):
+        called = merge_state.current(record)
+        if called is not None and called.at >= newest.at:
+            return None
         behind = newest.behind or "another task"
         return f"Waits for the merge of {behind}"
     if isinstance(newest, CheckWait):

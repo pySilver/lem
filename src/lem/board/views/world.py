@@ -36,7 +36,7 @@ class Seen(Frozen, frozen=True, kw_only=True):
     acts: tuple[Act, ...] = ()
     files: tuple[str, ...] = ()
     prose: tuple[tuple[str, str], ...] = ()
-    plan_text: str | None = None
+    plan_file: facts.PlanFile | None = None
     stats: tuple[facts.Stat, ...] = ()
     head: facts.Commit | None = None
     filed: tuple[facts.Filed, ...] | None = None

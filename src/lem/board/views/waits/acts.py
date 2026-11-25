@@ -5,12 +5,13 @@ step, to a card of the task's session, and "Open a session" for a task that lack
 
 from typing import TYPE_CHECKING
 
+from lem.app.sessions.phase import phase_or_none
 from lem.board.inputs import names
 from lem.board.inputs.parts import Link
 from lem.board.inputs.waits import Acts
 from lem.board.views import answering, offers
 from lem.board.views.panel.opening import session_form
-from lem.board.views.waits import kinds, opening
+from lem.board.views.waits import kinds
 from lem.records.holds import OwnerHold
 
 if TYPE_CHECKING:
@@ -40,7 +41,10 @@ def acts(world: World, seen: Seen, row: Row) -> Acts | None:
     link = link_of(world, seen, row)
     if link is not None:
         return Acts(links=(link,))
-    if row.kind in {"session", "stopped"} and opening.opens_session(seen):
+    if (
+        row.kind in {"session", "stopped"}
+        and phase_or_none(seen.record.task, worktree=seen.worktree) is not None
+    ):
         return Acts(forms=(session_form(world, seen, under=UNDER),))
     return None
 

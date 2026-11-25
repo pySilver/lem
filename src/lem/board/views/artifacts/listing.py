@@ -31,9 +31,8 @@ def listed(path: str) -> bool:
 def entries_of(seen: Seen) -> tuple[Entry, ...]:
     """The task's files in the map's order: by section, the plan first, then by path."""
     found = [entry_of(path) for path in seen.files if listed(path)]
-    plan = seen.record.task.plan
-    if plan is not None and seen.worktree:
-        found.append(plan_of(plan.path))
+    if seen.plan_file is not None:
+        found.append(plan_of(seen.plan_file.stat.path))
     return tuple(sorted(found, key=order))
 
 

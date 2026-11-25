@@ -3,16 +3,18 @@ and the text of each file the board shows as text, read as it is (the design's p
 and artifacts"): its markdown, its logs, its records and its pages, up to `CAP` bytes each."""
 
 from datetime import UTC, datetime
+from stat import S_ISREG
 from typing import TYPE_CHECKING
 
 from lem.app.sessions import log
 from lem.board.views.artifacts import kinds, listing
-from lem.board.views.facts import Stat
+from lem.board.views.facts import PlanFile, Stat
 from lem.store import tasks
 
 if TYPE_CHECKING:
-    import os
     from pathlib import Path
+
+    from lem.records.work import Plan
 
 # The files of a task's folder that are no document of it: its record, its lock, and Lem's
 # acts on its sessions.
@@ -71,22 +73,30 @@ def size_of(path: Path) -> int:
 
 def stats_of(folder: Path, files: tuple[str, ...]) -> tuple[Stat, ...]:
     """The size and the time of each file of the folder that still reads."""
-    found = ((name, stat_of(folder / name)) for name in files)
-    return tuple(
-        Stat(path=name, size=stat.st_size, changed=moment_of(stat.st_mtime))
-        for name, stat in found
-        if stat is not None
-    )
+    found = (stat_of(folder / name, name) for name in files)
+    return tuple(stat for stat in found if stat is not None)
 
 
-def stat_of(path: Path) -> os.stat_result | None:
-    """A file's facts, or None when it is gone."""
+def stat_of(path: Path, name: str) -> Stat | None:
+    """A regular file's facts, with its name relative to the folder that holds it."""
     try:
-        return path.stat()
+        found = path.stat()
     except OSError:
         return None
+    if not S_ISREG(found.st_mode):
+        return None
+    changed = datetime.fromtimestamp(found.st_mtime, tz=UTC)
+    return Stat(path=name, size=found.st_size, changed=changed)
 
 
-def moment_of(stamp: float) -> datetime:
-    """A file's time as a moment."""
-    return datetime.fromtimestamp(stamp, tz=UTC)
+def plan_of(worktree: Path, plan: Plan | None) -> PlanFile | None:
+    """The recorded plan of the task, in its own worktree."""
+    if plan is None or not (worktree / ".git").exists():
+        return None
+    path = (worktree / plan.path).resolve()
+    if not path.is_relative_to(worktree.resolve()):
+        return None
+    stat = stat_of(path, plan.path)
+    if stat is None or not stat.size:
+        return None
+    return PlanFile(stat=stat, text=text_of(worktree, plan.path))

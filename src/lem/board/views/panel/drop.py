@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from lem.board.inputs.forms import ActForm, Field, TextBox
 from lem.board.inputs.task.steps import Confirm, Drop
-from lem.board.views import hovers, offers
+from lem.board.views import answering, hovers, offers
 from lem.board.views.panel import confirm
 from lem.board.views.panel.answered import answered
 from lem.board.views.panel.stopped import stopped
@@ -37,7 +37,7 @@ def drop(
             look="you",
             label="Drop: confirm",
             eyebrow=f"Drop {slug}?",
-            form=drop_form(world, slug, question.id, asked) if acting else None,
+            form=drop_form(world, slug, question, asked) if acting else None,
             back=confirm.back(world, slug) if acting else None,
             words=None if acting else elsewhere(slug),
             sheet=acting,
@@ -76,16 +76,17 @@ def refused(
     if seen.record.task.status in ENDED:
         label = standing.label.lower()
         return f"Nothing to drop from the board: the task is {label}."
+    key = asked.key
+    if key is not None and (question is None or key != question.id):
+        return (
+            f"The Drop you opened was for a wait of {slug} that is over. Read what waits "
+            "now, then answer it on its Overview."
+        )
     if question is None:
         label = standing.label.lower()
         return (
             "Nothing to drop from the board: no plan or breaker of this task waits for "
             f"you. The task is {label}; /lem drop {slug} in any session ends it."
-        )
-    if asked.key and asked.key != question.id:
-        return (
-            f"The Drop you opened was for a wait of {slug} that is over. Read what waits "
-            "now, then answer it on its Overview."
         )
     return None
 
@@ -107,9 +108,10 @@ def elsewhere(slug: str) -> str:
     )
 
 
-def drop_form(world: World, slug: str, key: str, asked: confirm.Asked) -> ActForm:
-    """Confirm, which posts his Drop as the answer to the question `key`, with his note."""
-    named = (("key", key), ("option", "drop"), ("confirm", "yes"))
+def drop_form(
+    world: World, slug: str, question: Question, asked: confirm.Asked
+) -> ActForm:
+    """Confirm, which posts his Drop as the answer to the question, with his note."""
     workspace = world.viewer.workspace
     box = TextBox(
         name="words",
@@ -126,9 +128,10 @@ def drop_form(world: World, slug: str, key: str, asked: confirm.Asked) -> ActFor
         icon="xmark",
         press="risk",
         busy="Dropping…",
-        fields=tuple(
-            Field(name=name, shown=shown)
-            for name, shown in (*named, *confirm.under_field(world))
+        fields=(
+            *answering.fields_of(question, world.viewer.view, None),
+            Field(name="option", shown="drop"),
+            Field(name="confirm", shown="yes"),
         ),
         box=box,
     )

@@ -1,5 +1,7 @@
 """What a stale board page must not offer, and the facts a fresh page must show."""
 
+import os
+from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
 import pytest
@@ -9,6 +11,7 @@ from fakes.records import MOMENT
 from fixtures.board.beside import write
 from fixtures.board.receipt import RECEIPT
 from lem.board.views import owed, telling
+from lem.board.views.artifacts.chosen import missing
 from lem.board.views.artifacts.tab import artifacts
 from lem.board.views.ask import Ask
 from lem.board.views.criteria.tab import criteria
@@ -17,11 +20,12 @@ from lem.board.views.panel.confirm import Asked
 from lem.board.views.panel.opened import Opened
 from lem.board.views.panel.panel import panel
 from lem.model.landing.merge_said import ROUND
-from lem.records.holds import OwnerHold, ReleaseHold
-from lem.records.journal.landing import CheckWait
+from lem.records.decisions import Breaker
+from lem.records.holds import BreakerHold, OwnerHold, ReleaseHold
+from lem.records.journal.landing import CheckWait, MergeWait
 from lem.records.journal.merge import LandAgain
 from lem.records.journal.task import SpanMark
-from lem.records.landing.merge import MergeIntent
+from lem.records.landing.merge import MergeAccepted, MergeIntent
 from lem.records.questions import Question
 from unit.board.views.afternoon import world as afternoon
 from unit.board.views.small import gone, task, world
@@ -33,6 +37,7 @@ from unit.board.views.test_cases_merge import (
     TIP,
     at,
     opened,
+    placed,
     read,
     waits,
 )
@@ -144,6 +149,66 @@ def test_lost_merge_reply_leaves_only_the_github_check() -> None:
     assert confirm.not_now and PULL.url in confirm.not_now.said
 
 
+def test_an_accepted_merge_has_no_second_confirmation() -> None:
+    accepted = MergeAccepted(tip=TIP, at=at(4), queued="merge queue")
+    seen = opened(proposed=PROPOSED, reads=(read("call"),), accepted=accepted)
+    found = world(seen)
+    overview = panel(found, SLUG, "overview")
+    assert overview.head and overview.head.acts is None
+    assert overview.overview and "queue" in overview.overview.now.head
+    confirm = panel(found, SLUG, "merge")
+    assert confirm.merge is None
+    assert confirm.not_now and "queue" in confirm.not_now.said
+    assert waits(seen) == []
+
+
+@pytest.mark.parametrize("minutes", (0, 1))
+def test_breaker_confirmations_expire_before_the_new_question(minutes: int) -> None:
+    old = Question(
+        id=f"breaker:{SLUG}:1:20261125T100000Z",
+        topic="breaker",
+        question="What should the build do?",
+        options=("help", "park", "drop"),
+        asked=MOMENT,
+    )
+    breaker = Breaker(
+        id=2,
+        at=at(minutes),
+        cause="criteria",
+        what="The export has no place for the gift note",
+        document="breaker-2.md",
+        handoff="handoff.md",
+    )
+    hold = BreakerHold(number=breaker.id, since=breaker.at)
+    found = world(
+        task(status="building", hold=hold, decisions=(breaker,), questions=(old,))
+    )
+    opened = Opened(asked=Asked(key=old.id))
+    park = panel(found, SLUG, "park", opened=opened)
+    assert park.park is None and park.not_now is not None
+    drop = panel(found, SLUG, "drop", opened=opened)
+    assert drop.drop is None and drop.not_now is not None
+    assert panel(found, SLUG, "park").park is None
+
+
+@pytest.mark.parametrize("minutes", (-1, 0, 1))
+def test_merge_intent_ends_an_earlier_lock_wait(minutes: int) -> None:
+    intent = MergeIntent(tip=TIP, by="owner", via="board", at=at(4 + minutes))
+    seen = opened(proposed=PROPOSED, reads=(read("call"),), intent=intent)
+    waited = MergeWait(at=at(4), behind="receipt")
+    seen = replace(
+        seen, record=replace(seen.record, journal=(*seen.record.journal, waited))
+    )
+    overview = panel(world(seen), SLUG, "overview").overview
+    expected = (
+        "Waits for the merge of receipt"
+        if minutes < 0
+        else "Check the pull request on GitHub"
+    )
+    assert overview and overview.now.head == expected
+    assert placed(seen)[2] == expected
+
+
 def test_merge_review_card_says_another_round() -> None:
     seen = opened(proposed=PROPOSED, reads=(read("call", base_call=ROUND),))
     seen = replace(seen, prose=(("merge-review.md", "The base needs more checks."),))
@@ -192,6 +257,40 @@ def test_artifacts_preview_the_file_from_its_own_folder(
         assert body.text == "One line\n"
     else:
         assert body.lines == ("One line",)
+
+
+@pytest.mark.parametrize("body", (None, "", "# The plan\n"))
+def test_artifacts_list_only_a_real_plan_and_show_its_file_facts(
+    tmp_path: Path, body: str | None
+) -> None:
+    found = afternoon(tmp_path)
+    plan = RECEIPT.task.plan
+    assert plan is not None
+    worktree = tmp_path / "shop" / ".lem" / "worktrees" / RECEIPT.task.slug
+    write(worktree / ".git", "gitdir: elsewhere\n")
+    if body is not None:
+        path = worktree / plan.path
+        write(path, body)
+        stamp = found.clock.now.timestamp()
+        os.utime(path, (stamp, stamp))
+    found = artifacts_opened(gathered(tmp_path, found), plan.path)
+    seen = owed.seen(found, RECEIPT.task.slug)
+    tab = artifacts(found, seen)
+    section = next(one for one in tab.sections if one.key == "plan")
+    if not body:
+        assert all(doc.path != plan.path for doc in section.docs)
+        assert missing(found, seen) is not None
+        assert not tab.chosen
+    else:
+        assert tab.chosen and tab.shown and section.docs[0].path == plan.path
+        assert (
+            tab.shown.meta
+            == f"{plan.path} · markdown · {len(body.encode())} B · changed 16:00"
+        )
+
+
+def test_waits_uses_the_session_phase_without_a_pass_through_module() -> None:
+    assert find_spec("lem.board.views.waits.opening") is None
 
 
 def test_session_offer_checks_every_prerequisite() -> None:

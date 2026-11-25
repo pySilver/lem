@@ -19,8 +19,15 @@ class Filed(Frozen, frozen=True, kw_only=True):
 
 
 class Stat(Frozen, frozen=True, kw_only=True):
-    """A file of a task's folder: its path, its bytes, and when it changed."""
+    """A file's path, its bytes, and when it changed."""
 
     path: str
     size: int
     changed: Moment
+
+
+class PlanFile(Frozen, frozen=True, kw_only=True):
+    """The worktree plan's file facts and the text the board could read."""
+
+    stat: Stat
+    text: str | None

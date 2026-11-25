@@ -16,8 +16,9 @@ MB = KB * KB
 
 def meta_of(world: World, seen: Seen, entry: Entry) -> str:
     """The file's line: `pr.md · markdown · 1.2 KB · changed 08:32`."""
+    plan = seen.plan_file if entry.first else None
     stats = (one for one in seen.stats if one.path == entry.path)
-    stat = next(stats, None)
+    stat = next(stats, None) if plan is None else plan.stat
     parts = [entry.path, kinds.WORDS[entry.kind]]
     if stat is not None:
         changed = stamp(stat.changed, world.clock.now, world.clock.zone)

@@ -64,8 +64,14 @@ def test_a_park_takes_one_line_of_why_and_the_breakers_question(tmp_path: Path) 
     )
     form = found.park.confirm.form
     assert form is not None
-    assert [(one.name, one.shown) for one in form.fields] == [("key", QUESTION)]
+    assert form.action.endswith(f"/tasks/{GIFT}/answer")
+    assert [(one.name, one.shown) for one in form.fields] == [
+        ("key", QUESTION),
+        ("option", "park"),
+        ("confirm", "yes"),
+    ]
     assert form.box is not None
+    assert form.box.name == "words"
     assert form.box.words == "wait for the export"
     assert form.box.id == "park-why-shop-gift-note-in-export"
     assert found.head is not None

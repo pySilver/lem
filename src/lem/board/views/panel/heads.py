@@ -6,7 +6,7 @@ its merge."""
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from lem.board.views import offers, rule, telling
+from lem.board.views import merge_state, rule, telling
 from lem.board.views.panel import held_head, landing_head
 from lem.board.views.panel.leads import lead_of
 from lem.model.owner import merging
@@ -70,7 +70,7 @@ def status_head(record: Record, after: str | None) -> str:
     if task.status == "planned":
         return planned(record)
     if task.status in {"landing", "open"}:
-        return telling.waiting(record) or moving(record)
+        return telling.waiting(record) or merge_state.said(record) or moving(record)
     return PLAIN.get(task.status, f"Status “{task.status}”")
 
 
@@ -100,7 +100,5 @@ def moving(record: Record) -> str:
     """A landing's step, or the merge an open pull request waits for."""
     if record.task.status == "landing":
         return landing_head.landing(record)
-    if offers.merge_pending(record):
-        return "Check the pull request on GitHub"
     wait = merging.merge_wait(record) or ""
     return PROPOSED.get(wait, "Proposed: it waits for your merge")

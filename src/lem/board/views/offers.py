@@ -6,6 +6,7 @@ none: its drop is the way on."""
 
 from typing import TYPE_CHECKING
 
+from lem.board.views import merge_state
 from lem.board.views.rule import ENDED
 from lem.model.criteria import waits
 from lem.model.landing import merge_standing
@@ -16,7 +17,6 @@ if TYPE_CHECKING:
     from lem.board.views.world import Seen
     from lem.records.base import Moment
     from lem.records.questions import Question
-    from lem.records.record import Record
     from lem.records.task import Task
 
 NONE: frozenset[str] = frozenset()
@@ -28,6 +28,11 @@ def open_question(task: Task, topic: str) -> Question | None:
     newest = answers.newest_of(task, topic)
     if since is None or newest is None or newest.asked < since:
         return None
+    hold = task.hold
+    if isinstance(hold, BreakerHold):
+        prefix = f"breaker:{task.slug}:{hold.number}:"
+        if not newest.id.startswith(prefix):
+            return None
     return newest if newest.answer is None else None
 
 
@@ -58,7 +63,7 @@ def merge_offered(seen: Seen, conflicts: frozenset[str] = NONE) -> bool:
     if task.status != "open" or isinstance(task.hold, ReleaseHold):
         return False
     if (
-        merge_pending(record)
+        merge_state.current(record) is not None
         or merging.merge_wait(record) == "relands"
         or task.slug in conflicts
     ):
@@ -69,13 +74,3 @@ def merge_offered(seen: Seen, conflicts: frozenset[str] = NONE) -> bool:
 def park_offered(task: Task) -> bool:
     """Whether his park is offered: a breaker waits for him."""
     return task.status not in ENDED and isinstance(task.hold, BreakerHold)
-
-
-def merge_pending(record: Record) -> bool:
-    """Whether an open task has a merge call with no reply on record."""
-    landing = record.landing
-    return (
-        record.task.status == "open"
-        and landing is not None
-        and landing.intent is not None
-    )

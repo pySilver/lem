@@ -10,8 +10,9 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from lem.app.sessions.guard_rule import ANSWER_SECONDS, QUIET_SECONDS
-from lem.board.views import offers, words
+from lem.board.views import merge_state, words
 from lem.board.views.panel.answer import answer as answer_of
+from lem.records.landing.merge import MergeIntent
 
 if TYPE_CHECKING:
     from lem.board.views.world import Seen
@@ -127,7 +128,7 @@ def merge(record: Record, row: Row) -> str:
 def recovery(record: Record) -> str | None:
     """The owner's GitHub check while a merge call has no reply on record."""
     landing = record.landing
-    if landing is None or not offers.merge_pending(record):
+    if landing is None or not isinstance(merge_state.current(record), MergeIntent):
         return None
     pull = landing.pull
     named = f"[pull request #{pull.number}]({pull.url})" if pull else "the pull request"

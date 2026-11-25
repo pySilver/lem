@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from lem.board.inputs.forms import ActForm, Field, TextBox
 from lem.board.inputs.task.steps import Confirm, Park
-from lem.board.views import hovers, offers
+from lem.board.views import answering, hovers, offers
 from lem.board.views.panel import confirm
 from lem.board.views.panel.answered import answered
 from lem.board.views.panel.stopped import stopped
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from lem.board.inputs.task.steps import NotNow
     from lem.board.views.standing import Standing
     from lem.board.views.world import Seen, World
+    from lem.records.questions import Question
 
 # The longest line of why a park takes.
 WHY = 300
@@ -26,12 +27,13 @@ def park(
     """The park's step of the task of `seen`, or why there is nothing to park now."""
     task = seen.record.task
     breaker = stopped(task)
-    said = refused(world, seen, standing, asked)
-    if said is not None or breaker is None:
+    question = offers.open_question(task, "breaker")
+    said = refused(world, seen, standing, asked, question)
+    if said is not None or breaker is None or question is None:
         return confirm.not_now(world, task.slug, said or nothing(standing))
     why = hovers.stop_words(breaker)
     return Park(
-        confirm=park_confirm(world, seen, breaker.id, asked),
+        confirm=park_confirm(world, task.slug, breaker.id, question, asked),
         what=f"**The build stopped:** {breaker.what}, since {why}.",
         said=(
             "A parked task keeps its worktree, its branch and its files. Nothing of it "
@@ -50,7 +52,11 @@ def nothing(standing: Standing) -> str:
 
 
 def refused(
-    world: World, seen: Seen, standing: Standing, asked: confirm.Asked
+    world: World,
+    seen: Seen,
+    standing: Standing,
+    asked: confirm.Asked,
+    question: Question | None,
 ) -> str | None:
     """Why the step parks nothing: no breaker waits, his answer is on record, or the Park
     he opened was for a wait that is over."""
@@ -61,28 +67,29 @@ def refused(
     if made is not None:
         took = made.took.removesuffix(".")
         return f"{took}: the task’s session takes it."
-    question = offers.open_question(task, "breaker")
-    if asked.key and question is not None and asked.key != question.id:
+    key = asked.key
+    if key is not None and (question is None or key != question.id):
         return (
             f"The Park you opened was for a wait of {task.slug} that is over: its "
             "breaker waits again. Read it, then answer it on its Overview."
         )
-    return None
+    return (
+        nothing(standing)
+        if question is None or "park" not in question.options
+        else None
+    )
 
 
 def park_confirm(
-    world: World, seen: Seen, number: int, asked: confirm.Asked
+    world: World, slug: str, number: int, question: Question, asked: confirm.Asked
 ) -> Confirm:
     """The step's head, its button with its box, and the way back."""
-    slug = seen.record.task.slug
     acting = world.viewer.may_act
-    question = offers.open_question(seen.record.task, "breaker")
-    key = question.id if question else None
     return Confirm(
         look="you",
         label="Park: confirm",
         eyebrow=f"Park · breaker {number}",
-        form=park_form(world, seen, key, asked) if acting else None,
+        form=park_form(world, slug, question, asked) if acting else None,
         back=confirm.back(world, slug) if acting else None,
         words=None if acting else elsewhere(slug),
         sheet=acting,
@@ -98,19 +105,20 @@ def elsewhere(slug: str) -> str:
 
 
 def park_form(
-    world: World, seen: Seen, key: str | None, asked: confirm.Asked
+    world: World, slug: str, question: Question, asked: confirm.Asked
 ) -> ActForm:
     """The button that parks the task, with its box for one line of why."""
-    slug = seen.record.task.slug
-    keyed = (("key", key),) if key else ()
-    named = (*confirm.under_field(world), *keyed)
     return ActForm(
-        action=confirm.act_href(world, slug, "park"),
+        action=confirm.act_href(world, slug, "answer"),
         label="Park the task",
         icon="folder",
         press="go",
         busy="Parking…",
-        fields=tuple(Field(name=name, shown=shown) for name, shown in named),
+        fields=(
+            *answering.fields_of(question, world.viewer.view, None),
+            Field(name="option", shown="park"),
+            Field(name="confirm", shown="yes"),
+        ),
         box=why_box(world, slug, asked.words),
     )
 
@@ -120,7 +128,7 @@ def why_box(world: World, slug: str, typed: str) -> TextBox:
     through a refresh."""
     workspace = world.viewer.workspace
     return TextBox(
-        name="why",
+        name="words",
         id=f"park-why-{workspace}-{slug}",
         label="Why, in one line",
         placeholder="the owner parked it",
