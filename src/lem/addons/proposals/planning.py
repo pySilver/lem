@@ -2,9 +2,8 @@
 area that passed, under the title the reviewer gives it, and one `worth: no` item for each
 refuted proposal.
 
-A refuted proposal's item is found again by its `proposals` line when a verdict was cut off
-between its items and its records, and written again in place; a retry that passes it instead
-removes it (`project.refuted_items` on `main`).
+The proposals an item names identify its file after a cut-off between the item write and
+the record write. A retry that passes a refuted proposal removes its refuted item.
 """
 
 from dataclasses import dataclass
@@ -42,11 +41,14 @@ def planned(
     of `folder`; refused at the first verdict that does not hold."""
     every, records = judging.judged_all(state, given)
     taken = item_files.taken_names(folder)
-    left = heads.refuted_items(folder)
+    existing = item_files.backlog_heads(folder)
+    left = heads.refuted_items(existing)
     return Plan(
         judged=every,
         records=records,
-        made=passed_items(every, given.titles, today, taken),
+        made=passed_items(
+            every, given.titles, today, taken, heads.passed_names(existing)
+        ),
         against=refuted_items(every, today, left, taken),
         left=left,
     )
@@ -57,12 +59,20 @@ def passed_items(
     titles: dict[str, str],
     today: dt.date,
     taken: set[str],
+    existing: dict[frozenset[str], str],
 ) -> tuple[tuple[ItemMade, str], ...]:
     """The item of each area that passed, with its text."""
     areas = judging.areas_of(every)
     named = judging.titled(areas, titles)
     return tuple(
-        passed_item(area, named[area], today, entries, taken)
+        passed_item(
+            area,
+            named[area],
+            today,
+            entries,
+            existing.get(frozenset(name for name, _ in entries))
+            or item_files.free_name(item_files.slug_of(named[area]), taken),
+        )
         for area, entries in areas.items()
     )
 
@@ -72,10 +82,10 @@ def passed_item(
     title: str,
     today: dt.date,
     entries: list[item_text.Entry],
-    taken: set[str],
+    filename: str,
 ) -> tuple[ItemMade, str]:
-    """The item of one area that passed, at a name not taken, and its text."""
-    path = item_files.recorded(item_files.free_name(item_files.slug_of(title), taken))
+    """The item of one area that passed, at the chosen path, and its text."""
+    path = item_files.recorded(filename)
     proposals = tuple(named for named, _ in entries)
     text = item_text.passed_text(title, area, today, entries)
     return ItemMade(area=area, title=title, path=path, proposals=proposals), text

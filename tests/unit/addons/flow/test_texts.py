@@ -37,6 +37,8 @@ def test_the_free_hour_searches_and_proposes_and_makes_no_branch() -> None:
     hour = text("docs", "free-hour.md")
     assert "the free hour searches and proposes, and makes no branch" in hour
     assert "the scheduled `/lem retro` takes none" in hour
+    assert "`.venv/bin/python -I -B tests --level full`" in hour
+    assert "the tasks' records and journals" in hour
 
 
 def test_improvements_reach_a_project_only_through_the_reviewer_and_the_owners_start() -> (

@@ -87,18 +87,20 @@ class Asker:
     url: str
     model: str
     transport: httpx.BaseTransport | None = None
+    timeout: float | None = None
 
     def sent(
         self, request: wire.Request, *, report_http_status: bool = False
     ) -> dict[str, float] | NotAsked:
         """The scores of one request, or why it got none. The whole request, its reply read
-        to its end, is given `SECONDS`: a reply that trickles past them is no answer.
+        to its end, is given `timeout` or the landing's `SECONDS`.
         The correction log asks for the HTTP status of a failed reply."""
         if self.key is None:
             return NO_KEY
-        deadline = time.monotonic() + SECONDS
+        timeout = SECONDS if self.timeout is None else self.timeout
+        deadline = time.monotonic() + timeout
         try:
-            with httpx.Client(transport=self.transport, timeout=SECONDS) as client:
+            with httpx.Client(transport=self.transport, timeout=timeout) as client:
                 body = posted(client, self.url, self.key, request, deadline)
         except httpx.HTTPError:
             return NO_ANSWER

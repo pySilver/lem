@@ -1,13 +1,15 @@
 """`lem picker`: its rows, their words and their order, and the way to the task picked (`main`:
 tests/lem-picker.sh and tests/unit/test_picker.py, `picker.py`). agterm is the fake terminal of
-the ports, and the board's opening a stand-in that records what it was asked."""
+the ports, and the board's child command is recorded without opening it."""
 
 import datetime as dt
 import json
 import os
 import subprocess
+import sys
 from dataclasses import replace as replace_dataclass
 from subprocess import CompletedProcess
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
@@ -155,14 +157,21 @@ def test_a_label_prints_and_a_long_one_ends_in_an_ellipsis() -> None:
     ]
 
 
-class Board:
-    """A stand-in for the board's opening: what it was asked to open."""
-
-    def __init__(self) -> None:
-        self.opened: list[str] = []
-
-    def __call__(self, checkout: Path, chosen: str) -> None:
-        self.opened.append(chosen)
+def board_command(checkout: Path, *task: str) -> list[str]:
+    """The command the picker must use to open the board."""
+    return [
+        sys.executable,
+        "-B",
+        "-P",
+        "-s",
+        "-m",
+        "lem",
+        "--repo",
+        str(checkout),
+        "board",
+        "--follow",
+        *task,
+    ]
 
 
 def here_of(tmp_path: Path, terminal: FakeTerminal) -> Here:
@@ -175,10 +184,15 @@ def here_of(tmp_path: Path, terminal: FakeTerminal) -> Here:
 
 
 @pytest.fixture
-def opened(monkeypatch: pytest.MonkeyPatch) -> Board:
-    stand_in = Board()
-    monkeypatch.setattr(board, "opened", stand_in)
-    return stand_in
+def opened(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    commands: list[list[str]] = []
+
+    def run(command: list[str], **_options: object) -> CompletedProcess[str]:
+        commands.append(command)
+        return CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(board, "subprocess", SimpleNamespace(run=run))
+    return commands
 
 
 def chosen(monkeypatch: pytest.MonkeyPatch, here: Here, row_id: str | None) -> None:
@@ -195,7 +209,7 @@ def chosen(monkeypatch: pytest.MonkeyPatch, here: Here, row_id: str | None) -> N
 def test_a_pick_of_a_task_whose_session_lives_selects_that_session(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    opened: Board,
+    opened: list[list[str]],
     foreground: tuple[str, ...] | None,
     age: int,
     *,
@@ -221,17 +235,17 @@ def test_a_pick_of_a_task_whose_session_lives_selects_that_session(
     assert went.picked == "fix-login"
     assert terminal.panes["s-7"].selected is lives
     if lives:
-        assert (went.went, went.session, opened.opened) == ("session", "s-7", [])
+        assert (went.went, went.session, opened) == ("session", "s-7", [])
     else:
-        assert (went.went, went.session, opened.opened) == (
+        assert (went.went, went.session, opened) == (
             "board",
             None,
-            ["fix-login"],
+            [board_command(here.where.checkout, "--task", "fix-login")],
         )
 
 
 def test_a_pick_with_no_live_session_and_the_last_row_open_the_board(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, opened: Board
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, opened: list[list[str]]
 ) -> None:
     here = here_of(tmp_path, FakeTerminal())
     monkeypatch.setattr(sessions, "live_session", lambda *_: None)
@@ -239,20 +253,23 @@ def test_a_pick_with_no_live_session_and_the_last_row_open_the_board(
     assert picking.picked(tmp_path, NOW).went == "board"
     chosen(monkeypatch, here, row.ALL)
     assert picking.picked(tmp_path, NOW).picked == row.ALL
-    assert opened.opened == ["gift-note", row.ALL]
+    assert opened == [
+        board_command(here.where.checkout, "--task", "gift-note"),
+        board_command(here.where.checkout),
+    ]
 
 
 def test_escape_opens_nothing_and_says_nothing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, opened: Board
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, opened: list[list[str]]
 ) -> None:
     here = here_of(tmp_path, FakeTerminal())
     chosen(monkeypatch, here, None)
     assert picking.picked(tmp_path, NOW) == picking.Picked(picked=None)
-    assert opened.opened == []
+    assert opened == []
 
 
 def test_a_terminal_that_does_not_answer_is_a_refusal_with_its_line(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, opened: Board
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, opened: list[list[str]]
 ) -> None:
     class Deaf(FakeTerminal):
         def picker(self, rows: tuple[PickRow, ...], cwd: Path) -> str | None:
@@ -264,7 +281,7 @@ def test_a_terminal_that_does_not_answer_is_a_refusal_with_its_line(
         picking.picked(tmp_path, NOW)
     assert caught.value.code == "terminal"
     assert "not on the PATH" in caught.value.why
-    assert opened.opened == []
+    assert opened == []
 
 
 def test_a_folder_outside_lem_a_repository_with_no_task_and_its_rows(
@@ -305,6 +322,8 @@ def chord(
         "PICK_ROWS": str(tmp_path / "rows.json"),
         "PICK_EXIT": str(terminal_exits),
         "AGT_SESSION_PWD": str(checkout),
+        "AGT_SOCKET": str(tmp_path / "agterm.sock"),
+        "AGT_SESSION_ID": "chord-session",
     }
     look = DoctorLook(environ=environ, home=tmp_path, folder=checkout, brews=())
     line = picker_row(look).line
@@ -371,6 +390,24 @@ def test_picker_list_prefers_the_explicit_repo_then_the_session_then_cwd(
     assert printed(lem("picker", "--list", cwd=cwd))[0]["id"] == "working"
 
 
+@pytest.mark.parametrize(
+    "environ", [{}, {"AGT_SOCKET": "/test.sock"}, {"AGTERM_SESSION_ID": "session"}]
+)
+def test_the_picker_requires_the_callers_socket_and_session(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, environ: dict[str, str]
+) -> None:
+    def unexpected(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("the picker called agterm without a caller")
+
+    monkeypatch.setattr(terminal_agterm, "ctl", unexpected)
+    terminal = terminal_agterm.AgtermTerminal(environ)
+    with pytest.raises(Unanswered, match="agterm"):
+        terminal.picker(
+            (PickRow(row_id="gift-note", label="Gift note", subtitle="Queued"),),
+            tmp_path,
+        )
+
+
 def test_brackets_in_the_first_label_reach_agterm_as_a_json_row(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -382,7 +419,13 @@ def test_brackets_in_the_first_label_reach_agterm_as_a_json_row(
         return CompletedProcess([], 0, '{"result":"picked","id":"other"}', "")
 
     here = here_of(tmp_path, FakeTerminal())
-    ports = replace_dataclass(here.ports, terminal=terminal_agterm.AgtermTerminal({}))
+    environ = {
+        "AGTERM_SOCKET": str(tmp_path / "agterm.sock"),
+        "AGTERM_SESSION_ID": "s1",
+    }
+    ports = replace_dataclass(
+        here.ports, terminal=terminal_agterm.AgtermTerminal(environ)
+    )
     here = Here(where=here.where, ports=ports)
     monkeypatch.setattr(terminal_agterm, "ctl", pick)
     found = tuple(

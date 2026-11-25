@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from lem.addons.proposals import heads
 from lem.model.task.claim import ENDED
 from lem.store import reviewer_items, tasks
 
@@ -36,6 +37,11 @@ def taken_names(folder: Path) -> set[str]:
     written = {path.name for path in folder.glob("*.md")}
     claimed = {Path(path).name for path, _ in claims_of(folder.parent)}
     return written | claimed
+
+
+def backlog_heads(folder: Path) -> dict[Path, heads.Head]:
+    """Read the head of each Markdown file of the reviewer's backlog."""
+    return {path: heads.read(path) for path in sorted(folder.glob("*.md"))}
 
 
 def claims_of(state: Path) -> Iterator[tuple[str, Task]]:

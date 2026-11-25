@@ -183,7 +183,9 @@ def test_the_picker_gives_the_row_he_chose_or_none_when_he_closed_it(
     tmp_path: Path,
 ) -> None:
     standin = install(tmp_path / "agterm", [MINE])
-    terminal = bound(standin)
+    terminal = bound(
+        standin, AGTERM_SOCKET=str(tmp_path / "agterm.sock"), AGTERM_SESSION_ID="S-MINE"
+    )
     rows = (
         PickRow(row_id="gift-note", label="Gift note", subtitle="Queued"),
         PickRow(row_id="fix-the-login", label="Fix the login", subtitle="Shaping"),

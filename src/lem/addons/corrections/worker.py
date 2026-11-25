@@ -52,7 +52,7 @@ def worked(
         return Worked(
             queued=False, p_lesson=None, why="the machine says no to the queue"
         )
-    if not switch.repository_uses_lem(state.parent.parent):
+    if not switch.repository_uses_lem(state.parent.parent, correction.cwd):
         return Worked(
             queued=False, p_lesson=None, why="the repository has no team file"
         )

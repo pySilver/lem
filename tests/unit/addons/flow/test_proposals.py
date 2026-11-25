@@ -87,6 +87,24 @@ def test_a_second_retro_of_the_day_adds_after_the_first_and_keeps_its_verdicts(
     assert [entry.number for entry in found.refuted] == [1]
 
 
+@pytest.mark.parametrize("nested", [False, True])
+def test_an_append_refuses_unknown_record_fields_without_rewriting(
+    tmp_path: Path, *, nested: bool
+) -> None:
+    state = state_of(tmp_path)
+    add(state, "retro", [proposal("lessons", "One")])
+    daily = days.path_of(state, "retro", DAY)
+    fields = json.loads(daily.read_bytes())
+    target = fields["runs"][0] if nested else fields
+    target["questions"] = ["keep these words"]
+    original = json.dumps(fields).encode()
+    daily.write_bytes(original)
+
+    with pytest.raises(Refusal, match="unknown field `questions`"):
+        add(state, "retro", [])
+    assert daily.read_bytes() == original
+
+
 def test_a_run_that_is_not_in_the_form_is_refused_and_writes_nothing(
     tmp_path: Path,
 ) -> None:
@@ -404,6 +422,29 @@ def test_a_verdict_cut_off_before_its_record_finds_its_item_again_and_writes_it_
     assert text.rstrip().endswith("Decided against: second reason")
 
 
+def test_a_pass_retry_reuses_the_item_written_before_the_day_record(
+    tmp_path: Path,
+) -> None:
+    state = state_of(tmp_path)
+    added = add(
+        state, "retro", [proposal("lessons", "One"), proposal("lessons", "Two")]
+    )
+    daily = days.path_of(state, "retro", DAY)
+    before = daily.read_bytes()
+    verdicts = [{"proposal": name, "passed": "lessons"} for name in added.names]
+    (first,) = judge(state, verdicts, {"lessons": "Lessons"}).items_made
+    daily.write_bytes(before)
+
+    (second,) = judge(
+        state, list(reversed(verdicts)), {"lessons": "Better lessons"}
+    ).items_made
+    assert second.path == first.path
+    target = item_files.file_of(state, second.path)
+    assert list(target.parent.iterdir()) == [target]
+    assert "# Better lessons\n" in target.read_text()
+    assert {one.item_path for one in record(state, "retro").passed} == {first.path}
+
+
 def test_a_retry_that_passes_a_proposal_whose_refute_was_cut_off_removes_the_refuted_item(
     tmp_path: Path,
 ) -> None:
@@ -555,7 +596,9 @@ def test_a_drop_is_refused_while_a_task_that_has_not_ended_holds_the_item(
     assert item_files.file_of(where.state, path).is_file()
 
 
-@pytest.mark.parametrize("spelling", ["absolute", "parent", "symlink"])
+@pytest.mark.parametrize(
+    "spelling", ["absolute", "parent", "symlink", "case", "ask-case"]
+)
 def test_an_explicit_item_alias_is_claimed_by_its_checkout_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, spelling: str
 ) -> None:
@@ -567,13 +610,25 @@ def test_an_explicit_item_alias_is_claimed_by_its_checkout_path(
     if spelling == "symlink":
         alias = ".lem/state/backlog/alias.md"
         (where.checkout / alias).symlink_to(where.checkout / path)
+    if spelling in {"case", "ask-case"}:
+        alias = path.replace("backlog/lessons.md", "BACKLOG/LESSONS.md")
+        if not (where.checkout / alias).exists():
+            pytest.skip("this checkout has a case-sensitive file system")
+        assert (where.checkout / alias).samefile(where.checkout / path)
     monkeypatch.setattr(taken, "checked", lambda *_: None)
-    asked = opening.Asked(slug="do-the-lessons", ask=path, backlog_item=alias)
+    asked = (
+        opening.Asked(slug="do-the-lessons", ask=alias)
+        if spelling == "ask-case"
+        else opening.Asked(slug="do-the-lessons", ask=path, backlog_item=alias)
+    )
     task_open.opened(where.checkout, asked)
     with pytest.raises(Refusal) as caught:
         dropping.dropped(where, path, TODAY)
     assert caught.value.code == "item-held"
     assert tasks.read(where.state, asked.slug).task.backlog_item == path
+    with pytest.raises(Refusal) as duplicate:
+        task_open.opened(where.checkout, opening.Asked(slug="other-lessons", ask=path))
+    assert duplicate.value.code == "item-held"
     assert (where.checkout / path).is_file()
 
 

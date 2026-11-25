@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.adapters.agterm_ctl import TOOL, ctl, login_line, said
+from lem.adapters.agterm_ctl import SOCKETS, TOOL, ctl, login_line, said
 from lem.adapters.agterm_sessions import SESSION, TARGET, AgtermLooks
 from lem.ports.faults import Unanswered
 
@@ -101,6 +101,9 @@ class AgtermTerminal(AgtermLooks):
 
     def picker(self, rows: tuple[PickRow, ...], cwd: Path) -> str | None:
         """The id the owner picked in agterm's picker, or None when he closed it."""
+        sockets = (self.environ.get(name) for name in SOCKETS)
+        if not self.here() or not any(sockets):
+            raise Unanswered(TOOL, "the owner opens the picker from an agterm session")
         ran = ctl(
             self.environ,
             "pick",

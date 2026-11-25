@@ -75,10 +75,11 @@ def item_of(workspace: Workspace, asked: Asked) -> str | None:
         if named is None:
             raise Refusal(
                 "item-path",
-                f"the backlog item {given!r} must name a file inside {workspace.checkout}",
-                "give --item a path inside the main checkout, or omit --item",
+                f"the backlog item {given!r} must name a file inside {workspace.checkout}; "
+                "a tracked item cannot be a link",
+                "give --item the path to the item itself, or omit --item",
             )
-        path = named.as_posix()
+        path = reviewer_items.relative(workspace.checkout, given) or named.as_posix()
     else:
         path = reviewer_items.relative(workspace.checkout, asked.ask)
     if not path:

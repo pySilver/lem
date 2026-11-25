@@ -6,8 +6,6 @@ A lesson needs `--lesson` and `--target`; a lesson that went into a proposal of 
 `--verdict proposed`, with the proposal's name in its sentence (`addons/corrections/reviewing.py`).
 """
 
-from typing import Literal
-
 import click
 import msgspec
 
@@ -17,18 +15,13 @@ from lem.cli.words import choice
 from lem.kernel import clock
 from lem.store import places
 
-type Decision = Literal["lesson", "not_lesson"]
-type Verdict = Literal[
-    "accepted", "changed", "rejected", "proposed", "missed", "unasked"
-]
-
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """The words of `lem corrections record`."""
 
     entry: str
-    decision: Decision
-    verdict: Verdict
+    decision: reviewing.Decision
+    verdict: reviewing.Verdict
     target: str | None = None
     lesson: str | None = None
 
@@ -53,13 +46,13 @@ COMMAND = click.Command(
         click.Option(
             ["--decision"],
             required=True,
-            type=choice(Decision),
+            type=choice(reviewing.Decision),
             help="a lesson, or not one",
         ),
         click.Option(
             ["--verdict"],
             required=True,
-            type=choice(Verdict),
+            type=choice(reviewing.Verdict),
             help="the owner's answer to the move, or what became of it",
         ),
         click.Option(["--target"], help="the file the lesson went to"),

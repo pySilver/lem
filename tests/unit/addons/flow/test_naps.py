@@ -5,6 +5,9 @@ hand, the way a nap's agent leaves it."""
 
 import datetime as dt
 import json
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from threading import Event
 from typing import TYPE_CHECKING
 
 import pytest
@@ -13,11 +16,13 @@ from fakes.command import lem
 from fakes.repo import RealRepo, run_git
 from lem.addons.naps import folder as naps
 from lem.addons.naps import may
-from lem.kernel import clock
+from lem.kernel import clock, locks
 from lem.kernel.errors import Refusal
 from unit.task.spaces import refusal, result, workspace
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from io import TextIOWrapper
     from pathlib import Path
 
 ON = '[branch]\nbase = "main"\n[naps]\non = true\n'
@@ -66,6 +71,41 @@ def test_with_the_naps_on_it_starts_one_at_the_clocks_minute_and_a_second_call_i
     again = result(lem("nap", "may", cwd=tmp_path))
     assert again["may"] is False
     assert again["why"].startswith("a nap runs since ")
+
+
+def test_two_callers_cannot_both_start_a_nap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state = workspace(tmp_path, ON).state
+    first_read, second_arrived = Event(), Event()
+    real_read = naps.asleep_of
+    real_lock = locks.held
+
+    def read(folder: Path) -> naps.Asleep | None:
+        found = real_read(folder)
+        if not first_read.is_set():
+            first_read.set()
+            assert second_arrived.wait(5)
+        else:
+            second_arrived.set()
+        return found
+
+    @contextmanager
+    def held(path: Path) -> Iterator[TextIOWrapper]:
+        if first_read.is_set():
+            second_arrived.set()
+        with real_lock(path) as stream:
+            yield stream
+
+    monkeypatch.setattr(naps, "asleep_of", read)
+    monkeypatch.setattr(locks, "held", held)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first = executor.submit(may.may_nap, state, TEAM, NOW)
+        assert first_read.wait(5)
+        second = executor.submit(may.may_nap, state, TEAM, NOW)
+        answers = (first.result(timeout=5), second.result(timeout=5))
+    assert [answer.may for answer in answers] == [True, False]
+    assert "a nap runs since" in answers[1].why
 
 
 def test_a_nap_that_wrote_its_waking_note_runs_no_more_and_the_gap_holds(

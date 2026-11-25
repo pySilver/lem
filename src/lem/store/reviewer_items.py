@@ -4,6 +4,7 @@ The proposal lock protects each item and its verdict. A task claim takes the wor
 first: the board can hold it while the child that drops an item takes the proposal lock.
 """
 
+from os.path import normpath
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -21,24 +22,49 @@ LOCK = "proposals.lock"
 
 
 def relative(checkout: Path, given: str) -> str | None:
-    """A reviewer's item as a checkout path, whether given whole or from the checkout."""
-    if not given.strip().endswith(".md"):
+    """A reviewer's item as a checkout path, with the spelling of its directory entry."""
+    if not given.strip().lower().endswith(".md"):
         return None
     named = checkout_path(checkout, given)
-    if named is None or named.parent != FROM_CHECKOUT:
+    if named is None or not in_backlog(named):
         return None
-    if not named.name.endswith(".md") or named.name == ".md":
+    if named.suffix.lower() != ".md":
         return None
-    return named.as_posix()
+    source = checkout / named
+    if not source.is_file():
+        return named.as_posix() if named.parent == FROM_CHECKOUT else None
+    folder = checkout / FROM_CHECKOUT
+    spelling = next(
+        (
+            entry.name
+            for entry in folder.iterdir()
+            if entry.name.casefold() == named.name.casefold() and entry.samefile(source)
+        ),
+        None,
+    )
+    return None if spelling is None else (FROM_CHECKOUT / spelling).as_posix()
+
+
+def in_backlog(path: Path) -> bool:
+    """Whether the path spells the reviewer's backlog folder, in any case."""
+    return path.parent.as_posix().casefold() == FROM_CHECKOUT.as_posix()
 
 
 def checkout_path(checkout: Path, given: str) -> Path | None:
-    """The resolved path from the checkout, or None for a path outside it."""
+    """The checkout path. Only an alias inside the reviewer's backlog can name a link."""
     root = checkout.resolve()
+    whole = root / given.strip()
+    lexical = Path(normpath(whole))
+    if not lexical.is_relative_to(root):
+        return None
+    lexical = lexical.relative_to(root)
     try:
-        return (root / given.strip()).resolve().relative_to(root)
+        named = whole.resolve().relative_to(root)
     except ValueError:
         return None
+    if named != lexical and not (in_backlog(named) and in_backlog(lexical)):
+        return None
+    return named
 
 
 def file_of(state: Path, path: str) -> Path:

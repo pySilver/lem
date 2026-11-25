@@ -14,15 +14,17 @@ from typing import TYPE_CHECKING
 
 from lem.adapters import judge_jev, judge_jev_ask
 from lem.adapters import judge_jev_wire as wire
+from lem.ports.judge import NotAsked
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from lem.ports.judge import NotAsked
     from lem.records.corrections import Correction
 
 FLAG_AT = 0.3
 NAME = "lesson"
+# The Jev client's default on main, `jev.TIMEOUT_SECONDS`.
+TIMEOUT = 120.0
 ASKED = (
     "This is one exchange between a coding agent and the project's owner: the agent's last "
     "message, then the owner's reply. Should an agent remember a lesson from the owner's "
@@ -52,20 +54,40 @@ def request_of(model: str, previous: str, owner: str) -> wire.Request:
 
 
 def asked(
-    jev: judge_jev_ask.Asker, correction: Correction
+    jev: judge_jev_ask.Asker | NotAsked, correction: Correction
 ) -> dict[str, float] | NotAsked:
     """Jev's answer to the message, or why there is none: a request over Jev's limit is never
     sent, and nothing is cut down to fit."""
+    if isinstance(jev, NotAsked):
+        return jev
     request = request_of(jev.model, correction.previous, correction.owner)
     if wire.size_of(request) > wire.LIMIT_BYTES:
         return judge_jev_ask.TOO_LONG
     return jev.sent(request, report_http_status=True)
 
 
-def asker_of(environ: Mapping[str, str]) -> judge_jev_ask.Asker:
-    """Jev with the key, address and model of the environment, as the `Judge` adapter binds."""
+def asker_of(environ: Mapping[str, str]) -> judge_jev_ask.Asker | NotAsked:
+    """Jev with the correction timeout, or the reason no request can go out."""
+    timeout = timeout_of(environ)
+    if timeout is None:
+        return NotAsked(
+            why="JEV_TIMEOUT must be a positive number of seconds; set it to 120 or unset it"
+        )
     return judge_jev_ask.Asker(
         key=environ.get(judge_jev.KEY) or None,
         url=environ.get("JEV_API_URL", "").strip() or judge_jev.URL,
         model=environ.get("JEV_MODEL", "").strip() or judge_jev.MODEL,
+        timeout=timeout,
     )
+
+
+def timeout_of(environ: Mapping[str, str]) -> float | None:
+    """The Jev client's timeout in seconds, or None for a value it cannot use."""
+    raw = environ.get("JEV_TIMEOUT")
+    if raw is None:
+        return TIMEOUT
+    try:
+        timeout = float(raw)
+    except ValueError:
+        return None
+    return timeout if 0 < timeout < float("inf") else None

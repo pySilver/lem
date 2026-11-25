@@ -19,7 +19,7 @@ type Kind = Literal["night", "retro"]
 type Area = Annotated[str, msgspec.Meta(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*\Z")]
 
 
-class Proposal(Frozen, frozen=True, kw_only=True):
+class Proposal(Frozen, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """One proposal: its number in the day's record, its area, its move in one line, its
     body, its source and the place it would change."""
 
@@ -31,7 +31,7 @@ class Proposal(Frozen, frozen=True, kw_only=True):
     where: str
 
 
-class Run(Frozen, frozen=True, kw_only=True):
+class Run(Frozen, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """One run of the day: when it added, what it read, and the numbers it added."""
 
     at: Moment
@@ -39,7 +39,7 @@ class Run(Frozen, frozen=True, kw_only=True):
     proposals: tuple[int, ...]
 
 
-class Refuted(Frozen, frozen=True, kw_only=True):
+class Refuted(Frozen, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """The reviewer refuted a proposal on a day, with his reason."""
 
     number: int
@@ -47,7 +47,7 @@ class Refuted(Frozen, frozen=True, kw_only=True):
     day: Day
 
 
-class Passed(Frozen, frozen=True, kw_only=True):
+class Passed(Frozen, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """The reviewer passed a proposal on a day into the item of its area, by its path."""
 
     number: int
@@ -56,7 +56,7 @@ class Passed(Frozen, frozen=True, kw_only=True):
     day: Day
 
 
-class Dropped(Frozen, frozen=True, kw_only=True):
+class Dropped(Frozen, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """The owner dropped the item a proposal passed into: its move, what the reviewer of a later
     morning reads as his no, the day, and the item's path."""
 
@@ -67,7 +67,9 @@ class Dropped(Frozen, frozen=True, kw_only=True):
     item_path: str = msgspec.field(name="item")
 
 
-class DayRecord(Frozen, frozen=True, kw_only=True, omit_defaults=False):
+class DayRecord(
+    Frozen, frozen=True, kw_only=True, omit_defaults=False, forbid_unknown_fields=True
+):
     """The whole record of one day and one kind, every list written, an empty one too."""
 
     date: Day

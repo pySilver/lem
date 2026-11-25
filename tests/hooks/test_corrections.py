@@ -119,6 +119,40 @@ def test_a_message_is_handed_to_the_worker_as_one_correction(tmp_path: Path) -> 
     assert json.loads(msgspec.json.encode(correction)) == json.loads(body)
 
 
+def test_the_hook_requires_a_team_file_in_the_worktree_where_the_owner_typed(
+    tmp_path: Path,
+) -> None:
+    hook, calls = stand_in(tmp_path / "app")
+    repo = tmp_path / "repo"
+    workspace(repo)
+    gitdir = repo / ".git" / "worktrees" / "older"
+    gitdir.mkdir(parents=True)
+    (gitdir / "commondir").write_text("../..\n")
+    older = tmp_path / "older"
+    (older / "sub").mkdir(parents=True)
+    (older / ".git").write_text(f"gitdir: {gitdir}\n")
+    state = repo / ".lem" / "state"
+    environ = {
+        "LEM_HOOK_BIN": str(hook),
+        "XDG_CONFIG_HOME": yes_home(tmp_path / "config"),
+    }
+
+    ran = hooked("corrections", typed(older / "sub"), **environ)
+    assert (ran.returncode, ran.stdout, ran.stderr) == (0, b"", b"")
+    assert not (state / "corrections-waiting").exists()
+    assert not calls.exists()
+
+    (older / ".lem").mkdir()
+    (older / ".lem" / "settings.toml").write_text("")
+    hooked("corrections", typed(older / "sub"), **environ)
+    (call,) = worker_calls(calls_of(calls, 1))
+    path = Path(call.rpartition(" ")[2])
+    assert path.parent == state / "corrections-waiting"
+    assert msgspec.json.decode(path.read_bytes(), type=Correction).cwd == str(
+        (older / "sub").resolve()
+    )
+
+
 def test_a_hook_registered_twice_judges_each_message_once(tmp_path: Path) -> None:
     hook, calls = stand_in(tmp_path / "app")
     workspace(tmp_path / "repo")

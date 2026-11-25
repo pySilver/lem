@@ -13,6 +13,7 @@ import msgspec
 
 from lem.addons.naps import folder as naps
 from lem.addons.naps.answer import May
+from lem.kernel import locks
 from lem.settings import places
 
 if TYPE_CHECKING:
@@ -31,18 +32,24 @@ def may_nap(state: Path, switch: Switch, now: dt.datetime) -> May:
     """Whether a nap may start now in the state folder `state`, with the naps' switch and the
     file it comes from; a yes is written down."""
     where = state / naps.NAPS
+    if not switch[0]:
+        return checked(where, switch, now)
+    with locks.held(state / "naps.lock"):
+        return checked(where, switch, now)
+
+
+def checked(where: Path, switch: Switch, now: dt.datetime) -> May:
+    """Read the nap's state and reserve the start when one is due."""
     found = naps.naps_of(where)
     asleep = naps.asleep_of(where)
     why = running_why(where, asleep, found, now) or off_why(switch)
-    said = answer_of(where, found, why)
+    said = May(
+        may=False,
+        why=why or "",
+        folder=str(where),
+        newest=found[-1][1] if found else None,
+    )
     return said if why else due(where, said, starts_of(found, asleep), now)
-
-
-def answer_of(where: Path, found: tuple[naps.Started, ...], why: str | None) -> May:
-    """A no, with its reason, the folder and its newest nap."""
-    newest = found[-1][1] if found else None
-    said = why or ""
-    return May(may=False, why=said, folder=str(where), newest=newest)
 
 
 def running_why(

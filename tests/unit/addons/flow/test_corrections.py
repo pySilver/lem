@@ -7,18 +7,24 @@ bytes tests/hooks/test_corrections.py checks), and Jev is a stand-in transport o
 """
 
 import ast
+import inspect
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
+import click
 import httpx
 import msgspec
 import pytest
 
 from fakes.command import lem
 from lem.adapters import judge_jev_ask
-from lem.addons.corrections import groups, listing, queue, worker
+from lem.addons.corrections import groups, listing, question, queue, reviewing, worker
+from lem.cli.corrections import record as record_command
+from lem.cli.words import choice
 from lem.hooks import handoff
 from lem.kernel import folders
 from lem.kernel.errors import Refusal
@@ -212,6 +218,79 @@ def test_a_waiting_correction_is_discarded_when_the_team_file_is_gone(
     assert not jev.sent
     assert not path.exists()
     assert not (where.state / queue.QUEUE).exists()
+
+
+@pytest.mark.parametrize("team_exists", [False, True])
+def test_the_worker_checks_the_origin_worktree_before_it_sends(
+    tmp_path: Path, *, team_exists: bool
+) -> None:
+    where = workspace(tmp_path / "repo")
+    gitdir = where.checkout / ".git" / "worktrees" / "older"
+    gitdir.mkdir(parents=True)
+    (gitdir / "commondir").write_text("../..\n")
+    older = tmp_path / "older"
+    (older / "sub").mkdir(parents=True)
+    (older / ".git").write_text(f"gitdir: {gitdir}\n")
+    (older / ".lem").mkdir()
+    team = older / ".lem" / "settings.toml"
+    team.write_text("")
+    path = waiting(where.state)
+    path.write_bytes(handoff.correction("c1", str(older / "sub"), PROMPT, ""))
+    if not team_exists:
+        team.unlink()
+
+    jev = Jev(0.99)
+    done = worker.worked(path, home(tmp_path / "config"), NOW, jev.asker())
+    assert done.queued is team_exists
+    assert bool(jev.sent) is team_exists
+    assert not path.exists()
+
+
+@pytest.mark.parametrize(
+    ("override", "elapsed", "timeout"), [(None, 30, 120.0), ("180", 150, 180.0)]
+)
+def test_a_slow_correction_uses_the_jev_timeout_and_keeps_its_lesson(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    override: str | None,
+    elapsed: int,
+    timeout: float,
+) -> None:
+    state = workspace(tmp_path / "repo").state
+    environ = {**home(tmp_path / "config"), "JEV_API_KEY": "stand-in"}
+    if override is not None:
+        environ["JEV_TIMEOUT"] = override
+    jev = Jev(0.9)
+    ticks = iter((0, elapsed))
+    monkeypatch.setattr(
+        judge_jev_ask, "time", SimpleNamespace(monotonic=lambda: next(ticks))
+    )
+
+    def send(request: httpx.Request) -> httpx.Response:
+        assert request.extensions["timeout"]["read"] == timeout
+        return jev(request)
+
+    bound = question.asker_of(environ)
+    assert isinstance(bound, judge_jev_ask.Asker)
+    asker = replace(bound, transport=httpx.MockTransport(send))
+    done = worker.worked(waiting(state), environ, NOW, asker)
+    assert (done.queued, done.p_lesson) == (True, 0.9)
+    assert len(queue.lines(state / queue.QUEUE, Correction)) == 1
+
+
+def test_the_correction_command_uses_the_review_types_and_choices() -> None:
+    annotations = inspect.get_annotations(record_command.Call, eval_str=True)
+    assert annotations["decision"] is reviewing.Decision
+    assert annotations["verdict"] is reviewing.Verdict
+    params = {
+        param.name: param.type.choices
+        for param in record_command.COMMAND.params
+        if isinstance(param.type, click.Choice)
+    }
+    assert params == {
+        "decision": choice(reviewing.Decision).choices,
+        "verdict": choice(reviewing.Verdict).choices,
+    }
 
 
 def test_a_file_outside_the_waiting_folder_is_neither_read_nor_removed(

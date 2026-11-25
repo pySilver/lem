@@ -53,12 +53,30 @@ def proposals_of(given: object) -> tuple[str, ...]:
     return found if known else ()
 
 
-def refuted_items(folder: Path) -> dict[str, list[Path]]:
+def read(path: Path) -> Head:
+    """The head of an item. An absent file or a link holds no proposal."""
+    if path.is_symlink():
+        return Head()
+    try:
+        return head_of(path.read_text(encoding="utf-8"))
+    except FileNotFoundError, IsADirectoryError:
+        return Head()
+
+
+def refuted_items(existing: dict[Path, Head]) -> dict[str, list[Path]]:
     """The `worth: no` items of the reviewer's folder, by the one proposal each names: what a
     verdict wrote for a refuted proposal."""
     found: dict[str, list[Path]] = {}
-    for path in sorted(folder.glob("*.md")) if folder.is_dir() else ():
-        head = head_of(path.read_text(encoding="utf-8"))
+    for path, head in existing.items():
         if head.worth == "no" and len(head.proposals) == 1:
             found.setdefault(head.proposals[0], []).append(path)
     return found
+
+
+def passed_names(existing: dict[Path, Head]) -> dict[frozenset[str], str]:
+    """Each passed item's filename, by the set of proposals it names."""
+    return {
+        frozenset(head.proposals): path.name
+        for path, head in existing.items()
+        if head.worth == "later" and head.proposals
+    }

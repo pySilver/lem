@@ -10,6 +10,7 @@ from msgspec.structs import replace
 from fakes.command import lem
 from fakes.records import MOMENT, record
 from fakes.repo import RealRepo, run_git
+from lem.addons.proposals import dropping
 from lem.app.tasks import carry, park, resume
 from lem.kernel.errors import Refusal
 from lem.model.task import resumes
@@ -21,6 +22,7 @@ from lem.records.task import Shape
 from lem.records.tickets import Ticket
 from lem.records.work import Span
 from lem.store import places, tasks
+from unit.addons.flow.test_proposals import TODAY, passed_item
 from unit.task.spaces import made, read, result, said, workspace
 
 if TYPE_CHECKING:
@@ -201,6 +203,20 @@ def test_a_task_the_release_stop_dropped_goes_on_as_a_new_request(
     assert not (folder / "brief.md").exists()
     ran = lem("task", "resume", "other", cwd=where.checkout)
     assert ran.code == 1
+
+
+def test_a_release_stop_successor_claims_the_same_reviewer_item(tmp_path: Path) -> None:
+    where = real(tmp_path)
+    path = passed_item(where.state)
+    stop = ReleaseHold(began="0.1.0", running="0.3.1", say="x", since=MOMENT)
+    dropped_with_breaker(where, hold=stop, ask=path, backlog_item=path)
+
+    back = resume.resumed(where.checkout, SLUG)
+    assert read(where, back.task).task.backlog_item == path
+    with pytest.raises(Refusal) as caught:
+        dropping.dropped(where, path, TODAY)
+    assert caught.value.code == "item-held"
+    assert back.task in caught.value.why
 
 
 def test_a_stop_that_named_no_branch_starts_the_request_from_the_base(

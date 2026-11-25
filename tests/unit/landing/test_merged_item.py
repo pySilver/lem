@@ -9,6 +9,8 @@ from msgspec.structs import replace
 from fakes.forge import LocalForge
 from fakes.git import ModelGit
 from fakes.ports import fake_ports
+from lem.addons.proposals import listing
+from lem.addons.proposals.listed import PassedOne
 from lem.app.landing import merged
 from lem.app.landing.frame import Context
 from lem.kernel.errors import Refusal
@@ -127,3 +129,28 @@ def test_a_merge_retry_leaves_the_item_of_a_later_verdict(
     verdict = {"proposal": next_run.names[0], "passed": "lessons"}
     made = judge(state, [verdict], {"lessons": "Lessons"}).items_made[0]
     assert made.path == ITEM
+
+
+def test_a_reused_item_path_does_not_mark_the_landed_proposal_present(
+    tmp_path: Path,
+) -> None:
+    state = workspace(tmp_path).state
+    old = add(state, "retro", [proposal("lessons", "An old lesson")]).names[0]
+    verdict = {"proposal": old, "passed": "lessons"}
+    assert judge(state, [verdict], {"lessons": "Lessons"}).items_made[0].path == ITEM
+    merged.act(ready(tmp_path))
+    (landed,) = listing.listed(state).passed
+    assert isinstance(landed, PassedOne)
+    assert not landed.there
+
+    new = add(state, "retro", [proposal("lessons", "A new lesson")]).names[0]
+    verdict = {"proposal": new, "passed": "lessons"}
+    assert judge(state, [verdict], {"lessons": "Lessons"}).items_made[0].path == ITEM
+    assert {
+        one.name: one.there
+        for one in listing.listed(state).passed
+        if isinstance(one, PassedOne)
+    } == {
+        old: False,
+        new: True,
+    }

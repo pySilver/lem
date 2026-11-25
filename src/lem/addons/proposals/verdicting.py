@@ -49,7 +49,8 @@ def removals(plan: planning.Plan) -> tuple[Path, ...]:
 
 def changed_paths(plan: planning.Plan, leaving: tuple[Path, ...]) -> tuple[str, ...]:
     """The items the verdict can replace or remove, as paths from the checkout."""
-    reused = (against.path for against, _ in plan.against)
+    writes = (*plan.made, *plan.against)
+    reused = (made.path for made, _ in writes)
     return (*reused, *(item_files.recorded(path.name) for path in leaving))
 
 
