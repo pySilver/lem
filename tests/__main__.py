@@ -123,9 +123,16 @@ def main() -> int:
     snapshots = [f"--inline-snapshot={called.snapshots}"] if called.snapshots else []
     with levels.lock_of(called.level):
         workers = levels.parallel(called.level, snapshots=bool(snapshots))
-        return run_in_child(
+        state = levels.real_state(HERE)
+        before = levels.listing(state)
+        code = run_in_child(
             ["--lem-level", called.level, *workers, *snapshots, *chosen]
         )
+    harm = levels.changed(state, before)
+    if harm is not None:
+        print(harm, file=sys.stderr)
+        return code or 1
+    return code
 
 
 if __name__ == "__main__":

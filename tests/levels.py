@@ -10,6 +10,8 @@ from contextlib import AbstractContextManager, contextmanager, nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from lem.store.places import common_dir
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -71,6 +73,47 @@ def inside(folders: list[Path], path: str) -> str:
             f"{resolved} is not in {shown}: run it with the level of its folder"
         )
     return "::".join((str(resolved), *case))
+
+
+def real_state(tests: Path) -> Path | None:
+    """The state folder of the checkout the tests are in (its main checkout, from a worktree
+    too), which the owner's board server reads; None outside a repository."""
+    found = next(
+        (above / ".git" for above in tests.parents if (above / ".git").exists()), None
+    )
+    return None if found is None else common_dir(found).parent / ".lem" / "state"
+
+
+def listing(state: Path | None) -> frozenset[str]:
+    """What a run must leave as it found in the checkout's own state: the task folders, the
+    files of this Lem's form in them, and its marker and claim lock."""
+    if state is None or not (state / "tasks").is_dir():
+        return frozenset()
+    tasks = state / "tasks"
+    found = {f"tasks/{entry.name}" for entry in tasks.iterdir()}
+    found |= {
+        str(path.relative_to(state))
+        for name in ("task.json", "task.lock", "step.lock", "sessions.jsonl")
+        for path in tasks.glob(f"*/{name}")
+    }
+    found |= {
+        name
+        for name in ("lem-state.json", "locks/workspace.lock")
+        if (state / name).exists()
+    }
+    return frozenset(found)
+
+
+def changed(state: Path | None, before: frozenset[str]) -> str | None:
+    """The line that names what a run added to or removed from the checkout's own state."""
+    after = listing(state)
+    if after == before:
+        return None
+    added, removed = sorted(after - before), sorted(before - after)
+    return (
+        f"FAIL the run changed the checkout's own Lem state {state}: "
+        f"added {', '.join(added) or 'nothing'}; removed {', '.join(removed) or 'nothing'}"
+    )
 
 
 @contextmanager

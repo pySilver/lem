@@ -16,7 +16,7 @@ import msgspec
 
 from lem.kernel import locks
 from lem.records.base import Frozen, Moment
-from lem.store import places, step_refusals
+from lem.store import guard, places, step_refusals
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -81,6 +81,7 @@ def step(state: Path, slug: str, name: str, now: Moment) -> Iterator[None]:
     """Hold the step lock of `slug` for the step `name`; refused at once while another holds
     it."""
     path = places.task_folder(state, slug) / LOCK
+    guard.writable(state)
     with opened(path, slug, name) as stream:
         if not locks.taken(stream):
             raise step_refusals.refusal(slug, name, holder_of(path))
@@ -93,6 +94,7 @@ def waited(state: Path, slug: str, name: str, now: Moment) -> Iterator[None]:
     """Hold the step lock of `slug` for `name`, waiting for the step that holds it: a drop's
     write, after it stopped the running checks."""
     path = places.task_folder(state, slug) / LOCK
+    guard.writable(state)
     with opened(path, slug, name) as stream:
         fcntl.flock(stream, fcntl.LOCK_EX)
         with named(stream, Holder(step=name, pid=os.getpid(), since=now)):

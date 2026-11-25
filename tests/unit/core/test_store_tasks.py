@@ -13,7 +13,7 @@ from lem.kernel.errors import Fault, Refusal
 from lem.records.journal.task import StateNoted
 from lem.records.landing.record import Landing
 from lem.records.record import Record
-from lem.store import places, tasks
+from lem.store import guard, places, tasks
 
 
 def test_a_created_task_reads_back_at_revision_one(tmp_path: Path) -> None:
@@ -40,6 +40,7 @@ def test_a_missing_task_is_refused_and_a_damaged_record_is_a_fault(
     with pytest.raises(Refusal) as refused:
         tasks.read(tmp_path, "fix-the-login")
     assert refused.value.code == "no-task"
+    guard.writable(tmp_path)
     folder = tmp_path / "tasks" / "fix-the-login"
     folder.mkdir(parents=True)
     (folder / "task.json").write_text("{")

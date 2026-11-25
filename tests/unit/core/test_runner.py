@@ -3,6 +3,7 @@ one line for each case, a failed subtest fails its case, `os._exit` fails the ru
 pytest and Lem variables never reach a case, and a selection that collects nothing fails."""
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -14,6 +15,7 @@ from unittest.mock import Mock
 import pytest
 
 from conftest import Lines
+from fakes.repo import run_git
 
 TESTS = Path(__file__).resolve().parents[2]
 ROOT = TESTS.parent
@@ -285,21 +287,22 @@ def test_module_cleanups_run_even_after_setup_or_teardown_fails(
     files = {}
     for phase in ("setup", "teardown", "cleanup"):
         files[f"test_{phase}"] = (
+            "import os\n"
             "import unittest\n"
             "from pathlib import Path\n\n"
             "def clean():\n"
             + (
-                f'    assert Path("{phase}_torn_down").exists()\n'
+                f'    assert (Path(os.environ["CALLER_HOME"]).parent / "{phase}_torn_down").exists()\n'
                 if phase != "setup"
                 else ""
             )
-            + f'    Path("{phase}").write_text("clean")\n'
+            + f'    (Path(os.environ["CALLER_HOME"]).parent / "{phase}").write_text("clean")\n'
             f'    raise ValueError("{phase} module cleanup failed")\n\n'
             "def setUpModule():\n"
             "    unittest.addModuleCleanup(clean)\n"
             + ('    raise ValueError("bad setup")\n' if phase == "setup" else "")
             + "\ndef tearDownModule():\n"
-            f'    Path("{phase}_torn_down").touch()\n'
+            f'    (Path(os.environ["CALLER_HOME"]).parent / "{phase}_torn_down").touch()\n'
             + ('    raise ValueError("bad teardown")\n' if phase == "teardown" else "")
             + "\nclass Sample(unittest.TestCase):\n"
             "    def test_pass(self): pass\n"
@@ -329,17 +332,20 @@ def test_a_hard_exit_cannot_pass_or_leave_its_temporary_folder(
             "import os\n"
             "from pathlib import Path\n\n"
             "def test_exit():\n"
-            '    Path("temp_root").write_text(os.environ["TMPDIR"])\n'
+            '    (Path(os.environ["CALLER_HOME"]).parent / "temp_root").write_text(os.environ["TMPDIR"])\n'
             "    os._exit(0)\n"
         ),
     )
     ran = run_entry(tmp_path, "--level", level)
     if level == "unit":
-        crashed = (
-            "FAIL unit.test_hard_exit.test_exit: worker 'gw0' crashed while running "
-            "'tests/unit/test_hard_exit.py::test_exit'"
+        # Any of the four workers may take the case, so the line names the one that did.
+        crashed = re.fullmatch(
+            r"FAIL unit\.test_hard_exit\.test_exit: worker 'gw[0-3]' crashed while "
+            r"running 'tests/unit/test_hard_exit\.py::test_exit'",
+            ran.stdout.splitlines()[1],
         )
-        assert_results(ran, 1, "collected 1", crashed)
+        assert crashed is not None, ran.stdout
+        assert_results(ran, 1, "collected 1", crashed[0])
         assert ran.stdout.splitlines()[-1] == (
             "total: collected 1, passed 0, skipped 0, failed 1"
         )
@@ -443,3 +449,34 @@ def test_a_test_case_imported_into_two_files_is_a_duplicate(
         f"fakes.shared_case.Shared.test_pass is collected as "
         f"tests/{level}/test_a.py::Shared::test_pass too; import its module, not its class",
     )
+
+
+def test_a_run_that_changes_the_checkouts_own_state_fails_and_names_what_changed(
+    tmp_path: Path,
+) -> None:
+    tests = scratch(
+        tmp_path,
+        test_harm=(
+            "import os\n"
+            "from pathlib import Path\n\n"
+            "def test_harm():\n"
+            '    state = Path(os.environ["CALLER_HOME"]).parent / ".lem" / "state"\n'
+            '    (state / "tasks" / "x").mkdir()\n'
+            '    (state / "tasks" / "x" / "task.json").write_text("{}")\n'
+        ),
+    )
+    run_git(tmp_path, "init", "--quiet")
+    (tmp_path / ".lem" / "state" / "tasks" / "kept").mkdir(parents=True)
+    assert tests.is_dir()
+    ran = run_entry(tmp_path, "--level", "unit")
+    assert ran.returncode == 1, ran.stdout + ran.stderr
+    assert "ok   unit.test_harm.test_harm" in ran.stdout
+    state = (tmp_path / ".lem" / "state").resolve()
+    assert (
+        f"FAIL the run changed the checkout's own Lem state {state}: added tasks/x, "
+        "tasks/x/task.json; removed nothing"
+    ) in ran.stderr
+    (tmp_path / "tests" / "unit" / "test_harm.py").write_text(
+        "def test_pass():\n    pass\n"
+    )
+    assert run_entry(tmp_path, "--level", "unit").returncode == 0

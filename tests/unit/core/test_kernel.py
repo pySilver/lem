@@ -103,8 +103,7 @@ def test_a_group_stop_ends_what_the_command_left_behind(tmp_path: Path) -> None:
         child = int(left.read_text())
         procs.stop_group(proc, 5, 5, whole_group=True)
         assert procs.group_gone(proc, 5)
-        with pytest.raises(ProcessLookupError):
-            os.kill(child, 0)
+        assert gone(child)
     finally:
         if proc.poll() is None:
             os.killpg(proc.pid, signal.SIGKILL)
@@ -245,12 +244,13 @@ def started(tmp_path: Path, script: str) -> tuple[subprocess.Popen[bytes], int]:
 
 def gone(pid: int) -> bool:
     """Whether the process `pid` is gone within 10 s: a killed child waits for the system to
-    reap it, as its parent ended first."""
+    reap it, as its parent ended first, and its number may then go to another process."""
     deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
         try:
             os.kill(pid, 0)
-        except ProcessLookupError:
+        except ProcessLookupError, PermissionError:
+            # PermissionError: the number went to a process of another user, so ours is gone.
             return True
         time.sleep(0.05)
     return False
