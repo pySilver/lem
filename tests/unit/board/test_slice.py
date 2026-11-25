@@ -37,6 +37,7 @@ from lem.board.client import Reply
 from lem.board.duties import runner
 from lem.board.facts import HEADER, MARK, Facts, Install
 from lem.board.pages import kanban
+from lem.board.serving import Serving
 from lem.kernel import folders, release
 from lem.kernel.errors import Refusal
 from lem.records.holds import OwnerHold
@@ -87,9 +88,13 @@ def board(tmp_path: Path) -> Board:
         started=MOMENT,
     )
     stops: list[str] = []
-    made = app.made(
-        facts, home=home, listen="127.0.0.1", stop=lambda: stops.append("stop")
+    serving = Serving(
+        home=home,
+        environ=os.environ,
+        listen="127.0.0.1",
+        stop=lambda: stops.append("stop"),
     )
+    made = app.made(facts, serving)
     client = TestClient(made, base_url="http://127.0.0.1", client=("127.0.0.1", 50000))
     state = places.state_of(checkout)
     return Board(client, home, state, f"/{host}/my-repo/", stops, facts)
@@ -177,9 +182,6 @@ def test_a_host_or_workspace_the_board_does_not_have_is_404(
         ("POST", "/h/w/tasks", "board-acts"),
         ("GET", "/h/w/tasks/fix-the-login/cards/p1/", "ask"),
         ("POST", "/h/w/tasks/fix-the-login/cards/p1/answer", "ask"),
-        ("GET", "/push/key", "board-service"),
-        ("POST", "/push/subscribe", "board-service"),
-        ("GET", "/api/workspaces", "board-service"),
     ],
 )
 def test_an_address_not_built_answers_501_with_the_step_that_builds_it(
@@ -476,12 +478,10 @@ def test_the_peers_table_is_matched_before_the_addresses_of_this_machine(
         return PlainTextResponse("the peer's page")
 
     monkeypatch.setattr(peers, "ROUTES", (Route("/other-mac/{rest:path}", peer),))
-    made = app.made(
-        board.facts,
-        home=board.home,
-        listen="127.0.0.1",
-        stop=lambda: None,
+    serving = Serving(
+        home=board.home, environ=os.environ, listen="127.0.0.1", stop=lambda: None
     )
+    made = app.made(board.facts, serving)
     client = TestClient(made, base_url="http://127.0.0.1")
     assert client.get("/other-mac/repo/").text == "the peer's page"
     assert client.get(board.address).status_code == 200

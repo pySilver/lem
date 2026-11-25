@@ -9,15 +9,25 @@ nothing and write nothing: a test sets it, and a test that starts a server on pu
 out for that one call.
 """
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lem.board import client, halt, heard, install, lock, machine, start, workspaces
+from lem.board import (
+    client,
+    heard,
+    install,
+    lock,
+    machine,
+    serve_file,
+    start,
+    workspaces,
+)
 from lem.board.facts import Facts, Shown
+from lem.board.halt import stopped
 from lem.kernel import paths
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-    from pathlib import Path
 
 NO_START = "off"
 type Found = Facts | heard.Other | None
@@ -55,16 +65,42 @@ def kept(found: Found) -> Shown | None:
     if isinstance(found, heard.Other):
         return shown(found, started=False)
     mine = install.install_of()
-    if install.replaces(mine, found.install, settings_differ=found.door is not None):
+    differ = found.door != door_wanted(Path(found.home))
+    if install.replaces(mine, found.install, settings_differ=differ):
         return None
     said = None if found.install == mine else "another install of Lem serves"
     return shown(found, started=False, said=said)
 
 
+def door_wanted(home: Path) -> int | None:
+    """The door's port the machine's settings open, None while they keep it closed."""
+    settings = machine.settings(home)
+    return settings.tailscale_port if settings.tailscale else None
+
+
+def rebound(home: Path, port: int) -> None:
+    """Stop the server of this home folder and install that `serve.json` names on another
+    port than `port`: the owner moved the main port, and one server serves a machine."""
+    named = serve_file.read(home)
+    if named is None or named.port == port:
+        return
+    with client.opened(named.port) as connection:
+        found = client.looked(connection, named.port, home)
+        mine = install.install_of().package
+        if (
+            isinstance(found, Facts)
+            and connection is not None
+            and found.install.package == mine
+        ):
+            stopped(connection, named.port, found)
+
+
 def held(home: Path, environ: Mapping[str, str], folder: Path) -> Shown:
-    """`ensure` with the serve lock held: the port read again, the server that runs kept
-    or stopped on the connection that asked, and one of this install started."""
+    """`ensure` with the serve lock held: a server on a port the settings left stopped, the
+    port read again, the server that runs kept or stopped on the connection that asked, and
+    one of this install started."""
     port = machine.port_of(home, environ)
+    rebound(home, port)
     with client.opened(port) as connection:
         found = client.looked(connection, port, home)
         stays = kept(found)
@@ -73,7 +109,7 @@ def held(home: Path, environ: Mapping[str, str], folder: Path) -> Shown:
                 workspaces.noted(home, folder)
             return stays
         if isinstance(found, Facts) and connection is not None:
-            halt.stopped(connection, port, found)
+            stopped(connection, port, found)
     facts = start.started(port, home, environ)
     workspaces.noted(home, folder)
     return shown(facts, started=True)
