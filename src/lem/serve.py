@@ -25,14 +25,16 @@ Nothing supervises it. It starts on demand, as a process of its own with no term
 the plugin's SessionStart hook (`serve_hook.py`) runs `--ensure` when a Claude Code
 session starts in a repository that uses Lem, `lem board` runs it before it opens a
 board, and the owner runs it after a remote login. `--ensure` asks the main port who
-serves it (`GET /api/server`: its pid, the version of its code, the folder it runs from,
-its start); no answer means none runs, and it starts one, with its output in SERVE_LOG
-in Lem's home folder (`lem_state.config()`), and waits at most START_WAIT for its
-answer. A server of older code, or of other code as new, is asked to end
-(`POST /api/server/stop`) and replaced (`outdated`: the newest change time of the
-scripts decides), so that the first `lem` command after an update of the plugin loads
-the new code, and a session that still runs the old plugin does not bring the old code
-back. SERVE_LOCK spaces two starts at one moment. The environment variable LEM_SERVE=off
+serves it (`GET /api/server`: its pid, the version of its code, the install it runs
+from, its start); no answer means none runs, and it starts one, with its output in
+SERVE_LOG in Lem's home folder (`lem_state.config()`), and waits at most START_WAIT for
+its answer. A server of another install of Lem is asked to end (`POST /api/server/stop`)
+and replaced by one of the caller's (`outdated`): an install is its version, its commit
+and the real path of its package (`install_of`), which each process reads once at its
+start, so that the first `--ensure` after an update runs the new code. A checkout has no
+commit of a build, and there the newest change time of its modules decides too, so that
+an edit restarts the server. Whichever install calls `--ensure` last is the one that
+serves. SERVE_LOCK spaces two starts at one moment. The environment variable LEM_SERVE=off
 makes `--ensure` start nothing: a test suite sets it. A server writes its pid and its
 port to `serve.pid` in Lem's home folder at its start and removes the file at a clean
 stop (`write_pid`): the command `lem` reads it, and asks the kernel whether that process lives,
@@ -5084,17 +5086,43 @@ def code_version(root: Path = LEM_ROOT) -> str:
     commit = git_commit(root)
     if commit:
         return f"commit {commit[:12]}"
-    return f"files {code_stamp(root)}"
+    return f"files {code_stamp(root / 'src' / 'lem')}"
 
 
-def code_stamp(root: Path = LEM_ROOT) -> int:
-    """The newest change time of the Python in the folder of Lem `root`, in ns: of two
-    codes, the newer one has the larger stamp, as an update writes its files anew. The
-    package `src/lem` holds it; a folder of a release before the package, which another
-    install or a running server may still be, holds it in `skills/lem/scripts`."""
-    package = root / "src" / "lem"
-    folder = package if package.is_dir() else root / "skills" / "lem" / "scripts"
-    return max((file.stat().st_mtime_ns for file in folder.glob("*.py")), default=0)
+def code_stamp(package: Path = paths.PACKAGE) -> int:
+    """The newest change time of the modules of the package folder `package`, in ns: an
+    edit of a checkout, or a new install into the same folder, moves it."""
+    return max((file.stat().st_mtime_ns for file in package.glob("*.py")), default=0)
+
+
+def install_of(package: Path = paths.PACKAGE, root: Path = LEM_ROOT) -> dict:
+    """Which install of Lem the package folder `package` is, with its plugin's files in
+    `root`: the version its manifest names, the commit of the file `build-commit` that a
+    build wrote into the package (else None), and the package folder's real path. With
+    no commit, a checkout's or a plain wheel's, also its `code_stamp`, else None."""
+    try:
+        manifest = json.loads(
+            (root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
+        )
+    except OSError, ValueError:
+        manifest = {}
+    version = manifest.get("version") if isinstance(manifest, dict) else None
+    try:
+        commit = (package / "build-commit").read_text(encoding="utf-8").strip() or None
+    except OSError:
+        commit = None
+    return {
+        "version": version if isinstance(version, str) else None,
+        "commit": commit,
+        "package": os.path.realpath(package),
+        "stamp": None if commit else code_stamp(package),
+    }
+
+
+# Which install this process is, read once at its start: a server keeps the install it
+# started from, whatever an update writes into its folder later, and `--ensure` compares
+# the caller's with it (`outdated`).
+INSTALL = install_of()
 
 
 def serve_settings() -> dict:
@@ -5268,7 +5296,7 @@ def start_server(settings: dict) -> dict:
         out.write(
             (
                 f"{lem_clock.iso()} lem serve --ensure "
-                f"starts a server of {code_version()} from {LEM_ROOT}\n"
+                f"starts a server of {code_version()} from {INSTALL['package']}\n"
             ).encode()
         )
         out.flush()
@@ -5312,13 +5340,21 @@ def start_server(settings: dict) -> dict:
     )
 
 
+def same_install(mine: dict, theirs: object) -> bool:
+    """Whether `theirs`, what a running server says of its install (`install` in
+    `GET /api/server`), is the install `mine` (`install_of`): every key of `mine` with
+    the same value. An answer with no install, which a build before this one gives, is
+    another install."""
+    return isinstance(theirs, dict) and all(
+        key in theirs and theirs[key] == value for key, value in mine.items()
+    )
+
+
 def outdated(facts: dict) -> bool:
-    """Whether this code replaces the running server's: its scripts are newer, or as new
-    with another identity. A server whose scripts are newer stays, so that a session
-    that still runs an older plugin never brings the older code back."""
-    mine = code_stamp()
-    theirs = facts.get("stamp") if isinstance(facts.get("stamp"), int) else 0
-    return mine > theirs or (mine == theirs and facts["version"] != code_version())
+    """Whether this process's install replaces the running server's: the server runs
+    another install (`same_install`), older or newer. The caller is the install that
+    serves from now on."""
+    return not same_install(INSTALL, facts.get("install"))
 
 
 def shown(facts: dict | None, *, started: bool) -> dict:
@@ -5331,6 +5367,7 @@ def shown(facts: dict | None, *, started: bool) -> dict:
             "url": None,
             "tailscale": None,
             "version": None,
+            "install": None,
         }
     return {
         "running": True,
@@ -5339,12 +5376,14 @@ def shown(facts: dict | None, *, started: bool) -> dict:
         "url": facts.get("url"),
         "tailscale": facts.get("tailscale"),
         "version": facts["version"],
+        "install": facts.get("install"),
     }
 
 
 def ensure_held(settings: dict) -> dict:
     """`--ensure`, with SERVE_LOCK held: keep the server that runs when it serves these
-    settings and its code is not `outdated`, else end it and start one of this code."""
+    settings and runs this install (`outdated`), else end it and start one of this
+    install."""
     found = ask(settings["port"])
     if os.environ.get(NO_START[0]) == NO_START[1]:
         return {
@@ -5552,7 +5591,7 @@ def listen(host: str, *, verbose: bool, settings: dict) -> None:  # noqa: C901, 
         {
             "pid": os.getpid(),
             "version": code_version(),
-            "stamp": code_stamp(),
+            "install": INSTALL,
             "root": str(LEM_ROOT),
             "config": str(lem_state.config()),
             "started": lem_clock.iso(),

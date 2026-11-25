@@ -3326,65 +3326,119 @@ class DeepBody(unittest.TestCase):
         )
 
 
-class CodeStamp(unittest.TestCase):
-    """The stamp `lem serve --ensure` compares with the running server's: the newest
-    change time of the Python in a folder of Lem, of either layout."""
+class Install(unittest.TestCase):
+    """Which install of Lem a server runs, and whether `lem serve --ensure` replaces it:
+    the version of the manifest, the commit a build wrote, the package folder's real
+    path, and in a folder with no commit the newest change time of its modules."""
+
+    def setUp(self) -> None:
+        import tempfile
+
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+
+    def app(self, name: str, version: str = "0.4.0", commit: str | None = None) -> Path:
+        """An install's folders, as a wheel lays them out: the package with one module,
+        and its data folder with the manifest; `build-commit` when COMMIT is given."""
+        package = Path(self.folder.name) / name / "lem"
+        (package / "data" / ".claude-plugin").mkdir(parents=True)
+        (package / "data" / ".claude-plugin" / "plugin.json").write_text(
+            json.dumps({"name": "lem", "version": version}), encoding="utf-8"
+        )
+        (package / "serve.py").write_text("", encoding="utf-8")
+        if commit is not None:
+            (package / "build-commit").write_text(f"{commit}\n", encoding="utf-8")
+        return package
 
     @staticmethod
-    def write(root: Path, place: str, ns: int) -> None:
+    def of(package: Path) -> dict:
+        return serve.install_of(package, package / "data")
+
+    def test_the_same_install_is_kept(self) -> None:
+        package = self.app("brew", commit="abc1234")
+        self.assertEqual(
+            self.of(package),
+            {
+                "version": "0.4.0",
+                "commit": "abc1234",
+                "package": str(package.resolve()),
+                "stamp": None,
+            },
+        )
+        self.assertTrue(serve.same_install(self.of(package), self.of(package)))
+
+    def test_another_package_folder_is_another_install(self) -> None:
+        mine = self.of(self.app("brew", commit="abc1234"))
+        theirs = self.of(self.app("venv", commit="abc1234"))
+        self.assertFalse(serve.same_install(mine, theirs))
+
+    def test_another_commit_or_version_is_another_install(self) -> None:
+        package = self.app("brew", commit="abc1234")
+        mine = self.of(package)
+        self.assertFalse(serve.same_install(mine, {**mine, "commit": "def5678"}))
+        self.assertFalse(serve.same_install(mine, {**mine, "version": "0.3.1"}))
+
+    def test_an_edit_of_a_checkout_is_another_install(self) -> None:
         import os
 
-        file = root / place
-        file.parent.mkdir(parents=True, exist_ok=True)
-        file.write_text("", encoding="utf-8")
-        os.utime(file, ns=(ns, ns))
+        package = self.app("checkout")
+        (package / "serve.py").touch()
+        os.utime(package / "serve.py", ns=(2_000, 2_000))
+        before = self.of(package)
+        os.utime(package / "serve.py", ns=(5_000, 5_000))
+        after = self.of(package)
+        self.assertEqual((before["commit"], before["stamp"]), (None, 2_000))
+        self.assertFalse(serve.same_install(after, before))
+        self.assertTrue(serve.same_install(after, self.of(package)))
 
-    def test_an_edit_in_the_package_moves_the_stamp(self) -> None:
-        import tempfile
+    def test_a_server_that_names_no_install_is_replaced(self) -> None:
+        older = {"pid": 7, "version": "version 0.3.1", "stamp": 9_000}
+        self.assertTrue(serve.outdated(older))
+        self.assertTrue(serve.outdated({**older, "install": "0.3.1"}))
+        self.assertFalse(serve.outdated({**older, "install": serve.INSTALL}))
 
-        with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            self.write(root, "src/lem/serve.py", 2_000)
-            self.write(root, "skills/lem/scripts/picker.py", 3_000)
-            self.assertEqual(serve.code_stamp(root), 2_000)
-            self.write(root, "src/lem/land.py", 5_000)
-            self.assertEqual(serve.code_stamp(root), 5_000)
-
-    def test_a_folder_of_the_old_layout_stamps_from_its_scripts(self) -> None:
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            self.write(root, "skills/lem/scripts/serve.py", 4_000)
-            self.write(root, "skills/lem/scripts/lem_state.py", 7_000)
-            self.assertEqual(serve.code_stamp(root), 7_000)
-
-    def test_a_newer_package_replaces_a_server_of_the_old_layout_not_back(
+    def test_ensure_replaces_a_server_of_another_install_and_keeps_its_own(
         self,
     ) -> None:
-        import tempfile
+        settings = {"port": 4536, "tailscale": False, "tailscale_port": 4537}
+        found = {"pid": 7, "version": "version 0.4.0", "tailscale_port": None}
+        for install, replaced in ((serve.INSTALL, False), ({}, True)):
+            with (
+                mock.patch.dict("os.environ", {"LEM_SERVE": "on"}),
+                mock.patch.object(
+                    serve, "ask", return_value={**found, "install": install}
+                ),
+                mock.patch.object(serve, "stop_server") as stopped,
+                mock.patch.object(
+                    serve, "start_server", return_value={**found, "pid": 8}
+                ) as started,
+            ):
+                said = serve.ensure_held(settings)
+            self.assertEqual(
+                (stopped.called, started.called, said["pid"]),
+                (replaced, replaced, 8 if replaced else 7),
+            )
 
-        with tempfile.TemporaryDirectory() as old, tempfile.TemporaryDirectory() as new:
-            self.write(Path(old), "skills/lem/scripts/serve.py", 4_000)
-            self.write(Path(new), "src/lem/serve.py", 9_000)
-            self.write(Path(new), "skills/lem/scripts/picker.py", 1_000)
-            codes = {
-                root: {
-                    "version": f"files {serve.code_stamp(Path(root))}",
-                    "stamp": serve.code_stamp(Path(root)),
-                }
-                for root in (old, new)
-            }
-            for mine, theirs, replaces in ((new, old, True), (old, new, False)):
-                with (
-                    mock.patch.object(
-                        serve, "code_stamp", return_value=codes[mine]["stamp"]
-                    ),
-                    mock.patch.object(
-                        serve, "code_version", return_value=codes[mine]["version"]
-                    ),
-                ):
-                    self.assertEqual(serve.outdated(codes[theirs]), replaces)
+
+class AskHome(unittest.TestCase):
+    """`lem serve --ensure` asks the main port who serves it, and a server of another
+    home folder of Lem is refused before anything stops it."""
+
+    def test_a_server_of_another_home_folder_is_refused(self) -> None:
+        reply = mock.MagicMock()
+        reply.__enter__.return_value = reply
+        reply.headers = {"Server": serve.Handler.server_version}
+        reply.read.return_value = json.dumps(
+            {"pid": 7, "version": "version 0.4.0", "config": "/elsewhere/lem"}
+        ).encode()
+        with (
+            mock.patch.object(serve, "reach", return_value=reply),
+            self.assertRaises(serve.ServeError) as refused,
+        ):
+            serve.ask(4536)
+        self.assertIn(
+            "another home folder of Lem, /elsewhere/lem", str(refused.exception)
+        )
 
 
 if __name__ == "__main__":
