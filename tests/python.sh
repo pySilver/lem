@@ -6,9 +6,9 @@
 # maintainer's tools. Never another python3 on the PATH.
 #
 # LEM: LEM_UNDER_TEST, the absolute path of the `lem` a suite drives; by default the checkout's own, .venv/bin/lem.
-# A journey starts Lem only through it, so that tests/installed.sh runs every journey against an app installed from a
-# wheel outside the checkout. A check that needs the checkout itself (a source file's text, its commit, a copy of its
-# package) says so, and asks `in_checkout` where it means nothing for an installed app.
+# A journey starts Lem only through it, so that `bash tests/all.sh --installed` runs every journey against an app
+# installed from a wheel outside the checkout. A check that needs the checkout itself (a source file's text, its commit,
+# a copy of its package) says so, and asks `in_checkout` where it means nothing for an installed app.
 #
 # LEM_SERVE=off: no command a suite runs starts a board server, which would outlive the run; a check of the start on
 # demand lifts it for its one call, in a home folder of its own.
