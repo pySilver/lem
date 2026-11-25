@@ -31,6 +31,9 @@ if [ ! -x "$LEM_UNDER_TEST" ]; then
 fi
 LEM=$LEM_UNDER_TEST
 export LEM_SERVE=off
+# lem_root: the folder of the plugin's files of the lem under test, which `lem version` prints as root: this checkout,
+# or an installed app's data folder
+lem_root() { "$LEM" version | "$PY" -I -c 'import json, sys; print(json.load(sys.stdin)["root"])'; }
 # in_checkout: whether the lem under test is this checkout's own, whose files are the files git has here
 in_checkout() {
   case $LEM_UNDER_TEST in

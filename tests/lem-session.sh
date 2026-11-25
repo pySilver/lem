@@ -22,7 +22,7 @@ SHELL_LINE=$("$PY" -c 'import os, pwd; print(pwd.getpwuid(os.getuid()).pw_shell)
 # sess ARGS: lem session as a session of agterm runs it; AS=ID runs it from another session, AS= from no session
 sess() {
   env CALLS="$CALLS" TREE="$TREE" MAILBOX="${MAILBOX:-[]}" PATH="$BIN:$PATH" AGTERM_SESSION_ID="${AS-S-ASK}" AGTERM_SOCKET="$WORK/agterm.sock" AGTERM_WINDOW_ID= \
-    "$PY" -B "$MAIN" session --repo "$R" "$@"
+    "$LEM" session --repo "$R" "$@"
 }
 pr() { project --repo "$R" "$@"; }
 # order WS: the names of the sessions of workspace WS, in the order agterm's sidebar shows them
@@ -50,14 +50,14 @@ want=$("$PY" -c 'import json, sys; print(json.dumps(sys.argv[1:]))' session new 
   --json --socket "$WORK/agterm.sock" | "$PY" -c 'import json, sys
 call = json.loads(sys.stdin.read())
 call.insert(call.index("--command") + 1, [sys.argv[1], "-l", "-c", ["LEM_TASK=gift-note", "CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000", "claude", "--model", "opus", "--effort", "high", "--plugin-dir", sys.argv[2], f"Read {sys.argv[3]} and follow it."]])
-print(json.dumps(call))' "$SHELL_LINE" "$PWD" "$STATE/tasks/gift-note/session.md")
+print(json.dumps(call))' "$SHELL_LINE" "$(lem_root)" "$STATE/tasks/gift-note/session.md")
 brief=$(cat "$STATE/tasks/gift-note/session.md" 2>/dev/null || true)
 if [ "$(field '(d["session"], d["phase"], d["already"])' <<<"$first" 2>&1)" = "('S-1', 'shape', False)" ] \
   && [ "$(field '(d["session"], d["already"])' <<<"$second" 2>&1)" = "('S-1', True)" ] \
   && [ "$made" = "$want" ] && [ "$(order W-MINE)" = "['main', 'refund-rounding', 'gift-note']" ] && [ -z "$(calls_of session select)" ] \
   && grep -qF "unrecognized arguments: --focus" <<<"$focused" && [ "$(tail -n 1 <<<"$focused")" = "exit 2" ] \
   && [ "$(head -n 1 <<<"$brief")" = "Read \`skills/lem/prompts/session.md\` in the folder that \`lem version\` prints as \`root\`, and follow it; when \`lem version\` fails, stop and say that \`lem\` is not on the PATH, with \`lem doctor\` as the check." ] \
-  && ! grep -qF "$PWD/skills" <<<"$brief" && grep -qxF "phase: shape" <<<"$brief" \
+  && ! grep -qF "$(lem_root)/skills" <<<"$brief" && grep -qxF "phase: shape" <<<"$brief" \
   && grep -qxF "opened because: new" <<<"$brief" && grep -qxF "worktree: none yet" <<<"$brief" \
   && [ "$(events)" = "[('session.open', 'S-1', 'shape', 'new')]" ] && git -C "$R" check-ignore -q "$STATE/tasks/gift-note/session.md"; then
   pass "open makes one session of the task in the caller's workspace, with no focus and no flag that gives it, LEM_TASK, the compaction number and Lem's default seat in its launch line and session.md as its first read, which names its standing text through lem version and no folder of the Lem that wrote it, then moves it to the end of the workspace, below the owner's own session, and logs it; a second open prints the one that runs"
@@ -237,7 +237,7 @@ pr task-dir old-note --ask "the old note goes" >/dev/null && pr state old-note h
 told=$(AS="" sess wake old-note --why owner 2>/dev/null | field '(d["woke"], d["opened"])' 2>&1 || true)
 queued=$(sess open csv-dates --why queue 2>&1; echo "exit $?")
 R2=$WORK/lonely && git init -q -b main "$R2" && ident "$R2" && project --repo "$R2" init --base main >/dev/null 2>&1 && project --repo "$R2" task-dir alone-task >/dev/null
-nowhere=$(env CALLS="$CALLS" TREE="$TREE" PATH="$BIN:$PATH" AGTERM_SESSION_ID= AGTERM_SOCKET= AGTERM_WINDOW_ID= "$PY" -B "$MAIN" session --repo "$R2" open alone-task 2>&1; echo "exit $?")
+nowhere=$(env CALLS="$CALLS" TREE="$TREE" PATH="$BIN:$PATH" AGTERM_SESSION_ID= AGTERM_SOCKET= AGTERM_WINDOW_ID= "$LEM" session --repo "$R2" open alone-task 2>&1; echo "exit $?")
 if grep -qF "lem session: the task 'coupon-slug' is parked" <<<"$parked" && [ "$(tail -n 1 <<<"$parked")" = "exit 1" ] \
   && grep -qF "the task 'csv-dates' is queued after 'gift-note', which has not ended: it gets its session when gift-note is landed or answered, and when gift-note is dropped it waits for the owner's word" <<<"$queued" \
   && [ "$(tail -n 1 <<<"$queued")" = "exit 1" ] \
@@ -327,7 +327,7 @@ records = [
 ]
 open(sys.argv[1], "w").write("".join(json.dumps(record) + "\n" for record in records))
 PY
-copied=$(env -u CLAUDE_CONFIG_DIR HOME="$WORK/home" CLAUDE_CODE_SESSION_ID="$SID" "$PY" -B "$MAIN" session --repo "$R" talk gift-note --from "The export should" --leave "Also: are the backups" 2>&1 || true)
+copied=$(env -u CLAUDE_CONFIG_DIR HOME="$WORK/home" CLAUDE_CODE_SESSION_ID="$SID" "$LEM" session --repo "$R" talk gift-note --from "The export should" --leave "Also: are the backups" 2>&1 || true)
 page=$(cat "$STATE/tasks/gift-note/talk.md" 2>/dev/null || true)
 if [ "$(field '[d["turns"], d["owner_turns"], [i["words"] for i in d["left_out"]]]' <<<"$copied" 2>&1)" = "[4, 2, ['Also: are the backups green?']]" ] \
   && grep -qxF "/lem the export holds the gift note" <<<"$page" && grep -qxF "The export has no note column today." <<<"$page" \

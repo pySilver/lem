@@ -8,8 +8,6 @@ cd "$(dirname "$0")/.."
 # shellcheck source-path=SCRIPTDIR source=checks.sh
 . tests/checks.sh
 collected
-# Lem's one entry: `"$PY" -B "$MAIN" NAME ARGS...` is `lem NAME ARGS...`
-MAIN=$PWD/src/lem/__main__.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
 export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
 trap 'stopped; rm -rf "$WORK"' EXIT
@@ -24,7 +22,7 @@ export PATH="$WORK/standin:$PATH"
 mkdir -p "$WORK/nocodex" && ln -s "$(command -v git)" "$WORK/nocodex/git"
 NOCODEX=$WORK/nocodex
 
-project() { "$PY" -B "$MAIN" project "$@"; }
+project() { "$LEM" project "$@"; }
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 field() { "$PY" -c 'import json, sys; d = json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1"; }
 
@@ -38,10 +36,10 @@ printf '%s\n' '---' 'seats: ["claude/opus:high"]' '---' '# A merchant who sells 
 printf '%s\n' '# The accountant of the shop' '' '## Who they are' '' 'Imports the export into the books each Monday.' > "$EX/.lem/personas/accountant.md"
 printf '%s\n' '# A gift shop' '' 'One merchant, a few hundred orders a week.' > "$EX/.lem/profile.md"
 git -C "$EX" add -A && git -C "$EX" commit -q -m "chore: the settings"
-experts() { "$PY" -B "$MAIN" experts --repo "$EX" "$@"; }
+experts() { "$LEM" experts --repo "$EX" "$@"; }
 
 # Without Codex on the machine the one expert that can answer answers alone: a question in words has one expert.
-alone_brief=$(env PATH="$NOCODEX" "$PY" -B "$MAIN" experts --repo "$EX" brief --question "Which font for the note?" || true)
+alone_brief=$(env PATH="$NOCODEX" "$LEM" experts --repo "$EX" brief --question "Which font for the note?" || true)
 alone_names=$(field '[e["name"] for e in d["experts"]]' <<<"$alone_brief" || true)
 alone_file=$(field 'd["brief"]' <<<"$alone_brief" || true)
 if [ "$alone_names" = "['fable']" ] && grep -qF "The owner asks one expert this question" "$alone_file"; then
@@ -98,7 +96,7 @@ done
 NOCAST=$WORK/no-cast
 git init -q -b main "$NOCAST" && git -C "$NOCAST" config user.name t && git -C "$NOCAST" config user.email t@t
 project --repo "$NOCAST" init --base main >/dev/null && git -C "$NOCAST" add -A && git -C "$NOCAST" commit -q -m start
-nocast=$("$PY" -B "$MAIN" experts --repo "$NOCAST" brief --question "Which store?" 2>&1 || true)
+nocast=$("$LEM" experts --repo "$NOCAST" brief --question "Which store?" 2>&1 || true)
 if [ "$people" = yes ] && grep -qF "the brief says who the code is for, from the project's personas, and \`lem cast\` says: this project has no personas" <<<"$nocast" \
   && [ -z "$(ls "$NOCAST/.lem/state/experts" 2>/dev/null)" ]; then
   pass "a brief names the profile and each persona by its path, heading and who they are, without its seats, and tells the experts to weigh the options by these people; a project with no personas gets no brief"

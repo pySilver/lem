@@ -19,14 +19,12 @@ git -C "$WORK" init -q
 
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 
-# Lem's one entry: `"$PY" -B "$MAIN" cast ARGS...` is `lem cast ARGS...`
-MAIN=$PWD/src/lem/__main__.py
 PANEL=$(cd "$(mktemp -d)" && pwd -P)
 trap 'stopped; rm -rf "$WORK" "$WORK-wt" "$PANEL"' EXIT
 export HOME=$PANEL/home
 mkdir -p "$HOME"
 commit() { git -C "$1" -c user.name=t -c user.email=t@t commit -q --allow-empty -m "$2"; }
-cast() { "$PY" -B "$MAIN" cast "$@"; }
+cast() { "$LEM" cast "$@"; }
 layer_of() { cast --repo "$1" | "$PY" -c 'import json, sys; c = json.load(sys.stdin); print(c["layer"], len(c["personas"]))'; }
 
 REPO=$PANEL/repo
@@ -184,9 +182,9 @@ if [ "$(status_of cast --repo "$PANEL/no-such-dir")" = 1 ]; then pass "a --repo 
 FRESH=$PANEL/fresh
 git init -q -b main "$FRESH"
 copied=$(cast init --repo "$FRESH")
-built_in=$(ls skills/lem-panel/cast)
+built_in=$(ls "$(lem_root)/skills/lem-panel/cast")
 if [ -f "$HOME/.config/personas/cast/reader.md" ] && [ "$(ls "$FRESH/.lem/personas")" = "$built_in" ] && [ "$(layer_of "$FRESH")" = "project 4" ] \
-  && grep -qF "copied the built-in cast from $PWD/skills/lem-panel/cast to $FRESH/.lem/personas" <<<"$copied"; then
+  && grep -qF "copied the built-in cast from $(lem_root)/skills/lem-panel/cast to $FRESH/.lem/personas" <<<"$copied"; then
   pass "init copies the built-in cast into a new project, also when ~/.config/personas/cast/ holds persona files"
 else
   fail "init did not copy the built-in cast: $copied / $(ls "$FRESH/.lem/personas")"
@@ -232,7 +230,7 @@ mkdir -p "$LINKED/.lem"
 printf '%s\n' '[paths]' 'persona = "x"' > "$LINKED/.lem/settings.toml"
 if [ "$(status_of cast --repo "$LINKED")" = 1 ]; then pass "a settings file Lem refuses stops the panel too"; else fail "bad settings passed"; fi
 # once without -B: whatever the run says, its imports wrote no bytecode
-env -u PYTHONDONTWRITEBYTECODE "$PY" "$MAIN" cast --repo "$LINKED" >/dev/null 2>&1 || true
+env -u PYTHONDONTWRITEBYTECODE "$LEM" cast --repo "$LINKED" >/dev/null 2>&1 || true
 if [ -d src/lem/__pycache__ ]; then fail "cast.py left no __pycache__"; else pass "cast.py left no __pycache__"; fi
 
 # Every skill Lem ships starts only for Lem: the flag keeps it out of every session's list of
