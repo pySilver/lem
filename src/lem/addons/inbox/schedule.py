@@ -37,6 +37,7 @@ def cycle(targets: Targets, report: Report) -> None:
     except (Fault, Refusal, OSError) as error:
         report("*", str(error))
         return
+    report("*", None)
     now = clock.now()
     for target in listed:
         name = target.name or target.where.checkout.name

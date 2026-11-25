@@ -480,7 +480,11 @@ def test_poll_isolated_per_workspace_and_skips_unknown_sessions(
         ),
         lambda name, why: reports.append((name, why)),
     )
-    assert reports == [("first", "first checkout failed"), ("second", None)]
+    assert reports == [
+        ("*", None),
+        ("first", "first checkout failed"),
+        ("second", None),
+    ]
 
 
 def test_board_only_rows_and_forked_sessions_do_not_receive_questions(
@@ -755,7 +759,7 @@ def test_poll_resumes_after_the_workspace_list_reads(
             reports.append((name, why))
             if why:
                 path.write_text('["/scratch/shop"]')
-            else:
+            elif name == "shop":
                 anyio.from_thread.run_sync(stopped.set)
 
         with anyio.fail_after(3):
@@ -766,7 +770,7 @@ def test_poll_resumes_after_the_workspace_list_reads(
     anyio.run(run)
     assert visited == [project]
     assert reports[0][0] == "*" and "no list of workspaces" in (reports[0][1] or "")
-    assert reports[-1] == ("shop", None)
+    assert reports[1:] == [("*", None), ("shop", None)]
 
 
 def test_breaker_question_includes_the_document_for_the_current_hold(
