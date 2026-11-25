@@ -44,3 +44,8 @@ jobs:
       # to the checks it collected, and the logs of the suites that failed follow the summary.
       - name: The whole suite
         run: bash tests/all.sh
+      # The journeys again, against the wheel of this checkout installed outside it, as a user's app
+      # is: also when the whole suite failed, so that both results show.
+      - name: The journeys on an installed app
+        if: ${{ !cancelled() }}
+        run: bash tests/all.sh --installed
