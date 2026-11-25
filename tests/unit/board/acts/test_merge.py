@@ -13,8 +13,10 @@ from msgspec.structs import replace
 from fakes.records import MOMENT
 from lem.board.acts import merging
 from lem.board.acts.notes import NOTES
+from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.landing import merge_standing
+from lem.records.holds import BreakerHold
 from lem.records.landing.merge import MergeAccepted
 from lem.records.landing.propose import Proposed, Standing
 from lem.records.landing.record import Landing, Pull
@@ -210,3 +212,27 @@ def test_any_other_refusal_of_the_merge_is_its_note(
         "refused",
         "GitHub refused the merge: act on GitHub.",
     )
+
+
+def test_while_a_merge_runs_another_act_is_taken_and_the_merge_says_it_runs(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opened_pull(board)
+    hold = BreakerHold(number=1, since=MOMENT)
+    made(board, "other-task", status="building", hold=hold)
+    gate = threading.Event()
+
+    def waits(folder: Path, slug: str, asked: Asked) -> None:
+        gate.wait(10)
+
+    monkeypatch.setattr(merging.merge, "run", waits)
+    token = token_of(board, {"tip": TIP, "confirm": "yes"})
+    key = f"breaker:other-task:1:{clock.compact(MOMENT)}"
+    fields = {"key": key, "option": "help", "words": "keep going"}
+    answered = note_of(board.post("/tasks/other-task/answer", fields))
+    running = NOTES.get(token)
+    assert running is not None
+    assert (answered.state, running.state) == ("done", "running")
+    assert running.said.startswith("Lem merges pull request #44 on your approval.")
+    gate.set()
+    settled(board, token)

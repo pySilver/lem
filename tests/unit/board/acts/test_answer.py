@@ -316,3 +316,60 @@ def test_the_page_after_the_answer_is_the_tab_and_the_view_the_form_came_from(
     assert location.startswith(f"{board.base}/tasks/{SLUG}/criteria?in=waits&note=")
     other = board.post(ANSWER, {"key": KEY, "option": "help", "in": "elsewhere"})
     assert "in=" not in other.headers["location"]
+
+
+def test_a_plans_drop_asks_for_its_confirm_too(board: Board) -> None:
+    hold = OwnerHold(on="plan", line="the plan waits for the owner", since=SINCE)
+    made(board, status="planned", hold=hold)
+    key = f"plan:{SLUG}:20260101T090000Z"
+    plain = note_of(board.post(ANSWER, {"key": key, "option": "drop"}))
+    assert "Drop asks for a confirm first" in plain.said
+    note = note_of(board.post(ANSWER, {"key": key, "option": "drop", "confirm": "yes"}))
+    assert "it drops the task as on /lem drop" in note.said
+    (question,) = read(board).task.questions
+    assert question.answer is not None
+    assert question.answer.option == "drop"
+
+
+def test_a_park_the_task_rules_refuse_records_nothing(board: Board) -> None:
+    made(board, status="dropped", hold=BREAKER)
+    note = note_of(board.post(ANSWER, {"key": KEY, "option": "park"}))
+    assert note.state == "refused"
+    assert "an ended task stays ended" in note.said
+    record = read(board)
+    assert record.task.hold == BREAKER
+    assert record.task.questions == ()
+    assert not [one for one in record.journal if isinstance(one, OwnerAct)]
+
+
+def test_a_yes_whose_approval_refuses_records_nothing(board: Board) -> None:
+    made(board, status="shaping", hold=world.WAITS)
+    tested = world.FULL.replace("row.\n", "row.\n" + world.TESTED)
+    path = world.sheet(board.checkout, tested)
+    shown = digest.shown(path.read_bytes())
+    fields = {"key": criteria_key(), "option": "yes", "digest": shown}
+    note = note_of(board.post(ANSWER, fields))
+    assert note.state == "refused"
+    task = read(board).task
+    assert (task.criteria.approvals, task.questions, task.hold) == ((), (), world.WAITS)
+
+
+def test_through_the_door_his_yes_is_his_approval_with_where_he_asked(
+    door: Board,
+) -> None:
+    made(door, status="shaping", hold=world.WAITS)
+    path = world.sheet(door.checkout, world.FULL)
+    fields = {
+        "key": criteria_key(),
+        "option": "yes",
+        "digest": digest.shown(path.read_bytes()),
+    }
+    response = door.client.post(
+        f"{door.base}{ANSWER}", data=fields, follow_redirects=False
+    )
+    assert note_of(response).said.startswith("Your yes to the criteria is on record.")
+    record = read(door)
+    (approval,) = record.task.criteria.approvals
+    assert approval.by == "owner"
+    acts = [one for one in record.journal if isinstance(one, OwnerAct)]
+    assert [(one.act, one.via) for one in acts] == [("approve", "door")]
