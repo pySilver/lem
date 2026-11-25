@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from lem.store.guard import TEST_ROOT
+from lem.kernel.folders import TEST_ROOT
 from levels import LEVELS
 
 if TYPE_CHECKING:

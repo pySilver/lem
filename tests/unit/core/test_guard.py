@@ -15,9 +15,10 @@ import pytest
 from fakes.command import lem
 from fakes.records import MOMENT, noted, record
 from fakes.repo import RealRepo
+from lem.kernel import folders, logs
 from lem.kernel.errors import Fault, Refusal
 from lem.records.sessions import SessionLine
-from lem.store import guard, places, sessions, steps, tasks, workspace
+from lem.store import guard, owner, places, sessions, steps, tasks, workspace
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -42,7 +43,7 @@ def listing(state: Path) -> list[str]:
 
 
 def test_a_test_starts_in_a_folder_of_no_repository_under_its_own_root() -> None:
-    root = Path(os.environ[guard.TEST_ROOT]).resolve()
+    root = Path(os.environ[folders.TEST_ROOT]).resolve()
     assert Path.cwd().resolve().is_relative_to(root)
     with pytest.raises(Refusal) as refused:
         places.workspace(Path.cwd())
@@ -59,7 +60,7 @@ def test_a_test_starts_in_a_folder_of_no_repository_under_its_own_root() -> None
 
 class StartsElsewhere(unittest.TestCase):
     def test_a_unittest_case_starts_under_the_root_too(self) -> None:
-        root = Path(os.environ[guard.TEST_ROOT]).resolve()
+        root = Path(os.environ[folders.TEST_ROOT]).resolve()
         self.assertTrue(Path.cwd().resolve().is_relative_to(root))
 
 
@@ -149,7 +150,7 @@ def test_the_state_of_the_lem_before_is_neither_read_nor_written(
         with pytest.raises(Refusal) as refused:
             act()
         assert refused.value.code == "old-state", name
-        assert "holds the state of Lem 0.3" in refused.value.why
+        assert "holds the files of Lem 0.3" in refused.value.why
         assert "lem doctor" in refused.value.fix
     assert snapshot(state) == before
     assert sorted(path.name for path in state.rglob("*")) == sorted(
@@ -176,10 +177,60 @@ def test_an_absent_or_empty_state_folder_gets_the_marker_with_the_first_task(
         state.mkdir()
         (state / ".gitignore").write_text("*\n")
     assert tasks.every(state) == ()
-    assert not (state / guard.MARKER).exists()
+    assert not (state / folders.MARKER).exists()
     tasks.create(state, record())
-    assert (state / guard.MARKER).read_bytes() == b'{"form": 1}\n'
+    assert (state / folders.MARKER).read_bytes() == b'{"form": 1}\n'
     assert (state / ".gitignore").read_text() == "*\n"
     (state / "forge.json").write_text("{}")
     assert [found.task.slug for found in tasks.every(state)] == ["fix-the-login"]
     assert guard.form(state) == "new"
+
+
+def old_home(folder: Path) -> Path:
+    """A home folder of Lem 0.3: the owner's marks, the server's lock and log, its devices."""
+    home = folder / "config" / "lem"
+    home.mkdir(parents=True)
+    (home / "owner.jsonl").write_text('{"event": "owner", "away": true}\n')
+    (home / "serve.lock").write_text("")
+    (home / "serve.log").write_text("started\n")
+    (home / "push.json").write_text('{"devices": []}\n')
+    (home / "workspaces.json").write_text('["/a/repo"]\n')
+    return home
+
+
+def test_a_home_of_the_lem_before_takes_no_write(tmp_path: Path) -> None:
+    home = old_home(tmp_path)
+    environ = {"XDG_CONFIG_HOME": str(home.parent)}
+    before = snapshot(home)
+    for name, act in (
+        ("home", lambda: folders.home_for_writing(environ)),
+        ("owner", lambda: owner.change(home, "away", MOMENT, away=True)),
+    ):
+        with pytest.raises(Refusal) as refused:
+            act()
+        assert refused.value.code == "old-state", name
+        assert "Lem's home folder" in refused.value.why
+        assert "lem doctor" in refused.value.fix
+    failed = logs.logged(Fault("broke"), ["task", "show"], environ)
+    assert failed.log.startswith("standard error: the log could not be written")
+    assert snapshot(home) == before
+    assert sorted(path.name for path in home.iterdir()) == [
+        "owner.jsonl",
+        "push.json",
+        "serve.lock",
+        "serve.log",
+        "workspaces.json",
+    ]
+
+
+def test_an_absent_home_gets_the_marker_with_the_first_write_and_then_works(
+    tmp_path: Path,
+) -> None:
+    environ = {"XDG_CONFIG_HOME": str(tmp_path / "config")}
+    home = folders.home_for_writing(environ)
+    assert home == tmp_path / "config" / "lem"
+    assert (home / folders.MARKER).read_bytes() == b'{"form": 1}\n'
+    (home / "serve.json").write_text("{}")
+    assert folders.home_for_writing(environ) == home
+    assert owner.change(home, "away", MOMENT, away=True).away
+    assert logs.logged(Fault("broke"), ["x"], environ).log == str(home / "lem.log")

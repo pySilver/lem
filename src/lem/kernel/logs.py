@@ -13,7 +13,7 @@ import sys
 import traceback
 from typing import TYPE_CHECKING
 
-from lem.kernel import clock, locks, paths
+from lem.kernel import clock, folders, locks
 from lem.kernel.envelope import Failed
 from lem.kernel.errors import Refusal
 
@@ -52,7 +52,7 @@ def logged(error: BaseException, argv: list[str], environ: Mapping[str, str]) ->
     """The fault of a command: its traceback in `lem.log` of Lem's home folder, else on
     standard error with the reason the log could not be written."""
     try:
-        return fault(paths.home(environ) / LOG, error, argv)
+        return fault(folders.home_for_writing(environ) / LOG, error, argv)
     except (OSError, Refusal) as unwritten:
         sys.stderr.write(entry(error, argv))
         line = first_line(error)

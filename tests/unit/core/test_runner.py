@@ -3,6 +3,7 @@ one line for each case, a failed subtest fails its case, `os._exit` fails the ru
 pytest and Lem variables never reach a case, and a selection that collects nothing fails."""
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -337,11 +338,14 @@ def test_a_hard_exit_cannot_pass_or_leave_its_temporary_folder(
     )
     ran = run_entry(tmp_path, "--level", level)
     if level == "unit":
-        crashed = (
-            "FAIL unit.test_hard_exit.test_exit: worker 'gw0' crashed while running "
-            "'tests/unit/test_hard_exit.py::test_exit'"
+        # Any of the four workers may take the case, so the line names the one that did.
+        crashed = re.fullmatch(
+            r"FAIL unit\.test_hard_exit\.test_exit: worker 'gw[0-3]' crashed while "
+            r"running 'tests/unit/test_hard_exit\.py::test_exit'",
+            ran.stdout.splitlines()[1],
         )
-        assert_results(ran, 1, "collected 1", crashed)
+        assert crashed is not None, ran.stdout
+        assert_results(ran, 1, "collected 1", crashed[0])
         assert ran.stdout.splitlines()[-1] == (
             "total: collected 1, passed 0, skipped 0, failed 1"
         )

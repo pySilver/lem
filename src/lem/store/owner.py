@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.kernel import files, locks
+from lem.kernel import files, folders, locks
 from lem.kernel.errors import Fault
 from lem.records.owner import Change, Presence
 
@@ -32,7 +32,7 @@ def read(home: Path) -> Presence:
 def change(home: Path, words: str | None, now: Moment, *, away: bool) -> Presence:
     """Mark the owner away or back with his words; a mark that changes nothing is not
     written, and gives the presence as it is."""
-    home.mkdir(parents=True, exist_ok=True)
+    folders.home_marked(home)
     with locks.held(home / LOCK):
         before = read(home)
         if before.away == away and (not away or before.words == words):

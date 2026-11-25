@@ -16,6 +16,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from lem.kernel import folders
 from lem.kernel.errors import Refusal
 from lem.store import guard
 
@@ -90,7 +91,7 @@ def workspace(folder: Path) -> Workspace:
             "run it inside a repository's checkout, or name one with lem --repo PATH",
         )
     checkout = common_dir(found).parent
-    guard.inside_test_root(checkout)
+    folders.inside_test_root(checkout)
     if not (checkout / ".lem").is_dir():
         raise Refusal(
             "no-lem",

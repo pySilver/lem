@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.store.guard import TEST_ROOT
+from lem.kernel.folders import TEST_ROOT
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
