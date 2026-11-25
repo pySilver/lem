@@ -1,0 +1,7 @@
+{#- The pull request's text: its blocks, a blank line between two, each its heading and its
+    lines; the template only prints what `app/landing/pr_text.py` gave it. -#}
+{%- for block in text.blocks %}
+{%- if not loop.first %}{{ "\n\n" }}{% endif %}
+{%- if block.heading %}{{ block.heading }}{% if block.lines %}{{ "\n\n" }}{% endif %}{% endif %}
+{{- block.lines | join("\n") }}
+{%- endfor %}

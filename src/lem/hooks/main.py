@@ -49,14 +49,15 @@ SAYS_BEHIND = "session-start"
 
 
 def run(selector: str, environ: Mapping[str, str]) -> str:
-    """What the hook `selector` prints: nothing for a selector Lem has not, and nothing but
-    the version line when the plugin and the app are two versions."""
+    """What the hook `selector` prints: nothing for a selector Lem has not, nothing from an
+    app whose own files are not whole (it cannot tell its version), and nothing but the version
+    line when the plugin and the app are two versions."""
     module = dict(SELECTORS).get(selector)
-    if module is None:
+    app = versions.app_root()
+    if module is None or app is None:
         return ""
     plugin = environ.get("CLAUDE_PLUGIN_ROOT", "")
-    app = versions.app_root()
-    behind = versions.behind(plugin, app) if plugin and app else None
+    behind = versions.behind(plugin, app) if plugin else None
     if behind and selector != SAYS_BEHIND:
         return ""
     return importlib.import_module(module).answer(environ, behind)

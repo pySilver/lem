@@ -36,7 +36,7 @@ def run(call: Call) -> Envelope:
         f"{made.task} goes on in a fresh session for the phase {made.phase}; this one "
         "closes once the owner has left it"
     )
-    return here.enveloped(made, say)
+    return here.enveloped(made, say, made.close)
 
 
 COMMAND = click.Command(

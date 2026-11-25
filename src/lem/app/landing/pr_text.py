@@ -1,112 +1,51 @@
-"""The pull request's text in its plainest form: green or the reasons it is not, the criteria,
-the checks, the review, what was seen outside the change, and the notes the agent wrote.
+"""The pull request's text, in the order the owner reads it (`main:land.pr_text`,
+`small_text`): green or each reason it is not, then the request in the owner's words, the
+criteria with their tests, each check with what it returned, each decision of the record with
+who took it and why, and the agent's notes with what was seen outside the change.
 
-The text is a function of the record and the notes alone, so a proposal cut off and made again
-writes the same bytes. The template, the decisions, the plan talk's counts and the persona read
-are the step `land-propose`'s.
+The text is a function of the record, the facts of the branch and the notes, so a proposal cut
+off and made again writes the same bytes. Each body is published at a path of its own,
+`pr-ROUND-DIGEST.md`, which the record cites. The template only prints its blocks.
 """
 
-from functools import partial
-from pathlib import Path
 from typing import TYPE_CHECKING
 
+import jinja2
+
+from lem.app.landing import pr_criteria, pr_fast, pr_head, pr_standard
+from lem.app.landing.pr_inputs import Text
 from lem.kernel import files
-from lem.kernel.errors import Refusal
-from lem.model.landing.review import newest
-from lem.model.landing.review_said import COUNTED
-from lem.records.landing.record import Landing
+from lem.model.landing.propose_facts import small
 
 if TYPE_CHECKING:
-    from lem.records.criterion import Criterion
-    from lem.records.landing.review import Reviewed
+    from pathlib import Path
+
+    from lem.model.landing.propose import Proposal
+    from lem.model.landing.propose_facts import Facts
     from lem.records.record import Record
 
-GREEN = (
-    "**Green.** The checks passed, the review left no must-fix, and the criteria are "
-    "the approved ones."
-)
-LEVELS = ("must-fix", "should", "nit")
-CHECK = "- `{0.command}`: {0.last}"
-SEEN = "- {0.finding}: {0.line}"
 SHORT = 12
+TEMPLATES = jinja2.Environment(
+    loader=jinja2.PackageLoader("lem.app.landing", "templates"),
+    autoescape=jinja2.select_autoescape(default=False, default_for_string=False),
+    undefined=jinja2.StrictUndefined,
+    keep_trailing_newline=True,
+)
 
 
-def criterion_lines(criterion: Criterion) -> list[str]:
-    """A criterion, then its tests or why it has none."""
-    lines = ["", f"{criterion.number}. {criterion.text}"]
-    for test in criterion.tests:
-        named = ", ".join(f"`{path}`" for path in test.files)
-        command = test.command
-        lines.append(f"   - test: `{command}` in {named}")
-    if criterion.no_test:
-        lines.append(f"   - no test: {criterion.no_test}")
-    return lines
+def body(record: Record, proposal: Proposal, facts: Facts) -> str:
+    """The whole text of the pull request."""
+    track = pr_fast.blocks if small(record) else pr_standard.blocks
+    head = (*pr_head.blocks(record, proposal), *pr_criteria.request(record))
+    blocks = (*head, *track(record, proposal, facts))
+    return TEMPLATES.get_template("pr.md.j2").render(text=Text(blocks=blocks))
 
 
-def tally(levels: tuple[str, ...], level: str) -> str:
-    """How many findings of `level` there are, with the level."""
-    number = levels.count(level)
-    return f"{number} {level}"
-
-
-def counted(review: Reviewed) -> str:
-    """The review's line: its attempt, its kind, who answered, and the counts by level of the
-    change's findings (the defects outside the change have their own section)."""
-    mark = f".{COUNTED}"
-    levels = tuple[str, ...](
-        finding.level for finding in review.findings if mark in finding.id
-    )
-    counts = ", ".join(map(partial(tally, levels), LEVELS))
-    answered = ", ".join(review.answered) or "nobody"
-    kind = f"{review.kind}; answered: {answered}"
-    return f"- attempt {review.attempt} ({kind}): {counts}"
-
-
-def landing_lines(landing: Landing) -> list[str]:
-    """The sections of the checks, the review, and what was seen outside the change."""
-    checked = landing.checked
-    lines = ["", "## Checks", ""]
-    lines.extend(map(CHECK.format, checked.outcomes if checked else ()))
-    last = newest(landing)
-    lines.extend(("", "## Review", "", counted(last) if last else "- none"))
-    if landing.filed:
-        lines.extend(("", "## Seen outside the change", ""))
-    lines.extend(map(SEEN.format, landing.filed))
-    return lines
-
-
-def notes_of(path: str) -> str:
-    """The notes the agent wrote for the pull request, from their file."""
-    try:
-        return Path(path).read_text(encoding="utf-8").strip()
-    except OSError as error:
-        raise Refusal(
-            "notes",
-            f"the notes {path} cannot be read ({error.strerror})",
-            "write the pull request's notes into that file, then propose again",
-        ) from error
-
-
-def body(record: Record, reasons: tuple[str, ...], notes: str) -> str:
-    """The whole text of the pull request, with the notes of the file `notes`."""
-    said = "; ".join(reasons)
-    lines = [
-        f"**Not green.** {said}." if reasons else GREEN,
-        "",
-        "## Acceptance criteria",
-    ]
-    for criterion in record.task.criteria.criteria:
-        lines.extend(criterion_lines(criterion))
-    lines.extend(landing_lines(record.landing or Landing()))
-    lines.extend(("", "## Notes", "", notes_of(notes) or "none", ""))
-    return "\n".join(lines)
-
-
-def published(folder: Path, text: str) -> str:
-    """Publish the text in the task's folder `folder`, at a path named by its digest, and
-    give that path."""
+def published(folder: Path, number: int, text: str) -> str:
+    """Publish the text in the task's folder `folder` at a path named by the round and its
+    digest, and give that path."""
     encoded = text.encode()
     short = files.digest(encoded)[:SHORT]
-    named = f"pr-{short}.md"
+    named = f"pr-{number}-{short}.md"
     files.publish(folder / named, encoded)
     return named

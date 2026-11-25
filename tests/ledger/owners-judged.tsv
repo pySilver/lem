@@ -13,6 +13,32 @@ check:tests/lem-decisions.sh:a-task-two-releases-back-stops-at-its-first-417a4d8
 check:tests/lem-decisions.sh:his-start-it-for-a-task-queued-behind-a-drop-c3c61905db4d491a	task	his start of a queued task is task start --words (task's)	criteria
 check:tests/lem-decisions.sh:in-the-morning-the-list-marks-a-task-the-nig-bb6d28f81023b85a	owner	the morning's list of what waits and the night's report are lem waiting and status (owner's)	criteria
 check:tests/lem-decisions.sh:waiting-lists-in-one-json-what-waits-for-the-6d70049e2e7ff4df	owner	lem waiting lists what waits for the owner in its nine groups (owner's); its breakers come from decisions pending	criteria
+check:tests/lem-land-github.sh:a-branch-changed-after-its-push-whose-pushed-e231f26c2bfe89b6	land-merge	clean keeps or removes the branch after the merge: land-merge's clean	land-propose
+check:tests/lem-land-github.sh:a-branch-the-landing-rebased-after-its-push-0d1a7a5bb94334fb	land-merge	clean after a rebase after the push: land-merge's clean (after_push)	land-propose
+check:tests/lem-land-github.sh:a-branch-the-landing-rebased-after-its-push-488c80283a7b2565	land-merge	clean after a rebase after the push: land-merge's clean (after_push)	land-propose
+check:tests/lem-land-github.sh:a-careful-change-after-a-conflict-the-read-o-ad956493606a706c	land-base	what carries over a conflict's resolution, and the owner's merge it ends, is carry (land-base) and the standing merge	land-propose
+check:tests/lem-land-github.sh:a-careful-change-keeps-its-review-through-a-8ece881b59db8e48	land-base	the review's carry over a rebase is land-base's carry	land-propose
+check:tests/lem-land-github.sh:a-conflict-after-a-merge-base-stops-on-the-f-f4b7e614d6d47e26	land-base	base's conflict, the resolution's read and the carry are land-base's	land-propose
+check:tests/lem-land-github.sh:a-new-task-s-worktree-starts-from-origin-s-b-5b968321c7a08a7f	task	a task's worktree is task's (task worktree)	land-propose
+check:tests/lem-land-github.sh:a-pull-request-a-commit-on-the-base-made-con-3b8f188ae63e3a9f	land-base	start --conflicting and the synced line are land-base's	land-propose
+check:tests/lem-land-github.sh:a-pull-request-closed-on-the-forge-with-no-m-9f9c636881cd5685	land-merge	merged writes a closed pull request's task dropped: land-merge's merged	land-propose
+check:tests/lem-land-github.sh:a-pull-request-is-merged-through-the-forge-o-3d51a909ce991dca	land-merge	the merge through the forge: land-merge	land-propose
+check:tests/lem-land-github.sh:a-pull-request-is-not-merged-over-a-base-tha-1e7870baeeae2d2c	land-merge	a merge over a moved base: land-merge	land-propose
+check:tests/lem-land-github.sh:a-pull-request-whose-base-was-changed-on-git-c59c5d5297e026b1	land-merge	a retarget refused at the merge: land-merge	land-propose
+check:tests/lem-land-github.sh:a-task-is-not-opened-under-a-slug-whose-bran-e7864b74ce3a81d3	task	task open's refusal of a taken branch: task	land-propose
+check:tests/lem-land-github.sh:a-teammate-s-commit-on-the-task-s-branch-sto-8207ed77d85d6bdb	land-base	base's teammate refusal: land-base	land-propose
+check:tests/lem-land-github.sh:after-a-merge-an-open-task-with-no-conflict-9ab9e1e1b3bd03e1	land-base	a new round onto a moved base, what carries and its one line: land-base's start, base and carry	land-propose
+check:tests/lem-land-github.sh:after-a-merge-the-forge-made-as-one-commit-t-aeede728a86c6bc8	land-merge	clean after a squash: land-merge	land-propose
+check:tests/lem-land-github.sh:after-an-update-branch-on-the-forge-and-a-me-226bd9af46795342	land-merge	clean after an Update branch: land-merge	land-propose
+check:tests/lem-land-github.sh:after-the-merge-the-worktree-and-the-branch-e0dae355a8804dc5	land-merge	clean: land-merge	land-propose
+check:tests/lem-land-github.sh:an-open-task-whose-last-review-left-a-must-f-0dead4e126644e05	land-merge	the end of the owner's standing merge over a rebase is the Proposed.owner_merge that land-merge's standing reads, from land-base's carry	land-propose
+check:tests/lem-land-github.sh:merge-merges-no-pull-request-whose-head-on-t-6f5a0b3e4ac8aacb	land-merge	the merge's head and state checks: land-merge	land-propose
+check:tests/lem-land-github.sh:merged-on-a-pull-request-that-is-still-open-102ab6ff38ab9cbf	land-merge	merged on an open pull request and waiting's conflict: land-merge	land-propose
+check:tests/lem-land-local.sh:a-plan-that-says-size-small-is-refused-by-th-d55a804a9fae20d2	criteria	the criteria's refusal of a plan that says Size: small, with polish's and the gate's: criteria (and land-checks)	land-propose
+check:tests/lem-land-local.sh:a-read-by-the-lead-with-one-model-family-in-44f308ca5d3ce791	criteria	the read's record form, the lead's freeze and its later change are criteria's (lem criteria read); the read's line is proved by unit.landing.test_propose.test_the_personas_read_and_his_approval_in_the_checks	land-propose
+check:tests/lem-land-local.sh:a-read-freezes-only-the-first-contract-of-a-2f9f32ad22761560	criteria	the freeze of a read: criteria	land-propose
+check:tests/lem-land-local.sh:for-a-full-change-from-a-complete-request-hi-220251e845454336	criteria	his word to skip the read on a complete request is refused when it is given (lem criteria skip), which the criteria step builds	land-propose
+check:tests/lem-land-local.sh:without-the-owner-the-criteria-are-approved-7d6e6a9261f90d06	criteria	when an approval by:alone may be given is criteria approve --alone's rule	land-propose
 check:tests/lem-machine.sh:a-claim-folder-that-cannot-be-made-still-que-82426ece104d39eb	sessions	the correction hook's claim and queue write (lem-hook corrections, with the queue's write): sessions	settings
 check:tests/lem-machine.sh:a-hook-line-with-lem-hook-bin-at-a-file-that-77c47f5908885070	sessions	hooks/run: sessions	settings
 check:tests/lem-machine.sh:a-hook-line-with-no-lem-hook-bin-and-no-app-f98b86a503650ccf	sessions	hooks/run: sessions	settings
@@ -120,6 +146,8 @@ refusal:Task.kept:self-kept-file-does-not-read-as-json-error-l-b76b793bcede0539	
 refusal:Task.need_worktree:the-task-has-no-worktree-at-self-worktree-gi-f3a5fb58b23becc9	land-base	Several landing steps call the guard. Base owns the Git adapter and proves that landing commands refuse a missing or dirty worktree.	
 refusal:Task.need_worktree:the-worktree-has-changes-nobody-committed-di-28ed3d6b4cace16f	land-base	Several landing steps call the guard. Base owns the Git adapter and proves that landing commands refuse a missing or dirty worktree.	
 refusal:Task.read_states:no-task-self-slug-r-the-tasks-are-listed-dcfa95bd75c3e27d	task	The old landing lookup reports an unknown slug. The task step provides the new task lookup.	
+refusal:cmd_propose:the-newest-criteria-read-of-task-slug-does-n-9088bc4785082449	criteria	the read's form is the typed record lem criteria read SLUG done writes, refused when it is written	land-propose
+refusal:cmd_propose:the-newest-plan-talk-of-task-slug-does-not-h-e50742cd847859f4	task	the plan talk's form is the typed record lem task talked writes, refused when it is written	land-propose
 refusal:events_of:line-number-of-log-is-not-json-error-the-log-2ee7b7abc2391f5f	core	The old landing reads the log for checks, review, PR text and merge. Core owns the journal store and its read errors.	
 refusal:project_now:in-process:this-repository-has-no-lem-settings-toml-lem-06352751880aed83	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.	
 refusal:project_now:str-error-177e167f5c0481a3	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.	
@@ -138,6 +166,7 @@ refusal:task_file:path-is-not-a-file-in-the-working-directory-ce99925e12bdcf2d	l
 ruling:a-helper-starts-from-plain-words-5c4605127c21159a	owner	SKILL.md holds it (line 157), which the owner step rewrites	task
 ruling:a-lowered-bar-a-new-suppression-a-skipped-or-110297d0eb925f42	land-checks	The shell suite belongs to review, and the Bar cases belong to checks. Checks owns the lowered-bar finding that must reach the PR.	
 ruling:a-partial-review-is-a-review-6471c81a4fd37ad9	land-review	The cited suites span review, propose and merge. Review owns the floor and the selection that can satisfy it.	
+ruling:a-plan-never-makes-a-change-small-621f632e0f01d609	criteria	the ruling is held where a plan's Size line is read: criteria (with its check row a-plan-that-says-size-small)	land-propose
 ruling:a-project-can-close-branches-003115363c11829e	land-base	Settings defines the protected names, and landing enforces them. The surfaces annex gives the old may-land contract to land-base.	
 ruling:a-release-is-a-change-of-the-plugin-s-versio-eef0c0acef8044d0	core	The text is in AGENTS.md, and the value is in the manifest. Core owns the manifest and packaging value.	
 ruling:a-task-has-a-type-and-a-track-and-they-are-t-8f98808a3ad23f65	task	Both the task and settings suites cite the ruling. The task step owns the two values and their display in the first line.	
@@ -166,6 +195,10 @@ unit:tests/unit/test_criteria.py:Inputs.test_the_five_inputs_of_a_run	land-check
 unit:tests/unit/test_criteria.py:Inputs.test_with_no_origin_the_base_branch_itself	land-checks	criteria inputs is land-checks' leaf (plan part 9, row criteria: but red and inputs)	criteria
 unit:tests/unit/test_criteria.py:Unstarted.test_a_shell_on_a_file_the_base_lacks_is_named	land-checks	criteria.unstarted belongs to cmd_red, which land-checks builds (plan part 9)	criteria
 unit:tests/unit/test_criteria.py:Unstarted.test_python_on_a_file_the_base_lacks	land-checks	criteria.unstarted belongs to cmd_red, which land-checks builds (plan part 9)	criteria
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_page_opened_with_no_status_keeps_its_choice_at_the_stop	ask	the open card's mark (agterm status, rechecked) reads the card's page and its no-status choice, which `ask` (board/ask/) defines; hooks/stop.py says nothing until then	sessions
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_status_call_that_cannot_start_prints_nothing	ask	the agtermctl status calls of the mark are `ask`'s with the card's page	sessions
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_wait_with_no_status_holds_for_a_page_opened_without_it	ask	the word of `lem ask wait` (main's WAIT_WORD file) is `ask`'s to define	sessions
+unit:tests/unit/test_hooks.py:AskStopHook.test_an_agtermctl_that_hangs_ends_the_hook_silent_and_leaves_no_process	ask	the agtermctl calls of the mark, each with its bound (main's STOP_CALL), come with the mark	sessions
 unit:tests/unit/test_land.py:ProtectedBranch.test_a_protected_name_is_refused_and_named	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.	
 unit:tests/unit/test_land.py:ProtectedBranch.test_a_task_branch_that_is_not_protected	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.	
 unit:tests/unit/test_land.py:ProtectedBranch.test_the_base_is_refused	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.	
@@ -177,6 +210,17 @@ unit:tests/unit/test_land.py:TaskFile.test_an_absolute_path_is_taken_as_it_is	tr
 unit:tests/unit/test_land.py:TaskFile.test_an_absolute_path_is_taken_as_it_is	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
 unit:tests/unit/test_land.py:TaskFile.test_the_working_directory_comes_first	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.	
 unit:tests/unit/test_land.py:TaskFile.test_the_working_directory_comes_first	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
+unit:tests/unit/test_land_text.py:Due.test_a_change_after_the_review_gets_another	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_a_change_with_no_review_gets_one_read	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_a_large_plan_gets_a_round	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_a_must_fix_asks_for_a_round_after_its_fix	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_a_reviewed_change_needs_none	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_after_two_rounds_the_request_waits_for_the_owner	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_an_item_filed_in_the_backlog_after_the_review_is_covered	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_careful_after_one_read_asks_for_the_full_set	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_the_read_of_a_resolution_names_each_file_its_rebase_changed	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:Due.test_two_reviews_nobody_answered	land-review	which review is due (land.due_of) is land-review's due	land-propose
+unit:tests/unit/test_land_text.py:TheDocuments.test_a_label_ends_at_its_colon_and_never_inside_a_quote	board-pages	land.label is read by board_task.py only (an option's label on the board)	land-propose
 unit:tests/unit/test_release.py:Before.test_the_release_before_is_older_than_plugin_json	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Check.test_a_command_that_ends_the_task_logs_the_same_stop_and_goes_on	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Check.test_a_pass_holds_for_the_commands_of_one_command_and_for_no_command_after_it	task	the release stop two releases back is task's	core
@@ -201,6 +245,12 @@ unit:tests/unit/test_release.py:Repository.test_the_repository_names_one_release
 unit:tests/unit/test_release.py:Rule.test_a_task_of_this_release_or_of_the_release_before_goes_on	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Rule.test_a_task_two_releases_back_stops_with_the_message_of_criterion_4	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Rule.test_a_task_with_no_mark_counts_as_begun_on_the_release_before_marks_and_goes_on	task	the release stop two releases back is task's	core
+unit:tests/unit/test_session.py:Load.test_a_negative_number_written_by_hand_is_refused	settings	the load line's number is [load] of the machine's file, which the step settings reads and checks	sessions
+unit:tests/unit/test_session.py:Load.test_a_new_machine_gates_at_forty	land-checks	the load line gates the checks, which land-checks runs	sessions
+unit:tests/unit/test_session.py:Load.test_his_number_wins_and_none_stays_none	settings	the machine's [load] number and its sources are the step settings's	sessions
+unit:tests/unit/test_session.py:Seat.test_the_machine_file_refuses_the_seats_and_names_the_home_settings	settings	which file may hold [seats] is the settings' table places (settings/places.py)	sessions
+unit:tests/unit/test_session.py:Tokens.test_the_command_writes_the_number_and_default_takes_it_out_keeping_the_other_tables	settings	the number is written by `lem settings set handoff.tokens N --machine`, the step settings's	sessions
+unit:tests/unit/test_session.py:Tokens.test_under_the_floor_a_negative_a_bool_and_a_float_are_refused	settings	the check of [handoff] tokens on a write is the settings' edit; the harness refuses such a number on read (contract.test_harness.test_a_compaction_number_claude_code_would_refuse_is_refused)	sessions
 unit:tests/unit/test_state.py:RunGit.test_a_closed_stdin_reads_as_empty	land-base	git's runner is the git_cli adapter, which land-base builds	core
 unit:tests/unit/test_state.py:RunGit.test_a_run_is_given_back_whole_and_a_failure_is_not_raised	land-base	git's runner is the git_cli adapter, which land-base builds	core
 unit:tests/unit/test_state.py:RunGit.test_git_gives_the_output_or_none	land-base	git's runner is the git_cli adapter, which land-base builds	core
