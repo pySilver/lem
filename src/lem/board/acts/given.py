@@ -6,6 +6,8 @@ view under the panel (`in`) and the tab (`tab`).
 A form is a few short fields and a note: one over `FORM_BYTES` is no form of the board's.
 """
 
+from urllib.parse import parse_qsl
+
 import msgspec
 from starlette.requests import ClientDisconnect, Request
 
@@ -17,6 +19,7 @@ FORM_BYTES = 12288
 NOTE_CHARS = 2000
 # The fields a form of the board has.
 FIELDS = 9
+ENCODED = "application/x-www-form-urlencoded"
 
 
 class Given(msgspec.Struct, frozen=True, kw_only=True):
@@ -44,14 +47,37 @@ def sized(request: Request) -> bool:
     return length.isdigit() and int(length) <= FORM_BYTES
 
 
-async def given(request: Request) -> Given | None:
-    """The form of the request, or None when it carries no form of the board's."""
-    if not sized(request):
+def encoded(request: Request) -> bool:
+    """Whether the request's body is an encoded form, as a page's form posts it; a form with
+    no field has no body to say so."""
+    kind = request.headers.get("content-type", "")
+    empty = request.headers.get("content-length") == "0"
+    return empty or kind.partition(";")[0].strip() == ENCODED
+
+
+def pairs_of(body: bytes) -> list[tuple[str, str]] | None:
+    """The fields of an encoded form, the last of a name counting; None for a body that is
+    no such form."""
+    try:
+        text = body.decode()
+    except UnicodeDecodeError:
         return None
     try:
-        form = await request.form(max_files=0, max_fields=FIELDS * 2)
+        return parse_qsl(text, keep_blank_values=True, max_num_fields=FIELDS * 2)
+    except ValueError:
+        return None
+
+
+async def given(request: Request) -> Given | None:
+    """The form of the request, or None when it carries no form of the board's: a page's
+    form is encoded as `application/x-www-form-urlencoded`, which the standard library reads."""
+    if not encoded(request) or not sized(request):
+        return None
+    try:
+        body = await request.body()
     except ClientDisconnect:
         return None
-    pairs = form.multi_items()
-    texts = {name: shown for name, shown in pairs if isinstance(shown, str)}
-    return msgspec.convert(texts, Given)
+    pairs = pairs_of(body[: FORM_BYTES + 1])
+    if pairs is None or len(body) > FORM_BYTES:
+        return None
+    return msgspec.convert(dict(pairs), Given)

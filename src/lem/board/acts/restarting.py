@@ -17,10 +17,6 @@ if TYPE_CHECKING:
 NOT_OPENED = MappingProxyType(
     {
         "working": "Its session works again, so no session was opened.",
-        "gone": (
-            "Its session is gone from agterm, so no session was opened beside it: the "
-            "board offers a fresh one in its place within a minute."
-        ),
         "status": (
             "The task is no longer building, ready or landing, so no session was opened."
         ),
@@ -30,13 +26,17 @@ NOT_OPENED = MappingProxyType(
         ),
     }
 )
+GONE = "gone"
 GOES_ON = "Its agent reads the task’s state and goes on from there."
 
 
-def beside(asked: Asked) -> str:
-    """A fresh session beside the one the guard stopped, while the stop stands."""
+def beside(asked: Asked) -> str | None:
+    """A fresh session beside the one the guard stopped, while the stop stands; None when that
+    session is gone, which takes the open of a task with none."""
     bound = here.bound(asked.checkout)
     acted = guard_steps.stepped(bound, asked.slug, "restart", None, asked.now)
+    if acted.why == GONE:
+        return None
     if not acted.acted:
         why = NOT_OPENED.get(acted.why or "", acted.say)
         raise Refusal("not-opened", why, "read the task's page again")

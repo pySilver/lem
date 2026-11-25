@@ -35,22 +35,25 @@ def answered(said: str, status: HTTPStatus, *, done: bool) -> JSONResponse:
     return JSONResponse({"done": done, "said": said}, status_code=status)
 
 
-def named(space: places.Workspace, session: str) -> bool:
-    """Whether `session` is the newest session Lem opened for a task of the workspace."""
+def named(space: places.Workspace, session: str) -> str | None:
+    """The session Lem opened last for a task of the workspace that `session` names, as Lem
+    keeps its id, or None."""
     folders = (
         places.task_folder(space.state, record.task.slug)
         for record in tasks.every(space.state)
     )
-    newest = (log.newest_open(log.read(folder)) for folder in folders)
-    return any(opened and log.same(opened.session, session) for opened in newest)
+    opens = (log.newest_open(log.read(folder)) for folder in folders)
+    ids = (one.session for one in opens if one is not None)
+    return next((kept for kept in ids if log.same(kept, session)), None)
 
 
 def selected(space: places.Workspace, session: str) -> str | None:
     """Select the session in agterm; None when it was done, else why not."""
-    if not named(space, session):
+    kept = named(space, session)
+    if kept is None:
         return NONE
     try:
-        here.bound(space.checkout).ports.terminal.select(session)
+        here.bound(space.checkout).ports.terminal.select(kept)
     except Fault as fault:
         return f"agterm did not switch: {fault}."
     return None

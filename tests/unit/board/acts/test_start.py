@@ -1,0 +1,175 @@
+"""A new task from the board, from the owner's words or from a backlog item, with its session;
+and the drop of a reviewer's item: what each refuses, and why."""
+
+from datetime import timedelta
+from functools import partial
+from typing import TYPE_CHECKING
+from urllib.parse import parse_qs, urlsplit
+
+import msgspec
+import pytest
+
+from fakes.records import MOMENT
+from lem.app.sessions import acts, log
+from lem.board.acts import backlog, child
+from lem.board.acts.notes import NOTES
+from lem.kernel import clock
+from lem.kernel.envelope import Envelope, Refused
+from lem.model.task import holds
+from lem.records.journal.task import OwnerAct
+from lem.store import places, tasks
+from unit.board.acts.acts import made, opened, read
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import httpx
+
+    from lem.board.acts.notes import Note
+    from unit.board.acts.conftest import Board
+
+WORDS = "Add the gift note to the CSV export, please"
+SLUG = "add-the-gift-note-to"
+REVIEWER = ".lem/state/backlog/the-export-s-check-fails-by-chance.md"
+ITEM = "docs/backlog/the-receipt-reads-its-total-by-row.md"
+
+
+@pytest.fixture(autouse=True)
+def a_session_before(board: Board, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A session of the repository opened earlier, whose workspace of agterm a new task's
+    session takes; the acts run later."""
+    made(board, "earlier-task", status="building", lead="builder")
+    opened(board, "earlier-task", MOMENT)
+    monkeypatch.setattr(clock, "now", lambda: MOMENT + timedelta(hours=1))
+
+
+def where_to(answer: httpx.Response) -> tuple[str, Note]:
+    """The page the act went to, and its note."""
+    assert answer.status_code == 303, answer.text
+    address = urlsplit(answer.headers["location"])
+    found = NOTES.get(parse_qs(address.query)["note"][0])
+    assert found is not None
+    return address.path, found
+
+
+def item(board: Board, path: str) -> None:
+    """A backlog item at `path`."""
+    (board.checkout / path).parent.mkdir(parents=True, exist_ok=True)
+    (board.checkout / path).write_text("# An item\n")
+
+
+def opens(board: Board, slug: str) -> list[str]:
+    """Why each session Lem opened for the task opened."""
+    found = log.read(places.task_folder(board.state, slug))
+    return [act.why for act in found if isinstance(act, acts.Open)]
+
+
+def test_his_words_name_the_task_by_their_first_five_plain_words_and_open_its_session(
+    board: Board,
+) -> None:
+    path, note = where_to(board.post("/start", {"words": f"  {WORDS}  "}))
+    assert path == f"{board.base}/tasks/{SLUG}"
+    assert note.state == "done"
+    assert note.said.startswith(f"Lem opened the session {SLUG} in agterm")
+    task = read(board, SLUG).task
+    assert (task.ask, task.status) == (WORDS, "shaping")
+    assert opens(board, SLUG) == ["new"]
+    assert board.terminal.openings[-1].workspace == "W-1"
+    entries = [
+        one.act for one in read(board, SLUG).journal if isinstance(one, OwnerAct)
+    ]
+    assert entries == ["start"]
+
+
+def test_the_design_s_address_starts_a_task_too(board: Board) -> None:
+    path, note = where_to(board.post("/tasks", {"words": WORDS}))
+    assert (path, note.state) == (f"{board.base}/tasks/{SLUG}", "done")
+
+
+def test_a_slug_that_runs_or_ended_or_no_words_is_refused_with_why(
+    board: Board,
+) -> None:
+    made(board, SLUG, status="building")
+    made(board, "fix-the-login", status="landed")
+    path, runs = where_to(board.post("/start", {"words": WORDS}))
+    assert (path, runs.state) == (f"{board.base}/new", "refused")
+    assert f"{SLUG} is a task already, and it is building" in runs.said
+    _path, ended = where_to(board.post("/start", {"words": "fix the login"}))
+    assert "fix-the-login is landed" in ended.said
+    _path, empty = where_to(board.post("/start", {"words": "  ¿¡ "}))
+    assert "Type a few words" in empty.said
+
+
+def test_an_item_starts_as_its_stem_and_after_its_task_ended_with_2(
+    board: Board,
+) -> None:
+    item(board, ITEM)
+    path, note = where_to(board.post("/start", {"item": ITEM}))
+    stem = "the-receipt-reads-its-total-by-row"
+    assert (path, note.state) == (f"{board.base}/tasks/{stem}", "done")
+    task = read(board, stem).task
+    assert (task.ask, task.backlog_item) == (ITEM, ITEM)
+    _path, held = where_to(board.post("/start", {"item": ITEM}))
+    assert held.said == f"This item has a task already: {stem}, shaping."
+    ended = partial(holds.moved, status="dropped", line="dropped", now=MOMENT)
+    tasks.update(board.state, stem, ended, read(board, stem).revision)
+    path, again = where_to(board.post("/start", {"item": ITEM}))
+    assert (path, again.state) == (f"{board.base}/tasks/{stem}-2", "done")
+
+
+def test_an_item_outside_the_backlog_or_gone_starts_nothing(board: Board) -> None:
+    path, outside = where_to(board.post("/start", {"item": "README.md"}))
+    assert (path, outside.state) == (f"{board.base}/backlog", "refused")
+    _path, gone = where_to(board.post("/start", {"item": ITEM}))
+    assert "No item" in gone.said
+
+
+def dropped_by(monkeypatch: pytest.MonkeyPatch, printed: Envelope) -> list[tuple]:
+    """`lem proposals drop` replaced by one that prints `printed`; each call it got."""
+    calls: list[tuple] = []
+
+    def ran(checkout: Path, *words: str) -> Envelope:
+        calls.append(words)
+        return printed
+
+    monkeypatch.setattr(child, "ran", ran)
+    return calls
+
+
+def test_drop_on_a_reviewers_item_runs_the_proposals_drop_and_says_what_keeps_it(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    outcome = msgspec.Raw(b'{"proposals": ["retro of 2026-11-25 #1"]}')
+    calls = dropped_by(monkeypatch, Envelope(ok=True, outcome=outcome))
+    path, note = where_to(board.post("/backlog/drop", {"item": REVIEWER}))
+    assert (path, note.state) == (f"{board.base}/backlog", "done")
+    assert "keeps the drop of retro of 2026-11-25 #1" in note.said
+    assert calls == [("proposals", "drop", REVIEWER)]
+
+
+def test_drop_is_refused_for_no_item_an_item_of_the_folder_and_one_a_task_holds(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = dropped_by(monkeypatch, Envelope(ok=True))
+    made(board, "export-check", status="queued", backlog_item=REVIEWER)
+    said = [
+        where_to(board.post("/backlog/drop", {"item": shown}))[1].said
+        for shown in ("", ITEM, REVIEWER)
+    ]
+    assert said[0].startswith("The drop names no item")
+    assert "leaves it on a branch" in said[1]
+    assert said[2] == "This item has a task already: export-check, queued."
+    assert calls == []
+
+
+def test_a_refusal_of_the_proposals_drop_is_the_drops_note(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    refusal = Refused(code="not-built", why="proposals drop is not built", fix="later")
+    dropped_by(monkeypatch, Envelope(ok=False, refusal=refusal))
+    _path, note = where_to(board.post("/backlog/drop", {"item": REVIEWER}))
+    assert (note.state, note.said) == (
+        "refused",
+        "Proposals drop is not built: later.",
+    )
+    assert note.act == backlog.ACT

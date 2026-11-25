@@ -53,9 +53,10 @@ def said_of(asked: Asked) -> str:
     """Open the session the task needs, and say so."""
     acts = log.read(places.task_folder(asked.state, asked.slug))
     newest = log.newest_open(acts)
+    said = None
     if newest is not None and stopped(acts, newest.session):
         said = restarting.beside(asked)
-    else:
+    if said is None:
         said = fresh(asked, before=newest is not None)
     entry = noting.act_of(ACT, asked.asker, asked.now)
     noting.noted(asked.state, asked.slug, entry)
