@@ -126,7 +126,8 @@ def merged(forge: LocalForge, state: State, number: int, words: list[str]) -> ob
         "--rebase": "rebase",
         "--merge": "merge",
     }
-    method = next((methods[word] for word in words if word in methods), "merge")
+    chosen = [methods[word] for word in words if word in methods]
+    method: MergeMethod = chosen[0] if chosen else "merge"
     subject, body = option(words, "--subject") or "", body_of(words)
     head = option(words, "--match-head-commit") or ""
     if state.lose == "before":

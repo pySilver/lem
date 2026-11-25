@@ -140,7 +140,7 @@ def test_criteria_approved_without_him_say_how() -> None:
             "the task ran without the owner"
         ),
     )
-    shape = replace(record.task.shape, someone_else=True)
+    shape = Shape(type="feat", why="a word", track="full", someone_else=True)
     other = replace(record, task=replace(record.task, criteria=alone, shape=shape))
     assert green.reasons(other, ())[0].endswith(
         "without the owner, since someone else wrote the request"

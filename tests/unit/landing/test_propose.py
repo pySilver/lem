@@ -233,7 +233,7 @@ def test_an_interview_or_someone_elses_request_waits_for_his_yes() -> None:
         assert not isinstance(
             decided(replace(record, task=replace(record.task, criteria=his))), Refusal
         )
-    shape = replace(record.task.shape, someone_else=True)
+    shape = Shape(type="feat", why="a word", track="full", someone_else=True)
     other = full(shape=shape)
     read_only = replace(other.task.criteria, approvals=(approval("read"),))
     assert code_of(

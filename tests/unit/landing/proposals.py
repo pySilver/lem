@@ -3,7 +3,7 @@ fast track or the standard track, each changed by the fields a case names, and t
 reads and approvals as their writers keep them."""
 
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from msgspec.structs import replace
 
@@ -12,7 +12,7 @@ from lem.model.landing.propose_facts import Facts
 from lem.records.approvals import Approval, ApprovedBy, PersonaRead, Silent
 from lem.records.criteria import Criteria
 from lem.records.criterion import Criterion, CriterionTest
-from lem.records.decisions import Breaker, CriterionChanged, Story, Taken
+from lem.records.decisions import Breaker, CriterionChanged, Level, Story, Taken
 from lem.records.landing.checks import CriterionCheck
 from lem.records.task import Shape
 from lem.records.work import Span, SpanName
@@ -110,10 +110,10 @@ FACTS = Facts(notes=FULL_NOTES)
 
 
 def picked(
-    number: int, what: str, chose: str, by: str = "dialectic", **more: object
+    number: int, what: str, chose: str, by: Level = "dialectic", **more: object
 ) -> Taken:
     """A decision past the personas, with its story."""
-    return Taken(
+    made = Taken(
         id=number,
         at=MOMENT,
         what=what,
@@ -121,43 +121,45 @@ def picked(
         why="A reads first.",
         by=by,
         story=STORY,
-        **more,
     )
+    return replace(made, **more)
 
 
-def taken(number: int, what: str, chose: str, by: str, **more: object) -> Taken:
+def taken(number: int, what: str, chose: str, by: Level, **more: object) -> Taken:
     """A decision of the ladder."""
-    return Taken(
-        id=number,
-        at=MOMENT,
-        what=what,
-        chose=chose,
-        why=more.pop("why", "it holds"),
-        by=by,
-        **more,
-    )
+    made = Taken(id=number, at=MOMENT, what=what, chose=chose, why="it holds", by=by)
+    return replace(made, **more)
 
 
 def changed(
-    number: int, how: str, criterion: int, why: str, **more: object
+    number: int,
+    how: Literal["changed", "added", "removed"],
+    criterion: int,
+    why: str,
+    **more: object,
 ) -> CriterionChanged:
     """A change of an approved criterion."""
-    return CriterionChanged(
-        id=number, at=MOMENT, how=how, criterion=criterion, why=why, approval=1, **more
+    made = CriterionChanged(
+        id=number, at=MOMENT, how=how, criterion=criterion, why=why, approval=1
     )
+    return replace(made, **more)
 
 
-def breaker(number: int, cause: str = "criteria", **more: object) -> Breaker:
+def breaker(
+    number: int,
+    cause: Literal["irreversible", "criteria"] = "criteria",
+    **more: object,
+) -> Breaker:
     """A stop of the build at the breaker."""
-    return Breaker(
+    made = Breaker(
         id=number,
         at=MOMENT,
         cause=cause,
         what="The note has no place that keeps criterion 1",
         document="breaker.md",
         handoff="handoff.md",
-        **more,
     )
+    return replace(made, **more)
 
 
 def span(name: SpanName, at: datetime = MOMENT) -> Span:
