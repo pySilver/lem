@@ -5,7 +5,7 @@ queue and what waits for the owner (`model/task/read.py`), and the first line it
 from functools import partial
 from typing import TYPE_CHECKING
 
-from lem.app.tasks import release
+from lem.app.tasks import first_line, release
 from lem.kernel import clock
 from lem.model.task import read as reading
 from lem.store import places, tasks
@@ -27,3 +27,9 @@ def shaped(folder: Path, slug: str, shape: Shape, queue: reading.Queue) -> Recor
         raise refused
     change = partial(reading.read, shape=shape, queue=queue, now=clock.now())
     return tasks.update(where.state, slug, change, record.revision)
+
+
+def said(folder: Path, record: Record) -> str | None:
+    """The first line the task's session says after its read, or None: a night task, a read
+    that names no path, an order that waits for his answer."""
+    return first_line.said(places.workspace(folder), record, named=False)

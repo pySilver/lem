@@ -7,6 +7,9 @@ owner is away now is the owner's status, which `lem waiting` joins.
 
 from typing import TYPE_CHECKING
 
+from msgspec.structs import replace
+
+from lem.app.tasks import first_line
 from lem.model.task import claim, tickets
 from lem.records.base import Day, Frozen, Moment
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
@@ -119,5 +122,7 @@ def listed(folder: Path, *, ended: bool) -> tuple[Row, ...]:
 
 def shown(folder: Path, slug: str) -> Row:
     """One task; a read, which writes nothing, the release stop's hold neither."""
-    state = places.workspace(folder).state
-    return row(tasks.read(state, slug), tasks.every(state))
+    where = places.workspace(folder)
+    record = tasks.read(where.state, slug)
+    line = first_line.said(where, record, named=True)
+    return replace(row(record, tasks.every(where.state)), first_line=line)

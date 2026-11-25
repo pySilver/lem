@@ -13,7 +13,7 @@ from lem.kernel.errors import Refusal
 from lem.model.task.read import ORDER_WAIT, Queue
 from lem.records.holds import OwnerHold, Parked
 from lem.records.task import Shape
-from unit.task.spaces import last_line, made, read, result, workspace
+from unit.task.spaces import last_line, made, read, result, said, workspace
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -195,3 +195,24 @@ def test_his_word_starts_a_queued_task_and_keeps_his_words(tmp_path: Path) -> No
     made(where, "fast", status="queued", shape=replace(SHAPE, then="fast"))
     assert start.start(tmp_path, "fast", "go").status == "building"
     assert code(lambda: start.start(tmp_path, SLUG, "again")) == "start"
+
+
+def test_the_read_says_the_first_line_and_show_gives_its_named_form(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    made(where, SLUG, status="shaping")
+    ran = lem(
+        "task", "read", SLUG, "--type", "fix", "--why", "the total is wrong",
+        "--track", "small", "--then", "fast", cwd=tmp_path,
+    )  # fmt: skip
+    line = said(ran)
+    assert line.startswith('fix: "fix the login".')
+    shown = result(lem("task", "show", SLUG, cwd=tmp_path))
+    assert shown["first_line"].startswith(f'{SLUG} · fix: "fix the login".')
+    made(where, "night", status="shaping", night=MOMENT.date())
+    lem(
+        "task", "read", "night", "--type", "fix", "--why", "w", "--track", "small",
+        "--then", "fast", cwd=tmp_path,
+    )  # fmt: skip
+    assert "first_line" not in result(lem("task", "show", "night", cwd=tmp_path))
