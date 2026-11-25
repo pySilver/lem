@@ -20,9 +20,9 @@ from lem.board.inputs.parts import Input, When
 SKELETON = "lem.board.inputs.kanban"
 
 
-def structs() -> list[type[Input]]:
-    """Every struct the inputs define, but the skeleton's."""
-    found: list[type[Input]] = []
+def defined() -> list[type[msgspec.Struct]]:
+    """Every struct the inputs' modules define, but the skeleton's."""
+    found: list[type[msgspec.Struct]] = []
     for each in pkgutil.walk_packages(lem.board.inputs.__path__, "lem.board.inputs."):
         if each.name == SKELETON:
             continue
@@ -37,7 +37,11 @@ def structs() -> list[type[Input]]:
     return found
 
 
-STRUCTS = structs()
+STRUCTS = [each for each in defined() if issubclass(each, Input)]
+
+
+def test_every_struct_of_the_inputs_is_an_input() -> None:
+    assert [each for each in defined() if not issubclass(each, Input)] == []
 
 
 def test_the_inputs_are_many_structs_each_a_section_or_a_part_of_one() -> None:
