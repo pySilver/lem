@@ -17,7 +17,7 @@ class OwnerMerge(Frozen, frozen=True, kw_only=True):
 class Proposed(Frozen, frozen=True, kw_only=True):
     """`propose`: the tip and base, green or the reasons it is not, the careful call, the notes,
     the pull request's text the forge confirmed and the body that waits, whether a merge read
-    carried, the owner's standing merge, and who acts on the merge."""
+    carried, the owner's standing merge, who acts on the merge, and the criteria's mark."""
 
     tip: Sha
     base: Sha
@@ -32,6 +32,7 @@ class Proposed(Frozen, frozen=True, kw_only=True):
     owner_merge: OwnerMerge | None = None
     who_acts: Literal["owner", "merger"]
     at: Moment
+    contract: str | None = None
 
 
 class MergeRead(Frozen, frozen=True, kw_only=True):

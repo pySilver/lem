@@ -11,6 +11,8 @@ from lem.model.owner.looks import Look, Session, Stop
 from lem.records.landing.merge import Merger, Refused
 from lem.records.landing.propose import MergeRead, Proposed
 from lem.records.landing.record import Landing, Pull
+from lem.records.landing.review import Finding
+from unit.landing.worlds import CHECKED, PROPOSED, REVIEWED, task
 
 if TYPE_CHECKING:
     from lem.records.record import Record
@@ -50,7 +52,13 @@ def stop(*, unread: bool = False) -> Stop:
 def proposed(*, green: bool = True, who: Merger = "merger") -> Proposed:
     reasons = () if green else ("the review left a must-fix",)
     return Proposed(
-        tip=TIP, base=BASE, green=green, reasons=reasons, who_acts=who, at=MOMENT
+        tip=TIP,
+        base=BASE,
+        green=green,
+        reasons=reasons,
+        who_acts=who,
+        at=MOMENT,
+        contract=PROPOSED.contract,
     )
 
 
@@ -71,6 +79,25 @@ def refused(source: Source, kind: Kind) -> Refused:
 def opened(slug: str = "gift-note", **landing: object) -> Look:
     """An open task with a pull request and the landing's `landing` fields."""
     pull = Pull(number=44, url="https://github.com/o/r/pull/44", title="Gift note")
-    made = replace(Landing(phase="open", pull=pull), **landing)
-    found: Record = record(slug, status="open")
-    return Look(record=replace(found, landing=made))
+    proposal = landing.get("proposed")
+    must = Finding(
+        id="r1.1",
+        level="must-fix",
+        where="a.py",
+        title="a defect",
+        what="it",
+        against="over",
+    )
+    findings = (must,) if isinstance(proposal, Proposed) and not proposal.green else ()
+    made = Landing(
+        phase="open",
+        pull=pull,
+        checked=replace(CHECKED, tip=TIP, base=BASE),
+        reviews=(replace(REVIEWED, tip=TIP, findings=findings),),
+    )
+    found: Record = task("open")
+    return Look(
+        record=replace(
+            found, task=replace(found.task, slug=slug), landing=replace(made, **landing)
+        ),
+    )

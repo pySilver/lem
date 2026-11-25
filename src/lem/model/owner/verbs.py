@@ -75,7 +75,7 @@ def merge_verb(row: Row, landing: Landing) -> str:
     """The verb of a merge that waits for the owner: a refusal, a conflict, or his merge."""
     if landing.intent is not None:
         return "Check the pull request on GitHub"
-    refused = refused_verb(landing)
+    refused = refused_verb(row, landing)
     if refused is not None:
         return refused
     if row.conflict:
@@ -86,12 +86,14 @@ def merge_verb(row: Row, landing: Landing) -> str:
     return f"Merge the pull request #{pull.number}"
 
 
-def refused_verb(landing: Landing) -> str | None:
+def refused_verb(row: Row, landing: Landing) -> str | None:
     """The verb of a refused merge of the proposed tip, by Lem or by GitHub, or None."""
     proposed, refused = landing.proposed, landing.refused
     if refused is None or proposed is None or refused.tip != proposed.tip:
         return None
-    if merging.calls_after_base_refusal(landing, refused):
+    if merging.calls_after_base_refusal(
+        landing, refused, read_after_refusal=row.read_after_refusal
+    ):
         return None
     if refused.source == "lem":
         return "The merge did not go through"

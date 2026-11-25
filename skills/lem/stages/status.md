@@ -83,8 +83,10 @@ When `count` is 0, say "nothing waits for you" in one line. The tasks in `parked
 and are not counted: name them in one line after the list. Then what builds and what each other
 task waits on, from `lem task list`. From `lem task list --ended`, say what landed today and
 what was answered today, by `status` and `since` in the owner's clock. For each answered task,
-read `investigation.md` in the folder that `lem task dir SLUG` prints. Give its answer in one
-line. If the report is gone, say the answer is unavailable.
+read `investigation.md` in the folder that `lem task dir SLUG` prints. If the report is gone,
+read `task.json` in that folder. Use `task.investigation.line` or, if it is absent, the newest
+state's `line` in the journal (the summary's `last_state.line` after retention). Give the
+answer in one line.
 
 **Where he answers.** A breaker, criteria, a held step and an interview are answered in the task's
 own session: name it for each, from `lem session list`. Its newest session must have both `live`

@@ -54,6 +54,7 @@ class Look(Frozen, frozen=True, kw_only=True):
     stop: Stop | None = None
     worktree: bool = False
     conflict: bool = False
+    read_after_refusal: bool | None = None
 
 
 class Row(Frozen, frozen=True, kw_only=True):
@@ -74,6 +75,7 @@ class Row(Frozen, frozen=True, kw_only=True):
     why: str | None = None
     tip: Sha | None = None
     conflict: bool = False
+    read_after_refusal: bool | None = None
 
 
 type Rows = tuple[Row, ...]

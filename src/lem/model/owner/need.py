@@ -60,7 +60,10 @@ def needs_agent(look: Look, tasks: Mapping[str, Task]) -> bool:
     if task.status in ENDED:
         return task.status in CLEANED and look.worktree
     if task.status == "open":
-        return merge_wait(look.record) == "reads"
+        return (
+            merge_wait(look.record, read_after_refusal=look.read_after_refusal)
+            == "reads"
+        )
     if task.status == "queued":
         before = tasks.get(task.after or "")
         return before is not None and before.status in DONE

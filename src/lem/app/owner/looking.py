@@ -9,7 +9,7 @@ no task can show as one with no session, and the look says why.
 import os
 from typing import TYPE_CHECKING
 
-from lem.app.owner import forge, releases, sessions
+from lem.app.owner import forge, read_order, releases, sessions
 from lem.kernel import paths
 from lem.model.owner.looks import Look, Looks
 from lem.records.base import Frozen
@@ -64,4 +64,5 @@ def look_of(
         stop=sessions.stop_of(here, record, session),
         worktree=here.worktree(slug) is not None,
         conflict=forge.conflicts(seen, record),
+        read_after_refusal=read_order.after_refusal(record),
     )

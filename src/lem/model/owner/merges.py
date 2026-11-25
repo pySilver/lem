@@ -16,7 +16,10 @@ if TYPE_CHECKING:
 def merge_rows(look: Look) -> Rows:
     """The merge review that calls the owner, and the merge that waits for him."""
     record = look.record
-    if merging.merge_wait(record) != merging.OWNER:
+    if (
+        merging.merge_wait(record, read_after_refusal=look.read_after_refusal)
+        != merging.OWNER
+    ):
         return ()
     merge = merge_row(look)
     read = merging.calling(record)
@@ -36,6 +39,7 @@ def merge_row(look: Look) -> Row:
         task=task.slug,
         since=task.since if intent is None else intent.at,
         conflict=look.conflict,
+        read_after_refusal=look.read_after_refusal,
     )
 
 

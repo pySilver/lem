@@ -20,17 +20,19 @@ files it does not own.
   `presence`, `unknown`: why the sessions are not known, `forge`). `here` is
   `lem.app.sessions.here.bound(folder)`. The terminal is asked only when a task has a session on
   record. A known missing session has `live=False`. An unreadable list gives no session facts.
-  The look applies release stops to open tasks without a write.
+  The look applies release stops to open tasks without a write. Its `read_after_refusal` carries
+  the journal's order of the settled merge read and the base refusal.
 - **The verb of a row**, in the board's words: `lem.model.owner.verbs.verb(row, task, landing)`.
   Where he acts, the icon and how the time reads stay `board-views`'s (`board_model.wait_say` on
   `main`). An unresolved merge intent says "Check the pull request on GitHub."
 - **His presence.** `lem.store.owner.read(home)` (`Presence`: `away`, `since`, `words`, `seen`,
   `changes`); whether a task runs without him now is `lem.model.owner.presence.alone(task,
   presence)`, and the spans it ran without him `lem.model.owner.spans.spans(task, presence)`.
-- **The merge's wait.** `lem.model.owner.merging.merge_wait(record)`: `owner`, `reads`, `merges`,
-  `relands`, or None for a task that is not open (`board_model.merge_wait` on `main`), from the
-  record alone. An unresolved merge intent waits for the owner to check GitHub. The kanban's
-  "You" column and the merge page may read it.
+- **The merge's wait.** `lem.model.owner.merging.merge_wait(record, read_after_refusal=...)`:
+  `owner`, `reads`, `merges`, `relands`, or None for a task that is not open
+  (`board_model.merge_wait` on `main`). Pass the look's `read_after_refusal` so the order holds
+  when a read and a refusal share a second. An unresolved merge intent waits for the owner to
+  check GitHub. The kanban's "You" column and the merge page may read it.
 - **His answer to a question.** `lem.model.owner.answers.answer(task, question_id, digest,
   answer) -> Task` refuses `answered` (answered already, asked again, or a text that changed) and
   `question` (no such question) or `option` (the question does not offer it). A row whose

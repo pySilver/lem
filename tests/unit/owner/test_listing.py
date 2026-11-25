@@ -15,16 +15,24 @@ from msgspec.structs import replace
 
 from fakes.command import lem
 from fakes.records import MOMENT
-from lem.app.owner import listing, looking
+from lem.app.owner import listing, looking, stacks
+from lem.app.owner.scope import Scope
 from lem.app.sessions import acts, here, log
 from lem.kernel import clock
+from lem.kernel.errors import Refusal
+from lem.model.decisions import criterion
+from lem.model.landing import merge
 from lem.model.owner import waiting
+from lem.model.owner.looks import Row
 from lem.model.task import release
 from lem.ports.harness import Signs, Transcript
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked
 from lem.records.landing.record import Landing, Pull
 from lem.records.sessions import SessionLine
 from lem.store import sessions, tasks
+from unit.landing.merges import BY_MERGER, facing
+from unit.landing.merges import opened as proposed_landing
+from unit.landing.worlds import CRITERION, TREE
 from unit.owner.looked import opened, proposed, read
 from unit.sessions.harness import SigningHarness
 from unit.sessions.terminal import AGENT, CALLER, with_caller
@@ -39,6 +47,45 @@ if TYPE_CHECKING:
 
 NOW = MOMENT + timedelta(hours=1)
 NIGHT = date(2026, 11, 25)
+
+
+def test_waiting_shows_the_criterion_change_that_bars_the_merge_agent(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    record = proposed_landing()
+    assert not isinstance(merge.decide(record, facing(), BY_MERGER, TREE), Refusal)
+    asked = criterion.Asked(
+        how="changed",
+        number=CRITERION.number,
+        was=CRITERION.text,
+        now="The login works with a hardware key.",
+        why="the login requires a hardware key",
+        by="lead",
+    )
+    changed = criterion.recorded(record, asked=asked, now=NOW)
+    refusal = merge.decide(changed, facing(), BY_MERGER, TREE)
+    assert isinstance(refusal, Refusal)
+    assert refusal.code == "merger-rule"
+    tasks.create(where.state, changed)
+    found = result(lem("waiting", cwd=tmp_path))
+    assert [row["kind"] for row in found["rows"]] == ["review", "merge"]
+    assert found["reviews"][0]["why"] in refusal.why
+    pull = found["pull_requests"][0]
+    assert pull["green"] is False
+    assert any("criterion 1 changed" in line for line in pull["not_green"])
+
+
+def test_waiting_constructs_keyed_rows_in_keyed() -> None:
+    given = (
+        Row(kind="breaker", key="breaker:gift-note:2", task="gift-note", since=MOMENT),
+        Row(kind="plan", key="plan:read-me", task="read-me", since=MOMENT),
+    )
+    with patch.object(stacks, "key_of", create=True, side_effect=AssertionError):
+        found = stacks.keyed(Scope(rows=given, looks={}, slug=None))
+    assert [(row.key, row.kind, row.task) for row in found] == [
+        (row.key, row.kind, row.task) for row in given
+    ]
 
 
 def put_open(
@@ -230,7 +277,7 @@ def test_each_group_holds_the_rows_of_its_kind_with_its_facts(tmp_path: Path) ->
     assert (pull["pull_request"]["number"], pull["green"], pull["not_green"]) == (
         44,
         False,
-        ["the review left a must-fix"],
+        ["the review left 1 must-fix"],
     )
     assert pull["merge_review"]["verdict"] == "call"
     assert found["reviews"][0]["why"] == "Verdict: call. It needs you."
@@ -301,15 +348,16 @@ def test_a_nights_pull_request_and_held_task_carry_its_night(tmp_path: Path) -> 
         ("night-full", 45, NIGHT, False),
         ("night-small", 46, NIGHT, True),
     ):
-        landing = Landing(
-            phase="open",
+        found = opened(
+            slug,
             pull=Pull(
                 number=number, url=f"https://github.com/o/r/pull/{number}", title=slug
             ),
             proposed=proposed(green=green, who="owner"),
             reads=(read("call"),),
         )
-        put_open(where, slug, landing, night=night)
+        assert found.record.landing is not None
+        put_open(where, slug, found.record.landing, night=night)
     nights = where.state / "night"
     nights.mkdir()
     (nights / "2026-11-23.md").write_text("old", encoding="utf-8")

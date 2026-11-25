@@ -45,12 +45,14 @@ def thing_of(row: Row, look: Look) -> Thing:
 
 def keyed(scope: Scope) -> tuple[Keyed, ...]:
     """The rows by their keys, as the phone shows them."""
-    return tuple(map(key_of, scope.rows))
-
-
-def key_of(row: Row) -> Keyed:
-    """One row by its key."""
-    return Keyed(key=row.key, kind=row.kind, task=row.task)
+    return tuple(
+        Keyed(
+            key=row.key,
+            kind=row.kind,
+            task=row.task,
+        )
+        for row in scope.rows
+    )
 
 
 def parked(scope: Scope) -> tuple[Entry, ...]:

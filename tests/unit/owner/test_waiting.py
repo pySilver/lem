@@ -4,16 +4,22 @@ JSON what waits for the owner", `tests/unit/test_board_model.py` `WaitingByTask`
 `AfterDropped`, `InterviewTurns`, `SeatThatFailed`)."""
 
 from datetime import date, timedelta
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
+import pytest
 from msgspec.structs import replace
 
 from fakes.records import MOMENT, record
+from lem.app.landing import mergeread, reconcile
+from lem.app.owner import briefs, listing
+from lem.kernel.errors import Refusal
 from lem.model.criteria import change, waits
 from lem.model.landing.merge import LAND_OWNER, MOVED
+from lem.model.landing.merge_standing import kept
 from lem.model.owner import merges, merging, verbs, waiting
 from lem.model.owner.looks import Look
-from lem.records.approvals import Approval, PersonaRead
+from lem.records.approvals import PersonaRead
 from lem.records.criteria import Criteria
 from lem.records.holds import (
     Blocked,
@@ -26,6 +32,9 @@ from lem.records.holds import (
 from lem.records.landing.merge import MergeAccepted, MergeIntent
 from lem.records.questions import Answer, Question
 from lem.records.work import Span
+from lem.store import tasks
+from unit.landing.merges import BY_OWNER
+from unit.landing.worlds import CRITERION
 from unit.owner.looked import (
     LATER,
     gone,
@@ -38,6 +47,10 @@ from unit.owner.looked import (
     seen,
     stop,
 )
+from unit.task.spaces import workspace
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 NOW = MOMENT + timedelta(hours=1)
 
@@ -224,16 +237,17 @@ def test_a_merge_the_agent_or_the_server_takes_is_not_his() -> None:
 def test_a_new_criteria_approval_gives_the_merge_to_the_owner() -> None:
     ready = opened(proposed=proposed(), reads=(read("merge"),))
     assert merging.merge_wait(ready.record) == "merges"
-    approval = Approval(
-        number=1,
-        at=LATER,
-        by="owner",
-        size="small",
-        why="owner approved",
-        digest="new",
-        criteria=(),
+    criteria = ready.record.task.criteria
+    lines = (replace(CRITERION, text="The login works with a hardware key."),)
+    approval = replace(
+        criteria.approvals[-1], number=2, at=MOMENT, by="owner", criteria=lines
     )
-    task = replace(ready.record.task, criteria=Criteria(approvals=(approval,)))
+    task = replace(
+        ready.record.task,
+        criteria=replace(
+            criteria, approvals=(*criteria.approvals, approval), criteria=lines
+        ),
+    )
     changed = replace(ready, record=replace(ready.record, task=task))
     assert merging.merge_wait(changed.record) == "owner"
     found = waiting.rows((changed,), away=False, now=NOW)
@@ -241,13 +255,15 @@ def test_a_new_criteria_approval_gives_the_merge_to_the_owner() -> None:
         ("review", MOVED),
         ("merge", None),
     ]
+    pull = briefs.entry_of(found[-1], changed)
+    assert pull.green is False and pull.not_green == (MOVED,)
 
 
 def test_merge_rows_ask_who_merges_once() -> None:
     ready = opened(proposed=proposed(who="owner"), reads=(read("call"),))
     with patch.object(merging, "merge_wait", wraps=merging.merge_wait) as wait:
         assert [row.kind for row in merges.merge_rows(ready)] == ["review", "merge"]
-    wait.assert_called_once_with(ready.record)
+    wait.assert_called_once_with(ready.record, read_after_refusal=None)
 
 
 def test_an_unresolved_merge_intent_asks_for_a_check_on_github() -> None:
@@ -299,6 +315,36 @@ def test_a_review_after_a_base_refusal_offers_the_owner_the_merge_again() -> Non
     assert verbs.verb(found[-1], other.record.task, other.record.landing) == (
         "The merge did not go through"
     )
+
+
+@pytest.mark.parametrize(
+    "read_first", [True, False], ids=["read-first", "refusal-first"]
+)
+def test_a_read_and_base_refusal_in_the_same_second_follow_their_write_order(
+    tmp_path: Path, *, read_first: bool
+) -> None:
+    review = replace(read(None), attempts=2, at=MOMENT)
+    record = opened(proposed=proposed()).record
+    if read_first:
+        record = mergeread.noted(record, read=review)
+    base_moved = Refusal("base", "the base moved", "read the moved base")
+    held = kept(record, base_moved, BY_OWNER, MOMENT)
+    assert held is not None
+    record = reconcile.stood(record, held=held)
+    if not read_first:
+        record = mergeread.noted(record, read=review)
+
+    tasks.create(workspace(tmp_path).state, record)
+    found = listing.listed(tmp_path, None, NOW, NOW.date())
+    expected = (
+        [] if read_first else ["Read the merge review", "Merge the pull request #44"]
+    )
+    assert [
+        thing.verb
+        for stack in found.tasks
+        for thing in stack.things
+        if thing.kind in {"review", "merge"}
+    ] == expected
 
 
 def test_the_forges_conflict_is_said_on_the_merge() -> None:

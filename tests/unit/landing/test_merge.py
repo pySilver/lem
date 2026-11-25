@@ -10,7 +10,7 @@ import pytest
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
-from lem.model.landing import merge, merge_call, merge_standing
+from lem.model.landing import merge, merge_call, merge_standing, propose
 from lem.model.landing.merge_asked import Asked
 from lem.model.landing.world import Rules
 from lem.records.landing.merge import MergeIntent, Refused
@@ -346,18 +346,34 @@ def test_the_owners_word_merges_a_request_that_is_not_green() -> None:
     assert made.intent.by == "owner"
 
 
-def test_criteria_approved_again_after_the_proposal_take_the_merge_from_the_agent() -> (
-    None
-):
+@pytest.mark.parametrize(
+    ("changed", "delay"),
+    [(True, timedelta()), (True, timedelta(seconds=1)), (False, timedelta(seconds=1))],
+    ids=("changed-in-the-same-second", "changed-later", "same-criteria-approved-again"),
+)
+def test_the_merge_agent_needs_the_criteria_the_proposal_used(
+    delay: timedelta, *, changed: bool
+) -> None:
     record = opened()
-    criteria = record.task.criteria
-    later = replace(criteria.approvals[-1], at=MOMENT + timedelta(minutes=5))
-    again = replace(criteria, approvals=(*criteria.approvals, later))
-    moved_contract = replace(record, task=replace(record.task, criteria=again))
-    found = merge.authority(moved_contract, facing())
-    assert found is not None
-    assert "approved again after the proposal" in found
-    assert (
-        code_of(merge.decide(moved_contract, facing(), BY_MERGER, TREE))
-        == "merger-rule"
+    landing = record.landing
+    assert landing is not None
+    proposal = propose.made(record, facing(), ())
+    record = replace(record, landing=replace(landing, proposed=proposal))
+    assert isinstance(
+        merge.decide(record, facing(), BY_MERGER, TREE), merge_call.Merging
     )
+    criteria = record.task.criteria
+    text = "The login works with a hardware key."
+    approved = criteria.approvals[-1]
+    lines = (
+        (replace(approved.criteria[0], text=text),) if changed else approved.criteria
+    )
+    later = replace(approved, number=2, at=proposal.at + delay, criteria=lines)
+    again = replace(criteria, approvals=(*criteria.approvals, later), criteria=lines)
+    current = replace(record, task=replace(record.task, criteria=again))
+    decided = merge.decide(current, facing(), BY_MERGER, TREE)
+    if changed:
+        assert code_of(decided) == "merger-rule"
+        assert merge.authority(current, facing()) == merge.MOVED
+    else:
+        assert isinstance(decided, merge_call.Merging)

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.app.owner.entries import Entry
-from lem.model.landing import mergeread
+from lem.model.landing import merge, merge_asked, merge_standing, mergeread
 from lem.model.owner import verbs
 from lem.records.holds import Blocked, OwnerHold, ReleaseHold
 from lem.records.journal.task import StateNoted
@@ -97,14 +97,17 @@ def pull_entry(record: Record, found: Entry, *, conflict: bool) -> Entry:
     agent's newest read of the tip, and a refusal of its merge."""
     landing = record.landing or Landing()
     proposed = landing.proposed
+    reasons = merge_standing.reasons_now(record) if proposed else None
+    if proposed is not None and not reasons and merge_asked.contract_moved(record):
+        reasons = (merge.MOVED,)
     refused = landing.refused
     if refused is not None and (proposed is None or refused.tip != proposed.tip):
         refused = None
     return replace(
         found,
         pull_request=landing.pull,
-        green=proposed.green if proposed else None,
-        not_green=proposed.reasons if proposed else None,
+        green=not reasons if proposed else None,
+        not_green=reasons,
         conflict=conflict,
         merge_review=mergeread.latest(landing),
         merge_refused=refused,
