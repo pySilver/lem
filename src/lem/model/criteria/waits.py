@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.kernel import clock
+from lem.model.task import owner_question, question_keys
 from lem.records.holds import Hold, OwnerHold
 from lem.records.questions import Answer, Question
 
@@ -23,8 +23,8 @@ if TYPE_CHECKING:
     from lem.records.task import Task
 
 TOPIC = "criterion"
-QUESTION = "Approve the criteria?"
-OPTIONS = ("yes", "no")
+QUESTION = owner_question.CRITERIA
+OPTIONS = owner_question.OPTIONS[TOPIC]
 SAID_NO = "no"
 # The holds under which the criteria wait for his yes.
 WAITING = ("interview", "criteria")
@@ -47,16 +47,13 @@ def hold_after(task: Task, *, ends: bool) -> Hold | None:
 
 
 def question_of(task: Task) -> Question | None:
-    """The question of the wait that stands: the newest of the topic, asked since the hold
-    began; None when none was asked yet, or when the criteria wait for nothing."""
+    """The recorded question for the exact criteria wait, if one was issued."""
     hold = hold_of(task)
     if hold is None:
         return None
-    found = (one for one in reversed(task.questions) if one.topic == TOPIC)
-    newest = next(found, None)
-    if newest is None or newest.asked < hold.since:
-        return None
-    return newest
+    return question_keys.recorded(
+        task, owner_question.key_of(TOPIC, task.slug, hold.since)
+    )
 
 
 def said_no(task: Task) -> Answer | None:
@@ -67,15 +64,16 @@ def said_no(task: Task) -> Answer | None:
 
 
 def question(task: Task, now: datetime, shown: str | None) -> Question:
-    """A new question of the wait, asked `now`, that shows the file of mark `shown`."""
-    number = len(task.questions) + 1
+    """The initial question of the wait, with the mark of the file it shows."""
+    hold = hold_of(task)
+    since = now if hold is None else hold.since
     return Question(
-        id=f"{TOPIC}-{number}-{clock.compact(now)}",
+        id=owner_question.key_of(TOPIC, task.slug, since),
         topic=TOPIC,
         question=QUESTION,
         options=OPTIONS,
         digest=shown,
-        asked=now,
+        asked=since,
     )
 
 
@@ -83,7 +81,9 @@ def asked(task: Task, now: datetime, line: str, shown: str | None) -> Task:
     """The task whose criteria wait for his yes again, under the hold `line`, with a new
     question that shows the file of mark `shown`."""
     hold = OwnerHold(on="criteria", line=line, since=now)
-    questions = (*task.questions, question(task, now, shown))
+    initial = question(replace(task, hold=hold), now, shown)
+    fresh = replace(initial, id=question_keys.fresh(task, initial.id))
+    questions = (*task.questions, fresh)
     return replace(task, hold=hold, questions=questions)
 
 

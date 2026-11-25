@@ -42,9 +42,12 @@ def answer_of(option: str, asked: Asked) -> Answer:
 
 def with_question(task: Task, question: Question) -> Task:
     """The task with the question on record."""
-    if asking.on_record(task, question):
-        return task
-    return replace(task, questions=(*task.questions, question))
+    if not any(one.id == question.id for one in task.questions):
+        return replace(task, questions=(*task.questions, question))
+    questions = tuple(
+        question if one.id == question.id else one for one in task.questions
+    )
+    return replace(task, questions=questions)
 
 
 def answered(task: Task, question: Question, option: str, asked: Asked) -> Task:

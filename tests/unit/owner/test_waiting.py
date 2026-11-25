@@ -107,7 +107,7 @@ def test_a_plan_to_read_is_a_row_of_its_own() -> None:
 def test_his_answer_on_the_board_is_the_sessions_until_it_takes_effect() -> None:
     answer = Answer(option="yes", label="Yes", source="board", at=LATER)
     question = Question(
-        id="criterion-1",
+        id="criterion:gift-note:20261125T100000Z",
         topic="criterion",
         question="Approve the criteria?",
         options=("yes", "no"),

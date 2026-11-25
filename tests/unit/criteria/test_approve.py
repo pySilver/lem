@@ -82,7 +82,7 @@ def test_his_no_on_record_refuses_his_yes_and_an_approval_without_him(
 ) -> None:
     said = Answer(option="no", label="No", source="board", at=world.EARLY)
     question = Question(
-        id="criterion-1",
+        id="criterion:gift-note:20260101T090000Z",
         topic="criterion",
         question="Approve the criteria?",
         options=("yes", "no"),
@@ -234,7 +234,7 @@ def test_a_doubt_or_a_read_of_other_criteria_waits_for_the_owner(
 
 def test_the_yes_waits_while_a_change_stopped_before_its_file(checkout: Path) -> None:
     question = Question(
-        id="criterion-1",
+        id="criterion:gift-note:20260101T090000Z",
         topic="criterion",
         question="Approve the criteria?",
         options=("yes", "no"),

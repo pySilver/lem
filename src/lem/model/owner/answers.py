@@ -8,45 +8,27 @@ of that wait is the task's session's until the session took the answer into effe
 shows it no more.
 """
 
-from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
+from lem.model.task import breaker_question, owner_question
+from lem.records.holds import BreakerHold, OwnerHold
 
 if TYPE_CHECKING:
-    from lem.records.base import Moment
-    from lem.records.holds import OwnerHold
     from lem.records.questions import Answer, Question
     from lem.records.task import Task
 
-# The topic of the question that each of his waits asks.
-TOPICS = MappingProxyType(
-    {
-        "interview": "criterion",
-        "criteria": "criterion",
-        "skip-read": "skip",
-        "plan": "plan",
-    }
-)
 
-
-def taken_by_session(task: Task, topic: str, since: Moment) -> bool:
+def taken_by_session(asked: Question | None) -> bool:
     """Whether the current question's answer waits for the task's session to take it."""
-    asked = newest_of(task, topic)
-    return (
-        asked is not None
-        and asked.asked >= since
-        and asked.answer is not None
-        and asked.took_effect is None
-    )
+    return asked is not None and asked.answer is not None and asked.took_effect is None
 
 
 def answered_hold(task: Task, hold: OwnerHold) -> bool:
     """Whether his answer to the question of the hold waits for the task's session."""
-    topic = TOPICS.get(hold.on)
-    return topic is not None and taken_by_session(task, topic, hold.since)
+    return taken_by_session(owner_question.current(task, hold))
 
 
 def answer(task: Task, question_id: str, digest: str | None, given: Answer) -> Task:
@@ -95,7 +77,13 @@ def newer_of(task: Task, asked: Question) -> str | None:
     """The id of the question that replaced `asked`, or None. Cards are independent."""
     if asked.topic == "card":
         return None
-    newest = newest_of(task, asked.topic)
+    hold = task.hold
+    if isinstance(hold, BreakerHold):
+        newest = breaker_question.current(task, hold)
+    elif isinstance(hold, OwnerHold):
+        newest = owner_question.current(task, hold)
+    else:
+        newest = newest_of(task, asked.topic)
     return newest.id if newest is not None and newest.id != asked.id else None
 
 

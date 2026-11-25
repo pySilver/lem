@@ -24,10 +24,11 @@ note, never an error page.
 ## For `board-views`
 
 - **The key of an answer's form** is `lem.board.acts.asking.standing(task).id`: the record's
-  question of the wait when it holds one asked since the wait began, else the wait's own id,
+  question for the exact hold key, or the hold key when the record has no question for it.
+  The hold keys are
   `breaker:SLUG:N:STAMP`, `plan:SLUG:STAMP`, `skip:SLUG:STAMP` or `criterion:SLUG:STAMP` with
-  STAMP `clock.compact(hold.since)` (the fixture's ids have this form). A resumed breaker's
-  stored question appends a number to STAMP. The act writes that
+  STAMP `clock.compact(hold.since)` (the fixture's ids have this form). Resume and a new
+  criteria question append a sequence number to the hold key. The act writes that
   question on the record with the answer when the record held none, so the view and the act
   never disagree on the id. `asking.OPTIONS` gives each topic's options in their order.
 - **The criteria's `digest`** is `model.criteria.digest.shown` of `criteria.md`'s bytes: the act

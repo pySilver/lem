@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
-from lem.model.task import breaker_question
+from lem.model.task import breaker_question, owner_question
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
 from lem.records.journal.task import StateNoted
 
@@ -78,12 +78,14 @@ def resumed(record: Record, *, before: Hold | None, now: Moment) -> Record:
     task = record.task
     if isinstance(before, BreakerHold):
         task = breaker_question.renewed(task, before, now)
-        before = task.hold
-    kind = None if before is None else type(before).__name__
+    elif isinstance(before, OwnerHold):
+        task = owner_question.renewed(task, before)
+    else:
+        task = replace(task, hold=before)
+    hold = task.hold
+    kind = None if hold is None else type(hold).__name__
     entry = StateNoted(at=now, status=task.status, hold=kind, line="resumed")
-    return replace(
-        record, task=replace(task, hold=before), journal=(*record.journal, entry)
-    )
+    return replace(record, task=task, journal=(*record.journal, entry))
 
 
 def left(hold: Hold | None, status: Status) -> Hold | None:

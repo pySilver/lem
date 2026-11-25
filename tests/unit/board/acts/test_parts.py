@@ -71,22 +71,22 @@ def test_no_question_waits_on_the_board_for_another_hold_or_none() -> None:
         assert asking.standing(task) is None
 
 
-def test_the_records_question_asked_since_the_wait_began_is_the_one_that_waits() -> (
-    None
-):
+def test_the_question_with_the_current_hold_key_waits() -> None:
     old = Question(
-        id="criterion-1-old",
+        id="criterion:gift-note:20261125T090000Z",
         topic="criterion",
         question=waits.QUESTION,
         options=("yes", "no"),
         asked=MOMENT - timedelta(hours=1),
     )
-    new = replace(old, id="criterion-2-new", asked=MOMENT, digest="d" * 16)
-    task = held(owner("criteria"), status="shaping", questions=(old,))
+    current = f"criterion:gift-note:{STAMP}"
+    new = replace(old, id=f"{current}-2", asked=MOMENT, digest="d" * 16)
+    unrelated = replace(new, id=f"criterion:other-task:{STAMP}")
+    task = held(owner("criteria"), status="shaping", questions=(old, unrelated))
     derived = asking.standing(task)
     assert derived is not None
-    assert derived.id == f"criterion:gift-note:{STAMP}"
-    task = held(owner("criteria"), status="shaping", questions=(old, new))
+    assert derived.id == current
+    task = held(owner("criteria"), status="shaping", questions=(old, new, unrelated))
     assert asking.standing(task) == new
 
 

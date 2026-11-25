@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from lem.model.owner import answers, turns
 from lem.model.owner.looks import Row
+from lem.model.task import breaker_question
 from lem.records.holds import Blocked, BreakerHold
 
 if TYPE_CHECKING:
@@ -51,7 +52,7 @@ def hold_rows(look: Look, *, alone: bool) -> tuple[Row, ...]:
 
 def breaker_rows(task: Task, hold: BreakerHold) -> tuple[Row, ...]:
     """The breaker's row, while his answer on the board waits for no session."""
-    if answers.taken_by_session(task, "breaker", hold.since):
+    if answers.taken_by_session(breaker_question.current(task, hold)):
         return ()
     key = f"breaker:{task.slug}:{hold.number}"
     return (Row(kind="breaker", key=key, task=task.slug, since=hold.since),)
