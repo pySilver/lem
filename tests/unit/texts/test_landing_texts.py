@@ -152,6 +152,46 @@ def test_the_stage_takes_the_due_step_from_lem_land_next() -> None:
         assert "lem land next SLUG" in text(name)
 
 
+def test_a_session_merge_names_the_tip_the_owner_saw_and_the_squash_subject() -> None:
+    said = text("stages/land.md")
+    assert "`lem land merge SLUG --by owner --tip TIP`" in said
+    assert "`TIP` is the whole commit the owner saw" in said
+    assert "Add `--message` with the report's commit subject for a squash" in said
+
+
+def test_the_conflict_wake_starts_a_round_before_it_asks_for_the_due_step() -> None:
+    said = text("stages/conflict.md")
+    assert "Run `lem land start SLUG --conflicting` first." in said
+    assert "Then use `lem land next SLUG` to find each step that is due." in said
+
+
+def test_a_review_agent_that_chose_its_own_read_skips_the_tool_round() -> None:
+    said = text("prompts/review.md")
+    assert "4. Run the tool only if you chose it." in said
+    assert "If you chose your own read, do it and go to step 5." in said
+    assert "for each lens you run and each you leave out" in said
+
+
+def test_the_merge_line_ruling_records_the_owners_whole_choice() -> None:
+    rulings = (ROOT / "docs/rulings/rulings.md").read_text(encoding="utf-8")
+    bullet = next(
+        part
+        for part in rulings.split("\n- ")
+        if part.startswith("**The board's button says Approve")
+    )
+    said = " ".join(bullet.split("\n\n")[0].split())
+    for clause in (
+        "approval stands through a moved base and a conflict",
+        "checks run on the task rebased onto that base",
+        "leaves the line and comes back after a builder's fix",
+        "calls the owner only when the fix needs a criterion to change or a breaker applies",
+        "checks ran on the current base merges first",
+        "server records how many approved tasks wait at each merge",
+    ):
+        assert clause in said
+    assert said.endswith("(2026-11-25)")
+
+
 def test_the_merger_seat_and_its_failure_are_the_seat_commands() -> None:
     said = text("harness/claude-code/ask-merger.md")
     for words in (

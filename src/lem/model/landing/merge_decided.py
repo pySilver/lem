@@ -7,6 +7,7 @@ why; a criterion's change names the criterion and both texts; a stop at the circ
 what stopped. A task with no decision adds no lines.
 """
 
+import json
 from typing import TYPE_CHECKING
 
 from lem.model.landing.green_words import reason, taken_by
@@ -18,16 +19,24 @@ if TYPE_CHECKING:
 HEADING = "Decisions of the task:"
 
 
+def quoted(text: str | None) -> str:
+    """The stored text in quotes, with line breaks escaped and other Unicode left readable."""
+    encoded = json.dumps(text or "", ensure_ascii=False)
+    return encoded.translate(
+        {ord("\x85"): r"\u0085", ord("\u2028"): r"\u2028", ord("\u2029"): r"\u2029"},
+    )
+
+
 def texts_of(change: CriterionChanged) -> str:
     """The criterion's texts a change names: the one it had and the one it has, or the one
     it added or removed."""
-    was = reason(change.was or "")
-    now = reason(change.now or "")
+    was = quoted(change.was)
+    now = quoted(change.now)
     if change.how == "changed":
-        return f'"{was}" is now "{now}"'
+        return f"{was} is now {now}"
     if change.how == "added":
-        return f'"{now}"'
-    return f'"{was}"'
+        return now
+    return was
 
 
 def changed(change: CriterionChanged) -> str:
@@ -40,7 +49,12 @@ def line(decision: Decision) -> str:
     """One decision of the record as a line of the commit's body."""
     if isinstance(decision, Taken):
         why = reason(decision.why)
-        return f'- {decision.what}: "{decision.chose}", by {taken_by(decision)}. {why}.'
+        who = (
+            "the lead's unsettled pick"
+            if decision.unsettled
+            else f"by {taken_by(decision)}"
+        )
+        return f'- {decision.what}: "{decision.chose}", {who}. {why}.'
     if isinstance(decision, Breaker):
         return f"- the build stopped at breaker {decision.id}: {reason(decision.what)}."
     return changed(decision)

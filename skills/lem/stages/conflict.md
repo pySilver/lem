@@ -8,10 +8,11 @@ it in `lem waiting --task SLUG`, and the board's server wakes this session (`lem
 or opens one for it. Bring it onto the base at once, and tell the owner the `why` in one line
 first: the settings he approved are his word for this push. A pull request that is not conflicting
 stays as it is: GitHub merges it as it is, and `/lem land` for it meets the moved base at step 8.
-The steps, each the one `lem land next SLUG` names:
+Run `lem land start SLUG --conflicting` first. Then use `lem land next SLUG` to find each step
+that is due.
 
-- `lem land start SLUG --conflicting`, then `base`. Its conflict is step 2: a builder resolves
-  it, and `base` runs again, finds the builder's rebase, and keeps the polish pass.
+- `base`. Its conflict is step 2: a builder resolves it, and `base` runs again, finds the
+  builder's rebase, and keeps the polish pass.
 - `checks` on the new base; a red one is step 4.
 - `lem land read SLUG` publishes the brief of one read of what the resolution changed
   (`resolution` and `range_diff` in the brief), or the full set for a careful request; start it as

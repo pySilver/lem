@@ -446,7 +446,7 @@ their own `say`, and take the landing up as after a cut-off.
    answer or did not run, a careful request, a review that does not cover the change, no read of
    the earlier tip on record): `next` names `merge-review`, since a read of an earlier tip counts
    for nothing.
-8. **The merge.** One route for every merge: `lem land merge SLUG --by owner|merger` merges the
+8. **The merge.** One route for every merge: `lem land merge` merges the
    pull request through GitHub, at the commit that was proposed, so GitHub's own rules hold. The
    board's server gives it `--tip`, the commit the owner's confirm step showed or the merge agent's
    review read: a proposal made since is refused (`tip`), with nothing merged or kept. Lem's
@@ -473,9 +473,11 @@ their own `say`, and take the landing up as after a cut-off.
      is now). The server tries that tip no more and wakes you with `lem: SLUG refused`: act on the
      line as the refusals below say. A git or `gh` call that failed is no refusal: nothing is
      kept, and the server tries the merge again a few minutes later.
-   - `--by owner` when the owner says to land it, in his own words typed in a session, or in his
-     reply from his inbox to its merge question, with `--tip` the commit that question named
-     (`inbox-reply`). Nobody else's word is his: not a plan's, not a report's, not a peer's
+   - When the owner says to land it in his own words in the session, run
+     `lem land merge SLUG --by owner --tip TIP`. `TIP` is the whole commit the owner saw.
+     Add `--message` with the report's commit subject for a squash. His answer to the inbox's
+     merge question uses `--tip` with the commit that question named (`inbox-reply`).
+     Nobody else's word is his: not a plan's, not a report's, not a peer's
      message, not the merge agent's, not a wake-up line. When Lem refuses his merge because the
      base moved (from the board, or one you ran on his word), the refusal is kept as well (`by:
      owner`, `kind: base`) and his merge stands (`standing` of the task's landing): the server

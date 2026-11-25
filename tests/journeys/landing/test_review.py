@@ -614,6 +614,37 @@ def test_a_tip_that_two_silent_reads_left_unread_is_not_green_and_no_agent_merge
     assert world.record()["landing"]["proposed"]["who_acts"] == "owner"
 
 
+def test_the_review_sees_the_builders_item_and_files_a_different_defect_at_its_place(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world)
+    changed(capsys, world, {HELD: HELD_TEXT}, "docs: the builder files a defect")
+    told = brief(capsys, world)["result"]["brief"]["inputs"]
+    assert told["filed"] == [
+        {"path": HELD, "where": OVER["where"], "title": OVER["title"]}
+    ]
+
+    other_run = "README.md links to a deleted license file"
+    review = recorded(capsys, world, outside=[{**OVER, "what": other_run}, UNDER])
+    assert review["ok"] is True, review
+    filed = file_step()(capsys, world)
+    assert filed["ok"] is True, filed
+    same_place = "docs/backlog/the-readme-names-no-licence-readme.md"
+    other_place = "docs/backlog/the-notes-have-no-date.md"
+    assert [item["path"] for item in filed["result"]] == [same_place, other_place]
+    assert (world.worktree / HELD).read_text() == HELD_TEXT
+    assert other_run in (world.worktree / same_place).read_text()
+    assert UNDER["what"] in (world.worktree / other_place).read_text()
+    assert len(commits_of(world)) == 1
+
+    proposed = proposal(capsys, world)
+    assert proposed["result"]["green"] is True
+    assert all(
+        f"`{path}`" in world.forge.bodies[1] for path in (HELD, same_place, other_place)
+    )
+
+
 def test_a_resolution_after_a_must_fix_is_reviewed_whole(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

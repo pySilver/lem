@@ -5,9 +5,11 @@ proposed tip Lem pushed, a tip a passed run of the checks covers with the defini
 base the checks or a safe read covered, and an authority; a push is due only for a tip the checks
 cover."""
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from hypothesis import given
+from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
@@ -28,6 +30,8 @@ from model.landings import (
     facing_worlds,
     opened_landings,
 )
+from unit.landing.merges import BY_MERGER, facing, opened
+from unit.landing.worlds import APPROVED, TREE
 
 if TYPE_CHECKING:
     from lem.model.landing.merge_asked import Asked
@@ -105,6 +109,27 @@ def test_a_merge_goes_only_with_the_merger_s_authority_or_the_owner_s_word(
             "owner",
             False,
         )
+
+
+def test_a_later_criterion_approval_refuses_an_otherwise_valid_agent_merge() -> None:
+    record = opened()
+    world = facing()
+    assert isinstance(
+        merge.decide(record, world, BY_MERGER, TREE), merge.merge_call.Merging
+    )
+
+    later = replace(
+        APPROVED,
+        number=2,
+        by="owner",
+        replaces=APPROVED.number,
+        at=APPROVED.at + timedelta(seconds=1),
+    )
+    criteria = replace(record.task.criteria, approvals=(APPROVED, later))
+    changed = replace(record, task=replace(record.task, criteria=criteria))
+    found = merge.decide(changed, world, BY_MERGER, TREE)
+    assert isinstance(found, Refusal)
+    assert found.code == "merger-rule"
 
 
 @LANDING

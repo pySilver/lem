@@ -48,8 +48,8 @@ def test_the_squash_lists_each_decision_before_the_line_that_names_the_task() ->
         "Decisions of the task:\n"
         '- where the login\'s error shows: "under the form", by the lead. The form is '
         "where the eye is.\n"
-        '- criterion 1 changed: "The login works" is now "The login works with a wrong '
-        "password shown\". The owner's note asked for the exact words.\n\n"
+        '- criterion 1 changed: "The login works." is now "The login works with a wrong '
+        "password shown.\". The owner's note asked for the exact words.\n\n"
         "Lem task: fix-the-login"
     )
 
@@ -61,6 +61,25 @@ def test_a_task_with_no_decision_adds_no_lines() -> None:
     assert made.body == "Lem task: fix-the-login"
 
 
+def test_a_criterion_change_keeps_the_exact_words_on_one_line() -> None:
+    choice = replace(
+        CHANGED,
+        was='The exact label ends with "Wait..."',
+        now="First line.\nCafé\u2028Wait...",
+    )
+    assert merge_decided.texts_of(choice) == (
+        r'"The exact label ends with \"Wait...\"" is now "First line.\nCafé\u2028Wait..."'
+    )
+
+
+def test_the_squash_names_an_unsettled_lead_pick() -> None:
+    picked = replace(LEAD, unsettled=True)
+    assert merge_decided.line(picked) == (
+        "- where the login's error shows: \"under the form\", the lead's unsettled pick. "
+        "The form is where the eye is."
+    )
+
+
 def test_an_added_or_removed_criterion_and_a_stop_at_the_breaker_are_one_line_each() -> (
     None
 ):
@@ -68,11 +87,11 @@ def test_an_added_or_removed_criterion_and_a_stop_at_the_breaker_are_one_line_ea
     removed = replace(CHANGED, how="removed", now=None)
     assert [merge_decided.line(one) for one in (added, removed, STOPPED)] == [
         (
-            '- criterion 1 added: "The login works with a wrong password shown". The '
+            '- criterion 1 added: "The login works with a wrong password shown.". The '
             "owner's note asked for the exact words."
         ),
         (
-            '- criterion 1 removed: "The login works". The owner\'s note asked for the '
+            '- criterion 1 removed: "The login works.". The owner\'s note asked for the '
             "exact words."
         ),
         "- the build stopped at breaker 3: the next step drops a column.",

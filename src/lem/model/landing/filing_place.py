@@ -4,9 +4,9 @@
 Over the bar it is an item with `worth: later`, under it one with `worth: no` that ends with the
 review's reason, cheap a line of the pull request. One that an open item of the tip holds gets
 no second file, but an over defect whose open item says `worth: no` gets a new `worth: later`
-item that names the old one, which stays as it is. An item's name is the first of its names
-that holds this very defect already (a second round saw it word for word, or a run cut off after
-its commit), else the first that is free: an extra item is the price, never a lost one.
+item that names the old one, which stays as it is. An item takes the first name that is free or
+holds this very defect already (a second round saw it word for word, or a run cut off after its
+commit).
 """
 
 from typing import TYPE_CHECKING, Literal
@@ -31,18 +31,6 @@ class Shelf(Frozen, frozen=True, kw_only=True):
     paths: frozenset[str] = frozenset()
     shelved: tuple[items.BacklogItem, ...] = ()
     taken: frozenset[str] = frozenset()
-
-    def holds(self, path: str, defect: items.Defect, old: str | None) -> bool:
-        """Whether the item of the tip at `path` holds the defect already; `old`, the
-        `worth: no` item a new one goes beside, never does."""
-        found = next((one for one in self.shelved if one.path == path), None)
-        return path != old and items.holds(found, defect)
-
-    def takes(self, judged: tuple[str, bool]) -> bool:
-        """Whether the item goes at a path (`judged`: the path, and whether its file holds
-        the defect): its file holds it, or no file of the tip or on disk has the name."""
-        path, held = judged
-        return held or path not in self.paths | self.taken
 
 
 class Write(Frozen, frozen=True, kw_only=True):
@@ -87,12 +75,18 @@ def seen_line(finding: Finding, held: str | None = None) -> str:
 
 
 def named(shelf: Shelf, defect: items.Defect, old: str | None) -> tuple[str, bool]:
-    """The path of the defect's item, and whether a file there holds it already: the first of
-    its names that holds it, else the first that is free. `names_for` gives names without
-    end, so one is always found."""
+    """The first name that holds the defect or is free, and whether it holds the defect.
+
+    The old item a new one goes beside cannot hold it. `names_for` never runs out.
+    """
+    indexed = {one.path: one for one in shelf.shelved}
+    occupied = shelf.paths | shelf.taken
     paths = map(f"{shelf.folder}/{{0}}".format, names_for(defect))
-    judged = ((path, shelf.holds(path, defect, old)) for path in paths)
-    return next(filter(shelf.takes, judged))
+    while True:
+        path = next(paths)
+        held = path != old and items.holds(indexed.get(path), defect)
+        if held or path not in occupied:
+            return path, held
 
 
 def itemized(
