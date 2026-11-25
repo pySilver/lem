@@ -1,75 +1,132 @@
-"""The settings of a workspace, read from its main checkout: the team's file whole, and a
-local file that may not hold a table of the team's (`settings/places.py`).
+"""Lem's settings for one checkout on this machine: the four files read, each checked whole,
+and the values in force with the file each comes from.
 
-Read from the main checkout, never from a task's worktree, so that a branch cannot change the
-checks or the base it is judged by. A slice of the step `settings`: the home file, the machine's
-file and the seats come with it.
+The team's file is the main checkout's (`base.py`): a task's worktree reads the same settings,
+so a branch cannot change the checks, the base or the topics it is judged by. Each file is
+checked whole, the far ones too, so that a wrong line is refused wherever it is. With no team's
+file Lem is not set up there, and only the machine's and the developer's files are read.
 """
 
-import tomllib
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import msgspec
-
+from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.records.base import Frozen
-from lem.settings import places
+from lem.settings import base, checked, effective, files, places
+from lem.settings.machine import HANDOFF_FLOOR, Machine
+from lem.settings.personal import Home, Local
 from lem.settings.team import Team
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
+    from lem.ports.git import GitPlaces
+
 INIT = "lem init --base BRANCH writes it"
+# The files of a repository, read only in one.
+REPOSITORY = frozenset(("team", "local"))
+SHAPES = (("machine", Machine), ("home", Home), ("team", Team), ("local", Local))
 
 
-class Shown(Frozen, frozen=True, kw_only=True):
-    """What `lem settings show` prints: the settings, or None where Lem is not set up, and
-    the file they come from."""
+class Loaded(Frozen, frozen=True, kw_only=True):
+    """The settings in force, each key's `from`, and whether the team's file is there."""
 
-    settings: Team | None = None
-    source: str | None = msgspec.field(default=None, name="from")
-
-
-def tables(path: Path) -> dict[str, object]:
-    """The tables of one TOML file; a file that is not TOML is refused with its line."""
-    try:
-        return tomllib.loads(path.read_text(encoding="utf-8"))
-    except tomllib.TOMLDecodeError as error:
-        raise Refusal(
-            "settings-toml",
-            f"{path} is not TOML: {error}",
-            f"correct {path}, then run the command again",
-        ) from error
+    settings: effective.Effective
+    sources: dict[str, str]
+    onboarded: bool
 
 
-def local_tables(checkout: Path) -> None:
-    """Refuse a local file that holds a table only the team's file may."""
-    path = checkout / places.LOCAL
-    if not path.is_file():
-        return
-    found = [name for name in places.TEAM_ONLY if name in tables(path)]
-    if found:
-        raise Refusal(
-            "table-place",
-            f"{path} holds [{found[0]}], which only {places.TEAM} may hold",
-            f"move [{found[0]}] into {places.TEAM}, in git, or remove it",
-        )
+def shape_of(file: places.File) -> type[Machine | Home | Team | Local]:
+    """The struct of one of the four files."""
+    return next(shape for name, shape in SHAPES if name == file)
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class Where:
+    """Where the four files are: the main checkout (None outside a set-up repository), Lem's
+    home folder, the environment that names it, and the git that reads the base."""
+
+    checkout: Path | None
+    home: Path
+    environ: Mapping[str, str]
+    git: GitPlaces | None = None
+
+    def named(self, file: places.File) -> str:
+        """The name of one of the four files, as a refusal and `from` give it."""
+        return places.named(file, self.home, self.environ)
+
+    def path(self, file: places.File) -> Path:
+        """The path of the local, home or machine file."""
+        if file == "local" and self.checkout is not None:
+            return self.checkout / places.LOCAL
+        return self.home / (places.MACHINE if file == "machine" else places.HOME)
+
+
+def check(tables: files.Tables, file: places.File, name: str, where: Where) -> None:
+    """Refuse a table, a key or a value of one file that Lem cannot use."""
+    shape = shape_of(file)
+    files.placed(tables, file, lambda one: name if one == file else where.named(one))
+    files.keyed(tables, shape, name)
+    found = files.converted(tables, shape, name)
+    seated = tables.get("seats")
+    if isinstance(seated, dict):
+        checked.seated(seated, name)
+    if isinstance(found, Team) and where.checkout is not None:
+        checked.paths(where.checkout, found.paths, name)
+        checked.branch(found.branch, name)
+    if isinstance(found, Machine):
+        checked.handoff(found.handoff, name, HANDOFF_FLOOR)
+
+
+def source(file: places.File, where: Where) -> effective.Named:
+    """The tables of one file, and its name; none when the file is not there."""
+    if file == "team" and where.checkout is not None:
+        body, name = base.team_text(where.checkout, where.git)
+        return files.decoded(body, name), name
+    name = where.named(file)
+    return files.read(where.path(file), name), name
+
+
+def read(
+    where: Where, wanted: tuple[places.File, ...] = places.NEAREST
+) -> list[effective.Named]:
+    """The tables of each file of `wanted` that is there, nearest first, each checked, with
+    its name; a repository's files only in a checkout."""
+    found: list[effective.Named] = []
+    for file in wanted:
+        if where.checkout is None and file in REPOSITORY:
+            continue
+        tables, name = source(file, where)
+        check(tables, file, name, where)
+        found.append((tables, name))
+    return found
+
+
+def settings_of(
+    checkout: Path | None, environ: Mapping[str, str], git: GitPlaces | None = None
+) -> Loaded:
+    """The settings in force for `checkout` (None outside a set-up repository)."""
+    where = Where(checkout=checkout, home=paths.home(environ), environ=environ, git=git)
+    named = read(where)
+    onboarded = checkout is not None and (checkout / places.TEAM).is_file()
+    in_force = files.converted(
+        effective.merged(named), effective.Effective, "the settings"
+    )
+    return Loaded(
+        settings=in_force, sources=effective.sources(named), onboarded=onboarded
+    )
 
 
 def team_of(checkout: Path) -> Team:
-    """The team's settings of the main checkout `checkout`."""
-    path = checkout / places.TEAM
-    if not path.is_file():
-        raise Refusal("no-settings", f"{path} is not there", INIT)
-    local_tables(checkout)
-    try:
-        return msgspec.convert(tables(path), Team)
-    except msgspec.ValidationError as error:
-        raise Refusal(
-            "settings",
-            f"{path}: {error}",
-            "correct the line as docs/settings.md says, then run the command again",
-        ) from error
+    """The team's settings of the main checkout `checkout`; refused where Lem is not set up,
+    and when the team's or the local file does not read."""
+    if not (checkout / places.TEAM).is_file():
+        raise Refusal("no-settings", f"{checkout / places.TEAM} is not there", INIT)
+    where = Where(checkout=checkout, home=checkout, environ={})
+    _, (team, name) = read(where, ("local", "team"))
+    return files.converted(team, Team, name)
 
 
 def base_of(team: Team) -> str:
@@ -83,8 +140,8 @@ def base_of(team: Team) -> str:
     return team.branch.base
 
 
-def show(checkout: Path | None) -> Shown:
-    """The settings as `lem settings show` prints them; None where Lem is not set up."""
-    if checkout is None:
-        return Shown()
-    return Shown(settings=team_of(checkout), source=str(checkout / places.TEAM))
+def machine_of(environ: Mapping[str, str]) -> Machine:
+    """This machine's file, checked; its defaults when it is not there."""
+    where = Where(checkout=None, home=paths.home(environ), environ=environ)
+    ((tables, name),) = read(where, ("machine",))
+    return files.converted(tables, Machine, name)
