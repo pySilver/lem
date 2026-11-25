@@ -78,7 +78,7 @@ def kept_entry(row: Row, look: Look, found: Entry) -> Entry:
     if row.kind == "blocked":
         return blocked_entry(record, found)
     if row.kind == "merge":
-        return pull_entry(record, found, conflict=row.conflict)
+        return pull_entry(row, look, found)
     return found
 
 
@@ -92,9 +92,10 @@ def blocked_entry(record: Record, found: Entry) -> Entry:
     return found
 
 
-def pull_entry(record: Record, found: Entry, *, conflict: bool) -> Entry:
+def pull_entry(row: Row, look: Look, found: Entry) -> Entry:
     """A pull request's entry: its address, green or why not, the forge's conflict, the merge
     agent's newest read of the tip, and a refusal of its merge."""
+    record = look.record
     landing = record.landing or Landing()
     proposed = landing.proposed
     reasons = merge_standing.reasons_now(record) if proposed else None
@@ -108,7 +109,7 @@ def pull_entry(record: Record, found: Entry, *, conflict: bool) -> Entry:
         pull_request=landing.pull,
         green=not reasons if proposed else None,
         not_green=reasons,
-        conflict=conflict,
-        merge_review=mergeread.latest(landing),
+        conflict=row.conflict,
+        merge_review=mergeread.latest(landing, look.basis.tree),
         merge_refused=refused,
     )

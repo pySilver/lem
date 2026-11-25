@@ -30,13 +30,20 @@ def read(home: Path) -> Presence:
 
 
 def change(home: Path, words: str | None, now: Moment, *, away: bool) -> Presence:
-    """Mark the owner away or back with his words; a mark that changes nothing is not
-    written, and gives the presence as it is."""
+    """Mark the owner away or back and give his presence."""
+    _, after, _ = transition(home, words, now, away=away)
+    return after
+
+
+def transition(
+    home: Path, words: str | None, now: Moment, *, away: bool
+) -> tuple[Presence, Presence, bool]:
+    """His presence before and after his word, and whether it changed under the lock."""
     folders.home_marked(home)
     with locks.held(home / LOCK):
         before = read(home)
-        if before.away == away and (not away or before.words == words):
-            return before
+        if before.away == away:
+            return before, before, False
         changes = (*before.changes, Change(away=away, at=now, words=words))
         after = Presence(
             away=away, since=now, words=words, seen=len(changes), changes=changes
@@ -44,4 +51,4 @@ def change(home: Path, words: str | None, now: Moment, *, away: bool) -> Presenc
         files.write_whole(
             home / PRESENCE, b"".join((msgspec.json.encode(after), b"\n"))
         )
-    return after
+    return before, after, True

@@ -48,7 +48,7 @@ of the night acts on none: it runs without him until it ends.
 ## When the watch ends
 
 - **Away**: the shape goes on without him, with no question to him, except a task held for his
-  order (`lem task show SLUG`: the hold `owner` on `order`).
+  order (`lem task show SLUG`: `hold_line` is "the order waits for the owner").
   - *An order of his that names no task you can tell*: the task held for his order waits for him,
     and nothing of it starts; his back asks its one question (`prompts/session.md`, "What comes
     next").

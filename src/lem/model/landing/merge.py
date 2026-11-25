@@ -10,7 +10,7 @@ moved base refused stands until a safe read. `branch.history` squashes the branc
 commit, or lands its own commits (a rebase on the forge).
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
@@ -54,21 +54,21 @@ def careful(record: Record) -> bool:
 
 
 def authority(
-    record: Record, world: World | None = None, *, verdict: bool = True
+    record: Record,
+    world: World | None = None,
+    *,
+    verdict: bool = True,
+    land: Literal["agent", "owner"] | None = None,
 ) -> str | None:
     """Why the merge agent may not merge, or None when it may (`main:land.merger_refusal`):
     the reasons it is not green read again now, careful, no careful call, the settings, and,
     with `verdict`, the read that covers origin's base now, one read for the tip and that
     base. Without `verdict` it is what the merge agent's brief says before it reads. The
-    owner list has no live world: it uses the proposal's assigned merger and latest read."""
+    owner list passes the current landing setting when it has it."""
     landing = record.landing or Landing()
     last = newest(landing)
     read = mergeread.latest(landing, world.base_tree if world else None)
-    owner_lands = (
-        world.rules.land == OWNER
-        if world
-        else bool(landing.proposed and landing.proposed.who_acts == OWNER)
-    )
+    current_land = world.rules.land if world else land
     found = (
         (
             landing.proposed is None or bool(merge_standing.reasons_now(record)),
@@ -77,7 +77,12 @@ def authority(
         (merge_asked.contract_moved(record), MOVED),
         (careful(record), CAREFUL),
         (last is None or last.careful is None, NO_CALL),
-        (owner_lands, LAND_OWNER),
+        (
+            bool(landing.proposed and landing.proposed.who_acts == OWNER)
+            if current_land is None
+            else current_land == OWNER,
+            LAND_OWNER,
+        ),
         (verdict and (read is None or read.verdict != "merge"), CALLS),
     )
     return next((pair[1] for pair in found if pair[0]), None)

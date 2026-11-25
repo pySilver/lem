@@ -9,7 +9,9 @@ It ends with the owner's presence once the machine's mark holds another number o
 import click
 import msgspec
 
+from lem.app.init.checkout import main_checkout
 from lem.app.owner import watch
+from lem.cli.place import folder
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -21,6 +23,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 def run(call: Call) -> watch.Seen:
     """Wait for the owner's next word, and give his presence."""
+    main_checkout(folder())
     return watch.watched(call.seen, call.every)
 
 

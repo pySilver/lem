@@ -1,4 +1,4 @@
-"""Who the merge of an open pull request waits for, from the task's record alone
+"""Who the merge of an open pull request waits for
 (`board_model.merge_wait` on `main`): only the owner's is a row of what waits for him.
 
 `reads`: the merge agent, while no settled read covers the proposed tip, and after Lem refused a
@@ -19,9 +19,9 @@ from lem.model.landing import merge, merge_standing, mergeread
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
+    from lem.model.owner.looks import Look
     from lem.records.landing.merge import Refused
     from lem.records.landing.propose import MergeRead
-    from lem.records.record import Record
 
 type Wait = Literal["owner", "reads", "merges", "relands"]
 
@@ -29,13 +29,12 @@ OWNER: Wait = "owner"
 MERGES: Wait = "merges"
 
 
-def merge_wait(
-    record: Record, *, read_after_refusal: bool | None = None
-) -> Wait | None:
-    """Who the merge of the task waits for; None for a task that is not open."""
+def merge_wait(look: Look) -> Wait | None:
+    """Who the merge waits for, if it is still pending."""
+    record = look.record
     landing = record.landing or Landing()
     proposed = landing.proposed
-    if record.task.status != "open":
+    if record.task.status != "open" or landing.phase in {"merged", "ended"}:
         return None
     if proposed is None or landing.intent is not None:
         return OWNER
@@ -43,33 +42,26 @@ def merge_wait(
         return MERGES
     refused = landing.refused
     if refused is not None and refused.tip == proposed.tip:
-        return refused_wait(landing, refused, read_after_refusal=read_after_refusal)
-    return proposed_wait(record, landing)
+        return refused_wait(look, landing, refused)
+    return proposed_wait(look, landing)
 
 
-def proposed_wait(record: Record, landing: Landing) -> Wait:
+def proposed_wait(look: Look, landing: Landing) -> Wait:
     """Who waits on a proposal no merge was refused for: a new round, the owner's merge that
     stands, or the newest read of the tip."""
     if mergeread.another_round(landing) is not None:
         return "relands"
-    if merge_standing.standing_of(record) is not None:
-        return MERGES
-    return read_wait(record, mergeread.latest(landing))
-
-
-def read_wait(record: Record, read: MergeRead | None) -> Wait:
-    """Who waits on the newest settled read of the tip: the merge agent with none, the server
-    on a `merge` it may follow, else the owner."""
+    read = mergeread.latest(landing, look.basis.tree)
     if read is None:
         return "reads"
-    if read.verdict == "merge" and merge.authority(record, verdict=False) is None:
+    if merge_standing.standing_of(look.record) is not None:
+        return MERGES
+    if read.verdict == "merge" and owner_reason(look) is None:
         return MERGES
     return OWNER
 
 
-def refused_wait(
-    landing: Landing, refused: Refused, *, read_after_refusal: bool | None
-) -> Wait:
+def refused_wait(look: Look, landing: Landing, refused: Refused) -> Wait:
     """Who waits after a refused merge of the proposed tip: Lem's refusal for a moved base is
     the merge agent's to read, or a new round's; any other refusal is the owner's."""
     if refused.source != "lem" or refused.kind != "base":
@@ -77,19 +69,26 @@ def refused_wait(
     if mergeread.another_round(landing) is not None:
         return "relands"
     if calls_after_base_refusal(
-        landing, refused, read_after_refusal=read_after_refusal
+        landing,
+        refused,
+        base_tree=look.basis.tree,
+        read_after_refusal=look.read_after_refusal,
     ):
         return OWNER
     return "reads"
 
 
 def calls_after_base_refusal(
-    landing: Landing, refused: Refused, *, read_after_refusal: bool | None
+    landing: Landing,
+    refused: Refused,
+    *,
+    base_tree: str | None = None,
+    read_after_refusal: bool | None,
 ) -> bool:
     """Whether a read calls the owner with no verdict after a refusal for a moved base."""
     if refused.source != "lem" or refused.kind != "base":
         return False
-    read = mergeread.latest(landing)
+    read = mergeread.latest(landing, base_tree)
     if read is None or read.verdict is not None:
         return False
     if read_after_refusal is not None:
@@ -97,13 +96,18 @@ def calls_after_base_refusal(
     return read.at > refused.at
 
 
-def calling(record: Record) -> MergeRead | None:
+def calling(look: Look) -> MergeRead | None:
     """The settled review, if any, of a merge that waits for the owner."""
-    landing = record.landing or Landing()
-    read = mergeread.latest(landing)
+    landing = look.record.landing or Landing()
+    read = mergeread.latest(landing, look.basis.tree)
     if landing.intent is not None or read is None:
         return None
     if read.verdict != "merge":
         return read
-    why = merge.authority(record, verdict=False)
+    why = owner_reason(look)
     return None if why is None else replace(read, why=why)
+
+
+def owner_reason(look: Look) -> str | None:
+    """Why the landing rules assign the merge to the owner."""
+    return merge.authority(look.record, verdict=False, land=look.basis.land)

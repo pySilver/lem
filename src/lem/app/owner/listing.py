@@ -27,10 +27,10 @@ NIGHTS = "night"
 def listed(folder: Path, slug: str | None, now: datetime, today: date) -> Waiting:
     """What waits for the owner in the workspace of `folder`, or for its task `slug`."""
     here = session_here.bound(folder)
-    settings_of(here.where.checkout, git=here.ports.git, home=here.home)
+    loaded = settings_of(here.where.checkout, git=here.ports.git, home=here.home)
     if slug is not None:
         tasks.read(here.where.state, slug)
-    seen = looking.looked(here, now)
+    seen = looking.looked(here, now, loaded.settings.branch)
     mine = scope.scoped(seen, slug, now)
     stacked = stacks.stacked(mine)
     return Waiting(

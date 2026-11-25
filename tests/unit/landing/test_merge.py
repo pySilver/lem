@@ -5,16 +5,19 @@ moved base keeps (`landing.md` C, D, E and H 2)."""
 
 from datetime import timedelta
 from typing import TYPE_CHECKING
+from unittest.mock import Mock, patch
 
 import pytest
 from msgspec.structs import replace
 
+from lem.app.landing import merge as merge_app
+from lem.app.landing import merge_called, merge_world
 from lem.kernel.errors import Refusal
 from lem.model.landing import merge, merge_call, merge_standing, propose
 from lem.model.landing.merge_asked import Asked
 from lem.model.landing.world import Rules
 from lem.records.landing.merge import MergeIntent, Refused
-from lem.records.landing.propose import MergeRead, Standing
+from lem.records.landing.propose import MergeRead, OwnerMerge, Standing
 from lem.records.landing.review import Finding
 from lem.records.task import Shape
 from unit.landing.merges import (
@@ -260,7 +263,10 @@ def test_only_the_owners_own_word_refused_for_the_base_keeps_his_merge_standing(
         TIP,
     )
     assert standing == Standing(
-        tip=TIP, reasons_digest=merge_standing.digest_of(()), by_act="board", at=MOMENT
+        tip=TIP,
+        reasons_digest=merge_standing.digest_of((), OPENED["proposed"].contract),
+        by_act="board",
+        at=MOMENT,
     )
     server = Asked(by="owner", via="server", standing=True, subject=SUBJECT)
     for asked in (BY_MERGER, server, replace(BY_OWNER, via="server")):
@@ -323,7 +329,7 @@ def test_the_owners_standing_merge_goes_while_its_reasons_are_the_same() -> None
     assert proposed is not None
     standing = Standing(
         tip=TIP,
-        reasons_digest=merge_standing.digest_of(proposed.reasons),
+        reasons_digest=merge_standing.digest_of(proposed.reasons, proposed.contract),
         by_act="board",
         at=MOMENT,
     )
@@ -332,7 +338,10 @@ def test_the_owners_standing_merge_goes_while_its_reasons_are_the_same() -> None
     made = merge.decide(stands, facing(), server, TREE)
     assert isinstance(made, merge_call.Merging)
     assert made.intent.by == "owner"
-    other = replace(standing, reasons_digest=merge_standing.digest_of(("another",)))
+    other = replace(
+        standing,
+        reasons_digest=merge_standing.digest_of(("another",), proposed.contract),
+    )
     ended = alone(standing=other)
     assert code_of(merge.decide(ended, facing(), server, TREE)) == "tip"
     assert merge_standing.standing_of(ended) is None
@@ -344,6 +353,58 @@ def test_the_owners_word_merges_a_request_that_is_not_green() -> None:
     made = merge.decide(red, facing(), BY_OWNER, TREE)
     assert isinstance(made, merge_call.Merging)
     assert made.intent.by == "owner"
+
+
+def approved_with_hardware_key(record: Record) -> Record:
+    criteria = record.task.criteria
+    approved = criteria.approvals[-1]
+    lines = (
+        replace(approved.criteria[0], text="The login works with a hardware key."),
+    )
+    later = replace(approved, number=2, criteria=lines)
+    updated = replace(criteria, approvals=(*criteria.approvals, later), criteria=lines)
+    return replace(record, task=replace(record.task, criteria=updated))
+
+
+def test_a_carried_standing_merge_ends_when_the_approved_criteria_change() -> None:
+    proposal = OPENED["proposed"]
+    before = opened()
+    refused = merge.decide(before, moved(), BY_OWNER, TREE)
+    assert isinstance(refused, Refusal) and refused.code == "base"
+    kept = merge_standing.kept(before, refused, BY_OWNER, MOMENT)
+    assert kept is not None and kept[1] is not None
+    carried = replace(
+        proposal, owner_merge=OwnerMerge(state="stands", why="the rebase carried")
+    )
+    authorization = replace(kept[1], tip=OTHER)
+    record = opened(standing=authorization, proposed=carried, reads=(READ, SAFE))
+    server = Asked(by="owner", via="server", standing=True, subject=SUBJECT)
+    assert isinstance(merge.decide(record, moved(), server, TREE), merge_call.Merging)
+    changed = approved_with_hardware_key(record)
+    assert code_of(merge.decide(changed, moved(), server, TREE)) == "tip"
+
+
+def test_a_stale_standing_merge_stops_before_the_forge_call() -> None:
+    before = opened()
+    refused = merge.decide(before, moved(), BY_OWNER, TREE)
+    assert isinstance(refused, Refusal) and refused.code == "base"
+    kept = merge_standing.kept(before, refused, BY_OWNER, MOMENT)
+    assert kept is not None and kept[1] is not None
+    record = opened(standing=kept[1], reads=(READ, SAFE))
+    server = Asked(by="owner", via="server", standing=True, subject=SUBJECT)
+    assert isinstance(merge.decide(record, moved(), server, TREE), merge_call.Merging)
+    changed = approved_with_hardware_key(record)
+    context = Mock(record=changed, world=moved())
+    context.write.return_value = changed
+    with (
+        patch.object(merge_world, "checks_tree", return_value=TREE),
+        patch.object(merge_called, "answered"),
+        pytest.raises(Refusal, match="no merge of the owner's stands") as stopped,
+    ):
+        merge_app.locked(context, server)
+    assert stopped.value.code == "tip"
+    context.ports.forge.merge.assert_not_called()
+    context.write.assert_not_called()
 
 
 @pytest.mark.parametrize(

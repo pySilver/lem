@@ -236,7 +236,7 @@ def test_a_merge_the_agent_or_the_server_takes_is_not_his() -> None:
 
 def test_a_new_criteria_approval_gives_the_merge_to_the_owner() -> None:
     ready = opened(proposed=proposed(), reads=(read("merge"),))
-    assert merging.merge_wait(ready.record) == "merges"
+    assert merging.merge_wait(ready) == "merges"
     criteria = ready.record.task.criteria
     lines = (replace(CRITERION, text="The login works with a hardware key."),)
     approval = replace(
@@ -249,7 +249,7 @@ def test_a_new_criteria_approval_gives_the_merge_to_the_owner() -> None:
         ),
     )
     changed = replace(ready, record=replace(ready.record, task=task))
-    assert merging.merge_wait(changed.record) == "owner"
+    assert merging.merge_wait(changed) == "owner"
     found = waiting.rows((changed,), away=False, now=NOW)
     assert [(row.kind, row.why) for row in found] == [
         ("review", MOVED),
@@ -263,7 +263,7 @@ def test_merge_rows_ask_who_merges_once() -> None:
     ready = opened(proposed=proposed(who="owner"), reads=(read("call"),))
     with patch.object(merging, "merge_wait", wraps=merging.merge_wait) as wait:
         assert [row.kind for row in merges.merge_rows(ready)] == ["review", "merge"]
-    wait.assert_called_once_with(ready.record, read_after_refusal=None)
+    wait.assert_called_once_with(ready)
 
 
 def test_an_unresolved_merge_intent_asks_for_a_check_on_github() -> None:
@@ -271,7 +271,7 @@ def test_an_unresolved_merge_intent_asks_for_a_check_on_github() -> None:
     intent = MergeIntent(tip=proposal.tip, by="merger", via="session", at=LATER)
     uncertain = opened(proposed=proposal, reads=(read("merge"),), intent=intent)
     found = waiting.rows((uncertain,), away=False, now=NOW)
-    assert merging.merge_wait(uncertain.record) == "owner"
+    assert merging.merge_wait(uncertain) == "owner"
     assert [(row.kind, row.since) for row in found] == [("merge", LATER)]
     task = uncertain.record.task
     assert verbs.verb(found[0], task, uncertain.record.landing) == (

@@ -15,18 +15,21 @@ from msgspec.structs import replace
 
 from fakes.command import lem
 from fakes.records import MOMENT
+from fakes.repo import RealRepo, run_git
+from lem.app.landing import reconcile
 from lem.app.owner import listing, looking, stacks
 from lem.app.owner.scope import Scope
 from lem.app.sessions import acts, here, log
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.decisions import criterion
-from lem.model.landing import merge
+from lem.model.landing import merge, phases
 from lem.model.owner import waiting
 from lem.model.owner.looks import Row
 from lem.model.task import release
 from lem.ports.harness import Signs, Transcript
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked
+from lem.records.landing.merge import Merged
 from lem.records.landing.record import Landing, Pull
 from lem.records.sessions import SessionLine
 from lem.store import sessions, tasks
@@ -37,7 +40,7 @@ from unit.owner.looked import opened, proposed, read
 from unit.sessions.harness import SigningHarness
 from unit.sessions.terminal import AGENT, CALLER, with_caller
 from unit.sessions.world import here_of
-from unit.task.spaces import made, refusal, result, workspace
+from unit.task.spaces import SETTINGS, made, refusal, result, workspace
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -47,6 +50,78 @@ if TYPE_CHECKING:
 
 NOW = MOMENT + timedelta(hours=1)
 NIGHT = date(2026, 11, 25)
+
+
+def test_waiting_shows_the_review_of_the_base_that_returned(tmp_path: Path) -> None:
+    repo = RealRepo.init(tmp_path, {"README.md": b"base A\n"})
+    where = workspace(repo.checkout)
+    base_a = run_git(repo.checkout, "rev-parse", "origin/main")
+    tree_a = run_git(repo.checkout, "rev-parse", "origin/main^{tree}")
+    base_b = repo.outside_commit("main", {"README.md": b"base B\n"})
+    run_git(repo.checkout, "fetch", "origin")
+    tree_b = run_git(repo.checkout, "rev-parse", "origin/main^{tree}")
+    call = replace(read("call"), base=base_a, base_tree=tree_a)
+    safe = replace(
+        read("merge", why="Base B is safe."), base=base_b, base_tree=tree_b, at=NOW
+    )
+    task = opened(proposed=proposed(), reads=(call, safe)).record
+    tasks.create(where.state, task)
+    base_again = repo.outside_commit("main", {"README.md": b"base A\n"})
+    run_git(repo.checkout, "fetch", "origin")
+    assert base_again != base_a
+    assert run_git(repo.checkout, "rev-parse", "origin/main^{tree}") == tree_a
+    world = facing(tip=call.tip, base=base_again, base_tree=tree_a)
+    assert phases.opened(task, world).by == "owner"
+
+    found = result(lem("waiting", cwd=repo.checkout))
+    assert [row["kind"] for row in found["rows"]] == ["review", "merge"]
+    assert found["reviews"][0]["why"] == call.why
+    assert found["pull_requests"][0]["merge_review"]["base_tree"] == tree_a
+
+
+def test_waiting_does_not_ask_for_a_merge_after_the_forge_merged_it(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    task = opened(proposed=proposed(), reads=(read("call"),)).record
+    merged = Merged(
+        by="owner",
+        via="board",
+        commit="e" * 40,
+        merged_head="a" * 40,
+        parent="b" * 40,
+        destination="main",
+        base_checked="b" * 40,
+        base_merged="b" * 40,
+        at=NOW,
+        text_updated=False,
+    )
+    changed = reconcile.taken(task, found=merged)
+    assert changed.task.status == "open"
+    due = phases.settled(changed)
+    assert due is not None and due.step == "merged"
+    tasks.create(where.state, changed)
+
+    found = result(lem("waiting", cwd=tmp_path))
+    assert found["reviews"] == found["pull_requests"] == found["rows"] == []
+
+
+def test_waiting_uses_the_current_setting_for_who_merges(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    record = proposed_landing()
+    tasks.create(where.state, record)
+    assert result(lem("waiting", cwd=tmp_path))["rows"] == []
+    (where.lem / "settings.toml").write_text(
+        SETTINGS + 'land = "owner"\n', encoding="utf-8"
+    )
+    world = facing()
+    current = replace(world, rules=replace(world.rules, land="owner"))
+    stopped = merge.decide(record, current, BY_MERGER, TREE)
+    assert isinstance(stopped, Refusal) and stopped.code == "merger-rule"
+
+    found = result(lem("waiting", cwd=tmp_path))
+    assert [row["kind"] for row in found["rows"]] == ["review", "merge"]
+    assert found["reviews"][0]["why"] == merge.LAND_OWNER
 
 
 def test_waiting_shows_the_criterion_change_that_bars_the_merge_agent(

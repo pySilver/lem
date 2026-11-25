@@ -10,10 +10,11 @@ the tasks that run without him, after a back the ones that came back to him (a n
 import os
 from typing import TYPE_CHECKING
 
-from lem.kernel import folders, paths
+from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.model.owner.presence import changed
 from lem.records.base import Frozen, Moment
+from lem.settings.load import settings_of
 from lem.store import owner, places, tasks
 
 if TYPE_CHECKING:
@@ -48,22 +49,24 @@ def checked(words: str | None) -> str:
 def said(folder: Path, words: str | None, now: Moment, *, away: bool) -> Said:
     """Mark the owner away or back with his words, unless that changes nothing."""
     given = checked(words)
-    found = tasks_of(places.workspace(folder).state)
-    before = owner.read(paths.home(os.environ))
-    after = before
-    if before.away != away:
-        home = folders.home_for_writing(os.environ)
-        after = owner.change(home, given, now, away=away)
+    found = tasks_of(folder)
+    before, after, written = owner.transition(
+        paths.home(os.environ), given, now, away=away
+    )
     return Said(
         away=after.away,
         since=after.since,
         words=after.words,
-        written=after is not before,
+        written=written,
         tasks=changed(found, before, after),
         seen=after.seen,
     )
 
 
-def tasks_of(state: Path) -> tuple[Task, ...]:
-    """Every task of the workspace."""
-    return tuple(record.task for record in tasks.every(state))
+def tasks_of(folder: Path) -> tuple[Task, ...]:
+    """Every task of the workspace, with its settings checked when a task has a ticket."""
+    where = places.workspace(folder)
+    found = tuple(record.task for record in tasks.every(where.state))
+    if any(task.ticket is not None for task in found):
+        settings_of(where.checkout)
+    return found

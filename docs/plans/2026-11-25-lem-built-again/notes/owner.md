@@ -73,10 +73,5 @@ fated `changed` by this step until then.
 ## For `core` (`records/owner.py`)
 
 `Change` keeps no repository he typed his word in (`repo` on `main`, which no script acted on).
-`store.owner.change` writes an away with new words over an away; `lem owner away` does not call it
-then, since a word that changes nothing writes nothing (`main`).
-
-## One choice of this step, open to the owner
-
-- `lem owner watch` reads only the machine's mark, so it is no longer refused outside a
-  repository; it refuses a missing `--seen` (`seen`) and turns a stop into the refusal `stopped`.
+The store compares the owner's presence under its lock. A second away or back leaves the first
+word in the mark and keeps its count.

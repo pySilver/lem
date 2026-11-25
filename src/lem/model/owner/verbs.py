@@ -92,7 +92,10 @@ def refused_verb(row: Row, landing: Landing) -> str | None:
     if refused is None or proposed is None or refused.tip != proposed.tip:
         return None
     if merging.calls_after_base_refusal(
-        landing, refused, read_after_refusal=row.read_after_refusal
+        landing,
+        refused,
+        base_tree=row.base_tree,
+        read_after_refusal=row.read_after_refusal,
     ):
         return None
     if refused.source == "lem":

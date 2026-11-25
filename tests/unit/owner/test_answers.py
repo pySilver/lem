@@ -10,7 +10,7 @@ from fakes.records import MOMENT, record
 from lem.kernel.errors import Refusal
 from lem.model.owner import answers, waiting
 from lem.model.owner.looks import Look
-from lem.records.holds import OwnerHold
+from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked
 from lem.records.questions import Answer, Question
 
 ASKED = Question(
@@ -22,10 +22,16 @@ ASKED = Question(
     asked=MOMENT,
 )
 YES = Answer(option="build", label="Build", source="board", at=MOMENT)
+PLAN_HOLD = OwnerHold(on="plan", line="read the plan", since=MOMENT)
+CRITERIA_HOLD = OwnerHold(on="criteria", line="approve the criteria", since=MOMENT)
+CRITERIA = replace(ASKED, id="criterion-1", topic="criterion", options=("yes", "no"))
+BREAKER = replace(
+    ASKED, id="breaker-2", topic="breaker", options=("help", "park", "drop")
+)
 
 
 def test_the_first_answer_counts() -> None:
-    task = record(questions=(ASKED,)).task
+    task = record(status="planned", hold=PLAN_HOLD, questions=(ASKED,)).task
     answered = answers.answer(task, "plan-1", "d1", YES)
     assert answered.questions[-1].answer == YES
     with pytest.raises(Refusal) as caught:
@@ -51,6 +57,51 @@ def test_an_invalid_criterion_option_leaves_the_row_open() -> None:
     assert before.task.questions[0].answer is None
     found = waiting.rows((Look(record=before),), away=False, now=MOMENT)
     assert [row.kind for row in found] == ["criteria"]
+
+
+@pytest.mark.parametrize(
+    ("question", "hold", "status", "option", "blank"),
+    [
+        (CRITERIA, CRITERIA_HOLD, "shaping", "no", None),
+        (BREAKER, BreakerHold(number=2, since=MOMENT), "building", "help", "   "),
+    ],
+    ids=("criterion-no", "breaker-help"),
+)
+def test_a_wordless_answer_leaves_its_question_open(
+    question: Question,
+    hold: OwnerHold | BreakerHold,
+    status: str,
+    option: str,
+    blank: str | None,
+) -> None:
+    before = record(status=status, hold=hold, questions=(question,))
+    given = replace(YES, option=option, note=blank)
+    with pytest.raises(Refusal) as caught:
+        answers.answer(before.task, question.id, question.digest, given)
+    assert caught.value.code == "note"
+    assert waiting.rows((Look(record=before),), away=False, now=MOMENT)
+    corrected = replace(given, note="Keep the hardware key requirement.")
+    after = answers.answer(before.task, question.id, question.digest, corrected)
+    assert after.questions[0].answer == corrected
+
+
+@pytest.mark.parametrize(
+    ("status", "hold"),
+    [
+        ("shaping", Parked(since=MOMENT, words="later")),
+        ("dropped", None),
+        ("shaping", Blocked(since=MOMENT, why="blocked", fix="read the stop")),
+        ("shaping", replace(CRITERIA_HOLD, since=MOMENT + timedelta(seconds=1))),
+    ],
+    ids=("parked", "dropped", "blocked", "earlier-hold"),
+)
+def test_an_old_page_cannot_answer_a_question_that_no_longer_waits(
+    status: str, hold: Parked | Blocked | OwnerHold | None
+) -> None:
+    task = record(status=status, hold=hold, questions=(CRITERIA,)).task
+    with pytest.raises(Refusal) as caught:
+        answers.answer(task, CRITERIA.id, CRITERIA.digest, replace(YES, option="yes"))
+    assert caught.value.code == "question"
 
 
 @pytest.mark.parametrize("minutes", [0, 1])

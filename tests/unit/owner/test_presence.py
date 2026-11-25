@@ -3,18 +3,28 @@ back through `lem owner` (`main`: `tests/unit/test_owner.py::Mark`, `tests/lem-s
 owner's status is one mark of the machine" and "the owner says whether he is there")."""
 
 import os
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import UTC, date, datetime
 from pathlib import Path
+from threading import Barrier
+from typing import TYPE_CHECKING
 
 import msgspec
 import pytest
 
 from fakes.command import lem
-from lem.kernel import paths
+from lem.app.owner import presence
+from lem.kernel import folders, locks, paths
 from lem.kernel.errors import Fault, Refusal
+from lem.model.owner.spans import spans
 from lem.records.owner import Presence
-from lem.store import owner
+from lem.records.tickets import Ticket
+from lem.store import owner, tasks
 from unit.task.spaces import made, refusal, result, workspace
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 AWAY_AT = datetime(2026, 11, 19, 14, 5, tzinfo=UTC)
 BACK_AT = datetime(2026, 11, 19, 16, 30, tzinfo=UTC)
@@ -84,14 +94,65 @@ def test_away_names_every_open_task_and_writes_once(tmp_path: Path) -> None:
         "tasks": ["report-dates"],
         "seen": 1,
     }
+    result(lem("task", "open", "new-task", "--ask", "sort the dates", cwd=tmp_path))
+    opened = tasks.read(where.state, "new-task").task
+    (running,) = spans(opened, owner.read(home()))
+    assert (running.start, running.end) == (opened.opened, None)
     again = result(lem("owner", "away", "--words", "away again", cwd=tmp_path))
     assert (again["written"], again["words"], again["tasks"]) == (
         False,
         "I'm away",
-        ["report-dates"],
+        ["new-task", "report-dates"],
     )
     assert not (where.state / "tasks" / "report-dates" / "owner.json").exists()
     assert owner.read(home()).seen == 1
+    back = result(lem("owner", "back", "--words", "I'm back", cwd=tmp_path))
+    assert back["tasks"] == ["new-task", "report-dates"]
+    (closed,) = spans(opened, owner.read(home()))
+    assert (closed.start, closed.end) == (opened.opened, owner.read(home()).since)
+
+
+@pytest.mark.parametrize("second_words", ["I'm away", "Away at lunch"])
+def test_simultaneous_aways_write_once_across_repositories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, second_words: str
+) -> None:
+    first = workspace(tmp_path / "first")
+    second = workspace(tmp_path / "second")
+    folders.home_marked(home())
+    both = Barrier(2, timeout=5)
+    held = locks.held
+
+    @contextmanager
+    def together(path: Path) -> Iterator[None]:
+        if path == home() / owner.LOCK:
+            both.wait()
+        with held(path):
+            yield
+
+    monkeypatch.setattr(locks, "held", together)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        one = pool.submit(presence.said, first.checkout, "I'm away", AWAY_AT, away=True)
+        two = pool.submit(
+            presence.said, second.checkout, second_words, AWAY_AT, away=True
+        )
+        found = (one.result(), two.result())
+
+    mark = owner.read(home())
+    assert sorted(said.written for said in found) == [False, True]
+    assert mark.seen == len(mark.changes) == 1
+    assert {said.seen for said in found} == {1}
+    assert {said.words for said in found} == {mark.words}
+
+
+def test_broken_settings_with_a_ticket_refuse_away_before_the_mark(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path, settings="[branch")
+    made(where, "report-dates", ticket=Ticket(tracker="linear", id="DEMO-12"))
+    before = owner.read(home())
+    stopped = refusal(lem("owner", "away", "--words", "I'm away", cwd=tmp_path))
+    assert stopped["code"] == "settings-toml"
+    assert owner.read(home()) == before
 
 
 def test_back_takes_back_every_task_but_a_nights(tmp_path: Path) -> None:

@@ -8,28 +8,18 @@ of that wait is the task's session's until the session took the answer into effe
 shows it no more.
 """
 
-from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
+from lem.model.owner import answer_wait
 
 if TYPE_CHECKING:
     from lem.records.base import Moment
     from lem.records.holds import OwnerHold
     from lem.records.questions import Answer, Question
     from lem.records.task import Task
-
-# The topic of the question that each of his waits asks.
-TOPICS = MappingProxyType(
-    {
-        "interview": "criterion",
-        "criteria": "criterion",
-        "skip-read": "skip",
-        "plan": "plan",
-    }
-)
 
 
 def taken_by_session(task: Task, topic: str, since: Moment) -> bool:
@@ -45,7 +35,7 @@ def taken_by_session(task: Task, topic: str, since: Moment) -> bool:
 
 def answered_hold(task: Task, hold: OwnerHold) -> bool:
     """Whether his answer to the question of the hold waits for the task's session."""
-    topic = TOPICS.get(hold.on)
+    topic = answer_wait.TOPICS.get(hold.on)
     return topic is not None and taken_by_session(task, topic, hold.since)
 
 
@@ -61,7 +51,7 @@ def answer(task: Task, question_id: str, digest: str | None, given: Answer) -> T
             f"lem task show {task.slug} names the questions that wait",
         )
     asked = found[0]
-    refusal = refused(task, asked, digest, given.option)
+    refusal = refused(task, asked, digest, given)
     if refusal is not None:
         raise refusal
     updated = replace(asked, answer=given)
@@ -72,20 +62,30 @@ def answer(task: Task, question_id: str, digest: str | None, given: Answer) -> T
 
 
 def refused(
-    task: Task, asked: Question, digest: str | None, option: str
+    task: Task, asked: Question, digest: str | None, given: Answer
 ) -> Refusal | None:
     """Why an answer to `asked` may not count, or None."""
     why = why_refused(task, asked, digest)
     if why is not None:
         return Refusal("answered", why, "the owner reads the question as it is now")
-    if option in asked.options:
-        return None
-    choices = ", ".join(asked.options)
-    return Refusal(
-        "option",
-        f"{option!r} is no option of {asked.id}",
-        f"the owner chooses one of: {choices}",
-    )
+    if not answer_wait.current(task, asked):
+        return Refusal(
+            "question",
+            f"{asked.id} no longer waits for the owner",
+            f"lem task show {task.slug} names the questions that wait",
+        )
+    option = given.option
+    if option not in asked.options:
+        choices = ", ".join(asked.options)
+        return Refusal(
+            "option",
+            f"{option!r} is no option of {asked.id}",
+            f"the owner chooses one of: {choices}",
+        )
+    needs_note = (asked.topic, option) in {("criterion", "no"), ("breaker", "help")}
+    if needs_note and not (given.note and given.note.strip()):
+        return Refusal("note", f"{option!r} needs a note", "add the owner's words")
+    return None
 
 
 def why_refused(task: Task, asked: Question, digest: str | None) -> str | None:

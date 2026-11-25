@@ -10,6 +10,8 @@ from msgspec.structs import replace
 from fakes.command import lem
 from fakes.records import MOMENT, record
 from lem.kernel import paths
+from lem.model.task.read import ORDER_WAIT
+from lem.records.holds import OwnerHold
 from lem.records.journal.task import StateNoted, Summary
 from lem.records.tickets import Ticket
 from lem.records.work import Investigation
@@ -62,6 +64,17 @@ def test_what_waits_is_one_list_and_the_status_only_reads() -> None:
     )
     assert "and the status only reads" in text("stages/status.md")
     assert "lem waiting" in text("stages/status.md")
+
+
+def test_the_away_stage_names_the_field_that_identifies_an_unresolved_order(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    hold = OwnerHold(on="order", line=ORDER_WAIT, since=MOMENT)
+    made(where, "sort-the-dates", order="after the login change", hold=hold)
+    shown = result(lem("task", "show", "sort-the-dates", cwd=tmp_path))
+    assert shown["hold_line"] == ORDER_WAIT
+    assert f'`hold_line` is "{shown["hold_line"]}"' in text("stages/away.md")
 
 
 def test_status_names_the_field_and_step_for_an_unpaid_ticket(tmp_path: Path) -> None:

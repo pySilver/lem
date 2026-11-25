@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 
-def after_refusal(record: Record) -> bool | None:
+def after_refusal(record: Record, base_tree: str | None = None) -> bool | None:
     """Whether the settled read with no verdict follows the base refusal on record."""
     landing = record.landing
     if record.task.status != "open" or landing is None or landing.refused is None:
@@ -19,7 +19,7 @@ def after_refusal(record: Record) -> bool | None:
     refused = landing.refused
     if (refused.source, refused.kind) != ("lem", "base"):
         return None
-    read = mergeread.latest(landing)
+    read = mergeread.latest(landing, base_tree)
     if read is None or read.verdict is not None or read.tip != refused.tip:
         return None
     return order_of(record, refused, read)

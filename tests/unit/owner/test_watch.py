@@ -5,15 +5,20 @@ watch of the owner's mark in one repository ends after his away in another")."""
 import os
 import signal
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import pytest
 
 from fakes.command import lem
+from fakes.repo import run_git
 from lem.app.owner import watch
 from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.store import owner
 from unit.task.spaces import refusal, result
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 AWAY_AT = datetime(2026, 11, 19, 14, 5, tzinfo=UTC)
 
@@ -62,19 +67,38 @@ def test_a_stop_ends_it_with_a_refusal_that_asks_for_no_second_watch() -> None:
     assert signal.getsignal(signal.SIGTERM) == before
 
 
-def test_it_is_refused_without_a_count_and_with_a_count_below_0() -> None:
-    assert refusal(lem("owner", "watch"))["code"] == "seen"
-    assert refusal(lem("owner", "watch", "--seen", "-1"))["code"] == "seen"
+def test_it_is_refused_without_a_count_and_with_a_count_below_0(tmp_path: Path) -> None:
+    run_git(tmp_path, "init", "--quiet")
+    assert refusal(lem("owner", "watch", cwd=tmp_path))["code"] == "seen"
     assert (
-        refusal(lem("owner", "watch", "--seen", "0", "--every", "0"))["code"] == "every"
+        refusal(lem("owner", "watch", "--seen", "-1", cwd=tmp_path))["code"] == "seen"
+    )
+    assert (
+        refusal(lem("owner", "watch", "--seen", "0", "--every", "0", cwd=tmp_path))[
+            "code"
+        ]
+        == "every"
     )
 
 
-def test_the_command_ends_at_once_on_a_count_it_does_not_hold() -> None:
+def test_the_command_ends_at_once_on_a_count_it_does_not_hold(tmp_path: Path) -> None:
+    run_git(tmp_path, "init", "--quiet")
     owner.change(paths.home(os.environ), "away", AWAY_AT, away=True)
-    assert result(lem("owner", "watch", "--seen", "0")) == {
+    assert result(lem("owner", "watch", "--seen", "0", cwd=tmp_path)) == {
         "away": True,
         "since": "2026-11-19T14:05:00Z",
         "words": "away",
         "seen": 1,
     }
+
+
+def test_the_watch_checks_for_a_repository_before_it_reads_the_mark(
+    tmp_path: Path,
+) -> None:
+    home = paths.home(os.environ)
+    owner.change(home, "away", AWAY_AT, away=True)
+    args = ("owner", "watch", "--seen", "0")
+    assert refusal(lem(*args, cwd=tmp_path))["code"] == "no-repository"
+    run_git(tmp_path, "init", "--quiet")
+    assert result(lem(*args, cwd=tmp_path))["seen"] == 1
+    assert owner.read(home).seen == 1
