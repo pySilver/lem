@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # learn and retro
 
 What Lem remembers of a repository is there for one thing: the next task costs the owner less
@@ -26,24 +25,24 @@ corrected does it:
    - a step of a skill (a page it builds, a message it sends, a command it runs). A skill the
      repository holds itself: that skill's file, a project file like any other. Lem, or another
      skill installed from outside the repository: one line in the project's lessons file
-     (`lem project path lessons`) that opens with the stage's or the skill's name (`new: ...`),
+     (`lem path lessons`) that opens with the stage's or the skill's name (`new: ...`),
      which Lem reads before each subcommand. Never the installed skill's own file, whether it is
      a link to a clone or a plugin's copy: that file is the same for every repository that uses
      it, an edit there is live in all of them at once with no review, and a plugin's next update
      drops it. Your report says that the line is a lesson about Lem itself, so the owner can
      bring it to whoever maintains Lem;
    - how code is written here: the rule file of `.claude/rules` whose scope covers it
-     (`lem project path rules`);
+     (`lem path rules`);
    - what a person of the project wants or notices: that persona's file
-     (`lem project path personas`);
+     (`lem path personas`);
    - what a review should catch or stop raising: the lens, the review profile or the
-     rejected-findings list (`lem project path review`). That folder is the review tool's own:
+     rejected-findings list (`lem path review`). That folder is the review tool's own:
      Lem never moves, links or reshapes it, and a lesson still writes a line into a file there;
    - a decision about the product that outlives the task: a ruling, one bullet of the rulings
-     list (`lem project path rulings`), written as "A ruling" below says;
+     list (`lem path rulings`), written as "A ruling" below says;
    - a command shape a pattern can match: a hook or a commit check of the repository that refuses
      it and names the replacement;
-   - none of these: one line in the project's lessons file (`lem project path lessons`), which the
+   - none of these: one line in the project's lessons file (`lem path lessons`), which the
      plan and build stages read.
 3. **When the owner asked for the change, make it** and say, for each file you changed, its path,
    what changed and why, in one to three lines a file. When you found the lesson yourself, show
@@ -66,7 +65,7 @@ file that owns its step, or into a ruling, and leave the one sentence that point
 
 ## A ruling
 
-A project's rulings are one list, the file `lem project path rulings` prints, and a ruling is one
+A project's rulings are one list, the file `lem path rulings` prints, and a ruling is one
 bullet of it under the `##` heading of its group: the rule in one sentence in bold, then the day
 the owner ruled it in parentheses. The owner approves "a refund never makes an invoice negative"
 on 2026-11-22, and the list gets, under `## Invoices`:
@@ -97,7 +96,7 @@ what passes reaches him only as an item of the board's "Backlog", which he start
 drops. A first-time lesson is a proposal too, and so is a ruling ("A ruling"): a retro records
 no lesson by itself.
 
-1. **Since when.** `lem project proposals read` gives, as `newest.retro.at`, the time of the
+1. **Since when.** `lem proposals list` gives, as `newest.retro.at`, the time of the
    newest run of the retro: this one reads what came after it, and with null (the first retro)
    all that the state folder keeps. The night's proposals since then (`undecided`, of the kind
    `night`) and every one already `refuted`, `passed` or `dropped` are what it does not propose
@@ -105,15 +104,14 @@ no lesson by itself.
    with no close, so that the session waits for the owner with it.
 2. **What it reads**, since then: each task's decisions (`lem decisions list SLUG`: who took each,
    a pick past the personas, a breaker and the owner's help on it), the "not verified" and
-   "outside defects" lines of each `report.md`, the reviews and the proposals in the event log
-   (`review` and `proposed` events: the rounds, the counts, who answered, and each reason a
-   request was not green; `careful.missed` events: a change the review called careful and its
-   plan's own call did not, with the round and the review's reason), and the owner's corrections,
-   from the project's correction queue when it keeps one (below). When nothing of an ended task
-   happened for `state.keep_days` days, `lem project prune` makes all its events one
-   `task.summary`, which holds none of those events (only the newest proposal's green and
-   reasons), and removes every file of the task but its small record
-   (`lem_artifacts.SMALL_RECORD`): no `report.md` and no `decisions.jsonl` stay. So a retro more
+   "outside defects" lines of each `report.md`, the reviews and the proposals in each task's
+   journal (`.lem/state/tasks/SLUG/task.json`: the review rounds, the counts, who answered, and
+   each reason a request was not green; each careful call the review made that the plan's own call
+   did not, with the round and the review's reason), and the owner's corrections, from the
+   project's correction queue when it keeps one (below). When nothing of an ended task happened for
+   `state.keep_days` days, `lem prune` folds its journal into one summary entry, which holds none
+   of those entries (only the newest proposal's green and reasons), and removes every file of the
+   task but its record, its sessions, its ask and its ticket: no `report.md` stays. So a retro more
    than that apart from the one before reads only the newer tasks' reports, decisions and events.
 3. **What it looks for**: what came back, and each finding is one proposal.
    - a correction the owner gave more than once: the record it had did not reach the step;
@@ -145,7 +143,7 @@ no lesson by itself.
      its step and the sentence.
 
    Where the project has naps (`stages/nap.md`), the retro also reads their waking notes,
-   `naps/*/waking.md` in the folder `lem project state-dir` prints, of each nap whose time, the
+   `naps/*/waking.md` in the folder `lem path state` prints, of each nap whose time, the
    start of its folder's name, is after `newest.retro.at`. A waking note is one agent's impression
    after a dream, so it is a candidate and never a lesson: a thing a note names becomes a proposal
    only when the tasks' records above show it too, and that proposal names the note in its
@@ -155,7 +153,7 @@ no lesson by itself.
 4. **Add the run** to the day's file, also when it proposes nothing, on stdin as a quoted heredoc:
 
    ```bash
-   lem project proposals add --kind retro --file - <<'JSON'
+   lem proposals add --kind retro --file - <<'JSON'
    {"read": "the tasks gift-note and refund-total since 2026-11-23T06:55:00Z, 3 correction groups, the waking note of the nap 2026-11-23-1410", "proposals": [
      {"area": "lessons", "move": "A builder runs the migrations before the tests", "body": "the file, the change, and the case in the owner's words", "source": "the tasks gift-note and refund-total; correction group 1a2b3c4d", "where": ".claude/rules/testing.md"}
    ]}
@@ -167,11 +165,11 @@ no lesson by itself.
    hyphens), `move` in one line, `body` (the file, the change and the case), `source` (the records
    it rests on, each by its name: a task, a report, an event, a nap's folder, a correction group)
    and `where` (the file it would change, `PATH` or `PATH:SYMBOL`). The command writes
-   `retros/YYYY-MM-DD.json` in the state folder, or adds after the runs already there, and prints
-   each proposal's name (`retro of 2026-11-24 #3`).
+   `retros/YYYY-MM-DD.json` in the state folder, or adds after the runs already there, and its
+   result's `names` gives each proposal's name (`retro of 2026-11-24 #3`).
 5. **The correction queue's records**, when the project keeps a queue: record each group as "The
    correction queue" below says, a lesson with the name of its proposal.
-6. **The reviewer**, when `lem project proposals read` now gives an `undecided` proposal of any
+6. **The reviewer**, when `lem proposals list` now gives an `undecided` proposal of any
    day: `spawn-builder` with the brief
 
    ```
@@ -182,7 +180,7 @@ no lesson by itself.
    It judges each proposal with no verdict, the night's too, against the bar of rule 6 of the
    builder's standing rules, refutes the weak ones with their reasons, each kept as a `worth: no`
    item of the state folder's `backlog/`, and writes the rest as items there, one for each area,
-   all through `lem project proposals verdict`. Wait for its reply, which is its report. With no `undecided` proposal, no reviewer
+   all through `lem proposals verdict`. Wait for its reply, which is its report. With no `undecided` proposal, no reviewer
    starts.
 7. **The closing report**: what the run read, each proposal's name and move, and from the
    reviewer's report each refuted one with its reason and each item with its path and title. It
@@ -202,7 +200,7 @@ is given again is what a retro is for. So a project may keep a queue: a hook ask
 decision model about each message the owner types, and queues the ones an agent should learn a
 lesson from. The machine's own file turns it on, for every repository on that machine (`collect`
 under `[corrections]` of `~/.config/lem/machine.toml`), and `stages/init.md` says how the owner
-agrees to it. `lem project show` says whether it is on. When it is off, skip this
+agrees to it. `lem settings show` says whether it is on, as `corrections.collect`. When it is off, skip this
 section.
 
 ```bash
@@ -216,7 +214,7 @@ lem corrections lessons   # what earlier retros recorded
 2. **A group** is every unreviewed entry with the same words of the owner, so one sentence sent
    to eight sessions is one item with its count. The small model is a loose filter on purpose:
    about three of four of its flags were not lessons in the sample its threshold comes from
-   (`corrections.py` gives the numbers). You decide each group, from the owner's words and the
+   (the queue's question in Lem's source, `addons/corrections/question.py`, gives the numbers). You decide each group, from the owner's words and the
    agent message they answer:
    - **not a lesson**: the reply moved the work on and teaches nothing for later. Record it.
    - **a lesson, the first time**: say it in one sentence an agent could follow next time. When a
