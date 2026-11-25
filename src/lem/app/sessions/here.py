@@ -21,14 +21,18 @@ if TYPE_CHECKING:
 
 # Where a task's worktree is, under the main checkout.
 WORKTREES = ".lem/worktrees"
+# The session a command runs in, as agterm names it in each pane's environment: the slice's
+# stand-in for a `Terminal.here()` (notes/slice-session.md).
+CALLER = "AGTERM_SESSION_ID"
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Here:
-    """A workspace and its ports."""
+    """A workspace, its ports, and the terminal's session the command runs in."""
 
     where: places.Workspace
     ports: wiring.Ports
+    caller: str | None = None
 
     def folder(self, slug: str) -> Path:
         """The folder of the task `slug`; refused for a name that is no task's."""
@@ -50,7 +54,8 @@ def bound(folder: Path) -> Here:
     place = Place(
         checkout=where.checkout, home=paths.home(os.environ), environ=os.environ
     )
-    return Here(where=where, ports=wiring.bound(place))
+    caller = os.environ.get(CALLER) or None
+    return Here(where=where, ports=wiring.bound(place), caller=caller)
 
 
 def enveloped(outcome: msgspec.Struct, say: str) -> Envelope:

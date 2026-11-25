@@ -53,25 +53,20 @@ def opening(here: Here, task: Task, line: str) -> Opening:
     return Opening(name=task.slug, cwd=cwd, command=(line,), workspace=workspace)
 
 
-def workspace_of(here: Here, session: str) -> str | None:
-    """The workspace the terminal shows the session `session` in."""
-    pane = listed(here).get(session)
-    return pane.workspace if pane else None
-
-
 def behind(here: Here, task: Task) -> None:
-    """Refuse a queued task whose `after` task has not landed or been answered."""
+    """Refuse a queued task whose `after` task has not landed or been answered, or is not on
+    record: only the owner's word starts it then (`session.queued_behind` on `main`)."""
     if task.status != "queued" or task.after is None:
         return
     try:
-        other = tasks.read(here.where.state, task.after).task
+        status = tasks.read(here.where.state, task.after).task.status
     except Refusal:
-        return
-    if other.status in DONE:
+        status = "not on record"
+    if status in DONE:
         return
     raise Refusal(
         "queued-after",
-        f"{task.slug} is queued after {task.after}, which is {other.status}",
+        f"{task.slug} is queued after {task.after}, which is {status}",
         f"it opens when {task.after} landed or was answered; the owner's word starts it now: "
         f'lem task start {task.slug} --words "..."',
     )

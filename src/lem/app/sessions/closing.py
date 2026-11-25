@@ -15,6 +15,7 @@ from lem.records.base import Frozen
 if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import datetime
+    from pathlib import Path
 
     from lem.app.sessions.here import Here
     from lem.ports.terminal import Pane
@@ -48,21 +49,42 @@ def close_session(
     pause: Callable[[float], None],
     clock: Callable[[], datetime],
 ) -> Closed:
-    """Close the task's session once nobody looks at it, and put the close on record."""
+    """Close the task's session once nobody looks at it, and put the close on record first;
+    when the owner selects it in the moment of the close, wait again or refuse."""
     folder = here.folder(closing.slug)
-    noted = opened.read(folder)
-    session = chosen(closing, noted)
-    pane = unselected(here, closing, session, pause)
-    if not any(
-        isinstance(line, opened.Close) and line.session == session for line in noted
-    ):
-        opened.append(
-            folder, opened.Close(at=clock(), session=session, why=closing.why)
-        )
-    if pane is not None:
+    session = chosen(closing, opened.read(folder))
+    while True:
+        pane = unselected(here, closing, session, pause)
+        noted(folder, session, closing.why, clock)
+        if pane is None:
+            return Closed(
+                task=closing.slug, session=session, why=closing.why, closed=False
+            )
         here.ports.terminal.close(session, when_unselected=True)
-    return Closed(
-        task=closing.slug, session=session, why=closing.why, closed=pane is not None
+        if session not in placing.listed(here):
+            return Closed(
+                task=closing.slug, session=session, why=closing.why, closed=True
+            )
+        if not closing.when_unselected:
+            raise looked_at(closing, session, pane.name)
+
+
+def noted(folder: Path, session: str, why: Why, clock: Callable[[], datetime]) -> None:
+    """Put the close of `session` on record, once."""
+    closes = (line for line in opened.read(folder) if isinstance(line, opened.Close))
+    if not any(line.session == session for line in closes):
+        close = opened.Close(at=clock(), session=session, why=why)
+        opened.append(folder, close)
+
+
+def looked_at(closing: Closing, session: str, name: str) -> Refusal:
+    """The refusal of a close of the session the owner looks at."""
+    return Refusal(
+        "selected",
+        f"the owner has the session {name} selected, and Lem never closes a session he "
+        "looks at",
+        f"lem session close {closing.slug} --session {session} --why {closing.why} "
+        "--when-unselected closes it once he left it",
     )
 
 
@@ -95,13 +117,7 @@ def unselected(
     pane = placing.listed(here).get(session)
     while pane is not None and pane.selected:
         if not closing.when_unselected:
-            raise Refusal(
-                "selected",
-                f"the owner has the session {pane.name} selected, and Lem never closes a "
-                "session he looks at",
-                f"lem session close {closing.slug} --session {session} --why "
-                f"{closing.why} --when-unselected closes it once he left it",
-            )
+            raise looked_at(closing, session, pane.name)
         pause(closing.every)
         pane = placing.listed(here).get(session)
     return pane

@@ -162,25 +162,31 @@ class AgtermTerminal(AgtermSessions):
             login_line(opening.command),
             "--json",
         )
-        session = made_id(made)
-        if opening.companion_of is None:
-            ctl(self.environ, SESSION, "move", "--to", "bottom", TARGET, session)
-        return session
+        return made_id(made)
 
     def place_of(self, opening: Opening) -> tuple[str, ...]:
-        """Where the new session goes: beside its parent, else in its workspace, else in the
-        workspace of the session this command runs in, else where agterm puts a new one."""
+        """Where the new session goes: beside its parent, else after the last session of its
+        workspace, else of the workspace of the session this command runs in, else where
+        agterm puts a new one. The new session is the last call: nothing more is asked of
+        agterm between its making and its record."""
         if opening.companion_of is not None:
             self.known(opening.companion_of)
             return ("--parent", opening.companion_of)
-        workspace = opening.workspace or self.callers_workspace()
-        return ("--workspace", workspace) if workspace else ()
+        listed = panes_of(ctl(self.environ, *TREE))
+        workspace = opening.workspace or self.callers_workspace(listed)
+        if workspace is None:
+            return ()
+        return ("--workspace", workspace, *self.after_last(listed, workspace))
 
-    def callers_workspace(self) -> str | None:
+    def callers_workspace(self, listed: tuple[Pane, ...]) -> str | None:
         """The workspace of the session this command runs in, or None outside agterm."""
         caller = self.environ.get("AGTERM_SESSION_ID", "")
-        listed = panes_of(ctl(self.environ, *TREE))
         return next((pane.workspace for pane in listed if pane.id == caller), None)
+
+    def after_last(self, listed: tuple[Pane, ...], workspace: str) -> tuple[str, ...]:
+        """`--after` the last session of `workspace`, or nothing for an empty one."""
+        ids = [pane.id for pane in listed if pane.workspace == workspace]
+        return ("--after", ids[-1]) if ids else ()
 
     def show(self, session: str, url: str, mode: ShowMode) -> None:
         """Not built in this slice."""

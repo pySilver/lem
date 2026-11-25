@@ -49,11 +49,13 @@ def test_a_session_opens_in_the_callers_workspace_with_no_focus_at_its_end(
     made = terminal.open(Opening(name="gift-note", cwd="/r", command=(line,)))
     new = next(call for call in standin.calls() if call[:2] == ["session", "new"])
     command = new[new.index("--command") + 1]
-    assert new[:11] == [
+    assert new[:13] == [
         "session",
         "new",
         "--workspace",
         "W-MINE",
+        "--after",
+        "S-2ND",
         "--cwd",
         "/r",
         "--name",
@@ -65,7 +67,9 @@ def test_a_session_opens_in_the_callers_workspace_with_no_focus_at_its_end(
     words = shlex.split(command)
     assert words[1:] == ["-l", "-c", line]
     assert words[0].startswith("/")
-    assert ["session", "move", "--to", "bottom", "--target", made] in standin.calls()
+    # the making is the open's last call: its record comes next, with nothing between
+    assert standin.calls()[-1] == new
+    assert made == "S-1"
     assert not [call for call in standin.calls() if "select" in call]
     names = [(node["name"], node["workspace"]) for node in standin.sessions()]
     assert names[-1] == ("gift-note", "W-MINE")
@@ -82,10 +86,9 @@ def test_a_named_workspace_and_a_companion_go_where_they_are_named(
     terminal.open(Opening(name="t", cwd="/r", command=("x",), workspace="W-OTHER"))
     terminal.open(Opening(name="c", cwd="/r", command=("x",), companion_of="S-MINE"))
     news = [call for call in standin.calls() if call[:2] == ["session", "new"]]
-    assert news[0][2:4] == ["--workspace", "W-OTHER"]
+    assert news[0][2:6] == ["--workspace", "W-OTHER", "--after", "S-HIS"]
     assert news[1][2:4] == ["--parent", "S-MINE"]
-    moves = [call for call in standin.calls() if call[:2] == ["session", "move"]]
-    assert len(moves) == 1
+    assert not [call for call in standin.calls() if call[:2] == ["session", "move"]]
 
 
 def test_a_tree_that_does_not_read_is_unreadable_never_empty(tmp_path: Path) -> None:

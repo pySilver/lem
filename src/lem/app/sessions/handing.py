@@ -4,7 +4,9 @@ gives, after the leaving agent wrote its record and `handoff.md`.
 It refuses while the record still gives the phase the newest session opened in, unless `same`
 (the owner's "hand off" inside a phase); and a `handoff.md` that is not in its form, not from the
 phase that ends, or older than that session. It gives the line that closes the old session once
-the owner has left it, which the leaving agent runs in the background.
+the owner has left it, which the leaving agent runs in the background. The session that leaves
+is the caller's, else the task's newest; when another session of the task runs already, which
+took the task over, it refuses, under the task's lock (`session.cmd_next` on `main`).
 """
 
 from typing import TYPE_CHECKING
@@ -47,18 +49,27 @@ def hand_on(here: Here, slug: str, *, same: bool, now: datetime) -> Handed:
             f"no session of {slug} is on record, so there is no phase to hand off",
             f"lem session open {slug} opens its first",
         )
+    ended = ending(here, slug, newest.phase, same=same)
+    checked(folder, slug, ended, newest.at)
+    old = here.caller or newest.session
+    made = opening.open_session(here, slug, "handoff", old, now)
+    return handed(made, old, ended)
+
+
+def ending(here: Here, slug: str, opened_in: str, *, same: bool) -> str:
+    """The phase that ends: the one the newest session opened in, or with `same` the one the
+    record gives; refused while the record still gives the phase that would end."""
     phase = here.phase(tasks.read(here.where.state, slug).task)
-    ended = phase if same else newest.phase
-    if phase == ended and not same:
+    if same:
+        return phase
+    if phase == opened_in:
         raise Refusal(
             "same-phase",
-            f"the record of {slug} still gives the phase {ended}",
+            f"the record of {slug} still gives the phase {phase}",
             "write the record that ends the phase first, then run this again; for the "
             f"owner's hand off inside a phase, lem session next {slug} --same",
         )
-    checked(folder, slug, ended, newest.at)
-    made = opening.open_session(here, slug, "handoff", newest.session, now)
-    return handed(made, newest.session, ended)
+    return opened_in
 
 
 def checked(folder: Path, slug: str, ended: str, opened_at: datetime) -> None:

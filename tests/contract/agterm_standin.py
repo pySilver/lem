@@ -62,10 +62,15 @@ elif args[:2] == ["session", "new"]:
         space = parent["workspace"]
     else:
         space = value("--workspace") if "--workspace" in args else tree["workspaces"][0]
-    tree["sessions"].append({
+    node = {
         "id": made, "name": value("--name"), "workspace": space, "cwd": value("--cwd"),
         "foreground": ["/usr/local/bin/claude"], "command": value("--command"),
-    })
+    }
+    if "--after" in args:
+        anchor = [n["id"] for n in tree["sessions"]].index(value("--after"))
+        tree["sessions"].insert(anchor + 1, node)
+    else:
+        tree["sessions"].append(node)
     save()
     print(json.dumps({"result": {"id": made}}))
 elif args[:2] == ["session", "move"]:

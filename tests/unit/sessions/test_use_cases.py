@@ -18,7 +18,7 @@ from lem.app.sessions.here import Here
 from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.ports.harness import Seat, Signs, Transcript
-from lem.ports.terminal import Pane
+from lem.ports.terminal import Opening, Pane
 from lem.records.holds import Parked
 from lem.records.sessions import SessionLine
 from lem.records.task import Shape
@@ -106,6 +106,24 @@ def test_open_writes_the_brief_and_opens_in_the_main_checkout_with_no_workspace_
     assert not any(pane.selected for pane in terminal.panes.values())
 
 
+class LosingTerminal(FakeTerminal):
+    """A terminal that stops answering once it made a session."""
+
+    def open(self, opening: Opening) -> str:
+        made = super().open(opening)
+        self.unreadable = "agterm stopped answering"
+        return made
+
+
+def test_a_session_made_is_on_record_before_the_terminal_is_asked_again(
+    tmp_path: Path,
+) -> None:
+    here = here_of(tmp_path, LosingTerminal())
+    made(here)
+    got = opening.open_session(here, SLUG, "new", None, MOMENT)
+    assert [line.session for line in opened.read(here.folder(SLUG))] == [got.session]
+
+
 def test_a_second_open_gives_the_session_that_runs(tmp_path: Path) -> None:
     terminal = FakeTerminal()
     here = here_of(tmp_path, terminal)
@@ -142,6 +160,7 @@ def test_a_new_session_goes_to_the_workspace_of_the_tasks_newest(
         ({"hold": Parked(since=MOMENT)}, "parked"),
         ({"status": "landed"}, "ended"),
         ({"after": "first-task"}, "queued-after"),
+        ({"after": "never-made"}, "queued-after"),
     ],
 )
 def test_open_refuses_a_task_that_gets_no_session_now(
@@ -362,3 +381,59 @@ def test_list_asks_the_terminal_nothing_when_no_session_was_opened(
     here = here_of(tmp_path, FakeTerminal(unreadable="agterm does not answer"))
     made(here)
     assert listing.list_sessions(here) == ()
+
+
+def test_next_from_an_old_session_after_another_took_over_is_refused(
+    tmp_path: Path,
+) -> None:
+    here = here_of(tmp_path)
+    made(here, status="shaping")
+    opening.open_session(here, SLUG, "new", None, MOMENT)
+    (here.folder(SLUG) / "handoff.md").write_text(HANDOFF)
+    handing.hand_on(here, SLUG, same=True, now=LATER)
+    from_the_first = Here(where=here.where, ports=here.ports, caller="session-1")
+    with pytest.raises(Refusal) as refused:
+        handing.hand_on(from_the_first, SLUG, same=True, now=LATER)
+    assert refused.value.code == "taken-over"
+    assert "--session session-1 --why handoff" in refused.value.fix
+    from_the_second = Here(where=here.where, ports=here.ports, caller="session-2")
+    got = handing.hand_on(from_the_second, SLUG, same=True, now=LATER)
+    assert (got.old, got.session) == ("session-2", "session-3")
+    assert "--session session-2 " in got.close
+
+
+class ClickedTerminal(FakeTerminal):
+    """A terminal whose owner selects the session in the moment Lem closes it."""
+
+    clicks: int = 0
+
+    def close(self, session: str, *, when_unselected: bool) -> None:
+        if self.clicks:
+            self.clicks -= 1
+            self.select(session)
+        super().close(session, when_unselected=when_unselected)
+
+
+def test_a_close_the_owner_cut_off_by_his_click_is_never_said_done(
+    tmp_path: Path,
+) -> None:
+    terminal = ClickedTerminal()
+    here = here_of(tmp_path, terminal)
+    made(here)
+    opening.open_session(here, SLUG, "new", None, MOMENT)
+    terminal.panes["S-HIS"] = Pane(id="S-HIS", name="notes")
+    terminal.clicks = 1
+    with pytest.raises(Refusal) as refused:
+        closing.close_session(here, closing_of(), lambda _: None, lambda: LATER)
+    assert refused.value.code == "selected"
+    assert "session-1" in terminal.panes
+    terminal.clicks = 1
+
+    def he_leaves(_every: float) -> None:
+        terminal.select("S-HIS")
+
+    got = closing.close_session(
+        here, closing_of(when_unselected=True), he_leaves, lambda: LATER
+    )
+    assert got.closed is True
+    assert "session-1" not in terminal.panes

@@ -101,13 +101,14 @@ def launched(here: Here, task: Task, phase: Phase, why: str, now: datetime) -> O
 
 
 def in_terminal(here: Here, task: Task, path: Path) -> tuple[str, str | None]:
-    """Open the session on the launch line of the brief at `path`: its id and workspace."""
+    """Open the session on the launch line of the brief at `path`: its id, and the workspace
+    asked for (None: the caller's). Nothing is asked of the terminal after the open, so that
+    its record comes next: a session with no record would get a second agent at a retry."""
     plugin = paths.root()
     checkout = here.where.checkout
     line = here.ports.harness.launch(SEAT, str(path), checkout, plugin)
     made = placing.opening(here, task, line)
-    session = here.ports.terminal.open(made)
-    return session, made.workspace or placing.workspace_of(here, session)
+    return here.ports.terminal.open(made), made.workspace
 
 
 def said(made: Opened) -> str:

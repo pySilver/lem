@@ -26,7 +26,13 @@ def test_a_session_opens_starts_shows_its_signs_and_closes(tmp_path: Path) -> No
     state = places.state_of(repo)
     tasks.create(state, record(SLUG, status="shaping"))
     standin = install(tmp_path / "agterm", [MINE])
-    env = {**os.environ, **standin.environ(AGTERM_SESSION_ID="S-MINE")}
+    # only the stand-ins and the system's folders on the PATH, and no agterm of the owner's
+    inherited = {
+        name: value
+        for name, value in os.environ.items()
+        if not name.startswith(("AGTERM_", "CLAUDE_"))
+    }
+    env = {**inherited, **standin.environ(AGTERM_SESSION_ID="S-MINE")}
 
     first = lem("session", "open", SLUG, "--why", "new", cwd=repo, env=env)
     assert first.code == 0, first.stdout
@@ -37,7 +43,7 @@ def test_a_session_opens_starts_shows_its_signs_and_closes(tmp_path: Path) -> No
         "name": SLUG,
         "phase": "shape",
         "already": False,
-        "workspace": "W-MINE",
+        "workspace": None,
     }
     assert opened["say"] == (
         f"{SLUG} is open in its own session `{SLUG}`, phase shape, at the end of the "
