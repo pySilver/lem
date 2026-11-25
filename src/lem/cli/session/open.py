@@ -13,8 +13,7 @@ import click
 import msgspec
 
 from lem.app.sessions import here, opening
-from lem.cli import place
-from lem.cli.stub import not_built
+from lem.cli import place, stub
 from lem.cli.words import choice
 from lem.kernel import clock
 
@@ -46,7 +45,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 def run(call: Call) -> Envelope:
     """Open the task's session, or give the one that runs."""
     if call.why == "stopped":
-        raise not_built("session open --why stopped", "sessions")
+        raise stub.not_built("session open --why stopped", "sessions")
     bound = here.bound(place.folder())
     made = opening.open_session(bound, call.slug, call.why, None, clock.now())
     return here.enveloped(made, opening.said(made))
