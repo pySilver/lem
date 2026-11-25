@@ -10,9 +10,10 @@ from msgspec.structs import replace
 from fakes.command import lem
 from fakes.records import MOMENT, record
 from fakes.repo import RealRepo, run_git
-from lem.app.tasks import park, resume
+from lem.app.tasks import carry, park, resume
 from lem.kernel.errors import Refusal
 from lem.model.task import resumes
+from lem.ports.faults import Unanswered
 from lem.records.decisions import Breaker, Taken
 from lem.records.holds import BreakerHold, OwnerHold, Parked, ReleaseHold
 from lem.records.journal.task import Summary
@@ -112,7 +113,8 @@ def dropped_with_breaker(where: Workspace, **fields: object) -> None:
     for name in ("handoff.md", "breaker-3.md", "task.md"):
         (folder / name).write_text(f"# {name}\n", encoding="utf-8")
     (folder / "brief.md").write_text(
-        f"task: {SLUG}\nbranch: fix/{SLUG}\nthe lead's brief\n", encoding="utf-8"
+        f"task: {SLUG}\nbranch: fix/{SLUG}\nworktree: /old/{SLUG}\nthe lead's brief\n",
+        encoding="utf-8",
     )
     (folder / "landing.json").write_text("{}", encoding="utf-8")
 
@@ -290,3 +292,56 @@ def test_a_line_of_resumes_that_goes_round_is_refused() -> None:
     with pytest.raises(Refusal) as refused:
         resumes.next_slug("second", (first, second))
     assert refused.value.code == "resume-line"
+
+
+def test_a_successor_git_could_not_cut_is_made_whole_by_the_resume_again(
+    tmp_path: Path,
+) -> None:
+    where = real(tmp_path)
+    dropped_with_breaker(where, branch=f"fix/{SLUG}")
+    run_git(where.checkout, "branch", f"fix/{SLUG}")
+    run_git(where.checkout, "branch", f"fix/{SLUG}-2/blocker")
+    with pytest.raises(Unanswered):
+        resume.resumed(where.checkout, SLUG)
+    assert read(where, f"{SLUG}-2").task.status == "building"
+    run_git(where.checkout, "branch", "-D", f"fix/{SLUG}-2/blocker")
+    back = resume.resumed(where.checkout, SLUG)
+    assert (back.task, back.breaker) == (f"{SLUG}-2", 3)
+    assert (where.lem / "worktrees" / f"{SLUG}-2" / "README.md").is_file()
+    brief = (places.task_folder(where.state, f"{SLUG}-2") / "brief.md").read_text()
+    assert f"worktree: {where.lem / 'worktrees' / f'{SLUG}-2'}\n" in brief
+    with pytest.raises(Refusal) as again:
+        resume.resumed(where.checkout, SLUG)
+    assert again.value.code == "resumed"
+
+
+def test_a_request_whose_branch_git_lost_names_it_missing(tmp_path: Path) -> None:
+    where = real(tmp_path)
+    stop = ReleaseHold(began="0.1.0", running="0.3.1", say="x", since=MOMENT)
+    dropped_with_breaker(where, hold=stop, branch="fix/gone")
+    assert resume.resumed(where.checkout, SLUG).missing == "fix/gone"
+
+
+def test_a_fold_while_the_files_are_read_makes_no_successor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    where = workspace(tmp_path)
+    dropped_with_breaker(where)
+    summary = Summary(
+        at=MOMENT, statuses=("dropped",), first=MOMENT, last=MOMENT, entries=3
+    )
+    reading = carry.taken
+
+    def folded_meanwhile(folder: Path) -> carry.Taken:
+        taken = reading(folder)
+        revision = read(where, SLUG).revision
+        tasks.update(
+            where.state, SLUG, lambda one: replace(one, journal=(summary,)), revision
+        )
+        return taken
+
+    monkeypatch.setattr(carry, "taken", folded_meanwhile)
+    with pytest.raises(Refusal) as refused:
+        resume.resumed(tmp_path, SLUG)
+    assert "folded into its summary" in refused.value.why
+    assert not (where.state / "tasks" / f"{SLUG}-2").exists()

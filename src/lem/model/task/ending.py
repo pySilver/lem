@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
+from lem.records.journal.task import Summary
 from lem.records.landing.propose import OwnerMerge
 
 if TYPE_CHECKING:
@@ -66,3 +67,9 @@ def started_over(record: Record, why: str) -> Record:
 def start_over_line(why: str) -> str:
     """The journal's line of a start over: the mark `lem land start` reads, and why."""
     return f"{START_OVER}: {why}"
+
+
+def summarized(record: Record) -> bool:
+    """Whether retention folded the task's journal into its summary: the files a resumed task
+    would go on from are gone."""
+    return any(isinstance(entry, Summary) for entry in record.journal)

@@ -42,6 +42,7 @@ class Resumed(Frozen, frozen=True, kw_only=True):
     origin: str | None = msgspec.field(default=None, name="from")
     branch: str | None = None
     breaker: int | None = None
+    missing: str | None = None
     says: str
 
 
