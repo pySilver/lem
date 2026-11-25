@@ -56,7 +56,7 @@ seam:hooks-on-mismatch	kept	hooks.test_versions.test_on_two_versions_only_sessio
 seam:other-lem	kept	hooks.test_versions.test_another_lem_first_on_the_path_is_named_and_never_run	
 text:skills/lem/harness/claude-code.md	changed	unit.cli.test_lines.test_each_line_of_a_text_is_one_the_tree_takes_or_the_text_is_marked[skills/lem/harness/claude-code.md]	its lem lines are the tree's commands
 text:skills/lem/harness/claude-code/plan-talk.md	changed	unit.cli.test_lines.test_each_line_of_a_text_is_one_the_tree_takes_or_the_text_is_marked[skills/lem/harness/claude-code/plan-talk.md]	its lem lines are the tree's commands
-text:skills/lem/harness/claude-code/reviewer-guard.json	kept	hooks.test_manifest.test_the_manifest_registers_each_selector_on_its_event_matcher_and_flags	
+text:skills/lem/harness/claude-code/reviewer-guard.json	kept	unit.sessions.test_texts.test_the_reviewer_edits_no_file_and_writes_only_under_tmp_in_its_sandbox	
 text:skills/lem/harness/claude-code/second-opinion.md	changed	unit.cli.test_lines.test_each_line_of_a_text_is_one_the_tree_takes_or_the_text_is_marked[skills/lem/harness/claude-code/second-opinion.md]	its lem lines are the tree's commands
 text:skills/lem/harness/claude-code/task-session.md	changed	unit.cli.test_lines.test_each_line_of_a_text_is_one_the_tree_takes_or_the_text_is_marked[skills/lem/harness/claude-code/task-session.md]	its lem lines are the tree's commands
 text:skills/lem/harness/README.md	changed	unit.cli.test_lines.test_each_line_of_a_text_is_one_the_tree_takes_or_the_text_is_marked[skills/lem/harness/README.md]	its lem lines are the tree's commands
