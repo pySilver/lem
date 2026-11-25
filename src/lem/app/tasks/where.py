@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.records.record import Record
+    from lem.settings.team import Branch
 
 WORKTREES = "worktrees"
 
@@ -45,3 +46,25 @@ def branch(record: Record) -> str:
             f"lem task worktree {slug} makes its worktree on its branch",
         )
     return named
+
+
+def named(record: Record, asked: str | None, rules: Branch) -> str:
+    """The task's branch: the one asked for, else on record, else TYPE/SLUG; never the base
+    or a protected one (`rules`)."""
+    shape, slug = record.task.shape, record.task.slug
+    chosen = asked or record.task.branch
+    if chosen is None and shape is not None:
+        chosen = f"{shape.type}/{slug}"
+    if chosen is None:
+        raise Refusal(
+            "no-branch",
+            "the task has no type yet, so no branch TYPE/SLUG",
+            "lem task read SLUG gives its type first, or --branch names the branch",
+        )
+    if chosen == rules.base or chosen in rules.protected:
+        raise Refusal(
+            "protected",
+            f"{chosen} is the base or a protected branch: a task works on a branch of its own",
+            "name another with --branch",
+        )
+    return chosen
