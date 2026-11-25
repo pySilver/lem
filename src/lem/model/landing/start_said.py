@@ -28,7 +28,8 @@ def unready(record: Record, world: World) -> Refusal | None:
             f"puts the task's branch back in it; then this step runs again. When the work "
             f"is gone with it, `lem task move {slug} dropped` ends the task",
         )
-    if not world.clean:
+    # a rebase in progress leaves the worktree unclean: `base` names it, a builder's own
+    if not world.clean and not world.rebasing:
         return Refusal(
             "dirty",
             "the task's worktree has changes nobody committed",

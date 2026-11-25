@@ -59,7 +59,7 @@ def act(context: frame.Context, *, conflicting: bool) -> Started:
     )
     started = start.decide(record, world, facts, conflicting=conflicting)
     if isinstance(started, Refusal):
-        if started.code == "no-checks":
+        if started.code == "no-checks" and not begin.is_blocked(record):
             context.write(
                 record, partial(begin.blocked, refusal=started, now=world.now)
             )

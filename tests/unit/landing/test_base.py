@@ -90,7 +90,7 @@ def test_a_teammates_commits_are_each_named_with_the_pull_that_brings_them() -> 
     assert "change 5" not in found.why
     assert ", and 2 more" in found.why
     assert f"git -C {WHERE} pull --rebase origin docs/fix-the-login" in found.fix
-    assert "lem land start fix-the-login again" in found.fix
+    assert "lem land base fix-the-login runs again" in found.fix
 
 
 def test_a_branch_with_no_commit_of_its_own_has_nothing_to_land() -> None:

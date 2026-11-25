@@ -67,8 +67,7 @@ def begun(record: Record, started: Started) -> Record:
 def blocked(record: Record, refusal: Refusal, now: Moment) -> Record:
     """The record of a task that `start` blocked for want of a command of the checks; a task
     blocked so already is left as it is."""
-    hold = record.task.hold
-    if isinstance(hold, Blocked) and hold.why == NO_CHECKS:
+    if is_blocked(record):
         return record
     made = Blocked(why=NO_CHECKS, fix=refusal.fix, since=now)
     entry = StateNoted(
@@ -76,3 +75,9 @@ def blocked(record: Record, refusal: Refusal, now: Moment) -> Record:
     )
     task = replace(record.task, hold=made)
     return replace(record, task=task, journal=(*record.journal, entry))
+
+
+def is_blocked(record: Record) -> bool:
+    """Whether `start` blocked the task already for want of a command of the checks."""
+    hold = record.task.hold
+    return isinstance(hold, Blocked) and hold.why == NO_CHECKS

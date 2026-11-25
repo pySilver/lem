@@ -41,8 +41,8 @@ def teammate(
         f"origin's {branch} holds {count} commit(s) that Lem did not push and "
         f"the task's branch does not hold: {named}{rest}. A push would remove them",
         f"`git -C {where} pull --rebase origin {branch}` brings them into the task's "
-        f"branch; then lem land start {slug} again: they are part of the change, with its "
-        "checks and a read",
+        f"branch; then lem land base {slug} runs again: they are part of the change, with "
+        "its checks and a read",
     )
 
 

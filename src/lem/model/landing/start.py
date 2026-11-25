@@ -41,6 +41,8 @@ def holds(record: Record, world: World) -> Held | Due:
     started = landing.started if landing else None
     if landing is None or started is None or started.round != landing.round:
         return Due(step=STEP, why="this round of the landing has not started")
+    if record.task.status != "landing":
+        return Due(step=STEP, why="the task came back ready: its landing goes on")
     refused = start_said.unready(record, world)
     if refused is not None:
         return Due(step=STEP, why=refused.why)
