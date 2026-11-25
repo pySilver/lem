@@ -124,6 +124,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from types import MappingProxyType
 
 from lem import clock as lem_clock
 
@@ -201,10 +202,12 @@ CHART_TYPES = (
     "C4Deployment",
 )
 # The two causes of the circuit breaker, and no others: see the text above.
-CAUSES = {
-    "irreversible": "the next step cannot be reversed by a later no",
-    "criteria": "no option of the ladder keeps the outcome the owner approved",
-}
+CAUSES = MappingProxyType(
+    {
+        "irreversible": "the next step cannot be reversed by a later no",
+        "criteria": "no option of the ladder keeps the outcome the owner approved",
+    }
+)
 # The breaker's document and the handoff beside it, by their names in the task
 # directory. The record keeps the document under the breaker's number (`kept_document`),
 # so each breaker of a task has its own.
@@ -213,34 +216,44 @@ BREAKER_KEPT = "breaker-{id}.md"
 HANDOFF = "handoff.md"
 # The parts of the breaker's document, as `templates/breaker.md` has them: each a `## `
 # heading that opens with these words, in any case, and what its text must hold.
-BREAKER_PARTS = {
-    "today and after": "the run of Today and the run of After, each in numbered steps",
-    "the case": (
-        "the case that broke, in numbered steps, with its chart in a ```mermaid block"
-    ),
-    "the root cause": (
-        "why the case became possible, and how far the same cause reaches"
-    ),
-    "the options": "the options as this or that, in a table, with what each leads to",
-    "the recommendation": "the option you would take, and why",
-    "the assumptions": "what the document takes as true, one item each",
-}
+BREAKER_PARTS = MappingProxyType(
+    {
+        "today and after": (
+            "the run of Today and the run of After, each in numbered steps"
+        ),
+        "the case": (
+            "the case that broke, in numbered steps, with its chart in a "
+            "```mermaid block"
+        ),
+        "the root cause": (
+            "why the case became possible, and how far the same cause reaches"
+        ),
+        "the options": (
+            "the options as this or that, in a table, with what each leads to"
+        ),
+        "the recommendation": "the option you would take, and why",
+        "the assumptions": "what the document takes as true, one item each",
+    }
+)
 # The state line of a task that a breaker holds, which project.py, session.py and the
 # board read.
 BREAKER_WAIT = re.compile(r"breaker ([1-9]\d*) waits for the owner")
 # Why a later "no" cannot undo a step. A fixed list: see the text above.
-IRREVERSIBLE = {
-    "data": "it destroys or rewrites data outside the worktree",
-    "system": (
-        "it writes to a system outside the repository, beyond what the settings allow"
-    ),
-    "person": "it sends something to a person",
-    "money": "it spends money",
-}
+IRREVERSIBLE = MappingProxyType(
+    {
+        "data": "it destroys or rewrites data outside the worktree",
+        "system": (
+            "it writes to a system outside the repository, beyond what the settings "
+            "allow"
+        ),
+        "person": "it sends something to a person",
+        "money": "it spends money",
+    }
+)
 
 
 class DecisionError(Exception):
-    pass
+    """A refusal to read or write the decisions of a task."""
 
 
 def script(name: str, repo: Path, *args: str) -> str:
@@ -268,7 +281,7 @@ class Task:
             / "tasks"
             / slug
         )
-        self.file = self.directory / "decisions.jsonl"
+        self.path = self.directory / "decisions.jsonl"
 
     def read_status(self, tasks: list[dict] | None = None) -> str | None:
         """The task's status now, from its state file: a task may be dropped while a
@@ -277,21 +290,19 @@ class Task:
             tasks = json.loads(script("project.py", self.repo, "tasks"))
         record = next((task for task in tasks if task["slug"] == self.slug), None)
         if record is None:
-            raise DecisionError(
-                f"no task {self.slug!r}; the tasks are: "
-                f"{', '.join(task['slug'] for task in tasks) or 'none yet'}"
-            )
+            listed = ", ".join(task["slug"] for task in tasks) or "none yet"
+            raise DecisionError(f"no task {self.slug!r}; the tasks are: {listed}")
         return record["status"]
 
     def lines(self) -> list[dict]:
-        if not self.file.is_file():
+        if not self.path.is_file():
             return []
         out = []
         try:
-            written = self.file.read_text(encoding="utf-8")
+            written = self.path.read_text(encoding="utf-8")
         except UnicodeDecodeError as error:
             raise DecisionError(
-                f"{self.file} is not UTF-8 text (byte {error.start} does not read); "
+                f"{self.path} is not UTF-8 text (byte {error.start} does not read); "
                 "the file is written by this script only"
             ) from error
         for number, line in enumerate(lem_state.jsonl_lines(written), start=1):
@@ -300,7 +311,7 @@ class Task:
                     out.append(json.loads(line))
                 except ValueError as error:
                     raise DecisionError(
-                        f"{self.file}:{number} does not read as JSON ({error}); "
+                        f"{self.path}:{number} does not read as JSON ({error}); "
                         "the file is written by this script only"
                     ) from error
         return out
@@ -360,11 +371,9 @@ class Task:
             {key: old.get(key) for key in keys} for old in approved.get("history", [])
         ] + [{key: approved.get(key) for key in keys}]
         newest = approvals[-1]["number"]
-        everything = [
-            line
-            for line in (self.lines() if lines is None else lines)
-            if line["kind"] == "criterion"
-        ]
+        if lines is None:
+            lines = self.lines()
+        everything = [line for line in lines if line["kind"] == "criterion"]
         history = []
         for line in everything:
             later = next(
@@ -376,7 +385,7 @@ class Task:
                 None,
             )
             history.append({**line, "taken_over_by": later})
-        changes = [line for line in everything if line.get("approval") == newest]
+        changes = [change for change in everything if change.get("approval") == newest]
         expected = [lem_state.whole(criterion) for criterion in approved["criteria"]]
         for change in changes:
             expected = applied(expected, change)
@@ -395,14 +404,26 @@ class Task:
         """Decision NUMBER of the record, or breaker NUMBER with `kind="breaker"`."""
         known = self.decisions() if known is None else known
         found = next(
-            (d for d in known if d["id"] == number and d["kind"] == kind), None
+            (
+                decision
+                for decision in known
+                if decision["id"] == number and decision["kind"] == kind
+            ),
+            None,
         )
         if found is None:
             word = "breaker" if kind == "breaker" else "decision"
-            those = [str(d["id"]) for d in known if d["kind"] == kind]
+            listed = (
+                ", ".join(
+                    str(decision["id"])
+                    for decision in known
+                    if decision["kind"] == kind
+                )
+                or "none"
+            )
             raise DecisionError(
                 f"no {word} {number} in {self.slug}; "
-                f"its {word}s: {', '.join(those) or 'none'} "
+                f"its {word}s: {listed} "
                 f"(`lem decisions list {self.slug}`)"
             )
         return found
@@ -426,8 +447,8 @@ class Task:
                     f"(`lem decisions list {self.slug}`); new work is a new ask",
                 )
             lines = make(self.decisions())
-            with self.file.open("a", encoding="utf-8") as handle:
-                handle.write("".join(json.dumps(line) + "\n" for line in lines))
+            with self.path.open("a", encoding="utf-8") as out:
+                out.write("".join(f"{json.dumps(line)}\n" for line in lines))
         for line in lines:
             script(
                 "project.py",
@@ -436,25 +457,25 @@ class Task:
                 self.slug,
                 f"decision.{line['kind']}",
                 *(
-                    f"{key}:={json.dumps(value)}"
-                    for key, value in line.items()
+                    f"{key}:={json.dumps(field)}"
+                    for key, field in line.items()
                     if key != "kind"
                 ),
             )
         return lines
 
 
-def text(value: str | None, flag: str) -> str:
-    if value is None or not value.strip():
+def text(words: str | None, flag: str) -> str:
+    if words is None or not words.strip():
         raise DecisionError(f"{flag} needs its text: one sentence in plain words")
-    return " ".join(value.split())
+    return " ".join(words.split())
 
 
-def typed(value: str | None, flag: str) -> str:
+def typed(words: str | None, flag: str) -> str:
     """A criterion's text as typed: two spaces in a literal value stay two."""
-    if value is None or not value.strip():
+    if words is None or not words.strip():
         raise DecisionError(f"{flag} needs the criterion's text, word for word")
-    return value.strip()
+    return words.strip()
 
 
 def same(one: str, other: str) -> bool:
@@ -468,9 +489,10 @@ def applied(criteria: list[str], change: dict) -> list[str]:
     names is refused."""
     number, out = change["criterion"], list(criteria)
     if change["how"] == "added":
-        if not 1 <= number <= len(out) + 1:
+        last = len(out) + 1
+        if not 1 <= number <= last:
             raise DecisionError(
-                f"an added criterion goes at a number from 1 to {len(out) + 1}, "
+                f"an added criterion goes at a number from 1 to {last}, "
                 f"and this one is {number}"
             )
         out.insert(number - 1, change["now"])
@@ -480,9 +502,10 @@ def applied(criteria: list[str], change: dict) -> list[str]:
             f"there is no criterion {number}: the criteria are 1 to {len(out)} "
             "after every earlier change"
         )
-    if not same(out[number - 1], change["was"]):
+    was = out[number - 1]
+    if not same(was, change["was"]):
         raise DecisionError(
-            f"criterion {number} is {out[number - 1]!r} after every earlier change, "
+            f"criterion {number} is {was!r} after every earlier change, "
             f"and --was says {change['was']!r}; `lem decisions changes SLUG` gives the "
             "criteria as they stand"
         )
@@ -493,13 +516,13 @@ def applied(criteria: list[str], change: dict) -> list[str]:
     return out
 
 
-def pairs(values: list[str] | None, flag: str, form: str) -> list[list[str]]:
+def pairs(entries: list[str] | None, flag: str, form: str) -> list[list[str]]:
     """Each `NAME=TEXT` of a repeated flag, as typed, split at its first `=`."""
     out = []
-    for value in values or []:
-        name, sign, said = value.partition("=")
+    for entry in entries or []:
+        name, sign, said = entry.partition("=")
         if not sign or not name.strip() or not said.strip():
-            raise DecisionError(f"{flag} is {form}, and {value!r} is not")
+            raise DecisionError(f"{flag} is {form}, and {entry!r} is not")
         out.append([" ".join(name.split()), " ".join(said.split())])
     return out
 
@@ -520,17 +543,15 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901, PLR091
     if args.by == "personas":
         other = [name for name, option in votes if option != chose]
         if len(votes) < FEWEST_VOTES or other:
+            if other:
+                listed = ", ".join(other)
+                tally = f"{listed} voted otherwise"
+            else:
+                tally = f"this one has {len(votes)}"
             raise DecisionError(
-                (
-                    "the personas settle a decision with two votes or more, all for "
-                    f"the option taken ({chose!r}); "
-                )
-                + (
-                    f"{', '.join(other)} voted otherwise"
-                    if other
-                    else f"this one has {len(votes)}"
-                )
-                + ": the ladder goes on to the dialectic (`stages/ladder.md`)",
+                "the personas settle a decision with two votes or more, all for "
+                f"the option taken ({chose!r}); {tally}: the ladder goes on to the "
+                "dialectic (`stages/ladder.md`)",
             )
     if args.unsettled and args.by != "lead":
         raise DecisionError(
@@ -554,7 +575,7 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901, PLR091
     }
     important = args.by in PAST_PERSONAS or args.unsettled
     if important or any(
-        value is not None for value in (args.case, args.case_was, args.cause)
+        field is not None for field in (args.case, args.case_was, args.cause)
     ):
         who = (
             "the lead's pick that no level settled"
@@ -630,19 +651,17 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901 -
     wants = {"changed": ("was", "now"), "added": ("now",), "removed": ("was",)}[how]
     for key in ("was", "now"):
         if key in wants and getattr(args, key) is None:
+            when = "before" if key == "was" else "after"
             raise DecisionError(
                 f"--{how} needs --{key}: the criterion's text "
-                f"{'before' if key == 'was' else 'after'} the change, word for word"
+                f"{when} the change, word for word"
             )
         if key not in wants and getattr(args, key) is not None:
-            raise DecisionError(
-                f"--{how} takes no --{key}: "
-                + (
-                    "an added criterion had no text before"
-                    if how == "added"
-                    else "a removed criterion has no text after"
-                )
-            )
+            absence = {
+                "added": "an added criterion had no text before",
+                "removed": "a removed criterion has no text after",
+            }[how]
+            raise DecisionError(f"--{how} takes no --{key}: {absence}")
     if (args.decision is None) == (args.by is None):
         raise DecisionError(
             "a criterion change names --decision ID, the decision of the record that "
@@ -674,12 +693,12 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901 -
     }
     for key in wants:
         line[key] = typed(getattr(args, key), f"--{key}")
-    if args.decision is not None:
-        line["decision"] = args.decision
-    else:
+    if args.decision is None:
         line["by"] = args.by
         if args.said is not None:
             line["said"] = text(args.said, "--said")
+    else:
+        line["decision"] = args.decision
 
     def make(known: list[dict]) -> list[dict]:
         if args.decision is not None:
@@ -701,19 +720,20 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901 -
     return {**made, "criteria": task.changes()["expected"]}
 
 
-def steps(value: str | None) -> str:
+def steps(case: str | None) -> str:
     """The case of a decision as typed, one step to a line: two numbered steps at
     the least."""
     lines = [
-        line.rstrip() for line in (value or "").strip().splitlines() if line.strip()
+        line.rstrip() for line in (case or "").strip().splitlines() if line.strip()
     ]
     numbered = [line for line in lines if re.match(r"\s*\d+[.)]\s+\S", line)]
-    if len(numbered) < FEWEST_STEPS:
+    count = len(numbered)
+    if count < FEWEST_STEPS:
+        suffix = "" if count == 1 else "s"
         raise DecisionError(
             "--case is one concrete case that ends badly, in numbered steps, one to a "
             'line ("1. ...", "2. ..."), with real names and values and where each '
-            f"step was read; this one has {len(numbered)} numbered "
-            f"step{'' if len(numbered) == 1 else 's'}",
+            f"step was read; this one has {count} numbered step{suffix}",
         )
     return "\n".join(lines)
 
@@ -723,25 +743,25 @@ def story(args: argparse.Namespace, what: str | None = None) -> dict:
     a log's story, whose missing fields are named first."""
     missing = [
         flag
-        for flag, value in (
+        for flag, field in (
             ("--case", args.case),
             ("--case-was", args.case_was),
             ("--cause", args.cause),
         )
-        if value is None
+        if field is None
     ]
     if missing and what:
+        listed = ", no ".join(missing)
         raise DecisionError(
             f"{what}: --case, one concrete run in numbered steps, one to a line, "
             "--case-was reproduced|derived, and --cause, one line on why it became "
             "possible and how far that reaches (`prompts/writing.md`); "
-            f"this one has no {', no '.join(missing)}",
+            f"this one has no {listed}",
         )
     case = steps(args.case)
     if args.case_was not in CASE_WAS:
-        raise DecisionError(
-            f"--case-was says how the case is known: {' or '.join(CASE_WAS)}"
-        )
+        listed = " or ".join(CASE_WAS)
+        raise DecisionError(f"--case-was says how the case is known: {listed}")
     return {
         "case": case,
         "case_was": args.case_was,
@@ -749,20 +769,20 @@ def story(args: argparse.Namespace, what: str | None = None) -> dict:
     }
 
 
-def chart(file: str) -> str:  # noqa: C901 - over the limit before the limit was set
-    """The text of one mermaid chart, from FILE, with its line breaks and without
+def chart(path: str) -> str:  # noqa: C901 - over the limit before the limit was set
+    """The text of one mermaid chart, from PATH, with its line breaks and without
     its fence."""
-    source = Path(file)
+    source = Path(path)
     if not source.is_file():
         raise DecisionError(
-            f"--chart names a file that holds one mermaid chart, and {file} is not a "
+            f"--chart names a file that holds one mermaid chart, and {path} is not a "
             "file; write the chart into a file first"
         )
     try:
         written = source.read_text(encoding="utf-8")
     except UnicodeDecodeError as error:
         raise DecisionError(
-            f"{file} is not UTF-8 text (byte {error.start} does not read); "
+            f"{path} is not UTF-8 text (byte {error.start} does not read); "
             "write the chart in UTF-8"
         ) from error
     rows = written.strip("\n").splitlines()
@@ -770,7 +790,7 @@ def chart(file: str) -> str:  # noqa: C901 - over the limit before the limit was
     if fence:
         if fence.group(2) not in ("", "mermaid"):
             raise DecisionError(
-                f"{file} holds a ```{fence.group(2)} block, and --chart takes one "
+                f"{path} holds a ```{fence.group(2)} block, and --chart takes one "
                 "mermaid chart: its text, or its text in a ```mermaid fence"
             )
         rows = rows[1:]
@@ -779,26 +799,26 @@ def chart(file: str) -> str:  # noqa: C901 - over the limit before the limit was
     body = "\n".join(row.rstrip() for row in rows).strip("\n")
     if not body.strip():
         raise DecisionError(
-            f"{file} holds no chart: --chart takes one mermaid chart, its text or its "
+            f"{path} holds no chart: --chart takes one mermaid chart, its text or its "
             "text in a ```mermaid fence"
         )
     if len(body) > CHART_MOST:
         raise DecisionError(
-            f"the chart in {file} has {len(body)} characters, and a record keeps "
+            f"the chart in {path} has {len(body)} characters, and a record keeps "
             f"{CHART_MOST} at the most: one chart for one idea, "
             "about a dozen nodes (`prompts/writing.md`)"
         )
     head = chart_type(body)
     if head not in CHART_TYPES:
         raise DecisionError(
-            f"the chart in {file} opens with {head!r}, which is no chart type mermaid "
+            f"the chart in {path} opens with {head!r}, which is no chart type mermaid "
             "draws; it opens with one of them, as `flowchart TD` or `sequenceDiagram`"
         )
     if head in ("flowchart", "graph"):
         bare = unquoted(body)
         if bare:
             raise DecisionError(
-                f"the chart in {file} has a text out of double quotes, {bare!r}: "
+                f"the chart in {path} has a text out of double quotes, {bare!r}: "
                 "every node's and edge's text of a flowchart is in double quotes, as "
                 'A["The total shows 0"] -->|"yes"| B["A credit note"]',
             )
@@ -810,7 +830,8 @@ def chart_type(body: str) -> str:
     rows = body.splitlines()
     if rows and rows[0].strip() == "---":
         ends = next(
-            (i for i in range(1, len(rows)) if rows[i].strip() == "---"), len(rows) - 1
+            (number for number in range(1, len(rows)) if rows[number].strip() == "---"),
+            len(rows) - 1,
         )
         rows = rows[ends + 1 :]
     first = next(
@@ -854,8 +875,8 @@ def unquoted(body: str) -> str | None:
     # the rows after the one that names the chart's type: front matter before it holds
     # no node
     start = next(
-        i
-        for i, row in enumerate(rows)
+        number
+        for number, row in enumerate(rows)
         if row.split()[:1] and row.split()[0] in ("flowchart", "graph")
     )
     for row in rows[start + 1 :]:
@@ -867,7 +888,8 @@ def unquoted(body: str) -> str | None:
             after = bare[found.end() :].lstrip()
             if not after.startswith('"'):
                 return row.strip()
-        for found in [*PIPED.finditer(bare), *SPOKEN.finditer(bare)]:
+        edges = [*PIPED.finditer(bare), *SPOKEN.finditer(bare)]
+        for found in edges:
             if found.group(1).strip() != '""':
                 return row.strip()
     return None
@@ -889,14 +911,14 @@ def experts_here(repo: Path) -> list[str]:
     return found
 
 
-def breaker_document(file: Path) -> str:
+def breaker_document(path: Path) -> str:
     """The title of a breaker's document, after a check of its parts (BREAKER_PARTS);
     refused with each part it lacks, so the owner never reads a bare question."""
     try:
-        written = file.read_text(encoding="utf-8")
+        written = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as error:
         raise DecisionError(
-            f"{file} is not UTF-8 text (byte {error.start} does not read); "
+            f"{path} is not UTF-8 text (byte {error.start} does not read); "
             "write it in UTF-8"
         ) from error
     # here: the one fence rule of Lem, which only this check of decisions.py needs
@@ -905,7 +927,7 @@ def breaker_document(file: Path) -> str:
     lines = written.splitlines()
     # a line inside a code block is a line of its part, never a heading; a block that
     # never closes is refused before any part is named as missing
-    fenced = fenced_lines(lines, str(file), DecisionError)
+    fenced = fenced_lines(lines, str(path), DecisionError)
     title = next(
         (
             line[2:].strip()
@@ -958,14 +980,15 @@ def breaker_document(file: Path) -> str:
             )
         )
         if lacks:
-            missing.append(f"## {part[0].upper()}{part[1:]} ({holds})")
+            heading = part.capitalize()
+            missing.append(f"## {heading} ({holds})")
     if not title:
         missing.insert(
             0, "a first line `# ` that says what stopped the task, in one sentence"
         )
     if missing:
         raise DecisionError(
-            f"{file} is no breaker's document yet: it lacks "
+            f"{path} is no breaker's document yet: it lacks "
             + "; ".join(missing)
             + (
                 ". `templates/breaker.md` of the skill is its form: the owner reads it "
@@ -1049,7 +1072,12 @@ def cmd_breaker(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901 - o
 
     def make(known: list[dict]) -> list[dict]:
         waiting = next(
-            (d for d in known if d["kind"] == "breaker" and d["state"] == "waits"), None
+            (
+                decision
+                for decision in known
+                if decision["kind"] == "breaker" and decision["state"] == "waits"
+            ),
+            None,
         )
         if waiting:
             raise DecisionError(
@@ -1060,9 +1088,10 @@ def cmd_breaker(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901 - o
         return [{"id": number, **line, "document": kept_document(document, number)}]
 
     made = task.add(make)[0]
-    why = CAUSES[args.cause] + (
-        f" ({IRREVERSIBLE[args.irreversible]})" if args.irreversible else ""
-    )
+    why = CAUSES[args.cause]
+    if args.irreversible:
+        kind = IRREVERSIBLE[args.irreversible]
+        why = f"{why} ({kind})"
     script(
         "project.py",
         task.repo,
@@ -1085,7 +1114,7 @@ def cmd_breaker(task: Task, args: argparse.Namespace) -> dict:  # noqa: C901 - o
 def shown(task: Task, decision: dict) -> dict:
     return {
         "task": task.slug,
-        **{key: value for key, value in decision.items() if key != "kind"},
+        **{key: field for key, field in decision.items() if key != "kind"},
         "kind": decision["kind"],
     }
 
@@ -1096,15 +1125,16 @@ def cmd_pending(repo: Path, slug: str | None) -> dict:
     for `list`."""
     # Every task, from one read of the tasks and of the state folder: nothing here
     # writes either.
-    listed = json.loads(script("project.py", repo, "tasks")) if not slug else None
+    listed = None if slug else json.loads(script("project.py", repo, "tasks"))
     state = Path(script("project.py", repo, "state-dir").strip()) if listed else None
     slugs = [slug] if slug else [task["slug"] for task in listed or []]
     out: dict[str, list[dict]] = {"waiting": [], "parked": [], "ended": []}
-    for task in (Task(repo, name, listed, state) for name in slugs):
+    for name in slugs:
+        task = Task(repo, name, listed, state)
         open_ones = [
-            d
-            for d in task.decisions()
-            if d["kind"] == "breaker" and d["state"] == "waits"
+            decision
+            for decision in task.decisions()
+            if decision["kind"] == "breaker" and decision["state"] == "waits"
         ]
         if task.status in ENDED:
             if open_ones or slug:
@@ -1112,7 +1142,7 @@ def cmd_pending(repo: Path, slug: str | None) -> dict:
                     {
                         "task": task.slug,
                         "status": task.status,
-                        "breakers": [d["id"] for d in open_ones],
+                        "breakers": [decision["id"] for decision in open_ones],
                         "says": (
                             f"the task is {task.status}: its breakers no "
                             "longer wait for anybody"
@@ -1121,7 +1151,8 @@ def cmd_pending(repo: Path, slug: str | None) -> dict:
                 )
         else:
             out["parked" if task.status == PARKED else "waiting"] += [
-                {**shown(task, d), "status": task.status} for d in open_ones
+                {**shown(task, decision), "status": task.status}
+                for decision in open_ones
             ]
     return out
 
@@ -1284,7 +1315,8 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
     commands.add_parser("list").add_argument("slug")
     args = parser.parse_args(argv)
     # the record would hold it, and the event log and the pull request after it
-    if problem := lem_state.unreadable_argument(sys.argv[1:] if argv is None else argv):
+    problem = lem_state.unreadable_argument(sys.argv[1:] if argv is None else argv)
+    if problem:
         sys.exit(f"decisions.py: {problem}")
     repo = Path(args.repo)
     try:
@@ -1298,25 +1330,25 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
             if stopped:
                 raise DecisionError(stopped)
         if args.command == "pending":
-            result: object = cmd_pending(repo, args.slug)
+            reply: object = cmd_pending(repo, args.slug)
         else:
             task = Task(repo, args.slug)
             stopped = lem_release.check(task.directory)
             if stopped:
                 raise DecisionError(stopped)
             if args.command == "log":
-                result = cmd_log(task, args)
+                reply = cmd_log(task, args)
             elif args.command == "criterion":
-                result = cmd_criterion(task, args)
+                reply = cmd_criterion(task, args)
             elif args.command == "changes":
-                result = task.changes()
+                reply = task.changes()
             elif args.command == "breaker":
-                result = cmd_breaker(task, args)
+                reply = cmd_breaker(task, args)
             else:
-                result = [shown(task, decision) for decision in task.decisions()]
+                reply = [shown(task, decision) for decision in task.decisions()]
     except DecisionError as error:
         sys.exit(f"decisions.py: {error}")
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    print(json.dumps(reply, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

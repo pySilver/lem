@@ -91,7 +91,7 @@ def ledger(directory: Path) -> decisions.Task:
     """decisions.py's own record of a task in DIRECTORY, without the commands that
     find it."""
     record = decisions.Task.__new__(decisions.Task)
-    record.slug, record.directory, record.file = (
+    record.slug, record.directory, record.path = (
         "t",
         directory,
         directory / "decisions.jsonl",
@@ -104,7 +104,7 @@ def folded(lines: list[dict]) -> list[dict]:
     """The decisions as `lem decisions list` gives them, from their lines."""
     with tempfile.TemporaryDirectory() as folder:
         record = ledger(Path(folder))
-        record.file.write_text(
+        record.path.write_text(
             "".join(json.dumps(line) + "\n" for line in lines), encoding="utf-8"
         )
         # as `lem decisions list` gives them, which land.py reads
@@ -165,7 +165,7 @@ def found_of(
             (Path(folder) / "criteria.json").write_text(
                 json.dumps(approved), encoding="utf-8"
             )
-        record.file.write_text(
+        record.path.write_text(
             "".join(json.dumps(line) + "\n" for line in lines), encoding="utf-8"
         )
         changes = record.changes()

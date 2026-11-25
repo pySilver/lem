@@ -313,8 +313,8 @@ class TheRecord(unittest.TestCase):
         words = "a\N{LINE SEPARATOR}b\N{PARAGRAPH SEPARATOR}c\x85d"
         with tempfile.TemporaryDirectory() as folder:
             task = object.__new__(decisions.Task)
-            task.file = Path(folder) / "decisions.jsonl"
-            task.file.write_text(
+            task.path = Path(folder) / "decisions.jsonl"
+            task.path.write_text(
                 json.dumps({"kind": "taken", "id": 1, "why": words}, ensure_ascii=False)
                 + "\n",
                 encoding="utf-8",
