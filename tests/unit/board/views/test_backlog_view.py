@@ -159,7 +159,7 @@ def test_a_page_that_may_not_act_gives_the_line_to_type(tmp_path: Path) -> None:
 def test_with_no_read_the_view_says_so_and_the_key_counts_nothing(
     tmp_path: Path,
 ) -> None:
-    seen = world(tmp_path)
+    seen = replace(world(tmp_path), backlog=None)
     shown = view.backlog(seen, Wanted())
     assert shown.empty == "The backlog was not read: the status bar says why."
     assert shown.shelves == ()

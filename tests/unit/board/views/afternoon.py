@@ -1,6 +1,9 @@
 """The showcase afternoon as the views read it: `fixtures.board.beside.lay` in a folder of the
 case, gathered at the fixture's minute for the owner on this Mac, with git's answers of the
-afternoon (the refund line's newest commit, and no backlog item filed on its branch).
+afternoon (the refund line's newest commit, no backlog item filed on its branch, both items of
+the backlog folder committed by `t` that day) and the code its items name, which `lay` does not
+write and `main`'s showcase did (`invoice/footer.py`, `AGENTS.md`, `tests/test_export.py`), so
+that every place an item names is still there.
 
 Each fixture of `tests/fixtures/board/` is what a view gives of this world.
 """
@@ -11,6 +14,7 @@ from fixtures.board.beside import lay
 from fixtures.board.moments import NOW, sha
 from fixtures.board.receipt import TIP
 from fixtures.board.shown import VERSION, VIEWER, ZONE
+from lem.board.views.backlog.ledger import Adding
 from lem.board.views.gather import Ask, gather
 from lem.board.views.world import Clock, Place
 from lem.ports.git_facts import Commit
@@ -18,6 +22,7 @@ from lem.ports.git_facts import Commit
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.board.inputs.layout import Viewer
     from lem.board.views.world import World
 
 RECEIPT_BRANCH = "feat/refund-line-on-receipt"
@@ -26,6 +31,14 @@ BASE = sha("main under the receipt")
 # The workspace's path as the showcase's machine has it.
 PATH = "/work/shop"
 PLACE = Place(repo="shop", base="main", path=PATH)
+FOOTER = "docs/backlog/invoice-footer-wraps.md"
+QUERY = "docs/backlog/export-in-one-query.md"
+# The code the afternoon's items name, as `main`'s showcase writes it.
+CODE = (
+    ("invoice/footer.py", "def footer(order):\n    return order.shop.address\n"),
+    ("AGENTS.md", "# The shop\n\nRun `make test` and `make lint` before a commit.\n"),
+    ("tests/test_export.py", "def test_monthly():\n    assert True\n"),
+)
 
 
 class AfternoonGit:
@@ -48,15 +61,36 @@ class AfternoonGit:
         return None
 
 
-def world(folder: Path) -> World:
-    """The afternoon laid in `folder`, as the views read it."""
+class AfternoonLedger:
+    """Git's answers of the afternoon's backlog: both items of the backlog folder committed by
+    `t` on 2026-11-25, in a commit that names no task, and nothing git does not have."""
+
+    def adds(self, where: Path, folder: str) -> tuple[Adding, ...] | None:
+        paths = (QUERY, FOOTER)
+        return (
+            Adding(
+                author="t", day="2026-11-25", subject="docs: the backlog", paths=paths
+            ),
+        )
+
+    def unsaved(self, where: Path, folder: str) -> tuple[tuple[str, str], ...] | None:
+        return ()
+
+
+def world(folder: Path, viewer: Viewer = VIEWER) -> World:
+    """The afternoon laid in `folder`, as the views read it for `viewer`."""
     checkout = lay(folder)
+    for name, body in CODE:
+        path = checkout / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body, encoding="utf-8")
     ask = Ask(
-        viewer=VIEWER,
+        viewer=viewer,
         clock=Clock(now=NOW, zone=ZONE),
         version=VERSION,
         place=PLACE,
         home=folder / "home",
         git=AfternoonGit(),
+        ledger=AfternoonLedger(),
     )
     return gather(checkout, ask)
