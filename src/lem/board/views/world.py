@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from lem.app.sessions.acts import Act
-from lem.board.views.facts import Commit, Filed, Stat
+from lem.board.views import facts
 from lem.model.owner.looks import Session, Stop
 from lem.records.base import Frozen
 from lem.records.owner import Presence
@@ -20,14 +20,14 @@ if TYPE_CHECKING:
     from datetime import datetime, tzinfo
 
     from lem.board.inputs.layout import Viewer
-    from lem.board.views.backlog_read import Shelved
-    from lem.board.views.inbox_read import Inbox
+    from lem.board.views import backlog_read, inbox_read
+    from lem.settings.team import History
 
 
 class Seen(Frozen, frozen=True, kw_only=True):
     """A task's record and what lies beside it: Lem's acts on its sessions, the files of its
-    folder, the size and time of each, their text read as it is (`task.md`, a breaker's
-    document, the merge review), the newest commit of its branch, the backlog items its branch
+    folder, the size and time of each, their text and the worktree plan, the newest commit of
+    its branch, the backlog items its branch
     adds (None when git cannot tell), whether its worktree is there, its live session as the
     terminal shows it, the guard's stop that stands over it, and whether it runs without the
     owner now (he is away, or the night opened it)."""
@@ -36,9 +36,10 @@ class Seen(Frozen, frozen=True, kw_only=True):
     acts: tuple[Act, ...] = ()
     files: tuple[str, ...] = ()
     prose: tuple[tuple[str, str], ...] = ()
-    stats: tuple[Stat, ...] = ()
-    head: Commit | None = None
-    filed: tuple[Filed, ...] | None = None
+    plan_text: str | None = None
+    stats: tuple[facts.Stat, ...] = ()
+    head: facts.Commit | None = None
+    filed: tuple[facts.Filed, ...] | None = None
     worktree: bool = False
     session: Session | None = None
     stop: Stop | None = None
@@ -60,12 +61,13 @@ class Clock:
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Place:
     """The workspace: its repository's name, the base branch its tasks land on, the path of
-    its main checkout, and its backlog folder."""
+    its main checkout, its backlog folder, and how its branches land."""
 
     repo: str
     base: str
     path: str
     backlog: str = "docs/backlog"
+    history: History = "squash"
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -92,7 +94,7 @@ class World:
     tasks: tuple[Seen, ...]
     unknown: str | None = None
     presence: Presence = field(default_factory=Presence)
-    backlog: Shelved | None = None
-    inbox: Inbox | None = None
+    backlog: backlog_read.Shelved | None = None
+    inbox: inbox_read.Inbox | None = None
     forge: Forge = field(default_factory=Forge)
     demo: bool = False

@@ -12,6 +12,7 @@ records of a workspace and what lies beside each, `world.Seen`), to the inputs o
 
 - `gather.gather(checkout, ask.Ask) -> World`: the records through the store, Lem's acts on each
   task's sessions (`app/sessions/log.py`), the files and the prose of each task's folder, the
+  plan in its worktree, the workspace's branch history setting, the
   newest commit of each branch and the backlog items it adds (`branch.Branches`, a part of the
   `Git` port), the backlog (`backlog/read.py`), the owner's presence, the Inbox's record, and the
   mark of example tasks. A demo takes each session from the acts alone; any other board takes the
@@ -64,8 +65,8 @@ gather reads them from the record and `Seen.acts` goes.
 ## Facts no `World` field holds yet
 
 `state.keep_days`, the `?key=` and `?words=` of a step and a card's page come in through
-`panel/opened.Opened`; the branch's history (the merge step says "one commit"), the server's
-running merges (`HeadActs.merging`), the act's note on a tab, and Lem's first line of a task
+`panel/opened.Opened`; the server's running merges (`HeadActs.merging`), the act's note on a tab,
+and Lem's first line of a task
 (`Now.opening`) are not shown.
 
 ## For `board-duties` and `board-service`

@@ -9,9 +9,10 @@ from typing import TYPE_CHECKING
 from lem.board.inputs.names import task_href, title_of
 from lem.board.inputs.search import Found
 from lem.board.views import kanban_order, tasks
-from lem.board.views.frame import chipped
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from lem.board.inputs.text import Look
     from lem.board.views.frame.counted import Counted
     from lem.board.views.world import Seen, World
@@ -39,10 +40,12 @@ def placed_in(counts: Counted, column: str) -> list[Placed]:
 
 def open_rows(world: World, counts: Counted, spec: tasks.Spec) -> tuple[Found, ...]:
     """The rows of one column that has not ended: `COLUMN · STATUS`."""
-    return tuple(
-        found(world, seen, chipped.open_chip(spec, seen), spec.look)
-        for seen, _ in placed_in(counts, spec.key)
-    )
+    rows = []
+    for seen, _ in placed_in(counts, spec.key):
+        status = seen.record.task.status
+        label = f"{spec.title} · {status}"
+        rows.append(found(world, seen, label, spec.look))
+    return tuple(rows)
 
 
 def parked_rows(world: World, counts: Counted) -> tuple[Found, ...]:
@@ -54,12 +57,13 @@ def parked_rows(world: World, counts: Counted) -> tuple[Found, ...]:
     return tuple(found(world, seen, "parked", "quiet") for seen, _ in parked)
 
 
-def done_rows(world: World, counts: Counted) -> tuple[Found, ...]:
+def done_rows(world: World, counts: Counted) -> Iterator[Found]:
     """Every ended task, the newest first: `STATUS DAY`, on the page's clock."""
-    return tuple(
-        found(world, seen, chipped.ended_chip(world, seen, where), DONE, ended=True)
-        for seen, where in placed_in(counts, DONE)
-    )
+    for seen, where in placed_in(counts, DONE):
+        day = where.since.astimezone(world.clock.zone).date().isoformat()
+        status = seen.record.task.status
+        label = f"{status} {day}"
+        yield found(world, seen, label, DONE, ended=True)
 
 
 def found(

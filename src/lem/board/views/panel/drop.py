@@ -10,6 +10,7 @@ from lem.board.views import hovers, offers
 from lem.board.views.panel import confirm
 from lem.board.views.panel.answered import answered
 from lem.board.views.panel.stopped import stopped
+from lem.board.views.rule import ENDED
 
 if TYPE_CHECKING:
     from lem.board.inputs.task.steps import NotNow
@@ -72,6 +73,9 @@ def refused(
     if made is not None:
         took = made.took.removesuffix(".")
         return f"{took}: the task’s session takes it."
+    if seen.record.task.status in ENDED:
+        label = standing.label.lower()
+        return f"Nothing to drop from the board: the task is {label}."
     if question is None:
         label = standing.label.lower()
         return (

@@ -8,13 +8,15 @@ example tasks takes each session from Lem's acts alone (`sessions.from_acts`), a
 board says that the sessions are not known.
 """
 
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from lem.app.owner import releases
 from lem.app.sessions import log
-from lem.board.views import branch, folder, inbox_read, looked, sessions
+from lem.board.views import branch, folder, inbox_read, looked, sessions, world
 from lem.board.views.backlog import read as shelf
-from lem.board.views.world import Seen, World
+from lem.settings import places as settings_places
+from lem.settings.load import team_of
 from lem.store import owner, places, tasks
 
 if TYPE_CHECKING:
@@ -28,18 +30,18 @@ WORKTREES = ".lem/worktrees"
 UNKNOWN = "the task sessions are not known: the server has not asked the terminal yet"
 
 
-def gather(checkout: Path, ask: Ask) -> World:
+def gather(checkout: Path, ask: Ask) -> world.World:
     """The workspace of the main checkout `checkout` as the views read it."""
     state = places.state_of(checkout)
     demo = (state / DEMO).is_file()
     presence = owner.read(ask.home)
     records = releases.with_stops(tasks.every(state))
     found = tuple(seen_of(checkout, record, ask, demo=demo) for record in records)
-    return World(
+    return world.World(
         viewer=ask.viewer,
         clock=ask.clock,
         version=ask.version,
-        place=ask.place,
+        place=place_of(checkout, ask.place),
         tasks=tuple(looked.alone(seen, presence) for seen in found),
         unknown=None if demo or ask.listed is not None else UNKNOWN,
         presence=presence,
@@ -50,22 +52,38 @@ def gather(checkout: Path, ask: Ask) -> World:
     )
 
 
-def seen_of(checkout: Path, record: Record, ask: Ask, *, demo: bool) -> Seen:
+def place_of(checkout: Path, place: world.Place) -> world.Place:
+    """The board's place with the same branch history the landing reads."""
+    if not (checkout / settings_places.TEAM).is_file():
+        return place
+    return replace(place, history=team_of(checkout).branch.history)
+
+
+def seen_of(checkout: Path, record: Record, ask: Ask, *, demo: bool) -> world.Seen:
     """One task and what lies beside its record."""
-    task = record.task
-    where = places.task_folder(places.state_of(checkout), task.slug)
+    worktree = checkout / WORKTREES / record.task.slug
+    where = places.task_folder(places.state_of(checkout), record.task.slug)
     acts = log.read(where)
     session = sessions.of(record, acts, ask.listed, demo=demo)
     files = folder.files_of(where)
-    return Seen(
+    return world.Seen(
         record=record,
         acts=acts,
         files=files,
         prose=folder.prose_of(where, files),
+        plan_text=plan_text(worktree, record),
         stats=folder.stats_of(where, files),
-        head=branch.head_of(ask.git, checkout, task, ask.place),
-        filed=branch.filed_of(ask.git, checkout, task, ask.place),
-        worktree=(checkout / WORKTREES / task.slug / ".git").exists(),
+        head=branch.head_of(ask.git, checkout, record.task, ask.place),
+        filed=branch.filed_of(ask.git, checkout, record.task, ask.place),
+        worktree=(worktree / ".git").exists(),
         session=session,
         stop=sessions.stop_of(record, acts, session),
     )
+
+
+def plan_text(worktree: Path, record: Record) -> str | None:
+    """The recorded plan of the task, in its own worktree."""
+    plan = record.task.plan
+    if plan is None or not (worktree / ".git").exists():
+        return None
+    return folder.text_of(worktree, plan.path)

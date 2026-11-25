@@ -9,6 +9,7 @@ from lem.board.inputs import names
 from lem.board.inputs.parts import Link
 from lem.board.inputs.waits import Acts
 from lem.board.views import answering, offers
+from lem.board.views.panel.opening import session_form
 from lem.board.views.waits import kinds, opening
 from lem.records.holds import OwnerHold
 
@@ -40,7 +41,7 @@ def acts(world: World, seen: Seen, row: Row) -> Acts | None:
     if link is not None:
         return Acts(links=(link,))
     if row.kind in {"session", "stopped"} and opening.opens_session(seen):
-        return Acts(forms=(opening.session_form(world, seen),))
+        return Acts(forms=(session_form(world, seen, under=UNDER),))
     return None
 
 

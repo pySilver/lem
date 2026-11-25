@@ -18,22 +18,38 @@ SHORT = 7
 HELD = "passes on the branch, fails on the base commit"
 
 
-def runs_of(record: Record) -> dict[tuple[int, str], RedTest]:
-    """The tests of the newest check of the criteria, by criterion and command, when it ran
-    on the criteria as they are recorded."""
+def run_of(record: Record, number: int, test: CriterionTest) -> RedTest | None:
+    """The newest check of this exact test on the criteria as recorded."""
     criteria = record.task.criteria
     red = criteria.red
-    if red is None or red.digest != criteria.digest:
-        return {}
-    return {(test.criterion, test.command): test for test in red.tests}
+    if red is None or not red.digest or red.digest != criteria.digest:
+        return None
+    found = (
+        run
+        for run in red.tests
+        if (run.criterion, run.command, run.files) == (number, test.command, test.files)
+    )
+    return next(found, None)
 
 
-def taken_of(record: Record) -> dict[int, str]:
-    """The criteria whose tests the checks took from the polish pass's run, with the pass's
-    commit."""
+def taken_of(record: Record, number: int) -> str | None:
+    """The polish commit when the checks took the recorded run of this criterion."""
     checked = record.landing.checked if record.landing else None
-    found = checked.criteria if checked else ()
-    return {one.criterion: one.taken_at for one in found if one.taken_at}
+    red = record.task.criteria.red
+    if checked is None or red is None or checked.at < red.at:
+        return None
+    tip = red.inputs.tip
+    return next(
+        (
+            tip
+            for one in checked.criteria
+            if one.criterion == number
+            and one.taken_at == tip
+            and one.green_on_tip
+            and one.red_on_base
+        ),
+        None,
+    )
 
 
 def said_of(
@@ -41,21 +57,19 @@ def said_of(
 ) -> tuple[str, bool | None]:
     """What the last check of a test gave, and whether it held the criterion (None with no
     check)."""
-    run = runs_of(record).get((number, test.command))
-    taken = taken_of(record).get(number)
-    if run is not None and run.problem:
+    run = run_of(record, number, test)
+    if run is None:
+        ended = record.task.status in ENDED
+        return ("no check of it is on record" if ended else "not checked yet"), None
+    if run.problem:
         return run.problem, False
-    if run is not None:
-        return ran_on(record), True
-    if taken is not None:
-        commit = taken[:SHORT]
-        return f"{HELD}, taken from the polish pass at {commit}, not run again", True
-    ended = record.task.status in ENDED
-    return ("no check of it is on record" if ended else "not checked yet"), None
+    return ran_on(record, number), True
 
 
-def ran_on(record: Record) -> str:
+def ran_on(record: Record, number: int) -> str:
     """A test that held its criterion in the newest check, and the commit it ran on."""
     red = record.task.criteria.red
     tip = red.inputs.tip[:SHORT] if red else ""
+    if taken_of(record, number) is not None:
+        return f"{HELD}, taken from the polish pass at {tip}, not run again"
     return f"{HELD} (checked on {tip})"

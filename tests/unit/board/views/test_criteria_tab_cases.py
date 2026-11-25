@@ -104,17 +104,15 @@ def test_a_taken_result_is_the_polish_pass_and_its_commit(tmp_path: Path) -> Non
     names the pass and its commit."""
     found = world(tmp_path)
     seen = owed.seen(found, INVOICE)
-    stated = replace(seen.record.task.criteria, red=None)
     landing = seen.record.landing
     assert landing and landing.checked
     taken = CriterionCheck(
         criterion=1, red_on_base=True, green_on_tip=True, taken_at=INVOICE_TIP
     )
     checked = replace(landing.checked, criteria=(taken,))
-    polished = with_task(seen, criteria=stated)
     polished = replace(
-        polished,
-        record=replace(polished.record, landing=replace(landing, checked=checked)),
+        seen,
+        record=replace(seen.record, landing=replace(landing, checked=checked)),
     )
     one = criteria(found, polished).criteria[0]
     assert one.tests == (

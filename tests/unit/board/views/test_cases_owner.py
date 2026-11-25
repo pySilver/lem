@@ -13,8 +13,9 @@ from lem.board.views import owed, standing, tasks, telling
 from lem.board.views.frame import counted
 from lem.board.views.panel import heads, now, opening
 from lem.board.views.panel import waiting as panel_waiting
+from lem.board.views.panel.answer import answer
 from lem.board.views.waits import view as waits_view
-from lem.board.views.where import answer, where
+from lem.board.views.where import where
 from lem.model.owner import verbs, waiting
 from lem.model.owner.looks import Look
 from lem.records.approvals import PersonaRead, Silent
@@ -104,7 +105,10 @@ def test_a_breaker_with_no_session_says_first_to_open_one_then_where_its_task_is
     assert [row.kind for row in shown.rows] == ["session", "breaker"]
     found = owed.seen(seen, "gift-note")
     assert shown.waits is not None
-    assert shown.waits.where == f"{where(found, shown.rows[0])} {answer(found)}"
+    assert (
+        shown.waits.where
+        == f"{where(found, shown.rows[0])} {answer(found.record.task)}"
+    )
     assert "/lem park gift-note" in shown.waits.where
 
 
@@ -574,7 +578,7 @@ def test_a_task_with_a_second_row_beside_no_session_is_answered_where_that_row_s
         found = owed.seen(seen, "gift-note")
         first = where(found, shown.rows[0])
         assert shown.waits is not None
-        assert shown.waits.where == f"{first} {answer(found)}"
+        assert shown.waits.where == f"{first} {answer(found.record.task)}"
         assert first.startswith("Open a session here or on the task’s header")
 
 

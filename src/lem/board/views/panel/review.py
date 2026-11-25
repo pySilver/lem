@@ -26,18 +26,26 @@ def review(world: World, seen: Seen) -> Review | None:
     text = seen.text(NAME)
     if record.task.status != "open" or text is None or record.landing is None:
         return None
-    read = mergeread.latest(record.landing)
+    again = mergeread.another_round(record.landing)
+    read = again or mergeread.latest(record.landing)
     calls = read is None or merging.calling(record) is not None
-    slug = record.task.slug
+    calls = calls and again is None
     return Review(
         calls=calls,
-        head="The merge review · it calls you"
-        if calls
-        else "The merge review · it merges",
+        head=heading(calls=calls, again=again is not None),
         why=read.why if read else None,
         at=written(world, read),
         text=reviewed(world, seen, text),
-        artifact=artifact(world, slug, NAME),
+        artifact=artifact(world, record.task.slug, NAME),
+    )
+
+
+def heading(*, calls: bool, again: bool) -> str:
+    """What the review asks for."""
+    if again:
+        return "The merge review · it needs another round"
+    return (
+        "The merge review · it calls you" if calls else "The merge review · it merges"
     )
 
 

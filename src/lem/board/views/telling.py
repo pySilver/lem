@@ -11,7 +11,8 @@ from typing import TYPE_CHECKING
 
 from lem.board.views import stopped, turns, words
 from lem.records.journal.landing import CheckEnd, CheckWait, MergeWait
-from lem.records.journal.task import StateNoted, Summary
+from lem.records.journal.merge import LandAgain
+from lem.records.journal.task import SpanMark, StateNoted, Summary
 
 if TYPE_CHECKING:
     from lem.board.views.standing import Standing
@@ -92,11 +93,7 @@ def waiting(record: Record) -> str | None:
     is a wait; else None."""
     if record.task.status not in WAITING:
         return None
-    entries = (
-        entry
-        for entry in reversed(record.journal)
-        if isinstance(entry, CheckWait | CheckEnd | MergeWait)
-    )
+    entries = filter(wait_mark, reversed(record.journal))
     newest = next(entries, None)
     if isinstance(newest, MergeWait):
         behind = newest.behind or "another task"
@@ -104,6 +101,15 @@ def waiting(record: Record) -> str | None:
     if isinstance(newest, CheckWait):
         return checks_wait(newest)
     return None
+
+
+def wait_mark(entry: Entry) -> bool:
+    """A wait, or a mark that ends an earlier wait."""
+    if isinstance(entry, SpanMark):
+        return entry.name == "checks" and entry.edge == "start"
+    if isinstance(entry, StateNoted):
+        return entry.status != "landing" and entry.hold is None
+    return isinstance(entry, CheckWait | CheckEnd | MergeWait | LandAgain)
 
 
 def checks_wait(wait: CheckWait) -> str:

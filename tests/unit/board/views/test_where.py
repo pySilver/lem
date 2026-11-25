@@ -8,7 +8,8 @@ import msgspec
 from fakes.records import MOMENT, record
 from fixtures.board import waiting
 from lem.board.views import owed
-from lem.board.views.where import answer, where
+from lem.board.views.panel.answer import answer
+from lem.board.views.where import where
 from lem.board.views.world import Seen
 from lem.model.owner.looks import Row
 from lem.records.holds import Blocked, OwnerHold
@@ -109,16 +110,16 @@ def test_a_task_after_a_dropped_one_a_block_and_a_wait_say_where_each_is_answere
     assert where(skip, row("held")).startswith("Lem asks whether to skip")
     asking = msgspec.structs.replace(hold, on="interview")
     interview = Seen(record=record(status="shaping", hold=asking))
-    assert answer(interview).startswith("The interview runs")
+    assert answer(interview.record.task).startswith("The interview runs")
 
 
 def test_a_plan_and_a_held_step_are_answered_in_the_session_or_on_the_board() -> None:
     plan = OwnerHold(on="plan", line="the plan waits", since=MOMENT)
     planned = Seen(record=record(status="planned", hold=plan))
-    assert answer(planned).startswith("Read the plan")
+    assert answer(planned.record.task).startswith("Read the plan")
     step = OwnerHold(on="fact", line="which date counts", since=MOMENT)
     held = Seen(record=record(status="building", hold=step))
-    assert answer(held) == (
+    assert answer(held.record.task) == (
         "It waits on what its state says: “which date counts”. "
         "The task’s session says what to do."
     )

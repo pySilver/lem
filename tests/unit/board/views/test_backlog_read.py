@@ -7,8 +7,7 @@ from typing import TYPE_CHECKING
 
 from lem.board.views.backlog import head, ledger
 from lem.board.views.backlog.ledger import Adding
-from lem.board.views.backlog.read import read
-from lem.board.views.backlog.where import where_problem
+from lem.board.views.backlog.read import read, where_problem
 from lem.board.views.backlog_read import AddedBy
 from lem.board.views.world import Place
 

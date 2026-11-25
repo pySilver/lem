@@ -9,6 +9,7 @@ from msgspec.structs import replace
 
 from fakes.records import MOMENT
 from lem.board.views import pages, tasks, telling
+from lem.board.views.activity.view import activity
 from lem.board.views.frame import counted, summary
 from lem.board.views.frame.page import Beside, frame
 from lem.records.holds import OwnerHold, Parked
@@ -215,6 +216,10 @@ def test_landing_a_landing_that_waits_says_what_for_until_its_next_event() -> No
         "load": "Waits for the load: 7.5, starts below 6.0",
         "ended": "The checks start",
     }
+    feed = activity(world(checking(other))).feed
+    assert next(event.text for event in feed if event.head == "The checks wait") == (
+        "behind logo of site, which another task waits for"
+    )
 
 
 def test_landing_a_refused_run_says_that_a_builder_repairs_it_and_a_passed_one_says_nothing() -> (

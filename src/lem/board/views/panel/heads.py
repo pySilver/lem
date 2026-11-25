@@ -6,7 +6,7 @@ its merge."""
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from lem.board.views import rule, telling
+from lem.board.views import offers, rule, telling
 from lem.board.views.panel import held_head, landing_head
 from lem.board.views.panel.leads import lead_of
 from lem.model.owner import merging
@@ -42,15 +42,15 @@ def now_head(seen: Seen, after: str | None = None, *, alone: bool = False) -> st
     behind, and `alone` says it runs without the owner."""
     task = seen.record.task
     hold = task.hold
-    if isinstance(hold, ReleaseHold) and task.status not in rule.ENDED:
+    if task.status in rule.ENDED or hold is None:
+        return status_head(seen.record, after)
+    if isinstance(hold, ReleaseHold):
         return OLDER_RELEASE
     if isinstance(hold, Parked):
         return "Parked: nobody works on it until you bring it back"
     if isinstance(hold, Blocked):
         return blocked(hold)
-    if hold is not None:
-        return held_head.held(seen, alone=alone)
-    return status_head(seen.record, after)
+    return held_head.held(seen, alone=alone)
 
 
 def blocked(hold: Blocked) -> str:
@@ -100,5 +100,7 @@ def moving(record: Record) -> str:
     """A landing's step, or the merge an open pull request waits for."""
     if record.task.status == "landing":
         return landing_head.landing(record)
+    if offers.merge_pending(record):
+        return "Check the pull request on GitHub"
     wait = merging.merge_wait(record) or ""
     return PROPOSED.get(wait, "Proposed: it waits for your merge")

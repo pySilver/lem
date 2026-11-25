@@ -167,6 +167,13 @@ def test_a_proposal_waits_for_his_merge_with_its_number_and_green() -> None:
     assert card.more == "green"
 
 
+def test_an_open_task_needs_a_session_only_while_its_merge_review_is_due() -> None:
+    proposed = replace(opened(proposed=PROPOSED), session=gone())
+    assert [one.kind for one in waits(proposed)] == ["session"]
+    called = replace(opened(proposed=PROPOSED, reads=(read("call"),)), session=gone())
+    assert [one.kind for one in waits(called)] == ["review", "merge"]
+
+
 def test_a_pull_request_the_forge_calls_conflicting_is_a_row_with_nothing_to_do() -> (
     None
 ):

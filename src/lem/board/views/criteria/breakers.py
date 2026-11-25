@@ -13,7 +13,7 @@ from lem.board.views.criteria.terms import stop_words
 from lem.board.views.panel.answer import breaker as answer
 from lem.board.views.words import capital
 from lem.records.decisions import Taken
-from lem.records.holds import Parked
+from lem.records.holds import Parked, ReleaseHold
 
 if TYPE_CHECKING:
     from lem.board.inputs.text import Look
@@ -41,6 +41,8 @@ def standing(seen: Seen, breaker: Breaker) -> tuple[str, Look]:
         return f"helped by your decision {helped}", "done"
     if task.status in ENDED:
         return f"the task is {task.status}: it no longer waits", "quiet"
+    if isinstance(task.hold, ReleaseHold):
+        return "the release stop suspends this breaker", "quiet"
     if isinstance(task.hold, Parked):
         return (
             f"the task is parked: it waits for nobody until /lem resume {task.slug}",

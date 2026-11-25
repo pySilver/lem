@@ -35,7 +35,7 @@ def body(world: World, seen: Seen, entry: Entry) -> Body:
         return framed
     if entry.kind in UNSHOWN:
         return Body(said="A binary file: the board does not show it.", where=where)
-    text = seen.text(entry.path)
+    text = seen.plan_text if entry.first else seen.text(entry.path)
     if text is None:
         return Body(said="The board has no text of this file.", where=where)
     if entry.kind == kinds.MARKDOWN:

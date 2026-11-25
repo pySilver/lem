@@ -9,13 +9,11 @@ from typing import TYPE_CHECKING
 from lem.app.sessions.phase import phase_or_none
 from lem.board.inputs.forms import ActForm, Field
 from lem.board.inputs.names import task_href
+from lem.model.task import behind
 
 if TYPE_CHECKING:
+    from lem.board.inputs.text import View
     from lem.board.views.world import Seen, World
-
-# The ends of a task before it that let a queued task start: a dropped one never gave its
-# result.
-STARTS = frozenset(("landed", "answered"))
 
 
 def opens(world: World, seen: Seen) -> bool:
@@ -30,16 +28,15 @@ def opens(world: World, seen: Seen) -> bool:
 
 
 def after_ended(world: World, seen: Seen) -> bool:
-    """Whether the task the queued task waits for landed or was answered."""
-    after = seen.record.task.after
-    ends = {each.record.task.slug: each.record.task.status for each in world.tasks}
-    return bool(after) and ends.get(after[0]) in STARTS
+    """Whether every prerequisite of the queued task landed or was answered."""
+    records = tuple(each.record for each in world.tasks)
+    return not behind.waited(seen.record.task, records)
 
 
-def session_form(world: World, seen: Seen) -> ActForm:
+def session_form(world: World, seen: Seen, *, under: View | None = None) -> ActForm:
     """`Open a session`, which posts to the task's own act, over the view of the page."""
-    under = world.viewer.view
-    fields = () if under == "tasks" else (Field(name="in", shown=under),)
+    view = under or world.viewer.view
+    fields = () if view == "tasks" else (Field(name="in", shown=view),)
     return ActForm(
         action=f"{task_href(world.viewer.base, seen.record.task.slug)}/session",
         label="Open a session",

@@ -10,7 +10,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from lem.app.sessions.guard_rule import ANSWER_SECONDS, QUIET_SECONDS
-from lem.board.views import words
+from lem.board.views import offers, words
 from lem.board.views.panel.answer import answer as answer_of
 
 if TYPE_CHECKING:
@@ -50,11 +50,6 @@ CONFLICT = (
     "Nothing to do now: the board’s server wakes the task’s session, which "
     "brings it onto the base, and then it waits for you again."
 )
-
-
-def answer(seen: Seen) -> str:
-    """Where the owner answers the task of `seen`."""
-    return answer_of(seen.record.task)
 
 
 def where(seen: Seen, row: Row) -> str:
@@ -116,6 +111,9 @@ def why(row: Row) -> str:
 
 def merge(record: Record, row: Row) -> str:
     """Where he answers a merge: a refusal of the proposed tip, a conflict, or his merge."""
+    pending = recovery(record)
+    if pending is not None:
+        return pending
     landing = record.landing
     proposed = landing.proposed if landing else None
     refused = landing.refused if landing else None
@@ -124,6 +122,19 @@ def merge(record: Record, row: Row) -> str:
     if row.conflict:
         return CONFLICT
     return answer_of(record.task)
+
+
+def recovery(record: Record) -> str | None:
+    """The owner's GitHub check while a merge call has no reply on record."""
+    landing = record.landing
+    if landing is None or not offers.merge_pending(record):
+        return None
+    pull = landing.pull
+    named = f"[pull request #{pull.number}]({pull.url})" if pull else "the pull request"
+    return (
+        f"Check {named} on GitHub. The merge call has no reply on record. "
+        "If the pull request is still open, tell the task’s session what GitHub shows."
+    )
 
 
 def refusal(refused: Refused) -> str:

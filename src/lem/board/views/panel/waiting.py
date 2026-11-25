@@ -9,7 +9,7 @@ from lem.board.views import telling, words
 from lem.board.views.panel import pulls
 from lem.board.views.panel.answer import answer
 from lem.board.views.panel.common import closed, pull_of
-from lem.board.views.where import where
+from lem.board.views.where import recovery, where
 from lem.model.owner import verbs
 
 if TYPE_CHECKING:
@@ -58,6 +58,9 @@ def answered(seen: Seen, rows: Rows) -> str:
     """Where the owner answers: where a row of a session that is gone says first, then the
     words of his other row for the session he opens; else where the task says."""
     task = seen.record.task
+    pending = recovery(seen.record)
+    if pending is not None:
+        return pending
     gone = next(
         (
             row

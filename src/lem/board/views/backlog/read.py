@@ -6,13 +6,13 @@ It is one of the views' reads, like `gather.py`, and changes nothing. A file tha
 is an entry that says why, never a read that stops.
 """
 
+import re
 from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
 from lem.board.views.backlog import head
 from lem.board.views.backlog.known import known_of
-from lem.board.views.backlog.where import where_problem
 from lem.board.views.backlog_read import Entry, Shelved
 from lem.store.places import STATE
 
@@ -28,6 +28,10 @@ if TYPE_CHECKING:
 REVIEWER = (STATE / "backlog").as_posix()
 MARKDOWN = ".md"
 PATTERN = f"*{MARKDOWN}"
+LEAVES = "the path leaves the repository"
+GONE = "the file is not there"
+UNREADABLE = "the file cannot be read"
+NO_HEADING = "the heading is not in the file"
 
 
 def read(checkout: Path, place: Place, git: Ledger | None, now: datetime) -> Shelved:
@@ -54,33 +58,24 @@ def entries(checkout: Path, folder: str, known: Known | None) -> tuple[Entry, ..
         return ()
     found = (path.name for path in place.glob(PATTERN))
     names = sorted(name for name in found if name != MARKDOWN)
-    return tuple(entry(checkout, named(folder, name), known) for name in names)
-
-
-def named(folder: str, name: str) -> str:
-    """The path of the file `name` of `folder`, from the main checkout's root."""
-    return f"{folder}/{name}"
+    paths = (f"{folder}/{name}" for name in names)
+    return tuple(entry(checkout, path, known) for path in paths)
 
 
 def entry(checkout: Path, path: str, known: Known | None) -> Entry:
     """The item at `path`, which may not read."""
-    whose = blank(path, known)
+    stem = stem_of(path)
+    key = f"-{stem}" if known is None else stem
+    whose = Entry(path=path, key=key, reviewer=known is None)
+    if known is not None:
+        whose = known.marked(whose)
     try:
         raw = (checkout / path).read_text(encoding="utf-8", errors="replace")
     except OSError as error:
         # a link to a file that moved, or a folder with an item's name: shown, not hidden
         why = error.strerror or str(error)
-        return replace(whose, title=stem_of(path), bad=why)
+        return replace(whose, title=stem, bad=why)
     return headed(checkout, whose, head.parse(raw))
-
-
-def blank(path: str, known: Known | None) -> Entry:
-    """The item at `path` before its file is read: its key (`-STEM` for a reviewer's item,
-    so that two items of one stem stay two), and what git says of it."""
-    stem = stem_of(path)
-    if known is None:
-        return Entry(path=path, key=f"-{stem}", reviewer=True)
-    return known.marked(Entry(path=path, key=stem))
 
 
 def headed(checkout: Path, whose: Entry, parsed: head.Head | str) -> Entry:
@@ -103,3 +98,38 @@ def headed(checkout: Path, whose: Entry, parsed: head.Head | str) -> Entry:
 def stem_of(path: str) -> str:
     """The file's name without `.md`."""
     return path.rpartition("/")[2].removesuffix(MARKDOWN)
+
+
+def where_problem(root: Path, where: str) -> str | None:
+    """What of an item's `where` (`PATH` or `PATH:SYMBOL`) no longer resolves under `root`."""
+    path, _, symbol = where.partition(":")
+    path, symbol = path.strip(), symbol.strip()
+    if not path:
+        return None
+    target = root / path
+    if not target.resolve().is_relative_to(root.resolve()):
+        return LEAVES
+    if not target.exists():
+        return GONE
+    if not symbol or target.is_dir():
+        return None
+    return symbol_problem(target, symbol)
+
+
+def symbol_problem(target: Path, symbol: str) -> str | None:
+    """What of `symbol` the file lacks: a markdown heading, else each dotted part as a word."""
+    try:
+        text = target.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return UNREADABLE
+    if target.suffix == MARKDOWN:
+        return None if symbol in text else NO_HEADING
+    missing = [
+        part
+        for part in symbol.split(".")
+        if part and not re.search(rf"\b{re.escape(part)}\b", text)
+    ]
+    if not missing:
+        return None
+    named = ".".join(missing)
+    return f"not in the file: {named}"

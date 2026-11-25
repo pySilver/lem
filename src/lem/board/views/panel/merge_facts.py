@@ -25,7 +25,7 @@ def facts(world: World, seen: Seen) -> tuple[Fact, ...]:
         commit_fact(seen),
         Fact(key="branch", term="Branch", text=branch, mono=True) if branch else None,
         Fact(key="into", term="Into", text=base_of(world, record), mono=True),
-        lands_as(record),
+        lands_as(world, record),
     )
     return tuple(fact for fact in found if fact is not None)
 
@@ -60,9 +60,14 @@ def base_of(world: World, record: Record) -> str:
     return started.base_ref if started else world.place.base
 
 
-def lands_as(record: Record) -> Fact | None:
-    """How the branch lands: one commit under the pull request's title."""
+def lands_as(world: World, record: Record) -> Fact | None:
+    """How the branch lands, by the workspace's branch.history setting."""
     pull = pull_of(record)
     if pull is None:
         return None
-    return Fact(key="as", term="Lands as", text=f"one commit: `{pull.title}`")
+    how = (
+        "the branch’s own commits, rebased onto the base"
+        if world.place.history == "keep"
+        else f"one commit: `{pull.title}`"
+    )
+    return Fact(key="as", term="Lands as", text=how)
