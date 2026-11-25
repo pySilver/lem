@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from contract.suites.git import FILES, GitContract
 from fakes.repo import RealRepo, git_env, run_git, write
 from lem.adapters import git_cli
+from lem.ports.git_facts import GitRefused
 from lem.ports.place import Place
 
 if TYPE_CHECKING:
@@ -50,3 +51,17 @@ def real_world(folder: Path) -> RealWorld:
 class TestGitCli(GitContract):
     def world(self, folder: Path) -> RealWorld:
         return real_world(folder)
+
+
+def test_a_checkout_on_another_branch_at_the_same_commit_does_not_follow(
+    tmp_path: Path,
+) -> None:
+    world = real_world(tmp_path)
+    run_git(world.checkout, "checkout", "--quiet", "-b", "other")
+    before = run_git(world.checkout, "rev-parse", "other")
+    world.outside_commit("main", {"other.txt": b"o\n"})
+    world.git.fetch(world.checkout)
+    refused = world.git.fast_forward(world.checkout, "origin/main")
+    assert isinstance(refused, GitRefused)
+    assert "not on main" in refused.said
+    assert run_git(world.checkout, "rev-parse", "other") == before

@@ -79,13 +79,17 @@ def answered(
 
 
 def called(
-    context: frame.Context, record: Record, intent: MergeIntent, subject: str | None
+    context: frame.Context, record: Record, intent: MergeIntent, subject: str
 ) -> Found:
-    """Write the intent, call the forge's merge pinned to its tip, and write the answer."""
+    """Write the intent, call the forge's merge pinned to its tip, and write the answer. The
+    one commit takes the report's subject and, as its body, the line `Lem task: SLUG` by which
+    the board names the task (`main:land.squash_body`; the lines of the fixes made on the way
+    are the step `land-propose`'s, whose pull request lists them)."""
     pull = record.landing.pull if record.landing else None
     if pull is None:
         raise Refusal("no-pull", "the task has no pull request", "lem land next SLUG")
     record = context.write(record, partial(changes.landing, intent=intent))
-    text = MergeText(subject=subject or pull.title, body="")
+    slug = record.task.slug
+    text = MergeText(subject=subject, body=f"Lem task: {slug}")
     outcome = context.ports.forge.merge(pull.number, intent.tip, "squash", text)
     return answered(context, record, intent, outcome)

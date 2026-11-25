@@ -60,8 +60,16 @@ def review(landing: Landing) -> tuple[str, ...]:
     return tuple(reasons)
 
 
+def careful(record: Record) -> tuple[str, ...]:
+    """The reason of a request that its shape calls careful: the owner merges it, whatever the
+    review's own call (`main:land.merger_refusal`)."""
+    shape = record.task.shape
+    topics = shape.careful if shape else ()
+    return tuple(f"the request is careful: {topic}" for topic in topics)
+
+
 def reasons(record: Record) -> tuple[str, ...]:
     """Every reason the pull request is not green; none means green."""
     landing = record.landing or Landing()
-    found = checks(landing) + criteria(record)
+    found = checks(landing) + criteria(record) + careful(record)
     return found + approval(record) + review(landing)

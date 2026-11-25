@@ -25,20 +25,41 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 
+def sent(context: frame.Context, last: str | None) -> str:
+    """Push the task's branch with the lease of Lem's last push, when it is at the checked
+    tip; give the commit git sent. The port pushes a branch by its name, so the branch is
+    read before the push and the commit sent is read after it (`notes/slice-land.md`)."""
+    git, world = context.ports.git, context.world
+    if git.tip(context.worktree, f"refs/heads/{world.branch}") != world.tip:
+        raise Refusal(
+            "tip",
+            f"{world.branch} moved after the step read it at {world.tip}",
+            "lem land next SLUG: the new tip's checks come first",
+        )
+    made = git.push(context.worktree, world.branch, last)
+    if not isinstance(made, str):
+        raise Refusal(
+            "git-refused",
+            f"git refused the push of {world.branch}: {made.said}",
+            "lem land next SLUG names what origin holds now",
+        )
+    return made
+
+
 def pushed(context: frame.Context, *, push: bool) -> Record:
-    """Push the tip when origin lacks it, with the lease of Lem's last push, and record the
-    push before any call to the forge."""
+    """Push the tip when origin lacks it, and record the commit sent before any call to the
+    forge; a commit that is not the checked tip is recorded, and refused."""
     record, world = context.record, context.world
     last = record.landing.pushed if record.landing else None
-    if push:
-        made = context.ports.git.push(context.worktree, world.branch, last)
-        if not isinstance(made, str):
-            raise Refusal(
-                "git-refused",
-                f"git refused the push of {world.branch}: {made.said}",
-                "lem land next SLUG names what origin holds now",
-            )
-    return context.write(record, partial(changes.landing, pushed=world.tip))
+    made = sent(context, last) if push else world.tip
+    record = context.write(record, partial(changes.landing, pushed=made))
+    if made != world.tip:
+        raise Refusal(
+            "tip",
+            f"the push sent {made}, not the checked {world.tip}: the branch moved",
+            "lem land next SLUG: the new tip's checks come first",
+        )
+    return record
 
 
 def asked(context: frame.Context, number: int | None, words: tuple[str, str]) -> Pull:

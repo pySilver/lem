@@ -20,22 +20,33 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 
+def failed(what: str, branch: str) -> Refusal:
+    """The refusal of a deletion git or the forge did not make: the cleanup stays due."""
+    return Refusal(
+        "not-deleted",
+        f"{what} of {branch} was not deleted: it is no longer at the commit the task left",
+        "lem land clean SLUG runs again; what went already is not removed twice",
+    )
+
+
 def swept(context: frame.Context, sweep: clean.Sweep, head: str) -> Cleaned:
-    """Remove what `sweep` names, and say what went and what stayed."""
+    """Remove what `sweep` names, and say what went and what stayed; a deletion that did not
+    happen keeps the cleanup due (`main:land.drop_forge_copy`)."""
     git, world = context.ports.git, context.world
     checkout = context.workspace.checkout
     if sweep.worktree:
         git.worktree_remove(checkout, context.worktree)
-    branch_gone = sweep.branch and git.branch_delete(
+    if sweep.branch and not git.branch_delete(
         checkout, world.branch, world.local or ""
-    )
-    copy_gone = sweep.remote and context.ports.forge.delete_ref(
-        f"refs/heads/{world.branch}", head
-    )
+    ):
+        raise failed("the local branch", world.branch)
+    ref = f"refs/heads/{world.branch}"
+    if sweep.remote and not context.ports.forge.delete_ref(ref, head):
+        raise failed("the forge's copy", world.branch)
     return Cleaned(
         worktree_gone=True,
-        branch_gone=branch_gone or world.local is None,
-        forge_branch_gone=copy_gone or world.remote is None,
+        branch_gone=sweep.branch or world.local is None,
+        forge_branch_gone=sweep.remote or world.remote is None,
         branch_left=sweep.branch_left,
         at=world.now,
     )

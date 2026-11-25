@@ -29,6 +29,8 @@ class State(msgspec.Struct, kw_only=True):
     name: str = "owner/project"
     pulls: dict[int, Pull] = {}
     calls: list[list[str]] = []
+    # A merge call whose connection is lost before it reaches the forge, or after.
+    lose: str | None = None
 
 
 def option(words: list[str], name: str) -> str | None:
@@ -88,19 +90,37 @@ def listed(forge: LocalForge, words: list[str]) -> object:
     return forge.open_pull(head, base, title, body).url
 
 
-def merged(forge: LocalForge, number: int, words: list[str]) -> object:
+def merged(forge: LocalForge, state: State, number: int, words: list[str]) -> object:
     """What gh prints for `pr merge`: nothing, or GitHub's refusal on its errors."""
     method = "squash" if "--squash" in words else "merge"
     subject, body = option(words, "--subject") or "", option(words, "--body") or ""
     head = option(words, "--match-head-commit") or ""
+    if state.lose == "before":
+        raise Unanswered("gh", "error connecting to api.github.com")
     outcome = forge.merge(number, head, method, MergeText(subject=subject, body=body))
+    if state.lose == "after":
+        raise Unanswered("gh", "read tcp: connection reset by peer")
     if isinstance(outcome, MergeDenied):
         raise Unanswered("gh", f"GraphQL: {outcome.said}")
     return ""
 
 
+def aimed(state: State, words: list[str]) -> None:
+    """Refuse a call that names another repository than the test's, as gh would find none."""
+    named = option(words, "--repo") or (
+        words[2] if words[:2] == ["repo", "view"] else None
+    )
+    if words[0] == "api":
+        named = words[1].removeprefix("repos/").rsplit("/commits/", 1)[0]
+    if named != state.name:
+        raise Unanswered(
+            "gh", f"Could not resolve to a Repository with the name '{named}'"
+        )
+
+
 def answered(forge: LocalForge, state: State, words: list[str]) -> object:
     """What gh prints for `words`."""
+    aimed(state, words)
     if words[0] in {"repo", "api"}:
         return outside(state, words)
     if words[1] in {"list", "create"}:
@@ -112,7 +132,7 @@ def answered(forge: LocalForge, state: State, words: list[str]) -> object:
         title, body = option(words, "--title") or "", option(words, "--body") or ""
         return forge.update_pull(number, title, body).url
     if words[1] == "merge":
-        return merged(forge, number, words)
+        return merged(forge, state, number, words)
     raise Unanswered("gh", f"unknown command {' '.join(words)}")
 
 

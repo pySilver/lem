@@ -81,6 +81,11 @@ def decide(
     if read != (proposed.tip, world.base):
         now = f"{proposed.tip} on {world.base}"
         return old(record.task.slug, " on ".join(read), now)
+    if world.base != proposed.base:
+        return later(
+            "a read of a base that moved after the checks: safe or another round",
+            "land-merge",
+        )
     verdict = verdict_of(reply)
     if verdict is None:
         return later("a reply with no verdict on its first line", "land-merge")

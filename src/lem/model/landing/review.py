@@ -2,43 +2,36 @@
 (`landing.md` C, row 5; D, review coverage).
 
 The review holds while its newest answered attempt read this very tip, left no must-fix and was
-of the floor's kind at the least. A review's carry over a rebase or a commit of filed items, two
-rounds, two silent attempts and the read of a conflict's resolution are the step
-`land-review`'s.
+of the floor's kind at the least. A record of another attempt or tip is refused; a third round,
+a second silent attempt, a review's carry over a rebase or a commit of filed items, and the read
+of a conflict's resolution are the step `land-review`'s, refused by name.
 """
 
-from typing import TYPE_CHECKING, Literal, get_args
+from typing import TYPE_CHECKING, get_args
 
 from lem.kernel.errors import Refusal
-from lem.model.landing.world import Due, Held, World
-from lem.records.base import Frozen
+from lem.model.landing import review_said
+from lem.model.landing.world import Due, Held, World, later
 from lem.records.landing.record import Landing
-from lem.records.landing.review import Finding, Named, Reviewed
+from lem.records.landing.review import Reviewed
 
 if TYPE_CHECKING:
     from lem.records.record import Record
 
 STEP = "read"
-type Kind = Literal["read", "round", "full"]
-KINDS: tuple[Kind, ...] = get_args(Kind.__value__)
+KINDS: tuple[review_said.Kind, ...] = get_args(review_said.Kind.__value__)
+# The rounds of a review the plain path takes; a third is the step `land-review`'s.
+ROUNDS = 2
 
 
-class Said(Frozen, frozen=True, kw_only=True):
-    """What the review agent wrote down: its kind, who answered and who was silent, the
-    careful call and why, and its findings (`lem land read --record FILE`)."""
-
-    kind: Kind
-    answered: tuple[str, ...] = ()
-    silent: tuple[Named, ...] = ()
-    careful: bool | None = None
-    careful_why: str | None = None
-    findings: tuple[Finding, ...] = ()
-
-
-def floor(record: Record) -> Kind:
-    """The least review the change gets: the full set for a careful request, else one read."""
+def floor(record: Record) -> review_said.Kind:
+    """The least review the change gets: the full set for a careful request, a round after a
+    review that found a must-fix, else one read."""
     shape = record.task.shape
-    return "full" if shape is not None and shape.careful else "read"
+    if shape is not None and shape.careful:
+        return "full"
+    reviews = (record.landing or Landing()).reviews
+    return "round" if any(must_fix(review) for review in reviews) else "read"
 
 
 def newest(landing: Landing) -> Reviewed | None:
@@ -68,7 +61,20 @@ def holds(record: Record, world: World) -> Held | Due:
     return Held(why=f"review {last.attempt} read this tip and left no must-fix")
 
 
-def refusal(record: Record, said: Said) -> Refusal | None:
+def limits(landing: Landing, said: review_said.Said) -> Refusal | None:
+    """Why the attempt passes the plain path's bounds: a third round, or a second attempt
+    nobody answered, is the step `land-review`'s."""
+    answered = [review for review in landing.reviews if review.answered]
+    if said.answered and len(answered) >= ROUNDS:
+        return later("a third round of the review", "land-review")
+    if not said.answered and len(landing.reviews) > len(answered):
+        return later(
+            "a second attempt of the review that nobody answered", "land-review"
+        )
+    return None
+
+
+def refusal(record: Record, said: review_said.Said) -> Refusal | None:
     """Why the review as written down is not one this change may take."""
     slug, least = record.task.slug, floor(record)
     if KINDS.index(said.kind) < KINDS.index(least):
@@ -93,15 +99,21 @@ def refusal(record: Record, said: Said) -> Refusal | None:
     return None
 
 
-def decide(record: Record, world: World, said: Said) -> Refusal | Reviewed:
+def decide(record: Record, world: World, said: review_said.Said) -> Refusal | Reviewed:
     """The review attempt to record for the tip now, or why it is refused."""
-    refused = refusal(record, said)
+    landing = record.landing or Landing()
+    attempt = len(landing.reviews) + 1
+    refused = (
+        review_said.of_form(said, attempt, world)
+        or limits(landing, said)
+        or refusal(record, said)
+    )
     if refused is not None:
         return refused
-    landing = record.landing or Landing()
+    outside = review_said.outside_of(said)
     return Reviewed(
-        attempt=len(landing.reviews) + 1,
-        tip=world.tip or "",
+        attempt=attempt,
+        tip=said.tip,
         of="change",
         scope="whole",
         floor=floor(record),
@@ -110,7 +122,9 @@ def decide(record: Record, world: World, said: Said) -> Refusal | Reviewed:
         careful_why=said.careful_why,
         answered=said.answered,
         silent=said.silent,
-        findings=said.findings,
-        to_file=tuple(finding.id for finding in said.findings),
+        ran=said.ran,
+        left_out=said.left_out,
+        findings=review_said.counted(said) + outside,
+        to_file=tuple(finding.id for finding in outside),
         at=world.now,
     )

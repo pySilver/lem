@@ -11,8 +11,9 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.adapters.forge_gh_shell import FIELDS, Gh, GhPull, last_words
+from lem.adapters.forge_gh_shell import FIELDS, Gh, GhPull, cleaned, last_words
 from lem.kernel.errors import Refusal
+from lem.ports.faults import Unanswered
 from lem.ports.forge_facts import MergeDenied, MergeDone, MergeTaken, Repo
 
 if TYPE_CHECKING:
@@ -21,13 +22,23 @@ if TYPE_CHECKING:
 JSON = "--json"
 PR = "pr"
 METHODS = ("squash", "merge")
+# What only GitHub's own answer to a merge says: its API's refusal, in its words.
+GITHUBS = (
+    "graphql:",
+    "head branch was modified",
+    "not mergeable",
+    "merge conflict",
+    "protected branch",
+    "required status",
+    "review is required",
+)
 
 
 class Pulls(Gh):
     """The pull requests, and the merge."""
 
     def repo(self) -> Repo:
-        said = self.said("repo", "view", JSON, "nameWithOwner,url")
+        said = self.said("repo", "view", self.named(), JSON, "nameWithOwner,url")
         found = msgspec.json.decode(said)
         return Repo(name=found["nameWithOwner"], url=found["url"])
 
@@ -81,9 +92,9 @@ class Pulls(Gh):
         pinned = ("--match-head-commit", expected_head, f"--{method}")
         words = ("--subject", text.subject, "--body", text.body)
         ran = self.tried(PR, "merge", str(number), *pinned, *words)
-        if ran.returncode:
-            return denied(ran)
         found = self.pull(number)
+        if ran.returncode and found.state != "merged":
+            return denied(ran)
         if found.merge_commit and found.merged_head and found.base_parent:
             return MergeDone(
                 commit=found.merge_commit,
@@ -113,7 +124,7 @@ class Refs(Gh):
             ],
             capture_output=True,
             text=True,
-            env=dict(self.environ),
+            env=cleaned(self.environ),
             stdin=subprocess.DEVNULL,
             check=False,
         )
@@ -122,9 +133,13 @@ class Refs(Gh):
 
 def denied(ran: subprocess.CompletedProcess[str]) -> MergeDenied:
     """GitHub's refusal of a merge, by its words: a head that moved, a base that cannot take
-    it, or a rule of the base branch."""
+    it, or a rule of the base branch. Words that are not GitHub's own answer (a lost
+    connection, a timeout) say nothing of the merge: they are `Unanswered`, and the intent
+    stays for the reconcile (`landing.md` E, "Stop or lost reply around the merge call")."""
     said = last_words(ran)
     lowered = said.lower()
+    if not any(mark in lowered for mark in GITHUBS):
+        raise Unanswered("gh", said)
     if "head" in lowered and "modified" in lowered:
         return MergeDenied(kind="tip", said=said)
     if "conflict" in lowered:

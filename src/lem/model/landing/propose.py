@@ -10,10 +10,10 @@ are the step `land-propose`'s.
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
-from lem.model.landing import green
+from lem.model.landing import green, merge
 from lem.model.landing.invariants import protected
 from lem.model.landing.review import newest
-from lem.model.landing.world import Due, Held, Merger, PullSeen, World
+from lem.model.landing.world import Due, Held, PullSeen, World
 from lem.records.base import Frozen
 from lem.records.landing.propose import Proposed
 from lem.records.landing.record import Landing
@@ -47,49 +47,32 @@ def holds(record: Record, world: World) -> Held | Due:
     return Held(why=f"pull request {pull.number} proposes this tip")
 
 
-def ours(landing: Landing, world: World) -> bool:
-    """Whether the open pull request on the branch has a head Lem pushed: the tip, or the
-    commit of its last push."""
-    pull = world.pull
-    return pull is not None and pull.head in {world.tip, landing.pushed}
-
-
-def merger(world: World, reasons: tuple[str, ...]) -> Merger:
-    """Who merges: the merge agent for a green request the settings let it merge, else the
-    owner."""
-    if reasons or world.rules.land == "owner":
-        return "owner"
-    return "merger"
-
-
-def taken(record: Record, world: World) -> Refusal | None:
-    """Why the pull request on the branch is not the task's to propose: it ended, or its head
-    is no commit Lem pushed."""
-    slug, pull = record.task.slug, world.pull
-    if pull is None:
-        return None
-    if pull.state != "open":
+def adopted(record: Record, world: World) -> Refusal | PullSeen | None:
+    """The open pull request on the branch that is the task's: one whose head is the commit
+    Lem's recorded push sent. Any other open one is somebody else's, and refused
+    (`main:land.cmd_propose`)."""
+    pushed = (record.landing or Landing()).pushed
+    others = [pull for pull in world.candidates if pull.head != pushed]
+    if others:
+        pull, slug = others[0], record.task.slug
         return Refusal(
-            "closed",
-            f"the pull request {pull.url} is {pull.state}",
-            f"lem land merged {slug} comes first",
+            "foreign-pull",
+            f"pull request {pull.number} is open on {world.branch} at {pull.head}, a head "
+            "Lem did not push: it is somebody else's",
+            "give the task a branch of its own (git branch -m NEW-NAME in the worktree), "
+            f"then lem land propose {slug} again",
         )
-    if ours(record.landing or Landing(), world):
-        return None
-    return Refusal(
-        "foreign-pull",
-        f"pull request {pull.number} is open on {world.branch} at {pull.head}, a head "
-        "Lem did not push: it is somebody else's",
-        "give the task a branch of its own (git branch -m NEW-NAME in the worktree), "
-        f"then lem land propose {slug} again",
-    )
+    return world.candidates[0] if world.candidates else None
 
 
 def decide(record: Record, world: World) -> Refusal | Proposal:
     """What the proposal does, or why it may not be made."""
-    guard = protected(world.branch, world.rules, "pushes") or taken(record, world)
+    guard = protected(world.branch, world.rules, "pushes")
     if guard is not None:
         return guard
+    adopt = adopted(record, world)
+    if isinstance(adopt, Refusal):
+        return adopt
     reasons = green.reasons(record)
     last = newest(record.landing or Landing())
     proposed = Proposed(
@@ -98,7 +81,7 @@ def decide(record: Record, world: World) -> Refusal | Proposal:
         green=not reasons,
         reasons=reasons,
         careful=bool(last and last.careful),
-        who_acts=merger(world, reasons),
+        who_acts=merge.who(world, reasons),
         at=world.now,
     )
-    return Proposal(push=world.remote != world.tip, adopt=world.pull, proposed=proposed)
+    return Proposal(push=world.remote != world.tip, adopt=adopt, proposed=proposed)

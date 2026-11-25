@@ -2,7 +2,7 @@
 (`landing.md` C).
 
 Origin is fetched first, from the main checkout, so origin's base and the task's branch there
-are as they are now. The pull request is the one on record, by its number, else the open one
+are as they are now. The pull request is the one on record, by its number, else every open one
 on the task's branch (a run cut off after the forge made it wrote none down).
 """
 
@@ -107,20 +107,15 @@ def seen(pull: Pull) -> PullSeen:
     )
 
 
-def pull_of(ports: Ports, record: Record, world: World) -> PullSeen | None:
-    """The pull request on record by its number, else the open one on the task's branch,
-    the one whose head is Lem's first."""
+def pulls_of(ports: Ports, record: Record, world: World) -> World:
+    """The pull request on record, by its number; with none on record, every open one on the
+    task's branch, which `propose` judges (`model/landing/propose.adopted`)."""
     landing = record.landing
     if landing is not None and landing.pull is not None:
-        return seen(ports.forge.pull(landing.pull.number))
-    pushed = landing.pushed if landing else None
-    found = [
-        pull
-        for pull in ports.forge.find_pulls(world.branch, world.rules.base)
-        if pull.state == "open"
-    ]
-    found.sort(key=lambda pull: pull.head not in {world.tip, pushed})
-    return seen(found[0]) if found else None
+        return replace(world, pull=seen(ports.forge.pull(landing.pull.number)))
+    found = ports.forge.find_pulls(world.branch, world.rules.base)
+    candidates = tuple(seen(pull) for pull in found if pull.state == "open")
+    return replace(world, candidates=candidates)
 
 
 def gather(
@@ -133,4 +128,4 @@ def gather(
     path = where.worktree(workspace, record.task.slug)
     world = in_worktree(ports, path, world)
     world = branches(ports, workspace.checkout, world)
-    return replace(world, pull=pull_of(ports, record, world))
+    return pulls_of(ports, record, world)

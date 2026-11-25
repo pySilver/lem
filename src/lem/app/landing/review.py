@@ -1,8 +1,9 @@
 """`lem land read`: what review is due, or the record of the review an agent ran.
 
 With no file the step says what the review is: its attempt, its floor, the tip and the careful
-topics. With `--record FILE` it takes the agent's JSON (`model.landing.review.Said`) for the tip
-now. Jev's word and the seams of an unread review are the step `land-review`'s.
+topics. With `--record FILE` it takes the agent's JSON, in the form `prompts/review.md` gives
+(`model.landing.review_said.Said`), for the attempt and the tip now. Jev's word and the seams of
+an unread review are the step `land-review`'s.
 """
 
 from functools import partial
@@ -13,7 +14,7 @@ import msgspec
 
 from lem.app.landing import changes, frame, step
 from lem.kernel.errors import Refusal
-from lem.model.landing import review
+from lem.model.landing import review, review_said
 from lem.records.base import Frozen, Sha
 from lem.records.journal.landing import ReviewRound
 
@@ -28,20 +29,21 @@ class ReadDue(Frozen, frozen=True, kw_only=True):
     topics of the shape."""
 
     attempt: int
-    floor: review.Kind
+    floor: review_said.Kind
     tip: Sha
     careful: tuple[str, ...] = ()
 
 
-def said(path: str) -> review.Said:
+def said(path: str) -> review_said.Said:
     """The review agent's file; a file that is not its JSON is refused with the fix."""
     try:
-        return msgspec.json.decode(Path(path).read_bytes(), type=review.Said)
+        return msgspec.json.decode(Path(path).read_bytes(), type=review_said.Said)
     except (OSError, msgspec.DecodeError) as error:
         raise Refusal(
             "review-file",
             f"{path} is not the review's record: {error}",
-            "write the review as JSON: kind, answered, careful, careful_why, findings",
+            "write the record as prompts/review.md says: attempt, tip, kind, ran, left_out, "
+            "answered, silent, must_fix, should, nit, outside, careful, careful_why",
         ) from error
 
 

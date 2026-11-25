@@ -3,6 +3,7 @@
 
 from typing import TYPE_CHECKING
 
+import msgspec
 import pytest
 from msgspec.structs import replace
 
@@ -16,15 +17,17 @@ from lem.model.landing import (
     invariants,
     merge,
     mergeread,
+    phases,
     propose,
     reconcile,
     review,
+    review_said,
     start,
 )
 from lem.model.landing.world import Rules
 from lem.records.criterion import CriterionTest
-from lem.records.landing.merge import MergeAccepted, Merged, MergeIntent
-from lem.records.landing.review import Finding
+from lem.records.landing.merge import MergeAccepted, Merged, MergeIntent, Refused
+from lem.records.landing.review import Finding, Named
 from lem.records.task import Shape
 from unit.landing.worlds import (
     BASE,
@@ -108,18 +111,28 @@ def test_checks_refuse_serial_commands_and_a_red_tip_as_later_steps() -> None:
     assert checks.inputs(RULES) != checks.inputs(Rules(base="main", commands=("make",)))
 
 
-def said(**fields: object) -> review.Said:
-    base_said = review.Said(kind="read", answered=("claude",), careful=False)
+def said(**fields: object) -> review_said.Said:
+    """A record of attempt 1 for `TIP`, in the form `prompts/review.md` gives, with
+    `fields` over it."""
+    base_said = review_said.Said(
+        attempt=1, tip=TIP, kind="read", answered=("claude",), careful=False
+    )
     return replace(base_said, **fields)
+
+
+OUT = review_said.Outside(
+    where="a.py", title="a nit", what="it", against="under", why="small"
+)
 
 
 def test_a_review_is_refused_under_its_floor_without_a_careful_call_or_careful_and_not_full() -> (
     None
 ):
     record = task(**{**PREPARED, "reviews": ()})
-    made = review.decide(record, world(), said(findings=REVIEWED.findings))
+    made = review.decide(record, world(), said(outside=(OUT,), nit=2))
     assert not isinstance(made, Refusal)
     assert (made.attempt, made.tip, made.to_file) == (1, TIP, ("r1.1",))
+    assert [finding.id for finding in made.findings] == ["r1.c1", "r1.c2", "r1.1"]
     assert (
         code_of(review.decide(record, world(), said(careful=None))) == "no-careful-call"
     )
@@ -131,6 +144,48 @@ def test_a_review_is_refused_under_its_floor_without_a_careful_call_or_careful_a
     careful = replace(record, task=replace(record.task, shape=shape))
     assert review.floor(careful) == "full"
     assert code_of(review.decide(careful, world(), said())) == "under-floor"
+
+
+def test_a_review_of_another_attempt_or_tip_is_refused_and_its_must_fix_is_kept() -> (
+    None
+):
+    record = task(**{**PREPARED, "reviews": ()})
+    assert code_of(review.decide(record, world(), said(attempt=2))) == "attempt"
+    assert code_of(review.decide(record, world(), said(tip=OTHER))) == "tip"
+    failed = review.decide(record, world(), said(must_fix=1))
+    assert not isinstance(failed, Refusal)
+    assert review.must_fix(failed) == 1
+    after = task(**{**PREPARED, "reviews": (failed,)})
+    assert phases.due(after, world()).step == "read"
+    assert review.floor(after) == "round"
+    assert green.reasons(after) == ("the review left 1 must-fix",)
+    assert code_of(review.decide(after, world(), said(attempt=2))) == "under-floor"
+
+
+def test_a_review_beyond_the_plain_path_is_refused_by_the_step_that_builds_it() -> None:
+    record = task(**{**PREPARED, "reviews": ()})
+    lowered = said(lowered=(Named(name="t.py", why="w"),))
+    assert code_of(review.decide(record, world(), lowered)) == "not-built"
+    held = said(outside=(replace(OUT, open="docs/backlog/a.md"),))
+    assert code_of(review.decide(record, world(), held)) == "not-built"
+    two = task(**{**PREPARED, "reviews": (REVIEWED, replace(REVIEWED, attempt=2))})
+    third = said(attempt=3, kind="round")
+    assert code_of(review.decide(two, world(), third)) == "not-built"
+    silent = replace(REVIEWED, answered=())
+    again = task(**{**PREPARED, "reviews": (silent,)})
+    assert (
+        code_of(review.decide(again, world(), said(attempt=2, answered=())))
+        == "not-built"
+    )
+
+
+def test_a_review_record_with_a_key_the_prompt_does_not_name_is_refused() -> None:
+    form = {"attempt": 1, "tip": TIP, "kind": "read", "careful": False}
+    assert msgspec.json.decode(msgspec.json.encode(form), type=review_said.Said)
+    with pytest.raises(msgspec.ValidationError, match="findings"):
+        msgspec.json.decode(
+            msgspec.json.encode({**form, "findings": []}), type=review_said.Said
+        )
 
 
 def test_a_finding_under_the_bar_is_seen_and_one_over_it_is_a_later_steps_item() -> (
@@ -189,13 +244,14 @@ def test_propose_pushes_a_tip_origin_lacks_and_adopts_only_a_request_lem_pushed(
         True,
         "merger",
     )
-    cut = propose.decide(record, world(remote=TIP, pull=SEEN))
+    pushed = task(**{**PREPARED, "pushed": TIP})
+    cut = propose.decide(pushed, world(remote=TIP, candidates=(SEEN,)))
     assert not isinstance(cut, Refusal)
     assert (cut.push, cut.adopt) == (False, SEEN)
-    foreign = world(pull=replace(SEEN, head=OTHER))
-    assert code_of(propose.decide(record, foreign)) == "foreign-pull"
-    closed = world(pull=replace(SEEN, state="closed"))
-    assert code_of(propose.decide(record, closed)) == "closed"
+    before = world(remote=TIP, candidates=(SEEN,))
+    assert code_of(propose.decide(record, before)) == "foreign-pull"
+    two = world(candidates=(SEEN, replace(SEEN, number=2, head=OTHER)))
+    assert code_of(propose.decide(pushed, two)) == "foreign-pull"
     guarded = world(
         rules=Rules(base="main", commands=("true",), protected=("docs/fix-the-login",))
     )
@@ -205,6 +261,16 @@ def test_propose_pushes_a_tip_origin_lacks_and_adopts_only_a_request_lem_pushed(
     )
     assert not isinstance(owner, Refusal)
     assert owner.proposed.who_acts == "owner"
+
+
+def test_a_careful_request_is_not_green_and_the_owner_merges_it() -> None:
+    record = task(**PREPARED)
+    shape = Shape(type="docs", why="w", track="small", careful=("money",))
+    careful = replace(record, task=replace(record.task, shape=shape))
+    assert green.reasons(careful) == ("the request is careful: money",)
+    made = propose.decide(careful, world())
+    assert not isinstance(made, Refusal)
+    assert made.proposed.who_acts == "owner"
 
 
 def test_a_merge_read_takes_a_verdict_for_the_tip_and_base_of_its_brief() -> None:
@@ -328,3 +394,46 @@ def test_nothing_is_pushed_to_merged_from_or_deleted_on_a_protected_branch() -> 
     assert invariants.protected("main", rules, "merges") is None
     assert code_of(invariants.protected("main", rules, "pushes")) == "protected"
     assert code_of(invariants.protected("release", rules, "deletes")) == "protected"
+
+
+@pytest.mark.parametrize(
+    ("facts", "landing", "code"),
+    [
+        ({"tip": OTHER}, {}, "tip"),
+        ({}, {"checked": replace(CHECKED, outcome="red")}, "checks-changed"),
+        ({}, {"checked": replace(CHECKED, tip=OTHER)}, "checks-changed"),
+        ({"base": OTHER}, {}, "base"),
+        (
+            {"rules": Rules(base="main", commands=("true",), protected=("main",))},
+            {},
+            "protected",
+        ),
+    ],
+    ids=[
+        "local tip moved",
+        "red checks",
+        "checks of another tip",
+        "base moved",
+        "protected base",
+    ],
+)
+def test_a_merge_is_refused_on_the_evidence_read_again_under_the_lock(
+    facts: dict[str, object], landing: dict[str, object], code: str
+) -> None:
+    record = task("open", **{**OPENED, "reads": (READ,), **landing})
+    decided = merge.decide(record, world(pull=SEEN, **facts), "owner", ("session", TIP))
+    assert code_of(decided) == code
+
+
+def test_githubs_refusal_of_the_proposed_tip_waits_for_the_owner() -> None:
+    refused = Refused(
+        tip=TIP, source="github", kind="rule", line="checks", by="merger", at=MOMENT
+    )
+    record = task("open", **{**OPENED, "reads": (READ,), "refused": refused})
+    due = phases.due(record, world(pull=SEEN))
+    assert due.step == "wait"
+    assert "GitHub refused the merge of this tip: checks" in due.why
+
+
+def test_a_branch_reset_under_its_recorded_base_makes_the_base_due_again() -> None:
+    assert phases.due(task(**PREPARED), world(base_in_tip=False)).step == "base"

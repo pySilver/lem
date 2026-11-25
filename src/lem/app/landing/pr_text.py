@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from lem.kernel import files
 from lem.kernel.errors import Refusal
 from lem.model.landing.review import newest
+from lem.model.landing.review_said import COUNTED
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
@@ -49,8 +50,12 @@ def tally(levels: tuple[str, ...], level: str) -> str:
 
 
 def counted(review: Reviewed) -> str:
-    """The review's line: its attempt, its kind, who answered, and its counts by level."""
-    levels = tuple[str, ...](finding.level for finding in review.findings)
+    """The review's line: its attempt, its kind, who answered, and the counts by level of the
+    change's findings (the defects outside the change have their own section)."""
+    mark = f".{COUNTED}"
+    levels = tuple[str, ...](
+        finding.level for finding in review.findings if mark in finding.id
+    )
     counts = ", ".join(map(partial(tally, levels), LEVELS))
     answered = ", ".join(review.answered) or "nobody"
     kind = f"{review.kind}; answered: {answered}"

@@ -5,6 +5,7 @@ A call that must succeed raises `Unanswered` with gh's last words; one whose exi
 reads goes through `tried`.
 """
 
+import re
 import subprocess
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -12,6 +13,7 @@ from typing import TYPE_CHECKING, Literal
 
 import msgspec
 
+from lem.kernel.errors import Refusal
 from lem.ports.faults import Unanswered
 from lem.ports.forge_facts import Mergeable, Pull
 
@@ -22,6 +24,11 @@ if TYPE_CHECKING:
 type PullState = Literal["open", "closed", "merged"]
 
 GH = "gh"
+# What in a caller's environment would aim gh or git at another repository than the checkout's.
+AIMED = frozenset(
+    ("GH_REPO", "GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE")
+)
+GITHUB = re.compile(r"github\.com[:/]+([^/]+/[^/]+?)(?:\.git)?/?$")
 # The longest a call to GitHub may take before it counts as no answer, in seconds
 # (unmeasured estimate).
 TIMEOUT = 120
@@ -75,14 +82,16 @@ class Gh:
     environ: Mapping[str, str]
 
     def tried(self, *args: str) -> subprocess.CompletedProcess[str]:
-        """`gh ARGS` in the main checkout, whatever its exit code."""
+        """`gh ARGS` in the main checkout, whatever its exit code; a call of `gh pr` names
+        the repository of the configured origin, whatever `GH_REPO` says."""
+        named = ("--repo", self.named()) if args[0] == "pr" else ()
         try:
             return subprocess.run(
-                [GH, *args],
+                [GH, *args, *named],
                 cwd=self.checkout,
                 capture_output=True,
                 text=True,
-                env=dict(self.environ),
+                env=cleaned(self.environ),
                 stdin=subprocess.DEVNULL,
                 timeout=TIMEOUT,
                 check=False,
@@ -97,12 +106,27 @@ class Gh:
             raise Unanswered(GH, last_words(ran))
         return ran.stdout
 
+    def named(self) -> str:
+        """`OWNER/NAME` of the configured origin on GitHub, as its URL names it."""
+        ran = subprocess.run(
+            ["git", "-C", str(self.checkout), "config", "--get", "remote.origin.url"],
+            capture_output=True,
+            text=True,
+            env=cleaned(self.environ),
+            check=False,
+        )
+        found = GITHUB.search(ran.stdout.strip())
+        if found is None:
+            raise Refusal(
+                "not-github",
+                f"origin of {self.checkout} is not a repository on GitHub",
+                "point origin at the repository on GitHub, then run the step again",
+            )
+        return found[1]
+
     def parent(self, commit: str) -> str:
         """The first parent of `commit` on the forge: the base a squash or a merge went onto."""
-        repo = self.said(
-            "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"
-        )
-        path = f"repos/{repo.strip()}/commits/{commit}"
+        path = f"repos/{self.named()}/commits/{commit}"
         return self.said("api", path, "--jq", ".parents[0].sha").strip()
 
     def pull_of(self, found: GhPull) -> Pull:
@@ -124,6 +148,11 @@ class Gh:
             merged_head=found.head_ref_oid if done else None,
             base_parent=self.parent(merged) if done and merged else None,
         )
+
+
+def cleaned(environ: Mapping[str, str]) -> dict[str, str]:
+    """The environment of a call, but what would send `gh` or git to another repository."""
+    return {name: word for name, word in environ.items() if name not in AIMED}
 
 
 def last_words(ran: subprocess.CompletedProcess[str]) -> str:

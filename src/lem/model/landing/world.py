@@ -64,7 +64,8 @@ class World(Frozen, frozen=True, kw_only=True):
     """The facts of one moment: the task's branch and worktree (its tip and tree, clean, a
     rebase in progress), origin's base, its tree and whether the tip holds it, origin's task
     branch and whether the tip holds it, the local branch and whether origin's base holds it,
-    the pull request, the settings and the moment."""
+    the pull request on record, the open ones on the branch while none is on record
+    (`candidates`), the settings and the moment."""
 
     rules: Rules
     branch: str
@@ -81,6 +82,7 @@ class World(Frozen, frozen=True, kw_only=True):
     local: Sha | None = None
     local_in_base: bool = False
     pull: PullSeen | None = None
+    candidates: tuple[PullSeen, ...] = ()
 
 
 class Held(Frozen, frozen=True, kw_only=True):

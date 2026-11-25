@@ -7,6 +7,7 @@ The slice that `slice-land` built for the plain path; `land-propose` takes it ov
 GitHub.
 """
 
+import dataclasses
 import json
 import os
 import stat
@@ -19,10 +20,11 @@ import msgspec
 import pytest
 
 from contract.suites.forge import TEXT, ForgeContract
-from fakes.repo import RealRepo, git_env
+from fakes.repo import RealRepo, git_env, run_git
 from lem.adapters import forge_gh, forge_gh_pulls
 from lem.kernel.errors import Refusal
-from lem.ports.forge_facts import MergeDenied, MergeOutcome
+from lem.ports.faults import Unanswered
+from lem.ports.forge_facts import MergeDenied, MergeDone, MergeOutcome
 from lem.ports.place import Place
 
 TESTS = Path(__file__).resolve().parents[1]
@@ -31,6 +33,9 @@ exec {python} -I -B -c 'import runpy, sys; sys.path.insert(0, "{tests}"); \
 runpy.run_module("contract.gh_standin", run_name="__main__")' "$@"
 """
 FILES = {"README.md": b"one\n"}
+# The origin's address as a checkout of a GitHub repository names it; git reaches the test's
+# own origin through `url.<origin>.insteadOf`.
+GITHUB = "https://github.com/owner/project.git"
 
 
 @dataclass(frozen=True)
@@ -52,12 +57,14 @@ class GhWorld:
 
     def calls(self) -> list[list[str]]:
         """Every call of gh, in order."""
-        return json.loads(self.state.read_text())["calls"]
+        return json.loads(self.state.read_text()).get("calls", [])
 
 
 def gh_world(folder: Path) -> GhWorld:
     """A real repository, the stand-in for `gh` first on the PATH, and the adapter over them."""
     repo = RealRepo.init(folder / "repo", dict(FILES))
+    run_git(repo.checkout, "config", "remote.origin.url", GITHUB)
+    run_git(repo.checkout, "config", f"url.{repo.origin}.insteadOf", GITHUB)
     state = folder / "gh-state.json"
     begun = {
         "origin": str(repo.origin),
@@ -116,3 +123,52 @@ def test_githubs_refusal_is_read_by_its_words(said: str, kind: str) -> None:
     assert forge_gh_pulls.denied(ran) == msgspec.convert(
         {"kind": kind, "said": said}, MergeDenied
     )
+
+
+def test_every_call_names_the_repository_of_origin_whatever_gh_repo_says(
+    tmp_path: Path,
+) -> None:
+    world = gh_world(tmp_path)
+    aimed = dataclasses.replace(
+        world.forge, environ={**world.forge.environ, "GH_REPO": "someone/else"}
+    )
+    world.push("fix-the-login", {"a.txt": b"a\n"})
+    opened = aimed.open_pull("fix-the-login", "main", "Fix", "body")
+    assert aimed.repo().name == "owner/project"
+    assert opened.number == 1
+    pulls = [call for call in world.calls() if call[0] == "pr"]
+    assert pulls
+    assert all(call[call.index("--repo") + 1] == "owner/project" for call in pulls)
+
+
+def test_an_origin_that_is_not_on_github_is_refused_by_name(tmp_path: Path) -> None:
+    world = gh_world(tmp_path)
+    run_git(world.repo.checkout, "config", "remote.origin.url", str(world.repo.origin))
+    with pytest.raises(Refusal) as refused:
+        world.forge.find_pulls("fix-the-login", "main")
+    assert refused.value.code == "not-github"
+    assert world.calls() == []
+
+
+def test_a_lost_reply_before_the_merge_is_no_refusal(tmp_path: Path) -> None:
+    world = gh_world(tmp_path)
+    head = world.push("fix-the-login", {"a.txt": b"a\n"})
+    opened = world.forge.open_pull("fix-the-login", "main", "Fix", "body")
+    state = json.loads(world.state.read_text())
+    world.state.write_text(json.dumps({**state, "lose": "before"}))
+    with pytest.raises(Unanswered, match="error connecting"):
+        world.forge.merge(opened.number, head, "squash", TEXT)
+    assert world.forge.pull(opened.number).state == "open"
+
+
+def test_a_lost_reply_after_the_merge_gives_the_merge_the_forge_shows(
+    tmp_path: Path,
+) -> None:
+    world = gh_world(tmp_path)
+    head = world.push("fix-the-login", {"a.txt": b"a\n"})
+    opened = world.forge.open_pull("fix-the-login", "main", "Fix", "body")
+    state = json.loads(world.state.read_text())
+    world.state.write_text(json.dumps({**state, "lose": "after"}))
+    outcome = world.forge.merge(opened.number, head, "squash", TEXT)
+    assert isinstance(outcome, MergeDone)
+    assert outcome.merged_head == head

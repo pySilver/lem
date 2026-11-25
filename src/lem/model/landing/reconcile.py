@@ -12,12 +12,28 @@ from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
 from lem.model.landing import mergeread
-from lem.model.landing.world import Merger, PullSeen, World, later
+from lem.model.landing.world import Due, Merger, PullSeen, World, later
 from lem.records.landing.merge import MergeAccepted, Merged, MergeIntent, Via
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
     from lem.records.record import Record
+
+
+def pending(landing: Landing, world: World) -> Due | None:
+    """What a merge call left, which comes before anything else of an open request: an
+    intent to reconcile, the forge's merge or queue to write down, or GitHub's refusal of this
+    tip, which waits for the owner (no automatic retry)."""
+    pull, proposed, refused = world.pull, landing.proposed, landing.refused
+    if landing.intent is not None:
+        why = "a merge call is on record: it is reconciled first"
+        return Due(step="merge", why=why, by=landing.intent.by)
+    if landing.accepted is not None or (pull is not None and pull.state != "open"):
+        return Due(step="merged", why="the forge took the merge, or ended the request")
+    if refused is None or proposed is None or refused.tip != proposed.tip:
+        return None
+    why = f"GitHub refused the merge of this tip: {refused.line}"
+    return Due(step="wait", why=f"{why}; the owner acts on GitHub or asks for a change")
 
 
 def uncovered(landing: Landing, parent: str) -> str | None:

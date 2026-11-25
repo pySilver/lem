@@ -10,17 +10,33 @@ if TYPE_CHECKING:
     from lem.model.landing.world import Due
 
 RESTS = frozenset(("wait", "done", "none"))
+INPUTS = (
+    "TITLE and SUBJECT are the report's commit subject, FILE the pull request's notes"
+)
+
+
+def words_of(due: Due) -> str:
+    """The words a due step's command takes past its slug, each input the caller gives as a
+    placeholder that `INPUTS` names."""
+    if due.step == "propose":
+        return " --title TITLE --notes FILE"
+    if due.step == "merge":
+        return f" --by {due.by} --message SUBJECT"
+    return ""
 
 
 def following(slug: str, due: Due) -> Next:
-    """The due step's command, or the wait and why; the owner's merge is his to give."""
+    """The due step's command, or the wait and why; the owner's merge is his to give. A
+    command that takes an input of the caller's names it as a placeholder, and `why` says
+    what each is."""
     if due.step == "done":
         return Next(act="done", why=due.why)
     if due.step in RESTS or due.by == "owner":
         return Next(act="wait", why=due.why)
-    chosen = f" --by {due.by}" if due.by else ""
-    command = f"lem land {due.step} {slug}{chosen}"
-    return Next(act="run", command=command, why=due.why)
+    words = words_of(due)
+    command = f"lem land {due.step} {slug}{words}"
+    why = f"{due.why}; {INPUTS}" if words else due.why
+    return Next(act="run", command=command, why=why)
 
 
 def not_due(slug: str, verb: str, due: Due) -> Refusal:

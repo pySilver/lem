@@ -28,11 +28,16 @@ AUTHOR = {
 
 
 def git_env() -> dict[str, str]:
-    """The environment every git of a test runs with."""
+    """The environment every git of a test runs with: none of the caller's `GIT_*` (a
+    `GIT_DIR` or a `GIT_CONFIG_GLOBAL` would send git to another repository or setting)."""
+    kept = {
+        name: value for name, value in os.environ.items() if not name.startswith("GIT_")
+    }
     return {
-        **os.environ,
+        **kept,
         **AUTHOR,
         "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_CONFIG_GLOBAL": os.devnull,
         "GIT_TERMINAL_PROMPT": "0",
     }
 

@@ -13,11 +13,12 @@ from lem.model.landing import (
     checks,
     filing,
     merge,
-    mergeread,
     propose,
+    reconcile,
     review,
     start,
 )
+from lem.model.landing.mergeread import usable
 from lem.model.landing.world import Due, Held, World
 from lem.records.landing.record import Landing
 from lem.records.record import Record
@@ -46,22 +47,18 @@ def preparing(record: Record, world: World) -> Due:
 
 
 def opened(record: Record, world: World) -> Due:
-    """The due step of an open pull request: the intent's reconcile, the forge's merge, a new
-    round, the merge agent's read, then the merge."""
+    """The due step of an open pull request: what a merge call left, a new round, the merge
+    agent's read, then the merge."""
     landing = record.landing or Landing()
-    pull, proposed = world.pull, landing.proposed
-    if landing.intent is not None:
-        return Due(
-            step="merge", why="a merge call is on record: it is reconciled first"
-        )
-    if landing.accepted is not None or (pull is not None and pull.state != "open"):
-        return Due(step="merged", why="the forge took the merge, or ended the request")
+    left = reconcile.pending(landing, world)
+    if left is not None:
+        return left
+    proposed = landing.proposed
     if proposed is None or proposed.tip != world.tip:
         return Due(step="start", why="the tip moved after the proposal: a new round")
-    if mergeread.usable(landing, world) is None:
-        return Due(
-            step="merge-review", why="no read of the merge agent covers this tip"
-        )
+    if usable(landing, world) is None:
+        why = "no read of the merge agent covers this tip"
+        return Due(step="merge-review", why=why)
     return merge.due(record, world)
 
 

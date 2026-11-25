@@ -38,7 +38,7 @@ def holds(record: Record, world: World) -> Held | Due:
         return Due(step=STEP, why="a rebase is in progress in the worktree")
     if foreign(landing, world):
         return Due(step=STEP, why="origin's branch has a commit Lem did not push")
-    if based is None or based.base != world.base:
+    if based is None or based.base != world.base or not world.base_in_tip:
         return Due(step=STEP, why="the branch is not on origin's base as it is now")
     return Held(why="the branch is on origin's base")
 

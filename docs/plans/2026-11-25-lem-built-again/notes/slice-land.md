@@ -59,7 +59,10 @@ checkout only when it is on the base branch, and the slice reads that as "HEAD i
 also passes. A method `branch_of(where: Path) -> str | None` (`git branch --show-current`, None
 when detached) closes that, and `lem task worktree` can then check that a worktree that is there
 is on the task's branch. Meanwhile `app/landing/merged.py: followed` compares HEAD's commit with
-`refs/heads/BASE`, and `app/tasks/worktree.py` takes a worktree that is there as it is.
+`refs/heads/BASE`, and the git adapter's `fast_forward(checkout, "origin/BASE")` refuses a
+checkout whose HEAD is not the branch BASE (`git symbolic-ref`), so another branch at the same
+commit never moves (`tests/contract/test_git_slice.py`); `app/tasks/worktree.py` still takes a
+worktree that is there as it is.
 
 ## For `land-merge`: the queue's merge loses who asked for it
 
@@ -68,3 +71,28 @@ not who asked for the merge nor through what. When the queue merges, `lem land m
 merge with `by: owner, via: github` (`app/landing/merged.py: adopted`). A `by` and a `via` on
 `MergeAccepted`, written from the intent it replaces, keep them. Meanwhile a merge the queue
 made is written `by: owner, via: github`.
+
+## For `core`: the push of a commit, not of a branch's name
+
+`Git.push(worktree, branch, expect)` pushes the local branch by its name, so a commit made on the
+branch between the checks and the push would go to origin while the record says the checked one
+(the review of 2026-11-25, finding 5). A parameter `commit: Sha` (`git push origin
+COMMIT:refs/heads/BRANCH` with the lease) closes it. Meanwhile `app/landing/propose.py: sent`
+reads the branch's commit before the push and refuses when it is not the checked tip, and
+records the commit git sent after it, refusing when that is not the checked tip either.
+
+## For `land-review` (and `core`): a review's counts have no field
+
+`prompts/review.md` has the review agent write counts (`must_fix`, `should`, `nit`) and the
+defects outside the change (`outside`); `Reviewed` (`records/landing/review.py`) has only
+`findings`, each with a level. Meanwhile the slice keeps the counts as findings `rA.cN` of their
+level that only count (`model/landing/review_said.py: counted`), and each defect outside the
+change as a finding `rA.N` of level `nit`, which `file` places; the pull request counts only the
+first. Fields `must_fix`, `should`, `nit` and `outside` on `Reviewed` (or a level `outside`)
+would keep them apart.
+
+## For `land-checks`: a stop in the checks runs every command again
+
+A run of the checks cut off between two commands, or after the last and before its record, runs
+every command again: what ran is in published logs (`checks/rR-N-DIGEST.log`) and no record. A
+run that adopts the logs of its own tip and inputs would not, which `main` did not do either.

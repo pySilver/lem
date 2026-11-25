@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 TIMEOUT = 300
 GIT = "git"
 QUIET = "--quiet"
+AIMED = frozenset(("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE"))
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -35,7 +36,7 @@ class Shell:
                 [GIT, "-C", str(where), *args],
                 capture_output=True,
                 text=True,
-                env=dict(self.environ),
+                env=own(self.environ),
                 stdin=subprocess.DEVNULL,
                 timeout=TIMEOUT,
                 check=False,
@@ -69,7 +70,7 @@ class Shell:
             ran = subprocess.run(
                 [GIT, "-C", str(where), "cat-file", "blob", spec],
                 capture_output=True,
-                env=dict(self.environ),
+                env=own(self.environ),
                 stdin=subprocess.DEVNULL,
                 timeout=TIMEOUT,
                 check=True,
@@ -77,6 +78,12 @@ class Shell:
         except (OSError, subprocess.SubprocessError) as error:
             raise Unanswered(GIT, str(error)) from error
         return ran.stdout
+
+
+def own(environ: Mapping[str, str]) -> dict[str, str]:
+    """The environment of a call, but what would aim git at another repository than the
+    folder named."""
+    return {name: word for name, word in environ.items() if name not in AIMED}
 
 
 def last_words(ran: subprocess.CompletedProcess[str]) -> str:

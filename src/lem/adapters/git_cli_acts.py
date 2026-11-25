@@ -66,7 +66,7 @@ class Rewrite(Shell):
 
 class Branches(Shell):
     """Add and remove a worktree, delete a branch at the commit named, and fast-forward a
-    checkout."""
+    checkout that is on the branch of the ref (`origin/main` moves `main` only)."""
 
     def worktree_add(self, checkout: Path, path: Path, branch: str, start: str) -> None:
         if path.exists():
@@ -87,6 +87,11 @@ class Branches(Shell):
         return not ran.returncode
 
     def fast_forward(self, checkout: Path, ref: str) -> str | GitRefused:
+        named = ref.removeprefix("origin/")
+        current = self.tried(checkout, "symbolic-ref", QUIET, "--short", "HEAD")
+        if current.stdout.strip() != named:
+            on = current.stdout.strip() or "a detached HEAD"
+            return GitRefused(said=f"the checkout is on {on}, not on {named}")
         ran = self.tried(checkout, "merge", "--ff-only", QUIET, ref)
         if ran.returncode:
             return GitRefused(said=last_words(ran))
