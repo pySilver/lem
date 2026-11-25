@@ -2,23 +2,39 @@
 
 The plugin a session loaded is named by `LEM_PLUGIN_ROOT`, which the `session-start` hook writes;
 the app's own plugin files are its root (`kernel.paths.root`). Both `lem` before a command and the
-hooks read this line, so it is written with the standard library only.
+hooks read this line, so it is written with the standard library only, and with no `pathlib`,
+which a hook's start does not pay for.
 """
 
 import json
-from pathlib import Path
+import os
 
-MANIFEST = Path(".claude-plugin") / "plugin.json"
+from lem.hooks import raw, where
+
+MANIFEST = ".claude-plugin/plugin.json"
 # The update command of each half, for the line that names the one that is behind.
 APP_UPDATE = "brew upgrade pySilver/tap/lem"
 PLUGIN_UPDATE = "claude plugin update lem@lem"
 
 
+def app_root() -> str | None:
+    """The folder of the app's plugin files, by the rule of `kernel.paths.root`: `lem/data` in
+    an installed app, else the checkout that holds the skill `lem`; None where that rule finds
+    none."""
+    package = where.parent(where.parent(os.path.realpath(__file__)))
+    installed = f"{package}/data"
+    if raw.is_folder(installed):
+        return installed
+    checkout = where.parent(where.parent(package))
+    found = os.access(f"{checkout}/skills/lem/SKILL.md", os.F_OK)
+    return checkout if found else None
+
+
 def version_of(folder: str) -> str:
     """The version in the manifest of `folder`; a manifest that does not read is named."""
-    path = Path(folder) / MANIFEST
+    path = f"{folder}/{MANIFEST}"
     try:
-        manifest = json.loads(path.read_text(encoding="utf-8"))
+        manifest = json.loads(raw.read_bytes(path))
     except (OSError, ValueError) as error:
         return f"unreadable ({path}: {error})"
     version = manifest.get("version") if isinstance(manifest, dict) else None
