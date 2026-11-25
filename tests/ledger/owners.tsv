@@ -293,7 +293,7 @@ check:tests/lem-land-github.sh:after-a-merge-an-open-task-with-no-conflict-9ab9e
 check:tests/lem-land-github.sh:after-a-merge-the-forge-made-as-one-commit-t-aeede728a86c6bc8	land-merge
 check:tests/lem-land-github.sh:after-an-update-branch-on-the-forge-and-a-me-226bd9af46795342	land-merge
 check:tests/lem-land-github.sh:after-the-merge-the-worktree-and-the-branch-e0dae355a8804dc5	land-merge
-check:tests/lem-land-github.sh:an-open-task-whose-last-review-left-a-must-f-0dead4e126644e05	land-merge
+check:tests/lem-land-github.sh:an-open-task-whose-last-review-left-a-must-f-0dead4e126644e05	land-propose
 check:tests/lem-land-github.sh:an-origin-that-is-not-on-github-init-refuses-e325236b7c685569	land-propose
 check:tests/lem-land-github.sh:merge-merges-no-pull-request-whose-head-on-t-6f5a0b3e4ac8aacb	land-merge
 check:tests/lem-land-github.sh:merged-on-a-pull-request-that-is-still-open-102ab6ff38ab9cbf	land-merge

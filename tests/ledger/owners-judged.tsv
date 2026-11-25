@@ -40,7 +40,6 @@ check:tests/lem-land-github.sh:after-a-merge-an-open-task-with-no-conflict-9ab9e
 check:tests/lem-land-github.sh:after-a-merge-the-forge-made-as-one-commit-t-aeede728a86c6bc8	land-merge	clean after a squash: land-merge	land-propose
 check:tests/lem-land-github.sh:after-an-update-branch-on-the-forge-and-a-me-226bd9af46795342	land-merge	clean after an Update branch: land-merge	land-propose
 check:tests/lem-land-github.sh:after-the-merge-the-worktree-and-the-branch-e0dae355a8804dc5	land-merge	clean: land-merge	land-propose
-check:tests/lem-land-github.sh:an-open-task-whose-last-review-left-a-must-f-0dead4e126644e05	land-merge	the end of the owner's standing merge over a rebase is the Proposed.owner_merge that land-merge's standing reads, from land-base's carry	land-propose
 check:tests/lem-land-github.sh:merge-merges-no-pull-request-whose-head-on-t-6f5a0b3e4ac8aacb	land-merge	the merge's head and state checks: land-merge	land-propose
 check:tests/lem-land-github.sh:merged-on-a-pull-request-that-is-still-open-102ab6ff38ab9cbf	land-merge	merged on an open pull request and waiting's conflict: land-merge	land-propose
 check:tests/lem-land-guards.sh:a-file-that-was-untracked-before-the-gate-is-a495a2382e12fd27	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
