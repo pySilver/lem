@@ -71,7 +71,8 @@ def took_seat(failure: StandIn, fallback: seating.Shown) -> str | None:
     agents, _, _ = seating.ROLES[failure.seat]
     if fallback.seat is False or fallback.seat == failure.failed:
         return None
-    return fallback.seat if fallback.agent in agents else None
+    allowed = fallback.agent is not None and fallback.agent in agents
+    return fallback.seat if allowed else None
 
 
 def with_failure(record: Record, *, failure: StandIn, line: str) -> Record:

@@ -3,17 +3,25 @@
     lem seat failed SLUG ROLE --seat SEAT --error KIND [--said LINE]
 
 Only the reviewer, the planner and the merge agent have a fallback, and an error is one of the
-four of `main`'s `state.SEAT_ERRORS`. A stub until the step `sessions` builds it: it refuses
-`not-built`.
+four of `main`'s `state.SEAT_ERRORS`.
+The fallback stands in from then on, or the task is blocked with the seat named
+(`app/sessions/seats.py`).
 """
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.sessions import here, seats
+from lem.cli import place
 from lem.cli.words import choice
+from lem.kernel import clock
+from lem.kernel.errors import Refusal
+from lem.records.work import StandIn
+
+if TYPE_CHECKING:
+    from lem.records.task import Task
 
 type Role = Literal["reviewer", "planner", "merger"]
 type Error = Literal["missing", "login", "tokens", "model"]
@@ -29,9 +37,23 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     said: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `sessions` builds `lem seat failed`."""
-    raise not_built("seat failed", "sessions")
+def run(call: Call) -> Task:
+    """The fallback stands in, or the task is blocked."""
+    said = call.said
+    if said is not None and (not said.strip() or "\n" in said):
+        raise Refusal(
+            "said",
+            "--said is the agent's own line of the error, one line of text",
+            "give its line again, or leave --said out",
+        )
+    failure = StandIn(
+        seat=call.role,
+        failed=call.seat,
+        error=call.error,
+        said=said.strip() if said else None,
+        at=clock.now(),
+    )
+    return seats.failed(here.bound(place.folder()), call.slug, failure).task
 
 
 COMMAND = click.Command(

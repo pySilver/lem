@@ -3,8 +3,9 @@
     lem session open SLUG [--why WHY] [--session ID]
 
 It opens the task's session with no focus for the phase the task's record gives, or gives the
-one that runs (`app/sessions/opening.py`). `--why stopped`, the restart of a stopped session
-beside it, is the step `sessions`'s, and refuses `not-built` until then.
+one that runs (`app/sessions/opening.py`). With `--why new` it names the wait for the task's
+first line, which the caller runs in the background. `--why stopped` is the guard's restart
+beside a stopped session, or the owner's open over a logged stop (`app/sessions/guard_steps.py`).
 """
 
 from typing import TYPE_CHECKING, Literal
@@ -12,8 +13,8 @@ from typing import TYPE_CHECKING, Literal
 import click
 import msgspec
 
-from lem.app.sessions import here, opening
-from lem.cli import place, stub
+from lem.app.sessions import guard_steps, here, opening
+from lem.cli import place
 from lem.cli.words import choice
 from lem.kernel import clock
 
@@ -44,11 +45,16 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 def run(call: Call) -> Envelope:
     """Open the task's session, or give the one that runs."""
-    if call.why == "stopped":
-        raise stub.not_built("session open --why stopped", "sessions")
     bound = here.bound(place.folder())
+    if call.why == "stopped":
+        acted = guard_steps.stepped(
+            bound, call.slug, "restart", call.session, clock.now()
+        )
+        return here.enveloped(acted, acted.say)
     made = opening.open_session(bound, call.slug, call.why, None, clock.now())
-    return here.enveloped(made, opening.said(made))
+    waits = call.why == "new" and not made.already
+    then = f"lem session wait {call.slug} --first-line" if waits else None
+    return here.enveloped(made, made.said(), then)
 
 
 COMMAND = click.Command(

@@ -75,7 +75,7 @@ def after_wake(line: Timeline, facts: Facts, place: int, now: datetime) -> Due |
         return None
     if facts.read and restartable(line):
         return Due(step="restart", since=asked)
-    return None if line.has(STOPPED, place) else Due(step=STOPPED, since=asked)
+    return None if line.has(STOPPED, place) else Due(step="stopped", since=asked)
 
 
 def restartable(line: Timeline) -> bool:

@@ -2,16 +2,23 @@
 
     lem session wake SLUG --why WHY [--head SHA] [--session ID]
 
-A stub until the step `sessions` builds it: it refuses `not-built`.
+It sends `lem: SLUG WHY` to the task's live session, or opens one (`app/sessions/waking.py`);
+`--why status` is the guard's status message, to the live session only
+(`app/sessions/guard_steps.py`).
 """
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.sessions import guard_steps, here, waking
+from lem.cli import place
 from lem.cli.words import choice
+from lem.kernel import clock
+
+if TYPE_CHECKING:
+    from lem.kernel.envelope import Envelope
 
 type Why = Literal["merged", "conflict", "refused", "queue", "owner", "inbox", "status"]
 
@@ -25,9 +32,15 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     session: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `sessions` builds `lem session wake`."""
-    raise not_built("session wake", "sessions")
+def run(call: Call) -> Envelope:
+    """Wake the task's session, or open one."""
+    bound = here.bound(place.folder())
+    now = clock.now()
+    if call.why == "status":
+        acted = guard_steps.stepped(bound, call.slug, "status", call.session, now)
+        return here.enveloped(acted, acted.say)
+    woken = waking.wake(bound, call.slug, call.why, call.head, now)
+    return here.enveloped(woken, woken.say)
 
 
 COMMAND = click.Command(
