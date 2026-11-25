@@ -31,7 +31,7 @@ import pytest
 from fakes.command import LEM, Ran, lem
 from fakes.records import record
 from lem.board import machine, stream
-from lem.kernel import release
+from lem.kernel import folders, release
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
@@ -275,7 +275,9 @@ def test_serve_ensure_keeps_one_server_and_another_install_replaces_it_only_when
     repo = workspace_at(tmp_path / "repo")
     port = free_port()
     supervisor.ports.append(port)
-    (lem_home(env) / "machine.toml").write_text(f"[serve]\nport = {port}\n")
+    (folders.home_marked(lem_home(env)) / "machine.toml").write_text(
+        f"[serve]\nport = {port}\n"
+    )
     first = result(lem("serve", "ensure", cwd=repo, env=serving(env)))
     assert (first["running"], first["started"]) == (True, True)
     [one] = supervisor.running()
@@ -447,4 +449,34 @@ def test_a_server_of_the_release_before_keeps_its_port_and_every_file_of_its_hom
         before.shutdown()
         before.server_close()
     assert [seen for seen in before.seen if seen.startswith("POST")] == []
+    assert supervisor.running() == []
+
+
+def test_a_home_of_lem_0_3_with_nothing_serving_is_refused_and_kept_as_it_is(
+    tmp_path: Path, env: dict[str, str], supervisor: Supervisor
+) -> None:
+    home = lem_home(env)
+    repo = workspace_at(tmp_path / "repo")
+    port = free_port()
+    other = free_port()
+    supervisor.ports.extend((port, other))
+    (home / "machine.toml").write_text(f"[serve]\nport = {port}\n")
+    (home / "owner.jsonl").write_text('{"away": false, "at": "2026-11-24T00:00:00Z"}\n')
+    (home / "serve.lock").write_text("")
+    (home / "workspaces.json").write_text('[\n  "/Users/someone/project"\n]\n')
+    kept = files_of(home, repo)
+    for words in (
+        ("serve", "run"),
+        ("serve", "run", "--port", str(other)),
+        ("serve", "ensure"),
+        ("board", "--no-open"),
+    ):
+        ran = lem(*words, cwd=repo, env=serving(env))
+        assert (ran.code, refusal_code(ran)) == (1, "old-state"), words
+        assert files_of(home, repo) == kept, words
+    stop = result(lem("serve", "stop", cwd=repo, env=serving(env)))
+    assert stop == {"stopped": False, "said": f"no board server runs on port {port}"}
+    assert files_of(home, repo) == kept
+    assert not listening(port)
+    assert not listening(other)
     assert supervisor.running() == []

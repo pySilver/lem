@@ -13,7 +13,7 @@ from pathlib import Path
 
 import msgspec
 
-from lem.kernel import files, locks
+from lem.kernel import files, folders, locks
 from lem.kernel.errors import Refusal
 from lem.store import places
 
@@ -43,12 +43,13 @@ def listed(home: Path) -> tuple[str, ...]:
 
 def noted(home: Path, folder: Path) -> places.Workspace | None:
     """Put the main checkout of the workspace `folder` is in on the list, unless it is there;
-    None when the folder is in no workspace, which a machine's server needs none of."""
+    None when the folder is in no workspace, which a machine's server needs none of. A home
+    folder of Lem 0.3 is refused before any write."""
     try:
         space = places.workspace(folder)
     except Refusal:
         return None
-    home.mkdir(parents=True, exist_ok=True)
+    folders.home_marked(home)
     path = str(space.checkout.resolve())
     with locks.held(home / LOCK):
         before = listed(home)

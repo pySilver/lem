@@ -18,7 +18,7 @@ import msgspec
 
 from lem.board import machine, vacant, workspaces
 from lem.cli import place
-from lem.kernel import paths
+from lem.kernel import folders, paths
 
 if TYPE_CHECKING:
     from lem.board.facts import Served
@@ -36,8 +36,8 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 def run(call: Call) -> Served:
     """Serve the board in this process until it stops, and say which server it was."""
-    home = paths.home(os.environ)
-    port = vacant.vacant(home, os.environ, call.port)
+    port = vacant.vacant(paths.home(os.environ), os.environ, call.port)
+    home = folders.home_for_writing(os.environ)
     workspaces.noted(home, place.folder())
     server = importlib.import_module("lem.board.server")
     return server.run(port, call.host or HOST, verbose=call.verbose, home=home)

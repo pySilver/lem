@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from lem.board import client
 from lem.board.facts import Facts
-from lem.kernel import clock, paths
+from lem.kernel import clock, folders, paths
 from lem.kernel.errors import Refusal
 
 if TYPE_CHECKING:
@@ -51,7 +51,7 @@ def launched(
     port: int, home: Path, environ: Mapping[str, str]
 ) -> subprocess.Popen[bytes]:
     """Start the server's process in a session of its own, its output in the log."""
-    home.mkdir(parents=True, exist_ok=True)
+    folders.home_marked(home)
     package = str(paths.PACKAGE.parent)
     moment = clock.now().isoformat()
     trimmed(home / LOG)

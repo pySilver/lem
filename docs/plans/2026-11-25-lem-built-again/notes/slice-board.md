@@ -47,6 +47,11 @@ rest of `serve.py`'s job into modules of their own, all under `board/`:
   file of its home folder: `ensure` and `stop` say which install serves (`Shown.another_install`),
   `serve run` and `lem board` refuse `other-install`. `serve stop` leaves a server of another
   install of this build too. `lem board` under `LEM_SERVE=off` asks nothing and writes nothing.
+- Every write of the home folder (`serve.lock`, the start log, `workspaces.json` and its lock,
+  `serve.json`) first passes `lem.kernel.folders.home_marked`, the path form of
+  `home_for_writing`, in `lock.py`, `start.py`, `workspaces.noted` and `serve_file.write`;
+  `serve run` takes its home from `home_for_writing` before any write. `serve_file.remove`
+  removes only a `serve.json` that names its own pid, which exists only in a marked home.
 - The main listener's `Host` check is `main`'s (`shield.py`): one `Host`, a name of its own with
   its port or without, else 403 with the address to open. The peers' table is matched first.
 - `machine.py`: the port and the guard of the owner's two ports, and the machine's name.

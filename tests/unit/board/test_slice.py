@@ -37,7 +37,7 @@ from lem.board.client import Reply
 from lem.board.duties import runner
 from lem.board.facts import HEADER, MARK, Facts, Install
 from lem.board.pages import kanban
-from lem.kernel import release
+from lem.kernel import folders, release
 from lem.kernel.errors import Refusal
 from lem.records.holds import OwnerHold
 from lem.store import places, tasks
@@ -501,7 +501,7 @@ def test_ensure_reads_the_port_again_under_the_serve_lock(
 ) -> None:
     config = tmp_path / "config"
     home = config / "lem"
-    home.mkdir(parents=True)
+    folders.home_marked(home)
     settings = home / machine.MACHINE
     settings.write_text("[serve]\nport = 5101\n")
     environ = {"HOME": str(tmp_path), "XDG_CONFIG_HOME": str(config)}
@@ -581,7 +581,7 @@ class Answering(BaseHTTPRequestHandler):
 def stand_in(tmp_path: Path, *, closes: bool) -> tuple[StandIn, dict[str, str]]:
     config = tmp_path / "config"
     home = config / "lem"
-    home.mkdir(parents=True)
+    folders.home_marked(home)
     server = StandIn(home, closes=closes)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     port = server.server_address[1]
