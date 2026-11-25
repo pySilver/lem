@@ -51,6 +51,14 @@ def phase_of(task: Task, *, worktree: bool) -> Phase:
     return dict(BY_STATUS)[task.status]
 
 
+def phase_or_none(task: Task, *, worktree: bool) -> Phase | None:
+    """The phase of the task's session; None for a task that gets none."""
+    try:
+        return phase_of(task, worktree=worktree)
+    except Refusal:
+        return None
+
+
 def held_phase(task: Task) -> Phase | None:
     """The phase a hold gives: the owner's answer in the shape, a breaker or a plan in the
     build; None when no hold decides."""
@@ -81,3 +89,33 @@ def refused(task: Task, *, worktree: bool) -> None:
             f"the task {slug} is {task.status}: an ended task gets no session",
             "new work for it is a new ask, with a task of its own",
         )
+
+
+def phase_noted(task: Task, status: str, hold: str | None) -> Phase | None:
+    """The phase a state entry of the task's journal gave (its status and its hold's kind),
+    with the task's track and lead as they are; None for an entry that gives no phase (a park,
+    a release stop, an answered task), which a change of phase passes over."""
+    if hold in {"parked", "release"} or status == "answered":
+        return None
+    return given_phase(task, status, hold) or by_status(status)
+
+
+def by_status(status: str) -> Phase | None:
+    """The phase a status gives when no hold, track or end decides it."""
+    found = (phase for named, phase in BY_STATUS if named == status)
+    return next(found, None)
+
+
+def given_phase(task: Task, status: str, hold: str | None) -> Phase | None:
+    """The phase a breaker's or the owner's hold, the fast track, an end or a queue of the
+    shape gives, else None."""
+    small = task.shape is not None and task.shape.track == "small"
+    shaped = status == "queued" and task.lead is None
+    given = (
+        (hold == "breaker", BUILD),
+        (hold == "owner", SHAPE),
+        (small, "fast"),
+        (status in ENDED, LAND),
+        (shaped, SHAPE),
+    )
+    return next((phase for holds, phase in given if holds), None)
