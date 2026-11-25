@@ -417,3 +417,29 @@ def test_snapshots_create_writes_the_missing_values_through_the_entry(
         "collected 1",
         "ok   unit.test_snap.test_value",
     )
+
+
+@pytest.mark.parametrize("level", LEVELS)
+def test_a_test_case_imported_into_two_files_is_a_duplicate(
+    tmp_path: Path, level: str
+) -> None:
+    tests = scratch(
+        tmp_path,
+        level,
+        test_a="from fakes.shared_case import Shared\n",
+        test_b="from fakes.shared_case import Shared\n",
+    )
+    (tests / "fakes").mkdir()
+    (tests / "fakes" / "shared_case.py").write_text(
+        "import unittest\n\nclass Shared(unittest.TestCase):\n    def test_pass(self): pass\n"
+    )
+    ran = run_entry(tmp_path, "--level", level)
+    assert_results(
+        ran,
+        1,
+        "collected 2",
+        f"ok   {level}.test_a.Shared.test_pass",
+        f"FAIL {level}.test_b.Shared.test_pass: Failed: duplicate case: "
+        f"fakes.shared_case.Shared.test_pass is collected as "
+        f"tests/{level}/test_a.py::Shared::test_pass too; import its module, not its class",
+    )

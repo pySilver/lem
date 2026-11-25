@@ -70,6 +70,7 @@ class Setup:
 
     def __init__(self, root: Path | None = None) -> None:
         self.root = root
+        self.duplicates: dict[str, str] = {}
 
     def pytest_addoption(self, parser: pytest.Parser) -> None:
         parser.addoption(
@@ -91,6 +92,27 @@ class Setup:
             # reads --color); its reporter, which would print over the lines, is blocked.
             config.pluginmanager.set_blocked("terminalreporter")
             config.pluginmanager.register(Lines(config.rootpath))
+
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_collection_modifyitems(self, items: list[pytest.Item]) -> None:
+        # A TestCase imported into a second file is collected there too: one case, two
+        # names. Its second name fails, in each xdist worker as in one process.
+        seen: dict[str, str] = {}
+        for item in items:
+            case = shared_case(item)
+            if case is None:
+                continue
+            if case in seen:
+                self.duplicates[item.nodeid] = (
+                    f"duplicate case: {case} is collected as {seen[case]} too; import "
+                    "its module, not its class"
+                )
+            seen.setdefault(case, item.nodeid)
+
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_runtest_setup(self, item: pytest.Item) -> None:
+        if item.nodeid in self.duplicates:
+            pytest.fail(self.duplicates[item.nodeid], pytrace=False)
 
     @pytest.hookimpl(wrapper=True)
     def pytest_runtest_makereport(
@@ -152,6 +174,14 @@ def case_name(rootdir: Path, nodeid: str) -> str:
     """`unit.core.test_store.Races.test_stale_expect`, and `[params]` for a parametrized one."""
     where, *names = nodeid.split("::")
     return ".".join((dotted(rootdir / where), *names))
+
+
+def shared_case(item: pytest.Item) -> str | None:
+    """A unittest case by the class that defines it, which two files can share."""
+    cls = getattr(item, "cls", None)
+    if cls is None or not issubclass(cls, unittest.TestCase):
+        return None
+    return f"{cls.__module__}.{cls.__qualname__}.{item.name}"
 
 
 def marked_to_fail(item: pytest.Item) -> bool:

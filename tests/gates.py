@@ -63,9 +63,13 @@ def test_eslint_holds_the_javascript_to_its_style(pytestconfig: pytest.Config) -
         pytest.skip("no eslint.config.mjs: no JavaScript to hold")
     eslint = ROOT / "node_modules" / ".bin" / "eslint"
     if not eslint.is_file():
-        # A builder's worktree has no node_modules; a full run must hold the JavaScript too.
+        # The orchestrator's decision: a full run holds the JavaScript; any other level skips
+        # it by name, since the worktree of a step that owns no JavaScript has no node_modules.
         missing = f"no {eslint}: run npm ci at the root of the checkout"
         if pytestconfig.getoption("lem_level") == "full":
             pytest.fail(missing)
-        pytest.skip(missing)
+        pytest.skip(
+            f"{missing}; a worktree of a step that owns no JavaScript has no node_modules, "
+            "and a full run fails here"
+        )
     holds(eslint, ".")
