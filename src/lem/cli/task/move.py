@@ -12,8 +12,8 @@ import msgspec
 
 from lem.app.tasks import move
 from lem.cli import place
-from lem.cli.stub import not_built
 from lem.cli.words import choice
+from lem.model.landing.world import later
 
 type Status = Literal[
     "queued",
@@ -41,7 +41,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 def run(call: Call) -> move.Moved:
     """Move the task; a drop and a start over are the step `task`'s."""
     if call.start_over or call.status == "dropped":
-        raise not_built("task move SLUG dropped|--start-over", "task")
+        raise later("`lem task move SLUG dropped|--start-over`", "task")
     return move.moved(place.folder(), call.slug, call.status, call.lines)
 
 

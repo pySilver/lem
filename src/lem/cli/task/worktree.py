@@ -10,7 +10,7 @@ import msgspec
 
 from lem.app.tasks import worktree
 from lem.cli import place
-from lem.cli.stub import not_built
+from lem.model.landing.world import later
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -25,7 +25,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 def run(call: Call) -> worktree.Made:
     """Make the task's worktree, or print its path; `--checkout` is the step `task`'s."""
     if call.checkout:
-        raise not_built("task worktree --checkout", "task")
+        raise later("`lem task worktree --checkout`", "task")
     folder = place.folder()
     return worktree.worktree(folder, call.slug, path_only=call.path, branch=call.branch)
 

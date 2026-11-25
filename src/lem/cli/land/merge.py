@@ -12,8 +12,8 @@ import msgspec
 
 from lem.app.landing import merge
 from lem.cli import place
-from lem.cli.stub import not_built
 from lem.cli.words import choice
+from lem.model.landing.world import later
 
 if TYPE_CHECKING:
     from lem.kernel.envelope import Envelope
@@ -36,7 +36,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 def run(call: Call) -> Envelope:
     """Merge the pull request; `--standing` is the step `land-merge`'s."""
     if call.standing:
-        raise not_built("land merge --standing", "land-merge")
+        raise later("`lem land merge --standing`", "land-merge")
     words = (call.via, call.message, call.tip)
     return merge.run(place.folder(), call.slug, call.by, words)
 

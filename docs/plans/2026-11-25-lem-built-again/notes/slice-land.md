@@ -42,15 +42,14 @@ What the tree's cases need, before any unit run of a branch that has built leave
 Until then the unit level of this branch has 20 failing cases of `test_tree.py`, each a built
 leaf answering for itself instead of `not-built`; `slice-land`'s report lists them.
 
-## For `core`: the wiring case names an adapter that is built now
+## For `core`: the wiring case no longer names a real adapter (done, on the orchestrator's word)
 
-`tests/unit/core/test_wiring.py::test_a_port_with_no_adapter_refuses_every_call_by_name` expects
-`lem.adapters.git_cli` to be unbound. `slice-land` builds it (and `lem.adapters.forge_gh`), so
-`bound.git.tip(tmp_path, "HEAD")` answers None for a folder with no repository and the case
-fails. It holds again with an adapter that stays unbuilt through group 2 in the place of
-`git_cli` (`lem.adapters.tracker_github`'s `read`, or `judge_jev`, which the case already
-checks). The builder did not run `tests/unit/core` after the orchestrator's stop of
-2026-11-25; this failure is read from the code, not from a run.
+`tests/unit/core/test_wiring.py::test_a_port_with_no_adapter_refuses_every_call_by_name`
+expected `lem.adapters.git_cli` and `judge_jev` to be unbound, so it failed once `slice-land`
+built `git_cli`. On the orchestrator's word of 2026-11-25, `slice-land` changed it: it binds
+`wiring.adapter("lem.adapters.never_built", place)` and checks that the port is `Unbound` and that
+each call (`tip`, `over_bar`) is a fault that names the call and the module. It proves the same
+rule and holds whichever adapters exist.
 
 ## For `core`: a fact the Git port lacks
 
@@ -59,11 +58,13 @@ checkout only when it is on the base branch, and the slice reads that as "HEAD i
 `refs/heads/BASE`" (`app/landing/merged.py: followed`), which a detached HEAD at the same commit
 also passes. A method `branch_of(where: Path) -> str | None` (`git branch --show-current`, None
 when detached) closes that, and `lem task worktree` can then check that a worktree that is there
-is on the task's branch (`app/tasks/worktree.py` takes it as it is now).
+is on the task's branch. Meanwhile `app/landing/merged.py: followed` compares HEAD's commit with
+`refs/heads/BASE`, and `app/tasks/worktree.py` takes a worktree that is there as it is.
 
 ## For `land-merge`: the queue's merge loses who asked for it
 
 `MergeAccepted` (`records/landing/merge.py`) keeps the tip, the moment and the forge's word, and
 not who asked for the merge nor through what. When the queue merges, `lem land merged` writes the
 merge with `by: owner, via: github` (`app/landing/merged.py: adopted`). A `by` and a `via` on
-`MergeAccepted`, written from the intent it replaces, keep them.
+`MergeAccepted`, written from the intent it replaces, keep them. Meanwhile a merge the queue
+made is written `by: owner, via: github`.

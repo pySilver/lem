@@ -441,3 +441,52 @@ def test_a_cut_after_the_checks_ran_runs_them_again_and_lands(
     assert journey(capsys, world) == ["checks"]
     assert_landed(world)
     assert len(list((world.task_folder / "checks").iterdir())) == 1
+
+
+def snapshot(folder: Path) -> dict[str, tuple[bytes, int]]:
+    """Every file under `folder`, with its bytes and its time of change."""
+    return {
+        str(path): (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in sorted(folder.rglob("*"))
+        if path.is_file()
+    }
+
+
+# Each command an agent runs on a task of the fast track, the landing's steps among them.
+EVERY = (
+    ("task", "open", "SLUG", "--ask", "the README says recieve"),
+    ("task", "worktree", "SLUG"),
+    ("land", "next", "SLUG"),
+    ("land", "start", "SLUG"),
+    ("land", "base", "SLUG"),
+    ("land", "checks", "SLUG"),
+    ("land", "read", "SLUG"),
+    ("land", "file", "SLUG"),
+    ("land", "propose", "SLUG", "--title", "docs: receive", "--notes", "notes.md"),
+    ("land", "merge-review", "SLUG"),
+    ("land", "merge", "SLUG", "--by", "merger"),
+    ("land", "merged", "SLUG"),
+    ("land", "clean", "SLUG"),
+)
+
+
+@pytest.mark.parametrize("argv", EVERY, ids=[" ".join(argv[:2]) for argv in EVERY])
+def test_a_workspace_with_the_state_of_lem_0_3_is_refused_before_any_act(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    argv: tuple[str, ...],
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    state = world.checkout / ".lem" / "state"
+    state.mkdir(parents=True)
+    (state / ".gitignore").write_text("*\n")
+    (state / "events.jsonl").write_text(
+        '{"event": "task.open", "task": "an-old-task"}\n'
+    )
+    before = snapshot(world.repo.origin.parent)
+    refused = command(*argv)(capsys, world)
+    assert (refused["code"], refused["refusal"]["code"]) == (1, "old-state")
+    assert world.acts.done == []
+    assert world.forge.pulls == {}
+    assert snapshot(world.repo.origin.parent) == before

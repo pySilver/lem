@@ -12,7 +12,7 @@ import msgspec
 
 from lem.app.criteria import approve
 from lem.cli import place
-from lem.cli.stub import not_built
+from lem.model.landing.world import later
 
 if TYPE_CHECKING:
     from lem.records.approvals import Approval
@@ -34,7 +34,7 @@ def run(call: Call) -> Approval:
     and one without him are the step `criteria`'s."""
     others = (call.path, call.read, call.alone, call.shown)
     if not call.small or any(others):
-        raise not_built("criteria approve --file|--read|--alone|--shown", "criteria")
+        raise later("`lem criteria approve --file|--read|--alone|--shown`", "criteria")
     return approve.approved(place.folder(), call.slug)
 
 

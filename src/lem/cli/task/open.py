@@ -12,7 +12,7 @@ import msgspec
 
 from lem.app.tasks import open as opening
 from lem.cli import place
-from lem.cli.stub import not_built
+from lem.model.landing.world import later
 
 if TYPE_CHECKING:
     from lem.app.tasks.open import Opened
@@ -37,8 +37,8 @@ def run(call: Call) -> Opened:
     """Open the task; the other words are the step `task`'s."""
     others = (call.ticket, call.ticket_repo, call.night, call.after, call.backlog_item)
     if any(others) or call.origin or call.plan_only:
-        raise not_built(
-            "task open --ticket|--night|--after|--plan-only|--item|--from", "task"
+        raise later(
+            "`lem task open --ticket|--night|--after|--plan-only|--item|--from`", "task"
         )
     ask, branch = call.ask, call.branch
     return opening.opened(place.folder(), call.slug, ask=ask, branch=branch)

@@ -12,7 +12,7 @@ import msgspec
 
 from lem.app.landing import filing
 from lem.cli import place
-from lem.cli.stub import not_built
+from lem.model.landing.world import later
 
 if TYPE_CHECKING:
     from lem.kernel.envelope import Envelope
@@ -30,7 +30,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 def run(call: Call) -> Envelope:
     """File the findings; `--again`, `--same` and `--new` are the step `land-review`'s."""
     if call.again or call.same or call.new:
-        raise not_built("land file --again|--same|--new", "land-review")
+        raise later("`lem land file --again|--same|--new`", "land-review")
     return filing.run(place.folder(), call.slug)
 
 

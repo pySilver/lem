@@ -8,7 +8,7 @@ shows a task's worktree (`project.cmd_worktree_dir` on `main`).
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
-from lem.store import places
+from lem.store import guard, places
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -20,7 +20,9 @@ WORKTREES = "worktrees"
 
 
 def worktrees(workspace: places.Workspace) -> Path:
-    """The folder of the tasks' worktrees, made with its ignore file when it is not there."""
+    """The folder of the tasks' worktrees, made with its ignore file when it is not there,
+    and only beside a state folder of this Lem's form (`store.guard`)."""
+    guard.writable(workspace.state)
     folder = workspace.lem / WORKTREES
     folder.mkdir(parents=True, exist_ok=True)
     ignore = folder / ".gitignore"

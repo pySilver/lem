@@ -4,7 +4,7 @@ port whose adapter is not built refuses every call."""
 import dataclasses
 import importlib
 import types
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
@@ -20,6 +20,9 @@ from lem.ports.place import Place
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.ports.git import Git
+    from lem.ports.judge import Judge
+
 
 def place(tmp_path: Path) -> Place:
     """A place in `tmp_path`."""
@@ -27,13 +30,17 @@ def place(tmp_path: Path) -> Place:
 
 
 def test_a_port_with_no_adapter_refuses_every_call_by_name(tmp_path: Path) -> None:
-    bound = wiring.bound(place(tmp_path))
+    # A module name no step builds, so that the case holds whichever adapters exist.
+    unbuilt = wiring.adapter("lem.adapters.never_built", place(tmp_path))
+    assert isinstance(unbuilt, wiring.Unbound)
     with pytest.raises(
-        Fault, match=r"tip: the port's adapter lem\.adapters\.git_cli is not built"
+        Fault, match=r"tip: the port's adapter lem\.adapters\.never_built is not built"
     ):
-        bound.git.tip(tmp_path, "HEAD")
-    with pytest.raises(Fault, match=r"lem\.adapters\.judge_jev"):
-        bound.judge.over_bar(Defect(where="w", title="t", what="x"))
+        cast("Git", unbuilt).tip(tmp_path, "HEAD")
+    with pytest.raises(
+        Fault, match=r"over_bar: the port's adapter lem\.adapters\.never_built"
+    ):
+        cast("Judge", unbuilt).over_bar(Defect(where="w", title="t", what="x"))
 
 
 def test_an_adapter_that_exists_is_bound_to_the_place(

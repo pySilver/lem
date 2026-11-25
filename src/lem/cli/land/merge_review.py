@@ -12,7 +12,7 @@ import msgspec
 
 from lem.app.landing import mergeread
 from lem.cli import place
-from lem.cli.stub import not_built
+from lem.model.landing.world import later
 
 if TYPE_CHECKING:
     from lem.kernel.envelope import Envelope
@@ -32,7 +32,7 @@ def run(call: Call) -> Envelope:
     """Write the merge agent's brief, or its reply; `--no-answer` is the step
     `land-merge`'s."""
     if call.no_answer:
-        raise not_built("land merge-review --no-answer", "land-merge")
+        raise later("`lem land merge-review --no-answer`", "land-merge")
     brief = (call.tip, call.base) if call.tip and call.base else None
     return mergeread.run(place.folder(), call.slug, call.reply, brief)
 
