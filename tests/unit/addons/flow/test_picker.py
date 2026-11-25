@@ -391,7 +391,13 @@ def test_picker_list_prefers_the_explicit_repo_then_the_session_then_cwd(
 
 
 @pytest.mark.parametrize(
-    "environ", [{}, {"AGT_SOCKET": "/test.sock"}, {"AGTERM_SESSION_ID": "session"}]
+    "environ",
+    [
+        {},
+        {"AGT_SOCKET": "/test.sock"},
+        {"AGTERM_SESSION_ID": "session"},
+        {"AGT_SOCKET": "/test.sock", "AGTERM_SESSION_ID": " "},
+    ],
 )
 def test_the_picker_requires_the_callers_socket_and_session(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, environ: dict[str, str]

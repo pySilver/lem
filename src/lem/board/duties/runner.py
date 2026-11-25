@@ -36,7 +36,6 @@ DUTIES = (
     "lem.board.duties.conflict",
     "lem.board.duties.queue",
     "lem.board.duties.guard",
-    "lem.board.duties.notify",
     "lem.board.duties.prune",
 )
 # The look at the forge, whose failure the board words as its own, and the keeping, whose

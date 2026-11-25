@@ -11,7 +11,7 @@ from fakes.terminal import FakeTerminal
 from lem.ports.terminal import Opening, Pane
 
 if TYPE_CHECKING:
-    from lem.app.sessions.beside import Foreground
+    from lem.ports.terminal import Foreground
 
 # The program a session Lem opened runs: the agent of its launch line.
 AGENT = ("/bin/zsh", "-l", "-c", "LEM_TASK=x claude 'Read x and follow it.'")

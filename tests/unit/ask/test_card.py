@@ -1,7 +1,9 @@
 """The public card addresses and one answer shared between the board and the overlay."""
 
 import json
+from base64 import b64encode
 from concurrent.futures import ThreadPoolExecutor
+from hashlib import sha256
 from pathlib import Path
 from threading import Barrier
 from typing import TYPE_CHECKING
@@ -10,8 +12,8 @@ import pytest
 
 from fakes import records
 from lem.app.asking import ends, keys, saved
+from lem.app.asking.scripts import hashed
 from lem.app.sessions import acts, log
-from lem.board.ask import csp
 from lem.cli import lazy
 from lem.kernel import paths
 from lem.kernel.errors import Refusal
@@ -73,6 +75,9 @@ def test_page_routes_return_the_exact_overlay_and_only_trusted_scripts(
         (asked.id, "Keep the empty cell?")
     ]
     assert saved.metadata(folder, PAGE).prompts[0].id == "answer"
+    trusted = paths.root() / "skills" / "lem-ask" / "runtime" / "ask.js"
+    runtime = trusted.read_text(encoding="utf-8").encode("utf-8")
+    digest = b64encode(sha256(runtime).digest()).decode("ascii")
     for route in (ROUTE, ROUTE + "/"):
         with board.main() as client:
             page = client.get(route)
@@ -83,10 +88,11 @@ def test_page_routes_return_the_exact_overlay_and_only_trusted_scripts(
         assert head.headers["etag"] == f'"{asked.digest}"'
         assert head.headers["content-length"] == str(len(page.content))
         assert head.content == b""
-        trusted = paths.root() / "skills" / "lem-ask" / "runtime" / "ask.js"
         policy = head.headers["content-security-policy"]
         assert page.headers["content-security-policy"] == policy
-        assert csp.hashed(trusted.read_bytes()) in policy
+        directives = [rule.split() for rule in policy.split(";")]
+        script_rules = [rule for rule in directives if rule[:1] == ["script-src"]]
+        assert script_rules == [["script-src", f"'sha256-{digest}'"]]
         for rule in ("form-action 'none'", "base-uri 'none'", "frame-ancestors 'self'"):
             assert rule in policy
         assert "unsafe-eval" not in policy
@@ -258,8 +264,8 @@ def test_board_uses_the_saved_runtime_hash_after_an_update(
         served = client.get(ROUTE + "/")
     policy = served.headers["content-security-policy"]
     assert served.content == Path(opened["file"]).read_bytes()
-    assert csp.hashed(original) in policy
-    assert csp.hashed((newer / runtime).read_bytes()) not in policy
+    assert hashed(original) in policy
+    assert hashed((newer / runtime).read_bytes()) not in policy
 
 
 def test_an_overlay_answer_already_at_the_mac_wins(

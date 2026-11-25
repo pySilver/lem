@@ -4,7 +4,7 @@ worked` and `lem session open --why stopped`."""
 
 from typing import TYPE_CHECKING
 
-from lem.app.sessions import beside, guard_look, guard_stop, log, opening
+from lem.app.sessions import guard_look, guard_stop, log, opening
 from lem.app.sessions.acts import Wake, Worked
 from lem.app.sessions.guard_acts import Acted, refusal, refused
 from lem.app.tasks import release
@@ -96,7 +96,7 @@ def replaced(here: Here, slug: str, old: str, now: datetime) -> str | None:
 
 def tell_replaced(here: Here, slug: str, old: str) -> None:
     """Name the old session `SLUG · replaced`, and send it `lem: SLUG replaced`."""
-    beside.looks(here.ports.terminal).rename(old, f"{slug} · replaced")
+    here.ports.terminal.rename(old, f"{slug} · replaced")
     here.ports.terminal.tell(old, f"lem: {slug} replaced")
 
 

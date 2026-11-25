@@ -22,10 +22,6 @@ if TYPE_CHECKING:
 
 # Where a task's worktree is, under the main checkout.
 WORKTREES = ".lem/worktrees"
-# The session a command runs in, as agterm names it in each pane's environment (its own name,
-# then its older one): the one agterm name in `app/`, until the port says who calls
-# (notes/sessions.md).
-CALLERS = ("AGTERM_SESSION_ID", "AGT_SESSION_ID")
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -60,9 +56,8 @@ def bound(folder: Path) -> Here:
     where = places.workspace(folder)
     home = paths.home(os.environ)
     place = Place(checkout=where.checkout, home=home, environ=os.environ)
-    callers = [os.environ[name] for name in CALLERS if os.environ.get(name)]
-    caller = callers[0] if callers else None
-    return Here(where=where, ports=wiring.bound(place), caller=caller, home=home)
+    ports = wiring.bound(place)
+    return Here(where=where, ports=ports, caller=ports.terminal.here(), home=home)
 
 
 def enveloped(outcome: msgspec.Struct, say: str, then: str | None = None) -> Envelope:

@@ -246,11 +246,12 @@ def test_a_new_task_from_his_words_opens_its_record_and_its_session(
     world = made(tmp_path, monkeypatch)
     board = Board(world)
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
-    monkeypatch.setenv("AGTERM_SESSION_ID", "S-MINE")
     place = Place(checkout=world.checkout, home=tmp_path, environ={})
     terminal = wiring.bound(place).terminal
     assert isinstance(terminal, FakeTerminal)
-    terminal.panes["S-MINE"] = Pane(id="S-MINE", name="main", workspace="W-1")
+    caller = Pane(id="S-MINE", name="main", workspace="W-1")
+    terminal.panes[caller.id] = caller
+    terminal.caller = caller.id
     token = board.post("/start", {"words": "The README says receive on every page"})
     note = NOTES.get(token)
     assert note is not None
@@ -258,4 +259,6 @@ def test_a_new_task_from_his_words_opens_its_record_and_its_session(
     slug = "the-readme-says-receive-on"
     record = tasks.read(world.checkout / ".lem" / "state", slug)
     assert record.task.ask == "The README says receive on every page"
-    assert terminal.openings[-1].name == slug
+    assert note.said.startswith(f"Lem opened the session {slug} in agterm"), note.said
+    (opening,) = terminal.openings
+    assert (opening.name, opening.workspace) == (slug, "W-1")

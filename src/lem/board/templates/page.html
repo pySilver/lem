@@ -22,7 +22,7 @@
 {% if board.new %}{% set view = board.new %}{% include 'new.html' %}{% endif %}
 {% include 'fragment.html' %}
 </main>
-{% if frame.keys %}<div class="keys" id="{{ frame.keys.id }}">{% for group in frame.keys.groups %}<span>{% for key in group.keys %}<kbd>{{ key }}</kbd> {% endfor %}{{ group.word }}</span>{% endfor %}</div>{% endif %}
+{% if frame.keys %}<div class="keys" id="{{ frame.keys.id }}">{% for group in frame.keys.groups %}{% if not loop.first %} · {% endif %}<span>{% for key in group.keys %}<kbd>{{ key }}</kbd> {% endfor %}{{ group.word }}</span>{% endfor %}</div>{% endif %}
 {% include 'status.html' %}
 </div></div>
 {% set search = frame.search %}{% include 'search.html' %}

@@ -5,6 +5,7 @@ reasons, and the merge agent's read that calls the owner."""
 
 from fixtures.board import prose
 from fixtures.board.make import (
+    RULES,
     approval,
     criterion,
     journal,
@@ -15,6 +16,7 @@ from fixtures.board.make import (
     record,
 )
 from fixtures.board.moments import TODAY, ago, pull, sha
+from lem.model.landing import checks
 from lem.records.criteria import Criteria
 from lem.records.decisions import Story, Taken
 from lem.records.journal.landing import CheckEnd, CommandEnd, NotGreen, ReviewRound
@@ -29,6 +31,8 @@ from lem.records.task import Shape, Task
 from lem.records.work import Plan
 
 SLUG = "refund-line-on-receipt"
+PLAN = Plan(path=f"docs/plans/{TODAY.isoformat()}-{SLUG}.md", tasks=2)
+CRITERIA_DIGEST = "3d32aa263163"
 CHART = prose.DEMO_CHART
 DECISION_CHART = """flowchart TD
   A["The receipt has its items"] --> B{"Where does the refund go?"}
@@ -233,14 +237,14 @@ RECEIPT = record(
             then="interview",
         ),
         lead="builder",
-        plan=Plan(path=f"docs/plans/{TODAY.isoformat()}-{SLUG}.md", tasks=2),
+        plan=PLAN,
         spans=SPANS,
         criteria=Criteria(
             size="full",
             why=SIZE_WHY,
             criteria=CRITERIA,
             how=HOW,
-            digest="3d32aa263163",
+            digest=CRITERIA_DIGEST,
             approvals=(
                 approval(598, "alone", "full", CRITERIA, SIZE_WHY, "255979939181"),
             ),
@@ -263,7 +267,8 @@ RECEIPT = record(
             tip=TIP,
             tree=sha("refund-line-on-receipt's tree"),
             base=BASE,
-            inputs="5f1d0c7a2b3e",
+            inputs=checks.inputs(RULES, PLAN.path),
+            criteria_digest=CRITERIA_DIGEST,
             outcome="passed",
             outcomes=(
                 passed("make test", "214 passed", 1),

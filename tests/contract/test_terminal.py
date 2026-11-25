@@ -212,4 +212,17 @@ def test_the_caller_is_the_session_its_panes_environment_names(
 ) -> None:
     standin = install(tmp_path / "agterm", [MINE])
     assert bound(standin, **{name: "S-MINE"}).here() == "S-MINE"
-    assert bound(standin, **{name: " "}).here() is None
+    assert bound(standin, **{name: " "}).here() == " "
+
+
+@pytest.mark.parametrize(
+    ("modern", "older", "caller"),
+    [(" ", "S-2", " "), (" S-MINE ", "S-2", " S-MINE "), ("", "S-2", "S-2")],
+)
+def test_the_caller_keeps_the_first_nonempty_id_verbatim(
+    modern: str, older: str, caller: str
+) -> None:
+    terminal = terminal_agterm.AgtermTerminal(
+        {"AGTERM_SESSION_ID": modern, "AGT_SESSION_ID": older}
+    )
+    assert terminal.here() == caller

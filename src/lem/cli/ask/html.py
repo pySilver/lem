@@ -4,7 +4,7 @@ import json
 from html import escape
 from typing import TYPE_CHECKING
 
-from lem.board.ask import csp
+from lem.app.asking.scripts import marker
 from lem.cli.ask import attachments, library
 from lem.cli.ask.spec import check
 from lem.kernel import paths
@@ -39,7 +39,7 @@ def frame(spec: Spec) -> str:
     return (
         '<!doctype html><html><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        f"{csp.marker(scripts)}<title>{title_of(spec)}</title><style>{css}</style></head>"
+        f"{marker(scripts)}<title>{title_of(spec)}</title><style>{css}</style></head>"
         '<body><div id="app"></div><script type="application/json" id="hd-spec">'
         f"{script_json(spec)}</script>{embedded}</body></html>"
     )

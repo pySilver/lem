@@ -1,30 +1,50 @@
-"""Take a phone screenshot by the DevTools steps in the Claude Code harness."""
+"""Take a phone screenshot over Chromium's DevTools connection."""
 
-import shutil
-import subprocess
+import re
+from base64 import b64decode
 from pathlib import Path
+from typing import TYPE_CHECKING
+from urllib.parse import quote
 
-import pytest
+from playwright.sync_api import expect
+
+from browser.chromium import PHONE, dimensions
+
+if TYPE_CHECKING:
+    from browser.conftest import OpenWindow
+
+RECIPE = (
+    Path(__file__).resolve().parents[2]
+    / "skills/lem/harness/claude-code/take-screenshot.md"
+)
 
 
 def test_the_harness_devtools_steps_capture_a_phone_screenshot(
-    tmp_path: Path,
+    window: OpenWindow,
 ) -> None:
-    chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-    node = shutil.which("node")
-    if not node or not Path(chrome).is_file():
-        pytest.skip("the screenshot trial needs Node.js and Chrome for macOS")
-    script = Path(__file__).with_name("board-acts-screenshot.mjs")
-    picture = tmp_path / "phone.png"
-    ran = subprocess.run(
-        [node, str(script), chrome, str(tmp_path / "profile"), str(picture)],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        timeout=30,
-        check=False,
+    context = window()
+    page = context.pages[0]
+    session = context.new_cdp_session(page)
+    metrics, touch, media, navigate, capture = re.findall(
+        r"`((?:Emulation|Page)\.\w+)`", RECIPE.read_text(encoding="utf-8")
     )
-    assert ran.returncode == 0, ran.stderr
-    header = picture.read_bytes()[:24]
-    assert header.startswith(b"\x89PNG\r\n\x1a\n")
-    assert (int.from_bytes(header[16:20]), int.from_bytes(header[20:24])) == (780, 1688)
+    width, height = PHONE
+    session.send(
+        metrics,
+        {"width": width, "height": height, "deviceScaleFactor": 2, "mobile": True},
+    )
+    session.send(touch, {"enabled": True})
+    session.send(
+        media, {"features": [{"name": "prefers-color-scheme", "value": "dark"}]}
+    )
+    address = "data:text/html," + quote(
+        "<meta name=viewport content='width=device-width'><h1>Gift note</h1>"
+    )
+    session.send(navigate, {"url": address})
+    expect(page.get_by_role("heading", name="Gift note")).to_be_visible()
+    assert page.evaluate("matchMedia('(prefers-color-scheme: dark)').matches")
+    assert page.evaluate("navigator.maxTouchPoints") > 0
+    assert dimensions(b64decode(session.send(capture, {"format": "png"})["data"])) == (
+        width * 2,
+        height * 2,
+    )
