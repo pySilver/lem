@@ -7,8 +7,20 @@
 # ok and SKIP lines add up to the checks it collected. The exit is 0 only when every suite passed.
 # Every suite runs on the checkout's .venv, which `uv sync` makes (tests/python.sh).
 # LEM_TEST_LOGS=DIR keeps the logs in DIR; without it they go with the run.
+#
+# --installed: the journeys, each lem-* and test-* suite but test-site, against an app installed outside the
+# checkout: the one LEM_UNDER_TEST names, or else a wheel uv builds from this checkout, installed into a folder of the
+# run's own that goes with it. The suites that read the checkout itself (unit, lint, pick, shellcheck, test-site) are
+# the checkout mode's, and the summary names the install it drove.
 set -uo pipefail
 cd -P "$(dirname "$0")/.." || exit 1
+given=${LEM_UNDER_TEST:-}
+installed=""
+case ${1:-} in
+  --installed) installed=yes ;;
+  "") ;;
+  *) printf 'usage: bash tests/all.sh [--installed]\n'; exit 1 ;;
+esac
 # shellcheck source-path=SCRIPTDIR source=suites.sh
 . tests/suites.sh
 
@@ -25,6 +37,15 @@ suites+=(lem-peers)
 suites+=(unit)
 suites+=(test-site)
 suites+=(lint)
+# the suites that read the checkout itself, which the installed mode leaves to the checkout mode
+CHECKOUT_SUITES=(shellcheck pick unit test-site lint)
+if [ -n "$installed" ]; then
+  journeys=()
+  for suite in "${suites[@]}"; do
+    case " ${CHECKOUT_SUITES[*]} " in *" $suite "*) ;; *) journeys+=("$suite") ;; esac
+  done
+  suites=("${journeys[@]}")
+fi
 if [ -n "${LEM_TEST_LOGS:-}" ]; then
   LOGS=$LEM_TEST_LOGS
   mkdir -p "$LOGS" || exit 1
@@ -42,7 +63,30 @@ export LEM_SERVE=off
 pids=()
 trap 'exit 143' TERM
 trap 'exit 130' INT
-trap 'kill ${pids[@]+"${pids[@]}"} 2>/dev/null; wait; rm -rf "$MARKS"; [ -n "$keep" ] || rm -rf "$LOGS"' EXIT
+APP=""
+trap 'kill ${pids[@]+"${pids[@]}"} 2>/dev/null; wait; rm -rf "$MARKS" ${APP:+"$APP"}; [ -n "$keep" ] || rm -rf "$LOGS"' EXIT
+
+if [ -n "$installed" ]; then
+  if [ -n "$given" ] && ! in_checkout; then
+    drove="$LEM_UNDER_TEST, as LEM_UNDER_TEST names it"
+  else
+    APP=$(mktemp -d) || exit 1
+    # the wheel, built as an install builds it (the sdist, then the wheel from it), offline when uv's cache holds the
+    # build backend
+    if ! { uv build --offline -q --out-dir "$APP/dist" > "$APP/build.out" 2>&1 || uv build -q --out-dir "$APP/dist" > "$APP/build.out" 2>&1; } \
+      || ! uv venv -q --python "$PY" "$APP/app" >> "$APP/build.out" 2>&1 \
+      || ! uv pip install -q --offline --no-deps --python "$APP/app/bin/python" "$APP"/dist/lem-*.whl >> "$APP/build.out" 2>&1; then
+      printf 'FAIL the wheel of this checkout did not build or install: %s\n' "$(tail -n 5 "$APP/build.out")"
+      exit 1
+    fi
+    export LEM_UNDER_TEST=$APP/app/bin/lem
+    LEM=$LEM_UNDER_TEST
+    drove="$LEM_UNDER_TEST, installed from $(basename "$APP"/dist/lem-*.whl), built from this checkout"
+  fi
+  said=$("$LEM" version 2>&1) || { printf 'FAIL %s does not answer lem version: %s\n' "$LEM" "$said"; exit 1; }
+  drove="$drove; lem version: $(tr -s ' \n' ' ' <<<"$said")"
+  printf 'installed: %s\n' "$drove"
+fi
 
 # run NAME COMMAND...: the suite's output into its log, then its exit and its seconds
 run() {
@@ -80,6 +124,9 @@ if [ -n "$caches" ]; then
   failed+=(__pycache__)
 fi
 printf '%ds in all\n' "$((SECONDS - started))"
+if [ -n "$installed" ]; then
+  printf 'the journeys ran against %s\nnot run here, since they read the checkout itself: %s\n' "$drove" "${CHECKOUT_SUITES[*]}"
+fi
 if [ "${#failed[@]}" -gt 0 ]; then
   for suite in "${failed[@]}"; do
     [ -f "$LOGS/$suite.log" ] || continue
