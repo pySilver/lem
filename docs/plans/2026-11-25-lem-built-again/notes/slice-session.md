@@ -27,11 +27,13 @@ moves them into the journal (under the record lock, with `expect`) and removes t
 3. **`Opening.command`**: the agterm adapter runs the words joined by spaces in the owner's login
    shell (`SHELL -l -c 'WORDS'`), so a harness's launch line is one word of it. The port's
    docstring could say so; nothing else changes.
-4. **The caller's workspace**: with `Opening.workspace` None the adapter opens in the workspace of
-   `AGTERM_SESSION_ID`, else lets agterm choose. Main refused a task "whose workspace nothing
-   names"; the port cannot say "no caller" to the app. Either a `here() -> str | None` of the port,
-   or the refusal in the adapter when there is no caller (the contract's "a terminal with no
-   session yet" then needs a caller that is not listed).
+4. **The caller's session, `Terminal.here() -> str | None`**: with `Opening.workspace` None the
+   adapter opens in the workspace of `AGTERM_SESSION_ID`, else lets agterm choose; main refused a
+   task "whose workspace nothing names". `lem session next` hands off the caller's session, as
+   `session.cmd_next` on `main` does. Until the port says who calls, `app/sessions/here.py` reads
+   `AGTERM_SESSION_ID` itself (`Here.caller`), the one agterm name in `app/`. The open's record
+   names the workspace asked for, and none when it was the caller's: nothing is asked of agterm
+   between a session's making and its record, so a failure there leaves no session without one.
 
 ## For `core` (`ports/harness.py`)
 
@@ -76,6 +78,8 @@ moves them into the journal (under the record lock, with `expect`) and removes t
 - `app/sessions/placing.py`: every listed session is live; the workspace order is the task's newest
   session's, then its `after` task's, then the caller's (main: the caller's before the `after`
   task's).
+- `app/sessions/here.py`: `Here.caller` from `AGTERM_SESSION_ID` (item 4).
+- `app/sessions/opening.py`: an open in the caller's workspace records no workspace (item 4).
 - `app/sessions/handing.py`: the phase that ends is the one the newest session opened in, never
   the record's run of states (`session.phase_left`); the old session is not renamed.
 - `app/sessions/handoff.py`: the five parts are checked for words, not `## Changed files` for a
@@ -86,7 +90,10 @@ moves them into the journal (under the record lock, with `expect`) and removes t
 - `cli/session/open.py`: `--why stopped` refuses `not-built`.
 - `adapters/harness_claude.py`: `tokens` of a transcript refuses by name; signs read the
   transcript's last mebibyte (`claude_turns.TAIL`); `available` looks for `claude` on the PATH.
-- `adapters/terminal_agterm.py`: `show` and `picker` refuse by name; no `--window`.
+- `adapters/terminal_agterm.py`: `show` and `picker` refuse by name; no `--window`; a new session
+  goes `--after` the last of its workspace in the one `session new`, with no `session move`.
+- `app/sessions/listing.py`: a transcript that gives neither a sign nor a turn counts as not read
+  (`signs: false`); the port's `Signs` could say so itself (a `read` field).
 - `adapters/claude_transcript.py` and `adapters/claude_turns.py`: two modules of the Claude Code
   adapter beside `harness_claude.py`, which wemake's 7 members a module asked for.
 - `hooks/corrections.py`: the gate only; no claim of a message, no worker, no queue.
