@@ -1,7 +1,11 @@
 """The facts that admit an owner-approved change after its base moves."""
 
+import pytest
 from msgspec.structs import replace
 
+from lem.app.landing import checks_kept
+from lem.app.landing.checks_verdict import Verdict
+from lem.kernel.errors import Refusal
 from lem.model.criteria import contract
 from lem.model.landing import merge_recheck, merge_standing, proposal_carry
 from lem.records.journal.landing import CheckEnd
@@ -47,3 +51,31 @@ def test_a_red_recheck_keeps_its_refusal_until_a_review_covers_the_repair() -> N
     )
     assert reviewed.landing is not None
     assert proposal_carry.repaired(reviewed, reviewed.landing, world)
+
+
+@pytest.mark.parametrize(
+    ("outcome", "code", "repair"),
+    [
+        ("refused", "criteria", True),
+        ("refused", "contract-moved", False),
+        ("stopped", "stopped", False),
+    ],
+)
+def test_only_a_failed_criterion_check_marks_the_rebase_for_repair(
+    outcome: str, code: str, *, repair: bool
+) -> None:
+    record = opened()
+    approval = Standing(
+        tip=TIP,
+        reasons_digest=merge_standing.digest_of((), contract.mark(record.task)),
+        by_act="board",
+        at=MOMENT,
+    )
+    approved = opened(standing=approval)
+    run = replace(CHECKED, tip=OTHER, base=MOVED, outcome=outcome)
+    verdict = Verdict(run=run, refusal=Refusal(code, "the checks failed", "run again"))
+    changed = checks_kept.kept(
+        approved, world=moved(tip=OTHER), verdict=verdict, at=MOMENT
+    )
+    assert changed.landing is not None
+    assert merge_recheck.repair(changed.landing) == repair

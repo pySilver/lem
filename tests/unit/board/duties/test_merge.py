@@ -14,6 +14,7 @@ from msgspec.structs import replace
 from fakes.records import MOMENT
 from lem.app.landing import merge
 from lem.app.owner import forge
+from lem.app.sessions import waking
 from lem.board.duties import merge as duty
 from lem.board.duties import merge_count
 from lem.board.duties.memory import Kept
@@ -26,6 +27,7 @@ from lem.model.owner.looks import MergeBasis
 from lem.records.landing.checks import Checked
 from lem.records.landing.merge import MergeIntent
 from lem.records.landing.propose import Standing
+from lem.records.landing.start import Started
 from lem.store import steps, tasks
 from unit.board.duties.world import duty_of, landing_of, looked, opened
 from unit.owner.looked import BASE, TIP, proposed, read, refused
@@ -188,7 +190,13 @@ def test_the_server_picks_a_passed_run_on_the_current_base_first(
 ) -> None:
     here = here_of(tmp_path)
     (tmp_path / ".lem" / "settings.toml").write_text('[branch]\nbase = "main"\n')
-    monkeypatch.setattr(type(here.ports.git), "remote_head", lambda *_: BASE)
+    refs: list[str] = []
+
+    def head(_git: object, _where: Path, ref: str) -> str:
+        refs.append(ref)
+        return BASE
+
+    monkeypatch.setattr(type(here.ports.git), "remote_head", head)
     monkeypatch.setattr(
         type(here.ports.git), "tree", lambda *_: read("merge").base_tree
     )
@@ -208,6 +216,7 @@ def test_the_server_picks_a_passed_run_on_the_current_base_first(
     duty.tick(duty_of(here, HOUR, kept))
     ended(kept)
     assert tuple(kept.merging) == ("z-current",)
+    assert refs == ["main"]
 
 
 def test_his_standing_merge_that_the_base_refuses_again_still_stands_in_its_line(
@@ -255,6 +264,77 @@ def test_a_base_back_at_the_checked_commit_releases_the_standing_merge(
     basis = MergeBasis(base=landing.checked.base, tree=read("call").base_tree)
     assert duty.merger_of(record, LOOK, frozenset(), basis) == "owner"
     assert duty.merger_of(record, LOOK, frozenset(), replace(basis, base=TIP)) is None
+
+
+def test_a_task_uses_its_recorded_destination_once_for_order_and_eligibility(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    here = here_of(tmp_path)
+    (tmp_path / ".lem" / "settings.toml").write_text('[branch]\nbase = "stable"\n')
+    found = standing_task(here, "stands")
+    landing = landing_of(found)
+    assert landing.checked is not None
+    started = Started(round=1, branch="docs/stands", base_ref="main", at=MOMENT)
+    resumed = replace(landing, refused=refused("lem", "base"), started=started)
+    tasks.update(
+        here.where.state,
+        "stands",
+        lambda one: replace(one, landing=resumed),
+        found.revision,
+    )
+    refs: list[str] = []
+    checked = landing.checked.base
+
+    def head(_git: object, _checkout: Path, branch: str) -> str:
+        refs.append(branch)
+        return checked if branch == "main" else TIP
+
+    monkeypatch.setattr(type(here.ports.git), "remote_head", head)
+    monkeypatch.setattr(type(here.ports.git), "tree", lambda *_: read("call").base_tree)
+    asked = asking(monkeypatch)
+    kept = Kept()
+    duty.tick(duty_of(here, HOUR, kept))
+    ended(kept)
+    assert [(one.by, one.standing) for one in asked] == [("owner", True)]
+    assert refs == ["main"]
+
+
+def test_ready_merges_do_not_delay_the_wake_for_stale_approval(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    here = here_of(tmp_path)
+    (tmp_path / ".lem" / "settings.toml").write_text('[branch]\nbase = "main"\n')
+    stale = standing_task(here, "a-stale")
+    landing = landing_of(stale)
+    assert landing.checked is not None
+    base = TIP
+    assert landing.checked.base != base
+    current = replace(landing.checked, base=base)
+    opened(
+        here, "z-ready", proposed=proposed(), reads=(read("merge"),), checked=current
+    )
+    monkeypatch.setattr(type(here.ports.git), "remote_head", lambda *_: base)
+    monkeypatch.setattr(
+        type(here.ports.git), "tree", lambda *_: read("merge").base_tree
+    )
+    sent: list[str] = []
+
+    def wake(
+        _here: Here, slug: str, why: str, _head: str, _now: object
+    ) -> waking.Woken:
+        sent.append(slug)
+        return waking.Woken(
+            task=slug, session="session", why=why, woke=True, opened=False, say="woke"
+        )
+
+    monkeypatch.setattr(waking, "wake", wake)
+    asking(monkeypatch)
+    kept = Kept()
+    for now in (HOUR, HOUR + timedelta(seconds=1)):
+        duty.tick(duty_of(here, now, kept))
+        ended(kept)
+    assert sent == ["a-stale"]
+    assert tuple(kept.merging) == ("z-ready",)
 
 
 @pytest.mark.parametrize(

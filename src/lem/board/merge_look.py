@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from lem.app.owner import looking, read_order
+from lem.app.owner import merge_bases, read_order
 from lem.model.owner import merging
 from lem.model.owner.looks import Look, MergeBasis
 from lem.settings.load import settings_of
@@ -12,12 +12,15 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 
-def basis_of(here: Here, records: tuple[Record, ...]) -> MergeBasis:
+UNKNOWN = MergeBasis()
+
+
+def bases_of(here: Here, records: tuple[Record, ...]) -> merge_bases.Bases:
     """Read the settings and the current base for this look at the approved tasks."""
     if not any(record.task.status == "open" for record in records):
-        return MergeBasis()
+        return merge_bases.Bases()
     branch = settings_of(here.where.checkout).settings.branch
-    return looking.basis_of(here, branch, records)
+    return merge_bases.gathered(here, branch, records)
 
 
 def look(record: Record, basis: MergeBasis) -> Look:

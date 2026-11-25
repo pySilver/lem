@@ -45,7 +45,7 @@ event:merge.refused	changed	journeys.landing.test_merge.test_a_moved_base_is_ref
 event:merge.review	changed	journeys.landing.test_merge.test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read	a typed journal entry ReadNoted with the MergeRead record
 event:merge.stands	changed	journeys.landing.test_merge.test_the_owners_merge_refused_for_the_base_stands_and_the_server_merges_it	the Standing record on the landing, which due() reads; no event
 event:merge.start	changed	journeys.landing.test_merge.test_a_cut_after_an_effect_of_a_merge_on_a_moved_base_does_nothing_twice[write:intent-1]	the MergeIntent written under the merge lock before the call takes its place
-event:merge.wait	changed	journeys.landing.test_merge.test_a_cut_after_an_effect_of_a_merge_on_a_moved_base_does_nothing_twice[merge-1]	a typed MergeWait journal entry with the slug that holds the lock (merge_lock.waits); no case holds two merges at once yet
+event:merge.wait	changed	journeys.landing.test_merge.test_a_merge_wait_names_the_task_that_holds_the_lock	a typed MergeWait journal entry with the slug that holds the lock (merge_lock.waits)
 path:base-checkout-cannot-follow	kept	journeys.landing.test_merge.test_a_main_checkout_that_cannot_follow_is_left_with_gits_words	
 path:base-moved-after-a-safe-read	kept	journeys.landing.test_merge.test_a_safe_read_covers_its_base_and_no_later_one	
 path:base-moved-open-pr	changed	journeys.landing.test_merge.test_the_owners_merge_refused_for_the_base_stands_and_the_server_merges_it	the owner's approval stands through the rebase and checks on the new base

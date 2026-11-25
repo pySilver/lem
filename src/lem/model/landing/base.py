@@ -52,6 +52,7 @@ class After(Frozen, frozen=True, kw_only=True):
     merged: rebased.Merged = None
     differ: tuple[str, ...] = ()
     reviewed: rebased.Merged = None
+    reviewed_tip: Sha | None = None
     left_out: tuple[Sha, ...] = ()
     resolved: tuple[str, ...] = ()
     before: Sha | None = None
@@ -102,11 +103,13 @@ def judged(world: World, after: After) -> Based:
     before = after.before or world.tip or after.tip
     merged = after.merged
     paths = () if merged is None else rebased.unshown(merged, after.differ)
+    carried = not paths and rebased.carried(after.reviewed, after.tree)
     return Based(
         tip=after.tip,
         base=world.base,
         before=before,
-        carried=not paths and rebased.carried(after.reviewed, after.tree),
+        carried=carried,
+        reviewed=after.reviewed_tip if carried else None,
         unshown_paths=paths,
         unshown_commits=after.left_out if paths else (),
         at=world.now,

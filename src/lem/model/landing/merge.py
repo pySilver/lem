@@ -151,9 +151,10 @@ def decide(
     landing = record.landing or Landing()
     approved = asked.by == OWNER or landing.standing is not None
     refused = asked_now or (
-        merge_evidence.base_side(record, world, checks_tree, approved=approved)
-        or merge_evidence.forge_side(record, world, proposed)
-        or merge_evidence.our_side(record, world, proposed)
+        merge_evidence.forge_side(record, world, proposed)
+        or merge_evidence.changed_tip(record, proposed, world.tip)
+        or merge_evidence.base_side(record, world, checks_tree, approved=approved)
+        or merge_evidence.covered(record, world, proposed.tip)
     )
     refused = refused or merger_refusal(record, world, asked)
     if refused is not None:

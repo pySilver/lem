@@ -9,7 +9,9 @@ cut step again or the one after it, the cut command runs again, and nothing is d
 """
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+from threading import Event
 from typing import TYPE_CHECKING
 
 import pytest
@@ -32,9 +34,12 @@ from journeys.test_skeleton import (
     proposal,
     upto,
 )
-from lem.app.landing import changes
+from lem.app.landing import changes, frame, merge, merge_lock
 from lem.cli import lazy
 from lem.kernel import clock
+from lem.model.landing.merge_asked import Asked
+from lem.model.landing.world import Rules
+from lem.model.landing.world import World as MergeWorld
 from lem.ports.faults import Unanswered
 from lem.store import places, tasks
 
@@ -517,6 +522,22 @@ def test_a_retarget_before_the_merge_is_refused_with_the_edit_that_puts_it_back(
     assert calls(world) == 0
 
 
+def test_a_moved_base_cannot_keep_an_approval_for_a_retargeted_pull_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    moved(world)
+    world.forge.retarget(1, "release")
+    refused = owner(capsys, world)["refusal"]
+    assert (refused["code"], refused["fix"]) == (
+        "target",
+        f"gh pr edit 1 --base main, then lem land merge {SLUG} again",
+    )
+    assert calls(world) == 0
+    assert "standing" not in landing(world)
+
+
 def test_a_retarget_after_the_locked_read_is_no_landing_and_cleans_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
 ) -> None:
@@ -564,6 +585,82 @@ def test_a_merge_on_github_between_the_look_and_the_call_lands_uncovered(
     assert uncovered in text_of(world)
     states = [entry for entry in world.record()["journal"] if entry["kind"] == "state"]
     assert uncovered in states[-1]["line"]
+
+
+def test_a_queued_owner_merge_reports_an_unchecked_parent_with_the_same_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    world.forge.queue = True
+    checked = landing(world)["checked"]["base"]
+    assert owner(capsys, world)["ok"] is True
+    run_git(world.repo.teammate, "pull", "--ff-only", "origin", "main")
+    run_git(world.repo.teammate, "commit", "--allow-empty", "-m", "chore: empty")
+    run_git(world.repo.teammate, "push", "origin", "main")
+    parent = run_git(world.repo.origin, "rev-parse", "main")
+    assert parent != checked
+    assert run_git(world.repo.origin, "diff", checked, parent) == ""
+    world.forge.settle(1)
+
+    landed(capsys, world)
+
+    found = landing(world)["merged"]
+    assert (found["by"], found["base_checked"], found["parent"]) == (
+        "owner",
+        checked,
+        parent,
+    )
+    warning = found["uncovered"]
+    assert checked[:9] in warning and parent[:9] in warning
+    assert warning in text_of(world)
+    assert calls(world) == 1
+
+
+def test_a_merge_wait_names_the_task_that_holds_the_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    space = places.workspace(world.checkout)
+    record = tasks.read(space.state, SLUG)
+    blocker = replace(record, task=replace(record.task, slug="other-task"))
+    tasks.create(space.state, blocker)
+    moment = clock.now()
+    base = landing(world)["checked"]["base"]
+    holder = frame.Context(
+        ports=frame.bound(space),
+        workspace=space,
+        record=blocker,
+        world=MergeWorld(
+            rules=Rules(base="main"),
+            branch="docs/other-task",
+            base=base,
+            base_tree=base,
+            now=moment,
+        ),
+    )
+    wrote_wait = Event()
+    waits = merge_lock.waits
+
+    def waiting(context: frame.Context, path: Path) -> None:
+        waits(context, path)
+        wrote_wait.set()
+
+    monkeypatch.setattr(merge_lock, "waits", waiting)
+    asked = Asked(by="merger", via="server", subject=SUBJECT)
+    with ThreadPoolExecutor() as worker:
+        with merge_lock.held(holder):
+            attempt = worker.submit(merge.run, world.checkout, SLUG, asked)
+            assert wrote_wait.wait(timeout=10)
+            assert calls(world) == 0
+        assert attempt.result(timeout=10).ok
+
+    journal = world.record()["journal"]
+    assert [one["behind"] for one in journal if one["kind"] == "merge-wait"] == [
+        "other-task"
+    ]
+    assert calls(world) == 1
 
 
 def test_a_merge_that_keeps_the_branchs_commits_rebases_and_its_parent_is_the_old_base(

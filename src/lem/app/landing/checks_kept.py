@@ -46,7 +46,12 @@ def kept(record: Record, *, world: World, verdict: Verdict, at: Moment) -> Recor
             raise refused
     end = end_of(record, world, verdict, at)
     changed = checks_record.checked(record, run=verdict.run, end=end)
-    refused = merge_recheck.red(record.landing or Landing(), verdict.run, end)
+    refused = merge_recheck.red(
+        record.landing or Landing(),
+        verdict.run,
+        end,
+        code=None if verdict.refusal is None else verdict.refusal.code,
+    )
     if refused is not None:
         changed = changes.landing(changed, refused=refused)
     if not verdict.reshape:

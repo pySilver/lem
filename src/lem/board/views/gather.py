@@ -79,7 +79,7 @@ def seen_of(checkout: Path, record: Record, ask: Ask, *, demo: bool) -> world.Se
     return previews.read(
         world.Seen(
             record=record,
-            basis=ask.basis,
+            basis=ask.bases.for_task(record),
             acts=acts,
             files=files,
             plan_file=folder.plan_of(worktree, record.task.plan),

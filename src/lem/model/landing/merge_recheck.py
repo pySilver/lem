@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
+from lem.model.landing import checks_red
 from lem.model.landing.world import Due
 from lem.records.landing.merge import Refused
 
@@ -55,10 +56,15 @@ def repair(landing: Landing) -> bool:
     )
 
 
-def red(landing: Landing, run: Checked, end: CheckEnd) -> Refused | None:
+def red(
+    landing: Landing, run: Checked, end: CheckEnd, *, code: str | None = None
+) -> Refused | None:
     """Record that red checks prevented the approved merge, until the next proposal."""
     proposed = landing.proposed
-    if landing.standing is None or proposed is None or run.outcome != "red":
+    failed = run.outcome == "red" or (
+        run.outcome == "refused" and code == checks_red.CODE
+    )
+    if landing.standing is None or proposed is None or not failed:
         return None
     if proposed.base == run.base and not repair(landing):
         return None

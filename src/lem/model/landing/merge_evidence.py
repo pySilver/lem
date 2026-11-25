@@ -82,15 +82,6 @@ def covered(record: Record, world: World, tip: str) -> Refusal | None:
     )
 
 
-def our_side(record: Record, world: World, proposed: Proposed) -> Refusal | None:
-    """Why the proposal is not what Lem pushed and the checks covered: a local tip that
-    moved, a push on record of another commit, or no passed run of the checks of that tip as
-    they are now."""
-    return changed_tip(record, proposed, world.tip) or covered(
-        record, world, proposed.tip
-    )
-
-
 def changed_tip(record: Record, proposed: Proposed, tip: str | None) -> Refusal | None:
     """The proposal differs from the branch tip or the last push on record."""
     pushed = (record.landing or Landing()).pushed

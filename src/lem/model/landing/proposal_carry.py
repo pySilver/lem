@@ -17,6 +17,13 @@ def repaired(record: Record, landing: Landing, world: World) -> bool:
     """A builder's repair after red checks needs an answered review of the repaired change."""
     if not merge_recheck.repair(landing):
         return False
+    resolution, proposed = landing.resolution, landing.proposed
+    if (
+        resolution is not None
+        and proposed is not None
+        and resolution.before == proposed.tip
+    ):
+        return False
     return not review.unmet(record, review.newest(landing), world)
 
 

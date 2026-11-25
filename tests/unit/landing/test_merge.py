@@ -164,6 +164,26 @@ def test_a_retarget_before_the_merge_names_the_edit_that_puts_it_back() -> None:
     assert found.fix.startswith("gh pr edit 1 --base main")
 
 
+@pytest.mark.parametrize(
+    ("changes", "code"),
+    [
+        ({"pull": replace(SEEN, base="release")}, "target"),
+        ({"pull": replace(SEEN, head=OTHER)}, "tip"),
+        ({"tip": OTHER}, "tip"),
+    ],
+)
+def test_a_moved_base_cannot_hide_a_wrong_destination_or_head(
+    changes: dict[str, object], code: str
+) -> None:
+    record = opened()
+    refused = merge.decide(record, moved(**changes), BY_OWNER, TREE)
+    assert isinstance(refused, Refusal)
+    assert refused.code == code
+    assert merge_standing.kept(record, refused, BY_OWNER, MOMENT) is None
+    if code == "target":
+        assert refused.fix.startswith("gh pr edit 1 --base main")
+
+
 def test_a_moved_base_merges_only_on_a_safe_read_that_covers_it_now() -> None:
     assert code_of(merge.decide(opened(), moved(), BY_OWNER, TREE)) == "base"
     assert code_of(merge.decide(opened(), moved(), BY_MERGER, TREE)) == "base"

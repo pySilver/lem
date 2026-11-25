@@ -43,7 +43,7 @@ before showed no sign of work, or no event of the task when Lem could not read i
 status message, and Lem's guard, or the owner's "Open a
 session" on the stopped task, opened this one beside it; its pane stays open as `SLUG · replaced`
 and closes itself when it wakes, and it handed nothing over: go on from the record), `merged`,
-`conflict` or `queue` (the board's server opened it for that), `night`, or `owner` (his word).
+`conflict`, `refused` or `queue` (the board's server opened it for that), `night`, or `owner` (his word).
 
 ## What comes next
 
@@ -203,7 +203,9 @@ A pull request that `conflict` marks takes `SKILL_DIR/stages/conflict.md`; a
 merge that `refused` marks (`merge_refused` in `lem waiting --task SLUG`) takes the refusals of its step
 8: the merge agent's merge that GitHub or Lem's rules refused, or the owner's that Lem refused because
 the base moved (`kind: base`), after which the task rebases and runs the checks while his approval
-stands. A red run takes the repair builder of step 4. A `queued` task whose wait ended goes on where it stopped, as "A queued task" above
+stands. On a `refused` wake with no refusal on record, run `lem land next SLUG`. If it says
+the approval stands and the checks need a new base, take the landing from `start`. A red run
+takes the repair builder of step 4. A `queued` task whose wait ended goes on where it stopped, as "A queued task" above
 says. `owner` follows his word: his act on the board (his answer to a row of it: below), while
 this session may wait for him, or his
 "start SLUG now" (`SKILL_DIR/stages/start.md`, "`/lem build`"). An approval of the criteria that

@@ -17,8 +17,8 @@ from typing import TYPE_CHECKING
 
 from lem.app.owner import forge, releases
 from lem.board import merge_look
-from lem.board.duties import forge_look, merge_order, merge_run
-from lem.model.landing import merge_recheck, merge_standing, mergeread, phases
+from lem.board.duties import forge_look, merge_order, merge_run, wakes
+from lem.model.landing import merge_recheck, merge_standing, mergeread
 from lem.records.holds import ReleaseHold
 from lem.store import tasks
 
@@ -31,19 +31,18 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 
-UNKNOWN = merge_look.MergeBasis()
-
-
 def tick(duty: Duty) -> None:
-    """Start the next merge, with a task checked on its current base first."""
-    if duty.kept.running():
-        return
+    """Wake stale approvals and start the next merge in order of the checks."""
     look = forge_look.current(duty)
-    records = releases.with_stops(tasks.every(duty.state))
-    basis = merge_look.basis_of(duty.here, records)
-    for record in merge_order.ordered(duty, waiting(duty, records)):
-        if start(duty, record, look, basis):
-            return
+    records = waiting(duty, releases.with_stops(tasks.every(duty.state)))
+    bases = merge_look.bases_of(duty.here, records)
+    running = duty.kept.running()
+    if not running:
+        for record in merge_order.ordered(bases, records):
+            if start(duty, record, look, bases.for_task(record)):
+                break
+    for record in records:
+        wake_stale(duty, record, look, bases.for_task(record), running)
 
 
 def waiting(duty: Duty, records: tuple[Record, ...]) -> tuple[Record, ...]:
@@ -58,6 +57,8 @@ def start(
     duty: Duty, record: Record, look: forge.Look, basis: merge_look.MergeBasis
 ) -> bool:
     """Start this task when the server owns its merge."""
+    if recheck(record, basis.base):
+        return False
     running = duty.kept.running()
     by = merger_of(record, look, running, basis)
     return by is not None and merge_run.started(duty, record, by, key_of(record))
@@ -67,12 +68,12 @@ def merger_of(
     record: Record,
     look: forge.Look,
     running: Collection[str],
-    basis: merge_look.MergeBasis = UNKNOWN,
+    basis: merge_look.MergeBasis = merge_look.UNKNOWN,
 ) -> Merger | None:
     """Who the server merges the task for now: the owner, whose merge stands, or the merge
     agent; None when its merge is not the server's to make now."""
     landing = record.landing
-    if landing is None or phases.settled(record) is not None:
+    if landing is None or landing.phase != "open":
         return None
     if not merge_look.server_merges(record, basis) and not recheck(record, basis.base):
         return None
@@ -84,7 +85,7 @@ def merger_of(
 
 
 def recheck(record: Record, base: str | None) -> bool:
-    """Send a newly stale approval through the locked merge once to wake its session."""
+    """Whether a newly stale approval needs its session to recheck the change."""
     landing = record.landing
     if record.task.status != "open" or landing is None or landing.refused is not None:
         return False
@@ -93,6 +94,32 @@ def recheck(record: Record, base: str | None) -> bool:
         and merge_recheck.moved(landing, base)
         and merge_standing.standing_of(record)
     )
+
+
+def wake_stale(
+    duty: Duty,
+    record: Record,
+    look: forge.Look,
+    basis: merge_look.MergeBasis,
+    running: Collection[str],
+) -> None:
+    """Wake the session once for the proposed tip and the new base it must check."""
+    base = basis.base
+    if (
+        base is None
+        or not recheck(record, base)
+        or merger_of(record, look, running, basis) != "owner"
+    ):
+        return
+    slug = record.task.slug
+    standing = merge_standing.standing_of(record)
+    if standing is None:
+        return
+    key = ("recheck", slug, standing.tip, base)
+    if duty.kept.owed(key, duty.now) and wakes.woken(
+        duty, slug, "refused", standing.tip
+    ):
+        duty.kept.done.add(key)
 
 
 def key_of(record: Record) -> Key:

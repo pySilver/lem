@@ -27,15 +27,17 @@ def newest(landing: Landing) -> Reviewed | None:
 def source(landing: Landing, world: World) -> Sha | None:
     """The tip whose review carried onto the tip now: the newest answered review, which `base`
     judged by git's merge of its tip onto this base, when that merge was the tip's tree and no
-    commit came after. When the review shares the rebase's second, Git proves the two trees
-    again. None when no review carried."""
+    commit came after. Older records without the reviewed tip need a review that predates
+    the rebase. None when no review carried."""
     review, based = newest(landing), landing.based
     if review is None or based is None or not based.carried:
         return None
     if based.tip != world.tip or based.base != world.base:
         return None
-    shown = review.at < based.at or world.rebased_review == review.tip
-    return review.tip if shown else None
+    reviewed = based.reviewed
+    if reviewed is None:
+        return review.tip if review.at < based.at else None
+    return review.tip if reviewed == review.tip else None
 
 
 def covers(landing: Landing, world: World) -> bool:
