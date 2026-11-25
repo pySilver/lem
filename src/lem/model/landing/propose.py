@@ -1,36 +1,50 @@
-"""`propose`: the push and the pull request (`landing.md` C, row 7; E, "Push recorded first").
+"""`propose`: the push and the pull request (`landing.md` C, row 7; E, "Push recorded first";
+`main:land.cmd_propose`).
 
-It holds while the proposal names the tip, Lem's last push is the tip, and the forge's head is the
-tip. The push is recorded before the forge's call, so a run cut off after it finds the push as
-its own; an open pull request on the branch is the task's only when its head is a commit Lem
-pushed. A new round's text edit, a closed request and the not-green reasons past the plain ones
-are the step `land-propose`'s.
+It holds while the proposal names the tip, Lem's last push is the tip, and the forge's head is
+the tip. The push is recorded before the forge's call, so a run cut off after it finds the push
+as its own; an open pull request on the branch is the task's only when its head is a commit Lem
+pushed, and the one on record is edited in a new round. Before any of it, the request passes the
+gates of the build and of its notes, each a refusal that names the way on.
 """
 
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
-from lem.model.landing import green, merge
+from lem.model.landing import (
+    green,
+    merge,
+    propose_careful,
+    propose_criteria,
+    propose_doubts,
+    propose_gates,
+    propose_lines,
+    propose_notes,
+)
 from lem.model.landing.invariants import protected
-from lem.model.landing.review import newest
+from lem.model.landing.propose_facts import small
 from lem.model.landing.world import Due, Held, PullSeen, World
 from lem.records.base import Frozen
 from lem.records.landing.propose import Proposed
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
+    from lem.model.landing.propose_facts import Facts
     from lem.records.record import Record
 
 STEP = "propose"
 
 
 class Proposal(Frozen, frozen=True, kw_only=True):
-    """What `propose` does: push or not, the pull request it adopts or none, and the proposal
-    the record keeps (its text's path comes once the text is published)."""
+    """What `propose` does: push or not, the pull request it adopts or edits or none, the
+    proposal the record keeps (its text's path comes once the text is published), the
+    reasons the request is careful, and the notes by their headings."""
 
     push: bool
     adopt: PullSeen | None = None
     proposed: Proposed
+    careful: tuple[str, ...] = ()
+    notes: propose_notes.Notes = propose_notes.Notes()
 
 
 def holds(record: Record, world: World) -> Held | Due:
@@ -48,40 +62,106 @@ def holds(record: Record, world: World) -> Held | Due:
 
 
 def adopted(record: Record, world: World) -> Refusal | PullSeen | None:
-    """The open pull request on the branch that is the task's: one whose head is the commit
-    Lem's recorded push sent. Any other open one is somebody else's, and refused
-    (`main:land.cmd_propose`)."""
+    """The task's pull request: the one on record while it is open, else the open one on
+    the branch whose head is the commit Lem's recorded push sent. Any other is somebody
+    else's, and refused; a merged or closed one on record is the step `merged`'s."""
+    slug, pull = record.task.slug, world.pull
+    if pull is not None and pull.state != "open":
+        action = "finishes the task" if pull.state == "merged" else "writes it dropped"
+        return Refusal(
+            "closed",
+            f"the pull request {pull.url} is {pull.state}",
+            f"lem land merged {slug} {action}, and the branch keeps its commits",
+        )
     pushed = (record.landing or Landing()).pushed
-    others = [pull for pull in world.candidates if pull.head != pushed]
+    others = [found for found in world.candidates if found.head != pushed]
     if others:
-        pull, slug = others[0], record.task.slug
         return Refusal(
             "foreign-pull",
-            f"pull request {pull.number} is open on {world.branch} at {pull.head}, a head "
-            "Lem did not push: it is somebody else's",
+            f"pull request {others[0].number} is open on {world.branch} at "
+            f"{others[0].head}, a head Lem did not push: it is somebody else's, and Lem "
+            "does not push over it or rewrite its text",
             "give the task a branch of its own (git branch -m NEW-NAME in the worktree), "
             f"then lem land propose {slug} again",
         )
+    if pull is not None:
+        return pull
     return world.candidates[0] if world.candidates else None
 
 
-def decide(record: Record, world: World) -> Refusal | Proposal:
-    """What the proposal does, or why it may not be made."""
-    guard = protected(world.branch, world.rules, "pushes")
-    if guard is not None:
-        return guard
-    adopt = adopted(record, world)
-    if isinstance(adopt, Refusal):
-        return adopt
-    reasons = green.reasons(record)
-    last = newest(record.landing or Landing())
-    proposed = Proposed(
+def gates(record: Record, world: World, facts: Facts) -> Refusal | None:
+    """The first gate of the build the request does not pass, or None."""
+    found = (
+        protected(world.branch, world.rules, "pushes"),
+        propose_gates.own_item(record, facts),
+        propose_gates.untalked(record),
+        propose_criteria.unread(record),
+        propose_criteria.silent(record),
+        propose_doubts.doubted(record),
+        propose_doubts.unapproved(record),
+        propose_gates.gone(record, facts),
+        propose_gates.waiting(record),
+    )
+    return next((refusal for refusal in found if refusal is not None), None)
+
+
+def written(
+    record: Record, facts: Facts, notes: propose_notes.Notes, title: str
+) -> Refusal | None:
+    """The first gate of the notes and the title the request does not pass, or None: the
+    headings the notes hold, and a finding nobody filed, which reaches the pull request only
+    with a bar call and its reason or as an item the tip holds, whoever wrote its line."""
+    careful = bool(propose_careful.why(record, facts))
+    held = propose_lines.wanted(small=small(record), careful=careful)
+    lacking = propose_lines.missing(notes, held, record.task.slug)
+    found = propose_lines.bare(notes, small=small(record), in_tip=facts.in_tip)
+    if lacking is not None or not found:
+        return lacking or propose_gates.titled(title)
+    listed = "; ".join(f'"{line}"' for line in found)
+    return Refusal(
+        "no-bar-call",
+        f"{len(found)} line(s) of the notes name a finding with no bar call and no item: "
+        f"{listed}",
+        "give it a bar call and a reason, or file it: by the bar of rule 6 of the "
+        "builder's standing rules, the line ends with `under: REASON` or `cheap: REASON`, "
+        "or a builder files it as an item of docs/backlog and the line names the item's "
+        "path; then this step runs again",
+    )
+
+
+def made(record: Record, world: World, careful: tuple[str, ...]) -> Proposed:
+    """The proposal of the tip now: green or the reasons it is not, and who merges it."""
+    reasons = green.reasons(record, careful)
+    return Proposed(
         tip=world.tip or "",
         base=world.base,
         green=not reasons,
         reasons=reasons,
-        careful=bool(last and last.careful),
+        careful=bool(careful),
         who_acts=merge.who(world, reasons),
         at=world.now,
     )
-    return Proposal(push=world.remote != world.tip, adopt=adopt, proposed=proposed)
+
+
+def decide(
+    record: Record, world: World, facts: Facts, title: str
+) -> Refusal | Proposal:
+    """What the proposal does, or why it may not be made."""
+    notes = propose_notes.parsed(facts.notes)
+    if isinstance(notes, Refusal):
+        return notes
+    adopt = (
+        gates(record, world, facts)
+        or written(record, facts, notes, title)
+        or adopted(record, world)
+    )
+    if isinstance(adopt, Refusal):
+        return adopt
+    careful = propose_careful.why(record, facts)
+    return Proposal(
+        push=world.remote != world.tip,
+        adopt=adopt,
+        proposed=made(record, world, careful),
+        careful=careful,
+        notes=notes,
+    )

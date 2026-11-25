@@ -1,15 +1,17 @@
 """The `gh` adapter (`lem.adapters.forge_gh`) against the `Forge` port's contract, with a stand-in
 for `gh` on the test's PATH (`gh_standin.py`): a `LocalForge` over a real origin, answered in
-gh's own JSON, that records every call. No call leaves the machine.
+gh's own JSON, that records every call. No call leaves the machine; trial S3 runs the same suite
+against a scratch repository on GitHub.
 
-The slice that `slice-land` built for the plain path; `land-propose` takes it over with
-`tests/contract/test_forge.py`, and trial S3 runs the same suite against a scratch repository on
-GitHub.
+Besides the contract: a text goes on gh's standard input whatever it holds, a merge pins its
+head and its method, a rebase merge's base is the commit before the first one it replayed, and a
+gh that is not on the PATH, has no login, or prints no address is said as such.
 """
 
 import dataclasses
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -99,15 +101,61 @@ def test_a_merge_pins_the_head_it_names_and_squashes(tmp_path: Path) -> None:
     assert "--squash" in merging[0]
 
 
-def test_a_rebase_merge_is_refused_by_name_and_calls_nothing(tmp_path: Path) -> None:
+def test_a_rebase_merge_replays_each_commit_and_reports_the_base_before_them(
+    tmp_path: Path,
+) -> None:
     world = gh_world(tmp_path)
-    head = world.push("fix-the-login", {"a.txt": b"a\n"})
+    world.push("fix-the-login", {"a.txt": b"a\n"})
+    head = world.push("fix-the-login", {"b.txt": b"b\n"})
+    base = world.head("main")
     opened = world.forge.open_pull("fix-the-login", "main", "Fix", "body")
+    done = world.forge.merge(opened.number, head, "rebase", TEXT)
+    assert isinstance(done, MergeDone)
+    assert done.base_parent == base
+    assert run_git(world.repo.origin, "rev-list", "--count", f"{base}..main") == "2"
+    merging = [call for call in world.calls() if call[:2] == ["pr", "merge"]]
+    assert "--rebase" in merging[0]
+
+
+def test_a_text_goes_on_gh_standard_input_as_it_is(tmp_path: Path) -> None:
+    world = gh_world(tmp_path)
+    world.push("fix-the-login", {"a.txt": b"a\n"})
+    text = (
+        "**Not green.**\n\n- `--body` is a word of the text, not of gh\n"
+        + "x" * 300_000
+    )
+    opened = world.forge.open_pull("fix-the-login", "main", "Fix", text)
+    assert world.forge.pull(opened.number).body == text
+    again = text.replace("Not green", "Green")
+    assert world.forge.update_pull(opened.number, "Fix", again).body == again
+    sent = [
+        call for call in world.calls() if call[:2] in (["pr", "create"], ["pr", "edit"])
+    ]
+    assert all(call[call.index("--body-file") + 1] == "-" for call in sent)
+    assert not any("--body" in call for call in sent)
+
+
+def test_a_gh_with_no_login_is_refused_with_its_fix(tmp_path: Path) -> None:
+    world = gh_world(tmp_path)
+    state = json.loads(world.state.read_text())
+    world.state.write_text(json.dumps({**state, "login": False}))
     with pytest.raises(Refusal) as refused:
-        world.forge.merge(opened.number, head, "rebase", TEXT)
-    assert refused.value.code == "not-built"
-    assert "land-merge" in refused.value.fix
-    assert not [call for call in world.calls() if call[:2] == ["pr", "merge"]]
+        world.forge.find_pulls("fix-the-login", "main")
+    assert refused.value.code == "gh-login"
+    assert "gh auth login" in refused.value.fix
+
+
+def test_no_gh_on_the_path_is_refused_by_name(tmp_path: Path) -> None:
+    world = gh_world(tmp_path)
+    only_git = tmp_path / "only-git"
+    only_git.mkdir()
+    (only_git / "git").symlink_to(shutil.which("git") or "/usr/bin/git")
+    bare = dataclasses.replace(
+        world.forge, environ={**world.forge.environ, "PATH": str(only_git)}
+    )
+    with pytest.raises(Refusal) as refused:
+        bare.find_pulls("fix-the-login", "main")
+    assert refused.value.code == "no-gh"
 
 
 @pytest.mark.parametrize(

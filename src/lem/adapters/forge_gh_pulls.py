@@ -1,9 +1,11 @@
 """The pull requests of the `Forge` port through `gh` (`ForgePulls`), and the delete of a branch's
 copy with a lease (`ForgeRefs`).
 
-A merge pins the head it names (`--match-head-commit`), and its answer is read back from the
-forge: merged, taken by a queue, or refused in GitHub's words. The copy of a branch is deleted by
-a push with a lease on the commit named, so a push that came in between stops it.
+A text goes to `gh` on its standard input (`--body-file -`), never as an argument, whatever its
+length. A merge pins the head it names (`--match-head-commit`), and its answer is read back from
+the forge: merged, taken by a queue, or refused in GitHub's words; a rebase merge's base is the
+commit before the first one it replayed. The copy of a branch is deleted by a push with a lease
+on the commit named, so a push that came in between stops it.
 """
 
 import subprocess
@@ -12,7 +14,6 @@ from typing import TYPE_CHECKING
 import msgspec
 
 from lem.adapters.forge_gh_shell import FIELDS, Gh, GhPull, cleaned, last_words
-from lem.kernel.errors import Refusal
 from lem.ports.faults import Unanswered
 from lem.ports.forge_facts import MergeDenied, MergeDone, MergeTaken, Repo
 
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
 
 JSON = "--json"
 PR = "pr"
-METHODS = ("squash", "merge")
+BODY = ("--body-file", "-")
 # What only GitHub's own answer to a merge says: its API's refusal, in its words.
 GITHUBS = (
     "graphql:",
@@ -60,14 +61,18 @@ class Pulls(Gh):
             base,
             "--title",
             title,
-            "--body",
-            body,
+            *BODY,
+            given=body,
         )
-        address = made.strip().splitlines()[-1].rstrip("/")
-        return self.pull(int(address.rsplit("/", 1)[-1]))
+        lines = made.strip().splitlines()
+        address = lines[-1].rstrip("/") if lines else ""
+        number = address.rsplit("/", 1)[-1]
+        if not number.isdigit():
+            raise Unanswered("gh", f"gh pr create printed no pull request address: {made!r}")
+        return self.pull(int(number))
 
     def update_pull(self, number: int, title: str, body: str) -> Pull:
-        self.said(PR, "edit", str(number), "--title", title, "--body", body)
+        self.said(PR, "edit", str(number), "--title", title, *BODY, given=body)
         return self.pull(number)
 
     def pull(self, number: int) -> Pull:
@@ -83,16 +88,12 @@ class Pulls(Gh):
     def merge(
         self, number: int, expected_head: str, method: MergeMethod, text: MergeText
     ) -> MergeOutcome:
-        if method not in METHODS:
-            raise Refusal(
-                "not-built",
-                f"a {method} merge through gh is not built yet",
-                "the step `land-merge` builds it (docs/plans/2026-11-25-lem-built-again.md)",
-            )
         pinned = ("--match-head-commit", expected_head, f"--{method}")
-        words = ("--subject", text.subject, "--body", text.body)
-        ran = self.tried(PR, "merge", str(number), *pinned, *words)
-        found = self.pull(number)
+        replayed = self.commits(number) if method == "rebase" else 1
+        words = ("--subject", text.subject, *BODY)
+        ran = self.tried(PR, "merge", str(number), *pinned, *words, given=text.body)
+        said = self.said(PR, "view", str(number), JSON, FIELDS)
+        found = self.pull_of(msgspec.json.decode(said, type=GhPull), replayed)
         if ran.returncode and found.state != "merged":
             return denied(ran)
         if found.merge_commit and found.merged_head and found.base_parent:
@@ -104,6 +105,12 @@ class Pulls(Gh):
         return MergeTaken(
             queued=found.queued or "GitHub took the merge and has not merged"
         )
+
+
+    def commits(self, number: int) -> int:
+        """How many commits the pull request holds: a rebase replays each."""
+        said = self.said(PR, "view", str(number), JSON, "commits", "--jq", ".commits | length")
+        return int(said.strip() or "1")
 
 
 class Refs(Gh):

@@ -1,0 +1,51 @@
+"""The head of the pull request's text, on either track, in the order the owner reads it
+(`main:land.head_lines`): green, or not green with each reason; the time the task ran without
+him; and why it is careful, which makes it his to merge."""
+
+from typing import TYPE_CHECKING
+
+from lem.app.landing.pr_inputs import Block, block
+from lem.model.landing.green_words import reason
+
+if TYPE_CHECKING:
+    from lem.model.landing.propose import Proposal
+    from lem.records.record import Record
+
+GREEN = (
+    "**Green.** The checks passed with the bar where it was, the review left no "
+    "must-fix, no criterion changed, and no decision past the personas was taken "
+    "without an answer."
+)
+
+
+def verdict(proposal: Proposal) -> Block:
+    """Green, or not green with each reason first."""
+    reasons = proposal.proposed.reasons
+    if not reasons:
+        return Block(lines=(GREEN,))
+    return Block(lines=("**Not green.**", "", *(f"- {why}" for why in reasons)))
+
+
+def alone(record: Record) -> tuple[str, ...]:
+    """The line that says the task ran without the owner, and since when: a cause of not
+    green only through what was decided then, which the reasons name."""
+    task = record.task
+    if task.mode != "alone":
+        return ()
+    since = task.mode_since or task.opened
+    stamp = since.strftime("%Y-%m-%d %H:%M UTC")
+    return (f"It ran without the owner from {stamp}.",)
+
+
+def careful(proposal: Proposal) -> tuple[str, ...]:
+    """A careful request is a person's to merge, green or not, and he reads why first."""
+    if not proposal.careful:
+        return ()
+    listed = "; ".join(map(reason, proposal.careful))
+    return (f"**Careful**, so the owner merges it: {listed}.",)
+
+
+def blocks(record: Record, proposal: Proposal) -> tuple[Block, ...]:
+    """The head's blocks."""
+    head = block(None, alone(record)) + block(None, careful(proposal))
+    return (verdict(proposal), *head)
