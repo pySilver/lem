@@ -2,13 +2,14 @@
 
     lem task dir SLUG
 
-A stub until the step `task` builds it: it refuses `not-built`.
+Refused for a task that is not there.
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.tasks import where
+from lem.cli import place
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +18,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     slug: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `task` builds `lem task dir`."""
-    raise not_built("task dir", "task")
+def run(call: Call) -> where.Folder:
+    """The folder of the task."""
+    return where.folder_of(place.folder(), call.slug)
 
 
 COMMAND = click.Command(

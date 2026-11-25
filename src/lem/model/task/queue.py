@@ -11,16 +11,30 @@ is the owner's own request (the owner, 2026-11-18: "Why block him?").
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
+from lem.records.base import Frozen
 from lem.records.holds import Parked
 
 if TYPE_CHECKING:
     from lem.records.record import Record
-    from lem.records.task import Task
+    from lem.records.task import Status, Task
 
 ENDED = frozenset(("landed", "dropped", "answered"))
 LANDING = frozenset(("landing", "open"))
 RUNNING = frozenset(("building", "landing"))
 STARTED = frozenset(("landed", "answered"))
+
+
+class May(Frozen, frozen=True, kw_only=True):
+    """A task may start: the other tasks that load the machine now."""
+
+    slug: str
+    running: tuple[str, ...] = ()
+
+
+def started_in(task: Task) -> Status:
+    """Where his word takes a queued task: its interview comes next, or its work."""
+    then = task.shape.then if task.shape else None
+    return "shaping" if then in {None, "interview"} else "building"
 
 
 def word(slug: str) -> str:

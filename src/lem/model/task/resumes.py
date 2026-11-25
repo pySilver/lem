@@ -10,13 +10,18 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
+from lem.records.holds import BreakerHold
+from lem.records.task import Task
 
 if TYPE_CHECKING:
+    from lem.records.base import Moment
     from lem.records.record import Record
-    from lem.records.task import Task
 
 # The most tasks one line of resumes holds, past which a slug is refused: a line goes round.
 LONGEST = 999
+TYPES = frozenset(
+    ("feat", "fix", "docs", "refactor", "perf", "test", "chore", "question")
+)
 
 
 def first_of(slug: str, every: tuple[Record, ...]) -> str:
@@ -88,3 +93,37 @@ def carried(made: Record, every: tuple[Record, ...]) -> Record:
         return made
     ticket = replace(origin.ticket, steps=())
     return replace(made, task=replace(made.task, ticket=ticket))
+
+
+def breaker_task(old: Task, new: str, breaker: int, now: Moment) -> Task:
+    """The task that goes on from `old`, dropped with `breaker` waiting: its shape, criteria,
+    decisions, plan talk and investigation, held by that breaker, on a branch of its own."""
+    kind = old.shape.type if old.shape else "feat"
+    return replace(
+        old,
+        slug=new,
+        opened=now,
+        status="building",
+        since=now,
+        hold=BreakerHold(number=breaker, since=now),
+        branch=f"{kind}/{new}",
+        resumed_from=old.slug,
+        ticket=None,
+        spans=(),
+    )
+
+
+def request_task(old: Task, new: str, start: str | None, now: Moment) -> Task:
+    """The new request that goes on from `old`, which the release stop dropped: its ask and,
+    when git still has its branch, a branch of the same type cut from it."""
+    prefix = start.split("/", 1)[0] if start else ""
+    kind = prefix if prefix in TYPES else "feat"
+    return Task(
+        slug=new,
+        ask=old.ask,
+        opened=now,
+        status="shaping",
+        since=now,
+        branch=None if start is None else f"{kind}/{new}",
+        resumed_from=old.slug,
+    )

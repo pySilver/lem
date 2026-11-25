@@ -277,6 +277,16 @@
                 "criteria",
                 "interview"
               ]
+            },
+            "--fits": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--someone-else": {
+              "aliases": [],
+              "value": false,
+              "required": false
             }
           },
           "positionals": [
