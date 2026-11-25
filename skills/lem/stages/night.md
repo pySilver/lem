@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # night
 
 `/lem night` runs with nobody at the terminal, started by a scheduled job. It takes items of the
@@ -11,16 +10,16 @@ Where the project's own `AGENTS.md` says that its night proposes, the night also
 that proposes" below says, and opens a task only where that file lets it.
 
 1. **The brake.** Count the pull requests of earlier nights that wait for the owner's merge: the
-   `pull_requests` of `lem project waiting` whose `night` is not null. With two or more, open
+   `pull_requests` of `lem waiting` whose `night` is not null. With two or more, open
    nothing, and write the night report with why: a request nobody reads ages as the base moves.
-2. **The candidates.** The items in `lem project path backlog`: one file each, with `worth`,
+2. **The candidates.** The items in the folder `lem path backlog` prints: one file each, with `worth`,
    `where` and `added` between two `---` lines, then a title and prose. Never a tracker's
    ticket: which ticket comes next is a person's call. Never an item of the state folder's
    `backlog/` either: those are the reviewer's, and each waits for the owner's start or drop on
    the board. Leave out an item that is decided against
    (`worth: no`); one that a branch, a worktree, an open plan or a task already holds; one that
    asks for a choice and states no defect or job; and one in reach of a topic (`flow.topics` in
-   `lem project show`) or in doubt, read as step 1 of `stages/new.md` reads an ask: a careful
+   `lem settings show`) or in doubt, read as step 1 of `stages/new.md` reads an ask: a careful
    change needs the owner and the plan talk. Give the rest a track as that step does for an ask, and order
    them: the fast track first, then the others by how much they change, and within one track
    `worth: yes` first. Take the first four of them, or N when the job's line is `/lem night N`
@@ -28,8 +27,8 @@ that proposes" below says, and opens a task only where that file lets it.
    the morning: a guess, not a measurement ("one task at a time per project is fine default for
    night runs", the owner, 2026-11-18).
 3. **One at a time, each without the owner.** In that order, open the next task as "Open the task"
-   of `stages/new.md` does, with no talk and no focus: the item's path as the ask, `lem project
-   task-dir SLUG --ask PATH --night YYYY-MM-DD` with the night's date, and `lem session open SLUG
+   of `stages/new.md` does, with no talk and no focus: the item's path as the ask and as the item, `lem task
+   open SLUG --ask PATH --item PATH --night YYYY-MM-DD` with the night's date, and `lem session open SLUG
    --why night`. The mark makes it the night's: it runs without the owner until it ends, whatever
    his status, and his `/lem im-back` does not change it. Its session takes the path "The request"
    chooses, as any task that runs without the owner does; its brief carries `request by: someone
@@ -44,7 +43,7 @@ that proposes" below says, and opens a task only where that file lets it.
    choice, as by day; a breaker (`stages/breaker.md`) holds its task for the morning, and the
    report names its document. Then the next item. The night ends when the last one is `open`,
    `held`, `blocked` or ended.
-5. **The night report**, `night/YYYY-MM-DD.md` in the folder `lem project state-dir` prints,
+5. **The night report**, `night/YYYY-MM-DD.md` in the folder `lem path state` prints,
    written when the night ends and again at each stop before it:
    - each item that became a task: its path, the task, and its pull request with green or each
      reason it is not, or where the task stands;
@@ -74,7 +73,7 @@ reviewer (`stages/learn.md`, "retro"), and what passes reaches the owner as an i
 nothing, on stdin as a quoted heredoc:
 
 ```bash
-lem project proposals add --kind night --date 2026-11-24 --file - <<'JSON'
+lem proposals add --kind night --date 2026-11-24 --file - <<'JSON'
 {"read": "the whole test suite, run twice in the main checkout", "proposals": [
   {"area": "tests", "move": "The refund check waits for its event, not for one second", "body": "the file, the change, and the run that failed: its output and its time", "source": "the first run of the suite this night", "where": "tests/test_refunds.py:test_refund_event"}
 ]}
@@ -83,6 +82,6 @@ JSON
 
 The input has the form of the retro's (`stages/learn.md`, "retro", step 4): `read`, and each
 proposal with exactly `area`, `move`, `body`, `source` and `where`. The command writes
-`night/YYYY-MM-DD.json` in the state folder, or adds after a run already there, and prints each
-proposal's name (`night of 2026-11-24 #1`). Where that file says the night opens no task, steps 1
+`night/YYYY-MM-DD.json` in the state folder, or adds after a run already there, and its result's
+`names` gives each proposal's name (`night of 2026-11-24 #1`). Where that file says the night opens no task, steps 1
 to 4 do not run, and the report holds the proposals' names alone.

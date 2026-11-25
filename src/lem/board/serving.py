@@ -14,9 +14,12 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
     from pathlib import Path
 
+    from starlette.applications import Starlette
+
     from lem.board.door import Door
 
 # What the app's state holds of it, which the routes read.
+type Bind = Callable[[Starlette], None]
 SHARED = ("home", "environ", "stop", "counts")
 
 

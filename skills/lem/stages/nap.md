@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # nap
 
 A nap is an optional part of Lem, and the owner's own nap routine is its model. A fresh agent reads
@@ -19,13 +18,13 @@ settings' `naps.on` is true.
 1. **May one start?**
 
    ```bash
-   lem project may-nap
+   lem nap may
    ```
 
-   It answers in JSON, `may` with its `why`, and writes the nap down as started when it says yes.
+   Its result holds `may` with its `why`, and it writes the nap down as started when it says yes.
    A no is the usual answer: say nothing of it.
-2. **Start it** with `start-nap`, with the `time` of that answer and the folder `lem project
-   state-dir` prints. Its brief is `prompts/nap.md`, whole and unchanged: it is written to the nap
+2. **Start it** with `start-nap`, with the `time` of that answer and the folder `lem path state`
+   prints. Its brief is `prompts/nap.md`, whole and unchanged: it is written to the nap
    the way the owner's routine is written to his, and a line of Lem's added to it turns a dream
    into a report. Nothing waits for the nap but the close of the session, which would end it.
 3. **When it ends**, do nothing with it. No page shows it: the retro reads its waking note

@@ -36,7 +36,7 @@ def matched(pull: PullSeen, call: Call) -> bool:
     event = pull.queue_event
     if pull.state != "open" or event is None or not after(event, call):
         return False
-    if (event.head or pull.head) != call.tip:
+    if event.head != call.tip:
         return False
     if pull.queued or isinstance(call, MergeAccepted):
         return True

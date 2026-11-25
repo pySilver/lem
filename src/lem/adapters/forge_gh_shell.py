@@ -82,6 +82,9 @@ class GhPull(msgspec.Struct, frozen=True, rename="camel"):
         """The queue that still holds the request."""
         if self.merge_queue_entry is not None:
             return "the merge queue"
+        last = self.timeline_items.latest() if self.timeline_items else None
+        if last is not None and last.kind == forge_gh_queue.REMOVED:
+            return None
         return None if self.auto_merge_request is None else "auto-merge"
 
 
@@ -184,8 +187,7 @@ class Gh:
     def viewed(self, number: int, depth: int = 1) -> Pull:
         """The pull request `number` as the forge shows it now; `depth` is how many commits
         a rebase merge of it replayed."""
-        said = forge_gh_queue.viewed(self, number)
-        return self.pull_of(msgspec.json.decode(said, type=GhPull), depth)
+        return self.pull_of(packet(self, number), depth)
 
     def commits(self, number: int) -> int:
         """How many commits the pull request holds, GitHub's own total (REST `commits` of a
@@ -194,7 +196,7 @@ class Gh:
         path = f"repos/{self.named()}/pulls/{number}"
         return int(self.said("api", path, "--jq", ".commits").strip() or "1")
 
-    def pull_of(self, found: GhPull, depth: int = 1) -> Pull:
+    def pull_of(self, found: GhPull, depth: int | None = 1) -> Pull:
         """A pull request as the port gives it; a merged one with its merge's base."""
         merged = found.merge_commit.oid if found.merge_commit else None
         done = found.state == "MERGED" and merged is not None
@@ -222,5 +224,13 @@ class Gh:
             else None,
             merge_commit=merged,
             merged_head=found.head_ref_oid if done else None,
-            base_parent=self.parent(merged, depth) if done and merged else None,
+            base_parent=self.parent(merged, depth)
+            if done and merged and depth is not None
+            else None,
         )
+
+
+def packet(gh: Gh, number: int) -> GhPull:
+    """The typed JSON returned by gh for the pull request."""
+    said = forge_gh_queue.viewed(gh, number)
+    return msgspec.json.decode(said, type=GhPull)

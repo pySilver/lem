@@ -51,7 +51,8 @@ def run(call: Call) -> Served:
         vacant.vacant(home, os.environ, port, host)
         workspaces.noted(home, place.folder())
         server = importlib.import_module("lem.board.server")
-        return server.run(port, host, verbose=call.verbose, home=home)
+        inbox = importlib.import_module("lem.cli.serve.inbox")
+        return server.run(port, host, verbose=call.verbose, home=home, bind=inbox.bind)
 
 
 COMMAND = click.Command(

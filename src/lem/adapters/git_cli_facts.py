@@ -2,7 +2,10 @@
 (`GitPlaces`); the paths (`GitChanges`) are `git_cli_changes.py`. None of them changes the
 repository."""
 
+from itertools import chain
+from os import fsdecode
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from lem.adapters.git_cli_names import listed
 from lem.adapters.git_cli_shell import GIT, Shell, last_words
@@ -12,6 +15,11 @@ from lem.ports.git_facts import Commit, Conflict, DiffStat, RebaseState
 
 # The sha, parents, author and subject on one `git log` line, with NUL between fields.
 LOG_FIELDS = "%H%x00%P%x00%an%x00%s"
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+type StatRow = tuple[int, int, tuple[str, ...]]
+
 # git's three-way merge with no write to a worktree, an index or a ref, the base as its first
 # side as a rebase applies them, and the files of a conflict by the names git wrote.
 MERGE_TREE = ("--write-tree", "--name-only", "-z", "--no-messages")
@@ -45,12 +53,15 @@ class History(Shell):
         return tuple(commit_of(line) for line in lines if line)
 
     def diff_stat(self, where: Path, since: str, until: str) -> DiffStat:
-        listed = self.said(where, "diff", "--numstat", since, until)
-        rows = [line.split("\t", 2) for line in listed.splitlines() if line]
+        ran = self.raw(where, "diff", "--numstat", "-z", since, until, "--")
+        if ran.returncode:
+            said = ran.stderr.decode(errors="replace").strip()
+            raise Unanswered(GIT, said or f"git exited {ran.returncode}")
+        rows = tuple(numstat(ran.stdout))
         return DiffStat(
-            paths=tuple(row[2] for row in rows),
-            added=sum(counted(row[0]) for row in rows),
-            removed=sum(counted(row[1]) for row in rows),
+            paths=tuple(chain.from_iterable(row[2] for row in rows)),
+            added=sum(row[0] for row in rows),
+            removed=sum(row[1] for row in rows),
         )
 
     def merge_tree(self, where: Path, base: str, tip: str) -> str | Conflict:
@@ -107,7 +118,7 @@ def commit_of(line: str) -> Commit:
     )
 
 
-def counted(number: str) -> int:
+def counted(number: bytes) -> int:
     """A count of `--numstat`; a binary file's `-` counts no line."""
     return int(number) if number.isdigit() else 0
 
@@ -116,3 +127,19 @@ def clean(shell: Shell, where: Path, *, untracked: bool = True) -> bool:
     """Whether the worktree and index hold only what the commit holds."""
     files = "--untracked-files=normal" if untracked else "--untracked-files=no"
     return not shell.said(where, "status", "--porcelain", files)
+
+
+def names(path: bytes, fields: Iterator[bytes]) -> tuple[str, ...]:
+    """One path, or both paths Git puts after an empty path field for a rename."""
+    if path:
+        return (fsdecode(path),)
+    return fsdecode(next(fields)), fsdecode(next(fields))
+
+
+def numstat(packet: bytes) -> Iterator[StatRow]:
+    """The line counts and literal paths in Git's NUL-delimited numstat."""
+    fields = iter(packet.split(b"\0"))
+    for chunk in fields:
+        if chunk:
+            added, removed, path = chunk.split(b"\t", 2)
+            yield counted(added), counted(removed), names(path, fields)

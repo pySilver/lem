@@ -96,7 +96,7 @@ def created(
     if retry is not None:
         return made_by(found.state, retry, made=False)
     record = fresh(found, asked, kind, clock.now())
-    written = tasks.create(found.state, claim.claimed(record, every, kind))
+    written = workspace.published(found.state, claim.claimed(record, every, kind))
     return made_by(found.state, written.task, said=said)
 
 

@@ -32,7 +32,7 @@ def test_a_proposal_is_green_exactly_when_green_gives_no_reason(
     record: Record, world: World, careful: tuple[str, ...]
 ) -> None:
     made = propose.made(record, world, careful)
-    assert made.reasons == green.reasons(record, careful)
+    assert made.reasons == green.reasons(record, careful, world)
     assert made.green == (not made.reasons)
     assert made.careful == bool(careful)
     if made.who_acts == "merger":
@@ -68,14 +68,17 @@ def test_each_cause_of_not_green_gives_its_reason(
 def test_the_merge_reads_again_green_s_own_reasons_and_the_proposal_s_fast_lines(
     record: Record,
 ) -> None:
-    now = merge_standing.reasons_now(record)
-    plain = green.reasons(record, ())
+    now = merge_standing.reasons_now(record, PLAIN)
+    plain = green.reasons(record, (), PLAIN)
     assert now[len(now) - len(plain) :] == plain
     fast = now[: len(now) - len(plain)]
     assert all(reason.startswith("careful on the fast track") for reason in fast)
     proposed = (record.landing or Landing()).proposed
-    not_green = merge.authority(record, PLAIN) == merge.NOT_GREEN
-    assert not_green == (proposed is None or bool(now))
+    reason = merge.authority(record, PLAIN)
+    if merge.careful(record):
+        assert reason == merge.CAREFUL
+    else:
+        assert (reason == merge.NOT_GREEN) == (proposed is None or bool(now))
 
 
 def test_a_criterion_changed_with_no_decision_behind_it_is_a_reason_in_its_own_words() -> (

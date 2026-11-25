@@ -20,6 +20,7 @@ from lem.model.landing import (
     merge_standing,
     mergeread,
 )
+from lem.model.landing.careful_words import owner_says
 from lem.model.landing.review import newest
 from lem.model.landing.world import Due, Merger, World
 from lem.records.landing.record import Landing
@@ -47,10 +48,13 @@ def who(world: World, reasons: tuple[str, ...]) -> Merger:
 
 
 def careful(record: Record) -> bool:
-    """Whether the request is careful, by its proposal or by its shape: the owner merges
-    it."""
+    """Whether the proposal, the shape or the owner's word makes the request careful."""
     proposed, shape = (record.landing or Landing()).proposed, record.task.shape
-    return bool(proposed and proposed.careful) or bool(shape and shape.careful)
+    return (
+        bool(proposed and proposed.careful)
+        or bool(shape and shape.careful)
+        or bool(owner_says(record, owner=False))
+    )
 
 
 def authority(
@@ -70,12 +74,12 @@ def authority(
     read = mergeread.latest(landing, world.base_tree if world else None)
     current_land = world.rules.land if world else land
     found = (
+        (careful(record), CAREFUL),
         (
-            landing.proposed is None or bool(merge_standing.reasons_now(record)),
+            landing.proposed is None or bool(merge_standing.reasons_now(record, world)),
             NOT_GREEN,
         ),
         (merge_asked.contract_moved(record), MOVED),
-        (careful(record), CAREFUL),
         (last is None or last.careful is None, NO_CALL),
         (
             bool(landing.proposed and landing.proposed.who_acts == OWNER)
@@ -94,7 +98,7 @@ def due(record: Record, world: World) -> Due:
     why = authority(record, world)
     if why is None:
         return Due(step=STEP, why="the merge agent's read says merge", by="merger")
-    if merge_standing.standing_of(record) is not None:
+    if merge_standing.standing_of(record, world) is not None:
         slug = record.task.slug
         said = (
             "the owner's merge stands: the board's server merges it "
@@ -140,7 +144,7 @@ def decide(
     is now; `checks_tree` is the tree of the base the checks ran on. What was asked (the tip
     the owner saw, his standing merge) is checked before any evidence, so that no refusal of
     an ask that does not hold can keep his merge standing (`main:land.cmd_merge`)."""
-    proposed = opened(record)
+    proposed = merge_evidence.new_call_refusal(record) or opened(record)
     if isinstance(proposed, Refusal):
         return proposed
     asked_now = merge_asked.refusal(record, world, asked)

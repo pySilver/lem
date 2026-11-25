@@ -11,7 +11,7 @@ again for that pull request.
 
 from typing import TYPE_CHECKING
 
-from lem.app.landing.world import seen
+from lem.app.landing.pull_identity import seen
 from lem.board.duties import forge_book, forge_look
 from lem.model.landing import phases, queue_evidence
 from lem.store import tasks

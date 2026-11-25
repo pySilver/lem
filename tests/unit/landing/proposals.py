@@ -78,7 +78,12 @@ QUIET = read(
 def full(**fields: object) -> Record:
     """A task on the standard track, its criteria read and approved by the owner, with its
     checks showing the tested criterion, and the task's `fields` over it."""
-    made = task(**{**PREPARED, "checked": replace(CHECKED, criteria=(SHOWN,))})
+    made = task(
+        **{
+            **PREPARED,
+            "checked": replace(CHECKED, criteria=(SHOWN,), criteria_digest="d1"),
+        }
+    )
     criteria = Criteria(
         size="full",
         why="the ticket names the word and the file",

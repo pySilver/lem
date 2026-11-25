@@ -31,7 +31,7 @@ from journeys.test_skeleton import (
 )
 from journeys.test_skeleton import brief as merge_brief
 from lem.app import wiring
-from lem.app.landing import changes
+from lem.app.landing import changes, filing_commits
 from lem.ports.judge import Score
 from lem.ports.place import Place
 from lem.records.decisions import Taken
@@ -44,6 +44,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from fakes.outside import FakeJudge
+    from lem.app.landing.frame import Context
+    from lem.model.landing.filing_place import Write
     from lem.records.record import Record
 
 type Envelope = dict[str, Any]
@@ -854,3 +856,28 @@ def test_again_runs_when_propose_names_it_for_an_open_item_the_owner_set_to_wort
     assert [(one["disposition"], one["cites"]) for one in again["result"]] == [
         ("item", HELD)
     ]
+
+
+def test_filing_keeps_dispositions_and_leaves_checks_due_after_a_code_commit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world)
+    reviewed(capsys, world, outside=[OVER])
+    checked = world.record()["landing"]["checked"]["tip"]
+    commit = filing_commits.commit_round
+
+    def intervened(context: Context, writes: tuple[Write, ...], number: int) -> None:
+        (world.worktree / "login.py").write_text("enabled = False\n", encoding="utf-8")
+        run_git(world.worktree, "add", "--", "login.py")
+        run_git(world.worktree, "commit", "--quiet", "--message", "change login")
+        commit(context, writes, number)
+
+    monkeypatch.setattr(filing_commits, "commit_round", intervened)
+    assert file_step()(capsys, world)["ok"] is True
+    kept = world.record()["landing"]
+    assert kept["checked"]["tip"] == checked
+    assert kept["filed"][0]["path"] == HELD
+    assert next_step(capsys, world)["result"]["step"] == "checks"
+    assert command("land", "checks", "SLUG")(capsys, world)["ok"] is True
+    assert next_step(capsys, world)["result"]["step"] == "read"

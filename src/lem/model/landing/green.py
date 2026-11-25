@@ -17,13 +17,16 @@ from lem.model.landing import (
     green_owner,
     green_words,
     propose_criteria,
+    review_due,
 )
 from lem.model.landing.propose_facts import small
-from lem.model.landing.review import must_fix, newest
+from lem.model.landing.review import must_fix, newest, unmet
 from lem.records.decisions import CriterionChanged
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
+    from lem.model.landing.world import World
+    from lem.records.landing.review import Reviewed
     from lem.records.record import Record
 
 # The personas' reads of the criteria in a row that nobody answered after which the request
@@ -56,31 +59,34 @@ def unread(record: Record) -> tuple[str, ...]:
     return (f"the criteria were not read: {started}{silent}",)
 
 
-def review(landing: Landing) -> tuple[str, ...]:
+def review(record: Record, world: World | None) -> tuple[str, ...]:
     """The reason of the review: none answered, two attempts after the newest answered one
     nobody answered (`main:land.due_of`), or the newest left a must-fix."""
+    landing = record.landing or Landing()
     last = newest(landing)
-    if silent(landing) >= SILENT_REVIEWS:
+    if review_due.silent_run(landing) >= SILENT_REVIEWS:
         return ("not reviewed: the review was started twice and no source answered",)
     if last is None:
         return ("no review read the change",)
-    left = must_fix(last)
+    coverage = uncovered(record, last, world)
+    if coverage:
+        return coverage
+    count = must_fix(last)
     rounds = [each for each in landing.reviews if each.answered and each.of == "change"]
-    if left and len(rounds) >= ROUNDS:
-        return (f"two rounds reviewed it: the last one left {left} must-fix",)
-    if left:
-        return (f"the review left {left} must-fix",)
-    return ()
+    if count and len(rounds) >= ROUNDS:
+        return (f"two rounds reviewed it: the last one left {count} must-fix",)
+    return (f"the review left {count} must-fix",) if count else ()
 
 
-def silent(landing: Landing) -> int:
-    """How many attempts in a row, the newest last, nobody answered."""
-    count = 0
-    for each in reversed(landing.reviews):
-        if each.answered:
-            break
-        count += 1
-    return count
+def uncovered(record: Record, last: Reviewed, world: World | None) -> tuple[str, ...]:
+    """The coverage and scope requirements that the latest review did not meet."""
+    if world is None:
+        return ()
+    left = unmet(record, last, world)
+    if not left or (len(left) == 1 and must_fix(last)):
+        return ()
+    joined = ", and ".join(left)
+    return (f"the review does not cover this change: {joined}",)
 
 
 def change_reason(record: Record, change: CriterionChanged) -> str:
@@ -109,12 +115,14 @@ def fast(record: Record, careful: tuple[str, ...]) -> tuple[str, ...]:
     return (FAST.format(green_words.reason(careful[0])),)
 
 
-def reasons(record: Record, careful: tuple[str, ...]) -> tuple[str, ...]:
+def reasons(
+    record: Record, careful: tuple[str, ...], world: World | None = None
+) -> tuple[str, ...]:
     """Every reason the pull request is not green, in the order the owner reads them; none
     means green. `careful` is each reason the request is careful (`propose_careful.why`)."""
     landing = record.landing or Landing()
     task = record.task
     found = fast(record, careful) + unread(record)
-    found += green_checks.checks(landing) + review(landing)
+    found += green_checks.checks(landing) + review(record, world)
     found += green_checks.shown(record) + changed(record)
     return found + green_owner.approval(task) + green_owner.decisions(task)

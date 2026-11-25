@@ -3,20 +3,18 @@ step read at its start; the task's folder and worktree; and the write of a chang
 revision it read."""
 
 import dataclasses
-import os
 from typing import TYPE_CHECKING
 
-from lem.app import wiring
-from lem.app.landing.world import World, gather
-from lem.app.tasks import where
-from lem.kernel import paths
-from lem.ports.place import Place
+from lem.app.landing.world import gather
+from lem.app.tasks import ports, release, where
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
+    from lem.app import wiring
+    from lem.model.landing.world import World
     from lem.records.record import Record
 
 type Change = Callable[[Record], Record]
@@ -42,9 +40,9 @@ class Context:
         """The task's worktree."""
         return where.worktree(self.workspace, self.record.task.slug)
 
-    def again(self) -> Context:
+    def again(self, *, ends: bool = False) -> Context:
         """The context read again: the record, and the world after a fetch."""
-        record = tasks.read(self.workspace.state, self.record.task.slug)
+        record = release.checked(self.workspace.state, self.record.task.slug, ends=ends)
         world = gather(self.ports, self.workspace, record, self.world.now, fetch=True)
         return dataclasses.replace(self, record=record, world=world)
 
@@ -56,6 +54,4 @@ class Context:
 
 def bound(workspace: places.Workspace) -> wiring.Ports:
     """The ports of the workspace, bound for this call."""
-    environ = os.environ
-    home = paths.home(environ)
-    return wiring.bound(Place(checkout=workspace.checkout, home=home, environ=environ))
+    return ports.bound(workspace)

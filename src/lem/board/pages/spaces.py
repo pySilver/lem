@@ -14,46 +14,59 @@ if TYPE_CHECKING:
 
 def says(row: Row) -> str:
     """The workspace's counts, or the reason they could not be read."""
+    if row.reachable is False:
+        return f"Not reachable: {row.said}"
     if row.problem:
         return row.problem
     return f"{row.waits} wait for you · {row.building} building · {row.checks} in checks and review"
 
 
-def index(rows: Rows, host: str) -> switcher.Workspaces:
+def display(row: Row, *, joined: bool) -> str:
+    """Include the machine name when the board lists another machine."""
+    if joined:
+        return f"{row.host}/{row.name}".rstrip("/")
+    return row.name
+
+
+def index(rows: Rows, host: str, *, problem: str | None = None) -> switcher.Workspaces:
     """The index, with workspaces that wait for the owner first."""
-    ordered = sorted(rows, key=lambda row: (not row.waits, row.name))
+    joined = any(row.host != host for row in rows)
     boxes = tuple(
         switcher.Box(
-            id=row.name,
-            name=row.name,
+            id=row.url or row.host,
+            name=display(row, joined=joined),
             path=row.path,
-            href=row.url,
+            href=None if row.reachable is False else row.url,
             waits=bool(row.waits),
             chips=(Chip(label=says(row)),),
         )
-        for row in ordered
+        for row in rows
     )
-    return switcher.Workspaces(host=host, ask="Select a workspace.", boxes=boxes)
+    return switcher.Workspaces(
+        host=host, ask=problem or "Select a workspace.", boxes=boxes
+    )
 
 
-def menu(rows: Rows, current: str) -> switcher.Switcher | None:
+def menu(rows: Rows, current: str, host: str) -> switcher.Switcher | None:
     """The switcher when the machine has another workspace."""
     if len(rows) <= 1:
         return None
+    joined = any(row.host != host for row in rows)
     spaces = tuple(
         switcher.Space(
-            id=row.name,
+            id=row.url or row.host,
+            host=row.host if joined else None,
+            reachable=row.reachable is not False,
             name=row.name,
             path=row.path,
             href=row.url,
-            here=row.name == current,
+            here=(row.name, row.host) == (current, host),
             says=says(row),
             waits=bool(row.waits),
         )
         for row in rows
     )
-    others = (row for row in rows if row.name != current)
-    waiting = sum(bool(row.waits) for row in others)
+    waiting = sum(space.waits for space in spaces if not space.here)
     group = switcher.Group(head="Workspaces", spaces=spaces)
     return switcher.Switcher(
         name=current,

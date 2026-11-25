@@ -86,4 +86,5 @@ class Checked(Frozen, frozen=True, kw_only=True):
     own_checks: bool = False
     removed: Removed | None = None
     items_after: tuple[str, ...] = ()
+    criteria_digest: str | None = None
     at: Moment

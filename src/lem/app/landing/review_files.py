@@ -1,22 +1,12 @@
-"""The review agent's record as `--record` names it: the file, found from the working directory
-or in the task's folder (`land.task_file` on `main`), and its JSON, decoded in the form
-`prompts/review.md` gives, or refused with the key that is wrong."""
+"""Where `--record` looks for the review agent's answer and which files are archived."""
 
 import os
 import re
 from functools import partial
 from pathlib import Path
 
-import msgspec
-
 from lem.kernel.errors import Refusal
-from lem.model.landing import review_said
 
-FORM = (
-    "write the record as prompts/review.md, step 8, says: attempt, tip, kind, answered, and of "
-    "ran, left_out, silent, bar, must_fix, should, nit, outside, careful and careful_why what "
-    "applies"
-)
 LANDING = re.compile(r"landing-\d+")
 MOVING = re.compile(r"\.landing-\d+\.moving")
 WHERE = "--record names a file by its path, or by its path inside the task's folder"
@@ -36,17 +26,6 @@ def task_file(given: str, directory: Path) -> Path:
         return second
     looked = f"the working directory ({first}) nor in the task's folder ({second})"
     raise Refusal("record-file", f"{given} is a file neither in {looked}", WHERE)
-
-
-def said(path: Path) -> review_said.Said:
-    """The review agent's record; a file that is not its JSON is refused with the key that is
-    wrong."""
-    try:
-        return msgspec.json.decode(path.read_bytes(), type=review_said.Said)
-    except (OSError, msgspec.DecodeError) as error:
-        raise Refusal(
-            "review-file", f"{path} is not the review's record: {error}", FORM
-        ) from error
 
 
 def kept_folder(name: str, slug: str) -> bool:

@@ -305,11 +305,9 @@ def test_base_keeps_the_polish_pass_by_its_new_name() -> None:
     kept = base_kept.kept(record, replace(BASED, tip=NEW), replace(polished, after=NEW))
     assert kept.landing is not None
     assert kept.landing.polished == replace(polished, after=NEW)
-    dropped = base_kept.kept(
-        record, replace(BASED, tip=NEW), replace(polished, after=None)
-    )
+    dropped = base_kept.kept(record, replace(BASED, tip=NEW), None)
     assert dropped.landing is not None
-    assert dropped.landing.polished == replace(polished, after=None)
-    same = base_kept.kept(record, BASED, None)
+    assert dropped.landing.polished is None
+    same = base_kept.kept(record, BASED, polished)
     assert same.landing is not None
     assert same.landing.polished == polished

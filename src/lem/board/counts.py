@@ -14,12 +14,12 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.owner.looking import Looked, looked
+from lem.app.owner import looking
 from lem.app.sessions.here import bound
 from lem.board import workspaces
-from lem.kernel import clock
-from lem.kernel.errors import Fault, Refusal
+from lem.kernel import clock, errors
 from lem.model.owner import waiting
+from lem.records.workspace import Row
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 # How long a workspace's counts are kept, in seconds (`serve.REFRESH_SECONDS` on `main`).
 FRESH = 5.0
-FAILED = (Refusal, Fault, OSError, ValueError)
+FAILED = (errors.Refusal, errors.Fault, OSError, ValueError)
 
 
 class Count(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
@@ -42,26 +42,16 @@ class Count(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     problem: str | None = None
 
 
-class Row(Count, frozen=True, kw_only=True, omit_defaults=True):
-    """A workspace of the list: its name, its main checkout, its board's address, the
-    machine's name, and its counts."""
-
-    name: str
-    path: str
-    url: str
-    host: str
-
-
 def counted(space: Workspace) -> Count:
     """The counts of the workspace now."""
     try:
-        seen = looked(bound(space.checkout), clock.now())
+        seen = looking.looked(bound(space.checkout), clock.now())
     except FAILED as error:
         return Count(problem=str(error))
     return count_of(seen)
 
 
-def count_of(seen: Looked) -> Count:
+def count_of(seen: looking.Looked) -> Count:
     """The counts of a look at a workspace."""
     statuses = [one.record.task.status for one in seen.looks]
     away = seen.presence.away

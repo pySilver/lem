@@ -84,22 +84,14 @@ def held(record: Record) -> Refusal | None:
     return Refusal("held", f"{slug} is held ({kind}): no landing starts", fix)
 
 
-def no_checks(record: Record, *, own: tuple[str, ...]) -> Refusal:
+def no_checks(record: Record) -> Refusal:
     """The refusal of a task whose project names no command of the checks: the task is
-    blocked until they are there. A branch that brings its own is the task that sets them
-    up, whose landing the step `land-checks` builds."""
+    blocked until they are there."""
     slug = record.task.slug
-    brought = ", ".join(own)
-    also = (
-        f"; this branch brings its own ({brought}), and the landing of a task that sets "
-        "up the checks is not built yet: the step `land-checks` builds it"
-        if own
-        else ""
-    )
     return Refusal(
         "no-checks",
         f"{NO_CHECKS}, so nothing would show that the change works; the task is "
-        f"blocked{also}",
+        "blocked",
         "add the commands to checks.commands in .lem/settings.toml, or, for the task "
         f"that sets up the checks, in its own branch's; then lem land start {slug} again",
     )

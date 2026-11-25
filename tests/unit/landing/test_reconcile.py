@@ -58,8 +58,8 @@ def test_only_a_final_forge_result_makes_bookkeeping_due_with_an_intent() -> Non
 
 def test_an_intent_becomes_the_queue_its_end_or_the_end_of_a_closed_request() -> None:
     record = opened(intent=INTENT)
-    added = Event(id="entry", at=MOMENT + timedelta(seconds=1))
-    removed = Event(id="removal", at=MOMENT + timedelta(seconds=2))
+    added = Event(id="entry", at=MOMENT + timedelta(seconds=1), head=TIP)
+    removed = Event(id="removal", at=MOMENT + timedelta(seconds=2), head=TIP)
     queued = facing(pull=replace(SEEN, queued="the merge queue", queue_event=added))
     assert reconcile.reconciled(record, queued, INTENT, SAME) == MergeAccepted(
         tip=TIP,
@@ -156,7 +156,7 @@ def test_the_queue_that_ends_keeps_githubs_words_and_a_waiting_one_is_refused() 
         record, facing(pull=replace(SEEN, queued="the merge queue"))
     )
     assert code_of(waiting) == "queued"
-    removed = Event(id="removal", at=MOMENT + timedelta(seconds=1))
+    removed = Event(id="removal", at=MOMENT + timedelta(seconds=1), head=TIP)
     ended = reconcile_queue.queued(
         record,
         facing(pull=replace(SEEN, dequeued="a check failed", queue_event=removed)),
@@ -178,6 +178,14 @@ def test_the_parent_is_the_forges_word_for_either_method() -> None:
     assert (found.parent, found.base_merged) == (BASE, BASE)
 
 
+def test_a_removal_without_a_head_cannot_end_an_accepted_call() -> None:
+    accepted = MergeAccepted(tip=TIP, at=MOMENT, queued="the merge queue")
+    removed = Event(id="removal", at=MOMENT + timedelta(seconds=1))
+    pull = replace(SEEN, head=TIP, dequeued="a check failed", queue_event=removed)
+    found = reconcile_queue.queued(opened(accepted=accepted), facing(pull=pull))
+    assert code_of(found) == "queued"
+
+
 def test_a_different_head_merged_after_a_lost_reply_is_external_and_uncovered() -> None:
     record = opened(intent=INTENT)
     other = replace(DONE, head=OTHER, merged_head=OTHER)
@@ -191,7 +199,7 @@ def test_a_different_head_merged_after_a_lost_reply_is_external_and_uncovered() 
 
 
 def test_a_queue_entry_at_a_different_head_does_not_answer_the_intent() -> None:
-    added = Event(id="entry", at=MOMENT + timedelta(seconds=1))
+    added = Event(id="entry", at=MOMENT + timedelta(seconds=1), head=OTHER)
     other = replace(SEEN, head=OTHER, queued="the merge queue", queue_event=added)
     found = reconcile.reconciled(
         opened(intent=INTENT), facing(pull=other), INTENT, SAME

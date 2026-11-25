@@ -68,11 +68,15 @@ class Evidence:
     def evidence(self, outcome: checks_said.Ending, **fields: object) -> Checked:
         """The run with `outcome` and `fields` over what was found so far."""
         world = self.context.world
+        task = self.context.record.task
+        plan = task.plan.path if task.plan else None
         found = self.found or Checked(
             tip=world.tip or "",
             tree=world.tree or "",
             base=world.base,
-            inputs=checks.inputs(world.rules),
+            inputs=checks.inputs(world.rules, plan),
+            criteria_digest=task.criteria.digest,
+            own_checks=world.rules.own_checks,
             outcome=outcome,
             at=self.began,
         )

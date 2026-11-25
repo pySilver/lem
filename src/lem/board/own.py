@@ -74,4 +74,5 @@ async def spaces(request: Request) -> Response:
     rows = await anyio.to_thread.run_sync(
         state.counts.rows, state.home, state.facts.host
     )
-    return Response(msgspec.json.encode(rows), media_type=JSON)
+    listed = await state.peer_spaces(request, rows)
+    return Response(msgspec.json.encode(listed), media_type=JSON)

@@ -13,18 +13,18 @@ from lem.app.sessions.acts import Act
 from lem.board import merge_look
 from lem.board.views import facts
 from lem.model.owner.looks import Look, MergeBasis, Session, Stop
-from lem.records import owner, record
-from lem.records.base import Frozen
+from lem.records import base, owner, record
 
 if TYPE_CHECKING:
     from datetime import datetime, tzinfo
 
     from lem.board.inputs.layout import Viewer
+    from lem.board.inputs.task.head import Fact
     from lem.board.views import backlog_read, inbox_read
     from lem.settings.team import History
 
 
-class Seen(Frozen, frozen=True, kw_only=True):
+class Seen(base.Frozen, frozen=True, kw_only=True):
     """A task's record and what lies beside it: Lem's acts on its sessions, the files of its
     folder, the size and time of each, their text and the worktree plan, the newest commit of
     its branch, the backlog items its branch
@@ -101,6 +101,7 @@ class World:
     unknown: str | None = None
     presence: owner.Presence = field(default_factory=owner.Presence)
     backlog: backlog_read.Shelved | None = None
+    inbox_thread: Fact | None = None
     inbox: inbox_read.Inbox | None = None
     forge: Forge = field(default_factory=Forge)
     problems: tuple[str, ...] = ()

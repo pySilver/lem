@@ -56,7 +56,9 @@ def act(context: Context, *, title: str, notes: str) -> propose_made.Made:
     made = replace(proposal.proposed, text=published(context, text))
     record = propose_push.pushed(context, push=proposal.push)
     pull = propose_push.pulled(context, proposal, (title, text))
-    record = context.write(record, partial(propose_made.opened, made=made, pull=pull))
+    record = context.write(
+        record, partial(propose_made.opened, made=made, pull=pull, read=proposal.read)
+    )
     return propose_made.given(record, made, (pull, context.world.branch))
 
 

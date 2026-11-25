@@ -24,6 +24,7 @@ from lem.app.landing import (
     merged_queue,
     reconcile,
 )
+from lem.app.landing.merge_item import removed
 from lem.records.landing.merge import MergeAccepted
 from lem.store import tasks
 
@@ -95,7 +96,7 @@ def act(context: Context) -> object:
             record = adopted(context)
         else:
             with merge_lock.held(context):
-                context = context.again()
+                context = context.again(ends=True)
                 merge_step.allowed(context, "merged", merged_beside.admits)
                 record = adopted(context)
         if isinstance(record, MergeAccepted):
@@ -103,6 +104,7 @@ def act(context: Context) -> object:
         if record is None:
             return context.world.pull
     record = merge_text.edited(context, record)
+    removed(context.workspace, record)
     change = partial(finished, left=followed(context), now=context.world.now)
     record = context.write(record, change)
     return record.landing.merged if record.landing else None

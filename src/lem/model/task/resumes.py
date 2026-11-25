@@ -115,13 +115,14 @@ def breaker_task(old: Task, new: str, breaker: int, now: Moment) -> Task:
 
 
 def request_task(old: Task, new: str, start: str | None, now: Moment) -> Task:
-    """The new request that goes on from `old`, which the release stop dropped: its ask and,
-    when git still has its branch, a branch of the same type cut from it."""
+    """The new request that goes on from `old`: its ask, its item and, when git still has
+    its branch, a branch of the same type cut from it."""
     prefix = start.split("/", 1)[0] if start else ""
     kind = prefix if prefix in TYPES else "feat"
     return Task(
         slug=new,
         ask=old.ask,
+        backlog_item=old.backlog_item,
         opened=now,
         status="shaping",
         since=now,

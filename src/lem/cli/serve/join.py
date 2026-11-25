@@ -1,14 +1,12 @@
 """`lem serve join`: show the boards of another machine of the tailnet.
 
-    lem serve join HOST
-
-A stub until the step `addons-outside` builds it: it refuses `not-built`.
+lem serve join HOST
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.addons.peers import commands
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +15,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     host: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `addons-outside` builds `lem serve join`."""
-    raise not_built("serve join", "addons-outside")
+def run(call: Call) -> commands.Answer:
+    """Run the peer command."""
+    return commands.joined(call.host)
 
 
 COMMAND = click.Command(

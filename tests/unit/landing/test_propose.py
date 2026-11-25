@@ -981,3 +981,28 @@ def test_a_pick_of_the_dialectic_is_a_line_with_its_reason_and_its_story() -> No
         "<details><summary>Decision 1, its story: Where the word goes</summary>" in text
     )
     assert "**Why it could happen:** a split" in text
+
+
+def test_the_retro_can_read_every_proposal_after_the_tip_changes() -> None:
+    import msgspec
+
+    from lem.app.landing.propose_made import opened
+    from lem.records.record import Record
+    from unit.landing.worlds import PROPOSED, PULL
+
+    tips = (TIP, OTHER, "a" * 40)
+    reasons = ((), (), ("the owner did not approve the criteria",))
+    record = small()
+    for tip, why in zip(tips, reasons, strict=True):
+        made = replace(PROPOSED, tip=tip, green=not why, reasons=why)
+        record = opened(record, made=made, pull=PULL)
+    saved = msgspec.json.decode(msgspec.json.encode(record), type=Record)
+    entries = msgspec.json.decode(msgspec.json.encode(saved.journal))
+    assert [
+        (entry["tip"], entry["green"], entry.get("reasons", []), entry["at"])
+        for entry in entries
+        if entry["kind"] == "proposed"
+    ] == [
+        (tip, not why, list(why), msgspec.to_builtins(PROPOSED.at))
+        for tip, why in zip(tips, reasons, strict=True)
+    ]

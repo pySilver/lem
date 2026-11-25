@@ -213,7 +213,7 @@ bullet.
   stage's start is an event); `STARTS` in `src/lem/project.py`. (2026-11-17)
 - **What waits for the owner is one list, with a decision for each item.** `skills/lem/SKILL.md`
   ("Subcommands", the row bare `/lem`, `status`); `skills/lem/stages/status.md`. (2026-11-17)
-- **A chord opens a list of the tasks.** `src/lem/picker.py` (its module docstring).
+- **A chord opens a list of the tasks.** `src/lem/addons/picker/picking.py` (its module docstring).
   (2026-11-18)
 - **A page to read opens as a companion.** `src/lem/board.py` (its module docstring).
   (2026-11-18)

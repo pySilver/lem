@@ -61,6 +61,7 @@ dev = [
     "httpx>=0.28.1",
     "types-psutil>=7.2.2.20261122",
     "playwright>=1.65.2",
+    "types-pyyaml>=6.0.12.20261122",
 ]
 
 [tool.uv]

@@ -19,19 +19,20 @@ if TYPE_CHECKING:
 type Kind = Literal["experts", "panels", "naps", "cast"]
 # How an entry is dated: by the time in its name (a nap), by its last write as a folder named by
 # its day, or by its last write alone.
-type Dated = Literal["named", "day", "written"]
+type Dated = Literal["named", "day", "written", "question"]
 
 CAST: Kind = "cast"
 WRITTEN: Dated = "written"
 DAY: Dated = "day"
 PRUNED: tuple[tuple[Kind, str, Dated], ...] = (
-    ("experts", "experts", DAY),
+    ("experts", "experts", "question"),
     ("panels", "panels", DAY),
     ("naps", "naps", "named"),
     (CAST, "personas-cast", WRITTEN),
     (CAST, "personas-profile", WRITTEN),
     (CAST, "personas-person", WRITTEN),
 )
+EXPERT = re.compile(r"\d{4}-\d{2}-\d{2}-\d{6}-[a-z0-9-]+")
 DAY_NAME = re.compile(r"\d{4}-\d{2}-\d{2}-.+")
 NAP_NAME = re.compile(r"(?P<time>\d{4}-\d{2}-\d{2}-\d{4})(?:-.+)?")
 NAP_TIME = "%Y-%m-%d-%H%M"
@@ -53,6 +54,8 @@ def last_of(entry: Path, dated: Dated) -> datetime | None:
         return newest_write(entry)
     if not entry.is_dir():
         return None
+    if dated == "question":
+        return newest_write(entry) if EXPERT.fullmatch(entry.name) else None
     if dated == DAY:
         return newest_write(entry) if DAY_NAME.fullmatch(entry.name) else None
     return nap_time(entry.name)

@@ -57,9 +57,8 @@ def common_dir(dot_git: str) -> str:
     return resolved(own, shared.strip())
 
 
-def checkout_of(folder: str) -> str | None:
-    """The main checkout of the repository `folder` is in, or None outside one and for a
-    folder that is not there (a worktree that was removed)."""
+def checkout_of(folder: str, *, main: bool = True) -> str | None:
+    """The main checkout or the worktree of `folder`, or None when it is gone or outside git."""
     if not raw.is_folder(folder):
         return None
     here = os.path.realpath(folder)
@@ -67,7 +66,7 @@ def checkout_of(folder: str) -> str | None:
         if here == "/":
             return None
         here = parent(here)
-    return parent(common_dir(f"{here}/.git"))
+    return parent(common_dir(f"{here}/.git")) if main else here
 
 
 def checkout_here(found: raw.Event, environ: Mapping[str, str]) -> str | None:
