@@ -3,19 +3,22 @@
 
 import argparse
 import ast
-from collections import Counter
 import csv
-from dataclasses import dataclass, fields
-from hashlib import sha256
-from io import BytesIO
 import json
 import os
-from pathlib import Path
 import re
 import subprocess
 import tarfile
+from collections import Counter
+from dataclasses import dataclass, fields
+from hashlib import sha256
+from io import BytesIO
+from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING, Any, NamedTuple
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator, Mapping
 
 HERE = Path(__file__).resolve().parent
 # The commit of main that the ledger reads: the proof of concept of the design.
@@ -34,42 +37,53 @@ class Row:
 
 
 HEADER = [field.name for field in fields(Row)]
+# A function of a module, by the name functions_in() gives it.
+type FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 
 
-def words(text):
+def words(text: str) -> str:
     return re.sub(r"[ \t\r\n]+", " ", text).strip()
 
 
-def text_id(text):
+def text_id(text: str) -> str:
     # A readable prefix for a long natural-language name, plus its full-text identity.
     label = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:44].rstrip("-")
     return f"{label or 'text'}-{sha256(text.encode()).hexdigest()[:16]}"
 
 
 class Ledger:
-    def __init__(self, root, source_notes):
+    def __init__(self, root: Path, *, source_notes: bool) -> None:
         self.root = root
         self.source_notes = source_notes
-        self.rows = {}
-        self.sources = {}
+        self.rows: dict[str, Row] = {}
+        self.sources: dict[str, Counter[str]] = {}
 
-    def read(self, file):
+    def read(self, file: str) -> str:
         return (self.root / file).read_text(encoding="utf-8")
 
-    def tree(self, file):
+    def tree(self, file: str) -> ast.Module:
         return ast.parse(self.read(file), filename=file)
 
-    def files(self, pattern):
+    def files(self, pattern: str) -> list[str]:
         return sorted(
             path.relative_to(self.root).as_posix()
             for path in self.root.glob(pattern)
             if path.is_file()
         )
 
-    def track(self, kind, file):
+    def track(self, kind: str, file: str) -> None:
         self.sources.setdefault(kind, Counter())[file] += 0
 
-    def add(self, kind, key, file, what, *, section="", source_note=""):
+    def add(
+        self,
+        kind: str,
+        key: str,
+        file: str,
+        what: str,
+        *,
+        section: str = "",
+        source_note: str = "",
+    ) -> None:
         identity = f"{kind}:{key}"
         if identity in self.rows:
             raise ValueError(f"Duplicate row {identity} in {file}: {what}")
@@ -80,17 +94,68 @@ class Ledger:
         self.rows[identity] = Row(identity, kind, source, words(what), note=note)
 
 
-def literal(tree, name):
+def literal(tree: ast.Module, name: str) -> object:
     for node in tree.body:
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            if any(isinstance(target, ast.Name) and target.id == name for target in targets):
+            if any(
+                isinstance(target, ast.Name) and target.id == name for target in targets
+            ):
+                if node.value is None:
+                    # What ast.literal_eval says of the value an annotation alone lacks.
+                    raise ValueError("malformed node or string: None")
                 return ast.literal_eval(node.value)
     raise ValueError(f"Missing assignment for {name}")
 
 
-def units(ledger):
-    def classes(body, prefix=""):
+def literal_text(tree: ast.Module, name: str) -> str:
+    value = literal(tree, name)
+    if not isinstance(value, str):
+        raise ValueError(f"{name} is not a string: {value!r}")
+    return value
+
+
+def literal_names(tree: ast.Module, name: str) -> list[str]:
+    """The names of a tuple, a list, a set or a dict's keys, in its own order."""
+    value = literal(tree, name)
+    if not isinstance(value, tuple | list | set | dict):
+        raise ValueError(f"{name} is not a collection of names: {value!r}")
+    names = list(value)
+    if not all(isinstance(item, str) for item in names):
+        raise ValueError(f"{name} holds more than names: {value!r}")
+    return names
+
+
+def literal_map(tree: ast.Module, name: str) -> dict[str, str]:
+    value = literal(tree, name)
+    if not isinstance(value, dict):
+        raise ValueError(f"{name} is not a dict: {value!r}")
+    mapping: dict[str, str] = {}
+    for key, item in value.items():
+        if not isinstance(key, str) or not isinstance(item, str):
+            raise ValueError(f"{name} maps more than names to names: {value!r}")
+        mapping[key] = item
+    return mapping
+
+
+def literal_pairs(tree: ast.Module, name: str) -> list[tuple[str, str]]:
+    value = literal(tree, name)
+    if not isinstance(value, tuple | list):
+        raise ValueError(f"{name} is not a sequence: {value!r}")
+    pairs: list[tuple[str, str]] = []
+    for pair in value:
+        match pair:
+            case (str() as first, str() as second):
+                pairs.append((first, second))
+            case _:
+                raise ValueError(f"{name} holds more than pairs of names: {value!r}")
+    return pairs
+
+
+def units(ledger: Ledger) -> None:
+    def classes(
+        body: list[ast.stmt], prefix: str = ""
+    ) -> Iterator[tuple[str, ast.ClassDef]]:
         for node in body:
             if isinstance(node, ast.ClassDef):
                 name = prefix + node.name
@@ -103,23 +168,29 @@ def units(ledger):
             bases = [ast.unparse(base) for base in node.bases]
             plain = bases in (["TestCase"], ["unittest.TestCase"])
             for method in node.body:
-                if isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    if method.name.startswith("test"):
-                        label = f"{name}.{method.name}"
-                        note = "Bases: " + ", ".join(bases or ["(none)"])
-                        ledger.add("unit", f"{file}:{label}", file, label,
-                                   source_note="" if plain else note)
+                if isinstance(
+                    method, (ast.FunctionDef, ast.AsyncFunctionDef)
+                ) and method.name.startswith("test"):
+                    label = f"{name}.{method.name}"
+                    note = "Bases: " + ", ".join(bases or ["(none)"])
+                    ledger.add(
+                        "unit",
+                        f"{file}:{label}",
+                        file,
+                        label,
+                        source_note="" if plain else note,
+                    )
 
 
 # In Bash double quotes, backslash quotes these characters. Nested command
 # substitutions in a check label can have double quotes of their own.
-def check_text(line, start):
-    result = []
-    contexts = []
+def check_text(line: str, start: int) -> str:
+    result: list[str] = []
+    contexts: list[str] = []
     index = start
     while index < len(line):
         char = line[index]
-        following = line[index + 1:index + 2]
+        following = line[index + 1 : index + 2]
         if char == "\\":
             if following in ('"', "$", "`", "\\") and not contexts:
                 result.append(following)
@@ -135,21 +206,26 @@ def check_text(line, start):
             index += 2
             continue
         if contexts:
-            if char == contexts[-1] and char in ("'", '"'):
-                contexts.pop()
-            elif contexts[-1] == "(":
-                if char in ("'", '"', "("):
-                    contexts.append(char)
-                elif char == ")":
-                    contexts.pop()
+            follow_quotes(contexts, char)
         result.append(char)
         index += 1
     raise ValueError(f"No closing quote in check: {line}")
 
 
-def checks(ledger):
+def follow_quotes(contexts: list[str], char: str) -> None:
+    """Enter or leave a quote or a parenthesis inside a command substitution."""
+    if char == contexts[-1] and char in ("'", '"'):
+        contexts.pop()
+    elif contexts[-1] == "(":
+        if char in ("'", '"', "("):
+            contexts.append(char)
+        elif char == ")":
+            contexts.pop()
+
+
+def checks(ledger: Ledger) -> None:
     source = "tests/checks.sh"
-    rule, = re.findall(r"^CHECK_SITE='([^']+)'$", ledger.read(source), re.M)
+    (rule,) = re.findall(r"^CHECK_SITE='([^']+)'$", ledger.read(source), re.MULTILINE)
     # grep -cE counts matching lines. Translate the POSIX space class for
     # Python and read each input line independently, as grep does.
     rule = re.compile(rule.replace("[[:space:]]", r"[ \t\r\f\v]"))
@@ -169,13 +245,18 @@ def checks(ledger):
                 # distinguish the sites even when their order changes.
                 scope = helper if re.fullmatch(r"\$[1-9a-zA-Z_][\w]*", label) else ""
                 key = ":".join(part for part in (file, scope, text_id(label)) if part)
-                ledger.add("check", key, file, label,
-                           source_note=loop_notes.get(scope or label, ""))
+                ledger.add(
+                    "check",
+                    key,
+                    file,
+                    label,
+                    source_note=loop_notes.get(scope or label, ""),
+                )
             if re.match(r"^}\s*(?:#.*)?$", line):
                 helper = ""
 
 
-def check_loop_notes(ledger, file, body):
+def check_loop_notes(ledger: Ledger, file: str, body: str) -> dict[str, str]:
     if file == "tests/shellcheck.sh":
         total = len(ledger.files("tests/*.sh"))
         return {"shellcheck $file": f"${{#files[@]}} results, {total} by default"}
@@ -188,25 +269,38 @@ def check_loop_notes(ledger, file, body):
         "card": "One result per literal card call in helpers",
         "check": "One result per literal check call in helpers",
     }
-    called = Counter(re.findall(r'^\s*(bad|expect|refuses|check|stub|card) "[^$]',
-                                body, re.M))
+    called = Counter(
+        re.findall(
+            r'^\s*(bad|expect|refuses|check|stub|card) "[^$]', body, re.MULTILINE
+        )
+    )
     called["expect"] += called["bad"] + called["stub"]
     for helper, description in notes.items():
         notes[helper] = f"{called[helper]} results. {description}."
 
-    specs = sum(len(ledger.files(f"skills/lem-ask/{folder}/*.json"))
-                for folder in ("templates", "demos"))
+    specs = sum(
+        len(ledger.files(f"skills/lem-ask/{folder}/*.json"))
+        for folder in ("templates", "demos")
+    )
     notes["render $n"] = f"{specs} results (${{#specs[@]}}), one per template and demo"
-    scenarios = re.search(r"^for scenario in (.+); do$", body, re.M)
+    scenarios = re.search(r"^for scenario in (.+); do$", body, re.MULTILINE)
     if scenarios:
-        label = ("wait gives a JSON value that is no object the form of a value "
-                 "that is no JSON: its text, as one answer")
-        notes[label] = f"One result for the aggregate of {len(scenarios[1].split())} scenarios"
+        label = (
+            "wait gives a JSON value that is no object the form of a value "
+            "that is no JSON: its text, as one answer"
+        )
+        notes[label] = (
+            f"One result for the aggregate of {len(scenarios[1].split())} scenarios"
+        )
     before_pages = body.split("pages=()", 1)[0]
-    md_cases = re.search(r"^cases = (\{\n.*?^\})", before_pages, re.M | re.S)
+    md_cases = re.search(
+        r"^cases = (\{\n.*?^\})", before_pages, re.MULTILINE | re.DOTALL
+    )
     if md_cases:
         markdown = len(ast.literal_eval(md_cases[1]))
-        notes["$why"] = f"{markdown} results (${{#mdnames[@]}}), one per name in MDNAMES"
+        notes["$why"] = (
+            f"{markdown} results (${{#mdnames[@]}}), one per name in MDNAMES"
+        )
         # The malformed or refused renders do not add pages to the successful run.
         fixed = set(re.findall(r' -o "\$WORK/([\w-]+)\.html"', before_pages))
         fixed -= {"bad", "plain"}
@@ -218,28 +312,13 @@ def check_loop_notes(ledger, file, body):
     return notes
 
 
-def rulings(ledger):
+def rulings(ledger: Ledger) -> None:
     for file in ("docs/rulings/rulings.md", "docs/rulings/history.md"):
         heading = ""
-        bullet = []
-
-        def add():
-            if not bullet:
-                return
-            bold = re.match(r"\*\*(.+?)\*\*", words(" ".join(bullet)))
-            if not bold:
-                raise ValueError(f"Ruling has no bold name in {file}: {bullet[0]}")
-            title = bold[1]
-            section = heading
-            if file.endswith("/history.md"):
-                # Keep the cited tests and places with the row so owners.py
-                # can resolve the ruling without opening the old checkout.
-                section += " — " + words(" ".join(bullet))[bold.end():].strip()
-            ledger.add("ruling", text_id(title), file, title, section=section)
-
+        bullet: list[str] = []
         for line in ledger.read(file).splitlines():
             if line.startswith(("- ", "* ", "+ ", "#")) or not line.strip():
-                add()
+                add_ruling(ledger, file, heading, bullet)
                 bullet = []
             if line.startswith("## "):
                 heading = line[3:].strip()
@@ -247,13 +326,30 @@ def rulings(ledger):
                 bullet = [line[2:]]
             elif bullet:
                 bullet.append(line)
-        add()
+        add_ruling(ledger, file, heading, bullet)
 
 
-def commands(ledger):
+def add_ruling(ledger: Ledger, file: str, heading: str, bullet: list[str]) -> None:
+    """The row of one ruling: the lines of its bullet, under the heading of its group."""
+    if not bullet:
+        return
+    bold = re.match(r"\*\*(.+?)\*\*", words(" ".join(bullet)))
+    if not bold:
+        raise ValueError(f"Ruling has no bold name in {file}: {bullet[0]}")
+    title = bold[1]
+    section = heading
+    if file.endswith("/history.md"):
+        # Keep the cited tests and places with the row so owners.py
+        # can resolve the ruling without opening the old checkout.
+        section += " — " + words(" ".join(bullet))[bold.end() :].strip()
+    ledger.add("ruling", text_id(title), file, title, section=section)
+
+
+def commands(ledger: Ledger) -> None:
     file = "tests/unit/commands.json"
 
-    def visit(name, shape):
+    # A command's object in commands.json, as json.loads gives it.
+    def visit(name: str, shape: dict[str, Any]) -> None:
         detail = {key: value for key, value in shape.items() if key != "subcommands"}
         contract = json.dumps(detail, ensure_ascii=False, sort_keys=True)
         ledger.add("command", name, file, f"{name} {contract}")
@@ -264,11 +360,13 @@ def commands(ledger):
         visit("lem " + name, shape)
 
 
-def settings(ledger):
+def settings(ledger: Ledger) -> None:
     file = "docs/settings.md"
-    headings = {}
+    headings: dict[int, str] = {}
     previous = ""
     columns = ""
+    # Set by each table's separator line, which comes before the table's rows.
+    table: tuple[str, ...] = ()
     for line in ledger.read(file).splitlines():
         heading = re.match(r"^(#+) (.+)", line)
         if heading:
@@ -282,14 +380,19 @@ def settings(ledger):
             elif previous.startswith("|") and columns:
                 name = line.split("|", 2)[1].strip()
                 key = "/".join((*table, name))
-                ledger.add("setting", key, file, line,
-                           section=" / ".join((*table, columns.split("|")[1].strip())))
+                ledger.add(
+                    "setting",
+                    key,
+                    file,
+                    line,
+                    section=" / ".join((*table, columns.split("|")[1].strip())),
+                )
             else:
                 columns = ""
         previous = line
 
 
-def hooks(ledger):
+def hooks(ledger: Ledger) -> None:
     file = "hooks/hooks.json"
     for event, groups in json.loads(ledger.read(file))["hooks"].items():
         for group in groups:
@@ -297,36 +400,59 @@ def hooks(ledger):
             for hook in group["hooks"]:
                 command = hook["command"]
                 key = f"{event}:{matcher}:{text_id(command)}"
-                details = ", ".join(f"{k}={json.dumps(v)}" for k, v in hook.items()
-                                    if k not in ("command", "type"))
-                ledger.add("hook", key, file,
-                           f"{event} ({matcher or 'any matcher'}): {command}"
-                           + (f" [{details}]" if details else ""))
+                details = ", ".join(
+                    f"{k}={json.dumps(v)}"
+                    for k, v in hook.items()
+                    if k not in ("command", "type")
+                )
+                ledger.add(
+                    "hook",
+                    key,
+                    file,
+                    f"{event} ({matcher or 'any matcher'}): {command}"
+                    + (f" [{details}]" if details else ""),
+                )
 
 
-def reading(ledger):
-    patterns = ["skills/lem/" + folder + "/**/*"
-                for folder in ("stages", "prompts", "templates", "harness")]
-    for file in sorted({file for pattern in (*patterns, "agents/**/*", "skills/**/SKILL.md")
-                        for file in ledger.files(pattern)}):
+def reading(ledger: Ledger) -> None:
+    patterns = [
+        "skills/lem/" + folder + "/**/*"
+        for folder in ("stages", "prompts", "templates", "harness")
+    ]
+    for file in sorted(
+        {
+            file
+            for pattern in (*patterns, "agents/**/*", "skills/**/SKILL.md")
+            for file in ledger.files(pattern)
+        }
+    ):
         ledger.add("text", file, file, file)
-    docs = [file for file in ledger.files("docs/**/*")
-            if Path(file).parts[1] not in {"plans", "backlog", "rulings"}]
+    docs = [
+        file
+        for file in ledger.files("docs/**/*")
+        if Path(file).parts[1] not in {"plans", "backlog", "rulings"}
+    ]
     for file in ("README.md", *docs, "site/index.html"):
         (ledger.root / file).stat()
         ledger.add("guide", file, file, file)
 
 
-def routes(ledger):
+def routes(ledger: Ledger) -> None:
     file = "src/lem/serve.py"
     tree = ledger.tree(file)
     workspace = "/{host}/{workspace}"
     task = workspace + "/tasks/{slug}"
 
-    def add(method, path, handler, *, detail=""):
+    def add(method: str, path: str, handler: str, *, detail: str = "") -> None:
         label = f"{method} {path}"
-        ledger.add("route", label, file, label + (f" — {detail}" if detail else ""),
-                   section=handler, source_note=handler)
+        ledger.add(
+            "route",
+            label,
+            file,
+            label + (f" — {detail}" if detail else ""),
+            section=handler,
+            source_note=handler,
+        )
 
     reads = [
         ("/", "Handler.answer → board_pages.index_page", "Workspace index or redirect"),
@@ -338,42 +464,69 @@ def routes(ledger):
         ("/manifest.webmanifest", "Handler.answer → board_pages.manifest", ""),
         ("/assets/{asset}", "Handler.answer", ""),
         ("/{host}/assets/{asset}", "Handler.answer", ""),
-        ("/{peer}/{rest...}", "Handler.forwarded → peers.forward",
-         "Joined machine. The remainder can be empty."),
-        ("/{alias}/{rest...}", "Handler.answer",
-         "Redirect the local host alias. The remainder can be empty."),
-        ("/{workspace}[/{rest...}]", "Handler.answer",
-         "Redirect an old address to the local host. Unknown views go to Tasks."),
+        (
+            "/{peer}/{rest...}",
+            "Handler.forwarded → peers.forward",
+            "Joined machine. The remainder can be empty.",
+        ),
+        (
+            "/{alias}/{rest...}",
+            "Handler.answer",
+            "Redirect the local host alias. The remainder can be empty.",
+        ),
+        (
+            "/{workspace}[/{rest...}]",
+            "Handler.answer",
+            "Redirect an old address to the local host. Unknown views go to Tasks.",
+        ),
         (workspace, "Handler.answer", "Redirect to the address with a final slash"),
         (workspace + "/stream", "Handler.refreshes", "Workspace event stream"),
         (task, "Handler.task → board_task.overview_tab", "Default task tab"),
         (task + "/artifacts/{path...}", "Handler.task → board_task.artifacts_tab", ""),
         (task + "/raw/{path...}", "Handler.raw", "HTML artifact"),
         (task + "/media/{path...}", "Handler.media", "Task image"),
-        (task + "/cards/{page}", "Handler.card_page", "Redirect to the card with a final slash"),
+        (
+            task + "/cards/{page}",
+            "Handler.card_page",
+            "Redirect to the card with a final slash",
+        ),
         (task + "/cards/{page}/", "Handler.card_page", "The question card itself"),
-        (task + "/card/{page}", "Handler.task → board_task.card_step", "Board panel for a card"),
+        (
+            task + "/card/{page}",
+            "Handler.task → board_task.card_step",
+            "Board panel for a card",
+        ),
     ]
-    for view, handler in literal(tree, "PAGES").items():
-        reads.append((workspace + "/" + view, f"Handler.page → board_pages.{handler}", ""))
+    for view, handler in literal_map(tree, "PAGES").items():
+        reads.append(
+            (workspace + "/" + view, f"Handler.page → board_pages.{handler}", "")
+        )
     task_tree = ledger.tree("src/lem/board_task.py")
-    tabs = {name: name + "_tab" for name, _ in literal(task_tree, "TABS")}
-    tabs.update({name: name + "_step" for name in literal(task_tree, "ACT_TABS")})
+    tabs = {name: name + "_tab" for name, _ in literal_pairs(task_tree, "TABS")}
+    tabs.update({name: name + "_step" for name in literal_names(task_tree, "ACT_TABS")})
     for tab, handler in tabs.items():
         reads.append((f"{task}/{tab}", f"Handler.task → board_task.{handler}", ""))
     for method in ("GET", "HEAD"):
         for path, handler, detail in reads:
-            if method == "HEAD" and path == workspace + "/stream":
-                handler = "Handler.in_workspace"
-            add(method, path, handler, detail=detail)
+            stream_head = method == "HEAD" and path == workspace + "/stream"
+            add(
+                method,
+                path,
+                "Handler.in_workspace" if stream_head else handler,
+                detail=detail,
+            )
 
     add("POST", "/api/server/stop", "Handler.act → stop_all", detail="Local listener")
-    for act in literal(tree, "PUSH_ACTS"):
+    for act in literal_names(tree, "PUSH_ACTS"):
         add("POST", f"/api/push/{act}", "Handler.push_act")
-    for act in literal(tree, "AGTERM_ACTS"):
-        add("POST", f"{workspace}/agterm/{act}", "Handler.agterm → agterm_act",
-            detail="Local listener")
-    for act in literal(tree, "BOARD_ACTS"):
+    for act in literal_names(tree, "AGTERM_ACTS"):
+        add(
+            "POST",
+            f"{workspace}/agterm/{act}",
+            "Handler.agterm → agterm_act",
+            detail="Local listener",
+        )
+    for act in literal_names(tree, "BOARD_ACTS"):
         add("POST", f"{task}/{act}", f"Handler.board_act → act_{act}")
     add("POST", task + "/cards/{page}/answer", "Handler.card_answer → act_card")
     add("POST", workspace + "/start", "Handler.board_start → act_start")
@@ -409,7 +562,10 @@ BOARD_ACTS = {
         open-result | Open the marked result with Enter or select a result by click. A backlog result opens its item.
         close | Close Search with Escape or a click outside it. Focus returns to the opener.
     """,
-    ("Tasks", "src/lem/board_pages.py:kanban,task_card; tools/board-kit/controllers/cursor.js"): """
+    (
+        "Tasks",
+        "src/lem/board_pages.py:kanban,task_card; tools/board-kit/controllers/cursor.js",
+    ): """
         open-task | Open a task card or one of its links to a task tab.
         mark-vertical | Move the mark within a column with J or K or the Up or Down arrow.
         mark-horizontal | Move the mark between columns with H or L or the Left or Right arrow.
@@ -422,7 +578,10 @@ BOARD_ACTS = {
         open-task | Open an older ended task.
         return | Return to Tasks.
     """,
-    ("Waits for you", "src/lem/board_pages.py:waits_page,row_acts,parked_group; tools/board-kit/controllers/cursor.js"): """
+    (
+        "Waits for you",
+        "src/lem/board_pages.py:waits_page,row_acts,parked_group; tools/board-kit/controllers/cursor.js",
+    ): """
         mark | Move the mark with J or K or the Up or Down arrow.
         open-marked | Press Enter to open a task or its task session, or toggle the marked stack.
         stack | Open or close the stack of requests for one task.
@@ -450,7 +609,10 @@ BOARD_ACTS = {
         start | Type a request and submit Start the task. Lem creates the task and opens a session.
         cancel | Return to the task board without a new task.
     """,
-    ("Backlog", "src/lem/board_pages.py:backlog_item,backlog_page; tools/board-kit/controllers/backlog.js"): """
+    (
+        "Backlog",
+        "src/lem/board_pages.py:backlog_item,backlog_page; tools/board-kit/controllers/backlog.js",
+    ): """
         expand | Open or close an item with its title or Enter on its marked row.
         filter-text | Filter on words in titles, paths, places or item text.
         filter-worth | Filter by worth or clear that choice with All.
@@ -467,11 +629,17 @@ BOARD_ACTS = {
         open-source | Open the task or pull request named as the source of a backlog item.
         show-named-item | Follow an item link to open, mark and scroll to that item.
     """,
-    ("Activity", "src/lem/board_pages.py:activity_page,timeline,feed_rows; tools/board-kit/controllers/tip.js"): """
+    (
+        "Activity",
+        "src/lem/board_pages.py:activity_page,timeline,feed_rows; tools/board-kit/controllers/tip.js",
+    ): """
         open-task | Open the task from its timeline or event row.
         read-interval | Point to or focus a time segment to read its details.
     """,
-    ("Task panel", "src/lem/board_task.py:head,tab_nav,head_acts,panel; tools/board-kit/controllers/panel.js; tools/board-kit/controllers/splitter.js"): """
+    (
+        "Task panel",
+        "src/lem/board_task.py:head,tab_nav,head_acts,panel; tools/board-kit/controllers/panel.js; tools/board-kit/controllers/splitter.js",
+    ): """
         close | Close the panel with its close control or Escape. The board restores focus to the marked row or card.
         overview | Open Overview with its tab or 1.
         criteria | Open Criteria and decisions with its tab or 2.
@@ -491,7 +659,10 @@ BOARD_ACTS = {
         merge | Open the merge confirmation.
         park | Open the park confirmation from an eligible task.
     """,
-    ("Overview", "src/lem/board_task.py:overview_tab,verdict,breaker_card,now_answer,cards_card"): """
+    (
+        "Overview",
+        "src/lem/board_task.py:overview_tab,verdict,breaker_card,now_answer,cards_card",
+    ): """
         read-artifact | Open an artifact, plan or report from a task summary or next step.
         read-reason | Follow a reason to the open row that gives its criterion, check or decision.
         open-card | Open the pending card from Overview.
@@ -508,7 +679,10 @@ BOARD_ACTS = {
         approve-one-yes | Approve the criterion of a small change.
         approve-one-no | Request a change to the small change's criterion with No and a required note.
     """,
-    ("Criteria and decisions", "src/lem/board_task.py:approve_card,criteria_tab,decision_row,breaker_row"): """
+    (
+        "Criteria and decisions",
+        "src/lem/board_task.py:approve_card,criteria_tab,decision_row,breaker_row",
+    ): """
         approve-yes | Approve the standard track criteria with Yes.
         approve-no | Choose No and add the required note. Read changed criteria or the same criteria on the next card.
         approve-previous-release | Approve criteria for an eligible task from the previous release.
@@ -520,11 +694,17 @@ BOARD_ACTS = {
         open-log | Open a check command's log from its result.
         read-review | Expand review details or open a linked review artifact.
     """,
-    ("Timeline", "src/lem/board_task.py:time_card,feed_card; tools/board-kit/controllers/tip.js"): """
+    (
+        "Timeline",
+        "src/lem/board_task.py:time_card,feed_card; tools/board-kit/controllers/tip.js",
+    ): """
         read-interval | Point to or focus a segment to read the time and actor.
         read-event | Expand an event's details where present.
     """,
-    ("Artifacts", "src/lem/board_task.py:artifacts_tab,art_tree,art_body,media_pair; tools/board-kit/controllers/artifacts.js; tools/board-kit/controllers/markdown.js"): """
+    (
+        "Artifacts",
+        "src/lem/board_task.py:artifacts_tab,art_tree,art_body,media_pair; tools/board-kit/controllers/artifacts.js; tools/board-kit/controllers/markdown.js",
+    ): """
         fold-group | Open or close an artifact group. The board keeps that choice across visits to this task.
         select-artifact | Select a plan, report, log, picture or other listed file.
         copy-path | Copy the chosen artifact's path.
@@ -532,21 +712,33 @@ BOARD_ACTS = {
         open-image | Open or enlarge a picture from an artifact or its rendered Markdown.
         compare-pictures | View the two sides of a picture pair.
     """,
-    ("Merge confirmation", "src/lem/board_task.py:merge_step,confirm_card; tools/board-kit/controllers/sheet.js"): """
+    (
+        "Merge confirmation",
+        "src/lem/board_task.py:merge_step,confirm_card; tools/board-kit/controllers/sheet.js",
+    ): """
         review | Read the green or not green state, pull request and commit before merge.
         open-pr | Open the pull request from the confirmation.
         confirm | Confirm the merge of the displayed commit. On a phone, scroll to the end to enable the button.
         cancel | Cancel and return to the task.
     """,
-    ("Park confirmation", "src/lem/board_task.py:park_step; tools/board-kit/controllers/sheet.js"): """
+    (
+        "Park confirmation",
+        "src/lem/board_task.py:park_step; tools/board-kit/controllers/sheet.js",
+    ): """
         confirm | Confirm Park. Enter a reason if needed.
         cancel | Cancel the park and return to the task.
     """,
-    ("Drop confirmation", "src/lem/board_task.py:drop_step; tools/board-kit/controllers/sheet.js"): """
+    (
+        "Drop confirmation",
+        "src/lem/board_task.py:drop_step; tools/board-kit/controllers/sheet.js",
+    ): """
         confirm | Confirm Drop for a plan or breaker. Add a note if needed.
         cancel | Cancel the drop and return to the task.
     """,
-    ("Question card", "src/lem/board_task.py:card_step; src/lem/cards.py; src/lem/answers.py; skills/lem-ask/runtime/ask.js"): """
+    (
+        "Question card",
+        "src/lem/board_task.py:card_step; src/lem/cards.py; src/lem/answers.py; skills/lem-ask/runtime/ask.js",
+    ): """
         open | Open the same card that the task session shows in agterm, with its pictures and options.
         pick-one | Select one option on a single-choice question.
         pick-many | Select options on a multiple-choice question.
@@ -582,9 +774,9 @@ BOARD_ACTS = {
 }
 
 
-def board_acts(ledger):
+def board_acts(ledger: Ledger) -> None:
     for (page, citations), records in BOARD_ACTS.items():
-        paths = []
+        paths: list[str] = []
         for citation in citations.split("; "):
             file = citation.split(":", 1)[0]
             (ledger.root / file).stat()
@@ -593,8 +785,7 @@ def board_acts(ledger):
         section = f"{page} ({references})" if references else page
         for line in records.strip().splitlines():
             key, description = line.strip().split(" | ", 1)
-            ledger.add("act", f"{page}/{key}", paths[0], description,
-                       section=section)
+            ledger.add("act", f"{page}/{key}", paths[0], description, section=section)
 
 
 DOCTOR_DETAILS = {
@@ -622,48 +813,86 @@ DOCTOR_DETAILS = {
 }
 
 
-def doctor(ledger):
+class DoctorRow(NamedTuple):
+    """A row of the machine check: its label, whether it is needed, and what it checks."""
+
+    label: str
+    need: object
+    detail: object
+
+
+def doctor(ledger: Ledger) -> None:
     file = "src/lem/doctor.py"
     tree = ledger.tree(file)
     for func in tree.body:
         if not isinstance(func, ast.FunctionDef):
             continue
         for node in ast.walk(func):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-                call = node.func.id
-                if call not in {"tool", "skill"}:
-                    continue
-                label = ast.literal_eval(node.args[0])
-                if call == "tool":
-                    need = ast.literal_eval(node.args[1])
-                    detail = ast.literal_eval(node.args[2])
-                else:
-                    label += " skill"
-                    need = next((ast.literal_eval(arg.value) for arg in node.keywords
-                                 if arg.arg == "need"), "required")
-                    detail = ast.literal_eval(node.args[1])
-            elif isinstance(node, ast.Dict):
-                values = {key.value: value for key, value in zip(node.keys, node.values)
-                          if isinstance(key, ast.Constant)}
-                if not {"name", "need", "used_for"} <= values.keys():
-                    continue
-                name = values["name"]
-                if isinstance(name, ast.Constant):
-                    label = name.value
-                elif func.name == "install_rows":
-                    label = "installed Lem"
-                else:
-                    continue  # Dictionary returned by tool() or skill() itself.
-                need = ast.literal_eval(values["need"])
-                detail = ast.literal_eval(values["used_for"])
-            else:
+            row = doctor_row(func.name, node)
+            if row is None:
                 continue
-            what = DOCTOR_DETAILS.get(label, detail)
-            ledger.add("doctor", label, file, f"{label} ({need}) — {what}", section=func.name)
+            what = DOCTOR_DETAILS.get(row.label, row.detail)
+            ledger.add(
+                "doctor",
+                row.label,
+                file,
+                f"{row.label} ({row.need}) — {what}",
+                section=func.name,
+            )
 
 
-def functions_in(tree):
-    def visit(nodes, prefix=""):
+def doctor_row(function: str, node: ast.AST) -> DoctorRow | None:
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+        return doctor_call(node.func.id, node)
+    if isinstance(node, ast.Dict):
+        return doctor_dict(function, node)
+    return None
+
+
+def doctor_call(call: str, node: ast.Call) -> DoctorRow | None:
+    """A row that a call of tool() or skill() makes."""
+    if call not in {"tool", "skill"}:
+        return None
+    label = ast.literal_eval(node.args[0])
+    if call == "tool":
+        need = ast.literal_eval(node.args[1])
+        detail = ast.literal_eval(node.args[2])
+    else:
+        label += " skill"
+        need = next(
+            (ast.literal_eval(arg.value) for arg in node.keywords if arg.arg == "need"),
+            "required",
+        )
+        detail = ast.literal_eval(node.args[1])
+    return DoctorRow(label, need, detail)
+
+
+def doctor_dict(function: str, node: ast.Dict) -> DoctorRow | None:
+    """A row written as a dict with its name, need and use."""
+    values = {
+        key.value: value
+        for key, value in zip(node.keys, node.values, strict=True)
+        if isinstance(key, ast.Constant)
+    }
+    if not {"name", "need", "used_for"} <= values.keys():
+        return None
+    name = values["name"]
+    if isinstance(name, ast.Constant):
+        # The text the row's key and line show, which is the value itself for a string.
+        label = str(name.value)
+    elif function == "install_rows":
+        label = "installed Lem"
+    else:
+        return None  # Dictionary returned by tool() or skill() itself.
+    need = ast.literal_eval(values["need"])
+    detail = ast.literal_eval(values["used_for"])
+    return DoctorRow(label, need, detail)
+
+
+def functions_in(tree: ast.Module) -> dict[str, FunctionNode]:
+    def visit(
+        nodes: list[ast.stmt], prefix: str = ""
+    ) -> Iterator[tuple[str, FunctionNode]]:
         for node in nodes:
             if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
                 name = prefix + node.name
@@ -674,60 +903,81 @@ def functions_in(tree):
     return dict(visit(tree.body))
 
 
-def in_function(func):
+def in_function(func: ast.AST) -> Iterator[ast.AST]:
     """Walk a function without descending into another scope."""
-    def visit(node):
+
+    def visit(node: ast.AST) -> Iterator[ast.AST]:
         yield node
         for child in ast.iter_child_nodes(node):
-            if not isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if not isinstance(
+                child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+            ):
                 yield from visit(child)
 
     return visit(func)
 
 
-def message(node, constants, replacements=None):
+def message(
+    node: ast.AST,
+    constants: Mapping[str, str],
+    replacements: Mapping[str, str] | None = None,
+) -> str:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
     if isinstance(node, ast.JoinedStr):
         return "".join(message(piece, constants, replacements) for piece in node.values)
     if isinstance(node, ast.FormattedValue):
-        expr = ast.unparse(node.value)
-        if replacements and expr in replacements:
-            return replacements[expr]
-        if isinstance(node.value, ast.Name) and expr in constants:
-            return constants[expr]
-        return "{" + expr + (f"!{chr(node.conversion)}" if node.conversion != -1 else "") + "}"
+        return formatted(node, constants, replacements)
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        return message(node.left, constants, replacements) + message(node.right, constants, replacements)
+        return message(node.left, constants, replacements) + message(
+            node.right, constants, replacements
+        )
     return "{" + ast.unparse(node) + "}"
 
 
-def first_sentence(text):
+def formatted(
+    node: ast.FormattedValue,
+    constants: Mapping[str, str],
+    replacements: Mapping[str, str] | None,
+) -> str:
+    """The text of one replacement field of an f-string."""
+    expr = ast.unparse(node.value)
+    if replacements and expr in replacements:
+        return replacements[expr]
+    if isinstance(node.value, ast.Name) and expr in constants:
+        return constants[expr]
+    return (
+        "{" + expr + (f"!{chr(node.conversion)}" if node.conversion != -1 else "") + "}"
+    )
+
+
+def first_sentence(text: str) -> str:
     # Periods in quoted commands, dotted names, and substitutions are not
     # sentence boundaries. Keep the source's capitalization and punctuation.
     text = words(text)
     text_without_inline = re.sub(r"`[^`]*`|\{[^{}]*\}", lambda m: "x" * len(m[0]), text)
     end = re.search(r"[.!?](?= |$)", text_without_inline)
-    return text[:end.end()] if end else text
+    return text[: end.end()] if end else text
 
 
-def returned(func, *, part=None):
+def returned(func: ast.AST, *, part: int | None = None) -> Iterator[ast.expr]:
     for node in in_function(func):
         if not isinstance(node, ast.Return) or node.value is None:
             continue
         value = node.value
         if part is not None and isinstance(value, ast.Tuple):
             value = value.elts[part]
-        if isinstance(value, (ast.JoinedStr, ast.BinOp)):
-            yield value
-        elif isinstance(value, ast.Constant) and isinstance(value.value, str):
+        if isinstance(value, (ast.JoinedStr, ast.BinOp)) or (
+            isinstance(value, ast.Constant) and isinstance(value.value, str)
+        ):
             yield value
 
 
-def assigned(func, name):
+def assigned(func: ast.AST, name: str) -> Iterator[ast.expr]:
     for node in in_function(func):
         if isinstance(node, ast.Assign) and any(
-            isinstance(target, ast.Name) and target.id == name for target in node.targets
+            isinstance(target, ast.Name) and target.id == name
+            for target in node.targets
         ):
             yield node.value
 
@@ -737,8 +987,10 @@ REFUSAL_HELPERS = {
     ("step_lock", "held_refusal"): "held_refusal",
     ("checks_ready", "missing"): "polish_missing",
     ("cmd_read", "stale"): "record_tip_refusal",
-    ("cmd_read", "the review is of the tip the checks passed on, and {missing}"):
-        "gate_missing",
+    (
+        "cmd_read",
+        "the review is of the tip the checks passed on, and {missing}",
+    ): "gate_missing",
     ("cmd_propose", "{missing}"): "gate_missing",
     ("cmd_propose", "not_github"): "not_github",
     ("cmd_propose", "why_not"): "read_skipped",
@@ -751,113 +1003,245 @@ REFUSAL_HELPERS = {
 }
 
 
-def refusals(ledger):
-    file = "src/lem/land.py"
-    tree = ledger.tree(file)
-    functions = functions_in(tree)
-    constants = {
-        target.id: node.value.value
-        for node in tree.body if isinstance(node, ast.Assign)
-        if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)
-        for target in node.targets if isinstance(target, ast.Name)
-    }
+class LandFile:
+    """land.py of the commit: its functions, its string constants, and its refusal rows."""
 
-    def add(function, description, *, variant="", producer=""):
+    file = "src/lem/land.py"
+
+    def __init__(self, ledger: Ledger) -> None:
+        self.ledger = ledger
+        tree = ledger.tree(self.file)
+        self.functions = functions_in(tree)
+        self.constants = {
+            target.id: node.value.value
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            if isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+
+    def add(
+        self, function: str, description: str, *, variant: str = "", producer: str = ""
+    ) -> None:
         label = first_sentence(description)
         key = f"{function}:{variant + ':' if variant else ''}{text_id(label)}"
         section = function + (f" via {producer}" if producer else "")
-        ledger.add("refusal", key, file, label, section=section)
+        self.ledger.add("refusal", key, self.file, label, section=section)
 
-    def show(node, **replacements):
-        return message(node, constants, replacements)
+    def show(self, node: ast.AST, **replacements: str) -> str:
+        return message(node, self.constants, replacements)
 
-    for function, func in functions.items():
-        parents = {child: parent for parent in in_function(func)
-                   for child in ast.iter_child_nodes(parent)}
+
+class RaiseSite(NamedTuple):
+    """A raise of a refusal in a function of land.py, and the message it raises."""
+
+    function: str
+    func: FunctionNode
+    node: ast.Raise
+    arg: ast.expr
+    selector: str
+    parents: dict[ast.AST, ast.AST]
+
+
+def refusals(ledger: Ledger) -> None:
+    land = LandFile(ledger)
+    for function, func in land.functions.items():
+        parents = {
+            child: parent
+            for parent in in_function(func)
+            for child in ast.iter_child_nodes(parent)
+        }
         for node in in_function(func):
-            if not isinstance(node, ast.Raise) or not isinstance(node.exc, ast.Call):
+            if not isinstance(node, ast.Raise):
                 continue
-            exc = node.exc
-            if not isinstance(exc.func, ast.Name) or exc.func.id not in {
-                "LandError", "Refusal", "ForgeSaid"
-            }:
+            arg = refusal_message(node)
+            if arg is None:
                 continue
-            arg = exc.args[1 if exc.func.id == "Refusal" else 0]
-            if isinstance(arg, ast.Name):
-                selector = arg.id
-            elif isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name):
-                selector = arg.func.id
-            else:
-                selector = show(arg).split(";", 1)[0]
-            helper = REFUSAL_HELPERS.get((function, selector))
-            if helper:
-                for value in returned(functions[helper], part=1 if helper == "read_skipped" else None):
-                    detail = show(value)
-                    if helper == "base_refusal":
-                        # The two call sites have already checked the forge state.
-                        if function == "forge_done" and " is on {there}" in detail:
-                            continue
-                        if function == "merge_locked" and " was merged into {there}" in detail:
-                            continue
-                    if helper == "gate_missing":
-                        detail = show(arg, missing=detail)
-                    if helper == "moved_refusal":
-                        moved = functions[helper]
-                        said, = assigned(moved, "said")
-                        if "{read}" in detail:
-                            read, = assigned(moved, "read")
-                            for reason in (read.body, read.orelse):
-                                add(function, show(value, said=show(said), read=show(reason)),
-                                    producer=helper)
-                            continue
-                        detail = show(value, said=show(said))
-                    add(function, detail, producer=helper)
-            elif function == "checks_run" and selector == "refusal":
-                bodies = ("checks_body", "checks_body.criteria_refused")
-                for producer in bodies:
-                    for value in returned(functions[producer], part=1):
-                        add(function, show(value), producer=producer)
-                for value in returned(functions["bar_refusal"]):
-                    add(function, show(value), producer="checks_body → bar_refusal")
-            elif function == "main" and selector == "stopped":
-                release = "src/lem/release.py"
-                stop = functions_in(ledger.tree(release))["stop"]
-                for branch in in_function(stop):
-                    if isinstance(branch, ast.Dict):
-                        for key, value in zip(branch.keys, branch.values):
-                            if isinstance(key, ast.Constant) and key.value == "say":
-                                add(function, show(value), producer="release.stop")
-                add(function, "{error from the task's release record or installed release}",
-                    producer="release.check")
-            elif function == "cmd_merge_review" and selector == "{problem}":
-                for value in assigned(func, "problem"):
-                    add(function, show(arg, problem=show(value)), producer="merge review reply")
-            elif function == "checks_run" and selector == "stopped":
-                value, = assigned(func, "stopped")
-                handler = parents[node]
-                tried = parents[handler]
-                call = next(part.func for part in ast.walk(tried.body[0])
-                            if isinstance(part, ast.Call))
-                add(function, show(value), variant=ast.unparse(call))
-            elif function == "project_now" and "has no .lem/settings.toml" in selector:
-                scope = parents[node]
-                while scope is not func and not isinstance(scope, ast.Try):
-                    scope = parents[scope]
-                variant = "in-process" if isinstance(scope, ast.Try) else "subprocess"
-                add(function, show(arg), variant=variant)
-            elif function == "keep_reviews" and "{why}" in show(arg):
-                for value in returned(functions["moving_refusal"]):
-                    add(function, show(arg, why=show(value)), producer="moving_refusal")
-            elif function in {"cmd_propose", "cmd_clean"} and selector.startswith("{protected}"):
-                does, what = ("pushes", "to") if function == "cmd_propose" else ("deletes", "of")
-                for value in returned(functions["protected_refusal"]):
-                    detail = show(value, does=does, what=what)
-                    add(function, show(arg, protected=detail), producer="protected_refusal")
-            elif isinstance(arg, ast.IfExp):
-                add(function, show(arg.body))
-                add(function, show(arg.orelse))
-            else:
-                add(function, show(arg))
+            selector = refusal_selector(land, arg)
+            add_refusal(land, RaiseSite(function, func, node, arg, selector, parents))
+
+
+def refusal_message(node: ast.Raise) -> ast.expr | None:
+    """The message a raise of LandError, Refusal or ForgeSaid gives, else None."""
+    exc = node.exc
+    if not isinstance(exc, ast.Call):
+        return None
+    if not isinstance(exc.func, ast.Name) or exc.func.id not in {
+        "LandError",
+        "Refusal",
+        "ForgeSaid",
+    }:
+        return None
+    return exc.args[1 if exc.func.id == "Refusal" else 0]
+
+
+def refusal_selector(land: LandFile, arg: ast.expr) -> str:
+    """The name a message is known by: its variable, its call, or its text's first part."""
+    if isinstance(arg, ast.Name):
+        return arg.id
+    if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name):
+        return arg.func.id
+    return land.show(arg).split(";", 1)[0]
+
+
+def add_refusal(land: LandFile, site: RaiseSite) -> None:
+    helper = REFUSAL_HELPERS.get((site.function, site.selector))
+    if helper:
+        helper_refusals(land, site, helper)
+    elif not named_refusal(land, site):
+        plain_refusal(land, site)
+
+
+def helper_refusals(land: LandFile, site: RaiseSite, helper: str) -> None:
+    """The refusals a raise takes from what its helper returns."""
+    part = 1 if helper == "read_skipped" else None
+    for value in returned(land.functions[helper], part=part):
+        for detail in helper_details(land, site, helper, value):
+            land.add(site.function, detail, producer=helper)
+
+
+def helper_details(
+    land: LandFile, site: RaiseSite, helper: str, value: ast.expr
+) -> list[str]:
+    detail = land.show(value)
+    if helper == "base_refusal" and forge_state_checked(site.function, detail):
+        return []
+    if helper == "gate_missing":
+        return [land.show(site.arg, missing=detail)]
+    if helper == "moved_refusal":
+        return moved_details(land, value, detail)
+    return [detail]
+
+
+def forge_state_checked(function: str, detail: str) -> bool:
+    """The two call sites have already checked the forge state."""
+    if function == "forge_done":
+        return " is on {there}" in detail
+    return function == "merge_locked" and " was merged into {there}" in detail
+
+
+def moved_details(land: LandFile, value: ast.expr, detail: str) -> list[str]:
+    moved = land.functions["moved_refusal"]
+    (said,) = assigned(moved, "said")
+    if "{read}" not in detail:
+        return [land.show(value, said=land.show(said))]
+    (read,) = assigned(moved, "read")
+    if not isinstance(read, ast.IfExp):
+        raise ValueError(f"moved_refusal's read is no conditional: {ast.unparse(read)}")
+    return [
+        land.show(value, said=land.show(said), read=land.show(reason))
+        for reason in (read.body, read.orelse)
+    ]
+
+
+def named_refusal(land: LandFile, site: RaiseSite) -> bool:
+    """The refusals of a raise whose message another function writes; False for none."""
+    function, selector = site.function, site.selector
+    if function == "checks_run" and selector == "refusal":
+        checks_body_refusals(land, function)
+    elif function == "main" and selector == "stopped":
+        release_stops(land, function)
+    elif function == "cmd_merge_review" and selector == "{problem}":
+        merge_review_problems(land, site)
+    elif function == "checks_run" and selector == "stopped":
+        stopped_checks(land, site)
+    elif function == "project_now" and "has no .lem/settings.toml" in selector:
+        missing_settings(land, site)
+    elif function == "keep_reviews" and "{why}" in land.show(site.arg):
+        moving_refusals(land, site)
+    elif function in {"cmd_propose", "cmd_clean"} and selector.startswith(
+        "{protected}"
+    ):
+        protected_refusals(land, site)
+    else:
+        return False
+    return True
+
+
+def checks_body_refusals(land: LandFile, function: str) -> None:
+    for producer in ("checks_body", "checks_body.criteria_refused"):
+        for value in returned(land.functions[producer], part=1):
+            land.add(function, land.show(value), producer=producer)
+    for value in returned(land.functions["bar_refusal"]):
+        land.add(function, land.show(value), producer="checks_body → bar_refusal")
+
+
+def release_stops(land: LandFile, function: str) -> None:
+    release = "src/lem/release.py"
+    stop = functions_in(land.ledger.tree(release))["stop"]
+    for branch in in_function(stop):
+        if isinstance(branch, ast.Dict):
+            for key, value in zip(branch.keys, branch.values, strict=True):
+                if isinstance(key, ast.Constant) and key.value == "say":
+                    land.add(function, land.show(value), producer="release.stop")
+    land.add(
+        function,
+        "{error from the task's release record or installed release}",
+        producer="release.check",
+    )
+
+
+def merge_review_problems(land: LandFile, site: RaiseSite) -> None:
+    for value in assigned(site.func, "problem"):
+        land.add(
+            site.function,
+            land.show(site.arg, problem=land.show(value)),
+            producer="merge review reply",
+        )
+
+
+def stopped_checks(land: LandFile, site: RaiseSite) -> None:
+    (value,) = assigned(site.func, "stopped")
+    handler = site.parents[site.node]
+    tried = site.parents[handler]
+    if not isinstance(tried, ast.Try):
+        raise ValueError(
+            f"checks_run's stop is raised outside a try: {ast.unparse(tried)}"
+        )
+    call = next(
+        part.func for part in ast.walk(tried.body[0]) if isinstance(part, ast.Call)
+    )
+    land.add(site.function, land.show(value), variant=ast.unparse(call))
+
+
+def missing_settings(land: LandFile, site: RaiseSite) -> None:
+    scope = site.parents[site.node]
+    while scope is not site.func and not isinstance(scope, ast.Try):
+        scope = site.parents[scope]
+    variant = "in-process" if isinstance(scope, ast.Try) else "subprocess"
+    land.add(site.function, land.show(site.arg), variant=variant)
+
+
+def moving_refusals(land: LandFile, site: RaiseSite) -> None:
+    for value in returned(land.functions["moving_refusal"]):
+        land.add(
+            site.function,
+            land.show(site.arg, why=land.show(value)),
+            producer="moving_refusal",
+        )
+
+
+def protected_refusals(land: LandFile, site: RaiseSite) -> None:
+    does, what = (
+        ("pushes", "to") if site.function == "cmd_propose" else ("deletes", "of")
+    )
+    for value in returned(land.functions["protected_refusal"]):
+        detail = land.show(value, does=does, what=what)
+        land.add(
+            site.function,
+            land.show(site.arg, protected=detail),
+            producer="protected_refusal",
+        )
+
+
+def plain_refusal(land: LandFile, site: RaiseSite) -> None:
+    if isinstance(site.arg, ast.IfExp):
+        land.add(site.function, land.show(site.arg.body))
+        land.add(site.function, land.show(site.arg.orelse))
+    else:
+        land.add(site.function, land.show(site.arg))
 
 
 # A duty has its own name even when several jobs share a loop or a function.
@@ -998,24 +1382,34 @@ DUTIES = {
 }
 
 
-def server_duties(ledger):
-    constants = {
+def server_duties(ledger: Ledger) -> None:
+    constants: dict[str, dict[str, str]] = {
         "serve": {
-            "forge_tick": "FORGE_TICK", "forge_seconds": "FORGE_SECONDS",
-            "prune_seconds": "PRUNE_SECONDS", "duty_retry": "DUTY_RETRY",
-            "watch_seconds": "WATCH_SECONDS", "ping_seconds": "PING_SECONDS",
-            "login_recheck": "LOGIN_RECHECK_SECONDS", "log_cap": "LOG_CAP",
+            "forge_tick": "FORGE_TICK",
+            "forge_seconds": "FORGE_SECONDS",
+            "prune_seconds": "PRUNE_SECONDS",
+            "duty_retry": "DUTY_RETRY",
+            "watch_seconds": "WATCH_SECONDS",
+            "ping_seconds": "PING_SECONDS",
+            "login_recheck": "LOGIN_RECHECK_SECONDS",
+            "log_cap": "LOG_CAP",
             "refresh_seconds": "REFRESH_SECONDS",
         },
-        "board_model": {"quiet_minutes": "QUIET_MINUTES", "answer_minutes": "ANSWER_MINUTES"},
+        "board_model": {
+            "quiet_minutes": "QUIET_MINUTES",
+            "answer_minutes": "ANSWER_MINUTES",
+        },
         "inbox": {"inbox_seconds": "LOOK_SECONDS"},
         "push": {"push_seconds": "LOOK_SECONDS", "flap_seconds": "FLAP_SECONDS"},
         "peers": {"peer_fresh": "LIST_FRESH", "peer_watch": "WATCH_SECONDS"},
     }
     modules = {module for module, _ in DUTIES} | constants.keys()
     trees = {name: ledger.tree(f"src/lem/{name}.py") for name in modules}
-    timers = {key: literal(trees[name], constant)
-              for name, group in constants.items() for key, constant in group.items()}
+    timers: dict[str, object] = {
+        key: literal(trees[name], constant)
+        for name, group in constants.items()
+        for key, constant in group.items()
+    }
     functions = {name: functions_in(tree) for name, tree in trees.items()}
     if "same_install" in functions["serve"]:
         timers["replace_server"] = (
@@ -1038,9 +1432,13 @@ def server_duties(ledger):
             key, trigger = line.strip().split(" | ", 1)
             ledger.add("duty", key, file, trigger.format_map(timers), section=func)
     if literal(trees["board_model"], "WRITES_WORKED"):
-        ledger.add("duty", "record-session-work", "src/lem/board_model.py",
-                   "When readable signs show a turn since a status wake sent while the signs were unreadable, record the turn once and end the stop.",
-                   section="stop_due")
+        ledger.add(
+            "duty",
+            "record-session-work",
+            "src/lem/board_model.py",
+            "When readable signs show a turn since a status wake sent while the signs were unreadable, record the turn once and end the stop.",
+            section="stop_due",
+        )
 
 
 # The command accepts caller-defined event names. This pattern finds the names
@@ -1055,27 +1453,27 @@ DIRECT_EVENT_RECORDS = {
 }
 
 
-def dict_fields(func, key):
+def dict_fields(func: ast.AST, key: str) -> list[ast.expr]:
     return [
         value
         for node in in_function(func)
         if isinstance(node, ast.Dict)
-        for name, value in zip(node.keys, node.values)
+        for name, value in zip(node.keys, node.values, strict=True)
         if isinstance(name, ast.Constant) and name.value == key
     ]
 
 
-def event_values(node, tree):
+def event_values(node: ast.expr, tree: ast.Module) -> list[str]:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return [node.value]
     if isinstance(node, ast.Name):
-        return [literal(tree, node.id)]
+        return [literal_text(tree, node.id)]
     if isinstance(node, ast.IfExp):
         return event_values(node.body, tree) + event_values(node.orelse, tree)
     raise ValueError(f"Unlisted event expression: {ast.unparse(node)}")
 
 
-def call_name(expr):
+def call_name(expr: ast.expr) -> str | None:
     if isinstance(expr, ast.Name):
         return expr.id
     if isinstance(expr, ast.Attribute):
@@ -1083,104 +1481,163 @@ def call_name(expr):
     return None
 
 
-def events(ledger):
-    writers = {}
+# The callers supply the event. Resume is added in events().
+CALLER_EVENTS = {
+    ("src/lem/project.py", "cmd_log"),
+    ("src/lem/project.py", "cmd_resume"),
+    ("src/lem/cards.py", "log"),
+}
+# The actual writers using the two wrappers are found where they call them.
+LOG_WRAPPERS = {
+    ("src/lem/criteria.py", "Task.log"),
+    ("src/lem/decisions.py", "Task.add"),
+}
+# The writer of board_model.WORKED, which board_model.WRITES_WORKED may gate off.
+WORKED_WRITER = ("src/lem/session.py", "cmd_worked")
 
-    def record(event, file, func):
-        writers.setdefault(event, {}).setdefault(file, set()).add(func)
 
+class WorkedEvent(NamedTuple):
+    """The event cmd_worked writes, and what its writer's name says of the gate."""
+
+    event: str
+    gate: str
+
+
+class EventWriters:
+    """Each event's writers: the files in the order they were found, and their functions."""
+
+    def __init__(self) -> None:
+        self.by_event: dict[str, dict[str, set[str]]] = {}
+
+    def record(self, event: str, file: str, func: str) -> None:
+        self.by_event.setdefault(event, {}).setdefault(file, set()).add(func)
+
+
+def events(ledger: Ledger) -> None:
+    writers = EventWriters()
     model = ledger.tree("src/lem/board_model.py")
-    worked = literal(model, "WORKED")
-    writes_worked = literal(model, "WRITES_WORKED")
+    worked = WorkedEvent(
+        literal_text(model, "WORKED"),
+        ""
+        if literal(model, "WRITES_WORKED")
+        else " (gated off by board_model.WRITES_WORKED)",
+    )
     project_file = "src/lem/project.py"
     project = ledger.tree(project_file)
 
     for file in ledger.files("src/lem/**/*.py"):
-        tree = ledger.tree(file)
-        functions = functions_in(tree)
-        for func, block in functions.items():
-            for call in in_function(block):
-                if not isinstance(call, ast.Call):
-                    continue
-                name = call_name(call.func)
-                args = call.args
-                given = [arg.value if isinstance(arg, ast.Constant) else None for arg in args]
-                if name == "append_event" and len(args) == 4:
-                    if (file, func) in {
-                        (project_file, "cmd_log"),
-                        (project_file, "cmd_resume"),
-                        ("src/lem/cards.py", "log"),
-                    }:
-                        # The callers supply the event. Resume is added below.
-                        continue
-                    if file == "src/lem/session.py" and func == "cmd_worked":
-                        gate = "" if writes_worked else " (gated off by board_model.WRITES_WORKED)"
-                        record(worked, file, func + gate)
-                        continue
-                    event = args[1]
-                elif file == "src/lem/cards.py" and name == "log":
-                    event = args[1]
-                elif file == "src/lem/criteria.py" and ast.unparse(call.func) == "task.log":
-                    event = args[0]
-                elif "project.py" in given and "log" in given:
-                    event = args[given.index("log") + 2]
-                    if (file, func) in {
-                        ("src/lem/criteria.py", "Task.log"),
-                        ("src/lem/decisions.py", "Task.add"),
-                    }:
-                        # The actual writers using the two wrappers are below.
-                        continue
-                else:
-                    continue
-                for value in event_values(event, tree):
-                    record(value, file, func)
+        for event, func in code_events(ledger, file, worked):
+            writers.record(event, file, func)
+    for event, file, func in text_events(ledger):
+        writers.record(event, file, func)
 
-        if direct := DIRECT_EVENT_RECORDS.get(file):
-            for node in dict_fields(functions[direct], "event"):
-                for value in event_values(node, tree):
-                    record(value, file, direct)
-        if file == "src/lem/decisions.py":
-            for func, block in functions.items():
-                calls_add = any(isinstance(node, ast.Call) and ast.unparse(node.func) == "task.add"
-                                for node in in_function(block))
-                if calls_add:
-                    kind, = dict_fields(block, "kind")
-                    for value in event_values(kind, tree):
-                        record("decision." + value, file, func + " via Task.add")
+    copied = set(literal_names(project, "RESUMED_EVENTS"))
+    decisions = {key for key in writers.by_event if key.startswith("decision.")}
+    for name in copied | decisions:
+        if name not in writers.by_event:
+            raise ValueError(f"Resumed event has no originating writer: {name}")
+        writers.record(name, project_file, "cmd_resume (copies the old event)")
 
+    for name, by_file in writers.by_event.items():
+        add_event(ledger, name, by_file)
+
+
+def add_event(ledger: Ledger, name: str, by_file: dict[str, set[str]]) -> None:
+    # Put an originating writer first. A copied event still has one row.
+    file = next(iter(by_file))
+    source = ", ".join(sorted(by_file[file]))
+    for other, functions in sorted(by_file.items()):
+        if other != file:
+            source += f"; {other}: {', '.join(sorted(functions))}"
+    ledger.add("event", name, file, name, section=source)
+
+
+def code_events(
+    ledger: Ledger, file: str, worked: WorkedEvent
+) -> Iterator[tuple[str, str]]:
+    """Each event a module writes, with the function that writes it, in the order found."""
+    tree = ledger.tree(file)
+    functions = functions_in(tree)
+    for func, block in functions.items():
+        yield from function_events(file, func, block, tree, worked)
+    if direct := DIRECT_EVENT_RECORDS.get(file):
+        for node in dict_fields(functions[direct], "event"):
+            for value in event_values(node, tree):
+                yield value, direct
+    if file == "src/lem/decisions.py":
+        yield from decision_events(functions, tree)
+
+
+def function_events(
+    file: str, func: str, block: FunctionNode, tree: ast.Module, worked: WorkedEvent
+) -> Iterator[tuple[str, str]]:
+    for call in in_function(block):
+        if not isinstance(call, ast.Call):
+            continue
+        if (file, func) == WORKED_WRITER and appends_event(call):
+            yield worked.event, func + worked.gate
+            continue
+        event = event_argument(file, func, call)
+        if event is not None:
+            for value in event_values(event, tree):
+                yield value, func
+
+
+def appends_event(call: ast.Call) -> bool:
+    return call_name(call.func) == "append_event" and len(call.args) == 4
+
+
+def event_argument(file: str, func: str, call: ast.Call) -> ast.expr | None:
+    """The argument that names the event a call writes, or None for no event here."""
+    args = call.args
+    if appends_event(call):
+        return None if (file, func) in CALLER_EVENTS else args[1]
+    if file == "src/lem/cards.py" and call_name(call.func) == "log":
+        return args[1]
+    if file == "src/lem/criteria.py" and ast.unparse(call.func) == "task.log":
+        return args[0]
+    given = [arg.value if isinstance(arg, ast.Constant) else None for arg in args]
+    if "project.py" in given and "log" in given:
+        event = args[given.index("log") + 2]
+        return None if (file, func) in LOG_WRAPPERS else event
+    return None
+
+
+def decision_events(
+    functions: dict[str, FunctionNode], tree: ast.Module
+) -> Iterator[tuple[str, str]]:
+    for func, block in functions.items():
+        calls_add = any(
+            isinstance(node, ast.Call) and ast.unparse(node.func) == "task.add"
+            for node in in_function(block)
+        )
+        if calls_add:
+            (kind,) = dict_fields(block, "kind")
+            for value in event_values(kind, tree):
+                yield "decision." + value, func + " via Task.add"
+
+
+def text_events(ledger: Ledger) -> Iterator[tuple[str, str, str]]:
+    """Each event the shipped text tells an agent to log, with its file and its writer."""
     for pattern in ("skills/**/*.md", "agents/**/*.md"):
         for file in ledger.files(pattern):
             for event in STAGE_EVENT.findall(ledger.read(file)):
                 role = "lead" if file == "skills/lem/stages/plan.md" else "agent"
-                record(event, file, role + " via project.cmd_log")
+                yield event, file, role + " via project.cmd_log"
     # The plan tells the lead to use the criteria-read form from the interview.
     plan = "skills/lem/stages/plan.md"
-    if "criteria.read.start" in ledger.read(plan) and "stages/interview.md" in ledger.read(plan):
-        record("criteria.read", plan, "lead via project.cmd_log")
-
-    copied = set(literal(project, "RESUMED_EVENTS"))
-    decisions = {key for key in writers if key.startswith("decision.")}
-    for name in copied | decisions:
-        if name not in writers:
-            raise ValueError(f"Resumed event has no originating writer: {name}")
-        record(name, project_file, "cmd_resume (copies the old event)")
-
-    for name, by_file in writers.items():
-        # Put an originating writer first. A copied event still has one row.
-        file = next(iter(by_file))
-        source = ", ".join(sorted(by_file[file]))
-        for other, functions in sorted(by_file.items()):
-            if other != file:
-                source += f"; {other}: {', '.join(sorted(functions))}"
-        ledger.add("event", name, file, name, section=source)
+    if "criteria.read.start" in ledger.read(
+        plan
+    ) and "stages/interview.md" in ledger.read(plan):
+        yield "criteria.read", plan, "lead via project.cmd_log"
 
 
-def read_rows(path):
+def read_rows(path: Path) -> Iterator[Row]:
     with path.open(encoding="utf-8", newline="") as stream:
         reader = csv.DictReader(stream, delimiter="\t")
         if reader.fieldnames != HEADER:
             raise ValueError(f"{path}: expected the ledger's TSV header")
-        seen = set()
+        seen: set[str] = set()
         for row in reader:
             if None in row or any(value is None for value in row.values()):
                 raise ValueError(f"{path}: invalid TSV row at line {reader.line_num}")
@@ -1190,35 +1647,63 @@ def read_rows(path):
             yield Row(**row)
 
 
-def add_extra(ledger, path):
+def add_extra(ledger: Ledger, path: Path) -> None:
     for row in read_rows(path):
         if row.id in ledger.rows:
             raise ValueError(f"{path}: {row.id} already exists in the commit ledger")
         if row.kind not in {"path", "seam"} or not row.id.startswith(row.kind + ":"):
-            raise ValueError(f"{path}: give {row.id} a matching path or seam kind and ID")
+            raise ValueError(
+                f"{path}: give {row.id} a matching path or seam kind and ID"
+            )
         ledger.rows[row.id] = row
         ledger.sources.setdefault(row.kind, Counter())[path.name] += 1
 
 
-def collect_commit(rev, root, source_notes):
+def collect_commit(rev: str, root: Path, *, source_notes: bool) -> Ledger:
     repo = subprocess.check_output(
-        ["git", "-C", str(HERE), "rev-parse", "--show-toplevel"], text=True,
+        ["git", "-C", str(HERE), "rev-parse", "--show-toplevel"],
+        text=True,
     ).strip()
     commit = subprocess.run(
-        ["git", "-C", repo, "rev-parse", "--verify", "--end-of-options", f"{rev}^{{commit}}"],
-        capture_output=True, text=True, check=True,
+        [
+            "git",
+            "-C",
+            repo,
+            "rev-parse",
+            "--verify",
+            "--end-of-options",
+            f"{rev}^{{commit}}",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
     archive = subprocess.check_output(["git", "-C", repo, "archive", commit])
     with tarfile.open(fileobj=BytesIO(archive)) as tar:
         tar.extractall(root, filter="data")
-    ledger = Ledger(root, source_notes)
-    for collect in (units, checks, rulings, commands, settings, routes, board_acts,
-                    hooks, doctor, refusals, reading, server_duties, events):
+    ledger = Ledger(root, source_notes=source_notes)
+    for collect in (
+        units,
+        checks,
+        rulings,
+        commands,
+        settings,
+        routes,
+        board_acts,
+        hooks,
+        doctor,
+        refusals,
+        reading,
+        server_duties,
+        events,
+    ):
         collect(ledger)
     return ledger
 
 
-def write_rows(path, rows, saved):
+def write_rows(
+    path: Path, rows: Iterable[Row], saved: Mapping[str, tuple[str, str, str]]
+) -> None:
     # A plain open, so the file gets the umask's mode (NamedTemporaryFile gives 0600).
     temp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     try:
@@ -1233,30 +1718,56 @@ def write_rows(path, rows, saved):
         temp_path.unlink(missing_ok=True)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--rev", default=REV, help="commit to read (default: %(default)s)")
+    parser.add_argument(
+        "--rev", default=REV, help="commit to read (default: %(default)s)"
+    )
     parser.add_argument("--out", type=Path, default=HERE / "rows.tsv")
-    parser.add_argument("--keep", type=Path, help="copy fate, proof and note from this TSV by ID")
-    parser.add_argument("--counts", action="store_true", help="print totals and source file counts as JSON")
-    parser.add_argument("--source-notes", action="store_true",
-                        help="put source annotations in unfilled note cells for an audit copy")
+    parser.add_argument(
+        "--keep", type=Path, help="copy fate, proof and note from this TSV by ID"
+    )
+    parser.add_argument(
+        "--counts",
+        action="store_true",
+        help="print totals and source file counts as JSON",
+    )
+    parser.add_argument(
+        "--source-notes",
+        action="store_true",
+        help="put source annotations in unfilled note cells for an audit copy",
+    )
     args = parser.parse_args()
 
     try:
         with TemporaryDirectory(prefix="lem-ledger-") as directory:
-            ledger = collect_commit(args.rev, Path(directory), args.source_notes)
+            ledger = collect_commit(
+                args.rev, Path(directory), source_notes=args.source_notes
+            )
         add_extra(ledger, HERE / "extra.tsv")
-        saved = {row.id: (row.fate, row.proof, row.note) for row in read_rows(args.keep)} if args.keep else {}
+        saved = (
+            {row.id: (row.fate, row.proof, row.note) for row in read_rows(args.keep)}
+            if args.keep
+            else {}
+        )
         write_rows(args.out, ledger.rows.values(), saved)
     except subprocess.CalledProcessError as error:
-        parser.exit(1, f"ledger.py: the owner must give a readable commit with --rev: {error}\n")
+        parser.exit(
+            1, f"ledger.py: the owner must give a readable commit with --rev: {error}\n"
+        )
     except (OSError, ValueError, SyntaxError, tarfile.TarError) as error:
         parser.exit(1, f"ledger.py: {error}\n")
     if args.counts:
-        print(json.dumps({kind: {"total": counts.total(), "files": counts}
-                          for kind, counts in ledger.sources.items()},
-                         indent=2, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    kind: {"total": counts.total(), "files": counts}
+                    for kind, counts in ledger.sources.items()
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
 
 
 if __name__ == "__main__":

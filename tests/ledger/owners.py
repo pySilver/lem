@@ -5,17 +5,57 @@ import argparse
 import csv
 import json
 import os
-from pathlib import Path
 import re
+from pathlib import Path
+from typing import TYPE_CHECKING, NamedTuple
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator, Mapping, Sequence
 
 HERE = Path(__file__).resolve().parent
 
-STEPS = frozenset("""
-ledger core tree slice-land slice-board slice-session trial-skeleton
-land-base land-checks land-review land-propose land-merge task criteria sessions settings
-land-text owner board-inputs board-views board-pages board-acts board-duties board-service
-ask addons-flow addons-outside journeys browser guides pack-trial mutation trials close cutover
-""".split())
+# A row of a TSV file, by its header's column names.
+type Row = dict[str, str]
+
+STEPS = frozenset(
+    [
+        "ledger",
+        "core",
+        "tree",
+        "slice-land",
+        "slice-board",
+        "slice-session",
+        "trial-skeleton",
+        "land-base",
+        "land-checks",
+        "land-review",
+        "land-propose",
+        "land-merge",
+        "task",
+        "criteria",
+        "sessions",
+        "settings",
+        "land-text",
+        "owner",
+        "board-inputs",
+        "board-views",
+        "board-pages",
+        "board-acts",
+        "board-duties",
+        "board-service",
+        "ask",
+        "addons-flow",
+        "addons-outside",
+        "journeys",
+        "browser",
+        "guides",
+        "pack-trial",
+        "mutation",
+        "trials",
+        "close",
+        "cutover",
+    ]
+)
 
 # The six assignments by ID in part 9.
 BY_ID = {
@@ -216,29 +256,65 @@ SKILLS = {
     "addons-outside": "lem-ask-expert lem-panel",
 }
 GUIDES = {
-    "README.md", "AGENTS.md", "docs/board.md", "docs/flow.md", "docs/github-issues.md",
-    "docs/install.md", "docs/linear.md", "docs/pull-request.md", "docs/when-lem-needs-you.md",
+    "README.md",
+    "AGENTS.md",
+    "docs/board.md",
+    "docs/flow.md",
+    "docs/github-issues.md",
+    "docs/install.md",
+    "docs/linear.md",
+    "docs/pull-request.md",
+    "docs/when-lem-needs-you.md",
     "site/index.html",
 }
 
 # The old parser coalesces some surfaces that the rebuild splits. These are
 # the handlers named in surfaces.md A and in the old project and land parsers.
 PROJECT_COMMANDS = {
-    "handoff": "cmd_handoff", "init": "cmd_init", "load": "cmd_load", "log": "cmd_log",
-    "may-land": "cmd_may_land", "may-nap": "cmd_may_nap", "may-start": "cmd_may_start",
-    "owner": "cmd_owner", "path": "cmd_path", "plan-file": "cmd_plan_file",
-    "proposals": "proposals_command", "prune": "cmd_prune", "resume": "cmd_resume",
-    "rules": "cmd_rules", "seat": "cmd_seat", "seat-again": "cmd_seat_again",
-    "seat-failed": "cmd_seat_failed", "serial": "cmd_serial", "set": "cmd_set",
-    "show": "load", "state": "cmd_state", "state-dir": "cmd_path", "task-dir": "cmd_task_dir",
-    "tasks": "read_tasks", "ticket-step": "cmd_ticket_step", "waiting": "cmd_waiting",
-    "worktree": "cmd_worktree", "worktree-dir": "cmd_worktree_dir",
+    "handoff": "cmd_handoff",
+    "init": "cmd_init",
+    "load": "cmd_load",
+    "log": "cmd_log",
+    "may-land": "cmd_may_land",
+    "may-nap": "cmd_may_nap",
+    "may-start": "cmd_may_start",
+    "owner": "cmd_owner",
+    "path": "cmd_path",
+    "plan-file": "cmd_plan_file",
+    "proposals": "proposals_command",
+    "prune": "cmd_prune",
+    "resume": "cmd_resume",
+    "rules": "cmd_rules",
+    "seat": "cmd_seat",
+    "seat-again": "cmd_seat_again",
+    "seat-failed": "cmd_seat_failed",
+    "serial": "cmd_serial",
+    "set": "cmd_set",
+    "show": "load",
+    "state": "cmd_state",
+    "state-dir": "cmd_path",
+    "task-dir": "cmd_task_dir",
+    "tasks": "read_tasks",
+    "ticket-step": "cmd_ticket_step",
+    "waiting": "cmd_waiting",
+    "worktree": "cmd_worktree",
+    "worktree-dir": "cmd_worktree_dir",
 }
 COMMAND_GROUPS = {
-    "ask": "ask", "board": "board-service", "cast": "addons-outside",
-    "corrections": "addons-flow", "criteria": "criteria", "decisions": "criteria",
-    "doctor": "settings", "experts": "addons-outside", "help": "tree", "issue": "task",
-    "jev": "addons-outside", "picker": "addons-flow", "session": "sessions", "version": "tree",
+    "ask": "ask",
+    "board": "board-service",
+    "cast": "addons-outside",
+    "corrections": "addons-flow",
+    "criteria": "criteria",
+    "decisions": "criteria",
+    "doctor": "settings",
+    "experts": "addons-outside",
+    "help": "tree",
+    "issue": "task",
+    "jev": "addons-outside",
+    "picker": "addons-flow",
+    "session": "sessions",
+    "version": "tree",
 }
 COMMAND_LEAVES = {
     ("ask", "hook-stop"): "sessions",
@@ -307,6 +383,12 @@ PATHS = {
         clean-landed clean-the-forge-s-copy clean-dropped-or-answered clean-dirty
     """,
 }
+# Functions that part 9 gives to a step other than their module's.
+MOVED_FUNCTIONS = {
+    ("src/lem/release.py", "log_stop"): "task",
+    ("src/lem/criteria.py", "cmd_red"): "land-checks",
+    ("src/lem/criteria.py", "cmd_inputs"): "land-checks",
+}
 SEAMS = {
     "board-duties": "forge-look-fails duties-fail prune-fails",
     "land-review": "alike-read-list",
@@ -323,11 +405,11 @@ CITATION = re.compile(
 )
 
 
-def in_groups(groups, name):
+def in_groups(groups: Mapping[str, str], name: str) -> set[str]:
     return {step for step, names in groups.items() if name in names.split()}
 
 
-def read_tsv(path, columns):
+def read_tsv(path: Path, columns: Sequence[str]) -> Iterator[Row]:
     with path.open(encoding="utf-8", newline="") as stream:
         reader = csv.DictReader(stream, delimiter="\t")
         if reader.fieldnames != list(columns):
@@ -338,7 +420,7 @@ def read_tsv(path, columns):
             yield row
 
 
-def write_owners(path, owners):
+def write_owners(path: Path, owners: Mapping[str, str]) -> None:
     # A plain open, so the file gets the umask's mode (NamedTemporaryFile gives 0600).
     temp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     try:
@@ -351,31 +433,54 @@ def write_owners(path, owners):
         temp_path.unlink(missing_ok=True)
 
 
-def file_steps(file, symbol=""):
+def file_steps(file: str, symbol: str = "") -> set[str]:
+    if file.startswith("src/lem/"):
+        return module_steps(file, symbol)
+    if file.startswith("tests/"):
+        return suite_file_steps(file, symbol)
+    if file.startswith(("hooks/", "agents/", "skills/", "tools/")):
+        return plugin_file_steps(file)
+    return other_file_steps(file)
+
+
+def module_steps(file: str, symbol: str) -> set[str]:
+    """A module of src/lem/: by its function where part 9 splits the module."""
     if file == "src/lem/land.py":
-        if symbol in {"main via release.check", "main via release.stop"}:
-            return {"task"}  # Part 9 gives the release stop to task.
-        return in_groups(LAND_FUNCTIONS, symbol.split(" via ")[0])
+        return land_steps(symbol)
     if file == "src/lem/project.py":
         return in_groups(PROJECT_FUNCTIONS, symbol)
     if file == "src/lem/serve.py":
         return in_groups(SERVE_FUNCTIONS, symbol)
     if file == "src/lem/__main__.py":
         return {"board-service"} if symbol == "look_for_server" else {"tree"}
-    if file == "src/lem/release.py" and symbol == "log_stop":
-        return {"task"}
-    if file == "src/lem/criteria.py" and symbol in {"cmd_red", "cmd_inputs"}:
-        return {"land-checks"}
-    if file.startswith("src/lem/"):
-        return in_groups(MODULES, Path(file).stem)
+    if step := MOVED_FUNCTIONS.get((file, symbol)):
+        return {step}
+    return in_groups(MODULES, Path(file).stem)
+
+
+def land_steps(symbol: str) -> set[str]:
+    if symbol in {"main via release.check", "main via release.stop"}:
+        return {"task"}  # Part 9 gives the release stop to task.
+    return in_groups(LAND_FUNCTIONS, symbol.split(" via ", maxsplit=1)[0])
+
+
+def suite_file_steps(file: str, symbol: str) -> set[str]:
+    """A file of tests/: a unit file by its class where part 9 splits the file."""
     if file == "tests/unit/test_land.py":
         return in_groups(LAND_CLASSES, symbol)
     if file == "tests/unit/test_serve.py":
         return in_groups(SERVE_CLASSES, symbol)
     if file.startswith("tests/unit/test_") and file.endswith(".py"):
         return in_groups(UNIT_FILES, Path(file).stem.removeprefix("test_"))
-    if file.startswith("tests/") and file.endswith(".sh"):
+    if file.endswith(".sh"):
         return in_groups(SHELL_FILES, Path(file).stem)
+    if file == "tests/board-cdp.mjs":
+        return {"browser"}
+    return set()
+
+
+def plugin_file_steps(file: str) -> set[str]:
+    """A file of the plugin outside src/: a hook, an agent, a skill's text, the board kit."""
     if file.startswith("hooks/"):
         return {"sessions"}
     if file == "agents/lem-builder.md":
@@ -386,8 +491,11 @@ def file_steps(file, symbol=""):
         return in_groups(SKILLS, file.split("/")[1])
     if file.startswith(("tools/board-kit/", "skills/lem/assets/")):
         return {"board-pages"}
-    if file == "tests/board-cdp.mjs":
-        return {"browser"}
+    return set()
+
+
+def other_file_steps(file: str) -> set[str]:
+    """A guide, the settings' page, the CI workflow or the plugin's manifest."""
     if file in GUIDES:
         return {"guides"}
     if file == "docs/settings.md":
@@ -397,14 +505,17 @@ def file_steps(file, symbol=""):
     return set()
 
 
-def command_steps(name):
+def command_steps(name: str) -> set[str]:
     words = name.split()
     if len(words) < 2 or words[0] != "lem":
         return set()
     _, group, *args = words
     if not args and group in {"land", "project"}:
         return {"tree"}  # The two old command groups require a subcommand.
-    leaf = args[0] if args else ""
+    return command_group_steps(group, args[0] if args else "")
+
+
+def command_group_steps(group: str, leaf: str) -> set[str]:
     if group == "project":
         return in_groups(PROJECT_FUNCTIONS, PROJECT_COMMANDS.get(leaf, ""))
     if group == "land":
@@ -417,7 +528,7 @@ def command_steps(name):
     return set()
 
 
-def route_steps(handler, key):
+def route_steps(handler: str, key: str) -> set[str]:
     if key.endswith("/manifest.webmanifest"):
         return {"board-service"}
     if key.endswith("/assets/{asset}"):
@@ -429,9 +540,11 @@ def route_steps(handler, key):
     return file_steps("src/lem/serve.py", handler)
 
 
-def act_steps(file, key):
+def act_steps(file: str, key: str) -> set[str]:
     page, act = key.rsplit("/", 1)
-    handlers = {step for step, pages in BOARD_ACTS.items() if act in pages.get(page, "").split()}
+    handlers = {
+        step for step, pages in BOARD_ACTS.items() if act in pages.get(page, "").split()
+    }
     if handlers:
         return handlers
     if page == "Question card":
@@ -441,16 +554,16 @@ def act_steps(file, key):
     return file_steps(file)
 
 
-def history_steps(references):
-    places = []
+def history_steps(references: str) -> set[str]:
+    places: list[str] = []
     refs = list(CITATION.finditer(references))
     for index, ref in enumerate(refs):
         file, symbol = ref.groups()
         if file in {"src/lem/serve.py", "src/lem/project.py", "src/lem/land.py"}:
             end = refs[index + 1].start() if index + 1 < len(refs) else len(references)
-            detail = references[ref.end():end]
+            detail = references[ref.end() : end]
             names = re.findall(r"`([\w.]+)`", detail[1:])
-            before = re.search(r"`([\w.]+)` in $", references[:ref.start()])
+            before = re.search(r"`([\w.]+)` in $", references[: ref.start()])
             if before:
                 names.append(before[1])
             for name in names:
@@ -465,47 +578,97 @@ def history_steps(references):
     return set(places)
 
 
-def candidates(row):
-    identity, kind, source = row["id"], row["kind"], row["source"]
+class Source(NamedTuple):
+    """Where a row comes from: its file, the section after the file, the id after its kind."""
+
+    file: str
+    section: str
+    key: str
+    what: str
+
+
+def unit_steps(source: Source) -> set[str]:
+    return file_steps(source.file, source.what.split(".", 1)[0])
+
+
+def command_row_steps(source: Source) -> set[str]:
+    return command_steps(source.key)
+
+
+def route_row_steps(source: Source) -> set[str]:
+    return route_steps(source.section, source.key)
+
+
+def act_row_steps(source: Source) -> set[str]:
+    return act_steps(source.file, source.key)
+
+
+def event_steps(source: Source) -> set[str]:
+    # Resuming copies old events; those copies do not own the original rows.
+    section = source.section.split(";", 1)[0]
+    if source.file in {"src/lem/land.py", "src/lem/project.py", "src/lem/serve.py"}:
+        return {
+            step
+            for symbol in section.split(", ")
+            for step in file_steps(source.file, symbol)
+        }
+    return file_steps(source.file, section)
+
+
+def ruling_steps(source: Source) -> set[str]:
+    if source.file == "docs/rulings/history.md":
+        return history_steps(source.section.partition(" — ")[2])
+    step = RULING_GROUPS.get(source.section)
+    return {step} if step else set()
+
+
+def path_steps(source: Source) -> set[str]:
+    return in_groups(PATHS, source.key)
+
+
+def seam_steps(source: Source) -> set[str]:
+    return in_groups(SEAMS, source.key)
+
+
+def section_steps(source: Source) -> set[str]:
+    return file_steps(source.file, source.section)
+
+
+# The rule that gives a row its owners, by the row's kind; any other kind goes by its file
+# and section.
+KIND_STEPS: dict[str, Callable[[Source], set[str]]] = {
+    "unit": unit_steps,
+    "command": command_row_steps,
+    "route": route_row_steps,
+    "act": act_row_steps,
+    "event": event_steps,
+    "ruling": ruling_steps,
+    "path": path_steps,
+    "seam": seam_steps,
+}
+
+
+def candidates(row: Row) -> set[str]:
+    identity = row["id"]
     if identity in BY_ID:
         return {BY_ID[identity]}
-    key = identity.split(":", 1)[-1]
-    file, _, section = source.partition(" — ")
-    if kind == "unit":
-        return file_steps(file, row["what"].split(".", 1)[0])
-    if kind == "command":
-        return command_steps(key)
-    if kind == "route":
-        return route_steps(section, key)
-    if kind == "act":
-        return act_steps(file, key)
-    if kind == "event":
-        # Resuming copies old events; those copies do not own the original rows.
-        section = section.split(";", 1)[0]
-        if file in {"src/lem/land.py", "src/lem/project.py", "src/lem/serve.py"}:
-            return {step for symbol in section.split(", ") for step in file_steps(file, symbol)}
-    if kind == "ruling":
-        if file == "docs/rulings/history.md":
-            return history_steps(section.partition(" — ")[2])
-        step = RULING_GROUPS.get(section)
-        return {step} if step else set()
-    if kind == "path":
-        return in_groups(PATHS, key)
-    if kind == "seam":
-        return in_groups(SEAMS, key)
-    return file_steps(file, section)
+    file, _, section = row["source"].partition(" — ")
+    source = Source(file, section, identity.split(":", 1)[-1], row["what"])
+    return KIND_STEPS.get(row["kind"], section_steps)(source)
 
 
-def assign(rows, judgments):
-    owners = {}
-    missing = []
-    multiple = {}
+def assign(
+    rows: Mapping[str, Row], judgments: Mapping[str, Row]
+) -> tuple[dict[str, str], dict[str, list[str] | dict[str, list[str]]]]:
+    owners: dict[str, str] = {}
+    missing: list[str] = []
+    multiple: dict[str, list[str]] = {}
     for identity, row in rows.items():
         options = candidates(row)
         if identity in judgments:
             judgment = judgments[identity]
             if len(options) == 1:
-                multiple[identity] = sorted(options) + [judgment["step"]]
+                multiple[identity] = [*sorted(options), judgment["step"]]
                 continue
             options = {judgment["step"]}
         if not options:
@@ -517,9 +680,9 @@ def assign(rows, judgments):
     return owners, {"no_owner": missing, "multiple_owners": multiple}
 
 
-def index(path, columns):
-    indexed = {}
-    duplicates = set()
+def index(path: Path, columns: Sequence[str]) -> tuple[dict[str, Row], list[str]]:
+    indexed: dict[str, Row] = {}
+    duplicates: set[str] = set()
     for row in read_tsv(path, columns):
         identity = row["id"]
         if identity in indexed:
@@ -528,7 +691,7 @@ def index(path, columns):
     return indexed, sorted(duplicates)
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rows", type=Path, default=HERE / "rows.tsv")
     parser.add_argument("--judged", type=Path, default=HERE / "owners-judged.tsv")
@@ -543,7 +706,8 @@ def main():
             duplicate_judgments=duplicate_judgments,
             unknown_judgments=sorted(judgments.keys() - rows.keys()),
             invalid_judgments=sorted(
-                identity for identity, judgment in judgments.items()
+                identity
+                for identity, judgment in judgments.items()
                 if judgment["step"] not in STEPS or not judgment["why"].strip()
             ),
             # A misspelled step in a map above would own rows no builder reads.
