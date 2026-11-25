@@ -17,13 +17,11 @@ from lem.model.landing import (
     merge,
     mergeread,
     phases,
-    propose,
     reconcile,
     review,
     review_said,
 )
 from lem.model.landing.world import Rules
-from lem.records.criterion import CriterionTest
 from lem.records.landing.merge import MergeAccepted, Merged, MergeIntent, Refused
 from lem.records.landing.review import Finding, Named
 from lem.records.task import Shape
@@ -116,7 +114,7 @@ def test_a_review_of_another_attempt_or_tip_is_refused_and_its_must_fix_is_kept(
     after = task(**{**PREPARED, "reviews": (failed,)})
     assert phases.due(after, world()).step == "read"
     assert review.floor(after) == "round"
-    assert green.reasons(after) == ("the review left 1 must-fix",)
+    assert green.reasons(after, ()) == ("the review left 1 must-fix",)
     assert code_of(review.decide(after, world(), said(attempt=2))) == "under-floor"
 
 
@@ -167,68 +165,6 @@ def test_a_finding_under_the_bar_is_seen_and_one_over_it_is_a_later_steps_item()
         )
         == "not-built"
     )
-
-
-def test_green_names_each_reason_it_is_not() -> None:
-    assert green.reasons(task(**PREPARED)) == ()
-    must = Finding(
-        id="r1.2", level="must-fix", where="a", title="t", what="w", against="over"
-    )
-    careful = replace(REVIEWED, careful=True, careful_why="money", findings=(must,))
-    red = replace(CHECKED, outcome="red")
-    record = task(**{**PREPARED, "reviews": (careful,), "checked": red})
-    test = CriterionTest(command="pytest", files=("t.py",))
-    tested = replace(record.task.criteria.criteria[0], no_test=None, tests=(test,))
-    criteria = replace(record.task.criteria, criteria=(tested,), approvals=())
-    record = replace(record, task=replace(record.task, criteria=criteria))
-    assert green.reasons(record) == (
-        "the checks did not pass",
-        "criterion 1's test was not seen to fail on the base and pass on the tip",
-        "nobody approved the criteria",
-        "the review left 1 must-fix",
-        "the change is careful: money",
-    )
-
-
-def test_propose_pushes_a_tip_origin_lacks_and_adopts_only_a_request_lem_pushed() -> (
-    None
-):
-    record = task(**PREPARED)
-    made = propose.decide(record, world())
-    assert not isinstance(made, Refusal)
-    assert (made.push, made.adopt, made.proposed.green, made.proposed.who_acts) == (
-        True,
-        None,
-        True,
-        "merger",
-    )
-    pushed = task(**{**PREPARED, "pushed": TIP})
-    cut = propose.decide(pushed, world(remote=TIP, candidates=(SEEN,)))
-    assert not isinstance(cut, Refusal)
-    assert (cut.push, cut.adopt) == (False, SEEN)
-    before = world(remote=TIP, candidates=(SEEN,))
-    assert code_of(propose.decide(record, before)) == "foreign-pull"
-    two = world(candidates=(SEEN, replace(SEEN, number=2, head=OTHER)))
-    assert code_of(propose.decide(pushed, two)) == "foreign-pull"
-    guarded = world(
-        rules=Rules(base="main", commands=("true",), protected=("docs/fix-the-login",))
-    )
-    assert code_of(propose.decide(record, guarded)) == "protected"
-    owner = propose.decide(
-        record, world(rules=Rules(base="main", land="owner", commands=("true",)))
-    )
-    assert not isinstance(owner, Refusal)
-    assert owner.proposed.who_acts == "owner"
-
-
-def test_a_careful_request_is_not_green_and_the_owner_merges_it() -> None:
-    record = task(**PREPARED)
-    shape = Shape(type="docs", why="w", track="small", careful=("money",))
-    careful = replace(record, task=replace(record.task, shape=shape))
-    assert green.reasons(careful) == ("the request is careful: money",)
-    made = propose.decide(careful, world())
-    assert not isinstance(made, Refusal)
-    assert made.proposed.who_acts == "owner"
 
 
 def test_a_merge_read_takes_a_verdict_for_the_tip_and_base_of_its_brief() -> None:

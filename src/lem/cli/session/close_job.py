@@ -2,13 +2,17 @@
 
     lem session close-job [--session ID]
 
-A stub until the step `sessions` builds it: it refuses `not-built`.
+It closes the caller's session, or the one named, once the owner has left it, when a scheduled
+job started its agent (`app/sessions/closing_job.py`).
 """
+
+import time
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.sessions import closing_job, here
+from lem.cli import place
 
 # seconds between two looks, unless the call says
 EVERY = 5.0
@@ -21,9 +25,10 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     every: float = EVERY
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `sessions` builds `lem session close-job`."""
-    raise not_built("session close-job", "sessions")
+def run(call: Call) -> closing_job.JobClosed:
+    """Close the job's session once the owner has left it."""
+    bound = here.bound(place.folder())
+    return closing_job.close_job(bound, call.session, call.every, time.sleep)
 
 
 COMMAND = click.Command(

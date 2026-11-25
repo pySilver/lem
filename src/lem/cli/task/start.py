@@ -2,13 +2,19 @@
 
     lem task start SLUG --words WORDS
 
-A stub until the step `task` builds it: it refuses `not-built`.
+His word lifts the queue, and its line keeps his words (`app/tasks/start.py`).
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.tasks import start
+from lem.cli import place
+
+if TYPE_CHECKING:
+    from lem.model.task.table import Moved
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -18,9 +24,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     words: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `task` builds `lem task start`."""
-    raise not_built("task start", "task")
+def run(call: Call) -> Moved:
+    """Start the queued task on the owner's word."""
+    return start.start(place.folder(), call.slug, call.words)
 
 
 COMMAND = click.Command(

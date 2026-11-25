@@ -7,102 +7,98 @@ after its fence would read as code (`criteria.fenced_lines` on `main`). What the
 named, each part by its heading, in one refusal; so is a time that is no time.
 """
 
-import itertools
 import re
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
+import msgspec
+
+from lem.app.sessions.fences import FIX, fenced
+from lem.app.sessions.handoff_parts import Changed, lacking
 from lem.kernel.errors import Refusal
 from lem.records.base import Frozen
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 HANDOFF = "handoff.md"
+HEADING = re.compile(r"^## +(.+?) *$", re.MULTILINE)
 FIRST = re.compile(
     r"task:\s*(?P<task>[a-z0-9]+(?:-[a-z0-9]+)*)\s*·\s*from\s+(?P<phase>shape|build|land|fast)"
     r"\s*·\s*written:\s*(?P<written>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?)Z"
 )
-COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
-FENCE = re.compile(r" {0,3}(?P<mark>`{3,}|~{3,})(?P<rest>.*)")
-HEADING = re.compile(r"^## +(.+?) *$", re.MULTILINE)
-PARTS = ("Settled", "Open", "Next step", "Failed", "Changed files")
-FIX = "write {} again in the form of `templates/handoff.md`, then run this again"
 
 
-class Form(Frozen, frozen=True, kw_only=True):
-    """What `handoff.md` says of itself: the phase it is from, and when it was written."""
+class Form(Frozen, frozen=True, kw_only=True, omit_defaults=False):
+    """What `handoff.md` says of itself: the task, the phase it is from, when it was written,
+    and its changed files."""
 
-    phase: str
+    task: str
+    phase: str = msgspec.field(name="from")
     written: datetime
+    changed: tuple[Changed, ...] = ()
 
 
 def form(text: str, slug: str) -> Form:
     """The handoff's own line, after a check of its whole form; refused with each part it
     lacks."""
-    head, *parts = HEADING.split(fenced(text, slug))
+    head, *parts = HEADING.split(fenced(text, slug, HANDOFF))
+    lacks, changed = lacking(parts)
+    first = first_of(head, slug)
+    if first is None or lacks:
+        raise lacked(slug, lacks, first=first is not None)
+    return msgspec.structs.replace(first, changed=changed)
+
+
+def lacked(slug: str, lacks: list[str], *, first: bool) -> Refusal:
+    """The refusal of a handoff that lacks `lacks`, and its first line unless `first`."""
+    line = (
+        () if first else (f"a first line `task: {slug} · from PHASE · written: TIME`",)
+    )
+    said = "; ".join((*line, *lacks))
+    return Refusal(
+        "handoff-form",
+        f"{HANDOFF} of {slug} is not in the form of `templates/handoff.md`: it lacks {said}",
+        FIX.format(HANDOFF),
+    )
+
+
+def first_of(head: str, slug: str) -> Form | None:
+    """The phase and the UTC moment of the handoff's first line; None when the line is not in
+    its form, names another task, or names a time that is no time (February 31)."""
     found = FIRST.fullmatch(head.strip())
-    written = moment(found["written"]) if found else None
-    lacks = lacking(parts)
-    if found is None or found["task"] != slug or written is None:
-        lacks.insert(0, f"a first line `task: {slug} · from PHASE · written: TIME`")
-    if found is None or written is None or lacks:
-        raise Refusal(
-            "handoff-form",
-            f"{HANDOFF} of {slug} is not in the form of `templates/handoff.md`: it lacks "
-            + "; ".join(lacks),
-            FIX.format(HANDOFF),
-        )
-    return Form(phase=found["phase"], written=written)
-
-
-def moment(stamp: str) -> datetime | None:
-    """The UTC moment `stamp` names, or None for a time that is no time (February 31)."""
+    if found is None or found["task"] != slug:
+        return None
     try:
-        return datetime.fromisoformat(stamp).replace(tzinfo=UTC)
+        written = datetime.fromisoformat(found["written"])
     except ValueError:
         return None
+    moment = written.replace(tzinfo=UTC)
+    return Form(task=slug, phase=found["phase"], written=moment)
 
 
-def fenced(text: str, slug: str) -> str:
-    """`text` with no comment, and each line of a code block moved in by a space so that it
-    reads as no heading; refused when a block never closes."""
-    moved, opened = code_moved(COMMENT.sub("", text).splitlines())
-    if opened is not None:
+def checked(folder: Path, slug: str, ended: str, opened_at: datetime) -> Form:
+    """The handoff of the task in `folder`, refused when it is missing, not in its form, from
+    another phase than `ended`, or written before the session that leaves opened."""
+    path = folder / HANDOFF
+    if not path.is_file():
         raise Refusal(
-            "handoff-form",
-            f"{HANDOFF} of {slug} has a code block that opens with {opened} and never "
-            "closes, so each line after it reads as code",
-            FIX.format(HANDOFF),
+            "no-handoff",
+            f"{path} is not there",
+            "write the handoff in the form of `templates/handoff.md` first",
         )
-    return "\n".join(moved)
-
-
-def code_moved(lines: list[str]) -> tuple[list[str], str | None]:
-    """The lines, each of a code block (its fences too) moved in by a space, and the fence of
-    a block still open at the end."""
-    opened: str | None = None
-    moved: list[str] = []
-    for line in lines:
-        code = opened is not None
-        opened = next_fence(opened, FENCE.fullmatch(line))
-        code = code or opened is not None
-        moved.append(f" {line}" if code else line)
-    return moved, opened
-
-
-def next_fence(opened: str | None, mark: re.Match[str] | None) -> str | None:
-    """The fence of the block open after a line: the fence `mark` opens, none when it closes
-    `opened` (the same character, at least as long, nothing after it), else `opened`."""
-    if mark is None:
-        return opened
-    if opened is None:
-        return mark["mark"]
-    fence = mark["mark"]
-    same = fence[0] == opened[0]
-    longer = len(fence) >= len(opened)
-    return None if same and longer and not mark["rest"].strip() else opened
-
-
-def lacking(parts: list[str]) -> list[str]:
-    """The headings of the form with no words under them in `parts`, the titles and bodies of
-    the headings in turn."""
-    pairs = itertools.batched(parts, 2, strict=True)
-    said = {title.lower() for title, body in pairs if body.strip()}
-    return [f"## {part}" for part in PARTS if part.lower() not in said]
+    found = form(path.read_text(encoding="utf-8"), slug)
+    if found.phase != ended:
+        raise Refusal(
+            "handoff-phase",
+            f"{HANDOFF} of {slug} is from {found.phase}, and the phase that ends is {ended}",
+            "write it again for the phase that ends",
+        )
+    if found.written < opened_at.replace(second=0):
+        raise Refusal(
+            "handoff-old",
+            f"{HANDOFF} of {slug} was written before this session opened: it is an older "
+            "session's",
+            "write it again",
+        )
+    return found

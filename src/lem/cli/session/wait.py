@@ -2,14 +2,23 @@
 
     lem session wait SLUG (--until STATES|--event EVENT|--first-line) ...
 
-A stub until the step `sessions` builds it: it refuses `not-built`.
+It waits for one of the task's statuses, a new entry of a kind on its record, or its first line,
+and ends too when its session or a companion is gone, or a quiet file stays quiet
+(`app/sessions/waits.py`, `app/sessions/first_line.py`).
 """
+
+import time
+from typing import get_args
 
 import click
 import msgspec
 
+from lem.app.sessions import first_line, here, waits
+from lem.cli import place
 from lem.cli.checks import exactly_one
-from lem.cli.stub import not_built
+from lem.kernel import clock
+from lem.kernel.errors import Refusal
+from lem.records.task import Status
 
 # seconds between two looks, unless the call says
 EVERY = 10.0
@@ -30,9 +39,44 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     bound: float = BOUND
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `sessions` builds `lem session wait`."""
-    raise not_built("session wait", "sessions")
+def run(call: Call) -> waits.waiting.Waited | first_line.FirstLine:
+    """Wait for the state, the entry or the first line."""
+    bound = here.bound(place.folder())
+    if call.first_line:
+        asked = (call.slug, call.every, call.bound)
+        return first_line.first_line(bound, asked, clock.now, time.sleep)
+    until = tuple(
+        word.strip() for word in (call.until or "").split(",") if word.strip()
+    )
+    wanted = waits.Asked(
+        slug=call.slug,
+        until=until,
+        event=call.event,
+        companion=call.companion,
+        quiet=call.quiet,
+        every=call.every,
+    )
+    return waits.wait_for(bound, wanted, clock.now, time.sleep)
+
+
+# The holds `--until` names beside the statuses, as `main`'s states named them.
+HOLDS = ("held", "blocked", "parked", "release")
+
+
+def statuses(words: str) -> tuple[str, ...]:
+    """The statuses `--until` names; refused for a word that is no status."""
+    stripped = map(str.strip, words.split(","))
+    named = tuple(filter(None, stripped))
+    known = (*get_args(Status.__value__), *HOLDS)
+    unknown = " ".join(word for word in named if word not in known)
+    if unknown:
+        listed = " ".join(known)
+        raise Refusal(
+            "until",
+            f"--until names {unknown}, which is no status or hold of a task",
+            f"name statuses among {listed}, joined by commas",
+        )
+    return named
 
 
 COMMAND = click.Command(

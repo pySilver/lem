@@ -2,20 +2,16 @@
 
     lem task open SLUG --ask WORDS [--ticket ID] [--branch B] ...
 
-The plain form of the fast track, as the step `slice-land` built it; the step `task` owns it.
+The task opens `shaping`, or `queued` behind `--after`; a ticket, a backlog item and the
+dropped task `--from` names are claimed under the workspace lock (`app/tasks/open.py`).
 """
-
-from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
 from lem.app.tasks import open as opening
+from lem.app.tasks.opening import Asked
 from lem.cli import place
-from lem.model.landing.world import later
-
-if TYPE_CHECKING:
-    from lem.app.tasks.open import Opened
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -33,15 +29,11 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     origin: str | None = None
 
 
-def run(call: Call) -> Opened:
-    """Open the task; the other words are the step `task`'s."""
-    others = (call.ticket, call.ticket_repo, call.night, call.after, call.backlog_item)
-    if any(others) or call.origin or call.plan_only:
-        raise later(
-            "`lem task open --ticket|--night|--after|--plan-only|--item|--from`", "task"
-        )
-    ask, branch = call.ask, call.branch
-    return opening.opened(place.folder(), call.slug, ask=ask, branch=branch)
+def run(call: Call) -> opening.Opened:
+    """Open the task."""
+    return opening.opened(
+        place.folder(), msgspec.convert(call, Asked, from_attributes=True)
+    )
 
 
 COMMAND = click.Command(

@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # A decision in doubt: the ladder
 
 Read by a lead or a plan talk's defender at a decision in doubt, and by a task's session in the
@@ -13,14 +12,14 @@ a build waits for him. A count decides each level, not a model, and you apply it
 owner's "Next level follows if no clear consensus reached" (2026-11-18). Each log below is
 
 ```bash
-lem decisions --repo WORKTREE log SLUG --what TEXT --chose OPTION --why TEXT --by LEVEL --option TEXT --option TEXT [--level NAME=ANSWER ...] [--case STEPS --case-was reproduced|derived --cause TEXT] [--chart FILE]
+lem --repo WORKTREE decisions log SLUG --what TEXT --chose OPTION --why TEXT --by LEVEL --option TEXT --option TEXT [--level NAME=ANSWER ...] [--case STEPS --case-was reproduced|derived --cause TEXT] [--chart FILE]
 ```
 
 with each option, and a `--level` for each level that ran with what it answered, so that the
 record shows later which level changes picks and which never does.
 
 0. **The gate.** The `lem-gate` skill (`load-skill`) asks its judge. It settles the decision when
-   a ruling of the owner's answers it (a bullet of the rulings list, `lem project path rulings`,
+   a ruling of the owner's answers it (a bullet of the rulings list, `lem path rulings`,
    or a line of the project's agent document), when a test or a rule answers it, or when a wrong
    pick is cheap to reverse and nobody would notice it meanwhile: `--by gate`, with the cite in
    `--why`, for a ruling the list, the group's heading and the bullet's bold sentence ("docs/rulings.md,
@@ -38,8 +37,8 @@ record shows later which level changes picks and which never does.
    against it. The one against ends with `no break`, or names each break with its file and line.
    Open each cite yourself. No break you can confirm: settled, `--by dialectic`. A confirmed break
    is a fact, and it goes to the experts with the question.
-4. **The experts.** The `lem-ask-expert` skill with the question in words (`lem experts --repo
-   WORKTREE brief --question TEXT --context TEXT --option TEXT ...`, with each confirmed break in
+4. **The experts.** The `lem-ask-expert` skill with the question in words (`lem --repo WORKTREE
+   experts brief --question TEXT --context TEXT --option TEXT ...`, with each confirmed break in
    the context), then `record --folder` for each answer, which prints whether they agree. Both
    for one option: settled, `--by experts`. On a machine with one of their agents (no Codex), one
    expert answers alone, and its pick settles: `--by experts`, which the record and the pull

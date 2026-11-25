@@ -2,13 +2,18 @@
 
     lem session talk SLUG --from WORDS [--leave WORDS]...
 
-A stub until the step `sessions` builds it: it refuses `not-built`.
+It copies the turns of the Claude Code session it runs in, from the owner's turn that the words
+of `--from` start, into the task's `talk.md` (`app/sessions/talking.py`).
 """
+
+import os
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.adapters import claude_talk, claude_talk_turns
+from lem.app.sessions import here, talking
+from lem.cli import place
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -19,9 +24,12 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     leave: tuple[str, ...] = ()
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `sessions` builds `lem session talk`."""
-    raise not_built("session talk", "sessions")
+def run(call: Call) -> talking.Copied:
+    """Copy the turns about the task's ask into its talk.md."""
+    bound = here.bound(place.folder())
+    source = claude_talk.own_transcript(os.environ)
+    turns = claude_talk_turns.turns(source)
+    return talking.copied(bound, call.slug, turns, (call.start, call.leave))
 
 
 COMMAND = click.Command(

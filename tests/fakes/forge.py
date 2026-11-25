@@ -152,7 +152,10 @@ class LocalForge:
     def merged(self, number: int, method: MergeMethod, text: MergeText) -> MergeOutcome:
         """Merge the pull request now."""
         pull = self.fresh(self.pulls[number])
-        message = f"{text.subject} (#{number})\n\n{text.body}"
+        # GitHub keeps a given subject as it is (trial-skeleton, 2026-11-25, a real squash);
+        # with none, its own is the title and the number.
+        subject = text.subject or f"{pull.title} (#{number})"
+        message = f"{subject}\n\n{text.body}"
         made = self.remote.merge_into(
             pull.base, pull.head, method=method, message=message
         )

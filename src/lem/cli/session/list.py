@@ -11,6 +11,7 @@ import msgspec
 
 from lem.app.sessions import here, listing
 from lem.cli import place
+from lem.kernel import clock
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -19,7 +20,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 def run(call: Call) -> tuple[listing.Listed, ...]:
     """Each task's newest session."""
-    return listing.list_sessions(here.bound(place.folder()))
+    return listing.list_sessions(here.bound(place.folder()), clock.now())
 
 
 COMMAND = click.Command(

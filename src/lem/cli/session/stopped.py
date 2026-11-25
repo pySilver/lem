@@ -2,13 +2,20 @@
 
     lem session stopped SLUG [--session ID]
 
-A stub until the step `sessions` builds it: it refuses `not-built`.
+The guard's stop, after one more look in the task's lock (`app/sessions/guard_steps.py`).
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.sessions import guard_steps, here
+from lem.cli import place
+from lem.kernel import clock
+
+if TYPE_CHECKING:
+    from lem.kernel.envelope import Envelope
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -18,9 +25,11 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     session: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `sessions` builds `lem session stopped`."""
-    raise not_built("session stopped", "sessions")
+def run(call: Call) -> Envelope:
+    """Put the stop of the task's session on record when it is due."""
+    bound = here.bound(place.folder())
+    acted = guard_steps.stepped(bound, call.slug, "stopped", call.session, clock.now())
+    return here.enveloped(acted, acted.say)
 
 
 COMMAND = click.Command(
