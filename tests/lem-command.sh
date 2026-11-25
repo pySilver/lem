@@ -7,7 +7,6 @@
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
-LEM=$LEM_UNDER_TEST
 # the names, as `lem help` lists them: each line after the first that opens with two spaces
 listed=$("$LEM" help | "$PY" -c 'import sys; print(" ".join(line.split()[0] for line in sys.stdin.read().splitlines()[1:] if line.startswith("  ")))')
 names=${listed% version help}
@@ -105,48 +104,31 @@ mkdir -p "$FAKE/.claude-plugin" && printf '{"name": "lem", "version": "1.4.0"}\n
 fake_version=$("$FAKE/bin/lem" version | field '(d["root"], d["version"], d["commit"])')
 printf 'abc1234\n' > "$FAKE/src/lem/build-commit"
 stamped=$("$FAKE/bin/lem" version | field 'd["commit"]')
-own_version=$("$LEM" version | field '(d["commit"], d["root"])')
-commit=$(git rev-parse --short HEAD)
-if [ "$fake_version" = "('$FAKE', '1.4.0', None)" ] && [ "$stamped" = abc1234 ] && [ "$own_version" = "('$commit', '$PWD')" ]; then
+# the lem under test: this checkout's names the checkout and its commit; an installed one names its own data folder,
+# outside the checkout, and the manifest's version
+if in_checkout; then
+  own_version=$("$LEM" version | field '(d["commit"], d["root"])')
+  own_wanted="('$(git rev-parse --short HEAD)', '$PWD')"
+else
+  own_version=$("$LEM" version | field '(d["version"], d["root"])')
+  case $own_version in
+    *"'$PWD/"*) own_wanted="a root outside the checkout" ;;
+    *"/lem/data')") own_wanted=$own_version ;;
+    *) own_wanted="a root that is an installed package's data folder" ;;
+  esac
+  [[ "$own_version" == "('$(field 'd["version"]' < .claude-plugin/plugin.json)', "* ]] || own_wanted="the manifest's version"
+fi
+if [ "$fake_version" = "('$FAKE', '1.4.0', None)" ] && [ "$stamped" = abc1234 ] && [ "$own_version" = "$own_wanted" ]; then
   pass "lem version gives the manifest's version, the folder of Lem's files as root, and the commit a build wrote, else the checkout's, else none"
 else
   fail "lem version: $fake_version / $stamped / $own_version"
 fi
-
-# uv_tried OUT SUBCOMMAND ARGS...: `uv SUBCOMMAND --offline ARGS`, and when uv says it needed the network for what its
-# cache lacks, the same online; uv's output in OUT, and its exit
-uv_tried() {
-  local out=$1 sub=$2
-  shift 2
-  uv "$sub" --offline "$@" > "$out" 2>&1 && return 0
-  uv_unreachable "$out" || return 1
-  uv "$sub" "$@" > "$out" 2>&1
-}
 
 # The wheel, built as an install builds it (uv build: the sdist, and the wheel from it) and installed into a virtual
 # environment outside the checkout: it holds every module of the package and every file the app reads through
 # lem.paths, under lem/data, byte for byte as git has them at HEAD, and nothing more there; its name holds the
 # manifest's version; its lem version names that folder as root, the manifest's version and no commit (no checkout, no
 # build-commit); its lem help lists every name. With the build backend in uv's cache the build needs no network.
-# wheel_built SRC OUT: SRC's sdist and its wheel in OUT, built as an install builds them. It prints `built`; or
-# `skip: WHY` when uv's own words say the backend is not in its cache and no index answers, the one prerequisite a
-# build may miss here; or `fail: WHY` with uv's line and the backend's last lines, for every other failure.
-wheel_built() {
-  local out=$2.out
-  if (cd "$1" && uv_tried "$out" build --out-dir "$2"); then
-    echo built
-  elif uv_unreachable "$out"; then
-    printf "skip: the build backend is not in uv's cache, and uv reaches no index: %s\n" "$(tail -n 2 "$out" | tr -s ' \n' ' ')"
-  else
-    printf 'fail: %s: %s\n' "$(grep -m 1 '^  × ' "$out" | sed 's/^  × //')" "$(sed '/^  × /,$d' "$out" | tail -n 2 | tr -s ' \n' ' ')"
-  fi
-}
-# wheel_installed BUILT APP: the wheel in BUILT installed into a virtual environment APP; prints its data folder
-wheel_installed() {
-  uv venv -q --python "$PY" "$2" >/dev/null 2>&1
-  uv pip install -q --offline --no-deps --python "$2/bin/python" "$1"/lem-*.whl >/dev/null 2>&1
-  find "$2/lib" -path '*/site-packages/lem/data' -type d
-}
 # wheel_same CHECKOUT DATA: `same N M` when the installed package of the data folder DATA holds the N files of the
 # plugin and the M modules of CHECKOUT's HEAD, each the blob git has (`git hash-object --no-filters` of the installed
 # file against `git ls-tree HEAD`), and no other file under DATA; else what differs
@@ -195,8 +177,7 @@ wheel_check() {
 # named with the backend's own last lines, never a missing prerequisite.
 wheel_refusals() {
   local copy=$WORK/wheel-copy state data other raised
-  mkdir -p "$copy"
-  git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$copy"
+  checkout_copy "$copy"
   git init -q -b main "$copy" && ident "$copy"
   git -C "$copy" add -A && git -C "$copy" commit -q -m "chore: Lem as this checkout has it"
   printf 'a line git does not have\n' >> "$copy/skills/lem/SKILL.md"
@@ -222,8 +203,7 @@ wheel_refusals() {
 # never keeps the build before. The install is the one a formula makes: no editable install, no tools.
 resync_check() {
   local copy=$WORK/resync first again data version
-  mkdir -p "$copy"
-  git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$copy"
+  checkout_copy "$copy"
   if ! (cd "$copy" && uv_tried "$WORK/resync.out" sync --locked --no-editable --no-dev --python "$PY"); then
     if uv_unreachable "$WORK/resync.out"; then
       skip "a second sync of a copy holds its changed manifest, build-commit and plugin file: uv's cache lacks the build backend, and uv reaches no index: $(tail -n 2 "$WORK/resync.out")"

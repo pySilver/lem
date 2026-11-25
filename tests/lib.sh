@@ -1,8 +1,8 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034  # the paths and values here are read by the blocks that source this file
 # What every block of Lem's script checks shares: the strict mode, the root of the checkout, a
-# folder of its own, the interpreter (tests/python.sh) and the command (LEM_UNDER_TEST), the count of
-# its checks (checks.sh), and the helpers more than one block calls. A block sources this file first
+# folder of its own, the interpreter and the command `lem` it drives, "$LEM" (tests/python.sh), the count
+# of its checks (checks.sh), and the helpers more than one block calls. A block sources this file first
 # and ends with `finish`. Each block runs alone, so nothing here depends on the order in which the
 # blocks run.
 set -eEuo pipefail
@@ -10,11 +10,10 @@ set -eEuo pipefail
 # -P: the folder as it is on disk, the way readlink and git name it: a checkout under /tmp is
 # under /private/tmp on macOS.
 cd -P "$(dirname "${BASH_SOURCE[0]}")/.."
-# Lem's one entry: `"$PY" -B "$MAIN" NAME ARGS...` is `lem NAME ARGS...` with no look at the board server
+# The checkout's own entry, for a check that needs the checkout itself; a journey starts Lem through "$LEM"
 MAIN=$PWD/src/lem/__main__.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
 export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
-export LEM_SERVE=off  # a board that a check opens starts no board server (`serve.py`), which would outlive the run
 # Claude Code's folder of this run, which lists no install: a task's open marks it with this Lem's own release
 # (`lem_release.chosen`), never with the release the developer installed, which may be two releases behind the checkout
 export CLAUDE_CONFIG_DIR="$WORK/claude"
@@ -28,12 +27,6 @@ SERVE_PID=""
 trap 'stopped; [ -z "$SERVE_PID" ] || { kill -TERM "$SERVE_PID" 2>/dev/null; wait "$SERVE_PID" 2>/dev/null || true; }; rm -rf "$WORK"' EXIT
 # shellcheck source=tests/python.sh
 . tests/python.sh
-# LEM_UNDER_TEST: the absolute path of the command `lem` a block drives; by default the checkout's own, .venv/bin/lem
-export LEM_UNDER_TEST=${LEM_UNDER_TEST:-$PWD/.venv/bin/lem}
-case $LEM_UNDER_TEST in
-  /*) ;;
-  *) printf 'FAIL LEM_UNDER_TEST=%s is no absolute path: name the command lem a block drives by its whole path\n' "$LEM_UNDER_TEST"; exit 1 ;;
-esac
 # The board server's port of this run, a free one, in the machine's settings of this run: a check that asks for the
 # server (lem board, lem serve --ensure) asks this port, never the one of a server the owner runs. The load gate is
 # away (`start = 0`, as `lem project load --start none` writes it): under Lem's default of 40 two landings of a block
@@ -43,7 +36,7 @@ mkdir -p "$XDG_CONFIG_HOME/lem" && printf '[load]\nstart = 0\n[serve]\nport = %s
 # serve_up: the board server of this run, in the foreground of a background job, with its output in $WORK/serve.out;
 # it answers before this returns, and the run's exit stops it
 serve_up() {
-  "$PY" -B "$MAIN" serve > "$WORK/serve.out" 2>&1 &
+  "$LEM" serve > "$WORK/serve.out" 2>&1 &
   SERVE_PID=$!
   soon curl -fs -o /dev/null "http://127.0.0.1:$SERVE_PORT/api/server"
 }
@@ -250,12 +243,46 @@ STANDIN
   } > "$1/agtermctl"
   chmod +x "$1/agtermctl"
 }
-project() { "$PY" -B "$MAIN" project "$@"; }
+project() { "$LEM" project "$@"; }
 # uv_unreachable FILE: whether uv's output in FILE says it needed the network and had none: offline, data its cache
 # lacks ("Network connectivity is disabled", "the network was disabled"), or online, a request that reached no host
 # ("error sending request"). uv wraps its message in a tree of box characters, which are read as spaces.
 uv_unreachable() {
   "$PY" -I -c 'import re, sys; text = " ".join(re.sub("[│├╰─▶×]", " ", open(sys.argv[1], errors="replace").read()).split()); sys.exit(0 if re.search("error sending request|Network connectivity is disabled|the network was disabled", text) else 1)' "$1" 2>/dev/null
+}
+# checkout_copy DIR: the files git tracks in this checkout, as the working tree has them, copied into DIR
+checkout_copy() {
+  mkdir -p "$1"
+  git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$1"
+}
+# uv_tried OUT SUBCOMMAND ARGS...: `uv SUBCOMMAND --offline ARGS`, and when uv says it needed the network for what its
+# cache lacks, the same online; uv's output in OUT, and its exit
+uv_tried() {
+  local out=$1 sub=$2
+  shift 2
+  uv "$sub" --offline "$@" > "$out" 2>&1 && return 0
+  uv_unreachable "$out" || return 1
+  uv "$sub" "$@" > "$out" 2>&1
+}
+
+# wheel_built SRC OUT: SRC's sdist and its wheel in OUT, built as an install builds them. It prints `built`; or
+# `skip: WHY` when uv's own words say the backend is not in its cache and no index answers, the one prerequisite a
+# build may miss here; or `fail: WHY` with uv's line and the backend's last lines, for every other failure.
+wheel_built() {
+  local out=$2.out
+  if (cd "$1" && uv_tried "$out" build --out-dir "$2"); then
+    echo built
+  elif uv_unreachable "$out"; then
+    printf "skip: the build backend is not in uv's cache, and uv reaches no index: %s\n" "$(tail -n 2 "$out" | tr -s ' \n' ' ')"
+  else
+    printf 'fail: %s: %s\n' "$(grep -m 1 '^  × ' "$out" | sed 's/^  × //')" "$(sed '/^  × /,$d' "$out" | tail -n 2 | tr -s ' \n' ' ')"
+  fi
+}
+# wheel_installed BUILT APP: the wheel in BUILT installed into a virtual environment APP; prints its data folder
+wheel_installed() {
+  uv venv -q --python "$PY" "$2" >/dev/null 2>&1
+  uv pip install -q --offline --no-deps --python "$2/bin/python" "$1"/lem-*.whl >/dev/null 2>&1
+  find "$2/lib" -path '*/site-packages/lem/data' -type d
 }
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 field() { "$PY" -c 'import json, sys; d = json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1"; }
@@ -295,7 +322,7 @@ soon() {
 }
 
 # The landing's helpers, for every block that takes a task through land.py.
-land() { "$PY" -B "$MAIN" land "$@"; }
+land() { "$LEM" land "$@"; }
 ident() { git -C "$1" config user.name t; git -C "$1" config user.email t@t; }
 # plan_in TREE SLUG TEST: the task's plan, a full change's, with one criterion that TEST holds; TEST is `no test: REASON` for a criterion with none
 plan_in() {
@@ -323,7 +350,7 @@ small_task_in() {
   local tree directory
   directory=$(project --repo "$1" task-dir "$2" --ask "Put $4 into $3.")
   printf '%s\n' '## Acceptance criteria' '' 'Size: small, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$directory/criteria.md"
-  "$PY" -B "$MAIN" criteria --repo "$1" approve "$2" --file "$directory/criteria.md" --small >/dev/null
+  "$LEM" criteria --repo "$1" approve "$2" --file "$directory/criteria.md" --small >/dev/null
   printf '%s\n' "   - test: \`sh tests/$2.sh\` in \`tests/$2.sh\`" >> "$directory/criteria.md"
   tree=$(project --repo "$1" worktree-dir "$2")
   git -C "$1" worktree add -q "$tree" -b "fix/$2" main
@@ -335,7 +362,7 @@ small_task_in() {
 # model family, nobody confused. A full change is not proposed without one.
 read_in() {
   local digest
-  digest=$("$PY" -B "$MAIN" criteria --repo "$1" digest "$2" | field 'd["digest"]')
+  digest=$("$LEM" criteria --repo "$1" digest "$2" | field 'd["digest"]')
   project --repo "$1" log "$2" criteria.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
 }
 # polish_in REPO SLUG: the polish pass of a full change's landing, which here changes nothing; none when this landing's pass is done already
