@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from lem.app.asking.overlay_read import outcome
 from lem.app.owner.sessions import agent_is_live
-from lem.app.sessions import agents, beside, log
+from lem.app.sessions import agents, log
 from lem.app.wiring import bound
 from lem.kernel import paths
 from lem.kernel.errors import Refusal
@@ -43,7 +43,7 @@ def current(folder: Path, session: str, environ: Mapping[str, str]) -> None:
 
 def running(terminal: Terminal, session: str) -> bool:
     """Check the agent in the named pane from one terminal read."""
-    grounds = beside.looks(terminal).foregrounds()
+    grounds = terminal.foregrounds()
     for pane, words in grounds.items():
         if log.same(pane, session):
             return agent_is_live(listed=True, agent=agents.agent_runs(words))

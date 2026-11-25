@@ -1,5 +1,5 @@
 """Whether an agent runs in a session's main pane, and the line a scheduled job started it with,
-from the words of the pane's program (`beside.Foreground`), as agterm's tree gave them on
+from the words of the pane's program (`Terminal.foregrounds`), as agterm's tree gave them on
 2026-11-21 and 2026-11-23 (`session.agent_runs` and `session.job_line` on `main`).
 
 The program is an agent the owner started by hand (a word whose file is an agent's,
@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from lem.app.sessions.beside import Foreground
+    from lem.ports.terminal import Foreground
 
 # The programs that count as the task's agent in the pane, by the name of their file.
 AGENTS = frozenset(("claude", "codex"))

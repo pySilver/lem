@@ -5,34 +5,26 @@ exists, and what other steps take from it.
 
 ## For `core` (`records/`): Lem's acts on a task's sessions in the journal
 
-The slice's request stands, wider. `lem session open`, `close`, `wake`, `stopped`, `worked` and
-the guard's restart put each act on record. The journal has no entry for them, so they are framed
-lines of the task folder's `session-acts.jsonl` (`app/sessions/acts.py`: `Open {at, session, name,
-phase, why, workspace}`, `Close {at, session, why}`, `Wake {at, session, why, head, unread}`,
-`Stopped {at, session, unread}`, `Worked {at, session, turn}`; `app/sessions/log.py` reads and
-writes them). Asked: the five as members of the journal's `Entry` union. Then `log.py` reads them
-from `task.json` and appends under the record lock with `expect`; the guard's timeline
-(`guard_look.timeline`) orders them with the work by the journal's own order instead of by the
-second, which today keeps an act before work of the same second.
+The five `Session*` entries exist in `records/journal/sessions.py`. The open and wake entries
+still need the fact that the act followed the task's end. `log.reached` sets that fact under
+the task lock. The board uses it to avoid a second cleanup wake while the worktree stays.
 
-## For `core` (`ports/terminal.py`, `ports/harness.py`)
+Retention folds the entire journal into one `Summary`. The folded record must keep the
+session acts the board uses and the fact that a cleanup wake or open followed the end. The
+side log keeps both today. Switch the writers and all readers together once the journal and
+its summary can hold these facts.
 
-1. `Terminal.rename(session, name)`, a look at each session's main-pane program (`Pane.agent`,
-   or `foregrounds() -> {id: argv | None}`), and a read of a pane's mailbox (`waiting(session,
-   line) -> bool`). The agterm adapter has all three beside the port (`adapters/agterm_sessions.py`,
-   `AgtermLooks`), and `app/sessions/beside.py` takes them through a runtime-checked Protocol that
-   faults by name when a terminal lacks them. Once on the port, `beside.py` goes.
-2. The caller's session: `app/sessions/here.py` reads `AGTERM_SESSION_ID` (or `AGT_SESSION_ID`)
-   itself, the one agterm name in `app/`. A `Terminal.here() -> str | None` would hold it.
-3. `Harness.plugin_folder(plugin_dir) -> Path | None`: the adapter has it beside the port, and
+## For `core` (`ports/harness.py`)
+
+1. `Harness.plugin_folder(plugin_dir) -> Path | None`: the adapter has it beside the port, and
    `lem session plugin-dir` calls it on the Claude Code adapter directly.
-4. A transcript's main-thread sign: a session's turn is the one of the transcript whose main
+2. A transcript's main-thread sign: a session's turn is the one of the transcript whose main
    thread wrote the newest turn, and `Signs.sign` counts the subagents too. The Claude Code
    adapter gives `main_sign(transcript)` beside the port (`ClaudeHarnessLooks`), taken through
    `beside.main_signs`. Asked: a `main` field on `Signs`.
-5. `Signs.read: bool`: a transcript whose process is gone gives `Signs()`, which the app reads as
+3. `Signs.read: bool`: a transcript whose process is gone gives `Signs()`, which the app reads as
    "not read" (`app/sessions/signs.py: read`); a live session with no turn yet looks the same.
-6. `pyproject.toml`: `psutil` is a dependency (commit `fcac0bc8`); `types-psutil` in the dev group
+4. `pyproject.toml`: `psutil` is a dependency (commit `fcac0bc8`); `types-psutil` in the dev group
    would end pyrefly's untyped-import warning.
 
 ## For `settings`

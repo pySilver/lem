@@ -10,6 +10,7 @@ import msgspec
 from msgspec.structs import replace
 
 from fakes.records import MOMENT
+from lem.addons.inbox import messages, records
 from lem.board.views import inbox_read, owed, standing
 from lem.board.views.inbox_read import Inbox, Sent
 from lem.board.views.panel import inbox, inbox_words, phases
@@ -61,6 +62,37 @@ def record(*sent: Sent, **door: object) -> Inbox:
     return replace(made, **door)
 
 
+def saved(*sent: Sent, **door: object) -> bytes:
+    """The Inbox add-on's wire format for a door and its sent messages."""
+    entries = []
+    for one in sent:
+        wait = msgspec.convert(
+            {
+                "key": one.key,
+                "task": one.task,
+                "kind": one.kind,
+                "since": MOMENT,
+                "asks": one.asks,
+                "session": one.session,
+                "tip": one.tip,
+            },
+            records.Wait,
+        )
+        entries.append(
+            records.Entry(
+                wait=wait,
+                key=one.key,
+                sent=messages.Sent(
+                    message_id=one.key, thread_id=one.thread_id, url=one.thread_url
+                ),
+            )
+        )
+    address = messages.Door(running=True, tailnet_url=TAILNET)
+    return msgspec.json.encode(
+        records.Record(door=replace(address, **door), entries=tuple(entries))
+    )
+
+
 def breaker_world(found: Inbox | None, presence: Presence = AWAY) -> World:
     """A building task whose breaker waits for the owner, with the Inbox's record `found`."""
     stopped = task(status="building", hold=BreakerHold(number=1, since=at(20)))
@@ -99,12 +131,12 @@ def test_each_page_reads_the_inbox_record_afresh(tmp_path: Path) -> None:
     it_changes, changed: no model is kept between two pages; `gather` reads the record whole
     for each one."""
     assert inbox_read.read(tmp_path) is None
-    (tmp_path / inbox_read.INBOX).write_bytes(msgspec.json.encode(record(thing())))
+    (tmp_path / inbox_read.INBOX).write_bytes(saved(thing()))
     found = inbox_read.read(tmp_path)
     assert found is not None
     assert found.tailnet_url == TAILNET
-    closed = record(running=False, tailnet_url=None, why="not running")
-    (tmp_path / inbox_read.INBOX).write_bytes(msgspec.json.encode(closed))
+    closed = saved(running=False, tailnet_url=None, why="not running")
+    (tmp_path / inbox_read.INBOX).write_bytes(closed)
     again = inbox_read.read(tmp_path)
     assert again is not None
     assert again.why == "not running"
@@ -114,9 +146,8 @@ def test_the_record_is_the_servers_file_read_whole_and_each_why_has_its_words(
     tmp_path: Path,
 ) -> None:
     """`main`'s Inbox.test_the_record_is_the_servers_file_read_whole_and_each_why_has_its_
-    words, changed: the reader's file and the whys `main`'s Inbox wrote (`inbox.RECORD`,
-    `inbox.WHYS`), until the add-on that writes them is built again; a file that does not read
-    is no record."""
+    words, changed: the board reads the add-on's door and deliveries. A file that does not
+    read is no record."""
     whys = {
         "not installed",
         "not running",
@@ -127,9 +158,7 @@ def test_the_record_is_the_servers_file_read_whole_and_each_why_has_its_words(
     assert inbox_read.INBOX == "inbox.json"
     assert set(inbox_words.WHY) == set(inbox_words.WHY_SENT) == whys
     other = thing(f"criteria:{SLUG}", kind="criteria")
-    (tmp_path / inbox_read.INBOX).write_bytes(
-        msgspec.json.encode(record(thing(), other))
-    )
+    (tmp_path / inbox_read.INBOX).write_bytes(saved(thing(), other))
     found = inbox_read.read(tmp_path)
     assert found is not None
     assert [one.key for one in found.sent] == [thing().key, f"criteria:{SLUG}"]

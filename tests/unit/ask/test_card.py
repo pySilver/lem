@@ -10,8 +10,8 @@ import pytest
 
 from fakes import records
 from lem.app.asking import ends, keys, saved
+from lem.app.asking.scripts import hashed
 from lem.app.sessions import acts, log
-from lem.board.ask import csp
 from lem.cli import lazy
 from lem.kernel import paths
 from lem.kernel.errors import Refusal
@@ -86,7 +86,7 @@ def test_page_routes_return_the_exact_overlay_and_only_trusted_scripts(
         trusted = paths.root() / "skills" / "lem-ask" / "runtime" / "ask.js"
         policy = head.headers["content-security-policy"]
         assert page.headers["content-security-policy"] == policy
-        assert csp.hashed(trusted.read_bytes()) in policy
+        assert hashed(trusted.read_bytes()) in policy
         for rule in ("form-action 'none'", "base-uri 'none'", "frame-ancestors 'self'"):
             assert rule in policy
         assert "unsafe-eval" not in policy
@@ -258,8 +258,8 @@ def test_board_uses_the_saved_runtime_hash_after_an_update(
         served = client.get(ROUTE + "/")
     policy = served.headers["content-security-policy"]
     assert served.content == Path(opened["file"]).read_bytes()
-    assert csp.hashed(original) in policy
-    assert csp.hashed((newer / runtime).read_bytes()) not in policy
+    assert hashed(original) in policy
+    assert hashed((newer / runtime).read_bytes()) not in policy
 
 
 def test_an_overlay_answer_already_at_the_mac_wins(

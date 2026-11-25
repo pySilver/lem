@@ -6,7 +6,7 @@ agent runs in it, the terminal does not know yet, or it opened under a minute ag
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from lem.app.sessions import agents, beside
+from lem.app.sessions import agents
 from lem.kernel.errors import Refusal
 from lem.ports.terminal import Pane, Unreadable
 
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
     from lem.app.sessions.acts import Open
     from lem.app.sessions.here import Here
+    from lem.ports.terminal import Foreground
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -22,13 +23,13 @@ class Seen:
     """The terminal's sessions and their main panes' programs, by id in capitals."""
 
     panes: dict[str, Pane]
-    grounds: dict[str, beside.Foreground]
+    grounds: dict[str, Foreground]
 
     def pane(self, session: str) -> Pane | None:
         """The session `session`, when the terminal lists it."""
         return self.panes.get(session.upper())
 
-    def ground(self, session: str) -> beside.Foreground:
+    def ground(self, session: str) -> Foreground:
         """The program in the session's main pane, None when it is not known."""
         return self.grounds.get(session.upper())
 
@@ -56,6 +57,6 @@ def listed(here: Here) -> dict[str, Pane]:
 
 def look(here: Here) -> Seen:
     """The terminal's sessions and their programs, now."""
-    found = beside.looks(here.ports.terminal).foregrounds()
+    found = here.ports.terminal.foregrounds()
     grounds = {key.upper(): words for key, words in found.items()}
     return Seen(panes=listed(here), grounds=grounds)

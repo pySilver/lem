@@ -1,7 +1,6 @@
 """A fast-track repair with a criterion's test, with or without a builder's backlog item."""
 
 import shlex
-from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
 import pytest
@@ -135,10 +134,6 @@ def span_marks(world: World) -> list[tuple[str, str]]:
     ]
 
 
-@pytest.mark.skipif(
-    find_spec("lem.app.landing.checks_record") is None,
-    reason="the land-checks step supplies the criterion run, check spans, and polish refusal",
-)
 @pytest.mark.parametrize("with_item", [False, True], ids=["clean", "with-item"])
 def test_the_fast_track_checks_its_criterion_once_and_lands(
     tmp_path: Path,

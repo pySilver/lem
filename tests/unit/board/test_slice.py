@@ -533,7 +533,7 @@ def test_each_duty_path_is_a_module_whose_tick_runs_for_a_workspace(
     board: Board,
 ) -> None:
     runner.tick(board.home)
-    assert len(runner.DUTIES) == 7
+    assert len(runner.DUTIES) == 6
 
 
 def test_a_head_of_the_stream_answers_its_headers_and_ends(board: Board) -> None:

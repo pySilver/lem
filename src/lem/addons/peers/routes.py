@@ -46,15 +46,9 @@ async def forward(request: Request) -> Response:
         )
     registry = peers(request)
     machine = registry.known[request.path_params["peer"]]
-    local = getattr(request.app.state, "peer_own_rows", empty)
-    own = await run_in_threadpool(local, request)
+    own = await run_in_threadpool(request.app.state.peer_own_rows, request)
     listed = await spaces(request, own)
     return await relay.relay(request, machine, registry, listed)
-
-
-def empty(request: Request) -> Rows:
-    """The slice board has no workspace rows until the pages step supplies them."""
-    return ()
 
 
 class JoinedRoute(Route):
