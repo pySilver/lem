@@ -2,6 +2,13 @@
 agterm's sessions in a file, records each call, and answers as agterm does (`agtermctl tree
 --json`, `session new --json`, a call on a session that is gone with exit 1).
 
+Its parser is as strict as agterm's own: each subcommand takes the options its `--help` names
+(agtermctl 2026-11-25: `session new`, `close`, `rename`, `status`, `select`, `overlay open`,
+`msg send`, `msg read`, `pick`, `tree`), the number of arguments it names, and refuses the pairs
+it names as exclusive (`--workspace` with `--workspace-name`, `--after` or `--before`, whose
+anchor carries its own workspace; `--after` with `--before`; `--parent` with either), with exit
+64 as Swift's argument parser gives. `msg send` and `msg read` take no `--window`.
+
 A test puts its folder first on the PATH of the place it binds the adapter to, before
 `/usr/bin:/bin` alone, so that no call reaches the owner's real agterm.
 """
@@ -22,6 +29,77 @@ state = os.environ["AGTERM_STANDIN"]
 args = sys.argv[1:]
 with open(os.path.join(state, "raw.jsonl"), "a") as raw:
     raw.write(json.dumps(args) + "\n")
+
+WS = {"--socket", "--window"}
+SPEC = {
+    ("tree",): (WS, {"--json"}, 0, 0),
+    ("session", "new"): (
+        WS | {"--cwd", "--workspace", "--workspace-name", "--command", "--name", "--after",
+              "--before", "--parent", "--tint", "--tint-on"},
+        {"--create-workspace", "--wait", "--no-select", "--json"}, 0, 0),
+    ("session", "close"): (WS | {"--target"}, {"--undoable", "--terminate", "--json"}, 0, 0),
+    ("session", "rename"): (WS | {"--target"}, {"--json"}, 1, 1),
+    ("session", "status"): (
+        WS | {"--target", "--sound", "--color", "--shape", "--pane", "--pane-id"},
+        {"--blink", "--auto-reset", "--if-idle", "--json"}, 1, 1),
+    ("session", "select"): (WS | {"--target"}, {"--json"}, 0, 0),
+    ("session", "move"): (WS | {"--target", "--to"}, {"--json"}, 0, 1),
+    ("session", "overlay", "open"): (
+        WS | {"--url", "--html", "--target", "--cwd"},
+        {"--js", "--companion", "--browse", "--navigation", "--chromeless", "--follow", "--json"},
+        0, 1),
+    ("msg", "send"): ({"--socket", "--to", "--workspace", "--as"}, {"--stdin", "--all", "--json"}, 1, 1),
+    ("msg", "read"): ({"--socket", "--timeout", "--as"}, {"--ack", "--wait", "--json"}, 0, 0),
+    ("pick",): (
+        WS | {"--prompt", "--query", "--select", "--timeout", "--session"},
+        {"--allow-custom", "--follow", "--no-block", "--json"}, 0, 0),
+}
+EXCLUSIVE = {
+    ("session", "new"): (
+        ("--workspace", "--workspace-name"), ("--after", "--workspace"),
+        ("--before", "--workspace"), ("--after", "--before"), ("--parent", "--workspace"),
+        ("--parent", "--after"), ("--parent", "--before")),
+}
+STATES = ("idle", "active", "completed", "blocked")
+
+
+def refuse(why):
+    sys.stderr.write("Error: " + why + "\n")
+    sys.exit(64)
+
+
+def strict(args):
+    key = next((k for k in sorted(SPEC, key=len, reverse=True) if tuple(args[:len(k)]) == k), None)
+    if key is None:
+        refuse("unknown subcommand " + " ".join(args[:3]))
+    valued, flags, least, most = SPEC[key]
+    rest, given, positional = args[len(key):], set(), []
+    while rest:
+        word = rest.pop(0)
+        if word in valued:
+            if not rest:
+                refuse("missing value for " + word)
+            rest.pop(0)
+        elif word not in flags:
+            if word.startswith("--"):
+                refuse("unknown option " + word)
+            positional.append(word)
+            continue
+        if word in given:
+            refuse("option given twice " + word)
+        given.add(word)
+    if not least <= len(positional) <= most:
+        refuse("wrong number of arguments: " + repr(positional))
+    for one, other in EXCLUSIVE.get(key, ()):
+        if one in given and other in given:
+            refuse(one + " and " + other + " are mutually exclusive")
+    if key == ("session", "status") and positional[0] not in STATES:
+        refuse("unknown state " + positional[0])
+    if "--browse" in given and "--url" not in given:
+        refuse("--browse requires --url")
+
+
+strict(args)
 for flag in ("--socket", "--window"):
     if flag in args:
         at = args.index(flag)
@@ -71,6 +149,8 @@ elif args[:2] == ["session", "new"]:
     if "--parent" in args:
         parent = [n for n in tree["sessions"] if n["id"] == value("--parent")][0]
         space = parent["workspace"]
+    elif "--after" in args:
+        space = [n for n in tree["sessions"] if n["id"] == value("--after")][0]["workspace"]
     else:
         space = value("--workspace") if "--workspace" in args else tree["workspaces"][0]
     node = {

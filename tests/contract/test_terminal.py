@@ -2,6 +2,7 @@
 for `agtermctl` (`agterm_standin.py`) on a PATH of the stand-ins and the system's folders alone,
 with no socket, window or session of the owner's agterm inherited."""
 
+import subprocess
 from typing import TYPE_CHECKING
 
 import pytest
@@ -38,14 +39,45 @@ class TestAgtermTerminal(TerminalContract):
 def test_a_named_workspace_and_a_companion_go_where_they_are_named(
     tmp_path: Path,
 ) -> None:
-    standin = install(tmp_path / "agterm", [MINE, HIS], ("W-MINE", "W-OTHER"))
+    standin = install(
+        tmp_path / "agterm", [MINE, HIS], ("W-MINE", "W-OTHER", "W-EMPTY")
+    )
     terminal = bound(standin)
     terminal.open(Opening(name="t", cwd="/r", command=("x",), workspace="W-OTHER"))
+    terminal.open(Opening(name="e", cwd="/r", command=("x",), workspace="W-EMPTY"))
     terminal.open(Opening(name="c", cwd="/r", command=("x",), companion_of="S-MINE"))
     news = [call for call in standin.calls() if call[:2] == ["session", "new"]]
-    assert news[0][2:6] == ["--workspace", "W-OTHER", "--after", "S-HIS"]
-    assert news[1][2:4] == ["--parent", "S-MINE"]
+    # agterm refuses --after beside --workspace: the anchor carries its own workspace
+    assert news[0][2:4] == ["--after", "S-HIS"]
+    assert "--workspace" not in news[0]
+    assert news[1][2:4] == ["--workspace", "W-EMPTY"]
+    assert news[2][2:4] == ["--parent", "S-MINE"]
+    placed = {node["name"]: node["workspace"] for node in standin.sessions()}
+    assert (placed["t"], placed["e"], placed["c"]) == ("W-OTHER", "W-EMPTY", "W-MINE")
     assert not [call for call in standin.calls() if call[:2] == ["session", "move"]]
+
+
+def test_the_stand_in_refuses_what_agtermctl_refuses(tmp_path: Path) -> None:
+    standin = install(tmp_path / "agterm", [MINE])
+    environ = standin.environ()
+    refused = (
+        ["session", "new", "--workspace", "W-MINE", "--after", "S-MINE"],
+        ["session", "new", "--parent", "S-MINE", "--workspace", "W-MINE"],
+        ["session", "status", "waiting", "--target", "S-MINE"],
+        ["msg", "send", "x", "--to", "S-MINE:left", "--window", "W1"],
+        ["session", "rename", "--target", "S-MINE"],
+        ["session", "overlay", "open", "--html", "x.html", "--browse"],
+        ["tree", "--all"],
+    )
+    for words in refused:
+        ran = subprocess.run(
+            ["agtermctl", *words],
+            env=environ,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert ran.returncode == 64, words
 
 
 def test_a_tree_that_does_not_read_is_unreadable_never_empty(tmp_path: Path) -> None:

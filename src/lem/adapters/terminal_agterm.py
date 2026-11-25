@@ -1,7 +1,8 @@
 """The `Terminal` port on agterm, through its command `agtermctl` (the design's part 4).
 
 A session Lem opens is made with `--no-select`, so it never takes the focus, and goes after the
-last session of its workspace in the one `session new`, so the one the owner keeps first stays
+last session of its workspace in the one `session new` (`--after` that session, whose workspace
+it takes; agterm refuses `--after` beside `--workspace`, so an empty workspace is named alone), so the one the owner keeps first stays
 first and nothing more is asked of agterm between a session's making and its record. Its command
 runs in the owner's login shell, so that his PATH finds the agent. A workspace not named is
 agterm's own choice: the use case names one (`app/sessions/placing.py`). A page is shown as a
@@ -63,8 +64,7 @@ class AgtermTerminal(AgtermLooks):
         if space is None:
             return ()
         ids = [node.id for node in self.nodes() if node.workspace == space]
-        after = ("--after", ids[-1]) if ids else ()
-        return ("--workspace", space, *after)
+        return ("--after", ids[-1]) if ids else ("--workspace", space)
 
     def show(self, session: str, url: str, mode: ShowMode) -> None:
         """Show the page at `url` for the session, with no change of what the owner looks at."""
