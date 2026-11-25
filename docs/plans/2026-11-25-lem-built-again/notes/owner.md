@@ -19,21 +19,24 @@ files it does not own.
   gathers it as `lem waiting` does: `lem.app.owner.looking.looked(here, now) -> Looked` (`looks`,
   `presence`, `unknown`: why the sessions are not known, `forge`). `here` is
   `lem.app.sessions.here.bound(folder)`. The terminal is asked only when a task has a session on
-  record.
+  record. A known missing session has `live=False`. An unreadable list gives no session facts.
+  The look applies release stops to open tasks without a write.
 - **The verb of a row**, in the board's words: `lem.model.owner.verbs.verb(row, task, landing)`.
   Where he acts, the icon and how the time reads stay `board-views`'s (`board_model.wait_say` on
-  `main`); the verbs here are its `verb`, word for word.
+  `main`). An unresolved merge intent says "Check the pull request on GitHub."
 - **His presence.** `lem.store.owner.read(home)` (`Presence`: `away`, `since`, `words`, `seen`,
   `changes`); whether a task runs without him now is `lem.model.owner.presence.alone(task,
   presence)`, and the spans it ran without him `lem.model.owner.spans.spans(task, presence)`.
 - **The merge's wait.** `lem.model.owner.merging.merge_wait(record)`: `owner`, `reads`, `merges`,
   `relands`, or None for a task that is not open (`board_model.merge_wait` on `main`), from the
-  record alone. The kanban's "You" column and the merge page may read it.
+  record alone. An unresolved merge intent waits for the owner to check GitHub. The kanban's
+  "You" column and the merge page may read it.
 - **His answer to a question.** `lem.model.owner.answers.answer(task, question_id, digest,
   answer) -> Task` refuses `answered` (answered already, asked again, or a text that changed) and
   `question` (no such question). A row whose question he answered on the board is no row until
   the task's session sets the question's `took_effect` (`answers.answered_hold`): the act that
-  takes his answer (the session's command) sets it, and the board's act must not.
+  takes his answer (the session's command) sets it, and the board's act must not. A live session
+  whose turn runs also holds back the breaker or the owner's hold until the turn ends.
 - **`lem waiting`** prints the same rows (`rows`, `tasks` with each thing's `verb`, `count`) and
   the groups, so that the terminal, the phone and the Inbox list the same.
 
@@ -68,9 +71,7 @@ fated `changed` by this step until then.
 `store.owner.change` writes an away with new words over an away; `lem owner away` does not call it
 then, since a word that changes nothing writes nothing (`main`).
 
-## Two choices of this step, open to the owner
+## One choice of this step, open to the owner
 
 - `lem owner watch` reads only the machine's mark, so it is no longer refused outside a
   repository; it refuses a missing `--seen` (`seen`) and turns a stop into the refusal `stopped`.
-- A row that the task's session holds back while it works on his answer (`task.works` on `main`)
-  is not kept: his answer on the board hides the row until the session takes it into effect.

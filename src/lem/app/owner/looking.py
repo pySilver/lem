@@ -9,9 +9,9 @@ no task can show as one with no session, and the look says why.
 import os
 from typing import TYPE_CHECKING
 
-from lem.app.owner import forge, sessions
+from lem.app.owner import forge, releases, sessions
 from lem.kernel import paths
-from lem.model.owner.looks import Look, Looks, Session
+from lem.model.owner.looks import Look, Looks
 from lem.records.base import Frozen
 from lem.records.owner import Presence
 from lem.store import owner, tasks
@@ -35,10 +35,12 @@ class Looked(Frozen, frozen=True, kw_only=True):
 
 def looked(here: Here, now: datetime) -> Looked:
     """The look at the workspace of `here` now."""
-    records = tasks.every(here.where.state)
+    records = releases.with_stops(tasks.every(here.where.state))
     shown, unknown = sessions.sessions_of(here, now)
     seen = forge.read(here.where.state)
-    looks = tuple(look_of(here, record, shown, seen) for record in records)
+    looks = tuple(
+        look_of(here, record, shown, seen, known=unknown is None) for record in records
+    )
     return Looked(
         looks=looks,
         presence=owner.read(paths.home(os.environ)),
@@ -48,16 +50,11 @@ def looked(here: Here, now: datetime) -> Looked:
 
 
 def look_of(
-    here: Here, record: Record, shown: sessions.Listed, seen: forge.Look
+    here: Here, record: Record, shown: sessions.Listed, seen: forge.Look, *, known: bool
 ) -> Look:
     """One task as the list reads it."""
     slug = record.task.slug
-    entry = shown.get(slug)
-    session = None
-    if entry is not None:
-        session = Session(
-            live=entry.live, since=entry.since, unanswered=entry.unanswered
-        )
+    session = sessions.session_of(shown.get(slug), record.task.opened, known=known)
     return Look(
         record=record,
         session=session,

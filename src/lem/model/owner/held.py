@@ -26,6 +26,9 @@ PLAN: Kind = "plan"
 
 def hold_rows(look: Look, *, alone: bool) -> tuple[Row, ...]:
     """The row of the task's breaker or of the owner's wait in his turn, or none."""
+    session = look.session
+    if session is not None and session.live and session.working:
+        return ()
     task = look.record.task
     hold = task.hold
     if isinstance(hold, BreakerHold):
@@ -36,8 +39,14 @@ def hold_rows(look: Look, *, alone: bool) -> tuple[Row, ...]:
     if answers.answered_hold(task, owner):
         return ()
     kind = kind_of(task, owner)
-    key = key_of(kind, task.slug)
-    return (Row(kind=kind, key=key, task=task.slug, since=owner.since),)
+    return (
+        Row(
+            kind=kind,
+            key=key_of(kind, task.slug),
+            task=task.slug,
+            since=owner.since,
+        ),
+    )
 
 
 def breaker_rows(task: Task, hold: BreakerHold) -> tuple[Row, ...]:
@@ -65,20 +74,21 @@ def kind_of(task: Task, hold: OwnerHold) -> Kind:
     return "held"
 
 
-def after_rows(look: Look, statuses: Mapping[str, str]) -> tuple[Row, ...]:
+def after_rows(look: Look, tasks: Mapping[str, Task]) -> tuple[Row, ...]:
     """The row of a queued task whose task before it was dropped: only his word starts it or
     ends it."""
     task = look.record.task
     if task.status != "queued" or task.after is None:
         return ()
-    if statuses.get(task.after) != "dropped":
+    before = tasks.get(task.after)
+    if before is None or before.status != "dropped":
         return ()
     key = f"after_dropped:{task.slug}"
     row = Row(
         kind="after_dropped",
         key=key,
         task=task.slug,
-        since=task.since,
+        since=max(task.since, before.since),
         after=task.after,
     )
     return (row,)

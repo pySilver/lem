@@ -72,6 +72,8 @@ def session_verb(row: Row, task: Task) -> str:
 
 def merge_verb(row: Row, landing: Landing) -> str:
     """The verb of a merge that waits for the owner: a refusal, a conflict, or his merge."""
+    if landing.intent is not None:
+        return "Check the pull request on GitHub"
     refused = refused_verb(landing)
     if refused is not None:
         return refused

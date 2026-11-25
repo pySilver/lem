@@ -33,14 +33,13 @@ TOPICS = MappingProxyType(
 
 
 def taken_by_session(task: Task, topic: str, since: Moment) -> bool:
-    """Whether he answered a question of `topic` asked since `since`, and the task's session
-    has not taken the answer into effect yet."""
-    return any(
-        one.topic == topic
-        and one.asked >= since
-        and one.answer is not None
-        and one.took_effect is None
-        for one in task.questions
+    """Whether the current question's answer waits for the task's session to take it."""
+    asked = newest_of(task, topic)
+    return (
+        asked is not None
+        and asked.asked >= since
+        and asked.answer is not None
+        and asked.took_effect is None
     )
 
 
@@ -65,8 +64,11 @@ def answer(task: Task, question_id: str, digest: str | None, given: Answer) -> T
     refusal = refused(task, asked, digest)
     if refusal is not None:
         raise refusal
-    kept = tuple(one for one in task.questions if one.id != question_id)
-    return replace(task, questions=(*kept, replace(asked, answer=given)))
+    updated = replace(asked, answer=given)
+    questions = tuple(
+        updated if one.id == question_id else one for one in task.questions
+    )
+    return replace(task, questions=questions)
 
 
 def refused(task: Task, asked: Question, digest: str | None) -> Refusal | None:
@@ -90,10 +92,14 @@ def why_refused(task: Task, asked: Question, digest: str | None) -> str | None:
 
 
 def newer_of(task: Task, asked: Question) -> str | None:
-    """The id of the newest question of the same topic asked after `asked`, or None."""
-    newer = [
-        one.id
-        for one in task.questions
-        if one.topic == asked.topic and one.asked > asked.asked
-    ]
-    return newer[-1] if newer else None
+    """The id of the question that replaced `asked`, or None. Cards are independent."""
+    if asked.topic == "card":
+        return None
+    newest = newest_of(task, asked.topic)
+    return newest.id if newest is not None and newest.id != asked.id else None
+
+
+def newest_of(task: Task, topic: str) -> Question | None:
+    """The last question of `topic` in record order, even when two share a moment."""
+    matches = (one for one in reversed(task.questions) if one.topic == topic)
+    return next(matches, None)

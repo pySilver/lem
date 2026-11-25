@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from lem.app.owner import looking, scope, stacks
 from lem.app.owner.listed import ForgeSeen, Known, NightReport, OwnerNow, Waiting
 from lem.app.sessions import here as session_here
-from lem.model.owner import waiting
+from lem.settings.load import settings_of
 from lem.store import tasks
 
 if TYPE_CHECKING:
@@ -27,20 +27,22 @@ NIGHTS = "night"
 def listed(folder: Path, slug: str | None, now: datetime, today: date) -> Waiting:
     """What waits for the owner in the workspace of `folder`, or for its task `slug`."""
     here = session_here.bound(folder)
+    settings_of(here.where.checkout, git=here.ports.git, home=here.home)
     if slug is not None:
         tasks.read(here.where.state, slug)
     seen = looking.looked(here, now)
     mine = scope.scoped(seen, slug, now)
+    stacked = stacks.stacked(mine)
     return Waiting(
         owner=owner_now(seen.presence),
         breakers=scope.breakers(mine),
         rows=stacks.keyed(mine),
-        tasks=stacks.stacked(mine),
+        tasks=stacked,
         sessions=Known(known=seen.unknown is None, said=seen.unknown),
         forge=ForgeSeen(looked=seen.forge.looked),
         night_report=night_report(here.where.state, today),
         parked=stacks.parked(mine),
-        count=len(waiting.stacks(mine.rows)),
+        count=len(stacked),
         **scope.grouped(mine),
     )
 

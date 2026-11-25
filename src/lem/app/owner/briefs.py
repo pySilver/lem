@@ -72,7 +72,9 @@ def kept_entry(row: Row, look: Look, found: Entry) -> Entry:
     if row.kind == "after_dropped":
         verb = verbs.verb(row, record.task, record.landing)
         start, drop = f"start {slug} now", f"/lem drop {slug}"
-        return replace(found, after=row.after, start=start, drop=drop, verb=verb)
+        return replace(
+            found, since=row.since, after=row.after, start=start, drop=drop, verb=verb
+        )
     if row.kind == "blocked":
         return blocked_entry(record, found)
     if row.kind == "merge":

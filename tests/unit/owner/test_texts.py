@@ -1,7 +1,15 @@
 """The rulings the owner's texts hold in one place (`docs/rulings/history.md`, "Kept in one place"):
 each is still in the text and the place the ruling names."""
 
+from typing import TYPE_CHECKING
+
+from fakes.command import lem
 from lem.kernel import paths
+from lem.records.tickets import Ticket
+from unit.task.spaces import made, result, workspace
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 SKILL = paths.root() / "skills" / "lem"
 
@@ -48,6 +56,18 @@ def test_what_waits_is_one_list_and_the_status_only_reads() -> None:
     )
     assert "and the status only reads" in text("stages/status.md")
     assert "lem waiting" in text("stages/status.md")
+
+
+def test_status_names_the_field_and_step_for_an_unpaid_ticket(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    ticket = Ticket(tracker="github", id="#42", repo="o/r")
+    made(where, "gift-note", status="dropped", ticket=ticket)
+    shown = result(lem("task", "show", "gift-note", cwd=tmp_path))
+    assert shown["ticket"]["owed"] == ["dropped"]
+    status = text("stages/status.md")
+    assert "`ticket.owed`" in status
+    assert "`lem issue STEP SLUG`" in status
+    assert "`drop` for `dropped`" in status
 
 
 def test_the_holds_keep_what_has_no_options_and_a_block_leaves_no_document() -> None:

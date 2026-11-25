@@ -48,7 +48,7 @@ def checked(words: str | None) -> str:
 def said(folder: Path, words: str | None, now: Moment, *, away: bool) -> Said:
     """Mark the owner away or back with his words, unless that changes nothing."""
     given = checked(words)
-    where = places.workspace(folder)
+    found = tasks_of(places.workspace(folder).state)
     before = owner.read(paths.home(os.environ))
     after = before
     if before.away != away:
@@ -59,7 +59,7 @@ def said(folder: Path, words: str | None, now: Moment, *, away: bool) -> Said:
         since=after.since,
         words=after.words,
         written=after is not before,
-        tasks=changed(tasks_of(where.state), before, after),
+        tasks=changed(found, before, after),
         seen=after.seen,
     )
 

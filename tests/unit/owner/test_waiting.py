@@ -8,7 +8,9 @@ from datetime import date, timedelta
 from msgspec.structs import replace
 
 from fakes.records import MOMENT, record
-from lem.model.owner import verbs, waiting
+from lem.model.criteria import change, waits
+from lem.model.landing.merge import LAND_OWNER
+from lem.model.owner import merging, verbs, waiting
 from lem.model.owner.looks import Look
 from lem.records.approvals import PersonaRead
 from lem.records.criteria import Criteria
@@ -20,6 +22,7 @@ from lem.records.holds import (
     Parked,
     ReleaseHold,
 )
+from lem.records.landing.merge import MergeAccepted, MergeIntent
 from lem.records.questions import Answer, Question
 from lem.records.work import Span
 from unit.owner.looked import (
@@ -119,12 +122,27 @@ def test_his_answer_on_the_board_is_the_sessions_until_it_takes_effect() -> None
     ]
 
 
+def test_criteria_asked_again_in_the_same_second_wait_for_an_answer() -> None:
+    before = waits.asked(record(status="shaping").task, MOMENT, "Please approve", "d1")
+    answered = change.typed(before, MOMENT, "Keep the criteria as they are.")
+    assert rows(Look(record=replace(record(), task=answered))) == []
+    again = change.unchanged(answered, MOMENT, "d1")
+    assert again.questions[-1].id != answered.questions[-1].id
+    assert rows(Look(record=replace(record(), task=again))) == [
+        ("criteria", "held:fix-the-login")
+    ]
+
+
 def test_a_task_queued_after_a_dropped_task_waits_for_his_word() -> None:
-    dropped = look("first", status="dropped")
+    dropped = look("first", status="dropped", since=LATER)
     after = look("second", status="queued", after="first")
     assert rows(dropped, after) == [("after_dropped", "after_dropped:second")]
     found = waiting.rows((dropped, after), away=False, now=NOW)
     assert found[0].after == "first"
+    assert found[0].since == LATER
+    queued_later = look("second", status="queued", after="first", since=NOW)
+    found = waiting.rows((dropped, queued_later), away=False, now=NOW)
+    assert found[0].since == NOW
     assert rows(look("first", status="building"), after) == []
     assert rows(look("first", status="landed"), after) == []
     started = look("second", status="building", after="first")
@@ -180,10 +198,33 @@ def test_a_merge_the_agent_or_the_server_takes_is_not_his() -> None:
     merges = opened(proposed=proposed(), reads=(read("merge"),))
     assert rows(reads) == []
     assert rows(merges) == []
-    owner_merges = opened(
-        proposed=proposed(green=False, who="owner"), reads=(read("merge"),)
+    carried = replace(
+        read("merge", why="The same changes passed."), carried_from="d" * 40
     )
-    assert rows(owner_merges) == [("merge", "merge:gift-note")]
+    owner_merges = opened(
+        proposed=replace(proposed(who="owner"), merge_review="carried"),
+        reads=(carried,),
+    )
+    found = waiting.rows((owner_merges,), away=False, now=NOW)
+    assert [(row.kind, row.why) for row in found] == [
+        ("review", LAND_OWNER),
+        ("merge", None),
+    ]
+
+
+def test_an_unresolved_merge_intent_asks_for_a_check_on_github() -> None:
+    proposal = proposed()
+    intent = MergeIntent(tip=proposal.tip, by="merger", via="session", at=LATER)
+    uncertain = opened(proposed=proposal, reads=(read("merge"),), intent=intent)
+    found = waiting.rows((uncertain,), away=False, now=NOW)
+    assert merging.merge_wait(uncertain.record) == "owner"
+    assert [(row.kind, row.since) for row in found] == [("merge", LATER)]
+    task = uncertain.record.task
+    assert verbs.verb(found[0], task, uncertain.record.landing) == (
+        "Check the pull request on GitHub"
+    )
+    accepted = MergeAccepted(tip=proposal.tip, at=LATER, queued="merge queue")
+    assert rows(opened(proposed=proposal, accepted=accepted)) == []
 
 
 def test_a_refused_merge_is_his_unless_the_merge_agent_reads_the_moved_base() -> None:
@@ -257,7 +298,7 @@ def test_a_card_of_the_live_session_waits_until_it_is_answered() -> None:
 
 
 def test_the_list_orders_by_kind_then_by_moment_and_stacks_by_task() -> None:
-    merge = opened("merge-me")
+    merge = opened("merge-me", proposed=proposed(), reads=(read("call"),))
     plan = look("read-me", status="planned", hold=held("plan", "read it"))
     later = replace(held("criteria"), since=LATER)
     criteria_later = look("approve-later", status="shaping", hold=later)
@@ -265,17 +306,31 @@ def test_the_list_orders_by_kind_then_by_moment_and_stacks_by_task() -> None:
     breaker = look(
         "stopped-build", status="building", hold=BreakerHold(number=1, since=LATER)
     )
-    found = waiting.rows(
-        (merge, plan, criteria_later, criteria, breaker), away=False, now=NOW
-    )
+    looks = (merge, plan, criteria_later, criteria, breaker)
+    records = {look.record.task.slug: look.record for look in looks}
+    found = waiting.rows(looks, away=False, now=NOW)
+    stacks = waiting.stacks(found)
     assert [row.task for row in found] == [
         "stopped-build",
         "approve-me",
         "approve-later",
         "read-me",
         "merge-me",
+        "merge-me",
     ]
-    assert len(waiting.stacks(found)) == 5
+    assert [
+        [
+            verbs.verb(row, records[row.task].task, records[row.task].landing)
+            for row in stack
+        ]
+        for stack in stacks
+    ] == [
+        ["Read the breaker of stopped-build"],
+        ["Approve the criteria"],
+        ["Approve the criteria"],
+        ["Read the plan"],
+        ["Read the merge review", "Merge the pull request #44"],
+    ]
 
 
 def test_the_verbs_say_the_owners_act() -> None:

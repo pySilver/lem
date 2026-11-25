@@ -66,6 +66,16 @@ def test_an_away_and_a_back_before_the_task_opened_are_no_span_of_it() -> None:
     assert spans.spans(task, presence(away(at(10), "away"), back(at(11), "back"))) == ()
 
 
+def test_marks_after_a_task_ends_do_not_change_its_spans() -> None:
+    task = record(opened=at(12), status="dropped", since=at(12, 3)).task
+    assert spans.spans(task, presence(away(at(12, 4), "after the drop"))) == ()
+    found = spans.spans(
+        task,
+        presence(away(at(12, 2), "before the drop"), back(at(12, 4), "after the drop")),
+    )
+    assert [(span.start, span.end) for span in found] == [(at(12, 2), None)]
+
+
 def test_a_task_opened_while_he_is_away_runs_without_him_from_its_open() -> None:
     task = record(opened=at(12)).task
     found = spans.spans(task, presence(away(at(10), "away")))

@@ -8,13 +8,12 @@ from typing import TYPE_CHECKING
 
 from lem.app.sessions import guard_look, guard_rule, listing, log
 from lem.kernel.errors import Refusal
-from lem.model.owner.looks import Stop
+from lem.model.owner.looks import Session, Stop
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     from lem.app.sessions.here import Here
-    from lem.model.owner.looks import Session
     from lem.records.record import Record
 
 type Listed = dict[str, listing.Listed]
@@ -27,6 +26,23 @@ def sessions_of(here: Here, now: datetime) -> tuple[Listed, str | None]:
     except Refusal as refusal:
         return {}, f"the task sessions are not known: {refusal.why}"
     return {entry.task: entry for entry in found}, None
+
+
+def session_of(
+    entry: listing.Listed | None, opened: datetime, *, known: bool
+) -> Session | None:
+    """No session facts when the terminal could not say, else the pane and its agent."""
+    if not known:
+        return None
+    if entry is None:
+        return Session(live=False, since=opened)
+    live = entry.live and entry.agent is True
+    return Session(
+        live=live,
+        since=entry.since,
+        unanswered=live and entry.unanswered,
+        working=entry.turn == "runs",
+    )
 
 
 def stop_of(here: Here, record: Record, session: Session | None) -> Stop | None:

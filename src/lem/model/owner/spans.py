@@ -14,6 +14,7 @@ from msgspec.structs import replace
 
 from lem.model.owner.marks import Mark, marks
 from lem.model.owner.presence import Without
+from lem.model.task.table import ENDED
 from lem.records.base import Frozen, Moment
 
 if TYPE_CHECKING:
@@ -35,7 +36,11 @@ def spans(task: Task, presence: Presence) -> Spans:
     """The spans in which the task ran without the owner, oldest first; the newest has no end
     while it runs."""
     step = partial(folded, task.opened)
-    return reduce(step, marks(task, presence), Fold()).spans
+    cutoff = task.since if task.status in ENDED else None
+    history = (
+        mark for mark in marks(task, presence) if cutoff is None or mark.at <= cutoff
+    )
+    return reduce(step, history, Fold()).spans
 
 
 def folded(first: Moment, fold: Fold, mark: Mark) -> Fold:

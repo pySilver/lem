@@ -63,13 +63,9 @@ def grouped(scope: Scope) -> dict[str, tuple[Entry, ...]]:
     for row in scope.rows:
         group = GROUPS.get(row.kind)
         if group is not None:
-            groups[group].append(entry_of(row, scope))
-    return {name: tuple(entries) for name, entries in groups.items()}
-
-
-def entry_of(row: Row, scope: Scope) -> Entry:
-    """The entry of one row, with its task's look."""
-    return briefs.entry_of(row, scope.look(row.task))
+            look = scope.look(row.task)
+            groups[group].append(briefs.entry_of(row, look))
+    return {name: tuple(groups[name]) for name in groups}
 
 
 def breakers(scope: Scope) -> tuple[Waits, ...]:

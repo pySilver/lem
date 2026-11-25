@@ -122,6 +122,22 @@ def test_his_away_in_one_repository_is_read_in_another(tmp_path: Path) -> None:
     }
 
 
+@pytest.mark.parametrize("command", ["away", "back"])
+def test_a_broken_task_record_leaves_the_machine_mark_as_it_was(
+    tmp_path: Path, command: str
+) -> None:
+    where = workspace(tmp_path)
+    made(where, "report-dates", status="building")
+    task_record = where.state / "tasks" / "report-dates" / "task.json"
+    task_record.write_text("not json", encoding="utf-8")
+    if command == "back":
+        owner.change(home(), "away", AWAY_AT, away=True)
+    before = owner.read(home())
+    found = lem("owner", command, "--words", command, cwd=tmp_path)
+    assert found.code == 3
+    assert owner.read(home()) == before
+
+
 def test_a_word_with_no_words_is_refused(tmp_path: Path) -> None:
     workspace(tmp_path)
     assert refusal(lem("owner", "away", cwd=tmp_path))["code"] == "words"

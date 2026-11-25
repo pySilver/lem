@@ -3,9 +3,9 @@
 
 `gone`: the task's phase needs an agent and its newest session is gone from the terminal, two
 minutes after that session or the task opened. `deaf`: its session lives and left a wake-up
-unanswered. A task with no session on record has no such row, and neither has a parked one. An
-open task needs its session only while the merge agent reads it, which the session starts. A
-queued task needs one only once the task it waits for landed or was answered. A landed or
+unanswered. The list skips the row when it cannot tell if the session lives, and for a parked
+task. An open task needs its session only while the merge agent reads it, which the session
+starts. A queued task needs one only once the task it waits for landed or was answered. A landed or
 dropped task needs one while its worktree is there, since its cleanup is the session's.
 """
 
@@ -34,14 +34,14 @@ CLEANED = frozenset(("landed", "dropped"))
 DONE = frozenset(("landed", "answered"))
 
 
-def need(look: Look, statuses: Mapping[str, str], now: Moment) -> Need | None:
+def need(look: Look, tasks: Mapping[str, Task], now: Moment) -> Need | None:
     """What the task lacks of its session now, or None."""
     task, session = look.record.task, look.session
     if session is None or isinstance(task.hold, Parked):
         return None
     if session.live:
         return DEAF if session.unanswered else None
-    if not needs_agent(look, statuses):
+    if not needs_agent(look, tasks):
         return None
     if now - max(began(task), session.since) < GRACE:
         return None
@@ -54,7 +54,7 @@ def began(task: Task) -> Moment:
     return task.since if task.status in ENDED else task.opened
 
 
-def needs_agent(look: Look, statuses: Mapping[str, str]) -> bool:
+def needs_agent(look: Look, tasks: Mapping[str, Task]) -> bool:
     """Whether the task's phase needs an agent in its session now."""
     task = look.record.task
     if task.status in ENDED:
@@ -62,16 +62,17 @@ def needs_agent(look: Look, statuses: Mapping[str, str]) -> bool:
     if task.status == "open":
         return merge_wait(look.record) == "reads"
     if task.status == "queued":
-        return task.after is not None and statuses.get(task.after) in DONE
+        before = tasks.get(task.after or "")
+        return before is not None and before.status in DONE
     return True
 
 
-def session_rows(look: Look, statuses: Mapping[str, str], now: Moment) -> Rows:
+def session_rows(look: Look, tasks: Mapping[str, Task], now: Moment) -> Rows:
     """The guard's stop that stands, else the session the task lacks."""
     task, session = look.record.task, look.session
     if look.stop is not None:
         return (stopped_row(task.slug, look.stop),)
-    lacks = need(look, statuses, now)
+    lacks = need(look, tasks, now)
     if lacks is None or session is None:
         return ()
     since = max(began(task), session.since)

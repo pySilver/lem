@@ -4,15 +4,18 @@
 `reads`: the merge agent, while no settled read covers the proposed tip, and after Lem refused a
 merge because the base moved and no read of that tip answered it. `merges`: the board's server,
 on a read whose verdict is `merge` for a request the merge agent may merge, while the owner's
-merge stands, or while a merge call is on its way or queued on the forge. `relands`: the task's
+merge stands, or while a merge call is queued on the forge. `relands`: the task's
 session, once a read of the tip said that the moved base needs another round. `owner`: an open
 task with no proposal, a refusal by GitHub or by Lem's rules, a read that calls him, and a read
-that came after Lem's refusal for the base and gave no verdict.
+that came after Lem's refusal for the base and gave no verdict. A merge intent with no outcome on
+record asks the owner to check GitHub.
 """
 
 from typing import TYPE_CHECKING, Literal
 
-from lem.model.landing import merge_standing, mergeread
+from msgspec.structs import replace
+
+from lem.model.landing import merge, merge_standing, mergeread
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
@@ -32,9 +35,9 @@ def merge_wait(record: Record) -> Wait | None:
     proposed = landing.proposed
     if record.task.status != "open":
         return None
-    if proposed is None:
+    if proposed is None or landing.intent is not None:
         return OWNER
-    if landing.intent is not None or landing.accepted is not None:
+    if landing.accepted is not None:
         return MERGES
     refused = landing.refused
     if refused is not None and refused.tip == proposed.tip:
@@ -82,9 +85,22 @@ def calls_after(read: MergeRead | None, refused: Refused) -> bool:
 
 
 def calling(record: Record) -> MergeRead | None:
-    """The read that calls the owner to read the merge review: the newest settled read of the
-    tip, when his merge waits and the read did not say merge."""
-    read = mergeread.latest(record.landing or Landing())
-    if merge_wait(record) != OWNER or read is None or read.verdict == "merge":
+    """The settled review the owner reads, with the reason why a merge verdict still calls him."""
+    landing = record.landing or Landing()
+    read, proposed = mergeread.latest(landing), landing.proposed
+    if merge_wait(record) != OWNER or landing.intent is not None or read is None:
         return None
-    return read
+    if read.verdict != "merge":
+        return read
+    if proposed is None or proposed.who_acts != OWNER:
+        return None
+    return replace(read, why=owner_reason(proposed))
+
+
+def owner_reason(proposed: Proposed) -> str:
+    """What about the proposal leaves its merge to the owner, even after a merge verdict."""
+    if not proposed.green:
+        return merge.NOT_GREEN
+    if proposed.careful:
+        return merge.CAREFUL
+    return merge.LAND_OWNER

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from lem.model.owner import merging
 from lem.model.owner.looks import Row
+from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
     from lem.model.owner.looks import Look, Rows
@@ -25,11 +26,16 @@ def merge_rows(look: Look) -> Rows:
 
 
 def merge_row(look: Look) -> Row:
-    """His merge of the pull request."""
+    """His merge of the pull request, or his check of an unresolved call."""
     task = look.record.task
+    intent = (look.record.landing or Landing()).intent
     key = f"merge:{task.slug}"
     return Row(
-        kind="merge", key=key, task=task.slug, since=task.since, conflict=look.conflict
+        kind="merge",
+        key=key,
+        task=task.slug,
+        since=task.since if intent is None else intent.at,
+        conflict=look.conflict,
     )
 
 

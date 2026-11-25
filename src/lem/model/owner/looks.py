@@ -28,12 +28,13 @@ type Kind = Literal[
 
 
 class Session(Frozen, frozen=True, kw_only=True):
-    """The task's newest session: whether the terminal still has it, when it opened, and
-    whether it left the newest wake-up unanswered."""
+    """The task's newest session: whether its pane has its agent, when it opened, whether
+    it left the newest wake-up unanswered, and whether its newest turn runs."""
 
     live: bool
     since: Moment
     unanswered: bool = False
+    working: bool = False
 
 
 class Stop(Frozen, frozen=True, kw_only=True):

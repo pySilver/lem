@@ -66,8 +66,10 @@ kind in the group of its own name), as the list below gives them:
 9. `plans`: each plan that waits for him to read it;
 10. `reviews`: each merge review that calls him, "Read the merge review" with its `why`;
 11. `pull_requests`: each open pull request whose merge waits for him, its address
-    (`pull_request`), and green or each reason it is not (`not_green`); one the merge agent still
-    reads, or that the board's server merges after a `merge` verdict, is not in the list. When
+    (`pull_request`), and green or each reason it is not (`not_green`). Say "Check the pull request
+    on GitHub" when that is its verb. The owner checks GitHub before he asks Lem to retry the
+    merge. A request the merge agent still reads, or that the board's server merges after a
+    `merge` verdict, is not in the list. When
     `conflict` is true, GitHub calls it conflicting, and the board's server wakes its session; when
     `merge_refused` holds GitHub's or Lem's refusal, say its `line`; a task with a `night` says "of
     the night".
@@ -81,14 +83,14 @@ task waits on, from `lem task list`, and what landed today, and what was answere
 answer in one line, from `lem task list --ended`.
 
 **Where he answers.** A breaker, criteria, a held step and an interview are answered in the task's
-own session: name it for each, from `lem session list` (the task's newest session, and whether it
-is `live`). One with no live session gets "no session" on the board, whose button opens one.
+own session: name it for each, from `lem session list`. Its newest session must have both `live`
+and `agent` true. One with no live session gets "no session" on the board, whose button opens one.
 `/lem status SLUG` opens the task's session when something of it waits for him and none runs,
 `lem session open SLUG --why owner`, and says its `say`. A pull request he reads on GitHub.
 
-A dropped, landed or answered task has no choice that waits. A task with a `ticket_owed` (`lem task
-show SLUG`) ended, and its ticket in the tracker does not say so yet: say that too, with the step
-that pays each owed step, by the tracker's kind (`settings.tracker.kind` in `lem settings show`). For
+A dropped, landed or answered task has no choice that waits. For an ended task, `ticket.owed` in
+the output of `lem task show SLUG` lists the tracker steps still due. Say which step the tracker
+needs, by its kind (`settings.tracker.kind` in `lem settings show`). For
 `github` it is one line that any session, or the owner in a terminal, runs: `lem issue STEP SLUG`,
 STEP being the owed step's tracker step (`land` for `landed` or `commented`, `drop` for `dropped`,
 `answer` for `answered`, and for `unassigned` the `drop` or `answer` of the task's status). For

@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
     from lem.model.owner.looks import Look, Looks, Rows
     from lem.records.base import Moment
+    from lem.records.task import Task
 
 ENDED = need.ENDED
 # The order of the kinds: what stops a task first, a merge review before its merge.
@@ -44,8 +45,8 @@ ORDER = MappingProxyType(
 
 def rows(looks: Looks, *, away: bool, now: Moment) -> Rows:
     """Every row of what waits for the owner, in the list's order."""
-    statuses = {look.record.task.slug: look.record.task.status for look in looks}
-    each = (rows_of(look, statuses, away=away, now=now) for look in looks)
+    tasks = {look.record.task.slug: look.record.task for look in looks}
+    each = (rows_of(look, tasks, away=away, now=now) for look in looks)
     return tuple(sorted(chain.from_iterable(each), key=order_of))
 
 
@@ -54,24 +55,22 @@ def order_of(row: Row) -> tuple[int, Moment]:
     return ORDER[row.kind], row.since
 
 
-def rows_of(
-    look: Look, statuses: Mapping[str, str], *, away: bool, now: Moment
-) -> Rows:
+def rows_of(look: Look, tasks: Mapping[str, Task], *, away: bool, now: Moment) -> Rows:
     """The rows of one task."""
     task = look.record.task
     hold = task.hold
     if isinstance(hold, ReleaseHold) and task.status not in ENDED:
         return (released_row(task.slug, hold),)
-    first = need.session_rows(look, statuses, now)
+    first = need.session_rows(look, tasks, now)
     if task.status in ENDED or isinstance(hold, Parked):
         return first
     alone = away or task.night is not None
-    return first + going_rows(look, statuses, alone=alone)
+    return first + going_rows(look, tasks, alone=alone)
 
 
-def going_rows(look: Look, statuses: Mapping[str, str], *, alone: bool) -> Rows:
+def going_rows(look: Look, tasks: Mapping[str, Task], *, alone: bool) -> Rows:
     """The rows of a task that did not end and is not parked, beside its session's."""
-    asked = held.hold_rows(look, alone=alone) + held.after_rows(look, statuses)
+    asked = held.hold_rows(look, alone=alone) + held.after_rows(look, tasks)
     shown = held.blocked_rows(look) + held.card_rows(look)
     return asked + shown + merges.merge_rows(look)
 

@@ -31,12 +31,23 @@ def test_the_first_answer_counts() -> None:
     assert "the first answer counts" in caught.value.why
 
 
-def test_an_answer_to_a_question_asked_again_is_refused() -> None:
-    again = replace(ASKED, id="plan-2", asked=MOMENT + timedelta(minutes=1))
+@pytest.mark.parametrize("minutes", [0, 1])
+def test_an_answer_to_a_question_asked_again_is_refused(minutes: int) -> None:
+    again = replace(ASKED, id="plan-2", asked=MOMENT + timedelta(minutes=minutes))
     task = record(questions=(ASKED, again)).task
     with pytest.raises(Refusal) as caught:
         answers.answer(task, "plan-1", "d1", YES)
     assert caught.value.why == "plan-1 was asked again as plan-2"
+
+
+def test_two_open_cards_can_each_take_an_answer() -> None:
+    first = replace(ASKED, id="card-1", topic="card")
+    second = replace(first, id="card-2", asked=MOMENT + timedelta(minutes=1))
+    task = record(questions=(first, second)).task
+    answered = answers.answer(task, first.id, first.digest, YES)
+    assert answered.questions == (replace(first, answer=YES), second)
+    both = answers.answer(answered, second.id, second.digest, YES)
+    assert both.questions == (replace(first, answer=YES), replace(second, answer=YES))
 
 
 def test_an_answer_to_a_text_that_changed_is_refused() -> None:
