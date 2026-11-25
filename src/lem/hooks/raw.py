@@ -8,7 +8,6 @@ holds the hook. A file is read and appended to through `io.FileIO`, whose one wr
 """
 
 import io
-import json
 import os
 import select
 import sys
@@ -53,7 +52,10 @@ def next_chunk(descriptor: int, deadline: float) -> bytes:
 
 def parsed(received: bytes) -> Event | None:
     """`received` as a JSON object; an empty one for JSON of another kind; None while it is
-    no whole JSON yet."""
+    no whole JSON yet. `json` is imported here, by the hooks that read an event: it brings
+    `re`, a cost the `stop` hook does not pay."""
+    import json
+
     try:
         found = json.loads(received)
     except ValueError:

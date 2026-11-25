@@ -6,7 +6,6 @@ hooks read this line, so it is written with the standard library only, and with 
 which a hook's start does not pay for.
 """
 
-import json
 import os
 
 from lem.hooks import raw, where
@@ -39,6 +38,8 @@ def app_root() -> str | None:
 
 def version_of(folder: str) -> str:
     """The version in the manifest of `folder`; a manifest that does not read is named."""
+    import json
+
     path = f"{folder}/{MANIFEST}"
     try:
         manifest = json.loads(raw.read_bytes(path))
@@ -58,13 +59,19 @@ def numbers(version: str) -> tuple[int, ...] | None:
 
 def behind(plugin: str, app: str) -> str | None:
     """The line for the plugin at `plugin` and the app at `app` when their versions differ,
-    naming the one that is behind with its update command; None when they are one version."""
+    naming the one that is behind with its update command; None when they are one version.
+    Two manifests of the same bytes are one version, read with no parse."""
+    if same_bytes(f"{plugin}/{MANIFEST}", f"{app}/{MANIFEST}"):
+        return None
     theirs, mine = version_of(plugin), version_of(app)
     if theirs == mine:
         return None
-    damage = damaged(theirs, mine)
-    if damage is not None:
-        return damage
+    return damaged(theirs, mine) or ordered(plugin, app, theirs, mine)
+
+
+def ordered(plugin: str, app: str, theirs: str, mine: str) -> str:
+    """The line for two versions that both read: the half behind and its update command, or
+    both commands when one is no version of numbers."""
     plugin_numbers, app_numbers = numbers(theirs), numbers(mine)
     if plugin_numbers is None or app_numbers is None:
         return (
@@ -89,7 +96,16 @@ def damaged(theirs: str, mine: str) -> str | None:
     for (half, fix), version in zip(AGAIN, (theirs, mine), strict=True):
         if version.startswith(UNREADABLE):
             return (
-                f"lem: Lem's plugin and Lem's app may be two versions: the {half}'s manifest "
-                f"is {version}; the owner {fix} and starts the session again"
+                "lem: Lem cannot tell whether Lem's plugin and Lem's app are two versions: "
+                f"the {half}'s manifest is {version}; the owner {fix} and starts the session "
+                "again"
             )
     return None
+
+
+def same_bytes(one: str, other: str) -> bool:
+    """Whether the two files hold the same bytes; False when one does not read."""
+    try:
+        return raw.read_bytes(one) == raw.read_bytes(other)
+    except OSError:
+        return False

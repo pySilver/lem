@@ -14,7 +14,6 @@ are two versions, every selector but `session-start` does nothing and says nothi
 `session-start` says the one line that names the half behind.
 """
 
-import contextlib
 import importlib
 import os
 import sys
@@ -32,6 +31,18 @@ SELECTORS = (
     ("session-start", "lem.hooks.session"),
     ("precompact", "lem.hooks.precompact"),
     ("stop", "lem.hooks.stop"),
+)
+# Every failure a hook's work can raise, written out: an `Exception` caught whole is refused by
+# the gates, and `contextlib.suppress` costs an import that every hook would pay.
+FAILURES = (
+    ArithmeticError,
+    AttributeError,
+    ImportError,
+    LookupError,
+    OSError,
+    RuntimeError,
+    TypeError,
+    ValueError,
 )
 # The one selector that runs, and says so, when the plugin and the app are two versions.
 SAYS_BEHIND = "session-start"
@@ -53,11 +64,17 @@ def run(selector: str, environ: Mapping[str, str]) -> str:
 
 def main() -> None:
     """Answer the hook that the first argument names, on its event, and exit 0 whatever
-    happens: a hook that fails says nothing, and a session never fails on one. Not
-    `sys.exit`: a flush at the interpreter's exit that fails would print on stderr."""
+    happens: a hook that fails says nothing, and a session never fails on one. `os._exit`,
+    not `sys.exit`: a flush at the interpreter's exit that fails would print on stderr."""
     selector = "".join(sys.argv[1:2])
-    with contextlib.suppress(Exception):
-        said = run(selector, os.environ)
-        sys.stdout.write(said)
-        sys.stdout.flush()
+    try:
+        said(run(selector, os.environ))
+    except FAILURES:
+        os._exit(0)
     os._exit(0)
+
+
+def said(words: str) -> None:
+    """Print the hook's words, whole."""
+    sys.stdout.write(words)
+    sys.stdout.flush()

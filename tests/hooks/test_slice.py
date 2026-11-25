@@ -439,8 +439,8 @@ def test_a_plugin_whose_manifest_does_not_read_is_named_with_its_fix(
     )
     said = json.loads(ran.stdout)["systemMessage"]
     assert said.startswith(
-        "lem: Lem's plugin and Lem's app may be two versions: the plugin's manifest is "
-        f"unreadable ({plugin}/.claude-plugin/plugin.json"
+        "lem: Lem cannot tell whether Lem's plugin and Lem's app are two versions: the "
+        f"plugin's manifest is unreadable ({plugin}/.claude-plugin/plugin.json"
     )
     assert said.endswith(
         "the owner installs Lem's plugin again and starts the session again"
