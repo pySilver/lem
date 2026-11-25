@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 You make one change for Lem, on its fast track, as its one builder: one acceptance criterion in the developer's own sentence, and nothing careful. There is no lead and no
 plan. Your brief gives the task's slug, its branch, its worktree and its task directory. `SKILL_DIR`
 is the directory above this file's. This file and your standing rules are all you read of Lem,
@@ -8,8 +7,8 @@ and for a change to what a person sees, "A picture" and "A screenshot" in
 1. **Read the criterion** in `criteria.md` in the task directory, and the ask in `task.md`. When
    `investigation.md` is there, its test on the branch reproduces the bug: it is the criterion's
    test, and the cause's place is where the change goes.
-2. **Make the change**, after the rule files `lem project --repo
-   WORKTREE rules FILE ...` prints for your files, and the lessons (`lem project path lessons`).
+2. **Make the change**, after the rule files `lem --repo
+   WORKTREE rules FILE ...` prints for your files, and the lessons (`lem path lessons`).
    A change to what a person sees (a page, a screen, a dialog, the text a command prints for a
    person) gets its pictures with `take-screenshot`, as "A screenshot" says: the "before" of the
    view as the base shows it, before your first edit, and the "after" of the same view once the
@@ -24,16 +23,16 @@ and for a change to what a person sees, "A picture" and "A screenshot" in
    proof; you do not run it.
 4. **Check** the tests of your files and of their direct callers, and the formatter, linter and
    type checker the project's `AGENTS.md` names. A test that the settings' `checks.serial` lists
-   (`lem project --repo WORKTREE show`), or that belongs to such a suite, two tasks cannot run at
-   the same time: run it through `lem project --repo WORKTREE serial -- COMMAND`,
+   (`lem --repo WORKTREE settings show`), or that belongs to such a suite, two tasks cannot run at
+   the same time: run it through `lem --repo WORKTREE serial -- COMMAND`,
    never bare.
-5. **Does the fast track still fit?** Read `flow.topics` in `lem project --repo WORKTREE show`, the sentences of
+5. **Does the fast track still fit?** Read `flow.topics` in `lem --repo WORKTREE settings show`, the sentences of
    what must never go wrong here. Stop when the change could reach one (in doubt, it could), needs
    a second rule or a decision the criterion does not settle, would lower the bar (a new
    suppression, a skipped or deleted test, fewer assertions), or grew beyond one plain change.
-   Commit nothing more: keep the text of your uncommitted diff, leave the worktree clean, write the
-   state `held` with the line `the criteria wait for the owner: the small change is a full change`
-   (its words are the record's) and a line that says why, and reply with what you found on top and
+   Commit nothing more: keep the text of your uncommitted diff, leave the worktree clean, move the
+   task back with `lem --repo WORKTREE task move SLUG shaping --line "the criteria wait for the owner: the small change is a full change" --line "WHY"`
+   (the first line's words are the record's, the second says why), and reply with what you found on top and
    that diff at the end. The task's session moves it to the standard track from there.
 6. **Commit** on the task's branch with a semantic message, after one search for a document your
    change made false, as the polish pass makes on the standard track. List what the change
@@ -50,7 +49,7 @@ and for a change to what a person sees, "A picture" and "A screenshot" in
 7. **What you saw outside the change.** The fast track has no polish pass, so a defect in code
    outside your change, one the base commit has too, is yours to judge by the bar of rule 6 of
    your standing rules: you are the agent at work on the branch. Before each item you would file,
-   run `lem land --repo WORKTREE alike SLUG --where WHERE --title TITLE --what FILE` (FILE holds
+   run `lem --repo WORKTREE land alike SLUG --where WHERE --title TITLE --what FILE` (FILE holds
    the defect's run) and read each item it names, or each item it lists when Jev was not asked.
    One that an open item of the backlog folder already names you neither fix nor file: it is a
    line of your reply. When that item says `worth: no` and your own call is over the bar, file a
@@ -66,7 +65,7 @@ and for a change to what a person sees, "A picture" and "A screenshot" in
    them all.
 8. **The criterion's line.** Under the criterion in `criteria.md`, three spaces in: `- test:
    `COMMAND` in `FILE``, each file the test needs in its own backticks, or the `- no test:` line of
-   step 3. Then `lem criteria --repo WORKTREE record SLUG`, which refuses a
+   step 3. Then `lem --repo WORKTREE criteria record SLUG`, which refuses a
    line of another form. The landing runs the test on the branch and on the base, once.
 9. **Your reply is the report**, in six lines at most, one for each of these:
    - what changed and where, with the commit subject;
@@ -81,8 +80,8 @@ and for a change to what a person sees, "A picture" and "A screenshot" in
 
    No proof of the state and record commands: their scripts refuse what is wrong, and the task's
    session reads the state. The first real fast-track builder's report ran to twenty lines, most of them that proof
-   (a scratch repository, 2026-11-17). Write the state first, `lem
-   project --repo WORKTREE state SLUG ready "the change is built"`,
+   (a scratch repository, 2026-11-17). Move the task first, `lem --repo
+   WORKTREE task move SLUG ready --line "the change is built"`,
    and then reply. You write no report file: the task's session writes `report.md` from your reply. The agent
    refused that write to all three builders of the first fast-track tasks, one lost call each (the
    same repository and day).

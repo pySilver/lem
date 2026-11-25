@@ -17,7 +17,7 @@ after it when a task of that stem ended, else the first five plain words of his 
 with his words or the item's path as the ask, and step 5. It refuses an item that a task that has
 not ended holds, and names that task.
 
-1. **An ask that is a ticket.** When the ask is a ticket's id or its URL and `lem project show`
+1. **An ask that is a ticket.** When the ask is a ticket's id or its URL and `lem settings show`
    gives a `tracker`, the tracker reads it (`load-skill` the skill `tracker.kind` names, its
    "read"): what the read gives as the ask is the ask, word for word (the ticket's text, its title
    only when the text is empty, never the comments under it), and that is what `--ask` takes in
@@ -31,7 +31,7 @@ not ended holds, and names that task.
 3. **The task directory**, with the ask as the owner gave it:
 
    ```bash
-   lem project task-dir SLUG --ask "THE OWNER'S WORDS"
+   lem task open SLUG --ask "THE OWNER'S WORDS"
    ```
 
    For a ticket, add `--ticket ID`, and `--branch NAME` when the tracker gives a branch name for it:
@@ -104,7 +104,7 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
    stops at the committed plan; the line of step 8 says so ("Standard track, because you asked for
    its plan: ..."). A plan's criteria always say `Size: full`, and `criteria.py` and `land.py`
    refuse a plan that says `Size: small`.
-   In the same look, read the ask's words against each topic of `flow.topics` in `lem project
+   In the same look, read the ask's words against each topic of `flow.topics` in `lem settings
    show`, the sentences of what must never go wrong here. No code matches a topic and no file
    name settles one: the question is whether the change the ask wants could reach that thing.
    When it could, the task's first state block carries the line `careful: WHAT IT COULD REACH`
@@ -223,7 +223,7 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
    Read `skills/lem/prompts/lead.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.
    task: SLUG
    branch: the branch of step 2
-   worktree: the path `lem project worktree-dir SLUG` prints
+   worktree: the path `lem task worktree SLUG --path` prints
    task directory: the task directory's absolute path
    stop after the plan: no
    ```
@@ -302,10 +302,17 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
      ```
 
    - an investigation: step 1 of `stages/investigate.md`, after the worktree, then its step 2;
-   - the fast track: steps 1 to 3 of `stages/start.md`, the state `building` with `small change:
-     one builder`, then its step 4 and step 3 of "The fast track" below. For a ticket or an item
-     somebody else wrote, while he is there, the first block is the wait for his yes of "The fast
-     track", step 1, and the builder's block comes after his yes;
+   - the fast track: its read, its worktree on the branch TYPE/SLUG, and the state `building`,
+     each one command, then its step 4 and step 3 of "The fast track" below:
+
+     ```bash
+     lem task read SLUG --type TYPE --why "WHY" --track small --then fast
+     lem task worktree SLUG
+     lem task move SLUG building --line "small change: one builder"
+     ```
+
+     For a ticket or an item somebody else wrote, while he is there, the first block is the wait
+     for his yes of "The fast track", step 1, and the builder's block comes after his yes;
    - the standard track from a complete request: steps 1 to 3 of `stages/start.md`, the state
      `building` with `lead: builder`. This session is the lead: then follow `brief.md`; nothing is
      handed over, since nothing was said yet that the lead would lose;
@@ -401,7 +408,7 @@ queued task").
    Read `skills/lem/prompts/small.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.
    task: SLUG
    branch: the branch of step 2 of "The request"
-   worktree: the path `lem project worktree-dir SLUG` prints
+   worktree: the path `lem task worktree SLUG --path` prints
    task directory: the task directory's absolute path
    ```
 
