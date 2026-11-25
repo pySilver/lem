@@ -20,6 +20,8 @@ def head_acts(world: World, seen: Seen) -> HeadActs | None:
     if not world.viewer.may_act:
         return None
     session = opening.session_form(world, seen) if opening.opens(world, seen) else None
+    if seen.record.task.slug in world.running:
+        return HeadActs(session=session, merging=True)
     offered = offers.merge_offered(seen, conflicts=world.forge.conflicts)
     merge = merge_link(world, seen) if offered else None
     if session is None and merge is None:

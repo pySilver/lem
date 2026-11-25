@@ -5,8 +5,6 @@ step of its own or the one that says why there is nothing to do now."""
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from msgspec.structs import replace
-
 from lem.board.inputs.task.steps import NotNow
 from lem.board.views.panel.card import card
 from lem.board.views.panel.drop import drop
@@ -14,30 +12,27 @@ from lem.board.views.panel.merge import merge
 from lem.board.views.panel.park import park
 
 if TYPE_CHECKING:
-    from lem.board.inputs.task.panel import Panel
+    from functools import partial
+
+    from lem.board.inputs.task.panel import Panel, Shows
     from lem.board.inputs.task.steps import Card, Drop, Merge, Park
     from lem.board.views.panel.opened import Opened, Sections, Shown
 
 TABS = ("criteria", "checks", "timeline", "artifacts")
 
 
-def tabbed(base: Panel, shown: Shown, sections: Sections) -> Panel:
-    """The panel with the other view's tab its address shows, when the caller drew it."""
-    shows = base.shows
-    drawn = getattr(sections, shows) if shows in TABS else None
-    if drawn is None:
-        return base
-    return replace(base, **{shows: drawn(shown.world, shown.seen)})
-
-
-def stepped(base: Panel, shown: Shown, opened: Opened) -> Panel:
-    """The panel with the step of an act its address shows, or why there is nothing to do."""
-    maker = MAKERS.get(base.shows)
-    if maker is None:
-        return base
-    made = maker(shown, opened)
-    field = "not_now" if isinstance(made, NotNow) else base.shows
-    return replace(base, **{field: made})
+def body(
+    base: partial[Panel], shows: Shows, shown: Shown, opened: Opened, sections: Sections
+) -> Panel:
+    """Construct the panel with its one required body."""
+    if shows in TABS:
+        drawn = getattr(sections, shows)
+        if drawn is None:
+            raise ValueError(f"the panel needs its {shows} section")
+        return base(**{shows: drawn(shown.world, shown.seen)})
+    made = MAKERS[shows](shown, opened)
+    key = "not_now" if isinstance(made, NotNow) else shows
+    return base(**{key: made})
 
 
 def merge_step(shown: Shown, opened: Opened) -> Merge | NotNow:

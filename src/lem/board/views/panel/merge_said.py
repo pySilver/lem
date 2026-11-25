@@ -47,7 +47,7 @@ def why_not(world: World, seen: Seen, standing: Standing) -> str | None:
     if record.task.status != "open":
         label = standing.label.lower()
         return f"Nothing to merge now: the task is {label}."
-    return RELANDS if merging.merge_wait(record) == "relands" else CONFLICT
+    return RELANDS if merging.merge_wait(seen.merge_look()) == "relands" else CONFLICT
 
 
 def refused_for_base(record: Record) -> bool:

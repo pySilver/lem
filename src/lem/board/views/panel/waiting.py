@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, NamedTuple
 from lem.board.inputs.names import title_of
 from lem.board.views import telling, words
 from lem.board.views.panel import pulls
-from lem.board.views.panel.answer import answer
+from lem.board.views.panel.answer import answer, dropped_before
 from lem.board.views.panel.common import closed, pull_of
 from lem.board.views.where import recovery, where
 from lem.model.owner import verbs
@@ -69,7 +69,7 @@ def answered(seen: Seen, rows: Rows) -> str:
         ),
         None,
     )
-    after = next((row.after for row in rows if row.after), None)
+    after = dropped_before(rows)
     if gone is None:
         return answer(task, after)
     if len(rows) > 1:

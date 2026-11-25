@@ -103,8 +103,11 @@ def queued(record: Record, queue: Queue, now: Moment) -> Record:
     task = record.task
     status, line = moved_to(queue.after)
     renewed = status == "queued" and task.after != queue.after
-    order = task.order if task.after and task.order is not None else queue.order
-    task = replace(task, after=queue.after, order=order)
+    task = replace(
+        task,
+        after=queue.after,
+        order=task.order if task.after and task.order is not None else queue.order,
+    )
     if renewed:
         task = replace(task, since=now)
     record = replace(record, task=task)

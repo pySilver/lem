@@ -11,8 +11,8 @@ which sessions live, and a queued task behind a dropped one waits for the owner'
 from typing import TYPE_CHECKING
 
 from lem.app.owner import releases
-from lem.app.sessions.queued import DONE
 from lem.board.duties import wakes
+from lem.model.task.behind import STARTED
 from lem.store import tasks
 
 if TYPE_CHECKING:
@@ -41,4 +41,4 @@ def turn(record: Record, statuses: Mapping[str, str]) -> bool:
     task = record.task
     if task.status != "queued" or task.hold is not None or not task.after:
         return False
-    return all(statuses.get(after) in DONE for after in task.after)
+    return all(statuses.get(after) in STARTED for after in task.after)

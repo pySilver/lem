@@ -238,7 +238,7 @@ def test_the_page_of_a_new_task_has_its_form_only_where_it_may_act() -> None:
     assert page.cancel.href == "/h/w/"
     assert page.form is not None
     assert (page.form.action, page.form.label, page.form.busy) == (
-        "/h/w/start",
+        "/h/w/tasks",
         "Start the task",
         "Starting…",
     )

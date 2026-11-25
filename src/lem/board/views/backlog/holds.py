@@ -71,7 +71,7 @@ def held_holds(viewer: Viewer, entry: Entry, held: Record) -> Holds:
 def start(base: Href, path: str) -> ActForm:
     """The form that starts a task from the item at `path`."""
     return ActForm(
-        action=f"{base}/start",
+        action=f"{base}/tasks",
         label="Start a task",
         icon="play",
         press="go",

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from starlette.concurrency import run_in_threadpool
 
+from lem.board import listener
 from lem.board.acts import asker, back, given
 from lem.board.acts.asked import Asked
 from lem.board.pages import place
@@ -28,7 +29,7 @@ type Act = Callable[[Asked], Note]
 
 async def asked_of(request: Request) -> Asked | Response:
     """The act the request asks, or the answer of a request that is no act of the board's."""
-    said = asker.refusal(request)
+    said = listener.act_refusal(request)
     if said is not None:
         return back.refused(said)
     space = place.workspace(request)

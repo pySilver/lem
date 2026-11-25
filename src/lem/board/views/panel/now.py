@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from lem.board.inputs.task.now import Now
 from lem.board.views import answering, offers
 from lem.board.views.panel import heads, lines, now_parts, shown, ways
-from lem.board.views.panel.answer import answer
+from lem.board.views.panel.answer import answer, dropped_before
 from lem.board.views.where import recovery
 from lem.model.owner import presence
 from lem.records.holds import BreakerHold, OwnerHold, Parked
@@ -27,7 +27,7 @@ BREAKER = (
 def now(world: World, seen: Seen, rows: Rows, standing: Standing) -> Now:
     """The large card of the task of `seen`, with its rows of what waits for the owner."""
     task = seen.record.task
-    after = next((row.after for row in rows if row.after), None)
+    after = dropped_before(rows)
     alone = presence.alone(task, world.presence)
     breaker = isinstance(task.hold, BreakerHold)
     line = None if breaker else shown.shown(seen.record) or None
@@ -66,7 +66,7 @@ def report_of(seen: Seen) -> str | None:
 
 
 def where_of(
-    seen: Seen, standing: Standing, line: str | None, after: str | None
+    seen: Seen, standing: Standing, line: str | None, after: tuple[str, ...]
 ) -> str | None:
     """Where the owner answers, while the task is his and the line above does not say it
     already."""

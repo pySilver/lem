@@ -5,14 +5,13 @@ moment with what the server keeps of the workspace."""
 from typing import TYPE_CHECKING
 
 import msgspec
-from msgspec.structs import replace
 
-from fakes.records import record
 from lem.app.owner import forge
 from lem.board.duties.context import Duty
 from lem.board.duties.memory import Kept
 from lem.records.landing.record import Landing, Pull
 from lem.store import tasks
+from unit.owner import looked as owner_facts
 from unit.owner.looked import TIP
 
 if TYPE_CHECKING:
@@ -31,8 +30,8 @@ def duty_of(here: Here, now: datetime, kept: Kept | None = None) -> Duty:
 
 def opened(here: Here, slug: str, **landing: object) -> Record:
     """An open task with pull request 44 and the landing's `landing` fields, on record."""
-    made = replace(Landing(phase="open", pull=PULL), **landing)
-    found = replace(record(slug, status="open"), landing=made)
+    landing.setdefault("pull", PULL)
+    found = owner_facts.opened(slug, **landing).record
     return tasks.create(here.where.state, found)
 
 

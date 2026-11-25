@@ -92,12 +92,17 @@ class Counts:
             self.kept[key] = known
         return known[1]
 
-    def rows(self, home: Path, host: str, fresh: str = "") -> Rows:
+    def rows(
+        self, home: Path, host: str, fresh: str = "", current: Row | None = None
+    ) -> Rows:
         """Each workspace of the list whose checkout still has Lem set up, the one named
         `fresh` counted now."""
         named = workspaces.named(workspaces.listed(home), host)
         found: list[Row] = []
-        for name, _ in named:
+        for name, checkout in named:
+            if current is not None and (name, checkout) == (current.name, current.path):
+                found.append(current)
+                continue
             space = workspaces.found(home, host, name)
             if space is not None:
                 found.append(self.row(space, name, host, fresh=name == fresh))

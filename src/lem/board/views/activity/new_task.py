@@ -37,7 +37,7 @@ def new_task(world: World) -> NewTask:
         required=True,
     )
     form = ActForm(
-        action=f"{viewer.base}/start",
+        action=f"{viewer.base}/tasks",
         label="Start the task",
         icon="play",
         press="go",

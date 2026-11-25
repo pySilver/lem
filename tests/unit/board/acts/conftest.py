@@ -15,7 +15,9 @@ from fakes.ports import fake_ports
 from fakes.records import MOMENT
 from lem.app import wiring
 from lem.board import app, install, machine, workspaces
+from lem.board.door import Door
 from lem.board.facts import Facts
+from lem.board.serving import Serving
 from lem.kernel import folders
 from lem.store import places
 from unit.sessions.terminal import LookingTerminal, with_caller
@@ -59,11 +61,28 @@ def made_app(home: Path, *, door: bool) -> TestClient:
         host=machine.machine_name(),
         install=install.install_of(),
         home=str(home),
+        door=4998 if door else None,
         started=MOMENT,
     )
-    served = app.made(facts, home=home, listen="127.0.0.1", stop=lambda: None)
-    served.state.door = door
-    return TestClient(served, base_url=ORIGIN, client=("127.0.0.1", 50000))
+    entry = (
+        Door(name="studio.test", port=4998, owner="owner", reread=lambda name: name)
+        if door
+        else None
+    )
+    serving = Serving(
+        home=home, environ=os.environ, listen="127.0.0.1", stop=lambda: None, door=entry
+    )
+    served = app.made(facts, serving)
+    client = TestClient(
+        served,
+        base_url="http://127.0.0.1:4998" if door else ORIGIN,
+        client=("127.0.0.1", 50000),
+    )
+    if door:
+        client.headers.update(
+            {"Host": "studio.test:4998", "Tailscale-User-Login": "owner"}
+        )
+    return client
 
 
 def board_of(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, door: bool) -> Board:

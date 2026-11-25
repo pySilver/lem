@@ -57,7 +57,7 @@ def of(
     if listed is None:
         return None
     entry = listed.get(record.task.slug)
-    return sessions.session_of(entry, record.task.opened, known=True)
+    return sessions.session_of(entry, record.task.opened, None, known=True)
 
 
 def stop_of(

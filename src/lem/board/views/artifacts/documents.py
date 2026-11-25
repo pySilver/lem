@@ -27,7 +27,9 @@ def document(
     keyed = f"{key}|{linked}".encode()
     digest = hashlib.sha256(keyed).hexdigest()[:ID_LENGTH]
     named = f"md-{key}-{digest}"
-    return Document(id=named, text=linked, media=media, folder=folder)
+    return Document(
+        id=named, text=linked, media=media, folder=folder, charts="```mermaid" in linked
+    )
 
 
 def chart(key: str, source: str) -> Document:

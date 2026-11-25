@@ -70,14 +70,20 @@ TASK_TABS = {
 }
 WORKSPACE_VIEWS = {
     "tasks": Page(frame=frame.FRAME, tasks=columns.TASKS),
-    "waits": Page(frame=frame.FRAME, waits=waiting.WAITS),
-    "backlog": Page(frame=frame.FRAME, backlog=shelves.BACKLOG),
-    "activity": Page(frame=frame.FRAME, activity=examples.ACTIVITY),
+    "waits": Page(frame=examples.for_view("waits", "Waits"), waits=waiting.WAITS),
+    "backlog": Page(
+        frame=examples.for_view("backlog", "Backlog"), backlog=shelves.BACKLOG
+    ),
+    "activity": Page(
+        frame=examples.for_view("activity", "Activity"), activity=examples.ACTIVITY
+    ),
     "done": Page(
-        frame=frame.FRAME, older=Older(newer=examples.BACK, empty="No older tasks")
+        frame=examples.for_view("done", "Done"),
+        older=Older(newer=examples.BACK, empty="No older tasks"),
     ),
     "new": Page(
-        frame=frame.FRAME, new=NewTask(form=examples.FORM, cancel=examples.BACK)
+        frame=examples.for_view("new", "New"),
+        new=NewTask(form=examples.FORM, cancel=examples.BACK),
     ),
 }
 
@@ -139,7 +145,10 @@ def inputs(
     )
     if "slug" in request.path_params:
         return Page(frame=layout, tasks=columns.TASKS, panel=task_panel(request, name))
-    return msgspec.structs.replace(WORKSPACE_VIEWS[name], frame=layout)
+    base = WORKSPACE_VIEWS[name]
+    return msgspec.structs.replace(
+        base, frame=msgspec.structs.replace(base.frame, head=layout.head)
+    )
 
 
 @pytest.fixture
@@ -181,7 +190,7 @@ PAGES = (
     (f"{TASK}/checks", "checks", "make test"),
     (f"{TASK}/timeline", "timeline", 'id="now-work"'),
     (f"{TASK}/artifacts", "artifacts", 'id="arts-side"'),
-    (f"{TASK}/merge", "merge", "Merge pull request #44"),
+    (f"{TASK}/merge", "merge", "Approve"),
     (f"{TASK}/park", "park", "Park this task"),
     (f"{TASK}/drop", "drop", "Drop this task"),
     (f"{TASK}/artifacts/one/two", "artifact-file", "Artifact one/two"),

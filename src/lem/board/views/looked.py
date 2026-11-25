@@ -9,7 +9,6 @@ from msgspec.structs import replace
 
 from lem.app.owner import forge
 from lem.board.views.world import Forge
-from lem.kernel.errors import Fault
 from lem.model.owner import presence as presence_rule
 
 if TYPE_CHECKING:
@@ -22,14 +21,11 @@ if TYPE_CHECKING:
 
 def forge_of(state: Path, records: tuple[Record, ...]) -> Forge:
     """The look of the state folder `state` at the forge, over the workspace's records."""
-    try:
-        look = forge.read(state)
-    except Fault as fault:
-        return Forge(problem=str(fault))
+    look = forge.read(state)
     conflicts = frozenset(
         record.task.slug for record in records if forge.conflicts(look, record)
     )
-    return Forge(looked=look.looked, conflicts=conflicts)
+    return Forge(looked=look.looked, conflicts=conflicts, problem=look.said)
 
 
 def alone(seen: Seen, presence: Presence) -> Seen:

@@ -50,10 +50,22 @@ SAMPLES = (
         "backlog_page",
         Page(frame=for_view("backlog", "Backlog"), backlog=shelves.BACKLOG),
     ),
-    (REFUND + "overview", Page(frame=frame.FRAME, panel=panel.OPEN)),
-    (REFUND + "criteria", Page(frame=frame.FRAME, panel=panel.CRITERIA_TAB)),
-    (REFUND + "checks", Page(frame=frame.FRAME, panel=panel.CHECKS_TAB)),
-    (REFUND + "merge", Page(frame=frame.FRAME, panel=panel.MERGE_STEP)),
+    (
+        REFUND + "overview",
+        Page(frame=frame.FRAME, tasks=columns.TASKS, panel=panel.OPEN),
+    ),
+    (
+        REFUND + "criteria",
+        Page(frame=frame.FRAME, tasks=columns.TASKS, panel=panel.CRITERIA_TAB),
+    ),
+    (
+        REFUND + "checks",
+        Page(frame=frame.FRAME, tasks=columns.TASKS, panel=panel.CHECKS_TAB),
+    ),
+    (
+        REFUND + "merge",
+        Page(frame=frame.FRAME, tasks=columns.TASKS, panel=panel.MERGE_STEP),
+    ),
 )
 
 

@@ -16,9 +16,9 @@ a new proposal makes a new try at the next tick.
 from typing import TYPE_CHECKING
 
 from lem.app.owner import forge, releases
+from lem.board import merge_look
 from lem.board.duties import forge_look, merge_run
 from lem.model.landing import merge_standing, mergeread, phases
-from lem.model.owner import merging
 from lem.records.holds import ReleaseHold
 from lem.store import tasks
 
@@ -31,30 +31,40 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 
+UNKNOWN = merge_look.MergeBasis()
+
+
 def tick(duty: Duty) -> None:
     """Start the merge of each task whose merge is the server's now."""
     look = forge_look.current(duty)
-    for record in releases.with_stops(tasks.every(duty.state)):
-        merged(duty, record, look)
+    records = releases.with_stops(tasks.every(duty.state))
+    basis = merge_look.basis_of(duty.here, records)
+    for record in records:
+        merged(duty, record, look, basis)
 
 
-def merged(duty: Duty, record: Record, look: forge.Look) -> None:
+def merged(
+    duty: Duty, record: Record, look: forge.Look, basis: merge_look.MergeBasis
+) -> None:
     """Start the task's merge when it is the server's now, and no failure of it waits."""
-    by = merger_of(record, look, duty.kept.running())
+    by = merger_of(record, look, duty.kept.running(), basis)
     key = key_of(record)
     if by is not None and duty.kept.due(key, duty.now):
         merge_run.started(duty, record, by, key)
 
 
 def merger_of(
-    record: Record, look: forge.Look, running: Collection[str]
+    record: Record,
+    look: forge.Look,
+    running: Collection[str],
+    basis: merge_look.MergeBasis = UNKNOWN,
 ) -> Merger | None:
     """Who the server merges the task for now: the owner, whose merge stands, or the merge
     agent; None when its merge is not the server's to make now."""
     landing = record.landing
     if landing is None or phases.settled(record) is not None:
         return None
-    if merging.merge_wait(record) != merging.MERGES:
+    if not merge_look.server_merges(record, basis):
         return None
     waits = landing.intent is not None or landing.accepted is not None
     held = isinstance(record.task.hold, ReleaseHold)

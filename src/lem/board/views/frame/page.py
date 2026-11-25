@@ -46,7 +46,7 @@ class Beside:
 def frame(world: World, beside: Beside) -> Frame:
     """The frame of a page of the world."""
     counts = counted.counted(world)
-    switcher = beside.switcher or views.lone(world, sidebar.says(counts))
+    switcher = beside.switcher or views.lone(world)
     title, line = summary.said(world.viewer.view, counts)
     return Frame(
         viewer=world.viewer,

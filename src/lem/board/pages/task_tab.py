@@ -24,4 +24,6 @@ def missing(board: Page | Workspaces, tab: str) -> Page | Workspaces:
         home += viewer.view
     unknown = Missing(title="Not found", said=f"A task has no tab “{tab}”.", back=home)
     tabs = tuple(replace(link, current=False) for link in panel.tabs)
-    return replace(board, panel=replace(panel, tabs=tabs, missing=unknown))
+    return replace(
+        board, panel=replace(panel, tabs=tabs, overview=None, missing=unknown)
+    )

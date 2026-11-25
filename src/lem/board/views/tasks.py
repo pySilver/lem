@@ -64,6 +64,7 @@ def column(world: World, spec: Spec, placed: list[Placed], rows: Rows) -> Column
         look=spec.look,
         title=spec.title,
         empty=spec.empty,
+        total=len(order),
         folded=spec.key in world.viewer.folded,
         cards=tuple(
             cards.card(world, seen, where, TITLES[spec.key], rows)

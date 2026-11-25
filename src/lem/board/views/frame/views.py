@@ -74,9 +74,7 @@ def rail_title(counts: counted.Counted) -> str:
     return counted.tasks_said(counts.waits)
 
 
-def lone(world: World, says: str) -> Switcher:
-    """The switcher of a machine with this workspace alone: its name, what it says, and its
-    path."""
+def lone(world: World) -> Switcher:
+    """The name of the workspace when it is the machine's only one."""
     name = world.viewer.workspace
-    path = world.place.path
-    return Switcher(name=name, title=f"{name}: {says}\n{path}")
+    return Switcher(name=name, title=name)

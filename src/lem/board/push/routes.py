@@ -7,6 +7,7 @@ from functools import partial
 from starlette.routing import Route
 
 from lem.board import aliases, own, taskfiles
+from lem.board.pages.routes import FALLBACK_ROUTES
 from lem.board.push import acts, manifest, reads
 
 TASK = "/{host}/{workspace}/tasks/{slug}"
@@ -34,5 +35,6 @@ ROUTES = (
     Route("/api/push/test", partial(acts.answered, work=acts.testing), methods=POST),
     Route(f"{TASK}/raw/{{path:path}}", taskfiles.raw, methods=GET),
     Route(f"{TASK}/media/{{path:path}}", taskfiles.media, methods=GET),
+    *FALLBACK_ROUTES,
     *aliases.ROUTES,
 )

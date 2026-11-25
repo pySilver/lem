@@ -8,7 +8,6 @@ from lem.board.inputs.forms import ActForm, Field
 from lem.board.inputs.task.steps import Confirm
 from lem.board.views.panel import confirm
 from lem.board.views.panel.common import pull_of
-from lem.board.views.panel.merge_facts import base_of
 
 if TYPE_CHECKING:
     from lem.board.views.world import Seen, World
@@ -53,17 +52,9 @@ def merge_form(world: World, seen: Seen, tip: str) -> ActForm:
     named = (("confirm", "yes"), ("tip", tip), *confirm.under_field(world))
     return ActForm(
         action=confirm.act_href(world, record.task.slug, "merge"),
-        label=label_of(world, seen),
+        label="Approve",
         icon="code-pull-request",
         press="risk",
-        busy="Merging…",
+        busy="Approving…",
         fields=tuple(Field(name=name, shown=shown) for name, shown in named),
     )
-
-
-def label_of(world: World, seen: Seen) -> str:
-    """The button's words: the pull request it merges, or the base it lands on."""
-    pull = pull_of(seen.record)
-    if pull:
-        return f"Merge pull request #{pull.number}"
-    return f"Merge it into {base_of(world, seen.record)}"

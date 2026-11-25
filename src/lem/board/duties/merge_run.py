@@ -41,9 +41,7 @@ def started(duty: Duty, record: records.Record, by: Merger, key: Key) -> None:
     run = threading.Thread(
         target=ran, args=(duty, slug, asked, key), name=f"merge {slug}", daemon=True
     )
-    duty.kept.merging[slug] = run
-    duty.kept.said[slug] = f"Lem merges {slug}; the page shows the result when it ends."
-    run.start()
+    duty.kept.start_merge(slug, run)
 
 
 def subject_of(duty: Duty, record: records.Record) -> str | None:
@@ -56,6 +54,7 @@ def subject_of(duty: Duty, record: records.Record) -> str | None:
 
 def ran(duty: Duty, slug: str, asked: merge_asked.Asked, key: Key) -> None:
     """The merge, and its end as the board and the server's log say it."""
+    duty.kept.said[slug] = f"Lem merges {slug}; the page shows the result when it ends."
     try:
         outcome = merge.run(
             duty.checkout,

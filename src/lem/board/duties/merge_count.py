@@ -3,10 +3,10 @@
 from typing import TYPE_CHECKING
 
 from lem.app.owner import forge, releases
+from lem.board import merge_look
 from lem.board.duties import forge_look, merge_line
 from lem.kernel import clock, errors
 from lem.model.landing import merge_standing, phases
-from lem.model.owner import merging
 from lem.records.holds import ReleaseHold
 from lem.store import tasks
 
@@ -16,15 +16,13 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 
-def eligible(record: Record, look: forge.Look) -> bool:
+def eligible(record: Record, look: forge.Look, basis: merge_look.MergeBasis) -> bool:
     """Whether an approval is still in the merge line."""
     if phases.settled(record) is not None or isinstance(record.task.hold, ReleaseHold):
         return False
     if standing_waits(record):
         return True
-    return merging.merge_wait(record) == merging.MERGES and not forge.conflicts(
-        look, record
-    )
+    return merge_look.server_merges(record, basis) and not forge.conflicts(look, record)
 
 
 def standing_waits(record: Record) -> bool:
@@ -51,8 +49,9 @@ def waited(duty: Duty, slug: str, intent: merge.MergeIntent) -> merge_line.Waite
     """The count and names of the other approved tasks at this call."""
     look = forge_look.current(duty)
     records = releases.with_stops(tasks.every(duty.state))
-    others = (one for one in records if one.task.slug != slug)
-    behind = tuple(one.task.slug for one in others if eligible(one, look))
+    basis = merge_look.basis_of(duty.here, records)
+    approved = (one.task.slug for one in records if eligible(one, look, basis))
+    behind = tuple(name for name in approved if name != slug)
     return merge_line.Waited(
         at=clock.now(),
         task=slug,

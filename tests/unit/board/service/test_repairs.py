@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 from contextlib import aclosing, contextmanager
+from functools import partial
 from http.client import HTTPConnection
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -374,24 +375,23 @@ def test_an_artifact_saved_after_the_page_reads_it_owes_a_refresh_at_stream_open
     tasks.create(board.state, record(SLUG))
     report = board.state / "tasks" / SLUG / "report.md"
     report.write_text("the old report")
-    shown = watched.look(board.state, board.home, SLUG)
+    shown = watched.look(board.state, board.home, SLUG).rendered
     assert report.read_text() == "the old report"
     report.write_text("the new report")
 
     async def first() -> None:
         with anyio.fail_after(2):
             async with aclosing(
-                stream.events(
-                    board.state,
+                stream.refreshed(
+                    partial(watched.look, board.state, board.home, SLUG),
                     rendered=shown,
                     missed=False,
-                    home=board.home,
-                    task=SLUG,
                 )
             ) as events:
                 event = await anext(events)
         assert event.data == stream.REFRESH
-        assert event.id == watched.look(board.state, board.home, SLUG) != shown
+        assert watched.look(board.state, board.home, SLUG).rendered != shown
+        assert event.id == watched.look(board.state, board.home).version
 
     anyio.run(first)
 
@@ -407,11 +407,10 @@ def test_a_file_changed_after_the_kanban_render_owes_a_refresh_at_stream_open(
     async def first() -> None:
         with anyio.fail_after(2):
             async with aclosing(
-                stream.events(
-                    board.state,
+                stream.refreshed(
+                    partial(watched.look, board.state, board.home),
                     rendered=shown[1],
                     missed=False,
-                    home=board.home,
                 )
             ) as events:
                 event = await anext(events)
@@ -432,7 +431,7 @@ def test_a_task_visit_compares_its_rendered_token_at_stream_open(
     workspace = re.search(r'data-stream-since-value="([^"]+)"', page)
     assert workspace is not None
     assert f'data-stream-task="" data-stream-rendered="{workspace[1]}"' in page
-    rendered = watched.look(board.state, board.home, SLUG)
+    rendered = watched.look(board.state, board.home, SLUG).rendered
     if changed:
         report.write_text("the report changed after the render")
     script = Path(__file__).with_name("stream_visit.mjs")
@@ -448,7 +447,7 @@ def test_a_task_visit_compares_its_rendered_token_at_stream_open(
         stream.owes(
             rendered=query.get("rendered"),
             missed="since" in query,
-            told=watched.look(board.state, board.home, SLUG),
+            told=watched.look(board.state, board.home, SLUG).rendered,
         )
         is changed
     )
@@ -504,3 +503,44 @@ def test_a_quiet_open_stream_sends_its_first_ping_on_time(
         "duty:stream-heartbeat\tchanged\tunit.board.service.test_repairs.test_a_quiet_open_stream_sends_its_first_ping_on_time\t"
         in ledger.read_text()
     )
+
+
+def test_a_merge_note_changes_its_workspace_page_and_stream_version(
+    board: Board,
+) -> None:
+    from lem.board.acts.notes import NOTES, Note
+
+    tasks.create(board.state, record(SLUG))
+    client = board.main()
+    key = (str(board.checkout), SLUG)
+    other = board.checkout.parent / "other" / ".lem" / "state"
+    revision = board.app.state.act_revision
+    quiet = revision(other)
+    before = revision(board.state)
+    token, first = NOTES.started(
+        key, Note(task=SLUG, act="merge", state="running", said="Merge pending")
+    )
+    try:
+        assert first
+        running = revision(board.state)
+        assert running != before
+        address = f"/studio/shop/tasks/{SLUG}?note={token}"
+        page = client.get(address)
+        assert page.status_code == 200 and "Merge pending" in page.text
+        NOTES.change(token, "refused", "The base moved")
+        refused = revision(board.state)
+        assert refused != running
+        frame = client.get(address, headers={"Turbo-Frame": "task"})
+        assert frame.status_code == 200 and "The base moved" in frame.text
+        assert revision(other) == quiet
+    finally:
+        NOTES.ended(key)
+    assert revision(board.state) == before
+
+
+def test_an_unknown_task_tab_keeps_the_real_tasks_navigation(board: Board) -> None:
+    tasks.create(board.state, record(SLUG))
+    url = f"/studio/shop/tasks/{SLUG}"
+    page = board.main().get(f"{url}/unknown")
+    assert page.status_code == 404
+    assert "A task has no tab" in page.text and f"{url}/criteria" in page.text

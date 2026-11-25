@@ -15,7 +15,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse
 
 from lem.app.sessions import here, log
-from lem.board.acts import asker
+from lem.board import listener
 from lem.board.pages import place
 from lem.kernel.errors import Fault
 from lem.store import places, tasks
@@ -61,9 +61,9 @@ def selected(space: places.Workspace, session: str) -> str | None:
 
 async def endpoint(request: Request) -> Response:
     """Select the session of the address, and say what came of it."""
-    if asker.door(request):
+    if listener.at_door(request):
         return answered(DOOR, HTTPStatus.FORBIDDEN, done=False)
-    refused = asker.refusal(request)
+    refused = listener.act_refusal(request)
     if refused is not None:
         return answered(refused, HTTPStatus.FORBIDDEN, done=False)
     space = place.workspace(request)

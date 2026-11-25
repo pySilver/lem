@@ -3,7 +3,7 @@
 from starlette.routing import Mount, Route
 
 from lem.board import stream
-from lem.board.pages import assets, kanban, source
+from lem.board.pages import assets, source
 
 WORKSPACE = "/{host}/{workspace}"
 TASK = f"{WORKSPACE}/tasks/{{slug}}"
@@ -25,7 +25,7 @@ TAB_ROUTES = tuple(source.route(TASK, tab) for tab in TABS)
 ROUTES = (
     source.bound("/", "workspaces"),
     Route("/{host}/assets/{path:path}", assets.on_host, name="host-asset"),
-    Route(f"{WORKSPACE}/", kanban.page, name="tasks"),
+    source.bound(f"{WORKSPACE}/", "tasks"),
     Route(f"{WORKSPACE}/stream", stream.endpoint, name="stream"),
     Mount("/assets", app=assets.FILES, name="assets"),
     *VIEW_ROUTES,

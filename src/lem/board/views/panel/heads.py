@@ -37,13 +37,13 @@ PROPOSED = MappingProxyType(
 )
 
 
-def now_head(seen: Seen, after: str | None = None, *, alone: bool = False) -> str:
+def now_head(seen: Seen, after: tuple[str, ...] = (), *, alone: bool = False) -> str:
     """What the task of `seen` does now; `after` names the dropped task it was queued
     behind, and `alone` says it runs without the owner."""
     task = seen.record.task
     hold = task.hold
     if task.status in rule.ENDED or hold is None:
-        return status_head(seen.record, after)
+        return status_head(seen, after)
     if isinstance(hold, ReleaseHold):
         return OLDER_RELEASE
     if isinstance(hold, Parked):
@@ -60,8 +60,9 @@ def blocked(hold: Blocked) -> str:
     return "Its session stopped: it waits for your word"
 
 
-def status_head(record: Record, after: str | None) -> str:
+def status_head(seen: Seen, after: tuple[str, ...]) -> str:
     """The head of a task no hold holds, by its status."""
+    record = seen.record
     task = record.task
     if task.status == "queued":
         return queued(record, after)
@@ -70,7 +71,7 @@ def status_head(record: Record, after: str | None) -> str:
     if task.status == "planned":
         return planned(record)
     if task.status in {"landing", "open"}:
-        return telling.waiting(record) or merge_state.said(record) or moving(record)
+        return telling.waiting(record) or merge_state.said(record) or moving(seen)
     return PLAIN.get(task.status, f"Status “{task.status}”")
 
 
@@ -81,10 +82,12 @@ def planned(record: Record) -> str:
     return "The plan waits for its plan talk"
 
 
-def queued(record: Record, after: str | None) -> str:
+def queued(record: Record, after: tuple[str, ...]) -> str:
     """A queued task: the dropped task it waited for, another task, or its start."""
-    if after is not None:
-        return f"{after} was dropped: your word starts or ends this task"
+    if after:
+        names = " and ".join(after)
+        verb = "was" if len(after) == 1 else "were"
+        return f"{names} {verb} dropped: your word starts or ends this task"
     return "Waits for another task" if record.task.after else "Waits to start"
 
 
@@ -96,9 +99,10 @@ def building(record: Record) -> str:
     return lead.head if lead else "An agent plans and builds it"
 
 
-def moving(record: Record) -> str:
+def moving(seen: Seen) -> str:
     """A landing's step, or the merge an open pull request waits for."""
+    record = seen.record
     if record.task.status == "landing":
         return landing_head.landing(record)
-    wait = merging.merge_wait(record) or ""
+    wait = merging.merge_wait(seen.merge_look()) or ""
     return PROPOSED.get(wait, "Proposed: it waits for your merge")

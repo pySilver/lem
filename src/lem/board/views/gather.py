@@ -38,12 +38,14 @@ WORKTREES = ".lem/worktrees"
 UNKNOWN = "the task sessions are not known: the server has not asked the terminal yet"
 
 
-def gather(checkout: Path, ask: Ask) -> world.World:
+def gather(
+    checkout: Path, ask: Ask, records: tuple[Record, ...] | None = None
+) -> world.World:
     """The workspace of the main checkout `checkout` as the views read it."""
-    state = places.state_of(checkout)
+    state = checkout / places.STATE
     demo = (state / DEMO).is_file()
     presence = owner.read(ask.home)
-    records = releases.with_stops(tasks.every(state))
+    records = releases.with_stops(tasks.every(state) if records is None else records)
     found = tuple(seen_of(checkout, record, ask, demo=demo) for record in records)
     return world.World(
         viewer=ask.viewer,
@@ -70,13 +72,14 @@ def place_of(checkout: Path, place: world.Place) -> world.Place:
 def seen_of(checkout: Path, record: Record, ask: Ask, *, demo: bool) -> world.Seen:
     """One task and what lies beside its record."""
     worktree = checkout / WORKTREES / record.task.slug
-    where = places.task_folder(places.state_of(checkout), record.task.slug)
+    where = places.task_folder(checkout / places.STATE, record.task.slug)
     acts = log.read(where)
     session = sessions.of(record, acts, ask.listed, demo=demo)
     files = folder.files_of(where)
     return previews.read(
         world.Seen(
             record=record,
+            basis=ask.basis,
             acts=acts,
             files=files,
             plan_file=folder.plan_of(worktree, record.task.plan),

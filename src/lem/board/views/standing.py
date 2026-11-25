@@ -121,7 +121,7 @@ def status_said(seen: Seen) -> rule.Said:
     end = stopped.ended(record)
     if end is not None:
         return stopped.ENDS[end.outcome]
-    merge = MERGE_WAITS.get(merging.merge_wait(record) or "")
+    merge = MERGE_WAITS.get(merging.merge_wait(seen.merge_look()) or "")
     if merge is not None:
         return merge
     if rule.investigates(task):

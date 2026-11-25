@@ -38,7 +38,7 @@ from lem.board import (
 from lem.board.client import Reply
 from lem.board.duties import runner
 from lem.board.facts import HEADER, MARK, Facts, Install
-from lem.board.pages import kanban
+from lem.board.pages import stamps
 from lem.board.serving import Serving
 from lem.kernel import folders, release
 from lem.kernel.errors import Refusal
@@ -97,7 +97,9 @@ def board(tmp_path: Path) -> Board:
         stop=lambda: stops.append("stop"),
     )
     made = app.made(facts, serving)
-    client = TestClient(made, base_url="http://127.0.0.1", client=("127.0.0.1", 50000))
+    client = TestClient(
+        made, base_url="http://127.0.0.1:4999", client=("127.0.0.1", 50000)
+    )
     state = places.state_of(checkout)
     return Board(client, home, state, f"/{host}/my-repo/", stops, facts)
 
@@ -113,14 +115,14 @@ def test_the_kanban_shows_each_task_in_the_column_of_its_status_from_the_records
     held = OwnerHold(on="criteria", line="approve the criteria", since=MOMENT)
     tasks.create(board.state, record("fix-the-login"))
     tasks.create(board.state, record("add-a-flag", status="building", hold=held))
-    tasks.create(board.state, record("tidy-the-docs", status="open"))
+    tasks.create(board.state, record("tidy-the-docs", status="landing"))
     tasks.create(board.state, record("old-thing", status="landed"))
     page = board.client.get(board.address)
     assert page.status_code == 200
     found = columns(page.text)
     assert list(found) == ["you", "build", "checks", "done"]
     assert 'id="card-add-a-flag"' in found["you"]
-    assert "building · owner" in found["you"]
+    assert "s-building a-you" in found["you"]
     assert 'id="card-fix-the-login"' in found["build"]
     assert 'id="card-tidy-the-docs"' in found["checks"]
     assert 'id="card-old-thing"' in found["done"]
@@ -146,7 +148,10 @@ def test_the_page_names_its_stream_and_the_version_it_shows(board: Board) -> Non
     tasks.create(board.state, record("fix-the-login"))
     page = board.client.get(board.address).text
     assert f'data-stream-url-value="{board.address}stream"' in page
-    assert f'data-stream-since-value="{watched.look(board.state, board.home)}"' in page
+    assert (
+        f'data-stream-since-value="{watched.look(board.state, board.home).version}"'
+        in page
+    )
 
 
 def test_the_page_links_the_assets_of_today_and_the_server_sends_them(
@@ -250,7 +255,9 @@ async def first_event(
     state: Path, home: Path, *, rendered: str | None, missed: bool
 ) -> object:
     """The stream's first message, while a record is written a moment after it opens."""
-    events = stream.events(state, rendered=rendered, missed=missed, home=home)
+    events = stream.refreshed(
+        partial(watched.look, state, home), rendered=rendered, missed=missed
+    )
 
     async def write() -> None:
         await anyio.sleep(0.3)
@@ -267,20 +274,20 @@ async def first_event(
 
 def test_the_stream_sends_a_refresh_after_a_record_changes(board: Board) -> None:
     tasks.create(board.state, record("fix-the-login"))
-    shown = watched.look(board.state, board.home)
+    shown = watched.look(board.state, board.home).version
     event = anyio.run(
         lambda: first_event(board.state, board.home, rendered=shown, missed=False)
     )
     assert isinstance(event, stream.ServerSentEvent)
     assert event.data == stream.REFRESH
-    assert event.id == watched.look(board.state, board.home)
+    assert event.id == watched.look(board.state, board.home).version
     assert event.id != shown
 
 
 def test_an_open_that_may_have_missed_a_change_gets_a_refresh_at_once(
     board: Board,
 ) -> None:
-    shown = watched.look(board.state, board.home)
+    shown = watched.look(board.state, board.home).version
     event = anyio.run(
         lambda: first_event(board.state, board.home, rendered=None, missed=True)
     )
@@ -464,15 +471,17 @@ def test_a_write_between_the_pages_two_reads_leaves_the_page_owing_a_refresh(
 
         return read
 
-    monkeypatch.setattr(kanban.watched, "look", after_first("version", watched.look))
-    monkeypatch.setattr(kanban.tasks, "every", after_first("records", tasks.every))
+    monkeypatch.setattr(stamps, "shown", after_first("version", stamps.shown))
+    monkeypatch.setattr(tasks, "every", after_first("records", tasks.every))
     page = board.client.get(board.address).text
     monkeypatch.undo()
     shown = re.search(r'data-stream-since-value="([0-9a-f]+)"', page)
     assert shown is not None
     on_page = 'id="card-add-a-flag"' in page
     owed = stream.owes(
-        rendered=shown[1], missed=False, told=watched.look(board.state, board.home)
+        rendered=shown[1],
+        missed=False,
+        told=watched.look(board.state, board.home).version,
     )
     assert on_page or owed
     assert reads == ["version", "records"]

@@ -1,9 +1,5 @@
 """The view Tasks, `/HOST/WORKSPACE/`: the tasks in four columns by who acts, each a card, and
-Done's foot row to the older ended tasks.
-
-`kanban.py` beside it is the walking skeleton's form, which `board-views` and `board-pages`
-leave for this one.
-"""
+Done's foot row to the older ended tasks."""
 
 from lem.board.inputs.parts import Chip, Input, Link, When
 from lem.board.inputs.text import Href, Inline, Look, Plain

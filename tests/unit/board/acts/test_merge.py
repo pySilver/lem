@@ -78,7 +78,7 @@ def token_of(board: Board, fields: dict[str, str]) -> str:
 def accepting(calls: list[Asked]) -> object:
     """A landing's merge that GitHub takes into its queue."""
 
-    def run(folder: Path, slug: str, asked: Asked) -> None:
+    def run(folder: Path, slug: str, asked: Asked, *, before_call: object) -> None:
         calls.append(asked)
         record = tasks.read(folder / ".lem" / "state", slug)
         assert record.landing is not None
@@ -239,7 +239,7 @@ def test_a_second_press_while_the_merge_runs_gets_that_merges_note(
     gate = threading.Event()
     calls: list[str] = []
 
-    def waits(folder: Path, slug: str, asked: Asked) -> None:
+    def waits(folder: Path, slug: str, asked: Asked, *, before_call: object) -> None:
         calls.append(slug)
         gate.wait(10)
 
@@ -276,7 +276,7 @@ def test_a_merge_the_moved_base_refused_keeps_his_approval_standing(
     opened_pull(board)
     kept: list[Standing] = []
 
-    def refused(folder: Path, slug: str, asked: Asked) -> None:
+    def refused(folder: Path, slug: str, asked: Asked, *, before_call: object) -> None:
         kept.append(Standing(tip=TIP, reasons_digest="d", by_act="board", at=MOMENT))
         raise Refusal("base", "origin's main moved after the checks ran", "read it")
 
@@ -341,7 +341,7 @@ def test_any_other_refusal_of_the_merge_is_its_note(
 ) -> None:
     opened_pull(board)
 
-    def refused(folder: Path, slug: str, asked: Asked) -> None:
+    def refused(folder: Path, slug: str, asked: Asked, *, before_call: object) -> None:
         raise Refusal("github", "GitHub refused the merge", "act on GitHub")
 
     monkeypatch.setattr(merging.merge, "run", refused)
@@ -361,7 +361,7 @@ def test_while_a_merge_runs_another_act_is_taken_and_the_merge_says_it_runs(
     made(board, "other-task", status="building", hold=hold)
     gate = threading.Event()
 
-    def waits(folder: Path, slug: str, asked: Asked) -> None:
+    def waits(folder: Path, slug: str, asked: Asked, *, before_call: object) -> None:
         gate.wait(10)
 
     monkeypatch.setattr(merging.merge, "run", waits)

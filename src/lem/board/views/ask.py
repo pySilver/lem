@@ -1,8 +1,10 @@
 """What a page asks of a workspace when `gather.py` reads it: who asks, at what minute, at which
 version, the place, Lem's home, git's facts, and the terminal's list of sessions."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
+
+from lem.model.owner.looks import MergeBasis
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -26,6 +28,7 @@ class Ask:
     version: str
     place: Place
     home: Path
+    basis: MergeBasis = field(default_factory=MergeBasis)
     git: Branches | None = None
     ledger: Ledger | None = None
     listed: Mapping[str, Listed] | None = None

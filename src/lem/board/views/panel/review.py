@@ -27,8 +27,8 @@ def review(world: World, seen: Seen) -> Review | None:
     if record.task.status != "open" or text is None or record.landing is None:
         return None
     again = mergeread.another_round(record.landing)
-    read = again or mergeread.latest(record.landing)
-    calls = read is None or merging.calling(record) is not None
+    read = again or mergeread.latest(record.landing, seen.basis.tree)
+    calls = read is None or merging.calling(seen.merge_look()) is not None
     calls = calls and again is None
     return Review(
         calls=calls,

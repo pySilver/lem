@@ -476,10 +476,10 @@ MERGE = Merge(
         eyebrow="Merge #44 · confirm",
         form=ActForm(
             action=f"{BASE}/tasks/{SLUG}/merge",
-            label="Merge pull request #44",
+            label="Approve",
             icon="code-pull-request",
             press="risk",
-            busy="Merging…",
+            busy="Approving…",
             fields=(Field(name="confirm", shown="yes"), Field(name="tip", shown=TIP)),
         ),
         back=Link(href=task(SLUG), label="Back", frame=True),

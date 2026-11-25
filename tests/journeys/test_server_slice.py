@@ -213,7 +213,7 @@ def test_serve_run_serves_the_kanban_and_its_stream_and_stops_clean(
                 lines = reply.iter_lines()
                 tasks.create(state, record("add-a-flag"))
                 told = next_refresh(lines)
-                assert told == watched.look(state, lem_home(env)) != shown
+                assert told == watched.look(state, lem_home(env)).version != shown
                 assert 'id="card-add-a-flag"' in httpx.get(base).text
                 proc.send_signal(signal.SIGTERM)
                 # the stream ends when the server stops: else the read times out

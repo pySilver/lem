@@ -13,7 +13,7 @@ through a new landing after a conflict too, while the reasons he saw are the sam
 from typing import TYPE_CHECKING
 
 from lem.app.landing import merge
-from lem.board.acts import merge_status
+from lem.board.acts import merge_duty, merge_status
 from lem.board.acts.asked import line_of
 from lem.board.acts.notes import NOTES, State
 from lem.kernel.errors import Fault, Refusal
@@ -89,7 +89,12 @@ def said_of(asked: Asked) -> Said:
     stands."""
     base = settings_of(asked.checkout).settings.branch.base or "the base branch"
     try:
-        merge.run(asked.checkout, asked.slug, asked_for(asked))
+        merge.run(
+            asked.checkout,
+            asked.slug,
+            asked_for(asked),
+            before_call=merge_duty.counter(asked),
+        )
     except Refusal as refusal:
         record = tasks.read(asked.state, asked.slug)
         if refusal.code == "intent":

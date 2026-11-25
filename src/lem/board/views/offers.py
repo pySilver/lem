@@ -6,11 +6,11 @@ none: its drop is the way on."""
 
 from typing import TYPE_CHECKING
 
-from lem.board.views import hold_question, merge_state
+from lem.board.views import merge_state
 from lem.board.views.rule import ENDED
 from lem.model.criteria import waits
 from lem.model.landing import merge_standing
-from lem.model.owner import answers, merging
+from lem.model.owner import hold_question, merging
 from lem.records.holds import BreakerHold, OwnerHold, ReleaseHold
 
 if TYPE_CHECKING:
@@ -28,9 +28,6 @@ def active_question(task: Task) -> Question | None:
     hold = task.hold
     if isinstance(hold, OwnerHold) and hold.on in waits.WAITING:
         return waits.question_of(task)
-    if isinstance(hold, OwnerHold) and hold.on == "skip-read":
-        asked = answers.newest_of(task, "skip")
-        return asked if asked and asked.asked >= hold.since else None
     return hold_question.standing(task)
 
 
@@ -77,7 +74,7 @@ def merge_offered(seen: Seen, conflicts: frozenset[str] = NONE) -> bool:
     if (
         merge_state.current(record) is not None
         or merge_state.proposal_refusal(seen) is not None
-        or merging.merge_wait(record) == "relands"
+        or merging.merge_wait(seen.merge_look()) == "relands"
         or task.slug in conflicts
     ):
         return False

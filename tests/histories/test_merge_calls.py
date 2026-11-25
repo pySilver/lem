@@ -8,8 +8,9 @@ from msgspec.structs import replace
 
 from histories.story import TITLE, Story, opened
 from lem.kernel import clock
-from lem.model.landing import merge, reconcile
+from lem.model.landing import merge, reconcile_queue
 from lem.model.landing.merge_asked import Asked
+from lem.model.landing.queue_evidence import Event
 from unit.landing.worlds import OTHER, SEEN, TIP
 
 BY_MERGER = Asked(by="merger", via="server", subject=TITLE)
@@ -58,13 +59,14 @@ def test_a_merge_the_forge_took_and_holds_in_its_queue_is_followed_to_its_merge(
 ):
     story = opened()
     story.merge(BY_MERGER)
-    story.effect(pull=replace(SEEN, queued="the merge queue"))
+    entry = Event(id="entry", at=story.world.now, head=TIP)
+    story.effect(pull=replace(SEEN, queued="the merge queue", queue_event=entry))
     story.reconcile()
     accepted = story.landing.accepted
     assert accepted is not None
     assert (accepted.tip, accepted.queued) == (TIP, "the merge queue")
     assert story.due().step == "merged"
-    waits = reconcile.queued(story.record, story.world)
+    waits = reconcile_queue.queued(story.record, story.world)
     assert story.refused(waits).code == "queued"
     story.forge_merged()
     assert story.due().step == "merged"
@@ -76,7 +78,17 @@ def test_a_merge_github_refused_is_kept_for_its_tip_and_only_the_owner_s_word_me
 ):
     story = opened()
     story.merge(BY_MERGER)
-    story.reconcile(dequeued="a required check failed")
+    entry = Event(id="entry", at=story.world.now, head=TIP)
+    removed = replace(entry, id="removal")
+    story.effect(
+        pull=replace(
+            SEEN,
+            dequeued="a required check failed",
+            queue_entered=entry,
+            queue_event=removed,
+        )
+    )
+    story.reconcile()
     refused = story.landing.refused
     assert refused is not None
     assert (refused.source, refused.line, refused.tip) == (
@@ -108,7 +120,10 @@ def test_a_stop_with_only_an_open_request_visible_keeps_the_intent_and_asks_the_
         f"{SEEN.url} open: the call may not have reached it, and no new call goes unasked"
     )
     found = story.due()
-    assert (found.step, found.why) == ("merge", reconcile.RECONCILED)
+    assert (found.step, found.why) == (
+        "merge",
+        "a merge call is on record: it is reconciled first",
+    )
     assert merge_calls(story) == [f"merge squash {TIP}"]
 
 

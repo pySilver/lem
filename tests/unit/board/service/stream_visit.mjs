@@ -25,6 +25,7 @@ const markers = new Map([
   [slug, { dataset: { streamRendered: rendered } }]
 ])
 globalThis.document = {
+  getElementById () { return null },
   querySelector (selector) {
     for (const [task, marker] of markers) {
       if (selector === `[data-stream-rendered][data-stream-task="${task}"]`) return marker

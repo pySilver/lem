@@ -7,18 +7,20 @@ the backlog's filter is the address's query (`want`), and the result of an act c
 `note`. A route of `board/pages/` reads the world (`gather.py`) and renders what this gives.
 """
 
+from functools import partial
 from typing import TYPE_CHECKING
 
 from lem.board.inputs.page import Page
 from lem.board.views import viewed
 from lem.board.views.backlog.wanted import Wanted
 from lem.board.views.frame import backlogged
-from lem.board.views.frame.page import frame
+from lem.board.views.frame import page as layout
 from lem.board.views.panel.opened import NOTHING_OPENED, Opened
 from lem.board.views.shown import panel_of
 
 if TYPE_CHECKING:
     from lem.board.inputs.parts import Note
+    from lem.board.inputs.switcher import Switcher
     from lem.board.views.world import World
 
 NOTHING = Wanted()
@@ -29,11 +31,14 @@ def page(
     want: Wanted = NOTHING,
     note: Note | None = None,
     opened: Opened = NOTHING_OPENED,
+    *,
+    switcher: Switcher | None = None,
 ) -> Page:
     """The page the world's viewer asks for; `opened` is what the address of a step of the
     task's panel names."""
-    framed = Page(
-        frame=frame(world, backlogged.beside(world)),
+    framed = partial(
+        Page,
+        frame=layout.frame(world, backlogged.beside(world, switcher)),
         note=note,
         panel=panel_of(world, opened),
     )

@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
+from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
@@ -216,9 +217,9 @@ def test_a_cookie_nested_past_the_limit_is_no_preference_and_each_part_is_checke
 ):
     deep = "[" * 10_000 + "]" * 10_000
     assert prefs.prefs_of(f"lem_board={deep}") == prefs.Prefs()
-    told = '{"folded":["you","nope"],"rail":true,"pw":200,"full":true,"head":1}'
+    told = '{"folded":["you","build","checks","nope"],"rail":true,"pw":200,"full":true,"head":1}'
     found = prefs.prefs_of(f"lem_board={quote(told)}")
-    assert found == prefs.Prefs(folded=("you",), rail=True, full=True)
+    assert found == prefs.Prefs(folded=("you", "build", "checks"), rail=True, full=True)
     assert prefs.prefs_of(f"lem_board={quote('{"pw":800}')}").pw == 800
     assert prefs.prefs_of("other=1") == prefs.Prefs()
     assert prefs.prefs_of(None) == prefs.Prefs()
@@ -286,12 +287,10 @@ def test_a_server_leaves_the_session_it_was_started_from() -> None:
 
 async def first_refresh(state: Path, home: Path, change: Path) -> str | None:
     """The stream's first message after a file is written a moment after it opens."""
-    events = stream.events(
-        state,
-        rendered=watched.look(state, home, "fix-the-login"),
+    events = stream.refreshed(
+        partial(watched.look, state, home, "fix-the-login"),
+        rendered=watched.look(state, home, "fix-the-login").rendered,
         missed=False,
-        home=home,
-        task="fix-the-login",
     )
 
     async def write() -> None:
@@ -324,7 +323,7 @@ def test_the_stream_polls_the_files_the_pages_read_beside_the_records(
         "artifact": state / "tasks" / "fix-the-login" / "report.md",
     }[which]
     told = anyio.run(first_refresh, state, home, change)
-    assert told == watched.look(state, home, "fix-the-login")
+    assert told == watched.look(state, home).version
 
 
 def test_a_page_of_lem_to_read_opens_as_a_companion_of_the_session_never_over_it(

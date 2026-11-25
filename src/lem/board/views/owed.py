@@ -7,18 +7,19 @@ rows, so that each place says the same.
 
 from typing import TYPE_CHECKING
 
+from msgspec.structs import replace
+
 from lem.model.owner import waiting
-from lem.model.owner.looks import Look
 
 if TYPE_CHECKING:
     from lem.board.views.world import Seen, World
-    from lem.model.owner.looks import Row, Rows
+    from lem.model.owner.looks import Look, Row, Rows
 
 
 def look_of(seen: Seen, conflicts: frozenset[str]) -> Look:
     """One task as the list reads it."""
-    return Look(
-        record=seen.record,
+    return replace(
+        seen.merge_look(),
         session=seen.session,
         stop=seen.stop,
         worktree=seen.worktree,

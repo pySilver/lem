@@ -31,7 +31,7 @@ def ring(record: Record) -> Ring:
     if found is None:
         return Ring(done=0, current=0, total=1, big="–", small="plan tasks")
     built = plan.done(record)
-    at = found.of if built else found.at
+    at = int(not built and found.at > 0)
     finished = found.of if built else max(0, found.at - 1)
     return Ring(
         done=finished,

@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Literal
 
 import msgspec
-import pytest
 from msgspec.structs import replace
 
 from fakes.records import MOMENT
@@ -20,6 +19,7 @@ from lem.board.views.panel import waiting as panel_waiting
 from lem.board.views.waits import view as waits_view
 from lem.board.views.where import where
 from lem.board.views.world import Forge
+from lem.model.criteria import contract
 from lem.model.landing import merge_said, merge_standing
 from lem.model.owner import merging
 from lem.model.task import release
@@ -30,6 +30,7 @@ from lem.records.landing.merge import Refused
 from lem.records.landing.propose import MergeRead, Proposed, Standing
 from lem.records.landing.record import Landing, Pull
 from unit.board.views.small import gone, task, world
+from unit.owner import looked
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -46,7 +47,7 @@ NEXT = "d" * 40
 BASE = "b" * 40
 MOVED = "e" * 40
 PULL = Pull(number=41, url="https://github.com/acme/shop/pull/41", title="Gift note")
-PROPOSED = Proposed(tip=TIP, base=BASE, green=True, who_acts="merger", at=MOMENT)
+PROPOSED = looked.proposed()
 CAREFUL = replace(PROPOSED, who_acts="owner")
 
 
@@ -61,8 +62,13 @@ def opened(**landing: object) -> Seen:
     proposed = landing.get("proposed")
     if isinstance(proposed, Proposed):
         landing.setdefault("pushed", proposed.tip)
-    shaped = replace(Landing(phase="open", pull=PULL), **landing)
-    return replace(made, record=replace(made.record, landing=shaped))
+    landing["pull"] = PULL
+    return replace(
+        made,
+        record=replace(
+            looked.opened(SLUG, **landing).record, journal=made.record.journal
+        ),
+    )
 
 
 def read(
@@ -109,7 +115,9 @@ def standing_merge(seen: Seen) -> Seen:
     """The task with the owner's merge standing for the proposed tip, with the reasons it is
     not green as they read now."""
     record = seen.record
-    digest = merge_standing.digest_of(merge_standing.reasons_now(record))
+    digest = merge_standing.digest_of(
+        merge_standing.reasons_now(record), contract.mark(record.task)
+    )
     kept = Standing(tip=TIP, reasons_digest=digest, by_act="board", at=at(3))
     landing = replace(record.landing or Landing(), standing=kept)
     return replace(seen, record=replace(record, landing=landing))
@@ -123,7 +131,7 @@ def waits(seen: Seen, conflicts: frozenset[str] = frozenset()) -> list[Wait]:
 
 def wait_of(seen: Seen) -> str | None:
     """Who the merge of the task waits for."""
-    return merging.merge_wait(seen.record)
+    return merging.merge_wait(seen.merge_look())
 
 
 def placed(seen: Seen) -> tuple[str, str, str]:
@@ -563,7 +571,6 @@ def test_the_forges_last_look_is_read_from_the_state_folder(tmp_path: Path) -> N
     """`main`'s ForgeLook.test_the_servers_last_look_is_read_from_the_state_folder, changed:
     no file is no look yet, and a file that does not read is a fault that names it, where
     `main` read it as none."""
-    from lem.kernel.errors import Fault
 
     assert forge.read(tmp_path) == forge.Look()
     seen = {SLUG: {"mergeable": "CONFLICTING", "head": TIP}}
@@ -571,9 +578,9 @@ def test_the_forges_last_look_is_read_from_the_state_folder(tmp_path: Path) -> N
     (tmp_path / forge.LOOK).write_bytes(msgspec.json.encode(look))
     assert forge.read(tmp_path).seen[SLUG].head == TIP
     (tmp_path / forge.LOOK).write_text("half", encoding="utf-8")
-    with pytest.raises(Fault) as fault:
-        forge.read(tmp_path)
-    assert forge.LOOK in str(fault.value)
+    damaged = forge.read(tmp_path)
+    assert damaged.said and forge.LOOK in damaged.said
+    assert damaged.seen == {}
 
 
 def test_the_board_answers_no_plan_and_no_breaker_of_a_task_two_releases_back() -> None:

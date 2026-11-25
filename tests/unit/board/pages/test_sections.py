@@ -122,8 +122,12 @@ def read(board: Page, template: str = "page.html") -> Node:
 
 
 def task(**parts: object) -> Node:
-    task_panel = msgspec.structs.replace(panel.OPEN, **({"overview": None} | parts))
-    return read(Page(frame=frame.FRAME, panel=task_panel), "fragment.html")
+    task_panel = msgspec.structs.replace(
+        panel.OPEN, **(({"overview": None} | parts) if "shows" in parts else parts)
+    )
+    return read(
+        Page(frame=frame.FRAME, tasks=columns.TASKS, panel=task_panel), "fragment.html"
+    )
 
 
 def test_activity_and_timeline_link_tasks_and_expose_live_spans_and_points() -> None:
@@ -241,6 +245,7 @@ def test_artifacts_document_keeps_its_id_and_escaped_source() -> None:
     board = read(
         Page(
             frame=frame.FRAME,
+            tasks=columns.TASKS,
             panel=msgspec.structs.replace(
                 panel.OPEN,
                 shows="artifacts",
@@ -366,7 +371,10 @@ def test_card_answer_keeps_the_frame_only_for_a_board_receipt() -> None:
 
 
 def test_merge_shows_the_bound_tip_and_each_reason_id() -> None:
-    board = read(Page(frame=frame.FRAME, panel=panel.MERGE_STEP), "fragment.html")
+    board = read(
+        Page(frame=frame.FRAME, tasks=columns.TASKS, panel=panel.MERGE_STEP),
+        "fragment.html",
+    )
     step = board.one(id_="confirm")
     assert step.attrs["data-controller"] == "sheet"
     assert step.one(tag="form").attrs["action"] == f"{REFUND}/merge"
@@ -469,7 +477,7 @@ def test_a_missing_task_has_its_own_panel_and_http_status() -> None:
         slug="no-task",
         missing=Missing(title="No task", said="Missing", back=f"{BASE}/"),
     )
-    board = Page(frame=frame.FRAME, panel=panel_input)
+    board = Page(frame=frame.FRAME, tasks=columns.TASKS, panel=panel_input)
     assert render.page(board, fragment=True).status_code == 404
     root = read(board, "fragment.html")
     assert root.one(id_="tb-missing").words() == "Missing"
@@ -542,7 +550,7 @@ def test_rail_and_panel_properties_show_the_values_from_the_viewer() -> None:
         host="studio", workspace="shop", base=BASE, rail=True, full=True, width=530
     )
     changed = msgspec.structs.replace(frame.FRAME, viewer=viewer)
-    board = read(Page(frame=changed, panel=panel.OPEN))
+    board = read(Page(frame=changed, tasks=columns.TASKS, panel=panel.OPEN))
     assert board.one(id_="shell").has("railed")
     assert board.one(id_="side-fold").attrs["title"] == "Unfold the sidebar"
     assert board.one(id_="stage").has("full")
@@ -669,7 +677,12 @@ def test_notice_only_links_when_the_input_names_a_task() -> None:
             Notice(id="notice-unknown", kind="unknown", said="Unreadable"),
         ),
     )
-    board = read(Page(frame=msgspec.structs.replace(frame.FRAME, sidebar=sidebar)))
+    board = read(
+        Page(
+            frame=msgspec.structs.replace(frame.FRAME, sidebar=sidebar),
+            tasks=columns.TASKS,
+        )
+    )
     assert board.one(id_="notice-blocked").one(tag="a").attrs["href"] == REFUND
     assert not board.one(id_="notice-unknown").all(tag="a")
     assert "demo data" in board.one(cls="m-title").words()
@@ -914,7 +927,7 @@ def test_plan_drop_posts_its_own_id_to_the_confirmation() -> None:
     )
     stack = msgspec.structs.replace(waiting.WAITS.stacks[0], waits=(row,))
     waits = msgspec.structs.replace(waiting.WAITS, stacks=(stack,))
-    board = read(Page(frame=frame.FRAME, waits=waits))
+    board = read(Page(frame=for_view("waits", "Waits for you"), waits=waits))
     form = board.one(id_=row.id).one(tag="form")
     assert form.one(tag="input").attrs["value"] == "plan-request"
     assert form.one(tag="button").attrs["formaction"] == drop.confirm
@@ -967,7 +980,7 @@ def test_workspace_search_and_phone_status_expose_their_controls() -> None:
 
 def test_empty_waits_and_workspaces_tell_the_owner_what_to_do() -> None:
     waits = msgspec.structs.replace(waiting.WAITS, stacks=())
-    root = read(Page(frame=frame.FRAME, waits=waits))
+    root = read(Page(frame=for_view("waits", "Waits for you"), waits=waits))
     assert "criteria to approve" in root.one(cls="wait-none").words()
     index = Parsed(
         render.section(

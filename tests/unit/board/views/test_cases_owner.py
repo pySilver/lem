@@ -143,7 +143,7 @@ def test_a_task_after_a_dropped_one_waits_for_him_on_every_view_but_one_behind_a
     seen = world(task(GIFT, status="dropped", since=at(30)), queued_after())
     shown = told(seen, ORDER)
     (row,) = shown.rows
-    assert (row.kind, row.after, row.since) == ("after_dropped", GIFT, at(30))
+    assert (row.kind, row.after, row.since) == ("after_dropped", (GIFT,), at(30))
     verb = verbs.verb(row, owed.seen(seen, ORDER).record.task, None)
     assert verb == f"{GIFT} was dropped: your word starts or ends this task"
     said = where(owed.seen(seen, ORDER), row)

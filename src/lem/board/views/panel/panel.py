@@ -5,6 +5,7 @@ The tabs Criteria and decisions, Checks and review, Timeline and Artifacts are o
 caller passes the function of each it draws (`Sections`). A step of an act draws the header with
 no act of its own, and no tab is the current one."""
 
+from functools import partial
 from typing import TYPE_CHECKING
 
 from lem.board.inputs.task.panel import Missing, Panel
@@ -37,14 +38,16 @@ def panel(
     rows = owed.of_task(world, slug)
     task = Shown(world, seen, rows, standing.standing(seen, rows))
     step = shows in STEPS
-    base = Panel(
+    base = partial(
+        Panel,
         slug=slug,
         shows=shows,
         head=head.head(world, seen, rows, task.standing, acting=not step),
         tabs=tabs.tabs(world, slug, "" if step else shows, count(seen)),
-        overview=first(task, opened) if shows == "overview" else None,
     )
-    return steps.stepped(steps.tabbed(base, task, sections), task, opened)
+    if shows == "overview":
+        return base(overview=first(task, opened))
+    return steps.body(base, shows, task, opened, sections)
 
 
 def found(world: World, slug: str) -> Seen | None:

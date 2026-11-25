@@ -26,7 +26,7 @@ NARROWEST = 300
 WIDEST = 4000
 NATIVE = re.compile(r"\b(Turbo|Hotwire) Native\b")
 # The columns a fold may name (`board_model.LANE` on `main`).
-COLUMNS = ("you", "lem", "landing", "done")
+COLUMNS = ("you", "build", "checks", "done")
 
 
 class Prefs(msgspec.Struct, frozen=True, kw_only=True):

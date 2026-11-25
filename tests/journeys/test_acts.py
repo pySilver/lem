@@ -21,9 +21,11 @@ from fakes.repo import RealRepo
 from fakes.terminal import FakeTerminal
 from journeys.test_skeleton import CRITERIA, SETTINGS, SLUG, World, made, upto
 from lem.app import wiring
-from lem.board import app, install, machine, workspaces
+from lem.board import app, boards, install, machine, workspaces
 from lem.board.acts.notes import NOTES
+from lem.board.duties.merge_line import read as merge_line
 from lem.board.facts import Facts
+from lem.board.serving import Serving
 from lem.kernel import paths
 from lem.model.criteria import digest
 from lem.model.task import owner_question
@@ -63,10 +65,15 @@ class Board:
             home=str(home),
             started=MOMENT,
         )
-        served = app.made(facts, home=home, listen="127.0.0.1", stop=lambda: None)
+        served = app.made(
+            facts,
+            Serving(
+                home=home, environ=os.environ, listen="127.0.0.1", stop=lambda: None
+            ),
+        )
         self.client = TestClient(served, base_url=ORIGIN, client=("127.0.0.1", 50000))
-        name = workspaces.name_of(home, facts.host, world.checkout)
-        self.base = f"/{facts.host}/{name}"
+        address = boards.board_of(home, facts.host, world.checkout)
+        self.base = "/" + address.rstrip("/")
         self.world = world
 
     def post(self, path: str, fields: dict[str, str]) -> str:
@@ -116,6 +123,13 @@ def test_his_approval_from_the_confirm_step_lands_the_pull_request_as_his_word(
     landing = world.record()["landing"]
     assert (landing["merged"]["by"], landing["merged"]["via"]) == ("owner", "board")
     assert world.forge.merge_calls == [(landing["pull"]["number"], tip)]
+    (waited,) = merge_line(places.state_of(world.checkout))
+    assert (waited.task, waited.by, waited.tip, waited.waiting) == (
+        SLUG,
+        "owner",
+        tip,
+        0,
+    )
     acts = [one for one in world.record()["journal"] if one["kind"] == "owner-act"]
     assert [(one["act"], one["option"], one["via"]) for one in acts] == [
         ("merge", tip, "local")
@@ -175,7 +189,7 @@ def test_criteria_approval_in_another_repository_does_not_wait_for_github(
     home = paths.home(os.environ)
     workspaces.noted(home, docs.checkout)
     host = machine.machine_name()
-    docs_name = workspaces.name_of(home, host, docs.checkout)
+    docs_board = boards.board_of(home, host, docs.checkout)
     state = places.state_of(docs.checkout)
     slug = "approve-the-docs"
     hold = OwnerHold(
@@ -206,7 +220,7 @@ def test_criteria_approval_in_another_repository_does_not_wait_for_github(
     try:
         assert reached.wait(10), "the merge did not reach GitHub"
         reply = board.client.post(
-            f"/{host}/{docs_name}/tasks/{slug}/answer",
+            f"/{docs_board}tasks/{slug}/answer",
             data=fields,
             headers=SENT,
             follow_redirects=False,

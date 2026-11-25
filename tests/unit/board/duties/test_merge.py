@@ -20,6 +20,7 @@ from lem.board.duties.memory import Kept
 from lem.kernel import clock
 from lem.kernel.envelope import Envelope
 from lem.kernel.errors import Refusal
+from lem.model.criteria import contract
 from lem.model.landing import merge_standing
 from lem.records.landing.checks import Checked
 from lem.records.landing.merge import MergeIntent
@@ -67,8 +68,12 @@ def ended(kept: Kept) -> None:
 
 def standing_task(here: Here, slug: str) -> Record:
     """An open task whose owner's merge, refused for the base, stands for the proposed tip."""
-    found = opened(here, slug, proposed=proposed(green=False, who="owner"))
-    digest = merge_standing.digest_of(merge_standing.reasons_now(found))
+    found = opened(
+        here, slug, proposed=proposed(green=False, who="owner"), reads=(read("call"),)
+    )
+    digest = merge_standing.digest_of(
+        merge_standing.reasons_now(found), contract.mark(found.task)
+    )
     kept = Standing(tip=TIP, reasons_digest=digest, by_act="board", at=MOMENT)
     landing = replace(landing_of(found), standing=kept)
     return tasks.update(
@@ -82,7 +87,12 @@ def test_the_merge_agents_merge_of_the_proposed_tip_is_the_servers(
     here = here_of(tmp_path)
     opened(here, "agent-merges", proposed=proposed(), reads=(read("merge"),))
     opened(here, "calls-owner", proposed=proposed(), reads=(read("call"),))
-    opened(here, "owner-merges", proposed=proposed(who="owner"), reads=(read("merge"),))
+    opened(
+        here,
+        "owner-merges",
+        proposed=proposed(green=False, who="owner"),
+        reads=(read("merge"),),
+    )
     asked = asking(monkeypatch)
     kept = Kept()
     duty.tick(duty_of(here, HOUR, kept))

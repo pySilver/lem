@@ -39,6 +39,18 @@ class Kept:
     said: dict[str, str] = field(default_factory=dict)
     problems: dict[str, str] = field(default_factory=dict)
 
+    merge_lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def start_merge(self, slug: str, thread: threading.Thread) -> bool:
+        """Start one merge per task, whether a duty or the owner asked for it."""
+        with self.merge_lock:
+            current = self.merging.get(slug)
+            if current is not None and current.is_alive():
+                return False
+            thread.start()
+            self.merging[slug] = thread
+            return True
+
     def due(self, key: Key, now: datetime) -> bool:
         """Whether the duty `key` may run now: it never failed, or RETRY has passed since."""
         failed = self.failed.get(key)
@@ -57,8 +69,10 @@ class Kept:
 
     def running(self) -> frozenset[str]:
         """The tasks whose merge this server runs now."""
-        runs = self.merging.items()
-        return frozenset(slug for slug, run in runs if run.is_alive())
+        with self.merge_lock:
+            return frozenset(
+                slug for slug, run in self.merging.items() if run.is_alive()
+            )
 
 
 @dataclass

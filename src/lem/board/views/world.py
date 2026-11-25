@@ -10,11 +10,11 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from lem.app.sessions.acts import Act
+from lem.board import merge_look
 from lem.board.views import facts
-from lem.model.owner.looks import Session, Stop
+from lem.model.owner.looks import Look, MergeBasis, Session, Stop
+from lem.records import owner, record
 from lem.records.base import Frozen
-from lem.records.owner import Presence
-from lem.records.record import Record
 
 if TYPE_CHECKING:
     from datetime import datetime, tzinfo
@@ -32,7 +32,7 @@ class Seen(Frozen, frozen=True, kw_only=True):
     terminal shows it, the guard's stop that stands over it, and whether it runs without the
     owner now (he is away, or the night opened it)."""
 
-    record: Record
+    record: record.Record
     acts: tuple[Act, ...] = ()
     files: tuple[str, ...] = ()
     prose: tuple[tuple[str, str], ...] = ()
@@ -44,6 +44,12 @@ class Seen(Frozen, frozen=True, kw_only=True):
     session: Session | None = None
     stop: Stop | None = None
     alone: bool = False
+
+    basis: MergeBasis = MergeBasis()
+
+    def merge_look(self) -> Look:
+        """The record and the base its merge review must cover."""
+        return merge_look.look(self.record, self.basis)
 
     def text(self, name: str) -> str | None:
         """The prose of the file `name` of the task's folder, or None when it is not there."""
@@ -93,8 +99,10 @@ class World:
     place: Place
     tasks: tuple[Seen, ...]
     unknown: str | None = None
-    presence: Presence = field(default_factory=Presence)
+    presence: owner.Presence = field(default_factory=owner.Presence)
     backlog: backlog_read.Shelved | None = None
     inbox: inbox_read.Inbox | None = None
     forge: Forge = field(default_factory=Forge)
+    problems: tuple[str, ...] = ()
+    running: frozenset[str] = frozenset()
     demo: bool = False

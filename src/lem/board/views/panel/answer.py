@@ -12,6 +12,7 @@ from lem.board.views.rule import ENDED
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, ReleaseHold
 
 if TYPE_CHECKING:
+    from lem.model.owner.looks import Rows
     from lem.records.task import Task
 
 MERGE = "Merge the pull request on GitHub or on this board."
@@ -21,13 +22,13 @@ PLAN = (
 )
 
 
-def answer(task: Task, after: str | None = None) -> str:
+def answer(task: Task, after: tuple[str, ...] = ()) -> str:
     """Where the owner answers the task; `after` names the dropped task it was queued
     behind."""
     hold = task.hold
     if isinstance(hold, ReleaseHold) and task.status not in ENDED:
         return hold.say
-    if after is not None:
+    if after:
         return dropped(task.slug, after)
     if isinstance(hold, BreakerHold):
         return breaker(task.slug)
@@ -51,11 +52,13 @@ def going(task: Task) -> str:
     )
 
 
-def dropped(slug: str, after: str) -> str:
+def dropped(slug: str, after: tuple[str, ...]) -> str:
     """Where he answers a task queued after the dropped task `after`: in any Lem session."""
+    names = " and ".join(after)
+    verb = "was" if len(after) == 1 else "were"
     start, drop = f"start {slug} now", f"/lem drop {slug}"
     return (
-        f"It waited for {after}, which was dropped, so the result it "
+        f"It waited for {names}, which {verb} dropped, so the result it "
         f"waited for never came. Type “{start}” to start it without that result, "
         f"or {drop} to end it, in any Lem session of this repository."
     )
@@ -78,3 +81,8 @@ def blocked(slug: str, why: str) -> str:
         f"“{why}”. Tell it what to do in the task’s session, or "
         f"type /lem drop {slug} there to end the task."
     )
+
+
+def dropped_before(rows: Rows) -> tuple[str, ...]:
+    """The dropped dependencies of the task on this panel."""
+    return next((row.after for row in rows if row.after), ())

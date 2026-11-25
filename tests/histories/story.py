@@ -280,14 +280,12 @@ class Story:
         )
         self.effect(pull=done, base=MERGE)
 
-    def reconcile(self, trees: Trees = SAME, dequeued: str | None = None) -> None:
+    def reconcile(self, trees: Trees = SAME) -> None:
         """The intent on record replaced by what the forge shows; kept, and the owner told,
         while only an open request is visible."""
         intent = self.landing.intent
         assert intent is not None
-        found = reconcile.reconciled(
-            self.record, self.world, intent, trees, dequeued=dequeued
-        )
+        found = reconcile.reconciled(self.record, self.world, intent, trees)
         if isinstance(found, Refusal):
             self.said.append(found.why)
             return

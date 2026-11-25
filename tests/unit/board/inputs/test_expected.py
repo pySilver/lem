@@ -310,7 +310,7 @@ def assert_merge_target(merge: Merge) -> None:
     form = merge.confirm.form
     assert form
     assert merge.confirm.eyebrow == f"Merge #{landing.pull.number} · confirm"
-    assert form.label == f"Merge pull request #{landing.pull.number}"
+    assert (form.label, form.busy) == ("Approve", "Approving…")
 
 
 def test_the_merge_confirm_links_to_the_pull_and_names_its_base_branch() -> None:

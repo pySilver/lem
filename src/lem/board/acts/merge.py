@@ -17,6 +17,7 @@ from starlette.concurrency import run_in_threadpool
 from lem.board.acts import acting, approval, back, merging, noting
 from lem.board.acts.asked import Asked, line_of
 from lem.board.acts.notes import NOTES
+from lem.board.duties.memory import MEMORY
 from lem.kernel.errors import Fault, Refusal
 
 if TYPE_CHECKING:
@@ -33,7 +34,9 @@ def start_thread(asked: Asked, key: Merging, token: str) -> None:
     entry = noting.act_of(ACT, asked.asker, asked.now, option=asked.given.tip)
     noting.noted(asked.state, asked.slug, entry)
     thread = Thread(target=merging.merged, args=(asked, token, key), daemon=True)
-    thread.start()
+    if not MEMORY.of(asked.checkout).start_merge(asked.slug, thread):
+        NOTES.change(token, "refused", "Lem already runs this merge.")
+        NOTES.ended(key)
 
 
 def launch(asked: Asked, key: Merging, token: str) -> None:

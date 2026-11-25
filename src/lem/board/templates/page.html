@@ -13,7 +13,7 @@
 <div class="scrim" data-action="click->drawer#close" aria-hidden="true"></div>
 <div class="main">
 {% include 'bars.html' %}
-<main class="stage v-{{ viewer.view }}{% if viewer.full %} full{% endif %}{% if native %} native{% endif %}" id="stage"{% if viewer.width is not none %} style="--pw: {{ viewer.width }}px"{% endif %}>
+<main class="stage v-{{ viewer.view }}{% if viewer.full %} full{% endif %}{% if native %} native{% endif %}" id="stage" data-stream-task="{{ viewer.task or '' }}" data-stream-rendered="{{ frame.head.version }}"{% if viewer.width is not none %} style="--pw: {{ viewer.width }}px"{% endif %}>
 {% if board.tasks %}{% set view = board.tasks %}{% include 'tasks.html' %}{% endif %}
 {% if board.older %}{% set view = board.older %}{% include 'older.html' %}{% endif %}
 {% if board.waits %}{% set view = board.waits %}{% include 'waits.html' %}{% endif %}

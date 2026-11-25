@@ -55,7 +55,9 @@ def said(seen: Seen, row: Row) -> Said:
         note = "since Lem stopped it" if row.say else "since it stopped"
         return Said(BAD, ALERT, note)
     if row.kind == "after_dropped":
-        return Said(YOU, "user", f"since {row.after} was dropped")
+        after = " and ".join(row.after)
+        verb = "were" if len(row.after) > 1 else "was"
+        return Said(YOU, "user", f"since {after} {verb} dropped")
     return merge_said(seen, row)
 
 
