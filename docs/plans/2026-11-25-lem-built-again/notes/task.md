@@ -114,3 +114,17 @@ the stand-in does not, and the table's struct should. Then `paths_of` becomes
 `tests/unit/cli/tree.json` gives `task build`'s `target` the count `?`: with no name it lists the
 plans that wait, as the owner's ruling "`/lem build` takes a plan file too, and lists the waiting
 plans when it gets no name" asks.
+
+## For `core`: the ports of a workspace, bound once
+
+`app/tasks/ports.py: bound(workspace)` and `app/landing/frame.py: bound(workspace)` are the same
+four lines (the review of 2026-11-25, finding 12). Asked: `lem.app.wiring.bound_for(checkout,
+environ)` beside `bound`, so that both steps call it and drop their copies; `app/wiring.py` is
+core's, and `frame.py` the landing's.
+
+## For `core`: `markdown-it-py`
+
+The first line's quote reads a fence and a list's bounds by hand (`model/task/markdown.py`); the
+plan's part 7 names `markdown-it-py` for a plan's sections, but `pyproject.toml` does not carry it
+yet (the review, finding 13). When core adds it, `markdown.py`'s `blocked` and `step_of` take its
+tokens, and the quote's rules stay.
