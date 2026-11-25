@@ -11,7 +11,6 @@ than once an hour.
 """
 
 import threading
-import time
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
@@ -84,8 +83,3 @@ class Tokens:
                 kept = (now, self.key.sign(claims)["Authorization"])
                 self.made[aud] = kept
             return kept[1]
-
-
-def now() -> float:
-    """The clock a token's moment is read from."""
-    return time.time()

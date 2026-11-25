@@ -31,6 +31,7 @@ from lem.board import (
     start,
     stopping,
     stream,
+    watched,
     workspaces,
 )
 from lem.board.client import Reply
@@ -144,7 +145,7 @@ def test_the_page_names_its_stream_and_the_version_it_shows(board: Board) -> Non
     tasks.create(board.state, record("fix-the-login"))
     page = board.client.get(board.address).text
     assert f'data-stream-url-value="{board.address}stream"' in page
-    assert f'data-stream-since-value="{stream.version(board.state)}"' in page
+    assert f'data-stream-since-value="{watched.look(board.state, board.home)}"' in page
 
 
 def test_the_page_links_the_assets_of_today_and_the_server_sends_them(
@@ -243,9 +244,11 @@ def test_a_request_with_two_hosts_or_none_reads_nothing() -> None:
     assert shield.host_refusal(["10.0.0.2:4999"], 4999, "10.0.0.2") is None
 
 
-async def first_event(state: Path, *, rendered: str | None, missed: bool) -> object:
+async def first_event(
+    state: Path, home: Path, *, rendered: str | None, missed: bool
+) -> object:
     """The stream's first message, while a record is written a moment after it opens."""
-    events = stream.events(state, rendered=rendered, missed=missed)
+    events = stream.events(state, rendered=rendered, missed=missed, home=home)
 
     async def write() -> None:
         await anyio.sleep(0.3)
@@ -262,19 +265,23 @@ async def first_event(state: Path, *, rendered: str | None, missed: bool) -> obj
 
 def test_the_stream_sends_a_refresh_after_a_record_changes(board: Board) -> None:
     tasks.create(board.state, record("fix-the-login"))
-    shown = stream.version(board.state)
-    event = anyio.run(lambda: first_event(board.state, rendered=shown, missed=False))
+    shown = watched.look(board.state, board.home)
+    event = anyio.run(
+        lambda: first_event(board.state, board.home, rendered=shown, missed=False)
+    )
     assert isinstance(event, stream.ServerSentEvent)
     assert event.data == stream.REFRESH
-    assert event.id == stream.version(board.state)
+    assert event.id == watched.look(board.state, board.home)
     assert event.id != shown
 
 
 def test_an_open_that_may_have_missed_a_change_gets_a_refresh_at_once(
     board: Board,
 ) -> None:
-    shown = stream.version(board.state)
-    event = anyio.run(lambda: first_event(board.state, rendered=None, missed=True))
+    shown = watched.look(board.state, board.home)
+    event = anyio.run(
+        lambda: first_event(board.state, board.home, rendered=None, missed=True)
+    )
     assert isinstance(event, stream.ServerSentEvent)
     assert event.id == shown
 
@@ -295,11 +302,11 @@ def test_an_open_owes_a_refresh_when_it_names_an_old_version_or_missed_one(
 
 
 def test_the_version_moves_at_each_write_of_a_record(tmp_path: Path) -> None:
-    before = stream.version(tmp_path)
+    before = watched.look(tmp_path, tmp_path)
     made = tasks.create(tmp_path, record())
-    first = stream.version(tmp_path)
+    first = watched.look(tmp_path, tmp_path)
     tasks.update(tmp_path, made.task.slug, lambda kept: kept, expect=made.revision)
-    assert len({before, first, stream.version(tmp_path)}) == 3
+    assert len({before, first, watched.look(tmp_path, tmp_path)}) == 3
 
 
 MINE = Install(version="1.2.0", package="/opt/lem", stamp=5)
@@ -443,21 +450,19 @@ def test_a_write_between_the_pages_two_reads_leaves_the_page_owing_a_refresh(
     tasks.create(board.state, record("fix-the-login"))
     reads: list[str] = []
 
-    def after_first(
-        name: str, real: Callable[[Path], object]
-    ) -> Callable[[Path], object]:
-        def read(state: Path) -> object:
-            found = real(state)
+    def after_first[**Args](
+        name: str, real: Callable[Args, object]
+    ) -> Callable[Args, object]:
+        def read(*args: Args.args, **kwargs: Args.kwargs) -> object:
+            found = real(*args, **kwargs)
             reads.append(name)
             if len(reads) == 1:
-                tasks.create(state, record("add-a-flag"))
+                tasks.create(board.state, record("add-a-flag"))
             return found
 
         return read
 
-    monkeypatch.setattr(
-        kanban.stream, "version", after_first("version", stream.version)
-    )
+    monkeypatch.setattr(kanban.watched, "look", after_first("version", watched.look))
     monkeypatch.setattr(kanban.tasks, "every", after_first("records", tasks.every))
     page = board.client.get(board.address).text
     monkeypatch.undo()
@@ -465,7 +470,7 @@ def test_a_write_between_the_pages_two_reads_leaves_the_page_owing_a_refresh(
     assert shown is not None
     on_page = 'id="card-add-a-flag"' in page
     owed = stream.owes(
-        rendered=shown[1], missed=False, told=stream.version(board.state)
+        rendered=shown[1], missed=False, told=watched.look(board.state, board.home)
     )
     assert on_page or owed
     assert reads == ["version", "records"]

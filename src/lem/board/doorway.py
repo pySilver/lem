@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Literal
 
 import msgspec
 
-from lem.board import ensure, machine, publish, tailnet, tailscale
+from lem.board import ensure, machine, opening, publish, tailnet, tailscale
 from lem.board.facts import Shown
 from lem.kernel import paths
 from lem.settings.places import Scope
@@ -55,9 +55,9 @@ def written(environ: Mapping[str, str], folder: Path, state: State) -> None:
 def opened(environ: Mapping[str, str], folder: Path) -> Doorway:
     """Open the door from now on."""
     settings = machine.settings(paths.home(environ))
+    opening.checked_door_port(settings.port, settings.tailscale_port, environ)
     cli = tailscale.needed(environ)
     tailnet.facts(tailnet.status(cli))
-    machine.guarded(settings.tailscale_port, environ)
     written(environ, folder, ON)
     shown = ensure.ensure(environ, folder)
     return Doorway(door=ON, server=shown, url=shown.tailnet)

@@ -16,7 +16,6 @@ import anyio
 import msgspec
 
 from lem.adapters import notify_push_devices as devices
-from lem.board import machine
 from lem.board.push import said, waits
 from lem.kernel.errors import Fault, Refusal
 
@@ -37,6 +36,7 @@ class Watcher:
     """The watcher of Lem's home folder `home`, its notifier, and what it last failed at."""
 
     home: Path
+    host: str
     notifier: PushNotifier
     problem: str | None = None
 
@@ -47,12 +47,12 @@ class Watcher:
         if not news:
             return 0
         named = tuple(dict.fromkeys(name for name, _, _ in news))
-        push = said.said_of(machine.machine_name(), news)
+        push = said.said_of(self.host, news)
         return len(self.notifier.told(push, named))
 
     def remembered(self, now: float) -> list[waits.New]:
         """The new rows of every workspace, with each list's memory kept."""
-        found = waits.every(self.home, machine.machine_name())
+        found = waits.every(self.home, self.host)
         with devices.changing(self.home) as held:
             seen = dict(held[-1].seen)
             news = waits.news_of(seen, found, now)

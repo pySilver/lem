@@ -12,6 +12,8 @@ from lem.records.holds import OwnerHold
 from lem.store import tasks
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from unit.board.service.given import Board
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 20
@@ -114,10 +116,35 @@ def test_a_tasks_picture_comes_from_its_media_route_and_nothing_else_does(
     assert board.main().head(f"{base}shot.png").status_code == 200
 
 
+@pytest.mark.parametrize("link", ["task", "media", "other-task"])
+def test_task_files_refuse_a_root_link_outside_its_boundary(
+    board: Board,
+    tmp_path: Path,
+    link: str,
+) -> None:
+    tasks.create(board.state, record("fix-the-login"))
+    folder = board.state / "tasks" / "fix-the-login"
+    outside = (folder.parent if link == "other-task" else tmp_path) / "outside"
+    outside.mkdir()
+    if link == "task":
+        (outside / "talk.html").write_text("<p>outside</p>")
+        folder.rename(folder.with_name("moved"))
+        folder.symlink_to(outside, target_is_directory=True)
+        path = "raw/talk.html"
+    else:
+        (outside / "shot.png").write_bytes(PNG)
+        (folder / "media").symlink_to(outside, target_is_directory=True)
+        path = "media/shot.png"
+    url = f"/studio/shop/tasks/fix-the-login/{path}"
+    assert board.main().get(url).status_code == 404
+    assert board.main().head(url).status_code == 404
+
+
 @pytest.mark.parametrize(
     ("asked", "goes"),
     [
         ("/old-name/shop/waits?q=1", "/studio/shop/waits?q=1"),
+        ("/old-name", "/studio/"),
         ("/old-name/", "/studio/"),
         ("/studio/shop", "/studio/shop/"),
         ("/shop/tasks/fix-the-login", "/studio/shop/tasks/fix-the-login"),

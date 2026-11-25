@@ -4,17 +4,15 @@ changed, so that it fetches itself again (`tools/board-kit/controllers/stream.js
 At each tick of TICK seconds the stream looks at every file the pages read (`watched.look`: the
 records, the owner's mark, the settings, the demo mark, the forge's look, the Inbox's record, the
 reviewer's items, and with `?task=SLUG` that task's files) and, when the look moved, sends one
-message: Turbo's `refresh`, the default event, its id the version of the records (a digest of
-each `tasks/*/task.json`'s name, inode, size and change time). It polls: a burst of writes in
+message: Turbo's `refresh`, the default event, its id the digest of the watched files.
+It polls: a burst of writes in
 one tick is one message (`serve.WATCH_SECONDS` on `main`). A page's open after a render
-names the version it shows (`?rendered=`) and gets a refresh at once only when the records moved
+names the version it shows (`?rendered=`) and gets a refresh at once only when the files moved
 since; an open after it may have missed one (`?since=`, or the browser's `Last-Event-ID`) gets
 one at once. A quiet stream sends a `ping` event every PING_SECONDS, by which the page tells a
 live stream from a dead one. The server's stop ends every stream (sse-starlette).
 """
 
-import contextlib
-import hashlib
 from typing import TYPE_CHECKING
 
 import anyio
@@ -35,30 +33,11 @@ TICK = 0.5
 PING_SECONDS = 10
 REFRESH = '<turbo-stream action="refresh"></turbo-stream>'
 EVENTS = "text/event-stream"
-RECORDS = "tasks/*/task.json"
-# The hex digits of a version: enough that two versions of one folder never meet.
-DIGITS = 16
-
-type Stamp = tuple[str, int, int, int]
-
-
-def stamped(path: Path) -> Stamp | None:
-    """A record's name, inode, size and change time; None when it went meanwhile."""
-    with contextlib.suppress(FileNotFoundError):
-        facts = path.stat()
-        return (path.parent.name, facts.st_ino, facts.st_size, facts.st_mtime_ns)
-    return None
-
-
-def version(state: Path) -> str:
-    """The version of the records of the state folder `state`: it moves at each write."""
-    stamps = sorted(filter(None, map(stamped, state.glob(RECORDS))))
-    return hashlib.sha256(repr(stamps).encode()).hexdigest()[:DIGITS]
 
 
 def owes(*, rendered: str | None, missed: bool, told: str) -> bool:
     """Whether an open gets a refresh at once: it may have missed a change, or it names a
-    version the records left."""
+    version the files left."""
     return missed or bool(rendered and rendered != told)
 
 
@@ -72,23 +51,20 @@ async def events(
     *,
     rendered: str | None,
     missed: bool,
-    home: Path | None = None,
+    home: Path,
     task: str | None = None,
 ) -> AsyncGenerator[ServerSentEvent]:
     """The stream's messages: a refresh at the open when one is owed, then one each time a
     file the pages read moved."""
-    # the look before the version: a write between the two is a version the page does not
-    # show, so it is owed at once, and a write after both moves the look
-    seen = await anyio.to_thread.run_sync(watched.look, state, home or state, task)
-    told = await anyio.to_thread.run_sync(version, state)
-    if owes(rendered=rendered, missed=missed, told=told):
-        yield refresh(told)
+    seen = await anyio.to_thread.run_sync(watched.look, state, home, task)
+    if owes(rendered=rendered, missed=missed, told=seen):
+        yield refresh(seen)
     while True:
         await anyio.sleep(TICK)
-        now = await anyio.to_thread.run_sync(watched.look, state, home or state, task)
+        now = await anyio.to_thread.run_sync(watched.look, state, home, task)
         if now != seen:
             seen = now
-            yield refresh(await anyio.to_thread.run_sync(version, state))
+            yield refresh(now)
 
 
 async def endpoint(request: Request) -> Response:

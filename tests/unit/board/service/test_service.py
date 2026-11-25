@@ -30,6 +30,7 @@ from lem.board import (
     stream,
     tailnet,
     tailscale,
+    watched,
     workspaces,
 )
 from lem.board import counts as counts_module
@@ -287,7 +288,7 @@ async def first_refresh(state: Path, home: Path, change: Path) -> str | None:
     """The stream's first message after a file is written a moment after it opens."""
     events = stream.events(
         state,
-        rendered=stream.version(state),
+        rendered=watched.look(state, home, "fix-the-login"),
         missed=False,
         home=home,
         task="fix-the-login",
@@ -323,7 +324,7 @@ def test_the_stream_polls_the_files_the_pages_read_beside_the_records(
         "artifact": state / "tasks" / "fix-the-login" / "report.md",
     }[which]
     told = anyio.run(first_refresh, state, home, change)
-    assert told == stream.version(state)
+    assert told == watched.look(state, home, "fix-the-login")
 
 
 def test_a_page_of_lem_to_read_opens_as_a_companion_of_the_session_never_over_it(

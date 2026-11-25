@@ -8,6 +8,7 @@ import stat
 import time
 from typing import TYPE_CHECKING
 
+import anyio
 import msgspec
 import pytest
 from py_vapid import Vapid02
@@ -20,14 +21,18 @@ from lem.adapters.notify_push import PushNotifier
 from lem.adapters.notify_push_endpoint import device_of, refusal
 from lem.app.owner.forge import Look as ForgeLook
 from lem.app.owner.looking import Looked
+from lem.board import machine, workspaces
 from lem.board.push import news, waits
 from lem.board.push.watch import Watcher
 from lem.model.owner.looks import Look, Session
 from lem.records.holds import BreakerHold, OwnerHold
 from lem.records.owner import Presence
-from lem.store import tasks
+from lem.store import places, tasks
+from unit.board.service.given import workspace_at
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from unit.board.service.given import Board
 
 APPLE = "https://web.push.apple.com/QGuQyavXutnMH"
@@ -200,6 +205,33 @@ def test_a_test_push_to_the_device_that_asks_is_recorded_with_no_request(
     assert unknown.status_code == 422
 
 
+def test_the_test_push_sender_runs_off_the_boards_event_loop(
+    board: Board,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    on_loop = []
+
+    def sent(self: PushNotifier, endpoint: str) -> tuple[send.Reply, ...]:
+        try:
+            anyio.get_current_task()
+        except anyio.NoEventLoopError:
+            on_loop.append(False)
+        else:
+            on_loop.append(True)
+        return (send.Reply(device="phone", status=201),)
+
+    monkeypatch.setattr(PushNotifier, "tested", sent)
+    reply = board.main().post(
+        "/api/push/test", json={"endpoint": APPLE}, headers=OWN_PAGE
+    )
+    assert reply.json()["status"] == 201
+    assert on_loop == [False]
+
+
+def test_the_notifier_uses_the_standard_clock_directly(board: Board) -> None:
+    assert PushNotifier(board.home, {}).now is time.time
+
+
 def test_what_the_worker_shows_before_any_push_is_the_fixed_line(board: Board) -> None:
     assert board.main().get("/api/push/latest").json()["body"] == (
         "Something waits for you in Lem"
@@ -234,7 +266,9 @@ def test_a_row_gained_while_the_owner_is_away_is_sent_and_a_demo_sends_nothing(
     board: Board,
 ) -> None:
     subscribed(board)
-    watcher = Watcher(home=board.home, notifier=PushNotifier(board.home, {}))
+    watcher = Watcher(
+        home=board.home, host="studio", notifier=PushNotifier(board.home, {})
+    )
     assert watcher.look(0.0) == 0
     held = OwnerHold(on="criteria", line="approve the criteria", since=MOMENT)
     tasks.create(board.state, record("add-a-flag", status="building", hold=held))
@@ -247,6 +281,26 @@ def test_a_row_gained_while_the_owner_is_away_is_sent_and_a_demo_sends_nothing(
     (board.state / "demo").write_text("examples")
     tasks.create(board.state, record("tidy-the-docs", status="building", hold=held))
     assert watcher.look(30.0) == 0
+
+
+def test_a_push_uses_the_canonical_workspace_name_and_link(
+    board: Board,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(machine.socket, "gethostname", lambda: "shop.local")
+    other = workspace_at(tmp_path / "shop-2")
+    workspaces.noted(board.home, other)
+    held = OwnerHold(on="criteria", line="approve the criteria", since=MOMENT)
+    watcher = board.app.state.watcher
+    assert watcher.look(0.0) == 0
+    tasks.create(board.state, record("add-a-flag", status="building", hold=held))
+    tasks.create(places.state_of(other), record("add-a-flag"))
+    subscribed(board)
+    assert watcher.look(10.0) == 1
+    latest = devices.read(board.home).latest
+    assert latest is not None
+    assert latest.url == "/studio/shop/tasks/add-a-flag"
 
 
 def test_no_push_goes_for_a_held_task_while_its_session_works_and_one_when_its_turn_ended() -> (

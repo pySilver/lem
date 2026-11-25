@@ -49,7 +49,7 @@ def paths_of(state: Path, home: Path, task: str | None) -> Iterable[Path]:
         yield from (state / "tasks" / task).rglob("*")
 
 
-def look(state: Path, home: Path, task: str | None) -> str:
+def look(state: Path, home: Path, task: str | None = None) -> str:
     """The digest of every file the look stamps: it moves when one of them changes."""
     found = map(stamp, paths_of(state, home, task))
     stamps = sorted(filter(None, found))

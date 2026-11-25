@@ -20,7 +20,7 @@ from lem.kernel.errors import Refusal
 
 if TYPE_CHECKING:
     import socket
-    from collections.abc import MutableMapping
+    from collections.abc import Mapping, MutableMapping
     from pathlib import Path
 
 # The variables of the session a server was started from: agterm's, its short names, and a
@@ -46,21 +46,27 @@ def login_now(cli: str, before: str) -> str:
         return before
 
 
+def checked_door_port(port: int, door: int, environ: Mapping[str, str]) -> int:
+    """Both listeners need distinct ports that this home may use."""
+    if door == port:
+        raise Refusal(
+            "door-port",
+            f"the main port and the door's port are both {port}",
+            "give the door a port of its own: lem settings set serve.tailscale_port N --machine",
+        )
+    machine.guarded(port, environ)
+    return machine.guarded(door, environ)
+
+
 def door_of(home: Path, environ: MutableMapping[str, str], port: int) -> Door | None:
     """The door the machine's settings open, None when they keep it closed; refused when it
     cannot open, with the main listener's port named."""
     settings = machine.settings(home)
     if not settings.tailscale:
         return None
-    if settings.tailscale_port == port:
-        raise Refusal(
-            "door-port",
-            f"the main port and the door's port are both {port}",
-            "give the door a port of its own: lem settings set serve.tailscale_port N --machine",
-        )
+    door_port = checked_door_port(port, settings.tailscale_port, environ)
     cli = tailscale.needed(environ)
     name, login = tailnet.facts(tailnet.status(cli))
-    door_port = machine.guarded(settings.tailscale_port, environ)
     return Door(
         name=name,
         port=door_port,
@@ -86,10 +92,11 @@ def facts_of(sock: socket.socket, host: str, home: Path, door: Door | None) -> F
     """The facts of the server that serves `sock`, and the door when it is open."""
     port = sock.getsockname()[1]
     name, aliases = names(door, os.environ)
+    authority = f"[{host}]" if ":" in host else host
     return Facts(
         pid=os.getpid(),
         port=port,
-        url=f"http://{host}:{port}/",
+        url=f"http://{authority}:{port}/",
         host=name,
         aliases=aliases,
         install=install.install_of(),

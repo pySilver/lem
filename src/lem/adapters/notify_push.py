@@ -8,6 +8,7 @@ the last push's answers are kept for `GET /api/server` and `lem doctor`. A wait 
 nothing: a push that was sent is not called back, and the worker shows the newest.
 """
 
+import time
 from typing import TYPE_CHECKING
 
 import msgspec
@@ -42,7 +43,7 @@ class PushNotifier:
         self,
         home: Path,
         environ: Mapping[str, str],
-        now: Callable[[], float] = keys.now,
+        now: Callable[[], float] = time.time,
     ) -> None:
         """Keep the home folder, the environment, the clock, and no token yet."""
         self.home = home
@@ -116,16 +117,11 @@ def kept(
     """The answers kept as the last push's, and the devices whose service said gone taken
     off the list."""
     gone = gone_of(chosen, replies)
-    last = raw(Last(at=moment, replies=replies))
+    last = msgspec.to_builtins(Last(at=moment, replies=replies))
     with devices.changing(home) as held:
         before = held[-1]
         left = tuple(one for one in before.devices if one.endpoint not in gone)
         held.append(msgspec.structs.replace(before, devices=left, last=last))
-
-
-def raw(last: Last) -> dict[str, object]:
-    """The last push as the file keeps it."""
-    return msgspec.to_builtins(last)
 
 
 def gone_of(chosen: tuple[devices.Device, ...], replies: Replies) -> frozenset[str]:

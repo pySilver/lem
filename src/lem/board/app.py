@@ -40,13 +40,15 @@ def routes() -> list[BaseRoute]:
 
 def made(facts: Facts, serving: Serving) -> Starlette:
     """The app of the server `facts`."""
+    watcher = serving.watcher_of(facts.host)
     app = Starlette(
         routes=routes(),
         middleware=shield.shields(facts, serving.listen, serving.door),
         exception_handlers=shield.handlers(),
-        lifespan=life.lifespan(facts, serving.home, serving.watcher),
+        lifespan=life.lifespan(facts, serving.home, watcher),
     )
     app.state.facts = facts
+    app.state.watcher = watcher
     for name in SHARED:
         setattr(app.state, name, getattr(serving, name))
     return app

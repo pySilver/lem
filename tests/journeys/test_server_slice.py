@@ -30,7 +30,7 @@ import pytest
 
 from fakes.command import LEM, Ran, lem
 from fakes.records import record
-from lem.board import machine, stream
+from lem.board import machine, stream, watched
 from lem.kernel import folders, release
 from lem.store import places, tasks
 
@@ -213,7 +213,7 @@ def test_serve_run_serves_the_kanban_and_its_stream_and_stops_clean(
                 lines = reply.iter_lines()
                 tasks.create(state, record("add-a-flag"))
                 told = next_refresh(lines)
-                assert told == stream.version(state) != shown
+                assert told == watched.look(state, lem_home(env)) != shown
                 assert 'id="card-add-a-flag"' in httpx.get(base).text
                 proc.send_signal(signal.SIGTERM)
                 # the stream ends when the server stops: else the read times out

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from lem.board.door import Door
 
 # What the app's state holds of it, which the routes read.
-SHARED = ("home", "environ", "stop", "counts", "watcher")
+SHARED = ("home", "environ", "stop", "counts")
 
 
 @dataclass(kw_only=True)
@@ -30,9 +30,8 @@ class Serving:
     stop: Callable[[], None]
     door: Door | None = None
     counts: Counts = field(default_factory=Counts)
-    watcher: Watcher = field(init=False)
 
-    def __post_init__(self) -> None:
-        """Make the watcher, with the notifier of the home folder."""
+    def watcher_of(self, host: str) -> Watcher:
+        """Make the watcher that uses the board's canonical addresses."""
         notifier = PushNotifier(self.home, self.environ)
-        self.watcher = Watcher(home=self.home, notifier=notifier)
+        return Watcher(home=self.home, host=host, notifier=notifier)

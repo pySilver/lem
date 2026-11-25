@@ -75,6 +75,7 @@ def config_of(board: ASGIApp, *, verbose: bool) -> uvicorn.Config:
         log_level="info" if verbose else "warning",
         access_log=verbose,
         server_header=False,
+        proxy_headers=False,
         timeout_graceful_shutdown=STOP_WAIT,
     )
 

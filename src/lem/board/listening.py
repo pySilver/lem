@@ -2,6 +2,7 @@
 refusal that names it: the main listener's, and the door's on 127.0.0.1 with its entry in
 `tailscale serve` when the door is open; and the server's stop, the SIGTERM a `kill` sends."""
 
+import contextlib
 import os
 import signal
 import socket
@@ -21,12 +22,14 @@ HOST = "127.0.0.1"
 
 def bound(host: str, port: int) -> socket.socket:
     """A socket bound to the address; refused when another program holds it."""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
-        sock.bind((host, port))
+        with contextlib.ExitStack() as stack:
+            address = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)[0]
+            sock = stack.enter_context(socket.socket(address[0], socket.SOCK_STREAM))
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(address[4])
+            stack.pop_all()
     except OSError as error:
-        sock.close()
         raise Refusal(
             "port-held",
             f"{host}:{port} cannot be served ({error.strerror})",

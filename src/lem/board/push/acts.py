@@ -6,6 +6,7 @@ device's subscription as JSON, from the board's own page on this Mac or through 
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
+import anyio
 import msgspec
 
 from lem.adapters.notify_push import PushNotifier
@@ -88,4 +89,5 @@ async def testing(request: Request) -> object:
     """One test push to the device of the endpoint posted."""
     asked = await given(request, Asked)
     notifier = PushNotifier(request.app.state.home, request.app.state.environ)
-    return notifier.tested(asked.endpoint)[0]
+    replies = await anyio.to_thread.run_sync(notifier.tested, asked.endpoint)
+    return replies[0]

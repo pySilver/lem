@@ -59,14 +59,14 @@ def shown(found: Found, *, started: bool, said: str | None = None) -> Shown:
     )
 
 
-def kept(found: Found) -> Shown | None:
+def kept(found: Found, *, moved: bool = False) -> Shown | None:
     """The outcome when the server that runs stays, else None: this install replaces it."""
     if found is None:
         return None
     if isinstance(found, heard.Other):
         return shown(found, started=False)
     mine = install.install_of()
-    differ = found.door != door_wanted(Path(found.home))
+    differ = moved or found.door != door_wanted(Path(found.home))
     if install.replaces(mine, found.install, settings_differ=differ):
         return None
     said = None if found.install == mine else "another install of Lem serves"
@@ -79,21 +79,23 @@ def door_wanted(home: Path) -> int | None:
     return settings.tailscale_port if settings.tailscale else None
 
 
-def rebound(home: Path, port: int) -> None:
-    """Stop the server of this home folder and install that `serve.json` names on another
-    port than `port`: the owner moved the main port, and one server serves a machine."""
+def rebound(home: Path, port: int, environ: Mapping[str, str]) -> Shown | None:
+    """Keep or stop the server of this home folder on the port the settings left."""
     named = serve_file.read(home)
     if named is None or named.port == port:
-        return
+        return None
+    if named.home != str(home):
+        return None
+    if not machine.allowed(named.port, environ):
+        return None
     with client.opened(named.port) as connection:
         found = client.looked(connection, named.port, home)
-        mine = install.install_of().package
-        if (
-            isinstance(found, Facts)
-            and connection is not None
-            and found.install.package == mine
-        ):
+        stays = kept(found, moved=True)
+        if stays is not None:
+            return stays
+        if isinstance(found, Facts) and connection is not None:
             stopped(connection, named.port, found)
+    return None
 
 
 def held(home: Path, environ: Mapping[str, str], folder: Path) -> Shown:
@@ -101,10 +103,9 @@ def held(home: Path, environ: Mapping[str, str], folder: Path) -> Shown:
     port read again, the server that runs kept or stopped on the connection that asked, and
     one of this install started."""
     port = machine.port_of(home, environ)
-    rebound(home, port)
     with client.opened(port) as connection:
         found = client.looked(connection, port, home)
-        stays = kept(found)
+        stays = kept(found) or rebound(home, port, environ)
         if stays is not None:
             if not stays.another_install:
                 workspaces.noted(home, folder)
