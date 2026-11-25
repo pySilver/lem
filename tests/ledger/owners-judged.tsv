@@ -17,7 +17,7 @@ check:tests/lem-land-guards.sh:the-bar-sees-a-deselect-a-k-not-a-rerun-and-7f697
 check:tests/lem-land-guards.sh:the-check-of-the-criteria-refuses-a-branch-w-3a18df348cbf486b	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
 check:tests/lem-land-guards.sh:the-gate-refuses-a-command-that-edits-a-trac-3374f56fa4492787	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
 check:tests/lem-land-guards.sh:while-the-checks-run-a-second-run-is-refused-8e9f2d71b3bf87e6	land-checks	the checks' gate, its removal, its stop, the bar and the criteria's check are land-checks' (part 9)	land-base
-event:merge.ended	land-propose	the owner's merge ends in propose's Proposed.owner_merge (carry.standing gives stands or ended); the start over that ended it on main is task's	land-base
+event:merge.ended	land-propose	the owner's merge ends in propose's Proposed.owner_merge (standing.standing gives stands or ended); the start over that ended it on main is task's	land-base
 event:merge.review	land-merge	Both carry_merge (land-base, carry) and cmd_merge_review write it. The merge review writes the event first; the carried copy repeats its verdict on a new tip.	
 event:merge.stands	land-merge	Both carry_merge (land-base, carry) and cmd_merge_review write it. The owner's standing merge is the merge step's path (landing.md E, owner merge refused for the base).	
 guide:docs/free-hour.md	addons-flow	Part 9 lists no owner for this private guide. It gives the night and retro proposal behavior to addons-flow.	

@@ -19,11 +19,34 @@ branch needs a second pull after the rebase, or the owner's push.
 
 ## For `core` (`ports/git.py`): the branch a checkout is on
 
-`notes/slice-land.md` asked for `branch_of(where) -> str | None`. `start` needs it too: it
-refuses a worktree off the task's branch (`off-branch`), and today reads that as "HEAD's commit
-is not the commit of `refs/heads/BRANCH`" (`world.local != world.tip`), which a detached HEAD at
-the branch's own commit passes. `base_stops.left` tells "HEAD is off the branch" the same way
-after an abort. With `branch_of`, both read the branch by its name.
+`notes/slice-land.md` asked for `branch_of(where) -> str | None`. `start` and `base` need it to
+refuse a HEAD off the task's branch, a detached HEAD at the branch's own commit among them
+(`off-branch`), and `base_stops.left` to name where HEAD is after an abort. Until the port has
+it, `app/landing/head.py` reads it from the files git keeps (the worktree's `.git`, then `HEAD`),
+as `store.places` reads `.git`, `gitdir` and `commondir`. With `branch_of` the module goes.
+
+## For `core` (`ports/git.py`): a branch moved back to a commit
+
+`main` starts a second rebase in one landing from the tip before Lem's first one, when the tip is
+that rebase's own and nobody published it (`land.cmd_base`, `made`): a rebase onto a base that
+held a commit's edit leaves the commit out, and a second rebase of what it left loses it for good
+once the base takes the edit out again (`tests/lem-land-shop.sh`, mb-probe). The port has no act
+that moves a branch back. Until it has one (`reset(worktree, commit, expect)`), `base` refuses
+`rebase-again` with the owner's `git reset --hard BEFORE`, and only when the first rebase left a
+commit out (`base_facts.dropped`), so that a base that moved under a whole rebase rebases on.
+
+## For `core` (`records/landing/start.py`): the reviewed tip a carry was judged for
+
+`Based.carried` says that git's merge of the newest reviewed tip onto the base is the tip's tree,
+and `carry.source` takes that review for the one `base` judged when it is older than `Based.at`.
+A moment is to the second, so a review in the same second as `base` is no source (a needless read
+again, never a wrong carry). Asked: `Based.reviewed: Sha | None`, the reviewed tip the carry was
+judged for; `carry.source` then compares it.
+
+## For `core` (`ports/git_facts.py`): a commit's author
+
+`main` named a teammate's commits with their author (`Task.own_remote`). `Commit` has the sha, the
+parents and the subject; the refusal names the sha and the subject. Asked: `Commit.author`.
 
 ## For `core` (`ports/git.py`, the `git` adapter is `land-base`'s): patch ids
 
@@ -64,22 +87,28 @@ E, "Conflicting PR on the forge"). Why no review carried is `rebased.why_unshown
 
 A merge read carries over a clean rebase by `carry.read_carries(landing, world)` and over a
 conflict by `resolution.carries(landing, world, careful=...)`; each gives the `MergeRead` to
-record, with `carried_from`. The count of rounds after the first is `Landing.relands`, and each
-round's `LandAgain` entry is in the journal: the merge brief shows it (`landing.md` E,
-"Relands").
+record, with `carried_from`, and each holds only for the merge agent's newest read of the tip
+proposed before, when that read gave a real verdict (`carry.latest`: an older verdict never
+stands in for a newer unusable answer). The count of rounds after the first is
+`Landing.relands`, and each round's `LandAgain` entry is in the journal: the merge brief shows it
+(`landing.md` E, "Relands"). `lem land start --conflicting` starts a round only while
+`reconcile.pending` gives nothing and the forge's head is the proposed tip.
 
 ## For `land-propose`
 
-- The owner's standing merge over a rebase is `carry.standing(landing, digest, covered=...)`:
-  `stands`, or `ended` with why (the rebase's `why_unshown` when one carried nothing).
-- The teammate's refusal of `propose` (`landing.md` E, "Teammate commit") reads the same
-  `base.foreign`, and the push's lease waits for `Landing.taken` (above).
+- The owner's standing merge over a new round is `standing.standing(landing, digest,
+  carried=...)`, with `carried` from `carry.proposed_carries(landing, world)` or
+  `resolution.tip_carries(landing, world, careful=...)`: it stands only for his merge of the tip
+  proposed before, that tip on the same base or carried onto the tip now, and the same reasons.
+- The teammate's refusal of `propose` (`landing.md` E, "Teammate commit") reads the same commits
+  `base_facts.teammates` names, and the push's lease waits for `Landing.taken` (above).
 
 ## For `land-checks`
 
-`start` keeps a polish pass through `base`'s rebase: `polished.after` takes the name of the
-commit as far from the new tip as it was from the tip before (`base_kept.kept`,
-`base_after.polish`). `checks.polished` (yours) holds while that commit is in the tip.
+`base` keeps a polish pass through its rebase: `polished.after` takes the name of the commit as
+far from the new tip as it was from the tip before while the rebase kept each commit, and is
+cleared when it dropped one (`app/landing/base_polish.py`); after a builder's resolution the tip
+before is the conflict's. `checks.polished` (yours) holds while that commit is in the tip.
 
 ## For `task`
 
