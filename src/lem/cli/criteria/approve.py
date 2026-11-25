@@ -65,9 +65,11 @@ def wrong(given: Given) -> str | None:
         return "--read freezes the plan's own criteria: no --file"
     if not (named or reading or given["small"]):
         return "approve needs --file: the criteria approved"
-    shows = given["shown"] is not None
-    if shows and (reading or given["small"] or not named):
-        return "--shown goes with --file, the owner's own approval"
+    others = reading or given["small"] or given["alone"]
+    if given["shown"] is not None and (others or not named):
+        return (
+            "--shown goes with --file, the owner's own approval of what his page showed"
+        )
     return None
 
 

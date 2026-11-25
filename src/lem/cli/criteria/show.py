@@ -31,6 +31,36 @@ if TYPE_CHECKING:
     from lem.model.criteria.standing import Shown
 
 
+# The help of `lem criteria show`: the form of the criteria, which the interview and the plan
+# write in (`criteria.parse`'s docstring on `main`, which `lem criteria --help` printed).
+FORM = """A task's criteria, with their state.
+
+The criteria open the plan, or `criteria.md` of a fast-track task, in this form:
+
+\b
+    ## Acceptance criteria
+
+\b
+    Size: full, because the export gets a new column and two readers of it.
+
+\b
+    1. A CSV export holds the gift note of an order: order 1042 with the note
+       "for Ania" has that text in its row.
+       - test: `python3 -m unittest tests.test_export.GiftNote` in `tests/test_export.py`
+    2. An order with no gift note has an empty cell, not the word "None".
+       - no test: the change is one paragraph of the README.
+
+`Size` names the track, full (the standard track) or small (the fast track), with its reason
+after `because`; a fast-track task has one criterion. A criterion is one business rule in plain
+words with one concrete example. A criterion with more than one condition carries its case,
+numbered steps under its sentence and before its tests; one with branches may carry its chart, a
+`mermaid` block under it, and a chart of several criteria goes under `## How it works`, after
+the section. A test names its command and its files, each in backticks; a criterion no test can
+hold says `- no test: REASON`. The criteria the owner approves have no test lines: the lead adds
+them in the plan.
+"""
+
+
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """The words of `lem criteria show`."""
 
@@ -48,5 +78,5 @@ COMMAND = click.Command(
         click.Argument(["slug"]),
     ],
     callback=lambda **given: run(msgspec.convert(given, Call)),
-    help="A task's criteria, with their state.",
+    help=FORM,
 )
