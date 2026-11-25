@@ -83,7 +83,10 @@ def test_a_code_block_that_never_closes_is_refused() -> None:
     [
         ("none", ()),
         ("- none.", ()),
-        ("- src/a.py: new\n* `b c.py`: changed", (("src/a.py", "new"), ("b c.py", "changed"))),
+        (
+            "- src/a.py: new\n* `b c.py`: changed",
+            (("src/a.py", "new"), ("b c.py", "changed")),
+        ),
     ],
 )
 def test_the_changed_files_are_a_path_and_a_status_a_line_or_none(
@@ -95,6 +98,8 @@ def test_the_changed_files_are_a_path_and_a_status_a_line_or_none(
 
 
 def test_a_changed_file_with_no_status_is_named_in_the_refusal() -> None:
-    text = WHOLE.replace("- `src/export.py`: committed in abc1234", "- src/a.py\n- b.py: new")
-    with pytest.raises(Refusal, match="these lines have none: '- src/a.py'"):
+    text = WHOLE.replace(
+        "- `src/export.py`: committed in abc1234", "- src/a.py\n- b.py: new"
+    )
+    with pytest.raises(Refusal, match=r"these lines have none: '- src/a\.py'"):
         handoff.form(text, "gift-note")

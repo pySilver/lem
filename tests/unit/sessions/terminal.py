@@ -3,12 +3,15 @@ port (`app/sessions/beside.py`): a name, the program in each main pane, and the 
 keeps each line told until the test takes it."""
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
 from fakes.terminal import FakeTerminal
-from lem.app.sessions.beside import Foreground
 from lem.ports.terminal import Opening, Pane
+
+if TYPE_CHECKING:
+    from lem.app.sessions.beside import Foreground
 
 # The program a session Lem opened runs: the agent of its launch line.
 AGENT = ("/bin/zsh", "-l", "-c", "LEM_TASK=x claude 'Read x and follow it.'")

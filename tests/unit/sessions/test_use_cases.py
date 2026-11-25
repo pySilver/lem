@@ -13,8 +13,6 @@ from fakes.git import ModelGit
 from fakes.harness import FakeHarness
 from fakes.ports import fake_ports
 from fakes.records import MOMENT, record
-from unit.sessions.terminal import LookingTerminal as FakeTerminal
-from unit.sessions.terminal import CALLER, with_caller
 from lem.app.sessions import acts, brief, closing, handing, listing, log, opening
 from lem.app.sessions.here import Here
 from lem.kernel import paths
@@ -25,6 +23,8 @@ from lem.records.holds import Parked
 from lem.records.sessions import SessionLine
 from lem.records.task import Shape
 from lem.store import places, sessions, tasks
+from unit.sessions.terminal import CALLER, with_caller
+from unit.sessions.terminal import LookingTerminal as FakeTerminal
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -295,9 +295,7 @@ def test_close_never_closes_the_session_he_looks_at_and_waits_when_told(
     assert (got.session, got.closed, looks) == ("session-1", True, [5.0])
     assert terminal.closed == ["session-1"]
     closes = [
-        line
-        for line in log.read(here.folder(SLUG))
-        if isinstance(line, acts.Close)
+        line for line in log.read(here.folder(SLUG)) if isinstance(line, acts.Close)
     ]
     assert [(line.session, line.why, line.at) for line in closes] == [
         ("session-1", "handoff", LATER)
@@ -394,7 +392,9 @@ def test_next_from_an_old_session_after_another_took_over_is_refused(
     made(here, status="shaping")
     opening.open_session(here, SLUG, "new", None, MOMENT)
     (here.folder(SLUG) / "handoff.md").write_text(HANDOFF)
-    handing.hand_on(dataclasses.replace(here, caller="session-1"), SLUG, same=True, now=LATER)
+    handing.hand_on(
+        dataclasses.replace(here, caller="session-1"), SLUG, same=True, now=LATER
+    )
     from_the_first = Here(where=here.where, ports=here.ports, caller="session-1")
     with pytest.raises(Refusal) as refused:
         handing.hand_on(from_the_first, SLUG, same=True, now=LATER)

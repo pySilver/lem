@@ -2,7 +2,6 @@
 for `agtermctl` (`agterm_standin.py`) on a PATH of the stand-ins and the system's folders alone,
 with no socket, window or session of the owner's agterm inherited."""
 
-import shlex
 from typing import TYPE_CHECKING
 
 import pytest
@@ -78,8 +77,6 @@ def test_a_close_is_undoable(tmp_path: Path) -> None:
     standin = install(tmp_path / "agterm", [MINE])
     bound(standin).close("S-MINE", when_unselected=True)
     assert ["session", "close", "--target", "S-MINE", "--undoable"] in standin.calls()
-
-
 
 
 def test_every_call_names_the_socket_and_the_window_but_a_line_names_no_window(
