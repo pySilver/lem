@@ -57,7 +57,9 @@ def pull_chip(pull: Pull, *, whole: bool = False) -> Chip:
     """The chip of a pull request, which links to it."""
     link = pull_link(pull, whole=whole)
     label, title = link.label, link.title
-    return Chip(label=label, icon="pull", look="gate", title=title, link=link)
+    return Chip(
+        label=label, icon="code-pull-request", look="gate", title=title, link=link
+    )
 
 
 def plural(count: int, word: Plain) -> Plain:

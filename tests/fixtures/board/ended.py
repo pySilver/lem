@@ -338,7 +338,6 @@ INVOICE = record(
             tip=INVOICE_TIP,
             base=INVOICE_BASE,
             green=True,
-            text="pr-1-4be2.md",
             who_acts="owner",
             at=ago(218),
         ),

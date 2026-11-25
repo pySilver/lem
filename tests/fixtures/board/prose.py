@@ -151,6 +151,11 @@ What the ladder said: a step that cannot be undone is never the ladder's to take
 - The association confirms the date this week.
 """
 
+FEE_HANDOFF = """# Handoff
+
+Settled: the mail's text and its list of 212 merchants. Open: whether the fee date stands. Next: `make send-fee-notice`, after his word.
+"""
+
 TYPO_REVIEW = """Verdict: merge. The footer says "Terms and conditions", as the criterion asks, and nothing else changed.
 
 **What was built, and why.** You asked to fix the typo in the footer. One word of the template changed.
