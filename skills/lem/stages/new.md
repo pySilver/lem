@@ -38,8 +38,13 @@ not ended holds, and names that task.
    OWNER/REPO` too, the repository of the issue's address that the read gave, never origin's as it
    is now: the tracker writes only to the issue that was read. It refuses a ticket another task holds, and a slug whose branch origin has
    already, a teammate's: take another slug. For `/lem plan <what>`, the ask is
-   the whole line as he typed it, `/lem plan` included: the task's session reads his wish for a plan
-   there.
+   the whole line as he typed it, `/lem plan` included, and the open takes `--plan-only`: the
+   record keeps his wish for a plan, and the task's first line says that its lead stops after the
+   plan.
+
+   ```bash
+   lem task open SLUG --ask "/lem plan THE OWNER'S WORDS" --plan-only
+   ```
 4. **Copy the talk**, when he spoke of the request in this conversation. The task's session is no
    fork of this one, so the turns that led to the ask go to it as a file:
 
