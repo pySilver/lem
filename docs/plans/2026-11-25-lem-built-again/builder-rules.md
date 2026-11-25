@@ -9,6 +9,13 @@ worktree and a branch. These rules hold in every step; your step's brief adds th
    9 whole, and the part your step builds. Its annexes are in the folder of the same name
    (`landing.md`, `surfaces.md`): read the rows your step names.
 2. `AGENTS.md` of your worktree ("Rules for a change here") and `docs/rulings/rulings.md`.
+   `AGENTS.md` still describes the proof of concept until the step `guides` rewrites it. Where
+   it and the design disagree, the design holds: libraries, not standard-library scripts (the
+   owner's ruling of 2026-11-25, "Lem uses the well-known open-source library for a job, and
+   writes no copy of its own"); no record, event, command line or page address of `main` must
+   be kept (his ruling "The release of the reshape reads no record of the Lem before it"); the
+   tests are the levels of the design's part 8, not the shell suites of "Checks". Its rules on
+   voice, on what a skill may name, on numbers with their source, and every ruling still hold.
 3. Today's code for what you build, with `git show main:PATH` (the proof of concept is on
    `main`; `rebuild` no longer holds it after the foundation step). The measure of the whole
    work is the owner's: "new version isn't worse than our proof-of-concept `lem`". So what

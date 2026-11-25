@@ -404,8 +404,8 @@ trial files: every row owned, fated, and its proof passed.
 
 ## 9. The build order
 
-**Where and how.** Branch `rebuild`, cut from `main` at `bf6d2836`, the commit that joined the
-last stage 3 pieces. Each step is a worktree off `rebuild`, merged by the orchestrator; every
+**Where and how.** Branch `rebuild`, cut from `main` at `b712855d` (this plan's commit, on
+`bf6d2836`, the commit that joined the last stage 3 pieces). Each step is a worktree off `rebuild`, merged by the orchestrator; every
 builder reads `2026-11-25-lem-built-again/builder-rules.md`. Step ids are frozen: a later change
 adds a step and renumbers none. Within a group the files are disjoint; a file passes from an
 earlier step to the step that owns it later. A step that needs a change in a file it does not own
