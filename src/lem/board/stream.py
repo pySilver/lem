@@ -77,8 +77,10 @@ async def events(
 ) -> AsyncGenerator[ServerSentEvent]:
     """The stream's messages: a refresh at the open when one is owed, then one each time a
     file the pages read moved."""
-    told = await anyio.to_thread.run_sync(version, state)
+    # the look before the version: a write between the two is a version the page does not
+    # show, so it is owed at once, and a write after both moves the look
     seen = await anyio.to_thread.run_sync(watched.look, state, home or state, task)
+    told = await anyio.to_thread.run_sync(version, state)
     if owes(rendered=rendered, missed=missed, told=told):
         yield refresh(told)
     while True:
