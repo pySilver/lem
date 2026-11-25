@@ -2,13 +2,25 @@
 
     lem picker [--list]
 
-A stub until the step `addons-flow` builds it: it refuses `not-built`.
+An agterm keymap command starts it with a chord in the session's folder (the line `lem doctor`
+gives). A pick selects the task's live session, else opens its board. The chord reads refusals
+on standard error. With `--list` the command prints the rows and opens nothing.
 """
+
+import os
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.addons.picker import looks, picking
+from lem.cli import place
+from lem.kernel import clock
+from lem.kernel.errors import Refusal
+
+if TYPE_CHECKING:
+    from lem.ports.terminal import PickRow
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +29,19 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     listing: bool = False
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `addons-flow` builds `lem picker`."""
-    raise not_built("picker", "addons-flow")
+def run(call: Call) -> picking.Picked | tuple[PickRow, ...]:
+    """The rows, or the picker and the way to the task picked."""
+    now = clock.now()
+    folder = place.folder(Path(os.environ.get("AGT_SESSION_PWD") or "."))
+    if call.listing:
+        _, found = looks.listed(folder, now)
+        return found
+    try:
+        return picking.picked(folder, now)
+    except Refusal as refusal:
+        line = f"lem picker: {refusal.why}. {refusal.fix}"
+        click.echo(" ".join(line.split()), err=True)
+        raise
 
 
 COMMAND = click.Command(

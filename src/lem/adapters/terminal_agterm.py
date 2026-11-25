@@ -14,7 +14,9 @@ selects a session. The picker waits for the owner's answer and gives the row he 
 import json
 from typing import TYPE_CHECKING
 
-from lem.adapters.agterm_ctl import TOOL, ctl, login_line, said
+import msgspec
+
+from lem.adapters.agterm_ctl import SOCKETS, TOOL, ctl, login_line, said
 from lem.adapters.agterm_sessions import SESSION, TARGET, AgtermLooks
 from lem.ports.faults import Unanswered
 
@@ -22,7 +24,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.ports.place import Place
-    from lem.ports.terminal import Opening, ShowMode
+    from lem.ports.terminal import Opening, PickRow, ShowMode
 
 # The flags of `session overlay open` for each way the port shows a page: a page companion
 # beside the session, its overlay, or an overlay whose page may leave the site it opened.
@@ -97,14 +99,17 @@ class AgtermTerminal(AgtermLooks):
         named = (self.environ.get(name, "").strip() for name in CALLERS)
         return next((one for one in named if one), None)
 
-    def picker(self, rows: tuple[str, ...], cwd: Path) -> str | None:
-        """The row the owner picked in agterm's picker, or None when he closed it."""
+    def picker(self, rows: tuple[PickRow, ...], cwd: Path) -> str | None:
+        """The id the owner picked in agterm's picker, or None when he closed it."""
+        sockets = (self.environ.get(name) for name in SOCKETS)
+        if not self.here() or not any(sockets):
+            raise Unanswered(TOOL, "the owner opens the picker from an agterm session")
         ran = ctl(
             self.environ,
             "pick",
             "--prompt",
             "Open the board of a task",
-            stdin="\n".join(rows),
+            stdin=msgspec.json.encode(rows).decode(),
         )
         if ran.returncode == CLOSED:
             return None
@@ -122,7 +127,7 @@ def made_id(printed: str, call: str) -> str:
         raise Unanswered(TOOL, f"{call} printed no session id ({error})") from error
 
 
-def picked(printed: str, rows: tuple[str, ...]) -> str | None:
+def picked(printed: str, rows: tuple[PickRow, ...]) -> str | None:
     """The row of the picker's answer, None for any answer but a pick; `Unanswered` for an
     answer that is no JSON or names no row."""
     try:
@@ -132,7 +137,7 @@ def picked(printed: str, rows: tuple[str, ...]) -> str | None:
     if not isinstance(answer, dict) or answer.get("result") != "picked":
         return None
     chosen = str(answer.get("id", ""))
-    if chosen not in rows:
+    if not any(row.row_id == chosen for row in rows):
         raise Unanswered(TOOL, f"pick answered a row it was not given: {chosen!r}")
     return chosen
 

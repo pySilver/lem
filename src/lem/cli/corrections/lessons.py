@@ -2,22 +2,25 @@
 
     lem corrections lessons
 
-A stub until the step `addons-flow` builds it: it refuses `not-built`.
+Read only: the lessons earlier retros recorded, with their files and verdicts
+(`addons/corrections/lessons.py`).
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.addons.corrections import lessons
+from lem.cli import place
+from lem.store import places
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """The words of `lem corrections lessons`."""
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `addons-flow` builds `lem corrections lessons`."""
-    raise not_built("corrections lessons", "addons-flow")
+def run(call: Call) -> tuple[lessons.Lesson, ...]:
+    """The lessons recorded."""
+    return lessons.lessons(places.workspace(place.folder()).state)
 
 
 COMMAND = click.Command(

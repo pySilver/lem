@@ -1,13 +1,11 @@
-<!-- lem: old form -->
 # Claude Code: start-nap
 
 A part of `../claude-code.md`, read when a session starts a nap.
 
 ## start-nap
 
-`run-in-background`, on this line, where `STATE` is the folder `lem project
-state-dir` printed, `TIME` the `time` that `lem project may-nap` gave, and `SKILL_DIR` this skill's
-directory:
+`run-in-background`, on this line, where `STATE` is the folder `lem path state` printed, `TIME`
+the `time` that `lem nap may` gave, and `SKILL_DIR` this skill's directory:
 
 ```bash
 cd STATE && env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGTERM_PANE_ID -u AGTERM_PANE -u AGTERM_WINDOW_ID -u AGTERM_WORKSPACE_ID -u AGTERM_ENABLED -u AGTERM_AGENT_RE -u CLAUDECODE -u CLAUDE_CODE_SESSION_ID -u CLAUDE_CODE_CHILD_SESSION -u CLAUDE_CODE_MESSAGING_SOCKET -u CLAUDE_CODE_MESSAGING_TOKEN claude -p --safe-mode --restricted --tools Read,Write,Glob --permission-mode acceptEdits --permission-prompts none --no-session-persistence "Your nap's time, by the clock: TIME. The brief is on stdin." < SKILL_DIR/prompts/nap.md > naps/.last.log 2>&1

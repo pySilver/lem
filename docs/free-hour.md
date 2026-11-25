@@ -31,10 +31,9 @@ paths"). So the hour writes one thing: its proposals, into the night's file of t
   measurement, a correction that came back, a check that failed by chance: the proposal names its
   place, its reason and its source with the date. A change nobody needed is not proposed
   (`docs/rulings/rulings.md`, "Opinionated").
-- **Search with what reads.** The state folder (the tasks' records, the event log, the naps'
-  waking notes), the files of the clone, and the checks: `bash tests/all.sh`, the one command under
-  "Checks" in `AGENTS.md`, which runs every suite. `git status --short` of the main checkout shows
-  the same after the hour as before it.
+- **Search with what reads.** Read the tasks' records and journals, the naps' waking notes, and
+  the files of the clone. Run `.venv/bin/python -I -B tests --level full` for the checks.
+  `git status --short` of the main checkout shows the same after the hour as before it.
 - **A proposal keeps the rules of a change here** (`AGENTS.md`, "Rules for a change here"): a
   number carries its source and date, a stage names a capability and never a tool, a change to a
   script comes with its test.

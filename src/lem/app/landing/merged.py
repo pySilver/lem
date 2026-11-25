@@ -16,6 +16,7 @@ from msgspec.structs import replace
 
 from lem.app.landing import (
     changes,
+    merge_item,
     merge_lock,
     merge_step,
     merge_text,
@@ -103,6 +104,7 @@ def act(context: Context) -> object:
         if record is None:
             return context.world.pull
     record = merge_text.edited(context, record)
+    merge_item.removed(context.workspace, record)
     change = partial(finished, left=followed(context), now=context.world.now)
     record = context.write(record, change)
     return record.landing.merged if record.landing else None

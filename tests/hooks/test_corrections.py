@@ -119,6 +119,40 @@ def test_a_message_is_handed_to_the_worker_as_one_correction(tmp_path: Path) -> 
     assert json.loads(msgspec.json.encode(correction)) == json.loads(body)
 
 
+def test_the_hook_requires_a_team_file_in_the_worktree_where_the_owner_typed(
+    tmp_path: Path,
+) -> None:
+    hook, calls = stand_in(tmp_path / "app")
+    repo = tmp_path / "repo"
+    workspace(repo)
+    gitdir = repo / ".git" / "worktrees" / "older"
+    gitdir.mkdir(parents=True)
+    (gitdir / "commondir").write_text("../..\n")
+    older = tmp_path / "older"
+    (older / "sub").mkdir(parents=True)
+    (older / ".git").write_text(f"gitdir: {gitdir}\n")
+    state = repo / ".lem" / "state"
+    environ = {
+        "LEM_HOOK_BIN": str(hook),
+        "XDG_CONFIG_HOME": yes_home(tmp_path / "config"),
+    }
+
+    ran = hooked("corrections", typed(older / "sub"), **environ)
+    assert (ran.returncode, ran.stdout, ran.stderr) == (0, b"", b"")
+    assert not (state / "corrections-waiting").exists()
+    assert not calls.exists()
+
+    (older / ".lem").mkdir()
+    (older / ".lem" / "settings.toml").write_text("")
+    hooked("corrections", typed(older / "sub"), **environ)
+    (call,) = worker_calls(calls_of(calls, 1))
+    path = Path(call.rpartition(" ")[2])
+    assert path.parent == state / "corrections-waiting"
+    assert msgspec.json.decode(path.read_bytes(), type=Correction).cwd == str(
+        (older / "sub").resolve()
+    )
+
+
 def test_a_hook_registered_twice_judges_each_message_once(tmp_path: Path) -> None:
     hook, calls = stand_in(tmp_path / "app")
     workspace(tmp_path / "repo")
@@ -207,6 +241,29 @@ def test_nothing_is_handed_on_without_the_machines_yes_or_where_lem_0_3_keeps_it
     assert len(worker_calls(calls_of(calls, 1))) == 1
     time.sleep(0.5)
     assert len(worker_calls(calls.read_text().splitlines())) == 1
+
+
+def test_the_repositorys_team_and_local_yes_do_not_start_the_hook_worker(
+    tmp_path: Path,
+) -> None:
+    hook, calls = stand_in(tmp_path / "app")
+    repo = tmp_path / "repo"
+    workspace(repo)
+    for name in ("settings.toml", "settings.local.toml"):
+        (repo / ".lem" / name).write_text("[corrections]\ncollect = true\n")
+    config = tmp_path / "config"
+    home = config / "lem"
+    home.mkdir(parents=True)
+    (home / folders.MARKER).write_bytes(folders.FORM)
+    (home / "machine.toml").write_text("")
+
+    ran = hooked(
+        "corrections", typed(repo), LEM_HOOK_BIN=str(hook), XDG_CONFIG_HOME=str(config)
+    )
+
+    assert (ran.returncode, ran.stdout, ran.stderr) == (0, b"", b"")
+    assert not (repo / ".lem" / "state" / "corrections-waiting").exists()
+    assert not calls.exists()
 
 
 def test_an_empty_state_folder_is_marked_and_takes_the_message(tmp_path: Path) -> None:

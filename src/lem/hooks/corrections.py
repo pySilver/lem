@@ -82,18 +82,17 @@ def home_of(environ: Mapping[str, str]) -> str | None:
 
 
 def queue_of(found: raw.Event, environ: Mapping[str, str]) -> str | None:
-    """The state folder that keeps the queue of the repository the message was typed in: its
-    main checkout's, when that uses Lem and the folder is this Lem's (marked now when absent or
-    empty); None anywhere else, for a folder of Lem 0.3, and for one a link puts in another
-    place."""
+    """The main checkout's queue when the originating worktree uses Lem and the state is
+    this Lem's or empty. A link to another place is refused."""
+    from pathlib import Path
+
     project = environ.get("CLAUDE_PROJECT_DIR")
-    checkout = where.checkout_of(raw.text(found, "cwd") or project or ".")
-    if checkout is None:
+    cwd = raw.text(found, "cwd") or project or "."
+    worktree = where.checkout_of(cwd, main=False)
+    if worktree is None or not (Path(worktree) / TEAM).is_file():
         return None
-    team = f"{checkout}/{TEAM}"
+    checkout = where.parent(where.common_dir(f"{worktree}/.git"))
     state = f"{checkout}/{where.STATE}"
-    if not os.access(team, os.F_OK):
-        return None
     if os.path.realpath(state) != state:
         return None
     return state if marker.ours(state, marker.STATE_EMPTY) else None

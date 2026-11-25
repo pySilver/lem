@@ -2,13 +2,20 @@
 
     lem corrections show ID
 
-A stub until the step `addons-flow` builds it: it refuses `not-built`.
+Read only: every entry of one unreviewed group, in full (`addons/corrections/listing.py`).
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.addons.corrections import listing
+from lem.cli import place
+from lem.store import places
+
+if TYPE_CHECKING:
+    from lem.records.corrections import Correction
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +24,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     entry: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `addons-flow` builds `lem corrections show`."""
-    raise not_built("corrections show", "addons-flow")
+def run(call: Call) -> tuple[Correction, ...]:
+    """Every entry of the group."""
+    return listing.shown(places.workspace(place.folder()).state, call.entry)
 
 
 COMMAND = click.Command(

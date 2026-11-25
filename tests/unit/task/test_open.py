@@ -10,7 +10,7 @@ import pytest
 
 from fakes.command import lem
 from fakes.records import MOMENT
-from fakes.repo import RealRepo
+from fakes.repo import RealRepo, run_git
 from lem.app.tasks import open as opening
 from lem.app.tasks.opening import Asked
 from lem.kernel.errors import Refusal
@@ -178,6 +178,22 @@ def test_a_backlog_item_is_claimed_by_an_open_task_and_a_gone_one_is_refused(
     with pytest.raises(Refusal) as gone:
         opened(where, "third", backlog_item="docs/backlog/b.md")
     assert (held.value.code, gone.value.code) == ("item-held", "item-gone")
+
+
+def test_a_tracked_backlog_link_cannot_claim_its_target(tmp_path: Path) -> None:
+    repo = RealRepo.init(tmp_path / "repo", {"README.md": b"# Read me\n"})
+    where = workspace(repo.checkout)
+    path = "docs/backlog/install.md"
+    link = where.checkout / path
+    link.parent.mkdir(parents=True)
+    link.symlink_to("../../README.md")
+    run_git(where.checkout, "add", "--", path)
+    run_git(where.checkout, "commit", "-m", "Track the backlog link")
+
+    with pytest.raises(Refusal) as caught:
+        opened(where, backlog_item=path)
+    assert caught.value.code == "item-path"
+    assert (where.checkout / "README.md").read_bytes() == b"# Read me\n"
 
 
 def test_a_night_task_runs_alone_from_its_opening(tmp_path: Path) -> None:

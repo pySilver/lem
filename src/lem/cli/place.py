@@ -18,10 +18,10 @@ OPTION = click.Option(
 )
 
 
-def folder() -> Path:
-    """The folder `--repo` named in this call, else the working directory."""
+def folder(default: Path | None = None) -> Path:
+    """The folder `--repo` named, else the command's default or working directory."""
     ctx = click.get_current_context(silent=True)
     if ctx is None:
-        return Path.cwd()
+        return default or Path.cwd()
     named = ctx.find_root().params.get("repo")
-    return named if isinstance(named, Path) else Path.cwd()
+    return named if isinstance(named, Path) else default or Path.cwd()

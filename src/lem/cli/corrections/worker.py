@@ -2,13 +2,22 @@
 
     lem corrections worker PAYLOAD
 
-A stub until the step `addons-flow` builds it: it refuses `not-built`.
+The correction hook starts it detached, with the file it wrote in `corrections-waiting/`; it
+removes the file, asks Jev on the machine's yes, and queues a lesson
+(`addons/corrections/worker.py`). Its output goes nowhere.
 """
+
+import os
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.kernel import clock
+
+if TYPE_CHECKING:
+    from lem.addons.corrections.worker import Worked
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +26,12 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     payload: str
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `addons-flow` builds `lem corrections worker`."""
-    raise not_built("corrections worker", "addons-flow")
+def run(call: Call) -> Worked:
+    """Judge the correction, and queue it when it is a lesson. Jev's client loads here, and
+    only for this command."""
+    from lem.addons.corrections.worker import worked
+
+    return worked(Path(call.payload), os.environ, clock.now())
 
 
 COMMAND = click.Command(
