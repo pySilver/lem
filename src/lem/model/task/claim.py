@@ -11,7 +11,7 @@ opens at one moment one takes the ticket.
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
-from lem.model.task import tickets
+from lem.model.task import resumes, tickets
 
 if TYPE_CHECKING:
     from lem.records.record import Record
@@ -115,8 +115,9 @@ def item_claim(made: Record, every: tuple[Record, ...]) -> None:
 
 
 def claimed(made: Record, every: tuple[Record, ...], kind: Tracker | None) -> Record:
-    """The new record, once every record is read under the workspace lock: refused when its
-    ticket or its item is held."""
+    """The new record, once every record is read under the workspace lock, with the ticket of
+    the dropped task it goes on from: refused when its ticket or its item is held."""
+    made = resumes.carried(made, every)
     ticket_claim(made, every, kind)
     item_claim(made, every)
     return made
