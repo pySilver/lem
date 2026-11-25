@@ -22,12 +22,13 @@ from lem.kernel.envelope import Envelope
 from lem.kernel.errors import Refusal
 from lem.model.criteria import contract
 from lem.model.landing import merge_standing
+from lem.model.owner.looks import MergeBasis
 from lem.records.landing.checks import Checked
 from lem.records.landing.merge import MergeIntent
 from lem.records.landing.propose import Standing
 from lem.store import steps, tasks
 from unit.board.duties.world import duty_of, landing_of, looked, opened
-from unit.owner.looked import TIP, proposed, read, refused
+from unit.owner.looked import BASE, TIP, proposed, read, refused
 from unit.sessions.world import here_of
 
 if TYPE_CHECKING:
@@ -158,12 +159,18 @@ def test_a_merge_that_ran_says_so_and_one_refused_says_why(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     here = here_of(tmp_path)
-    opened(here, "goes", proposed=proposed(), reads=(read("merge"),))
+    goes = opened(here, "goes", proposed=proposed(), reads=(read("merge"),))
     asking(monkeypatch)
     kept = Kept()
     duty.tick(duty_of(here, HOUR, kept))
     ended(kept)
     assert kept.said["goes"].startswith("Merged: goes is on the base.")
+    tasks.update(
+        here.where.state,
+        "goes",
+        lambda one: replace(one, task=replace(one.task, status="landed")),
+        goes.revision,
+    )
     asking(monkeypatch, Refusal("github", "GitHub refused it", "the owner acts"))
     opened(here, "refused", proposed=proposed(), reads=(read("merge"),))
     duty.tick(duty_of(here, HOUR, kept))
@@ -174,6 +181,33 @@ def test_a_merge_that_ran_says_so_and_one_refused_says_why(
     )
     said = capsys.readouterr().err
     assert "lem serve: shop: Merged: goes is on the base." in said
+
+
+def test_the_server_picks_a_passed_run_on_the_current_base_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    here = here_of(tmp_path)
+    (tmp_path / ".lem" / "settings.toml").write_text('[branch]\nbase = "main"\n')
+    monkeypatch.setattr(type(here.ports.git), "remote_head", lambda *_: BASE)
+    monkeypatch.setattr(
+        type(here.ports.git), "tree", lambda *_: read("merge").base_tree
+    )
+    checked = Checked(
+        tip=TIP, tree=TIP, base=BASE, inputs="inputs", outcome="passed", at=HOUR
+    )
+    for slug, base in (("a-stale", TIP), ("z-current", BASE)):
+        opened(
+            here,
+            slug,
+            proposed=proposed(),
+            reads=(read("merge"),),
+            checked=replace(checked, base=base),
+        )
+    asking(monkeypatch)
+    kept = Kept()
+    duty.tick(duty_of(here, HOUR, kept))
+    ended(kept)
+    assert tuple(kept.merging) == ("z-current",)
 
 
 def test_his_standing_merge_that_the_base_refuses_again_still_stands_in_its_line(
@@ -210,7 +244,22 @@ def test_a_github_refusal_calls_the_owner_even_with_standing_approval(
     )
 
 
-@pytest.mark.parametrize("stage", ["conflict", "moved-base", "rebasing", "red"])
+def test_a_base_back_at_the_checked_commit_releases_the_standing_merge(
+    tmp_path: Path,
+) -> None:
+    here = here_of(tmp_path)
+    found = standing_task(here, "stands")
+    landing = replace(landing_of(found), refused=refused("lem", "base"))
+    assert landing.checked is not None
+    record = replace(found, landing=landing)
+    basis = MergeBasis(base=landing.checked.base, tree=read("call").base_tree)
+    assert duty.merger_of(record, LOOK, frozenset(), basis) == "owner"
+    assert duty.merger_of(record, LOOK, frozenset(), replace(basis, base=TIP)) is None
+
+
+@pytest.mark.parametrize(
+    "stage", ["conflict", "moved-base", "rebasing", "red", "repairing"]
+)
 def test_the_merge_wait_count_keeps_standing_approval_until_rebase_checks_fail(
     tmp_path: Path, stage: str
 ) -> None:
@@ -221,7 +270,7 @@ def test_the_merge_wait_count_keeps_standing_approval_until_rebase_checks_fail(
         looked(here, "stands", forge.CONFLICTING)
     if stage == "moved-base":
         landing = replace(landing, refused=refused("lem", "base"))
-    if stage in {"rebasing", "red"}:
+    if stage in {"rebasing", "red", "repairing"}:
         found = replace(found, task=replace(found.task, status="landing"))
         landing = replace(landing, phase="preparing")
     if stage == "red":
@@ -229,6 +278,8 @@ def test_the_merge_wait_count_keeps_standing_approval_until_rebase_checks_fail(
             tip=TIP, tree=TIP, base=TIP, inputs="inputs", outcome="red", at=HOUR
         )
         landing = replace(landing, checked=checked)
+    if stage == "repairing":
+        landing = replace(landing, checked=None, refused=refused("lem", "rule"))
     tasks.update(
         here.where.state,
         "stands",
@@ -238,7 +289,7 @@ def test_the_merge_wait_count_keeps_standing_approval_until_rebase_checks_fail(
     intent = MergeIntent(tip=TIP, by="merger", via="server", at=HOUR)
     waited = merge_count.waited(duty_of(here, HOUR), "merges", intent)
     assert (waited.waiting, waited.behind) == (
-        (0, ()) if stage == "red" else (1, ("stands",))
+        (0, ()) if stage in {"red", "repairing"} else (1, ("stands",))
     )
 
 

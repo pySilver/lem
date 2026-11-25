@@ -91,6 +91,7 @@ class World(Frozen, frozen=True, kw_only=True):
     candidates: tuple[PullSeen, ...] = ()
     item_chain: tuple[Sha, ...] = ()
     own_item_removed_from: Sha | None = None
+    rebased_review: Sha | None = None
     dequeued: str | None = None
 
     def items_from(self, tip: Sha) -> bool:

@@ -99,6 +99,16 @@ def test_a_review_in_the_same_second_as_base_is_no_source_of_a_carry() -> None:
     landing = Landing(reviews=(REVIEWED, same), based=CARRIED)
     assert carry.source(landing, NOW) is None
     assert not carry.covers(landing, NOW)
+    assert carry.covers(landing, replace(NOW, rebased_review=OTHER))
+
+
+def test_a_second_clean_rebase_keeps_the_already_carried_proposal() -> None:
+    prior = replace(PROPOSED, tip=OTHER)
+    based = replace(CARRIED, before=OTHER)
+    landing = replace(MOVED_ON, proposed=prior, based=based)
+    assert carry.proposed_carries(landing, NOW)
+    unshown = replace(based, carried=False, unshown_paths=("a.txt",))
+    assert not carry.proposed_carries(replace(landing, based=unshown), NOW)
 
 
 def test_only_a_review_of_the_change_that_someone_answered_covers_it() -> None:

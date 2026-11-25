@@ -202,8 +202,8 @@ on what they say: a task that `landed` takes step 9 of `SKILL_DIR/stages/land.md
 A pull request that `conflict` marks takes `SKILL_DIR/stages/conflict.md`; a
 merge that `refused` marks (`merge_refused` in `lem waiting --task SLUG`) takes the refusals of its step
 8: the merge agent's merge that GitHub or Lem's rules refused, or the owner's that Lem refused because
-the base moved (`kind: base`), after which a fresh merge agent reads what moved and the server
-merges it on a safe read, or the task lands again on another round, while his merge stands; a `queued` task whose wait ended goes on where it stopped, as "A queued task" above
+the base moved (`kind: base`), after which the task rebases and runs the checks while his approval
+stands. A red run takes the repair builder of step 4. A `queued` task whose wait ended goes on where it stopped, as "A queued task" above
 says. `owner` follows his word: his act on the board (his answer to a row of it: below), while
 this session may wait for him, or his
 "start SLUG now" (`SKILL_DIR/stages/start.md`, "`/lem build`"). An approval of the criteria that

@@ -74,9 +74,14 @@ def test_a_merge_goes_only_onto_a_base_the_checks_or_a_safe_read_covered(
 ) -> None:
     if merges(record, world, asked, checks_tree) is None:
         return
+    landing = record.landing or Landing()
+    if asked.by == "owner" or landing.standing is not None:
+        assert landing.checked is not None
+        assert landing.checked.base == world.base
+        return
     if world.base_tree == checks_tree:
         return
-    read = mergeread.latest(record.landing or Landing(), world.base_tree)
+    read = mergeread.latest(landing, world.base_tree)
     assert read is not None
     assert (read.base_call, read.base_tree) == ("safe", world.base_tree)
 

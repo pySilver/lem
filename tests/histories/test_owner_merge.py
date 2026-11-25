@@ -34,7 +34,7 @@ def refused_for_the_base() -> Story:
     return story
 
 
-def test_his_word_refused_for_the_base_stands_and_the_server_merges_after_a_safe_read() -> (
+def test_his_word_refused_for_the_base_stands_and_the_server_requires_new_checks() -> (
     None
 ):
     story = refused_for_the_base()
@@ -43,15 +43,13 @@ def test_his_word_refused_for_the_base_stands_and_the_server_merges_after_a_safe
     assert stands is not None
     assert (refused.source, refused.kind, refused.by) == ("lem", "base", "owner")
     assert (stands.tip, stands.by_act) == (TIP, "board")
-    assert story.due().step == "merge-review"
     story.merge_review(SAFE)
-    found = story.due()
-    assert (found.step, found.by) == ("merge", "owner")
-    assert found.why.startswith(
-        "the owner's merge stands: the board's server merges it"
+    assert story.due().step == "start"
+    assert (
+        story.refused(merge.decide(story.record, story.world, SERVER, TREE)).code
+        == "base"
     )
-    story.merge(SERVER)
-    assert story.calls == [f"merge squash {TIP}"]
+    assert story.calls == []
 
 
 def test_his_merge_ends_when_the_reasons_it_is_not_green_change() -> None:
@@ -68,9 +66,6 @@ def test_his_merge_ends_when_the_reasons_it_is_not_green_change() -> None:
     task = story.record.task
     story.record = replace(story.record, task=replace(task, decisions=(change,)))
     assert merge_standing.standing_of(story.record) is None
-    found = story.due()
-    assert (found.step, found.by) == ("merge", "owner")
-    assert not found.why.startswith("the owner's merge stands")
     refused = merge.decide(story.record, story.world, SERVER, TREE)
     assert isinstance(refused, Refusal)
     assert refused.why == (

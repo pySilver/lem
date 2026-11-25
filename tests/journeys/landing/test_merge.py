@@ -52,6 +52,18 @@ if TYPE_CHECKING:
 type Capsys = pytest.CaptureFixture[str]
 MERGED = command("land", "merged", "SLUG")
 CLEAN = command("land", "clean", "SLUG")
+SERVER = command(
+    "land",
+    "merge",
+    "SLUG",
+    "--by",
+    "owner",
+    "--via",
+    "server",
+    "--standing",
+    "--message",
+    SUBJECT,
+)
 SAFE = "Verdict: merge.\nBase: safe. Only NOTES.md moved, and the change reads none of it.\n"
 ROUND = "Verdict: merge.\nBase: another round, the moved base renamed what the change reads.\n"
 
@@ -291,10 +303,12 @@ def test_the_owners_merge_refused_for_the_base_stands_and_the_server_merges_it(
     assert owner(capsys, world)["refusal"]["code"] == "base"
     kept = landing(world)
     assert (kept["refused"]["by"], kept["standing"]["by_act"]) == ("owner", "session")
-    assert read(capsys, world, SAFE)["ok"] is True
+    assert due(capsys, world)["step"] == "start"
+    for verb in ("start", "base", "checks"):
+        assert command("land", verb, "SLUG")(capsys, world)["ok"] is True
+    assert proposal(capsys, world)["ok"] is True
     assert due(capsys, world)["step"] == "merge"
-    server = ("land", "merge", "SLUG", "--by", "owner", "--via", "server", "--standing")
-    assert command(*server, "--message", SUBJECT)(capsys, world)["ok"] is True
+    assert SERVER(capsys, world)["ok"] is True
     assert calls(world) == 1
     assert landing(world)["merged"]["by"] == "owner"
 
@@ -816,14 +830,10 @@ def news(before: Record, after: Record) -> list[str]:
     return [name for name, new in found if new]
 
 
-def safe_read(capsys: Capsys, world: World) -> Envelope:
-    return answered(capsys, world, SAFE)
-
-
-def merged_on_the_safe_read(capsys: Capsys, world: World) -> Envelope:
-    """The merge agent's merge; after a stop between the intent and the call, the owner's
+def merged_on_the_recheck(capsys: Capsys, world: World) -> Envelope:
+    """The standing merge; after a stop between the intent and the call, the owner's
     word after his check of GitHub, as the refusal names it."""
-    found = MERGE(capsys, world)
+    found = SERVER(capsys, world)
     if found.get("refusal", {}).get("code") == "intent":
         return owner(capsys, world, *checked(found["refusal"]))
     return found
@@ -838,15 +848,17 @@ def tapped(capsys: Capsys, world: World) -> Envelope:
 # the refusal it ends with, if any.
 FLOW: tuple[tuple[str, Callable[[Capsys, World], Envelope], str | None], ...] = (
     ("merge", tapped, "base"),
-    ("merge-review", brief, None),
-    ("merge-review", safe_read, None),
-    ("merge", merged_on_the_safe_read, None),
+    ("start", command("land", "start", "SLUG"), None),
+    ("base", command("land", "base", "SLUG"), None),
+    ("checks", command("land", "checks", "SLUG"), None),
+    ("propose", proposal, None),
+    ("merge", merged_on_the_recheck, None),
     ("merged", MERGED, None),
     ("clean", CLEAN, None),
 )
 CUTS = (
     ("write:refused", 1),
-    ("publish:merge", 2),
+    ("rebase", 2),
     ("write:read", 2),
     ("write:intent", 1),
     ("merge", 1),
@@ -922,7 +934,10 @@ def test_a_cut_after_an_effect_of_a_merge_on_a_moved_base_does_nothing_twice(
         "delete_ref",
     ):
         assert counted[act] == 1, act
-    assert text_of(world).count("Only NOTES.md moved") == 1
+    assert (
+        landing(world)["merged"]["base_checked"]
+        == landing(world)["merged"]["base_merged"]
+    )
     assert world.repo.head_of(BRANCH) is None
     proposed = landing(world)["proposed"]
     assert "text_waits" not in proposed

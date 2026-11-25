@@ -80,15 +80,17 @@ def look_of(
 def basis_of(
     here: Here, branch: Branch | None, records: tuple[Record, ...]
 ) -> MergeBasis:
-    """Read origin's last fetched base once when there are merge reviews to show."""
+    """Read origin's last fetched base for merge reviews and standing approvals."""
     if branch is None:
         return MergeBasis()
     checkout = here.where.checkout
     git = here.ports.git
     reads = any(
-        record.task.status == "open" and record.landing and record.landing.reads
+        record.task.status == "open"
+        and record.landing
+        and (record.landing.reads or record.landing.standing)
         for record in records
     )
     base = git.remote_head(checkout, branch.base) if reads and branch.base else None
     tree = git.tree(checkout, base) if base else None
-    return MergeBasis(tree=tree, land=branch.land)
+    return MergeBasis(tree=tree, land=branch.land, base=base)

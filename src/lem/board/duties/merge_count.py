@@ -6,7 +6,7 @@ from lem.app.owner import forge, releases
 from lem.board import merge_look
 from lem.board.duties import forge_look, merge_line
 from lem.kernel import clock, errors
-from lem.model.landing import merge_standing, phases
+from lem.model.landing import merge_recheck, merge_standing, phases
 from lem.records.holds import ReleaseHold
 from lem.store import tasks
 
@@ -52,7 +52,8 @@ def standing_waits(record: Record) -> bool:
         return False
     if landing.intent is not None:
         return False
-    if landing.checked is not None and landing.checked.outcome == "red":
+    checked = landing.checked
+    if merge_recheck.repair(landing) or (checked and checked.outcome == "red"):
         return False
     refused, proposed = landing.refused, landing.proposed
     if (

@@ -10,7 +10,13 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing import branch_checks, item_carry, pull_identity, review_item
+from lem.app.landing import (
+    branch_checks,
+    item_carry,
+    pull_identity,
+    review_item,
+    review_rebase,
+)
 from lem.app.tasks import where
 from lem.model.landing import destination
 from lem.model.landing import world as facts
@@ -119,5 +125,6 @@ def gather(
     checked = record.landing.checked if record.landing else None
     world = item_carry.gathered(ports.git, path, checked, world)
     world = review_item.gathered(ports.git, path, record, world)
+    world = review_rebase.gathered(ports.git, workspace.checkout, record.landing, world)
     world = branches(ports, workspace.checkout, world)
     return pull_identity.in_world(ports.forge, record, world)

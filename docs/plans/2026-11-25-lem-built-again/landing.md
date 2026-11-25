@@ -70,6 +70,7 @@ open pull request is visible, the intent stays and the owner is asked to check G
 call goes only on his explicit word after that check. While `accepted` is on record, `merged`
 handles every forge result: merged, closed, and a confirmed end of the queue. A second
 unusable answer for the same tip and base makes no new read due (`unread_next`).
+For a standing approval whose checks name a different base commit, `start` is due.
 Else `mergeread` when no usable read covers (tip, base now); else
 `merge` when invariant 2's authority holds; else `wait`. In `merged`: `clean`. `next` names the
 due step or the wait and its why.
@@ -87,7 +88,7 @@ due step or the wait and its why.
 | Merge read carry, conflict | the read before had a real verdict, and the resolution's one read found nothing (no must-fix, should, nit), answered, nothing careful, no commit after, the review before left no must-fix | `conflict.md`; `land.md` 7 |
 | Safe read on a moved base | covers its `base` only while origin's base tree is its `base_tree` | `merge_locked`, `read_base` |
 | Revert of the base | origin's base tree is the checked base's tree: the checks cover again | `land.md` 7 |
-| Standing merge | stands while coverage holds and the not-green reasons are the same; else `ended: why` and "Your merge ended" | `land.md` 8 |
+| Standing merge | stands while coverage holds and the not-green reasons are the same; else `ended: why` and "Your merge ended". After a red recheck, new edits need an answered review that covers the repaired tip | `land.md` 4 and 8 |
 | Checks taken from polish | the pass committed, its run had the same five inputs | `land.md` 4 |
 | Check definitions | a change of `checks.commands` or `checks.serial` makes `checked` not hold before propose and before merge | `same_checks` |
 | Filing | each finding: an item (`worth: later` over the bar, `worth: no` under it); `same` (an open item holds it, `--same rN.M=PATH`); `cheap-fixed` (a commit names it); `seen` (a line with `under:` or `cheap:` and its reason). An over-bar finding whose open item says `worth: no` gets a new `worth: later` item that cites the old one, which stays | `land.md` 5-6, `cmd_file` |
@@ -119,7 +120,7 @@ the result. Its `path` row's proof is that step's test.
 | | the same, base moved | it requires a new round (`another round`); carry still requires a real verdict | one line | `land-merge` |
 | No answer | `--no-answer` | an unusable answer | as above | `land-merge` |
 | Stale tap | the board's merge with a tip not the proposed one | refused; zero forge merge calls | why | `land-merge` |
-| Owner merge refused for the base | his merge, base moved | `Refused(by owner, base)`, `standing`; safe: the server merges `--by owner --standing`; another round: `propose` prints `stands` or `ended` | nothing, or "Your merge ended" | `land-merge` |
+| Owner merge refused for the base | his merge, base moved | `Refused(by owner, base)`, `standing`; the task rebases and runs its checks. A red run leaves the line while a builder repairs it. After `propose` says `stands`, the server merges `--by owner --standing` | the check result or "Your merge ended" | `land-merge` |
 | GitHub refuses | a rule of the base branch | `Refused(github, verbatim)`; no automatic retry of that tip | the line | `land-merge` |
 | Transport fault | `gh` or `git` failed | nothing kept; the server retries in minutes | nothing | `land-merge` |
 | Stop or lost reply around the merge call | the process ends after `MergeIntent`, before or after the call, or the call's reply is lost | under the merge lock, `reconcile` replaces the intent with the observed merge, the accepted queue or a definite refusal; with only an open pull request visible, the intent stays and the owner is asked to check GitHub; a new call only on his explicit word after that check; R5 counts the merge calls | "check the pull request on GitHub" | `land-merge` |
@@ -178,7 +179,8 @@ rows are the complete list; these are their codes.
    tree is the checked base's tree (a revert, part D), or a commit whose tree a `safe` read
    covers; by merger: green, not careful, the newest review made the careful call,
    `branch.land = "agent"`, a `merge` verdict for that tip and base; by owner: his act for that
-   tip, or a standing merge whose reasons are unchanged. The forge pins only the head
+   tip, or a standing merge whose reasons are unchanged. An owner-approved merge requires a
+   passed run of the checks on the current base commit. The forge pins only the head
    (`gh pr merge --match-head-commit`): a retarget after the read is a race no client can
    close, so the destination the forge reports is checked after the merge (E, the retarget
    rows).

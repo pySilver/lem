@@ -1,7 +1,7 @@
 """What a merge checks against the world read again under the merge lock (`landing.md` H 1, 2
 and 4; `main:land.merge_locked`): the pull request as proposed and into the task's base, the
-local tip, the checks of that tip, and origin's base, unmoved since the checks by its tree or
-covered by a safe read.
+local tip, the checks of that tip, and origin's base. An owner-approved merge takes checks on
+the current base commit. The merge agent can use a safe read of a moved base.
 
 The forge pins only the head; everything else is read again here, before the intent is
 written. `checks` is the tree of the base the checks ran on, which the app reads from git.
@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
-from lem.model.landing import checks, destination, mergeread
+from lem.model.landing import checks, destination, merge_recheck, mergeread
 from lem.model.landing.invariants import protected
 from lem.model.landing.world import Due, World
 from lem.model.task.release import guard
@@ -105,11 +105,14 @@ def changed_tip(record: Record, proposed: Proposed, tip: str | None) -> Refusal 
     )
 
 
-def base_side(record: Record, world: World, checks_tree: str) -> Refusal | None:
-    """Why origin's base may not take the merge: protected, or moved since the checks (by its
-    tree) with no safe read of the merge agent that covers it now."""
+def base_side(
+    record: Record, world: World, checks_tree: str, *, approved: bool = False
+) -> Refusal | None:
+    """Why origin's base cannot take the merge: protection or missing evidence of this base."""
     branch = destination.recorded(record.landing) or world.rules.base
     guard = protected(branch, world.rules, "merges")
+    if approved:
+        return guard or merge_recheck.refusal(record, world)
     if guard is not None or world.base_tree == checks_tree:
         return guard
     read = mergeread.latest(record.landing or Landing(), world.base_tree)

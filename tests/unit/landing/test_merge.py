@@ -169,6 +169,10 @@ def test_a_moved_base_merges_only_on_a_safe_read_that_covers_it_now() -> None:
     assert code_of(merge.decide(opened(), moved(), BY_MERGER, TREE)) == "base"
     on_safe = merge.decide(opened(reads=(READ, SAFE)), moved(), BY_MERGER, TREE)
     assert isinstance(on_safe, merge_call.Merging)
+    assert (
+        code_of(merge.decide(opened(reads=(READ, SAFE)), moved(), BY_OWNER, TREE))
+        == "base"
+    )
     assert on_safe.body.startswith(
         "The checks ran on main at bbbbbbbbb; it merged on main at aaaaaaaaa"
     )
@@ -190,6 +194,7 @@ def test_a_revert_of_the_base_or_an_empty_commit_moves_nothing() -> None:
     assert isinstance(
         merge.decide(opened(), empty, BY_MERGER, TREE), merge_call.Merging
     )
+    assert code_of(merge.decide(opened(), empty, BY_OWNER, TREE)) == "base"
 
 
 def test_a_careful_request_with_a_safe_read_still_calls_the_owner() -> None:
@@ -379,7 +384,12 @@ def test_a_carried_standing_merge_ends_when_the_approved_criteria_change() -> No
         proposal, owner_merge=OwnerMerge(state="stands", why="the rebase carried")
     )
     authorization = replace(kept[1], tip=OTHER)
-    record = opened(standing=authorization, proposed=carried, reads=(READ, SAFE))
+    record = opened(
+        standing=authorization,
+        proposed=carried,
+        reads=(READ, SAFE),
+        checked=replace(CHECKED, base=MOVED),
+    )
     server = Asked(by="owner", via="server", standing=True, subject=SUBJECT)
     assert isinstance(merge.decide(record, moved(), server, TREE), merge_call.Merging)
     changed = approved_with_hardware_key(record)
@@ -392,7 +402,9 @@ def test_a_stale_standing_merge_stops_before_the_forge_call() -> None:
     assert isinstance(refused, Refusal) and refused.code == "base"
     kept = merge_standing.kept(before, refused, BY_OWNER, MOMENT)
     assert kept is not None and kept[1] is not None
-    record = opened(standing=kept[1], reads=(READ, SAFE))
+    record = opened(
+        standing=kept[1], reads=(READ, SAFE), checked=replace(CHECKED, base=MOVED)
+    )
     server = Asked(by="owner", via="server", standing=True, subject=SUBJECT)
     assert isinstance(merge.decide(record, moved(), server, TREE), merge_call.Merging)
     changed = approved_with_hardware_key(record)

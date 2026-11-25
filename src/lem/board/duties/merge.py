@@ -5,7 +5,7 @@ merge agent's merge, and the agent only writes its review").
 An open task whose merge waits for the server (`merging.merge_wait` gives `merges`: the merge
 agent's review of the proposed tip says `merge`, calls nobody and asks no new round, for a
 request the merge agent may merge; or the owner's merge that a moved base refused stands
-through a new landing or a safe read) is merged by the server, as `lem land merge SLUG --by
+through the rebase and checks) is merged by the server, as `lem land merge SLUG --by
 merger|owner --via server [--standing]` does: the merge's own rules stay the gate, and the server
 only runs it. Never while the forge calls the request conflicting (its session brings it onto
 the base first), while a merge call waits on the forge, or while this server runs its merge. A
@@ -17,8 +17,8 @@ from typing import TYPE_CHECKING
 
 from lem.app.owner import forge, releases
 from lem.board import merge_look
-from lem.board.duties import forge_look, merge_run
-from lem.model.landing import merge_standing, mergeread, phases
+from lem.board.duties import forge_look, merge_order, merge_run
+from lem.model.landing import merge_recheck, merge_standing, mergeread, phases
 from lem.records.holds import ReleaseHold
 from lem.store import tasks
 
@@ -35,22 +35,32 @@ UNKNOWN = merge_look.MergeBasis()
 
 
 def tick(duty: Duty) -> None:
-    """Start the merge of each task whose merge is the server's now."""
+    """Start the next merge, with a task checked on its current base first."""
+    if duty.kept.running():
+        return
     look = forge_look.current(duty)
     records = releases.with_stops(tasks.every(duty.state))
     basis = merge_look.basis_of(duty.here, records)
-    for record in records:
-        merged(duty, record, look, basis)
+    for record in merge_order.ordered(duty, waiting(duty, records)):
+        if start(duty, record, look, basis):
+            return
 
 
-def merged(
+def waiting(duty: Duty, records: tuple[Record, ...]) -> tuple[Record, ...]:
+    """The open tasks whose next attempt does not wait for a retry."""
+    opened = (record for record in records if record.task.status == "open")
+    may_try = duty.kept.due
+    now = duty.now
+    return tuple(record for record in opened if may_try(key_of(record), now))
+
+
+def start(
     duty: Duty, record: Record, look: forge.Look, basis: merge_look.MergeBasis
-) -> None:
-    """Start the task's merge when it is the server's now, and no failure of it waits."""
-    by = merger_of(record, look, duty.kept.running(), basis)
-    key = key_of(record)
-    if by is not None and duty.kept.due(key, duty.now):
-        merge_run.started(duty, record, by, key)
+) -> bool:
+    """Start this task when the server owns its merge."""
+    running = duty.kept.running()
+    by = merger_of(record, look, running, basis)
+    return by is not None and merge_run.started(duty, record, by, key_of(record))
 
 
 def merger_of(
@@ -64,13 +74,25 @@ def merger_of(
     landing = record.landing
     if landing is None or phases.settled(record) is not None:
         return None
-    if not merge_look.server_merges(record, basis):
+    if not merge_look.server_merges(record, basis) and not recheck(record, basis.base):
         return None
     waits = landing.intent is not None or landing.accepted is not None
     held = isinstance(record.task.hold, ReleaseHold)
     if waits or held or record.task.slug in running or forge.conflicts(look, record):
         return None
     return "merger" if merge_standing.standing_of(record) is None else "owner"
+
+
+def recheck(record: Record, base: str | None) -> bool:
+    """Send a newly stale approval through the locked merge once to wake its session."""
+    landing = record.landing
+    if record.task.status != "open" or landing is None or landing.refused is not None:
+        return False
+    return bool(
+        base
+        and merge_recheck.moved(landing, base)
+        and merge_standing.standing_of(record)
+    )
 
 
 def key_of(record: Record) -> Key:

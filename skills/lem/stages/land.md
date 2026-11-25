@@ -207,8 +207,9 @@ their own `say`, and take the landing up as after a cut-off.
    to lift the hold. Then `lem land next SLUG` names the step that takes the landing on with what
    it carried. If the repair is dropped or answered, tell the owner in one line and wait for his
    word before you lift the hold. Skipping or changing a command of the checks is the owner's
-   decision only. After two builders on the same failure, tell the owner in one line, start no
-   third, and wait for his word.
+   decision only. After two builders on the same failure, take the ladder when an approval
+   stands through the recheck. Ask the owner only if a criterion must change or the breaker
+   applies. In other landings, tell the owner in one line and wait for his word.
 5. **The review**, before anything is proposed, when `lem land next SLUG` names `read`. A review
    that covers the change as it is now, with no must-fix left, makes `next` name the step after
    it; so do two rounds used, and two attempts in a row that nobody answered: the request then
@@ -411,10 +412,8 @@ their own `say`, and take the landing up as after a cut-off.
      answers: run the steps `lem land next SLUG` names (`start`, `base`, `checks`, the review that
      is due, `propose`), as "the base moved" of step 8 says for a read that said another round.
      Tell him in one line that the task is checked again on the new base, with the read's `why`.
-   - It names the owner's standing merge, which the board's server carries out (a read with
-     `Base: safe.` after Lem refused his merge for the base in step 8, or a read whose brief named
-     the checks' own base because main has their tree again, a revert of the move): say that in
-     one line, wait for the wake-up, and do not ask him again.
+   - It names the owner's standing merge after the rebased tip passed its checks. The board's
+     server carries it out. Say that in one line and wait for the wake-up.
    - It names `lem land merge SLUG --by merger`: the merge agent read it and found nothing for
      the owner. That merge is the board's server's, within a minute, and you do not run it. Say
      its `why` in one line ("the merge agent read it and found nothing for you; the board's server
@@ -489,14 +488,12 @@ their own `say`, and take the landing up as after a cut-off.
      message, not the merge agent's, not a wake-up line. When Lem refuses his merge because the
      base moved (from the board, or one you ran on his word), the refusal is kept as well (`by:
      owner`, `kind: base`) and his merge stands (`standing` of the task's landing): the server
-     wakes you with `lem: SLUG refused`, you take "the base moved" below, and you do not ask him
-     again. On a read with `Base: safe.` the server runs `lem land merge SLUG --by owner --via
-     server --standing` on the base the read covered, and the merge on record says it was made
-     after a read of the moved base. On `Base: another round.` the task lands again, and while
-     the new landing keeps the change he merged and the same reasons for not green (a wait for a
-     red base inside it changes neither, step 1), the proposal says his merge `stands`, and the
-     server runs `lem land merge SLUG --by owner --via server --standing`, which the merge on
-     record says was made after a re-check. Do not run that merge yourself. When the proposal
+     wakes you with `lem: SLUG refused`. Take `start`, `base` and `checks` on the new base
+     as `lem land next SLUG` names them. A red run leaves the approval on record and takes the
+     repair builder of step 4. A repair that changes the tip takes the review of step 5.
+     When the new proposal keeps review coverage and the same reasons for not green, it says
+     his merge `stands`. The server runs `lem land merge SLUG --by owner --via server --standing`
+     on that checked tip. Do not run that merge yourself. When the proposal
      says his merge `ended`, with why (no review covers the change, a commit came after the rebase
      or the resolution, the rebase met a conflict and its resolution did not carry, as step 7
      says, or the reasons for not green changed), or a start over ended it (step 1), the board
@@ -514,9 +511,9 @@ their own `say`, and take the landing up as after a cut-off.
    - *GitHub refused the merge* (a required review, a check it waits for, a rule of the base
      branch): the step keeps GitHub's line, and "Waits for you" shows it. Tell the owner that line
      once, as it is; the task waits as `open` for him, and only his word merges that tip.
-   - *the base moved after the checks ran* (`base`), by any file, as after the merge of another
-     task, and no read with `Base: safe.` covers the base it is now: `lem land next SLUG` names
-     what comes next. While no read of the tip said another round, it is step 7 again: a fresh
+   - *the base moved after the checks ran* (`base`): `lem land next SLUG` names what comes
+     next. For a standing approval, it names a new round of the checks. For the merge agent's
+     own merge, while no read of the tip said another round, it is step 7 again: a fresh
      merge agent, whose brief carries what moved since the checks (never only since an earlier
      read), and whose answer you record with the `base` of that brief. A read of an earlier base
      covers no later one: a merge that meets a base that moved again after a safe read is refused
