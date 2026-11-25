@@ -5,7 +5,9 @@
 
 The form of `main`'s `project.investigation_form`: a fix's call is `small`, `full`,
 `not-a-bug` or `not-reproduced`, a question's is `answer`, and only a fix says whether the bug
-was reproduced. A stub until the step `task` builds it: it refuses `not-built`.
+was reproduced. A fix needs `--reproduced` or `--not-reproduced`, a plain cause (`small`,
+`full`) its `--where`, and `not-reproduced` waits for one more fact from the owner
+(`model/task/investigation.py`).
 """
 
 from typing import TYPE_CHECKING, Literal
@@ -13,11 +15,15 @@ from typing import TYPE_CHECKING, Literal
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.tasks import investigated
+from lem.cli import place
 from lem.cli.words import choice
+from lem.model.task.investigation import Findings
+from lem.store import places
 
 if TYPE_CHECKING:
     from lem.cli.checks import Given
+    from lem.records.work import Investigation
 
 type Kind = Literal["fix", "question"]
 type Found = Literal["bug", "none", "question", "unreproduced"]
@@ -38,9 +44,18 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     reproduced: bool | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `task` builds `lem task investigated`."""
-    raise not_built("task investigated", "task")
+def run(call: Call) -> Investigation:
+    """Write what the investigation found."""
+    state = places.workspace(place.folder()).state
+    given = Findings(
+        kind=call.kind,
+        call=call.call,
+        line=call.line,
+        found=call.found,
+        where=call.where,
+        reproduced=call.reproduced,
+    )
+    return investigated.investigated(state, call.slug, given)
 
 
 def fitted(given: Given) -> Given:

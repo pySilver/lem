@@ -29,7 +29,7 @@ there.
 ## How it trips
 
 1. **Commit what the task has**, in the worktree: a dropped task's worktree goes, and only its
-   branch stays. The script refuses a worktree with an uncommitted change of a tracked file.
+   branch stays. The command refuses a worktree with work that no commit holds.
 2. **`handoff.md`** in the task directory, whole: what is settled, what is open, the next step, and
    what was tried and failed, each with its file and line. A fresh agent goes on from it, maybe a
    week later, and knows nothing else of your context.
@@ -45,11 +45,11 @@ there.
 4. **Record it**:
 
    ```bash
-   lem decisions --repo WORKTREE breaker SLUG --cause irreversible|criteria [--irreversible data|system|person|money]
+   lem --repo WORKTREE decisions breaker SLUG --cause irreversible|criteria [--irreversible data|system|person|money]
    ```
 
    It refuses a document without one of its parts, a missing `handoff.md` and a second breaker while
-   one waits; it records the stop with its number N and writes the state `held` with the line
+   one waits; it records the stop with its number N and holds the task with the line
    `breaker N waits for the owner`, which is what the board and Lem read.
 5. **Then**, as a lead: `report.md` with the breaker under "held", as `stages/build.md` ends, and
    wait in this session for the owner (`prompts/session.md`, "While the owner is needed"), with one

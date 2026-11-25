@@ -2,13 +2,20 @@
 
     lem decisions pending [SLUG]
 
-A stub until the step `criteria` builds it: it refuses `not-built`.
+The breakers that wait, of one task or of every task: a parked task's under `parked`; a task
+that is dropped, landed or answered has none waiting, and its breakers are named under `ended`.
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.decisions import listing
+from lem.cli import place
+
+if TYPE_CHECKING:
+    from lem.model.decisions.pending import Pending
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +24,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     slug: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `criteria` builds `lem decisions pending`."""
-    raise not_built("decisions pending", "criteria")
+def run(call: Call) -> Pending:
+    """The breakers that wait for the owner."""
+    return listing.waiting(place.folder(), call.slug)
 
 
 COMMAND = click.Command(
