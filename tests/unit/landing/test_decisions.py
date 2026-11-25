@@ -227,6 +227,8 @@ def test_a_merge_read_takes_a_verdict_for_the_tip_and_base_of_its_brief() -> Non
         == "no-pull"
     )
     assert mergeread.verdict_of("**call** the owner") == "call"
+    assert mergeread.verdict_of("Verdict: merge.\nBase: safe.") == "merge"
+    assert mergeread.verdict_of("**Verdict:** call. The owner reads it.") == "call"
     assert mergeread.verdict_of("") is None
 
 

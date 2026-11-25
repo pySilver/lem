@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 STEP = "merge-review"
 type Verdict = Literal["merge", "call"]
 VERDICTS: tuple[Verdict, ...] = ("merge", "call")
+# The marks of markdown a reply's first line may carry around its verdict.
+MARKS = str.maketrans("", "", "*#`_")
 
 
 def read_of(landing: Landing) -> MergeRead | None:
@@ -36,10 +38,12 @@ def usable(landing: Landing, world: World) -> MergeRead | None:
 
 
 def verdict_of(reply: str) -> Verdict | None:
-    """The verdict on the reply's first line: its first word, `merge` or `call`."""
+    """The verdict on the reply's first line: its first word, `merge` or `call`, after a
+    `Verdict:` the merge agent's prompt asks for."""
     lines = reply.strip().splitlines() or [""]
-    said = lines[0].strip().split(" ", 1)[0]
-    first = said.strip("*#:._`").lower()
+    plain = lines[0].lower().translate(MARKS)
+    words = plain.strip().removeprefix("verdict:").split() or [""]
+    first = words[0].strip(":._")
     return next((word for word in VERDICTS if word == first), None)
 
 
