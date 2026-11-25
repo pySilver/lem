@@ -12,7 +12,7 @@ from fakes.command import lem
 from fakes.records import MOMENT, record
 from lem.app.tasks import spans as marking
 from lem.kernel.errors import Refusal
-from lem.model.task import span_forms, span_marks, spans
+from lem.model.task import span_marks, spans
 from lem.model.task.span_forms import Given
 from lem.records.journal.task import SpanMark
 from unit.task import spaces
@@ -47,6 +47,16 @@ def refused(name: str, edge: Edge = "start", /, **fields: str) -> Refusal:
     return caught.value
 
 
+# The builder's jobs of `main` (`project.BUILDER_JOBS`) but "the small change", which is the span
+# `small` now; written here, so that a job the rule drops fails this case.
+BUILDER_JOBS = (
+    "the repair of a conflict with the base",
+    "the repair of a failed check",
+    "the fix of a review's findings",
+    "the removal of the task's item",
+)
+
+
 def test_each_start_in_its_form_and_its_end() -> None:
     forms = (
         ("lead", {"by": "builder"}, {}),
@@ -58,7 +68,7 @@ def test_each_start_in_its_form_and_its_end() -> None:
         ("investigation", {"job": "fix"}, {}),
         ("investigation", {"job": "question"}, {}),
         ("plan-talk", {"by": "codex"}, {}),
-        *(("builder", {"job": job}, {"job": job}) for job in span_forms.BUILDER_JOBS),
+        *(("builder", {"job": job}, {"job": job}) for job in BUILDER_JOBS),
     )
     for name, start, end in forms:
         begun = mark(record(SLUG, status="building"), name, **start)
