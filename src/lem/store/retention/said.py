@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 from lem.kernel import clock
 
 if TYPE_CHECKING:
+    from lem.store.retention.answer import Pruned
     from lem.store.retention.files import Failed, Skipped
-    from lem.store.retention.run import Pruned
 
 # Bytes in a decimal megabyte, as the line shows them.
 MEGABYTE = 1_000_000

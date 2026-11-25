@@ -8,9 +8,9 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Fault, Refusal
-from lem.records.base import Frozen
 from lem.store import tasks
 from lem.store.retention import fold, rules
+from lem.store.retention.answer import Folded, Kept
 from lem.store.retention.files import Removal, emptied
 from lem.store.retention.trees import files_in
 
@@ -22,24 +22,6 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 TASKS = "tasks"
-
-
-class Kept(Frozen, frozen=True, kw_only=True):
-    """An old ended task: its status, the files that went (or would go) and their bytes."""
-
-    task: str
-    status: str
-    files: tuple[str, ...]
-    bytes: int
-
-
-class Folded(Frozen, frozen=True, kw_only=True):
-    """A task whose journal became (or would become) its summary, and how many entries it
-    folded."""
-
-    task: str
-    status: str
-    entries: int
 
 
 def records_of(removal: Removal) -> list[Record]:
@@ -86,8 +68,11 @@ def folded(removal: Removal, record: Record, now: datetime) -> Folded | None:
 
 
 def files_of(removal: Removal, record: Record) -> Kept | None:
-    """Remove every file of the old task's folder but its small record; what went."""
+    """Remove every file of the old task's folder but its small record, once its journal is
+    its summary on record (in a dry run, at once); what went."""
     task = record.task
+    if not removal.dry and not folded_now(removal, task.slug):
+        return None
     folder = removal.top / TASKS / task.slug
     gone = dict(removed_in(removal, folder))
     emptied(removal, folder)
@@ -97,6 +82,11 @@ def files_of(removal: Removal, record: Record) -> Kept | None:
     return Kept(
         task=task.slug, status=task.status, files=files, bytes=sum(gone.values())
     )
+
+
+def folded_now(removal: Removal, slug: str) -> bool:
+    """Whether the task's journal is its summary on record now."""
+    return rules.folded_already(tasks.read(removal.top, slug))
 
 
 def removed_in(removal: Removal, folder: Path) -> Iterator[tuple[str, int]]:

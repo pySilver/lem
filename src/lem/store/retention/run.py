@@ -10,10 +10,10 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.records.base import Frozen, Moment
-from lem.store.retention.files import Failed, Removal, Skipped, refused_link
-from lem.store.retention.folders import Folder, old_folders
-from lem.store.retention.old import Folded, Kept, files_of, folded, records_of
+from lem.store.retention.answer import Pruned
+from lem.store.retention.files import Removal, refused_link
+from lem.store.retention.folders import old_folders
+from lem.store.retention.old import files_of, folded, records_of
 from lem.store.retention.rules import Call, call_of
 
 if TYPE_CHECKING:
@@ -22,30 +22,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.records.record import Record
-
-
-class Pruned(Frozen, frozen=True, kw_only=True, omit_defaults=False):
-    """What one run did, or in a dry run would do: the days and where the number came from,
-    the cutoff, each old task and what went of it, each journal folded and its entries, the old
-    folders, the totals, how many tasks were open, young and old, and what was skipped and
-    failed."""
-
-    dry_run: bool
-    keep_days: int
-    source: str = msgspec.field(name="from")
-    before: Moment
-    state: str
-    tasks: tuple[Kept, ...] = ()
-    summarized: tuple[Folded, ...] = ()
-    entries: int = 0
-    folders: tuple[Folder, ...] = ()
-    files: int = 0
-    bytes: int = 0
-    open: int = 0
-    young: int = 0
-    old: int = 0
-    skipped: tuple[Skipped, ...] = ()
-    failed: tuple[Failed, ...] = ()
 
 
 def pruned(state: Path, keep: int, source: str, now: datetime, *, dry: bool) -> Pruned:

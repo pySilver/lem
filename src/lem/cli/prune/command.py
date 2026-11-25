@@ -9,6 +9,8 @@ the cast's copies go (`store/retention/`). A dry run removes nothing and says wh
 names it: the next run finishes it.
 """
 
+from typing import TYPE_CHECKING
+
 import click
 import msgspec
 
@@ -20,6 +22,9 @@ from lem.kernel.errors import Refusal
 from lem.store import places
 from lem.store.retention import run as retention
 from lem.store.retention.said import failed_line, said
+
+if TYPE_CHECKING:
+    from lem.store.retention.answer import Pruned
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -40,13 +45,13 @@ def run(call: Call) -> Envelope:
     return enveloped(pruned)
 
 
-def enveloped(pruned: retention.Pruned) -> Envelope:
+def enveloped(pruned: Pruned) -> Envelope:
     """The envelope of a run: what it did, and the owner's line."""
     encoded = msgspec.Raw(msgspec.json.encode(pruned))
     return Envelope(ok=True, outcome=encoded, say=said(pruned))
 
 
-def refusal(pruned: retention.Pruned) -> Refusal:
+def refusal(pruned: Pruned) -> Refusal:
     """A run whose removals failed: what it did, and each removal that failed."""
     failed = "; ".join(map(failed_line, pruned.failed))
     return Refusal(
