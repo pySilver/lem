@@ -771,6 +771,7 @@ def test_the_owners_drop_stops_the_running_checks_then_drops_the_task(
     found = record_of(world)
     assert found["task"]["status"] == "dropped"
     assert found["landing"]["checked"]["outcome"] == "stopped"
+    assert found["journal"][-1]["line"] == "the owner drops it"
     assert checks(capsys, world, "--status")["result"]["running"] is False
 
 

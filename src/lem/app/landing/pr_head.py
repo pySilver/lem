@@ -5,6 +5,7 @@ him; and why it is careful, which makes it his to merge."""
 from typing import TYPE_CHECKING
 
 from lem.app.landing.pr_inputs import Block, block
+from lem.model.landing import carry, review
 from lem.model.landing.green_words import reason
 
 if TYPE_CHECKING:
@@ -45,6 +46,18 @@ def careful(proposal: Proposal) -> tuple[str, ...]:
     return (f"**Careful**, so the owner merges it: {listed}.",)
 
 
+def code_review(record: Record, proposal: Proposal) -> tuple[str, ...]:
+    """What the code review carried over the rebase onto this proposal."""
+    landing = record.landing
+    if landing is None:
+        return ()
+    last = review.newest(landing)
+    if last is None or carry.source(landing, proposal.proposed) != last.tip:
+        return ()
+    suffix = ", and its open must-fix" if review.must_fix(last) else ""
+    return (f"The review carried over the rebase{suffix}.",)
+
+
 def carried(proposal: Proposal) -> tuple[str, ...]:
     """What the prior merge read and the owner's approval carry into this proposal."""
     made = proposal.proposed
@@ -62,5 +75,7 @@ def blocks(record: Record, proposal: Proposal) -> tuple[Block, ...]:
     return (
         verdict(proposal),
         *without,
-        *block(None, careful(proposal) + carried(proposal)),
+        *block(
+            None, careful(proposal) + code_review(record, proposal) + carried(proposal)
+        ),
     )

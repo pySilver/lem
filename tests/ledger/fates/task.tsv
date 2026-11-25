@@ -12,7 +12,7 @@ command:lem project worktree-dir	changed	unit.task.test_worktree.test_its_path_a
 event:release.stop	changed	unit.task.test_release.test_a_task_two_releases_back_stops_and_sets_its_hold_once	the hold `release` on the record
 event:task.mode	changed	unit.task.test_open.test_a_night_task_runs_alone_from_its_opening	`Task.mode` and `Task.night`, set at the open of a night task
 event:task.state	changed	unit.task.test_move.test_each_move_of_the_table_is_taken_and_journaled[building-planned]	the status on the record and a `StateNoted` entry of the journal
-path:drop-during-a-step	kept	unit.task.test_move.test_a_merge_that_lands_while_the_drop_waits_defeats_it	with test_the_drop_reads_the_base_its_landing_started_on_not_the_settings_of_now and test_a_drop_stops_the_running_checks_and_takes_the_lock
+path:drop-during-a-step	kept	journeys.test_park_drop.test_a_merge_on_the_forge_while_the_drop_waits_defeats_it_and_the_task_lands	The base-step case proves the drop waits and succeeds if no merge happened. The checks journey test_the_owners_drop_stops_the_running_checks_then_drops_the_task proves the drop stops a real check and keeps its stopped result.
 path:start-over	kept	unit.task.test_move.test_the_start_over_archives_the_reviews_and_ends_the_owners_merge	
 path:ticket-after-the-end	kept	unit.task.test_ticket.test_a_step_is_taken_after_the_end_and_pays_what_it_owes	
 refusal:Task.read_states:no-task-self-slug-r-the-tasks-are-listed-dcfa95bd75c3e27d	changed	unit.task.test_release.test_a_task_that_is_not_there_yet_is_no_stop_but_no_task	the store's `no-task`, whose fix names `lem task list`, not the list itself

@@ -18,6 +18,7 @@ import subprocess
 import sys
 from collections import Counter
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
@@ -40,7 +41,6 @@ from unit.cli import parsing, reading, shapes
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
 
     from lem.ports.forge import Forge
     from lem.ports.forge_facts import MergeMethod, MergeText
@@ -127,6 +127,34 @@ ONCE = Counter(
         "delete_ref",
     )
 )
+
+
+def test_the_installed_lem_opens_and_reads_a_scratch_task(tmp_path: Path) -> None:
+    repo = RealRepo.init(tmp_path / "repo", {".lem/settings.toml": SETTINGS})
+    executable = Path(sys.prefix) / "bin" / "lem"
+    argv = [str(executable), "--repo", str(repo.checkout), "task"]
+    env = git_env()
+    assert env["LEM_SERVE"] == "off"
+
+    def call(*words: str) -> Envelope:
+        ran = subprocess.run(
+            [*argv, *words],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+            check=False,
+        )
+        assert ran.returncode == 0, (ran.stdout, ran.stderr)
+        return json.loads(ran.stdout)
+
+    ask = "Fix the word in the README."
+    opened = call("open", SLUG, "--ask", ask)
+    shown = call("show", SLUG)
+    assert opened["ok"] is shown["ok"] is True
+    assert shown["result"]["status"] == "shaping"
+    record = tasks.read(repo.checkout / ".lem" / "state", SLUG)
+    assert (record.task.ask, record.task.status) == (ask, "shaping")
 
 
 class Killed(BaseException):

@@ -7,9 +7,10 @@ task's running checks, waits for any other step, and only a merge the forge made
 defeats it (the design's part 3 and part 11, choice 4; `landing.md` E, "Drop during a step").
 """
 
-import signal
-import subprocess
-import sys
+import fcntl
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from threading import Event
 from typing import TYPE_CHECKING
 
 import pytest
@@ -30,9 +31,12 @@ from journeys.agent import (
 )
 from journeys.test_skeleton import BRANCH, SLUG, made
 from journeys.test_standard_track import planned, shaped
-from lem.store import places, tasks
+from lem.kernel import clock
+from lem.store import places, steps, tasks
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+    from io import TextIOWrapper
     from pathlib import Path
 
     from journeys.test_skeleton import Envelope, World
@@ -223,47 +227,34 @@ def test_a_queued_task_starts_when_the_one_before_lands_and_on_his_word_after_a_
     )
 
 
-# A process that holds a task's step lock, for the step named, until it is killed.
-HOLDER = """
-import sys, time
-from datetime import UTC, datetime
-from pathlib import Path
-from lem.store import steps
-with steps.step(Path(sys.argv[1]), sys.argv[2], sys.argv[3], datetime.now(UTC).replace(microsecond=0)):
-    print("held", flush=True)
-    time.sleep(float(sys.argv[4]))
-    Path(sys.argv[5]).touch()
-"""
+@contextmanager
+def during_drop(
+    world: World, monkeypatch: pytest.MonkeyPatch, step: str, act: Callable[[], object]
+) -> Iterator[None]:
+    """Do `act` after the drop tries the held lock, then release the lock."""
+    ready, attempted = Event(), Event()
+    lock = fcntl.flock
+    path = world.task_folder / steps.LOCK
 
+    def observed(stream: TextIOWrapper, operation: int) -> None:
+        if operation == fcntl.LOCK_EX and getattr(stream, "name", None) == str(path):
+            with pytest.raises(BlockingIOError):
+                lock(stream, operation | fcntl.LOCK_NB)
+            attempted.set()
+        lock(stream, operation)
 
-def holder(world: World, step: str, seconds: float) -> subprocess.Popen[str]:
-    """A process that holds the task's step lock for `step` for `seconds`, and touches the
-    file `released` of the journey's folder as it lets the lock go."""
-    state = world.checkout / places.STATE
-    words = (str(state), SLUG, step, str(seconds), str(world.folder / "released"))
-    child = subprocess.Popen(
-        [sys.executable, "-I", "-B", "-c", HOLDER, *words],
-        stdout=subprocess.PIPE,
-        text=True,
-    )
-    assert child.stdout is not None
-    assert child.stdout.readline().strip() == "held"
-    return child
+    def held() -> None:
+        with steps.step(world.checkout / places.STATE, SLUG, step, clock.now()):
+            ready.set()
+            assert attempted.wait(timeout=30), "the drop did not try the step lock"
+            act()
 
-
-def test_a_drop_during_the_checks_stops_them_and_takes_the_step_lock(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
-) -> None:
-    world = made(tmp_path, monkeypatch)
-    through(capsys, world, LANDING + 1)
-    checks = holder(world, "checks", 120)
-    try:
-        assert drop(capsys, world)["result"]["status"] == "dropped"
-        assert checks.wait(timeout=30) == -signal.SIGTERM
-    finally:
-        checks.kill()
-        checks.wait()
-    assert refused(capsys, world, "land", "checks", SLUG)["code"]
+    with monkeypatch.context() as patch, ThreadPoolExecutor(max_workers=1) as pool:
+        patch.setattr(steps.fcntl, "flock", observed)
+        worker = pool.submit(held)
+        assert ready.wait(timeout=30), "the step did not take the lock"
+        yield
+        worker.result(timeout=30)
 
 
 def test_a_drop_waits_for_another_step_and_drops_after_it(
@@ -271,14 +262,16 @@ def test_a_drop_waits_for_another_step_and_drops_after_it(
 ) -> None:
     world = made(tmp_path, monkeypatch)
     through(capsys, world, LANDING)
-    base = holder(world, "base", 3)
-    try:
-        assert drop(capsys, world)["result"]["status"] == "dropped"
-        assert (world.folder / "released").is_file()
-        assert base.wait(timeout=30) == 0
-    finally:
-        base.kill()
-        base.wait()
+
+    def checked() -> None:
+        assert status(world) == "landing"
+
+    with during_drop(world, monkeypatch, "base", checked):
+        moved = drop(capsys, world)["result"]
+    assert (moved["was"], moved["status"]) == ("landing", "dropped")
+    record = world.record()
+    assert record["task"]["status"] == "dropped"
+    assert record["journal"][-1]["line"] == WHY
 
 
 def test_a_merge_on_the_forge_while_the_drop_waits_defeats_it_and_the_task_lands(
@@ -286,12 +279,18 @@ def test_a_merge_on_the_forge_while_the_drop_waits_defeats_it_and_the_task_lands
 ) -> None:
     world = made(tmp_path, monkeypatch)
     through(capsys, world, OPEN)
-    world.forge.outside_merge(1)
-    said = refused(capsys, world, "task", "move", SLUG, "dropped", "--line", WHY)
+    assert world.forge.pulls[1].state == "open"
+    with during_drop(world, monkeypatch, "merge", lambda: world.forge.outside_merge(1)):
+        said = refused(capsys, world, "task", "move", SLUG, "dropped", "--line", WHY)
     assert (said["code"], said["fix"]) == ("merged", f"lem land merged {SLUG}")
+    assert "only such a merge defeats a drop, and the task lands" in said["why"]
     assert status(world) == "open"
     ok(capsys, world, "land", "merged", SLUG)
-    assert status(world) == "landed"
+    record = world.record()
+    assert record["task"]["status"] == "landed"
+    assert (
+        record["landing"]["merged"]["merged_head"] == world.forge.pulls[1].merged_head
+    )
 
 
 # ---- the resume of a dropped task ----
@@ -391,6 +390,34 @@ def test_a_dropped_task_with_no_breaker_is_no_resume(
     said = refused(capsys, world, "task", "resume", SLUG)
     assert said["code"] == "resume"
     assert said["fix"].startswith("new work for it is a new ask: /lem ")
+
+
+def test_a_failed_resume_setup_names_the_successor_and_its_breaker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    through(capsys, world, BUILDING + 1)
+    tripped(capsys, world)
+    drop(capsys, world)
+    team = world.checkout / ".lem" / "settings.toml"
+    with team.open("a") as settings:
+        settings.write('setup = ["echo half; exit 3"]\n')
+
+    said = refused(capsys, world, "task", "resume", SLUG)
+    new = f"{SLUG}-2"
+    state = world.checkout / places.STATE
+    record = tasks.read(state, new)
+    folder = places.task_folder(state, new)
+    assert status(world) == "dropped"
+    assert record.task.resumed_from == SLUG
+    assert hold(world, new) == "BreakerHold"
+    assert (folder / "breaker-1.md").read_text() == DOCUMENT
+    assert (folder / "handoff.md").is_file()
+    assert (folder / "setup.log").read_text().endswith("half\n")
+    assert said["code"] == "setup"
+    assert "`echo half; exit 3` of checks.setup failed" in said["why"]
+    assert f"{SLUG} goes on in {new}, which is held by its breaker 1" in said["why"]
+    assert "correct the command" in said["fix"]
 
 
 def two_back(world: World) -> None:

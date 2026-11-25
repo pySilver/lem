@@ -16,6 +16,7 @@ import pytest
 
 from fakes.repo import run_git
 from fakes.terminal import FakeTerminal
+from journeys.agent import ok
 from journeys.test_skeleton import REVIEW, SLUG, lem, made, parses
 from lem.app import wiring
 from lem.ports.place import Place
@@ -47,15 +48,6 @@ ROUND = {
     "ran": [{"name": "claude", "why": "the project's one profile"}],
     "outside": [],
 }
-
-
-def ok(capsys: Capsys, world: World, *argv: str, inside: bool = False) -> Envelope:
-    """`lem ARGV` in the main checkout or the task's worktree; it succeeds."""
-    where = world.worktree if inside else world.checkout
-    envelope = lem(capsys, where, *argv)
-    assert envelope["ok"] is True, envelope
-    parses(envelope)
-    return envelope
 
 
 def due(capsys: Capsys, world: World) -> str:
@@ -276,6 +268,10 @@ def test_a_plan_of_four_tasks_is_proposed_only_after_its_plan_talk(
     shaped(capsys, world)
     built(capsys, world, planned(capsys, world, tasks=FOUR))
     prepared(capsys, world)
+    other = "notes-say-receive"
+    ok(capsys, world, "task", "open", other, "--ask", "fix the notes")
+    ok(capsys, world, "task", "span", other, "plan-talk", "start", "--by", "codex")
+    assert ok(capsys, world, "task", "talked", other, *TALK)["result"]["slug"] == other
     refused = step(capsys, world, "propose", ok=False)["refusal"]
     assert refused["code"] == "plan-talk"
     assert "the plan has 4 tasks, more than three" in refused["why"]
@@ -330,14 +326,14 @@ HANDOFF = """task: {slug} · from {phase} · written: {written}
 def handed(
     capsys: Capsys,
     world: World,
-    monkeypatch: pytest.MonkeyPatch,
+    terminal: FakeTerminal,
     leaving: tuple[str, str],
     settled: str,
 ) -> Envelope:
     """The handoff of the session that leaves, `leaving` (its id and its phase), and the
     session of the next phase, which that session opens."""
     session, phase = leaving
-    monkeypatch.setenv("AGTERM_SESSION_ID", session)
+    terminal.caller = session
     then = "the next phase's first step"
     written = datetime.now(UTC).strftime("%Y-%m-%dT%H:%MZ")
     text = HANDOFF.format(
@@ -356,7 +352,7 @@ def test_each_phase_of_a_standard_task_has_a_session_of_its_own(
     ).terminal
     assert isinstance(terminal, FakeTerminal)
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
-    monkeypatch.setenv("AGTERM_SESSION_ID", "S-MINE")
+    terminal.caller = "S-MINE"
     terminal.panes["S-MINE"] = Pane(id="S-MINE", name="main", workspace="W-1")
     ok(capsys, world, "task", "open", SLUG, "--ask", "the README says recieve; fix it")
     opened = ok(capsys, world, "session", "open", SLUG, "--why", "new")
@@ -370,12 +366,12 @@ def test_each_phase_of_a_standard_task_has_a_session_of_its_own(
     assert first["gone"] is False
     started(capsys, world)
     shape = (opened["result"]["session"], "shape")
-    build = handed(capsys, world, monkeypatch, shape, "the criteria, approved")
+    build = handed(capsys, world, terminal, shape, "the criteria, approved")
     assert build["result"]["phase"] == "build"
     plan = planned(capsys, world, start=False)
     built(capsys, world, plan)
     leaving = (build["result"]["session"], "build")
-    land = handed(capsys, world, monkeypatch, leaving, f"the plan {plan}, built")
+    land = handed(capsys, world, terminal, leaving, f"the plan {plan}, built")
     assert land["result"]["phase"] == "land"
     prepared(capsys, world)
     step(capsys, world, "propose")

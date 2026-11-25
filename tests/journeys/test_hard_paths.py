@@ -4,17 +4,21 @@ and a review's open must-fix carried over a clean rebase to the server's merge o
 standing merge.
 """
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
 
 from fakes.repo import run_git
+from fakes.terminal import FakeTerminal
 from journeys.agent import ok, refused, small_built, small_landed
 from journeys.landing.test_merge import moved, owner
 from journeys.test_duties import served, ticked
 from journeys.test_skeleton import REVIEW, SETTINGS, SLUG, SUBJECT, made, upto
+from lem.app import wiring
 from lem.kernel import clock
+from lem.ports.place import Place
+from lem.ports.terminal import Pane
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -74,6 +78,47 @@ def test_a_red_base_waits_for_its_repair_task_and_lands_after_it(
         == "The README says receive."
     )
     assert len(world.forge.merge_calls) == 2
+
+
+def test_a_red_base_keeps_its_hold_after_two_gone_sessions_and_a_dropped_repair(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    terminal = wiring.bound(
+        Place(checkout=world.checkout, home=tmp_path, environ={})
+    ).terminal
+    assert isinstance(terminal, FakeTerminal)
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    terminal.caller = "S-MINE"
+    terminal.panes["S-MINE"] = Pane(id="S-MINE", name="main", workspace="W-1")
+    upto(capsys, world, "checks")
+    red = SETTINGS.replace(b'"grep -q receive README.md"', b'"test -f LICENSE"')
+    settings(world, red)
+    assert refused(capsys, world, "land", "checks", SLUG)["code"] == "red"
+    ok(capsys, world, "task", "open", REPAIR, "--ask", "restore the LICENSE")
+    ok(capsys, world, "task", "red-base", SLUG, "--after", REPAIR)
+    hold = world.record()["task"]["hold"]
+    wait = ("session", "wait", REPAIR, "--until", "landed,dropped,answered")
+
+    for why in ("new", "dead"):
+        session = ok(capsys, world, "session", "open", REPAIR, "--why", why)
+        pane = session["result"]["session"]
+        terminal.close(pane, when_unselected=False)
+        waited = ok(capsys, world, *wait)["result"]
+        assert (waited["gone"], waited["session"]) == (True, pane)
+        assert f"the session of {REPAIR} is gone" in waited["say"]
+
+    assert [opening.name for opening in terminal.openings] == [REPAIR, REPAIR]
+    assert world.record()["task"]["hold"] == hold
+    ok(capsys, world, "task", "move", REPAIR, "dropped", "--line", "the owner drops it")
+    ended = ok(capsys, world, *wait)["result"]
+    assert ended["status"] == "dropped"
+    assert not ended.get("gone", False)
+    due = ok(capsys, world, "land", "next", SLUG)["result"]
+    assert (due["step"], due["why"]) == ("wait", f"the base is red: {hold['fix']}")
+    assert "on the owner's word" in due["why"]
+    assert world.record()["task"]["hold"] == hold
+    assert world.forge.merge_calls == []
 
 
 # ---- a ticket's step after the end ----
@@ -143,6 +188,8 @@ def merge_read(capsys: Capsys, world: World, said: str) -> Envelope:
 def test_an_open_must_fix_carries_over_a_clean_rebase_and_the_server_merges_his_standing_merge(
     tmp_path: Path, own_home: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
 ) -> None:
+    now = datetime(2026, 11, 26, tzinfo=UTC)
+    monkeypatch.setattr(clock, "now", lambda: now)
     world = made(tmp_path, monkeypatch)
     served(world, own_home, monkeypatch)
     upto(capsys, world, "read")
@@ -151,15 +198,12 @@ def test_an_open_must_fix_carries_over_a_clean_rebase_and_the_server_merges_his_
     reviewed(capsys, world, "round")
     first = proposed(capsys, world)["result"]
     assert (first["green"], first["reasons"]) == (False, [FIXED_WHY])
+    assert "The review carried" not in world.forge.bodies[1]
     called = merge_read(capsys, world, "Verdict: call\n\nThe must-fix is open.\n")
     assert called["next"]["do"] == "wait"
     moved(world)
     assert owner(capsys, world)["refusal"]["code"] == "base"
     assert landing(world)["standing"]["by_act"] == "session"
-    round_read = merge_read(
-        capsys, world, "Verdict: call\nBase: another round, the base moved.\n"
-    )
-    assert round_read["result"]["base_call"] == "another round"
     ran = []
     while (
         verb := ok(capsys, world, "land", "next", SLUG)["result"]["step"]
@@ -173,6 +217,16 @@ def test_an_open_must_fix_carries_over_a_clean_rebase_and_the_server_merges_his_
     assert (kept["merge_review"], kept["owner_merge"]["state"]) == ("carried", "stands")
     assert kept["tip"] != first["tip"]
     assert len(landing(world)["reviews"]) == 2
+    assert landing(world)["based"]["reviewed"] == first["tip"]
+    assert landing(world)["reviews"][-1]["at"] == landing(world)["based"]["at"]
+    assert landing(world)["reads"][-1]["carried_from"] == first["tip"]
+    proposals = [
+        entry for entry in world.record()["journal"] if entry["kind"] == "proposed"
+    ]
+    assert [(one["tip"], one["green"], one["reasons"]) for one in proposals] == [
+        (first["tip"], False, [FIXED_WHY]),
+        (kept["tip"], False, [FIXED_WHY]),
+    ]
     assert landing(world)["relands"] == 1
     assert (
         "lem land merge readme-says-receive --by owner --via server --standing"
@@ -186,8 +240,8 @@ def test_an_open_must_fix_carries_over_a_clean_rebase_and_the_server_merges_his_
         "round 2 (a review round with the profiles that fit; answered: claude): "
         in body
     )
+    assert "The review carried over the rebase, and its open must-fix." in body
     assert world.forge.merge_calls == []
-    now = clock.now()
     ticked(world, own_home, now)
     merged = landing(world)["merged"]
     assert (merged["by"], merged["via"], merged["merged_head"]) == (

@@ -119,13 +119,16 @@ def test_base_records_the_review_it_proved_in_the_same_second() -> None:
     )
     based = base.judged(before, after)
     assert based.reviewed == TIP
-    landing = Landing(reviews=(REVIEWED,), based=based)
+    landing = replace(MOVED_ON, based=based)
     assert carry.source(landing, NOW) == TIP
+    assert carry.covers(landing, NOW)
+    carried_read = carry.read_carries(landing, NOW)
+    assert carried_read is not None and carried_read.carried_from == TIP
     new_review = replace(REVIEWED, attempt=2, tip=OTHER)
-    assert (
-        carry.source(replace(landing, reviews=(*landing.reviews, new_review)), NOW)
-        is None
-    )
+    other = replace(landing, reviews=(*landing.reviews, new_review))
+    assert carry.source(other, NOW) is None
+    assert not carry.covers(other, NOW)
+    assert carry.read_carries(other, NOW) is None
 
 
 def test_a_second_clean_rebase_keeps_the_already_carried_proposal() -> None:

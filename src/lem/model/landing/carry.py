@@ -14,6 +14,7 @@ from lem.records.landing.propose import MergeRead
 if TYPE_CHECKING:
     from lem.model.landing.world import World
     from lem.records.base import Sha
+    from lem.records.landing.propose import Proposed
     from lem.records.landing.record import Landing
     from lem.records.landing.review import Reviewed
 
@@ -24,7 +25,7 @@ def newest(landing: Landing) -> Reviewed | None:
     return answered[-1] if answered else None
 
 
-def source(landing: Landing, world: World) -> Sha | None:
+def source(landing: Landing, target: World | Proposed) -> Sha | None:
     """The tip whose review carried onto the tip now: the newest answered review, which `base`
     judged by git's merge of its tip onto this base, when that merge was the tip's tree and no
     commit came after. Older records without the reviewed tip need a review that predates
@@ -32,7 +33,7 @@ def source(landing: Landing, world: World) -> Sha | None:
     review, based = newest(landing), landing.based
     if review is None or based is None or not based.carried:
         return None
-    if based.tip != world.tip or based.base != world.base:
+    if based.tip != target.tip or based.base != target.base:
         return None
     reviewed = based.reviewed
     if reviewed is None:

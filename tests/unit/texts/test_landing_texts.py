@@ -47,6 +47,42 @@ def keys(struct: type[msgspec.Struct]) -> tuple[str, ...]:
     return tuple(field.encode_name for field in msgspec.structs.fields(struct))
 
 
+def test_the_landing_stage_limits_repair_to_two_builders_on_the_same_failure() -> None:
+    said = text("stages/land.md")
+    _, _, repair = said.partition("A check that fails is work")
+    decision, _, _ = repair.partition("`spawn-builder`")
+    assert "Before you start another builder for the same failure" in decision
+    assert "If two builders worked on it, start no third builder" in decision
+    assert "take the ladder when an approval stands through the recheck" in decision
+    assert (
+        "Ask the owner only if a criterion must change or the breaker applies"
+        in decision
+    )
+    assert (
+        "In other landings, tell the owner in one line and wait for his word"
+        in decision
+    )
+
+
+def test_the_landing_stage_tells_the_owner_after_the_repair_session_is_gone_twice() -> (
+    None
+):
+    said = text("stages/land.md")
+    _, _, repair = said.partition(
+        "`lem session wait REPAIR --until landed,dropped,answered`"
+    )
+    lost, _, ended = repair.partition("When the repair lands")
+    assert lost.count("`lem session open REPAIR --why dead`") == 1
+    assert (
+        "If the second session is gone, tell the owner in one line that the repair "
+        "session is gone again. Keep the hold and wait for his word." in lost
+    )
+    assert (
+        "If the repair is dropped or answered, tell the owner in one line and wait "
+        "for his word before you lift the hold." in ended
+    )
+
+
 @pytest.mark.parametrize("name", LANDING_TEXTS)
 def test_no_landing_text_carries_the_mark_of_the_old_form(name: str) -> None:
     assert MARK not in (SKILL / name).read_text(encoding="utf-8")

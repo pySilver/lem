@@ -191,7 +191,13 @@ their own `say`, and take the landing up as after a cut-off.
    "stop the checks", in the owner's words, is `lem land checks SLUG --stop`; the landing then
    waits for his next word.
 
-   A check that fails is work, and a builder's: `spawn-builder` with the brief below, the job
+   A check that fails is work, and a builder's. Before you start another builder for the same
+   failure, count the builders that worked on it. If two builders worked on it, start no third
+   builder and take the ladder when an approval stands through the recheck. Ask the owner only
+   if a criterion must change or the breaker applies. In other landings, tell the owner in one
+   line and wait for his word.
+
+   With fewer than two builders on that failure, `spawn-builder` with the brief below, the job
    "the repair of a failed check", and as its paths what the refusal names (the commands that
    failed with their output files, or the criterion and its test, or the files where the bar is
    lower) and the task's plan. For a red command of the checks the builder runs the same command
@@ -202,14 +208,13 @@ their own `say`, and take the landing up as after a cut-off.
    that it waits for the repair, and
    `run-in-background` with `lem session wait REPAIR --until landed,dropped,answered`, REPAIR
    being the new task. When it ends with `"gone": true`, that task's session is gone: open it
-   again once, `lem session open REPAIR --why dead`, and wait again; a second time, tell the owner
-   in one line. When the repair lands, run `lem task move SLUG ready --line "the base is green again"`
+   again once, `lem session open REPAIR --why dead`, and wait again. If the second session is
+   gone, tell the owner in one line that the repair session is gone again. Keep the hold and
+   wait for his word. When the repair lands, run `lem task move SLUG ready --line "the base is green again"`
    to lift the hold. Then `lem land next SLUG` names the step that takes the landing on with what
    it carried. If the repair is dropped or answered, tell the owner in one line and wait for his
    word before you lift the hold. Skipping or changing a command of the checks is the owner's
-   decision only. After two builders on the same failure, take the ladder when an approval
-   stands through the recheck. Ask the owner only if a criterion must change or the breaker
-   applies. In other landings, tell the owner in one line and wait for his word.
+   decision only.
 5. **The review**, before anything is proposed, when `lem land next SLUG` names `read`. A review
    that covers the change as it is now, with no must-fix left, makes `next` name the step after
    it; so do two rounds used, and two attempts in a row that nobody answered: the request then

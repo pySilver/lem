@@ -84,7 +84,15 @@ def as_breaker(
     made = opened(where, Record(release=record.release, task=task), kind)
     placed(where, made, taken, breaker.document)
     start = old_branch(where, record)
-    worktree.made(ports.bound(where), where, made, (task.branch, start))
+    try:
+        worktree.made(ports.bound(where), where, made, (task.branch, start))
+    except Refusal as refused:
+        raise Refusal(
+            refused.code,
+            f"{task.resumed_from} goes on in {new}, which is held by its breaker "
+            f"{breaker.id}. {refused.why}",
+            refused.fix,
+        ) from refused
     return said(made.task, "dropped", start, breaker.id)
 
 
