@@ -249,6 +249,7 @@ def test_next_opens_the_next_phase_after_a_handoff_in_its_form(tmp_path: Path) -
     opens = [line for line in log.read(folder) if isinstance(line, acts.Open)]
     assert [line.why for line in opens] == ["new", "handoff"]
     assert "phase: build" in (folder / brief.BRIEF).read_text()
+    assert terminal.renamed == [("session-1", f"{SLUG} · handed off")]
 
 
 def test_next_with_same_opens_a_fresh_session_of_the_same_phase(tmp_path: Path) -> None:
