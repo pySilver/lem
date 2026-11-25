@@ -405,9 +405,13 @@ def test_a_review_that_calls_the_fast_track_careful_gets_the_full_set_and_a_pers
     assert [entry["why"] for entry in journal if entry["kind"] == "careful-missed"] == [
         why
     ]
-    proposed = proposal(capsys, world)
+    # a careful request's notes say whether it holds a migration
+    notes = world.written("notes.md", "none\n\n## Migration\n\nnone\n")
+    words = ("--title", SUBJECT, "--notes", notes)
+    proposed = command("land", "propose", "SLUG", *words)(capsys, world)
     assert proposed["result"]["green"] is False
-    assert f"the change is careful: {why}" in proposed["result"]["reasons"]
+    careful_on_fast = f"careful on the fast track (the review says so: {why})"
+    assert any(one.startswith(careful_on_fast) for one in proposed["result"]["reasons"])
     assert world.record()["landing"]["proposed"]["who_acts"] == "owner"
     merge = command("land", "merge", "SLUG", "--by", "merger", "--message", SUBJECT)
     assert merge(capsys, world)["ok"] is False
