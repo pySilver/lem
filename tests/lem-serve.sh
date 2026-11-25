@@ -29,7 +29,7 @@ chmod +x "$FAKE/agtermctl"
 export PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree.json"
 DEMO=$("$PY" -B tests/board-showcase.py --demo "$WORK/demo" | field 'd["repo"]')
 STATE=$DEMO/.lem/state
-"$PY" -B "$MAIN" serve --add "$DEMO" >/dev/null
+"$LEM" serve --add "$DEMO" >/dev/null
 serve_up
 SERVER=http://127.0.0.1:$SERVE_PORT
 HOST=$(curl -fsS "$SERVER/api/server" | field 'd["host"]')
@@ -371,9 +371,9 @@ fi
 # The switcher names a workspace whole, however long its name, and the machine under it only when there are two.
 LONG=$WORK/a-repository-whose-name-is-longer-than-the-sidebar-is-wide
 git init -q -b main "$LONG" && commit "$LONG" init && project --repo "$LONG" init --base main >/dev/null && mkdir -p "$LONG/.lem/state"
-"$PY" -B "$MAIN" serve --add "$LONG" >/dev/null
+"$LEM" serve --add "$LONG" >/dev/null
 switcher=$(got "$SERVER/$HOST/a-repository-whose-name-is-longer-than-the-sidebar-is-wide/")
-"$PY" -B "$MAIN" serve --remove "$LONG" >/dev/null
+"$LEM" serve --remove "$LONG" >/dev/null
 if grep -qF '<span class="ws-label"><span class="ws-name">a-repository-whose-name-is-longer-than-the-sidebar-is-wide</span></span>' <<<"$switcher" \
   && grep -qF '<span class="ws-n">shop</span>' <<<"$switcher" && ! grep -qF 'ws-host' <<<"$switcher"; then
   pass "the switcher names the workspace whole, however long its name, and with one machine names no machine"
@@ -391,7 +391,7 @@ project --repo "$ORD" state gift-note-in-export building "lead: builder" >/dev/n
 project --repo "$ORD" task-dir export-notes-in-order --ask "After gift-note-in-export: the export keeps the notes in their order." >/dev/null
 project --repo "$ORD" state export-notes-in-order queued "the owner's order: \"After gift-note-in-export\"" "after: gift-note-in-export" "type: feat, because a new order" "then: the interview" >/dev/null
 project --repo "$ORD" state gift-note-in-export dropped "the owner dropped it" >/dev/null
-"$PY" -B "$MAIN" serve --add "$ORD" >/dev/null
+"$LEM" serve --add "$ORD" >/dev/null
 OB=$SERVER/$HOST/orders
 order_page=$(got "$OB/waits")
 order_said=$(words <<<"$order_page")
@@ -400,7 +400,7 @@ order_rows=$("$PY" -c 'import re, sys; print(re.findall(r"<article class=\"wrow 
 order_list=$(project --repo "$ORD" waiting | field '([r["key"].replace(":", "-") for r in d["rows"]], [(t["task"], t["after"]) for t in d["after_dropped"]], d["count"])')
 project --repo "$ORD" state export-notes-in-order dropped "the owner dropped it: /lem drop export-notes-in-order" >/dev/null
 order_after=$(got "$OB/waits" | "$PY" -c 'import re, sys; print(re.findall(r"<article class=\"wrow [^\"]*\" id=\"wait-([a-z0-9_-]+)\"", sys.stdin.read()))')
-"$PY" -B "$MAIN" serve --remove "$ORD" >/dev/null
+"$LEM" serve --remove "$ORD" >/dev/null
 if [ "$order_rows" = "['after_dropped-export-notes-in-order']" ] && [ "$order_list" = "(['after_dropped-export-notes-in-order'], [('export-notes-in-order', 'gift-note-in-export')], 1)" ] \
   && grep -qF "gift-note-in-export was dropped: your word starts or ends this task" <<<"$order_said" \
   && grep -qF "Where you answer: It waited for gift-note-in-export, which was dropped, so the result it waited for never came. Type " <<<"$order_said" \
@@ -530,9 +530,9 @@ tapped_checks() {
   "$PY" -c 'import json, sys; base, project, demo, py = sys.argv[1:]; print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": [
       {"goto": base + "/", "wait": 2500},
       {"click": "#card-refund-line-on-receipt .tc-link", "tap": True, "after": 2500},
-      {"sh": f"{py} -B {project} --repo {demo} owner away --words away >/dev/null && {py} -B {project} --repo {demo} state cart-total-after-coupon building \"an investigator reproduces the bug and finds its cause\" \"investigation: bug\" >/dev/null", "after": 5000},
+      {"sh": f"{project} --repo {demo} owner away --words away >/dev/null && {project} --repo {demo} state cart-total-after-coupon building \"an investigator reproduces the bug and finds its cause\" \"investigation: bug\" >/dev/null", "after": 5000},
       {"print": "JSON.stringify([document.querySelector(\".m-waits span\")?.textContent ?? \"none\", document.querySelector(\".side-head em\")?.textContent ?? \"none\"])"}]}))' \
-    "$BASE" "$MAIN project" "$DEMO" "$PY" > "$WORK/tap.json"
+    "$BASE" "$LEM project" "$DEMO" "$PY" > "$WORK/tap.json"
   node tests/board-cdp.mjs "$WORK/tap.json" > "$WORK/tap.out" 2>&1 || true
   inbox_after=$(inbox)
   project --repo "$DEMO" owner back --words "/lem im-back" >/dev/null
@@ -556,10 +556,10 @@ merge_checks() {
   printf '%s\n' 'import json, sys, urllib.request' 'print("count", json.load(urllib.request.urlopen(sys.argv[1]))[0]["waits"])' > "$WORK/count.py"
   for end in refused merged; do
     "$PY" -c 'import json, shlex, sys; base, server, main, demo, py, work, end = sys.argv[1:]
-log = [py, "-B", main, "project", "--repo", demo, "log", "refund-line-on-receipt"]
+log = [main, "project", "--repo", demo, "log", "refund-line-on-receipt"]
 events = [log + ["merge.start", "by=owner", "via=server"], {
   "refused": log + ["merge.refused", "by=owner", "via=server", "from=lem", "kind=base", "said=origin/main moved after the checks ran, by files (shop/receipt.py)", "tip=e269cde1d"],
-  "merged": [py, "-B", main, "project", "--repo", demo, "state", "refund-line-on-receipt", "landed", "main: pull request https://github.com/acme/shop/pull/44 is merged"]}[end]]
+  "merged": [main, "project", "--repo", demo, "state", "refund-line-on-receipt", "landed", "main: pull request https://github.com/acme/shop/pull/44 is merged"]}[end]]
 count = shlex.join([py, "-I", work + "/count.py", server + "/api/workspaces"])
 pair = "[document.querySelector(\".m-waits span\")?.textContent ?? \"none\", document.querySelector(\".side-head em\")?.textContent ?? \"none\"]"
 print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": [
@@ -569,7 +569,7 @@ print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": [
   {"sh": " && ".join([count] + [shlex.join(e) + " >/dev/null" for e in events]), "after": 5000},
   {"sh": count},
   {"print": "JSON.stringify(window.lemPairs)"}]}))' \
-      "$BASE" "$SERVER" "$MAIN" "$DEMO" "$PY" "$WORK" "$end" > "$WORK/merge-$end.json"
+      "$BASE" "$SERVER" "$LEM" "$DEMO" "$PY" "$WORK" "$end" > "$WORK/merge-$end.json"
     node tests/board-cdp.mjs "$WORK/merge-$end.json" > "$WORK/merge-$end.out" 2>&1 || true
     if [ "$end" = refused ]; then
       project --repo "$DEMO" log refund-line-on-receipt proposed "green:=false" 'not_green:=["the owner did not approve the criteria"]' tip=7a51c0d >/dev/null
@@ -649,11 +649,11 @@ print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": [
   {"print": f"JSON.stringify([{live}, {pair}])"},
   {"eval": "window.lemStop = Date.now()", "after": 0},
   {"sh": f"kill -STOP {relay_pid}"},
-  {"sh": f"{py} -B {project} --repo {demo} owner away --words away >/dev/null && echo away"},
+  {"sh": f"{project} --repo {demo} owner away --words away >/dev/null && echo away"},
   {"print": until(f"{live} === \"reconnecting\"", 32000)},
   {"sh": f"kill -CONT {relay_pid}"},
   {"print": until(f"{pair}[0] !== {json.dumps(before)}", 20000)}]}))' \
-    "$relayed" "$MAIN project" "$DEMO" "$PY" "$RELAY_PID" "$inbox_before" > "$WORK/relay.json"
+    "$relayed" "$LEM project" "$DEMO" "$PY" "$RELAY_PID" "$inbox_before" > "$WORK/relay.json"
   node tests/board-cdp.mjs "$WORK/relay.json" > "$WORK/relay.out" 2>&1 || true
   inbox_after=$(inbox)
   project --repo "$DEMO" owner back --words "/lem im-back" >/dev/null
@@ -692,7 +692,7 @@ fi
 printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [{"id": "LEM", "foreground": ["/usr/local/bin/claude"]}, {"id": "OTHER"},' \
   '{"id": "PX", "content": "page", "parent": "LEM", "htmlOverlays": [{"url": "http://127.0.0.1:1/elsewhere/shop/", "page": "http://127.0.0.1:1/elsewhere/shop/"}]},' \
   "{\"id\": \"PA\", \"name\": \"Lem board\", \"content\": \"page\", \"parent\": \"LEM\", \"htmlOverlays\": [{\"url\": \"$BASE/\", \"page\": \"$BASE/backlog\"}]}]}]}}}" > "$WORK/tree.json"
-opened() { : > "$AGT_CALLS"; env -u AGTERM_WINDOW_ID -u AGT_WINDOW_ID -u AGT_SESSION_ID -u AGT_SOCKET AGTERM_SESSION_ID="$1" AGTERM_SOCKET="$WORK/agterm.sock" "$PY" -B "$MAIN" board --repo "$DEMO" "${@:2}"; }
+opened() { : > "$AGT_CALLS"; env -u AGTERM_WINDOW_ID -u AGT_WINDOW_ID -u AGT_SESSION_ID -u AGT_SOCKET AGTERM_SESSION_ID="$1" AGTERM_SOCKET="$WORK/agterm.sock" "$LEM" board --repo "$DEMO" "${@:2}"; }
 kept=$(opened LEM)
 kept_calls=$(cat "$AGT_CALLS")
 fresh=$(opened OTHER --task stock-on-product-page --follow)
@@ -808,14 +808,14 @@ fi
 
 # The start on demand: the foreground server ends with --stop; --ensure twice makes one server, which keeps its pid and
 # port in Lem's home folder for the command's look, and --stop ends it and its file.
-stopped_fg=$("$PY" -B "$MAIN" serve --stop)
+stopped_fg=$("$LEM" serve --stop)
 wait "$SERVE_PID" 2>/dev/null || true
 SERVE_PID=""
-first=$(env -u LEM_SERVE "$PY" -B "$MAIN" serve --ensure)
+first=$(env -u LEM_SERVE "$LEM" serve --ensure)
 SERVE_PID=$(field 'd["pid"]' <<<"$first")
-second=$(env -u LEM_SERVE "$PY" -B "$MAIN" serve --ensure)
+second=$(env -u LEM_SERVE "$LEM" serve --ensure)
 pid_kept=$(cat "$XDG_CONFIG_HOME/lem/serve.pid" 2>/dev/null || true)
-ended=$("$PY" -B "$MAIN" serve --stop)
+ended=$("$LEM" serve --stop)
 soon test ! -e "$XDG_CONFIG_HOME/lem/serve.pid"
 gone=$(code "$SERVER/api/server")
 SERVE_PID=""
@@ -826,6 +826,58 @@ if [ "$(field 'd["stopped"]' <<<"$stopped_fg")" = True ] && [ "$(field '(d["runn
   pass "--stop ends the server that runs, --ensure starts one and keeps it at a second call with its pid and port in the home folder, and --stop then ends it and removes the file"
 else
   fail "the start on demand: $stopped_fg / $first / $second / $ended / $gone / $pid_kept"
+fi
+
+# Two installs of Lem on one machine and one home folder, each a wheel of a copy of this checkout with a build-commit
+# and a board.css of its own, installed into a folder of its own. --ensure from B replaces A's server with one of B's:
+# its pid, its /api/server, which names B's install, and B's own board.css; A's process is gone. --ensure from A then
+# replaces B's in turn, since the install that calls last serves, and a second call from A keeps its own server.
+two_installs() {
+  local copy=$WORK/two side state first second third fourth api css theirs b_css a_pid b_pid a_gone b_gone
+  checkout_copy "$copy"
+  for side in a b; do
+    printf '%s\n' "$side$side${side}0123" > "$copy/src/lem/build-commit"
+    printf '/* the board of install %s */\n' "$side" >> "$copy/skills/lem/assets/board.css"
+    state=$(wheel_built "$copy" "$WORK/two-$side-built")
+    case $state in
+      built) ;;
+      skip:*) skip "two installs of one machine: --ensure from each replaces the other's server, whose /api/server names its install and which sends its own assets: ${state#skip: }"; return ;;
+      *) fail "the build of install $side: ${state#fail: }"; return ;;
+    esac
+    wheel_installed "$WORK/two-$side-built" "$WORK/two-$side" >/dev/null
+  done
+  first=$(env -u LEM_SERVE HOME="$WORK/apphome" "$WORK/two-a/bin/lem" serve --ensure 2>&1 || true)
+  a_pid=$(field 'd["pid"]' <<<"$first" 2>/dev/null || true)
+  SERVE_PID=$a_pid
+  second=$(env -u LEM_SERVE HOME="$WORK/apphome" "$WORK/two-b/bin/lem" serve --ensure 2>&1 || true)
+  b_pid=$(field 'd["pid"]' <<<"$second" 2>/dev/null || true)
+  SERVE_PID=$b_pid
+  api=$(curl -fsS "$SERVER/api/server" || true)
+  css=$(curl -s -o "$WORK/two.css" -w '%{http_code}' "$SERVER/$HOST/assets/board.css" || true)
+  b_css=$(find "$WORK/two-b/lib" -path '*/site-packages/lem/data/skills/lem/assets/board.css')
+  theirs=$("$PY" -I -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$(find "$WORK/two-b/lib" -path '*/site-packages/lem' -type d)")
+  a_gone=$(kill -0 "$a_pid" 2>/dev/null && echo lives || echo gone)
+  third=$(env -u LEM_SERVE HOME="$WORK/apphome" "$WORK/two-a/bin/lem" serve --ensure 2>&1 || true)
+  SERVE_PID=$(field 'd["pid"]' <<<"$third" 2>/dev/null || true)
+  fourth=$(env -u LEM_SERVE HOME="$WORK/apphome" "$WORK/two-a/bin/lem" serve --ensure 2>&1 || true)
+  b_gone=$(kill -0 "$b_pid" 2>/dev/null && echo lives || echo gone)
+  "$WORK/two-a/bin/lem" serve --stop >/dev/null 2>&1 || true
+  SERVE_PID=""
+  if [ "$(field '(d["started"], d["install"]["commit"])' <<<"$first")" = "(True, 'aaa0123')" ] \
+    && [ "$(field '(d["started"], d["install"]["commit"], d["install"]["package"])' <<<"$second")" = "(True, 'bbb0123', '$theirs')" ] \
+    && [ "$(field '(d["pid"], d["install"])' <<<"$api")" = "$(field '(d["pid"], d["install"])' <<<"$second")" ] && [ "$a_gone" = gone ] \
+    && [ "$css" = 200 ] && cmp -s "$WORK/two.css" "$b_css" && [ "$(tail -n 1 "$WORK/two.css")" = "/* the board of install b */" ] \
+    && [ "$(field '(d["started"], d["install"]["commit"])' <<<"$third")" = "(True, 'aaa0123')" ] && [ "$b_gone" = gone ] \
+    && [ "$(field '(d["started"], d["pid"])' <<<"$fourth")" = "(False, $(field 'd["pid"]' <<<"$third"))" ]; then
+    pass "two installs on one machine: --ensure from B replaces A's server, which ends, with one whose /api/server names B's version, commit and package folder and which sends B's own board.css; --ensure from A then replaces B's, and a second call from A keeps it"
+  else
+    fail "two installs: $first / $second / $api / css $css / A $a_gone / $third / B $b_gone / $fourth"
+  fi
+}
+if command -v uv >/dev/null 2>&1; then
+  two_installs
+else
+  skip_function two_installs "no uv here to build the wheel (https://docs.astral.sh/uv/)"
 fi
 
 finish

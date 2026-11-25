@@ -76,7 +76,7 @@ project --repo "$DOCS" init --base main >/dev/null 2>&1
 project --repo "$DOCS" task-dir note-in-readme --ask "Put a note into the README." >/dev/null
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the README gets a section.' '' '1. The README holds the note the owner asked for.' > "$DOCS/.lem/state/tasks/note-in-readme/criteria.md"
 project --repo "$DOCS" state note-in-readme held "the criteria wait for the owner" >/dev/null
-"$PY" -B "$MAIN" serve --add "$DEMO" >/dev/null && "$PY" -B "$MAIN" serve --add "$SHOP" >/dev/null && "$PY" -B "$MAIN" serve --add "$DOCS" >/dev/null
+"$LEM" serve --add "$DEMO" >/dev/null && "$LEM" serve --add "$SHOP" >/dev/null && "$LEM" serve --add "$DOCS" >/dev/null
 # GitHub that answers slowly: the server's `gh` holds a `pr merge` while the file HOLD is there, and writes HOLD.held
 # when it starts to hold; a call while HOLD is not there goes to the stand-in at once. Each check that holds removes
 # the HOLD.held of the one before, so that only a hold of its own merge counts.
@@ -143,7 +143,7 @@ noted_act=$(grep '"event": "board.act", "task": "stock-on-product-page"' "$STATE
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the product page gets a new line.' '' \
   '1. A product with 3 in stock says "3 left" under its price, and one with 1 in stock says "Only 1 left" in the warning color: the blue mug, with 1 in stock, says "Only 1 left".' \
   '2. A product with none in stock says "Sold out", its size and no number: the red mug in size L, with none in stock, says "Sold out · L".' > "$WORK/stock-change.md"
-"$PY" -B "$MAIN" criteria --repo "$DEMO" change stock-on-product-page --file "$WORK/stock-change.md" --words "$SNOTE" >/dev/null
+"$LEM" criteria --repo "$DEMO" change stock-on-product-page --file "$WORK/stock-change.md" --words "$SNOTE" >/dev/null
 again=$(curl -fsS "$S/criteria")
 skey2=$(grep -o 'name="key" value="criterion:stock-on-product-page:[0-9TZ]*"' <<<"$again" | head -1 | sed 's/.*value="//; s/"$//')
 again_words=$(words <<<"$again")
@@ -485,7 +485,7 @@ AGT=$WORK/agt
 agterm_standin "$AGT/bin"
 printf '%s\n' '[{"id": "S-HIS", "name": "notes", "workspace": "W-1", "foreground": ["claude"]}]' > "$AGT/tree.json"
 agt() { env -u AGTERM_SOCKET -u AGTERM_WINDOW_ID CALLS="$AGT/calls" TREE="$AGT/tree.json" PATH="$AGT/bin:$PATH" "$@"; }
-agt AGTERM_SESSION_ID=S-HIS "$PY" -B src/lem/__main__.py session --repo "$DUTY" open first-word --why new >/dev/null
+agt AGTERM_SESSION_ID=S-HIS "$LEM" session --repo "$DUTY" open first-word --why new >/dev/null
 # GitHub merges the first pull request, and calls the second one conflicting
 (cd "$DUTY" && gh pr merge 1 --squash --match-head-commit "$(git -C "$DUTY.origin.git" rev-parse refs/heads/fix/first-word)" --subject "fix: first-word" >/dev/null)
 "$PY" -c 'import json, sys; f = sys.argv[1]; d = json.load(open(f)); d["prs"]["2"]["mergeable"] = "CONFLICTING"; json.dump(d, open(f, "w"))' "$DUTY.origin.git.gh.json"
@@ -525,7 +525,7 @@ land --repo "$CLOSE" start word-not-wanted >/dev/null && land --repo "$CLOSE" ba
 land --repo "$CLOSE" checks word-not-wanted >/dev/null && land --repo "$CLOSE" read word-not-wanted --record "$(clean word-not-wanted 1)" >/dev/null
 land --repo "$CLOSE" propose word-not-wanted --title "fix: word-not-wanted" --notes "$NOTES" >/dev/null
 printf '%s\n' '[{"id": "S-HIS", "name": "notes", "workspace": "W-1", "foreground": ["claude"]}]' > "$AGT/tree.json"
-agt AGTERM_SESSION_ID=S-HIS "$PY" -B src/lem/__main__.py session --repo "$CLOSE" open word-not-wanted --why new >/dev/null
+agt AGTERM_SESSION_ID=S-HIS "$LEM" session --repo "$CLOSE" open word-not-wanted --why new >/dev/null
 # its session is gone (agterm's tree holds the owner's session alone), and GitHub closes the pull request with no merge
 printf '%s\n' '[{"id": "S-HIS", "name": "notes", "workspace": "W-1", "foreground": ["claude"]}]' > "$AGT/tree.json"
 : > "$AGT/calls"
@@ -568,7 +568,7 @@ land --repo "$AUTO" checks word-by-agent >/dev/null && land --repo "$AUTO" read 
 land --repo "$AUTO" propose word-by-agent --title "fix: the word by the agent" --notes "$NOTES" >/dev/null
 reviewed=$(merge_read "$AUTO" word-by-agent | field '(d["calls"], d["next"].startswith("the board'"'"'s server merges it"))')
 : > "$AGT/calls"
-agt AGTERM_SESSION_ID=S-HIS "$PY" -B src/lem/__main__.py session --repo "$AUTO" open word-by-agent --why new >/dev/null
+agt AGTERM_SESSION_ID=S-HIS "$LEM" session --repo "$AUTO" open word-by-agent --why new >/dev/null
 auto=$(agt LEM_SESSION_SCRIPT= "$PY" -B -c '
 import json, sys, threading
 sys.path.insert(0, "src")
@@ -907,7 +907,7 @@ project --repo "$IN" state report-dates building "lead: builder" "type: feat, be
 project --repo "$IN" log report-dates session.open session=S-1 name=report-dates phase=build why=new >/dev/null
 project --repo "$IN" log report-dates session.transcript claude=c-main transcript=/t/c-main.jsonl source=startup >/dev/null
 breaker_doc "$IN/.lem/state/tasks/report-dates"
-"$PY" -B "$MAIN" decisions --repo "$INT" breaker report-dates --cause criteria >/dev/null
+"$LEM" decisions --repo "$INT" breaker report-dates --cause criteria >/dev/null
 project --repo "$IN" owner away --words "/lem im-away" >/dev/null
 printf '%s\n' '[{"task": "report-dates", "session": "S-1", "name": "report-dates", "live": true, "agent": true, "unanswered": false}]' > "$WORK/inbox-sessions.json"
 printf '%s\n' '{"state": "running", "running": true, "url": "http://plannotator.localhost:50026/", "tailnet_url": "https://mac.tail0.ts.net:50026/"}' > "$PLANNOTATOR_STATUS"

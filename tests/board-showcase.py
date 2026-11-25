@@ -61,8 +61,11 @@ from pathlib import Path
 from typing import IO, cast
 
 ROOT = Path(__file__).resolve().parent.parent
-# Lem's one entry, which runs the command a name stands for, and the folder of its package
-MAIN = ROOT / "src" / "lem" / "__main__.py"
+# The command `lem` the afternoon is written with and served by: LEM_UNDER_TEST as the
+# suites name it (tests/python.sh), else this checkout's own
+LEM = os.environ.get("LEM_UNDER_TEST") or str(ROOT / ".venv" / "bin" / "lem")
+# The folder of the checkout's package, whose `lem.cards` writes a card's files as a
+# session would: a fixture of the board's read
 SRC = ROOT / "src"
 NOW = datetime.now(UTC).replace(second=0, microsecond=0)
 TODAY = NOW.strftime("%Y-%m-%d")
@@ -87,6 +90,8 @@ def run(*args: str, cwd: Path | None = None) -> str:
             **os.environ,
             "GIT_CONFIG_GLOBAL": "/dev/null",
             "GIT_CONFIG_NOSYSTEM": "1",
+            # a command of Lem's that writes the afternoon starts no board server
+            "LEM_SERVE": "off",
         },
     )
     if ran.returncode != 0:
@@ -156,9 +161,7 @@ class Shop:
 
     def project(self, *args: str) -> str:
         return run(
-            sys.executable,
-            "-B",
-            str(MAIN),
+            LEM,
             "project",
             "--repo",
             str(self.repo),
@@ -167,9 +170,7 @@ class Shop:
 
     def criteria(self, *args: str) -> str:
         return run(
-            sys.executable,
-            "-B",
-            str(MAIN),
+            LEM,
             "criteria",
             "--repo",
             str(self.repo),
@@ -317,9 +318,7 @@ class Shop:
         )
         spec_file.write_text(json.dumps(spec))
         run(
-            sys.executable,
-            "-B",
-            str(MAIN),
+            LEM,
             "ask",
             "render",
             str(spec_file),
@@ -346,9 +345,7 @@ class Shop:
 
     def decide(self, slug: str, minutes: float, *args: str) -> None:
         run(
-            sys.executable,
-            "-B",
-            str(MAIN),
+            LEM,
             "decisions",
             "--repo",
             str(self.repo),
@@ -2001,9 +1998,9 @@ def main() -> None:
         (work / "config" / "lem" / "machine.toml").write_text(
             f"[serve]\nport = {port}\n"
         )
-        run(sys.executable, "-B", str(MAIN), "serve", "--add", str(shop.repo))
+        run(LEM, "serve", "--add", str(shop.repo))
         server = subprocess.Popen(
-            [sys.executable, "-B", str(MAIN), "serve"],
+            [LEM, "serve"],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             env=env,
