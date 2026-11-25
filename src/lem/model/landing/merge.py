@@ -1,17 +1,22 @@
 """`merge`: the merge of the open pull request, by the merge agent or on the owner's word
-(`landing.md` C, "In `open`"; H 2).
+(`landing.md` C, "In `open`"; D, the standing merge and the safe read; H 2).
 
 A merge is an intent written before the forge's call; under the merge lock an intent on record
 is reconciled before any new call (`reconcile.py`), and the evidence is read again
-(`merge_evidence.py`). The plain path merges by squash; a merge that keeps the branch's commits,
-his standing merge and the safe read of a moved base are the step `land-merge`'s.
+(`merge_evidence.py`). The merge agent merges a green request that is not careful, which the
+newest review made the careful call on, where the settings let it, on its read's `merge` for the
+tip and base. The owner's word merges the tip he saw (`merge_asked.py`), and his merge that a
+moved base refused stands until a safe read. `branch.history` squashes the branch into one
+commit, or lands its own commits (a rebase on the forge).
 """
 
 from typing import TYPE_CHECKING, Literal
 
 from lem.kernel.errors import Refusal
-from lem.model.landing import merge_evidence, mergeread
-from lem.model.landing.world import Due, Merger, World, later
+from lem.model.landing import merge_asked, merge_evidence, merge_lines, mergeread
+from lem.model.landing.review import newest
+from lem.model.landing.world import Due, Merger, World
+from lem.records.base import Frozen
 from lem.records.landing.merge import MergeIntent
 from lem.records.landing.record import Landing
 
@@ -20,8 +25,19 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 STEP = "merge"
+# How the forge lands the branch: one squashed commit, or its own commits replayed.
+type Method = Literal["squash", "rebase"]
 OWNER: Merger = "owner"
-type Via = Literal["session", "server"]
+
+
+class Merging(Frozen, frozen=True, kw_only=True):
+    """The merge to call: its intent, the forge's method, and the one commit's subject and
+    body (a squash's; a rebase lands the branch's own commits)."""
+
+    intent: MergeIntent
+    method: Method
+    subject: str
+    body: str
 
 
 def who(world: World, reasons: tuple[str, ...]) -> Merger:
@@ -33,52 +49,39 @@ def who(world: World, reasons: tuple[str, ...]) -> Merger:
 
 
 def authority(record: Record, world: World) -> str | None:
-    """Why the merge agent may not merge, or None when it may: a green request that is not
-    careful, the settings' word that the agent lands, and its read that says merge for this
-    tip and base (`main:land.merger_refusal`)."""
+    """Why the merge agent may not merge, or None when it may (`main:land.merger_refusal`)."""
     landing = record.landing or Landing()
     proposed, shape = landing.proposed, record.task.shape
-    read = mergeread.usable(landing, world)
+    last, read = newest(landing), mergeread.usable(landing, world)
     if proposed is None or proposed.reasons:
-        return "the pull request is not green"
+        return "the request is not green, so the owner merges it"
     if proposed.careful or (shape is not None and shape.careful):
-        return "the request is careful: the owner merges it"
+        return "the request is careful: the owner merges it, whatever the settings say"
+    if last is None or last.careful is None:
+        return "no review that answered made the careful call for this change"
     if who(world, proposed.reasons) == OWNER:
-        return "branch.land is owner: the owner merges each pull request"
+        return (
+            'branch.land is "owner" in .lem/settings.toml: the owner merges every task'
+        )
     if read is None or read.verdict != "merge":
         return "the merge agent's read of this tip and base calls the owner"
     return None
 
 
 def due(record: Record, world: World) -> Due:
-    """The merge, and who merges it."""
+    """The merge, and who merges it: the merge agent, the owner's standing merge, which the
+    board's server carries out, or the owner's word."""
     why = authority(record, world)
     if why is None:
         return Due(step=STEP, why="the merge agent's read says merge", by="merger")
-    return Due(step=STEP, why=f"the owner merges it: {why}", by="owner")
-
-
-def authorized(
-    record: Record, world: World, by: Merger, tip: str | None
-) -> Refusal | None:
-    """Why `by` may not merge the proposed tip: the merge agent without its authority, or the
-    owner's word for a tip that is not the proposed one (a stale tap)."""
-    proposed = (record.landing or Landing()).proposed
-    shown = proposed.tip if proposed else None
-    if by == "owner" and tip != shown:
-        return Refusal(
-            "tip",
-            f"the owner's merge names {tip}, and the proposal is {shown}",
-            "the owner reads the pull request as it is now, and merges that tip",
+    if merge_evidence.standing_of(record.landing or Landing()) is not None:
+        slug = record.task.slug
+        said = (
+            "the owner's merge stands: the board's server merges it "
+            f"(lem land merge {slug} --by owner --via server --standing)"
         )
-    why = authority(record, world) if by == "merger" else None
-    if why is not None:
-        return Refusal(
-            "merger-rule",
-            f"the merge agent may not merge: {why}",
-            "the owner merges it, on his word",
-        )
-    return None
+        return Due(step=STEP, why=said, by=OWNER)
+    return Due(step=STEP, why=f"the owner merges it: {why}", by=OWNER)
 
 
 def opened(record: Record) -> Refusal | Proposed:
@@ -94,20 +97,44 @@ def opened(record: Record) -> Refusal | Proposed:
     return proposed
 
 
+def merging(record: Record, world: World, intent: MergeIntent, subject: str) -> Merging:
+    """The call for `intent`: a squash with the report's `subject` and a body that names the
+    task, and the line of a merge on a base a safe read covered; or a rebase that keeps the
+    branch's commits."""
+    if world.rules.history == "keep":
+        return Merging(intent=intent, method="rebase", subject="", body="")
+    landing = record.landing or Landing()
+    read, checked = mergeread.usable(landing, world), landing.checked
+    line = None
+    if read is not None and read.base_call == "safe" and checked is not None:
+        bases = (checked.base, world.base)
+        line = merge_lines.base_line(world.rules.base, bases, read.why or "")
+    body = merge_lines.squash_body(record.task.slug, line)
+    return Merging(intent=intent, method="squash", subject=subject, body=body)
+
+
 def decide(
-    record: Record, world: World, by: Merger, call: tuple[Via, str | None]
-) -> Refusal | MergeIntent:
-    """The intent of the merge `by` asks for, through `call` (where it was asked, and the tip
-    the caller saw), or why it may not go to the forge."""
+    record: Record, world: World, asked: merge_asked.Asked, checks_tree: str
+) -> Refusal | Merging:
+    """The merge to call for `asked`, or why it may not go to the forge with the world as it
+    is now; `checks_tree` is the tree of the base the checks ran on."""
     proposed = opened(record)
     if isinstance(proposed, Refusal):
         return proposed
-    if world.rules.history == "keep":
-        return later("a merge that keeps the branch's commits", "land-merge")
-    via, seen = call
-    refused = merge_evidence.stale(record, world, proposed) or authorized(
-        record, world, by, seen
+    refused = (
+        merge_evidence.base_side(record, world, checks_tree)
+        or merge_evidence.forge_side(record, world, proposed)
+        or merge_evidence.our_side(record, world, proposed)
+        or merge_asked.refusal(record, world, asked)
     )
     if refused is not None:
         return refused
-    return MergeIntent(tip=proposed.tip, by=by, via=via, at=world.now)
+    why = None if asked.by == OWNER else authority(record, world)
+    if why is not None:
+        return Refusal(
+            "merger-rule",
+            f"the merge agent may not merge: {why}",
+            "the owner merges it, on his word",
+        )
+    intent = MergeIntent(tip=proposed.tip, by=asked.by, via=asked.via, at=world.now)
+    return merging(record, world, intent, asked.subject or "")

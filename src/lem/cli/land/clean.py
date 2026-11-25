@@ -2,7 +2,7 @@
 
     lem land clean SLUG
 
-The plain path, as the step `slice-land` built it; the step `land-merge` owns it.
+The step `land-merge` owns it.
 """
 
 from typing import TYPE_CHECKING

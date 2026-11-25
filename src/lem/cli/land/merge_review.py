@@ -2,7 +2,7 @@
 
     lem land merge-review SLUG [--file FILE|--no-answer] [--tip TIP] [--base BASE]
 
-The plain path, as the step `slice-land` built it; the step `land-merge` owns it.
+The step `land-merge` owns it.
 """
 
 from typing import TYPE_CHECKING
@@ -11,8 +11,7 @@ import click
 import msgspec
 
 from lem.app.landing import mergeread
-from lem.cli import place
-from lem.model.landing.world import later
+from lem.cli import checks, place
 
 if TYPE_CHECKING:
     from lem.kernel.envelope import Envelope
@@ -29,12 +28,23 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 
 def run(call: Call) -> Envelope:
-    """Write the merge agent's brief, or its reply; `--no-answer` is the step
-    `land-merge`'s."""
-    if call.no_answer:
-        raise later("`lem land merge-review --no-answer`", "land-merge")
+    """Write the merge agent's brief, or its reply (or that it gave none) to the brief of
+    `--tip` and `--base`."""
     brief = (call.tip, call.base) if call.tip and call.base else None
-    return mergeread.run(place.folder(), call.slug, call.reply, brief)
+    return mergeread.run(
+        place.folder(), call.slug, call.reply, brief, no_answer=call.no_answer
+    )
+
+
+def given(words: checks.Given) -> checks.Given:
+    """Refuse a call with both an answer and none, or with a tip or base and neither: the tip
+    and the base go with the answer whose brief they name."""
+    checks.at_most_one(words, "reply", "no_answer")
+    answer = checks.counted(words, ("reply", "no_answer"))
+    if not answer and checks.counted(words, ("tip", "base")):
+        why = "--tip and --base go with --file or --no-answer: the brief's tip and base"
+        raise click.UsageError(why, click.get_current_context())
+    return words
 
 
 COMMAND = click.Command(
@@ -57,6 +67,6 @@ COMMAND = click.Command(
             ["--base"], help="the base the step printed with the brief the agent read"
         ),
     ],
-    callback=lambda **given: run(msgspec.convert(given, Call)),
+    callback=lambda **words: run(msgspec.convert(given(words), Call)),
     help="The merge agent's brief, or its reply written down.",
 )

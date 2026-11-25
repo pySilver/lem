@@ -1,93 +1,123 @@
 """`lem land merge-review`: the merge agent's brief, or its reply written down.
 
-With no reply the step publishes the brief (the pull request's text and what to answer) at a
-path named by the tip and the base, and prints it with them; the agent's reply, with the tip and
-the base the step printed, becomes the read. An agent that ends with no answer, and a read that
-carries over a moved base, are the step `land-merge`'s.
+With no reply the step publishes the brief at a path named by the tip and the base it reads, and
+says the command that writes the reply down with them. The brief names the standing text the
+merge agent follows and the facts of the task (`merge_brief.py`). A reply, or `--no-answer`, of
+the brief of the proposed tip becomes the read of that tip on the brief's base: a verdict, or an
+answer that could not be recorded, the first of which a fresh merge agent answers again
+(`model/landing/mergeread.py`).
 """
 
+import re
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lem.app.landing import changes, frame, step
+from lem.app.landing import changes, following, merge_brief, merge_step, merge_world
 from lem.kernel import files
 from lem.kernel.errors import Refusal
 from lem.model.landing import mergeread
-from lem.records.base import Frozen, Sha
 from lem.records.journal.merge import ReadNoted
 
 if TYPE_CHECKING:
-    from lem.kernel.envelope import Envelope
-    from lem.records.landing.propose import MergeRead, Proposed
+    from lem.app.landing.frame import Context
+    from lem.kernel.envelope import Envelope, Next
+    from lem.records.landing.propose import MergeRead
     from lem.records.record import Record
 
-ASK = (
-    "Read the pull request below for its merge into the base. Answer on the first line "
-    "`merge` when it may merge as it is, or `call` when the owner must read it, then why."
-)
-SHORT = 12
-BRIEF = "merge-brief-{0}-{1}.md"
+WHOLE = re.compile("[0-9a-f]{40}")
+# The reply as the owner reads it beside the read: agent prose, written whole, never cited.
+REVIEW = "merge-review.md"
 # The tip and the base of the brief a reply answers, as the step printed them.
 type Answered = tuple[str, str] | None
 
 
-class Brief(Frozen, frozen=True, kw_only=True):
-    """The brief the merge agent reads: its path, and the tip and base it is of."""
-
-    brief: str
-    tip: Sha
-    base: Sha
-
-
-def briefed(context: frame.Context) -> Brief:
-    """Publish the brief of the proposed tip on origin's base now."""
-    proposed = mergeread.brief_refusal(context.record)
-    if isinstance(proposed, Refusal):
-        raise proposed
-    base, tip = context.world.base, proposed.tip
-    named = BRIEF.format(tip[:SHORT], base[:SHORT])
-    path = context.folder / named
-    files.publish(path, text_of(context, proposed))
-    return Brief(brief=str(path), tip=tip, base=base)
+def briefed(context: Context, brief: Answered) -> mergeread.Briefed:
+    """The brief a reply answers, by its tip and base, which the step wrote; refused when
+    they are not given, not whole commits, or name no brief it wrote."""
+    tip, base = brief or ("", "")
+    written = merge_brief.path_of(context, tip, base)
+    if not (WHOLE.fullmatch(tip) and WHOLE.fullmatch(base) and written.is_file()):
+        raise Refusal(
+            "brief-of",
+            f"no brief of the tip {tip!r} on the base {base!r} was written: a reply is "
+            "written down with the tip and the base of the brief it answers",
+            "give --tip and --base as lem land merge-review printed them with the brief",
+        )
+    tree = context.ports.git.tree(context.workspace.checkout, base)
+    moved = tree != merge_world.checks_tree(context)
+    return mergeread.Briefed(tip=tip, base=base, base_tree=tree, moved=moved)
 
 
-def text_of(context: frame.Context, proposed: Proposed) -> bytes:
-    """The brief: what the agent answers, then the pull request's text the proposal cites."""
-    path = context.folder / (proposed.text or "")
-    said = path.read_text(encoding="utf-8")
-    return f"{ASK}\n\n{said}".encode()
+def said(reply: str | None) -> str | None:
+    """The reply's words, or None for an agent that ended with no answer."""
+    if reply is None:
+        return None
+    try:
+        return Path(reply).read_text(encoding="utf-8")
+    except OSError as error:
+        raise Refusal(
+            "reply",
+            f"{reply} cannot be read ({error.strerror})",
+            "--file names the merge agent's reply",
+        ) from error
 
 
 def noted(record: Record, *, read: MergeRead) -> Record:
-    """The record with the read, and its note in the journal."""
-    before = record.landing.reads if record.landing else ()
-    changed = changes.landing(record, reads=(*before, read))
-    entry = ReadNoted(at=read.at, read=read)
-    return changes.noted(changed, entry)
+    """The record with the read and its note in the journal; a read that settles with a
+    verdict answers Lem's refusal of this tip for a moved base."""
+    landing = record.landing
+    before = landing.reads if landing else ()
+    refused = landing.refused if landing else None
+    answers = (
+        read.verdict is not None
+        and refused is not None
+        and (refused.source, refused.kind, refused.tip) == ("lem", "base", read.tip)
+    )
+    changed = changes.landing(
+        record, reads=(*before, read), refused=None if answers else refused
+    )
+    return changes.noted(changed, ReadNoted(at=read.at, read=read))
 
 
 def act(
-    context: frame.Context, *, reply: str | None, brief: Answered
-) -> Brief | MergeRead:
-    """Publish the brief, or record the reply to the brief of `brief` (its tip and base)."""
-    if reply is None:
-        return briefed(context)
-    if brief is None:
-        raise Refusal(
-            "brief-of",
-            "a reply is recorded with the tip and the base of the brief it answers",
-            "give --tip and --base as lem land merge-review printed them",
-        )
-    said = Path(reply).read_text(encoding="utf-8")
-    read = mergeread.decide(context.record, context.world, said, brief)
+    context: Context, *, reply: str | None, brief: Answered, no_answer: bool
+) -> merge_brief.Brief | MergeRead:
+    """Publish the brief, or record the reply (or the lack of one) to the brief of `brief`."""
+    if reply is None and not no_answer:
+        return merge_brief.published(context)
+    text = said(reply)
+    read = mergeread.decide(
+        context.record, briefed(context, brief), text, context.world.now
+    )
     if isinstance(read, Refusal):
         raise read
+    if text is not None:
+        files.write_whole(context.folder / REVIEW, text.encode())
     context.write(context.record, partial(noted, read=read))
+    again = mergeread.again(read)
+    if again is not None:
+        raise again
     return read
 
 
-def run(folder: Path, slug: str, reply: str | None, brief: Answered) -> Envelope:
-    """`lem land merge-review SLUG [--file FILE --tip TIP --base BASE]`."""
-    given = partial(act, reply=reply, brief=brief)
-    return step.landed(folder, slug, mergeread.STEP, given)
+def told(slug: str, outcome: object) -> Next | None:
+    """After a brief: the command that writes the reply down, with its tip and base."""
+    if not isinstance(outcome, merge_brief.Brief):
+        return None
+    return following.answered(slug, outcome.brief, (outcome.tip, outcome.base))
+
+
+def run(
+    folder: Path,
+    slug: str,
+    reply: str | None,
+    brief: Answered,
+    *,
+    no_answer: bool = False,
+) -> Envelope:
+    """`lem land merge-review SLUG [--file FILE|--no-answer --tip TIP --base BASE]`."""
+    given = partial(act, reply=reply, brief=brief, no_answer=no_answer)
+    return merge_step.landed(
+        folder, slug, mergeread.STEP, given, told=partial(told, slug)
+    )

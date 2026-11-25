@@ -2,7 +2,7 @@
 
     lem land merge SLUG --by owner|merger [--message M] [--via V] [--standing] [--tip TIP]
 
-The plain path, as the step `slice-land` built it; the step `land-merge` owns it.
+The step `land-merge` owns it.
 """
 
 from typing import TYPE_CHECKING, Literal
@@ -11,9 +11,9 @@ import click
 import msgspec
 
 from lem.app.landing import merge
-from lem.cli import place
+from lem.cli import checks, place
 from lem.cli.words import choice
-from lem.model.landing.world import later
+from lem.model.landing.merge_asked import Asked
 
 if TYPE_CHECKING:
     from lem.kernel.envelope import Envelope
@@ -34,11 +34,23 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 
 def run(call: Call) -> Envelope:
-    """Merge the pull request; `--standing` is the step `land-merge`'s."""
-    if call.standing:
-        raise later("`lem land merge --standing`", "land-merge")
-    words = (call.via, call.message, call.tip)
-    return merge.run(place.folder(), call.slug, call.by, words)
+    """Merge the pull request, as asked."""
+    asked = Asked(
+        by=call.by,
+        via=call.via,
+        tip=call.tip,
+        standing=call.standing,
+        subject=call.message,
+    )
+    return merge.run(place.folder(), call.slug, asked)
+
+
+def given(words: checks.Given) -> checks.Given:
+    """Refuse `--standing` with the merge agent: it is the owner's merge that stood."""
+    if words.get("standing") and words.get("by") != "owner":
+        why = "--standing is the owner's merge that stood through a moved base: --by owner"
+        raise click.UsageError(why, click.get_current_context())
+    return words
 
 
 COMMAND = click.Command(
@@ -60,6 +72,6 @@ COMMAND = click.Command(
         ),
         click.Option(["--tip"], help="the whole commit the caller saw"),
     ],
-    callback=lambda **given: run(msgspec.convert(given, Call)),
+    callback=lambda **words: run(msgspec.convert(given(words), Call)),
     help="Merge the pull request, on the owner's word or the merger's.",
 )
