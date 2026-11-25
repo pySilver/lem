@@ -2,7 +2,7 @@ id	fate	proof	note
 check:tests/lem-machine.sh:lem-jev-names-a-jev-timeout-that-is-no-numbe-0235f49ad91c520a	changed	unit.addons.outside.test_jev.test_check_command_reads_stdin_and_rejects_non_utf8	The CLI prints a structured refusal. The spec still reports its error and sends nothing.
 check:tests/lem-machine.sh:lem-jev-takes-its-key-from-jev-api-key-alone-42ca08d2497f55ae	changed	unit.addons.outside.test_jev.test_provider_uses_only_jev_key_and_never_sends_during_check	Use httpx and the CLI envelope. The same key and decisions wire format apply.
 check:tests/lem-peers.sh:a-machine-that-never-answers-is-joined-all-t-0b14a6d469328b28	kept	journeys.test_peers.test_join_survives_no_answer_and_the_entry_retains_a_peers_last_rows	
-check:tests/lem-peers.sh:a-peer-s-kanban-task-page-and-files-come-thr-fbf19bacc6f52140	changed	journeys.test_peers.test_peer_pages_assets_union_and_loop_guard	The Starlette relay and board workspace callback carry peer pages and assets.
+check:tests/lem-peers.sh:a-peer-s-kanban-task-page-and-files-come-thr-fbf19bacc6f52140	changed	journeys.test_peers.test_peer_pages_assets_union_and_loop_guard	Use Starlette to relay the rendered kanban and assets. The switcher is checked at the board callback and peer writes are refused.
 check:tests/lem-peers.sh:a-peer-s-stream-through-alpha-delivers-its-r-db379718654e8691	changed	journeys.test_peers.test_relay_closes_a_silent_peer_stream_at_disconnect	The relay leaves the stream open until the ASGI disconnect event instead of watching a socket.
 check:tests/lem-peers.sh:a-request-with-lem-hop-is-never-forwarded-to-465847e624ac1a7f	kept	journeys.test_peers.test_peer_pages_assets_union_and_loop_guard	
 check:tests/lem-peers.sh:join-asks-the-machine-once-and-writes-it-int-acb1969d675ce6c2	changed	journeys.test_peers.test_join_survives_no_answer_and_the_entry_retains_a_peers_last_rows	Use lem serve join HOST. The board uses a workspace callback for the combined list.
@@ -52,7 +52,7 @@ command:lem jev check	changed	unit.addons.outside.test_jev.test_check_command_re
 duty:close-peer-stream	changed	journeys.test_peers.test_relay_closes_a_silent_peer_stream_at_disconnect	The relay listens for the ASGI disconnect event and closes its upstream response on cancellation.
 duty:forget-inbox-note	kept	unit.addons.outside.test_inbox.test_note_needs_no_agent_and_no_withdrawal	
 duty:inbox-blocked	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
-duty:inbox-breaker	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
+duty:inbox-breaker	kept	unit.addons.outside.test_inbox.test_breaker_question_includes_the_document_for_the_current_hold	The question includes the current breaker's document when it reads.
 duty:inbox-merge	kept	unit.addons.outside.test_inbox.test_reviewed_merge_binds_the_question_to_the_full_commit	
 duty:inbox-order	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
 duty:inbox-other-question	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
@@ -89,7 +89,7 @@ unit:tests/unit/test_cast.py:Seats.test_a_file_with_no_seats_answers_as_the_pane
 unit:tests/unit/test_cast.py:Seats.test_a_seat_the_settings_would_refuse_is_refused_with_the_file_and_the_line_to_write	kept	unit.addons.outside.test_cast.test_invalid_frontmatter_names_the_file_and_fix	
 unit:tests/unit/test_cast.py:Seats.test_two_seats_of_one_name_are_refused	kept	unit.addons.outside.test_cast.test_invalid_frontmatter_names_the_file_and_fix	
 unit:tests/unit/test_experts.py:Audience.test_a_project_with_no_profile_says_so	kept	unit.addons.outside.test_experts.test_open_question_persists_words_and_never_picks	
-unit:tests/unit/test_experts.py:Audience.test_the_brief_holds_the_part_before_the_answer	kept	unit.addons.outside.test_experts.test_brief_and_shared_pick	
+unit:tests/unit/test_experts.py:Audience.test_the_brief_holds_the_part_before_the_answer	kept	unit.addons.outside.test_experts.test_open_question_persists_words_and_never_picks	The open brief puts the audience before the answer instructions.
 unit:tests/unit/test_experts.py:Audience.test_the_part_names_the_profile_and_each_persona_by_its_path_and_says_how_to_weigh_them	kept	unit.addons.outside.test_experts.test_brief_and_shared_pick	
 unit:tests/unit/test_experts.py:WhoTheyAre.test_a_file_with_no_such_part_gives_its_first_paragraph_and_no_quote	kept	unit.addons.outside.test_experts.test_persona_excerpt_uses_identity_first_and_ends_at_a_sentence	
 unit:tests/unit/test_experts.py:WhoTheyAre.test_a_long_part_is_cut_at_a_sentence_end_to_be_read_in_a_minute	kept	unit.addons.outside.test_experts.test_persona_excerpt_uses_identity_first_and_ends_at_a_sentence	
@@ -119,7 +119,7 @@ unit:tests/unit/test_inbox.py:Sends.test_criterion_4_with_no_away_mark_nothing_g
 unit:tests/unit/test_inbox.py:Sends.test_criterion_8_a_task_with_no_session_gets_a_note_with_no_question_and_the_boards_link	kept	unit.addons.outside.test_inbox.test_note_needs_no_agent_and_no_withdrawal	
 unit:tests/unit/test_inbox.py:Sends.test_the_calls_keep_the_data_folder_and_drop_the_variables_that_name_a_session	changed	unit.addons.outside.test_inbox.test_failed_send_retries_the_same_payload_and_wakes_once	The HTTP tool call uses the running local Inbox, the project path and an explicit Claude Code session.
 unit:tests/unit/test_inbox.py:Sends.test_the_note_of_a_session_that_does_not_answer_says_what_is_true_and_what_acts	kept	unit.addons.outside.test_inbox.test_question_and_note_words_and_the_link	
-unit:tests/unit/test_inbox.py:Withdraws.test_a_new_proposal_is_a_new_merge_question_and_a_refused_merge_a_note	kept	unit.addons.outside.test_inbox.test_reviewed_merge_binds_the_question_to_the_full_commit	
+unit:tests/unit/test_inbox.py:Withdraws.test_a_new_proposal_is_a_new_merge_question_and_a_refused_merge_a_note	kept	unit.addons.outside.test_inbox.test_merge_polls_replace_the_tip_then_send_the_refusal_as_a_note	The test compares successive Inbox looks at a proposal, its replacement and a refused merge.
 unit:tests/unit/test_inbox.py:Withdraws.test_a_question_he_answered_in_the_inbox_gets_nothing_and_leaves_the_record	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
 unit:tests/unit/test_inbox.py:Withdraws.test_after_im_back_a_question_its_row_no_longer_asks_is_withdrawn_and_nothing_new_is_sent	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
 unit:tests/unit/test_inbox.py:Withdraws.test_criterion_5_an_answer_at_the_mac_withdraws_the_question_as_the_same_session	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	

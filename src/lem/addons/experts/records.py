@@ -27,7 +27,7 @@ class Answer(Frozen, frozen=True, kw_only=True):
     none: bool = False
 
 
-class Asked(Frozen, frozen=True, kw_only=True):
+class Asked(Frozen, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """What the owner or the lead asks the experts."""
 
     question: str

@@ -2,8 +2,8 @@
 
 from typing import TYPE_CHECKING
 
+from lem.addons.inbox import merges
 from lem.model.owner import verbs
-from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
     from lem.addons.inbox.source import RowFacts
@@ -38,7 +38,7 @@ def stopped(found: RowFacts) -> str:
 
 def merge_note(found: RowFacts) -> str:
     """A refused or unreviewed merge provides a board link only."""
-    landing = found.look.record.landing or Landing()
-    if landing.refused:
-        return "The merge did not go through. The owner can see its state on the board."
+    refused = merges.refusal_of(found)
+    if refused:
+        return f"The merge did not go through: {refused.line}"
     return "The owner can check the pull request and its merge review on the board."

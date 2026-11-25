@@ -1,6 +1,7 @@
 """Resolve the experts from the settings or the brief's own seats."""
 
 import os
+import re
 from itertools import chain, repeat
 from typing import TYPE_CHECKING
 
@@ -15,6 +16,9 @@ from lem.store.places import checkout_of
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+# The explicit --seat grammar on main, 2026-11-25.
+EXPLICIT = re.compile(r"[a-z]+(?:/[A-Za-z0-9][A-Za-z0-9._-]*)?(?::[a-z]+)?")
 
 
 def chosen(folder: Path, given: tuple[str, ...]) -> tuple[Named, ...]:
@@ -49,11 +53,11 @@ def explicit(given: tuple[str, ...]) -> tuple[Named, ...]:
 def parsed(line: str) -> seats.Seat:
     """Check the seat's spelling and agent, with optional parts."""
     found = seats.split(line)
-    rule = msgspec.structs.replace(seats.rule("experts"), whole=False)
-    flaw = seats.form_flaw(line) or seats.part_flaw(found, rule)
-    if flaw:
+    if not EXPLICIT.fullmatch(line) or found.agent not in seats.BOTH:
         raise Refusal(
-            "expert-seat", f"--seat {line!r} {flaw}", "use agent/model:effort"
+            "expert-seat",
+            f"the owner's --seat {line!r} is not a Claude Code or Codex seat",
+            "use agent/model:effort, with the model and effort optional",
         )
     return found
 

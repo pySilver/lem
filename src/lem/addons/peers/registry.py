@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from lem.addons.peers import local, look, rows, table, tailnet
+from lem.addons.peers import look, rows, table, tailnet
+from lem.addons.peers.address import Address
 from lem.kernel.errors import Refusal
 
 if TYPE_CHECKING:
@@ -17,20 +18,13 @@ if TYPE_CHECKING:
 LIST_WAIT = 0.6
 
 
-async def address(host: str, port: int) -> str:
-    """Read the tailnet suffix away from the board's event loop."""
-    space = await asyncio.to_thread(local.status)
-    tailnet.member(host, space)
-    return tailnet.address(space.suffix, host, port)
-
-
 @dataclass(slots=True, kw_only=True)
 class Registry:
     """A server's peer clients and their short-lived workspace cache."""
 
     home: Path
     own: str
-    address: look.Address = address
+    address: look.Address = field(default_factory=Address)
     transport: httpx.AsyncBaseTransport | None = None
     known: dict[str, look.Peer] = field(default_factory=dict)
     pending: dict[str, asyncio.Task[None]] = field(default_factory=dict)

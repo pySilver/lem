@@ -10,21 +10,12 @@ from lem.addons.experts import ask
 from lem.addons.experts.records import Asked, Brief
 from lem.cli.place import folder
 
-
-class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
-    """The words of `lem experts brief`."""
-
-    question: str
-    context: str = ""
-    options: tuple[str, ...] = ()
-    files: tuple[str, ...] = ()
-    seats: tuple[str, ...] = ()
+Call = Asked
 
 
 def run(call: Call) -> Brief:
     """Run the experts command in the active checkout."""
-    asked = msgspec.convert(msgspec.structs.asdict(call), Asked)
-    return ask.ask(folder(), asked)
+    return ask.ask(folder(), call)
 
 
 COMMAND = click.Command(

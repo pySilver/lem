@@ -5,6 +5,7 @@ from urllib.parse import quote
 
 import msgspec
 
+from lem.addons.peers.tailnet import LABEL
 from lem.records.base import Frozen
 
 SPACES = "Lem-Spaces"
@@ -77,7 +78,7 @@ def from_header(given: str) -> tuple[Row, ...]:
         rows = msgspec.json.decode(given, type=tuple[Row, ...])
     except msgspec.DecodeError, RecursionError:
         return ()
-    present = (row for row in rows if row.host)
+    present = (row for row in rows if LABEL.fullmatch(row.host))
     return tuple(row.on_entry() for row in present)
 
 

@@ -34,6 +34,9 @@ if TYPE_CHECKING:
 
     from lem.model.owner.looks import Kind
     from lem.records.base import Moment
+    from lem.records.landing.merge import Refused
+    from lem.records.landing.record import Landing
+    from lem.records.record import Record as TaskRecord
 
 OPEN = Door(
     running=True, url="http://127.0.0.1:19080", tailnet_url="https://phone.test.invalid"
@@ -336,7 +339,11 @@ def test_question_and_note_words_and_the_link() -> None:
         waiting = source.wait_of(found)
         assert waiting and waiting.session == "first"
         drafted = payload.message(
-            waiting, found, "/repo", "https://board.test.invalid/task", "plan.md"
+            waiting,
+            found,
+            "/repo",
+            "https://board.test.invalid/task",
+            payload.Material(plan="plan.md"),
         )
         assert drafted.payload
         assert all(word in drafted.payload.body for word in expected)
@@ -374,47 +381,22 @@ def test_question_and_note_words_and_the_link() -> None:
 
 
 def test_reviewed_merge_binds_the_question_to_the_full_commit() -> None:
-    from lem.records.landing.propose import MergeRead, Proposed
-    from lem.records.landing.record import Landing, Pull
-
+    eligible = merge_case()
     tip = "b" * 40
-    base = "a" * 40
-    reason = "The owner must check the release notes."
-    found = fact("merge")
-    changed = msgspec.structs.replace(found.look.record.task, status="open")
-    proposal = Proposed(tip=tip, base=base, at=NOW, green=True, who_acts="owner")
-    review = MergeRead(
-        tip=tip, base=base, base_tree=base, verdict="call", why=reason, at=NOW
-    )
-    landing = Landing(
-        phase="open",
-        proposed=proposal,
-        reads=(review,),
-        pull=Pull(
-            number=3, title="Repair export", url="https://forge.test.invalid/pull/3"
-        ),
-    )
-    record = msgspec.structs.replace(found.look.record, task=changed, landing=landing)
-    eligible = msgspec.structs.replace(
-        found, look=msgspec.structs.replace(found.look, record=record)
-    )
     ready = source.wait_of(eligible)
     assert ready and ready.tip == tip and ready.session == "first"
     shown = body.question(eligible, None)
     for expected in (
         tip,
-        reason,
+        "Check the labels.",
         "https://forge.test.invalid/pull/3",
         "- [ ] Merge",
         "- [ ] Not now",
     ):
         assert expected in shown
-    without_read = msgspec.structs.replace(
-        record, landing=msgspec.structs.replace(landing, reads=())
-    )
-    stale = msgspec.structs.replace(
-        eligible, look=msgspec.structs.replace(eligible.look, record=without_read)
-    )
+    landing = eligible.look.record.landing
+    assert landing
+    stale = with_landing(eligible, msgspec.structs.replace(landing, reads=()))
     asking = source.wait_of(stale)
     assert asking and not asking.session and not asking.asks
 
@@ -553,3 +535,294 @@ def test_board_only_rows_and_forked_sessions_do_not_receive_questions(
     note_row = fact("session").row
     assert source.eligible_rows((read, merge, card, breaker)) == (merge, breaker)
     assert source.eligible_rows((read, merge, card, breaker, note_row)) == (note_row,)
+
+
+def merge_case() -> source.RowFacts:
+    from lem.records.landing.propose import MergeRead, Proposed
+    from lem.records.landing.record import Landing, Pull
+
+    found = fact("merge")
+    tip, base = "b" * 40, "a" * 40
+    proposal = Proposed(tip=tip, base=base, at=NOW, green=True, who_acts="owner")
+    review = MergeRead(
+        tip=tip,
+        base=base,
+        base_tree=base,
+        verdict="call",
+        why="Check the labels.",
+        at=NOW,
+    )
+    landing = Landing(
+        phase="open",
+        proposed=proposal,
+        reads=(review,),
+        pull=Pull(
+            number=3, title="Repair export", url="https://forge.test.invalid/pull/3"
+        ),
+    )
+    record = found.look.record
+    return with_record(
+        found,
+        msgspec.structs.replace(
+            record,
+            task=msgspec.structs.replace(record.task, status="open"),
+            landing=landing,
+        ),
+    )
+
+
+def with_record(found: source.RowFacts, record: TaskRecord) -> source.RowFacts:
+    return msgspec.structs.replace(
+        found, look=msgspec.structs.replace(found.look, record=record)
+    )
+
+
+def with_landing(found: source.RowFacts, landing: Landing) -> source.RowFacts:
+    return with_record(
+        found, msgspec.structs.replace(found.look.record, landing=landing)
+    )
+
+
+def forge_refusal(tip: str) -> Refused:
+    from lem.records.landing.merge import Refused
+
+    return Refused(
+        tip=tip,
+        source="github",
+        kind="rule",
+        by="owner",
+        at=NOW,
+        line="GitHub requires a second approval.",
+    )
+
+
+def merge_poll(
+    found: source.RowFacts, saved: tuple[Entry, ...] = (), *, away: bool = True
+) -> tuple[Wait, rules.Actions]:
+    wait = source.wait_of(found)
+    assert wait is not None
+    return wait, rules.decide(seen(wait, away=away), saved)
+
+
+def sent_wait(wait: Wait) -> Entry:
+    from lem.addons.inbox.messages import Sent
+
+    return Entry(wait=wait, key="stable-key", sent=Sent(message_id="old", url="/old"))
+
+
+def test_new_review_on_same_tip_withdraws_and_replaces_the_question(
+    tmp_path: Path,
+) -> None:
+    found = merge_case()
+    original, _ = merge_poll(found)
+    old = sent_wait(original)
+    landing = found.look.record.landing
+    assert landing
+    refreshed = msgspec.structs.replace(
+        landing.reads[0],
+        base="c" * 40,
+        base_tree="d" * 40,
+        base_call="safe",
+        why="Check the tax change.",
+    )
+    changed = with_landing(
+        found, msgspec.structs.replace(landing, reads=(*landing.reads, refreshed))
+    )
+    updated, actions = merge_poll(changed, (old,))
+    assert (updated.tip, updated.since, updated.session) == (
+        original.tip,
+        original.since,
+        original.session,
+    )
+    assert actions.withdraw == (old,) and actions.send == (updated,)
+    assert merge_poll(changed, (old,), away=False)[1].withdraw == (old,)
+    calls: list[dict[str, object]] = []
+
+    def send(request: httpx.Request) -> httpx.Response:
+        calls.append(json.loads(request.content)["params"]["arguments"])
+        return receipt({"structuredContent": {"message_id": "new", "url": "/thread/1"}})
+
+    guard.writable(tmp_path)
+    with httpx.Client(transport=httpx.MockTransport(send)) as http:
+        delivery = Delivery(
+            state=tmp_path,
+            now=NOW,
+            service=client.Inbox(opened=OPEN, cwd=tmp_path, http=http),
+            wake=lambda task: True,
+            prepare=lambda wait: payload.message(
+                wait, changed, "/repo", "https://board.test.invalid", payload.Material()
+            ),
+            saved=Record(entries=(old,)),
+        )
+        assert delivery.run(seen(updated), {}).problem is None
+    assert len(calls) == 2
+    assert calls[0]["supersedes"] == ["old"]
+    assert "Check the tax change." in str(calls[1]["body"])
+
+
+def test_new_proposal_clears_the_previous_merge_refusal() -> None:
+    from lem.app.landing import propose_made
+
+    record = merge_case().look.record
+    landing = record.landing
+    assert landing and landing.proposed and landing.pull
+    refused = forge_refusal(landing.proposed.tip)
+    before = msgspec.structs.replace(
+        record, landing=msgspec.structs.replace(landing, refused=refused)
+    )
+    made = msgspec.structs.replace(landing.proposed, tip="c" * 40)
+    updated = propose_made.opened(before, made=made, pull=landing.pull)
+    assert updated.landing and updated.landing.proposed == made
+    assert updated.landing.refused is None
+
+
+def test_stale_refusal_allows_a_question_and_current_refusal_explains_why() -> None:
+    found = merge_case()
+    landing = found.look.record.landing
+    assert landing and landing.proposed
+    stale = with_landing(
+        found, msgspec.structs.replace(landing, refused=forge_refusal("c" * 40))
+    )
+    wait, _ = merge_poll(stale)
+    assert wait.session == "first"
+    assert "did not go through" not in note.merge_note(stale)
+    refused = forge_refusal(landing.proposed.tip)
+    current = with_landing(found, msgspec.structs.replace(landing, refused=refused))
+    wait, _ = merge_poll(current)
+    assert wait.session is None
+    assert refused.line in note.merge_note(current)
+
+
+def test_merge_polls_replace_the_tip_then_send_the_refusal_as_a_note() -> None:
+    found = merge_case()
+    original, _ = merge_poll(found)
+    old = sent_wait(original)
+    landing = found.look.record.landing
+    assert landing and landing.proposed
+    tip = "c" * 40
+    next_landing = msgspec.structs.replace(
+        landing,
+        proposed=msgspec.structs.replace(landing.proposed, tip=tip),
+        reads=(msgspec.structs.replace(landing.reads[0], tip=tip),),
+    )
+    updated, actions = merge_poll(with_landing(found, next_landing), (old,))
+    assert updated.tip == tip and updated.session == old.wait.session
+    assert actions.withdraw == (old,) and actions.send == (updated,)
+    refused = forge_refusal(tip)
+    stopped = with_landing(
+        found, msgspec.structs.replace(next_landing, refused=refused)
+    )
+    replacement = sent_wait(updated)
+    message, actions = merge_poll(stopped, (replacement,))
+    assert actions.withdraw == (replacement,) and actions.send == (message,)
+    assert message.session is None and not message.asks
+    drafted = payload.message(
+        message, stopped, "/repo", "https://board.test.invalid", payload.Material()
+    )
+    assert drafted.payload and refused.line in drafted.payload.body
+    assert ":::question" not in drafted.payload.body
+
+
+def test_poll_resumes_after_the_workspace_list_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import anyio
+
+    from lem.addons.inbox import schedule
+    from lem.board import workspaces
+    from lem.store.places import Workspace
+
+    path = tmp_path / workspaces.WORKSPACES
+    path.write_text("{")
+    reports: list[tuple[str, str | None]] = []
+    visited: list[Workspace] = []
+    project = Workspace(
+        checkout=tmp_path / "shop", lem=tmp_path / "lem", state=tmp_path / "state"
+    )
+    target = schedule.Target(where=project, url="https://board.test.invalid")
+
+    def targets() -> tuple[schedule.Target, ...]:
+        return tuple(target for _ in workspaces.listed(tmp_path))
+
+    def tick(where: Workspace, now: Moment, url: str) -> Record:
+        visited.append(where)
+        return Record()
+
+    async def run() -> None:
+        stopped = anyio.Event()
+
+        def report(name: str, why: str | None) -> None:
+            reports.append((name, why))
+            if why:
+                path.write_text('["/scratch/shop"]')
+            else:
+                anyio.from_thread.run_sync(stopped.set)
+
+        with anyio.fail_after(3):
+            await schedule.run(targets, report, stopped)
+
+    monkeypatch.setattr(schedule, "INTERVAL", 0)
+    monkeypatch.setattr(schedule.workspace, "tick", tick)
+    anyio.run(run)
+    assert visited == [project]
+    assert reports[0][0] == "*" and "no list of workspaces" in (reports[0][1] or "")
+    assert reports[-1] == ("shop", None)
+
+
+def test_breaker_question_includes_the_document_for_the_current_hold(
+    tmp_path: Path,
+) -> None:
+    from fakes.forge import LocalForge
+    from fakes.git import ModelGit
+    from fakes.ports import fake_ports
+    from lem.addons.inbox.prepare import prepare as draft
+    from lem.app.sessions.here import Here
+    from lem.records.decisions import Breaker
+    from lem.records.holds import BreakerHold
+    from lem.store.places import Workspace
+
+    state = tmp_path / ".lem" / "state"
+    git = ModelGit(checkout=tmp_path)
+    here = Here(
+        where=Workspace(checkout=tmp_path, lem=state.parent, state=state),
+        ports=fake_ports(git, LocalForge(remote=git)),
+    )
+    folder = here.folder("shop")
+    folder.mkdir(parents=True)
+    old = Breaker(
+        id=1,
+        at=NOW,
+        cause="criteria",
+        what="Prior decision",
+        document="breaker-1.md",
+        handoff="handoff.md",
+    )
+    current = msgspec.structs.replace(
+        old, id=2, what="Confirm the export", document="breaker-2.md"
+    )
+    (folder / old.document).write_text("Old plan")
+    document = folder / current.document
+    document.write_text(
+        "## Confirm the export\n\nThe warehouse will lose its pending orders.",
+        encoding="utf-8",
+    )
+    found = fact("breaker")
+    record = found.look.record
+    task = msgspec.structs.replace(
+        record.task,
+        decisions=(old, current),
+        hold=BreakerHold(number=current.id, since=NOW),
+    )
+    updated = with_record(found, msgspec.structs.replace(record, task=task))
+    wait = source.wait_of(updated)
+    assert wait and wait.session
+    sent = draft(here, "https://board.test.invalid", (updated,), wait)
+    assert (
+        sent.payload
+        and "The warehouse will lose its pending orders." in sent.payload.body
+    )
+    assert "Old plan" not in sent.payload.body
+    assert all(choice in sent.payload.body for choice in ("Help", "Park", "Drop"))
+    document.write_bytes(b"\xff")
+    fallback = draft(here, "https://board.test.invalid", (updated,), wait)
+    assert fallback.payload and "Confirm the export" in fallback.payload.body

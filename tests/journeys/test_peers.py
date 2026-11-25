@@ -1,6 +1,7 @@
 """Two disposable board apps share one address through the production peer routes."""
 
 import asyncio
+import json
 from http import HTTPStatus
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
@@ -10,13 +11,18 @@ from starlette.applications import Starlette
 from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from starlette.routing import Route
 
+from fakes.records import record
 from lem.addons.peers import registry, requests, routes, rows, table
+from lem.board import workspaces as board_workspaces
+from lem.board.pages import kanban
+from lem.store import tasks
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from pathlib import Path
 
     from starlette.requests import Request
+    from starlette.responses import Response
     from starlette.types import Message
 
 PORT = 19037
@@ -30,16 +36,16 @@ async def address(host: str, port: int) -> str:
     return "http://beta.invalid"
 
 
-async def page(request: Request) -> JSONResponse:
-    """The add-on supplies the workspace list and the peer's read-only marker."""
+async def page(request: Request) -> Response:
+    """Check the relay inputs and render the peer's actual kanban."""
     listed = await routes.spaces(request, BETAS)
-    return JSONResponse(
-        {
-            "titles": [f"{row.host}/{row.name}" for row in listed],
-            "agterm": requests.HOP not in request.headers,
-            "cookie": request.headers.get("cookie"),
-        }
-    )
+    assert [(row.host, row.name) for row in listed] == [
+        ("beta", "shop"),
+        ("alpha", "app"),
+    ]
+    assert request.headers[requests.HOP] == "1"
+    assert request.headers["Cookie"] == "lem_board=wide"
+    return kanban.page(request)
 
 
 async def workspaces(request: Request) -> JSONResponse:
@@ -79,11 +85,14 @@ def test_peer_pages_assets_union_and_loop_guard(tmp_path: Path) -> None:
         beta_home = tmp_path / "beta"
         table.change(alpha_home, "beta", PORT)
         table.change(beta_home, "gamma", 19038)
+        shop = tmp_path / "shop"
+        tasks.create(shop / ".lem/state", record("repair-export"))
+        (beta_home / board_workspaces.WORKSPACES).write_text(json.dumps([str(shop)]))
         beta = board(
             beta_home,
             "beta",
             BETAS,
-            Route("/beta/shop/", page),
+            Route("/{host}/{workspace}/", page),
             Route("/beta/assets/test.css", asset),
             Route("/beta/redirect", redirect),
         )
@@ -105,11 +114,9 @@ def test_peer_pages_assets_union_and_loop_guard(tmp_path: Path) -> None:
             seen = await client.get(
                 "/beta/shop/", headers={"Cookie": "lem_board=wide; another=no"}
             )
-            assert seen.json() == {
-                "titles": ["beta/shop", "alpha/app"],
-                "agterm": False,
-                "cookie": "lem_board=wide",
-            }
+            assert "text/html" in seen.headers["content-type"]
+            assert 'id="card-repair-export"' in seen.text
+            assert "data-agterm-url-value" not in seen.text
             asset_body = await client.get("/beta/assets/test.css")
             assert asset_body.text == "beta asset"
             assert (await client.head("/beta/assets/test.css")).content == b""
@@ -117,6 +124,7 @@ def test_peer_pages_assets_union_and_loop_guard(tmp_path: Path) -> None:
                 "location"
             ] == "/beta/shop/"
             assert (await client.post("/beta/shop/")).status_code == 405
+            assert (await client.post("/beta/shop/agterm/type")).status_code == 405
             assert (
                 await client.get("/beta/shop/", headers={"Lem-Hop": "1"})
             ).status_code == 404
@@ -203,7 +211,7 @@ def test_join_survives_no_answer_and_the_entry_retains_a_peers_last_rows(
 
     async def run() -> None:
         home = tmp_path / "alpha"
-        beta = board(tmp_path / "beta", "beta", BETAS, Route("/beta/shop/", page))
+        beta = board(tmp_path / "beta", "beta", BETAS)
         sleeping = True
         wire: list[str] = []
 

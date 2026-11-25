@@ -163,3 +163,18 @@ def test_check_command_reads_stdin_and_rejects_non_utf8(tmp_path: Path) -> None:
         refused = lem(*call)
         assert refused.code == 1
         assert "utf-8" in refused.stdout.lower()
+
+
+def test_http_refusal_preserves_the_provider_status_and_bounds_its_detail() -> None:
+    fake_key = "test-key"
+    words = "Rate limit exceeded. Retry later."
+    tail = "x" * 400  # main's ERROR_EXCERPT_CHARS
+    expected = f"{words} [redacted] {tail}"[:400]
+    wire = httpx.MockTransport(
+        lambda request: httpx.Response(429, text=f"{words} {fake_key} {tail}")
+    )
+    env = {"JEV_API_KEY": fake_key}
+    with pytest.raises(Refusal) as failure:
+        client.ask(build(), client.config(env), env, transport=wire)
+    assert failure.value.code == "jev-request"
+    assert failure.value.why.endswith(f"HTTP 429: {expected}")

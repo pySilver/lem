@@ -12,13 +12,21 @@ if TYPE_CHECKING:
 
 def breaker(found: RowFacts) -> str:
     """Use the matching breaker's summary, with the reason and the owner's options."""
+    decision = current(found)
+    if decision is not None:
+        return f"{decision.what} Give the next step with Help."
+    return found.row.why or found.look.record.task.ask
+
+
+def current(found: RowFacts) -> Breaker | None:
+    """Find the document and summary of the breaker that still holds."""
     task = found.look.record.task
     hold = task.hold
     if isinstance(hold, BreakerHold):
         for decision in reversed(task.decisions):
             if matches(decision, hold):
-                return f"{decision.what} Give the next step with Help."
-    return found.row.why or task.ask
+                return decision
+    return None
 
 
 def matches(decision: object, hold: BreakerHold) -> TypeIs[Breaker]:

@@ -31,8 +31,13 @@ class Target(Frozen, frozen=True, kw_only=True):
 
 def cycle(targets: Targets, report: Report) -> None:
     """One failure does not keep another workspace from its Inbox."""
+    try:
+        listed = targets()
+    except (Fault, Refusal, OSError) as error:
+        report("*", str(error))
+        return
     now = clock.now()
-    for target in targets():
+    for target in listed:
         name = target.where.checkout.name
         try:
             saved = workspace.tick(target.where, now, target.url)

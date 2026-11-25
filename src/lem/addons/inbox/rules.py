@@ -66,8 +66,9 @@ def session_change(look: Look, saved: Wait, current: Wait | None) -> bool:
     """A change only of session cannot replace a question with the door closed."""
     if current is None:
         return saved.key in look.behind
-    return (saved.asks, saved.tip, saved.since) == (
+    return (saved.asks, saved.tip, saved.since, saved.review_digest) == (
         current.asks,
         current.tip,
         current.since,
+        current.review_digest,
     )

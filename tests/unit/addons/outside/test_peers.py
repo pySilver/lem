@@ -228,3 +228,132 @@ def test_cli_leaves_a_peer_without_looking_for_tailnet(
     assert seen.code == 0
     assert seen.result() == {"left": PEER, "peers": []}
     assert lem("serve", "peers").result() == {"peers": []}
+
+
+@pytest.mark.parametrize("on_path", (True, False))
+def test_local_status_finds_the_executable_with_a_short_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, on_path: bool
+) -> None:
+    import os
+    import subprocess
+    from pathlib import Path
+
+    from lem.addons.peers import local
+
+    mac = Path("/Applications/Tailscale.app/Contents/MacOS/Tailscale")
+    binary = tmp_path / "tailscale" if on_path else mac
+    monkeypatch.setenv("PATH", str(tmp_path) if on_path else "/usr/bin:/bin")
+    monkeypatch.setattr("shutil.which", lambda exe: str(binary) if on_path else None)
+    monkeypatch.setattr(Path, "is_file", lambda path: path == mac)
+    monkeypatch.setattr(
+        os, "access", lambda path, mode: Path(path) == mac and mode == os.X_OK
+    )
+
+    def execute(
+        args: list[str], **kwargs: object
+    ) -> subprocess.CompletedProcess[bytes]:
+        assert args == [str(binary), "status", "--json"]
+        return subprocess.CompletedProcess(
+            args, 0, stdout=b'{"MagicDNSSuffix":"test.invalid"}'
+        )
+
+    with monkeypatch.context() as patched:
+        patched.setattr(subprocess, "run", execute)
+        assert local.status().suffix == "test.invalid"
+
+
+def test_report_keeps_healthy_peers_and_join_refuses_a_renamed_peer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from lem.addons.peers import report
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        host = request.url.host.partition(".")[0]
+        if request.url.path == "/api/server":
+            name = "renamed" if host == PEER else host
+            return httpx.Response(
+                200, json={"host": name, "install": {"version": "test"}}
+            )
+        assert (host, request.url.path) == ("gamma", "/api/workspaces")
+        return httpx.Response(200, json=[{"name": "shop", "url": "/gamma/shop/"}])
+
+    client = httpx.AsyncClient
+    wire = httpx.MockTransport(answer)
+    monkeypatch.setattr(report.local, "status", lambda: SPACE)
+    monkeypatch.setattr(
+        report.httpx, "AsyncClient", lambda **given: client(transport=wire)
+    )
+
+    async def run() -> None:
+        async with client(transport=wire) as probe:
+            with pytest.raises(Refusal, match="answers as renamed"):
+                await commands.join(f"{PEER}:{PORT}", SPACE, probe, tmp_path)
+        assert not table.read(tmp_path)
+        changed, healthy = await report.report({PEER: PORT, "gamma": PORT})
+        assert (changed.name, changed.reachable, changed.said) == (
+            PEER,
+            False,
+            "beta answers as renamed",
+        )
+        assert (healthy.name, healthy.reachable, healthy.workspaces) == (
+            "gamma",
+            True,
+            ("shop",),
+        )
+
+    asyncio.run(run())
+
+
+def test_switcher_accepts_only_dns_labels_from_the_peer_header() -> None:
+    supplied = rows.header(
+        tuple(
+            rows.Row(name="shop", host=host)
+            for host in ("beta", "two words", "-beta", "beta.test.invalid")
+        )
+    )
+    assert supplied is not None
+    assert tuple(row.url for row in rows.from_header(supplied)) == ("/beta/shop/",)
+
+
+def test_registry_reuses_one_successful_tailnet_lookup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from lem.addons.peers import address as peer_address
+    from lem.addons.peers import local
+
+    calls: list[None] = []
+    now = 0.0
+    offline = False
+
+    def status() -> tailnet.Status:
+        calls.append(None)
+        if offline:
+            raise Refusal("tailnet", "Tailscale is unavailable", "connect to Tailscale")
+        return SPACE
+
+    monkeypatch.setattr(local, "status", status)
+    monkeypatch.setattr(peer_address, "monotonic", lambda: now)
+
+    async def run() -> None:
+        nonlocal now, offline
+        board = registry.Registry(home=tmp_path, own="alpha")
+        fresh = await asyncio.gather(
+            board.address(PEER, PORT), board.address(PEER, PORT)
+        )
+        assert fresh == [BASE, BASE]
+        assert await board.address(PEER, PORT + 1) == BASE.replace(
+            str(PORT), str(PORT + 1)
+        )
+        assert len(calls) == 1
+        now += look.LIST_FRESH
+        offline = True
+        with pytest.raises(Refusal, match="unavailable"):
+            await board.address(PEER, PORT)
+        offline = False
+        with pytest.raises(Refusal, match="no other board"):
+            await board.address("missing", PORT)
+        assert await board.address(PEER, PORT) == BASE
+        assert await board.address(PEER, PORT) == BASE
+        assert len(calls) == 3
+
+    asyncio.run(run())

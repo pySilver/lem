@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 SEATS_LINE = 'seats: ["claude/opus:high", "codex/gpt-6.2-sol:high"]'
 DEFAULT = (seats.split("claude/opus"), seats.split("codex"))
+PERSONA_RULE = msgspec.structs.replace(seats.rule("experts"), whole=False)
 
 
 def invalid(path: Path, why: str) -> Refusal:
@@ -44,10 +45,16 @@ def parsed(lines: list[str], path: Path) -> tuple[seats.Seat, ...]:
     if len(lines) != 1 or not lines[0].startswith("seats:"):
         raise invalid(path, "permits one seats entry")
     names = decode(lines[0].removeprefix("seats:").strip(), path)
-    try:
-        return tuple(seats.parsed(line, "experts", str(path)) for line in names)
-    except Refusal as error:
-        raise invalid(path, error.why) from error
+    return tuple(seat(line, path) for line in names)
+
+
+def seat(line: str, path: Path) -> seats.Seat:
+    """Check a persona's seat, including a model or effort left to the agent."""
+    found = seats.split(line)
+    flaw = seats.form_flaw(line) or seats.part_flaw(found, PERSONA_RULE)
+    if flaw:
+        raise invalid(path, f"has a seat {line!r} that {flaw}")
+    return found
 
 
 def decode(line: str, path: Path) -> list[str]:

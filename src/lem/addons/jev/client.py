@@ -17,6 +17,8 @@ if TYPE_CHECKING:
 
 # The default in main's Jev client (2026-11-25).
 TIMEOUT_SECONDS = 120.0
+# The provider error excerpt on main (2026-11-25).
+EXCERPT_CHARS = 400
 
 
 class Config(Frozen, frozen=True, kw_only=True):
@@ -55,23 +57,23 @@ def config(environ: Mapping[str, str]) -> Config:
     """Check the endpoint without reporting any credentials in it."""
     try:
         address = httpx.URL(environ.get("JEV_API_URL", "").strip() or URL)
-    except httpx.InvalidURL as error:
-        raise bad_url() from error
-    if address.scheme not in {"http", "https"} or not address.host or address.userinfo:
-        raise bad_url()
+    except httpx.InvalidURL:
+        address = None
+    if (
+        address is None
+        or address.scheme not in {"http", "https"}
+        or not address.host
+        or address.userinfo
+    ):
+        raise Refusal(
+            "jev-url",
+            "the owner's JEV_API_URL is invalid",
+            "set JEV_API_URL to the provider's decisions endpoint",
+        )
     return Config(
         url=str(address),
         model=environ.get("JEV_MODEL", "").strip() or MODEL,
         timeout=timeout(environ.get("JEV_TIMEOUT", str(TIMEOUT_SECONDS))),
-    )
-
-
-def bad_url() -> Refusal:
-    """The fix for a malformed endpoint address."""
-    return Refusal(
-        "jev-url",
-        "the owner's JEV_API_URL is invalid",
-        "set JEV_API_URL to the provider's decisions endpoint",
     )
 
 
@@ -111,9 +113,15 @@ def ask(
             )
             sent.raise_for_status()
     except httpx.HTTPError as error:
-        raise Refusal(
-            "jev-request",
-            f"the owner's Jev request failed: {type(error).__name__}",
-            "check the provider's status, endpoint and key",
-        ) from error
+        raise request_error(error, secret) from error
     return reply.read(sent.content, asked)
+
+
+def request_error(error: httpx.HTTPError, secret: str) -> Refusal:
+    """Give the provider's status and a short excerpt without the owner's key."""
+    why = f"the owner's Jev request failed: {type(error).__name__}"
+    if isinstance(error, httpx.HTTPStatusError):
+        status = error.response.status_code
+        excerpt = error.response.text.replace(secret, "[redacted]")[:EXCERPT_CHARS]
+        why = f"the owner's Jev provider answered HTTP {status}: {excerpt}"
+    return Refusal("jev-request", why, "check the provider's status, endpoint and key")

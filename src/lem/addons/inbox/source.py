@@ -2,9 +2,9 @@
 
 from typing import TYPE_CHECKING
 
-from lem.model.owner import merging, need, waiting
+from lem.addons.inbox import merges
+from lem.model.owner import need, waiting
 from lem.records.base import Frozen
-from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
     from lem.app.owner.looking import Looked
@@ -58,7 +58,12 @@ def eligible_rows(present: tuple[Row, ...]) -> tuple[Row, ...]:
 def wait_of(found: RowFacts) -> Wait | None:
     """A live session answers. A note explains when the owner must use the board."""
     row = found.row
-    asks = row.kind not in OWN_NOTE and not row.say and merge_ok(found)
+    review = merges.review_of(found)
+    asks = (
+        row.kind not in OWN_NOTE
+        and not row.say
+        and (row.kind != "merge" or review is not None)
+    )
     if asks and still_opening(found):
         return None
     return Wait(
@@ -68,7 +73,8 @@ def wait_of(found: RowFacts) -> Wait | None:
         since=row.since,
         asks=asks,
         session=found.claude if asks else None,
-        tip=tip_of(found),
+        tip=merges.tip_of(found),
+        review_digest=merges.identity(review),
     )
 
 
@@ -78,27 +84,3 @@ def still_opening(found: RowFacts) -> bool:
     if session is None or not session.live or found.claude:
         return False
     return found.now - session.since < need.GRACE
-
-
-def merge_ok(found: RowFacts) -> bool:
-    """The owner's merge question must refer to the same reviewed proposal."""
-    if found.row.kind != "merge":
-        return True
-    if found.row.conflict:
-        return False
-    landing = found.look.record.landing or Landing()
-    review = merging.calling(found.look.record)
-    return bool(
-        landing.proposed
-        and not landing.refused
-        and review
-        and review.tip == landing.proposed.tip
-    )
-
-
-def tip_of(found: RowFacts) -> str | None:
-    """Bind any message about a merge to its full proposed tip."""
-    landing = found.look.record.landing
-    if found.row.kind == "merge" and landing and landing.proposed:
-        return landing.proposed.tip
-    return None

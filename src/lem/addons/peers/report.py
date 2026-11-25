@@ -22,20 +22,34 @@ async def report(joined: dict[str, int]) -> tuple[commands.Answer, ...]:
         space = local.status()
     except Refusal as error:
         return tuple(
-            commands.Answer(
-                name=name, port=port, url="", reachable=False, said=error.why
-            )
-            for name, port in joined.items()
+            unavailable(name, port, error.why) for name, port in joined.items()
         )
     async with httpx.AsyncClient(timeout=look.LIST_TIMEOUT, trust_env=False) as client:
         return tuple(
             await asyncio.gather(
                 *(
-                    commands.probe(
-                        name, port, tailnet.address(space.suffix, name, port), client
-                    )
+                    one(name, port, space.suffix, client)
                     for name, port in joined.items()
                 ),
                 return_exceptions=False,
             )
         )
+
+
+async def one(
+    name: str, port: int, suffix: str, client: httpx.AsyncClient
+) -> commands.Answer:
+    """A renamed or unreachable machine leaves the other rows intact."""
+    try:
+        base = tailnet.address(suffix, name, port)
+    except Refusal as error:
+        return unavailable(name, port, error.why)
+    try:
+        return await commands.probe(name, port, base, client)
+    except Refusal as error:
+        return unavailable(name, port, error.why, base)
+
+
+def unavailable(name: str, port: int, why: str, base: str = "") -> commands.Answer:
+    """Keep a failed peer's address and its reason when either can be read."""
+    return commands.Answer(name=name, port=port, url=base, reachable=False, said=why)

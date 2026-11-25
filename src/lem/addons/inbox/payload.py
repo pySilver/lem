@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from lem.addons.inbox import body, note
 from lem.addons.inbox.messages import Payload
 from lem.addons.inbox.records import Entry
+from lem.records.base import Frozen
 
 if TYPE_CHECKING:
     from lem.addons.inbox.records import Wait
@@ -17,16 +18,25 @@ REPLACED = (
 )
 
 
+class Material(Frozen, frozen=True, kw_only=True):
+    """The plan path to attach and the breaker text to show above the question."""
+
+    plan: str | None = None
+    breaker: str | None = None
+
+
 def message(
     wait: Wait,
     found: RowFacts,
     project: str,
     link: str,
-    plan: str | None,
+    written: Material,
 ) -> Entry:
     """Build the note or question and include the task's own board link."""
-    attachment = plan if wait.session and wait.kind == "plan" else None
+    attachment = written.plan if wait.session and wait.kind == "plan" else None
     words = body.question(found, attachment) if wait.session else note.note(found)
+    if wait.session and written.breaker:
+        words = f"{written.breaker}\n\n{words}"
     key = f"lem-{wait.key}-{token_hex(6)}"
     payload = Payload(
         body=f"{words}\n\n[Open the task on the board]({link})",

@@ -8,7 +8,7 @@ import pytest
 from fakes.command import lem
 from fakes.repo import RealRepo, run_git, write
 from lem.addons.experts import ask, audience, record, seats
-from lem.addons.experts.records import Asked
+from lem.addons.experts.records import Asked, Brief
 from lem.kernel.errors import Refusal
 
 SELLER = ".lem/personas/seller.md"
@@ -31,6 +31,7 @@ def test_brief_and_shared_pick(tmp_path: Path) -> None:
     )
     path = Path(saved.brief)
     text = path.read_text()
+    assert text.index("## Who the code is for") < text.index("## Your answer")
     for phrase in (
         "Which store?",
         "One export needs it.",
@@ -72,7 +73,12 @@ def test_brief_and_shared_pick(tmp_path: Path) -> None:
 def test_open_question_persists_words_and_never_picks(tmp_path: Path) -> None:
     repo = RealRepo.init(tmp_path / "repo", {SELLER: PERSON})
     saved = ask.ask(repo.checkout, Asked(question="What works?", seats=EXPLICIT))
-    assert "The project has no profile" in Path(saved.brief).read_text()
+    text = Path(saved.brief).read_text()
+    audience_end = text.index("## Your answer")
+    audience_words = text[text.index("## Who the code is for") : audience_end]
+    assert "The project has no profile" in audience_words
+    assert "Sells gifts." in audience_words
+    assert "Answer as an engineer." in audience_words
     first = Path(saved.answers["fable"])
     first.write_text("pick: Redis\nwhy: Example")
     with pytest.raises(Refusal, match="brief"):
@@ -186,3 +192,37 @@ def test_cli_envelope_and_no_bytecode(tmp_path: Path) -> None:
     assert received.envelope()["ok"] is True
     assert not tuple(Path(ask.__file__).parent.glob("__pycache__"))
     assert str(repo.checkout) not in os.environ["HOME"]
+
+
+@pytest.mark.parametrize(
+    "bad", ("codex/sol:high/extra", "codex/sol/tool:high", "claude/opus:HIGH")
+)
+def test_invalid_explicit_expert_seat_is_refused_before_publication(
+    tmp_path: Path, bad: str
+) -> None:
+    repo = RealRepo.init(tmp_path / "repo", {SELLER: PERSON})
+    with pytest.raises(Refusal, match="--seat"):
+        ask.ask(repo.checkout, Asked(question="Which path?", seats=(bad,)))
+    assert not (repo.checkout / ".lem/state/experts").exists()
+
+
+def test_expert_brief_passes_the_same_strict_input_to_the_addon(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import msgspec
+
+    from lem.cli.experts import brief
+
+    called = Asked(question="Which path?", seats=EXPLICIT)
+
+    def capture(folder: Path, given: Asked) -> Brief:
+        assert folder == tmp_path
+        assert given is called
+        raise Refusal("captured", "captured the input", "no fix")
+
+    monkeypatch.setattr(brief, "folder", lambda: tmp_path)
+    monkeypatch.setattr(brief.ask, "ask", capture)
+    with pytest.raises(Refusal, match="captured"):
+        brief.run(called)
+    with pytest.raises(msgspec.ValidationError, match="unknown field"):
+        msgspec.convert({"question": "Which path?", "extra": True}, Asked)

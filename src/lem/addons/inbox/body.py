@@ -3,9 +3,8 @@
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from lem.addons.inbox.source import tip_of
+from lem.addons.inbox import merges
 from lem.addons.inbox.stops import block, breaker
-from lem.model.owner import merging
 from lem.records.holds import Blocked, OwnerHold
 
 if TYPE_CHECKING:
@@ -64,8 +63,8 @@ def common(found: RowFacts) -> tuple[str, str]:
 def merge(found: RowFacts) -> tuple[str, str]:
     """Name the full tip and the merge reader's reason."""
     record = found.look.record
-    tip = tip_of(found)
-    review = merging.calling(record)
+    tip = merges.tip_of(found)
+    review = merges.review_of(found)
     why = (review.why or "") if review else ""
     slug = record.task.slug
     return f"Merge {slug} at commit {tip}?", merge_context(record.landing, why)

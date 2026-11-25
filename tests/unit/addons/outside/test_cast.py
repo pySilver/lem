@@ -164,3 +164,13 @@ def test_panel_folder_lives_in_the_main_checkout(tmp_path: Path) -> None:
     assert (
         run_git(repo.checkout, "status", "--porcelain", "--untracked-files=all") == ""
     )
+
+
+def test_persona_seats_allow_the_agent_to_supply_defaults(tmp_path: Path) -> None:
+    text = '---\nseats: ["claude/opus", "codex", "claude:low"]\n---\n'
+    found, _ = front.frontmatter(text, tmp_path / "seller.md")
+    assert [(seat.agent, seat.model, seat.effort) for seat in found] == [
+        ("claude", "opus", None),
+        ("codex", None, None),
+        ("claude", None, "low"),
+    ]

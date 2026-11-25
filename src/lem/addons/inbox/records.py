@@ -17,6 +17,7 @@ class Wait(Frozen, frozen=True, kw_only=True):
     asks: bool = False
     session: str | None = None
     tip: str | None = None
+    review_digest: str | None = None
 
 
 class Entry(Frozen, frozen=True, kw_only=True):
