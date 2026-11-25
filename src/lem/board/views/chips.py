@@ -14,8 +14,8 @@ from lem.records.journal.landing import CarefulMissed
 
 if TYPE_CHECKING:
     from lem.board.views.world import Seen
-    from lem.records.record import Record
     from lem.model.owner.looks import Row
+    from lem.records.record import Record
     from lem.records.task import Task
 
 TYPE = "The type of the request, as Lem took it from the request: {kind}, because {why}"
