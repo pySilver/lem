@@ -139,6 +139,17 @@ Asked: a `GitTree` part of the port with these, and the adapter's methods; then 
     what the record says now; a read of the plan's file at each run is open, for the owner of the
     criteria to ask.
 
+## For `task`: the hold of a red base
+
+16. `landing.md` E, "Red base" and "Repair limit": the stage opens a repair task and holds this
+    one `blocked: the base is red, after: SLUG` (`stages/land.md` step 4; on `main`, `lem project
+    state SLUG blocked "the base is red" "after: SLUG"`), and after a second builder on one
+    failure holds it `blocked`. No command of the merged tree sets a `Blocked` hold with `after`
+    (only `start`'s "no checks" and a seat's failure do), and none clears it when the repair task
+    lands. The checks give the red run with what a builder repairs, and the load line starts the
+    repair of such a hold first (`checks_wanted.BASE_RED`). Asked: a command that sets and lifts
+    that hold, under the table of part 3.
+
 ## Done in a file of another step, on the brief's word
 
 - `tests/unit/landing/test_decisions.py`: the case `test_checks_refuse_serial_commands_and_a_red_

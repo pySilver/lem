@@ -1094,9 +1094,9 @@ path:owner-merge-refused-for-the-base	land-merge
 path:push-recorded-first	land-propose
 path:rebase-refused-by-git	land-base
 path:recovery	land-base
-path:red-base	land-text
+path:red-base	land-checks
 path:relands	land-base
-path:repair-limit	land-text
+path:repair-limit	land-checks
 path:retarget-after-the-locked-read	land-merge
 path:retarget-before-the-read	land-merge
 path:stale-tap	land-merge

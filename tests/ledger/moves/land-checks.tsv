@@ -1,8 +1,6 @@
 id	to	why
 check:tests/lem-serial.sh:a-task-s-new-worktree-gets-checks-setup-one-c87187177cd29b61	task	checks.setup runs once in a task's new worktree, made by `lem task worktree`, which is task's
 check:tests/lem-serial.sh:this-repository-s-own-checks-setup-gives-a-t-40d811a6cfd20b89	task	Lem's own .lem/settings.toml gives a new worktree its .venv through `lem task worktree`, which is task's
-path:red-base	land-text	the path is the stage's acts (run the red command on the base, open a repair task, the hold `blocked` with `after`, the session's wait, the second builder) through `task` commands of group 2; land-text owns stages/land.md and tests/journeys/landing/ after both are merged
-path:repair-limit	land-text	the path is the stage's acts (run the red command on the base, open a repair task, the hold `blocked` with `after`, the session's wait, the second builder) through `task` commands of group 2; land-text owns stages/land.md and tests/journeys/landing/ after both are merged
 refusal:tasks_of:the-task-s-plan-has-no-tasks-section-with-nu-6659c5cb144e22e1	land-review	the plan's count of tasks decides which read the change gets, which is `read`'s (land.cmd_read on main)
 ruling:a-lowered-bar-a-new-suppression-a-skipped-or-110297d0eb925f42	land-propose	a lowered bar with its reason makes the pull request not green: one of green's seven conditions (model/landing/green.py)
 unit:tests/unit/test_land.py:FencedPlan.test_a_heading_inside_a_fence_of_a_task_ends_no_section	land-review	the plan's `## Tasks` section is read by `read`, which decides which review the change gets
