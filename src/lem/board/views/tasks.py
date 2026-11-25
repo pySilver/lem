@@ -2,9 +2,8 @@
 who acts, each a card with its line, its time and its chips, and Done's way to the older ended
 tasks it has no card for. A parked task has no card: Waits for you lists it apart."""
 
-from typing import TYPE_CHECKING, NamedTuple
-
 from types import MappingProxyType
+from typing import TYPE_CHECKING, NamedTuple
 
 from lem.board.inputs import names
 from lem.board.inputs.parts import Link
