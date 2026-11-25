@@ -11,6 +11,7 @@ gates of the build and of its notes, each a refusal that names the way on.
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
+from lem.model.criteria import contract
 from lem.model.landing import (
     green,
     merge,
@@ -126,6 +127,7 @@ def made(record: Record, world: World, careful: tuple[str, ...]) -> Proposed:
         careful=bool(careful),
         who_acts="owner" if careful else merge.who(world, reasons),
         at=world.now,
+        contract=contract.mark(record.task),
     )
 
 

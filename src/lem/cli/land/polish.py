@@ -2,13 +2,20 @@
 
     lem land polish SLUG [--done]
 
-A stub until the step `land-checks` builds it: it refuses `not-built`.
+Its start prints what the polish builder gets; `--done` checks what it committed and keeps the
+pass. The fast track has none. The step `land-checks` owns it.
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.landing import polish
+from lem.cli import place
+
+if TYPE_CHECKING:
+    from lem.kernel.envelope import Envelope
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -18,9 +25,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     done: bool = False
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `land-checks` builds `lem land polish`."""
-    raise not_built("land polish", "land-checks")
+def run(call: Call) -> Envelope:
+    """Start the pass, or check it when it is done."""
+    return polish.run(place.folder(), call.slug, done=call.done)
 
 
 COMMAND = click.Command(
