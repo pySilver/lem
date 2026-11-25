@@ -42,10 +42,12 @@ class Entry(Frozen, frozen=True, kw_only=True):
 
 class Shelved(Frozen, frozen=True, kw_only=True):
     """The read of the backlog: its folder, the reviewer's folder, the items in the order
-    read, when, and why it did not read."""
+    read, when, why it did not read, and whether git told who added the items (with no
+    answer, no line says who added one)."""
 
     folder: str
     reviewer: str
     entries: tuple[Entry, ...] = ()
     read: Moment
     problem: str | None = None
+    told: bool = False

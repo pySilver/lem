@@ -4,6 +4,7 @@ request an investigation takes."""
 
 from typing import TYPE_CHECKING
 
+from lem.board.views import chips as chips_words
 from lem.model.decisions.breaker import CAUSES, KINDS
 from lem.records.decisions import Breaker
 from lem.records.holds import BreakerHold
@@ -41,3 +42,10 @@ def cause_of(task: Task, number: int) -> str | None:
     kind = KINDS[breaker.irreversible] if breaker.irreversible else None
     said_cause = f"{cause} ({kind})" if kind else cause
     return f"{breaker.what}: {said_cause}"
+
+
+def stop_words(breaker: Breaker) -> str:
+    """Why a breaker stopped the build, with the kind of a step no later “no” undoes."""
+    said = chips_words.BREAKS[breaker.cause]
+    kind = breaker.irreversible if breaker.cause == "irreversible" else None
+    return f"{said}: {KINDS[kind]}" if kind else said
