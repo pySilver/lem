@@ -60,7 +60,8 @@ def test_the_tab_shows_the_map_and_the_first_markdown_document(tmp_path: Path) -
         ),
     )
     assert tab.shown and tab.shown.path == "task.md"
-    assert tab.shown.meta == "task.md · markdown"
+    # the file's time is when the case laid it, which the case does not hold
+    assert tab.shown.meta.startswith("task.md · markdown · 968 B · changed ")
     document = tab.shown.body.document
     assert document and document.text.startswith("# refund-line-on-receipt")
     assert document.media == f"{BASE}/tasks/{SLUG}/media/"

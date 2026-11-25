@@ -2,10 +2,16 @@
 and the text of each file the board shows as text, read as it is (the design's part 3, "Prose
 and artifacts"): its markdown, its logs, its records and its pages, up to `CAP` bytes each."""
 
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from lem.app.sessions import log
+from lem.board.views.facts import Stat
 from lem.store import tasks
+
+if TYPE_CHECKING:
+    import os
 
 # The files of a task's folder that are no document of it: its record, its lock, and Lem's
 # acts on its sessions.
@@ -55,3 +61,26 @@ def size_of(path: Path) -> int:
         return path.stat().st_size
     except OSError:
         return CAP + 1
+
+
+def stats_of(folder: Path, files: tuple[str, ...]) -> tuple[Stat, ...]:
+    """The size and the time of each file of the folder that still reads."""
+    found = ((name, stat_of(folder / name)) for name in files)
+    return tuple(
+        Stat(path=name, size=stat.st_size, changed=moment_of(stat.st_mtime))
+        for name, stat in found
+        if stat is not None
+    )
+
+
+def stat_of(path: Path) -> os.stat_result | None:
+    """A file's facts, or None when it is gone."""
+    try:
+        return path.stat()
+    except OSError:
+        return None
+
+
+def moment_of(stamp: float) -> datetime:
+    """A file's time as a moment."""
+    return datetime.fromtimestamp(stamp, tz=UTC)

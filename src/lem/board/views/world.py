@@ -10,8 +10,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from lem.app.sessions.acts import Act
+from lem.board.views.facts import Commit, Filed, Stat
 from lem.model.owner.looks import Session, Stop
-from lem.records.base import Frozen, Sha
+from lem.records.base import Frozen
 from lem.records.owner import Presence
 from lem.records.record import Record
 
@@ -23,31 +24,18 @@ if TYPE_CHECKING:
     from lem.board.views.inbox_read import Inbox
 
 
-class Commit(Frozen, frozen=True, kw_only=True):
-    """The newest commit of a task's branch: its id and its subject."""
-
-    sha: Sha
-    subject: str
-
-
-class Filed(Frozen, frozen=True, kw_only=True):
-    """A backlog item the task's branch adds: its path and its title."""
-
-    path: str
-    title: str
-
-
 class Seen(Frozen, frozen=True, kw_only=True):
     """A task's record and what lies beside it: Lem's acts on its sessions, the files of its
-    folder, the prose it shows read as it is (`task.md`, a breaker's document, the merge
-    review), the newest commit of its branch, the backlog items its branch adds (None when git
-    cannot tell), whether its worktree is there, its live session as the terminal shows it, and
-    the guard's stop that stands over it."""
+    folder, the size and time of each, their text read as it is (`task.md`, a breaker's
+    document, the merge review), the newest commit of its branch, the backlog items its branch
+    adds (None when git cannot tell), whether its worktree is there, its live session as the
+    terminal shows it, and the guard's stop that stands over it."""
 
     record: Record
     acts: tuple[Act, ...] = ()
     files: tuple[str, ...] = ()
     prose: tuple[tuple[str, str], ...] = ()
+    stats: tuple[Stat, ...] = ()
     head: Commit | None = None
     filed: tuple[Filed, ...] | None = None
     worktree: bool = False

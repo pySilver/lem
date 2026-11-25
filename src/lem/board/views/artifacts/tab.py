@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from lem.board.inputs.clock import stamp
 from lem.board.inputs.names import plural
 from lem.board.inputs.task.artifacts import Artifacts, Shown
-from lem.board.views.artifacts import kinds
+from lem.board.views.artifacts import kinds, meta
 from lem.board.views.artifacts.addresses import raw_href
 from lem.board.views.artifacts.body import body
 from lem.board.views.artifacts.chosen import chosen_of
@@ -34,14 +34,12 @@ def shown_of(world: World, seen: Seen, entry: Entry) -> Shown:
     alone."""
     wide = entry.kind == kinds.HTML and not entry.first
     alone = raw_href(world, seen.record.task.slug, entry.path) if wide else None
-    word = kinds.WORDS[entry.kind]
-    meta = f"{entry.path} · {word}"
     return Shown(
         path=entry.path,
         title=entry.spot.title or entry.path,
         kind=entry.kind,
         icon=kinds.ICONS[entry.kind],
-        meta=meta,
+        meta=meta.meta_of(world, seen, entry),
         alone=alone,
         body=body(world, seen, entry),
     )

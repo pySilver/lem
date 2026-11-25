@@ -61,6 +61,7 @@ def seen_of(checkout: Path, record: Record, ask: Ask, *, demo: bool) -> Seen:
         acts=acts,
         files=files,
         prose=folder.prose_of(where, files),
+        stats=folder.stats_of(where, files),
         head=branch.head_of(ask.git, checkout, task, ask.place),
         filed=branch.filed_of(ask.git, checkout, task, ask.place),
         worktree=(checkout / WORKTREES / task.slug / ".git").exists(),

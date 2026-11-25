@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Protocol
 
 import frontmatter
 
-from lem.board.views.world import Commit, Filed
+from lem.board.views.facts import Commit, Filed
 
 if TYPE_CHECKING:
     from pathlib import Path
