@@ -37,11 +37,13 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 def run(call: Call) -> Served:
     """Serve the board in this process until it stops, and say which server it was."""
-    port = vacant.vacant(paths.home(os.environ), os.environ, call.port)
+    host = call.host or HOST
+    home = paths.home(os.environ)
+    port = vacant.vacant(home, os.environ, call.port, host)
     home = folders.home_for_writing(os.environ)
     workspaces.noted(home, place.folder())
     server = importlib.import_module("lem.board.server")
-    return server.run(port, call.host or HOST, verbose=call.verbose, home=home)
+    return server.run(port, host, verbose=call.verbose, home=home)
 
 
 COMMAND = click.Command(

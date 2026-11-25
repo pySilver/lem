@@ -140,6 +140,24 @@ def test_task_files_refuse_a_root_link_outside_its_boundary(
     assert board.main().head(url).status_code == 404
 
 
+def test_task_files_refuse_a_slot_that_links_to_a_sibling_task(board: Board) -> None:
+    tasks.create(board.state, record("fix-the-login"))
+    root = board.state / "tasks"
+    task = root / "fix-the-login"
+    (root / "update-docs").symlink_to(task, target_is_directory=True)
+    (task / "talk.html").write_text("<p>the login report</p>")
+    (task / "media").mkdir()
+    (task / "media" / "shot.png").write_bytes(PNG)
+    for artifact in ("raw/talk.html", "media/shot.png"):
+        assert (
+            board.main().get(f"/studio/shop/tasks/fix-the-login/{artifact}").status_code
+            == 200
+        )
+        linked = f"/studio/shop/tasks/update-docs/{artifact}"
+        assert board.main().get(linked).status_code == 404
+        assert board.main().head(linked).status_code == 404
+
+
 @pytest.mark.parametrize(
     ("asked", "goes"),
     [

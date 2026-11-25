@@ -40,16 +40,14 @@ def stopped(connection: HTTPConnection, port: int, facts: Facts) -> None:
         said = reply.body.decode(errors="replace")
         why = f"the board server (pid {facts.pid}) refused the stop: {said}"
         raise Refusal("stop-refused", why, fix)
-    gone(port, facts)
+    gone(port, facts, connection.host)
 
 
-def free(port: int) -> bool:
+def free(port: int, host: str) -> bool:
     """Whether nothing listens on the port: a connection is refused. A server that ends may
     still take a connection and reset it, which is not free yet."""
     try:
-        socket.create_connection(
-            (client.LOOPBACK, port), timeout=client.ASK_WAIT
-        ).close()
+        socket.create_connection((host, port), timeout=client.ASK_WAIT).close()
     except ConnectionRefusedError:
         return True
     except OSError:
@@ -57,10 +55,10 @@ def free(port: int) -> bool:
     return False
 
 
-def gone(port: int, facts: Facts) -> None:
+def gone(port: int, facts: Facts, host: str) -> None:
     """Wait until nothing listens on the port the stopped server held."""
     deadline = time.monotonic() + STOP_WAIT
-    while not free(port):
+    while not free(port, host):
         if time.monotonic() > deadline:
             raise Refusal(
                 "stop-late",

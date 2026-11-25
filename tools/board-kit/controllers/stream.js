@@ -2,15 +2,13 @@
 // (`refresh`: Turbo fetches the page again and morphs it in). The element is permanent, so it lives
 // across the visits of one workspace and its words in the status bar are its own.
 //
-// An open after a render, the page's load or a visit that changes the task in its address, names the last
-// id seen (`?rendered=`), and the server sends a refresh at once only when the log is no longer at it: the
-// page shows what its live stream told it, and a refresh there would morph over the visit and over a click
-// made during it. An open after the page may have missed a change (back into view, out of the back-forward
+// An open after a render names the version that render shows (`?rendered=`). The version is in the
+// page or task frame, outside the permanent live indicator. The server refreshes the page only when
+// the files of that scope have changed. An open after the page may have missed a change (back into view, out of the back-forward
 // cache, Turbo's snapshot shown by a back or forward gesture, or after its stream went down) names it as
 // `?since=`, and the server sends a refresh at once whatever the log, since a change the page missed may add
-// no line to it (the owner's mark, the settings, a task's files). An id is the log's version, its inode and its count of lines in one text ("8812-140"),
-// kept whole: a log that `lem project prune` replaced has another inode, so the page is told also when the
-// count is the same. With a task open (its address), the stream watches that task's files too (`&task=`).
+// no line to it (the owner's mark, the settings, a task's files). With a task open, the stream
+// watches that task's files too (`&task=`).
 //
 // A refresh that comes while a form of the page is posted waits for the post's end: Turbo's visit of the
 // refresh would stop the post, so the page would never follow its answer (the start of a task from a
@@ -78,7 +76,6 @@ export default class extends Controller {
     document.addEventListener('turbo:visit', this.onRestore)
     document.addEventListener('turbo:load', this.onLoad)
     document.addEventListener('turbo:frame-load', this.onVisit)
-    window.addEventListener('popstate', this.onVisit)
     this.timer = setInterval(() => this.tick(), 1000)
     this.open()
   }
@@ -92,20 +89,21 @@ export default class extends Controller {
     document.removeEventListener('turbo:visit', this.onRestore)
     document.removeEventListener('turbo:load', this.onLoad)
     document.removeEventListener('turbo:frame-load', this.onVisit)
-    window.removeEventListener('popstate', this.onVisit)
     clearInterval(this.timer)
     this.close()
   }
 
   // the task open in the page's address, whose files the stream watches too (an artifact written with no event)
   task () {
-    return /\/tasks\/([a-z0-9-]+)/.exec(location.pathname)?.[1] ?? ''
+    return /^\/[^/]+\/[^/]+\/tasks\/([a-z0-9-]+)(?:\/|$)/.exec(location.pathname)?.[1] ?? ''
   }
 
   open () {
     this.close()
     this.watching = this.task()
-    const id = `${this.owed ? 'since' : 'rendered'}=${encodeURIComponent(this.lastId)}`
+    const marker = document.querySelector(`[data-stream-rendered][data-stream-task="${this.watching}"]`)
+    const rendered = marker?.dataset.streamRendered ?? ''
+    const id = this.owed ? `since=${encodeURIComponent(this.lastId)}` : `rendered=${encodeURIComponent(rendered)}`
     this.again = this.owed
     const source = new EventSource(`${this.urlValue}?${id}${this.watching ? `&task=${this.watching}` : ''}`)
     const heard = ev => {

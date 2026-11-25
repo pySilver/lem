@@ -15,8 +15,8 @@ from typing import TYPE_CHECKING
 from lem.board import install, machine, publish, tailnet, tailscale
 from lem.board.door import Door
 from lem.board.facts import Facts
-from lem.kernel import clock
-from lem.kernel.errors import Refusal
+from lem.kernel import clock, errors
+from lem.settings.checked import serve_ports
 
 if TYPE_CHECKING:
     import socket
@@ -39,7 +39,7 @@ def login_now(cli: str, before: str) -> str:
     does not answer."""
     try:
         return tailnet.facts(tailnet.status(cli))[1]
-    except Refusal as refused:
+    except errors.Refusal as refused:
         sys.stderr.write(
             f"the door: the owner's login was not read again: {refused.why}\n"
         )
@@ -48,12 +48,7 @@ def login_now(cli: str, before: str) -> str:
 
 def checked_door_port(port: int, door: int, environ: Mapping[str, str]) -> int:
     """Both listeners need distinct ports that this home may use."""
-    if door == port:
-        raise Refusal(
-            "door-port",
-            f"the main port and the door's port are both {port}",
-            "give the door a port of its own: lem settings set serve.tailscale_port N --machine",
-        )
+    serve_ports(port, door)
     machine.guarded(port, environ)
     return machine.guarded(door, environ)
 

@@ -11,10 +11,10 @@ What the board service gives the other steps, and what it needs in files it does
   home, environment, the stop, the counts, the watcher), `life.py` (serve.json, the duties and
   the push watcher while the server runs).
 - The replace rule (`install.replaces`, `ensure.kept`): the same install keeps `main`'s rule (a
-  server whose code or settings differ is replaced; the settings are now the door's port, which
-  `ensure.door_wanted` reads from `[serve]`); another install replaces it only at a higher
-  release. `ensure.rebound` stops the server that `serve.json` names on a port the settings left,
-  so a moved `serve.port` takes effect at the next ensure, whoever wrote it.
+  server whose code or settings differ is replaced; `ensure.held` takes the main and door ports
+  from `[serve]`); another install replaces it only at a higher release. `ensure.rebound` stops
+  the listener that `serve.json` names on a port the settings left, so a moved `serve.port`
+  takes effect at the next ensure, whoever wrote it.
 - The door: `door.py` (the check of every request, the owner's login read again at most once in
   30 s), `tailscale.py` (the CLI: a home that is not the owner's runs only the one
   `LEM_TAILSCALE` names), `tailnet.py` (status, name, login), `served.py` and `publish.py` (the
@@ -37,7 +37,13 @@ What the board service gives the other steps, and what it needs in files it does
 The plan gives `stream.py` to board-pages and amendment A8 (the stream polls) to this step. This
 step changed it as little as A8 needs: `awatch` left for a loop of `anyio.sleep(TICK)` (0.5 s)
 that compares `watched.look(state, home, task)`, and `events` takes `home` and `task`
-(`?task=SLUG`); the id is still `version(state)`. `watchfiles` left `pyproject.toml`.
+(`?task=SLUG`); the id is that look's digest. `watchfiles` left `pyproject.toml`.
+
+The stream controller reads `data-stream-rendered` from the newly rendered scope when it opens.
+The layout puts it on `main` with `data-stream-task=""` for the workspace or the slug for a full
+task page. Read `watched.look(state, home, slug)` before reading the task or its files. Put that
+digest and slug on the rendered task frame too, so a frame visit can supply its own version.
+Keep both attributes outside the permanent live indicator.
 
 ## For `board-acts`
 

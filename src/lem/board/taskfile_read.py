@@ -16,10 +16,10 @@ REGULAR = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
 
 
 def task_root(state: Path, slug: str) -> Path | None:
-    """A resolved task folder below the workspace's task directory and state."""
+    """The task's own slot in the resolved task directory below this workspace's state."""
     tasks = (state / "tasks").resolve()
-    task = places.task_folder(state, slug).resolve()
-    return task if state in tasks.parents and tasks in task.parents else None
+    slot = tasks / places.task_folder(state, slug).name
+    return slot if state in tasks.parents and slot.resolve() == slot else None
 
 
 def read_resolved(found: Path) -> bytes | None:

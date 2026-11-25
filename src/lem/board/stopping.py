@@ -8,7 +8,7 @@ the connection that asked who serves.
 import os
 from typing import TYPE_CHECKING
 
-from lem.board import client, halt, heard, install, lock, machine
+from lem.board import addresses, client, halt, heard, install, lock, machine
 from lem.board.facts import Facts, Stopped
 from lem.kernel import paths
 
@@ -31,12 +31,20 @@ def left(found: Facts | heard.Other) -> Stopped:
     return Stopped(stopped=False, pid=found.pid, version=served.version, said=said)
 
 
+def target(home: Path, environ: Mapping[str, str]) -> addresses.Address:
+    """The recorded listener, or the configured port when there is no record."""
+    return addresses.recorded(home, environ) or (
+        client.LOOPBACK,
+        machine.port_of(home, environ),
+    )
+
+
 def stop(environ: Mapping[str, str] = os.environ) -> Stopped:
     """End the board server of this install and home folder, if one runs on its port; a
     server of another install is left as it is."""
     home = paths.home(environ)
-    port = machine.port_of(home, environ)
-    found = client.ask(port, home)
+    host, port = target(home, environ)
+    found = client.ask(port, home, host)
     if found is None:
         return Stopped(stopped=False, said=f"no board server runs on port {port}")
     if isinstance(found, heard.Other) or found.install.package != mine():
@@ -48,8 +56,8 @@ def stop(environ: Mapping[str, str] = os.environ) -> Stopped:
 def stop_held(home: Path, environ: Mapping[str, str]) -> Stopped:
     """`stop` with the serve lock held: the port read again, and the stop on the connection
     that asked who serves."""
-    port = machine.port_of(home, environ)
-    with client.opened(port) as connection:
+    host, port = target(home, environ)
+    with client.opened(port, host) as connection:
         found = client.looked(connection, port, home)
         if not isinstance(found, Facts) or found.install.package != mine():
             return Stopped(

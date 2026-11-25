@@ -21,7 +21,7 @@
 </aside>
 <div class="main">
 <header class="bar"><h1>{% block heading %}{% endblock %}</h1></header>
-<main class="stage" id="stage">{% block view %}{% endblock %}</main>
+<main class="stage" id="stage" data-stream-task="{{ request.path_params.get('slug', '') }}" data-stream-rendered="{{ board.version }}">{% block view %}{% endblock %}</main>
 <footer class="status" id="status">
 <span class="st-right"><span class="st-live" id="live-{{ board.host }}-{{ board.workspace }}" data-turbo-permanent data-controller="stream" data-stream-url-value="{{ board.stream }}" data-stream-since-value="{{ board.version }}">connecting…</span></span>
 </footer>

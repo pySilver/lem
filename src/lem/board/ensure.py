@@ -9,16 +9,15 @@ nothing and write nothing: a test sets it, and a test that starts a server on pu
 out for that one call.
 """
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lem.board import (
+    addresses,
     client,
     heard,
     install,
     lock,
     machine,
-    serve_file,
     start,
     workspaces,
 )
@@ -28,6 +27,7 @@ from lem.kernel import paths
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from pathlib import Path
 
 NO_START = "off"
 type Found = Facts | heard.Other | None
@@ -59,53 +59,72 @@ def shown(found: Found, *, started: bool, said: str | None = None) -> Shown:
     )
 
 
-def kept(found: Found, *, moved: bool = False) -> Shown | None:
+def kept(found: Found, door: int | None, *, moved: bool = False) -> Shown | None:
     """The outcome when the server that runs stays, else None: this install replaces it."""
     if found is None:
         return None
     if isinstance(found, heard.Other):
         return shown(found, started=False)
     mine = install.install_of()
-    differ = moved or found.door != door_wanted(Path(found.home))
+    differ = moved or found.door != door
     if install.replaces(mine, found.install, settings_differ=differ):
         return None
     said = None if found.install == mine else "another install of Lem serves"
     return shown(found, started=False, said=said)
 
 
-def door_wanted(home: Path) -> int | None:
-    """The door's port the machine's settings open, None while they keep it closed."""
-    settings = machine.settings(home)
-    return settings.tailscale_port if settings.tailscale else None
-
-
-def rebound(home: Path, port: int, environ: Mapping[str, str]) -> Shown | None:
-    """Keep or stop the server of this home folder on the port the settings left."""
-    named = serve_file.read(home)
-    if named is None or named.port == port:
+def rebound(
+    home: Path,
+    target: addresses.Address,
+    door: int | None,
+    environ: Mapping[str, str],
+) -> Shown | None:
+    """Keep or stop a server of this home folder at another address."""
+    named = addresses.recorded(home, environ)
+    if named is None or named == target:
         return None
-    if named.home != str(home):
-        return None
-    if not machine.allowed(named.port, environ):
-        return None
-    with client.opened(named.port) as connection:
-        found = client.looked(connection, named.port, home)
-        stays = kept(found, moved=True)
+    port = named[1]
+    with client.opened(port, named[0]) as connection:
+        try:
+            found = client.looked(connection, port, home)
+        except heard.Unrelated:
+            return None
+        stays = kept(found, door, moved=port != target[1])
         if stays is not None:
             return stays
         if isinstance(found, Facts) and connection is not None:
-            stopped(connection, named.port, found)
+            stopped(connection, port, found)
     return None
 
 
 def held(home: Path, environ: Mapping[str, str], folder: Path) -> Shown:
-    """`ensure` with the serve lock held: a server on a port the settings left stopped, the
-    port read again, the server that runs kept or stopped on the connection that asked, and
-    one of this install started."""
-    port = machine.port_of(home, environ)
+    """Check both ports under the serve lock, before any server stops."""
+    settings = machine.settings(home)
+    port = machine.guarded(settings.port, environ)
+    door = None
+    if settings.tailscale:
+        door = machine.guarded(settings.tailscale_port, environ)
+    stays = kept(addresses.alternate(home, environ, port), door)
+    if stays is not None:
+        if not stays.another_install:
+            workspaces.noted(home, folder)
+        return stays
+    return managed(home, environ, folder, port, door)
+
+
+def managed(
+    home: Path,
+    environ: Mapping[str, str],
+    folder: Path,
+    port: int,
+    door: int | None,
+) -> Shown:
+    """After the ports check, keep or replace the server of this home folder."""
     with client.opened(port) as connection:
         found = client.looked(connection, port, home)
-        stays = kept(found) or rebound(home, port, environ)
+        stays = kept(found, door) or rebound(
+            home, (client.LOOPBACK, port), door, environ
+        )
         if stays is not None:
             if not stays.another_install:
                 workspaces.noted(home, folder)
@@ -122,7 +141,7 @@ def ensure(environ: Mapping[str, str], folder: Path) -> Shown:
     `folder` goes on its list when this build's server serves."""
     home = paths.home(environ)
     port = machine.port_of(home, environ)
-    found = client.ask(port, home)
+    found = addresses.alternate(home, environ, port) or client.ask(port, home)
     if isinstance(found, heard.Other):
         return shown(found, started=False)
     if environ.get("LEM_SERVE") == NO_START:

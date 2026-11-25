@@ -62,6 +62,8 @@ def check(tables: files.Tables, scope: places.Scope, name: str, where: Where) ->
         checked.branch(found.branch, name)
     if isinstance(found, Machine):
         checked.handoff(found.handoff, name, HANDOFF_FLOOR)
+        if found.serve.tailscale:
+            checked.serve_ports(found.serve.port, found.serve.tailscale_port)
 
 
 def source(scope: places.Scope, where: Where) -> Named:
