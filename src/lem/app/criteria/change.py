@@ -17,6 +17,7 @@ from lem.app.decisions.writing import Change, written
 from lem.kernel import clock, files
 from lem.kernel.errors import Refusal
 from lem.model.criteria import digest, note, waits
+from lem.model.decisions.words import spaced
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -40,7 +41,7 @@ def changing(here: where.Here, words: str, text: str, record: Record) -> Made:
 
 def changed(folder: Path, slug: str, path: Path, words: str) -> note.Shown:
     """`lem criteria change SLUG --file FILE --words NOTE`: the record first, then the file."""
-    note = " ".join(words.split())
+    note = spaced(words)
     if not note:
         raise Refusal(
             "no-words",

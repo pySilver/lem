@@ -12,7 +12,8 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 
 from lem.kernel.errors import Refusal
-from lem.model.decisions import applied, book, ladder
+from lem.model.decisions import applied, book
+from lem.model.decisions.words import spaced, text_of
 from lem.records.base import Frozen
 from lem.records.decisions import CriterionChanged, Taken
 
@@ -63,7 +64,7 @@ def formed(asked: Asked) -> None:
     """Refuse a change whose words do not fit its kind, with no why, or that names both or
     none of a decision and who changed it."""
     sides(asked)
-    if not ladder.spaced(asked.why):
+    if not spaced(asked.why):
         raise Refusal(CODE, "--why is empty", "give --why one plain sentence")
     if (asked.decision is None) == (asked.by is None):
         raise Refusal(
@@ -108,13 +109,13 @@ def change_of(task: Task, asked: Asked, now: datetime) -> CriterionChanged:
         at=now,
         how=asked.how,
         criterion=asked.number,
-        why=ladder.spaced(asked.why),
+        why=spaced(asked.why),
         approval=approvals[-1].number,
-        was=asked.was.strip() if asked.was else None,
-        now=asked.now.strip() if asked.now else None,
+        was=text_of(asked.was).strip() if asked.was else None,
+        now=text_of(asked.now).strip() if asked.now else None,
         decision=asked.decision,
         by=asked.by,
-        said=ladder.spaced(asked.said) if asked.said else None,
+        said=spaced(asked.said) if asked.said else None,
     )
 
 

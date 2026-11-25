@@ -14,6 +14,7 @@ from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
 from lem.model.decisions import book, ladder
+from lem.model.decisions.words import spaced
 from lem.records.base import Frozen
 from lem.records.decisions import Level, Story, Taken
 from lem.records.holds import BreakerHold, Parked
@@ -53,7 +54,7 @@ def text(words: str | None, flag: str) -> str | None:
     """A text as kept, each run of spaces as one; an empty one is refused, never dropped."""
     if words is None:
         return None
-    kept = ladder.spaced(words)
+    kept = spaced(words)
     if not kept:
         raise Refusal(
             ladder.CODE, f"{flag} is empty", f"give {flag} one plain sentence"
@@ -78,7 +79,7 @@ def checked(asked: Logged) -> None:
         )
     votes = ladder.said_pairs(asked.votes, "--vote", VOTE)
     if asked.by == "personas":
-        refusal = ladder.by_personas(votes, ladder.spaced(asked.chose))
+        refusal = ladder.by_personas(votes, spaced(asked.chose))
         if refusal is not None:
             raise refusal
 

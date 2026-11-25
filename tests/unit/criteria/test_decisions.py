@@ -478,3 +478,11 @@ def test_a_decision_whose_words_hold_a_line_separator_is_kept_as_one_line(
 ) -> None:
     made = logs(ports, checkout, lead(why="one\u2028two"))
     assert made.why == "one two"
+
+
+def test_an_argument_that_is_not_utf_8_text_is_refused_before_it_is_written(
+    checkout: Path, ports: Ports
+) -> None:
+    bad = "\udcff"
+    assert refused(logs, ports, checkout, lead(why=bad)).code == "not-text"
+    assert world.read(checkout).task.decisions == ()

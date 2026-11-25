@@ -14,6 +14,7 @@ from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
 from lem.model.criteria import pairs, waits
+from lem.model.decisions.words import spaced
 from lem.records.questions import Answer
 
 if TYPE_CHECKING:
@@ -72,7 +73,8 @@ def typed(task: Task, now: datetime, words: str) -> Task:
     question = waits.question_of(task) or waits.question(task, now, None)
     answer = question.answer
     if answer is None:
-        said = Answer(option="no", label="No", note=words, source="session", at=now)
+        note = spaced(words)
+        said = Answer(option="no", label="No", note=note, source="session", at=now)
         return waits.answered(task, question, said)
     if answer.option == waits.SAID_NO and answer.source == "session":
         return task

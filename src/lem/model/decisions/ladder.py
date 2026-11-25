@@ -11,6 +11,7 @@ import re
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
+from lem.model.decisions.words import spaced
 from lem.records.decisions import Story
 
 if TYPE_CHECKING:
@@ -25,11 +26,6 @@ CASE_WAS = ("reproduced", "derived")
 CODE = "decision-form"
 
 type Said = tuple[tuple[str, str], ...]
-
-
-def spaced(text: str) -> str:
-    """A text with each run of spaces as one."""
-    return " ".join(text.split())
 
 
 def one_pair(word: str, flag: str, form: str) -> tuple[str, str]:
