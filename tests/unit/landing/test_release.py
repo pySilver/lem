@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 from msgspec.structs import replace
 
-from lem.app.landing import frame, merge, merge_called, merge_world, step
+from lem.app.landing import frame, merge, merge_called, step
 from lem.app.landing import next as next_step
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
@@ -59,7 +59,6 @@ def test_the_merge_lock_allows_a_forge_result_and_refuses_a_retry_after_the_rele
     ports.git.tree.return_value = TREE
     forge_call = Mock()
     monkeypatch.setattr(merge_called, "called", forge_call)
-    monkeypatch.setattr(merge_world, "dequeued_of", lambda context: None)
     monkeypatch.setattr(frame, "gather", lambda *args, **kwargs: facing())
     context = frame.Context(ports=ports, workspace=where, record=record, world=facing())
     asked = replace(BY_OWNER, checked=clock.compact(INTENT.at))

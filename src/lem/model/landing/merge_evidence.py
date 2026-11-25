@@ -37,27 +37,12 @@ def new_call_refusal(record: Record) -> Refusal | None:
     return guard(record) or seat_refusal(record)
 
 
-def same_pull(record: Record, shown: tuple[int, str] | None) -> Refusal | None:
-    """Why the pull request the forge shows is not the one on record: none, or another
-    repository's or number's address (H 2, in the configured repository)."""
-    landing, slug = record.landing or Landing(), record.task.slug
-    kept = landing.pull
-    if kept is not None and shown == (kept.number, kept.url):
-        return None
-    address = shown[1] if shown else "no pull request"
-    return Refusal(
-        "no-pull",
-        f"the forge shows {address}, not the pull request on record",
-        f"lem land next {slug}",
-    )
-
-
 def forge_side(record: Record, world: World, proposed: Proposed) -> Refusal | None:
     """Why the pull request is not the one proposed: not the one on record, not open,
     retargeted before the merge, or at another head."""
     slug, pull = record.task.slug, world.pull
     base = destination.recorded(record.landing) or world.rules.base
-    wrong = same_pull(record, (pull.number, pull.url) if pull else None)
+    wrong = destination.same_pull(record, (pull.number, pull.url) if pull else None)
     if wrong is not None or pull is None:
         return wrong
     if pull.state != "open":

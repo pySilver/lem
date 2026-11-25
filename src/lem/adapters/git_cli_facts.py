@@ -127,6 +127,8 @@ def clean(shell: Shell, where: Path, *, untracked: bool = True) -> bool:
     """Whether the worktree and index hold only what the commit holds."""
     files = "--untracked-files=normal" if untracked else "--untracked-files=no"
     return not shell.said(where, "status", "--porcelain", files)
+
+
 def names(path: bytes, fields: Iterator[bytes]) -> tuple[str, ...]:
     """One path, or both paths Git puts after an empty path field for a rename."""
     if path:

@@ -16,8 +16,7 @@ import msgspec
 
 from lem.kernel import files
 from lem.model.criteria import contract
-from lem.model.landing import green
-from lem.model.landing.careful_words import owner_says
+from lem.model.landing import careful_words, green
 from lem.records.landing.merge import Refused
 from lem.records.landing.propose import Standing
 
@@ -53,7 +52,7 @@ def reasons_now(record: Record, world: World | None = None) -> tuple[str, ...]:
     proposed = record.landing.proposed if record.landing else None
     seen = proposed.reasons if proposed else ()
     head = green.FAST.split("(", 1)[0]
-    fast = green.fast(record, owner_says(record, owner=False))
+    fast = green.fast(record, careful_words.owner_says(record, owner=False))
     if not fast:
         fast = tuple(reason for reason in seen if reason.startswith(head))
     return fast + green.reasons(record, (), world)

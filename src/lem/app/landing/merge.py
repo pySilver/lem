@@ -47,7 +47,7 @@ def locked(
     """Under the merge lock, on the record and the world read again: reconcile an intent on
     record, else merge on the evidence as it is now."""
     record = context.record
-    stale = merge_asked.tip_refusal(record, asked)
+    stale = merge_asked.tip_refusal(record, asked, context.world)
     if stale is not None:
         raise stale
     intent = record.landing.intent if record.landing else None
@@ -70,7 +70,7 @@ def act(
     context: Context,
     *,
     asked: merge_asked.Asked,
-    before_call: merge_called.BeforeCall | None,
+    before_call: merge_called.BeforeCall | None = None,
 ) -> object:
     """Take the merge lock, read the record and the world again, and merge on what they say
     now (`main:land.merge_locked`)."""

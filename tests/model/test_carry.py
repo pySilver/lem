@@ -65,7 +65,7 @@ def test_a_must_fix_the_newest_review_left_outlives_any_carry(
     assert last is not None
     left = review.unmet(record, last, world)
     assert left[0] == f"the last one left {review.must_fix(last)} must-fix"
-    assert green.review(landing)
+    assert green.review(record, world)
     assert review_due.resolution_due(landing, world) is None
     held = review.holds(record, world)
     if isinstance(held, Held):

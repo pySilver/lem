@@ -66,27 +66,31 @@ def printed(found: object) -> None:
     sys.stdout.write(f"{text}\n")
 
 
+def graphql(forge: LocalForge, state: State, words: list[str]) -> object:
+    number = int(
+        next(word.split("=", 1)[1] for word in words if word.startswith("number="))
+    )
+    pull = forge.pull(number)
+    assert option(words, "--jq") == ".data.repository.pullRequest"
+    return {
+        **shaped(pull),
+        "mergeQueueEntry": {
+            "__typename": "MergeQueueEntry",
+            "id": "queue-entry",
+            "createdAt": "2026-11-25T11:00:00Z",
+            "head": {"oid": pull.head},
+        }
+        if state.in_queue
+        else None,
+        "timelineItems": {"nodes": state.queue_events[-2:]},
+    }
+
+
 def outside(forge: LocalForge, state: State, words: list[str]) -> object:
     """What gh prints for `repo view` and for `api`: a pull request's `commits`, GitHub's
     total, which no list caps, or a commit's first parent."""
     if words[:2] == ["api", "graphql"]:
-        number = int(
-            next(word.split("=", 1)[1] for word in words if word.startswith("number="))
-        )
-        pull = forge.pull(number)
-        assert option(words, "--jq") == ".data.repository.pullRequest"
-        return {
-            **shaped(pull),
-            "mergeQueueEntry": {
-                "__typename": "MergeQueueEntry",
-                "id": "queue-entry",
-                "createdAt": "2026-11-25T11:00:00Z",
-                "head": {"oid": pull.head},
-            }
-            if state.in_queue
-            else None,
-            "timelineItems": {"nodes": state.queue_events[-2:]},
-        }
+        return graphql(forge, state, words)
     if "/pulls/" in words[1]:
         requested = words[1].split("/pulls/", 1)[1]
         number = int(requested.split("/", 1)[0])
@@ -99,6 +103,11 @@ def outside(forge: LocalForge, state: State, words: list[str]) -> object:
         if option(words, "--jq") == ".nameWithOwner":
             return state.name
         return {"nameWithOwner": state.name, "url": f"https://github.com/{state.name}"}
+    return commit_answer(state, words)
+
+
+def commit_answer(state: State, words: list[str]) -> object:
+    """One commit as JSON, or its first parent when gh selects it."""
     sha = words[1].rsplit("/", 1)[-1]
     if "--jq" not in words:
         return git_commit(state, sha)

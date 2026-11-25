@@ -34,7 +34,7 @@ def test_a_failed_merger_seat_blocks_dispatch_and_the_locked_call_until_retry() 
 def test_a_failed_merger_seat_keeps_forge_bookkeeping_due() -> None:
     failure = StandIn(seat="merger", failed="claude:opus", error="login", at=MOMENT)
     held = with_failure(opened(intent=INTENT), failure=failure)
-    assert phases.due(held, facing(pull=DONE)).step == "merge"
+    assert phases.due(held, facing(pull=DONE)).step == "merged"
     assert held.landing is not None
     observed = replace(held, landing=replace(held.landing, intent=None))
     assert phases.due(observed, facing(pull=DONE)).step == "merged"

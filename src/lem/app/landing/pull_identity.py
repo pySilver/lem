@@ -6,7 +6,7 @@ from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
 from lem.model.landing import world as facts
-from lem.model.landing.merge_evidence import same_pull
+from lem.model.landing.destination import same_pull
 
 if TYPE_CHECKING:
     from lem.ports.forge import Forge

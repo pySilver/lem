@@ -38,7 +38,7 @@ def test_a_red_base_waits_for_its_repair_then_starts_again(tmp_path: Path) -> No
     waiting = read(where, TASK)
     assert waiting.task.status == "ready"
     assert isinstance(waiting.task.hold, Blocked)
-    assert after_of(waiting) == REPAIR
+    assert after_of(waiting) == (REPAIR,)
     due = phases.due(waiting, world())
     assert due.step == "wait"
     assert LIFT_COMMAND in due.why
@@ -75,7 +75,7 @@ def test_the_owner_can_clear_a_red_base_after_its_repair_is_dropped(
     assert lem("task", "move", REPAIR, "dropped", cwd=tmp_path).code == 0
     assert lem("task", "park", TASK, "--why", "wait", cwd=tmp_path).code == 0
     assert lem("task", "resume", TASK, cwd=tmp_path).code == 0
-    assert after_of(read(where, TASK)) == REPAIR
+    assert after_of(read(where, TASK)) == (REPAIR,)
     assert phases.due(read(where, TASK), world()).step == "wait"
 
     moved = lem(*LIFT, cwd=tmp_path)
