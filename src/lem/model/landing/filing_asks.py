@@ -1,0 +1,55 @@
+"""Which defects `file` writes again, may judge, and asks Jev about (`land.cmd_file` on
+`main`): the items it filed that the tip no longer holds, the defects `--same` and `--new` may
+name, and those that get a file of their own with no word on them."""
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lem.model.landing import filing_place
+    from lem.model.landing.filing_plan import Place, Waiting
+    from lem.records.landing.record import Landing
+    from lem.records.landing.review import Finding
+
+
+def gone_of(landing: Landing, shelf: filing_place.Shelf) -> tuple[str, ...]:
+    """The items `file` filed that the tip no longer holds."""
+    paths = (filed.path for filed in landing.filed if filed.disposition == "item")
+    return tuple(path for path in paths if path and path not in shelf.paths)
+
+
+def again_of(
+    landing: Landing, shelf: filing_place.Shelf, *, again: bool
+) -> tuple[str, ...]:
+    """The items `--again` writes once more: each `file` filed that the tip no longer holds."""
+    return gone_of(landing, shelf) if again else ()
+
+
+def free_of(left: Waiting, shelf: filing_place.Shelf) -> set[str]:
+    """The waiting defects that get an item, with no open item of the tip that holds them:
+    those `--same` and `--new` may name."""
+    held = shelf.paths
+    found = (finding for _, finding in left)
+    return {finding.id for finding in found if free(finding, held)}
+
+
+def free(finding: Finding, held: frozenset[str]) -> bool:
+    """Whether the defect gets an item, with no open item of the tip that holds it."""
+    return finding.against != "cheap" and finding.open not in held
+
+
+type Asked = tuple[Finding, ...]
+
+
+def asks_of(left: Waiting, places: list[Place], named: set[str]) -> Asked:
+    """The defects Jev is asked about before anything is written: each that gets a file of
+    its own, beside no old item, that `--same` and `--new` do not name."""
+    found = [finding for _, finding in left]
+    pairs = zip(found, places, strict=True)
+    return tuple(finding for finding, place in pairs if asked(finding, place, named))
+
+
+def asked(finding: Finding, place: Place, named: set[str]) -> bool:
+    """Whether Jev is asked about the defect: it gets a file of its own, beside no old item,
+    and `--same` and `--new` do not name it."""
+    filed, write = place
+    return write is not None and filed.cites is None and finding.id not in named

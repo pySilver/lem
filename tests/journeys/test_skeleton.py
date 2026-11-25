@@ -70,7 +70,9 @@ Size: small, because it is one word of the README.
 """
 NO_TEST = "   - no test: the change keeps behavior; the suite holds it\n"
 # The review agent's record, in the form `prompts/review.md` gives it; its attempt and tip are
-# the ones `lem land read` printed.
+# the ones `lem land read` printed. Its defect outside the change is cheap: a line of the pull
+# request, which `file` writes no item and no commit for (an item is
+# `tests/journeys/landing/test_review.py`'s).
 REVIEW = {
     "kind": "read",
     "ran": [{"name": "claude", "why": "one read of one word"}],
@@ -85,7 +87,7 @@ REVIEW = {
             "where": "README.md",
             "title": "the README has no heading",
             "what": "README.md starts with a sentence",
-            "bar": "under",
+            "bar": "cheap",
             "why": "a heading changes nothing a reader of one line needs",
         }
     ],
@@ -487,7 +489,8 @@ def test_a_fast_track_task_lands_and_each_step_is_the_due_one(
     text = (world.task_folder / named).read_text()
     assert text.startswith("**Green.**")
     assert "   - no test: the change keeps behavior; the suite holds it" in text
-    assert "- r1.1: under: a heading changes nothing a reader of one line needs" in text
+    seen = "- r1.1: `README.md`: the README has no heading; cheap: a heading changes nothing"
+    assert seen in text
 
 
 # Each act of the plain path, by its name and its count among the acts of that name; the second
