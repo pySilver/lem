@@ -23,18 +23,20 @@ from lem.app.landing import (
     checks_diff,
     checks_gate,
     checks_git,
+    checks_kept,
     checks_last,
-    checks_machine,
     checks_queue,
     checks_red_places,
     checks_since,
     checks_stop,
     checks_tree,
+    checks_verdict,
     checks_waits,
     checks_wanted,
     checks_watch,
 )
 from lem.kernel.errors import Refusal
+from lem.model.criteria import contract
 from lem.model.landing import checks, checks_bytecode, checks_line, checks_said
 from lem.model.landing.world import Due, Held
 from lem.records.holds import Blocked
@@ -45,7 +47,17 @@ from lem.records.red import Inputs
 from lem.records.task import Shape
 from lem.records.work import Span
 from lem.store import places, step_refusals, steps, tasks
-from unit.landing.worlds import CHECKED, OTHER, PREPARED, RULES, TIP, task, world
+from unit.landing.worlds import (
+    APPROVED,
+    CHECKED,
+    CRITERION,
+    OTHER,
+    PREPARED,
+    RULES,
+    TIP,
+    task,
+    world,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -847,8 +859,8 @@ class Gauged:
     paused: list[float] = field(default_factory=list)
     then: object = None
 
-    def gauges(self) -> checks_machine.Gauges:
-        return checks_machine.Gauges(
+    def gauges(self) -> checks_gate.Gauges:
+        return checks_gate.Gauges(
             load=self.load, clock=lambda: self.clock, sleep=self.sleep
         )
 
@@ -916,7 +928,7 @@ def test_a_stop_in_the_wait_takes_the_run_out_of_the_line(
 def test_a_gate_taken_away_starts_at_once(
     line: Line, workspace: places.Workspace
 ) -> None:
-    (line.home / checks_machine.MACHINE).write_text("[load]\nstart = 0\n")
+    (line.home / "machine.toml").write_text("[load]\nstart = 0\n")
     gauged = Gauged(loads=[], clock=at("12:19"))
     gate = checks_gate.Gate(slug=TALK_TASK, workspace=workspace, gauges=gauged.gauges())
     assert gate.passed() is False
@@ -924,13 +936,16 @@ def test_a_gate_taken_away_starts_at_once(
 
 
 def test_this_machines_number_is_read_and_a_wrong_one_refused(tmp_path: Path) -> None:
-    assert checks_machine.start_number(tmp_path) == 40.0
-    (tmp_path / checks_machine.MACHINE).write_text("[load]\nstart = 12.5\n")
-    assert checks_machine.start_number(tmp_path) == 12.5
-    (tmp_path / checks_machine.MACHINE).write_text("[load]\nstart = -1\n")
+    (tmp_path / "machine.toml").write_text("[load]\nstart = 12.5\n")
+    assert checks_gate.start_of(tmp_path) == 12.5
+    (tmp_path / "machine.toml").write_text("[load]\nstart = -1\n")
     with pytest.raises(Refusal) as refused:
-        checks_machine.start_number(tmp_path)
-    assert refused.value.code == "machine"
+        checks_gate.start_of(tmp_path)
+    assert "load.start" in refused.value.why
+
+
+def test_a_new_machine_gates_at_forty(tmp_path: Path) -> None:
+    assert checks_gate.start_of(tmp_path) == 40.0
 
 
 def test_the_line_for_each_why() -> None:
@@ -1140,3 +1155,22 @@ def test_each_of_the_five_inputs_that_differs_runs_the_tests(field: str) -> None
     now = checks_criteria.digest(replace(found, **{field: other[field]}))
     assert checks.pass_kept(kept, checks_criteria.digest(found), small=False)
     assert not checks.pass_kept(kept, now, small=False)
+
+
+def test_a_pass_of_a_contract_that_moved_since_it_began_is_not_written() -> None:
+    before = task(**PREPARED)
+    verdict = checks_verdict.Verdict(run=CHECKED, contract=contract.mark(before.task))
+    other = replace(
+        APPROVED, criteria=(replace(CRITERION, text="The login works twice."),)
+    )
+    moved = replace(
+        before,
+        task=replace(
+            before.task,
+            criteria=replace(before.task.criteria, approvals=(APPROVED, other)),
+        ),
+    )
+    assert checks_kept.kept(before, world=world(), verdict=verdict, at=MOMENT).landing
+    with pytest.raises(Refusal) as refused:
+        checks_kept.kept(moved, world=world(), verdict=verdict, at=MOMENT)
+    assert refused.value.code == "contract-moved"

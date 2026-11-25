@@ -20,29 +20,30 @@ from lem.app.landing import (
     frame,
 )
 from lem.kernel.errors import Refusal
-from lem.model.landing import bar, checks, checks_ended
+from lem.model.criteria import contract
+from lem.model.landing import bar, checks, checks_ended, checks_said
 from lem.records.landing.checks import Checked, Outcome, Removed
 from lem.store import tasks
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from lem.model.landing.checks_said import Ending
     from lem.records.base import Moment
 
-PASSED: Ending = "passed"
+PASSED: checks_said.Ending = "passed"
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
 class Verdict:
     """How a run ended: the run as the record keeps it, the refusal the step exits with, what
-    the checks refused in the owner's words, and whether the fast track takes the standard
-    one."""
+    the checks refused in the owner's words, whether the fast track takes the standard one,
+    and the mark of the contract the run was of (`model/criteria/contract.py`)."""
 
     run: Checked
     refusal: Refusal | None = None
     refused: str | None = None
     reshape: bool = False
+    contract: str | None = None
 
 
 def commands_of(context: frame.Context) -> tuple[Outcome, ...]:
@@ -55,15 +56,16 @@ def commands_of(context: frame.Context) -> tuple[Outcome, ...]:
 
 @dataclasses.dataclass(kw_only=True, slots=True)
 class Evidence:
-    """The run as it goes: its context and start, the evidence found so far, and the stale
-    bytecode it removed."""
+    """The run as it goes: its context and start, the mark of the contract it is of, taken
+    before its first command, the evidence found so far, and the stale bytecode it removed."""
 
     context: frame.Context
     began: Moment
+    contract: str | None = None
     found: Checked | None = None
     bytecode: tuple[str, ...] = ()
 
-    def evidence(self, outcome: Ending, **fields: object) -> Checked:
+    def evidence(self, outcome: checks_said.Ending, **fields: object) -> Checked:
         """The run with `outcome` and `fields` over what was found so far."""
         world = self.context.world
         found = self.found or Checked(
@@ -137,7 +139,9 @@ class Judgment(Evidence):
         as they are now, and refused when they changed since the run began."""
         context = self.context
         now = tasks.read(context.workspace.state, context.record.task.slug)
-        refused = checks.moved(context.record.task.criteria, now.task.criteria)
+        seen = context.record.task.criteria
+        refused = contract.moved(now.task, self.contract)
+        refused = refused or checks.moved(seen, now.task.criteria)
         self.context = dataclasses.replace(context, record=now)
         return refused
 
@@ -160,6 +164,16 @@ class Judgment(Evidence):
         said = "the change lowers the bar with no reason given"
         return dataclasses.replace(self.refused(refusal, said), reshape=small)
 
+    def stopped(self) -> Verdict:
+        """A stop: what ran is ended with what it started, and the run is kept as stopped."""
+        slug = self.context.record.task.slug
+        refusal = Refusal(
+            "stopped",
+            "the checks were stopped, and the command that ran is ended with what it started",
+            f"`lem land checks {slug}` runs them again",
+        )
+        return Verdict(run=self.evidence("stopped"), refusal=refusal)
+
     def refused(self, refusal: Refusal, said: str) -> Verdict:
         """The run refused, with what it found so far."""
         return Verdict(run=self.evidence("refused"), refusal=refusal, refused=said)
@@ -172,26 +186,18 @@ def merge_base(context: frame.Context, tip: str) -> str:
 
 
 def judged(context: frame.Context, began: Moment) -> Verdict:
-    """The run and its verdict; a stop ends it as stopped, a refusal of the run as refused."""
-    judgment = Judgment(context=context, began=began)
+    """The run and its verdict, with the mark of the contract it was of; a stop ends it as
+    stopped, a refusal of the run as refused."""
+    mark = contract.mark(context.record.task)
+    judgment = Judgment(context=context, began=began, contract=mark)
     try:
-        return judgment.ran()
+        verdict = judgment.ran()
     except checks_output.Cut as cut:
         earlier = judgment.found.outcomes if judgment.found else ()
         judgment.evidence("stopped", outcomes=(*earlier, *cut.outcomes))
-        return stopped(judgment)
+        verdict = judgment.stopped()
     except InterruptedError:
-        return stopped(judgment)
+        verdict = judgment.stopped()
     except Refusal as refusal:
-        return judgment.refused(refusal, refusal.why)
-
-
-def stopped(judgment: Judgment) -> Verdict:
-    """A stop: what ran is ended with what it started, and the run is kept as stopped."""
-    slug = judgment.context.record.task.slug
-    refusal = Refusal(
-        "stopped",
-        "the checks were stopped, and the command that ran is ended with what it started",
-        f"`lem land checks {slug}` runs them again",
-    )
-    return Verdict(run=judgment.evidence("stopped"), refusal=refusal)
+        verdict = judgment.refused(refusal, refusal.why)
+    return dataclasses.replace(verdict, contract=mark)

@@ -4,6 +4,7 @@ line (`land.checks_say` and the `gate.end` of `land.checks_run` on `main`)."""
 from typing import TYPE_CHECKING
 
 from lem.app.landing import changes, checks_record
+from lem.model.criteria import contract
 from lem.model.landing import checks_said, phases
 from lem.records.journal.landing import CheckEnd, CommandEnd
 
@@ -36,7 +37,12 @@ def end_of(record: Record, world: World, verdict: Verdict, at: Moment) -> CheckE
 
 def kept(record: Record, *, world: World, verdict: Verdict, at: Moment) -> Record:
     """The record with the run and its end; on the fast track, a lowered bar takes the task to
-    the standard track."""
+    the standard track. A passed run of a contract that moved since it began is refused, not
+    written: it is no evidence of the contract of now."""
+    if verdict.run.outcome == "passed":
+        refused = contract.moved(record.task, verdict.contract)
+        if refused is not None:
+            raise refused
     end = end_of(record, world, verdict, at)
     changed = checks_record.checked(record, run=verdict.run, end=end)
     if not verdict.reshape:

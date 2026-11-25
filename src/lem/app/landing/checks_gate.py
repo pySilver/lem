@@ -14,14 +14,16 @@ the gate away. Each change of why it waits, and each five minutes of the same, i
 import contextlib
 import dataclasses
 import os
+import time
 from typing import TYPE_CHECKING
 
-from lem.app.landing import checks_machine, checks_queue, checks_waits, checks_wanted
+from lem.app.landing import checks_queue, checks_waits, checks_wanted
 from lem.kernel import folders, locks
 from lem.model.landing import checks_line, checks_said
+from lem.settings.load import machine_of
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator
     from pathlib import Path
 
     from lem.store import places
@@ -34,6 +36,28 @@ LINE = "load.line"
 LOCK = "load.lock"
 
 
+def load_now() -> float:
+    """The machine's load average of the last minute, as `uptime` gives it."""
+    return round(os.getloadavg()[0], 1)
+
+
+@dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
+class Gauges:
+    """What the gate reads of the machine: its load average, the clock in seconds of the
+    epoch, and the pause between two looks. A test gives its own."""
+
+    load: Callable[[], float] = load_now
+    clock: Callable[[], float] = time.time
+    sleep: Callable[[float], None] = time.sleep
+
+
+def start_of(home: Path) -> float | None:
+    """This machine's start number, `[load] start` of its settings (`settings/machine.py`,
+    Lem's 40 when it sets none); None for 0, when the developer took the gate away."""
+    start = machine_of(home, os.environ).load.start
+    return start or None
+
+
 @dataclasses.dataclass(kw_only=True, slots=True)
 class Gate:
     """One run's wait at the gate: the task, its workspace, the machine's gauges, its place in
@@ -41,9 +65,7 @@ class Gate:
 
     slug: str
     workspace: places.Workspace
-    gauges: checks_machine.Gauges = dataclasses.field(
-        default_factory=checks_machine.Gauges
-    )
+    gauges: Gauges = dataclasses.field(default_factory=Gauges)
     own: checks_queue.Own | None = None
     said: tuple[object, float] | None = None
 
@@ -52,7 +74,7 @@ class Gate:
         home = folders.home_for_writing(os.environ)
         with self.placed():
             while True:
-                start = checks_machine.start_number(home)
+                start = start_of(home)
                 if start is None or self.looked(home, start).go:
                     return self.said is not None
 

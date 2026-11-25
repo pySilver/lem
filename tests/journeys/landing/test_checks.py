@@ -726,3 +726,25 @@ def test_serial_with_no_command_is_a_wrong_call_and_its_command_reads_its_input(
         check=False,
     )
     assert (said.returncode, said.stdout) == (0, "got hello\n")
+
+
+def test_the_owners_drop_stops_the_running_checks_then_drops_the_task(
+    world: World, capsys: pytest.CaptureFixture[str], child: Children
+) -> None:
+    pid_file = world.folder / "command.pid"
+    settings(world, f"[\"sh -c 'echo $$ > {pid_file}; sleep 60'\"]")
+    proc = running(world, child)
+    reached(lambda: pid_file.is_file() and pid_file.read_text().strip(), "its command")
+    child.own(pid_file)
+    words = ("task", "move", SLUG, "dropped", "--line", "the owner drops it")
+    dropped = lem(capsys, world.checkout, *words)
+    assert dropped["ok"] is True, dropped
+    out, _ = proc.communicate(timeout=REACH)
+    assert proc.returncode == 1
+    assert "the checks were stopped" in out
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(pid_file.read_text()), 0)
+    found = record_of(world)
+    assert found["task"]["status"] == "dropped"
+    assert found["landing"]["checked"]["outcome"] == "stopped"
+    assert checks(capsys, world, "--status")["result"]["running"] is False
