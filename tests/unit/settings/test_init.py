@@ -14,6 +14,7 @@ from fakes.repo import RealRepo, run_git
 from lem.app.init import template
 from lem.settings import described
 from lem.settings.team import Team
+from unit.settings.given import slug
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -164,6 +165,7 @@ def test_the_file_init_writes_holds_every_key_of_the_teams_file() -> None:
         ("plans", "notes/plans"),
         ("rulings", "notes/rulings.md"),
     ],
+    ids=slug,
 )
 def test_path_gives_one_absolute_path_from_any_folder_of_the_checkout(
     tmp_path: Path, name: str, relative: str
@@ -194,9 +196,12 @@ def test_show_where_lem_is_not_set_up_gives_no_settings_and_the_machines(
     tmp_path: Path,
 ) -> None:
     repo = RealRepo.init(tmp_path / "repo", {".lem/project.toml": b"[old]\nx = 1\n"})
+    run_git(repo.checkout, "remote", "set-url", "origin", GITHUB)
     shown = lem("settings", "show", cwd=repo.checkout).result()
     assert isinstance(shown, dict)
     assert shown["settings"] is None
     assert shown["from"]["load.start"] == "Lem's default"
     assert set(shown["load"]) >= {"now", "cores"}
-    assert lem("init", "--base", "main", "--codex", "no", cwd=repo.checkout).code == 1
+    assert lem("init", "--base", "main", "--codex", "no", cwd=repo.checkout).code == 0
+    ignore = (repo.checkout / ".lem" / ".gitignore").read_text().splitlines()
+    assert ignore == ["settings.local.toml", "state/"]

@@ -10,7 +10,7 @@ from fakes.repo import RealRepo, run_git
 from lem.kernel.errors import Refusal
 from lem.settings import described, load
 from lem.settings.team import Team
-from unit.settings.given import given
+from unit.settings.given import given, slug
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -85,7 +85,7 @@ def test_the_teams_file_holds_21_keys() -> None:
         ({"team": "[ask]\nstyle = 'bold'\n"}, "table-place", HOME),
         ({"team": "[branch\n"}, "settings-toml", "is not TOML"),
     ],
-    ids=lambda value: str(value)[:40],
+    ids=slug,
 )
 def test_a_table_or_key_out_of_place_is_refused_with_the_place_or_the_nearest(
     tmp_path: Path, files: dict[str, str], code: str, said: str
@@ -122,6 +122,7 @@ def test_a_file_that_is_not_utf8_is_refused_by_name(tmp_path: Path) -> None:
         ("[jev]\nfindings = 'no'\n", "jev.findings"),
         ("[naps]\non = 'yes'\n", "naps.on"),
     ],
+    ids=slug,
 )
 def test_a_wrong_value_is_refused_with_what_its_key_takes(
     tmp_path: Path, team: str, fix: str
@@ -146,6 +147,7 @@ def test_a_wrong_value_is_refused_with_what_its_key_takes(
         ("[paths]\nplan_file = '<slug>-<day>.md'\n", "a token Lem does not know"),
         ("[paths]\nplan_file = 'YYYY-YYYY-<slug>.md'\n", "holds YYYY twice"),
     ],
+    ids=slug,
 )
 def test_a_value_its_type_takes_and_a_rule_does_not_is_refused(
     tmp_path: Path, team: str, said: str
@@ -175,6 +177,7 @@ def test_the_rulings_file_may_not_be_a_folder(tmp_path: Path) -> None:
         ("experts = ['claude/fable']", "names no effort"),
         ("fallback = 'claude'", "names no model and no effort"),
     ],
+    ids=slug,
 )
 def test_a_seat_that_does_not_read_by_its_rule_is_refused(
     tmp_path: Path, line: str, said: str
@@ -195,6 +198,7 @@ def test_a_seat_that_does_not_read_by_its_rule_is_refused(
         ("fallback = true", "or false"),
         ("reviewer = { agent = 'codex' }", "a whole seat"),
     ],
+    ids=slug,
 )
 def test_a_seat_of_another_form_is_refused_with_the_seat_form(
     tmp_path: Path, line: str, fix: str
@@ -240,7 +244,11 @@ def test_each_seat_comes_from_the_nearest_file_that_names_it(tmp_path: Path) -> 
     assert found.sources["seats.session"] == DEFAULT
 
 
-@pytest.mark.parametrize(("team_days", "local_days"), [(30, 7), (7, 90)])
+@pytest.mark.parametrize(
+    ("team_days", "local_days"),
+    [(30, 7), (7, 90)],
+    ids=slug,
+)
 def test_the_local_files_days_win_lower_or_higher(
     tmp_path: Path, team_days: int, local_days: int
 ) -> None:
@@ -284,6 +292,7 @@ def test_the_team_names_the_naps_jev_and_the_tracker(tmp_path: Path) -> None:
         ("[peers]\nMac = 4537\n", "peers"),
         ("[load]\nstrat = 3\n", "did you mean start?"),
     ],
+    ids=slug,
 )
 def test_a_wrong_value_of_the_machines_file_is_refused_with_its_fix(
     tmp_path: Path, machine: str, said: str

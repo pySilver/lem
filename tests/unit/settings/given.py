@@ -1,6 +1,7 @@
 """A checkout and a home folder for the cases of the settings: the four files written as a case
 names them, and the environment that points at the home."""
 
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -68,3 +69,9 @@ class Given:
 def given(root: Path, **files: str) -> Given:
     """A checkout with a team's file (empty unless named) and the other files named."""
     return Given(root=root).write(**({"team": ""} | files))
+
+
+def slug(value: object) -> str:
+    """A case's id of one parameter: its words in lower case, joined by hyphens."""
+    words = re.findall(r"[a-z0-9]+", str(value).lower())
+    return "-".join(words)[:40]

@@ -58,7 +58,9 @@ def rows(heading: str) -> dict[str, str]:
     }
 
 
-@pytest.mark.parametrize(("shape", "heading"), PARTS, ids=[name for _, name in PARTS])
+@pytest.mark.parametrize(
+    ("shape", "heading"), PARTS, ids=("team", "local", "home", "machine")
+)
 def test_each_file_has_a_row_for_each_key_of_its_struct(
     shape: type, heading: str
 ) -> None:

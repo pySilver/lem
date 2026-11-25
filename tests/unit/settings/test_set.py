@@ -13,7 +13,7 @@ from lem.kernel.errors import Refusal
 from lem.settings import edit, reading
 from lem.settings.places import LOCAL, Scope
 from lem.settings.write import Asked, set_setting
-from unit.settings.given import Given, given
+from unit.settings.given import Given, given, slug
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -65,6 +65,7 @@ def test_set_home_under_a_nearer_file_says_the_nearer_one_comes_first(
         ("seats.reviwer", "codex/a:b", "did you mean reviewer?"),
         ("seats", "codex/a:b", "names no setting"),
     ],
+    ids=slug,
 )
 def test_set_refuses_a_value_its_key_does_not_take_and_writes_nothing(
     tmp_path: Path, key: str, word: str, said: str
@@ -128,6 +129,7 @@ def test_the_experts_are_written_as_a_list_and_false_turns_the_fallback_off(
         ("serve.tailscale", "on", True),
         ("peers.studio", "4537", 4537),
     ],
+    ids=slug,
 )
 def test_set_machine_writes_the_machines_numbers_and_switches(
     tmp_path: Path, key: str, word: str, written: object
@@ -154,6 +156,7 @@ def test_default_gives_the_machines_number_back_to_lem(tmp_path: Path) -> None:
         ("state.keep_days", "3", Scope.home, "--local"),
         ("ask.style", "bold", Scope.local, "--home"),
     ],
+    ids=slug,
 )
 def test_a_table_its_file_may_not_hold_is_refused_with_the_file_that_may(
     tmp_path: Path, key: str, word: str, scope: Scope, fix: str
@@ -192,6 +195,7 @@ def test_a_handoff_under_the_floor_is_refused_and_writes_nothing(
         "serve = { port = 4536 }\n",
         "[serve]\n'port' = 4536\n",
     ],
+    ids=("dotted", "commented", "inline", "quoted"),
 )
 def test_a_table_in_another_form_keeps_its_form_and_the_new_key(
     tmp_path: Path, machine: str
