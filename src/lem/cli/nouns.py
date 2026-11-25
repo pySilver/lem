@@ -1,0 +1,31 @@
+"""The nouns of `lem`, each with the module that holds its command: the table of its verbs
+for a noun that has verbs, else its one leaf. `lem help` lists them in this order."""
+
+NOUNS = (
+    ("task", "lem.cli.task.verbs"),
+    ("criteria", "lem.cli.criteria.verbs"),
+    ("decisions", "lem.cli.decisions.verbs"),
+    ("land", "lem.cli.land.verbs"),
+    ("session", "lem.cli.session.verbs"),
+    ("seat", "lem.cli.seat.verbs"),
+    ("owner", "lem.cli.owner.verbs"),
+    ("waiting", "lem.cli.waiting.command"),
+    ("board", "lem.cli.board.command"),
+    ("serve", "lem.cli.serve.verbs"),
+    ("ask", "lem.cli.ask.verbs"),
+    ("settings", "lem.cli.settings.verbs"),
+    ("path", "lem.cli.path.command"),
+    ("rules", "lem.cli.rules.command"),
+    ("init", "lem.cli.init.command"),
+    ("doctor", "lem.cli.doctor.command"),
+    ("issue", "lem.cli.issue.verbs"),
+    ("serial", "lem.cli.serial.command"),
+    ("prune", "lem.cli.prune.command"),
+    ("proposals", "lem.cli.proposals.verbs"),
+    ("nap", "lem.cli.nap.verbs"),
+    ("corrections", "lem.cli.corrections.verbs"),
+    ("experts", "lem.cli.experts.verbs"),
+    ("cast", "lem.cli.cast.verbs"),
+    ("jev", "lem.cli.jev.verbs"),
+    ("picker", "lem.cli.picker.command"),
+)

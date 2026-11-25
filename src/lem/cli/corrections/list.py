@@ -1,0 +1,28 @@
+"""`lem corrections list`: the corrections in the queue.
+
+    lem corrections list
+
+A stub until the step `addons-flow` builds it: it refuses `not-built`.
+"""
+
+import click
+import msgspec
+
+from lem.cli.stub import not_built
+
+
+class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
+    """The words of `lem corrections list`."""
+
+
+def run(call: Call) -> None:
+    """Refuse until the step `addons-flow` builds `lem corrections list`."""
+    raise not_built("corrections list", "addons-flow")
+
+
+COMMAND = click.Command(
+    "list",
+    params=[],
+    callback=lambda **given: run(msgspec.convert(given, Call)),
+    help="The corrections in the queue.",
+)
