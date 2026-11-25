@@ -45,7 +45,10 @@ def test_a_session_opens_starts_shows_its_signs_and_closes(tmp_path: Path) -> No
         "already": False,
         "workspace": "W-MINE",
     }
-    assert opened["next"] == {"do": "run", "command": f"lem session wait {SLUG} --first-line"}
+    assert opened["next"] == {
+        "do": "run",
+        "command": f"lem session wait {SLUG} --first-line",
+    }
     assert opened["say"] == (
         f"{SLUG} is open in its own session `{SLUG}`, phase shape, at the end of the "
         "workspace"
