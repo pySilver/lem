@@ -1,14 +1,43 @@
-"""A duty of the board server: the start of a task queued after one that ended.
+"""A duty of the board server: the turn of a task queued after others, once each of them landed
+or was answered (`open … queue` and `wake … queue` of `serve.duties` on `main`).
 
-Nothing until the step `board-duties` builds it.
+The queued task gets one wake for its wait: its live session (the one its ask was typed in,
+which the owner may keep selected, so that its close never comes) gets the line, and with none
+alive a session opens. A wait begins when the task became queued (`Task.since`), so a task
+queued again behind another task waits anew. Nothing happens while the terminal cannot say
+which sessions live, and a queued task behind a dropped one waits for the owner's word.
 """
 
 from typing import TYPE_CHECKING
 
+from lem.app.sessions.queued import DONE
+from lem.board.duties import wakes
+from lem.store import tasks
+
 if TYPE_CHECKING:
-    from lem.records.base import Moment
-    from lem.store.places import Workspace
+    from collections.abc import Mapping
+
+    from lem.board.duties.context import Duty
+    from lem.records.record import Record
 
 
-def tick(workspace: Workspace, now: Moment) -> None:
-    """Do the duty for `workspace` at `now`: nothing yet."""
+def tick(duty: Duty) -> None:
+    """Give its turn to each queued task whose tasks before it ended."""
+    records = tasks.every(duty.state)
+    statuses = {record.task.slug: record.task.status for record in records}
+    owed = [record for record in records if turn(record, statuses)]
+    if not owed or not wakes.known(duty):
+        return
+    for record in owed:
+        task = record.task
+        if not wakes.since(duty, task.slug, task.since):
+            wakes.woken(duty, task.slug, "queue")
+
+
+def turn(record: Record, statuses: Mapping[str, str]) -> bool:
+    """Whether the queued task's turn came: it has no hold, and each task it is queued after
+    landed or was answered."""
+    task = record.task
+    if task.status != "queued" or task.hold is not None or not task.after:
+        return False
+    return all(statuses.get(after) in DONE for after in task.after)

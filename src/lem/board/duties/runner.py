@@ -1,45 +1,96 @@
-"""The board server's duties across tasks: every TICK seconds, each duty of DUTIES for each
-workspace on the list, one at a time, never on a request's path.
+"""The board server's duties across tasks: every TICK seconds, for each workspace on the list,
+its look at the forge, then each duty of DUTIES, then the keeping of its state folder, one at a
+time, never on a request's path (`serve.forge_loop` on `main`).
 
-Each duty is a module of this folder with `tick(workspace, now)`, found by its fixed path, so
-that the step that builds one fills its module and edits neither this table nor the app. What a
-failed duty costs the others (the seams of `serve.forge_loop`) is the step `board-duties`'s.
+Each duty is a module of this folder with `tick(duty)`, found by its fixed path. One failure
+costs no other: a failed look at the forge is its board's problem, and the duties, the keeping
+and the next workspace still run; a failed duty is its board's problem, and the other duties,
+the keeping and the next workspace still run; a failed keeping is one line in the server's log.
+A workspace of example tasks (its state folder holds `demo`) owes nothing.
 """
 
-import importlib
+import os
 from typing import TYPE_CHECKING
 
 import anyio
 
 from lem.board import machine, workspaces
+from lem.board.duties import context
+from lem.board.duties.memory import MEMORY
+from lem.board.duties.seams import failure
 from lem.kernel import clock
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from datetime import datetime
     from pathlib import Path
 
-# How often the duties run, in seconds (`serve.FORGE_TICK` on `main`).
+    from lem.store.places import Workspace
+
+# How often the duties run, in seconds (`serve.FORGE_TICK` on `main`): a guess, short beside
+# the forge's three minutes.
 TICK = 20
+LOOK = "lem.board.duties.forge"
 DUTIES = (
-    "lem.board.duties.forge",
     "lem.board.duties.merge",
     "lem.board.duties.conflict",
+    "lem.board.duties.ended",
     "lem.board.duties.queue",
     "lem.board.duties.guard",
-    "lem.board.duties.prune",
     "lem.board.duties.notify",
 )
+KEEP = "lem.board.duties.prune"
+DEMO = "demo"
 
 
-def tick(home: Path) -> None:
-    """Run each duty once for each workspace of the list of Lem's home folder `home`."""
+def tick(home: Path, now: datetime | None = None) -> None:
+    """Run the duties once for each workspace of the list of Lem's home folder `home`, with
+    the server's environment."""
+    moment = now or clock.now()
+    for name, space in spaces(home):
+        here = context.bound(space, os.environ, home)
+        kept = MEMORY.of(space.checkout)
+        ticked(context.Duty(name=name, here=here, now=moment, kept=kept))
+
+
+def spaces(home: Path) -> Iterator[tuple[str, Workspace]]:
+    """Each workspace of the list by its name, while Lem is set up in it, but one of example
+    tasks."""
     host = machine.machine_name()
-    now = clock.now()
     for name, _ in workspaces.named(workspaces.listed(home), host):
         space = workspaces.found(home, host, name)
-        if space is None:
-            continue
-        for path in DUTIES:
-            importlib.import_module(path).tick(space, now)
+        if space is not None and not (space.state / DEMO).exists():
+            yield name, space
+
+
+def ticked(duty: context.Duty) -> None:
+    """One workspace's tick: the look, the duties, the keeping, each failure kept apart."""
+    looked = failure(LOOK, duty)
+    noted(
+        duty,
+        "look",
+        None if looked is None else f"the board's look at GitHub failed: {looked}",
+    )
+    for path in DUTIES:
+        failed = failure(path, duty)
+        short = path.rsplit(".", 1)[-1]
+        noted(
+            duty,
+            short,
+            None if failed is None else f"the board's duty {short} failed: {failed}",
+        )
+    kept = failure(KEEP, duty)
+    if kept is not None:
+        duty.say(f"lem prune failed: {kept}")
+
+
+def noted(duty: context.Duty, name: str, problem: str | None) -> None:
+    """Show the problem on the workspace's board and in the server's log, or forget it."""
+    if problem is None:
+        duty.kept.problems.pop(name, None)
+        return
+    duty.kept.problems[name] = problem
+    duty.say(problem)
 
 
 async def loop(home: Path, stopping: anyio.Event) -> None:
