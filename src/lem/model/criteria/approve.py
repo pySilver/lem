@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
-from lem.model.criteria import approvers, digest, reads, waits
+from lem.model.criteria import approvers, clear, digest, waits, yes
 from lem.model.criteria.read import Sheet
 from lem.records.approvals import Approval, ApprovedBy
 from lem.records.base import Frozen
@@ -31,14 +31,18 @@ ENDS_WAIT = frozenset(("owner", "alone"))
 
 class Asked(Frozen, frozen=True, kw_only=True):
     """An approval asked for: by whom, of which criteria, whether the task runs without the
-    owner now, why its request is not his own sentence (None when it is), and whether the
-    criteria may carry the lead's test lines (the plan's own)."""
+    owner now, why its request is not his own sentence (None when it is), whether the
+    criteria may carry the lead's test lines (the plan's own), and for his yes the question
+    his page showed, where he gave it, and the mark of the bytes it showed."""
 
     by: ApprovedBy
     sheet: Sheet
     alone: bool = False
     other: str | None = None
     plan: bool = False
+    question: str | None = None
+    via: yes.Via = "session"
+    shown: str | None = None
 
 
 def untested(asked: Asked) -> Refusal | None:
@@ -68,7 +72,7 @@ def refusal_of(task: Task, asked: Asked) -> Refusal | None:
     if by == "alone":
         return approvers.by_alone(task, sheet, asked.other, alone=asked.alone)
     marked = digest.of_texts(sheet.size, sheet.criteria)
-    return approvers.first_contract(task, by) or reads.clear(task, marked)
+    return approvers.first_contract(task, by) or clear.clear(task, marked)
 
 
 def untested_criterion(criterion: Criterion) -> Criterion:
@@ -110,9 +114,12 @@ def recorded(criteria: Criteria, sheet: Sheet, approval: Approval) -> Criteria:
 def approved(record: Record, *, asked: Asked, now: datetime) -> Record:
     """The record with the approval `asked`; refused by the rules of who approves."""
     task = record.task
+    yes.page_of(task, asked.question)
     refusal = refusal_of(task, asked)
     if refusal is not None:
         raise refusal
+    if asked.by in ENDS_WAIT:
+        task = yes.answered_yes(task, asked.via, asked.shown, now)
     approval = approval_of(task, asked, now)
     criteria = recorded(task.criteria, asked.sheet, approval)
     hold = waits.hold_after(task, ends=asked.by in ENDS_WAIT)
