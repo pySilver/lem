@@ -15,13 +15,14 @@ that the gate is away, with the line that sets one. The optional row `handoff to
 says past how many tokens a task's session compacts itself,
 `handoff tokens: 600000 (default)` with no number set, and the line that sets one. On a
 machine with agterm, the optional row `task picker` gives the keymap line that starts
-`lem picker` with a chord, which the owner adds to agterm's keymap; a line that names
-the script `picker.py` of the clone, as this check printed before, counts as there and
-works. The optional row `board server` says whether the board server runs, with its
-addresses and its code against the code installed here, and the line that starts it from
-a terminal with no agent: `lem` by the path of Lem's marketplace clone, since the plugin
-puts `lem` on the PATH of Claude Code's Bash tool only, and the clone's `bin/lem` runs
-the newest installed release; it never starts one. The optional row
+`lem picker` with a chord, which the owner adds to agterm's keymap: the app's command by
+the path an update keeps (`stable_lem`, Homebrew's `opt/lem/bin/lem`); a line of a Lem
+before the app, an interpreter and a script of the marketplace clone, is named as one
+that no longer works. The optional row `board server` says whether the board server
+runs, with its addresses and its code against the code installed here, and the line that
+starts it from a terminal with no agent, by that same path of the app's command; it
+never starts one. The row `hook modules` reads the plugin Claude Code has for this
+repository, else the app's own data (`plugin_folder`). The optional row
 `board notifications` says how many devices get the board's notifications and how the
 last push went; it sends none. The optional row `installed Lem: NAME` comes for each
 repository of the server's list whose installed Lem (Claude Code's
@@ -457,6 +458,26 @@ def module_imports(package: Path, name: str) -> tuple[str | None, list[str]]:
     return None, package_imports(ast.parse(text, str(path)))
 
 
+def plugin_folder(home: Path, root: Path | None) -> Path:
+    """The plugin Claude Code has for the repository ROOT (None: outside one): the
+    folder of Lem's install for ROOT, else for the user, from Claude Code's list in
+    HOME, when the settings leave it on and the folder is there; else the app's own data
+    folder, which has the plugin's shape and which a task's session then loads
+    (`session.plugin_dir`)."""
+    real = os.path.realpath(root) if root else None
+    installs = [entry for entry in lem_installs(home) if entry["folder"]]
+    mine = next(
+        (entry for entry in installs if real and entry["project"] == real), None
+    ) or next((entry for entry in installs if entry["project"] is None), None)
+    if (
+        mine is not None
+        and enabled(mine["key"], home, root)
+        and Path(mine["folder"]).is_dir()
+    ):
+        return Path(mine["folder"])
+    return paths.ROOT
+
+
 def hook_modules(plugin: Path = paths.ROOT, package: Path = paths.PACKAGE) -> dict:
     """The row of the plugin's hooks: the plugin's folder PLUGIN has `hooks/run` and a
     hooks file whose every line starts a selector `lem-hook` knows, and the app's
@@ -664,92 +685,62 @@ def agterm() -> list[dict]:
 # The task picker: an agterm keymap line that starts it with a chord. The keymap is
 # agterm's file, so Lem only reads it, at the place agterm reads it by default.
 KEYMAP = Path(".config") / "agterm" / "keymap.conf"
-# The line runs Lem's command, `bin/lem picker`. The lines this check printed before
-# named the script itself, which still works: in the marketplace clone it hands over to
-# the clone's `bin/lem picker`.
-COMMAND = Path("bin") / "lem"
-PICKER = Path("skills") / "lem" / "scripts" / "picker.py"
+# The line runs the app's own command, `lem picker`, by a path that outlives an update.
 CHORD = "ctrl+cmd+t"
+# Homebrew's prefixes, on Apple silicon and on Intel: an app installed there has the
+# path `opt/lem/bin/lem`, which each upgrade keeps.
+BREWS = (Path("/opt/homebrew"), Path("/usr/local"))
+# A line of a Lem before the app: an interpreter and a script under Claude Code's
+# marketplace clone (`bin/lem picker`, or `skills/lem/scripts/picker.py`), which no
+# release holds now.
+OLD_LINE = re.compile(r"plugins/marketplaces/[^\s]*/(?:bin/lem\s+picker|picker\.py)\b")
 
 
-def marketplace_lem(home: Path, holds: Path) -> Path | None:
-    """The clone of Lem's marketplace when it holds the file `holds` (a path inside
-    Lem), or None. Its path outlives every update, and the plugin's own folder, named by
-    its version, changes with each one, so it is never this. The clone holds the head of
-    `main`, which no release holds, so a line names only its `bin/lem`, which runs the
-    newest installed release in its place."""
-    try:
-        known = json.loads(
-            (home / PLUGINS / "known_marketplaces.json").read_text(encoding="utf-8")
-        )
-    except OSError, ValueError:
-        known = {}
-    for key, _ in plugin_installs("lem", home):
-        entry = known.get(key.partition("@")[2]) if isinstance(known, dict) else None
-        place = entry.get("installLocation") if isinstance(entry, dict) else None
-        if isinstance(place, str) and (Path(place) / holds).is_file():
-            return Path(place)
-    return None
+def stable_lem(
+    executable: str | None = None,
+    prefix: str | None = None,
+    brews: tuple[Path, ...] = BREWS,
+) -> Path | None:
+    """The path of this app's command `lem` that outlives an update, or None when the
+    app has none: Homebrew's `opt/lem/bin/lem` when the app's environment (PREFIX,
+    `sys.prefix`) is under Homebrew's `opt/lem`, else the `lem` beside EXECUTABLE (the
+    app's interpreter, `sys.executable`), by its resolved path."""
+    executable = executable or sys.executable
+    home = Path(prefix or sys.prefix).resolve()
+    for brew in brews:
+        opt = brew / "opt" / "lem"
+        command = opt / "bin" / "lem"
+        if command.is_file() and home.is_relative_to(opt.resolve()):
+            return command
+    own = Path(executable).parent / "lem"
+    return own.resolve() if own.is_file() else None
 
 
-def stable_lem(home: Path) -> tuple[Path, str] | None:
-    """A folder of Lem whose path outlives an update of the plugin, with what keeps it
-    new, or None. First the clone of Lem's marketplace (`marketplace_lem`). Else this
-    checkout, when it is a clone of Lem's repository, as for a contributor who loads it
-    with `claude --plugin-dir`."""
-    clone = marketplace_lem(home, COMMAND)
-    if clone is not None:
-        return (
-            clone,
-            (
-                "Lem's marketplace clone, which never moves, and whose bin/lem runs "
-                "the newest installed release"
-            ),
-        )
-    own = paths.ROOT
-    return (
-        (own, "this clone of Lem, which stays where it is")
-        if (own / ".git").exists() and (own / COMMAND).is_file()
-        else None
-    )
-
-
-def keymap_runs(said: str, home: Path, scripts: tuple[Path, ...]) -> Path | None:
-    """The one of SCRIPTS that the keymap line SAID runs, or None: a `command` line
-    whose words name it by its absolute path or by the same path from `~/`. `bin/lem`
-    counts only before `picker`."""
+def keymap_runs(said: str, home: Path, command: Path) -> bool:
+    """Whether the keymap line SAID runs COMMAND's `picker`: a `command` line one of
+    whose words names the same file as COMMAND, by its path or from `~/`, followed by
+    `picker`."""
     if not said.lstrip().startswith("command"):
-        return None
+        return False
     try:
         words = shlex.split(said)
     except ValueError:
         words = said.split()
     for at, word in enumerate(words):
         path = home / word[2:] if word.startswith("~/") else Path(word)
-        for script in scripts:
-            if path == script and (
-                script.name != "lem" or words[at + 1 : at + 2] == ["picker"]
-            ):
-                return script
-    return None
-
-
-def interpreter() -> str:
-    """The python3 the keymap line names: a keymap command gets the system's PATH, whose
-    python3 is older than 3.11 on a Mac. The one first on this PATH when it is the one
-    running (its link, which an upgrade keeps), else the one running."""
-    found = shutil.which("python3")
-    return (
-        found
-        if found and os.path.realpath(found) == os.path.realpath(sys.executable)
-        else sys.executable
-    )
+        if words[at + 1 : at + 2] != ["picker"] or not path.is_absolute():
+            continue
+        with contextlib.suppress(OSError):
+            if path == command or path.samefile(command):
+                return True
+    return False
 
 
 def picker() -> dict:
     """The keymap line of the task picker for this machine, and whether agterm's keymap
-    holds it. An optional row: nothing of Lem needs the chord, and `/lem status SLUG`
-    opens the same board."""
+    holds it; a line of a Lem before the app is named as one that no longer works. An
+    optional row: nothing of Lem needs the chord, and `/lem status SLUG` opens the same
+    board."""
     home = Path.home()
     keymap = home / KEYMAP
     row = {
@@ -763,44 +754,35 @@ def picker() -> dict:
             "owner first, and opens the board of the one picked"
         ),
     }
-    found = stable_lem(home)
-    if found is None:
+    command = stable_lem()
+    if command is None:
         return {
             **row,
             "without_it": (
                 "no chord lists the tasks, and `/lem status SLUG` opens a board. "
-                "No folder of Lem here keeps its path after an update: "
-                "Lem's marketplace clone is not there, so a keymap line would name a "
-                "folder the next update removes"
+                f"Lem's app has no command `lem` beside its Python {sys.executable}, "
+                "so no keymap line can name it: the owner installs Lem again"
             ),
         }
-    root, kept = found
-    command, script = root / COMMAND, root / PICKER
     line = (
-        f'command "Lem tasks ›" {CHORD} --error-hud {shlex.quote(interpreter())} '
-        f"{shlex.quote(str(command))} picker"
+        f'command "Lem tasks ›" {CHORD} --error-hud {shlex.quote(str(command))} picker'
     )
     try:
-        runs = [
-            keymap_runs(said, home, (command, script))
-            for said in keymap.read_text(
-                encoding="utf-8", errors="replace"
-            ).splitlines()
-        ]
+        said = keymap.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
-        runs = []
-    held = command in runs or script in runs
-    detail = (
-        f"{keymap} holds the line"
-        if command in runs
-        else (
-            f"{keymap} holds a line that runs {script}, an older form that still "
-            "works; the line in its current form, to put in its place when the owner "
-            "likes, is this row's line"
+        said = []
+    held = any(keymap_runs(one, home, command) for one in said)
+    old = next((one for one in said if OLD_LINE.search(one)), None)
+    if held:
+        detail = f"{keymap} holds the line"
+    elif old is not None:
+        detail = (
+            f"{keymap} holds a line of a Lem before the app, which no longer works: "
+            f"{old.strip()}; the owner puts this row's line in its place and runs "
+            "`agtermctl keymap reload`"
         )
-        if held
-        else f"{keymap} has no line that runs {command} picker"
-    )
+    else:
+        detail = f"{keymap} has no line that runs {command} picker"
     return {
         **row,
         "found": held,
@@ -809,9 +791,8 @@ def picker() -> dict:
         "without_it": (
             "no chord lists the tasks, and `/lem status SLUG` opens a board. "
             f"The owner adds the line to {keymap} and runs `agtermctl keymap reload`; "
-            f"{CHORD} is the chord unless he picks another. The line names {root}, "
-            f"{kept}, and a python3 of 3.11 or newer, which a keymap command does "
-            "not find on its own PATH"
+            f"{CHORD} is the chord unless he picks another. The line names {command}, "
+            "Lem's command by a path that an update of the app keeps"
         ),
     }
 
@@ -1297,14 +1278,12 @@ def board_server() -> list[dict]:
     board opens in agterm without it."""
     from lem import serve
 
-    # `lem` is on the PATH of Claude Code's Bash tool only; in a terminal with no agent
-    # (a remote login) the owner runs it by the path of Lem's marketplace clone, which
-    # no update moves, and whose bin/lem runs the newest installed release, never the
-    # clone's own head of main
-    clone = marketplace_lem(Path.home(), COMMAND)
+    # in a terminal with no agent (a remote login) the owner runs the app's command by
+    # its path that an update keeps, whatever his PATH holds
+    command = stable_lem()
     line = (
-        f"{shlex.quote(str(clone / 'bin' / 'lem'))} serve --ensure"
-        if clone
+        f"{shlex.quote(str(command))} serve --ensure"
+        if command
         else "lem serve --ensure"
     )
     row = {
@@ -1775,7 +1754,9 @@ def main() -> None:
         *board_notifications(),
         *project(),
         *correction_hook(),
-        hook_modules(),
+        hook_modules(
+            plugin_folder(Path.home(), next(reversed(checkout_roots()), None))
+        ),
         *permission_mode(),
         *user_plugin(),
     ]

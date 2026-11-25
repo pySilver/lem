@@ -10,6 +10,7 @@ import ast
 import json
 import os
 import re
+import shutil
 import sys
 import tempfile
 import unittest
@@ -423,135 +424,165 @@ class Plannotator(unittest.TestCase):
 
 
 class Keymap(unittest.TestCase):
-    """The task picker's line names the marketplace clone's `bin/lem picker`, which runs
-    the newest installed release; an older line that names the clone's `picker.py` still
-    counts as there."""
+    """The task picker's line names the app's command by the path an update keeps,
+    Homebrew's `opt/lem/bin/lem` when the app is under it, else the `lem` beside the
+    app's Python; a line of a Lem before the app is one that no longer works."""
 
-    HOME = Path("/Users/ana")
-    CLONE = HOME / ".claude" / "plugins" / "marketplaces" / "lem"
-    SCRIPTS = (
-        CLONE / "bin" / "lem",
-        CLONE / "skills" / "lem" / "scripts" / "picker.py",
-    )
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp(prefix="lem-keymap-")).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
 
-    def runs(self, said: str) -> Path | None:
-        return doctor.keymap_runs(said, self.HOME, self.SCRIPTS)
+    def app(self, folder: str) -> Path:
+        """An app's environment at FOLDER: its `bin/python` and `bin/lem`."""
+        env = self.root / folder
+        (env / "bin").mkdir(parents=True)
+        for name in ("python", "lem"):
+            (env / "bin" / name).write_text("#!/bin/sh\n", encoding="utf-8")
+            (env / "bin" / name).chmod(0o755)
+        return env
 
-    def test_a_line_names_the_command_or_the_older_script_by_its_path_or_from_home(
-        self,
-    ) -> None:
-        command, script = self.SCRIPTS
-        self.assertEqual(
-            self.runs(
-                'command "Lem tasks ›" ctrl+cmd+t --error-hud '
-                f"/opt/homebrew/bin/python3 {command} picker"
-            ),
-            command,
+    def test_homebrews_opt_path_when_the_app_is_under_it(self) -> None:
+        brew = self.root / "homebrew"
+        env = self.app("homebrew/Cellar/lem/0.4.0/libexec")
+        (brew / "Cellar" / "lem" / "0.4.0" / "bin").mkdir()
+        (brew / "Cellar" / "lem" / "0.4.0" / "bin" / "lem").symlink_to(
+            env / "bin" / "lem"
         )
+        (brew / "opt").mkdir()
+        (brew / "opt" / "lem").symlink_to(brew / "Cellar" / "lem" / "0.4.0")
         self.assertEqual(
-            self.runs(
-                'command "Lem tasks ›"  ctrl+cmd+t  --error-hud '
-                "/opt/homebrew/bin/python3 ~/.claude/plugins/marketplaces/lem/bin/lem "
-                "picker"
-            ),
-            command,
+            doctor.stable_lem(str(env / "bin" / "python"), str(env), (brew,)),
+            brew / "opt" / "lem" / "bin" / "lem",
         )
-        # the form of the line the doctor printed before, as a Mac's keymap holds
-        # it (2026-11-23)
+        # an app elsewhere, a checkout's .venv or a uv tool: the lem beside its
+        # Python, resolved
+        venv = self.app("checkout/.venv")
         self.assertEqual(
-            self.runs(
-                'command "Lem tasks ›"  ctrl+cmd+t  --error-hud '
-                "/opt/homebrew/bin/python3 "
-                "~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py"
-            ),
-            script,
+            doctor.stable_lem(str(venv / "bin" / "python"), str(venv), (brew,)),
+            venv / "bin" / "lem",
         )
-        self.assertEqual(
-            self.runs(
-                f"command 'Lem tasks' ctrl+cmd+t /usr/bin/python3 {script} --repo /r"
-            ),
-            script,
+        # no lem beside the Python: no line
+        (venv / "bin" / "lem").unlink()
+        self.assertIsNone(
+            doctor.stable_lem(str(venv / "bin" / "python"), str(venv), (brew,))
         )
 
-    def test_a_line_that_runs_something_else_is_not_the_pickers(self) -> None:
-        command, script = self.SCRIPTS
+    def test_a_line_runs_the_command_by_its_path_a_link_or_from_home(self) -> None:
+        env = self.app("app")
+        command = env / "bin" / "lem"
+        (self.root / "bin").mkdir()
+        (self.root / "bin" / "lem").symlink_to(command)
+        for said in (
+            f'command "Lem tasks ›" ctrl+cmd+t --error-hud {command} picker',
+            f"command Lem  ctrl+cmd+t  {self.root / 'bin' / 'lem'} picker",
+            "command Lem ctrl+cmd+t ~/app/bin/lem picker",
+        ):
+            with self.subTest(said=said):
+                self.assertTrue(doctor.keymap_runs(said, self.root, command))
         for said in (
             f"command Board ctrl+cmd+b {command} serve --ensure",
-            f"# command Lem ctrl+cmd+t {script}",
-            f"keybind ctrl+t {script}",
-            "command Lem ctrl+cmd+t ~/elsewhere/skills/lem/scripts/picker.py",
+            f"# command Lem ctrl+cmd+t {command} picker",
+            f"keybind ctrl+t {command} picker",
+            "command Lem ctrl+cmd+t ~/elsewhere/lem picker",
             f"command Lem ctrl+cmd+t {command}",
         ):
             with self.subTest(said=said):
-                self.assertIsNone(self.runs(said))
+                self.assertFalse(doctor.keymap_runs(said, self.root, command))
 
-    def row(self, keymap: str | None) -> dict:
-        with tempfile.TemporaryDirectory() as folder:
-            home = Path(folder)
-            clone = home / ".claude" / "plugins" / "marketplaces" / "lem"
-            (clone / "bin").mkdir(parents=True)
-            (clone / "bin" / "lem").write_text("", encoding="utf-8")
-            (home / ".claude" / "plugins" / "known_marketplaces.json").write_text(
-                json.dumps({"lem": {"installLocation": str(clone)}}), encoding="utf-8"
-            )
-            (home / ".claude" / "plugins" / "installed_plugins.json").write_text(
-                json.dumps(
-                    {
-                        "version": 2,
-                        "plugins": {
-                            "lem@lem": [
-                                {
-                                    "scope": "user",
-                                    "installPath": str(home / "cache"),
-                                    "version": "0.3.0",
-                                }
-                            ]
-                        },
-                    }
-                ),
-                encoding="utf-8",
-            )
-            if keymap is not None:
-                (home / ".config" / "agterm").mkdir(parents=True)
-                (home / ".config" / "agterm" / "keymap.conf").write_text(
-                    keymap.replace("HOME", str(home)) + "\n", encoding="utf-8"
-                )
-            with mock.patch.dict(os.environ, {"HOME": str(home)}):
-                found = doctor.picker()
-            return {**found, "line": found["line"].replace(str(home), "HOME")}
+    def row(self, keymap: str | None, command: Path | None) -> dict:
+        home = self.root / "home"
+        (home / ".config" / "agterm").mkdir(parents=True, exist_ok=True)
+        file = home / ".config" / "agterm" / "keymap.conf"
+        file.unlink(missing_ok=True)
+        if keymap is not None:
+            file.write_text(keymap + "\n", encoding="utf-8")
+        with (
+            mock.patch.dict(os.environ, {"HOME": str(home)}),
+            mock.patch.object(doctor, "stable_lem", lambda: command),
+        ):
+            return doctor.picker()
 
-    def test_the_row_gives_the_line_of_the_clones_command_and_counts_an_older_line_as_there(
+    def test_the_row_gives_the_line_and_names_an_old_line_that_no_longer_works(
         self,
     ) -> None:
-        absent = self.row(None)
-        self.assertFalse(absent["found"])
-        self.assertTrue(
-            absent["line"].endswith(
-                " HOME/.claude/plugins/marketplaces/lem/bin/lem picker"
-            ),
-            absent["line"],
-        )
-        current = self.row(
-            "command Lem ctrl+cmd+t /usr/bin/python3 "
-            "HOME/.claude/plugins/marketplaces/lem/bin/lem picker"
-        )
+        command = self.app("app") / "bin" / "lem"
+        line = f'command "Lem tasks ›" ctrl+cmd+t --error-hud {command} picker'
+        absent = self.row(None, command)
+        self.assertEqual((absent["found"], absent["line"]), (False, line))
+        current = self.row(line, command)
         self.assertEqual(
             (current["found"], current["detail"].rsplit(" ", 3)[1:]),
             (True, ["holds", "the", "line"]),
         )
-        older = self.row(
-            "command Lem ctrl+cmd+t /usr/bin/python3 "
-            "~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py"
-        )
-        self.assertTrue(older["found"])
-        self.assertIn(
+        for old in (
             (
-                "an older form that still works; the line in its current form, to put "
-                "in its place when the owner likes, is this row's line"
+                "command Lem ctrl+cmd+t /usr/bin/python3 "
+                "~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py"
             ),
-            older["detail"],
-        )
-        self.assertEqual(older["line"], absent["line"])
+            (
+                'command "Lem tasks ›" ctrl+cmd+t --error-hud /opt/homebrew/bin/'
+                "python3 /Users/o/.claude/plugins/marketplaces/lem/bin/lem picker"
+            ),
+        ):
+            with self.subTest(old=old):
+                row = self.row(old, command)
+                self.assertFalse(row["found"])
+                self.assertEqual(row["line"], line)
+                self.assertIn(
+                    "holds a line of a Lem before the app, which no longer works: "
+                    + old,
+                    row["detail"],
+                )
+                self.assertIn(
+                    "the owner puts this row's line in its place and runs "
+                    "`agtermctl keymap reload`",
+                    row["detail"],
+                )
+        none = self.row(None, None)
+        self.assertEqual((none["found"], none["line"]), (False, None))
+        self.assertIn("the owner installs Lem again", none["without_it"])
+
+
+class PluginFolder(unittest.TestCase):
+    """The plugin whose files the row of the hooks reads: Lem's install for the
+    repository, else for the user, when it is on; else the app's own data."""
+
+    def test_the_install_for_the_repository_then_for_the_user_else_the_apps(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder).resolve()
+            repo = home / "repo"
+            mine, users = home / "cache" / "project", home / "cache" / "user"
+            for made in (repo, mine, users):
+                made.mkdir(parents=True)
+            (home / ".claude" / "plugins").mkdir(parents=True)
+
+            def listed(*entries: dict) -> Path:
+                (home / ".claude" / "plugins" / "installed_plugins.json").write_text(
+                    json.dumps({"version": 2, "plugins": {"lem@lem": list(entries)}}),
+                    encoding="utf-8",
+                )
+                return doctor.plugin_folder(home, repo)
+
+            project = {
+                "scope": "project",
+                "projectPath": str(repo),
+                "installPath": str(mine),
+            }
+            user = {"scope": "user", "installPath": str(users)}
+            self.assertEqual(listed(user, project), mine)
+            self.assertEqual(listed(user), users)
+            self.assertEqual(listed(), doctor.paths.ROOT)
+            # a folder that is not there, or an install the settings switch off
+            self.assertEqual(
+                listed({**user, "installPath": str(home / "gone")}), doctor.paths.ROOT
+            )
+            (repo / ".claude").mkdir()
+            (repo / ".claude" / "settings.local.json").write_text(
+                json.dumps({"enabledPlugins": {"lem@lem": False}}), encoding="utf-8"
+            )
+            self.assertEqual(listed(project), doctor.paths.ROOT)
 
 
 class Tiers(unittest.TestCase):

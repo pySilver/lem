@@ -101,6 +101,6 @@ what its JSON says in one line: the board's address (`url`), and the phone's (`t
 door is open. `--tailscale` refuses with the step that is missing (Tailscale not installed, not
 signed in, HTTPS off in the admin console): say that step as it is, and nothing else. The door
 stays open across restarts, since the machine's settings keep it. A command the owner types in a
-terminal with no agent (a remote login) is the plugin's `lem` by its path: the `board server` row of
-`lem doctor` gives that line for this computer.
+terminal with no agent (a remote login) is the app's `lem` by the path an update keeps: the
+`board server` row of `lem doctor` gives that line for this computer.
 

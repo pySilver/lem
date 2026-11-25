@@ -189,35 +189,27 @@ if [ "$home_only" = "(False, False)" ] && [ "$(field 'd["ok"]' <<<"$out")" = "Tr
 else
   fail "doctor with the required set: $out"
 fi
-# The task picker's row: optional, with the keymap line for this machine. The line runs `bin/lem picker` of a folder of Lem
-# that an update does not move: the marketplace's clone when it holds one; this checkout, which holds none, and a
-# plugin's folder alone give no line. The row is found when agterm's keymap holds the line, or the older line that names the clone's picker.py
-# from `~/`; Lem only reads that file.
+# The task picker's row: optional, with the keymap line for this machine, which runs the app's command `lem picker` by
+# the path an update keeps: here the lem beside the Python that runs the check, this checkout's .venv/bin/lem. The row is
+# found when agterm's keymap holds the line; a line of a Lem before the app (an interpreter and the marketplace clone's
+# picker.py from ~/, as a Mac's keymap held it on 2026-11-23) is named as one that no longer works, with the line to put
+# in its place and `agtermctl keymap reload`. Lem only reads that file.
 picker_row() { field '(lambda t: (t["need"], t["found"], t["line"]))(next(t for t in d["tools"] if t["name"] == "task picker"))'; }
-from_clone=$(doctor | picker_row || true)
-mkdir -p "$WORK/market/bin" && touch "$WORK/market/bin/lem"
-printf '%s\n' "{\"lem\": {\"source\": {\"source\": \"github\", \"repo\": \"pySilver/lem\"}, \"installLocation\": \"$WORK/market\"}}" > "$FAKEHOME/.claude/plugins/known_marketplaces.json"
-from_market=$(doctor | picker_row || true)
+own_lem=$("$PY" -c 'import os, sys; print(os.path.realpath(os.path.join(os.path.dirname(sys.argv[1]), "lem")))' "$PY")
+picker_line="command \"Lem tasks ›\" ctrl+cmd+t --error-hud $own_lem picker"
+absent=$(doctor | picker_row || true)
 mkdir -p "$FAKEHOME/.config/agterm"
-printf '%s\n' "command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/bin/lem picker" > "$FAKEHOME/.config/agterm/keymap.conf"
+printf '%s\n' "$picker_line" > "$FAKEHOME/.config/agterm/keymap.conf"
 held=$(doctor | picker_row || true)
-# the line the doctor printed before, which names the clone's picker.py from ~/, as a Mac's keymap holds it (2026-11-23)
-printf '%s\n' "{\"lem\": {\"source\": {\"source\": \"github\", \"repo\": \"pySilver/lem\"}, \"installLocation\": \"$FAKEHOME/.claude/plugins/marketplaces/lem\"}}" > "$FAKEHOME/.claude/plugins/known_marketplaces.json"
-mkdir -p "$FAKEHOME/.claude/plugins/marketplaces/lem/bin" && touch "$FAKEHOME/.claude/plugins/marketplaces/lem/bin/lem"
-printf '%s\n' "command \"Lem tasks ›\"  ctrl+cmd+t  --error-hud $PY ~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py" > "$FAKEHOME/.config/agterm/keymap.conf"
+old_line="command \"Lem tasks ›\"  ctrl+cmd+t  --error-hud /usr/bin/python3 ~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py"
+printf '%s\n' "$old_line" > "$FAKEHOME/.config/agterm/keymap.conf"
 older=$(doctor | field '(lambda t: (t["found"], t["line"], t["detail"]))(next(t for t in d["tools"] if t["name"] == "task picker"))' || true)
-rm -r "$FAKEHOME/.claude/plugins/marketplaces"
-rm -r "$FAKEHOME/.config/agterm" "$FAKEHOME/.claude/plugins/known_marketplaces.json"
-mkdir -p "$WORK/cache/lem/abc123" && cp -R "$PWD/skills" "$PWD/src" "$WORK/cache/lem/abc123/"
-from_cache=$( (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$WORK/cache/lem/abc123/src/lem/__main__.py" doctor) | picker_row || true)
-if [ "$from_clone" = "('optional', False, None)" ] \
-  && [ "$from_market" = "('optional', False, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/bin/lem picker')" ] \
-  && [ "$held" = "('optional', True, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/bin/lem picker')" ] \
-  && [ "$older" = "(True, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $FAKEHOME/.claude/plugins/marketplaces/lem/bin/lem picker', \"$FAKEHOME/.config/agterm/keymap.conf holds a line that runs $FAKEHOME/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py, an older form that still works; the line in its current form, to put in its place when the owner likes, is this row's line\")" ] \
-  && [ "$from_cache" = "('optional', False, None)" ]; then
-  pass "the task picker's row is optional and gives the keymap line with a python3 and the bin/lem picker of a folder of Lem that an update does not move, the marketplace's clone, and none for this checkout, which holds no bin/lem; it is found when agterm's keymap holds the line, and when it holds the older line that names the clone's picker.py from ~/, with the current line to put in its place; a plugin's folder alone gives no line"
+rm -r "$FAKEHOME/.config/agterm"
+if [ "$absent" = "('optional', False, '$picker_line')" ] && [ "$held" = "('optional', True, '$picker_line')" ] \
+  && [ "$older" = "(False, '$picker_line', '$FAKEHOME/.config/agterm/keymap.conf holds a line of a Lem before the app, which no longer works: $old_line; the owner puts this row\\'s line in its place and runs \`agtermctl keymap reload\`')" ]; then
+  pass "the task picker's row is optional and gives the keymap line that runs the app's own lem picker by its path; it is found when agterm's keymap holds the line, and a line of a Lem before the app, an interpreter and the marketplace clone's picker.py, is named as one that no longer works, with the line to put in its place and agtermctl keymap reload"
 else
-  fail "the task picker's row: $from_clone / $from_market / $held / $older / $from_cache"
+  fail "the task picker's row: $absent / $held / $older"
 fi
 rm "$BIN/cronn"
 out=$(doctor || true)

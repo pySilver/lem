@@ -31,11 +31,10 @@ runs the script a name stands for with the arguments as they came, and its outpu
 are the script's. So one permission rule, `Bash(lem *)`, covers every script of Lem's on every
 machine and after every update. The rule covers a plain call: run each `lem` call alone and read what it
 prints, never inside `$(...)`, before a pipe or after an `&&`, which make a command of another
-shape that needs a rule of its own. Where the shell does not find it (`command not found`), run the same
-command through the entry of Lem's package by its path with a Python of 3.14 or newer, `python3 SKILL_DIR/../../src/lem/__main__.py
-NAME ARGS...` (a shipped skill's too: `lem experts` is `python3
-SKILL_DIR/../../src/lem/__main__.py experts`; `COMMANDS` in `SKILL_DIR/../../src/lem/names.py`
-names each module), and say once that `lem` was not on the `PATH`.
+shape that needs a rule of its own. Where the shell does not find it (`command not found`), Lem's app
+is not installed, or its folder is not on the `PATH`: stop, and tell the owner the install command,
+`brew install pySilver/tap/lem`. The plugin has no Python of its own, and no command of Lem runs
+without the app.
 
 ## load-skill
 
