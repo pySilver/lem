@@ -2,13 +2,21 @@
 
     lem waiting [--task SLUG]
 
-A stub until the step `owner` builds it: it refuses `not-built`.
+Read only: the owner's presence, each group of what waits for him, the board's rows and stacks,
+and the count of tasks that wait (`app/owner/listing.py`).
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.owner import listing
+from lem.cli import place
+from lem.kernel import clock
+
+if TYPE_CHECKING:
+    from lem.app.owner.listed import Waiting
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -17,9 +25,11 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     task: str | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `owner` builds `lem waiting`."""
-    raise not_built("waiting", "owner")
+def run(call: Call) -> Waiting:
+    """Everything that waits for the owner."""
+    now = clock.now()
+    today = now.astimezone().date()
+    return listing.listed(place.folder(), call.task, now, today)
 
 
 COMMAND = click.Command(

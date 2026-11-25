@@ -2,13 +2,14 @@
 
     lem owner watch [--seen N] [--every SECONDS]
 
-A stub until the step `owner` builds it: it refuses `not-built`.
+It ends with the owner's presence once the machine's mark holds another number of changes than
+`--seen`, the count `lem waiting` gave as `owner.seen`; it writes nothing (`app/owner/watch.py`).
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.owner import watch
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -18,9 +19,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     every: int = 5
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `owner` builds `lem owner watch`."""
-    raise not_built("owner watch", "owner")
+def run(call: Call) -> watch.Seen:
+    """Wait for the owner's next word, and give his presence."""
+    return watch.watched(call.seen, call.every)
 
 
 COMMAND = click.Command(
