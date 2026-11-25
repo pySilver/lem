@@ -16,7 +16,7 @@ from lem.records.base import Day, Frozen, Moment
 
 type Kind = Literal["night", "retro"]
 # An area: lower-case words joined by hyphens, as `lessons` or `board`.
-type Area = Annotated[str, msgspec.Meta(pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$")]
+type Area = Annotated[str, msgspec.Meta(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*\Z")]
 
 
 class Proposal(Frozen, frozen=True, kw_only=True):

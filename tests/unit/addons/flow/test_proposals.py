@@ -138,6 +138,44 @@ def test_a_run_that_is_not_in_the_form_is_refused_and_writes_nothing(
     assert refusal(wrong_day)["code"] == "date"
 
 
+@pytest.mark.parametrize("area", ["lessons\n", "lessons\r\n", "lessons\u2028"])
+def test_an_area_with_a_line_end_is_refused_by_add_and_verdict(
+    tmp_path: Path, area: str
+) -> None:
+    state = state_of(tmp_path)
+    run = {
+        "read": "the tasks",
+        "proposals": [msgspec.to_builtins(proposal(area, "One"))],
+    }
+    refused_add = lem(
+        "proposals",
+        "add",
+        "--kind",
+        "retro",
+        "--file",
+        "-",
+        stdin=json.dumps(run),
+        cwd=tmp_path,
+    )
+
+    added = add(state, "retro", [proposal("lessons", "One")])
+    daily = days.path_of(state, "retro", DAY)
+    before = daily.read_bytes()
+    given = {
+        "verdicts": [{"proposal": added.names[0], "passed": area}],
+        "titles": {"lessons": "Lessons"},
+    }
+    refused_verdict = lem(
+        "proposals", "verdict", "--file", "-", stdin=json.dumps(given), cwd=tmp_path
+    )
+
+    assert (refused_add.code, refused_verdict.code) == (1, 1)
+    assert refusal(refused_add)["code"] == refusal(refused_verdict)["code"] == "form"
+    assert list((state / "retros").iterdir()) == [daily]
+    assert daily.read_bytes() == before
+    assert not (state / "backlog").exists()
+
+
 def test_a_record_that_does_not_read_is_refused_with_the_form(tmp_path: Path) -> None:
     state = state_of(tmp_path)
     add(state, "retro", [proposal("lessons", "One")])
@@ -383,6 +421,40 @@ def test_a_retry_that_passes_a_proposal_whose_refute_was_cut_off_removes_the_ref
     assert [path.name for path in (state / "backlog").iterdir()] == ["lessons.md"]
 
 
+@pytest.mark.parametrize("retry", [{"passed": "lessons"}, {"refuted": "a new reason"}])
+def test_a_verdict_retry_leaves_a_claimed_item_and_the_whole_batch_intact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, retry: dict[str, str]
+) -> None:
+    where = workspace(tmp_path)
+    state = where.state
+    added = add(state, "retro", [proposal("lessons", "One"), proposal("board", "Two")])
+    daily = days.path_of(state, "retro", DAY)
+    before = daily.read_bytes()
+    first, second = added.names
+    cut = judge(state, [{"proposal": first, "refuted": "the first reason"}])
+    daily.write_bytes(before)
+    path = cut.decided_against[0].path
+    target = where.checkout / path
+    original = target.read_bytes()
+    monkeypatch.setattr(taken, "checked", lambda *_: None)
+    task_open.opened(
+        where.checkout,
+        opening.Asked(slug="do-the-lessons", ask=path, backlog_item=path),
+    )
+    titles = {"board": "Board"}
+    if "passed" in retry:
+        titles["lessons"] = "Lessons"
+    batch = [{"proposal": second, "passed": "board"}, {"proposal": first, **retry}]
+
+    with pytest.raises(Refusal) as caught:
+        judge(state, batch, titles)
+    assert caught.value.code == "item-held"
+    assert "do-the-lessons" in caught.value.why
+    assert daily.read_bytes() == before
+    assert list(target.parent.iterdir()) == [target]
+    assert target.read_bytes() == original
+
+
 def test_a_record_with_a_refuted_entry_and_no_item_still_reads_and_takes_verdicts(
     tmp_path: Path,
 ) -> None:
@@ -483,20 +555,50 @@ def test_a_drop_is_refused_while_a_task_that_has_not_ended_holds_the_item(
     assert item_files.file_of(where.state, path).is_file()
 
 
-def test_an_absolute_explicit_item_is_claimed_by_its_checkout_path(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("spelling", ["absolute", "parent", "symlink"])
+def test_an_explicit_item_alias_is_claimed_by_its_checkout_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, spelling: str
 ) -> None:
     where = workspace(tmp_path)
     path = passed_item(where.state)
-    whole = str(where.checkout / path)
+    alias = path.replace("/backlog/", "/backlog/../backlog/")
+    if spelling == "absolute":
+        alias = str(where.checkout / path)
+    if spelling == "symlink":
+        alias = ".lem/state/backlog/alias.md"
+        (where.checkout / alias).symlink_to(where.checkout / path)
     monkeypatch.setattr(taken, "checked", lambda *_: None)
-    asked = opening.Asked(slug="do-the-lessons", ask=whole, backlog_item=whole)
+    asked = opening.Asked(slug="do-the-lessons", ask=path, backlog_item=alias)
     task_open.opened(where.checkout, asked)
     with pytest.raises(Refusal) as caught:
         dropping.dropped(where, path, TODAY)
     assert caught.value.code == "item-held"
     assert tasks.read(where.state, asked.slug).task.backlog_item == path
     assert (where.checkout / path).is_file()
+
+
+@pytest.mark.parametrize("spelling", ["absolute", "parent", "symlink"])
+def test_an_explicit_item_outside_the_workspace_is_refused(
+    tmp_path: Path, spelling: str
+) -> None:
+    where = workspace(tmp_path / "repo")
+    outside = tmp_path / "outside.md"
+    outside.write_text("# Outside\n")
+    path = "../outside.md"
+    if spelling == "absolute":
+        path = str(outside)
+    if spelling == "symlink":
+        path = ".lem/state/backlog/outside.md"
+        linked = where.checkout / path
+        linked.parent.mkdir()
+        linked.symlink_to(outside)
+    asked = opening.Asked(
+        slug="do-the-lessons", ask="do the lessons", backlog_item=path
+    )
+    with pytest.raises(Refusal) as caught:
+        opening.item_of(where, asked)
+    assert caught.value.code == "item-path"
+    assert outside.is_file()
 
 
 def test_a_task_cannot_claim_an_item_dropped_before_it_publishes(
@@ -568,13 +670,16 @@ def test_a_path_outside_the_state_folders_backlog_is_refused(tmp_path: Path) -> 
         assert refused["code"] == "not-reviewer-item", given
 
 
-def test_the_reviewers_item_is_its_path_from_the_checkout_or_whole_under_it(
-    tmp_path: Path,
+@pytest.mark.parametrize("spelling", ["absolute", "parent"])
+def test_drop_records_a_canonical_reviewer_item_path(
+    tmp_path: Path, spelling: str
 ) -> None:
     where = workspace(tmp_path)
     path = passed_item(where.state)
-    whole = f"{tmp_path.resolve()}/{path}"
-    dropped = result(lem("proposals", "drop", f"  {whole}\n", cwd=tmp_path))
+    alias = f"{tmp_path.resolve()}/{path}"
+    if spelling == "parent":
+        alias = path.replace("/backlog/", "/backlog/../backlog/")
+    dropped = result(lem("proposals", "drop", f"  {alias}\n", cwd=tmp_path))
     assert dropped["item"] == path
     outside = refusal(lem("proposals", "drop", f"/elsewhere/{path}", cwd=tmp_path))
     assert outside["code"] == "not-reviewer-item"

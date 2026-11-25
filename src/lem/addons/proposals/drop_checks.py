@@ -8,6 +8,7 @@ from lem.kernel.errors import Refusal
 from lem.store import reviewer_items
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from pathlib import Path
 
 LIST = "read the backlog again: lem proposals list gives the proposals and their items"
@@ -32,7 +33,7 @@ def reviewer_path(checkout: Path, given: str) -> str:
 def droppable(state: Path, target: Path, path: str) -> tuple[str, ...]:
     """The proposals the item at `target` names, once every check of a drop holds."""
     text = present(target, path)
-    not_held(state, path)
+    not_held(state, (path,))
     return named(text, path)
 
 
@@ -48,17 +49,19 @@ def present(target: Path, path: str) -> str:
         ) from None
 
 
-def not_held(state: Path, path: str) -> None:
-    """Refuse the drop while a task that has not ended started from the item."""
-    holding = (task for claimed, task in item_files.claims_of(state) if claimed == path)
-    task = next(holding, None)
-    if task is not None:
-        raise Refusal(
-            "item-held",
-            f"the task {task.slug} ({task.status}) builds the item {path}, so it is not "
-            "dropped: it leaves with that task's landing",
-            f"drop the task {task.slug} first, or let it land",
-        )
+def not_held(state: Path, paths: Iterable[str]) -> None:
+    """Refuse a change to any item an open task started from."""
+    targets = frozenset(paths)
+    if not targets:
+        return
+    for path, task in item_files.claims_of(state):
+        if path in targets:
+            raise Refusal(
+                "item-held",
+                f"the task {task.slug} ({task.status}) builds the item {path}, "
+                "which leaves with that task's landing",
+                f"drop the task {task.slug} first, or let it land",
+            )
 
 
 def named(text: str, path: str) -> tuple[str, ...]:

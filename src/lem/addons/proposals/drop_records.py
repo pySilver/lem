@@ -38,12 +38,6 @@ def kept(state: Path, listed: tuple[str, ...], path: str, today: dt.date) -> Rec
     return records
 
 
-def written(records: Records) -> None:
-    """Write each record of a drop whole."""
-    for path, record in records.items():
-        days.write(path, record)
-
-
 def with_drop(record: DayRecord, number: int, told: Told, today: dt.date) -> DayRecord:
     """The record with the drop of proposal `number`, once; refused when it did not pass into
     the item `told` names (its path, and the proposal's name)."""

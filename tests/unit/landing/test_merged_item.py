@@ -23,14 +23,14 @@ if TYPE_CHECKING:
 ITEM = ".lem/state/backlog/lessons.md"
 
 
-def ready(checkout: Path) -> Context:
+def ready(checkout: Path, backlog_item: str = ITEM) -> Context:
     where = workspace(checkout)
     made = task(
         "open",
         **{**OPENED, "phase": "merged", "merged": replace(MERGED, text_updated=True)},
     )
     record = tasks.create(
-        where.state, replace(made, task=replace(made.task, backlog_item=ITEM))
+        where.state, replace(made, task=replace(made.task, backlog_item=backlog_item))
     )
     git = ModelGit(checkout=checkout)
     return Context(
@@ -50,6 +50,19 @@ def test_merge_removes_the_tasks_item_and_accepts_one_gone_already(
     if present:
         item.parent.mkdir()
         item.write_text("# Lessons\n")
+    merged.act(context)
+    assert not item.exists()
+    assert (
+        tasks.read(context.workspace.state, context.record.task.slug).task.status
+        == "landed"
+    )
+
+
+def test_merge_removes_an_item_claimed_under_a_path_alias(tmp_path: Path) -> None:
+    context = ready(tmp_path, ".lem/state/backlog/../backlog/lessons.md")
+    item = tmp_path / ITEM
+    item.parent.mkdir()
+    item.write_text("# Lessons\n")
     merged.act(context)
     assert not item.exists()
     assert (

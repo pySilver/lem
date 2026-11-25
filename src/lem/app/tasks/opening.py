@@ -69,8 +69,18 @@ def night_of(asked: Asked) -> dt.date | None:
 def item_of(workspace: Workspace, asked: Asked) -> str | None:
     """The backlog item the task starts from, a path in the main checkout; refused when it
     is gone (the owner dropped it in the meantime)."""
-    given = asked.backlog_item or asked.ask
-    path = reviewer_items.relative(workspace.checkout, given) or asked.backlog_item
+    given = asked.backlog_item
+    if given:
+        named = reviewer_items.checkout_path(workspace.checkout, given)
+        if named is None:
+            raise Refusal(
+                "item-path",
+                f"the backlog item {given!r} must name a file inside {workspace.checkout}",
+                "give --item a path inside the main checkout, or omit --item",
+            )
+        path = named.as_posix()
+    else:
+        path = reviewer_items.relative(workspace.checkout, asked.ask)
     if not path:
         return None
     reviewer_items.require(workspace.checkout, path)

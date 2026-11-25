@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.addons.proposals import drop_checks, drop_records, item_files
+from lem.addons.proposals import days, drop_checks, drop_records, item_files
 from lem.records.base import Day, Frozen
 from lem.store import reviewer_items
 
@@ -35,6 +35,7 @@ def dropped(where: Workspace, given: str, today: dt.date) -> Dropped:
     target = item_files.file_of(where.state, path)
     with reviewer_items.held(where.state):
         named = drop_checks.droppable(where.state, target, path)
-        drop_records.written(drop_records.kept(where.state, named, path, today))
+        for daily, record in drop_records.kept(where.state, named, path, today).items():
+            days.write(daily, record)
         target.unlink()
     return Dropped(item_path=path, proposals=named, day=today)

@@ -268,8 +268,9 @@ def test_a_terminal_that_does_not_answer_is_a_refusal_with_its_line(
 
 
 def test_a_folder_outside_lem_a_repository_with_no_task_and_its_rows(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.delenv("AGT_SESSION_PWD", raising=False)
     plain = tmp_path / "plain"
     plain.mkdir()
     assert refusal(lem("picker", "--list", cwd=plain))["code"] == "no-repository"
@@ -288,7 +289,7 @@ def test_a_folder_outside_lem_a_repository_with_no_task_and_its_rows(
 
 
 def chord(
-    tmp_path: Path, checkout: Path, *, terminal_exits: int
+    tmp_path: Path, checkout: Path, *, terminal_exits: int, cwd: Path | None = None
 ) -> subprocess.CompletedProcess[str]:
     """Run the generated keymap command as agterm does, with a stand-in terminal."""
     stand_in = tmp_path / "agtermctl"
@@ -312,7 +313,7 @@ def chord(
     assert keymap.startswith("command ")
     return subprocess.run(
         ["/bin/sh", "-c", command],
-        cwd=checkout,
+        cwd=cwd or checkout,
         env=environ,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
@@ -335,8 +336,10 @@ def test_the_generated_picker_chord_gives_refusals_to_the_hud(tmp_path: Path) ->
 
 def test_the_generated_picker_chord_opens_the_list_of_the_tasks(tmp_path: Path) -> None:
     where = workspace(tmp_path / "repo")
+    other = workspace(tmp_path / "other")
     made(where, "gift-note", ask="add a gift note")
-    escaped = chord(tmp_path, where.checkout, terminal_exits=2)
+    made(other, "wrong-note", ask="edit a note in another checkout")
+    escaped = chord(tmp_path, where.checkout, terminal_exits=2, cwd=other.checkout)
     assert (escaped.returncode, escaped.stderr) == (0, "")
     rows = json.loads((tmp_path / "rows.json").read_bytes())
     assert [one["id"] for one in rows] == ["gift-note", row.ALL]
@@ -347,6 +350,25 @@ def test_the_generated_picker_chord_opens_the_list_of_the_tasks(tmp_path: Path) 
     assert len(refused.stderr.splitlines()) == 1
     assert "terminal refused the picker" in refused.stderr
     assert "lem picker --list prints the rows" in refused.stderr
+
+
+def test_picker_list_prefers_the_explicit_repo_then_the_session_then_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for name in ("explicit", "session", "working"):
+        where = workspace(tmp_path / name)
+        made(where, name, ask=f"work from {name}")
+    cwd = tmp_path / "working"
+    monkeypatch.setenv("AGT_SESSION_PWD", str(tmp_path / "session"))
+    assert printed(lem("picker", "--list", cwd=cwd))[0]["id"] == "session"
+    assert (
+        printed(lem("--repo", str(tmp_path / "explicit"), "picker", "--list", cwd=cwd))[
+            0
+        ]["id"]
+        == "explicit"
+    )
+    monkeypatch.delenv("AGT_SESSION_PWD")
+    assert printed(lem("picker", "--list", cwd=cwd))[0]["id"] == "working"
 
 
 def test_brackets_in_the_first_label_reach_agterm_as_a_json_row(

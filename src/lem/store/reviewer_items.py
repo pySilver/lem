@@ -22,15 +22,23 @@ LOCK = "proposals.lock"
 
 def relative(checkout: Path, given: str) -> str | None:
     """A reviewer's item as a checkout path, whether given whole or from the checkout."""
-    named = checkout / given.strip()
-    if named.parent not in (
-        checkout / FROM_CHECKOUT,
-        checkout.resolve() / FROM_CHECKOUT,
-    ):
+    if not given.strip().endswith(".md"):
+        return None
+    named = checkout_path(checkout, given)
+    if named is None or named.parent != FROM_CHECKOUT:
         return None
     if not named.name.endswith(".md") or named.name == ".md":
         return None
-    return (FROM_CHECKOUT / named.name).as_posix()
+    return named.as_posix()
+
+
+def checkout_path(checkout: Path, given: str) -> Path | None:
+    """The resolved path from the checkout, or None for a path outside it."""
+    root = checkout.resolve()
+    try:
+        return (root / given.strip()).resolve().relative_to(root)
+    except ValueError:
+        return None
 
 
 def file_of(state: Path, path: str) -> Path:

@@ -7,6 +7,8 @@ gives). A pick selects the task's live session, else opens its board. The chord 
 on standard error. With `--list` the command prints the rows and opens nothing.
 """
 
+import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
@@ -30,11 +32,12 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 def run(call: Call) -> picking.Picked | tuple[PickRow, ...]:
     """The rows, or the picker and the way to the task picked."""
     now = clock.now()
+    folder = place.folder(Path(os.environ.get("AGT_SESSION_PWD") or "."))
     if call.listing:
-        _, found = looks.listed(place.folder(), now)
+        _, found = looks.listed(folder, now)
         return found
     try:
-        return picking.picked(place.folder(), now)
+        return picking.picked(folder, now)
     except Refusal as refusal:
         line = f"lem picker: {refusal.why}. {refusal.fix}"
         click.echo(" ".join(line.split()), err=True)

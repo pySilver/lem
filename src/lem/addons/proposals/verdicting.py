@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.addons.proposals import days, planning
+from lem.addons.proposals import days, drop_checks, item_files, planning
 from lem.addons.proposals.judgment import Judgment
 from lem.addons.proposals.record import DayRecord, Passed, Refuted
 from lem.kernel import files
@@ -41,17 +41,29 @@ def judged(state: Path, given: verdicts.VerdictsGiven, today: dt.date) -> Judgme
     )
 
 
+def removals(plan: planning.Plan) -> tuple[Path, ...]:
+    """The refuted items that a verdict that passes their proposal removes."""
+    passing = (one.name for one in plan.judged if one.word == "passed")
+    return tuple(path for name in passing for path in plan.left.get(name, ()))
+
+
+def changed_paths(plan: planning.Plan, leaving: tuple[Path, ...]) -> tuple[str, ...]:
+    """The items the verdict can replace or remove, as paths from the checkout."""
+    reused = (against.path for against, _ in plan.against)
+    return (*reused, *(item_files.recorded(path.name) for path in leaving))
+
+
 def written(folder: Path, plan: planning.Plan) -> None:
     """Write each item of the plan whole, then remove the refuted items of the proposals that
-    pass now."""
+    pass now; refuse a change to a claimed item before the first write."""
+    leaving = removals(plan)
+    drop_checks.not_held(folder.parent, changed_paths(plan, leaving))
     folder.mkdir(parents=True, exist_ok=True)
     for made, text in (*plan.made, *plan.against):
         _, _, name = made.path.rpartition("/")
         files.write_whole(folder / name, text.encode())
-    for one in plan.judged:
-        if one.word == "passed":
-            for path in plan.left.get(one.name, ()):
-                path.unlink(missing_ok=True)
+    for path in leaving:
+        path.unlink(missing_ok=True)
 
 
 def recorded(plan: planning.Plan, today: dt.date) -> None:

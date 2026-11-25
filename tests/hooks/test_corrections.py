@@ -209,6 +209,29 @@ def test_nothing_is_handed_on_without_the_machines_yes_or_where_lem_0_3_keeps_it
     assert len(worker_calls(calls.read_text().splitlines())) == 1
 
 
+def test_the_repositorys_team_and_local_yes_do_not_start_the_hook_worker(
+    tmp_path: Path,
+) -> None:
+    hook, calls = stand_in(tmp_path / "app")
+    repo = tmp_path / "repo"
+    workspace(repo)
+    for name in ("settings.toml", "settings.local.toml"):
+        (repo / ".lem" / name).write_text("[corrections]\ncollect = true\n")
+    config = tmp_path / "config"
+    home = config / "lem"
+    home.mkdir(parents=True)
+    (home / folders.MARKER).write_bytes(folders.FORM)
+    (home / "machine.toml").write_text("")
+
+    ran = hooked(
+        "corrections", typed(repo), LEM_HOOK_BIN=str(hook), XDG_CONFIG_HOME=str(config)
+    )
+
+    assert (ran.returncode, ran.stdout, ran.stderr) == (0, b"", b"")
+    assert not (repo / ".lem" / "state" / "corrections-waiting").exists()
+    assert not calls.exists()
+
+
 def test_an_empty_state_folder_is_marked_and_takes_the_message(tmp_path: Path) -> None:
     hook, calls = stand_in(tmp_path / "app")
     repo = tmp_path / "repo"
