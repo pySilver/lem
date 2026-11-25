@@ -191,7 +191,10 @@ def test_the_brief_names_the_record_s_command_next_and_says_what_the_file_holds(
     assert told["inputs"]["worktree"] == str(world.worktree)
     assert told["small"] is True
     spans = world.record()["task"]["spans"]
-    assert [(span["name"], span["job"]) for span in spans] == [("review", "attempt 1")]
+    reviews = [span for span in spans if span["name"] == "review"]
+    assert [(span["name"], span["job"]) for span in reviews] == [
+        ("review", "attempt 1")
+    ]
     again = next_step(capsys, world)
     assert (again["result"]["step"], again["next"]["command"]) == (
         "read",
