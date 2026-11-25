@@ -1,12 +1,12 @@
 """The decisions of the build in the pull request's text (`main:land.breaker_lines`,
-`decided`, `after`, `folded_stories`): each stop of the circuit breaker with its cause and how
-it ended, each decision of the record with who took it and why, and the story of each important
-one folded under the list."""
+`decided`, `after`): each stop of the circuit breaker with its cause and how it ended, and each
+decision of the record with who took it and why."""
 
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from lem.model.landing.green_words import taken_by, without_him
+from lem.app.landing import pr_stories
+from lem.model.landing.green_words import taken_by
 from lem.records.decisions import Breaker, Taken
 
 if TYPE_CHECKING:
@@ -21,29 +21,20 @@ BREAKER_SAYS = MappingProxyType(
     }
 )
 FAMILIES = MappingProxyType({1: "one model family", 2: "two model families"})
-KNOWN = MappingProxyType(
-    {"reproduced": "reproduced", "derived": "derived from the code, not run"}
-)
-# The longest text of a decision's summary in the pull request, in characters: one line at
-# the width of a laptop's window. A guess, not a measurement.
-CELL = 80
+STAMP = "%Y-%m-%d %H:%M UTC"
 
 
 def helped(task: Task, breaker: Breaker) -> str:
     """How a stop of the breaker ended: the owner's help, or that it waits for him."""
-    help_of = next(
-        (
-            found.id
-            for found in task.decisions
-            if isinstance(found, Taken)
-            and found.by == "owner"
-            and found.breaker == breaker.id
-        ),
-        None,
+    helps = (
+        found.id
+        for found in task.decisions
+        if isinstance(found, Taken) and found.breaker == breaker.id
     )
-    if help_of is None:
+    number = next(helps, None)
+    if number is None:
         return "it waits for the owner"
-    return f"the owner helped, decision {help_of}"
+    return f"the owner helped, decision {number}"
 
 
 def breaker_line(task: Task, breaker: Breaker) -> str:
@@ -51,35 +42,44 @@ def breaker_line(task: Task, breaker: Breaker) -> str:
     cause = BREAKER_SAYS[breaker.cause]
     if breaker.irreversible:
         cause = f"{cause} ({breaker.irreversible})"
-    stamp = breaker.at.strftime("%Y-%m-%d %H:%M UTC")
+    stamp = breaker.at.strftime(STAMP)
     said = f"Why it stopped: {cause}; {helped(task, breaker)}."
     return (
         f"- the build stopped at breaker {breaker.id}, {stamp}: {breaker.what}. {said}"
     )
 
 
+def voters(decision: Taken, part: int) -> set[str]:
+    """The personas (part 0) or the model families (part 2) of a decision's votes, each
+    voter written `PERSONA, FAMILY`."""
+    parts = (name.partition(", ")[part] for name, _ in decision.votes)
+    return set(filter(None, parts))
+
+
+def voted(decision: Taken) -> str:
+    """How the personas settled a decision: their votes, the personas and the model
+    families, all for it."""
+    count = len(voters(decision, 2))
+    kinds = FAMILIES.get(count, "{0} model families").format(count)
+    named = f", {kinds}" if count else ""
+    personas = len(voters(decision, 0))
+    return f": {len(decision.votes)} votes of {personas} personas{named}, all for it"
+
+
 def after(decision: Taken) -> str:
     """What follows the option a decision took: by whom, why, each level's word, and the
-    owner's own words. It opens with ", "."""
+    owner's own words."""
     line = f", by {taken_by(decision)}"
     if decision.unsettled:
         line = ", the lead's pick, which no level of the ladder settled"
     if decision.by == "owner" and decision.breaker is not None:
         line = f"{line}, his help on breaker {decision.breaker}"
     elif decision.by == "personas":
-        names = {name.rpartition(", ")[0] or name for name, _ in decision.votes}
-        families = {
-            name.rpartition(", ")[2] for name, _ in decision.votes if ", " in name
-        }
-        count = len(families)
-        named = (
-            f", {FAMILIES.get(count, f'{count} model families')}" if families else ""
-        )
-        line = f"{line}: {len(decision.votes)} votes of {len(names)} personas{named}, all for it"
+        line += voted(decision)
     line = f"{line}. {decision.why}"
-    if decision.levels:
-        said = "; ".join(f"{name}: {word}" for name, word in decision.levels)
-        line = f"{line} Each level: {said}."
+    levels = "; ".join(map(": ".join, decision.levels))
+    if levels:
+        line = f"{line} Each level: {levels}."
     if decision.words and decision.words != decision.chose:
         line = f'{line} The owner\'s words: "{decision.words}"'
     return line
@@ -101,36 +101,7 @@ def lines(record: Record) -> Lines:
     return stops + taken
 
 
-def one_line(text: str) -> str:
-    """A text in one line of at most `CELL` characters, cut at a word, with an ellipsis."""
-    flat = " ".join(text.split())
-    if len(flat) <= CELL:
-        return flat
-    cut = flat[:CELL].rsplit(" ", 1)[0].rstrip(",;:.")
-    return f"{cut}…"
-
-
-def stories(record: Record) -> Lines:
-    """The story and the chart of each important decision that has one, folded under the
-    list, which the forge draws: one the request is not green for, or his help on a
-    breaker."""
-    found: list[str] = []
-    for decision in record.task.decisions:
-        if not isinstance(decision, Taken):
-            continue
-        important = without_him(decision) or (
-            decision.by == "owner" and decision.breaker is not None
-        )
-        if not important or not (decision.story or decision.chart):
-            continue
-        summary = f"Decision {decision.id}, its story: {one_line(decision.what)}"
-        found.extend(("", f"<details><summary>{summary}</summary>", ""))
-        story = decision.story
-        if story is not None:
-            known = KNOWN[story.case_was]
-            found.extend((f"**The case** ({known}):", "", *story.case, ""))
-            found.extend((f"**Why it could happen:** {story.cause}", ""))
-        if decision.chart:
-            found.extend(("```mermaid", *decision.chart.splitlines(), "```", ""))
-        found.append("</details>")
-    return tuple(found)
+def part(record: Record) -> Lines:
+    """The standard track's part of the decisions: each one, or `none`, and the story of
+    each important one folded under them."""
+    return (*(lines(record) or ("none",)), *pr_stories.stories(record))

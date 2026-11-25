@@ -1,24 +1,22 @@
-"""The personas' read of the criteria and the owner's approval, as lines of the pull request's
-checks (`main:land.read_line`, `unread`, `approval_said`), on the standard track."""
+"""The personas' read of the criteria and the owner's approval, as one line of the pull
+request's checks (`main:land.read_line`, `approval_said`), on the standard track."""
 
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from lem.model.landing import propose_criteria
-from lem.records.decisions import CriterionChanged
 
 if TYPE_CHECKING:
-    from lem.app.landing.pr_inputs import Lines
     from lem.records.approvals import PersonaRead
     from lem.records.record import Record
     from lem.records.task import Task
 
 FAMILIES = MappingProxyType({1: "one model family", 2: "two model families"})
 NO_WAIT = "the build started with no wait for the owner"
-SCOUT = (
-    "- the criteria were written from the scout's facts of the code, read during the "
-    "interview"
+UNREAD = (
+    "- the criteria changed after the personas' read{0}, and the change was not read"
 )
+QUIET = "- the criteria were not read by the personas: {0} reads in a row, and none of the {1}"
 
 
 def approved(task: Task) -> str:
@@ -33,19 +31,32 @@ def approved(task: Task) -> str:
     return f"approved on {day} while the task ran without the owner"
 
 
-def found(read: PersonaRead) -> str:
-    """What a read that someone answered found: who read, in which families, the doubt, and
-    who did not answer."""
-    count = len(read.families)
-    families = FAMILIES.get(count, f"{count} model families")
-    listed = ", ".join(read.families)
+def doubts(read: PersonaRead) -> str:
+    """What a read found: the criteria flagged or nobody confused, a split of the families,
+    and who did not answer."""
     noun = "criterion" if read.criteria == 1 else "criteria"
-    doubt = f"{read.flagged} of {read.criteria} {noun} flagged"
-    split = "; the two families split" if read.split else ""
-    silent = "".join(f"; no answer from {one.name} ({one.why})" for one in read.silent)
+    said = f"{read.flagged} of {read.criteria} {noun} flagged"
+    if not read.flagged:
+        said = "nobody confused"
+    if read.split:
+        said = f"{said}; the two families split"
+    silent = (f"; no answer from {one.name} ({one.why})" for one in read.silent)
+    return said + "".join(silent)
+
+
+def found(read: PersonaRead) -> str:
+    """Who read the criteria, in which families, and what they found."""
+    count = len(read.families)
+    families = FAMILIES.get(count, "{0} model families").format(count)
+    listed = ", ".join(read.families)
     asked = f"{read.answered} of {read.asked} personas asked"
-    doubts = (doubt if read.flagged else "nobody confused") + split + silent
-    return f"read by {asked}, {families} ({listed}); {doubts}"
+    return f"read by {asked}, {families} ({listed}); {doubts(read)}"
+
+
+def unanswered(task: Task, read: PersonaRead) -> str:
+    """A read nobody answered: how many in a row, and how many personas were asked."""
+    quiet = propose_criteria.quiet(propose_criteria.done(task))
+    return QUIET.format(quiet, f"{read.asked} personas asked answered")
 
 
 def read_line(record: Record) -> str:
@@ -54,50 +65,12 @@ def read_line(record: Record) -> str:
     read = propose_criteria.newest(task)
     ending = approved(task) or NO_WAIT
     if read is not None and not read.answered:
-        quiet = propose_criteria.quiet(propose_criteria.done(task))
-        none = f"none of the {read.asked} personas asked answered"
-        said = f"not read by the personas: {quiet} reads in a row, and {none}"
-        return f"- the criteria were {said}; {ending}"
+        return f"{unanswered(task, read)}; {ending}"
     if read is not None:
         return f"- the criteria were {found(read)}; {ending}"
     if task.criteria.skip == "yes":
         return (
-            "- the criteria: not read by the personas, on the owner's word; " + ending
+            f"- the criteria: not read by the personas, on the owner's word; {ending}"
         )
-    return "- the criteria: no read by the personas is on record" + (
-        f"; {approved(task)}" if approved(task) else ""
-    )
-
-
-def unread(record: Record) -> Lines:
-    """The line that says the criteria are not the ones the personas read, and what changed
-    them: an approval of his with other criteria, or a change of the build."""
-    task = record.task
-    read = propose_criteria.newest(task)
-    if read is None or not read.answered or task.criteria.digest == read.digest:
-        return ()
-    ended = read.ended or read.started
-    his = [
-        approval.number
-        for approval in task.criteria.approvals
-        if approval.by == "owner"
-        and approval.at >= ended
-        and approval.digest != read.digest
-    ]
-    what = [f"by the owner's approval {his[-1]}"] if his else []
-    if any(
-        isinstance(change, CriterionChanged) and change.at >= ended
-        for change in task.decisions
-    ):
-        what.append("by a change of the build")
-    listed = f", {' and '.join(what)}" if what else ""
-    return (
-        f"- the criteria changed after the personas' read{listed}, and the change was not read",
-    )
-
-
-def scout(record: Record) -> Lines:
-    """The criteria were written from the scout's facts: no path, the forge has no file of
-    this machine."""
-    scouted = any(span.name == "scout" for span in record.task.spans)
-    return (SCOUT,) if scouted else ()
+    line = "- the criteria: no read by the personas is on record"
+    return f"{line}; {approved(task)}" if approved(task) else line
