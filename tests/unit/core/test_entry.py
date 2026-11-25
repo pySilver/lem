@@ -6,6 +6,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
@@ -93,15 +94,20 @@ def test_a_full_run_waits_while_another_holds_the_lock(
     assert f"waits for the full run that holds {lock}" in capfd.readouterr().err
 
 
-def test_the_eslint_gate_is_a_skip_with_no_configuration(
+def test_the_eslint_gate_skips_with_no_configuration_and_no_node_modules_but_in_full(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(gates, "ROOT", tmp_path)
+    unit, full = (
+        Mock(getoption=Mock(return_value=level)) for level in ("unit", "full")
+    )
     with pytest.raises(pytest.skip.Exception, match="no eslint"):
-        gates.test_eslint_holds_the_javascript_to_its_style()
+        gates.test_eslint_holds_the_javascript_to_its_style(unit)
     (tmp_path / "eslint.config.mjs").touch()
+    with pytest.raises(pytest.skip.Exception, match="npm ci"):
+        gates.test_eslint_holds_the_javascript_to_its_style(unit)
     with pytest.raises(pytest.fail.Exception, match="npm ci"):
-        gates.test_eslint_holds_the_javascript_to_its_style()
+        gates.test_eslint_holds_the_javascript_to_its_style(full)
 
 
 def test_the_two_commands_run_their_stubs_and_say_nothing() -> None:

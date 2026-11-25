@@ -129,7 +129,12 @@ addopts = [
     "--disable-plugin-autoload",
     "-p", "no:cacheprovider",
     "--import-mode=importlib",
+    "-p", "inline_snapshot",
 ]
+
+# snapshot() only compares, unless the entry passes --snapshots create or fix.
+[tool.inline-snapshot]
+default-flags = ["disable"]
 
 # ==== ruff ====
 [tool.ruff]
@@ -214,6 +219,15 @@ ignore = [
 # The typographic marks of a text for a person: the apostrophe, the en dash, the times sign, and
 # the sign between the parts of a title as agterm shows it.
 allowed-confusables = ["’", "–", "×", "›"]
+
+[tool.ruff.lint.flake8-type-checking]
+# msgspec reads a struct's annotations when it first encodes or decodes one, so the types they
+# name are imported for real.
+runtime-evaluated-base-classes = [
+    "msgspec.Struct",
+    "lem.records.base.Frozen",
+    "lem.records.base.Tagged",
+]
 
 [tool.ruff.lint.pycodestyle]
 # A line the formatter cannot wrap (a docstring, a comment, a string) may run to 100: the agreed

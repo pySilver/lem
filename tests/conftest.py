@@ -15,6 +15,8 @@ from textwrap import indent
 
 import pytest
 
+from levels import LEVELS
+
 HERE = Path(__file__).resolve().parent
 SETUP_PLUGIN = "lem-test-setup"
 MARKED_TO_FAIL = "a case marked to fail is no check"
@@ -63,6 +65,9 @@ class Setup:
         parser.addoption(
             "--lem-lines", action="store_true", help="print a line for each case"
         )
+        parser.addoption(
+            "--lem-level", choices=LEVELS, help="the level the entry runs (levels.py)"
+        )
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_configure(self, config: pytest.Config) -> None:
@@ -72,8 +77,8 @@ class Setup:
                 raise pytest.UsageError(
                     "--lem-lines requires fd capture and normal xfail handling"
                 )
-            config.pluginmanager.set_blocked("terminal")
-            # Pytest can still call the terminal's configure hook in this hook pass.
+            # The terminal plugin stays, for the options other plugins read (inline-snapshot
+            # reads --color); its reporter, which would print over the lines, is blocked.
             config.pluginmanager.set_blocked("terminalreporter")
             config.pluginmanager.register(Lines())
 
