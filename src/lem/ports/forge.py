@@ -1,0 +1,46 @@
+"""The `Forge` port: the pull requests of the repository on GitHub (the design's part 4).
+
+`merge` pins only the head: a retarget after the read is a race no client can close, so the
+caller checks the destination `pull` reports after every merge (`landing.md` H 2). A ref is
+deleted by its full name, only at the commit named.
+"""
+
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from lem.ports.forge_facts import (
+        MergeMethod,
+        MergeOutcome,
+        MergeText,
+        Pull,
+        Repo,
+    )
+    from lem.records.base import Sha
+
+
+class ForgePulls(Protocol):
+    """The pull requests, and the merge."""
+
+    def repo(self) -> Repo: ...
+    def find_pulls(self, head: str, base: str | None) -> tuple[Pull, ...]: ...
+    def open_pull(self, head: str, base: str, title: str, body: str) -> Pull: ...
+    def update_pull(self, number: int, title: str, body: str) -> Pull: ...
+    def pull(self, number: int) -> Pull: ...
+    def open_pulls(self) -> tuple[Pull, ...]: ...
+    def merge(
+        self,
+        number: int,
+        expected_head: Sha,
+        method: MergeMethod,
+        text: MergeText,
+    ) -> MergeOutcome: ...
+
+
+class ForgeRefs(Protocol):
+    """The forge's branches: the delete of a task branch's copy, with a lease."""
+
+    def delete_ref(self, name: str, expect: Sha) -> bool: ...
+
+
+class Forge(ForgePulls, ForgeRefs, Protocol):
+    """The whole port."""
