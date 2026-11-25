@@ -31,11 +31,21 @@ class Named(Frozen, frozen=True, kw_only=True):
     why: str
 
 
+class Counts(Frozen, frozen=True, kw_only=True):
+    """The counts a review agent wrote beside its findings (`prompts/review.md`): must-fix,
+    should and nit, and the defects it saw outside the change."""
+
+    must_fix: int = 0
+    should: int = 0
+    nit: int = 0
+    outside: int = 0
+
+
 class Reviewed(Frozen, frozen=True, kw_only=True):
     """One review attempt, as `read --record` took it: the tip, what it read (the change or a
     conflict's resolution, its scope), the floor and kind, the careful call and why (None for a
     silent attempt, which made none, as `land.cmd_read` on `main` records it), who answered and
-    who was silent, the findings, and which go to `file`."""
+    who was silent, the findings, the counts the agent wrote, and which go to `file`."""
 
     attempt: int
     tip: Sha
@@ -50,6 +60,7 @@ class Reviewed(Frozen, frozen=True, kw_only=True):
     ran: tuple[Named, ...] = ()
     left_out: tuple[Named, ...] = ()
     findings: tuple[Finding, ...] = ()
+    counts: Counts | None = None
     to_file: tuple[str, ...] = ()
     review: TaskPath | None = None
     at: Moment
@@ -58,6 +69,19 @@ class Reviewed(Frozen, frozen=True, kw_only=True):
 class Jev(Frozen, frozen=True, kw_only=True):
     """Jev's word on a finding: its score over the bar, or why it was not asked."""
 
+    score: float | None = None
+    not_asked: str | None = None
+    at: Moment
+
+
+class JevRead(Frozen, frozen=True, kw_only=True):
+    """One read of Jev that a landing keeps, so that no finding is sent twice, by this run or
+    the next (`alike` and `jev` of `landing.json` on `main`): the finding's key (its digest, or
+    the line or item it came from), the item it was asked about (None for a read against the
+    bar), Jev's score (None when it gave none), or why it was not asked."""
+
+    key: str
+    path: str | None = None
     score: float | None = None
     not_asked: str | None = None
     at: Moment

@@ -131,11 +131,13 @@ def test_the_list_shows_open_tasks_and_the_ended_ones_with_ended(
 
 def test_show_reads_one_task_and_writes_nothing(tmp_path: Path) -> None:
     where = workspace(tmp_path)
-    made(where, SLUG, status="queued", after="other", order="after other", night=None)
+    made(
+        where, SLUG, status="queued", after=("other",), order="after other", night=None
+    )
     shown = result(lem("task", "show", SLUG, cwd=tmp_path))
     assert (shown["status"], shown["after"], shown["order"], shown["mode"]) == (
         "queued",
-        "other",
+        ["other"],
         "after other",
         "with-owner",
     )

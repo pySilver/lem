@@ -48,6 +48,7 @@ def shaped(pull: Pull) -> dict[str, object]:
         "title": pull.title,
         "body": pull.body,
         "state": pull.state.upper(),
+        "author": {"login": pull.author} if pull.author else None,
         "headRefOid": pull.head,
         "headRefName": pull.head_ref,
         "baseRefName": pull.base,

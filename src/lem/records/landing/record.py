@@ -13,7 +13,7 @@ from lem.records.landing.merge import (
     Refused,
 )
 from lem.records.landing.propose import MergeRead, Proposed, Standing
-from lem.records.landing.review import Filed, Reviewed
+from lem.records.landing.review import Filed, JevRead, Reviewed
 from lem.records.landing.start import Based, Polished, Resolution, Started
 
 type Phase = Literal["preparing", "open", "merged", "ended"]
@@ -29,14 +29,16 @@ class Pull(Frozen, frozen=True, kw_only=True):
 
 class Landing(Frozen, frozen=True, kw_only=True):
     """The landing of one task. `pushed` is the head Lem pushed last, kept before the forge
-    call; `reviews` and `reads` keep every attempt and read of the round; `archived` keeps the
-    reviews of a landing that started over."""
+    call; `taken` is the commit of origin's task branch that the branch took in (a teammate's,
+    `Task.own_remote` on `main`); `reviews` and `reads` keep every attempt and read of the round;
+    `jev` keeps Jev's reads; `archived` keeps the reviews of a landing that started over."""
 
     round: int = 1
     relands: int = 0
     phase: Phase = "preparing"
     pull: Pull | None = None
     pushed: Sha | None = None
+    taken: Sha | None = None
     started: Started | None = None
     based: Based | None = None
     polished: Polished | None = None
@@ -52,4 +54,5 @@ class Landing(Frozen, frozen=True, kw_only=True):
     accepted: MergeAccepted | None = None
     merged: Merged | None = None
     cleaned: Cleaned | None = None
+    jev: tuple[JevRead, ...] = ()
     archived: tuple[Reviewed, ...] = ()

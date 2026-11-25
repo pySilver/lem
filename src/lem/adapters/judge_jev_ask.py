@@ -5,14 +5,12 @@ so that every item is asked (`land.jev_spec`, `land.alike_specs` and `land.ask_j
 
 import time
 from dataclasses import dataclass
-from pathlib import Path
 
 import httpx
 import msgspec
 
 from lem.adapters import judge_jev_wire as wire
-from lem.model.landing import items
-from lem.ports.judge import Defect, NotAsked, Score
+from lem.ports.judge import Candidate, Defect, NotAsked, Score
 
 # The seconds one whole request may take, its reply read to its end, before it is "no answer":
 # the read only adds a line, and a landing should not wait for it. A guess (2026-11-23), not a
@@ -30,15 +28,9 @@ def state_of(defect: Defect) -> dict[str, str]:
     return {key: text for key, text in told.items() if text}
 
 
-def item_question(path: str) -> wire.Question | None:
-    """The question whether the finding is the same defect as the item at `path`, told by its
-    title, place and first line; None for a file that is no item."""
-    try:
-        found = items.read(path, Path(path).read_text(encoding="utf-8"))
-    except OSError, UnicodeDecodeError:
-        return None
-    if found is None:
-        return None
+def item_question(found: Candidate) -> wire.Question:
+    """The question whether the finding is the same defect as the item `found`, told by its
+    title, place and first line."""
     parts = (
         f"title: {found.title}",
         f"where: {found.where}" if found.where else "",
@@ -125,20 +117,20 @@ class Asker:
         return said if isinstance(said, NotAsked) else Score(score=said[wire.OVER])
 
     def same(
-        self, defect: Defect, paths: tuple[str, ...]
+        self, defect: Defect, candidates: tuple[Candidate, ...]
     ) -> tuple[Score, ...] | NotAsked:
-        """The finding against each item at `paths`, in as many requests as fit."""
+        """The finding against each item, in as many requests as fit."""
         if self.key is None:
             return NO_KEY
-        asked = (item_question(path) for path in paths)
-        named = {f"i{place}": one for place, one in enumerate(asked) if one}
+        questions = map(item_question, candidates)
+        named = {f"i{place}": one for place, one in enumerate(questions)}
         requests = split(self.model, state_of(defect), named)
         if requests is None:
             return TOO_LONG
-        return self.scored(requests, paths)
+        return self.scored(requests, candidates)
 
     def scored(
-        self, requests: list[wire.Request], paths: tuple[str, ...]
+        self, requests: list[wire.Request], candidates: tuple[Candidate, ...]
     ) -> tuple[Score, ...] | NotAsked:
         """The score of each item, by its path; the first request with no answer ends it."""
         found: list[Score] = []
@@ -147,7 +139,7 @@ class Asker:
             if isinstance(said, NotAsked):
                 return said
             found.extend(
-                Score(score=score, path=paths[int(name[1:])])
+                Score(score=score, path=candidates[int(name[1:])].path)
                 for name, score in said.items()
             )
         return tuple(found)

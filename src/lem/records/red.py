@@ -23,7 +23,8 @@ class WithoutTest(Frozen, frozen=True, kw_only=True):
 
 
 class SetupRun(Frozen, frozen=True, kw_only=True):
-    """A setup command that failed on one side."""
+    """A setup command's run on one side, with its exit, failed or not (`cmd_red` on `main`
+    printed each)."""
 
     on: str
     command: str
@@ -31,8 +32,8 @@ class SetupRun(Frozen, frozen=True, kw_only=True):
 
 
 class Inputs(Frozen, frozen=True, kw_only=True):
-    """The five inputs of a run: the tip, the base, the plan's digest, the setup and the serial
-    commands."""
+    """The five inputs of a run: the tip and the base as full shas (a view shortens them), the
+    plan's path (None on the fast track), the setup and the serial commands."""
 
     tip: Sha
     base: Sha
@@ -43,7 +44,7 @@ class Inputs(Frozen, frozen=True, kw_only=True):
 
 class Red(Frozen, frozen=True, kw_only=True):
     """One run of the check: whether it holds, its tests, the criteria without a test, the
-    changed files not laid over the base, the setup that failed, and the inputs."""
+    changed files not laid over the base, every setup run, and the inputs."""
 
     ok: bool
     at: Moment

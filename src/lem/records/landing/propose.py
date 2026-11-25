@@ -15,12 +15,14 @@ class OwnerMerge(Frozen, frozen=True, kw_only=True):
 
 
 class Proposed(Frozen, frozen=True, kw_only=True):
-    """`propose`: the tip and base, green or the reasons it is not, the careful call, the notes,
-    the pull request's text the forge confirmed and the body that waits, whether a merge read
-    carried, the owner's standing merge, and who acts on the merge."""
+    """`propose`: the tip and base, the criteria's contract mark it proposed under, green or the
+    reasons it is not, the careful call, the notes, the pull request's text the forge confirmed
+    and the body that waits, whether a merge read carried, the owner's standing merge, and who
+    acts on the merge."""
 
     tip: Sha
     base: Sha
+    contract: str | None = None
     green: bool
     reasons: tuple[str, ...] = ()
     careful: bool = False

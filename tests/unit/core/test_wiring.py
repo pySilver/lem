@@ -12,7 +12,7 @@ from fakes.forge import LocalForge
 from fakes.git import ModelGit
 from fakes.ports import fake_ports
 from fakes.terminal import FakeTerminal
-from lem.app import wiring
+from lem.app import binding, wiring
 from lem.kernel.errors import Fault
 from lem.ports.judge import Defect
 from lem.ports.place import Place
@@ -76,3 +76,21 @@ def test_a_test_builds_the_ports_from_its_fakes_and_replaces_one(
     assert ports.git is git
     other = FakeTerminal()
     assert dataclasses.replace(ports, terminal=other).terminal is other
+
+
+def test_a_commands_ports_are_bound_for_its_checkout_its_home_and_its_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    places: list[Place] = []
+    module = types.SimpleNamespace(bind=places.append)
+    real = importlib.import_module
+
+    def found(name: str) -> object:
+        return module if name == "lem.adapters.terminal_agterm" else real(name)
+
+    monkeypatch.setattr(importlib, "import_module", found)
+    environ = {"XDG_CONFIG_HOME": str(tmp_path / "config")}
+    binding.bound_for(tmp_path, environ)
+    assert places == [
+        Place(checkout=tmp_path, home=tmp_path / "config" / "lem", environ=environ)
+    ]

@@ -48,7 +48,7 @@ def fast(line: Line, named: str | None) -> Words:
     """The fast track's steps; someone else's request waits for his yes before the builder,
     and a builder that started without it leaves him the pull request."""
     task = line.task
-    nothing = NOTHING if task.after is None or task.order is None else None
+    nothing = NOTHING if not task.after or task.order is None else None
     if line.shape.someone_else:
         nothing = YES_FIRST if task.status in BEFORE_BUILDER else NOT_APPROVED
     steps = FAST_STEPS.replace("Fast", "Then the fast", 1) if task.after else FAST_STEPS

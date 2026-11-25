@@ -182,7 +182,7 @@ def test_build_refuses_a_task_that_is_not_planned(tmp_path: Path) -> None:
     where = spaces.workspace(tmp_path / "repo")
     spaces.made(where, SLUG, status="planned", plan=Plan(path="docs/plans/a.md"))
     spaces.made(where, "running", status="building")
-    spaces.made(where, "behind", status="queued", after="running")
+    spaces.made(where, "behind", status="queued", after=("running",))
     spaces.made(where, "aside", status="planned", hold=Parked(since=MOMENT))
     with pytest.raises(Refusal) as running:
         building.built(where, "running")

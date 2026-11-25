@@ -2,11 +2,14 @@
 
 Every path is a checkout or a worktree on disk; every commit is a full sha. A fact never
 changes the repository. An act that git refuses (a conflict, a hook, a lease) gives its typed
-refusal; one that could not run raises `Unanswered`. The port is four parts of seven methods or
-fewer, joined in `GitFacts`, `GitActs` and `Git`.
+refusal; one that could not run raises `Unanswered`. The port is five parts of seven methods or
+fewer, joined in `GitFacts`, `GitActs` and `Git`; the paths of a commit and a range
+(`ports/git_changes.py`) are a part of `GitHistory`.
 """
 
 from typing import TYPE_CHECKING, Protocol
+
+from lem.ports.git_changes import GitChanges
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -15,9 +18,9 @@ if TYPE_CHECKING:
     from lem.records.base import Sha
 
 
-class GitHistory(Protocol):
+class GitHistory(GitChanges, Protocol):
     """Facts of the commits: a ref's tip and a commit's tree, their ancestry, a range, its size,
-    and the tree a merge would make."""
+    and the tree a merge would make; and the paths of a commit and a range (`GitChanges`)."""
 
     def tip(self, where: Path, ref: str) -> Sha | None: ...
     def tree(self, where: Path, rev: str) -> Sha: ...
@@ -29,14 +32,18 @@ class GitHistory(Protocol):
 
 
 class GitPlaces(Protocol):
-    """Facts of the checkouts: the main one, a worktree's cleanness and rebase, a file at a
-    commit, and the remote's branch as last fetched."""
+    """Facts of the checkouts: the main one, the branch one is on, its cleanness (with its
+    untracked files, or of what git tracks only) and its rebase, a file at a commit, the
+    remote's branch as last fetched, and origin's address as the checkout's own configuration
+    names it."""
 
     def main_checkout(self, start: Path) -> Path: ...
-    def clean(self, where: Path) -> bool: ...
+    def branch_of(self, where: Path) -> str | None: ...
+    def clean(self, where: Path, *, untracked: bool = True) -> bool: ...
     def show(self, where: Path, rev: str, path: str) -> bytes | None: ...
     def rebase_state(self, where: Path) -> RebaseState | None: ...
     def remote_head(self, where: Path, branch: str) -> Sha | None: ...
+    def origin_url(self, where: Path) -> str | None: ...
 
 
 class GitFacts(GitHistory, GitPlaces, Protocol):
@@ -44,7 +51,8 @@ class GitFacts(GitHistory, GitPlaces, Protocol):
 
 
 class GitRewrite(Protocol):
-    """The acts on a task's branch: fetch, rebase and its abort, commit, and a push with a
+    """The acts on a task's branch: fetch, rebase and its abort, commit (which a hook may
+    refuse), and the push of the commit named, never of whatever the branch holds then, with a
     lease on the commit Lem pushed last (`landing.md` H 3), None when the branch is new."""
 
     def fetch(self, where: Path) -> None: ...
@@ -52,20 +60,27 @@ class GitRewrite(Protocol):
         self, worktree: Path, onto: str, *, reapply: bool
     ) -> Sha | Conflict | GitRefused: ...
     def abort(self, worktree: Path) -> None: ...
-    def commit(self, worktree: Path, message: str, paths: tuple[str, ...]) -> Sha: ...
+    def commit(
+        self, worktree: Path, message: str, paths: tuple[str, ...]
+    ) -> Sha | GitRefused: ...
     def push(
-        self, worktree: Path, branch: str, expect: Sha | None
+        self, worktree: Path, branch: str, expect: Sha | None, *, commit: Sha
     ) -> Sha | GitRefused: ...
 
 
 class GitBranches(Protocol):
-    """The acts on worktrees and branches: add and remove a worktree, delete a branch only at
-    the commit named, and fast-forward a checkout."""
+    """The acts on worktrees and branches: add and remove a worktree, add a branch with no
+    worktree, move a worktree's branch back to a commit and delete a branch, each only at the
+    commit named, and fast-forward a checkout."""
 
     def worktree_add(
         self, checkout: Path, path: Path, branch: str, start: str
     ) -> None: ...
     def worktree_remove(self, checkout: Path, path: Path) -> None: ...
+    def branch_add(
+        self, checkout: Path, branch: str, start: str
+    ) -> Sha | GitRefused: ...
+    def reset(self, worktree: Path, commit: Sha, expect: Sha) -> Sha | GitRefused: ...
     def branch_delete(self, checkout: Path, branch: str, expect: Sha) -> bool: ...
     def fast_forward(self, checkout: Path, ref: str) -> Sha | GitRefused: ...
 

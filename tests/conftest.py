@@ -32,9 +32,11 @@ MARKED = "lem-marked-to-fail"
 # xdist's report of a case whose worker died under it, which has no phase of its own.
 CRASHED = "???"
 # What a test must never inherit from the shell that started it: the owner's own Lem plugin
-# (a version check against it stops every `lem`), and his terminal's session, which a test that
-# reaches the real agtermctl would change.
-CLEARED_PREFIXES = ("LEM_", "AGTERM_")
+# (a version check against it stops every `lem`), his terminal's session, which a test that
+# reaches the real agtermctl would change, his keys of Jev and OpenRouter, which a run of the real
+# wiring would send, and git's variables, which aim every git a test starts at his configuration
+# or at another repository (`tests/fakes/repo.git_env` sets the test's own).
+CLEARED_PREFIXES = ("LEM_", "AGTERM_", "JEV_", "OPENROUTER_", "GIT_")
 CLEARED_NAMES = ("PYTHONPATH", "CLAUDE_PLUGIN_ROOT", "CLAUDE_ENV_FILE")
 
 
@@ -233,6 +235,8 @@ class Lines:
         self.reports: dict[str, list[pytest.TestReport]] = {}
         self.counts = {"ok": 0, "SKIP": 0, "FAIL": 0}
         self.deselected = 0
+        # The files (or folders) whose collection failed: their cases are in no count.
+        self.uncollected: set[str] = set()
         self.problems: list[str] = []
         self.diagnostics: list[str] = []
 
@@ -241,6 +245,8 @@ class Lines:
 
     def pytest_collectreport(self, report: pytest.CollectReport) -> None:
         problem = f"collection {report.outcome}: {report.nodeid}"
+        if not report.passed:
+            self.uncollected.add(report.nodeid)
         if not report.passed and problem not in self.problems:
             # xdist sends each worker's report of one module's failure
             self.problems.append(problem)
@@ -364,10 +370,19 @@ class Lines:
                 f"{passed} passed and {skipped} skipped and {failed} failed "
                 f"are not the {collected} collected"
             )
-        return (
+        total = (
             f"total: collected {collected}, passed {passed}, skipped {skipped}, "
             f"failed {failed}"
         )
+        if not self.uncollected:
+            return total
+        # A file that did not collect leaves its cases out of every count above, so the last
+        # line says so, and the run fails whatever pytest's own status was.
+        uncollected = len(self.uncollected)
+        self.problems.append(
+            f"test files that did not collect: {uncollected}; their cases are in no count"
+        )
+        return f"{total}, not collected {uncollected}"
 
     @pytest.hookimpl(trylast=True)
     def pytest_sessionfinish(self, session: pytest.Session) -> None:

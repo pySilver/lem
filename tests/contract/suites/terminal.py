@@ -65,3 +65,32 @@ class TerminalContract:
         listed = terminal.sessions()
         assert not isinstance(listed, Unreadable)
         assert [pane.id for pane in listed] == [made]
+
+    def test_a_renamed_session_is_listed_by_its_new_name(self, tmp_path: Path) -> None:
+        terminal = self.terminal(tmp_path)
+        made = terminal.open(Opening(name="t", cwd=str(tmp_path), command=("x",)))
+        terminal.rename(made, "t · handed off")
+        listed = terminal.sessions()
+        assert not isinstance(listed, Unreadable)
+        assert [pane.name for pane in listed] == ["t · handed off"]
+        terminal.close(made, when_unselected=False)
+        with pytest.raises(Exception, match="no session"):
+            terminal.rename(made, "gone")
+
+    def test_a_line_told_waits_in_the_sessions_mailbox(self, tmp_path: Path) -> None:
+        terminal = self.terminal(tmp_path)
+        made = terminal.open(Opening(name="t", cwd=str(tmp_path), command=("x",)))
+        assert not terminal.waiting(made, "lem: t status")
+        terminal.tell(made, "lem: t status")
+        assert terminal.waiting(made, "lem: t status")
+        assert not terminal.waiting(made, "lem: t merged")
+
+    def test_each_session_has_its_main_panes_program_and_no_caller_here(
+        self, tmp_path: Path
+    ) -> None:
+        terminal = self.terminal(tmp_path)
+        made = terminal.open(Opening(name="t", cwd=str(tmp_path), command=("claude",)))
+        grounds = terminal.foregrounds()
+        assert list(grounds) == [made]
+        assert grounds[made]
+        assert terminal.here() is None

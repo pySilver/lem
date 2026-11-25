@@ -38,11 +38,14 @@ class MergeIntent(Frozen, frozen=True, kw_only=True):
 
 class MergeAccepted(Frozen, frozen=True, kw_only=True):
     """The forge took the call and the pull request is not merged yet; `queued` is the forge's
-    own word for the wait (a merge queue, an automatic merge)."""
+    own word for the wait (a merge queue, an automatic merge); who asked for the merge and
+    through what, from the intent it replaces."""
 
     tip: Sha
     at: Moment
     queued: str
+    by: Merger | None = None
+    via: Via | None = None
 
 
 class Merged(Frozen, frozen=True, kw_only=True):

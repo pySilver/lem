@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from lem.app.tasks import release
 from lem.kernel import clock, errors
-from lem.model.task import holds, plans, queue, table
+from lem.model.task import behind, holds, plans, table
 from lem.records.base import Frozen
 from lem.settings.load import settings_of
 from lem.store import tasks
@@ -79,7 +79,7 @@ def refusal(task: Task, every: tuple[Record, ...]) -> errors.Refusal | None:
     listed = ", ".join(row.slug for row in waiting(every)) or "none"
     fix = f"build one whose plan waits (lem task build SLUG): {listed}"
     if task.status == "queued":
-        fix = f"his word starts a queued task: {queue.word(task.slug)}"
+        fix = f"his word starts a queued task: {behind.word(task.slug)}"
     return errors.Refusal(
         "not-planned",
         f"{task.slug} is {task.status}: lem task build starts a task whose plan waits for "

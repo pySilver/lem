@@ -31,7 +31,7 @@ class Asked(Frozen, frozen=True, kw_only=True):
     ticket_repo: str | None = None
     branch: str | None = None
     night: str | None = None
-    after: str | None = None
+    after: tuple[str, ...] = ()
     plan_only: bool = False
     backlog_item: str | None = None
     origin: str | None = None
@@ -110,7 +110,7 @@ def fresh(
 ) -> Record:
     """The first record of the task `asked` names."""
     night = night_of(asked)
-    status = "shaping" if asked.after is None else "queued"
+    status = "queued" if asked.after else "shaping"
     task = Task(
         slug=asked.slug,
         ask=words_of(asked),

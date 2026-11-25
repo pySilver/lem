@@ -52,6 +52,8 @@ class ForgeContract:
         assert world.forge.find_pulls("fix-the-login", "elsewhere") == ()
         assert opened.number in {pull.number for pull in world.forge.open_pulls()}
         assert world.forge.pull(opened.number).url == opened.url
+        assert opened.author
+        assert world.forge.pull(opened.number).author == opened.author
         assert world.forge.repo().name.count("/") == 1
 
     def test_a_pull_requests_head_follows_its_branch(self, tmp_path: Path) -> None:
