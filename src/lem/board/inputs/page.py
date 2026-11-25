@@ -51,5 +51,9 @@ class Page(Input, frozen=True, kw_only=True):
             self.activity,
             self.new,
         )
-        if sum(view is not None for view in views) != 1:
+        if sum(body is not None for body in views) != 1:
             raise ValueError("the workspace page needs exactly one view")
+        view = self.frame.viewer.view
+        field = "older" if view == "done" else view
+        if getattr(self, field) is None:
+            raise ValueError("the workspace page body must match its view")

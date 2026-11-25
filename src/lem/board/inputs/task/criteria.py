@@ -4,7 +4,7 @@ its tests; a change of them with its before and after; and the owner's yes."""
 from typing import Literal
 
 from lem.board.inputs.forms import ActForm, AnswerForm
-from lem.board.inputs.parts import Document, Input, Link
+from lem.board.inputs.parts import Document, Input, Link, Note
 from lem.board.inputs.text import Icon, Inline, Look, Plain
 
 
@@ -61,14 +61,16 @@ class Change(Input, frozen=True, kw_only=True):
 
 class Approve(Input, frozen=True, kw_only=True):
     """The owner's yes to the criteria: its label (`Approve the criteria`), its head, the line
-    of the personas' read, the change from his note, the criteria as written, their plain text
-    (for a page with no script), his answer here (Yes, or No with his note) or the form of the
-    yes alone, its words, the way back, the answer already on record, the words where the page
-    may not act, and whether it is a sheet that a phone reads to its end first."""
+    of the personas' read, the act's result when this card holds it, the change from his note,
+    the criteria as written, their plain text (for a page with no script), his answer here
+    (Yes, or No with his note) or the form of the yes alone, its words, the way back, the answer
+    already on record, the words where the page may not act, and whether it is a sheet that a
+    phone reads to its end first."""
 
     label: Plain
     head: Plain
     read: Plain | None = None
+    note: Note | None = None
     change: Change | None = None
     criteria: Document | None = None
     plain: Plain | None = None

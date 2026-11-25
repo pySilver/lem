@@ -26,26 +26,20 @@ JUST_NOW = 5
 
 def length(seconds: float) -> str:
     """A length of time as the board says it."""
-    whole = max(0, round(seconds))
-    minutes, rest = divmod(whole, 60)
+    minutes, rest = divmod(max(0, round(seconds)), 60)
     if not minutes:
-        return f"{whole}s"
+        return f"{rest}s"
     if minutes < SECONDS_SHOWN:
         padded = str(rest).rjust(2, "0")
         return f"{minutes}m {padded}s"
-    return hours_of(minutes)
-
-
-def hours_of(minutes: int) -> str:
-    """A length of ten minutes or more: `25m`, `2h 05m`, `3d 4h`."""
-    hours, past = divmod(minutes, 60)
+    hours, rest = divmod(minutes, 60)
     if not hours:
         return f"{minutes}m"
     if hours < HOURS_SHOWN:
-        padded = str(past).rjust(2, "0")
+        padded = str(rest).rjust(2, "0")
         return f"{hours}h {padded}m"
-    days, left = divmod(hours, 24)
-    return f"{days}d {left}h"
+    days, rest = divmod(hours, 24)
+    return f"{days}d {rest}h"
 
 
 def ago(seconds: float) -> str:
@@ -66,17 +60,22 @@ def stamp(moment: datetime, now: datetime, zone: tzinfo) -> str:
     return f"{month} {here.day} {clock}"
 
 
+def _elapsed(moment: datetime, now: datetime) -> float:
+    """The seconds between two moments, including across a clock change."""
+    if moment.utcoffset() is None or now.utcoffset() is None:
+        raise ValueError("elapsed time needs a time zone on both moments")
+    return (now.astimezone(UTC) - moment.astimezone(UTC)).total_seconds()
+
+
 def since(moment: datetime, now: datetime, title: Plain | None = None) -> When:
     """The length from `moment` to now, which the browser's clock moves on."""
-    seconds = (now.astimezone(UTC) - moment.astimezone(UTC)).total_seconds()
-    shown = length(seconds)
+    shown = length(_elapsed(moment, now))
     return When(at=moment, shown=shown, title=title, ticks="since")
 
 
 def gone(moment: datetime, now: datetime, title: Plain | None = None) -> When:
     """The time since `moment`, which the browser's clock moves on (`32m ago`)."""
-    seconds = (now.astimezone(UTC) - moment.astimezone(UTC)).total_seconds()
-    shown = ago(seconds)
+    shown = ago(_elapsed(moment, now))
     return When(at=moment, shown=shown, title=title, ticks="ago")
 
 

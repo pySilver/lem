@@ -250,6 +250,19 @@ def test_the_merge_confirm_shows_the_prefix_of_the_tip_it_submits() -> None:
     assert (commit.term, commit.text, commit.mono) == ("Commit", tip[:12], True)
 
 
+def test_the_merge_confirm_links_to_the_pull_and_names_its_base_branch() -> None:
+    landing = RECEIPT.landing
+    assert landing and landing.pull and landing.started
+    facts = {fact.key: fact for fact in panel.MERGE.facts}
+    link = facts["pr"].link
+    assert link
+    assert (link.label, link.href, facts["into"].text) == (
+        f"acme/shop#{landing.pull.number}",
+        landing.pull.url,
+        landing.started.base_ref,
+    )
+
+
 def test_the_merge_confirm_shows_each_proposed_reason_and_its_links() -> None:
     landing = RECEIPT.landing
     reasons = panel.MERGE.reasons

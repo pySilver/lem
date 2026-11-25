@@ -14,10 +14,12 @@ import pytest
 
 import lem.board.inputs
 from fixtures.board import columns, frame, panel, waiting
+from fixtures.board.held import STOCK
 from lem.board.inputs.page import Page
-from lem.board.inputs.parts import Chip, Input, Link, When
+from lem.board.inputs.parts import Chip, Input, Link, Note, When
 from lem.board.inputs.task.panel import Missing, Panel
 from lem.board.inputs.task.steps import NotNow
+from lem.board.inputs.tasks import Older
 
 # The walking skeleton's kanban, which `board-views` and `board-pages` leave for `tasks.py`.
 SKELETON = "lem.board.inputs.kanban"
@@ -170,6 +172,33 @@ def test_a_panel_keeps_an_explicit_refusal_or_missing_task() -> None:
         )
 
 
+def test_a_no_without_words_keeps_its_refusal_inside_the_approval_sheet() -> None:
+    refusal = Note(
+        look="bad",
+        icon="triangle-exclamation",
+        word="Not done.",
+        said="No needs your words: what should the criteria say? Nothing was recorded.",
+    )
+    raw = msgspec.json.encode(
+        {
+            "slug": STOCK.task.slug,
+            "shows": "criteria",
+            "criteria": {
+                "approve": {
+                    "label": "Approve the criteria",
+                    "head": "The criteria wait for your yes",
+                    "sheet": True,
+                    "note": refusal,
+                },
+            },
+        }
+    )
+    criteria = msgspec.json.decode(raw, type=Panel).criteria
+    assert criteria and criteria.approve
+    assert criteria.approve.sheet and criteria.approve.note == refusal
+    assert criteria.note is None
+
+
 @pytest.mark.parametrize(
     "views", [{}, {"tasks": columns.TASKS, "waits": waiting.WAITS}]
 )
@@ -177,6 +206,21 @@ def test_a_workspace_page_requires_exactly_one_view(views: dict[str, object]) ->
     raw = msgspec.json.encode({"frame": frame.FRAME, **views})
     with pytest.raises(msgspec.ValidationError, match="view"):
         msgspec.json.decode(raw, type=Page)
+
+
+def test_a_workspace_page_refuses_a_body_for_a_different_view() -> None:
+    assert frame.FRAME.viewer.view == "tasks"
+    raw = msgspec.json.encode({"frame": frame.FRAME, "waits": waiting.WAITS})
+    with pytest.raises(msgspec.ValidationError, match="must match"):
+        msgspec.json.decode(raw, type=Page)
+
+
+def test_the_done_view_uses_the_older_tasks_body() -> None:
+    viewer = msgspec.structs.replace(frame.FRAME.viewer, view="done")
+    done = msgspec.structs.replace(frame.FRAME, viewer=viewer)
+    older = Older(newer=Link(href=viewer.base, label="Newer tasks"))
+    expected = Page(frame=done, older=older)
+    assert msgspec.json.decode(msgspec.json.encode(expected), type=Page) == expected
 
 
 def test_a_workspace_page_can_keep_a_panel_with_its_one_view() -> None:

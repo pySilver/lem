@@ -62,11 +62,11 @@ class Decision(Input, frozen=True, kw_only=True):
 
 
 class Criteria(Input, frozen=True, kw_only=True):
-    """The tab Criteria and decisions: the result of an act, the owner's yes, the plan's `How
-    it works`, the card of the criteria (its line, the rows of their read and approval, the
-    criteria, or why there are none), the card of the decisions (its line, the decisions, a help
-    that names no breaker, or why there is none), the words of a task that ended with neither,
-    and what went with a pruned task's events."""
+    """The tab Criteria and decisions: the result of an act when the approval card has no
+    form, the owner's yes, the plan's `How it works`, the card of the criteria (its line, the
+    rows of their read and approval, the criteria, or why there are none), the card of the
+    decisions (its line, the decisions, a help that names no breaker, or why there is none),
+    the words of a task that ended with neither, and what went with a pruned task's events."""
 
     note: Note | None = None
     approve: Approve | None = None

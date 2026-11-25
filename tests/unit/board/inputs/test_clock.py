@@ -2,6 +2,7 @@
 date on another day, a task's title and address, and a pull request's link."""
 
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -9,6 +10,9 @@ import pytest
 from lem.board.inputs import clock, names
 from lem.board.inputs.parts import When
 from lem.records.landing.record import Pull
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 NOW = datetime(2026, 11, 25, 16, 0, tzinfo=UTC)
 ZONE = ZoneInfo("UTC")
@@ -35,6 +39,10 @@ def test_a_length_keeps_its_seconds_under_ten_minutes_and_its_minutes_under_two_
     seconds: float, shown: str
 ) -> None:
     assert clock.length(seconds) == shown
+
+
+def test_the_length_formatter_has_no_separate_hours_formatter() -> None:
+    assert not hasattr(clock, "hours_of")
 
 
 @pytest.mark.parametrize(
@@ -77,6 +85,20 @@ def test_the_repeated_hour_counts_as_an_hour_of_elapsed_time() -> None:
     second = first.replace(fold=1)
     assert clock.since(first, second).shown == "1h 00m"
     assert clock.gone(first, second).shown == "1h 00m ago"
+
+
+@pytest.mark.parametrize("formatter", [clock.since, clock.gone])
+@pytest.mark.parametrize("naive", ["began", "now"])
+def test_elapsed_time_requires_a_zone_for_both_moments(
+    formatter: Callable[[datetime, datetime], When], naive: str
+) -> None:
+    began, now = NOW - timedelta(hours=1), NOW
+    if naive == "began":
+        began = began.replace(tzinfo=None)
+    else:
+        now = now.replace(tzinfo=None)
+    with pytest.raises(ValueError, match="time zone"):
+        formatter(began, now)
 
 
 def test_a_title_is_the_slug_in_words_and_an_empty_slug_is_a_task() -> None:
