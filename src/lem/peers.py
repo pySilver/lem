@@ -51,8 +51,6 @@ the join).
 """  # noqa: E501 - the usage lines keep their columns
 
 import contextlib
-import http.client
-import http.cookies
 import json
 import os
 import re
@@ -62,14 +60,16 @@ import sys
 import threading
 import time
 from http import HTTPStatus
+from http import client as http_client
+from http import cookies as http_cookies
 from typing import TYPE_CHECKING
 from urllib.parse import quote, unquote, urlsplit
 
 from lem import state as lem_state
 
 if TYPE_CHECKING:
-    import email.message
     from collections.abc import Callable
+    from email.message import Message
 
     from lem.serve import Handler
 
@@ -133,10 +133,16 @@ COOKIE = "lem_board"
 SPACES_CAP = 32_000
 # The highest TCP port.
 MAX_PORT = 65535
+# How many bytes of a peer's JSON answer are read.
+JSON_CAP = 1_000_000
+# How many characters of its first line an error keeps.
+ERROR_LINE_CAP = 200
+# How many bytes of the peer's stream one read asks for.
+STREAM_CHUNK = 65_536
 
 
 class PeerError(Exception):
-    pass
+    """A peer's name, address or answer does not read."""
 
 
 def label(name: str) -> bool:
@@ -211,9 +217,9 @@ def tailnet_facts(status: dict) -> dict:
     peers = status.get("Peer") if isinstance(status.get("Peer"), dict) else {}
     names = sorted(
         {
-            str(p.get("DNSName") or "").split(".")[0].lower()
-            for p in peers.values()
-            if isinstance(p, dict) and p.get("DNSName")
+            str(peer.get("DNSName") or "").split(".")[0].lower()
+            for peer in peers.values()
+            if isinstance(peer, dict) and peer.get("DNSName")
         }
         - {""}
     )
@@ -234,7 +240,7 @@ def base_of(name: str, port: int, suffix: str | None) -> str:
     return f"https://{name}.{suffix}:{port}"
 
 
-def hopped(headers: email.message.Message) -> bool:
+def hopped(headers: Message) -> bool:
     """Whether a request came from another machine's server (HOP): then it is
     never forwarded."""
     return headers.get(HOP) is not None
@@ -259,9 +265,7 @@ def kept_location(location: str, peer: str, base: str) -> str | None:
     return f"/{peer}{path}{query}"
 
 
-def request_headers(
-    incoming: email.message.Message, spaces: list | None = None
-) -> dict:
+def request_headers(incoming: Message, spaces: list | None = None) -> dict:
     """The headers of a request to a peer: the ones a page needs (FORWARDED), the
     board's own cookie and no other, HOP, and the list of the workspaces (SPACES) when
     it is given and not too long."""
@@ -271,8 +275,8 @@ def request_headers(
     cookie = incoming.get("Cookie")
     if cookie:
         try:
-            jar = http.cookies.SimpleCookie(cookie)
-        except http.cookies.CookieError:
+            jar = http_cookies.SimpleCookie(cookie)
+        except http_cookies.CookieError:
             jar = {}
         if COOKIE in jar:
             out["Cookie"] = f"{COOKIE}={jar[COOKIE].coded_value}"
@@ -311,17 +315,17 @@ def reply_headers(
     """The headers of a peer's answer that go back (RETURNED), `Location` kept inside
     `/PEER/`, and of the cookies only the board's own."""
     out = []
-    for key, value in headers:
+    for key, text in headers:
         lower = key.lower()
         if lower == "location":
-            kept = kept_location(value, peer, base)
+            kept = kept_location(text, peer, base)
             if kept is not None:
                 out.append(("Location", kept))
         elif lower == "set-cookie":
-            if value.split("=", 1)[0].strip() == COOKIE:
-                out.append((key, value))
+            if text.split("=", 1)[0].strip() == COOKIE:
+                out.append((key, text))
         elif lower in {name.lower() for name in RETURNED}:
-            out.append((key, value))
+            out.append((key, text))
     return out
 
 
@@ -342,9 +346,9 @@ def row_of(given: dict, host: str) -> dict | None:
         "url": f"/{quote(host)}/{quote(given['name'])}/",
     }
     for key in ("waits", "building", "checks", "running"):
-        value = given.get(key)
+        count = given.get(key)
         row[key] = (
-            value if isinstance(value, int) and not isinstance(value, bool) else None
+            count if isinstance(count, int) and not isinstance(count, bool) else None
         )
     if isinstance(given.get("problem"), str):
         row["problem"] = given["problem"]
@@ -383,14 +387,11 @@ def merged(own: list, me: str, states: list[dict]) -> list:
         name = state["name"]
         if name == me:
             continue
-        rows = [
-            r
-            for r in (row_of(given, name) for given in state.get("rows") or [])
-            if r is not None
-        ]
-        said = state.get("said") or (
-            "no answer yet" if state.get("reachable") is None else ""
-        )
+        rows = (row_of(given, name) for given in state.get("rows") or [])
+        rows = [row for row in rows if row is not None]
+        said = state.get("said")
+        if not said:
+            said = "no answer yet" if state.get("reachable") is None else ""
         if state.get("reachable"):
             out += rows
         elif rows:
@@ -478,7 +479,7 @@ def with_own(given: list, own: list, me: str) -> list:
 
 def connect(
     base: str, timeout: float
-) -> tuple[http.client.HTTPConnection, socket.socket]:
+) -> tuple[http_client.HTTPConnection, socket.socket]:
     """A connection to a peer's base address, open, and its socket. The system's
     certificates check an address of https."""
     split = urlsplit(base)
@@ -486,22 +487,20 @@ def connect(
         raise PeerError(f"{base} is no address of a peer")
     try:
         if split.scheme == "https":
-            conn: http.client.HTTPConnection = http.client.HTTPSConnection(
+            conn: http_client.HTTPConnection = http_client.HTTPSConnection(
                 split.hostname,
-                split.port or 443,
+                split.port or http_client.HTTPS_PORT,
                 timeout=timeout,
                 context=ssl.create_default_context(),
             )
         else:
-            conn = http.client.HTTPConnection(
-                split.hostname, split.port or 80, timeout=timeout
+            conn = http_client.HTTPConnection(
+                split.hostname, split.port or http_client.HTTP_PORT, timeout=timeout
             )
         conn.connect()
-    except (OSError, http.client.HTTPException) as error:
-        raise PeerError(
-            f"{split.netloc} does not answer "
-            f"({getattr(error, 'reason', None) or error})"
-        ) from error
+    except (OSError, http_client.HTTPException) as error:
+        reason = getattr(error, "reason", None) or error
+        raise PeerError(f"{split.netloc} does not answer ({reason})") from error
     return conn, conn.sock
 
 
@@ -511,21 +510,21 @@ def ask_json(base: str, path: str, timeout: float = LIST_TIMEOUT) -> object:
     try:
         conn.request("GET", path, headers={HOP: "1", "Accept": "application/json"})
         reply = conn.getresponse()
-        data = reply.read(1_000_000)
-    except (OSError, http.client.HTTPException) as error:
+        body = reply.read(JSON_CAP)
+    except (OSError, http_client.HTTPException) as error:
         raise PeerError(
             f"{urlsplit(base).netloc} did not answer {path} ({error})"
         ) from error
     finally:
         conn.close()
     if reply.status != HTTPStatus.OK:
-        line = data.decode("utf-8", "replace").strip().splitlines()
-        raise PeerError(
-            f"{urlsplit(base).netloc} answered {path} with "
-            f"{reply.status}{f': {line[0][:200]}' if line else ''}"
-        )
+        lines = body.decode("utf-8", "replace").strip().splitlines()
+        detail = lines[0][:ERROR_LINE_CAP] if lines else ""
+        where = urlsplit(base).netloc
+        detail = f": {detail}" if detail else ""
+        raise PeerError(f"{where} answered {path} with {reply.status}{detail}")
     try:
-        return json.loads(data)
+        return json.loads(body)
     except (ValueError, RecursionError) as error:  # nested deeper than the stack too
         raise PeerError(
             f"{urlsplit(base).netloc} answered {path} with no JSON: "
@@ -560,7 +559,10 @@ class Peer:
 
     def failed(self, said: str) -> None:
         with self.lock:
-            self.reachable, self.said, self.looked = False, said, time.monotonic()
+            looked = time.monotonic()
+            self.reachable = False
+            self.said = said
+            self.looked = looked
 
     def look(self, base: Callable[[], str]) -> None:
         """Ask the peer's list once, and keep its answer or why there was none."""
@@ -592,13 +594,13 @@ class Peer:
             self.failed(str(error))
             return
         with self.lock:
-            self.rows, self.answered, self.reachable, self.said, self.looked = (
-                listed,
-                int(time.time() * 1000),
-                True,
-                "",
-                time.monotonic(),
-            )
+            answered = int(time.time() * 1000)
+            looked = time.monotonic()
+            self.rows = listed
+            self.answered = answered
+            self.reachable = True
+            self.said = ""
+            self.looked = looked
 
     def fresh(self, base: Callable[[], str]) -> bool:
         """Ask the list again, in a thread of its own, when it is older than LIST_FRESH
@@ -608,7 +610,8 @@ class Peer:
                 self.asking is not None and not self.asking.is_set()
             ):
                 return False
-            asking = self.asking = threading.Event()
+            asking = threading.Event()
+            self.asking = asking
 
         def run() -> None:
             try:
@@ -695,11 +698,13 @@ class Peers:
         # only the look that asked waits, and only for a peer that answered at its last
         # look or was never asked
         started = [
-            peer for peer in peers if peer.fresh(lambda peer=peer: self.base(peer))
+            peer
+            for peer in peers
+            if peer.fresh(lambda peer=peer, machines=self: machines.base(peer))
         ]
-        for peer in started:
-            with peer.lock:
-                asking, hoping = peer.asking, peer.reachable is not False
+        for machine in started:
+            with machine.lock:
+                asking, hoping = machine.asking, machine.reachable is not False
             if hoping and asking is not None:
                 asking.wait(max(0.0, deadline - time.monotonic()))
         return [peer.state() for peer in peers]
@@ -754,9 +759,10 @@ def join(
                 "the boards of another machine come over the tailnet"
             )
         if name not in facts["machines"]:
+            listed = ", ".join(facts["machines"]) or "none"
             raise PeerError(
                 f"no machine of this tailnet is named {name}: `tailscale status` lists "
-                f"{', '.join(facts['machines']) or 'none'}"
+                f"{listed}"
             )
     port = port or own_port
     base = base_of(name, port, facts.get("suffix"))
@@ -771,7 +777,7 @@ def join(
     # is refused with that line and the fix, and written over never
     with lem_state.machine_lock():
         table = lem_state.machine_table("peers")
-        rest = {key: value for key, value in table.items() if key != name}
+        rest = {key: port for key, port in table.items() if key != name}
         lem_state.write_held("peers", {**rest, name: port})
     if found["reachable"]:
         said = (
@@ -804,7 +810,7 @@ def leave(given: str) -> dict:
             raise PeerError(
                 f"{name} is not joined: `lem serve --peers` lists the machines that are"
             )
-        rest = {key: value for key, value in table.items() if key != name}
+        rest = {key: port for key, port in table.items() if key != name}
         lem_state.write_held("peers", rest or None)
     return {"left": name, "peers": sorted(rest), "file": str(lem_state.machine_file())}
 
@@ -835,7 +841,7 @@ def report(status: Callable[[], dict]) -> dict:
 
 
 def forward(
-    handler: Handler,
+    request: Handler,
     peer: Peer,
     base: str,
     stopping: threading.Event,
@@ -844,22 +850,24 @@ def forward(
     """Pass one request of the handler to the peer at the same address, and its answer
     back: a page, a file or a stream. PeerError, before anything was sent, says why the
     peer was not reached."""
-    split = urlsplit(handler.path)
-    target = (split.path or "/") + (f"?{split.query}" if split.query else "")
-    conn: http.client.HTTPConnection | None = None
+    split = urlsplit(request.path)
+    target = split.path or "/"
+    if split.query:
+        target = f"{target}?{split.query}"
+    conn: http_client.HTTPConnection | None = None
     try:
         conn, raw = connect(base, CONNECT_TIMEOUT)
         raw.settimeout(PAGE_TIMEOUT)
         conn.request(
-            handler.command, target, headers=request_headers(handler.headers, spaces)
+            request.command, target, headers=request_headers(request.headers, spaces)
         )
         reply = conn.getresponse()
         stream = (reply.getheader("Content-Type") or "").startswith("text/event-stream")
-        data = b"" if stream or handler.command == "HEAD" else reply.read()
+        body = b"" if stream or request.command == "HEAD" else reply.read()
     except PeerError as error:
         peer.failed(str(error))
         raise
-    except (OSError, http.client.HTTPException) as error:
+    except (OSError, http_client.HTTPException) as error:
         said = f"{peer.name} did not answer {unquote(split.path)} ({error})"
         peer.failed(said)
         # connect() raises nothing but PeerError, so the connection is open here
@@ -868,25 +876,25 @@ def forward(
                 conn.close()
         raise PeerError(said) from error
     try:
-        handler.send_response(reply.status)
-        for key, value in reply_headers(reply.getheaders(), peer.name, base):
-            handler.send_header(key, value)
+        request.send_response(reply.status)
+        for key, text in reply_headers(reply.getheaders(), peer.name, base):
+            request.send_header(key, text)
         if stream:
-            handler.send_header("Connection", "close")
-            handler.close_connection = True
+            request.send_header("Connection", "close")
+            request.close_connection = True
         else:
             length = reply.getheader("Content-Length")
-            handler.send_header(
+            request.send_header(
                 "Content-Length",
-                length if handler.command == "HEAD" and length else str(len(data)),
+                length if request.command == "HEAD" and length else str(len(body)),
             )
-        handler.end_headers()
-        if handler.command == "HEAD":
+        request.end_headers()
+        if request.command == "HEAD":
             return
         if stream:
-            pipe(handler, reply, raw, stopping)
+            pipe(request, reply, raw, stopping)
         else:
-            handler.wfile.write(data)
+            request.wfile.write(body)
     except OSError, ValueError:
         return
     finally:
@@ -897,8 +905,8 @@ def forward(
 
 
 def pipe(
-    handler: Handler,
-    reply: http.client.HTTPResponse,
+    request: Handler,
+    reply: http_client.HTTPResponse,
     raw: socket.socket,
     stopping: threading.Event,
 ) -> None:
@@ -909,7 +917,7 @@ def pipe(
 
     def watch() -> None:
         while not done.wait(WATCH_SECONDS):
-            if stopping.is_set() or handler.hung_up():
+            if stopping.is_set() or request.hung_up():
                 with contextlib.suppress(OSError):
                     # the plain socket's own shutdown: an SSL socket's would drop its
                     # TLS state under the reading thread
@@ -920,11 +928,11 @@ def pipe(
     try:
         raw.settimeout(STREAM_SILENCE)
         while True:
-            chunk = reply.read1(65536)
+            chunk = reply.read1(STREAM_CHUNK)
             if not chunk:
                 return
-            handler.wfile.write(chunk)
-    except OSError, ValueError, http.client.HTTPException:
+            request.wfile.write(chunk)
+    except OSError, ValueError, http_client.HTTPException:
         return
     finally:
         done.set()
