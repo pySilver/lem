@@ -24,6 +24,8 @@ from journeys.agent import (
     SHAPING,
     ok,
     refused,
+    small_built,
+    small_landed,
     through,
 )
 from journeys.test_skeleton import BRANCH, SLUG, made
@@ -158,6 +160,59 @@ def test_a_queued_and_a_planned_task_are_dropped_too(
     shaped(capsys, standard)
     planned(capsys, standard)
     assert drop(capsys, standard)["result"]["was"] == "planned"
+
+
+HIS = 'start it, "now" — it\'s fine'
+
+
+def test_a_queued_task_starts_when_the_one_before_lands_and_on_his_word_after_a_drop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    files = {"README.md": "The README says receive.\n"}
+    small_built(capsys, world, "first-word", files, "fix: receive")
+    ok(
+        capsys,
+        world,
+        "task",
+        "open",
+        OTHER,
+        "--ask",
+        "and the notes",
+        "--after",
+        "first-word",
+    )
+    held = refused(capsys, world, "task", "may-start", OTHER)
+    assert held["code"] == "queued"
+    assert "it starts when first-word is landed or answered" in held["why"]
+    small_landed(capsys, world, "first-word", "fix: receive")
+    assert ok(capsys, world, "task", "may-start", OTHER)["result"]["slug"] == OTHER
+    ok(capsys, world, "task", "open", "doomed", "--ask", "a doomed one")
+    ok(
+        capsys,
+        world,
+        "task",
+        "open",
+        "behind",
+        "--ask",
+        "behind it",
+        "--after",
+        "doomed",
+    )
+    drop(capsys, world, "doomed")
+    stopped = refused(capsys, world, "task", "may-start", "behind")
+    assert stopped["code"] == "after-dropped"
+    assert stopped["fix"].startswith(
+        'on his word, lem task start behind --words "HIS WORDS"'
+    )
+    (row,) = ok(capsys, world, "waiting")["result"]["after_dropped"]
+    assert (row["task"], row["start"]) == ("behind", "start behind now")
+    started = ok(capsys, world, "task", "start", "behind", "--words", HIS)["result"]
+    assert (started["was"], started["status"]) == ("queued", "shaping")
+    assert ok(capsys, world, "waiting")["result"]["after_dropped"] == []
+    assert (
+        ok(capsys, world, "task", "may-start", "behind")["result"]["slug"] == "behind"
+    )
 
 
 # A process that holds a task's step lock, for the step named, until it is killed.
