@@ -1,5 +1,5 @@
-"""The walking skeleton of a task's session through the command `lem` and the plugin's hook, on
-the stand-in for `agtermctl`: open with no focus, the `session-start` hook of the session it
+"""A task's session through the command `lem` and the plugin's hook, on the stand-in for
+`agtermctl`: open with no focus, the `session-start` hook of the session it
 started, its signs in `lem session list`, and its close."""
 
 import json
@@ -43,8 +43,9 @@ def test_a_session_opens_starts_shows_its_signs_and_closes(tmp_path: Path) -> No
         "name": SLUG,
         "phase": "shape",
         "already": False,
-        "workspace": None,
+        "workspace": "W-MINE",
     }
+    assert opened["next"] == {"do": "run", "command": f"lem session wait {SLUG} --first-line"}
     assert opened["say"] == (
         f"{SLUG} is open in its own session `{SLUG}`, phase shape, at the end of the "
         "workspace"
@@ -52,14 +53,20 @@ def test_a_session_opens_starts_shows_its_signs_and_closes(tmp_path: Path) -> No
     command = standin.sessions()[-1]["command"]
     brief = state / "tasks" / SLUG / "session.md"
     assert isinstance(command, str)
-    assert f"LEM_TASK={SLUG} claude --plugin-dir {paths.root()} " in command
+    assert f"LEM_TASK={SLUG} CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000 claude " in command
+    assert f"--model opus --effort high --plugin-dir {paths.root()} " in command
     assert f"Read {brief} and follow it." in command
     again = lem("session", "open", SLUG, cwd=repo, env=env).result()
     assert isinstance(again, dict)
     assert (again["session"], again["already"]) == ("S-1", True)
 
-    transcript = tmp_path / "claude" / "c1.jsonl"
-    transcript.parent.mkdir()
+    # Claude Code's folder: the transcript, and the process file of a live pid (this test's
+    # own), so that the session's signs read
+    transcript = tmp_path / "claude" / "projects" / "repo" / "c1.jsonl"
+    transcript.parent.mkdir(parents=True)
+    process = tmp_path / "claude" / "sessions" / f"{os.getpid()}.json"
+    process.parent.mkdir()
+    process.write_text(json.dumps({"pid": os.getpid(), "sessionId": "c1"}))
     lines = [
         {"type": "user", "message": {"content": f"Read {brief} and follow it."}},
         {
@@ -104,6 +111,7 @@ def test_a_session_opens_starts_shows_its_signs_and_closes(tmp_path: Path) -> No
         "session": "S-1",
         "why": "ended",
         "closed": True,
+        "woken": False,
     }
     assert [node["id"] for node in standin.sessions()] == ["S-MINE"]
     after = lem("session", "list", cwd=repo, env=env).result()
