@@ -4,7 +4,7 @@ forge_gh` speaks, answered by a `LocalForge` over the test's real origin, in gh'
 Each call reads the forge from the state file `GH_STANDIN_STATE` names, appends its words to the
 file's `calls`, and writes the forge back. It makes no network call. A test starts it as the
 module `contract.gh_standin`, through a small launcher on its PATH that puts `tests/` first on
-`sys.path` (`test_forge_gh_slice.py`).
+`sys.path` (`test_forge.py`).
 """
 
 import os
