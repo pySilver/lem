@@ -1,0 +1,3491 @@
+{
+  "options": {
+    "--help": {
+      "aliases": [
+        "-h"
+      ],
+      "value": false,
+      "required": false
+    }
+  },
+  "positionals": [],
+  "subcommands": {
+    "task": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "open": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--ask": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--ticket": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--ticket-repo": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--branch": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--night": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--after": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--plan-only": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--item": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--from": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "dir": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "worktree": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--path": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--branch": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--checkout": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "plan-file": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--date": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "move": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--line": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "repeat": true
+            },
+            "--start-over": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            },
+            {
+              "name": "status",
+              "count": "1",
+              "choices": [
+                "queued",
+                "shaping",
+                "building",
+                "planned",
+                "ready",
+                "landing",
+                "open",
+                "landed",
+                "answered",
+                "dropped"
+              ]
+            }
+          ]
+        },
+        "read": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--type": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "choices": [
+                "feat",
+                "fix",
+                "docs",
+                "refactor",
+                "perf",
+                "test",
+                "chore",
+                "question"
+              ]
+            },
+            "--why": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--track": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "choices": [
+                "small",
+                "full"
+              ]
+            },
+            "--careful": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "repeat": true
+            },
+            "--then": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "interview",
+                "fast",
+                "lead",
+                "investigation"
+              ]
+            },
+            "--order": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--after": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--wait": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "criteria",
+                "interview"
+              ]
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "span": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--of": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--job": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--by": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            },
+            {
+              "name": "name",
+              "count": "1"
+            },
+            {
+              "name": "edge",
+              "count": "1",
+              "choices": [
+                "start",
+                "end"
+              ]
+            }
+          ]
+        },
+        "planned": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--tasks": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "type": "int"
+            },
+            "--careful": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--large": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "list": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--ended": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "show": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "resume": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "ticket": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--login": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            },
+            {
+              "name": "step",
+              "count": "1",
+              "choices": [
+                "started",
+                "assigned",
+                "unassigned",
+                "commented",
+                "landed",
+                "dropped",
+                "answered"
+              ]
+            }
+          ]
+        },
+        "investigated": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--result": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "choices": [
+                "bug",
+                "none",
+                "question",
+                "unreproduced"
+              ]
+            },
+            "--call": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "choices": [
+                "small",
+                "full"
+              ]
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "talked": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--reviewer": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--turns": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "type": "int"
+            },
+            "--questions": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "type": "int"
+            },
+            "--settled": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "type": "int"
+            },
+            "--open": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "type": "int"
+            },
+            "--repaired": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "type": "int"
+            },
+            "--design": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "type": "int"
+            },
+            "--unargued": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "type": "int"
+            },
+            "--root": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "type": "int"
+            },
+            "--layer": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "type": "int"
+            },
+            "--shared": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "type": "int"
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "may-start": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "start": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--words": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "build": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "target",
+              "count": "1"
+            }
+          ]
+        }
+      },
+      "subcommand_required": true
+    },
+    "criteria": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "approve": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--file": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--small": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--read": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--alone": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--shown": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "approved": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "change": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--file": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--words": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--typed": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--pairs": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--unchanged": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "digest": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--file": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "show": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "record": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "red": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "inputs": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "read": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--by": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "choices": [
+                "lem",
+                "lead"
+              ]
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            },
+            {
+              "name": "moment",
+              "count": "1",
+              "choices": [
+                "start",
+                "done",
+                "silent"
+              ]
+            }
+          ]
+        },
+        "skip": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            },
+            {
+              "name": "answer",
+              "count": "1",
+              "choices": [
+                "asked",
+                "yes",
+                "no"
+              ]
+            }
+          ]
+        }
+      },
+      "subcommand_required": true
+    },
+    "decisions": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "log": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--what": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--chose": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--why": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--by": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "choices": [
+                "lead",
+                "gate",
+                "personas",
+                "dialectic",
+                "experts",
+                "owner",
+                "lem"
+              ]
+            },
+            "--said": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--undo": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--option": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "repeat": true
+            },
+            "--vote": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "repeat": true
+            },
+            "--level": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "repeat": true
+            },
+            "--unsettled": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--case": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--case-was": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--cause": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--chart": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--breaker": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
+            "--words": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "criterion": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--changed": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
+            "--added": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
+            "--removed": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
+            "--was": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--now": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--why": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--decision": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
+            "--by": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "lead",
+                "personas"
+              ]
+            },
+            "--said": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "changes": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "breaker": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--cause": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "choices": [
+                "irreversible",
+                "criteria"
+              ]
+            },
+            "--irreversible": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "data",
+                "system",
+                "person",
+                "money"
+              ]
+            },
+            "--document": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "pending": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "?"
+            }
+          ]
+        },
+        "list": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        }
+      },
+      "subcommand_required": true
+    },
+    "land": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "start": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--conflicting": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "base": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "polish": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--done": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "alike": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--where": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--title": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--what": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "checks": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--status": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--stop": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "read": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--record": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "file": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--again": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--same": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "repeat": true
+            },
+            "--new": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "repeat": true
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "propose": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--title": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--notes": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "merge-review": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--file": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--no-answer": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--tip": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--base": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "merge": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--by": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "choices": [
+                "owner",
+                "merger"
+              ]
+            },
+            "--message": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--via": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "session",
+                "server"
+              ],
+              "default": "session"
+            },
+            "--standing": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--tip": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "merged": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "clean": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "next": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        }
+      },
+      "subcommand_required": true
+    },
+    "session": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "open": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--why": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "new",
+                "handoff",
+                "dead",
+                "merged",
+                "conflict",
+                "refused",
+                "queue",
+                "night",
+                "owner",
+                "stopped"
+              ],
+              "default": "owner"
+            },
+            "--session": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "next": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--same": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "close": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--session": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--why": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "choices": [
+                "handoff",
+                "ended",
+                "owner"
+              ]
+            },
+            "--when-unselected": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--every": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "float",
+              "hidden": true,
+              "default": 5.0
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "close-job": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--session": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--every": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "float",
+              "hidden": true,
+              "default": 5.0
+            }
+          },
+          "positionals": []
+        },
+        "handoff": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--check": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "talk": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--from": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--leave": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "repeat": true
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "wake": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--why": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "choices": [
+                "merged",
+                "conflict",
+                "refused",
+                "queue",
+                "owner",
+                "inbox",
+                "status"
+              ]
+            },
+            "--head": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--session": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "stopped": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--session": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "worked": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--session": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "wait": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--until": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--event": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--first-line": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--companion": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--quiet": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--every": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "float",
+              "hidden": true,
+              "default": 10.0
+            },
+            "--bound": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "float",
+              "hidden": true,
+              "default": 600.0
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "list": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "plugin-dir": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        }
+      },
+      "subcommand_required": true
+    },
+    "seat": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "show": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            },
+            {
+              "name": "role",
+              "count": "1",
+              "choices": [
+                "reviewer",
+                "planner",
+                "merger",
+                "session"
+              ]
+            }
+          ]
+        },
+        "failed": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--seat": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--error": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--said": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            },
+            {
+              "name": "role",
+              "count": "1",
+              "choices": [
+                "reviewer",
+                "planner",
+                "merger",
+                "session"
+              ]
+            }
+          ]
+        },
+        "again": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        }
+      },
+      "subcommand_required": true
+    },
+    "owner": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "away": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--words": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "back": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--words": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "watch": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--seen": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
+            "--every": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int",
+              "default": 5
+            }
+          },
+          "positionals": []
+        }
+      },
+      "subcommand_required": true
+    },
+    "waiting": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        },
+        "--task": {
+          "aliases": [],
+          "value": true,
+          "required": false
+        }
+      },
+      "positionals": []
+    },
+    "board": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        },
+        "--task": {
+          "aliases": [],
+          "value": true,
+          "required": false
+        },
+        "--follow": {
+          "aliases": [],
+          "value": false,
+          "required": false
+        },
+        "--no-open": {
+          "aliases": [],
+          "value": false,
+          "required": false
+        },
+        "--demo": {
+          "aliases": [],
+          "value": false,
+          "required": false
+        },
+        "--page": {
+          "aliases": [],
+          "value": true,
+          "required": false
+        },
+        "--name": {
+          "aliases": [],
+          "value": true,
+          "required": false
+        }
+      },
+      "positionals": []
+    },
+    "serve": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "ensure": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "stop": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "run": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--host": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--verbose": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "door": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "state",
+              "count": "1",
+              "choices": [
+                "on",
+                "off"
+              ]
+            }
+          ]
+        },
+        "add": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "folder",
+              "count": "1"
+            }
+          ]
+        },
+        "remove": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "folder",
+              "count": "1"
+            }
+          ]
+        },
+        "list": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "push-test": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "join": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "host",
+              "count": "1"
+            }
+          ]
+        },
+        "leave": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "host",
+              "count": "1"
+            }
+          ]
+        },
+        "peers": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        }
+      },
+      "subcommand_required": true
+    },
+    "ask": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "ask": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--follow": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--size": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
+            "--full": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--style": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "refined",
+                "minimal",
+                "bold",
+                "terminal"
+              ]
+            },
+            "--review": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "auto",
+                "always",
+                "never"
+              ]
+            },
+            "--chromeless": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--timeout": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "float",
+              "default": 570.0
+            },
+            "--no-wait": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--no-status": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--browser": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "spec",
+              "count": "?"
+            }
+          ]
+        },
+        "q": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--follow": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--size": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
+            "--full": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--style": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "refined",
+                "minimal",
+                "bold",
+                "terminal"
+              ]
+            },
+            "--review": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "auto",
+                "always",
+                "never"
+              ]
+            },
+            "--chromeless": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--timeout": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "float",
+              "default": 570.0
+            },
+            "--no-wait": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--no-status": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--browser": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--multi": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--context": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--title": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "prompt",
+              "count": "1"
+            },
+            {
+              "name": "options",
+              "count": "*"
+            }
+          ]
+        },
+        "wait": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--follow": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--size": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
+            "--full": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--style": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "refined",
+                "minimal",
+                "bold",
+                "terminal"
+              ]
+            },
+            "--review": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "auto",
+                "always",
+                "never"
+              ]
+            },
+            "--chromeless": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--timeout": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "float",
+              "default": 570.0
+            },
+            "--no-wait": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--no-status": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--browser": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "page_id",
+              "count": "1"
+            }
+          ]
+        },
+        "close": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "page_id",
+              "count": "?"
+            }
+          ]
+        },
+        "demo": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--follow": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--size": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
+            "--full": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--style": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "refined",
+                "minimal",
+                "bold",
+                "terminal"
+              ]
+            },
+            "--review": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "auto",
+                "always",
+                "never"
+              ]
+            },
+            "--chromeless": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--timeout": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "float",
+              "default": 570.0
+            },
+            "--no-wait": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--no-status": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--browser": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "names",
+              "count": "*"
+            }
+          ]
+        },
+        "templates": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "render": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--out": {
+              "aliases": [
+                "-o"
+              ],
+              "value": true,
+              "required": true
+            }
+          },
+          "positionals": [
+            {
+              "name": "spec",
+              "count": "1"
+            }
+          ]
+        }
+      },
+      "subcommand_required": true,
+      "default": "ask"
+    },
+    "settings": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "show": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "set": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--local": {
+              "aliases": [],
+              "value": false,
+              "required": false,
+              "flag_value": "local"
+            },
+            "--home": {
+              "aliases": [],
+              "value": false,
+              "required": false,
+              "flag_value": "home"
+            },
+            "--machine": {
+              "aliases": [],
+              "value": false,
+              "required": false,
+              "flag_value": "machine"
+            }
+          },
+          "positionals": [
+            {
+              "name": "key",
+              "count": "1"
+            },
+            {
+              "name": "setting",
+              "count": "1"
+            }
+          ]
+        }
+      },
+      "subcommand_required": true
+    },
+    "path": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [
+        {
+          "name": "name",
+          "count": "1",
+          "choices": [
+            "profile",
+            "personas",
+            "lessons",
+            "worktrees",
+            "rules",
+            "review",
+            "backlog",
+            "plans",
+            "rulings",
+            "cast",
+            "state"
+          ]
+        }
+      ]
+    },
+    "rules": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        },
+        "--range": {
+          "aliases": [],
+          "value": true,
+          "required": false
+        }
+      },
+      "positionals": [
+        {
+          "name": "files",
+          "count": "+"
+        }
+      ]
+    },
+    "init": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        },
+        "--base": {
+          "aliases": [],
+          "value": true,
+          "required": true
+        },
+        "--codex": {
+          "aliases": [],
+          "value": true,
+          "required": false,
+          "choices": [
+            "yes",
+            "no"
+          ]
+        }
+      },
+      "positionals": []
+    },
+    "doctor": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": []
+    },
+    "issue": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "check": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "read": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "issue",
+              "count": "1"
+            }
+          ]
+        },
+        "start": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "land": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "drop": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
+        "answer": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        }
+      },
+      "subcommand_required": true
+    },
+    "serial": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [
+        {
+          "name": "command",
+          "count": "+"
+        }
+      ]
+    },
+    "prune": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        },
+        "--dry-run": {
+          "aliases": [],
+          "value": false,
+          "required": false
+        },
+        "--days": {
+          "aliases": [],
+          "value": true,
+          "required": false,
+          "type": "int"
+        }
+      },
+      "positionals": []
+    },
+    "proposals": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "list": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "add": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--kind": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "choices": [
+                "night",
+                "retro"
+              ]
+            },
+            "--date": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--file": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            }
+          },
+          "positionals": []
+        },
+        "verdict": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--file": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            }
+          },
+          "positionals": []
+        },
+        "drop": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "path",
+              "count": "1"
+            }
+          ]
+        }
+      },
+      "subcommand_required": true
+    },
+    "nap": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "may": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        }
+      },
+      "subcommand_required": true
+    },
+    "corrections": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "list": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "lessons": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "worker": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "payload",
+              "count": "1"
+            }
+          ]
+        },
+        "show": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "entry",
+              "count": "1"
+            }
+          ]
+        },
+        "record": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--decision": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "choices": [
+                "lesson",
+                "not_lesson"
+              ]
+            },
+            "--verdict": {
+              "aliases": [],
+              "value": true,
+              "required": true,
+              "choices": [
+                "accepted",
+                "changed",
+                "rejected",
+                "proposed",
+                "missed",
+                "unasked"
+              ]
+            },
+            "--target": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--lesson": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "entry",
+              "count": "1"
+            }
+          ]
+        }
+      },
+      "subcommand_required": true
+    },
+    "experts": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "brief": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--question": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--context": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "default": ""
+            },
+            "--option": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "repeat": true
+            },
+            "--file": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "repeat": true
+            },
+            "--seat": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "repeat": true
+            }
+          },
+          "positionals": []
+        },
+        "record": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--folder": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--expert": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--seat": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "repeat": true
+            }
+          },
+          "positionals": []
+        }
+      },
+      "subcommand_required": true
+    },
+    "cast": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "init": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
+        "run-dir": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        }
+      },
+      "subcommand_required": true
+    },
+    "jev": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [],
+      "subcommands": {
+        "check": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "spec",
+              "count": "1"
+            }
+          ]
+        }
+      },
+      "subcommand_required": true,
+      "default": "check"
+    },
+    "picker": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        },
+        "--list": {
+          "aliases": [],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": []
+    },
+    "help": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": [
+        {
+          "name": "noun",
+          "count": "?"
+        }
+      ]
+    },
+    "version": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": []
+    }
+  },
+  "subcommand_required": false
+}
