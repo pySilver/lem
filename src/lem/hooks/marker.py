@@ -16,7 +16,21 @@ FORM = b'{"form": 1}\n'
 # writes before any state.
 STATE_EMPTY = frozenset((".gitignore",))
 # A marker is made only where none is, and never through a link.
+OWNER_FOLDER = 0o700
 CREATE = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+
+
+def own_folder(parent: str, name: str) -> str:
+    """The folder `name` in `parent`, made for the owner alone when it is not there; OSError
+    when it is a link or no folder, so that no file of the hook lands in another place."""
+    import stat
+    from pathlib import Path
+
+    path = f"{parent}/{name}"
+    Path(path).mkdir(mode=OWNER_FOLDER, exist_ok=True)
+    if not stat.S_ISDIR(os.lstat(path).st_mode):
+        raise NotADirectoryError(f"{path} is a link or no folder")
+    return path
 
 
 def has(folder: str) -> bool:

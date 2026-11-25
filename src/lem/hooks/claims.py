@@ -23,7 +23,6 @@ TRIES = 3
 # A claim is made only where none is, never through a link, and read by the owner alone.
 CREATE = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
 OWNER_FILE = 0o600
-OWNER_FOLDER = 0o700
 
 
 def name_of(session: str, prompt: str) -> str:
@@ -76,10 +75,9 @@ def claim(state: str, session: str, prompt: str) -> str | None:
     """Claim one message for this copy of the hook: the claim's path, or None when another copy
     claimed the same words of the same session less than CLAIM_SECONDS ago. Of two copies that
     look at the same moment one wins. OSError when no claim can be made."""
-    from pathlib import Path
+    from lem.hooks import marker
 
-    claims = f"{state}/{CLAIMS}"
-    Path(claims).mkdir(mode=OWNER_FOLDER, exist_ok=True)
+    claims = marker.own_folder(state, CLAIMS)
     swept(claims)
     path = f"{claims}/{name_of(session, prompt)}"
     for _ in range(TRIES):

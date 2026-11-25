@@ -15,7 +15,7 @@ double judgment and a note in the queue's log, never the message. It prints noth
 
 import os
 
-from lem.hooks import claims, handoff, marker, other, raw, where
+from lem.hooks import claims, handoff, machine_yes, marker, other, raw, where
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -69,8 +69,7 @@ def machine_says_yes(environ: Mapping[str, str]) -> bool:
         machine = tomllib.loads(raw.read_bytes(f"{home}/machine.toml").decode())
     except OSError, ValueError:
         return False
-    table = machine.get("corrections")
-    return isinstance(table, dict) and table.get("collect") is True
+    return machine_yes.said_yes(machine)
 
 
 def home_of(environ: Mapping[str, str]) -> str | None:

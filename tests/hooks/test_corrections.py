@@ -266,3 +266,49 @@ def test_with_no_command_of_the_app_nothing_is_claimed_or_written(
     assert (ran.returncode, ran.stdout, ran.stderr) == (0, b"", b"")
     assert files_of(tmp_path) == before
     assert not calls.exists()
+
+
+def test_a_machine_file_main_would_refuse_says_no(tmp_path: Path) -> None:
+    hook, calls = stand_in(tmp_path / "app")
+    workspace(tmp_path / "repo")
+    for text in (
+        "[corrections]\ncollect = true\nsend = true\n",
+        "[corrections]\ncollect = true\n[nonsense]\nx = 1\n",
+    ):
+        home = tmp_path / "config" / text.split("\n")[-2].replace(" ", "")[:8] / "lem"
+        home.mkdir(parents=True)
+        (home / folders.MARKER).write_bytes(folders.FORM)
+        (home / "machine.toml").write_text(text)
+        hooked(
+            "corrections",
+            typed(tmp_path / "repo"),
+            LEM_HOOK_BIN=str(hook),
+            XDG_CONFIG_HOME=str(home.parent),
+        )
+    time.sleep(0.5)
+    assert not worker_calls(calls.read_text().splitlines() if calls.exists() else [])
+    assert not (tmp_path / "repo" / ".lem" / "state" / "corrections-waiting").exists()
+
+
+def test_a_linked_folder_of_the_queue_takes_no_words_of_the_owner(
+    tmp_path: Path,
+) -> None:
+    hook, calls = stand_in(tmp_path / "app")
+    workspace(tmp_path / "repo")
+    state = tmp_path / "repo" / ".lem" / "state"
+    elsewhere = tmp_path / "elsewhere"
+    (elsewhere / "waiting").mkdir(parents=True)
+    (elsewhere / "claims").mkdir()
+    (state / "corrections-waiting").symlink_to(elsewhere / "waiting")
+    (state / "corrections-claims").symlink_to(elsewhere / "claims")
+    ran = hooked(
+        "corrections",
+        typed(tmp_path / "repo"),
+        LEM_HOOK_BIN=str(hook),
+        XDG_CONFIG_HOME=yes_home(tmp_path / "config"),
+    )
+    assert (ran.returncode, ran.stdout, ran.stderr) == (0, b"", b"")
+    time.sleep(0.5)
+    assert list((elsewhere / "waiting").iterdir()) == []
+    assert list((elsewhere / "claims").iterdir()) == []
+    assert not worker_calls(calls.read_text().splitlines() if calls.exists() else [])

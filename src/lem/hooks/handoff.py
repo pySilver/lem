@@ -13,7 +13,7 @@ import json
 import os
 import time
 
-from lem.hooks import raw, transcript
+from lem.hooks import marker, raw, transcript
 
 WAITING = "corrections-waiting"
 LOG = "corrections.log"
@@ -22,7 +22,6 @@ NO_PREVIOUS = "(no agent message before this one)"
 # A file of its own for each message, never through a link, and read by the owner alone.
 CREATE = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
 OWNER_FILE = 0o600
-OWNER_FOLDER = 0o700
 
 
 def moment() -> str:
@@ -47,7 +46,10 @@ def handed(state: str, body: bytes, command: str) -> bool:
     """Write the correction `body` into a file of its own, and start the worker `command` on
     it; False, with no file left, when either fails."""
     name = f"{time.time_ns()}-{os.getpid()}.json"
-    path = f"{state}/{WAITING}/{name}"
+    try:
+        path = f"{marker.own_folder(state, WAITING)}/{name}"
+    except OSError:
+        return False
     try:
         written(path, body)
     except OSError:
@@ -64,9 +66,6 @@ def handed(state: str, body: bytes, command: str) -> bool:
 
 def written(path: str, body: bytes) -> None:
     """Write `body` into the new file `path`, in a folder only the owner reads."""
-    from pathlib import Path
-
-    Path(path).parent.mkdir(mode=OWNER_FOLDER, exist_ok=True)
     descriptor = os.open(path, CREATE, OWNER_FILE)
     with io.FileIO(descriptor, "w") as stream:
         stream.write(body)
