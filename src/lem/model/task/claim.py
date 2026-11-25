@@ -33,11 +33,12 @@ def holder(task: Task, every: tuple[Record, ...]) -> str | None:
 
 
 def same(one: Ticket | None, other: Ticket) -> bool:
-    """Whether two tickets are the one ticket: the same tracker, id and repository."""
+    """Whether two tickets are the one ticket: the same tracker, id and repository, whose
+    name GitHub reads in any case."""
     if one is None:
         return False
-    named = (one.tracker, one.id, one.repo)
-    return named == (other.tracker, other.id, other.repo)
+    named = (one.tracker, one.id, (one.repo or "").casefold())
+    return named == (other.tracker, other.id, (other.repo or "").casefold())
 
 
 def released(task: Task, every: tuple[Record, ...]) -> bool:

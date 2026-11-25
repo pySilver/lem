@@ -10,6 +10,7 @@ import pytest
 
 from fakes.command import lem
 from fakes.records import MOMENT
+from fakes.repo import RealRepo
 from lem.app.tasks import open as opening
 from lem.app.tasks.opening import Asked
 from lem.kernel.errors import Refusal
@@ -255,3 +256,62 @@ def test_two_opens_at_one_moment_one_takes_the_ticket(tmp_path: Path) -> None:
     for thread in both:
         thread.join(timeout=30)
     assert sorted(codes) == ["opened", "ticket-held"]
+
+
+def test_one_issue_is_one_task_whatever_the_case_of_its_repository(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path, GITHUB)
+    opened(where, "first", ticket="42", ticket_repo="ACME/shop")
+    with pytest.raises(Refusal) as refused:
+        opened(where, "second", ticket="42", ticket_repo="acme/shop")
+    assert refused.value.code == "ticket-held"
+
+
+def test_the_same_slug_and_words_with_another_ticket_are_no_retry(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path, LINEAR)
+    opened(where, ticket="MBZ-12")
+    assert opened(where, ticket="mbz-12") == "shaping"
+    with pytest.raises(Refusal) as refused:
+        opened(where, ticket="MBZ-13")
+    assert refused.value.code == "task-exists"
+
+
+def test_a_branch_origin_has_is_refused_before_the_task_is_written(
+    tmp_path: Path,
+) -> None:
+    repo = RealRepo.init(tmp_path / "repo", {"README.md": b"one\n"})
+    where = workspace(repo.checkout)
+    repo.outside_commit("fix/gift-note", {"THEIRS.md": b"x\n"})
+    with pytest.raises(Refusal) as refused:
+        opened(where)
+    assert refused.value.code == "branch-taken"
+    with pytest.raises(Refusal):
+        opened(where, "other", branch="fix/gift-note")
+    assert not (where.state / "tasks" / "gift-note").exists()
+    assert opened(where, "gift-card") == "shaping"
+
+
+def test_an_origin_that_does_not_answer_is_said_and_the_task_opens(
+    tmp_path: Path,
+) -> None:
+    workspace(tmp_path)
+    ran = lem("task", "open", "gift-note", "--ask", "add a gift note", cwd=tmp_path)
+    assert "origin did not answer" in result(ran)["said"]
+
+
+def test_a_reviewers_item_as_the_ask_is_claimed_and_a_gone_one_is_refused(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    item = ".lem/state/backlog/gift-note.md"
+    (tmp_path / item).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / item).write_text("# Gift note\n", encoding="utf-8")
+    opening.opened(where.checkout, Asked(slug="gift-note", ask=item))
+    assert read(where, "gift-note").task.backlog_item == item
+    gone = ".lem/state/backlog/dropped.md"
+    with pytest.raises(Refusal) as refused:
+        opening.opened(where.checkout, Asked(slug="other", ask=f"{tmp_path}/{gone}"))
+    assert refused.value.code == "item-gone"

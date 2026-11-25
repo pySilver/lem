@@ -18,6 +18,10 @@ if TYPE_CHECKING:
     from lem.store.places import Workspace
 
 
+# The folder of the reviewer's items, from the main checkout.
+REVIEWER_ITEMS = ".lem/state/backlog"
+
+
 class Asked(Frozen, frozen=True, kw_only=True):
     """What `lem task open` was given."""
 
@@ -67,7 +71,7 @@ def night_of(asked: Asked) -> dt.date | None:
 def item_of(workspace: Workspace, asked: Asked) -> str | None:
     """The backlog item the task starts from, a path in the main checkout; refused when it
     is gone (the owner dropped it in the meantime)."""
-    path = asked.backlog_item
+    path = asked.backlog_item or reviewer_item(workspace, asked.ask)
     if path is None:
         return None
     if not (workspace.checkout / path).is_file():
@@ -77,6 +81,16 @@ def item_of(workspace: Workspace, asked: Asked) -> str | None:
             "or it never was",
             "start the task from the owner's own words (--ask), with no --item",
         )
+    return path
+
+
+def reviewer_item(workspace: Workspace, ask: str) -> str | None:
+    """The reviewer's item an ask is (the board's "Start a task" writes its path,
+    `.lem/state/backlog/NAME.md`, whole or from the main checkout), or None."""
+    path = ask.strip().removeprefix(f"{workspace.checkout}/")
+    parent, _, name = path.rpartition("/")
+    if parent != REVIEWER_ITEMS or not name.endswith(".md") or name == ".md":
+        return None
     return path
 
 
