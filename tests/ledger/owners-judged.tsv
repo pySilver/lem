@@ -1,4 +1,5 @@
 id	step	why	from
+act:Task panel/open-inbox	board-views	The board view owns the task action. The Inbox add-on supplies its thread or absence reason through link.shown.	addons-outside
 check:tests/lem-command.sh:a-second-sync-of-a-copy-of-this-checkout-wit-bed0612a5c4eb8a6	pack-trial	the build and sync of the app are core's packaging; P1 installs and checks it	tree
 check:tests/lem-command.sh:the-wheel-built-from-the-sdist-with-the-mani-5829869ffee83f44	pack-trial	the wheel's contents are core's packaging; P1 installs the formula	tree
 check:tests/lem-command.sh:the-wheel-check-refuses-a-wheel-s-file-that-bc7b89e9005246a7	pack-trial	the check of the wheel's files against git belongs with the packaging trial	tree
@@ -225,6 +226,7 @@ check:tests/lem-state.sh:task-dir-puts-the-main-checkout-into-the-mac-ef066326ec
 check:tests/lem-state.sh:the-owner-s-status-is-one-mark-of-the-machin-14002fcda8c0c6c1	owner	the owner's status is `owner away|back`, the owner step's	task
 check:tests/lem-state.sh:the-owner-says-whether-he-is-there-away-make-3dcaed8f3ceff2b2	owner	the owner's away and back is the owner step's	task
 check:tests/lem-state.sh:the-watch-of-the-owner-s-mark-in-one-reposit-d366e4aca12f2cbd	owner	`owner watch` is the owner step's	task
+check:tests/test-ask-expert.sh:a-question-s-folder-goes-with-lem-project-pr-4e05c52716ca1884	board-duties	The retention store owns expiration. The brief does not prune any question.	addons-outside
 event:interview.end	task	the interview's text writes it as lem task span SLUG interview end, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	criteria
 event:interview.start	task	the interview's text writes it as lem task span SLUG interview start, a span of the record (task span is task's); the line is held by unit.criteria.test_texts.test_each_text_of_the_step_is_carried_in_the_new_form[skills/lem/stages/interview.md]	criteria
 event:merge.ended	land-propose	the owner's merge ends in propose's Proposed.owner_merge (standing.standing gives stands or ended); the start over that ended it on main is task's	land-base
