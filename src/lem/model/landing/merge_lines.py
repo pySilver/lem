@@ -3,6 +3,12 @@ the checks, or on a base nothing covered; the squash's body; a branch rebased af
 or changed after it, or not merged (`main:land.base_line`, `uncovered_line`, `noted_body`,
 `squash_body`, `after_push`, `cmd_clean`)."""
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lem.records.landing.merge import Merged
+    from lem.records.landing.record import Landing
+
 SHORT = 9
 # Two commits, in the order a line names them.
 type Pair = tuple[str, str]
@@ -84,3 +90,17 @@ def unmerged_why(base: str, branch: Pair, *, after: bool, inside: bool) -> str:
         f"origin's {base} does not hold the tip {tip} of {name}: {how}; the branch and the "
         "forge's copy stay, and nothing was removed"
     )
+
+
+def head_warning(landing: Landing, merged: Merged) -> str | None:
+    """The coverage warning when GitHub merged a different tip."""
+    expected = landing.intent or landing.accepted or landing.proposed
+    if expected is None or merged.merged_head == expected.tip:
+        return None
+    tip = expected.tip
+    reviewed = any(
+        read.tip == tip and read.verdict is not None for read in landing.reads
+    )
+    line = f"The review covered tip {tip}." if reviewed else f"Lem expected tip {tip}."
+    head = merged.merged_head
+    return f"{line} GitHub merged a different head, {head}."

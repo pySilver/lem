@@ -6,20 +6,30 @@ a request it closed, a merge into another base, and what a refusal for a moved b
 from functools import partial
 from typing import TYPE_CHECKING
 
-from lem.app.landing import changes
+from lem.app.landing import changes, merge_world
 from lem.kernel.errors import Refusal
-from lem.model.landing import merge_standing
+from lem.model.landing import merge_standing, reconcile
 from lem.records.journal.merge import MergeNoted, RefusalNoted
 from lem.records.landing.merge import MergeAccepted, Merged, Refused
 
 if TYPE_CHECKING:
     from lem.app.landing.frame import Context
     from lem.model.landing.merge_asked import Asked
-    from lem.model.landing.world import Merger
+    from lem.model.landing.world import Merger, PullSeen
     from lem.records.landing.propose import Standing
     from lem.records.record import Record
 
 type Found = Merged | MergeAccepted | Refused | None
+
+
+def adopted(context: Context, record: Record, pull: PullSeen) -> object:
+    """Record the confirmed merge and attribute it to the call that named its head."""
+    landing = record.landing
+    call = (landing.intent or landing.accepted) if landing else None
+    by = (call.by or "owner") if call else "owner"
+    trees = merge_world.trees_of(context, pull)
+    found = reconcile.landed(record, context.world, pull, (by, "github", trees))
+    return written(context, record, found, by)
 
 
 def taken(record: Record, *, found: Merged | MergeAccepted | Refused) -> Record:
@@ -64,7 +74,7 @@ def written(
                 tip=tip,
                 source="lem",
                 kind="target",
-                line=found.why,
+                line=f"{found.why}. {found.fix}",
                 by=by,
                 at=context.world.now,
             )

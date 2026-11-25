@@ -109,8 +109,13 @@ def update(state: Path, slug: str, change: Change, expect: int) -> Record:
                 "came first",
                 "read the task again, and decide on what it says now",
             )
-        changed = msgspec.structs.replace(change(record), revision=expect + 1)
-        files.write_whole(folder / RECORD, encode(changed))
+        return update_held(folder, record, change)
+
+
+def update_held(folder: Path, record: Record, change: Change) -> Record:
+    """Write the next revision after the caller checked the record under its task lock."""
+    changed = msgspec.structs.replace(change(record), revision=record.revision + 1)
+    files.write_whole(folder / RECORD, encode(changed))
     return changed
 
 

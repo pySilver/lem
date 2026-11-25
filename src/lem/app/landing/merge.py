@@ -20,7 +20,7 @@ from lem.app.landing import (
     reconcile,
 )
 from lem.kernel.errors import Refusal
-from lem.model.landing import merge
+from lem.model.landing import merge, merge_asked
 from lem.model.landing.reconcile import Found, reconciled
 
 if TYPE_CHECKING:
@@ -28,7 +28,6 @@ if TYPE_CHECKING:
 
     from lem.app.landing.frame import Context
     from lem.kernel.envelope import Envelope
-    from lem.model.landing.merge_asked import Asked
     from lem.records.landing.merge import MergeIntent
 
 
@@ -36,14 +35,20 @@ def shown(context: Context, intent: MergeIntent) -> Refusal | Found:
     """What the forge shows of the intent on record: the merge, the queue, the queue's end,
     the end of a closed request, or the refusal that keeps the intent."""
     trees = merge_world.trees_of(context, context.world.pull)
-    dequeued = merge_world.dequeued_of(context)
-    return reconciled(context.record, context.world, intent, trees, dequeued=dequeued)
+    return reconciled(context.record, context.world, intent, trees)
 
 
-def locked(context: Context, asked: Asked) -> object:
+def locked(
+    context: Context,
+    asked: merge_asked.Asked,
+    before_call: merge_called.BeforeCall | None = None,
+) -> object:
     """Under the merge lock, on the record and the world read again: reconcile an intent on
     record, else merge on the evidence as it is now."""
     record = context.record
+    stale = merge_asked.tip_refusal(record, asked)
+    if stale is not None:
+        raise stale
     intent = record.landing.intent if record.landing else None
     if intent is None:
         merge_word.unchecked(asked)
@@ -52,22 +57,35 @@ def locked(context: Context, asked: Asked) -> object:
         if not merge_word.explicit(asked, intent, found):
             return reconcile.written(context, record, found, intent.by)
         record = merge_word.heard(context, record, intent)
-    tree = merge_world.checks_tree(context)
-    decided = merge.decide(record, context.world, asked, tree)
+    decided = merge.decide(
+        record, context.world, asked, merge_world.checks_tree(context)
+    )
     if isinstance(decided, Refusal):
         raise reconcile.kept(context, record, decided, asked)
-    return merge_called.called(context, record, decided)
+    return merge_called.called(context, record, decided, before_call)
 
 
-def act(context: Context, *, asked: Asked) -> object:
+def act(
+    context: Context,
+    *,
+    asked: merge_asked.Asked,
+    before_call: merge_called.BeforeCall | None,
+) -> object:
     """Take the merge lock, read the record and the world again, and merge on what they say
     now (`main:land.merge_locked`)."""
     with merge_lock.held(context):
-        return locked(context.again(), asked)
+        return locked(context.again(), asked, before_call)
 
 
-def run(folder: Path, slug: str, asked: Asked) -> Envelope:
+def run(
+    folder: Path,
+    slug: str,
+    asked: merge_asked.Asked,
+    *,
+    before_call: merge_called.BeforeCall | None = None,
+) -> Envelope:
     """`lem land merge SLUG --by owner|merger [--message M] [--via V] [--standing] [--tip T]
     [--checked MOMENT]`."""
     hooks = merge_step.Hooks(admits=partial(merge_word.admits, asked))
-    return merge_step.landed(folder, slug, merge.STEP, partial(act, asked=asked), hooks)
+    action = partial(act, asked=asked, before_call=before_call)
+    return merge_step.landed(folder, slug, merge.STEP, action, hooks)

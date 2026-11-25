@@ -15,9 +15,8 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.kernel import clock
 from lem.kernel.errors import Refusal
-from lem.model.landing import merge_lines, mergeread
+from lem.model.landing import merge_lines, mergeread, reconcile_queue
 from lem.model.landing.invariants import target
 from lem.model.landing.world import Due, Merger, PullSeen, World
 from lem.records.base import Frozen, Sha
@@ -27,7 +26,6 @@ from lem.records.landing.record import Landing
 if TYPE_CHECKING:
     from lem.records.record import Record
 
-RECONCILED = "a merge call is on record: it is reconciled first"
 # Who refused a merge kept for its tip, as the due step says it.
 SAID = MappingProxyType(
     {
@@ -51,18 +49,19 @@ def pending(landing: Landing, world: World) -> Due | None:
     intent to reconcile, a merge into another base that waits for the owner, the forge's
     merge, queue or end to write down, or a refusal kept for this tip, GitHub's or Lem's of
     the merge agent's merge, after which only the owner's word merges it."""
-    pull, refused = world.pull, landing.refused
-    tip = landing.proposed.tip if landing.proposed else None
-    if landing.intent is not None:
-        return Due(step="merge", why=RECONCILED, by=landing.intent.by)
+    pull = world.pull
+    refused = refusal_for_tip(landing)
+    intent = reconcile_queue.intent_pending(landing, pull)
+    if intent is not None:
+        return intent
     elsewhere = (
         pull is not None and pull.state == "merged" and pull.base != world.rules.base
     )
-    if refused is not None and refused.tip == tip and elsewhere:
+    if refused is not None and elsewhere and landing.intent is None:
         return Due(step="wait", why=refused.line)
     if landing.accepted is not None or (pull is not None and pull.state != "open"):
         return Due(step="merged", why="the forge took the merge, or ended the request")
-    if refused is None or refused.tip != tip or refused.kind == "base":
+    if refused is None or refused.kind == "base":
         return None
     said = SAID[refused.source]
     return Due(
@@ -78,6 +77,9 @@ def line_of(
     """The line a merge leaves in the pull request's text, and whether no read covered its
     base: no line on the checks' own base (by its tree), the safe read's line on a base it
     covered, else the line that no read covered it."""
+    warning = merge_lines.head_warning(landing, merged)
+    if warning is not None:
+        return warning, True
     if trees.parent == trees.checks:
         return None, False
     safe = [
@@ -140,7 +142,12 @@ def landed(
             "written",
             f"lem land merged {slug} runs again in a minute",
         )
-    landing, who = record.landing or Landing(), facts[:2]
+    landing = record.landing or Landing()
+    who = (
+        reconcile_queue.author(landing, pull)
+        if landing.intent or landing.accepted
+        else facts[:2]
+    )
     return made(landing, world, pull, who, facts[2])
 
 
@@ -149,8 +156,6 @@ def reconciled(
     world: World,
     intent: MergeIntent,
     trees: Trees,
-    *,
-    dequeued: str | None = None,
 ) -> Refusal | Found:
     """What an intent on record becomes, by what the forge shows now: the merge, the queue
     that took it, the queue's end in GitHub's words, None for a request closed with no
@@ -161,48 +166,12 @@ def reconciled(
         return landed(record, world, pull, (intent.by, intent.via, trees))
     if pull is not None and pull.state == "closed":
         return None
-    if pull is not None and pull.queued:
-        return MergeAccepted(tip=intent.tip, at=world.now, queued=pull.queued)
-    if pull is not None and dequeued:
-        return Refused(
-            tip=intent.tip,
-            source="github",
-            kind="rule",
-            line=dequeued,
-            by=intent.by,
-            at=world.now,
-        )
-    url = pull.url if pull else "the pull request"
-    slug, stamp = record.task.slug, clock.compact(intent.at)
-    return Refusal(
-        "intent",
-        f"a merge call for {intent.tip} went out at {stamp}, and GitHub shows {url} open: "
-        "the call may not have reached it, and no new call goes unasked",
-        f"the owner checks {url} on GitHub; when it is not merged there, his word merges it: "
-        f"lem land merge {slug} --by owner --tip {intent.tip} --checked {stamp}",
-    )
+    return reconcile_queue.answer(record, world, intent)
 
 
-def queued(
-    record: Record, world: World, *, dequeued: str | None = None
-) -> Refusal | Refused:
-    """What a pull request the forge holds in its queue shows now that it is still open: the
-    queue's end in GitHub's words, or that it waits."""
-    landing = record.landing or Landing()
-    accepted = landing.accepted
-    tip = accepted.tip if accepted else world.tip or ""
-    if world.pull is not None and dequeued:
-        return Refused(
-            tip=tip,
-            source="github",
-            kind="rule",
-            line=dequeued,
-            by=landing.proposed.who_acts if landing.proposed else "owner",
-            at=world.now,
-        )
-    slug = record.task.slug
-    return Refusal(
-        "queued",
-        f"GitHub holds the merge of {tip} in its queue, and has not merged it yet",
-        f"lem land merged {slug} runs again once GitHub merged it",
-    )
+def refusal_for_tip(landing: Landing) -> Refused | None:
+    """The refusal for the tip the task proposes."""
+    refused, proposed = landing.refused, landing.proposed
+    if refused is not None and proposed is not None and refused.tip == proposed.tip:
+        return refused
+    return None

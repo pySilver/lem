@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from lem.app.sessions import beside, guard_look, guard_stop, log, opening
 from lem.app.sessions.acts import Wake, Worked
 from lem.app.sessions.guard_acts import Acted, refusal, refused
+from lem.app.tasks import release
 from lem.kernel import locks
 from lem.ports.faults import Unanswered
 
@@ -23,6 +24,7 @@ def stepped(
     """Take the guard's `step` for the task when it is still due, in the task's lock."""
     folder = here.folder(slug)
     with locks.held(folder / opening.LOCK):
+        release.checked(here.where.state, slug)
         looked = guard_look.looked(here, slug, now)
         why = refusal(looked, step, named, now)
         if why is not None or looked.session is None:
@@ -36,7 +38,7 @@ def status(here: Here, slug: str, looked: guard_look.Looked, now: datetime) -> A
     here.ports.terminal.tell(session, f"lem: {slug} status")
     unread = not looked.facts.read
     asked = Wake(at=now, session=session, why="status", unread=unread)
-    log.append(here.folder(slug), asked)
+    log.reached(here.folder(slug), asked)
     say = (
         f"the session of {slug} got `lem: {slug} status`, which asks where the task stands "
         "and to go on with its next step"
@@ -88,7 +90,7 @@ def replaced(here: Here, slug: str, old: str, now: datetime) -> str | None:
     except Unanswered as unanswered:
         return str(unanswered)
     told = Wake(at=now, session=old, why="replaced")
-    log.append(here.folder(slug), told)
+    log.reached(here.folder(slug), told)
     return None
 
 

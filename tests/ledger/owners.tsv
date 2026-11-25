@@ -993,7 +993,7 @@ duty:trim-server-log	board-service
 duty:wake-board-answer	board-acts
 duty:wake-conflict	board-duties
 duty:wake-ended	board-duties
-duty:wake-inbox-question	board-duties
+duty:wake-inbox-question	addons-outside
 duty:wake-inbox-reply	addons-outside
 duty:wake-queued	board-duties
 duty:wake-refused	board-duties
@@ -2805,14 +2805,14 @@ unit:tests/unit/test_serve.py:Duties.test_a_conflict_wakes_the_session_once_for_
 unit:tests/unit/test_serve.py:Duties.test_a_demo_workspace_owes_nothing	board-duties
 unit:tests/unit/test_serve.py:Duties.test_a_failed_bookkeeping_of_a_merged_pull_request_is_tried_again	board-duties
 unit:tests/unit/test_serve.py:Duties.test_a_merge_wakes_the_tasks_session_once_while_its_worktree_stays	board-duties
-unit:tests/unit/test_serve.py:Duties.test_a_press_after_a_moved_base_is_refused_as_lem_lands_it_again	board-duties
-unit:tests/unit/test_serve.py:Duties.test_a_press_whose_request_read_the_model_before_his_refusal_runs_no_second_merge	board-duties
+unit:tests/unit/test_serve.py:Duties.test_a_press_after_a_moved_base_is_refused_as_lem_lands_it_again	board-acts
+unit:tests/unit/test_serve.py:Duties.test_a_press_whose_request_read_the_model_before_his_refusal_runs_no_second_merge	board-acts
 unit:tests/unit/test_serve.py:Duties.test_a_queued_task_gets_its_session_when_its_task_ended	board-duties
 unit:tests/unit/test_serve.py:Duties.test_a_queued_task_whose_session_lives_is_woken_once_when_its_task_ended	board-duties
-unit:tests/unit/test_serve.py:Duties.test_a_second_press_while_his_merge_stands_starts_nothing_and_says_it_stands	board-duties
+unit:tests/unit/test_serve.py:Duties.test_a_second_press_while_his_merge_stands_starts_nothing_and_says_it_stands	board-acts
 unit:tests/unit/test_serve.py:Duties.test_a_task_queued_again_behind_a_second_task_gets_its_turn_when_that_one_ends	board-duties
 unit:tests/unit/test_serve.py:Duties.test_after_a_moved_base_the_session_lands_it_again_and_the_server_merges_the_new_tip	board-duties
-unit:tests/unit/test_serve.py:Duties.test_his_merge_that_a_moved_base_refused_stands_and_its_note_says_so	board-duties
+unit:tests/unit/test_serve.py:Duties.test_his_merge_that_a_moved_base_refused_stands_and_its_note_says_so	board-acts
 unit:tests/unit/test_serve.py:Duties.test_his_standing_merge_that_the_base_refuses_again_still_stands_in_its_note	board-duties
 unit:tests/unit/test_serve.py:Duties.test_his_standing_merge_whose_merge_lock_cannot_open_is_refused_with_the_fix	board-duties
 unit:tests/unit/test_serve.py:Duties.test_his_standing_merge_whose_step_lock_is_held_is_refused_with_land_s_line	board-duties

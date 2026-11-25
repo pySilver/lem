@@ -10,6 +10,7 @@ starts a process or reads a clock.
 from typing import Literal
 
 from lem.kernel.errors import Refusal
+from lem.model.landing.queue_evidence import Event
 from lem.records.base import Frozen, Moment, Sha
 
 type Verb = Literal[
@@ -55,6 +56,9 @@ class PullSeen(Frozen, frozen=True, kw_only=True):
     head: Sha
     base: str
     queued: str | None = None
+    dequeued: str | None = None
+    queue_event: Event | None = None
+    queue_entered: Event | None = None
     merge_commit: Sha | None = None
     merged_head: Sha | None = None
     base_parent: Sha | None = None

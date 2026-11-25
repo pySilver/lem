@@ -3,6 +3,7 @@ and the three outcomes of a merge call."""
 
 from typing import Literal
 
+from lem.model.landing.queue_evidence import Event
 from lem.records.base import Frozen, Sha
 
 type Mergeable = Literal["mergeable", "conflicting", "unknown"]
@@ -38,6 +39,8 @@ class Pull(Frozen, frozen=True, kw_only=True):
     mergeable: Mergeable = "unknown"
     queued: str | None = None
     dequeued: str | None = None
+    queue_event: Event | None = None
+    queue_entered: Event | None = None
     merge_commit: Sha | None = None
     merged_head: Sha | None = None
     base_parent: Sha | None = None

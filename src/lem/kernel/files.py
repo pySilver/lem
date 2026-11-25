@@ -9,12 +9,15 @@ leaves an artifact that nothing cites, never a citation of a changed file.
 """
 
 import contextlib
+import errno
 import hashlib
 import os
 import tempfile
 from pathlib import Path
 
 from lem.kernel.errors import Fault
+
+APPEND_MODE = 0o644
 
 
 def write_whole(path: Path, body: bytes) -> None:
@@ -60,3 +63,14 @@ def publish(path: Path, body: bytes) -> str:
     if path.read_bytes() != body:
         raise Fault(f"{path} is published already, with other bytes")
     return digest(body)
+
+
+def append_frame(path: Path, body: bytes) -> None:
+    """Append one framed journal entry in one write, so concurrent writers do not mix bytes."""
+    frame = b"".join((b"\n", body, b"\n"))
+    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
+    descriptor = os.open(path, flags, APPEND_MODE)
+    with contextlib.ExitStack() as stack:
+        stack.callback(os.close, descriptor)
+        if os.write(descriptor, frame) != len(frame):
+            raise OSError(errno.EIO, "incomplete journal append", path)

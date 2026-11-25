@@ -2,13 +2,29 @@
 
     lem prune [--dry-run] [--days N]
 
-A stub until the step `board-duties` builds it: it refuses `not-built`.
+Each task that ended with nothing new for `state.keep_days` keeps only its small record, its
+journal folded into one summary, and the old folders of the experts, the panels, the naps and
+the cast's copies go (`store/retention/`). A dry run removes nothing and says what would go; with
+`--days N` it says what would go if the number were N. A removal that failed is a refusal that
+names it: the next run finishes it.
 """
+
+from typing import TYPE_CHECKING
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app import retention_days
+from lem.cli import place
+from lem.kernel import clock
+from lem.kernel.envelope import Envelope
+from lem.kernel.errors import Refusal
+from lem.store import places
+from lem.store.retention import run as retention
+from lem.store.retention.said import failed_line, said
+
+if TYPE_CHECKING:
+    from lem.store.retention.answer import Pruned
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -18,9 +34,31 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     days: int | None = None
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `board-duties` builds `lem prune`."""
-    raise not_built("prune", "board-duties")
+def run(call: Call) -> Envelope:
+    """Remove what the state folder no longer needs, or say what would go."""
+    where = places.workspace(place.folder())
+    keep, source = retention_days.kept(where.checkout, call.days, dry=call.dry_run)
+    now = clock.now()
+    pruned = retention.pruned(where.state, keep, source, now, dry=call.dry_run)
+    if pruned.failed:
+        raise refusal(pruned)
+    return enveloped(pruned)
+
+
+def enveloped(pruned: Pruned) -> Envelope:
+    """The envelope of a run: what it did, and the owner's line."""
+    encoded = msgspec.Raw(msgspec.json.encode(pruned))
+    return Envelope(ok=True, outcome=encoded, say=said(pruned))
+
+
+def refusal(pruned: Pruned) -> Refusal:
+    """A run whose removals failed: what it did, and each removal that failed."""
+    failed = "; ".join(map(failed_line, pruned.failed))
+    return Refusal(
+        "prune-failed",
+        f"{said(pruned)}, and these removals failed: {failed}",
+        "the owner fixes what the errors name; the next lem prune finishes the rest",
+    )
 
 
 COMMAND = click.Command(

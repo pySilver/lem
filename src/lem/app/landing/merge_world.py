@@ -77,16 +77,6 @@ def branch_facts(context: Context, merged: Merged | None, *, asks: bool) -> Fact
     )
 
 
-def dequeued_of(context: Context) -> str | None:
-    """The forge's word for a pull request it took out of its merge queue, and why; asked
-    only of an open request that waits in no queue, where the world's view of it holds
-    none."""
-    pull, landing = context.world.pull, context.record.landing
-    if pull is None or pull.state != "open" or pull.queued or landing is None:
-        return None
-    return context.ports.forge.pull(pull.number).dequeued
-
-
 def base_checkout(context: Context) -> Path | None:
     """The checkout that holds the base branch: the main one, or a linked worktree of the
     repository whose HEAD is that branch (`main:land.follow`); None when none does. Read from

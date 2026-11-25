@@ -67,7 +67,9 @@ MUST = Finding(
 def test_the_merge_agent_merges_a_green_request_on_its_reads_merge() -> None:
     made = merge.decide(opened(), facing(), BY_MERGER, TREE)
     assert isinstance(made, merge_call.Merging)
-    assert made.intent == MergeIntent(tip=TIP, by="merger", via="server", at=MOMENT)
+    assert made.intent == MergeIntent(
+        tip=TIP, by="merger", via="server", at=MOMENT, queue_before=""
+    )
     assert (made.method, made.subject) == ("squash", SUBJECT)
     assert made.body == "Lem task: fix-the-login"
 

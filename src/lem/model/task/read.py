@@ -100,18 +100,17 @@ def moved_to(after: tuple[str, ...]) -> tuple[Status, str]:
 
 def queued(record: Record, queue: Queue, now: Moment) -> Record:
     """The record with the queue the read asks for: queued behind `after`, or shaping."""
-    was = record.task.status
-    order = record.task.order if record.task.after else None
-    if order is None:
-        order = queue.order
-    record = replace(
-        record,
-        task=replace(record.task, after=queue.after, order=order),
-    )
+    task = record.task
     status, line = moved_to(queue.after)
-    if status == was:
-        return record
-    return holds.moved(record, status=status, line=line, now=now)
+    renewed = status == "queued" and task.after != queue.after
+    order = task.order if task.after and task.order is not None else queue.order
+    task = replace(task, after=queue.after, order=order)
+    if renewed:
+        task = replace(task, since=now)
+    record = replace(record, task=task)
+    if renewed or status != task.status:
+        return holds.moved(record, status=status, line=line, now=now)
+    return record
 
 
 def read(record: Record, *, shape: Shape, queue: Queue, now: Moment) -> Record:

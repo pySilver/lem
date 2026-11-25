@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Protocol
 
 from msgspec.structs import replace
 
+from lem.kernel import clock
+from lem.model.landing.queue_evidence import Event
 from lem.ports.faults import Unanswered
 from lem.ports.forge_facts import (
     MergeDenied,
@@ -54,6 +56,7 @@ class LocalForge:
     bodies: dict[int, str] = field(default_factory=dict)
     merge_calls: list[tuple[int, str]] = field(default_factory=list)
     queue: bool = False
+    queue_events: int = 0
     refuse: str | None = None
     fail_edits: bool = False
     lag: int = 0
@@ -140,7 +143,13 @@ class LocalForge:
             return MergeDenied(kind="rule", said=self.refuse)
         if self.queue:
             self.waiting[number] = (expected_head, method, text)
-            self.pulls[number] = replace(pull, queued="the merge queue", dequeued=None)
+            self.pulls[number] = replace(
+                pull,
+                queued="the merge queue",
+                dequeued=None,
+                queue_event=self.event(pull.head),
+                queue_entered=None,
+            )
             return MergeTaken(queued="the merge queue")
         return self.merged(number, method, text)
 
@@ -190,10 +199,22 @@ class LocalForge:
             return MergeDenied(kind="tip", said="Head branch was modified")
         return self.merged(number, method, text)
 
+    def event(self, head: str) -> Event:
+        """The fake forge's next queue event."""
+        self.queue_events += 1
+        return Event(id=str(self.queue_events), at=clock.now(), head=head)
+
     def dequeue(self, number: int, why: str) -> None:
         """The queue removes the pull request, with its reason (a check that failed)."""
-        self.waiting.pop(number, None)
-        self.pulls[number] = replace(self.pulls[number], queued=None, dequeued=why)
+        waiting = self.waiting.pop(number, None)
+        pull = self.pulls[number]
+        self.pulls[number] = replace(
+            pull,
+            queued=None,
+            dequeued=why,
+            queue_event=self.event(waiting[0] if waiting else pull.head),
+            queue_entered=pull.queue_event if pull.queued else None,
+        )
 
     def outside_merge(self, number: int) -> MergeOutcome:
         """Someone merges the pull request on GitHub."""

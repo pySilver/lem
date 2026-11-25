@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Literal
 
 import msgspec
 
+from lem.adapters import forge_gh_queue
 from lem.kernel.errors import Refusal
 from lem.ports.faults import Unanswered
 from lem.ports.forge_facts import Mergeable, Pull
@@ -53,12 +54,6 @@ MERGEABLE: Mapping[str, Mergeable] = MappingProxyType(
 )
 
 
-class Oid(msgspec.Struct, frozen=True):
-    """A commit as `gh` names it."""
-
-    oid: str
-
-
 class Login(msgspec.Struct, frozen=True):
     """A person as `gh` names one."""
 
@@ -66,7 +61,7 @@ class Login(msgspec.Struct, frozen=True):
 
 
 class GhPull(msgspec.Struct, frozen=True, rename="camel"):
-    """A pull request as `gh pr view --json FIELDS` prints it."""
+    """A pull request as GitHub gives it, with queue evidence on a direct read."""
 
     number: int
     url: str
@@ -78,8 +73,16 @@ class GhPull(msgspec.Struct, frozen=True, rename="camel"):
     base_ref_name: str
     author: Login | None = None
     mergeable: Literal["MERGEABLE", "CONFLICTING", "UNKNOWN"] = "UNKNOWN"
-    merge_commit: Oid | None = None
+    merge_commit: forge_gh_queue.Oid | None = None
     auto_merge_request: dict[str, object] | None = None
+    merge_queue_entry: forge_gh_queue.Event | None = None
+    timeline_items: forge_gh_queue.Timeline | None = None
+
+    def queued(self) -> str | None:
+        """The queue that still holds the request."""
+        if self.merge_queue_entry is not None:
+            return "the merge queue"
+        return None if self.auto_merge_request is None else "auto-merge"
 
 
 def cleaned(environ: Mapping[str, str]) -> dict[str, str]:
@@ -181,7 +184,7 @@ class Gh:
     def viewed(self, number: int, depth: int = 1) -> Pull:
         """The pull request `number` as the forge shows it now; `depth` is how many commits
         a rebase merge of it replayed."""
-        said = self.said(PR, "view", str(number), JSON, FIELDS)
+        said = forge_gh_queue.viewed(self, number)
         return self.pull_of(msgspec.json.decode(said, type=GhPull), depth)
 
     def commits(self, number: int) -> int:
@@ -195,6 +198,9 @@ class Gh:
         """A pull request as the port gives it; a merged one with its merge's base."""
         merged = found.merge_commit.oid if found.merge_commit else None
         done = found.state == "MERGED" and merged is not None
+        queued = found.queued()
+        open_unqueued = found.state == "OPEN" and queued is None
+        latest = found.timeline_items.latest() if found.timeline_items else None
         return Pull(
             number=found.number,
             url=found.url,
@@ -206,7 +212,14 @@ class Gh:
             head_ref=found.head_ref_name,
             base=found.base_ref_name,
             mergeable=MERGEABLE[found.mergeable],
-            queued="auto-merge" if found.auto_merge_request else None,
+            queued=queued,
+            dequeued=forge_gh_queue.removed(latest) if open_unqueued else None,
+            queue_event=forge_gh_queue.evidence(
+                latest, queued, found.merge_queue_entry
+            ),
+            queue_entered=forge_gh_queue.entered(found.timeline_items)
+            if open_unqueued
+            else None,
             merge_commit=merged,
             merged_head=found.head_ref_oid if done else None,
             base_parent=self.parent(merged, depth) if done and merged else None,

@@ -8,12 +8,11 @@ and one of another form.
 The `session-start` hook writes the same frame with the standard library (`lem.hooks`).
 """
 
-import contextlib
-import os
 from typing import TYPE_CHECKING
 
 import msgspec
 
+from lem.kernel import files
 from lem.records.sessions import VERSION, SessionLine
 from lem.store import guard
 
@@ -21,19 +20,12 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 SESSIONS = "sessions.jsonl"
-# Read and write for the owner, read for the rest, as a file the shell makes.
-MODE = 0o644
 
 
 def append(folder: Path, line: SessionLine) -> None:
     """Append one framed line to the task folder's sessions file."""
     guard.writable(folder.parents[1])
-    frame = b"".join((b"\n", msgspec.json.encode(line), b"\n"))
-    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
-    descriptor = os.open(folder / SESSIONS, flags, MODE)
-    with contextlib.ExitStack() as stack:
-        stack.callback(os.close, descriptor)
-        os.write(descriptor, frame)
+    files.append_frame(folder / SESSIONS, msgspec.json.encode(line))
 
 
 def decoded(raw: bytes) -> SessionLine | None:

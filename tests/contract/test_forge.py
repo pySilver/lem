@@ -145,6 +145,32 @@ def test_a_gh_with_no_login_is_refused_with_its_fix(tmp_path: Path) -> None:
     assert "gh auth login" in refused.value.fix
 
 
+def test_github_reports_a_confirmed_queue_removal_and_its_reason(
+    tmp_path: Path,
+) -> None:
+    world = gh_world(tmp_path)
+    world.push("fix-the-login", {"a.txt": b"a\n"})
+    opened = world.forge.open_pull("fix-the-login", "main", "Fix", "body")
+    assert (opened.queued, opened.dequeued) == (None, None)
+    state = json.loads(world.state.read_text())
+    added = {"__typename": "AddedToMergeQueueEvent"}
+    removed = {
+        "__typename": "RemovedFromMergeQueueEvent",
+        "reason": "a required check failed in the queue",
+    }
+    for events, active, queued, reason in (
+        ([added, removed], False, None, removed["reason"]),
+        ([removed, added], True, "the merge queue", None),
+        ([removed, added], False, None, None),
+        ([removed], True, "the merge queue", None),
+    ):
+        world.state.write_text(
+            json.dumps({**state, "queue_events": events, "in_queue": active})
+        )
+        pull = world.forge.pull(opened.number)
+        assert (pull.queued, pull.dequeued) == (queued, reason)
+
+
 def test_no_gh_on_the_path_is_refused_by_name(tmp_path: Path) -> None:
     world = gh_world(tmp_path)
     only_git = tmp_path / "only-git"
@@ -241,3 +267,26 @@ def test_a_rebase_counts_its_commits_from_githubs_total_not_a_list_it_caps(
     ]
     assert asked == [["api", "repos/owner/project/pulls/1", "--jq", ".commits"]]
     assert not [call for call in world.calls() if "commits" in call and call[0] == "pr"]
+
+
+def test_github_preserves_a_queue_removal_with_no_reason(tmp_path: Path) -> None:
+    world = gh_world(tmp_path)
+    world.push("fix-the-login", {"a.txt": b"a\n"})
+    opened = world.forge.open_pull("fix-the-login", "main", "Fix", "body")
+    state = json.loads(world.state.read_text())
+    event = {
+        "__typename": "RemovedFromMergeQueueEvent",
+        "id": "removal-id",
+        "createdAt": "2026-11-25T11:00:00Z",
+        "reason": None,
+        "head": {"oid": opened.head},
+    }
+    world.state.write_text(json.dumps({**state, "queue_events": [event]}))
+
+    pull = world.forge.pull(opened.number)
+
+    assert pull.dequeued == "GitHub removed the pull request from the merge queue"
+    assert pull.queue_event is not None
+    assert pull.queue_event.id == "removal-id"
+    assert pull.queue_event.head == opened.head
+    assert pull.queue_event.at.isoformat() == "2026-11-25T11:00:00+00:00"
