@@ -1,0 +1,98 @@
+"""The add-ons at the board's real page, API and lifespan boundaries."""
+
+from typing import TYPE_CHECKING
+
+import msgspec
+
+from fakes.records import MOMENT, record
+from lem.addons.inbox import messages, records, schedule
+from lem.addons.peers import rows
+from lem.cli.serve import inbox
+from lem.store import owner, tasks
+
+if TYPE_CHECKING:
+    import anyio
+    import pytest
+
+    from unit.board.service.given import Board
+
+
+def test_the_board_serves_the_same_peer_on_the_index_api_and_switcher(
+    board: Board,
+) -> None:
+    class Joined:
+        trouble = None
+
+        def reload(self) -> dict[str, object]:
+            return {}
+
+        async def spaces(self, own: tuple[rows.Row, ...]) -> tuple[rows.Row, ...]:
+            remote = rows.Row(name="shop", host="desk", url="/desk/shop/", waits=3)
+            return (*own, remote)
+
+    board.app.state.peer_registry = Joined()
+    client = board.main()
+    assert {row["url"] for row in client.get("/api/workspaces").json()} == {
+        "/studio/shop/",
+        "/desk/shop/",
+    }
+    assert "desk/shop" in client.get("/").text
+    page = client.get("/studio/shop/").text
+    assert 'href="/desk/shop/"' in page
+    assert page.count('aria-current="true"') >= 1
+    assert {
+        row["host"]
+        for row in client.get("/api/workspaces", headers={"Lem-Hop": "1"}).json()
+    } == {"studio"}
+
+
+def test_the_inbox_duty_runs_until_stop_and_uses_the_door_for_each_real_workspace(
+    opened: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    observed: list[schedule.Target] = []
+    stopped = []
+
+    async def duty(
+        targets: schedule.Targets, report: schedule.Report, stopping: anyio.Event
+    ) -> None:
+        observed.extend(targets())
+        report("shop", "The Inbox did not answer.")
+        await stopping.wait()
+        stopped.append(True)
+
+    monkeypatch.setattr(schedule, "run", duty)
+    inbox.bind(opened.app)
+    with opened.main() as client:
+        assert "The Inbox did not answer." in client.get("/studio/shop/").text
+    (target,) = observed
+    assert target.where.checkout == opened.checkout
+    assert target.url == f"{opened.app.state.facts.tailnet.rstrip('/')}/studio/shop/"
+    assert stopped == [True]
+
+
+def test_the_task_page_shows_the_inbox_thread_and_explains_a_missing_address(
+    board: Board,
+) -> None:
+    tasks.create(board.state, record("fix-the-login"))
+    owner.change(board.home, None, MOMENT, away=True)
+    inbox.bind(board.app)
+    wait = records.Wait(
+        key="session:fix-the-login", task="fix-the-login", kind="session", since=MOMENT
+    )
+    sent = messages.Sent(
+        message_id="first", thread_id="1", url="http://localhost/thread/1"
+    )
+    entry = records.Entry(wait=wait, key=wait.key, sent=sent)
+    saved = records.Record(
+        door=messages.Door(running=True, tailnet_url="https://phone.test.invalid"),
+        entries=(entry,),
+    )
+    path = board.state / "inbox.json"
+    path.write_bytes(msgspec.json.encode(saved))
+    client = board.main()
+    url = "/studio/shop/tasks/fix-the-login"
+    assert 'href="https://phone.test.invalid/thread/1"' in client.get(url).text
+    path.write_bytes(msgspec.json.encode(records.Record()))
+    assert "The Inbox has no tailnet address." in client.get(url).text
+    owner.change(board.home, None, MOMENT, away=False)
+    assert 'id="fact-inbox"' not in client.get(url).text

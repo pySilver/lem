@@ -383,8 +383,8 @@ def test_the_old_folders_of_the_experts_panels_naps_and_casts_copies_go(
     guard.writable(state)
     old = (LATER - timedelta(days=31)).timestamp()
     made = {
-        "experts/2026-10-01-a-question/brief.md": True,
-        "experts/2026-12-30-new-question/brief.md": False,
+        "experts/2026-10-01-120001-a-question/brief.md": True,
+        "experts/2026-12-30-120001-new-question/brief.md": False,
         "experts/loose-file.md": False,
         "panels/2026-10-01-panel/answers.json": True,
         "personas-cast/abc123/cast.md": True,
@@ -401,9 +401,13 @@ def test_the_old_folders_of_the_experts_panels_naps_and_casts_copies_go(
         stamp = old if aged else LATER.timestamp()
         os.utime(path, (stamp, stamp))
         os.utime(path.parent, (stamp, stamp))
+    unrelated = state / "experts" / "2026-10-01-other"
+    unrelated.mkdir()
+    os.utime(unrelated, (old, old))
     run = pruned(state, 30, "Lem's default", LATER, dry=False)
+    assert unrelated.is_dir()
     assert sorted(one.path for one in run.folders) == [
-        "experts/2026-10-01-a-question",
+        "experts/2026-10-01-120001-a-question",
         "naps/2026-10-01-0300-dream",
         "panels/2026-10-01-panel",
         "personas-cast/abc123",

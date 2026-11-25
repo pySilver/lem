@@ -1,4 +1,5 @@
 id	fate	proof	note
+check:tests/lem-board-act.sh:drop-on-a-reviewer-s-item-removes-its-file-a-3e0563c19328408a	kept	unit.addons.flow.test_proposals.test_a_drop_removes_the_file_at_once_and_keeps_the_drop_in_the_retros_record	The board invokes the same drop.
 check:tests/lem-machine.sh:a-lesson-without-its-sentence-or-without-its-895c435f2cb27a8a	kept	unit.addons.flow.test_corrections.test_a_lesson_without_its_sentence_or_its_file_and_an_unknown_group_are_refused	show of every entry of a group: test_one_sentence_from_two_sessions_is_one_group_most_sessions_first
 check:tests/lem-machine.sh:a-queue-line-that-was-cut-off-and-a-line-tha-ae64b1e2fdd933c9	kept	unit.addons.flow.test_corrections.test_a_cut_off_line_and_a_line_that_is_not_utf8_are_named_and_bad_settings_stop_list	
 check:tests/lem-machine.sh:a-recorded-group-leaves-the-list-and-lessons-83a9fb52351982b1	kept	unit.addons.flow.test_corrections.test_a_recorded_group_leaves_the_list_and_lessons_gives_its_sentence_and_target	

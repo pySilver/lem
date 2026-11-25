@@ -57,10 +57,10 @@ def tick(home: Path, now: datetime | None = None) -> None:
         ticked(context.Duty(name=name, here=here, now=moment, kept=kept))
 
 
-def spaces(home: Path) -> Iterator[tuple[str, Workspace]]:
+def spaces(home: Path, host: str | None = None) -> Iterator[tuple[str, Workspace]]:
     """Each workspace of the list by its name, while Lem is set up in it, but one of example
     tasks."""
-    host = machine.machine_name()
+    host = host or machine.machine_name()
     for name, _ in workspaces.named(workspaces.listed(home), host):
         space = workspaces.found(home, host, name)
         if space is not None and not (space.state / DEMO).exists():

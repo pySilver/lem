@@ -6,11 +6,11 @@ of which name it.
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
-from lem.app.tasks.opening import REVIEWER_ITEMS
 from lem.app.tasks.opening import Asked as Opening
 from lem.board.acts import slugs
 from lem.kernel.errors import Refusal
 from lem.model.task import claim
+from lem.store.reviewer_items import FROM_CHECKOUT
 
 if TYPE_CHECKING:
     from lem.board.acts.asked import Asked
@@ -19,12 +19,12 @@ if TYPE_CHECKING:
 # The longest words of a new task, in characters (`serve.WORDS_CHARS` on `main`).
 WORDS_CHARS = 2000
 # The folders a task starts from: the backlog's and the reviewer's.
-ITEM_FOLDERS = ("docs/backlog", REVIEWER_ITEMS)
+ITEM_FOLDERS = ("docs/backlog", FROM_CHECKOUT.as_posix())
 
 
 def reviewer_path(path: str) -> bool:
     """Whether an item's path is in the reviewer's folder."""
-    return str(PurePosixPath(path).parent) == REVIEWER_ITEMS
+    return str(PurePosixPath(path).parent) == FROM_CHECKOUT.as_posix()
 
 
 def item_of(asked: Asked, every: tuple[Record, ...]) -> Opening:

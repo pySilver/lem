@@ -86,11 +86,12 @@ def prefs_of(header: str | None) -> Prefs:
 def asker_of(request: HTTPConnection) -> Asker:
     """Who asks for the page of `request`."""
     door = listener.at_door(request)
-    local = not door and listener.from_here(request)
+    direct = "Lem-Hop" not in request.headers
+    local = direct and not door and listener.from_here(request)
     agent = request.headers.get("user-agent", "")
     return Asker(
         local=local,
-        may_act=door or local,
+        may_act=direct and (door or local),
         native=bool(NATIVE.search(agent)),
         prefs=prefs_of(request.headers.get("cookie")),
     )

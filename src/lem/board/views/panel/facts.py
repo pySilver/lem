@@ -26,6 +26,7 @@ def facts(world: World, seen: Seen, rows: Rows, standing: Standing) -> tuple[Fac
         careful_fact(seen),
         waits_fact(seen, rows),
         parked_fact(world, seen),
+        world.inbox_thread if world.viewer.task == seen.record.task.slug else None,
         *places.places(world, seen, standing),
     )
     return tuple(fact for fact in found if fact is not None)

@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING
 from lem.kernel.errors import Refusal
 from lem.store import guard
 from lem.store.places import STATE, checkout_of
+from lem.store.retention.folders import EXPERT as NAME
 
 if TYPE_CHECKING:
     from datetime import datetime
     from pathlib import Path
 
-NAME = re.compile(r"\d{4}-\d{2}-\d{2}-\d{6}-[a-z0-9-]+")
 # The question's words in the folder name, as on main (2026-11-25).
 TITLE_CHARS = 48
 TITLE_WORDS = 6

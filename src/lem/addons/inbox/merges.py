@@ -32,7 +32,7 @@ def review_of(found: RowFacts) -> MergeRead | None:
     """The Inbox asks only for a reviewed proposal that the owner can merge."""
     if not tip_of(found) or found.row.conflict or refusal_of(found):
         return None
-    return merging.calling(found.look.record)
+    return merging.calling(found.look)
 
 
 def identity(review: MergeRead | None) -> str | None:

@@ -80,6 +80,13 @@ class Registry:
             if peer:
                 peer.failed(str(error))
 
+    async def stop(self) -> None:
+        """Cancel and await the remaining looks when the server stops."""
+        pending = tuple(self.pending.values())
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+
     def client(self, timeout: float | httpx.Timeout) -> httpx.AsyncClient:
         """Use the tailnet directly, with certificate checks enabled."""
         return httpx.AsyncClient(

@@ -6,33 +6,11 @@ from urllib.parse import quote
 import msgspec
 
 from lem.addons.peers.tailnet import LABEL
-from lem.records.base import Frozen
+from lem.records.workspace import Row
 
 SPACES = "Lem-Spaces"
 # The old board leaves room within its header line limit (main, 2026-11-25).
 SPACES_CAP = 32_000
-
-
-class Row(Frozen, frozen=True, kw_only=True):
-    """A workspace's displayed facts, apart from any actions."""
-
-    name: str
-    path: str = ""
-    host: str = ""
-    url: str = ""
-    waits: int | None = None
-    building: int | None = None
-    checks: int | None = None
-    running: int | None = None
-    problem: str | None = None
-    reachable: bool | None = None
-    answered: int | None = None
-    said: str = ""
-
-    def on_entry(self) -> Row:
-        """Quote the machine's name before making a local link from it."""
-        host = quote(self.host, safe="")
-        return located(self, host)
 
 
 def located(row: Row, host: str) -> Row:
@@ -79,7 +57,7 @@ def from_header(given: str) -> tuple[Row, ...]:
     except msgspec.DecodeError, RecursionError:
         return ()
     present = (row for row in rows if LABEL.fullmatch(row.host))
-    return tuple(row.on_entry() for row in present)
+    return tuple(located(row, row.host) for row in present)
 
 
 def with_own(

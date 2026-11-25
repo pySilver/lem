@@ -2,19 +2,22 @@
 
 import asyncio
 import json
+import os
 from http import HTTPStatus
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import httpx
 from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from starlette.routing import Route
 
 from fakes.records import record
 from lem.addons.peers import registry, requests, routes, rows, table
+from lem.board import counts
 from lem.board import workspaces as board_workspaces
-from lem.board.pages import kanban
+from lem.board.pages import live, provider, source
 from lem.store import tasks
 
 if TYPE_CHECKING:
@@ -45,7 +48,7 @@ async def page(request: Request) -> Response:
     ]
     assert request.headers[requests.HOP] == "1"
     assert request.headers["Cookie"] == "lem_board=wide"
-    return kanban.page(request)
+    return await run_in_threadpool(source.endpoint, request)
 
 
 async def workspaces(request: Request) -> JSONResponse:
@@ -74,8 +77,13 @@ def board(
         routes=[*routes.ROUTES, Route("/api/workspaces", workspaces), *extras]
     )
     app.state.home = home
-    app.state.facts = SimpleNamespace(host=host)
+    app.state.facts = SimpleNamespace(host=host, door=None)
     app.state.peer_own_rows = lambda request: own
+    app.state.peer_spaces = routes.spaces
+    app.state.act_revision = live.revision
+    app.state.page_inputs = provider.inputs
+    app.state.environ = os.environ
+    app.state.counts = counts.Counts()
     return app
 
 
@@ -86,7 +94,9 @@ def test_peer_pages_assets_union_and_loop_guard(tmp_path: Path) -> None:
         table.change(alpha_home, "beta", PORT)
         table.change(beta_home, "gamma", 19038)
         shop = tmp_path / "shop"
+        (shop / ".git").mkdir(parents=True)
         tasks.create(shop / ".lem/state", record("repair-export"))
+        (shop / ".lem/state/demo").touch()
         (beta_home / board_workspaces.WORKSPACES).write_text(json.dumps([str(shop)]))
         beta = board(
             beta_home,
@@ -117,6 +127,8 @@ def test_peer_pages_assets_union_and_loop_guard(tmp_path: Path) -> None:
             assert "text/html" in seen.headers["content-type"]
             assert 'id="card-repair-export"' in seen.text
             assert "data-agterm-url-value" not in seen.text
+            assert 'href="/alpha/app/"' in seen.text
+            assert 'href="/beta/shop/new"' not in seen.text
             asset_body = await client.get("/beta/assets/test.css")
             assert asset_body.text == "beta asset"
             assert (await client.head("/beta/assets/test.css")).content == b""

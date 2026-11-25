@@ -37,7 +37,7 @@ class Checkout:
 
     def blob(self, ref: str, path: str) -> bytes:
         """Read a known blob by its ref and path."""
-        return self.git.blob(self.path, f"{ref}:{path}")
+        return self.git.output(self.path, "cat-file", "blob", f"{ref}:{path}")
 
 
 def checkout(folder: Path) -> Checkout:

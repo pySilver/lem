@@ -27,6 +27,7 @@ class Target(Frozen, frozen=True, kw_only=True):
 
     where: Workspace
     url: str
+    name: str | None = None
 
 
 def cycle(targets: Targets, report: Report) -> None:
@@ -38,7 +39,7 @@ def cycle(targets: Targets, report: Report) -> None:
         return
     now = clock.now()
     for target in listed:
-        name = target.where.checkout.name
+        name = target.name or target.where.checkout.name
         try:
             saved = workspace.tick(target.where, now, target.url)
         except (Fault, Refusal, OSError) as error:

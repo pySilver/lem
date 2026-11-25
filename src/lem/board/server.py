@@ -18,7 +18,7 @@ import uvicorn
 
 from lem.board import app, listening, opening
 from lem.board.facts import Served
-from lem.board.serving import Serving
+from lem.board.serving import Bind, Serving
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -45,7 +45,14 @@ class Board(uvicorn.Server):
             signal.signal(sign, self.stop_by)
 
 
-def run(port: int, host: str = HOST, *, verbose: bool, home: Path) -> Served:
+def run(
+    port: int,
+    host: str = HOST,
+    *,
+    verbose: bool,
+    home: Path,
+    bind: Bind,
+) -> Served:
     """Serve the board on `host:port`, and the door when the settings open it, until the
     server stops."""
     opening.detached(os.environ)
@@ -60,6 +67,7 @@ def run(port: int, host: str = HOST, *, verbose: bool, home: Path) -> Served:
         door=door,
     )
     board = app.made(facts, serving)
+    bind(board)
     served(Board(config_of(board, verbose=verbose)), held)
     return Served(pid=facts.pid, port=facts.port, url=facts.url)
 

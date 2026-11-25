@@ -694,13 +694,14 @@ def test_a_task_publishes_its_claim_with_both_locks_held(
         ):
             assert workspace_lock is None
             assert proposal_lock is None
+        assert lock_order[-2:] == [workspace_lock_path, proposal_lock_path]
         return create(state, record)
 
     monkeypatch.setattr(taken, "checked", lambda *_: None)
     monkeypatch.setattr(tasks, "create", checked)
     monkeypatch.setattr(locks, "held", noted)
     task_open.opened(where.checkout, asked)
-    assert lock_order[:2] == [workspace_lock_path, proposal_lock_path]
+    assert lock_order[0] == workspace_lock_path
     with pytest.raises(Refusal) as caught:
         dropping.dropped(where, path, TODAY)
     assert caught.value.code == "item-held"

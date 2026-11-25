@@ -64,6 +64,7 @@ duty:reload-peers	kept	unit.addons.outside.test_peers.test_registry_keeps_fresh_
 duty:retry-inbox-send	kept	unit.addons.outside.test_inbox.test_failed_send_retries_the_same_payload_and_wakes_once	
 duty:send-inbox-note	kept	unit.addons.outside.test_inbox.test_note_needs_no_agent_and_no_withdrawal	
 duty:send-inbox-question	kept	unit.addons.outside.test_inbox.test_failed_send_retries_the_same_payload_and_wakes_once	
+duty:wake-inbox-question	kept	unit.addons.outside.test_inbox.test_failed_send_retries_the_same_payload_and_wakes_once	The server starts the Inbox duty in its lifespan.
 duty:wake-inbox-reply	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
 duty:withdraw-inbox-question	kept	unit.addons.outside.test_inbox.test_replaced_or_answered_questions_and_new_session_reply	
 route:GET /{peer}/{rest...}	kept	journeys.test_peers.test_peer_pages_assets_union_and_loop_guard	

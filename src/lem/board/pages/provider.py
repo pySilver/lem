@@ -3,9 +3,8 @@
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs
 
-from lem.board import counts, workspaces
-from lem.board.pages import live, spaces, workspace
-from lem.board.views import pages, world
+from lem.board.pages import joined, live, spaces, workspace
+from lem.board.views import pages
 from lem.board.views.backlog.wanted import wanted
 from lem.board.views.panel import confirm, opened
 from lem.settings.load import settings_of
@@ -25,30 +24,24 @@ def inputs(
     if space is None:
         state = request.app.state
         return spaces.index(
-            state.counts.rows(state.home, state.facts.host), state.facts.host
+            joined.combined(request, joined.local_rows(request)),
+            state.facts.host,
+            problem=joined.peer_problem(request),
         )
     settings = settings_of(
         space.checkout, request.app.state.environ, home=request.app.state.home
     ).settings
     drawn = workspace.read(request, space, settings.branch, version)
+    rows = joined.combined(request, joined.local_rows(request, spaces.current(drawn)))
+    drawn = joined.with_addons(request, space, drawn)
     query = request.query_params
-
     return pages.page(
         drawn,
         wanted(parse_qs(str(query))),
         live.note_of(query.get("note"), space.checkout, drawn.viewer.task),
         selection(request, settings.state.keep_days),
-        switcher=spaces.menu(workspace_rows(request, drawn), drawn.viewer.workspace),
+        switcher=spaces.menu(rows, drawn.viewer.workspace, drawn.viewer.host),
     )
-
-
-def workspace_rows(request: Request, drawn: world.World) -> counts.Rows:
-    """The workspace counts for the switcher."""
-    state = request.app.state
-    if len(workspaces.listed(state.home)) <= 1:
-        return ()
-    current = spaces.current(drawn)
-    return state.counts.rows(state.home, state.facts.host, current=current)
 
 
 def selection(request: Request, days: int) -> opened.Opened:
