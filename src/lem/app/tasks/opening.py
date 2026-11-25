@@ -7,19 +7,15 @@ from typing import TYPE_CHECKING
 from lem.kernel import release
 from lem.kernel.errors import Refusal
 from lem.model.task import tickets
+from lem.records import tickets as ticket_records
 from lem.records.base import Frozen, Moment
 from lem.records.journal.task import StateNoted
 from lem.records.record import Record
 from lem.records.task import Task
-from lem.records.tickets import Ticket
+from lem.store import reviewer_items
 
 if TYPE_CHECKING:
-    from lem.records.tickets import Tracker
     from lem.store.places import Workspace
-
-
-# The folder of the reviewer's items, from the main checkout.
-REVIEWER_ITEMS = ".lem/state/backlog"
 
 
 class Asked(Frozen, frozen=True, kw_only=True):
@@ -37,7 +33,9 @@ class Asked(Frozen, frozen=True, kw_only=True):
     origin: str | None = None
 
 
-def ticket_of(asked: Asked, kind: Tracker | None) -> Ticket | None:
+def ticket_of(
+    asked: Asked, kind: ticket_records.Tracker | None
+) -> ticket_records.Ticket | None:
     """The task's ticket in its one form, or None; `--ticket-repo` goes with `--ticket`."""
     if asked.ticket is None:
         if asked.ticket_repo is not None:
@@ -51,7 +49,7 @@ def ticket_of(asked: Asked, kind: Tracker | None) -> Ticket | None:
     if kind is None:
         return None
     repo = tickets.repository(kind, asked.ticket_repo)
-    return Ticket(tracker=kind, id=named, repo=repo)
+    return ticket_records.Ticket(tracker=kind, id=named, repo=repo)
 
 
 def night_of(asked: Asked) -> dt.date | None:
@@ -71,26 +69,11 @@ def night_of(asked: Asked) -> dt.date | None:
 def item_of(workspace: Workspace, asked: Asked) -> str | None:
     """The backlog item the task starts from, a path in the main checkout; refused when it
     is gone (the owner dropped it in the meantime)."""
-    path = asked.backlog_item or reviewer_item(workspace, asked.ask)
-    if path is None:
+    given = asked.backlog_item or asked.ask
+    path = reviewer_items.relative(workspace.checkout, given) or asked.backlog_item
+    if not path:
         return None
-    if not (workspace.checkout / path).is_file():
-        raise Refusal(
-            "item-gone",
-            f"the backlog item {path} is not in {workspace.checkout}: the owner dropped it, "
-            "or it never was",
-            "start the task from the owner's own words (--ask), with no --item",
-        )
-    return path
-
-
-def reviewer_item(workspace: Workspace, ask: str) -> str | None:
-    """The reviewer's item an ask is (the board's "Start a task" writes its path,
-    `.lem/state/backlog/NAME.md`, whole or from the main checkout), or None."""
-    path = ask.strip().removeprefix(f"{workspace.checkout}/")
-    parent, _, name = path.rpartition("/")
-    if parent != REVIEWER_ITEMS or not name.endswith(".md") or name == ".md":
-        return None
+    reviewer_items.require(workspace.checkout, path)
     return path
 
 
@@ -106,7 +89,7 @@ def words_of(asked: Asked) -> str:
 
 
 def fresh(
-    workspace: Workspace, asked: Asked, kind: Tracker | None, now: Moment
+    workspace: Workspace, asked: Asked, kind: ticket_records.Tracker | None, now: Moment
 ) -> Record:
     """The first record of the task `asked` names."""
     night = night_of(asked)

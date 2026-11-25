@@ -18,7 +18,7 @@ from lem.cli import place
 from lem.kernel import clock
 
 if TYPE_CHECKING:
-    from lem.addons.picker.row import PickRow
+    from lem.ports.terminal import PickRow
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):

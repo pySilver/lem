@@ -60,7 +60,7 @@ def call_of(verdict: VerdictGiven) -> tuple[str, str]:
     return calls[0]
 
 
-def named_of(verdict: VerdictGiven, seen: set[str]) -> names.Named:
+def named_of(verdict: VerdictGiven, seen: set[names.Named]) -> names.Named:
     """The proposal the verdict names; refused for no such name, or a second verdict."""
     named = names.parsed(verdict.proposal)
     if named is None:
@@ -69,13 +69,13 @@ def named_of(verdict: VerdictGiven, seen: set[str]) -> names.Named:
             f"a verdict names {verdict.proposal!r}, which is no proposal's name",
             f"name it as the list does, retro of DATE #N or night of DATE #N; {LIST}",
         )
-    if verdict.proposal in seen:
+    if named in seen:
         raise Refusal(
             "verdict-twice",
             f"{verdict.proposal} has two verdicts here",
             "give it one",
         )
-    seen.add(verdict.proposal)
+    seen.add(named)
     return named
 
 

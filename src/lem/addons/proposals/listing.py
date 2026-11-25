@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.addons.proposals import days, names
+from lem.addons.proposals import days, item_files, names
 from lem.addons.proposals.listed import (
     DroppedOne,
     Listed,
@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 
     from lem.addons.proposals.record import DayRecord, Kind, Passed, Proposal, Run
 
-BACKLOG = "backlog"
 GROUPS = ("undecided", "refuted", "passed", "dropped")
 
 
@@ -81,13 +80,11 @@ def judged(state: Path, record: DayRecord, one: Listed) -> tuple[str, Listed]:
 
 def passed_one(state: Path, one: Listed, passed: Passed) -> PassedOne:
     """A passed proposal, with whether its item is still in the state folder's backlog."""
-    _, _, name = passed.item_path.rpartition("/")
-    there = (state / BACKLOG / name).is_file()
     return PassedOne(
         **msgspec.structs.asdict(one),
         item_path=passed.item_path,
         day=passed.day,
-        there=there,
+        there=item_files.file_of(state, passed.item_path).is_file(),
     )
 
 

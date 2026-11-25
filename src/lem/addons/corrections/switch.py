@@ -9,9 +9,11 @@ from typing import TYPE_CHECKING
 from lem.kernel import folders, paths
 from lem.kernel.errors import Refusal
 from lem.settings.load import machine_of
+from lem.settings.places import TEAM
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from pathlib import Path
 
 
 def says_yes(environ: Mapping[str, str]) -> bool:
@@ -29,3 +31,8 @@ def collects(environ: Mapping[str, str]) -> bool:
     if folders.form(home, frozenset()) != "new":
         return False
     return machine_of(home, environ).corrections.collect
+
+
+def repository_uses_lem(checkout: Path) -> bool:
+    """Whether the checkout still has the team file the correction hook required."""
+    return (checkout / TEAM).is_file()

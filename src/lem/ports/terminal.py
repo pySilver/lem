@@ -7,6 +7,8 @@ the session guard tells the two apart (`surfaces.md` B).
 
 from typing import TYPE_CHECKING, Literal, Protocol
 
+import msgspec
+
 from lem.records.base import Frozen
 
 if TYPE_CHECKING:
@@ -43,6 +45,14 @@ class Opening(Frozen, frozen=True, kw_only=True):
     companion_of: str | None = None
 
 
+class PickRow(Frozen, frozen=True, kw_only=True, omit_defaults=False):
+    """One choice in the terminal's picker."""
+
+    row_id: str = msgspec.field(name="id")
+    label: str
+    subtitle: str
+
+
 type Mark = Literal["working", "waiting", "done", "stopped", "none"]
 type ShowMode = Literal["overlay", "companion", "browser"]
 # The words of the program in a session's main pane: empty for a shell that holds it, None while
@@ -70,7 +80,7 @@ class TerminalScreens(Protocol):
 
     def show(self, session: str, url: str, mode: ShowMode) -> None: ...
     def select(self, session: str) -> None: ...
-    def picker(self, rows: tuple[str, ...], cwd: Path) -> str | None: ...
+    def picker(self, rows: tuple[PickRow, ...], cwd: Path) -> str | None: ...
     def foregrounds(self) -> Mapping[str, Foreground]: ...
     def here(self) -> str | None: ...
 

@@ -2,11 +2,14 @@
 its title, the names already there, and the path a record keeps of one."""
 
 import re
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-BACKLOG = "backlog"
-# The item's path as a record keeps it and a task's ask names it, from the main checkout.
-FROM_CHECKOUT = Path(".lem") / "state" / BACKLOG
+from lem.store import reviewer_items
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+file_of = reviewer_items.file_of
 
 
 def slug_of(title: str) -> str:
@@ -33,10 +36,4 @@ def taken_names(folder: Path) -> set[str]:
 
 def recorded(name: str) -> str:
     """The path a record keeps of the item `name`: `.lem/state/backlog/NAME`."""
-    return (FROM_CHECKOUT / name).as_posix()
-
-
-def file_of(state: Path, path: str) -> Path:
-    """The file of the item a record keeps as `path`, in the state folder's backlog."""
-    _, _, name = path.rpartition("/")
-    return state / BACKLOG / name
+    return (reviewer_items.FROM_CHECKOUT / name).as_posix()

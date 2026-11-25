@@ -18,8 +18,7 @@ if TYPE_CHECKING:
 # What a drop says in the record, which the reviewer of a later morning reads as his no.
 SAID = "the owner dropped it"
 
-type Held = tuple[Path, DayRecord]
-type Records = dict[tuple[str, str], Held]
+type Records = dict[Path, DayRecord]
 type Told = tuple[str, str]
 
 
@@ -31,38 +30,18 @@ def kept(state: Path, listed: tuple[str, ...], path: str, today: dt.date) -> Rec
         named = names.parsed(name)
         if named is None:
             raise unrecorded(path, name)
-        told = (path, name)
-        key = loaded(state, records, named, told)
-        records[key] = dropped_in(records[key], named.number, told, today)
+        target = days.path_of(state, named.kind, named.day)
+        record = records.get(target) or days.read(target, named.kind)
+        if record is None:
+            raise unrecorded(path, name)
+        records[target] = with_drop(record, named.number, (path, name), today)
     return records
-
-
-def dropped_in(found: Held, number: int, told: Told, today: dt.date) -> Held:
-    """The record at its path, with the drop of proposal `number`."""
-    record_path, record = found
-    return record_path, with_drop(record, number, told, today)
-
-
-def loaded(
-    state: Path, records: Records, named: names.Named, told: Told
-) -> tuple[str, str]:
-    """The key of the proposal's record in `records`, read into it when it is not there;
-    refused when there is no record."""
-    key = (named.kind, named.day.isoformat())
-    if key in records:
-        return key
-    found = days.path_of(state, named.kind, named.day)
-    record = days.read(found, named.kind)
-    if record is None:
-        raise unrecorded(*told)
-    records[key] = (found, record)
-    return key
 
 
 def written(records: Records) -> None:
     """Write each record of a drop whole."""
-    for found in records.values():
-        days.write(*found)
+    for path, record in records.items():
+        days.write(path, record)
 
 
 def with_drop(record: DayRecord, number: int, told: Told, today: dt.date) -> DayRecord:

@@ -3,6 +3,9 @@ tests/lem-picker.sh and tests/unit/test_picker.py, `picker.py`). agterm is the f
 the ports, and the board's opening a stand-in that records what it was asked."""
 
 import datetime as dt
+import json
+from dataclasses import replace as replace_dataclass
+from subprocess import CompletedProcess
 from typing import TYPE_CHECKING
 
 import pytest
@@ -14,11 +17,13 @@ from fakes.git import ModelGit
 from fakes.ports import fake_ports
 from fakes.records import MOMENT, record
 from fakes.terminal import FakeTerminal
+from lem.adapters import terminal_agterm
 from lem.addons.picker import board, looks, picking, row, rows, sessions, words
 from lem.app.sessions.here import Here
 from lem.kernel.errors import Refusal
 from lem.model.owner import waiting
 from lem.ports.faults import Unanswered
+from lem.ports.terminal import PickRow
 from lem.records.holds import BreakerHold, OwnerHold, Parked
 from lem.records.landing.record import Landing, Pull
 from lem.records.task import Shape
@@ -34,7 +39,7 @@ if TYPE_CHECKING:
 NOW = MOMENT + dt.timedelta(hours=3)
 
 
-def picked_rows(found: list[Look]) -> tuple[row.PickRow, ...]:
+def picked_rows(found: list[Look]) -> tuple[PickRow, ...]:
     records = looks.records_of(tuple(found))
     waits = waiting.rows(tuple(found), away=False, now=NOW)
     return rows.rows_of(records, waits, NOW)
@@ -170,15 +175,11 @@ def opened(monkeypatch: pytest.MonkeyPatch) -> Board:
     return stand_in
 
 
-def chosen(monkeypatch: pytest.MonkeyPatch, here: Here, line_of: str | None) -> None:
+def chosen(monkeypatch: pytest.MonkeyPatch, here: Here, row_id: str | None) -> None:
     monkeypatch.setattr(looks.session_here, "bound", lambda folder: here)
     terminal = here.ports.terminal
     assert isinstance(terminal, FakeTerminal)
-    found = looks.listed(here.where.checkout, NOW)[1]
-    lines = row.lines_of(found)
-    terminal.picked = next(
-        (line for line, slug in lines.items() if slug == line_of), None
-    )
+    terminal.picked = row_id
 
 
 def test_a_pick_of_a_task_whose_session_lives_selects_that_session(
@@ -221,7 +222,7 @@ def test_a_terminal_that_does_not_answer_is_a_refusal_with_its_line(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, opened: Board
 ) -> None:
     class Deaf(FakeTerminal):
-        def picker(self, rows: tuple[str, ...], cwd: Path) -> str | None:
+        def picker(self, rows: tuple[PickRow, ...], cwd: Path) -> str | None:
             raise Unanswered("agtermctl", "not on the PATH: agterm's command line tool")
 
     here = here_of(tmp_path, Deaf())
@@ -251,12 +252,22 @@ def test_a_folder_outside_lem_a_repository_with_no_task_and_its_rows(
     assert refusal(lem("picker", "--list", cwd=unset))["code"] == "no-settings"
 
 
-def test_two_rows_of_the_same_words_are_two_lines_of_the_picker() -> None:
-    twins = (
-        row.PickRow(row_id="one-a", label="Fix it", subtitle="Queued"),
-        row.PickRow(row_id="one-b", label="Fix it", subtitle="Queued"),
+def test_brackets_in_the_first_label_reach_agterm_as_a_json_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def pick(*_args: object, stdin: str) -> CompletedProcess[str]:
+        assert json.loads(stdin) == [
+            {"id": "fix-checkout", "label": "[Bug] Fix checkout", "subtitle": "Queued"},
+            {"id": "other", "label": "[Bug] Fix checkout", "subtitle": "Queued"},
+        ]
+        return CompletedProcess([], 0, '{"result":"picked","id":"other"}', "")
+
+    here = here_of(tmp_path, FakeTerminal())
+    ports = replace_dataclass(here.ports, terminal=terminal_agterm.AgtermTerminal({}))
+    here = Here(where=here.where, ports=ports)
+    monkeypatch.setattr(terminal_agterm, "ctl", pick)
+    found = tuple(
+        PickRow(row_id=slug, label="[Bug] Fix checkout", subtitle="Queued")
+        for slug in ("fix-checkout", "other")
     )
-    assert row.lines_of(twins) == {
-        "Fix it · Queued": "one-a",
-        "Fix it · Queued (one-b)": "one-b",
-    }
+    assert picking.chosen_row(here, found) == "other"

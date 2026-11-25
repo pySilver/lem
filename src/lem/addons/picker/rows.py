@@ -5,7 +5,7 @@ last, as many as the board's Done column draws; and last a row for the board of 
 
 from typing import TYPE_CHECKING
 
-from lem.addons.picker.row import PickRow, all_row, pick_row
+from lem.addons.picker.row import all_row, pick_row
 from lem.model.owner.waiting import ENDED
 from lem.records.holds import BreakerHold, Parked
 
@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     import datetime as dt
 
     from lem.model.owner.looks import Row, Rows
+    from lem.ports.terminal import PickRow
     from lem.records.record import Record
 
 # The ended tasks the board's Done column draws (`board_model.DONE_SHOWN` on `main`).

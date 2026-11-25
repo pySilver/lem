@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.app.sessions.here import Here
+    from lem.ports.terminal import PickRow
 
 
 class Picked(Frozen, frozen=True, kw_only=True, omit_defaults=False):
@@ -47,12 +48,10 @@ def picked(folder: Path, now: dt.datetime) -> Picked:
     return Picked(picked=chosen, went="session", session=live)
 
 
-def chosen_row(here: Here, found: tuple[row.PickRow, ...]) -> str | None:
+def chosen_row(here: Here, found: tuple[PickRow, ...]) -> str | None:
     """The id of the row the owner picked, None for Escape; refused when agterm cannot show
     the picker."""
-    lines = row.lines_of(found)
     try:
-        said = here.ports.terminal.picker(tuple(lines), here.where.checkout)
+        return here.ports.terminal.picker(found, here.where.checkout)
     except Unanswered as error:
         raise sessions.unreachable(error) from error
-    return None if said is None else lines[said]

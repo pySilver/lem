@@ -12,7 +12,7 @@ from contract.suites.terminal import TerminalContract
 from lem.adapters import terminal_agterm
 from lem.ports.faults import Unanswered
 from lem.ports.place import Place
-from lem.ports.terminal import Opening, Unreadable
+from lem.ports.terminal import Opening, PickRow, Unreadable
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -184,12 +184,16 @@ def test_the_picker_gives_the_row_he_chose_or_none_when_he_closed_it(
 ) -> None:
     standin = install(tmp_path / "agterm", [MINE])
     terminal = bound(standin)
-    assert terminal.picker(("gift-note", "fix-the-login"), tmp_path) is None
+    rows = (
+        PickRow(row_id="gift-note", label="Gift note", subtitle="Queued"),
+        PickRow(row_id="fix-the-login", label="Fix the login", subtitle="Shaping"),
+    )
+    assert terminal.picker(rows, tmp_path) is None
     standin.change(pick="fix-the-login")
-    assert terminal.picker(("gift-note", "fix-the-login"), tmp_path) == "fix-the-login"
+    assert terminal.picker(rows, tmp_path) == "fix-the-login"
     standin.change(pick="no-such-row")
     with pytest.raises(Unanswered, match="a row it was not given"):
-        terminal.picker(("gift-note",), tmp_path)
+        terminal.picker(rows, tmp_path)
 
 
 def test_the_owners_select_is_the_one_call_that_selects(tmp_path: Path) -> None:

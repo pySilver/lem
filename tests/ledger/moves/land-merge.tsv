@@ -26,7 +26,6 @@ check:tests/lem-land-shop.sh:a-review-whose-record-is-sent-again-after-a-147c43d
 check:tests/lem-land-shop.sh:a-second-rebase-after-a-red-base-starts-agai-cbe8caaba21c5dbe	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)
 check:tests/lem-land-shop.sh:a-start-over-moves-the-review-files-of-the-l-6b2c3585e7d05bc1	task	the start over is task's (landing.md E, Start over)
 check:tests/lem-land-shop.sh:a-talk-s-counts-agree-each-question-of-the-l-af2c7d2fce849072	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
-check:tests/lem-land-shop.sh:a-task-started-from-a-reviewer-s-item-of-the-eafd80c5b089c4ca	addons-flow	the reviewer's items of the state folder are addons-flow's; merged calls the removal once it exists
 check:tests/lem-land-shop.sh:a-tip-proposed-on-a-base-that-then-went-back-3ffa7e74ec5d19be	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
 check:tests/lem-land-shop.sh:after-its-plan-talk-a-plan-of-four-tasks-is-93690b8936d896f6	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
 check:tests/lem-land-shop.sh:after-its-plan-talk-a-request-whose-plan-say-e9f24c296b2ca101	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
@@ -49,7 +48,6 @@ check:tests/lem-land-shop.sh:the-owner-s-merge-that-a-moved-base-refused-5a18fe0
 check:tests/lem-land-shop.sh:the-pull-request-is-opened-on-github-the-tas-3eba9a0191bd2909	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
 check:tests/lem-land-shop.sh:through-a-red-base-the-new-landing-goes-on-w-e7544b70136dee8e	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's
 refusal:cmd_merge_review:no-seat-is-kept-with-the-brief-of-proposed-s-981b12780793523c	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/)
-refusal:remove_item:github-merged-url-and-the-file-of-the-backlo-a2106d1d41ac5ff8	addons-flow	the reviewer's items of the state folder are addons-flow's store; merged calls its removal once it exists
 ruling:a-plan-talk-s-record-is-taken-as-it-ran-a7746de98f0b73af	task	the plan talk's record is lem task talked
 unit:tests/unit/test_land.py:MergeSeat.test_a_later_base_keeps_the_earlier_brief_of_the_tip_and_a_new_tip_drops_them	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/); MergeRead.by takes the seat once sessions gives it
 unit:tests/unit/test_land.py:MergeSeat.test_a_merge_on_github_after_the_stand_in_failed_notes_its_line	sessions	the seat kept with a brief and a stand-in on the same brief are the seats' (cli/seat/); MergeRead.by takes the seat once sessions gives it

@@ -52,6 +52,24 @@ def test_improvements_reach_a_project_only_through_the_reviewer_and_the_owners_s
     assert "Your one write is the verdict command below" in reviewer
 
 
+def test_the_retro_names_the_latest_proposal_and_the_journals_landing_fields() -> None:
+    learn = text("skills", "lem", "stages", "learn.md").split("## retro", 1)[1]
+    for named in (
+        "`landing.proposed`",
+        "`green`",
+        "`reasons`",
+        "`review-round`",
+        "`review.counts`",
+        "`review.answered`",
+        "`not-green`",
+        "`careful-missed`",
+        "`round`",
+        "`why`",
+    ):
+        assert named in learn
+    assert "`careful.missed`" not in learn
+
+
 def test_lem_naps_from_a_tasks_session_and_no_page_shows_a_nap() -> None:
     nap = text("skills", "lem", "stages", "nap.md")
     assert "A task's session starts a nap by itself" in nap

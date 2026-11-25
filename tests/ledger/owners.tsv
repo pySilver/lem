@@ -398,7 +398,7 @@ check:tests/lem-land-shop.sh:a-safe-read-of-a-moved-base-still-calls-the-14c0339
 check:tests/lem-land-shop.sh:a-second-rebase-after-a-red-base-starts-agai-cbe8caaba21c5dbe	land-base
 check:tests/lem-land-shop.sh:a-start-over-moves-the-review-files-of-the-l-6b2c3585e7d05bc1	task
 check:tests/lem-land-shop.sh:a-talk-s-counts-agree-each-question-of-the-l-af2c7d2fce849072	land-propose
-check:tests/lem-land-shop.sh:a-task-started-from-a-reviewer-s-item-of-the-eafd80c5b089c4ca	addons-flow
+check:tests/lem-land-shop.sh:a-task-started-from-a-reviewer-s-item-of-the-eafd80c5b089c4ca	land-merge
 check:tests/lem-land-shop.sh:a-tip-proposed-on-a-base-that-then-went-back-3ffa7e74ec5d19be	land-propose
 check:tests/lem-land-shop.sh:after-its-plan-talk-a-plan-of-four-tasks-is-93690b8936d896f6	land-propose
 check:tests/lem-land-shop.sh:after-its-plan-talk-a-request-whose-plan-say-e9f24c296b2ca101	land-propose
@@ -1282,7 +1282,7 @@ refusal:project_now:in-process:this-repository-has-no-lem-settings-toml-lem-0635
 refusal:project_now:str-error-177e167f5c0481a3	settings
 refusal:project_now:subprocess:this-repository-has-no-lem-settings-toml-lem-06352751880aed83	settings
 refusal:remove_bytecode:the-checks-cannot-remove-the-ignored-path-th-994c5ae65a344914	land-checks
-refusal:remove_item:github-merged-url-and-the-file-of-the-backlo-a2106d1d41ac5ff8	addons-flow
+refusal:remove_item:github-merged-url-and-the-file-of-the-backlo-a2106d1d41ac5ff8	land-merge
 refusal:run:command-failed-words-e871f44407f5b36b	land-base
 refusal:same_flags:same-flag-r-is-no-defect-and-item-it-is-same-5461fc829e943821	land-review
 refusal:stale_bytecode:git-check-ignore-failed-words-8b4780b59c50dc8d	land-checks

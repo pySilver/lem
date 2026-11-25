@@ -52,6 +52,10 @@ def worked(
         return Worked(
             queued=False, p_lesson=None, why="the machine says no to the queue"
         )
+    if not switch.repository_uses_lem(state.parent.parent):
+        return Worked(
+            queued=False, p_lesson=None, why="the repository has no team file"
+        )
     jev = asker or question.asker_of(environ)
     return judged(state, correction, question.asked(jev, correction), now)
 

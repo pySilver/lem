@@ -49,7 +49,15 @@ def added(state: Path, kind: Kind, day: dt.date, run: RunGiven, now: Moment) -> 
     path = days.path_of(state, kind, day)
     checked(run)
     with days.held(state):
-        before = days.read(path, kind) or DayRecord(date=day, kind=kind)
+        before = days.read(path, kind) or DayRecord(
+            date=day,
+            kind=kind,
+            runs=(),
+            proposals=(),
+            refuted=(),
+            passed=(),
+            dropped=(),
+        )
         first = len(before.proposals) + 1
         numbers = tuple(range(first, first + len(run.proposals)))
         days.write(path, appended(before, run, numbers, now))

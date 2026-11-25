@@ -3,10 +3,10 @@ open task started from it, and it names proposals that passed into it."""
 
 from typing import TYPE_CHECKING
 
-from lem.addons.proposals import heads, item_files
+from lem.addons.proposals import heads
 from lem.kernel.errors import Refusal
 from lem.model.task.claim import ENDED
-from lem.store import tasks
+from lem.store import reviewer_items, tasks
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -18,20 +18,13 @@ def reviewer_path(checkout: Path, given: str) -> str:
     """The reviewer's item `given` names, as a path from the main checkout
     (`.lem/state/backlog/NAME.md`): given so, or whole under the main checkout; refused for
     any other path."""
-    path = given.strip()
-    for root in (checkout, checkout.resolve()):
-        path = path.removeprefix(f"{root}/")
-    parent, _, name = path.rpartition("/")
-    if (
-        parent == item_files.FROM_CHECKOUT.as_posix()
-        and name.endswith(".md")
-        and name != ".md"
-    ):
+    path = reviewer_items.relative(checkout, given)
+    if path is not None:
         return path
     raise Refusal(
         "not-reviewer-item",
         f"{given!r} is not the path of a reviewer's item, "
-        f"{item_files.FROM_CHECKOUT}/NAME.md",
+        f"{reviewer_items.FROM_CHECKOUT}/NAME.md",
         "only the reviewer's items are dropped here; an item of the backlog folder leaves "
         "it on a branch",
     )
@@ -58,10 +51,12 @@ def present(target: Path, path: str) -> str:
 
 def not_held(state: Path, path: str) -> None:
     """Refuse the drop while a task that has not ended started from the item."""
+    checkout = state.parent.parent
     holding = (
         record.task
         for record in tasks.every(state)
-        if record.task.backlog_item == path and record.task.status not in ENDED
+        if record.task.status not in ENDED
+        and reviewer_items.relative(checkout, record.task.backlog_item or "") == path
     )
     task = next(holding, None)
     if task is not None:

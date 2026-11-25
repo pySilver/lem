@@ -17,6 +17,8 @@ from lem.ports.terminal import Foreground, Mark, Opening, Pane, ShowMode, Unread
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.ports.terminal import PickRow
+
 
 @dataclass
 class FakeTerminal:
@@ -88,8 +90,8 @@ class FakeTerminal:
         for name, pane in self.panes.items():
             self.panes[name] = replace(pane, selected=name == session)
 
-    def picker(self, rows: tuple[str, ...], cwd: Path) -> str | None:
-        return self.picked if self.picked in rows else None
+    def picker(self, rows: tuple[PickRow, ...], cwd: Path) -> str | None:
+        return self.picked if any(row.row_id == self.picked for row in rows) else None
 
     def foregrounds(self) -> dict[str, Foreground]:
         return {session: self.grounds.get(session) for session in self.panes}

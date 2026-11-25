@@ -182,6 +182,20 @@ def test_the_repositorys_own_yes_sends_nothing(tmp_path: Path) -> None:
     assert "corrections" in refused["why"]
 
 
+def test_a_waiting_correction_is_discarded_when_the_team_file_is_gone(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path / "repo")
+    path = waiting(where.state)
+    (where.lem / "settings.toml").unlink()
+    jev = Jev(0.99)
+    worked = worker.worked(path, home(tmp_path / "config"), NOW, jev.asker())
+    assert not worked.queued
+    assert not jev.sent
+    assert not path.exists()
+    assert not (where.state / queue.QUEUE).exists()
+
+
 def test_a_file_outside_the_waiting_folder_is_neither_read_nor_removed(
     tmp_path: Path,
 ) -> None:

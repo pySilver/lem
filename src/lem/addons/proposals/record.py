@@ -72,8 +72,8 @@ class DayRecord(Frozen, frozen=True, kw_only=True, omit_defaults=False):
 
     date: Day
     kind: Kind
-    runs: tuple[Run, ...] = ()
-    proposals: tuple[Proposal, ...] = ()
-    refuted: tuple[Refuted, ...] = ()
-    passed: tuple[Passed, ...] = ()
-    dropped: tuple[Dropped, ...] = ()
+    runs: tuple[Run, ...]
+    proposals: tuple[Proposal, ...]
+    refuted: tuple[Refuted, ...]
+    passed: tuple[Passed, ...]
+    dropped: tuple[Dropped, ...]

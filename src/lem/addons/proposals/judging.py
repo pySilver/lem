@@ -40,7 +40,7 @@ def judged_all(
             f"give {verdicts.FORM}",
         )
     records: verdicts.Records = {}
-    seen: set[str] = set()
+    seen: set[names.Named] = set()
     every = tuple(
         judged_one(state, verdict, seen, records) for verdict in given.verdicts
     )
@@ -50,7 +50,7 @@ def judged_all(
 def judged_one(
     state: Path,
     verdict: verdicts.VerdictGiven,
-    seen: set[str],
+    seen: set[names.Named],
     records: verdicts.Records,
 ) -> Judged:
     """One verdict checked against its record."""
@@ -78,10 +78,11 @@ def areas_of(every: tuple[Judged, ...]) -> Areas:
 def titled(areas: Areas, titles: dict[str, str]) -> dict[str, str]:
     """The title of each area's item, its spaces made one; refused for an area with no title
     or no word to name its file by, and for a title of an area that did not pass."""
-    missing = [area for area in areas if not worded(titles.get(area, ""))]
-    extra = sorted(set(titles) - set(areas))
-    if missing or extra:
-        named = ", ".join((*missing, *extra))
+    worded = {area for area, title in titles.items() if item_files.slug_of(title)}
+    wrong = set(titles).difference(areas)
+    wrong.update(area for area in areas if area not in worded)
+    if wrong:
+        named = ", ".join(sorted(wrong))
         raise Refusal(
             "verdict-titles",
             f"`titles` does not give each area that passed one title with a word: {named}",
@@ -89,8 +90,3 @@ def titled(areas: Areas, titles: dict[str, str]) -> dict[str, str]:
             "item with that title",
         )
     return {area: " ".join(titles[area].split()) for area in areas}
-
-
-def worded(title: str) -> bool:
-    """Whether the title has a word to name its item's file by."""
-    return bool(item_files.slug_of(title))

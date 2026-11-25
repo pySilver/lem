@@ -16,6 +16,7 @@ import pytest
 from fakes.repo import run_git
 from journeys.test_skeleton import (
     BRANCH,
+    JOURNEY,
     MERGE,
     SLUG,
     SUBJECT,
@@ -32,7 +33,7 @@ from lem.app.landing import changes
 from lem.cli import lazy
 from lem.kernel import clock
 from lem.ports.faults import Unanswered
-from lem.store import tasks
+from lem.store import places, tasks
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -586,6 +587,38 @@ def test_a_main_checkout_that_cannot_follow_is_left_with_gits_words(
 
 
 # ---- the end: a request closed on GitHub, and every case of the cleanup ----
+
+
+@pytest.mark.parametrize("end", ["lem", "github", "closed"])
+def test_a_reviewers_item_leaves_when_its_task_lands(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys, end: str
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    places.state_of(world.checkout)
+    path = ".lem/state/backlog/lessons.md"
+    item = world.checkout / path
+    item.parent.mkdir(parents=True)
+    item.write_text("# Fix the spelling in the README\n")
+    opened = command("task", "open", "SLUG", "--ask", path, "--item", path)
+    claim = opened(capsys, world)
+    assert claim["ok"] is True, claim
+    for verb, step in JOURNEY[1:]:
+        if verb == "merge":
+            break
+        completed = step(capsys, world)
+        assert completed["ok"] is True, completed
+    if end == "lem":
+        assert MERGE(capsys, world)["ok"] is True
+    elif end == "github":
+        world.forge.outside_merge(1)
+    else:
+        world.forge.close(1)
+    assert item.is_file()
+    assert MERGED(capsys, world)["ok"] is True
+    assert item.is_file() is (end == "closed")
+    assert world.record()["task"]["status"] == (
+        "dropped" if end == "closed" else "landed"
+    )
 
 
 def test_a_request_closed_on_github_drops_the_task_and_keeps_its_commits(

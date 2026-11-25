@@ -104,10 +104,12 @@ no lesson by itself.
    with no close, so that the session waits for the owner with it.
 2. **What it reads**, since then: each task's decisions (`lem decisions list SLUG`: who took each,
    a pick past the personas, a breaker and the owner's help on it), the "not verified" and
-   "outside defects" lines of each `report.md`, the reviews and the proposals in each task's
-   journal (`.lem/state/tasks/SLUG/task.json`: the review rounds, the counts, who answered, and
-   each reason a request was not green; each careful call the review made that the plan's own call
-   did not, with the round and the review's reason), and the owner's corrections, from the
+   "outside defects" lines of each `report.md`, and each task's record
+   (`.lem/state/tasks/SLUG/task.json`). Read `landing.proposed` for the latest proposal's
+   `at`, `green` and `reasons`. In `journal`, read `review-round` entries for
+   `review.counts` and `review.answered`, `not-green` entries for `tip` and `reasons`,
+   and `careful-missed` entries for `round` and `why`. Use each entry's `at` for the date
+   of the read. Read the owner's corrections from the
    project's correction queue when it keeps one (below). When nothing of an ended task happened for
    `state.keep_days` days, `lem prune` folds its journal into one summary entry, which holds none
    of those entries (only the newest proposal's green and reasons), and removes every file of the
@@ -118,7 +120,7 @@ no lesson by itself.
      propose its move with step 2 above, the file that owns the step and the change;
    - a decision the owner overturned: the rule that would have decided it right, as a ruling or a
      rule line;
-   - a task the owner made careful after its lead called it plain, a `careful.missed` event, or a
+   - a task the owner made careful after its lead called it plain, a `careful-missed` entry, or a
      defect a review found in a plain task. First find which it was. A topic named it, and the
      lead read the plan wrong: the lesson is about that judgment, and it may be sharper words for
      the topic. No topic named it: propose one sentence for `flow.topics`; the settings change

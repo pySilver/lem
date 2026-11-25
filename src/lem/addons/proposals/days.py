@@ -15,7 +15,8 @@ import msgspec
 
 from lem.addons.proposals import form, refusals
 from lem.addons.proposals.record import DayRecord, Kind
-from lem.kernel import files, locks
+from lem.kernel import files
+from lem.store import reviewer_items
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
@@ -26,8 +27,6 @@ if TYPE_CHECKING:
 FOLDERS: MappingProxyType[Kind, str] = MappingProxyType(
     {"night": "night", "retro": "retros"}
 )
-LOCK = "proposals.lock"
-
 type Found = tuple[Kind, Path, DayRecord]
 
 
@@ -90,4 +89,4 @@ def dated(path: Path) -> bool:
 
 def held(state: Path) -> AbstractContextManager[TextIOWrapper]:
     """The lock of the records and the reviewer's items, held while the block runs."""
-    return locks.held(state / LOCK)
+    return reviewer_items.held(state)

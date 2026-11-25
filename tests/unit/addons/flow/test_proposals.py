@@ -3,17 +3,20 @@ the owner's drop of an item (`main`: tests/unit/test_proposals.py, `project.cmd_
 
 import datetime as dt
 import json
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from typing import TYPE_CHECKING
 
 import msgspec
 import pytest
 
 from fakes.command import lem
-from lem.addons.proposals import days, heads, item_files, listing
-from lem.app.tasks import opening
+from lem.addons.proposals import days, dropping, heads, item_files, listing
+from lem.app.tasks import open as task_open
+from lem.app.tasks import opening, taken
 from lem.kernel import locks
 from lem.kernel.errors import Refusal
-from lem.store import places
+from lem.store import places, reviewer_items, tasks
 from lem.store import workspace as claims
 from unit.addons.flow.runs import (
     DAY,
@@ -28,7 +31,11 @@ from unit.addons.flow.runs import (
 from unit.task.spaces import made, refusal, result, workspace
 
 if TYPE_CHECKING:
+    from contextlib import AbstractContextManager
+    from io import TextIOWrapper
     from pathlib import Path
+
+    from lem.records.record import Record
 
 LATER = MORNING + dt.timedelta(hours=3)
 
@@ -354,6 +361,45 @@ def test_a_record_with_a_refuted_entry_and_no_item_still_reads_and_takes_verdict
     ]
 
 
+def test_two_spellings_of_one_proposal_refuse_the_batch_before_any_write(
+    tmp_path: Path,
+) -> None:
+    state = state_of(tmp_path)
+    add(state, "retro", [proposal("lessons", "One")])
+    path = days.path_of(state, "retro", DAY)
+    before = path.read_bytes()
+    with pytest.raises(Refusal) as caught:
+        judge(
+            state,
+            [
+                {"proposal": "retro of 2026-11-24 #1", "passed": "lessons"},
+                {"proposal": "retro of 2026-11-24 #1 ", "refuted": "no"},
+            ],
+            {"lessons": "Lessons"},
+        )
+    assert caught.value.code == "verdict-twice"
+    assert path.read_bytes() == before
+    assert not (state / "backlog").exists()
+
+
+@pytest.mark.parametrize(
+    "missing", ["runs", "proposals", "refuted", "passed", "dropped"]
+)
+def test_a_day_record_without_a_required_list_is_refused(
+    tmp_path: Path, missing: str
+) -> None:
+    where = workspace(tmp_path)
+    path = passed_item(where.state)
+    dropping.dropped(where, path, TODAY)
+    daily = days.path_of(where.state, "retro", DAY)
+    fields = json.loads(daily.read_text())
+    del fields[missing]
+    daily.write_text(json.dumps(fields))
+    with pytest.raises(Refusal) as caught:
+        listing.listed(where.state)
+    assert f"missing required field `{missing}`" in caught.value.why
+
+
 def passed_item(state: Path) -> str:
     """A retro whose two lessons passed into one item; the item's path."""
     add(state, "retro", [proposal("lessons", "One"), proposal("lessons", "Two")])
@@ -398,6 +444,72 @@ def test_a_drop_is_refused_while_a_task_that_has_not_ended_holds_the_item(
     assert held["code"] == "item-held"
     assert "do-the-lessons (queued)" in held["why"]
     assert item_files.file_of(where.state, path).is_file()
+
+
+def test_an_absolute_explicit_item_is_claimed_by_its_checkout_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    where = workspace(tmp_path)
+    path = passed_item(where.state)
+    whole = str(where.checkout / path)
+    monkeypatch.setattr(taken, "checked", lambda *_: None)
+    asked = opening.Asked(slug="do-the-lessons", ask=whole, backlog_item=whole)
+    task_open.opened(where.checkout, asked)
+    with pytest.raises(Refusal) as caught:
+        dropping.dropped(where, path, TODAY)
+    assert caught.value.code == "item-held"
+    assert tasks.read(where.state, asked.slug).task.backlog_item == path
+    assert (where.checkout / path).is_file()
+
+
+def test_a_task_cannot_claim_an_item_dropped_before_it_publishes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    where = workspace(tmp_path)
+    path = passed_item(where.state)
+    asked = opening.Asked(slug="do-the-lessons", ask=path)
+    monkeypatch.setattr(
+        taken, "checked", lambda *_: dropping.dropped(where, path, TODAY)
+    )
+    with pytest.raises(Refusal) as caught:
+        task_open.opened(where.checkout, asked)
+    assert caught.value.code == "item-gone"
+    assert not list(tasks.every(where.state))
+
+
+def test_a_task_publishes_its_claim_with_both_locks_held(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    where = workspace(tmp_path)
+    path = passed_item(where.state)
+    asked = opening.Asked(slug="do-the-lessons", ask=path)
+    create = tasks.create
+    held = locks.held
+    lock_order: list[Path] = []
+    workspace_lock_path = places.locks_folder(where.state) / claims.LOCK
+    proposal_lock_path = where.state / reviewer_items.LOCK
+
+    def noted(path: Path) -> AbstractContextManager[TextIOWrapper]:
+        lock_order.append(path)
+        return held(path)
+
+    def checked(state: Path, record: Record) -> Record:
+        with (
+            locks.tried(workspace_lock_path) as workspace_lock,
+            locks.tried(proposal_lock_path) as proposal_lock,
+        ):
+            assert workspace_lock is None
+            assert proposal_lock is None
+        return create(state, record)
+
+    monkeypatch.setattr(taken, "checked", lambda *_: None)
+    monkeypatch.setattr(tasks, "create", checked)
+    monkeypatch.setattr(locks, "held", noted)
+    task_open.opened(where.checkout, asked)
+    assert lock_order[:2] == [workspace_lock_path, proposal_lock_path]
+    with pytest.raises(Refusal) as caught:
+        dropping.dropped(where, path, TODAY)
+    assert caught.value.code == "item-held"
 
 
 def test_a_task_with_no_state_yet_holds_the_item_and_one_that_ended_does_not(
@@ -460,7 +572,7 @@ def test_task_open_refuses_the_path_of_an_item_the_owner_dropped(
     assert caught.value.code == "item-gone"
 
 
-def test_the_drop_takes_the_proposals_lock_and_never_the_workspace_lock(
+def test_the_boards_drop_can_run_while_its_parent_holds_the_workspace_lock(
     tmp_path: Path,
 ) -> None:
     where = workspace(tmp_path)
@@ -468,7 +580,32 @@ def test_the_drop_takes_the_proposals_lock_and_never_the_workspace_lock(
     with locks.held(places.locks_folder(where.state) / claims.LOCK):
         dropped = lem("proposals", "drop", path, cwd=tmp_path)
     assert result(dropped)["item"] == path
-    assert (where.state / days.LOCK).is_file()
+
+
+def test_a_drop_waits_for_an_independent_holder_of_the_proposals_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    where = workspace(tmp_path)
+    path = passed_item(where.state)
+    lock_path = where.state / reviewer_items.LOCK
+    attempting = Event()
+    held = locks.held
+
+    def noted(named: Path) -> AbstractContextManager[TextIOWrapper]:
+        assert named == lock_path
+        with locks.tried(named) as available:
+            assert available is None
+        attempting.set()
+        return held(named)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with held(lock_path):
+            monkeypatch.setattr(locks, "held", noted)
+            waiting = pool.submit(dropping.dropped, where, path, TODAY)
+            assert attempting.wait(timeout=5)
+            assert not waiting.done()
+            assert (where.checkout / path).is_file()
+        assert waiting.result(timeout=5).item_path == path
 
 
 def test_the_whole_round_runs_from_the_command_line(tmp_path: Path) -> None:

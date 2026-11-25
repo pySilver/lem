@@ -14,9 +14,9 @@ if TYPE_CHECKING:
     import datetime as dt
     from pathlib import Path
 
-    from lem.addons.picker.row import PickRow
     from lem.app.sessions.here import Here
     from lem.model.owner.looks import Looks
+    from lem.ports.terminal import PickRow
 
 
 def listed(folder: Path, now: dt.datetime) -> tuple[Here, tuple[PickRow, ...]]:

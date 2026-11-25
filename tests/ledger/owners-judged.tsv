@@ -107,7 +107,6 @@ check:tests/lem-land-shop.sh:a-review-whose-record-is-sent-again-after-a-147c43d
 check:tests/lem-land-shop.sh:a-second-rebase-after-a-red-base-starts-agai-cbe8caaba21c5dbe	land-base	the start, the rebase and its carry are land-base's (main's land.py: start, base, carry)	land-merge
 check:tests/lem-land-shop.sh:a-start-over-moves-the-review-files-of-the-l-6b2c3585e7d05bc1	task	the start over is task's (landing.md E, Start over)	land-merge
 check:tests/lem-land-shop.sh:a-talk-s-counts-agree-each-question-of-the-l-af2c7d2fce849072	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's	land-merge
-check:tests/lem-land-shop.sh:a-task-started-from-a-reviewer-s-item-of-the-eafd80c5b089c4ca	addons-flow	the reviewer's items of the state folder are addons-flow's; merged calls the removal once it exists	land-merge
 check:tests/lem-land-shop.sh:a-tip-proposed-on-a-base-that-then-went-back-3ffa7e74ec5d19be	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's	land-merge
 check:tests/lem-land-shop.sh:after-its-plan-talk-a-plan-of-four-tasks-is-93690b8936d896f6	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's	land-merge
 check:tests/lem-land-shop.sh:after-its-plan-talk-a-request-whose-plan-say-e9f24c296b2ca101	land-propose	the pull request's text, the plan talk's lines and the carry of a merge read or a standing merge onto a new proposal are propose's	land-merge
@@ -252,7 +251,6 @@ refusal:keep_reviews:the-review-files-of-the-landing-before-could-d4bfd0ecc33814
 refusal:project_now:in-process:this-repository-has-no-lem-settings-toml-lem-06352751880aed83	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.	
 refusal:project_now:str-error-177e167f5c0481a3	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.	
 refusal:project_now:subprocess:this-repository-has-no-lem-settings-toml-lem-06352751880aed83	settings	The common landing loader reads settings and tasks. This refusal concerns a missing or unreadable settings file.	
-refusal:remove_item:github-merged-url-and-the-file-of-the-backlo-a2106d1d41ac5ff8	addons-flow	the reviewer's items of the state folder are addons-flow's store; merged calls its removal once it exists	land-merge
 refusal:run:command-failed-words-e871f44407f5b36b	land-base	The shared command runner can fail at several steps. Land-base owns the Git adapter used by the landing.	
 refusal:state_item_of_ask:lem-sibling-file-of-project-has-no-main-argv-aed5accf5caabc21	tree	The refusal guards the in-process form of sibling.py, which tree owns and part 1 drops. Tree proves that no command reads another module through that form.	
 refusal:step_lock:another-step-of-slug-runs-now-and-holds-its-3b9f0eb706f26999	core	The refusal protects all landing steps. The step-lock seam gives the new lock to core.	
