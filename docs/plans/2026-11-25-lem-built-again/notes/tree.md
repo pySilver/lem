@@ -4,22 +4,16 @@ What `tree` needs in files it does not own, and the two local seams it built unt
 
 ## For `core`
 
-`core` answered items 1 to 5 in `notes/core.md` ("`tree`: the five notes"). What stays open on
-this branch is the switch to them, which waits for `rebuild` merged into `rb/tree`:
+`core` answered items 1 to 5 in `notes/core.md` ("`tree`: the five notes"), and the tree uses
+its answers:
 
-1. **The log of a fault.** `src/lem/cli/faults.py` is a local seam, imported only on a fault.
-   It appends the time and the traceback to `lem.log` in Lem's home folder, and sends them to
-   standard error with the reason when the home is relative or cannot be written
-   (`test_tree.py` holds both). The switch: `lazy.main` calls
-   `lem.kernel.logs.logged(fault, argv, os.environ)` and prints the `Failed` it gives, and the
-   seam goes.
-2. **The root of Lem's files.** `src/lem/cli/version.py`'s `root()` follows the rule of `main`'s
-   `paths.root`. The switch: it calls `lem.kernel.paths.root()`.
-3. **`--repo` before the noun and the version check.** `rebuild`'s `__main__.first_word` reads
-   the first word past `--repo PATH` and `--repo=PATH`, so `lem --repo . doctor`, `help` and
-   `version` pass the check (finding 8 of the review). The tree's side is in `test_tree.py`
-   (`test_repo_before_help_version_and_doctor_reaches_them`). After the merge, a case through
-   `tests/fakes/command.py` with `LEM_PLUGIN_ROOT` set to another version shows it end to end.
+1. **The log of a fault.** `lazy.main` imports `lem.kernel.logs` only on a fault and prints the
+   `Failed` of `logged(fault, argv, os.environ)`; a relative or unwritable home sends the
+   traceback to standard error (`test_tree.py` holds both).
+2. **The root of Lem's files.** `cli/version.py` reads `lem.kernel.paths.root()`.
+3. **`--repo` before the noun and the version check.** `__main__.first_word` reads past
+   `--repo PATH` and `--repo=PATH`; `test_the_version_check_lets_help_version_and_doctor_through_past_repo`
+   runs `lem` with a plugin of another version.
 4. **The workspace of a call.** `lem --repo PATH NOUN ...` is one option of the root, before
    the noun; a folder that does not exist is a wrong call (exit 2). `cli/place.py`'s `folder()`
    gives the folder the call names, resolved, else the working directory, and nothing more.
