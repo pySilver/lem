@@ -50,11 +50,13 @@ def verb(row: Row, task: Task, landing: Landing | None) -> str:
 
 
 def asked_verb(row: Row, task: Task) -> str:
-    """The verb of a breaker, a task queued after a dropped one, a card, or his wait."""
+    """The verb of a breaker, a task queued after dropped tasks, a card, or his wait."""
     if row.kind == "breaker":
         return f"Read the breaker of {task.slug}"
     if row.kind == "after_dropped":
-        return f"{row.after} was dropped: your word starts or ends this task"
+        names = " and ".join(row.after)
+        verb = "was" if len(row.after) == 1 else "were"
+        return f"{names} {verb} dropped: your word starts or ends this task"
     if row.kind == "card":
         return capital(row.prompt or "the task's session asks you")
     return capital(held_line(task))

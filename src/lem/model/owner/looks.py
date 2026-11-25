@@ -76,7 +76,7 @@ class Row(Frozen, frozen=True, kw_only=True):
     deaf: bool = False
     unread: bool = False
     restarted: bool = True
-    after: Slug | None = None
+    after: tuple[Slug, ...] = ()
     say: str | None = None
     card: str | None = None
     prompt: str | None = None

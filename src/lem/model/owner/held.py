@@ -72,25 +72,23 @@ def kind_of(task: Task, hold: OwnerHold) -> Kind:
 
 
 def after_rows(look: Look, tasks: Mapping[str, Task]) -> tuple[Row, ...]:
-    """The row of a queued task whose task before it was dropped: only his word starts it or
-    ends it."""
+    """One row of a queued task, with each dropped task it waits for."""
     task = look.record.task
     if task.status != "queued":
         return ()
-    predecessors = map(tasks.get, task.after)
-    before = next(
-        (one for one in predecessors if one is not None and one.status == "dropped"),
-        None,
+    predecessors = map(tasks.get, dict.fromkeys(task.after))
+    dropped = tuple(
+        one for one in predecessors if one is not None and one.status == "dropped"
     )
-    if before is None:
+    if not dropped:
         return ()
     key = f"after_dropped:{task.slug}"
     row = Row(
         kind="after_dropped",
         key=key,
         task=task.slug,
-        since=max(task.since, before.since),
-        after=before.slug,
+        since=max(task.since, dropped[0].since),
+        after=tuple(one.slug for one in dropped),
     )
     return (row,)
 

@@ -57,9 +57,9 @@ kind in the group of its own name), as the list below gives them:
 6. `cards`: each card the task's live session put up and waits on, with its `prompt`; he answers it
    on the board or on the card in the session;
 7. `after_dropped`: each task queued after a task that was dropped, with its words as they are:
-   the dropped task (`after`), "start SLUG now" (`start`), which starts it without that task's
-   result, and `/lem drop SLUG` (`drop`), which ends it, either one typed in any Lem session of this
-   repository, since no session runs the task;
+   the list of its dropped dependencies (`after`), "start SLUG now" (`start`), which lifts the
+   queue and starts it, and `/lem drop SLUG` (`drop`), which ends it. He can type either one in
+   any Lem session of this repository, since no session runs the task;
 8. `blocked`: each task its session stopped on something it cannot settle alone, with its `line`
    and its `fix`, or the release stop's message as its `line`; he answers in the task's session or
    with `/lem drop SLUG`;

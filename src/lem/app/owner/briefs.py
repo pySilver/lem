@@ -66,7 +66,7 @@ def entry_of(row: Row, look: Look) -> Entry:
 
 
 def kept_entry(row: Row, look: Look, found: Entry) -> Entry:
-    """The entry of a task queued after a dropped one, a block, or a merge."""
+    """The entry of a queue with its dropped tasks, a block, or a merge."""
     record = look.record
     slug = record.task.slug
     if row.kind == "after_dropped":

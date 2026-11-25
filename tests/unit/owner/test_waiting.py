@@ -152,7 +152,7 @@ def test_a_task_queued_after_a_dropped_task_waits_for_his_word() -> None:
     after = look("second", status="queued", after=("first",))
     assert rows(dropped, after) == [("after_dropped", "after_dropped:second")]
     found = waiting.rows((dropped, after), away=False, now=NOW)
-    assert found[0].after == "first"
+    assert found[0].after == ("first",)
     assert found[0].since == LATER
     queued_later = look("second", status="queued", after=("first",), since=NOW)
     found = waiting.rows((dropped, queued_later), away=False, now=NOW)
@@ -178,13 +178,13 @@ def test_a_block_is_his_unless_it_waits_for_the_task_that_repairs_the_base() -> 
     assert rows(look(status="landing", hold=base)) == []
 
 
-def test_the_first_drop_in_queue_order_gives_the_owner_one_action() -> None:
-    queue = look("last", status="queued", after=("missing", "next", "first"))
+def test_all_drops_in_queue_order_give_the_owner_one_action() -> None:
+    queue = look("last", status="queued", after=("missing", "next", "first", "next"))
     first = look("first", status="dropped")
     next_drop = look("next", status="dropped", since=LATER)
     found = waiting.rows((first, next_drop, queue), away=False, now=NOW)
     assert [(row.key, row.after, row.since) for row in found] == [
-        ("after_dropped:last", "next", LATER)
+        ("after_dropped:last", ("next", "first"), LATER)
     ]
 
 

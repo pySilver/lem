@@ -323,7 +323,8 @@ def test_each_group_holds_the_rows_of_its_kind_with_its_facts(tmp_path: Path) ->
     made(where, "stuck", status="landing", opened=start, hold=blocked)
     dropped_at = MOMENT + timedelta(minutes=5)
     made(where, "first", status="dropped", since=dropped_at)
-    made(where, "second", status="queued", after=("first",))
+    made(where, "next", status="dropped", since=dropped_at)
+    made(where, "second", status="queued", after=("first", "next"))
     made(where, "aside", status="planned", hold=Parked(since=MOMENT, words="later"))
     landing = opened(
         "merge-me", proposed=proposed(green=False, who="owner"), reads=(read("call"),)
@@ -344,9 +345,12 @@ def test_each_group_holds_the_rows_of_its_kind_with_its_facts(tmp_path: Path) ->
     assert datetime.fromisoformat(after["since"]) == dropped_at
     assert (after["task"], after["after"], after["start"], after["drop"]) == (
         "second",
-        "first",
+        ["first", "next"],
         "start second now",
         "/lem drop second",
+    )
+    assert after["verb"] == (
+        "first and next were dropped: your word starts or ends this task"
     )
     pull = found["pull_requests"][0]
     assert (pull["pull_request"]["number"], pull["green"], pull["not_green"]) == (
