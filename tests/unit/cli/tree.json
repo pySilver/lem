@@ -397,6 +397,28 @@
             }
           ]
         },
+        "park": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--why": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
         "resume": {
           "options": {
             "--help": {
@@ -458,15 +480,13 @@
               "value": false,
               "required": false
             },
-            "--result": {
+            "--kind": {
               "aliases": [],
               "value": true,
               "required": true,
               "choices": [
-                "bug",
-                "none",
-                "question",
-                "unreproduced"
+                "fix",
+                "question"
               ]
             },
             "--call": {
@@ -475,8 +495,37 @@
               "required": true,
               "choices": [
                 "small",
-                "full"
+                "full",
+                "not-a-bug",
+                "not-reproduced",
+                "answer"
               ]
+            },
+            "--line": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--result": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "choices": [
+                "bug",
+                "none",
+                "question",
+                "unreproduced"
+              ]
+            },
+            "--where": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            },
+            "--reproduced": {
+              "aliases": [],
+              "value": false,
+              "required": false
             }
           },
           "positionals": [
@@ -847,6 +896,52 @@
                 "lem",
                 "lead"
               ]
+            },
+            "--asked": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
+            "--answered": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
+            "--family": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "repeat": true
+            },
+            "--silent": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "repeat": true
+            },
+            "--criteria": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
+            "--flagged": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
+            },
+            "--split": {
+              "aliases": [],
+              "value": false,
+              "required": false
+            },
+            "--digest": {
+              "aliases": [],
+              "value": true,
+              "required": false
             }
           },
           "positionals": [
@@ -1959,7 +2054,13 @@
             "--error": {
               "aliases": [],
               "value": true,
-              "required": true
+              "required": true,
+              "choices": [
+                "missing",
+                "login",
+                "tokens",
+                "model"
+              ]
             },
             "--said": {
               "aliases": [],
@@ -1978,8 +2079,7 @@
               "choices": [
                 "reviewer",
                 "planner",
-                "merger",
-                "session"
+                "merger"
               ]
             }
           ]
@@ -2771,20 +2871,17 @@
             "--local": {
               "aliases": [],
               "value": false,
-              "required": false,
-              "flag_value": "local"
+              "required": false
             },
             "--home": {
               "aliases": [],
               "value": false,
-              "required": false,
-              "flag_value": "home"
+              "required": false
             },
             "--machine": {
               "aliases": [],
               "value": false,
-              "required": false,
-              "flag_value": "machine"
+              "required": false
             }
           },
           "positionals": [
@@ -2826,7 +2923,8 @@
             "plans",
             "rulings",
             "cast",
-            "state"
+            "state",
+            "plan_file"
           ]
         }
       ]
@@ -2849,7 +2947,7 @@
       "positionals": [
         {
           "name": "files",
-          "count": "+"
+          "count": "*"
         }
       ]
     },
@@ -2865,7 +2963,7 @@
         "--base": {
           "aliases": [],
           "value": true,
-          "required": true
+          "required": false
         },
         "--codex": {
           "aliases": [],
@@ -2874,7 +2972,8 @@
           "choices": [
             "yes",
             "no"
-          ]
+          ],
+          "default": "yes"
         }
       },
       "positionals": []
@@ -3380,6 +3479,18 @@
       },
       "positionals": [],
       "subcommands": {
+        "show": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": []
+        },
         "init": {
           "options": {
             "--help": {
@@ -3410,7 +3521,8 @@
           ]
         }
       },
-      "subcommand_required": true
+      "subcommand_required": true,
+      "default": "show"
     },
     "jev": {
       "options": {
@@ -3424,6 +3536,23 @@
       },
       "positionals": [],
       "subcommands": {
+        "ask": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "spec",
+              "count": "1"
+            }
+          ]
+        },
         "check": {
           "options": {
             "--help": {
@@ -3443,7 +3572,7 @@
         }
       },
       "subcommand_required": true,
-      "default": "check"
+      "default": "ask"
     },
     "picker": {
       "options": {

@@ -8,6 +8,7 @@ A stub until the step `sessions` builds it: it refuses `not-built`.
 import click
 import msgspec
 
+from lem.cli.checks import exactly_one
 from lem.cli.stub import not_built
 
 # seconds between two looks, unless the call says
@@ -66,6 +67,8 @@ COMMAND = click.Command(
             help="seconds the wait lasts at most",
         ),
     ],
-    callback=lambda **given: run(msgspec.convert(given, Call)),
+    callback=lambda **given: run(
+        msgspec.convert(exactly_one(given, "until", "event", "first_line"), Call)
+    ),
     help="Wait for a state, an event or the task's first line.",
 )

@@ -68,6 +68,43 @@ def sample(param: click.Parameter) -> str:
     return "x"
 
 
+# The words a leaf needs beyond its required ones, for a rule of `cli/checks.py` or its own.
+CHECKED: dict[tuple[str, ...], list[str]] = {
+    ("rules",): ["--range", "main..HEAD"],
+    ("settings", "set"): ["--local"],
+    ("session", "wait"): ["--event", "builder.start"],
+    ("session", "handoff"): ["--check"],
+}
+# Each option whose word in `Call` is not its flag's: the flag, by the leaf's words, and the field
+# its value goes to. Any other option's value goes to the field its flag names, so that two
+# options that exchange their destinations fail.
+RENAMED = {
+    "rules --range": "commits",
+    "task open --item": "backlog_item",
+    "task open --from": "origin",
+    "task move --line": "lines",
+    "task read --type": "kind",
+    "task investigated --result": "found",
+    "task talked --open": "left_open",
+    "picker --list": "listing",
+    "proposals add --file": "path",
+    "proposals verdict --file": "path",
+    "land merge-review --file": "reply",
+    "criteria approve --file": "path",
+    "criteria change --file": "path",
+    "criteria digest --file": "path",
+    "criteria read --family": "families",
+    "decisions log --option": "options",
+    "decisions log --vote": "votes",
+    "decisions log --level": "levels",
+    "session talk --from": "start",
+    "experts brief --option": "options",
+    "experts brief --file": "files",
+    "experts brief --seat": "seats",
+    "experts record --seat": "seats",
+}
+
+
 def minimal(command: click.Command) -> list[str]:
     """The fewest words COMMAND takes: one for each argument and option it requires."""
     words: list[str] = []
@@ -78,6 +115,29 @@ def minimal(command: click.Command) -> list[str]:
             words.append(shapes.long_flag(param))
         words.append(sample(param))
     return words
+
+
+def distinct(param: click.Parameter, number: int) -> str:
+    """A word PARAM takes that no other word of the call has."""
+    if isinstance(param.type, click.Choice):
+        return str(param.type.choices[number % len(param.type.choices)])
+    if isinstance(param.type, click.types.IntParamType):
+        return str(number + 1)
+    if isinstance(param.type, click.types.FloatParamType):
+        return f"{number}.5"
+    return f"{param.name}-{number}"
+
+
+def destination(words: tuple[str, ...], option: click.Option) -> str:
+    """The field of `Call` an option's value goes to: its flag's, unless RENAMED says."""
+    flag = shapes.long_flag(option)
+    return RENAMED.get(f"{' '.join(words)} {flag}", flag.lstrip("-").replace("-", "_"))
+
+
+def parsed(command: click.Command, argv: list[str]) -> dict[str, object]:
+    """The words Click gives the leaf's callback for ARGV, with no rule of the leaf run."""
+    with command.make_context(command.name, list(argv)) as ctx:
+        return dict(ctx.params)
 
 
 def no_value_default(param: click.Parameter) -> object:
@@ -149,10 +209,42 @@ def test_each_leaf_takes_the_words_of_its_call(
 
 
 @pytest.mark.parametrize(("words", "path"), LEAVES, ids=IDS)
+def test_each_word_of_a_call_reaches_the_field_it_names(
+    words: tuple[str, ...], path: str
+) -> None:
+    module = importlib.import_module(path)
+    command = module.COMMAND
+    argv: list[str] = []
+    sent: dict[str, object] = {}
+    flags: list[click.Option] = []
+    for number, param in enumerate(command.params):
+        if isinstance(param, click.Option) and param.is_flag:
+            flags.append(param)
+            continue
+        word = distinct(param, number)
+        many = param.multiple or param.nargs == -1
+        if isinstance(param, click.Option):
+            argv += [shapes.long_flag(param), word]
+            field = destination(words, param)
+        else:
+            argv.append(word)
+            field = param.name
+        converted = param.type.convert(word, param, None)
+        sent[field] = (converted,) if many else converted
+    call = msgspec.convert(parsed(command, argv), module.Call)
+    for field, word in sent.items():
+        assert getattr(call, field) == word, field
+    for flag in flags:
+        given = msgspec.convert(parsed(command, [*argv, flag.opts[0]]), module.Call)
+        assert getattr(given, destination(words, flag)) is True, flag.opts[0]
+
+
+@pytest.mark.parametrize(("words", "path"), LEAVES, ids=IDS)
 def test_each_stub_refuses_not_built_and_names_a_step_of_the_plan(
     capsys: pytest.CaptureFixture[str], words: tuple[str, ...], path: str
 ) -> None:
-    argv = [*words, *minimal(importlib.import_module(path).COMMAND)]
+    command = importlib.import_module(path).COMMAND
+    argv = [*words, *minimal(command), *CHECKED.get(words, [])]
     code, out, err = called(capsys, *argv)
     assert (code, err) == (1, "")
     envelope = json.loads(out)
@@ -175,6 +267,55 @@ def test_each_stub_refuses_not_built_and_names_a_step_of_the_plan(
         ("land", "merge", "x", "--by", "nobody"),
         ("owner", "watch", "--every", "often"),
         ("land",),
+        ("land", "checks", "x", "--status", "--stop"),
+        ("session", "wait", "x"),
+        ("session", "wait", "x", "--until", "open", "--event", "e"),
+        ("session", "wait", "x", "--event", "e", "--first-line"),
+        ("session", "handoff", "x"),
+        ("settings", "set", "k", "v"),
+        ("settings", "set", "k", "v", "--local", "--home"),
+        ("seat", "failed", "x", "session", "--seat", "s", "--error", "missing"),
+        ("seat", "failed", "x", "reviewer", "--seat", "s", "--error", "slow"),
+        ("rules",),
+        ("criteria", "read", "x", "done", "--by", "lem"),
+        ("criteria", "read", "x", "start", "--by", "lem", "--asked", "2"),
+        ("criteria", "read", "x", "silent", "--by", "lead", "--split"),
+        (
+            "task",
+            "investigated",
+            "x",
+            "--kind",
+            "question",
+            "--call",
+            "small",
+            "--line",
+            "l",
+        ),
+        (
+            "task",
+            "investigated",
+            "x",
+            "--kind",
+            "fix",
+            "--call",
+            "answer",
+            "--line",
+            "l",
+        ),
+        (
+            "task",
+            "investigated",
+            "x",
+            "--kind",
+            "question",
+            "--call",
+            "answer",
+            "--line",
+            "l",
+            "--reproduced",
+        ),
+        ("init", "--codex", "maybe"),
+        ("path", "plan_file"),
     ],
     ids=" ".join,
 )
@@ -309,7 +450,10 @@ def test_lem_version_prints_root_version_and_commit_as_json(
         (("ask", "--follow", "spec.json"), "ask ask"),
         (("ask",), "ask ask"),
         (("ask", "wait", "PAGE"), "ask wait"),
-        (("jev", "spec.json"), "jev check"),
+        (("jev", "spec.json"), "jev ask"),
+        (("jev", "ask", "spec.json"), "jev ask"),
+        (("cast",), "cast show"),
+        (("cast", "run-dir", "x"), "cast run-dir"),
         (("jev", "check", "spec.json"), "jev check"),
     ],
     ids=lambda value: " ".join(value) if isinstance(value, tuple) else value,
@@ -320,6 +464,113 @@ def test_the_default_verb_takes_a_first_word_that_names_no_verb(
     code, out, _ = called(capsys, *argv)
     assert code == 1
     assert f"`lem {command}`" in json.loads(out)["refusal"]["why"]
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ("rules", "--range", "main..HEAD"),
+        ("rules", "src/lem/cli/lazy.py"),
+        ("init",),
+        ("init", "--base", "main", "--codex", "no"),
+        ("settings", "set", "k", "v", "--machine"),
+        ("land", "checks", "x"),
+        ("land", "checks", "x", "--stop"),
+        ("session", "wait", "x", "--first-line"),
+        (
+            "task",
+            "investigated",
+            "x",
+            "--kind",
+            "question",
+            "--call",
+            "answer",
+            "--line",
+            "l",
+        ),
+        (
+            "task",
+            "investigated",
+            "x",
+            "--kind",
+            "fix",
+            "--call",
+            "not-a-bug",
+            "--line",
+            "l",
+            "--not-reproduced",
+            "--where",
+            "a.py:f",
+        ),
+        (
+            "criteria",
+            "read",
+            "x",
+            "done",
+            "--by",
+            "lem",
+            "--asked",
+            "6",
+            "--answered",
+            "5",
+            "--family",
+            "opus",
+            "--family",
+            "sol",
+            "--silent",
+            "a teammate, sol: no answer in 10 minutes",
+            "--criteria",
+            "3",
+            "--flagged",
+            "0",
+            "--digest",
+            "d1",
+        ),
+        ("task", "park", "x", "--why", "the owner waits for the vendor"),
+    ],
+    ids=" ".join,
+)
+def test_a_call_the_rules_take_reaches_its_stub(
+    capsys: pytest.CaptureFixture[str], argv: tuple[str, ...]
+) -> None:
+    code, out, err = called(capsys, *argv)
+    assert (code, err) == (1, "")
+    assert json.loads(out)["refusal"]["code"] == "not-built"
+
+
+def test_path_plan_file_names_the_command_of_a_plans_file(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    code, _, err = called(capsys, "path", "plan_file")
+    assert code == 2
+    assert "`lem task plan-file SLUG` prints the name of a plan's file" in err
+
+
+def test_a_command_whose_module_is_not_there_names_the_file_and_the_repair(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from lem.cli.land import verbs
+
+    table = (*verbs.COMMAND.table, ("gone", "lem.cli.land.gone"))
+    monkeypatch.setattr(verbs.COMMAND, "table", table)
+    code, out, err = called(capsys, "land", "gone", "x")
+    assert (code, err) == (1, "")
+    refusal = json.loads(out)["refusal"]
+    assert refusal["code"] == "not-whole"
+    gone = Path(verbs.__file__).parent / "gone.py"
+    assert refusal["why"].startswith(f"{gone} is not there: Lem's package ")
+    assert refusal["fix"] == "the owner installs Lem again"
+
+
+@pytest.mark.parametrize(
+    ("argv", "code"),
+    [(("help",), 0), (("version",), 0), (("doctor",), 1)],
+    ids=lambda value: " ".join(value) if isinstance(value, tuple) else str(value),
+)
+def test_repo_before_help_version_and_doctor_reaches_them(
+    capsys: pytest.CaptureFixture[str], argv: tuple[str, ...], code: int
+) -> None:
+    assert called(capsys, "--repo", str(ROOT), *argv)[0] == code
 
 
 def test_a_help_option_after_a_noun_with_a_default_verb_is_the_nouns_help(

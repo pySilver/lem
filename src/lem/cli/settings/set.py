@@ -2,17 +2,15 @@
 
     lem settings set KEY VALUE --local|--home|--machine
 
-A stub until the step `settings` builds it: it refuses `not-built`.
+Exactly one of the three files, by its switch. A stub until the step `settings` builds it: it
+refuses `not-built`.
 """
-
-from typing import Literal
 
 import click
 import msgspec
 
+from lem.cli.checks import exactly_one
 from lem.cli.stub import not_built
-
-type Scope = Literal["local", "home", "machine"]
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -20,7 +18,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
     key: str
     setting: str
-    scope: Scope | None = None
+    local: bool = False
+    home: bool = False
+    machine: bool = False
 
 
 def run(call: Call) -> None:
@@ -34,21 +34,21 @@ COMMAND = click.Command(
         click.Argument(["key"]),
         click.Argument(["setting"]),
         click.Option(
-            ["--local", "scope"],
-            flag_value="local",
+            ["--local"],
+            is_flag=True,
             help="this repository on this machine: .lem/settings.local.toml",
         ),
         click.Option(
-            ["--home", "scope"],
-            flag_value="home",
+            ["--home"],
+            is_flag=True,
             help="every repository of the developer: Lem's home settings.toml",
         ),
         click.Option(
-            ["--machine", "scope"],
-            flag_value="machine",
-            help="this machine: Lem's home machine.toml",
+            ["--machine"], is_flag=True, help="this machine: Lem's home machine.toml"
         ),
     ],
-    callback=lambda **given: run(msgspec.convert(given, Call)),
+    callback=lambda **given: run(
+        msgspec.convert(exactly_one(given, "local", "home", "machine"), Call)
+    ),
     help="Write one setting into the local, home or machine file.",
 )

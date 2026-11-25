@@ -2,7 +2,9 @@
 
     lem seat failed SLUG ROLE --seat SEAT --error KIND [--said LINE]
 
-A stub until the step `sessions` builds it: it refuses `not-built`.
+Only the reviewer, the planner and the merge agent have a fallback, and an error is one of the
+four of `main`'s `state.SEAT_ERRORS`. A stub until the step `sessions` builds it: it refuses
+`not-built`.
 """
 
 from typing import Literal
@@ -13,7 +15,8 @@ import msgspec
 from lem.cli.stub import not_built
 from lem.cli.words import choice
 
-type Role = Literal["reviewer", "planner", "merger", "session"]
+type Role = Literal["reviewer", "planner", "merger"]
+type Error = Literal["missing", "login", "tokens", "model"]
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -22,7 +25,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     slug: str
     role: Role
     seat: str
-    error: str
+    error: Error
     said: str | None = None
 
 
@@ -42,7 +45,10 @@ COMMAND = click.Command(
             help="the seat the stage opened, as `lem seat show` printed it",
         ),
         click.Option(
-            ["--error"], required=True, help="missing, login, tokens or model"
+            ["--error"],
+            required=True,
+            type=choice(Error),
+            help="missing, login, tokens or model",
         ),
         click.Option(["--said"], help="the agent's own line of the error"),
     ],

@@ -1,8 +1,11 @@
 """Where the texts of Lem give a command line, and whether the tree takes it.
 
 Every `lem NOUN ...` in a code span or a code block of the skills (`skills/**/*.md`), the agents
-(`agents/*.md`), the guides (`docs/*.md`, not `docs/plans/`) and README.md, and in a `<code>`
-of the site (`site/*.html`), read against the shape of the tree (`shapes.py`).
+(`agents/*.md`), the guides and the rulings (`docs/**/*.md`, but `docs/plans/`, the work that
+built Lem, and `docs/backlog/`, its deferred items) and README.md, and in a `<code>` of the
+site (`site/*.html`), read against the shape of the tree (`shapes.py`). A complete line of a
+shell block is also parsed by Click itself (`parsing.py`), so a required option it leaves out
+is an old line too.
 
 Where a command line is:
 
@@ -57,7 +60,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 # The texts that give command lines to agents and people.
-TEXTS = ("skills/**/*.md", "agents/*.md", "docs/*.md", "README.md", "site/*.html")
+TEXTS = ("skills/**/*.md", "agents/*.md", "docs/**/*.md", "README.md", "site/*.html")
+# The folders of `docs/` whose texts give no command line to follow.
+APART = ("docs/plans", "docs/backlog")
 MARK = "<!-- lem: old form -->"
 # The marks of a code block whose lines are shell lines.
 SHELL = ("", "bash", "sh", "shell", "console")
@@ -179,7 +184,10 @@ def texts() -> list[Path]:
     found: set[Path] = set()
     for pattern in TEXTS:
         found.update(path for path in ROOT.glob(pattern) if path.is_file())
-    return sorted(found)
+    apart = [ROOT / folder for folder in APART]
+    return sorted(
+        path for path in found if not any(path.is_relative_to(at) for at in apart)
+    )
 
 
 def lines_in(path: Path) -> list[Line]:

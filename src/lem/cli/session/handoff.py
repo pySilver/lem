@@ -8,6 +8,7 @@ A stub until the step `sessions` builds it: it refuses `not-built`.
 import click
 import msgspec
 
+from lem.cli.checks import exactly_one
 from lem.cli.stub import not_built
 
 
@@ -33,6 +34,6 @@ COMMAND = click.Command(
             help="check the handoff against templates/handoff.md",
         ),
     ],
-    callback=lambda **given: run(msgspec.convert(given, Call)),
+    callback=lambda **given: run(msgspec.convert(exactly_one(given, "check"), Call)),
     help="Check the task's handoff.md against its template.",
 )

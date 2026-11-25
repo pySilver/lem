@@ -5,17 +5,20 @@ a module when the parser reaches its name, so a call loads one leaf and the tabl
 """
 
 import importlib
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
 
-from lem.kernel.errors import Fault
+from lem.kernel.errors import Fault, Refusal
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
 # A table of the tree: each name with the dotted path of the module that holds its `COMMAND`.
 type Table = tuple[tuple[str, str], ...]
+# The package of the tree, `lem/cli`, where a module of a table has its file.
+PACKAGE = Path(__file__).resolve().parent
 
 
 class LazyGroup(click.Group):
@@ -63,8 +66,27 @@ class LazyGroup(click.Group):
 
 
 def loaded(path: str) -> click.Command:
-    """The `COMMAND` of the module at `path`; a module without one is a fault of Lem."""
-    command = importlib.import_module(path).COMMAND
+    """The `COMMAND` of the module at `path`; a module without one is a fault of Lem, and a
+    module the table names that is not there is a package to install again."""
+    try:
+        module = importlib.import_module(path)
+    except ModuleNotFoundError as error:
+        named = error.name or ""
+        if path != named and not path.startswith(f"{named}."):
+            raise
+        raise not_whole(path) from error
+    command = module.COMMAND
     if not isinstance(command, click.Command):
         raise Fault(f"{path}.COMMAND is no click.Command: Lem's package is not whole")
     return command
+
+
+def not_whole(path: str) -> Refusal:
+    """The refusal of a command whose module is not in the package: the file, and the repair."""
+    parts = path.split(".")[2:]
+    missing = PACKAGE.joinpath(*parts).with_suffix(".py")
+    return Refusal(
+        "not-whole",
+        f"{missing} is not there: Lem's package {PACKAGE.parent} is not whole",
+        "the owner installs Lem again",
+    )

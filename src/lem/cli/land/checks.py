@@ -8,6 +8,7 @@ A stub until the step `land-checks` builds it: it refuses `not-built`.
 import click
 import msgspec
 
+from lem.cli.checks import at_most_one
 from lem.cli.stub import not_built
 
 
@@ -39,6 +40,8 @@ COMMAND = click.Command(
             help="stop the checks that run now, and wait for their end",
         ),
     ],
-    callback=lambda **given: run(msgspec.convert(given, Call)),
+    callback=lambda **given: run(
+        msgspec.convert(at_most_one(given, "status", "stop"), Call)
+    ),
     help="Run the machine checks, or say how they run.",
 )

@@ -13,26 +13,26 @@ first as a slice names that slice too; the step named owns it from group 2 on.
 | Today | New | Step |
 | --- | --- | --- |
 | `project show` | `settings show` (each value with `from`, the places, `settings: null` when not onboarded) | `settings` (slice: `slice-land`) |
-| `project path NAME` | `path NAME` (`lessons`, `rulings`, `plans`, `profile`, `cast`, `state`, `backlog`) | `settings` |
+| `project path NAME` | `path NAME` (`lessons`, `rulings`, `plans`, `profile`, `cast`, `state`, `backlog`); `plan_file` is a wrong call that names `task plan-file SLUG` | `settings` |
 | `project may-land BRANCH` | dropped: each step refuses `protected` itself | `land-base` |
 | `project worktree-dir SLUG` | `task worktree SLUG --path` | `task` |
 | `project worktree SLUG BRANCH` | `task worktree SLUG [--branch B] [--checkout DIR]` (makes it, runs `checks.setup`) | `task` |
-| `project init --base --codex` | `init --base B [--codex]` | `settings` |
+| `project init --base --codex` | `init [--base B] [--codex yes\|no]`: with no `--base`, origin's default branch (`origin/HEAD`); `--codex` is `yes` unless said | `settings` |
 | `project set SCOPE NAME WORDS` | `settings set seats.NAME VALUE --local\|--home` (`default` removes; a seat without model or effort refused) | `settings` |
 | `project plan-file SLUG --date` | `task plan-file SLUG [--date]` | `task` |
 | `project rules FILES --range` | `rules [FILES] [--range]` | `settings` |
 | `project task-dir SLUG --ask --ticket --ticket-repo --branch --night` | `task open SLUG --ask WORDS [--ticket ID] [--ticket-repo R] [--branch B] [--night YYYY-MM-DD] [--after SLUG] [--plan-only] [--item PATH] [--from SLUG]`; `task dir SLUG` | `task` |
-| `project state SLUG STATUS LINES --start-over` | `task move SLUG STATUS [--line L]... [--start-over WHY]`; `dropped` by his drop from any status that is not ended, by the transitions of the design's part 3 (`correct.md`, "drop"), under the step lock | `task` (slice of `task move`: `slice-land`) |
+| `project state SLUG STATUS LINES --start-over` | `task move SLUG STATUS [--line L]... [--start-over WHY]`; `dropped` by his drop from any status that is not ended, by the transitions of the design's part 3 (`correct.md`, "drop"), under the step lock; `parked` by `task park SLUG --why WHY` (the hold of part 3; `stages/park.md`) | `task` (slice of `task move`: `slice-land`) |
 | (lines `type: T, because WHY`, `then:`, `the owner's order:`) | `task read SLUG --type T --why W --track small\|full [--careful TOPIC]... [--then interview\|fast\|lead\|investigation] [--order WORDS] [--after SLUG] [--wait criteria\|interview]` | `task` |
 | (lines `lead: builder`, `small change: one builder`, `plan committed N tasks`, `task N of M`) | `task span SLUG lead\|small\|task --of N/M start\|end`; `task planned SLUG --tasks N [--careful WHY] [--large]` | `task` |
 | `project seat SLUG SEAT` | `seat show SLUG ROLE` | `sessions` |
-| `project seat-failed SLUG SEAT --seat --error --said` | `seat failed SLUG ROLE --seat --error --said` (the fallback starts; the PR names who stood in) | `sessions` |
+| `project seat-failed SLUG SEAT --seat --error --said` | `seat failed SLUG ROLE --seat --error --said`, ROLE `reviewer\|planner\|merger`, `--error missing\|login\|tokens\|model` (the fallback starts; the PR names who stood in) | `sessions` |
 | `project seat-again SLUG` | `seat again SLUG` | `sessions` |
 | `project tasks` | `task list [--ended]`, `task show SLUG` (status, hold, `ticket_owed`, `board_answer`, `night`, `mode`) | `task` |
 | `project resume SLUG` | `task resume SLUG` (parked: same task; dropped: a new task with `--from`; release-stopped: a new request) | `task` |
 | `project owner STATUS --words --seen --every` | `owner away\|back [--words]`, `owner watch [--seen ID] [--every N]` | `owner` |
 | `project ticket-step SLUG STEP --login` | `task ticket SLUG STEP [--login]`, accepted after the end | `task` |
-| `project log SLUG EVENT FIELDS` | typed: `task span SLUG NAME start\|end [--job J] [--by B]`; `task investigated SLUG --result bug\|none\|question\|unreproduced --call small\|full`; `task talked SLUG --reviewer AGENT --turns N --questions N --settled N --open N --repaired N --design N --unargued N --root N --layer N --shared N` (`project.talk_form`; the PR shows them); `criteria read SLUG start\|done\|silent --by lem\|lead`; `criteria skip SLUG asked\|yes\|no` | `task`, `criteria` |
+| `project log SLUG EVENT FIELDS` | typed: `task span SLUG NAME start\|end [--job J] [--by B]`; `task investigated SLUG --kind fix\|question --call small\|full\|not-a-bug\|not-reproduced\|answer --line TEXT [--result bug\|none\|question\|unreproduced] [--where PATH:SYMBOL] [--reproduced\|--not-reproduced]` (`project.investigation_form`: `answer` is a question's call, and only a fix says whether it reproduced); `task talked SLUG --reviewer AGENT --turns N --questions N --settled N --open N --repaired N --design N --unargued N --root N --layer N --shared N` (`project.talk_form`; the PR shows them); `criteria read SLUG start\|done\|silent --by lem\|lead`, and `done` with `--asked N --answered N [--family F]... [--silent "PERSONA, FAMILY: WHY"]... --criteria N --flagged N [--split] --digest D` (`project.read_form`, which `land` compares); `criteria skip SLUG asked\|yes\|no` | `task`, `criteria` |
 | `project may-start SLUG` | `task may-start SLUG` (prints the commands of "start SLUG now") | `task` |
 | (his "start SLUG now", `/lem build`) | `task start SLUG --words WORDS`; `task build SLUG\|PLAN-FILE` | `task` |
 | `project state-dir` | `path state` | `settings` |
@@ -41,7 +41,7 @@ first as a slice names that slice too; the step named owns it from group 2 on.
 | `project serial WORDS` | `serial -- CMD` | `land-checks` |
 | `project may-nap` | `nap may` | `addons-flow` |
 | `project prune --dry-run --days` | `prune [--dry-run] [--days N]` | `board-duties` |
-| `project load --start` | `settings set load.start N\|none --machine` (a waiting run reads it at its next look) | `settings` |
+| `project load --start` | `settings set load.start N\|none --machine` (a waiting run reads it at its next look); `project load` alone: `settings show` gives the load now, the cores, the start and whether it is Lem's default, and the gate (`project.cmd_load`) | `settings` |
 | `project handoff --tokens` | `settings set handoff.tokens N --machine` | `settings` |
 | `land start SLUG --conflicting` | same | `land-base` |
 | `land base SLUG` | same | `land-base` |
@@ -68,11 +68,11 @@ first as a slice names that slice too; the step named owns it from group 2 on.
 | `corrections hook` | `lem-hook corrections` | `sessions` |
 | `corrections list\|lessons\|worker PAYLOAD\|show ID\|record ID ...` | same | `addons-flow` |
 | `corrections collect ANSWER` | `settings set corrections.collect yes\|no --machine` | `settings` |
-| `experts brief\|record`, `cast init\|run-dir`, `jev check SPEC` | same | `addons-outside` |
+| `experts brief\|record`, `cast init\|run-dir`, `cast` alone, `jev SPEC`, `jev check SPEC` | same; `cast` alone is `cast show` (`cast.resolve`: the personas, the seats, the profile and where each is from); `jev SPEC` is `jev ask SPEC`, which asks; `jev check SPEC` reads the spec and asks nothing | `addons-outside` |
 | `issue check\|read\|start\|land\|drop\|answer` | same | `task` |
 | `ask ask SPEC`, `ask q`, `ask wait`, `ask close`, `ask demo`, `ask templates`, `ask render SPEC --out` (attachments kept) | same; outcomes in `result.outcome` | `ask` |
 | `ask hook-stop` | `lem-hook stop` | `sessions` |
-| `help`, `version`, `doctor` on a version mismatch | answer as today; every other command refuses with the one line (`__main__.cli`). The envelope applies to dispatched commands: `help` prints text; `version` prints JSON with the top-level keys `root`, `version` and `commit` (`__main__.version`) | `tree` |
+| `help`, `version`, `doctor` on a version mismatch | answer as today, and `help NOUN` gives one noun's help; every other command refuses with the one line (`__main__.cli`). The envelope applies to dispatched commands: `help` prints text; `version` prints JSON with the top-level keys `root`, `version` and `commit` (`__main__.version`) | `tree` |
 
 ## B. Board acts and addresses
 

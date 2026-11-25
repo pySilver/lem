@@ -3,10 +3,14 @@
 from lem.cli.group import LazyGroup
 
 VERBS = (
+    ("show", "lem.cli.cast.show"),
     ("init", "lem.cli.cast.init"),
     ("run-dir", "lem.cli.cast.run_dir"),
 )
 
 COMMAND = LazyGroup(
-    "cast", "The persona panel's cast, and a panel's run folder.", VERBS
+    "cast",
+    "The persona panel's cast, and a panel's run folder.",
+    VERBS,
+    default="show",
 )

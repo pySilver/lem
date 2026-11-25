@@ -13,6 +13,7 @@ VERBS = (
     ("planned", "lem.cli.task.planned"),
     ("list", "lem.cli.task.list"),
     ("show", "lem.cli.task.show"),
+    ("park", "lem.cli.task.park"),
     ("resume", "lem.cli.task.resume"),
     ("ticket", "lem.cli.task.ticket"),
     ("investigated", "lem.cli.task.investigated"),

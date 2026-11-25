@@ -2,11 +2,14 @@
 
 from lem.cli.group import LazyGroup
 
-VERBS = (("check", "lem.cli.jev.check"),)
+VERBS = (
+    ("ask", "lem.cli.jev.ask"),
+    ("check", "lem.cli.jev.check"),
+)
 
 COMMAND = LazyGroup(
     "jev",
     "The Jev model: choice and yes/no questions, answered as JSON.",
     VERBS,
-    default="check",
+    default="ask",
 )

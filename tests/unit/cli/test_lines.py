@@ -4,7 +4,7 @@
 
 import pytest
 
-from unit.cli import reading, shapes
+from unit.cli import parsing, reading, shapes
 
 TREE = shapes.tree()
 # The lines the reader cannot read, each with why.
@@ -128,6 +128,38 @@ def test_two_dashes_end_the_options() -> None:
     ]
 
 
+def test_a_whole_shell_line_is_parsed_by_click_with_a_stand_in_for_each_placeholder() -> (
+    None
+):
+    def said(text: str) -> str | None:
+        line = reading.Line("a text", 1, text, span=False)
+        return parsing.clicks_word(line) if parsing.complete(line) else "not complete"
+
+    assert said("lem land merge SLUG --by owner") is None
+    assert str(said("lem land merge demo")).startswith("Click: Missing option '--by'.")
+    assert said("lem --repo WORKTREE criteria read SLUG start --by lead") is None
+    assert said("lem task move SLUG STATUS --line WHY") is None
+    assert said("lem serial -- pytest -x") is None
+    assert said("lem ask SPEC") is None
+    assert said("lem settings set KEY VALUE --local") is None
+    assert said("lem land merge SLUG --by owner|merger") == "not complete"
+    assert said("lem session close SLUG [--session ID] --why ended") == "not complete"
+    assert (
+        parsing.clicks_word(reading.Line("t", 1, "lem land merge demo", span=True))
+        is not None
+    )
+    assert not parsing.complete(reading.Line("t", 1, "lem land merge demo", span=True))
+
+
+def test_the_texts_are_read_in_every_folder_of_docs_but_plans_and_backlog() -> None:
+    names = {str(path.relative_to(reading.ROOT)) for path in reading.texts()}
+    assert "docs/rulings/history.md" in names
+    assert "README.md" in names
+    assert not [
+        name for name in names if name.startswith(("docs/plans/", "docs/backlog/"))
+    ]
+
+
 def test_quotes_that_do_not_close_cannot_be_judged() -> None:
     assert wrong('lem task move SLUG held "no end') == [
         "cannot judge: No closing quotation"
@@ -216,6 +248,13 @@ def test_each_line_of_a_text_is_one_the_tree_takes_or_the_text_is_marked(
         f"{name}:{line.number}: {line.text}\n      {'; '.join(said)}"
         for line, said in judged
         if said
+    ]
+    old += [
+        f"{name}:{line.number}: {line.text}\n      {said}"
+        for line, judgement in judged
+        if not judgement
+        and parsing.complete(line)
+        and (said := parsing.clicks_word(line)) is not None
     ]
     if reading.marked(path.read_text(encoding="utf-8")):
         assert old, f"{name} gives no old line now: take out its mark {reading.MARK}"

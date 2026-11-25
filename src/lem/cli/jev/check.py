@@ -1,6 +1,8 @@
-"""`lem jev check`: ask the Jev model the questions of a spec.
+"""`lem jev check`: read a spec as a request would, and ask nothing.
 
-    lem jev [check] SPEC
+    lem jev check SPEC
+
+It prints the model, the questions, the address and where the key comes from.
 
 A stub until the step `addons-outside` builds it: it refuses `not-built`.
 """
@@ -28,5 +30,5 @@ COMMAND = click.Command(
         click.Argument(["spec"]),
     ],
     callback=lambda **given: run(msgspec.convert(given, Call)),
-    help="Ask the Jev model the questions of a spec.",
+    help="Read a spec as a request would, and ask nothing.",
 )

@@ -1,3 +1,4 @@
+<!-- lem: old form -->
 # What left the list of rulings
 
 Each line below was a ruling of the owner or a choice of the maintaining session, and each is still
