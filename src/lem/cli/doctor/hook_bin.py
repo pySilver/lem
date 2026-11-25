@@ -25,14 +25,16 @@ HOOK = "lem-hook"
 BREWED = Path("opt") / "lem" / "libexec" / "bin" / HOOK
 
 
-def lem_install(look: Look, root: Path | None) -> plugins.Install | None:
-    """Lem's install with a folder for the repository `root`, else for the user."""
-    lems = [one for one in plugins.installs(look.home) if one.name == "lem"]
-    real = str(root.resolve()) if root else None
-    for project in (real, None):
-        for install in lems:
-            if install.folder and install.project == project:
-                return install
+def lem_for(
+    project: str | None, found: tuple[plugins.Install, ...]
+) -> plugins.Install | None:
+    """The install of Lem the repository at the real path `project` gets: its own, else the
+    user's (None: outside a repository, the user's only)."""
+    lems = [one for one in found if one.name == "lem"]
+    for wanted in (project, None):
+        own = next((one for one in lems if one.project == wanted), None)
+        if own is not None:
+            return own
     return None
 
 
@@ -41,8 +43,9 @@ def plugin_folder(look: Look, root: Path | None) -> Path:
     Lem's install for `root`, else for the user, when the settings leave it on and the folder
     is there; else the app's own files, which have the plugin's shape and which a task's
     session then loads."""
-    mine = lem_install(look, root)
-    if mine is None:
+    real = str(root.resolve()) if root else None
+    mine = lem_for(real, plugins.installs(look.home))
+    if mine is None or not mine.folder:
         return paths.root()
     folder = Path(mine.folder or "")
     if plugins.enabled(mine.key, look.home, root) and folder.is_dir():

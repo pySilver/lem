@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from lem.board.workspaces import listed
 from lem.cli.doctor import plugins
 from lem.cli.doctor.board_rows import running
+from lem.cli.doctor.hook_bin import lem_for
 from lem.cli.doctor.row import OPTIONAL, Row
 from lem.hooks import versions
 from lem.kernel import paths
@@ -69,14 +70,6 @@ def install_row(repository: str, found: plugins.Install, server: str) -> Row | N
     )
 
 
-def got(repository: str, found: tuple[plugins.Install, ...]) -> plugins.Install | None:
-    """The install of Lem the repository gets: its project's, else the user's."""
-    real = os.path.realpath(repository)
-    lems = [one for one in found if one.name == "lem"]
-    own = next((one for one in lems if one.project == real), None)
-    return own or next((one for one in lems if one.project is None), None)
-
-
 def installed_rows(look: Look) -> tuple[Row, ...]:
     """The rows of `install_row` for this machine's server, list and installs."""
     facts = running(look)
@@ -86,6 +79,6 @@ def installed_rows(look: Look) -> tuple[Row, ...]:
     rows = (
         install_row(repository, mine, facts.install.version)
         for repository in listed(paths.home(look.environ))
-        if (mine := got(repository, found)) is not None
+        if (mine := lem_for(os.path.realpath(repository), found)) is not None
     )
     return tuple(row for row in rows if row is not None)

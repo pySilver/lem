@@ -36,16 +36,12 @@ def states(look: Look, home: Path) -> tuple[Path, ...]:
     return tuple(seen)
 
 
-def is_old(state: Path) -> bool:
-    """Whether a state folder holds the files of the Lem before."""
-    return guard.form(state) == "old"
-
-
 def old_folders(look: Look) -> tuple[Path, ...]:
     """The home folder and each state folder that holds the files of the Lem before."""
     home = paths.home(look.environ)
     found = [home] if folders.form(home, frozenset()) == "old" else []
-    found += [state for state in states(look, home) if is_old(state)]
+    every = states(look, home)
+    found += [state for state in every if guard.form(state) == "old"]
     return tuple(found)
 
 
