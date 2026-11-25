@@ -13,6 +13,7 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 import pytest
+from msgspec.structs import replace
 
 from fakes.repo import run_git
 from journeys.test_skeleton import (
@@ -28,6 +29,7 @@ from journeys.test_skeleton import (
     made,
     next_step,
     parses,
+    proposal,
     upto,
 )
 from lem.app.landing import changes
@@ -41,7 +43,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from journeys.test_skeleton import Envelope
-    from lem.ports.forge_facts import MergeMethod, MergeText
+    from lem.ports.forge_facts import MergeMethod, MergeText, Pull
     from lem.records.landing.record import Landing
     from lem.records.record import Record
     from lem.records.task import Status
@@ -1009,3 +1011,51 @@ def test_a_request_closed_on_github_while_a_new_round_runs_is_dropped_by_merged(
     assert due(capsys, world)["step"] != "merged"
     assert MERGED(capsys, world)["ok"] is True
     assert world.record()["task"]["status"] == "dropped"
+
+
+@pytest.mark.parametrize("state", ["closed", "merged", "reply", "drop"])
+def test_a_foreign_pull_at_the_recorded_number_cannot_end_the_task(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys, state: str
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    if state == "closed":
+        world.forge.close(1)
+    elif state != "reply":
+        world.forge.outside_merge(1)
+    pull = world.forge.pull
+
+    def foreign(number: int) -> Pull:
+        shown = pull(number)
+        if state == "reply" and shown.state == "open":
+            return shown
+        return replace(shown, url="https://github.com/other/project/pull/1")
+
+    monkeypatch.setattr(world.forge, "pull", foreign)
+    drop = command("task", "move", "SLUG", "dropped", "--line", "the owner drops it")
+    step = {"reply": MERGE, "drop": drop}.get(state, MERGED)
+    envelope = step(capsys, world)
+    assert envelope.get("refusal", {}).get("code") == "no-pull", envelope
+    assert world.record()["task"]["status"] == "open"
+    assert landing(world)["phase"] == "open"
+
+
+def test_drop_recovers_a_matching_merge_after_the_pull_number_was_lost(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "propose")
+    world.acts.cut = ("open_pull", 1)
+    with pytest.raises(Killed):
+        proposal(capsys, world)
+    capsys.readouterr()
+    assert "pull" not in landing(world)
+    assert landing(world)["pushed"] == world.forge.pull(1).head
+    world.forge.outside_merge(1)
+
+    drop = command("task", "move", "SLUG", "dropped", "--line", "the owner drops it")
+    envelope = drop(capsys, world)
+    assert envelope.get("refusal", {}).get("code") == "merged", envelope
+    assert landing(world)["pull"]["number"] == 1
+    assert MERGED(capsys, world)["ok"] is True
+    assert world.record()["task"]["status"] == "landed"

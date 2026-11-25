@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing import changes, merge_reply, reconcile
+from lem.app.landing import changes, merge_reply, pull_identity, reconcile
 from lem.kernel import clock
 from lem.ports import forge_facts
 from lem.records.landing import merge as facts
@@ -35,6 +35,7 @@ def answered(
     number and the answer): the merge, the queue that took it, or GitHub's refusal."""
     number, outcome = said
     if not isinstance(outcome, forge_facts.MergeDone):
+        pull_identity.checked(record, context.ports.forge.pull(number))
         return reconcile.written(
             context, record, merge_reply.held(intent, outcome, context), intent.by
         )

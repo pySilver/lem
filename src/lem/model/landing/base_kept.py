@@ -36,13 +36,13 @@ def kept(
     record: Record, based: Based, polished: Polished | None, files: Paths = ()
 ) -> Record:
     """The record with the branch on the base, a waiting resolution resolved with `files`,
-    and the polish pass carried through the rebase (`polished`; None keeps it as it is)."""
+    and the polish pass carried through the rebase."""
     landing = record.landing or Landing()
     changed = replace(
         landing,
         based=based,
         resolution=resolved(landing, based, files),
-        polished=polished or landing.polished,
+        polished=polished,
     )
     return replace(record, landing=changed)
 

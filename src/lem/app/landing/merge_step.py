@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 import msgspec
 
 from lem.app.landing import following, say, step
-from lem.app.tasks import release
 from lem.kernel import clock, envelope
 from lem.model.landing import phases
 from lem.store import places, steps, tasks
@@ -65,9 +64,7 @@ def ran(
     decides)."""
     now = clock.now()
     with steps.step(workspace.state, slug, verb, now):
-        if verb == "merge":
-            release.checked(workspace.state, slug)
-        context = step.opened(workspace, slug, now)
+        context = step.opened(workspace, slug, now, verb=verb)
         allowed(context, verb, admits)
         outcome = act(context)
         after = phases.settled(tasks.read(workspace.state, slug))

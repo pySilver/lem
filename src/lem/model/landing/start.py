@@ -10,7 +10,7 @@ brought it.
 
 from typing import TYPE_CHECKING
 
-from lem.model.landing import start_said
+from lem.model.landing import destination, start_said
 from lem.model.landing.invariants import protected
 from lem.model.landing.world import Due, Held, World
 from lem.records.base import Frozen
@@ -28,11 +28,9 @@ STARTS = frozenset(("ready", "landing", "open"))
 
 class Facts(Frozen, frozen=True, kw_only=True):
     """What `start` reads beside the world: whether the worktree's HEAD is the task's branch
-    at its tip, and the commands the branch's own settings bring while the main checkout's
-    name none."""
+    at its tip."""
 
     on_branch: bool = True
-    own_commands: tuple[str, ...] = ()
 
 
 def holds(record: Record, world: World) -> Held | Due:
@@ -84,7 +82,7 @@ def ready(record: Record, world: World, facts: Facts) -> Refusal | None:
     if refused is not None:
         return refused
     if not world.rules.commands:
-        return start_said.no_checks(record, own=facts.own_commands)
+        return start_said.no_checks(record)
     return None
 
 
@@ -97,11 +95,15 @@ def decide(
         return refused
     landing = record.landing or Landing()
     kept = landing.started
-    again = kept is not None and landing.phase == "preparing"
+    again = (
+        kept is not None
+        and kept.round == landing.round
+        and landing.phase == "preparing"
+    )
     return Started(
         round=round_of(record),
         branch=world.branch,
-        base_ref=world.rules.base,
+        base_ref=destination.recorded(landing) or world.rules.base,
         conflicting=conflicting or (again and kept is not None and kept.conflicting),
         start_over=kept.start_over if again and kept is not None else None,
         at=world.now,

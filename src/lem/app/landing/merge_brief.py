@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 SHORT = 12
-BRIEF = "merge-brief-{0}-{1}.md"
+BRIEF = "merge-brief-{0}-{1}-{2}.md"
 # The first line of every brief: the standing text by its place in the plugin, never by the
 # folder of the Lem that wrote the brief, which an update replaces.
 FOLLOW = (
@@ -49,7 +49,9 @@ class Brief(Frozen, frozen=True, kw_only=True):
 
 def path_of(context: Context, tip: str, base: str) -> Path:
     """The brief of `tip` on `base` in the task's folder."""
-    named = BRIEF.format(tip[:SHORT], base[:SHORT])
+    landing = context.record.landing or Landing()
+    round_number = landing.round
+    named = BRIEF.format(tip[:SHORT], base[:SHORT], round_number)
     return context.folder / named
 
 

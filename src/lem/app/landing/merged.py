@@ -96,7 +96,7 @@ def act(context: Context) -> object:
             record = adopted(context)
         else:
             with merge_lock.held(context):
-                context = context.again()
+                context = context.again(ends=True)
                 merge_step.allowed(context, "merged", merged_beside.admits)
                 record = adopted(context)
         if isinstance(record, MergeAccepted):

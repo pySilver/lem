@@ -18,8 +18,10 @@ from lem.model.landing import (
     review,
     start,
 )
+from lem.model.landing.merge_evidence import seat_refusal
 from lem.model.landing.mergeread import another_round, latest
 from lem.model.landing.world import Due, Held, World
+from lem.model.task import red_base
 from lem.records.landing.record import Landing
 from lem.records.record import Record
 
@@ -49,6 +51,13 @@ def preparing(record: Record, world: World) -> Due:
     pull = world.pull
     if (record.landing or Landing()).pull and pull and pull.state == MERGED:
         return Due(step=MERGED, why="the forge shows the pull request merged")
+    repair = red_base.dependency(record.task)
+    if repair is not None:
+        way_on = red_base.way_on(record.task.slug, repair)
+        return Due(
+            step="wait",
+            why=f"the base is red: {way_on}",
+        )
     for rule in PREPARING:
         found = rule(record, world)
         if isinstance(found, Due):
@@ -56,11 +65,29 @@ def preparing(record: Record, world: World) -> Due:
     return Due(step="wait", why="every step holds: the forge has the pull request")
 
 
+def pending(record: Record, world: World, landing: Landing) -> Due | None:
+    """Settle the forge's answer first, then honor the seat block before any new work."""
+    left = reconcile.pending(landing, world)
+    if left is not None and (left.step != "merge" or landing.intent is not None):
+        return left
+    refused = seat_refusal(record)
+    if refused is not None:
+        return Due(step="wait", why=f"{refused.why}; {refused.fix}")
+    checked = checks.holds(record, world)
+    if (
+        isinstance(checked, Due)
+        and landing.proposed
+        and landing.proposed.tip == world.tip
+    ):
+        return Due(step="start", why=f"{checked.why}: a new round")
+    return left
+
+
 def opened(record: Record, world: World) -> Due:
     """The due step of an open pull request: what a merge call left, a new round (a tip that
     moved, a read that says another round), the merge agent's read, then the merge."""
     landing = record.landing or Landing()
-    left = reconcile.pending(landing, world)
+    left = pending(record, world, landing)
     if left is not None:
         return left
     proposed = landing.proposed

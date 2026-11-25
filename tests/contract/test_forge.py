@@ -112,6 +112,7 @@ def test_a_rebase_merge_replays_each_commit_and_reports_the_base_before_them(
     done = world.forge.merge(opened.number, head, "rebase", TEXT)
     assert isinstance(done, MergeDone)
     assert done.base_parent == base
+    assert world.forge.pull(opened.number).base_parent == base
     assert run_git(world.repo.origin, "rev-list", "--count", f"{base}..main") == "2"
     merging = [call for call in world.calls() if call[:2] == ["pr", "merge"]]
     assert "--rebase" in merging[0]

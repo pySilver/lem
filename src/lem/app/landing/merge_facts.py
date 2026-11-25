@@ -109,7 +109,9 @@ def facts_of(context: Context, landing: Landing, read: tuple[Pull, Proposed]) ->
         ).paths,
         track="standard" if task.shape and task.shape.track == "full" else "fast",
         files=texts_of(context.folder, proposed),
-        reviews=found(context.folder, "reviews/review-*"),
+        reviews=tuple(
+            str(context.folder / one.review) for one in landing.reviews if one.review
+        ),
         decisions=f"lem decisions list {task.slug}",
         green=not proposed.reasons,
         not_green=proposed.reasons,

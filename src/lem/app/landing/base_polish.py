@@ -34,19 +34,17 @@ def kept_each(context: frame.Context, start: Sha, tip: Sha) -> bool:
 
 def polish(context: frame.Context, tip: Sha, before: Sha | None) -> Polished | None:
     """The polish pass with its last commit by its name on the tip a rebase made: the commit as
-    far from the tip as it was from the tip before, while the rebase kept each commit; with no
-    last commit when it dropped one or more (the pass runs again). None when it needs no new
-    name or is not in the tip before (`land.through_rebase` on `main`); `before` is the tip
-    before a rebase a stop cut before its record."""
+    far from the tip as it was from the tip before. A rebase that drops a commit drops the
+    pass. `before` is the tip before a rebase a stop cut before its record."""
     git, start = context.ports.git, before or entry(context)
     polished = (context.record.landing or Landing()).polished
     last = polished.after if polished else None
     if polished is None or last is None or start is None or start == tip:
-        return None
+        return polished
     if not git.is_ancestor(context.worktree, last, start):
-        return None
+        return polished
     if not kept_each(context, start, tip):
-        return replace(polished, after=None)
+        return None
     return replace(polished, after=renamed(context, last, start, tip))
 
 

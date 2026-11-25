@@ -12,7 +12,7 @@ import msgspec
 import pytest
 from msgspec.structs import replace
 
-from lem.app.landing import review_changes, review_files
+from lem.app.landing import review_answer, review_changes, review_files
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
     careful,
@@ -489,16 +489,19 @@ def test_the_review_covers_its_tip_and_the_commit_file_made_after_it() -> None:
     assert review.holds(record, world()).why.startswith("the newest review covers")
     moved = review.holds(record, world(tip=OTHER))
     assert moved.why == "nobody reviewed what changed after it"
-    filed_after = replace(CHECKED, tip=OTHER, items_after=("docs/backlog/x.md",))
+    filed_after = replace(CHECKED, items_after=("docs/backlog/x.md",))
     after = task(**{**PREPARED, "checked": filed_after})
-    assert review.holds(after, world(tip=OTHER)).why.startswith(
-        "the newest review covers"
+    assert due_of(review.holds(after, world(tip=OTHER))) == "read"
+    proved = world(tip=OTHER, item_chain=(TIP, OTHER))
+    assert review.holds(after, proved).why.startswith("the newest review covers")
+    stale = task(
+        **{
+            **PREPARED,
+            "checked": filed_after,
+            "reviews": (replace(REVIEWED, tip=BASE),),
+        }
     )
-    late = replace(filed_after, at=MOMENT.replace(hour=11))
-    assert (
-        due_of(review.holds(task(**{**PREPARED, "checked": late}), world(tip=OTHER)))
-        == "read"
-    )
+    assert due_of(review.holds(stale, proved)) == "read"
 
 
 def test_a_resolution_of_a_conflict_gets_one_read_of_what_it_changed() -> None:
@@ -618,7 +621,7 @@ def test_a_record_that_does_not_read_is_refused_with_its_form(tmp_path: Path) ->
     bad = tmp_path / "review-1.json"
     bad.write_text("{not json")
     with pytest.raises(Refusal) as refused:
-        review_files.said(bad)
+        review_answer.said(bad)
     assert refused.value.code == "review-file"
     assert "careful_why" in refused.value.fix
 
@@ -826,7 +829,7 @@ def test_the_items_filed_after_a_clean_read_of_the_resolution_keep_its_cover() -
     solved = replace(
         REVIEWED, attempt=2, of="resolution", scope="resolution", findings=()
     )
-    filed_after = replace(CHECKED, tip=BASE, items_after=("docs/backlog/x.md",))
+    filed_after = replace(CHECKED, items_after=("docs/backlog/x.md",))
     record = task(
         **{
             **PREPARED,
@@ -835,6 +838,6 @@ def test_the_items_filed_after_a_clean_read_of_the_resolution_keep_its_cover() -
             "checked": filed_after,
         }
     )
-    assert review.holds(record, world(tip=BASE)).why.startswith(
+    assert review.holds(record, world(tip=BASE, item_chain=(TIP, BASE))).why.startswith(
         "the newest review covers"
     )

@@ -15,6 +15,7 @@ from lem.model.criteria import contract
 from lem.model.landing import (
     green,
     merge,
+    proposal_carry,
     propose_careful,
     propose_gates,
     propose_lines,
@@ -23,7 +24,7 @@ from lem.model.landing import (
 from lem.model.landing.propose_facts import small
 from lem.model.landing.world import Due, Held, PullSeen, World
 from lem.records.base import Frozen
-from lem.records.landing.propose import Proposed
+from lem.records.landing.propose import MergeRead, Proposed
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
@@ -43,13 +44,14 @@ class Proposal(Frozen, frozen=True, kw_only=True):
     proposed: Proposed
     careful: tuple[str, ...] = ()
     notes: propose_notes.Notes = propose_notes.Notes()
+    read: MergeRead | None = None
 
 
 def holds(record: Record, world: World) -> Held | Due:
     """Whether the forge proposes this tip, as Lem pushed it."""
     landing = record.landing or Landing()
     proposed = landing.proposed
-    if proposed is None or proposed.tip != world.tip:
+    if landing.phase == "preparing" or proposed is None or proposed.tip != world.tip:
         return Due(step=STEP, why="no pull request proposes this tip")
     pull = world.pull
     if landing.pushed != world.tip or pull is None:
@@ -118,7 +120,7 @@ def written(
 
 def made(record: Record, world: World, careful: tuple[str, ...]) -> Proposed:
     """The proposal of the tip now: green or the reasons it is not, and who merges it."""
-    reasons = green.reasons(record, careful)
+    reasons = green.reasons(record, careful, world)
     return Proposed(
         tip=world.tip or "",
         base=world.base,
@@ -146,10 +148,12 @@ def decide(
     )
     if isinstance(adopt, Refusal):
         return adopt
+    proposed, read = proposal_carry.judged(record, world, made(record, world, careful))
     return Proposal(
         push=world.remote != world.tip,
         adopt=adopt,
-        proposed=made(record, world, careful),
+        proposed=proposed,
+        read=read,
         careful=careful,
         notes=notes,
     )

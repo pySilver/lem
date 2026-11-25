@@ -90,6 +90,7 @@ their own `say`, and take the landing up as after a cut-off.
    them: `lem task move SLUG ready --start-over "WHY"`, where a refusal names it. Its reviews then
    stay on the task's record as the landing's before, the new review starts at attempt 1, and the
    owner's standing merge ends with "the landing started over: WHY"; tell him WHY in one line.
+   Checks that still cover the tip on the same base stay.
    When `start` then refuses for want of a command of the checks, your one line says both.
 2. **`base`.** The base branch is brought in by a rebase. Before it, with a GitHub remote, the
    step asks origin for the task's own branch: a commit there that Lem did not push (a teammate's
@@ -197,13 +198,15 @@ their own `say`, and take the landing up as after a cut-off.
    on the base. A failure the change caused, it fixes and commits, and `lem land next SLUG` names
    the checks again. A failure the base already has is not this task's to carry and not these
    checks' to hide: open a task for the failing command ("Open the task" of `stages/new.md`, with
-   no talk), tell the owner in one line that this task waits for that one, and
+   no talk). Run `lem task red-base SLUG --after REPAIR` for this task, tell the owner in one line
+   that it waits for the repair, and
    `run-in-background` with `lem session wait REPAIR --until landed,dropped,answered`, REPAIR
    being the new task. When it ends with `"gone": true`, that task's session is gone: open it
    again once, `lem session open REPAIR --why dead`, and wait again; a second time, tell the owner
-   in one line. When it ends with that task `landed`, `lem land next SLUG` names the step that
-   brings this task onto the green base, and the landing goes on with what it carried; otherwise
-   tell the owner in one line. Skipping or changing a command of the checks is the owner's
+   in one line. When the repair lands, run `lem task move SLUG ready --line "the base is green again"`
+   to lift the hold. Then `lem land next SLUG` names the step that takes the landing on with what
+   it carried. If the repair is dropped or answered, tell the owner in one line and wait for his
+   word before you lift the hold. Skipping or changing a command of the checks is the owner's
    decision only. After two builders on the same failure, tell the owner in one line, start no
    third, and wait for his word.
 5. **The review**, before anything is proposed, when `lem land next SLUG` names `read`. A review

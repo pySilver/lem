@@ -46,13 +46,13 @@ def git_env() -> dict[str, str]:
     }
 
 
-def run_git(where: Path, *args: str) -> str:
+def run_git(where: Path, *args: str, author: dict[str, str] | None = None) -> str:
     """`git -C WHERE ARGS`, its output without the last line end; a test fails when git does."""
     ran = subprocess.run(
         ["git", "-C", str(where), *args],
         capture_output=True,
         text=True,
-        env=git_env(),
+        env={**git_env(), **(author or {})},
         check=False,
         timeout=60,
     )
@@ -235,9 +235,24 @@ class RealRepo:
             tree = self.tree_of_merge(current, sha, base=f"{sha}^")
             if isinstance(tree, Conflict):
                 return tree
-            message = run_git(self.origin, "log", "-1", "--format=%B", sha)
+            original = run_git(
+                self.origin, "show", "-s", "--format=%an%x00%ae%x00%aI%x00%B", sha
+            )
+            name, email, date, message = original.split("\0", 3)
+            author = {
+                "GIT_AUTHOR_NAME": name,
+                "GIT_AUTHOR_EMAIL": email,
+                "GIT_AUTHOR_DATE": date,
+            }
             current = run_git(
-                self.origin, "commit-tree", tree, "-p", current, "-m", message
+                self.origin,
+                "commit-tree",
+                tree,
+                "-p",
+                current,
+                "-m",
+                message,
+                author=author,
             )
         return current
 

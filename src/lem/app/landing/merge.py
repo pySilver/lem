@@ -18,6 +18,7 @@ from lem.app.landing import (
     merge_word,
     merge_world,
     reconcile,
+    step_release,
 )
 from lem.kernel.errors import Refusal
 from lem.model.landing import merge, merge_asked
@@ -74,7 +75,8 @@ def act(
     """Take the merge lock, read the record and the world again, and merge on what they say
     now (`main:land.merge_locked`)."""
     with merge_lock.held(context):
-        return locked(context.again(), asked, before_call)
+        refreshed = context.again(ends=step_release.has_intent(context.record))
+        return locked(refreshed, asked, before_call)
 
 
 def run(

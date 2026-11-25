@@ -6,7 +6,7 @@ and the size are `checks_bar.py`.
 
 from typing import TYPE_CHECKING
 
-from lem.app.landing import checks_criteria, checks_git
+from lem.app.landing import checks_criteria, checks_git, checks_plan
 from lem.model.landing import checks, checks_ended, checks_red
 from lem.records.landing.checks import CriterionCheck
 
@@ -38,6 +38,8 @@ def taken(context: frame.Context) -> str | None:
     if polish is None or polish.run is None:
         return None
     now = checks_criteria.inputs(context.workspace, record)
+    if not checks_plan.can_take(context.worktree, record, now):
+        return None
     kept = checks.pass_kept(polish, checks_criteria.digest(now), small=small(record))
     return polish.run.tip if kept else None
 

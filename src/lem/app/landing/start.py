@@ -3,13 +3,12 @@ outside the record: a task whose project names no command of the checks is block
 open task whose pull request the forge calls conflicting starts its new round with
 `--conflicting` whatever step was due."""
 
-import tomllib
 from functools import partial
 from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import frame, head, say, step
+from lem.app.landing import frame, head, review_archive, say, step
 from lem.kernel import clock
 from lem.kernel.envelope import Envelope
 from lem.kernel.errors import Refusal
@@ -21,43 +20,12 @@ if TYPE_CHECKING:
 
     from lem.records.landing.start import Started
 
-SETTINGS = ".lem/settings.toml"
-
-
-class Own(msgspec.Struct, frozen=True, kw_only=True):
-    """The checks a branch's own settings name."""
-
-    commands: tuple[str, ...] = ()
-
-
-class Branched(msgspec.Struct, frozen=True, kw_only=True):
-    """The tables of a branch's own settings that `start` reads."""
-
-    checks: Own = Own()
-
-
-def own_commands(context: frame.Context) -> tuple[str, ...]:
-    """The commands of the checks the branch's own settings name at its tip, read only while
-    the main checkout's name none; none where the file is not there or not TOML."""
-    world = context.world
-    if world.rules.commands or world.tip is None:
-        return ()
-    found = context.ports.git.show(context.worktree, world.tip, SETTINGS)
-    try:
-        return msgspec.convert(
-            tomllib.loads((found or b"").decode()), Branched
-        ).checks.commands
-    except tomllib.TOMLDecodeError, UnicodeDecodeError, msgspec.ValidationError:
-        return ()
-
 
 def act(context: frame.Context, *, conflicting: bool) -> Started:
     """Record the start of the round, or the block of a task with no command of the checks."""
     record, world = context.record, context.world
     on = head.branch_of(context.worktree) if world.tip else None
-    facts = start.Facts(
-        on_branch=on == world.branch, own_commands=own_commands(context)
-    )
+    facts = start.Facts(on_branch=on == world.branch)
     started = start.decide(record, world, facts, conflicting=conflicting)
     if isinstance(started, Refusal):
         if started.code == "no-checks" and not begin.is_blocked(record):
@@ -65,6 +33,7 @@ def act(context: frame.Context, *, conflicting: bool) -> Started:
                 record, partial(begin.blocked, refusal=started, now=world.now)
             )
         raise started
+    review_archive.before_start(record, context.folder)
     context.write(record, partial(begin.begun, started=started))
     return started
 

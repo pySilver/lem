@@ -11,6 +11,7 @@ from lem.records.journal.task import Summary
 from lem.records.landing.propose import OwnerMerge
 
 if TYPE_CHECKING:
+    from lem.records.landing.record import Landing
     from lem.records.record import Record
     from lem.records.task import Task
 
@@ -42,12 +43,22 @@ def answer_refusal(task: Task, *, report: bool) -> Refusal | None:
     return None
 
 
+def restartable(landing: Landing, slug: str) -> None:
+    """Settle any forge call before the landing starts over."""
+    if landing.intent is not None or landing.accepted is not None:
+        raise Refusal(
+            "merge-pending",
+            f"{slug} has a merge call to settle before its landing can start over",
+            f"lem land next {slug} names the step that settles it",
+        )
+
+
 def started_over(record: Record, why: str) -> Record:
-    """The landing started over: its reviews archived, its attempts from 1, the owner's
-    standing merge and the carried reads cleared, and his merge ended with `why`."""
+    """The landing started over: its reviews archived and a new round due."""
     landing = record.landing
     if landing is None:
         return record
+    restartable(landing, record.task.slug)
     proposed = landing.proposed
     if proposed is not None:
         ended = OwnerMerge(state="ended", why=f"the landing started over: {why}")
@@ -55,9 +66,14 @@ def started_over(record: Record, why: str) -> Record:
     archived = (*landing.archived, *landing.reviews)
     changed = replace(
         landing,
+        round=landing.round + 1,
+        phase="preparing",
         reviews=(),
+        filed=(),
+        resolution=None,
         reads=(),
         standing=None,
+        refused=None,
         archived=archived,
         proposed=proposed,
     )

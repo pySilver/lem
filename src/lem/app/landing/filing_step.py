@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 
 from lem.app.landing import filing, step
 from lem.app.landing import next as next_step
-from lem.store import places, tasks
+from lem.app.tasks import release
+from lem.store import places
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
 def due_step(folder: Path, slug: str) -> str:
     """The step due for the task now, as `lem land next` names it."""
     workspace = places.workspace(folder)
-    return next_step.due_of(workspace, tasks.read(workspace.state, slug)).step
+    return next_step.due_of(workspace, release.checked(workspace.state, slug)).step
 
 
 def run(folder: Path, slug: str, flags: Flags) -> Envelope:

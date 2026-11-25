@@ -45,7 +45,22 @@ def careful(proposal: Proposal) -> tuple[str, ...]:
     return (f"**Careful**, so the owner merges it: {listed}.",)
 
 
+def carried(proposal: Proposal) -> tuple[str, ...]:
+    """What the prior merge read and the owner's approval carry into this proposal."""
+    made = proposal.proposed
+    shown = (made.merge_review_why,) if made.merge_review_why else ()
+    owner = made.owner_merge
+    if owner is None:
+        return shown
+    how = "stands" if owner.state == "stands" else "ended"
+    return (*shown, f"The owner's merge {how}: {owner.why}.")
+
+
 def blocks(record: Record, proposal: Proposal) -> tuple[Block, ...]:
     """The head's blocks."""
     without = block(None, alone(record))
-    return (verdict(proposal), *without, *block(None, careful(proposal)))
+    return (
+        verdict(proposal),
+        *without,
+        *block(None, careful(proposal) + carried(proposal)),
+    )

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
-from lem.model.landing import merge_lines, mergeread, reconcile_queue
+from lem.model.landing import destination, merge_lines, mergeread, reconcile_queue
 from lem.model.landing.invariants import target
 from lem.model.landing.world import Due, Merger, PullSeen, World
 from lem.records.base import Frozen, Sha
@@ -55,7 +55,9 @@ def pending(landing: Landing, world: World) -> Due | None:
     if intent is not None:
         return intent
     elsewhere = (
-        pull is not None and pull.state == "merged" and pull.base != world.rules.base
+        pull is not None
+        and pull.state == "merged"
+        and pull.base != (destination.recorded(landing) or world.rules.base)
     )
     if refused is not None and elsewhere and landing.intent is None:
         return Due(step="wait", why=refused.line)
@@ -119,7 +121,7 @@ def made(
         base_read=read.base if read else None,
         at=world.now,
     )
-    line, uncovered = line_of(landing, merged, trees, world.rules.base)
+    line, uncovered = line_of(landing, merged, trees, merged.destination)
     return replace(
         merged, uncovered=line if uncovered else None, text_updated=line is None
     )
@@ -131,7 +133,8 @@ def landed(
     """The merge the forge shows, to record (`facts`: who merged, through what, and the
     trees it is judged by), or why it is no landing: another destination, which leaves the
     task open with nothing cleaned, or a merge whose commit the forge does not report yet."""
-    wrong = target(pull.base, world.rules, pull.url)
+    base = destination.recorded(record.landing) or world.rules.base
+    wrong = target(pull.base, replace(world.rules, base=base), pull.url)
     slug = record.task.slug
     if wrong is not None:
         return wrong

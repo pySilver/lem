@@ -18,7 +18,9 @@ def own(checked: Checked) -> tuple[str, ...]:
     later task is checked by these."""
     if not checked.own_checks:
         return ()
-    named = ", ".join(f"`{outcome.command}`" for outcome in checked.outcomes)
+    named = ", ".join(
+        f"`{outcome.command}`" for outcome in checked.outcomes if not outcome.serial
+    )
     return (
         (
             "the checks came with this change: the main checkout's settings name no "

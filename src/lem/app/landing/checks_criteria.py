@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import checks_git, checks_red_places, checks_red_run
+from lem.app.landing import checks_git, checks_plan, checks_red_places, checks_red_run
 from lem.app.tasks import where
 from lem.kernel import errors, files
-from lem.model.landing import checks, checks_red
+from lem.model.landing import checks, checks_red, destination
 from lem.records.red import Inputs, Red
 from lem.settings.load import base_of, team_of
 from lem.store import places, tasks
@@ -53,11 +53,16 @@ def inputs(workspace: places.Workspace, record: Record) -> Inputs:
     worktree = worktree_of(workspace, record)
     team = team_of(workspace.checkout)
     tip = checks_git.text(worktree, "rev-parse", "HEAD").strip()
-    onto = checks_red_places.onto_of(workspace.checkout, base_of(team))
+    base = destination.recorded(record.landing) or base_of(team)
     plan = record.task.plan
     return Inputs(
         tip=tip,
-        base=checks_git.text(worktree, "merge-base", tip, onto).strip(),
+        base=checks_git.text(
+            worktree,
+            "merge-base",
+            tip,
+            checks_red_places.onto_of(workspace.checkout, base),
+        ).strip(),
         plan=plan.path if plan else None,
         setup=team.checks.setup,
         serial=team.checks.serial,
@@ -73,7 +78,8 @@ def checked(workspace: places.Workspace, record: Record, found: Inputs) -> None:
     """Refuse a run that may not start (`checks_red.precondition`)."""
     worktree = worktree_of(workspace, record)
     team = team_of(workspace.checkout)
-    onto = checks_red_places.onto_of(workspace.checkout, base_of(team))
+    base = destination.recorded(record.landing) or base_of(team)
+    onto = checks_red_places.onto_of(workspace.checkout, base)
     refusal = checks_red.precondition(
         record.task.criteria.criteria,
         checks_git.changed(worktree),
@@ -91,7 +97,7 @@ def prepared(workspace: places.Workspace, record: Record) -> checks_red_run.Run:
     found = inputs(workspace, record)
     checked(workspace, record, found)
     worktree = worktree_of(workspace, record)
-    criteria = record.task.criteria
+    criteria = checks_plan.verified(worktree, record, found)
     tests = checks_red.tests_of(criteria.criteria)
     return checks_red_run.Run(
         checkout=workspace.checkout,

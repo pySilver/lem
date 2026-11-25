@@ -12,7 +12,9 @@ import subprocess
 from typing import TYPE_CHECKING
 
 import msgspec
+from msgspec.structs import replace
 
+from lem.adapters import forge_gh_history
 from lem.adapters.forge_gh_shell import (
     FIELDS,
     JSON,
@@ -21,11 +23,13 @@ from lem.adapters.forge_gh_shell import (
     GhPull,
     cleaned,
     last_words,
+    packet,
 )
 from lem.ports.faults import Unanswered
 from lem.ports.forge_facts import MergeDenied, MergeDone, MergeTaken, Repo
 
 if TYPE_CHECKING:
+    from lem.ports.forge import Forge
     from lem.ports.forge_facts import MergeMethod, MergeOutcome, MergeText, Pull
 
 BODY = ("--body-file", "-")
@@ -78,7 +82,12 @@ class Pulls(Gh):
         return self.pull(number)
 
     def pull(self, number: int) -> Pull:
-        return self.viewed(number)
+        read = packet(self, number)
+        shown = self.pull_of(read, depth=None)
+        if shown.state != "merged" or shown.merge_commit is None:
+            return shown
+        parent = forge_gh_history.parent(self, read, shown.merge_commit)
+        return replace(shown, base_parent=parent)
 
     def open_pulls(self) -> tuple[Pull, ...]:
         said = self.said(PR, "list", "--state", "open", "--limit", "100", JSON, FIELDS)
@@ -161,3 +170,13 @@ def denied(ran: subprocess.CompletedProcess[str]) -> MergeDenied:
     if "conflict" in lowered:
         return MergeDenied(kind="base", said=said)
     return MergeDenied(kind="rule", said=said)
+
+
+def after_merge(forge: Forge, number: int, done: MergeDone) -> Pull:
+    """Read the destination and use the call's evidence when GitHub shows the same merge."""
+    if isinstance(forge, Pulls):
+        pull = forge.pull_of(packet(forge, number), depth=None)
+        same = (pull.merge_commit, pull.merged_head) == (done.commit, done.merged_head)
+        if pull.state != "merged" or same:
+            return pull
+    return forge.pull(number)

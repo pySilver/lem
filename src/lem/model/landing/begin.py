@@ -22,6 +22,9 @@ if TYPE_CHECKING:
 def again(landing: Landing, started: Started) -> Landing:
     """An open task's landing in a new round: counted, back in `preparing`, and with no
     resolution of a conflict of a round before."""
+    refused = landing.refused
+    if refused and refused.source == "lem" and refused.kind == "tip":
+        refused = None
     return replace(
         landing,
         round=started.round,
@@ -29,6 +32,7 @@ def again(landing: Landing, started: Started) -> Landing:
         phase="preparing",
         started=started,
         resolution=None,
+        refused=refused,
     )
 
 

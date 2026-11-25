@@ -9,6 +9,7 @@ from lem.app.landing import (
     changes,
     checks_criteria,
     checks_diff,
+    checks_plan,
     checks_ready,
     checks_record,
 )
@@ -53,6 +54,8 @@ def run_of(context: frame.Context, commits: int) -> PassRun | None:
     """The pass's run of the criteria's tests, when it committed anything; refused when they
     do not hold."""
     if not commits:
+        found = checks_criteria.inputs(context.workspace, context.record)
+        checks_plan.verified(context.worktree, context.record, found)
         return None
     red = checks_criteria.red(context.workspace, context.record, context.world.now)
     refused = checks_red.failed(red)

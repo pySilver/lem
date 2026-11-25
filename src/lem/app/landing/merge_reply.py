@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing.world import seen
+from lem.adapters.forge_gh_pulls import after_merge
+from lem.app.landing import pull_identity
 from lem.model.landing.reconcile_queue import accepted
 from lem.ports import forge_facts
 from lem.records.landing import merge as facts
@@ -17,7 +18,10 @@ if TYPE_CHECKING:
 def merged_pull(context: Context, number: int, done: forge_facts.MergeDone) -> PullSeen:
     """The pull request after the forge merged it, its destination as the forge reports it,
     with the merge's own commits where the report lags behind the merge."""
-    pull = seen(context.ports.forge.pull(number))
+    shown = after_merge(context.ports.forge, number, done)
+    pull = pull_identity.seen(pull_identity.checked(context.record, shown))
+    if (pull.merge_commit, pull.merged_head) == (done.commit, done.merged_head):
+        return replace(pull, base_parent=done.base_parent)
     if pull.state == "merged":
         return pull
     return replace(

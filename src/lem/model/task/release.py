@@ -65,3 +65,8 @@ def refusal(record: Record) -> Refusal:
         said,
         f"/lem drop {slug}, then /lem resume {slug}, on the owner's word",
     )
+
+
+def guard(record: Record) -> Refusal | None:
+    """Stop a new act after a read that also permits terminal bookkeeping."""
+    return refusal(record) if isinstance(record.task.hold, ReleaseHold) else None
