@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import threading
 from http import HTTPStatus
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
@@ -107,6 +108,14 @@ def test_peer_pages_assets_union_and_loop_guard(tmp_path: Path) -> None:
             Route("/beta/redirect", redirect),
         )
         alpha = board(alpha_home, "alpha", ALPHAS)
+        loop_thread = threading.get_ident()
+
+        def own_rows(request: Request) -> tuple[rows.Row, ...]:
+            if "peer" in request.path_params:
+                assert threading.get_ident() != loop_thread
+            return ALPHAS
+
+        alpha.state.peer_own_rows = own_rows
         alpha.state.peer_registry = registry.Registry(
             home=alpha_home,
             own="alpha",

@@ -456,12 +456,15 @@ def test_the_server_merges_the_reviewed_new_tip_after_a_new_round(
         if verb is not None and due(capsys, world) == verb:
             answer = step(capsys, world)
             assert answer["ok"] is True, answer
-    tip = world.record()["landing"]["proposed"]["tip"]
+    landing = world.record()["landing"]
+    tip = landing["proposed"]["tip"]
     assert tip != old
+    assert landing["proposed"]["owner_merge"]["state"] == "stands"
+    assert landing["standing"]["tip"] == tip
     ticked(world, own_home, now + timedelta(seconds=1))
     merged = world.record()["landing"]["merged"]
     assert (merged["by"], merged["via"], merged["merged_head"]) == (
-        "merger",
+        "owner",
         "server",
         tip,
     )

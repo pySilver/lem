@@ -3,6 +3,7 @@
 from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.routing import Match, Route
@@ -43,11 +44,11 @@ async def forward(request: Request) -> Response:
             "Only a read passes to another machine.",
             status_code=HTTPStatus.METHOD_NOT_ALLOWED,
         )
-    host = request.path_params["peer"]
     registry = peers(request)
-    machine = registry.known[host]
+    machine = registry.known[request.path_params["peer"]]
     local = getattr(request.app.state, "peer_own_rows", empty)
-    listed = await spaces(request, local(request))
+    own = await run_in_threadpool(local, request)
+    listed = await spaces(request, own)
     return await relay.relay(request, machine, registry, listed)
 
 
