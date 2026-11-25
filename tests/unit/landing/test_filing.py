@@ -7,6 +7,7 @@ defect's place by the review's call, the item `file` writes, the words `--same`,
 import itertools
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import httpx
 import msgspec
@@ -27,8 +28,12 @@ from lem.model.landing import (
 from lem.model.landing.filing_place import Shelf
 from lem.ports.judge import Defect, NotAsked, Score
 from lem.ports.place import Place
-from lem.records.landing.review import Filed, Finding
+from lem.records.landing.record import Landing
+from lem.records.landing.review import Filed, Finding, Reviewed
 from unit.landing.worlds import MOMENT, PREPARED, REVIEWED, task, world
+
+if TYPE_CHECKING:
+    from lem.records.record import Record
 
 FOLDER = "docs/backlog"
 PADS = items.Defect(
@@ -39,6 +44,12 @@ PADS = items.Defect(
 WHY = "no user is confused, no contract breaks"
 SEEN = "Seen outside the change by review round 1 of task export-notes (2026-11-23); the base commit has it."
 ROOT = Path(__file__).resolve().parents[3]
+
+
+def refused_of(found: object) -> Refusal:
+    """The refusal; a case fails on anything else."""
+    assert isinstance(found, Refusal), found
+    return found
 
 
 def finding(number: str = "r1.1", against: str = "over", **fields: object) -> Finding:
@@ -53,11 +64,11 @@ def finding(number: str = "r1.1", against: str = "over", **fields: object) -> Fi
     return replace(made, against=against, **fields)
 
 
-def reviewed(*found: Finding) -> object:
+def reviewed(*found: Finding) -> Reviewed:
     return replace(REVIEWED, findings=found, to_file=tuple(one.id for one in found))
 
 
-def record_of(*found: Finding, filed: tuple[Filed, ...] = ()) -> object:
+def record_of(*found: Finding, filed: tuple[Filed, ...] = ()) -> Record:
     return task(**{**PREPARED, "reviews": (reviewed(*found),), "filed": filed})
 
 
@@ -237,7 +248,7 @@ def test_every_defect_has_its_place_before_propose() -> None:
             "filed": (),
         }
     )
-    assert filing.waiting(silent.landing) == ()
+    assert filing.waiting(silent.landing or Landing()) == ()
 
 
 # The words `--same`, `--new` and `--again`.
@@ -250,14 +261,14 @@ def test_file_refuses_a_defect_named_by_both_same_and_new_and_a_number_of_no_wai
     there = shelf((held, written(PADS, "later")))
     record = record_of(finding())
     both = filing_flags.Flags(same=(f"r1.1={held}",), new=("r1.1",))
-    assert filing.decide(record, world(), there, both).code == "same-new"
-    stray = filing.decide(record, world(), there, filing_flags.Flags(new=("r1.9",)))
+    assert refused_of(filing.decide(record, world(), there, both)).code == "same-new"
+    stray = refused_of(
+        filing.decide(record, world(), there, filing_flags.Flags(new=("r1.9",)))
+    )
     assert stray.code == "same-new" and "the ones here are r1.1" in stray.why
     for word in ("r1=docs/backlog/held.md", "r1.1=docs/backlog/gone.md", "r1.1"):
-        assert (
-            filing.decide(record, world(), there, filing_flags.Flags(same=(word,))).code
-            == "same"
-        )
+        flags = filing_flags.Flags(same=(word,))
+        assert refused_of(filing.decide(record, world(), there, flags)).code == "same"
     same = filing.decide(
         record, world(), there, filing_flags.Flags(same=(f"r1.1={held}",))
     )
@@ -277,7 +288,7 @@ def test_an_item_that_was_filed_and_then_removed_stops_file_and_again_puts_it_ba
     path = f"{FOLDER}/format-day-pads-the-day-with-a-space.md"
     filed = Filed(finding="r1.1", disposition="item", path=path, worth="later")
     record = record_of(finding(), filed=(filed,))
-    stopped = filing.decide(record, world(), shelf(), filing_flags.Flags())
+    stopped = refused_of(filing.decide(record, world(), shelf(), filing_flags.Flags()))
     assert (
         stopped.code == "item-gone" and path in stopped.why and "--again" in stopped.fix
     )
@@ -465,7 +476,7 @@ def test_every_item_is_asked_in_requests_each_under_the_limit_and_comes_back_by_
     sent: list[dict] = []
     found = bound(tmp_path, answering(0.6, sent)).same_items(DEFECT, tuple(paths))
     assert not isinstance(found, NotAsked)
-    assert sorted(score.path for score in found) == sorted(paths)
+    assert sorted(str(score.path) for score in found) == sorted(paths)
     assert len(sent) > 1
     sizes = [
         len(msgspec.json.encode(one["body"]["state"]))

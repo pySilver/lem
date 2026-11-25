@@ -23,9 +23,11 @@ from lem.model.landing import (
     review_said,
 )
 from lem.model.landing.review_said import Named, Outside, Said
+from lem.model.landing.world import Due
 from lem.records.journal.landing import CarefulMissed, ReviewRound
 from lem.records.journal.task import SpanMark
 from lem.records.landing.checks import Lowered
+from lem.records.landing.record import Landing
 from lem.records.landing.review import Finding
 from lem.records.landing.start import Resolution
 from lem.records.task import Shape
@@ -79,8 +81,19 @@ def decoded(body: dict) -> Said:
 
 
 def code_of(found: object) -> str:
+    return refused_of(found).code
+
+
+def refused_of(found: object) -> Refusal:
+    """The refusal; a case fails on anything else."""
     assert isinstance(found, Refusal), found
-    return found.code
+    return found
+
+
+def due_of(found: object) -> str:
+    """The step a rule says is due; a case fails on anything else."""
+    assert isinstance(found, Due), found
+    return found.step
 
 
 def fresh() -> Record:
@@ -306,7 +319,7 @@ def test_a_review_is_refused_under_its_floor_without_a_careful_call_or_careful_a
     assert code_of(under) == "under-floor"
     assert (
         "the project's full set at the least (the request is careful: a customer is charged)"
-        in under.why
+        in refused_of(under).why
     )
 
 
@@ -372,7 +385,7 @@ def test_each_reason_the_request_is_careful_in_main_s_order() -> None:
         made, task=replace(made.task, plan=Plan(path="p.md", careful="money moves"))
     )
     called = replace(REVIEWED, careful=True, careful_why="billing/total sets the price")
-    reviewed = replace(planned, landing=replace(planned.landing, reviews=(called,)))
+    reviewed = replace(planned, landing=replace(Landing(), reviews=(called,)))
     settings = careful.Seen(
         touched=True,
         base='[branch]\nland = "owner"\n',
@@ -459,7 +472,7 @@ def test_a_review_nobody_answered_is_started_once_more_then_the_request_goes_on(
     first = review.decide(record, world(), silent, FACTS)
     assert not isinstance(first, Refusal) and first.careful is None
     once = task(**{**PREPARED, "reviews": (first,), "filed": ()})
-    assert review.holds(once, world()).step == "read"
+    assert due_of(review.holds(once, world())) == "read"
     second = review.decide(once, world(), replace(silent, attempt=2), FACTS)
     assert not isinstance(second, Refusal)
     twice = task(**{**PREPARED, "reviews": (first, second), "filed": ()})
@@ -481,7 +494,7 @@ def test_the_review_covers_its_tip_and_the_commit_file_made_after_it() -> None:
     )
     late = replace(filed_after, at=MOMENT.replace(hour=11))
     assert (
-        review.holds(task(**{**PREPARED, "checked": late}), world(tip=OTHER)).step
+        due_of(review.holds(task(**{**PREPARED, "checked": late}), world(tip=OTHER)))
         == "read"
     )
 
@@ -556,7 +569,7 @@ def test_a_lowered_bar_the_record_says_nothing_of_is_refused_and_its_word_is_kep
     record = task(**{**PREPARED, "reviews": (), "filed": (), "checked": lowered})
     facts = review_due.Facts(lowered=("t.py",))
     refused = review.decide(record, world(), said(), facts)
-    assert code_of(refused) == "bar" and "t.py" in refused.why
+    assert code_of(refused) == "bar" and "t.py" in refused_of(refused).why
     worded = said(lowered=(Named(name="t.py", why="the reason holds"),))
     made = review.decide(record, world(), worded, facts)
     assert not isinstance(made, Refusal)
