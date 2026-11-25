@@ -61,6 +61,13 @@ Lem's acts on a task's sessions are still `session-acts.jsonl` (`app/sessions/ac
 the views read beside the record; once they are journal entries (`notes/sessions.md`), the
 gather reads them from the record and `Seen.acts` goes.
 
+## Facts no `World` field holds yet
+
+`state.keep_days`, the `?key=` and `?words=` of a step and a card's page come in through
+`panel/opened.Opened`; the branch's history (the merge step says "one commit"), the server's
+running merges (`HeadActs.merging`), the act's note on a tab, and Lem's first line of a task
+(`Now.opening`) are not shown.
+
 ## For `board-duties` and `board-service`
 
 - The forge's last look is `world.Forge` (`looked`, `problem`, `conflicts`): the server fills it
@@ -71,8 +78,24 @@ gather reads them from the record and `Seen.acts` goes.
 
 ## Ledger rows given on
 
-`tests/ledger/moves/board-views.tsv`: the rulings of the board's group that another step builds
-(the served app, Tailscale and the server's start: `board-service`; the board's look and its
-icons: `board-pages`; the question page: `ask`; what reaches across tasks: `board-duties`; the
-refusal of a note with no option: `board-acts`), and the duty that watches the owner's mark (the
-stream's refresh: `board-pages`).
+`tests/ledger/moves/board-views.tsv` (19 rows, each with why):
+
+- The rulings of the board's group that another step builds: the served app, Tailscale and the
+  server's start (`board-service`); the board's look and its icons (`board-pages`); the question
+  page (`ask`); what reaches across tasks (`board-duties`); the refusal of a note with no option
+  (`board-acts`); and the duty that watches the owner's mark (the stream's refresh,
+  `board-pages`).
+- Rules a record or a model of another step lacks, which the board then shows:
+  - `owner`: `model/owner/looks.Session` has no `unheard` case (`Listed` has it), so a session
+    that does not answer says one text for every case; `model/owner/turns.GOES_ON` has no
+    `request`, so a request's one answer stays his row while he is away.
+  - `land-merge`: `model/landing/merge_standing.standing_of` says his merge stands after a review
+    calls him with no verdict, and after GitHub refused the server's carrying it out, so the
+    board offers no Merge.
+  - `land-checks`: no record holds a command that ended in a run that still runs, nor the total
+    of a stopped run's commands (`notes/board-inputs.md`, "A run that runs"); two cases of the
+    polish pass's live line and the count of a stopped run wait for it.
+  - `board-duties`: the forge list of a blocked merge seat; the transcripts a pruned task keeps.
+  - `ask`: a card of an earlier session (`Question` has no session field: `notes/owner.md`).
+  - `addons-outside`: the task's own session finding its row while its turn runs
+    (`app/owner/scope.py`).
