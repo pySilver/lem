@@ -1,14 +1,14 @@
 """`lem experts brief`: the experts' brief of one question in words.
 
-    lem experts brief --question Q [--context C] [--option O]... [--file F]... [--seat S]...
-
-A stub until the step `addons-outside` builds it: it refuses `not-built`.
+lem experts brief --question Q [--context C] [--option O]... [--file F]... [--seat S]...
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.addons.experts import ask
+from lem.addons.experts.records import Asked, Brief
+from lem.cli.place import folder
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -21,9 +21,10 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     seats: tuple[str, ...] = ()
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `addons-outside` builds `lem experts brief`."""
-    raise not_built("experts brief", "addons-outside")
+def run(call: Call) -> Brief:
+    """Run the experts command in the active checkout."""
+    asked = msgspec.convert(msgspec.structs.asdict(call), Asked)
+    return ask.ask(folder(), asked)
 
 
 COMMAND = click.Command(
