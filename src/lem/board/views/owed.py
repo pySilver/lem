@@ -40,7 +40,12 @@ def stacks(world: World) -> tuple[Rows, ...]:
 
 def of_task(world: World, slug: str) -> tuple[Row, ...]:
     """The rows of one task, in the list's order."""
-    return tuple(row for row in rows(world) if row.task == slug)
+    return mine(rows(world), slug)
+
+
+def mine(found: Rows, slug: str) -> Rows:
+    """The rows of `found` that are of the task `slug`."""
+    return tuple(row for row in found if row.task == slug)
 
 
 def seen(world: World, slug: str) -> Seen:

@@ -13,6 +13,7 @@ from lem.board.views import cards, kanban_order, owed, standing
 if TYPE_CHECKING:
     from lem.board.inputs.text import Look
     from lem.board.views.world import Seen, World
+    from lem.model.owner.looks import Rows
 
     # A task with where it stands.
     type Placed = tuple[Seen, standing.Standing]
@@ -38,20 +39,22 @@ DONE = "done"
 
 
 def tasks(world: World) -> Tasks:
-    """The four columns of the world's tasks."""
-    placed = placed_of(world)
-    return Tasks(columns=tuple(column(world, spec, placed) for spec in COLUMNS))
+    """The four columns of the world's tasks, from the rows of what waits read once."""
+    rows = owed.rows(world)
+    placed = placed_of(world, rows)
+    columns = (column(world, spec, placed, rows) for spec in COLUMNS)
+    return Tasks(columns=tuple(columns))
 
 
-def placed_of(world: World) -> list[Placed]:
+def placed_of(world: World, rows: Rows) -> list[Placed]:
     """Every task with where it stands."""
     return [
-        (seen, standing.standing(seen, owed.of_task(world, seen.record.task.slug)))
+        (seen, standing.standing(seen, owed.mine(rows, seen.record.task.slug)))
         for seen in world.tasks
     ]
 
 
-def column(world: World, spec: Spec, placed: list[Placed]) -> Column:
+def column(world: World, spec: Spec, placed: list[Placed], rows: Rows) -> Column:
     """One column with its cards, and Done's way to the older ones."""
     mine = [pair for pair in placed if pair[1].column == spec.key]
     order = kanban_order.ordered(spec.key, mine)
@@ -63,7 +66,8 @@ def column(world: World, spec: Spec, placed: list[Placed]) -> Column:
         empty=spec.empty,
         folded=spec.key in world.viewer.folded,
         cards=tuple(
-            cards.card(world, seen, where, TITLES[spec.key]) for seen, where in shown
+            cards.card(world, seen, where, TITLES[spec.key], rows)
+            for seen, where in shown
         ),
         older=older_link(world, len(order) - len(shown)),
     )

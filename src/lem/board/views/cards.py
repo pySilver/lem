@@ -12,13 +12,15 @@ if TYPE_CHECKING:
     from lem.board.inputs.parts import When
     from lem.board.views.standing import Standing
     from lem.board.views.world import Seen, World
+    from lem.model.owner.looks import Rows
 
 DONE = "done"
 JOB = re.compile(r"task (?P<at>\d+) of \d+")
 
 
-def card(world: World, seen: Seen, where: Standing, title: str) -> TaskCard:
-    """A task's card on the column titled `title`."""
+def card(world: World, seen: Seen, where: Standing, title: str, rows: Rows) -> TaskCard:
+    """A task's card on the column titled `title`; `rows` are the workspace's rows of what
+    waits."""
     task = seen.record.task
     named = names.title_of(task.slug)
     return TaskCard(
@@ -33,7 +35,7 @@ def card(world: World, seen: Seen, where: Standing, title: str) -> TaskCard:
         live=where.live and where.column != DONE,
         since=time_of(world, where),
         progress=progress_of(seen, where),
-        chips=chips.chips(seen, owed.of_task(world, task.slug)),
+        chips=chips.chips(seen, owed.mine(rows, task.slug)),
         selected=task.slug == world.viewer.task,
     )
 
