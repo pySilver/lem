@@ -2,22 +2,24 @@
 
     lem session list
 
-A stub until the step `slice-session` builds it: it refuses `not-built`.
+Each task's newest session that Lem opened, with the phase its task is in now, whether agterm
+still has it, and its signs of work (`app/sessions/listing.py`).
 """
 
 import click
 import msgspec
 
-from lem.cli.stub import not_built
+from lem.app.sessions import here, listing
+from lem.cli import place
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """The words of `lem session list`."""
 
 
-def run(call: Call) -> None:
-    """Refuse until the step `slice-session` builds `lem session list`."""
-    raise not_built("session list", "slice-session")
+def run(call: Call) -> tuple[listing.Listed, ...]:
+    """Each task's newest session."""
+    return listing.list_sessions(here.bound(place.folder()))
 
 
 COMMAND = click.Command(
