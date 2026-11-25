@@ -1,9 +1,0 @@
-#!/bin/sh
-# The late `date` of date.py beside this file, on the suites' Python: the checkout's .venv
-# (tests/python.sh), never a python3 that comes first on PATH.
-venv=$(dirname -- "$0")/../../.venv/bin/python
-if [ ! -x "$venv" ]; then
-  echo "tests/clock/date: no .venv/bin/python in the checkout: run uv sync at its root" >&2
-  exit 1
-fi
-exec "$venv" -I "$(dirname -- "$0")/date.py" "$@"
