@@ -43,6 +43,7 @@ import sys
 import time
 import typing
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, NoReturn
 
 from lem import paths
@@ -98,8 +99,8 @@ SOURCED = (
 CODE_MAX_LINES = 300
 
 
-def emit(obj: object, code: int) -> NoReturn:
-    print(json.dumps(obj, ensure_ascii=False))
+def emit(record: object, code: int) -> NoReturn:
+    print(json.dumps(record, ensure_ascii=False))
     sys.exit(code)
 
 
@@ -116,25 +117,25 @@ def load_spec(arg: str | None) -> dict[str, Any]:
             die("no spec: pass a JSON file or pipe one on stdin")
         try:
             raw = sys.stdin.buffer.read().decode("utf-8")
-        except UnicodeDecodeError as e:
-            die(f"the spec on stdin is not UTF-8 text: {e}")
+        except UnicodeDecodeError as error:
+            die(f"the spec on stdin is not UTF-8 text: {error}")
     else:
         try:
-            with open(os.path.expanduser(arg), encoding="utf-8") as f:
-                raw = f.read()
-        except UnicodeDecodeError as e:
-            die(f"the spec {arg} is not UTF-8 text: {e}")
-        except OSError as e:
-            die(f"cannot read the spec: {e}")
+            with open(os.path.expanduser(arg), encoding="utf-8") as stream:
+                raw = stream.read()
+        except UnicodeDecodeError as error:
+            die(f"the spec {arg} is not UTF-8 text: {error}")
+        except OSError as error:
+            die(f"cannot read the spec: {error}")
     try:
         # half of a UTF-16 pair alone ("\ud83d") is U+FFFD, as in what a page sends
         # (`submitted`): the page, the card and every message write as UTF-8
         return typing.cast("dict[str, Any]", lem_cards().whole(json.loads(raw)))
-    except json.JSONDecodeError as e:
-        die(f"spec is not valid JSON: {e}")
-    except (ValueError, RecursionError) as e:
+    except json.JSONDecodeError as error:
+        die(f"spec is not valid JSON: {error}")
+    except (ValueError, RecursionError) as error:
         die(
-            f"spec is JSON that Python cannot read ({e}); "
+            f"spec is JSON that Python cannot read ({error}); "
             "shorten the number or the nesting"
         )
 
@@ -142,70 +143,78 @@ def load_spec(arg: str | None) -> dict[str, Any]:
 # The keys the page reads, so a misnamed one fails here instead of vanishing from the
 # page. A key that starts with "_" is the author's own (`_about` in the templates, or
 # data for a `script`) and passes.
-TOP_KEYS = {
-    "title",
-    "subtitle",
-    "source",
-    "context",
-    "width",
-    "submitLabel",
-    "chat",
-    "script",
-    "style",
-    "review",
-    "size",
-    "questions",
-}
-QUESTION_KEYS = {
-    "id",
-    "header",
-    "prompt",
-    "hint",
-    "context",
-    "body",
-    "recommendation",
-    "mode",
-    "min",
-    "max",
-    "layout",
-    "columns",
-    "expanded",
-    "optional",
-    "text",
-    "toggle",
-    "options",
-    "controls",
-    "preview",
-    "baseline",
-}
-OPTION_KEYS = {
-    "id",
-    "label",
-    "subtitle",
-    "recommended",
-    "badge",
-    "tags",
-    "pros",
-    "cons",
-    "detail",
-    "preview",
-    "default",
-    "selected",
-    "values",
-}
-CONTROL_KEYS = {
-    "id",
-    "label",
-    "type",
-    "min",
-    "max",
-    "step",
-    "value",
-    "unit",
-    "options",
-    "on",
-    "off",
-}
+TOP_KEYS = frozenset(
+    (
+        "title",
+        "subtitle",
+        "source",
+        "context",
+        "width",
+        "submitLabel",
+        "chat",
+        "script",
+        "style",
+        "review",
+        "size",
+        "questions",
+    )
+)
+QUESTION_KEYS = frozenset(
+    (
+        "id",
+        "header",
+        "prompt",
+        "hint",
+        "context",
+        "body",
+        "recommendation",
+        "mode",
+        "min",
+        "max",
+        "layout",
+        "columns",
+        "expanded",
+        "optional",
+        "text",
+        "toggle",
+        "options",
+        "controls",
+        "preview",
+        "baseline",
+    )
+)
+OPTION_KEYS = frozenset(
+    (
+        "id",
+        "label",
+        "subtitle",
+        "recommended",
+        "badge",
+        "tags",
+        "pros",
+        "cons",
+        "detail",
+        "preview",
+        "default",
+        "selected",
+        "values",
+    )
+)
+CONTROL_KEYS = frozenset(
+    (
+        "id",
+        "label",
+        "type",
+        "min",
+        "max",
+        "step",
+        "value",
+        "unit",
+        "options",
+        "on",
+        "off",
+    )
+)
 # A label that only counts ("Criterion 3", "Option B", "Step 2") points at text the user
 # has to go and find. A bare number or letter can be the answer itself (3 replicas, size
 # M), so the counting word is required. The word "story" stays among them: a page an
@@ -217,40 +226,42 @@ POSITION_LABEL = re.compile(
 )
 
 
-KEY_PLACES = {
-    "at the top level": TOP_KEYS,
-    "on a question": QUESTION_KEYS,
-    "on an option": OPTION_KEYS,
-    "on a control": CONTROL_KEYS,
-}
+KEY_PLACES = MappingProxyType(
+    {
+        "at the top level": TOP_KEYS,
+        "on a question": QUESTION_KEYS,
+        "on an option": OPTION_KEYS,
+        "on a control": CONTROL_KEYS,
+    }
+)
 
 
 # The type of each field the page shows or reads as a switch, as (what it is, test). A
 # value of another type does not fail on the page: a label of null showed as the
 # option's id ("o1"), a prompt of 5 as "5", a mode of "multiple" as options nobody can
 # pick. Blocks (context, body, detail, preview) take any block and are not listed.
-def _text(v: object) -> bool:
-    return isinstance(v, str)
+def _text(text: object) -> bool:
+    return isinstance(text, str)
 
 
-def _flag(v: object) -> bool:
-    return isinstance(v, bool)
+def _flag(flag: object) -> bool:
+    return isinstance(flag, bool)
 
 
-def _count(v: object) -> bool:
-    return isinstance(v, int) and not isinstance(v, bool)
+def _count(count: object) -> bool:
+    return isinstance(count, int) and not isinstance(count, bool)
 
 
-def _number(v: object) -> bool:
-    return isinstance(v, (int, float)) and not isinstance(v, bool)
+def _number(number: object) -> bool:
+    return isinstance(number, (int, float)) and not isinstance(number, bool)
 
 
-def _texts(v: object) -> bool:
-    return isinstance(v, list) and all(isinstance(x, str) for x in v)
+def _texts(texts: object) -> bool:
+    return isinstance(texts, list) and all(isinstance(line, str) for line in texts)
 
 
 def _one_of(*words: str) -> tuple[str, Callable[[object], bool]]:
-    return (" or ".join(json.dumps(w) for w in words), lambda v: v in words)
+    return (" or ".join(json.dumps(word) for word in words), lambda word: word in words)
 
 
 TEXT, FLAG, COUNT, NUMBER = (
@@ -260,64 +271,80 @@ TEXT, FLAG, COUNT, NUMBER = (
     ("a number", _number),
 )
 TEXTS = ("a list of strings", _texts)
-TOP_TYPES = {
-    "title": TEXT,
-    "subtitle": TEXT,
-    "source": TEXT,
-    "submitLabel": TEXT,
-    "chat": FLAG,
-    "script": TEXT,
-    "width": _one_of("narrow"),
-    "style": _one_of("refined", "minimal", "bold", "terminal"),
-    "review": (
-        '"auto", "always", "never", true or false',
-        lambda v: isinstance(v, bool) or v in ("auto", "always", "never"),
-    ),
-}
-QUESTION_TYPES = {
-    "header": TEXT,
-    "prompt": TEXT,
-    "hint": TEXT,
-    "recommendation": TEXT,
-    "mode": _one_of("single", "multi", "text", "tune"),
-    "layout": _one_of("list", "grid", "compare", "inline"),
-    "min": COUNT,
-    "max": COUNT,
-    "columns": COUNT,
-    "expanded": FLAG,
-    "optional": FLAG,
-    "toggle": FLAG,
-    "baseline": ("true, false or a label", lambda v: isinstance(v, (bool, str))),
-    "text": ("false or an object", lambda v: isinstance(v, (bool, dict))),
-}
-OPTION_TYPES = {
-    "label": TEXT,
-    "subtitle": TEXT,
-    "badge": TEXT,
-    "tags": TEXTS,
-    "pros": TEXTS,
-    "cons": TEXTS,
-    "recommended": (
-        "true, false or the reason as a string",
-        lambda v: isinstance(v, (bool, str)),
-    ),
-    "default": FLAG,
-    "selected": FLAG,
-    "values": ("an object", lambda v: isinstance(v, dict)),
-}
-CONTROL_TYPES = {
-    "id": TEXT,
-    "label": TEXT,
-    "unit": TEXT,
-    "min": NUMBER,
-    "max": NUMBER,
-    "step": NUMBER,
-    "options": (
-        "a list of strings or numbers",
-        lambda v: isinstance(v, list) and all(_text(x) or _number(x) for x in v),
-    ),
-    "type": _one_of("range", "hue", "color", "select", "toggle"),
-}
+TOP_TYPES = MappingProxyType(
+    {
+        "title": TEXT,
+        "subtitle": TEXT,
+        "source": TEXT,
+        "submitLabel": TEXT,
+        "chat": FLAG,
+        "script": TEXT,
+        "width": _one_of("narrow"),
+        "style": _one_of("refined", "minimal", "bold", "terminal"),
+        "review": (
+            '"auto", "always", "never", true or false',
+            lambda review: (
+                isinstance(review, bool) or review in ("auto", "always", "never")
+            ),
+        ),
+    }
+)
+QUESTION_TYPES = MappingProxyType(
+    {
+        "header": TEXT,
+        "prompt": TEXT,
+        "hint": TEXT,
+        "recommendation": TEXT,
+        "mode": _one_of("single", "multi", "text", "tune"),
+        "layout": _one_of("list", "grid", "compare", "inline"),
+        "min": COUNT,
+        "max": COUNT,
+        "columns": COUNT,
+        "expanded": FLAG,
+        "optional": FLAG,
+        "toggle": FLAG,
+        "baseline": (
+            "true, false or a label",
+            lambda label: isinstance(label, (bool, str)),
+        ),
+        "text": ("false or an object", lambda text: isinstance(text, (bool, dict))),
+    }
+)
+OPTION_TYPES = MappingProxyType(
+    {
+        "label": TEXT,
+        "subtitle": TEXT,
+        "badge": TEXT,
+        "tags": TEXTS,
+        "pros": TEXTS,
+        "cons": TEXTS,
+        "recommended": (
+            "true, false or the reason as a string",
+            lambda reason: isinstance(reason, (bool, str)),
+        ),
+        "default": FLAG,
+        "selected": FLAG,
+        "values": ("an object", lambda settings: isinstance(settings, dict)),
+    }
+)
+CONTROL_TYPES = MappingProxyType(
+    {
+        "id": TEXT,
+        "label": TEXT,
+        "unit": TEXT,
+        "min": NUMBER,
+        "max": NUMBER,
+        "step": NUMBER,
+        "options": (
+            "a list of strings or numbers",
+            lambda options: (
+                isinstance(options, list)
+                and all(_text(choice) or _number(choice) for choice in options)
+            ),
+        ),
+        "type": _one_of("range", "hue", "color", "select", "toggle"),
+    }
+)
 
 
 def check_types(
@@ -330,43 +357,53 @@ def check_types(
             die(f"{where}: `{key}` must be {what}, got {json.dumps(node[key])}")
 
 
-def check_keys(node: dict[str, Any], allowed: set[str], where: str) -> None:
-    unknown = sorted(k for k in node if k not in allowed and not k.startswith("_"))
+def check_keys(
+    node: dict[str, Any], allowed: set[str] | frozenset[str], where: str
+) -> None:
+    unknown = sorted(
+        key for key in node if key not in allowed and not key.startswith("_")
+    )
     if not unknown:
         return
 
-    def hint(k: str) -> str:
+    def hint(key: str) -> str:
         import difflib
 
-        if m := difflib.get_close_matches(k, allowed, n=1):
-            return f"{k!r} (did you mean {m[0]!r}?)"
-        if m := difflib.get_close_matches(k, set().union(*KEY_PLACES.values()), n=1):
-            places = " or ".join(p for p, keys in KEY_PLACES.items() if m[0] in keys)
-            return f"{k!r} (did you mean {m[0]!r}? it belongs {places})"
-        return repr(k)
+        near = difflib.get_close_matches(key, allowed, n=1)
+        if near:
+            return f"{key!r} (did you mean {near[0]!r}?)"
+        near = difflib.get_close_matches(key, set().union(*KEY_PLACES.values()), n=1)
+        if near:
+            places = " or ".join(
+                place for place, keys in KEY_PLACES.items() if near[0] in keys
+            )
+            return f"{key!r} (did you mean {near[0]!r}? it belongs {places})"
+        return repr(key)
 
-    die(
-        f"{where}: unknown key {', '.join(hint(k) for k in unknown)}; "
-        "the page would drop it without a word"
-    )
+    hints = ", ".join(hint(key) for key in unknown)
+    die(f"{where}: unknown key {hints}; the page would drop it without a word")
 
 
-def says_nothing(o: str | dict[str, Any]) -> bool:
+def says_nothing(option: str | dict[str, Any]) -> bool:
     """An option that is only a counting label: nothing on the page says what it is."""
-    label = o if isinstance(o, str) else str(o.get("label") or o.get("id") or "")
+    label = (
+        option
+        if isinstance(option, str)
+        else str(option.get("label") or option.get("id") or "")
+    )
     if not POSITION_LABEL.match(label):
         return False
-    if isinstance(o, str):
+    if isinstance(option, str):
         return True
     return not (
-        o.get("subtitle")
-        or o.get("detail")
-        or o.get("preview") is not None
-        or o.get("pros")
-        or o.get("cons")
-        or o.get("tags")
-        or isinstance(o.get("recommended"), str)
-        or o.get("values")
+        option.get("subtitle")
+        or option.get("detail")
+        or option.get("preview") is not None
+        or option.get("pros")
+        or option.get("cons")
+        or option.get("tags")
+        or isinstance(option.get("recommended"), str)
+        or option.get("values")
     )
 
 
@@ -401,33 +438,47 @@ def check_spec(spec: object) -> None:  # noqa: C901, PLR0912 - over the limit be
     if "size" in spec and (problem := size_problem(spec["size"])):
         die(f"spec: {problem}")
     ids: set[str] = set()
-    for i, q in enumerate(qs):
-        if not isinstance(q, dict):
-            die(f"question {i + 1} must be a JSON object, got {type(q).__name__}")
-        if q.get("id") is not None and not isinstance(q["id"], str):
-            die(f"question {i + 1}: `id` must be a string, got {json.dumps(q['id'])}")
-        qid = q.get("id") or (f"q{i + 1}" if spec.get("questions") else "answer")
+    for position, question in enumerate(qs, start=1):
+        if not isinstance(question, dict):
+            die(
+                f"question {position} must be a JSON object, "
+                f"got {type(question).__name__}"
+            )
+        if question.get("id") is not None and not isinstance(question["id"], str):
+            die(
+                f"question {position}: `id` must be a string, "
+                f"got {json.dumps(question['id'])}"
+            )
+        qid = question.get("id") or (
+            f"q{position}" if spec.get("questions") else "answer"
+        )
         if "questions" in spec:
-            check_keys(q, QUESTION_KEYS, f"question {qid!r}")
-        check_types(q, QUESTION_TYPES, f"question {qid!r}")
-        controls = q.get("controls") or []
+            check_keys(question, QUESTION_KEYS, f"question {qid!r}")
+        check_types(question, QUESTION_TYPES, f"question {qid!r}")
+        controls = question.get("controls") or []
         if not isinstance(controls, list):
             die(
                 f"question {qid!r}: `controls` must be a list of objects, "
                 f"got {json.dumps(controls)}"
             )
-        for k, c in enumerate(controls):
-            if not isinstance(c, dict):
+        for control_number, control in enumerate(controls, start=1):
+            if not isinstance(control, dict):
                 die(
-                    f"question {qid!r}: control {k + 1} must be an object with an id, "
-                    f"a label and a value, got {json.dumps(c)}"
+                    f"question {qid!r}: control {control_number} must be an object "
+                    f"with an id, a label and a value, got {json.dumps(control)}"
                 )
-            check_keys(c, CONTROL_KEYS, f"question {qid!r}, control {c.get('id')!r}")
-            check_types(c, CONTROL_TYPES, f"question {qid!r}, control {k + 1}")
+            check_keys(
+                control,
+                CONTROL_KEYS,
+                f"question {qid!r}, control {control.get('id')!r}",
+            )
+            check_types(
+                control, CONTROL_TYPES, f"question {qid!r}, control {control_number}"
+            )
         if qid in ids:
             die(f"duplicate question id {qid!r}")
         ids.add(qid)
-        opts = q.get("options") or []
+        opts = question.get("options") or []
         if not isinstance(opts, list):
             die(f"question {qid!r}: `options` must be a list")
         if len(opts) > MAX_OPTIONS:
@@ -435,21 +486,29 @@ def check_spec(spec: object) -> None:  # noqa: C901, PLR0912 - over the limit be
                 f"question {qid!r} has {len(opts)} options; "
                 "keys 1-9 cover at most 9 (aim for 6)"
             )
-        for j, o in enumerate(opts):
-            if not isinstance(o, (str, dict)):
-                die(f"question {qid!r}: option {j + 1} must be a string or an object")
-            if isinstance(o, dict):
-                if o.get("id") is not None and not isinstance(o["id"], str):
-                    die(
-                        f"question {qid!r}: option {j + 1}: `id` must be a string, "
-                        f"got {json.dumps(o['id'])}"
-                    )
-                check_keys(
-                    o, OPTION_KEYS, f"question {qid!r}, option {o.get('id') or j + 1!r}"
+        for option_number, option in enumerate(opts, start=1):
+            if not isinstance(option, (str, dict)):
+                die(
+                    f"question {qid!r}: option {option_number} must be "
+                    "a string or an object"
                 )
-                check_types(o, OPTION_TYPES, f"question {qid!r}, option {j + 1}")
-            if says_nothing(o):
-                shown = o if isinstance(o, str) else o.get("label") or o.get("id")
+            if isinstance(option, dict):
+                if option.get("id") is not None and not isinstance(option["id"], str):
+                    die(
+                        f"question {qid!r}: option {option_number}: "
+                        f"`id` must be a string, got {json.dumps(option['id'])}"
+                    )
+                name = option.get("id") or option_number
+                check_keys(option, OPTION_KEYS, f"question {qid!r}, option {name!r}")
+                check_types(
+                    option, OPTION_TYPES, f"question {qid!r}, option {option_number}"
+                )
+            if says_nothing(option):
+                shown = (
+                    option
+                    if isinstance(option, str)
+                    else option.get("label") or option.get("id")
+                )
                 die(
                     f"question {qid!r}: option {shown!r} only counts; "
                     "put what the user is choosing on the option itself: "
@@ -458,15 +517,15 @@ def check_spec(spec: object) -> None:  # noqa: C901, PLR0912 - over the limit be
                     "…}}), with `expanded: true` when the text is what they judge"
                 )
         oids = [
-            o if isinstance(o, str) else o.get("id") or f"o{j + 1}"
-            for j, o in enumerate(opts)
+            choice if isinstance(choice, str) else choice.get("id") or f"o{number}"
+            for number, choice in enumerate(opts, start=1)
         ]  # as the runtime assigns them
         if len(oids) != len(set(oids)):
             die(
                 f"question {qid!r} has duplicate option ids (an option without an id "
                 "is o1, o2, … by position)"
             )
-        if not q.get("prompt") and not spec.get("title"):
+        if not question.get("prompt") and not spec.get("title"):
             die(f"question {qid!r} has no prompt")
 
 
@@ -476,8 +535,8 @@ def line_range(spec: object, total: int, path: str) -> tuple[int, int]:
     if isinstance(spec, list) and len(spec) == 2:  # noqa: PLR2004 - [first, last]
         first, last = spec
     else:
-        a, _, b = str(spec).partition("-")
-        first, last = a, b or a
+        start, _, end = str(spec).partition("-")
+        first, last = start, end or start
     try:
         first, last = int(first), int(last)
     except TypeError, ValueError:
@@ -493,86 +552,85 @@ def load_files(node: object, base: str) -> None:  # noqa: C901, PLR0912 - over t
     Source code pasted into JSON by hand is where a spec breaks or a snippet drifts from
     the real file; reading it here shows the user exactly what is on disk."""
     if isinstance(node, list):
-        for v in node:
-            load_files(v, base)
+        for part in node:
+            load_files(part, base)
         return
     if not isinstance(node, dict):
         return
-    for k in SOURCED:
-        src = node.get(k)
+    for kind in SOURCED:
+        src = node.get(kind)
         if not (isinstance(src, dict) and "file" in src):
             continue
         shown = src["file"]
         if not isinstance(shown, str) or not shown.strip():
             die(
-                f"{k} block: `file` is the path of a file in quotes, "
+                f"{kind} block: `file` is the path of a file in quotes, "
                 f"got {json.dumps(shown)}"
             )
-        p = os.path.expanduser(shown)
-        if not Path(p).is_absolute():
-            p = os.path.join(base, p)
+        path = os.path.expanduser(shown)
+        if not Path(path).is_absolute():
+            path = os.path.join(base, path)
         try:
-            with open(p, encoding="utf-8") as f:
-                text = f.read()
-        except (OSError, UnicodeDecodeError) as e:
-            die(f"{k} block: cannot read {shown}: {e}")
+            with open(path, encoding="utf-8") as stream:
+                text = stream.read()
+        except (OSError, UnicodeDecodeError) as error:
+            die(f"{kind} block: cannot read {shown}: {error}")
         lines = text.splitlines()
-        if k == "code" and "lines" not in src and len(lines) > CODE_MAX_LINES:
+        if kind == "code" and "lines" not in src and len(lines) > CODE_MAX_LINES:
             die(
                 f'code block: {shown} has {len(lines)} lines; pass "lines" ("40-62") '
                 "for the part the question is about"
             )
-        if k == "code" or "lines" in src:
+        if kind == "code" or "lines" in src:
             first, last = (
                 line_range(src["lines"], len(lines), shown)
                 if "lines" in src
                 else (1, len(lines))
             )
             text = "\n".join(lines[first - 1 : last])
-            if k == "code":
+            if kind == "code":
                 node.setdefault("start", first)
                 node.setdefault(
                     "title", f"{shown}:{first}-{last}" if "lines" in src else shown
                 )
-                ext = os.path.splitext(p)[1].lstrip(".")
+                ext = os.path.splitext(path)[1].lstrip(".")
                 if ext:
                     node.setdefault("lang", ext)
-        node[k] = text
-    for v in node.values():
-        load_files(v, base)
+        node[kind] = text
+    for part in node.values():
+        load_files(part, base)
 
 
 def embed_images(node: object, base: str) -> None:
     """Replace local `image` paths with data URIs: a page without --cwd has no
     file access."""
     if isinstance(node, dict):
-        for k, v in list(node.items()):
+        for key, part in list(node.items()):
             if (
-                k == "image"
-                and isinstance(v, str)
-                and not v.startswith(("http://", "https://", "data:"))
+                key == "image"
+                and isinstance(part, str)
+                and not part.startswith(("http://", "https://", "data:"))
             ):
-                # Path(base, p) is p itself when p is absolute
-                p = Path(base, os.path.expanduser(v))
-                if not p.is_file():
-                    node[k] = ""
-                    node.setdefault("alt", f"missing image: {v}")
+                # Path(base, path) is path itself when path is absolute
+                path = Path(base, os.path.expanduser(part))
+                if not path.is_file():
+                    node[key] = ""
+                    node.setdefault("alt", f"missing image: {part}")
                     continue
-                if p.stat().st_size > MAX_IMAGE:
-                    die(f"image too large to embed (>8MB): {v}")
+                if path.stat().st_size > MAX_IMAGE:
+                    die(f"image too large to embed (>8MB): {part}")
                 import base64
                 import mimetypes
 
-                mime = mimetypes.guess_type(p)[0] or "image/png"
-                with p.open("rb") as f:
-                    node[k] = (
-                        f"data:{mime};base64," + base64.b64encode(f.read()).decode()
-                    )
+                mime = mimetypes.guess_type(path)[0] or "image/png"
+                with path.open("rb") as stream:
+                    encoded = base64.b64encode(stream.read()).decode()
+                    node[key] = f"data:{mime};base64,{encoded}"
             else:
-                embed_images(v, base)
+                embed_images(part, base)
     elif isinstance(node, list):
-        for v in node:
-            embed_images(v, base)
+        for part in node:
+            embed_images(part, base)
 
 
 # A ```mermaid fence in markdown text, which ask.js draws as a chart, as the board's
@@ -587,50 +645,59 @@ def uses_mermaid(node: object) -> bool:
     no bundle."""
     if isinstance(node, dict):
         return "mermaid" in node or any(
-            uses_mermaid(v) for k, v in node.items() if k not in ("code", "diff")
+            uses_mermaid(part)
+            for key, part in node.items()
+            if key not in ("code", "diff")
         )
     if isinstance(node, list):
-        return any(uses_mermaid(v) for v in node)
+        return any(uses_mermaid(part) for part in node)
     if isinstance(node, str):
         return bool(MERMAID_FENCE.search(node))
     return False
+
+
+# Seconds to wait for the pinned mermaid bundle.
+MERMAID_TIMEOUT = 20
 
 
 def mermaid_js() -> str:
     """The pinned mermaid bundle, verified on every read; "" (diagrams show as source)
     when unavailable."""
     import hashlib
-    import http.client
-    import urllib.request
+    from http import client
+    from urllib import request
 
-    def verified(data: bytes) -> bool:
-        return hashlib.sha256(data).hexdigest() == MERMAID_SHA256
+    def verified(bundle: bytes) -> bool:
+        return hashlib.sha256(bundle).hexdigest() == MERMAID_SHA256
 
     cache = lem_folder("XDG_CACHE_HOME", ".cache")
-    file = os.path.join(cache, MERMAID_NAME)
+    path = os.path.join(cache, MERMAID_NAME)
     try:
-        with open(file, "rb") as f:
-            data = f.read()
-        if verified(data):
-            return data.decode("utf-8")
+        with open(path, "rb") as stream:
+            bundle = stream.read()
+        if verified(bundle):
+            return bundle.decode("utf-8")
         print(
-            f"lem ask: {file} fails its sha256 check; fetching it again",
+            f"lem ask: {path} fails its sha256 check; fetching it again",
             file=sys.stderr,
         )
     except FileNotFoundError:
-        pass
-    except OSError as e:
-        print(f"lem ask: cannot read {file} ({e}); fetching it again", file=sys.stderr)
-    try:
-        with urllib.request.urlopen(MERMAID_URL, timeout=20) as r:
-            data = r.read()
-    except (OSError, http.client.HTTPException) as e:
+        ...
+    except OSError as error:
         print(
-            f"lem ask: mermaid unavailable ({e}); diagrams show as source",
+            f"lem ask: cannot read {path} ({error}); fetching it again",
+            file=sys.stderr,
+        )
+    try:
+        with request.urlopen(MERMAID_URL, timeout=MERMAID_TIMEOUT) as stream:
+            bundle = stream.read()
+    except (OSError, client.HTTPException) as error:
+        print(
+            f"lem ask: mermaid unavailable ({error}); diagrams show as source",
             file=sys.stderr,
         )
         return ""
-    if not verified(data):
+    if not verified(bundle):
         print(
             (
                 f"lem ask: {MERMAID_URL} does not match its pinned sha256; "
@@ -641,15 +708,19 @@ def mermaid_js() -> str:
         return ""
     try:
         os.makedirs(cache, exist_ok=True)
-        tmp = file + f".{os.getpid()}.tmp"
-        with open(tmp, "wb") as f:
-            f.write(data)
-        os.replace(tmp, file)
+        staging = f"{path}.{os.getpid()}.tmp"
+        with open(staging, "wb") as out:
+            out.write(bundle)
+        os.replace(staging, path)
     except (
         OSError
-    ) as e:  # the page still gets the verified bundle; only the cache is lost
-        print(f"lem ask: cannot cache mermaid ({e})", file=sys.stderr)
-    return data.decode("utf-8")
+    ) as error:  # the page still gets the verified bundle; only the cache is lost
+        print(f"lem ask: cannot cache mermaid ({error})", file=sys.stderr)
+    return bundle.decode("utf-8")
+
+
+# The maximum length of the escaped title in the HTML head.
+TITLE_MAX = 120
 
 
 def build_html(spec: dict[str, Any], base: str) -> str:
@@ -657,15 +728,15 @@ def build_html(spec: dict[str, Any], base: str) -> str:
     embed_images(spec, base)
 
     def read(name: str) -> str:
-        with (RUNTIME / name).open(encoding="utf-8") as f:
-            return f.read()
+        with (RUNTIME / name).open(encoding="utf-8") as stream:
+            return stream.read()
 
     css, js = read("ask.css"), read("ask.js")
     mm = mermaid_js() if uses_mermaid(spec) else ""
-    data = (
+    spec_json = (
         json.dumps(spec, ensure_ascii=False)
-        .replace("</", "<\\/")
-        .replace("<!--", "<\\u0021--")
+        .replace("</", r"<\/")
+        .replace("<!--", r"<\u0021--")
     )
     title = (
         spec.get("title")
@@ -673,17 +744,18 @@ def build_html(spec: dict[str, Any], base: str) -> str:
         or "Question"
     )
 
-    def esc(s: object) -> str:
-        return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    def esc(text: object) -> str:
+        return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
+    page_title = esc(title)[:TITLE_MAX]
+    mermaid_tag = f"<script>{mm}</script>" if mm else ""
     return (
         '<!doctype html><html><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        f"<title>{esc(title)[:120]}</title><style>{css}</style></head>"
+        f"<title>{page_title}</title><style>{css}</style></head>"
         '<body><div id="app"></div><script type="application/json" '
-        f'id="hd-spec">{data}</script>'
-        + (f"<script>{mm}</script>" if mm else "")
-        + f"<script>{js}</script></body></html>"
+        f'id="hd-spec">{spec_json}</script>'
+        f"{mermaid_tag}<script>{js}</script></body></html>"
     )
 
 
@@ -694,10 +766,10 @@ def write_page(html: str, *, quiet: bool = False) -> str:
 
     try:
         os.makedirs(OUTDIR, exist_ok=True)
-    except OSError as e:
+    except OSError as error:
         die(
-            f"cannot make the folder for the page, {OUTDIR}: {e}; point TMPDIR at a "
-            "folder this user may write"
+            f"cannot make the folder for the page, {OUTDIR}: {error}; "
+            "point TMPDIR at a folder this user may write"
         )
     now = time.time()
     for old in Path(OUTDIR).glob("*.html"):  # keep a day for debugging
@@ -708,15 +780,13 @@ def write_page(html: str, *, quiet: bool = False) -> str:
             if now - old.stat().st_mtime > PAGE_KEEP:
                 old.unlink()
         except OSError:
-            pass
+            ...
     path = os.path.join(
-        OUTDIR,
-        time.strftime("%Y%m%d-%H%M%S-")
-        + secrets.token_hex(3)
-        + (QUIET_PAGE if quiet else ".html"),
+        OUTDIR, f"{time.strftime('%Y%m%d-%H%M%S-')}{secrets.token_hex(3)}"
     )
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(html)
+    path = f"{path}{QUIET_PAGE}" if quiet else f"{path}.html"
+    with open(path, "w", encoding="utf-8") as out:
+        out.write(html)
     return path
 
 
@@ -725,18 +795,18 @@ class DefaultsError(Exception):
     the file and the fix."""
 
 
-def lem_folder(variable: str, fallback: str) -> str:
-    """Lem's folder under one base directory of XDG: `$VARIABLE/lem` when the variable
+def lem_folder(env_name: str, fallback: str) -> str:
+    """Lem's folder under one base directory of XDG: `$ENV_NAME/lem` when the variable
     is set and not empty, else `~/FALLBACK/lem`. It is the rule of `lem_state.config()`,
     which this script cannot import: it runs alone, on the standard library only. A
     relative path is refused, since it would be read from the folder each command
     starts in."""
-    named = os.environ.get(variable, "")
+    named = os.environ.get(env_name, "")
     if not named:
         return os.path.join(os.path.expanduser("~"), fallback, "lem")
     if not Path(named).is_absolute():
         raise DefaultsError(
-            f"{variable} is {named!r}, a relative path: set it to an absolute path, or "
+            f"{env_name} is {named!r}, a relative path: set it to an absolute path, or "
             f"unset it for ~/{fallback}"
         )
     return os.path.join(named, "lem")
@@ -752,75 +822,75 @@ def shown(path: str) -> str:
     """A file of the home directory as a person writes it, ~/.config/lem/settings.toml;
     another as it is."""
     home = os.path.expanduser("~")
-    return (
-        "~/" + os.path.relpath(path, home)
-        if path.startswith(home.rstrip(os.sep) + os.sep)
-        else path
-    )
+    if path.startswith(home.rstrip(os.sep) + os.sep):
+        relative = os.path.relpath(path, home)
+        return f"~/{relative}"
+    return path
 
 
-def toml_text(value: object) -> str:  # noqa: PLR0911 - over the limit before the limit was set
+# TOML uses the same separator for arrays and inline tables.
+TOML_SEPARATOR = ", "
+
+
+def toml_text(setting: object) -> str:  # noqa: PLR0911 - over the limit before the limit was set
     """A value as TOML writes it, for a message: json.dumps raises on a date, which
     TOML has."""
     import datetime as dt
 
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, str):
-        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-        return (
-            '"'
-            + "".join(
-                f"\\u{ord(c):04x}" if c < " " or c == "\x7f" else c for c in escaped
-            )
-            + '"'
+    if isinstance(setting, bool):
+        return "true" if setting else "false"
+    if isinstance(setting, str):
+        escaped = setting.replace("\\", r"\\").replace('"', r"\"")
+        chars = "".join(
+            rf"\u{format(ord(char), '04x')}" if char < " " or char == "\x7f" else char
+            for char in escaped
         )
-    if isinstance(value, (int, float)):
-        return repr(value)
-    if isinstance(value, (dt.datetime, dt.date, dt.time)):
-        return value.isoformat()
-    if isinstance(value, list):
-        return "[" + ", ".join(toml_text(item) for item in value) + "]"
-    if isinstance(value, dict):
+        return f'"{chars}"'
+    if isinstance(setting, (int, float)):
+        return repr(setting)
+    if isinstance(setting, (dt.datetime, dt.date, dt.time)):
+        return setting.isoformat()
+    if isinstance(setting, list):
+        entries = TOML_SEPARATOR.join(toml_text(entry) for entry in setting)
+        return f"[{entries}]"
+    if isinstance(setting, dict):
         bare = re.compile(r"[A-Za-z0-9_-]+")
-        return (
-            "{"
-            + ", ".join(
-                f"{k if bare.fullmatch(k) else toml_text(k)} = {toml_text(v)}"
-                for k, v in value.items()
-            )
-            + "}"
+        pairs = (
+            (key if bare.fullmatch(key) else toml_text(key), entry)
+            for key, entry in setting.items()
         )
+        entries = TOML_SEPARATOR.join(
+            f"{label} = {toml_text(entry)}" for label, entry in pairs
+        )
+        return f"{{{entries}}}"
     # JSON's null, which only the skill's own defaults.json can hold: TOML has none
     return "null"
 
 
-def defaults_problem(values: object) -> str | None:  # noqa: C901, PLR0911 - over the limit before the limit was set
+def defaults_problem(settings: object) -> str | None:  # noqa: C901, PLR0911 - over the limit before the limit was set
     """What is wrong with the defaults, or None. Each key's type is checked by the
     spec's own rule (TOP_TYPES, size_valid) before its value is used, and a value is
     named as TOML writes it."""
-    if not isinstance(values, dict):
-        return f"the defaults are a table of settings, not {toml_text(values)}"
-    for key in values:
+    if not isinstance(settings, dict):
+        return f"the defaults are a table of settings, not {toml_text(settings)}"
+    for key in settings:
         if key not in ASK_KEYS:
             import difflib
 
             near = difflib.get_close_matches(key, ASK_KEYS, n=1)
-            return (
-                f"`{key}` is no key of the "
-                f"defaults{f' (did you mean `{near[0]}`?)' if near else ''}: "
-                f"they are {', '.join(ASK_KEYS)}"
-            )
+            hint = f" (did you mean `{near[0]}`?)" if near else ""
+            keys = ", ".join(ASK_KEYS)
+            return f"`{key}` is no key of the defaults{hint}: they are {keys}"
     for key in ("style", "review"):
         what, test = TOP_TYPES[key]
-        if key in values and not test(values[key]):
-            return f"`{key}` is {what}, not {toml_text(values[key])}"
-    if "size" in values and not size_valid(values["size"]):
-        return f"`size` is {SIZE_WHAT}, not {toml_text(values['size'])}"
-    if "browser" in values and not isinstance(values["browser"], bool):
-        return f"`browser` is true or false, not {toml_text(values['browser'])}"
-    status = values.get("status", {})
-    if not isinstance(status, dict) or any(key not in STATUS_KEYS for key in status):
+        if key in settings and not test(settings[key]):
+            return f"`{key}` is {what}, not {toml_text(settings[key])}"
+    if "size" in settings and not size_valid(settings["size"]):
+        return f"`size` is {SIZE_WHAT}, not {toml_text(settings['size'])}"
+    if "browser" in settings and not isinstance(settings["browser"], bool):
+        return f"`browser` is true or false, not {toml_text(settings['browser'])}"
+    status = settings.get("status", {})
+    if not isinstance(status, dict) or any(name not in STATUS_KEYS for name in status):
         return (
             f"`status` is a table of `asking` and `answered`, not {toml_text(status)}"
         )
@@ -845,48 +915,58 @@ def defaults() -> dict[str, Any]:
     import tomllib
 
     try:
-        with DEFAULTS.open(encoding="utf-8") as f:
-            merged = json.load(f)
-    except (OSError, ValueError) as e:
+        with DEFAULTS.open(encoding="utf-8") as stream:
+            merged = json.load(stream)
+    except (OSError, ValueError) as error:
         raise DefaultsError(
-            f"{DEFAULTS} cannot be read as JSON ({e}); install the plugin again"
-        ) from e
-    if problem := defaults_problem(merged):
+            f"{DEFAULTS} cannot be read as JSON ({error}); install the plugin again"
+        ) from error
+    problem = defaults_problem(merged)
+    if problem:
         raise DefaultsError(f"{DEFAULTS}: {problem}; install the plugin again")
     path = settings_file()
     try:
-        with Path(path).open("rb") as f:
-            whole = tomllib.load(f)
+        with Path(path).open("rb") as stream:
+            whole = tomllib.load(stream)
     except FileNotFoundError:
         return merged
-    except OSError as e:
+    except OSError as error:
         raise DefaultsError(
-            f"{shown(path)} cannot be read ({e.strerror}); "
+            f"{shown(path)} cannot be read ({error.strerror}); "
             "correct the file or remove it"
-        ) from e
-    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as e:
+        ) from error
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as error:
         raise DefaultsError(
-            f"{shown(path)} does not read as TOML ({e}); correct the file"
-        ) from e
-    values = whole.get("ask", {})
-    if not isinstance(values, dict):
+            f"{shown(path)} does not read as TOML ({error}); correct the file"
+        ) from error
+    settings = whole.get("ask", {})
+    if not isinstance(settings, dict):
         raise DefaultsError(
-            f"{shown(path)}: `ask` is the table [ask], not {toml_text(values)}; "
+            f"{shown(path)}: `ask` is the table [ask], not {toml_text(settings)}; "
             "correct the file"
         )
-    if problem := defaults_problem(values):
+    problem = defaults_problem(settings)
+    if problem:
         raise DefaultsError(
             f"{shown(path)}, under [ask]: {problem}; correct the file or remove the key"
         )
-    merged.update(values)
+    merged.update(settings)
     return merged
 
 
 def apply_defaults(spec: dict[str, Any]) -> dict[str, Any]:
-    d = defaults()
-    spec.setdefault("style", d.get("style", "refined"))
-    spec.setdefault("review", d.get("review", "auto"))
+    settings = defaults()
+    spec.setdefault("style", settings.get("style", "refined"))
+    spec.setdefault("review", settings.get("review", "auto"))
     return spec
+
+
+# The guessed panel percents and the spec length below which a narrow page gets
+# the smaller one.
+LARGE_PANEL = 90
+NARROW_PANEL = 66
+NORMAL_PANEL = 78
+NARROW_SPEC_MAX = 1500
 
 
 def auto_size(spec: dict[str, Any]) -> int:
@@ -894,16 +974,23 @@ def auto_size(spec: dict[str, Any]) -> int:
     qs = spec.get("questions") or [spec]
     blob = json.dumps(spec)
     visual = any(
-        k in blob
-        for k in ('"preview"', '"mermaid"', '"chart"', '"image"', '"stats"', '"table"')
+        key in blob
+        for key in (
+            '"preview"',
+            '"mermaid"',
+            '"chart"',
+            '"image"',
+            '"stats"',
+            '"table"',
+        )
     )
-    compare = any(q.get("layout") == "compare" for q in qs)
-    nopts = max((len(q.get("options") or []) for q in qs), default=0)
+    compare = any(question.get("layout") == "compare" for question in qs)
+    nopts = max((len(question.get("options") or []) for question in qs), default=0)
     if visual or compare or len(qs) > 2:  # noqa: PLR2004 - this guess's own bound, read nowhere else
-        return 90
-    if spec.get("width") == "narrow" and nopts <= 4 and len(blob) < 1500:  # noqa: PLR2004 - this guess's own bounds, read nowhere else
-        return 66
-    return 78
+        return LARGE_PANEL
+    if spec.get("width") == "narrow" and nopts <= 4 and len(blob) < NARROW_SPEC_MAX:  # noqa: PLR2004 - this guess's own bound, read nowhere else
+        return NARROW_PANEL
+    return NORMAL_PANEL
 
 
 # ---------- agterm ----------
@@ -918,12 +1005,12 @@ def agtermctl() -> str | None:
         or shutil.which("agtermctl")
         or next(
             (
-                p
-                for p in (
+                path
+                for path in (
                     "/opt/homebrew/bin/agtermctl",
                     "/Applications/agterm.app/Contents/MacOS/agtermctl",
                 )
-                if Path(p).exists()
+                if Path(path).exists()
             ),
             None,
         )
@@ -939,18 +1026,18 @@ def ctl(
         cmd += ["--socket", os.environ["AGTERM_SOCKET"]]
     # every caller runs inside agterm (in_agterm()), where agtermctl and the session's
     # id are found
-    r = subprocess.run(
+    ran = subprocess.run(
         typing.cast("list[str]", cmd),
         capture_output=True,
         text=True,
         check=False,
         timeout=timeout,
     )
-    if check and r.returncode not in (0, 2):
+    if check and ran.returncode not in (0, 2):
         raise RuntimeError(
-            (r.stderr or r.stdout).strip() or f"agtermctl exited {r.returncode}"
+            (ran.stderr or ran.stdout).strip() or f"agtermctl exited {ran.returncode}"
         )
-    return r
+    return ran
 
 
 def in_agterm() -> str | bool | None:
@@ -983,28 +1070,26 @@ def status_args(args: list[str]) -> list[str | None]:
 def set_status(args: list[str]) -> None:
     try:
         ctl(*status_args(args), check=False)
-    except OSError as e:  # the glyph is a courtesy; never fail the question over it
-        print(f"lem ask: could not set the status glyph: {e}", file=sys.stderr)
+    except OSError as error:  # the glyph is a courtesy; never fail the question over it
+        print(f"lem ask: could not set the status glyph: {error}", file=sys.stderr)
 
 
 def this_session(timeout: float | None = None) -> dict[str, Any] | None:
     """This session's node from `agtermctl tree`, or None when agterm cannot say. A
     call past TIMEOUT seconds raises subprocess.TimeoutExpired."""
-    args = ["tree", "--json"] + (
-        ["--window", os.environ["AGTERM_WINDOW_ID"]]
-        if os.environ.get("AGTERM_WINDOW_ID")
-        else []
-    )
+    args = ["tree", "--json"]
+    if os.environ.get("AGTERM_WINDOW_ID"):
+        args.extend(["--window", os.environ["AGTERM_WINDOW_ID"]])
     try:
         workspaces = json.loads(ctl(*args, check=False, timeout=timeout).stdout)[
             "result"
         ]["tree"]["workspaces"]
         return next(
             (
-                s
-                for w in workspaces
-                for s in w.get("sessions") or []
-                if s.get("id") == os.environ["AGTERM_SESSION_ID"]
+                session
+                for workspace in workspaces
+                for session in workspace.get("sessions") or []
+                if session.get("id") == os.environ["AGTERM_SESSION_ID"]
             ),
             None,
         )
@@ -1024,29 +1109,29 @@ def pending_page(timeout: float | None = None) -> str | None:
 def pending_overlay(timeout: float | None = None) -> dict[str, Any] | None:
     """agterm's overlay of the question page open on this session (its `id` and its
     `file`), or None."""
-    s = this_session(timeout) or {}
+    session = this_session(timeout) or {}
     ours = (
         os.path.realpath(OUTDIR) + os.sep
     )  # agterm reports /tmp/… where TMPDIR says /private/tmp/…
-    for o in s.get("htmlOverlays") or []:
-        if o.get("file") and os.path.realpath(o["file"]).startswith(ours):
-            return o
+    for overlay in session.get("htmlOverlays") or []:
+        if overlay.get("file") and os.path.realpath(overlay["file"]).startswith(ours):
+            return overlay
     return None
 
 
-def shown_page(s: dict[str, Any], page_id: str | None = None) -> str | None:
-    """The id of the question page of this script that the session node S shows (that
-    one, when an id is given), or None."""
+def shown_page(session: dict[str, Any], page_id: str | None = None) -> str | None:
+    """The id of the question page of this script that the session node SESSION shows
+    (that one, when an id is given), or None."""
     ours = (
         os.path.realpath(OUTDIR) + os.sep
     )  # agterm reports /tmp/… where TMPDIR says /private/tmp/…
     return next(
         (
-            o.get("id")
-            for o in s.get("htmlOverlays") or []
-            if o.get("file")
-            and os.path.realpath(o["file"]).startswith(ours)
-            and page_id in (None, o.get("id"))
+            overlay.get("id")
+            for overlay in session.get("htmlOverlays") or []
+            if overlay.get("file")
+            and os.path.realpath(overlay["file"]).startswith(ours)
+            and page_id in (None, overlay.get("id"))
         ),
         None,
     )
@@ -1055,7 +1140,7 @@ def shown_page(s: dict[str, Any], page_id: str | None = None) -> str | None:
 def close_overlay(page: str | None) -> str | None:
     """Close the overlay this session shows, which the caller found to be PAGE; what
     agterm said when it did not close it, else None."""
-    r = ctl(
+    ran = ctl(
         "session",
         "overlay",
         "close",
@@ -1065,16 +1150,14 @@ def close_overlay(page: str | None) -> str | None:
         check=False,
     )
     try:
-        reply = json.loads(r.stdout)
+        reply = json.loads(ran.stdout)
     except json.JSONDecodeError:
         return (
-            r.stderr or r.stdout
-        ).strip() or f"agtermctl session overlay close exited {r.returncode}"
-    if not reply.get("ok", True) or r.returncode != 0:
-        return (
-            f"agterm did not close page {page}: "
-            f"{reply.get('error') or (r.stderr or r.stdout).strip()}"
-        )
+            ran.stderr or ran.stdout
+        ).strip() or f"agtermctl session overlay close exited {ran.returncode}"
+    if not reply.get("ok", True) or ran.returncode != 0:
+        error = reply.get("error") or (ran.stderr or ran.stdout).strip()
+        return f"agterm did not close page {page}: {error}"
     return None
 
 
@@ -1095,21 +1178,21 @@ def close_page(page_id: str | None = None) -> None:
     `said` line that names both."""
     if not in_agterm():
         die("not inside agterm, so there is no page to close", 3)
-    s = this_session()
-    if s is None:
+    session = this_session()
+    if session is None:
         die(
             "agterm did not say what this session shows; "
             "run `agtermctl tree --json` to see why"
         )
-    page = shown_page(s, page_id)
+    page = shown_page(session, page_id)
     if page is None:
+        named = f" with the id {page_id}" if page_id else ""
         emit(
             {
                 "status": "gone",
                 "pageID": page_id,
-                "hint": "no question page of lem-ask is open on this session"
-                + (f" with the id {page_id}" if page_id else "")
-                + ": nothing was closed",
+                "hint": f"no question page of lem-ask is open on this session{named}: "
+                "nothing was closed",
             },
             0,
         )
@@ -1118,19 +1201,16 @@ def close_page(page_id: str | None = None) -> None:
     if card is not None:
         won, on_record = card.end("closed")
         lost = None if won else on_record
-    if error := close_overlay(page):
+    error = close_overlay(page)
+    if error:
         if lost is None:
-            die(
-                error
-                + (
-                    (
-                        ": the card's end is on record as closed, "
-                        "so a pick on it is not taken"
-                    )
-                    if card is not None
-                    else ""
-                )
+            note = (
+                ""
+                if card is None
+                else ": the card's end is on record as closed, "
+                "so a pick on it is not taken"
             )
+            die(f"{error}{note}")
         print(f"lem ask: {error}", file=sys.stderr)
     if card is not None and lost is not None:
         emit(*card.output(lost, "closed"))
@@ -1148,15 +1228,16 @@ def wait_word_file(page_id: str | None) -> Path | None:
 def keep_wait_word(page_id: str | None, *, status: bool) -> None:
     """Keep the word of this `lem ask wait` on the page PAGE_ID, status or no status,
     for the Stop hook (`quiet_page`)."""
-    if (kept := wait_word_file(page_id)) is None:
+    kept = wait_word_file(page_id)
+    if kept is None:
         return
     try:
         kept.parent.mkdir(parents=True, exist_ok=True)
         kept.write_text("status" if status else "no-status", encoding="utf-8")
-    except OSError as e:
+    except OSError as error:
         print(
             f"lem ask: the Stop hook may not keep this wait's word on page "
-            f"{page_id}: {e}",
+            f"{page_id}: {error}",
             file=sys.stderr,
         )
 
@@ -1166,7 +1247,7 @@ def quiet_page(shown: dict[str, Any]) -> bool:
     its `id` and its `file`): in its last `lem ask wait`, else when it opened it."""
     kept = wait_word_file(shown.get("id"))
     try:
-        word = kept.read_text(encoding="utf-8") if kept is not None else None
+        word = None if kept is None else kept.read_text(encoding="utf-8")
     except OSError:
         word = None
     if word in ("status", "no-status"):
@@ -1219,15 +1300,15 @@ def hook_stop() -> None:
         started = time.time()
         for at in STOP_RECHECKS:
             time.sleep(max(0, started + at - time.time()))
-            s = this_session(STOP_CALL) or {}
+            session = this_session(STOP_CALL) or {}
             if not any(
-                o.get("id") == page
-                and o.get("file")
-                and os.path.realpath(o["file"]).startswith(ours)
-                for o in s.get("htmlOverlays") or []
+                overlay.get("id") == page
+                and overlay.get("file")
+                and os.path.realpath(overlay["file"]).startswith(ours)
+                for overlay in session.get("htmlOverlays") or []
             ):
                 return  # answered or closed in the meantime
-            if s.get("status") != asking[0]:
+            if session.get("status") != asking[0]:
                 # not set_status, which says on stderr that the call failed
                 ctl(
                     *status_args([*asking, "--auto-reset"]),
@@ -1263,13 +1344,16 @@ class Card:
     end file says whether it is open and which answer counts (`lem_cards`)."""
 
     def __init__(self, task: Path, page: str) -> None:
-        self.task, self.page, self.cards = task, page, lem_cards()
+        cards = lem_cards()
+        self.task = task
+        self.page = page
+        self.cards = cards
 
     def ended(self) -> dict[str, Any] | None:
         try:
             return self.cards.ended(self.task, self.page)
-        except self.cards.CardError as e:
-            die(str(e))
+        except self.cards.CardError as error:
+            die(str(error))
 
     def end(
         self, status: str, answer: dict[str, Any] | None = None
@@ -1278,8 +1362,11 @@ class Card:
         (False, the end on record)."""
         try:
             return self.cards.end(self.task, self.page, status, "session", answer)
-        except (OSError, self.cards.CardError) as e:
-            die(f"the end of card {self.page} cannot be recorded in {self.task}: {e}")
+        except (OSError, self.cards.CardError) as error:
+            die(
+                f"the end of card {self.page} cannot be recorded in {self.task}: "
+                f"{error}"
+            )
 
     def output(
         self, on_record: dict[str, Any], mine: dict[str, Any] | str | None = None
@@ -1291,21 +1378,25 @@ class Card:
         if on_record.get("status") == "answered":
             out = dict(on_record.get("answer") or {})
             out.update({"pageID": self.page, "from": on_record.get("from")})
-            out.update({k: on_record[k] for k in ("via", "device") if k in on_record})
+            out.update(
+                {key: on_record[key] for key in ("via", "device") if key in on_record}
+            )
             code = 0
         else:
             out, code = {"status": "dismissed", "pageID": self.page}, 2
         took = self.cards.took_effect(on_record)
         if isinstance(mine, dict):
+            words = self.cards.words(mine)
             said = (
                 "Two answers came before the session read either, and the one recorded "
-                f"first counts: {took}; {self.cards.words(mine)} on the card in the "
+                f"first counts: {took}; {words} on the card in the "
                 "session was not taken."
             )
         elif mine in ("dismissed", "closed"):
+            action = "dismissal" if mine == "dismissed" else "close"
             said = (
                 f"{took}, and it counts; the card's "
-                f"{'dismissal' if mine == 'dismissed' else 'close'} in the session "
+                f"{action} in the session "
                 "came after it and was not taken."
             )
         else:
@@ -1321,7 +1412,7 @@ def card_of(page: str | None) -> Card | None:
     if task is None or not page:
         return None
     try:
-        return Card(task, page) if lem_cards().card(task, page) is not None else None
+        return None if lem_cards().card(task, page) is None else Card(task, page)
     except lem_cards().CardError:
         return None
 
@@ -1335,13 +1426,15 @@ def keep_card(path: str, page: str | None, spec: dict[str, Any]) -> Card | None:
         return None
     cards = lem_cards()
     try:
-        with open(path, "rb") as f:
-            cards.keep(task, page, f.read(), spec, os.environ.get("AGTERM_SESSION_ID"))
-    except (OSError, cards.CardError) as e:
+        with open(path, "rb") as stream:
+            cards.keep(
+                task, page, stream.read(), spec, os.environ.get("AGTERM_SESSION_ID")
+            )
+    except (OSError, cards.CardError) as error:
         print(
             (
                 f"lem ask: the card {page} is not kept in {task}, "
-                f"so the board does not show it: {e}"
+                f"so the board does not show it: {error}"
             ),
             file=sys.stderr,
         )
@@ -1349,8 +1442,8 @@ def keep_card(path: str, page: str | None, spec: dict[str, Any]) -> Card | None:
     return Card(task, page)
 
 
-def submitted(value: str | None) -> dict[str, Any]:
-    """The answer a page sent as VALUE: the object it is as JSON; a value that is no
+def submitted(payload: str | None) -> dict[str, Any]:
+    """The answer a page sent as PAYLOAD: the object it is as JSON; a value that is no
     JSON, or JSON that is no object (what a spec's own script may send through
     `window.lemAsk.send`), is its text, as one answer. The page's runtime sends every
     value as JSON, so a JSON string's text is the string, without its quotes; a number,
@@ -1360,12 +1453,12 @@ def submitted(value: str | None) -> dict[str, Any]:
     `sys.get_int_max_str_digits()`, nesting deeper than the stack) is no JSON to it,
     so it is its text too."""
     try:
-        given = json.loads(value or "{}")
+        given = json.loads(payload or "{}")
         if isinstance(given, dict):
             return typing.cast("dict[str, Any]", lem_cards().whole(given))
     except ValueError, RecursionError:  # JSONDecodeError is a ValueError
         given = None
-    text = given if isinstance(given, str) else value
+    text = given if isinstance(given, str) else payload
     return {
         "status": "answered",
         "answers": {
@@ -1377,28 +1470,33 @@ def submitted(value: str | None) -> dict[str, Any]:
 def peek(page_id: str | None) -> dict[str, Any] | str | None:
     """agterm's outcome of the page in one read, never an error: an answer, "dismissed",
     or None."""
-    r = ctl("session", "overlay", "result", "--page", page_id, "--json", check=False)
+    ran = ctl("session", "overlay", "result", "--page", page_id, "--json", check=False)
     try:
-        o = json.loads(r.stdout).get("result", {}).get("pageOutcome", {})
-        if o.get("outcome") == "submitted":
-            return submitted(o.get("value"))
+        outcome = json.loads(ran.stdout).get("result", {}).get("pageOutcome", {})
+        if outcome.get("outcome") == "submitted":
+            return submitted(outcome.get("value"))
     except json.JSONDecodeError, AttributeError:
         return None
-    return "dismissed" if o.get("outcome") == "dismissed" else None
+    return "dismissed" if outcome.get("outcome") == "dismissed" else None
 
 
 def close_after_board(page_id: str | None) -> None:
     """Close this session's own page of a card the board answered, while it is
     still shown."""
-    s = this_session()
-    if s is not None and shown_page(s, page_id) and (error := close_overlay(page_id)):
+    session = this_session()
+    if session is None or not shown_page(session, page_id):
+        return
+    error = close_overlay(page_id)
+    if error:
         print(
             f"lem ask: the board's answer counts, and the page stays up: {error}",
             file=sys.stderr,
         )
 
 
-def open_overlay(path: str, a: argparse.Namespace, spec: dict[str, Any]) -> str | None:
+def open_overlay(
+    path: str, flags: argparse.Namespace, spec: dict[str, Any]
+) -> str | None:
     args = [
         "session",
         "overlay",
@@ -1410,24 +1508,24 @@ def open_overlay(path: str, a: argparse.Namespace, spec: dict[str, Any]) -> str 
         os.environ["AGTERM_SESSION_ID"],
         "--json",
     ]
-    if a.follow:
+    if flags.follow:
         args.append("--follow")
-    size = a.size or spec.get("size") or defaults().get("size", "auto")
-    if a.full or size == "full":
+    size = flags.size or spec.get("size") or defaults().get("size", "auto")
+    if flags.full or size == "full":
         size = None
     elif size == "auto":
         size = auto_size(spec)
     if size:
         args += ["--size-percent", str(int(size))]
-    if a.chromeless:
+    if flags.chromeless:
         args.append("--chromeless")
-    r = ctl(*args, check=False)
+    ran = ctl(*args, check=False)
     try:
-        reply = json.loads(r.stdout)
+        reply = json.loads(ran.stdout)
     except json.JSONDecodeError:
-        die((r.stderr or r.stdout).strip() or "overlay open failed")
-    if not reply.get("ok", True) or r.returncode != 0:
-        err = reply.get("error") or (r.stderr or r.stdout).strip()
+        die((ran.stderr or ran.stdout).strip() or "overlay open failed")
+    if not reply.get("ok", True) or ran.returncode != 0:
+        err = reply.get("error") or (ran.stderr or ran.stdout).strip()
         if err == "overlay already open":
             page = pending_page()
             if page:
@@ -1462,6 +1560,10 @@ def open_overlay(path: str, a: argparse.Namespace, spec: dict[str, Any]) -> str 
     return res.get("pageID") or res.get("id")
 
 
+# Seconds between reads of an overlay's outcome.
+OVERLAY_POLL = 0.4
+
+
 def wait_page(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
     page_id: str | None,
     timeout: float,
@@ -1483,7 +1585,8 @@ def wait_page(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit
     unreadable = 0
     try:
         while True:
-            if card is not None and (on_record := card.ended()) is not None:
+            on_record = None if card is None else card.ended()
+            if card is not None and on_record is not None:
                 mine = peek(page_id) if on_record.get("from") == "board" else None
                 if (
                     on_record.get("status") == "answered"
@@ -1495,34 +1598,30 @@ def wait_page(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit
                 )
                 print(json.dumps(out, ensure_ascii=False, indent=1))
                 return code
-            r = ctl(
+            ran = ctl(
                 "session", "overlay", "result", "--page", page_id, "--json", check=False
             )
             try:
-                reply = json.loads(r.stdout)
+                reply = json.loads(ran.stdout)
             except (
                 json.JSONDecodeError
             ):  # agterm did not answer at all: a stopped app, a missing socket
                 unreadable += 1
                 if unreadable >= UNREADABLE_REPLIES:
-                    die(
-                        f"agterm stopped answering about page {page_id}: "
-                        f"{(r.stderr or r.stdout).strip()}"
-                    )
-                time.sleep(0.4)
+                    error = (ran.stderr or ran.stdout).strip()
+                    die(f"agterm stopped answering about page {page_id}: {error}")
+                time.sleep(OVERLAY_POLL)
                 continue
             unreadable = 0
             if not reply.get(
                 "ok", True
             ):  # `no such page`, `invalid page id`: waiting longer cannot help
-                die(
-                    f"page {page_id}: "
-                    f"{reply.get('error') or 'agterm refused the result request'}"
-                )
-            o = reply.get("result", {}).get("pageOutcome", {})
-            out = o.get("outcome")
+                error = reply.get("error") or "agterm refused the result request"
+                die(f"page {page_id}: {error}")
+            outcome = reply.get("result", {}).get("pageOutcome", {})
+            out = outcome.get("outcome")
             if out == "submitted":
-                ans = submitted(o.get("value"))
+                ans = submitted(outcome.get("value"))
                 if card is not None:
                     won, on_record = card.end("answered", ans)
                     if not won:
@@ -1561,7 +1660,7 @@ def wait_page(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit
                     )
                 )
                 return 4
-            time.sleep(0.4)
+            time.sleep(OVERLAY_POLL)
     finally:
         if status and not still_open:
             set_status(glyphs.get("answered", ["active"]))
@@ -1572,34 +1671,39 @@ def wait_page(  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit
 RELOAD_GRACE = (
     3  # seconds a dismissal waits for the page to come back (a reload also unloads it)
 )
+# Seconds between checks for a browser dismissal or timeout.
+BROWSER_POLL = 0.25
+# The page GET returns HTML; a POST acknowledges the answer without a body.
+PAGE_OK = 200
+ANSWER_NO_CONTENT = 204
 
 
 def ask_in_browser(html: str, timeout: float) -> int:
-    import http.server
     import socketserver
     import threading
     import webbrowser
+    from http import server
 
     state: dict[str, Any] = {"answer": None, "dismissed_at": None}
     done = threading.Event()
 
-    class H(http.server.BaseHTTPRequestHandler):
+    class PageHandler(server.BaseHTTPRequestHandler):
         def log_message(self, format: str, *args: object) -> None:  # noqa: A002 - the base class names it so
-            pass
+            ...
 
         def do_GET(self) -> None:
             state["dismissed_at"] = None  # the page is back: that unload was a reload
             body = html.encode()
-            self.send_response(200)
+            self.send_response(PAGE_OK)
             self.send_header("content-type", "text/html; charset=utf-8")
             self.send_header("content-length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
 
         def do_POST(self) -> None:
-            n = int(self.headers.get("content-length", 0))
-            body = submitted(self.rfile.read(n).decode("utf-8", errors="replace"))
-            self.send_response(204)
+            length = int(self.headers.get("content-length", 0))
+            body = submitted(self.rfile.read(length).decode("utf-8", errors="replace"))
+            self.send_response(ANSWER_NO_CONTENT)
             self.end_headers()
             if body.get("status") == "dismissed":
                 state["dismissed_at"] = time.time()
@@ -1607,7 +1711,7 @@ def ask_in_browser(html: str, timeout: float) -> int:
                 state["answer"] = body
                 done.set()
 
-    srv = socketserver.TCPServer(("127.0.0.1", 0), H)
+    srv = socketserver.TCPServer(("127.0.0.1", 0), PageHandler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
     if not webbrowser.open(url):
@@ -1615,7 +1719,7 @@ def ask_in_browser(html: str, timeout: float) -> int:
         die("not inside agterm and no browser could be opened", 3)
     print(f"lem ask: opened {url}", file=sys.stderr)
     deadline = time.time() + timeout
-    while not done.wait(0.25):
+    while not done.wait(BROWSER_POLL):
         gone = state["dismissed_at"]
         if gone and time.time() - gone > RELOAD_GRACE:
             srv.shutdown()
@@ -1645,7 +1749,7 @@ def ask_in_browser(html: str, timeout: float) -> int:
 # ---------- commands ----------
 
 
-def ask(spec: dict[str, Any], a: argparse.Namespace, base: str) -> int | None:
+def ask(spec: dict[str, Any], args: argparse.Namespace, base: str) -> int | None:
     check_spec(spec)
     if unattended():
         emit(
@@ -1665,8 +1769,9 @@ def ask(spec: dict[str, Any], a: argparse.Namespace, base: str) -> int | None:
     # Outside agterm the browser is opt-in: the skill tells the agent to just run
     # `lem ask` rather than check for agterm first, so an unasked-for browser tab must
     # not be what happens in a plain terminal.
-    browser = a.browser or (not in_agterm() and defaults().get("browser") is True)
+    browser = args.browser or (not in_agterm() and defaults().get("browser") is True)
     if not in_agterm() and not browser:
+        where = shown(settings_file())
         emit(
             {
                 "status": "no-agterm",
@@ -1675,72 +1780,76 @@ def ask(spec: dict[str, Any], a: argparse.Namespace, base: str) -> int | None:
                 ),
                 "hint": (
                     "ask in the terminal; --browser, or `browser = true` under [ask] "
-                    f"in {shown(settings_file())}, opens the page "
+                    f"in {where}, opens the page "
                     "in the browser instead"
                 ),
             },
             3,
         )
     apply_defaults(spec)
-    if a.style:
-        spec["style"] = a.style
-    if a.review:
-        spec["review"] = a.review
+    if args.style:
+        spec["style"] = args.style
+    if args.review:
+        spec["review"] = args.review
     html = build_html(spec, base)
     if browser:
-        if a.no_wait:
+        if args.no_wait:
             die(
                 "--no-wait needs agterm: the browser fallback answers only "
                 "while this process runs"
             )
-        return ask_in_browser(html, a.timeout)
-    path = write_page(html, quiet=a.no_status)
-    page = open_overlay(path, a, spec)
+        return ask_in_browser(html, args.timeout)
+    path = write_page(html, quiet=args.no_status)
+    page = open_overlay(path, args, spec)
     card = keep_card(path, page, spec)
-    if a.no_wait:
+    if args.no_wait:
         print(json.dumps({"status": "open", "pageID": page, "file": path}))
         return 0
-    return wait_page(page, a.timeout, status=not a.no_status, card=card)
+    return wait_page(page, args.timeout, status=not args.no_status, card=card)
 
 
-def quick_spec(a: argparse.Namespace) -> dict[str, Any]:
+def quick_spec(args: argparse.Namespace) -> dict[str, Any]:
     opts = []
-    for i, raw in enumerate(a.options):
+    for position, raw in enumerate(args.options, start=1):
         rec = raw.startswith("*")
         label, _, rest = raw.lstrip("*").partition("|")
         sub, _, why = rest.partition("|")
-        o: dict[str, str | bool] = {"id": f"o{i + 1}", "label": label.strip()}
+        option: dict[str, str | bool] = {"id": f"o{position}", "label": label.strip()}
         if sub.strip():
-            o["subtitle"] = sub.strip()
+            option["subtitle"] = sub.strip()
         if rec:
-            o["recommended"] = why.strip() or True
-        opts.append(o)
-    spec: dict[str, Any] = {"prompt": a.prompt, "options": opts}
-    if a.multi:
+            option["recommended"] = why.strip() or True
+        opts.append(option)
+    spec: dict[str, Any] = {"prompt": args.prompt, "options": opts}
+    if args.multi:
         spec["mode"] = "multi"
-    if a.context:
-        spec["context"] = a.context
-    if a.title:
-        spec["title"] = a.title
+    if args.context:
+        spec["context"] = args.context
+    if args.title:
+        spec["title"] = args.title
     if opts:
         spec["width"] = "narrow"
     # a byte of argv that is no UTF-8 reads as half of a pair: U+FFFD, as in a spec
     return typing.cast("dict[str, Any]", lem_cards().whole(spec))
 
 
-def list_dir(d: Path) -> list[tuple[str, str]]:
+def list_dir(folder: Path) -> list[tuple[str, str]]:
     rows = []
-    for p in sorted(d.glob("*.json")):
-        if p.name.startswith("."):
+    for path in sorted(folder.glob("*.json")):
+        if path.name.startswith("."):
             # glob.glob's rule, which this followed: a hidden file is no template
             continue
         try:
-            with p.open(encoding="utf-8") as f:
-                s = json.load(f)
-            rows.append((p.name[:-5], s.get("_about", "")))
-        except (OSError, json.JSONDecodeError) as e:
-            rows.append((p.name[:-5], f"(unreadable: {e})"))
+            with path.open(encoding="utf-8") as stream:
+                spec = json.load(stream)
+            rows.append((path.name[:-5], spec.get("_about", "")))
+        except (OSError, json.JSONDecodeError) as error:
+            rows.append((path.name[:-5], f"(unreadable: {error})"))
     return rows
+
+
+# Seconds to wait by default, below the Bash tool's 600-second limit.
+DEFAULT_TIMEOUT = 570
 
 
 def main() -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the limit was set
@@ -1783,7 +1892,10 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the 
         "--chromeless", action="store_true", help="hide the overlay's title strip"
     )
     common.add_argument(
-        "--timeout", type=float, default=570, help="seconds to wait (default 570)"
+        "--timeout",
+        type=float,
+        default=DEFAULT_TIMEOUT,
+        help="seconds to wait (default 570)",
     )
     common.add_argument(
         "--no-wait",
@@ -1814,12 +1926,12 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the 
         argv = ["ask", *argv]
         sub = "ask"
 
-    p = argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(
         prog="lem ask",
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    sp = p.add_subparsers(dest="cmd")
+    sp = parser.add_subparsers(dest="cmd")
     s_ask = sp.add_parser("ask", parents=[common])
     s_ask.add_argument("spec", nargs="?")
     s_q = sp.add_parser("q", parents=[common])
@@ -1839,70 +1951,73 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915 - over the limit before the 
     s_r.add_argument("spec")
     s_r.add_argument("-o", "--out", required=True)
     sp.add_parser("hook-stop")
-    a = p.parse_args(argv)
+    args = parser.parse_args(argv)
 
-    if a.cmd == "ask":
+    if args.cmd == "ask":
         base = (
-            str(Path(os.path.abspath(a.spec)).parent)
-            if a.spec not in (None, "-")
-            else str(Path.cwd())
+            str(Path.cwd())
+            if args.spec in (None, "-")
+            else str(Path(os.path.abspath(args.spec)).parent)
         )
-        sys.exit(ask(load_spec(a.spec), a, base))
-    if a.cmd == "q":
-        sys.exit(ask(quick_spec(a), a, str(Path.cwd())))
-    if a.cmd == "wait":
+        sys.exit(ask(load_spec(args.spec), args, base))
+    if args.cmd == "q":
+        sys.exit(ask(quick_spec(args), args, str(Path.cwd())))
+    if args.cmd == "wait":
         if not in_agterm():
             die("not inside agterm", 3)
-        keep_wait_word(a.page_id, status=not a.no_status)
+        keep_wait_word(args.page_id, status=not args.no_status)
         sys.exit(
             wait_page(
-                a.page_id, a.timeout, status=not a.no_status, card=card_of(a.page_id)
+                args.page_id,
+                args.timeout,
+                status=not args.no_status,
+                card=card_of(args.page_id),
             )
         )
-    if a.cmd == "close":
-        close_page(a.page_id)
-    if a.cmd == "templates":
+    if args.cmd == "close":
+        close_page(args.page_id)
+    if args.cmd == "templates":
         for name, about in list_dir(TEMPLATES):
-            print(f"{name:18} {about}")
+            print(f"{name:<18} {about}")
         print(f"\n{TEMPLATES}")
         return
-    if a.cmd == "demo":
-        if not a.names:
+    if args.cmd == "demo":
+        if not args.names:
             for name, about in list_dir(DEMOS) + list_dir(TEMPLATES):
-                print(f"{name:18} {about}")
+                print(f"{name:<18} {about}")
             return
         code = 0
-        for name in a.names:
+        for name in args.names:
             path = next(
                 (
-                    os.path.join(d, name + ".json")
-                    for d in (DEMOS, TEMPLATES)
-                    if (d / (name + ".json")).is_file()
+                    os.path.join(folder, f"{name}.json")
+                    for folder in (DEMOS, TEMPLATES)
+                    if (folder / f"{name}.json").is_file()
                 ),
                 None,
             )
             if not path:
                 die(f"no demo or template named {name!r}")
-            code = ask(load_spec(path), a, os.path.dirname(path))
+            code = ask(load_spec(path), args, os.path.dirname(path))
             if code not in (0, 2):
                 break
         sys.exit(code)
-    if a.cmd == "render":
-        spec = load_spec(a.spec)
+    if args.cmd == "render":
+        spec = load_spec(args.spec)
         check_spec(spec)
         apply_defaults(spec)
         base = (
-            str(Path(os.path.abspath(a.spec)).parent)
-            if a.spec != "-"
-            else str(Path.cwd())
+            str(Path.cwd())
+            if args.spec == "-"
+            else str(Path(os.path.abspath(args.spec)).parent)
         )
         html = build_html(spec, base)
         try:
-            with open(a.out, "w", encoding="utf-8") as f:
-                f.write(html)
-        except OSError as e:
-            die(f"cannot write the page to {a.out}: {e}")
-        print(a.out)
+            with open(args.out, "w", encoding="utf-8") as out:
+                out.write(html)
+        except OSError as error:
+            die(f"cannot write the page to {args.out}: {error}")
+        print(args.out)
 
 
 if __name__ == "__main__":
