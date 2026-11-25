@@ -53,7 +53,7 @@ def lem_row(look: Look) -> Row:
     """Whether the first `lem` on the PATH is the app's own command."""
     own = str(look.executable.parent / "lem")
     first = look.which("lem")
-    line = other.other_lem(look.environ.get("PATH", ""), own)
+    line = other.other_lem(look.environ, own)
     detail = f"{first}, Lem's command beside its Python"
     if first is None:
         detail = "no lem on PATH"

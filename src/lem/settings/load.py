@@ -37,12 +37,17 @@ class Loaded(Frozen, frozen=True, kw_only=True):
 
 
 def settings_of(
-    checkout: Path | None, environ: Environ, git: GitFacts | None = None
+    checkout: Path | None,
+    environ: Environ | None = None,
+    git: GitFacts | None = None,
+    home: Path | None = None,
 ) -> Loaded:
     """The settings in force for `checkout`, a main checkout where Lem is set up, or None
-    outside one."""
-    home = paths.home(environ)
-    return loaded(reading.Where(checkout=checkout, home=home, environ=environ, git=git))
+    outside one; the environment is the process's unless named, and Lem's home folder is
+    `home`, else the one the environment names."""
+    given = os.environ if environ is None else environ
+    found = home or paths.home(given)
+    return loaded(reading.Where(checkout=checkout, home=found, environ=given, git=git))
 
 
 def loaded(where: reading.Where) -> Loaded:
@@ -93,8 +98,9 @@ def base_of(team: Team) -> str:
     return team.branch.base
 
 
-def machine_of(environ: Mapping[str, str]) -> Machine:
-    """This machine's file, checked; its defaults when it is not there."""
-    where = reading.Where(checkout=None, home=paths.home(environ), environ=environ)
+def machine_of(home: Path, environ: Mapping[str, str]) -> Machine:
+    """This machine's file in Lem's home folder `home`, checked; its defaults when it is not
+    there. `environ` names the file in a refusal (`~/.config/lem/machine.toml`)."""
+    where = reading.Where(checkout=None, home=home, environ=environ)
     tables, name = reading.read(where, (places.Scope.machine,))[0]
     return files.converted(tables, Machine, name)

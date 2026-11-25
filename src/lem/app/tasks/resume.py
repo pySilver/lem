@@ -8,12 +8,13 @@ would go on from are gone.
 
 from typing import TYPE_CHECKING
 
-from lem.app.tasks import goes_on, park, ports, release, tracker, where
+from lem.app.tasks import goes_on, park, ports, release, where
 from lem.app.tasks.worktree import made
 from lem.kernel.errors import Refusal
 from lem.model.task import claim, ending, resumes
 from lem.records.decisions import Breaker, Taken
 from lem.records.holds import BreakerHold, Parked, ReleaseHold
+from lem.settings.load import settings_of
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
@@ -49,7 +50,8 @@ def dropped(where: places.Workspace, record: Record) -> park.Resumed:
             "was dropped long ago: its journal became one summary past state.keep_days, "
             "and the files a new task would go on from are gone",
         )
-    kind = tracker.kind_of(where.checkout)
+    tracker = settings_of(where.checkout).settings.tracker
+    kind = tracker.kind if tracker else None
     if isinstance(record.task.hold, ReleaseHold):
         return goes_on.as_request(where, record, kind)
     breaker = waiting_breaker(record)

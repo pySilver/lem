@@ -86,5 +86,5 @@ def handoff(given: Handoff, name: str, floor: int) -> None:
         raise wrong(
             f"{name}: handoff.tokens = {given.tokens}",
             f"is under {floor}, which Claude Code refuses",
-            f"write 0 for Claude Code's own trigger, or {floor} or more",
+            f"write 0 (Claude Code's own trigger), or {floor} or more",
         )

@@ -369,7 +369,9 @@ def test_the_port_is_the_given_one_else_the_machines_setting(tmp_path: Path) -> 
     (tmp_path / machine.MACHINE).write_text("[serve]\nport = 0\n")
     with pytest.raises(Refusal) as refused:
         machine.port_of(tmp_path, environ)
-    assert refused.value.code == "machine-settings"
+    # the machine's file is read and checked by the settings (`settings.load.machine_of`)
+    assert refused.value.code == "settings"
+    assert "serve.port" in refused.value.fix
 
 
 def test_each_workspace_has_a_name_of_its_own_and_none_of_the_servers_words() -> None:

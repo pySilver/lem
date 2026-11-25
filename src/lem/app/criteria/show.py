@@ -18,6 +18,7 @@ from lem.app.decisions.writing import Change, written
 from lem.kernel.errors import Refusal
 from lem.model.criteria import plan, standing
 from lem.model.decisions.changes import changes_of
+from lem.settings.load import settings_of
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -33,7 +34,7 @@ def source(here: where.Here, record: Record) -> tuple[Path, bool]:
         return found, False
     if here.sheet.is_file():
         return here.sheet, True
-    plans = here.worktree / where.PLANS
+    plans = here.worktree / settings_of(here.workspace.checkout).settings.paths.plans
     raise Refusal(
         "no-plan",
         f"no plan of {here.slug} in {plans}",

@@ -62,7 +62,8 @@ class Handoff(Table, frozen=True, kw_only=True):
         int,
         msgspec.Meta(
             ge=0,
-            description="handoff.tokens: 0, or a whole number of 100000 or more "
+            description="handoff.tokens: 0 (Claude Code's own trigger), or a whole number "
+            "of 100000 or more "
             "(lem settings set handoff.tokens N --machine)",
         ),
     ] = HANDOFF_TOKENS

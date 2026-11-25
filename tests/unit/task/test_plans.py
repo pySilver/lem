@@ -16,6 +16,7 @@ from lem.model.task import plans as names
 from lem.records.holds import Parked
 from lem.records.journal.task import StateNoted
 from lem.records.work import Plan
+from lem.settings.load import settings_of
 from unit.task import spaces
 
 if TYPE_CHECKING:
@@ -90,8 +91,9 @@ def test_the_pattern_and_the_folder_come_from_the_settings(tmp_path: Path) -> No
     assert (named.name, named.path) == ("gift-note.md", "plans/gift-note.md")
     wrong = spaces.workspace(tmp_path / "wrong", '[paths]\nplan_files = "x"\n')
     with pytest.raises(Refusal) as caught:
-        plans.paths_of(wrong.checkout)
-    assert caught.value.code == "settings"
+        settings_of(wrong.checkout)
+    assert caught.value.code == "settings-key"
+    assert "did you mean plan_file?" in caught.value.fix
 
 
 def test_a_resumed_task_finds_the_plan_of_the_task_it_came_from(tmp_path: Path) -> None:

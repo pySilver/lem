@@ -46,7 +46,7 @@ class ClaudeHarness:
     def launch(self, seat: Seat, brief: str, cwd: Path, plugin_dir: Path | None) -> str:
         """The line a login shell runs to start the seat's agent on `brief`, in `cwd`."""
         plugin = self.plugin_folder(plugin_dir) if plugin_dir else None
-        tokens = claude_launch.compaction(self.place.home)
+        tokens = claude_launch.compaction(self.place.home, self.place.environ)
         words = claude_launch.launch_words(seat, Path(brief), plugin, tokens)
         return " ".join(claude_launch.shell_word(word) for word in words)
 

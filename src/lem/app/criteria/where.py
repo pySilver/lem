@@ -1,20 +1,20 @@
 """Where a task's criteria are: the workspace of the call, the task's folder, its `criteria.md`,
 its worktree, and its plan in the worktree.
 
-The plan is `docs/plans/YYYY-MM-DD-SLUG.md` in the task's worktree, the newest day's when there are
-several, or, for a task resumed from a dropped one, the plan of the nearest task it came from that
-has one, which its branch holds until its lead writes one of its own (`plans.found` on `main`).
-The folder and the name are the settings' `paths.plans` and `paths.plan_file` once the step
-`settings` reads them; until then these are their defaults.
+The plan is in the settings' `paths.plans` of the task's worktree, named as `paths.plan_file`
+says (`docs/plans/YYYY-MM-DD-SLUG.md` by default), the newest day's when there are several, or,
+for a task resumed from a dropped one, the plan of the nearest task it came from that has one,
+which its branch holds until its lead writes one of its own (`plans.found` on `main`).
 """
 
-import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from lem.app.tasks import where
 from lem.kernel import locks
 from lem.kernel.errors import Refusal
+from lem.model.task import plans
+from lem.settings.load import settings_of
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
@@ -26,8 +26,6 @@ if TYPE_CHECKING:
 
 NAME = "criteria.md"
 LOCK = "criteria.lock"
-PLANS = "docs/plans"
-DAY = r"\d{4}-\d{2}-\d{2}"
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -71,26 +69,27 @@ def here_of(folder: Path, slug: str) -> Here:
     return Here(workspace=workspace, slug=slug)
 
 
-def own_plan(folder: Path, slug: str) -> Path | None:
-    """The plan of `slug` in the plans folder, the newest day's; None when it has none."""
-    form = re.compile(rf"({DAY})-{re.escape(slug)}\.md")
+def own_plan(folder: Path, slug: str, pattern: str) -> Path | None:
+    """The plan of `slug` in the plans folder, named as `pattern` says, the newest day's;
+    None when it has none."""
     if not folder.is_dir():
         return None
-    names = (path.name for path in folder.iterdir())
-    named = sorted(name for name in names if form.fullmatch(name))
-    return folder / named[-1] if named else None
+    listed = (path.name for path in folder.iterdir())
+    named = plans.newest(listed, pattern, (slug,))
+    return folder / named if named else None
 
 
 def plan_of(here: Here, record: Record) -> Path | None:
     """The task's plan in its worktree, or the plan of the nearest task it came from that has
     one; None when there is none."""
-    folder = here.worktree / PLANS
+    paths = settings_of(here.workspace.checkout).settings.paths
+    folder = here.worktree / paths.plans
     chain = [record.task.slug]
     came = record.task.resumed_from
     while came is not None and came not in chain:
         chain.append(came)
         came = tasks.read(here.workspace.state, came).task.resumed_from
-    found = (own_plan(folder, slug) for slug in chain)
+    found = (own_plan(folder, slug, paths.plan_file) for slug in chain)
     return next((plan for plan in found if plan is not None), None)
 
 

@@ -8,6 +8,7 @@ import pytest
 from lem.cli.doctor.jev_row import jev_row
 from lem.cli.doctor.machine_rows import handoff_row, load_row
 from lem.cli.doctor.rows import gathered
+from lem.kernel import folders
 from unit.settings.doctor.stage import Stage, named
 
 if TYPE_CHECKING:
@@ -23,7 +24,9 @@ def stage(tmp_path: Path) -> Stage:
 
 
 def machine(stage: Stage, text: str) -> None:
-    """This machine's settings file."""
+    """This machine's settings file, in a home folder this Lem marked as its own (the
+    correction hook reads no home of Lem 0.3)."""
+    folders.home_marked(stage.lem_home)
     stage.write("config/lem/machine.toml", text)
 
 

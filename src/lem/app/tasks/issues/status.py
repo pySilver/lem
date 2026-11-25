@@ -5,10 +5,10 @@ GitHub: a login or an `OWNER/REPO` is the same in either case."""
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 
-from lem.app.tasks import tracker
 from lem.kernel.errors import Refusal
 from lem.model.task import claim
 from lem.records.holds import Parked
+from lem.settings.load import settings_of
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -26,7 +26,8 @@ STATUS = "issue-status"
 
 def github(checkout: Path) -> None:
     """Refuse a project whose tracker is not GitHub's."""
-    kind = tracker.kind_of(checkout)
+    tracker = settings_of(checkout).settings.tracker
+    kind = tracker.kind if tracker else None
     if kind == "github":
         return
     fix = (

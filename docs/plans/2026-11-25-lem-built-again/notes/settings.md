@@ -3,6 +3,14 @@
 What the settings give, what `settings` needs in files it does not own, and the local stand-ins
 it built until each exists.
 
+## Every step joining after `settings`: the one way to read a table (five lines)
+
+1. Any table in force: `lem.settings.load.settings_of(checkout).settings.TABLE` (`checkout` is `store.places.workspace(folder).checkout`, or None); its file is `.sources["table.key"]`.
+2. Where the base must exist (the landing): `team_of(checkout)` and `base_of(team)`; both read the base's committed file while the main checkout is elsewhere, and refuse a wrong file with where its fix counts.
+3. This machine's file: `machine_of(home, environ).TABLE` (`load`, `serve`, `peers`, `handoff`, `corrections`), `home` being Lem's home folder (`Place.home`).
+4. No module outside `lem.settings` opens a settings file or calls `tomllib` on one (the hooks, standard library only, read `[corrections] collect` themselves); delete a stand-in such as `review_settings.py` and read the field.
+5. A refusal of the settings is the loader's (`settings`, `settings-key`, `table-place`, `settings-toml`, `protected`); a test asserts those codes, not a stand-in's.
+
 ## Every step: how to read a setting
 
 - `lem.settings.load.settings_of(checkout, environ) -> Loaded`: every value in force

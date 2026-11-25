@@ -7,11 +7,11 @@ from functools import partial
 from pathlib import PurePath
 from typing import TYPE_CHECKING
 
-from lem.app.tasks import plans, release
+from lem.app.tasks import release
 from lem.kernel import clock, errors
-from lem.model.task import holds, queue, table
-from lem.model.task import plans as names
+from lem.model.task import holds, plans, queue, table
 from lem.records.base import Frozen
+from lem.settings.load import settings_of
 from lem.store import tasks
 
 if TYPE_CHECKING:
@@ -67,7 +67,7 @@ def slug_of(target: str, every: tuple[Record, ...], pattern: str) -> str | None:
     held = next(owners, None)
     if held is not None:
         return held
-    named = names.regex(pattern, None).fullmatch(name)
+    named = plans.regex(pattern, None).fullmatch(name)
     return named["slug"] if named else None
 
 
@@ -105,7 +105,8 @@ def built(workspace: Workspace, target: str | None) -> Built:
     every = tasks.every(workspace.state)
     if target is None:
         return Built(waiting=waiting(every))
-    slug = slug_of(target, every, plans.paths_of(workspace.checkout).plan_file)
+    paths = settings_of(workspace.checkout).settings.paths
+    slug = slug_of(target, every, paths.plan_file)
     if slug is None:
         raise errors.Refusal(
             "no-plan",

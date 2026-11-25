@@ -224,8 +224,10 @@ def test_a_compaction_number_claude_code_would_refuse_is_refused(
         machine(tmp_path, text)
         with pytest.raises(Refusal) as refused:
             compaction_word(tmp_path)
-        assert refused.value.code == "handoff-tokens", text
-        assert "0 (Claude Code's own trigger)" in refused.value.fix
+        # the machine's file is read and checked by the settings (`settings.load.machine_of`)
+        assert refused.value.code in {"settings", "settings-toml"}, text
+        if refused.value.code == "settings":
+            assert "0 (Claude Code's own trigger)" in refused.value.fix
 
 
 def claude_files(

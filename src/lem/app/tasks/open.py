@@ -9,12 +9,12 @@ slug are a retry and pass; other words are another request under the same name.
 from functools import partial
 from typing import TYPE_CHECKING
 
-from lem.app.tasks import taken, tracker
+from lem.app.tasks import taken
 from lem.app.tasks.opening import Asked, fresh, ticket_of
-from lem.kernel import clock
-from lem.kernel.errors import Refusal
+from lem.kernel import clock, errors
 from lem.model.task import claim
 from lem.records.base import Frozen
+from lem.settings.load import settings_of
 from lem.store import places, tasks, workspace
 
 if TYPE_CHECKING:
@@ -44,20 +44,20 @@ def again(state: Path, asked: Asked, ticket: Ticket | None) -> Record | None:
         return None
     task = found.task
     if task.status in claim.ENDED:
-        raise Refusal(
+        raise errors.Refusal(
             "task-ended",
             f"the task {task.slug} is {task.status}, and a new task takes a slug of its own",
             "add a word to the slug",
         )
     if task.ask.split() != asked.ask.split():
-        raise Refusal(
+        raise errors.Refusal(
             "task-exists",
             f"the task {task.slug} holds other words already ({task.ask!r}), and a "
             "task's words are written once",
             "this is another request under the same name: add a word to the slug",
         )
     if ticket is not None and not claim.same(task.ticket, ticket):
-        raise Refusal(
+        raise errors.Refusal(
             "task-exists",
             f"the task {task.slug} holds another ticket than {ticket.id}",
             f"give the task for {ticket.id} another slug",
@@ -70,7 +70,8 @@ def opened(folder: Path, asked: Asked) -> Opened:
     refused before its record is written."""
     found = places.workspace(folder)
     state = places.state_of(found.checkout)
-    kind = tracker.kind_of(found.checkout)
+    tracker = settings_of(found.checkout).settings.tracker
+    kind = tracker.kind if tracker else None
     retry = again(state, asked, ticket_of(asked, kind))
     if retry is not None:
         return made_by(state, retry, made=False)
