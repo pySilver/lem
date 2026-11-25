@@ -19,15 +19,15 @@ stream: on 2026-11-22, with Chrome 157.0.8103.51 on macOS, it wrote the board's 
 served by `lem serve`, in 3.9 s, with the stream live at the page's foot. Add no
 `--virtual-time-budget` to it on such a page: with the budget, the same call on the same page did not
 end in 30 s and wrote no picture, and a page of 30 lines with one open `EventSource` did the same. A
-page that needs time to draw after its load takes the DevTools driver below, with a fixed wait before
-the picture (`{"goto": URL, "wait": MS}` in `tests/board-cdp.mjs`).
+page that needs time to draw after its load takes a DevTools driver, as below, with a fixed wait
+before the picture.
 
 A phone, a dark scheme, a click before the picture or a part of a page take the DevTools protocol:
 `Emulation.setDeviceMetricsOverride` (390 x 844, `deviceScaleFactor` 2, `mobile` true),
 `Emulation.setTouchEmulationEnabled`, `Emulation.setEmulatedMedia` with `prefers-color-scheme`,
-`Page.navigate`, then `Page.captureScreenshot`. Lem's own `tests/board-cdp.mjs` is such a driver in
-Node, with the steps as JSON; a project with Playwright or another driver of its own uses that. Both
-ways were checked on 2026-11-20 with Chrome 157.0.8103.51 and Node 26.9.0 on macOS: the call above
-wrote a 2560 x 1600 picture, and the driver a 780 x 1688 one of a phone. A screen that is no web page
+`Page.navigate`, then `Page.captureScreenshot`. A project with Playwright or another driver of its
+own uses that; with none, a short script over the DevTools protocol takes these steps. Both ways were
+checked on 2026-11-20 with Chrome 157.0.8103.51 and Node 26.9.0 on macOS: the call above wrote a
+2560 x 1600 picture, and a DevTools driver in Node a 780 x 1688 one of a phone. A screen that is no web page
 (a native window, a terminal) has no way checked here: say in one line that no picture was taken, and
 why.
