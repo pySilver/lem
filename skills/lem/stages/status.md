@@ -88,7 +88,7 @@ is `live`). One with no live session gets "no session" on the board, whose butto
 
 A dropped, landed or answered task has no choice that waits. A task with a `ticket_owed` (`lem task
 show SLUG`) ended, and its ticket in the tracker does not say so yet: say that too, with the step
-that pays each owed step, by the tracker's kind (`tracker.kind` in `lem settings show`). For
+that pays each owed step, by the tracker's kind (`settings.tracker.kind` in `lem settings show`). For
 `github` it is one line that any session, or the owner in a terminal, runs: `lem issue STEP SLUG`,
 STEP being the owed step's tracker step (`land` for `landed` or `commented`, `drop` for `dropped`,
 `answer` for `answered`, and for `unassigned` the `drop` or `answer` of the task's status). For
