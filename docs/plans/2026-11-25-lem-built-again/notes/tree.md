@@ -22,7 +22,13 @@ What `tree` needs in files it does not own, and the two local seams it built unt
    empty `argv` and a first word `help`, `version`, `-h` or `--help`; the version check also
    lets `doctor` through, and the server start skips `serve`, `board`, `doctor`, `ask` and `jev`
    (`main`'s `NO_LOOK`). Then `sys.exit(lazy.main(sys.argv[1:]))`, as now.
-4. No new dependency and no gate setting: Click and msgspec are enough for the tree.
+4. **A case of `tests/unit/core/` that the tree changes.**
+   `test_entry.test_the_two_commands_run_their_stubs_and_say_nothing` expects `lem` alone to exit
+   2 with no output: the first commit's stub. With the tree, `lem` alone is `lem help`: the help
+   on standard output, exit 0 (as on `main`). Once `tree` is merged that case fails; it wants
+   `lem` alone to exit 0 with `Usage: lem` on standard output, or a call such as
+   `lem land start x` (exit 1, a `not-built` envelope). `tests/unit/cli/test_tree.py` holds both.
+5. No new dependency and no gate setting: Click and msgspec are enough for the tree.
 
 ## For the steps that fill a leaf
 
