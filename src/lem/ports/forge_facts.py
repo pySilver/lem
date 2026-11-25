@@ -17,8 +17,9 @@ class Repo(Frozen, frozen=True, kw_only=True):
 
 
 class Pull(Frozen, frozen=True, kw_only=True):
-    """A pull request as the forge reports it now: its state, its text as it stands (an edit
-    keeps what the owner changed in it, `land.noted` on `main`), head and base (the
+    """A pull request as the forge reports it now: its state, who opened it (the forge's
+    login, `author.login` of gh), its text as it stands (an edit keeps what the owner changed
+    in it, `land.noted` on `main`), head and base (the
     destination, from the forge itself), whether it can merge, the forge's word for a queued
     merge or for its removal from the queue and why, and once merged: the merge commit, the
     head it merged, and the commit of the base it went onto (the merge commit's first parent
@@ -30,6 +31,7 @@ class Pull(Frozen, frozen=True, kw_only=True):
     title: str
     body: str = ""
     state: Literal["open", "closed", "merged"]
+    author: str | None = None
     head: Sha
     head_ref: str
     base: str
