@@ -10,7 +10,6 @@ from msgspec.structs import replace
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
     base,
-    checks,
     clean,
     filing,
     green,
@@ -40,7 +39,6 @@ from unit.landing.worlds import (
     PREPARED,
     READ,
     REVIEWED,
-    RULES,
     SEEN,
     TIP,
     task,
@@ -98,17 +96,6 @@ def test_base_rebases_only_a_tip_without_origins_base_and_refuses_a_teammates_co
     assert base.decide(record, world(remote=TIP, remote_in_tip=True)) == "onto"
     pushed = task(**{**PREPARED, "pushed": OTHER})
     assert base.decide(pushed, world(remote=OTHER, base_in_tip=False)) == "rebase"
-
-
-def test_checks_refuse_serial_commands_and_a_red_tip_as_later_steps() -> None:
-    assert checks.decide(task(**PREPARED), world()) is None
-    serial = world(rules=Rules(base="main", commands=("true",), serial=("e2e",)))
-    assert code_of(checks.decide(task(**PREPARED), serial)) == "not-built"
-    red = task(**{**PREPARED, "checked": replace(CHECKED, outcome="red")})
-    assert code_of(checks.decide(red, world())) == "not-built"
-    assert checks.left(clean=True) is None
-    assert code_of(checks.left(clean=False)) == "not-built"
-    assert checks.inputs(RULES) != checks.inputs(Rules(base="main", commands=("make",)))
 
 
 def said(**fields: object) -> review_said.Said:

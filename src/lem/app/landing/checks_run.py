@@ -1,44 +1,36 @@
 """`lem land checks`: each command of `checks.commands`, in order, at the root of the task's
-worktree, its output in a file of the task's folder, and the run on record.
+worktree, then, when they all passed, each command of `checks.serial` under the repository's one
+serial lock (`lem serial`), each with its output in a file of the task's folder (`land.
+checks_body` on `main`).
 
 Each command starts in a process group of its own, and what it leaves running is stopped with
-it. Each output is published at a path named by its round, its place and its digest, so a run
-cut off and run again never changes a file the record cites. The load gate, `checks.serial`,
-the removal of what the commands wrote and the criteria's check are the step `land-checks`'s.
+it, also when the run is stopped in the middle (`checks_output.py`). Each output is published
+at a path named by its round, its place and its digest, so a run cut off and run again never
+changes a file the record cites. The step itself, from the gate to the record, is `checks_step.py`.
 """
 
-import os
-import tempfile
-from functools import partial
+import sys
 from typing import TYPE_CHECKING
 
-from lem.app.landing import changes, frame, step
-from lem.kernel import files, procs
-from lem.model.landing import checks
-from lem.records.journal.landing import CheckEnd, CommandEnd
-from lem.records.landing.checks import Checked, Outcome
+from lem.app.landing import checks_output
+from lem.kernel import files
+from lem.records.landing.checks import Outcome
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
-    from lem.kernel.envelope import Envelope
-    from lem.records.record import Record
+    from lem.app.landing import frame
 
 SHELL = "/bin/sh"
-# How long a command's group has to end after its term, then after its kill, in seconds.
-GRACE = 10.0
+# How long a command's group has to end after its term, in seconds; a serial command's
+# wrapper (`lem serial`) gets the time of its own cleanup after the term: a term to its
+# command, 3 s, a kill, 3 s more, and one second for its exit (`SERIAL_GRACE` on `main`).
+GRACE = checks_output.GRACE
+SERIAL_GRACE = 7.0
 SHORT = 12
 
 
 def output_of(context: frame.Context, command: str) -> tuple[int, bytes]:
-    """Run one command in the worktree: its exit code and its output."""
-    with tempfile.TemporaryFile() as output:
-        argv = [SHELL, "-c", command]
-        proc = procs.start_group(argv, context.worktree, os.environ, output)
-        code = proc.wait()
-        procs.stop_group(proc, GRACE, GRACE, whole_group=True)
-        output.seek(0)
-        return code, output.read()
+    """Run one command of `checks.commands` in the worktree: its exit code and its output."""
+    return checks_output.ended([SHELL, "-c", command], context.worktree, GRACE)
 
 
 def published(context: frame.Context, place: int, body: bytes) -> str:
@@ -51,61 +43,53 @@ def published(context: frame.Context, place: int, body: bytes) -> str:
     return named
 
 
-def ran(context: frame.Context, place: int, command: str) -> Outcome:
-    """Run one command, publish its output, and give its outcome."""
-    code, body = output_of(context, command)
+def outcome_of(
+    context: frame.Context, place: int, command: str, ran: tuple[int, bytes]
+) -> Outcome:
+    """One command's outcome, its output published."""
+    code, body = ran
     lines = body.decode(errors="replace").strip().splitlines() or [""]
-    named = published(context, place, body)
     return Outcome(
         command=command,
         exit=code,
         last=lines[-1].strip(),
-        output=named,
+        output=published(context, place, body),
         passed=not code,
+        serial=place > len(context.world.rules.commands),
     )
-
-
-def checked(record: Record, *, run: Checked) -> Record:
-    """The record with the run, and its end in the journal."""
-    ends = tuple(
-        CommandEnd(name=outcome.command, passed=outcome.passed, last=outcome.last)
-        for outcome in run.outcomes
-    )
-    said = f"the checks {run.outcome}"
-    entry = CheckEnd(at=run.at, outcome=run.outcome, say=said, commands=ends)
-    return changes.noted(changes.landing(record, checked=run), entry)
 
 
 def every(context: frame.Context) -> tuple[Outcome, ...]:
-    """Each command's outcome, in the order of the settings."""
+    """Each command of `checks.commands`, in the order of the settings."""
     commands = enumerate(context.world.rules.commands, 1)
-    return tuple(ran(context, place, command) for place, command in commands)
-
-
-def act(context: frame.Context) -> Checked:
-    """Run the checks on the tip, and record the run."""
-    world = context.world
-    refused = checks.decide(context.record, world)
-    if refused is not None:
-        raise refused
-    outcomes = every(context)
-    refused = checks.left(clean=context.ports.git.clean(context.worktree))
-    if refused is not None:
-        raise refused
-    passed = all(outcome.passed for outcome in outcomes)
-    run = Checked(
-        tip=world.tip or "",
-        tree=world.tree or "",
-        base=world.base,
-        inputs=checks.inputs(world.rules),
-        outcome="passed" if passed else "red",
-        outcomes=outcomes,
-        at=world.now,
+    return tuple(
+        outcome_of(context, place, command, output_of(context, command))
+        for place, command in commands
     )
-    context.write(context.record, partial(checked, run=run))
-    return run
 
 
-def run(folder: Path, slug: str) -> Envelope:
-    """`lem land checks SLUG`."""
-    return step.landed(folder, slug, "checks", act)
+def serial_of(context: frame.Context, command: str) -> tuple[int, bytes]:
+    """Run one command of `checks.serial` in the worktree through `lem serial`."""
+    checkout = str(context.workspace.checkout)
+    argv = [
+        sys.executable,
+        "-B",
+        "-m",
+        "lem",
+        "--repo",
+        checkout,
+        "serial",
+        "--",
+        command,
+    ]
+    return checks_output.ended(argv, context.worktree, SERIAL_GRACE)
+
+
+def serials(context: frame.Context) -> tuple[Outcome, ...]:
+    """Each command of `checks.serial`, after the others, under the serial lock."""
+    rules = context.world.rules
+    numbered = enumerate(rules.serial, len(rules.commands) + 1)
+    return tuple(
+        outcome_of(context, place, command, serial_of(context, command))
+        for place, command in numbered
+    )
