@@ -1,8 +1,10 @@
 # Lem as an app with dependencies, in a pythonic shape
 
-> **Status: accepted** by the owner on 2026-11-24, with his answers to its four questions ("His
-> answers"). Three parts of it are built and on `main`: "Where the steps stand" names them, and
-> "From here to the release" is the path that is left.
+> **Status: replaced from its stage 3 on** by `2026-11-25-lem-built-again.md`, the build of Lem
+> from the ground on the branch `rebuild`, which the owner asked for on 2026-11-25. The owner
+> accepted this plan on 2026-11-24, with his answers to its four questions ("His answers"), and
+> those answers stand. Its stages 1 to 3 are built and on `main` (`bf6d2836`): Lem is an app
+> with a lock file, an installed command and hooks that start it.
 
 A draft by the maintaining session of 2026-11-23 and 24, from the owner's words of that night, an
 inventory of the code and a research of how such a tool ships. Both reports are in the session's
