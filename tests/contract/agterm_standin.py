@@ -20,9 +20,12 @@ import json, os, sys
 
 state = os.environ["AGTERM_STANDIN"]
 args = sys.argv[1:]
-if "--socket" in args:
-    at = args.index("--socket")
-    del args[at:at + 2]
+with open(os.path.join(state, "raw.jsonl"), "a") as raw:
+    raw.write(json.dumps(args) + "\n")
+for flag in ("--socket", "--window"):
+    if flag in args:
+        at = args.index(flag)
+        del args[at:at + 2]
 with open(os.path.join(state, "calls.jsonl"), "a") as calls:
     calls.write(json.dumps(args) + "\n")
 with open(os.path.join(state, "tree.json")) as read:
@@ -37,6 +40,14 @@ def value(flag):
 
 def target():
     wanted = value("--target")
+    for node in tree["sessions"]:
+        if node["id"] == wanted:
+            return node
+    sys.exit("no session " + wanted)
+
+
+def holder(pane):
+    wanted = pane.split(":")[0]
     for node in tree["sessions"]:
         if node["id"] == wanted:
             return node
@@ -89,10 +100,26 @@ elif args[:2] == ["session", "select"]:
 elif args[:2] == ["session", "status"]:
     target()["status"] = args[2]
     save()
+elif args[:2] == ["session", "rename"]:
+    target()["name"] = args[2]
+    save()
+elif args[:3] == ["session", "overlay", "open"]:
+    node = target()
+    node.setdefault("pages", []).append(args[3:args.index("--target")])
+    save()
 elif args[:2] == ["msg", "send"]:
-    wanted = value("--to").split(":")[0]
-    if not [n for n in tree["sessions"] if n["id"] == wanted]:
-        sys.exit("no session " + wanted)
+    node = holder(value("--to"))
+    node.setdefault("mailbox", []).append(args[2])
+    save()
+elif args[:2] == ["msg", "read"]:
+    node = holder(value("--as"))
+    print(json.dumps({"result": {"messages": [{"text": t} for t in node.get("mailbox", [])]}}))
+elif args[:1] == ["pick"]:
+    rows = sys.stdin.read().splitlines()
+    answer = tree.get("pick")
+    if answer is None:
+        sys.exit(2)
+    print(json.dumps({"result": "picked", "id": answer, "label": answer}))
 else:
     sys.exit("the stand-in does not know " + " ".join(args))
 """
@@ -115,6 +142,13 @@ class Standin:
     def calls(self) -> list[list[str]]:
         """Each call the stand-in took, in order."""
         path = self.folder / "calls.jsonl"
+        if not path.exists():
+            return []
+        return [json.loads(line) for line in path.read_text().splitlines()]
+
+    def raw(self) -> list[list[str]]:
+        """Each call as agtermctl got it, with its socket and window."""
+        path = self.folder / "raw.jsonl"
         if not path.exists():
             return []
         return [json.loads(line) for line in path.read_text().splitlines()]
