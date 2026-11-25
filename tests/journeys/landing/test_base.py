@@ -395,8 +395,7 @@ def test_a_second_rebase_never_loses_a_commit_the_first_left_out(
     subjects = run_git(world.worktree, "log", "--format=%s", "origin/main..HEAD")
     assert "feat: the feature" not in subjects
     assert landing(world)["based"]["before"] == first
-    # the pass's commits were not each kept: it runs again
-    assert "after" not in landing(world)["polished"]
+    assert "polished" not in landing(world)
     world.repo.outside_commit("main", {"feature.txt": None, "broken.txt": None})
     assert due(capsys, world) == "base"
     said = refused(BASE(capsys, world), "rebase-again")

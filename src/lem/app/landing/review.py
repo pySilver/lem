@@ -13,10 +13,10 @@ from typing import TYPE_CHECKING
 import msgspec
 
 from lem.app.landing import (
+    review_answer,
     review_brief,
     review_changes,
     review_facts,
-    review_files,
     step,
 )
 from lem.kernel.envelope import Envelope, Next
@@ -73,17 +73,14 @@ def briefed(context: frame.Context) -> Briefed:
 
 def taken(context: frame.Context, *, path: str) -> Reviewed:
     """Record the review of the file at `path`, or refuse it."""
-    found = review_files.task_file(path, context.folder)
-    before = review_files.landing_before(
-        context.folder, found, context.record.task.slug
-    )
-    if before is not None:
-        raise before
-    read = review_files.said(found)
+    read, body = review_answer.active(context.folder, context.record.task.slug, path)
     _, facts = known(context)
     attempt = review.decide(context.record, context.world, read, facts)
     if isinstance(attempt, Refusal):
         raise attempt
+    attempt = msgspec.structs.replace(
+        attempt, review=review_answer.published(context.folder, body)
+    )
     context.write(
         context.record, partial(review_changes.recorded, review=attempt, said=read)
     )

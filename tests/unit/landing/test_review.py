@@ -12,7 +12,7 @@ import msgspec
 import pytest
 from msgspec.structs import replace
 
-from lem.app.landing import review_changes, review_files
+from lem.app.landing import review_answer, review_changes, review_files
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
     careful,
@@ -621,7 +621,7 @@ def test_a_record_that_does_not_read_is_refused_with_its_form(tmp_path: Path) ->
     bad = tmp_path / "review-1.json"
     bad.write_text("{not json")
     with pytest.raises(Refusal) as refused:
-        review_files.said(bad)
+        review_answer.said(bad)
     assert refused.value.code == "review-file"
     assert "careful_why" in refused.value.fix
 

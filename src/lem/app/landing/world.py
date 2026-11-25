@@ -59,6 +59,21 @@ def origin(
     )
 
 
+def empty_cleanup(
+    workspace: Workspace, record: Record, now: Moment
+) -> facts.World | None:
+    """An ended task whose worktree and branch were never made needs no look at origin."""
+    task = record.task
+    if task.branch is not None or record.landing is not None:
+        return None
+    path = workspace.lem / where.WORKTREES / task.slug
+    if path.exists() or path.is_symlink():
+        return None
+    return facts.World(
+        rules=facts.Rules(base=""), branch="", base="", base_tree="", now=now
+    )
+
+
 def in_worktree(ports: Ports, path: Path, world: facts.World) -> facts.World:
     """The worktree's facts: its tip and tree, clean, a rebase, and whether it holds origin's
     base. A worktree that is not there leaves them unset."""

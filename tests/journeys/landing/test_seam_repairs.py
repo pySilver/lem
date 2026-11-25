@@ -1,5 +1,7 @@
 """The repair paths through Git, the task record, and the landing commands."""
 
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
@@ -7,14 +9,23 @@ from msgspec.structs import replace
 from fakes.repo import run_git
 from journeys.landing.test_checks import checks, committed, settings
 from journeys.landing.test_propose import propose_with
-from journeys.landing.test_review import reviewed, upto_review
-from journeys.test_skeleton import SLUG, command, lem, made, next_step, proposal, upto
+from journeys.landing.test_review import brief, reviewed, upto_review
+from journeys.test_skeleton import (
+    REVIEW,
+    SLUG,
+    command,
+    lem,
+    made,
+    next_step,
+    proposal,
+    upto,
+)
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     import pytest
+
+    from journeys.test_skeleton import World
 
 
 def test_the_own_item_removal_needs_new_checks_and_keeps_the_review(
@@ -103,6 +114,8 @@ def test_start_over_archives_the_previous_review_of_the_same_tip(
     archived = active.parent / "landing-1" / active.name
     assert archived.is_file()
     assert not active.exists()
+    for verb in ("base", "checks"):
+        assert lem(capsys, world.checkout, "land", verb, SLUG)["ok"]
     refused = lem(
         capsys, world.checkout, "land", "read", SLUG, "--record", str(archived)
     )
@@ -131,3 +144,95 @@ def test_an_unchanged_open_tip_runs_the_new_commands_and_proposes_again(
         == "test -f README.md"
     )
     assert next_step(capsys, world)["result"]["step"] == "merge"
+
+
+def test_start_over_at_the_open_tip_runs_a_fresh_landing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    previous = world.record()["landing"]
+    reset = lem(
+        capsys,
+        world.checkout,
+        "task",
+        "move",
+        SLUG,
+        "ready",
+        "--start-over",
+        "repeat the review",
+    )
+    assert reset["ok"], reset
+    assert next_step(capsys, world)["result"]["step"] == "start"
+    for verb in ("start", "base", "checks"):
+        assert next_step(capsys, world)["result"]["step"] == verb
+        assert lem(capsys, world.checkout, "land", verb, SLUG)["ok"]
+    assert next_step(capsys, world)["result"]["step"] == "read"
+    assert reviewed(capsys, world)["result"]["attempt"] == 1
+    updated = proposal(capsys, world)
+    assert updated["ok"], updated
+    assert updated["result"]["pull"] == previous["pull"]
+    assert next_step(capsys, world)["result"]["step"] == "merge-review"
+    prior_path = world.task_folder / previous["reviews"][0]["review"]
+    assert prior_path.is_file()
+    assert prior_path not in review_paths(capsys, world)
+
+
+def test_cleanup_finishes_a_task_dropped_before_it_has_a_branch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    assert lem(capsys, world.checkout, "task", "open", SLUG, "--ask", "fix a word")[
+        "ok"
+    ]
+    assert lem(capsys, world.checkout, "task", "move", SLUG, "dropped")["ok"]
+    assert next_step(capsys, world)["result"]["step"] == "clean"
+    acts = tuple(world.acts.done)
+    cleaned = lem(capsys, world.checkout, "land", "clean", SLUG)
+    assert cleaned["ok"], cleaned
+    assert cleaned["result"]["worktree_gone"]
+    assert cleaned["result"]["branch_gone"]
+    assert cleaned["result"]["forge_branch_gone"]
+    assert next_step(capsys, world)["result"]["step"] == "done"
+    assert tuple(world.acts.done) == (*acts, "write:ended")
+
+
+def review_paths(capsys: pytest.CaptureFixture[str], world: World) -> tuple[Path, ...]:
+    shown = lem(capsys, world.checkout, "land", "merge-review", SLUG)
+    assert shown["ok"], shown
+    text = Path(shown["result"]["brief"]).read_text()
+    facts = json.loads(text.split("```json\n")[1].split("```")[0])
+    return tuple(map(Path, facts["reviews"]))
+
+
+def test_the_merge_brief_cites_the_accepted_review_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world)
+    brief(capsys, world)
+    stale = world.task_folder / "reviews" / "review-1.json"
+    stale.write_text("another review")
+    answer = world.task_folder / "answer.json"
+    body = json.dumps(
+        {
+            **REVIEW,
+            "outside": [],
+            "attempt": int(world.told["attempt"]),
+            "tip": world.told["tip"],
+        },
+        indent=2,
+    ).encode()
+    answer.write_bytes(body)
+    assert lem(capsys, world.checkout, "land", "read", SLUG, "--record", str(answer))[
+        "ok"
+    ]
+    answer.write_text("changed after submission")
+    assert proposal(capsys, world)["ok"]
+    (cited,) = review_paths(capsys, world)
+    assert cited.read_bytes() == body
+    assert cited.is_relative_to(world.task_folder)
+    assert cited not in {answer, stale}
+    assert (
+        world.task_folder / world.record()["landing"]["reviews"][0]["review"] == cited
+    )

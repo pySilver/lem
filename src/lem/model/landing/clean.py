@@ -128,7 +128,7 @@ def decide(record: Record, world: World, facts: Facts) -> Refusal | Sweep:
     files of its own, a landed branch the forge did not merge."""
     slug, status = record.task.slug, record.task.status
     landing = record.landing or Landing()
-    guard = protected(world.branch, world.rules, "deletes")
+    guard = protected(world.branch, world.rules, "deletes") if world.branch else None
     if guard is not None:
         return guard
     if world.tip is not None and not world.clean:

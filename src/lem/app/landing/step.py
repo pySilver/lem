@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import msgspec
 
 from lem.app.landing import frame, say, step_release
-from lem.app.landing.world import gather
+from lem.app.landing.world import empty_cleanup, gather
 from lem.kernel import clock
 from lem.kernel.envelope import Envelope
 from lem.model.landing import phases
@@ -36,7 +36,8 @@ def opened(
     """The context of a step: the ports, the record and the world after a fetch."""
     record = step_release.at_step(workspace.state, slug, verb)
     ports = frame.bound(workspace)
-    found = gather(ports, workspace, record, now, fetch=True)
+    found = empty_cleanup(workspace, record, now) if verb == "clean" else None
+    found = found or gather(ports, workspace, record, now, fetch=True)
     return frame.Context(ports=ports, workspace=workspace, record=record, world=found)
 
 

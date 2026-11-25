@@ -95,7 +95,11 @@ def decide(
         return refused
     landing = record.landing or Landing()
     kept = landing.started
-    again = kept is not None and landing.phase == "preparing"
+    again = (
+        kept is not None
+        and kept.round == landing.round
+        and landing.phase == "preparing"
+    )
     return Started(
         round=round_of(record),
         branch=world.branch,

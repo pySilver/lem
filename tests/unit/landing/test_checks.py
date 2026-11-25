@@ -538,9 +538,7 @@ def queued(repo: Path, slug: str, after: str, *, red: bool = False) -> None:
     """A task of `repo` that waits for `after`: queued after it, or blocked by a red base."""
     state = places.state_of(repo)
     if red:
-        hold = Blocked(
-            why=checks_wanted.BASE_RED, fix="land it", after=after, since=MOMENT
-        )
+        hold = Blocked(why="the base is red", fix="land it", after=after, since=MOMENT)
         tasks.create(state, record(slug, status="ready", hold=hold))
         return
     tasks.create(state, record(slug, status="queued", after=after))

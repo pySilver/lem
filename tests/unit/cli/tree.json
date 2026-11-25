@@ -204,6 +204,28 @@
             }
           ]
         },
+        "red-base": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--after": {
+              "aliases": [],
+              "value": true,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
         "read": {
           "options": {
             "--help": {

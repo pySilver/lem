@@ -22,6 +22,7 @@ from lem.model.task import ending, table
 from lem.ports.forge_facts import Pull
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
 from lem.records.journal.task import StateNoted
+from lem.records.landing.merge import MergeAccepted, MergeIntent
 from lem.records.landing.propose import MergeRead, Proposed, Standing
 from lem.records.landing.record import Landing
 from lem.records.landing.record import Pull as LandingPull
@@ -243,6 +244,28 @@ def test_the_flag_writes_the_line_under_why_and_a_plain_ready_has_none(
     move.moved(where.checkout, "plain", "ready", ("the report is written",))
     assert last_line(where, "plain") == "the report is written"
     assert refusal(where, "building", start_over="why") == "start-over"
+
+
+@pytest.mark.parametrize(
+    "pending",
+    [
+        {"intent": MergeIntent(tip=SHA, by="merger", via="server", at=MOMENT)},
+        {"accepted": MergeAccepted(tip=SHA, queued="merge queue", at=MOMENT)},
+    ],
+)
+def test_start_over_waits_for_an_outstanding_merge_call(
+    tmp_path: Path, pending: dict[str, MergeAccepted | MergeIntent]
+) -> None:
+    where = workspace(tmp_path)
+    original = made(where, SLUG, status="open")
+    written = tasks.update(
+        where.state,
+        SLUG,
+        lambda record: replace(record, landing=replace(landing(), **pending)),
+        original.revision,
+    )
+    assert refusal(where, "ready", start_over="repeat the review") == "merge-pending"
+    assert read(where, SLUG) == written
 
 
 def test_a_drop_goes_from_any_status_that_is_not_ended(tmp_path: Path) -> None:

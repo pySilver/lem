@@ -13,16 +13,12 @@ import msgspec
 from lem.app.landing import checks_queue
 from lem.kernel.errors import Refusal
 from lem.model.landing import checks_line
+from lem.model.task import red_base
 from lem.records.base import Frozen
-from lem.records.holds import Blocked
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
     from lem.records.record import Record
-
-# The words of the `blocked` hold of a task whose base is red: its `after` names the repair
-# it waits for (`stages/land.md`, step 4).
-BASE_RED = "the base is red"
 
 
 def waited_for(state: Path) -> frozenset[str]:
@@ -40,10 +36,7 @@ def after_of(record: Record) -> str | None:
     task = record.task
     if task.status == "queued":
         return task.after
-    hold = task.hold
-    if isinstance(hold, Blocked) and hold.why == BASE_RED:
-        return hold.after
-    return None
+    return red_base.dependency(task)
 
 
 def wanted(
