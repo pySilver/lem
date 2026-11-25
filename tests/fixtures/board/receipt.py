@@ -3,6 +3,7 @@ every form a document of Lem's takes. A criterion with its case and its chart, t
 an important decision with its story and its chart, a pull request that is not green for four
 reasons, and the merge agent's read that calls the owner."""
 
+from fixtures.board import prose
 from fixtures.board.make import (
     approval,
     criterion,
@@ -28,11 +29,7 @@ from lem.records.task import Shape, Task
 from lem.records.work import Plan
 
 SLUG = "refund-line-on-receipt"
-CHART = """flowchart TD
-  A["A refund of 30 EUR comes in"] --> B{"Is it larger than the total?"}
-  B -->|"no"| C["The receipt shows a line: Refund -30.00"]
-  B -->|"yes"| D["The receipt shows 0.00 and a credit note"]
-  C --> E["The new total stands under it\""""
+CHART = prose.DEMO_CHART
 DECISION_CHART = """flowchart TD
   A["The receipt has its items"] --> B{"Where does the refund go?"}
   B -->|"A"| C["In the items: the total reads as a price"]
@@ -56,6 +53,16 @@ CRITERIA = (
         test="tests/refund.sh",
     ),
 )
+# The plan's `## How it works`, its sentence and its chart.
+HOW = """A refund becomes a line of the receipt; the rule for one larger than the total is the second branch.
+
+```mermaid
+flowchart LR
+  A["The refund event"] --> B["The receipt's lines"]
+  B --> C{"Refund larger than the total?"}
+  C -->|"no"| D["Refund line, then the total"]
+  C -->|"yes"| E["Total 0.00, then a credit note"]
+```"""
 SIZE_WHY = "the receipt gets a new line and a rule for a refund larger than the total."
 WHERE = "Where the refund line goes on the receipt"
 CHOSE = "B: a line of its own under the items, then the total"
@@ -166,7 +173,6 @@ FIRST = Reviewed(
         ),
     ),
     to_file=("r1.1",),
-    review="reviews/review-1.json",
     at=ago(462),
 )
 SECOND = Reviewed(
@@ -188,7 +194,6 @@ SECOND = Reviewed(
             against="under",
         ),
     ),
-    review="reviews/review-2.json",
     at=ago(450),
 )
 READ = MergeRead(
@@ -201,7 +206,6 @@ READ = MergeRead(
         "two choices taken without you, and I would keep both."
     ),
     by="claude",
-    brief="merge-brief.md",
     at=ago(440),
 )
 SPANS = (
@@ -235,10 +239,7 @@ RECEIPT = record(
             size="full",
             why=SIZE_WHY,
             criteria=CRITERIA,
-            how=(
-                "A refund becomes a line of the receipt; the rule for one larger than "
-                "the total is the second branch."
-            ),
+            how=HOW,
             digest="3d32aa263163",
             approvals=(
                 approval(598, "alone", "full", CRITERIA, SIZE_WHY, "255979939181"),

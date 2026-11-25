@@ -205,3 +205,78 @@ added: {today}
 
 Seen in the polish pass of the order date: the footer's last line wraps when the invoice prints on A5.
 """
+
+RECEIPT_PR = """feat(receipt): a refund shows as a line of its own
+
+Not green: four reasons, in `decisions.md`.
+
+<details><summary>Decision 1, its story: where the refund line goes</summary>
+
+1. Order 1042 has three items.
+2. A refund of 30.00 EUR comes in.
+
+```mermaid
+flowchart TD
+  A["The receipt has its items"] --> B{"Where does the refund go?"}
+  B -->|"A"| C["In the items: the total reads as a price"]
+  B -->|"B"| D["Under the items: the total stands under it"]
+  B -->|"C"| E["In a footer: the customer looks for it"]
+```
+
+</details>
+"""
+
+RECEIPT_DECISIONS = """# Decisions: a refund shows as a line of its own
+
+> [!CAUTION]
+> **2 things wait for the owner.**
+>
+> 1. Decision 1 was taken without the owner, by the dialectic: "B: a line of its own under the items, then the total".
+> 2. The criteria were approved while the task ran without the owner.
+
+Pull request [#44](https://github.com/acme/shop/pull/44). 2 decisions: 1 by the dialectic, taken without the owner; 1 by the lead.
+
+| # | The decision | Taken | Who decided | What it costs | What undoes it |
+| --- | --- | --- | --- | --- | --- |
+| [1](#1-where-the-refund-line-goes-on-the-receipt) | Where the refund line goes on the receipt | B. A line of its own under the items, then the total | the dialectic, without the owner; **not green** | nothing more | a change of the template, one line |
+| 2 | How the refund line is colored | the theme's green, as a credit | the lead | nothing | the theme's color |
+
+## 1. Where the refund line goes on the receipt
+
+**The case** (derived from the code, not run):
+
+1. Order 1042 has three items, 100.00 EUR.
+2. A refund of 30.00 EUR comes in.
+3. A customer reads the last line above the total as the price of an item.
+
+**This or that:**
+
+- A. In the items, as a negative price
+- **B. A line of its own under the items, then the total** (taken)
+- C. In the footer, beside the payment
+
+```mermaid
+flowchart TD
+  A["The receipt has its items"] --> B{"Where does the refund go?"}
+  B -->|"A"| C["In the items: the total reads as a price"]
+  B -->|"B"| D["Under the items: the total stands under it"]
+  B -->|"C"| E["In a footer: the customer looks for it"]
+```
+"""
+
+RECEIPT_BUILT = """# What was built: a refund shows as a line of its own
+
+> [!NOTE]
+> A demo task: no run made these files.
+
+## What was built
+
+![The receipt before](media/receipt-before.png)
+*Before: no line says why the total is 70.00.*
+
+![The receipt after](media/receipt-after.png)
+*After: the refund is a line of its own.*
+"""
+
+RECEIPT_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><title>A refund shows as a line of its own</title><style>body{font:15px/1.6 -apple-system,sans-serif;margin:0;padding:0 28px 40px;color:#222;background:#fbf9f5} nav{position:sticky;top:0;background:#f1efeb;padding:8px 0;display:flex;gap:8px}nav a{padding:2px 9px;border:1px solid #ddd;border-radius:999px;color:#222;text-decoration:none} [id]{scroll-margin-top:52px} section{min-height:520px}.tbl{overflow-x:auto} table{border-collapse:collapse;min-width:900px} td,th{text-align:left;padding:6px 10px;border-bottom:1px solid #ddd;vertical-align:top}.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;border:1px solid currentColor;white-space:nowrap} .bad{color:#ae4022} .muted{color:#777}</style></head><body><h1 id="top">A refund shows as a line of its own</h1><nav><a href="#asked">What was asked</a><a href="#decisions">Decisions</a><a href="#top">Top</a></nav><section id="asked"><h2>What was asked</h2><p>Show a refund as a line of its own on the receipt.</p></section><section id="decisions"><h2>Decisions</h2><div class="tbl"><table><tr><th>#</th><th>The decision</th><th>Taken</th><th>Who decided</th></tr><tr><td>1</td><td>Where the refund line goes on the receipt</td><td>B. A line of its own under the items, then the total</td><td><span class="pill bad">the dialectic, without the owner</span></td></tr><tr><td>2</td><td>How the refund line is colored</td><td>the theme's green, as a credit</td><td><span class="pill muted">the lead</span></td></tr></table></div></section></body></html>
+"""

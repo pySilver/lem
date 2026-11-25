@@ -140,6 +140,10 @@ FILES = (
     ("order-date-on-invoice", "task.md", INVOICE_TASK),
     ("why-export-is-slow", "investigation.md", INVESTIGATION),
     ("stock-on-product-page", "criteria.md", STOCK_CRITERIA),
+    ("refund-line-on-receipt", "pr.md", prose.RECEIPT_PR),
+    ("refund-line-on-receipt", "decisions.md", prose.RECEIPT_DECISIONS),
+    ("refund-line-on-receipt", "built.md", prose.RECEIPT_BUILT),
+    ("refund-line-on-receipt", "page.html", prose.RECEIPT_PAGE),
 )
 PICTURES = (
     ("refund-line-on-receipt", "media/receipt-before.png"),
