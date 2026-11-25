@@ -159,3 +159,32 @@ def test_the_plugins_files_are_in_the_installed_data_or_the_checkout(
     assert paths.root(installed) == installed / "data"
     with pytest.raises(Fault, match="installs Lem again"):
         paths.root(tmp_path / "nowhere" / "src" / "lem")
+
+
+def test_a_commands_fault_goes_to_the_home_log_or_to_standard_error(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    error = Fault("the record broke")
+    failed = logs.logged(error, ["task", "show"], {"XDG_CONFIG_HOME": str(tmp_path)})
+    assert failed.log == str(tmp_path / "lem" / "lem.log")
+    assert "Fault: the record broke" in (tmp_path / "lem" / "lem.log").read_text()
+    lost = logs.logged(error, ["task", "show"], {"XDG_CONFIG_HOME": "relative"})
+    assert lost.line == "the record broke"
+    assert lost.log.startswith("standard error: the log could not be written")
+    assert "Fault: the record broke" in capsys.readouterr().err
+
+
+def test_a_fault_is_logged_with_no_logging_module() -> None:
+    ran = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-c",
+            "import sys, lem.kernel.logs; print('logging' in sys.modules)",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    )
+    assert ran.stdout == "False\n"
