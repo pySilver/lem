@@ -1,8 +1,9 @@
 """The rules of the check that each criterion's tests pass on the branch and fail on the base
 (`criteria.needs_serial`, `unstarted`, `shell_script`, `python_script` and `cmd_red` on `main`).
 
-Which test runs under the serial lock, which script file a test starts, what went wrong with a
-test from its two exits, and the refusals of a run that may not start or did not hold. The facts
+Which test runs under the serial lock and which script file it starts (`Command`), the tests and
+the criteria without one, what went wrong with a test from its two exits, and the refusals of a
+run that may not start or did not hold. The facts
 come in as arguments: the app runs git and the tests.
 """
 
@@ -14,6 +15,7 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
+from lem.records.red import RedTest, WithoutTest
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -103,45 +105,68 @@ PYTHON_ARGS = Grammar(
 )
 
 
-def needs_serial(command: str, serial: Sequence[str]) -> bool:
-    """Whether a test belongs to a suite that needs the machine to itself: its command starts
-    with the words of one of `checks.serial` (`holds`)."""
-    words: list[str] = []
-    with contextlib.suppress(ValueError):
-        words = shlex.split(command)
-    return any(holds(words, line) for line in serial)
+@dataclass(frozen=True, slots=True)
+class Command:
+    """A line for the shell, a test's command or a line of `checks.serial`, read as its words."""
+
+    line: str
+
+    def words(self) -> list[str]:
+        """The line's words as the shell splits them; none for a line it cannot split."""
+        found: list[str] = []
+        with contextlib.suppress(ValueError):
+            found = shlex.split(self.line)
+        return found
+
+    def needs_serial(self, serial: Sequence[str]) -> bool:
+        """Whether the test belongs to a suite that needs the machine to itself: its command
+        starts with the words of one of `checks.serial` (`starts`)."""
+        words = self.words()
+        return any(Command(line).starts(words) for line in serial)
+
+    def starts(self, words: Sequence[str]) -> bool:
+        """Whether a command's words start with this line's words, the last of which may also
+        be a folder of the test's path (`sh tests/e2e` holds `sh tests/e2e/export.sh`). Words,
+        so that a test's own file after the suite's command still counts, and `npx playwright`
+        never matches `npx play`."""
+        own = self.words()
+        if not own or len(words) < len(own):
+            return False
+        size = len(own) - 1
+        word = words[size]
+        folder = "".join((own[-1].rstrip("/"), "/"))
+        inside = word == own[-1] or word.startswith(folder)
+        return inside and words[:size] == own[:size]
+
+    def script(self) -> str | None:
+        """The script file the command starts a shell or Python on; None when it starts none.
+        Its exit does not say whether the file was there: bash ends `sh FILE` with no FILE
+        with 127, dash with 2, and Python with 2, which an assertion's exit may be too."""
+        words = self.words()
+        program = PurePosixPath(words[0]).name if words else ""
+        if program in SHELLS:
+            return SHELL_ARGS.script(words[1:])
+        if PYTHON.fullmatch(program):
+            return PYTHON_ARGS.script(words[1:])
+        return None
 
 
-def holds(words: Sequence[str], line: str) -> bool:
-    """Whether a command's words start with the words of one serial line, the last of which may
-    also be a folder of the test's path (`sh tests/e2e` holds `sh tests/e2e/export.sh`). Words,
-    so that a test's own file after the suite's command still counts, and `npx playwright`
-    never matches `npx play`."""
-    own: list[str] = []
-    with contextlib.suppress(ValueError):
-        own = shlex.split(line)
-    if not own or len(words) < len(own):
-        return False
-    size = len(own) - 1
-    word = words[size]
-    folder = "".join((own[-1].rstrip("/"), "/"))
-    inside = word == own[-1] or word.startswith(folder)
-    return inside and words[:size] == own[:size]
+def tests_of(criteria: Sequence[Criterion]) -> tuple[RedTest, ...]:
+    """Each test of the criteria, in order, as its outcome will name it, before it ran."""
+    return tuple(
+        RedTest(criterion=each.number, command=test.command, files=test.files)
+        for each in criteria
+        for test in each.tests
+    )
 
 
-def script_of(command: str) -> str | None:
-    """The script file the command starts a shell or Python on; None when it starts none. Its
-    exit does not say whether the file was there: bash ends `sh FILE` with no FILE with 127,
-    dash with 2, and Python with 2, which an assertion's exit may be too."""
-    words: list[str] = []
-    with contextlib.suppress(ValueError):
-        words = shlex.split(command)
-    program = PurePosixPath(words[0]).name if words else ""
-    if program in SHELLS:
-        return SHELL_ARGS.script(words[1:])
-    if PYTHON.fullmatch(program):
-        return PYTHON_ARGS.script(words[1:])
-    return None
+def without_of(criteria: Sequence[Criterion]) -> tuple[WithoutTest, ...]:
+    """Each criterion that names no test, and why."""
+    return tuple(
+        WithoutTest(criterion=each.number, why=each.no_test)
+        for each in criteria
+        if each.no_test is not None
+    )
 
 
 def problem_of(green: int, red: int, lacked: str | None) -> str | None:

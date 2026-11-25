@@ -5,9 +5,9 @@ Before anything runs: a command to run, the polish pass in the tip, and the load
 (`checks_ready.py`). Then the commands, the serial ones when the others passed, and the judgment
 (`checks_verdict.py`). A term from `--stop` holds from the gate to the judgment
 (`checks_stop.py`): it ends what runs, and the run is kept as stopped; once the run is judged
-the handler still holds, so that a term changes nothing and the result is kept whole. A refusal of the run
-itself ends it as refused. Each end is one `CheckEnd` in the journal, with the run on record and
-the checks' span ended.
+the handler still holds, so that a term changes nothing and the result is kept whole. A refusal
+of the run itself ends it as refused. Each end is one `CheckEnd` in the journal, with the run on
+record and the checks' span ended.
 """
 
 from functools import partial
