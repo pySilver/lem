@@ -8,9 +8,9 @@ background while the session's turn has ended on its question to the owner. A sh
 the session runs when a direct child of its Claude Code process sources the shell's snapshot.
 
 When no process file of the transcript's folder names the session, when its pid is gone, or
-when the process table does not read, the signs do not read: `Signs()`, with no sign, no shell
-and no turn. With no process to read there is no evidence that no shell runs, and a guard that
-restarted such a session could put two agents on one task.
+when the process table does not read, the signs do not read: `Signs(read=False)`, with no sign,
+no shell and no turn. With no process to read there is no evidence that no shell runs, and a
+guard that restarted such a session could put two agents on one task.
 """
 
 from pathlib import Path
@@ -31,12 +31,13 @@ SNAPSHOT = "shell-snapshots/snapshot-"
 
 
 def signs_of(transcript: Transcript, table: claude_processes.Table) -> Signs:
-    """The signs of `transcript`, read now; `Signs()` when its process does not read."""
+    """The signs of `transcript`, read now; `Signs(read=False)` when its process does not
+    read."""
     path = Path(transcript.path)
     pids = claude_processes.pids_of(path, transcript.claude)
     commands = claude_processes.children(table, pids)
     if commands is None:
-        return Signs()
+        return Signs(read=False)
     shell = any(SNAPSHOT in command for command in commands)
     return Signs(sign=newest_sign(path), shell=shell, turn=claude_tail.file_turn(path))
 

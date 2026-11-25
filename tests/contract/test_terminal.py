@@ -198,3 +198,12 @@ def test_the_owners_select_is_the_one_call_that_selects(tmp_path: Path) -> None:
     assert [node["id"] for node in standin.sessions() if node.get("active")] == [
         "S-MINE"
     ]
+
+
+@pytest.mark.parametrize("name", ["AGTERM_SESSION_ID", "AGT_SESSION_ID"])
+def test_the_caller_is_the_session_its_panes_environment_names(
+    tmp_path: Path, name: str
+) -> None:
+    standin = install(tmp_path / "agterm", [MINE])
+    assert bound(standin, **{name: "S-MINE"}).here() == "S-MINE"
+    assert bound(standin, **{name: " "}).here() is None

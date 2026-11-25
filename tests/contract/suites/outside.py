@@ -44,7 +44,7 @@ class HarnessContract:
         assert harness.transcripts("no-such-task") == ()
         assert harness.tokens(()) == Tokens()
         gone = Transcript(path="/nowhere/gone.jsonl", claude="gone")
-        assert harness.signs(gone) == Signs()
+        assert harness.signs(gone) == Signs(read=False)
 
 
 class TrackerContract:
