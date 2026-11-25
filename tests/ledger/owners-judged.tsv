@@ -1,4 +1,7 @@
 id	step	why	from
+check:tests/lem-command.sh:a-second-sync-of-a-copy-of-this-checkout-wit-bed0612a5c4eb8a6	pack-trial	the build and sync of the app are core's packaging; P1 installs and checks it	tree
+check:tests/lem-command.sh:the-wheel-built-from-the-sdist-with-the-mani-5829869ffee83f44	pack-trial	the wheel's contents are core's packaging; P1 installs the formula	tree
+check:tests/lem-command.sh:the-wheel-check-refuses-a-wheel-s-file-that-bc7b89e9005246a7	pack-trial	the check of the wheel's files against git belongs with the packaging trial	tree
 event:merge.review	land-merge	Both carry_merge (land-base, carry) and cmd_merge_review write it. The merge review writes the event first; the carried copy repeats its verdict on a new tip.	
 event:merge.stands	land-merge	Both carry_merge (land-base, carry) and cmd_merge_review write it. The owner's standing merge is the merge step's path (landing.md E, owner merge refused for the base).	
 guide:docs/free-hour.md	addons-flow	Part 9 lists no owner for this private guide. It gives the night and retro proposal behavior to addons-flow.	
@@ -18,7 +21,9 @@ refusal:step_lock:the-checks-of-slug-already-run-when-a-second-e3890420b7002440	
 refusal:step_lock:the-checks-of-slug-run-when-and-their-end-co-02e83b578737b735	land-checks	This message describes the active check run and how it ends. The checks step owns the run and its status.	
 refusal:step_lock:the-step-lock-path-cannot-be-opened-error-st-ae7e636d44cca621	core	The file-open failure can stop any landing step. The step-lock seam gives the new lock to core.	
 refusal:task_file:path-is-not-a-file-flag-names-a-file-by-its-c39509a3ecc2e8d0	tree	The old shared helper resolves flags for the review record, the PR notes, the merge answer and the alike finding. The tree step owns the parameter contract.	
+refusal:task_file:path-is-not-a-file-flag-names-a-file-by-its-c39509a3ecc2e8d0	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
 refusal:task_file:path-is-not-a-file-in-the-working-directory-ce99925e12bdcf2d	tree	The old shared helper resolves flags for the review record, the PR notes, the merge answer and the alike finding. The tree step owns the parameter contract.	
+refusal:task_file:path-is-not-a-file-in-the-working-directory-ce99925e12bdcf2d	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
 ruling:a-lowered-bar-a-new-suppression-a-skipped-or-110297d0eb925f42	land-checks	The shell suite belongs to review, and the Bar cases belong to checks. Checks owns the lowered-bar finding that must reach the PR.	
 ruling:a-partial-review-is-a-review-6471c81a4fd37ad9	land-review	The cited suites span review, propose and merge. Review owns the floor and the selection that can satisfy it.	
 ruling:a-project-can-close-branches-003115363c11829e	land-base	Settings defines the protected names, and landing enforces them. The surfaces annex gives the old may-land contract to land-base.	
@@ -44,9 +49,13 @@ unit:tests/unit/test_land.py:ProtectedBranch.test_a_protected_name_is_refused_an
 unit:tests/unit/test_land.py:ProtectedBranch.test_a_task_branch_that_is_not_protected	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.	
 unit:tests/unit/test_land.py:ProtectedBranch.test_the_base_is_refused	land-base	The helper serves propose and clean. The surface annex gives protected-branch policy to land-base.	
 unit:tests/unit/test_land.py:TaskFile.test_a_file_in_neither_place_is_refused_with_both	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.	
+unit:tests/unit/test_land.py:TaskFile.test_a_file_in_neither_place_is_refused_with_both	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
 unit:tests/unit/test_land.py:TaskFile.test_a_relative_path_that_the_working_directory_lacks_is_the_task_directorys	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.	
+unit:tests/unit/test_land.py:TaskFile.test_a_relative_path_that_the_working_directory_lacks_is_the_task_directorys	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
 unit:tests/unit/test_land.py:TaskFile.test_an_absolute_path_is_taken_as_it_is	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.	
+unit:tests/unit/test_land.py:TaskFile.test_an_absolute_path_is_taken_as_it_is	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
 unit:tests/unit/test_land.py:TaskFile.test_the_working_directory_comes_first	tree	Several landing leaves share these path rules for arguments. The tree step owns the parameter contract.	
+unit:tests/unit/test_land.py:TaskFile.test_the_working_directory_comes_first	land-review	land.task_file reads --record and --what (land-review), and --notes and --file of the landing	tree
 unit:tests/unit/test_release.py:Before.test_the_release_before_is_older_than_plugin_json	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Check.test_a_command_that_ends_the_task_logs_the_same_stop_and_goes_on	task	the release stop two releases back is task's	core
 unit:tests/unit/test_release.py:Check.test_a_pass_holds_for_the_commands_of_one_command_and_for_no_command_after_it	task	the release stop two releases back is task's	core

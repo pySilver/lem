@@ -224,7 +224,7 @@ check:tests/lem-board-keys.sh:with-no-mark-j-marks-the-first-card-of-the-f-60063
 check:tests/lem-board-keys.sh:with-no-script-on-a-phone-the-approval-shows-906d3001b5b2fc47	browser
 check:tests/lem-board-keys.sh:with-no-script-the-merge-step-of-44-is-one-p-c91f6044e6d69a1a	browser
 check:tests/lem-board-keys.sh:with-the-focus-in-the-open-panel-the-down-ar-f7d44558c998aa5b	browser
-check:tests/lem-command.sh:a-second-sync-of-a-copy-of-this-checkout-wit-bed0612a5c4eb8a6	tree
+check:tests/lem-command.sh:a-second-sync-of-a-copy-of-this-checkout-wit-bed0612a5c4eb8a6	pack-trial
 check:tests/lem-command.sh:a-sibling-s-command-in-the-caller-s-process-e1a4b68520b0440d	tree
 check:tests/lem-command.sh:an-unknown-name-exits-1-and-says-so-on-stder-35d06379b836c584	tree
 check:tests/lem-command.sh:each-name-of-lem-names-a-script-of-this-chec-ea73794f929472e1	tree
@@ -234,8 +234,8 @@ check:tests/lem-command.sh:lem-leaves-no-pycache-also-of-the-scripts-th-df5ff8c6
 check:tests/lem-command.sh:lem-version-gives-the-manifest-s-version-the-7682e8f4c6841f22	tree
 check:tests/lem-command.sh:no-text-under-skills-or-agents-and-no-messag-eed3e1570a00700c	tree
 check:tests/lem-command.sh:no-text-under-skills-or-agents-gives-a-lem-c-c42bcd6fbff4c2b9	tree
-check:tests/lem-command.sh:the-wheel-built-from-the-sdist-with-the-mani-5829869ffee83f44	tree
-check:tests/lem-command.sh:the-wheel-check-refuses-a-wheel-s-file-that-bc7b89e9005246a7	tree
+check:tests/lem-command.sh:the-wheel-built-from-the-sdist-with-the-mani-5829869ffee83f44	pack-trial
+check:tests/lem-command.sh:the-wheel-check-refuses-a-wheel-s-file-that-bc7b89e9005246a7	pack-trial
 check:tests/lem-decisions.sh:a-decision-of-the-lead-or-of-the-personas-is-027ff6cd1e69d324	criteria
 check:tests/lem-decisions.sh:a-dropped-or-landed-task-has-no-breaker-that-aee66e2db9cca5cf	criteria
 check:tests/lem-decisions.sh:a-dropped-or-landed-task-takes-no-new-decisi-0ce79460057ef70a	criteria
@@ -1299,8 +1299,8 @@ refusal:step_lock:another-step-of-slug-runs-now-lem-land-holde-f182a4e3444c0eed	
 refusal:step_lock:the-checks-of-slug-already-run-when-a-second-e3890420b7002440	land-checks
 refusal:step_lock:the-checks-of-slug-run-when-and-their-end-co-02e83b578737b735	land-checks
 refusal:step_lock:the-step-lock-path-cannot-be-opened-error-st-ae7e636d44cca621	core
-refusal:task_file:path-is-not-a-file-flag-names-a-file-by-its-c39509a3ecc2e8d0	tree
-refusal:task_file:path-is-not-a-file-in-the-working-directory-ce99925e12bdcf2d	tree
+refusal:task_file:path-is-not-a-file-flag-names-a-file-by-its-c39509a3ecc2e8d0	land-review
+refusal:task_file:path-is-not-a-file-in-the-working-directory-ce99925e12bdcf2d	land-review
 refusal:tasks_of:the-task-s-plan-has-no-tasks-section-with-nu-6659c5cb144e22e1	land-checks
 refusal:wait_for_load:str-error-177e167f5c0481a3	land-checks
 route:GET /	board-pages
@@ -2545,10 +2545,10 @@ unit:tests/unit/test_land.py:TakenFromPolish.test_no_pass_or_one_not_done_runs_t
 unit:tests/unit/test_land.py:TakenFromPolish.test_the_end_of_the_checks_names_the_commit_of_a_taken_result_and_nothing_for_a_run	land-checks
 unit:tests/unit/test_land.py:TakenFromPolish.test_the_fast_track_runs_the_tests	land-checks
 unit:tests/unit/test_land.py:TakenFromPolish.test_the_tip_the_pass_ended_on_takes_its_result_and_names_the_pass_and_its_commit	land-checks
-unit:tests/unit/test_land.py:TaskFile.test_a_file_in_neither_place_is_refused_with_both	tree
-unit:tests/unit/test_land.py:TaskFile.test_a_relative_path_that_the_working_directory_lacks_is_the_task_directorys	tree
-unit:tests/unit/test_land.py:TaskFile.test_an_absolute_path_is_taken_as_it_is	tree
-unit:tests/unit/test_land.py:TaskFile.test_the_working_directory_comes_first	tree
+unit:tests/unit/test_land.py:TaskFile.test_a_file_in_neither_place_is_refused_with_both	land-review
+unit:tests/unit/test_land.py:TaskFile.test_a_relative_path_that_the_working_directory_lacks_is_the_task_directorys	land-review
+unit:tests/unit/test_land.py:TaskFile.test_an_absolute_path_is_taken_as_it_is	land-review
+unit:tests/unit/test_land.py:TaskFile.test_the_working_directory_comes_first	land-review
 unit:tests/unit/test_land.py:TheBarJevReads.test_a_project_s_own_builder_in_its_own_words_has_no_bar	land-review
 unit:tests/unit/test_land.py:TheBarJevReads.test_the_condition_of_lem_s_own_rule_6	land-review
 unit:tests/unit/test_land.py:TheBarJevReads.test_the_sentence_counts_only_in_rule_6	land-review
