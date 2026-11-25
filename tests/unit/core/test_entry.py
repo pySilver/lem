@@ -2,15 +2,21 @@
 commands of pyproject.toml."""
 
 import fcntl
+import os
 import subprocess
 import sys
 import threading
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
 import gates
 import levels
+from fakes.command import Ran, lem
+from lem.cli import lazy
+from lem.hooks import versions
+from lem.kernel import paths
 
 BIN = Path(sys.executable).parent
 
@@ -40,12 +46,28 @@ def test_a_level_runs_its_folder_or_the_paths_inside_it(tmp_path: Path) -> None:
     ]
 
 
+def test_the_ledgers_cases_are_part_of_the_unit_level(tmp_path: Path) -> None:
+    (tmp_path / "unit").mkdir()
+    check = tmp_path / "ledger" / "test_check.py"
+    check.parent.mkdir()
+    check.touch()
+    assert levels.selection(tmp_path, "unit", []) == [
+        str(tmp_path / "unit"),
+        str(tmp_path / "ledger"),
+    ]
+    assert levels.selection(tmp_path, "unit", [str(check)]) == [str(check.resolve())]
+    assert str(tmp_path / "ledger") in levels.selection(tmp_path, "full", [])
+    (tmp_path / "model").mkdir()
+    with pytest.raises(levels.WrongCall, match="is not in"):
+        levels.selection(tmp_path, "model", [str(check)])
+
+
 def test_a_selection_the_entry_cannot_run_is_refused_with_its_fix(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "unit").mkdir()
     (tmp_path / "contract").mkdir()
-    for level, paths, said in (
+    for level, given, said in (
         ("gates", ["x"], "takes no paths"),
         ("full", ["x"], "takes no paths"),
         ("unit", [str(tmp_path / "contract")], "is not in"),
@@ -53,7 +75,7 @@ def test_a_selection_the_entry_cannot_run_is_refused_with_its_fix(
         ("model", [], "has no case yet"),
     ):
         with pytest.raises(levels.WrongCall, match=said):
-            levels.selection(tmp_path, level, paths)
+            levels.selection(tmp_path, level, given)
 
 
 def test_only_a_full_run_takes_the_machine_lock(
@@ -93,25 +115,96 @@ def test_a_full_run_waits_while_another_holds_the_lock(
     assert f"waits for the full run that holds {lock}" in capfd.readouterr().err
 
 
-def test_the_eslint_gate_is_a_skip_with_no_configuration(
+def test_the_eslint_gate_skips_with_no_configuration_and_no_node_modules_but_in_full(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(gates, "ROOT", tmp_path)
+    unit, full = (
+        Mock(getoption=Mock(return_value=level)) for level in ("unit", "full")
+    )
     with pytest.raises(pytest.skip.Exception, match="no eslint"):
-        gates.test_eslint_holds_the_javascript_to_its_style()
+        gates.test_eslint_holds_the_javascript_to_its_style(unit)
     (tmp_path / "eslint.config.mjs").touch()
+    with pytest.raises(pytest.skip.Exception, match="npm ci"):
+        gates.test_eslint_holds_the_javascript_to_its_style(unit)
     with pytest.raises(pytest.fail.Exception, match="npm ci"):
-        gates.test_eslint_holds_the_javascript_to_its_style()
+        gates.test_eslint_holds_the_javascript_to_its_style(full)
 
 
-def test_the_two_commands_run_their_stubs_and_say_nothing() -> None:
-    for command, code in (("lem", 2), ("lem-hook", 0)):
-        ran = subprocess.run(
-            [BIN / command], capture_output=True, text=True, check=False, timeout=30
+def test_lem_runs_the_command_tree_and_lem_hook_says_nothing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # `lem help` is what the tree answers, the stub's 2 and nothing, or the tree's help: the
+    # command prints what the tree prints in this process, whichever is on the branch.
+    expected = lazy.main(["help"])
+    printed = capsys.readouterr()
+    ran = lem("help", cwd=tmp_path)
+    assert (ran.code, ran.stdout) == (expected, printed.out)
+    hook = subprocess.run(
+        [BIN / "lem-hook"], capture_output=True, text=True, check=False, timeout=30
+    )
+    assert (hook.returncode, hook.stdout, hook.stderr) == (0, "", "")
+
+
+def test_a_commands_output_is_read_as_its_envelope(tmp_path: Path) -> None:
+    printed = Ran(args=("x",), code=0, stdout='{"ok":true,"result":[1,2]}', stderr="")
+    assert printed.envelope() == {"ok": True, "result": [1, 2]}
+    assert printed.result() == [1, 2]
+    text = Ran(args=("help",), code=0, stdout="Usage: lem [OPTIONS]\n", stderr="")
+    with pytest.raises(AssertionError, match="printed no JSON object"):
+        text.envelope()
+    with pytest.raises(AssertionError, match="gave no result"):
+        Ran(args=("x",), code=1, stdout='{"ok":false}', stderr="").result()
+
+
+def plugin_of(folder: Path, version: str) -> Path:
+    """A plugin folder whose manifest says `version`."""
+    (folder / ".claude-plugin").mkdir(parents=True)
+    (folder / ".claude-plugin" / "plugin.json").write_text(
+        f'{{"version": "{version}"}}'
+    )
+    return folder
+
+
+def test_a_plugin_of_another_version_stops_every_command_but_the_first_answers(
+    tmp_path: Path,
+) -> None:
+    own = versions.version_of(str(paths.root()))
+    old = plugin_of(tmp_path / "old", "0.0.1")
+    env = {**os.environ, "LEM_PLUGIN_ROOT": str(old)}
+    stopped = lem("land", "checks", "fix-the-login", cwd=tmp_path, env=env)
+    assert stopped.code == 1
+    refused = stopped.envelope()
+    assert refused["ok"] is False
+    assert refused["refusal"] == {
+        "code": "version",
+        "why": f"lem: Lem's plugin 0.0.1 ({old}) is behind Lem's app {own}; the owner "
+        "runs `claude plugin update lem@lem` and starts the session again",
+        "fix": "the owner updates the half that is behind and starts the session again",
+    }
+    for first in ((), ("doctor",), ("version",), ("help",), ("-h",), ("--help",)):
+        assert '"code":"version"' not in lem(*first, cwd=tmp_path, env=env).stdout
+    for repo in (("--repo", str(tmp_path)), (f"--repo={tmp_path}",)):
+        assert (
+            '"code":"version"' not in lem(*repo, "doctor", cwd=tmp_path, env=env).stdout
         )
-        assert (command, ran.returncode, ran.stdout, ran.stderr) == (
-            command,
-            code,
-            "",
-            "",
-        )
+        assert '"code":"version"' not in lem(*repo, cwd=tmp_path, env=env).stdout
+        behind = lem(*repo, "land", "checks", "fix-the-login", cwd=tmp_path, env=env)
+        assert '"code":"version"' in behind.stdout
+    same = plugin_of(tmp_path / "same", own)
+    agreed = {**os.environ, "LEM_PLUGIN_ROOT": str(same)}
+    assert '"code":"version"' not in lem("land", cwd=tmp_path, env=agreed).stdout
+
+
+def test_the_line_names_the_half_that_is_behind(tmp_path: Path) -> None:
+    plugin = plugin_of(tmp_path / "plugin", "2.0.0")
+    app = plugin_of(tmp_path / "app", "1.9.0")
+    assert versions.behind(str(plugin), str(plugin)) is None
+    assert "Lem's app 1.9.0" in (versions.behind(str(plugin), str(app)) or "")
+    assert "brew upgrade" in (versions.behind(str(plugin), str(app)) or "")
+    broken = tmp_path / "broken"
+    (broken / ".claude-plugin").mkdir(parents=True)
+    (broken / ".claude-plugin" / "plugin.json").write_text("{")
+    said = versions.behind(str(broken), str(app)) or ""
+    assert "are two versions" in said
+    assert "unreadable" in said

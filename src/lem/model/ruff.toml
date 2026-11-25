@@ -1,0 +1,10 @@
+# The model's rules are pure (the design's part 2): no process, no clock, no socket, no os.
+# The facts and the moment come in as arguments.
+extend = "../../../pyproject.toml"
+
+[lint.flake8-tidy-imports.banned-api]
+"os".msg = "model/ is pure: the facts come in as arguments, gathered by app/."
+"subprocess".msg = "model/ is pure: a process runs in an adapter."
+"socket".msg = "model/ is pure: the network is an adapter's."
+"time".msg = "model/ is pure: the moment comes in as an argument."
+"__future__.annotations".msg = "No script has `from __future__ import annotations`: Python 3.14 is the floor, and its own annotations are enough."

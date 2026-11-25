@@ -58,10 +58,26 @@ def test_import_linter_holds_the_layers() -> None:
     holds(BIN / "lint-imports", "--no-cache")
 
 
-def test_eslint_holds_the_javascript_to_its_style() -> None:
+def test_eslint_holds_the_javascript_to_its_style(pytestconfig: pytest.Config) -> None:
     if not (ROOT / "eslint.config.mjs").is_file():
         pytest.skip("no eslint.config.mjs: no JavaScript to hold")
     eslint = ROOT / "node_modules" / ".bin" / "eslint"
     if not eslint.is_file():
-        pytest.fail(f"no {eslint}: run npm ci at the root of the checkout")
+        # The orchestrator's decision: a full run holds the JavaScript; any other level skips
+        # it by name, since the worktree of a step that owns no JavaScript has no node_modules.
+        missing = f"no {eslint}: run npm ci at the root of the checkout"
+        if pytestconfig.getoption("lem_level") == "full":
+            pytest.fail(missing)
+        pytest.skip(
+            f"{missing}; a worktree of a step that owns no JavaScript has no node_modules, "
+            "and a full run fails here"
+        )
     holds(eslint, ".")
+
+
+def test_shellcheck_holds_the_hooks_launcher() -> None:
+    # hooks/run is the one shell script of Lem: what Claude Code runs before a hook's Python.
+    shellcheck = shutil.which("shellcheck")
+    if shellcheck is None:
+        pytest.skip("no shellcheck on PATH: brew install shellcheck")
+    holds(shellcheck, "hooks/run")

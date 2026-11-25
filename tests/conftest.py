@@ -1,7 +1,9 @@
 """Give every test run a home of its own, and report its cases one line each.
 
 The entry (`tests/__main__.py`) registers `Setup` before pytest reads its arguments; a direct run of
-pytest gets it from `pytest_addoption` below, with a temporary folder of its own.
+pytest, and each worker of pytest-xdist, gets it from `pytest_addoption` below, with a temporary
+folder of its own. The lines are the controller's: with xdist it reads the cases each worker
+collected and the reports each worker sends, and a worker prints nothing.
 """
 
 import os
@@ -12,12 +14,22 @@ import unittest
 from contextlib import ExitStack
 from pathlib import Path
 from textwrap import indent
+from typing import TYPE_CHECKING
 
 import pytest
+
+from levels import LEVELS
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Sequence
 
 HERE = Path(__file__).resolve().parent
 SETUP_PLUGIN = "lem-test-setup"
 MARKED_TO_FAIL = "a case marked to fail is no check"
+# The user property of a report whose case is marked to fail.
+MARKED = "lem-marked-to-fail"
+# xdist's report of a case whose worker died under it, which has no phase of its own.
+CRASHED = "???"
 # What a test must never inherit from the shell that started it: the owner's own Lem plugin
 # (a version check against it stops every `lem`), and his terminal's session, which a test that
 # reaches the real agtermctl would change.
@@ -58,24 +70,59 @@ class Setup:
 
     def __init__(self, root: Path | None = None) -> None:
         self.root = root
+        self.duplicates: dict[str, str] = {}
 
     def pytest_addoption(self, parser: pytest.Parser) -> None:
         parser.addoption(
             "--lem-lines", action="store_true", help="print a line for each case"
         )
+        parser.addoption(
+            "--lem-level", choices=LEVELS, help="the level the entry runs (levels.py)"
+        )
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_configure(self, config: pytest.Config) -> None:
         isolate(config, self.root)
-        if config.getoption("lem_lines"):
+        if config.getoption("lem_lines") and not hasattr(config, "workerinput"):
             if config.getoption("capture") != "fd" or config.getoption("runxfail"):
                 raise pytest.UsageError(
                     "--lem-lines requires fd capture and normal xfail handling"
                 )
-            config.pluginmanager.set_blocked("terminal")
-            # Pytest can still call the terminal's configure hook in this hook pass.
+            # The terminal plugin stays, for the options other plugins read (inline-snapshot
+            # reads --color); its reporter, which would print over the lines, is blocked.
             config.pluginmanager.set_blocked("terminalreporter")
-            config.pluginmanager.register(Lines())
+            config.pluginmanager.register(Lines(config.rootpath))
+
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_collection_modifyitems(self, items: list[pytest.Item]) -> None:
+        # A TestCase imported into a second file is collected there too: one case, two
+        # names. Its second name fails, in each xdist worker as in one process.
+        seen: dict[str, str] = {}
+        for item in items:
+            case = shared_case(item)
+            if case is None:
+                continue
+            if case in seen:
+                self.duplicates[item.nodeid] = (
+                    f"duplicate case: {case} is collected as {seen[case]} too; import "
+                    "its module, not its class"
+                )
+            seen.setdefault(case, item.nodeid)
+
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_runtest_setup(self, item: pytest.Item) -> None:
+        if item.nodeid in self.duplicates:
+            pytest.fail(self.duplicates[item.nodeid], pytrace=False)
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_runtest_makereport(
+        self, item: pytest.Item, call: pytest.CallInfo[None]
+    ) -> Generator[None, pytest.TestReport, pytest.TestReport]:
+        # Marked where the item is, so the mark travels with the report to xdist's controller.
+        report = yield
+        if marked_to_fail(item):
+            report.user_properties.append((MARKED, True))
+        return report
 
     @pytest.fixture(scope="module", autouse=True)
     @staticmethod
@@ -123,9 +170,18 @@ def dotted(path: Path) -> str:
     return path.stem
 
 
-def case_name(item: pytest.Item) -> str:
+def case_name(rootdir: Path, nodeid: str) -> str:
     """`unit.core.test_store.Races.test_stale_expect`, and `[params]` for a parametrized one."""
-    return ".".join((dotted(item.path), *item.nodeid.split("::")[1:]))
+    where, *names = nodeid.split("::")
+    return ".".join((dotted(rootdir / where), *names))
+
+
+def shared_case(item: pytest.Item) -> str | None:
+    """A unittest case by the class that defines it, which two files can share."""
+    cls = getattr(item, "cls", None)
+    if cls is None or not issubclass(cls, unittest.TestCase):
+        return None
+    return f"{cls.__module__}.{cls.__qualname__}.{item.name}"
 
 
 def marked_to_fail(item: pytest.Item) -> bool:
@@ -158,9 +214,10 @@ def reason(report: pytest.TestReport) -> str:
 class Lines:
     """Count the collected cases, give each one result line, and add them up at the end."""
 
-    def __init__(self) -> None:
+    def __init__(self, rootdir: Path) -> None:
+        self.rootdir = rootdir
         self.names: dict[str, str] = {}
-        self.marked: set[str] = set()
+        self.collections: list[tuple[str, ...]] = []
         self.results: set[str] = set()
         self.reports: dict[str, list[pytest.TestReport]] = {}
         self.counts = {"ok": 0, "SKIP": 0, "FAIL": 0}
@@ -172,26 +229,39 @@ class Lines:
         self.deselected += len(items)
 
     def pytest_collectreport(self, report: pytest.CollectReport) -> None:
-        if not report.passed:
-            self.problems.append(f"collection {report.outcome}: {report.nodeid}")
+        problem = f"collection {report.outcome}: {report.nodeid}"
+        if not report.passed and problem not in self.problems:
+            # xdist sends each worker's report of one module's failure
+            self.problems.append(problem)
             self.diagnostics.append(report.longreprtext)
         self.diagnostics.extend(
             f"{label}\n{content}" for label, content in report.sections
         )
 
-    def pytest_collection_finish(self, session: pytest.Session) -> None:
-        print(f"collected {len(session.items)}", flush=True)
+    def collected(self, nodeids: Sequence[str]) -> None:
+        """Take the collected cases, once; with xdist, each worker's must be the same."""
+        if self.collections:
+            if tuple(nodeids) not in self.collections:
+                self.problems.append("the workers collected different cases")
+            return
+        self.collections.append(tuple(nodeids))
+        print(f"collected {len(nodeids)}", flush=True)
         names: set[str] = set()
-        for item in session.items:
-            name = case_name(item)
-            if item.nodeid in self.names or name in names:
-                problem = f"duplicate case: {name}"
-                self.problems.append(problem)
-                raise session.Interrupted(problem)
-            self.names[item.nodeid] = name
+        for nodeid in nodeids:
+            name = case_name(self.rootdir, nodeid)
+            if name in names:
+                self.problems.append(f"duplicate case: {name}")
+            self.names[nodeid] = name
             names.add(name)
-            if marked_to_fail(item):
-                self.marked.add(item.nodeid)
+
+    def pytest_collection_finish(self, session: pytest.Session) -> None:
+        self.collected([item.nodeid for item in session.items])
+
+    @pytest.hookimpl(optionalhook=True)
+    def pytest_xdist_node_collection_finished(
+        self, node: object, ids: Sequence[str]
+    ) -> None:
+        self.collected(ids)
 
     def pytest_runtest_logreport(self, report: pytest.TestReport) -> None:
         if (
@@ -201,7 +271,18 @@ class Lines:
             and not hasattr(report, "wasxfail")
         ):
             return
+        if report.when == CRASHED:
+            self.crashed(report)
+            return
         self.reports.setdefault(report.nodeid, []).append(report)
+
+    def crashed(self, report: pytest.TestReport) -> None:
+        """The worker running a case died: the case fails, with xdist's words."""
+        name = self.names.get(report.nodeid, report.nodeid)
+        self.reports.pop(report.nodeid, None)
+        self.results.add(report.nodeid)
+        self.counts["FAIL"] += 1
+        print(f"FAIL {name}: {reason(report)}", flush=True)
 
     def pytest_runtest_logfinish(self, nodeid: str) -> None:
         name = self.names.get(nodeid)
@@ -232,9 +313,10 @@ class Lines:
             report for report in reports if report.failed or hasattr(report, "wasxfail")
         ]
         skips = [report for report in reports if report.skipped]
-        if nodeid in self.marked or bad:
+        marked = any((MARKED, True) in report.user_properties for report in reports)
+        if marked or bad:
             self.counts["FAIL"] += 1
-            why = MARKED_TO_FAIL if nodeid in self.marked else reason(bad[0])
+            why = MARKED_TO_FAIL if marked else reason(bad[0])
             print(f"FAIL {name}: {why}", flush=True)
         elif skips:
             self.counts["SKIP"] += 1

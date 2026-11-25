@@ -1,7 +1,7 @@
 name: CI
 
-# Started by hand only (the Actions tab, or `gh workflow run CI`): the local suites, `bash tests/all.sh`,
-# are the check for now.
+# Started by hand only (the Actions tab, or `gh workflow run CI`): the levels run on the
+# maintainer's Mac are the check for now.
 on:
   workflow_dispatch:
 
@@ -23,29 +23,15 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-      # Lem installed from the checkout into .venv, with its tools: every suite runs on its Python
-      - name: The app
+      - name: The app and its tools
         run: uv sync --locked
-      - name: What the suites need
-        run: |
-          if [ "$RUNNER_OS" = macOS ]; then brew install shellcheck; else sudo apt-get update -q && sudo apt-get install -y -q shellcheck; fi
-          .venv/bin/python --version
-          shellcheck --version | sed -n 2p
-          git --version
-          uv --version
-          node --version
-          # the page checks load pages in headless Chrome; with none each of them prints a SKIP line
-          chrome=""
-          for c in google-chrome chromium chromium-browser "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
-            if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then chrome=$c; break; fi
-          done
-          if [ -n "$chrome" ]; then "$chrome" --version; else echo "::warning::no Chrome or Chromium: the page checks are skipped"; fi
-      # Every suite at once, each within its time limit; a suite passes only when its results add up
-      # to the checks it collected, and the logs of the suites that failed follow the summary.
-      - name: The whole suite
-        run: bash tests/all.sh
-      # The journeys again, against the wheel of this checkout installed outside it, as a user's app
-      # is: also when the whole suite failed, so that both results show.
-      - name: The journeys on an installed app
+      # ESLint and neostandard at the versions of package-lock.json, for the ESLint gate
+      - name: The JavaScript's tools
+        run: npm ci
+      # Each level prints a line for each case and its total; it passes only when passed and
+      # skipped add up to the cases it collected.
+      - name: The gates
+        run: .venv/bin/python -I -B tests --level gates
+      - name: The unit level
         if: ${{ !cancelled() }}
-        run: bash tests/all.sh --installed
+        run: .venv/bin/python -I -B tests --level unit

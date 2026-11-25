@@ -37,8 +37,6 @@ def run_pytest(root: Path, args: list[str]) -> int:
         [
             "-c",
             str(ROOT / "pyproject.toml"),
-            "-p",
-            "no:terminal",
             "--lem-lines",
             *args,
         ],
@@ -103,6 +101,12 @@ def main() -> int:
         description="Run one level of Lem's tests, or the files of a level named.",
     )
     parser.add_argument("--level", required=True, choices=levels.LEVELS)
+    parser.add_argument(
+        "--snapshots",
+        choices=("create", "fix"),
+        help="let inline-snapshot write the values snapshot() lacks (create) or "
+        "gets wrong (fix) into the test files; then run ruff format",
+    )
     parser.add_argument("paths", nargs="*", help="files or folders of the level")
     called = parser.parse_args()
     if Path(sys.prefix).resolve() != VENV.resolve():
@@ -116,8 +120,12 @@ def main() -> int:
         chosen = levels.selection(HERE, called.level, called.paths)
     except levels.WrongCall as wrong:
         parser.error(str(wrong))
+    snapshots = [f"--inline-snapshot={called.snapshots}"] if called.snapshots else []
     with levels.lock_of(called.level):
-        return run_in_child(chosen)
+        workers = levels.parallel(called.level, snapshots=bool(snapshots))
+        return run_in_child(
+            ["--lem-level", called.level, *workers, *snapshots, *chosen]
+        )
 
 
 if __name__ == "__main__":

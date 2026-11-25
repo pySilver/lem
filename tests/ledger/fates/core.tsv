@@ -1,0 +1,49 @@
+id	fate	proof	note
+check:tests/lint.sh:eslint-no-javascript-file-breaks-javascript-d14216d1f8c6f7ff	kept	gates.test_eslint_holds_the_javascript_to_its_style	
+check:tests/lint.sh:pyrefly-check-the-types-of-every-python-file-221dea89192d6131	kept	gates.test_pyrefly_finds_the_types_hold	
+check:tests/lint.sh:ruff-check-no-python-file-breaks-a-rule-of-p-6e9a847bcad04a90	kept	gates.test_ruff_check_finds_no_rule_broken	
+check:tests/lint.sh:ruff-format-every-python-file-has-the-one-fo-babfd8d9333f0f9e	kept	gates.test_ruff_format_gives_every_python_file_the_one_format	
+check:tests/lint.sh:uv-lock-check-uv-lock-holds-what-pyproject-t-640a5a12c6ef8bd7	kept	gates.test_uv_lock_holds_what_pyproject_asks	
+check:tests/shellcheck.sh:shellcheck-file-2f02f6932eb514b4	changed	gates.test_shellcheck_holds_the_hooks_launcher	no shell suite is left; ShellCheck holds hooks/run, the one shell script, as a gate case that skips by name with no shellcheck
+check:tests/test-lem.sh:the-scripts-left-no-pycache-d4dcb5cfe80bdf29	kept	unit.core.test_repository.test_no_command_leaves_bytecode_in_the_checkout	
+refusal:Task.kept:self-kept-file-does-not-read-as-json-error-l-b76b793bcede0539	changed	unit.core.test_store_tasks.test_a_missing_task_is_refused_and_a_damaged_record_is_a_fault	landing.json is part of task.json; a record that does not read is a fault that names the file
+refusal:events_of:line-number-of-log-is-not-json-error-the-log-2ee7b7abc2391f5f	changed	unit.core.test_store_tasks.test_a_missing_task_is_refused_and_a_damaged_record_is_a_fault	no event log: the journal is in task.json, and a record that does not read is a fault that names the file
+refusal:step_lock:another-step-of-slug-runs-now-and-holds-its-3b9f0eb706f26999	kept	unit.core.test_store_locks.test_a_lock_named_by_no_holder_is_refused_without_a_name	
+refusal:step_lock:another-step-of-slug-runs-now-lem-land-holde-f182a4e3444c0eed	kept	unit.core.test_store_locks.test_a_step_held_by_another_step_than_the_checks_is_named	
+refusal:step_lock:the-step-lock-path-cannot-be-opened-error-st-ae7e636d44cca621	kept	unit.core.test_store_locks.test_a_folder_at_the_lock_is_refused_with_its_repair	
+ruling:a-release-is-a-change-of-the-plugin-s-versio-eef0c0acef8044d0	kept	unit.core.test_repository.test_the_package_and_the_running_release_are_the_plugins_version	
+ruling:no-ci-on-a-push-for-now-1c49c0d127ccef01	kept	unit.core.test_repository.test_ci_starts_by_hand_only	
+seam:step-lock-not-inherited	kept	unit.core.test_store_locks.test_a_process_the_step_starts_does_not_hold_the_step_lock	
+unit:tests/unit/test_clock.py:Forms.test_a_datetime_in_each_form	changed	unit.core.test_kernel.test_a_moment_is_utc_to_the_second_and_shown_two_ways	a record holds a datetime that msgspec writes with Z; the board's minute and a name's compact form are the two text forms
+unit:tests/unit/test_clock.py:Forms.test_a_moment_in_another_zone_or_none_is_written_as_it_is	changed	unit.core.test_kernel.test_a_moment_is_utc_to_the_second_and_shown_two_ways	a moment of another zone is shown in UTC, and a moment with no zone is refused when a record is read
+unit:tests/unit/test_clock.py:Forms.test_none_is_now_in_utc	kept	unit.core.test_kernel.test_a_moment_is_utc_to_the_second_and_shown_two_ways	
+unit:tests/unit/test_clock.py:Forms.test_seconds_with_a_fraction_and_whole_ones_are_the_same_utc_moment	dropped	unit.core.test_kernel.test_a_moment_is_utc_to_the_second_and_shown_two_ways	no moment is seconds since the epoch any more: now is a UTC datetime to the second
+unit:tests/unit/test_clock.py:Forms.test_the_clock_of_tests_clock_moves_now_and_a_moment_made_before_stays	dropped	unit.core.test_kernel.test_a_moment_is_utc_to_the_second_and_shown_two_ways	the moment comes into every rule as an argument (design part 4), so no test moves the clock of a process
+unit:tests/unit/test_clock.py:LateDate.test_it_runs_with_a_python3_first_on_path_that_fails	dropped	unit.core.test_entry.test_lem_runs_the_command_tree_and_lem_hook_says_nothing	the Python launcher and tests/clock went (design part 1); lem runs on its own .venv's Python
+unit:tests/unit/test_files.py:Held.test_an_error_inside_frees_both	changed	unit.core.test_kernel.test_a_lock_an_error_left_inside_is_free_after	one flock per open file keeps out threads and processes alike, so there is no thread lock beside it
+unit:tests/unit/test_files.py:Held.test_both_locks_are_held_inside_and_free_after_and_the_folder_is_made	changed	unit.core.test_store_locks.test_a_drop_waits_for_the_step_and_then_holds_the_lock	one flock per open file keeps out a thread of the same process too; the store makes the folder of a lock
+unit:tests/unit/test_files.py:Whole.test_a_folder_that_is_not_there_is_made_only_when_asked	changed	unit.core.test_kernel.test_a_file_is_written_into_a_folder_that_is_there_and_an_artifact_makes_its_own	a whole write needs its folder; a publication of an artifact makes it
+unit:tests/unit/test_files.py:Whole.test_a_name_of_the_callers_own_is_the_one_written_first	dropped	unit.core.test_kernel.test_a_file_is_written_whole_and_leaves_no_temporary_file	tempfile gives each writer a unique name in the folder, so no caller names one
+unit:tests/unit/test_files.py:Whole.test_a_record_is_json_with_two_spaces_its_characters_and_a_line_end	kept	unit.core.test_store_tasks.test_a_created_task_reads_back_at_revision_one	
+unit:tests/unit/test_files.py:Whole.test_the_text_goes_under_name_pid_new_first_and_nothing_is_left	changed	unit.core.test_store_tasks.test_a_cut_off_before_the_rename_leaves_the_record_before_and_no_temporary_file	the temporary file has a unique name of tempfile, not NAME.PID.new; it is synced, and the folder too after the rename
+unit:tests/unit/test_land.py:EventLog.test_every_reader_reads_the_event_whole	changed	unit.core.test_store_lines.test_a_line_with_a_separator_python_splits_at_reads_back_whole	no event log: the framed lines of sessions.jsonl are split at the line end alone
+unit:tests/unit/test_paths.py:Root.test_a_checkout_is_its_own_root_when_it_holds_the_skill	kept	unit.core.test_kernel.test_the_plugins_files_are_in_the_installed_data_or_the_checkout	
+unit:tests/unit/test_paths.py:Root.test_an_installed_app_reads_its_own_data_folder	kept	unit.core.test_kernel.test_the_plugins_files_are_in_the_installed_data_or_the_checkout	
+unit:tests/unit/test_paths.py:Root.test_neither_is_one_error_that_names_both_places	kept	unit.core.test_kernel.test_the_plugins_files_are_in_the_installed_data_or_the_checkout	
+unit:tests/unit/test_proc.py:Stop.test_a_first_process_that_stays_gets_the_kill_after_its_grace	kept	unit.core.test_kernel.test_a_leader_that_ignores_a_term_gets_the_kill	
+unit:tests/unit/test_proc.py:Stop.test_a_group_that_is_gone_ends_the_stop	kept	unit.core.test_kernel.test_a_group_that_is_gone_ends_the_stop_at_once	
+unit:tests/unit/test_proc.py:Stop.test_the_whole_group_left_after_its_grace_gets_the_kill	kept	unit.core.test_kernel.test_the_whole_group_left_after_its_grace_gets_the_kill	
+unit:tests/unit/test_proc.py:Stop.test_the_whole_group_that_ends_in_its_grace_gets_no_kill	kept	unit.core.test_kernel.test_a_group_stop_ends_what_the_command_left_behind	
+unit:tests/unit/test_proc.py:Stop.test_what_the_first_process_left_gets_the_kill_when_it_ended	kept	unit.core.test_kernel.test_what_the_first_process_left_gets_the_kill_when_it_ended	
+unit:tests/unit/test_release.py:Check.test_a_task_of_a_newer_release_stops_and_writes_nothing	kept	unit.core.test_store_tasks.test_a_record_of_a_newer_form_or_release_reads_but_is_never_written_over	
+unit:tests/unit/test_release.py:Rule.test_a_task_of_a_newer_release_stops_and_names_the_update	changed	unit.core.test_store_tasks.test_a_record_of_a_newer_form_or_release_reads_but_is_never_written_over	the store refuses the write (newer-release); its fix says the owner updates Lem, and the update commands are the version line's
+unit:tests/unit/test_release.py:Rule.test_versions_compare_as_numbers_part_by_part	kept	unit.core.test_kernel.test_releases_compare_as_numbers_part_by_part	
+unit:tests/unit/test_release.py:Repository.test_the_build_backend_and_the_dev_tools_name_one_hatchling	kept	unit.core.test_repository.test_the_build_backend_and_the_dev_tools_name_one_hatchling	
+unit:tests/unit/test_release.py:Repository.test_the_package_takes_its_version_from_plugin_json	kept	unit.core.test_repository.test_the_package_and_the_running_release_are_the_plugins_version	
+unit:tests/unit/test_unit_runner.py:Protocol.test_a_hard_exit_cannot_pass_or_leave_its_temporary_directory	kept	unit.core.test_runner.test_a_hard_exit_cannot_pass_or_leave_its_temporary_folder[model]	
+unit:tests/unit/test_unit_runner.py:Protocol.test_collection_errors_prevent_cases_from_running	changed	unit.core.test_runner.test_collection_errors_prevent_cases_from_running	in one process a collection error stops the run (exit 2); on xdist's workers the cases run and the run still fails and names the error
+unit:tests/unit/test_unit_runner.py:Protocol.test_each_case_has_one_line_and_the_exit_tells_whether_the_run_passed	kept	unit.core.test_runner.test_each_case_has_one_line_and_the_exit_tells_whether_the_run_passed[unit]	
+unit:tests/unit/test_unit_runner.py:Protocol.test_empty_selection_and_skipped_modules_have_distinct_exits	changed	unit.core.test_runner.test_a_selection_that_collects_nothing_fails	every selection that collects nothing fails (design part 8), not only a whole run
+unit:tests/unit/test_unit_runner.py:Protocol.test_individual_reports_choose_the_result	kept	unit.core.test_runner.test_individual_reports_choose_the_result	
+unit:tests/unit/test_unit_runner.py:Protocol.test_module_cleanups_run_even_after_setup_or_teardown_fails	kept	unit.core.test_runner.test_module_cleanups_run_even_after_setup_or_teardown_fails	
+unit:tests/unit/test_unit_runner.py:Protocol.test_the_entry_ignores_pytest_environment_variables	kept	unit.core.test_runner.test_the_entry_ignores_the_callers_pytest_variables	

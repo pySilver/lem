@@ -15,7 +15,12 @@ if TYPE_CHECKING:
 
 # The levels with a folder of their own, in the order a full run takes them.
 FOLDERS = ("unit", "model", "histories", "contract", "journeys", "hooks", "browser")
+# A level's other folders: the ledger's check is a unit case of its own folder.
+BESIDE = (("unit", ("ledger",)),)
 LEVELS = ("gates", *FOLDERS, "full")
+# The unit level runs on this many pytest-xdist workers: the 72 cases of tests/unit/core took
+# 19.1 s in one process and 9.5 s on four (2026-11-25, the owner's Mac, load average 6 to 8).
+WORKERS = 4
 # One full run at a time on a machine: two at once took the load average over 400 and slowed
 # every time-bound check (the design's part 8). A fixed path, read before the entry sets TMPDIR.
 FULL_LOCK = Path("/tmp/lem-full-run.lock")
@@ -35,23 +40,35 @@ def selection(tests: Path, level: str, paths: list[str]) -> list[str]:
                 f"--level {level} takes no paths: run it alone, or name a level "
                 "with a folder (--level unit tests/unit/core)"
             )
-        folders = (tests / name for name in FOLDERS if (tests / name).is_dir())
-        return [gates] if level == "gates" else [gates, *map(str, folders)]
-    folder = tests / level
-    if not folder.is_dir():
-        raise WrongCall(f"{folder} does not exist: the level {level} has no case yet")
-    return [inside(folder, path) for path in paths] or [str(folder)]
+        folders = [str(found) for name in FOLDERS for found in folders_of(tests, name)]
+        return [gates] if level == "gates" else [gates, *folders]
+    folders = folders_of(tests, level)
+    if not folders:
+        raise WrongCall(
+            f"{tests / level} does not exist: the level {level} has no case yet"
+        )
+    return [inside(folders, path) for path in paths] or [
+        str(found) for found in folders
+    ]
 
 
-def inside(folder: Path, path: str) -> str:
-    """`path` made absolute, when its file or folder is in `folder`."""
+def folders_of(tests: Path, level: str) -> list[Path]:
+    """The folders of `level` that exist: its own, and those `BESIDE` gives it."""
+    beside = next((names for name, names in BESIDE if name == level), ())
+    named = (tests / name for name in (level, *beside))
+    return [folder for folder in named if folder.is_dir()]
+
+
+def inside(folders: list[Path], path: str) -> str:
+    """`path` made absolute, when its file or folder is in one of `folders`."""
     where, *case = path.split("::")
     resolved = Path(where).resolve()
+    shown = ", ".join(map(str, folders))
     if not resolved.exists():
-        raise WrongCall(f"{resolved} does not exist: name a file or folder of {folder}")
-    if not resolved.is_relative_to(folder):
+        raise WrongCall(f"{resolved} does not exist: name a file or folder of {shown}")
+    if not any(resolved.is_relative_to(folder) for folder in folders):
         raise WrongCall(
-            f"{resolved} is not in {folder}: run it with the level of its folder"
+            f"{resolved} is not in {shown}: run it with the level of its folder"
         )
     return "::".join((str(resolved), *case))
 
@@ -68,6 +85,14 @@ def full_run_lock(path: Path) -> Iterator[None]:
             )
             fcntl.flock(held, fcntl.LOCK_EX)
         yield
+
+
+def parallel(level: str, *, snapshots: bool) -> list[str]:
+    """pytest's arguments for xdist's workers: the unit level's, but when inline-snapshot
+    writes values, which it does in one process only."""
+    if level != "unit" or snapshots:
+        return []
+    return ["-p", "xdist", "--numprocesses", str(WORKERS)]
 
 
 def lock_of(level: str) -> AbstractContextManager[None]:
