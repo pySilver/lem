@@ -27,8 +27,10 @@ worktree and a branch. These rules hold in every step; your step's brief adds th
    `proof`. A changed or dropped row also needs a reason, in `note`. `close` checks that each
    named proof passed.
    Write these into `tests/ledger/fates/STEP.tsv` (the columns `id fate proof note`),
-   never into `rows.tsv`. A row you cannot place goes into your report with why, never
-   silently away. Until `owners.tsv` is on the branch, your brief names your sources.
+   never into `rows.tsv`. A row that another step builds goes into
+   `tests/ledger/moves/STEP.tsv` with the step that builds it and why (the receiving step proves
+   it), and a row you can place nowhere goes into your report with why, never silently away.
+   Until `owners.tsv` is on the branch, your brief names your sources.
 
 ## Where you work
 

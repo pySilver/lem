@@ -15,7 +15,7 @@ import msgspec
 from lem.kernel import files, locks, release
 from lem.kernel.errors import Fault, Refusal
 from lem.records.record import SCHEMA, Record
-from lem.store import places
+from lem.store import guard, places
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -61,6 +61,7 @@ def writable(record: Record, running: str) -> None:
 def read(state: Path, slug: str) -> Record:
     """The record of `slug`; refused when the task does not exist, a fault when the file is no
     record."""
+    guard.readable(state)
     path = places.task_folder(state, slug) / RECORD
     try:
         body = path.read_bytes()
@@ -78,6 +79,7 @@ def create(state: Path, record: Record) -> Record:
     """Write the first record of a new task, at revision 1; refused when the task exists."""
     slug = record.task.slug
     folder = places.task_folder(state, slug)
+    guard.writable(state)
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / RECORD
     with locks.held(folder / LOCK):
@@ -96,6 +98,7 @@ def update(state: Path, slug: str, change: Change, expect: int) -> Record:
     """Apply `change` to the record at revision `expect`, and write it as the next revision;
     refused when another write came first, or when the record is of a newer form or release."""
     folder = places.task_folder(state, slug)
+    guard.writable(state)
     with locks.held(folder / LOCK):
         record = read(state, slug)
         writable(record, release.running())
@@ -113,6 +116,7 @@ def update(state: Path, slug: str, change: Change, expect: int) -> Record:
 
 def every(state: Path) -> tuple[Record, ...]:
     """The record of every task in `state`, by slug."""
+    guard.readable(state)
     folder = state / "tasks"
     if not folder.is_dir():
         return ()

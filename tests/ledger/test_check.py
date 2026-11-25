@@ -1,7 +1,8 @@
 """check.py refuses each way a step could close with a row lost, and the ledger follows the design.
 
 Each case builds a small ledger folder of real rows in a temporary folder: two rows of
-`land-base`, one of `land-merge` and one ruling, with owners.py's own owners for them.
+`land-base`, one of `land-merge` and one ruling, with owners.py's own owners for them. A case of
+moves writes a step's `moves/STEP.tsv` there and runs owners.py on the folder, as a builder does.
 """
 
 import csv
@@ -83,7 +84,16 @@ class Ledger(unittest.TestCase):
             check.OWNER_COLUMNS,
             [{"id": row["id"], "step": OWNERS[row["id"]]} for row in PICKED],
         )
-        shutil.copy(HERE / "owners-judged.tsv", self.root)
+        # The design's judgments of the four rows, and none of the moves of the real ledger.
+        write(
+            self.root / "owners-judged.tsv",
+            list(owners_rules.JUDGED_HEADER),
+            [
+                row
+                for row in read(HERE / "owners-judged.tsv")
+                if row["id"] in {picked["id"] for picked in PICKED} and not row["from"]
+            ],
+        )
         shutil.copy(HERE / "extra.tsv", self.root)
         self.results = self.root / "results.txt"
         self.results.write_text(
@@ -100,6 +110,41 @@ class Ledger(unittest.TestCase):
             check.FATE_COLUMNS,
             [dict(zip(check.FATE_COLUMNS, row, strict=True)) for row in rows],
         )
+
+    def give(self, step: str, *moves: tuple[str, str, str]) -> None:
+        """Write moves/STEP.tsv: each move is a row, the step that takes it, and why."""
+        (self.root / "moves").mkdir(exist_ok=True)
+        write(
+            self.root / "moves" / f"{step}.tsv",
+            list(owners_rules.MOVES_HEADER),
+            [dict(zip(owners_rules.MOVES_HEADER, move, strict=True)) for move in moves],
+        )
+
+    def run_owners(self) -> tuple[int, dict[str, Any]]:
+        """owners.py on this folder, as a builder runs it: its exit status and its JSON."""
+        ran = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-B",
+                str(HERE / "owners.py"),
+                "--rows",
+                str(self.root / "rows.tsv"),
+                "--judged",
+                str(self.root / "owners-judged.tsv"),
+                "--out",
+                str(self.root / "owners.tsv"),
+                "--moves",
+                str(self.root / "moves"),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return ran.returncode, json.loads(ran.stdout or "{}")
+
+    def owners(self) -> dict[str, str]:
+        return {row["id"]: row["step"] for row in read(self.root / "owners.tsv")}
 
     def all_fated(self) -> None:
         self.fates(
@@ -357,6 +402,202 @@ class OneStep(Ledger):
         )
 
 
+class AStepGivesARowAway(Ledger):
+    """land-base gives BASE_TWO to land-merge, which builds it."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.give("land-base", (BASE_TWO["id"], "land-merge", "the merge builds it"))
+        self.assertEqual(self.run_owners(), (0, {}))
+
+    def test_owners_tsv_names_the_receiver_and_owners_judged_the_giver(self) -> None:
+        self.assertEqual(self.owners()[BASE_TWO["id"]], "land-merge")
+        self.assertEqual(self.owners()[BASE_ONE["id"]], "land-base")
+        self.assertIn(
+            {
+                "id": BASE_TWO["id"],
+                "step": "land-merge",
+                "why": "the merge builds it",
+                "from": "land-base",
+            },
+            read(self.root / "owners-judged.tsv"),
+        )
+
+    def test_the_giver_passes_without_the_row(self) -> None:
+        self.fates("land-base", (BASE_ONE["id"], "kept", "test-a", ""))
+        report = self.run_check(step="land-base")
+        self.assertTrue(report["ok"], report)
+        self.assertEqual(report["rows_checked"], 1)
+
+    def test_the_receiver_sees_the_row_without_a_fate(self) -> None:
+        self.fates("land-merge", (MERGE_ONE["id"], "kept", "S1", ""))
+        report = self.run_check(step="land-merge")
+        self.assertEqual(report["no_fate"], [BASE_TWO["id"]])
+        self.assertEqual(report["rows_checked"], 2)
+        self.assertFalse(report["ok"])
+
+    def test_a_fate_the_giver_wrote_for_the_row_it_gave_away(self) -> None:
+        self.fates(
+            "land-base",
+            (BASE_ONE["id"], "kept", "test-a", ""),
+            (BASE_TWO["id"], "kept", "test-b", ""),
+        )
+        report = self.run_check(step="land-base")
+        self.assertEqual(
+            report["wrong_step"],
+            [{"id": BASE_TWO["id"], "file": "land-base.tsv", "owner": "land-merge"}],
+        )
+        self.assertFalse(report["ok"])
+
+    def test_a_move_owners_py_has_not_written_is_stale(self) -> None:
+        self.give(
+            "land-base",
+            (BASE_TWO["id"], "land-merge", "the merge builds it"),
+            (BASE_ONE["id"], "guides", "the guide says it"),
+        )
+        self.fates("land-base", (BASE_ONE["id"], "kept", "test-a", ""))
+        report = self.run_check(step="land-base")
+        self.assertEqual(
+            report["owners_stale"],
+            [{"id": BASE_ONE["id"], "owners_tsv": "land-base", "rules": "guides"}],
+        )
+        self.assertEqual(
+            report["judged_stale"],
+            [
+                {
+                    "id": BASE_ONE["id"],
+                    "owners_judged_tsv": "",
+                    "moves": "land-base > guides",
+                }
+            ],
+        )
+
+    def test_a_reason_owners_py_has_not_written_is_stale(self) -> None:
+        self.give("land-base", (BASE_TWO["id"], "land-merge", "the merge needs it"))
+        report = self.run_check()
+        self.assertEqual(report["owners_stale"], [])
+        self.assertEqual(
+            report["judged_stale"],
+            [
+                {
+                    "id": BASE_TWO["id"],
+                    "owners_judged_tsv": "land-base > land-merge",
+                    "moves": "land-base > land-merge",
+                }
+            ],
+        )
+
+    def test_the_receiver_gives_the_row_on_once_more(self) -> None:
+        # The second move is in a file that sorts before the first's: the chain, not the order
+        # of the files, decides.
+        self.give("guides", (MERGE_ONE["id"], "land-base", "the base builds it"))
+        self.give("land-merge", (MERGE_ONE["id"], "guides", "the guide says it"))
+        self.assertEqual(self.run_owners(), (0, {}))
+        self.assertEqual(self.owners()[MERGE_ONE["id"]], "land-base")
+        self.assertEqual(
+            [
+                (row["from"], row["step"])
+                for row in read(self.root / "owners-judged.tsv")
+                if row["id"] == MERGE_ONE["id"]
+            ],
+            [("land-merge", "guides"), ("guides", "land-base")],
+        )
+        self.fates(
+            "land-base",
+            (BASE_ONE["id"], "kept", "test-a", ""),
+            (MERGE_ONE["id"], "kept", "S1", ""),
+        )
+        self.assertTrue(self.run_check(step="land-base")["ok"])
+
+
+class TheMovesRefused(Ledger):
+    """owners.py exits 1 and names each refused move's row; check.py lists it too."""
+
+    def refused(self, name: str) -> list[Any]:
+        before = (self.root / "owners.tsv").read_bytes()
+        status, issues = self.run_owners()
+        self.assertEqual(status, 1, issues)
+        self.assertEqual((self.root / "owners.tsv").read_bytes(), before)
+        self.assertEqual(
+            [key for key, entries in issues.items() if entries], [name], issues
+        )
+        self.assertEqual(self.run_check()[name], issues[name])
+        return issues[name]
+
+    def test_a_move_of_a_row_the_rules_give_another_step(self) -> None:
+        self.give("guides", (BASE_ONE["id"], "land-merge", "the merge builds it"))
+        self.assertEqual(
+            self.refused("move_not_owned"),
+            [
+                {
+                    "id": BASE_ONE["id"],
+                    "from": "guides",
+                    "to": "land-merge",
+                    "owner": "land-base",
+                }
+            ],
+        )
+
+    def test_two_moves_of_one_row_from_one_step(self) -> None:
+        self.give(
+            "land-base",
+            (BASE_ONE["id"], "land-merge", "the merge builds it"),
+            (BASE_ONE["id"], "guides", "the guide says it"),
+        )
+        self.assertEqual(
+            self.refused("move_twice"),
+            [
+                {"id": BASE_ONE["id"], "from": "land-base", "to": "guides"},
+                {"id": BASE_ONE["id"], "from": "land-base", "to": "land-merge"},
+            ],
+        )
+
+    def test_a_move_to_no_step_of_the_plan(self) -> None:
+        self.give("land-base", (BASE_ONE["id"], "land_merge", "the merge builds it"))
+        self.assertEqual(
+            self.refused("move_bad_step"),
+            [{"id": BASE_ONE["id"], "from": "land-base", "to": "land_merge"}],
+        )
+
+    def test_a_move_to_the_giving_step(self) -> None:
+        self.give("land-base", (BASE_ONE["id"], "land-base", "it is mine"))
+        self.assertEqual(
+            self.refused("move_bad_step"),
+            [{"id": BASE_ONE["id"], "from": "land-base", "to": "land-base"}],
+        )
+
+    def test_a_move_without_a_reason(self) -> None:
+        self.give("land-base", (BASE_ONE["id"], "land-merge", " "))
+        self.assertEqual(
+            self.refused("move_without_why"),
+            [{"id": BASE_ONE["id"], "from": "land-base", "to": "land-merge"}],
+        )
+
+    def test_a_move_of_a_row_the_ledger_does_not_hold(self) -> None:
+        self.give("land-base", ("unit:made-up", "land-merge", "the merge builds it"))
+        self.assertEqual(
+            self.refused("move_unknown_rows"),
+            [{"id": "unit:made-up", "from": "land-base", "to": "land-merge"}],
+        )
+
+    def test_a_loop(self) -> None:
+        self.give("land-base", (BASE_ONE["id"], "land-merge", "the merge builds it"))
+        self.give("land-merge", (BASE_ONE["id"], "land-base", "the base builds it"))
+        self.assertEqual(
+            self.refused("move_loop"),
+            [{"id": BASE_ONE["id"], "chain": "land-base > land-merge > land-base"}],
+        )
+
+    def test_a_moves_file_named_for_no_step(self) -> None:
+        self.give("land_base", (BASE_ONE["id"], "land-merge", "the merge builds it"))
+        self.assertEqual(self.refused("move_files_unknown"), ["land_base.tsv"])
+
+    def test_a_step_sees_only_the_refused_moves_that_name_it(self) -> None:
+        self.give("land-base", (BASE_ONE["id"], "land-base", "it is mine"))
+        self.assertEqual(len(self.run_check(step="land-base")["move_bad_step"]), 1)
+        self.assertEqual(self.run_check(step="guides")["move_bad_step"], [])
+
+
 def commit_readable() -> bool:
     ran = subprocess.run(
         [
@@ -384,6 +625,9 @@ class TheLedgerIsWhatItsScriptsMake(unittest.TestCase):
             "rows_unknown",
             "rows_edited",
             "owners_stale",
+            "judged_stale",
+            "move_files_unknown",
+            *owners_rules.MOVE_ISSUES,
             "no_owner",
             "multiple_owners",
             "duplicate_rows",
