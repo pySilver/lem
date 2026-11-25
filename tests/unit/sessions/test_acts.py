@@ -3,7 +3,7 @@ list's agent and unanswered wake, the workspace a new session goes into, and the
 each on the fake terminal and harness."""
 
 import dataclasses
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import msgspec
@@ -16,7 +16,9 @@ from lem.app.sessions import (
     closing,
     closing_job,
     first_line,
+    guard_look,
     guard_steps,
+    guard_stop,
     handing,
     listing,
     log,
@@ -28,17 +30,21 @@ from lem.app.sessions import (
 from lem.cli.session import open as open_leaf
 from lem.cli.session import wait, wake
 from lem.kernel.errors import Refusal
+from lem.ports.faults import Unanswered
 from lem.ports.harness import Signs, Transcript
 from lem.ports.terminal import Pane
 from lem.records.holds import Blocked, OwnerHold, Parked, ReleaseHold
+from lem.records.journal.task import StateNoted
 from lem.records.sessions import SessionLine
 from lem.records.task import Shape
 from lem.store import sessions, tasks
-from unit.sessions.terminal import CALLER, with_caller
+from unit.sessions.terminal import CALLER, LookingTerminal, with_caller
 from unit.sessions.world import SLUG, here_of, made
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from lem.app.sessions.here import Here
 
 LATER = MOMENT + timedelta(minutes=5)
 HOUR = MOMENT + timedelta(hours=1)
@@ -432,3 +438,56 @@ def test_session_goes_only_with_the_guards_own_steps() -> None:
     with pytest.raises(Refusal) as opened:
         open_leaf.run(open_leaf.Call(slug=SLUG, why="new", session="S-OLD"))
     assert (woken.value.code, opened.value.code) == ("session-option", "session-option")
+
+
+def stopped_task(here: Here) -> datetime:
+    """A building task whose unreadable session got its status message an hour ago and no
+    answer: the moment its stop is due."""
+    made(here, status="building", lead="builder")
+    opening.open_session(here, SLUG, "new", None, MOMENT)
+    guard_steps.stepped(here, SLUG, "status", "session-1", HOUR)
+    return HOUR + timedelta(minutes=10)
+
+
+def test_work_in_the_moment_of_the_stop_leaves_nothing_waiting_and_says_so(
+    tmp_path: Path,
+) -> None:
+    here = here_of(tmp_path)
+    later = stopped_task(here)
+    looked = guard_look.looked(here, SLUG, later)
+    current = tasks.read(here.where.state, SLUG)
+    work = StateNoted(at=later, status="building", line="the build goes on")
+    tasks.update(
+        here.where.state,
+        SLUG,
+        lambda one: msgspec.structs.replace(one, journal=(*one.journal, work)),
+        current.revision,
+    )
+    got = guard_stop.stopped(here, SLUG, looked, later)
+    assert (got.acted, got.stands, got.read) == (True, False, False)
+    assert "nothing waits for the owner" in got.say
+    stood = guard_steps.stepped(here, SLUG, "stopped", "session-1", later)
+    assert stood.acted is False
+
+
+class GoneTerminal(LookingTerminal):
+    """A terminal whose old session is gone the moment Lem names it replaced."""
+
+    def rename(self, session: str, name: str) -> None:
+        raise Unanswered("agtermctl", f"no session {session}")
+
+
+def test_a_restart_whose_old_pane_is_gone_says_so_and_keeps_its_fresh_session(
+    tmp_path: Path,
+) -> None:
+    terminal = GoneTerminal(panes={CALLER.id: CALLER})
+    here = here_of(tmp_path, terminal)
+    later = stopped_task(here)
+    guard_steps.stepped(here, SLUG, "stopped", "session-1", later)
+    got = guard_steps.stepped(here, SLUG, "restart", None, later)
+    assert (got.acted, got.opened, got.told) == (True, "session-2", False)
+    assert "no session session-1" in (got.problem or "")
+    opens = [
+        act.session for act in log.read(here.folder(SLUG)) if isinstance(act, acts.Open)
+    ]
+    assert opens == ["session-1", "session-2"]

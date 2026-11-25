@@ -47,14 +47,19 @@ REFUSALS = MappingProxyType(
 
 
 class Acted(Frozen, frozen=True, kw_only=True, omit_defaults=False):
-    """A step of the guard: the task, the session it was for, whether it acted, why not, the
-    fresh session of a restart, and the line for the owner."""
+    """A step of the guard: the task, the session it was for, whether it acted, why not; for a
+    stop whether it stands and whether the session's signs read; for a restart the fresh
+    session, whether the old one was told, and what failed; and the line for the owner."""
 
     task: str
     session: str | None
     acted: bool
     why: str | None = None
+    stands: bool | None = None
+    read: bool | None = None
     opened: str | None = None
+    told: bool | None = None
+    problem: str | None = None
     say: str
 
 
@@ -93,3 +98,24 @@ def restart_refusal(looked: Looked, named: str | None, now: datetime) -> str | N
         return "unread"
     found = due(looked.line, facts, now)
     return None if found is not None and found.step == "restart" else WORKING
+
+
+def stop_said(slug: str, *, stands: bool, read: bool, again: bool) -> str:
+    """The line of a stop: that nothing waits, or why the task waits for the owner."""
+    if not stands:
+        return (
+            f"the stop of {slug} is logged, but work of the task came before it, so the stop "
+            "does not stand and nothing waits for the owner"
+        )
+    why = "its session showed no sign of work after the status message"
+    if not read:
+        why = (
+            "Lem cannot read its session's signs of work, and no work of the task came in "
+            "the 10 minutes after the status message"
+        )
+    elif again:
+        why = f"{why} and after its restart"
+    return (
+        f"the stop of {slug} is logged: {why}, so it waits for the owner, whose lem session "
+        f"open {slug} --why stopped opens a fresh session"
+    )
