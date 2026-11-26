@@ -53,7 +53,7 @@ def pushed(context: Context, *, push: bool) -> Record:
     forge; a commit that is not the checked tip is recorded, and refused."""
     record, world = context.record, context.world
     made = sent(context, lease(record, world)) if push else world.tip
-    record = context.write(record, partial(changes.landing, pushed=made))
+    record = context.write(record, partial(recorded, made=made))
     slug = record.task.slug
     if made != world.tip:
         raise Refusal(
@@ -62,6 +62,16 @@ def pushed(context: Context, *, push: bool) -> Record:
             f"lem land next {slug}: the new tip's checks come first",
         )
     return record
+
+
+def recorded(record: Record, *, made: str | None) -> Record:
+    """The record with the push of `made`, Lem's last push, among the heads no proposal the
+    forge confirmed holds yet."""
+    landing = record.landing
+    before = landing.unconfirmed if landing else ()
+    if made is not None and made not in before:
+        before = (*before, made)
+    return changes.landing(record, pushed=made, unconfirmed=before)
 
 
 def lease(record: Record, world: World) -> str | None:

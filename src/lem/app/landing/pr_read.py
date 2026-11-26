@@ -22,10 +22,10 @@ QUIET = "- the criteria were not read by the personas: {0} reads in a row, and n
 
 
 def changes(task: Task, read: PersonaRead) -> str:
-    """Each change from the owner's notes after the read counts, even a reversal."""
-    end = read.ended or read.started
-    count = sum(at >= end for at in task.criteria.changed)
-    if not count:
+    """Each change from the owner's notes after the read counts, even a reversal: the changes
+    written after the read ended, by their order, never by their second."""
+    count = len(task.criteria.changed) - read.changes
+    if count <= 0:
         return ""
     times = "once" if count == 1 else f"{count} times"
     return f"; the criteria changed {times} after the personas' read, from the owner's notes"
@@ -66,7 +66,7 @@ def read_line(record: Record) -> str:
     approval = approved(task)
     ending = approval or NO_WAIT
     if read is not None and not read.answered:
-        return f"{unanswered(task, read)}; {ending}"
+        return f"{unanswered(task, read)}{changes(task, read)}; {ending}"
     if read is not None:
         said = found(read) + changes(task, read)
         return f"- the criteria were {said}; {ending}"

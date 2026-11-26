@@ -99,10 +99,15 @@ def approval_of(task: Task, asked: Asked, now: datetime) -> approvals.Approval:
 
 
 def recorded(task: Task, sheet: Sheet, approval: approvals.Approval) -> Criteria:
-    """What the task knows of its criteria after `approval` of the criteria `sheet`."""
+    """What the task knows of its criteria after `approval` of the criteria `sheet`: the first
+    approval of the owner, or one without him, after their newest wait ends it."""
     criteria = task.criteria
+    wait = criteria.waited
+    if wait is not None and wait.ended_by is None and approval.by in ENDS_WAIT:
+        wait = replace(wait, ended_by=approval.number)
     return replace(
         criteria,
+        waited=wait,
         size=sheet.size,
         why=sheet.why,
         criteria=sheet.criteria,

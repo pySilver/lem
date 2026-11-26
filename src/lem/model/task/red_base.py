@@ -24,6 +24,16 @@ def dependency(task: Task) -> str | None:
     return None
 
 
+def after_of(record: Record) -> tuple[str, ...]:
+    """The tasks the record's task waits for: the `after` of a queued task, and the repair a
+    task blocked because the base is red waits for (`land.waited_for` on `main`)."""
+    task = record.task
+    if task.status == "queued":
+        return task.after
+    repair = dependency(task)
+    return (repair,) if repair else ()
+
+
 def way_on(slug: str, after: str) -> str:
     """How the landing goes on after the repair or on the owner's word."""
     command = f'lem task move {slug} ready --line "the base is green again"'

@@ -14,6 +14,7 @@ from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
 from lem.model.task import breaker_question, owner_question
+from lem.records.criteria import Waited
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
 from lem.records.journal.task import StateNoted
 
@@ -108,11 +109,16 @@ def moved(record: Record, *, status: Status, line: str, now: Moment) -> Record:
 
 
 def waiting(record: Record, *, on: OwnerWait, line: str, now: Moment) -> Record:
-    """The record with the owner's wait `on`, whose line the stage says."""
+    """The record with the owner's wait `on`, whose line the stage says; a wait of the
+    criteria is their newest wait for his yes too, which an approval ends."""
+    task = record.task
     hold = OwnerHold(on=on, line=line, since=now)
-    entry = StateNoted(at=now, status=record.task.status, hold="owner", line=line)
+    if on == "criteria":
+        criteria = replace(task.criteria, waited=Waited(since=now))
+        task = replace(task, criteria=criteria)
+    entry = StateNoted(at=now, status=task.status, hold="owner", line=line)
     return replace(
         record,
-        task=replace(record.task, hold=hold),
+        task=replace(task, hold=hold),
         journal=(*record.journal, entry),
     )

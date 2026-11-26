@@ -37,13 +37,17 @@ from journeys.test_skeleton import (
 from lem.app.landing import (
     checks_criteria,
     checks_gate,
+    checks_judge,
     checks_output,
     checks_run,
     frame,
 )
 from lem.board.views.activity import tell_checks
+from lem.board.views.timeline import drawn as timeline_drawn
+from lem.board.views.timeline import frame as timeline_frame
+from lem.board.views.timeline.shapes import Held
 from lem.cli import lazy
-from lem.kernel import folders
+from lem.kernel import clock, folders
 from lem.model.criteria import read
 from lem.records.criterion import CriterionTest
 from lem.records.journal.landing import CheckEnd
@@ -54,7 +58,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from typing import IO
 
+    from lem.records.landing.checks import CriterionCheck
     from lem.records.record import Record
+    from lem.records.red import Red
 
 type Envelope = dict[str, Any]
 TESTS = Path(__file__).resolve().parents[2]
@@ -622,9 +628,24 @@ def test_the_polish_pass_keeps_its_start_and_its_run_which_the_checks_take(
     assert polish(capsys, world, "--done")["refusal"]["code"] == "not-due"
 
 
+def live_checks(world: World) -> list[str]:
+    """The heads of the Timeline's live stretches of the checks, from the record as it is."""
+    record = tasks.read(world.checkout / ".lem" / "state", SLUG)
+    drawn = timeline_frame.frame_of(record, clock.now())
+    return [
+        one.head
+        for one in timeline_drawn.drawn(record, drawn)
+        if isinstance(one, Held) and one.live and one.lane == "checks"
+    ]
+
+
 @pytest.mark.parametrize("committed_pass", [False, True], ids=["no-commit", "commit"])
 def test_the_check_end_says_if_the_criteria_tests_came_from_polish(
-    world: World, capsys: pytest.CaptureFixture[str], *, committed_pass: bool
+    world: World,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    committed_pass: bool,
 ) -> None:
     committed(world, "tests/receive.sh", "grep -q receive README.md\n", "test: receive")
     standard(world, "   - test: `sh tests/receive.sh` in `tests/receive.sh`\n")
@@ -633,11 +654,30 @@ def test_the_check_end_says_if_the_criteria_tests_came_from_polish(
         committed(world, "NOTES.md", "a note the pass corrected\n", "docs: a note")
     done = polish(capsys, world, "--done")
     assert done["ok"], done
+    seen: list[list[str]] = []
+    judged = checks_judge.criteria_of
+
+    def looked(found: Red | None, taken: str | None) -> tuple[CriterionCheck, ...]:
+        seen.append(live_checks(world))
+        return judged(found, taken)
+
+    monkeypatch.setattr(checks_judge, "criteria_of", looked)
     checked = checks(capsys, world)
     assert checked["ok"], checked
+    tip = run_git(world.worktree, "rev-parse", "HEAD")
+    if committed_pass:
+        taken = (
+            "The checks read the criteria again: the polish pass's result at "
+            f"{tip[:9]} is taken"
+        )
+        assert seen == [[taken]]
+    else:
+        assert seen == [["The tests of the criteria run"]]
+    assert live_checks(world) == []
     record = tasks.read(world.checkout / ".lem" / "state", SLUG)
     end = record.journal[-1]
     assert isinstance(end, CheckEnd)
+    assert end.seconds is not None and end.seconds >= 0
     assert record.landing and record.landing.checked
     [criterion] = record.landing.checked.criteria
     assert criterion.red_on_base and criterion.green_on_tip

@@ -3,6 +3,7 @@ own settings files (`app/landing/review_edits.py`), the backlog folder at the ba
 items the branch adds that `file` did not write (`land.due`, `land.careful`, `land.base_items`
 and `land.branch_items` on `main`)."""
 
+import shlex
 from typing import TYPE_CHECKING
 
 import msgspec
@@ -15,6 +16,7 @@ from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from pathlib import Path
 
     from lem.app.landing.frame import Context
     from lem.model.landing.items import BacklogItem
@@ -84,3 +86,9 @@ def facts(context: Context, found: Gathered) -> review_due.Facts:
         at_base=found.at_base,
         lowered=tuple(sorted(paths)),
     )
+
+
+def rules_of(worktree: Path, span: str) -> str:
+    """The command that gives the rules of the change's range, its path quoted for the
+    shell."""
+    return shlex.join(("lem", "--repo", str(worktree), "rules", "--range", span))

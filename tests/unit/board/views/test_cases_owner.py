@@ -430,7 +430,7 @@ def test_the_interview_is_yours_and_lems_writing_runs_to_the_read_the_skip_or_an
     drawn = frame.frame_of(made, NOW + timedelta(hours=1))
     spans = [
         (one.lane, one.start, one.end, one.head)
-        for one in worked.worked(made.task, drawn)
+        for one in worked.worked(made, drawn)
         if isinstance(one, Held)
     ]
     writes = [

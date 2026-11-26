@@ -5,6 +5,7 @@ The worktrees' folder holds a `.gitignore` of `*`, so the main checkout's `git s
 shows a task's worktree (`project.cmd_worktree_dir` on `main`).
 """
 
+import shlex
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
@@ -80,7 +81,8 @@ def checkout_refusal(workspace: places.Workspace, checkout: Path | None) -> None
     raise Refusal(
         "checkout",
         f"{checkout} is not the main checkout of this workspace, {workspace.checkout}",
-        f"lem --repo {checkout} task worktree SLUG makes it from that repository",
+        f"lem --repo {shlex.quote(str(checkout))} task worktree SLUG makes it from that "
+        "repository",
     )
 
 

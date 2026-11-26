@@ -5,6 +5,7 @@ The tip before the rebase is kept where a retry finds it: in `Based` once the re
 record, and in git's `ORIG_HEAD` while a stop cut the step between the rebase and its record.
 """
 
+import shlex
 from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
@@ -30,7 +31,7 @@ def merge_only(
         f"the rebase onto origin/{onto} left the branch no commit of its own, and "
         f"{change} sat only in a merge commit, which a rebase drops. The branch was at "
         f"{before} before it",
-        f"`git -C {where} reset --hard {before}` puts it back; the change goes into a "
+        f"`git -C {shlex.quote(where)} reset --hard {before}` puts it back; the change goes into a "
         f"commit of its own, which a rebase keeps, then lem land base {slug} runs again. "
         f"When the work reached the base another way, lem task move {slug} dropped ends "
         "the task",

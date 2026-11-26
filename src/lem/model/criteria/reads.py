@@ -97,7 +97,7 @@ def refused(found: Found) -> str | None:
 def ended(task: Task, by: By, now: datetime, found: Found | None) -> Task:
     """The task whose newest open read by `by` ended with `found`, or, with None, in silence:
     a read with no result, which no freeze and no retry counts. With no open read, the read
-    starts and ends now."""
+    starts and ends now. The read keeps how many changes from his notes came before its end."""
     fresh = PersonaRead(by=by, started=now)
     *before, newest = task.criteria.reads or (fresh,)
     if newest.ended is not None or newest.by != by:
@@ -105,6 +105,7 @@ def ended(task: Task, by: By, now: datetime, found: Found | None) -> Task:
         newest = fresh
     shown = asdict(found) if found else {}
     done = replace(newest, ended=now, **shown)
+    done = replace(done, changes=len(task.criteria.changed))
     return replace(task, criteria=replace(task.criteria, reads=(*before, done)))
 
 

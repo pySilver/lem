@@ -126,7 +126,11 @@ def changed(
             f"a note that changes no criterion asks again: lem criteria change {task.slug} "
             "--unchanged",
         )
-    kept = replace(task.criteria, change=replace(change, pairs=found))
+    kept = replace(
+        task.criteria,
+        change=replace(change, pairs=found),
+        changed=(*task.criteria.changed, change.at),
+    )
     return waits.asked(replace(task, criteria=kept), change.at, waits.CHANGED, shown)
 
 

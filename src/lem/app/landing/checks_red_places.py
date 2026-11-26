@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from lem.app.landing import checks_git
 from lem.app.tasks import where
 from lem.kernel import errors, locks
+from lem.model.landing import checks_ended
 from lem.store import places
 
 if TYPE_CHECKING:
@@ -32,10 +33,6 @@ WORKTREE = "worktree"
 STOPPED = "the check was stopped, and its commands are ended"
 REMOVED = "its worktrees are removed"
 JOIN = "; "
-STUCK = (
-    "{place} could not be removed; remove it yourself: git -C {checkout} worktree remove "
-    "--force --force {place}"
-)
 GIT_FIX = (
     "the owner reads git's words, puts the repository right, and runs the check again"
 )
@@ -76,16 +73,14 @@ def removed(checkout: Path, found: Iterable[Path]) -> tuple[str, ...]:
     checks_git.raw(checkout, WORKTREE, "prune")
     ran = checks_git.raw(checkout, WORKTREE, "list", "--porcelain", "-z")
     if ran.returncode:
-        return tuple(STUCK.format(place=path, checkout=checkout) for path in gone)
+        return tuple(checks_ended.stuck(path, checkout) for path in gone)
     entries = ran.stdout
     listed = {
         os.fsdecode(entry).removeprefix("worktree ") for entry in entries.split(b"\0")
     }
     listed.update(str(path) for path in gone if path.exists())
     return tuple(
-        STUCK.format(place=path, checkout=checkout)
-        for path in gone
-        if str(path) in listed
+        checks_ended.stuck(path, checkout) for path in gone if str(path) in listed
     )
 
 

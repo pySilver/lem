@@ -51,7 +51,7 @@ def opened(
         owner_merge=made.owner_merge,
     )
     changed = changes.landing(
-        record, proposed=made, pull=pull, phase="open", refused=None
+        record, proposed=made, pull=pull, phase="open", refused=None, unconfirmed=()
     )
     changed = carried(changed, made, read)
     changed = changes.noted(changed, proposal)

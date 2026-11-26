@@ -821,6 +821,9 @@ def test_a_rebase_from_an_unconfirmed_push_names_that_tip(*, conflict: bool) -> 
         ended.why
         == "the rebase started from `222222222`, a tip pushed after the proposal of `111111111`"
     )
+    retried = replace(record.landing, pushed=OTHER, unconfirmed=(pushed, OTHER))
+    again = standing.standing(retried, "d", carried=False, tip=OTHER)
+    assert again == ended
     private = replace(record.landing, pushed=TIP)
     other = standing.standing(private, "d", carried=False, tip=OTHER)
     assert other is not None and "a tip pushed" not in other.why

@@ -4,16 +4,16 @@ the pull request, the range and its diff, the track, the task's files, the revie
 is green and careful, who lands, why the owner merges, the pictures, the filed items, the
 stand-ins, the two ways the owner tries the branch, the base it reads, and what moved on it."""
 
+import shlex
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import merge_artifacts, merge_time, merge_world
+from lem.app.landing import merge_artifacts, merge_compared, merge_time, merge_world
 from lem.model.landing import merge
 from lem.records.base import Frozen, Sha
 from lem.records.landing.record import Pull
-from lem.store import tasks
 
 if TYPE_CHECKING:
     from lem.app.landing.frame import Context
@@ -105,7 +105,7 @@ def facts_of(context: Context, landing: Landing, read: tuple[Pull, Proposed]) ->
         pull_request=pull,
         tip=proposed.tip,
         range=f"{ran}..{proposed.tip}",
-        diff=f"git -C {worktree} diff {ran}..{proposed.tip}",
+        diff=f"git -C {shlex.quote(worktree)} diff {ran}..{proposed.tip}",
         changed=context.ports.git.diff_stat(
             context.workspace.checkout, ran, proposed.tip
         ).paths,
@@ -121,7 +121,7 @@ def facts_of(context: Context, landing: Landing, read: tuple[Pull, Proposed]) ->
         land=context.world.rules.land,
         owner_merges=merge.authority(context.record, context.world, verdict=False),
         relands=landing.relands,
-        time=merge_time.measured(context.record, tasks.every(context.workspace.state)),
+        time=merge_compared.compared(context.record, context.workspace.state),
         pictures=merge_artifacts.pictures_of(context.folder),
         filed=merge_artifacts.items_of(context, proposed),
         stand_ins=tuple(f"{one.seat}: {one.took}" for one in task.stand_ins),

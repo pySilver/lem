@@ -1,5 +1,6 @@
 """One entry of a task's journal: the union of every kind, told apart by `kind`."""
 
+from lem.records.journal.criteria import CriteriaRun
 from lem.records.journal.landing import (
     CarefulMissed,
     CheckEnd,
@@ -36,6 +37,7 @@ type Entry = (
     | ProposalNoted
     | NotGreen
     | CheckWait
+    | CriteriaRun
     | CheckEnd
     | MergeWait
     | ReadNoted

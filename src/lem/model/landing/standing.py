@@ -23,9 +23,12 @@ def rebased_from(landing: Landing) -> str | None:
 
 
 def pushed_before(landing: Landing) -> str | None:
-    """The rebase began at a pushed tip which the previous proposal did not confirm."""
+    """The rebase began at a pushed tip which the previous proposal did not confirm: Lem's
+    last push, or one before it that a cut proposal recorded."""
     before, proposed = rebased_from(landing), landing.proposed
-    if before is None or proposed is None or landing.pushed != before:
+    if before is None or proposed is None:
+        return None
+    if landing.pushed != before and before not in landing.unconfirmed:
         return None
     if before == proposed.tip:
         return None

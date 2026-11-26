@@ -36,8 +36,10 @@ class Silent(Frozen, frozen=True, kw_only=True):
 
 class PersonaRead(Frozen, frozen=True, kw_only=True):
     """One read of the criteria by the personas: who ran it, how many were asked and answered,
-    the families that answered, the silent, the criteria read, flagged and split. A read with
-    no answer, a flag or a split keeps the criteria for the owner."""
+    the families that answered, the silent, the criteria read, flagged and split, and how many
+    changes from the owner's notes `Criteria.changed` held when it ended, so that a change and
+    a read keep their order also in the same second. A read with no answer, a flag or a split
+    keeps the criteria for the owner."""
 
     by: Literal["lem", "lead"]
     started: Moment
@@ -50,3 +52,4 @@ class PersonaRead(Frozen, frozen=True, kw_only=True):
     flagged: int = 0
     split: bool = False
     digest: str | None = None
+    changes: int = 0

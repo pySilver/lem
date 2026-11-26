@@ -13,10 +13,12 @@ from lem.board.views import words
 from lem.board.views.activity import talk
 from lem.board.views.activity.tell_work import FAST_JOB
 from lem.board.views.timeline import frame, shapes
+from lem.records.journal.criteria import CriteriaRun
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from lem.records.record import Record
     from lem.records.task import Task
     from lem.records.work import Span
 
@@ -44,17 +46,42 @@ SPANS = MappingProxyType(
     }
 )
 BUILT = frozenset(("task", "builder"))
+RUN = "The tests of the criteria run"
+TAKEN = "The checks read the criteria again: the polish pass's result at"
+SHORT = 9
 FIX = "an investigator reproduces the bug and finds its cause"
 QUESTION = "an investigator finds the answer"
 
 
-def worked(task: Task, drawn: frame.Frame) -> Iterator[frame.Drawn]:
-    """The stretches of the task's spans but the agent's and the plan talk's."""
-    for span in task.spans:
-        said = said_of(task, span)
+def worked(record: Record, drawn: frame.Frame) -> Iterator[frame.Drawn]:
+    """The stretches of the task's spans but the agent's and the plan talk's; a run of the
+    checks that goes on says how its check of the criteria goes."""
+    for span in record.task.spans:
+        said = criteria_now(record, span) or said_of(record.task, span)
         if said is not None:
             lane, head, sub = said
             yield frame.ran(drawn, lane, span.start, span.end, (head, sub))
+
+
+def criteria_now(record: Record, span: Span) -> tuple[str, str, str] | None:
+    """While a run of the checks goes on and its commands passed: whether the tests of the
+    criteria run, or which polish pass's result of them is taken (`main:time_of`); else
+    None."""
+    if span.name != "checks" or span.end is not None:
+        return None
+    begun = [
+        entry
+        for entry in record.journal
+        if isinstance(entry, CriteriaRun) and entry.at >= span.start
+    ]
+    if not begun:
+        return None
+    lane, _, sub = SPANS["checks"]
+    taken = begun[-1].taken
+    if taken is None:
+        return lane, RUN, sub
+    short = taken[:SHORT]
+    return lane, f"{TAKEN} {short} is taken", sub
 
 
 def said_of(task: Task, span: Span) -> tuple[str, str, str] | None:

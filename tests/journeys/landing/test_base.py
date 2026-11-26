@@ -8,6 +8,7 @@ after each new effect of `start` and `base`, after which the step is due again a
 twice.
 """
 
+import shlex
 import stat
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -201,6 +202,39 @@ def test_base_keeps_its_rebase_and_approval_after_a_cut_in_the_second_push(
     body = world.forge.bodies[again["pull"]["number"]]
     assert "The review carried over the rebase." in body
     assert "The merge review carries over the clean rebase." in body
+
+
+def test_the_end_of_an_approval_keeps_its_reason_through_two_cut_proposals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    first = landing(world)["proposed"]["tip"]
+    world.repo.outside_commit("main", {"base.txt": b"Another change landed.\n"})
+    refused(owner(capsys, world), "base")
+    commit_in(world, "extra.txt", "more\n", "fix: one more file")
+    for step in (START, BASE, CHECKS):
+        ok(step(capsys, world))
+    reviewed(capsys, world)
+    world.forge.fail_edits = True
+    assert proposal(capsys, world)["code"] == 3
+    pushed = landing(world)["pushed"]
+    assert pushed == head(world) != first
+    world.repo.outside_commit("main", {"later.txt": b"A later change landed.\n"})
+    for step in (BASE, CHECKS):
+        ok(step(capsys, world))
+    assert due(capsys, world) == "propose"
+    why = (
+        f"the rebase started from `{pushed[:9]}`, a tip pushed after the proposal of "
+        f"`{first[:9]}`"
+    )
+    assert proposal(capsys, world)["code"] == 3
+    assert why in "".join(one.read_text() for one in world.task_folder.glob("pr-*"))
+    assert landing(world)["pushed"] == head(world)
+    world.forge.fail_edits = False
+    again = ok(proposal(capsys, world))["result"]
+    assert again["owner_merge"] == {"state": "ended", "why": why}
+    assert why in world.forge.bodies[again["pull"]["number"]]
 
 
 def test_the_owners_careful_word_on_an_open_pull_request_starts_a_full_review(
@@ -644,10 +678,26 @@ def test_a_new_round_with_no_checks_waits_and_a_start_over_keeps_the_ended_appro
     assert landing(world)["relands"] == 1
 
 
-def test_a_builders_conflict_resolution_reapplies_a_commit_the_base_took_out(
+def test_a_start_over_with_no_approval_of_the_owner_names_none(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    assert "standing" not in landing(world)
+    why = "the gate was cut off"
+    ok(command("task", "move", "SLUG", "ready", "--start-over", why)(capsys, world))
+    settings = world.checkout / ".lem" / "settings.toml"
+    settings.write_bytes(SETTINGS.split(b"[checks]")[0])
+    stopped = refused(START(capsys, world), "no-checks")
+    assert "owner's merge" not in stopped["why"]
+    assert "merges it again" not in stopped["why"]
+    assert "owner_merge" not in landing(world)["proposed"]
+
+
+def test_a_builders_conflict_resolution_reapplies_a_commit_the_base_took_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path / "a workspace", monkeypatch)
     world.repo.outside_commit("main", {"list.txt": b"a\nb\n", "label.txt": b"old\n"})
     upto(capsys, world, "start")
     ok(START(capsys, world))
@@ -660,14 +710,11 @@ def test_a_builders_conflict_resolution_reapplies_a_commit_the_base_took_out(
     assert "label.txt" in said["why"]
     assert "rebase --reapply-cherry-picks --empty=drop" in said["fix"]
     assert head(world) == original
+    git, where, *rebase = shlex.split(said["fix"].split("`")[1])
+    assert (git, where) == ("git", "-C")
     with pytest.raises(AssertionError):
-        run_git(
-            world.worktree,
-            "rebase",
-            "--reapply-cherry-picks",
-            "--empty=drop",
-            "origin/main",
-        )
+        run_git(Path(rebase[0]), *rebase[1:])
+    assert "<<<<<<<" in (world.worktree / "label.txt").read_text()
     (world.worktree / "label.txt").write_text("task\n")
     run_git(world.worktree, "add", "label.txt")
     run_git(world.worktree, "-c", "core.editor=true", "rebase", "--continue")
@@ -738,8 +785,13 @@ def test_a_red_base_keeps_the_approval_only_for_the_unchanged_change(
         subjects = run_git(world.worktree, "log", "--format=%s", "origin/main..HEAD")
         assert subjects.splitlines().count("fix: one more file") == 1
         assert carried["state"] == "ended"
-        if extra == "after":
-            assert carried["why"] == "the tip changed after the rebase"
+        assert (
+            carried["why"]
+            == {
+                "after": "the tip changed after the rebase",
+                "before": "the previous approval does not cover the change on the new base",
+            }[extra]
+        )
         assert "standing" not in landing(world)
         assert "The owner's merge ended:" in world.forge.bodies[1]
         changes = [

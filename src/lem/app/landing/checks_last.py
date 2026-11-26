@@ -14,7 +14,7 @@ import msgspec
 from lem.model.landing import checks_said
 from lem.records.base import Frozen, Moment
 from lem.records.journal.landing import CheckEnd
-from lem.store import tasks
+from lem.store import survey
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -63,10 +63,12 @@ def ended_of(record: Record) -> Ended | None:
     )
 
 
-def last_seconds(state: Path) -> int | None:
-    """The length of the newest passed run of any task of the workspace."""
-    found = [timed for record in tasks.every(state) for timed in passed_of(record)]
-    return max(found)[1] if found else None
+def last_seconds(state: Path) -> tuple[int | None, tuple[str, ...]]:
+    """The length of the newest passed run of any task of the workspace, and the tasks whose
+    record does not read, which the measure leaves out."""
+    records, unread = survey.records(state)
+    found = [timed for record in records for timed in passed_of(record)]
+    return (max(found)[1] if found else None), unread
 
 
 def passed_of(record: Record) -> list[tuple[Moment, int]]:

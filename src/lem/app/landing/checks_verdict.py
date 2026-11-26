@@ -37,13 +37,15 @@ PASSED: checks_said.Ending = "passed"
 class Verdict:
     """How a run ended: the run as the record keeps it, the refusal the step exits with, what
     the checks refused in the owner's words, whether the fast track takes the standard one,
-    and the mark of the contract the run was of (`model/criteria/contract.py`)."""
+    the mark of the contract the run was of (`model/criteria/contract.py`), and how long it
+    ran by a clock no change of the wall clock moves (`land.checks_run` on `main`)."""
 
     run: Checked
     refusal: Refusal | None = None
     refused: str | None = None
     reshape: bool = False
     contract: str | None = None
+    seconds: int | None = None
 
 
 def commands_of(context: frame.Context) -> tuple[Outcome, ...]:

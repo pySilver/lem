@@ -10,6 +10,7 @@ unless `lem serve add` adds it), and gives the address of the workspace's board,
 tailnet door when it is open. `--no-open` prints the address and opens nothing.
 """
 
+import shlex
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -98,7 +99,7 @@ def board_of(home: Path, host: str, checkout: Path) -> str:
         raise Refusal(
             "not-listed",
             f"the board server does not show {checkout}",
-            f"lem serve add {checkout}",
+            f"lem serve add {shlex.quote(str(checkout))}",
         )
     return f"{host}/{found}/"
 

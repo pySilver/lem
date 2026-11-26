@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Literal
 
 import msgspec
 
-from lem.adapters import forge_gh_queue
+from lem.adapters import forge_gh_origin, forge_gh_queue
 from lem.kernel.errors import Refusal
 from lem.ports.faults import Unanswered
 from lem.ports.forge_facts import Mergeable, Pull
@@ -165,14 +165,7 @@ class Gh:
         )
         found = GITHUB.search(ran.stdout.strip())
         if found is None:
-            raise Refusal(
-                "not-github",
-                f"origin of {self.checkout} is not a repository on GitHub, or there is "
-                "none: a task ends as a GitHub pull request, the one way Lem lands",
-                f"point origin at the repository on GitHub (git -C {self.checkout} remote "
-                "set-url origin git@github.com:OWNER/REPO.git), push the base there, then "
-                "run the step again",
-            )
+            raise forge_gh_origin.not_github(self.checkout)
         return found[1]
 
     def parent(self, commit: str, depth: int = 1) -> str:

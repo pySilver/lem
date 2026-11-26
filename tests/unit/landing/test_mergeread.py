@@ -10,7 +10,7 @@ import pytest
 from inline_snapshot import snapshot
 from msgspec.structs import replace
 
-from lem.app.landing import merge_time
+from lem.app.landing import merge_compared, merge_time
 from lem.kernel.errors import Refusal
 from lem.model.landing import merge_said, mergeread
 from lem.records.journal.proposal import ProposalNoted
@@ -56,6 +56,13 @@ def test_the_first_proposal_time_against_the_median_of_the_same_track() -> None:
     assert "the median of 2 earlier tasks of the fast track" in measured.source
     assert merge_time.measured(first, records).expected is None
     assert merge_time.measured(timed("small", 0), records).seconds is None
+
+
+def test_records_that_do_not_read_are_named_after_the_source_of_the_time() -> None:
+    assert merge_compared.left_out(()) == ""
+    assert merge_compared.left_out(("broken", "torn")) == (
+        "; the records of broken, torn do not read, so the comparison leaves them out"
+    )
 
 
 def first_read(briefed: mergeread.Briefed, reply: str | None) -> MergeRead:

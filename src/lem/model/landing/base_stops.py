@@ -2,6 +2,7 @@
 no builder resolves (a hook of git, a lock), with what the abort left not as it was and the
 command that puts each back (`land.rebase_failed` and `land.rebase_left` on `main`)."""
 
+import shlex
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
@@ -39,7 +40,7 @@ def still_rebasing(aborted: Aborted) -> str:
     """A rebase the abort did not end, and how to end it."""
     if not aborted.rebasing:
         return ""
-    return f"a rebase is still in progress (`git -C {aborted.where} rebase --abort`)"
+    return f"a rebase is still in progress (`git -C {shlex.quote(aborted.where)} rebase --abort`)"
 
 
 def branch_moved(world: World, aborted: Aborted) -> str:
@@ -56,7 +57,7 @@ def branch_moved(world: World, aborted: Aborted) -> str:
     )
     return (
         f"the branch {branch} is at {at}, not at its tip before the rebase {before} "
-        f"(`git -C {aborted.where} {back}` puts it back)"
+        f"(`git -C {shlex.quote(aborted.where)} {back}` puts it back)"
     )
 
 
@@ -68,7 +69,7 @@ def head_off(world: World, aborted: Aborted) -> str:
     on = f"on {aborted.on}" if aborted.on else f"detached at {head}"
     return (
         f"HEAD is {on}, not on the branch {world.branch} "
-        f"(`git -C {aborted.where} switch {world.branch}` puts it back)"
+        f"(`git -C {shlex.quote(aborted.where)} switch {world.branch}` puts it back)"
     )
 
 
@@ -101,8 +102,8 @@ def conflict(
     return Refusal(
         "conflict",
         why,
-        f"a builder resolves it in the worktree (`git -C {aborted.where} rebase {onto}`, "
-        f"then each file), then lem land base {slug} runs again",
+        f"a builder resolves it in the worktree (`git -C {shlex.quote(aborted.where)} "
+        f"rebase {onto}`, then each file), then lem land base {slug} runs again",
     )
 
 

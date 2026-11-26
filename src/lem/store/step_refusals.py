@@ -1,6 +1,7 @@
 """Why a step of a task may not run now: the step lock's refusals (`land.held_refusal` and
 `land.step_lock` on `main`), with the way on each names."""
 
+import shlex
 from typing import TYPE_CHECKING
 
 from lem.kernel import clock
@@ -46,5 +47,6 @@ def unopened(path: Path, slug: str, step: str, error: OSError) -> Refusal:
     return Refusal(
         "step-lock",
         f"the step lock {path} cannot be opened ({error.strerror})",
-        f"it holds no state: remove it (rm -r {path}), then run lem land {step} {slug} again",
+        f"it holds no state: remove it (rm -r {shlex.quote(str(path))}), then run lem land "
+        f"{step} {slug} again",
     )
