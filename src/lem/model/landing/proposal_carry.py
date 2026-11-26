@@ -62,6 +62,7 @@ def judged(
         carried=resolved_carry
         or carry.proposed_carries(landing, world)
         or repaired(record, landing, world),
+        tip=proposed.tip,
     )
     why = (
         "The merge review carries after the read of the resolution."

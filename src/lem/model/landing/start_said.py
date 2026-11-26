@@ -88,10 +88,20 @@ def no_checks(record: Record) -> Refusal:
     """The refusal of a task whose project names no command of the checks: the task is
     blocked until they are there."""
     slug = record.task.slug
+    why = (
+        f"{NO_CHECKS}, so nothing would show that the change works; the task is blocked"
+    )
+    proposed = record.landing.proposed if record.landing else None
+    ended = proposed.owner_merge if proposed else None
+    if (
+        ended
+        and ended.state == "ended"
+        and ended.why.startswith("the landing started over:")
+    ):
+        why = f"{why}. The owner's merge ended: {ended.why}; the owner merges it again"
     return Refusal(
         "no-checks",
-        f"{NO_CHECKS}, so nothing would show that the change works; the task is "
-        "blocked",
+        why,
         "add the commands to checks.commands in .lem/settings.toml, or, for the task "
         f"that sets up the checks, in its own branch's; then lem land start {slug} again",
     )

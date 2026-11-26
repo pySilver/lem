@@ -73,7 +73,12 @@ def head_off(world: World, aborted: Aborted) -> str:
 
 
 def conflict(
-    record: Record, world: World, files: tuple[str, ...], aborted: Aborted
+    record: Record,
+    world: World,
+    files: tuple[str, ...],
+    aborted: Aborted,
+    *,
+    reapply: bool = False,
 ) -> Refusal:
     """The refusal of a rebase that stopped on files: undone, the files named, for a builder
     to resolve in the worktree."""
@@ -88,10 +93,15 @@ def conflict(
             f"nothing is kept for a builder: once it is put back, lem land base {slug} "
             "runs again",
         )
+    why = f"{why}; it was undone"
+    onto = f"origin/{onto}"
+    if reapply:
+        onto = f"--reapply-cherry-picks --empty=drop {onto}"
+        why = f"{why}. The plain rebase skips commits whose patch the base holds"
     return Refusal(
         "conflict",
-        f"{why}; it was undone",
-        f"a builder resolves it in the worktree (`git -C {aborted.where} rebase origin/{onto}`, "
+        why,
+        f"a builder resolves it in the worktree (`git -C {aborted.where} rebase {onto}`, "
         f"then each file), then lem land base {slug} runs again",
     )
 

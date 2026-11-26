@@ -41,10 +41,12 @@ from lem.app.landing import (
     checks_run,
     frame,
 )
+from lem.board.views.activity import tell_checks
 from lem.cli import lazy
 from lem.kernel import folders
 from lem.model.criteria import read
 from lem.records.criterion import CriterionTest
+from lem.records.journal.landing import CheckEnd
 from lem.records.work import Plan
 from lem.store import places, tasks
 
@@ -618,6 +620,33 @@ def test_the_polish_pass_keeps_its_start_and_its_run_which_the_checks_take(
     assert checks(capsys, world)["ok"] is True
     assert ran == []
     assert polish(capsys, world, "--done")["refusal"]["code"] == "not-due"
+
+
+@pytest.mark.parametrize("committed_pass", [False, True], ids=["no-commit", "commit"])
+def test_the_check_end_says_if_the_criteria_tests_came_from_polish(
+    world: World, capsys: pytest.CaptureFixture[str], *, committed_pass: bool
+) -> None:
+    committed(world, "tests/receive.sh", "grep -q receive README.md\n", "test: receive")
+    standard(world, "   - test: `sh tests/receive.sh` in `tests/receive.sh`\n")
+    assert polish(capsys, world)["ok"]
+    if committed_pass:
+        committed(world, "NOTES.md", "a note the pass corrected\n", "docs: a note")
+    done = polish(capsys, world, "--done")
+    assert done["ok"], done
+    checked = checks(capsys, world)
+    assert checked["ok"], checked
+    record = tasks.read(world.checkout / ".lem" / "state", SLUG)
+    end = record.journal[-1]
+    assert isinstance(end, CheckEnd)
+    assert record.landing and record.landing.checked
+    [criterion] = record.landing.checked.criteria
+    assert criterion.red_on_base and criterion.green_on_tip
+    if committed_pass:
+        assert end.taken == criterion.taken_at == end.tip
+        assert "taken from the polish pass" in tell_checks.took(end)
+    else:
+        assert end.taken is None and criterion.taken_at is None
+        assert "taken from the polish pass" not in tell_checks.took(end)
 
 
 def test_a_pass_that_changed_the_plan_or_rewrote_the_branch_is_refused(

@@ -12,7 +12,38 @@ if TYPE_CHECKING:
     from lem.records.landing.record import Landing
 
 
-def standing(landing: Landing, digest: str, *, carried: bool) -> OwnerMerge | None:
+def rebased_from(landing: Landing) -> str | None:
+    """The tip before a completed rebase or a builder's conflict resolution."""
+    resolved, based = landing.resolution, landing.based
+    if resolved is not None and resolved.before != resolved.after:
+        return resolved.before
+    if based is None or based.tip == based.before:
+        return None
+    return based.before
+
+
+def pushed_before(landing: Landing) -> str | None:
+    """The rebase began at a pushed tip which the previous proposal did not confirm."""
+    before, proposed = rebased_from(landing), landing.proposed
+    if before is None or proposed is None or landing.pushed != before:
+        return None
+    if before == proposed.tip:
+        return None
+    first, last = before[:9], proposed.tip[:9]
+    return f"the rebase started from `{first}`, a tip pushed after the proposal of `{last}`"
+
+
+def changed_after_rebase(landing: Landing, tip: str | None) -> str | None:
+    """The proposal names another tip than the rebase left."""
+    based = landing.based
+    if tip is not None and based is not None and based.tip != tip:
+        return "the tip changed after the rebase"
+    return None
+
+
+def standing(
+    landing: Landing, digest: str, *, carried: bool, tip: str | None = None
+) -> OwnerMerge | None:
     """The owner's merge refused for the base: it stands while it was his merge of the tip
     proposed before, that tip carries onto the tip now (`carried`: `proposed_carries`, or a
     resolution's carry) and the reasons it was not green are the same; else it ended, with
@@ -26,7 +57,10 @@ def standing(landing: Landing, digest: str, *, carried: bool) -> OwnerMerge | No
         )
     if not carried:
         why = (
-            why_unshown(landing.based) or "no review covers the change on the new base"
+            pushed_before(landing)
+            or why_unshown(landing.based)
+            or changed_after_rebase(landing, tip)
+            or "the previous approval does not cover the change on the new base"
         )
         return OwnerMerge(state="ended", why=why)
     if kept.reasons_digest != digest:

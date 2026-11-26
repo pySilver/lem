@@ -116,6 +116,20 @@ Today's checks say which existing tests, snapshots and test configurations the c
 
 The rows of these (`TheWait`, `ChangesFromHisNotes`) are in the report as not placed.
 
+Close group A reads `Criteria.waited` and `Criteria.changed` in the proposal. The
+typed records have both fields. Their writers still need these changes:
+
+- `model/task/holds.waiting` records the start of a criteria wait when its topic is
+  `criteria`. The interview that a fast task takes after it grows is a separate hold.
+- `model/criteria/waits.asked` records the new wait after the owner's note.
+  `model/criteria/approve.approved` records the first owner or alone approval that
+  ends the current wait. A later approval leaves that approval number in place.
+- `model/criteria/change.changed` appends the moment of each accepted change.
+  `app/criteria/change.changing` already detects a retry of the same write.
+
+The proposal cases exercise these fields with typed fixtures. A path through the
+criteria commands still needs a proof from the producer's step.
+
 ## For `sessions`: a stand-in that gave an error itself
 
 Today's line of a stand-in that failed in turn says "then Codex gave an error too: ..."

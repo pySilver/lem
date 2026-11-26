@@ -179,6 +179,11 @@ def test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read(
     shown = json.loads(facts.split("```json\n", 1)[1].split("\n```", 1)[0])
     assert shown["task_directory"] == str(world.task_folder)
     assert shown["pictures"] == ["media/after.png", "media/detail/phone.WEBP"]
+    assert shown["time"]["seconds"] >= 0
+    assert shown["time"]["expected"] is None
+    assert (
+        shown["time"]["from"] == "no earlier first proposal of the fast track on record"
+    )
     assert '"checkout": "gh pr checkout 1"' in facts
     assert facts.startswith("Read `skills/lem/prompts/merge.md`")
     assert "https://github.com/owner/project/pull/1" in facts

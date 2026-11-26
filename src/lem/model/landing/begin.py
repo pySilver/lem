@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.model.landing import careful_words
+from lem.model.landing import careful_words, merge_recheck
 from lem.model.landing.start_said import NO_CHECKS
 from lem.records.holds import Blocked
 from lem.records.journal.merge import LandAgain
@@ -66,6 +66,9 @@ def begun(record: Record, started: Started) -> Record:
         entries = (counted, *entries)
     else:
         landing = replace(landing, started=started)
+        if record.task.status == "ready" and merge_recheck.repair(landing):
+            # A separate task repaired the base. Approval still needs proof of carry.
+            landing = replace(landing, refused=None)
     task = replace(record.task, status="landing", since=started.at, hold=None)
     journal = (*record.journal, *entries)
     return replace(record, task=task, landing=landing, journal=journal)

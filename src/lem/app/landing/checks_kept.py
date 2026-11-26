@@ -33,7 +33,15 @@ def end_of(record: Record, world: World, verdict: Verdict, at: Moment) -> CheckE
         CommandEnd(name=outcome.command, passed=outcome.passed, last=outcome.last)
         for outcome in run.outcomes
     )
-    return CheckEnd(at=at, outcome=run.outcome, say=said, commands=commands)
+    return CheckEnd(
+        at=at,
+        outcome=run.outcome,
+        say=said,
+        commands=commands,
+        tip=run.tip,
+        seconds=round((at - run.at).total_seconds()),
+        taken=next((one.taken_at for one in run.criteria if one.taken_at), None),
+    )
 
 
 def kept(record: Record, *, world: World, verdict: Verdict, at: Moment) -> Record:

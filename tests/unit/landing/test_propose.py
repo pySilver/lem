@@ -2,6 +2,7 @@
 asks a bar call of, and the pull request's text the owner reads, in the words of today's text
 (`main:tests/unit/test_land_text.py`, `test_land.py`)."""
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -22,21 +23,24 @@ from lem.model.criteria.read import Sheet
 from lem.model.landing import (
     carry,
     items,
+    merge,
     propose,
     propose_careful,
     propose_filed,
     propose_jev,
     propose_lines,
     propose_notes,
+    standing,
 )
 from lem.model.landing.propose_facts import Facts, Filing
 from lem.model.landing.world import Due, Held, Rules
 from lem.model.task import span_forms, spans
+from lem.records.criteria import Waited
 from lem.records.holds import OwnerHold
 from lem.records.landing.checks import CriterionCheck, Edited
-from lem.records.landing.propose import MergeRead
-from lem.records.landing.review import Counts, Filed, Finding
-from lem.records.landing.start import Polished
+from lem.records.landing.propose import MergeRead, Standing
+from lem.records.landing.review import Counts, Filed, Finding, Named
+from lem.records.landing.start import Based, Polished, Resolution
 from lem.records.task import Shape
 from lem.records.tickets import Ticket
 from lem.records.work import Investigation, Plan, StandIn, Talk
@@ -74,6 +78,7 @@ if TYPE_CHECKING:
     from datetime import datetime
     from pathlib import Path
 
+    from lem.records.approvals import ApprovedBy
     from lem.records.record import Record
 
 SMALL_NOTES = Facts(notes="none\n")
@@ -656,6 +661,86 @@ def test_an_interview_hold_is_not_an_approval_wait_in_the_pull_request() -> None
     assert "waited" not in words
 
 
+def test_a_fast_track_that_grew_goes_to_the_interview_without_an_approval_wait() -> (
+    None
+):
+    record = full()
+    hold = OwnerHold(
+        on="interview",
+        since=MOMENT,
+        line="the criteria wait for the owner: the small change is a full change",
+    )
+    assert "waited for the owner's yes" not in pr_read.read_line(
+        replace(record, task=replace(record.task, hold=hold))
+    )
+
+
+def test_a_change_and_its_reversal_still_show_when_the_read_digest_matches() -> None:
+    record = full()
+    criteria = replace(
+        record.task.criteria, changed=(MOMENT, MOMENT + timedelta(minutes=1))
+    )
+    said = text_of(full(criteria=criteria))
+    assert (
+        "the criteria changed 2 times after the personas' read, from the owner's notes"
+        in said
+    )
+    assert "the change was not read" not in said
+
+
+@pytest.mark.parametrize(
+    ("by", "reapprove", "ending"),
+    [
+        ("owner", False, "the owner gave it on 2026-11-25 11:00 UTC"),
+        (
+            "owner",
+            True,
+            "the owner gave it on 2026-11-25 11:00 UTC; the owner approved them again on 2026-11-26",
+        ),
+        (
+            "alone",
+            True,
+            "the wait ended without the owner: approved on 2026-11-25 11:00 UTC while the task ran without the owner; the owner approved them on 2026-11-26",
+        ),
+    ],
+    ids=["owner", "owner-again", "alone-then-owner"],
+)
+def test_the_proposal_names_the_approval_that_ended_the_wait(
+    by: ApprovedBy, *, reapprove: bool, ending: str
+) -> None:
+    record = full()
+    approvals = (approval(by),)
+    if reapprove:
+        approvals += (approval("owner", 2, LATER + timedelta(days=1)),)
+    criteria = replace(
+        record.task.criteria,
+        waited=Waited(since=MOMENT, ended_by=1),
+        approvals=approvals,
+    )
+    text = text_of(full(criteria=criteria))
+    assert (
+        f"the criteria waited for the owner's yes from 2026-11-25 10:00 UTC, and {ending}"
+        in text
+    )
+
+
+def test_an_earlier_approval_does_not_end_the_newest_wait() -> None:
+    record = full()
+    wait = Waited(since=LATER + timedelta(minutes=1))
+    criteria = replace(record.task.criteria, waited=wait)
+    assert "waited for" not in pr_read.read_line(full(criteria=criteria))
+    approvals = (
+        *criteria.approvals,
+        approval("alone", 2, LATER + timedelta(minutes=2)),
+    )
+    ended = replace(criteria, waited=replace(wait, ended_by=2), approvals=approvals)
+    assert (
+        "the criteria waited for the owner's yes from 2026-11-25 11:01 UTC, and the wait "
+        "ended without the owner: approved on 2026-11-25 11:02 UTC"
+        in pr_read.read_line(full(criteria=ended))
+    )
+
+
 def test_criteria_he_changed_after_the_read_are_one_line() -> None:
     record = full()
     changed_after = replace(
@@ -702,6 +787,45 @@ def test_a_carried_merge_read_keeps_its_verdict_and_drops_its_old_base_call() ->
     )
 
 
+@pytest.mark.parametrize("conflict", [False, True], ids=["plain", "resolution"])
+def test_a_rebase_from_an_unconfirmed_push_names_that_tip(*, conflict: bool) -> None:
+    pushed = "2" * 40
+    based = Based(
+        before=OTHER if conflict else pushed,
+        tip=OTHER,
+        base=TIP,
+        carried=False,
+        at=MOMENT,
+    )
+    resolution = (
+        Resolution(before=pushed, after=OTHER, base=TIP, files=("a.py",))
+        if conflict
+        else None
+    )
+    record = task(
+        "open",
+        **{
+            **OPENED,
+            "pushed": pushed,
+            "based": based,
+            "resolution": resolution,
+            "standing": Standing(
+                tip=TIP, reasons_digest="d", by_act="owner", at=MOMENT
+            ),
+        },
+    )
+    assert record.landing is not None
+    ended = standing.standing(record.landing, "d", carried=False, tip=OTHER)
+    assert ended is not None and ended.state == "ended"
+    assert (
+        ended.why
+        == "the rebase started from `222222222`, a tip pushed after the proposal of `111111111`"
+    )
+    private = replace(record.landing, pushed=TIP)
+    other = standing.standing(private, "d", carried=False, tip=OTHER)
+    assert other is not None and "a tip pushed" not in other.why
+
+
 def test_each_stand_in_is_its_line_and_no_reason_of_not_green_on_both_tracks() -> None:
     stood = StandIn(
         seat="reviewer",
@@ -718,6 +842,33 @@ def test_each_stand_in_is_its_line_and_no_reason_of_not_green_on_both_tracks() -
     assert line in text.splitlines()
     assert text.splitlines()[0] == pr_text.pr_head.GREEN
     assert line in text_of(small(stand_ins=(stood,)), SMALL_NOTES).splitlines()
+
+
+def test_a_stand_in_whose_start_fails_is_one_line_unless_the_owner_tried_again() -> (
+    None
+):
+    first = StandIn(
+        seat="reviewer",
+        failed="claude/opus:high",
+        error="model",
+        took="codex/gpt-6.2-sol:high",
+        at=MOMENT,
+    )
+    blocked = StandIn(
+        seat="reviewer", failed=first.took or "", error="missing", at=LATER
+    )
+    stood = text_of(full(stand_ins=(first, blocked)))
+    assert [line for line in stood.splitlines() if "in place of" in line] == [
+        (
+            "- the reviewer was to be `codex/gpt-6.2-sol:high` in place of "
+            "`claude/opus:high`: Claude Code did not know the model; "
+            "then Codex gave an error too: Codex is not on this Mac"
+        )
+    ]
+    retried = replace(first, again=LATER)
+    assert "gave an error too" not in text_of(full(stand_ins=(retried, blocked)))
+    retried_both = (retried, replace(blocked, again=LATER))
+    assert "gave an error too" in text_of(full(stand_ins=retried_both))
 
 
 def test_each_track_names_the_time_without_him_and_one_with_him_has_no_such_line() -> (
@@ -1172,6 +1323,49 @@ def test_a_careful_request_needs_the_full_set_and_the_owner_merges_it_green() ->
     made = decided(whole, careful)
     assert not isinstance(made, Refusal)
     assert (made.proposed.green, made.proposed.who_acts) == (True, "owner")
+
+
+def test_the_owners_careful_call_after_the_plan_needs_migration_notes_and_no_plan_talk() -> (
+    None
+):
+    record = full(plan=Plan(path="docs/plans/word.md"), owner_careful=MOMENT)
+    first = replace(
+        REVIEWED,
+        kind="full",
+        answered=("codex", "claude"),
+        silent=(Named(name="gemini", why="at capacity"),),
+        ran=(Named(name="default", why="the request is careful"),),
+        counts=Counts(must_fix=1),
+    )
+    second = replace(
+        REVIEWED,
+        attempt=2,
+        kind="full",
+        answered=("codex", "claude", "gemini"),
+        counts=Counts(nit=2),
+    )
+    record = with_landing(record, reviews=(first, second))
+    assert "## Migration" in refusal_words(decided(record))[1]
+    facts = Facts(notes=FULL_NOTES + "\n## Migration\n\nnone\n")
+    made = decided(record, facts)
+    assert not isinstance(made, Refusal)
+    assert (made.proposed.green, made.proposed.who_acts) == (True, "owner")
+    said = pr_text.body(record, made, facts)
+    assert said.startswith("**Green.**")
+    assert [line for line in said.splitlines() if "plan talk" in line] == [
+        "- no plan talk: the request became careful after its plan, by the owner's word"
+    ]
+    assert (
+        "round 1 (the project's full set; answered: codex, claude; "
+        "no answer from gemini (at capacity)): must-fix"
+    ) in said
+    assert "  - ran default: the request is careful" in said
+    assert (
+        "round 2 (the project's full set; answered: codex, claude, gemini): clean"
+        in said
+    )
+    opened = with_landing(record, proposed=made.proposed)
+    assert merge.authority(opened, world(), verdict=False) == merge.CAREFUL
 
 
 def test_the_first_approval_of_his_answers_his_word_to_skip_the_read() -> None:

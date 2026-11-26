@@ -4,6 +4,7 @@ request's checks (`main:land.read_line`, `approval_said`), on the standard track
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
+from lem.app.landing.pr_approval import approved
 from lem.model.landing import propose_criteria
 
 if TYPE_CHECKING:
@@ -13,22 +14,21 @@ if TYPE_CHECKING:
 
 FAMILIES = MappingProxyType({1: "one model family", 2: "two model families"})
 NO_WAIT = "the build started with no wait for the owner"
+WITHOUT_READ = "- the criteria: no read by the personas is on record"
 UNREAD = (
     "- the criteria changed after the personas' read{0}, and the change was not read"
 )
 QUIET = "- the criteria were not read by the personas: {0} reads in a row, and none of the {1}"
 
 
-def approved(task: Task) -> str:
-    """Who approved the criteria and when, when it was the owner or made without him."""
-    approvals = task.criteria.approvals
-    newest = approvals[-1] if approvals else None
-    if newest is None or newest.by not in {"owner", "alone"}:
+def changes(task: Task, read: PersonaRead) -> str:
+    """Each change from the owner's notes after the read counts, even a reversal."""
+    end = read.ended or read.started
+    count = sum(at >= end for at in task.criteria.changed)
+    if not count:
         return ""
-    day = newest.at.date().isoformat()
-    if newest.by == "owner":
-        return f"the owner approved them on {day}"
-    return f"approved on {day} while the task ran without the owner"
+    times = "once" if count == 1 else f"{count} times"
+    return f"; the criteria changed {times} after the personas' read, from the owner's notes"
 
 
 def doubts(read: PersonaRead) -> str:
@@ -63,14 +63,15 @@ def read_line(record: Record) -> str:
     """The personas' read of the criteria and the owner's approval, as one line."""
     task = record.task
     read = propose_criteria.newest(task)
-    ending = approved(task) or NO_WAIT
+    approval = approved(task)
+    ending = approval or NO_WAIT
     if read is not None and not read.answered:
         return f"{unanswered(task, read)}; {ending}"
     if read is not None:
-        return f"- the criteria were {found(read)}; {ending}"
+        said = found(read) + changes(task, read)
+        return f"- the criteria were {said}; {ending}"
     if task.criteria.skip == "yes":
         return (
             f"- the criteria: not read by the personas, on the owner's word; {ending}"
         )
-    line = "- the criteria: no read by the personas is on record"
-    return f"{line}; {approved(task)}" if approved(task) else line
+    return f"{WITHOUT_READ}; {approval}" if approval else WITHOUT_READ
