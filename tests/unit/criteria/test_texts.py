@@ -1,9 +1,4 @@
-"""The texts an agent of a task follows at its interview, plan, build, plan talk, ladder and
-breaker are carried in the plugin's files, and each `lem` line in them is one the tree takes.
-The one line left of the old form, in the breaker's stage, asks the breaker's row of the board
-again, which no command of the tree does yet (`notes/criteria.md`)."""
-
-from types import MappingProxyType
+"""The criteria and decision texts of the plugin use the commands of the tree."""
 
 import pytest
 
@@ -25,13 +20,11 @@ TEXTS = (
     "skills/lem/templates/breaker.md",
     "agents/lem-builder.md",
     "skills/lem-gate/SKILL.md",
+    "skills/lem-gate/references/judge.md",
     "skills/lem-interview-me/SKILL.md",
     "skills/lem-dialectic/SKILL.md",
     "skills/lem-root-cause/SKILL.md",
 )
-# The old lines a text keeps, by the text.
-ASKED_AGAIN = 'lem project state SLUG held "breaker N waits for the owner" "YOUR ONE LINE TO HIS NOTE"'
-KEPT = MappingProxyType({"skills/lem/stages/breaker.md": (ASKED_AGAIN,)})
 TREE = shapes.tree()
 
 
@@ -55,9 +48,9 @@ def test_each_text_of_the_step_is_carried_in_the_new_form(name: str) -> None:
         for line in reading.lines_of(text, name)
         if reading.verdict(line, TREE)
     ]
-    assert old == list(KEPT.get(name, ()))
-    assert reading.marked(text) == bool(old)
-    assert text.count("lem project") == len(old)
+    assert old == []
+    assert not reading.marked(text)
+    assert "lem project" not in text
 
 
 # Each ruling of the owner that one of the step's texts carries, by the ruling's id, with the

@@ -44,6 +44,8 @@ file says how to change it.
   `docs/plans/2026-11-25-lem-built-again.md`, part 2).
 - **A change is measured by what it costs a developer on a small task** (the touches it asks of
   him, the waits, the agents it starts) as well as by what it guards.
+- **Lem's own tasks take the same landing steps as any other project's tasks.** The landing
+  runs the checks in the task's worktree.
 - **Documentation describes the current state.** No changelog paragraphs, no "previously". The
   pages of `docs/` are the one source of the site, in ASD-STE100, each with one job and an aim of
   under 800 words; `README.md` holds only what a visitor of the repository needs before the site.

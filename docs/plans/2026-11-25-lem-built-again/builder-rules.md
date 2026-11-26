@@ -42,8 +42,7 @@ worktree and a branch. These rules hold in every step; your step's brief adds th
   `docs/plans/2026-11-25-lem-built-again/notes/STEP.md`, build against a local stand-in or a
   fixture, and say so in your report. `kernel/errors.py`, `kernel/envelope.py`, `records/` and
   `ports/` change only this way: every step builds on them.
-- Remove the old-form mark (`<!-- lem: old form -->`) from each checked file you rewrite; a
-  file you do not rewrite keeps it.
+- Give every command in a rewritten file in the form the tree takes.
 - Commit as you go, small commits, messages `type(scope): subject` in this repository's voice
   (read `git log --oneline -20 main`).
 

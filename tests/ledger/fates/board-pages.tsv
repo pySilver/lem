@@ -189,3 +189,7 @@ duty:watch-owner	changed	unit.owner.test_presence.test_his_away_in_one_repositor
 ruling:a-page-for-the-owner-has-the-board-s-look-eedfe5b171a9f36d	kept	unit.board.test_slice.test_the_page_links_the_assets_of_today_and_the_server_sends_them	
 check:tests/lem-serve.sh:the-switcher-names-the-workspace-whole-howev-c0cd55c93da547ac	kept	unit.board.pages.test_sections.test_the_switcher_keeps_the_whole_workspace_name_on_one_machine	
 ruling:the-board-s-icons-are-a-subset-of-font-aweso-f7dee376d370d0c1	kept	unit.board.pages.test_sections.test_the_committed_icon_catalog_matches_the_board_kit_selection	
+check:tests/lem-serve.sh:a-back-gesture-from-a-task-s-criteria-tab-to-bc77fd75f3553a05	kept	browser.test_close_refresh.test_back_from_criteria_restores_the_overview_then_counts_the_new_file	
+check:tests/lem-serve.sh:a-phone-page-whose-network-stops-forwarding-bd7f00da021e9d83	kept	browser.test_close_refresh.test_a_silent_open_stream_reconnects_and_catches_up_both_phone_badges	
+check:tests/lem-serve.sh:a-refresh-of-the-page-keeps-the-words-the-ow-cee4c343dbf6c614	kept	browser.test_close_refresh.test_a_phone_refresh_keeps_the_words_and_focus[park]	
+check:tests/lem-serve.sh:a-refresh-soon-after-a-finger-opened-a-task-24f477b4a59c4a23	kept	browser.test_close_refresh.test_an_open_phone_panel_and_both_badges_survive_a_stream_refresh	

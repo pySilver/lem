@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.tasks import first_line
+from lem.app.tasks import first_line, shown_answer
 from lem.model.task import claim, tickets
 from lem.records.base import Day, Frozen, Moment
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
@@ -55,6 +55,7 @@ class Row(Frozen, frozen=True, kw_only=True):
     resumed_from: str | None = None
     first_line: str | None = None
     owner_careful: Moment | None = None
+    board_answer: shown_answer.BoardAnswer | None = None
 
 
 def hold_line(hold: Hold | None) -> str | None:
@@ -127,4 +128,8 @@ def shown(folder: Path, slug: str) -> Row:
     where = places.workspace(folder)
     record = tasks.read(where.state, slug)
     line = first_line.said(where, record, named=True)
-    return replace(row(record, tasks.every(where.state)), first_line=line)
+    return replace(
+        row(record, tasks.every(where.state)),
+        first_line=line,
+        board_answer=shown_answer.pending(record.task),
+    )

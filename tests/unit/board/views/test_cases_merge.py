@@ -12,9 +12,11 @@ from msgspec.structs import replace
 from fakes.records import MOMENT
 from lem.app.landing.mergeread import noted
 from lem.app.owner import forge
-from lem.board.views import offers, owed, sessions, standing, tasks, telling
+from lem.board.pages import render
+from lem.board.views import offers, owed, pages, sessions, standing, tasks, telling
 from lem.board.views.checks import tab
 from lem.board.views.panel import heads, now, review
+from lem.board.views.panel import merge_said as panel_merge_said
 from lem.board.views.panel import waiting as panel_waiting
 from lem.board.views.waits import view as waits_view
 from lem.board.views.where import where
@@ -30,6 +32,7 @@ from lem.records.landing.checks import Checked, Outcome
 from lem.records.landing.merge import Refused
 from lem.records.landing.propose import MergeRead, Proposed, Standing
 from lem.records.landing.record import Landing, Pull
+from unit.board.pages.markup import Parsed
 from unit.board.views.small import gone, task, world
 from unit.owner import looked
 
@@ -297,6 +300,17 @@ def test_a_merge_of_his_that_stands_is_the_servers() -> None:
     assert wait_of(older) == "owner"
 
 
+def test_a_standing_owner_approval_says_when_the_server_takes_the_merge() -> None:
+    pending = opened(proposed=CAREFUL, reads=(read("merge"),))
+    seen = standing_merge(pending)
+    found = world(seen)
+    position = standing.standing(seen, owed.rows(found))
+    assert wait_of(seen) == "merges"
+    assert panel_merge_said.why_not(found, seen, position) == (
+        "Your merge stands. Lem merges it now."
+    )
+
+
 def test_a_merge_the_moved_base_refused_is_not_offered_again_until_the_next_proposal() -> (
     None
 ):
@@ -524,6 +538,17 @@ def test_a_held_task_two_releases_back_stays_blocked_while_its_sessions_turn_run
     assert (where_it_stands.column, where_it_stands.label) == ("you", "Blocked")
     card = now.now(world(seen), seen, rows, where_it_stands)
     assert (card.head, card.where) == ("It began on an older release of Lem", SAY)
+
+
+def test_the_overview_renders_the_release_stop_only_once() -> None:
+    for status in ("building", "planned"):
+        seen = released(task(status=status))
+        whole = world(seen)
+        whole = dataclasses.replace(
+            whole, viewer=replace(whole.viewer, task=SLUG, tab="overview")
+        )
+        html = render.section("page.html", pages.page(whole))
+        assert Parsed(html).root.one(id_="panel").words().count(SAY) == 1
 
 
 def test_a_landing_two_releases_back_is_out_of_the_guard_of_a_stopped_session() -> None:

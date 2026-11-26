@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 from msgspec.structs import replace
 
+from fakes.command import lem
 from lem.app.tasks import park, resume
 from lem.board.acts import asking
 from lem.kernel import clock
@@ -19,6 +20,7 @@ from lem.store import tasks
 from unit.board.acts.acts import SLUG, made, note_of, read
 from unit.board.acts.test_answer import ANSWER, HELP, SINCE
 from unit.criteria import world
+from unit.task.spaces import refusal, result
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -124,6 +126,42 @@ def trip(board: Board, number: int, at: datetime) -> None:
         breaker.tripped, breaker=decision, why="the note must stay", now=at
     )
     tasks.update(board.state, SLUG, change, read(board).revision)
+
+
+def test_help_without_a_decision_asks_again_under_a_new_board_key(board: Board) -> None:
+    """Main's breaker stage: Help without a decision puts the same breaker back on the board."""
+    made(board, status="building")
+    trip(board, 1, SINCE)
+    original = current(board)
+    fields = {"key": original.id, "option": "help", "words": HELP}
+    assert note_of(board.post(ANSWER, fields)).state == "done"
+    answered = current(board)
+    before = read(board)
+    hold = before.task.hold
+    assert isinstance(hold, BreakerHold)
+    assert held.breaker_rows(before.task, hold) == ()
+    shown = result(lem("task", "show", SLUG, cwd=board.checkout))["board_answer"]
+    assert (shown["key"], shown["option"], shown["note"]) == (original.id, "help", HELP)
+
+    again = ("decisions", "reask", SLUG, "--question", shown["key"], "--line", HELP)
+    fresh = result(lem(*again, cwd=board.checkout))
+    updated = read(board)
+    new_hold = updated.task.hold
+    assert isinstance(new_hold, BreakerHold) and new_hold.number == hold.number
+    assert fresh["id"] == current(board).id != original.id
+    assert fresh["options"] == ["help", "park", "drop"]
+    assert answered in updated.task.questions
+    assert updated.task.decisions == before.task.decisions
+    assert held.breaker_rows(updated.task, new_hold)
+    assert (
+        result(lem("task", "show", SLUG, cwd=board.checkout)).get("board_answer")
+        is None
+    )
+
+    assert refusal(lem(*again, cwd=board.checkout))["code"] == "breaker-question"
+    assert note_of(board.post(ANSWER, fields)).state == "refused"
+    assert read(board) == updated
+    assert note_of(board.post(ANSWER, {**fields, "key": fresh["id"]})).state == "done"
 
 
 @pytest.mark.parametrize("board_help", (False, True))

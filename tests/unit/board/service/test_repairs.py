@@ -437,14 +437,7 @@ def test_a_task_visit_compares_its_rendered_token_at_stream_open(
     assert f'data-stream-since-value="{workspace[1]}"' in task
     if changed:
         report.write_text("the report changed after the render")
-    script = Path(__file__).with_name("stream_visit.mjs")
-    controller = script.parents[4] / "tools/board-kit/controllers/stream.js"
-    query = httpx.QueryParams(
-        subprocess.check_output(
-            ["node", str(script), str(controller), SLUG, workspace[1], rendered],
-            text=True,
-        ).strip()
-    )
+    query = stream_query(workspace[1], rendered)
     assert query["task"] == SLUG
     assert (
         stream.owes(
@@ -455,6 +448,53 @@ def test_a_task_visit_compares_its_rendered_token_at_stream_open(
         is changed
     )
     assert query["rendered"] == rendered
+
+
+def stream_query(version: str, rendered: str, mode: str = "visit") -> httpx.QueryParams:
+    script = Path(__file__).with_name("stream_visit.mjs")
+    controller = script.parents[4] / "tools/board-kit/controllers/stream.js"
+    return httpx.QueryParams(
+        subprocess.check_output(
+            ["node", str(script), str(controller), SLUG, version, rendered, mode],
+            text=True,
+        ).strip()
+    )
+
+
+def test_a_restored_task_page_refresh_counts_a_new_loose_file(board: Board) -> None:
+    """Main's lem-serve.sh back-gesture rule: a task file needs no journal entry."""
+    record_before = tasks.create(board.state, record(SLUG))
+    folder = board.state / "tasks" / SLUG
+    (folder / "report.md").write_text("The first document")
+    path = f"/studio/shop/tasks/{SLUG}"
+    before = board.main().get(path).text
+    old = watched.look(board.state, board.home, SLUG)
+    assert f'data-stream-rendered="{old.rendered}"' in before
+    badge = r'id="ptab-artifacts"[^>]*>Artifacts <em>(\d+)</em>'
+    assert re.findall(badge, before) == ["1"]
+
+    (folder / "bench-notes.md").write_text("A working file with no journal entry.")
+    assert re.findall(badge, board.main().get(f"{path}/criteria").text) == ["2"]
+    look = partial(watched.look, board.state, board.home, SLUG)
+    assert (look().version, tasks.read(board.state, SLUG)) == (
+        old.version,
+        record_before,
+    )
+    assert look().rendered != old.rendered
+    query = stream_query(old.version, old.rendered, "restore")
+    assert dict(query) == {"since": old.version, "task": SLUG}
+
+    async def restored() -> None:
+        async with aclosing(
+            stream.refreshed(
+                look, rendered=query.get("rendered"), missed="since" in query
+            )
+        ) as events:
+            with anyio.fail_after(2):
+                assert (await anext(events)).data == stream.REFRESH
+
+    anyio.run(restored)
+    assert re.findall(badge, board.main().get(path).text) == ["2"]
 
 
 def test_a_quiet_open_stream_sends_its_first_ping_on_time(

@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # The judge's prompt
 
 Fill `QUESTION_FILE` and `REPO` before sending.
@@ -12,8 +11,8 @@ Read QUESTION_FILE: the question, its options and context.
 
 Then search the project at REPO for whether it is already answered. Look in this order, and grep
 before you read whole files:
-1. the owner's rulings: the one list file that `lem project --repo REPO path rulings` prints
-   (docs/rulings.md unless the settings say otherwise). Each `##` heading is an area and each
+1. the owner's rulings: the one list file named by `path` in the result of
+   `lem --repo REPO path rulings`. Each `##` heading is an area and each
    bullet under it is one ruling, its rule in bold. Grep the headings and the question's key
    words, then read each bullet that matches whole, the lines after its bold sentence too: they
    say how far the ruling reaches;

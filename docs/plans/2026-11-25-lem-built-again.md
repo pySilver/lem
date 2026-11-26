@@ -313,12 +313,9 @@ directories?" the first time a session reads a file of the plugin or of the app'
 2026-11-24]. Briefs and stages name files under `root` of `lem version` (the plugin folder)
 only; the install guide and `doctor` name the one-time question and its allow rule.
 
-**Old command forms held to the tree.** A unit test parses every `lem ...` line in `skills/`,
-`agents/`, `docs/` (not `plans/`), `README.md` and `site/` against the tree. A file that still
-has an old form carries the first line `<!-- lem: old form -->`; `tree` marks every such file
-(`docs/board.md`, which calls `lem serve --ensure`, among them). Each step removes the old-form
-mark from each checked file it rewrites; the test reports each marked file as a skip, and
-`close` requires none.
+**Command forms held to the tree.** A unit test parses the command lines in `skills/`, `agents/`,
+`docs/` (apart from plans and backlog items), `README.md` and `site/` against the tree.
+`close` requires every line to pass without an old-form skip.
 
 ## 6. The settings
 

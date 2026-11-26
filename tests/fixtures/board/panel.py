@@ -130,7 +130,7 @@ def tabs(current: str) -> tuple[Tab, ...]:
         ("criteria", "Criteria and decisions", None),
         ("checks", "Checks and review", None),
         ("timeline", "Timeline", None),
-        ("artifacts", "Artifacts", 7),
+        ("artifacts", "Artifacts", 11),
     )
     return tuple(
         Tab(

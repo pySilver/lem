@@ -35,8 +35,9 @@ def proposal_refusal(seen: Seen) -> Refusal | None:
     proposed = merge.opened(record)
     if isinstance(proposed, Refusal):
         return proposed
-    return merge_evidence.changed_tip(
-        record, proposed, seen.head.sha if seen.head else proposed.tip
+    tip = seen.head.sha if seen.head else proposed.tip
+    return merge_evidence.careful_refusal(record) or merge_evidence.changed_tip(
+        record, proposed, tip
     )
 
 

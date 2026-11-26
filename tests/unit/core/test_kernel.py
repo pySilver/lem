@@ -2,6 +2,7 @@
 process group's stop, a fault's log line, and the places of Lem's own files."""
 
 import os
+import select
 import signal
 import subprocess
 import sys
@@ -21,6 +22,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 MOMENT = datetime(2026, 11, 24, 10, 18, 18, tzinfo=UTC)
+# AGENTS.md, "Checks": a level fails if it reaches 30 minutes.
+UNIT_LIMIT = 30 * 60
 
 
 def test_a_moment_is_utc_to_the_second_and_shown_two_ways() -> None:
@@ -95,9 +98,8 @@ def test_a_tried_lock_gives_none_while_held_and_the_lock_after(tmp_path: Path) -
 
 def test_a_group_stop_ends_what_the_command_left_behind(tmp_path: Path) -> None:
     child_script = (
-        "import signal, sys, time\n"
+        "import signal, sys\n"
         "def finish(*_):\n"
-        "    time.sleep(0.2)\n"
         "    print('child done', flush=True)\n"
         "    sys.exit(0)\n"
         "signal.signal(signal.SIGTERM, finish)\n"
@@ -109,22 +111,35 @@ def test_a_group_stop_ends_what_the_command_left_behind(tmp_path: Path) -> None:
         "signal.signal(signal.SIGTERM, lambda *_: None)\n"
         "sys.exit(subprocess.call([sys.executable, '-c', sys.argv[1]]))\n"
     )
+    deadline = time.monotonic() + UNIT_LIMIT
+
+    def remaining() -> float:
+        return max(0.0, deadline - time.monotonic())
+
     proc = procs.start_group(
         [sys.executable, "-I", "-c", script, child_script],
         tmp_path,
         dict(os.environ),
         subprocess.PIPE,
     )
+    group_empty = False
     try:
         assert proc.stdout is not None
+        ready, _, _ = select.select([proc.stdout], [], [], remaining())
+        assert ready, "the child never reported it was ready"
         assert proc.stdout.readline() == b"child ready\n"
-        procs.stop_group(proc, 5, 5, whole_group=True)
-        assert procs.group_gone(proc, 5)
-        assert proc.communicate(timeout=5)[0] == b"child done\n"
+        procs.stop_group(proc, remaining(), 0, whole_group=True)
+        assert proc.communicate(timeout=remaining())[0] == b"child done\n"
         assert proc.returncode == 0
+        group_empty = procs.group_gone(proc, remaining())
+        assert group_empty, (
+            "the process group did not empty before the unit level's time limit"
+        )
     finally:
-        if proc.poll() is None:
-            procs.stop_group(proc, 5, 5, whole_group=True)
+        if not group_empty:
+            procs.signalled(proc, signal.SIGKILL)
+            procs.group_gone(proc, remaining())
+            proc.poll()
         if proc.stdout is not None:
             proc.stdout.close()
 

@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 
     import pytest
     from starlette.applications import Starlette
+    from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
     from lem.ports.terminal import Opening
     from lem.records.record import Record
@@ -70,6 +71,7 @@ class Board:
     terminal: Terminal
     url: str
     forge: LocalForge
+    stream_silent: Event
 
     @property
     def state(self) -> Path:
@@ -142,6 +144,29 @@ def application(
     return app.made(facts, serving)
 
 
+def stream_link(served: ASGIApp, silent: Event) -> ASGIApp:
+    """Let a case stop the stream's bytes while its HTTP connection stays open."""
+
+    async def forward(scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or not scope["path"].endswith("/stream"):
+            await served(scope, receive, send)
+            return
+
+        async def stream(message: Message) -> None:
+            if (
+                silent.is_set()
+                and message["type"] == "http.response.body"
+                and message.get("body")
+                and message.get("more_body")
+            ):
+                return
+            await send(message)
+
+        await served(scope, receive, stream)
+
+    return forward
+
+
 @contextmanager
 def serve(folder: Path, patch: pytest.MonkeyPatch) -> Generator[Board]:
     """Hold a kernel-assigned port from bind through shutdown."""
@@ -156,9 +181,13 @@ def serve(folder: Path, patch: pytest.MonkeyPatch) -> Generator[Board]:
         assert port not in OWNER_PORTS
         listener.listen()
         served = application(checkout, home, port, terminal, patch, forge)
+        silent = Event()
         server = uvicorn.Server(
             uvicorn.Config(
-                served, log_config=None, access_log=False, timeout_graceful_shutdown=5
+                stream_link(served, silent),
+                log_config=None,
+                access_log=False,
+                timeout_graceful_shutdown=5,
             ),
         )
         thread = Thread(target=server.run, kwargs={"sockets": [listener]})
@@ -175,6 +204,7 @@ def serve(folder: Path, patch: pytest.MonkeyPatch) -> Generator[Board]:
                 terminal,
                 f"http://{LOCAL}:{port}/{HOST}/{checkout.name}",
                 forge,
+                silent,
             )
         finally:
             terminal.proceed.set()

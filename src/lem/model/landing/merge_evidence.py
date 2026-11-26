@@ -12,7 +12,13 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
-from lem.model.landing import checks, destination, merge_recheck, mergeread
+from lem.model.landing import (
+    careful_words,
+    checks,
+    destination,
+    merge_recheck,
+    mergeread,
+)
 from lem.model.landing.invariants import protected
 from lem.model.landing.world import Due, World
 from lem.model.task.release import guard
@@ -33,8 +39,20 @@ def hold_refusal(record: Record) -> Refusal | None:
 
 
 def new_call_refusal(record: Record) -> Refusal | None:
-    """A release stop, park or seat block prevents a new call to the forge."""
-    return guard(record) or hold_refusal(record)
+    """Check the task's hold and latest careful call before a new call to the forge."""
+    return guard(record) or hold_refusal(record) or careful_refusal(record)
+
+
+def careful_refusal(record: Record) -> Refusal | None:
+    """The owner's late careful word needs a new proposal with a full review."""
+    if not careful_words.after_proposal(record):
+        return None
+    slug = record.task.slug
+    return Refusal(
+        "careful-review",
+        "the owner called the request careful after it was proposed",
+        f"lem land start {slug} starts the round with the full review",
+    )
 
 
 def forge_side(record: Record, world: World, proposed: Proposed) -> Refusal | None:

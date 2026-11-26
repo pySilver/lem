@@ -20,7 +20,7 @@ TABS = (
 
 def tabs(world: World, slug: str, current: str, count: int) -> tuple[Tab, ...]:
     """The tabs of task `slug`, `current` the one shown ("" on a step of an act), `count`
-    the documents Artifacts lists."""
+    the files Artifacts lists."""
     base, under = world.viewer.base, world.viewer.view
     return tuple(
         Tab(

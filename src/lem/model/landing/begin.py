@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
+from lem.model.landing import careful_words
 from lem.model.landing.start_said import NO_CHECKS
 from lem.records.holds import Blocked
 from lem.records.journal.merge import LandAgain
@@ -40,6 +41,8 @@ def line_of(record: Record, started: Started) -> str:
     """The line of the task's move to `landing`."""
     if started.conflicting:
         return "the forge calls the pull request conflicting: the branch goes onto the base"
+    if careful_words.after_proposal(record):
+        return "the owner called the request careful: the full review runs"
     if (record.landing or Landing()).phase == "open":
         return "the base moved: the checks run again"
     return "the checks start"

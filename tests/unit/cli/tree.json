@@ -1275,6 +1275,33 @@
             }
           ]
         },
+        "reask": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--question": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            },
+            "--line": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
         "pending": {
           "options": {
             "--help": {

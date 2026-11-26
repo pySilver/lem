@@ -63,9 +63,14 @@ def resolution_held(landing: Landing) -> Held | None:
     return Held(why=f"{QUIET}: the read of a conflict's resolution")
 
 
-def gone_on(landing: Landing, left: tuple[str, ...]) -> Held | None:
+def gone_on(
+    landing: Landing, left: tuple[str, ...], *, floor: review_said.Kind | None = None
+) -> Held | None:
     """The request goes on to the owner, not green: two rounds were used, or two attempts in a
     row were silent. None while another review is due."""
+    if floor is not None:
+        reviews = tuple(one for one in landing.reviews if one.floor == floor)
+        landing = replace(landing, reviews=reviews)
     if len(review_due.rounds(landing)) >= review_due.ROUNDS:
         joined = ", and ".join(left)
         return Held(why=f"two rounds reviewed it: {joined}")

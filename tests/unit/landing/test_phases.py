@@ -241,6 +241,16 @@ def test_githubs_refusal_of_this_tip_waits_for_the_owners_word() -> None:
     assert step_of(phases.due(opened(refused=older), facing())) == ("merge", "merger")
 
 
+def test_the_late_careful_call_starts_a_round_after_any_merge_bookkeeping() -> None:
+    record = opened()
+    late = replace(record, task=replace(record.task, owner_careful=MOMENT))
+    assert phases.due(late, facing()).step == "start"
+    assert phases.due(late, facing(pull=replace(SEEN, state="merged"))).step == "merged"
+    assert late.landing is not None
+    pending = replace(late, landing=replace(late.landing, intent=INTENT))
+    assert phases.due(pending, facing()).step == "merge"
+
+
 def test_a_merge_into_another_base_waits_with_its_line() -> None:
     refused = Refused(
         tip=TIP,

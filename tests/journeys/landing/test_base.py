@@ -18,7 +18,8 @@ from msgspec.structs import replace
 from fakes.repo import run_git
 from journeys.landing.test_merge import owner
 from journeys.landing.test_propose import propose_with
-from journeys.landing.test_review import UNDER, file_step, reviewed
+from journeys.landing.test_review import UNDER, file_step, recorded, reviewed
+from journeys.landing.test_review import brief as review_brief
 from journeys.test_skeleton import (
     BRANCH,
     JOURNEY,
@@ -30,6 +31,7 @@ from journeys.test_skeleton import (
     assert_landed,
     brief,
     command,
+    lem,
     made,
     next_step,
     parses,
@@ -82,6 +84,172 @@ def landing(world: World) -> Envelope:
 def head(world: World) -> str:
     """The commit the task's worktree is at."""
     return run_git(world.worktree, "rev-parse", "HEAD")
+
+
+def test_a_second_landing_starts_in_the_same_workspace_while_the_first_is_open(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "start")
+    ok(START(capsys, world))
+    first = world.record()
+
+    slug = "review-export"
+    for args in (
+        ("task", "open", slug, "--ask", "Review the export"),
+        (
+            "task",
+            "read",
+            slug,
+            "--type",
+            "docs",
+            "--why",
+            "a word of the export",
+            "--track",
+            "small",
+            "--then",
+            "fast",
+        ),
+        ("task", "worktree", slug),
+        ("task", "move", slug, "building", "--line", "one builder"),
+        ("task", "move", slug, "ready", "--line", "built"),
+        ("land", "start", slug),
+    ):
+        ok(lem(capsys, world.checkout, *args))
+
+    later = tasks.read(world.checkout / ".lem" / "state", slug)
+    assert first["task"]["status"] == later.task.status == "landing"
+    assert later.landing and later.landing.started
+    assert world.record() == first
+    assert later.task.branch != first["task"]["branch"]
+
+
+@pytest.mark.parametrize("same_file", (False, True), ids=("other-file", "same-file"))
+def test_a_careful_review_carries_over_a_clean_rebase(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    *,
+    same_file: bool,
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    lines = [f"line {n}\n" for n in range(20)]
+    numbered = world.checkout / "lines.txt"
+    numbered.write_text("".join(lines))
+    run_git(world.checkout, "add", numbered.name)
+    run_git(world.checkout, "commit", "-m", "Add the numbered lines")
+    run_git(world.checkout, "push", "origin", "main")
+    upto(capsys, world, "start")
+    tip = commit_in(world, numbered.name, "the task\n" + "".join(lines[1:]), "The task")
+    ok(START(capsys, world))
+    ok(BASE(capsys, world))
+    ok(CHECKS(capsys, world))
+    reviewed(capsys, world, kind="full", careful=True, careful_why="customers see it")
+    notes = "none\n\n## Migration\n\nnone\n"
+    first = ok(propose_with(capsys, world, notes))["result"]
+    assert first["careful"]
+    assert tip != first["tip"]
+    target = numbered.name if same_file else "base.txt"
+    moved = ("".join(lines[:-1]) + "the base\n") if same_file else "the base\n"
+    world.repo.outside_commit("main", {target: moved.encode()})
+    refused(owner(capsys, world), "base")
+    ok(START(capsys, world))
+    ok(BASE(capsys, world))
+    ok(CHECKS(capsys, world))
+    assert due(capsys, world) == "propose"
+    again = ok(propose_with(capsys, world, notes))["result"]
+    assert again["tip"] != first["tip"]
+    assert again["pull"]["number"] == first["pull"]["number"]
+    assert landing(world)["based"]["reviewed"] == first["tip"]
+    assert len(landing(world)["reviews"]) == 1
+    assert (world.worktree / numbered.name).read_text().startswith("the task\n")
+    assert (world.worktree / target).read_text().endswith("the base\n")
+
+
+def test_base_keeps_its_rebase_and_approval_after_a_cut_in_the_second_push(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    first = landing(world)["proposed"]
+    world.repo.outside_commit("main", {"base.txt": b"Another change landed.\n"})
+    refused(owner(capsys, world), "base")
+    for step in (START, BASE, CHECKS):
+        ok(step(capsys, world))
+    before = landing(world)["based"]
+    rebase_count = world.acts.done.count("rebase")
+    assert due(capsys, world) == "propose"
+    world.acts.cut = ("push", 2)
+    with pytest.raises(Killed):
+        proposal(capsys, world)
+    capsys.readouterr()
+    tip = head(world)
+
+    refused(BASE(capsys, world), "not-due")
+    assert landing(world)["based"] == before
+    assert head(world) == tip
+    again = ok(proposal(capsys, world))["result"]
+    kept = landing(world)
+    assert world.acts.done.count("rebase") == rebase_count
+    assert world.acts.done.count("push") == 2
+    assert (again["tip"], kept["standing"]["tip"]) == (tip, tip)
+    assert kept["proposed"]["merge_review"] == "carried"
+    assert kept["reads"][-1]["carried_from"] == first["tip"]
+    body = world.forge.bodies[again["pull"]["number"]]
+    assert "The review carried over the rebase." in body
+    assert "The merge review carries over the clean rebase." in body
+
+
+def test_the_owners_careful_word_on_an_open_pull_request_starts_a_full_review(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Main's lem-land-review.sh late-care case gives the open request a full review."""
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    first = landing(world)["pull"]["number"]
+    assert due(capsys, world) == "merge"
+    note = command(
+        "decisions",
+        "log",
+        "SLUG",
+        "--by",
+        "owner",
+        "--what",
+        "whether the task is careful",
+        "--chose",
+        "careful until its merge",
+        "--why",
+        "the README is what a customer reads",
+    )
+    ok(note(capsys, world))
+    assert due(capsys, world) == "start"
+    refused(owner(capsys, world), "careful-review")
+    assert world.forge.merge_calls == []
+    ok(START(capsys, world))
+    assert (landing(world)["relands"], world.record()["task"]["status"]) == (
+        1,
+        "landing",
+    )
+    for verb, step in (("base", BASE), ("checks", CHECKS)):
+        if due(capsys, world) == verb:
+            ok(step(capsys, world))
+    told = ok(review_brief(capsys, world))["result"]
+    assert (told["floor"], told["floor_why"]) == (
+        "full",
+        "the request is careful: the owner says so",
+    )
+    refused(recorded(capsys, world), "under-floor")
+    ok(recorded(capsys, world, kind="full"))
+    again = ok(propose_with(capsys, world, "none\n\n## Migration\n\nnone\n"))["result"]
+    assert again["pull"]["number"] == first
+    assert (again["careful"], again["who_acts"]) == (True, "owner")
+    assert "the owner says so" in world.forge.bodies[first]
+    if due(capsys, world) == "merge-review":
+        ok(brief(capsys, world))
+        ok(reply(capsys, world))
+    assert next_step(capsys, world)["result"]["by"] == "owner"
+    ok(owner(capsys, world))
+    assert [number for number, _ in world.forge.merge_calls] == [first]
 
 
 def test_a_task_lands_through_a_red_base_kept_whole_by_start(
@@ -362,9 +530,21 @@ def reproposed_conflict(
         assert kept["proposed"].get("merge_review") is None
         assert kept["proposed"]["owner_merge"]["state"] == "ended"
         assert "standing" not in kept
+        check_one_ended_approval(world)
         assert due(capsys, world) == "merge-review"
         if case == "careful":
             assert "a fresh merge agent reads it: the request is careful" in line
+
+
+def check_one_ended_approval(world: World) -> None:
+    ended = [
+        entry["owner_merge"]
+        for entry in world.record()["journal"]
+        if entry["kind"] == "proposed"
+        and entry.get("owner_merge", {}).get("state") == "ended"
+    ]
+    assert ended == [landing(world)["proposed"]["owner_merge"]]
+    assert ended[0]["why"]
 
 
 def test_a_conflicting_pull_request_wakes_a_new_round_counted_in_relands(

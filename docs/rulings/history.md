@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # What left the list of rulings
 
 Each line below was a ruling of the owner or a choice of the maintaining session, and each is still
@@ -17,132 +16,81 @@ bullet.
 ## Held by a test or by the code
 
 - **The question page is a part of Lem, not a tool the machine has or lacks.**
-  `tests/lem-machine.sh: "the check has no row for the question page, which is a part of Lem"`; no
-  page for the owner lists it: `skills/lem/stages/init.md` (step 6, "the question page comes with
-  Lem"). (2026-11-14)
+  `tests/unit/settings/doctor/test_command.py::test_without_git_the_check_exits_1_with_its_rows_and_the_refusal_that_names_git`;
+  `skills/lem/stages/init.md` (step 6, the question page comes with Lem). (2026-11-14)
 - **A task has a type and a track, and they are two words.**
-  `tests/unit/test_task_rules.py::TypeLine.test_each_of_the_eight_types_is_taken`;
-  `tests/unit/test_task.py::FirstLine.test_the_fast_track_quotes_its_criterion`;
-  `tests/lem-settings.sh: "a plan with no criteria section, no size, a small change of two
-  criteria"`; careful is a mark on top, the line `careful:` of the first state block:
-  `skills/lem/stages/new.md` ("The request", step 1). (2026-11-17)
-- **Every edit of the settings file is careful.** `tests/lem-land-review.sh: "every edit of Lem's
-  own settings is careful by the script"` (decided 2026-11-17)
+  `tests/unit/task/test_queue.py::test_the_read_keeps_the_type_the_track_and_what_comes_next`;
+  `skills/lem/stages/new.md` (the first line). (2026-11-17)
+- **Every edit of the settings file is careful.**
+  `tests/journeys/landing/test_review.py::test_an_edit_of_lem_s_own_settings_gets_the_full_set_whatever_the_shape_says`. (decided 2026-11-17)
 - **A persona's file names its models.**
-  `tests/unit/test_cast.py::Seats.test_a_file_names_its_seats_each_with_its_parts_and_its_name`;
-  `tests/unit/test_cast.py::Seats.test_a_file_with_no_seats_answers_as_the_panel_always_did`;
-  `tests/test-gate-panel.sh: "a persona's frontmatter names its seats and its agent reads the file
-  without it"` (2026-11-19)
-- **Lem brings its own builder agent.** `tests/lem-machine.sh: "the builder's definition names its
-  model and effort, and no tool list"`; `tests/lem-machine.sh: "a machine with Claude Code and no
-  lem-builder agent fails the check"`; `tests/lem-machine.sh: "in a task's worktree the check finds
-  a project's own builder in the main checkout"`; on Opus at high effort: `agents/lem-builder.md`
-  (its front matter, `model: opus`, `effort: high`). (decided 2026-11-14 and 2026-11-15)
-- **A plan talk's record is taken as it ran.** `tests/lem-land-shop.sh: "a talk's counts agree: each
-  question of the list ends settled or open"`; `tests/lem-land-shop.sh: "after its plan talk a plan
-  of four tasks is proposed, and its text holds"` (decided 2026-11-16)
-- **A plan never makes a change small.** `tests/lem-land-local.sh: "a plan that says Size: small is
-  refused by the criteria, the polish pass"` (decided 2026-11-17)
-- **The checks remove what their own commands leave.** `tests/lem-land-guards.sh: "a gate command
-  that writes a cache folder and a file git does not know passes"`; `tests/lem-land-guards.sh: "a
-  file that was untracked before the gate is not removed"`; `tests/lem-land-guards.sh: "the gate
-  refuses a command that edits a tracked file, one that makes a commit"`; onboarding proposes the
-  ignore lines for what the commands leave: `skills/lem/stages/init.md` (step 4). (decided
+  `tests/unit/addons/outside/test_cast.py::test_frontmatter_and_copy`. (2026-11-19)
+- **Lem brings its own builder agent.**
+  `tests/unit/criteria/test_texts.py::test_the_builder_declares_its_model_and_effort_with_no_tool_limit`;
+  `agents/lem-builder.md` (its front matter names Opus at high effort);
+  `tests/unit/settings/doctor/test_tools.py::test_claude_code_without_the_builder_fails_and_a_builder_file_in_the_home_is_not_lems`;
+  `tests/unit/settings/doctor/test_tools.py::test_a_tasks_worktree_finds_the_projects_own_builder_in_the_main_checkout`. (decided 2026-11-14 and 2026-11-15)
+- **A plan talk's record is taken as it ran.**
+  `tests/unit/task/test_forms.py::test_what_breaks_a_rule_of_the_talk_and_not_a_count_is_taken`. (decided 2026-11-16)
+- **A plan never makes a change small.**
+  `tests/unit/criteria/test_show.py::test_a_plan_never_puts_a_task_on_the_fast_track`. (decided 2026-11-17)
+- **The checks remove what their own commands leave.**
+  `tests/journeys/landing/test_checks.py::test_the_checks_remove_what_their_commands_leave`. (decided
   2026-11-17)
-- **Without Codex one expert answers alone.** `tests/test-ask-expert.sh: "with no Codex on the
-  machine one expert answers alone"`;
-  `tests/unit/test_settings.py::Seats.test_an_expert_is_here_when_its_agent_is_on_the_machine`;
-  `tests/lem-settings.sh: "init with --codex no, for a machine with no Codex, writes the reviewer's
-  whole seat"` (2026-11-18)
+- **Without Codex one expert answers alone.**
+  `tests/unit/addons/outside/test_experts.py::test_seat_names_and_unavailable_codex`. (2026-11-18)
 - **The experts know the personas.**
-  `tests/unit/test_experts.py::Audience.test_the_part_names_the_profile_and_each_persona_by_its_path_and_says_how_to_weigh_them`;
-  `tests/test-ask-expert.sh: "a brief names the profile and each persona by its path, heading and
-  who they are"` (2026-11-19)
-- **A project can close branches.** `tests/lem-land-shop.sh: "no step runs toward a branch the
-  settings refuse"`; `tests/lem-land-guards.sh: "a task branch the owner protected after its
-  worktree was made gets no push from propose"`; `tests/lem-settings.sh: "may-land refuses a
-  protected branch, any branch but the base"` (2026-11-14)
-- **After a merge, Lem repairs only a pull request with a conflict.** `tests/lem-land-github.sh:
-  "after a merge an open task with no conflict waits as it is"`; `tests/lem-land-github.sh: "a
-  conflict after a merge: base stops on the files of the pull request"`; `tests/lem-board-act.sh:
-  "after GitHub merged a pull request the server runs lem land merged"` (2026-11-17)
+  `tests/unit/addons/outside/test_experts.py::test_brief_and_shared_pick`. (2026-11-19)
+- **A project can close branches.**
+  `tests/unit/landing/test_start.py::test_a_protected_task_branch_or_the_base_starts_no_landing`;
+  `src/lem/model/landing/invariants.py` (the protection for pushes, merges and deletes). (2026-11-14)
+- **After a merge, Lem repairs only a pull request with a conflict.**
+  `tests/unit/board/duties/test_wakes.py::test_after_a_merge_an_open_task_with_no_conflict_waits_as_it_is`. (2026-11-17)
 - **`branch.history` is `"squash"` by default.**
-  `tests/unit/test_settings.py::Values.test_a_branch_defaults_to_squash_and_the_merge_agent`
-  (2026-11-18)
-- **A polish pass is a step of the flow.** `tests/lem-land-review.sh: "a full change's checks waits
-  for the polish pass"` (2026-11-16)
-- **A partial review is a review.** `tests/lem-land-shop.sh: "a request the owner called careful
-  gets the project's full set"`; `tests/lem-land-local.sh: "a full change with no read of its
-  criteria is not proposed"`; `tests/lem-land-review.sh: "a change of documentation only is not
-  proposed without a review"` (2026-11-16)
-- **A lowered bar (a new suppression, a skipped or deleted test, fewer assertions) makes a pull
-  request not green also when the plan gives its reason.** `tests/lem-land-review.sh: "with a reason
-  for each file in the plan the gate passes"`;
-  `tests/unit/test_land.py::Bar.test_fewer_assertions_in_a_test_file`;
-  `tests/unit/test_land.py::Bar.test_a_deleted_test_file_is_one_entry`;
-  `tests/unit/test_land.py::Bar.test_a_skip_of_a_whole_module` (decided 2026-11-16)
-- **A small change never gets a polish pass.** `tests/lem-land-small.sh: "a small change whose
-  builder filed a defect outside it in its own commit has no polish pass"`; its builder fixes a cheap
-  defect outside it in a commit of its own, and files only one over the bar of rule 6:
-  `skills/lem/prompts/small.md` (step 7). (decided 2026-11-16, 2026-11-17)
+  `tests/unit/settings/test_load.py::test_with_no_file_every_value_is_lems_default`. (2026-11-18)
+- **A polish pass is a step of the flow.**
+  `tests/journeys/landing/test_checks.py::test_the_polish_pass_keeps_its_start_and_its_run_which_the_checks_take`. (2026-11-16)
+- **A partial review is a review.**
+  `tests/unit/landing/test_review.py::test_a_partial_review_is_a_review_and_keeps_who_did_not_answer`. (2026-11-16)
+- **A lowered bar (a new suppression, a skipped or deleted test, fewer assertions) makes a pull request not green also when the plan gives its reason.**
+  `tests/unit/landing/test_green.py::test_checks_the_branch_brought_a_lowered_bar_and_a_red_run_are_not_green`;
+  `tests/unit/landing/test_bar.py` (the kinds of reduction in the bar). (decided 2026-11-16)
+- **A small change never gets a polish pass.**
+  `tests/journeys/landing/test_fast_track.py::test_the_fast_track_checks_its_criterion_once_and_lands`;
+  `skills/lem/prompts/small.md` (the fast-track builder). (decided 2026-11-16, 2026-11-17)
 - **His away status is one mark of the machine, and a night task always runs without him.**
-  `tests/lem-state.sh: "the owner's status is one mark of the machine: with none he is there"`;
-  `tests/unit/test_owner.py::Spans.test_a_back_ends_his_away_and_never_a_night`;
-  `tests/lem-decisions.sh: "a task the night opened runs without the owner and carries the night's
-  date in tasks"` (2026-11-19)
+  `tests/unit/owner/test_presence.py::test_back_takes_back_every_task_but_a_nights`. (2026-11-19)
 - **Inside a phase a session compacts itself at his number, for all his repositories.**
-  `tests/unit/test_session.py::Tokens.test_absent_is_lems_number_and_zero_sets_nothing`;
-  `tests/unit/test_session.py::Tokens.test_under_the_floor_a_negative_a_bool_and_a_float_are_refused`;
-  `tests/lem-session.sh: "open makes one session of the task in the caller's workspace, with no
-  focus"` (2026-11-21)
-- **The backlog is a part of Lem, and its view is a tab of the board.** `tests/lem-serve.sh: "the
-  backlog's filter comes from the address: its words in the field and its chip on"`;
-  `tests/lem-settings.sh: "the board's backlog has each item with its worth"`;
-  `tests/lem-board-act.sh: "a new task starts from the board: the owner's words name it"`
-  (2026-11-15)
+  `tests/contract/test_harness.py::test_the_compaction_number_is_the_machines_and_zero_leaves_it_out`. (2026-11-21)
+- **The backlog is a part of Lem, and its view is a tab of the board.**
+  `tests/unit/board/views/test_backlog_view.py::test_the_filter_of_the_address_turns_its_chip_on_and_a_second_press_off`. (2026-11-15)
 - **An address for each workspace and task, two machines under one, and pushes.**
-  `tests/lem-serve.sh: "a task's Overview and each of its tabs and each view answer"`;
-  `tests/lem-peers.sh: "--join asks the machine once and writes it into [peers]"`;
-  `tests/unit/test_push.py::Sending.test_a_row_gained_while_the_owner_is_away_is_sent_and_a_demo_sends_nothing`
-  (2026-11-20)
-- **He acts from the board.** `tests/lem-board-act.sh: "through the door another login is refused,
-  and the owner's yes is the owner's approval"`; `tests/lem-board-act.sh: "a merge runs only from
-  its confirm step, which says green first"`; `tests/lem-board-act.sh: "a park from the board writes
-  the state parked with the owner's line of why"` (2026-11-20)
-- **A seat is written `agent/model:effort`**, the reviewer's too, and each of the three seats is
-  written whole. `tests/unit/test_settings.py::Seats.test_the_seats_it_refuses`;
-  `tests/unit/test_settings.py::Seats.test_each_of_the_three_is_refused_unless_whole`;
-  `tests/unit/test_settings.py::UnknownNames.test_a_seat_written_as_a_table_with_the_seat_form`
-  (2026-11-17, 2026-11-18)
-- **The state of Lem is not in the git directory.** `tests/lem-state.sh: "the state is in .lem/state
-  of the main checkout, also for a script run"` (2026-11-17)
-- **Not every section of the settings stays.** `tests/lem-settings.sh: "the team's file holds 21
-  keys, the same in show, in the file init writes"`; `tests/lem-machine.sh: "a new settings file has no
-  [tools]: Lem asks with its own page"`;
-  `tests/unit/test_settings.py::UnknownNames.test_a_key_of_paths_with_the_keys_it_knows`
-  (2026-11-18)
-- **`[checks]` keeps three keys, and `alone` is `serial`.** `tests/lem-settings.sh: "the settings
-  init writes name every key show prints under [checks]"`;
-  `tests/unit/test_settings.py::Values.test_a_branch_defaults_to_squash_and_the_merge_agent`;
-  `tests/lem-serial.sh: "the checks run each checks.serial command after checks.commands, under the
-  one lock"` (2026-11-18)
-- **Three places are settings**: the plans folder, a plan's file name and the rulings file. A
-  plan's file is `YYYY-MM-DD-<slug>.md` unless the settings say otherwise.
-  `tests/unit/test_settings.py::UnknownNames.test_a_key_of_paths_with_the_keys_it_knows`;
-  `tests/lem-settings.sh: "the rulings file is a setting"`;
-  `tests/lem-settings.sh: "a plan's name is paths.plan_file, YYYY-MM-DD-<slug>.md by default"`
-  (2026-11-17, 2026-11-18, 2026-11-22)
-- **One machine may name its own reviewer for a while.** `tests/lem-settings.sh: "set local
-  reviewer AGENT/MODEL:EFFORT, run in a worktree, writes this machine's seat in the main checkout"`;
-  `tests/lem-settings.sh: "set local reviewer default gives the project's reviewer back and keeps
-  what else the machine set"`; `tests/lem-settings.sh: "the machine's own file may not hold the checks or any
-  other rule of the project"` (decided 2026-11-14 and 2026-11-15)
-- **As a plugin, the correction hook comes with the install.** `tests/lem-machine.sh: "the plugin
-  manifest names lem and a version of three numbers, which is the release"` (2026-11-15)
-- **The Jev model comes through any provider.** `tests/lem-machine.sh: "lem jev takes its key from
-  JEV_API_KEY alone, and with a key under another name"` (2026-11-18)
-- **A correction hook registered twice judges each message once.** `tests/lem-machine.sh: "three
-  copies of the hook on one message, started at once as three registrations"` (decided 2026-11-17)
+  `tests/journeys/test_server.py::test_lem_board_gives_a_tasks_address_and_marks_example_tasks_for_good`;
+  `tests/journeys/test_peers.py` (the joined workspaces);
+  `tests/unit/board/service/test_push.py` (the pushes). (2026-11-20)
+- **He acts from the board.**
+  `tests/journeys/test_acts.py::test_his_approval_from_the_confirm_step_lands_the_pull_request_as_his_word`. (2026-11-20)
+- **A seat is written `agent/model:effort`**
+  The reviewer's too, and each of the three seats is written whole.
+  `tests/unit/settings/test_load.py::test_a_seat_that_does_not_read_by_its_rule_is_refused`. (2026-11-17, 2026-11-18)
+- **The state of Lem is not in the git directory.**
+  `tests/unit/task/test_open.py::test_from_a_tasks_worktree_the_state_is_the_main_checkouts`. (2026-11-17)
+- **Not every section of the settings stays.**
+  `tests/unit/settings/test_load.py::test_a_table_or_key_out_of_place_is_refused_with_the_place_or_the_nearest`. (2026-11-18)
+- **`[checks]` keeps three keys, and `alone` is `serial`.**
+  `tests/unit/settings/test_init.py::test_the_file_init_writes_holds_every_key_of_the_teams_file`. (2026-11-18)
+- **Three places are settings**
+  The plans folder, a plan's file name and the rulings file. A plan's file is
+  `YYYY-MM-DD-<slug>.md` unless the settings say otherwise.
+  `tests/unit/settings/test_init.py::test_path_gives_one_absolute_path_from_any_folder_of_the_checkout`. (2026-11-17, 2026-11-18, 2026-11-22)
+- **One machine may name its own reviewer for a while.**
+  `tests/unit/settings/test_set.py::test_set_local_writes_a_whole_seat_and_says_where_it_comes_from`. (decided 2026-11-14 and 2026-11-15)
+- **As a plugin, the correction hook comes with the install.**
+  `tests/hooks/test_manifest.py::test_the_manifest_registers_each_selector_on_its_event_matcher_and_flags`. (2026-11-15)
+- **The Jev model comes through any provider.**
+  `tests/unit/addons/outside/test_jev.py::test_provider_uses_only_jev_key_and_never_sends_during_check`. (2026-11-18)
+- **A correction hook registered twice judges each message once.**
+  `tests/hooks/test_corrections.py::test_a_hook_registered_twice_judges_each_message_once`. (decided 2026-11-17)
 
 ## Kept in one place
 
@@ -194,36 +142,36 @@ bullet.
 - **The push and the pull request of `propose` need no question.** `skills/lem/stages/land.md` (step
   6, `propose`). (decided 2026-11-17)
 - **The board's server runs the merge agent's merge, and the agent only writes its review.**
-  `src/lem/serve.py` (its module docstring, the duty `merge_due`). (decided 2026-11-21)
+  `src/lem/board/duties/merge.py` (the merge duty). (decided 2026-11-21)
 - **The status knows what merged, and changes only what already happened.**
   `skills/lem/stages/status.md` (its opening: what merged on GitHub is the board's server's, and the
   status only reads). (decided 2026-11-17)
 - **Nobody else's word is his.** `skills/lem/stages/land.md` (step 8, "The merge", `--by owner`).
   (decided 2026-11-18)
-- **The first line of a task is composed by `lem project state`, and its session says it as it is.**
-  `src/lem/project.py` (`opening_line`); `skills/lem/prompts/session.md` ("What comes
-  next"). (decided 2026-11-21)
+- **Lem composes the first line of a task, and its session says it as it is.**
+  `src/lem/app/tasks/first_line.py` (the first line); `skills/lem/prompts/session.md` (the opening
+  of the session). (decided 2026-11-21)
 - **The trials of 2026-11-21: a task's session says its first line first, and the onboarding
   writes no allow rules and commits the plugin's file.** `skills/lem/prompts/session.md` ("What
   comes next");
   `skills/lem/stages/init.md` (steps 4 and 6). (decided 2026-11-21)
-- **A board of example tasks says so on the page, and a line that waits for him says where he
-  answers.** `src/lem/board_pages.py` (the demo notice, and `wait_row`). (2026-11-14)
-- **The time card gets exact start times.** `skills/lem/SKILL.md` ("Where a task keeps its state", a
-  stage's start is an event); `STARTS` in `src/lem/project.py`. (2026-11-17)
+- **A board of example tasks says so on the page, and a line that waits for him says where he answers.**
+  `src/lem/board/templates/sidebar.html` (the notice); `src/lem/board/views/waits/` (where the
+  owner answers). (2026-11-14)
+- **The time card gets exact start times.**
+  `src/lem/model/task/spans.py` (the start and end of a span); `src/lem/board/views/timeline/` (the time card). (2026-11-17)
 - **What waits for the owner is one list, with a decision for each item.** `skills/lem/SKILL.md`
   ("Subcommands", the row bare `/lem`, `status`); `skills/lem/stages/status.md`. (2026-11-17)
 - **A chord opens a list of the tasks.** `src/lem/addons/picker/picking.py` (its module docstring).
   (2026-11-18)
-- **A page to read opens as a companion.** `src/lem/board.py` (its module docstring).
-  (2026-11-18)
-- **No stale pull request, and a folded header on a phone.** `src/lem/serve.py` (its
-  module docstring, the look at the forge); `src/lem/board_task.py` (`head`).
-  (2026-11-20)
-- **A task's artifacts have one map.** `src/lem/artifacts.py` (its module docstring).
-  (2026-11-20)
-- **The board is served, and the server draws it.** `src/lem/serve.py` (its module
-  docstring); `skills/lem/SKILL.md` ("The board"). (decided 2026-11-20)
+- **A page to read opens as a companion.**
+  `src/lem/cli/board/command.py` (the call of the board); `skills/lem/harness/claude-code/show-page.md` (a page to read). (2026-11-18)
+- **No stale pull request, and a folded header on a phone.**
+  `src/lem/board/views/merge_state.py` (the look at the forge); `src/lem/board/templates/task/` (the task panel). (2026-11-20)
+- **A task's artifacts have one map.**
+  `src/lem/board/views/artifacts/` (the map of the files and records). (2026-11-20)
+- **The board is served, and the server draws it.**
+  `src/lem/board/app.py` (the board app); `skills/lem/SKILL.md` ("The board"). (decided 2026-11-20)
 - **A check of the tracker is no command of the owner's.** `skills/lem-linear/SKILL.md` ("check").
   (2026-11-14)
 - **`/lem read KEY` shows a ticket.** `skills/lem/SKILL.md` ("Subcommands", the row `read

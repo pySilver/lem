@@ -16,7 +16,7 @@ from lem.app.tasks.opening import Asked
 from lem.kernel.errors import Refusal
 from lem.records.tickets import Ticket, TicketStep
 from lem.store import tasks
-from unit.task.spaces import SETTINGS, made, read, refusal, result, workspace
+from unit.task.spaces import SETTINGS, made, read, refusal, result, rows, workspace
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -44,6 +44,28 @@ def test_a_task_opens_shaping_with_his_words_and_its_release(tmp_path: Path) -> 
         "shaping",
         "with-owner",
     )
+
+
+def test_an_unknown_task_points_to_the_list_and_board_needs_a_session(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    opened(where)
+    opened(where, "fix-export")
+
+    missing = refusal(lem("task", "show", "unknown", cwd=tmp_path))
+    assert missing == {
+        "code": "no-task",
+        "why": "no task unknown here",
+        "fix": "lem task list names the tasks",
+    }
+    assert {task["slug"] for task in rows(lem("task", "list", cwd=tmp_path))} == {
+        "gift-note",
+        "fix-export",
+    }
+    board = refusal(lem("board", cwd=tmp_path))
+    assert board["code"] == "no-session"
+    assert "no companion can open" in board["why"]
 
 
 def test_the_same_words_again_are_a_retry_and_other_words_are_refused(

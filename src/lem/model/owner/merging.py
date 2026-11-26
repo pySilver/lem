@@ -15,7 +15,13 @@ from typing import TYPE_CHECKING, Literal
 
 from msgspec.structs import replace
 
-from lem.model.landing import merge, merge_recheck, merge_standing, mergeread
+from lem.model.landing import (
+    careful_words,
+    merge,
+    merge_recheck,
+    merge_standing,
+    mergeread,
+)
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
@@ -39,8 +45,8 @@ def merge_wait(look: Look) -> Wait | None:
         return None
     if proposed is None or landing.intent is not None:
         return OWNER
-    if landing.accepted is not None:
-        return MERGES
+    if landing.accepted is not None or careful_words.after_proposal(record):
+        return RELANDS if landing.accepted is None else MERGES
     refused = landing.refused
     if refused is not None and refused.tip == proposed.tip:
         return refused_wait(look, landing, refused)

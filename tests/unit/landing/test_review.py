@@ -43,6 +43,7 @@ from unit.landing.worlds import (
     MOMENT,
     OTHER,
     PREPARED,
+    PROPOSED,
     REVIEWED,
     TIP,
     task,
@@ -419,6 +420,18 @@ def test_a_round_names_what_it_ran_and_a_full_set_leaves_nothing_out() -> None:
     )
 
 
+def test_old_rounds_below_full_do_not_use_the_late_careful_review_budget() -> None:
+    old = (REVIEWED, replace(REVIEWED, attempt=2, kind="round"))
+    record = task(**{**PREPARED, "proposed": PROPOSED, "reviews": old})
+    record = replace(record, task=replace(record.task, owner_careful=MOMENT))
+
+    assert due_of(review.holds(record, world())) == "read"
+    full = replace(REVIEWED, attempt=3, floor="full", kind="full")
+    assert record.landing is not None
+    after = replace(record, landing=replace(record.landing, reviews=(*old, full)))
+    assert isinstance(review.holds(after, world()), Held)
+
+
 def test_the_floor_is_full_when_careful_a_round_for_a_large_plan_or_after_a_must_fix() -> (
     None
 ):
@@ -620,6 +633,26 @@ def test_only_new_items_recorded_by_filing_keep_review_coverage(
         assert isinstance(coverage, Held)
     else:
         assert due_of(coverage) == "read"
+
+
+@pytest.mark.parametrize("remove", (False, True), ids=("edit-own", "delete-other"))
+def test_an_edit_of_the_tasks_item_or_deletion_of_another_invalidates_coverage(
+    tmp_path: Path, *, remove: bool
+) -> None:
+    own = "docs/backlog/own.md"
+    other = "docs/backlog/other.md"
+    git = ModelGit.init(tmp_path, {own: b"# Own item\n", other: b"# Other item\n"})
+    before = git.remote["main"]
+    head = git.outside_commit(
+        "main", {other: None} if remove else {own: b"# The task edited its item\n"}
+    )
+    checked = replace(CHECKED, tip=before, items_after=(own, other))
+    proof = item_carry.gathered(git, tmp_path, checked, world(tip=head))
+    reviewed = replace(REVIEWED, tip=before)
+    record = task(**{**PREPARED, "checked": checked, "reviews": (reviewed,)})
+    record = replace(record, task=replace(record.task, backlog_item=own))
+    assert proof.item_chain == ()
+    assert due_of(review.holds(record, proof)) == "read"
 
 
 def test_a_resolution_of_a_conflict_gets_one_read_of_what_it_changed() -> None:

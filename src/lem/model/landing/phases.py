@@ -18,6 +18,7 @@ from lem.model.landing import (
     review,
     start,
 )
+from lem.model.landing.careful_words import after_proposal
 from lem.model.landing.merge_evidence import hold_refusal
 from lem.model.landing.merge_recheck import due as recheck_due
 from lem.model.landing.mergeread import another_round, latest
@@ -74,6 +75,10 @@ def pending(record: Record, world: World, landing: Landing) -> Due | None:
     refused = hold_refusal(record)
     if refused is not None:
         return Due(step="wait", why=f"{refused.why}; {refused.fix}")
+    if after_proposal(record):
+        return Due(
+            step=start.STEP, why="the owner called the request careful: a new round"
+        )
     checked = checks.holds(record, world)
     if (
         isinstance(checked, Due)

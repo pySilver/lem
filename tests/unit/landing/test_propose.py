@@ -20,6 +20,7 @@ from lem.kernel.errors import Refusal
 from lem.model.criteria import approve, skip
 from lem.model.criteria.read import Sheet
 from lem.model.landing import (
+    carry,
     items,
     propose,
     propose_careful,
@@ -33,6 +34,7 @@ from lem.model.landing.world import Due, Held, Rules
 from lem.model.task import span_forms, spans
 from lem.records.holds import OwnerHold
 from lem.records.landing.checks import CriterionCheck, Edited
+from lem.records.landing.propose import MergeRead
 from lem.records.landing.review import Counts, Filed, Finding
 from lem.records.landing.start import Polished
 from lem.records.task import Shape
@@ -653,6 +655,39 @@ def test_criteria_he_changed_after_the_read_are_one_line() -> None:
     assert "the criteria changed after" not in text_of(record)
 
 
+def test_the_proposal_names_no_unread_change_when_the_read_covers_current_criteria() -> (
+    None
+):
+    record = full()
+    latest = replace(approval(), digest="d2")
+    for reads in ((read(digest="d2"),), ()):
+        criteria = replace(
+            record.task.criteria, digest="d2", approvals=(latest,), reads=reads
+        )
+        said = text_of(replace(record, task=replace(record.task, criteria=criteria)))
+        assert "the criteria changed after the personas' read" not in said
+        assert ("no read by the personas is on record" in said) == (not reads)
+
+
+def test_a_carried_merge_read_keeps_its_verdict_and_drops_its_old_base_call() -> None:
+    old = MergeRead(
+        tip=TIP,
+        base=OTHER,
+        base_tree=OTHER,
+        verdict="merge",
+        base_call="another round",
+        at=MOMENT,
+    )
+    current = world(tip="b" * 40, base="c" * 40)
+    kept = carry.moved(old, current)
+    assert (kept.verdict, kept.base_call, kept.carried_from) == ("merge", None, TIP)
+    assert (kept.tip, kept.base, kept.base_tree) == (
+        current.tip,
+        current.base,
+        current.base_tree,
+    )
+
+
 def test_each_stand_in_is_its_line_and_no_reason_of_not_green_on_both_tracks() -> None:
     stood = StandIn(
         seat="reviewer",
@@ -850,9 +885,7 @@ def test_an_item_under_the_bar_is_not_worth_it_and_a_cheap_one_nobody_fixed_is_a
         )
 
 
-def test_the_heading_of_an_item_is_its_worth_at_the_tip_and_a_notes_line_naming_it_is_one() -> (
-    None
-):
+def check_the_heading_and_line_of_a_backlog_item(*, quoted: bool) -> None:
     from lem.app.landing.propose_items import head_of
 
     css = "docs/backlog/a-css-rule-matches-nothing.md"
@@ -866,9 +899,11 @@ def test_the_heading_of_an_item_is_its_worth_at_the_tip_and_a_notes_line_naming_
         ),
         head_of(b"---\nworth: no\n---\n# a CSS rule matches nothing\n", css),
     )
+    path = f"`{css}`" if quoted else css
+    line = f"- {path}, worth: no, filed by the polish pass"
     notes = FULL_NOTES.replace(
         "## Filed in the backlog\n\nnone",
-        f"## Filed in the backlog\n\n- `{css}`, worth: no, filed by the polish pass",
+        f"## Filed in the backlog\n\n{line}",
     )
     out = outside(full(), notes, added)
     filed, not_worth = (
@@ -879,9 +914,19 @@ def test_the_heading_of_an_item_is_its_worth_at_the_tip_and_a_notes_line_naming_
     assert out[not_worth + 2 : not_worth + 5] == [
         f"- `{LOAD_ITEM}`: load crashes on an empty file",
         f"- `{GUARD_ITEM}`: two test classes come after the main guard",
-        f"- `{css}`, worth: no, filed by the polish pass",
+        line,
     ]
     assert sum("a-css-rule-matches-nothing" in line for line in out) == 1
+
+
+def test_the_heading_of_an_item_is_its_worth_at_the_tip_and_a_notes_line_naming_it_is_one() -> (
+    None
+):
+    check_the_heading_and_line_of_a_backlog_item(quoted=True)
+
+
+def test_a_notes_line_with_a_plain_item_path_replaces_the_steps_line() -> None:
+    check_the_heading_and_line_of_a_backlog_item(quoted=False)
 
 
 def test_a_fix_line_that_names_the_cheap_entry_takes_its_line_out() -> None:

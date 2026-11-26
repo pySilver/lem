@@ -14,10 +14,6 @@ import re
 import subprocess
 from pathlib import Path
 
-import pytest
-
-from unit.cli import reading
-
 ROOT = Path(__file__).resolve().parents[3]
 AGENTS = ROOT / "AGENTS.md"
 LIST = ROOT / "docs/rulings/rulings.md"
@@ -246,13 +242,6 @@ def test_the_history_has_its_two_parts_and_names_where_the_full_text_is() -> Non
 
 
 def test_each_rule_a_test_holds_names_a_guard_that_exists() -> None:
-    # His "it will not drift": a test renamed or removed fails here, and its rule goes back to
-    # the list. Until each step names its new tests in the history, the file carries the
-    # old-form mark, and this case waits for it.
-    if reading.marked(HISTORY.read_text(encoding="utf-8")):
-        pytest.skip(
-            "docs/rulings/history.md carries the old-form mark: its guards are main's"
-        )
     for line in history_lines(HELD):
         assert DAY.search(line), f"no day: {line[:80]}"
         guards = [
@@ -282,8 +271,6 @@ def test_each_rule_kept_in_one_place_names_a_path_that_exists() -> None:
         ]
         assert paths, f"no place named: {line[:80]}"
         missing = [path for path in paths if not (ROOT / path).exists()]
-        if missing and reading.marked(HISTORY.read_text(encoding="utf-8")):
-            pytest.skip(f"docs/rulings/history.md carries the old-form mark: {missing}")
         assert missing == [], line[:80]
 
 

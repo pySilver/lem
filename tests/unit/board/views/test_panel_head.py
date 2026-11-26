@@ -38,7 +38,7 @@ def test_a_step_of_an_act_draws_the_header_with_no_act(tmp_path: Path) -> None:
     assert found.acts is None
 
 
-def test_the_five_tabs_count_the_documents_of_artifacts(tmp_path: Path) -> None:
+def test_the_five_tabs_count_documents_and_loose_artifacts(tmp_path: Path) -> None:
     afternoon = world(tmp_path)
-    assert tabs(afternoon, SLUG, "overview", 7) == panel.tabs("overview")
-    assert tabs(afternoon, SLUG, "", 7) == panel.tabs("")
+    assert tabs(afternoon, SLUG, "overview", 11) == panel.tabs("overview")
+    assert tabs(afternoon, SLUG, "", 11) == panel.tabs("")

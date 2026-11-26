@@ -36,5 +36,4 @@ its answers:
   of some words) is `cli/checks.py`, in the leaf's callback, so that a wrong call is exit 2
   before `run`; a rule of one leaf only is a small function of that leaf (`criteria/read.py`,
   `task/investigated.py`). Keep them when `run` is filled.
-- A text the step rewrites loses its first line `<!-- lem: old form -->` (after the front matter
-  in a skill); `tests/unit/cli/test_lines.py` fails on a mark over a text with no old line.
+- Give each command in the form the tree takes. `tests/unit/cli/test_lines.py` checks the forms.

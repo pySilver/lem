@@ -5,9 +5,14 @@ stages as bands behind them, the moments on the lanes, the shares on the legend,
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
+from msgspec.structs import replace
+
+from lem.board.views.activity import tell_checks
 from lem.board.views.timeline import view
+from lem.model.criteria import reads
 from lem.records.approvals import Approval, PersonaRead
 from lem.records.criteria import Criteria
+from lem.records.journal.landing import CheckEnd, CommandEnd
 from lem.records.journal.task import StateNoted
 from lem.records.work import Span
 from unit.board.views.afternoon import world as afternoon
@@ -183,6 +188,84 @@ def test_a_span_with_no_end_in_an_ended_task_is_a_moment_where_it_began() -> Non
     assert [(mark.head, mark.sub, mark.at) for mark in marks] == [
         ("The builders · Task 1 of 2: its start", "no record of its end", at("10:05")),
     ]
+
+
+def test_a_read_with_no_start_takes_no_time_before_its_end() -> None:
+    record = task(
+        StateNoted(at=at("10:00"), status="shaping", hold="owner"),
+        status="shaping",
+        opened=at("10:00"),
+    )
+    end = at("10:05")
+    result = reads.Found(
+        asked=2, answered=2, families=("opus",), criteria=1, flagged=0, digest="a" * 12
+    )
+    record = replace(record, task=reads.ended(record.task, "lem", end, result))
+    track = lanes(card(record))["personas"]
+    [shown] = track.spells
+    assert (shown.start, shown.end, shown.width, shown.live) == (end, end, 0, False)
+    assert track.held is None
+
+
+def test_a_stopped_run_ends_at_its_stop_and_lem_holds_the_time_after_it() -> None:
+    start, run, stop, now = "10:00", "10:01", "10:05", "10:10"
+    made = task(
+        StateNoted(at=at(start), status="landing", line="the checks start"),
+        CheckEnd(at=at(stop), outcome="stopped", say="The owner stopped the checks"),
+        status="landing",
+        opened=at(start),
+        spans=(Span(name="checks", start=at(run), end=at(stop)),),
+    )
+    held = lanes(card(made, now=now))
+    [checks] = held["checks"].spells
+    assert (checks.start, checks.end, checks.live) == (at(run), at(stop), False)
+    [mark] = held["checks"].marks
+    assert mark.at == at(stop)
+    assert "stopped" in mark.head.lower()
+    after = held["lem"].spells[-1]
+    assert (after.start, after.end, after.live) == (at(stop), None, True)
+
+
+def test_the_agent_holds_the_brief_and_report_outside_the_builders_span() -> None:
+    made = task(
+        StateNoted(at=at("10:00"), status="building", line="lead: builder"),
+        status="building",
+        opened=at("10:00"),
+        spans=(
+            Span(name="task", job="task 1 of 2", start=at("10:05"), end=at("10:30")),
+        ),
+    )
+    held = lanes(card(made, now="10:40"))
+    [builder] = held["builders"].spells
+    assert (builder.start, builder.end) == (at("10:05"), at("10:30"))
+    brief, report = held["lead"].spells
+    assert (brief.start, brief.end) == (at("10:00"), builder.start)
+    assert report.start == builder.end
+    assert report.live and "report" in report.head
+
+
+def test_a_refused_run_shows_its_reason_and_keeps_the_command_that_ran() -> None:
+    end = CheckEnd(
+        at=at("10:02"),
+        outcome="refused",
+        say="The command changed tests/x.py",
+        commands=(CommandEnd(name="make test", passed=True, last="ok"),),
+    )
+    made = task(
+        StateNoted(at=at("10:00"), status="landing"),
+        end,
+        status="landing",
+        opened=at("10:00"),
+        spans=(Span(name="checks", start=at("10:01"), end=end.at),),
+    )
+    [mark] = lanes(card(made))["checks"].marks
+    assert (mark.at, mark.head, mark.sub) == (
+        end.at,
+        "The checks · The checks refused the change",
+        end.say,
+    )
+    command, refusal = tell_checks.ended(end)
+    assert (command.text, command.sub, refusal.text) == ("make test", "ok", end.say)
 
 
 def test_the_shares_say_when_two_lanes_held_the_same_minutes() -> None:

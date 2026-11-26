@@ -3,13 +3,16 @@ with the change from his note and its pairs, his answer form where the page may 
 where it may not, and his answer on record until the task's session takes it."""
 
 from dataclasses import replace as changed
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
+import pytest
 from msgspec.structs import replace
 
 from fixtures.board.beside import STOCK_CRITERIA
 from fixtures.board.held import STOCK_AGAIN, STOCK_NOTE
 from fixtures.board.moments import BASE, ago
+from lem.app.criteria import change, typed
 from lem.board.inputs.forms import Field
 from lem.board.inputs.task.criteria import Pair, Side
 from lem.board.views import owed
@@ -20,11 +23,15 @@ from lem.records.holds import OwnerHold
 from lem.records.questions import Answer
 from lem.records.task import Shape
 from lem.records.work import Span
+from unit.board.views import small
 from unit.board.views.afternoon import world
+from unit.criteria import world as workspace
+from unit.criteria.test_change import CHANGED, NOTE, new_file
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.board.inputs.task.criteria import Approve
     from lem.board.views.world import Seen, World
 
 STOCK = "stock-on-product-page"
@@ -55,6 +62,40 @@ def test_the_fast_track_card_asks_for_approval_of_one_criterion(
     seen = replace(seen, record=replace(seen.record, task=task))
     card = approval_card(found, seen)
     assert card.label == "Approve the criterion"
+
+
+def test_a_board_read_after_an_interrupted_criteria_change_refuses_the_old_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = workspace.workspace(tmp_path)
+    workspace.task(checkout, hold=workspace.WAITS)
+    sheet = workspace.sheet(checkout, workspace.FULL)
+    source = new_file(checkout)
+    typed.typed(checkout, workspace.SLUG, NOTE)
+
+    def draw(prose: tuple[tuple[str, str], ...]) -> Approve:
+        seen = replace(small.task(), record=workspace.read(checkout), prose=prose)
+        return approval_card(small.world(seen), seen)
+
+    def cut(*args: object) -> None:
+        raise OSError("the file write stopped")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(change, "files", SimpleNamespace(write_whole=cut))
+        with pytest.raises(OSError, match="the file write stopped"):
+            change.changed(checkout, workspace.SLUG, source, NOTE)
+    assert draw(()).answer is None
+    old = (("criteria.md", sheet.read_text()),)
+    stale = draw(old)
+    assert stale.answer is None
+    assert draw(old) == stale
+
+    finished = change.changed(checkout, workspace.SLUG, source, NOTE)
+    assert finished.resumed
+    card = draw((("criteria.md", sheet.read_text()),))
+    assert card.criteria and card.criteria.text == CHANGED
+    assert card.answer
+    assert any(field.shown == finished.shown for field in card.answer.fields)
 
 
 def test_the_criteria_changed_from_his_note_wait_for_his_yes_again(

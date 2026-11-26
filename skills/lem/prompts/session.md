@@ -226,8 +226,8 @@ line that the files do not bear out changes nothing.
 **His answer on the board.** A plan that waits for his read, a breaker, "Skip the persona read?",
 "Approve this criterion?" of the fast track and "Approve the criteria?" of the standard track each
 have their own buttons on the board, with a note; a card of `lem-ask` ends its own command instead (`ask-owner`). On an `owner` wake, read
-`board_answer` of `lem task show SLUG`: the record of his answer to the row of the hold now, or
-null. Its `option` is his typed word, and its `note` his words on it, which
+`board_answer` of `lem task show SLUG` when it is present: the record of his answer to the row of
+the hold now. Its `option` is his typed word, and its `note` his words on it, which
 the stage that waits takes:
 
 - a plan, `build` or `drop`: his "build" (`SKILL_DIR/stages/start.md`, "`/lem build`", typed in
@@ -235,7 +235,7 @@ the stage that waits takes:
   note as its reason;
 - a breaker: `help` is the talk of "After it" in `SKILL_DIR/stages/breaker.md`, with his note as his
   first part of it; `drop` is `/lem drop SLUG`, as for a plan; his `park` the board ran itself
-  (`board_answer` is null then, and the park ends this session);
+  (`board_answer` is absent, and the park ends this session);
 - `skip`, `yes` or `no`: his y or n of `SKILL_DIR/stages/interview.md`, step 5;
 - `criterion`: a `yes` the board approved already (`by: owner` in `lem criteria approved SLUG`), and
   the task goes on as "What comes next" says; a `no` carries his words on what the criteria should
@@ -247,7 +247,7 @@ the stage that waits takes:
   follow; a note that changes no criterion (a direction, a question) takes that step's
   `--unchanged` in place of the change. When a page of this session waits on the criteria as his
   answer comes, a yes or a no, close it first (`lem ask close`, as `ask-owner` closes a card),
-  then act. A record with `from: session` is no answer of the board: it is his No typed in this
+  then act. A record with `source: session` is no answer of the board: it is his No typed in this
   session, which that step's first part recorded, and it takes the same change, with no decision
   logged for it.
 
@@ -263,14 +263,14 @@ next move of the record, so a later wake finds it again: when a decision of the 
 A `criterion` `no` of the standard track is the one answer a decision does not settle: its act is
 done when the hold now is the change's, `the criteria wait for the owner: changed from the
 owner's note`, or the one of `--unchanged`, `the criteria wait for the owner: the owner's note
-changed no criterion` (`board_answer` is null then). While the hold he answered is still the
+changed no criterion` (`board_answer` is absent then). While the hold he answered is still the
 task's, the change stopped in the middle, whatever decision names its key: run `lem criteria change SLUG
 --file TASK_DIR/criteria-change.md --words "HIS NOTE"` again, which ends it, or first write that
 file as the interview's step 6 says when it is not there, or run `lem criteria change SLUG
 --unchanged` for a note that changes no criterion; then ask again as that step does.
 
-A board answer whose key is no longer the hold's takes no effect: `board_answer` is null
-then. When an `owner` wake finds it null, and `answers/` of the task directory holds a record
+A board answer whose key is no longer the hold's takes no effect: `board_answer` is absent
+then. When an `owner` wake finds it absent, and `answers/` of the task directory holds a record
 (`KEY.json`) for the hold that your act on his typed word ended, it came after the answer that took
 effect: say so in one line, with what it said and from where, and act on nothing.
 

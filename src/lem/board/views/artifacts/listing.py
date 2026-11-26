@@ -3,7 +3,7 @@
 the plan first in its section while the task's worktree holds it, and the pictures each of its
 documents names.
 
-`count` is the number of documents the tab bar shows beside Artifacts.
+`count` is the number of files the tab bar shows beside Artifacts.
 """
 
 from typing import TYPE_CHECKING
@@ -62,5 +62,5 @@ def map_of(seen: Seen) -> Map:
 
 
 def count(seen: Seen) -> int:
-    """The number of documents on the task's map."""
-    return map_of(seen).count
+    """Count each listed file once, even when its document preview is not loaded."""
+    return len(entries_of(seen))

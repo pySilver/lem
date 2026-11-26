@@ -14,6 +14,14 @@ def owner_says(record: Record) -> tuple[str, ...]:
     return ("the owner says so",) if record.task.owner_careful else ()
 
 
+def after_proposal(record: Record) -> bool:
+    """The owner's careful word needs a new landing for a proposal made without it."""
+    landing = record.landing
+    if landing is None or landing.proposed is None:
+        return False
+    return record.task.owner_careful is not None and not landing.proposed.careful
+
+
 def standing(landing: Landing) -> list[Reviewed]:
     """The answered reviews whose careful call stands: the newest round of the change and
     each read of a resolution after it."""

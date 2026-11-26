@@ -19,6 +19,7 @@ from fakes.forge import LocalForge
 from fakes.git import ModelGit
 from fakes.ports import fake_ports
 from fakes.repo import run_git
+from fakes.terminal import FakeTerminal
 from journeys.landing.test_checks import committed, criteria_tests, settings
 from journeys.landing.test_merge import ROUND, SAFE, moved, owner, read
 from journeys.test_skeleton import (
@@ -682,6 +683,47 @@ def test_a_pull_request_merged_on_github_gets_its_bookkeeping_and_the_task_lands
     assert world.record()["landing"]["merged"]["via"] == "github"
     assert len(world.forge.merge_calls) == 0
     assert merge_line.read(world.checkout / ".lem" / "state") == ()
+
+
+def test_the_board_records_the_forge_merge_and_only_wakes_the_live_task_session(
+    tmp_path: Path, own_home: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    served(world, own_home, monkeypatch)
+    terminal = frame.bound(places.workspace(world.checkout)).terminal
+    assert isinstance(terminal, FakeTerminal)
+    opening = Opening(
+        name=SLUG, cwd=str(world.checkout), command=("claude",), workspace="test"
+    )
+    session = terminal.open(opening)
+    owner_session = terminal.open(replace(opening, name="owner"))
+    terminal.select(owner_session)
+    now = clock.now()
+    log.reached(
+        world.task_folder,
+        acts.Open(
+            at=now,
+            session=session,
+            name=SLUG,
+            phase="land",
+            why="new",
+            workspace="test",
+        ),
+    )
+    panes = terminal.sessions()
+
+    world.forge.outside_merge(1)
+    runner.tick(own_home, now)
+    runner.tick(own_home, now + LOOK)
+
+    assert world.record()["task"]["status"] == "landed"
+    assert world.record()["landing"]["merged"]["via"] == "github"
+    assert world.forge.merge_calls == []
+    assert terminal.told == [(session, f"lem: {SLUG} merged")]
+    assert terminal.sessions() == panes
+    assert len(terminal.openings) == 2
+    assert terminal.closed == []
 
 
 def test_a_pull_request_closed_on_github_drops_the_task_and_its_branch_keeps_its_commits(

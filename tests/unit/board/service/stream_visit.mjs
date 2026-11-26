@@ -2,7 +2,7 @@
 import { registerHooks } from 'node:module'
 import { pathToFileURL } from 'node:url'
 
-const [, , controller, slug, workspace, rendered] = process.argv
+const [, , controller, slug, workspace, rendered, mode] = process.argv
 registerHooks({
   resolve (specifier, context, nextResolve) {
     if (specifier === '@hotwired/stimulus') {
@@ -18,13 +18,21 @@ globalThis.EventSource = class {
   addEventListener () {}
   close () {}
 }
-globalThis.window = { Turbo: { connectStreamSource () {}, disconnectStreamSource () {} } }
-globalThis.location = { pathname: '/studio/shop/' }
+globalThis.window = {
+  Turbo: { connectStreamSource () {}, disconnectStreamSource () {} },
+  addEventListener () {},
+  removeEventListener () {}
+}
+const task = `/studio/shop/tasks/${slug}`
+globalThis.location = { pathname: mode === 'restore' ? `${task}/criteria` : '/studio/shop/' }
 const markers = new Map([
   ['', { dataset: { streamRendered: workspace } }],
   [slug, { dataset: { streamRendered: rendered } }]
 ])
+const listeners = new Map()
 globalThis.document = {
+  addEventListener (name, listener) { listeners.set(name, listener) },
+  removeEventListener (name) { listeners.delete(name) },
   querySelector (selector) {
     for (const [task, marker] of markers) {
       if (selector === `[data-stream-rendered][data-stream-task="${task}"]`) return marker
@@ -37,9 +45,10 @@ const { default: Stream } = await import(pathToFileURL(controller))
 const live = new Stream()
 live.urlValue = '/studio/shop/stream'
 live.sinceValue = workspace
-live.lastId = workspace
 live.say = () => {}
-live.open()
-globalThis.location.pathname += `tasks/${slug}`
-live.open()
+live.connect()
+globalThis.location.pathname = task
+if (mode === 'restore') listeners.get('turbo:visit')({ detail: { action: 'restore' } })
+listeners.get('turbo:load')()
+live.disconnect()
 console.log(source.search.slice(1))

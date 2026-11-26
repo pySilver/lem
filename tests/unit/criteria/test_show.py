@@ -2,6 +2,7 @@
 approval and each recorded change; kept in the record; their mark; the personas' read and his
 word on its skip; and the commands that print them."""
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import msgspec
@@ -9,9 +10,13 @@ import pytest
 
 from fakes.command import lem
 from lem.app.criteria import approve, marks, persona, show, skipping
+from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.criteria import reads, skip
+from lem.model.landing import propose_criteria
 from lem.records.holds import OwnerHold
+from lem.records.work import Span
+from lem.store import places, tasks
 from unit.criteria import world
 
 if TYPE_CHECKING:
@@ -170,6 +175,47 @@ def test_a_read_cannot_claim_a_family_or_findings_it_did_not_get(
     )
     assert problem.code == "criteria-read"
     assert world.read(checkout) == before
+
+
+@pytest.mark.parametrize("skip_first", (False, True), ids=("word-late", "yes-late"))
+def test_a_lead_that_starts_before_the_skip_and_its_approval_needs_a_read(
+    checkout: Path, monkeypatch: pytest.MonkeyPatch, *, skip_first: bool
+) -> None:
+    path = world.plan(checkout, PLANNED)
+    now = world.EARLY
+    monkeypatch.setattr(clock, "now", lambda: now)
+    if skip_first:
+        skipping.skipped(checkout, world.SLUG, "yes")
+    now += timedelta(minutes=1)
+    state = checkout / places.STATE
+    before = world.read(checkout)
+    lead = Span(name="lead", start=now)
+    tasks.update(
+        state,
+        world.SLUG,
+        lambda record: msgspec.structs.replace(
+            record, task=msgspec.structs.replace(record.task, spans=(lead,))
+        ),
+        before.revision,
+    )
+    now += timedelta(minutes=1)
+    if not skip_first:
+        skipping.skipped(checkout, world.SLUG, "yes")
+    now += timedelta(minutes=1)
+    sheet = world.sheet(checkout, world.FULL)
+    approve.approved(checkout, world.SLUG, approve.Asked(by="owner", path=sheet))
+    late = world.read(checkout)
+    assert late.task.criteria.skip_approval is None
+    problem = propose_criteria.unread(late)
+    assert problem and problem.code == "skip-late"
+
+    persona.noted(checkout, world.SLUG, ("start", "lead"), None)
+    mark = marks.marked(checkout, world.SLUG, path).digest
+    read = reads.Found(
+        asked=2, answered=2, families=("opus",), criteria=2, flagged=0, digest=mark
+    )
+    persona.noted(checkout, world.SLUG, ("done", "lead"), read)
+    assert propose_criteria.unread(world.read(checkout)) is None
 
 
 @pytest.mark.parametrize(

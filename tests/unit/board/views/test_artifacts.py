@@ -26,8 +26,9 @@ def test_the_refund_line_has_seven_documents_on_its_map(tmp_path: Path) -> None:
     """Today's `artifacts.arrange` over the laid folder gives 7: `ask.txt`, `state.md` and the
     plan in the worktree, which made today's 9, are not in the afternoon."""
     seen = owed.seen(world(tmp_path), SLUG)
-    assert count(seen) == 7
+    assert count(seen) == 11
     found = map_of(seen)
+    assert found.count == 7
     assert [shelf.name for shelf in found.sections] == [
         "Request",
         "Criteria",

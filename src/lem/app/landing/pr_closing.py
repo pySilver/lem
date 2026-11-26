@@ -35,6 +35,8 @@ def became(record: Record, facts: Facts) -> list[str]:
     """How a request with no talk due became careful after its plan."""
     shape = record.task.shape
     how = ["by the request's shape"] if shape and shape.careful else []
+    if record.task.owner_careful is not None:
+        how.append("by the owner's word")
     if propose_careful.edits(facts):
         how.append("by its change to the settings")
     if propose_careful.review_call(record):

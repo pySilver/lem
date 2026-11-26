@@ -7,6 +7,7 @@ VERBS = (
     ("criterion", "lem.cli.decisions.criterion"),
     ("changes", "lem.cli.decisions.changes"),
     ("breaker", "lem.cli.decisions.breaker"),
+    ("reask", "lem.cli.decisions.reask"),
     ("pending", "lem.cli.decisions.pending"),
     ("list", "lem.cli.decisions.list"),
 )

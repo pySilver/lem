@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # The circuit breaker
 
 Read by a lead, or a plan talk's defender, when the breaker trips, and at no other time. The build
@@ -81,11 +80,10 @@ board runs itself.
   and that record. A
   criterion his decision changes gets its record, `lem decisions criterion ... --decision ID`, with
   his decision's number: the change is his, and the pull request is not held back for it.
-- **He leaves the talk with no decision**: take nothing; the breaker waits, and the board's row
-  brings him back to this session. When the talk began with his Help on the board, its record hides
-  the row until the next state block: write the breaker's held block again, with your one line to
-  his note, so that the row comes back under a new key, with Help, Park and Drop:
+- **He leaves the talk with no decision**: leave the breaker on the record and wait in the task's
+  session. If the talk began with his Help on the board, take `KEY` from that answer in
+  `lem task show SLUG`. Ask again so Help, Park and Drop return with a new question:
 
   ```bash
-  lem project state SLUG held "breaker N waits for the owner" "YOUR ONE LINE TO HIS NOTE"
+  lem decisions reask SLUG --question KEY --line "YOUR ONE LINE TO HIS NOTE"
   ```

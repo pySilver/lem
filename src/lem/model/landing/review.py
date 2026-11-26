@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from lem.model.landing import (
     careful,
+    careful_words,
     review_cover,
     review_due,
     review_form,
@@ -71,7 +72,8 @@ def holds(record: Record, world: World) -> Held | Due:
     left = unmet(record, newest(landing), world)
     if not left:
         return Held(why="the newest review covers this change, with no must-fix")
-    gone = review_cover.gone_on(landing, left)
+    floor = "full" if careful_words.after_proposal(record) else None
+    gone = review_cover.gone_on(landing, left, floor=floor)
     return gone or Due(step=STEP, why=left[0])
 
 

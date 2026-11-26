@@ -61,7 +61,7 @@ def test_an_owner_careful_decision_survives_the_reviewers_negative_call() -> Non
 def test_the_locked_call_honors_an_owner_careful_decision_after_proposal() -> None:
     record = opened(reviews=(replace(REVIEWED, kind="full"),))
     changed = log.logged(record, asked=CAREFUL, now=MOMENT)
-    assert code_of(merge.decide(changed, facing(), BY_MERGER, TREE)) == "merger-rule"
+    assert code_of(merge.decide(changed, facing(), BY_MERGER, TREE)) == "careful-review"
 
 
 def test_a_late_careful_decision_changes_the_reasons_of_a_fast_track_standing_merge() -> (

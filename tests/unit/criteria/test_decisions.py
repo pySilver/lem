@@ -13,7 +13,7 @@ from fakes.forge import LocalForge
 from fakes.git import ModelGit
 from fakes.harness import FakeHarness
 from fakes.ports import fake_ports
-from lem.app.criteria import approve
+from lem.app.criteria import approve, show
 from lem.app.decisions import breaker, criterion, listing, log, stopping
 from lem.kernel import paths
 from lem.kernel.errors import Refusal
@@ -427,6 +427,48 @@ def test_a_criterion_change_is_checked_against_the_criteria_as_they_stand(
     assert found.expected is not None
     assert len(found.expected) == 3
     assert [one.change.criterion for one in found.history] == [2, 3]
+
+
+def test_a_new_approval_resets_changes_and_keeps_literal_spaces_and_the_size(
+    checkout: Path,
+) -> None:
+    before = 'An order with no gift note has an empty cell, not the word "None".'
+    file = world.sheet(checkout, world.FULL)
+    asked = approve.Asked(by="owner", path=file)
+    first = approve.approved(checkout, world.SLUG, asked)
+    change = Asked(
+        how="changed",
+        number=2,
+        was=before,
+        now="The cell is blank.",
+        why="export",
+        by="lead",
+    )
+    criterion.recorded(checkout, world.SLUG, change)
+
+    was = "The note file holds the code `A  B` for order 1042."
+    now = "The note file holds the code `A  B` for orders 1042 and 1044."
+    approved = world.FULL.replace(before, was)
+    file.write_text(approved, encoding="utf-8")
+    second = approve.approved(checkout, world.SLUG, asked)
+    reset = listing.changes_of(checkout, world.SLUG)
+    assert second.replaces == first.number
+    assert reset.expected and reset.expected[-1] == was
+    assert [one.change.approval for one in reset.history] == [first.number]
+    recorded = criterion.recorded(
+        checkout, world.SLUG, replace(change, was=was, now=now)
+    )
+    assert recorded.criteria[-1] == now
+    later = listing.changes_of(checkout, world.SLUG)
+    assert (later.history[-1].change.was, later.history[-1].change.now) == (was, now)
+
+    wrapped = approved.replace(was, now.replace("for orders", "for\n   orders"))
+    world.plan(
+        checkout, world.SMALL.replace("The README says receive, not recieve.", now)
+    )
+    assert refused(show.shown, checkout, world.SLUG).code == "track"
+    world.plan(checkout, wrapped)
+    assert show.shown(checkout, world.SLUG).criteria[-1].text == now
 
 
 def test_a_criterion_change_names_its_texts_and_who(checkout: Path) -> None:
