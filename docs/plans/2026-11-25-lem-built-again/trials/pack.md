@@ -13,7 +13,17 @@ in `T/evidence`. Use the Python 3.14 executable `PY` from [the run order](run.md
 
 ## Checks
 
-- [ ] P1 The formula and marketplace plugin install from one tag. **Owner for the tap and tag.**
+- [x] P1 The formula and marketplace plugin install from one tag. **Owner for the tap and tag.**
+
+  Passed on 2026-11-26 at 12:00 on the tag `v0.99.0` (`d60e2eb4`) and the local tap commit
+  `9e789d6`: formula 0.99.0, `p1-release` exit 0, no linkage error, `/opt/homebrew/bin/lem`
+  absent. `APP` is `/opt/homebrew/Cellar/lem/0.99.0/libexec/lib/python3.14/site-packages/lem/data`,
+  `PLUGIN` is `/private/tmp/lem-trial-r1/home/.claude/plugins/cache/lem/lem/0.99.0`. The install
+  ran with `umask 022` and `HOMEBREW_NO_INSTALL_UPGRADE=1`; its build dependency `uv` was linked
+  into `/opt/homebrew/bin`, where it came before the owner's own uv, so it was unlinked
+  (`p1-uv-unlink`). Evidence in `/private/tmp/lem-trial-r1/evidence/`: `p1-pre-*`, `p1-tag`,
+  `p1-commit`, `p1-tap`, `p1-tap-rev`, `p1-archive-sha`, `p1-install`, `p1-formula`, `p1-version`,
+  `p1-help`, `p1-market`, `p1-plugin`, `p1-plugins`, `p1-release`, `p1-unlinked`, `p1-keg-*`.
 
   In the disposable Homebrew installation, put the approved formula in `pySilver/tap`. Record
   its Git revision, formula, upstream URL, version, hash, and `uv.lock` build instruction.
