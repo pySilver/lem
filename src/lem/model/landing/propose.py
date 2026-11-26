@@ -128,7 +128,8 @@ def made(record: Record, world: World, careful: tuple[str, ...]) -> Proposed:
     """The proposal of the tip now: green or the reasons it is not, and who merges it."""
     reasons = green.reasons(record, careful, world)
     return Proposed(
-        tip=world.tip or "",
+        # Propose is due only after a checked worktree supplies its tip.
+        tip=world.tip or "",  # pragma: no mutate
         base=world.base,
         green=not reasons,
         reasons=reasons,

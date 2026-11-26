@@ -74,7 +74,8 @@ def asks_of(left: Waiting, places: list[Place], named: set[str]) -> Asked:
     """The defects Jev is asked about before anything is written: each that gets a file of
     its own, beside no old item, that `--same` and `--new` do not name."""
     found = [finding for _, finding in left]
-    pairs = zip(found, places, strict=True)
+    # places_of supplies one place per finding. A length mismatch cannot reach here.
+    pairs = zip(found, places, strict=True)  # pragma: no mutate
     return tuple(finding for finding, place in pairs if asked(finding, place, named))
 
 

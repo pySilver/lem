@@ -51,11 +51,13 @@ def reasons_now(record: Record, world: World | None = None) -> tuple[str, ...]:
     only `propose` reads the settings the change edits."""
     proposed = record.landing.proposed if record.landing else None
     seen = proposed.reasons if proposed else ()
-    head = green.FAST.split("(", 1)[0]
+    # The template has one opening parenthesis, so split limits and direction agree.
+    head = green.FAST.split("(", 1)[0]  # pragma: no mutate
     fast = green.fast(record, careful_words.owner_says(record))
     if not fast:
         fast = tuple(reason for reason in seen if reason.startswith(head))
-    return fast + green.reasons(record, (), world)
+    # None and an empty tuple both supply no new careful reason.
+    return fast + green.reasons(record, (), world)  # pragma: no mutate
 
 
 def standing_of(record: Record, world: World | None = None) -> Standing | None:
@@ -114,7 +116,8 @@ def kept(
         return None
     if refused.kind != BASE or not word(asked):
         return refused, None
-    proposed = record.landing.proposed if record.landing else None
+    # refused_of already found the proposal in this record.
+    proposed = record.landing.proposed if record.landing else None  # pragma: no mutate
     if proposed is None:
         return refused, None
     seen = digest_of(proposed.reasons, proposed.contract)

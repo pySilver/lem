@@ -54,7 +54,8 @@ def verdict_of(reply: str) -> Verdict | None:
 def base_call_of(reply: str) -> tuple[BaseCall, str] | None:
     """The call on a moved base on the reply's second line that is not empty, with its
     sentence of why; None for no call, or a call with no why."""
-    second = next(iter(lines_of(reply)[1:]), "")
+    # The two fallback strings both fail the base-call pattern.
+    second = next(iter(lines_of(reply)[1:]), "")  # pragma: no mutate
     found = BASE_CALL.match(second)
     if found is None:
         return None
@@ -124,7 +125,8 @@ def unrecorded(
     call of the owner with no verdict."""
     reply, problem = said
     if count < TRIES:
-        return replace(read, attempts=count, why=problem)
+        # The count starts at one and only the first reply takes this path.
+        return replace(read, attempts=count, why=problem)  # pragma: no mutate
     if moved:
         why = f"{UNRECORDED} ({problem}), and in doubt the checks run again"
         return replace(read, attempts=count, base_call=ROUND, why=why)

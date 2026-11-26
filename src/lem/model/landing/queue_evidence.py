@@ -28,7 +28,8 @@ def after(event: Event | None, call: Call) -> bool:
         return False
     if event.at == call.at:
         return call.queue_before is not None
-    return event.at > call.at
+    # The equal time returned above.
+    return event.at > call.at  # pragma: no mutate
 
 
 def matched(pull: PullSeen, call: Call) -> bool:

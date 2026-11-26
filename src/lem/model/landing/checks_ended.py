@@ -1,7 +1,6 @@
 """What a run of the checks refuses after its commands ran (`land.checks_body` on `main`): a
-command that changed the tree it judged, red commands, and the criteria's check that did not
-hold. Each is the step's exit 1, with the run on record; a builder repairs it, and the checks
-are never edited to pass.
+command that changed the tree it judged, or red commands. A builder repairs the change,
+and the checks are never edited to pass.
 """
 
 from lem.kernel.errors import Refusal
@@ -44,13 +43,4 @@ def red(failed: tuple[str, ...]) -> Refusal:
         f"the checks are red on {len(failed)} command(s): {named}",
         "a builder reads the output files and repairs the change; the checks are never "
         "edited to pass",
-    )
-
-
-def criteria(why: str) -> Refusal:
-    """The check of the criteria did not hold: in the words it gave."""
-    return Refusal(
-        "criteria",
-        why,
-        "a builder repairs the test or the plan; the check is never edited to pass",
     )

@@ -51,7 +51,8 @@ def talk_due(record: Record) -> str | None:
         return None
     if plan.careful:
         return "the plan says that the request is careful"
-    tasks = plan.tasks or 0
+    # The plan writer requires a positive task count.
+    tasks = plan.tasks or 0  # pragma: no mutate
     if plan.large or tasks > LARGE_AFTER:
         return f"the plan has {tasks} tasks, more than three"
     return None

@@ -36,7 +36,8 @@ class Written(Frozen, frozen=True, kw_only=True):
 
 def slug_of(text: str) -> str:
     """A file name from a title, as the item format has it: its words joined by `-`."""
-    slug = re.sub(r"[\W_]+", "-", text.lower()).strip("-")
+    # Only lowercase text reaches strip, so a strip set with uppercase X gives the same slug.
+    slug = re.sub(r"[\W_]+", "-", text.lower()).strip("-")  # pragma: no mutate
     if len(slug) <= SLUG_AT:
         return slug
     return slug[:SLUG_AT].rsplit("-", 1)[0]

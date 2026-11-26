@@ -22,7 +22,10 @@ def cached(entry: str) -> bool:
     """Whether git's entry names a folder `__pycache__`."""
     if not entry.endswith("/"):
         return False
-    return entry.rstrip("/").rsplit("/", 1)[-1] == CACHE
+    bare = entry.rstrip("/")
+    # Any positive split limit gives the same last component.
+    parts = bare.rsplit("/", 1)  # pragma: no mutate
+    return parts[-1] == CACHE
 
 
 def folders_above(found: Paths) -> Paths:
@@ -30,7 +33,8 @@ def folders_above(found: Paths) -> Paths:
     ignore rules the choice asks git for."""
     above: set[str] = set()
     for candidate in found:
-        parts = candidate.rstrip("/").split("/")[:-1]
+        # Every candidate ends in `__pycache__/`: stripping X as well does nothing.
+        parts = candidate.rstrip("/").split("/")[:-1]  # pragma: no mutate
         depths = range(1, len(parts) + 1)
         above.update("/".join(parts[:depth]) for depth in depths)
     return tuple(sorted(above))

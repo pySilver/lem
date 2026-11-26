@@ -109,7 +109,9 @@ def test_in_open_the_read_then_the_merge_by_whom_the_read_and_settings_say() -> 
         "merge-review",
         None,
     )
-    assert step_of(phases.due(opened(), facing())) == ("merge", "merger")
+    assert phases.due(opened(), facing()) == Due(
+        step="merge", by="merger", why="the merge agent's read says merge"
+    )
     call = opened(reads=(replace(READ, verdict="call"),))
     assert step_of(phases.due(call, facing())) == ("merge", "owner")
     owner = facing(rules=Rules(base="main", land="owner", commands=("true",)))
@@ -181,7 +183,9 @@ def test_a_refusal_lem_kept_of_the_merge_agents_merge_waits_for_the_owner() -> N
 def test_a_merge_on_github_during_a_new_round_is_bookkept_first() -> None:
     merged = facing(pull=replace(SEEN, state="merged"))
     record = task("landing", **{**PREPARED, "pull": OPENED["pull"]})
-    assert phases.due(record, merged).step == "merged"
+    assert phases.due(record, merged) == Due(
+        step="merged", why="the forge shows the pull request merged"
+    )
     assert phases.due(task("landing", **PREPARED), merged).step != "merged"
 
 
@@ -221,7 +225,9 @@ def test_in_open_an_intent_is_reconciled_first_and_a_forge_merge_is_bookkept() -
     assert phases.due(opened(), closed).step == "merged"
     queued = MergeAccepted(tip=TIP, at=MOMENT, queued="the merge queue")
     assert phases.due(opened(accepted=queued), facing()).step == "merged"
-    assert phases.due(opened(), facing(tip=OTHER)).step == "start"
+    assert phases.due(opened(), facing(tip=OTHER)) == Due(
+        step="start", why="the tip moved after the proposal: a new round"
+    )
 
 
 def test_githubs_refusal_of_this_tip_waits_for_the_owners_word() -> None:
@@ -263,23 +269,34 @@ def test_the_owners_standing_merge_is_the_servers_to_carry_out() -> None:
     stands = alone(standing=standing)
     due = phases.due(stands, facing())
     assert step_of(due) == ("merge", "owner")
-    assert "--standing" in due.why
+    assert due.why == (
+        "the owner's merge stands: the board's server merges it "
+        "(lem land merge fix-the-login --by owner --via server --standing)"
+    )
     other = replace(standing, reasons_digest=digest_of(("another",), proposed.contract))
     assert "--standing" not in phases.due(alone(standing=other), facing()).why
 
 
 def test_after_the_merge_its_bookkeeping_the_cleanup_and_the_end() -> None:
     merged = {**OPENED, "phase": "merged", "merged": MERGED}
-    assert phases.due(task("open", **merged), world()).step == "merged"
-    assert phases.due(task("landed", **merged), world()).step == "clean"
+    assert phases.due(task("open", **merged), world()) == Due(
+        step="merged", why="the forge merged it: its bookkeeping is due"
+    )
+    assert phases.due(task("landed", **merged), world()) == Due(
+        step="clean", why="it landed: its worktree and branch go"
+    )
     ended = {**merged, "phase": "ended"}
     assert phases.due(task("landed", **ended), world()).step == "done"
 
 
 def test_a_dropped_or_answered_task_is_cleaned_once_then_done() -> None:
     for status in ("dropped", "answered"):
-        assert phases.due(task(status), world()).step == "clean"
-        assert phases.due(task(status, phase="ended"), world()).step == "done"
+        assert phases.due(task(status), world()) == Due(
+            step="clean", why="the task ended: its worktree goes"
+        )
+        assert phases.due(task(status, phase="ended"), world()) == Due(
+            step="done", why="the task ended, and its cleanup ran"
+        )
 
 
 @pytest.mark.parametrize(

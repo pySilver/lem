@@ -6,6 +6,7 @@ from lem.app.landing import pr_text
 from lem.model.decisions import log
 from lem.model.landing import (
     careful,
+    careful_words,
     merge,
     merge_standing,
     propose,
@@ -14,6 +15,7 @@ from lem.model.landing import (
     review_said,
 )
 from lem.records.landing.propose import Standing
+from lem.records.landing.record import Landing
 from lem.records.landing.review import Reviewed
 from unit.landing.merges import BY_MERGER, code_of, facing, opened
 from unit.landing.proposals import FACTS, small, with_landing
@@ -82,3 +84,14 @@ def test_an_agent_decision_does_not_set_the_owners_careful_word() -> None:
     record = log.logged(small(), asked=agent, now=MOMENT)
     assert record.task.owner_careful is None
     assert careful.reasons(record, careful.Edits()) == ()
+
+
+def test_the_latest_call_stands_when_the_record_has_only_resolution_reads() -> None:
+    old = replace(REVIEWED, of="resolution", careful=True, careful_why="charges a card")
+    past = replace(old, attempt=2, careful_why="changes the account")
+    kept = Landing(reviews=(old, past))
+    assert careful_words.review_reason(kept) == (
+        "the review says so: changes the account",
+    )
+    no = replace(past, careful=False)
+    assert careful_words.review_reason(replace(kept, reviews=(old, no))) == ()

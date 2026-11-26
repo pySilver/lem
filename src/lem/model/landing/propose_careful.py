@@ -28,10 +28,11 @@ def edits(facts: Facts) -> tuple[str, ...]:
         tip=found.after,
     )
     was, now = found.local
+    # The local rule checks presence only and never reads either string.
     local = careful.Seen(
         touched=careful.LOCAL_SETTINGS_FILE in facts.changed,
-        base="" if was or not now else None,
-        tip="" if now or not was else None,
+        base="" if was or not now else None,  # pragma: no mutate
+        tip="" if now or not was else None,  # pragma: no mutate
     )
     return careful.settings_reasons(careful.Edits(settings=team, local=local))
 

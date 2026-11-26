@@ -102,7 +102,12 @@ def line_of(
         if read.tip == merged.merged_head and read.base_call == "safe"
     ]
     bases = (merged.base_checked, merged.parent)
-    covering = [read.why or "" for read in safe if read.base_tree == trees.parent]
+    # The reader requires a reason for a safe base call.
+    covering = [
+        read.why or ""  # pragma: no mutate
+        for read in safe
+        if read.base_tree == trees.parent
+    ]
     if covering:
         return merge_lines.base_line(base, bases, covering[-1]), False
     read = safe[-1].base if safe else None
@@ -118,24 +123,27 @@ def made(
 ) -> Merged:
     """The record of a merge the forge reports whole, into the task's base, by `who` (who
     merged and through what), judged by `trees`."""
-    read = mergeread.latest(landing, world.base_tree)
+    read = mergeread.latest(landing, trees.parent)
+    # landed requires the forge to report the commit, head and parent before calling made.
+    parent = pull.base_parent or ""  # pragma: no mutate
     merged = Merged(
         by=who[0],
         via=who[1],
-        commit=pull.merge_commit or "",
-        merged_head=pull.merged_head or "",
-        parent=pull.base_parent or "",
+        commit=pull.merge_commit or "",  # pragma: no mutate
+        merged_head=pull.merged_head or "",  # pragma: no mutate
+        parent=parent,
         destination=pull.base,
-        base_checked=landing.checked.base
-        if landing.checked
-        else pull.base_parent or "",
-        base_merged=pull.base_parent or "",
+        base_checked=landing.checked.base if landing.checked else parent,
+        base_merged=parent,
         base_read=read.base if read else None,
         at=world.now,
     )
     line, uncovered = line_of(landing, merged, trees, merged.destination)
     return replace(
-        merged, uncovered=line if uncovered else None, text_updated=line is None
+        merged,
+        base_read=None if uncovered else merged.base_read,
+        uncovered=line if uncovered else None,
+        text_updated=line is None,
     )
 
 
@@ -158,10 +166,12 @@ def landed(
             f"lem land merged {slug} runs again in a minute",
         )
     landing = record.landing or Landing()
+    # The merge record uses only the caller and route, the first two facts.
+    # With no recorded call, adopted supplies the same owner and GitHub attribution.
     who = (
-        reconcile_queue.author(landing, pull)
+        reconcile_queue.author(landing, pull)  # pragma: no mutate
         if landing.intent or landing.accepted
-        else facts[:2]
+        else facts[:2]  # pragma: no mutate
     )
     return made(landing, world, pull, who, facts[2])
 

@@ -65,10 +65,10 @@ def test_a_criterion_change_keeps_the_exact_words_on_one_line() -> None:
     choice = replace(
         CHANGED,
         was='The exact label ends with "Wait..."',
-        now="First line.\nCafé\u2028Wait...",
+        now="First line.\nCafé\u0085Wait\u2028Here\u2029again.",
     )
     assert merge_decided.texts_of(choice) == (
-        r'"The exact label ends with \"Wait...\"" is now "First line.\nCafé\u2028Wait..."'
+        r'"The exact label ends with \"Wait...\"" is now "First line.\nCafé\u0085Wait\u2028Here\u2029again."'
     )
 
 
@@ -96,3 +96,7 @@ def test_an_added_or_removed_criterion_and_a_stop_at_the_breaker_are_one_line_ea
         ),
         "- the build stopped at breaker 3: the next step drops a column.",
     ]
+
+
+def test_an_absent_criterion_text_has_empty_quotes() -> None:
+    assert merge_decided.quoted(None) == '""'

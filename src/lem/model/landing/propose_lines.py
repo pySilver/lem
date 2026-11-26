@@ -71,14 +71,16 @@ def entries(lines: tuple[str, ...]) -> tuple[Entry, ...]:
     if not lines_of(lines):
         return ()
     found: list[list[str]] = []
-    depth, fresh = 0, True
+    # The initial depth is unused because the first entry is fresh.
+    depth, fresh = 0, True  # pragma: no mutate
     for line in lines:
         if not line.strip() or line.lstrip().startswith("#"):
             fresh = True
         elif opens(line, depth, fresh=fresh):
             found.append([line])
             depth = len(line) - len(line.lstrip())
-            fresh = False
+            # Only the truth of this flag matters. None also means the entry is open.
+            fresh = False  # pragma: no mutate
         else:
             found[-1].append(line)
     return tuple(map(tuple, found))

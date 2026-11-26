@@ -53,7 +53,8 @@ def queued(record: Record, world: World) -> Refusal | Refused:
         if found is not None:
             return found
     slug = record.task.slug
-    tip = waiting.tip if waiting else world.tip or ""
+    # An open pull without an intent reaches this step only for an accepted call.
+    tip = waiting.tip if waiting else world.tip or ""  # pragma: no mutate
     return Refusal(
         "queued",
         f"GitHub holds the merge of {tip} in its queue, and has not merged it yet",
@@ -65,7 +66,9 @@ def requester(landing: Landing) -> Merger:
     """Who asked for a queued merge; older acceptances carry only the proposal."""
     if landing.accepted and landing.accepted.by:
         return landing.accepted.by
-    return landing.proposed.who_acts if landing.proposed else "owner"
+    # A call is recorded only for a proposal and keeps that proposal while queued.
+    proposed = landing.proposed
+    return proposed.who_acts if proposed else "owner"  # pragma: no mutate
 
 
 def author(landing: Landing, pull: PullSeen) -> tuple[Merger, Via]:

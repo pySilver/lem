@@ -68,11 +68,14 @@ def test_why_a_rebase_carried_nothing_names_its_paths_and_each_commit_left_out()
         "the rebase could not be shown to keep the change: git's merge of the tip before "
         "it onto 444444444 differs in a.txt"
     )
-    left = replace(UNSHOWN, unshown_commits=(OTHER,))
+    left = replace(
+        UNSHOWN, unshown_paths=("a.txt", "b.txt"), unshown_commits=(OTHER, TIP)
+    )
     said = rebased.why_unshown(left)
     assert said is not None
+    assert "differs in a.txt, b.txt;" in said
     assert said.endswith(
-        "the rebase left out each commit whose patch the base holds: 999999999, and "
+        "the rebase left out each commit whose patch the base holds: 999999999, 111111111, and "
         "`git cherry-pick HASH` brings one back if the base took it out again"
     )
 
@@ -149,7 +152,9 @@ def test_only_a_review_of_the_change_that_someone_answered_covers_it() -> None:
 def test_a_real_verdict_of_the_tip_proposed_before_carries_onto_a_shown_rebase() -> (
     None
 ):
-    found = carry.read_carries(MOVED_ON, NOW)
+    read = replace(READ, why="the checks covered the full change")
+    moment = replace(NOW, now=LATER)
+    found = carry.read_carries(replace(MOVED_ON, reads=(read,)), moment)
     assert found is not None
     assert (found.tip, found.base, found.base_tree, found.verdict) == (
         NEW,
@@ -157,7 +162,7 @@ def test_a_real_verdict_of_the_tip_proposed_before_carries_onto_a_shown_rebase()
         OTHER,
         "merge",
     )
-    assert found.carried_from == TIP
+    assert (found.carried_from, found.why, found.at) == (TIP, read.why, LATER)
     unusable = replace(READ, verdict=None, no_answer=True)
     assert carry.read_carries(replace(MOVED_ON, reads=(unusable,)), NOW) is None
     assert carry.read_carries(replace(MOVED_ON, based=UNSHOWN), NOW) is None
@@ -253,6 +258,10 @@ def test_a_clean_read_of_a_resolution_carries_the_merge_read_and_the_owners_merg
         record, NOW, replace(PROPOSED, tip=NEW, base=MOVED)
     )
     assert proposed.merge_review == "carried"
+    assert (
+        proposed.merge_review_why
+        == "The merge review carries after the read of the resolution."
+    )
     assert read == found
 
 
@@ -376,3 +385,99 @@ def test_only_git_proof_of_filed_items_extends_the_resolution_carry() -> None:
     carried, read = proposal_carry.judged(record, proved, made)
     assert read is not None and (read.carried_from, read.tip) == (TIP, OTHER)
     assert carried.owner_merge is not None and carried.owner_merge.state == "stands"
+
+
+def test_the_proposal_names_a_carried_read_only_when_the_rebase_keeps_it() -> None:
+    change = replace(PROPOSED, tip=NEW, base=MOVED)
+    record = replace(opened(), landing=MOVED_ON)
+    carried, read = proposal_carry.judged(record, NOW, change)
+    assert read is not None
+    assert carried.merge_review_why == "The merge review carries over the clean rebase."
+    unshown = replace(record, landing=replace(MOVED_ON, based=UNSHOWN))
+    missed, absent = proposal_carry.judged(unshown, NOW, change)
+    assert (missed.merge_review, missed.merge_review_why, absent) == (None, None, None)
+
+
+def test_a_review_of_another_change_cannot_carry_the_proposed_tip() -> None:
+    unrelated = replace(PROPOSED, tip=OTHER)
+    landing = replace(MOVED_ON, proposed=unrelated)
+    assert carry.source(landing, NOW) == TIP
+    assert not carry.proposed_carries(landing, NOW)
+
+
+def test_a_resolution_requires_a_read_of_the_attempt_recorded_for_it() -> None:
+    for missing in (
+        replace(RESOLUTION_READ, attempt=RESOLUTION_READ.attempt + 1),
+        replace(RESOLUTION_READ, of="change"),
+    ):
+        record = replace(RESOLVED, reviews=(REVIEWED, missing))
+        assert not resolution.tip_carries(record, NOW, careful=False)
+
+
+def test_a_left_out_commit_is_named_when_git_gives_no_path() -> None:
+    left = replace(UNSHOWN, unshown_paths=(), unshown_commits=(OTHER,))
+    said = rebased.why_unshown(left)
+    assert said is not None and "differs in no path;" in said
+
+
+def test_only_the_latest_resolution_read_can_hold_a_merge_across_the_conflict() -> None:
+    first = replace(REVIEWED, attempt=1, tip=OTHER)
+    second = replace(REVIEWED, attempt=2)
+    last = replace(RESOLUTION_READ, attempt=3)
+    repaired = replace(RESOLUTION, read=3)
+    landing = replace(RESOLVED, resolution=repaired, reviews=(first, second, last))
+    assert resolution.tip_carries(landing, NOW, careful=False)
+    assert not resolution.tip_carries(
+        replace(landing, reviews=(last,)), NOW, careful=False
+    )
+    assert not resolution.tip_carries(
+        replace(landing, reviews=(first, second)), NOW, careful=False
+    )
+
+
+def test_an_approved_red_recheck_stands_after_the_repair_gets_a_new_review() -> None:
+    approval = Standing(
+        tip=TIP,
+        reasons_digest=merge_standing.digest_of(PROPOSED.reasons, PROPOSED.contract),
+        by_act="board",
+        at=MOMENT,
+    )
+    refused = Refused(
+        tip=NEW, source="lem", kind="rule", by="owner", line="red", at=MOMENT
+    )
+    record = opened(
+        standing=approval,
+        refused=refused,
+        based=UNSHOWN,
+        reviews=(replace(REVIEWED, tip=NEW),),
+    )
+    proposed, read = proposal_carry.judged(
+        record, NOW, replace(PROPOSED, tip=NEW, base=MOVED)
+    )
+    assert proposed.owner_merge == OwnerMerge(
+        state="stands", why="the change and its reasons stay"
+    )
+    assert read is None
+
+
+def test_a_clean_conflict_can_carry_owner_approval_without_a_merge_agent_verdict() -> (
+    None
+):
+    approval = Standing(
+        tip=TIP,
+        reasons_digest=merge_standing.digest_of(PROPOSED.reasons, PROPOSED.contract),
+        by_act="board",
+        at=MOMENT,
+    )
+    record = replace(opened(), landing=replace(RESOLVED, standing=approval, reads=()))
+    proposed, read = proposal_carry.judged(
+        record, NOW, replace(PROPOSED, tip=NEW, base=MOVED)
+    )
+    assert proposed.owner_merge == OwnerMerge(
+        state="stands", why="the change and its reasons stay"
+    )
+    assert (proposed.merge_review, proposed.merge_review_why, read) == (
+        None,
+        None,
+        None,
+    )

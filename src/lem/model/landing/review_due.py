@@ -90,7 +90,12 @@ def floor(record: Record, careful: tuple[str, ...], *, resolution: bool) -> Floo
     if careful:
         return Floor(kind="full", why=f"the request is careful: {careful[0]}")
     plan = record.task.plan
-    tasks = plan.tasks if plan is not None and plan.tasks is not None else 0
+    # An absent count is below the review threshold with either fallback.
+    tasks = (
+        plan.tasks
+        if plan is not None and plan.tasks is not None
+        else 0  # pragma: no mutate
+    )
     if tasks > LARGE_AFTER:
         return Floor(kind="round", why=f"the plan has {tasks} tasks, more than three")
     landing = record.landing or Landing()

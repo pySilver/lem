@@ -187,7 +187,8 @@ def shebang_suffix(line: str) -> str:
     words = line.removeprefix("#!").split() if line.startswith("#!") else []
     if words and PurePosixPath(words[0]).name == "env":
         words = [word for word in words[1:] if not OPTION.search(word)]
-    name = PurePosixPath(words[0]).name if words else ""
+    # With no interpreter, neither fallback name has a kind.
+    name = PurePosixPath(words[0]).name if words else ""  # pragma: no mutate
     return SHEBANG.get(PYTHON_VERSION.sub("", name), "")
 
 

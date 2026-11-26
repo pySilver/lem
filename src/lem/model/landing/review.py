@@ -50,7 +50,10 @@ def unmet(record: Record, review: Reviewed | None, world: World) -> tuple[str, .
         return ("no review read the change yet",)
     landing = record.landing or Landing()
     least = review_due.floor(
-        record, careful.reasons(record, careful.Edits()), resolution=False
+        record,
+        careful.reasons(record, careful.Edits()),
+        # None also selects the whole-change floor.
+        resolution=False,  # pragma: no mutate
     )
     left = (
         f"the last one left {must_fix(review)} must-fix" if must_fix(review) else None,
@@ -90,7 +93,13 @@ def refused(
     recorded = tuple(review.attempt for review in (record.landing or Landing()).reviews)
     checks = (
         partial(review_form.attempt_refused, said, len(recorded) + 1, recorded),
-        partial(review_form.tip_refused, said.tip, world.tip or "", slug),
+        partial(
+            review_form.tip_refused,
+            said.tip,
+            # The start and checks must hold before read is due.
+            world.tip or "",  # pragma: no mutate
+            slug,
+        ),
         partial(review_form.under_floor, said, least, slug),
         partial(review_form.call_refused, said, slug),
         partial(review_form.names_refused, said),

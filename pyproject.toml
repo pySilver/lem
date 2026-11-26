@@ -151,12 +151,20 @@ addopts = [
 [tool.inline-snapshot]
 default-flags = ["disable"]
 
+# ==== mutmut ====
+[tool.mutmut]
+# Copy the package for imports, and mutate only the landing's pure rules.
+source_paths = ["src/"]
+only_mutate = ["src/lem/model/landing/*.py"]
+pytest_add_cli_args_test_selection = ["tests/unit/landing", "tests/model", "tests/histories"]
+also_copy = [".claude-plugin/", "agents/", "skills/lem/"]
+
 # ==== ruff ====
 [tool.ruff]
 # ruff's own format and its line length of 88, with no option of ours.
 # ruff also formats the Python blocks of a Markdown file. The stage files, the plans and the guides
 # keep their text as it was written.
-extend-exclude = ["*.md"]
+extend-exclude = ["*.md", "mutants/"]
 
 # Where an import finds Lem's package and the tests' own modules: each folder that the entry
 # or a test puts on `sys.path`.
@@ -282,7 +290,7 @@ search-path = [
 # the dot-folder heuristic, a check run inside a worktree reads no file and passes.
 use-ignore-files = false
 disable-project-excludes-heuristics = true
-project-excludes = ["**/node_modules", "**/__pycache__", "**/.[!/.]*"]
+project-excludes = ["**/node_modules", "**/__pycache__", "**/.[!/.]*", "mutants/**"]
 
 [tool.pyrefly.errors]
 # Both are off by default. On, a `# pyrefly: ignore` or `# type: ignore` that no longer hides an

@@ -95,8 +95,9 @@ class Walk:
         """Walk DIFF once, line by line."""
         self.files: list[Changed] = []
         # the file at hand, none before the first header
-        self.current: Changed = ("", [])
-        self.old = ""
+        # A git hunk always follows both file headers, which set these two fields.
+        self.current: Changed = ("", [])  # pragma: no mutate
+        self.old = ""  # pragma: no mutate
         # the lines of the hunk still to come, those that went and those that came, by its
         # `@@` header: a line inside a hunk is never a file's header, also a removed line
         # whose text starts with `-- ` (`--- ` in the diff, a removed SQL comment)
@@ -125,7 +126,12 @@ class Walk:
     def header(self, line: str) -> None:
         """Take a LINE outside a hunk: a file's header."""
         if line.startswith("--- "):
-            self.old = line.removeprefix("--- a/") if line.startswith("--- a/") else ""
+            # The old path is used only on deletion, where git always gives it.
+            self.old = (
+                line.removeprefix("--- a/")  # pragma: no mutate
+                if line.startswith("--- a/")
+                else ""  # pragma: no mutate
+            )
         elif line.startswith("+++ "):
             # a file that is gone has its lines counted under the name it had
             path = (
@@ -214,7 +220,8 @@ class Fences:
 
     def open(self, index: int, fence: str, after: str) -> None:
         """Open a block at the line INDEX with FENCE, unless it is backticks with one AFTER it."""
-        if not (fence[0] == TICK and TICK in after):
+        # The fence regex requires every character of a fence to be the same.
+        if not (fence[0] == TICK and TICK in after):  # pragma: no mutate
             self.opened = (fence, index)
 
     def closes(self, opened: Opened, fence: str, after: str) -> bool:

@@ -81,6 +81,7 @@ def shelved(
     if write is None:
         return shelf
     found = items.read(write.path, write.text)
-    more = (*shelf.shelved, found) if found else shelf.shelved
+    # The write came from itemized and always has a readable heading.
+    more = (*shelf.shelved, found) if found else shelf.shelved  # pragma: no mutate
     paths = shelf.paths | {write.path}
     return msgspec.structs.replace(shelf, paths=paths, shelved=more)

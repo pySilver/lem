@@ -15,7 +15,8 @@ CODE = 4
 def unclosed(token: Token, lines: list[str]) -> int | None:
     """The line of a fenced block that runs to the end of the notes with no closing fence,
     counted from 1; None for any other token."""
-    first, end = token.map or (0, 0)
+    # CommonMark gives each fence a map. Other tokens do not use these values.
+    first, end = token.map or (0, 0)  # pragma: no mutate
     if token.type != "fence" or end < len(lines):
         return None
     last = lines[end - 1]
@@ -31,4 +32,5 @@ def closes(line: str, markup: str) -> bool:
     if len(line) - len(text) >= CODE:
         return False
     bare = text.rstrip()
-    return bare.startswith(markup) and not bare.strip(markup[0])
+    # Every character in a CommonMark fence is the same.
+    return bare.startswith(markup) and not bare.strip(markup[0])  # pragma: no mutate

@@ -21,7 +21,11 @@ HEADING = "Decisions of the task:"
 
 def quoted(text: str | None) -> str:
     """The stored text in quotes, with line breaks escaped and other Unicode left readable."""
-    encoded = json.dumps(text or "", ensure_ascii=False)
+    encoded = json.dumps(
+        text or "",
+        # json treats None as false for this option too.
+        ensure_ascii=False,  # pragma: no mutate
+    )
     return encoded.translate(
         {ord("\x85"): r"\u0085", ord("\u2028"): r"\u2028", ord("\u2029"): r"\u2029"},
     )

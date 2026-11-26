@@ -106,12 +106,12 @@ def message_refusal(world: World, asked: Asked) -> Refusal | None:
     """Why the subject does not fit `branch.history`: a squash needs it, a merge that keeps
     the branch's commits takes none."""
     squash = world.rules.history == "squash"
-    if squash and asked.subject is None:
+    if squash and not asked.subject:
         why = (
             'branch.history is "squash": the one commit takes the subject of the report'
         )
         fix = "pass --message with the commit subject of the builder's report"
-    elif not squash and asked.subject is not None:
+    elif not squash and asked.subject:
         why = (
             'branch.history is "keep": the branch\'s own commits land, with no subject'
         )
