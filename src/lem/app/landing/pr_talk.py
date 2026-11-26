@@ -4,6 +4,8 @@ the plan with its defender, its turns and positions, then each other count of th
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
+from lem.model.task.talk import bound
+
 if TYPE_CHECKING:
     from lem.records.work import Talk
 
@@ -45,9 +47,19 @@ def counted(talk: Talk) -> str:
     )
 
 
+def turns_of(talk: Talk) -> str:
+    """The turns the talk took, and its bound if it went over."""
+    turns = many(talk.turns, ("turn", "turns"))
+    limit = bound(talk)
+    if talk.turns <= limit:
+        return turns
+    questions = many(talk.questions, ("question", "questions"))
+    return f"{turns}, over the bound of {limit} for its {questions}"
+
+
 def talked(talk: Talk) -> str:
     """The plan talk: who argued it, its turns and positions, then each other count."""
-    turns = many(talk.turns, ("turn", "turns"))
+    turns = turns_of(talk)
     argued = f"{talk.reviewer} argued the plan with its defender, {turns}"
     settled = many(talk.settled, ("position", "positions"))
     left = f"{settled} settled by the two, {talk.open} left open"

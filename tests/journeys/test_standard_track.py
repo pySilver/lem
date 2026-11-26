@@ -238,13 +238,13 @@ TALK = (
     "--reviewer",
     "codex",
     "--turns",
-    "6",
+    "23",
     "--questions",
-    "1",
+    "5",
     "--settled",
-    "1",
+    "4",
     "--open",
-    "0",
+    "1",
     "--repaired",
     "1",
     "--design",
@@ -288,8 +288,9 @@ def test_a_plan_of_four_tasks_is_proposed_only_after_its_plan_talk(
     body = world.forge.bodies[proposed["result"]["pull"]["number"]]
     talks = [line for line in body.splitlines() if line.startswith("- the plan talk")]
     talk = (
-        "- the plan talk: codex argued the plan with its defender, 6 turns; 1 position "
-        "settled by the two, 0 left open; 1 question in the reviewer's first list, 1 "
+        "- the plan talk: codex argued the plan with its defender, 23 turns, over the bound "
+        "of 22 for its 5 questions; 4 positions settled by the two, 1 left open; "
+        "5 questions in the reviewer's first list, 1 "
         "repaired by the defender, 0 of the open ones a design choice, 0 raised after the "
         "list and not argued, 0 repaired at the cause, 0 layers over a cited decision, 0 "
         "decisions two questions named"

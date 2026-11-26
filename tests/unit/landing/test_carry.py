@@ -340,3 +340,39 @@ def test_the_same_tip_on_a_base_that_went_back_carries_nothing() -> None:
     )
     assert ended is not None
     assert ended.state == "ended"
+
+
+def test_an_ordinary_resolution_read_does_not_take_back_a_careful_round() -> None:
+    digest = merge_standing.digest_of(PROPOSED.reasons, PROPOSED.contract)
+    approval = Standing(tip=TIP, reasons_digest=digest, by_act="board", at=MOMENT)
+    careful = replace(REVIEWED, careful=True, careful_why="the change charges a card")
+    record = replace(
+        opened(),
+        landing=replace(
+            RESOLVED, standing=approval, reviews=(careful, RESOLUTION_READ)
+        ),
+    )
+    made, read = proposal_carry.judged(
+        record, NOW, replace(PROPOSED, tip=NEW, base=MOVED)
+    )
+    assert read is None
+    assert made.owner_merge is not None and made.owner_merge.state == "ended"
+
+
+def test_only_git_proof_of_filed_items_extends_the_resolution_carry() -> None:
+    last = replace(RESOLUTION_READ, findings=REVIEWED.findings)
+    digest = merge_standing.digest_of(PROPOSED.reasons, PROPOSED.contract)
+    approval = Standing(tip=TIP, reasons_digest=digest, by_act="board", at=MOMENT)
+    record = replace(
+        opened(),
+        landing=replace(RESOLVED, standing=approval, reviews=(REVIEWED, last)),
+    )
+    made = replace(PROPOSED, tip=OTHER, base=MOVED)
+    after = replace(NOW, tip=OTHER)
+    unproved, read = proposal_carry.judged(record, after, made)
+    assert read is None
+    assert unproved.owner_merge is not None and unproved.owner_merge.state == "ended"
+    proved = replace(after, item_chain=(NEW, OTHER))
+    carried, read = proposal_carry.judged(record, proved, made)
+    assert read is not None and (read.carried_from, read.tip) == (TIP, OTHER)
+    assert carried.owner_merge is not None and carried.owner_merge.state == "stands"

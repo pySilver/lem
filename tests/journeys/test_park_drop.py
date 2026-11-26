@@ -457,3 +457,23 @@ def test_a_task_the_release_stop_held_is_dropped_and_goes_on_as_a_new_request(
     assert new.release != "0.0.1"
     worktree = world.checkout / ".lem" / "worktrees" / found["task"]
     assert run_git(worktree, "log", "-1", "--format=%s") == "docs: receive"
+
+
+def test_a_resume_leaves_an_unrelated_local_branch_and_makes_no_successor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    through(capsys, world, BUILDING + 1)
+    tripped(capsys, world)
+    drop(capsys, world)
+    successor = f"{SLUG}-2"
+    branch = f"{BRANCH}-2"
+    run_git(world.checkout, "branch", branch, "main")
+    unrelated = run_git(world.checkout, "rev-parse", branch)
+
+    said = refused(capsys, world, "task", "resume", SLUG)
+    assert (said["code"], status(world)) == ("branch-taken", "dropped")
+    assert branch in said["why"]
+    assert run_git(world.checkout, "rev-parse", branch) == unrelated
+    assert not places.task_folder(world.checkout / places.STATE, successor).exists()
+    assert not (world.checkout / ".lem" / "worktrees" / successor).exists()

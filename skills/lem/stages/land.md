@@ -194,8 +194,10 @@ their own `say`, and take the landing up as after a cut-off.
    A check that fails is work, and a builder's. Before you start another builder for the same
    failure, count the builders that worked on it. If two builders worked on it, start no third
    builder and take the ladder when an approval stands through the recheck. Ask the owner only
-   if a criterion must change or the breaker applies. In other landings, tell the owner in one
-   line and wait for his word.
+   if a criterion must change or the breaker applies. In other landings, run
+   `lem land checks SLUG --repair-limit` to put the block on the board and send its notification.
+   Say its `say` line to the owner and wait for his word. On his word, run
+   `lem task move SLUG ready --line "go on"` to lift the block.
 
    With fewer than two builders on that failure, `spawn-builder` with the brief below, the job
    "the repair of a failed check", and as its paths what the refusal names (the commands that

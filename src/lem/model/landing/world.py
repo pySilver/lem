@@ -52,6 +52,7 @@ class PullSeen(Frozen, frozen=True, kw_only=True):
     url: str
     title: str
     body: str = ""
+    author: str | None = None
     state: Literal["open", "closed", "merged"]
     head: Sha
     base: str

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing import changes
+from lem.app.landing import changes, pr_sync
 from lem.records.base import Frozen
 from lem.records.journal.landing import NotGreen
 from lem.records.journal.proposal import ProposalNoted
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 
-class Made(Frozen, frozen=True, kw_only=True, omit_defaults=False):
+class Made(Frozen, frozen=True, kw_only=True):
     """What `propose` gives: the pull request's number and address, green or each reason it
     is not, whether it is careful, who merges it, the tip and the branch, and the text's
     path in the task's folder."""
@@ -31,6 +31,7 @@ class Made(Frozen, frozen=True, kw_only=True, omit_defaults=False):
     tip: str
     branch: str
     text: str
+    synced: str | None = None
 
 
 def opened(
@@ -38,13 +39,19 @@ def opened(
 ) -> Record:
     """The record with the proposal, the pull request and the phase `open`; a request that
     is not green names its reasons in the journal."""
+    proposal = ProposalNoted(
+        at=made.at,
+        tip=made.tip,
+        green=made.green,
+        reasons=made.reasons,
+        review_carry=pr_sync.reviewed(record.landing, made) if record.landing else None,
+        merge_review=made.merge_review,
+        owner_merge=made.owner_merge,
+    )
     changed = changes.landing(
         record, proposed=made, pull=pull, phase="open", refused=None
     )
     changed = carried(changed, made, read)
-    proposal = ProposalNoted(
-        at=made.at, tip=made.tip, green=made.green, reasons=made.reasons
-    )
     changed = changes.noted(changed, proposal)
     if made.reasons:
         entry = NotGreen(at=made.at, tip=made.tip, reasons=made.reasons)
@@ -81,6 +88,7 @@ def given(record: Record, made: Proposed, where: tuple[Pull, str]) -> Made:
         tip=made.tip,
         branch=branch,
         text=made.text or "",
+        synced=pr_sync.summary(record, made),
     )
 
 
@@ -88,6 +96,8 @@ def said(made: Made) -> str:
     """The line for the owner: the pull request's address, and green or each reason."""
     address = made.pull.url
     if made.green:
-        return f"pull request {address}: green"
-    listed = "; ".join(made.reasons)
-    return f"pull request {address}: not green: {listed}"
+        line = f"pull request {address}: green"
+    else:
+        listed = "; ".join(made.reasons)
+        line = f"pull request {address}: not green: {listed}"
+    return f"{line}; {made.synced}" if made.synced else line

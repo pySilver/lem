@@ -12,6 +12,7 @@ import pytest
 from fakes.repo import run_git
 from fakes.terminal import FakeTerminal
 from journeys.agent import ok, refused, small_built, small_landed
+from journeys.landing.test_base import landing
 from journeys.landing.test_merge import moved, owner
 from journeys.test_duties import served, ticked
 from journeys.test_skeleton import REVIEW, SETTINGS, SLUG, SUBJECT, made, upto
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from journeys.test_skeleton import Envelope, World
+    from lem.adapters.notify_push_devices import Said
 
 type Capsys = pytest.CaptureFixture[str]
 
@@ -33,10 +35,6 @@ REPAIR = "license-is-there"
 def settings(world: World, text: bytes) -> None:
     """The team's settings of the main checkout, as the owner edited them."""
     (world.checkout / ".lem" / "settings.toml").write_bytes(text)
-
-
-def landing(world: World) -> Envelope:
-    return world.record()["landing"]
 
 
 # ---- a red base ----
@@ -227,6 +225,16 @@ def test_an_open_must_fix_carries_over_a_clean_rebase_and_the_server_merges_his_
         (first["tip"], False, [FIXED_WHY]),
         (kept["tip"], False, [FIXED_WHY]),
     ]
+    second = proposals[1]
+    assert (
+        second["review_carry"],
+        second["merge_review"],
+        second["owner_merge"]["state"],
+    ) == (
+        "The review carried over the rebase, and its open must-fix.",
+        "carried",
+        "stands",
+    )
     assert landing(world)["relands"] == 1
     assert (
         "lem land merge readme-says-receive --by owner --via server --standing"
@@ -253,3 +261,62 @@ def test_an_open_must_fix_carries_over_a_clean_rebase_and_the_server_merges_his_
     ticked(world, own_home, now + timedelta(minutes=3))
     assert world.record()["task"]["status"] == "landed"
     assert run_git(world.repo.origin, "log", "-1", "--format=%s", "main") == SUBJECT
+
+
+def test_two_failed_repairs_block_the_landing_on_the_board_and_send_one_push(
+    tmp_path: Path, own_home: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    from journeys import test_standard_track as standard
+    from journeys.test_acts import Board
+    from lem.adapters.notify_push import PushNotifier
+    from lem.board import machine
+    from lem.board.push.watch import Watcher
+
+    world = made(tmp_path, monkeypatch)
+    standard.shaped(capsys, world)
+    standard.built(capsys, world, standard.planned(capsys, world))
+    for verb in ("start", "base", "polish"):
+        ok(capsys, world, "land", verb, SLUG)
+    ok(capsys, world, "land", "polish", SLUG, "--done")
+    red = SETTINGS.replace(b'"grep -q receive README.md"', b'"test -f LICENSE"')
+    settings(world, red)
+    assert refused(capsys, world, "land", "checks", SLUG)["code"] == "red"
+    repair = ("task", "span", SLUG, "builder")
+    for _ in range(2):
+        ok(capsys, world, *repair, "start", "--job", "the repair of a failed check")
+        ok(capsys, world, *repair, "end", "--job", "the repair of a failed check")
+        assert refused(capsys, world, "land", "checks", SLUG)["code"] == "red"
+
+    board = Board(world)
+    sent: list[Said] = []
+
+    def told(
+        _notifier: PushNotifier, push: Said, _names: tuple[str, ...]
+    ) -> tuple[object, ...]:
+        sent.append(push)
+        return (object(),)
+
+    monkeypatch.setattr(PushNotifier, "told", told)
+    watcher = Watcher(own_home, machine.machine_name(), PushNotifier(own_home, {}))
+    watcher.look(0.0)
+    sent.clear()
+
+    blocked = ok(capsys, world, "land", "checks", SLUG, "--repair-limit")
+    why = "two builders could not repair the checks"
+    assert why in blocked["say"]
+    assert world.record()["task"]["hold"]["why"] == why
+    assert ok(capsys, world, "land", "next", SLUG)["result"]["step"] == "wait"
+    assert refused(capsys, world, "land", "checks", SLUG)["code"] == "not-due"
+    waits = board.client.get(f"{board.base}/waits")
+    assert waits.status_code == 200
+    assert why in waits.text
+    assert watcher.look(10.0) == 1
+    assert [(push.tag, push.url) for push in sent] == [
+        (f"lem-blocked:{SLUG}", f"{board.base}/tasks/{SLUG}")
+    ]
+    assert watcher.look(20.0) == 0
+
+    fix = world.record()["task"]["hold"]["fix"]
+    assert f"lem task move {SLUG} ready" in fix
+    ok(capsys, world, "task", "move", SLUG, "ready", "--line", "the owner says go on")
+    assert world.record()["task"].get("hold") is None

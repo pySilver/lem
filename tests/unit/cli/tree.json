@@ -1435,6 +1435,11 @@
               "aliases": [],
               "value": false,
               "required": false
+            },
+            "--repair-limit": {
+              "aliases": [],
+              "value": false,
+              "required": false
             }
           },
           "positionals": [

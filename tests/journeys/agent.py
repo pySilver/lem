@@ -77,10 +77,6 @@ CLEAN_READ = {
 }
 
 
-def worktree_of(world: World, slug: str) -> Path:
-    return world.checkout / ".lem" / "worktrees" / slug
-
-
 def small_built(
     capsys: Capsys,
     world: World,
@@ -102,7 +98,7 @@ def small_built(
     ok(capsys, world, "criteria", "approve", slug, "--small")
     ok(capsys, world, "task", "worktree", slug)
     ok(capsys, world, "task", "move", slug, "building", "--line", "one builder")
-    where = worktree_of(world, slug)
+    where = world.checkout / ".lem" / "worktrees" / slug
     write(where, {name: body.encode() for name, body in files.items()})
     run_git(where, "add", "--all")
     run_git(where, "commit", "--quiet", "--message", subject)

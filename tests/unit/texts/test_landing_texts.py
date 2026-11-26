@@ -58,10 +58,7 @@ def test_the_landing_stage_limits_repair_to_two_builders_on_the_same_failure() -
         "Ask the owner only if a criterion must change or the breaker applies"
         in decision
     )
-    assert (
-        "In other landings, tell the owner in one line and wait for his word"
-        in decision
-    )
+    assert "In other landings, run `lem land checks SLUG --repair-limit`" in decision
 
 
 def test_the_landing_stage_tells_the_owner_after_the_repair_session_is_gone_twice() -> (
