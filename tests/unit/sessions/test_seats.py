@@ -109,6 +109,26 @@ def test_a_failed_seat_not_in_its_form_is_refused(tmp_path: Path) -> None:
     assert refused.value.code == "seat"
 
 
+def test_a_usage_limit_is_a_seat_failure_on_record(tmp_path: Path) -> None:
+    here = here_of(tmp_path)
+    made(here, status="building")
+    ran = lem(
+        "seat",
+        "failed",
+        SLUG,
+        "reviewer",
+        "--seat",
+        "codex/gpt-6.2-sol:high",
+        "--error",
+        "usage-limit",
+        cwd=here.where.checkout,
+    )
+    assert ran.code == 0, ran
+    assert "it reached its usage limit" in ran.stdout
+    stood = tasks.read(here.where.state, SLUG).task.stand_ins[-1]
+    assert (stood.error, stood.took) == ("usage-limit", "claude/opus:high")
+
+
 def test_a_late_error_on_an_ended_task_is_refused_and_blocks_nothing(
     tmp_path: Path,
 ) -> None:

@@ -47,6 +47,40 @@ def keys(struct: type[msgspec.Struct]) -> tuple[str, ...]:
     return tuple(field.encode_name for field in msgspec.structs.fields(struct))
 
 
+def test_the_plan_and_its_talk_write_the_records_the_landing_reads() -> None:
+    plan = text("stages/plan.md")
+    committed, recording, talk = plan.partition("lem --repo WORKTREE task planned SLUG")
+    assert "commit" in committed
+    assert recording
+    assert "--tasks N" in talk
+    assert "--careful" in talk
+    assert talk.index("--tasks N") < talk.index("lem session wait")
+    assert "plan committed, N tasks" not in plan
+    assert "lem --repo WORKTREE task talked SLUG" in text("stages/talk.md")
+
+
+def test_the_reviewer_keeps_its_working_directory_out_of_task_state() -> None:
+    reviewer = text("prompts/reviewer.md")
+    assert "Run shell commands from the worktree" in reviewer
+    assert "absolute paths" in reviewer
+    assert "Never change directory into Lem's task state" in reviewer
+
+
+def test_build_and_investigation_stages_name_their_typed_spans() -> None:
+    assert "task span SLUG lead start --by builder" in text("stages/start.md")
+    assert "task span SLUG task start --of N/M" in text("stages/build.md")
+    assert "task span SLUG task end --of N/M" in text("stages/build.md")
+    assert "task span SLUG investigation start --job fix|question" in text(
+        "stages/investigate.md"
+    )
+
+
+def test_the_lead_queues_with_a_dependency_on_record() -> None:
+    stage = text("stages/plan.md")
+    assert "--track full --then lead --after OTHER-SLUG" in stage
+    assert ' --line "after: ' not in stage
+
+
 def test_the_landing_stage_limits_repair_to_two_builders_on_the_same_failure() -> None:
     said = text("stages/land.md")
     _, _, repair = said.partition("A check that fails is work")

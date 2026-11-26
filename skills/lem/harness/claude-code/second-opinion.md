@@ -18,23 +18,22 @@ The owner sets the seat with `/lem set local reviewer AGENT/MODEL:EFFORT` for on
 this machine, or `/lem set global ...` for each repository on it that names none. Never change the
 seat by yourself, and never write a file of the settings.
 
-**When the reviewer's agent gives an error**, it is one of four, each a KIND of `lem seat
-failed`:
+**When the reviewer's agent gives an error**, these are the kinds of `lem seat failed`:
 
 - `missing`: the program is not on this Mac, `command not found: codex` (or `claude`) on the
   pane's screen;
 - `login`: the agent's own message that it has no login;
-- `tokens`: its message that it has no tokens, or that it reached a usage limit;
+- `tokens`: its message that it has no tokens;
+- `usage-limit`: its message that it reached a usage limit;
 - `model`: its message that it does not know the model.
 
 You see it on the pane's screen, `agtermctl session text --pane right --target
 "$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET"`, at the open of step 2 and whenever you read the
 pane, or in a reply. The words change with each release of Codex and Claude Code, so the KIND is
 your read of them. A slow reviewer is no error: wait for it, however long its turn takes. An
-agent that ended with words of another kind is none of the four and gets no stand-in: open the
+agent that ended with words of another kind gets no stand-in: open the
 same seat once more at step 2; after a second such end, mark the session as waiting for the
-owner (`mark-waiting`) first, then say it in one line, the last text of your turn. On one of the
-four, run
+owner (`mark-waiting`) first, then say it in one line, the last text of your turn. On an error above, run
 
 ```bash
 lem seat failed SLUG reviewer --seat "LINE" --error KIND --said "ITS WORDS"
@@ -63,7 +62,7 @@ for the seat that failed. The report says "same family" when it is.
      `agtermctl session type --stdin --pane right --target "$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET" < FILE`.
      The line starts the agent with the reviewer's brief, `prompts/reviewer.md` in this skill's
      directory, by absolute path:
-     - Codex: `codex -m "MODEL" -c "model_reasoning_effort=EFFORT" -a never -c 'default_permissions="lem_review"' -c "permissions.lem_review.filesystem={\":root\"=\"read\",\"/tmp/mailbox-chat-$AGTERM_PANE_ID.txt\"=\"write\"}" "$(cat "PATH/prompts/reviewer.md")"`.
+     - Codex: `codex --no-daemon -m "MODEL" -c "model_reasoning_effort=EFFORT" -a never -c 'default_permissions="lem_review"' -c "permissions.lem_review.filesystem={\":root\"=\"read\",\"/tmp/mailbox-chat-$AGTERM_PANE_ID.txt\"=\"write\"}" "$(cat "PATH/prompts/reviewer.md")"`.
        A Codex pane receives mail only after its first prompt, and the brief is that prompt.
        `$AGTERM_PANE_ID` stays as written: the reviewer pane's own shell expands it to its id.
        The profile `lem_review` reads the whole machine and writes one file, the reviewer's
@@ -109,7 +108,7 @@ for the seat that failed. The report says "same family" when it is.
      seat's value.
    - read `agtermctl tree --json` and confirm the session's `splitForeground` is that agent, then
      `mailbox-chat.py status` again. A pane whose agent is gone, or whose screen shows one of the
-     four errors above, is a seat that failed: run `lem seat failed` as above.
+     errors above, is a seat that failed: run `lem seat failed` as above.
    - Codex asks "Trust this folder?" the first time it starts in a repository, and it saves the
      answer in the owner's Codex configuration. That answer is the owner's: tell the owner that
      the reviewer's pane waits for it, and do not type into the pane. `mailbox-chat.py status`
@@ -141,6 +140,6 @@ for the seat that failed. The report says "same family" when it is.
 Say in the report which family reviewed. Two agents of one family agree more easily than two of
 different ones; the report says "same family" when that was the case.
 
-Not run yet: a reviewer that gives one of the four errors in a real talk, and either line in a
+Not run yet: a reviewer that gives one of these errors in a real talk, and either line in a
 pane whose login shell is not fish. Both lines ran in fish only, and their status lines showed
 the seat's model and effort (Codex 2026-11-22, Claude Code 2026-11-23).

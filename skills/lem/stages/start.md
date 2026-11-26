@@ -36,14 +36,14 @@ session), `/lem build`, and a task he resumed. The investigator of a bug or a qu
    the ticket as started (its "start"), unless the ticket is there already.
 4. **Who builds.**
    - *The fast track*: `spawn-builder` with one line, `Read TASK_DIRECTORY/brief.md and follow
-     it.`, and as it starts, `lem task span SLUG small start`; its state of `ready`, or of
-     `shaping` when the fast track does not fit, is its end. Its reply wakes this session ("The fast track" of
+     it.`, and as it starts, `lem task span SLUG small start`. Its reply wakes this session
+     ("The fast track" of
      `stages/new.md`, step 3).
    - *After his yes to an interview's criteria, in the shape's session*: hand the task to a fresh
      lead, as `prompts/session.md` says under "A change of phase": the build is a phase of its own.
      Only an interview's session hands over here.
    - *In a session whose phase is the build, or on the standard track from a complete request*:
-     you are the lead. Mark its start, `lem task span SLUG lead start`, then read `brief.md` and
+     you are the lead. Mark its start, `lem task span SLUG lead start --by builder`, then read `brief.md` and
      follow it. A lead that stopped for his yes after the
      personas' read (`stages/plan.md`, step 1) goes on as the lead after it: it builds on, and
      hands nothing over.
@@ -57,7 +57,7 @@ it prints `already: true`, the task's session still waits for his word: say its 
 "build" there starts it. A path to a plan file names its task too: the file's name is the settings'
 `paths.plan_file` (`YYYY-MM-DD-<slug>.md` unless they say otherwise), and the slug is the task's:
 `lem task build PLAN-FILE` takes the path as it is.
-With no name, list the tasks in that state (`lem task list`), each with its ask and its plan's
+With no name, list the tasks in that state (`lem task build`), each with its ask and its plan's
 path, and ask which one: a fixed choice, so it stays in the terminal. One such task needs no
 question.
 

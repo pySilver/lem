@@ -10,13 +10,17 @@ Before the plan, look at the other tasks (`lem task list`). When the code you re
 this task builds on what another task changes and that task has not ended (it is not landed,
 answered or dropped; its plan names the function, the table or the file this task needs, and the
 base does not have it yet), the plan
-would be written against code that does not exist. Then write no plan: stop with the state
+would be written against code that does not exist. Then write no plan. Move back to the queue,
+and record the dependency:
 
 ```bash
-lem --repo WORKTREE task move SLUG queued --line "WHAT THIS TASK NEEDS FROM THE OTHER, IN ONE LINE" --line "after: OTHER-SLUG"
+lem --repo WORKTREE task move SLUG queued --line "WHAT THIS TASK NEEDS FROM THE OTHER, IN ONE LINE"
+lem --repo WORKTREE task read SLUG --type TYPE --why "WHY" --track full --then lead --after OTHER-SLUG
 ```
 
-and `report.md` as `stages/build.md` gives it; then `handoff.md`, and close this session as step 7
+Take `TYPE`, `WHY` and each `--careful` topic from `shape` in `lem task show SLUG`. Keep any other
+dependencies and the owner's `--order`. End the lead's span with `lem task span SLUG lead end`, then
+write `report.md` as `stages/build.md` gives it and `handoff.md`, and close this session as step 7
 of "The request" (`stages/new.md`) says. `lem task may-start` keeps the task in the queue until
 that task is landed or answered, and the board's server opens its session then, or wakes it when
 it still runs; its lead finds the base with the other task's change in it. When that task is
@@ -25,18 +29,19 @@ to queue behind again: what a task started past a dropped task still needs of it
 inside it. Two tasks that only touch the same file each go on: when the first one merges, the
 later pull request is brought onto the base if the forge calls it conflicting.
 
-An order that the owner gave stays. His order is the first line of a `queued` block of this task,
-`the owner's order: "HIS WORDS"`, or his words in the ask of `task.md` that put the whole task
+An order that the owner gave stays. Read `order` and `after` in `lem task show SLUG`, and the
+words in the ask of `task.md` that put the whole task
 after another task ("After gift-note-in-export: ...", "when the gift note task lands"). You never
-remove it, also when the code shows that this task needs nothing of the other one: only his own
-record removes it, a decision `--by owner` on the order in `lem --repo WORKTREE decisions list
-SLUG` (`stages/start.md`, "`/lem build`"), which you read before the ask, so his words in
+remove it, also when the code shows that this task needs nothing of the other one. The owner's
+`lem task start` command clears `order` and `after` and writes `the owner's word` in the task's
+journal (`stages/start.md`, "`/lem build`"). Read that record before the ask, so his words in
 `task.md` do not bring back an order he removed. A task that started all the same while the task
 he named has not landed or been answered gets no plan and no code: queue it as above, with his words as the first
 line, the words of his that give the order on one line,
 
 ```bash
-lem --repo WORKTREE task move SLUG queued --line "the owner's order: \"After gift-note-in-export\"" --line "after: gift-note-in-export"
+lem --repo WORKTREE task move SLUG queued --line "the owner's order: After gift-note-in-export"
+lem --repo WORKTREE task read SLUG --type TYPE --why "WHY" --track full --then lead --after gift-note-in-export --order "After gift-note-in-export"
 ```
 
 and name his words in your report. When you see no need for his order, the block gets one more
@@ -45,8 +50,8 @@ that "start SLUG now" starts the task; when the task is queued already, write it
 with each of its lines and that one. Your report says the same. A task he named that ended has met his order: go on.
 
 1. **Write the plan** as one file at the path `lem --repo WORKTREE task plan-file SLUG`
-   prints (`path`; its name is the settings' `paths.plan_file`, `YYYY-MM-DD-<slug>.md` unless they say otherwise), and
-   commit it as your first commit: after a bug, the investigator's test comes before it. It opens with the acceptance criteria, because they are the
+   prints (`path`; its name is the settings' `paths.plan_file`, `YYYY-MM-DD-<slug>.md` unless they say otherwise).
+   Step 2 commits and records it. After a bug, the investigator's test comes before it. It opens with the acceptance criteria, because they are the
    owner's document: he reads them and not the rest of the plan, and they become the tests. Read
    `SKILL_DIR/prompts/writing.md` before you write it; the plan and your report take its forms.
    - `## Acceptance criteria`, in the form `lem criteria show --help` shows.
@@ -109,10 +114,11 @@ with each of its lines and that one. Your report says the same. A task he named 
      first line of code waits. Write `report.md` with the criteria and the answers that flagged
      them on top, quoted, and the line `the criteria wait for the owner`; write the criteria into
      `criteria.md` in the task directory too, the plan's section with no test line, so that the
-     board shows them with Yes and No; write the state `held` with that line, and put them to him
+     board can show them with Yes and No. Move to `shaping`, then repeat the task's read with
+     `--track full --then lead --wait criteria` to record the hold. Put them to him
      here, by steps 6 and 7 of `stages/interview.md`. A change of his there is no yes: it writes
      the changed criteria and waits for his yes again, and you stay the task's lead meanwhile.
-     After his yes, the plan's section takes the approved criteria word for word, as the first
+     After his yes, move back to `building`. The plan's section takes the approved criteria word for word, as the first
      bullet says of criteria approved at an interview, before `lem criteria record`, and you build
      on. Leave a flagged criterion as you wrote it: what you would change goes
      beside it, as a proposal, and he decides. A task that runs without him (`mode` is `alone` in
@@ -151,8 +157,8 @@ with each of its lines and that one. Your report says the same. A task he named 
    FILE ...` prints those rule files, the ones with no scope of their own too: do not
    match a file's `paths:` by eye.
    When the branch already holds a plan (a builder that stopped at the plan), do
-   not write another: read it against the code as it is now, and commit a fix for what the code
-   has outgrown.
+   not write another: read it against the code as it is now, and fix what the code has outgrown
+   before the commit in step 2.
 2. **Is the task careful?** Two tests, and one yes is enough:
    - *a topic*: the project's topics (`flow.topics` in `lem --repo WORKTREE settings show`, which
      gives the main checkout's table, so a branch cannot lift one), each a sentence of the
@@ -169,19 +175,31 @@ with each of its lines and that one. Your report says the same. A task he named 
    Write the call into the plan as one line under its title, before `## Acceptance criteria` (a line
    that is no criterion is refused inside that section), `careful: yes` or `careful: no`, with the
    one sentence of why: the topic in the owner's words and the task that reaches it, the pattern, or
-   what you checked to say that none is reached. The landing reads the call there and nowhere
-   else, and a yes stays a yes: a later commit that writes `no` does not take back the talk or
-   the full review. The same line goes into your next state block, where the owner reads it on
-   the board while the task builds, and into the report. Yours is not the last look: the agent
+   what you checked to say that none is reached. The landing reads the call from the task's plan
+   record, and a yes stays a yes: a later commit that writes `no` does not take back the talk or
+   the full review. Put the reason in the report. Yours is not the last look: the agent
    that reviews the diff before the pull request reads the change against the same topics, and
    a careful call of its own makes the request careful whatever the plan said.
    An outcome that needs more than seven tasks is two asks: say so in the report, and plan the
    first.
+
+   Commit the plan with its careful call and its task list. Then record it before the talk or
+   the build:
+
+   ```bash
+   lem --repo WORKTREE task planned SLUG --tasks N [--careful "WHY"] [--large]
+   ```
+
+   `N` is the count under `## Tasks`. Give `--careful` with the plan's reason when it says yes,
+   and `--large` when the count is more than three. This writes `plan` and moves the task to
+   `planned`. When you resume and `lem task show SLUG` already has `plan`, keep that record:
+   the count and careful call are the ones the plan took to its talk or build. When the commit
+   exists but `plan` is absent, record the committed plan's count and call before going on.
 3. **A careful or large plan is talked through before a builder leads its build.** A plan is
-   large when `## Tasks` has more than three numbered tasks. When step 2 says careful, or the
-   plan is large, read `talk` in `lem --repo WORKTREE task show SLUG`:
-   the counts `lem task talked` wrote for its plan talk, or null.
-   - *null*: the talk of step 4 comes first.
+   large when its record has more than three tasks. When the `plan` record says careful or large,
+   read `talk` in `lem --repo WORKTREE task show SLUG`:
+   the counts `lem task talked` wrote for its plan talk, when present.
+   - *absent*: the talk of step 4 comes first.
    - *a record*: the talk is done, and you lead the build of the plan it left: skip step 4, take
      the questions it left open at step 5, and go on. Read the `## Plan talk` section first: a
      repair changed the plan after you wrote it.
@@ -204,23 +222,22 @@ with each of its lines and that one. Your report says the same. A task he named 
       task directory: the task directory's absolute path
       ```
 
-   2. Open the pair (`open-task-session`, the plan talk's) with that file, on the seat that `lem
-      --repo WORKTREE seat show SLUG planner` prints, and write the state `building` with the
-      lines `the plan talk runs`, `lead: session` and `defender: MODEL, EFFORT`, as the pair's
-      status line shows them (the harness file says how to read them). A pair whose agent gives
-      an error at its open is a seat that failed, and the harness file says how its stand-in
-      opens, or the block of step 3 comes. When `lem task move` refuses that `building`
-      because the task is `blocked` with `the seat that failed:`, a seat of the pair failed before
-      you wrote it: write nothing over the block, and go on at step 3, whose wait gives it.
+   2. Move to `building` with `lem --repo WORKTREE task move SLUG building --line "the plan talk runs"`.
+      End the lead's span with `lem task span SLUG lead end`, then mark the pair's lead with
+      `lem task span SLUG lead start --by session`. Keep that span if the pair opens again.
+      Open the pair (`open-task-session`, the plan talk's) with that file, on the seat that `lem
+      --repo WORKTREE seat show SLUG planner` prints. A pair whose agent gives an error at its
+      open is a seat that failed. The harness file says how its stand-in opens, or the block of
+      step 3 comes.
    3. `run-in-background` with `lem session wait SLUG --until planned,held,blocked --companion ID
       --quiet TASK_DIR/talk-turns.md`, `ID` the pair's id from its open and `TASK_DIR` the task
       directory, where the defender keeps the talk's turns as they come. Its end wakes you:
-      - `planned` with `the plan talk is done`: close the pair (`open-task-session`), write the
-        state `building` with the line `lead: builder`, and go on at step 3, which now finds the
+      - `planned` with `the plan talk is done`: close the pair (`open-task-session`), end its lead
+        span, and start `lem task span SLUG lead start --by builder`. Go on at step 3, which now finds the
         record.
-      - `held`: the defender tripped the breaker. Close the pair and take it up as
+      - The `hold` is `held`: the defender tripped the breaker. Close the pair and take it up as
         `stages/breaker.md` says under "After it".
-      - `blocked`: a seat of the talk gave an error, and no fallback could stand in for it. Close
+      - The `hold` is `blocked`: a seat of the talk gave an error, and no fallback could stand in for it. Close
         the pair, mark this session as waiting for the owner (`mark-waiting`), then say the
         block's first line in one line, the last text of your turn, and wait. On his "go on",
         run `lem --repo WORKTREE seat again SLUG`, which writes `building` again and
@@ -229,12 +246,12 @@ with each of its lines and that one. Your report says the same. A task he named 
       - `"companion"`: the pair is gone and no state came. Read `talk` in `lem --repo
         WORKTREE task show SLUG` and the plan's `## Plan talk` first. A record there means the talk ended
         and its defender stopped before its state: go on as on `planned`. No record: open the
-        pair once more at step 2; when that one is gone with no record too, write the state
-        `held` with the line `the plan talk's pair ended twice with no record: its screen is the
-        owner's to read`.
-      - `"quiet": true`: `talk-turns.md` has not changed for 45 minutes, and an agent that stopped
+        pair once more at step 2. If it ends with no record again, put the failure in `report.md`
+        and mark this session as waiting (`mark-waiting`). Tell the owner in one line that the pair
+        ended twice with no record and where to read its screen. Wait for his word.
+      - `quiet` names `talk-turns.md`: it has not changed for 45 minutes, and an agent that stopped
         at a limit and stays live in its pane sends nothing. Read the screen of each pane of the
-        pair (the harness file says how). One of the four errors of the seats (the harness file's
+        pair (the harness file says how). An error of the seats (the harness file's
         `second-opinion`) on the defender's pane is `lem --repo WORKTREE seat failed SLUG
         planner`, on the reviewer's pane `lem --repo WORKTREE seat failed SLUG
         reviewer`, each with `--seat` the seat that `lem seat show` gave when that pane
@@ -264,4 +281,4 @@ with each of its lines and that one. Your report says the same. A task he named 
    settles otherwise, and the defender is one of the two positions that did not settle. The pick
    is taken: the defender writes the reversed decision into the plan when a level picks it, and
    trips the breaker when it changes the rule of an approved criterion.
-6. **Go on to `build`.** Write the state `building` with the line `plan committed, N tasks`.
+6. **Go on to `build`.** Run `lem --repo WORKTREE task move SLUG building --line "lead: builder"`.

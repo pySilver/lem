@@ -1,4 +1,4 @@
-"""`lem task show`: one task: status, hold, ticket owed, board answer, night, mode.
+"""`lem task show`: one task's status, hold, shape and work records.
 
     lem task show SLUG
 
@@ -29,5 +29,5 @@ COMMAND = click.Command(
         click.Argument(["slug"]),
     ],
     callback=lambda **given: run(msgspec.convert(given, Call)),
-    help="One task: status, hold, ticket owed, board answer, night, mode.",
+    help="One task's status, hold, shape and work records.",
 )

@@ -31,7 +31,7 @@ def paths(state: Path) -> list[Path]:
             f"Lem needs every task record for this step. It cannot list {folder}: {why}.",
             f"The owner restores read access to {folder} and tries again.",
         ) from error
-    records = (one / RECORD for one in folders)
+    records = (one / RECORD for one in folders if places.SLUG.fullmatch(one.name))
     return list(filter(published, records))
 
 

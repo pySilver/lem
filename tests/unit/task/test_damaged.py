@@ -4,6 +4,8 @@ refuses it with the damaged path."""
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from fakes.command import lem
 from lem.records.work import Plan
 from unit.task.spaces import made, read, refusal, workspace
@@ -95,3 +97,42 @@ def test_a_build_by_plan_file_still_reads_every_task(tmp_path: Path) -> None:
     found = refusal(lem("task", "build", target, cwd=tmp_path))
     assert found["code"] == "unread-task-record"
     assert str(path) in found["why"]
+
+
+def test_the_lead_can_read_the_plans_count_and_careful_call(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    made(where, "with-plan", status="building")
+    plan_in(where, "with-plan")
+    recorded = lem(
+        "task",
+        "planned",
+        "with-plan",
+        "--tasks",
+        "2",
+        "--careful",
+        "customer data",
+        cwd=tmp_path,
+    )
+    shown = lem("task", "show", "with-plan", cwd=tmp_path)
+
+    assert (recorded.code, shown.code) == (0, 0)
+    result = shown.result()
+    assert isinstance(result, dict)
+    assert result["plan"] == recorded.result()
+
+
+@pytest.mark.parametrize("name", [".claude", "Bad", "two--parts"])
+def test_a_build_by_plan_file_skips_folders_that_cannot_be_tasks(
+    tmp_path: Path, name: str
+) -> None:
+    where = workspace(tmp_path)
+    stray = where.state / "tasks" / name / ".cc-writes"
+    stray.mkdir(parents=True)
+    target = "docs/plans/2026-11-25-other.md"
+    made(where, "other", status="planned", plan=Plan(path=target))
+
+    ran = lem("task", "build", target, cwd=tmp_path)
+
+    assert ran.code == 0, ran
+    assert read(where, "other").task.status == "building"
+    assert stray.is_dir()

@@ -12,6 +12,8 @@ from lem.cli.doctor import (
     personas,
     project_rows,
 )
+from lem.cli.doctor.codex_mailbox import NAME as CODEX_MAILBOX
+from lem.cli.doctor.codex_mailbox import mailbox_rows
 from lem.cli.doctor.correction_hook import correction_hook_rows
 from lem.cli.doctor.installed import installed_rows
 from lem.cli.doctor.old_forms import old_forms_row
@@ -29,6 +31,7 @@ MACHINE_PARTS: tuple[Part, ...] = (
     ("board notifications", OPTIONAL, door_rows.notifications_row),
     ("board door", OPTIONAL, door_rows.door_row),
     ("project personas", PROJECT, personas.persona_rows),
+    (CODEX_MAILBOX, REQUIRED, mailbox_rows),
     ("correction hook", PROJECT, correction_hook_rows),
     ("hook modules", REQUIRED, hook_bin.hooks_row),
     ("hooks/run finds lem-hook", REQUIRED, hook_bin.lem_hook_row),

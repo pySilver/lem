@@ -12,6 +12,7 @@ from msgspec.structs import replace
 from lem.app import task_reads
 from lem.app.tasks import first_line, shown_answer
 from lem.model.task import claim, ticket_owner, tickets
+from lem.records import task, work
 from lem.records.base import Day, Frozen, Moment
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
 from lem.store import places, tasks
@@ -58,6 +59,11 @@ class Row(Frozen, frozen=True, kw_only=True):
     resumed_from: str | None = None
     first_line: str | None = None
     owner_careful: Moment | None = None
+    shape: task.Shape | None = None
+    lead: str | None = None
+    plan: work.Plan | None = None
+    investigation: work.Investigation | None = None
+    talk: work.Talk | None = None
     board_answer: shown_answer.BoardAnswer | None = None
 
 
@@ -135,5 +141,10 @@ def shown(folder: Path, slug: str) -> Row:
     return replace(
         row(record, task_reads.surveyed(where.state)),
         first_line=line,
+        shape=record.task.shape,
+        lead=record.task.lead,
+        plan=record.task.plan,
+        investigation=record.task.investigation,
+        talk=record.task.talk,
         board_answer=shown_answer.pending(record),
     )

@@ -93,8 +93,8 @@ and closes itself when it wakes, and it handed nothing over: go on from the reco
   subagent, and the landing runs here, step by step as `lem land next SLUG` gives it.
 - **The build**: `building` or `planned`, a block of the task (but for one of the merger's seat,
   which is the landing's, below), or a breaker's hold: read `brief.md` in the task directory and
-  follow it; it names `prompts/lead.md`, and you are the task's lead. A task with an investigation
-  on its record is an investigation: `SKILL_DIR/stages/investigate.md`, from its step 3 when its
+  follow it; it names `prompts/lead.md`, and you are the task's lead. A task whose `shape.then` is
+  `investigation` takes `SKILL_DIR/stages/investigate.md`, from its step 3 when its
   report is there. A block with `the base is red`: step 4 of `SKILL_DIR/stages/land.md`, its wait
   for that task. A block of the reviewer's or the planner's seat: a seat of the plan talk gave an
   error and no fallback stood in for it; as the lead, take `SKILL_DIR/stages/plan.md`, step 4, at

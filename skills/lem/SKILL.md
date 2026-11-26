@@ -381,12 +381,12 @@ says: `lem task span SLUG interview start` (before the first question; it ends o
 written again after the last question, and Lem's span of writing the criteria runs from there to
 `lem criteria skip SLUG asked`, `lem criteria read SLUG start` or the approval), `lem task span
 SLUG scout start|end`, `lem criteria read SLUG start --by lem|lead` (it ends at `lem criteria read
-SLUG done`), `lem task span SLUG investigation start|end`, and `lem task span SLUG builder start
---job JOB` for a builder's job (`task N of M`, `the small change`, `the repair of a conflict with
-the base`, `the repair of a failed check`, `the fix of a review's findings` or `the removal of the
-task's item`; it ends at the next move or step of the landing). The landing's commands log their
-own: the polish, the checks and each review. `lem task span SLUG plan-talk start|end` pairs the
-same way.
+SLUG done`) and `lem task span SLUG investigation start --job fix|question` (the typed
+investigation record ends it). `lem task span SLUG task start|end --of N/M` marks a task of the
+plan, and `lem task span SLUG small start|end` marks the fast track's builder. In the landing,
+`lem task span SLUG builder start|end --job JOB` marks a repair, a review fix or the removal of
+the task's item. The landing's commands log their own spans for polish, checks and review.
+`lem task span SLUG plan-talk start --by AGENT` starts a talk, and `lem task talked` ends it.
 
 Nothing else keeps a task's place. A session that was compacted or opened fresh reads the record
 first (`lem task show SLUG`), then `handoff.md` where it is newer, then the report, and goes on. No

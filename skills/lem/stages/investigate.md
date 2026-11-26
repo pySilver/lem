@@ -39,7 +39,8 @@ task.
    task directory: TASK_DIRECTORY
    ```
 
-   Mark its start as it starts, `lem task span SLUG investigation start`; the record of step 3
+   Mark its start as it starts, `lem task span SLUG investigation start --job fix|question` with
+   the type of the request. The record of step 3
    is its end. Then wait: its reply wakes
    you, and the first line of step 1 told him already. No investigation has been timed yet.
 3. **Read its report.** Its reply is the path of `investigation.md` in the task directory. When

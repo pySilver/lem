@@ -116,8 +116,8 @@ two whole seats with a comma between them for `experts`, or `false` for `fallbac
 Use `default` to remove the line.
 
 When the reviewer, planner or merge agent gives an error, the fallback seat starts in its place.
-The task goes on. An error is a program that is not on this computer, no
-login, no tokens, or a model that the agent does not know. A slow agent is not an error. The pull
+The task goes on. An error can come from a missing program, a missing login or an unknown model.
+An agent also fails if it has no tokens or reaches a usage limit. A slow agent is not an error. The pull
 request names the seat that stood in, the seat that failed and the error. This does not make it not green. With
 `fallback = false`, or when the fallback cannot stand in, the task stops and waits for you. Type
 "go on" in the session of the task, and Lem tries the seat again.

@@ -421,7 +421,7 @@ queued task").
    builder starts as `stages/start.md` says, after the move to `building`; the read of step 8
    printed the first line. There is no lead: the one builder is the fresh builder of the one task, as the owner's rule on a fresh
    builder for each task has it.
-3. **When it stops**, its reply is its report, of six lines at most, and you write `report.md`
+3. **When it stops**, run `lem task span SLUG small end`. Its reply is its report, of six lines at most, and you write `report.md`
    in the task directory from it word for word, but for its line of pictures: each picture it
    names goes in as a paragraph of its own, its link and its caption under it
    (`![WHAT IT SHOWS](media/NAME-before.png)`, then `*WHAT DIFFERS*` on the next line), so that

@@ -203,8 +203,8 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
    or its `--unchanged` printed, so that a text that moved since is approved by nobody. The criteria are then kept word for word with a digest, and the plan's
    criteria have to be those, with only the test lines added: a criterion the build changes, adds or
    drops has its own record (`lem decisions criterion`), and the pull request is not green for it.
-   Write no `lead:` line before it: the landing reads the first `lead:` line as the end of the
-   interview. Then the start of the build, `stages/start.md`: it may queue the task, and otherwise
+   Start no lead span before approval. The landing reads the typed interview and lead spans.
+   Then the start of the build, `stages/start.md`: it may queue the task, and otherwise
    it writes the lead's state and hands the task to a fresh lead. Criteria that a lead put to him
    (a complete request) start nothing here: after his yes that lead builds on, as `stages/plan.md`
    says. A stop between the approval and
@@ -217,4 +217,4 @@ When he says that he is away during the interview, it goes on without him as ste
 `stages/away.md` says: your guesses, logged, the read, each flagged criterion settled by the
 ladder, and the criteria approved with `--alone`, then the end of step 7.
 When he leaves with no such words, nothing is written: the question or the page waits in this
-session, and the state stays `held` with `the interview waits for the owner`.
+session, and the interview's owner hold stays in place.

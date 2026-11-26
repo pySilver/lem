@@ -90,8 +90,7 @@ only while that thing still waits:
 1. Read `lem task show SLUG` before you act. When the task left that wait (his park on the board or
    his word at the Mac came first, the task is `parked`, a newer state block, another proposal than
    TIP), act on nothing. Answer in the thread, as yourself, that the question no longer applies and
-   what took effect, as the board refuses a park whose breaker no longer waits (`act_park` in
-   `serve.py`). Read the task's `task.json` in the directory from `lem task dir SLUG`. If the matching
+   what took effect. Read the task's `task.json` in the directory from `lem task dir SLUG`. If the matching
    question there holds his answer from the board, the
    board's answer came first and counts: take it as `prompts/session.md`, "A wake-up", says, and
    say in one line in the session and in one line in the thread which answer was taken, from where,
@@ -99,7 +98,7 @@ only while that thing still waits:
 2. Act as on his typed word, by the stage that waits for it, and log his decision with his words,
    `--by owner`: a breaker as "After it" in `stages/breaker.md` says, Help with the words of his note
    as his part of the talk. His "Merge" is `lem land merge SLUG --by owner --tip TIP`, TIP the commit
-   the question named, so that `land.py` refuses a merge of any other proposal (`expected_refusal`)
+   the question named. The command refuses a merge of any other proposal
    and nothing is merged that he did not read; his "Not now" leaves the pull request open. An answer
    that asks something back or thinks aloud is no pick: say in the thread what you read, and wait
    for his yes there or at the Mac.

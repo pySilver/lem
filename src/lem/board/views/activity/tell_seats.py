@@ -6,6 +6,7 @@ moment."""
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
+from lem.app.sessions.seat_lines import ERRORS
 from lem.board.views.activity.told import ALERT, LEM, SPLIT, USER, YOU, Told
 from lem.records.holds import Blocked
 
@@ -45,7 +46,7 @@ def stood_in(stood: StandIn) -> Told:
         SPLIT,
         f"The fallback stood in for {who}",
         took,
-        stood.said or stood.error,
+        stood.said or dict(ERRORS)[stood.error],
     )
 
 
@@ -54,7 +55,10 @@ def blocked(stood: StandIn, task: Task) -> Told:
     who = SEATS[stood.seat]
     hold = task.hold
     said = stood.failed
+    reason = stood.said or ""
     if isinstance(hold, Blocked) and hold.seat == stood.seat:
         said = hold.why
+    elif stood.error == "usage-limit" and not reason:
+        reason = dict(ERRORS)[stood.error]
     head = f"The seat of {who} gave an error, and no fallback stood in"
-    return Told(YOU, ALERT, head, said, stood.said or "")
+    return Told(YOU, ALERT, head, said, reason)

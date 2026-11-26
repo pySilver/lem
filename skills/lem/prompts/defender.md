@@ -12,8 +12,8 @@ its task directory. `SKILL_DIR` is the directory above this file's.
    `SKILL_DIR/stages/ladder.md` for the questions the talk leaves open, and `SKILL_DIR/stages/breaker.md`
    when one trips the breaker.
 2. **Read where the task stands**: `lem --repo WORKTREE task show SLUG`
-   for its status and its `talk`. When `talk` is not null and the state says `the plan talk is
-   done`, a defender before you finished it: stop. Otherwise read `task.md`, `directions.md` when it
+   for its status and its `talk`. When `talk` is present and the status is `planned`, a defender
+   before you finished it: stop. Otherwise read `task.md`, `directions.md` when it
    is there, the acceptance criteria (`lem --repo WORKTREE criteria approved SLUG`), the lead's
    `report.md`, and the plan on the task's branch, in the settings' `plans` path, with the code it
    rests on. When `talk-turns.md` is in the task directory, a defender or a reviewer before you
@@ -40,12 +40,13 @@ its task directory. `SKILL_DIR` is the directory above this file's.
    (`stages/talk.md`, "A seat that fails"). When it wrote `blocked`, stop, and wait for nothing
    in this session: the lead closes the pair and takes the owner's "go on".
 6. **The close**, in this order:
-   - the record and the `lem task talked` record of `stages/talk.md`, then close the reviewer's pane;
+   - the plan section, the close of the reviewer's pane and `lem task talked`, as `stages/talk.md` says;
    - each question the talk left open, by step 5 and its ladder, whose agents run in this
      session, which the lead closes after your last state: so the ladder ends before you go on,
      and each pick is in the plan, committed. One that trips the breaker: take
-     `stages/breaker.md` after the `plan.talk` event, and stop there;
+     `stages/breaker.md` after `lem task talked`, and stop there;
    - `report.md` in the task directory, whole: what changed in the plan, by question and by task;
      each decision the ladder took, by its number; and who argued the plan, with the models and
      efforts of the talk's record (`stages/talk.md`);
-   - last, the state `planned` with the line `the plan talk is done`: it ends the lead's wait.
+   - last, `lem --repo WORKTREE task move SLUG planned --line "the plan talk is done"`:
+     it ends the lead's wait.

@@ -15,8 +15,9 @@ ruling has no threshold ("I usually start fresh executor for every task.. since 
 that builds carries the plan, the persona read and its own code in one context. A careful or
 large plan comes here once its plan talk is done (`stages/plan.md`, step 3), and its tasks are
 built like any others: the review comes at the landing, which reads the whole change. The
-harness file says whether a builder can start builders in your agent; when your agent refuses
-you the start of one, write the state `blocked` with that refusal, and stop.
+harness file says whether a builder can start builders in your agent. When it refuses the start
+of one, write the refusal in `report.md`, mark this session as waiting (`mark-waiting`), and say
+what the owner must do in one line. Wait for his word.
 
 1. **One builder per task of the plan**, through `spawn-builder`, in the task's worktree, one
    after the other unless two tasks touch no common file. Two that run at one moment share the
@@ -57,10 +58,10 @@ you the start of one, write the state `blocked` with that refusal, and stop.
    reach a builder in your agent.
    Read the report file, never a summary of it. When a builder's reply is the report itself,
    because its agent refused it the write, put that text into the report file word for word.
-   Write the state `building` with the line `task N of M` when a builder starts, and log its
-   start for the board, `lem --repo WORKTREE task span SLUG
-   builder start --job "task N of M"`: two builders may run at one time, and a state block names
-   only the newest.
+   As each builder starts, run `lem --repo WORKTREE task span SLUG task start --of N/M`, with
+   its number and the count of the plan's tasks. When it replies, run
+   `lem --repo WORKTREE task span SLUG task end --of N/M` with the same numbers. The board shows
+   each builder on its own span, also when two run at once.
 2. **A builder that stops** reports why in its file. Where it goes depends on what stopped it:
    - *a failure nobody can explain after two tries*: the `lem-root-cause` skill, before
      a third try. A task that came from a bug had that method once already, before its criteria
@@ -172,9 +173,9 @@ owner reads.
   `branch.history` is `"squash"` (`stages/land.md`, steps 6 and 8);
 - **the branch and its tip**: the branch's name and the commit `git -C WORKTREE rev-parse HEAD` prints.
 
-Then write the state: `ready`, and the landing comes, a phase of its own (`prompts/session.md`,
-"A change of phase"); or `held` or `blocked` with the line that says why, and wait in this session
-for the owner.
+When the build finishes, run `lem task span SLUG lead end` and move the task to `ready`.
+Then the landing comes, a phase of its own (`prompts/session.md`, "A change of phase"). If a
+breaker stops the work, its command records the hold and you wait as `stages/breaker.md` says.
 
 Most real defects are found by the next builder on the same ground, not by a review
 (convertiser-server's log of defects outside its tasks held 105 items after about 28 hours). So

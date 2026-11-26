@@ -57,11 +57,11 @@ rules:
   line. None means the repair was never committed, and it is still that question's one repair.
   A file that holds no list yet is no talk to go on from: the new reviewer's first turn is the
   list.
-- **A seat that fails.** A reviewer whose agent gives one of the four errors of `second-opinion`,
+- **A seat that fails.** A reviewer whose agent gives one of the errors of `second-opinion`,
   at its open or later in the talk, is replaced the same way, in the same pane: `second-opinion`
   says what `lem seat failed` prints and what you open then, and the new reviewer goes on
   from `talk-turns.md` as above. A block ends the talk: after `lem seat failed` wrote `blocked`, close
-  the reviewer's pane and stop, with no record and no event. The owner's "go on" opens the pair
+  the reviewer's pane and stop, with no completed talk record. The owner's "go on" opens the pair
   again, and its defender goes on from the file.
 - **One repair per question.** For each question, repair the plan and commit, or refute the
   question with a cite. Check each of its claims in the code before you answer. The reviewer
@@ -128,8 +128,8 @@ Commit every repair before any code. Then write the record into the plan, as a s
 
 - who argued the plan: each reviewer that sat, in the order they sat, with its agent, its model
   and effort as its pane's status line showed them, and for a stand-in the seat it stood in for
-  and why; and you, with the model and effort the `defender:` line of the task's state gives,
-  which the lead read from your pane's status line;
+  and why; and you, with the model and effort from your pane's status line (`open-task-session`,
+  the plan talk's);
 - the list, numbered as the reviewer gave it, each question with how it ended: settled, with
   its cite and after it the words "settled by the two, not checked by the review"; a design
   choice, with the two positions, each with its cite, and the decision `stages/plan.md`, step 5, logs; or open, with
@@ -165,10 +165,10 @@ The rules keep a talk within 4 × questions + 2 turns: the list, two answers of 
 question, and the close. That bound is derived from these rules in a Fable second opinion
 (2026-11-16), not measured, and it is yours to keep. A talk that went over it, or in which a
 second question on a decision did not close as a design choice, is still a fact: write it down
-as it ran. The script takes the record and adds the bound to it as `bound`, and the pull
+as it ran. The command prints the bound as `bound`, and the pull
 request's line of the talk and the board say that the talk went over. A record the script
 refused would leave the pair open and the request unproposed for ever. The landing refuses a request whose plan says `careful: yes` or has more than three
-tasks with no such event, and the pull request's checks show the newest one. A task that becomes
+tasks with no talk on the task record, and the pull request's checks show the talk. A task that becomes
 careful after its plan, by the owner's word, by the review's call or by an edit of
 `.lem/settings.toml`, gets no talk afterwards: the landing's full review reads the code that
 exists. A one-shot read of a careful

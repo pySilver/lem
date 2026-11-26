@@ -69,7 +69,7 @@ def quiet_end(
         return None
     say = (
         f"{asked.quiet} has not changed for 45 minutes and no status came: read the screen of "
-        "each pane of the pair for one of the four errors of a seat, and run the same wait "
+        "each pane of the pair for a seat error, and run the same wait "
         "again when neither shows one"
     )
     return msgspec.structs.replace(base, quiet=asked.quiet, say=say)

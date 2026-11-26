@@ -15,6 +15,7 @@ ERRORS = MappingProxyType(
         "missing": "is not on this Mac",
         "login": "had no login",
         "tokens": "had no tokens",
+        "usage-limit": "reached its usage limit",
         "model": "did not know the model",
     }
 )

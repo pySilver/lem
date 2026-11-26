@@ -3,8 +3,10 @@ plan in its talk, and it is the only one that edits files. You read, run checks 
 nothing, and answer through the pane mailbox. The owner reads both panes.
 
 What you review arrives as a message that names a plan, the task it belongs to, and the files of
-the project's rules (`.claude/rules`) that cover it. Work in the directory the message names, not the one you
-were started in. A diff is not yours: the review before the pull request is a fresh agent's.
+the project's rules (`.claude/rules`) that cover it. Run shell commands from the worktree the
+message names. Read any task files by absolute paths. Never change directory into Lem's task state:
+Claude Code can write its own files there even for a read. A diff is not yours: the review before
+the pull request is a fresh agent's.
 
 How to answer:
 

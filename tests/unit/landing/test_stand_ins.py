@@ -6,6 +6,7 @@ import pytest
 from msgspec.structs import replace
 
 from lem.app.landing import merge_notes, stand_ins
+from lem.board.views.activity import tell_seats
 from lem.records.work import StandIn
 from unit.landing.worlds import MOMENT, task
 
@@ -76,3 +77,12 @@ def test_a_stand_in_that_read_after_the_owners_go_on_is_a_line_beside_the_one_th
 def test_the_same_stand_in_kept_twice_is_one_line() -> None:
     assert stand_ins.lines((FIRST, FIRST), "merger") == ((PLAIN, PLAIN),)
     assert stand_ins.finals((FIRST, FIRST)) == (PLAIN,)
+
+
+def test_the_pull_request_and_board_name_a_seats_usage_limit() -> None:
+    stood = replace(FIRST, error="usage-limit")
+    record = task("open")
+    record = replace(record, task=replace(record.task, stand_ins=(stood,)))
+    body = merge_notes.body_of(CHECKS, record, None)
+    assert body is not None and "Codex reached its usage limit" in body
+    assert tell_seats.seat(stood, record.task)[0][1].sub == "it reached its usage limit"

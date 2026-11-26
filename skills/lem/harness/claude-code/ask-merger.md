@@ -23,8 +23,8 @@ no other: a brief of a later base is another read.
   model and `-c "model_reasoning_effort=EFFORT"` only when it names an effort, and this step's
   `WORKTREE`, `ANSWER` and `BRIEF`.
 
-**When the merge agent's agent gives an error**, one of the four of `second-opinion.md` (`missing`,
-`login`, `tokens`, `model`): an exit of 127, `command not found` in `ANSWER.log`, or the agent's
+**When the merge agent's agent gives an error**, use the kind from `second-opinion.md` (`missing`,
+`login`, `tokens`, `usage-limit`, `model`): an exit of 127, `command not found` in `ANSWER.log`, or the agent's
 own message of no login, no tokens or a usage limit, or a model it does not know, in `ANSWER.log`
 or in the reply. A slow merge agent is no error: wait for it. Such an end is no review: record
 nothing of it with `--file`, and run

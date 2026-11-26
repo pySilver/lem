@@ -129,7 +129,8 @@ def planned(
     commit(world, {name: CRITERIA + TESTS + tasks}, "docs: the plan")
     ok(capsys, world, "criteria", "record", SLUG, inside=True)
     count = str(sum(line[:1].isdigit() for line in tasks.splitlines()))
-    ok(capsys, world, "task", "planned", SLUG, "--tasks", count)
+    written = ok(capsys, world, "task", "planned", SLUG, "--tasks", count)["result"]
+    assert ok(capsys, world, "task", "show", SLUG)["result"]["plan"] == written
     return name
 
 
@@ -286,7 +287,8 @@ def test_a_plan_of_four_tasks_is_proposed_only_after_its_plan_talk(
     line = "needs a session: the plan has 4 tasks, more than three"
     ok(capsys, world, "task", "move", SLUG, "planned", "--line", line)
     ok(capsys, world, "task", "span", SLUG, "plan-talk", "start", "--by", "codex")
-    ok(capsys, world, "task", "talked", SLUG, *TALK)
+    written = ok(capsys, world, "task", "talked", SLUG, *TALK)["result"]["talk"]
+    assert ok(capsys, world, "task", "show", SLUG)["result"]["talk"] == written
     ok(capsys, world, "task", "build", SLUG)
     ok(capsys, world, "task", "move", SLUG, "ready", "--line", "talked", inside=True)
     assert onward(capsys, world) == ["start"]

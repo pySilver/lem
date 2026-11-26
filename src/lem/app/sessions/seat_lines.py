@@ -11,11 +11,12 @@ from lem.records.holds import Blocked
 if TYPE_CHECKING:
     from lem.records.work import StandIn
 
-# Each error's words in the line of a stand-in or a block (`state.SEAT_ERRORS` on `main`).
+# Each error's words in the line of a stand-in or a block.
 ERRORS = (
     ("missing", "its program is not on this Mac"),
     ("login", "it is not logged in"),
     ("tokens", "it has no tokens left"),
+    ("usage-limit", "it reached its usage limit"),
     ("model", "it does not know the model"),
 )
 STAND_IN = "stand-in"

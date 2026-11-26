@@ -17,9 +17,9 @@ directory and whether you stop after the plan. `SKILL_DIR` is the directory abov
    only a change with its own record changes one (`lem decisions criterion`, `stages/build.md`, "A
    choice in the build"). When the status is `ready`, `landing`, `open`, `parked`,
    `landed`, `answered` or `dropped`, there is nothing to lead: `prompts/session.md` says what comes
-   next. When the task directory holds a `handoff.md`, a `report.md`, a decision on record or a
-   longer `state.md`, an agent before you worked on it: read them, `lem --repo WORKTREE decisions
-   list SLUG` and the branch's log, and go on from there. Do not start over, and do not ask again
+   next. When an agent before you worked on it, read `handoff.md` and `report.md` when present,
+   the task record, `lem --repo WORKTREE decisions list SLUG` and the branch's log, and go on
+   from there. Do not start over, and do not ask again
    what that record already answers.
 3. **Follow `SKILL_DIR/stages/plan.md`, then `SKILL_DIR/stages/build.md`.** Read each when you
    reach it. When the task needs the result of another task that has not landed or been

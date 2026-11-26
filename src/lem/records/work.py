@@ -75,7 +75,7 @@ class Talk(Frozen, frozen=True, kw_only=True):
     at: Moment
 
 
-type SeatError = Literal["missing", "login", "tokens", "model"]
+type SeatError = Literal["missing", "login", "tokens", "usage-limit", "model"]
 
 
 class FailedToo(Frozen, frozen=True, kw_only=True):

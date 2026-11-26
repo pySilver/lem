@@ -2,8 +2,7 @@
 
     lem seat failed SLUG ROLE --seat SEAT --error KIND [--said LINE]
 
-Only the reviewer, the planner and the merge agent have a fallback, and an error is one of the
-four of `main`'s `state.SEAT_ERRORS`.
+Only the reviewer, the planner and the merge agent have a fallback.
 The fallback stands in from then on, or the task is blocked with the seat named
 (`app/sessions/seats.py`).
 """
@@ -18,10 +17,9 @@ from lem.cli import place
 from lem.cli.words import choice
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
-from lem.records.work import StandIn
+from lem.records.work import SeatError, StandIn
 
 type Role = Literal["reviewer", "planner", "merger"]
-type Error = Literal["missing", "login", "tokens", "model"]
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -30,7 +28,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     slug: str
     role: Role
     seat: str
-    error: Error
+    error: SeatError
     said: str | None = None
 
 
@@ -66,8 +64,8 @@ COMMAND = click.Command(
         click.Option(
             ["--error"],
             required=True,
-            type=choice(Error),
-            help="missing, login, tokens or model",
+            type=choice(SeatError),
+            help="missing, login, tokens, usage-limit or model",
         ),
         click.Option(["--said"], help="the agent's own line of the error"),
     ],
