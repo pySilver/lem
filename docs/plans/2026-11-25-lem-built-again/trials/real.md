@@ -427,7 +427,16 @@ snapshots to show which process took each step.
   Run `lem serve leave "$BETA"` at Alpha and `lem serve leave "$ALPHA"` at Beta. Close both doors
   and stop both servers as in R6. If `door off` restarts Beta for cleanup, stop that child too.
 
-- [ ] R8 A night takes an item to its PR. **Runs alone after scratch setup.**
+- [x] R8 A night takes an item to its PR. **Runs alone after scratch setup.**
+
+  Passed on 2026-11-26 (round 3) on the installed tag `v0.99.0`, `RUN=s26`, base
+  `trial-s26-r8-base`. The operator typed only `/lem night 1` and answered nothing. The night
+  opened task `word-list` in its own session (through the trial's agterm stand-in, HOME in the
+  trial home) on `trial-s26-r8-word-list`; PR 30 is open and not merged: criteria approved `alone`,
+  not green for that reason alone, `docs/backlog/word-list.md` removed in the PR, merge review
+  `call`, `land next` says the owner merges. The night's own close was refused as the owner's
+  session, as the stage says. Evidence in `/private/tmp/lem-trial-r1/evidence/`: `r8-*`,
+  `r8-pr-view.out`, `r8-night-report.md`, `r8-transcripts/`, `r8-task-folder/`.
 
   Seed one tracked `docs/backlog/word-list.md` in the scratch base. Use this item and substitute
   the current date and the exact scratch head branch:
