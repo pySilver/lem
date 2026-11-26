@@ -15,14 +15,14 @@ if TYPE_CHECKING:
     from lem.app.landing.frame import Context
     from lem.model.landing.propose import Proposal
     from lem.model.landing.propose_facts import Facts, Filing
-    from lem.model.landing.propose_jev import Said
+    from lem.records.landing.review import JevRead
     from lem.records.record import Record
 
 
-def ending(said: Said) -> str:
+def ending(said: JevRead) -> str:
     """The end of a finding's line: Jev's score, or why it was not asked."""
     if said.score is None:
-        why = said.why or "no answer"
+        why = said.not_asked or "no answer"
         return f"Jev: not asked ({why})"
     return f"Jev: {said.score:.2f}"
 

@@ -219,10 +219,20 @@ def test_a_nit_on_the_resolution_ends_approval_even_after_red_checks(
     assert proposed.owner_merge is not None and proposed.owner_merge.state == "ended"
 
 
-def test_a_clean_read_of_a_resolution_carries_the_merge_read_and_the_owners_merge() -> (
-    None
-):
-    found = resolution.carries(RESOLVED, NOW, careful=False)
+@pytest.mark.parametrize("outside", [False, True], ids=["clean", "outside-only"])
+def test_a_clean_read_of_a_resolution_carries_the_merge_read_and_the_owners_merge(
+    *, outside: bool
+) -> None:
+    landing = RESOLVED
+    if outside:
+        read = replace(
+            RESOLUTION_READ,
+            findings=REVIEWED.findings,
+            counts=REVIEWED.counts,
+            to_file=REVIEWED.to_file,
+        )
+        landing = replace(RESOLVED, reviews=(REVIEWED, read))
+    found = resolution.carries(landing, NOW, careful=False)
     assert found is not None
     assert (found.tip, found.base, found.verdict, found.carried_from) == (
         NEW,
@@ -231,10 +241,29 @@ def test_a_clean_read_of_a_resolution_carries_the_merge_read_and_the_owners_merg
         TIP,
     )
     owner = Standing(tip=TIP, reasons_digest="d", by_act="owner", at=MOMENT)
-    carried = resolution.tip_carries(RESOLVED, NOW, careful=False)
+    carried = resolution.tip_carries(landing, NOW, careful=False)
     assert standing.standing(
-        replace(RESOLVED, standing=owner), "d", carried=carried
+        replace(landing, standing=owner), "d", carried=carried
     ) == (OwnerMerge(state="stands", why="the change and its reasons stay"))
+    record = replace(opened(), landing=landing)
+    proposed, read = proposal_carry.judged(
+        record, NOW, replace(PROPOSED, tip=NEW, base=MOVED)
+    )
+    assert proposed.merge_review == "carried"
+    assert read == found
+
+
+def test_a_finding_in_the_resolution_stops_merge_review_carry() -> None:
+    for counts in (Counts(must_fix=1), Counts(should=1), Counts(nit=1)):
+        read = replace(RESOLUTION_READ, counts=counts)
+        found = replace(RESOLVED, reviews=(REVIEWED, read))
+        assert resolution.carries(found, NOW, careful=False) is None, counts
+        record = replace(opened(), landing=found)
+        proposed, carried = proposal_carry.judged(
+            record, NOW, replace(PROPOSED, tip=NEW, base=MOVED)
+        )
+        assert proposed.merge_review is None, counts
+        assert carried is None, counts
 
 
 def test_a_resolution_carries_nothing_when_careful_read_badly_or_moved_on() -> None:
@@ -246,15 +275,9 @@ def test_a_resolution_carries_nothing_when_careful_read_badly_or_moved_on() -> N
     assert (
         resolution.carries(RESOLVED, world(tip=NEW, base=BASE), careful=False) is None
     )
-    finding = replace(
-        RESOLUTION_READ,
-        findings=REVIEWED.findings,
-        counts=REVIEWED.counts,
-        to_file=REVIEWED.to_file,
-    )
     silent = replace(RESOLUTION_READ, answered=())
     called = replace(RESOLUTION_READ, careful=True)
-    for read in (finding, silent, called):
+    for read in (silent, called):
         found = replace(RESOLVED, reviews=(REVIEWED, read))
         assert resolution.carries(found, NOW, careful=False) is None
     unread = replace(RESOLVED, resolution=replace(RESOLUTION, read=None))

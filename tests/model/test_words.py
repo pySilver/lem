@@ -5,8 +5,6 @@ each; a line goes into the pull request's text once; an item's names never repea
 condition only in a rule 6 that says one; and the careful line of a settings edit says what the
 edit did."""
 
-from typing import TYPE_CHECKING
-
 from hypothesis import given
 from hypothesis import strategies as st
 from msgspec.structs import replace
@@ -21,14 +19,12 @@ from lem.model.landing import (
     propose_jev,
     propose_notes,
 )
-from lem.model.landing.items import Defect
-from lem.model.landing.propose_facts import Facts, Filing, Settings, small
+from lem.model.landing.items import BacklogItem, Defect
+from lem.model.landing.propose_facts import Facts, Settings, small
 from lem.records.criteria import Criteria
+from lem.records.landing.review import JevRead
 from model.landings import LANDING, shas
-from unit.landing.worlds import task
-
-if TYPE_CHECKING:
-    from lem.kernel.errors import Refusal
+from unit.landing.worlds import MOMENT, task
 
 SCORES = st.none() | st.floats(min_value=0, max_value=1)
 KEYS = st.sampled_from(("a.py drops a line", "docs/backlog/x.md", "`b.py`: a nit"))
@@ -39,18 +35,28 @@ TEAM = st.sampled_from(
 
 
 @LANDING
-@given(st.dictionaries(KEYS, st.builds(propose_jev.Said, score=SCORES), max_size=3))
+@given(
+    st.dictionaries(KEYS, SCORES, max_size=3), st.tuples(st.booleans(), st.booleans())
+)
 def test_jev_stops_a_proposal_only_for_a_finding_it_reads_over_the_bar_and_names_each(
-    fresh: dict[str, propose_jev.Said],
+    scores: dict[str, float | None], flags: tuple[bool, bool]
 ) -> None:
-    over = [key for key, said in fresh.items() if said.over()]
-    for said in fresh.values():
-        assert said.over() == (said.score is not None and said.score >= 0.7)
-    found: Refusal | None = propose_jev.refused("fix-the-login", fresh)
-    assert (found is None) == (not over)
-    if found is not None:
+    refused, reason = flags
+    blocked = {}
+    for label, score in scores.items():
+        defect = Defect(where="", title=label, what=label)
+        finding = propose_jev.Asked(label=label, defect=defect, reason=reason)
+        read = JevRead(key=finding.key, at=MOMENT, score=score, refused=refused)
+        over = propose_jev.blocked(finding, read)
+        assert (over is not None) == (
+            score is not None and score >= 0.7 and (not refused or not reason)
+        )
+        if over is not None:
+            blocked[label] = over
+    if blocked:
+        found = propose_jev.refused("fix-the-login", blocked)
         assert found.code == "jev-over"
-        assert all(f'"{key}" (Jev: ' in found.why for key in over)
+        assert all(f'"{label}" (Jev: ' in found.why for label in blocked)
         assert "fix-the-login" in found.fix
 
 
@@ -63,10 +69,11 @@ def test_a_notes_entry_is_asked_of_jev_only_when_it_calls_itself_under_the_bar(
     text = "\n".join(entry)
     assert (asked is None) == (propose_jev.UNDER.search(text) is None)
     if asked is not None:
-        assert asked.key == entry[0].strip()
-        assert asked.what == text
-        assert asked.where == propose_jev.where_of(asked.title)
-        assert not asked.where or f"`{asked.where}`" in asked.title
+        assert asked.label == entry[0].strip()
+        defect = asked.defect
+        assert defect.what == defect.title
+        assert defect.where == propose_jev.where_of(defect.title)
+        assert not defect.where or f"`{defect.where}`" in defect.title
 
 
 @LANDING
@@ -78,17 +85,19 @@ def test_jev_reads_each_item_called_not_worth_it_and_each_notes_line_called_unde
     notes = propose_notes.parsed(f"{line}\n")
     assert isinstance(notes, propose_notes.Notes)
     items = (
-        Filing(path="docs/backlog/x.md", worth="no"),
-        Filing(path="docs/backlog/y.md", title="y breaks", worth="no"),
-        Filing(path="docs/backlog/z.md", worth="later"),
+        BacklogItem(path="docs/backlog/x.md", title="x breaks", worth="no"),
+        BacklogItem(path="docs/backlog/y.md", title="y breaks", worth="no"),
     )
-    asked = propose_jev.asked(record, notes, Facts(added=items))
-    assert [one.key for one in asked[:2]] == ["docs/backlog/x.md", "docs/backlog/y.md"]
-    assert [one.title for one in asked[:2]] == ["docs/backlog/x.md", "y breaks"]
+    asked = propose_jev.asked(record, notes, Facts(under=items))
+    assert [one.label for one in asked[:2]] == [
+        "docs/backlog/x.md",
+        "docs/backlog/y.md",
+    ]
+    assert [one.defect.title for one in asked[:2]] == ["x breaks", "y breaks"]
     lines = asked[2:]
     assert len(lines) == (0 if line == "none" else 1)
     if lines:
-        assert lines[0].title == "a.py drops a line"
+        assert lines[0].defect.title == "a.py drops a line"
 
 
 @LANDING

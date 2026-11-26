@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing import bar_range, propose_items
+from lem.app.landing import backlog, bar_range, propose_items
 from lem.kernel.errors import Refusal
 from lem.model.landing.careful import LOCAL_SETTINGS_FILE, SETTINGS_FILE
 from lem.model.landing.propose_facts import Facts, Settings
@@ -81,9 +81,18 @@ def branch(context: Context, commits: tuple[str, str]) -> Facts:
     items it adds."""
     git, where = context.ports.git, context.worktree
     changed = git.diff_stat(where, *commits).paths
-    settings = settings_of(git, where, commits)
     added = propose_items.added(git, where, commits, changed)
-    return Facts(changed=changed, settings=settings, added=added)
+    under = (
+        backlog.read_at(git, where, commits[1], filing.path)
+        for filing in added
+        if filing.worth == "no"
+    )
+    return Facts(
+        changed=changed,
+        settings=settings_of(git, where, commits),
+        added=added,
+        under=tuple(filter(None, under)),
+    )
 
 
 def span(context: Context) -> tuple[str, str]:

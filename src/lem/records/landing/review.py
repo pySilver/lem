@@ -76,14 +76,15 @@ class Jev(Frozen, frozen=True, kw_only=True):
 
 class JevRead(Frozen, frozen=True, kw_only=True):
     """One read of Jev that a landing keeps, so that no finding is sent twice, by this run or
-    the next (`alike` and `jev` of `landing.json` on `main`): the finding's key (its digest, or
-    the line or item it came from), the item it was asked about (None for a read against the
-    bar), Jev's score (None when it gave none), or why it was not asked."""
+    the next (`alike` and `jev` of `landing.json` on `main`): the finding's digest, the item it
+    was compared with (None for a read against the bar), Jev's score or why it was not asked,
+    and whether the proposal already refused it."""
 
     key: str
     path: str | None = None
     score: float | None = None
     not_asked: str | None = None
+    refused: bool = False
     at: Moment
 
 

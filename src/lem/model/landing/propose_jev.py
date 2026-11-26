@@ -1,21 +1,24 @@
 """Jev's one read of each finding called under the bar, before the pull request is written
 (`main:land.jev_read`, `under_findings`, `jev_refused`, `jev_endings`): each item the branch
 adds with `worth: no`, and each `under:` line of the notes' parts that name a finding nobody
-filed. A finding Jev reads as over the bar stops `propose` once; Jev is never asked about a
-finding twice, and its line in the text ends with Jev's score, or why Jev was not asked.
+filed. A finding Jev reads as over the bar stops `propose` once, and an item that still gives
+no reason stops it again. A finding's text gets one score, which its line in the proposal shows.
 """
 
 import re
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
-from lem.model.landing import propose_lines
+from lem.model.landing import alike, propose_lines
+from lem.model.landing.items import Defect
 from lem.model.landing.propose_facts import small
 from lem.records.base import Frozen
 
 if TYPE_CHECKING:
-    from lem.model.landing.propose_facts import Facts, Filing
+    from lem.model.landing.items import BacklogItem
+    from lem.model.landing.propose_facts import Facts
     from lem.model.landing.propose_notes import Notes
+    from lem.records.landing.review import JevRead
     from lem.records.record import Record
 
 # The score at or over which `propose` refuses once: the starting value of Jev's documentation
@@ -24,28 +27,21 @@ if TYPE_CHECKING:
 OVER_AT = 0.7
 UNDER = re.compile(r"(?i)(?<![\w-])under:[ \t]*(?=\S)")
 PLACE = re.compile(r"`([^`]+)`")
-OVER = '"{0}" (Jev: {1.score:.2f})'
+OVER = '"{0}" (Jev: {1:.2f})'
 
 
 class Asked(Frozen, frozen=True, kw_only=True):
-    """A finding called under the bar: its key (the line, or the item's path), and where,
-    its title and its text, as Jev reads them."""
+    """A finding called under the bar: the line or path that names it, the defect as Jev
+    reads it, and whether it gives a reason."""
 
-    key: str
-    where: str
-    title: str
-    what: str
+    label: str
+    defect: Defect
+    reason: bool = True
 
-
-class Said(Frozen, frozen=True, kw_only=True):
-    """Jev's word on a finding: its score over the bar, or why it was not asked."""
-
-    score: float | None = None
-    why: str | None = None
-
-    def over(self) -> bool:
-        """Whether Jev read the finding as over the bar."""
-        return self.score is not None and self.score >= OVER_AT
+    @property
+    def key(self) -> str:
+        """The finding's digest without the reason it was called under the bar."""
+        return alike.key_of(self.defect)
 
 
 def line_asked(entry: tuple[str, ...]) -> Asked | None:
@@ -55,10 +51,13 @@ def line_asked(entry: tuple[str, ...]) -> Asked | None:
     found = UNDER.search(text)
     if found is None:
         return None
-    finding = text[: found.start()].strip()
-    finding = finding.lstrip("-*+ ").rstrip(" ;,")
-    key, where = entry[0].strip(), where_of(finding)
-    return Asked(key=key, where=where, title=finding, what=text)
+    before = " ".join(text[: found.start()].split())
+    mark = propose_lines.LISTED.match(before)
+    finding = (before[mark.end() :] if mark else before).rstrip(" ;,:-(")
+    return Asked(
+        label=entry[0].strip(),
+        defect=Defect(where=where_of(finding), title=finding, what=finding),
+    )
 
 
 def where_of(finding: str) -> str:
@@ -67,27 +66,34 @@ def where_of(finding: str) -> str:
     return place[1] if place else ""
 
 
-def item_asked(filing: Filing) -> Asked:
+def item_asked(filing: BacklogItem) -> Asked:
     """An item the branch adds with `worth: no`."""
-    title = filing.title or filing.path
-    return Asked(key=filing.path, where=filing.path, title=title, what=filing.path)
+    defect = Defect(
+        where=filing.where or "",
+        title=filing.title,
+        what="\n\n".join(filing.paragraphs),
+    )
+    return Asked(label=filing.path, defect=defect, reason=filing.reason)
 
 
 def asked(record: Record, notes: Notes, facts: Facts) -> tuple[Asked, ...]:
     """Every finding called under the bar: the items, then the notes' lines."""
     entries = propose_lines.called(notes, small=small(record))
     lines = tuple(filter(None, map(line_asked, entries)))
-    refused = (filing for filing in facts.added if filing.worth == "no")
-    return (*map(item_asked, refused), *lines)
+    return (*map(item_asked, facts.under), *lines)
 
 
-def refused(slug: str, fresh: dict[str, Said]) -> Refusal | None:
-    """The refusal of the findings Jev read as over the bar on this read, each with its
-    score; a finding read before never stops the step again."""
-    over = [key for key in fresh if fresh[key].over()]
-    if not over:
+def blocked(finding: Asked, read: JevRead) -> float | None:
+    """The score that stops the proposal, on its first refusal or while the reason is absent."""
+    if read.refused and finding.reason:
         return None
-    said = [OVER.format(key, fresh[key]) for key in over]
+    score = read.score
+    return score if score is not None and score >= OVER_AT else None
+
+
+def refused(slug: str, over: dict[str, float]) -> Refusal:
+    """The proposal's refusal, with the score of each finding that stops it."""
+    said = [OVER.format(label, score) for label, score in over.items()]
     named = "; ".join(said)
     return Refusal(
         "jev-over",

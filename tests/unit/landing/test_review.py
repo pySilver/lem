@@ -767,7 +767,9 @@ def test_a_review_carries_over_a_rebase_git_showed_clean_and_its_must_fix_stays(
     assert review.holds(record, world()).why.startswith("the newest review covers")
     must = replace(earlier, findings=(), counts=Counts(must_fix=1), to_file=())
     left = task(**{**PREPARED, "reviews": (must,), "based": based})
-    assert due_of(review.holds(left, world())) == "read"
+    outstanding = review.holds(left, world())
+    assert due_of(outstanding) == "read"
+    assert outstanding.why == "the last one left 1 must-fix"
     uncarried = task(
         **{**PREPARED, "reviews": (earlier,), "based": replace(based, carried=False)}
     )

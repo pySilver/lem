@@ -29,7 +29,7 @@ def read_of(landing: Landing) -> Reviewed | None:
 
 
 def clean(review: Reviewed | None) -> bool:
-    """Whether a review was answered, found nothing and called nothing careful."""
+    """Whether the answered review found no defect in the resolution and called nothing careful."""
     return (
         review is not None
         and bool(review.answered)
@@ -38,7 +38,6 @@ def clean(review: Reviewed | None) -> bool:
                 review.counts.must_fix,
                 review.counts.should,
                 review.counts.nit,
-                review.counts.outside,
             )
         )
         and review.careful is False

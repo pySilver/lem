@@ -4,6 +4,7 @@ shows, and the notes the agent wrote. `app/landing/propose.py` gathers them; the
 
 from typing import TYPE_CHECKING
 
+from lem.model.landing.items import BacklogItem
 from lem.records.base import Frozen
 from lem.records.landing.checks import Checked
 
@@ -37,11 +38,12 @@ class Facts(Frozen, frozen=True, kw_only=True):
     """The facts of one proposal: the paths the branch changes against its merge base with
     the base, Lem's settings as it changes them, the items it adds to the backlog, which of
     the paths `propose` asked about the tip holds, the head of each of them that is an item, and
-    the notes."""
+    the notes. The items under the bar carry their text and any reason."""
 
     changed: tuple[str, ...] = ()
     settings: Settings = Settings()
     added: tuple[Filing, ...] = ()
+    under: tuple[BacklogItem, ...] = ()
     in_tip: frozenset[str] = frozenset()
     heads: tuple[Filing, ...] = ()
     notes: str = ""

@@ -17,11 +17,6 @@ def of(record: Record) -> tuple[JevRead, ...]:
     return record.landing.jev if record.landing else ()
 
 
-def kept(context: Context, fresh: tuple[JevRead, ...]) -> Record:
-    """Keep the new reads with the ones the task had."""
-    return kept_all(context, (*of(context.record), *fresh))
-
-
 def kept_all(context: Context, reads: tuple[JevRead, ...]) -> Record:
     """Write the cache if it changed."""
     if of(context.record) == reads:

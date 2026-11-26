@@ -30,12 +30,14 @@ from journeys.test_skeleton import (
 )
 from journeys.test_skeleton import brief as merge_brief
 from lem.app import wiring
-from lem.app.landing import changes, filing_commits
+from lem.app.landing import bar_range, changes, filing_commits
+from lem.app.landing import step as landing_step
+from lem.kernel import clock
 from lem.ports.judge import Score
 from lem.ports.place import Place
 from lem.records.landing.record import Landing
 from lem.records.landing.start import Resolution
-from lem.store import tasks
+from lem.store import places, tasks
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -259,10 +261,17 @@ def test_the_brief_and_proposal_use_the_bar_of_the_checked_range(
 ) -> None:
     world = made(tmp_path, monkeypatch)
     test = "tests/test_login.py"
+    previous = "tests/test_sign_in.py"
     unknown = "layout.custom"
-    world.repo.outside_commit("main", {test: b"assert 1 == 1\n"})
+    other_base = world.repo.head_of("main")
+    assert other_base is not None
+    unchanged = "# The sign-in form accepts a valid account.\n" * 4
+    world.repo.outside_commit(
+        "main", {previous: f"{unchanged}assert 1 == 1\n".encode()}
+    )
     upto(capsys, world, "checks")
-    (world.worktree / test).write_text("assert 2 == 2\n")
+    (world.worktree / previous).rename(world.worktree / test)
+    (world.worktree / test).write_text(f"{unchanged}assert 2 == 2\n")
     (world.worktree / unknown).write_text("layout\n")
     run_git(world.worktree, "add", "--all")
     run_git(
@@ -277,6 +286,10 @@ def test_the_brief_and_proposal_use_the_bar_of_the_checked_range(
     told = brief(capsys, world)["result"]["brief"]["inputs"]
     assert told["range"] == f"{checked['bar_base']}..{checked['tip']}"
     assert told["edited"] == edited
+    context = landing_step.opened(
+        places.workspace(world.checkout), SLUG, clock.now(), verb="read"
+    )
+    assert bar_range.for_review(context, (other_base, checked["tip"]), (test,)) == ()
 
     reviewed(capsys, world, outside=[OVER])
     assert file_step()(capsys, world)["ok"]
@@ -623,6 +636,45 @@ def written_into_record(world: World, change: Callable[[Record], Record]) -> Non
     state = world.checkout / ".lem" / "state"
     found = tasks.read(state, SLUG)
     tasks.update(state, SLUG, change, found.revision)
+
+
+@pytest.mark.parametrize(
+    "changed_defect", [False, True], ids=["same-defect", "new-defect"]
+)
+def test_jev_checks_the_contents_of_an_item_and_requires_its_reason_on_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    *,
+    changed_defect: bool,
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "checks")
+    item = HELD_TEXT.replace("worth: later", "worth: no")
+    changed(capsys, world, {HELD: item}, "docs: file the defect")
+    reviewed(capsys, world, outside=[])
+    judge = judge_of(world)
+    judge.over[OVER["title"]] = 0.85
+    assert proposal(capsys, world)["refusal"]["code"] == "jev-over"
+    if changed_defect:
+        item = item.replace(OVER["what"], "README.md links to a deleted license file")
+        changed(capsys, world, {HELD: item}, "docs: describe the other defect")
+        reviewed(capsys, world, outside=[])
+    assert proposal(capsys, world)["refusal"]["code"] == "jev-over"
+    assert world.acts.counted()["push"] == 0
+    expected = [OVER["what"]]
+    if changed_defect:
+        expected.append("README.md links to a deleted license file")
+    assert [defect.what for defect in judge.asked] == expected
+    assert all(defect.where == OVER["where"] for defect in judge.asked)
+
+    item += "\nDecided against: the license is in the repository root.\n"
+    changed(capsys, world, {HELD: item}, "docs: give the reason")
+    if not changed_defect:
+        reviewed(capsys, world, outside=[])
+    assert proposal(capsys, world)["ok"]
+    assert [defect.what for defect in judge.asked] == expected
+    assert "Jev: 0.85" in world.forge.bodies[1]
 
 
 QUIET = {

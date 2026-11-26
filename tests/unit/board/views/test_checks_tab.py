@@ -11,12 +11,13 @@ from fixtures.board import panel
 from fixtures.board.moments import ago
 from fixtures.board.receipt import SLUG
 from lem.board.inputs.parts import Row
-from lem.board.views import owed
+from lem.board.views import owed, rounds
 from lem.board.views.checks.tab import checks
 from lem.records.journal.landing import CheckEnd
 from lem.records.journal.task import Summary
 from lem.records.landing.record import Landing
 from unit.board.views.afternoon import world
+from unit.landing.worlds import REVIEWED
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -27,6 +28,11 @@ if TYPE_CHECKING:
 def test_the_refund_line_s_checks_and_review_are_today_s(tmp_path: Path) -> None:
     found = world(tmp_path)
     assert checks(found, owed.seen(found, SLUG)) == panel.CHECKS
+
+
+def test_the_round_does_not_show_an_outside_defect_as_a_nit() -> None:
+    assert REVIEWED.counts.outside == 1
+    assert rounds.line(REVIEWED).endswith("clean, 0 must-fix, 0 should, 0 nit")
 
 
 def test_a_green_proposal_says_what_green_means(tmp_path: Path) -> None:
