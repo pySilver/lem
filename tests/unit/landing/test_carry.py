@@ -152,7 +152,12 @@ def test_only_a_review_of_the_change_that_someone_answered_covers_it() -> None:
 def test_a_real_verdict_of_the_tip_proposed_before_carries_onto_a_shown_rebase() -> (
     None
 ):
-    read = replace(READ, why="the checks covered the full change")
+    read = replace(
+        READ,
+        why="the checks covered the full change",
+        by="claude/opus:high",
+        brief="merge-brief-1111-2222-1.md",
+    )
     moment = replace(NOW, now=LATER)
     found = carry.read_carries(replace(MOVED_ON, reads=(read,)), moment)
     assert found is not None
@@ -163,6 +168,7 @@ def test_a_real_verdict_of_the_tip_proposed_before_carries_onto_a_shown_rebase()
         "merge",
     )
     assert (found.carried_from, found.why, found.at) == (TIP, read.why, LATER)
+    assert (found.by, found.brief) == (read.by, read.brief)
     unusable = replace(READ, verdict=None, no_answer=True)
     assert carry.read_carries(replace(MOVED_ON, reads=(unusable,)), NOW) is None
     assert carry.read_carries(replace(MOVED_ON, based=UNSHOWN), NOW) is None

@@ -4,7 +4,7 @@ A part of `../claude-code.md`, read when a landing starts the merge agent.
 
 ## ask-merger
 
-One agent, started as an expert is (`ask-experts`), on the seat that `lem seat show SLUG merger`
+One agent, started as an expert is (`ask-experts`), on the `result.seat` that `lem land merge-review SLUG`
 prints: its `agent`, its `model` and its `effort`, each null when the seat leaves it out, which is
 then the agent's own default, and `seat`, the line as written. `BRIEF` is the path the `next` of
 `lem land merge-review SLUG` names (`paths`), the brief's `result.brief`, named by the proposed tip
@@ -33,15 +33,15 @@ nothing of it with `--file`, and run
 lem seat failed SLUG merger --seat "LINE" --error KIND --said "ITS WORDS"
 ```
 
-`LINE` being the `seat` that `lem seat show SLUG merger` printed, and `ITS WORDS` the agent's
+`LINE` being the dispatched seat's `seat` string, and `ITS WORDS` the agent's
 line of the error. Its `result` names the fallback that stands in for the merger from now on
-(`blocked` false, and its `seat`): say its `say` in one line, run `lem seat show SLUG merger` again,
-which now prints the stand-in, and start the agent on that seat with the same `BRIEF` and
-`ANSWER`, so that the task's record names the seat that read. Or its `blocked` is true: the task
+(`blocked` false, and its `seat`): say its `say` in one line, then run `lem land merge-review SLUG`
+again. It keeps the fallback's seat with the brief. Start the agent with that dispatch's seat, brief
+and reply command. Or its `blocked` is true: the task
 is held `blocked` with the seat and the error, and "Waits for you" shows it; its pull request
 stays open. Mark this session as waiting for the owner (`mark-waiting`) first, then say its `say`
 in one line, the last text of your turn, and wait for his "go on": then `lem seat again SLUG`,
-`lem seat show SLUG merger`, and the agent on the seat it prints, with the same `BRIEF`.
+`lem land merge-review SLUG`, and start the agent from its dispatch.
 
 Any other non-zero exit, or no answer file, is a merge agent that did not answer: run `lem land
 merge-review SLUG --no-answer --tip TIP --base BASE`, TIP and BASE as below. It counts as a reply

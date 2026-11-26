@@ -252,6 +252,7 @@ class Story:
             base=self.world.base,
             base_tree=self.world.base_tree,
             moved=moved,
+            by="claude/opus:high",
         )
 
     def merge_review(self, reply: str | None) -> None:

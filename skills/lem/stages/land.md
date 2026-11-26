@@ -397,13 +397,13 @@ their own `say`, and take the landing up as after a cut-off.
 7. **The merge agent**, for every proposed task, the fast track's too. You read no diff, so the
    read is a fresh agent's. `lem land merge-review SLUG` fetches the base and publishes its brief,
    `merge-brief-TIP-BASE.md` in the task directory, and its `result` names the brief (`brief`),
-   the proposed `tip` and the `base` the read is against; its `next` starts the merge agent, with
+   the proposed `tip`, the `base` the read is against, and its `seat`; its `next` starts the merge agent, with
    the command that writes the reply down. The brief is named by that tip and that base, so a read
    of an earlier proposal or of an earlier base never takes its place. When the base moved by any
    file since the checks ran, the brief's `moved` holds what moved since then: the commits, the
    files, and those of them the change touches too; `base` is then origin's base now, and the
-   checks' base otherwise. `ask-merger` with the brief and the seat `lem seat show SLUG merger`
-   prints (a stand-in while one holds, else `seats.merger`). The agent reads the task's files, its
+   checks' base otherwise. `ask-merger` with the brief and its recorded `seat`
+   (a stand-in while one holds, else `seats.merger`). The agent reads the task's files, its
    reviews and its diff, and on a moved base what moved, changes nothing, and replies with its
    review: its verdict first (`Verdict: merge.` or `Verdict: call.`), on a moved base its call on
    the move second (`Base: safe.` or `Base: another round.`, with one sentence of why), what was

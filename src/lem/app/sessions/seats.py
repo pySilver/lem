@@ -22,6 +22,8 @@ from lem.records.journal.task import StateNoted
 from lem.store import tasks
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from lem.app.sessions.here import Here
     from lem.records.record import Record
     from lem.records.work import StandIn
@@ -40,9 +42,18 @@ def standing(record: Record, role: str) -> StandIn | None:
 def shown(here: Here, slug: str, role: seating.Role) -> seating.Shown:
     """The seat in use for the task's role: the fallback while it stands in, else the
     settings'."""
-    held = standing(tasks.read(here.where.state, slug), role)
+    return effective(
+        tasks.read(here.where.state, slug), role, here.where.checkout, here.home
+    )
+
+
+def effective(
+    record: Record, role: seating.Role, checkout: Path, home: Path | None = None
+) -> seating.Shown:
+    """The seat in use in this record, with the settings as its default."""
+    held = standing(record, role)
     if held is None:
-        return seating.seat_of(role, here.where.checkout, here.home)
+        return seating.seat_of(role, checkout, home)
     return seating.parsed(
         held.took, role, f"the stand-in of {role}", seat_lines.STAND_IN
     )

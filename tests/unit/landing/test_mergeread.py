@@ -15,8 +15,10 @@ from unit.landing.merges import MOVED, MOVED_TREE, code_of, facing, moved, opene
 from unit.landing.worlds import BASE, MOMENT, OPENED, OTHER, TIP, TREE, task
 
 OPENED_LANDING = task("open", **OPENED).landing or Landing()
-UNMOVED = mergeread.Briefed(tip=TIP, base=BASE, base_tree=TREE, moved=False)
-ON_MOVED = mergeread.Briefed(tip=TIP, base=MOVED, base_tree=MOVED_TREE, moved=True)
+UNMOVED = mergeread.Briefed(
+    tip=TIP, base=BASE, base_tree=TREE, moved=False, by="claude/opus:high"
+)
+ON_MOVED = replace(UNMOVED, base=MOVED, base_tree=MOVED_TREE, moved=True)
 
 
 def first_read(briefed: mergeread.Briefed, reply: str | None) -> MergeRead:

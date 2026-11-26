@@ -299,10 +299,13 @@ def test_the_merge_line_ruling_records_the_owners_whole_choice() -> None:
     assert said.endswith("(2026-11-25)")
 
 
-def test_the_merger_seat_and_its_failure_are_the_seat_commands() -> None:
+def test_the_merge_review_dispatches_the_seat_and_seat_commands_handle_failure() -> (
+    None
+):
     said = text("harness/claude-code/ask-merger.md")
     for words in (
-        "lem seat show SLUG merger",
+        "`result.seat`",
+        "lem land merge-review SLUG",
         "lem seat failed SLUG merger",
         "lem seat again SLUG",
         "--no-answer --tip TIP --base BASE",

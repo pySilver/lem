@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import merge_facts
+from lem.app.landing import merge_facts, merge_seats
 from lem.kernel import files
 from lem.kernel.errors import Refusal
 from lem.records.base import Frozen, Sha
@@ -45,6 +45,7 @@ class Brief(Frozen, frozen=True, kw_only=True):
     brief: str
     tip: Sha
     base: Sha
+    seat: merge_seats.Shown
 
 
 def path_of(context: Context, tip: str, base: str) -> Path:
@@ -84,4 +85,5 @@ def published(context: Context) -> Brief:
     path = path_of(context, tip, base)
     if not path.is_file():
         files.publish(path, text_of(context, read))
-    return Brief(brief=str(path), tip=tip, base=base)
+    seat = merge_seats.dispatched(context, tip, base)
+    return Brief(brief=str(path), tip=tip, base=base, seat=seat)

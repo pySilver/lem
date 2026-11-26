@@ -33,6 +33,8 @@ class Briefed(Frozen, frozen=True, kw_only=True):
     base: Sha
     base_tree: Sha
     moved: bool
+    by: str | None = None
+    brief: str | None = None
 
 
 def settled(read: MergeRead) -> bool:
@@ -77,6 +79,8 @@ def made(
         tip=briefed.tip,
         base=briefed.base,
         base_tree=briefed.base_tree,
+        by=briefed.by,
+        brief=briefed.brief,
         no_answer=reply is None,
         at=now,
     )
@@ -116,6 +120,12 @@ def decide(
             "it read an earlier proposal, and it is not written down",
             f"lem land merge-review {slug} writes the brief of this one, and a fresh merge "
             "agent reads it",
+        )
+    if not briefed.by:
+        return Refusal(
+            "brief-seat",
+            f"no seat is kept with the brief of {shown} on {briefed.base}",
+            f"lem land merge-review {slug} writes the brief with its seat for a fresh agent",
         )
     if another_round(landing) is not None:
         return Refusal(

@@ -25,7 +25,9 @@ def combined(request: Request, own: counts.Rows) -> counts.Rows:
 
 
 def peer_problem(request: Request) -> str | None:
-    """The configured peer table's last read failure."""
+    """The local peer table's last failure, for a direct request only."""
+    if "Lem-Hop" in request.headers:
+        return None
     registry = getattr(request.app.state, "peer_registry", None)
     return registry.trouble if registry else None
 

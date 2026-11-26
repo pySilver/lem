@@ -11,6 +11,7 @@ cut step again or the one after it, the cut command runs again, and nothing is d
 import json
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+from pathlib import Path
 from threading import Event
 from typing import TYPE_CHECKING
 
@@ -35,6 +36,7 @@ from journeys.test_skeleton import (
     upto,
 )
 from lem.app.landing import changes, frame, merge, merge_lock
+from lem.app.landing.merge_seats import NAME as MERGE_SEATS
 from lem.cli import lazy
 from lem.kernel import clock
 from lem.model.landing.merge_asked import Asked
@@ -45,7 +47,6 @@ from lem.store import places, tasks
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
 
     from journeys.test_skeleton import Envelope
     from lem.ports.forge_facts import MergeMethod, MergeText, Pull
@@ -71,6 +72,16 @@ SERVER = command(
 )
 SAFE = "Verdict: merge.\nBase: safe. Only NOTES.md moved, and the change reads none of it.\n"
 ROUND = "Verdict: merge.\nBase: another round, the moved base renamed what the change reads.\n"
+PRIMARY = "codex/gpt-6.2-sol:high"
+FALLBACK = "claude/opus:high"
+REPLACEMENT = "codex/gpt-6.2-astra:high"
+STOOD = (
+    f"- the merge agent was `{FALLBACK}` in place of `{PRIMARY}`: Codex had no tokens"
+)
+FAILED = (
+    f"- the merge agent was to be `{FALLBACK}` in place of `{PRIMARY}`: "
+    "Codex had no tokens; then Claude Code gave an error too: Claude Code had no login"
+)
 
 
 def owner(capsys: Capsys, world: World, *words: str) -> Envelope:
@@ -155,8 +166,149 @@ def test_a_valid_merge_verdict_requires_no_author(
     recorded = read(capsys, world, "Verdict: merge. The checks hold.")
     assert recorded["ok"], recorded
     assert recorded["result"]["verdict"] == "merge"
-    assert "by" not in landing(world)["reads"][-1]
+    assert landing(world)["reads"][-1]["by"] == FALLBACK
     assert due(capsys, world)["step"] == "merge"
+
+
+def seats_of(world: World, merger: str) -> None:
+    (world.checkout / ".lem/settings.local.toml").write_text(
+        f'[seats]\nmerger = "{merger}"\nfallback = "{FALLBACK}"\n'
+    )
+
+
+def seat_failed(capsys: Capsys, world: World, seat: str, error: str) -> Envelope:
+    return command(
+        "seat", "failed", "SLUG", "merger", "--seat", seat, "--error", error
+    )(capsys, world)["result"]
+
+
+def confirmed_text(world: World) -> str:
+    return (world.task_folder / landing(world)["proposed"]["text"]).read_text()
+
+
+def test_a_reply_to_a_brief_without_its_seat_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge-review")
+    original = brief(capsys, world)["result"]
+    (world.task_folder / MERGE_SEATS).unlink()
+    assert Path(original["brief"]).is_file()
+    for reply_text in ("Verdict: merge. The checks hold.", None):
+        refused = answered(capsys, world, reply_text)
+        assert (refused["code"], refused["refusal"]["code"]) == (1, "brief-seat")
+    assert not landing(world).get("reads")
+    assert not (world.task_folder / "merge-review.md").exists()
+    assert read(capsys, world, "Verdict: merge. The checks hold.")["ok"]
+
+
+def test_a_later_base_keeps_the_earlier_seat_and_a_new_tip_drops_both(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge-review")
+    seats_of(world, PRIMARY)
+    first = brief(capsys, world)["result"]
+    first_text = Path(first["brief"]).read_bytes()
+    moved(world)
+    seats_of(world, REPLACEMENT)
+    second = brief(capsys, world)["result"]
+    assert second["tip"] == first["tip"] and second["base"] != first["base"]
+    assert second["brief"] != first["brief"]
+    assert Path(first["brief"]).read_bytes() == first_text
+    world.told.update(tip=first["tip"], base=first["base"])
+    older = answered(capsys, world, "Verdict: merge.")
+    assert older["ok"], older
+    assert older["result"]["by"] == PRIMARY
+    world.told.update(tip=second["tip"], base=second["base"])
+    assert answered(capsys, world, None)["refusal"]["code"] == "no-verdict"
+    newer = answered(capsys, world, None)
+    assert newer["ok"], newer
+    assert newer["result"]["by"] == REPLACEMENT
+    assert newer["result"]["base_call"] == "another round"
+
+    for verb in ("start", "base", "checks"):
+        outcome = command("land", verb, "SLUG")(capsys, world)
+        assert outcome["ok"], outcome
+    assert proposal(capsys, world)["ok"]
+    assert due(capsys, world)["step"] == "merge-review"
+    third = brief(capsys, world)["result"]
+    assert third["tip"] != first["tip"]
+    kept = json.loads((world.task_folder / MERGE_SEATS).read_text())
+    assert kept["tip"] == third["tip"]
+    assert set(kept["bases"]) == {third["base"]}
+
+
+def test_a_merger_fallback_updates_the_pull_and_keeps_the_seat_that_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge-review")
+    seats_of(world, PRIMARY)
+    first = brief(capsys, world)["result"]
+    assert first["seat"]["seat"] == PRIMARY
+    assert seat_failed(capsys, world, PRIMARY, "tokens")["seat"] == FALLBACK
+    stand_in = brief(capsys, world)["result"]
+    assert tuple(stand_in[key] for key in ("tip", "base", "brief")) == tuple(
+        first[key] for key in ("tip", "base", "brief")
+    )
+    assert (stand_in["seat"]["seat"], stand_in["seat"]["source"]) == (
+        FALLBACK,
+        "stand-in",
+    )
+    seats_of(world, REPLACEMENT)
+
+    old = confirmed_text(world)
+    world.forge.fail_edits = True
+    reply = "Verdict: merge. The checks hold."
+    refused = answered(capsys, world, reply)
+    assert (refused["code"], refused["refusal"]["code"]) == (1, "text")
+    assert confirmed_text(world) == old == text_of(world)
+    assert landing(world)["proposed"]["text_waits"]
+    assert not landing(world).get("reads")
+    world.forge.fail_edits = False
+    edits = world.acts.done.count("update_pull")
+    world.acts.cut = ("update_pull", edits + 1)
+    with pytest.raises(Killed):
+        answered(capsys, world, reply)
+    capsys.readouterr()
+    assert confirmed_text(world) == old
+    assert text_of(world).splitlines().count(STOOD) == 1
+    recorded = answered(capsys, world, reply)["result"]
+    assert recorded["by"] == FALLBACK
+    assert recorded["brief"] == Path(first["brief"]).name
+    assert landing(world)["reads"][-1] == recorded
+    assert world.record()["journal"][-1]["read"] == recorded
+    assert confirmed_text(world) == text_of(world)
+    assert text_of(world).splitlines().count(STOOD) == 1
+    assert world.acts.done.count("update_pull") == edits + 1
+    assert "text_waits" not in landing(world)["proposed"]
+
+    assert seat_failed(capsys, world, FALLBACK, "login")["blocked"]
+    assert world.record()["task"]["hold"]["seat"] == "merger"
+    world.forge.outside_merge(1)
+    landed(capsys, world)
+    assert confirmed_text(world) == text_of(world)
+    assert STOOD not in text_of(world).splitlines()
+    assert text_of(world).splitlines().count(FAILED) == 1
+
+
+def test_a_merge_on_github_notices_a_failed_fallback_that_never_replied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge-review")
+    seats_of(world, PRIMARY)
+    brief(capsys, world)
+    assert seat_failed(capsys, world, PRIMARY, "tokens")["seat"] == FALLBACK
+    brief(capsys, world)
+    assert seat_failed(capsys, world, FALLBACK, "login")["blocked"]
+    assert STOOD not in text_of(world).splitlines()
+    world.forge.outside_merge(1)
+    landed(capsys, world)
+    assert not landing(world).get("reads")
+    assert confirmed_text(world) == text_of(world)
+    assert text_of(world).splitlines().count(FAILED) == 1
 
 
 def test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read(

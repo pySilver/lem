@@ -12,7 +12,15 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lem.app.landing import changes, following, merge_brief, merge_step, merge_world
+from lem.app.landing import (
+    changes,
+    following,
+    merge_brief,
+    merge_seats,
+    merge_step,
+    merge_text,
+    merge_world,
+)
 from lem.kernel import files
 from lem.kernel.errors import Refusal
 from lem.model.landing import merge_asked, mergeread
@@ -46,7 +54,14 @@ def briefed(context: Context, brief: Answered) -> mergeread.Briefed:
         )
     tree = context.ports.git.tree(context.workspace.checkout, base)
     moved = tree != merge_world.checks_tree(context)
-    return mergeread.Briefed(tip=tip, base=base, base_tree=tree, moved=moved)
+    return mergeread.Briefed(
+        tip=tip,
+        base=base,
+        base_tree=tree,
+        moved=moved,
+        by=merge_seats.kept(context, tip, base),
+        brief=written.name,
+    )
 
 
 def said(reply: str | None) -> str | None:
@@ -92,7 +107,8 @@ def act(
     )
     if isinstance(read, Refusal):
         raise read
-    context.write(context.record, partial(noted, read=read))
+    record = merge_text.edited(context, context.record)
+    context.write(record, partial(noted, read=read))
     again = mergeread.again(read)
     if again is not None:
         raise again
