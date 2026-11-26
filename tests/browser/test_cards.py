@@ -16,6 +16,7 @@ from lem.app import wiring
 from lem.app.asking import form, keys, receipts, saved
 from lem.app.asking.overlay_read import PageOutcome
 from lem.app.sessions import log
+from lem.app.asking import live as live_session
 from lem.board.ask import live_card
 from lem.cli.ask import catalog, html, preferences, spec
 from lem.store import places, tasks
@@ -49,7 +50,7 @@ SUCCESS = "The owner’s answer is on record"
 @pytest.fixture
 def cards(board: Board, monkeypatch: pytest.MonkeyPatch) -> Board:
     """The recorded agent holds its overlay without an earlier answer at the Mac."""
-    monkeypatch.setattr(live_card, "bound", wiring.bound)
+    monkeypatch.setattr(live_session, "bound", wiring.bound)
     monkeypatch.setattr(live_card, "outcome", lambda *_: PageOutcome(kind="pending"))
     session = log.newest_open(log.read(folder(board)))
     assert session is not None
