@@ -390,7 +390,18 @@ snapshots to show which process took each step.
   `/usr/bin/env -u LEM_SERVE lem serve door off` and stop the scratch server. Check Tailscale's
   status again and verify only the trial entry left.
 
-- [ ] R7 Two servers join. **Owner for the two tailnet hosts.**
+- [x] R7 Two servers join. **Owner for the two tailnet hosts.**
+
+  Passed on 2026-11-26 (round 3) on the tag `v0.99.0`: Alpha `macbook-pro-slvr` (the keg, home
+  `T/r7/config/lem`, ports 65371 and door 65372, `alpha-repo` on `pySilver/lem-scratch` base
+  `trial-r3net-r7-base`) and Beta `silvers-mac-mini` (Lem from the tag's archive in a venv of
+  `/private/tmp/lem-trial-r7`, ports 65373 and door 65374, `beta-repo` with a local bare origin in
+  that folder, since the mini has no scratch credential; `lem init` ran before the origin was added).
+  Both joins reachable; each workspace list names both hosts; each relayed page shows the peer's
+  `peer-card`; POST 405, `Lem-Hop` 404; with Beta stopped Alpha's peer page gives 502, its list keeps
+  Beta's row `reachable: false`, its own page 200. Both doors off, both servers stopped, Tailscale
+  back to the owner's entries on both hosts, the mini's folder removed. Both hosts ran Tailscale's
+  CLI through `LEM_TAILSCALE=/usr/local/bin/tailscale`. Evidence: `T/evidence/r7-*`.
 
   On the two disposable hosts make separate trial folders. For R7 only, substitute `alpha-repo`
   and `beta-repo` for `repo` in the scratch setup. Run `lem task open peer-card --ask 'Show this
