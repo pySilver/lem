@@ -6,7 +6,9 @@ For a pull request merged or closed on the forge the server runs what `lem land 
 branch keeps its commits. Never for a task whose merge this server runs, when the look begins or
 when its pull request's turn comes: the merge's own step records the landing. A bookkeeping that
 fails is the board's problem and is tried again after `memory.RETRY`; one that ran is not run
-again for that pull request.
+again for that pull request. Each pull request is looked at for its own task: a record that
+does not read keeps what the board knew of it, its last look and its problem, and stops no
+other (decision 30); the workspace page names it.
 """
 
 from typing import TYPE_CHECKING
@@ -14,7 +16,7 @@ from typing import TYPE_CHECKING
 from lem.app.landing.pull_identity import seen
 from lem.board.duties import forge_book, forge_look
 from lem.model.landing import phases, queue_evidence
-from lem.store import tasks
+from lem.store import survey, tasks
 
 if TYPE_CHECKING:
     from lem.board.duties.context import Duty
@@ -27,9 +29,9 @@ def tick(duty: Duty) -> None:
     ended there. The merges this server runs are read before the look and again at each pull
     request: a merge that ends during the look is still left to itself."""
     running = duty.kept.running()
-    records = tasks.every(duty.state)
+    records, unread = survey.records(duty.state)
     numbers = numbered(records)
-    forge_book.forgotten(duty, numbers.keys())
+    forge_book.forgotten(duty, {*numbers.keys(), *unread})
     recorded(duty, records, numbers, running)
     if not numbers:
         duty.kept.problems.pop(forge_look.PROBLEM, None)
@@ -37,7 +39,7 @@ def tick(duty: Duty) -> None:
     pulls = forge_look.looked(duty, numbers) if forge_look.due(duty) else None
     if pulls is None:
         return
-    forge_look.written(duty, pulls)
+    forge_look.written(duty, pulls, unread)
     observed(duty, pulls, running)
 
 

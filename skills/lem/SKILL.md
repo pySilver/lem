@@ -274,6 +274,8 @@ open` makes it. It holds:
   plan, investigation, plan talk and ticket), its landing, and a journal of what happened, in
   order. `lem task show SLUG` prints the task's status and hold. Its `ticket.owed` lists what an
   ended task's ticket still waits for. A task that holds a ticket holds it alone until it ends.
+  When `ticket.holder_unknown` names records that do not read, one of them may hold the ticket
+  now: take no tracker step, and tell the owner to restore those files.
 - `sessions.jsonl` and `session-acts.jsonl`: each Claude Code session of the task, as its
   `session-start` hook saw it, and each open, close and wake-up of Lem's (`lem session`).
 - `ask.txt` and `task.md`: the owner's words as given, and the ask with its outcome.

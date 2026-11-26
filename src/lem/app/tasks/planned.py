@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.tasks import plans, release
+from lem.app.tasks import lineage, plans, release
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.task import holds, table
@@ -38,7 +38,7 @@ def plan_of(workspace: Workspace, record: Record, words: Plan) -> Plan:
             f"--tasks {words.tasks} counts no task: a plan holds one task at the least",
             f"lem task planned {slug} --tasks N, with N the plan's tasks",
         )
-    path = plans.found(workspace, record, tasks.every(workspace.state))
+    path = plans.found(workspace, record, lineage.lineage(workspace.state, record))
     if path is None:
         raise Refusal(
             "no-plan",

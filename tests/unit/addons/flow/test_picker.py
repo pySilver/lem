@@ -305,6 +305,33 @@ def test_a_folder_outside_lem_a_repository_with_no_task_and_its_rows(
     assert refusal(lem("picker", "--list", cwd=unset))["code"] == "no-settings"
 
 
+def test_the_picker_names_each_record_it_omitted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("AGT_SESSION_PWD", raising=False)
+    where = workspace(tmp_path)
+    made(where, "gift-note", ask="add a gift note")
+    made(where, "fix-export", ask="fix the export")
+    made(where, "broken", ask="a broken one")
+    damaged = where.state / "tasks/broken/task.json"
+    damaged.write_text("{")
+
+    ran = lem("picker", "--list", cwd=where.checkout)
+    listed = printed(ran)
+    assert [one["id"] for one in listed][-1] == row.ALL
+    assert len(listed) == 3
+    assert "1 record omitted" in listed[-1]["subtitle"]
+    assert str(damaged) in ran.stderr
+
+    for slug in ("gift-note", "fix-export"):
+        (where.state / "tasks" / slug / "task.json").write_text("{")
+    only = lem("picker", "--list", cwd=where.checkout)
+    found = refusal(only)
+    assert found["code"] == "unread-task-record"
+    assert str(damaged) in found["why"]
+    assert "restores" in found["fix"]
+
+
 def chord(
     tmp_path: Path, checkout: Path, *, terminal_exits: int, cwd: Path | None = None
 ) -> subprocess.CompletedProcess[str]:

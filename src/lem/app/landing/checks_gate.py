@@ -102,7 +102,9 @@ class Gate:
             found = checks_wanted.seen(stream, home / LINE, own, levels, now)
             if found.look.go:
                 self.left()
-        if not found.look.go:
+        if found.look.go:
+            found.admitted()
+        else:
             self.tell(waiting(found, levels), found.position)
             self.gauges.sleep(pause(found.look))
         return found.look

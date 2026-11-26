@@ -311,3 +311,21 @@ def test_a_merge_into_another_branch_shows_the_owners_remedy(
 
     assert "drops the task" in board.kept.problems["merged:gift-note"]
     assert "brings the change onto main" in board.kept.problems["merged:gift-note"]
+
+
+def test_a_damaged_task_keeps_its_facts_and_stops_no_other_pull_requests_look(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    here = here_of(tmp_path)
+    opened(here, "gift-note", proposed=proposed())
+    opened(here, "broken", proposed=proposed())
+    looked(here, "broken", "CONFLICTING")
+    (here.folder("broken") / "task.json").write_text("{")
+    pulled(here, state="merged")
+    ran = booking(monkeypatch)
+    kept = Kept(problems={"merged:broken": "old"})
+    duty.tick(duty_of(here, HOUR, kept))
+    assert ran == ["gift-note"]
+    assert kept.problems == {"merged:broken": "old"}
+    seen = forge.read(here.where.state).seen
+    assert seen["broken"] == forge.Seen(head=TIP, mergeable="CONFLICTING")

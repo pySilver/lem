@@ -3,8 +3,7 @@
 from typing import TYPE_CHECKING
 
 from lem.addons.inbox import payload, stops
-from lem.app.tasks import plans
-from lem.store import tasks
+from lem.app.tasks import lineage, plans
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -35,7 +34,8 @@ def prepare(
 def plan(called: Here, found: RowFacts) -> str | None:
     """The plan path is relative to the task's worktree, or the checkout."""
     workspace = called.where
-    named = plans.found(workspace, found.look.record, tasks.every(workspace.state))
+    record = found.look.record
+    named = plans.found(workspace, record, lineage.lineage(workspace.state, record))
     cwd = called.worktree(found.row.task) or workspace.checkout
     return str(cwd / named) if named else None
 

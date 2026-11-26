@@ -11,7 +11,7 @@ from msgspec.structs import replace
 
 from lem.app import task_reads
 from lem.app.tasks import first_line, shown_answer
-from lem.model.task import claim, tickets
+from lem.model.task import claim, ticket_owner, tickets
 from lem.records.base import Day, Frozen, Moment
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
 from lem.store import places, tasks
@@ -25,7 +25,8 @@ if TYPE_CHECKING:
 
 class TicketRow(Frozen, frozen=True, kw_only=True):
     """A task's ticket: its id and repository, the steps written down, the login Lem added,
-    what its end still owes, and the task that holds it now when it is another one."""
+    what its end still owes, the task that holds it now when it is another one, and the
+    records that did not read when one of them may hold it, which leave nothing owed."""
 
     id: str
     repo: str | None = None
@@ -33,6 +34,7 @@ class TicketRow(Frozen, frozen=True, kw_only=True):
     assignee: str | None = None
     owed: tuple[str, ...] = ()
     held_by: str | None = None
+    holder_unknown: tuple[str, ...] = ()
 
 
 class Row(Frozen, frozen=True, kw_only=True):
@@ -72,23 +74,24 @@ def hold_line(hold: Hold | None) -> str | None:
     return None
 
 
-def ticket_row(record: Record, every: tuple[Record, ...]) -> TicketRow | None:
+def ticket_row(record: Record, read: task_reads.Shown) -> TicketRow | None:
     """The task's ticket as a row, or None."""
     task = record.task
     if task.ticket is None:
         return None
-    held_by = claim.holder(task, every)
+    found = ticket_owner.owner(task, read.records, read.unread)
     return TicketRow(
         id=task.ticket.id,
         repo=task.ticket.repo,
         steps=tuple(step.act for step in task.ticket.steps),
         assignee=tickets.assignee(task.ticket),
-        owed=tickets.owed(task, held_by),
-        held_by=held_by,
+        owed=found.owed,
+        held_by=found.held_by,
+        holder_unknown=found.unknown,
     )
 
 
-def row(record: Record, every: tuple[Record, ...]) -> Row:
+def row(record: Record, read: task_reads.Shown) -> Row:
     """One task's row."""
     task, shape = record.task, record.task.shape
     hold = task.hold
@@ -107,7 +110,7 @@ def row(record: Record, every: tuple[Record, ...]) -> Row:
         plan_only=task.plan_only,
         night=task.night,
         mode=task.mode,
-        ticket=ticket_row(record, every),
+        ticket=ticket_row(record, read),
         resumed_from=task.resumed_from,
         owner_careful=task.owner_careful,
     )
@@ -116,10 +119,10 @@ def row(record: Record, every: tuple[Record, ...]) -> Row:
 def listed(folder: Path, *, ended: bool) -> tuple[Row, ...]:
     """Every task of the workspace, the ended ones only with `ended`."""
     state = places.workspace(folder).state
-    every = task_reads.visible(state)
+    read = task_reads.surveyed(state)
     return tuple(
-        row(record, every)
-        for record in every
+        row(record, read)
+        for record in read.records
         if ended or record.task.status not in claim.ENDED
     )
 
@@ -130,7 +133,7 @@ def shown(folder: Path, slug: str) -> Row:
     record = tasks.read(where.state, slug)
     line = first_line.said(where, record, named=True)
     return replace(
-        row(record, task_reads.visible(where.state)),
+        row(record, task_reads.surveyed(where.state)),
         first_line=line,
         board_answer=shown_answer.pending(record),
     )

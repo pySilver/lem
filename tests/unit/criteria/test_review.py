@@ -142,6 +142,37 @@ def test_a_panel_read_counts_distinct_personas_and_sources(
         assert isinstance(refusal, dict) and refusal["code"] == "criteria-read"
 
 
+def test_one_family_in_two_cases_is_one_family_and_no_split(checkout: Path) -> None:
+    ran = lem(
+        "criteria",
+        "read",
+        world.SLUG,
+        "done",
+        "--by",
+        "lead",
+        "--asked",
+        "2",
+        "--answered",
+        "2",
+        "--criteria",
+        "1",
+        "--flagged",
+        "0",
+        "--digest",
+        "a" * 12,
+        "--family",
+        "opus",
+        "--family",
+        "Opus",
+        "--split",
+        cwd=checkout,
+    )
+    refusal = ran.envelope()["refusal"]
+    assert isinstance(refusal, dict), ran.stdout
+    assert refusal["code"] == "criteria-read"
+    assert world.read(checkout).task.criteria.reads == ()
+
+
 def unanswered(checkout: Path, marked: str) -> None:
     silent = tuple(
         reads.silent_of(f"{name}, opus: no answer") for name in ("Ania", "Bea")

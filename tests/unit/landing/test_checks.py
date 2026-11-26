@@ -967,6 +967,18 @@ def test_a_run_behind_another_logs_the_first_and_why_then_starts_when_it_left(
     assert line.names() == []
 
 
+def test_a_run_that_starts_at_once_names_the_record_its_look_omitted(
+    line: Line, workspace: places.Workspace, capsys: pytest.CaptureFixture[str]
+) -> None:
+    damaged(workspace.state)
+    gauged = Gauged(loads=[30.0], clock=at("12:19"))
+    gate = checks_gate.Gate(slug=TALK_TASK, workspace=workspace, gauges=gauged.gauges())
+    assert gate.passed() is False
+    folder = workspace.state / "tasks" / "broken"
+    assert f"Lem omitted {folder}" in capsys.readouterr().err
+    assert line.names() == []
+
+
 def test_a_stop_in_the_wait_takes_the_run_out_of_the_line(
     line: Line, workspace: places.Workspace
 ) -> None:

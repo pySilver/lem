@@ -487,6 +487,37 @@ def test_poll_isolated_per_workspace_and_skips_unknown_sessions(
     ]
 
 
+def test_an_idle_inbox_with_a_damaged_record_is_no_duty_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from lem.addons.inbox import workspace
+    from lem.app.owner import forge, looking
+    from lem.records.owner import Presence
+    from lem.store.places import Workspace
+
+    target = Workspace(
+        checkout=tmp_path,
+        lem=tmp_path / ".lem",
+        state=tmp_path / ".lem" / "state",
+    )
+    monkeypatch.setattr(workspace.here, "bound", lambda folder: object())
+
+    def seen(*, away: bool) -> looking.Looked:
+        return looking.Looked(
+            looks=(),
+            presence=Presence(away=away),
+            forge=forge.Look(),
+            unread=("Lem omitted tasks/broken/task.json: the record does not read.",),
+        )
+
+    monkeypatch.setattr(workspace.looking, "looked", lambda *_: seen(away=False))
+    assert workspace.tick(target, NOW, "https://board.test.invalid") == Record()
+    monkeypatch.setattr(workspace.looking, "looked", lambda *_: seen(away=True))
+    with pytest.raises(Refusal) as refused:
+        workspace.tick(target, NOW, "https://board.test.invalid")
+    assert refused.value.code == "unread-task-record"
+
+
 def test_board_only_rows_and_forked_sessions_do_not_receive_questions(
     tmp_path: Path,
 ) -> None:

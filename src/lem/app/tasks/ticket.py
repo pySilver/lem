@@ -9,7 +9,7 @@ from msgspec.structs import replace
 from lem.app import task_reads
 from lem.app.tasks import release
 from lem.kernel import clock
-from lem.model.task import claim, tickets
+from lem.model.task import ticket_owner, tickets
 from lem.records.base import Frozen
 from lem.store import places, tasks
 
@@ -26,7 +26,8 @@ ENDS = frozenset(("unassigned", "commented", "landed", "dropped", "answered"))
 
 class Shown(Frozen, frozen=True, kw_only=True):
     """A task's ticket: its id and repository, the steps written down, the login Lem added,
-    and what its end still owes it."""
+    what its end still owes it, and the records that did not read when one of them may hold
+    it, which leave nothing owed."""
 
     slug: str
     ticket: str
@@ -34,19 +35,22 @@ class Shown(Frozen, frozen=True, kw_only=True):
     steps: tuple[str, ...] = ()
     assignee: str | None = None
     owed: tuple[str, ...] = ()
+    holder_unknown: tuple[str, ...] = ()
 
 
-def shown(record: Record, every: tuple[Record, ...]) -> Shown:
+def shown(record: Record, read: task_reads.Shown) -> Shown:
     """What `lem task ticket` and the tracker's steps print of a task's ticket."""
     task = record.task
     ticket = tickets.of(task)
+    found = ticket_owner.owner(task, read.records, read.unread)
     return Shown(
         slug=task.slug,
         ticket=ticket.id,
         repo=ticket.repo,
         steps=tuple(step.act for step in ticket.steps),
         assignee=tickets.assignee(ticket),
-        owed=tickets.owed(task, claim.holder(task, every)),
+        owed=found.owed,
+        holder_unknown=found.unknown,
     )
 
 
@@ -68,7 +72,7 @@ def recorded(state: Path, slug: str, act: TicketAct, login: str | None) -> Shown
         lambda one: with_step(one, act=act, login=login, now=now),
         record.revision,
     )
-    return shown(written, task_reads.visible(state))
+    return shown(written, task_reads.surveyed(state))
 
 
 def stepped(folder: Path, slug: str, act: TicketAct, login: str | None) -> Shown:

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from lem.app.tasks import drop, move_state, release
 from lem.kernel import clock
 from lem.model.task import ending, holds, table
-from lem.store import places, tasks
+from lem.store import places, task_file, tasks
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -55,7 +55,7 @@ def moved(
         return drop.dropped(where, slug, line)
     record = release.checked(where.state, slug)
     refused = table.refusal(record.task, status, start_over) or table.gate(
-        record, status, tasks.every(where.state)
+        record, status, task_file.named(where.state, record.task.after)
     )
     if refused is not None:
         raise refused

@@ -68,12 +68,13 @@ def silent_of(said: str) -> Silent:
 
 
 def counted(found: Found) -> str | None:
-    """Why the counts of `found` do not add up, or None (`project.read_form` on `main`)."""
-    named = [family for family in found.families if family.strip()]
+    """Why the counts of `found` do not add up, or None (`project.read_form` on `main`). A
+    family is one in any case, as a silent seat's is (`read_sources.seat`)."""
+    named = {family.strip().casefold() for family in found.families if family.strip()}
     wrongs = (
         (found.asked < LEAST, "a read asks two personas at the least"),
         (found.answered > found.asked, "--answered is at most --asked"),
-        (len(set(named)) < len(found.families), "each family is named once, in words"),
+        (len(named) < len(found.families), "each family is named once, in words"),
         (bool(found.answered and not named), "a read names each family that answered"),
         (found.criteria < 1, "a read reads one criterion at the least"),
         (found.flagged > found.criteria, "no more criteria flagged than read"),

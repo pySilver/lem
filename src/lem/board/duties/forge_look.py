@@ -75,20 +75,28 @@ def problem_of(error: Fault | Refusal) -> str:
     return f"the board cannot ask GitHub about the open pull requests: {why}"
 
 
-def written(duty: Duty, pulls: Pulls) -> None:
-    """Write the look into `forge.json`, whole; a write that fails is a line in the server's
-    log, and the look holds in memory meanwhile."""
+def written(duty: Duty, pulls: Pulls, unread: tuple[str, ...] = ()) -> None:
+    """Write the look into `forge.json`, whole, with the last look of each task whose record
+    does not read; a write that fails is a line in the server's log, and the look holds in
+    memory meanwhile."""
+    kept = last_seen(duty, unread)
     seen = {
         slug: forge.Seen(head=pull.head, mergeable=CALLED[pull.mergeable])
         for slug, pull in pulls.items()
     }
-    look = forge.Look(looked=duty.now, seen=seen)
+    look = forge.Look(looked=duty.now, seen=kept | seen)
     duty.kept.look = look
     guard.writable(duty.state)
     try:
         files.write_whole(duty.state / forge.LOOK, msgspec.json.encode(look))
     except OSError as error:
         duty.say(f"the forge's look was not written to {forge.LOOK}: {error}")
+
+
+def last_seen(duty: Duty, slugs: tuple[str, ...]) -> dict[str, forge.Seen]:
+    """What the last look saw of each task of `slugs` that it saw."""
+    before = current(duty).seen
+    return {slug: before[slug] for slug in slugs if slug in before}
 
 
 def current(duty: Duty) -> forge.Look:

@@ -10,7 +10,7 @@ import pytest
 
 from fakes.command import lem
 from fakes.records import MOMENT
-from lem.app.tasks import building, planned, plans
+from lem.app.tasks import building, lineage, planned, plans
 from lem.kernel.errors import Refusal
 from lem.model.task import plans as names
 from lem.records.holds import Parked
@@ -105,9 +105,13 @@ def test_a_resumed_task_finds_the_plan_of_the_task_it_came_from(tmp_path: Path) 
     plan_in(where, "gift-note-2", "2026-11-20-gift-note.md")
     every = (spaces.read(where, SLUG), resumed)
     assert names.chain("gift-note-2", every) == ("gift-note-2", SLUG)
-    assert plans.found(where, resumed, every) == "docs/plans/2026-11-20-gift-note.md"
+    older = lineage.lineage(where.state, resumed)
+    assert plans.found(where, resumed, older) == "docs/plans/2026-11-20-gift-note.md"
     plan_in(where, "gift-note-2", "2026-11-21-gift-note-2.md")
-    assert plans.found(where, resumed, every) == "docs/plans/2026-11-21-gift-note-2.md"
+    chained = names.chain("gift-note-2", every)
+    assert (
+        plans.found(where, resumed, chained) == "docs/plans/2026-11-21-gift-note-2.md"
+    )
 
 
 def test_planned_records_the_plan_and_moves_the_task(tmp_path: Path) -> None:

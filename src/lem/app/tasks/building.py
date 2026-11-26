@@ -54,10 +54,8 @@ def waiting(every: tuple[Record, ...]) -> tuple[Waiting, ...]:
 
 
 def slug_of(target: str, every: tuple[Record, ...], pattern: str) -> str | None:
-    """The task a target names: a slug as it is; a plan file by the plan a task has, else by
-    the slug its name holds."""
-    if not target.endswith(".md") and "/" not in target:
-        return target
+    """The task a plan file names: by the plan a task has, which every record must say,
+    else by the slug its name holds."""
     name = PurePath(target).name
     owners = (
         record.task.slug
@@ -71,12 +69,14 @@ def slug_of(target: str, every: tuple[Record, ...], pattern: str) -> str | None:
     return named["slug"] if named else None
 
 
-def refusal(task: Task, every: tuple[Record, ...]) -> errors.Refusal | None:
+def refusal(task: Task, workspace: Workspace) -> errors.Refusal | None:
     """Why a task does not build now, with the way on: his "start SLUG now" for a queued
-    task, the plans that wait for one that is not planned, or its hold."""
+    task, the plans that wait for one that is not planned (a view of the readable records),
+    or its hold."""
     if task.status == PLANNED:
         return table.refusal(task, "building", None)
-    listed = ", ".join(row.slug for row in waiting(every)) or "none"
+    shown = task_reads.visible(workspace.state)
+    listed = ", ".join(row.slug for row in waiting(shown)) or "none"
     fix = f"build one whose plan waits (lem task build SLUG): {listed}"
     if task.status == "queued":
         fix = f"his word starts a queued task: {behind.word(task.slug)}"
@@ -88,10 +88,10 @@ def refusal(task: Task, every: tuple[Record, ...]) -> errors.Refusal | None:
     )
 
 
-def started(workspace: Workspace, slug: str, every: tuple[Record, ...]) -> Built:
+def started(workspace: Workspace, slug: str) -> Built:
     """Move the planned task `slug` to `building`."""
     record = release.checked(workspace.state, slug)
-    refused = refusal(record.task, every)
+    refused = refusal(record.task, workspace)
     if refused is not None:
         raise refused
     now = clock.now()
@@ -109,13 +109,14 @@ def built(workspace: Workspace, target: str | None) -> Built:
     """Start the build of the planned task `target` names, or list the plans that wait."""
     if target is None:
         return Built(waiting=waiting(task_reads.visible(workspace.state)))
-    every = tasks.every(workspace.state)
+    if not target.endswith(".md") and "/" not in target:
+        return started(workspace, target)
     paths = settings_of(workspace.checkout).settings.paths
-    slug = slug_of(target, every, paths.plan_file)
+    slug = slug_of(target, tasks.every(workspace.state), paths.plan_file)
     if slug is None:
         raise errors.Refusal(
             "no-plan",
             f"{target} is no plan file of a task",
             "lem task build with no name lists the plans that wait",
         )
-    return started(workspace, slug, every)
+    return started(workspace, slug)

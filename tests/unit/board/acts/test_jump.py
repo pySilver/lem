@@ -57,3 +57,23 @@ def test_no_jump_through_the_door(door: Board) -> None:
     through = door.client.post(f"{door.base}/agterm/S-1")
     assert through.status_code == 403
     assert "the phone has no agterm" in through.json()["said"]
+
+
+def test_a_damaged_task_stops_no_jump_to_a_known_session_and_names_its_repair(
+    board: Board,
+) -> None:
+    made(board, status="building", lead="builder")
+    session = opened(board)
+    made(board, "broken", status="building")
+    damaged = board.state / "tasks" / "broken" / "task.json"
+    damaged.write_text("{")
+    found = jump(board, session)
+    assert (found.status_code, found.json()) == (
+        200,
+        {"done": True, "said": "Switched to the session."},
+    )
+    other = jump(board, "S-MINE")
+    assert other.status_code == 422
+    said = other.json()["said"]
+    assert str(damaged) in said
+    assert "The owner restores" in said

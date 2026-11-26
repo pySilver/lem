@@ -16,6 +16,8 @@ from lem.records.base import Frozen
 from lem.settings.load import settings_of
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from lem.records.record import Record
     from lem.settings.team import Paths
     from lem.store.places import Workspace
@@ -40,20 +42,17 @@ def folder_of(workspace: Workspace, slug: str, paths: Paths) -> Path:
     return root / paths.plans
 
 
-def found(
-    workspace: Workspace, record: Record, every: tuple[Record, ...]
-) -> str | None:
+def found(workspace: Workspace, record: Record, slugs: Iterable[str]) -> str | None:
     """The task's plan as a path in the repository, the newest day's; a resumed task's is the
-    plan of the nearest task it came from until it has one of its own."""
+    plan of the nearest task of `slugs` it came from until it has one of its own."""
     paths = settings_of(workspace.checkout).settings.paths
-    slug = record.task.slug
-    folder = folder_of(workspace, slug, paths)
+    folder = folder_of(workspace, record.task.slug, paths)
     files = (
         [path.name for path in folder.iterdir() if path.is_file()]
         if folder.is_dir()
         else []
     )
-    named = names.newest(files, paths.plan_file, names.chain(slug, every))
+    named = names.newest(files, paths.plan_file, slugs)
     return str(PurePosixPath(paths.plans) / named) if named else None
 
 
@@ -68,5 +67,7 @@ def plan_file(workspace: Workspace, slug: str, day: str | None) -> PlanFile:
         pattern=paths.plan_file,
         name=name,
         path=str(PurePosixPath(paths.plans) / name),
-        found=found(workspace, record, task_reads.visible(workspace.state)),
+        found=found(
+            workspace, record, names.chain(slug, task_reads.visible(workspace.state))
+        ),
     )

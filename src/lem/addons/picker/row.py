@@ -14,10 +14,13 @@ if TYPE_CHECKING:
 ALL = ":all"
 
 
-def all_row(count: int) -> PickRow:
-    """The last row, the board of every task."""
+def all_row(count: int, omitted: int = 0) -> PickRow:
+    """The last row, the board of every task, with the records the picker left out."""
     tasks = "1 task" if count == 1 else f"{count} tasks"
     every = f"the board of every task · {tasks}"
+    if omitted:
+        records = "1 record" if omitted == 1 else f"{omitted} records"
+        every = f"{every} · {records} omitted"
     return PickRow(row_id=ALL, label="All tasks", subtitle=every)
 
 

@@ -5,6 +5,7 @@ queued after the entries were made counts at the next look; and the look itself 
 on `main`), whose start writes itself into `load.lock` as the last one.
 """
 
+import sys
 from itertools import chain
 from pathlib import Path
 from typing import IO
@@ -71,6 +72,15 @@ class Seen(Frozen, frozen=True, kw_only=True):
     look: checks_line.Look
     unread: tuple[str, ...] = ()
     position: int
+
+    def admitted(self) -> None:
+        """Name on standard error each state or task folder that the look which lets the run
+        start did not read: its landings counted as wanted by no task."""
+        for place in self.unread:
+            sys.stderr.write(
+                f"Lem omitted {place} at the load gate: it does not read, so its "
+                "landings counted as wanted by no task.\n"
+            )
 
 
 def seen(

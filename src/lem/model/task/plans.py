@@ -60,7 +60,7 @@ def name(pattern: str, slug: str, day: date) -> str:
     return named.replace("MM", month).replace("DD", of_month)
 
 
-def newest(names: Iterable[str], pattern: str, slugs: Slugs) -> str | None:
+def newest(names: Iterable[str], pattern: str, slugs: Iterable[str]) -> str | None:
     """Of `names`, the plan of the first of `slugs` that has one, the newest day's of
     several; None when none has."""
     listed = tuple(names)

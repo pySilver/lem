@@ -18,11 +18,13 @@ from lem.app.sessions import here, log
 from lem.board import listener
 from lem.board.pages import place
 from lem.kernel.errors import Fault, Refusal
-from lem.store import places, tasks
+from lem.store import places, survey
 
 if TYPE_CHECKING:
     from starlette.requests import Request
     from starlette.responses import Response
+
+    from lem.records.record import Record
 
 
 DOOR = "The jump to a session is for a page on this Mac: the phone has no agterm."
@@ -37,22 +39,32 @@ def answered(said: str, status: HTTPStatus, *, done: bool) -> JSONResponse:
 
 def named(space: places.Workspace, session: str) -> str | None:
     """The session Lem opened last for a task of the workspace that `session` names, as Lem
-    keeps its id, or None."""
-    folders = (
-        places.task_folder(space.state, record.task.slug)
-        for record in tasks.every(space.state)
-    )
+    keeps its id, or None; a session no readable task names is refused while a record does
+    not read, since that task may be the one (decision 30)."""
+    records, unread = survey.records(space.state)
+    kept = opened_last(space, records, session)
+    if kept is None:
+        survey.require_complete(survey.warnings(space.state, unread))
+    return kept
+
+
+def opened_last(
+    space: places.Workspace, records: tuple[Record, ...], session: str
+) -> str | None:
+    """The session of `records` whose newest open `session` names, as Lem keeps its id."""
+    folders = (places.task_folder(space.state, record.task.slug) for record in records)
     opens = (log.newest_open(log.read(folder)) for folder in folders)
     ids = (one.session for one in opens if one is not None)
     return next((kept for kept in ids if log.same(kept, session)), None)
 
 
 def selected(space: places.Workspace, session: str) -> str | None:
-    """Select the session in agterm; None when it was done, else why not."""
+    """Select the session in agterm; None when it was done, else why not, with the
+    repair."""
     try:
         kept = named(space, session)
     except Refusal as refusal:
-        return refusal.why
+        return f"{refusal.why} {refusal.fix}"
     if kept is None:
         return NONE
     try:

@@ -11,7 +11,7 @@ from lem.app.tasks import first_line, release
 from lem.kernel import clock
 from lem.model.task import first_line as opening
 from lem.model.task import read as reading
-from lem.store import places, tasks
+from lem.store import places, task_file, tasks
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -25,8 +25,10 @@ def shaped(folder: Path, slug: str, shape: Shape, queue: reading.Queue) -> Recor
     """Record the read of the task `slug`, and give its record as written."""
     where = places.workspace(folder)
     record = release.checked(where.state, slug)
-    known = (one.task for one in tasks.every(where.state))
-    refused = reading.refusal(record, queue, {task.slug: task.status for task in known})
+    named = task_file.named(where.state, queue.after + record.task.after)
+    refused = reading.refusal(
+        record, queue, {one.task.slug: one.task.status for one in named}
+    )
     if refused is not None:
         raise refused
     words = first_line.gathered(where, record.task)

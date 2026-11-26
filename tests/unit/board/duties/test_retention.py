@@ -362,6 +362,19 @@ def test_a_link_is_never_followed_and_a_record_that_does_not_read_keeps_every_fi
     assert skipped["tasks/broken"].startswith("its task.json does not read")
 
 
+@pytest.mark.parametrize("dry", [True, False])
+def test_a_record_that_lem_cannot_open_is_skipped_and_the_rest_is_pruned(
+    state: Path, *, dry: bool
+) -> None:
+    landed(state, "old-task")
+    broken = state / "tasks" / "broken"
+    (broken / "task.json").mkdir(parents=True)
+    run = pruned(state, 30, "Lem's default", LATER, dry=dry)
+    assert [one.task for one in run.summarized] == ["old-task"]
+    skipped = {one.path: one.why for one in run.skipped}
+    assert skipped["tasks/broken"].startswith("its task.json does not read")
+
+
 def test_a_failed_removal_is_named_and_the_next_run_finishes_it(state: Path) -> None:
     landed(state, "old-task")
     checks = state / "tasks" / "old-task" / "checks"

@@ -44,7 +44,7 @@ def read(removal: files.Removal, folder: Path) -> Record | None:
         return None
     try:
         record = tasks.read(removal.top, folder.name)
-    except (Refusal, Fault) as error:
+    except (Refusal, Fault, OSError) as error:
         removal.skip(folder, f"its task.json does not read: {error}")
         return None
     slug = record.task.slug

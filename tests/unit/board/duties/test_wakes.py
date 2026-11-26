@@ -323,3 +323,20 @@ def test_the_release_stop_prevents_conflict_but_permits_cleanup(
     )
     conflict.tick(duty_of(here, HOUR + timedelta(minutes=1)))
     assert wakes(here) == [("merged", None)]
+
+
+def test_a_damaged_task_it_does_not_name_leaves_the_queued_turn_and_one_it_names_holds_it(
+    tmp_path: Path,
+) -> None:
+    terminal = with_caller()
+    here = here_of(tmp_path, terminal)
+    made(here, "first", status="landed", since=LATER)
+    made(here, "unrelated", status="dropped", since=LATER)
+    made(here, "broken", status="landed", since=LATER)
+    made(here, status="queued", after=("first",), lead="builder")
+    made(here, "waits", status="queued", after=("broken",), lead="builder")
+    for slug in ("unrelated", "broken"):
+        (here.folder(slug) / "task.json").write_text("{")
+    queue.tick(duty_of(here, HOUR))
+    assert wakes(here) == [("queue", None)]
+    assert wakes(here, "waits") == []

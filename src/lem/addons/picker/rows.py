@@ -27,15 +27,18 @@ type Records = dict[str, Record]
 type Waited = dict[str, tuple[Record, str | None]]
 
 
-def rows_of(records: Records, waits: Rows, now: dt.datetime) -> tuple[PickRow, ...]:
-    """Every row of the picker; none for a workspace with no task."""
+def rows_of(
+    records: Records, waits: Rows, now: dt.datetime, omitted: tuple[str, ...] = ()
+) -> tuple[PickRow, ...]:
+    """Every row of the picker, the last one counting the records left out; none for a
+    workspace with no task that reads."""
     if not records:
         return ()
     said = waited(records, waits)
     rest = ((record, None) for record in later(records, said))
     ordered = (*said.values(), *rest)
     picked = tuple(pick_row(*pair, now) for pair in ordered)
-    return (*picked, all_row(len(records)))
+    return (*picked, all_row(len(records), len(omitted)))
 
 
 def waited(records: Records, waits: Rows) -> Waited:

@@ -77,6 +77,71 @@ def test_a_damaged_record_is_named_in_the_list_and_refuses_a_claim(
     assert not (where.state / "tasks/third-task/task.json").exists()
 
 
+def test_a_missing_record_beside_a_session_log_is_named_and_refuses_the_same_ticket(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path, GITHUB)
+    opened(where, "original", ticket="44", ticket_repo="o/r")
+    folder = where.state / "tasks/original"
+    (folder / "session-acts.jsonl").write_text('{"act": "open"}\n')
+    (folder / "task.json").unlink()
+
+    listed = lem("task", "list", cwd=where.checkout)
+    claimed = lem(
+        "task",
+        "open",
+        "second",
+        "--ask",
+        "fix type",
+        "--ticket",
+        "44",
+        "--ticket-repo",
+        "o/r",
+        cwd=where.checkout,
+    )
+
+    assert listed.code == 0, listed.stdout
+    assert rows(listed) == []
+    assert str(folder / "task.json") in listed.stderr
+    assert refusal(claimed)["code"] == "unread-task-record"
+    assert str(folder / "task.json") in refusal(claimed)["why"]
+    assert not (where.state / "tasks/second").exists()
+    shown = refusal(lem("task", "show", "original", cwd=where.checkout))
+    assert shown["code"] == "unread-task-record"
+
+
+def test_a_folder_left_before_its_first_record_is_an_empty_slot(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    folder = where.state / "tasks/half-made"
+    folder.mkdir(parents=True)
+    (folder / "task.lock").touch()
+    (folder / ".task.json.x1y2").write_text("{")
+
+    listed = lem("task", "list", cwd=where.checkout)
+
+    assert (listed.code, rows(listed), listed.stderr) == (0, [], "")
+    assert opened(where) == "shaping"
+
+
+def test_a_tasks_folder_lem_cannot_list_refuses_with_its_repair(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    opened(where)
+    folder = where.state / "tasks"
+    folder.chmod(0)
+    try:
+        claimed = lem("task", "open", "third", "--ask", "fix type", cwd=where.checkout)
+    finally:
+        folder.chmod(0o755)
+
+    found = refusal(claimed)
+    assert found["code"] == "unread-task-record"
+    assert str(folder) in found["why"]
+    assert str(folder) in found["fix"]
+    assert not (folder / "third").exists()
+
+
 def test_an_unknown_task_points_to_the_list_and_board_needs_a_session(
     tmp_path: Path,
 ) -> None:

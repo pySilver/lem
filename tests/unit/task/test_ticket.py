@@ -129,6 +129,34 @@ def test_the_list_shows_open_tasks_and_the_ended_ones_with_ended(
     assert found["ended"]["ticket"]["owed"] == ["commented", "landed"]
 
 
+def test_a_damaged_successor_leaves_the_ticket_owed_nothing_and_names_it(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    linear = Ticket(tracker="linear", id="LEM-44")
+    made(where, "old", status="dropped", ticket=linear)
+    made(where, "current", status="building", ticket=linear, resumed_from="old")
+    before = result(lem("task", "show", "old", cwd=tmp_path))["ticket"]
+    assert (before["held_by"], before.get("owed", [])) == ("current", [])
+    damaged = where.state / "tasks/current/task.json"
+    damaged.write_text("{")
+
+    shown = lem("task", "show", "old", cwd=tmp_path)
+    listed = lem("task", "list", "--ended", cwd=tmp_path)
+    stepped = lem("task", "ticket", "old", "started", cwd=tmp_path)
+
+    for ran, found in (
+        (shown, result(shown)["ticket"]),
+        (listed, rows(listed)[0]["ticket"]),
+        (stepped, result(stepped)),
+    ):
+        assert ran.code == 0, ran
+        assert found.get("owed", []) == [], found
+        assert found["holder_unknown"] == [str(damaged)], found
+        assert str(damaged) in ran.stderr
+    assert result(lem("task", "show", "old", cwd=tmp_path)).get("held_by") is None
+
+
 def test_show_reads_one_task_and_writes_nothing(tmp_path: Path) -> None:
     where = workspace(tmp_path)
     made(

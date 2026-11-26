@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
+from lem.app import task_reads
 from lem.app.tasks import release
-from lem.kernel import clock
-from lem.kernel.errors import Refusal
+from lem.kernel import clock, errors
 from lem.model.task import holds, queue, table
-from lem.store import places, tasks
+from lem.store import places, task_file, tasks
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -29,11 +29,12 @@ def may(folder: Path, slug: str) -> queue.May:
     """Whether `slug` may start now; refused with the way on when it may not."""
     state = places.workspace(folder).state
     record = release.checked(state, slug)
-    every = tasks.every(state)
-    refused = queue.start_refusal(record.task, every)
+    named = task_file.named(state, record.task.after)
+    refused = queue.start_refusal(record.task, named)
     if refused is not None:
         raise refused
-    return queue.May(slug=slug, running=queue.running(slug, every))
+    shown = task_reads.visible(state)
+    return queue.May(slug=slug, running=queue.running(slug, shown))
 
 
 def started(record: Record, *, status: Status, words: str, now: Moment) -> Record:
@@ -51,7 +52,7 @@ def startable(task: Task) -> None:
     if held is not None:
         raise held
     if task.status != "queued":
-        raise Refusal(
+        raise errors.Refusal(
             "start",
             f"{task.slug} is {task.status}: the owner's word starts a queued task",
             f"lem task may-start {task.slug} says whether it may start",

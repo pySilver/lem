@@ -59,13 +59,15 @@ def writable(record: Record, running: str) -> None:
 
 
 def read(state: Path, slug: str) -> Record:
-    """The record of `slug`; refused when the task does not exist, a fault when the file is no
-    record."""
+    """The record of `slug`; refused when the task does not exist or its folder lost its
+    record, a fault when the file is no record."""
     guard.readable(state)
     path = places.task_folder(state, slug) / RECORD
     try:
         return task_file.read(path)
     except FileNotFoundError:
+        if task_file.published(path):
+            return task_file.required(path)
         raise Refusal(
             "no-task", f"no task {slug} here", "lem task list names the tasks"
         ) from None
