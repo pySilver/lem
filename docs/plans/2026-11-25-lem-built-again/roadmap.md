@@ -11,11 +11,12 @@ To refresh the owner's page after an edit: `/Users/Silver/Projects/GitHub/lem/.c
 
 ## Where we are
 
-- **2026-11-26 04:29 CET.** `rebuild` = `3c472670` holds 31 of 35 steps: `mutation` landed (mutmut
-  over `model/landing`: 1,161 surviving mutants before, none after; four defects of the landing's
-  rules fixed; every remaining pragma listed with its reason; all seven levels: unit 4,353 and 5 skips
-  of 4,358, journeys 300 of 300). Left: `pack-trial` and `trials` (they wait for the owner's answer on
-  a page: most checks need him), then `close`, then the cutover on his word.
+- **2026-11-26 06:17 CET.** `rebuild` = `ef3a9fa6` holds 31 of 35 steps, and the parts of `close` that
+  need no trial: no old-form mark is left (the unit level skips nothing: 4,399 of 4,399), 44 ledger
+  rows still lack a fate (most wait for the trials), five defects found on the way are fixed (among
+  them a phone Yes that lost its note and a wait count the server and the page counted apart); all
+  seven levels pass (journeys 309 of 309) and the browser level 46 of 46. Left: `pack-trial` and the
+  trials, then the last run of `close`, then the cutover. They wait for the owner's answer on the page.
 - **Group 3** is on `rebuild`.
 - **Group 4** (the board) is on `rebuild`; it built from 15:33 on a base of `rebuild` with core round 2, `owner` and
   `board-inputs` merged in (Astra moved every reader of the task wait to the list: `f3b82ece`).
@@ -31,7 +32,6 @@ To refresh the owner's page after an edit: `/Users/Silver/Projects/GitHub/lem/.c
 | Who | What | Since | Waits for |
 | --- | --- | --- | --- |
 | owner | a page asks how far the last trials may go without him (P1 needs a tag and a branch on his tap; P3 a Claude Code he starts from the Dock; R6 his phone) | 03:29 | his answer |
-| Sol | a parked task is not a merge the board may start (`merge_wait` and the board's merge paths; found by the mutation step) | 04:29 | its fix, then the join |
 
 **Done since 14:30:** the inventory of the stand-ins (`standins-inventory.md` beside this page: 14 droppable now, 9 after the next joins, 6 kept for later steps); group 3 and group 4 landed (`land-text`, `board-acts`, then the four other board steps in one join); `addons-flow`, `ask` and the seams repairs reviewed and repaired; Sol's case sheets of 8 coming steps (about 880 rows: 760 with a direct proof on `main`, 79 with none); Astra's audit of the landing's seams (25 findings, 11 seams sound).
 
@@ -110,7 +110,7 @@ Status: **done** (merged into `rebuild`), **join** (built, reviewed, in its join
 | 31 | `pack-trial` | 8 | later | 12 | the Homebrew keg, P1 to P6 |
 | 32 | `mutation` | 9 | done | | no surviving mutant without a test |
 | 33 | `trials` | 10 | later | 1 | R1 to R9: real agent sessions on real tasks |
-| 34 | `close` | 11 | later | 9 | the full run, the ledger whole, no old-form text |
+| 34 | `close` | 11 | trials | 9 | the full run, the ledger whole, no old-form text |
 | 35 | `cutover` | 12 | his word | | merge to `main`, release 1.0.0, wipe 0.3's state |
 
 ## Who does what (the owner's scheme of 2026-11-25 15:00: Opus is the limit)
