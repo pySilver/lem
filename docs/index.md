@@ -100,7 +100,7 @@ or drop a task, and merge.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/screens/phone-dark.png">
-  <img src="assets/screens/phone-light.png" alt="The board on a phone: the column Waits for you, with three tasks" width="300">
+  <img src="assets/screens/phone-light.png" alt="The board on a phone: the column Waits for you, with three tasks" width="390" height="844">
 </picture>
 
 *The board on a phone. The picture shows demo data.*

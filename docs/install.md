@@ -17,7 +17,7 @@
 | `JEV_API_KEY`, a key for the Jev decision model: optional | [the correction queue](#the-correction-queue), and a second look at each defect that an agent calls under the bar before a pull request ([`[jev]`](settings.md#jev)) |
 
 `/lem init` checks each tool and says how to install it. `lem doctor` checks them again at any
-time.
+time. [Update and remove](update.md#remove) gives the steps to remove Lem and its `.lem/` folder.
 
 ## Install
 
