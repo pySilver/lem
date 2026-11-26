@@ -166,11 +166,12 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 - **GitHub pull requests are the one way to land.** The button on GitHub and `/lem land` are the
   same merge, a task's branch is never merged by hand, and a merge asks no prompt. (2026-11-17,
   2026-11-18, 2026-11-20)
-- **The board's button says Approve, the approval stands through a moved base and a conflict,
-  and before an approved task merges on a moved base the checks run on the task rebased onto that base.**
-  A task red on its rebase leaves the line and comes back after a builder's fix. Its session calls the
-  owner only when the fix needs a criterion to change or a breaker applies. A task whose checks ran on the
-  current base merges first. The board server records how many approved tasks wait at each merge. (2026-11-25)
+- **The board's button says Approve, the approval stands through a moved base and a conflict, and
+  before an approved task merges on a moved base the checks run on the task rebased onto that
+  base.** A task red on its rebase leaves the line until a builder's fix, and its session calls him
+  only when the fix needs a criterion to change or a breaker applies. A task whose checks ran on the
+  current base merges first; the board server records how many approved tasks wait at each merge.
+  (2026-11-25)
 
 ## A task's session, and whether he is there
 
@@ -254,6 +255,9 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
   agents that change Lem: that reading is the session's, and open to him. (2026-11-17)
 - **Lem's docs do not speak for another tool.** Of `.revmux/` in the removal steps: "its not our
   tool". (2026-11-17)
+- **The documentation lives on the site, from one Markdown source.** The pages of `docs/` build the
+  whole site, its home page too, and `README.md` points to it: "To avoid drift we can keep only
+  single version: website". (2026-11-25)
 
 ## The lessons, the correction queue, the naps, the night and the free hour
 

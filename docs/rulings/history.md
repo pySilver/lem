@@ -230,15 +230,15 @@ bullet.
   <ticket>`). (2026-11-19)
 - **Onboarding asks three questions.** `skills/lem/stages/init.md` ("3. Three questions"). (decided
   2026-11-17)
-- **The README tells a command he types from one a job or Lem runs.** `README.md` ("What you type",
-  "Skills you can call"). (2026-11-14)
-- **The texts assume a public repository.** `README.md` ("Install": no step for access).
-  (2026-11-17)
+- **The README tells a command he types from one a job or Lem runs.** `docs/index.md` ("What you
+  type"), the home page of the site. (2026-11-14)
+- **The texts assume a public repository.** `README.md` ("Install": no step for access);
+  `docs/install.md` ("Install"). (2026-11-17)
 - **The README says a plugin that works closely with agterm, and names no operating system.**
-  `README.md` (its opening). (2026-11-18)
+  `README.md` (its opening); `docs/index.md` (its opening). (2026-11-18)
 - **Each label of a chart is quoted.** `AGENTS.md` ("Documentation describes the current state");
   `skills/lem/prompts/writing.md` ("The flowchart") for a task's documents. (2026-11-19)
-- **The texts people read say "the owner".** `AGENTS.md` ("Scripts are standard-library Python, 3.14
-  or newer"). (decided 2026-11-17)
+- **The texts people read say "the owner".** `AGENTS.md` ("The app is Python 3.14 on the
+  well-known library for each job, and its texts say "the owner""). (decided 2026-11-17)
 - **A night's brake: with two or more of its pull requests that nobody merged or closed, a night
   opens nothing.** `skills/lem/stages/night.md` (step 1, "The brake"). (decided 2026-11-18)
