@@ -16,7 +16,7 @@ from fakes.forge import LocalForge
 from fakes.git import ModelGit
 from fakes.ports import fake_ports
 from fakes.records import MOMENT
-from lem.app.landing import review_archive
+from lem.app.landing import review_archive, review_files
 from lem.app.tasks import drop, move
 from lem.kernel.errors import Refusal
 from lem.model.task import ending, table
@@ -275,6 +275,50 @@ def test_a_review_archive_only_moves_files_of_the_attempt_that_ended(
         "the review"
     )
     assert finder.is_file()
+
+
+def test_a_failed_archive_resumes_in_the_same_folder(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    made(where, SLUG, status="landing")
+    moved(where, "ready", start_over="save the reviews")
+    before = read(where, SLUG)
+    folder = where.state / "tasks" / SLUG
+    staging = folder / "reviews" / ".landing-3.moving"
+    staging.mkdir(parents=True)
+    active = staging.parent / "review.json"
+    active.write_text("still active")
+    (staging / "review.json").write_text("duplicate blocks the move")
+    (staging / "brief.json").write_text("already moved")
+
+    with pytest.raises(Refusal) as refused:
+        review_archive.before_start(before, folder)
+    assert refused.value.code == "review-archive"
+    assert f"lem land start {SLUG} again" in refused.value.fix
+    assert read(where, SLUG) == before
+    (staging / "review.json").unlink()
+    review_archive.before_start(before, folder)
+
+    archived = staging.parent / "landing-3"
+    assert (archived / "review.json").read_text() == "still active"
+    assert (archived / "brief.json").read_text() == "already moved"
+    assert not active.exists() and not staging.exists()
+
+
+def test_a_review_link_cannot_enter_or_leave_a_landing_archive(tmp_path: Path) -> None:
+    reviews = tmp_path / "reviews"
+    archive = reviews / "landing-1"
+    archive.mkdir(parents=True)
+    active, old = reviews / "active.json", archive / "old.json"
+    active.write_text("{}")
+    old.write_text("{}")
+    into, out_of = reviews / "into.json", archive / "out.json"
+    into.symlink_to(old)
+    out_of.symlink_to(active)
+
+    for path in (into, out_of):
+        problem = review_files.landing_before(tmp_path, path, SLUG)
+        assert problem is not None and problem.code == "landing-before"
+    assert review_files.landing_before(tmp_path, active, SLUG) is None
 
 
 @pytest.mark.parametrize("damage", ["two", "duplicate", "file", "link", "complete"])

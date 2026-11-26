@@ -81,6 +81,34 @@ def test_the_afternoon_s_backlog_is_the_reviewer_s_items_then_the_items_by_worth
     assert view.KEYS == KEYS
 
 
+def test_each_backlog_item_offers_only_the_acts_its_place_and_holder_allow(
+    tmp_path: Path,
+) -> None:
+    seen = laid(tmp_path)
+    found = view.backlog(seen, Wanted())
+    reviewer = next(shelf for shelf in found.shelves if shelf.key == "reviewer")
+    undecided, held = reviewer.entries
+    assert undecided.holds.start and undecided.holds.drop
+    assert undecided.holds.start.fields[0].shown == undecided.path
+    assert undecided.holds.drop.fields[0].shown == undecided.path
+    assert held.holds.held_by and held.holds.held_by.label in held.holds.held_by.href
+    assert held.holds.start is None and held.holds.drop is None
+    no = next(shelf for shelf in found.shelves if shelf.name == "Decided against")
+    (refuted,) = no.entries
+    assert refuted.holds.drop is None
+    assert refuted.body and "Decided against:" in refuted.body.text
+    tracked = next(
+        entry
+        for shelf in found.shelves
+        for entry in shelf.entries
+        if entry.path == QUERY
+    )
+    assert tracked.holds.start and tracked.holds.start.fields[0].shown == QUERY
+    assert tracked.holds.drop is None
+    assert seen.backlog is not None
+    assert groups.undecided(seen.backlog, records_of(seen)) == 1
+
+
 def test_the_search_lists_the_afternoon_s_items_in_the_order_of_the_view(
     tmp_path: Path,
 ) -> None:

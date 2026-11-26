@@ -6,11 +6,19 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing import pr_decisions, pr_text
+from lem.app.landing import pr_decisions, pr_outside, pr_read, pr_text
 from lem.kernel.errors import Refusal
-from lem.model.landing import propose, propose_careful, propose_lines, propose_notes
+from lem.model.landing import (
+    items,
+    propose,
+    propose_careful,
+    propose_jev,
+    propose_lines,
+    propose_notes,
+)
 from lem.model.landing.propose_facts import Facts, Filing
 from lem.model.landing.world import Rules
+from lem.records.holds import OwnerHold
 from lem.records.landing.checks import CriterionCheck, Edited
 from lem.records.landing.review import Counts, Filed, Finding
 from lem.records.landing.start import Polished
@@ -509,6 +517,15 @@ def test_the_personas_read_and_his_approval_in_the_checks() -> None:
     assert "2 reads in a row, and none of the 2 personas asked answered" in quiet
 
 
+def test_an_interview_hold_is_not_an_approval_wait_in_the_pull_request() -> None:
+    record = full()
+    held = OwnerHold(on="interview", since=MOMENT, line="The interview waits")
+    changed = replace(record, task=replace(record.task, hold=held))
+    words = pr_read.read_line(changed)
+    assert words.endswith("the owner approved them on 2026-11-25")
+    assert "waited" not in words
+
+
 def test_criteria_he_changed_after_the_read_are_one_line() -> None:
     record = full()
     changed_after = replace(
@@ -777,6 +794,69 @@ def test_a_review_that_saw_nothing_outside_keeps_the_notes_as_they_were() -> Non
     text = text_of(with_landing(full(), reviews=(clean,), filed=()))
     assert text.endswith("\n\n" + FULL_NOTES)
     assert "## Seen, not filed" not in text
+
+
+def test_the_notes_keep_their_fixed_and_seen_lines_before_the_new_findings() -> None:
+    fixed = "- `app.py` (abc1234): correct the comment"
+    noted = "- `other.py`: the polish pass saw an old comment; cheap: text only"
+    notes = FULL_NOTES.replace(
+        "## Not done",
+        f"## Fixed on the way\n\n{fixed}\n\n## Seen, not filed\n\n{noted}\n\n## Not done",
+    )
+    shown = outside(full(), notes)
+    fixed_at = shown.index("## Fixed on the way")
+    seen_at = shown.index("## Seen, not filed")
+    assert shown[fixed_at + 2] == fixed
+    assert shown[seen_at + 2] == noted
+    assert shown[seen_at + 3].startswith("- `app.py:run`: an outdated lint suppression")
+    assert fixed_at < seen_at < shown.index("## Not done")
+    assert shown.count(f"- `{LOAD_ITEM}`: load crashes on an empty file") == 1
+
+
+def test_an_open_finding_points_to_its_item_and_a_new_item_is_filed() -> None:
+    held = "docs/backlog/older-load-failure.md"
+    opened = replace(LOAD, id="r1.4", open=held)
+    review = replace(
+        REVIEWED,
+        findings=(opened, GUARD),
+        counts=Counts(outside=2),
+        to_file=(opened.id, GUARD.id),
+    )
+    filed = (
+        Filed(finding=GUARD.id, disposition="item", path=GUARD_ITEM, worth="later"),
+    )
+    record = with_landing(full(), reviews=(review,), filed=filed)
+    headings, seen = pr_outside.parts(record, Facts(), "")
+    assert headings["## Filed in the backlog"] == [f"- `{GUARD_ITEM}`: {GUARD.title}"]
+    assert headings["## Filed as not worth it"] == []
+    assert seen == (f"- `{LOAD.where}`: {LOAD.title}; an open item holds it, `{held}`",)
+
+
+def test_a_fenced_notes_example_cannot_start_a_new_section() -> None:
+    notes = (
+        "## Decisions\n\n```md\n## Seen, not filed\nnone\n```\n\n## Not done\nnone\n"
+    )
+    parsed = propose_notes.parsed(notes)
+    assert not isinstance(parsed, Refusal)
+    assert [part.heading for part in parsed.parts] == ["## Decisions", "## Not done"]
+    assert "## Seen, not filed" in parsed.parts[0].lines
+
+
+def test_an_item_reason_does_not_change_its_jev_identity() -> None:
+    path = "docs/backlog/tidy.md"
+    text = "---\nworth: no\nwhere: src/v.py:tidy\n---\n# Tidy keeps a space\n\nTidy keeps two spaces.\n"
+    bare = items.read(path, text)
+    reasoned = items.read(path, text + "\nDecided against: the owner never sees it.\n")
+    changed = items.read(path, text.replace("two spaces", "three spaces"))
+    assert bare and reasoned and changed
+    first, second, other = map(propose_jev.item_asked, (bare, reasoned, changed))
+    assert (first.label, first.defect.where, first.defect.what) == (
+        path,
+        "src/v.py:tidy",
+        "Tidy keeps two spaces.",
+    )
+    assert not first.reason and second.reason
+    assert first.key == second.key != other.key
 
 
 def test_the_careful_line_and_the_review_lines_on_the_standard_track() -> None:

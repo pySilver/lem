@@ -11,13 +11,16 @@ correction it was given.
 import json
 import os
 import stat
+import subprocess
 import time
 from pathlib import Path
 
 import msgspec
 
 from hooks.claude_code import (
+    LINES,
     calls_of,
+    claude_environ,
     files_of,
     hooked,
     launched,
@@ -25,7 +28,7 @@ from hooks.claude_code import (
     stand_in,
     workspace,
 )
-from lem.hooks import claims
+from lem.hooks import claims, handoff
 from lem.kernel import folders
 from lem.records.corrections import Correction
 
@@ -223,6 +226,87 @@ def test_three_hook_calls_for_one_message_hand_it_on_once(tmp_path: Path) -> Non
     (path,) = waiting.glob("*.json")
     correction = msgspec.json.decode(path.read_bytes(), type=Correction)
     assert (correction.session, correction.owner) == ("c1", PROMPT)
+
+
+def test_a_claim_folder_that_is_a_file_does_not_lose_the_message(
+    tmp_path: Path,
+) -> None:
+    hook, calls = stand_in(tmp_path / "app")
+    repo = tmp_path / "repo"
+    workspace(repo)
+    state = repo / ".lem" / "state"
+    (state / claims.CLAIMS).write_text("not a folder")
+    ran = hooked(
+        "corrections",
+        typed(repo),
+        LEM_HOOK_BIN=str(hook),
+        XDG_CONFIG_HOME=yes_home(tmp_path / "config"),
+    )
+    assert (ran.returncode, ran.stdout, ran.stderr) == (0, b"", b"")
+    assert len(worker_calls(calls_of(calls, 1))) == 1
+    (entry,) = (state / handoff.LOG).read_text().splitlines()
+    note = json.loads(entry)
+    assert "error" not in note
+    assert "could not claim the message" in note["note"]
+    assert "handed on as usual" in note["note"]
+
+
+def test_claims_distinguish_the_session_and_prompt_and_skip_an_unknown_session(
+    tmp_path: Path,
+) -> None:
+    hook, calls = stand_in(tmp_path / "app")
+    repo = tmp_path / "repo"
+    workspace(repo)
+    home = yes_home(tmp_path / "config")
+    other = "do not start a task without asking"
+    messages = [("c1", PROMPT), ("c1", other), ("c2", PROMPT), ("", PROMPT)]
+    for session, prompt in messages:
+        ran = hooked(
+            "corrections",
+            typed(repo, session=session, prompt=prompt),
+            LEM_HOOK_BIN=str(hook),
+            XDG_CONFIG_HOME=home,
+        )
+        assert (ran.returncode, ran.stdout, ran.stderr) == (0, b"", b"")
+
+    state = repo / ".lem" / "state"
+    assert len(worker_calls(calls_of(calls, len(messages)))) == len(messages)
+    bodies = (
+        msgspec.json.decode(path.read_bytes(), type=Correction)
+        for path in (state / "corrections-waiting").glob("*.json")
+    )
+    assert sorted((one.session, one.owner) for one in bodies) == sorted(messages)
+    assert {path.name for path in (state / claims.CLAIMS).iterdir()} == {
+        claims.name_of(session, prompt) for session, prompt in messages if session
+    }
+
+
+def test_the_hook_uses_the_event_checkout_when_its_own_folder_is_gone(
+    tmp_path: Path,
+) -> None:
+    hook, calls = stand_in(tmp_path / "app")
+    repo = tmp_path / "repo"
+    workspace(repo)
+    current = tmp_path / "gone"
+    current.mkdir()
+    env = claude_environ(
+        {"LEM_HOOK_BIN": str(hook), "XDG_CONFIG_HOME": yes_home(tmp_path / "config")}
+    )
+    line = 'rmdir "$1" || exit 99\n' + LINES["corrections"]
+    ran = subprocess.run(
+        ["/bin/sh", "-c", line, "corrections", str(current)],
+        input=typed(repo),
+        env=env,
+        cwd=current,
+        capture_output=True,
+        check=False,
+        timeout=30,
+    )
+    assert (ran.returncode, ran.stdout, ran.stderr) == (0, b"", b"")
+    assert not current.exists()
+    (call,) = worker_calls(calls_of(calls, 1))
+    path = Path(call.rpartition(" ")[2])
+    assert path.parent == repo / ".lem" / "state" / "corrections-waiting"
 
 
 def test_nothing_is_handed_on_without_the_machines_yes_or_where_lem_0_3_keeps_its_files(

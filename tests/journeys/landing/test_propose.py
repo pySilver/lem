@@ -409,6 +409,43 @@ def test_propose_keeps_the_first_jev_answer_if_the_second_call_stops(
     assert [defect.title for defect in judge.asked] == [first, second]
 
 
+@pytest.mark.parametrize(
+    ("key", "ending"),
+    [(False, "not asked (no key for Jev)"), (True, "0.25")],
+    ids=["no-key", "below-bar"],
+)
+def test_a_cut_does_not_ask_jev_again_for_a_nonblocking_result(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    *,
+    key: bool,
+    ending: str,
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "propose")
+    judge = wiring.bound(
+        Place(checkout=world.checkout, home=tmp_path, environ={})
+    ).judge
+    assert isinstance(judge, FakeJudge)
+    title = "The README has one long line"
+    judge.key = key
+    judge.over[title] = 0.25
+    notes = f"- {title}; under: it fits on the page\n"
+    world.acts.cut = ("write:pushed", 1)
+    with pytest.raises(Killed):
+        propose_with(capsys, world, notes)
+    capsys.readouterr()
+    [before] = world.record()["landing"]["jev"]
+
+    judge.key = True
+    judge.over[title] = 0.85
+    assert propose_with(capsys, world, notes)["ok"]
+    assert world.record()["landing"]["jev"] == [before]
+    assert len(judge.asked) == int(key)
+    assert f"Jev: {ending}" in world.forge.bodies[1]
+
+
 def careful_built(capsys: pytest.CaptureFixture[str], world: World) -> dict:
     """The builder's change, which edits Lem's own settings beside the README."""
     (world.worktree / "README.md").write_text("The README says receive.\n")

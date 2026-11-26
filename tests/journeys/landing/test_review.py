@@ -200,6 +200,19 @@ def test_the_brief_names_the_record_s_command_next_and_says_what_the_file_holds(
     assert brief(capsys, world)["result"]["path"] == envelope["result"]["path"]
 
 
+def test_a_review_record_sent_twice_keeps_one_round(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto_review(capsys, world)
+    reviewed(capsys, world)
+    before = world.record()
+    repeat = recorded(capsys, world)
+    assert not repeat["ok"]
+    assert len(before["landing"]["reviews"]) == 1
+    assert world.record() == before
+
+
 def test_with_no_defect_outside_the_change_file_is_not_due_and_next_names_propose(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

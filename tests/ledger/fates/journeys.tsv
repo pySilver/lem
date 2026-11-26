@@ -1,0 +1,2 @@
+id	fate	proof	note
+check:tests/lem-board-act.sh:a-review-that-left-a-must-fix-open-carries-o-ff8aa05756b3b999	changed	journeys.test_hard_paths.test_an_open_must_fix_carries_over_a_clean_rebase_and_the_server_merges_his_standing_merge	The code review and its open must-fix carry over the clean rebase. The proposal journal records each tip and its reasons. The carried merge read names its source tip. The owner's merge stands and the server merges it.

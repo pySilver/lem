@@ -35,6 +35,17 @@ KEPT = MappingProxyType({"skills/lem/stages/breaker.md": (ASKED_AGAIN,)})
 TREE = shapes.tree()
 
 
+def test_the_builder_declares_its_model_and_effort_with_no_tool_limit() -> None:
+    text = (paths.root() / "agents/lem-builder.md").read_text(encoding="utf-8")
+    manifest = text.split("---", 2)[1].splitlines()
+    fields = dict(line.split(": ", 1) for line in manifest if line)
+    assert fields["name"] == "lem-builder"
+    assert fields["model"] == "opus"
+    assert fields["effort"] == "high"
+    assert "tools" not in fields
+    assert "disallowedTools" not in fields
+
+
 @pytest.mark.parametrize("name", TEXTS)
 def test_each_text_of_the_step_is_carried_in_the_new_form(name: str) -> None:
     path = paths.root() / name

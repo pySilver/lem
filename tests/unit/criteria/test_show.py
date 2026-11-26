@@ -59,6 +59,16 @@ def test_the_plans_criteria_against_the_approved_ones(checkout: Path) -> None:
     assert refused(show.shown, checkout, world.SLUG).code == "track"
 
 
+def test_a_plan_cannot_add_an_unrecorded_criterion(checkout: Path) -> None:
+    approved(checkout)
+    world.plan(checkout, PLANNED + "3. The new column is sorted.\n")
+    before = world.read(checkout)
+    problem = refused(show.recorded, checkout, world.SLUG)
+    assert problem.code == "criteria-differ"
+    assert "lem decisions criterion" in problem.fix
+    assert world.read(checkout) == before
+
+
 def test_a_plan_never_puts_a_task_on_the_fast_track(checkout: Path) -> None:
     world.plan(checkout, world.SMALL)
     assert refused(show.shown, checkout, world.SLUG).code == "small-plan"
@@ -130,6 +140,36 @@ def test_the_reads_start_and_end_and_a_wrong_form_is_refused(checkout: Path) -> 
         ).code == ("criteria-read")
     silent = persona.noted(checkout, world.SLUG, ("silent", "lead"), None)
     assert (silent.by, silent.answered) == ("lead", 0)
+
+
+@pytest.mark.parametrize("wrong", ["family", "flag", "missed", "duplicate"])
+def test_a_read_cannot_claim_a_family_or_findings_it_did_not_get(
+    checkout: Path, wrong: str
+) -> None:
+    name = reads.silent_of("Ania, opus: no answer")
+    other = reads.silent_of("Olek, opus: no answer")
+    nobody = reads.Found(
+        asked=2,
+        answered=0,
+        criteria=1,
+        flagged=0,
+        digest="a" * 12,
+        silent=(name, other),
+    )
+    variants = {
+        "family": msgspec.structs.replace(nobody, families=("opus",)),
+        "flag": msgspec.structs.replace(nobody, flagged=1),
+        "missed": msgspec.structs.replace(nobody, silent=(name,)),
+        "duplicate": msgspec.structs.replace(
+            nobody, answered=2, families=("opus", "opus"), silent=()
+        ),
+    }
+    before = world.read(checkout)
+    problem = refused(
+        persona.noted, checkout, world.SLUG, ("done", "lead"), variants[wrong]
+    )
+    assert problem.code == "criteria-read"
+    assert world.read(checkout) == before
 
 
 @pytest.mark.parametrize(

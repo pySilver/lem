@@ -1,5 +1,7 @@
 """Template behavior that depends on the typed inputs, including empty states and forms."""
 
+import json
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -8,6 +10,7 @@ import pytest
 
 from fixtures.board import columns, frame, panel, shelves, waiting
 from fixtures.board.moments import BASE, NOW
+from lem.addons.peers.rows import Row as PeerRow
 from lem.board.inputs.activity import Activity, Happened, Lane, NewTask, Stretch, Tick
 from lem.board.inputs.forms import ActForm, Choice, Field, TextBox
 from lem.board.inputs.layout import Viewer
@@ -26,7 +29,7 @@ from lem.board.inputs.task.panel import Missing, Panel
 from lem.board.inputs.task.steps import Card, Confirm, Drop, NotNow, Park
 from lem.board.inputs.task.timeline import Mark, Spell, Time, Timeline, Track
 from lem.board.inputs.tasks import Ended, Older
-from lem.board.pages import printing, render
+from lem.board.pages import printing, render, spaces
 from unit.board.pages.markup import Parsed
 from unit.board.pages.test_showcase import for_view
 
@@ -449,6 +452,43 @@ def test_backlog_filters_and_reply_forms_have_stable_ids_and_fields() -> None:
         for form in reviewer.all(tag="form")
     )
     assert board.one(id_="group-no").has("recessive")
+
+
+def test_the_switcher_keeps_the_whole_workspace_name_on_one_machine() -> None:
+    long_name = "a-repository-whose-name-is-longer-than-the-sidebar-is-wide"
+    menu = spaces.menu(
+        (
+            PeerRow(name=long_name, host="studio", url=f"/studio/{long_name}/"),
+            PeerRow(name="shop", host="studio", url="/studio/shop/"),
+        ),
+        long_name,
+        "studio",
+    )
+    assert menu is not None
+    side = msgspec.structs.replace(frame.FRAME.sidebar, switcher=menu)
+    view = msgspec.structs.replace(frame.FRAME, sidebar=side)
+    shown = Parsed(
+        render.section("page.html", Page(frame=view, tasks=columns.TASKS))
+    ).root
+    switcher = shown.one(id_="ws-switcher")
+    assert switcher.one(tag="summary").one(tag="b").raw() == long_name
+    assert [entry.one(tag="b").raw() for entry in switcher.all(cls="ws-item")] == [
+        long_name,
+        "shop",
+    ]
+    assert not switcher.all(cls="ws-host")
+
+
+def test_the_committed_icon_catalog_matches_the_board_kit_selection() -> None:
+    root = Path(__file__).resolve().parents[4]
+    kit = root / "tools" / "board-kit"
+    manifest = (kit / "icons.mjs").read_text(encoding="utf-8")
+    chosen = set(re.findall(r"^\s*'([a-z0-9-]+)',\s*$", manifest, re.MULTILINE))
+    catalog = root / "skills" / "lem" / "assets" / "vendor" / "board-icons.json"
+    icons = json.loads(catalog.read_text(encoding="utf-8"))
+    assert chosen
+    assert set(icons) == chosen
+    assert "Font Awesome Pro" in (kit / "README.md").read_text(encoding="utf-8")
 
 
 def test_index_and_failure_escape_words_and_link_to_the_board() -> None:

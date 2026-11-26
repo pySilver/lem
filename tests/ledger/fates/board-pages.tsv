@@ -184,3 +184,8 @@ check:tests/lem-serve.sh:a-document-with-a-chart-names-the-diagram-li-a25219f292
 check:tests/lem-serve.sh:the-backlog-s-filter-comes-from-the-address-1750c50636461adc	kept	unit.board.views.test_backlog_view.test_the_filter_of_the_address_turns_its_chip_on_and_a_second_press_off	
 unit:tests/unit/test_board_criteria_change.py:TheCard.test_a_phone_puts_the_two_texts_one_under_the_other	kept	browser.test_sheets.test_changed_criteria_stack_on_a_phone_and_sit_side_by_side_on_desktop	
 check:tests/lem-serve.sh:the-tasks-view-and-activity-draw-the-search-e106e4e423458336	kept	unit.board.views.test_kanban_rules.test_search_lists_the_columns_then_the_parked_then_every_ended_task_newest_first	
+check:tests/lem-serve.sh:a-task-s-overview-and-each-of-its-tabs-and-e-af2e3a21d12b6f83	kept	unit.board.pages.test_routes.test_get_and_head_at_the_same_address[overview]	The same test covers the other tabs and views. The frame and missing-file cases have separate route tests.
+duty:watch-owner	changed	unit.owner.test_presence.test_his_away_in_one_repository_is_read_in_another	Design §3 uses the same owner.json for each workspace. The Inbox and board read it afresh.
+ruling:a-page-for-the-owner-has-the-board-s-look-eedfe5b171a9f36d	kept	unit.board.test_slice.test_the_page_links_the_assets_of_today_and_the_server_sends_them	
+check:tests/lem-serve.sh:the-switcher-names-the-workspace-whole-howev-c0cd55c93da547ac	kept	unit.board.pages.test_sections.test_the_switcher_keeps_the_whole_workspace_name_on_one_machine	
+ruling:the-board-s-icons-are-a-subset-of-font-aweso-f7dee376d370d0c1	kept	unit.board.pages.test_sections.test_the_committed_icon_catalog_matches_the_board_kit_selection	

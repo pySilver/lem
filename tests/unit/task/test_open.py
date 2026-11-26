@@ -360,3 +360,21 @@ def test_only_a_bare_path_claims_a_reviewer_item_from_the_ask(tmp_path: Path) ->
 
     assert read(where, "gift-note").task.backlog_item == item
     assert read(where, "discuss-note").task.backlog_item is None
+
+
+def test_a_path_outside_the_checkout_or_a_gone_item_cannot_take_a_claim(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path / "shop")
+    outside = tmp_path / "outside.md"
+    outside.write_text("# An item in another place\n")
+    absent = "docs/backlog/gone.md"
+    for path, code in ((str(outside), "item-path"), (absent, "item-gone")):
+        with pytest.raises(Refusal) as refused:
+            opening.opened(
+                where.checkout, Asked(slug="gift-note", ask=path, backlog_item=path)
+            )
+        assert refused.value.code == code
+        assert tasks.every(where.state) == ()
+    opening.opened(where.checkout, Asked(slug="gift-note", ask=absent))
+    assert read(where, "gift-note").task.backlog_item is None

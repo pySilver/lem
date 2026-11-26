@@ -4,12 +4,24 @@ says nothing at a turn's end. The mark of an open card, rechecked, is the step `
 import subprocess
 import tempfile
 
-from hooks.claude_code import LINES, claude_environ
+from hooks.claude_code import LINES, claude_environ, hooked
 from lem.hooks import raw
 
 # How long the stop hook may take with its input never closed, in seconds: under `raw.WAIT`,
 # the most a hook that reads its event waits for it, so a stop hook that read it would fail here.
 ENDS_WITHIN = raw.WAIT * 0.75
+
+
+def test_the_hook_is_silent_outside_agterm() -> None:
+    ran = hooked(
+        "stop",
+        b"{}",
+        AGTERM_SESSION_ID="",
+        AGTERM_SOCKET="",
+        AGT_SESSION_ID="",
+        AGT_SOCKET="",
+    )
+    assert (ran.returncode, ran.stdout, ran.stderr) == (0, b"", b"")
 
 
 def test_a_stdin_that_stays_open_does_not_keep_the_stop_hook_alive() -> None:

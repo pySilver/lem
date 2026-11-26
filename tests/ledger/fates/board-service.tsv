@@ -119,3 +119,4 @@ check:tests/lem-board-act.sh:a-page-of-the-board-carries-referrer-policy-49b6c38
 ruling:the-board-is-a-served-app-0bcebd22b0e32494	kept	unit.board.pages.test_routes.test_get_and_head_at_the_same_address[tasks]	
 unit:tests/unit/test_board_task.py:Artifacts.test_one_file_is_read_only_by_a_path_the_task_lists	kept	unit.board.service.test_routes.test_a_tasks_html_page_comes_only_from_the_raw_route_under_a_sandbox	
 unit:tests/unit/test_board_task.py:Map.test_a_picture_is_one_by_its_name_and_its_first_bytes	kept	unit.board.service.test_routes.test_a_tasks_picture_comes_from_its_media_route_and_nothing_else_does	
+ruling:tailscale-is-the-way-from-his-phone-and-noth-62b3a7639f6ec8b2	kept	unit.board.service.test_door.test_a_request_through_funnel_is_refused_whatever_its_login	The owner-only door has separate cases in test_door.py. The SessionStart and application launch checks cover server start.

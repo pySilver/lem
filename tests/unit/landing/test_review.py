@@ -14,6 +14,7 @@ from msgspec.structs import replace
 
 from fakes.git import ModelGit
 from lem.app.landing import item_carry, review_answer, review_changes, review_files
+from lem.app.tasks import planned
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
     careful,
@@ -45,6 +46,7 @@ from unit.landing.worlds import (
     task,
     world,
 )
+from unit.task import spaces
 
 if TYPE_CHECKING:
     from lem.records.record import Record
@@ -488,6 +490,19 @@ def test_the_review_covers_its_tip_and_the_commit_file_made_after_it() -> None:
         }
     )
     assert due_of(review.holds(stale, proved)) == "read"
+
+
+def test_a_plan_must_record_at_least_one_task_before_review_selection(
+    tmp_path: Path,
+) -> None:
+    where = spaces.workspace(tmp_path)
+    slug = "export-column"
+    before = spaces.made(where, slug, status="building")
+    with pytest.raises(Refusal) as refused:
+        planned.planned(where, slug, Plan(path="", tasks=0))
+    assert refused.value.code == "plan-tasks"
+    assert f"lem task planned {slug} --tasks N" in refused.value.fix
+    assert spaces.read(where, slug) == before
 
 
 @pytest.mark.parametrize(

@@ -179,6 +179,9 @@ def test_workspace_done_shows_the_newest_first_and_keeps_every_ended_task_past_i
     assert [card.slug for card in done.cards] == [f"task-{n}" for n in range(20, 0, -1)]
     assert done.older and done.older.label == "1 older"
     assert done.older.href == "/studio/shop/done"
+    at_limit = tasks.tasks(world(*ended[1:])).columns[3]
+    assert at_limit.cards == done.cards
+    assert at_limit.older is None
 
 
 def checking(*entries: object) -> Seen:

@@ -579,6 +579,50 @@ def test_a_conflict_resolution_accepts_non_utf8_content_and_commit_subject(
     assert (world.worktree / "README.md").read_bytes() == b"The README says caf\xe9.\n"
 
 
+def test_a_resolution_names_unicode_and_changed_binary_paths_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    world.repo.outside_commit(
+        "main", {"change.bin": b"\0before", "keep.bin": b"\0before"}
+    )
+    upto(capsys, world, "checks")
+    files = {"café.txt": b"Ours\n", "change.bin": b"\0ours", "keep.bin": b"\0ours"}
+    for name, body in files.items():
+        (world.worktree / name).write_bytes(body)
+    run_git(world.worktree, "add", "--", *files)
+    run_git(world.worktree, "commit", "--quiet", "-m", "docs: add the examples")
+    world.repo.outside_commit(
+        "main",
+        {
+            "README.md": b"The README says hello.\n",
+            "café.txt": b"Theirs\n",
+            "change.bin": b"\0theirs",
+        },
+    )
+    refused(BASE(capsys, world), "conflict")
+    assert landing(world)["resolution"]["files"] == ["README.md"]
+
+    with pytest.raises(AssertionError):
+        run_git(world.worktree, "-c", "core.editor=true", "rebase", "origin/main")
+    (world.worktree / "README.md").write_text(README)
+    run_git(world.worktree, "add", "--", "README.md")
+    with pytest.raises(AssertionError):
+        run_git(world.worktree, "-c", "core.editor=true", "rebase", "--continue")
+    (world.worktree / "café.txt").write_text("Resolved\n")
+    (world.worktree / "change.bin").write_bytes(b"\0resolved")
+    run_git(world.worktree, "add", "--", "café.txt", "change.bin")
+    run_git(world.worktree, "-c", "core.editor=true", "rebase", "--continue")
+
+    ok(BASE(capsys, world))
+    assert landing(world)["resolution"]["files"] == [
+        "README.md",
+        "café.txt",
+        "change.bin",
+    ]
+    assert (world.worktree / "keep.bin").read_bytes() == b"\0ours"
+
+
 def test_a_conflict_wake_never_starts_a_round_over_a_merge_call_on_record(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
