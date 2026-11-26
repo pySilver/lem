@@ -8,6 +8,8 @@ import threading
 from datetime import timedelta
 from typing import TYPE_CHECKING, Literal
 
+from msgspec.structs import replace
+
 from fakes.forge import LocalForge
 from fakes.git import ModelGit
 from fakes.records import MOMENT
@@ -21,6 +23,9 @@ from lem.model.landing.invariants import target
 from lem.model.landing.world import Rules
 from lem.ports.faults import Unanswered
 from lem.ports.forge_facts import Mergeable, Pull
+from lem.records.holds import Parked
+from lem.records.landing.merge import MergeAccepted
+from lem.store import tasks
 from unit.board.duties.test_wakes import wakes
 from unit.board.duties.world import duty_of, looked, opened
 from unit.owner.looked import TIP, proposed, read
@@ -196,6 +201,24 @@ def test_a_pull_request_merged_or_closed_on_github_gets_its_bookkeeping_once(
         "lem serve: shop: pull request 44 of gift-note is merged on GitHub; `lem land merged "
         "gift-note` left it open"
     ) in capsys.readouterr().err
+
+
+def test_a_merge_github_accepted_still_gets_bookkeeping_after_a_park(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    here = here_of(tmp_path)
+    accepted = MergeAccepted(tip=TIP, at=MOMENT, queued="the merge queue")
+    found = opened(here, "gift-note", proposed=proposed(), accepted=accepted)
+    tasks.update(
+        here.where.state,
+        "gift-note",
+        lambda one: replace(one, task=replace(one.task, hold=Parked(since=MOMENT))),
+        found.revision,
+    )
+    pulled(here, state="merged")
+    ran = booking(monkeypatch)
+    duty.tick(duty_of(here, HOUR))
+    assert ran == ["gift-note"]
 
 
 def test_a_failed_bookkeeping_is_the_boards_problem_and_is_tried_again_after_five_minutes(

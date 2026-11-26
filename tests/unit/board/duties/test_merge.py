@@ -15,6 +15,7 @@ from fakes.records import MOMENT
 from lem.app.landing import merge
 from lem.app.owner import forge
 from lem.app.sessions import waking
+from lem.app.tasks import resume
 from lem.board.duties import merge as duty
 from lem.board.duties import merge_count
 from lem.board.duties.memory import Kept
@@ -24,6 +25,7 @@ from lem.kernel.errors import Refusal
 from lem.model.criteria import contract
 from lem.model.landing import merge_standing
 from lem.model.owner.looks import MergeBasis
+from lem.records.holds import Parked
 from lem.records.landing.checks import Checked
 from lem.records.landing.merge import MergeIntent
 from lem.records.landing.propose import Standing
@@ -116,6 +118,33 @@ def test_the_owners_merge_that_stands_is_carried_out_by_the_server(
     duty.tick(duty_of(here, HOUR, kept))
     ended(kept)
     assert [(one.by, one.standing) for one in asked] == [("owner", True)]
+
+
+def test_a_parked_approval_waits_for_resume_before_the_server_dispatches_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    here = here_of(tmp_path)
+    found = standing_task(here, "stands")
+    hold = Parked(since=MOMENT, words="wait for the owner")
+    tasks.update(
+        here.where.state,
+        "stands",
+        lambda one: replace(one, task=replace(one.task, hold=hold)),
+        found.revision,
+    )
+    asked = asking(monkeypatch)
+    board = duty_of(here, HOUR)
+    intent = MergeIntent(tip=BASE, by="merger", via="server", at=HOUR)
+    assert merge_count.waited(board, "other", intent).behind == ()
+    duty.tick(board)
+    ended(board.kept)
+    assert asked == []
+
+    resume.resumed(here.where.checkout, "stands")
+    assert merge_count.waited(board, "other", intent).behind == ("stands",)
+    duty.tick(board)
+    ended(board.kept)
+    assert [(one.by, one.standing, one.tip) for one in asked] == [("owner", True, TIP)]
 
 
 def test_no_merge_while_the_forge_calls_it_conflicting_a_call_waits_or_it_runs(
@@ -305,6 +334,13 @@ def test_ready_merges_do_not_delay_the_wake_for_stale_approval(
     here = here_of(tmp_path)
     (tmp_path / ".lem" / "settings.toml").write_text('[branch]\nbase = "main"\n')
     stale = standing_task(here, "a-stale")
+    parked = standing_task(here, "b-parked")
+    tasks.update(
+        here.where.state,
+        "b-parked",
+        lambda one: replace(one, task=replace(one.task, hold=Parked(since=MOMENT))),
+        parked.revision,
+    )
     landing = landing_of(stale)
     assert landing.checked is not None
     base = TIP

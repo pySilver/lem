@@ -23,7 +23,7 @@ from lem.kernel import clock, locks
 from lem.kernel.errors import Refusal
 from lem.model.criteria import contract
 from lem.model.landing import merge_standing
-from lem.records.holds import BreakerHold
+from lem.records.holds import BreakerHold, Parked
 from lem.records.landing.merge import MergeAccepted, MergeIntent, Refused
 from lem.records.landing.propose import MergeRead, Proposed, Standing
 from lem.records.landing.record import Landing, Pull
@@ -126,6 +126,26 @@ def test_a_task_that_is_not_open_is_not_merged(board: Board) -> None:
         "refused",
         f"{SLUG} is not open for a merge now: it is building. Read the task's page again.",
     )
+
+
+def test_a_parked_task_refuses_a_click_from_an_open_confirm_page(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opened_pull(board)
+    before = read(board)
+    parked = tasks.update(
+        board.state,
+        SLUG,
+        lambda one: replace(one, task=replace(one.task, hold=Parked(since=MOMENT))),
+        before.revision,
+    )
+    calls: list[Asked] = []
+    monkeypatch.setattr(merging.merge, "run", accepting(calls))
+    note = settled(board, token_of(board, {"tip": TIP, "confirm": "yes"}))
+    assert note.state == "refused"
+    assert note.said == f"The task is parked. Resume it with /lem resume {SLUG}."
+    assert read(board) == parked
+    assert calls == []
 
 
 def test_a_stale_merge_tip_tells_the_owner_to_read_the_confirm_step_again(

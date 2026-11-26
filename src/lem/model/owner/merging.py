@@ -8,7 +8,7 @@ merge stands, or while a merge call is queued on the forge. `relands`: the task'
 session, once a read of the tip said that the moved base needs another round. `owner`: an open
 task with no proposal, a refusal by GitHub or by Lem's rules, a read that calls him, and a read
 that came after Lem's refusal for the base and gave no verdict. A merge intent with no outcome on
-record asks the owner to check GitHub.
+record asks the owner to check GitHub. A parked task waits for no new merge.
 """
 
 from typing import TYPE_CHECKING, Literal
@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Literal
 from msgspec.structs import replace
 
 from lem.model.landing import merge, merge_recheck, merge_standing, mergeread
+from lem.records.holds import Parked
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
@@ -33,9 +34,14 @@ RELANDS: Wait = "relands"
 def merge_wait(look: Look) -> Wait | None:
     """Who the merge waits for, if it is still pending."""
     record = look.record
+    task = record.task
     landing = record.landing or Landing()
     proposed = landing.proposed
-    if record.task.status != "open" or landing.phase in {"merged", "ended"}:
+    if (
+        task.status != "open"
+        or isinstance(task.hold, Parked)
+        or landing.phase in {"merged", "ended"}
+    ):
         return None
     if proposed is None or landing.intent is not None:
         return OWNER

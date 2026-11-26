@@ -4,6 +4,7 @@ again on the moved base, or the forge calls it conflicting."""
 
 from typing import TYPE_CHECKING
 
+from lem.board import merge_look
 from lem.board.views import merge_state, offers
 from lem.board.views.where import recovery
 from lem.model.landing import merge_standing
@@ -34,7 +35,10 @@ def why_not(world: World, seen: Seen, standing: Standing) -> str | None:
     """Why there is nothing to merge now, or None while the board offers the merge."""
     record = seen.record
     pending = (
-        recovery(record) or merge_state.said(record) or merge_state.proposal_fix(seen)
+        recovery(record)
+        or merge_state.said(record)
+        or merge_look.parked_reason(record)
+        or merge_state.proposal_fix(seen)
     )
     if pending is not None:
         return pending
