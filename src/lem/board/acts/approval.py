@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from lem.app.owner import forge
 from lem.app.tasks import release
+from lem.board import merge_look
 from lem.board.acts import merge_status, merging
 from lem.board.acts.asked import refused
 from lem.board.acts.notes import Note
@@ -20,6 +21,17 @@ ACT = "merge"
 CONFIRM = "yes"
 
 
+def require_open(record: Record) -> None:
+    """Refuse an approval while the task is parked or its pull request is not open."""
+    task = record.task
+    parked = merge_look.parked_reason(record)
+    if parked is not None:
+        raise Refusal("parked", parked, f"resume it with /lem resume {task.slug}")
+    if task.status != "open":
+        why = f"{task.slug} is not open for a merge now: it is {task.status}."
+        raise Refusal("not-open", why, "read the task's page again")
+
+
 def checked(asked: Asked) -> Record:
     """The task's record when the approval may go: from the confirm step, on an open task,
     for the tip proposed now."""
@@ -30,10 +42,7 @@ def checked(asked: Asked) -> Record:
         )
         raise Refusal("confirm", why, "approve it on its confirm step")
     record = release.checked(asked.state, asked.slug)
-    task = record.task
-    if task.status != "open":
-        why = f"{task.slug} is not open for a merge now: it is {task.status}."
-        raise Refusal("not-open", why, "read the task's page again")
+    require_open(record)
     proposed = record.landing.proposed if record.landing else None
     if proposed is None or asked.given.tip != proposed.tip:
         why = (

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from lem.app.owner import merge_bases, read_order
 from lem.model.owner import merging
 from lem.model.owner.looks import Look, MergeBasis
+from lem.records.holds import Parked
 from lem.settings.load import settings_of
 
 if TYPE_CHECKING:
@@ -13,6 +14,14 @@ if TYPE_CHECKING:
 
 
 UNKNOWN = MergeBasis()
+
+
+def parked_reason(record: Record) -> str | None:
+    """What the board says in place of a new merge while the task is parked."""
+    if not isinstance(record.task.hold, Parked):
+        return None
+    slug = record.task.slug
+    return f"The task is parked. Resume it with /lem resume {slug}."
 
 
 def bases_of(here: Here, records: tuple[Record, ...]) -> merge_bases.Bases:

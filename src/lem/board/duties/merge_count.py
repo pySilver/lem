@@ -7,7 +7,7 @@ from lem.board import merge_look
 from lem.board.duties import forge_look, merge_line
 from lem.kernel import clock, errors
 from lem.model.landing import merge_recheck, merge_standing, phases
-from lem.records.holds import ReleaseHold
+from lem.records.holds import Parked, ReleaseHold
 from lem.store import tasks
 
 if TYPE_CHECKING:
@@ -24,7 +24,10 @@ def eligible(
     owner_tip: str | None,
 ) -> bool:
     """Whether an approval is still in the merge line."""
-    if phases.settled(record) is not None or isinstance(record.task.hold, ReleaseHold):
+    if (
+        isinstance(record.task.hold, Parked | ReleaseHold)
+        or phases.settled(record) is not None
+    ):
         return False
     if standing_waits(record):
         return True

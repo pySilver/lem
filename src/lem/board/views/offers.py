@@ -11,7 +11,7 @@ from lem.board.views.rule import ENDED
 from lem.model.criteria import waits
 from lem.model.landing import merge_standing
 from lem.model.owner import hold_question, merging
-from lem.records.holds import BreakerHold, OwnerHold, ReleaseHold
+from lem.records.holds import BreakerHold, OwnerHold, Parked, ReleaseHold
 
 if TYPE_CHECKING:
     from lem.board.views.world import Seen
@@ -69,7 +69,7 @@ def merge_offered(seen: Seen, conflicts: frozenset[str] = NONE) -> bool:
     """Whether his merge is offered on the open pull request."""
     record = seen.record
     task = record.task
-    if task.status != "open" or isinstance(task.hold, ReleaseHold):
+    if task.status != "open" or isinstance(task.hold, Parked | ReleaseHold):
         return False
     if (
         merge_state.current(record) is not None

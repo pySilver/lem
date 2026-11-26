@@ -19,7 +19,7 @@ from lem.app.owner import forge, releases
 from lem.board import merge_look
 from lem.board.duties import forge_look, merge_order, merge_run, wakes
 from lem.model.landing import merge_recheck, merge_standing, mergeread
-from lem.records.holds import ReleaseHold
+from lem.records.holds import Parked, ReleaseHold
 from lem.store import tasks
 
 if TYPE_CHECKING:
@@ -78,7 +78,7 @@ def merger_of(
     if not merge_look.server_merges(record, basis) and not recheck(record, basis.base):
         return None
     waits = landing.intent is not None or landing.accepted is not None
-    held = isinstance(record.task.hold, ReleaseHold)
+    held = isinstance(record.task.hold, Parked | ReleaseHold)
     if waits or held or record.task.slug in running or forge.conflicts(look, record):
         return None
     return "merger" if merge_standing.standing_of(record) is None else "owner"

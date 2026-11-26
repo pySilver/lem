@@ -12,10 +12,11 @@ from msgspec.structs import replace
 from fakes.records import MOMENT
 from lem.app.landing.mergeread import noted
 from lem.app.owner import forge
+from lem.board.inputs.task.steps import NotNow
 from lem.board.pages import render
 from lem.board.views import offers, owed, pages, sessions, standing, tasks, telling
 from lem.board.views.checks import tab
-from lem.board.views.panel import heads, now, review
+from lem.board.views.panel import heads, merge, now, review
 from lem.board.views.panel import merge_said as panel_merge_said
 from lem.board.views.panel import waiting as panel_waiting
 from lem.board.views.waits import view as waits_view
@@ -26,7 +27,7 @@ from lem.model.landing import merge_said, merge_standing
 from lem.model.owner import merging
 from lem.model.owner.looks import MergeBasis
 from lem.model.task import release
-from lem.records.holds import Blocked, ReleaseHold
+from lem.records.holds import Blocked, Parked, ReleaseHold
 from lem.records.journal.landing import CheckWait
 from lem.records.landing.checks import Checked, Outcome
 from lem.records.landing.merge import Refused
@@ -309,6 +310,19 @@ def test_a_standing_owner_approval_says_when_the_server_takes_the_merge() -> Non
     assert panel_merge_said.why_not(found, seen, position) == (
         "Your merge stands. Lem merges it now."
     )
+
+
+def test_a_parked_merge_shows_the_way_to_resume_instead_of_an_approval() -> None:
+    active = opened(proposed=CAREFUL, reads=(read("call"),))
+    assert offers.merge_offered(active)
+    for seen in (active, standing_merge(active)):
+        task = replace(seen.record.task, hold=Parked(since=MOMENT))
+        parked = replace(seen, record=replace(seen.record, task=task))
+        assert wait_of(parked) is None
+        assert not offers.merge_offered(parked)
+        step = merge.merge(world(parked), parked, standing.standing(parked, ()))
+        assert isinstance(step, NotNow)
+        assert step.said == f"The task is parked. Resume it with /lem resume {SLUG}."
 
 
 def test_a_merge_the_moved_base_refused_is_not_offered_again_until_the_next_proposal() -> (
