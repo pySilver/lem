@@ -18,14 +18,6 @@ def current(folder: Path, session: str, environ: Mapping[str, str]) -> bool:
     return log.same(newest(folder), session) and running(folder, session, environ)
 
 
-def active(folder: Path, environ: Mapping[str, str]) -> str | None:
-    """The latest task session's id when its agent is live."""
-    session = newest(folder)
-    if session is None or not running(folder, session, environ):
-        return None
-    return session
-
-
 def newest(folder: Path) -> str | None:
     """The session Lem opened most recently for this task."""
     opened = log.newest_open(log.read(folder))

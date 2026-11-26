@@ -2,7 +2,7 @@
 and `--tailscale-off` on `main`).
 
 `on` checks what the door needs and sets `serve.tailscale = true` for the server to start.
-It keeps the setting when the server answers with the door open. `off` writes
+It restores the setting on a definite refusal. `off` writes
 `false`, makes sure the server runs without the door, and takes Lem's entry of the door's port
 out of `tailscale serve`, only when it points at Lem's door.
 """

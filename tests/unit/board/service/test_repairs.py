@@ -7,6 +7,7 @@ from contextlib import aclosing, contextmanager
 from functools import partial
 from http.client import HTTPConnection
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, cast
 from urllib.parse import urlsplit
 
@@ -27,6 +28,7 @@ from lem.board import (
     opening,
     serve_file,
     server,
+    start,
     stopping,
     stream,
     tailnet,
@@ -222,8 +224,8 @@ def test_the_board_reads_status_from_the_bundled_cli(
 
 
 @pytest.mark.parametrize("door_setting", ["", "tailscale = false # keep this line\n"])
-@pytest.mark.parametrize("outcome", ["refused", "kept", "open"])
-def test_door_on_keeps_the_setting_only_after_the_door_answers(
+@pytest.mark.parametrize("outcome", ["port-held", "other-home", "kept", "off", "open"])
+def test_door_on_restores_its_key_on_a_definite_refusal(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     door_setting: str,
@@ -234,6 +236,7 @@ def test_door_on_keeps_the_setting_only_after_the_door_answers(
     settings = home / machine.MACHINE
     before = f"[serve]\nport = {OLD}\ntailscale_port = {NEXT}\n{door_setting}"
     settings.write_text(before)
+    unrelated = "\n[handoff]\ntokens = 345678 # the owner's edit\n"
     cli = stand_in.made(tmp_path / "ts")
     environ = {
         **stand_in.environ(cli),
@@ -244,23 +247,68 @@ def test_door_on_keeps_the_setting_only_after_the_door_answers(
 
     def started(*_words: object) -> Shown:
         assert machine.settings(home).tailscale
-        if outcome == "refused":
-            raise Refusal("other-home", "the port is in use", "name another port")
+        if outcome in {"port-held", "other-home"}:
+            settings.write_text(settings.read_text() + unrelated)
+            raise Refusal(outcome, "the port is in use", "name another port")
         if outcome == "kept":
             return Shown(running=True, started=False, another_install=True)
         return Shown(running=True, started=True, tailnet=url)
 
-    monkeypatch.setattr(ensure, "ensure", started)
+    if outcome == "off":
+        monkeypatch.setattr(ensure.addresses, "alternate", lambda *_: None)
+        monkeypatch.setattr(ensure.client, "ask", lambda *_: None)
+        environ["LEM_SERVE"] = "off"
+    else:
+        monkeypatch.setattr(ensure, "ensure", started)
     if outcome == "open":
         assert doorway.opened(environ, tmp_path).url == url
         assert machine.settings(home).tailscale
     else:
         with pytest.raises(Refusal) as refused:
             doorway.opened(environ, tmp_path)
-        assert refused.value.code == (
-            "other-home" if outcome == "refused" else "door-not-open"
-        )
-        assert settings.read_text() == before
+        if outcome in {"port-held", "other-home"}:
+            assert refused.value.code == outcome
+            assert settings.read_text() == before + unrelated
+        else:
+            assert refused.value.code == "door-not-open"
+            assert "lem serve ensure without LEM_SERVE=off" in refused.value.fix
+            assert settings.read_text() == before
+
+
+def test_door_on_keeps_its_setting_when_the_child_can_still_answer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "config" / "lem"
+    folders.home_marked(home)
+    (home / machine.MACHINE).write_text(
+        f"[serve]\nport = {OLD}\ntailscale_port = {NEXT}\ntailscale = false\n"
+    )
+    environ = {
+        **stand_in.environ(stand_in.made(tmp_path / "ts")),
+        "HOME": str(tmp_path),
+        "XDG_CONFIG_HOME": str(home.parent),
+    }
+    child = SimpleNamespace(pid=123, poll=lambda: None)
+    times = iter((0, 0, start.START_WAIT))
+    monkeypatch.setattr(
+        start,
+        "time",
+        SimpleNamespace(monotonic=lambda: next(times), sleep=lambda _: None),
+    )
+    monkeypatch.setattr(start, "launched", lambda *_: child)
+
+    def silent(*_words: object) -> None:
+        raise Refusal("port-held", "the port gave no answer", "check the port")
+
+    monkeypatch.setattr(start.client, "ask", silent)
+    monkeypatch.setattr(ensure, "ensure", lambda *_: start.started(OLD, home, environ))
+    with pytest.raises(Refusal) as refused:
+        doorway.opened(environ, tmp_path)
+    assert refused.value.code == "server-start-timeout"
+    assert f"gave no answer in {start.START_WAIT:g} s" in refused.value.why
+    assert "It may still start and open the configured door." in refused.value.why
+    assert "LEM_SERVE=off lem serve ensure" in refused.value.fix
+    assert machine.settings(home).tailscale
 
 
 @pytest.mark.parametrize(

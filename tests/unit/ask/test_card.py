@@ -1,6 +1,7 @@
 """The public card addresses and one answer shared between the board and the overlay."""
 
 import json
+import sys
 from base64 import b64encode
 from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha256
@@ -11,26 +12,30 @@ from typing import TYPE_CHECKING
 import pytest
 
 from fakes import records
+from lem.adapters import agterm_ctl
 from lem.app.asking import ends, keys, saved
 from lem.app.asking.scripts import hashed
 from lem.app.sessions import acts, log
 from lem.cli import lazy
+from lem.cli.ask import waiting
 from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.model.owner import held
 from lem.model.owner.looks import Look, Session
-from lem.ports.terminal import Pane
 from lem.store import tasks
 from unit.ask.conftest import PAGE, SESSION, SLUG
 
 if TYPE_CHECKING:
-    from fakes.terminal import FakeTerminal
+    from subprocess import CompletedProcess
+
+    from lem.cli.ask.context import Context
     from lem.records.questions import Answer, Question
     from unit.ask.conftest import Agterm
     from unit.board.service.given import Board
 
 ROUTE = f"/studio/shop/tasks/{SLUG}/cards/{PAGE}"
 ORIGIN = {"Origin": "http://127.0.0.1:4999", "Sec-Fetch-Site": "same-origin"}
+REAL_CTL = agterm_ctl.ctl
 
 
 def show(terminal: Agterm, capsys: pytest.CaptureFixture[str]) -> dict:
@@ -113,7 +118,6 @@ def test_page_routes_return_the_exact_overlay_and_only_trusted_scripts(
 def test_ask_names_why_a_saved_card_stays_off_the_board(
     board: Board,
     terminal: Agterm,
-    task_terminal: FakeTerminal,
     capsys: pytest.CaptureFixture[str],
     *,
     other_session: bool,
@@ -128,13 +132,13 @@ def test_ask_names_why_a_saved_card_stays_off_the_board(
             ),
         )
     else:
-        task_terminal.grounds[SESSION] = ("zsh",)
+        terminal.grounds[SESSION] = ("zsh",)
     words = ["--no-wait"] if no_wait else ["--timeout", "0"]
     assert lazy.main(["ask", "q", "Keep the empty cell?", "Keep", *words]) == 0
     opened = json.loads(capsys.readouterr().out)["result"]
     assert opened["outcome"] == ("open" if no_wait else "pending")
     assert opened["board"] == (
-        "The board will not show the owner's card. This pane has no live session for this task."
+        "The board will not show the owner's card. The task has no live session."
     )
     assert saved.question(folder, PAGE) is not None
 
@@ -142,8 +146,8 @@ def test_ask_names_why_a_saved_card_stays_off_the_board(
 def test_ask_warns_that_a_card_from_an_older_pane_cannot_take_a_board_answer(
     board: Board,
     terminal: Agterm,
-    task_terminal: FakeTerminal,
     capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     folder = board.state / "tasks" / SLUG
     log.append(
@@ -152,17 +156,103 @@ def test_ask_warns_that_a_card_from_an_older_pane_cannot_take_a_board_answer(
             at=records.MOMENT, session="S2", name=SLUG, phase="shape", why="open"
         ),
     )
-    task_terminal.panes["S2"] = Pane(id="S2", name=SLUG)
-    task_terminal.grounds["S2"] = ("claude",)
+    terminal.grounds[SESSION] = ("zsh",)
+    terminal.grounds["S2"] = ("claude",)
+    monkeypatch.setenv("AGTERM_WINDOW_ID", SESSION)
     opened = show(terminal, capsys)
     assert opened["board"] == (
         "The owner cannot answer this card on the board. "
         "The task has a live session in a different pane."
     )
     with board.main() as client:
+        assert "Keep the empty cell?" in client.get("/studio/shop/").text
         digest = client.head(ROUTE).headers["etag"].strip('"')
         receipt = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
     assert receipt.status_code == 409
+
+
+@pytest.mark.parametrize("outcome", ["pending", "answered"])
+def test_ask_reads_the_board_after_the_pane_starts_an_agent_during_the_wait(
+    board: Board,
+    terminal: Agterm,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    outcome: str,
+) -> None:
+    terminal.grounds[SESSION] = ("zsh",)
+    poll = waiting.poll
+
+    def changed(here: Context, page: str) -> waiting.answer.Words | None:
+        terminal.grounds[SESSION] = ("claude",)
+        if outcome == "answered":
+            with board.main() as client:
+                digest = client.head(ROUTE).headers["etag"].strip('"')
+                receipt = client.post(
+                    ROUTE + "/answer", json=posted(digest), headers=ORIGIN
+                )
+                assert receipt.status_code == 200
+        return poll(here, page)
+
+    monkeypatch.setattr(waiting, "poll", changed)
+    assert (
+        lazy.main(
+            [
+                "ask",
+                "q",
+                "Keep the empty cell?",
+                "Keep",
+                "Write a dash",
+                "--timeout",
+                "0",
+            ]
+        )
+        == 0
+    )
+    picked = json.loads(capsys.readouterr().out)["result"]
+    assert picked["outcome"] == outcome
+    assert "board" not in picked
+    if outcome == "answered":
+        assert picked["from"] == "board"
+
+
+@pytest.mark.parametrize("has_override", [False, True])
+def test_ask_uses_the_overlay_executable_for_the_board_notice(
+    board: Board,
+    terminal: Agterm,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    has_override: bool,
+) -> None:
+    cli = tmp_path / "bin" / "agtermctl"
+    cli.parent.mkdir()
+    tree = terminal.other(("tree", "--json"), None).stdout
+    cli.write_text(f"#!{sys.executable}\nprint({tree!r})\n")
+    cli.chmod(0o700)
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    monkeypatch.delenv("AGTERMCTL", raising=False)
+    if has_override:
+        monkeypatch.setenv("AGTERMCTL", str(cli))
+
+    def ctl(env: dict, *words: str, **flags: object) -> CompletedProcess[str]:
+        return (
+            REAL_CTL(env, *words)
+            if words[0] == "tree"
+            else terminal.ctl(env, *words, **flags)
+        )
+
+    # Use the real executable search for tree reads and the stand-in for overlays.
+    monkeypatch.setattr(agterm_ctl, "ctl", ctl)
+    opened = show(terminal, capsys)
+    if has_override:
+        assert "board" not in opened
+    else:
+        assert opened["board"].startswith(
+            "Lem could not check if the board will show the owner's card."
+        )
+        assert "not on the PATH" in opened["board"]
+        assert "no live session" not in opened["board"]
 
 
 def test_board_answer_is_the_waiters_result_and_the_only_end(
@@ -183,7 +273,7 @@ def test_board_answer_is_the_waiters_result_and_the_only_end(
     assert taken.status_code == 200
     assert second.status_code == 409
     assert "Write a dash" in second.json()["said"]
-    assert terminal.calls[before_post:] == [
+    assert [call for call in terminal.calls[before_post:] if call[0] != "tree"] == [
         ("session", "overlay", "result", "--page", PAGE, "--json"),
     ]
     assert terminal.shown is not None
@@ -208,11 +298,10 @@ def test_board_answer_is_the_waiters_result_and_the_only_end(
 def test_board_refuses_a_card_when_its_agent_exits_to_the_shell(
     board: Board,
     terminal: Agterm,
-    task_terminal: FakeTerminal,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     show(terminal, capsys)
-    task_terminal.grounds[SESSION] = ("/bin/zsh",)
+    terminal.grounds[SESSION] = ("/bin/zsh",)
     with board.main() as client:
         digest = client.head(ROUTE).headers["etag"].strip('"')
         got = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)

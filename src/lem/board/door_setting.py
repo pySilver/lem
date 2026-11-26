@@ -1,11 +1,13 @@
-"""Keep the door's setting only when the server answers with the door open."""
+"""Restore the door's setting only when the start refuses it."""
 
+import tomllib
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from lem.board import ensure
-from lem.kernel import files, locks, paths
+from lem.kernel import locks, paths
 from lem.kernel.errors import Refusal
-from lem.settings import edit, reading
+from lem.settings import edit, lines, reading
 from lem.settings.write import Asked, checkout_of, edit_for
 
 if TYPE_CHECKING:
@@ -14,9 +16,20 @@ if TYPE_CHECKING:
 
     from lem.board.facts import Shown
 
+# These outcomes establish that this attempt did not start a server with the door.
+REFUSALS = (
+    "port-held",
+    "other-home",
+    "owner-port",
+    "server-start",
+    "stop-refused",
+    "stop-late",
+    "door-not-open",
+)
+
 
 def opened(asked: Asked) -> Shown:
-    """Give the child its startup setting and restore the file on failure."""
+    """Give the child its startup setting and restore that key on refusal."""
     where = reading.Where(
         checkout=checkout_of(asked.folder, asked.scope),
         home=paths.home(asked.environ),
@@ -24,24 +37,21 @@ def opened(asked: Asked) -> Shown:
     )
     change = edit_for(asked, where)
     with locks.held(change.lock):
-        before = snapshot(change.path)
+        before = previous(change)
         edit.written(change, where)
         try:
             return confirmed(asked.environ, asked.folder)
-        except BaseException:
-            if before is None:
-                change.path.unlink(missing_ok=True)
-            else:
-                files.write_whole(change.path, before)
+        except Refusal as refused:
+            if refused.code in REFUSALS:
+                edit.written(before, where)
             raise
 
 
-def snapshot(path: Path) -> bytes | None:
-    """The exact settings file, or None when there was no file."""
-    try:
-        return path.read_bytes()
-    except FileNotFoundError:
-        return None
+def previous(change: edit.Edit) -> edit.Edit:
+    """The edit that restores the key, including a key the file did not hold."""
+    doc = tomllib.loads(lines.text_of(change.path))
+    table = doc.get(change.table, {})
+    return replace(change, given=table.get(change.key))
 
 
 def confirmed(environ: Mapping[str, str], folder: Path) -> Shown:
@@ -51,6 +61,6 @@ def confirmed(environ: Mapping[str, str], folder: Path) -> Shown:
         raise Refusal(
             "door-not-open",
             shown.said or "the board server has no tailnet door for the owner",
-            "the owner checks lem serve ensure before another attempt",
+            "the owner runs lem serve ensure without LEM_SERVE=off before another attempt",
         )
     return shown

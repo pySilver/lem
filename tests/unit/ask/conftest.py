@@ -1,24 +1,21 @@
 """A task and its agterm overlay, with neither agterm nor a server started."""
 
 import json
+import os
 from dataclasses import dataclass, field
 from subprocess import CompletedProcess
 from typing import TYPE_CHECKING
-from unittest.mock import patch
 
 import pytest
 
 from fakes import records
-from fakes.terminal import FakeTerminal
 from lem.adapters import agterm_ctl
-from lem.app.asking import live
 from lem.app.sessions import acts, log
-from lem.ports.terminal import Pane
+from lem.board import opening
 from lem.store import tasks
 from unit.board.service.given import Board, made
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
     from pathlib import Path
 
 SLUG = "keep-a-dash"
@@ -36,8 +33,11 @@ class Agterm:
     error: str | None = None
     calls: list[tuple[str, ...]] = field(default_factory=list)
     silent: bool = False
+    grounds: dict[str, tuple[str, ...]] = field(
+        default_factory=lambda: {SESSION: ("zsh",)}
+    )
 
-    def ctl(self, _env: dict, *words: str, **_flags: object) -> CompletedProcess[str]:
+    def ctl(self, env: dict, *words: str, **_flags: object) -> CompletedProcess[str]:
         self.calls.append(words)
         if self.silent:
             return CompletedProcess(words, 1, "", "no socket")
@@ -57,13 +57,21 @@ class Agterm:
         if words[:3] == ("session", "overlay", "close"):
             self.shown = None
             return self.reply(words)
-        return self.other(words)
+        return self.other(words, env.get("AGTERM_WINDOW_ID"))
 
-    def other(self, words: tuple[str, ...]) -> CompletedProcess[str]:
+    def other(
+        self, words: tuple[str, ...], window: str | None
+    ) -> CompletedProcess[str]:
         if words[0] == "tree":
             overlays = [{"id": PAGE, "file": self.shown}] if self.shown else []
-            found = {"id": SESSION, "htmlOverlays": overlays}
-            return self.reply(words, {"tree": {"workspaces": [{"sessions": [found]}]}})
+            found = [
+                {"id": session, "foreground": ground, "htmlOverlays": overlays}
+                for session, ground in self.grounds.items()
+                if window is None or window == session
+            ]
+            return self.reply(
+                words, {"tree": {"workspaces": [{"id": "W1", "sessions": found}]}}
+            )
         if words[:2] == ("session", "status"):
             return self.reply(words)
         raise AssertionError(words)
@@ -91,19 +99,12 @@ def terminal(monkeypatch: pytest.MonkeyPatch) -> Agterm:
 
 
 @pytest.fixture
-def task_terminal() -> FakeTerminal:
-    return FakeTerminal(
-        panes={SESSION: Pane(id=SESSION, name=SLUG)},
-        grounds={SESSION: ("claude",)},
-    )
-
-
-@pytest.fixture
-def board(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, task_terminal: FakeTerminal
-) -> Iterator[Board]:
+def board(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, terminal: Agterm) -> Board:
     """A workspace with a task whose current session is the overlay stand-in."""
+    terminal.grounds[SESSION] = ("claude",)
     board = made(tmp_path, None)
+    board.app.state.environ = dict(os.environ)
+    opening.detached(board.app.state.environ)
     tasks.create(board.state, records.record(SLUG, status="shaping"))
     log.append(
         board.state / "tasks" / SLUG,
@@ -113,7 +114,4 @@ def board(
     )
     monkeypatch.setenv("LEM_TASK", SLUG)
     monkeypatch.chdir(board.checkout)
-    with patch.object(live, "bound") as bound:
-        bound.return_value.terminal = task_terminal
-        yield board
-        assert task_terminal.told == task_terminal.closed == task_terminal.shown == []
+    return board
