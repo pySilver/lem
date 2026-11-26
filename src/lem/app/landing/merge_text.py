@@ -1,10 +1,13 @@
-"""The line of a merge on a moved base in the pull request's text on the forge, once
+"""The lines of a merge on a moved base and its agents in the pull request's text, once
 (`landing.md` E, "Merge taken, text not updated"; `seam:pr-text-edit-fails`;
 `main:land.noted`).
 
 The new text is published at a path of its own and waits on record (`text_waits`) before the
-forge's edit; the record keeps citing the text the forge confirmed until the edit succeeds. A
-failed edit leaves the merge with its text not updated, and `merged` tries again.
+forge's edit; the record keeps citing the text the forge confirmed until the edit succeeds. The
+edit sends the body alone, so that a title the owner gave on the forge since Lem's look stays
+(`main:land.noted`), and the text confirmed is the body the forge gives back, with the owner's
+own words in it, once it holds every line the edit was for. A failed edit, or a body given back
+without a line, leaves the step due, and the step that needs the line tries again.
 """
 
 from functools import partial
@@ -12,10 +15,8 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing import changes, merge_world
+from lem.app.landing import changes, merge_notes
 from lem.kernel import files
-from lem.kernel.errors import Refusal
-from lem.model.landing import merge_lines, reconcile
 from lem.ports.faults import Unanswered
 from lem.records.landing.record import Landing
 
@@ -26,19 +27,6 @@ if TYPE_CHECKING:
 
 TEXT = "pr-{0}-{1}.md"
 SHORT = 12
-
-
-def line_of(context: Context, landing: Landing) -> str | None:
-    """The line the merge on record leaves in the pull request's text, by the trees of the
-    checks' base and of the base it merged on."""
-    merged = landing.merged
-    if merged is None:
-        return None
-    if merged.uncovered is not None:
-        return merged.uncovered
-    tree = context.ports.git.tree(context.workspace.checkout, merged.parent)
-    trees = reconcile.Trees(checks=merge_world.checks_tree(context), parent=tree)
-    return reconcile.line_of(landing, merged, trees, context.world.rules.base)[0]
 
 
 def confirmed(record: Record, *, text: str | None) -> Record:
@@ -54,10 +42,13 @@ def confirmed(record: Record, *, text: str | None) -> Record:
 
 def waiting(record: Record, *, text: str) -> Record:
     """The record with a newer text of the pull request that waits for the forge."""
-    proposed = (record.landing or Landing()).proposed
-    if proposed is None:
-        return record
-    return changes.landing(record, proposed=replace(proposed, text_waits=text))
+    landing = record.landing or Landing()
+    proposed, merged = landing.proposed, landing.merged
+    if proposed is not None:
+        proposed = replace(proposed, text_waits=text)
+    if merged is not None:
+        merged = replace(merged, text_updated=False)
+    return changes.landing(record, proposed=proposed, merged=merged)
 
 
 def named_of(record: Record, body: str) -> str:
@@ -70,37 +61,53 @@ def named_of(record: Record, body: str) -> str:
 
 def sent(context: Context, record: Record, edit: tuple[PullSeen, str]) -> Record:
     """Publish the newer text (`edit`: the pull request and its newer body), note that it
-    waits, and send it to the forge; a failed edit is refused, and the step stays due."""
+    waits, and send the body alone to the forge; the body it gives back is the text
+    confirmed. A failed edit, or a body given back without a line the edit was for, is
+    refused, and the step stays due."""
     pull, body = edit
-    named, slug = named_of(record, body), record.task.slug
+    named = named_of(record, body)
     files.publish(context.folder / named, body.encode())
     waits = context.write(record, partial(waiting, text=named))
     try:
-        context.ports.forge.update_pull(pull.number, pull.title, body)
+        given = context.ports.forge.update_pull(pull.number, None, body).body
     except Unanswered as error:
-        raise Refusal(
-            "text",
-            "GitHub merged the pull request, and the line of its merge did not reach its "
-            f"text ({error.said}): the newer text waits",
-            f"lem land merged {slug} tries the edit again",
-        ) from error
-    return context.write(waits, partial(confirmed, text=named))
+        raise merge_notes.edit_refusal(record, error.said) from error
+    return context.write(
+        waits, partial(confirmed, text=held_of(context, record, given))
+    )
+
+
+def held_of(context: Context, record: Record, given: str) -> str:
+    """The body the forge gave back after the edit, published by its digest; refused when it
+    lacks a line the edit was for."""
+    shown = given.splitlines()
+    lacking = [
+        line for line in merge_notes.wanted_of(context, record) if line not in shown
+    ]
+    if lacking:
+        said = f"the text GitHub gave back lacks the line {lacking[0]!r}"
+        raise merge_notes.edit_refusal(record, said)
+    held = named_of(record, given)
+    files.publish(context.folder / held, given.encode())
+    return held
 
 
 def edited(context: Context, record: Record) -> Record:
-    """Put the merge's line into the pull request's text on the forge, once, and mark the
-    merge's text updated."""
+    """Confirm the lines of the merge agent and the moved base on the forge."""
     landing, pull = record.landing or Landing(), context.world.pull
-    merged = landing.merged
-    if merged is None or merged.text_updated:
-        return record
-    line = line_of(context, landing)
-    if line is None or pull is None:
+    if pull is not None:
+        body = merge_notes.body_of(
+            pull.body, record, merge_notes.moved_line(context, landing)
+        )
+        if body is not None:
+            return (
+                observed(context, record, body)
+                if body == pull.body
+                else sent(context, record, (pull, body))
+            )
+    if landing.merged is not None and not landing.merged.text_updated:
         return context.write(record, partial(confirmed, text=None))
-    body = merge_lines.noted_body(pull.body, line)
-    if body is None:
-        return observed(context, record, pull.body)
-    return sent(context, record, (pull, body))
+    return record
 
 
 def observed(context: Context, record: Record, body: str) -> Record:
@@ -108,5 +115,14 @@ def observed(context: Context, record: Record, body: str) -> Record:
     the body it shows is published by its digest and cited as the confirmed text, and the
     text that waited is cleared."""
     named = named_of(record, body)
+    proposed = record.landing.proposed if record.landing else None
+    merged = record.landing.merged if record.landing else None
+    if (
+        merged is None
+        and proposed
+        and proposed.text == named
+        and proposed.text_waits is None
+    ):
+        return record
     files.publish(context.folder / named, body.encode())
     return context.write(record, partial(confirmed, text=named))

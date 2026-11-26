@@ -4,13 +4,13 @@ A part of `../claude-code.md`, read when a landing starts the merge agent.
 
 ## ask-merger
 
-One agent, started as an expert is (`ask-experts`), on the seat that `lem seat show SLUG merger`
+One agent, started as an expert is (`ask-experts`), on the `result.seat` that `lem land merge-review SLUG`
 prints: its `agent`, its `model` and its `effort`, each null when the seat leaves it out, which is
 then the agent's own default, and `seat`, the line as written. `BRIEF` is the path the `next` of
-`lem land merge-review SLUG` names (`paths`), the brief's `result.brief`, named by the proposed tip
-and the base the read is against (`merge-brief-TIP-BASE.md` in the task directory); `ANSWER` is
-the file beside it whose name says `answer` in the place of `brief`
-(`merge-answer-TIP-BASE.md`), and `WORKTREE` the task's worktree. Give the agent that `BRIEF` and
+`lem land merge-review SLUG` names (`paths`), the brief's `result.brief`, named by the proposed tip,
+the base the read is against, the round and the dispatch (`merge-brief-TIP-BASE-ROUND-N.md` in the
+task directory); `ANSWER` is the file beside it whose name says `answer` in the place of `brief`
+(`merge-answer-TIP-BASE-ROUND-N.md`), and `WORKTREE` the task's worktree. Give the agent that `BRIEF` and
 no other: a brief of a later base is another read.
 
 - `agent` is `claude`: the `Agent` tool with `subagent_type: "Plan"`, `run_in_background`, `model`
@@ -33,24 +33,26 @@ nothing of it with `--file`, and run
 lem seat failed SLUG merger --seat "LINE" --error KIND --said "ITS WORDS"
 ```
 
-`LINE` being the `seat` that `lem seat show SLUG merger` printed, and `ITS WORDS` the agent's
+`LINE` being the dispatched seat's `seat` string, and `ITS WORDS` the agent's
 line of the error. Its `result` names the fallback that stands in for the merger from now on
-(`blocked` false, and its `seat`): say its `say` in one line, run `lem seat show SLUG merger` again,
-which now prints the stand-in, and start the agent on that seat with the same `BRIEF` and
-`ANSWER`, so that the task's record names the seat that read. Or its `blocked` is true: the task
+(`blocked` false, and its `seat`): say its `say` in one line, then run `lem land merge-review SLUG`
+again. It starts a new dispatch on the fallback's seat, with a brief of its own whose facts name
+the stand-in. Start the agent with that dispatch's seat, brief and reply command: the reply of the
+dispatch that failed is refused. Or its `blocked` is true: the task
 is held `blocked` with the seat and the error, and "Waits for you" shows it; its pull request
 stays open. Mark this session as waiting for the owner (`mark-waiting`) first, then say its `say`
 in one line, the last text of your turn, and wait for his "go on": then `lem seat again SLUG`,
-`lem seat show SLUG merger`, and the agent on the seat it prints, with the same `BRIEF`.
+`lem land merge-review SLUG`, and start the agent from its dispatch.
 
 Any other non-zero exit, or no answer file, is a merge agent that did not answer: run `lem land
-merge-review SLUG --no-answer --tip TIP --base BASE`, TIP and BASE as below. It counts as a reply
+merge-review SLUG --no-answer --tip TIP --base BASE --dispatch N`, TIP, BASE and N as below. It counts as a reply
 the step refuses: the first is refused, and the agent starts once more on the same `BRIEF` and
 `ANSWER`; the second end of that brief is recorded as a second refused reply is (below), and its
 `next` says what follows.
 
-Then `lem land merge-review SLUG --file "ANSWER" --tip TIP --base BASE`, TIP and BASE being the
-`tip` and the `base` of the brief's `result`, which the command of its `next` already holds. A
+Then `lem land merge-review SLUG --file "ANSWER" --tip TIP --base BASE --dispatch N`, TIP, BASE and
+N being the `tip`, the `base` and the `dispatch` of the brief's `result`, which the command of its
+`next` already holds. A
 reply the step refuses (no verdict, or no call on a moved base) is a new start of the agent on the
 same `BRIEF` and `ANSWER`. A second refused reply of that brief is recorded: on a moved base as
 `another round`, and on a base that did not move as a read that calls the owner, with no verdict,

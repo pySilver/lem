@@ -109,10 +109,11 @@ class LocalForge:
         self.bodies[number] = body
         return pull
 
-    def update_pull(self, number: int, title: str, body: str) -> Pull:
+    def update_pull(self, number: int, title: str | None, body: str) -> Pull:
         if self.fail_edits:
             raise Unanswered("gh", "HTTP 502: the edit of the pull request failed")
-        self.pulls[number] = replace(self.pulls[number], title=title, body=body)
+        named = self.pulls[number].title if title is None else title
+        self.pulls[number] = replace(self.pulls[number], title=named, body=body)
         self.bodies[number] = body
         return self.pull(number)
 

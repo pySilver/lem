@@ -109,7 +109,14 @@ def test_criteria_approved_while_he_was_away_make_the_request_not_green_for_his_
     assert proposed["reasons"] == [f"the owner did not approve the criteria: {why}"]
     told = step(capsys, world, "merge-review")["result"]
     reply = world.written("reply.md", "Verdict: call\n\nHis criteria wait for him.\n")
-    pinned = ("--tip", told["tip"], "--base", told["base"])
+    pinned = (
+        "--tip",
+        told["tip"],
+        "--base",
+        told["base"],
+        "--dispatch",
+        str(told["dispatch"]),
+    )
     ok(capsys, world, "land", "merge-review", SLUG, "--file", reply, *pinned)
     due = ok(capsys, world, "land", "next", SLUG)
     assert (due["result"]["by"], due["next"]["do"]) == ("owner", "wait")

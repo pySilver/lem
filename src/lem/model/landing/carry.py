@@ -95,6 +95,9 @@ def moved(read: MergeRead, world: World) -> MergeRead:
         base_tree=world.base_tree,
         verdict=read.verdict,
         why=read.why,
+        by=read.by,
+        brief=read.brief,
+        dispatch=read.dispatch,
         carried_from=read.tip,
         at=world.now,
     )

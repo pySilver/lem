@@ -10,7 +10,13 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import merge_artifacts, merge_compared, merge_time, merge_world
+from lem.app.landing import (
+    merge_artifacts,
+    merge_compared,
+    merge_time,
+    merge_world,
+    stand_ins,
+)
 from lem.model.landing import merge
 from lem.records.base import Frozen, Sha
 from lem.records.landing.record import Pull
@@ -124,7 +130,7 @@ def facts_of(context: Context, landing: Landing, read: tuple[Pull, Proposed]) ->
         time=merge_compared.compared(context.record, context.workspace.state),
         pictures=merge_artifacts.pictures_of(context.folder),
         filed=merge_artifacts.items_of(context, proposed),
-        stand_ins=tuple(f"{one.seat}: {one.took}" for one in task.stand_ins),
+        stand_ins=stand_ins.finals(task.stand_ins),
         try_it={"worktree": worktree, "checkout": f"gh pr checkout {pull.number}"},
         base=context.world.base,
         moved=moved_of(context, proposed.tip),

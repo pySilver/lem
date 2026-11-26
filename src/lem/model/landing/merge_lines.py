@@ -39,10 +39,16 @@ def uncovered_line(base: str, bases: Pair, read: str | None) -> str:
     )
 
 
-def noted_body(body: str, line: str) -> str | None:
-    """The pull request's text `body` with `line` at its end, once; None when it holds the
-    line already, so a second edit is no edit."""
-    if line in body:
+def noted_body(body: str, line: str, *, replaces: str | None = None) -> str | None:
+    """The pull request's text with `line` once, in place of `replaces` if present."""
+    lines = body.splitlines()
+    present = line in lines
+    if replaces is not None and replaces in lines:
+        if not present:
+            lines[lines.index(replaces)] = line
+        kept = "\n".join(one for one in lines if one != replaces)
+        return f"{kept}\n"
+    if present:
         return None
     kept = body.rstrip("\n")
     return f"{kept}\n\n{line}\n" if kept else f"{line}\n"

@@ -30,8 +30,10 @@ LINES = st.sampled_from(
     )
 )
 REPLIES = st.none() | st.lists(LINES | st.text(max_size=20), max_size=4).map("\n".join)
-UNMOVED = Briefed(tip=TIP, base=BASE, base_tree=TREE, moved=False)
-ON_MOVED = Briefed(tip=TIP, base=MOVED, base_tree=MOVED_TREE, moved=True)
+UNMOVED = Briefed(
+    tip=TIP, base=BASE, base_tree=TREE, moved=False, by="claude/opus:high"
+)
+ON_MOVED = replace(UNMOVED, base=MOVED, base_tree=MOVED_TREE, moved=True)
 
 
 @LANDING

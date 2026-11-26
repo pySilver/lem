@@ -139,7 +139,14 @@ def test_a_night_task_of_an_item_runs_without_the_owner_to_a_request_he_merges(
     reply = world.written(
         "reply.md", "Verdict: call\n\nThe night's criteria wait for him.\n"
     )
-    pinned = ("--tip", told["tip"], "--base", told["base"])
+    pinned = (
+        "--tip",
+        told["tip"],
+        "--base",
+        told["base"],
+        "--dispatch",
+        str(told["dispatch"]),
+    )
     ok(capsys, world, "land", "merge-review", SLUG, "--file", reply, *pinned)
     runner.tick(own_home, clock.now())
     waits = ok(capsys, world, "waiting")["result"]

@@ -122,7 +122,15 @@ def small_landed(capsys: Capsys, world: World, slug: str, subject: str) -> None:
         elif verb == "merge-review":
             told = ok(capsys, world, "land", "merge-review", slug)["result"]
             reply = world.written(f"{slug}-reply.md", "Verdict: merge\n\nOne file.\n")
-            words = ("--file", reply, "--tip", told["tip"], "--base", told["base"])
+            pinned = (
+                "--tip",
+                told["tip"],
+                "--base",
+                told["base"],
+                "--dispatch",
+                str(told["dispatch"]),
+            )
+            words = ("--file", reply, *pinned)
         elif verb == "merge":
             words = ("--by", "merger", "--message", subject)
         ok(capsys, world, "land", verb, slug, *words)

@@ -4,7 +4,7 @@ that stood in for another, a fact and no reason of not green; and the careful ca
 
 from typing import TYPE_CHECKING
 
-from lem.app.landing import pr_seats, pr_talk
+from lem.app.landing import pr_talk, stand_ins
 from lem.model.landing import propose_careful, propose_gates
 from lem.model.landing.green_words import reason
 from lem.model.landing.review import newest
@@ -61,5 +61,5 @@ def lines(
 ) -> Lines:
     """The plan talk on the standard track, each stand-in, and the careful call."""
     talks = talk(record, facts) if full else ()
-    stood = pr_seats.lines(record.task.stand_ins)
+    stood = stand_ins.finals(record.task.stand_ins)
     return (*talks, *stood, careful_line(record, careful))

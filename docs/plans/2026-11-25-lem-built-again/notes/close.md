@@ -18,3 +18,14 @@
 - **Lem's project settings.** The `checks.commands` entry in `.lem/settings.toml` names the
   former shell runner. Align it with the rebuilt test entry before proving setup from a new
   Lem worktree.
+
+## The repair of group c (2026-11-26)
+
+- **Records and ports.** `records/landing/propose.py` gains `MergeDispatch` and
+  `MergeRead.dispatch`, `records/landing/record.py` gains `Landing.dispatches`: the merge agent's
+  start is on the task's record, and a reply counts only from the dispatch it names
+  (`model/landing/dispatches.py`). `ports/forge.py`'s `update_pull` takes `title` None for an
+  edit of the body alone (the gh adapter leaves out `--title`, `LocalForge` keeps the title).
+- **Board.** `board/views/artifacts/named.py` reads `merge-brief-TIP-BASE.md`, but the brief has
+  carried its round in its name since before this repair (`merge-brief-TIP-BASE-ROUND-N.md` now),
+  so the map gives no title of its own to a brief. The board's step owns the pattern.

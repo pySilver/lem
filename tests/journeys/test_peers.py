@@ -129,6 +129,40 @@ def test_a_direct_page_explains_a_peer_table_that_does_not_read(tmp_path: Path) 
     asyncio.run(run())
 
 
+def test_a_forwarded_page_omits_the_local_peer_tables_last_error(
+    tmp_path: Path,
+) -> None:
+    async def run() -> None:
+        home = tmp_path / "alpha"
+        table.change(home, "beta", PORT)
+        (home / "machine.toml").write_text("[peers]\nbeta = -1\n")
+        shop = tmp_path / "shop"
+        (shop / ".git").mkdir(parents=True)
+        tasks.create(shop / ".lem/state", record("repair-export"))
+        (shop / ".lem/state/demo").touch()
+        alpha = board(
+            home,
+            "alpha",
+            ALPHAS,
+            Route("/", source.endpoint),
+            Route("/{host}/{workspace}/", source.endpoint),
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=alpha), base_url="http://alpha.invalid"
+        ) as client:
+            direct = await client.get("/")
+            assert direct.status_code == 200 and "$.peers" in direct.text
+            why = alpha.state.peer_registry.trouble
+            (home / "machine.toml").write_text("[peers]\n")
+            (home / board_workspaces.WORKSPACES).write_text(json.dumps([str(shop)]))
+            forwarded = await client.get("/alpha/shop/", headers={requests.HOP: "1"})
+            assert forwarded.status_code == 200 and "$.peers" not in forwarded.text
+            assert 'id="card-repair-export"' in forwarded.text
+            assert alpha.state.peer_registry.trouble == why
+
+    asyncio.run(run())
+
+
 def test_peer_pages_assets_union_and_loop_guard(tmp_path: Path) -> None:
     async def run() -> None:
         alpha_home = tmp_path / "alpha"

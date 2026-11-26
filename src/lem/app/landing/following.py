@@ -1,7 +1,8 @@
 """What `lem land next` and the merge's steps say comes next: the due step's whole command, each
 input the caller gives as a placeholder that `why` names (and no other), or the wait and why;
 after the merge agent's brief, the form that writes its reply down, with the brief's own tip and
-base (`main:land.cmd_merge_review`'s `next`)."""
+base and the number of the dispatch that started the agent (`main:land.cmd_merge_review`'s
+`next`)."""
 
 from types import MappingProxyType
 from typing import TYPE_CHECKING
@@ -43,11 +44,11 @@ def following(slug: str, due: Due, *, squash: bool = True) -> Next:
     return Next(act="run", command=command, why=why)
 
 
-def answered(slug: str, brief: str, read: tuple[str, str]) -> Next:
-    """After the merge agent's brief `brief` of `read` (its tip and base): the command that
-    writes its reply down, and the one for an agent that ended with no answer."""
-    tip, base = read
-    pinned = f"--tip {tip} --base {base}"
+def answered(slug: str, brief: str, read: tuple[str, str, int]) -> Next:
+    """After the merge agent's brief `brief` of `read` (its tip, base and dispatch): the
+    command that writes its reply down, and the one for an agent that ended with no answer."""
+    tip, base, dispatch = read
+    pinned = f"--tip {tip} --base {base} --dispatch {dispatch}"
     return Next(
         act="spawn",
         job="merger",

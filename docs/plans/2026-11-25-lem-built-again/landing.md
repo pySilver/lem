@@ -21,7 +21,8 @@ of part E is also a `path` row of `tests/ledger/extra.tsv`, proved by its journe
 | `Reviewed` | `attempt`, `tip`, `of` (`change`, `resolution`), `floor`, `kind`, `careful`, `answered`, `silent`, `counts` (must-fix, should, nit and outside), `findings` (defects outside the change), `to_file`, `scope` (`resolution` or `whole`) | `read --record` |
 | `Filed` | `finding`, `disposition` (`item`, `same`, `cheap-fixed`, `seen`), `path`, `worth`, `cites` (an older `worth: no` item a new `worth: later` item names), `jev`, `commit` | `file`, `propose` |
 | `Proposed` | `tip`, `base`, `green`, `reasons`, `careful`, `notes_path`, `merge_review` (`carried` or None and why), `owner_merge` (`stands: why`, `ended: why`, or None), `who_acts` | `propose` |
-| `MergeRead` | `tip`, `base`, `base_tree`, `verdict` (`merge`, `call`, or None), `base_call` (`safe`, `another round`, or None), `why`, `carried_from`, `attempts`, `no_answer` | `merge-review`, `propose` (carried) |
+| `MergeRead` | `tip`, `base`, `base_tree`, `verdict` (`merge`, `call`, or None), `base_call` (`safe`, `another round`, or None), `why`, `carried_from`, `attempts`, `no_answer`, `by`, `brief`, `dispatch` | `merge-review`, `propose` (carried) |
+| `MergeDispatch` (each in `dispatches`) | `number`, `tip`, `base`, `round`, `seat`, `brief`, `at`: one start of the merge agent; its reply names `number`, and counts only while it is the newest of its tip and base in the round | `merge-review` |
 | `Standing` | `tip`, `reasons_digest`, `by_act` | the owner's merge refused for the base |
 | `Refused` | `tip`, `source` (`github`, `lem`), `kind` (`rule`, `tip`, `base`, `target`), `line`, `by` | `merge` |
 | `MergeIntent` | `tip`, `by`, `via`, `at` | `merge`, under the merge lock, before the forge call |

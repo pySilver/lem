@@ -24,8 +24,10 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 OPENED_LANDING = task("open", **OPENED).landing or Landing()
-UNMOVED = mergeread.Briefed(tip=TIP, base=BASE, base_tree=TREE, moved=False)
-ON_MOVED = mergeread.Briefed(tip=TIP, base=MOVED, base_tree=MOVED_TREE, moved=True)
+UNMOVED = mergeread.Briefed(
+    tip=TIP, base=BASE, base_tree=TREE, moved=False, by="claude/opus:high"
+)
+ON_MOVED = replace(UNMOVED, base=MOVED, base_tree=MOVED_TREE, moved=True)
 
 
 def timed(track: Size, opened: int, *proposals: int) -> Record:
@@ -185,7 +187,7 @@ def test_an_answer_that_cannot_be_recorded_is_asked_again_once() -> None:
         (
             "no-verdict",
             "the merge agent's answer was not recorded: its first line gave no verdict; the merge agent is asked again",
-            "a fresh merge agent reads the same brief, and its reply is written down with the same --tip and --base",
+            "a fresh merge agent reads the same brief, and its reply is written down with the same --tip, --base and --dispatch",
         )
     )
     assert not mergeread.settled(first)
