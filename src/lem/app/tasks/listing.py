@@ -131,5 +131,5 @@ def shown(folder: Path, slug: str) -> Row:
     return replace(
         row(record, tasks.every(where.state)),
         first_line=line,
-        board_answer=shown_answer.pending(record.task),
+        board_answer=shown_answer.pending(record),
     )

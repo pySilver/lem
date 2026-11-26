@@ -6,8 +6,7 @@ and each wait of his own."""
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from lem.board.views.offers import pending_answer
-from lem.model.owner import answers, turns
+from lem.model.owner import answers, hold_question, turns
 from lem.records.holds import BreakerHold
 
 if TYPE_CHECKING:
@@ -53,7 +52,7 @@ def owner_held(task: Task, *, alone: bool) -> str:
 def breaker(task: Task, *, working: bool) -> str:
     """A breaker: his help on record, the session that works on it, or the breaker that
     waits."""
-    if pending_answer(task) is not None:
+    if hold_question.pending_answer(task) is not None:
         return "Helped: its lead has not started yet"
     if working:
         return "Its session works on your answer"

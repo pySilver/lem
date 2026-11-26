@@ -1,5 +1,6 @@
 """The owner's careful decision applies to the proposal and to new merge calls."""
 
+import msgspec
 from msgspec.structs import replace
 
 from lem.app.landing import pr_text
@@ -14,7 +15,7 @@ from lem.model.landing import (
     review_due,
     review_said,
 )
-from lem.records.landing.propose import Standing
+from lem.records.landing.propose import Proposed, Standing
 from lem.records.landing.record import Landing
 from lem.records.landing.review import Reviewed
 from unit.landing.merges import BY_MERGER, code_of, facing, opened
@@ -62,6 +63,17 @@ def test_the_locked_call_honors_an_owner_careful_decision_after_proposal() -> No
     record = opened(reviews=(replace(REVIEWED, kind="full"),))
     changed = log.logged(record, asked=CAREFUL, now=MOMENT)
     assert code_of(merge.decide(changed, facing(), BY_MERGER, TREE)) == "careful-review"
+
+
+def test_the_proposal_keeps_the_old_fields_beside_the_owners_careful_word() -> None:
+    old = msgspec.json.encode(replace(PROPOSED, careful=True, who_acts="owner"))
+    previous = msgspec.json.decode(old, type=Proposed)
+    assert previous.careful and not previous.owner_careful
+    written = msgspec.json.encode(replace(previous, owner_careful=True))
+    assert msgspec.json.decode(written) == {
+        **msgspec.json.decode(old),
+        "owner_careful": True,
+    }
 
 
 def test_a_late_careful_decision_changes_the_reasons_of_a_fast_track_standing_merge() -> (

@@ -8,16 +8,18 @@ import pytest
 from msgspec.structs import replace
 
 from fakes.command import lem
-from lem.app.tasks import park, resume
+from lem.app.tasks import park, resume, shown_answer
 from lem.board.acts import asking
+from lem.board.views.panel import held_head
 from lem.kernel import clock
 from lem.model.criteria import digest, waits
 from lem.model.decisions import breaker, log
-from lem.model.owner import held
+from lem.model.owner import held, hold_question
 from lem.records.decisions import Breaker
 from lem.records.holds import BreakerHold, OwnerHold
 from lem.store import tasks
-from unit.board.acts.acts import SLUG, made, note_of, read
+from unit.board.acts.acts import SLUG, made, note_of, opened, read
+from unit.board.acts.conftest import PHONE
 from unit.board.acts.test_answer import ANSWER, HELP, SINCE
 from unit.criteria import world
 from unit.task.spaces import refusal, result
@@ -27,7 +29,7 @@ if TYPE_CHECKING:
 
     from lem.records.holds import OwnerWait
     from lem.records.questions import Question
-    from lem.records.task import Status
+    from lem.records.task import Status, Task
     from unit.board.acts.conftest import Board
 
 
@@ -36,6 +38,68 @@ def current(board: Board) -> Question:
     question = asking.standing(read(board).task)
     assert question is not None
     return question
+
+
+def test_the_board_and_task_use_the_same_pending_answer_rule(
+    board: Board,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record = made(board, status="building", hold=BreakerHold(number=1, since=SINCE))
+    seen: list[Task] = []
+
+    def pending(task: Task) -> None:
+        seen.append(task)
+
+    monkeypatch.setattr(hold_question, "pending_answer", pending)
+    assert shown_answer.pending(record) is None
+    assert (
+        held_head.breaker(record.task, working=False)
+        == "The build stopped: its breaker waits for you"
+    )
+    assert seen == [record.task, record.task]
+
+
+def test_the_phone_approval_wake_keeps_the_note_under_its_question_key(
+    board: Board,
+) -> None:
+    made(board, status="shaping", hold=world.WAITS)
+    session = opened(board)
+    mark = digest.shown(world.sheet(board.checkout, world.FULL).read_bytes())
+    key = current(board).id
+    fields = {"key": key, "option": "yes", "digest": mark, "words": HELP}
+    assert note_of(board.post(ANSWER, fields, **{"user-agent": PHONE})).state == "done"
+    assert (session, f"lem: {SLUG} owner") in board.terminal.told
+    approved = read(board)
+    assert approved.task.hold is None
+    shown = result(lem("task", "show", SLUG, cwd=board.checkout))["board_answer"]
+    assert (shown["key"], shown["option"], shown["note"]) == (key, "yes", HELP)
+    assert (shown["source"], shown["via"], shown["device"]) == (
+        "board",
+        "local",
+        "phone",
+    )
+
+    tasks.update(
+        board.state,
+        SLUG,
+        lambda record: replace(
+            record,
+            task=replace(
+                record.task,
+                hold=OwnerHold(on="fact", line="the owner waits", since=SINCE),
+            ),
+        ),
+        approved.revision,
+    )
+    assert (
+        result(lem("task", "show", SLUG, cwd=board.checkout)).get("board_answer")
+        is None
+    )
+    saved = next(
+        question for question in read(board).task.questions if question.id == key
+    )
+    assert saved.answer is not None
+    assert (saved.answer.note, saved.answer.device) == (HELP, "phone")
 
 
 @pytest.mark.parametrize(

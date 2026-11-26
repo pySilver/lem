@@ -47,9 +47,9 @@ def unchecked(asked: Asked) -> None:
 
 
 def heard(context: Context, record: Record, intent: MergeIntent) -> Record:
-    """Note the owner's word over `intent`, and give the record after it."""
+    """Note the owner's word and retire the checked intent if a careful round is due."""
     stopped = new_call_refusal(record)
-    if stopped is not None:
+    if stopped is not None and stopped.code != "careful-review":
         raise stopped
     pull = context.world.pull
     shown = f"{pull.state} at {pull.head}" if pull else "no pull request"
@@ -60,7 +60,12 @@ def heard(context: Context, record: Record, intent: MergeIntent) -> Record:
         question=f"the merge call of {stamp}",
         option=shown,
     )
-    return context.write(record, lambda before: changes.noted(before, entry))
+    return context.write(
+        record,
+        lambda before: changes.noted(
+            changes.landing(before, intent=None) if stopped else before, entry
+        ),
+    )
 
 
 def admits(asked: Asked, context: Context, due: world.Due) -> bool:

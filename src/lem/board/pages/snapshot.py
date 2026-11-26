@@ -44,9 +44,7 @@ def capture(
 ) -> Snapshot:
     """Ask the terminal and git only for facts that a workspace page can display."""
     at = clock.now()
-    listed, unknown = {}, None
-    if not demo:
-        listed, unknown = sessions.sessions_of(here, at, records)
+    listed, unknown = sessions.sessions_of(here, at, records, demo=demo)
     return Snapshot(
         here=here,
         settings=settings,

@@ -226,8 +226,9 @@ line that the files do not bear out changes nothing.
 **His answer on the board.** A plan that waits for his read, a breaker, "Skip the persona read?",
 "Approve this criterion?" of the fast track and "Approve the criteria?" of the standard track each
 have their own buttons on the board, with a note; a card of `lem-ask` ends its own command instead (`ask-owner`). On an `owner` wake, read
-`board_answer` of `lem task show SLUG` when it is present: the record of his answer to the row of
-the hold now. Its `option` is his typed word, and its `note` his words on it, which
+`board_answer` of `lem task show SLUG` when it is present: the answer to the current hold, or the
+board's Yes that approved the criteria and cleared their hold. Its `option` is his typed word,
+and its `note` his words on it, which
 the stage that waits takes:
 
 - a plan, `build` or `drop`: his "build" (`SKILL_DIR/stages/start.md`, "`/lem build`", typed in
@@ -269,10 +270,12 @@ task's, the change stopped in the middle, whatever decision names its key: run `
 file as the interview's step 6 says when it is not there, or run `lem criteria change SLUG
 --unchanged` for a note that changes no criterion; then ask again as that step does.
 
-A board answer whose key is no longer the hold's takes no effect: `board_answer` is absent
-then. When an `owner` wake finds it absent, and `answers/` of the task directory holds a record
-(`KEY.json`) for the hold that your act on his typed word ended, it came after the answer that took
-effect: say so in one line, with what it said and from where, and act on nothing.
+On a late `owner` wake, use `task.questions` in the task directory's `task.json`. Match the old
+question by `id` and read its words and saved `answer`. If the wake gives no key, the board's
+approval is an `owner-act` in the same record's `journal`, with `act: approve` and the key in
+`question`. Log its Yes and note once under that key, even after a new hold. Follow the current
+hold. For another answer to a hold that has ended, say what it said and where it came from.
+Take no act on that answer.
 
 ## The end
 

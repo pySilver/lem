@@ -14,13 +14,20 @@ from inline_snapshot import snapshot
 from msgspec.structs import replace
 
 from fakes.git import ModelGit
-from lem.app.landing import item_carry, review_answer, review_changes, review_files
+from lem.app.landing import (
+    item_carry,
+    review_answer,
+    review_changes,
+    review_files,
+    review_item,
+)
 from lem.app.tasks import planned
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
     careful,
     green,
     phases,
+    propose,
     review,
     review_due,
     review_form,
@@ -547,6 +554,21 @@ def test_two_rounds_go_on_to_the_owner_with_what_they_left_open() -> None:
     assert not isinstance(review.decide(record, world(), third, FACTS), Refusal)
 
 
+def test_a_full_round_after_a_late_careful_call_counts_the_first_review() -> None:
+    first = replace(REVIEWED, kind="read", floor="read", findings=(), to_file=())
+    second = replace(
+        first, attempt=2, kind="full", floor="full", counts=Counts(must_fix=1)
+    )
+    record = task(**{**PREPARED, "proposed": PROPOSED, "reviews": (first, second)})
+    record = replace(record, task=replace(record.task, owner_careful=MOMENT))
+    facing = world()
+    assert phases.due(record, facing).step == "propose"
+    proposed = propose.made(record, facing, ("the owner says so",))
+    assert not proposed.green
+    assert proposed.who_acts == "owner"
+    assert "two rounds reviewed it: the last one left 1 must-fix" in proposed.reasons
+
+
 def test_a_review_nobody_answered_is_started_once_more_then_the_request_goes_on() -> (
     None
 ):
@@ -635,22 +657,27 @@ def test_only_new_items_recorded_by_filing_keep_review_coverage(
         assert due_of(coverage) == "read"
 
 
-@pytest.mark.parametrize("remove", (False, True), ids=("edit-own", "delete-other"))
+@pytest.mark.parametrize("change", ("edit-own", "delete-other", "delete-unclaimed"))
 def test_an_edit_of_the_tasks_item_or_deletion_of_another_invalidates_coverage(
-    tmp_path: Path, *, remove: bool
+    tmp_path: Path, change: str
 ) -> None:
     own = "docs/backlog/own.md"
     other = "docs/backlog/other.md"
     git = ModelGit.init(tmp_path, {own: b"# Own item\n", other: b"# Other item\n"})
     before = git.remote["main"]
-    head = git.outside_commit(
-        "main", {other: None} if remove else {own: b"# The task edited its item\n"}
-    )
+    edits: dict[str, dict[str, bytes | None]] = {
+        "edit-own": {own: b"# The task edited its item\n"},
+        "delete-other": {other: None},
+        "delete-unclaimed": {own: None},
+    }
+    head = git.outside_commit("main", edits[change])
     checked = replace(CHECKED, tip=before, items_after=(own, other))
     proof = item_carry.gathered(git, tmp_path, checked, world(tip=head))
     reviewed = replace(REVIEWED, tip=before)
     record = task(**{**PREPARED, "checked": checked, "reviews": (reviewed,)})
-    record = replace(record, task=replace(record.task, backlog_item=own))
+    claimed = None if change == "delete-unclaimed" else own
+    record = replace(record, task=replace(record.task, backlog_item=claimed))
+    proof = review_item.gathered(git, tmp_path, record, proof)
     assert proof.item_chain == ()
     assert due_of(review.holds(record, proof)) == "read"
 

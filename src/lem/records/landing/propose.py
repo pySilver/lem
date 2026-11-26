@@ -16,7 +16,8 @@ class OwnerMerge(Frozen, frozen=True, kw_only=True):
 
 class Proposed(Frozen, frozen=True, kw_only=True):
     """`propose`: the tip and base, the criteria's contract mark it proposed under, green or the
-    reasons it is not, the careful call, the notes, the pull request's text the forge confirmed
+    reasons it is not, the careful call and whether it includes the owner's word, the notes,
+    the pull request's text the forge confirmed
     and the body that waits, whether a merge read carried, the owner's standing merge, and who
     acts on the merge."""
 
@@ -26,6 +27,7 @@ class Proposed(Frozen, frozen=True, kw_only=True):
     green: bool
     reasons: tuple[str, ...] = ()
     careful: bool = False
+    owner_careful: bool = False
     notes_path: TaskPath | None = None
     text: TaskPath | None = None
     text_waits: TaskPath | None = None

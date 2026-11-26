@@ -147,6 +147,18 @@ def text_of(world: World) -> str:
 # ---- the merge read: a moved base, its safe read, another round, answers it cannot record ----
 
 
+def test_a_valid_merge_verdict_requires_no_author(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge-review")
+    recorded = read(capsys, world, "Verdict: merge. The checks hold.")
+    assert recorded["ok"], recorded
+    assert recorded["result"]["verdict"] == "merge"
+    assert "by" not in landing(world)["reads"][-1]
+    assert due(capsys, world)["step"] == "merge"
+
+
 def test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
 ) -> None:
@@ -431,6 +443,44 @@ def test_the_owners_checked_word_with_no_call_on_record_is_refused(
     upto(capsys, world, "merge")
     refused = owner(capsys, world, "--checked", "20261125T100000Z")["refusal"]
     assert refused["code"] == "checked"
+    assert calls(world) == 0
+
+
+def test_the_owners_check_of_a_lost_reply_makes_the_careful_round_due(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    lose(monkeypatch, world)
+    assert MERGE(capsys, world)["code"] == 3
+    note = command(
+        "decisions",
+        "log",
+        "SLUG",
+        "--by",
+        "owner",
+        "--what",
+        "whether the task is careful",
+        "--chose",
+        "careful until its merge",
+        "--why",
+        "the README is what a customer reads",
+    )
+    assert note(capsys, world)["ok"]
+    assert due(capsys, world)["step"] == "merge"
+    refused = owner(capsys, world)["refusal"]
+    assert refused["code"] == "intent"
+    stale = owner(capsys, world, "--checked", "20200101T000000Z")
+    assert stale["refusal"]["code"] == "intent"
+    assert "intent" in landing(world)
+    assert (
+        owner(capsys, world, *checked(refused))["refusal"]["code"] == "careful-review"
+    )
+    assert "intent" not in landing(world)
+    assert world.record()["journal"][-1]["question"].startswith("the merge call of ")
+    assert calls(world) == 0
+    assert due(capsys, world)["step"] == "start"
+    assert command("land", "start", "SLUG")(capsys, world)["ok"]
     assert calls(world) == 0
 
 

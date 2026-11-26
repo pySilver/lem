@@ -21,28 +21,10 @@ if TYPE_CHECKING:
 NONE: frozenset[str] = frozenset()
 
 
-def active_question(task: Task) -> Question | None:
-    """The question of the active hold, if the board can answer it."""
-    if task.status in ENDED:
-        return None
-    hold = task.hold
-    if isinstance(hold, OwnerHold) and hold.on in waits.WAITING:
-        return waits.question_of(task)
-    return hold_question.standing(task)
-
-
 def open_question(task: Task, topic: str) -> Question | None:
     """The unanswered question of the active hold, if its topic agrees."""
-    asked = active_question(task)
+    asked = hold_question.active(task)
     if asked is None or asked.topic != topic or asked.answer is not None:
-        return None
-    return asked
-
-
-def pending_answer(task: Task) -> Question | None:
-    """An answer to this hold which its session has yet to take."""
-    asked = active_question(task)
-    if asked is None or asked.answer is None or asked.took_effect is not None:
         return None
     return asked
 

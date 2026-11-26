@@ -1,8 +1,9 @@
 """Keep the phone's page, forms and waits in step with the board's stream."""
 
 import re
+import time
 from typing import TYPE_CHECKING
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import pytest
 from msgspec.structs import replace
@@ -14,6 +15,7 @@ from browser.test_keys import card, panel, seed
 from browser.test_sheets import CONFIRM, button, mergeable_receipt, scroll_end
 from fakes.repo import run_git
 from fixtures.board import beside
+from lem.board.counts import FRESH
 from lem.board.duties.memory import MEMORY
 from lem.store import places, tasks
 
@@ -29,8 +31,37 @@ def count_on(page: Page) -> int:
 
 
 def counts(page: Page, count: int) -> None:
-    expect(page.locator(".m-waits span")).to_have_text(str(count), timeout=STREAM_WAIT)
-    expect(page.locator("#side .side-head em")).to_have_text(str(count))
+    page.wait_for_function(
+        """count => document.querySelector('.m-waits span')?.textContent === count
+                  && document.querySelector('#side .side-head em')?.textContent === count""",
+        arg=str(count),
+        timeout=STREAM_WAIT,
+    )
+
+
+def watch_counts(page: Page) -> None:
+    """Sample both badges together after every mutation through the approval."""
+    page.evaluate("""() => {
+      const pair = () => [
+        document.querySelector('.m-waits span')?.textContent,
+        document.querySelector('#side .side-head em')?.textContent
+      ];
+      window.waitPairs = [pair()];
+      new MutationObserver(() => window.waitPairs.push(pair())).observe(
+        document.documentElement,
+        { subtree: true, childList: true, characterData: true, attributes: true }
+      );
+    }""")
+
+
+def server_count(page: Page, board: Board) -> int:
+    """Read the workspace's waits count from the API."""
+    url = urljoin(board.url, "/api/workspaces")
+    path = str(board.checkout)
+    reply = page.request.get(url, timeout=STREAM_WAIT)
+    assert reply.ok, f"{url}: HTTP {reply.status}"
+    [row] = [row for row in reply.json() if row.get("path") == path]
+    return int(row["waits"])
 
 
 def live(page: Page) -> None:
@@ -155,7 +186,7 @@ def test_a_phone_approval_and_the_next_page_agree_on_both_wait_counts(
     merge_read_for_tip(board)
     phone = window(PHONE, phone=True).pages[0]
     visit(phone, board.task(RECEIPT), "#panel")
-    original = count_on(phone)
+    original = server_count(phone, board)
     counts(phone, original)
     phone.locator(".p-fold").tap()
     phone.locator("#p-head .p-acts a").filter(has_text="Merge").tap()
@@ -168,6 +199,7 @@ def test_a_phone_approval_and_the_next_page_agree_on_both_wait_counts(
         run_git(board.checkout, "push", "origin", "main")
     scroll_end(shown)
     expect(button(shown)).to_have_text("Approve")
+    watch_counts(phone)
     button(shown).tap()
     expect(phone.locator("#panel .act-note").first).to_contain_text(
         re.compile("base moved" if moved else "Merged:", re.IGNORECASE), timeout=WAIT
@@ -177,6 +209,18 @@ def test_a_phone_approval_and_the_next_page_agree_on_both_wait_counts(
         worker.join(timeout=10)
         assert not worker.is_alive()
     assert board.forge.merge_calls == ([] if moved else [(44, tip)])
-    counts(phone, original - 1)
+    time.sleep(FRESH)
+    final = server_count(phone, board)
+    counts(phone, final)
+    pairs = phone.evaluate("window.waitPairs")
+    changed = [
+        pair
+        for index, pair in enumerate(pairs)
+        if index == 0 or pair != pairs[index - 1]
+    ]
+    expected = [[str(count)] * 2 for count in dict.fromkeys((original, final))]
+    assert changed == expected, (
+        f"API counts: {original}, {final}. Badge pairs: {changed}"
+    )
     phone.reload()
-    counts(phone, original - 1)
+    counts(phone, final)

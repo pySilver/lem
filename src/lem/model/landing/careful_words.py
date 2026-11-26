@@ -19,7 +19,7 @@ def after_proposal(record: Record) -> bool:
     landing = record.landing
     if landing is None or landing.proposed is None:
         return False
-    return record.task.owner_careful is not None and not landing.proposed.careful
+    return record.task.owner_careful is not None and not landing.proposed.owner_careful
 
 
 def standing(landing: Landing) -> list[Reviewed]:

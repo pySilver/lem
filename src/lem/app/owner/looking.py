@@ -34,10 +34,12 @@ class Looked(Frozen, frozen=True, kw_only=True):
     forge: forge.Look
 
 
-def looked(here: Here, now: datetime, branch: Branch | None = None) -> Looked:
+def looked(
+    here: Here, now: datetime, branch: Branch | None = None, *, demo: bool = False
+) -> Looked:
     """The look at the workspace of `here` now."""
     records = tasks.every(here.where.state)
-    shown, unknown = sessions.sessions_of(here, now, records)
+    shown, unknown = sessions.sessions_of(here, now, records, demo=demo)
     seen = forge.read(here.where.state)
     bases = merge_bases.gathered(here, branch, records)
     return Looked(
@@ -45,13 +47,15 @@ def looked(here: Here, now: datetime, branch: Branch | None = None) -> Looked:
             look_of(
                 here,
                 record,
-                shown if unknown is None else None,
+                sessions.for_record(
+                    here, record, shown if unknown is None else None, demo=demo
+                ),
                 seen,
                 bases.for_task(record),
             )
             for record in releases.with_stops(records)
         ),
-        presence=owner.read(paths.home(os.environ)),
+        presence=owner.read(here.home or paths.home(os.environ)),
         unknown=unknown,
         forge=seen,
     )
@@ -60,18 +64,12 @@ def looked(here: Here, now: datetime, branch: Branch | None = None) -> Looked:
 def look_of(
     here: Here,
     record: Record,
-    shown: sessions.Listed | None,
+    session: owner_looks.Session | None,
     seen: forge.Look,
     basis: owner_looks.MergeBasis,
 ) -> owner_looks.Look:
     """One task as the list reads it."""
     slug = record.task.slug
-    session = sessions.session_of(
-        None if shown is None else shown.get(slug),
-        record.task.opened,
-        here.caller,
-        known=shown is not None,
-    )
     return owner_looks.Look(
         record=record,
         session=session,

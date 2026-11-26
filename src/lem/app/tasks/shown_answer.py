@@ -1,16 +1,17 @@
-"""The answer that the task's session can take from its current hold."""
+"""The answer a task's session can take from its hold or its completed approval."""
 
 from typing import TYPE_CHECKING
 
 from msgspec.structs import asdict
 
-from lem.model.criteria import waits
 from lem.model.owner import hold_question
 from lem.model.task.claim import ENDED
+from lem.records.journal.task import OwnerAct, StateNoted
 from lem.records.questions import Answer
 
 if TYPE_CHECKING:
-    from lem.records.task import Task
+    from lem.records.questions import Question
+    from lem.records.record import Record
 
 
 class BoardAnswer(Answer, frozen=True, kw_only=True):
@@ -20,12 +21,25 @@ class BoardAnswer(Answer, frozen=True, kw_only=True):
     question: str
 
 
-def pending(task: Task) -> BoardAnswer | None:
-    """The unconsumed answer to the current hold, if there is one."""
-    if task.status in ENDED:
+def approved(record: Record) -> Question | None:
+    """The board approval since the last state line, if it cleared the hold."""
+    task = record.task
+    if task.hold is not None or task.status in ENDED:
         return None
-    question = waits.question_of(task) or hold_question.standing(task)
-    if question is None or question.answer is None or question.took_effect is not None:
+    for entry in reversed(record.journal):
+        if isinstance(entry, StateNoted):
+            break
+        if isinstance(entry, OwnerAct) and entry.act == "approve":
+            return next(
+                (asked for asked in task.questions if asked.id == entry.question), None
+            )
+    return None
+
+
+def pending(record: Record) -> BoardAnswer | None:
+    """The answer to the current hold or the board approval that ended it."""
+    question = hold_question.pending_answer(record.task) or approved(record)
+    if question is None or question.answer is None:
         return None
     return BoardAnswer(
         key=question.id, question=question.question, **asdict(question.answer)

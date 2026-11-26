@@ -56,6 +56,14 @@ PROPOSED = looked.proposed()
 CAREFUL = replace(PROPOSED, who_acts="owner")
 
 
+def test_the_panel_names_the_owners_careful_call_as_the_reason_to_land_again() -> None:
+    seen = opened(proposed=PROPOSED, reads=(read(),))
+    record = replace(seen.record, task=replace(seen.record.task, owner_careful=MOMENT))
+    assert heads.now_head(replace(seen, record=record)) == (
+        "Proposed: the owner called it careful. Lem starts a new round."
+    )
+
+
 def at(minutes: float) -> datetime:
     """A moment `minutes` after the records' moment."""
     return MOMENT + timedelta(minutes=minutes)

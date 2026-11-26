@@ -203,10 +203,37 @@ def test_base_keeps_its_rebase_and_approval_after_a_cut_in_the_second_push(
 def test_the_owners_careful_word_on_an_open_pull_request_starts_a_full_review(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    late_careful(tmp_path, monkeypatch, capsys, reviewer_called_it=False)
+
+
+def test_the_owners_careful_word_updates_a_proposal_that_is_already_careful(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    late_careful(tmp_path, monkeypatch, capsys, reviewer_called_it=True)
+
+
+def late_careful(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    *,
+    reviewer_called_it: bool,
+) -> None:
     """Main's lem-land-review.sh late-care case gives the open request a full review."""
     world = made(tmp_path, monkeypatch)
-    upto(capsys, world, "merge")
+    notes = "none\n\n## Migration\n\nnone\n"
+    if reviewer_called_it:
+        upto(capsys, world, "read")
+        reviewed(
+            capsys, world, kind="full", careful=True, careful_why="customers see it"
+        )
+        ok(propose_with(capsys, world, notes))
+        ok(brief(capsys, world))
+        ok(reply(capsys, world))
+    else:
+        upto(capsys, world, "merge")
     first = landing(world)["pull"]["number"]
+    assert "the owner says so" not in world.forge.bodies[first]
     assert due(capsys, world) == "merge"
     note = command(
         "decisions",
@@ -233,14 +260,18 @@ def test_the_owners_careful_word_on_an_open_pull_request_starts_a_full_review(
     for verb, step in (("base", BASE), ("checks", CHECKS)):
         if due(capsys, world) == verb:
             ok(step(capsys, world))
-    told = ok(review_brief(capsys, world))["result"]
-    assert (told["floor"], told["floor_why"]) == (
-        "full",
-        "the request is careful: the owner says so",
-    )
-    refused(recorded(capsys, world), "under-floor")
-    ok(recorded(capsys, world, kind="full"))
-    again = ok(propose_with(capsys, world, "none\n\n## Migration\n\nnone\n"))["result"]
+    if reviewer_called_it:
+        assert due(capsys, world) == "propose"
+        assert len(landing(world)["reviews"]) == 1
+    else:
+        told = ok(review_brief(capsys, world))["result"]
+        assert (told["floor"], told["floor_why"]) == (
+            "full",
+            "the request is careful: the owner says so",
+        )
+        refused(recorded(capsys, world), "under-floor")
+        ok(recorded(capsys, world, kind="full"))
+    again = ok(propose_with(capsys, world, notes))["result"]
     assert again["pull"]["number"] == first
     assert (again["careful"], again["who_acts"]) == (True, "owner")
     assert "the owner says so" in world.forge.bodies[first]

@@ -14,9 +14,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.owner import looking
-from lem.app.sessions.here import bound
-from lem.board import workspaces
+from lem.board import count_look, workspaces
 from lem.kernel import clock, errors
 from lem.model.owner import waiting
 from lem.records.workspace import Row
@@ -24,6 +22,7 @@ from lem.records.workspace import Row
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.app.owner.looking import Looked
     from lem.store.places import Workspace
 
 # How long a workspace's counts are kept, in seconds (`serve.REFRESH_SECONDS` on `main`).
@@ -42,16 +41,16 @@ class Count(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     problem: str | None = None
 
 
-def counted(space: Workspace) -> Count:
+def counted(space: Workspace, home: Path) -> Count:
     """The counts of the workspace now."""
     try:
-        seen = looking.looked(bound(space.checkout), clock.now())
+        seen = count_look.looked(space, home)
     except FAILED as error:
         return Count(problem=str(error))
     return count_of(seen)
 
 
-def count_of(seen: looking.Looked) -> Count:
+def count_of(seen: Looked) -> Count:
     """The counts of a look at a workspace."""
     statuses = [one.record.task.status for one in seen.looks]
     away = seen.presence.away
@@ -72,13 +71,13 @@ class Counts:
 
     kept: dict[str, tuple[float, Count]] = field(default_factory=dict)
 
-    def of(self, space: Workspace, *, fresh: bool) -> Count:
+    def of(self, space: Workspace, home: Path, *, fresh: bool) -> Count:
         """The counts of the workspace, read again when `fresh` or older than FRESH."""
         key = str(space.checkout)
         known = self.kept.get(key)
         now = time.monotonic()
         if fresh or known is None or now - known[0] >= FRESH:
-            known = (now, counted(space))
+            known = (now, counted(space, home))
             self.kept[key] = known
         return known[1]
 
@@ -95,12 +94,15 @@ class Counts:
                 continue
             space = workspaces.found(home, host, name)
             if space is not None:
-                found.append(self.row(space, name, host, fresh=name == fresh))
+                found.append(self.row(space, name, host, home, fresh=fresh))
         return tuple(found)
 
-    def row(self, space: Workspace, name: str, host: str, *, fresh: bool) -> Row:
+    def row(
+        self, space: Workspace, name: str, host: str, home: Path, *, fresh: str
+    ) -> Row:
         """The row of the workspace named `name`."""
-        fields = msgspec.structs.asdict(self.of(space, fresh=fresh))
+        count = self.of(space, home, fresh=name == fresh)
+        fields = msgspec.structs.asdict(count)
         path = str(space.checkout)
         address = f"/{host}/{name}/"
         return Row(name=name, path=path, url=address, host=host, **fields)

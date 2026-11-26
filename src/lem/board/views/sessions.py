@@ -9,42 +9,20 @@ it. A task with no session on record has one that does not live, since it opened
 from typing import TYPE_CHECKING
 
 from lem.app.owner import sessions
-from lem.app.sessions import guard_look, guard_rule, log
-from lem.app.sessions.acts import Close, Open
-from lem.model.owner.looks import Session, Stop
+from lem.app.owner.sessions import demo_open as acted
+from lem.app.sessions import guard_look, guard_rule
+from lem.model.owner.looks import Stop
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from lem.app.sessions.acts import Act
     from lem.app.sessions.listing import Listed
+    from lem.model.owner.looks import Session
     from lem.records.record import Record
 
     # The terminal's list of sessions, by task.
     type Listing = Mapping[str, Listed]
-
-
-def acted(acts: tuple[Act, ...]) -> Open | None:
-    """The newest session Lem opened, while no close of it came after."""
-    opens = [act for act in acts if isinstance(act, Open)]
-    if not opens:
-        return None
-    newest = opens[-1]
-    closes = (act for act in acts if isinstance(act, Close))
-    ended = any(
-        log.same(close.session, newest.session)
-        for close in closes
-        if close.at >= newest.at
-    )
-    return None if ended else newest
-
-
-def from_acts(record: Record, acts: tuple[Act, ...]) -> Session:
-    """The session of a demo: the newest one Lem opened lives until it closed it."""
-    opened = acted(acts)
-    if opened is None:
-        return Session(live=False, since=record.task.opened)
-    return Session(live=True, since=opened.at)
 
 
 def of(
@@ -53,7 +31,7 @@ def of(
     """The task's session: from Lem's acts alone in a demo, as the terminal's list shows it,
     or None when the list was not asked."""
     if demo:
-        return from_acts(record, acts)
+        return sessions.demo_session(record, acts)
     if listed is None:
         return None
     entry = listed.get(record.task.slug)

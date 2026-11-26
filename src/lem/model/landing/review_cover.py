@@ -68,7 +68,9 @@ def gone_on(
 ) -> Held | None:
     """The request goes on to the owner, not green: two rounds were used, or two attempts in a
     row were silent. None while another review is due."""
-    if floor is not None:
+    if floor is not None and not any(
+        one.kind == floor for one in review_due.rounds(landing)
+    ):
         reviews = tuple(one for one in landing.reviews if one.floor == floor)
         landing = replace(landing, reviews=reviews)
     if len(review_due.rounds(landing)) >= review_due.ROUNDS:

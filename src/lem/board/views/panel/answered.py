@@ -5,8 +5,8 @@ where, and his note, until the task's session takes it."""
 from typing import TYPE_CHECKING
 
 from lem.board.inputs.task.overview import Answered
-from lem.board.views.offers import pending_answer
 from lem.board.views.panel.common import stamp
+from lem.model.owner import hold_question
 
 # The place of a breaker's number in its question's id, `breaker:SLUG:N:MOMENT`.
 NUMBER = 2
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 def answered(world: World, seen: Seen) -> Answered | None:
     """His answer that the task's session has not taken yet, or None."""
-    asked = pending_answer(seen.record.task)
+    asked = hold_question.pending_answer(seen.record.task)
     made = asked.answer if asked else None
     if asked is None or made is None:
         return None

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from lem.board.views import merge_state, rule, telling
 from lem.board.views.panel import held_head, landing_head
 from lem.board.views.panel.leads import lead_of
+from lem.model.landing import careful_words
 from lem.model.owner import merging
 from lem.records.holds import Blocked, Parked, ReleaseHold
 
@@ -105,4 +106,6 @@ def moving(seen: Seen) -> str:
     if record.task.status == "landing":
         return landing_head.landing(record)
     wait = merging.merge_wait(seen.merge_look()) or ""
+    if wait == "relands" and careful_words.after_proposal(record):
+        return "Proposed: the owner called it careful. Lem starts a new round."
     return PROPOSED.get(wait, "Proposed: it waits for your merge")

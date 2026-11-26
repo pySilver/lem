@@ -685,12 +685,12 @@ def test_a_demo_takes_its_session_from_lems_acts_alone() -> None:
 
     opens = (opened("09:00", "S1", "new"),)
     building = made((), status="building", opened=hm("08:00"), since=hm("08:00"))
-    alive = sessions.from_acts(building.record, opens)
-    assert alive.live
+    alive = sessions.of(building.record, opens, None, demo=True)
+    assert alive is not None and alive.live
     shown = replace(building, acts=opens, session=alive)
     assert rows(shown, "13:00") == []
     closes = (*opens, Close(at=hm("09:30"), session="S1", why="owner"))
-    asleep = sessions.from_acts(building.record, closes)
+    asleep = sessions.of(building.record, closes, None, demo=True)
     gone_now = replace(building, acts=closes, session=asleep)
     (row,) = waits(gone_now, "13:00")
     assert (row.kind, row.verb) == ("session", "No session runs this task")

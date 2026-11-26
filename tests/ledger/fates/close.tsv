@@ -7,6 +7,6 @@ ruling:an-ask-waits-for-another-task-when-it-needs-c044cc159ac3ffa4	kept	unit.ta
 ruling:lem-is-a-companion-not-a-gate-7fa39365987ded57	kept	unit.guides.test_close.test_a_stop_in_the_build_needs_a_breaker_and_the_pull_request_needs_no_new_yes	
 ruling:lem-lands-lem-by-a-rule-not-by-machinery-d296bed1cd6644af	kept	unit.guides.test_close.test_lem_uses_the_same_landing_on_its_own_tasks	
 ruling:no-project-s-session-edits-lem-d99bf5559de960e6	kept	unit.guides.test_close.test_a_lesson_about_an_installed_stage_goes_in_the_projects_lessons	
-ruling:two-reviews-of-the-release-and-what-the-sess-826c3b2bd083225f	kept	unit.guides.test_close.test_the_two_reviews_leave_one_load_number_and_no_extra_command_or_guard	
+ruling:two-reviews-of-the-release-and-what-the-sess-826c3b2bd083225f	kept	journeys.landing.test_merge.test_a_valid_merge_verdict_requires_no_author	a valid verdict needs no author
 unit:tests/unit/test_agents_md.py:TheHistory.test_each_rule_a_test_holds_names_a_guard_that_exists	kept	unit.guides.test_rulings.test_each_rule_a_test_holds_names_a_guard_that_exists	
 unit:tests/unit/test_agents_md.py:TheHistory.test_each_rule_kept_in_one_place_names_a_path_that_exists	kept	unit.guides.test_rulings.test_each_rule_kept_in_one_place_names_a_path_that_exists	

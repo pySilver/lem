@@ -135,6 +135,7 @@ def made(record: Record, world: World, careful: tuple[str, ...]) -> Proposed:
         green=not reasons,
         reasons=reasons,
         careful=bool(careful),
+        owner_careful=record.task.owner_careful is not None,
         who_acts="owner" if careful else merge.who(world, reasons),
         at=world.now,
         contract=contract.mark(record.task),

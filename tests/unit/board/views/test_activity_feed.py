@@ -251,7 +251,8 @@ def test_the_timeline_says_that_a_stop_over_new_work_leaves_nothing_waiting() ->
     assert [row.head for row in later].count(STOPPED) == 1
     for journal in ((moved,), (same,)):
         made = seen(task(*landing(), *journal, status="landing"), OPENED, wake, stop)
-        session = sessions.from_acts(made.record, made.acts)
+        session = sessions.of(made.record, made.acts, None, demo=True)
+        assert session is not None and session.live
         assert sessions.stop_of(made.record, made.acts, session) is None
         assert owed.rows(world(made)) == ()
 

@@ -53,6 +53,19 @@ def test_each_text_of_the_step_is_carried_in_the_new_form(name: str) -> None:
     assert "lem project" not in text
 
 
+def test_the_breaker_renews_the_help_question_when_the_talk_leaves_no_decision() -> (
+    None
+):
+    path = paths.root() / "skills/lem/stages/breaker.md"
+    text = path.read_text(encoding="utf-8")
+    _, branch = text.split("**He leaves the talk with no decision**", 1)
+    assert "take `KEY` from that answer" in branch
+    assert (
+        'lem decisions reask SLUG --question KEY --line "YOUR ONE LINE TO HIS NOTE"'
+        in branch
+    )
+
+
 # Each ruling of the owner that one of the step's texts carries, by the ruling's id, with the
 # text and the words of it that hold the ruling.
 RULINGS = (
