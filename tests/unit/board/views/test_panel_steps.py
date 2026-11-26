@@ -165,7 +165,7 @@ def test_a_card_that_no_longer_waits_says_what_took_effect(tmp_path: Path) -> No
         "B was taken on the board at 15:55, from the phone. This card no longer waits "
         "for you."
     )
-    assert found.not_now.keep == f"card-{CARD}"
+    assert found.not_now.keep == f"card-{CARD}:answered"
     gone = panel(afternoon, ROUNDING, "card", opened=Opened(page="no-such-card"))
     assert gone.not_now is not None
     assert gone.not_now.said.startswith("This card no longer waits for you:")

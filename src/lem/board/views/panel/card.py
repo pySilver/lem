@@ -17,6 +17,8 @@ if TYPE_CHECKING:
     from lem.records.questions import Question
 
 STEP = "card-step"
+# The end of the key of a card the board's answer ended (`app.js` reads it).
+ANSWERED = ":answered"
 ELSEWHERE = (
     "Answer this card on the board on the Mac the task runs on or through its tailnet "
     "door, or in the task’s session there."
@@ -69,8 +71,9 @@ def frame_of(world: World, slug: str, page: str) -> str:
 
 
 def ended(world: World, seen: Seen, page: str) -> NotNow:
-    """A card that no longer waits: what took effect, kept through a refresh when the
-    board's answer ended it."""
+    """A card that no longer waits: what took effect. A board's answer gives it the key of an
+    answered card, which the board whose own frame took that answer keeps as its receipt
+    (`app.js`); every other board shows this line."""
     slug = seen.record.task.slug
     asked = next(
         (one for one in seen.record.task.questions if paged(one.id, page)), None
@@ -78,7 +81,7 @@ def ended(world: World, seen: Seen, page: str) -> NotNow:
     if asked is None or asked.answer is None:
         return confirm.not_now(world, slug, GONE, card=STEP)
     said = f"{took(world, asked)}. This card no longer waits for you."
-    keep = f"card-{page}" if asked.answer.source == "board" else None
+    keep = f"card-{page}{ANSWERED}" if asked.answer.source == "board" else None
     return confirm.not_now(world, slug, said, card=STEP, keep=keep)
 
 

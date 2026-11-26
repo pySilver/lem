@@ -16,6 +16,7 @@ from browser.test_keys import card, panel, seed
 from browser.test_sheets import CONFIRM, button, mergeable_receipt, scroll_end
 from fakes.repo import run_git
 from fixtures.board import beside
+from lem.board import workspaces
 from lem.board.counts import FRESH
 from lem.board.duties.memory import MEMORY
 from lem.store import places, tasks
@@ -228,6 +229,10 @@ def test_a_phone_approval_and_the_next_page_agree_on_both_wait_counts(
     counts(phone, final)
 
 
+# The stream controller's poll while its stream is down, in ms (`controllers/stream.js`).
+POLL_MS = 10_000
+
+
 def held_merge(board: Board) -> Event:
     """Hold the forge's merge call until the case releases it, as GitHub takes its time."""
     release = Event()
@@ -290,3 +295,39 @@ def test_an_approval_shows_its_merge_and_a_lost_server_never_blanks_the_page(
         str(server_count(page, board)), timeout=STREAM_WAIT
     )
     assert page.evaluate("window.stillHere") is True
+
+
+@pytest.mark.parametrize("phone", (True, False), ids=("phone", "desktop"))
+def test_a_workspace_taken_off_the_list_shows_the_boards_page_and_stops(
+    board: Board, window: OpenWindow, *, phone: bool
+) -> None:
+    page = window(PHONE if phone else DESKTOP, phone=phone).pages[0]
+    visit(page, f"{board.url}/", "#kanban")
+    live(page)
+    workspaces.changed(
+        board.checkout.parent / "lem-home", str(board.checkout), add=False
+    )
+    seed(board, "a-wait-after-the-removal", "A new interview", waits=True)
+    expect(page.get_by_role("heading", name="The page did not open")).to_be_visible(
+        timeout=STREAM_WAIT
+    )
+    expect(page.get_by_role("link", name="Workspaces")).to_be_visible()
+    asked: list[str] = []
+    page.on("request", lambda request: asked.append(request.url))
+    page.wait_for_timeout(POLL_MS + 1000)
+    assert asked == []
+
+
+@pytest.mark.parametrize("phone", (True, False), ids=("phone", "desktop"))
+def test_a_failed_backlog_filter_still_goes_where_the_owner_asked(
+    board: Board, window: OpenWindow, *, phone: bool
+) -> None:
+    page = window(PHONE if phone else DESKTOP, phone=phone).pages[0]
+    visit(page, f"{board.url}/backlog", "#backlog")
+    live(page)
+    page.route("**/backlog?only=new", empty_bad_gateway, times=1)
+    page.locator('#backlog .fchip[data-value="new"]').click()
+    page.wait_for_url("**/backlog?only=new")
+    expect(page.locator('#backlog .fchip[data-value="new"]')).to_have_attribute(
+        "aria-current", "true", timeout=WAIT
+    )

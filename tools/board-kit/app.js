@@ -20,14 +20,22 @@ document.addEventListener('turbo:before-morph-element', ev => {
   // An element the browser drew from the server's text (a markdown artifact, data-keep: its file's
   // path, time and size) stays as it is while its key is the same: the server's version holds the text,
   // and the page's holds what it rendered. So does the step of a session's card (its page id), whose
-  // frame holds what the board said to the owner's answer there.
+  // frame holds the owner's choice and words while the card waits.
   const next = ev.detail?.newElement
   // The writable box keeps the owner's words until the matching form leaves the page.
   if (ev.target.matches('input[type="text"][id], textarea[id]') && ev.target.id === next?.id &&
       ev.target.value !== ev.target.defaultValue) ev.preventDefault()
   const keep = ev.target.dataset?.keep
-  if (keep && ev.detail?.newElement?.dataset?.keep === keep) ev.preventDefault()
+  const coming = next?.dataset?.keep
+  if (keep && (coming === keep || (coming === `${keep}${ANSWERED}` && answeredHere(ev.target)))) ev.preventDefault()
 })
+// A card a board's answer ended comes with the key of an answered card. The board whose own frame took
+// that answer keeps the frame, which shows the receipt; on every other board the card's form gives way
+// to the server's line of what was taken, as it does for an answer in the session or a closed card.
+const ANSWERED = ':answered'
+function answeredHere (step) {
+  return Boolean(step.querySelector('iframe.card-frame')?.contentDocument?.querySelector('.hd-done'))
+}
 // The attributes Turbo puts on the task's frame after it navigated (src, complete, busy) are its own:
 // the server renders the frame without them, and a morph that took them away would make it load again.
 const FRAME_OWN = new Set(['src', 'complete', 'busy', 'aria-busy'])

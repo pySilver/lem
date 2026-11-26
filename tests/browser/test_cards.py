@@ -230,6 +230,51 @@ def test_an_open_card_keeps_the_choice_and_the_note_through_refreshes(
     expect(field).to_be_focused()
 
 
+def opened_card(board: Board, window: OpenWindow, *, phone: bool) -> Page:
+    """A board with the rounding card open in its task's frame, from its row of what waits."""
+    page = window(PHONE if phone else DESKTOP, phone=phone).pages[0]
+    visit(page, f"{board.url}/waits", "#waits-list")
+    live(page)
+    page.locator(f"#wait-card-{CARD} .wr-verb").click()
+    expect(page.locator("#card-step iframe")).to_be_visible()
+    return page
+
+
+@pytest.mark.parametrize(
+    "phone", (True, False), ids=("phone-answers", "desktop-answers")
+)
+def test_an_answer_on_one_board_replaces_the_open_card_on_the_other(
+    cards: Board, window: OpenWindow, *, phone: bool
+) -> None:
+    show_rounding(cards)
+    here = opened_card(cards, window, phone=phone)
+    there = opened_card(cards, window, phone=not phone)
+    card = here.locator("#card-step iframe").content_frame
+    card.locator(".hd-q.cur .hd-opt").filter(has_text="Only the total").locator(
+        ".hd-label"
+    ).click()
+    card.locator(".hd-q.cur textarea").fill("For the export")
+    send = card.locator(".hd-foot button.primary")
+    send.click()
+    expect(card.locator(".hd-review.cur")).to_be_visible()
+    send.click()
+    expect(card.locator(".hd-done")).to_contain_text(SUCCESS)
+    recorded = answer(cards, CARD)
+    assert (recorded.label, recorded.note, recorded.source) == (
+        "Only the total",
+        "For the export",
+        "board",
+    )
+    taken = "Only the total was taken on the board"
+    expect(there.locator("#card-step")).to_contain_text(taken, timeout=STREAM_WAIT)
+    expect(there.locator("#card-step iframe")).to_have_count(0)
+    before = count_on(here)
+    seed(cards, "a-wait-after-the-answer", "A new interview", waits=True)
+    counts(here, before + 1)
+    expect(card.locator(".hd-done")).to_contain_text(SUCCESS)
+    expect(here.locator("#card-step")).not_to_contain_text(taken)
+
+
 def test_tune_records_the_slider_value_and_the_preset_it_started_from(
     cards: Board,
     window: OpenWindow,
