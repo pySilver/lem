@@ -125,10 +125,11 @@ Require the exact scratch base and head you assigned. For a fixture verdict, run
 merge-review "$SLUG"` and record what it shows as `TIP` and `BASED`. Make `D/trial-verdict.md`
 with `Verdict: merge`, a blank line, and `The fixture has the specified word and passing checks.`.
 File it with `lem land merge-review "$SLUG" --file "$D/trial-verdict.md" --tip "$TIP" --base "$BASED"`.
-Where a box says to finish by CLI, run `lem land merge "$SLUG" --by merger --message
-'docs(trial): correct the list'`, `lem land merged "$SLUG"`, and `lem land clean "$SLUG"` when due.
-The board can take the last two steps when the server runs. Keep `land next` and task snapshots
-to show which process took them.
+Where a box says to finish by CLI, stop the trial board server first as in Scratch checkout.
+Keep automatic serve off because the board server can merge the PR while it runs. Run
+`lem land merge "$SLUG" --by merger --message 'docs(trial): correct the list'`,
+`lem land merged "$SLUG"`, and `lem land clean "$SLUG"` when due. Keep `land next` and task
+snapshots to show which process took each step.
 
 ## Checks
 
@@ -187,28 +188,30 @@ to show which process took them.
   refusal `conflict` left the tip at `7093da8e` and the worktree clean; PR 22 kept its number
   and took `ce9b9db3`; the board's server merged it (`via: server`). Merge commits `8c04ebde`
   and `8a1d0758`; the final base says `received`. Evidence in `/private/tmp/lem-trial-r1/evidence/`:
-  `r3-*`. The trial notes said `None` with no period: `None.` is read as a finding
+  `r3-*`. The trial notes said `None` with no period: the trial build read `None.` as a finding
   (`r3-first-land-11-propose`, refusal `no-bar-call`).
 
   Use the common fixture twice from the same base. `conflict-first` changes `recieve` to
   `receive`. `conflict-second` changes the same line to `received`. Its criterion must name
   `received`. Both tasks must be open with different `trial-*` heads before `conflict-first`
-  merges. Start the scratch board. Leave the agterm tool out of this folder's PATH so its wake
-  cannot run a second landing over these fixture commands. Finish the first task by CLI. Poll for the second GitHub PR
-  to report `CONFLICTING` and record `lem waiting --task conflict-second`. Run
+  merges. Keep the trial board stopped and finish the first task by CLI. Leave the agterm tool
+  out of this folder's PATH so its wake cannot start a second landing. Start the scratch board.
+  Poll for the second GitHub PR to report `CONFLICTING`. Record
+  `lem waiting --task conflict-second` after the board tries to wake the task. Keep the
+  board's conflict and wake evidence. Stop the trial board server and wait for it to exit. Run
   `lem land start conflict-second --conflicting` and `lem land base conflict-second`. Keep the
   conflict refusal and the clean status of the restored worktree. In its worktree, run
   `git fetch origin "$BASE"`, `git rebase "origin/$BASE"`, set `docs/word-list.txt` to `received`,
   stage that file with `git add docs/word-list.txt` and run `git -c core.editor=true rebase --continue`.
   Continue the `land next` steps. Use a fresh read of the resolution and repropose on the same PR.
-  Finish the second task when its checks and review allow it.
+  Finish the second task by CLI when its checks and review allow it.
 
   Pass when the board recognizes the conflict, the base step preserves the original tip on its
   refusal, and the repaired PR keeps its number and takes the new head. Confirm the two GitHub
   merges have different merge commits and the final base has `received`. Keep both PRs, the wait
   row, resolution diff, round records and merge SHAs.
 
-- [x] R4 A moved base keeps one review and calls for another. **Owner for the approval.**
+- [x] R4 The merge review and approval carry across a moved base. **Owner for the approval.**
 
   Passed on 2026-11-26 (round 2), PRs 23 and 24; the trial operator gave the owner's word in the
   scratch repository only (decision 27, `r4-owner-word-note.txt`). Both words were refused
@@ -230,18 +233,23 @@ to show which process took them.
   `lem land merge "$SLUG" --by owner --tip "$TIP"` before any new check. Record its result.
 
   1. For `r4-safe`, keep the board stopped while you take `land next` through start, base, checks
-     and propose. Require
-     the checks on the new base, a carried read instead of a new reviewer invocation, and the
-     prior approval still standing. Verify the existing PR carries its new tip. Verify the
-     server can finish with the standing approval when the latest checks pass.
+     and propose. Require the checks on the new base. Verify that the prior review carries
+     and the owner's approval stands. Verify the existing PR carries its new tip. Start the
+     trial board and verify that the server finishes with the standing approval. Stop the
+     trial board server before you start the conflict path.
   2. For `r4-review`, take the same steps through the conflict refusal. Resolve the rebase as
-     in R3, this time to `receive`. Require `land next` to ask for review after the checks.
-     Record a fresh review for that tip. Verify the former approval does not authorize merging
-     an unshown rebase. Capture the new merge review and any approval the new head needs.
+     in R3, this time to `receive`. Require `land next` to ask for one read of the resolution
+     after the checks. Record an answered read with no findings or careful call. Repropose
+     on the same PR without a later commit. Verify that the prior merge review and the owner's
+     approval carry to the new tip, as specified by the "Merge read carry, conflict" and
+     "Standing merge" rows in [the landing annex, part D](../landing.md).
+     An unshown rebase is one Git cannot prove kept the change. Verify that merge review is
+     not due. Keep the trial board server stopped and finish by CLI.
 
-  Pass when the safe path shows the carried review and the other path shows a review on the
-  repaired tree before merge. Keep both task records, the checks and read artifacts, GitHub
-  tips and bases, and the approval states. Compare the evidence for the old and new tips.
+  Pass when both paths carry the merge review and approval after checks on the new base.
+  The conflict path must also show the one read of the resolution. Keep both task records,
+  the checks and read artifacts, GitHub tips and bases, and the approval states. Compare the
+  evidence for the old and new tips.
 
 - [x] R5 The merge and the checks recover after a stop. **Owner for the fresh retry in R5a.**
 
@@ -261,8 +269,8 @@ to show which process took them.
   Use `gh` through the wrapper for Lem. Use the real `"$GH"` for the independent forge reads.
   Prepare each task through a pinned merge verdict. Use a separate case directory `C` under
   `T/evidence`, such as `T/evidence/r5a`. Put the PR number from the fixture's propose result in
-  `C/pr`. Keep automatic serve off and keep the board stopped for R5. Check that GitHub shows an
-  open, mergeable PR with the exact `trial-*` branches, proposed head and no queued merge.
+  `C/pr`. Stop the trial board server before R5 and keep automatic serve off. Check that GitHub
+  shows an open, mergeable PR with the exact `trial-*` branches, proposed head and no queued merge.
 
   For the first two subcases use the following background command. Set `MODE` to `before` for
   R5a or `after` for R5b. Record the first count with `"$T/merge_calls" count "$C"`.
@@ -304,13 +312,16 @@ to show which process took them.
      ```
 
   2. **R5b, after the call.** The count is 1 at the barrier and remains 1 after reconcile.
-     Observe GitHub's merge before reconcile. Match the recorded merge commit to GitHub after it.
+     Observe GitHub's merge before reconcile. Require the refusal `not-due` to name
+     `lem land merged`. Run `lem land merged "$SLUG"` and compare the recorded merge commit
+     with GitHub's merge commit. The count must stay at 1.
   3. **R5c, lost reply.** Run `r5-cut` in the foreground with `TRIAL_MERGE_MODE=lost` and no
      signal. The wrapper sends the real command, then drops its successful reply and the adapter's
      immediate GraphQL read. Expect exit 3, the intent still on record and the two loss markers.
      Save the fault and the scratch `lem.log`. Observe GitHub's merge through `"$GH"`. Run the
-     reconcile without the mode variable as above. The count remains 1 and the record takes the
-     same GitHub merge SHA. This is a controlled loss at the CLI boundary.
+     reconcile without the mode variable as above. Require the refusal `not-due` to name
+     `lem land merged`. Run `lem land merged "$SLUG"` and compare the recorded merge commit
+     with GitHub's merge commit. The count must stay at 1.
 
   Run `lem land merged "$SLUG"` and `lem land clean "$SLUG"` when due. If reconciliation finds
   an accepted queue instead of a merge, keep that evidence and repeat the case on a base where

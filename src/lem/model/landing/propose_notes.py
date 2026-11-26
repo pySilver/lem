@@ -81,7 +81,7 @@ def parts_of(lines: list[str], found: Starts) -> tuple[Part, ...]:
 
 
 def lines_of(body: tuple[str, ...]) -> tuple[str, ...]:
-    """The lines of a part with text in them; none for a lone `none`."""
+    """The lines of a part with text in them, empty for a lone `none` or `none.`."""
     said = tuple(line for line in body if line.strip())
-    words = [line.strip().lower() for line in said]
+    words = [line.strip().lower().removesuffix(".") for line in said]
     return () if words == ["none"] else said

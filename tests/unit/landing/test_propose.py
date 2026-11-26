@@ -484,6 +484,20 @@ def test_an_indented_bullet_continues_the_entry_above_it() -> None:
     assert bare(notes) == ()
 
 
+@pytest.mark.parametrize(
+    "line",
+    ("none", "None", "NONE", "  NoNe  ", "none.", "None.", "NONE.", "  NoNe.  "),
+)
+def test_a_lone_none_in_left_open_needs_no_bar_call(line: str) -> None:
+    notes = FULL_NOTES.replace("## Left open\n\nnone", f"## Left open\n\n{line}")
+    assert isinstance(decided(full(), Facts(notes=notes)), propose.Proposal)
+
+
+def test_a_lone_none_with_two_periods_still_needs_a_bar_call() -> None:
+    notes = FULL_NOTES.replace("## Left open\n\nnone", "## Left open\n\nNone..")
+    assert code_of(decided(full(), Facts(notes=notes))) == "no-bar-call"
+
+
 def test_an_item_path_before_a_colon_is_the_item() -> None:
     line = (
         "- land.py:cmd_start overwrites reviews; "
