@@ -1,0 +1,2 @@
+id	fate	proof	note
+check:tests/lem-machine.sh:the-plugin-manifest-names-lem-and-a-version-8c1134923dd2a142	kept	P1	Design §9 requires the formula and marketplace plugin together from the same release. The manifest command lines are covered by hooks/test_manifest.py.

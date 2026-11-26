@@ -174,6 +174,17 @@ def test_a_head_s_truth_values_and_days_are_the_words_written() -> None:
     assert parsed.text == "Text.\n\nMore."
 
 
+def test_an_item_title_comes_from_its_heading_after_front_matter() -> None:
+    prefixed = "---\nworth: later\n---\n"
+    titled = head.parse(f"{prefixed}# Keep `total` in the export\n\nDetails.")
+    assert isinstance(titled, head.Head)
+    assert titled.title == "Keep total in the export"
+    assert titled.text == "Details."
+    untitled = head.parse(f"{prefixed}## Details\n\nKeep the total.")
+    assert isinstance(untitled, head.Head)
+    assert untitled.title == ""
+
+
 def test_a_place_outside_the_checkout_or_a_heading_missing_does_not_resolve(
     tmp_path: Path,
 ) -> None:

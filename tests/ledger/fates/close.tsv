@@ -1,0 +1,5 @@
+id	fate	proof	note
+ruling:a-task-that-ended-stays-ended-15eaa5799dc3bc15	kept	unit.task.test_move.test_an_ended_task_stays_ended[landed]	
+ruling:the-copied-talk-stays-in-lem-s-untracked-sta-01e58b52094ac8ed	kept	unit.sessions.test_talk.test_the_talk_is_copied_from_the_owners_turn_less_another_topic	
+ruling:the-mode-and-the-ladder-are-built-in-the-sma-ee75798b5b764ab6	kept	unit.criteria.test_decisions.test_the_personas_settle_with_two_votes_or_more_all_for_the_option_taken	
+ruling:whether-a-change-is-careful-is-inferred-from-fdf6130ef2bbbe38	kept	unit.landing.test_green.test_the_careful_call_names_the_shape_the_plan_the_settings_and_the_review	

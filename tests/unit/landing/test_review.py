@@ -12,7 +12,8 @@ import msgspec
 import pytest
 from msgspec.structs import replace
 
-from lem.app.landing import review_answer, review_changes, review_files
+from fakes.git import ModelGit
+from lem.app.landing import item_carry, review_answer, review_changes, review_files
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
     careful,
@@ -24,7 +25,7 @@ from lem.model.landing import (
     review_said,
 )
 from lem.model.landing.review_said import Named, Outside, Said
-from lem.model.landing.world import Due
+from lem.model.landing.world import Due, Held
 from lem.records.journal.landing import CarefulMissed, ReviewRound
 from lem.records.journal.task import SpanMark
 from lem.records.landing.checks import Lowered
@@ -487,6 +488,39 @@ def test_the_review_covers_its_tip_and_the_commit_file_made_after_it() -> None:
         }
     )
     assert due_of(review.holds(stale, proved)) == "read"
+
+
+@pytest.mark.parametrize(
+    ("path", "before", "recorded", "covered"),
+    [
+        ("docs/backlog/new.md", None, True, True),
+        ("docs/backlog/new.md", None, False, False),
+        ("docs/backlog/new.md", b"# Old item\n", True, False),
+        ("code.py", None, True, False),
+    ],
+    ids=["filed", "unrecorded", "edited", "outside"],
+)
+def test_only_new_items_recorded_by_filing_keep_review_coverage(
+    tmp_path: Path, path: str, before: bytes | None, *, recorded: bool, covered: bool
+) -> None:
+    intended = "docs/backlog/new.md"
+    files = {"README.md": b"# Shop\n"}
+    if before is not None:
+        files[path] = before
+    git = ModelGit.init(tmp_path, files)
+    first = git.remote["main"]
+    current = git.outside_commit("main", {path: b"# New text\n"})
+    checked = replace(CHECKED, tip=first, items_after=(intended,) if recorded else ())
+    proof = item_carry.gathered(git, tmp_path, checked, world(tip=current))
+    reviewed = replace(REVIEWED, tip=first)
+    record = task(**{**PREPARED, "checked": checked, "reviews": (reviewed,)})
+
+    assert proof.item_chain == ((first, current) if covered else ())
+    coverage = review.holds(record, proof)
+    if covered:
+        assert isinstance(coverage, Held)
+    else:
+        assert due_of(coverage) == "read"
 
 
 def test_a_resolution_of_a_conflict_gets_one_read_of_what_it_changed() -> None:

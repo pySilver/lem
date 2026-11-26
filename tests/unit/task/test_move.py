@@ -16,6 +16,7 @@ from fakes.forge import LocalForge
 from fakes.git import ModelGit
 from fakes.ports import fake_ports
 from fakes.records import MOMENT
+from lem.app.landing import review_archive
 from lem.app.tasks import drop, move
 from lem.kernel.errors import Refusal
 from lem.model.task import ending, table
@@ -230,6 +231,86 @@ def test_the_start_over_archives_the_reviews_and_ends_the_owners_merge(
         "ended",
         "the landing started over: the record of the review is broken",
     )
+
+
+def test_an_interrupted_review_archive_keeps_its_number_and_each_file(
+    tmp_path: Path,
+) -> None:
+    reviews = tmp_path / "reviews"
+    staging = reviews / ".landing-2.moving"
+    staging.mkdir(parents=True)
+    (staging / "first.json").write_text("first")
+    (reviews / ".second.json").write_text("second")
+    (reviews / ".DS_Store").touch()
+    (reviews / "landing-1").mkdir()
+
+    review_archive.archive(reviews, SLUG)
+
+    kept = reviews / "landing-2"
+    assert (kept / "first.json").read_text() == "first"
+    assert (kept / ".second.json").read_text() == "second"
+    assert sorted(path.name for path in reviews.iterdir()) == [
+        ".DS_Store",
+        "landing-1",
+        "landing-2",
+    ]
+
+
+def test_a_review_archive_only_moves_files_of_the_attempt_that_ended(
+    tmp_path: Path,
+) -> None:
+    reviews = tmp_path / "reviews"
+    reviews.mkdir()
+    finder = reviews / ".DS_Store"
+    finder.touch()
+    review_archive.archive(reviews, SLUG)
+    assert list(reviews.iterdir()) == [finder]
+
+    folder = reviews / "landing-1"
+    folder.mkdir()
+    (folder / "findings.md").write_text("the review")
+    review_archive.archive(reviews, folder.name)
+    assert not folder.exists()
+    assert (reviews / "landing-2" / folder.name / "findings.md").read_text() == (
+        "the review"
+    )
+    assert finder.is_file()
+
+
+@pytest.mark.parametrize("damage", ["two", "duplicate", "file", "link", "complete"])
+def test_an_invalid_review_archive_refuses_before_it_moves_active_files(
+    tmp_path: Path, damage: str
+) -> None:
+    where = workspace(tmp_path)
+    made(where, SLUG, status="landing")
+    moved(where, "ready", start_over="repair the reviews")
+    before = read(where, SLUG)
+    folder = where.state / "tasks" / SLUG
+    reviews = folder / "reviews"
+    reviews.mkdir()
+    active = reviews / "review.json"
+    active.write_text("active")
+    stage = reviews / ".landing-1.moving"
+    if damage == "file":
+        stage.touch()
+    elif damage == "link":
+        stage.symlink_to(tmp_path, target_is_directory=True)
+    else:
+        stage.mkdir()
+        if damage == "two":
+            (reviews / ".landing-2.moving").mkdir()
+        elif damage == "duplicate":
+            (stage / active.name).write_text("staged")
+        else:
+            (reviews / "landing-1").mkdir()
+
+    with pytest.raises(Refusal) as refused:
+        review_archive.before_start(before, folder)
+
+    assert refused.value.code == "review-archive"
+    assert f"lem land start {SLUG} again" in refused.value.fix
+    assert active.read_text() == "active"
+    assert read(where, SLUG) == before
 
 
 def test_the_flag_writes_the_line_under_why_and_a_plain_ready_has_none(

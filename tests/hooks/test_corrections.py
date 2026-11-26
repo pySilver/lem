@@ -203,6 +203,28 @@ def test_a_claim_older_than_its_time_gives_way(tmp_path: Path) -> None:
     assert old.stat().st_mtime > then
 
 
+def test_three_hook_calls_for_one_message_hand_it_on_once(tmp_path: Path) -> None:
+    hook, calls = stand_in(tmp_path / "app")
+    repo = tmp_path / "repo"
+    workspace(repo)
+    home = yes_home(tmp_path / "config")
+    copies = [
+        launched(
+            "corrections",
+            typed(repo),
+            LEM_HOOK_BIN=str(hook),
+            XDG_CONFIG_HOME=home,
+        )
+        for _ in range(3)
+    ]
+    assert [copy.wait(timeout=30) for copy in copies] == [0, 0, 0]
+    assert len(worker_calls(calls_of(calls, 1))) == 1
+    waiting = repo / ".lem" / "state" / "corrections-waiting"
+    (path,) = waiting.glob("*.json")
+    correction = msgspec.json.decode(path.read_bytes(), type=Correction)
+    assert (correction.session, correction.owner) == ("c1", PROMPT)
+
+
 def test_nothing_is_handed_on_without_the_machines_yes_or_where_lem_0_3_keeps_its_files(
     tmp_path: Path,
 ) -> None:

@@ -15,6 +15,7 @@ from lem.app.tasks import open as opening
 from lem.app.tasks.opening import Asked
 from lem.kernel.errors import Refusal
 from lem.records.tickets import Ticket, TicketStep
+from lem.store import tasks
 from unit.task.spaces import SETTINGS, made, read, refusal, result, workspace
 
 if TYPE_CHECKING:
@@ -72,6 +73,18 @@ def test_empty_words_are_refused(tmp_path: Path) -> None:
     with pytest.raises(Refusal) as refused:
         opening.opened(where.checkout, Asked(slug="gift-note", ask="  "))
     assert refused.value.code == "ask"
+
+
+@pytest.mark.parametrize(
+    "slug", ["Gift-note", "gift_note", "gift--note", "../gift-note"]
+)
+def test_an_invalid_slug_opens_no_task(tmp_path: Path, slug: str) -> None:
+    where = workspace(tmp_path)
+    ran = lem("task", "open", slug, "--ask", "add a gift note", cwd=where.checkout)
+    found = refusal(ran)
+    assert found["code"] == "slug"
+    assert "joined by hyphens" in found["fix"]
+    assert tasks.every(where.state) == ()
 
 
 def test_a_project_with_no_tracker_takes_no_ticket_and_says_how_to_add_one(
@@ -333,3 +346,17 @@ def test_a_reviewers_item_as_the_ask_is_claimed_and_a_gone_one_is_refused(
     with pytest.raises(Refusal) as refused:
         opening.opened(where.checkout, Asked(slug="other", ask=f"{tmp_path}/{gone}"))
     assert refused.value.code == "item-gone"
+
+
+def test_only_a_bare_path_claims_a_reviewer_item_from_the_ask(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    item = ".lem/state/backlog/gift-note.md"
+    path = where.checkout / item
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("# Gift note\n", encoding="utf-8")
+
+    opening.opened(where.checkout, Asked(slug="gift-note", ask=item))
+    opening.opened(where.checkout, Asked(slug="discuss-note", ask=f"Discuss {item}"))
+
+    assert read(where, "gift-note").task.backlog_item == item
+    assert read(where, "discuss-note").task.backlog_item is None

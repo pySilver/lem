@@ -548,6 +548,37 @@ def test_a_resolution_holds_every_file_a_later_commit_stopped_on(
     assert (resolution["before"], resolution["after"]) == (tip, head(world))
 
 
+def test_a_conflict_resolution_accepts_non_utf8_content_and_commit_subject(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "base")
+    conflict_on_main(world)
+    refused(BASE(capsys, world), "conflict")
+    with pytest.raises(AssertionError):
+        run_git(world.worktree, "rebase", "origin/main")
+    (world.worktree / "README.md").write_bytes(b"The README says caf\xe9.\n")
+    run_git(world.worktree, "add", "README.md")
+    subject = tmp_path / "subject"
+    subject.write_bytes(b"docs: caf\xe9\n")
+    run_git(
+        world.worktree,
+        "-c",
+        "i18n.commitEncoding=ISO-8859-1",
+        "commit",
+        "--quiet",
+        "-F",
+        str(subject),
+    )
+    run_git(world.worktree, "rebase", "--continue")
+
+    ok(BASE(capsys, world))
+    resolution = landing(world)["resolution"]
+    assert resolution["files"] == ["README.md"]
+    assert resolution["after"] == head(world)
+    assert (world.worktree / "README.md").read_bytes() == b"The README says caf\xe9.\n"
+
+
 def test_a_conflict_wake_never_starts_a_round_over_a_merge_call_on_record(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

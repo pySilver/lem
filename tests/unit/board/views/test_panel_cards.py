@@ -6,12 +6,14 @@ import dataclasses
 from typing import TYPE_CHECKING
 
 import msgspec
+import pytest
 
 from fixtures.board.moments import ago
 from lem.board.inputs.forms import Typed
 from lem.board.inputs.layout import Viewer
 from lem.board.views import owed
 from lem.board.views.panel.panel import panel
+from lem.board.views.panel.told import outcome
 from lem.records.questions import Answer
 from unit.board.views.afternoon import world
 
@@ -30,6 +32,26 @@ def overview_of(afternoon: World, slug: str) -> Overview:
     found = panel(afternoon, slug, "overview").overview
     assert found is not None
     return found
+
+
+@pytest.mark.parametrize(
+    ("text", "shown"),
+    [
+        ("## Request\nFix the sheet.\n", ""),
+        ("## Outcome\n\n## Done when\n- The total appears.\n", ""),
+        ("## Outcome\nOne line\nand its end.\n", "One line and its end."),
+        (
+            (
+                "## Outcome\nThe total stays\nin the export.\n\n"
+                "### Example\n\nThe total is 12.\n\n## Done when\nIgnore this."
+            ),
+            "The total stays in the export.\n\n### Example\n\nThe total is 12.",
+        ),
+    ],
+    ids=["missing", "empty", "last", "subheading"],
+)
+def test_the_overview_reads_only_the_outcome_section(text: str, shown: str) -> None:
+    assert outcome(text) == shown
 
 
 def test_a_breaker_that_waits_is_the_first_card_with_its_document_and_the_owners_answer(

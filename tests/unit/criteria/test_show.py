@@ -132,6 +132,49 @@ def test_the_reads_start_and_end_and_a_wrong_form_is_refused(checkout: Path) -> 
     assert (silent.by, silent.answered) == ("lead", 0)
 
 
+@pytest.mark.parametrize(
+    ("args", "code", "why"),
+    [
+        (("--asked", "-1"), 2, "Invalid value"),
+        (("--asked", "two"), 2, "Invalid value"),
+        (("--split", "false"), 2, "unexpected extra argument"),
+        (("--by", "owner"), 2, "Invalid value"),
+        (("--unknown", "x"), 2, "No such option"),
+        (("--silent", "the buyer, opus: "), 1, "PERSONA, FAMILY: WHY"),
+    ],
+    ids=["negative", "text", "split", "by", "unknown", "silent"],
+)
+def test_a_bad_read_call_writes_no_read(
+    checkout: Path, args: tuple[str, str], code: int, why: str
+) -> None:
+    supplied = ("--asked", "2") if args[0] != "--asked" else ()
+    who = ("--by", "lead") if args[0] != "--by" else ()
+    before = world.read(checkout)
+    ran = lem(
+        "criteria",
+        "read",
+        world.SLUG,
+        "done",
+        *who,
+        *supplied,
+        "--answered",
+        "2",
+        "--family",
+        "opus",
+        "--criteria",
+        "1",
+        "--flagged",
+        "0",
+        "--digest",
+        "a" * 12,
+        *args,
+        cwd=checkout,
+    )
+    assert ran.code == code
+    assert why in ran.stderr + ran.stdout
+    assert world.read(checkout) == before
+
+
 def test_his_word_on_the_skip_holds_the_task_and_gives_the_interview_back(
     tmp_path: Path,
 ) -> None:

@@ -145,7 +145,14 @@ def test_an_item_is_named_by_its_title_then_its_place_then_a_number() -> None:
         f"{slug}-dates-format-day-3.md",
     ]
     assert item_names.slug_of("!!") == ""
-    assert len(item_names.slug_of("word " * 40)) <= item_names.SLUG_AT
+    long = item_names.slug_of("word " * 40)
+    assert len(long) <= item_names.SLUG_AT
+    assert set(long.split("-")) == {"word"}
+    unnamed = replace(PADS, where="shop/dates.py")
+    assert list(itertools.islice(item_names.names_for(unnamed), 2)) == [
+        f"{slug}.md",
+        f"{slug}-dates.md",
+    ]
 
 
 def test_filing_indexes_the_shelf_once_across_name_collisions() -> None:
