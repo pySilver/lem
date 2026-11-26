@@ -1,4 +1,4 @@
-"""The standard-library transport for the agterm adapter and the Stop hook."""
+"""The standard-library transport for the Stop hook and the agterm adapter."""
 
 import subprocess
 from pathlib import Path

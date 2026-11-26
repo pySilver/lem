@@ -66,6 +66,14 @@ def test_the_profile_and_a_persona_have_the_sections_the_onboarding_fills() -> N
 
 
 def test_the_owner_steps_name_the_read_outside_the_working_directories() -> None:
-    text = (HARNESS / "owner-steps.md").read_text()
-    assert "Allow this read outside the" in text
-    assert "lem doctor" in text
+    text = (HARNESS / "owner-steps.md").read_text(encoding="utf-8")
+    steps = " ".join(
+        text.split("**A read outside the working directories.**", 1)[1].split()
+    )
+    assert (
+        "Claude Code asks for permission to read outside the working directories "
+        "the first time a session reads a file of Lem's plugin or of its app" in steps
+    )
+    assert (
+        "the allow rule that the row of `lem doctor` for this question names" in steps
+    )

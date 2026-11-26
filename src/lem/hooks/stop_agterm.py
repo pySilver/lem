@@ -6,8 +6,7 @@ import time
 from tempfile import gettempdir
 from typing import TYPE_CHECKING, NamedTuple
 
-from lem.adapters import agterm_process
-from lem.hooks import stop_cards, where
+from lem.hooks import agterm_process, stop_cards, where
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

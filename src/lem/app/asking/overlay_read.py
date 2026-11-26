@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.adapters import agterm_ctl, agterm_process
+from lem.adapters import agterm_ctl
+from lem.hooks import agterm_process
 from lem.kernel.errors import Fault
 from lem.ports.faults import Unanswered
 

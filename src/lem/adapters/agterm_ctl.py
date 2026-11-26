@@ -13,7 +13,7 @@ import shlex
 import subprocess
 from typing import TYPE_CHECKING
 
-from lem.adapters import agterm_process
+from lem.hooks import agterm_process
 from lem.kernel.errors import Refusal
 from lem.ports.faults import Unanswered
 
