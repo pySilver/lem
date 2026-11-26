@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from lem.cli.doctor import agents, skill_words, tool_words
 from lem.cli.doctor.jev_row import jev_row
+from lem.cli.doctor.mailbox import mailbox_row
 from lem.cli.doctor.row import OPTIONAL, RECOMMENDED, REQUIRED
 from lem.cli.doctor.skills import skill_row
 from lem.cli.doctor.tools import cronn_row, gh_row, python_row, tool_row
@@ -39,7 +40,7 @@ TOOL_PARTS: tuple[Part, ...] = (
     ("Jev key", OPTIONAL, jev_row),
     ("codex", RECOMMENDED, agents.codex_rows),
     ("claude", REQUIRED, agents.claude_rows),
-    tooled(tool_words.MAILBOX),
+    (tool_words.MAILBOX.name, tool_words.MAILBOX.need, mailbox_row),
     skilled(skill_words.MAILBOX),
     ("cronn", REQUIRED, cronn_row),
 )

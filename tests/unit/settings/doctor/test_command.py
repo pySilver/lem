@@ -71,6 +71,7 @@ def furnished(stage: Stage) -> Stage:
         stage.tool(name)
     for name in SKILLS:
         stage.write(f"home/.claude/skills/{name}/SKILL.md", "x")
+    stage.mailbox_settings()
     stage.plugins(
         {
             "plugins": {
@@ -123,12 +124,24 @@ def test_a_machine_with_what_lem_requires_passes_with_every_row(tmp_path: Path) 
         row for row in rows.values() if row["need"] == "required" and not row["found"]
     ]
     for name in (
+        "mailbox-chat",
         "Lem's versions",
         "lem on PATH",
         "hooks/run finds lem-hook",
         "folders of Lem 0.3",
     ):
         assert rows[name]["found"] is True, rows[name]
+
+
+def test_doctor_refuses_an_installed_mailbox_with_no_waiter(tmp_path: Path) -> None:
+    stage = furnished(Stage(tmp_path))
+    stage.write("home/.claude/settings.json", "{}")
+    ran = lem("doctor", cwd=stage.work, env=environment(stage))
+    assert ran.code == 1, ran
+    refusal = ran.envelope()["refusal"]
+    assert isinstance(refusal, dict)
+    assert refusal["why"] == "this machine lacks what Lem requires: mailbox-chat"
+    assert "`mailbox-chat.py claude-hook` with `asyncRewake: true`" in ran.stdout
 
 
 def test_without_git_the_check_exits_1_with_its_rows_and_the_refusal_that_names_git(

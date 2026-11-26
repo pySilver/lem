@@ -359,7 +359,9 @@ this one when it still runs, and that session takes it on at its builder (`promp
 queued task").
 
 1. **The criterion.** Write it to `criteria.md` in the task directory, in the form `lem criteria
-   --help` shows, with `Size: small, because ...` and the one criterion, and approve it in his name:
+   --help` shows, with `Size: small, because ...` and the one criterion. Before approval, check it
+   against the owner's ask and name in it every case he names for that rule. If the ask has a second
+   rule, take the standard track. To approve the criterion in his name:
 
    ```bash
    lem criteria approve SLUG --small

@@ -43,6 +43,7 @@ def furnished(stage: Stage) -> Stage:
         stage.tool(name)
     for name in SKILLS:
         stage.write(f"home/.claude/skills/{name}/SKILL.md", "x")
+    stage.mailbox_settings()
     stage.plugins(
         {
             "plugins": {
