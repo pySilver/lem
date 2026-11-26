@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 LINE = "merge-line.jsonl"
 
 
-class Waited(Frozen, frozen=True, kw_only=True, omit_defaults=False):
+class Waited(Frozen, frozen=True, kw_only=True):
     """One merge the server started: when, the task, its tip, who merges, and the approved
     tasks that waited besides it, with their count."""
 
@@ -39,6 +39,7 @@ class Waited(Frozen, frozen=True, kw_only=True, omit_defaults=False):
     by: Merger
     waiting: int
     behind: tuple[Slug, ...]
+    unread: tuple[str, ...] = ()
 
 
 def noted(state: Path, waited: Waited) -> None:

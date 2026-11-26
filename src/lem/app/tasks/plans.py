@@ -8,12 +8,12 @@ has now, in its worktree (`project.cmd_plan_file` and `plans.found` on `main`).
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
+from lem.app import task_reads
 from lem.app.tasks import release, where
 from lem.kernel import clock
 from lem.model.task import plans as names
 from lem.records.base import Frozen
 from lem.settings.load import settings_of
-from lem.store import tasks
 
 if TYPE_CHECKING:
     from lem.records.record import Record
@@ -68,5 +68,5 @@ def plan_file(workspace: Workspace, slug: str, day: str | None) -> PlanFile:
         pattern=paths.plan_file,
         name=name,
         path=str(PurePosixPath(paths.plans) / name),
-        found=found(workspace, record, tasks.every(workspace.state)),
+        found=found(workspace, record, task_reads.visible(workspace.state)),
     )

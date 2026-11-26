@@ -8,13 +8,16 @@ from lem.board.duties import forge_look, merge_line
 from lem.kernel import clock, errors
 from lem.model.landing import merge_recheck, merge_standing, phases
 from lem.records.holds import Parked, ReleaseHold
-from lem.store import tasks
+from lem.store import survey
 
 if TYPE_CHECKING:
     from lem.board.duties.context import Duty
     from lem.model.owner.looks import MergeBasis
     from lem.records.landing import merge
     from lem.records.record import Record
+
+
+type Records = tuple[Record, ...]
 
 
 def eligible(
@@ -72,16 +75,10 @@ def standing_waits(record: Record) -> bool:
 
 def waited(duty: Duty, slug: str, intent: merge.MergeIntent) -> merge_line.Waited:
     """The count and names of the other approved tasks at this call."""
-    look = forge_look.current(duty)
-    records = releases.with_stops(tasks.every(duty.state))
-    bases = merge_look.bases_of(duty.here, records)
-    approvals = duty.kept.approvals()
-    behind = tuple(
-        one.task.slug
-        for one in records
-        if one.task.slug != slug
-        and eligible(one, look, bases.for_task(one), approvals.get(one.task.slug))
-    )
+    records, unread = survey.records(duty.state)
+    for warning in survey.warnings(duty.state, unread):
+        duty.say(warning)
+    behind = behind_at(duty, slug, releases.with_stops(records))
     return merge_line.Waited(
         at=clock.now(),
         task=slug,
@@ -89,6 +86,20 @@ def waited(duty: Duty, slug: str, intent: merge.MergeIntent) -> merge_line.Waite
         by=intent.by,
         waiting=len(behind),
         behind=behind,
+        unread=unread,
+    )
+
+
+def behind_at(duty: Duty, slug: str, records: Records) -> tuple[str, ...]:
+    """The approved tasks besides the one at the forge."""
+    look = forge_look.current(duty)
+    bases = merge_look.bases_of(duty.here, records)
+    approvals = duty.kept.approvals()
+    return tuple(
+        one.task.slug
+        for one in records
+        if one.task.slug != slug
+        and eligible(one, look, bases.for_task(one), approvals.get(one.task.slug))
     )
 
 

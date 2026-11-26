@@ -195,7 +195,9 @@ def test_a_broken_task_record_leaves_the_machine_mark_as_it_was(
         owner.change(home(), "away", AWAY_AT, away=True)
     before = owner.read(home())
     found = lem("owner", command, "--words", command, cwd=tmp_path)
-    assert found.code == 3
+    refused = refusal(found)
+    assert refused["code"] == "unread-task-record"
+    assert str(task_record) in refused["why"]
     assert owner.read(home()) == before
 
 

@@ -27,10 +27,12 @@ def workspace_for(here: Here, task: Task) -> str:
         workspace_of(here, task.slug),
         caller.workspace if caller else None,
         *(workspace_of(here, after) for after in task.after),
-        repository_newest(here),
     )
     chosen = next((space for space in found if space and space in known), None)
-    if chosen is None:
+    if chosen is not None:
+        return chosen
+    chosen = repository_newest(here)
+    if chosen is None or chosen not in known:
         raise Refusal(
             "no-workspace",
             f"no workspace of agterm is known for {task.slug}: no session of it or of this "

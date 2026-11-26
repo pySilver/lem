@@ -3,10 +3,10 @@ plan file, whose name is the settings' `paths.plan_file` with the task's slug in
 name, the plans that wait for him (the ruling "`/lem build` takes a plan file too, and lists the
 waiting plans when it gets no name"). A planned task goes to `building`."""
 
-from functools import partial
 from pathlib import PurePath
 from typing import TYPE_CHECKING
 
+from lem.app import task_reads
 from lem.app.tasks import release
 from lem.kernel import clock, errors
 from lem.model.task import behind, holds, plans, table
@@ -94,17 +94,22 @@ def started(workspace: Workspace, slug: str, every: tuple[Record, ...]) -> Built
     refused = refusal(record.task, every)
     if refused is not None:
         raise refused
-    change = partial(holds.moved, status="building", line=BUILD, now=clock.now())
-    tasks.update(workspace.state, slug, change, record.revision)
+    now = clock.now()
+    tasks.update(
+        workspace.state,
+        slug,
+        lambda one: holds.moved(one, status="building", line=BUILD, now=now),
+        record.revision,
+    )
     plan = record.task.plan
     return Built(slug=slug, plan=plan.path if plan else None, status="building")
 
 
 def built(workspace: Workspace, target: str | None) -> Built:
     """Start the build of the planned task `target` names, or list the plans that wait."""
-    every = tasks.every(workspace.state)
     if target is None:
-        return Built(waiting=waiting(every))
+        return Built(waiting=waiting(task_reads.visible(workspace.state)))
+    every = tasks.every(workspace.state)
     paths = settings_of(workspace.checkout).settings.paths
     slug = slug_of(target, every, paths.plan_file)
     if slug is None:

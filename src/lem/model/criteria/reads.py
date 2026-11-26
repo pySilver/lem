@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Literal
 from msgspec.structs import asdict, replace
 
 from lem.kernel.errors import Refusal
+from lem.model.criteria import read_sources
 from lem.model.criteria.digest import LENGTH
 from lem.records.approvals import PersonaRead, Silent
 from lem.records.base import Frozen
@@ -94,13 +95,10 @@ def refused(found: Found) -> str | None:
 
 def silent_refusal(found: Found) -> str | None:
     """Each silent source is one seat, and a persona may have more than one seat."""
-    sources = {
-        tuple(part.strip() for part in entry.name.rsplit(",", 1))
-        for entry in found.silent
-    }
-    if len(sources) != len(found.silent) or any(
-        len(source) != LEAST or not all(source) for source in sources
-    ):
+    sources = {read_sources.seat(entry.name) for entry in found.silent}
+    if len(sources) != len(found.silent):
+        return UNNAMED
+    if any(not all(source) for source in sources):
         return UNNAMED
     personas = len({source[0] for source in sources})
     if not found.asked - found.answered <= personas <= found.asked:

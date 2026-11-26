@@ -2,11 +2,11 @@
 it (`assigned` before, with the login), accepted after the task's end too (`landing.md` E,
 "Ticket after the end")."""
 
-from functools import partial
 from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
+from lem.app import task_reads
 from lem.app.tasks import release
 from lem.kernel import clock
 from lem.model.task import claim, tickets
@@ -61,9 +61,14 @@ def with_step(
 def recorded(state: Path, slug: str, act: TicketAct, login: str | None) -> Shown:
     """Write down the step `act` on the ticket of `slug`, and give the ticket as it is now."""
     record = release.checked(state, slug, ends=act in ENDS)
-    change = partial(with_step, act=act, login=login, now=clock.now())
-    written = tasks.update(state, slug, change, record.revision)
-    return shown(written, tasks.every(state))
+    now = clock.now()
+    written = tasks.update(
+        state,
+        slug,
+        lambda one: with_step(one, act=act, login=login, now=now),
+        record.revision,
+    )
+    return shown(written, task_reads.visible(state))
 
 
 def stepped(folder: Path, slug: str, act: TicketAct, login: str | None) -> Shown:

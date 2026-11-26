@@ -86,10 +86,16 @@ def standing_task(here: Here, slug: str) -> Record:
     )
 
 
+@pytest.mark.parametrize(
+    "peers", ["", "[peers]\nbeta = -1\n", '[peers]\nbeta = "bad"\n']
+)
 def test_the_merge_agents_merge_of_the_proposed_tip_is_the_servers(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, peers: str
 ) -> None:
     here = here_of(tmp_path)
+    assert here.home is not None
+    here.home.mkdir()
+    (here.home / "machine.toml").write_text(peers)
     opened(here, "agent-merges", proposed=proposed(), reads=(read("merge"),))
     opened(here, "calls-owner", proposed=proposed(), reads=(read("call"),))
     opened(

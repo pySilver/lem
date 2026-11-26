@@ -62,6 +62,7 @@ def count_of(seen: Looked) -> Count:
         building=building,
         checks=checks,
         running=building + checks,
+        problem=" ".join(seen.unread) or None,
     )
 
 

@@ -91,8 +91,16 @@ def test_a_read_of_another_form_is_refused(checkout: Path, wrong: reads.Found) -
         (2, 2, ("opus",), ("Ania, sol",), True),
         (2, 0, (), ("Ania, opus", "Ania, sol", "Bea, opus", "Bea, sol"), True),
         (3, 1, ("opus",), ("Ania, sol", "Ania, sol"), False),
+        (3, 1, ("opus",), ("Ania, opus", "Ania, Opus", "Bea, opus"), False),
+        (2, 0, (), ("Ania, Opus", "Ania, Sol", "Bea, opus"), True),
     ],
-    ids=["partial", "wholly-silent", "duplicate"],
+    ids=[
+        "partial",
+        "wholly-silent",
+        "duplicate",
+        "same-family-case",
+        "different-seats",
+    ],
 )
 def test_a_panel_read_counts_distinct_personas_and_sources(
     checkout: Path,

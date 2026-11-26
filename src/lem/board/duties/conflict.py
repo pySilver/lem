@@ -22,7 +22,7 @@ from lem.app.landing.merged import CLOSED
 from lem.app.owner import forge, releases
 from lem.board.duties import forge_look, wakes
 from lem.records.holds import ReleaseHold
-from lem.store import tasks
+from lem.store import survey
 from lem.store.retention.fold import last_state_of, past_of
 
 if TYPE_CHECKING:
@@ -33,7 +33,8 @@ if TYPE_CHECKING:
 def tick(duty: Duty) -> None:
     """Wake each task whose pull request owes its session a wake."""
     look = forge_look.current(duty)
-    for record in releases.with_stops(tasks.every(duty.state)):
+    records, _ = survey.records(duty.state)
+    for record in releases.with_stops(records):
         if ended(record):
             cleaned(duty, record)
         elif watched(record) and not conflicted(duty, record, look):

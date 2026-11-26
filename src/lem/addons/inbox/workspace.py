@@ -25,6 +25,7 @@ def tick(
     """Look at a real workspace, with an independent client and a lock for the Inbox effects."""
     called = here.bound(workspace.checkout)
     seen = looking.looked(called, now)
+    seen.require_complete()
     saved = store.read(workspace.state)
     if seen.unknown is not None or not (seen.presence.away or saved.entries):
         return saved

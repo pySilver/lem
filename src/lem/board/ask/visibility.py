@@ -6,6 +6,7 @@ from lem.app.asking import saved
 from lem.app.owner import cards, releases, sessions
 from lem.board.views import gather
 from lem.kernel import clock
+from lem.kernel.errors import Refusal
 from lem.model.owner import looks, waiting
 from lem.store import tasks
 
@@ -16,23 +17,23 @@ if TYPE_CHECKING:
 
 def notice(here: Here, slug: str, key: str) -> str | None:
     """Read the current question before checking the board's view of it."""
-    records = tasks.every(here.where.state)
-    record = next((one for one in records if one.task.slug == slug), None)
-    if record is None:
+    try:
+        record = tasks.read(here.where.state, slug)
+    except Refusal as refusal:
+        if refusal.code != "no-task":
+            raise
         return None
     question = saved.named(record, key)
     if question is None or question.answer is not None:
         return None
-    return from_sessions(here, records, record, key)
+    return from_sessions(here, record, key)
 
 
-def from_sessions(
-    here: Here, records: tuple[Record, ...], record: Record, key: str
-) -> str | None:
+def from_sessions(here: Here, record: Record, key: str) -> str | None:
     """Use the session facts and release rule that the board uses for this task."""
     now = clock.now()
     demo = (here.where.state / gather.DEMO).is_file()
-    listed, why = sessions.sessions_of(here, now, records, demo=demo)
+    listed, why = sessions.sessions_of(here, now, (record,), demo=demo)
     if why is not None:
         return unknown(why)
     look = looks.Look(

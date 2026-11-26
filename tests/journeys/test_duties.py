@@ -241,6 +241,23 @@ def test_a_stale_server_request_leaves_the_newly_reviewed_tip_untouched(
     assert world.forge.merge_calls == []
 
 
+def test_an_invalid_peer_does_not_stop_a_server_merge_or_its_count(
+    tmp_path: Path, own_home: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    served(world, own_home, monkeypatch)
+    (own_home / "machine.toml").write_text("[peers]\nbeta = -1\n")
+
+    ticked(world, own_home, clock.now())
+
+    merged = world.record()["landing"]["merged"]
+    assert (merged["by"], merged["via"]) == ("merger", "server")
+    assert len(world.forge.merge_calls) == 1
+    [count] = merge_line.read(world.task_folder.parents[1])
+    assert (count.task, count.waiting) == (SLUG, 0)
+
+
 def test_the_server_reports_the_queue_and_reconciles_a_confirmed_dequeue(
     tmp_path: Path,
     own_home: Path,
@@ -360,6 +377,8 @@ def test_merge_line_records_only_forge_calls_and_counts_current_eligible_approva
     )
     tasks.create(state, replace(found, task=replace(found.task, slug="was-waiting")))
     tasks.create(state, replace(found, task=replace(found.task, slug="still-waiting")))
+    tasks.create(state, replace(found, task=replace(found.task, slug="z-damaged")))
+    damaged = state / "tasks/z-damaged/task.json"
     decide = merge.locked
 
     def finish_another_before_the_call(
@@ -372,6 +391,7 @@ def test_merge_line_records_only_forge_calls_and_counts_current_eligible_approva
             lambda record: replace(record, task=replace(record.task, status="landed")),
             other.revision,
         )
+        damaged.write_text("{")
         return decide(context, asked, before_call)
 
     monkeypatch.setattr(merge, "locked", finish_another_before_the_call)
@@ -387,6 +407,9 @@ def test_merge_line_records_only_forge_calls_and_counts_current_eligible_approva
     assert [(one.task, one.waiting, one.behind) for one in merge_line.read(state)] == [
         (SLUG, 1, ("still-waiting",))
     ]
+    [count] = merge_line.read(state)
+    assert count.unread == ("z-damaged",)
+    assert str(damaged) in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("blocked", ["lock-file", "lock-folder"])

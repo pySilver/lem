@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
+from lem.app import task_reads
 from lem.app.tasks import first_line, shown_answer
 from lem.model.task import claim, tickets
 from lem.records.base import Day, Frozen, Moment
@@ -115,7 +116,7 @@ def row(record: Record, every: tuple[Record, ...]) -> Row:
 def listed(folder: Path, *, ended: bool) -> tuple[Row, ...]:
     """Every task of the workspace, the ended ones only with `ended`."""
     state = places.workspace(folder).state
-    every = tasks.every(state)
+    every = task_reads.visible(state)
     return tuple(
         row(record, every)
         for record in every
@@ -129,7 +130,7 @@ def shown(folder: Path, slug: str) -> Row:
     record = tasks.read(where.state, slug)
     line = first_line.said(where, record, named=True)
     return replace(
-        row(record, tasks.every(where.state)),
+        row(record, task_reads.visible(where.state)),
         first_line=line,
         board_answer=shown_answer.pending(record),
     )

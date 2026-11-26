@@ -32,7 +32,7 @@ from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked
 from lem.records.landing.merge import Merged
 from lem.records.landing.record import Landing, Pull
 from lem.records.sessions import SessionLine
-from lem.store import sessions, tasks
+from lem.store import sessions, survey, tasks
 from unit.landing.merges import BY_MERGER, facing
 from unit.landing.merges import opened as proposed_landing
 from unit.landing.worlds import CRITERION, TREE
@@ -228,10 +228,24 @@ def test_waiting_keeps_the_owner_rows_when_the_forge_cache_is_bad(
 def test_waiting_uses_one_task_snapshot_for_its_sessions(tmp_path: Path) -> None:
     where = workspace(tmp_path)
     made(where, "gift-note")
-    with patch.object(tasks, "every", wraps=tasks.every) as every:
+    with patch.object(survey, "records", wraps=survey.records) as read:
         found = looking.looked(here.bound(tmp_path), NOW)
     assert [one.record.task.slug for one in found.looks] == ["gift-note"]
-    every.assert_called_once_with(where.state)
+    read.assert_called_once_with(where.state)
+
+
+def test_waiting_lists_the_good_tasks_and_names_the_damaged_file(
+    tmp_path: Path,
+) -> None:
+    where = workspace(tmp_path)
+    made(where, "gift-note", status="shaping")
+    made(where, "fix-export", status="shaping")
+    damaged = where.state / "tasks/fix-export/task.json"
+    damaged.write_text("{")
+
+    found = lem("waiting", cwd=tmp_path)
+    assert [row["task"] for row in result(found)["rows"]] == ["gift-note"]
+    assert str(damaged) in found.stderr
 
 
 def working_look(tmp_path: Path, *, plan: bool, own: bool) -> Look:

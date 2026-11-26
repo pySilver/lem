@@ -15,12 +15,12 @@ import msgspec
 from lem.kernel import files, locks, release
 from lem.kernel.errors import Fault, Refusal
 from lem.records.record import SCHEMA, Record
-from lem.store import guard, places
+from lem.store import guard, places, task_file
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-RECORD = "task.json"
+RECORD = task_file.RECORD
 LOCK = "task.lock"
 
 type Change = Callable[[Record], Record]
@@ -64,15 +64,11 @@ def read(state: Path, slug: str) -> Record:
     guard.readable(state)
     path = places.task_folder(state, slug) / RECORD
     try:
-        body = path.read_bytes()
+        return task_file.read(path)
     except FileNotFoundError:
         raise Refusal(
             "no-task", f"no task {slug} here", "lem task list names the tasks"
         ) from None
-    try:
-        return msgspec.json.decode(body, type=Record)
-    except msgspec.DecodeError as error:
-        raise Fault(f"{path} is no task record: {error}") from error
 
 
 def create(state: Path, record: Record) -> Record:
@@ -120,11 +116,5 @@ def update_held(folder: Path, record: Record, change: Change) -> Record:
 
 
 def every(state: Path) -> tuple[Record, ...]:
-    """The record of every task in `state`, by slug."""
-    guard.readable(state)
-    folder = state / "tasks"
-    if not folder.is_dir():
-        return ()
-    paths = folder.glob(f"*/{RECORD}")
-    slugs = sorted(path.parent.name for path in paths)
-    return tuple(read(state, slug) for slug in slugs)
+    """Every task record, or a refusal before a decision gets an incomplete set."""
+    return tuple(map(task_file.required, task_file.paths(state)))

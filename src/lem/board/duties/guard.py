@@ -19,7 +19,7 @@ from lem.app.sessions.guard_due import due
 from lem.app.sessions.guard_rule import GUARDED
 from lem.board.duties import wakes
 from lem.kernel.errors import Fault, Refusal
-from lem.store import tasks
+from lem.store import survey
 
 if TYPE_CHECKING:
     from lem.app.sessions.guard_rule import Step
@@ -38,7 +38,8 @@ WORDS = MappingProxyType(
 
 def tick(duty: Duty) -> None:
     """Take the step due for each task the guard watches."""
-    records = releases.with_stops(tasks.every(duty.state))
+    records, _ = survey.records(duty.state)
+    records = releases.with_stops(records)
     watched = [one.task.slug for one in records if one.task.status in GUARDED]
     held = {one.task.slug for one in records if one.task.hold is not None}
     slugs = [slug for slug in watched if slug not in held]

@@ -57,6 +57,7 @@ def shown(home: Path, host: str, name: str) -> Found | None:
     if space is None or (space.state / DEMO).is_file():
         return None
     look = looked(bound(space.checkout), clock.now())
+    look.require_complete()
     return Found(name, str(space.checkout), look)
 
 

@@ -93,6 +93,22 @@ def wait_counts(board: Board) -> tuple[int, int, int]:
     return int(phone), int(side), row["waits"]
 
 
+def test_the_board_and_its_counts_name_a_damaged_record(board: Board) -> None:
+    tasks.create(board.state, record("fix-the-login", status="building"))
+    tasks.create(board.state, record("add-a-flag", status="landing"))
+    damaged = board.state / "tasks/add-a-flag/task.json"
+    damaged.write_text("{")
+
+    client = board.main()
+    page = client.get("/studio/shop/")
+    assert page.status_code == 200
+    assert "fix-the-login" in page.text
+    assert str(damaged) in page.text
+    [row] = client.get("/api/workspaces").json()
+    assert (row["building"], row["checks"]) == (1, 0)
+    assert str(damaged) in row["problem"]
+
+
 def test_api_workspace_counts_use_the_demo_session_that_owns_an_open_card(
     board: Board,
     monkeypatch: pytest.MonkeyPatch,

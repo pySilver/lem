@@ -14,7 +14,7 @@ from lem.kernel import paths
 from lem.model.owner import looks as owner_looks
 from lem.records.base import Frozen
 from lem.records.owner import Presence
-from lem.store import owner, tasks
+from lem.store import owner, survey
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -26,22 +26,27 @@ if TYPE_CHECKING:
 
 class Looked(Frozen, frozen=True, kw_only=True):
     """The workspace's tasks as the list reads them, the owner's presence, why the sessions
-    are not known (None when they are), and the forge's last look."""
+    are not known (None when they are), the forge's last look, and what the survey omitted."""
 
     looks: owner_looks.Looks
     presence: Presence
     unknown: str | None = None
     forge: forge.Look
+    unread: tuple[str, ...] = ()
+
+    def require_complete(self) -> None:
+        """Refuse to act when an incomplete look could hide work."""
+        survey.require_complete(self.unread)
 
 
 def looked(
     here: Here, now: datetime, branch: Branch | None = None, *, demo: bool = False
 ) -> Looked:
     """The look at the workspace of `here` now."""
-    records = tasks.every(here.where.state)
-    shown, unknown = sessions.sessions_of(here, now, records, demo=demo)
+    read = survey.records(here.where.state)
+    shown, unknown = sessions.sessions_of(here, now, read.readable, demo=demo)
     seen = forge.read(here.where.state)
-    bases = merge_bases.gathered(here, branch, records)
+    bases = merge_bases.gathered(here, branch, read.readable)
     return Looked(
         looks=tuple(
             look_of(
@@ -53,11 +58,12 @@ def looked(
                 seen,
                 bases.for_task(record),
             )
-            for record in releases.with_stops(records)
+            for record in releases.with_stops(read.readable)
         ),
         presence=owner.read(here.home or paths.home(os.environ)),
         unknown=unknown,
         forge=seen,
+        unread=survey.warnings(here.where.state, read.unread),
     )
 
 

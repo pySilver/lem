@@ -46,6 +46,37 @@ def test_a_task_opens_shaping_with_his_words_and_its_release(tmp_path: Path) -> 
     )
 
 
+@pytest.mark.parametrize("damage", ["bad-json", "wrong-task", "directory"])
+def test_a_damaged_record_is_named_in_the_list_and_refuses_a_claim(
+    tmp_path: Path,
+    damage: str,
+) -> None:
+    where = workspace(tmp_path)
+    opened(where)
+    opened(where, "fix-export")
+    damaged = where.state / "tasks/fix-export/task.json"
+    if damage == "bad-json":
+        damaged.write_text("{")
+    elif damage == "wrong-task":
+        other = where.state / "tasks/gift-note/task.json"
+        damaged.write_bytes(other.read_bytes())
+    else:
+        damaged.unlink()
+        damaged.mkdir()
+
+    listed = lem("task", "list", cwd=where.checkout)
+    claimed = lem(
+        "task", "open", "third-task", "--ask", "add a flag", cwd=where.checkout
+    )
+
+    assert (listed.code, claimed.code) == (0, 1), (listed.stdout, claimed.stdout)
+    assert [one["slug"] for one in rows(listed)] == ["gift-note"]
+    assert str(damaged) in listed.stderr
+    assert refusal(claimed)["code"] == "unread-task-record"
+    assert str(damaged) in refusal(claimed)["why"]
+    assert not (where.state / "tasks/third-task/task.json").exists()
+
+
 def test_an_unknown_task_points_to_the_list_and_board_needs_a_session(
     tmp_path: Path,
 ) -> None:

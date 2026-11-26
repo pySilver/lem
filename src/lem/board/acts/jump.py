@@ -17,7 +17,7 @@ from starlette.responses import JSONResponse
 from lem.app.sessions import here, log
 from lem.board import listener
 from lem.board.pages import place
-from lem.kernel.errors import Fault
+from lem.kernel.errors import Fault, Refusal
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
@@ -49,7 +49,10 @@ def named(space: places.Workspace, session: str) -> str | None:
 
 def selected(space: places.Workspace, session: str) -> str | None:
     """Select the session in agterm; None when it was done, else why not."""
-    kept = named(space, session)
+    try:
+        kept = named(space, session)
+    except Refusal as refusal:
+        return refusal.why
     if kept is None:
         return NONE
     try:

@@ -3,9 +3,10 @@ read only (`decisions.cmd_pending`, `Task.changes` and `Task.decisions` on `main
 
 from typing import TYPE_CHECKING
 
+from lem.app import task_reads
 from lem.app.criteria import where
 from lem.model.decisions import book, changes, pending
-from lem.store import places, tasks
+from lem.store import places
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -28,5 +29,5 @@ def waiting(folder: Path, slug: str | None) -> pending.Pending:
         task = where.here_of(folder, slug).read().task
         return pending.pending((task,), named=True)
     state = places.workspace(folder).state
-    every = tuple(record.task for record in tasks.every(state))
+    every = tuple(record.task for record in task_reads.visible(state))
     return pending.pending(every, named=False)

@@ -28,7 +28,7 @@ def waited_for(state: Path) -> Read:
     the folder of each task whose record does not read, which waits for none."""
     records, unread = survey.records(state)
     waits = map(red_base.after_of, records)
-    folders = [places.task_folder(state, slug) for slug in unread]
+    folders = [state / "tasks" / slug for slug in unread]
     return frozenset(chain.from_iterable(waits)), tuple(map(str, folders))
 
 

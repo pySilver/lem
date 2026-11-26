@@ -12,12 +12,12 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
+from lem.app import task_reads
 from lem.app.sessions import agents, log, seen, signs
 from lem.app.sessions.acts import Close
 from lem.app.sessions.phase import Phase
 from lem.app.sessions.unheard import Unheard, unheard_of
 from lem.records.base import Frozen, Moment
-from lem.store import tasks
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -57,7 +57,7 @@ def list_sessions(
 ) -> tuple[Listed, ...]:
     """Each task's newest session that Lem opened, task by task; the terminal is asked once,
     and only when there is one."""
-    snapshot = tasks.every(here.where.state) if records is None else records
+    snapshot = task_reads.visible(here.where.state) if records is None else records
     opened = opened_tasks(here, snapshot)
     if not opened:
         return ()

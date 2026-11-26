@@ -16,9 +16,13 @@ def says(row: Row) -> str:
     """The workspace's counts, or the reason they could not be read."""
     if row.reachable is False:
         return f"Not reachable: {row.said}"
-    if row.problem:
+    if row.problem and row.waits is None:
         return row.problem
-    return f"{row.waits} wait for you · {row.building} building · {row.checks} in checks and review"
+    counts = (
+        f"{row.waits} wait for you · {row.building} building"
+        f" · {row.checks} in checks and review"
+    )
+    return f"{counts} · {row.problem}" if row.problem else counts
 
 
 def display(row: Row, *, joined: bool) -> str:

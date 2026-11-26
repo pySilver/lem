@@ -9,6 +9,7 @@ stacks, and `count` the tasks that wait. With a task named, only that task's.
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
+from lem.app import task_reads
 from lem.app.owner import looking, scope, stacks
 from lem.app.owner.listed import ForgeSeen, Known, NightReport, OwnerNow, Waiting
 from lem.app.sessions import here as session_here
@@ -31,6 +32,7 @@ def listed(folder: Path, slug: str | None, now: datetime, today: date) -> Waitin
     if slug is not None:
         tasks.read(here.where.state, slug)
     seen = looking.looked(here, now, loaded.settings.branch)
+    task_reads.warned(seen.unread)
     mine = scope.scoped(seen, slug, now)
     stacked = stacks.stacked(mine)
     return Waiting(

@@ -102,8 +102,10 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
 
    `--asked` is the personas the panel asked and `--answered` those of whom at least one family
    answered; `--family` is given once for each family that answered; `--silent` names each source
-   that gave no answer, once for each, and none when every one did. `--flagged` counts the
-   criteria an answer called unexpected, confusing or wrong; `--split` says that the two families
+   that gave no answer, once for each, and none when every one did. The form counts the personas
+   who answered and has no field for their names. Check the panel's replies for those names.
+   `--flagged` counts the criteria an answer called unexpected, confusing or wrong;
+   `--split` says that the two families
    answered a criterion differently, which counts as a doubt too. `DIGEST` is the
    `digest` field of what `lem criteria digest SLUG --file FILE` prints
    for the criteria file the personas read, so that the record knows when he changes them after

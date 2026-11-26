@@ -10,8 +10,8 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from lem.app.sessions.here import Here
-    from lem.records.record import Record
     from lem.settings.effective import Effective
+    from lem.store.survey import Survey
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -21,7 +21,7 @@ class Snapshot:
     here: Here
     settings: Effective
     at: datetime
-    records: tuple[Record, ...]
+    read: Survey
     listed: sessions.Listed | None
     unknown: str | None
     bases: merge_bases.Bases
@@ -39,31 +39,27 @@ class Snapshot:
         return ""
 
 
-def capture(
-    here: Here, settings: Effective, records: tuple[Record, ...], *, demo: bool
-) -> Snapshot:
+def capture(here: Here, settings: Effective, read: Survey, *, demo: bool) -> Snapshot:
     """Ask the terminal and git only for facts that a workspace page can display."""
     at = clock.now()
-    listed, unknown = sessions.sessions_of(here, at, records, demo=demo)
+    listed, unknown = sessions.sessions_of(here, at, read.readable, demo=demo)
     return Snapshot(
         here=here,
         settings=settings,
         at=at,
-        records=records,
+        read=read,
         listed=None if unknown else listed,
         unknown=unknown,
-        bases=merge_bases.gathered(here, settings.branch, records),
+        bases=merge_bases.gathered(here, settings.branch, read.readable),
     )
 
 
-def with_files(
-    found: Snapshot, settings: Effective, records: tuple[Record, ...]
-) -> Snapshot:
+def with_files(found: Snapshot, settings: Effective, read: Survey) -> Snapshot:
     """Read a page with fresh files and the shared terminal and base facts."""
     return replace(
         found,
         settings=settings,
-        records=records,
+        read=read,
         at=clock.now(),
         bases=replace(found.bases, settings=settings.branch),
     )

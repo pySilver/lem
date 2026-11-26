@@ -15,10 +15,10 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from lem.app.landing import merge
+from lem.board import merge_look
 from lem.board.duties import merge_count, merge_said
 from lem.kernel import clock, errors
 from lem.model.landing import merge_asked
-from lem.settings.load import settings_of
 
 if TYPE_CHECKING:
     from lem.board.duties.context import Duty
@@ -48,7 +48,7 @@ def subject_of(duty: Duty, record: records.Record) -> str | None:
     """The one commit's subject where the history is squashed: the pull request's title."""
     landing = record.landing
     pull = landing.pull if landing else None
-    history = settings_of(duty.checkout).settings.branch.history
+    history = merge_look.branch_of(duty.here).history
     return pull.title if history == "squash" and pull else None
 
 

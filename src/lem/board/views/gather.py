@@ -25,7 +25,7 @@ from lem.board.views import (
 from lem.board.views.backlog import read as shelf
 from lem.settings import places as settings_places
 from lem.settings.load import team_of
-from lem.store import owner, places, tasks
+from lem.store import owner, places, survey
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -38,27 +38,29 @@ WORKTREES = ".lem/worktrees"
 UNKNOWN = "the task sessions are not known: the server has not asked the terminal yet"
 
 
-def gather(
-    checkout: Path, ask: Ask, records: tuple[Record, ...] | None = None
-) -> world.World:
+def gather(checkout: Path, ask: Ask, read: survey.Survey | None = None) -> world.World:
     """The workspace of the main checkout `checkout` as the views read it."""
     state = checkout / places.STATE
     demo = (state / DEMO).is_file()
     presence = owner.read(ask.home)
-    records = releases.with_stops(tasks.every(state) if records is None else records)
-    found = tuple(seen_of(checkout, record, ask, demo=demo) for record in records)
+    read = survey.records(state) if read is None else read
+    records = releases.with_stops(read.readable)
     return world.World(
         viewer=ask.viewer,
         clock=ask.clock,
         version=ask.version,
         place=place_of(checkout, ask.place),
-        tasks=tuple(looked.alone(seen, presence) for seen in found),
+        tasks=tuple(
+            looked.alone(seen_of(checkout, record, ask, demo=demo), presence)
+            for record in records
+        ),
         unknown=None if demo or ask.listed is not None else UNKNOWN,
         presence=presence,
         backlog=shelf.read(checkout, ask.place, ask.ledger, ask.clock.now),
         inbox=inbox_read.read(state),
         forge=looked.forge_of(state, records),
         demo=demo,
+        problems=survey.warnings(state, read.unread),
     )
 
 

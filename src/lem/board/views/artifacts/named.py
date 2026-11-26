@@ -13,7 +13,7 @@ from lem.board.views.artifacts.spots import (
     Spot,
 )
 
-BRIEF = re.compile(r"merge-brief-([0-9a-f]+)-([0-9a-f]+)\.md")
+BRIEF = re.compile(r"merge-brief-([0-9a-f]+)-([0-9a-f]+)(?:-\d+(?:-\d+)?)?\.md")
 BREAKER = re.compile(r"breaker-(\d+)\.md")
 REPORTS = "reports/"
 GATE = "gate/"

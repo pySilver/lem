@@ -8,7 +8,7 @@ from lem.board.duties.memory import MEMORY
 from lem.board.pages import snapshot, viewer
 from lem.board.views import gather, world
 from lem.settings.board import for_views
-from lem.store import tasks
+from lem.store import survey
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -25,7 +25,7 @@ def observe(
     """Read the files, with a fresh live read when the server needs one."""
     state = request.app.state
     settings = for_views(space.checkout, state.home, state.environ)
-    records = tasks.every(space.state)
+    records = survey.records(space.state)
     if live is not None:
         return snapshot.with_files(live, settings, records)
     here = context.bound(space, state.environ, state.home)
@@ -53,10 +53,10 @@ def read(request: Request, found: snapshot.Snapshot, version: str) -> world.Worl
         listed=found.listed,
         bases=found.bases,
     )
-    drawn = gather.gather(space.checkout, wanted, found.records)
+    drawn = gather.gather(space.checkout, wanted, found.read)
     return replace(
         drawn,
         unknown=None if drawn.demo else found.unknown,
-        problems=MEMORY.problems_of(space.checkout),
+        problems=(*drawn.problems, *MEMORY.problems_of(space.checkout)),
         running=MEMORY.of(space.checkout).running(),
     )

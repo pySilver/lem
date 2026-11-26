@@ -46,7 +46,7 @@ from lem.board.serving import Serving
 from lem.kernel import folders, release
 from lem.kernel.errors import Refusal
 from lem.records.holds import OwnerHold
-from lem.store import places, tasks
+from lem.store import places, survey, tasks
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -563,7 +563,7 @@ def test_a_write_between_the_pages_two_reads_leaves_the_page_owing_a_refresh(
         return read
 
     monkeypatch.setattr(watched, "look", after_first("version", watched.look))
-    monkeypatch.setattr(tasks, "every", after_first("records", tasks.every))
+    monkeypatch.setattr(survey, "records", after_first("records", survey.records))
     page = board.client.get(board.address).text
     monkeypatch.undo()
     shown = re.search(r'data-stream-since-value="([0-9a-f]+)"', page)
