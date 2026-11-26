@@ -22,18 +22,11 @@ digest. The section after `## Acceptance criteria` is outside both (`model/crite
 ends the section at the next `## `). `prompts/review.md` step 3 reads it as an input and
 `prompts/small.md` step 1 leaves it as it is; `stages/new.md` should say when the shape writes it.
 
-## For `task`: the hold of a red base, and the hold after two repair builders
+## The first checks and the hold of a red base
 
-`landing.md` E, "Red base" and "Repair limit", and `notes/land-checks.md` item 16: no command of
-the tree sets `blocked: the base is red, after: SLUG` on a task in `landing`, or `blocked` after a
-second builder on one failure (`lem task move SLUG ready` from `landing` is refused without
-`--start-over`). Until one does, `stages/land.md` step 4 has the session tell the owner in one
-line, wait for the repair task with `lem session wait REPAIR --until landed,dropped,answered`, and
-go on with what `lem land next SLUG` names once the repair landed; the task stays in `landing`
-meanwhile, so the board shows no hold and the load line does not start its repair first
-(`checks_wanted.BASE_RED` reads the hold). A command such as `lem task hold SLUG blocked --why
-"the base is red" --after REPAIR`, and its lift when REPAIR lands, closes it; the stage then names
-it.
+`app/landing/branch_checks.py` supplies the first commands when the task brings them.
+`stages/land.md` step 4 uses `lem task red-base SLUG --after REPAIR` for the hold and
+`lem task move SLUG ready --line "the base is green again"` to lift it.
 
 ## For `task`: a start over keeps the review files of the landing before
 
@@ -87,11 +80,6 @@ the branch's own commits land with no body of Lem's, so the decisions reach the 
 only through the pull request's text. `main`'s squash body also copied the lines under `## Fixed
 on the way` (`notes/land-merge.md` item 6), which is still open.
 
-## For `close`: one rule in two places
-
-`notes/land-review.md` item 16e: `model/landing/careful.py` and `propose_careful.py` both judge an
-edit of Lem's settings. No text of `land-text` holds either; left for `close`.
-
 ## For `land-base` and `land-merge` (`model/landing/phases.py`): a new round that waits for nothing
 
 `tests/model/` found a record that is due `wait` in `preparing`: a new round (`round=2`,
@@ -103,8 +91,7 @@ phase), or `preparing` that gives `open` when its proposal holds, closes it.
 
 ## For `land-checks` and `land-review`: a cut-off after `file`'s commit
 
-The cut-off property of `tests/model/test_due.py` fails for `file`: its commit of the items moves
-the tip before the record that moves `checked` with `items_after`, so a cut-off between them makes
-the checks due, then a read (`notes/land-review.md` item 11). The case leaves `file` out of its
-effects until the checks carry over commits that only add backlog items (`notes/land-checks.md`
-item 7).
+The checks carry only the item paths recorded in `Checked.items_after`. A cut after the
+item commit and before the write of that record still makes the checks due. The model's
+cutoff property leaves that effect out. The landing journey in `test_review.py` checks
+that the retry finds the committed items and commits nothing twice.

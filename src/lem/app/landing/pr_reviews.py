@@ -2,7 +2,6 @@
 attempt with its kind, who answered and who did not, what it found in the change and what it
 saw outside it, and on the standard track why each profile ran or was left out."""
 
-from collections import Counter
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
@@ -11,7 +10,7 @@ from lem.app.landing.pr_words import words
 if TYPE_CHECKING:
     from lem.app.landing.pr_inputs import Lines
     from lem.records.landing.record import Landing
-    from lem.records.landing.review import Reviewed
+    from lem.records.landing.review import Counts, Reviewed
 
 KIND_SAYS = MappingProxyType(
     {
@@ -20,31 +19,23 @@ KIND_SAYS = MappingProxyType(
         "full": "the project's full set",
     }
 )
-LEVELS = ("must-fix", "should", "nit")
 QUIET = "; no answer from {0.name} ({0.why})"
 RAN = "  - ran {0.name}: {0.why}"
 LEFT = "  - left out {0.name}: {0.why}"
-
-
-def levels_of(review: Reviewed) -> Counter[str]:
-    """How many findings of each level a review found in the change."""
-    change = (one for one in review.findings if one.id not in review.to_file)
-    return Counter(one.level for one in change)
 
 
 def found(review: Reviewed) -> str:
     """What a review found in the change: its call and the count of each level."""
     if not review.answered:
         return "not reviewed"
-    counts = levels_of(review)
-    call = "must-fix" if counts["must-fix"] else "clean"
+    counts = review.counts
+    call = "must-fix" if counts.must_fix else "clean"
     return f"{call}, {counted(counts)}"
 
 
-def counted(counts: Counter[str]) -> str:
-    """Each level with its count, in the order of `LEVELS`."""
-    pairs = ((counts[level], level) for level in LEVELS)
-    return ", ".join(f"{count} {level}" for count, level in pairs)
+def counted(counts: Counts) -> str:
+    """Each level with its count."""
+    return f"{counts.must_fix} must-fix, {counts.should} should, {counts.nit} nit"
 
 
 def who(review: Reviewed, *, full: bool) -> str:

@@ -41,7 +41,7 @@ def newest(landing: Landing) -> Reviewed | None:
 
 def must_fix(review: Reviewed) -> int:
     """How many must-fix the review found."""
-    return sum(finding.level == "must-fix" for finding in review.findings)
+    return review.counts.must_fix
 
 
 def unmet(record: Record, review: Reviewed | None, world: World) -> tuple[str, ...]:
@@ -125,7 +125,8 @@ def decide(
         silent=review_said.kept(said.silent),
         ran=review_said.kept(said.ran),
         left_out=review_said.kept(said.left_out),
-        findings=review_said.counted(said) + outside,
+        findings=outside,
+        counts=review_said.counts(said),
         to_file=tuple(finding.id for finding in outside),
         at=world.now,
     )

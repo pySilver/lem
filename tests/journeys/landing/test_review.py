@@ -11,9 +11,7 @@ import json
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
-from msgspec.structs import replace
 
-from fakes.records import MOMENT
 from fakes.repo import run_git
 from journeys.test_skeleton import (
     JOURNEY,
@@ -28,13 +26,13 @@ from journeys.test_skeleton import (
     next_step,
     parses,
     proposal,
+    upto,
 )
 from journeys.test_skeleton import brief as merge_brief
 from lem.app import wiring
 from lem.app.landing import changes, filing_commits
 from lem.ports.judge import Score
 from lem.ports.place import Place
-from lem.records.decisions import Taken
 from lem.records.landing.record import Landing
 from lem.records.landing.start import Resolution
 from lem.store import tasks
@@ -256,6 +254,37 @@ def test_defects_over_and_under_the_bar_are_items_in_one_commit_and_the_request_
     assert world.acts.counted()["commit"] == 1
 
 
+def test_the_brief_and_proposal_use_the_bar_of_the_checked_range(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    test = "tests/test_login.py"
+    unknown = "layout.custom"
+    world.repo.outside_commit("main", {test: b"assert 1 == 1\n"})
+    upto(capsys, world, "checks")
+    (world.worktree / test).write_text("assert 2 == 2\n")
+    (world.worktree / unknown).write_text("layout\n")
+    run_git(world.worktree, "add", "--all")
+    run_git(
+        world.worktree, "commit", "--quiet", "--message", "test: edit the login test"
+    )
+
+    assert command("land", "checks", "SLUG")(capsys, world)["ok"]
+    checked = world.record()["landing"]["checked"]
+    edited = [{"path": test, "kind": "test"}]
+    assert checked["edited"] == edited
+    assert checked["not_covered"] == [".custom"]
+    told = brief(capsys, world)["result"]["brief"]["inputs"]
+    assert told["range"] == f"{checked['bar_base']}..{checked['tip']}"
+    assert told["edited"] == edited
+
+    reviewed(capsys, world, outside=[OVER])
+    assert file_step()(capsys, world)["ok"]
+    assert world.record()["landing"]["checked"]["tip"] == checked["tip"]
+    assert proposal(capsys, world)["ok"]
+    assert f"- the change edits 1 existing test (`{test}`)" in world.forge.bodies[1]
+
+
 def test_a_cut_after_the_items_commit_finds_them_again_and_commits_nothing_twice(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -297,6 +326,9 @@ def test_jev_names_an_item_and_file_writes_nothing_until_same_or_new(
     assert not (world.worktree / HELD).exists()
     assert commits_of(world) == []
     asked = len(judge.asked)
+    [comparison] = world.record()["landing"]["jev"]
+    assert (comparison["path"], comparison["score"]) == (old, 0.8)
+    assert file_step()(capsys, world)["refusal"]["code"] == "jev-same"
     both = file_step("--same", f"r1.1={old}", "--new", "r1.1")(capsys, world)["refusal"]
     assert both["code"] == "same-new"
     assert file_step("--new", "r1.9")(capsys, world)["refusal"]["code"] == "same-new"
@@ -704,18 +736,21 @@ def test_the_owner_s_careful_word_during_the_landing_asks_for_the_full_set(
     upto_review(capsys, world)
     reviewed(capsys, world)
     assert next_step(capsys, world)["result"]["step"] == "propose"
-    said = Taken(
-        id=1,
-        at=MOMENT,
-        what="whether the task is careful",
-        chose="careful until its merge",
-        why="the README is what a customer reads",
-        by="owner",
+    correction = command(
+        "decisions",
+        "log",
+        "SLUG",
+        "--by",
+        "owner",
+        "--what",
+        "whether the task is careful",
+        "--chose",
+        "careful until its merge",
+        "--why",
+        "the README is what a customer reads",
     )
-    written_into_record(
-        world, lambda found: replace(found, task=replace(found.task, decisions=(said,)))
-    )
-    (world.task_folder / "brief.md").write_text("careful: the owner says so\n")
+    assert correction(capsys, world)["ok"] is True
+    assert world.record()["task"]["owner_careful"]
     assert next_step(capsys, world)["result"]["step"] == "read"
     told = brief(capsys, world)["result"]
     assert (told["floor"], told["brief"]["floor_why"]) == (

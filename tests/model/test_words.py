@@ -12,6 +12,7 @@ from hypothesis import strategies as st
 from msgspec.structs import replace
 
 from lem.model.landing import (
+    careful,
     filing_flags,
     item_names,
     jev_bar,
@@ -165,17 +166,20 @@ def test_the_careful_line_of_a_settings_edit_says_what_the_edit_did(
     before: str | None, after: str | None, local: tuple[bool, bool]
 ) -> None:
     settings = Settings(before=before, after=after, local=local)
-    team = propose_careful.team_edit(settings)
+    team, machine = propose_careful.edits(
+        Facts(
+            changed=(careful.SETTINGS_FILE, careful.LOCAL_SETTINGS_FILE),
+            settings=settings,
+        )
+    )
     if after is None:
         assert "removes" in team
-    elif propose_careful.tables(before) == propose_careful.tables(after):
+    elif careful.tables_edited(before or "", after) == []:
         assert "the text of .lem/settings.toml, and no value in it" in team
     else:
         assert "] of .lem/settings.toml" in team
     how = {(False, True): "adds", (True, False): "removes"}.get(local, "changes")
-    assert f"the change {how} .lem/settings.local.toml" in propose_careful.local_edit(
-        settings
-    )
+    assert f"the change {how} .lem/settings.local.toml" in machine
 
 
 @LANDING

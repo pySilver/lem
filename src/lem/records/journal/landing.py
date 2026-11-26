@@ -48,6 +48,7 @@ class CheckWait(Tagged, tag="check-wait", frozen=True, kw_only=True):
     why: Literal["wanted", "longer", "first"] | None = None
     unread: tuple[str, ...] = ()
     say: str | None = None
+    run: str | None = None
 
 
 class CommandEnd(Frozen, frozen=True, kw_only=True):

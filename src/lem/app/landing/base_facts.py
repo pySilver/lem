@@ -4,7 +4,6 @@ branch, and the worktree after the abort."""
 
 from typing import TYPE_CHECKING
 
-from lem.app.landing import head
 from lem.model.landing import base, base_said
 from lem.model.landing.base_stops import Aborted
 from lem.records.landing.record import Landing
@@ -70,7 +69,7 @@ def before(context: frame.Context) -> base.Facts:
     return base.Facts(
         ahead=ahead,
         theirs=teammates(context, tip),
-        on_branch=head.branch_of(context.worktree) == world.branch,
+        on_branch=context.ports.git.branch_of(context.worktree) == world.branch,
         orig=None if ahead else orig(context, tip),
         dropped=dropped(context),
     )
@@ -85,5 +84,5 @@ def aborted(context: frame.Context) -> Aborted:
         branch_tip=git.tip(where, f"refs/heads/{world.branch}"),
         head=git.tip(where, "HEAD"),
         where=str(where),
-        on=head.branch_of(where),
+        on=git.branch_of(where),
     )

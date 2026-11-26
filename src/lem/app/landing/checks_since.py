@@ -1,18 +1,18 @@
 """Where a run of the checks that holds the lock stands now (`land.checks_status` and
 `waits_of` on `main`): its commands run since its span of the checks began, or it waits at the
-gate, as `checks-wait.json` says."""
+gate, as its journal says."""
 
 from typing import TYPE_CHECKING
 
 from lem.app.landing import checks_last, checks_waits
 from lem.records.base import Frozen, Moment
-from lem.store import places
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.records.record import Record
     from lem.records.work import Span
+    from lem.store.steps import Holder
 
 CHECKS = "checks"
 
@@ -27,17 +27,18 @@ class Running(Frozen, frozen=True, kw_only=True):
     last: int | None = None
 
 
-def running(record: Record, state: Path, since: Moment, now: Moment) -> Running:
-    """Where the run that holds the lock since `since` stands: its commands run since its
+def running(record: Record, state: Path, holder: Holder, now: Moment) -> Running:
+    """Where the run that holds the lock stands: its commands run since its
     span began, or it waits at the gate."""
     last = checks_last.last_seconds(state)
-    span = open_span(record, since)
+    waits = checks_waits.latest(record.journal, holder.run)
+    if waits is not None:
+        return Running(since=holder.since, waits=waits, last=last)
+    span = open_span(record, holder.since)
     if span is not None:
         seconds = int((now - span.start).total_seconds())
         return Running(since=span.start, seconds=seconds, last=last)
-    waits = checks_waits.read(places.task_folder(state, record.task.slug))
-    fresh = waits if waits is not None and waits.at >= since else None
-    return Running(since=since, waits=fresh, last=last)
+    return Running(since=holder.since, last=last)
 
 
 def open_span(record: Record, since: Moment) -> Span | None:

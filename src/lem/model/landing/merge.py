@@ -20,7 +20,6 @@ from lem.model.landing import (
     merge_standing,
     mergeread,
 )
-from lem.model.landing.careful_words import owner_says
 from lem.model.landing.review import newest
 from lem.model.landing.world import Due, Merger, World
 from lem.records.landing.record import Landing
@@ -53,7 +52,7 @@ def careful(record: Record) -> bool:
     return (
         bool(proposed and proposed.careful)
         or bool(shape and shape.careful)
-        or bool(owner_says(record, owner=False))
+        or record.task.owner_careful is not None
     )
 
 

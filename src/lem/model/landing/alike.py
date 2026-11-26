@@ -82,12 +82,13 @@ def line_of(number: str, title: str, found: tuple[Alike, ...]) -> str:
     return f'{number} "{title}": {named_items}'
 
 
-def refused(lines: tuple[str, ...], first: str, slug: str) -> Refusal | None:
+def refused(lines: tuple[str, ...], slug: str) -> Refusal | None:
     """`file`'s refusal when Jev names an item for a defect about to get a file of its own:
     nothing is written, and the next run says for each `--same` or `--new`."""
     if not lines:
         return None
     listed = "; ".join(lines)
+    first = lines[0].partition(" ")[0]
     return Refusal(
         "jev-same",
         f"{len(lines)} defect(s) to file may be one an item of the backlog holds already, by "

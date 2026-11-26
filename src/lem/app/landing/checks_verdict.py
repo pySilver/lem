@@ -156,7 +156,14 @@ class Judgment(Evidence):
         base = merge_base(context, tip)
         found = checks_bar.lowered_of(context, base, tip)
         size = checks_bar.size_of(context, base, tip)
-        self.evidence(PASSED, lowered=checks_bar.kept_marks(found), size=size)
+        self.evidence(
+            PASSED,
+            bar_base=base,
+            lowered=checks_bar.kept_marks(found),
+            edited=found.edited,
+            not_covered=found.not_covered,
+            size=size,
+        )
         return self.lowered(found)
 
     def lowered(self, found: bar.BarRead) -> Verdict:

@@ -61,12 +61,9 @@ a rebase is not shown. Asked: the second.
 
 ## For the owner of `app/landing/world.py` and `model/landing/world.py`
 
-1. **A branch that brings its own checks.** `World.rules.commands` is the main checkout's only.
-   `start` reads the branch's own `checks.commands` while the main checkout names none
-   (`app/landing/start.own_commands`) and refuses the landing of such a task by name, the step
-   `land-checks` (`start_said.no_checks`). Asked: `World.own_commands`, gathered as `start`
-   gathers it, read by `start.holds` and by the checks (`Checked.own_checks`), so that "the
-   task that adds them lands not green" (`landing.md` E, "No checks").
+1. **A branch that brings its own checks.** `branch_checks.gathered` supplies the first
+   commands and marks `World.rules.own_checks`. The checks keep that fact in
+   `Checked.own_checks`, and the proposal requires the owner to merge.
 2. **The forge's call of a conflict.** `PullSeen` has no `mergeable`. `lem land start
    --conflicting` asks the forge itself (`app/landing/start.called`) and starts the new round
    whatever step was due. Asked: `PullSeen.mergeable`, so that `phases.opened` names

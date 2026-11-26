@@ -54,6 +54,7 @@ class Row(Frozen, frozen=True, kw_only=True):
     ticket: TicketRow | None = None
     resumed_from: str | None = None
     first_line: str | None = None
+    owner_careful: Moment | None = None
 
 
 def hold_line(hold: Hold | None) -> str | None:
@@ -106,6 +107,7 @@ def row(record: Record, every: tuple[Record, ...]) -> Row:
         mode=task.mode,
         ticket=ticket_row(record, every),
         resumed_from=task.resumed_from,
+        owner_careful=task.owner_careful,
     )
 
 

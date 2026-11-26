@@ -13,9 +13,10 @@ from lem.model.criteria import contract
 from lem.model.landing import merge, merge_standing, proposal_carry, standing
 from lem.model.landing.merge_asked import Asked
 from lem.records.landing.propose import OwnerMerge
+from lem.records.landing.review import Counts
 from unit.landing.merges import alone, facing
 from unit.landing.proposals import changed
-from unit.landing.test_carry import MUST, NEW, RESOLUTION, RESOLUTION_READ
+from unit.landing.test_carry import NEW, RESOLUTION, RESOLUTION_READ
 from unit.landing.worlds import CHECKED, CRITERION, REVIEWED, TIP, TREE
 
 WORD = Asked(by="owner", via="board", tip=TIP, subject=TITLE)
@@ -117,8 +118,7 @@ def test_red_checks_do_not_change_what_an_answered_conflict_review_can_carry() -
                 story.record, world=story.world, verdict=failed, at=story.world.now
             )
         story.write(checked=run)
-        nit = replace(MUST, level="nit", against=None)
-        story.write(reviews=(REVIEWED, replace(RESOLUTION_READ, findings=(nit,))))
+        story.write(reviews=(REVIEWED, replace(RESOLUTION_READ, counts=Counts(nit=1))))
         before = story.landing.proposed
         assert before is not None
         next_proposal = replace(before, tip=NEW, base=story.world.base)

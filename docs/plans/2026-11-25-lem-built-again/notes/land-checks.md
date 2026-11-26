@@ -5,15 +5,10 @@ does not own, the local stand-in each uses until then, and what other steps take
 
 ## For `core` (`records/`)
 
-1. **`CheckWait` holds the whole wait.** `land.wait_for_load` on `main` logged why a run waits:
-   the load, the run it waits a minute after (`after`), the first in the line with its
-   repository (`behind_repo`) and why it goes first (`why`: `wanted`, `longer`, `first`), the
-   repositories whose state did not read (`unread`), and the line for the owner (`say`), which
-   `--status` prints as `waits`. `CheckWait` has `reason` `load` or `behind` and no field for the
-   rest. Asked: `reason` takes `after` too, and fields `after`, `behind_repo`, `why`, `unread`,
-   `say`. Meanwhile the gate writes a `CheckWait` with what fits (a wait after the last start is
-   `load`) and the whole wait into `tasks/SLUG/checks-wait.json` (`app/landing/checks_waits.py`,
-   `Waited`), which `--status` reads; the file goes once the entry holds it.
+1. **`CheckWait` holds the whole wait.** The checks record the load, the run they wait a
+   minute after, the first run in the line and its repository, why it goes first, the
+   repositories whose state did not read, and the line for the owner. `--status` reads the
+   active run's latest wait.
 2. **`CheckEnd` says how long the run took and on which tip.** `gate.end` on `main` had
    `seconds`, `tip` and `taken` (the commit of the polish pass whose run of the criteria's tests
    the checks took). Meanwhile the length is the checks' span (`Task.spans`, name `checks`,
@@ -22,10 +17,8 @@ does not own, the local stand-in each uses until then, and what other steps take
 3. **`Lowered.line`.** `land.bar_of` keeps the marked line (160 characters) beside each lowered
    file; the pull request and the review show it. `Lowered` has `path`, `how`, `reason`,
    `reviewer`. Meanwhile the line is not kept.
-4. **`Checked.not_covered` and `Checked.edited`.** The bar's other two lists (the suffixes it has
-   no marks for; the tests, snapshots and test settings the change edits, which a reviewer
-   reads first) have no field. Meanwhile they are computed (`model/landing/bar.py`, `BarRead`)
-   and not kept.
+4. **`Checked.not_covered` and `Checked.edited`.** The checks record both lists and
+   the start of the diff the bar read.
 5. **`Checked.inputs`** says "commands, serial, setup, plan file"; the checks' definitions that
    make a passed run hold no more are the commands and the serial ones (`land.same_checks`), so
    the digest is of those two (`model/landing/checks.py`, `inputs`). The five inputs of the
@@ -73,12 +66,8 @@ Asked: a `GitTree` part of the port with these, and the adapter's methods; then 
    `polish_in_tip`): a tip that lost the pass gives it back (`polished` cleared, the refusal
    `no-polish`), so the pass is due again. Asked: `World.polish_in_tip: bool`, gathered with
    `git.is_ancestor(worktree, polished.after, tip)`.
-7. **The checks carry over the items `file` committed** (`landing.md` D, "Checks carry";
-   `land.gate_holds`). `checks.holds` needs to know that the commits between `checked.tip` and
-   the tip only add the paths of `checked.items_after`. Asked: a world fact of the paths the
-   commits after the checked tip add, when they only add (`land-base`'s `carry.py` judges it,
-   `land-review`'s `file` writes `items_after`). Meanwhile a commit after the run makes the
-   checks due.
+7. **The checks carry over the recorded items.** `app/landing/item_carry.py` proves that
+   each commit after the checked tip only adds paths in `Checked.items_after`.
 
 ## For the owner of `app/landing/say.py`
 
@@ -141,14 +130,10 @@ Asked: a `GitTree` part of the port with these, and the adapter's methods; then 
 
 ## For `task`: the hold of a red base
 
-16. `landing.md` E, "Red base" and "Repair limit": the stage opens a repair task and holds this
-    one `blocked: the base is red, after: SLUG` (`stages/land.md` step 4; on `main`, `lem project
-    state SLUG blocked "the base is red" "after: SLUG"`), and after a second builder on one
-    failure holds it `blocked`. No command of the merged tree sets a `Blocked` hold with `after`
-    (only `start`'s "no checks" and a seat's failure do), and none clears it when the repair task
-    lands. The checks give the red run with what a builder repairs, and the load line starts the
-    repair of such a hold first (`checks_wanted.BASE_RED`). Asked: a command that sets and lifts
-    that hold, under the table of part 3.
+16. **The hold and the repair limit.** `stages/land.md` step 4 uses
+    `lem task red-base SLUG --after REPAIR` when the base is red. A red recheck under a
+    standing approval takes the ladder after two builders work on the same failure.
+    Other landings tell the owner and wait for his word.
 
 ## Done in a file of another step, on the brief's word
 

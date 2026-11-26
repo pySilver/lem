@@ -7,7 +7,7 @@ from msgspec.structs import replace
 from lem.model.landing import green, propose_careful
 from lem.model.landing.propose_facts import Facts, Settings
 from lem.records.landing.checks import Lowered
-from lem.records.landing.review import Finding
+from lem.records.landing.review import Counts
 from lem.records.task import Shape
 from lem.records.work import Plan
 from unit.landing.proposals import (
@@ -24,10 +24,6 @@ from unit.landing.proposals import (
     with_landing,
 )
 from unit.landing.worlds import CHECKED, REVIEWED
-
-MUST = Finding(
-    id="r1.c1", level="must-fix", where="a", title="t", what="w", against="over"
-)
 
 
 def test_a_task_that_meets_the_seven_is_green_on_either_track() -> None:
@@ -196,7 +192,7 @@ def test_checks_the_branch_brought_a_lowered_bar_and_a_red_run_are_not_green() -
 
 
 def test_a_review_that_left_a_must_fix_or_that_nobody_answered_is_not_green() -> None:
-    left = replace(REVIEWED, findings=(MUST,))
+    left = replace(REVIEWED, findings=(), counts=Counts(must_fix=1), to_file=())
     assert green.reasons(with_landing(small(), reviews=(left,)), ()) == (
         "the review left 1 must-fix",
     )

@@ -31,7 +31,7 @@ from lem.model.landing.filing_place import Shelf
 from lem.ports.judge import Candidate, Defect, NotAsked, Score
 from lem.ports.place import Place
 from lem.records.landing.record import Landing
-from lem.records.landing.review import Filed, Finding, Reviewed
+from lem.records.landing.review import Counts, Filed, Finding, Reviewed
 from unit.landing.worlds import MOMENT, PREPARED, REVIEWED, task, world
 
 if TYPE_CHECKING:
@@ -69,7 +69,12 @@ def finding(number: str = "r1.1", against: str = "over", **fields: object) -> Fi
 
 
 def reviewed(*found: Finding) -> Reviewed:
-    return replace(REVIEWED, findings=found, to_file=tuple(one.id for one in found))
+    return replace(
+        REVIEWED,
+        findings=found,
+        counts=Counts(outside=len(found)),
+        to_file=tuple(one.id for one in found),
+    )
 
 
 def record_of(*found: Finding, filed: tuple[Filed, ...] = ()) -> Record:
@@ -359,11 +364,11 @@ def test_file_stops_with_each_defect_jev_names_and_the_two_ways_on() -> None:
     )
     line = alike.line_of("r1.1", "a title", (one,))
     assert line == f'r1.1 "a title": `{FOLDER}/x.md` "x" (Jev: 0.80, worth: no)'
-    refused = alike.refused((line,), "r1.1", "export-notes")
+    refused = alike.refused((line,), "export-notes")
     assert refused is not None and refused.code == "jev-same"
     assert "Nothing is written" in refused.why
     assert "--same r1.1=PATH" in refused.fix and "--new r1.1" in refused.fix
-    assert alike.refused((), "", "export-notes") is None
+    assert alike.refused((), "export-notes") is None
 
 
 # The bar Jev reads.
@@ -662,9 +667,3 @@ def test_again_files_an_over_defect_whose_open_item_now_says_worth_no() -> None:
     again = filing.decide(record, world(), owners, filing_flags.Flags(again=True))
     assert not isinstance(again, Refusal)
     assert [(one.disposition, one.cites) for one in again.filed] == [("item", held)]
-
-
-def test_the_alike_scores_keep_a_file_of_their_own_beside_proposes_jev_words() -> None:
-    from lem.app.landing import jev_kept, propose_jev
-
-    assert jev_kept.NAME != propose_jev.KEPT

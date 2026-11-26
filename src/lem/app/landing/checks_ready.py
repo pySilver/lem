@@ -12,7 +12,7 @@ from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.landing import checks, checks_said
 from lem.records.journal.landing import CheckEnd
-from lem.store import places, tasks
+from lem.store import tasks
 
 if TYPE_CHECKING:
     from lem.app.landing import frame
@@ -69,7 +69,7 @@ def gated(context: frame.Context) -> None:
     """Wait at the load gate; a stop there ends the run before its first command."""
     workspace, slug = context.workspace, context.record.task.slug
     try:
-        checks_gate.Gate(slug=slug, workspace=workspace).passed()
+        checks_gate.Gate(slug=slug, workspace=workspace, run=context.run).passed()
     except InterruptedError:
         written(context, partial(stopped_before, at=clock.now()))
         raise Refusal(
@@ -77,5 +77,3 @@ def gated(context: frame.Context) -> None:
             "the checks were stopped before their first command",
             f"`lem land checks {slug}` runs them again",
         ) from None
-    folder = places.task_folder(workspace.state, slug)
-    (folder / checks_gate.checks_waits.WAITS).unlink(missing_ok=True)

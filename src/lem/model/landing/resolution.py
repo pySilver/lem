@@ -33,7 +33,14 @@ def clean(review: Reviewed | None) -> bool:
     return (
         review is not None
         and bool(review.answered)
-        and not review.findings
+        and not any(
+            (
+                review.counts.must_fix,
+                review.counts.should,
+                review.counts.nit,
+                review.counts.outside,
+            )
+        )
         and review.careful is False
     )
 
@@ -41,9 +48,7 @@ def clean(review: Reviewed | None) -> bool:
 def left_must_fix(landing: Landing) -> bool:
     """Whether the newest review of the change left a must-fix."""
     review = carry.newest(landing)
-    return review is not None and any(
-        finding.level == "must-fix" for finding in review.findings
-    )
+    return review is not None and bool(review.counts.must_fix)
 
 
 def tip_carries(landing: Landing, world: World, *, careful: bool) -> bool:

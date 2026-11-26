@@ -25,7 +25,7 @@ from lem.records.journal.task import DecisionNoted
 from lem.records.landing.checks import ChangeSize, Checked, Lowered
 from lem.records.landing.propose import MergeRead, Proposed
 from lem.records.landing.record import Landing, Pull
-from lem.records.landing.review import Finding, Named, Reviewed
+from lem.records.landing.review import Counts, Named, Reviewed
 from lem.records.landing.start import Based, Started
 from lem.records.task import Shape, Task
 from lem.records.work import Plan
@@ -158,25 +158,7 @@ FIRST = Reviewed(
     kind="round",
     answered=ANSWERED,
     ran=CORRECTNESS,
-    findings=(
-        Finding(
-            id="r1.1",
-            level="must-fix",
-            where="receipt/lines.py:total",
-            title="A refund larger than the total gives a negative total",
-            what="a refund of 120.00 EUR on order 1042 prints Total -20.00",
-            against="over",
-        ),
-        Finding(
-            id="r1.2",
-            level="should",
-            where="tests/test_receipt.py:test_total_after_refund",
-            title="The test reads the total by its row",
-            what="the refund line moves the row the old check read",
-            against="cheap",
-        ),
-    ),
-    to_file=("r1.1",),
+    counts=Counts(must_fix=1, should=1),
     at=ago(462),
 )
 SECOND = Reviewed(
@@ -188,16 +170,7 @@ SECOND = Reviewed(
     kind="round",
     answered=ANSWERED,
     ran=CORRECTNESS,
-    findings=(
-        Finding(
-            id="r2.1",
-            level="nit",
-            where="receipt/lines.py:REFUND",
-            title="The refund's label is a literal",
-            what="the label Refund is written in the code, not in the translations",
-            against="under",
-        ),
-    ),
+    counts=Counts(nit=1),
     at=ago(450),
 )
 READ = MergeRead(

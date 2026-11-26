@@ -3,6 +3,7 @@
 from msgspec.structs import replace
 
 from lem.app.landing import pr_text
+from lem.model.decisions import log
 from lem.model.landing import (
     careful,
     merge,
@@ -12,17 +13,24 @@ from lem.model.landing import (
     review_due,
     review_said,
 )
-from lem.model.landing.careful_words import OWNER_ASKED, OWNER_SAYS
 from lem.records.landing.propose import Standing
 from lem.records.landing.review import Reviewed
 from unit.landing.merges import BY_MERGER, code_of, facing, opened
-from unit.landing.proposals import FACTS, small, taken, with_landing
+from unit.landing.proposals import FACTS, small, with_landing
 from unit.landing.worlds import MOMENT, PROPOSED, REVIEWED, TIP, TREE, world
+
+OWNER_SAYS = "the owner says so"
+CAREFUL = log.Logged(
+    by="owner",
+    what="whether the task is careful",
+    chose="careful until its merge",
+    why="it reaches the invoice",
+)
 
 
 def test_an_owner_careful_decision_survives_the_reviewers_negative_call() -> None:
-    decision = taken(1, OWNER_ASKED, "careful until its merge", "owner")
-    record = with_landing(small(decisions=(decision,)), reviews=())
+    record = log.logged(with_landing(small(), reviews=()), asked=CAREFUL, now=MOMENT)
+    assert record.task.owner_careful == MOMENT
     independent = review.decide(
         record,
         world(),
@@ -50,8 +58,7 @@ def test_an_owner_careful_decision_survives_the_reviewers_negative_call() -> Non
 
 def test_the_locked_call_honors_an_owner_careful_decision_after_proposal() -> None:
     record = opened(reviews=(replace(REVIEWED, kind="full"),))
-    decision = taken(1, OWNER_ASKED, "careful until its merge", "owner")
-    changed = replace(record, task=replace(record.task, decisions=(decision,)))
+    changed = log.logged(record, asked=CAREFUL, now=MOMENT)
     assert code_of(merge.decide(changed, facing(), BY_MERGER, TREE)) == "merger-rule"
 
 
@@ -66,6 +73,12 @@ def test_a_late_careful_decision_changes_the_reasons_of_a_fast_track_standing_me
     )
     record = opened(standing=standing, reviews=(replace(REVIEWED, kind="full"),))
     assert merge_standing.standing_of(record) == standing
-    decision = taken(1, OWNER_ASKED, "careful until its merge", "owner")
-    changed = replace(record, task=replace(record.task, decisions=(decision,)))
+    changed = log.logged(record, asked=CAREFUL, now=MOMENT)
     assert merge_standing.standing_of(changed) is None
+
+
+def test_an_agent_decision_does_not_set_the_owners_careful_word() -> None:
+    agent = replace(CAREFUL, by="lem")
+    record = log.logged(small(), asked=agent, now=MOMENT)
+    assert record.task.owner_careful is None
+    assert careful.reasons(record, careful.Edits()) == ()

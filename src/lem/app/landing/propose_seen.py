@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing import propose_items
+from lem.app.landing import bar_range, propose_items
 from lem.kernel.errors import Refusal
-from lem.model.landing.propose_careful import LOCAL, TEAM
+from lem.model.landing.careful import LOCAL_SETTINGS_FILE, SETTINGS_FILE
 from lem.model.landing.propose_facts import Facts, Settings
 from lem.model.landing.propose_lines import named
 
@@ -38,15 +38,15 @@ def notes_of(path: str) -> str:
 
 def tracked(git: Git, where: Path, commit: str) -> bool:
     """Whether one machine's own settings file is in the commit."""
-    return git.show(where, commit, LOCAL) is not None
+    return git.show(where, commit, LOCAL_SETTINGS_FILE) is not None
 
 
 def settings_of(git: Git, where: Path, commits: tuple[str, str]) -> Settings:
     """Lem's settings files at the merge base and at the tip."""
     since, tip = commits
     local = (tracked(git, where, since), tracked(git, where, tip))
-    before = propose_items.text(git.show(where, since, TEAM))
-    after = propose_items.text(git.show(where, tip, TEAM))
+    before = propose_items.text(git.show(where, since, SETTINGS_FILE))
+    after = propose_items.text(git.show(where, tip, SETTINGS_FILE))
     return Settings(before=before, after=after, local=local)
 
 
@@ -67,7 +67,12 @@ def gathered(context: Context, notes: str) -> Facts:
     written = notes_of(notes)
     paths = asked(context.record, written)
     heads = propose_items.held(context.ports.git, context.worktree, commits[1], paths)
-    facts = replace(branch(context, commits), heads=heads, notes=written)
+    facts = replace(
+        branch(context, commits),
+        heads=heads,
+        notes=written,
+        bar_read=bar_range.saved(context, commits),
+    )
     return replace(facts, in_tip=frozenset(map(PATH, heads)))
 
 

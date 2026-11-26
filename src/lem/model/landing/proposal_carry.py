@@ -4,7 +4,14 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.model.landing import carry, merge_recheck, merge_standing, review, standing
+from lem.model.landing import (
+    carry,
+    merge_recheck,
+    merge_standing,
+    resolution,
+    review,
+    standing,
+)
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
@@ -29,10 +36,10 @@ def repaired(record: Record, landing: Landing, world: World) -> bool:
 
 def resolved(landing: Landing, world: World) -> bool:
     """A resolution carries the proposal only after one answered, clean, non-careful read."""
-    resolution, proposed = landing.resolution, landing.proposed
-    if resolution is None or proposed is None or not landing.reviews:
+    conflict, proposed = landing.resolution, landing.proposed
+    if conflict is None or proposed is None or not landing.reviews:
         return False
-    if (resolution.before, resolution.after, resolution.base) != (
+    if (conflict.before, conflict.after, conflict.base) != (
         proposed.tip,
         world.tip,
         world.base,
@@ -40,27 +47,18 @@ def resolved(landing: Landing, world: World) -> bool:
         return False
     last = landing.reviews[-1]
     if (last.attempt, last.tip, last.of) != (
-        resolution.read,
-        resolution.after,
+        conflict.read,
+        conflict.after,
         "resolution",
     ):
         return False
-    return (
-        bool(last.answered)
-        and not last.findings
-        and last.careful is False
-        and prior_clear(landing, resolution.before)
-    )
+    return resolution.clean(last) and prior_clear(landing, conflict.before)
 
 
 def prior_clear(landing: Landing, before: str) -> bool:
     """The review of the prior tip left no must-fix open."""
     prior = carry.newest(landing)
-    return (
-        prior is not None
-        and prior.tip == before
-        and not any(finding.level == "must-fix" for finding in prior.findings)
-    )
+    return prior is not None and prior.tip == before and not prior.counts.must_fix
 
 
 def carried_read(landing: Landing, world: World, *, conflict: bool) -> MergeRead | None:

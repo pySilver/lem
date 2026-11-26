@@ -7,20 +7,17 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import backlog, review_edited, review_edits
-from lem.model.landing import careful, careful_words, review_due
+from lem.app.landing import backlog, bar_range, review_edits
+from lem.model.landing import careful, review_due
 from lem.records.base import Frozen
+from lem.records.landing.checks import Edited
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from pathlib import Path
 
     from lem.app.landing.frame import Context
     from lem.model.landing.items import BacklogItem
-
-
-OWNER_LINE = f"careful: {careful_words.OWNER_SAYS}"
 
 
 class Seen(Frozen, frozen=True, kw_only=True):
@@ -43,7 +40,7 @@ class Gathered(Frozen, frozen=True, kw_only=True):
     at_base: frozenset[str]
     backlog: Told = ()
     filed: Told = ()
-    edited: tuple[review_edited.Edited, ...] = ()
+    edited: tuple[Edited, ...] = ()
 
 
 def told(found: Iterable[BacklogItem]) -> Told:
@@ -73,18 +70,8 @@ def gathered(context: Context) -> Gathered:
         at_base=there,
         backlog=told(backlog.at_base(git, worktree, span[0], there)),
         filed=filed_by_others(context, there),
-        edited=review_edited.edited(git, worktree, span, stat.paths),
+        edited=bar_range.for_review(context, span, stat.paths),
     )
-
-
-def owner_said(folder: Path) -> bool:
-    """Whether the task's brief holds the owner's careful word, the line `be-careful` writes
-    (`land.owner_says_careful` on `main`)."""
-    brief = folder / "brief.md"
-    if not brief.is_file():
-        return False
-    lines = brief.read_text(encoding="utf-8", errors="replace").splitlines()
-    return OWNER_LINE in {line.strip() for line in lines}
 
 
 def facts(context: Context, found: Gathered) -> review_due.Facts:
@@ -92,9 +79,7 @@ def facts(context: Context, found: Gathered) -> review_due.Facts:
     checked = (context.record.landing or Landing()).checked
     paths = {one.path for one in checked.lowered} if checked else set()
     return review_due.Facts(
-        careful=careful.reasons(
-            context.record, found.edits, owner=owner_said(context.folder)
-        ),
+        careful=careful.reasons(context.record, found.edits),
         folder=backlog.FOLDER,
         at_base=found.at_base,
         lowered=tuple(sorted(paths)),

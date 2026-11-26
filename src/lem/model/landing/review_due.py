@@ -77,7 +77,7 @@ def resolution_due(landing: Landing, world: World) -> Resolution | None:
     answered = [review for review in landing.reviews if review.answered]
     if not answered or answered[-1].tip != found.before:
         return None
-    if any(finding.level == "must-fix" for finding in answered[-1].findings):
+    if answered[-1].counts.must_fix:
         return None
     return found
 
@@ -95,11 +95,7 @@ def floor(record: Record, careful: tuple[str, ...], *, resolution: bool) -> Floo
         return Floor(kind="round", why=f"the plan has {tasks} tasks, more than three")
     landing = record.landing or Landing()
     answered = (review for review in landing.reviews if review.answered)
-    if any(
-        finding.level == "must-fix"
-        for review in answered
-        for finding in review.findings
-    ):
+    if any(review.counts.must_fix for review in answered):
         return Floor(
             kind="round",
             why="an earlier review found a must-fix: after its fix a round reviews the change",

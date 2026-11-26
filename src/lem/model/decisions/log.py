@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 VOTE = '"PERSONA, FAMILY=OPTION", one for each answer of a persona'
 LEVEL = "NAME=ANSWER, one for each level that ran"
+CAREFUL = "whether the task is careful"
 
 
 class Logged(Frozen, frozen=True, kw_only=True):
@@ -145,4 +146,12 @@ def logged(record: Record, *, asked: Logged, now: datetime) -> Record:
     hold = task.hold
     if isinstance(hold, BreakerHold) and hold.number == asked.breaker:
         record = replace(record, task=replace(task, hold=None))
-    return book.added(record, taken, now)
+    changed = book.added(record, taken, now)
+    if (
+        taken.by == "owner"
+        and taken.what == CAREFUL
+        and taken.chose.startswith("careful")
+    ):
+        task = replace(changed.task, owner_careful=task.owner_careful or now)
+        return replace(changed, task=task)
+    return changed

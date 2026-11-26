@@ -164,8 +164,8 @@ with each of its lines and that one. Your report says the same. A task he named 
    - *a pattern*: the plan starts product code that other code will copy (a first service
      layer, a first use of a library in the product). A test, a check or a tool of the
      developer's is no such pattern: a new kind of test makes no plan careful.
-   A brief with the line `careful: the owner says so` is a yes too, whatever the two tests
-   give: the owner called the task careful before its plan, in the ask or later.
+   Read `owner_careful` with `lem task show SLUG`. A date there is a yes too, whatever the two
+   tests give: the owner called the task careful before its plan, in the ask or later.
    Write the call into the plan as one line under its title, before `## Acceptance criteria` (a line
    that is no criterion is refused inside that section), `careful: yes` or `careful: no`, with the
    one sentence of why: the topic in the owner's words and the task that reaches it, the pattern, or

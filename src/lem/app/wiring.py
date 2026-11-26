@@ -10,8 +10,6 @@ import importlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-from lem.kernel.errors import Fault
-
 if TYPE_CHECKING:
     from lem.ports.forge import Forge
     from lem.ports.git import Git
@@ -34,18 +32,6 @@ class Ports:
     tracker: Tracker
     notifier: Notifier
     judge: Judge
-
-
-class Unbound:
-    """A port whose adapter is not built: every call is a fault that names it."""
-
-    def __init__(self, module: str) -> None:
-        """Keep the module its adapter will be."""
-        self.module = module
-
-    def __getattr__(self, name: str) -> object:
-        """Refuse the call `name` with a fault."""
-        raise Fault(f"{name}: the port's adapter {self.module} is not built")
 
 
 def adapter(module: str, place: Place) -> object:

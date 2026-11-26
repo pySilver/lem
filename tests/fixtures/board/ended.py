@@ -23,7 +23,7 @@ from lem.records.landing.checks import Checked, CriterionCheck
 from lem.records.landing.merge import Cleaned, Merged
 from lem.records.landing.propose import MergeRead, Proposed
 from lem.records.landing.record import Landing, Pull
-from lem.records.landing.review import Finding, Named, Reviewed
+from lem.records.landing.review import Counts, Named, Reviewed
 from lem.records.landing.start import Based, PassRun, Polished, Started
 from lem.records.red import Inputs, Red, RedTest
 from lem.records.task import Shape, Task
@@ -47,16 +47,7 @@ FOOTER_REVIEW = Reviewed(
     floor="read",
     kind="read",
     answered=("codex",),
-    findings=(
-        Finding(
-            id="r1.1",
-            level="nit",
-            where="templates/footer.html:3",
-            title="The footer's link has no title",
-            what="the link to the terms reads only its words",
-            against="under",
-        ),
-    ),
+    counts=Counts(nit=1),
     at=ago(35),
 )
 FOOTER_MERGED = Merged(
@@ -200,32 +191,7 @@ INVOICE_REVIEW = Reviewed(
     answered=("codex", "claude"),
     ran=(Named(name="correctness", why="the invoice changes"),),
     left_out=(Named(name="security", why="no input is read"),),
-    findings=(
-        Finding(
-            id="r1.1",
-            level="should",
-            where="invoice/date.py:ordered",
-            title="The date's format is written twice",
-            what="ordered() repeats the format DATE names",
-            against="cheap",
-        ),
-        Finding(
-            id="r1.2",
-            level="nit",
-            where="invoice/date.py:language",
-            title="language() has no docstring",
-            what="the function says nothing of what it gives",
-            against="under",
-        ),
-        Finding(
-            id="r1.3",
-            level="nit",
-            where="tests/order-date.sh:2",
-            title="The test greps the source",
-            what="the check reads the code, not the invoice",
-            against="under",
-        ),
-    ),
+    counts=Counts(should=1, nit=2),
     at=ago(219),
 )
 INVOICE_MERGED = Merged(

@@ -59,9 +59,7 @@ def act(context: frame.Context, *, flags: filing_flags.Flags) -> tuple[Filed, ..
     placed = filing.decide(context.record, context.world, shelf, flags)
     if isinstance(placed, Refusal):
         raise placed
-    refused = judge_same.checked(context, placed.asks, shelf)
-    if refused is not None:
-        raise refused
+    record = judge_same.checked(context, placed.asks, shelf)
     done = filing_commits.committed(context, placed.writes)
-    context.write(context.record, partial(filed, places=placed.filed, written=done))
+    context.write(record, partial(filed, places=placed.filed, written=done))
     return placed.filed

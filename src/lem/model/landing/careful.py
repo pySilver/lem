@@ -92,16 +92,21 @@ def local_reason(seen: Seen) -> str | None:
     )
 
 
-def reasons(record: Record, edits: Edits, *, owner: bool = False) -> tuple[str, ...]:
+def settings_reasons(edits: Edits) -> tuple[str, ...]:
+    """Each settings edit that makes the request careful."""
+    edited = (settings_reason(edits.settings), local_reason(edits.local))
+    return tuple(reason for reason in edited if reason)
+
+
+def reasons(record: Record, edits: Edits) -> tuple[str, ...]:
     """Each reason the request is careful, in `main`'s order; none when it is not."""
     task = record.task
     topics = task.shape.careful if task.shape else ()
     plan = task.plan.careful if task.plan else None
-    edited = (settings_reason(edits.settings), local_reason(edits.local))
     return (
-        *careful_words.owner_says(record, owner=owner),
+        *careful_words.owner_says(record),
         *topics,
         *((f"the plan says so: {plan}",) if plan else ()),
-        *(reason for reason in edited if reason),
+        *settings_reasons(edits),
         *careful_words.review_reason(record.landing or Landing()),
     )

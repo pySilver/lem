@@ -9,7 +9,6 @@ starts a process or reads a clock.
 
 from typing import Literal
 
-from lem.kernel.errors import Refusal
 from lem.model.landing.queue_evidence import Event
 from lem.records.base import Frozen, Moment, Sha
 
@@ -30,7 +29,6 @@ type Verb = Literal[
 # ready to land.
 type Rest = Literal["wait", "done", "none"]
 type Merger = Literal["owner", "merger"]
-DESIGN = "docs/plans/2026-11-25-lem-built-again.md"
 
 
 class Rules(Frozen, frozen=True, kw_only=True):
@@ -113,12 +111,3 @@ class Due(Frozen, frozen=True, kw_only=True):
     step: Verb | Rest
     why: str
     by: Merger | None = None
-
-
-def later(what: str, step: str) -> Refusal:
-    """The refusal of a part of a step that a later step of the rebuild builds."""
-    return Refusal(
-        "not-built",
-        f"{what} is not built yet: Lem is built again, one step at a time",
-        f"the step `{step}` builds it ({DESIGN}, part 9)",
-    )

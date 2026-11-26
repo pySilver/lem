@@ -4,8 +4,8 @@ kind or a call by the bar it does not list, or a name with no why is refused by 
 which names the key (`land.cmd_read` and `land.defects_of` on `main`).
 
 The record counts the change's findings (`must_fix`, `should`, `nit`) and lists the defects the
-review saw outside the change (`outside`). The task's record keeps each as a finding: the counts
-as findings `rA.cN` that only count, the defects outside as `rA.N`, which `file` places.
+review saw outside the change (`outside`). The counts go in the review's record. Each defect
+outside the change gets a finding `rA.N`, which `file` places.
 """
 
 from typing import Annotated, Literal
@@ -14,16 +14,13 @@ import msgspec
 
 from lem.records.base import Frozen
 from lem.records.landing import review as records
-from lem.records.landing.review import BarPlace, Finding
+from lem.records.landing.review import BarPlace
 
 type Kind = Literal["read", "round", "full"]
-type Level = Literal["must-fix", "should", "nit"]
 # A text of one line with a word in it; a run (`what`) may hold several lines.
 type Line = Annotated[str, msgspec.Meta(pattern=r"^[^\n]*\S[^\n]*$")]
 type Text = Annotated[str, msgspec.Meta(pattern=r"\S")]
 type Count = Annotated[int, msgspec.Meta(ge=0)]
-# The mark of a finding that only counts one of the change's findings by its level.
-COUNTED = "c"
 
 
 class Named(Frozen, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -76,27 +73,11 @@ def defects(said: Said) -> tuple[Outside, ...]:
     return () if said.outside == 0 else said.outside
 
 
-def levels_of(said: Said) -> list[Level]:
-    """The level of each of the change's findings, as many of each as the record counts."""
-    counts: tuple[tuple[Level, int], ...] = (
-        ("must-fix", said.must_fix),
-        ("should", said.should),
-        ("nit", said.nit),
-    )
-    return [level for level, count in counts for _ in range(count)]
-
-
-def counted(said: Said) -> tuple[Finding, ...]:
-    """The change's findings, each a finding that only counts its level."""
-    review = f"review-{said.attempt}.md"
-    return tuple(
-        Finding(
-            id=f"r{said.attempt}.{COUNTED}{place}",
-            level=level,
-            where=review,
-            title=f"a {level} of the change",
-            what=f"{review} names it",
-            against="over",
-        )
-        for place, level in enumerate(levels_of(said), 1)
+def counts(said: Said) -> records.Counts:
+    """The change's findings by level, and the number of defects outside it."""
+    return records.Counts(
+        must_fix=said.must_fix,
+        should=said.should,
+        nit=said.nit,
+        outside=len(defects(said)),
     )

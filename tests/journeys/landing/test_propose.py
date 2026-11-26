@@ -310,7 +310,10 @@ def test_a_finding_whose_item_left_the_tip_is_refused_before_any_push(
         against="over",
     )
     review = replace(
-        review, findings=(*review.findings, over), to_file=(*review.to_file, over.id)
+        review,
+        findings=(*review.findings, over),
+        counts=replace(review.counts, outside=review.counts.outside + 1),
+        to_file=(*review.to_file, over.id),
     )
     held = Filed(finding=over.id, disposition="same", path="docs/backlog/no-license.md")
     changed = replace(
@@ -342,6 +345,10 @@ def test_jev_stops_the_proposal_once_for_a_finding_it_reads_over_the_bar(
     refused = propose_with(capsys, world, f"{line}\n")
     assert refused["refusal"]["code"] == "jev-over"
     assert "Jev: 0.85" in refused["refusal"]["why"]
+    [verdict] = world.record()["landing"]["jev"]
+    assert verdict["key"] == line
+    assert verdict["score"] == 0.85
+    assert "path" not in verdict
     assert world.acts.counted()["push"] == 0
     envelope = propose_with(capsys, world, f"{line}\n")
     assert envelope["ok"] is True, envelope

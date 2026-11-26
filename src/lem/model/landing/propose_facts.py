@@ -5,6 +5,7 @@ shows, and the notes the agent wrote. `app/landing/propose.py` gathers them; the
 from typing import TYPE_CHECKING
 
 from lem.records.base import Frozen
+from lem.records.landing.checks import Checked
 
 if TYPE_CHECKING:
     from lem.records.record import Record
@@ -44,6 +45,7 @@ class Facts(Frozen, frozen=True, kw_only=True):
     in_tip: frozenset[str] = frozenset()
     heads: tuple[Filing, ...] = ()
     notes: str = ""
+    bar_read: Checked | None = None
 
 
 def small(record: Record) -> bool:

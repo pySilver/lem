@@ -21,14 +21,12 @@ them itself.
 
 ## be-careful
 
-Careful at any time before the merge, whatever its lead called it. At once, add the line
-`careful: the owner says so` to the task's brief, and log his words with `lem decisions log SLUG
---by owner --what "whether the task is careful" --chose "careful until its merge"
---why "HIS WORDS, AS HE TYPED THEM"`. During an interview the brief is written already
-(`stages/new.md`, "The request", step 6), and the lead reads the line. The brief holds it, so every session of the task after this one
-reads it, and the landing reads it too: the change gets the project's full
-review set, its notes say whether it holds a migration, and a person merges it whatever the
-settings say (`stages/land.md`). What follows depends on where the task is:
+Careful at any time before the merge, whatever its lead called it. Log his words with
+`lem decisions log SLUG --by owner --what "whether the task is careful" --chose
+"careful until its merge" --why "HIS WORDS, AS HE TYPED THEM"`. This sets `owner_careful`
+on the task's record, which the lead reads with `lem task show SLUG`. The change gets the
+project's full review set, its notes say whether it holds a migration, and a person merges it
+whatever the settings say (`stages/land.md`). What follows depends on where the task is:
 
 - it still builds, or it is `ready`: it finishes and goes to the landing like any other; nothing
   is built again for the word;

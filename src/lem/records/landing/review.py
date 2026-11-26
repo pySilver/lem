@@ -60,7 +60,7 @@ class Reviewed(Frozen, frozen=True, kw_only=True):
     ran: tuple[Named, ...] = ()
     left_out: tuple[Named, ...] = ()
     findings: tuple[Finding, ...] = ()
-    counts: Counts | None = None
+    counts: Counts = Counts()
     to_file: tuple[str, ...] = ()
     review: TaskPath | None = None
     at: Moment

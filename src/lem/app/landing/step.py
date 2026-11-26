@@ -5,6 +5,7 @@ A step's act writes its evidence through `store.tasks.update` with the revision 
 across an effect. A task that does not exist is refused before any lock or look.
 """
 
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from lem.app.landing import frame, say, step_release, step_reply
@@ -57,6 +58,6 @@ def landed(folder: Path, slug: str, verb: world.Verb, act: Act) -> Envelope:
     workspace = places.workspace(folder)
     tasks.read(workspace.state, slug)
     now = clock.now()
-    with steps.step(workspace.state, slug, verb, now):
+    with steps.step(workspace.state, slug, verb, now) as holder:
         context = allowed(opened(workspace, slug, now, verb=verb), verb)
-        return step_reply.finished(context, verb, act(context))
+        return step_reply.finished(context, verb, act(replace(context, run=holder.run)))
