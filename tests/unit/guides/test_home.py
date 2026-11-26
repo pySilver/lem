@@ -54,7 +54,7 @@ def test_the_scene_stands_over_the_page_in_its_day_and_its_night_file(
     )
     assert '<img src="./assets/lem.svg"' in scene
     assert LEAD not in scene, "the words stand on the page, under the scene"
-    css = (ROOT / "overrides/assets/lem-site.css").read_text(encoding="utf-8")
+    css = (ROOT / "docs/assets/lem-site.css").read_text(encoding="utf-8")
     rule = css.split(".lem-scene img {", 1)[1].split("}", 1)[0]
     for part in (
         "object-fit: cover",
@@ -155,7 +155,7 @@ def test_each_picture_of_the_board_says_its_size_as_half_the_pixels_of_its_files
 
 
 def test_the_sites_style_has_the_six_hues_and_the_palettes_of_lem_css() -> None:
-    site_css = (ROOT / "overrides/assets/lem-site.css").read_text(encoding="utf-8")
+    site_css = (ROOT / "docs/assets/lem-site.css").read_text(encoding="utf-8")
     lem_css = (ROOT / "skills/lem/assets/lem.css").read_text(encoding="utf-8")
     for hue in HUES:
         value = re.search(rf"{hue}:\s*(#[0-9a-f]{{6}})", lem_css)
@@ -166,7 +166,7 @@ def test_the_sites_style_has_the_six_hues_and_the_palettes_of_lem_css() -> None:
 
 
 def test_the_light_and_the_dark_palette_differ_and_each_gives_pele_its_colors() -> None:
-    css = (ROOT / "overrides/assets/lem-site.css").read_text(encoding="utf-8")
+    css = (ROOT / "docs/assets/lem-site.css").read_text(encoding="utf-8")
     light = css.split('[data-md-color-scheme="default"] {', 1)[1].split("}", 1)[0]
     dark = css.split('[data-md-color-scheme="slate"] {', 1)[1].split("}", 1)[0]
     background = re.compile(r"--lem-bg:\s*(#[0-9a-f]{6})")
@@ -189,7 +189,7 @@ def test_the_light_and_the_dark_palette_differ_and_each_gives_pele_its_colors() 
 
 
 def test_the_pictures_of_the_theme_are_links_to_the_files_of_assets() -> None:
-    for link in (ROOT / "overrides/assets").rglob("*"):
+    for link in (ROOT / "docs/assets").rglob("*"):
         if link.suffix in {".png", ".svg"} or link.name == "pele.js":
             assert link.is_symlink(), link
             assert (

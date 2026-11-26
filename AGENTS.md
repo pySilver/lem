@@ -181,10 +181,10 @@ Each module's docstring says what it does and why; this list says where each thi
   `settings.md`, the reference, one to one with the settings' structs (`tests/unit/settings/`).
   Beside them, off the site: `free-hour.md`, `rulings/`, `backlog/` (Lem's own deferred work) and
   `plans/`, the plans that built Lem, each finished one with a status line that names its commits.
-- `zensical.toml` and `overrides/`: the site. Zensical, a dev dependency pinned in `uv.lock`,
-  builds `docs/` into `_site/`; `overrides/` holds the home page's template, the page menu, the
-  site's style in the board's six hues, and the chart script that draws each `mermaid` block with
-  Pele. Its pictures and `pele.js` are links to the files of `assets/` and
+- `zensical.toml`, `overrides/` and `docs/assets/`: the site. Zensical, a dev dependency pinned in
+  `uv.lock`, builds `docs/` into `_site/`; `overrides/` holds the home page's template and the page
+  menu, and `docs/assets/` the site's style in the board's six hues and the chart script that draws
+  each `mermaid` block with Pele. Its pictures and `pele.js` are links to the files of `assets/` and
   `skills/lem/assets/vendor/`. `.github/workflows/pages.yml`, started by hand only, builds and
   publishes it.
 - `tests/`: the levels of "Checks". `fakes/` holds a stand-in for each port, `fixtures/` the board's

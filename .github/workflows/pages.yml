@@ -3,7 +3,7 @@ name: Pages
 # Started by hand only (the Actions tab, or `gh workflow run Pages`), after the source of Pages is set
 # to "GitHub Actions". Zensical, at the version of uv.lock, builds the site from docs/ into _site/
 # (zensical.toml), and this publishes that folder. The pictures and Pele come into _site/ through the
-# links of overrides/assets/, so the build alone makes the whole site. tests/unit/guides/ runs the
+# links of docs/assets/, so the build alone makes the whole site. tests/unit/guides/ runs the
 # same build in a copy of the checkout and reads what it makes.
 on:
   workflow_dispatch:

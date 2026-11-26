@@ -79,7 +79,8 @@ def test_the_site_leaves_out_the_maintainers_files_of_docs_and_those_are_there()
     None
 ):
     left_out = {line.strip("/") for line in CONFIG["project"]["exclude_docs"].split()}
-    assert left_out == OFF_SITE
+    # and the lint config of the site's script, which is no page
+    assert left_out == {*OFF_SITE, "assets/eslint.config.mjs"}
     for name in OFF_SITE:
         assert (DOCS / name).exists(), name
 

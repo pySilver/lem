@@ -1,6 +1,6 @@
 """The site as Zensical builds it, in a copy of the checkout, and what the cases read in it.
 
-The copy holds what the build reads (zensical.toml, docs/, overrides/ and the files its links
+The copy holds what the build reads (zensical.toml, docs/, overrides/ and the files the links of
 name), so a run leaves no _site/ in the checkout. The build runs as
 `.github/workflows/pages.yml` runs it, with --strict: a warning (a link to a page or a heading
 that is not there) fails it.

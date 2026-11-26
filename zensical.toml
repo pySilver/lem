@@ -7,7 +7,7 @@
 #
 # The page loads nothing from another host: no web font (font = false), no Mermaid from unpkg.com
 # (a chart is a pre.lem-chart, which Zensical's Mermaid loader never looks for, and Pele draws it),
-# and every picture is a file of assets/, linked into overrides/assets/.
+# and every picture is a file of assets/, linked into docs/assets/. overrides/ holds the templates.
 
 [project]
 site_name = "Lem"
@@ -26,6 +26,7 @@ exclude_docs = """
 /backlog/
 /rulings/
 /free-hour.md
+/assets/eslint.config.mjs
 """
 extra_css = ["assets/lem-site.css"]
 extra_javascript = ["assets/lem-charts.js"]
@@ -91,7 +92,7 @@ pymdownx.highlight.pygments_lang_class = true
 pymdownx.inlinehilite = {}
 
 # A guide keeps its charts as ```mermaid blocks, which GitHub draws in place. Here each becomes a
-# pre.lem-chart, which overrides/assets/lem-charts.js draws with Pele, the board's renderer.
+# pre.lem-chart, which docs/assets/lem-charts.js draws with Pele, the board's renderer.
 [project.markdown_extensions.pymdownx.superfences]
 custom_fences = [
   { name = "mermaid", class = "lem-chart", format = "pymdownx.superfences.fence_code_format" },

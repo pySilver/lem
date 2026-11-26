@@ -93,7 +93,13 @@ def test_the_site_builds_with_no_warning(site_build: built.Build) -> None:
 def test_each_guide_of_the_nav_is_a_page_and_no_maintainers_file_is(site: Path) -> None:
     for source in NAV:
         assert (site / page_of(source)).is_file(), source
-    for gone in ("plans", "backlog", "rulings", "free-hour"):
+    for gone in (
+        "plans",
+        "backlog",
+        "rulings",
+        "free-hour",
+        "assets/eslint.config.mjs",
+    ):
         assert not (site / gone).exists(), f"{gone} of docs/ is on the site"
     pages = {built.name_of(site, page) for page in built.pages(site)}
     assert pages == {page_of(source) for source in NAV} | {"404.html"}

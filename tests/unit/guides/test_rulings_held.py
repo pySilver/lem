@@ -188,7 +188,7 @@ def test_the_logo_is_the_scene_with_its_night_file_in_the_readme_and_the_home_pa
     home = text("overrides/home.html")
     assert "assets/lem-night.svg" in home
     assert "assets/lem.svg" in home
-    assert (ROOT / "overrides/assets/lem.svg").resolve() == (
+    assert (ROOT / "docs/assets/lem.svg").resolve() == (
         ROOT / "assets/lem.svg"
     ).resolve()
 
