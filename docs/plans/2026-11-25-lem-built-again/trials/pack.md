@@ -84,7 +84,13 @@ in `T/evidence`. Use the Python 3.14 executable `PY` from [the run order](run.md
   stderr for a linkage error even if the keg exists. Keep the full install streams, the formula,
   the tag evidence and the plugin list. Keep the Homebrew installation and the plugin for P2–P6.
 
-- [ ] P2 The version line names the half behind. **Runs alone.**
+- [x] P2 The version line names the half behind. **Runs alone.**
+
+  Passed on 2026-11-26 on a keg built from a local formula of `rebuild` at `b5b9b32c`, not the
+  tag: `PLUGIN` was the keg's data folder, as P1's plugin was not installed. Evidence in
+  `/private/tmp/lem-trial-r1/evidence/`: `p2-older-*`, `p2-newer-*`, `p2-older-plugin.json`,
+  `p2-newer-plugin.json`, `p2-start.json`; the control frame in place of P3's is
+  `p2-control-session-start`. Index: `/private/tmp/lem-trial-r1/index.json`.
 
   Make two disposable copies of `PLUGIN`. In `T/older` set the plugin manifest version to `0.0.1`.
   In `T/newer` set it to the candidate's numeric major version plus one, with minor and patch zero.
