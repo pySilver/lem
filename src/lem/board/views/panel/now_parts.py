@@ -32,24 +32,6 @@ FOUND = MappingProxyType(
     }
 )
 REPORT = "investigation.md"
-SHAPING = frozenset(("queued", "shaping"))
-
-
-def opening(record: Record) -> str | None:
-    """The read's first line, through the first move into the build."""
-    task = record.task
-    if task.shape is None:
-        return None
-    moved = tuple(
-        entry.status
-        for entry in record.journal
-        if isinstance(entry, StateNoted) and entry.status not in SHAPING
-    )
-    if task.status in SHAPING and not moved:
-        return task.shape.first_line
-    if task.status == "building" and moved == ("building",):
-        return task.shape.first_line
-    return None
 
 
 def who_acts(standing: Standing, *, parked: bool) -> str:

@@ -18,9 +18,11 @@ from lem.app.landing import pr_tests
 from lem.kernel.errors import Refusal
 from lem.model.criteria import contract, digest, reads, waits
 from lem.model.decisions.criterion import Asked
+from lem.model.landing import green
 from lem.records.work import Span
 from lem.store import places, tasks
 from unit.criteria import world
+from unit.landing import proposals
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -58,9 +60,7 @@ def checkout(tmp_path: Path) -> Path:
         msgspec.structs.replace(
             FOUND, asked=4, silent=(reads.silent_of("Ania, opus: no answer"),)
         ),
-        msgspec.structs.replace(
-            FOUND, answered=3, silent=(reads.silent_of("Ania, opus: no answer"),)
-        ),
+        msgspec.structs.replace(FOUND, silent=(reads.silent_of("Ania, : no answer"),)),
         msgspec.structs.replace(FOUND, criteria=0, flagged=0),
         msgspec.structs.replace(FOUND, flagged=3),
         msgspec.structs.replace(FOUND, split=True),
@@ -72,7 +72,7 @@ def checkout(tmp_path: Path) -> Path:
         "too many answered",
         "nobody answered with a family",
         "too few silent",
-        "everyone answered with a silent persona",
+        "missing source family",
         "no criterion",
         "more flags",
         "split of one",
@@ -85,8 +85,59 @@ def test_a_read_of_another_form_is_refused(checkout: Path, wrong: reads.Found) -
     assert world.read(checkout) == before
 
 
+@pytest.mark.parametrize(
+    ("asked", "answered", "families", "sources", "accepted"),
+    [
+        (2, 2, ("opus",), ("Ania, sol",), True),
+        (2, 0, (), ("Ania, opus", "Ania, sol", "Bea, opus", "Bea, sol"), True),
+        (3, 1, ("opus",), ("Ania, sol", "Ania, sol"), False),
+    ],
+    ids=["partial", "wholly-silent", "duplicate"],
+)
+def test_a_panel_read_counts_distinct_personas_and_sources(
+    checkout: Path,
+    asked: int,
+    answered: int,
+    families: tuple[str, ...],
+    sources: tuple[str, ...],
+    *,
+    accepted: bool,
+) -> None:
+    ran = lem(
+        "criteria",
+        "read",
+        world.SLUG,
+        "done",
+        "--by",
+        "lead",
+        "--asked",
+        str(asked),
+        "--answered",
+        str(answered),
+        "--criteria",
+        "2",
+        "--flagged",
+        "0",
+        "--digest",
+        "a" * 12,
+        *(word for family in families for word in ("--family", family)),
+        *(word for source in sources for word in ("--silent", f"{source}: no answer")),
+        cwd=checkout,
+    )
+    assert ran.code == (0 if accepted else 1), ran.stdout
+    recorded = world.read(checkout).task.criteria.reads
+    if accepted:
+        assert tuple(one.name for one in recorded[-1].silent) == sources
+    else:
+        assert recorded == ()
+        refusal = ran.envelope()["refusal"]
+        assert isinstance(refusal, dict) and refusal["code"] == "criteria-read"
+
+
 def unanswered(checkout: Path, marked: str) -> None:
-    silent = (reads.silent_of("Ania, opus: no answer"),) * 2
+    silent = tuple(
+        reads.silent_of(f"{name}, opus: no answer") for name in ("Ania", "Bea")
+    )
     found = reads.Found(
         asked=2, answered=0, silent=silent, criteria=2, flagged=0, digest=marked
     )
@@ -171,18 +222,22 @@ def test_a_clear_lead_read_freezes_the_plan_and_is_reported_without_a_wait(
     )
     frozen = approve.approved(checkout, world.SLUG, approve.Asked(by="read"))
     assert (frozen.by, frozen.digest) == ("read", mark)
-    current = world.read(checkout).task.criteria.criteria[1].text
     edit = Asked(
         how="changed",
         number=2,
-        was=current,
+        was="Not the criterion.",
         now="The cell stays empty.",
         why="Say it directly",
         by="lead",
     )
-    criterion.recorded(checkout, world.SLUG, edit)
+    before = world.read(checkout)
+    assert (
+        "after every earlier change"
+        in refused(criterion.recorded, checkout, world.SLUG, edit).why
+    )
     record = world.read(checkout)
-    assert record.task.decisions[-1].id == 1
+    assert record == before
+    assert green.reasons(replace(record, landing=proposals.full().landing), ()) == ()
     scout = Span(name="scout", start=world.EARLY, end=world.EARLY)
     rendered = pr_tests.first(
         replace(record, task=replace(record.task, spans=(scout,)))
@@ -191,6 +246,7 @@ def test_a_clear_lead_read_freezes_the_plan_and_is_reported_without_a_wait(
         "- the criteria were read by 2 of 2 personas asked, one model family (opus); nobody confused; the build started with no wait for the owner"
         in rendered
     )
+    assert "the change was not read" not in "\n".join(rendered)
     assert pr_tests.SCOUT in rendered
     assert str(checkout) not in "\n".join(rendered)
 

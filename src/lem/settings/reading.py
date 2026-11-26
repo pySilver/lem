@@ -41,6 +41,7 @@ class Where:
     home: Path
     environ: Mapping[str, str]
     git: GitFacts | None = None
+    read_peers: bool = True
     # A file's tables as an edit would leave them, read in the place of the file on disk.
     edited: tuple[tuple[places.Scope, files.Tables], ...] = ()
 
@@ -84,6 +85,8 @@ def source(scope: places.Scope, where: Where) -> Named:
 def checked_source(scope: places.Scope, where: Where) -> Named:
     """One file read and checked."""
     tables, name = source(scope, where)
+    if scope == places.Scope.machine and not where.read_peers:
+        tables = {key: entry for key, entry in tables.items() if key != "peers"}
     check(tables, scope, name, where)
     return tables, name
 

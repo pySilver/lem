@@ -10,6 +10,7 @@ from lem.app.criteria import where
 from lem.app.decisions.writing import Change, written
 from lem.kernel import clock
 from lem.model.criteria import skip
+from lem.records.journal.task import CriteriaNoted
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -20,8 +21,15 @@ if TYPE_CHECKING:
 
 def skipping(word: skip.Word, record: Record) -> tuple[Change, Criteria]:
     """His word on the skip, on the record as it is."""
-    task = skip.skipped(record.task, word, clock.now())
-    return partial(replace, task=task), task.criteria
+    now = clock.now()
+    task = skip.skipped(record.task, word, now)
+    journal = record.journal
+    if word != "no":
+        noted = CriteriaNoted(
+            at=now, event="skip-asked" if word == "asked" else "skip-yes"
+        )
+        journal = (*journal, noted)
+    return partial(replace, task=task, journal=journal), task.criteria
 
 
 def skipped(folder: Path, slug: str, word: skip.Word) -> Criteria:

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.criteria import texts, where
+from lem.app.criteria import activity, texts, where
 from lem.app.decisions.writing import Change, written
 from lem.kernel.errors import Refusal
 from lem.model.criteria import plan, standing
@@ -77,7 +77,8 @@ def kept(record: Record, *, seen: standing.Shown) -> Record:
 def keeping(here: where.Here, record: Record) -> tuple[Change, standing.Shown]:
     """The write of the criteria as they stand for `record`, and what it shows."""
     seen = shown_of(here, record)
-    return partial(kept, seen=seen), seen
+    changed = partial(kept, seen=seen)
+    return partial(activity.recorded, kept=changed, seen=seen), seen
 
 
 def recorded(folder: Path, slug: str) -> standing.Shown:

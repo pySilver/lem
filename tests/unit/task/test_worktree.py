@@ -59,8 +59,9 @@ def test_its_path_alone_makes_nothing(tmp_path: Path) -> None:
 def test_its_path_refuses_bad_plans_before_writing_an_ignore(
     tmp_path: Path, plans: str
 ) -> None:
-    repo, where = real(tmp_path, f'{SETTINGS}[paths]\nplans = "{plans}"\n')
-    ran = lem("task", "worktree", SLUG, "--path", cwd=repo.checkout)
+    repo = RealRepo.init(tmp_path / "repo", {"README.md": b"one\n"})
+    where = workspace(repo.checkout, f'{SETTINGS}[paths]\nplans = "{plans}"\n')
+    ran = lem("task", "worktree", "some-task", "--path", cwd=repo.checkout)
     assert ran.code == 1
     reason = refusal(ran)
     assert reason["code"] == "settings" and "paths.plans" in reason["why"]

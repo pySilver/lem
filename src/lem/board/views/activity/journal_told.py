@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from lem.board.views.activity import (
     tell_checks,
+    tell_criteria,
     tell_decisions,
     tell_landing,
     tell_merge,
@@ -23,6 +24,7 @@ from lem.records.journal.landing import (
 )
 from lem.records.journal.merge import LandAgain, MergeNoted, ReadNoted, RefusalNoted
 from lem.records.journal.task import (
+    CriteriaNoted,
     DecisionNoted,
     OwnerAct,
     SpanMark,
@@ -36,31 +38,52 @@ if TYPE_CHECKING:
     from lem.records.task import Task
 
 
-def told_of(entry: Entry, task: Task) -> tuple[Told, ...]:
+type Rows = tuple[Told, ...]
+
+
+def told_of(entry: Entry, task: Task) -> Rows:
     """The rows of one entry of the task's journal."""
     found: tuple[Told, ...]
     match entry:
         case StateNoted():
             found = (tell_task.state(entry, task),)
         case SpanMark():
-            found = tell_work.span(entry, task)
+            found = with_origin(tell_work.span(entry, task), entry.carried_from)
         case DecisionNoted():
-            found = (tell_decisions.decision(entry, task),)
+            found = with_origin(
+                (tell_decisions.decision(entry, task),), entry.carried_from
+            )
+        case CriteriaNoted():
+            found = with_origin((tell_criteria.criteria(entry),), entry.carried_from)
         case OwnerAct():
             found = (tell_task.owner(entry, task),)
         case Summary():
             found = (tell_task.summary(entry),)
-        case CheckEnd():
-            found = tell_checks.ended(entry)
         case _:
             found = landing_told(entry)
     return found
+
+
+def with_origin(rows: Rows, origin: str | None) -> Rows:
+    """Only copied rows name their predecessor."""
+    if origin is None:
+        return rows
+    said = f"carried over from {origin}"
+    return tuple(marked(row, said) for row in rows)
+
+
+def marked(row: Told, said: str) -> Told:
+    """Add where a copy came from after any detail of its own."""
+    sub = " · ".join(part for part in (row.sub, said) if part)
+    return row._replace(sub=sub)
 
 
 def landing_told(entry: Entry) -> tuple[Told, ...]:
     """The rows of an entry of the landing."""
     found: Told
     match entry:
+        case CheckEnd():
+            return tell_checks.ended(entry)
         case ReviewRound():
             found = tell_landing.review(entry)
         case CarefulMissed():

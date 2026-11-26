@@ -19,6 +19,12 @@ def shown(record: Record) -> str:
     return NUMBERED.sub(r"[\2](\2)", telling.said(record))
 
 
+def opening(record: Record) -> str | None:
+    """The first line of the state block the card shows."""
+    state = telling.newest_state(record.journal)
+    return None if state is None else state.opening
+
+
 def view_href(base: str, view: str) -> str:
     """The address of a view of the workspace: the kanban at its base, `/waits` and the
     others under it."""

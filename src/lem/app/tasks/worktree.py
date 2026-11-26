@@ -96,9 +96,10 @@ def worktree(folder: Path, slug: str, *, path_only: bool, asked: Asked) -> Made:
     """`lem task worktree SLUG`: its path with `path_only`, else the worktree made."""
     workspace = places.workspace(folder)
     where.checkout_refusal(workspace, asked[1])
-    record = release.checked(workspace.state, slug)
     if path_only:
         team_of(workspace.checkout)
+    record = release.checked(workspace.state, slug)
+    if path_only:
         path = where.worktree(workspace, slug)
         return Made(worktree=str(path), branch=record.task.branch)
     return made(ports.bound(workspace), workspace, record, (asked[0], None))

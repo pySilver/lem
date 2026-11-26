@@ -26,7 +26,7 @@ from lem.records.criteria import Criteria
 from lem.records.criterion import Criterion
 from lem.records.decisions import Breaker, Taken
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
-from lem.records.journal.task import OwnerAct, StateNoted, Summary
+from lem.records.journal.task import CriteriaNoted, StateNoted, Summary
 from lem.records.task import Shape
 from lem.records.tickets import Ticket
 from lem.records.work import Span
@@ -277,7 +277,15 @@ def check_carried_approval(tmp_path: Path, *, skipped: bool) -> None:
     dropped_with_breaker(where, criteria=criteria)
     resumed = read(where, resume.resumed(where.checkout, SLUG).task)
     assert resumed.task.criteria == criteria
-    assert resumed.journal == (OwnerAct(at=approval.at, act="approve-carried"),)
+    (copied,) = resumed.journal
+    assert isinstance(copied, CriteriaNoted)
+    assert (copied.event, copied.by, copied.at, copied.carried_from) == (
+        "approved",
+        "owner",
+        resumed.task.opened,
+        SLUG,
+    )
+    assert resumed.task.criteria.approvals[-1].at == approval.at
     assert propose_criteria.unread(resumed) is None
     assert propose_doubts.doubted(resumed) is None
     assert propose_doubts.unapproved(resumed) is None

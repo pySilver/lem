@@ -50,5 +50,10 @@ def read_with_line(
 def with_line(read: Record, shape: Shape, words: opening.Read) -> Record:
     """Keep the line of the shape as read, before the task moves again."""
     line = opening.line_of(read.task, words)
-    shape = replace(shape, first_line=opening.composed(line, None) if line else None)
-    return replace(read, task=replace(read.task, shape=shape))
+    first = opening.composed(line, None) if line else None
+    shape = replace(shape, first_line=first)
+    return replace(
+        read,
+        task=replace(read.task, shape=shape),
+        journal=first_line.with_opening(read, first),
+    )

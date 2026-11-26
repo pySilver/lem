@@ -4,6 +4,7 @@ change of the build."""
 
 from typing import TYPE_CHECKING
 
+from lem.model.criteria import digest
 from lem.model.landing import propose_criteria
 from lem.records.decisions import CriterionChanged
 
@@ -43,8 +44,14 @@ def unread(record: Record) -> Lines:
     them."""
     task = record.task
     read = propose_criteria.newest(task)
-    if read is None or not read.answered or task.criteria.digest == read.digest:
+    if read is None or not read.answered or text_mark(task) == read.digest:
         return ()
     what = " and ".join(changers(task, read))
     named = f", {what}" if what else ""
     return (UNREAD.format(named),)
+
+
+def text_mark(task: Task) -> str | None:
+    """Compare the read to the criteria's text. The check digest includes the tests."""
+    kept = task.criteria
+    return None if kept.size is None else digest.of_texts(kept.size, kept.criteria)

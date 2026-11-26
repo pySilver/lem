@@ -12,7 +12,7 @@ import os
 import signal
 from typing import TYPE_CHECKING
 
-from lem.app.tasks import drop_pull, ports, release
+from lem.app.tasks import drop_pull, move_state, ports, release
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.task import holds, table
@@ -74,10 +74,13 @@ def dropped(
         if refused is not None:
             raise refused
         merged_refusal(given, where, record)
+        worktree = move_state.gathered(where, slug)
         tasks.update(
             where.state,
             slug,
-            lambda before: holds.moved(before, status=DROPPED, line=line, now=now),
+            lambda before: move_state.noted(
+                holds.moved(before, status=DROPPED, line=line, now=now), worktree
+            ),
             record.revision,
         )
     return table.Moved(slug=slug, was=record.task.status, status=DROPPED)

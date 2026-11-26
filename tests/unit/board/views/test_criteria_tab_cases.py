@@ -57,10 +57,12 @@ def test_an_option_label_ends_at_a_colon_outside_a_quote() -> None:
         "the Fable expert's picks",
         "c4 as written",
     )
+    assert parts_of("Use 'OK.': continue") == ("Use 'OK.'", "continue")
     for quoted in (
         "it ends as refused, with the say 'the checks refused: a builder repairs it'",
         'it says "the checks refused: a builder repairs it"',
         "it says \u2018the checks refused: a builder repairs it\u2019",
+        "The users' message says 'error: retry'",
     ):
         assert parts_of(quoted) == ("", quoted)
 

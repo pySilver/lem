@@ -215,7 +215,8 @@ def test_with_the_owner_back_it_waits_for_his_yes(checkout: Path) -> None:
 def read_done(checkout: Path, answered: int, flagged: int = 0) -> None:
     sheet = world.plan(checkout, world.FULL.replace("row.\n", "row.\n" + world.TESTED))
     marked = digest.of_texts("full", approve.texts.sheet_at(sheet, "x").criteria)
-    silent = () if answered else (reads.silent_of("Ania, opus: no answer"),) * 2
+    missing = ("Ania, opus: no answer", "Bea, opus: no answer")
+    silent = () if answered else tuple(map(reads.silent_of, missing))
     found = reads.Found(
         asked=2,
         answered=answered,
