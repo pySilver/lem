@@ -36,8 +36,8 @@ Lem reads and writes issues through `gh`, the command of GitHub.
 
 ## Fill the settings
 
-`/lem init` adds this table when the issues of your repository are on and hold at least one issue,
-and no Linear ticket key shows in its branch names or commit subjects. To add it yourself:
+`/lem init` adds this table when the issues of your repository are on and hold at least one issue.
+It does not add it when a Linear ticket key shows in the branch names or commit subjects. To add it yourself:
 
 ```toml
 [tracker]

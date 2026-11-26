@@ -1,4 +1,3 @@
-<!-- lem: old form -->
 # How a task goes
 
 ```mermaid
@@ -25,13 +24,13 @@ flowchart TD
 `/lem` and a request opens the task in an agterm session of its own, which carries it to its
 merge. On the standard track, a fresh agent takes over at each change of phase: the shape with
 you, the build, the landing. Say "hand off" for a fresh agent at any time. The fast track is one
-session. Inside a phase, Claude Code compacts the session at 600,000 tokens of context, or at
-the number that [`[handoff]`](install.md#what-lem-keeps) sets.
+session. Inside a phase, Claude Code compacts the session at 600,000 tokens of context, or at the
+number of [`handoff.tokens`](settings.md#configlemmachinetoml).
 
 ## The first line
 
-The task's session first says the type, the track, and what you must do. The session where you
-typed the request says it too. The type is a Conventional Commits type such as `feat`, or
+The session of the task first says the type, the track, and what you must do. The session where
+you typed the request says it too. The type is a Conventional Commits type such as `feat`, or
 `question`, which commits nothing. In doubt, Lem asks one question, with its guess.
 `/lem standard-track` and `/lem be-careful` correct the line.
 
@@ -45,7 +44,7 @@ a rename, a version bump.
 2. One builder makes the change, with a test when the behavior changes.
 3. The checks run, an agent that did not build the change reads it, and Lem opens the pull request.
 
-When it does not fit, the builder stops, and the standard track starts.
+When the request does not fit, the builder stops, and the standard track starts.
 
 ## The standard track
 
@@ -53,14 +52,12 @@ When it does not fit, the builder stops, and the standard track starts.
    or an approach that you name.
 2. **Acceptance criteria.** Each is a rule in plain words with one real example, and gets a test.
 3. **The personas read them**, as each person that the change affects.
-4. **Your yes.** Nothing builds before it, unless you are [away](when-lem-needs-you.md#away).
+4. **Your yes.** Nothing builds before it, unless you are [away](away.md).
 5. **The plan.** A short plan goes to `docs/plans/`, and a new builder makes each part. The
    [ladder](when-lem-needs-you.md#a-decision-in-doubt) decides each choice, and asks you nothing.
-6. **The polish pass.** A new builder removes leftovers and fixes a cheap defect outside the
-   task: text that does not run. It files each other defect in `docs/backlog/`, with
-   `worth: later` only when the defect is a
-   [real problem today](pull-request.md#what-lem-saw-outside-the-task), and with `worth: no`
-   when it is not.
+6. **The polish pass.** A new builder removes leftovers and fixes a cheap defect outside the task:
+   text that does not run. It files each other defect in `docs/backlog/`
+   ([what Lem saw outside the task](pull-request.md#what-lem-saw-outside-the-task)).
 
 A ticket or a backlog item that already says what you want skips the interview. Say "interview
 me" to get it.
@@ -92,9 +89,11 @@ for a larger change. A builder fixes each must-fix, in two rounds at most. Then 
 ## Many tasks at once
 
 Many tasks build and land at the same time, and Lem merges one at a time. The checks start only
-while the load of your computer is below 40. Set a different limit with `lem project load --start
-N`. When many tasks wait for the checks, the task that waits longest starts first, for all the
-repositories on your computer. A task that another task waits for starts before it. A request
-waits for a task whose result it needs, or that you put before it, until that task merges or gets
-its answer.
-When that task is dropped, the request [waits for you](when-lem-needs-you.md#what-waits-for-you).
+while the load of your computer is below 40. To set a different limit, run
+`lem settings set load.start N --machine`. When many tasks wait for the checks, the task that
+waits longest starts first, for all the repositories on your computer. A task that another task
+waits for starts before it.
+
+A request waits for a task whose result it needs, or that you put before it, until that task
+merges or gets its answer. When that task is dropped, the request
+[waits for you](when-lem-needs-you.md#what-waits-for-you).

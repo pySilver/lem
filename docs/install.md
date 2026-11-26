@@ -1,5 +1,4 @@
-<!-- lem: old form -->
-# Install, update, remove
+# Install
 
 ## What you need
 
@@ -7,7 +6,7 @@
 | --- | --- |
 | [agterm](https://agterm.com) and its skill, from the agterm Help menu | a session for each task, panes and pages |
 | [Claude Code](https://code.claude.com/docs) | the agents |
-| git, and Python 3.11 or newer: `python3`, a `python3.N` on `PATH`, the Homebrew Python, or a Python that uv has | branches, worktrees, scripts |
+| git, and Python 3.14, which Lem's app brings with it | branches, worktrees, every command of Lem |
 | [revmux](https://github.com/umputun/revmux) and its skill | the review before each pull request |
 | [cronn](https://cronn.umputun.dev) | the scheduled retro and night run |
 | the mailbox chat, webrev and the backlog recipe, from the [agterm cookbook](https://github.com/umputun/agterm/tree/master/cookbook) | the wake-up of a task's session, agent messages, and pages to mark up |
@@ -17,18 +16,31 @@
 | [Plannotator](https://github.com/backnotprop/plannotator): recommended | the Inbox, where what waits for you goes while you are away, also on your phone |
 | `JEV_API_KEY`, a key for the Jev decision model: optional | [the correction queue](#the-correction-queue), and a second look at each defect that an agent calls under the bar before a pull request ([`[jev]`](settings.md#jev)) |
 
-`/lem init` checks each tool and says how to install it.
+`/lem init` checks each tool and says how to install it. `lem doctor` checks them again at any
+time.
 
 ## Install
 
-Run these two commands at the root of your repository. `/lem init` commits `.claude/settings.json`
-for your team. That file turns Lem on, but it installs nothing: each person runs the two commands
-in their own clone.
+Lem has two parts: the app, with the command `lem`, and the plugin for Claude Code. Install the app
+one time on your computer:
+
+```bash
+brew install pySilver/tap/lem
+```
+
+Then run these two commands at the root of your repository:
 
 ```bash
 claude plugin marketplace add pySilver/lem --scope project
 claude plugin install lem@lem --scope project
 ```
+
+`/lem init` commits `.claude/settings.json` for your team. That file turns Lem on, but it installs
+nothing: each person runs the commands in their own clone.
+
+The first time a session reads a file of Lem, Claude Code asks "Allow this read outside the working
+directories?". Answer it one time, or put the rule that `lem doctor` gives, such as
+`Read(//opt/homebrew/Cellar/lem/**)`, under `permissions`, `allow` in `~/.claude/settings.json`.
 
 ## Set up the repository
 
@@ -40,11 +52,8 @@ claude plugin install lem@lem --scope project
 5. Type `land`. Lem puts its settings on your base branch through a pull request on GitHub.
 6. Type `/lem` and your first request.
 
-Lem assumes auto mode in Claude Code and Codex. A permission prompt stops an agent.
-
-> [!NOTE]
-> On GitHub, Lem pushes each task and opens its pull request with no question. Your `land` approves
-> this.
+Lem assumes auto mode in Claude Code and Codex. A permission prompt stops an agent. On GitHub, Lem
+pushes each task and opens its pull request with no question. Your `land` approves this.
 
 A task's worktree has no `.env` file or test database. Put the commands that make them in
 [`checks.setup`](settings.md#checks).
@@ -56,9 +65,8 @@ In git:
 - `.lem/settings.toml`: the [settings](settings.md) of your team.
 - `.lem/profile.md`, `.lem/personas/`: the product, and the people that a change affects.
 - `.lem/lessons.md`: your corrections of how an agent does a step in this repository.
-- `docs/rulings.md`: your decisions about what the product does, which no agent reopens without
-  asking you. The rulings are one file, with one bullet for each decision. A retro only proposes a
-  ruling. The bullet comes in the pull request of a task that you start from its backlog item.
+- `docs/rulings.md`: your decisions about what the product does, one bullet for each, which no
+  agent reopens without asking you. A retro only proposes a ruling.
 - `docs/plans/`, `docs/backlog/`: the plans, and work for later. The [settings](settings.md#paths)
   can move the plans and the rulings.
 
@@ -66,83 +74,38 @@ Not in git:
 
 - `.lem/settings.local.toml`: your settings for this repository on this computer.
 - `.lem/worktrees/`: the worktrees of the tasks.
-- `.lem/state/`: the tasks and the board, on this computer only. Lem removes from this folder what
-  is older than [`state.keep_days`](settings.md#state), 30 days when you set no number. It removes
-  nothing outside the folder: no branch, no worktree and no pull request.
+- `.lem/state/`: the tasks and the board, on this computer only. The board server removes what is
+  older than [`state.keep_days`](settings.md#state). It removes no branch, no worktree and no pull
+  request.
 
 For all repositories, in `~/.config/lem/` (or `$XDG_CONFIG_HOME/lem/`):
 
-- `owner.jsonl`: your away status.
-- `settings.toml`: your settings for every repository:
-  - `[seats]`: the [seats](settings.md#seats) and the fallback for each repository that names
-    none, which `/lem set global NAME VALUE` sets;
-  - `[ask]`: the look of the question page, which you write by hand.
-- `machine.toml`: the settings of this computer, which no other file overrides:
-  - `[load]`: the load limit for the checks, 40 when you set none. `lem project load --start N`
-    sets it, and `lem project load --start none` removes the limit;
-  - `[handoff]`: the number of tokens where a session compacts, which `lem project handoff
-    --tokens N` sets;
-  - `[serve]`: the board server's port, which `lem serve --port N` sets, and its door for your
-    phone;
-  - `[peers]`: the other computers of the board;
-  - `[corrections]`: [the correction queue](#the-correction-queue), on or off.
-- `workspaces.json`, `serve.log`: the repositories that the board server shows, and its output.
+- `owner.json`: whether you are away.
+- `settings.toml`: your settings for every repository: your seats, and the look of the question
+  page.
+- `machine.toml`: the settings of this computer: the load limit, the board server, the other
+  computers, the compaction and the correction queue.
+- `workspaces.json`, `serve.json`, `serve.log`, `lem.log`: the repositories that the board server
+  shows, the server, its output and the faults of Lem.
 - `push-key.pem`, `push.json`: the key and the devices of the notifications.
 
-## The board on your phone
-
-[The board](board.md#the-board-on-your-phone) gives the steps for Tailscale, the Home Screen and
-the notifications.
+`lem settings show` gives each setting and the file that it comes from.
 
 ## The correction queue
 
 With this optional queue, a retro finds a correction that you gave more than one time. A hook sends
-each message that you type, with the agent's message before it, to the Jev decision model.
-Commands that start with `/` stay local.
+each message that you type, with the agent's message before it, to the Jev decision model. Commands
+that start with `/` stay local.
 
-The queue is on or off for your computer, in every repository on it. `/lem init` asks you one
-time for each computer. The line `collect = true` under `[corrections]` in
-`~/.config/lem/machine.toml` turns it on, and with no line the queue is off. When the queue is on,
-it needs `JEV_API_KEY` in the environment. The default provider is [OpenRouter](https://openrouter.ai);
-`JEV_API_URL` names another.
+The queue is on or off for your computer, in every repository on it. `/lem init` asks you one time
+for each computer. When the queue is on, it needs `JEV_API_KEY` in the environment. The default
+provider is [OpenRouter](https://openrouter.ai); `JEV_API_URL` names another.
 
-To turn the queue off for your computer, run `lem corrections collect no`. This command writes
-`collect = false` there and keeps the other settings of the file. `lem corrections collect yes`
-turns it on again. A repository file cannot turn the queue on or off.
-
-## Update
-
-An update brings the newest release of Lem, never a change that no release holds. Run these two
-commands, then start a new session, which also replaces the board server. Update each repository:
-one board server serves them all. `lem doctor` shows each one you missed.
+To turn the queue off or on, run one of these commands. Each writes `collect` under
+`[corrections]` in `~/.config/lem/machine.toml`, and keeps the other lines of the file. A
+repository file cannot turn the queue on or off.
 
 ```bash
-claude plugin marketplace update lem
-claude plugin update lem@lem --scope project
+lem settings set corrections.collect no --machine
+lem settings set corrections.collect yes --machine
 ```
-
-- **Auto-update** is off when you install Lem, and it is your choice. To turn it on, type `/plugin`,
-  open **Marketplaces**, select `lem`, and turn on auto-update. Claude Code then installs a new
-  release up to ten minutes after your first message in a session.
-- **A session that runs keeps its Lem until it ends.** The next session loads the new release.
-- **Your release**: `claude plugin list` shows it on the `Version` line of `lem@lem`. In a session,
-  an agent gets it from `lem version`.
-- **A release older than a teammate's**: git does not share `.lem/state/`, so your tasks stay
-  yours. When the teammate's release adds a key to `.lem/settings.toml`, your Lem stops at each
-  command with `unknown key` and the key's name. Update, and Lem goes on.
-- **A task begun two releases back** stops, and its message gives the way on
-  ([When Lem needs you](when-lem-needs-you.md#a-task-of-an-older-release)).
-- **A bad release** is not taken back: a newer release repairs it.
-
-## Remove
-
-1. Merge or drop each open task.
-2. Remove the cronn jobs of this repository.
-3. If no other repository uses Lem, type `/lem serve tailscale off` and `/lem serve stop`.
-4. Run `claude plugin uninstall lem@lem --scope project`.
-5. Run `claude plugin marketplace remove lem --scope project`.
-6. Remove Lem's allow rules from `.claude/settings.local.json`.
-7. Run `git rm -r .lem`, and commit.
-8. Delete the folder `.lem/`.
-9. If no other repository uses Lem, delete `~/.config/lem/`, `~/.cache/lem/` and
-   `$TMPDIR/lem-ask/`.
