@@ -178,7 +178,17 @@ to show which process took them.
   `lem waiting --task breaker-sample` after each action. Pass when the record preserves the
   handoff and prior hold through park/resume and the original task ends `dropped`.
 
-- [ ] R3 Two tasks conflict after one lands. **Runs alone.**
+- [x] R3 Two tasks conflict after one lands. **Runs alone.**
+
+  Passed on 2026-11-26 (round 2) against `pySilver/lem-scratch`, `RUN=n26`, with `lem` from the
+  `rb/trial-run` worktree's editable install at `1b570abd`, not a keg. PRs 21 and 22. The board
+  (port 65331) recorded `CONFLICTING` in `forge.json` and tried `lem session wake conflict-second
+  --why conflict`, which failed as meant without agterm (`r3-board-run.err`). The base step's
+  refusal `conflict` left the tip at `7093da8e` and the worktree clean; PR 22 kept its number
+  and took `ce9b9db3`; the board's server merged it (`via: server`). Merge commits `8c04ebde`
+  and `8a1d0758`; the final base says `received`. Evidence in `/private/tmp/lem-trial-r1/evidence/`:
+  `r3-*`. The trial notes said `None` with no period: `None.` is read as a finding
+  (`r3-first-land-11-propose`, refusal `no-bar-call`).
 
   Use the common fixture twice from the same base. `conflict-first` changes `recieve` to
   `receive`. `conflict-second` changes the same line to `received`. Its criterion must name
@@ -198,7 +208,18 @@ to show which process took them.
   merges have different merge commits and the final base has `received`. Keep both PRs, the wait
   row, resolution diff, round records and merge SHAs.
 
-- [ ] R4 A moved base keeps one review and calls for another. **Owner for the approval.**
+- [x] R4 A moved base keeps one review and calls for another. **Owner for the approval.**
+
+  Passed on 2026-11-26 (round 2), PRs 23 and 24; the trial operator gave the owner's word in the
+  scratch repository only (decision 27, `r4-owner-word-note.txt`). Both words were refused
+  `base`. Safe path: start said "the approval stands", base `carried: true`, checks on the new
+  base `01fef8b1`, no new read, PR 23 took `87456f31` with `owner_merge: stands`, and the board's
+  server merged it `by: owner, via: server`. Review path: the base step refused `conflict`, the
+  rebase was resolved to `receive`, `land next` asked one read of the resolution after the
+  checks, and no merge was due before it was proposed. Lem then carried both the merge review
+  ("carries after the read of the resolution") and the owner's merge (`stands`) onto `b5017fe0`,
+  as `landing.md` D says; no new merge review or approval was asked. Evidence:
+  `r4safe-*`, `r4review-*`.
 
   On independent `r4-safe` and `r4-review` bases, take one fixture task to an open PR and file
   its merge verdict. Record its checked tree, tip, base, read count and PR number. In a teammate
@@ -222,7 +243,18 @@ to show which process took them.
   repaired tree before merge. Keep both task records, the checks and read artifacts, GitHub
   tips and bases, and the approval states. Compare the evidence for the old and new tips.
 
-- [ ] R5 The merge and the checks recover after a stop. **Owner for the fresh retry in R5a.**
+- [x] R5 The merge and the checks recover after a stop. **Owner for the fresh retry in R5a.**
+
+  Passed on 2026-11-26 (round 2), PRs 25, 26 and 27; the trial operator gave R5a's fresh word as
+  the owner in the scratch repository (`r5a/owner-word-note.txt`). Calls forwarded to the real
+  `gh`: R5a 0 before, at and after the cut, 0 after the reconcile (refusal `intent`), 1 after the
+  owner's checked word, 1 after a repeat; R5b 1 at the barrier, 1 after the reconcile, 1 after
+  `merged`; R5c 1 after the lost reply (exit 3, both loss markers, intent kept), 1 after the
+  reconcile and `merged`. In R5b and R5c the reconcile refused `not-due` and named
+  `lem land merged`, which recorded GitHub's own merge commit (`32010c1a`, `a1eadc14`). R5d: TERM
+  at the barrier ended the dummy child, the log holds the barrier line, the record says
+  `stopped`, `land next` said `checks`, the new run passed, nothing was pushed. Evidence:
+  `r5a/` to `r5d/` and `r5*-*`.
 
   Prepare the common fixture on three separate scratch bases. Set `GH` to the absolute real `gh`
   and install `"$T/merge_calls" install "$GH"` in each trial folder before its GitHub steps.
