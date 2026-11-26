@@ -141,7 +141,7 @@ def test_an_answer_that_cannot_be_recorded_is_asked_again_once() -> None:
         (
             "no-verdict",
             "the merge agent's answer was not recorded: its first line gave no verdict; the merge agent is asked again",
-            "a fresh merge agent reads the same brief, and its reply is written down with the same --tip and --base",
+            "a fresh merge agent reads the same brief, and its reply is written down with the same --tip, --base and --dispatch",
         )
     )
     assert not mergeread.settled(first)

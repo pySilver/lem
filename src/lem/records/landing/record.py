@@ -12,7 +12,7 @@ from lem.records.landing.merge import (
     MergeIntent,
     Refused,
 )
-from lem.records.landing.propose import MergeRead, Proposed, Standing
+from lem.records.landing.propose import MergeDispatch, MergeRead, Proposed, Standing
 from lem.records.landing.review import Filed, JevRead, Reviewed
 from lem.records.landing.start import Based, Polished, Resolution, Started
 
@@ -31,7 +31,9 @@ class Landing(Frozen, frozen=True, kw_only=True):
     """The landing of one task. `pushed` is the head Lem pushed last, kept before the forge
     call; `taken` is the commit of origin's task branch that the branch took in (a teammate's,
     `Task.own_remote` on `main`); `reviews` and `reads` keep every attempt and read of the round;
-    `jev` keeps Jev's reads; `archived` keeps the reviews of a landing that started over."""
+    `dispatches` keeps every start of the merge agent, of every round, so that a reply counts
+    only from the start it answers; `jev` keeps Jev's reads; `archived` keeps the reviews of a
+    landing that started over."""
 
     round: int = 1
     relands: int = 0
@@ -48,6 +50,7 @@ class Landing(Frozen, frozen=True, kw_only=True):
     resolution: Resolution | None = None
     proposed: Proposed | None = None
     reads: tuple[MergeRead, ...] = ()
+    dispatches: tuple[MergeDispatch, ...] = ()
     standing: Standing | None = None
     refused: Refused | None = None
     intent: MergeIntent | None = None

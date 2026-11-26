@@ -363,18 +363,22 @@ def proposal(capsys: pytest.CaptureFixture[str], world: World) -> Envelope:
 
 
 def brief(capsys: pytest.CaptureFixture[str], world: World) -> Envelope:
-    """The merge agent's brief; its tip and base go to the reply."""
+    """The merge agent's brief; its tip, base and dispatch go to the reply."""
     envelope = lem(capsys, world.checkout, "land", "merge-review", SLUG)
-    world.told.update(tip=envelope["result"]["tip"], base=envelope["result"]["base"])
+    result = envelope["result"]
+    world.told.update(
+        tip=result["tip"], base=result["base"], dispatch=str(result["dispatch"])
+    )
     return envelope
 
 
 def reply(capsys: pytest.CaptureFixture[str], world: World) -> Envelope:
-    """The merge agent's reply to the brief, with its tip and base."""
+    """The merge agent's reply to the brief, with its tip, base and dispatch."""
     said = world.written(
         "reply.md", "Verdict: merge\n\nOne word; the checks and the read hold.\n"
     )
-    words = ("--file", said, "--tip", world.told["tip"], "--base", world.told["base"])
+    pinned = ("--tip", world.told["tip"], "--base", world.told["base"])
+    words = ("--file", said, *pinned, "--dispatch", world.told["dispatch"])
     return lem(capsys, world.checkout, "land", "merge-review", SLUG, *words)
 
 

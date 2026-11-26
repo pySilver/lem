@@ -70,16 +70,25 @@ def failed_line(prefix: str, took: str, error: SeatError) -> str:
     return f"{prefix}; then {agent} gave an error too: {second}"
 
 
-def lines(history: History, role: str | None = None) -> dict[str, str]:
-    """Each distinct stand-in line and its final form, in task order."""
-    written: dict[str, str] = {}
+# A stand-in's line while it holds, and the line that takes its place.
+type Line = tuple[str, str]
+
+
+def lines(history: History, role: str | None = None) -> tuple[Line, ...]:
+    """Each stand-in of `role` (of every role for None), in task order, as its line and its
+    final form: two stand-ins of the same seats are two, so that one that failed and a later
+    one that read are both told, and the same stand-in kept twice is one."""
+    written: list[Line] = []
     for index, stood in enumerate(history):
         if stood.took is None or role not in {None, stood.seat}:
             continue
-        later = history[index + 1 :]
-        edit = shown(stood, stood.took, later)
-        if edit[0] == edit[1]:
-            written.setdefault(*edit)
-        else:
-            written[edit[0]] = edit[1]
-    return written
+        edit = shown(stood, stood.took, history[index + 1 :])
+        if edit not in written:
+            written.append(edit)
+    return tuple(written)
+
+
+def finals(history: History, role: str | None = None) -> tuple[str, ...]:
+    """The final line of each stand-in, in task order, each text once."""
+    told = (final for _, final in lines(history, role))
+    return tuple(dict.fromkeys(told))

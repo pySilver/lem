@@ -1,28 +1,30 @@
 """The merge agent's brief: the standing text it follows, by its place in the plugin, and the
-facts of the task as JSON (`merge_facts.py`), published once at a path named by the tip and the
-base it reads, so that the brief of a later base never takes the place of the one an agent was
-started with, and a fresh agent asked again reads the same brief (`main:land.brief_file`)."""
+facts of the task as JSON (`merge_facts.py`), published once for each dispatch at a path named
+by the tip and the base it reads, the round and the dispatch's number (`main:land.brief_file`).
+
+The brief of a later base never takes the place of the one an agent was started with, and a
+fresh agent asked again on the same seat reads the same brief. A stand-in, or a seat the
+settings changed, is a new dispatch with a brief of its own, whose facts name the stand-in;
+the brief the agent before it read stays as it was (`merge_dispatch.py`).
+"""
 
 from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import merge_facts, merge_seats
+from lem.app.landing import merge_dispatch, merge_facts
+from lem.app.sessions.seating import Shown
 from lem.kernel import files
 from lem.kernel.errors import Refusal
 from lem.records.base import Frozen, Sha
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from lem.app.landing.frame import Context
     from lem.records.landing.propose import Proposed
     from lem.records.landing.record import Pull
     from lem.records.record import Record
 
-SHORT = 12
-BRIEF = "merge-brief-{0}-{1}-{2}.md"
 # The first line of every brief: the standing text by its place in the plugin, never by the
 # folder of the Lem that wrote the brief, which an update replaces.
 FOLLOW = (
@@ -40,20 +42,14 @@ BODY = (
 
 
 class Brief(Frozen, frozen=True, kw_only=True):
-    """The brief the merge agent reads: its path, and the tip and base it is of."""
+    """The brief the merge agent reads: its path, the tip and base it is of, the seat it
+    starts on, and the number of its dispatch, which the reply carries back."""
 
     brief: str
     tip: Sha
     base: Sha
-    seat: merge_seats.Shown
-
-
-def path_of(context: Context, tip: str, base: str) -> Path:
-    """The brief of `tip` on `base` in the task's folder."""
-    landing = context.record.landing or Landing()
-    round_number = landing.round
-    named = BRIEF.format(tip[:SHORT], base[:SHORT], round_number)
-    return context.folder / named
+    seat: Shown
+    dispatch: int
 
 
 def proposal_of(record: Record) -> tuple[Pull, Proposed]:
@@ -78,12 +74,17 @@ def text_of(context: Context, read: tuple[Pull, Proposed]) -> bytes:
 
 
 def published(context: Context) -> Brief:
-    """Publish the brief of the proposed tip on origin's base now, once: a brief already
-    published for that tip and base is the one a fresh merge agent reads again."""
+    """Start the merge agent on the seat in use (a stand-in while one holds): its dispatch on
+    record, and its brief published once; a dispatch repeated reads the brief it had."""
     read = proposal_of(context.record)
-    tip, base = read[1].tip, context.world.base
-    path = path_of(context, tip, base)
+    dispatch, shown = merge_dispatch.dispatched(context, read[1].tip)
+    path = context.folder / dispatch.brief
     if not path.is_file():
         files.publish(path, text_of(context, read))
-    seat = merge_seats.dispatched(context, tip, base)
-    return Brief(brief=str(path), tip=tip, base=base, seat=seat)
+    return Brief(
+        brief=str(path),
+        tip=dispatch.tip,
+        base=dispatch.base,
+        seat=shown,
+        dispatch=dispatch.number,
+    )

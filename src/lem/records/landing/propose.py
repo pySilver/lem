@@ -1,5 +1,5 @@
-"""The pull request's proposal, the merge agent's read, and the owner's standing merge
-(`landing.md` A, `Proposed`, `MergeRead`, `Standing`)."""
+"""The pull request's proposal, each start of the merge agent and its read, and the owner's
+standing merge (`landing.md` A, `Proposed`, `MergeRead`, `Standing`)."""
 
 from typing import Literal
 
@@ -38,9 +38,23 @@ class Proposed(Frozen, frozen=True, kw_only=True):
     at: Moment
 
 
+class MergeDispatch(Frozen, frozen=True, kw_only=True):
+    """One start of the merge agent: its number, which its reply carries back, the tip, base
+    and round of its brief, the seat it was started on, and the brief it reads."""
+
+    number: int
+    tip: Sha
+    base: Sha
+    round: int
+    seat: str
+    brief: TaskPath
+    at: Moment
+
+
 class MergeRead(Frozen, frozen=True, kw_only=True):
     """The merge agent's read of a tip on a base: its verdict, its call on a moved base, why,
-    the read it carried from, the attempts, an unusable answer, and the brief it read."""
+    the read it carried from, the attempts, an unusable answer, the brief it read, and the
+    dispatch it answers."""
 
     tip: Sha
     base: Sha
@@ -53,6 +67,7 @@ class MergeRead(Frozen, frozen=True, kw_only=True):
     no_answer: bool = False
     by: str | None = None
     brief: TaskPath | None = None
+    dispatch: int | None = None
     at: Moment
 
 

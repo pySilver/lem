@@ -395,22 +395,27 @@ their own `say`, and take the landing up as after a cut-off.
    owner, with no merge of his that stands, waits for him as step 7 says: "Waits for you" shows
    "Read the merge review".
 7. **The merge agent**, for every proposed task, the fast track's too. You read no diff, so the
-   read is a fresh agent's. `lem land merge-review SLUG` fetches the base and publishes its brief,
-   `merge-brief-TIP-BASE.md` in the task directory, and its `result` names the brief (`brief`),
-   the proposed `tip`, the `base` the read is against, and its `seat`; its `next` starts the merge agent, with
-   the command that writes the reply down. The brief is named by that tip and that base, so a read
-   of an earlier proposal or of an earlier base never takes its place. When the base moved by any
+   read is a fresh agent's. `lem land merge-review SLUG` fetches the base, keeps the merge agent's
+   dispatch on the task's record and publishes its brief, `merge-brief-TIP-BASE-ROUND-N.md` in the
+   task directory, and its `result` names the brief (`brief`), the proposed `tip`, the `base` the
+   read is against, its `seat` and its `dispatch`, the number N; its `next` starts the merge agent,
+   with the command that writes the reply down. The brief is named by that tip and that base, so a
+   read of an earlier proposal or of an earlier base never takes its place. Run again on the same
+   seat, the step gives the same dispatch and brief; a stand-in, a seat the settings changed or a
+   new round is a new dispatch with a brief of its own, and the reply of the dispatch before it is
+   refused (`old-dispatch`). When the base moved by any
    file since the checks ran, the brief's `moved` holds what moved since then: the commits, the
    files, and those of them the change touches too; `base` is then origin's base now, and the
-   checks' base otherwise. `ask-merger` with the brief and its recorded `seat`
-   (a stand-in while one holds, else `seats.merger`). The agent reads the task's files, its
+   checks' base otherwise. `ask-merger` with the brief, its dispatch's `seat` (a stand-in while
+   one holds, else `seats.merger`) and its `dispatch`. The agent reads the task's files, its
    reviews and its diff, and on a moved base what moved, changes nothing, and replies with its
    review: its verdict first (`Verdict: merge.` or `Verdict: call.`), on a moved base its call on
    the move second (`Base: safe.` or `Base: another round.`, with one sentence of why), what was
    built and why as a story, the results with each criterion whose test asserts less than it
    requires, each decision taken without the owner with why, and the task's time against what was
-   expected. When it ends, `lem land merge-review SLUG --file "ANSWER" --tip TIP --base BASE`, TIP
-   and BASE being the `tip` and the `base` of that brief, writes the reply down as
+   expected. When it ends,
+   `lem land merge-review SLUG --file "ANSWER" --tip TIP --base BASE --dispatch N`, TIP, BASE and
+   N being the `tip`, the `base` and the `dispatch` of that brief, writes the reply down as
    `merge-review.md`, word for word, and prints the read (`verdict`, `base_call` and `why`) and
    `next`. The read covers BASE and no later base. The answer of a brief of an earlier tip is
    refused: a new proposal is read again, as below. Act on the `next` it prints:

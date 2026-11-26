@@ -61,5 +61,5 @@ def lines(
 ) -> Lines:
     """The plan talk on the standard track, each stand-in, and the careful call."""
     talks = talk(record, facts) if full else ()
-    stood = tuple(stand_ins.lines(record.task.stand_ins).values())
+    stood = stand_ins.finals(record.task.stand_ins)
     return (*talks, *stood, careful_line(record, careful))

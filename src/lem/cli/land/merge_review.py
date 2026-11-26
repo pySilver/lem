@@ -1,6 +1,6 @@
 """`lem land merge-review`: the merge agent's brief, or its reply written down.
 
-    lem land merge-review SLUG [--file FILE|--no-answer] [--tip TIP] [--base BASE]
+    lem land merge-review SLUG [--file FILE|--no-answer] [--tip TIP] [--base BASE] [--dispatch N]
 
 The step `land-merge` owns it.
 """
@@ -25,24 +25,29 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     no_answer: bool = False
     tip: str | None = None
     base: str | None = None
+    dispatch: int | None = None
 
 
 def run(call: Call) -> Envelope:
     """Write the merge agent's brief, or its reply (or that it gave none) to the brief of
-    `--tip` and `--base`."""
-    brief = (call.tip, call.base) if call.tip and call.base else None
+    `--tip` and `--base` that dispatch `--dispatch` started."""
+    tip, base = call.tip, call.base
+    brief = (tip, base, call.dispatch) if tip and base else None
     return mergeread.run(
         place.folder(), call.slug, call.reply, brief, no_answer=call.no_answer
     )
 
 
 def given(words: checks.Given) -> checks.Given:
-    """Refuse a call with both an answer and none, or with a tip or base and neither: the tip
-    and the base go with the answer whose brief they name."""
+    """Refuse a call with both an answer and none, or with a tip, base or dispatch and
+    neither: they go with the answer whose brief they name."""
     checks.at_most_one(words, "reply", "no_answer")
     answer = checks.counted(words, ("reply", "no_answer"))
-    if not answer and checks.counted(words, ("tip", "base")):
-        why = "--tip and --base go with --file or --no-answer: the brief's tip and base"
+    if not answer and checks.counted(words, ("tip", "base", "dispatch")):
+        why = (
+            "--tip, --base and --dispatch go with --file or --no-answer: the brief's tip "
+            "and base, and the dispatch that started its agent"
+        )
         raise click.UsageError(why, click.get_current_context())
     return words
 
@@ -65,6 +70,11 @@ COMMAND = click.Command(
         ),
         click.Option(
             ["--base"], help="the base the step printed with the brief the agent read"
+        ),
+        click.Option(
+            ["--dispatch"],
+            type=click.IntRange(min=1),
+            help="the dispatch the step printed with the brief the agent read",
         ),
     ],
     callback=lambda **words: run(msgspec.convert(given(words), Call)),

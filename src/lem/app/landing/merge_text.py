@@ -3,8 +3,11 @@
 `main:land.noted`).
 
 The new text is published at a path of its own and waits on record (`text_waits`) before the
-forge's edit; the record keeps citing the text the forge confirmed until the edit succeeds. A
-failed edit leaves the step due, and the step that needs the line tries again.
+forge's edit; the record keeps citing the text the forge confirmed until the edit succeeds. The
+edit sends the body alone, so that a title the owner gave on the forge since Lem's look stays
+(`main:land.noted`), and the text confirmed is the body the forge gives back, with the owner's
+own words in it, once it holds every line the edit was for. A failed edit, or a body given back
+without a line, leaves the step due, and the step that needs the line tries again.
 """
 
 from functools import partial
@@ -58,16 +61,35 @@ def named_of(record: Record, body: str) -> str:
 
 def sent(context: Context, record: Record, edit: tuple[PullSeen, str]) -> Record:
     """Publish the newer text (`edit`: the pull request and its newer body), note that it
-    waits, and send it to the forge; a failed edit is refused, and the step stays due."""
+    waits, and send the body alone to the forge; the body it gives back is the text
+    confirmed. A failed edit, or a body given back without a line the edit was for, is
+    refused, and the step stays due."""
     pull, body = edit
     named = named_of(record, body)
     files.publish(context.folder / named, body.encode())
     waits = context.write(record, partial(waiting, text=named))
     try:
-        context.ports.forge.update_pull(pull.number, pull.title, body)
+        given = context.ports.forge.update_pull(pull.number, None, body).body
     except Unanswered as error:
         raise merge_notes.edit_refusal(record, error.said) from error
-    return context.write(waits, partial(confirmed, text=named))
+    return context.write(
+        waits, partial(confirmed, text=held_of(context, record, given))
+    )
+
+
+def held_of(context: Context, record: Record, given: str) -> str:
+    """The body the forge gave back after the edit, published by its digest; refused when it
+    lacks a line the edit was for."""
+    shown = given.splitlines()
+    lacking = [
+        line for line in merge_notes.wanted_of(context, record) if line not in shown
+    ]
+    if lacking:
+        said = f"the text GitHub gave back lacks the line {lacking[0]!r}"
+        raise merge_notes.edit_refusal(record, said)
+    held = named_of(record, given)
+    files.publish(context.folder / held, given.encode())
+    return held
 
 
 def edited(context: Context, record: Record) -> Record:

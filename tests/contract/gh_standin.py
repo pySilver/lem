@@ -229,8 +229,7 @@ def answered(forge: LocalForge, state: State, words: list[str]) -> object:
     if words[1] == "view":
         return shaped(forge.pull(number))
     if words[1] == "edit":
-        title = option(words, "--title") or ""
-        return forge.update_pull(number, title, body_of(words)).url
+        return forge.update_pull(number, option(words, "--title"), body_of(words)).url
     if words[1] == "merge":
         return merged(forge, state, number, words)
     raise Unanswered("gh", f"unknown command {' '.join(words)}")

@@ -72,6 +72,8 @@ class ForgeContract:
         updated = world.forge.update_pull(opened.number, "Fixed", "new body")
         assert (updated.title, updated.body) == ("Fixed", "new body")
         assert world.forge.pull(opened.number).body == "new body"
+        alone = world.forge.update_pull(opened.number, None, "the body alone")
+        assert (alone.title, alone.body) == ("Fixed", "the body alone")
         with pytest.raises(Exception, match="already exists"):
             world.forge.open_pull("fix-the-login", "main", "Again", "body")
 

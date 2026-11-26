@@ -76,8 +76,9 @@ class Pulls(Gh):
         )
         return self.pull(number_of(made))
 
-    def update_pull(self, number: int, title: str, body: str) -> Pull:
-        words = ("--title", title, *BODY)
+    def update_pull(self, number: int, title: str | None, body: str) -> Pull:
+        named = () if title is None else ("--title", title)
+        words = (*named, *BODY)
         self.said(PR, "edit", str(number), *words, given=body)
         return self.pull(number)
 

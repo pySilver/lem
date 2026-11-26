@@ -121,7 +121,7 @@ def facts_of(context: Context, landing: Landing, read: tuple[Pull, Proposed]) ->
         relands=landing.relands,
         pictures=merge_artifacts.pictures_of(context.folder),
         filed=merge_artifacts.items_of(context, proposed),
-        stand_ins=tuple(stand_ins.lines(task.stand_ins).values()),
+        stand_ins=stand_ins.finals(task.stand_ins),
         try_it={"worktree": worktree, "checkout": f"gh pr checkout {pull.number}"},
         base=context.world.base,
         moved=moved_of(context, proposed.tip),

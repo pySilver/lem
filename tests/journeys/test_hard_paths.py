@@ -179,7 +179,14 @@ def proposed(capsys: Capsys, world: World) -> Envelope:
 def merge_read(capsys: Capsys, world: World, said: str) -> Envelope:
     told = ok(capsys, world, "land", "merge-review", SLUG)["result"]
     reply = world.written("reply.md", said)
-    pinned = ("--tip", told["tip"], "--base", told["base"])
+    pinned = (
+        "--tip",
+        told["tip"],
+        "--base",
+        told["base"],
+        "--dispatch",
+        str(told["dispatch"]),
+    )
     return ok(capsys, world, "land", "merge-review", SLUG, "--file", reply, *pinned)
 
 

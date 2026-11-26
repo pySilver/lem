@@ -1587,6 +1587,12 @@
               "aliases": [],
               "value": true,
               "required": false
+            },
+            "--dispatch": {
+              "aliases": [],
+              "value": true,
+              "required": false,
+              "type": "int"
             }
           },
           "positionals": [

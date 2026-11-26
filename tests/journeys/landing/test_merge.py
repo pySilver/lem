@@ -14,6 +14,7 @@ from functools import partial
 from pathlib import Path
 from threading import Event
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 import pytest
 from msgspec.structs import replace
@@ -36,7 +37,11 @@ from journeys.test_skeleton import (
     upto,
 )
 from lem.app.landing import changes, frame, merge, merge_lock
-from lem.app.landing.merge_seats import NAME as MERGE_SEATS
+from lem.board.inputs.layout import Viewer
+from lem.board.views.artifacts.tab import artifacts
+from lem.board.views.ask import Ask
+from lem.board.views.gather import gather
+from lem.board.views.world import Clock, Place
 from lem.cli import lazy
 from lem.kernel import clock
 from lem.model.landing.merge_asked import Asked
@@ -56,6 +61,10 @@ if TYPE_CHECKING:
     from lem.store.tasks import Change
 
 type Capsys = pytest.CaptureFixture[str]
+UTC = ZoneInfo("UTC")
+VIEWER = Viewer(
+    host="mac", workspace="repo", base="/mac/repo", local=True, may_act=True
+)
 MERGED = command("land", "merged", "SLUG")
 CLEAN = command("land", "clean", "SLUG")
 SERVER = command(
@@ -104,7 +113,14 @@ def owner(capsys: Capsys, world: World, *words: str) -> Envelope:
 def answered(capsys: Capsys, world: World, said: str | None) -> Envelope:
     """The merge agent's reply to the brief `lem land merge-review` printed last, or its end
     with no answer."""
-    pinned = ("--tip", world.told["tip"], "--base", world.told["base"])
+    pinned = (
+        "--tip",
+        world.told["tip"],
+        "--base",
+        world.told["base"],
+        "--dispatch",
+        world.told["dispatch"],
+    )
     if said is None:
         return command("land", "merge-review", "SLUG", "--no-answer", *pinned)(
             capsys, world
@@ -186,20 +202,117 @@ def confirmed_text(world: World) -> str:
     return (world.task_folder / landing(world)["proposed"]["text"]).read_text()
 
 
-def test_a_reply_to_a_brief_without_its_seat_is_refused(
+def facts_in(path: str) -> dict[str, object]:
+    """The facts of a published brief, as its agent reads them."""
+    text = Path(path).read_text()
+    return json.loads(text.split("```json\n", 1)[1].split("\n```", 1)[0])
+
+
+def pinned_to(world: World, told: Envelope) -> None:
+    """The next reply names the brief and the dispatch of `told`."""
+    world.told.update(
+        tip=told["tip"], base=told["base"], dispatch=str(told["dispatch"])
+    )
+
+
+def board_pull(world: World) -> tuple[str, tuple[str, ...]]:
+    """What the board's Artifacts tab says of the task's pull request text, and the documents
+    its section of the pull request lists, read from the task's own files."""
+    ask = Ask(
+        viewer=VIEWER,
+        clock=Clock(now=clock.now(), zone=UTC),
+        version="v",
+        place=Place(repo="repo", base="main", path=str(world.checkout)),
+        home=world.folder / "home",
+    )
+    found = gather(world.checkout, ask)
+    seen = next(one for one in found.tasks if one.record.task.slug == SLUG)
+    tab = artifacts(found, seen)
+    pull = next(section for section in tab.sections if section.key == "pr")
+    return tab.said, tuple(doc.path for doc in pull.docs)
+
+
+def new_round(capsys: Capsys, world: World) -> list[str]:
+    """Each step `lem land next` names, run up to the merge agent's read of the new round."""
+    ran: list[str] = []
+    while (step := due(capsys, world)["step"]) != "merge-review":
+        assert len(ran) < 8, ran
+        ran.append(step)
+        go = proposal if step == "propose" else command("land", step, "SLUG")
+        outcome = go(capsys, world)
+        assert outcome["ok"], (ran, outcome)
+    return ran
+
+
+def test_a_reply_that_names_no_dispatch_on_record_is_refused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
 ) -> None:
     world = made(tmp_path, monkeypatch)
     upto(capsys, world, "merge-review")
     original = brief(capsys, world)["result"]
-    (world.task_folder / MERGE_SEATS).unlink()
     assert Path(original["brief"]).is_file()
+    assert [one["number"] for one in landing(world)["dispatches"]] == [
+        original["dispatch"]
+    ]
+    world.told.update(dispatch="7")
     for reply_text in ("Verdict: merge. The checks hold.", None):
         refused = answered(capsys, world, reply_text)
         assert (refused["code"], refused["refusal"]["code"]) == (1, "brief-seat")
+        assert "--dispatch" in refused["refusal"]["fix"]
+    reply = world.written("reply.md", "Verdict: merge. The checks hold.")
+    pinned = ("--tip", original["tip"], "--base", original["base"])
+    bare = command("land", "merge-review", "SLUG", "--file", reply, *pinned)
+    assert bare(capsys, world)["refusal"]["code"] == "brief-seat"
+    world.told.update(base="f" * 40, dispatch=str(original["dispatch"]))
+    unbriefed = answered(capsys, world, "Verdict: merge. The checks hold.")
+    assert (unbriefed["code"], unbriefed["refusal"]["code"]) == (1, "brief-of")
+    world.told.update(base=original["base"])
     assert not landing(world).get("reads")
     assert not (world.task_folder / "merge-review.md").exists()
-    assert read(capsys, world, "Verdict: merge. The checks hold.")["ok"]
+    again = read(capsys, world, "Verdict: merge. The checks hold.")
+    assert again["ok"], again
+    assert again["result"]["dispatch"] == original["dispatch"]
+
+
+def test_an_answer_of_an_earlier_round_or_seat_authorizes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge-review")
+    seats_of(world, PRIMARY)
+    first = brief(capsys, world)["result"]
+    assert brief(capsys, world)["result"] == first
+    seats_of(world, REPLACEMENT)
+    edited = brief(capsys, world)["result"]
+    assert (edited["tip"], edited["base"]) == (first["tip"], first["base"])
+    assert edited["dispatch"] != first["dispatch"]
+    assert edited["brief"] != first["brief"]
+    pinned_to(world, first)
+    refused = answered(capsys, world, "Verdict: merge. The checks hold.")
+    assert (refused["code"], refused["refusal"]["code"]) == (1, "old-dispatch")
+    assert f"--dispatch {edited['dispatch']}" in refused["refusal"]["fix"]
+    assert not landing(world).get("reads")
+
+    team = world.checkout / ".lem" / "settings.toml"
+    team.write_text(team.read_text().replace('"grep -q receive README.md", ', ""))
+    assert new_round(capsys, world)
+    later = brief(capsys, world)["result"]
+    assert (later["tip"], later["base"]) == (first["tip"], first["base"])
+    assert later["dispatch"] not in {first["dispatch"], edited["dispatch"]}
+    for old in (first, edited):
+        pinned_to(world, old)
+        stale = answered(capsys, world, "Verdict: merge. The checks hold.")
+        assert (stale["code"], stale["refusal"]["code"]) == (1, "old-dispatch")
+    assert not landing(world).get("reads")
+    assert due(capsys, world)["step"] == "merge-review"
+    pinned_to(world, later)
+    recorded = answered(capsys, world, "Verdict: merge. The checks hold.")
+    assert recorded["ok"], recorded
+    assert (recorded["result"]["by"], recorded["result"]["dispatch"]) == (
+        REPLACEMENT,
+        later["dispatch"],
+    )
+    assert due(capsys, world)["step"] == "merge"
 
 
 def test_a_later_base_keeps_the_earlier_seat_and_a_new_tip_drops_both(
@@ -216,11 +329,11 @@ def test_a_later_base_keeps_the_earlier_seat_and_a_new_tip_drops_both(
     assert second["tip"] == first["tip"] and second["base"] != first["base"]
     assert second["brief"] != first["brief"]
     assert Path(first["brief"]).read_bytes() == first_text
-    world.told.update(tip=first["tip"], base=first["base"])
+    pinned_to(world, first)
     older = answered(capsys, world, "Verdict: merge.")
     assert older["ok"], older
     assert older["result"]["by"] == PRIMARY
-    world.told.update(tip=second["tip"], base=second["base"])
+    pinned_to(world, second)
     assert answered(capsys, world, None)["refusal"]["code"] == "no-verdict"
     newer = answered(capsys, world, None)
     assert newer["ok"], newer
@@ -234,9 +347,27 @@ def test_a_later_base_keeps_the_earlier_seat_and_a_new_tip_drops_both(
     assert due(capsys, world)["step"] == "merge-review"
     third = brief(capsys, world)["result"]
     assert third["tip"] != first["tip"]
-    kept = json.loads((world.task_folder / MERGE_SEATS).read_text())
-    assert kept["tip"] == third["tip"]
-    assert set(kept["bases"]) == {third["base"]}
+    assert landing(world)["dispatches"][-1]["tip"] == third["tip"]
+    for old in (first, second):
+        pinned_to(world, old)
+        stale = answered(capsys, world, "Verdict: merge.")
+        assert (stale["code"], stale["refusal"]["code"]) == (1, "old-tip")
+
+
+def edit_waits(capsys: Capsys, world: World, reply: str) -> None:
+    """The reply refused while GitHub fails the edit of the text: the edit waits, nothing is
+    read, and the board says so and lists only the text GitHub confirmed."""
+    world.forge.fail_edits = True
+    refused = answered(capsys, world, reply)
+    assert (refused["code"], refused["refusal"]["code"]) == (1, "text")
+    proposed = landing(world)["proposed"]
+    assert proposed["text_waits"]
+    said, shown = board_pull(world)
+    assert "A newer text waits for GitHub." in said
+    assert proposed["text"] in shown
+    assert proposed["text_waits"] not in shown
+    assert not landing(world).get("reads")
+    world.forge.fail_edits = False
 
 
 def test_a_merger_fallback_updates_the_pull_and_keeps_the_seat_that_read(
@@ -246,12 +377,16 @@ def test_a_merger_fallback_updates_the_pull_and_keeps_the_seat_that_read(
     upto(capsys, world, "merge-review")
     seats_of(world, PRIMARY)
     first = brief(capsys, world)["result"]
+    first_text = Path(first["brief"]).read_bytes()
     assert first["seat"]["seat"] == PRIMARY
+    assert facts_in(first["brief"])["stand_ins"] == []
     assert seat_failed(capsys, world, PRIMARY, "tokens")["seat"] == FALLBACK
     stand_in = brief(capsys, world)["result"]
-    assert tuple(stand_in[key] for key in ("tip", "base", "brief")) == tuple(
-        first[key] for key in ("tip", "base", "brief")
-    )
+    assert (stand_in["tip"], stand_in["base"]) == (first["tip"], first["base"])
+    assert stand_in["brief"] != first["brief"]
+    assert stand_in["dispatch"] != first["dispatch"]
+    assert Path(first["brief"]).read_bytes() == first_text
+    assert facts_in(stand_in["brief"])["stand_ins"] == [STOOD]
     assert (stand_in["seat"]["seat"], stand_in["seat"]["source"]) == (
         FALLBACK,
         "stand-in",
@@ -259,14 +394,9 @@ def test_a_merger_fallback_updates_the_pull_and_keeps_the_seat_that_read(
     seats_of(world, REPLACEMENT)
 
     old = confirmed_text(world)
-    world.forge.fail_edits = True
     reply = "Verdict: merge. The checks hold."
-    refused = answered(capsys, world, reply)
-    assert (refused["code"], refused["refusal"]["code"]) == (1, "text")
+    edit_waits(capsys, world, reply)
     assert confirmed_text(world) == old == text_of(world)
-    assert landing(world)["proposed"]["text_waits"]
-    assert not landing(world).get("reads")
-    world.forge.fail_edits = False
     edits = world.acts.done.count("update_pull")
     world.acts.cut = ("update_pull", edits + 1)
     with pytest.raises(Killed):
@@ -276,13 +406,15 @@ def test_a_merger_fallback_updates_the_pull_and_keeps_the_seat_that_read(
     assert text_of(world).splitlines().count(STOOD) == 1
     recorded = answered(capsys, world, reply)["result"]
     assert recorded["by"] == FALLBACK
-    assert recorded["brief"] == Path(first["brief"]).name
+    assert recorded["brief"] == Path(stand_in["brief"]).name
+    assert recorded["dispatch"] == stand_in["dispatch"]
     assert landing(world)["reads"][-1] == recorded
     assert world.record()["journal"][-1]["read"] == recorded
     assert confirmed_text(world) == text_of(world)
     assert text_of(world).splitlines().count(STOOD) == 1
     assert world.acts.done.count("update_pull") == edits + 1
     assert "text_waits" not in landing(world)["proposed"]
+    assert "waits for GitHub" not in board_pull(world)[0]
 
     assert seat_failed(capsys, world, FALLBACK, "login")["blocked"]
     assert world.record()["task"]["hold"]["seat"] == "merger"
@@ -291,6 +423,86 @@ def test_a_merger_fallback_updates_the_pull_and_keeps_the_seat_that_read(
     assert confirmed_text(world) == text_of(world)
     assert STOOD not in text_of(world).splitlines()
     assert text_of(world).splitlines().count(FAILED) == 1
+
+
+def test_the_stand_in_line_edits_the_body_alone_and_confirms_what_github_holds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge-review")
+    seats_of(world, PRIMARY)
+    brief(capsys, world)
+    assert seat_failed(capsys, world, PRIMARY, "tokens")["seat"] == FALLBACK
+    brief(capsys, world)
+    forge, edit = world.forge, world.forge.update_pull
+    renamed, note = "docs: receive, as the owner titled it", "The owner's own note."
+
+    def raced(number: int, title: str | None, body: str) -> Pull:
+        forge.pulls[number] = replace(forge.pulls[number], title=renamed)
+        edit(number, title, body)
+        noted = f"{forge.pulls[number].body}\n{note}\n"
+        forge.pulls[number] = replace(forge.pulls[number], body=noted)
+        forge.bodies[number] = noted
+        return forge.pull(number)
+
+    monkeypatch.setattr(forge, "update_pull", raced)
+    recorded = answered(capsys, world, "Verdict: merge. The checks hold.")
+    assert recorded["ok"], recorded
+    assert forge.pulls[1].title == renamed
+    assert confirmed_text(world) == text_of(world)
+    assert note in confirmed_text(world).splitlines()
+    assert STOOD in confirmed_text(world).splitlines()
+
+
+def test_a_body_given_back_without_the_line_confirms_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge-review")
+    seats_of(world, PRIMARY)
+    brief(capsys, world)
+    assert seat_failed(capsys, world, PRIMARY, "tokens")["seat"] == FALLBACK
+    brief(capsys, world)
+    old = confirmed_text(world)
+    forge, edit = world.forge, world.forge.update_pull
+
+    def overwritten(number: int, title: str | None, body: str) -> Pull:
+        edit(number, title, body)
+        kept = forge.pulls[number].body.replace(f"{STOOD}\n", "")
+        forge.pulls[number] = replace(forge.pulls[number], body=kept)
+        forge.bodies[number] = kept
+        return forge.pull(number)
+
+    monkeypatch.setattr(forge, "update_pull", overwritten)
+    refused = answered(capsys, world, "Verdict: merge. The checks hold.")
+    assert (refused["code"], refused["refusal"]["code"]) == (1, "text")
+    assert "lacks the line" in refused["refusal"]["why"]
+    assert confirmed_text(world) == old
+    assert landing(world)["proposed"]["text_waits"]
+    assert not landing(world).get("reads")
+
+
+def test_a_stand_in_that_read_after_the_owners_go_on_is_told_beside_the_one_that_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge-review")
+    seats_of(world, PRIMARY)
+    brief(capsys, world)
+    assert seat_failed(capsys, world, PRIMARY, "tokens")["seat"] == FALLBACK
+    brief(capsys, world)
+    assert seat_failed(capsys, world, FALLBACK, "login")["blocked"]
+    assert command("seat", "again", "SLUG")(capsys, world)["ok"]
+    assert brief(capsys, world)["result"]["seat"]["seat"] == PRIMARY
+    assert seat_failed(capsys, world, PRIMARY, "tokens")["seat"] == FALLBACK
+    second = brief(capsys, world)["result"]
+    assert facts_in(second["brief"])["stand_ins"] == [FAILED, STOOD]
+    recorded = answered(capsys, world, "Verdict: merge. The checks hold.")
+    assert recorded["ok"], recorded
+    assert recorded["result"]["by"] == FALLBACK
+    shown = text_of(world).splitlines()
+    assert (shown.count(FAILED), shown.count(STOOD)) == (1, 1)
+    assert confirmed_text(world) == text_of(world)
 
 
 def test_a_merge_on_github_notices_a_failed_fallback_that_never_replied(
@@ -338,8 +550,8 @@ def test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read(
     assert '"overlap": []' in facts
     assert briefed["next"]["do"] == "spawn"
     assert (
-        f"--tip {world.told['tip']} --base {world.told['base']}"
-        in briefed["next"]["command"]
+        f"--tip {world.told['tip']} --base {world.told['base']} "
+        f"--dispatch {world.told['dispatch']}" in briefed["next"]["command"]
     )
     safe = answered(capsys, world, SAFE)
     assert safe["result"]["base_call"] == "safe"

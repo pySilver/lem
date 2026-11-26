@@ -26,8 +26,9 @@ ROUND = merge_said.ROUND
 
 
 class Briefed(Frozen, frozen=True, kw_only=True):
-    """The brief a reply answers: its tip and base, the tree of that base, and whether that
-    tree is not the tree of the base the checks ran on (a moved base)."""
+    """The brief a reply answers: its tip and base, the tree of that base, whether that tree
+    is not the tree of the base the checks ran on (a moved base), and the seat, the brief and
+    the number of the dispatch that started the agent (`dispatches.py`)."""
 
     tip: Sha
     base: Sha
@@ -35,6 +36,7 @@ class Briefed(Frozen, frozen=True, kw_only=True):
     moved: bool
     by: str | None = None
     brief: str | None = None
+    dispatch: int | None = None
 
 
 def settled(read: MergeRead) -> bool:
@@ -81,6 +83,7 @@ def made(
         base_tree=briefed.base_tree,
         by=briefed.by,
         brief=briefed.brief,
+        dispatch=briefed.dispatch,
         no_answer=reply is None,
         at=now,
     )
@@ -147,5 +150,5 @@ def again(read: MergeRead) -> Refusal | None:
         f"the merge agent's answer was not recorded: {read.why}; the merge agent is asked "
         "again",
         "a fresh merge agent reads the same brief, and its reply is written down with the "
-        "same --tip and --base",
+        "same --tip, --base and --dispatch",
     )

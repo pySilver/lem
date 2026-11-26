@@ -177,7 +177,14 @@ def merged(capsys: Capsys, world: World) -> None:
     """The merge agent's read and the merge, its bookkeeping and the cleanup."""
     read = step(capsys, world, "merge-review")["result"]
     reply = world.written("reply.md", "Verdict: merge\n\nThe word and its test.\n")
-    pinned = ("--tip", read["tip"], "--base", read["base"])
+    pinned = (
+        "--tip",
+        read["tip"],
+        "--base",
+        read["base"],
+        "--dispatch",
+        str(read["dispatch"]),
+    )
     ok(capsys, world, "land", "merge-review", SLUG, "--file", reply, *pinned)
     step(capsys, world, "merge", "--by", "merger", "--message", TITLE)
     step(capsys, world, "merged")

@@ -308,9 +308,32 @@ def test_the_merge_review_dispatches_the_seat_and_seat_commands_handle_failure()
         "lem land merge-review SLUG",
         "lem seat failed SLUG merger",
         "lem seat again SLUG",
-        "--no-answer --tip TIP --base BASE",
+        "--no-answer --tip TIP --base BASE --dispatch N",
+        '--file "ANSWER" --tip TIP --base BASE --dispatch N',
     ):
         assert words in said
+    failed = said.split("When the merge agent's agent gives an error", 1)[1]
+    failed = failed.split("Any other non-zero exit", 1)[0]
+    stood, blocked = failed.split("Or its `blocked` is true", 1)
+    assert "then run `lem land merge-review SLUG` again" in stood
+    assert "It starts a new dispatch on the fallback's seat" in stood
+    assert "Start the agent with that dispatch's seat, brief and reply command" in stood
+    assert "the reply of the dispatch that failed is refused" in stood
+    assert "`lem seat again SLUG`, `lem land merge-review SLUG`" in blocked
+    assert "start the agent from its dispatch" in blocked
+
+
+def test_the_stage_starts_the_merge_agent_on_its_dispatchs_seat() -> None:
+    said = text("stages/land.md")
+    step = said.split("7. The merge agent", 1)[1].split(" 8. The merge.", 1)[0]
+    assert (
+        "`ask-merger` with the brief, its dispatch's `seat` (a stand-in while one holds, "
+        "else `seats.merger`) and its `dispatch`."
+    ) in step
+    assert (
+        '`lem land merge-review SLUG --file "ANSWER" --tip TIP --base BASE --dispatch N`'
+    ) in step
+    assert "the reply of the dispatch before it is refused (`old-dispatch`)" in step
 
 
 def test_the_review_tool_runs_in_the_main_checkout_into_the_task_directory() -> None:
