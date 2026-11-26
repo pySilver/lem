@@ -11,26 +11,36 @@ To refresh the owner's page after an edit: `/Users/Silver/Projects/GitHub/lem/.c
 
 ## Where we are
 
-- **2026-11-26 06:17 CET.** `rebuild` = `ef3a9fa6` holds 31 of 35 steps, and the parts of `close` that
-  need no trial: no old-form mark is left (the unit level skips nothing: 4,399 of 4,399), 44 ledger
-  rows still lack a fate (most wait for the trials), five defects found on the way are fixed (among
-  them a phone Yes that lost its note and a wait count the server and the page counted apart); all
-  seven levels pass (journeys 309 of 309) and the browser level 46 of 46. Left: `pack-trial` and the
-  trials, then the last run of `close`, then the cutover. They wait for the owner's answer on the page.
+- **2026-11-26 17:44 CET.** `rebuild` = `e948c6c6` holds all 35 steps but one row of `close`. The trials:
+  P1 to P6, R2 to R9 and A1 to A5 passed (A3, A4, A5 on the fixed `rebuild` after failing on the trial
+  tag `v0.99.0`); R1 passed every part but its review, which waits for the trial home's Codex login (the
+  owner, at the Mac). Each defect the trials found is fixed on `rebuild` with its test (the Stop hook's
+  mark, a reload that dismissed, an old card back, the mailbox hook in the doctor, the fast track's
+  criterion, the Tailscale app binary, the door setting, the card that re-rendered under his hand on the
+  phone, the white page after a merge). `close`: every one of the 3,327 ledger rows has a fate; the whole
+  suite ran once (5,280 collected, 5,275 passed, 5 skipped: the hook timings at load 5.2, measured quiet
+  in P4) and `check.py` proves every row but R1's. Astra's reviews of the close found 19 blockers, among
+  them an earlier round's reply that could authorize a merge; all fixed, Opus approved the whole.
+  Left: R1's review (his Codex login), a pass over the defects found on the way (Sol), then the cutover on
+  his word.
 - **Group 3** is on `rebuild`.
 - **Group 4** (the board) is on `rebuild`; it built from 15:33 on a base of `rebuild` with core round 2, `owner` and
   `board-inputs` merged in (Astra moved every reader of the task wait to the list: `f3b82ece`).
-- **Next:** the owner's answer on the trials page, then `pack-trial` and the trials, then `close`; the cutover waits for his word.
+- **Next:** the later pass (Sol), R1's review once he logs the trial home's Codex in, then the cutover on his word.
 - **Measure of progress:** the ledger holds 3,327 rows of today's behavior, each owned by one
   step. The steps of groups 0 to 2 own 1,881 of them (57%); every one of those rows has a fate and
   a proof (`tests/ledger/check.py --step STEP`).
-- **Open with the owner:** how far the last trials may go without him (a page in his session). His goal of 15:00 is to complete this roadmap; the cutover
+- **Done (11:20):** the trial home's gh is logged out (gh auth status: not logged in; hosts.yml empty); the owner's reminder needs no action.
+- **Open with the owner (the trials, `trials-round1.md` beside this page):** a Claude Code login in a scratch profile (R1, R2, R8, A1 to A5, and P5's last row through P1's plugin); P1's tag and tap branch; P3 and P6 from the Dock; R6 his phone; R7 a second tailnet machine with a door; R9 a project he names. One side effect to tell him: the keg install upgraded Homebrew's zstd 1.5.7_1 to 1.6.0 (modes set back; not rolled back). His goal of 15:00 is to complete this roadmap; the cutover
   waits for his word.
 
 ## Now running
 
 | Who | What | Since | Waits for |
 | --- | --- | --- | --- |
+| Sol | the later pass: the readers of every task record (decision 30), the brief titles on the map, two duties that read the whole settings, a family's case, Escape in a browser question, the no-session row | 17:44 | review, join |
+| Sol | close: the 7 rows that are defects (the merge seat and its stand-in, a reply with no seat, a stale peer refusal) | 15:20 | review, join, then T full and check.py |
+| owner | the trial home's Codex login (Inbox), for R1's review | 14:12 | his return |
 | owner | a page asks how far the last trials may go without him (P1 needs a tag and a branch on his tap; P3 a Claude Code he starts from the Dock; R6 his phone) | 03:29 | his answer |
 
 **Done since 14:30:** the inventory of the stand-ins (`standins-inventory.md` beside this page: 14 droppable now, 9 after the next joins, 6 kept for later steps); group 3 and group 4 landed (`land-text`, `board-acts`, then the four other board steps in one join); `addons-flow`, `ask` and the seams repairs reviewed and repaired; Sol's case sheets of 8 coming steps (about 880 rows: 760 with a direct proof on `main`, 79 with none); Astra's audit of the landing's seams (25 findings, 11 seams sound).
@@ -46,6 +56,10 @@ to him: tell the session to change one).
 
 | # | Decision | By | Day, time |
 | --- | --- | --- | --- |
+| 27 | The trials run without him where nothing outside this Mac changes; P1's tag and tap branch, P3 (a Dock-started Claude Code), R6 (his phone) and R9 (his project) wait for him | O | 11-26 10:19 |
+| 28 | The rest of the trials: his gateway settings in the trial home, a trial tag `v0.99.0` removed after, P3 and P6 by the agent, R6 now with his phone, R7 on his MacBook Pro, R9 on mybaze | O | 11-26 11:44 |
+| 29 | R9: 34 mybaze files at 0455840a, the NFC size task, the operator answers the owner steps | O | 11-26 12:14 |
+| 30 | A damaged task record: a view or total over many tasks skips it and names it; a decision that needs every record refuses and names it | S | 11-26 16:13 |
 | 26 | The docs generator is Zensical (Python, uv, the Material team's successor; pinned; its diagrams drawn by Pele, the board's renderer, so no Mermaid copy and no outside host); not Material for MkDocs (end of life 2027-05-05), not Starlight (Node) | O | 11-25 21:35 |
 | 25 | The whole documentation lives on the site, built from `docs/*.md` as the one source; the README points to it; no hand-kept copy | O | 11-25 21:25 |
 | 24 | The board's views are 15,091 lines (the plan budgeted 3,800 for all of `board/`); the whole new board so far is 18,268 lines against 17,148 for the old board's model, pages and task panel on `main` (+7%): kept; the review cuts duplication; a size pass again at `close` | S | 11-25 17:03 |
@@ -107,9 +121,9 @@ Status: **done** (merged into `rebuild`), **join** (built, reviewed, in its join
 | 28 | `journeys` | 6 | done | | the journeys of the whole app |
 | 29 | `browser` | 6 | done | 49 | headless Chrome checks, no skip |
 | 30 | `guides` | 7 | done | 108 | README, docs, site in STE; the whole docs on the site from `docs/*.md` with Zensical (decisions 25, 26) |
-| 31 | `pack-trial` | 8 | later | 12 | the Homebrew keg, P1 to P6 |
+| 31 | `pack-trial` | 8 | running | 12 | the Homebrew keg, P1 to P6 |
 | 32 | `mutation` | 9 | done | | no surviving mutant without a test |
-| 33 | `trials` | 10 | later | 1 | R1 to R9: real agent sessions on real tasks |
+| 33 | `trials` | 10 | running | 1 | R1 to R9: real agent sessions on real tasks |
 | 34 | `close` | 11 | trials | 9 | the full run, the ledger whole, no old-form text |
 | 35 | `cutover` | 12 | his word | | merge to `main`, release 1.0.0, wipe 0.3's state |
 
