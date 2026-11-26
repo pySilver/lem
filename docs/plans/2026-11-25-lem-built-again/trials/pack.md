@@ -147,7 +147,15 @@ in `T/evidence`. Use the Python 3.14 executable `PY` from [the run order](run.md
   and `pack-hook`. Confirm neither `LEM_HOOK_BIN` nor a plugin directory argument supplied the
   hook. Close only this scratch pane before P4.
 
-- [ ] P4 Each installed hook line meets the time limit. **Runs alone on a quiet Mac.**
+- [x] P4 Each installed hook line meets the time limit. **Runs alone on a quiet Mac.**
+
+  Passed on 2026-11-26 at 10:36 on the local keg of `rebuild` at `b5b9b32c`, `PLUGIN` the keg's
+  data folder: `ok: true`, load 3.79 before and 3.89 after, 30 frames, p95 per selector
+  42.1, 41.2, 40.9, 41.2 and 42.5 ms (corrections, serve, session-start, precompact, stop).
+  Evidence in `/private/tmp/lem-trial-r1/evidence/`: `p4-timing-quiet`, the manifest
+  `p4-hooks.json` and `p4-hooks-run`; the refused attempt at load 5.19 `p4-timing-attempt1`, and
+  a measurement at load 4.9 with the load gate lifted, `p4-timing-highload` (every p95 at most
+  50.5 ms).
 
   ```sh
   "$T/step" p4-timing -- "$T/p95" --repo "$T/repo" --plugin "$PLUGIN" --task pack-hook
