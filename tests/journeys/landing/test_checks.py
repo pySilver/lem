@@ -8,16 +8,15 @@ in a child, and the test ends it in a `finally`. The machine has no load gate, s
 no case waits at the gate it does not test (`tests/journeys/conftest.py`).
 """
 
-import fcntl
 import os
+import select
 import signal
 import subprocess
 import sys
-import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from msgspec.structs import replace
@@ -117,21 +116,6 @@ HELD = (
 )
 
 
-def release_once_waited(builder: IO[str], probe: str) -> None:
-    """Let the builder's serial lock go once the checks' `lem serial` of `probe` runs and has
-    had a moment to find the lock held and wait (a second, an unmeasured estimate)."""
-    deadline = time.monotonic() + REACH
-    while time.monotonic() < deadline:
-        listed = subprocess.run(
-            ["ps", "-Ao", "command="], capture_output=True, text=True, check=False
-        ).stdout
-        if any("serial" in line and probe in line for line in listed.splitlines()):
-            time.sleep(1.0)
-            break
-        time.sleep(0.1)
-    builder.close()
-
-
 def test_the_checks_run_each_serial_command_after_the_commands_under_the_one_lock(
     world: World, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -139,24 +123,14 @@ def test_the_checks_run_each_serial_command_after_the_commands_under_the_one_loc
     probe.write_text(HELD)
     serial = f'["{sys.executable} -I {probe} {lock_path(world)}"]'
     settings(world, '["test -f README.md"]', serial)
-    places.locks_folder(world.checkout / ".lem" / "state")
-    builder = lock_path(world).open("a+")
-    fcntl.flock(builder, fcntl.LOCK_EX)
-    let_go = threading.Thread(target=release_once_waited, args=(builder, str(probe)))
-    let_go.start()
-    try:
-        envelope = checks(capsys, world)
-    finally:
-        builder.close()
-        let_go.join(timeout=REACH)
+    envelope = checks(capsys, world)
     assert envelope["ok"] is True, envelope
     outcomes = record_of(world)["landing"]["checked"]["outcomes"]
     assert [(one.get("serial", False), one["passed"]) for one in outcomes] == [
         (False, True),
         (True, True),
     ]
-    log = (world.task_folder / outcomes[1]["output"]).read_text()
-    assert "another serial test holds the lock" in log
+    assert (world.task_folder / outcomes[1]["output"]).read_text() == "held\n"
     assert outcomes[1]["last"] == "held"
     size = record_of(world)["landing"]["checked"]["size"]
     assert (size["files"], size["lines"]) == (1, 2)
@@ -457,24 +431,40 @@ def test_serial_passes_the_exit_status_through_runs_one_line_in_the_shell_and_re
 def test_two_runs_at_one_moment_take_turns_and_the_second_says_who_holds_the_lock(
     world: World, child: Children
 ) -> None:
-    first = serial(world, "sleep 3", wait=False)
+    ready = world.folder / "serial-ready"
+    release = world.folder / "serial-release"
+    finished = world.folder / "serial-finished"
+    first = serial(
+        world,
+        sys.executable,
+        "-I",
+        "-c",
+        "import sys, time; from pathlib import Path\n"
+        "Path(sys.argv[1]).touch()\n"
+        "while not Path(sys.argv[2]).exists(): time.sleep(0.05)\n"
+        "Path(sys.argv[3]).touch()",
+        str(ready),
+        str(release),
+        str(finished),
+        wait=False,
+    )
     child.procs.append(first)
-    places.locks_folder(world.checkout / ".lem" / "state")
-
-    def holds() -> bool:
-        with lock_path(world).open("a+") as stream:
-            try:
-                fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError:
-                return True
-        return False
-
-    reached(holds, "the serial lock")
-    second = serial(world, "true", wait=False)
-    _, err = second.communicate(timeout=REACH)
+    try:
+        reached(ready.exists, "the serial lock")
+        second = serial(world, "test", "-f", str(finished), wait=False)
+        child.procs.append(second)
+        assert second.stderr is not None
+        readable, _, _ = select.select([second.stderr], [], [], REACH)
+        assert readable, "the second run did not say it waits for the serial lock"
+        assert f"another serial test holds the lock (pid {first.pid}" in (
+            second.stderr.readline()
+        )
+        assert first.poll() is None
+    finally:
+        release.touch()
+    second.communicate(timeout=REACH)
     assert second.returncode == 0
-    assert first.poll() is not None
-    assert f"another serial test holds the lock (pid {first.pid}" in err
+    assert first.wait(timeout=REACH) == 0
 
 
 def test_a_stale_lock_file_of_a_dead_process_does_not_block(

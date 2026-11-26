@@ -35,20 +35,11 @@ from lem.kernel import folders, release
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
 ROOT = Path(__file__).resolve().parents[2]
 WAIT = 20.0
 SINCE = "data-stream-since-value="
-
-
-def free_port() -> int:
-    """A port nothing listens on now, which is never one of the owner's."""
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        port = sock.getsockname()[1]
-    assert port not in {machine.PORT, machine.DOOR_PORT}
-    return port
 
 
 def listening(port: int) -> bool:
@@ -185,7 +176,7 @@ def next_refresh(lines: Iterator[str]) -> str:
 
 
 def test_serve_run_serves_the_kanban_and_its_stream_and_stops_clean(
-    tmp_path: Path, env: dict[str, str]
+    tmp_path: Path, env: dict[str, str], free_port: Callable[[], int]
 ) -> None:
     repo = workspace_at(tmp_path / "repo")
     state = places.state_of(repo)
@@ -270,7 +261,10 @@ def result(ran: Ran) -> dict[str, Any]:
 
 
 def test_serve_ensure_keeps_one_server_and_another_install_replaces_it_only_when_higher(
-    tmp_path: Path, env: dict[str, str], supervisor: Supervisor
+    tmp_path: Path,
+    env: dict[str, str],
+    supervisor: Supervisor,
+    free_port: Callable[[], int],
 ) -> None:
     repo = workspace_at(tmp_path / "repo")
     port = free_port()
@@ -344,9 +338,8 @@ class Before(ThreadingHTTPServer):
     """A board server of the release before this one, in this test's process, as `main`'s
     `serve.py` answers `GET /api/server`; it records each request it gets."""
 
-    def __init__(self, home: Path) -> None:
-        super().__init__(("127.0.0.1", 0), Answering)
-        port = self.server_address[1]
+    def __init__(self, home: Path, port: int) -> None:
+        super().__init__(("127.0.0.1", port), Answering)
         self.facts = {
             "pid": 77,
             "version": f"version {release.running()}",
@@ -404,21 +397,21 @@ def files_of(*folders: Path) -> dict[str, bytes]:
 
 
 def test_a_server_of_the_release_before_keeps_its_port_and_every_file_of_its_home(
-    tmp_path: Path, env: dict[str, str], supervisor: Supervisor
+    tmp_path: Path,
+    env: dict[str, str],
+    supervisor: Supervisor,
+    free_port: Callable[[], int],
 ) -> None:
     home = lem_home(env)
     repo = workspace_at(tmp_path / "repo")
-    before = Before(home)
-    port = before.server_address[1]
-    supervisor.ports.append(port)
-    threading.Thread(target=before.serve_forever, daemon=True).start()
+    port, other = free_port(), free_port()
+    supervisor.ports.extend((port, other))
     (home / "machine.toml").write_text(f"[serve]\nport = {port}\n")
     (home / "workspaces.json").write_text('[\n  "/Users/someone/project"\n]\n')
     (home / "serve.pid").write_text(f"77 {port}\n")
     (home / "serve.lock").write_text("")
     (home / "serve.log").write_text("a line of the server of the release before\n")
     kept = files_of(home, repo)
-    other = free_port()
     calls = (
         (("serve", "ensure"), serving(env), None),
         (("serve", "ensure"), env, None),
@@ -428,6 +421,9 @@ def test_a_server_of_the_release_before_keeps_its_port_and_every_file_of_its_hom
         (("serve", "run", "--port", str(other)), env, "other-install"),
         (("board", "--no-open"), serving(env), "other-install"),
     )
+    before = Before(home, port)
+    thread = threading.Thread(target=before.serve_forever, daemon=True)
+    thread.start()
     try:
         for words, environ, refused in calls:
             ran = lem(*words, cwd=repo, env=environ)
@@ -448,12 +444,16 @@ def test_a_server_of_the_release_before_keeps_its_port_and_every_file_of_its_hom
     finally:
         before.shutdown()
         before.server_close()
+        thread.join()
     assert [seen for seen in before.seen if seen.startswith("POST")] == []
     assert supervisor.running() == []
 
 
 def test_a_home_of_lem_0_3_with_nothing_serving_is_refused_and_kept_as_it_is(
-    tmp_path: Path, env: dict[str, str], supervisor: Supervisor
+    tmp_path: Path,
+    env: dict[str, str],
+    supervisor: Supervisor,
+    free_port: Callable[[], int],
 ) -> None:
     home = lem_home(env)
     repo = workspace_at(tmp_path / "repo")
