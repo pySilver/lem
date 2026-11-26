@@ -6,7 +6,9 @@ Builds the browser's files of Lem's board into `skills/lem/assets/vendor/`:
   the board's pages and morphs a page into its new version when the server's stream says the
   workspace changed; Stimulus and the board's controllers (`controllers/`); and the markdown reader
   of `entry.js` (`marked`), which shows an artifact's text with its links checked and its raw HTML as
-  text.
+  text. `refresh.js` sets two things right in Turbo's page refresh: a refresh after a frame moved the
+  address morphs the page and does not replace it, and a refresh that finds no server leaves the page
+  as it is.
 - `board-icons.json`, the Font Awesome icons the board shows, each as an SVG symbol's `viewBox` and
   body, which the server puts into each page it renders as one `<svg>` of symbols.
 - `pele.js`, Pele's MIT-licensed browser distribution, with its license beside it. The first

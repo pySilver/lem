@@ -8,7 +8,9 @@ from msgspec.structs import replace
 from playwright.sync_api import expect
 
 from browser.board_ui import ROUNDING, STREAM_WAIT, in_screen, posts, visit
-from browser.chromium import PHONE
+from browser.chromium import DESKTOP, PHONE
+from browser.test_close_refresh import count_on, counts, live
+from browser.test_keys import seed
 from fixtures.board.working import CARD, CARD_PROMPT
 from lem.app import wiring
 from lem.app.asking import form, keys, receipts, saved
@@ -186,6 +188,46 @@ def test_waits_opens_the_phone_card_and_records_only_an_option_with_its_note(
     check_rounding_answer(cards, note)
     expect(row).to_have_count(0, timeout=STREAM_WAIT)
     assert page.evaluate("window.waitsPage") is True
+
+
+# Counts each load of a card's frame, the first one too, in the page's own window.
+FRAME_LOADS = """() => {
+  window.cardLoads = 0
+  document.addEventListener('load', event => {
+    if (event.target.localName === 'iframe') window.cardLoads++
+  }, true)
+}"""
+
+
+@pytest.mark.parametrize("phone", (True, False), ids=("phone", "desktop"))
+def test_an_open_card_keeps_the_choice_and_the_note_through_refreshes(
+    cards: Board, window: OpenWindow, *, phone: bool
+) -> None:
+    show_rounding(cards)
+    page = window(PHONE if phone else DESKTOP, phone=phone).pages[0]
+    visit(page, f"{cards.url}/waits", "#waits-list")
+    live(page)
+    page.evaluate(FRAME_LOADS)
+    row = page.locator(f"#wait-card-{CARD} .wr-verb")
+    if phone:
+        row.tap()
+    else:
+        row.click()
+    card = page.locator("#card-step iframe").content_frame
+    option = card.locator(".hd-q.cur .hd-opt").filter(has_text="Only the total")
+    option.locator(".hd-label").click()
+    expect(option).to_have_class(re.compile(r"\bon\b"))
+    field = card.locator(".hd-q.cur textarea")
+    field.fill("For the export")
+    field.focus()
+    before = count_on(page)
+    for step in range(3):
+        seed(cards, f"a-wait-while-i-answer-{step}", "A new interview", waits=True)
+        counts(page, before + step + 1)
+    assert page.evaluate("window.cardLoads") == 1
+    expect(option).to_have_class(re.compile(r"\bon\b"))
+    expect(field).to_have_value("For the export")
+    expect(field).to_be_focused()
 
 
 def test_tune_records_the_slider_value_and_the_preset_it_started_from(

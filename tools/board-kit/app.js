@@ -1,9 +1,10 @@
 // The one script of the served board (lem serve): Turbo, which visits the board's pages and morphs
 // a page into its new version when the server says the workspace changed, the board's Stimulus
-// controllers, each with one job, and the markdown reader of entry.js. esbuild bundles it into one
-// classic script, vendor/board-app.js.
+// controllers, each with one job, the markdown reader of entry.js, and what refresh.js sets right in a
+// page refresh. esbuild bundles it into one classic script, vendor/board-app.js.
 import './entry.js'
 import * as Turbo from '@hotwired/turbo'
+import './refresh.js'
 import { Application } from '@hotwired/stimulus'
 import { CONTROLLERS } from './controllers/index.js'
 

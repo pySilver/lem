@@ -24,8 +24,9 @@
 // whose new stream did not open within that time. A stream that fails is closed here, never left to the
 // browser's own reconnect, so every new one is this page's open, and the page says "reconnecting" until it
 // opens. While the stream is down the page, every POLL_MS, opens a new stream when none is opening and
-// refreshes itself, but only after the server answered a light request within ASK_MS: a refresh that finds
-// no server would make Turbo reload the page into the browser's error.
+// refreshes itself, but only after the server answered a light request within ASK_MS. A refresh whose read
+// still fails (the server stopped between the two) leaves the page as it is (refresh.js) and takes the
+// stream as down.
 import { Controller } from '@hotwired/stimulus'
 import { ago } from './time.js'
 
@@ -63,6 +64,8 @@ export default class extends Controller {
     this.held = false
     this.onPostStart = ev => this.posts.add(ev.detail.formSubmission)
     this.onPostEnd = ev => this.posted(ev.detail)
+    // a refresh that found no server: the stream that sent it is as good as down
+    this.onFailed = () => { this.close(); this.went() }
     this.onRender = ev => {
       if (ev.detail.newStream?.action !== 'refresh' || !this.posts.size) return
       ev.preventDefault()
@@ -71,6 +74,7 @@ export default class extends Controller {
     document.addEventListener('turbo:submit-start', this.onPostStart)
     document.addEventListener('turbo:submit-end', this.onPostEnd)
     document.addEventListener('turbo:before-stream-render', this.onRender)
+    document.addEventListener('lem:refresh-failed', this.onFailed)
     document.addEventListener('visibilitychange', this.onShow)
     window.addEventListener('pageshow', this.onPageShow)
     document.addEventListener('turbo:visit', this.onRestore)
@@ -84,6 +88,7 @@ export default class extends Controller {
     document.removeEventListener('turbo:submit-start', this.onPostStart)
     document.removeEventListener('turbo:submit-end', this.onPostEnd)
     document.removeEventListener('turbo:before-stream-render', this.onRender)
+    document.removeEventListener('lem:refresh-failed', this.onFailed)
     document.removeEventListener('visibilitychange', this.onShow)
     window.removeEventListener('pageshow', this.onPageShow)
     document.removeEventListener('turbo:visit', this.onRestore)

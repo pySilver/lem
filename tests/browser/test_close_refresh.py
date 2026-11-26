@@ -2,6 +2,7 @@
 
 import re
 import time
+from threading import Event
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin, urlsplit
 
@@ -10,7 +11,7 @@ from msgspec.structs import replace
 from playwright.sync_api import expect
 
 from browser.board_ui import GIFT, RECEIPT, STREAM_WAIT, WAIT, visit
-from browser.chromium import PHONE
+from browser.chromium import DESKTOP, PHONE
 from browser.test_keys import card, panel, seed
 from browser.test_sheets import CONFIRM, button, mergeable_receipt, scroll_end
 from fakes.repo import run_git
@@ -20,10 +21,11 @@ from lem.board.duties.memory import MEMORY
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
-    from playwright.sync_api import Page
+    from playwright.sync_api import Page, Route
 
     from browser.conftest import OpenWindow
     from browser.server import Board
+    from lem.ports.forge_facts import MergeMethod, MergeOutcome, MergeText
 
 
 def count_on(page: Page) -> int:
@@ -224,3 +226,67 @@ def test_a_phone_approval_and_the_next_page_agree_on_both_wait_counts(
     )
     phone.reload()
     counts(phone, final)
+
+
+def held_merge(board: Board) -> Event:
+    """Hold the forge's merge call until the case releases it, as GitHub takes its time."""
+    release = Event()
+    merge = board.forge.merge
+
+    def held(
+        number: int, expected_head: str, method: MergeMethod, text: MergeText
+    ) -> MergeOutcome:
+        assert release.wait(STREAM_WAIT / 1000), "the case did not release the merge"
+        return merge(number, expected_head, method, text)
+
+    board.forge.merge = held
+    return release
+
+
+def empty_bad_gateway(route: Route) -> None:
+    """What the tailnet door answers while the board server behind it is gone."""
+    route.fulfill(status=502, body="")
+
+
+@pytest.mark.parametrize("phone", (True, False), ids=("phone", "desktop"))
+def test_an_approval_shows_its_merge_and_a_lost_server_never_blanks_the_page(
+    board: Board, window: OpenWindow, *, phone: bool
+) -> None:
+    tip = mergeable_receipt(board)
+    merge_read_for_tip(board)
+    release = held_merge(board)
+    page = window(PHONE if phone else DESKTOP, phone=phone).pages[0]
+    visit(page, board.task(RECEIPT), "#panel")
+    live(page)
+    if phone:
+        page.locator(".p-fold").tap()
+    page.locator("#p-head .p-acts a").filter(has_text="Merge").click()
+    shown = page.locator(CONFIRM)
+    expect(shown).to_be_visible()
+    scroll_end(shown)
+    expect(button(shown)).to_have_text("Approve")
+    button(shown).click()
+    note = page.locator("#panel .act-note").first
+    expect(note).to_contain_text("Lem merges", timeout=WAIT)
+    assert "note=" in page.url
+    address = page.url
+    page.evaluate("window.stillHere = true")
+    release.set()
+    expect(note).to_contain_text("Merged:", timeout=STREAM_WAIT)
+    assert board.forge.merge_calls == [(44, tip)]
+    task_path = urlsplit(address).path
+    page.route(lambda url: urlsplit(url).path == task_path, empty_bad_gateway)
+    seed(board, "a-wait-while-the-server-is-gone", "A new interview", waits=True)
+    expect(page.locator("#status .st-live")).to_have_text("reconnecting", timeout=WAIT)
+    assert page.url == address
+    assert page.evaluate("[window.stillHere, Boolean(document.body.textContent)]") == [
+        True,
+        True,
+    ]
+    expect(note).to_contain_text("Merged:")
+    page.unroute_all()
+    live(page)
+    expect(page.locator("#side .side-head em")).to_have_text(
+        str(server_count(page, board)), timeout=STREAM_WAIT
+    )
+    assert page.evaluate("window.stillHere") is True
