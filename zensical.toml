@@ -1,0 +1,98 @@
+# Lem's site on GitHub Pages: the guides of docs/ are its one source, and docs/index.md is its
+# home page. Zensical (a dev dependency, pinned in uv.lock) builds it into _site/, which
+# .github/workflows/pages.yml publishes when the owner starts it.
+#
+#     .venv/bin/zensical build --clean     the site into _site/
+#     .venv/bin/zensical serve             the same site on http://127.0.0.1:8000/, rebuilt on each save
+#
+# The page loads nothing from another host: no web font (font = false), no Mermaid from unpkg.com
+# (a chart is a pre.lem-chart, which Zensical's Mermaid loader never looks for, and Pele draws it),
+# and every picture is a file of assets/, linked into overrides/assets/.
+
+[project]
+site_name = "Lem"
+site_description = "Type a request in plain words, and get a pull request whose first line says green or not green."
+site_url = "https://pysilver.github.io/lem/"
+repo_url = "https://github.com/pySilver/lem"
+repo_name = "pySilver/lem"
+copyright = "Lem has the MIT License."
+docs_dir = "docs"
+# The default, site, was the folder of the hand-kept page.
+site_dir = "_site"
+# The maintainer's files of docs/: the plans that built Lem, its deferred work, the owner's
+# rulings and the night's search. They stay in git and off the site.
+exclude_docs = """
+/plans/
+/backlog/
+/rulings/
+/free-hour.md
+"""
+extra_css = ["assets/lem-site.css"]
+extra_javascript = ["assets/lem-charts.js"]
+
+nav = [
+  { "Home" = "index.md" },
+  { "How a task goes" = "flow.md" },
+  { "When Lem needs you" = "when-lem-needs-you.md" },
+  { "While you are away" = "away.md" },
+  { "The pull request" = "pull-request.md" },
+  { "The merge" = "merge.md" },
+  { "The board" = "board.md" },
+  { "The board on your phone" = "phone.md" },
+  { "Install" = "install.md" },
+  { "Update and remove" = "update.md" },
+  { "Settings" = "settings.md" },
+  { "Connect Linear" = "linear.md" },
+  { "Connect GitHub Issues" = "github-issues.md" },
+]
+
+[project.theme]
+custom_dir = "overrides"
+language = "en"
+font = false
+logo = "assets/lem-mark.svg"
+favicon = "assets/lem-mark.svg"
+features = [
+  "content.action.copy",
+  "content.code.copy",
+  "navigation.footer",
+  "navigation.top",
+  "search.highlight",
+]
+
+# Light or dark by the visitor's theme, with no switch: neither entry has a toggle.
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "custom"
+accent = "custom"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "custom"
+accent = "custom"
+
+[project.plugins.search]
+
+# llms.txt, and a Markdown copy of each guide beside its page: "Copy as Markdown" copies it, and
+# the page menu of overrides/main.html links it.
+[project.plugins.llmstxt]
+markdown_description = "Lem is a plugin for Claude Code that works closely with agterm. Each guide below is in ASD-STE100 Simplified Technical English."
+sections = { "Start" = ["index.md", "install.md", "update.md"], "A task" = ["flow.md", "when-lem-needs-you.md", "away.md", "pull-request.md", "merge.md"], "The board" = ["board.md", "phone.md"], "Settings and trackers" = ["settings.md", "linear.md", "github-issues.md"] }
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+md_in_html = {}
+tables = {}
+toc.permalink = true
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+
+# A guide keeps its charts as ```mermaid blocks, which GitHub draws in place. Here each becomes a
+# pre.lem-chart, which overrides/assets/lem-charts.js draws with Pele, the board's renderer.
+[project.markdown_extensions.pymdownx.superfences]
+custom_fences = [
+  { name = "mermaid", class = "lem-chart", format = "pymdownx.superfences.fence_code_format" },
+]
