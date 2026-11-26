@@ -9,7 +9,7 @@ from playwright.sync_api import expect
 
 from browser.board_ui import ROUNDING, STREAM_WAIT, in_screen, posts, visit
 from browser.chromium import DESKTOP, PHONE
-from browser.test_close_refresh import count_on, counts, live
+from browser.test_close_refresh import count_on, counts, live, server_count
 from browser.test_keys import seed
 from fixtures.board.working import CARD, CARD_PROMPT
 from lem.app import wiring
@@ -269,7 +269,9 @@ def test_an_answer_on_one_board_replaces_the_open_card_on_the_other(
     taken = "Only the total was taken on the board"
     expect(there.locator("#card-step")).to_contain_text(taken, timeout=STREAM_WAIT)
     expect(there.locator("#card-step iframe")).to_have_count(0)
-    before = count_on(here)
+    # The answering board's own refresh after the answer may still be on its way.
+    before = server_count(here, cards)
+    counts(here, before)
     seed(cards, "a-wait-after-the-answer", "A new interview", waits=True)
     counts(here, before + 1)
     expect(card.locator(".hd-done")).to_contain_text(SUCCESS)
