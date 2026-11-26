@@ -8,6 +8,8 @@ import subprocess
 import tomllib
 from pathlib import Path
 
+import yaml
+
 from unit.cli import reading
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -66,7 +68,7 @@ def sentences(text: str) -> list[str]:
     for block in blocks:
         joined = re.sub(r"^(?:[-*]|\d+\.)\s+", "", " ".join(block.split()))
         joined = re.sub(r"^\*\*[^*]+\*\*\s*", "", joined)
-        found += re.split(r"(?<=[.!?:;])\s+(?=[A-Z`\"*\[(/])", joined)
+        found += re.split(r"(?<=[.!?;])\s+(?=[A-Z`\"*\[(/])", joined)
     return [sentence for sentence in found if sentence]
 
 
@@ -120,6 +122,11 @@ def test_no_sentence_of_a_guide_or_the_readme_has_more_than_25_words() -> None:
         if words(sentence) > SENTENCE
     ]
     assert long == []
+
+
+def test_a_colon_does_not_split_a_sentence() -> None:
+    line = "The check names the missing part: GitHub Issues is off."
+    assert sentences(line) == [line]
 
 
 def test_no_guide_carries_the_old_form_mark_or_reports_what_ran() -> None:
@@ -193,10 +200,26 @@ def test_zensical_is_pinned_to_one_exact_version() -> None:
     assert f'name = "zensical"\nversion = "{version}"' in lock
 
 
+def manual_only(text: str) -> bool:
+    # Read keys as written: PyYAML's YAML 1.1 constructor treats "on" as a boolean.
+    workflow = yaml.compose(text)
+    if not isinstance(workflow, yaml.MappingNode):
+        return False
+    events = [value for key, value in workflow.value if key.value == "on"]
+    if len(events) != 1 or not isinstance(events[0], yaml.MappingNode):
+        return False
+    return [key.value for key, _ in events[0].value] == ["workflow_dispatch"]
+
+
+def test_publication_rejects_a_trigger_after_a_blank_line() -> None:
+    assert manual_only("name: Pages\non:\n  workflow_dispatch: {inputs: {}}\n")
+    workflow = "name: Pages\non:\n  workflow_dispatch:\n\n  push:\n"
+    assert not manual_only(workflow)
+
+
 def test_pages_yml_builds_with_zensical_and_publishes_only_on_a_start_by_hand() -> None:
     text = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
-    on = text.split("\non:\n", 1)[1].split("\n\n", 1)[0]
-    assert on.strip() == "workflow_dispatch:"
+    assert manual_only(text)
     for line in (
         "pages: write",
         "id-token: write",

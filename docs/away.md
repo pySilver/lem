@@ -7,8 +7,8 @@ type `/lem im-back`. Lem never guesses whether you are there: only these two com
 
 While you are away:
 
-- an interview goes on, and is not on the list of what waits for you: Lem takes its own guess
-  for each question, and writes it down;
+- an interview goes on without a wait. Lem takes its own guess for each question and writes it
+  down;
 - the ladder settles each criterion that a persona doubted, and Lem approves the criteria for you;
 - a new request asks you nothing, and takes the safer read.
 
@@ -30,5 +30,5 @@ task. On your phone, the page of the task on the [board](phone.md) links to the 
 When the Inbox does not run, or has no Tailscale address, Lem sends nothing there. The page of the
 task on your phone then says why it has no link.
 
-A breaker and a merge also take an answer in the Inbox. A merge from the Inbox merges
-only the commit that the question names ([The merge](merge.md#merge-it)).
+A breaker and a merge also take an answer in the Inbox. Your answer approves the commit that
+the question names. [The merge rules](merge.md#merge-it) say when that approval can carry.

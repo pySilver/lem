@@ -2,8 +2,8 @@
 
 ## Three touches
 
-1. **The shape**, on the standard track: you answer the interview, and say yes to the acceptance
-   criteria.
+1. **The shape**, on the standard track. You answer an interview if needed. You say yes to the
+   acceptance criteria when [the task needs your approval](flow.md#the-standard-track).
 2. **A circuit breaker**: a task stops, and leaves a document for you.
 3. **A pull request that the merge agent calls you for**: you read its review, and merge.
 
@@ -64,16 +64,14 @@ order:
 
 1. the breakers, and each task with no session or a session that stopped: "Open a session"
    starts a fresh agent;
-2. the questions of an interview, and the acceptance criteria that wait for your yes;
-3. the tasks that wait for a step of yours, or for one more fact;
-4. the questions that the session of a task asks you on a card;
-5. the tasks that wait for a task that you dropped: type `start <task> now`, or
-   `/lem drop <task>`;
-6. the tasks that stopped on a problem that they cannot solve alone, and the tasks of an
-   [older release](update.md#a-task-of-an-older-release);
-7. the plans that wait for you to read them;
-8. the [merge reviews](merge.md#the-merge-review) that call you;
-9. the pull requests that wait for your merge, and each merge that GitHub or Lem refused.
+2. interviews, criteria, cards, waits for your action or a fact, waits for a dropped task, and
+   blocked tasks. In this group, the oldest wait comes first. A blocked task can be from an
+   [older release](update.md#a-task-of-an-older-release).
+3. the plans that wait for you to read them;
+4. the [merge reviews](merge.md#the-merge-review) that call you;
+5. the pull requests that wait for your merge, and each merge that GitHub or Lem refused.
+
+For a task that waits for a dropped task, type `start <task> now` or `/lem drop <task>`.
 
 A task is on the list only while it waits for you: not while its session works on your answer.
 The time of a thing starts with the step that started its wait.

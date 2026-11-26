@@ -37,16 +37,16 @@ build and land at the same time. A task takes one of two tracks:
 - The **fast track** is for one plain change with no open question: a typo, a rename, the fix of
   one rule. One builder makes it, and nothing waits for you. When another person wrote the
   ticket, its one criterion waits for your yes first.
-- The **standard track** is for every other request: an interview, acceptance criteria for your
-  yes, a plan, and a larger review.
+- The **standard track** is for every other request. It has acceptance criteria, a plan and a
+  larger review. [How a task goes](flow.md#the-standard-track) tells when Lem asks for your yes.
 
 ```mermaid
 flowchart LR
   request["Your request"] --> read{"Lem reads it"}
   read -->|"fast track"| builder["One builder"]
   builder --> checks["Checks and one review"]
-  read -->|"standard track"| talk["Interview, criteria, your yes"]
-  talk --> build["Build and review"]
+  read -->|"standard track"| talk["Interview if needed, then criteria"]
+  talk -->|"approval if needed"| build["Build and review"]
   checks --> pr["Pull request: green or not green"]
   build --> pr
   pr --> merger{"The merge agent reads it"}
@@ -91,9 +91,9 @@ you  yes
 - A step that nobody can undo stops the task, and waits for you.
 - Lem never pushes over a commit that it did not push.
 
-The first line of each pull request says green or not green, and gives each reason for "not
-green". Green means you can merge without a read. [The pull request](pull-request.md) lists the
-reasons.
+The first line of each pull request says green or not green. [The pull request](pull-request.md)
+lists the reasons for "not green". Green usually lets you merge without your own read.
+A careful change or a call from the merge agent still needs your read.
 
 ## The board, also on your phone
 
@@ -149,6 +149,14 @@ changes and answers as a second expert.
 | `/lem learn` | Lem puts your correction into the file that owns the step |
 
 Plain words that say the same work too. After a `/lem` in a session, plain words also start a
-skill: "let's brainstorm this" starts `interview-me`, "argue both sides" starts `dialectic`.
+skill. "Let's brainstorm this" starts `interview-me`. "Argue both sides" starts `dialectic`.
+
+| You type | When you use it |
+| --- | --- |
+| `/lem root-cause the import stops at row 5000` | a defect comes back after two fixes |
+| `/lem ask-expert` | you want expert models to answer a question |
+| `/lem panel docs/backlog/export-drops-custom-columns.md` | you want the personas to read a text |
+
+Lem needs your yes at setup to schedule `/lem retro` or `/lem night`.
 
 Lem has the [MIT License](https://github.com/pySilver/lem/blob/main/LICENSE).

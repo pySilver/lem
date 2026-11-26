@@ -13,15 +13,18 @@ A pull request is not green when one of these is true:
 
 - your tests got less strict (the bar went down), even with a reason in the plan;
 - the review left a must-fix after two rounds, or no reviewer answered;
-- a criterion changed during the build;
-- a decision went past the personas: the dialectic or the experts took it;
+- a criterion changed during the build. You can clear this reason if you approve the revised
+  criteria. Lem also omits this reason for a change you make through a breaker;
+- the dialectic or the experts made a decision, or the lead made a choice that the ladder could
+  not settle;
 - Lem approved the criteria without you: while you were away, or in a night task;
 - the personas did not answer, two times, when they read the criteria;
 - the change brings the first checks into a project that had none;
 - a task on the fast track turned out to be careful: it can affect what must never go wrong.
 
 Smaller choices of an agent do not change green. The pull request lists the ones that matter.
-Green means you can merge without a read.
+Green usually lets you merge without your own read. A careful change or a call from the merge
+agent still needs your read.
 
 ## What Lem saw outside the task
 
@@ -47,9 +50,9 @@ an item does not agree with the bar, the merge agent calls you.
 ## A second look by Jev
 
 Before an agent files a defect, the Jev decision model names up to three items of the backlog
-that can hold the same defect. The agent reads them. Then `lem land propose` refuses a line under
-"Seen, not filed" or "Left open" (what the review left) with no item and no bar call:
-`under: REASON` or `cheap: REASON`.
+that can hold the same defect. The agent reads them. Each line under "Seen, not filed" or "Left
+open" must name an item or give a bar call. Use `under: REASON` or `cheap: REASON` for the bar call.
+`lem land propose` refuses a line that has neither.
 
 Jev also reads each defect that an agent calls under the bar, one time. When Jev reads it as over
 the bar, `propose` stops one time, and the agent looks again. The agent can keep its call. The

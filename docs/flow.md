@@ -5,11 +5,11 @@ flowchart TD
     req(["/lem and a request, in any session"]) --> track{"Type and track"}
     track -- "fast track" --> one["One builder"]
     track -- "a bug, or a question" --> inv["An investigator"]
-    track -- "standard track" --> crit["Interview, criteria, your yes"]
+    track -- "standard track" --> crit["Interview if needed, then criteria"]
     inv -- "one rule fixes it" --> one
     inv -- "no bug, or an answer" --> stop(["An answer, nothing to merge"])
     inv -- "a larger fix" --> crit
-    crit -- "a fresh agent" --> plan["Plan, build, polish"]
+    crit -- "approval if needed, then a fresh agent" --> plan["Plan, build, polish"]
     plan -- "the breaker" --> brk(["Stopped: you help, park or drop"])
     plan -- "a fresh agent" --> checks["Checks and a review"]
     one --> checks
@@ -50,11 +50,13 @@ When the request does not fit, the builder stops, and the standard track starts.
 
 ## The standard track
 
-1. **Interview.** You answer one question at a time, each with its guess. The plan uses a library
-   or an approach that you name.
+1. **Interview, if needed.** You answer one question at a time, each with its guess. The plan uses
+   a library or an approach that you name.
 2. **Acceptance criteria.** Each is a rule in plain words with one real example, and gets a test.
 3. **The personas read them**, as each person that the change affects.
-4. **Your yes.** Nothing builds before it, unless you are [away](away.md).
+4. **Your yes, if needed.** If you are present, an interview, a disputed criterion or a request
+   from another person needs your yes. Lem can build your complete request without a wait if the
+   personas agree. A task that runs [without you](away.md) goes on without your yes.
 5. **The plan.** A short plan goes to `docs/plans/`, and a new builder makes each part. The
    [ladder](when-lem-needs-you.md#a-decision-in-doubt) decides each choice, and asks you nothing.
 6. **The polish pass.** A new builder removes leftovers and fixes a cheap defect outside the task:

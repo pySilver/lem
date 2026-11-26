@@ -2,13 +2,13 @@
 
 ## The merge review
 
-A fresh merge agent reads each [pull request](pull-request.md), the task files, the reviews and
-the diff. It writes `merge-review.md` and makes no edits to the change. The verdict is merge or
-call. Then it gives the work and its purpose, the results, decisions Lem took without you, time
-and tokens.
-For a safe small change, it gives the verdict and three sentences. A visual change gets the
-builders' before and after pictures, or a line that explains their absence. When the review
-calls you for a visual change, its last line tells you how to try the branch.
+A fresh merge agent reads the [pull request](pull-request.md), task files, reviews and diff.
+It writes `merge-review.md` and leaves the change as it is. The verdict is merge or call.
+The review gives the work, purpose, results, decisions Lem took without you, time and tokens.
+
+A safe small change gets the verdict and three sentences. A visual change gets before and after
+pictures, or a line that says why they are missing. If the verdict is call, the last line tells
+you how to try a visual change.
 
 ```mermaid
 flowchart TD
@@ -21,9 +21,8 @@ flowchart TD
     E -- "owner setting or call verdict" --> Y
 ```
 
-When the merge agent calls you, "Waits for you" on the board shows one stack for the task:
-"Read the merge review" and "2 things". The review and the merge are its two rows. The review is
-also the first card of the task.
+When the merge agent calls you, "Waits for you" shows "Read the merge review" and "2 things".
+The stack has a row for the review and one for the merge. The review is also the task's first card.
 
 The board server merges a green change that is not careful when the verdict is merge and
 [`branch.land`](settings.md#branch) is `"agent"`. Until the verdict, the task stays in "Checks
@@ -33,43 +32,43 @@ With `branch.land = "owner"`, the merge agent still writes its review. You merge
 
 ## Merge it
 
-There is one merge: the merge of the pull request. You start it with the Merge button on GitHub,
-with **Merge…** and then **Approve** on the [board](board.md#act-from-the-board), or with
-`/lem land <task>`. While you are
-[away](away.md#answer-from-the-inbox), you can also answer in the Inbox. Lem merges only the
-commit that the question names.
+Use **Merge** on GitHub, **Merge…** then **Approve** on the [board](board.md#act-from-the-board),
+or `/lem land <task>`. While you are [away](away.md#answer-from-the-inbox), you can also answer
+in the Inbox. Lem records your approval for the commit you see.
 
-- A merge goes through GitHub, under the rules of your base branch. When GitHub refuses it,
-  "Waits for you" shows the line that GitHub gave. Lem refuses a merge when the pull request on
-  GitHub has another base branch than yours, and names the fix.
-- After a rebase or conflict, approval stands while a review covers the change and while the
-  reasons for "not green" stay the same. The approved criteria must also stay the same. Before
-  Lem merges an approved task on a moved base, it rebases the task and runs the checks again.
-  If your approval ends, the pull request says why. Approve the pull request again if your
-  approval ends.
-- A task that is red on its rebase leaves the line. Its session sends a builder, and the task
-  comes back after the fix. It calls you only when the fix needs a criterion to change, or a
-  breaker applies.
+- GitHub applies the rules of your base branch. "Waits for you" shows a refusal from GitHub.
+  If the pull request targets a different base branch, Lem refuses and gives the fix.
+- Before an automatic merge, a fresh merge agent reads any change to the base tree since the checks. With
+  `Base: safe.`, Lem can merge without a new run of the checks. After the merge, the pull request
+  gives both bases and the reason. With `Base: another round.`, Lem rebases the task. It runs the
+  checks again before it can merge.
+- On a moved base, Lem rebases an approved task and runs the checks again. After a rebase or
+  conflict, approval stands if a review covers the change and while the reasons for "not green"
+  stay the same. The approved criteria must also stay the same. If your approval ends, the pull
+  request says why. Approve the pull request again if your approval ends.
+- If the checks fail after a rebase, the task leaves the line until a builder fixes it.
+  It calls you only when the fix needs a criterion to change or a breaker applies.
 - Lem merges one task at a time. A task whose checks ran on the current base merges first.
 - For several tasks in one `/lem land` request, Lem merges them in the order you give. If you give
   no order, Lem starts with the oldest proposal.
 
-Do not merge the branch of a task by hand: Lem knows only a merge through the pull request. After
-a merge, the session of the task removes the worktree, the branch and its copy on GitHub, and
-updates the ticket of the task. A branch with a change that GitHub did not merge stays, and Lem
-tells you what changed and how to delete it.
+Merge through the pull request. Afterward, the task removes its worktree and both copies of its
+branch. It updates its ticket. Lem keeps a branch with an unmerged change and tells you what
+changed and how to delete it.
 
 On GitHub's button, you select the merge method. `branch.history` is for Lem's merge. With
-`branch.history = "squash"`, the body of Lem's commit names each fix on the way, and its last line
-is `Lem task: <task>`. The board reads that line to show which task added a backlog item.
+`branch.history = "squash"`, the body of Lem's commit lists the task's decisions. It also gives
+the note about a moved base when there is one. The last line is `Lem task: <task>`. The board
+reads that line to show which task added a backlog item. See
+[Fixed on the way](pull-request.md#what-lem-saw-outside-the-task) for the fixes.
 
 The board server sees a merge or a close on GitHub within a few minutes.
 
 ## A conflict
 
-When a merge makes another open pull request conflict, the board server wakes the session of its
-task. That session rebases the branch, and a builder resolves the conflict. The checks run again,
-and one read checks the resolution. Lem leaves every other open pull request as it is.
+The board server wakes each task whose pull request now conflicts. The task rebases the branch.
+A builder resolves the conflict. The checks run again and one review reads the resolution.
+Lem leaves every other open pull request as it is.
 
 The merge review stays only if the merge agent gave a verdict before the conflict. A fresh merge
 agent reads the pull request when:

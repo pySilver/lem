@@ -1,7 +1,7 @@
 # The board
 
-The board shows every task of a repository, and it updates by itself. One server on your computer
-draws it for agterm, a browser and [your phone](phone.md).
+The board updates by itself. One server shows your tasks in agterm, a browser and
+[your phone](phone.md).
 
 ## Open it
 
@@ -43,9 +43,10 @@ Buttons on "Waits for you" and the task pages do what Lem does on your words:
 - **New task** (`+`, or the key `N`): type a request, and Lem opens the session of the new task.
   A backlog item has **Start a task**. While the task runs, the item shows the name of the task,
   and the item leaves the backlog when that task merges.
-- **Merge…**: a page shows green or not green, the pull request and the commit first. Its button,
-  **Approve**, merges that commit. You cannot undo a merge. On a phone, the button becomes active
-  when you read to the end of the page.
+- **Merge…**: a page shows green or not green, the pull request and the commit first.
+  **Approve** authorizes Lem to merge the commit you see. The approval can carry to a new commit
+  after a rebase under [the merge rules](merge.md#merge-it). You cannot undo a merge.
+  On a phone, read to the end of the page to enable **Approve**.
 - **Open a session**: starts a new agent for a task that has no session, or whose session stopped.
 
 You also answer the questions of a task on the board. Each question has one field for a note:

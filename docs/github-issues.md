@@ -75,6 +75,6 @@ last line of that comment, and posts no second comment. When Lem did not do a wr
 ## Check the connection
 
 `/lem init` checks the connection before it adds the table. To check it again, ask in plain words:
-"check the GitHub tracker". The check names the repository and says that its issues are on. Or it
-names each missing part with its fix: `gh` is not installed, `gh` is not signed in, the issues are
-off, or `origin` is not on GitHub. The check writes nothing, to the issues or to the settings.
+"check the GitHub tracker". The check names the repository and says that its issues are on. If
+the check finds a problem, it gives the fix. It checks for `gh`, a GitHub login, and enabled
+issues. It checks that `origin` is on GitHub. The check writes nothing to the issues or settings.

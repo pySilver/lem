@@ -43,9 +43,12 @@ That address then lists the repositories of both computers. A computer that does
 A new Claude Code session in a repository that uses Lem starts the server, and so does the first
 `lem` command of any session. The first session after an update replaces it.
 
-The server merges a pull request when the merge agent gives the verdict merge. Each hour it removes
-the old files, as [`state.keep_days`](settings.md#state) tells. While you are away, it sends what
-waits for you to the Inbox. It never types into a session.
+The server can merge a green change that is not careful when the verdict is merge and
+`branch.land` is `"agent"`. With `branch.land = "owner"`, you merge even if the verdict is merge.
+See [the merge rules](merge.md#the-merge-review).
+
+Each hour the server removes the old files, as [`state.keep_days`](settings.md#state) tells. While
+you are away, it sends what waits for you to the Inbox. It never types into a session.
 
 The server also watches each task that builds or lands. When its session does no work for 45
 minutes, the server asks the session for its status. After 10 more minutes with no work, the server

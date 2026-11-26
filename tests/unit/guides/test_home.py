@@ -80,6 +80,20 @@ def test_the_opening_has_the_lead_who_lem_is_for_the_install_lines_and_agterm(
         assert line in words, line
 
 
+def test_the_desktop_scene_reserves_room_for_install_on_the_first_screen(
+    site: Path,
+) -> None:
+    css = (site / "assets/lem-site.css").read_text(encoding="utf-8")
+    desktop = re.search(
+        r"@media \(min-width: 960px\)\s*\{\s*\.lem-scene img\s*\{\s*"
+        r"max-height: max\((\d+)vw, (\d+)vh\)",
+        css,
+    )
+    assert desktop is not None, "the desktop scene needs a viewport height limit"
+    # At the ledger's 1280 × 800, reserve 440 px for the header, text and install block.
+    assert max(1280 * int(desktop[1]), 800 * int(desktop[2])) / 100 <= 360
+
+
 def test_the_install_button_copies_the_commands(site: Path) -> None:
     node = shutil.which("node")
     if node is None:
@@ -134,7 +148,7 @@ def test_the_sections_stand_in_order_and_say_what_the_landing_page_said(
         "Nothing merges before your tests pass and an agent that did not build the change reviews it.",
         "A step that nobody can undo stops the task, and waits for you.",
         "Lem never pushes over a commit that it did not push.",
-        "Green means you can merge without a read.",
+        "Green usually lets you merge without your own read.",
         "/lem new ABC-12",
         "/lem new 42",
         "Each developer has their own board, with the tasks on their own computer.",
@@ -239,10 +253,3 @@ def test_the_pictures_of_the_theme_are_links_to_the_files_of_assets() -> None:
             assert (
                 link.resolve().is_relative_to(ROOT / "assets") or link.name == "pele.js"
             ), link
-
-
-def test_the_repository_is_linked_from_each_page(site: Path) -> None:
-    for page in built.pages(site):
-        assert 'href="https://github.com/pySilver/lem"' in page.read_text(
-            encoding="utf-8"
-        ), page

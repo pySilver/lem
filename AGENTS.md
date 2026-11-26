@@ -33,8 +33,10 @@ file says how to change it.
 - **The app is Python 3.14 on the well-known library for each job, and its texts say "the
   owner".** Click for the command line, msgspec for every record and setting, tomlkit for a
   settings edit, Starlette, uvicorn and Jinja2 for the board, httpx and pywebpush beside them, and
-  the standard library only in a hook. Every command prints one JSON document, the envelope of
-  `src/lem/kernel/envelope.py`, and refuses a wrong input with exit 1, a code, why and the fix. No
+  the standard library only in a hook. `lem help` prints text. `lem version` prints JSON with no
+  envelope. Wrong command syntax is a Click error on standard error with exit 2. A dispatched
+  command prints the JSON envelope of `src/lem/kernel/envelope.py`: exit 0 on completion, exit 1
+  on a refusal with its code, why and fix, or exit 3 on a fault with its traceback in `lem.log`. No
   silent default for a choice that is the owner's (`lem init` with no base it can tell asks for
   `--base`). Every string the app prints or writes for a person, its `--help` too, says "the
   owner"; comments, docstrings and the stage files keep their voice. The gates hold the style with
@@ -111,7 +113,8 @@ npm ci                                               # ESLint and neostandard, f
 `unit`, `model`, `histories`, `contract`, `journeys`, `hooks`, `browser`, and `full`, every level
 at once. The entry sets its own home, `TMPDIR` and `LEM_SERVE=off`, so no test reaches the owner's
 board server or Lem's home folder. A run counts only when its passed and skipped cases add up to
-the cases it collected, and a selection that collects nothing fails.
+the cases it collected, and a selection that collects nothing fails. A level that reaches its
+30-minute time limit fails. The test entry does not enforce that limit.
 
 The loop: the unit level of the files a change touches after each edit; the levels of the folders
 it touches once at its end; `--level full` once before `main` moves, one at a time on a machine
@@ -183,7 +186,8 @@ Each module's docstring says what it does and why; this list says where each thi
 - `docs/`: the site's pages, each a guide in STE (`index.md` is the home page), and
   `settings.md`, the reference, one to one with the settings' structs (`tests/unit/settings/`).
   Beside them, off the site: `free-hour.md`, `rulings/`, `backlog/` (Lem's own deferred work) and
-  `plans/`, the plans that built Lem, each finished one with a status line that names its commits.
+  `plans/`, the plans that built Lem, each finished one with a status line that names its commits
+  and where later decisions changed it.
 - `zensical.toml`, `overrides/` and `docs/assets/`: the site. Zensical, a dev dependency pinned in
   `uv.lock`, builds `docs/` into `_site/`; `overrides/` holds the home page's template and the page
   menu, and `docs/assets/` the site's style in the board's six hues and the chart script that draws
