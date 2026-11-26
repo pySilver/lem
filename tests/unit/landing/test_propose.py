@@ -6,7 +6,14 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing import pr_decisions, pr_outside, pr_read, pr_text
+from lem.app.landing import (
+    pr_decisions,
+    pr_outside,
+    pr_read,
+    pr_talk,
+    pr_text,
+    pull_identity,
+)
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
     items,
@@ -1081,17 +1088,28 @@ def test_the_retro_can_read_every_proposal_after_the_tip_changes() -> None:
     import msgspec
 
     from lem.app.landing.propose_made import opened
+    from lem.records.landing.propose import OwnerMerge
     from lem.records.record import Record
-    from unit.landing.worlds import PROPOSED, PULL
+    from unit.landing.worlds import BASED, PROPOSED, PULL
 
     tips = (TIP, OTHER, "a" * 40)
     reasons = ((), (), ("the owner did not approve the criteria",))
     record = small()
-    for tip, why in zip(tips, reasons, strict=True):
+    owner_merge = OwnerMerge(state="stands", why="the change and its reasons stay")
+    for number, (tip, why) in enumerate(zip(tips, reasons, strict=True)):
         made = replace(PROPOSED, tip=tip, green=not why, reasons=why)
+        if number == 1:
+            based = replace(BASED, tip=tip, before=TIP, reviewed=TIP, carried=True)
+            record = with_landing(record, based=based, reviews=(REVIEWED,))
+            made = replace(made, merge_review="carried", owner_merge=owner_merge)
         record = opened(record, made=made, pull=PULL)
     saved = msgspec.json.decode(msgspec.json.encode(record), type=Record)
     entries = msgspec.json.decode(msgspec.json.encode(saved.journal))
+    proposals = [entry for entry in entries if entry["kind"] == "proposed"]
+    assert proposals[1]["review_carry"] == "The review carried over the rebase."
+    assert proposals[1]["merge_review"] == "carried"
+    assert proposals[1]["owner_merge"] == {"state": "stands", "why": owner_merge.why}
+    assert "owner_merge" not in proposals[0]
     assert [
         (entry["tip"], entry["green"], entry.get("reasons", []), entry["at"])
         for entry in entries
@@ -1100,3 +1118,75 @@ def test_the_retro_can_read_every_proposal_after_the_tip_changes() -> None:
         (tip, not why, list(why), msgspec.to_builtins(PROPOSED.at))
         for tip, why in zip(tips, reasons, strict=True)
     ]
+
+
+def test_a_foreign_pull_request_refusal_keeps_the_forges_author() -> None:
+    from lem.ports.forge_facts import Pull
+
+    pull = Pull(
+        number=99,
+        url="https://github.com/owner/project/pull/99",
+        title="Ania's title",
+        state="open",
+        head=TIP,
+        head_ref="docs/fix-the-login",
+        base="main",
+        author="ania",
+    )
+    foreign = propose.adopted(small(), world(candidates=(pull_identity.seen(pull),)))
+    assert isinstance(foreign, Refusal)
+    assert "pull request #99 by ania is open on" in foreign.why
+
+
+def test_the_plan_talk_names_its_bound_only_when_it_goes_over() -> None:
+    talk = Talk(
+        reviewer="codex",
+        turns=22,
+        questions=5,
+        settled=4,
+        open=1,
+        repaired=2,
+        design=1,
+        unargued=0,
+        root=0,
+        layer=0,
+        shared=0,
+        at=MOMENT,
+    )
+    assert "over the bound" not in pr_talk.talked(talk)
+    over = pr_talk.talked(replace(talk, turns=23))
+    assert "23 turns, over the bound of 22 for its 5 questions;" in over
+
+
+def test_a_resolved_conflict_has_one_account_in_the_reply_and_the_pull_request() -> (
+    None
+):
+    from lem.app.landing import propose_made
+    from lem.records.landing.start import Resolution, Started
+    from unit.landing.worlds import BASE, PROPOSED, PULL
+
+    record = with_landing(
+        small(),
+        started=Started(
+            round=2,
+            branch="docs/fix-the-login",
+            base_ref="main",
+            conflicting=True,
+            at=MOMENT,
+        ),
+        resolution=Resolution(
+            files=("shop.txt",), before=OTHER, after=TIP, base=BASE, read=2
+        ),
+        reviews=(replace(REVIEWED, attempt=2, of="resolution", tip=TIP),),
+        checked=CHECKED,
+    )
+    made = propose_made.given(record, PROPOSED, (PULL, "docs/fix-the-login"))
+    line = (
+        "rebased on main after the forge called it conflicting; one conflict in shop.txt, "
+        "resolved by a builder; one read of the resolution"
+    )
+    assert line in propose_made.said(made)
+    text = text_of(record, SMALL_NOTES)
+    assert f"{line[0].upper()}{line[1:]}" in text
+    assert "the checks passed again" in propose_made.said(made)
+    assert "the checks passed again" in text

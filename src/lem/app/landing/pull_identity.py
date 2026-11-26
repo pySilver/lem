@@ -64,6 +64,7 @@ def seen(pull: Pull) -> facts.PullSeen:
         url=pull.url,
         title=pull.title,
         body=pull.body,
+        author=pull.author,
         state=pull.state,
         head=pull.head,
         base=pull.base,

@@ -44,25 +44,28 @@ def clean(review: Reviewed | None) -> bool:
     )
 
 
-def left_must_fix(landing: Landing) -> bool:
-    """Whether the newest review of the change left a must-fix."""
-    review = carry.newest(landing)
-    return review is not None and bool(review.counts.must_fix)
-
-
 def tip_carries(landing: Landing, world: World, *, careful: bool) -> bool:
     """Whether the tip proposed before carries onto the tip now through a builder's
-    resolution: the conflict met that tip, the resolution is the tip now on the base it was
-    made on, its one read was clean, the review before left no must-fix, and the request is
-    not careful (`land.tip_carry` on `main`, `resolution`)."""
+    resolution: it met that tip, only filed items can follow it on its base, its one read
+    was clean, the review before left no must-fix, and the request is not careful
+    (`land.tip_carry` and `land.filed_on` on `main`)."""
     resolution, proposed = landing.resolution, landing.proposed
     if careful or resolution is None or proposed is None:
         return False
-    if resolution.before != proposed.tip or resolution.after != world.tip:
+    if resolution.before != proposed.tip or resolution.base != world.base:
         return False
-    if resolution.base != world.base:
+    if resolution.after != world.tip and not world.items_from(resolution.after):
         return False
-    return clean(read_of(landing)) and not left_must_fix(landing)
+    read, prior = read_of(landing), carry.newest(landing)
+    last = landing.reviews[-1:]
+    if read is None or prior is None or (read,) != last:
+        return False
+    return (
+        read.tip == resolution.after
+        and clean(read)
+        and prior.tip == resolution.before
+        and not prior.counts.must_fix
+    )
 
 
 def carries(landing: Landing, world: World, *, careful: bool) -> MergeRead | None:

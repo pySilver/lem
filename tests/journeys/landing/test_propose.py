@@ -17,6 +17,7 @@ from msgspec.structs import replace
 from fakes.outside import FakeJudge
 from fakes.repo import git_env, run_git
 from journeys.test_skeleton import (
+    BRANCH,
     JOURNEY,
     MERGE,
     REVIEW,
@@ -39,6 +40,7 @@ from journeys.test_skeleton import (
 from lem.adapters import forge_gh
 from lem.app import wiring
 from lem.ports.faults import Unanswered
+from lem.ports.forge_facts import Pull
 from lem.ports.place import Place
 from lem.records.landing.review import Filed, Finding
 from lem.store import tasks
@@ -491,3 +493,36 @@ def test_an_edit_of_lems_settings_needs_the_full_set_and_the_owner_merges_it(
     assert world.record()["task"]["status"] == "open"
     assert world.forge.pull(found["pull"]["number"]).state == "open"
     assert world.forge.merge_calls == []
+
+
+def test_a_foreign_pull_request_names_ania_and_keeps_her_text_and_branch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "propose")
+    head = run_git(world.repo.origin, "rev-parse", "main")
+    run_git(world.repo.origin, "update-ref", f"refs/heads/{BRANCH}", head)
+    pull = Pull(
+        number=99,
+        url=world.forge.url(99),
+        title="Ania's title",
+        body="Ania's text",
+        state="open",
+        head=head,
+        head_ref=BRANCH,
+        base="main",
+        author="ania",
+    )
+    world.forge.pulls[99] = pull
+    world.forge.bodies[99] = pull.body
+
+    denied = proposal(capsys, world)
+    assert (denied["code"], denied["refusal"]["code"]) == (1, "foreign-pull")
+    assert f"pull request #99 by ania is open on {BRANCH}" in denied["refusal"]["why"]
+    assert world.forge.pulls == {99: pull}
+    assert world.forge.bodies == {99: "Ania's text"}
+    assert run_git(world.repo.origin, "rev-parse", BRANCH) == head
+    assert world.record()["task"]["status"] == "landing"
+    assert not any(
+        act in world.acts.done for act in ("push", "open_pull", "update_pull")
+    )

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.model.landing import (
+    careful_words,
     carry,
     merge_recheck,
     merge_standing,
@@ -34,33 +35,6 @@ def repaired(record: Record, landing: Landing, world: World) -> bool:
     return not review.unmet(record, review.newest(landing), world)
 
 
-def resolved(landing: Landing, world: World) -> bool:
-    """A resolution carries the proposal only after one answered, clean, non-careful read."""
-    conflict, proposed = landing.resolution, landing.proposed
-    if conflict is None or proposed is None or not landing.reviews:
-        return False
-    if (conflict.before, conflict.after, conflict.base) != (
-        proposed.tip,
-        world.tip,
-        world.base,
-    ):
-        return False
-    last = landing.reviews[-1]
-    if (last.attempt, last.tip, last.of) != (
-        conflict.read,
-        conflict.after,
-        "resolution",
-    ):
-        return False
-    return resolution.clean(last) and prior_clear(landing, conflict.before)
-
-
-def prior_clear(landing: Landing, before: str) -> bool:
-    """The review of the prior tip left no must-fix open."""
-    prior = carry.newest(landing)
-    return prior is not None and prior.tip == before and not prior.counts.must_fix
-
-
 def carried_read(landing: Landing, world: World, *, conflict: bool) -> MergeRead | None:
     """The usable read over the resolution or the clean rebase."""
     if not conflict:
@@ -69,12 +43,18 @@ def carried_read(landing: Landing, world: World, *, conflict: bool) -> MergeRead
     return carry.moved(prior, world) if prior else None
 
 
+def resolved(landing: Landing, world: World, proposed: Proposed) -> bool:
+    """Apply the last whole-change careful call to conflict carry (`land.tip_carry`)."""
+    careful = proposed.careful or bool(careful_words.review_reason(landing))
+    return resolution.tip_carries(landing, world, careful=careful)
+
+
 def judged(
     record: Record, world: World, proposed: Proposed
 ) -> tuple[Proposed, MergeRead | None]:
     """Compute both judgments before the new proposal replaces the old one."""
     landing = record.landing or Landing()
-    resolved_carry = not proposed.careful and resolved(landing, world)
+    resolved_carry = resolved(landing, world, proposed)
     read = carried_read(landing, world, conflict=resolved_carry)
     approval = standing.standing(
         landing,

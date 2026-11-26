@@ -2,6 +2,8 @@
 keeps the hold it put aside, and the resume of a dropped task opens a new one: from its breaker's
 handoff, or as a new request when the release stop dropped it."""
 
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from typing import TYPE_CHECKING
 
 import pytest
@@ -10,6 +12,7 @@ from msgspec.structs import replace
 from fakes.command import lem
 from fakes.records import MOMENT, record
 from fakes.repo import RealRepo, run_git
+from lem.adapters.git_cli import GitCli
 from lem.addons.proposals import dropping
 from lem.app.tasks import carry, park, resume
 from lem.kernel import clock
@@ -23,6 +26,7 @@ from lem.records.task import Shape
 from lem.records.tickets import Ticket
 from lem.records.work import Span
 from lem.store import places, tasks
+from lem.store import workspace as claims
 from unit.addons.flow.test_proposals import TODAY, passed_item
 from unit.task.spaces import made, read, result, said, workspace
 
@@ -315,17 +319,26 @@ def test_a_line_of_resumes_that_goes_round_is_refused() -> None:
     assert refused.value.code == "resume-line"
 
 
-def test_a_successor_git_could_not_cut_is_made_whole_by_the_resume_again(
+def test_a_successor_git_could_not_check_out_is_made_whole_by_the_resume_again(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     where = real(tmp_path)
-    dropped_with_breaker(where, branch=f"fix/{SLUG}")
-    run_git(where.checkout, "branch", f"fix/{SLUG}")
-    run_git(where.checkout, "branch", f"fix/{SLUG}-2/blocker")
-    with pytest.raises(Unanswered):
-        resume.resumed(where.checkout, SLUG)
+    old, new = f"fix/{SLUG}", f"fix/{SLUG}-2"
+    dropped_with_breaker(where, branch=old)
+    run_git(where.checkout, "branch", old)
+
+    def stopped(*_args: object) -> None:
+        raise Unanswered("git", "the worktree could not be checked out")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(GitCli, "worktree_add", stopped)
+        with pytest.raises(Unanswered, match="could not be checked out"):
+            resume.resumed(where.checkout, SLUG)
     assert read(where, f"{SLUG}-2").task.status == "building"
-    run_git(where.checkout, "branch", "-D", f"fix/{SLUG}-2/blocker")
+    assert run_git(where.checkout, "rev-parse", new) == run_git(
+        where.checkout, "rev-parse", old
+    )
     back = resume.resumed(where.checkout, SLUG)
     assert (back.task, back.breaker) == (f"{SLUG}-2", 3)
     assert (where.lem / "worktrees" / f"{SLUG}-2" / "README.md").is_file()
@@ -366,3 +379,54 @@ def test_a_fold_while_the_files_are_read_makes_no_successor(
         resume.resumed(tmp_path, SLUG)
     assert "folded into its summary" in refused.value.why
     assert not (where.state / "tasks" / f"{SLUG}-2").exists()
+
+
+def test_a_resume_waits_for_origin_without_stopping_another_claim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    where = real(tmp_path)
+    old = f"fix/{SLUG}"
+    dropped_with_breaker(where, branch=old)
+    run_git(where.checkout, "branch", old)
+    fetching, release = Event(), Event()
+    fetch = GitCli.fetch
+    # Bound the waits for the worker and its local Git calls (unmeasured estimate).
+    reach = 10.0
+
+    def slow(git: GitCli, checkout: Path) -> None:
+        fetching.set()
+        assert release.wait(timeout=2 * reach), "the test did not release the fetch"
+        fetch(git, checkout)
+
+    monkeypatch.setattr(GitCli, "fetch", slow)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        resumed = pool.submit(resume.resumed, where.checkout, SLUG)
+        try:
+            assert fetching.wait(timeout=reach), "the resume did not start a fetch"
+            other = pool.submit(claims.claimed, where.state, lambda _: record("other"))
+            assert other.result(timeout=reach).task.slug == "other"
+            assert not resumed.done()
+        finally:
+            release.set()
+        assert resumed.result(timeout=reach).task == f"{SLUG}-2"
+
+
+@pytest.mark.parametrize("release_stop", [False, True], ids=["breaker", "release"])
+def test_a_resume_does_not_claim_an_existing_branch(
+    tmp_path: Path, *, release_stop: bool
+) -> None:
+    where = real(tmp_path)
+    old, new = f"fix/{SLUG}", f"fix/{SLUG}-2"
+    stop = ReleaseHold(began="0.1.0", running="0.3.1", say="x", since=MOMENT)
+    dropped_with_breaker(where, branch=old, hold=stop if release_stop else None)
+    run_git(where.checkout, "branch", old)
+    run_git(where.checkout, "commit", "--allow-empty", "-m", "unrelated local work")
+    run_git(where.checkout, "branch", new)
+    unrelated = run_git(where.checkout, "rev-parse", new)
+
+    with pytest.raises(Refusal) as refused:
+        resume.resumed(where.checkout, SLUG)
+    assert refused.value.code == "branch-taken"
+    assert new in refused.value.why
+    assert not places.task_folder(where.state, f"{SLUG}-2").exists()
+    assert run_git(where.checkout, "rev-parse", new) == unrelated
