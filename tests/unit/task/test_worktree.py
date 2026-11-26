@@ -113,6 +113,24 @@ def test_a_worktree_on_another_branch_than_the_one_asked_is_refused(
     assert read(where, SLUG).task.branch == f"feat/{SLUG}"
 
 
+def test_no_origin_cuts_from_the_named_local_base_and_says_so(tmp_path: Path) -> None:
+    repo, where = real(tmp_path, '[branch]\nbase = "stable"\n')
+    run_git(repo.checkout, "remote", "remove", "origin")
+    run_git(repo.checkout, "branch", "stable")
+    run_git(repo.checkout, "commit", "--allow-empty", "-m", "main moves on")
+
+    made_tree = result(lem("task", "worktree", SLUG, cwd=repo.checkout))
+    warning = made_tree["said"]
+    assert "no Git remote named origin" in warning
+    assert "git remote add origin URL" in warning
+    assert "did not answer" not in warning
+    assert "starts from stable" in warning
+    path = where.lem / "worktrees" / SLUG
+    assert run_git(path, "rev-parse", "HEAD") == run_git(
+        repo.checkout, "rev-parse", "stable"
+    )
+
+
 def test_an_origin_that_does_not_answer_cuts_from_the_local_base_and_says_so(
     tmp_path: Path,
 ) -> None:

@@ -347,12 +347,35 @@ def test_a_branch_origin_has_is_refused_before_the_task_is_written(
     assert opened(where, "gift-card") == "shaping"
 
 
+def test_no_origin_is_said_with_the_fix_and_the_task_opens(tmp_path: Path) -> None:
+    repo = RealRepo.init(tmp_path / "repo", {"README.md": b"one\n"})
+    where = workspace(repo.checkout)
+    run_git(repo.checkout, "remote", "remove", "origin")
+    ran = lem(
+        "task", "open", "gift-note", "--ask", "add a gift note", cwd=repo.checkout
+    )
+    assert ran.code == 0
+    warning = result(ran)["said"]
+    assert "no Git remote named origin" in warning
+    assert "git remote add origin URL" in warning
+    assert "did not answer" not in warning
+    assert read(where, "gift-note").task.status == "shaping"
+
+
 def test_an_origin_that_does_not_answer_is_said_and_the_task_opens(
     tmp_path: Path,
 ) -> None:
-    workspace(tmp_path)
-    ran = lem("task", "open", "gift-note", "--ask", "add a gift note", cwd=tmp_path)
-    assert "origin did not answer" in result(ran)["said"]
+    repo = RealRepo.init(tmp_path / "repo", {"README.md": b"one\n"})
+    where = workspace(repo.checkout)
+    run_git(repo.checkout, "remote", "set-url", "origin", str(tmp_path / "gone.git"))
+    ran = lem(
+        "task", "open", "gift-note", "--ask", "add a gift note", cwd=repo.checkout
+    )
+    assert ran.code == 0
+    warning = result(ran)["said"]
+    assert "origin did not answer" in warning
+    assert "git remote add origin" not in warning
+    assert read(where, "gift-note").task.status == "shaping"
 
 
 def test_a_reviewers_item_as_the_ask_is_claimed_and_a_gone_one_is_refused(
