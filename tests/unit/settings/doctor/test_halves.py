@@ -78,7 +78,9 @@ def test_the_reads_of_lems_files_name_the_question_and_its_allow_rule(
     root = paths.root().resolve()
     row = reads_row(stage.look())
     assert (row.need, row.found, row.line) == ("optional", False, f"Read(/{root}/**)")
-    assert "Allow this read outside the working directories?" in (row.without_it or "")
+    assert "asks permission to read a Lem file outside the working directories" in (
+        row.without_it or ""
+    )
     user = stage.write(
         "home/.claude/settings.json",
         json.dumps({"permissions": {"allow": [f"Read(/{root.parent}/**)"]}}),

@@ -80,9 +80,9 @@ def left_open(
     here: context.Context, call: Shown, pref: preferences.Ask, page: str, path: Path
 ) -> Words:
     """Name the displayed page and leave its question mark."""
-    temp_pages.remember(page, status=not call.no_status)
-    if not call.no_status:
-        asking = pref.status.get("asking", ("blocked",))
+    asking = None if call.no_status else pref.status.get("asking", temp_pages.ASKING)
+    temp_pages.remember(page, asking)
+    if asking is not None:
         glyph.set_mark(here.overlay, (*asking, "--auto-reset"))
     return {OUTCOME: "open", "pageID": page, "file": str(path)}
 

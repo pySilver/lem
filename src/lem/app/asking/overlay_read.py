@@ -1,11 +1,10 @@
 """The read-only part of the question overlay's agterm adapter."""
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.adapters import agterm_ctl
+from lem.adapters import agterm_ctl, agterm_process
 from lem.kernel.errors import Fault
 from lem.ports.faults import Unanswered
 
@@ -80,13 +79,7 @@ def outcome(environ: Mapping[str, str], page: str) -> PageOutcome:
 
 def environment(environ: Mapping[str, str]) -> Mapping[str, str]:
     """Use the folder of the executable the owner named with AGTERMCTL, when set."""
-    selected = environ.get("AGTERMCTL")
-    if not selected:
-        return environ
-    path = Path(selected).expanduser().resolve()
-    if path.name != agterm_ctl.TOOL:
-        raise Unanswered(
-            agterm_ctl.TOOL, "AGTERMCTL must name the agtermctl executable"
-        )
-    old = environ.get("PATH", "")
-    return {**environ, "PATH": f"{path.parent}:{old}"}
+    try:
+        return agterm_process.ask_environment(environ)
+    except ValueError as error:
+        raise Unanswered(agterm_ctl.TOOL, str(error)) from error

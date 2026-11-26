@@ -13,28 +13,18 @@ import shlex
 import subprocess
 from typing import TYPE_CHECKING
 
+from lem.adapters import agterm_process
 from lem.kernel.errors import Refusal
 from lem.ports.faults import Unanswered
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-TOOL = "agtermctl"
+TOOL = agterm_process.TOOL
+SOCKETS = agterm_process.SOCKETS
 # How long one call of agtermctl may take. A guess: it answers in milliseconds, and a stuck one
 # must not hold a command; the picker waits for the owner, and takes no limit.
 TIMEOUT = 30
-# The variables agterm gives a session's commands, its own names first.
-SOCKETS = ("AGTERM_SOCKET", "AGT_SOCKET")
-WINDOWS = ("AGTERM_WINDOW_ID", "AGT_WINDOW_ID")
-
-
-def flagged(
-    flag: str, environ: Mapping[str, str], names: tuple[str, ...]
-) -> tuple[str, ...]:
-    """`flag` and the value of the first of the variables `names` that `environ` sets, or
-    nothing when it sets none."""
-    given = [environ[name] for name in names if environ.get(name)]
-    return (flag, given[0]) if given else ()
 
 
 def ctl(
@@ -45,18 +35,10 @@ def ctl(
 ) -> subprocess.CompletedProcess[str]:
     """Run `agtermctl WORDS` with the place's socket and window; `Unanswered` when it is not on
     the place's PATH or does not end in time. The caller reads its exit."""
-    sockets = flagged("--socket", environ, SOCKETS)
-    windows = flagged("--window", environ, WINDOWS) if window else ()
     waits = None if stdin else TIMEOUT
     try:
-        return subprocess.run(
-            [TOOL, *words, *sockets, *windows],
-            env=dict(environ),
-            input=stdin,
-            capture_output=True,
-            text=True,
-            timeout=waits,
-            check=False,
+        return agterm_process.run(
+            environ, words, window=window, stdin=stdin, timeout=waits
         )
     except FileNotFoundError:
         raise Unanswered(TOOL, "not on the PATH: agterm's command line tool") from None

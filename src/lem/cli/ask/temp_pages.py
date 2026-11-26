@@ -1,6 +1,7 @@
 """Files for overlays and the Stop hook's record of the last wait."""
 
 import contextlib
+import json
 import tempfile
 import time
 from pathlib import Path
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
 PRIVATE_MODE = 0o700
 KEEP = 86400
 QUIET = ".no-status.html"
+ASKING = ("blocked",)
 
 
 def folder() -> Path:
@@ -43,14 +45,19 @@ def prune(home: Path) -> None:
                 path.unlink(missing_ok=True)
 
 
-def remember(page: str, *, status: bool) -> None:
-    """Keep the status choice of the most recent wait for the Stop hook."""
+def remember(page: str, asking: tuple[str, ...] | None) -> None:
+    """Keep the latest mark for the Stop hook, or the choice to leave it alone."""
     home = folder()
     home.mkdir(mode=PRIVATE_MODE, exist_ok=True)
     named = keys.checked(page)
-    files.write_whole(
-        home / f"{named}.wait.html", b"status" if status else b"no-status"
-    )
+    files.write_whole(home / f"{named}.wait.html", wait_word(asking))
+
+
+def wait_word(asking: tuple[str, ...] | None) -> bytes:
+    """Keep the plain words for the two default choices."""
+    if asking is None:
+        return b"no-status"
+    return b"status" if asking == ASKING else json.dumps(asking).encode()
 
 
 def ours(overlays: tuple[Overlay, ...], page: str | None = None) -> str | None:

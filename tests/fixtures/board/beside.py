@@ -11,13 +11,16 @@ import json
 import zlib
 from pathlib import Path
 
+import msgspec
+
 from fixtures.board import prose
 from fixtures.board.ended import EXPORT, FOOTER, INVOICE
 from fixtures.board.held import CHECK, FEE, GIFT, STOCK, STOCK_CRITERIA
 from fixtures.board.make import RULES
 from fixtures.board.moments import TODAY, ago
 from fixtures.board.receipt import RECEIPT
-from fixtures.board.working import CART, COUPON, ROUNDING
+from fixtures.board.working import CARD, CARD_PROMPT, CART, COUPON, ROUNDING
+from lem.app.asking import form, keys, saved
 from lem.app.sessions import log
 from lem.app.sessions.acts import Act, Close, CloseWhy, Open
 from lem.store import places, tasks
@@ -340,6 +343,24 @@ def write(path: Path, body: str | bytes) -> None:
         path.write_text(body, encoding="utf-8")
 
 
+def rounding_card(state: Path) -> None:
+    """The open card belongs to the current build session of the rounding task."""
+    slug = ROUNDING.task.slug
+    card = form.metadata(
+        {
+            "prompt": CARD_PROMPT,
+            "options": [
+                {"id": "line", "label": "Each line"},
+                {"id": "total", "label": "Only the total"},
+            ],
+        },
+        CARD,
+        session(slug, 69.5),
+    )
+    folder = places.task_folder(state, slug)
+    write(keys.copies(folder, CARD) / saved.FORM, msgspec.json.encode(card))
+
+
 def lay(folder: Path) -> Path:
     """The afternoon in a main checkout under `folder`: its `.git` and `.lem`, each task's
     record through the store, Lem's acts on its sessions, its files and pictures, the
@@ -360,6 +381,7 @@ def lay(folder: Path) -> Path:
     for slug, acts in ACTS:
         for act in acts:
             log.append(places.task_folder(state, slug), act)
+    rounding_card(state)
     for slug, name, body in FILES:
         write(places.task_folder(state, slug) / name, body)
     for slug, name in PICTURES:
