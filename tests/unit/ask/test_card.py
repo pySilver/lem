@@ -19,6 +19,7 @@ from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.model.owner import held
 from lem.model.owner.looks import Look, Session
+from lem.ports.terminal import Pane
 from lem.store import tasks
 from unit.ask.conftest import PAGE, SESSION, SLUG
 
@@ -63,6 +64,7 @@ def test_page_routes_return_the_exact_overlay_and_only_trusted_scripts(
     board: Board, terminal: Agterm, capsys: pytest.CaptureFixture[str]
 ) -> None:
     opened = show(terminal, capsys)
+    assert "board" not in opened
     folder = board.state / "tasks" / SLUG
     asked = saved.question(folder, PAGE)
     assert asked and asked.digest and asked.id == f"card:{PAGE}"
@@ -104,6 +106,63 @@ def test_page_routes_return_the_exact_overlay_and_only_trusted_scripts(
             )
             assert redirect.status_code == 302
             assert redirect.headers["location"] == ROUTE + "/?in=waits"
+
+
+@pytest.mark.parametrize("other_session", [False, True])
+@pytest.mark.parametrize("no_wait", [False, True])
+def test_ask_names_why_a_saved_card_stays_off_the_board(
+    board: Board,
+    terminal: Agterm,
+    task_terminal: FakeTerminal,
+    capsys: pytest.CaptureFixture[str],
+    *,
+    other_session: bool,
+    no_wait: bool,
+) -> None:
+    folder = board.state / "tasks" / SLUG
+    if other_session:
+        log.append(
+            folder,
+            acts.Open(
+                at=records.MOMENT, session="S2", name=SLUG, phase="shape", why="open"
+            ),
+        )
+    else:
+        task_terminal.grounds[SESSION] = ("zsh",)
+    words = ["--no-wait"] if no_wait else ["--timeout", "0"]
+    assert lazy.main(["ask", "q", "Keep the empty cell?", "Keep", *words]) == 0
+    opened = json.loads(capsys.readouterr().out)["result"]
+    assert opened["outcome"] == ("open" if no_wait else "pending")
+    assert opened["board"] == (
+        "The board will not show the owner's card. This pane has no live session for this task."
+    )
+    assert saved.question(folder, PAGE) is not None
+
+
+def test_ask_warns_that_a_card_from_an_older_pane_cannot_take_a_board_answer(
+    board: Board,
+    terminal: Agterm,
+    task_terminal: FakeTerminal,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    folder = board.state / "tasks" / SLUG
+    log.append(
+        folder,
+        acts.Open(
+            at=records.MOMENT, session="S2", name=SLUG, phase="shape", why="open"
+        ),
+    )
+    task_terminal.panes["S2"] = Pane(id="S2", name=SLUG)
+    task_terminal.grounds["S2"] = ("claude",)
+    opened = show(terminal, capsys)
+    assert opened["board"] == (
+        "The owner cannot answer this card on the board. "
+        "The task has a live session in a different pane."
+    )
+    with board.main() as client:
+        digest = client.head(ROUTE).headers["etag"].strip('"')
+        receipt = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
+    assert receipt.status_code == 409
 
 
 def test_board_answer_is_the_waiters_result_and_the_only_end(

@@ -11,8 +11,8 @@ import pytest
 from fakes import records
 from fakes.terminal import FakeTerminal
 from lem.adapters import agterm_ctl
+from lem.app.asking import live
 from lem.app.sessions import acts, log
-from lem.board.ask import live_card
 from lem.ports.terminal import Pane
 from lem.store import tasks
 from unit.board.service.given import Board, made
@@ -113,7 +113,7 @@ def board(
     )
     monkeypatch.setenv("LEM_TASK", SLUG)
     monkeypatch.chdir(board.checkout)
-    with patch.object(live_card, "bound") as bound:
+    with patch.object(live, "bound") as bound:
         bound.return_value.terminal = task_terminal
         yield board
         assert task_terminal.told == task_terminal.closed == task_terminal.shown == []

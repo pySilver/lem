@@ -65,15 +65,24 @@ def opened_page(
     """Record the card before its question waits for the owner."""
     page, path = opened
     if here.task is not None:
-        card = form.metadata(spec, page, here.overlay.session)
         try:
-            saved.keep(here.task, card, path.read_bytes())
+            saved.keep(
+                here.task,
+                form.metadata(spec, page, here.overlay.session),
+                path.read_bytes(),
+            )
         except (OSError, errors.Fault, errors.Refusal) as error:
             sys.stderr.write(f"lem ask: the board does not show card {page}: {error}\n")
             here = context.Context(overlay=here.overlay, task=None)
-    if call.no_wait:
-        return left_open(here, call, pref, page, path)
-    return waiting.wait(here, page, call, pref)
+    notice = context.board_notice(here)
+    words = (
+        left_open(here, call, pref, page, path)
+        if call.no_wait
+        else waiting.wait(here, page, call, pref)
+    )
+    if notice is not None:
+        words["board"] = notice
+    return words
 
 
 def left_open(

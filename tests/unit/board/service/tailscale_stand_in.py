@@ -14,10 +14,13 @@ if TYPE_CHECKING:
 NAME = "studio.example.ts.net"
 LOGIN = "owner@example.com"
 SCRIPT = """
-import json, sys
+import json, os, sys
 from pathlib import Path
 
 here = Path(__file__).parent
+if Path(__file__).name == "Tailscale" and os.environ.get("TAILSCALE_BE_CLI") != "1":
+    print("The Tailscale GUI failed to start")
+    sys.exit(0)
 words = sys.argv[1:]
 (here / "calls.txt").open("a").write(" ".join(words) + "\\n")
 status = json.loads((here / "status.json").read_text())
@@ -50,10 +53,10 @@ def status(**changes: object) -> dict[str, object]:
     return found
 
 
-def made(folder: Path, **changes: object) -> Path:
+def made(folder: Path, name: str = "tailscale", /, **changes: object) -> Path:
     """The stand-in in `folder`, answering with the status `changes` make."""
     folder.mkdir(parents=True, exist_ok=True)
-    cli = folder / "tailscale"
+    cli = folder / name
     body = SCRIPT.replace("NAME", NAME)
     cli.write_text(f"#!{sys.executable} -I\n{body}")
     cli.chmod(cli.stat().st_mode | stat.S_IXUSR)

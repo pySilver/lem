@@ -17,6 +17,7 @@ import pytest
 from starlette.requests import Request
 
 from fakes.records import MOMENT, record
+from lem.adapters import tailscale_cli
 from lem.board import (
     doorway,
     ensure,
@@ -28,9 +29,11 @@ from lem.board import (
     server,
     stopping,
     stream,
+    tailnet,
+    tailscale,
     watched,
 )
-from lem.board.facts import Facts
+from lem.board.facts import Facts, Shown
 from lem.kernel import folders
 from lem.kernel.errors import Refusal
 from lem.settings.machine import DOOR_PORT, PORT
@@ -203,6 +206,61 @@ def test_a_door_with_the_main_port_is_refused_before_the_settings_write(
     assert refused.value.code == "door-port"
     assert settings.read_text() == before
     assert not called
+
+
+def test_the_board_reads_status_from_the_bundled_cli(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = stand_in.made(tmp_path / "Tailscale.app/Contents/MacOS", "Tailscale")
+    monkeypatch.delenv("TAILSCALE_BE_CLI", raising=False)
+    monkeypatch.setattr(machine, "owners_home", lambda _: True)
+    monkeypatch.setattr(tailscale_cli, "PLACES", (str(app),))
+    environ = {"PATH": str(tmp_path)}
+    assert tailscale.needed(environ) == str(app)
+    assert tailnet.name_of(environ) == stand_in.NAME
+    assert stand_in.calls(app) == ["status --json"]
+
+
+@pytest.mark.parametrize("door_setting", ["", "tailscale = false # keep this line\n"])
+@pytest.mark.parametrize("outcome", ["refused", "kept", "open"])
+def test_door_on_keeps_the_setting_only_after_the_door_answers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    door_setting: str,
+    outcome: str,
+) -> None:
+    home = tmp_path / "config" / "lem"
+    folders.home_marked(home)
+    settings = home / machine.MACHINE
+    before = f"[serve]\nport = {OLD}\ntailscale_port = {NEXT}\n{door_setting}"
+    settings.write_text(before)
+    cli = stand_in.made(tmp_path / "ts")
+    environ = {
+        **stand_in.environ(cli),
+        "HOME": str(tmp_path),
+        "XDG_CONFIG_HOME": str(home.parent),
+    }
+    url = f"https://{stand_in.NAME}:{NEXT}/"
+
+    def started(*_words: object) -> Shown:
+        assert machine.settings(home).tailscale
+        if outcome == "refused":
+            raise Refusal("other-home", "the port is in use", "name another port")
+        if outcome == "kept":
+            return Shown(running=True, started=False, another_install=True)
+        return Shown(running=True, started=True, tailnet=url)
+
+    monkeypatch.setattr(ensure, "ensure", started)
+    if outcome == "open":
+        assert doorway.opened(environ, tmp_path).url == url
+        assert machine.settings(home).tailscale
+    else:
+        with pytest.raises(Refusal) as refused:
+            doorway.opened(environ, tmp_path)
+        assert refused.value.code == (
+            "other-home" if outcome == "refused" else "door-not-open"
+        )
+        assert settings.read_text() == before
 
 
 @pytest.mark.parametrize(
