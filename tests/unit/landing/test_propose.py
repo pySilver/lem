@@ -4,6 +4,8 @@ asks a bar call of, and the pull request's text the owner reads, in the words of
 
 from typing import TYPE_CHECKING
 
+import pytest
+from inline_snapshot import snapshot
 from msgspec.structs import replace
 
 from lem.app.landing import (
@@ -15,16 +17,20 @@ from lem.app.landing import (
     pull_identity,
 )
 from lem.kernel.errors import Refusal
+from lem.model.criteria import approve, skip
+from lem.model.criteria.read import Sheet
 from lem.model.landing import (
     items,
     propose,
     propose_careful,
+    propose_filed,
     propose_jev,
     propose_lines,
     propose_notes,
 )
 from lem.model.landing.propose_facts import Facts, Filing
-from lem.model.landing.world import Rules
+from lem.model.landing.world import Due, Held, Rules
+from lem.model.task import span_forms, spans
 from lem.records.holds import OwnerHold
 from lem.records.landing.checks import CriterionCheck, Edited
 from lem.records.landing.review import Counts, Filed, Finding
@@ -51,6 +57,7 @@ from unit.landing.proposals import (
 from unit.landing.worlds import (
     CHECKED,
     MOMENT,
+    OPENED,
     OTHER,
     PREPARED,
     REVIEWED,
@@ -61,6 +68,8 @@ from unit.landing.worlds import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from datetime import datetime
     from pathlib import Path
 
     from lem.records.record import Record
@@ -72,6 +81,12 @@ def code_of(found: object) -> str:
     """The code of a refusal; a case fails on anything else."""
     assert isinstance(found, Refusal), found
     return found.code
+
+
+def refusal_words(found: object) -> tuple[str, str, str]:
+    """The refusal as it is printed for the owner."""
+    assert isinstance(found, Refusal), found
+    return found.code, found.why, found.fix
 
 
 def decided(
@@ -133,12 +148,21 @@ def test_a_new_round_edits_the_request_on_record_and_a_closed_one_is_refused() -
     assert again.adopt is not None
     assert again.adopt.number == SEEN.number
     merged = decided(record, SMALL_NOTES, pull=replace(SEEN, state="merged"))
-    assert code_of(merged) == "closed"
-    assert isinstance(merged, Refusal)
-    assert "finishes the task" in merged.fix
+    assert refusal_words(merged) == snapshot(
+        (
+            "closed",
+            "the pull request https://github.com/o/p/pull/1 is merged",
+            "lem land merged fix-the-login finishes the task, and the branch keeps its commits",
+        )
+    )
     closed = decided(record, SMALL_NOTES, pull=replace(SEEN, state="closed"))
-    assert isinstance(closed, Refusal)
-    assert "writes it dropped" in closed.fix
+    assert refusal_words(closed) == snapshot(
+        (
+            "closed",
+            "the pull request https://github.com/o/p/pull/1 is closed",
+            "lem land merged fix-the-login writes it dropped, and the branch keeps its commits",
+        )
+    )
 
 
 def test_a_careful_request_is_not_green_on_the_fast_track_and_the_owner_merges_it() -> (
@@ -160,7 +184,13 @@ def test_a_careful_request_is_not_green_on_the_fast_track_and_the_owner_merges_i
 def test_the_task_own_item_on_its_branch_is_refused() -> None:
     record = small(backlog_item="docs/backlog/the-item.md")
     held = Facts(notes="none\n", in_tip=frozenset(("docs/backlog/the-item.md",)))
-    assert code_of(decided(record, held)) == "own-item"
+    assert refusal_words(decided(record, held)) == snapshot(
+        (
+            "own-item",
+            "fix-the-login was started from the backlog item docs/backlog/the-item.md (its ask is that path), and the branch still holds it: the task does that item's work, so its branch removes it",
+            "a builder removes it in the task's worktree in a commit of its own (git rm -q -- docs/backlog/the-item.md, then a commit in the project's message form), then lem land checks fix-the-login and this step run again; the review that read the change still covers it",
+        )
+    )
     assert not isinstance(decided(record, SMALL_NOTES), Refusal)
 
 
@@ -172,7 +202,13 @@ def test_a_plan_that_called_for_a_talk_with_none_on_record_is_refused() -> None:
         decided(full(plan=Plan(path="p.md", careful="a charge")), careful)
     ) == ("plan-talk")
     large = full(plan=Plan(path="p.md", tasks=4))
-    assert code_of(decided(large)) == "plan-talk"
+    assert refusal_words(decided(large)) == snapshot(
+        (
+            "plan-talk",
+            "the plan has 4 tasks, more than three, so its defender and the reviewer talk its plan through in the plan talk's companion before any code (stages/talk.md), and fix-the-login has no plan talk on record",
+            "the task goes back to its build as planned, with needs a session: the plan has 4 tasks, more than three; its lead holds the talk, and its defender records it with lem task talked fix-the-login",
+        )
+    )
     talk = Talk(
         reviewer="codex",
         turns=6,
@@ -193,22 +229,47 @@ def test_a_plan_that_called_for_a_talk_with_none_on_record_is_refused() -> None:
     assert not isinstance(decided(full(plan=Plan(path="p.md", tasks=3))), Refusal)
 
 
+def test_an_explicit_large_plan_with_one_task_has_its_own_talk_reason() -> None:
+    record = full(plan=Plan(path="p.md", tasks=1, large=True))
+    code, why, fix = refusal_words(decided(record))
+    assert code == "plan-talk"
+    assert why.startswith("the plan is marked large, so ")
+    assert "with needs a session: the plan is marked large;" in fix
+
+
 def test_the_standard_track_with_no_read_is_refused_unless_his_word_and_approval_stand() -> (
     None
 ):
     record = full()
     unread = replace(record.task.criteria, reads=())
     bare = replace(record, task=replace(record.task, criteria=unread))
-    assert code_of(decided(bare)) == "no-read"
+    assert refusal_words(decided(bare)) == snapshot(
+        (
+            "no-read",
+            "fix-the-login takes the standard track, and no read of its criteria by the personas is on record: the personas read its criteria before the build (stages/interview.md, step 5; for the standard track from a complete request stages/plan.md, step 1)",
+            "whoever ran the read records it with lem criteria read fix-the-login done; only the owner skips a read, with lem criteria skip fix-the-login yes and his approval after it, both before a lead starts",
+        )
+    )
     skipped = replace(unread, skip="yes")
     word = replace(record, task=replace(record.task, criteria=skipped))
-    assert not isinstance(decided(word), Refusal)
     lead = replace(word, task=replace(word.task, spans=(span("lead", MOMENT),)))
-    assert code_of(decided(lead)) == "skip-late"
+    assert refusal_words(decided(lead)) == snapshot(
+        (
+            "skip-late",
+            "a lead of fix-the-login started before the owner completed the skip and approval: on the standard track from a complete request the read always runs, as the only approval there (stages/plan.md, step 1)",
+            "the lead runs the read and records it with lem criteria read fix-the-login done",
+        )
+    )
     alone = replace(skipped, approvals=(approval("alone"),))
-    assert code_of(
+    assert refusal_words(
         decided(replace(record, task=replace(record.task, criteria=alone)))
-    ) == ("skip-unapproved")
+    ) == snapshot(
+        (
+            "skip-unapproved",
+            "the owner's word to skip the personas' read of fix-the-login's criteria is on record, and no approval of the owner's came after it",
+            "the owner's yes to the criteria is kept with lem criteria approve fix-the-login --file FILE (stages/interview.md, step 7)",
+        )
+    )
     assert not isinstance(decided(small(), SMALL_NOTES), Refusal)
 
 
@@ -217,9 +278,15 @@ def test_a_read_nobody_answered_is_refused_once_and_proposed_not_green_after_two
 ):
     record = full()
     once = replace(record.task.criteria, reads=(QUIET,))
-    assert code_of(
+    assert refusal_words(
         decided(replace(record, task=replace(record.task, criteria=once)))
-    ) == ("criteria-silent")
+    ) == snapshot(
+        (
+            "criteria-silent",
+            "nobody answered the newest read of fix-the-login's criteria; after a second read in a row that nobody answered, the request is proposed as not green",
+            "start the read once more and record it with lem criteria read fix-the-login (stages/interview.md, step 5; for the standard track from a complete request stages/plan.md, step 1)",
+        )
+    )
     twice = replace(record.task.criteria, reads=(QUIET, QUIET))
     made = decided(replace(record, task=replace(record.task, criteria=twice)))
     assert not isinstance(made, Refusal)
@@ -229,10 +296,24 @@ def test_a_read_nobody_answered_is_refused_once_and_proposed_not_green_after_two
 def test_a_flagged_or_split_read_waits_for_his_approval_or_one_without_him() -> None:
     record = full()
     early = approval(at=MOMENT.replace(hour=9))
-    for doubt in (read(flagged=1), read(split=True)):
+    for doubt, reason in (
+        (read(flagged=1), "1 flagged criterion"),
+        (read(flagged=2), "2 flagged criteria"),
+        (read(split=True), "a split between the two families"),
+    ):
         criteria = replace(record.task.criteria, reads=(doubt,), approvals=(early,))
         doubted = replace(record, task=replace(record.task, criteria=criteria))
-        assert code_of(decided(doubted)) == "criteria-doubt"
+        code, why, fix = refusal_words(decided(doubted))
+        assert code == "criteria-doubt"
+        assert why == (
+            f"the newest read of fix-the-login's criteria found {reason}, and no approval of "
+            "the owner's came after it"
+        )
+        assert fix == (
+            "the criteria with the personas' answers on top go to the owner "
+            "(stages/interview.md, step 6), and his yes is kept with "
+            "lem criteria approve fix-the-login --file FILE"
+        )
         for after in (approval(), approval("alone")):
             approved = replace(criteria, approvals=(early, after))
             assert not isinstance(
@@ -245,7 +326,13 @@ def test_an_interview_or_someone_elses_request_waits_for_his_yes() -> None:
     record = full(spans=(span("interview"),))
     frozen = replace(record.task.criteria, approvals=(approval("read"),))
     asked = replace(record, task=replace(record.task, criteria=frozen))
-    assert code_of(decided(asked)) == "interview-unapproved"
+    assert refusal_words(decided(asked)) == snapshot(
+        (
+            "interview-unapproved",
+            "fix-the-login had an interview, and its criteria carry no approval of the owner's: the interview ends with his yes",
+            "lem criteria approve fix-the-login --file FILE (stages/interview.md, steps 6 and 7), or, while the task runs without him, lem criteria approve fix-the-login --alone (stages/away.md)",
+        )
+    )
     for by in ("owner", "alone"):
         his = replace(frozen, approvals=(approval(by),))
         assert not isinstance(
@@ -254,9 +341,15 @@ def test_an_interview_or_someone_elses_request_waits_for_his_yes() -> None:
     shape = Shape(type="feat", why="a word", track="full", someone_else=True)
     other = full(shape=shape)
     read_only = replace(other.task.criteria, approvals=(approval("read"),))
-    assert code_of(
+    assert refusal_words(
         decided(replace(other, task=replace(other.task, criteria=read_only)))
-    ) == ("someone-else")
+    ) == snapshot(
+        (
+            "someone-else",
+            "fix-the-login is a complete request that someone else wrote, and no approval of the owner's came after the newest read of its criteria: nobody at the terminal read that request, and a freeze by the read is not his yes (stages/plan.md, step 1)",
+            "the criteria with the personas' answers go to the owner, and his yes is kept with lem criteria approve fix-the-login --file FILE",
+        )
+    )
     assert not isinstance(decided(other), Refusal)
 
 
@@ -286,7 +379,13 @@ def test_an_item_removed_after_it_was_filed_and_a_breaker_that_waits_are_refused
     held = Facts(notes=FULL_NOTES, in_tip=frozenset(("docs/backlog/a.md",)))
     assert not isinstance(decided(record, held), Refusal)
     waits = full(decisions=(breaker(1),))
-    assert code_of(decided(waits)) == "breaker"
+    assert refusal_words(decided(waits)) == snapshot(
+        (
+            "breaker",
+            "breaker 1 of fix-the-login waits for the owner (The note has no place that keeps criterion 1): its build stopped there, and a request is never proposed over it",
+            "the owner reads its document and helps (lem decisions log fix-the-login --by owner --breaker 1 ...), parks the task or drops it",
+        )
+    )
     helped = full(decisions=(breaker(1), taken(2, "w", "c", "owner", breaker=1)))
     assert not isinstance(decided(helped), Refusal)
 
@@ -294,7 +393,11 @@ def test_an_item_removed_after_it_was_filed_and_a_breaker_that_waits_are_refused
 def test_the_title_is_one_line() -> None:
     record = task(**PREPARED)
     for title in ("", "  ", "one\ntwo"):
-        assert code_of(propose.decide(record, world(), SMALL_NOTES, title)) == "title"
+        assert refusal_words(propose.decide(record, world(), SMALL_NOTES, title)) == (
+            "title",
+            "--title is one line: the subject of the change",
+            "give the report's commit subject as --title",
+        )
 
 
 # ---- the notes ----
@@ -303,9 +406,13 @@ def test_the_title_is_one_line() -> None:
 def test_notes_that_lack_a_heading_or_leave_a_fence_open_are_refused() -> None:
     lacking = Facts(notes=FULL_NOTES.replace("## Worth a look\n\nnone\n\n", ""))
     refused = decided(full(), lacking)
-    assert code_of(refused) == "notes-headings"
-    assert isinstance(refused, Refusal)
-    assert refused.why.startswith("the notes lack ## Worth a look")
+    assert refusal_words(refused) == snapshot(
+        (
+            "notes-headings",
+            "the notes lack ## Worth a look: they hold ## Decisions, ## Left open, ## Worth a look, ## Filed in the backlog, ## Not done",
+            "give each heading what is true of this task or the one word `none`, then lem land propose fix-the-login again",
+        )
+    )
     fenced = Facts(notes=FULL_NOTES + "\n```\n## Not done\n")
     assert code_of(decided(full(), fenced)) == "notes-fence"
     quoted = Facts(notes=FULL_NOTES + "\n```\n## Decisions\n```\n")
@@ -979,7 +1086,13 @@ def test_a_finding_whose_open_item_is_gone_or_now_says_no_is_refused() -> None:
         in_tip=frozenset(("docs/backlog/held.md",)),
         heads=(Filing(path="docs/backlog/held.md", title="t", worth="no"),),
     )
-    assert code_of(decided(record, there)) == "item-refuted"
+    assert refusal_words(decided(record, there)) == snapshot(
+        (
+            "item-refuted",
+            "the finding r1.2 is over the bar, and the open item docs/backlog/held.md that holds it says `worth: no` at the tip",
+            "lem land file fix-the-login --again files it as an item of its own, `worth: later`, that names the old one; then this step runs again",
+        )
+    )
     later = replace(there, heads=(Filing(path="docs/backlog/held.md", worth="later"),))
     assert not isinstance(decided(record, later), Refusal)
 
@@ -989,7 +1102,13 @@ def test_a_careful_request_needs_the_full_set_and_the_owner_merges_it_green() ->
         shape=Shape(type="feat", why="w", track="full", careful=("money",))
     )
     careful = Facts(notes=FULL_NOTES + "\n## Migration\n\nnone\n")
-    assert code_of(decided(plan_free, careful)) == "review-floor"
+    assert refusal_words(decided(plan_free, careful)) == snapshot(
+        (
+            "review-floor",
+            "the request is careful, and its newest review was read: a careful change gets the project's full set",
+            "lem land read fix-the-login says what a reviewer gets; run the full set, then record it with lem land read fix-the-login --record FILE",
+        )
+    )
     whole = with_landing(plan_free, reviews=(replace(REVIEWED, kind="full"),))
     made = decided(whole, careful)
     assert not isinstance(made, Refusal)
@@ -998,15 +1117,14 @@ def test_a_careful_request_needs_the_full_set_and_the_owner_merges_it_green() ->
 
 def test_the_first_approval_of_his_answers_his_word_to_skip_the_read() -> None:
     record = full()
-    skipped = replace(
-        record.task.criteria,
-        reads=(),
-        skip="yes",
-        approvals=(approval(at=MOMENT), approval(number=2, at=LATER)),
-    )
-    lead = span("lead", MOMENT.replace(minute=30))
-    word = replace(record, task=replace(record.task, criteria=skipped, spans=(lead,)))
-    assert not isinstance(decided(word), Refusal)
+    criteria = replace(record.task.criteria, reads=(), approvals=())
+    bare = replace(record, task=replace(record.task, criteria=criteria))
+    first = owner_approval(skip_word(bare))
+    both = owner_approval(lead_start(first), now=LATER)
+    assert both.task.criteria.skip_approval == 1
+    assert not isinstance(decided(both), Refusal)
+    skipped_again = skip_word(both, now=LATER)
+    assert code_of(decided(skipped_again)) == "skip-late"
 
 
 def test_an_item_head_keeps_its_worth_as_the_word_written() -> None:
@@ -1027,6 +1145,35 @@ def test_a_closing_fence_indented_four_spaces_is_code_and_the_block_stays_open()
     assert code_of(decided(full(), Facts(notes=notes))) == "notes-fence"
     closed = FULL_NOTES + "\n```\nsample\n   ```\n"
     assert not isinstance(decided(full(), Facts(notes=closed)), Refusal)
+
+
+def test_a_list_fence_needs_a_close_even_when_a_paragraph_ends_the_list() -> None:
+    notes = FULL_NOTES + "\n- ```python\n  sample()\n\nA new paragraph.\n"
+    code, why, _ = refusal_words(decided(full(), Facts(notes=notes)))
+    assert code == "notes-fence"
+    assert f"line {len(FULL_NOTES.splitlines()) + 2} opens" in why
+
+
+def test_a_block_quote_fence_can_close_at_the_end_of_the_notes() -> None:
+    notes = FULL_NOTES + "\n> ```python\n> sample()\n> ```"
+    assert isinstance(decided(full(), Facts(notes=notes)), propose.Proposal)
+
+
+def test_unclosed_fence_content_includes_the_last_line_without_a_newline() -> None:
+    notes = "```python\nfirst()\nlast()"
+    code, why, _ = refusal_words(propose_notes.parsed(notes))
+    assert code == "notes-fence"
+    assert "line 1 opens" in why
+
+
+def test_a_tilde_fence_with_a_backtick_in_its_label_hides_a_notes_heading() -> None:
+    sample = "~~~sample`part\n## Not done\n```\n~~~\n"
+    notes = FULL_NOTES.replace("## Not done\n\nnone\n", sample)
+    assert code_of(decided(full(), Facts(notes=notes))) == "notes-headings"
+    assert isinstance(
+        decided(full(), Facts(notes=notes + "\n## Not done\n\nnone\n")),
+        propose.Proposal,
+    )
 
 
 def test_a_full_change_with_no_read_or_a_doubt_is_refused_and_its_read_is_a_line() -> (
@@ -1134,8 +1281,18 @@ def test_a_foreign_pull_request_refusal_keeps_the_forges_author() -> None:
         author="ania",
     )
     foreign = propose.adopted(small(), world(candidates=(pull_identity.seen(pull),)))
-    assert isinstance(foreign, Refusal)
-    assert "pull request #99 by ania is open on" in foreign.why
+    assert refusal_words(foreign) == snapshot(
+        (
+            "foreign-pull",
+            "pull request #99 by ania is open on docs/fix-the-login at 1111111111111111111111111111111111111111, a head Lem did not push: it is somebody else's, and Lem does not push over it or rewrite its text",
+            "the owner closes that pull request on GitHub, or asks its author to, then lem land propose fix-the-login again; the task's branch is on its record, so a rename in the worktree alone does not give it another",
+        )
+    )
+    anonymous = propose.adopted(
+        small(), world(candidates=(pull_identity.seen(replace(pull, author=None)),))
+    )
+    assert isinstance(anonymous, Refusal)
+    assert anonymous.why.startswith("pull request #99 by someone is open on")
 
 
 def test_the_plan_talk_names_its_bound_only_when_it_goes_over() -> None:
@@ -1190,3 +1347,307 @@ def test_a_resolved_conflict_has_one_account_in_the_reply_and_the_pull_request()
     assert f"{line[0].upper()}{line[1:]}" in text
     assert "the checks passed again" in propose_made.said(made)
     assert "the checks passed again" in text
+
+
+def test_a_fence_as_the_last_line_reports_where_it_opens() -> None:
+    notes = "## Decisions\n\nnone\n\n```\n"
+    assert refusal_words(propose_notes.parsed(notes)) == (
+        "notes-fence",
+        (
+            "the notes of the pull request (--notes): line 5 opens a code block that never "
+            "closes. A heading inside the block does not count."
+        ),
+        (
+            "close the fence, or put a sample that holds fences of its own in a "
+            "longer fence (```` around ```), then propose again"
+        ),
+    )
+
+
+def test_fences_allow_trailing_space_and_reject_text_after_their_closing_marks() -> (
+    None
+):
+    closed = propose_notes.parsed("```text\nSample\n   ```  \n")
+    assert isinstance(closed, propose_notes.Notes)
+    for fake in ("`", "```extra", "X```", "\t```"):
+        assert (
+            code_of(propose_notes.parsed(f"```text\nSample\n{fake}\n")) == "notes-fence"
+        )
+
+
+def test_only_top_level_second_level_headings_divide_the_notes() -> None:
+    text = "# Title\n\n### Detail\n\n> ## Quote\n\n## Decisions\n\nNone.\n"
+    parsed = propose_notes.parsed(text)
+    assert isinstance(parsed, propose_notes.Notes)
+    assert parsed.head == ("# Title", "", "### Detail", "", "> ## Quote", "")
+    assert parsed.parts == (
+        propose_notes.Part(heading="## Decisions", lines=("", "None.")),
+    )
+
+
+def test_a_subheading_separates_entries_in_one_notes_section() -> None:
+    notes = (
+        "## Seen, not filed\n"
+        "The first finding has no decision.\n"
+        "  ### More findings\n"
+        "The second is minor; under: it is a typo.\n"
+    )
+    assert bare(notes) == ("The first finding has no decision.",)
+
+
+def test_a_bar_call_needs_its_reason_on_its_line() -> None:
+    first = "- The parser drops a line; under:"
+    assert bare(with_line(f"{first}\n  See the report.")) == (first,)
+    assert bare(with_line(f"{first}\n\nThe next finding.")) == (
+        first,
+        "The next finding.",
+    )
+
+
+def test_a_jev_ask_keeps_the_place_the_full_finding_and_the_first_line() -> None:
+    first = "- `a.py:read` drops a line under Model X;"
+    asked = propose_jev.line_asked((first, "  under: the owner never sees it"))
+    assert asked == propose_jev.Asked(
+        label=first,
+        defect=items.Defect(
+            where="a.py:read",
+            title="`a.py:read` drops a line under Model X",
+            what="`a.py:read` drops a line under Model X",
+        ),
+    )
+    plain = propose_jev.line_asked(("A line drops; under: no data is lost",))
+    assert plain is not None and plain.defect.where == ""
+
+
+def test_a_jev_refusal_names_every_score_and_the_existing_decision_options() -> None:
+    refused = propose_jev.refused("fix-the-login", {"a.md": 0.9, "b.md": 0.7})
+    assert refusal_words(refused) == (
+        "jev-over",
+        (
+            "2 finding(s) called under the bar, which Jev reads as over it at 0.7 or more: "
+            '"a.md" (Jev: 0.90); "b.md" (Jev: 0.70)'
+        ),
+        (
+            "look at the finding again: make its item `worth: later` (a commit, so lem land "
+            "checks fix-the-login runs first), or keep `worth: no` with its `Decided against:` line, "
+            "or keep the notes line `under:` with its reason; Jev is not asked again about it"
+        ),
+    )
+
+
+def test_a_proposal_holds_only_for_the_actual_pull_and_push_on_the_tip() -> None:
+    record = task("open", **OPENED)
+    waiting = propose.holds(record, world(tip=OTHER, pull=SEEN))
+    assert waiting == Due(step="propose", why="no pull request proposes this tip")
+    unpushed = with_landing(record, pushed=OTHER)
+    assert propose.holds(unpushed, world(pull=SEEN)) == Due(
+        step="propose", why="the tip is not on the forge as Lem pushed it"
+    )
+    assert propose.holds(record, world(pull=replace(SEEN, head=OTHER))) == Due(
+        step="propose", why="the pull request's head is not this tip"
+    )
+    assert propose.holds(record, world(pull=SEEN)) == Held(
+        why="pull request 1 proposes this tip"
+    )
+
+
+def test_propose_refuses_all_notes_findings_with_no_bar_call_or_item() -> None:
+    facts = Facts(notes=with_line("- One finding\n- Another finding"))
+    refused = decided(full(), facts)
+    assert refusal_words(refused) == (
+        "no-bar-call",
+        (
+            "2 line(s) of the notes name a finding with no bar call and no item: "
+            '"- One finding"; "- Another finding"'
+        ),
+        (
+            "give it a bar call and a reason, or file it: by the bar of rule 6 of the "
+            "builder's standing rules, the line ends with `under: REASON` or `cheap: REASON`, "
+            "or a builder files it as an item of docs/backlog and the line names the item's "
+            "path; then this step runs again"
+        ),
+    )
+
+
+def test_propose_keeps_the_notes_the_owner_will_read() -> None:
+    notes = Facts(notes="## Summary\n\nThe login works.\n")
+    proposal = decided(small(), notes)
+    assert isinstance(proposal, propose.Proposal)
+    assert proposal.notes == propose_notes.Notes(
+        parts=(
+            propose_notes.Part(heading="## Summary", lines=("", "The login works.")),
+        ),
+    )
+
+
+def test_propose_names_the_first_missing_item_and_counts_the_others() -> None:
+    one = Filed(finding="r1.1", disposition="same", path="docs/backlog/first.md")
+    two = Filed(finding="r1.2", disposition="item", path="docs/backlog/second.md")
+    record = with_landing(full(), filed=(one, two))
+    absent = decided(record)
+    assert refusal_words(absent) == (
+        "item-gone",
+        "the item docs/backlog/first.md of the finding r1.1 was removed after it was filed, and 1 more",
+        (
+            "a builder puts it back with lem land file fix-the-login --again, then this "
+            "step runs again; when the owner does not want it, the item stays with `worth: no` "
+            "and his reason in it, never deleted"
+        ),
+    )
+
+
+def test_an_empty_code_block_in_the_notes_is_closed() -> None:
+    parsed = propose_notes.parsed("```\n```")
+    assert isinstance(parsed, propose_notes.Notes)
+
+
+def test_the_review_of_a_careful_proposal_names_a_missing_reason() -> None:
+    made = replace(REVIEWED, careful=True, careful_why="")
+    record = with_landing(small(), reviews=(made,))
+    assert propose_careful.review_call(record) == (
+        "the review says so: no reason given",
+    )
+    bare = replace(record, task=replace(record.task, shape=None))
+    assert propose_careful.why(bare, Facts()) == (
+        "the review says so: no reason given",
+    )
+
+
+def test_backlog_reference_at_the_end_of_a_line_holds_the_whole_entry() -> None:
+    line = "- The parser misses an edge case, held by docs/backlog/a-held-item.md"
+    assert bare(with_line(f"{line}\n  See the report for its first case.")) == ()
+    assert propose_lines.named("see docs/backlog/providerX: same defect") == (
+        "docs/backlog/providerX",
+    )
+
+
+def test_the_two_missing_headings_are_named_in_order() -> None:
+    notes = Facts(
+        notes=FULL_NOTES.replace("## Decisions\n\nnone\n\n", "").replace(
+            "## Worth a look\n\nnone\n\n", ""
+        )
+    )
+    code, why, _ = refusal_words(decided(full(), notes))
+    assert code == "notes-headings"
+    assert why.startswith("the notes lack ## Decisions, ## Worth a look:")
+
+
+def test_a_jev_item_keeps_both_paragraphs_when_it_has_no_location() -> None:
+    item = items.BacklogItem(
+        path="docs/backlog/login.md",
+        title="Login loses a field",
+        paragraphs=("First fact.", "Second fact."),
+    )
+    asked = propose_jev.item_asked(item)
+    assert (asked.defect.where, asked.defect.what) == (
+        "",
+        "First fact.\n\nSecond fact.",
+    )
+
+
+def test_a_filing_gate_has_nothing_to_reopen_before_a_landing() -> None:
+    record = task("ready")
+    assert propose_filed.gone(record, Facts()) is None
+    assert propose_filed.refuted(record, Facts()) is None
+
+
+def test_a_single_missing_item_does_not_report_any_more() -> None:
+    path = "docs/backlog/only.md"
+    filed = Filed(finding="r1.1", disposition="item", path=path)
+    record = with_landing(full(), filed=(filed,))
+    code, why, _ = refusal_words(decided(record))
+    assert code == "item-gone"
+    assert why == f"the item {path} of the finding r1.1 was removed after it was filed"
+
+
+def test_a_careful_plan_refusal_names_the_plan_talk() -> None:
+    careful = full(plan=Plan(path="p.md", careful="a charge"))
+    refused = decided(careful)
+    assert refusal_words(refused)[1].startswith(
+        "the plan says that the request is careful, so its defender and the reviewer talk"
+    )
+
+
+def test_the_shape_can_record_the_interview_before_its_span_exists() -> None:
+    shape = Shape(type="feat", why="add the field", track="full", then="interview")
+    record = full(shape=shape)
+    criteria = replace(record.task.criteria, approvals=(approval("read"),))
+    shaped = replace(record, task=replace(record.task, criteria=criteria))
+    assert code_of(decided(shaped)) == "interview-unapproved"
+
+
+def test_a_complete_request_from_the_owner_needs_no_second_approval() -> None:
+    shape = Shape(type="feat", why="add the field", track="full", someone_else=False)
+    record = full(shape=shape)
+    criteria = replace(record.task.criteria, approvals=(approval("read"),))
+    given = replace(record, task=replace(record.task, criteria=criteria))
+    assert isinstance(decided(given), propose.Proposal)
+
+
+def test_a_branch_protection_refusal_names_the_push_it_stops() -> None:
+    rule = Rules(base="main", commands=("true",), protected=("docs/fix-the-login",))
+    refused = refusal_words(decided(small(), SMALL_NOTES, rules=rule))
+    assert refused[:2] == (
+        "protected",
+        "docs/fix-the-login is in branch.protected of .lem/settings.toml: Lem pushes nothing",
+    )
+
+
+def skip_word(record: Record, *, now: datetime = MOMENT) -> Record:
+    return replace(record, task=skip.skipped(record.task, "yes", now))
+
+
+def owner_approval(record: Record, *, now: datetime = MOMENT) -> Record:
+    criteria = record.task.criteria
+    sheet = Sheet(
+        size="full",
+        why="the ticket names the word and the file",
+        criteria=criteria.criteria,
+        digest="d1",
+    )
+    return approve.approved(
+        record, asked=approve.Asked(by="owner", sheet=sheet, plan=True), now=now
+    )
+
+
+def lead_start(record: Record) -> Record:
+    lead = span_forms.Given(name="lead", edge="start", by="session")
+    return spans.started(record, lead, MOMENT)
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        (owner_approval, lead_start, skip_word),
+        (skip_word, lead_start, owner_approval),
+        (lead_start, skip_word, owner_approval),
+    ],
+    ids=["approval before skip", "lead before approval", "lead before skip"],
+)
+def test_a_skip_cannot_move_past_prior_acts_at_the_same_moment(
+    order: tuple[Callable[[Record], Record], ...],
+) -> None:
+    record = full()
+    criteria = replace(record.task.criteria, reads=(), approvals=())
+    record = replace(record, task=replace(record.task, criteria=criteria))
+    for act in order:
+        record = act(record)
+    assert code_of(decided(record)) == "skip-late"
+
+
+def test_a_skip_and_approval_before_the_lead_count_at_the_same_moment() -> None:
+    record = full()
+    criteria = replace(record.task.criteria, reads=(), approvals=())
+    record = replace(record, task=replace(record.task, criteria=criteria))
+    approved = owner_approval(skip_word(record))
+    assert approved.task.criteria.skip_at == MOMENT
+    assert isinstance(decided(lead_start(approved)), propose.Proposal)
+
+
+def test_an_owner_approval_before_the_skip_does_not_answer_it() -> None:
+    record = full()
+    criteria = replace(record.task.criteria, reads=(), approvals=())
+    record = replace(record, task=replace(record.task, criteria=criteria))
+    approved = owner_approval(record)
+    skipped = skip_word(approved, now=LATER)
+    assert code_of(decided(skipped)) == "skip-unapproved"

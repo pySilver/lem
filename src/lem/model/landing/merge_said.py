@@ -37,8 +37,9 @@ TRIES = 2
 
 def lines_of(reply: str) -> list[str]:
     """The reply's lines that are not empty, each past its opening marks."""
-    found = (line.lstrip(OPENING).rstrip() for line in reply.splitlines())
-    return [line for line in found if line]
+    return [
+        line.lstrip(OPENING).rstrip() for line in reply.splitlines() if line.strip()
+    ]
 
 
 def verdict_of(reply: str) -> Verdict | None:
@@ -54,8 +55,10 @@ def verdict_of(reply: str) -> Verdict | None:
 def base_call_of(reply: str) -> tuple[BaseCall, str] | None:
     """The call on a moved base on the reply's second line that is not empty, with its
     sentence of why; None for no call, or a call with no why."""
-    second = next(iter(lines_of(reply)[1:]), "")
-    found = BASE_CALL.match(second)
+    lines = lines_of(reply)[1:]
+    if not lines:
+        return None
+    found = BASE_CALL.match(lines[0])
     if found is None:
         return None
     why = found.group(2).strip().strip("*").strip()
@@ -124,7 +127,7 @@ def unrecorded(
     call of the owner with no verdict."""
     reply, problem = said
     if count < TRIES:
-        return replace(read, attempts=count, why=problem)
+        return replace(read, why=problem)
     if moved:
         why = f"{UNRECORDED} ({problem}), and in doubt the checks run again"
         return replace(read, attempts=count, base_call=ROUND, why=why)

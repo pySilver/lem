@@ -36,7 +36,8 @@ class Written(Frozen, frozen=True, kw_only=True):
 
 def slug_of(text: str) -> str:
     """A file name from a title, as the item format has it: its words joined by `-`."""
-    slug = re.sub(r"[\W_]+", "-", text.lower()).strip("-")
+    words = re.findall(r"[^\W_]+", text.lower())
+    slug = "-".join(words)
     if len(slug) <= SLUG_AT:
         return slug
     return slug[:SLUG_AT].rsplit("-", 1)[0]

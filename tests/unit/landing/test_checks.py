@@ -15,6 +15,7 @@ from typing import IO, TYPE_CHECKING
 
 import msgspec
 import pytest
+from inline_snapshot import snapshot
 from msgspec.structs import replace
 
 from fakes.records import MOMENT, record
@@ -45,7 +46,7 @@ from lem.records.landing.record import Landing
 from lem.records.landing.start import PassRun, Polished
 from lem.records.red import Inputs
 from lem.records.task import Shape
-from lem.records.work import Span
+from lem.records.work import Plan, Span
 from lem.store import places, step_refusals, steps, tasks
 from unit.landing.worlds import (
     APPROVED,
@@ -291,7 +292,13 @@ def test_a_command_moved_to_serial() -> None:
 def test_no_command_holds_no_result() -> None:
     refused = checks.decide(task(**PREPARED), world(rules=replace(RULES, commands=())))
     assert refused is not None
-    assert refused.code == "no-checks"
+    assert (refused.code, refused.why, refused.fix) == snapshot(
+        (
+            "no-checks",
+            "the checks have no command to run, and checks that ran nothing show nothing: the project has no command in its checks in the main checkout's .lem/settings.toml",
+            "add the commands to checks.commands there, then run `lem land checks fix-the-login` again",
+        )
+    )
     assert checks.decide(task(**PREPARED), world()) is None
 
 
@@ -373,8 +380,18 @@ def test_a_red_pass_run_runs_the_tests() -> None:
 def test_a_tip_that_lost_the_pass_gives_it_back() -> None:
     refused = checks.unpolished(standard(polished=DONE), in_tip=False)
     assert refused is not None
-    assert refused.code == "no-polish"
-    assert "`lem land polish fix-the-login`" in refused.fix
+    assert (refused.code, refused.why, refused.fix) == snapshot(
+        (
+            "no-polish",
+            "the tip does not hold the polish pass's last commit (111111111): the branch was rewritten after the pass by something else than `lem land base`",
+            "the pass runs again: `lem land polish fix-the-login`, its builder, and `--done`",
+        )
+    )
+    assert checks.unpolished(standard(), in_tip=False) is None
+    assert (
+        checks.unpolished(standard(polished=replace(DONE, after=None)), in_tip=False)
+        is None
+    )
     assert checks.unpolished(standard(polished=DONE), in_tip=True) is None
 
 
@@ -393,6 +410,7 @@ LISTED = (
     "__pycache__/",
     "__pycache__.py",
     "x__pycache__/",
+    "lib/__pycache__X/",
     "build/",
     "lib/__pycache__",
 )
@@ -429,6 +447,7 @@ def test_every_other_ignored_entry_stays() -> None:
         "shop/",
         "__pycache__.py",
         "x__pycache__/",
+        "lib/__pycache__X/",
         "lib/__pycache__",
     )
     assert checks_bytecode.stale(kept, frozenset()) == ()
@@ -751,7 +770,8 @@ def test_the_first_in_the_line_does_not_start_while_the_load_is_above_the_number
 ) -> None:
     first = line.join(LEM_TASK, "12:01")
     talk = line.join(TALK_TASK, "12:17")
-    assert line.look(first, "12:18", load=45).look.reason == "load"
+    load_wait = line.look(first, "12:18", load=45).look
+    assert (load_wait.go, load_wait.reason) == (False, "load")
     assert line.look(first, "12:18", load=40).look.reason == "load"
     assert line.look(talk, "12:18", load=45).look.reason == "behind"
     assert line.names() == ["90001.json", "90002.json"]
@@ -1195,6 +1215,28 @@ def test_a_pass_of_a_contract_that_moved_since_it_began_is_not_written() -> None
     assert refused.value.code == "contract-moved"
 
 
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"digest": "new-digest"},
+        {"criteria": (replace(CRITERION, text="The login works twice."),)},
+        {"approvals": ()},
+    ],
+)
+def test_edits_to_the_criteria_or_their_approval_require_a_new_run(
+    fields: dict[str, object],
+) -> None:
+    before = task().task.criteria
+    assert checks.moved(before, replace(before, how="Explain the flow.")) is None
+    refused = checks.moved(before, replace(before, **fields))
+    assert refused is not None
+    assert (refused.code, refused.why, refused.fix) == (
+        "contract-moved",
+        "the criteria changed while the checks ran, so their run is not one of the criteria of now",
+        "the checks run again on the criteria of now: lem land next names the step",
+    )
+
+
 def test_with_no_origin_the_base_branch_itself(tmp_path: Path) -> None:
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     assert checks_red_places.onto_of(tmp_path, "main") == "main"
@@ -1202,3 +1244,86 @@ def test_with_no_origin_the_base_branch_itself(tmp_path: Path) -> None:
         ["git", "-C", str(tmp_path), "remote", "add", "origin", "/x"], check=True
     )
     assert checks_red_places.onto_of(tmp_path, "main") == "origin/main"
+
+
+def test_changes_to_the_plan_path_and_criteria_invalidate_checks() -> None:
+    path = "docs/plans/fix-login.md"
+    checked = replace(
+        CHECKED, inputs=checks.inputs(RULES, path), criteria_digest="before"
+    )
+    record = task(checked=checked)
+    criteria = replace(record.task.criteria, digest="before")
+    shaped = replace(record.task, criteria=criteria, plan=Plan(path=path))
+    done = replace(record, task=shaped)
+    assert checks.holds(done, world()) == Held(why="the checks passed on this tip")
+    moved = replace(done, task=replace(shaped, plan=Plan(path="docs/plans/other.md")))
+    assert checks.holds(moved, world()) == Due(
+        step="checks",
+        why="the check definitions changed since the run: commands, serial, setup or the plan path",
+    )
+    changed = replace(
+        done, task=replace(shaped, criteria=replace(criteria, digest="after"))
+    )
+    assert checks.holds(changed, world()) == Due(
+        step="checks", why="the tests of the criteria changed since the checks ran"
+    )
+
+
+def test_a_proved_backlog_filing_keeps_checks_on_the_previous_tip() -> None:
+    record = task(**PREPARED)
+    assert checks.holds(record, world(tip=OTHER, item_chain=(TIP, OTHER))) == Held(
+        why="the checks passed on this tip"
+    )
+    assert checks.holds(record, world(tip=OTHER)) == Due(
+        step="checks", why="no run of the checks covers this tip on its base"
+    )
+
+
+def test_a_standard_track_names_the_polish_step_and_the_commits() -> None:
+    assert checks.polished(standard(), world()) == Due(
+        step="polish",
+        why=(
+            "fix-the-login takes the standard track, and no polish pass is on record for "
+            "this landing: `lem land polish fix-the-login` starts it"
+        ),
+    )
+    started = standard(polished=replace(DONE, after=None))
+    assert checks.polished(started, world()) == Due(
+        step="polish",
+        why=(
+            "the polish pass started at 999999999 and is not done: after its builder, "
+            "`lem land polish fix-the-login --done` checks what it did"
+        ),
+    )
+    assert checks.polished(standard(polished=DONE), world()) == Held(
+        why="the polish pass is done at 111111111"
+    )
+
+
+def test_a_recorded_check_end_without_details_still_gives_a_next_step() -> None:
+    assert checks_said.ended(SLUG, "red") == (
+        f"{SLUG}: the checks are red on a command; a builder repairs it, nothing for you"
+    )
+    assert checks_said.ended(SLUG, "refused") == (
+        f"{SLUG}: the checks refused the change: the step met an error; a builder repairs it, "
+        "nothing for you"
+    )
+
+
+def test_a_wait_names_each_repository_it_could_not_read() -> None:
+    wait = checks_said.Wait(
+        load=36, start=40, behind="fix-login", unread=("/work/shop", "/work/studio")
+    )
+    assert checks_said.waiting(SLUG, wait) == (
+        f"{SLUG}: the checks wait behind fix-login, which is first in the line; they start below 40"
+        "; the state of shop does not read, so its landings count as wanted by no task"
+        "; the state of studio does not read, so its landings count as wanted by no task"
+    )
+
+
+def test_more_than_one_proved_filing_commit_keeps_the_run() -> None:
+    current = "4" * 40
+    chain = (TIP, OTHER, current)
+    assert checks.holds(task(**PREPARED), world(tip=current, item_chain=chain)) == Held(
+        why="the checks passed on this tip"
+    )

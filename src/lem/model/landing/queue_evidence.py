@@ -26,9 +26,9 @@ def after(event: Event | None, call: Call) -> bool:
     """Whether the event came after the call's last observed event and at its time or later."""
     if event is None or event.id == call.queue_before:
         return False
-    if event.at == call.at:
-        return call.queue_before is not None
-    return event.at > call.at
+    if event.at < call.at:
+        return False
+    return event.at != call.at or call.queue_before is not None
 
 
 def matched(pull: PullSeen, call: Call) -> bool:

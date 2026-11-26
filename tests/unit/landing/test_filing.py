@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 import httpx
 import msgspec
 import pytest
+from inline_snapshot import snapshot
 from msgspec.structs import replace
 
 from lem.adapters import judge_jev, judge_jev_ask, judge_jev_wire
@@ -129,10 +130,14 @@ def test_the_file_is_still_the_defect_with_its_reason_in_it_and_another_run_is_a
 ):
     found = items.read("docs/backlog/x.md", written(PADS, "no", WHY))
     assert found is not None and found.reason
+    assert found.first == PADS.what
     assert items.holds(found, PADS)
     assert not items.holds(found, replace(PADS, what="format_day of 4 May gives 4 May"))
     assert not items.holds(found, replace(PADS, where="shop/dates.py"))
     assert items.read("x.md", "no heading here\n") is None
+    unnamed = items.read("x.md", "# A note\n")
+    assert unnamed is not None
+    assert (unnamed.first, unnamed.worth) == (None, None)
 
 
 def test_an_item_is_named_by_its_title_then_its_place_then_a_number() -> None:
@@ -147,7 +152,9 @@ def test_an_item_is_named_by_its_title_then_its_place_then_a_number() -> None:
     assert item_names.slug_of("!!") == ""
     long = item_names.slug_of("word " * 40)
     assert len(long) <= item_names.SLUG_AT
-    assert set(long.split("-")) == {"word"}
+    assert long == "-".join(["word"] * (item_names.SLUG_AT // 5))
+    exact = f"switch-{'x' * (item_names.SLUG_AT - 7)}"
+    assert item_names.slug_of(exact) == exact
     unnamed = replace(PADS, where="shop/dates.py")
     assert list(itertools.islice(item_names.names_for(unnamed), 2)) == [
         f"{slug}.md",
@@ -245,7 +252,7 @@ def test_filing_waits_only_for_unplaced_findings_of_answered_reviews() -> None:
 def test_an_over_defect_whose_open_item_says_worth_no_gets_a_new_item_that_names_it() -> (
     None
 ):
-    held = f"{FOLDER}/held.md"
+    held = f"{FOLDER}/format-day-pads-the-day-with-a-space.md"
     over = record_of(finding("r1.1", "over", open=held))
     placed = filing.decide(
         over, world(), shelf((held, written(PADS, "no", WHY))), filing_flags.Flags()
@@ -256,7 +263,7 @@ def test_an_over_defect_whose_open_item_says_worth_no_gets_a_new_item_that_names
         placed.filed[0].worth,
         placed.filed[0].cites,
     ) == ("item", "later", held)
-    assert placed.writes[0].path != held
+    assert placed.filed[0].path == placed.writes[0].path != held
     assert item_names.NOW_OVER.format(held) in placed.writes[0].text
     assert placed.asks == ()
     new = items.read(placed.writes[0].path, placed.writes[0].text)
@@ -275,7 +282,10 @@ def test_a_defect_two_rounds_saw_word_for_word_is_one_item_and_two_runs_are_two(
     there = shelf((path, written(PADS, "later")))
     placed = filing.decide(record_of(finding()), world(), there, filing_flags.Flags())
     assert not isinstance(placed, Refusal)
-    assert (placed.filed[0].path, placed.writes) == (path, ())
+    assert placed.filed == (
+        Filed(finding="r1.1", disposition="item", path=path, worth="later"),
+    )
+    assert placed.writes == ()
     other = finding(what="format_day of 4 May gives 4 May")
     second = filing.decide(record_of(other), world(), there, filing_flags.Flags())
     assert not isinstance(second, Refusal)
@@ -287,7 +297,11 @@ def test_a_defect_two_rounds_saw_word_for_word_is_one_item_and_two_runs_are_two(
 
 def test_every_defect_has_its_place_before_propose() -> None:
     record = record_of(finding())
-    assert phases.due(record, world()).step == "file"
+    due = phases.due(record, world())
+    assert (due.step, due.why) == (
+        "file",
+        "1 defects outside the change wait for their place",
+    )
     done = record_of(
         finding(),
         filed=(
@@ -323,14 +337,31 @@ def test_file_refuses_a_defect_named_by_both_same_and_new_and_a_number_of_no_wai
     there = shelf((held, written(PADS, "later")))
     record = record_of(finding())
     both = filing_flags.Flags(same=(f"r1.1={held}",), new=("r1.1",))
-    assert refused_of(filing.decide(record, world(), there, both)).code == "same-new"
+    conflict = refused_of(filing.decide(record, world(), there, both))
+    assert (conflict.code, conflict.why, conflict.fix) == (
+        "same-new",
+        "r1.1 is named by both --same and --new",
+        "a defect is the item it names (--same), or a defect of its own (--new)",
+    )
     stray = refused_of(
         filing.decide(record, world(), there, filing_flags.Flags(new=("r1.9",)))
     )
-    assert stray.code == "same-new" and "the ones here are r1.1" in stray.why
+    assert stray.code == "same-new"
+    assert stray.why == (
+        "r1.9 is no defect that waits for an item with no open item of its own, "
+        "and the ones here are r1.1"
+    )
+    assert stray.fix == "--same and --new name such a defect by its number"
     for word in ("r1=docs/backlog/held.md", "r1.1=docs/backlog/gone.md", "r1.1"):
         flags = filing_flags.Flags(same=(word,))
-        assert refused_of(filing.decide(record, world(), there, flags)).code == "same"
+        refused = refused_of(filing.decide(record, world(), there, flags))
+        assert refused.code == "same"
+        assert refused.why == (
+            f"--same {word!r} is no defect and item: it is `--same rN.M=PATH`, the number "
+            f"of a defect (`r1.2`) and the path of the item of the backlog folder {FOLDER} "
+            "that holds it, a file of the task's tip"
+        )
+        assert refused.fix == "name the defect and the item as lem land file named them"
     same = filing.decide(
         record, world(), there, filing_flags.Flags(same=(f"r1.1={held}",))
     )
@@ -351,8 +382,23 @@ def test_an_item_that_was_filed_and_then_removed_stops_file_and_again_puts_it_ba
     filed = Filed(finding="r1.1", disposition="item", path=path, worth="later")
     record = record_of(finding(), filed=(filed,))
     stopped = refused_of(filing.decide(record, world(), shelf(), filing_flags.Flags()))
+    assert stopped.code == "item-gone"
     assert (
-        stopped.code == "item-gone" and path in stopped.why and "--again" in stopped.fix
+        stopped.why
+        == f"{path}, filed for a review of fix-the-login, is gone from the tip"
+    )
+    assert stopped.fix == (
+        "lem land file fix-the-login --again writes it once more; or a builder commits it back"
+    )
+    replacement = f"{FOLDER}/held=elsewhere.md"
+    there = shelf((replacement, written(PADS, "later")))
+    flags = filing_flags.Flags(again=True, same=(f"r1.1={replacement}",))
+    reused = filing.decide(record, world(), there, flags)
+    assert not isinstance(reused, Refusal)
+    assert (reused.filed[0].finding, reused.filed[0].path, reused.writes) == (
+        "r1.1",
+        replacement,
+        (),
     )
     again = filing.decide(record, world(), shelf(), filing_flags.Flags(again=True))
     assert not isinstance(again, Refusal)
@@ -364,7 +410,9 @@ def test_an_item_that_was_filed_and_then_removed_stops_file_and_again_puts_it_ba
 
 def test_the_three_highest_at_or_over_same_at_are_named_the_highest_first() -> None:
     shelved = tuple(
-        items.BacklogItem(path=f"{FOLDER}/{name}.md", title=name, worth="later")
+        items.BacklogItem(
+            path=f"{FOLDER}/{name}.md", title=name, where=f"{name}.py:f", worth="later"
+        )
         for name in "abcde"
     )
     scores = {
@@ -380,6 +428,17 @@ def test_the_three_highest_at_or_over_same_at_are_named_the_highest_first() -> N
         (f"{FOLDER}/d.md", "Jev: 0.70"),
         (f"{FOLDER}/e.md", "Jev: 0.60"),
     ]
+    assert (named[0].title, named[0].where, named[0].worth) == ("c", "c.py:f", "later")
+    assert alike.named({f"{FOLDER}/b.md": 0.5}, shelved) == (
+        alike.Alike(
+            path=f"{FOLDER}/b.md",
+            title="b",
+            where="b.py:f",
+            worth="later",
+            score=0.5,
+            jev="Jev: 0.50",
+        ),
+    )
     assert alike.named({}, shelved) == ()
 
 
@@ -397,10 +456,21 @@ def test_file_stops_with_each_defect_jev_names_and_the_two_ways_on() -> None:
     )
     line = alike.line_of("r1.1", "a title", (one,))
     assert line == f'r1.1 "a title": `{FOLDER}/x.md` "x" (Jev: 0.80, worth: no)'
-    refused = alike.refused((line,), "export-notes")
-    assert refused is not None and refused.code == "jev-same"
-    assert "Nothing is written" in refused.why
-    assert "--same r1.1=PATH" in refused.fix and "--new r1.1" in refused.fix
+    two = replace(one, path=f"{FOLDER}/y.md", title="y", worth=None)
+    both = alike.line_of("r1.2", "another title", (one, two))
+    assert both == (
+        f'r1.2 "another title": `{FOLDER}/x.md` "x" (Jev: 0.80, worth: no), '
+        f'`{FOLDER}/y.md` "y" (Jev: 0.80, worth: none)'
+    )
+    refused = alike.refused((line, both), "export-notes")
+    assert refused is not None
+    assert (refused.code, refused.why, refused.fix) == snapshot(
+        (
+            "jev-same",
+            '2 defect(s) to file may be one an item of the backlog holds already, by Jev\'s read at 0.5 or more: r1.1 "a title": `docs/backlog/x.md` "x" (Jev: 0.80, worth: no); r1.2 "another title": `docs/backlog/x.md` "x" (Jev: 0.80, worth: no), `docs/backlog/y.md` "y" (Jev: 0.80, worth: none). Nothing is written',
+            "read each item named, then run lem land file export-notes again with, for each defect named, --same r1.1=PATH when that item holds the defect, or --new r1.1 when it is a defect of its own",
+        )
+    )
     assert alike.refused((), "export-notes") is None
 
 
@@ -700,3 +770,101 @@ def test_again_files_an_over_defect_whose_open_item_now_says_worth_no() -> None:
     again = filing.decide(record, world(), owners, filing_flags.Flags(again=True))
     assert not isinstance(again, Refusal)
     assert [(one.disposition, one.cites) for one in again.filed] == [("item", held)]
+
+
+def test_a_cheap_finding_cannot_get_an_item_with_new() -> None:
+    comment = finding(against="cheap", why="a wrong comment")
+    answered = record_of(comment)
+    refused = refused_of(
+        filing.decide(answered, world(), shelf(), filing_flags.Flags(new=("r1.1",)))
+    )
+    assert refused.why == (
+        "r1.1 is no defect that waits for an item with no open item of its own, "
+        "and none waits here"
+    )
+
+
+def test_a_repeat_finding_in_one_filing_cites_the_item_the_run_writes() -> None:
+    first, repeat = finding("r1.1"), finding("r1.2")
+    result = filing.decide(
+        record_of(first, repeat), world(), shelf(), filing_flags.Flags()
+    )
+    assert not isinstance(result, Refusal)
+    (write,) = result.writes
+    assert [one.path for one in result.filed] == [write.path, write.path]
+    assert result.asks == (first,)
+
+
+def test_filing_counts_answered_change_reviews_up_to_each_finding() -> None:
+    first = reviewed(finding("r1.1"))
+    quiet = replace(reviewed(), attempt=2, answered=())
+    resolution = replace(reviewed(), attempt=3, of="resolution")
+    second = replace(reviewed(finding("r4.1", what="another run")), attempt=4)
+    third = replace(reviewed(), attempt=5)
+    record = task(
+        **{
+            **PREPARED,
+            "reviews": (first, quiet, resolution, second, third),
+            "filed": (),
+        }
+    )
+    result = filing.decide(record, world(), shelf(), filing_flags.Flags())
+    assert not isinstance(result, Refusal)
+    assert [write.round for write in result.writes] == [1, 2]
+    assert [one.path for one in result.filed] == [write.path for write in result.writes]
+
+
+def test_only_the_two_backlog_worth_words_determine_filing() -> None:
+    old = items.BacklogItem(path="docs/backlog/old.md", title="Old", worth="later")
+    newer = items.BacklogItem(path="docs/backlog/new.md", title="New", worth="maybe")
+    assert items.worth_of((old, newer), old.path) == "later"
+    assert items.worth_of((old, newer), newer.path) is None
+
+
+def test_an_existing_item_is_not_written_again_when_its_worth_changes() -> None:
+    path = f"{FOLDER}/held.md"
+    filed = Filed(finding="r1.1", disposition="item", path=path, worth="later")
+    record = record_of(finding("r1.1"), filed=(filed,))
+    present = shelf((path, written(PADS, "no", WHY)))
+    for again in (False, True):
+        result = filing.decide(
+            record, world(), present, filing_flags.Flags(again=again)
+        )
+        assert result == filing.Placed()
+
+
+def test_a_refuted_open_item_reopens_only_an_over_bar_finding() -> None:
+    path = f"{FOLDER}/held.md"
+    for against, worth in (("under", "no"), ("over", "later")):
+        filed = Filed(finding="r1.1", disposition="same", path=path, worth=worth)
+        record = record_of(finding("r1.1", against, open=path), filed=(filed,))
+        present = shelf((path, written(PADS, worth, WHY)))
+        result = filing.decide(record, world(), present, filing_flags.Flags(again=True))
+        assert result == filing.Placed()
+
+
+def test_a_heading_without_a_spacer_keeps_the_first_paragraph() -> None:
+    found = items.read("docs/backlog/login.md", "# Login\nThe form lost a field.\n")
+    assert found is not None
+    assert found.first == "The form lost a field."
+    assert found.paragraphs == ("The form lost a field.",)
+
+
+def test_an_item_without_a_location_numbers_its_title_at_a_collision() -> None:
+    no_place = replace(PADS, where="", title="Login loses a field")
+    assert list(itertools.islice(item_names.names_for(no_place), 3)) == [
+        "login-loses-a-field.md",
+        "login-loses-a-field-2.md",
+        "login-loses-a-field-3.md",
+    ]
+
+
+def test_a_jev_key_keeps_its_persisted_identity_for_a_multi_paragraph_reproduction() -> (
+    None
+):
+    defect = items.Defect(
+        where="src/login.py:read",
+        title="The login loses a field",
+        what="First observation.\n\nSecond observation.",
+    )
+    assert alike.key_of(defect) == "afd056139ccf6784"

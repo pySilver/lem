@@ -18,6 +18,9 @@ if TYPE_CHECKING:
     from lem.model.landing.propose_facts import Facts
     from lem.records.record import Record
 
+# Only the presence of the local settings matters.
+PRESENT = ""
+
 
 def edits(facts: Facts) -> tuple[str, ...]:
     """The reasons of the change's edits of Lem's own settings."""
@@ -30,8 +33,8 @@ def edits(facts: Facts) -> tuple[str, ...]:
     was, now = found.local
     local = careful.Seen(
         touched=careful.LOCAL_SETTINGS_FILE in facts.changed,
-        base="" if was or not now else None,
-        tip="" if now or not was else None,
+        base=PRESENT if was or not now else None,
+        tip=PRESENT if now or not was else None,
     )
     return careful.settings_reasons(careful.Edits(settings=team, local=local))
 

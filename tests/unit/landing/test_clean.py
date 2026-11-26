@@ -35,6 +35,7 @@ def test_a_landed_branch_at_the_merged_head_goes_with_the_forges_copy() -> None:
 def test_what_went_already_is_not_removed_twice() -> None:
     gone = clean.decide(LANDED, world(tip=None, local=None), clean.Facts())
     assert gone == clean.Sweep(worktree=False, branch=False)
+    assert not clean.asks_rebase(world(tip=None, local=None), MERGED, TIP)
 
 
 def test_a_branch_the_base_holds_goes_and_a_forge_copy_elsewhere_stays() -> None:
@@ -42,6 +43,8 @@ def test_a_branch_the_base_holds_goes_and_a_forge_copy_elsewhere_stays() -> None
         LANDED, world(local=OTHER, local_in_base=True, remote=OTHER), clean.Facts()
     )
     assert sweep == clean.Sweep(worktree=True, branch=True, remote=None)
+    assert not clean.asks_rebase(world(local=OTHER, local_in_base=True), MERGED, TIP)
+    assert not clean.asks_rebase(world(local=TIP, local_in_base=False), MERGED, TIP)
 
 
 def test_a_branch_rebased_after_its_push_goes_when_it_holds_the_same_change() -> None:
@@ -79,30 +82,94 @@ def test_a_tip_the_forge_did_not_merge_keeps_the_branch_and_its_copy() -> None:
     inside = clean.decide(LANDED, after, clean.Facts(inside_merged=True))
     assert code_of(inside) == "unmerged"
     assert isinstance(inside, Refusal)
-    assert '"Update branch"' in inside.why
+    assert inside.why == (
+        f"origin's main does not hold the tip {REBASED} of docs/fix-the-login: the forge merged "
+        'a commit made after its tip (its "Update branch"); the branch and the forge\'s copy '
+        "stay, and nothing was removed"
+    )
     assert not clean.asks_rebase(after, MERGED, OTHER)
 
 
 def test_a_dirty_worktree_or_a_protected_branch_removes_nothing() -> None:
-    assert code_of(clean.decide(LANDED, world(clean=False), clean.Facts())) == "dirty"
-    guarded = Rules(base="main", protected=(LANDED.task.branch or "",))
+    dirty = clean.decide(LANDED, world(clean=False), clean.Facts())
+    assert isinstance(dirty, Refusal)
+    assert dirty.code == "dirty"
     assert (
-        code_of(clean.decide(LANDED, world(rules=guarded), clean.Facts()))
-        == "protected"
+        dirty.why
+        == "the worktree of fix-the-login has changes or files of its own: nothing was removed"
     )
+    assert (
+        dirty.fix
+        == "the owner keeps or removes them, then lem land clean fix-the-login runs again"
+    )
+    guarded = Rules(base="main", protected=(LANDED.task.branch or "",))
+    found = clean.decide(LANDED, world(rules=guarded), clean.Facts())
+    assert isinstance(found, Refusal)
+    assert found.code == "protected"
+    assert found.why.endswith("Lem deletes nothing")
 
 
 def test_a_dropped_or_answered_tasks_branch_goes_only_when_a_base_holds_it() -> None:
     for status, held in (
         ("dropped", "the dropped task's commits"),
-        ("answered", "reproduced"),
+        (
+            "answered",
+            "the answered task's commits, the test that reproduced its bug among them",
+        ),
     ):
         record = task(status)
         kept = clean.decide(record, world(remote=TIP), clean.Facts())
         assert isinstance(kept, clean.Sweep)
         assert (kept.worktree, kept.branch, kept.remote) == (True, False, None)
-        assert held in (kept.branch_left or "")
+        assert kept.branch_left == (
+            f"docs/fix-the-login holds {held}; git branch -D docs/fix-the-login deletes them"
+        )
         held_here = clean.decide(record, world(), clean.Facts(in_local_base=True))
         assert held_here == clean.Sweep(worktree=True, branch=True)
         on_base = clean.decide(record, world(local_in_base=True), clean.Facts())
         assert on_base == clean.Sweep(worktree=True, branch=True)
+
+
+def test_a_rebase_proof_cannot_override_commits_after_the_merge_head() -> None:
+    facts = clean.Facts(after_merged=True, rebased=PROOF)
+    branch = world(local=REBASED, tip=REBASED, remote=REBASED)
+    found = clean.decide(landed_after_push(), branch, facts)
+    assert isinstance(found, Refusal)
+    assert found.code == "unmerged"
+    assert found.why == (
+        f"origin's main does not hold the tip {REBASED} of docs/fix-the-login: the branch has "
+        "commits after the head the forge merged; the branch and the forge's copy stay, "
+        "and nothing was removed"
+    )
+    assert found.fix == (
+        "git log docs/fix-the-login shows what it holds, and git branch -D docs/fix-the-login "
+        "removes it; then lem land clean runs again"
+    )
+
+
+def test_cleanup_waits_for_the_merge_record() -> None:
+    found = clean.decide(task("landed"), world(), clean.Facts())
+    assert isinstance(found, Refusal)
+    assert (found.code, found.why, found.fix) == (
+        "unmerged",
+        "fix-the-login has no merge on record",
+        "lem land next fix-the-login",
+    )
+
+
+def test_cleanup_with_no_branch_has_no_ref_to_delete_or_protect() -> None:
+    rules = Rules(base="main", protected=("",))
+    record = task("dropped")
+    gone = world(branch="", tip=None, local=None, rules=rules)
+    assert clean.decide(record, gone, clean.Facts()) == clean.Sweep(
+        worktree=False, branch=False
+    )
+
+
+def test_a_divergent_branch_stays_when_the_forge_never_merged_its_tip() -> None:
+    found = clean.decide(LANDED, world(local=REBASED, tip=REBASED), clean.Facts())
+    assert isinstance(found, Refusal)
+    assert found.why.endswith(
+        ": the forge did not merge its tip; the branch and the forge's copy stay, "
+        "and nothing was removed"
+    )

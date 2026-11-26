@@ -4,14 +4,16 @@ a person's to read."""
 
 from msgspec.structs import replace
 
-from lem.model.landing import green, propose_careful
+from lem.model.landing import careful, green, green_owner, propose_careful
 from lem.model.landing.propose_facts import Facts, Settings
-from lem.records.landing.checks import Lowered
+from lem.records.approvals import Silent
+from lem.records.landing.checks import CriterionCheck, Lowered, Outcome
 from lem.records.landing.review import Counts
 from lem.records.task import Shape
 from lem.records.work import Plan
 from unit.landing.proposals import (
     FACTS,
+    LATER,
     QUIET,
     approval,
     breaker,
@@ -23,7 +25,7 @@ from unit.landing.proposals import (
     taken,
     with_landing,
 )
-from unit.landing.worlds import CHECKED, REVIEWED
+from unit.landing.worlds import CHECKED, MOMENT, REVIEWED
 
 
 def test_a_task_that_meets_the_seven_is_green_on_either_track() -> None:
@@ -141,6 +143,8 @@ def test_criteria_approved_without_him_say_how() -> None:
     assert green.reasons(other, ())[0].endswith(
         "without the owner, since someone else wrote the request"
     )
+    both = replace(other, task=replace(other.task, mode="alone"))
+    assert green.reasons(both, ())[0].endswith("while the task ran without the owner")
     none = replace(record.task.criteria, approvals=())
     bare = replace(record, task=replace(record.task, criteria=none))
     assert green.reasons(bare, ()) == ("nobody approved the criteria",)
@@ -271,4 +275,119 @@ def test_two_silent_attempts_after_a_review_of_another_tip_are_not_green() -> No
     record = with_landing(small(), reviews=(older, silent, replace(silent, attempt=3)))
     assert green.reasons(record, ()) == (
         "not reviewed: the review was started twice and no source answered",
+    )
+
+
+def test_a_lowered_bar_with_no_reason_names_that_gap() -> None:
+    lowered = Lowered(path="tests/t.py", how="a test removed")
+    record = with_landing(small(), checked=replace(CHECKED, lowered=(lowered,)))
+    assert green.reasons(record, ()) == (
+        (
+            "the bar is lower in `tests/t.py` (a test removed). The builder: no reason given. "
+            "No review said anything of it."
+        ),
+    )
+
+
+def test_branch_provided_checks_name_every_regular_command_in_order() -> None:
+    run = Outcome(
+        command="ruff check", exit=0, last="ok", output="checks/1.log", passed=True
+    )
+    serial = replace(run, command="make e2e", serial=True)
+    two = replace(run, command="pytest")
+    checked = replace(CHECKED, own_checks=True, outcomes=(run, serial, two))
+    found = green.reasons(with_landing(small(), checked=checked), ())
+    assert found == (
+        (
+            "the checks came with this change: the main checkout's settings name no command "
+            "of the checks, and the branch's .lem/settings.toml brings `ruff check`, `pytest`. "
+            "Read the checks once: every later task is checked by them"
+        ),
+    )
+
+
+def test_the_criteria_check_must_show_both_a_red_base_and_a_green_tip() -> None:
+    for red, passed in ((True, False), (False, True), (False, False)):
+        tried = CriterionCheck(criterion=1, red_on_base=red, green_on_tip=passed)
+        record = with_landing(full(), checked=replace(CHECKED, criteria=(tried,)))
+        assert green.reasons(record, ()) == (
+            "criterion 1's test was not seen to fail on the base and pass on the tip",
+        )
+
+
+def test_a_newer_silent_persona_read_is_the_one_named_in_the_pull_request() -> None:
+    record = full()
+    sources = (
+        Silent(name="merchant", why="no answer"),
+        Silent(name="owner", why="seat unavailable"),
+    )
+    latest = replace(QUIET, silent=sources)
+    criteria = replace(record.task.criteria, reads=(QUIET, QUIET, latest))
+    record = replace(record, task=replace(record.task, criteria=criteria))
+    assert green.reasons(record, ())[0] == (
+        "the criteria were not read: the personas' read was started twice and nobody "
+        "answered; no answer from merchant (no answer); no answer from owner (seat unavailable)"
+    )
+
+
+def test_a_later_owner_approval_replaces_the_approval_taken_without_the_owner() -> None:
+    record = full()
+    kept = replace(
+        record.task.criteria, approvals=(approval("alone"), approval(number=2))
+    )
+    record = replace(record, task=replace(record.task, criteria=kept))
+    assert green.reasons(record, ()) == ()
+
+
+def test_a_criterion_uses_its_own_decision_to_explain_the_change() -> None:
+    before = taken(1, "An unrelated choice", "use y", "lead")
+    chosen = taken(2, "The model", "use Model X", "personas")
+    choice = changed(3, "changed", 1, "Use Model X.", was="y", now="x", decision=2)
+    record = full(decisions=(before, chosen, choice))
+    assert green.reasons(record, ()) == (
+        (
+            "criterion 1 changed during the build: Use Model X, after decision 2 (The model), "
+            'where the personas took "use Model X"'
+        ),
+    )
+
+
+def test_a_resolution_does_not_count_as_the_second_round_of_the_change() -> None:
+    prior = replace(REVIEWED, of="resolution")
+    left = replace(REVIEWED, attempt=2, counts=Counts(must_fix=1))
+    assert green.reasons(with_landing(small(), reviews=(prior, left)), ()) == (
+        "the review left 1 must-fix",
+    )
+
+
+def test_the_last_approval_names_its_day_and_how_it_came_without_the_owner() -> None:
+    record = full()
+    approvals = (approval(at=MOMENT), approval("alone", number=2, at=LATER))
+    criteria = replace(record.task.criteria, approvals=approvals)
+    task = replace(record.task, criteria=criteria, shape=None)
+    assert green_owner.approval(task) == (
+        (
+            f"the owner did not approve the criteria: they were approved on {LATER.date()} "
+            "while the task ran without the owner"
+        ),
+    )
+
+
+def test_a_shape_is_optional_when_the_settings_make_the_change_careful() -> None:
+    record = full()
+    no_shape = replace(record, task=replace(record.task, shape=None))
+    malformed = careful.Seen(touched=True, base="", tip="[branch")
+    local = careful.Seen(touched=True, base=None, tip="")
+    assert careful.reasons(
+        no_shape, careful.Edits(settings=malformed, local=local)
+    ) == (
+        (
+            "the change leaves .lem/settings.toml in a form that does not read as TOML, so "
+            "what it says is careful cannot be told"
+        ),
+        (
+            "the change adds .lem/settings.local.toml, one machine's own settings, which git "
+            "does not track: tracked, that machine's seats, naps and days the state keeps "
+            "become every machine's"
+        ),
     )

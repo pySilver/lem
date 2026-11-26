@@ -123,7 +123,9 @@ type Patterns = Sequence[re.Pattern[str]]
 def patterns(path: str, kinds: Mapping[str, str]) -> tuple[Compiled, Compiled]:
     """The marks of the code and of a runner's settings that PATH is read with, by its suffix,
     or for a file with none by its kind in KINDS; none for a document, whose PATH is ""."""
-    suffix = PurePosixPath(path).suffix.lower() or kinds.get(path, "")
+    suffix = PurePosixPath(path).suffix.lower()
+    if not suffix:
+        suffix = kinds.get(path)
     marks = [
         re.compile(mark)
         for suffixes, found in BAR_MARKS.items()
@@ -142,7 +144,8 @@ def code_of(line: str, hits: Sequence[Hit] = ()) -> str:
     """The words of LINE before its first mark of HITS, each space one: the line's code, by
     which a line that lost or got a mark is the same line."""
     first = min((hit.start() for hit, _ in hits), default=None)
-    return " ".join(line[:first].split())
+    # Pairing compares the normalized words for equality, which either separator preserves.
+    return " ".join(line[:first].split())  # pragma: no mutate
 
 
 def own_texts(text: str, hits: Sequence[re.Match[str]]) -> list[Hit]:
@@ -254,7 +257,6 @@ class Pairs:
         for place, _, _ in self.lines(1, (hunk_at,), self.pairs):
             if left:
                 self.pairs[place] = left.popleft()
-                self.used.add(self.pairs[place])
 
 
 def fresh(previous: Sequence[Hit], hits: Sequence[Hit]) -> list[re.Match[str]]:

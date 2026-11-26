@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 import pytest
+from inline_snapshot import snapshot
 from msgspec.structs import replace
 
 from fakes.git import ModelGit
@@ -37,6 +38,7 @@ from lem.records.task import Shape
 from lem.records.work import Plan
 from unit.landing.worlds import (
     BASE,
+    BASED,
     CHECKED,
     MOMENT,
     OTHER,
@@ -212,6 +214,9 @@ def test_zero_is_no_defect_and_each_entry_gets_its_number_and_keeps_the_call() -
         }
     )
     found = review_outside_findings(record)
+    assert [(one.where, one.title, one.what, one.level) for one in found] == [
+        (DEFECT["where"], DEFECT["title"], DEFECT["what"], "nit")
+    ] * 3
     assert [(one.id, one.against, one.why, one.open) for one in found] == [
         ("r2.1", "over", None, None),
         ("r2.2", "cheap", "a comment that says the opposite", None),
@@ -236,9 +241,15 @@ def test_under_or_cheap_with_no_why_and_an_open_that_is_no_file_at_the_base_are_
         )
         made = review_outside.refused(bare, "docs/backlog", FACTS.at_base)
         assert made is not None
+        label = {"under": "under the bar", "cheap": "cheap"}[call]
+        assert made.code == "outside"
+        assert made.why == (
+            f'the defect r1.2 outside the change ("{OUT.title}") is {call}, '
+            f"and has no `why`: one line that says why it is {label}"
+        )
         assert (
-            f'the defect r1.2 outside the change ("{OUT.title}") is {call}, and has no `why`'
-            in made.why
+            made.fix
+            == "the review writes the defect as prompts/review.md, step 5, says"
         )
     for path in (
         "docs/backlog/gone.md",
@@ -247,9 +258,14 @@ def test_under_or_cheap_with_no_why_and_an_open_that_is_no_file_at_the_base_are_
     ):
         opened = said(outside=(replace(OUT, open=path),))
         made = review_outside.refused(opened, "docs/backlog", FACTS.at_base)
-        assert (
-            made is not None
-            and "no file of the backlog folder docs/backlog at the base" in made.why
+        assert made is not None and made.code == "outside"
+        assert made.why == (
+            f'`open` of the defect r1.1 outside the change ("{OUT.title}") is '
+            f"{path!r}, which is no file of the backlog folder docs/backlog at the base"
+        )
+        assert made.fix == (
+            "`open` is the path of an item of the base that holds the same defect, as "
+            "`backlog` in what `lem land read` printed gives it, or it is left out"
         )
     assert (
         review_outside.refused(
@@ -260,9 +276,13 @@ def test_under_or_cheap_with_no_why_and_an_open_that_is_no_file_at_the_base_are_
         is None
     )
     worded = said(outside=(replace(OUT, title="!!"),))
-    assert (
-        code_of(review_outside.refused(worded, "docs/backlog", FACTS.at_base))
-        == "outside"
+    invalid = refused_of(review_outside.refused(worded, "docs/backlog", FACTS.at_base))
+    assert (invalid.code, invalid.why, invalid.fix) == snapshot(
+        (
+            "outside",
+            'the title of the defect r1.1 ("!!") has no word for a file name',
+            "the review writes the defect as prompts/review.md, step 5, says",
+        )
     )
 
 
@@ -271,19 +291,41 @@ def test_under_or_cheap_with_no_why_and_an_open_that_is_no_file_at_the_base_are_
 
 def test_the_record_of_another_attempt_or_tip_is_refused() -> None:
     record = fresh()
-    assert code_of(review.decide(record, world(), said(attempt=2), FACTS)) == "attempt"
+    early = refused_of(review.decide(record, world(), said(attempt=2), FACTS))
+    assert (early.code, early.why, early.fix) == snapshot(
+        (
+            "attempt",
+            "the record says attempt 2, and the next review of this task is attempt 1: `lem land read` prints the number a record carries",
+            "the review writes the attempt that lem land read printed",
+        )
+    )
     again = task(**{**PREPARED, "reviews": (REVIEWED,), "filed": ()})
     sent_again = review.decide(again, world(), said(attempt=1), FACTS)
-    assert isinstance(sent_again, Refusal) and "written down already" in sent_again.why
+    assert isinstance(sent_again, Refusal)
+    assert (sent_again.code, sent_again.why, sent_again.fix) == snapshot(
+        (
+            "attempt",
+            "the record says attempt 1, and the next review of this task is attempt 2: that review is written down already",
+            "the review writes the attempt that lem land read printed",
+        )
+    )
     stale = review.decide(record, world(), said(tip=OTHER), FACTS)
     assert isinstance(stale, Refusal)
-    assert (
-        f"the record is of the review of {OTHER[:12]}, and the branch is at {TIP[:12]} now"
-        in stale.why
+    assert (stale.code, stale.why, stale.fix) == snapshot(
+        (
+            "tip",
+            "the record is of the review of 999999999999, and the branch is at 111111111111 now: that review read another change, and it is not written down",
+            "lem land read fix-the-login says what is due for this one",
+        )
     )
     for short in ("a" * 9, "HEAD"):
         bad = review_form.tip_refused(short, TIP, "fix-the-login")
-        assert bad is not None and "40 hex digits" in bad.why
+        assert bad is not None and bad.code == "tip"
+        assert bad.why == (
+            "`tip` in the record is the whole commit the review read, 40 hex digits, as "
+            f"`lem land read fix-the-login` printed it, and it is {short!r}"
+        )
+        assert bad.fix == "write the tip lem land read fix-the-login printed"
     assert review_form.tip_refused(TIP, TIP, "fix-the-login") is None
 
 
@@ -304,16 +346,26 @@ def test_a_review_is_refused_under_its_floor_without_a_careful_call_or_careful_a
     )
     assert [finding.id for finding in made.findings] == ["r1.1"]
     assert made.counts == Counts(nit=2, outside=1)
-    assert (
-        code_of(review.decide(record, world(), said(careful=None), FACTS))
-        == "no-careful-call"
+    missing = refused_of(review.decide(record, world(), said(careful=None), FACTS))
+    assert (missing.code, missing.why, missing.fix) == snapshot(
+        (
+            "no-careful-call",
+            'the record makes the careful call: "careful": true or false, the review\'s own reading of the diff against each of the project\'s topics, and "careful_why": one line that names the topic the change reaches, or what was checked to say that it reaches none',
+            "the review writes careful and careful_why in its record of fix-the-login",
+        )
     )
     assert (
         code_of(review.decide(record, world(), said(careful_why=None), FACTS))
         == "no-careful-call"
     )
-    called = review.decide(record, world(), said(careful=True), FACTS)
-    assert code_of(called) == "careful-not-full"
+    called = refused_of(review.decide(record, world(), said(careful=True), FACTS))
+    assert (called.code, called.why, called.fix) == snapshot(
+        (
+            "careful-not-full",
+            "a change the review calls careful gets the project's full set, and the record says one read",
+            'the review runs the full set and writes its record with "kind": "full"',
+        )
+    )
     careful_one = careful_task("a customer is charged")
     under = review.decide(
         careful_one,
@@ -321,33 +373,60 @@ def test_a_review_is_refused_under_its_floor_without_a_careful_call_or_careful_a
         said(),
         review_due.Facts(careful=careful.reasons(careful_one, careful.Edits())),
     )
-    assert code_of(under) == "under-floor"
-    assert (
-        "the project's full set at the least (the request is careful: a customer is charged)"
-        in refused_of(under).why
+    short = refused_of(under)
+    assert (short.code, short.why, short.fix) == snapshot(
+        (
+            "under-floor",
+            "this change gets the project's full set at the least (the request is careful: a customer is charged), and the record says one read",
+            "run the project's full set, then lem land read fix-the-login --record FILE",
+        )
     )
 
 
 def test_a_round_names_what_it_ran_and_a_full_set_leaves_nothing_out() -> None:
     record = fresh()
-    assert code_of(review.decide(record, world(), said(kind="round"), FACTS)) == "ran"
+    missing = refused_of(review.decide(record, world(), said(kind="round"), FACTS))
+    assert (missing.code, missing.why, missing.fix) == snapshot(
+        (
+            "ran",
+            "a round names each profile it ran in `ran`, with why that profile fits this change",
+            'write "ran": [{"name": PROFILE, "why": WHY}, ...] in the record',
+        )
+    )
     ran = (Named(name="security", why="the diff reads a token"),)
     assert not isinstance(
         review.decide(record, world(), said(kind="round", ran=ran), FACTS), Refusal
     )
     left = said(kind="full", ran=ran, left_out=(Named(name="docs", why="no prose"),))
-    assert code_of(review.decide(record, world(), left, FACTS)) == "left-out"
+    incomplete = refused_of(review.decide(record, world(), left, FACTS))
+    assert (incomplete.code, incomplete.why, incomplete.fix) == snapshot(
+        (
+            "left-out",
+            "the project's full set leaves no profile out: a profile may be added to it, never dropped",
+            'write "left_out": [] on a full review',
+        )
+    )
     nobody = said(
         answered=(), must_fix=1, silent=(Named(name="codex", why="at capacity"),)
     )
-    assert code_of(review.decide(record, world(), nobody, FACTS)) == "answered"
+    no_author = refused_of(review.decide(record, world(), nobody, FACTS))
+    assert (no_author.code, no_author.why, no_author.fix) == snapshot(
+        (
+            "answered",
+            "the record has findings and no source that answered",
+            "`answered` names who found them",
+        )
+    )
 
 
 def test_the_floor_is_full_when_careful_a_round_for_a_large_plan_or_after_a_must_fix() -> (
     None
 ):
     record = fresh()
-    assert review_due.floor(record, (), resolution=False).kind == "read"
+    assert review_due.floor(record, (), resolution=False) == review_due.Floor(
+        kind="read",
+        why="nothing asks for more than one read: the diff and what each profile is for decide",
+    )
     assert (
         review_due.floor(record, ("the plan says so: money",), resolution=False).kind
         == "full"
@@ -363,12 +442,17 @@ def test_the_floor_is_full_when_careful_a_round_for_a_large_plan_or_after_a_must
     assert review_due.floor(three, (), resolution=False).kind == "read"
     must = replace(REVIEWED, findings=(), counts=Counts(must_fix=1), to_file=())
     after = task(**{**PREPARED, "reviews": (must,), "filed": ()})
-    assert review_due.floor(after, (), resolution=False).kind == "round"
+    assert review_due.floor(after, (), resolution=False) == review_due.Floor(
+        kind="round",
+        why="an earlier review found a must-fix: after its fix a round reviews the change",
+    )
     assert phases.due(after, world()).step == "read"
     assert (
         code_of(review.decide(after, world(), said(attempt=2), FACTS)) == "under-floor"
     )
-    assert review_due.floor(after, (), resolution=True).kind == "read"
+    assert review_due.floor(after, (), resolution=True) == review_due.Floor(
+        kind="read", why="a builder resolved a conflict with the base"
+    )
     assert review_due.floor(after, ("x",), resolution=True).kind == "full"
 
 
@@ -540,15 +624,23 @@ def test_only_new_items_recorded_by_filing_keep_review_coverage(
 
 def test_a_resolution_of_a_conflict_gets_one_read_of_what_it_changed() -> None:
     resolution = Resolution(files=("a.py",), before=OTHER, after=TIP, base=BASE)
-    before = replace(REVIEWED, tip=OTHER)
-    record = task(**{**PREPARED, "reviews": (before,), "resolution": resolution})
+    before = replace(REVIEWED, tip=OTHER, kind="round", floor="round")
+    first = replace(REVIEWED, tip="2" * 40)
+    before = replace(before, attempt=2)
+    record = task(**{**PREPARED, "reviews": (first, before), "resolution": resolution})
+    record = replace(record, task=replace(record.task, plan=Plan(path="p.md", tasks=4)))
+    assert (
+        review.holds(record, world(tip=BASE)).why
+        == "two rounds reviewed it: nobody reviewed what changed after it"
+    )
+    assert due_of(review.holds(record, world())) == "read"
     assert review.holds(record, world()).why.startswith("a builder resolved a conflict")
-    made = review.decide(record, world(), said(attempt=2), FACTS)
+    made = review.decide(record, world(), said(attempt=3), FACTS)
     assert not isinstance(made, Refusal)
     assert (made.of, made.scope, made.floor) == ("resolution", "resolution", "read")
-    changed = review_changes.recorded(record, review=made, said=said(attempt=2))
+    changed = review_changes.recorded(record, review=made, said=said(attempt=3))
     assert changed.landing is not None and changed.landing.resolution is not None
-    assert changed.landing.resolution.read == 2
+    assert changed.landing.resolution.read == 3
     assert review.holds(changed, world()).why.startswith("the newest review covers")
 
 
@@ -608,8 +700,15 @@ def test_a_lowered_bar_the_record_says_nothing_of_is_refused_and_its_word_is_kep
     )
     record = task(**{**PREPARED, "reviews": (), "filed": (), "checked": lowered})
     facts = review_due.Facts(lowered=("t.py",))
-    refused = review.decide(record, world(), said(), facts)
-    assert code_of(refused) == "bar" and "t.py" in refused_of(refused).why
+    many = replace(facts, lowered=("t.py", "u.py"))
+    refused = refused_of(review.decide(record, world(), said(), many))
+    assert (refused.code, refused.why, refused.fix) == snapshot(
+        (
+            "bar",
+            "the change lowers the bar in t.py, u.py and the record says nothing of it",
+            '`bar` holds one {"name": FILE, "why": WHAT THE REVIEW SAYS OF THE BUILDER\'S REASON} for each such file',
+        )
+    )
     worded = said(lowered=(Named(name="t.py", why="the reason holds"),))
     made = review.decide(record, world(), worded, facts)
     assert not isinstance(made, Refusal)
@@ -871,4 +970,111 @@ def test_the_items_filed_after_a_clean_read_of_the_resolution_keep_its_cover() -
     )
     assert review.holds(record, world(tip=BASE, item_chain=(TIP, BASE))).why.startswith(
         "the newest review covers"
+    )
+
+
+@pytest.mark.parametrize("counts", [{"should": 1}, {"nit": 1}])
+def test_a_review_with_findings_cannot_be_recorded_as_silent(
+    counts: dict[str, int],
+) -> None:
+    form = said(answered=(), silent=QUIET, careful=None, careful_why=None, **counts)
+    assert code_of(review.decide(fresh(), world(), form, FACTS)) == "no-careful-call"
+
+
+def test_a_round_keeps_the_profiles_and_finding_counts_it_reported() -> None:
+    ran = Named(name="security", why="the change reads a token")
+    left = Named(name="docs", why="the change has no prose")
+    form = said(kind="round", ran=(ran,), left_out=(left,), must_fix=1, should=2)
+    made = review.decide(fresh(), world(), form, FACTS)
+    assert not isinstance(made, Refusal)
+    assert [(one.name, one.why) for one in made.ran] == [
+        ("security", "the change reads a token")
+    ]
+    assert [(one.name, one.why) for one in made.left_out] == [
+        ("docs", "the change has no prose")
+    ]
+    assert made.counts == Counts(must_fix=1, should=2)
+    assert (made.of, made.scope) == ("change", "whole")
+
+
+def test_removing_the_tasks_own_item_needs_no_review_of_the_removal() -> None:
+    record = task(**PREPARED)
+    assert review.holds(record, world(tip=OTHER, own_item_removed_from=TIP)) == Held(
+        why="the newest review covers this change, with no must-fix"
+    )
+
+
+def test_an_item_added_after_a_proved_rebase_keeps_the_review() -> None:
+    rebased = "2" * 40
+    checked = replace(CHECKED, tip=rebased, items_after=("docs/backlog/login.md",))
+    based = replace(BASED, before=TIP, tip=rebased, carried=True, reviewed=TIP)
+    record = task(**{**PREPARED, "based": based, "checked": checked})
+    current = world(tip=OTHER, item_chain=(rebased, OTHER))
+    assert review.holds(record, current) == Held(
+        why="the newest review covers this change, with no must-fix"
+    )
+
+
+def test_the_two_round_limit_names_both_the_must_fix_and_the_changed_tip() -> None:
+    left = replace(
+        REVIEWED, findings=(), counts=Counts(must_fix=1), to_file=(), kind="round"
+    )
+    record = task(**{**PREPARED, "reviews": (left, replace(left, attempt=2))})
+    assert review.holds(record, world(tip=OTHER)) == Held(
+        why=(
+            "two rounds reviewed it: the last one left 1 must-fix, and "
+            "nobody reviewed what changed after it"
+        )
+    )
+    assert green.reasons(record, (), world(tip=OTHER)) == (
+        (
+            "the review does not cover this change: the last one left 1 must-fix, and "
+            "nobody reviewed what changed after it"
+        ),
+    )
+
+
+def test_a_review_can_only_name_an_open_item_in_this_projects_backlog() -> None:
+    off = replace(OUT, open="elsewhere/note.md")
+    facts = replace(FACTS, folder="tracker/backlog")
+    found = refused_of(review.decide(fresh(), world(), said(outside=(off,)), facts))
+    assert found.code == "outside"
+    assert found.why.endswith(
+        "which is no file of the backlog folder tracker/backlog at the base"
+    )
+
+
+@pytest.mark.parametrize("counts", [{"should": 1}, {"nit": 1}])
+def test_each_finding_needs_an_answered_source(counts: dict[str, int]) -> None:
+    report = said(answered=(), silent=QUIET, **counts)
+    assert code_of(review.decide(fresh(), world(), report, FACTS)) == "answered"
+
+
+def test_a_previous_read_below_the_plans_floor_still_needs_a_round() -> None:
+    record = task(**PREPARED)
+    planned = replace(
+        record, task=replace(record.task, plan=Plan(path="p.md", tasks=4))
+    )
+    found = review.holds(planned, world())
+    assert due_of(found) == "read"
+    assert found.why == "it was read, and this change gets round at the least"
+
+
+def test_another_change_after_an_answered_review_gets_a_whole_change_review() -> None:
+    previous = replace(REVIEWED, tip=OTHER)
+    record = task(**{**PREPARED, "reviews": (previous,)})
+    made = review.decide(record, world(), said(attempt=2), FACTS)
+    assert not isinstance(made, Refusal)
+    assert (made.of, made.scope) == ("change", "whole")
+
+
+def test_a_resolution_keeps_the_floor_of_the_whole_change_recorded_before_it() -> None:
+    before = replace(REVIEWED, tip=OTHER)
+    resolved = Resolution(files=("a.py",), before=OTHER, after=TIP, base=BASE, read=2)
+    replied = replace(REVIEWED, attempt=2, of="resolution", scope="resolution")
+    record = task(**{**PREPARED, "reviews": (before, replied), "resolution": resolved})
+    large = replace(record, task=replace(record.task, plan=Plan(path="p.md", tasks=4)))
+    assert (
+        review.holds(large, world()).why
+        == "it was read, and this change gets round at the least"
     )

@@ -15,6 +15,7 @@ from lem.model.landing.bar import (
     refusal,
     shebang_suffix,
 )
+from lem.model.landing.bar_lines import hunk_size
 from lem.model.landing.bar_marks import BAR_MARKS, marks_of
 
 if TYPE_CHECKING:
@@ -419,6 +420,8 @@ def test_a_file_with_no_suffix_is_read_as_its_first_line_names() -> None:
         "#!/usr/bin/env -S uv run --script\n": "",
         "#!/usr/bin/env\n": "",
         "import os\n": "",
+        "python3\n": "",
+        "#!python3\n": ".py",
         "": "",
     }
     assert {line: shebang_suffix(line) for line in lines} == lines
@@ -655,6 +658,7 @@ def test_the_tests_snapshots_and_settings_the_change_edits() -> None:
         "M\tpyproject.toml",
         "M\ttests/__snapshots__/total.snap",
         "M\ttests/test_calc.py",
+        "M\ttests/test display.py",
         "A\ttests/test_new.py",
         "R100\ttests/test_a.py\ttests/test_b.py",
         "R090\ttests/test_c.py\ttests/test_d.py",
@@ -665,6 +669,7 @@ def test_the_tests_snapshots_and_settings_the_change_edits() -> None:
         Edited(path="package.json", kind="test configuration"),
         Edited(path="pyproject.toml", kind="test configuration"),
         Edited(path="tests/__snapshots__/total.snap", kind="snapshot"),
+        Edited(path="tests/test display.py", kind="test"),
         Edited(path="tests/test_calc.py", kind="test"),
         Edited(path="tests/test_d.py", kind="test"),
     )
@@ -770,7 +775,21 @@ def test_a_plan_s_bar(sample: str, offset: int) -> None:
     assert "docs/plans/bar-change.md" in str(raised.value)
     assert opens(plan, offset) in str(raised.value)
     assert raised.value.code == "fence"
-    assert "close the fence" in raised.value.fix
+    assert raised.value.fix == (
+        "close the fence, or put a sample that holds fences of its own in a longer "
+        "fence (```` around ```)"
+    )
+    opening = next(
+        line.strip() for line in plan.splitlines() if line.startswith("```markdown")
+    )
+    assert raised.value.why.startswith(
+        f"docs/plans/bar-change.md: {opens(plan, offset)} ("
+    )
+    assert raised.value.why.endswith(
+        "), so each line after it reads as code and no heading after it counts"
+    )
+    if not offset:
+        assert f"({opening})" in raised.value.why
 
 
 def test_the_fast_track_has_no_plan_and_names_the_standard_track() -> None:
@@ -780,16 +799,29 @@ def test_the_fast_track_has_no_plan_and_names_the_standard_track() -> None:
     assert said is not None
     assert said.code == "bar"
     assert f"tests/test_old.py ({SKIP})" in said.why
-    assert "standard track" in said.fix
+    assert said.fix == (
+        "take the mark out; when the change needs it, it takes the standard track, and "
+        "Lem tells the owner so and takes that track, whose plan gives the reason under "
+        "`## The bar`"
+    )
 
 
 def test_the_standard_track_names_the_plans_section() -> None:
-    found = bar(patch("calc.py", plus=(f"import os  {NOQA}",)))
+    found = bar(
+        patch("calc.py", plus=(f"import os  {NOQA}",)),
+        patch("tests/test_old.py", plus=(f"@{SKIP}",), new=True),
+    )
     said = refusal(found.lowered, small=False)
     assert said is not None
-    assert f"calc.py ({NOQA})" in said.why
-    assert "`## The bar`" in said.fix
-    assert "standard track" not in f"{said.why}. {said.fix}"
+    assert said.code == "bar"
+    assert said.why == (
+        f"the change lowers the bar with no reason given: calc.py ({NOQA}); "
+        f"tests/test_old.py ({SKIP})"
+    )
+    assert said.fix == (
+        "take the mark out, or give the reason in the task's plan under `## The bar` as "
+        "`- PATH: REASON`, where the one who reads the change sees it"
+    )
 
 
 def test_a_reason_for_each_file_is_no_refusal() -> None:
@@ -799,3 +831,152 @@ def test_a_reason_for_each_file_is_no_refusal() -> None:
     )
     assert refusal(found.lowered, small=False) is None
     assert refusal([], small=True) is None
+
+
+def test_the_same_coverage_threshold_with_new_spacing_holds_the_bar() -> None:
+    changed = patch(
+        "pyproject.toml", minus=("fail_under=85",), plus=("fail_under = 85",)
+    )
+    assert lowered(bar(changed)) == []
+
+
+def test_a_count_of_one_may_be_absent_from_a_git_hunk_header() -> None:
+    changed = (
+        "diff --git a/tests/test_login.py b/tests/test_login.py\n"
+        "--- a/tests/test_login.py\n"
+        "+++ b/tests/test_login.py\n"
+        "@@ -12 +12 @@\n"
+        "-assert login()\n"
+        "+login()\n"
+    )
+    assert lowered(bar(changed)) == [("tests/test_login.py", "1 assertion(s) fewer")]
+
+
+def test_removal_of_a_coverage_workflow_names_its_old_path() -> None:
+    old = ".github/workflows/check.yml"
+    gone = patch(old, minus=("- run: pytest --cov-fail-under=85",), gone=True)
+    assert lowered(bar(gone)) == [(old, "cov-fail-under (85) is gone")]
+
+
+def test_removal_of_a_coverage_workflow_with_spaces_names_its_old_path() -> None:
+    path = ".github/workflows/check coverage.yml"
+    gone = patch(path, minus=("- run: pytest --cov-fail-under=85",), gone=True)
+    git_diff = gone.replace(f"--- a/{path}\n", f"--- a/{path}\t\n")
+    assert lowered(bar(git_diff)) == [(path, "cov-fail-under (85) is gone")]
+
+
+def test_a_coverage_workflow_with_spaces_uses_the_new_path_when_edited() -> None:
+    path = ".github/workflows/check coverage.yml"
+    changed = patch(
+        path, minus=("- run: pytest --cov-fail-under=85",), plus=("- run: pytest",)
+    )
+    git_diff = changed.replace(f"+++ b/{path}\n", f"+++ b/{path}\t\n")
+    assert lowered(bar(git_diff)) == [(path, "cov-fail-under (85) is gone")]
+
+
+@pytest.mark.parametrize(
+    ("name", "encoded"),
+    [
+        (".github/workflows/checké.yml", r'"a/.github/workflows/check\303\251.yml"'),
+        (".github/workflows/check\udcff.yml", r'"a/.github/workflows/check\377.yml"'),
+    ],
+    ids=["UTF-8", "unpaired byte"],
+)
+def test_removal_of_a_coverage_workflow_reads_the_quoted_git_path(
+    name: str, encoded: str
+) -> None:
+    gone = patch(name, minus=("- run: pytest --cov-fail-under=85",), gone=True)
+    git_diff = gone.replace(f"--- a/{name}\n", f"--- {encoded}\n")
+    assert lowered(bar(git_diff)) == [(name, "cov-fail-under (85) is gone")]
+
+
+def test_an_old_mark_can_cover_only_one_copy_of_a_line() -> None:
+    original = f"import os  {NOQA}: F401"
+    copy = f"import os  {NOQA}: F401  {TYPE_IGNORE}"
+    found = bar(patch("calc.py", minus=(original,), plus=(original, copy)))
+    assert [(mark.line, mark.what) for mark in found.lowered] == [
+        (copy, NOQA),
+        (copy, TYPE_IGNORE),
+    ]
+
+
+def test_an_unchanged_suppression_on_an_edited_line_stays_in_place() -> None:
+    old = f"a(1)  {NOQA}: F821"
+    made = f"b(2)  {NOQA}: F821"
+    diff = patch("calc.py", minus=(old,), plus=(made,))
+    assert lowered(bar(diff)) == []
+
+
+def test_one_copy_of_a_focused_call_in_a_line_cannot_cover_two() -> None:
+    focus = "it.only(1);"
+    made = f"{focus}{focus}"
+    found = bar(patch("sample.js", minus=(focus,), plus=(made,)))
+    assert len(found.lowered) == 1
+    assert found.lowered[0].line == made
+
+
+def test_an_invalid_backtick_info_string_leaves_the_reasons_visible() -> None:
+    plan = "```sample`part\n## The bar\n\n- calc.py: the import registers a plugin.\n"
+    diff = patch("calc.py", plus=(f"import os  {NOQA}: F401",))
+    assert [mark.reason for mark in bar(diff, plan=plan).lowered] == [
+        "the import registers a plugin."
+    ]
+
+
+def test_a_reason_directly_after_a_closed_fence_still_holds() -> None:
+    plan = f"## The bar\n{SAMPLE}- calc.py: the import registers a plugin.\n"
+    diff = patch("calc.py", plus=(f"import os  {NOQA}: F401",))
+    assert [mark.reason for mark in bar(diff, plan=plan).lowered] == [
+        "the import registers a plugin."
+    ]
+
+
+def test_an_ordinary_diff_ignores_a_combined_hunk_header() -> None:
+    assert hunk_size("@@@ -1,2 -1,2 +1,1 @@@") == [0, 0]
+    assert hunk_size("@@ -1 +1 @@") == [1, 1]
+
+
+@pytest.mark.parametrize("path", ["README.MD", "tests/README.MD"])
+def test_a_quoted_suppression_in_a_readme_does_not_lower_the_bar(path: str) -> None:
+    diff = patch(
+        path, minus=(f"> `assert login()  {NOQA}`",), plus=(f"> `login()  {NOQA}`",)
+    )
+    assert lowered(bar(diff)) == []
+
+
+def test_a_tilde_sample_with_a_backtick_in_its_label_hides_the_heading() -> None:
+    plan = "~~~sample`part\n## The bar\n- calc.py: just an example.\n~~~\n"
+    diff = patch("calc.py", plus=(f"import os  {NOQA}: F401",))
+    assert [mark.reason for mark in bar(diff, plan=plan).lowered] == [None]
+
+
+def test_a_heading_on_the_last_line_of_a_sample_still_counts_as_code() -> None:
+    plan = "## The bar\n```markdown\n## Another heading\n```\n- calc.py: the import registers a plugin.\n"
+    diff = patch("calc.py", plus=(f"import os  {NOQA}: F401",))
+    assert [mark.reason for mark in bar(diff, plan=plan).lowered] == [
+        "the import registers a plugin."
+    ]
+
+
+def test_marks_at_the_same_place_keep_the_same_extent() -> None:
+    begin = re.compile(r"skip")
+    call = re.compile(r"skip\(\w+\)")
+    found = marks_of("skip(reason)", [begin, call], [])
+    assert [own for _, own in found] == ["skip(reason)", "skip(reason)"]
+
+
+def test_a_move_to_a_different_hunk_keeps_an_existing_suppression() -> None:
+    line = f"import os  {NOQA}: F401"
+    moved = (
+        "diff --git a/calc.py b/calc.py\n--- a/calc.py\n+++ b/calc.py\n"
+        f"@@ -1 +1,0 @@\n-{line}\n@@ -21,0 +21 @@\n+{line}\n"
+    )
+    assert lowered(bar(moved)) == []
+
+
+def test_a_matched_line_does_not_take_the_marks_of_a_removed_line() -> None:
+    kept = f"import os  {NOQA}: F401"
+    retired = f"import os  {TYPE_IGNORE}"
+    unrelated = f"import sys  {TYPE_IGNORE}"
+    for old in (retired, unrelated):
+        assert lowered(bar(patch("calc.py", minus=(old, kept), plus=(kept,)))) == []

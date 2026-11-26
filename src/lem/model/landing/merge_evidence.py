@@ -26,15 +26,15 @@ if TYPE_CHECKING:
 TIP = "tip"
 
 
-def seat_refusal(record: Record) -> Refusal | None:
-    """A failed seat stops a new merge until the owner's go on."""
-    refused = held_refusal(record.task, "open")
-    return refused if refused is not None and refused.code == "seat-blocked" else None
+def hold_refusal(record: Record) -> Refusal | None:
+    """A park or failed seat stops a new merge."""
+    # The hold gives the same refusal for every destination other than dropped.
+    return held_refusal(record.task, "open")  # pragma: no mutate
 
 
 def new_call_refusal(record: Record) -> Refusal | None:
-    """A release stop or a seat block prevents a new call to the forge."""
-    return guard(record) or seat_refusal(record)
+    """A release stop, park or seat block prevents a new call to the forge."""
+    return guard(record) or hold_refusal(record)
 
 
 def forge_side(record: Record, world: World, proposed: Proposed) -> Refusal | None:

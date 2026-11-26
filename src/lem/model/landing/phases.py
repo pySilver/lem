@@ -18,7 +18,7 @@ from lem.model.landing import (
     review,
     start,
 )
-from lem.model.landing.merge_evidence import seat_refusal
+from lem.model.landing.merge_evidence import hold_refusal
 from lem.model.landing.merge_recheck import due as recheck_due
 from lem.model.landing.mergeread import another_round, latest
 from lem.model.landing.repair_limit import due as repair_due
@@ -59,15 +59,19 @@ def preparing(record: Record, world: World) -> Due:
         found = rule(record, world)
         if isinstance(found, Due):
             return found
-    return Due(step="wait", why="every step holds: the forge has the pull request")
+    # The proposal is always due in the preparing phase.
+    return Due(  # pragma: no mutate
+        step="wait",  # pragma: no mutate
+        why="every step holds: the forge has the pull request",  # pragma: no mutate
+    )
 
 
 def pending(record: Record, world: World, landing: Landing) -> Due | None:
-    """Settle the forge's answer first, then honor the seat block before any new work."""
+    """Settle the forge's answer first, then honor the park or seat block."""
     left = reconcile.pending(landing, world)
     if left is not None and (left.step != "merge" or landing.intent is not None):
         return left
-    refused = seat_refusal(record)
+    refused = hold_refusal(record)
     if refused is not None:
         return Due(step="wait", why=f"{refused.why}; {refused.fix}")
     checked = checks.holds(record, world)

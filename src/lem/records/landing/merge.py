@@ -62,7 +62,7 @@ class Merged(Frozen, frozen=True, kw_only=True):
     merged_head: Sha
     parent: Sha
     destination: str
-    base_checked: Sha
+    base_checked: Sha | None = None
     base_merged: Sha
     base_read: Sha | None = None
     uncovered: str | None = None

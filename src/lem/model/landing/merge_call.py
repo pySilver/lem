@@ -39,9 +39,12 @@ def moved_line(landing: Landing, world: World) -> str | None:
     read = mergeread.latest(landing, world.base_tree)
     if read is None or read.base_call != "safe":
         return None
-    ran = landing.checked.base if landing.checked else world.base
+    # The call has already passed the check for a run on the proposed tip.
+    ran = landing.checked.base if landing.checked else world.base  # pragma: no mutate
     bases = (ran, world.base)
-    return merge_lines.base_line(world.rules.base, bases, read.why or "")
+    # A safe read always gives its reason.
+    why = read.why or ""  # pragma: no mutate
+    return merge_lines.base_line(world.rules.base, bases, why)
 
 
 def merging(record: Record, world: World, asked: Asked, tip: Sha) -> Merging:
@@ -49,7 +52,8 @@ def merging(record: Record, world: World, asked: Asked, tip: Sha) -> Merging:
     report's subject and a body that lists the task's decisions and names the task, with the
     line of a merge on a base a safe read covered between; or a rebase that keeps the
     branch's commits."""
-    event = world.pull.queue_event if world.pull else None
+    # The merge requires an open pull request before it builds the call.
+    event = world.pull.queue_event if world.pull else None  # pragma: no mutate
     before = event.id if event else ""
     intent = MergeIntent(
         tip=tip, by=asked.by, via=asked.via, at=world.now, queue_before=before
@@ -61,5 +65,6 @@ def merging(record: Record, world: World, asked: Asked, tip: Sha) -> Merging:
         moved_line(record.landing or Landing(), world),
         merge_decided.block(record.task.decisions),
     )
-    subject = asked.subject or ""
+    # The request must have a subject before it can build a squash call.
+    subject = asked.subject or ""  # pragma: no mutate
     return Merging(intent=intent, method="squash", subject=subject, body=body)

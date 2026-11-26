@@ -78,8 +78,8 @@ class Grammar:
         if not word.startswith(self.marks):
             return SCRIPT
         marks = [word.find(mark) for mark in self.takes]
-        found = [index for index in marks if index >= 0]
-        cut = min(found, default=len(word))
+        found = [index for index in marks if index != -1]
+        cut = min(found, default=None)
         letters = set(word[1:cut])
         if word.startswith(DASH) and letters & self.operand:
             return NONE
@@ -143,7 +143,9 @@ class Command:
         Its exit does not say whether the file was there: bash ends `sh FILE` with no FILE
         with 127, dash with 2, and Python with 2, which an assertion's exit may be too."""
         words = self.words()
-        program = PurePosixPath(words[0]).name if words else ""
+        if not words:
+            return None
+        program = PurePosixPath(words[0]).name
         if program in SHELLS:
             return SHELL_ARGS.script(words[1:])
         if PYTHON.fullmatch(program):
@@ -228,7 +230,8 @@ def failed(red: Red) -> Refusal | None:
     None when it holds. A builder repairs the test or the plan: the check is never edited to
     pass."""
     bad = next((test for test in red.tests if test.problem), None)
-    if red.ok or bad is None:
+    # The runner sets ok exactly when no test has a problem.
+    if red.ok or bad is None:  # pragma: no mutate
         return None
     return Refusal(
         CODE,

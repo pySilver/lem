@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
+from lem.model.task import holds
 from lem.records.journal.task import StateNoted
 from lem.records.landing.record import Landing
 
@@ -28,9 +29,11 @@ def noted(record: Record, entry: Entry) -> Record:
 
 def moved(record: Record, status: Status, line: str, now: Moment) -> Record:
     """The record with the task in `status` since `now`, and the move in its journal; a
-    move to the status it is in changes nothing."""
+    move to the status it is in changes nothing. A task that ends gives up its hold."""
     if record.task.status == status:
         return record
+    if status in holds.ENDED:
+        return holds.moved(record, status=status, line=line, now=now)
     task = replace(record.task, status=status, since=now)
     entry = StateNoted(at=now, status=status, line=line)
     return noted(replace(record, task=task), entry)

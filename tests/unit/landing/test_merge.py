@@ -8,13 +8,15 @@ from typing import TYPE_CHECKING
 from unittest.mock import Mock, patch
 
 import pytest
+from inline_snapshot import snapshot
 from msgspec.structs import replace
 
 from lem.app.landing import merge as merge_app
 from lem.app.landing import merge_called, merge_world
 from lem.kernel.errors import Refusal
-from lem.model.landing import merge, merge_call, merge_standing, propose
+from lem.model.landing import merge, merge_asked, merge_call, merge_standing, propose
 from lem.model.landing.merge_asked import Asked
+from lem.model.landing.queue_evidence import Event
 from lem.model.landing.world import Rules
 from lem.records.landing.merge import MergeIntent, Refused
 from lem.records.landing.propose import MergeRead, OwnerMerge, Standing
@@ -59,6 +61,12 @@ SAFE = MergeRead(
     at=MOMENT,
 )
 KEEP = Rules(base="main", history="keep", commands=("true",))
+
+
+def refusal_words(found: object) -> tuple[str, str, str]:
+    """The refusal and its exact way on for the owner."""
+    assert isinstance(found, Refusal), found
+    return found.code, found.why, found.fix
 
 
 def test_the_merge_agent_merges_a_green_request_on_its_reads_merge() -> None:
@@ -169,7 +177,13 @@ def test_a_retarget_before_the_merge_names_the_edit_that_puts_it_back() -> None:
         opened(), facing(pull=replace(SEEN, base="release")), BY_OWNER, TREE
     )
     assert isinstance(found, Refusal)
-    assert found.fix.startswith("gh pr edit 1 --base main")
+    assert refusal_words(found) == snapshot(
+        (
+            "target",
+            "the pull request https://github.com/o/p/pull/1 is on release on GitHub, not on main, the base of the task: its base was changed there; nothing was merged",
+            "gh pr edit 1 --base main, then lem land merge fix-the-login again",
+        )
+    )
 
 
 @pytest.mark.parametrize(
@@ -193,8 +207,23 @@ def test_a_moved_base_cannot_hide_a_wrong_destination_or_head(
 
 
 def test_a_moved_base_merges_only_on_a_safe_read_that_covers_it_now() -> None:
-    assert code_of(merge.decide(opened(), moved(), BY_OWNER, TREE)) == "base"
-    assert code_of(merge.decide(opened(), moved(), BY_MERGER, TREE)) == "base"
+    assert refusal_words(merge.decide(opened(), moved(), BY_OWNER, TREE)) == snapshot(
+        (
+            "base",
+            "the base moved after the checks ran: the approved change needs checks on its new base",
+            "lem land next fix-the-login names the steps to rebase and check it",
+        )
+    )
+    rules = replace(moved().rules, base="stable")
+    assert refusal_words(
+        merge.decide(opened(), moved(rules=rules), BY_MERGER, TREE)
+    ) == snapshot(
+        (
+            "base",
+            "origin's main moved after the checks ran, and no read of the merge agent covers main at aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa as safe: nothing was merged",
+            "lem land merge-review fix-the-login writes the brief of what moved; a fresh merge agent reads it, and on `Base: safe.` the merge goes on that base",
+        )
+    )
     on_safe = merge.decide(opened(reads=(READ, SAFE)), moved(), BY_MERGER, TREE)
     assert isinstance(on_safe, merge_call.Merging)
     assert (
@@ -259,10 +288,19 @@ def test_the_merge_as_asked_is_refused_and_no_intent_is_written(
 
 def test_a_merge_that_keeps_the_branchs_commits_takes_no_subject_and_rebases() -> None:
     keep = facing(rules=KEEP)
-    assert code_of(merge.decide(opened(), keep, BY_OWNER, TREE)) == "message"
+    assert refusal_words(merge.decide(opened(), keep, BY_OWNER, TREE)) == snapshot(
+        (
+            "message",
+            'branch.history is "keep": the branch\'s own commits land, with no subject',
+            "run it again with no --message",
+        )
+    )
     made = merge.decide(opened(), keep, replace(BY_OWNER, subject=None), TREE)
     assert isinstance(made, merge_call.Merging)
     assert (made.method, made.subject, made.body) == ("rebase", "", "")
+    assert made.intent == MergeIntent(
+        tip=TIP, by="owner", via="board", at=MOMENT, queue_before=""
+    )
 
 
 def test_after_githubs_refusal_only_the_owners_word_merges_that_tip() -> None:
@@ -270,7 +308,13 @@ def test_after_githubs_refusal_only_the_owners_word_merges_that_tip() -> None:
         tip=TIP, source="github", kind="rule", line="checks", by="merger", at=MOMENT
     )
     record = opened(refused=refused)
-    assert code_of(merge.decide(record, facing(), BY_MERGER, TREE)) == "github"
+    assert refusal_words(merge.decide(record, facing(), BY_MERGER, TREE)) == snapshot(
+        (
+            "github",
+            "GitHub refused the merge of 1111111111111111111111111111111111111111: checks; it is not tried again unasked",
+            "the owner acts on GitHub, then merges it on his word",
+        )
+    )
     assert isinstance(
         merge.decide(record, facing(), BY_OWNER, TREE), merge_call.Merging
     )
@@ -291,11 +335,12 @@ def test_only_the_owners_own_word_refused_for_the_base_keeps_his_merge_standing(
     held = merge_standing.kept(record, refusal, BY_OWNER, MOMENT)
     assert held is not None
     refused, standing = held
-    assert (refused.source, refused.kind, refused.by, refused.tip) == (
+    assert (refused.source, refused.kind, refused.by, refused.tip, refused.at) == (
         "lem",
         "base",
         "owner",
         TIP,
+        MOMENT,
     )
     assert standing == Standing(
         tip=TIP,
@@ -311,7 +356,13 @@ def test_only_the_owners_own_word_refused_for_the_base_keeps_his_merge_standing(
 
 def test_a_stale_tap_or_a_standing_merge_with_none_is_refused_before_the_base() -> None:
     stale = merge.decide(opened(), moved(), replace(BY_OWNER, tip=OTHER), TREE)
-    assert code_of(stale) == "tip"
+    assert refusal_words(stale) == snapshot(
+        (
+            "tip",
+            "the owner's merge names 9999999999999999999999999999999999999999, and the proposal is 1111111111111111111111111111111111111111: nothing was merged",
+            "the owner reads the pull request as it is now (lem land next fix-the-login), and merges the tip he saw",
+        )
+    )
     server = Asked(by="owner", via="server", standing=True, subject=SUBJECT)
     assert code_of(merge.decide(opened(), moved(), server, TREE)) == "tip"
 
@@ -332,15 +383,39 @@ def test_the_merge_agents_refusals_by_lems_rules_are_kept_for_its_tip() -> None:
     assert kept_rule is not None
     assert kept_rule[0].kind == "rule"
     assert merge_standing.kept(record, moved_head, BY_OWNER, MOMENT) is None
+    assert (
+        merge_standing.kept(
+            replace(record, landing=None), moved_head, BY_MERGER, MOMENT
+        )
+        is None
+    )
+    assert (
+        merge_standing.kept(opened(proposed=None), moved_head, BY_MERGER, MOMENT)
+        is None
+    )
+    lost_reply = Refusal("intent", "a reply went missing", "check GitHub")
+    assert merge_standing.kept(record, lost_reply, BY_MERGER, MOMENT) is None
 
 
 def test_under_the_lock_a_push_of_another_commit_or_another_pull_request_is_refused() -> (
     None
 ):
     pushed = opened(pushed=OTHER)
-    assert code_of(merge.decide(pushed, facing(), BY_OWNER, TREE)) == "tip"
+    assert refusal_words(merge.decide(pushed, facing(), BY_OWNER, TREE)) == snapshot(
+        (
+            "tip",
+            "the task's branch is at 1111111111111111111111111111111111111111 and Lem pushed 9999999999999999999999999999999999999999 last, not the proposed 1111111111111111111111111111111111111111",
+            "lem land next fix-the-login names the new round",
+        )
+    )
     elsewhere = facing(pull=replace(SEEN, url="https://github.com/other/repo/pull/1"))
-    assert code_of(merge.decide(opened(), elsewhere, BY_OWNER, TREE)) == "no-pull"
+    assert refusal_words(merge.decide(opened(), elsewhere, BY_OWNER, TREE)) == snapshot(
+        (
+            "no-pull",
+            "the forge shows https://github.com/other/repo/pull/1, not the pull request on record",
+            "lem land next fix-the-login",
+        )
+    )
 
 
 def test_the_merge_agent_reads_its_greenness_again_under_the_lock() -> None:
@@ -480,3 +555,115 @@ def test_the_merge_agent_needs_the_criteria_the_proposal_used(
         assert merge.authority(current, facing()) == merge.MOVED
     else:
         assert isinstance(decided, merge_call.Merging)
+
+
+def test_the_squash_refusal_names_the_subject_from_the_report() -> None:
+    asked = replace(BY_OWNER, subject=None)
+    assert refusal_words(merge.decide(opened(), facing(), asked, TREE)) == (
+        "message",
+        'branch.history is "squash": the one commit takes the subject of the report',
+        "pass --message with the commit subject of the builder's report",
+    )
+
+
+def test_a_merge_call_cannot_claim_the_queue_entry_that_already_exists() -> None:
+    entry = Event(id="prior-entry", at=MOMENT, head=TIP)
+    world = facing(pull=replace(SEEN, queue_event=entry))
+    made = merge.decide(opened(), world, BY_MERGER, TREE)
+    assert isinstance(made, merge_call.Merging)
+    assert made.intent.queue_before == "prior-entry"
+
+
+def test_closed_pull_no_pull_or_red_checks_name_the_next_step() -> None:
+    closed = facing(pull=replace(SEEN, state="closed"))
+    assert refusal_words(merge.decide(opened(), closed, BY_OWNER, TREE)) == snapshot(
+        (
+            "closed",
+            "the pull request https://github.com/o/p/pull/1 is closed on GitHub: nothing was merged",
+            "lem land merged fix-the-login writes it down first",
+        )
+    )
+    assert refusal_words(
+        merge.decide(opened(), facing(pull=None), BY_OWNER, TREE)
+    ) == snapshot(
+        (
+            "no-pull",
+            "the forge shows no pull request, not the pull request on record",
+            "lem land next fix-the-login",
+        )
+    )
+    red = opened(checked=replace(CHECKED, outcome="red"))
+    assert refusal_words(merge.decide(red, facing(), BY_OWNER, TREE)) == snapshot(
+        (
+            "checks-changed",
+            "no passed run of the checks covers 1111111111111111111111111111111111111111 with the checks as they are now: the checks of this tip are red",
+            "lem land next fix-the-login names the step that runs them",
+        )
+    )
+    wrong_head = facing(pull=replace(SEEN, head=OTHER))
+    assert refusal_words(
+        merge.decide(opened(), wrong_head, BY_OWNER, TREE)
+    ) == snapshot(
+        (
+            "tip",
+            "the pull request's head is 9999999999999999999999999999999999999999, not the proposed 1111111111111111111111111111111111111111",
+            "lem land next fix-the-login names the new round",
+        )
+    )
+
+
+def test_a_blank_subject_cannot_reach_the_forge_for_a_squash() -> None:
+    asked = replace(BY_OWNER, subject="")
+    assert refusal_words(merge.decide(opened(), facing(), asked, TREE)) == (
+        "message",
+        'branch.history is "squash": the one commit takes the subject of the report',
+        "pass --message with the commit subject of the builder's report",
+    )
+    kept = merge.decide(opened(), facing(rules=KEEP), asked, TREE)
+    assert isinstance(kept, merge_call.Merging)
+    assert (kept.method, kept.subject) == ("rebase", "")
+
+
+def test_the_owner_list_uses_the_proposals_authority_until_it_has_current_settings() -> (
+    None
+):
+    proposal = replace(OPENED["proposed"], who_acts="owner")
+    record = opened(proposed=proposal)
+    assert merge.authority(record) == (
+        'branch.land is "owner" in .lem/settings.toml: the owner merges every task'
+    )
+    assert merge.authority(record, land="agent") is None
+    assert merge.authority(opened()) is None
+
+
+def test_the_merge_refusal_of_a_closed_task_names_its_status_and_next_step() -> None:
+    assert refusal_words(merge.decide(task("ready"), facing(), BY_OWNER, TREE)) == (
+        "status",
+        "fix-the-login is ready, with no open pull request",
+        "lem land next fix-the-login",
+    )
+
+
+def test_a_merge_agents_refusal_tells_the_owner_who_can_merge() -> None:
+    record = opened(reads=(replace(READ, verdict="call"),))
+    assert refusal_words(merge.decide(record, facing(), BY_MERGER, TREE)) == (
+        "merger-rule",
+        "the merge agent may not merge: the merge agent's read of this tip and base calls the owner",
+        "the owner merges it, on his word",
+    )
+
+
+def test_an_old_safe_read_does_not_go_into_the_squash_on_the_checks_base() -> None:
+    record = opened(reads=(READ, SAFE))
+    made = merge.decide(record, facing(), BY_OWNER, TREE)
+    assert isinstance(made, merge_call.Merging)
+    assert made.body == "Lem task: fix-the-login"
+
+
+def test_a_stale_merge_word_without_any_proposal_can_merge_nothing() -> None:
+    record = task("ready")
+    refused = merge_asked.tip_refusal(record, BY_OWNER, facing())
+    assert refused is not None
+    assert refused.why == (
+        f"the owner's merge names {TIP}, and the proposal is None: nothing was merged"
+    )

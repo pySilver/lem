@@ -35,6 +35,8 @@ REASONED = Criterion(
         ("sh tests/e2e/export.sh", ("sh tests/e2e/",)),
         ("sh tests/unit.sh", ("make e2e", "sh tests/unit.sh")),
         ("sh 'tests/e2e/a b.sh'", ("sh tests/e2e",)),
+        ("pytest tests/unit", ("pytest",)),
+        ("uv run pytest tests/cacheX/a.py", ("uv run pytest tests/cacheX/",)),
     ],
 )
 def test_a_test_needs_the_serial_lock_when_its_words_start_with_a_serial_line(
@@ -76,6 +78,8 @@ def test_a_test_whose_words_start_with_no_serial_line_runs_without_the_lock(
         ("sh -", None),
         ("bash --login a.sh", None),
         ("sh -e", None),
+        ("sh --", None),
+        ("python3 -W", None),
         ("python3 tests/a.py", "tests/a.py"),
         ("python -I -B tests/a.py", "tests/a.py"),
         ("python3.14 -IB tests/a.py", "tests/a.py"),
@@ -137,7 +141,18 @@ def test_a_test_holds_when_it_passes_on_the_branch_and_fails_where_it_started_on
 def test_a_test_that_fails_on_the_branch_names_checks_setup() -> None:
     problem = checks_red.problem_of(1, 1, None)
     assert problem is not None
-    assert "checks.setup of .lem/settings.toml" in problem
+    assert problem == (
+        "fails in a fresh worktree of the branch (exit 1). If it passes in the "
+        "task's worktree, it needs something a fresh one lacks: put the commands that "
+        "make it into checks.setup of .lem/settings.toml"
+    )
+    missing = checks_red.problem_of(0, 2, "tests/login.sh")
+    assert missing == (
+        "does not start on the base commit (exit 2: its script file tests/login.sh is not "
+        "on the base commit), so its failure there proves nothing. If a file it needs is a "
+        "helper of the test, name it among the criterion's files; if what is absent is the "
+        "change itself, make the test fail on it and not stop before it"
+    )
 
 
 def test_the_tests_and_the_criteria_without_one_come_in_the_criteria_s_order() -> None:
@@ -167,11 +182,19 @@ def test_a_criterion_with_neither_a_test_nor_a_reason_is_refused() -> None:
     )
     assert refusal is not None
     assert refusal.code == "criteria"
-    assert refusal.why.startswith("criterion 2 names no test")
-    assert "in the plan" in refusal.fix
+    assert refusal.why == (
+        "criterion 2 names no test: every criterion is held by a test at the end of a build"
+    )
+    assert refusal.fix == (
+        "add `- test: `COMMAND` in `FILE`` under it in the plan, or `- no test: "
+        "REASON` when no test can hold it"
+    )
     fast = checks_red.precondition((UNTESTED,), "", FOUND, "origin/main", fast=True)
     assert fast is not None
-    assert "the criteria.md of the task on the fast track" in fast.fix
+    assert fast.fix == (
+        "add `- test: `COMMAND` in `FILE`` under it in the criteria.md of the task on the "
+        "fast track, or `- no test: REASON` when no test can hold it"
+    )
 
 
 def test_changes_nobody_committed_are_refused() -> None:
@@ -180,13 +203,21 @@ def test_changes_nobody_committed_are_refused() -> None:
     )
     assert refusal is not None
     assert refusal.why == "the worktree has changes nobody committed:\n M a.py"
+    assert refusal.code == "criteria"
+    assert refusal.fix == (
+        "commit them or remove them: this check runs what the branch holds, and they are not in it"
+    )
 
 
 def test_a_branch_with_no_commit_beyond_the_base_is_refused() -> None:
     same = Inputs(tip=TIP, base=TIP)
     refusal = checks_red.precondition((TESTED,), "", same, "origin/main", fast=False)
     assert refusal is not None
-    assert refusal.why.startswith("the branch has no commit beyond origin/main")
+    assert refusal.code == "criteria"
+    assert refusal.why == (
+        "the branch has no commit beyond origin/main, so there is no change for a test to hold"
+    )
+    assert refusal.fix == "commit the change on the branch, then run the check again"
 
 
 def test_a_run_that_may_start_is_not_refused() -> None:
@@ -209,5 +240,9 @@ def test_a_run_that_did_not_hold_is_refused_in_the_words_of_its_first_problem() 
     assert refusal is not None
     assert refusal.code == "criteria"
     assert refusal.why == "criterion 2: `sh b.sh` passes there"
+    assert refusal.fix == (
+        "a builder repairs the test or the plan, and runs the check again; the check is "
+        "never edited to pass"
+    )
     good = Red(ok=True, at=MOMENT, digest="d", inputs=FOUND, tests=(held,))
     assert checks_red.failed(good) is None

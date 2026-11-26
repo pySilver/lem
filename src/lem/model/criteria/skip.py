@@ -15,6 +15,7 @@ from lem.records.holds import Hold, OwnerHold
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from lem.records.approvals import Approval
     from lem.records.task import Task
 
 type Word = Literal["asked", "yes", "no"]
@@ -37,5 +38,22 @@ def held(task: Task, word: Word, now: datetime) -> Hold | None:
 
 def skipped(task: Task, word: Word, now: datetime) -> Task:
     """The task with his word on the skip."""
-    criteria = replace(task.criteria, skip=word)
+    criteria = replace(
+        task.criteria,
+        skip=word,
+        skip_at=now if word == "yes" else None,
+        skip_approval=None,
+    )
     return replace(task, criteria=criteria, hold=held(task, word, now))
+
+
+def approval_of(task: Task, approval: Approval) -> int | None:
+    """The first owner approval written after the skip and before any lead starts."""
+    criteria = task.criteria
+    if criteria.skip_approval is not None:
+        return criteria.skip_approval
+    if criteria.skip_at is None or approval.by != "owner":
+        return None
+    if any(span.name == "lead" for span in task.spans):
+        return None
+    return approval.number

@@ -3,6 +3,7 @@ branch is on origin's base, what it refuses before a rebase, what it records of 
 the words of a rebase that stopped (`landing.md` E, "Teammate commit", "Conflict with the base",
 "Rebase refused by git", "Merge-only change")."""
 
+from inline_snapshot import snapshot
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
@@ -16,6 +17,7 @@ from unit.landing.worlds import (
     MOMENT,
     OTHER,
     PREPARED,
+    PROPOSED,
     TIP,
     TREE,
     task,
@@ -45,21 +47,25 @@ def test_base_holds_while_the_branch_is_on_origins_base_with_a_commit_of_its_own
     None
 ):
     record = task(**PREPARED)
-    assert isinstance(base.holds(record, world()), Held)
+    assert base.holds(record, world()) == Held(why="the branch is on origin's base")
     assert base.holds(record, world(rebasing=True)).why == (
         "a rebase is in progress in the worktree"
     )
-    assert isinstance(base.holds(record, world(remote=OTHER)), Due)
+    assert base.holds(record, world(remote=OTHER)) == Due(
+        step="base", why="origin's branch has a commit Lem did not push"
+    )
     assert isinstance(base.holds(record, world(remote=OTHER, remote_in_tip=True)), Held)
     assert isinstance(
         base.holds(task(**{**PREPARED, "pushed": OTHER}), world(remote=OTHER)), Held
     )
-    assert isinstance(base.holds(record, world(base=OTHER)), Due)
+    assert base.holds(record, world(base=OTHER)) == Due(
+        step="base", why="the branch is not on origin's base as it is now"
+    )
     assert isinstance(base.holds(record, world(base_in_tip=False)), Due)
     assert isinstance(base.holds(task(**{**PREPARED, "based": None}), world()), Due)
     empty = task(**{**PREPARED, "based": replace(BASED, tip=BASE)})
-    assert (
-        base.holds(empty, world(tip=BASE)).why == "the branch has no commit of its own"
+    assert base.holds(empty, world(tip=BASE)) == Due(
+        step="base", why="the branch has no commit of its own"
     )
 
 
@@ -74,7 +80,10 @@ def test_a_builders_own_rebase_is_refused_with_how_to_finish_or_end_it() -> None
         base.decide(task(**PREPARED), world(rebasing=True), AHEAD, WHERE)
     )
     assert found.code == "rebase-in-progress"
-    assert "aborts none" in found.why
+    assert found.why == (
+        "a rebase is in progress in the worktree of fix-the-login, a builder's own: base starts "
+        "no rebase over it and aborts none"
+    )
     assert f"git -C {WHERE} rebase --continue" in found.fix
     assert f"git -C {WHERE} rebase --abort" in found.fix
 
@@ -119,9 +128,20 @@ def test_a_second_rebase_of_lems_own_unpublished_rebase_is_refused_with_the_tip_
     assert base.decide(record, moved, AHEAD, WHERE) == "rebase"
     found = refusal_of(base.decide(record, moved, dropped, WHERE))
     assert found.code == "rebase-again"
-    assert f"git -C {WHERE} reset --hard {TIP}" in found.fix
+    assert found.why == (
+        f"the tip is the one Lem's rebase made of {TIP}, and origin's base moved again; "
+        "a rebase of it would lose each commit git left out of the first"
+    )
+    assert found.fix == (
+        f"`git -C {WHERE} reset --hard {TIP}` puts the branch back on the tip before "
+        "Lem's rebase, then lem land base fix-the-login rebases it once onto the base now"
+    )
     pushed = task(**{**PREPARED, "based": made, "pushed": NEW})
     assert base.decide(pushed, moved, dropped, WHERE) == "rebase"
+    proposed = task(
+        **{**PREPARED, "based": made, "proposed": replace(PROPOSED, tip=NEW)}
+    )
+    assert base.decide(proposed, moved, dropped, WHERE) == "rebase"
     waiting = Resolution(files=("a.txt",), before=TIP, after=TIP, base=BASE)
     resolving = task(**{**PREPARED, "based": made, "resolution": waiting})
     assert base.decide(resolving, moved, dropped, WHERE) == "rebase"
@@ -137,8 +157,13 @@ def test_a_stop_after_a_rebase_that_dropped_the_change_names_the_tip_before_it()
 ):
     kept = base.Facts(ahead=0, orig=TIP)
     found = refusal_of(base.decide(task(**PREPARED), world(tip=BASE), kept, WHERE))
-    assert found.code == "merge-only"
-    assert f"git -C {WHERE} reset --hard {TIP}" in found.fix
+    assert (found.code, found.why, found.fix) == snapshot(
+        (
+            "merge-only",
+            "the rebase onto origin/main left the branch no commit of its own, and the change sat only in a merge commit, which a rebase drops. The branch was at 1111111111111111111111111111111111111111 before it",
+            "`git -C /work/.lem/worktrees/fix-the-login reset --hard 1111111111111111111111111111111111111111` puts it back; the change goes into a commit of its own, which a rebase keeps, then lem land base fix-the-login runs again. When the work reached the base another way, lem task move fix-the-login dropped ends the task",
+        )
+    )
 
 
 def test_a_branch_with_no_commit_of_its_own_has_nothing_to_land() -> None:
@@ -146,6 +171,10 @@ def test_a_branch_with_no_commit_of_its_own_has_nothing_to_land() -> None:
         base.decide(task(**PREPARED), world(), base.Facts(ahead=0), WHERE)
     )
     assert found.code == "nothing-to-land"
+    assert (
+        found.why
+        == "the branch has no commit that origin's base lacks: there is nothing to land"
+    )
     assert "lem task move fix-the-login dropped" in found.fix
 
 
@@ -169,6 +198,13 @@ def test_the_move_is_judged_from_gits_merges() -> None:
     )
     other = base.judged(world(), replace(shown, reviewed=MOVED))
     assert not other.carried
+    assert (
+        base.judged(
+            world(), replace(shown, reviewed=MOVED, reviewed_tip=OTHER)
+        ).reviewed
+        is None
+    )
+    assert base.judged(world(), replace(shown, reviewed_tip=OTHER)).reviewed == OTHER
     differ = replace(shown, merged=MOVED, differ=("a.txt",), left_out=(OTHER,))
     unshown = base.judged(world(), differ)
     assert (unshown.carried, unshown.unshown_paths, unshown.unshown_commits) == (
@@ -180,6 +216,9 @@ def test_the_move_is_judged_from_gits_merges() -> None:
     assert (clash.carried, clash.unshown_paths) == (False, ("f.txt",))
     quiet = base.judged(world(), replace(shown, left_out=(OTHER,)))
     assert quiet.unshown_commits == ()
+    # Without a merge there is no comparison whose paths could invalidate the review.
+    without_merge = base.judged(world(), replace(shown, merged=None, differ=("a.txt",)))
+    assert without_merge.unshown_paths == ()
 
 
 def test_a_rebase_that_drops_a_merge_only_change_is_refused_with_the_tip_before_it() -> (
@@ -225,8 +264,9 @@ def test_what_an_abort_left_is_named_with_the_command_that_puts_it_back() -> Non
     assert f"is at 999999999, not at its tip before the rebase {TIP}" in moved
     assert f"`git -C {WHERE} reset --hard {TIP}`" in moved
     detached = base_stops.left(world(), aborted(branch_tip=OTHER, on=None))
-    assert f"`git -C {WHERE} branch -f docs/fix-the-login {TIP}`" in detached
-    assert f"`git -C {WHERE} switch docs/fix-the-login`" in detached
+    assert detached == snapshot(
+        "the branch docs/fix-the-login is at 999999999, not at its tip before the rebase 1111111111111111111111111111111111111111 (`git -C /work/.lem/worktrees/fix-the-login branch -f docs/fix-the-login 1111111111111111111111111111111111111111` puts it back); HEAD is detached at 111111111, not on the branch docs/fix-the-login (`git -C /work/.lem/worktrees/fix-the-login switch docs/fix-the-login` puts it back)"
+    )
     head = base_stops.left(world(), aborted(head=OTHER, on=None))
     assert head.startswith(
         "HEAD is detached at 999999999, not on the branch docs/fix-the-login"
@@ -236,20 +276,33 @@ def test_what_an_abort_left_is_named_with_the_command_that_puts_it_back() -> Non
     assert same.startswith(f"HEAD is detached at {TIP[:9]}")
     other = base_stops.left(world(), aborted(on="main"))
     assert other.startswith("HEAD is on main, not on the branch docs/fix-the-login")
+    missing = base_stops.left(world(), aborted(branch_tip=None, head=None, on=None))
+    assert missing == snapshot(
+        "the branch docs/fix-the-login is at no commit, not at its tip before the rebase 1111111111111111111111111111111111111111 (`git -C /work/.lem/worktrees/fix-the-login branch -f docs/fix-the-login 1111111111111111111111111111111111111111` puts it back); HEAD is detached at no commit, not on the branch docs/fix-the-login (`git -C /work/.lem/worktrees/fix-the-login switch docs/fix-the-login` puts it back)"
+    )
 
 
 def test_a_conflict_names_its_files_for_a_builder() -> None:
     found = base_stops.conflict(
         task(**PREPARED), world(), ("a.txt", "b.txt"), aborted()
     )
-    assert found.code == "conflict"
-    assert "stopped on these file(s): a.txt, b.txt; it was undone" in found.why
-    assert "a builder resolves it" in found.fix
+    assert (found.code, found.why, found.fix) == snapshot(
+        (
+            "conflict",
+            "the rebase onto origin/main stopped on these file(s): a.txt, b.txt; it was undone",
+            "a builder resolves it in the worktree (`git -C /work/.lem/worktrees/fix-the-login rebase origin/main`, then each file), then lem land base fix-the-login runs again",
+        )
+    )
     left = base_stops.conflict(
         task(**PREPARED), world(), ("a.txt",), aborted(rebasing=True)
     )
-    assert "its abort left the worktree not as it was" in left.why
-    assert "nothing is kept for a builder" in left.fix
+    assert (left.code, left.why, left.fix) == snapshot(
+        (
+            "conflict",
+            "the rebase onto origin/main stopped on these file(s): a.txt, and its abort left the worktree not as it was: a rebase is still in progress (`git -C /work/.lem/worktrees/fix-the-login rebase --abort`)",
+            "nothing is kept for a builder: once it is put back, lem land base fix-the-login runs again",
+        )
+    )
 
 
 def test_a_rebase_git_refused_gives_gits_words_and_where_the_worktree_is() -> None:
@@ -260,8 +313,9 @@ def test_a_rebase_git_refused_gives_gits_words_and_where_the_worktree_is() -> No
         "the rebase onto origin/main failed with no file in conflict, and the worktree "
         f"is as it was; git said: {said}"
     )
-    assert "the owner removes what git names" in found.fix
-    assert "builder resolves" not in found.fix
+    assert found.fix == snapshot(
+        "nothing is kept for a builder: the owner removes what git names (a hook of git that refuses the rebase, a lock that another git holds) and lem land base fix-the-login runs again"
+    )
     left = base_stops.refused(
         task(**PREPARED), world(), said, aborted(head=OTHER, on=None)
     )
@@ -285,13 +339,13 @@ def test_base_keeps_a_conflict_for_a_builder_and_its_resolution_once_he_rebased(
     assert again.landing.resolution == Resolution(
         files=("a.txt", "b.txt"), before=TIP, after=TIP, base=OTHER
     )
-    resolved = Based(tip=NEW, base=OTHER, before=NEW, carried=False, at=MOMENT)
+    resolved = Based(tip=NEW, base=MOVED, before=NEW, carried=False, at=MOMENT)
     done = base_kept.kept(again, resolved, None, ("c.txt",))
     assert done.landing is not None
     assert done.landing.based == resolved
     # every file git's merge meets a conflict in, a later commit's stop too
     assert done.landing.resolution == Resolution(
-        files=("a.txt", "b.txt", "c.txt"), before=TIP, after=NEW, base=OTHER
+        files=("a.txt", "b.txt", "c.txt"), before=TIP, after=NEW, base=MOVED
     )
     left = replace(resolved, tip=TIP)
     unmoved = base_kept.kept(again, left, None)
@@ -311,3 +365,56 @@ def test_base_keeps_the_polish_pass_by_its_new_name() -> None:
     same = base_kept.kept(record, BASED, polished)
     assert same.landing is not None
     assert same.landing.polished == polished
+
+
+def test_a_rebase_mark_keeps_the_original_branch_tip_and_fork() -> None:
+    record = task(**PREPARED)
+    found = base_kept.marked(record, world(tip=NEW), BASE)
+    assert found.landing is not None
+    assert found.landing.based == Based(
+        tip=NEW, base=BASE, before=NEW, carried=False, at=MOMENT
+    )
+    assert record.landing is not None
+    assert found.landing.checked == record.landing.checked
+
+
+def test_a_branch_on_origin_refuses_only_commits_it_does_not_already_have() -> None:
+    record = task(**PREPARED)
+    facts = base.Facts(ahead=1, theirs=('999999999 "update docs"',))
+    assert (
+        base.decide(record, world(remote=OTHER, remote_in_tip=True), facts, WHERE)
+        == "onto"
+    )
+    pushed = task(**{**PREPARED, "pushed": OTHER})
+    assert base.decide(pushed, world(remote=OTHER), facts, WHERE) == "onto"
+    found = refusal_of(base.decide(record, world(remote=OTHER), facts, WHERE))
+    assert found.why.endswith('999999999 "update docs". A push would remove them')
+    assert found.fix.endswith("they are part of the change, with its checks and a read")
+
+
+def test_a_rebase_cannot_drop_merge_only_changes_in_multiple_files() -> None:
+    lost = Based(
+        tip=BASE,
+        base=BASE,
+        before=TIP,
+        carried=False,
+        unshown_paths=("a.py", "b.py"),
+        at=MOMENT,
+    )
+    record = task(**{**PREPARED, "based": lost})
+    found = refusal_of(base.decide(record, world(tip=BASE), base.Facts(ahead=0), WHERE))
+    assert found.code == "merge-only"
+    assert "the change in a.py, b.py sat only in a merge commit" in found.why
+    assert f"git -C {WHERE} reset --hard {TIP}" in found.fix
+
+
+def test_the_teammate_refusal_counts_only_commits_outside_the_display_limit() -> None:
+    theirs = tuple(f'{n:09d} "change {n}"' for n in range(11))
+    record = task(**PREPARED)
+    shown = world(remote=OTHER)
+    for commits, last in ((theirs[:10], "."), (theirs, ", and 1 more.")):
+        found = refusal_of(
+            base.decide(record, shown, base.Facts(ahead=1, theirs=commits), WHERE)
+        )
+        named = "; ".join(theirs[:10])
+        assert found.why.endswith(f"{named}{last} A push would remove them")

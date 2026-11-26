@@ -24,6 +24,7 @@ export default defineConfig([
     '.venv/',
     '.claude/',
     '.lem/',
+    'mutants/',
     '_site/',
   ]),
   // Every JavaScript file, those of no group below too: tools/board-kit/*.mjs, the board's build,

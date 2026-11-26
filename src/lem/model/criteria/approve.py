@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
-from lem.model.criteria import approvers, clear, digest, waits, yes
+from lem.model.criteria import approvers, clear, digest, skip, waits, yes
 from lem.model.criteria.read import Sheet
 from lem.records import approvals, base
 
@@ -98,10 +98,9 @@ def approval_of(task: Task, asked: Asked, now: datetime) -> approvals.Approval:
     )
 
 
-def recorded(
-    criteria: Criteria, sheet: Sheet, approval: approvals.Approval
-) -> Criteria:
+def recorded(task: Task, sheet: Sheet, approval: approvals.Approval) -> Criteria:
     """What the task knows of its criteria after `approval` of the criteria `sheet`."""
+    criteria = task.criteria
     return replace(
         criteria,
         size=sheet.size,
@@ -110,6 +109,7 @@ def recorded(
         how=sheet.how,
         digest=sheet.digest,
         approvals=(*criteria.approvals, approval),
+        skip_approval=skip.approval_of(task, approval),
     )
 
 
@@ -130,6 +130,6 @@ def approved(
         raise refusal
     if answer is None and asked.by in ENDS_WAIT:
         task = yes.answered_yes(task, asked.via, asked.shown, now)
-    criteria = recorded(task.criteria, asked.sheet, approval_of(task, asked, now))
+    criteria = recorded(task, asked.sheet, approval_of(task, asked, now))
     hold = waits.hold_after(task, ends=asked.by in ENDS_WAIT)
     return replace(record, task=replace(task, criteria=criteria, hold=hold))
