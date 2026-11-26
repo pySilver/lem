@@ -55,6 +55,19 @@ def test_its_path_alone_makes_nothing(tmp_path: Path) -> None:
     assert not (where.lem / "worktrees" / SLUG).exists()
 
 
+@pytest.mark.parametrize("plans", [".", "docs/..", "../elsewhere"])
+def test_its_path_refuses_bad_plans_before_writing_an_ignore(
+    tmp_path: Path, plans: str
+) -> None:
+    repo, where = real(tmp_path, f'{SETTINGS}[paths]\nplans = "{plans}"\n')
+    ran = lem("task", "worktree", SLUG, "--path", cwd=repo.checkout)
+    assert ran.code == 1
+    reason = refusal(ran)
+    assert reason["code"] == "settings" and "paths.plans" in reason["why"]
+    assert not (where.lem / "worktrees" / ".gitignore").exists()
+    assert not (repo.checkout / ".gitignore").exists()
+
+
 def test_a_branch_origin_has_and_no_task_holds_is_refused(tmp_path: Path) -> None:
     repo, where = real(tmp_path)
     repo.outside_commit(f"feat/{SLUG}", {"THEIRS.md": b"x\n"})

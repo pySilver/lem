@@ -13,8 +13,12 @@ from msgspec.structs import replace
 
 from fakes.command import lem
 from lem.app.criteria import approve, change, persona, typed
+from lem.app.decisions import criterion
+from lem.app.landing import pr_tests
 from lem.kernel.errors import Refusal
 from lem.model.criteria import contract, digest, reads, waits
+from lem.model.decisions.criterion import Asked
+from lem.records.work import Span
 from lem.store import places, tasks
 from unit.criteria import world
 
@@ -48,15 +52,37 @@ def checkout(tmp_path: Path) -> Path:
     [
         msgspec.structs.replace(FOUND, families=("opus", " ")),
         msgspec.structs.replace(FOUND, silent=()),
+        msgspec.structs.replace(FOUND, asked=1, answered=1, silent=()),
+        msgspec.structs.replace(FOUND, answered=4),
+        msgspec.structs.replace(FOUND, answered=0),
+        msgspec.structs.replace(
+            FOUND, asked=4, silent=(reads.silent_of("Ania, opus: no answer"),)
+        ),
+        msgspec.structs.replace(
+            FOUND, answered=3, silent=(reads.silent_of("Ania, opus: no answer"),)
+        ),
         msgspec.structs.replace(FOUND, criteria=0, flagged=0),
         msgspec.structs.replace(FOUND, flagged=3),
         msgspec.structs.replace(FOUND, split=True),
     ],
-    ids=["blank family", "no silent", "no criterion", "more flags", "split of one"],
+    ids=[
+        "blank family",
+        "no silent",
+        "one asked",
+        "too many answered",
+        "nobody answered with a family",
+        "too few silent",
+        "everyone answered with a silent persona",
+        "no criterion",
+        "more flags",
+        "split of one",
+    ],
 )
 def test_a_read_of_another_form_is_refused(checkout: Path, wrong: reads.Found) -> None:
+    before = world.read(checkout)
     code = refused(persona.noted, checkout, world.SLUG, ("done", "lead"), wrong).code
     assert code == "criteria-read"
+    assert world.read(checkout) == before
 
 
 def unanswered(checkout: Path, marked: str) -> None:
@@ -105,6 +131,68 @@ def test_the_lead_freezes_no_small_plan_and_no_unapproved_fast_track(
     plan.unlink()
     world.sheet(checkout, world.SMALL)
     assert refused(approve.approved, checkout, world.SLUG, read).code == "unapproved"
+
+
+def test_a_clear_lead_read_freezes_the_plan_and_is_reported_without_a_wait(
+    checkout: Path,
+) -> None:
+    mark = plan_mark(checkout)
+    read = replace(FOUND, asked=2, digest=mark)
+    for invalid in (
+        replace(read, asked=1, answered=1),
+        replace(read, answered=0),
+        replace(read, answered=3),
+        replace(read, asked=3),
+    ):
+        assert (
+            refused(persona.noted, checkout, world.SLUG, ("done", "lead"), invalid).code
+            == "criteria-read"
+        )
+    incomplete = lem(
+        "criteria", "read", world.SLUG, "done", "--by", "lead", cwd=checkout
+    )
+    assert incomplete.code == 2
+    assert world.read(checkout).task.criteria.reads == ()
+
+    persona.noted(checkout, world.SLUG, ("done", "lead"), read)
+    assert len(world.read(checkout).task.criteria.reads) == 1
+    other = world.sheet(checkout, CHANGED)
+    assert (
+        lem(
+            "criteria",
+            "approve",
+            world.SLUG,
+            "--read",
+            "--file",
+            str(other),
+            cwd=checkout,
+        ).code
+        == 2
+    )
+    frozen = approve.approved(checkout, world.SLUG, approve.Asked(by="read"))
+    assert (frozen.by, frozen.digest) == ("read", mark)
+    current = world.read(checkout).task.criteria.criteria[1].text
+    edit = Asked(
+        how="changed",
+        number=2,
+        was=current,
+        now="The cell stays empty.",
+        why="Say it directly",
+        by="lead",
+    )
+    criterion.recorded(checkout, world.SLUG, edit)
+    record = world.read(checkout)
+    assert record.task.decisions[-1].id == 1
+    scout = Span(name="scout", start=world.EARLY, end=world.EARLY)
+    rendered = pr_tests.first(
+        replace(record, task=replace(record.task, spans=(scout,)))
+    )
+    assert (
+        "- the criteria were read by 2 of 2 personas asked, one model family (opus); nobody confused; the build started with no wait for the owner"
+        in rendered
+    )
+    assert pr_tests.SCOUT in rendered
+    assert str(checkout) not in "\n".join(rendered)
 
 
 def test_a_page_of_an_older_question_approves_nothing_and_a_yes_answers_the_wait(

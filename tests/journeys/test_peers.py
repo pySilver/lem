@@ -88,6 +88,24 @@ def board(
     return app
 
 
+def test_a_direct_page_explains_a_peer_table_that_does_not_read(tmp_path: Path) -> None:
+    async def run() -> None:
+        home = tmp_path / "alpha"
+        table.change(home, "beta", PORT)
+        (home / "machine.toml").write_text("[peers]\nbeta = -1\n")
+        alpha = board(home, "alpha", ALPHAS, Route("/", source.endpoint))
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=alpha), base_url="http://alpha.invalid"
+        ) as client:
+            page = await client.get("/")
+        assert page.status_code == 200
+        why = alpha.state.peer_registry.trouble
+        assert why is not None and "machine.toml" in why and "$.peers" in why
+        assert "machine.toml" in page.text and "$.peers" in page.text
+
+    asyncio.run(run())
+
+
 def test_peer_pages_assets_union_and_loop_guard(tmp_path: Path) -> None:
     async def run() -> None:
         alpha_home = tmp_path / "alpha"

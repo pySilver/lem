@@ -14,6 +14,7 @@ from lem.app.tasks.park import Resumed
 from lem.kernel import clock, release
 from lem.kernel.errors import Refusal
 from lem.model.task import ending, resumes
+from lem.records.journal.task import OwnerAct
 from lem.records.record import Record
 from lem.store import places, tasks
 
@@ -76,9 +77,7 @@ def as_breaker(
     taken, new = gathered(where, record)
     task = resumes.breaker_task(record.task, new, breaker.id, clock.now())
     start = old_branch(where, record)
-    made = resume_claim.opened(
-        where, Record(release=record.release, task=task), start, kind
-    )
+    made = resume_claim.opened(where, carried_record(record.release, task), start, kind)
     placed(where, made, taken, breaker.document)
     try:
         worktree.made(ports.bound(where), where, made, (task.branch, start))
@@ -90,6 +89,16 @@ def as_breaker(
             refused.fix,
         ) from refused
     return said(made.task, "dropped", start, breaker.id)
+
+
+def carried_record(release_name: str, task: Task) -> Record:
+    """A successor with the owner's carried criteria approvals in its Activity."""
+    journal = tuple(
+        OwnerAct(at=approval.at, act="approve-carried")
+        for approval in task.criteria.approvals
+        if approval.by == "owner"
+    )
+    return Record(release=release_name, task=task, journal=journal)
 
 
 def as_request(

@@ -35,6 +35,7 @@ def now(world: World, seen: Seen, rows: Rows, standing: Standing) -> Now:
         look=standing.look,
         icon=standing.icon,
         live=standing.live,
+        opening=now_parts.opening(seen.record),
         who=now_parts.who_acts(standing, parked=isinstance(task.hold, Parked)),
         head=heads.now_head(seen, after, alone=alone),
         shown=line,

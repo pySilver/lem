@@ -13,6 +13,7 @@ from lem.board.inputs.parts import Link
 from lem.board.inputs.task.decisions import Part
 from lem.board.views import owed
 from lem.board.views.criteria.says import chosen_at
+from lem.board.views.criteria.story import parts_of
 from lem.board.views.criteria.tab import criteria
 from lem.records.approvals import Approval
 from lem.records.decisions import CriterionChanged, Taken
@@ -49,6 +50,19 @@ def test_an_option_label_matches_only_one_choice() -> None:
     assert chosen_at(choice) == 0
     assert chosen_at(replace(choice, options=("A: the export", "A: the receipt"))) == -1
     assert chosen_at(replace(choice, chose="B: the receipt")) == 1
+
+
+def test_an_option_label_ends_at_a_colon_outside_a_quote() -> None:
+    assert parts_of("the Fable expert's picks: c4 as written") == (
+        "the Fable expert's picks",
+        "c4 as written",
+    )
+    for quoted in (
+        "it ends as refused, with the say 'the checks refused: a builder repairs it'",
+        'it says "the checks refused: a builder repairs it"',
+        "it says \u2018the checks refused: a builder repairs it\u2019",
+    ):
+        assert parts_of(quoted) == ("", quoted)
 
 
 def test_a_breaker_that_waits_is_first_and_says_where_he_answers(

@@ -3,6 +3,7 @@
 the option taken and the experts that picked it, and who took it. A record with no story gives
 what it has, and one with none of it has no story."""
 
+import re
 from typing import TYPE_CHECKING
 
 from lem.board.inputs.task.criteria import Case
@@ -15,6 +16,8 @@ if TYPE_CHECKING:
     from lem.records.decisions import Taken
 
 QUOTES = ('"', "“", "”")
+SINGLE_OPEN = re.compile(r"(?:^|\s)['\u2018]")
+SINGLE_CLOSE = re.compile(r"\w['\u2019](?=\s|$|[.,;])")
 
 
 def parts_of(option: str) -> tuple[str, str]:
@@ -30,7 +33,9 @@ def parts_of(option: str) -> tuple[str, str]:
 def quoted(head: str) -> bool:
     """Whether a quote opens before the colon and does not close: the colon is in it."""
     marks = sum(head.count(mark) for mark in QUOTES)
-    return marks % 2 == 1
+    opened = len(SINGLE_OPEN.findall(head))
+    closed = len(SINGLE_CLOSE.findall(head))
+    return marks % 2 == 1 or opened > closed
 
 
 def options_of(taken: Taken) -> tuple[Option, ...]:

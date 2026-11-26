@@ -56,7 +56,7 @@ def run(call: Call) -> Envelope:
     queue = Queue(after=call.after, order=call.order, wait=call.wait)
     record = shaping.shaped(place.folder(), call.slug, shape, queue)
     outcome = msgspec.Raw(msgspec.json.encode(record.task.shape))
-    say = shaping.said(place.folder(), record)
+    say = record.task.shape.first_line if record.task.shape else None
     return Envelope(ok=True, outcome=outcome, say=say)
 
 

@@ -30,7 +30,7 @@ LEAST = 2
 MARK = re.compile(f"[0-9a-f]{{{LENGTH}}}")
 FORM = "criteria-read"
 DIGEST = "--digest is what lem criteria digest prints"
-UNNAMED = "when fewer answered than were asked, --silent names each that did not"
+UNNAMED = "--silent names each persona that did not answer, and only those"
 NOBODY = (
     "a read in which nobody answered names no family, flags nothing, does not split, and "
     "names each persona asked with --silent"
@@ -86,11 +86,11 @@ def refused(found: Found) -> str | None:
     if said is not None or not MARK.fullmatch(found.digest):
         return said or DIGEST
     silent = len(found.silent)
-    if found.answered < found.asked and not silent:
-        return UNNAMED
     doubts = found.families or found.flagged or found.split
-    if not found.answered and (doubts or silent < found.asked):
+    if not found.answered and (doubts or silent != found.asked):
         return NOBODY
+    if silent != found.asked - found.answered:
+        return UNNAMED
     return None
 
 

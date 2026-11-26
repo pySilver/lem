@@ -5,14 +5,18 @@ queue and what waits for the owner (`model/task/read.py`), and the first line it
 from functools import partial
 from typing import TYPE_CHECKING
 
+from msgspec.structs import replace
+
 from lem.app.tasks import first_line, release
 from lem.kernel import clock
+from lem.model.task import first_line as opening
 from lem.model.task import read as reading
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.records.base import Moment
     from lem.records.record import Record
     from lem.records.task import Shape
 
@@ -22,19 +26,29 @@ def shaped(folder: Path, slug: str, shape: Shape, queue: reading.Queue) -> Recor
     where = places.workspace(folder)
     record = release.checked(where.state, slug)
     known = (one.task for one in tasks.every(where.state))
-    others = {task.slug: task.status for task in known}
-    refused = reading.refusal(record, queue, others)
+    refused = reading.refusal(record, queue, {task.slug: task.status for task in known})
     if refused is not None:
         raise refused
+    words = first_line.gathered(where, record.task)
     return tasks.update(
         where.state,
         slug,
-        partial(reading.read, shape=shape, queue=queue, now=clock.now()),
+        partial(read_with_line, shape=shape, ask=(queue, clock.now(), words)),
         record.revision,
     )
 
 
-def said(folder: Path, record: Record) -> str | None:
-    """The first line the task's session says after its read, or None: a night task, a read
-    that names no path, an order that waits for his answer."""
-    return first_line.said(places.workspace(folder), record, named=False)
+def read_with_line(
+    record: Record, *, shape: Shape, ask: tuple[reading.Queue, Moment, opening.Read]
+) -> Record:
+    """Write the shape and the first line made from the same read."""
+    queue, now, words = ask
+    read = reading.read(record, shape=shape, queue=queue, now=now)
+    return with_line(read, shape, words)
+
+
+def with_line(read: Record, shape: Shape, words: opening.Read) -> Record:
+    """Keep the line of the shape as read, before the task moves again."""
+    line = opening.line_of(read.task, words)
+    shape = replace(shape, first_line=opening.composed(line, None) if line else None)
+    return replace(read, task=replace(read.task, shape=shape))

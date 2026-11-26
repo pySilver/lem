@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import msgspec
 import pytest
 
+from fakes.records import record as task_record
 from fixtures.board.moments import ago
 from lem.board.inputs.forms import Typed
 from lem.board.inputs.layout import Viewer
@@ -18,7 +19,9 @@ from lem.board.views.panel.panel import panel
 from lem.board.views.panel.phases import phases
 from lem.board.views.panel.told import outcome
 from lem.records.decisions import Breaker, Taken
+from lem.records.journal.task import SpanMark, StateNoted
 from lem.records.questions import Answer
+from lem.records.task import Shape
 from unit.board.views.afternoon import world
 
 if TYPE_CHECKING:
@@ -26,6 +29,7 @@ if TYPE_CHECKING:
 
     from lem.board.inputs.task.overview import Overview
     from lem.board.views.world import World
+    from lem.records.record import Record
 
 GIFT = "gift-note-in-export"
 FEE = "fee-notice-to-merchants"
@@ -36,6 +40,33 @@ def overview_of(afternoon: World, slug: str) -> Overview:
     found = panel(afternoon, slug, "overview").overview
     assert found is not None
     return found
+
+
+def test_the_large_card_shows_the_first_line_until_a_later_state(
+    tmp_path: Path,
+) -> None:
+    base = world(tmp_path)
+    seen = owed.seen(base, GIFT)
+    line = 'fix: "the footer says Terms and conditions". Fast track: one builder.'
+    shape = Shape(
+        type="fix", why="one typo", track="small", then="fast", first_line=line
+    )
+    shaped = task_record(GIFT, status="building", shape=shape)
+    start = StateNoted(at=ago(5), status="building", line="one builder")
+    builder = SpanMark(at=ago(4), name="small", edge="start")
+    later = StateNoted(at=ago(3), status="ready", line="the report is written")
+
+    def shown(record: Record) -> str | None:
+        given = msgspec.structs.replace(seen, record=record)
+        return overview_of(dataclasses.replace(base, tasks=(given,)), GIFT).now.opening
+
+    assert shown(msgspec.structs.replace(shaped, journal=(start, builder))) == line
+    ready = msgspec.structs.replace(shaped.task, status="ready")
+    assert (
+        shown(msgspec.structs.replace(shaped, task=ready, journal=(start, later)))
+        is None
+    )
+    assert shown(task_record(GIFT, status="building")) is None
 
 
 @pytest.mark.parametrize(
