@@ -1,0 +1,110 @@
+/* Lem's site: Zensical's page in the board's look (skills/lem/assets/lem.css). The six hues have
+   the same values as there, and the light and the dark palette take lem.css's values of --bg,
+   --card, --fg, --dim and --line. Zensical picks the palette by the visitor's theme
+   (zensical.toml), with no switch. The type is the system's: zensical.toml sets font = false,
+   so no font comes from another host. */
+:root {
+  --lead: #33a6a0;
+  --lem: #9a5d9e;
+  --you: #b4902e;
+  --bad: #ae4022;
+  --gate: #3d73b6;
+  --ok: #629742;
+  --md-text-font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
+  --md-code-font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+}
+
+/* the light palette: lem.css's light values */
+[data-md-color-scheme="default"] {
+  --lem-bg: #fbf9f5;
+  --lem-card: #f1efeb;
+  --lem-card-hi: #e9e8e3;
+  --lem-line: #e2e1dc;
+  --lem-line-strong: #cac8c4;
+  --lem-fg: #191919;
+  --lem-dim: #62615e;
+  --lem-accent-ink: #735e25;
+  --lem-link: color-mix(in srgb, var(--gate) 62%, var(--lem-fg));
+}
+
+/* the dark palette: lem.css's dark values */
+[data-md-color-scheme="slate"] {
+  --lem-bg: #1a1813;
+  --lem-card: #23221d;
+  --lem-card-hi: #2b2924;
+  --lem-line: #312f2b;
+  --lem-line-strong: #474642;
+  --lem-fg: #e7e7e7;
+  --lem-dim: #9d9d9b;
+  --lem-accent-ink: #cab57c;
+  --lem-link: color-mix(in srgb, var(--gate) 62%, var(--lem-fg));
+}
+
+/* Zensical's own variables, from the palette above, in both schemes */
+[data-md-color-scheme="default"], [data-md-color-scheme="slate"] {
+  --md-default-bg-color: var(--lem-bg);
+  --md-default-fg-color: var(--lem-fg);
+  --md-default-fg-color--light: var(--lem-dim);
+  --md-default-fg-color--lighter: var(--lem-line-strong);
+  --md-default-fg-color--lightest: var(--lem-line);
+  --md-primary-fg-color: var(--lem-bg);
+  --md-primary-fg-color--light: var(--lem-card);
+  --md-primary-fg-color--dark: var(--lem-card-hi);
+  --md-primary-bg-color: var(--lem-fg);
+  --md-primary-bg-color--light: var(--lem-dim);
+  --md-accent-fg-color: var(--you);
+  --md-accent-fg-color--transparent: color-mix(in srgb, var(--you) 12%, transparent);
+  --md-accent-bg-color: var(--lem-bg);
+  --md-typeset-a-color: var(--lem-link);
+  --md-code-bg-color: var(--lem-card);
+  --md-code-fg-color: var(--lem-fg);
+  --md-footer-bg-color: var(--lem-card);
+  --md-footer-bg-color--dark: var(--lem-card-hi);
+  --md-footer-fg-color: var(--lem-fg);
+  --md-footer-fg-color--light: var(--lem-dim);
+  --md-footer-fg-color--lighter: var(--lem-dim);
+  /* a chart, drawn by Pele (lem-charts.js), as the board draws its charts (board.css, .pele) */
+  --pele-bg: var(--lem-bg);
+  --pele-fg: var(--lem-fg);
+  --pele-muted: var(--lem-dim);
+  --pele-line: var(--lem-dim);
+  --pele-surface: var(--lem-card);
+  --pele-surface-alt: var(--lem-card-hi);
+  --pele-border: var(--lem-line-strong);
+  --pele-accent: var(--gate);
+}
+
+.md-header { box-shadow: 0 1px 0 var(--lem-line); }
+.md-typeset h1, .md-typeset h2, .md-typeset h3 { color: var(--lem-fg); font-weight: 700; letter-spacing: -.012em; }
+.md-typeset code { border-radius: 6px; }
+.md-typeset table:not([class]) { border: 1px solid var(--lem-line); border-radius: 10px; }
+
+/* the page menu over the text: Markdown and the assistants, as plain links */
+.lem-page-menu { float: right; position: relative; margin: 0 0 0 .8rem; font-size: .7rem; }
+.lem-page-menu summary { cursor: pointer; list-style: none; padding: .2rem .6rem; border: 1px solid var(--lem-line-strong); border-radius: 8px; color: var(--lem-dim); }
+.lem-page-menu summary::-webkit-details-marker { display: none; }
+.lem-page-menu[open] summary { color: var(--lem-fg); }
+.lem-page-menu ul { position: absolute; right: 0; z-index: 2; margin: .3rem 0 0; padding: .3rem 0; min-width: 11rem; list-style: none; background: var(--lem-bg); border: 1px solid var(--lem-line-strong); border-radius: 10px; }
+.md-typeset .lem-page-menu li { margin: 0; padding: 0; }
+.lem-page-menu a { display: block; padding: .3rem .8rem; color: var(--lem-fg); }
+.lem-page-menu a:hover { background: var(--lem-card); }
+
+/* a chart: Pele's drawing at the width of the text, or its text with the line that says why not */
+.md-typeset .lem-chart-drawn { margin: 1em 0; padding: .8rem; text-align: center; background: var(--lem-card); border: 1px solid var(--lem-line); border-radius: 12px; overflow-x: auto; }
+.md-typeset .lem-chart-drawn svg { max-width: 100%; height: auto; }
+.md-typeset .lem-chart-error { color: var(--bad); font-weight: 600; }
+
+/* the home page: the scene from edge to edge, cut at its sides and never squeezed, then the words */
+.lem-scene { line-height: 0; overflow: hidden; }
+.lem-scene img { display: block; width: 100%; height: max(40vw, min(260px, 60vw)); object-fit: cover; object-position: 50% 0; }
+.lem-home h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.lem-home .lem-lead { margin: 0; font-size: 1.5rem; line-height: 1.25; font-weight: 700; letter-spacing: -.018em; text-align: center; }
+.lem-home .lem-for { margin: .6rem 0 0; font-size: .95rem; font-weight: 600; text-align: center; }
+.lem-home .lem-sub { margin: .6rem auto 1.4rem; max-width: 38em; color: var(--lem-dim); text-align: center; }
+.lem-home .lem-you { color: var(--lem-accent-ink); }
+@media (min-width: 960px) {
+  .lem-scene img { max-height: max(28vw, 45vh); }
+  .lem-home .md-content__inner { padding-top: 0; }
+  .lem-home .lem-sub { margin-bottom: .6rem; }
+}
+@media (prefers-reduced-motion: reduce) { .lem-scene img { animation: none; } }

@@ -2,8 +2,8 @@
 
 Lem writes to the issue of a task at three times. When the build starts, the issue gets an
 assignee. When the task lands, the issue gets one comment, and Lem closes it. When the task stops
-with no merge, the issue gets one comment and stays open. All people who can see the repository
-can see these changes.
+with no merge, the issue gets one comment and keeps its current state. All people who can see
+the repository can see these changes.
 
 ## What Lem writes
 
@@ -36,8 +36,8 @@ Lem reads and writes issues through `gh`, the command of GitHub.
 
 ## Fill the settings
 
-`/lem init` adds this table when the issues of your repository are on and hold at least one issue,
-and no Linear ticket key shows in its branch names or commit subjects. To add it yourself:
+`/lem init` adds this table when the issues of your repository are on and hold at least one issue.
+It does not add it when a Linear ticket key shows in the branch names or commit subjects. To add it yourself:
 
 ```toml
 [tracker]
@@ -66,7 +66,7 @@ task that investigates a question or a bug also stops with no merge when it give
 1. The issue gets one comment. For a drop, the comment says why in one line. For an answer, it
    holds the answer. Its last line is `lem: <task> dropped` or `lem: <task> answered`.
 2. Lem removes the assignee that it added at the start. Other assignees stay.
-3. The issue stays open, and Lem tells you so. You decide whether it closes.
+3. An open issue stays open and a closed issue stays closed. Lem tells you the state of the issue.
 
 Lem does each write one time. When a session stops after a comment, the next session finds the
 last line of that comment, and posts no second comment. When Lem did not do a write yet,
@@ -75,6 +75,6 @@ last line of that comment, and posts no second comment. When Lem did not do a wr
 ## Check the connection
 
 `/lem init` checks the connection before it adds the table. To check it again, ask in plain words:
-"check the GitHub tracker". The check names the repository and says that its issues are on. Or it
-names each missing part with its fix: `gh` is not installed, `gh` is not signed in, the issues are
-off, or `origin` is not on GitHub. The check writes nothing, to the issues or to the settings.
+"check the GitHub tracker". The check names the repository and says that its issues are on. If
+the check finds a problem, it gives the fix. It checks for `gh`, a GitHub login, and enabled
+issues. It checks that `origin` is on GitHub. The check writes nothing to the issues or settings.

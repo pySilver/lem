@@ -1,0 +1,32 @@
+{#- Every page of Lem's site: Zensical's own page, with the page menu over the text. "Copy as
+    Markdown" is Zensical's (content.action.copy); the links below are plain links, and none
+    loads a thing from another host. The home page (home.html) extends this file. -#}
+{% extends "base.html" %}
+
+{% block extrahead %}
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="{{ 'assets/lem-mark-night.svg' | url }}" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="{{ 'assets/lem-mark.svg' | url }}" type="image/svg+xml" media="(prefers-color-scheme: light)">
+{% endblock %}
+
+{% block footer %}
+  {{ super() }}
+  <div class="md-grid md-typeset"><a href="https://github.com/pySilver/lem">Lem on GitHub</a></div>
+{% endblock %}
+
+{% block content %}
+  {% if page.markdown_url %}
+    {% set markdown = config.site_url ~ page.markdown_url %}
+    {% set prompt = ("Read " ~ markdown ~ " and answer my questions about Lem from it.") | urlencode %}
+    <details class="lem-page-menu">
+      <summary>This page</summary>
+      <ul>
+        <li><a href="{{ page.markdown_url | url }}">View as Markdown</a></li>
+        <li><a href="https://chatgpt.com/?q={{ prompt }}" rel="noopener">Open in ChatGPT</a></li>
+        <li><a href="https://claude.ai/new?q={{ prompt }}" rel="noopener">Open in Claude</a></li>
+        <li><a href="https://www.perplexity.ai/search?q={{ prompt }}" rel="noopener">Open in Perplexity</a></li>
+      </ul>
+    </details>
+  {% endif %}
+  {{ super() }}
+{% endblock %}

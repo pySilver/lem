@@ -1,9 +1,33 @@
 # The question card trial
 
-Use a scratch repository, a throwaway HOME and XDG_CONFIG_HOME, and a separate agterm
-session. Keep `LEM_SERVE=off` in those shells. Start the rebuilt server explicitly with
-`lem serve run --port PORT` on an unused loopback port. Use the same scratch home in the
-server and the task's session. Keep the server's PID and address with the evidence.
+Use the [run order](run.md) and the [scratch checkout](real.md#scratch-checkout). Use one
+trial home and a separate agterm session for the task and the server. Keep `LEM_SERVE=off`.
+Run `lem task open ask-cards --ask 'Check the question card.'` in the scratch checkout.
+Open it with `lem session open ask-cards --why owner` in the scratch agterm pane. Start the
+board as in the real sheet and keep its PID and address. For a phone, also use R6's door setup
+and cleanup in this folder. Use the owner's phone and Mac for A1, A2 and A5. The orchestrator
+can drive A3 and A4 in the trial profile.
+
+Use headless Chrome with its own profile and keychain for the local browser cases. Start it
+on a free DevTools port `CDP`, outside 4536 and 4537, and keep the port on loopback.
+
+```sh
+"$T/step" a-chrome -- "$CHROME" --headless --use-mock-keychain --user-data-dir="$T/chrome" --remote-debugging-address=127.0.0.1 --remote-debugging-port="$CDP" about:blank &
+```
+
+Use the trial DevTools client at `http://127.0.0.1:$CDP/json/list` to navigate, press a key,
+inspect the actual POST and save the screenshot, as in the plugin's `take-screenshot.md`.
+For A4 write the two-line executable `T/bin/trial-browser` below, with `T` expanded in the path.
+Set its mode to `700`. The launcher records the URL for the headless browser you started.
+
+```sh
+#!/bin/sh
+printf '%s\n' "$1" > 'T/tmp/browser-url'
+```
+
+Start each A4 request through `T/step` with `/usr/bin/env BROWSER="$T/bin/trial-browser %s"` before
+`lem ask`. Open the URL from `T/tmp/browser-url` in the headless browser. Clear this file before
+starting another request. Keep it private. Stop Chrome by the PID of `a-chrome` at cleanup.
 
 ## Checks
 
@@ -29,14 +53,16 @@ server and the task's session. Keep the server's PID and address with the eviden
   submit. Keep a capture of the refusal and the corrected result. Check that the chart draws
   without a network request. Check the runtime's POST and the result on each page.
 - [ ] A3 End and replace a task's session while its card still waits. Check that its old
-  card leaves the board and that an old page cannot submit. Keep the waits list and the
-  answer refusal.
+  card leaves the board and that an old page cannot submit. From the scratch pane run
+  `lem session close ask-cards --why owner`, then `lem session open ask-cards --why owner`.
+  Keep the waits list, both session identifiers and the old answer refusal.
 
 - [ ] A4 The local browser fallback. Run `lem ask q "Keep it?" "Keep it" --browser` in the
   scratch shell. Pick Keep it and check the answer in the command result. Use a spec with a
   button that calls `window.lemAsk.send([1])` and check that the result contains the text
-  `[1]`. Reload a question once before answering. Close a second browser question and check
-  for the outcome `dismissed`.
+  `[1]`. Reload a question once before answering. Close a second browser question with the page cancel action, or navigate to `about:blank`
+  to exercise the page unload. Check for `dismissed`. Keep the request, POST result and raw
+  command output.
 
 - [ ] A5 The sessions step's Stop hook. End a turn while a scratch card still waits. Verify
   the waiting mark stays up if another hook writes a working mark. Repeat with `--no-status`

@@ -25,6 +25,7 @@ export default defineConfig([
     '.claude/',
     '.lem/',
     'mutants/',
+    '_site/',
   ]),
   // Every JavaScript file, those of no group below too: tools/board-kit/*.mjs, the board's build,
   // and tests/board-cdp.mjs, the driver of headless Chrome, are Node's.

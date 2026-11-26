@@ -26,17 +26,17 @@ A setting that more than one file can hold comes from the nearest file that hold
 `lem settings show` gives every value and, in `from`, the file of each value, or "Lem's default".
 No other file overrides `~/.config/lem/machine.toml`.
 
-Lem reads `.lem/settings.toml` and `.lem/settings.local.toml` from your main checkout, also for a
-task, so a task branch cannot change the rules that guard a change (the topics, the checks, who
-merges). When your main checkout is on another branch than the base, Lem reads
+For each task, Lem reads `.lem/settings.toml` and `.lem/settings.local.toml` from your main checkout.
+A task branch cannot change the topics, the checks or who merges.
+When your main checkout is on another branch than the base, Lem reads
 `.lem/settings.toml` as the newest commit of your base branch has it.
 
 `lem settings set KEY VALUE --local`, `--home` or `--machine` writes one line of
 `.lem/settings.local.toml`, `~/.config/lem/settings.toml` or `~/.config/lem/machine.toml`. KEY is
 `TABLE.KEY`, as in the tables below. VALUE `default` removes the line. The other lines and the
-comments of the file stay. Lem checks all the settings with the new line before it writes it: a
-wrong value in any file stops the command, and the file stays as it was. No command writes `.lem/settings.toml`: you edit it and
-commit it.
+comments of the file stay. Lem checks all the settings with the new line before it writes it.
+A wrong value in any file stops the command, and the file stays as it was.
+Edit and commit `.lem/settings.toml` yourself.
 
 ## Where each table is valid
 
@@ -71,7 +71,7 @@ Paths are relative to the root of the repository.
 | Setting | Default | Use |
 | --- | --- | --- |
 | `branch.base` | `/lem init` writes the default branch | the branch that a task starts from and lands on |
-| `branch.land` | `"agent"` | who merges. A merge agent reads each pull request first and writes its review. `"agent"`: the merge agent merges a green pull request that is not careful, and calls you for each other one. `"owner"`: you merge each pull request |
+| `branch.land` | `"agent"` | who merges. A merge agent reviews each pull request. With `"agent"`, Lem merges a green change that is not careful if the verdict is merge. With `"owner"`, you merge every pull request |
 | `branch.history` | `"squash"` | what lands. `"squash"`: one commit. `"keep"`: the commits of the branch |
 | `branch.protected` | `[]` | the branches where Lem lands nothing, pushes nothing and deletes nothing, also a task's own branch that you add here later |
 
@@ -112,11 +112,11 @@ Lem takes each seat, and `seats.fallback`, from the first of four places that na
 `lem settings show` gives each seat and its place. `lem settings set seats.NAME VALUE --local`
 writes a line of `.lem/settings.local.toml`, and `lem settings set seats.NAME VALUE --home` writes
 a line of `~/.config/lem/settings.toml`. NAME is a seat or `fallback`. VALUE is a whole seat, one or
-two whole seats with a comma between them for `experts`, `false` for `fallback`, or `default`,
-which removes the line.
+two whole seats with a comma between them for `experts`, or `false` for `fallback`.
+Use `default` to remove the line.
 
-When the agent of the reviewer, the planner or the merge agent gives an error, the fallback seat
-starts in its place, and the task goes on. An error is a program that is not on this computer, no
+When the reviewer, planner or merge agent gives an error, the fallback seat starts in its place.
+The task goes on. An error is a program that is not on this computer, no
 login, no tokens, or a model that the agent does not know. A slow agent is not an error. The pull
 request names the seat that stood in, the seat that failed and the error. This does not make it not green. With
 `fallback = false`, or when the fallback cannot stand in, the task stops and waits for you. Type
@@ -142,31 +142,31 @@ An optional agent that reads the recent tasks and leaves a note for the retro.
 ### `[state]`
 
 Lem keeps the files of its work in `.lem/state/`, and git does not see this folder. The board
-server removes the old files from it each hour. When nothing of a task that ended happened for
-`state.keep_days` days, the server removes all the files of the task except a small record: its
-state, its request, its pull request, and the files of its ticket and of a resume. After that, a
-retro or a nap finds no report and no decisions of the task. In the event log, the server replaces
-all the events of the task with one summary event, and the board shows the task in Done as before.
+server removes the old files from it each hour. If an ended task has no new activity for
+`state.keep_days` days, the server keeps only a small record. It keeps the state, the request, the
+pull request, and the files for the ticket and resume. After that, a retro or a nap finds no
+report and no decisions of the task. The server replaces the task's events in the log with one
+summary event. The board still shows the task in Done.
 Its Overview tells you what stayed, and tabs 2 to 4 of its panel tell you that their details went
 with the events. `/lem resume` cannot
-start a dropped task again after this: type `/lem` and its request to start a new task. The server
-also removes a question to the experts, the folder of a persona panel, a nap and a copy of the
-personas that nobody used for that number of days. To see what a number removes, type
+start a dropped task again after this: type `/lem` and its request to start a new task. The same
+limit applies to unused files of expert questions, persona panels, naps and copies of personas.
+To see what a number removes, type
 `lem prune --dry-run --days 7`. This command removes and changes nothing.
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `state.keep_days` | `30` | the days after which an old file goes. When nothing of a task that ended happened for this number of days, the task keeps only its small record, and its events become one summary event. Lem counts from the last event of the task, and from the last write of a folder. A dropped task whose events became a summary cannot be resumed. A whole number, `1` or more. A computer can set its own number in `.lem/settings.local.toml` |
+| `state.keep_days` | `30` | the days after which an old file goes. After this many days with no new activity, an ended task keeps only its small record. Its events become one summary event. Lem counts from the last event of the task, and from the last write of a folder. A dropped task whose events became a summary cannot be resumed. A whole number, `1` or more. A computer can set its own number in `.lem/settings.local.toml` |
 
 ### `[jev]`
 
-Before a pull request, Lem asks the Jev decision model one question about each defect outside the
-task that an agent calls under the bar: is this defect over the bar? The line of the defect in the
-pull request shows the score. When the score is high, `lem land propose` stops one time, and the
+Before a pull request, Lem asks the Jev decision model about each defect outside the task that an
+agent calls under the bar. Jev gives a score for whether the defect is over the bar. The line of
+the defect in the pull request shows the score. When the score is high, `lem land propose` stops one time, and the
 agent looks at the defect again. Before an agent files a defect, Lem also asks which items of the
 backlog can hold the same defect. Each question sends the place, the title and the text of the
-defect to the provider of the model, and that second question also sends the title, the place
-and the first line of each item. Lem sends nothing when your computer has no `JEV_API_KEY`.
+defect to the provider of the model. The second question also sends the title, the place and the
+first line of each item. Lem sends nothing when your computer has no `JEV_API_KEY`.
 
 | Setting | Default | Use |
 | --- | --- | --- |

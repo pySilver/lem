@@ -1,10 +1,10 @@
 name: Pages
 
 # Started by hand only (the Actions tab, or `gh workflow run Pages`), after the source of Pages is set
-# to "GitHub Actions". It publishes site/ with the logo, its figure alone (the tab icon), each in its day
-# and its night file, and the six board pictures of assets/, copied at the same paths, so the page names
-# them as assets/... and site/ holds no picture of its own.
-# tests/test-site.sh runs the step "Make the folder to publish" as it is written here.
+# to "GitHub Actions". Zensical, at the version of uv.lock, builds the site from docs/ into _site/
+# (zensical.toml), and this publishes that folder. The pictures and Pele come into _site/ through the
+# links of docs/assets/, so the build alone makes the whole site. tests/unit/guides/ runs the
+# same build in a copy of the checkout and reads what it makes.
 on:
   workflow_dispatch:
 
@@ -26,13 +26,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions/configure-pages@v6
-      - name: Make the folder to publish
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@v10.4.0
+      - name: Build the site
         run: |
-          mkdir -p _site/assets/screens
-          cp site/* _site/
-          cp assets/lem.svg assets/lem-night.svg assets/lem-mark.svg assets/lem-mark-night.svg _site/assets/
-          cp assets/screens/board-light.png assets/screens/board-dark.png assets/screens/phone-light.png assets/screens/phone-dark.png \
-             assets/screens/task-light.png assets/screens/task-dark.png _site/assets/screens/
+          uv sync --locked --only-dev
+          .venv/bin/zensical build --clean --strict
       - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
