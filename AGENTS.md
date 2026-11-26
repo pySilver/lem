@@ -115,10 +115,13 @@ the cases it collected, and a selection that collects nothing fails.
 
 The loop: the unit level of the files a change touches after each edit; the levels of the folders
 it touches once at its end; `--level full` once before `main` moves, one at a time on a machine
-(the entry takes `/tmp/lem-full-run.lock`). A rule that takes facts and returns a result is a unit
+(the entry takes `/tmp/lem-full-run.lock`). Use the counts of the last full run as the baseline.
+Run one journey for the path. Test its other inputs at a lower level.
+A rule that takes facts and returns a result is a unit
 case, a call of its function; a fact only git can show is a contract or journey case, in a
 throwaway repository. A check that makes a dated name or reads the time keeps the value it made and
-checks that value.
+checks that value. Never make a timing assertion depend on a step that finishes in less than
+one second.
 
 `tests/unit/guides/` builds the site in a copy of the checkout and reads the built pages: no
 request to another host, every `lem` line one the command tree takes, every link, `llms.txt` and

@@ -16,27 +16,29 @@
 | [Plannotator](https://github.com/backnotprop/plannotator): recommended | the Inbox, where what waits for you goes while you are away, also on your phone |
 | `JEV_API_KEY`, a key for the Jev decision model: optional | [the correction queue](#the-correction-queue), and a second look at each defect that an agent calls under the bar before a pull request ([`[jev]`](settings.md#jev)) |
 
-`/lem init` checks each tool and says how to install it. `lem doctor` checks them again at any
-time. [Update and remove](update.md#remove) gives the steps to remove Lem and its `.lem/` folder.
+`/lem init` checks each tool and gives its install steps. `lem doctor` checks them again.
+[Update and remove](update.md#remove) gives the steps to remove Lem and its `.lem/` folder.
 
 ## Install
 
-Lem has two parts: the app, with the command `lem`, and the plugin for Claude Code. Install the app
-one time on your computer:
+Lem has two parts: the app, with the command `lem`, and the plugin for Claude Code.
+Install the app once on your computer.
 
 ```bash
 brew install pySilver/tap/lem
 ```
 
-Then run these two commands at the root of your repository:
+Then install the Claude Code plugin from the root of your repository.
 
 ```bash
 claude plugin marketplace add pySilver/lem --scope project
 claude plugin install lem@lem --scope project
 ```
 
-`/lem init` commits `.claude/settings.json` for your team. That file turns Lem on, but it installs
-nothing: each person runs the commands in their own clone.
+`/lem init` commits `.claude/settings.json` only if git does not track it and it has only the two
+Lem entries. They are `extraKnownMarketplaces` for `lem` and `enabledPlugins` for `lem@lem`.
+Commit any other `.claude/settings.json` yourself. Each person installs Lem in their own clone
+unless they already have it for every repository.
 
 The first time a session reads a file of Lem, Claude Code asks "Allow this read outside the working
 directories?". Answer it one time, or put the rule that `lem doctor` gives, such as
@@ -101,9 +103,8 @@ The queue is on or off for your computer, in every repository on it. `/lem init`
 for each computer. When the queue is on, it needs `JEV_API_KEY` in the environment. The default
 provider is [OpenRouter](https://openrouter.ai); `JEV_API_URL` names another.
 
-To turn the queue off or on, run one of these commands. Each writes `collect` under
-`[corrections]` in `~/.config/lem/machine.toml`, and keeps the other lines of the file. A
-repository file cannot turn the queue on or off.
+Run one command to set `collect` in `[corrections]` of `~/.config/lem/machine.toml`.
+The other lines stay. A repository file cannot control the queue.
 
 ```bash
 lem settings set corrections.collect no --machine

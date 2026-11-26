@@ -9,6 +9,11 @@
   <link rel="icon" href="{{ 'assets/lem-mark.svg' | url }}" type="image/svg+xml" media="(prefers-color-scheme: light)">
 {% endblock %}
 
+{% block footer %}
+  {{ super() }}
+  <div class="md-grid md-typeset"><a href="https://github.com/pySilver/lem">Lem on GitHub</a></div>
+{% endblock %}
+
 {% block content %}
   {% if page.markdown_url %}
     {% set markdown = config.site_url ~ page.markdown_url %}

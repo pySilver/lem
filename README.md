@@ -13,8 +13,8 @@ For a developer who works alone, and for a team on Linear or GitHub Issues.
 
 Lem is a plugin for Claude Code that works closely with the [agterm](https://agterm.com) terminal:
 each task gets its own agterm session and its own worktree. Agents plan, build, test and review
-the change. A fresh merge agent reads each pull request, merges a green one that is not careful,
-and calls you for the rest.
+the change. A fresh merge agent reviews each pull request. Lem merges a green change that is not
+careful only with a merge verdict and `branch.land = "agent"`. In other cases, you merge it.
 
 **The documentation is on the site: [pysilver.github.io/lem](https://pysilver.github.io/lem/).**
 

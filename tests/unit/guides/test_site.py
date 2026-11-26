@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import tomllib
 from typing import TYPE_CHECKING
-from urllib.parse import unquote, urlsplit
+from urllib.parse import unquote, urljoin, urlsplit
 
 import pytest
 
@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 TREE = shapes.tree()
 CONFIG = tomllib.loads((built.ROOT / "zensical.toml").read_text(encoding="utf-8"))
 SITE_URL = CONFIG["project"]["site_url"]
-PELE = built.ROOT / "skills/lem/assets/vendor/pele.js"
 # The tags that make the browser fetch a file, with the attribute that names it.
 FETCHED = (
     ("script", "src"),
@@ -110,6 +109,8 @@ def test_no_page_loads_a_thing_from_another_host(site: Path) -> None:
     for page in built.pages(site):
         reader = built.read(page)
         for tag in reader.tags:
+            if tag.attributes.get("data-md-component") == "source":
+                found.append((built.name_of(site, page), "repository API widget"))
             found += [
                 (built.name_of(site, page), name)
                 for name in fetched(tag)
@@ -129,6 +130,16 @@ def test_no_page_loads_a_thing_from_another_host(site: Path) -> None:
             for hit in CSS_OUTSIDE.finditer(sheet.read_text(encoding="utf-8"))
         ]
     assert found == []
+
+
+def test_each_page_links_to_the_repository(site: Path) -> None:
+    for page in built.pages(site):
+        assert any(
+            tag.name == "a"
+            and tag.attributes.get("href") == "https://github.com/pySilver/lem"
+            and tag.attributes.get("data-md-component") != "source"
+            for tag in built.read(page).tags
+        ), page
 
 
 def test_no_page_loads_a_web_font_or_offers_a_switch_of_the_theme(site: Path) -> None:
@@ -178,23 +189,34 @@ def shell(kind: str) -> bool:
 
 def resolved(site: Path, page: Path, href: str) -> tuple[Path, str] | None:
     """The file and the heading a link of `page` names, or None for a link to another host or
-    to no file (mailto:, a bare #)."""
-    parts = urlsplit(href)
-    if parts.scheme or parts.netloc:
+    outside the published site."""
+    root = urlsplit(SITE_URL)
+    parts = urlsplit(urljoin(urljoin(SITE_URL, built.name_of(site, page)), href))
+    if (parts.scheme, parts.netloc) != (root.scheme, root.netloc):
         return None
-    if not parts.path:
-        return page, parts.fragment
     path = unquote(parts.path)
-    # 404.html names every file from the site's own path, /lem/, as it is served at any address.
-    start = (
-        site / path.removeprefix(urlsplit(SITE_URL).path)
-        if path.startswith("/")
-        else None
-    )
-    target = (start or page.parent / path).resolve()
+    if path == root.path.rstrip("/"):
+        path = root.path
+    if not path.startswith(root.path):
+        return None
+    target = (site / path.removeprefix(root.path)).resolve()
     if target.is_dir() or parts.path.endswith("/"):
         target /= "index.html"
-    return target, parts.fragment
+    return target, unquote(parts.fragment)
+
+
+def test_absolute_links_to_the_site_resolve_to_local_files(site: Path) -> None:
+    page = site / "404.html"
+    assert resolved(site, page, SITE_URL) == (site / "index.html", "")
+    assert resolved(site, page, SITE_URL + "flow/#careful") == (
+        site / "flow/index.html",
+        "careful",
+    )
+    assert resolved(site, page, SITE_URL + "missing/") == (
+        site / "missing/index.html",
+        "",
+    )
+    assert resolved(site, page, "https://agterm.com/") is None
 
 
 def test_every_link_and_picture_of_the_site_names_a_file_and_a_heading_that_are_there(
@@ -279,44 +301,34 @@ def test_zensicals_mermaid_loader_finds_no_chart_and_each_chart_is_a_pre_lem_cha
     }
 
 
-def test_pele_draws_each_chart_of_the_site(site: Path, tmp_path: Path) -> None:
+def test_pele_draws_each_chart_of_the_site(site: Path) -> None:
     node = shutil.which("node")
     if node is None:
         pytest.skip(
             "no node on PATH: brew install node, which the ESLint gate needs too"
         )
-    sources = [text for _, text in charts(site)]
-    script = tmp_path / "draw.cjs"
-    script.write_text(DRAW, encoding="utf-8")
-    ran = subprocess.run(
-        [node, str(script), str(PELE)],
-        input=json.dumps(sources),
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=NODE_SECONDS,
-    )
-    assert ran.returncode == 0, ran.stderr
-    drawn = json.loads(ran.stdout)
-    assert len(drawn) == len(sources)
-    for svg, source in zip(drawn, sources, strict=True):
-        assert svg.startswith("<svg"), (source[:60], svg[:200])
-        assert 'class="pele pele-flowchart"' in svg, svg[:200]
-        assert "var(--pele-bg" in svg, "the drawing takes its colors from the page"
-
-
-# Pele, the board's renderer, as the site's script calls it, on each chart's text: a chart Pele
-# cannot read throws, and the case fails with its message.
-DRAW = """
-const fs = require('fs')
-const pele = new Function(fs.readFileSync(process.argv[2], 'utf8') + '\\nreturn pele')()
-const sources = JSON.parse(fs.readFileSync(0, 'utf8'))
-const drawn = sources.map((text, index) => pele.render(text, {
-  idPrefix: 'lem-chart-' + (index + 1), autoDirection: false, links: false, images: false,
-  fontSize: 14
-}).svg)
-process.stdout.write(JSON.stringify(drawn))
-"""
+    driver = built.ROOT / "tests/unit/guides/draw.mjs"
+    chart_blocks = charts(site)
+    for name in sorted({name for name, _ in chart_blocks}):
+        page = site / name
+        [source] = [
+            tag.attributes["src"]
+            for tag in built.read(page).tags
+            if tag.name == "script"
+            and tag.attributes.get("src", "").endswith("/lem-charts.js")
+        ]
+        target = resolved(site, page, source)
+        assert target is not None, source
+        script, _ = target
+        ran = subprocess.run(
+            [node, str(driver), str(site), script.relative_to(site).as_posix()],
+            input=json.dumps([text for path, text in chart_blocks if path == name]),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=NODE_SECONDS,
+        )
+        assert ran.returncode == 0, (name, ran.stderr)
 
 
 def test_the_scripts_and_the_pictures_the_build_copies_are_the_files_of_the_checkout(

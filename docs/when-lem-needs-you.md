@@ -16,6 +16,8 @@ To change the acceptance criteria, tell the session of the task what to change, 
 a note on the board. Lem writes the changed criteria, and asks for your yes again, with the old
 text of each changed criterion beside its new text. The pull request says that the criteria
 changed after the personas' read.
+When your note changes no criterion, Lem follows the instruction or answers your question. Then
+it asks for your yes to the same criteria.
 
 ## A decision in doubt
 

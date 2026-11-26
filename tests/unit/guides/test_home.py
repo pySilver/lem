@@ -1,10 +1,15 @@
 """The home page of the site, as built from docs/index.md through overrides/home.html: the
 scene, the opening, the sections a visitor reads in order, and the look in the board's hues."""
 
+import json
 import re
+import shutil
 import struct
+import subprocess
 from html import unescape
 from pathlib import Path
+
+import pytest
 
 from unit.guides import built
 
@@ -73,7 +78,46 @@ def test_the_opening_has_the_lead_who_lem_is_for_the_install_lines_and_agterm(
     assert "Lem needs agterm." in words
     for line in INSTALL:
         assert line in words, line
-    assert "content.code.copy" in (ROOT / "zensical.toml").read_text(encoding="utf-8")
+
+
+def test_the_install_button_copies_the_commands(site: Path) -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("no node on PATH to run the built site's JavaScript")
+    page = home(site)
+    reader = built.read(site / "index.html")
+    [(kind, block)] = [
+        block for block in reader.blocks if block[1].startswith(INSTALL[0])
+    ]
+    assert block.splitlines() == list(INSTALL)
+    [pre] = [
+        tag.attributes
+        for tag in reader.tags
+        if tag.name == "pre" and "lem-chart" not in tag.attributes.get("class", "")
+    ][:1]
+    [source] = [
+        tag.attributes["src"]
+        for tag in reader.tags
+        if tag.name == "script" and "/bundle." in tag.attributes.get("src", "")
+    ]
+    config = re.search(r'<script id="__config"[^>]*>(.*?)</script>', page)
+    assert config is not None
+    ran = subprocess.run(
+        [node, str(ROOT / "tests/unit/guides/copy.mjs"), str(site / source)],
+        input=json.dumps(
+            {
+                "config": config[1],
+                "block": block,
+                "highlightClass": kind,
+                "preAttributes": pre,
+            }
+        ),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    assert ran.returncode == 0, ran.stderr
 
 
 def test_the_sections_stand_in_order_and_say_what_the_landing_page_said(

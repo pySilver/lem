@@ -168,10 +168,10 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
   2026-11-18, 2026-11-20)
 - **The board's button says Approve, the approval stands through a moved base and a conflict, and
   before an approved task merges on a moved base the checks run on the task rebased onto that
-  base.** A task red on its rebase leaves the line until a builder's fix, and its session calls him
-  only when the fix needs a criterion to change or a breaker applies. A task whose checks ran on the
-  current base merges first; the board server records how many approved tasks wait at each merge.
-  (2026-11-25)
+  base.** A task red on its rebase leaves the line and comes back after a builder's fix. Its session
+  calls the owner only when the fix needs a criterion to change or a breaker applies. A task whose
+  checks ran on the current base merges first. The board server records how many approved tasks wait
+  at each merge. (2026-11-25)
 
 ## A task's session, and whether he is there
 

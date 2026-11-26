@@ -42,12 +42,11 @@ def text_of(name: str) -> str:
 
 
 def prose(text: str) -> str:
-    """The words a reader reads: no front matter, code block, tag, link target or table."""
+    """The words a reader reads: no front matter, code block, tag or link target."""
     text = re.sub(r"\A---\n.*?\n---\n", "", text, flags=re.DOTALL)
     text = re.sub(r"^```.*?^```", "", text, flags=re.DOTALL | re.MULTILINE)
     text = re.sub(r"<[^>]+>", " ", text)
-    text = re.sub(r"\]\([^)]*\)", "]", text)
-    return re.sub(r"^\|.*\|$", "", text, flags=re.MULTILINE)
+    return re.sub(r"\]\([^)]*\)", "]", text)
 
 
 def words(text: str) -> int:
@@ -57,7 +56,13 @@ def words(text: str) -> int:
 def sentences(text: str) -> list[str]:
     """The sentences of each paragraph and list item of the prose."""
     found = []
-    blocks = re.split(r"\n\s*\n|\n(?=\s*(?:[-*]|\d+\.)\s)|\n(?=#)", prose(text))
+    text = re.sub(
+        r"^\|(.+)\|$",
+        lambda row: "\n\n" + "\n\n".join(row[1].strip().split(" | ")) + "\n\n",
+        prose(text),
+        flags=re.MULTILINE,
+    )
+    blocks = re.split(r"\n\s*\n|\n(?=\s*(?:[-*]|\d+\.)\s)|\n(?=#)", text)
     for block in blocks:
         joined = re.sub(r"^(?:[-*]|\d+\.)\s+", "", " ".join(block.split()))
         joined = re.sub(r"^\*\*[^*]+\*\*\s*", "", joined)
@@ -106,10 +111,10 @@ def test_each_guide_aims_at_under_800_words_and_the_home_page_at_1600() -> None:
 
 
 def test_no_sentence_of_a_guide_or_the_readme_has_more_than_25_words() -> None:
-    texts = {name: text_of(name) for name in [*GUIDES, "index.md"]}
+    texts = {name: text_of(name) for name in NAV}
     texts["README.md"] = (ROOT / "README.md").read_text(encoding="utf-8")
     long = [
-        (name, sentence[:80])
+        (name, words(sentence), sentence)
         for name, text in texts.items()
         for sentence in sentences(text)
         if words(sentence) > SENTENCE

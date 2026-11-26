@@ -50,14 +50,17 @@ flowchart LR
   checks --> pr["Pull request: green or not green"]
   build --> pr
   pr --> merger{"The merge agent reads it"}
-  merger -->|"green, not careful"| merged["Merged"]
-  merger -->|"any other"| you["It calls you"]
+  merger -->|"green, not careful"| allowed{"Can Lem merge?"}
+  allowed -->|"settings permit, verdict is merge"| merged["Merged"]
+  allowed -->|"owner setting or call verdict"| you["You merge"]
+  merger -->|"not green or careful"| you
 ```
 
 A task needs you three times at most: for its interview and criteria, at a circuit breaker, and
 for a pull request with a call. The build asks you nothing.
 
-Two examples. They are illustrations, not the output of a run:
+Two examples. They are illustrations, not the output of a run. The first uses
+`branch.land = "agent"`.
 
 ```text
 you  /lem the footer says Terms, not Terms and Conditions

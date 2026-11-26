@@ -15,8 +15,10 @@ flowchart TD
     one --> checks
     checks --> pr["Pull request: green or not green"]
     pr --> merger{"The merge agent reads it"}
-    merger -- "green, not careful" --> merged(["Merged"])
-    merger -- "any other" --> you(["It calls you"])
+    merger -- "green, not careful" --> allowed{"Can Lem merge?"}
+    allowed -- "settings permit, verdict is merge" --> merged(["Merged"])
+    allowed -- "owner setting or call verdict" --> you(["You merge"])
+    merger -- "not green or careful" --> you
 ```
 
 ## One session for each task

@@ -13,8 +13,6 @@
 site_name = "Lem"
 site_description = "Type a request in plain words, and get a pull request whose first line says green or not green."
 site_url = "https://pysilver.github.io/lem/"
-repo_url = "https://github.com/pySilver/lem"
-repo_name = "pySilver/lem"
 copyright = "Lem has the MIT License."
 docs_dir = "docs"
 # The default, site, was the folder of the hand-kept page.

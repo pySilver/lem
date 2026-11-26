@@ -6,7 +6,6 @@ name), so a run leaves no _site/ in the checkout. The build runs as
 that is not there) fails it.
 """
 
-import html
 import re
 import shutil
 import subprocess
@@ -133,7 +132,3 @@ def read(page: Path) -> Reader:
     reader.feed(page.read_text(encoding="utf-8"))
     reader.close()
     return reader
-
-
-def unescaped(text: str) -> str:
-    return html.unescape(text)
