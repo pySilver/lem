@@ -19,7 +19,7 @@ act:Question card/skip-optional	kept	A2
 act:Question card/submit	kept	A1	
 act:Question card/text	kept	A2	
 act:Question card/tune	kept	A2	
-check:tests/lem-board-act.sh:a-card-of-a-task-s-live-session-takes-a-pick-72edefe8a0dc54aa	kept	A3	
+check:tests/lem-board-act.sh:a-card-of-a-task-s-live-session-takes-a-pick-72edefe8a0dc54aa	kept	unit.ask.test_card.test_board_answer_is_the_waiters_result_and_the_only_end	The card's session reads the board's answer.
 check:tests/lem-serve.sh:a-card-of-a-task-s-session-is-a-row-of-waits-9a2ccb2898010533	kept	A1	
 check:tests/test-ask.sh:a-counting-label-carrying-its-text-passes-2da8f53b053042ab	kept	unit.ask.test_render.test_counted_option_with_explanation_passes_and_plain_page_has_no_chart_bundle	
 check:tests/test-ask.sh:a-mermaid-fence-in-an-md-block-puts-the-merm-12520eca8f73a5bd	changed	unit.ask.test_render.test_attachment_lines_and_images_stay_in_the_standalone_file	A Mermaid fence embeds the installed Pele bundle.
@@ -40,7 +40,7 @@ check:tests/test-ask.sh:page-loads-n-611004f0e4c84ff7	kept	A2
 check:tests/test-ask.sh:q-option-syntax-dfe195f4fc4c067c	kept	unit.ask.test_overlay.test_short_option_keeps_the_reason_and_normalizes_half_characters	
 check:tests/test-ask.sh:refuses:name-38a30440f20648d7	kept	unit.ask.test_render.test_render_refuses_bad_home_ask_settings	The refusal names the home settings file and gives its fix.
 check:tests/test-ask.sh:render-n-7be517faf4c88b6d	kept	unit.ask.test_render.test_every_template_and_demo_renders_without_a_download	
-check:tests/test-ask.sh:the-browser-takes-a-posted-json-value-that-i-bb0b02c9097f649b	kept	A4	
+check:tests/test-ask.sh:the-browser-takes-a-posted-json-value-that-i-bb0b02c9097f649b	kept	unit.ask.test_browser.test_a_reload_keeps_the_question_for_either_request_order[False]	Both request orders accept a non-object answer.
 check:tests/test-ask.sh:the-page-posts-its-answer-to-the-answer-rout-369a4e58c6c76c60	kept	A2	
 check:tests/test-ask.sh:wait-gives-a-json-value-that-is-no-object-th-09eb2c068790b200	kept	unit.ask.test_overlay.test_wait_timeout_can_resume_and_last_wait_controls_the_stop_word	
 check:tests/test-ask.sh:why-61d2355da0117304	kept	A2	
@@ -70,7 +70,7 @@ unit:tests/unit/test_ask.py:LoadSpec.test_json_python_cannot_hold_in_a_spec_is_r
 unit:tests/unit/test_ask.py:Submitted.test_a_lone_surrogate_prints_as_valid_utf8_and_the_answer_stays	kept	unit.ask.test_rules.test_posted_note_keeps_half_a_character_as_utf8	
 unit:tests/unit/test_ask.py:Submitted.test_json_python_cannot_hold_is_kept_as_its_text	kept	unit.ask.test_overlay.test_unreadable_overlay_json_returns_the_original_text	The waiter returns the original wire text for oversized integers and deep JSON.
 unit:tests/unit/test_ask.py:WaitWord.test_the_last_wait_holds_over_the_way_the_page_opened	kept	unit.ask.test_overlay.test_wait_timeout_can_resume_and_last_wait_controls_the_stop_word	
-unit:tests/unit/test_board_model.py:Cards.test_a_card_of_an_earlier_session_or_of_a_session_that_does_not_run_has_no_row	kept	A3	The POST refuses an earlier session. The wait row still needs the model change in notes/ask.md.
+unit:tests/unit/test_board_model.py:Cards.test_a_card_of_an_earlier_session_or_of_a_session_that_does_not_run_has_no_row	kept	unit.ask.test_card.test_the_live_session_lists_its_card_and_leaves_out_the_ended_sessions_card	The owner unit cases also check the list when no session runs.
 unit:tests/unit/test_cards.py:FirstEndCounts.test_a_close_or_a_dismissal_is_an_end_too	kept	unit.ask.test_overlay.test_close_keeps_an_end_for_the_waiter	
 unit:tests/unit/test_cards.py:FirstEndCounts.test_an_answer_with_half_a_character_is_kept_as_valid_utf8	kept	unit.ask.test_rules.test_posted_note_keeps_half_a_character_as_utf8	
 unit:tests/unit/test_cards.py:FirstEndCounts.test_an_end_takes_its_form	changed	unit.ask.test_overlay.test_close_keeps_an_end_for_the_waiter	The task's question and typed answer keep the end.
@@ -83,10 +83,10 @@ unit:tests/unit/test_cards.py:NoAgterm.test_the_module_the_board_calls_answers_a
 unit:tests/unit/test_cards.py:TaskFolder.test_a_page_id_is_never_a_path	kept	unit.ask.test_card.test_a_page_id_is_never_a_path	
 unit:tests/unit/test_cards.py:TaskFolder.test_no_card_outside_a_task	kept	unit.ask.test_overlay.test_q_opens_without_focus_then_busy_names_only_our_question	
 unit:tests/unit/test_cards.py:TaskFolder.test_the_task_of_the_session_in_its_repository	kept	unit.ask.test_card.test_page_routes_return_the_exact_overlay_and_only_trusted_scripts	
-unit:tests/unit/test_hooks.py:AskStopHook.test_a_page_opened_with_no_status_keeps_its_choice_at_the_stop	kept	A5	The CLI passes the status word. The sessions step owns the hook. A prior move prevents sending this row back.
-unit:tests/unit/test_hooks.py:AskStopHook.test_a_status_call_that_cannot_start_prints_nothing	kept	A5	The CLI passes the status word. The sessions step owns the hook. A prior move prevents sending this row back.
-unit:tests/unit/test_hooks.py:AskStopHook.test_a_wait_with_no_status_holds_for_a_page_opened_without_it	kept	A5	The CLI passes the status word. The sessions step owns the hook. A prior move prevents sending this row back.
-unit:tests/unit/test_hooks.py:AskStopHook.test_an_agtermctl_that_hangs_ends_the_hook_silent_and_leaves_no_process	kept	A5	The CLI passes the status word. The sessions step owns the hook. A prior move prevents sending this row back.
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_page_opened_with_no_status_keeps_its_choice_at_the_stop	kept	hooks.test_stop.test_the_latest_status_choice_holds[quiet-open]	The overlay's name supplies the open's choice.
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_status_call_that_cannot_start_prints_nothing	kept	hooks.test_stop.test_stop_is_silent_when_the_status_call_fails	The agterm stand-in loses its execute bit after the second tree read.
+unit:tests/unit/test_hooks.py:AskStopHook.test_a_wait_with_no_status_holds_for_a_page_opened_without_it	kept	hooks.test_stop.test_the_latest_status_choice_holds[quiet-wait]	The wait's choice wins over the overlay's name.
+unit:tests/unit/test_hooks.py:AskStopHook.test_an_agtermctl_that_hangs_ends_the_hook_silent_and_leaves_no_process	kept	hooks.test_stop.test_a_stalled_agterm_command_cannot_hold_the_hook	The hook checks the stalled call's process is gone.
 unit:tests/unit/test_serve.py:DeepBody.test_a_cards_answer_nested_past_the_limit_is_refused_as_no_json	kept	unit.ask.test_card.test_bad_answers_and_an_older_session_leave_the_card_open	
 unit:tests/unit/test_serve_cards.py:Agterm.test_criterion_4_an_answer_or_a_dismissal_agterm_holds_is_refused_and_an_open_page_is_not	kept	unit.ask.test_card.test_an_overlay_answer_already_at_the_mac_wins	
 unit:tests/unit/test_serve_cards.py:Agterm.test_when_agterm_does_not_answer_the_board_says_what_it_said	kept	unit.ask.test_card.test_unreadable_terminal_leaves_the_card_open	

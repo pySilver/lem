@@ -2,6 +2,7 @@
 data, the board as an app, a task's raw page and pictures, and the addresses that go to the page
 they mean. Each GET answers HEAD with its headers alone."""
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -11,13 +12,14 @@ from fakes.git import ModelGit
 from fakes.ports import fake_ports
 from fakes.records import MOMENT, record
 from lem.app import wiring
+from lem.app.asking import form, saved
 from lem.app.sessions import log
 from lem.app.sessions.acts import Open
+from lem.board import counts
 from lem.board.facts import HEADER, MARK
 from lem.kernel import clock
 from lem.kernel.folders import MARKER
 from lem.records.holds import OwnerHold
-from lem.records.questions import Question
 from lem.store import places, tasks
 from unit.board.pages.markup import Parsed
 from unit.owner import looked
@@ -96,23 +98,32 @@ def test_api_workspace_counts_use_the_demo_session_that_owns_an_open_card(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(clock, "now", lambda: MOMENT)
+    monkeypatch.setattr(counts, "FRESH", 0)
     git = ModelGit.init(board.checkout, {})
     monkeypatch.setattr(wiring, "bound", lambda _: fake_ports(git, LocalForge(git)))
-    question = Question(
-        id="card",
-        topic="card",
-        question="Keep this note?",
-        options=("yes", "no"),
-        asked=MOMENT,
-    )
     slug = "fix-the-login"
-    tasks.create(board.state, record(slug, status="building", questions=(question,)))
+    tasks.create(board.state, record(slug, status="building"))
     (board.state / "demo").touch()
+    folder = places.task_folder(board.state, slug)
     log.reached(
-        places.task_folder(board.state, slug),
+        folder,
         Open(at=MOMENT, session="S1", name=slug, phase="build", why="owner"),
     )
+    saved.keep(
+        folder, form.metadata({"prompt": "Keep this note?"}, "P1", "S1"), b"card"
+    )
     assert wait_counts(board) == (1, 1, 1)
+    log.reached(
+        folder,
+        Open(
+            at=MOMENT + timedelta(seconds=1),
+            session="S2",
+            name=slug,
+            phase="build",
+            why="owner",
+        ),
+    )
+    assert wait_counts(board) == (0, 0, 0)
 
 
 def test_api_workspace_counts_use_the_current_base_for_a_merge_review(

@@ -11,7 +11,7 @@ board says that the sessions are not known.
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
-from lem.app.owner import releases
+from lem.app.owner import cards, releases
 from lem.app.sessions import log
 from lem.board.views import (
     branch,
@@ -74,7 +74,9 @@ def seen_of(checkout: Path, record: Record, ask: Ask, *, demo: bool) -> world.Se
     worktree = checkout / WORKTREES / record.task.slug
     where = places.task_folder(checkout / places.STATE, record.task.slug)
     acts = log.read(where)
-    session = sessions.of(record, acts, ask.listed, demo=demo)
+    session = cards.in_session(
+        where, record, sessions.of(record, acts, ask.listed, demo=demo)
+    )
     files = folder.files_of(where)
     return previews.read(
         world.Seen(

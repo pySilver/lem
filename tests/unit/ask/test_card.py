@@ -11,8 +11,9 @@ from typing import TYPE_CHECKING
 import pytest
 
 from fakes import records
-from lem.app.asking import ends, keys, saved
+from lem.app.asking import ends, form, keys, saved
 from lem.app.asking.scripts import hashed
+from lem.app.owner import cards
 from lem.app.sessions import acts, log
 from lem.cli import lazy
 from lem.kernel import paths
@@ -67,10 +68,9 @@ def test_page_routes_return_the_exact_overlay_and_only_trusted_scripts(
     asked = saved.question(folder, PAGE)
     assert asked and asked.digest and asked.id == f"card:{PAGE}"
     assert held.card_rows(Look(record=tasks.read(board.state, SLUG))) == ()
-    eyes = Look(
-        record=tasks.read(board.state, SLUG),
-        session=Session(live=True, since=records.MOMENT),
-    )
+    record = tasks.read(board.state, SLUG)
+    session = Session(live=True, since=records.MOMENT, id=SESSION.lower())
+    eyes = Look(record=record, session=cards.in_session(folder, record, session))
     assert [(row.card, row.prompt) for row in held.card_rows(eyes)] == [
         (asked.id, "Keep the empty cell?")
     ]
@@ -104,6 +104,26 @@ def test_page_routes_return_the_exact_overlay_and_only_trusted_scripts(
             )
             assert redirect.status_code == 302
             assert redirect.headers["location"] == ROUTE + "/?in=waits"
+
+
+def test_the_live_session_lists_its_card_and_leaves_out_the_ended_sessions_card(
+    board: Board, terminal: Agterm, capsys: pytest.CaptureFixture[str]
+) -> None:
+    show(terminal, capsys)
+    folder = board.state / "tasks" / SLUG
+    old = saved.metadata(folder, PAGE)
+    current = form.metadata({"prompt": "The new session asks"}, "P2", "S2")
+    saved.keep(folder, current, b"new card")
+    record = tasks.read(board.state, SLUG)
+    for session_id, expected in (
+        (old.session, old.page),
+        (current.session, current.page),
+    ):
+        session = Session(live=True, since=records.MOMENT, id=session_id)
+        found = Look(record=record, session=cards.in_session(folder, record, session))
+        assert [row.card for row in held.card_rows(found)] == [
+            keys.question_id(expected)
+        ]
 
 
 def test_board_answer_is_the_waiters_result_and_the_only_end(

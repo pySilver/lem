@@ -1,9 +1,4 @@
-"""The `stop` hook, async: at the end of a turn, the mark of a card that still waits.
-
-It reads no input: nothing in the Stop event is needed, and a pipe that stays open would keep
-the read, and the hook, alive. A card's page and its mark are the step `ask`'s, with
-`sessions`; until then the hook gives a turn's end no word.
-"""
+"""The async Stop hook restores the waiting mark while its question is open."""
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -11,5 +6,14 @@ if TYPE_CHECKING:
 
 
 def answer(environ: Mapping[str, str], behind: str | None) -> str:
-    """Say nothing: no card of Lem is open yet to mark."""
+    """Start no work outside an attended agterm session and read no stdin."""
+    session = environ.get("AGTERM_SESSION_ID")
+    if (
+        session
+        and environ.get("AGTERM_ENABLED") == "1"
+        and environ.get("CLAUDE_CODE_SESSION_ATTENDED") != "0"
+    ):
+        from lem.hooks.stop_agterm import restore
+
+        restore(environ, session)
     return ""
