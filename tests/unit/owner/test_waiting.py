@@ -415,11 +415,12 @@ def test_a_card_of_the_live_session_waits_until_it_is_answered() -> None:
         asked=MOMENT,
     )
     asking = look(status="building", questions=(card,))
-    assert rows(seen(asking, session=live())) == [("card", "card:gift-note:page-7")]
+    session = replace(live(), cards=frozenset({card.id}))
+    assert rows(seen(asking, session=session)) == [("card", "card:gift-note:page-7")]
     assert rows(seen(asking, session=gone())) == [("session", "session:gift-note")]
     answer = Answer(option="a", label="a", source="card", at=LATER)
     done = look(status="building", questions=(replace(card, answer=answer),))
-    assert rows(seen(done, session=live())) == []
+    assert rows(seen(done, session=session)) == []
 
 
 def test_the_list_orders_by_kind_then_by_moment_and_stacks_by_task() -> None:

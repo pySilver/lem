@@ -97,14 +97,14 @@ def test_a_tried_lock_gives_none_while_held_and_the_lock_after(tmp_path: Path) -
 
 
 def test_a_group_stop_ends_what_the_command_left_behind(tmp_path: Path) -> None:
+    # The term can arrive while stdout still flushes the ready line.
     child_script = (
-        "import signal, sys\n"
-        "def finish(*_):\n"
-        "    print('child done', flush=True)\n"
-        "    sys.exit(0)\n"
-        "signal.signal(signal.SIGTERM, finish)\n"
+        "import signal\n"
+        "term = {signal.SIGTERM}\n"
+        "signal.pthread_sigmask(signal.SIG_BLOCK, term)\n"
         "print('child ready', flush=True)\n"
-        "signal.pause()\n"
+        "signal.sigwait(term)\n"
+        "print('child done', flush=True)\n"
     )
     script = (
         "import signal, subprocess, sys\n"

@@ -119,5 +119,5 @@ def card_rows(look: Look) -> tuple[Row, ...]:
             prompt=one.question,
         )
         for one in task.questions
-        if one.topic == "card" and one.answer is None
+        if one.topic == "card" and one.answer is None and one.id in session.cards
     )

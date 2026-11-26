@@ -29,12 +29,17 @@ type Kind = Literal[
 
 class Session(Frozen, frozen=True, kw_only=True):
     """The task's newest session: whether its pane has its agent, when it opened, whether
-    it left the newest wake-up unanswered, and whether its newest turn runs."""
+    it left the newest wake-up unanswered, and whether its newest turn runs.
+
+    The terminal names its id. The saved cards name the questions that belong to it.
+    """
 
     live: bool
     since: Moment
     unanswered: bool = False
     working: bool = False
+    id: str | None = None
+    cards: frozenset[str] = frozenset()
 
 
 class Stop(Frozen, frozen=True, kw_only=True):

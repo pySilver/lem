@@ -230,36 +230,37 @@ def test_cli_leaves_a_peer_without_looking_for_tailnet(
     assert lem("serve", "peers").result() == {"peers": []}
 
 
-@pytest.mark.parametrize("on_path", (True, False))
-def test_local_status_finds_the_executable_with_a_short_path(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, on_path: bool
+@pytest.mark.parametrize("location", ("path", "local", "app", "override"))
+def test_local_status_prefers_the_cli_and_runs_the_bundled_app(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, location: str
 ) -> None:
-    import os
-    import subprocess
-    from pathlib import Path
-
+    from lem.adapters import tailscale_cli
     from lem.addons.peers import local
+    from unit.board.service import tailscale_stand_in as stand_in
 
-    mac = Path("/Applications/Tailscale.app/Contents/MacOS/Tailscale")
-    binary = tmp_path / "tailscale" if on_path else mac
-    monkeypatch.setenv("PATH", str(tmp_path) if on_path else "/usr/bin:/bin")
-    monkeypatch.setattr("shutil.which", lambda exe: str(binary) if on_path else None)
-    monkeypatch.setattr(Path, "is_file", lambda path: path == mac)
-    monkeypatch.setattr(
-        os, "access", lambda path, mode: Path(path) == mac and mode == os.X_OK
+    path = tmp_path / "path"
+    local_bin = tmp_path / "usr/local/bin"
+    app = stand_in.made(
+        tmp_path / "Tailscale.app/Contents/MacOS",
+        "Tailscale",
+        MagicDNSSuffix="app.invalid",
     )
-
-    def execute(
-        args: list[str], **kwargs: object
-    ) -> subprocess.CompletedProcess[bytes]:
-        assert args == [str(binary), "status", "--json"]
-        return subprocess.CompletedProcess(
-            args, 0, stdout=b'{"MagicDNSSuffix":"test.invalid"}'
+    monkeypatch.delenv("TAILSCALE_BE_CLI", raising=False)
+    monkeypatch.delenv("LEM_TAILSCALE", raising=False)
+    monkeypatch.setenv("PATH", str(path))
+    monkeypatch.setattr(
+        tailscale_cli, "PLACES", (str(local_bin / "tailscale"), str(app))
+    )
+    if location in {"path", "override"}:
+        stand_in.made(path, MagicDNSSuffix="path.invalid")
+    if location != "app":
+        stand_in.made(local_bin, MagicDNSSuffix="local.invalid")
+    if location == "override":
+        override = stand_in.made(
+            tmp_path / "override", MagicDNSSuffix="override.invalid"
         )
-
-    with monkeypatch.context() as patched:
-        patched.setattr(subprocess, "run", execute)
-        assert local.status().suffix == "test.invalid"
+        monkeypatch.setenv("LEM_TAILSCALE", str(override))
+    assert local.status().suffix == f"{location}.invalid"
 
 
 def test_report_keeps_healthy_peers_and_join_refuses_a_renamed_peer(

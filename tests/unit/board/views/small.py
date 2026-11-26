@@ -39,7 +39,8 @@ def task(slug: str = "gift-note", line: str | None = None, **fields: object) -> 
     if line is not None:
         noted = StateNoted(at=made.task.since, status=made.task.status, line=line)
         made = replace(made, journal=(*made.journal, noted))
-    return Seen(record=made, session=live())
+    cards = frozenset(one.id for one in made.task.questions if one.topic == "card")
+    return Seen(record=made, session=replace(live(), cards=cards))
 
 
 def world(*tasks: Seen, now: datetime = NOW) -> World:

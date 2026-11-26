@@ -2,25 +2,21 @@
 
 from typing import TYPE_CHECKING
 
+from lem.app.asking import live
 from lem.app.asking.overlay_read import outcome
-from lem.app.owner.sessions import agent_is_live
-from lem.app.sessions import agents, log
-from lem.app.wiring import bound
-from lem.kernel import paths
 from lem.kernel.errors import Refusal
-from lem.ports.place import Place
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
     from lem.app.asking.shape import Card
-    from lem.ports.terminal import Terminal
 
 
 def check(folder: Path, card: Card, environ: Mapping[str, str]) -> None:
     """Check which session asks and whether the owner already answered on the Mac."""
-    current(folder, card.session, environ)
+    if not live.current(folder, card.session, environ):
+        raise gone()
     told = outcome(environ, card.page)
     if told.kind in ("submitted", "dismissed"):
         raise Refusal(
@@ -28,26 +24,6 @@ def check(folder: Path, card: Card, environ: Mapping[str, str]) -> None:
             f"The owner {told.kind} the card in the session.",
             "The session reads its own result.",
         )
-
-
-def current(folder: Path, session: str, environ: Mapping[str, str]) -> None:
-    """Reject an older session's card, or a session without a running agent."""
-    newest = log.newest_open(log.read(folder))
-    if newest is None or not log.same(newest.session, session):
-        raise gone()
-    checkout = folder.parents[3]
-    place = Place(checkout=checkout, home=paths.home(environ), environ=environ)
-    if not running(bound(place).terminal, session):
-        raise gone()
-
-
-def running(terminal: Terminal, session: str) -> bool:
-    """Check the agent in the named pane from one terminal read."""
-    grounds = terminal.foregrounds()
-    for pane, words in grounds.items():
-        if log.same(pane, session):
-            return agent_is_live(listed=True, agent=agents.agent_runs(words))
-    return False
 
 
 def gone() -> Refusal:

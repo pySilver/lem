@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from lem.board.ask import observe_card
 from lem.cli import place
 from lem.cli.ask.overlay import Overlay
 from lem.kernel.errors import Refusal
@@ -11,6 +12,8 @@ from lem.store import places
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from lem.cli.ask.answer import Words
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -43,3 +46,12 @@ def task_folder() -> Path | None:
         raise
     folder = places.task_folder(space.state, slug)
     return folder if (folder / "task.json").is_file() else None
+
+
+def with_board_notice(here: Context, page: str, words: Words) -> Words:
+    """Check the board as the command returns an open or pending card."""
+    if here.task is not None and words.get("outcome") in ("open", "pending"):
+        notice = observe_card.notice(here.task, page, here.overlay.environ)
+        if notice is not None:
+            words["board"] = notice
+    return words
