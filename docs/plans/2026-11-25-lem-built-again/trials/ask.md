@@ -73,42 +73,47 @@ starting another request. Keep it private. Stop Chrome by the PID of `a-chrome` 
   does not scroll sideways; the chart is an inline SVG with no request. A note alone: 422 "The board
   takes a choice with a note", card open; with CSV: 200, `from: board`. Optional skip: `selected:
   []`. Evidence in `/private/tmp/lem-trial-r1/evidence/`: `a2-*`.
-- [ ] A3 End and replace a task's session while its card still waits. Check that its old
+- [x] A3 End and replace a task's session while its card still waits. Check that its old
   card leaves the board and that an old page cannot submit. From the scratch pane run
   `lem session close ask-cards --why owner`, then `lem session open ask-cards --why owner`.
   Keep the waits list, both session identifiers and the old answer refusal.
 
-  Failed on 2026-11-26 at 12:30. The close removed the card from Waits for you and an old page
-  got 409; after the open (`89B73C2B` replaced by `650CAEA1`) the old card was back in `lem waiting`
-  and on the board, still refused 409, and `lem ask close` said `gone`. Lem's: `card_rows` in
-  `src/lem/model/owner/held.py` lists every open card while any session is live, not only the live
-  session's. Evidence in `/private/tmp/lem-trial-r1/evidence/`: `a3-*`.
+  Passed on 2026-11-26 at 14:24 on `rebuild` at `cc26835a`, after the round 3 failure on
+  `v0.99.0`; the phone part ran in R6. Card `0D9A6F4A` in `lem waiting` and on the board before;
+  after the close (`C9ED7785`) and after the open (`3D07FC72`) the list and the board show nothing,
+  and the old page got 409 "The card's session no longer runs for the task" both times. The old
+  card stays unanswered in `task.json`, and `lem ask close` of it says `gone`. Evidence in
+  `/private/tmp/lem-trial-r1/evidence/`: `a3r4-*`, `ar4-*`.
 
-- [ ] A4 The local browser fallback. Run `lem ask q "Keep it?" "Keep it" --browser` in the
+- [x] A4 The local browser fallback. Run `lem ask q "Keep it?" "Keep it" --browser` in the
   scratch shell. Pick Keep it and check the answer in the command result. Use a spec with a
   button that calls `window.lemAsk.send([1])` and check that the result contains the text
   `[1]`. Reload a question once before answering. Close a second browser question with the page cancel action, or navigate to `about:blank`
   to exercise the page unload. Check for `dismissed`. Keep the request, POST result and raw
   command output.
 
-  Failed on 2026-11-26 at 12:31: a reload before the answer ends the question as `dismissed`, twice
-  (`a4-keep`, `a4-keep2` with `location.reload()`), in headless Chrome 159. The beacon of the old
-  page reached the server after the new page's GET, so the GET did not clear it (`RELOAD_GRACE` in
-  `src/lem/cli/ask/browser.py`, `do_GET` in `browser_http.py`). Keep it with no reload (`a4-keep3`),
-  `[1]` (`a4-send`) and `about:blank` to `dismissed` (`a4-blank`) passed. Evidence in `/private/tmp/lem-trial-r1/evidence/`:
-  `a4-*`.
+  Passed on 2026-11-26 at 14:28 on `rebuild` at `cc26835a`, after the round 3 failure on
+  `v0.99.0`, in headless Chrome 159; the phone part ran in R6. A reload, then Keep it: `answered`,
+  `o1`, twice (`a4r4-keep`, `a4r4-keep2`); Keep it with no reload (`a4r4-keep3`); `[1]` from
+  `window.lemAsk.send([1])` (`a4r4-send`); `about:blank` to `dismissed` (`a4r4-blank`); the page's
+  Cancel button to `dismissed` (`a4r4-cancel`; Escape does not cancel). Evidence in
+  `/private/tmp/lem-trial-r1/evidence/`: `a4r4-*`.
 
-- [ ] A5 The sessions step's Stop hook. End a turn while a scratch card still waits. Verify
+- [x] A5 The sessions step's Stop hook. End a turn while a scratch card still waits. Verify
   the waiting mark stays up if another hook writes a working mark. Repeat with `--no-status`
   on the open and with opposite choices on a later wait. Verify that the latest choice holds.
   Confirm that the hook stops when the question ends. Use the sessions step's agterm
   stand-in for the no-socket and stalled command cases.
 
-  Failed on 2026-11-26 at 12:32: after another hook's `active`, a turn's end left the mark `active`
-  with the card open. The tag's Stop hook says nothing (`src/lem/hooks/stop.py`: "until then the
-  hook gives a turn's end no word"), though the plan keeps the Stop hook's mark. `--no-status` left
-  the mark alone. The rest waits for the hook; the phone part runs in R6. Evidence in `/private/tmp/lem-trial-r1/evidence/`:
-  `a5-*`.
+  Passed on 2026-11-26 at 14:34 on `rebuild` at `cc26835a`, after the round 3 failure on
+  `v0.99.0`; the phone part ran in R6. The session loaded the checkout (`LEM_PLUGIN_ROOT`, one
+  `startup` line per session). With card `F3388FE1` open, an `active` written 3.4 s after a prompt
+  was `blocked` again 0.3 s later. A `--no-status` open: the mark stayed `active`. On that page a
+  later `lem ask wait --timeout 2` brought `blocked` back after `active`; a later `--no-status`
+  wait left `active`. After `lem ask close`, `active` stayed. The plugin's Stop line with the
+  stand-in: no socket 0.15 s, a stalled `tree` 2.06 s with the stalled call gone, exit 0 with no
+  output; `tests/hooks/test_stop.py` 11 of 11. Evidence in `/private/tmp/lem-trial-r1/evidence/`:
+  `a5r4-*`.
 
 Stop the scratch server and close the scratch session. Put the evidence paths beside each
 completed check and tick it.
