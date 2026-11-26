@@ -13,10 +13,12 @@ from fixtures.board.moments import BASE, ago
 from lem.board.inputs.forms import Field
 from lem.board.inputs.task.criteria import Pair, Side
 from lem.board.views import owed
+from lem.board.views.criteria.approve import card as approval_card
 from lem.board.views.criteria.tab import criteria
 from lem.model.criteria import digest
 from lem.records.holds import OwnerHold
 from lem.records.questions import Answer
+from lem.records.task import Shape
 from lem.records.work import Span
 from unit.board.views.afternoon import world
 
@@ -41,6 +43,18 @@ def held(seen: Seen, hold: OwnerHold | None, *spans: Span) -> Seen:
     """The task under another hold of the owner's, with other spans."""
     task = replace(seen.record.task, hold=hold, spans=spans or seen.record.task.spans)
     return replace(seen, record=replace(seen.record, task=task))
+
+
+def test_the_fast_track_card_asks_for_approval_of_one_criterion(
+    tmp_path: Path,
+) -> None:
+    found = world(tmp_path)
+    seen = owed.seen(found, STOCK)
+    shape = Shape(type="feat", why="one note", track="small", someone_else=True)
+    task = replace(seen.record.task, shape=shape)
+    seen = replace(seen, record=replace(seen.record, task=task))
+    card = approval_card(found, seen)
+    assert card.label == "Approve the criterion"
 
 
 def test_the_criteria_changed_from_his_note_wait_for_his_yes_again(

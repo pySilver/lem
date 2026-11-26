@@ -318,6 +318,30 @@ def test_the_activity_says_where_he_asked_from_and_no_login() -> None:
     )
 
 
+def test_the_activity_names_the_answer_and_its_own_question() -> None:
+    asked = Question(
+        id="criterion:gift-note",
+        topic="criterion",
+        question="Approve the new export column?",
+        options=("yes", "no"),
+        asked=at("10:00"),
+    )
+    other = msgspec.structs.replace(
+        asked, id="criterion:gift-note:later", question="Approve the next plan?"
+    )
+    acted = OwnerAct(
+        at=at("10:05"), act="answer", via="local", option="no", question=asked.id
+    )
+    row = next(
+        row
+        for row in told(acted, questions=(asked, other))
+        if "You picked No" in row.head
+    )
+    assert (
+        row.head == "You picked No on “Approve the new export column?” from the board"
+    )
+
+
 def test_criterion_7_a_landing_behind_one_that_waits_longer_says_so_in_the_feed() -> (
     None
 ):

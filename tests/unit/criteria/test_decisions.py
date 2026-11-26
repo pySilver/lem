@@ -457,6 +457,20 @@ def test_a_dropped_or_landed_task_takes_no_new_decision_breaker_or_help(
     assert listing.waiting(checkout, None).ended == ()
 
 
+def test_an_answered_task_has_no_wait_and_refuses_a_new_decision(
+    checkout: Path, ports: Ports
+) -> None:
+    held(checkout, None, "answered")
+    before = world.read(checkout)
+    assert refused(logs, ports, checkout, lead()).code == "ended"
+    pending = listing.waiting(checkout, world.SLUG)
+    assert pending.waiting == ()
+    assert [(one.task, one.status) for one in pending.ended] == [
+        (world.SLUG, "answered")
+    ]
+    assert world.read(checkout) == before
+
+
 def test_two_writes_at_once_each_take_a_number_of_their_own(
     checkout: Path, ports: Ports
 ) -> None:

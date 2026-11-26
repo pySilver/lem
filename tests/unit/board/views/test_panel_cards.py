@@ -6,12 +6,18 @@ import dataclasses
 from typing import TYPE_CHECKING
 
 import msgspec
+import pytest
 
 from fixtures.board.moments import ago
 from lem.board.inputs.forms import Typed
 from lem.board.inputs.layout import Viewer
 from lem.board.views import owed
+from lem.board.views.panel.building import building
+from lem.board.views.panel.important import important
 from lem.board.views.panel.panel import panel
+from lem.board.views.panel.phases import phases
+from lem.board.views.panel.told import outcome
+from lem.records.decisions import Breaker, Taken
 from lem.records.questions import Answer
 from unit.board.views.afternoon import world
 
@@ -30,6 +36,119 @@ def overview_of(afternoon: World, slug: str) -> Overview:
     found = panel(afternoon, slug, "overview").overview
     assert found is not None
     return found
+
+
+@pytest.mark.parametrize(
+    ("text", "shown"),
+    [
+        ("## Request\nFix the sheet.\n", ""),
+        ("## Outcome\n\n## Done when\n- The total appears.\n", ""),
+        ("## Outcome\nOne line\nand its end.\n", "One line and its end."),
+        (
+            (
+                "## Outcome\nThe total stays\nin the export.\n\n"
+                "### Example\n\nThe total is 12.\n\n## Done when\nIgnore this."
+            ),
+            "The total stays in the export.\n\n### Example\n\nThe total is 12.",
+        ),
+    ],
+    ids=["missing", "empty", "last", "subheading"],
+)
+def test_the_overview_reads_only_the_outcome_section(text: str, shown: str) -> None:
+    assert outcome(text) == shown
+
+
+def test_a_task_without_a_worktree_can_show_its_outcome_without_filed_items(
+    tmp_path: Path,
+) -> None:
+    found = world(tmp_path)
+    seen = owed.seen(found, GIFT)
+    text = "The totals stay with the export."
+    no_tree = msgspec.structs.replace(
+        seen, filed=None, prose=(("task.md", f"## Outcome\n{text}"),)
+    )
+    card = building(found, no_tree)
+    assert card and card.outcome and card.outcome.text == text
+    assert card.filed is None and card.on_branch == ()
+
+
+def test_phase_progress_follows_the_work_even_with_a_decision_past_the_personas(
+    tmp_path: Path,
+) -> None:
+    found = world(tmp_path)
+    seen = owed.seen(found, "refund-line-on-receipt")
+    record = seen.record
+    assert record.landing and record.landing.reviews
+    decision = Taken(
+        id=100,
+        at=ago(5),
+        what="Where to put the note?",
+        chose="the export",
+        why="Its readers use the export",
+        by="dialectic",
+    )
+    change = msgspec.structs.replace(
+        record.task, status="landing", decisions=(decision,)
+    )
+    shown = phases(msgspec.structs.replace(record, task=change))
+    assert [phase.name for phase in shown if phase.past] == [
+        "Criteria",
+        "Plan",
+        "Build",
+        "Checks",
+    ]
+    assert [phase.name for phase in shown if phase.current] == ["Review"]
+
+
+def test_the_board_marks_the_important_decisions_but_not_the_breaker(
+    tmp_path: Path,
+) -> None:
+    found = world(tmp_path)
+    record = owed.seen(found, "refund-line-on-receipt").record
+    landing = record.landing
+    assert landing and landing.proposed
+    base = Taken(
+        id=1, at=ago(5), what="Where?", chose="the export", why="the rule", by="lead"
+    )
+    change = msgspec.structs.replace
+    decisions = (
+        change(base, id=1, by="dialectic"),
+        change(base, id=2, unsettled=True),
+        change(base, id=3, by="owner", breaker=6),
+        change(base, id=4),
+        change(base, id=5),
+        Breaker(
+            id=6,
+            at=ago(10),
+            cause="criteria",
+            what="no option keeps the criterion",
+            document="breaker-6.md",
+            handoff="handoff.md",
+        ),
+    )
+    proposed = change(landing.proposed, reasons=("decision 4 needs a look",))
+    given = change(
+        record,
+        task=change(record.task, decisions=decisions),
+        landing=change(landing, proposed=proposed),
+    )
+    assert [one.id for one in important(given)] == [1, 2, 3, 4]
+
+
+def test_an_ended_tasks_outcome_omits_an_empty_list_of_filed_items(
+    tmp_path: Path,
+) -> None:
+    found = world(tmp_path)
+    seen = owed.seen(found, GIFT)
+    card_input = msgspec.structs.replace(seen, filed=())
+    active = building(found, card_input)
+    assert active and active.filed and "no backlog item filed" in active.filed
+    ended = msgspec.structs.replace(seen.record.task, status="landed")
+    closed = msgspec.structs.replace(
+        card_input, record=msgspec.structs.replace(seen.record, task=ended)
+    )
+    card = building(found, closed)
+    assert card is not None and card.filed is None and card.on_branch == ()
 
 
 def test_a_breaker_that_waits_is_the_first_card_with_its_document_and_the_owners_answer(

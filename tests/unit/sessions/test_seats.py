@@ -2,10 +2,11 @@
 the block when none may, and the owner's go on."""
 
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import pytest
 
+from fakes.command import lem
 from fakes.records import MOMENT
 from lem.app.sessions import seats, seats_again
 from lem.kernel.errors import Refusal
@@ -131,3 +132,81 @@ def test_a_block_and_its_go_on_keep_the_owners_hold_that_was_there(
     back = seats_again.again(here, SLUG, MOMENT + timedelta(minutes=1))
     assert back.task.hold == plan
     assert [one.again for one in back.task.stand_ins] == [MOMENT + timedelta(minutes=1)]
+
+
+@pytest.mark.parametrize(
+    ("role", "selected"),
+    [("planner", None), ("merger", "codex/gpt-6.2-sol:high")],
+)
+def test_a_codex_fallback_can_merge_and_cannot_plan(
+    tmp_path: Path, role: Literal["merger", "planner"], selected: str | None
+) -> None:
+    here = here_of(tmp_path)
+    made(here, status="open" if role == "merger" else "building")
+    settings(here, '[seats]\nfallback = "codex/gpt-6.2-sol:high"\n')
+    call = StandIn(seat=role, failed="claude/opus:high", error="model", at=MOMENT)
+    decision = seats.failed(here, SLUG, call)
+    assert (decision.seat, decision.blocked) == (selected, selected is None)
+    record = tasks.read(here.where.state, SLUG)
+    assert record.task.stand_ins[0].took == selected
+    assert isinstance(record.task.hold, Blocked) is (selected is None)
+
+
+def test_a_failed_merge_stand_in_blocks_and_go_on_keeps_the_open_task(
+    tmp_path: Path,
+) -> None:
+    here = here_of(tmp_path)
+    made(here, status="open")
+    settings(here, '[seats]\nmerger = "codex/gpt-6.2-sol:high"\n')
+    first = StandIn(
+        seat="merger", failed="codex/gpt-6.2-sol:high", error="login", at=MOMENT
+    )
+    assert seats.failed(here, SLUG, first).seat == "claude/opus:high"
+    second = StandIn(
+        seat="merger", failed="claude/opus:high", error="tokens", at=MOMENT
+    )
+    blocked = seats.failed(here, SLUG, second)
+    assert (blocked.blocked, blocked.seat) == (True, None)
+    assert "no tokens left" in blocked.say
+    assert "no fallback may stand in" in blocked.say
+    held = tasks.read(here.where.state, SLUG)
+    assert isinstance(held.task.hold, Blocked)
+    assert held.task.status == "open"
+    now = MOMENT + timedelta(minutes=1)
+    back = seats_again.again(here, SLUG, now)
+    assert back.task.status == "open"
+    assert back.task.hold is None
+    assert [one.again for one in back.task.stand_ins] == [now, now]
+    assert seats.shown(here, SLUG, "merger").seat == first.failed
+
+
+@pytest.mark.parametrize(
+    ("role", "error", "said", "exit_code"),
+    [
+        ("session", "login", "sign in", 2),
+        ("experts", "login", "sign in", 2),
+        ("reviewer", "slow", "waiting", 2),
+        ("reviewer", "login", "first\nsecond", 1),
+    ],
+    ids=["session", "experts", "slow", "two-lines"],
+)
+def test_a_role_without_a_fallback_or_a_bad_error_records_nothing(
+    tmp_path: Path, role: str, error: str, said: str, exit_code: int
+) -> None:
+    here = here_of(tmp_path)
+    before = made(here, status="building")
+    ran = lem(
+        "seat",
+        "failed",
+        SLUG,
+        role,
+        "--seat",
+        "claude/opus:high",
+        "--error",
+        error,
+        "--said",
+        said,
+        cwd=here.where.checkout,
+    )
+    assert ran.code == exit_code
+    assert tasks.read(here.where.state, SLUG) == before

@@ -2,29 +2,29 @@ id	fate	proof	note
 act:Activity/open-task	kept	unit.board.pages.test_sections.test_activity_and_timeline_link_tasks_and_expose_live_spans_and_points	
 act:Activity/read-interval	kept	unit.board.pages.test_sections.test_activity_and_timeline_link_tasks_and_expose_live_spans_and_points	
 act:Artifacts/compare-pictures	kept	unit.board.pages.test_sections.test_overview_shows_both_matching_pictures_or_the_one_it_has[pair]	
-act:Artifacts/copy-path	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Artifacts/fold-group	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
+act:Artifacts/copy-path	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Artifacts/fold-group	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
 act:Artifacts/open-html	kept	unit.board.pages.test_sections.test_artifacts_html_uses_a_sandbox_and_exposes_the_standalone_link	
 act:Artifacts/open-image	kept	unit.board.pages.test_sections.test_artifacts_display_the_file_and_copy_its_path	
 act:Artifacts/select-artifact	kept	unit.board.pages.test_sections.test_artifacts_display_the_file_and_copy_its_path	
-act:Backlog/clear-filter	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Backlog/copy-start-command	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Backlog/expand	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Backlog/filter-facts	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Backlog/filter-text	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Backlog/filter-worth	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Backlog/focus-filter	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Backlog/mark	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Backlog/move-from-filter	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
+act:Backlog/clear-filter	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Backlog/copy-start-command	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Backlog/expand	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Backlog/filter-facts	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Backlog/filter-text	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Backlog/filter-worth	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Backlog/focus-filter	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Backlog/mark	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Backlog/move-from-filter	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
 act:Backlog/open-held-task	kept	unit.board.pages.test_sections.test_backlog_links_to_held_and_source_tasks_and_can_read_again	
 act:Backlog/open-source	kept	unit.board.pages.test_sections.test_backlog_links_to_held_and_source_tasks_and_can_read_again	
 act:Backlog/read-again	kept	unit.board.pages.test_sections.test_backlog_links_to_held_and_source_tasks_and_can_read_again	
-act:Backlog/show-named-item	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Charts/close	changed	browser.test_board_kit.test_installed_kit_runs_in_chrome	Pele renders the Mermaid source. The same board controls open, fit, move, zoom and close the SVG.
-act:Charts/enlarge	changed	browser.test_board_kit.test_installed_kit_runs_in_chrome	Pele renders the Mermaid source. The same board controls open, fit, move, zoom and close the SVG.
-act:Charts/fit	changed	browser.test_board_kit.test_installed_kit_runs_in_chrome	Pele renders the Mermaid source. The same board controls open, fit, move, zoom and close the SVG.
-act:Charts/pan	changed	browser.test_board_kit.test_installed_kit_runs_in_chrome	Pele renders the Mermaid source. The same board controls open, fit, move, zoom and close the SVG.
-act:Charts/zoom	changed	browser.test_board_kit.test_installed_kit_runs_in_chrome	Pele renders the Mermaid source. The same board controls open, fit, move, zoom and close the SVG.
+act:Backlog/show-named-item	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Charts/close	changed	browser.test_board_kit.test_installed_kit_runs_in_chromium	Pele renders the Mermaid source. The same board controls open, fit, move, zoom and close the SVG.
+act:Charts/enlarge	changed	browser.test_board_kit.test_installed_kit_runs_in_chromium	Pele renders the Mermaid source. The same board controls open, fit, move, zoom and close the SVG.
+act:Charts/fit	changed	browser.test_board_kit.test_installed_kit_runs_in_chromium	Pele renders the Mermaid source. The same board controls open, fit, move, zoom and close the SVG.
+act:Charts/pan	changed	browser.test_board_kit.test_installed_kit_runs_in_chromium	Pele renders the Mermaid source. The same board controls open, fit, move, zoom and close the SVG.
+act:Charts/zoom	changed	browser.test_board_kit.test_installed_kit_runs_in_chromium	Pele renders the Mermaid source. The same board controls open, fit, move, zoom and close the SVG.
 act:Checks and review/open-log	kept	unit.board.pages.test_sections.test_checks_only_link_to_a_log_when_the_input_has_one	
 act:Checks and review/read-review	kept	unit.board.pages.test_sections.test_a_review_round_can_link_to_its_artifact_and_keep_its_details	
 act:Criteria and decisions/read-breaker-file	kept	unit.board.pages.test_sections.test_decision_disclosures_keep_the_story_votes_and_breaker_link	
@@ -44,38 +44,38 @@ act:Overview/read-breaker	kept	unit.board.pages.test_sections.test_breaker_card_
 act:Overview/read-merge-review	kept	unit.board.pages.test_showcase.test_showcase_matches_main_on_the_saved_section[task-refund-line-on-receipt-overview]	
 act:Overview/read-reason	kept	unit.board.pages.test_sections.test_overview_links_to_the_card_artifacts_and_reason_and_shows_the_answer	
 act:Park confirmation/cancel	kept	unit.board.pages.test_sections.test_each_confirmation_and_card_draw_only_their_typed_action	
-act:Search/close	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Search/filter	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Search/move	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Search/open	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Search/open-result	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
+act:Search/close	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Search/filter	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Search/move	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Search/open	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Search/open-result	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
 act:Task panel/artifacts	kept	unit.board.pages.test_showcase.test_showcase_matches_main_on_the_saved_section[task-refund-line-on-receipt-overview]	
 act:Task panel/checks	kept	unit.board.pages.test_showcase.test_showcase_matches_main_on_the_saved_section[task-refund-line-on-receipt-overview]	
-act:Task panel/close	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
+act:Task panel/close	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
 act:Task panel/copy-branch	kept	unit.board.pages.test_sections.test_panel_can_show_a_ticket_or_a_copyable_branch	
-act:Task panel/criteria	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Task panel/details	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Task panel/expand	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
+act:Task panel/criteria	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Task panel/details	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Task panel/expand	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
 act:Task panel/merge	kept	unit.board.pages.test_sections.test_panel_offers_the_merge_and_the_pull_request_links_from_its_head	
 act:Task panel/open-pr	kept	unit.board.pages.test_sections.test_panel_offers_the_merge_and_the_pull_request_links_from_its_head	
 act:Task panel/open-ticket	kept	unit.board.pages.test_sections.test_panel_can_show_a_ticket_or_a_copyable_branch	
 act:Task panel/overview	kept	unit.board.pages.test_showcase.test_showcase_matches_main_on_the_saved_section[task-refund-line-on-receipt-overview]	
-act:Task panel/reset-width	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Task panel/resize	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
+act:Task panel/reset-width	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Task panel/resize	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
 act:Task panel/timeline	kept	unit.board.pages.test_showcase.test_showcase_matches_main_on_the_saved_section[task-refund-line-on-receipt-overview]	
-act:Tasks/fold-column	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Tasks/jump-column	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Tasks/mark-horizontal	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Tasks/mark-vertical	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
+act:Tasks/fold-column	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Tasks/jump-column	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Tasks/mark-horizontal	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Tasks/mark-vertical	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
 act:Tasks/older	kept	unit.board.pages.test_sections.test_done_links_to_older_tasks_only_with_an_older_input	
-act:Tasks/open-marked	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
+act:Tasks/open-marked	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
 act:Tasks/open-task	kept	unit.board.pages.test_showcase.test_showcase_matches_main_on_the_saved_section[kanban_page]	
 act:Timeline/read-event	changed	unit.board.pages.test_sections.test_timeline_event_renders_its_detail_as_a_line_below_it	The typed event includes its detail as a visible line below it.
 act:Timeline/read-interval	kept	unit.board.pages.test_sections.test_activity_and_timeline_link_tasks_and_expose_live_spans_and_points	
 act:Waits for you/breaker-drop	kept	unit.board.pages.test_sections.test_waits_stack_buttons_and_parked_row	
-act:Waits for you/mark	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
+act:Waits for you/mark	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
 act:Waits for you/open-card	kept	unit.board.pages.test_sections.test_waits_links_to_the_card_criteria_and_merge_and_can_jump_to_a_local_session	
-act:Waits for you/open-marked	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
+act:Waits for you/open-marked	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
 act:Waits for you/open-task	kept	unit.board.pages.test_sections.test_waits_stack_buttons_and_parked_row	
 act:Waits for you/park	kept	unit.board.pages.test_sections.test_waits_stack_buttons_and_parked_row	
 act:Waits for you/parked-task	changed	unit.board.pages.test_sections.test_waits_stack_buttons_and_parked_row	The row opens the task. Its typed input carries no direct session address.
@@ -86,14 +86,14 @@ act:Waits for you/stack	kept	unit.board.pages.test_sections.test_waits_stack_but
 act:Workspace index/open-workspace	kept	unit.board.pages.test_sections.test_index_and_failure_escape_words_and_link_to_the_board	
 act:Workspace shell/activity	kept	unit.board.pages.test_sections.test_only_one_format_controls_every_view_key	
 act:Workspace shell/backlog	kept	unit.board.pages.test_sections.test_only_one_format_controls_every_view_key	
-act:Workspace shell/close-menu	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Workspace shell/close-phone-drawer	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Workspace shell/fold-sidebar	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
+act:Workspace shell/close-menu	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Workspace shell/close-phone-drawer	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Workspace shell/fold-sidebar	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
 act:Workspace shell/new-task	kept	unit.board.pages.test_sections.test_new_task_links_and_sidebar_waits_keep_their_targets	
 act:Workspace shell/open-notice	kept	unit.board.pages.test_sections.test_notice_only_links_when_the_input_names_a_task	
 act:Workspace shell/open-wait	kept	unit.board.pages.test_sections.test_new_task_links_and_sidebar_waits_keep_their_targets	
-act:Workspace shell/phone-drawer	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-act:Workspace shell/switch-workspace	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
+act:Workspace shell/phone-drawer	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+act:Workspace shell/switch-workspace	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
 act:Workspace shell/tasks	kept	unit.board.pages.test_sections.test_only_one_format_controls_every_view_key	
 act:Workspace shell/waits	kept	unit.board.pages.test_sections.test_only_one_format_controls_every_view_key	
 act:Workspace shell/workspace-index	kept	unit.board.pages.test_routes.test_one_workspace_redirects_for_get_and_head	
@@ -150,11 +150,11 @@ unit:tests/unit/test_board_pages.py:ReviewerItems.test_an_undecided_item_has_sta
 unit:tests/unit/test_board_pages.py:ReviewerItems.test_the_reviewer_s_group_comes_first_the_undecided_one_first	kept	unit.board.pages.test_sections.test_backlog_filters_and_reply_forms_have_stable_ids_and_fields	
 unit:tests/unit/test_board_pages.py:Search.test_each_row_has_its_title_its_chip_and_the_link_a_card_has	kept	unit.board.pages.test_showcase.test_showcase_matches_main_on_the_saved_section[kanban_page]	
 unit:tests/unit/test_board_pages.py:Search.test_every_page_of_the_workspace_draws_the_box_once_closed_with_its_field	kept	unit.board.pages.test_sections.test_only_one_format_controls_every_view_key	
-unit:tests/unit/test_board_pages.py:Search.test_the_bar_and_the_phones_bar_have_the_button_that_names_its_key	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-unit:tests/unit/test_board_pages.py:SideFold.test_a_click_says_the_next_click_on_the_arrow	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-unit:tests/unit/test_board_pages.py:SideFold.test_a_folded_sidebar_keeps_the_arrow_at_its_foot_and_it_unfolds_it	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-unit:tests/unit/test_board_pages.py:SideFold.test_an_open_sidebar_has_an_arrow_that_points_left_at_its_foot_and_the_old_icon_is_gone	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
-unit:tests/unit/test_board_pages.py:SideFold.test_the_rail_shows_the_foot_with_the_arrow_alone_turned_to_the_right	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
+unit:tests/unit/test_board_pages.py:Search.test_the_bar_and_the_phones_bar_have_the_button_that_names_its_key	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+unit:tests/unit/test_board_pages.py:SideFold.test_a_click_says_the_next_click_on_the_arrow	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+unit:tests/unit/test_board_pages.py:SideFold.test_a_folded_sidebar_keeps_the_arrow_at_its_foot_and_it_unfolds_it	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+unit:tests/unit/test_board_pages.py:SideFold.test_an_open_sidebar_has_an_arrow_that_points_left_at_its_foot_and_the_old_icon_is_gone	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
+unit:tests/unit/test_board_pages.py:SideFold.test_the_rail_shows_the_foot_with_the_arrow_alone_turned_to_the_right	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
 unit:tests/unit/test_board_pages.py:Views.test_each_view_button_shows_its_plain_key_on_the_button_and_takes_that_key	kept	unit.board.pages.test_sections.test_only_one_format_controls_every_view_key	
 unit:tests/unit/test_board_pages.py:WaitStack.test_a_task_of_one_thing_is_its_plain_row_as_today	kept	unit.board.pages.test_sections.test_waits_stack_buttons_and_parked_row	
 unit:tests/unit/test_board_pages.py:WaitStack.test_a_task_of_two_things_is_one_closed_stack_in_the_place_of_its_first_thing	kept	unit.board.pages.test_sections.test_waits_stack_buttons_and_parked_row	
@@ -162,7 +162,7 @@ unit:tests/unit/test_board_pages.py:WaitStack.test_the_stack_holds_each_thing_as
 unit:tests/unit/test_board_pages.py:WaitsVerb.test_a_held_row_on_a_page_for_this_mac_with_a_live_session_jumps_to_it_and_keeps_its_address	kept	unit.board.pages.test_sections.test_waits_links_to_the_card_criteria_and_merge_and_can_jump_to_a_local_session	
 unit:tests/unit/test_board_pages.py:WaitsVerb.test_the_list_carries_the_cursor_over_its_rows_and_one_line_of_its_keys	kept	unit.board.pages.test_sections.test_waits_links_to_the_card_criteria_and_merge_and_can_jump_to_a_local_session	
 unit:tests/unit/test_board_task.py:Artifacts.test_an_artifacts_text_reaches_the_page_escaped	kept	unit.board.pages.test_sections.test_artifacts_document_keeps_its_id_and_escaped_source	
-unit:tests/unit/test_board_task.py:Backlog.test_the_filter_comes_from_the_address_and_a_value_it_does_not_know_is_no_filter	kept	browser.test_board_kit.test_installed_kit_runs_in_chrome	
+unit:tests/unit/test_board_task.py:Backlog.test_the_filter_comes_from_the_address_and_a_value_it_does_not_know_is_no_filter	kept	browser.test_board_kit.test_installed_kit_runs_in_chromium	
 unit:tests/unit/test_board_task.py:CardStep.test_the_rows_way_and_the_overviews_card_open_the_step	kept	unit.board.pages.test_sections.test_overview_links_to_the_card_artifacts_and_reason_and_shows_the_answer	
 unit:tests/unit/test_board_task.py:CardStep.test_the_step_frames_the_cards_own_page_at_its_route_as_an_overlay_on_a_phone	kept	unit.board.pages.test_sections.test_each_confirmation_and_card_draw_only_their_typed_action	
 unit:tests/unit/test_board_task.py:InboxLine.test_the_record_reaches_the_page_escaped	kept	unit.board.pages.test_sections.test_artifacts_document_keeps_its_id_and_escaped_source	
@@ -180,3 +180,12 @@ unit:tests/unit/test_markup.py:Escape.test_a_page_is_a_doctype_and_one_html_elem
 unit:tests/unit/test_markup.py:Escape.test_a_title_in_the_text_and_in_an_attribute_is_escaped	kept	unit.board.pages.test_sections.test_inline_markdown_leaves_raw_html_as_text	
 unit:tests/unit/test_markup.py:Escape.test_empty_children_and_false_attributes_are_left_out_and_true_is_bare	changed	unit.board.pages.test_sections.test_each_confirmation_and_card_draw_only_their_typed_action	Jinja conditions omit absent content and attributes.
 unit:tests/unit/test_markup.py:Escape.test_markup_nests_once_and_a_plain_string_never_passes_as_html	kept	unit.board.pages.test_sections.test_inline_markdown_leaves_raw_html_as_text	
+check:tests/lem-serve.sh:a-document-with-a-chart-names-the-diagram-li-a25219f292c57409	changed	unit.board.inputs.test_expected.test_only_the_documents_with_charts_request_the_chart_library	Roadmap decision 17 selects Pele. Documents without charts omit the chart library.
+check:tests/lem-serve.sh:the-backlog-s-filter-comes-from-the-address-1750c50636461adc	kept	unit.board.views.test_backlog_view.test_the_filter_of_the_address_turns_its_chip_on_and_a_second_press_off	
+unit:tests/unit/test_board_criteria_change.py:TheCard.test_a_phone_puts_the_two_texts_one_under_the_other	kept	browser.test_sheets.test_changed_criteria_stack_on_a_phone_and_sit_side_by_side_on_desktop	
+check:tests/lem-serve.sh:the-tasks-view-and-activity-draw-the-search-e106e4e423458336	kept	unit.board.views.test_kanban_rules.test_search_lists_the_columns_then_the_parked_then_every_ended_task_newest_first	
+check:tests/lem-serve.sh:a-task-s-overview-and-each-of-its-tabs-and-e-af2e3a21d12b6f83	kept	unit.board.pages.test_routes.test_get_and_head_at_the_same_address[overview]	The same test covers the other tabs and views. The frame and missing-file cases have separate route tests.
+duty:watch-owner	changed	unit.owner.test_presence.test_his_away_in_one_repository_is_read_in_another	Design §3 uses the same owner.json for each workspace. The Inbox and board read it afresh.
+ruling:a-page-for-the-owner-has-the-board-s-look-eedfe5b171a9f36d	kept	unit.board.test_slice.test_the_page_links_the_assets_of_today_and_the_server_sends_them	
+check:tests/lem-serve.sh:the-switcher-names-the-workspace-whole-howev-c0cd55c93da547ac	kept	unit.board.pages.test_sections.test_the_switcher_keeps_the_whole_workspace_name_on_one_machine	
+ruling:the-board-s-icons-are-a-subset-of-font-aweso-f7dee376d370d0c1	kept	unit.board.pages.test_sections.test_the_committed_icon_catalog_matches_the_board_kit_selection	

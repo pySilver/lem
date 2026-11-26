@@ -47,6 +47,19 @@ def test_the_stop_is_taken_from_a_program_here_and_refused_from_a_page_or_elsewh
     assert board.stops == ["stop"]
 
 
+def test_a_board_page_limits_referrers_and_refuses_a_null_origin(board: Board) -> None:
+    client = board.main()
+    root = "/studio/shop/"
+    page = client.get(root)
+    assert page.status_code == 200
+    assert page.headers["referrer-policy"] == "same-origin"
+    response = client.post(
+        f"{root}start", data={"ask": "fix the login"}, headers={"Origin": "null"}
+    )
+    assert response.status_code == 403
+    assert tasks.every(board.state) == ()
+
+
 def test_api_workspaces_counts_the_tasks_that_wait_and_build(board: Board) -> None:
     tasks.create(board.state, record("fix-the-login", status="building"))
     tasks.create(board.state, record("add-a-flag", status="landing"))

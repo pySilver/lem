@@ -4,6 +4,7 @@ him; and why it is careful, which makes it his to merge."""
 
 from typing import TYPE_CHECKING
 
+from lem.app.landing import pr_sync
 from lem.app.landing.pr_inputs import Block, block
 from lem.model.landing.green_words import reason
 
@@ -45,10 +46,20 @@ def careful(proposal: Proposal) -> tuple[str, ...]:
     return (f"**Careful**, so the owner merges it: {listed}.",)
 
 
-def carried(proposal: Proposal) -> tuple[str, ...]:
+def code_review(record: Record, proposal: Proposal) -> tuple[str, ...]:
+    """What the code review carried over the rebase onto this proposal."""
+    landing = record.landing
+    if landing is None:
+        return ()
+    line = pr_sync.rebased(landing, proposal.proposed)
+    return (line,) if line else ()
+
+
+def carried(proposal: Proposal, *, include_read: bool) -> tuple[str, ...]:
     """What the prior merge read and the owner's approval carry into this proposal."""
     made = proposal.proposed
-    shown = (made.merge_review_why,) if made.merge_review_why else ()
+    read = made.merge_review_why
+    shown = (read,) if include_read and read else ()
     owner = made.owner_merge
     if owner is None:
         return shown
@@ -59,8 +70,16 @@ def carried(proposal: Proposal) -> tuple[str, ...]:
 def blocks(record: Record, proposal: Proposal) -> tuple[Block, ...]:
     """The head's blocks."""
     without = block(None, alone(record))
+    synced = pr_sync.summary(record, proposal.proposed)
+    account = (pr_sync.sentence(synced),) if synced else ()
     return (
         verdict(proposal),
         *without,
-        *block(None, careful(proposal) + carried(proposal)),
+        *block(
+            None,
+            careful(proposal)
+            + account
+            + code_review(record, proposal)
+            + carried(proposal, include_read=not account),
+        ),
     )

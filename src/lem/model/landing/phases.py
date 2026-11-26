@@ -21,8 +21,8 @@ from lem.model.landing import (
 from lem.model.landing.merge_evidence import seat_refusal
 from lem.model.landing.merge_recheck import due as recheck_due
 from lem.model.landing.mergeread import another_round, latest
+from lem.model.landing.repair_limit import due as repair_due
 from lem.model.landing.world import Due, Held, World
-from lem.model.task import red_base
 from lem.records.landing.record import Landing
 from lem.records.record import Record
 
@@ -52,13 +52,9 @@ def preparing(record: Record, world: World) -> Due:
     pull = world.pull
     if (record.landing or Landing()).pull and pull and pull.state == MERGED:
         return Due(step=MERGED, why="the forge shows the pull request merged")
-    repair = red_base.dependency(record.task)
+    repair = repair_due(record.task)
     if repair is not None:
-        way_on = red_base.way_on(record.task.slug, repair)
-        return Due(
-            step="wait",
-            why=f"the base is red: {way_on}",
-        )
+        return repair
     for rule in PREPARING:
         found = rule(record, world)
         if isinstance(found, Due):

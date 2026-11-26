@@ -76,18 +76,24 @@ def adopted(record: Record, world: World) -> Refusal | PullSeen | None:
     pushed = (record.landing or Landing()).pushed
     others = [found for found in world.candidates if found.head != pushed]
     if others:
-        return Refusal(
-            "foreign-pull",
-            f"pull request {others[0].number} is open on {world.branch} at "
-            f"{others[0].head}, a head Lem did not push: it is somebody else's, and Lem "
-            "does not push over it or rewrite its text",
-            "the owner closes that pull request on GitHub, or asks its author to, then "
-            f"lem land propose {slug} again; the task's branch is on its record, so a "
-            "rename in the worktree alone does not give it another",
-        )
+        return foreign(others[0], world.branch, slug)
     if pull is not None:
         return pull
     return world.candidates[0] if world.candidates else None
+
+
+def foreign(pull: PullSeen, branch: str, slug: str) -> Refusal:
+    """Why the task cannot use somebody else's pull request."""
+    author = pull.author or "someone"
+    return Refusal(
+        "foreign-pull",
+        f"pull request #{pull.number} by {author} is open on {branch} at "
+        f"{pull.head}, a head Lem did not push: it is somebody else's, and Lem "
+        "does not push over it or rewrite its text",
+        "the owner closes that pull request on GitHub, or asks its author to, then "
+        f"lem land propose {slug} again; the task's branch is on its record, so a "
+        "rename in the worktree alone does not give it another",
+    )
 
 
 def written(

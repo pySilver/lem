@@ -6,11 +6,26 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.landing import pr_decisions, pr_text
+from lem.app.landing import (
+    pr_decisions,
+    pr_outside,
+    pr_read,
+    pr_talk,
+    pr_text,
+    pull_identity,
+)
 from lem.kernel.errors import Refusal
-from lem.model.landing import propose, propose_careful, propose_lines, propose_notes
+from lem.model.landing import (
+    items,
+    propose,
+    propose_careful,
+    propose_jev,
+    propose_lines,
+    propose_notes,
+)
 from lem.model.landing.propose_facts import Facts, Filing
 from lem.model.landing.world import Rules
+from lem.records.holds import OwnerHold
 from lem.records.landing.checks import CriterionCheck, Edited
 from lem.records.landing.review import Counts, Filed, Finding
 from lem.records.landing.start import Polished
@@ -509,6 +524,15 @@ def test_the_personas_read_and_his_approval_in_the_checks() -> None:
     assert "2 reads in a row, and none of the 2 personas asked answered" in quiet
 
 
+def test_an_interview_hold_is_not_an_approval_wait_in_the_pull_request() -> None:
+    record = full()
+    held = OwnerHold(on="interview", since=MOMENT, line="The interview waits")
+    changed = replace(record, task=replace(record.task, hold=held))
+    words = pr_read.read_line(changed)
+    assert words.endswith("the owner approved them on 2026-11-25")
+    assert "waited" not in words
+
+
 def test_criteria_he_changed_after_the_read_are_one_line() -> None:
     record = full()
     changed_after = replace(
@@ -779,6 +803,69 @@ def test_a_review_that_saw_nothing_outside_keeps_the_notes_as_they_were() -> Non
     assert "## Seen, not filed" not in text
 
 
+def test_the_notes_keep_their_fixed_and_seen_lines_before_the_new_findings() -> None:
+    fixed = "- `app.py` (abc1234): correct the comment"
+    noted = "- `other.py`: the polish pass saw an old comment; cheap: text only"
+    notes = FULL_NOTES.replace(
+        "## Not done",
+        f"## Fixed on the way\n\n{fixed}\n\n## Seen, not filed\n\n{noted}\n\n## Not done",
+    )
+    shown = outside(full(), notes)
+    fixed_at = shown.index("## Fixed on the way")
+    seen_at = shown.index("## Seen, not filed")
+    assert shown[fixed_at + 2] == fixed
+    assert shown[seen_at + 2] == noted
+    assert shown[seen_at + 3].startswith("- `app.py:run`: an outdated lint suppression")
+    assert fixed_at < seen_at < shown.index("## Not done")
+    assert shown.count(f"- `{LOAD_ITEM}`: load crashes on an empty file") == 1
+
+
+def test_an_open_finding_points_to_its_item_and_a_new_item_is_filed() -> None:
+    held = "docs/backlog/older-load-failure.md"
+    opened = replace(LOAD, id="r1.4", open=held)
+    review = replace(
+        REVIEWED,
+        findings=(opened, GUARD),
+        counts=Counts(outside=2),
+        to_file=(opened.id, GUARD.id),
+    )
+    filed = (
+        Filed(finding=GUARD.id, disposition="item", path=GUARD_ITEM, worth="later"),
+    )
+    record = with_landing(full(), reviews=(review,), filed=filed)
+    headings, seen = pr_outside.parts(record, Facts(), "")
+    assert headings["## Filed in the backlog"] == [f"- `{GUARD_ITEM}`: {GUARD.title}"]
+    assert headings["## Filed as not worth it"] == []
+    assert seen == (f"- `{LOAD.where}`: {LOAD.title}; an open item holds it, `{held}`",)
+
+
+def test_a_fenced_notes_example_cannot_start_a_new_section() -> None:
+    notes = (
+        "## Decisions\n\n```md\n## Seen, not filed\nnone\n```\n\n## Not done\nnone\n"
+    )
+    parsed = propose_notes.parsed(notes)
+    assert not isinstance(parsed, Refusal)
+    assert [part.heading for part in parsed.parts] == ["## Decisions", "## Not done"]
+    assert "## Seen, not filed" in parsed.parts[0].lines
+
+
+def test_an_item_reason_does_not_change_its_jev_identity() -> None:
+    path = "docs/backlog/tidy.md"
+    text = "---\nworth: no\nwhere: src/v.py:tidy\n---\n# Tidy keeps a space\n\nTidy keeps two spaces.\n"
+    bare = items.read(path, text)
+    reasoned = items.read(path, text + "\nDecided against: the owner never sees it.\n")
+    changed = items.read(path, text.replace("two spaces", "three spaces"))
+    assert bare and reasoned and changed
+    first, second, other = map(propose_jev.item_asked, (bare, reasoned, changed))
+    assert (first.label, first.defect.where, first.defect.what) == (
+        path,
+        "src/v.py:tidy",
+        "Tidy keeps two spaces.",
+    )
+    assert not first.reason and second.reason
+    assert first.key == second.key != other.key
+
+
 def test_the_careful_line_and_the_review_lines_on_the_standard_track() -> None:
     called = replace(REVIEWED, careful=False, careful_why="it reaches no topic.")
     bar_read = replace(
@@ -1001,17 +1088,28 @@ def test_the_retro_can_read_every_proposal_after_the_tip_changes() -> None:
     import msgspec
 
     from lem.app.landing.propose_made import opened
+    from lem.records.landing.propose import OwnerMerge
     from lem.records.record import Record
-    from unit.landing.worlds import PROPOSED, PULL
+    from unit.landing.worlds import BASED, PROPOSED, PULL
 
     tips = (TIP, OTHER, "a" * 40)
     reasons = ((), (), ("the owner did not approve the criteria",))
     record = small()
-    for tip, why in zip(tips, reasons, strict=True):
+    owner_merge = OwnerMerge(state="stands", why="the change and its reasons stay")
+    for number, (tip, why) in enumerate(zip(tips, reasons, strict=True)):
         made = replace(PROPOSED, tip=tip, green=not why, reasons=why)
+        if number == 1:
+            based = replace(BASED, tip=tip, before=TIP, reviewed=TIP, carried=True)
+            record = with_landing(record, based=based, reviews=(REVIEWED,))
+            made = replace(made, merge_review="carried", owner_merge=owner_merge)
         record = opened(record, made=made, pull=PULL)
     saved = msgspec.json.decode(msgspec.json.encode(record), type=Record)
     entries = msgspec.json.decode(msgspec.json.encode(saved.journal))
+    proposals = [entry for entry in entries if entry["kind"] == "proposed"]
+    assert proposals[1]["review_carry"] == "The review carried over the rebase."
+    assert proposals[1]["merge_review"] == "carried"
+    assert proposals[1]["owner_merge"] == {"state": "stands", "why": owner_merge.why}
+    assert "owner_merge" not in proposals[0]
     assert [
         (entry["tip"], entry["green"], entry.get("reasons", []), entry["at"])
         for entry in entries
@@ -1020,3 +1118,75 @@ def test_the_retro_can_read_every_proposal_after_the_tip_changes() -> None:
         (tip, not why, list(why), msgspec.to_builtins(PROPOSED.at))
         for tip, why in zip(tips, reasons, strict=True)
     ]
+
+
+def test_a_foreign_pull_request_refusal_keeps_the_forges_author() -> None:
+    from lem.ports.forge_facts import Pull
+
+    pull = Pull(
+        number=99,
+        url="https://github.com/owner/project/pull/99",
+        title="Ania's title",
+        state="open",
+        head=TIP,
+        head_ref="docs/fix-the-login",
+        base="main",
+        author="ania",
+    )
+    foreign = propose.adopted(small(), world(candidates=(pull_identity.seen(pull),)))
+    assert isinstance(foreign, Refusal)
+    assert "pull request #99 by ania is open on" in foreign.why
+
+
+def test_the_plan_talk_names_its_bound_only_when_it_goes_over() -> None:
+    talk = Talk(
+        reviewer="codex",
+        turns=22,
+        questions=5,
+        settled=4,
+        open=1,
+        repaired=2,
+        design=1,
+        unargued=0,
+        root=0,
+        layer=0,
+        shared=0,
+        at=MOMENT,
+    )
+    assert "over the bound" not in pr_talk.talked(talk)
+    over = pr_talk.talked(replace(talk, turns=23))
+    assert "23 turns, over the bound of 22 for its 5 questions;" in over
+
+
+def test_a_resolved_conflict_has_one_account_in_the_reply_and_the_pull_request() -> (
+    None
+):
+    from lem.app.landing import propose_made
+    from lem.records.landing.start import Resolution, Started
+    from unit.landing.worlds import BASE, PROPOSED, PULL
+
+    record = with_landing(
+        small(),
+        started=Started(
+            round=2,
+            branch="docs/fix-the-login",
+            base_ref="main",
+            conflicting=True,
+            at=MOMENT,
+        ),
+        resolution=Resolution(
+            files=("shop.txt",), before=OTHER, after=TIP, base=BASE, read=2
+        ),
+        reviews=(replace(REVIEWED, attempt=2, of="resolution", tip=TIP),),
+        checked=CHECKED,
+    )
+    made = propose_made.given(record, PROPOSED, (PULL, "docs/fix-the-login"))
+    line = (
+        "rebased on main after the forge called it conflicting; one conflict in shop.txt, "
+        "resolved by a builder; one read of the resolution"
+    )
+    assert line in propose_made.said(made)
+    text = text_of(record, SMALL_NOTES)
+    assert f"{line[0].upper()}{line[1:]}" in text
+    assert "the checks passed again" in propose_made.said(made)
+    assert "the checks passed again" in text

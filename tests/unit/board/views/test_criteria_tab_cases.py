@@ -12,9 +12,10 @@ from fixtures.board.moments import BASE, ago
 from lem.board.inputs.parts import Link
 from lem.board.inputs.task.decisions import Part
 from lem.board.views import owed
+from lem.board.views.criteria.says import chosen_at
 from lem.board.views.criteria.tab import criteria
 from lem.records.approvals import Approval
-from lem.records.decisions import CriterionChanged
+from lem.records.decisions import CriterionChanged, Taken
 from lem.records.journal.task import Summary
 from lem.records.landing.checks import CriterionCheck
 from unit.board.views.afternoon import world
@@ -33,6 +34,21 @@ def with_task(seen: Seen, **changes: object) -> Seen:
     """The task of `seen` with other fields."""
     task = replace(seen.record.task, **changes)
     return replace(seen, record=replace(seen.record, task=task))
+
+
+def test_an_option_label_matches_only_one_choice() -> None:
+    choice = Taken(
+        id=1,
+        at=ago(1),
+        what="Where?",
+        chose="A: the same route",
+        why="The readers use it",
+        by="personas",
+        options=("A: the export", "B: the receipt"),
+    )
+    assert chosen_at(choice) == 0
+    assert chosen_at(replace(choice, options=("A: the export", "A: the receipt"))) == -1
+    assert chosen_at(replace(choice, chose="B: the receipt")) == 1
 
 
 def test_a_breaker_that_waits_is_first_and_says_where_he_answers(
@@ -96,6 +112,20 @@ def test_criteria_held_by_their_tests_say_the_commit_they_ran_on(
     assert tab.reads[1].text == "after the personas’ read"
     assert tab.decisions_empty is None
     assert tab.decisions == ()
+
+
+def test_a_check_with_an_old_criteria_digest_is_not_shown_as_proof(
+    tmp_path: Path,
+) -> None:
+    found = world(tmp_path)
+    seen = owed.seen(found, INVOICE)
+    current = seen.record.task.criteria
+    assert current.red is not None
+    assert criteria(found, seen).criteria[0].label == "held by its tests"
+    stale = with_task(seen, criteria=replace(current, digest="old-contract-changed"))
+    row = criteria(found, stale).criteria[0]
+    assert row.label is None
+    assert row.tests == (("sh tests/order-date.sh", "no check of it is on record"),)
 
 
 def test_a_taken_result_is_the_polish_pass_and_its_commit(tmp_path: Path) -> None:

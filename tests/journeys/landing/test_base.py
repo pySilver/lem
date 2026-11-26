@@ -16,6 +16,9 @@ import pytest
 from msgspec.structs import replace
 
 from fakes.repo import run_git
+from journeys.landing.test_merge import owner
+from journeys.landing.test_propose import propose_with
+from journeys.landing.test_review import UNDER, file_step, reviewed
 from journeys.test_skeleton import (
     BRANCH,
     JOURNEY,
@@ -25,10 +28,13 @@ from journeys.test_skeleton import (
     Killed,
     World,
     assert_landed,
+    brief,
     command,
     made,
     next_step,
     parses,
+    proposal,
+    reply,
     upto,
 )
 from lem.adapters import git_cli
@@ -157,6 +163,15 @@ def conflict_on_main(world: World) -> str:
     return world.repo.outside_commit("main", {"README.md": b"The README says hello.\n"})
 
 
+def resolve_readme(world: World) -> None:
+    """The builder rebases onto main and resolves the README's conflict."""
+    with pytest.raises(AssertionError):
+        run_git(world.worktree, "rebase", "--quiet", "origin/main")
+    (world.worktree / "README.md").write_text(README)
+    run_git(world.worktree, "add", "README.md")
+    run_git(world.worktree, "-c", "core.editor=true", "rebase", "--continue")
+
+
 def test_a_conflict_with_the_base_is_undone_and_its_resolution_kept_for_a_builder(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -178,13 +193,7 @@ def test_a_conflict_with_the_base_is_undone_and_its_resolution_kept_for_a_builde
         "base": run_git(world.checkout, "rev-parse", "origin/main"),
     }
     assert due(capsys, world) == "base"
-    # the builder resolves it in the worktree
-    stopped = ["-c", "core.editor=true", "rebase", "--quiet", "origin/main"]
-    with pytest.raises(AssertionError):
-        run_git(world.worktree, *stopped)
-    (world.worktree / "README.md").write_text(README)
-    run_git(world.worktree, "add", "README.md")
-    run_git(world.worktree, "-c", "core.editor=true", "rebase", "--continue")
+    resolve_readme(world)
     based = ok(BASE(capsys, world))["result"]
     assert based["tip"] == head(world)
     assert based["before"] == head(world)
@@ -259,16 +268,8 @@ def test_a_rebase_that_drops_a_merge_only_change_is_refused_with_the_tip_before_
     assert world.acts.done.count("rebase") == 1
 
 
-def test_a_conflicting_pull_request_wakes_a_new_round_counted_in_relands(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    world = made(tmp_path, monkeypatch)
-    upto(capsys, world, "merge-review")
-    assert world.record()["task"]["status"] == "open"
-    conflict_on_main(world)
-    number = landing(world)["pull"]["number"]
-    world.forge.conflicting(number)
-    refused(command("land", "start", "SLUG")(capsys, world), "not-due")
+def conflicting_round(capsys: pytest.CaptureFixture[str], world: World) -> None:
+    """The forge wakes a new round and the base step records its conflicts."""
     ok(CONFLICTING(capsys, world))
     kept = landing(world)
     assert (kept["round"], kept["relands"]) == (2, 1)
@@ -288,6 +289,98 @@ def test_a_conflicting_pull_request_wakes_a_new_round_counted_in_relands(
     assert due(capsys, world) == "base"
     refused(BASE(capsys, world), "conflict")
     assert landing(world)["resolution"]["files"] == ["README.md"]
+
+
+def reproposed_conflict(
+    capsys: pytest.CaptureFixture[str],
+    world: World,
+    *,
+    case: str,
+) -> None:
+    """Resolve the forge's conflict and check the account and the approval at proposal."""
+    upto(capsys, world, "read")
+    if case == "careful":
+        reviewed(
+            capsys,
+            world,
+            kind="full",
+            careful=True,
+            careful_why="customers see the receipt",
+        )
+        ok(propose_with(capsys, world, "none\n\n## Migration\n\nnone\n"))
+    else:
+        reviewed(capsys, world)
+        ok(proposal(capsys, world))
+    ok(brief(capsys, world))
+    ok(reply(capsys, world))
+    first = landing(world)["proposed"]["tip"]
+    assert world.record()["task"]["status"] == "open"
+    refused(START(capsys, world), "not-due")
+    conflict_on_main(world)
+    refused(owner(capsys, world), "base")
+    assert landing(world)["standing"]["tip"] == first
+    number = landing(world)["pull"]["number"]
+    world.forge.conflicting(number)
+    conflicting_round(capsys, world)
+
+    resolve_readme(world)
+    ok(BASE(capsys, world))
+    ok(CHECKS(capsys, world))
+    kind = "full" if case == "careful" else "read"
+    read = reviewed(
+        capsys,
+        world,
+        kind=kind,
+        nit=int(case == "nit"),
+        outside=[UNDER] if case == "outside" else [],
+    )
+    assert read["result"]["of"] == "resolution"
+    if case == "outside":
+        filed = ok(file_step()(capsys, world))["result"]
+        assert [one["path"] for one in filed] == [
+            "docs/backlog/the-notes-have-no-date.md"
+        ]
+        assert head(world) != landing(world)["resolution"]["after"]
+
+    again = ok(proposal(capsys, world))
+    kept = landing(world)
+    assert again["result"]["pull"]["number"] == number
+    line = again["result"]["synced"]
+    assert line.startswith(
+        "rebased on main after the forge called it conflicting; "
+        "one conflict in README.md, resolved by a builder; one read of the resolution"
+    )
+    assert line.endswith("the checks passed again")
+    assert line in again["say"]
+    assert f"{line[0].upper()}{line[1:]}." in world.forge.bodies[number].splitlines()
+    if case == "outside":
+        assert "the merge review carried over the resolved conflict" in line
+        assert kept["reads"][-1]["carried_from"] == first
+        assert kept["proposed"]["owner_merge"]["state"] == "stands"
+        assert kept["standing"]["tip"] == head(world)
+    else:
+        assert kept["proposed"].get("merge_review") is None
+        assert kept["proposed"]["owner_merge"]["state"] == "ended"
+        assert "standing" not in kept
+        assert due(capsys, world) == "merge-review"
+        if case == "careful":
+            assert "a fresh merge agent reads it: the request is careful" in line
+
+
+def test_a_conflicting_pull_request_wakes_a_new_round_counted_in_relands(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    reproposed_conflict(capsys, made(tmp_path, monkeypatch), case="outside")
+
+
+@pytest.mark.parametrize("case", ["nit", "careful"])
+def test_a_conflict_needs_a_fresh_merge_read_after_a_nit_or_a_careful_call(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    case: str,
+) -> None:
+    reproposed_conflict(capsys, made(tmp_path, monkeypatch), case=case)
 
 
 # Each new effect of `start` and `base` on its path, by the act's name and count: the stopped
@@ -546,6 +639,81 @@ def test_a_resolution_holds_every_file_a_later_commit_stopped_on(
     resolution = landing(world)["resolution"]
     assert resolution["files"] == ["NOTES.md", "README.md"]
     assert (resolution["before"], resolution["after"]) == (tip, head(world))
+
+
+def test_a_conflict_resolution_accepts_non_utf8_content_and_commit_subject(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "base")
+    conflict_on_main(world)
+    refused(BASE(capsys, world), "conflict")
+    with pytest.raises(AssertionError):
+        run_git(world.worktree, "rebase", "origin/main")
+    (world.worktree / "README.md").write_bytes(b"The README says caf\xe9.\n")
+    run_git(world.worktree, "add", "README.md")
+    subject = tmp_path / "subject"
+    subject.write_bytes(b"docs: caf\xe9\n")
+    run_git(
+        world.worktree,
+        "-c",
+        "i18n.commitEncoding=ISO-8859-1",
+        "commit",
+        "--quiet",
+        "-F",
+        str(subject),
+    )
+    run_git(world.worktree, "rebase", "--continue")
+
+    ok(BASE(capsys, world))
+    resolution = landing(world)["resolution"]
+    assert resolution["files"] == ["README.md"]
+    assert resolution["after"] == head(world)
+    assert (world.worktree / "README.md").read_bytes() == b"The README says caf\xe9.\n"
+
+
+def test_a_resolution_names_unicode_and_changed_binary_paths_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    world.repo.outside_commit(
+        "main", {"change.bin": b"\0before", "keep.bin": b"\0before"}
+    )
+    upto(capsys, world, "checks")
+    files = {"café.txt": b"Ours\n", "change.bin": b"\0ours", "keep.bin": b"\0ours"}
+    for name, body in files.items():
+        (world.worktree / name).write_bytes(body)
+    run_git(world.worktree, "add", "--", *files)
+    run_git(world.worktree, "commit", "--quiet", "-m", "docs: add the examples")
+    world.repo.outside_commit(
+        "main",
+        {
+            "README.md": b"The README says hello.\n",
+            "café.txt": b"Theirs\n",
+            "change.bin": b"\0theirs",
+        },
+    )
+    refused(BASE(capsys, world), "conflict")
+    assert landing(world)["resolution"]["files"] == ["README.md"]
+
+    with pytest.raises(AssertionError):
+        run_git(world.worktree, "-c", "core.editor=true", "rebase", "origin/main")
+    (world.worktree / "README.md").write_text(README)
+    run_git(world.worktree, "add", "--", "README.md")
+    with pytest.raises(AssertionError):
+        run_git(world.worktree, "-c", "core.editor=true", "rebase", "--continue")
+    (world.worktree / "café.txt").write_text("Resolved\n")
+    (world.worktree / "change.bin").write_bytes(b"\0resolved")
+    run_git(world.worktree, "add", "--", "café.txt", "change.bin")
+    run_git(world.worktree, "-c", "core.editor=true", "rebase", "--continue")
+
+    ok(BASE(capsys, world))
+    assert landing(world)["resolution"]["files"] == [
+        "README.md",
+        "café.txt",
+        "change.bin",
+    ]
+    assert (world.worktree / "keep.bin").read_bytes() == b"\0ours"
 
 
 def test_a_conflict_wake_never_starts_a_round_over_a_merge_call_on_record(

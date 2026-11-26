@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 import pytest
 from msgspec.structs import replace
 
-from lem.app.criteria import approve, persona
+from lem.app.criteria import approve, persona, where
+from lem.kernel import locks
 from lem.kernel.errors import Refusal
 from lem.model.criteria import digest, reads
 from lem.records.questions import Answer, Question
@@ -18,6 +19,9 @@ from unit.criteria import world
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from lem.app.decisions.writing import Make
+    from lem.records.approvals import Approval
 
 SMALL = approve.Asked(by="lem")
 
@@ -50,6 +54,27 @@ def test_the_bytes_the_page_showed_are_approved(checkout: Path) -> None:
     assert [one.text for one in made.criteria][1].startswith(
         "An order with no gift note"
     )
+
+
+def test_an_approval_checks_and_writes_while_it_holds_the_criteria_lock(
+    checkout: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    world.task(checkout)
+    path = world.sheet(checkout, world.FULL)
+    here = where.here_of(checkout, world.SLUG)
+    lock = here.folder / where.LOCK
+    original = approve.written
+
+    def guarded(state: Path, slug: str, make: Make[Approval]) -> Approval:
+        with locks.tried(lock) as second:
+            assert second is None
+        return original(state, slug, make)
+
+    monkeypatch.setattr(approve, "written", guarded)
+    first = approve.approved(checkout, world.SLUG, owners(path))
+    assert world.read(checkout).task.criteria.approvals == (first,)
+    with locks.tried(lock) as second:
+        assert second is not None
 
 
 def test_a_file_that_changed_after_the_page_is_not_approved(checkout: Path) -> None:
@@ -209,6 +234,37 @@ def test_the_lead_freezes_the_plans_criteria_after_a_clear_read(checkout: Path) 
     made = approve.approved(checkout, world.SLUG, approve.Asked(by="read"))
     assert (made.by, made.criteria[0].tests) == ("read", ())
     assert world.read(checkout).task.criteria.criteria[0].tests
+
+
+@pytest.mark.parametrize("first", ["read", "owner"])
+def test_a_read_freezes_only_the_first_contract(checkout: Path, first: str) -> None:
+    world.task(checkout, status="building")
+    read_done(checkout, answered=2)
+    if first == "read":
+        approve.approved(checkout, world.SLUG, approve.Asked(by="read"))
+    else:
+        path = world.sheet(checkout, world.FULL)
+        approve.approved(checkout, world.SLUG, owners(path))
+    before = world.read(checkout).task.criteria.approvals
+    request = approve.Asked(by="read")
+    assert refused(checkout, request).code == "approved"
+    changed = world.plan(checkout, world.FULL.replace("1042", "1043"))
+    marked = digest.of_texts("full", approve.texts.sheet_at(changed, "x").criteria)
+    persona.noted(
+        checkout,
+        world.SLUG,
+        ("done", "lead"),
+        reads.Found(
+            asked=2,
+            answered=2,
+            families=("opus",),
+            criteria=2,
+            flagged=0,
+            digest=marked,
+        ),
+    )
+    assert refused(checkout, request).code == "criteria-differ"
+    assert world.read(checkout).task.criteria.approvals == before
 
 
 def test_a_read_nobody_answered_is_started_once_more_then_the_build_goes_on(

@@ -145,7 +145,25 @@ def test_an_item_is_named_by_its_title_then_its_place_then_a_number() -> None:
         f"{slug}-dates-format-day-3.md",
     ]
     assert item_names.slug_of("!!") == ""
-    assert len(item_names.slug_of("word " * 40)) <= item_names.SLUG_AT
+    long = item_names.slug_of("word " * 40)
+    assert len(long) <= item_names.SLUG_AT
+    assert set(long.split("-")) == {"word"}
+    unnamed = replace(PADS, where="shop/dates.py")
+    assert list(itertools.islice(item_names.names_for(unnamed), 2)) == [
+        f"{slug}.md",
+        f"{slug}-dates.md",
+    ]
+
+
+def test_an_item_without_a_place_cannot_hold_a_defect() -> None:
+    body = written(PADS, "later", WHY)
+    nameless = "\n".join(
+        line for line in body.splitlines() if not line.startswith("where:")
+    )
+    named = items.read("docs/backlog/format-day.md", body)
+    unplaced = items.read("docs/backlog/unplaced.md", nameless)
+    assert named and items.holds(named, PADS)
+    assert unplaced and not items.holds(unplaced, PADS)
 
 
 def test_filing_indexes_the_shelf_once_across_name_collisions() -> None:
@@ -207,6 +225,21 @@ def test_a_defect_an_open_item_holds_gets_no_second_file() -> None:
     assert placed.writes == ()
     gone = filing.decide(record, world(), shelf(), filing_flags.Flags())
     assert not isinstance(gone, Refusal) and gone.filed[0].disposition == "item"
+
+
+def test_filing_waits_only_for_unplaced_findings_of_answered_reviews() -> None:
+    placed, waiting, silent = finding("r1.1"), finding("r1.2"), finding("r2.1")
+    answered_review = replace(
+        reviewed(placed, waiting), to_file=(placed.id, waiting.id)
+    )
+    unanswered_review = replace(
+        reviewed(silent), attempt=2, answered=(), to_file=(silent.id,)
+    )
+    landed = Landing(
+        reviews=(answered_review, unanswered_review),
+        filed=(Filed(finding=placed.id, disposition="item", path=f"{FOLDER}/one.md"),),
+    )
+    assert filing.waiting(landed) == ((answered_review, waiting),)
 
 
 def test_an_over_defect_whose_open_item_says_worth_no_gets_a_new_item_that_names_it() -> (

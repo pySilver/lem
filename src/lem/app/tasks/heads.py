@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
 from lem.ports.faults import Unanswered
+from lem.ports.git_facts import GitRefused
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -91,3 +92,18 @@ def cut(given: Ports, checkout: Path, path: Path, todo: Todo) -> str | None:
         raise taken_refusal(branch)
     given.git.worktree_add(checkout, path, branch, start)
     return said
+
+
+def fresh(given: Ports, checkout: Path, todo: Todo, *, origin_answered: bool) -> None:
+    """Reserve a resume's own branch with Git's create-only operation."""
+    branch, start = todo
+    if origin_answered and given.git.remote_head(checkout, branch) is not None:
+        raise taken_refusal(branch)
+    made = given.git.branch_add(checkout, branch, start)
+    if isinstance(made, GitRefused):
+        error = made.said
+        raise Refusal(
+            "branch-taken",
+            f"git could not make the resume's branch {branch} from {start}: {error}",
+            "correct the Git error for that branch, then run the resume again",
+        )

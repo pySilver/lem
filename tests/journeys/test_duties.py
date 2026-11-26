@@ -399,11 +399,20 @@ def test_an_unopenable_merge_lock_shows_the_repair_and_waits_from_failure_time(
     world = made(tmp_path, monkeypatch)
     upto(capsys, world, "merge")
     served(world, own_home, monkeypatch)
+    new_base = moved(world)
+    approve_on_board(world)
+    land_again(capsys, world)
+    landing = world.record()["landing"]
+    assert landing["proposed"]["owner_merge"]["state"] == "stands"
+    assert landing["standing"]["tip"] == landing["proposed"]["tip"]
+    assert landing["checked"]["base"] == new_base
+    assert "The review carried over the rebase." in world.forge.bodies[1]
     now = clock.now()
     failed_at = now + timedelta(minutes=2)
     monkeypatch.setattr(clock, "now", lambda: failed_at)
     path = world.task_folder.parents[1] / "locks" / "merge.lock"
     if blocked == "lock-file":
+        path.unlink()
         path.mkdir(parents=True)
     else:
         path = path.parent
@@ -418,6 +427,7 @@ def test_an_unopenable_merge_lock_shows_the_repair_and_waits_from_failure_time(
     assert str(path) in line and "remove" in line and "lem land merge" in line
     assert tuple(kept.failed.values()) == (failed_at,)
     assert world.forge.merge_calls == []
+    assert world.record()["landing"]["standing"] == landing["standing"]
 
 
 def test_the_server_carries_out_the_owners_merge_after_a_safe_read(

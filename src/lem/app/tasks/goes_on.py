@@ -7,16 +7,15 @@ goes on as a new request on this release, from the notes it left and its branch,
 shape anew. The dropped task stays dropped.
 """
 
-from functools import partial
 from typing import TYPE_CHECKING
 
-from lem.app.tasks import carry, ports, worktree
+from lem.app.tasks import carry, ports, resume_claim, worktree
 from lem.app.tasks.park import Resumed
 from lem.kernel import clock, release
 from lem.kernel.errors import Refusal
-from lem.model.task import claim, ending, resumes
+from lem.model.task import ending, resumes
 from lem.records.record import Record
-from lem.store import places, tasks, workspace
+from lem.store import places, tasks
 
 if TYPE_CHECKING:
     from lem.records.decisions import Breaker
@@ -31,11 +30,6 @@ def old_branch(where: places.Workspace, record: Record) -> str | None:
         return None
     tip = ports.bound(where).git.tip(where.checkout, f"refs/heads/{named}")
     return None if tip is None else named
-
-
-def opened(where: places.Workspace, made: Record, kind: Tracker | None) -> Record:
-    """Claim and write the new task's record, under the workspace lock."""
-    return workspace.claimed(where.state, partial(claim.claimed, made, kind=kind))
 
 
 def placed(
@@ -81,10 +75,20 @@ def as_breaker(
     """The new task of a task dropped with `breaker` waiting."""
     taken, new = gathered(where, record)
     task = resumes.breaker_task(record.task, new, breaker.id, clock.now())
-    made = opened(where, Record(release=record.release, task=task), kind)
-    placed(where, made, taken, breaker.document)
     start = old_branch(where, record)
-    worktree.made(ports.bound(where), where, made, (task.branch, start))
+    made = resume_claim.opened(
+        where, Record(release=record.release, task=task), start, kind
+    )
+    placed(where, made, taken, breaker.document)
+    try:
+        worktree.made(ports.bound(where), where, made, (task.branch, start))
+    except Refusal as refused:
+        raise Refusal(
+            refused.code,
+            f"{task.resumed_from} goes on in {new}, which is held by its breaker "
+            f"{breaker.id}. {refused.why}",
+            refused.fix,
+        ) from refused
     return said(made.task, "dropped", start, breaker.id)
 
 
@@ -95,7 +99,9 @@ def as_request(
     taken, new = gathered(where, record)
     start = old_branch(where, record)
     task = resumes.request_task(record.task, new, start, clock.now())
-    made = opened(where, Record(release=release.running(), task=task), kind)
+    made = resume_claim.opened(
+        where, Record(release=release.running(), task=task), start, kind
+    )
     placed(where, made, carry.Taken(files=taken.files, brief=None), "")
     if start is None:
         return said(made.task, "request", None, None, record.task.branch)
