@@ -94,11 +94,10 @@ def cut(given: Ports, checkout: Path, path: Path, todo: Todo) -> str | None:
     return said
 
 
-def fresh(given: Ports, checkout: Path, todo: Todo) -> None:
+def fresh(given: Ports, checkout: Path, todo: Todo, *, origin_answered: bool) -> None:
     """Reserve a resume's own branch with Git's create-only operation."""
     branch, start = todo
-    start, said = fetched(given, checkout, start)
-    if said is None and given.git.remote_head(checkout, branch) is not None:
+    if origin_answered and given.git.remote_head(checkout, branch) is not None:
         raise taken_refusal(branch)
     made = given.git.branch_add(checkout, branch, start)
     if isinstance(made, GitRefused):

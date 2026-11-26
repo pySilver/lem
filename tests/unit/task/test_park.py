@@ -2,6 +2,8 @@
 keeps the hold it put aside, and the resume of a dropped task opens a new one: from its breaker's
 handoff, or as a new request when the release stop dropped it."""
 
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from typing import TYPE_CHECKING
 
 import pytest
@@ -24,6 +26,7 @@ from lem.records.task import Shape
 from lem.records.tickets import Ticket
 from lem.records.work import Span
 from lem.store import places, tasks
+from lem.store import workspace as claims
 from unit.addons.flow.test_proposals import TODAY, passed_item
 from unit.task.spaces import made, read, result, said, workspace
 
@@ -376,6 +379,36 @@ def test_a_fold_while_the_files_are_read_makes_no_successor(
         resume.resumed(tmp_path, SLUG)
     assert "folded into its summary" in refused.value.why
     assert not (where.state / "tasks" / f"{SLUG}-2").exists()
+
+
+def test_a_resume_waits_for_origin_without_stopping_another_claim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    where = real(tmp_path)
+    old = f"fix/{SLUG}"
+    dropped_with_breaker(where, branch=old)
+    run_git(where.checkout, "branch", old)
+    fetching, release = Event(), Event()
+    fetch = GitCli.fetch
+    # Bound the waits for the worker and its local Git calls (unmeasured estimate).
+    reach = 10.0
+
+    def slow(git: GitCli, checkout: Path) -> None:
+        fetching.set()
+        assert release.wait(timeout=2 * reach), "the test did not release the fetch"
+        fetch(git, checkout)
+
+    monkeypatch.setattr(GitCli, "fetch", slow)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        resumed = pool.submit(resume.resumed, where.checkout, SLUG)
+        try:
+            assert fetching.wait(timeout=reach), "the resume did not start a fetch"
+            other = pool.submit(claims.claimed, where.state, lambda _: record("other"))
+            assert other.result(timeout=reach).task.slug == "other"
+            assert not resumed.done()
+        finally:
+            release.set()
+        assert resumed.result(timeout=reach).task == f"{SLUG}-2"
 
 
 @pytest.mark.parametrize("release_stop", [False, True], ids=["breaker", "release"])

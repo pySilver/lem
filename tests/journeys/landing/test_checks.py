@@ -8,12 +8,14 @@ in a child, and the test ends it in a `finally`. The machine has no load gate, s
 no case waits at the gate it does not test (`tests/journeys/conftest.py`).
 """
 
+import fcntl
 import os
 import select
 import signal
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -32,7 +34,13 @@ from journeys.test_skeleton import (
     made,
     upto,
 )
-from lem.app.landing import checks_criteria, checks_gate, checks_run, frame
+from lem.app.landing import (
+    checks_criteria,
+    checks_gate,
+    checks_output,
+    checks_run,
+    frame,
+)
 from lem.cli import lazy
 from lem.kernel import folders
 from lem.model.criteria import read
@@ -42,6 +50,7 @@ from lem.store import places, tasks
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from typing import IO
 
     from lem.records.record import Record
 
@@ -107,6 +116,8 @@ def lock_path(world: World) -> Path:
 # Whether the serial lock is held: the probe a serial command runs, which prints its answer.
 HELD = (
     "import fcntl, sys\n"
+    "from pathlib import Path\n"
+    "Path(sys.argv[2]).touch()\n"
     "stream = open(sys.argv[1], 'a+')\n"
     "try:\n"
     "    fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)\n"
@@ -117,20 +128,52 @@ HELD = (
 
 
 def test_the_checks_run_each_serial_command_after_the_commands_under_the_one_lock(
-    world: World, capsys: pytest.CaptureFixture[str]
+    world: World, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     probe = world.folder / "held.py"
     probe.write_text(HELD)
-    serial = f'["{sys.executable} -I {probe} {lock_path(world)}"]'
-    settings(world, '["test -f README.md"]', serial)
-    envelope = checks(capsys, world)
+    ordinary = world.folder / "ordinary-ran"
+    started = world.folder / "serial-ran"
+    lock = lock_path(world)
+    serial = f'["{sys.executable} -I {probe} {lock} {started}"]'
+    settings(world, f'["test -f README.md && touch {ordinary}"]', serial)
+    places.locks_folder(world.checkout / ".lem" / "state")
+    grouped = checks_output.grouped
+    wait_line = b"another serial test holds the lock (builder); this one waits"
+
+    with lock.open("w+", encoding="utf-8") as builder:
+        fcntl.flock(builder, fcntl.LOCK_EX)
+        builder.write("builder\n")
+        builder.flush()
+
+        @contextmanager
+        def observe(
+            argv: list[str], cwd: Path, output: IO[bytes], grace: float
+        ) -> Iterator[subprocess.Popen[bytes]]:
+            with grouped(argv, cwd, output, grace) as proc:
+                if argv[-3:-1] == ["serial", "--"]:
+                    reached(
+                        lambda: wait_line in os.pread(output.fileno(), 4096, 0),
+                        "the serial wait",
+                    )
+                    assert proc.poll() is None
+                    assert ordinary.exists()
+                    assert not started.exists()
+                    fcntl.flock(builder, fcntl.LOCK_UN)
+                yield proc
+
+        monkeypatch.setattr(checks_output, "grouped", observe)
+        envelope = checks(capsys, world)
+
     assert envelope["ok"] is True, envelope
+    assert started.exists()
     outcomes = record_of(world)["landing"]["checked"]["outcomes"]
     assert [(one.get("serial", False), one["passed"]) for one in outcomes] == [
         (False, True),
         (True, True),
     ]
-    assert (world.task_folder / outcomes[1]["output"]).read_text() == "held\n"
+    log = (world.task_folder / outcomes[1]["output"]).read_bytes()
+    assert wait_line in log
     assert outcomes[1]["last"] == "held"
     size = record_of(world)["landing"]["checked"]["size"]
     assert (size["files"], size["lines"]) == (1, 2)

@@ -11,25 +11,37 @@ from lem.settings.load import base_of, team_of
 from lem.store import workspace
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from lem.records.record import Record
     from lem.records.tickets import Tracker
     from lem.store.places import Workspace
 
 
-def prepared(where: Workspace, made: Record, start: str | None) -> None:
-    """Cut the successor's own branch before it can be published."""
+def prepared(
+    where: Workspace, made: Record, start: str | None
+) -> Callable[[], None] | None:
+    """Fetch outside the workspace lock and give the branch reservation to run inside it."""
     if made.task.branch is None:
-        return
+        return None
     team = team_of(where.checkout)
     branch = named(made, None, team.branch)
     source = worktree.start_of(start, base_of(team))
-    heads.fresh(ports.bound(where), where.checkout, (branch, source))
+    given = ports.bound(where)
+    source, said = heads.fetched(given, where.checkout, source)
+    return partial(
+        heads.fresh,
+        given,
+        where.checkout,
+        (branch, source),
+        origin_answered=said is None,
+    )
 
 
 def checked(
     where: Workspace,
     made: Record,
-    start: str | None,
+    reserve: Callable[[], None] | None,
     every: tuple[Record, ...],
     *,
     kind: Tracker | None,
@@ -41,7 +53,8 @@ def checked(
             "task-exists", f"a task {slug} is here already", "run the resume again"
         )
     claimed = claim.claimed(made, every, kind)
-    prepared(where, claimed, start)
+    if reserve is not None:
+        reserve()
     return claimed
 
 
@@ -49,6 +62,7 @@ def opened(
     where: Workspace, made: Record, start: str | None, kind: Tracker | None
 ) -> Record:
     """Publish the new task that will use the reserved branch."""
+    reserve = prepared(where, made, start)
     return workspace.claimed(
-        where.state, partial(checked, where, made, start, kind=kind)
+        where.state, partial(checked, where, made, reserve, kind=kind)
     )
