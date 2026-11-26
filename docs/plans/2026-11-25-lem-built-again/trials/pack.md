@@ -84,7 +84,13 @@ in `T/evidence`. Use the Python 3.14 executable `PY` from [the run order](run.md
   stderr for a linkage error even if the keg exists. Keep the full install streams, the formula,
   the tag evidence and the plugin list. Keep the Homebrew installation and the plugin for P2–P6.
 
-- [ ] P2 The version line names the half behind. **Runs alone.**
+- [x] P2 The version line names the half behind. **Runs alone.**
+
+  Passed on 2026-11-26 on a keg built from a local formula of `rebuild` at `b5b9b32c`, not the
+  tag: `PLUGIN` was the keg's data folder, as P1's plugin was not installed. Evidence in
+  `/private/tmp/lem-trial-r1/evidence/`: `p2-older-*`, `p2-newer-*`, `p2-older-plugin.json`,
+  `p2-newer-plugin.json`, `p2-start.json`; the control frame in place of P3's is
+  `p2-control-session-start`. Index: `/private/tmp/lem-trial-r1/index.json`.
 
   Make two disposable copies of `PLUGIN`. In `T/older` set the plugin manifest version to `0.0.1`.
   In `T/newer` set it to the candidate's numeric major version plus one, with minor and patch zero.
@@ -141,7 +147,15 @@ in `T/evidence`. Use the Python 3.14 executable `PY` from [the run order](run.md
   and `pack-hook`. Confirm neither `LEM_HOOK_BIN` nor a plugin directory argument supplied the
   hook. Close only this scratch pane before P4.
 
-- [ ] P4 Each installed hook line meets the time limit. **Runs alone on a quiet Mac.**
+- [x] P4 Each installed hook line meets the time limit. **Runs alone on a quiet Mac.**
+
+  Passed on 2026-11-26 at 10:36 on the local keg of `rebuild` at `b5b9b32c`, `PLUGIN` the keg's
+  data folder: `ok: true`, load 3.79 before and 3.89 after, 30 frames, p95 per selector
+  42.1, 41.2, 40.9, 41.2 and 42.5 ms (corrections, serve, session-start, precompact, stop).
+  Evidence in `/private/tmp/lem-trial-r1/evidence/`: `p4-timing-quiet`, the manifest
+  `p4-hooks.json` and `p4-hooks-run`; the refused attempt at load 5.19 `p4-timing-attempt1`, and
+  a measurement at load 4.9 with the load gate lifted, `p4-timing-highload` (every p95 at most
+  50.5 ms).
 
   ```sh
   "$T/step" p4-timing -- "$T/p95" --repo "$T/repo" --plugin "$PLUGIN" --task pack-hook
