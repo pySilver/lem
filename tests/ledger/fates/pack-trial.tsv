@@ -1,2 +1,13 @@
 id	fate	proof	note
 check:tests/lem-machine.sh:the-plugin-manifest-names-lem-and-a-version-8c1134923dd2a142	kept	P1	Design §9 requires the formula and marketplace plugin together from the same release. The manifest command lines are covered by hooks/test_manifest.py.
+check:tests/lem-command.sh:a-second-sync-of-a-copy-of-this-checkout-wit-bed0612a5c4eb8a6	changed	P1	P1 verifies the tagged install and its payload. The untagged checkout cache-rebuild exercise leaves the release trial.
+check:tests/lem-command.sh:the-wheel-built-from-the-sdist-with-the-mani-5829869ffee83f44	changed	P1	The tagged Homebrew install and tag-to-payload comparison replace the direct sdist-to-wheel check. The formula stamps the candidate commit.
+check:tests/lem-command.sh:the-wheel-check-refuses-a-wheel-s-file-that-bc7b89e9005246a7	changed	P1	P1 compares the installed payload with the tag and requires a zero build exit. It does not inject a failing backend into a checkout.
+unit:tests/unit/test_release.py:Places.test_a_plugin_version_that_is_no_release_fails	changed	P1	P1 checks the tagged marketplace index on the release candidate. The old app release validator and its synthetic cases leave the trial.
+unit:tests/unit/test_release.py:Places.test_a_ref_of_the_release_before_fails_and_names_the_ref_and_the_number_it_expects	changed	P1	P1 requires the approved ref. It leaves the old validator and its diagnostic test out of the release trial.
+unit:tests/unit/test_release.py:Places.test_a_source_that_is_not_the_github_repository_fails	changed	P1	P1 checks the tagged marketplace index on the release candidate. The old app release validator and its synthetic cases leave the trial.
+unit:tests/unit/test_release.py:Places.test_an_entry_version_of_another_release_fails	changed	P1	P1 checks the tagged marketplace index on the release candidate. The old app release validator and its synthetic cases leave the trial.
+unit:tests/unit/test_release.py:Places.test_an_entry_with_no_ref_fails	changed	P1	P1 checks the tagged marketplace index on the release candidate. The old app release validator and its synthetic cases leave the trial.
+unit:tests/unit/test_release.py:Places.test_three_places_that_name_one_release_pass	kept	P1	P1 compares the release tag with the plugin, marketplace source and installed app.
+unit:tests/unit/test_release.py:Repository.test_the_lem_entry_takes_the_plugin_from_the_release_tag_and_not_from_main	kept	P1	P1 compares the release tag with the plugin, marketplace source and installed app.
+unit:tests/unit/test_release.py:Repository.test_the_repository_names_one_release_in_three_places	kept	P1	P1 compares the release tag with the plugin, marketplace source and installed app.
