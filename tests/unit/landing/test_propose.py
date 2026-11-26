@@ -1455,11 +1455,16 @@ def test_a_full_change_with_no_read_or_a_doubt_is_refused_and_its_read_is_a_line
     doubted = replace(record, task=replace(record.task, criteria=flagged))
     assert code_of(decided(doubted)) == "criteria-doubt"
     partial = read(asked=3, silent=(QUIET.silent[0],))
+    current = (
+        replace(record.task.criteria.criteria[0], text="The file holds the word z."),
+        *record.task.criteria.criteria[1:],
+    )
+    after = digest.of_texts("full", current)
     changed_after = replace(
         record.task.criteria,
         reads=(partial,),
-        digest="d2",
-        approvals=(replace(approval(), digest="d2"),),
+        criteria=current,
+        approvals=(replace(approval(), digest=after),),
     )
     later = replace(record, task=replace(record.task, criteria=changed_after))
     made = decided(later)

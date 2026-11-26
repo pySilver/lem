@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Literal
 from msgspec.structs import replace
 
 from fakes.records import MOMENT
+from lem.model.criteria import digest
 from lem.model.landing.propose_facts import Facts
 from lem.records.approvals import Approval, ApprovedBy, PersonaRead, Silent
 from lem.records.criteria import Criteria
@@ -34,6 +35,9 @@ FULL_NOTES = (
     "## Decisions\n\nnone\n\n## Left open\n\nnone\n\n## Worth a look\n\nnone\n\n"
     "## Filed in the backlog\n\nnone\n\n## Not done\n\nnone\n"
 )
+# The mark of the two criteria's texts, which an approval keeps and a read names
+# (`digest.of_texts`); the record's own digest of them includes their tests.
+TEXTS = digest.of_texts("full", (TESTED, UNTESTED))
 STORY = Story(case=("1. One step.", "2. Another."), case_was="derived", cause="a split")
 
 
@@ -47,7 +51,7 @@ def approval(
         by=by,
         size="full",
         why="the ticket names the word and the file",
-        digest="d1",
+        digest=TEXTS,
         criteria=(TESTED, UNTESTED),
     )
 
@@ -63,7 +67,7 @@ def read(**fields: object) -> PersonaRead:
         answered=2,
         families=("opus", "sol"),
         criteria=2,
-        digest="d1",
+        digest=TEXTS,
     )
     return replace(made, **fields)
 
