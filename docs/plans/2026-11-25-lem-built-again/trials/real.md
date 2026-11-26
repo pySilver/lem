@@ -462,7 +462,20 @@ snapshots to show which process took each step.
   PR. Require the `alone` approval, not-green reason for the criteria, the item removed in the PR,
   a merge review that calls the owner, and no PR merge. Capture the open result before cleanup.
 
-- [ ] R9 A task on a scratch copy of a real project. **Owner for the snapshot and criteria.**
+- [x] R9 A task on a scratch copy of a real project. **Owner for the snapshot and criteria.**
+
+  Passed on 2026-11-26 (round 3), `RUN=j26`, with the keg 0.99.0. The 34 owner-approved paths
+  of mybaze `0455840a` came by `git archive`, each with the archive's hash and the commit's blob
+  (`r9-export-compare.json`); the check of the commands is `r9-commands-check.txt`. The session
+  took the fast track; Lem approved its one criterion alone, so no owner step was asked. PR 29
+  (`trial-j26-r9-one-size-labels-match-nfc` into `trial-j26-r9-base`) was green after one read,
+  and the merge agent said merge. The trial board (port 65491) merged it `via: server`, merge
+  commit `eed7f01e`. A fresh clone of the merged base gave 191 passed with the agreed pytest line
+  (`r9-final-test`), and the owner's task held apart from the session's tests
+  (`r9-final-owner-criteria-2`). The board's `merged` wake waited unheard, because the trial home
+  has no `mailbox-chat.py claude-hook`; the operator typed the line, and the session cleaned and
+  closed (`r9-wake-unheard.txt`, `r9-wake-typed.txt`). Evidence in
+  `/private/tmp/lem-trial-r1/evidence/`: `r9-*`.
 
   Ask the owner for a project commit, a reviewed export safe to put in the private scratch
   repository, and one task with a real local check. The project is the source for the task and
