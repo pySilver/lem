@@ -72,7 +72,8 @@ def entries(lines: tuple[str, ...]) -> tuple[Entry, ...]:
         return ()
     found: list[list[str]] = []
     # The initial depth is unused because the first entry is fresh.
-    depth, fresh = 0, True  # pragma: no mutate
+    depth = 0  # pragma: no mutate
+    fresh = True
     for line in lines:
         if not line.strip() or line.lstrip().startswith("#"):
             fresh = True

@@ -15,7 +15,7 @@ from lem.model.landing.bar import (
     refusal,
     shebang_suffix,
 )
-from lem.model.landing.bar_lines import Walk, hunk_size
+from lem.model.landing.bar_lines import hunk_size
 from lem.model.landing.bar_marks import BAR_MARKS, marks_of
 
 if TYPE_CHECKING:
@@ -858,6 +858,38 @@ def test_removal_of_a_coverage_workflow_names_its_old_path() -> None:
     assert lowered(bar(gone)) == [(old, "cov-fail-under (85) is gone")]
 
 
+def test_removal_of_a_coverage_workflow_with_spaces_names_its_old_path() -> None:
+    path = ".github/workflows/check coverage.yml"
+    gone = patch(path, minus=("- run: pytest --cov-fail-under=85",), gone=True)
+    git_diff = gone.replace(f"--- a/{path}\n", f"--- a/{path}\t\n")
+    assert lowered(bar(git_diff)) == [(path, "cov-fail-under (85) is gone")]
+
+
+def test_a_coverage_workflow_with_spaces_uses_the_new_path_when_edited() -> None:
+    path = ".github/workflows/check coverage.yml"
+    changed = patch(
+        path, minus=("- run: pytest --cov-fail-under=85",), plus=("- run: pytest",)
+    )
+    git_diff = changed.replace(f"+++ b/{path}\n", f"+++ b/{path}\t\n")
+    assert lowered(bar(git_diff)) == [(path, "cov-fail-under (85) is gone")]
+
+
+@pytest.mark.parametrize(
+    ("name", "encoded"),
+    [
+        (".github/workflows/checké.yml", r'"a/.github/workflows/check\303\251.yml"'),
+        (".github/workflows/check\udcff.yml", r'"a/.github/workflows/check\377.yml"'),
+    ],
+    ids=["UTF-8", "unpaired byte"],
+)
+def test_removal_of_a_coverage_workflow_reads_the_quoted_git_path(
+    name: str, encoded: str
+) -> None:
+    gone = patch(name, minus=("- run: pytest --cov-fail-under=85",), gone=True)
+    git_diff = gone.replace(f"--- a/{name}\n", f"--- {encoded}\n")
+    assert lowered(bar(git_diff)) == [(name, "cov-fail-under (85) is gone")]
+
+
 def test_an_old_mark_can_cover_only_one_copy_of_a_line() -> None:
     original = f"import os  {NOQA}: F401"
     copy = f"import os  {NOQA}: F401  {TYPE_IGNORE}"
@@ -904,10 +936,18 @@ def test_an_ordinary_diff_ignores_a_combined_hunk_header() -> None:
     assert hunk_size("@@ -1 +1 @@") == [1, 1]
 
 
-def test_a_diff_walk_keeps_its_docs_out_of_the_paths_to_check() -> None:
-    diff = patch("README.MD", plus=(f"import os  {NOQA}",))
-    walk = Walk(diff)
-    assert [path for path, _ in walk.files] == [""]
+@pytest.mark.parametrize("path", ["README.MD", "tests/README.MD"])
+def test_a_quoted_suppression_in_a_readme_does_not_lower_the_bar(path: str) -> None:
+    diff = patch(
+        path, minus=(f"> `assert login()  {NOQA}`",), plus=(f"> `login()  {NOQA}`",)
+    )
+    assert lowered(bar(diff)) == []
+
+
+def test_a_tilde_sample_with_a_backtick_in_its_label_hides_the_heading() -> None:
+    plan = "~~~sample`part\n## The bar\n- calc.py: just an example.\n~~~\n"
+    diff = patch("calc.py", plus=(f"import os  {NOQA}: F401",))
+    assert [mark.reason for mark in bar(diff, plan=plan).lowered] == [None]
 
 
 def test_a_heading_on_the_last_line_of_a_sample_still_counts_as_code() -> None:

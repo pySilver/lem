@@ -46,9 +46,9 @@ class Waited(Frozen, frozen=True, kw_only=True):
 class Criteria(Frozen, frozen=True, kw_only=True):
     """What a task knows of its criteria: the size and its reason, the parsed criteria and how
     the change works, the approvals and the newest wait for one, the persona reads, the skip of
-    a read and when the owner said yes to it, the change that waits and the moment of each
-    change from his notes, and the newest run that the tests pass on the branch and fail on
-    the base."""
+    a read, when the owner said yes to it and which approval made it count, the change that
+    waits and the moment of each change from his notes, and the newest run that the tests pass
+    on the branch and fail on the base."""
 
     size: Size | None = None
     why: str | None = None
@@ -60,6 +60,7 @@ class Criteria(Frozen, frozen=True, kw_only=True):
     reads: tuple[PersonaRead, ...] = ()
     skip: Literal["asked", "yes", "no"] | None = None
     skip_at: Moment | None = None
+    skip_approval: int | None = None
     change: Change | None = None
     changed: tuple[Moment, ...] = ()
     red: Red | None = None

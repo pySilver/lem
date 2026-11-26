@@ -88,9 +88,11 @@ def made(
         for earlier in landing.reads
         if (earlier.tip, earlier.base) == (briefed.tip, briefed.base)
     )
-    # Each reply that reaches here has a nonempty problem.
-    said = (reply, problem or "")  # pragma: no mutate
-    return merge_said.unrecorded(read, said, count=count, moved=briefed.moved)
+    # Every unusable reply supplies a nonempty problem.
+    problem = problem or ""  # pragma: no mutate
+    return merge_said.unrecorded(
+        read, (reply, problem), count=count, moved=briefed.moved
+    )
 
 
 def decide(

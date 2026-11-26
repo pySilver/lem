@@ -44,17 +44,18 @@ def own_item(record: Record, facts: Facts) -> Refusal | None:
 
 def talk_due(record: Record) -> str | None:
     """Why the request's plan had to be talked through before any code: its own careful
-    call, or more than three tasks. None when it did not, the fast track's too: the owner's
-    later word or the review's call gives the full set and his merge, and no talk."""
+    call, its large flag, or more than three tasks. The owner's later word or the review's
+    call gives the full set and his merge, and no talk."""
     plan = record.task.plan
     if plan is None:
         return None
     if plan.careful:
         return "the plan says that the request is careful"
-    # The plan writer requires a positive task count.
-    tasks = plan.tasks or 0  # pragma: no mutate
-    if plan.large or tasks > LARGE_AFTER:
+    tasks = plan.tasks
+    if tasks is not None and tasks > LARGE_AFTER:
         return f"the plan has {tasks} tasks, more than three"
+    if plan.large:
+        return "the plan is marked large"
     return None
 
 

@@ -137,6 +137,7 @@ class Lowered:
                 line=line.strip()[:BAR_LINE_LENGTH],
             )
             for path, hunks in walk.files
+            if path is not None
             for hit, line in new_marks(hunks, *patterns(path, files))
         ]
 
@@ -187,8 +188,9 @@ def shebang_suffix(line: str) -> str:
     words = line.removeprefix("#!").split() if line.startswith("#!") else []
     if words and PurePosixPath(words[0]).name == "env":
         words = [word for word in words[1:] if not OPTION.search(word)]
-    # With no interpreter, neither fallback name has a kind.
-    name = PurePosixPath(words[0]).name if words else ""  # pragma: no mutate
+    if not words:
+        return ""
+    name = PurePosixPath(words[0]).name
     return SHEBANG.get(PYTHON_VERSION.sub("", name), "")
 
 

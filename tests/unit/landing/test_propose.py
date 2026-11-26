@@ -4,6 +4,7 @@ asks a bar call of, and the pull request's text the owner reads, in the words of
 
 from typing import TYPE_CHECKING
 
+import pytest
 from inline_snapshot import snapshot
 from msgspec.structs import replace
 
@@ -16,6 +17,8 @@ from lem.app.landing import (
     pull_identity,
 )
 from lem.kernel.errors import Refusal
+from lem.model.criteria import approve, skip
+from lem.model.criteria.read import Sheet
 from lem.model.landing import (
     items,
     propose,
@@ -27,6 +30,7 @@ from lem.model.landing import (
 )
 from lem.model.landing.propose_facts import Facts, Filing
 from lem.model.landing.world import Due, Held, Rules
+from lem.model.task import span_forms, spans
 from lem.records.holds import OwnerHold
 from lem.records.landing.checks import CriterionCheck, Edited
 from lem.records.landing.review import Counts, Filed, Finding
@@ -64,6 +68,8 @@ from unit.landing.worlds import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from datetime import datetime
     from pathlib import Path
 
     from lem.records.record import Record
@@ -223,6 +229,14 @@ def test_a_plan_that_called_for_a_talk_with_none_on_record_is_refused() -> None:
     assert not isinstance(decided(full(plan=Plan(path="p.md", tasks=3))), Refusal)
 
 
+def test_an_explicit_large_plan_with_one_task_has_its_own_talk_reason() -> None:
+    record = full(plan=Plan(path="p.md", tasks=1, large=True))
+    code, why, fix = refusal_words(decided(record))
+    assert code == "plan-talk"
+    assert why.startswith("the plan is marked large, so ")
+    assert "with needs a session: the plan is marked large;" in fix
+
+
 def test_the_standard_track_with_no_read_is_refused_unless_his_word_and_approval_stand() -> (
     None
 ):
@@ -238,12 +252,11 @@ def test_the_standard_track_with_no_read_is_refused_unless_his_word_and_approval
     )
     skipped = replace(unread, skip="yes")
     word = replace(record, task=replace(record.task, criteria=skipped))
-    assert not isinstance(decided(word), Refusal)
     lead = replace(word, task=replace(word.task, spans=(span("lead", MOMENT),)))
     assert refusal_words(decided(lead)) == snapshot(
         (
             "skip-late",
-            "a lead of fix-the-login started before the owner's approval that came after the word to skip the personas' read: on the standard track from a complete request the read always runs, as the only approval there (stages/plan.md, step 1)",
+            "a lead of fix-the-login started before the owner completed the skip and approval: on the standard track from a complete request the read always runs, as the only approval there (stages/plan.md, step 1)",
             "the lead runs the read and records it with lem criteria read fix-the-login done",
         )
     )
@@ -1104,15 +1117,14 @@ def test_a_careful_request_needs_the_full_set_and_the_owner_merges_it_green() ->
 
 def test_the_first_approval_of_his_answers_his_word_to_skip_the_read() -> None:
     record = full()
-    skipped = replace(
-        record.task.criteria,
-        reads=(),
-        skip="yes",
-        approvals=(approval(at=MOMENT), approval(number=2, at=LATER)),
-    )
-    lead = span("lead", MOMENT.replace(minute=30))
-    word = replace(record, task=replace(record.task, criteria=skipped, spans=(lead,)))
-    assert not isinstance(decided(word), Refusal)
+    criteria = replace(record.task.criteria, reads=(), approvals=())
+    bare = replace(record, task=replace(record.task, criteria=criteria))
+    first = owner_approval(skip_word(bare))
+    both = owner_approval(lead_start(first), now=LATER)
+    assert both.task.criteria.skip_approval == 1
+    assert not isinstance(decided(both), Refusal)
+    skipped_again = skip_word(both, now=LATER)
+    assert code_of(decided(skipped_again)) == "skip-late"
 
 
 def test_an_item_head_keeps_its_worth_as_the_word_written() -> None:
@@ -1133,6 +1145,35 @@ def test_a_closing_fence_indented_four_spaces_is_code_and_the_block_stays_open()
     assert code_of(decided(full(), Facts(notes=notes))) == "notes-fence"
     closed = FULL_NOTES + "\n```\nsample\n   ```\n"
     assert not isinstance(decided(full(), Facts(notes=closed)), Refusal)
+
+
+def test_a_list_fence_needs_a_close_even_when_a_paragraph_ends_the_list() -> None:
+    notes = FULL_NOTES + "\n- ```python\n  sample()\n\nA new paragraph.\n"
+    code, why, _ = refusal_words(decided(full(), Facts(notes=notes)))
+    assert code == "notes-fence"
+    assert f"line {len(FULL_NOTES.splitlines()) + 2} opens" in why
+
+
+def test_a_block_quote_fence_can_close_at_the_end_of_the_notes() -> None:
+    notes = FULL_NOTES + "\n> ```python\n> sample()\n> ```"
+    assert isinstance(decided(full(), Facts(notes=notes)), propose.Proposal)
+
+
+def test_unclosed_fence_content_includes_the_last_line_without_a_newline() -> None:
+    notes = "```python\nfirst()\nlast()"
+    code, why, _ = refusal_words(propose_notes.parsed(notes))
+    assert code == "notes-fence"
+    assert "line 1 opens" in why
+
+
+def test_a_tilde_fence_with_a_backtick_in_its_label_hides_a_notes_heading() -> None:
+    sample = "~~~sample`part\n## Not done\n```\n~~~\n"
+    notes = FULL_NOTES.replace("## Not done\n\nnone\n", sample)
+    assert code_of(decided(full(), Facts(notes=notes))) == "notes-headings"
+    assert isinstance(
+        decided(full(), Facts(notes=notes + "\n## Not done\n\nnone\n")),
+        propose.Proposal,
+    )
 
 
 def test_a_full_change_with_no_read_or_a_doubt_is_refused_and_its_read_is_a_line() -> (
@@ -1314,7 +1355,7 @@ def test_a_fence_as_the_last_line_reports_where_it_opens() -> None:
         "notes-fence",
         (
             "the notes of the pull request (--notes): line 5 opens a code block that never "
-            "closes, so each line after it reads as code and no heading after it counts"
+            "closes. A heading inside the block does not count."
         ),
         (
             "close the fence, or put a sample that holds fences of its own in a "
@@ -1552,13 +1593,61 @@ def test_a_branch_protection_refusal_names_the_push_it_stops() -> None:
     )
 
 
-def test_an_approval_at_the_leads_recorded_start_counts_for_the_skip() -> None:
-    record = full(spans=(span("lead", MOMENT),))
-    skipped = replace(
-        record.task.criteria,
-        reads=(),
-        skip="yes",
-        approvals=(approval(at=MOMENT),),
+def skip_word(record: Record, *, now: datetime = MOMENT) -> Record:
+    return replace(record, task=skip.skipped(record.task, "yes", now))
+
+
+def owner_approval(record: Record, *, now: datetime = MOMENT) -> Record:
+    criteria = record.task.criteria
+    sheet = Sheet(
+        size="full",
+        why="the ticket names the word and the file",
+        criteria=criteria.criteria,
+        digest="d1",
     )
-    approved = replace(record, task=replace(record.task, criteria=skipped))
-    assert isinstance(decided(approved), propose.Proposal)
+    return approve.approved(
+        record, asked=approve.Asked(by="owner", sheet=sheet, plan=True), now=now
+    )
+
+
+def lead_start(record: Record) -> Record:
+    lead = span_forms.Given(name="lead", edge="start", by="session")
+    return spans.started(record, lead, MOMENT)
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        (owner_approval, lead_start, skip_word),
+        (skip_word, lead_start, owner_approval),
+        (lead_start, skip_word, owner_approval),
+    ],
+    ids=["approval before skip", "lead before approval", "lead before skip"],
+)
+def test_a_skip_cannot_move_past_prior_acts_at_the_same_moment(
+    order: tuple[Callable[[Record], Record], ...],
+) -> None:
+    record = full()
+    criteria = replace(record.task.criteria, reads=(), approvals=())
+    record = replace(record, task=replace(record.task, criteria=criteria))
+    for act in order:
+        record = act(record)
+    assert code_of(decided(record)) == "skip-late"
+
+
+def test_a_skip_and_approval_before_the_lead_count_at_the_same_moment() -> None:
+    record = full()
+    criteria = replace(record.task.criteria, reads=(), approvals=())
+    record = replace(record, task=replace(record.task, criteria=criteria))
+    approved = owner_approval(skip_word(record))
+    assert approved.task.criteria.skip_at == MOMENT
+    assert isinstance(decided(lead_start(approved)), propose.Proposal)
+
+
+def test_an_owner_approval_before_the_skip_does_not_answer_it() -> None:
+    record = full()
+    criteria = replace(record.task.criteria, reads=(), approvals=())
+    record = replace(record, task=replace(record.task, criteria=criteria))
+    approved = owner_approval(record)
+    skipped = skip_word(approved, now=LATER)
+    assert code_of(decided(skipped)) == "skip-unapproved"

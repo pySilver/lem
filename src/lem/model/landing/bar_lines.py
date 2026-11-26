@@ -2,21 +2,20 @@
 `git diff -U0 -M` with the assertions and coverage thresholds its lines took or gave, and the
 reasons of the plan's `## The bar`, read past its fenced code blocks.
 
-The fence rule is a copy of the criteria's: a heading inside a code block is a line of code, and
-a block that never closes is refused.
+The criteria's fence scanner keeps headings in code blocks out of the plan's reasons.
 """
 
+import codecs
 import re
 from collections import defaultdict
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
+from lem.model.criteria import fences
 from lem.model.landing.bar_marks import DOCS, TEST_CONFIG
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from lem.model.landing.bar_marks import Hunk
 
 # A coverage threshold, as a runner's settings or a command line write it: its name and
@@ -40,9 +39,6 @@ INLINE_TESTS = (".rs",)
 # A hunk's header in `git diff`: where it starts, and how many lines went and came,
 # each count 1 when git leaves it out
 HUNK = re.compile(r"@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@")
-# A fence of a code block, at any indent: its characters and what follows them.
-FENCE = re.compile(r"( *)(`{3,}|~{3,})(.*)$")
-TICK = "`"
 # The plan's section of the reasons, and one reason there: `- PATH: REASON`.
 SECTION = re.compile(r"(?ms)^##\s+The bar\s*$(.*?)(?=^##\s|\Z)")
 REASON = re.compile(r"(?m)^-\s+`?([^`:\n]+?)`?:\s+(\S.*)$")
@@ -53,10 +49,8 @@ SIGNS = ("-", ADDED)
 type Number = tuple[float, str]
 # A threshold's numbers on the lines that went, and on those that came.
 type Numbers = tuple[list[Number], list[Number]]
-# A file of the diff by its path, "" for a document, with its hunks.
-type Changed = tuple[str, list[Hunk]]
-# A fence that opened a block, and its line.
-type Opened = tuple[str, int]
+# A file of the diff by its path, None for a document, with its hunks.
+type Changed = tuple[str | None, list[Hunk]]
 
 
 def hunk_size(header: str) -> list[int]:
@@ -96,7 +90,7 @@ class Walk:
         self.files: list[Changed] = []
         # the file at hand, none before the first header
         # A git hunk always follows both file headers, which set these two fields.
-        self.current: Changed = ("", [])  # pragma: no mutate
+        self.current: Changed = (None, [])  # pragma: no mutate
         self.old = ""  # pragma: no mutate
         # the lines of the hunk still to come, those that went and those that came, by its
         # `@@` header: a line inside a hunk is never a file's header, also a removed line
@@ -126,20 +120,12 @@ class Walk:
     def header(self, line: str) -> None:
         """Take a LINE outside a hunk: a file's header."""
         if line.startswith("--- "):
-            # The old path is used only on deletion, where git always gives it.
-            self.old = (
-                line.removeprefix("--- a/")  # pragma: no mutate
-                if line.startswith("--- a/")
-                else ""  # pragma: no mutate
-            )
+            self.old = path_of(line, "a/")
         elif line.startswith("+++ "):
-            # a file that is gone has its lines counted under the name it had
-            path = (
-                line.removeprefix("+++ b/") if line.startswith("+++ b/") else self.old
-            )
-            # a document may quote a mark, the plan's own reason for one too
+            path = path_of(line, "b/") or self.old
+            # A document may quote a mark, the plan's own reason for one too.
             document = PurePosixPath(path).suffix.lower() in DOCS
-            self.current = ("" if document else path, [])
+            self.current = (None if document else path, [])
             self.files.append(self.current)
 
     def keep(self, line: str) -> None:
@@ -190,79 +176,35 @@ class Walk:
         return [*fewer, *(one for one in said if one)]
 
 
-class Fences:
-    """The fenced code blocks of a text's LINES, at any indent: a heading there is a line of
-    code, never a section's start. A fence closes only on a line of its own character, at
-    least as long as the one that opened it, with nothing after it: a shorter fence inside is
-    a part of the block."""
+def path_of(header: str, side: str) -> str:
+    """The path of a git patch header, or empty for /dev/null."""
+    field, _, _ = header[4:].partition("\t")
+    if field == "/dev/null":
+        return ""
+    if field.startswith('"'):
+        quoted = field[1:-1]
+        raw, _ = codecs.escape_decode(quoted.encode())
+        field = raw.decode(errors="surrogateescape")
+    return field.removeprefix(side)
 
-    def __init__(self, lines: Sequence[str]) -> None:
-        """Find the blocks of LINES."""
-        self.lines = lines
-        # the numbers of the lines of each block that closes, its fences too
-        self.inside: set[int] = set()
-        # the fence of the block at hand, and its line
-        self.opened: Opened | None = None
-        for index, line in enumerate(lines):
-            self.read(index, line)
 
-    def read(self, index: int, line: str) -> None:
-        """Take the LINE of number INDEX: a fence opens a block, or closes the one open."""
-        mark = FENCE.match(line)
-        if mark is None:
-            return
-        opened = self.opened
-        if opened is None:
-            self.open(index, mark.group(2), mark.group(3))
-        elif self.closes(opened, mark.group(2), mark.group(3)):
-            self.inside.update(range(opened[1], index + 1))
-            self.opened = None
-
-    def open(self, index: int, fence: str, after: str) -> None:
-        """Open a block at the line INDEX with FENCE, unless it is backticks with one AFTER it."""
-        # The fence regex requires every character of a fence to be the same.
-        if not (fence[0] == TICK and TICK in after):  # pragma: no mutate
-            self.opened = (fence, index)
-
-    def closes(self, opened: Opened, fence: str, after: str) -> bool:
-        """Whether FENCE, with AFTER it, closes the block OPENED: a fence is one character
-        again and again, so one of the same character at least as long starts with it."""
-        least, _ = opened
-        return fence.startswith(least) and not after.strip()
-
-    def refuse(self, where: str) -> None:
-        """Refuse a block that never closes, with WHERE, the document's file: each line after
-        its fence would read as code, and the reader would go on with less of the document
-        than its writer wrote."""
-        if self.opened is None:
-            return
-        index = self.opened[1]
-        number = index + 1
-        fence = self.lines[index].strip()
-        raise Refusal(
-            "fence",
-            f"{where}: line {number} opens a code block that never closes ({fence}), so "
-            "each line after it reads as code and no heading after it counts",
-            "close the fence, or put a sample that holds fences of its own in a longer "
-            "fence (```` around ```)",
-        )
-
-    def blanked(self) -> str:
-        """The text with each line of a block blank."""
-        kept = (
-            "\n" if at in self.inside else f"{line}\n"
-            for at, line in enumerate(self.lines)
-        )
-        return "".join(kept)
+def blanked(lines: list[str], where: str) -> str:
+    """The plan with its code blocks blank, or the landing's refusal of an open fence."""
+    try:
+        inside = fences.fenced(lines, where)
+    except Refusal as error:
+        raise Refusal("fence", error.why, error.fix) from error
+    return "".join(
+        "\n" if index in inside else f"{line}\n" for index, line in enumerate(lines)
+    )
 
 
 def reasons_of(plan: str, where: str) -> dict[str, str]:
     """Each file's reason for a lowered bar, from the `## The bar` section of the PLAN, whose
-    file is WHERE, as `- PATH: REASON`, read past its code blocks (`Fences`); none when the
+    file is WHERE, as `- PATH: REASON`, read past its code blocks; none when the
     plan has no such section."""
-    fences = Fences(plan.splitlines())
-    fences.refuse(where)
-    section = SECTION.search(fences.blanked())
+    text = blanked(plan.splitlines(), where)
+    section = SECTION.search(text)
     if not section:
         return {}
     return {

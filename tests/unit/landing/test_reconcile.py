@@ -9,6 +9,7 @@ import pytest
 from inline_snapshot import snapshot
 from msgspec.structs import replace
 
+from lem.app.landing.checks_ready import began
 from lem.kernel.errors import Refusal
 from lem.model.landing import merge_lines, queue_evidence, reconcile, reconcile_queue
 from lem.model.landing.queue_evidence import Event
@@ -26,7 +27,17 @@ from unit.landing.merges import (
     facing,
     opened,
 )
-from unit.landing.worlds import BASE, MERGE, MERGED, MOMENT, OTHER, SEEN, TIP, TREE
+from unit.landing.worlds import (
+    BASE,
+    CHECKED,
+    MERGE,
+    MERGED,
+    MOMENT,
+    OTHER,
+    SEEN,
+    TIP,
+    TREE,
+)
 
 SAFE = MergeRead(
     tip=TIP,
@@ -136,6 +147,7 @@ def test_a_merge_on_a_base_a_safe_read_covered_has_the_reads_line() -> None:
         opened(reads=(SAFE,)), world, onto, ("merger", "server", trees)
     )
     assert isinstance(found, Merged)
+    assert (found.by, found.via) == ("owner", "github")
     assert (found.uncovered, found.text_updated, found.base_read) == (
         None,
         False,
@@ -185,8 +197,10 @@ def test_an_owner_call_lands_with_a_warning_if_the_actual_parent_missed_checks(
         BASE,
         MOVED,
     )
-    assert found.uncovered is not None
-    assert BASE[:9] in found.uncovered and MOVED[:9] in found.uncovered
+    assert found.uncovered == (
+        f"The checks ran on main at {BASE}. GitHub merged on main at {MOVED}, which "
+        "missed the checks for the owner's approval."
+    )
     assert not found.text_updated
 
 
@@ -403,11 +417,50 @@ def test_an_accepted_call_only_notifies_the_board_of_a_confirmed_removal() -> No
 
 
 def test_a_merge_on_github_during_rechecks_keeps_the_observed_base() -> None:
-    found = reconcile.landed(
-        opened(checked=None), facing(), DONE, ("owner", "github", SAME)
-    )
+    record = began(opened(reads=()), at=MOMENT)
+    found = reconcile.landed(record, facing(), DONE, ("owner", "github", SAME))
     assert isinstance(found, Merged)
-    assert (found.base_checked, found.parent, found.base_merged) == (BASE, BASE, BASE)
+    assert (found.base_checked, found.parent, found.base_merged) == (None, BASE, BASE)
+    assert found.uncovered == (
+        f"GitHub merged on main at {BASE}. No passed checks or safe review covered this base."
+    )
+    assert not found.text_updated
+
+
+def test_a_red_run_on_the_merge_parent_does_not_cover_it() -> None:
+    record = opened(checked=replace(CHECKED, outcome="red"), reads=())
+    found = reconcile.landed(record, facing(), DONE, ("owner", "github", SAME))
+    assert isinstance(found, Merged)
+    assert found.base_checked == BASE
+    assert found.uncovered is not None and "No passed checks" in found.uncovered
+    assert not found.text_updated
+
+
+def test_two_unanswered_attempts_do_not_record_a_review_of_a_checked_base() -> None:
+    blank = replace(SAFE, base=BASE, base_tree=TREE, verdict=None, base_call=None)
+    record = opened(reads=(blank, replace(blank, attempts=2, no_answer=True)))
+    found = reconcile.landed(record, facing(), DONE, ("owner", "github", SAME))
+    assert isinstance(found, Merged)
+    assert (found.base_read, found.uncovered, found.text_updated) == (None, None, True)
+
+
+def test_a_safe_read_can_cover_a_merge_during_rechecks_without_claiming_checks() -> (
+    None
+):
+    onto = replace(DONE, base_parent=MOVED)
+    trees = Trees(checks=MOVED_TREE, parent=MOVED_TREE)
+    record = opened(checked=None, reads=(SAFE,))
+    found = reconcile.landed(record, facing(), onto, ("owner", "github", trees))
+    assert isinstance(found, Merged)
+    assert (found.base_checked, found.base_read, found.uncovered) == (None, MOVED, None)
+    assert not found.text_updated
+    assert record.landing is not None
+    line, uncovered = reconcile.line_of(record.landing, found, trees, "main")
+    assert not uncovered
+    assert line == (
+        f"GitHub merged on main at {MOVED[:9]}. The merge agent's read covered this base: "
+        "only README.md moved"
+    )
 
 
 def test_a_known_retarget_waits_even_if_settings_move_to_the_forges_base() -> None:

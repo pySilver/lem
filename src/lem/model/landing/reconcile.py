@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
-from lem.model.landing import destination, merge_lines, mergeread, reconcile_queue
+from lem.model.landing import destination, reconcile_coverage, reconcile_queue
 from lem.model.landing.invariants import target
 from lem.model.landing.world import Due, Merger, PullSeen, World
 from lem.records.base import Frozen, Sha
@@ -79,39 +79,8 @@ def line_of(
     """The line a merge leaves in the pull request's text, and whether no read covered its
     base: no line on the checks' own base (by its tree), the safe read's line on a base it
     covered, else the line that no read covered it."""
-    warning = merge_lines.head_warning(landing, merged)
-    if warning is not None:
-        return warning, True
-    if (
-        merged.by == "owner"
-        and merged.via != "github"
-        and merged.parent != merged.base_checked
-    ):
-        return (
-            (
-                f"The checks ran on {base} at {merged.base_checked}. GitHub merged on "
-                f"{base} at {merged.parent}, which missed the checks for the owner's approval."
-            ),
-            True,
-        )
-    if trees.parent == trees.checks:
-        return None, False
-    safe = [
-        read
-        for read in landing.reads
-        if read.tip == merged.merged_head and read.base_call == "safe"
-    ]
-    bases = (merged.base_checked, merged.parent)
-    # The reader requires a reason for a safe base call.
-    covering = [
-        read.why or ""  # pragma: no mutate
-        for read in safe
-        if read.base_tree == trees.parent
-    ]
-    if covering:
-        return merge_lines.base_line(base, bases, covering[-1]), False
-    read = safe[-1].base if safe else None
-    return merge_lines.uncovered_line(base, bases, read), True
+    judged = reconcile_coverage.judged(landing, merged, trees, base)
+    return judged.line, judged.uncovered
 
 
 def made(
@@ -120,60 +89,58 @@ def made(
     pull: PullSeen,
     who: tuple[Merger, Via],
     trees: Trees,
-) -> Merged:
+) -> Merged | None:
     """The record of a merge the forge reports whole, into the task's base, by `who` (who
-    merged and through what), judged by `trees`."""
-    read = mergeread.latest(landing, trees.parent)
-    # landed requires the forge to report the commit, head and parent before calling made.
-    parent = pull.base_parent or ""  # pragma: no mutate
+    merged and through what), judged by `trees`. None until the forge reports all fields."""
+    if not (pull.merge_commit and pull.merged_head and pull.base_parent):
+        return None
+    parent = pull.base_parent
     merged = Merged(
         by=who[0],
         via=who[1],
-        commit=pull.merge_commit or "",  # pragma: no mutate
-        merged_head=pull.merged_head or "",  # pragma: no mutate
+        commit=pull.merge_commit,
+        merged_head=pull.merged_head,
         parent=parent,
         destination=pull.base,
-        base_checked=landing.checked.base if landing.checked else parent,
+        base_checked=landing.checked.base if landing.checked else None,
         base_merged=parent,
-        base_read=read.base if read else None,
         at=world.now,
     )
-    line, uncovered = line_of(landing, merged, trees, merged.destination)
+    judged = reconcile_coverage.judged(landing, merged, trees, merged.destination)
     return replace(
         merged,
-        base_read=None if uncovered else merged.base_read,
-        uncovered=line if uncovered else None,
-        text_updated=line is None,
+        base_read=judged.read,
+        uncovered=judged.line if judged.uncovered else None,
+        text_updated=judged.line is None,
     )
 
 
 def landed(
     record: Record, world: World, pull: PullSeen, facts: tuple[Merger, Via, Trees]
 ) -> Refusal | Merged:
-    """The merge the forge shows, to record (`facts`: who merged, through what, and the
-    trees it is judged by), or why it is no landing: another destination, which leaves the
-    task open with nothing cleaned, or a merge whose commit the forge does not report yet."""
-    base = destination.recorded(record.landing) or world.rules.base
-    wrong = target(pull.base, replace(world.rules, base=base), pull.url)
-    slug = record.task.slug
+    """The merge the forge shows, with the actor from the record and the trees in `facts`.
+    A wrong destination or a commit the forge does not report yet leaves the task open."""
+    wrong = target(
+        pull.base,
+        replace(
+            world.rules,
+            base=destination.recorded(record.landing) or world.rules.base,
+        ),
+        pull.url,
+    )
     if wrong is not None:
         return wrong
-    if not (pull.merge_commit and pull.merged_head and pull.base_parent):
-        return Refusal(
-            "unreported",
-            f"GitHub merged {pull.url} and does not report its commit yet: nothing was "
-            "written",
-            f"lem land merged {slug} runs again in a minute",
-        )
     landing = record.landing or Landing()
-    # The merge record uses only the caller and route, the first two facts.
-    # With no recorded call, adopted supplies the same owner and GitHub attribution.
-    who = (
-        reconcile_queue.author(landing, pull)  # pragma: no mutate
-        if landing.intent or landing.accepted
-        else facts[:2]  # pragma: no mutate
+    who = reconcile_queue.author(landing, pull)
+    found = made(landing, world, pull, who, facts[2])
+    if found is not None:
+        return found
+    slug = record.task.slug
+    return Refusal(
+        "unreported",
+        f"GitHub merged {pull.url} and does not report its commit yet: nothing was written",
+        f"lem land merged {slug} runs again in a minute",
     )
-    return made(landing, world, pull, who, facts[2])
 
 
 def reconciled(

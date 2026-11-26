@@ -103,6 +103,32 @@ def test_a_read_on_a_moved_base_keeps_its_call_and_why() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("reply", "why"),
+    [
+        (
+            "***\nVerdict: merge.\nBase: safe. Docs only.",
+            "its first line gave no verdict",
+        ),
+        (
+            "Verdict: merge.\n>\nBase: safe. Docs only.",
+            "its second line gave no call on the moved base",
+        ),
+    ],
+)
+def test_markdown_only_lines_keep_their_place_in_a_moved_base_reply(
+    reply: str, why: str
+) -> None:
+    read = first_read(ON_MOVED, reply)
+    assert (read.verdict, read.base_call, read.attempts, read.why) == (
+        None,
+        None,
+        1,
+        why,
+    )
+    assert code_of(mergeread.again(read)) == "no-verdict"
+
+
 def test_an_answer_that_cannot_be_recorded_is_asked_again_once() -> None:
     first = first_read(UNMOVED, "It looks fine to me.")
     assert (first.verdict, first.attempts) == (None, 1)

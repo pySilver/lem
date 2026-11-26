@@ -23,9 +23,7 @@ def cached(entry: str) -> bool:
     if not entry.endswith("/"):
         return False
     bare = entry.rstrip("/")
-    # Any positive split limit gives the same last component.
-    parts = bare.rsplit("/", 1)  # pragma: no mutate
-    return parts[-1] == CACHE
+    return bare.rpartition("/")[-1] == CACHE
 
 
 def folders_above(found: Paths) -> Paths:
@@ -33,8 +31,7 @@ def folders_above(found: Paths) -> Paths:
     ignore rules the choice asks git for."""
     above: set[str] = set()
     for candidate in found:
-        # Every candidate ends in `__pycache__/`: stripping X as well does nothing.
-        parts = candidate.rstrip("/").split("/")[:-1]  # pragma: no mutate
+        parts = candidate.removesuffix("/").split("/")[:-1]
         depths = range(1, len(parts) + 1)
         above.update("/".join(parts[:depth]) for depth in depths)
     return tuple(sorted(above))

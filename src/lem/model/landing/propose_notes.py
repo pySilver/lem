@@ -46,15 +46,14 @@ def starts(text: str) -> Starts | Refusal:
         MarkdownIt,
     )  # only `propose` reads notes: no other step loads it
 
-    lines = text.splitlines()
     found: list[int] = []
     for token in MarkdownIt("commonmark").parse(text):
-        opened = propose_fences.unclosed(token, lines)
+        opened = propose_fences.unclosed(token)
         if opened is not None:
             return Refusal(
                 "notes-fence",
-                f"{WHERE}: line {opened} opens a code block that never closes, so each "
-                "line after it reads as code and no heading after it counts",
+                f"{WHERE}: line {opened} opens a code block that never closes. "
+                "A heading inside the block does not count.",
                 "close the fence, or put a sample that holds fences of its own in a "
                 "longer fence (```` around ```), then propose again",
             )

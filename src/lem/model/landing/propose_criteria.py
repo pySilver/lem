@@ -80,27 +80,25 @@ def unread(record: Record) -> Refusal | None:
 
 def skipped(task: Task) -> Refusal | None:
     """The owner's word to skip the read counts with his approval and no lead before it."""
+    if task.criteria.skip_approval is not None:
+        return None
     slug = task.slug
-    his = [approval for approval in task.criteria.approvals if approval.by == OWNER]
-    leads = [span.start for span in task.spans if span.name == "lead"]
-    if not his:
-        return Refusal(
-            "skip-unapproved",
-            f"the owner's word to skip the personas' read of {slug}'s criteria is on "
-            "record, and no approval of the owner's came after it",
-            f"the owner's yes to the criteria is kept with {APPROVE.format(slug)} "
-            "(stages/interview.md, step 7)",
-        )
-    if leads and min(leads) < his[0].at:
+    if any(span.name == "lead" for span in task.spans):
         return Refusal(
             "skip-late",
-            f"a lead of {slug} started before the owner's approval that came after the "
-            "word to skip the personas' read: on the standard track from a complete "
+            f"a lead of {slug} started before the owner completed the skip and approval: "
+            "on the standard track from a complete "
             "request the read always runs, as the only approval there (stages/plan.md, "
             "step 1)",
             f"the lead runs the read and records it with lem criteria read {slug} done",
         )
-    return None
+    return Refusal(
+        "skip-unapproved",
+        f"the owner's word to skip the personas' read of {slug}'s criteria is on "
+        "record, and no approval of the owner's came after it",
+        f"the owner's yes to the criteria is kept with {APPROVE.format(slug)} "
+        "(stages/interview.md, step 7)",
+    )
 
 
 def silent(record: Record) -> Refusal | None:

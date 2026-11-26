@@ -2,6 +2,7 @@
 
 from msgspec.structs import replace
 
+from lem.app.landing import merged
 from lem.app.sessions.seats import with_failure
 from lem.app.sessions.seats_again import with_again
 from lem.model.landing import merge, phases
@@ -51,3 +52,13 @@ def test_a_parked_merger_failure_cannot_resume_the_merge() -> None:
     assert phases.due(parked, world).step == "wait"
     assert "lem task resume fix-the-login" in phases.due(parked, world).why
     assert phases.due(parked, facing(pull=DONE)).step == "merged"
+
+
+def test_forge_bookkeeping_ends_a_parked_task_and_clears_its_hold() -> None:
+    failure = StandIn(seat="merger", failed="claude:opus", error="login", at=MOMENT)
+    blocked = with_failure(opened(intent=INTENT), failure=failure)
+    parked = holds.parked(blocked, words="put the merge aside", now=MOMENT)
+    landed = merged.finished(parked, left=None, now=MOMENT)
+    dropped = merged.dropped(parked, line="the pull request closed", now=MOMENT)
+    assert (landed.task.status, dropped.task.status) == ("landed", "dropped")
+    assert (landed.task.hold, dropped.task.hold) == (None, None)

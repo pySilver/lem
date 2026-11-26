@@ -123,11 +123,9 @@ type Patterns = Sequence[re.Pattern[str]]
 def patterns(path: str, kinds: Mapping[str, str]) -> tuple[Compiled, Compiled]:
     """The marks of the code and of a runner's settings that PATH is read with, by its suffix,
     or for a file with none by its kind in KINDS; none for a document, whose PATH is ""."""
-    # An unknown suffix and an absent kind both select no marks.
-    suffix = PurePosixPath(path).suffix.lower() or kinds.get(  # pragma: no mutate
-        path,
-        "",  # pragma: no mutate
-    )
+    suffix = PurePosixPath(path).suffix.lower()
+    if not suffix:
+        suffix = kinds.get(path)
     marks = [
         re.compile(mark)
         for suffixes, found in BAR_MARKS.items()
@@ -259,8 +257,6 @@ class Pairs:
         for place, _, _ in self.lines(1, (hunk_at,), self.pairs):
             if left:
                 self.pairs[place] = left.popleft()
-                # This hunk is finished. Later hunks have different places.
-                self.used.add(self.pairs[place])  # pragma: no mutate
 
 
 def fresh(previous: Sequence[Hit], hits: Sequence[Hit]) -> list[re.Match[str]]:

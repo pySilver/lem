@@ -82,7 +82,9 @@ def resolution_due(landing: Landing, world: World) -> Resolution | None:
     return found
 
 
-def floor(record: Record, careful: tuple[str, ...], *, resolution: bool) -> Floor:
+def floor(
+    record: Record, careful: tuple[str, ...], *, resolution: bool = False
+) -> Floor:
     """The least review the change gets now, and why."""
     if resolution:
         kind: Literal["read", "full"] = "full" if careful else "read"
@@ -90,13 +92,8 @@ def floor(record: Record, careful: tuple[str, ...], *, resolution: bool) -> Floo
     if careful:
         return Floor(kind="full", why=f"the request is careful: {careful[0]}")
     plan = record.task.plan
-    # An absent count is below the review threshold with either fallback.
-    tasks = (
-        plan.tasks
-        if plan is not None and plan.tasks is not None
-        else 0  # pragma: no mutate
-    )
-    if tasks > LARGE_AFTER:
+    tasks = None if plan is None else plan.tasks
+    if tasks is not None and tasks > LARGE_AFTER:
         return Floor(kind="round", why=f"the plan has {tasks} tasks, more than three")
     landing = record.landing or Landing()
     answered = (review for review in landing.reviews if review.answered)

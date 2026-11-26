@@ -17,15 +17,12 @@ if TYPE_CHECKING:
     from lem.records.decisions import Decision
 
 HEADING = "Decisions of the task:"
+TEXT = json.JSONEncoder(ensure_ascii=False)
 
 
 def quoted(text: str | None) -> str:
     """The stored text in quotes, with line breaks escaped and other Unicode left readable."""
-    encoded = json.dumps(
-        text or "",
-        # json treats None as false for this option too.
-        ensure_ascii=False,  # pragma: no mutate
-    )
+    encoded = TEXT.encode(text or "")
     return encoded.translate(
         {ord("\x85"): r"\u0085", ord("\u2028"): r"\u2028", ord("\u2029"): r"\u2029"},
     )
