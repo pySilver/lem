@@ -99,7 +99,8 @@ def carried(made: Record, every: tuple[Record, ...]) -> Record:
 def breaker_task(old: Task, new: str, breaker: int, now: Moment) -> Task:
     """The task that goes on from `old`, dropped with `breaker` waiting: its shape, criteria,
     decisions, plan talk and investigation, held by that breaker, on a branch of its own."""
-    kind = old.shape.type if old.shape else "feat"
+    shape = replace(old.shape, first_line=None) if old.shape else None
+    kind = shape.type if shape else "feat"
     return replace(
         old,
         slug=new,
@@ -107,6 +108,7 @@ def breaker_task(old: Task, new: str, breaker: int, now: Moment) -> Task:
         status="building",
         since=now,
         hold=BreakerHold(number=breaker, since=now),
+        shape=shape,
         branch=f"{kind}/{new}",
         resumed_from=old.slug,
         ticket=None,

@@ -15,10 +15,12 @@ from starlette.responses import JSONResponse, PlainTextResponse, RedirectRespons
 from starlette.routing import Route
 
 from fakes.records import record
+from fakes.repo import RealRepo
 from lem.addons.peers import registry, requests, routes, rows, table
-from lem.board import counts
+from lem.board import app, counts, facts, serving
 from lem.board import workspaces as board_workspaces
 from lem.board.pages import live, provider, source
+from lem.kernel import clock
 from lem.store import tasks
 
 if TYPE_CHECKING:
@@ -86,6 +88,45 @@ def board(
     app.state.environ = os.environ
     app.state.counts = counts.Counts()
     return app
+
+
+def test_a_direct_page_explains_a_peer_table_that_does_not_read(tmp_path: Path) -> None:
+    async def run() -> None:
+        home = tmp_path / "alpha"
+        table.change(home, "beta", PORT)
+        (home / "machine.toml").write_text("[peers]\nbeta = -1\n")
+        repo = RealRepo.init(
+            tmp_path / "repo", {".lem/settings.toml": b'[branch]\nbase = "main"\n'}
+        )
+        shop = repo.checkout.rename(tmp_path / "shop")
+        tasks.create(shop / ".lem/state", record("repair-export"))
+        (home / board_workspaces.WORKSPACES).write_text(json.dumps([str(shop)]))
+        url = "http://localhost"
+        alpha = app.made(
+            facts.Facts(
+                pid=os.getpid(),
+                port=PORT,
+                url=url,
+                host="studio",
+                home=str(home),
+                install=facts.Install(version="0.99.0", package=__file__),
+                started=clock.now(),
+            ),
+            serving.Serving(
+                home=home, environ=os.environ, listen="localhost", stop=lambda: None
+            ),
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=alpha, raise_app_exceptions=False),
+            base_url=url,
+        ) as client:
+            page = await client.get("/studio/shop/")
+            root = await client.get("/", follow_redirects=True)
+        for response in (page, root):
+            assert response.status_code == 200, response.text
+            assert "machine.toml" in response.text and "$.peers" in response.text
+
+    asyncio.run(run())
 
 
 def test_peer_pages_assets_union_and_loop_guard(tmp_path: Path) -> None:

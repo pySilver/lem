@@ -15,10 +15,10 @@ from lem.kernel.errors import Refusal
 from lem.model.criteria import approvers, clear, digest, skip, waits, yes
 from lem.model.criteria.read import Sheet
 from lem.records import approvals, base
+from lem.records.journal.task import CriteriaNoted
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from datetime import datetime
 
     from lem.records.criteria import Criteria
     from lem.records.criterion import Criterion
@@ -80,7 +80,7 @@ def untested_criterion(criterion: Criterion) -> Criterion:
     return replace(criterion, tests=(), no_test=None)
 
 
-def approval_of(task: Task, asked: Asked, now: datetime) -> approvals.Approval:
+def approval_of(task: Task, asked: Asked, now: base.Moment) -> approvals.Approval:
     """The approval `asked`, numbered after the task's last one."""
     sheet = asked.sheet
     kept = tuple(untested_criterion(one) for one in sheet.criteria)
@@ -122,7 +122,7 @@ def approved(
     record: Record,
     *,
     asked: Asked,
-    now: datetime,
+    now: base.Moment,
     answer: Callable[[Record], Record] | None = None,
 ) -> Record:
     """The approval and its answer in one record, after the rules of who approves."""
@@ -135,6 +135,17 @@ def approved(
         raise refusal
     if answer is None and asked.by in ENDS_WAIT:
         task = yes.answered_yes(task, asked.via, asked.shown, now)
-    criteria = recorded(task, asked.sheet, approval_of(task, asked, now))
-    hold = waits.hold_after(task, ends=asked.by in ENDS_WAIT)
-    return replace(record, task=replace(task, criteria=criteria, hold=hold))
+    approval = approval_of(task, asked, now)
+    noted = CriteriaNoted(
+        at=now,
+        event="approved",
+        by=approval.by,
+        number=approval.number,
+        size=approval.size,
+    )
+    task = replace(
+        task,
+        criteria=recorded(task, asked.sheet, approval),
+        hold=waits.hold_after(task, ends=asked.by in ENDS_WAIT),
+    )
+    return replace(record, task=task, journal=(*record.journal, noted))

@@ -4,12 +4,16 @@ composed by Lem, and its session says it as it is")."""
 
 from typing import TYPE_CHECKING
 
+from msgspec.structs import replace
+
 from lem.model.task import first_line, quotes
+from lem.records.journal.task import StateNoted
 from lem.store import places
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.records.journal.entry import Entry
     from lem.records.record import Record
     from lem.records.task import Task
 
@@ -45,3 +49,15 @@ def said(workspace: places.Workspace, record: Record, *, named: bool) -> str | N
     if line is None:
         return None
     return first_line.composed(line, task.slug if named else None)
+
+
+def with_opening(record: Record, opening_line: str | None) -> tuple[Entry, ...]:
+    """The first line belongs to the read's current state block."""
+    for index in range(len(record.journal) - 1, -1, -1):
+        entry = record.journal[index]
+        if isinstance(entry, StateNoted):
+            noted = replace(entry, opening=opening_line)
+            before = record.journal[:index]
+            after = record.journal[index + 1 :]
+            return (*before, noted, *after)
+    return record.journal

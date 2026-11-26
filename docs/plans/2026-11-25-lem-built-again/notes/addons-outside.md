@@ -17,6 +17,14 @@ agterm links and local actions in that view, including app-rendered links that u
 The peer lookup keeps the last table refusal in `peers(request).trouble` for the board's problem
 line. The board's lifespan can cancel the pending look tasks in `peer_registry.pending` at stop.
 
+At close, `board/pages/joined.py:peer_problem` still reads the shared last failure on a
+forwarded page. A direct page can leave that failure in the registry. The next request with
+`Lem-Hop` skips the local table, but the workspace index and page can show the old error.
+Make the problem read request-scoped in `joined.py`, using the same hop marker as
+`peers/routes.py:spaces`. Keep the direct page's problem and test a forwarded request after
+it on the same app. Do not clear the registry to serve a forwarded request, since a direct
+request can use it at the same time.
+
 ## Inbox duty and task page
 
 Start `lem.addons.inbox.schedule.run(targets, report, stopping)` beside the board's other

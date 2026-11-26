@@ -52,7 +52,7 @@ def test_the_read_keeps_the_type_the_track_and_what_comes_next(tmp_path: Path) -
     found = read(where, SLUG).task.shape
     assert found == Shape(
         type="fix", why="the total is wrong", track="small", careful=("money",),
-        then="fast",
+        then="fast", first_line=said(ran),
     )  # fmt: skip
 
 
@@ -372,6 +372,8 @@ def test_the_read_says_the_first_line_and_show_gives_its_named_form(
     )  # fmt: skip
     line = said(ran)
     assert line.startswith('fix: "fix the login".')
+    shape = read(where, SLUG).task.shape
+    assert shape is not None and shape.first_line == line
     shown = result(lem("task", "show", SLUG, cwd=tmp_path))
     assert shown["first_line"].startswith(f'{SLUG} · fix: "fix the login".')
     made(where, "night", status="shaping", night=MOMENT.date())

@@ -3,6 +3,8 @@
 the option taken and the experts that picked it, and who took it. A record with no story gives
 what it has, and one with none of it has no story."""
 
+import re
+from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from lem.board.inputs.task.criteria import Case
@@ -14,23 +16,48 @@ from lem.board.views.words import capital
 if TYPE_CHECKING:
     from lem.records.decisions import Taken
 
-QUOTES = ('"', "“", "”")
+MARKS = re.compile("[:'\"\u201c\u201d\u2018\u2019]")
+APOSTROPHE = "'"
+CLOSERS = MappingProxyType(
+    {
+        '"': '"',
+        APOSTROPHE: APOSTROPHE,
+        "\u201c": "\u201d",
+        "\u2018": "\u2019",
+    }
+)
 
 
 def parts_of(option: str) -> tuple[str, str]:
-    """An option's label and what it leads to (`LABEL: what it leads to`), cut at its first
-    colon outside a quote; no label when it has none."""
-    head, colon, rest = option.partition(":")
-    label, leads = head.strip(), rest.strip()
-    if not colon or quoted(head) or not label or not leads:
+    """An option's label and what it leads to, cut at its first colon outside a quote."""
+    cut = delimiter(option)
+    if cut is None:
         return "", option
-    return label, leads
+    label = option[:cut].strip()
+    leads = option[cut + 1 :].strip()
+    return (label, leads) if label and leads else ("", option)
 
 
-def quoted(head: str) -> bool:
-    """Whether a quote opens before the colon and does not close: the colon is in it."""
-    marks = sum(head.count(mark) for mark in QUOTES)
-    return marks % 2 == 1
+def delimiter(option: str) -> int | None:
+    """The first colon outside a quotation."""
+    closing = None
+    for mark in MARKS.finditer(option):
+        at = mark.start()
+        if closing is None and mark[0] == ":":
+            return at
+        closing = next_quote(option, at, closing)
+    return None
+
+
+def next_quote(option: str, at: int, closing: str | None) -> str | None:
+    """The quote that is open after this mark, if any."""
+    char = option[at]
+    if closing is None:
+        before = option[at - 1 : at]
+        return None if char == APOSTROPHE and before.isalnum() else CLOSERS.get(char)
+    after = option[at + 1 : at + 2]
+    in_word = char in (APOSTROPHE, "\u2019") and after.isalnum()
+    return None if char == closing and not in_word else closing
 
 
 def options_of(taken: Taken) -> tuple[Option, ...]:

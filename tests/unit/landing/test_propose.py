@@ -18,7 +18,7 @@ from lem.app.landing import (
     pull_identity,
 )
 from lem.kernel.errors import Refusal
-from lem.model.criteria import approve, skip
+from lem.model.criteria import approve, digest, skip
 from lem.model.criteria.read import Sheet
 from lem.model.landing import (
     carry,
@@ -743,8 +743,17 @@ def test_an_earlier_approval_does_not_end_the_newest_wait() -> None:
 
 def test_criteria_he_changed_after_the_read_are_one_line() -> None:
     record = full()
+    original = record.task.criteria
+    before = digest.of_texts("full", original.criteria)
+    original = replace(original, reads=(read(digest=before),))
+    record = replace(record, task=replace(record.task, criteria=original))
+    current = (
+        replace(original.criteria[0], text="The file holds the word z."),
+        *original.criteria[1:],
+    )
+    after = digest.of_texts("full", current)
     changed_after = replace(
-        record.task.criteria, digest="d2", approvals=(replace(approval(), digest="d2"),)
+        original, criteria=current, approvals=(replace(approval(), digest=after),)
     )
     said = text_of(replace(record, task=replace(record.task, criteria=changed_after)))
     assert (
@@ -758,11 +767,10 @@ def test_the_proposal_names_no_unread_change_when_the_read_covers_current_criter
     None
 ):
     record = full()
-    latest = replace(approval(), digest="d2")
-    for reads in ((read(digest="d2"),), ()):
-        criteria = replace(
-            record.task.criteria, digest="d2", approvals=(latest,), reads=reads
-        )
+    marked = digest.of_texts("full", record.task.criteria.criteria)
+    latest = replace(approval(), digest=marked)
+    for reads in ((read(digest=marked),), ()):
+        criteria = replace(record.task.criteria, approvals=(latest,), reads=reads)
         said = text_of(replace(record, task=replace(record.task, criteria=criteria)))
         assert "the criteria changed after the personas' read" not in said
         assert ("no read by the personas is on record" in said) == (not reads)

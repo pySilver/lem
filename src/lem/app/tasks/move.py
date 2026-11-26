@@ -8,7 +8,7 @@ table does not have. A drop goes through `app/tasks/drop.py`, under the landing'
 from functools import partial
 from typing import TYPE_CHECKING
 
-from lem.app.tasks import drop, release
+from lem.app.tasks import drop, move_state, release
 from lem.kernel import clock
 from lem.model.task import ending, holds, table
 from lem.store import places, tasks
@@ -61,7 +61,11 @@ def moved(
         raise refused
     checked(where, record, status)
     write = partial(
-        change, status=status, line=line, start_over=start_over, now=clock.now()
+        move_state.changed,
+        move=partial(
+            change, status=status, line=line, start_over=start_over, now=clock.now()
+        ),
+        worktree=move_state.gathered(where, slug),
     )
     tasks.update(where.state, slug, write, record.revision)
     return table.Moved(slug=slug, was=record.task.status, status=status)

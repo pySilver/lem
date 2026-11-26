@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 import msgspec
 import pytest
 
+from fakes.command import lem
+from fakes.records import record as task_record
 from fixtures.board.moments import ago
 from lem.board.inputs.forms import Typed
 from lem.board.inputs.layout import Viewer
@@ -20,12 +22,15 @@ from lem.board.views.panel.told import outcome
 from lem.records.decisions import Breaker, Taken
 from lem.records.questions import Answer
 from unit.board.views.afternoon import world
+from unit.task.spaces import read, workspace
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.board.inputs.task.now import Now
     from lem.board.inputs.task.overview import Overview
     from lem.board.views.world import World
+    from lem.records.record import Record
 
 GIFT = "gift-note-in-export"
 FEE = "fee-notice-to-merchants"
@@ -36,6 +41,102 @@ def overview_of(afternoon: World, slug: str) -> Overview:
     found = panel(afternoon, slug, "overview").overview
     assert found is not None
     return found
+
+
+def test_the_large_card_shows_the_first_line_until_a_later_state(
+    tmp_path: Path,
+) -> None:
+    base = world(tmp_path)
+    seen = owed.seen(base, GIFT)
+    where = workspace(tmp_path / "new-shop")
+
+    def task(*words: str) -> None:
+        ran = lem("task", *words, cwd=where.checkout)
+        assert ran.code == 0, ran.stdout
+
+    def shown(record: Record) -> str | None:
+        given = msgspec.structs.replace(seen, record=record)
+        return overview_of(dataclasses.replace(base, tasks=(given,)), GIFT).now.opening
+
+    task("open", GIFT, "--ask", "the footer says Terms and conditions")
+    task(
+        "read",
+        GIFT,
+        "--type",
+        "fix",
+        "--why",
+        "one typo",
+        "--track",
+        "small",
+        "--then",
+        "fast",
+    )
+    line = shown(read(where, GIFT))
+    assert line is not None and "the footer says Terms and conditions" in line
+    task("move", GIFT, "building", "--line", "one builder")
+    task("span", GIFT, "small", "start")
+    assert shown(read(where, GIFT)) == line
+    task("move", GIFT, "ready", "--line", "the report is written")
+    assert shown(read(where, GIFT)) is None
+    assert shown(task_record(GIFT, status="building")) is None
+
+
+@pytest.mark.parametrize("then", ["fast", "interview"])
+def test_the_large_card_uses_the_state_that_replaced_the_read(
+    tmp_path: Path, then: str
+) -> None:
+    base = world(tmp_path)
+    seen = owed.seen(base, GIFT)
+    where = workspace(tmp_path / "shop")
+
+    def task(*words: str) -> None:
+        ran = lem("task", *words, cwd=where.checkout)
+        assert ran.code == 0, ran.stdout
+
+    def now() -> Now:
+        given = msgspec.structs.replace(seen, record=read(where, "invoice"))
+        return overview_of(dataclasses.replace(base, tasks=(given,)), "invoice").now
+
+    task("open", "first", "--ask", "fix the export")
+    task("open", "invoice", "--ask", "fix the invoice")
+    task(
+        "read",
+        "invoice",
+        "--type",
+        "fix",
+        "--why",
+        "a typo",
+        "--track",
+        "small",
+        "--then",
+        then,
+        "--after",
+        "first",
+    )
+    assert "It waits for first" in (now().opening or "")
+    task("start", "invoice", "--words", "start invoice now")
+    assert read(where, "invoice").task.after == ()
+    assert now().opening is None
+    assert "start invoice now" in (now().shown or "")
+    if then == "interview":
+        task(
+            "read",
+            "invoice",
+            "--type",
+            "fix",
+            "--why",
+            "a typo",
+            "--track",
+            "small",
+            "--then",
+            then,
+            "--wait",
+            "request",
+        )
+        assert now().opening
+        task("park", "invoice", "--why", "after lunch")
+        assert now().opening is None
+        assert now().shown == "it starts after “Lunch” ends"
 
 
 @pytest.mark.parametrize(

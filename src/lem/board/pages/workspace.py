@@ -7,7 +7,7 @@ from lem.board.duties import context
 from lem.board.duties.memory import MEMORY
 from lem.board.pages import snapshot, viewer
 from lem.board.views import gather, world
-from lem.settings.load import settings_of
+from lem.settings.board import for_views
 from lem.store import tasks
 
 if TYPE_CHECKING:
@@ -24,7 +24,7 @@ def observe(
 ) -> snapshot.Snapshot:
     """Read the files, with a fresh live read when the server needs one."""
     state = request.app.state
-    settings = settings_of(space.checkout, state.environ, home=state.home).settings
+    settings = for_views(space.checkout, state.home, state.environ)
     records = tasks.every(space.state)
     if live is not None:
         return snapshot.with_files(live, settings, records)

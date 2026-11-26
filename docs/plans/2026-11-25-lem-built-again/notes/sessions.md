@@ -81,3 +81,19 @@ The part `hooks` of this step left them these (its rows are in `moves/sessions.t
   keys) to `.lem/state/corrections-waiting/NS-PID.json`, then starts `lem corrections worker PATH`
   detached. The worker reads it, removes the file, asks Jev, and appends to `corrections.jsonl`;
   `corrections.log` lines are `{at, session, note|error}`.
+
+## For `land-merge` and `land-propose` at close
+
+`seat failed` keeps the current fallback and its failure, and a forge merge still settles a
+blocked task. The brief and read do not keep which merger used the brief. The old merger seat
+map belonged to the proposed tip and each base it was read on. A settings edit after dispatch
+must not relabel a reply. A fallback replaces the failed seat for the same brief. A move of
+the base keeps the earlier binding, and a new tip starts a new set. Require the binding before
+the verdict is written, then test each case through the real commands. The reply and artifact
+paths are in `app/landing/{merge_brief,mergeread}.py`. See `landing.md` A for the typed records.
+
+The PR text is also incomplete after a merger failure. `pr_closing` emits the stand-in line at
+proposal, before the merger can fail. A reply after fallback needs to publish that line once.
+If the fallback also fails, `merged` must replace that line when it observes a merge on GitHub,
+even if the agent never replied. Use the pending and confirmed text flow in `merge_text.py`.
+Test both the forge body and the confirmed artifact, including a repeat of the command.

@@ -5,14 +5,40 @@ its legend; the feed of every task, the newest first; and the page of a new task
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from fakes.records import record
 from lem.board.inputs.layout import Viewer
 from lem.board.views.activity import axis, feed, new_task, stretches, ticks, view
-from lem.records.journal.task import StateNoted, Summary
+from lem.board.views.activity.journal_told import told_of
+from lem.records.journal.merge import RefusalNoted
+from lem.records.journal.task import CriteriaNoted, OwnerAct, StateNoted, Summary
+from lem.records.landing.merge import Refused
 from unit.board.views.afternoon import world as afternoon
 from unit.board.views.timed import VIEWER, at, named, seen, task, world
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+def test_only_a_copied_entry_names_the_task_it_came_from() -> None:
+    resumed = record("gift-note-2", resumed_from="gift-note").task
+    carried = CriteriaNoted(
+        at=at("10:01"), event="approved", by="owner", number=1, carried_from="gift-note"
+    )
+    later = CriteriaNoted(at=at("10:04"), event="approved", by="owner", number=2)
+    ordinary = OwnerAct(at=at("10:02"), act="approve", via="local")
+    refusal = Refused(
+        at=at("10:03"),
+        by="merger",
+        source="lem",
+        kind="base",
+        tip="a" * 40,
+        line="origin/main moved after the checks ran",
+    )
+    refused = RefusalNoted(at=refusal.at, refusal=refusal)
+    assert told_of(carried, resumed)[0].sub == "carried over from gift-note"
+    assert "carried over" not in told_of(later, resumed)[0].sub
+    assert "carried over" not in told_of(ordinary, resumed)[0].sub
+    assert "carried over" not in told_of(refused, resumed)[0].sub
 
 
 def test_the_afternoons_chart_draws_each_task_of_the_day_from_its_first_move(

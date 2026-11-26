@@ -7,7 +7,7 @@ from lem.app.owner import looking
 from lem.board.duties import context
 from lem.board.views.gather import DEMO
 from lem.kernel import clock
-from lem.settings.load import settings_of
+from lem.settings.board import for_views
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -18,6 +18,6 @@ if TYPE_CHECKING:
 def looked(space: Workspace, home: Path) -> looking.Looked:
     """Read the merge basis and the sessions the workspace's pages count."""
     here = context.bound(space, os.environ, home)
-    branch = settings_of(space.checkout, home=home).settings.branch
+    branch = for_views(space.checkout, home, os.environ).branch
     demo = (space.state / DEMO).is_file()
     return looking.looked(here, clock.now(), branch, demo=demo)

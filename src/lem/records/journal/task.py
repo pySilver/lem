@@ -7,7 +7,8 @@ no rule reads it (the design's part 3).
 
 from typing import Literal
 
-from lem.records.base import Frozen, Moment, Tagged
+from lem.records.approvals import ApprovedBy, Size
+from lem.records.base import Frozen, Moment, Sha, Tagged
 from lem.records.work import SpanName
 
 
@@ -19,6 +20,7 @@ class SpanMark(Tagged, tag="span", frozen=True, kw_only=True):
     edge: Literal["start", "end"]
     job: str | None = None
     by: str | None = None
+    carried_from: str | None = None
 
 
 class StateNoted(Tagged, tag="state", frozen=True, kw_only=True):
@@ -28,6 +30,10 @@ class StateNoted(Tagged, tag="state", frozen=True, kw_only=True):
     status: str
     hold: str | None = None
     line: str | None = None
+    opening: str | None = None
+    branch: str | None = None
+    head: Sha | None = None
+    subject: str | None = None
 
 
 class DecisionNoted(Tagged, tag="decision", frozen=True, kw_only=True):
@@ -36,6 +42,7 @@ class DecisionNoted(Tagged, tag="decision", frozen=True, kw_only=True):
     at: Moment
     id: int
     what: str
+    carried_from: str | None = None
 
 
 class OwnerAct(Tagged, tag="owner-act", frozen=True, kw_only=True):
@@ -74,3 +81,20 @@ class Summary(Tagged, tag="summary", frozen=True, kw_only=True):
     talked: bool = False
     spans: tuple[Total, ...] = ()
     waits: tuple[Total, ...] = ()
+
+
+class CriteriaNoted(Tagged, tag="criteria", frozen=True, kw_only=True):
+    """The action and its counts as they stood when it took place."""
+
+    at: Moment
+    event: Literal[
+        "read-start", "read-done", "approved", "recorded", "skip-asked", "skip-yes"
+    ]
+    by: ApprovedBy | Literal["lead"] | None = None
+    number: int | None = None
+    size: Size | None = None
+    asked: int | None = None
+    answered: int | None = None
+    flagged: int | None = None
+    split: bool = False
+    carried_from: str | None = None

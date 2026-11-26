@@ -62,6 +62,13 @@ def talked(task: Task, moment: datetime) -> bool:
 
 def owner(entry: OwnerAct, task: Task) -> Told:
     """An act of the owner, with where he acted from."""
+    if entry.act == "approve-carried" and task.resumed_from:
+        return Told(
+            YOU,
+            USER,
+            "You approved the criteria",
+            sub=f"carried over from {task.resumed_from}",
+        )
     where = VIA.get(entry.via or "", "")
     return Told(YOU, USER, acted(entry, task), where)
 

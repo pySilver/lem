@@ -9,7 +9,7 @@ shape anew. The dropped task stays dropped.
 
 from typing import TYPE_CHECKING
 
-from lem.app.tasks import carry, ports, resume_claim, worktree
+from lem.app.tasks import carry, carry_activity, ports, resume_claim, worktree
 from lem.app.tasks.park import Resumed
 from lem.kernel import clock, release
 from lem.kernel.errors import Refusal
@@ -76,9 +76,7 @@ def as_breaker(
     taken, new = gathered(where, record)
     task = resumes.breaker_task(record.task, new, breaker.id, clock.now())
     start = old_branch(where, record)
-    made = resume_claim.opened(
-        where, Record(release=record.release, task=task), start, kind
-    )
+    made = resume_claim.opened(where, carried_record(record, task), start, kind)
     placed(where, made, taken, breaker.document)
     try:
         worktree.made(ports.bound(where), where, made, (task.branch, start))
@@ -90,6 +88,13 @@ def as_breaker(
             refused.fix,
         ) from refused
     return said(made.task, "dropped", start, breaker.id)
+
+
+def carried_record(record: Record, task: Task) -> Record:
+    """A successor with its own copies of the predecessor's Activity."""
+    return Record(
+        release=record.release, task=task, journal=carry_activity.copied(record, task)
+    )
 
 
 def as_request(

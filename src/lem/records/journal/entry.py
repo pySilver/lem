@@ -19,6 +19,7 @@ from lem.records.journal.sessions import (
     SessionWorked,
 )
 from lem.records.journal.task import (
+    CriteriaNoted,
     DecisionNoted,
     OwnerAct,
     SpanMark,
@@ -31,6 +32,7 @@ type Entry = (
     | StateNoted
     | DecisionNoted
     | OwnerAct
+    | CriteriaNoted
     | Summary
     | ReviewRound
     | CarefulMissed

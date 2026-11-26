@@ -3,6 +3,7 @@ keeps the hold it put aside, and the resume of a dropped task opens a new one: f
 handoff, or as a new request when the release stop dropped it."""
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from threading import Event
 from typing import TYPE_CHECKING
 
@@ -17,11 +18,15 @@ from lem.addons.proposals import dropping
 from lem.app.tasks import carry, park, resume
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
+from lem.model.landing import propose_criteria, propose_doubts
 from lem.model.task import resumes
 from lem.ports.faults import Unanswered
+from lem.records.approvals import Approval, PersonaRead
+from lem.records.criteria import Criteria
+from lem.records.criterion import Criterion
 from lem.records.decisions import Breaker, Taken
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
-from lem.records.journal.task import StateNoted, Summary
+from lem.records.journal.task import CriteriaNoted, StateNoted, Summary
 from lem.records.task import Shape
 from lem.records.tickets import Ticket
 from lem.records.work import Span
@@ -225,6 +230,65 @@ def test_the_first_task_of_the_line_with_the_next_free_number(tmp_path: Path) ->
     dropped_with_breaker(where)
     made(where, f"{SLUG}-2", status="landed")
     assert resume.resumed(where.checkout, SLUG).task == f"{SLUG}-3"
+
+
+def test_a_resume_keeps_the_owner_approval_and_the_history_the_proposal_reads(
+    tmp_path: Path,
+) -> None:
+    for variant in ("flagged", "skipped"):
+        check_carried_approval(tmp_path / variant, skipped=variant == "skipped")
+
+
+def check_carried_approval(tmp_path: Path, *, skipped: bool) -> None:
+    where = real(tmp_path)
+    criterion = Criterion(number=1, text="The export keeps the note.")
+    before = MOMENT - timedelta(minutes=5)
+    read_by_personas = PersonaRead(
+        by="lem",
+        started=before,
+        ended=before,
+        asked=2,
+        answered=2,
+        families=("opus",),
+        criteria=1,
+        flagged=1,
+        digest="a" * 12,
+    )
+    approval = Approval(
+        number=1,
+        at=MOMENT,
+        by="owner",
+        size="full",
+        why="Two readers",
+        digest="a" * 12,
+        criteria=(criterion,),
+    )
+    criteria = Criteria(
+        size="full",
+        why=approval.why,
+        criteria=approval.criteria,
+        digest=approval.digest,
+        approvals=(approval,),
+        reads=() if skipped else (read_by_personas,),
+        skip="yes" if skipped else None,
+        skip_at=before if skipped else None,
+        skip_approval=1 if skipped else None,
+    )
+    dropped_with_breaker(where, criteria=criteria)
+    resumed = read(where, resume.resumed(where.checkout, SLUG).task)
+    assert resumed.task.criteria == criteria
+    (copied,) = resumed.journal
+    assert isinstance(copied, CriteriaNoted)
+    assert (copied.event, copied.by, copied.at, copied.carried_from) == (
+        "approved",
+        "owner",
+        resumed.task.opened,
+        SLUG,
+    )
+    assert resumed.task.criteria.approvals[-1].at == approval.at
+    assert propose_criteria.unread(resumed) is None
+    assert propose_doubts.doubted(resumed) is None
+    assert propose_doubts.unapproved(resumed) is None
 
 
 def test_a_task_the_release_stop_dropped_goes_on_as_a_new_request(
