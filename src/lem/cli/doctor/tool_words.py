@@ -137,11 +137,14 @@ MAILBOX = Tool(
     ),
     without_it=(
         "an idle task session never hears a merge or a conflict, and the two agents of a "
-        "plan talk cannot talk; install agterm's two-agent mailbox chat recipe from its "
-        "cookbook, which puts mailbox-chat.py on PATH"
+        "plan talk cannot talk without mailbox-chat.py on PATH. The owner installs "
+        "agterm's two-agent mailbox chat recipe and adds the command hook "
+        "`mailbox-chat.py claude-hook` with `asyncRewake: true` to SessionStart, Stop "
+        "and UserPromptSubmit in the Claude Code user settings. Leave hooks enabled."
     ),
     program="mailbox-chat.py",
     probe=(),
+    guide=f"{COOKBOOK}two-agent-mailbox-chat#setup",
 )
 CRONN = Tool(
     name="cronn",

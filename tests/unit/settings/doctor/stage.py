@@ -13,11 +13,13 @@ from typing import TYPE_CHECKING
 from lem.cli.doctor.look import Look
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
     from lem.cli.doctor.row import Row
 
 EXECUTABLE = 0o755
+MAILBOX_EVENTS = ("SessionStart", "Stop", "UserPromptSubmit")
 
 
 @dataclass
@@ -107,6 +109,25 @@ class Stage:
     def plugins(self, listed: object) -> None:
         """Claude Code's list of installed plugins in the home, as JSON."""
         self.write("home/.claude/plugins/installed_plugins.json", json.dumps(listed))
+
+    def mailbox_settings(
+        self,
+        relative: str = "home/.claude/settings.json",
+        *,
+        events: tuple[str, ...] = MAILBOX_EVENTS,
+        hook_fields: Mapping[str, object] | None = None,
+    ) -> Path:
+        """The cookbook's mailbox hook in the user's Claude Code settings."""
+        hook = {
+            "type": "command",
+            "command": "mailbox-chat.py claude-hook",
+            "asyncRewake": True,
+            **(hook_fields or {}),
+        }
+        return self.write(
+            relative,
+            json.dumps({"hooks": {event: [{"hooks": [hook]}] for event in events}}),
+        )
 
     def repository(self, name: str = "repo", *, lem: bool = True) -> Path:
         """A main checkout: a `.git` folder, and Lem set up when `lem`."""
