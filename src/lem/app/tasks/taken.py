@@ -2,15 +2,13 @@
 (`project.taken_on_remote` on `main`): somebody's work, or a task of another machine.
 
 The name is the one `--branch` gives, else TYPE/SLUG for every type a task takes, since the type
-comes with the read, after the open. Origin is asked once, by a fetch; one that does not answer
-checks nothing, and the open says so in its line.
+comes with the read, after the open. The open says so when the check runs without origin.
 """
 
 from typing import TYPE_CHECKING
 
-from lem.app.tasks import ports
+from lem.app.tasks import ports, remote
 from lem.kernel.errors import Refusal
-from lem.ports.faults import Unanswered
 
 if TYPE_CHECKING:
     from lem.store.places import Workspace
@@ -26,13 +24,11 @@ def names(slug: str, branch: str | None) -> tuple[str, ...]:
 
 
 def checked(where: Workspace, slug: str, branch: str | None) -> str | None:
-    """Refuse a branch origin has; give the line to say when origin did not answer."""
+    """Refuse a branch origin has, or give the line when the check cannot run."""
     git = ports.bound(where).git
-    try:
-        git.fetch(where.checkout)
-    except Unanswered as error:
-        said = error.said
-        return f"origin did not answer ({said}), so nothing checked that {slug} has no branch there"
+    warning = remote.fetch_warning(git, where.checkout)
+    if warning is not None:
+        return f"{warning} Lem could not check whether origin has a branch for {slug}."
     there = [
         name for name in names(slug, branch) if git.remote_head(where.checkout, name)
     ]

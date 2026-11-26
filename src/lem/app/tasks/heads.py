@@ -2,15 +2,15 @@
 (`project.cmd_worktree` on `main`).
 
 A branch the main checkout has already (a task whose worktree was removed) is taken as it is, with
-no fetch. A new one is cut from origin's base after a fetch; when origin does not answer, from the
+no fetch. A new one is cut from origin's base after a fetch; without a fetch, from the
 local base as it is now, which the command says. A worktree that is there must be on the task's
 branch: the landing reads the branch its HEAD names.
 """
 
 from typing import TYPE_CHECKING
 
+from lem.app.tasks import remote
 from lem.kernel.errors import Refusal
-from lem.ports.faults import Unanswered
 from lem.ports.git_facts import GitRefused
 
 if TYPE_CHECKING:
@@ -66,23 +66,20 @@ def taken_refusal(branch: str) -> Refusal:
 
 
 def fetched(given: Ports, checkout: Path, start: str) -> tuple[str, str | None]:
-    """Fetch origin; with no answer, the local base in place of origin's, and the line that
-    says so."""
-    try:
-        given.git.fetch(checkout)
-    except Unanswered as error:
+    """Fetch origin, or give the local base and the reason."""
+    warning = remote.fetch_warning(given.git, checkout)
+    if warning is not None:
         local = start.removeprefix("origin/")
-        said = error.said
         return (
             local,
-            f"origin did not answer ({said}), so the branch starts from {local}",
+            f"{warning} The branch starts from {local} in the local repository.",
         )
     return start, None
 
 
 def cut(given: Ports, checkout: Path, path: Path, todo: Todo) -> str | None:
     """Add the worktree at `path` on the branch `todo` names, cut from its start (origin's
-    base unless asked); give the line to say when origin did not answer."""
+    base unless asked); give the line to say when the fetch did not run or failed."""
     branch, start = todo
     if given.git.tip(checkout, HEADS + branch) is not None:
         given.git.worktree_add(checkout, path, branch, branch)
