@@ -13,7 +13,17 @@ in `T/evidence`. Use the Python 3.14 executable `PY` from [the run order](run.md
 
 ## Checks
 
-- [ ] P1 The formula and marketplace plugin install from one tag. **Owner for the tap and tag.**
+- [x] P1 The formula and marketplace plugin install from one tag. **Owner for the tap and tag.**
+
+  Passed on 2026-11-26 at 12:00 on the tag `v0.99.0` (`d60e2eb4`) and the local tap commit
+  `9e789d6`: formula 0.99.0, `p1-release` exit 0, no linkage error, `/opt/homebrew/bin/lem`
+  absent. `APP` is `/opt/homebrew/Cellar/lem/0.99.0/libexec/lib/python3.14/site-packages/lem/data`,
+  `PLUGIN` is `/private/tmp/lem-trial-r1/home/.claude/plugins/cache/lem/lem/0.99.0`. The install
+  ran with `umask 022` and `HOMEBREW_NO_INSTALL_UPGRADE=1`; its build dependency `uv` was linked
+  into `/opt/homebrew/bin`, where it came before the owner's own uv, so it was unlinked
+  (`p1-uv-unlink`). Evidence in `/private/tmp/lem-trial-r1/evidence/`: `p1-pre-*`, `p1-tag`,
+  `p1-commit`, `p1-tap`, `p1-tap-rev`, `p1-archive-sha`, `p1-install`, `p1-formula`, `p1-version`,
+  `p1-help`, `p1-market`, `p1-plugin`, `p1-plugins`, `p1-release`, `p1-unlinked`, `p1-keg-*`.
 
   In the disposable Homebrew installation, put the approved formula in `pySilver/tap`. Record
   its Git revision, formula, upstream URL, version, hash, and `uv.lock` build instruction.
@@ -131,7 +141,14 @@ in `T/evidence`. Use the Python 3.14 executable `PY` from [the run order](run.md
   streams. Neither mismatch adds a session frame. Keep the two manifests, the input and the raw
   steps. Keep the matching-version frame from P3 as the control.
 
-- [ ] P3 A Claude Code session from the GUI reaches the installed hook. **Owner at the Mac.**
+- [x] P3 A Claude Code session from the GUI reaches the installed hook. **Owner at the Mac.**
+
+  Passed on 2026-11-26 at 12:03, run by the agent in an agterm pane (the owner's choice): the Bash
+  tool saw `PATH` `/usr/bin:/bin` and `LEM_PLUGIN_ROOT` the P1 plugin, `LEM_HOOK_BIN` unset, no
+  `--plugin-dir`; the frame `startup`, `98becc0c-7a91-415e-840a-4ff9ccbeb30e`, `pack-hook`. macOS
+  `printenv` prints only its first name, so the sheet's `printenv PATH LEM_PLUGIN_ROOT` shows `PATH`
+  alone: each name was asked in its own command. Evidence in `/private/tmp/lem-trial-r1/evidence/`: `p3-pane.txt`,
+  `p3-sessions.jsonl`, `p3-session-env.sh`, `p3-process.txt`, `p3-process-env.txt`, `p3-probe-*`.
 
   Open the disposable agterm profile with the GUI. Run the following command from a new pane in
   `T/repo`. Enter the absolute values of the variables from this sheet in that pane.
@@ -169,7 +186,12 @@ in `T/evidence`. Use the Python 3.14 executable `PY` from [the run order](run.md
   Keep the JSON with all samples, the manifest, start and end load and the measured hook path.
   Keep a high-load run as evidence of that attempt. Choose a new step name for the quiet run.
 
-- [ ] P5 The installed app's `lem doctor` finds every required row. **Runs alone with the trial profile ready.**
+- [x] P5 The installed app's `lem doctor` finds every required row. **Runs alone with the trial profile ready.**
+
+  Passed on 2026-11-26 at 12:00 on the P1 keg and plugin: 18 required rows found, the same names as
+  the `REQUIRED` rows of the tag's `src/lem/cli/doctor/` (the Jev key is required only with the
+  correction queue on); versions, `hooks/run` and PATH rows name the keg and `PLUGIN`. Evidence in
+  `/private/tmp/lem-trial-r1/evidence/`: `p5-doctor-r3`, `p5-required-r3`.
 
   Put the absolute trial tools in `T/bin`. Install the required Claude Code skills or copy their
   approved files to the disposable home. Run with `lem` and `lem-hook` from `KEG` in `T/bin`.
@@ -191,7 +213,14 @@ in `T/evidence`. Use the Python 3.14 executable `PY` from [the run order](run.md
   Confirm the versions, PATH and launcher rows point to the P1 halves. Keep the whole doctor
   result, including optional rows. Leave the read rule absent until P6.
 
-- [ ] P6 The first read prompts and the allow rule covers the next session. **Owner at the Mac.**
+- [x] P6 The first read prompts and the allow rule covers the next session. **Owner at the Mac.**
+
+  Passed on 2026-11-26 at 12:05, run by the agent in agterm panes (the owner's choice): the first
+  read asked "Do you want to proceed?" and option 1 allowed it once; with
+  `Read(//opt/homebrew/Cellar/lem/**)` in `T/home/.claude/settings.json` the second session read
+  `stages/new.md` with no prompt; `p6-doctor` finds the rule. Evidence in `/private/tmp/lem-trial-r1/evidence/`:
+  `p6-first-prompt.txt`, `p6-first-read.txt`, `p6-second-read.txt`, `p6-rule.txt`, `p6-doctor`,
+  `p6-doctor-row.json`.
 
   From `T/repo`, open a fresh Claude Code pane with `"$T/enter" "$CLAUDE" --permission-mode default`.
   Ask it to use the Read tool on `APP/skills/lem/SKILL.md`. Capture the outside-directory prompt.

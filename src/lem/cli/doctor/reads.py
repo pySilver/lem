@@ -1,6 +1,4 @@
-"""The row of the one question Claude Code asks about Lem's files: "Allow this read outside the
-working directories?", the first time a session reads a file of the plugin or of the app's data
-(seen 2026-11-24).
+"""The row for permission to read Lem's files outside Claude Code's working directories.
 
 Briefs and stages name files under the root of `lem version` only, so one allow rule over that
 root answers it for good. Under Homebrew the root is in a folder of the release
@@ -92,8 +90,8 @@ def reads_row(look: Look) -> Row:
             "the files of Lem that a stage and a brief name, under the root of `lem version`"
         ),
         without_it=(
-            'the first time a session reads one, Claude Code asks "Allow this read outside '
-            'the working directories?"; the owner answers it, or puts the line under '
+            "Claude Code asks permission to read a Lem file outside the working directories. "
+            "The owner can allow the read or put the line under "
             f'"permissions", "allow" in {user} once'
         ),
         line=f"Read(/{folder}{ANY})",

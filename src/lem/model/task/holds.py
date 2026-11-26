@@ -83,7 +83,7 @@ def resumed(record: Record, *, before: Hold | None, now: Moment) -> Record:
     else:
         task = replace(task, hold=before)
     hold = task.hold
-    kind = None if hold is None else type(hold).__name__
+    kind = None if hold is None else str(hold.__struct_config__.tag)
     entry = StateNoted(at=now, status=task.status, hold=kind, line="resumed")
     return replace(record, task=task, journal=(*record.journal, entry))
 

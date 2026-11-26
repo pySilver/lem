@@ -43,9 +43,17 @@ def wait(server: BrowserServer, deadline: float) -> Words:
         server.timeout = max(0, min(POLL, deadline - time.monotonic()))
         server.handle_request()
         if server.answer is not None:
-            return {**server.answer, OUTCOME: server.answer.get("status", "answered")}
+            return received(server.answer)
         now = time.monotonic()
         if server.dismissed is not None and now - server.dismissed >= RELOAD_GRACE:
             return {OUTCOME: "dismissed"}
         if now >= deadline:
             return {OUTCOME: "timeout", "hint": "ask again with a longer --timeout"}
+
+
+def received(answer: Words) -> Words:
+    """Give explicit cancel the same outcome as a page that went away."""
+    outcome = answer.get("status", "answered")
+    if outcome == "dismissed":
+        return {OUTCOME: outcome}
+    return {**answer, OUTCOME: outcome}

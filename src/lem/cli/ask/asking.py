@@ -65,24 +65,30 @@ def opened_page(
     """Record the card before its question waits for the owner."""
     page, path = opened
     if here.task is not None:
-        card = form.metadata(spec, page, here.overlay.session)
         try:
-            saved.keep(here.task, card, path.read_bytes())
+            saved.keep(
+                here.task,
+                form.metadata(spec, page, here.overlay.session),
+                path.read_bytes(),
+            )
         except (OSError, errors.Fault, errors.Refusal) as error:
             sys.stderr.write(f"lem ask: the board does not show card {page}: {error}\n")
             here = context.Context(overlay=here.overlay, task=None)
-    if call.no_wait:
-        return left_open(here, call, pref, page, path)
-    return waiting.wait(here, page, call, pref)
+    words = (
+        left_open(here, call, pref, page, path)
+        if call.no_wait
+        else waiting.wait(here, page, call, pref)
+    )
+    return context.with_board_notice(here, page, words)
 
 
 def left_open(
     here: context.Context, call: Shown, pref: preferences.Ask, page: str, path: Path
 ) -> Words:
     """Name the displayed page and leave its question mark."""
-    temp_pages.remember(page, status=not call.no_status)
-    if not call.no_status:
-        asking = pref.status.get("asking", ("blocked",))
+    asking = None if call.no_status else pref.status.get("asking", temp_pages.ASKING)
+    temp_pages.remember(page, asking)
+    if asking is not None:
         glyph.set_mark(here.overlay, (*asking, "--auto-reset"))
     return {OUTCOME: "open", "pageID": page, "file": str(path)}
 

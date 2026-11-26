@@ -18,7 +18,8 @@ def run(call: Call) -> asking.Words:
     here = context.here()
     if here is None:
         return asking.no_terminal()
-    return waiting.wait(here, call.page_id, call, preferences.defaults())
+    words = waiting.wait(here, call.page_id, call, preferences.defaults())
+    return context.with_board_notice(here, call.page_id, words)
 
 
 COMMAND = click.Command(

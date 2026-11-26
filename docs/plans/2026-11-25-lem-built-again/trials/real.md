@@ -154,7 +154,22 @@ snapshots to show which process took each step.
   review, PR body and GitHub merge result. Read status with `lem task show "$SLUG"` and
   `lem criteria show "$SLUG"`. Use the slug the session returned.
 
-- [ ] R2 A breaker waits for help, park and drop. **Owner at the Mac.**
+- [x] R2 A breaker waits for help, park and drop. **Owner at the Mac.**
+
+  Passed on 2026-11-26 (round 3) on the installed tag `v0.99.0`, `RUN=s26`, with two findings;
+  the trial operator answered as the owner in the scratch repository (decision 27,
+  `r2-owner-words.md`). Its board ran on port 65361 with a Lem home of its own
+  (`T/r2/config/lem`); every task session ran through the trial's agterm stand-in. The board's
+  Help with `Keep the source rows as a separate list.` reached the session word for word (decision
+  2's `words`), but the session took the note as his decision and cleared the hold; on his word it
+  logged decision 3 and held the task again under breaker 4 with the same document. `/lem park`
+  left the wait list empty (hold `parked`), `/lem resume` brought back breaker 4 in the same
+  worktree at tip `54c5957` with `handoff.md`, and `/lem drop` ended it `dropped` with no wait
+  row. Findings: a session opened on the fixture before the breaker took it as a fast task and
+  moved it to the interview (the sheet should trip the breaker before `lem session open`); the
+  live wake did not reach the session, since the trial home had no mailbox waiter hook then.
+  Evidence in `/private/tmp/lem-trial-r1/evidence/`: `r2-*`, `r2-transcripts/`,
+  `r2-task-folder-final/`.
 
   Open a scratch task with `lem task open breaker-sample --ask 'Keep every original row after
   replacement.' --branch "$BRANCH"`. Use a `trial-*` branch and make its worktree with
@@ -353,7 +368,19 @@ snapshots to show which process took each step.
   current tree and no push or merge from the interrupted run. Keep both runs and the process
   evidence. The 300 seconds bound the dummy child only. Use the readiness file for the stop.
 
-- [ ] R6 A phone passes through the door, answers a card and approves a merge. **Owner and phone.**
+- [x] R6 A phone passes through the door, answers a card and approves a merge. **Owner and phone.**
+
+  Passed on 2026-11-26 (round 3) on the tag `v0.99.0`, `RUN=r3net`, PR 28, door
+  `https://macbook-pro-slvr.tail6cced0.ts.net:65462/` (ports 65461 and 65462, home `T/r6/config/lem`).
+  Direct request 403, no Funnel. The task's session ran through the agtermctl stand-in in the trial
+  home. On the phone, in Safari's desktop mode (the record says device `computer`, User-Agent of a
+  Mac), the owner answered card `4173D006`: `Write a dash`, note `For the export`, from `board`, via
+  `door`; the waiting row closed. He approved the merge on the phone: GitHub `MERGED`, commit
+  `426cee77`, merged head `6b56723d` = the approved tip; `landed` on the board and in
+  `lem task show`. An earlier card he answered in the Mac overlay (from `session`) is kept for the
+  overlay path. Two defects he saw: the card re-rendered while he typed, and after the merge the
+  page went white and reloaded to `?note=`. Door off, server stopped, Tailscale back to the owner's
+  entries. Evidence: `T/evidence/r6-*`.
 
   On the dedicated tailnet Mac select a free `PORT` and `DOOR` outside 4536 and 4537. Check
   `tailscale serve status --json` before the run. Reject a port with an existing target.
@@ -390,7 +417,18 @@ snapshots to show which process took each step.
   `/usr/bin/env -u LEM_SERVE lem serve door off` and stop the scratch server. Check Tailscale's
   status again and verify only the trial entry left.
 
-- [ ] R7 Two servers join. **Owner for the two tailnet hosts.**
+- [x] R7 Two servers join. **Owner for the two tailnet hosts.**
+
+  Passed on 2026-11-26 (round 3) on the tag `v0.99.0`: Alpha `macbook-pro-slvr` (the keg, home
+  `T/r7/config/lem`, ports 65371 and door 65372, `alpha-repo` on `pySilver/lem-scratch` base
+  `trial-r3net-r7-base`) and Beta `silvers-mac-mini` (Lem from the tag's archive in a venv of
+  `/private/tmp/lem-trial-r7`, ports 65373 and door 65374, `beta-repo` with a local bare origin in
+  that folder, since the mini has no scratch credential; `lem init` ran before the origin was added).
+  Both joins reachable; each workspace list names both hosts; each relayed page shows the peer's
+  `peer-card`; POST 405, `Lem-Hop` 404; with Beta stopped Alpha's peer page gives 502, its list keeps
+  Beta's row `reachable: false`, its own page 200. Both doors off, both servers stopped, Tailscale
+  back to the owner's entries on both hosts, the mini's folder removed. Both hosts ran Tailscale's
+  CLI through `LEM_TAILSCALE=/usr/local/bin/tailscale`. Evidence: `T/evidence/r7-*`.
 
   On the two disposable hosts make separate trial folders. For R7 only, substitute `alpha-repo`
   and `beta-repo` for `repo` in the scratch setup. Run `lem task open peer-card --ask 'Show this
@@ -416,7 +454,16 @@ snapshots to show which process took each step.
   Run `lem serve leave "$BETA"` at Alpha and `lem serve leave "$ALPHA"` at Beta. Close both doors
   and stop both servers as in R6. If `door off` restarts Beta for cleanup, stop that child too.
 
-- [ ] R8 A night takes an item to its PR. **Runs alone after scratch setup.**
+- [x] R8 A night takes an item to its PR. **Runs alone after scratch setup.**
+
+  Passed on 2026-11-26 (round 3) on the installed tag `v0.99.0`, `RUN=s26`, base
+  `trial-s26-r8-base`. The operator typed only `/lem night 1` and answered nothing. The night
+  opened task `word-list` in its own session (through the trial's agterm stand-in, HOME in the
+  trial home) on `trial-s26-r8-word-list`; PR 30 is open and not merged: criteria approved `alone`,
+  not green for that reason alone, `docs/backlog/word-list.md` removed in the PR, merge review
+  `call`, `land next` says the owner merges. The night's own close was refused as the owner's
+  session, as the stage says. Evidence in `/private/tmp/lem-trial-r1/evidence/`: `r8-*`,
+  `r8-pr-view.out`, `r8-night-report.md`, `r8-transcripts/`, `r8-task-folder/`.
 
   Seed one tracked `docs/backlog/word-list.md` in the scratch base. Use this item and substitute
   the current date and the exact scratch head branch:
@@ -442,7 +489,20 @@ snapshots to show which process took each step.
   PR. Require the `alone` approval, not-green reason for the criteria, the item removed in the PR,
   a merge review that calls the owner, and no PR merge. Capture the open result before cleanup.
 
-- [ ] R9 A task on a scratch copy of a real project. **Owner for the snapshot and criteria.**
+- [x] R9 A task on a scratch copy of a real project. **Owner for the snapshot and criteria.**
+
+  Passed on 2026-11-26 (round 3), `RUN=j26`, with the keg 0.99.0. The 34 owner-approved paths
+  of mybaze `0455840a` came by `git archive`, each with the archive's hash and the commit's blob
+  (`r9-export-compare.json`); the check of the commands is `r9-commands-check.txt`. The session
+  took the fast track; Lem approved its one criterion alone, so no owner step was asked. PR 29
+  (`trial-j26-r9-one-size-labels-match-nfc` into `trial-j26-r9-base`) was green after one read,
+  and the merge agent said merge. The trial board (port 65491) merged it `via: server`, merge
+  commit `eed7f01e`. A fresh clone of the merged base gave 191 passed with the agreed pytest line
+  (`r9-final-test`), and the owner's task held apart from the session's tests
+  (`r9-final-owner-criteria-2`). The board's `merged` wake waited unheard, because the trial home
+  has no `mailbox-chat.py claude-hook`; the operator typed the line, and the session cleaned and
+  closed (`r9-wake-unheard.txt`, `r9-wake-typed.txt`). Evidence in
+  `/private/tmp/lem-trial-r1/evidence/`: `r9-*`.
 
   Ask the owner for a project commit, a reviewed export safe to put in the private scratch
   repository, and one task with a real local check. The project is the source for the task and

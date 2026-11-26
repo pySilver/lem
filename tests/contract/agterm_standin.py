@@ -110,6 +110,11 @@ with open(os.path.join(state, "tree.json")) as read:
     tree = json.load(read)
 if args[:1] == [tree.get("fail", "")]:
     sys.exit("agterm does not answer")
+if args[:1] == [tree.get("stall", "")]:
+    import time
+    with open(os.path.join(state, "stalled.pid"), "w") as written:
+        written.write(str(os.getpid()))
+    time.sleep(30)
 
 
 def value(flag):
@@ -138,6 +143,11 @@ def save():
 
 
 if args[:2] == ["tree", "--json"]:
+    if tree.get("stop_after_second_tree"):
+        tree["reads"] = tree.get("reads", 0) + 1
+        save()
+        if tree["reads"] == 2:
+            os.chmod(__file__, 0o644)
     spaces = [
         {"id": space, "sessions": [n for n in tree["sessions"] if n["workspace"] == space]}
         for space in tree["workspaces"]

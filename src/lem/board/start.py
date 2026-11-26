@@ -90,16 +90,17 @@ def started(port: int, home: Path, environ: Mapping[str, str]) -> Facts:
         code = child.poll()
         if code is not None:
             raise ended(code, home)
-        facts = client.ask(port, home)
-        if isinstance(facts, Facts) and facts.pid == child.pid:
-            # it runs on its own now: nobody waits for its status
-            child.returncode = 0
-            return facts
+        with contextlib.suppress(Refusal):
+            facts = client.ask(port, home)
+            if isinstance(facts, Facts) and facts.pid == child.pid:
+                # it runs on its own now: nobody waits for its status
+                child.returncode = 0
+                return facts
         time.sleep(POLL)
     log = home / LOG
     raise Refusal(
-        "server-start",
-        f"the board server (pid {child.pid}) gave no answer in {START_WAIT:g} s; it may "
-        "still start, and lem serve ensure says so then",
-        f"read its log, {log}",
+        "server-start-timeout",
+        f"the board server (pid {child.pid}) gave no answer in {START_WAIT:g} s. "
+        "It may still start and open the configured door.",
+        f"the owner checks the address with LEM_SERVE=off lem serve ensure or reads {log}",
     )
