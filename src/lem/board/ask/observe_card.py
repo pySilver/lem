@@ -15,22 +15,18 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def notice(
-    folder: Path, page: str, session: str, environ: Mapping[str, str]
-) -> str | None:
-    """Say when the board cannot show or answer the card, or cannot be checked."""
+def notice(folder: Path, page: str, environ: Mapping[str, str]) -> str | None:
+    """Say when the board cannot show the card, or cannot be checked."""
     try:
-        return checked(folder, page, session, environ)
+        return checked(folder, page, environ)
     except (OSError, errors.Fault, errors.Refusal) as error:
         return visibility.unknown(str(error))
 
 
-def checked(
-    folder: Path, page: str, session: str, environ: Mapping[str, str]
-) -> str | None:
+def checked(folder: Path, page: str, environ: Mapping[str, str]) -> str | None:
     """Leave the caller's window as the board server does before it reads the terminal."""
     detached = dict(environ)
     opening.detached(detached)
     space = places.workspace(folder.parents[3])
     here = context.bound(space, environment(detached), paths.home(detached))
-    return visibility.notice(here, folder.name, keys.question_id(page), session)
+    return visibility.notice(here, folder.name, keys.question_id(page))

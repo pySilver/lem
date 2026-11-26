@@ -19,7 +19,7 @@ Some steps are not an agent's, with or without the owner's yes in the conversati
   `lem doctor`) goes into agterm's own file, `~/.config/agterm/keymap.conf`, and the owner adds
   it: another program's settings stay where that program keeps them (his ruling). Give him the
   line and `agtermctl keymap reload`, and do not edit the file, also on his yes.
-- **A read outside the working directories.** Claude Code asks "Allow this read outside the
-  working directories?" the first time a session reads a file of Lem's plugin or of its app
+- **A read outside the working directories.** Claude Code asks for permission to read outside
+  the working directories the first time a session reads a file of Lem's plugin or of its app
   (seen 2026-11-24). The answer goes into his settings, so it is his: say which session waits,
   and give him the allow rule that the row of `lem doctor` for this question names.

@@ -51,8 +51,7 @@ def task_folder() -> Path | None:
 def with_board_notice(here: Context, page: str, words: Words) -> Words:
     """Check the board as the command returns an open or pending card."""
     if here.task is not None and words.get("outcome") in ("open", "pending"):
-        overlay = here.overlay
-        notice = observe_card.notice(here.task, page, overlay.session, overlay.environ)
+        notice = observe_card.notice(here.task, page, here.overlay.environ)
         if notice is not None:
             words["board"] = notice
     return words

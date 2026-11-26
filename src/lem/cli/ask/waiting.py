@@ -31,7 +31,8 @@ def wait(here: Context, page: str, call: Shown, pref: Ask) -> answer.Words:
     """Wait until it ends or the deadline arrives. A pending card stays open."""
     keys.checked(page)
     check_time(call.timeout)
-    temp_pages.remember(page, status=not call.no_status)
+    asking = None if call.no_status else pref.status.get("asking", temp_pages.ASKING)
+    temp_pages.remember(page, asking)
     if call.no_status:
         return until(here, page, call.timeout)
     return marked_wait(here, page, call.timeout, pref)
@@ -39,7 +40,7 @@ def wait(here: Context, page: str, call: Shown, pref: Ask) -> answer.Words:
 
 def marked_wait(here: Context, page: str, timeout: float, pref: Ask) -> answer.Words:
     """Set the sidebar's mark while the owner has a question."""
-    asking = pref.status.get("asking", ("blocked",))
+    asking = pref.status.get("asking", temp_pages.ASKING)
     glyph.set_mark(here.overlay, asking)
     answered = pref.status.get("answered", ("active",))
     try:

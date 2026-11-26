@@ -25,12 +25,13 @@ class BrowserPage(BaseHTTPRequestHandler):
         if self.path != board.page:
             self.send_error(HTTPStatus.NOT_FOUND)
             return
-        board.dismissed = None
+        html = board.loaded()
         self.send_response(HTTPStatus.OK)
         self.send_header("content-type", "text/html; charset=utf-8")
-        self.send_header("content-length", str(len(board.html)))
+        self.send_header("cache-control", "no-store")
+        self.send_header("content-length", str(len(html)))
         self.end_headers()
-        self.wfile.write(board.html)
+        self.wfile.write(html)
 
     def do_POST(self) -> None:
         """Keep one answer from the question's browser."""
@@ -45,7 +46,7 @@ class BrowserPage(BaseHTTPRequestHandler):
 
     def refused(self, board: BrowserServer) -> HTTPStatus | None:
         """Refuse an answer sent to the wrong page or from another origin."""
-        if self.path != f"{board.page}answer":
+        if self.path.partition("?")[0] != f"{board.page}answer":
             return HTTPStatus.NOT_FOUND
         if self.headers.get("origin") != board.origin:
             return HTTPStatus.FORBIDDEN
@@ -64,10 +65,7 @@ class BrowserPage(BaseHTTPRequestHandler):
         length = int(self.headers["content-length"])
         raw = self.rfile.read(length).decode("utf-8", errors="replace")
         picked = submitted(raw)
-        if picked.get("status") == "dismissed":
-            board.dismissed = time.monotonic()
-        else:
-            board.answer = picked
+        board.record(picked, self.path.partition("?")[2])
 
     def log_message(self, *args: object, **details: object) -> None:
         """This private page writes no access log."""
@@ -86,3 +84,18 @@ class BrowserServer(HTTPServer):
         self.html = html
         self.answer: Words | None = None
         self.dismissed: float | None = None
+        self._load = 0
+
+    def loaded(self) -> bytes:
+        """Name this document and clear a dismissal from the old one."""
+        self._load += 1
+        self.dismissed = None
+        head = f'<head><meta name="lem-ask-load" content="{self._load}">'
+        return self.html.replace(b"<head>", head.encode(), 1)
+
+    def record(self, picked: Words, query: str) -> None:
+        """Only the current document's pagehide can start the reload grace."""
+        if not query:
+            self.answer = picked
+        elif query == f"load={self._load}" and picked.get("status") == "dismissed":
+            self.dismissed = time.monotonic()

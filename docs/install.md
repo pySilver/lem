@@ -40,8 +40,8 @@ Lem entries. They are `extraKnownMarketplaces` for `lem` and `enabledPlugins` fo
 Commit any other `.claude/settings.json` yourself. Each person installs Lem in their own clone
 unless they already have it for every repository.
 
-The first time a session reads a file of Lem, Claude Code asks "Allow this read outside the working
-directories?". Answer it one time, or put the rule that `lem doctor` gives, such as
+The first time a session reads a file of Lem, Claude Code asks for permission to read outside the
+working directories. Answer it one time, or put the rule that `lem doctor` gives, such as
 `Read(//opt/homebrew/Cellar/lem/**)`, under `permissions`, `allow` in `~/.claude/settings.json`.
 
 ## Set up the repository

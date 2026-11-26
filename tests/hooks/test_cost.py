@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from contract.agterm_standin import install
 from hooks.claude_code import (
     GUI_PATH,
     ROOT,
@@ -148,3 +149,16 @@ def test_a_session_that_is_no_tasks_reads_no_event_and_imports_no_json(
         call, started(tmp_path / "repo"), LEM_TASK=SLUG, CLAUDE_PLUGIN_ROOT=str(ROOT)
     )
     assert "json" in with_task
+
+
+def test_stop_inside_agterm_loads_no_page_server_or_app(tmp_path: Path) -> None:
+    agterm = install(tmp_path / "agterm", [{"id": "S-1", "workspace": "W-1"}])
+    call = "import os; from lem.hooks import main; main.run('stop', os.environ)"
+    loaded = imported(
+        call, b"", **agterm.environ(AGTERM_ENABLED="1", AGTERM_SESSION_ID="S-1")
+    )
+    assert agterm.calls() == [["tree", "--json"]]
+    assert {"http.server", "webbrowser", "msgspec"}.isdisjoint(loaded)
+    assert {
+        name for name in loaded if name.startswith(("lem.cli", "lem.app", "lem.board"))
+    } == set()

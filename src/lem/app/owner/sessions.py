@@ -40,7 +40,7 @@ def demo_session(record: Record, acts: tuple[Act, ...]) -> Session:
     opened = demo_open(acts)
     if opened is None:
         return Session(live=False, since=record.task.opened)
-    return Session(live=True, since=opened.at)
+    return Session(live=True, since=opened.at, id=opened.session)
 
 
 def sessions_of(
@@ -85,6 +85,7 @@ def session_of(
         since=entry.since,
         unanswered=live and entry.unanswered,
         working=entry.turn == "runs" and not log.same(entry.session, caller),
+        id=entry.session,
     )
 
 

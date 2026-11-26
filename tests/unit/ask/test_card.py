@@ -13,8 +13,9 @@ import pytest
 
 from fakes import records
 from lem.adapters import agterm_ctl
-from lem.app.asking import ends, keys, saved
+from lem.app.asking import ends, form, keys, saved
 from lem.app.asking.scripts import hashed
+from lem.app.owner import cards
 from lem.app.sessions import acts, log
 from lem.cli import lazy
 from lem.cli.ask import waiting
@@ -74,14 +75,15 @@ def test_page_routes_return_the_exact_overlay_and_only_trusted_scripts(
     asked = saved.question(folder, PAGE)
     assert asked and asked.digest and asked.id == f"card:{PAGE}"
     assert held.card_rows(Look(record=tasks.read(board.state, SLUG))) == ()
-    eyes = Look(
-        record=tasks.read(board.state, SLUG),
-        session=Session(live=True, since=records.MOMENT),
-    )
+    record = tasks.read(board.state, SLUG)
+    session = Session(live=True, since=records.MOMENT, id=SESSION.lower())
+    eyes = Look(record=record, session=cards.in_session(folder, record, session))
     assert [(row.card, row.prompt) for row in held.card_rows(eyes)] == [
         (asked.id, "Keep the empty cell?")
     ]
-    assert saved.metadata(folder, PAGE).prompts[0].id == "answer"
+    card = saved.metadata(folder, PAGE)
+    assert card.session == SESSION
+    assert card.prompts[0].id == "answer"
     trusted = paths.root() / "skills" / "lem-ask" / "runtime" / "ask.js"
     runtime = trusted.read_text(encoding="utf-8").encode("utf-8")
     digest = b64encode(sha256(runtime).digest()).decode("ascii")
@@ -160,15 +162,16 @@ def test_ask_warns_that_a_card_from_an_older_pane_cannot_take_a_board_answer(
     terminal.grounds["S2"] = ("claude",)
     monkeypatch.setenv("AGTERM_WINDOW_ID", SESSION)
     opened = show(terminal, capsys)
-    assert opened["board"] == (
-        "The owner cannot answer this card on the board. "
-        "The task has a live session in a different pane."
-    )
+    assert saved.metadata(folder, PAGE).session == SESSION
+    assert opened["board"] == "The board will not show the owner's card for this task."
     with board.main() as client:
-        assert "Keep the empty cell?" in client.get("/studio/shop/").text
+        workspace = client.get("/studio/shop/")
+        assert workspace.status_code == 200
+        assert "Keep the empty cell?" not in workspace.text
         digest = client.head(ROUTE).headers["etag"].strip('"')
         receipt = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
     assert receipt.status_code == 409
+    assert "no longer runs" in receipt.json()["said"]
 
 
 @pytest.mark.parametrize("outcome", ["pending", "answered"])
@@ -253,6 +256,26 @@ def test_ask_uses_the_overlay_executable_for_the_board_notice(
         )
         assert "not on the PATH" in opened["board"]
         assert "no live session" not in opened["board"]
+
+
+def test_the_live_session_lists_its_card_and_leaves_out_the_ended_sessions_card(
+    board: Board, terminal: Agterm, capsys: pytest.CaptureFixture[str]
+) -> None:
+    show(terminal, capsys)
+    folder = board.state / "tasks" / SLUG
+    old = saved.metadata(folder, PAGE)
+    current = form.metadata({"prompt": "The new session asks"}, "P2", "S2")
+    saved.keep(folder, current, b"new card")
+    record = tasks.read(board.state, SLUG)
+    for session_id, expected in (
+        (old.session, old.page),
+        (current.session, current.page),
+    ):
+        session = Session(live=True, since=records.MOMENT, id=session_id)
+        found = Look(record=record, session=cards.in_session(folder, record, session))
+        assert [row.card for row in held.card_rows(found)] == [
+            keys.question_id(expected)
+        ]
 
 
 def test_board_answer_is_the_waiters_result_and_the_only_end(

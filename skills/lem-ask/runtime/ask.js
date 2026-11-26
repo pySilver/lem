@@ -8,6 +8,7 @@
   // Lem's board serves a card of a task's session at .../cards/PAGEID/ (the card route) and takes an
   // answer with a note, never a wish to talk: there the page offers no "Discuss in chat", nor its keys.
   const ON_BOARD = location.protocol.startsWith('http') && /\/cards\/[^/]+\/?$/.test(location.pathname)
+  const BROWSER_LOAD = ON_BOARD ? null : document.querySelector('meta[name="lem-ask-load"]')?.content
   const CHAT = SPEC.chat !== false && !ON_BOARD
   const KEYS = '123456789'
   const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e }
@@ -454,6 +455,12 @@
   foot.appendChild(keys)
   const status = $('span', 'hd-status'); foot.appendChild(status)
   const backBtn = $('button', 'hd-btn ghost', 'Back <kbd>Esc</kbd>'); backBtn.type = 'button'; backBtn.onclick = () => leaveReview(); backBtn.hidden = true; foot.appendChild(backBtn)
+  if (BROWSER_LOAD) {
+    const cancelBtn = $('button', 'hd-btn ghost', 'Cancel')
+    cancelBtn.type = 'button'
+    cancelBtn.onclick = () => deliver({ status: 'dismissed' })
+    foot.appendChild(cancelBtn)
+  }
   const chatBtn = $('button', 'hd-btn ghost', 'Discuss in chat <kbd>⌥⏎</kbd>'); chatBtn.type = 'button'; chatBtn.onclick = () => deliver({ status: 'chat', text: allText() })
   if (CHAT) foot.appendChild(chatBtn)
   const submitBtn = $('button', 'hd-btn primary', ''); submitBtn.type = 'button'; submitBtn.onclick = () => next()
@@ -621,7 +628,8 @@
         try { reply = JSON.parse((await r.text()) || '{}') || {} } catch (e) { reply = {} }
         const said = typeof reply.said === 'string' ? reply.said : ''
         if (!r.ok) { finished = false; clearTimeout(flashT); status.textContent = said || 'The answer was not taken (' + r.status + ')'; return }
-        document.body.appendChild($('div', 'hd-done', esc(said || 'Answer sent — you can close this tab.'))); return
+        const done = v.status === 'dismissed' ? 'Question dismissed.' : 'Answer sent — you can close this tab.'
+        document.body.appendChild($('div', 'hd-done', esc(said || done))); return
       }
       document.body.appendChild($('div', 'hd-done', `<div>Preview mode (no agterm bridge). Answer:<pre>${esc(JSON.stringify(v, null, 2))}</pre></div>`))
       console.log('[lem-ask] answer', value)
@@ -797,6 +805,10 @@
   // The spec's top-level `script` is its author's code too, run once with `api` (SKILL.md).
   // eslint-disable-next-line no-new-func
   if (SPEC.script && !ON_BOARD) { try { new Function('api', SPEC.script)(api) } catch (e) { app.appendChild($('pre', 'hd-err', 'script: ' + esc(e.message || e))) } }
-  if (!window.agterm && location.protocol.startsWith('http')) { window.addEventListener('pagehide', () => { if (!finished) navigator.sendBeacon(answerURL(), JSON.stringify({ status: 'dismissed' })) }) }
+  if (BROWSER_LOAD) {
+    window.addEventListener('pagehide', () => {
+      if (!finished) navigator.sendBeacon(answerURL() + '?load=' + BROWSER_LOAD, JSON.stringify({ status: 'dismissed' }))
+    })
+  }
   window.focus()
 })()

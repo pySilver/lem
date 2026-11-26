@@ -20,8 +20,8 @@ from lem.kernel.errors import Refusal
 from lem.model.task import resumes
 from lem.ports.faults import Unanswered
 from lem.records.decisions import Breaker, Taken
-from lem.records.holds import BreakerHold, OwnerHold, Parked, ReleaseHold
-from lem.records.journal.task import Summary
+from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
+from lem.records.journal.task import StateNoted, Summary
 from lem.records.task import Shape
 from lem.records.tickets import Ticket
 from lem.records.work import Span
@@ -60,20 +60,39 @@ def test_a_task_that_waits_is_parked_and_the_resume_brings_it_back(
     assert task.hold.words == "later"
     back = resume.resumed(tmp_path, SLUG)
     assert (back.resumed, back.status) == ("parked", status)
-    assert read(where, SLUG).task.hold is None
+    resumed = read(where, SLUG)
+    assert resumed.task.hold is None
+    entry = resumed.journal[-1]
+    assert isinstance(entry, StateNoted)
+    assert entry.line == "resumed" and entry.hold is None
 
 
 def test_resume_finds_the_hold_before_the_park(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     where = workspace(tmp_path)
-    made(where, SLUG, status="building", hold=BreakerHold(number=2, since=MOMENT))
+    made(
+        where,
+        SLUG,
+        status="building",
+        hold=BreakerHold(number=BREAKER.id, since=MOMENT),
+        decisions=(BREAKER,),
+    )
     park.parked(tmp_path, SLUG, "not now")
+    parked = read(where, SLUG)
+    assert result(lem("waiting", "--task", SLUG, cwd=tmp_path))["breakers"] == []
     now = clock.now()
     monkeypatch.setattr(clock, "now", lambda: now)
     back = resume.resumed(tmp_path, SLUG)
-    assert back.breaker == 2
-    assert read(where, SLUG).task.hold == BreakerHold(number=2, since=now)
+    waiting = result(lem("waiting", "--task", SLUG, cwd=tmp_path))
+    assert [one["breaker"]["id"] for one in waiting["breakers"]] == [BREAKER.id]
+    assert back.breaker == BREAKER.id
+    resumed = read(where, SLUG)
+    assert resumed.revision == parked.revision + 1
+    assert resumed.task.hold == BreakerHold(number=BREAKER.id, since=now)
+    assert resumed.journal[-1] == StateNoted(
+        at=now, status="building", hold="breaker", line="resumed"
+    )
 
 
 @pytest.mark.parametrize(
@@ -103,7 +122,24 @@ def test_a_task_that_waits_for_the_owner_is_parked(tmp_path: Path) -> None:
     made(where, SLUG, status="shaping", hold=wait)
     park.parked(tmp_path, SLUG, "later")
     resume.resumed(tmp_path, SLUG)
-    assert read(where, SLUG).task.hold == wait
+    resumed = read(where, SLUG)
+    assert resumed.task.hold == wait
+    entry = resumed.journal[-1]
+    assert isinstance(entry, StateNoted)
+    assert (entry.line, entry.hold) == ("resumed", "owner")
+
+
+def test_resume_records_the_block_before_the_park(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    block = Blocked(why="the base is red", fix="repair the base", since=MOMENT)
+    made(where, SLUG, status="ready", hold=block)
+    park.parked(tmp_path, SLUG, "later")
+    resume.resumed(tmp_path, SLUG)
+    resumed = read(where, SLUG)
+    assert resumed.task.hold == block
+    entry = resumed.journal[-1]
+    assert isinstance(entry, StateNoted)
+    assert (entry.line, entry.hold) == ("resumed", "blocked")
 
 
 def test_a_task_that_runs_or_ended_is_no_resume(tmp_path: Path) -> None:
