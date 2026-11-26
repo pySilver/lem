@@ -15,13 +15,14 @@ if TYPE_CHECKING:
     from lem.app.landing.frame import Context
     from lem.model.landing.propose import Proposal
     from lem.model.landing.propose_facts import Facts, Filing
-    from lem.model.landing.propose_jev import Said
+    from lem.records.landing.review import JevRead
+    from lem.records.record import Record
 
 
-def ending(said: Said) -> str:
+def ending(said: JevRead) -> str:
     """The end of a finding's line: Jev's score, or why it was not asked."""
     if said.score is None:
-        why = said.why or "no answer"
+        why = said.not_asked or "no answer"
         return f"Jev: not asked ({why})"
     return f"Jev: {said.score:.2f}"
 
@@ -43,9 +44,19 @@ def titled(filing: Filing, words: propose_jev.Words) -> Filing:
 
 def marked(
     context: Context, proposal: Proposal, facts: Facts
-) -> tuple[Proposal, Facts]:
+) -> tuple[Proposal, Facts, Record]:
     """Read Jev's word on each finding under the bar, and end each of their lines with it."""
-    words = propose_jev.read(context, asked(context.record, proposal.notes, facts))
+    words, record = propose_jev.read(
+        context, asked(context.record, proposal.notes, facts)
+    )
+    proposal, facts = ended_notes(proposal, facts, words)
+    return proposal, facts, record
+
+
+def ended_notes(
+    proposal: Proposal, facts: Facts, words: propose_jev.Words
+) -> tuple[Proposal, Facts]:
+    """End each line Jev read with its verdict."""
     lines = facts.notes.split("\n")
     notes = "\n".join(ended(line, words) for line in lines)
     parsed = propose_notes.parsed(notes)

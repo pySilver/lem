@@ -18,7 +18,7 @@ from lem.model.landing.merge_asked import Asked
 from lem.model.landing.world import Rules
 from lem.records.landing.merge import MergeIntent, Refused
 from lem.records.landing.propose import MergeRead, OwnerMerge, Standing
-from lem.records.landing.review import Finding
+from lem.records.landing.review import Counts
 from lem.records.task import Shape
 from unit.landing.merges import (
     BY_MERGER,
@@ -59,9 +59,6 @@ SAFE = MergeRead(
     at=MOMENT,
 )
 KEEP = Rules(base="main", history="keep", commands=("true",))
-MUST = Finding(
-    id="r1.2", level="must-fix", where="a.py", title="no", what="it", against="over"
-)
 
 
 def test_the_merge_agent_merges_a_green_request_on_its_reads_merge() -> None:
@@ -77,7 +74,18 @@ def test_the_merge_agent_merges_a_green_request_on_its_reads_merge() -> None:
 @pytest.mark.parametrize(
     ("landing", "shape", "rules", "why"),
     [
-        ({"reviews": (replace(REVIEWED, findings=(MUST,)),)}, None, None, "not green"),
+        (
+            {
+                "reviews": (
+                    replace(
+                        REVIEWED, findings=(), counts=Counts(must_fix=1), to_file=()
+                    ),
+                )
+            },
+            None,
+            None,
+            "not green",
+        ),
         (
             {"proposed": replace(OPENED["proposed"], careful=True)},
             None,

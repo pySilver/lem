@@ -11,6 +11,7 @@ import fcntl
 import os
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 import msgspec
 
@@ -32,6 +33,7 @@ class Holder(Frozen, frozen=True, kw_only=True):
     step: str
     pid: int
     since: Moment
+    run: str | None = None
 
 
 def alive(pid: int) -> bool:
@@ -77,7 +79,7 @@ def opened(path: Path, slug: str, step: str) -> TextIOWrapper:
 
 
 @contextmanager
-def step(state: Path, slug: str, name: str, now: Moment) -> Iterator[None]:
+def step(state: Path, slug: str, name: str, now: Moment) -> Iterator[Holder]:
     """Hold the step lock of `slug` for the step `name`; refused at once while another holds
     it."""
     path = places.task_folder(state, slug) / LOCK
@@ -85,8 +87,10 @@ def step(state: Path, slug: str, name: str, now: Moment) -> Iterator[None]:
     with opened(path, slug, name) as stream:
         if not locks.taken(stream):
             raise step_refusals.refusal(slug, name, holder_of(path))
-        with named(stream, Holder(step=name, pid=os.getpid(), since=now)):
-            yield
+        run = uuid4().hex if name == "checks" else None
+        holder = Holder(step=name, pid=os.getpid(), since=now, run=run)
+        with named(stream, holder):
+            yield holder
 
 
 @contextmanager

@@ -908,7 +908,7 @@ def test_a_run_behind_another_logs_the_first_and_why_then_starts_when_it_left(
         LEM_TASK,
         2,
     )
-    told = checks_waits.read(places.task_folder(workspace.state, TALK_TASK))
+    told = checks_waits.shown(waits[0])
     assert told is not None
     assert told.wait.why == "longer"
     assert told.wait.behind_repo is None
@@ -1003,20 +1003,32 @@ def test_the_waits_of_status_name_the_first_and_why(tmp_path: Path) -> None:
     tasks.create(state, record(TALK_TASK, status="landing"))
     folder = places.task_folder(state, TALK_TASK)
     since = datetime(2026, 11, 23, 12, 17, tzinfo=UTC)
-    (folder / steps.LOCK).write_text(
-        msgspec.json.encode(
-            steps.Holder(step="checks", pid=os.getpid(), since=since)
-        ).decode()
-    )
+    holder = steps.Holder(step="checks", pid=os.getpid(), since=since, run="new")
     for why in ("longer", "wanted", "first"):
         wait = checks_said.Wait(
             load=30, start=40, behind=LEM_TASK, behind_repo="/Users/me/mybaze", why=why
         )
-        checks_waits.told(folder, TALK_TASK, wait, since + timedelta(minutes=2))
-        found = checks_since.running(tasks.read(state, TALK_TASK), state, since, since)
+        entry = checks_waits.wait_of(wait, TALK_TASK, 2, since.timestamp(), run="new")
+        checks_waits.noted(state, TALK_TASK, entry)
+        found = checks_since.running(tasks.read(state, TALK_TASK), state, holder, since)
         assert found.waits is not None
         assert found.waits.wait == wait
         assert found.waits.say == checks_said.waiting(TALK_TASK, wait)
+    # Another run in the same second does not show the wait of the first one.
+    another = replace(holder, run="another")
+    found = checks_since.running(tasks.read(state, TALK_TASK), state, another, since)
+    assert found.waits is None
+    wait = checks_said.Wait(load=32, start=40, after=LEM_TASK, unread=("/repos/other",))
+    entry = checks_waits.wait_of(wait, TALK_TASK, 1, since.timestamp(), run="another")
+    checks_waits.noted(state, TALK_TASK, entry)
+    saved = tasks.read(state, TALK_TASK)
+    earlier = Span(name="checks", start=since)
+    saved = replace(saved, task=replace(saved.task, spans=(earlier,)))
+    found = checks_since.running(saved, state, another, since)
+    assert entry.reason == "after"
+    assert found.waits is not None and found.waits.wait == wait
+    assert found.waits.say == checks_said.waiting(TALK_TASK, wait)
+    assert not (folder / "checks-wait.json").exists()
 
 
 def test_a_lock_file_of_no_holder_is_free_and_a_held_one_is_not(tmp_path: Path) -> None:

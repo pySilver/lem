@@ -25,12 +25,11 @@ from lem.model.landing import (
 )
 from lem.model.landing.review_said import Named, Outside, Said
 from lem.model.landing.world import Due
-from lem.records.decisions import Taken
 from lem.records.journal.landing import CarefulMissed, ReviewRound
 from lem.records.journal.task import SpanMark
 from lem.records.landing.checks import Lowered
 from lem.records.landing.record import Landing
-from lem.records.landing.review import Finding, Reviewed
+from lem.records.landing.review import Counts, Finding, Reviewed
 from lem.records.landing.start import Based, Resolution
 from lem.records.task import Shape
 from lem.records.work import Plan
@@ -300,7 +299,8 @@ def test_a_review_is_refused_under_its_floor_without_a_careful_call_or_careful_a
         ("r1.1",),
         "read",
     )
-    assert [finding.id for finding in made.findings] == ["r1.c1", "r1.c2", "r1.1"]
+    assert [finding.id for finding in made.findings] == ["r1.1"]
+    assert made.counts == Counts(nit=2, outside=1)
     assert (
         code_of(review.decide(record, world(), said(careful=None), FACTS))
         == "no-careful-call"
@@ -358,19 +358,7 @@ def test_the_floor_is_full_when_careful_a_round_for_a_large_plan_or_after_a_must
         record, task=replace(record.task, plan=Plan(path="plan.md", tasks=3))
     )
     assert review_due.floor(three, (), resolution=False).kind == "read"
-    must = replace(
-        REVIEWED,
-        findings=(
-            Finding(
-                id="r1.c1",
-                level="must-fix",
-                where="r",
-                title="t",
-                what="w",
-                against="over",
-            ),
-        ),
-    )
+    must = replace(REVIEWED, findings=(), counts=Counts(must_fix=1), to_file=())
     after = task(**{**PREPARED, "reviews": (must,), "filed": ()})
     assert review_due.floor(after, (), resolution=False).kind == "round"
     assert phases.due(after, world()).step == "read"
@@ -450,10 +438,7 @@ def test_a_commit_of_one_machine_s_own_settings_is_careful_and_says_how() -> Non
 
 
 def test_two_rounds_go_on_to_the_owner_with_what_they_left_open() -> None:
-    must = Finding(
-        id="r1.c1", level="must-fix", where="r", title="t", what="w", against="over"
-    )
-    first = replace(REVIEWED, findings=(must,), to_file=())
+    first = replace(REVIEWED, findings=(), counts=Counts(must_fix=1), to_file=())
     second = replace(first, attempt=2, kind="round", floor="round")
     record = task(**{**PREPARED, "reviews": (first, second), "filed": ()})
     held = review.holds(record, world())
@@ -642,9 +627,6 @@ def test_the_review_is_not_due_before_the_checks_hold() -> None:
 
 # The cases of the review round of 2026-11-25 (Astra's findings, each failed before its fix).
 
-MUST_FIX = Finding(
-    id="r1.c1", level="must-fix", where="r", title="t", what="w", against="over"
-)
 QUIET = (Named(name="codex", why="at capacity"),)
 
 
@@ -656,6 +638,7 @@ def silent_on(attempt: int, tip: str) -> Reviewed:
         tip=tip,
         answered=(),
         findings=(),
+        counts=Counts(),
         to_file=(),
         careful=None,
         silent=review_said.kept(QUIET),
@@ -663,7 +646,7 @@ def silent_on(attempt: int, tip: str) -> Reviewed:
 
 
 def test_a_tip_two_silent_reads_left_unread_has_no_review_that_clears_it() -> None:
-    cleared = replace(REVIEWED, tip=OTHER, findings=(), to_file=())
+    cleared = replace(REVIEWED, tip=OTHER, findings=(), counts=Counts(), to_file=())
     reviews = (cleared, silent_on(2, TIP), silent_on(3, TIP))
     record = task(**{**PREPARED, "reviews": reviews, "filed": ()})
     assert review.newest(record.landing or Landing()) is None
@@ -674,7 +657,9 @@ def test_a_tip_two_silent_reads_left_unread_has_no_review_that_clears_it() -> No
 
 def test_a_resolution_is_read_alone_only_after_a_review_that_left_no_must_fix() -> None:
     resolution = Resolution(files=("a.py",), before=OTHER, after=TIP, base=BASE)
-    left = replace(REVIEWED, tip=OTHER, findings=(MUST_FIX,), to_file=())
+    left = replace(
+        REVIEWED, tip=OTHER, findings=(), counts=Counts(must_fix=1), to_file=()
+    )
     record = task(**{**PREPARED, "reviews": (left,), "resolution": resolution})
     assert review_due.resolution_due(record.landing or Landing(), world()) is None
     made = review.decide(
@@ -682,7 +667,7 @@ def test_a_resolution_is_read_alone_only_after_a_review_that_left_no_must_fix() 
     )
     assert not isinstance(made, Refusal)
     assert (made.of, made.scope) == ("change", "whole")
-    clean = replace(left, findings=())
+    clean = replace(left, counts=Counts())
     cleared = task(**{**PREPARED, "reviews": (clean,), "resolution": resolution})
     assert review_due.resolution_due(cleared.landing or Landing(), world()) is not None
     elsewhere = replace(clean, tip=BASE)
@@ -690,19 +675,9 @@ def test_a_resolution_is_read_alone_only_after_a_review_that_left_no_must_fix() 
     assert review_due.resolution_due(other.landing or Landing(), world()) is None
 
 
-OWNER_SAYS = Taken(
-    id=1,
-    at=MOMENT,
-    what="whether the task is careful",
-    chose="careful until its merge",
-    why="the export reaches the customer's invoice",
-    by="owner",
-)
-
-
 def test_the_owner_s_careful_word_raises_the_floor_to_the_full_set() -> None:
     made = task(**PREPARED)
-    words = replace(made, task=replace(made.task, decisions=(OWNER_SAYS,)))
+    words = replace(made, task=replace(made.task, owner_careful=MOMENT))
     assert careful.reasons(words, careful.Edits())[0] == "the owner says so"
     assert due_of(review.holds(words, world())) == "read"
     assert (
@@ -711,8 +686,6 @@ def test_the_owner_s_careful_word_raises_the_floor_to_the_full_set() -> None:
         ).kind
         == "full"
     )
-    brief_only = careful.reasons(made, careful.Edits(), owner=True)
-    assert brief_only == ("the owner says so",)
 
 
 def test_a_record_of_a_landing_before_is_refused_as_named_and_through_a_link(
@@ -760,7 +733,8 @@ def test_a_partial_review_is_a_review_and_keeps_who_did_not_answer() -> None:
         ("claude",),
         ["codex"],
     )
-    assert [finding.id for finding in made.findings] == ["r1.c1"]
+    assert made.findings == ()
+    assert made.counts == Counts(nit=1)
     record = task(**{**PREPARED, "reviews": (made,), "filed": ()})
     assert review.holds(record, world()).why.startswith("the newest review covers")
 
@@ -791,9 +765,11 @@ def test_a_review_carries_over_a_rebase_git_showed_clean_and_its_must_fix_stays(
     )
     record = task(**{**PREPARED, "reviews": (earlier,), "based": based})
     assert review.holds(record, world()).why.startswith("the newest review covers")
-    must = replace(earlier, findings=(MUST_FIX,))
+    must = replace(earlier, findings=(), counts=Counts(must_fix=1), to_file=())
     left = task(**{**PREPARED, "reviews": (must,), "based": based})
-    assert due_of(review.holds(left, world())) == "read"
+    outstanding = review.holds(left, world())
+    assert due_of(outstanding) == "read"
+    assert outstanding.why == "the last one left 1 must-fix"
     uncarried = task(
         **{**PREPARED, "reviews": (earlier,), "based": replace(based, carried=False)}
     )
@@ -825,9 +801,15 @@ def test_a_rounds_careful_call_holds_against_a_resolution_read_that_calls_it_not
 
 def test_the_items_filed_after_a_clean_read_of_the_resolution_keep_its_cover() -> None:
     resolution = Resolution(files=("a.py",), before=OTHER, after=TIP, base=BASE, read=2)
-    clean = replace(REVIEWED, tip=OTHER, findings=())
+    clean = replace(REVIEWED, tip=OTHER, findings=(), counts=Counts(), to_file=())
     solved = replace(
-        REVIEWED, attempt=2, of="resolution", scope="resolution", findings=()
+        REVIEWED,
+        attempt=2,
+        of="resolution",
+        scope="resolution",
+        findings=(),
+        counts=Counts(),
+        to_file=(),
     )
     filed_after = replace(CHECKED, items_after=("docs/backlog/x.md",))
     record = task(

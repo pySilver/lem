@@ -1,32 +1,25 @@
-"""The waits of a run of the checks as the task keeps them: one `CheckWait` in the journal for
-each change of why it waits, and `checks-wait.json`, its whole wait now, which `--status` reads.
-
-`checks-wait.json` is a stand-in until `CheckWait` holds the whole wait (`notes/land-checks.md`):
-why it goes behind the first, that one's repository, the run it waits a minute after, and the
-line for the owner.
-"""
+"""The wait the checks write into the journal and the wait their status gives."""
 
 from datetime import UTC, datetime
 from functools import partial
+from itertools import takewhile
 from typing import TYPE_CHECKING
 
-import msgspec
-
 from lem.app.landing import changes
-from lem.kernel import files
 from lem.model.landing import checks_said
 from lem.records.base import Frozen, Moment
-from lem.records.journal.landing import CheckWait
-from lem.store import places, tasks
+from lem.records.journal.landing import CheckEnd, CheckWait
+from lem.records.journal.task import SpanMark
+from lem.store import tasks
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-WAITS = "checks-wait.json"
+    from lem.records.journal.entry import Entry
 
 
 class Waited(Frozen, frozen=True, kw_only=True):
-    """`checks-wait.json`: why the run waits now, and its line for the owner, since `at`."""
+    """What `--status` gives about the wait: its moment, its facts and the owner's line."""
 
     at: Moment
     wait: checks_said.Wait
@@ -34,42 +27,66 @@ class Waited(Frozen, frozen=True, kw_only=True):
 
 
 def noted(state: Path, slug: str, entry: CheckWait) -> None:
-    """One wait in the task's journal."""
+    """Write one wait into the task's journal."""
     record = tasks.read(state, slug)
     tasks.update(state, slug, partial(changes.noted, entry=entry), record.revision)
 
 
-def moment(seconds: float) -> datetime:
-    """A moment of the clock as a record holds it."""
-    return datetime.fromtimestamp(seconds, UTC).replace(microsecond=0)
-
-
-def told(folder: Path, slug: str, wait: checks_said.Wait, at: datetime) -> None:
-    """The run's wait as `--status` reads it, in the task's folder."""
-    said = Waited(at=at, wait=wait, say=checks_said.waiting(slug, wait))
-    files.write_whole(folder / WAITS, msgspec.json.encode(said))
-
-
-def waited(
-    state: Path, slug: str, wait: checks_said.Wait, position: int, now: float
-) -> None:
-    """Tell a new wait: one `CheckWait` in the journal, and `checks-wait.json`."""
-    at = moment(now)
-    entry = CheckWait(
-        at=at,
-        reason="behind" if wait.behind else "load",
+def wait_of(
+    wait: checks_said.Wait, slug: str, position: int, now: float, *, run: str | None
+) -> CheckWait:
+    """The facts and words of one wait, tied to the run that wrote it."""
+    reason = "load"
+    if wait.behind:
+        reason = "behind"
+    elif wait.after:
+        reason = "after"
+    return CheckWait(
+        at=datetime.fromtimestamp(now, UTC).replace(microsecond=0),
+        reason=reason,
         load=wait.load,
         start_below=wait.start,
         behind=wait.behind,
         position=position,
+        after=wait.after,
+        behind_repo=wait.behind_repo,
+        why=wait.why,
+        unread=wait.unread,
+        say=checks_said.waiting(slug, wait),
+        run=run,
     )
-    noted(state, slug, entry)
-    told(places.task_folder(state, slug), slug, wait, at)
 
 
-def read(folder: Path) -> Waited | None:
-    """The task's wait as `checks-wait.json` keeps it; None when there is none to read."""
-    try:
-        return msgspec.json.decode((folder / WAITS).read_bytes(), type=Waited)
-    except OSError, msgspec.DecodeError:
+def shown(entry: CheckWait) -> Waited | None:
+    """The status shape of a journal wait with all its facts."""
+    if entry.load is None or entry.start_below is None or entry.say is None:
         return None
+    wait = checks_said.Wait(
+        load=entry.load,
+        start=entry.start_below,
+        behind=entry.behind,
+        after=entry.after,
+        behind_repo=entry.behind_repo,
+        why=entry.why,
+        unread=entry.unread,
+    )
+    return Waited(at=entry.at, wait=wait, say=entry.say)
+
+
+def latest(journal: tuple[Entry, ...], run: str | None) -> Waited | None:
+    """The active run's latest wait, until the checks start or end."""
+    if run is None:
+        return None
+    active = takewhile(before_checks, reversed(journal))
+    entry = next(
+        (one for one in active if isinstance(one, CheckWait) and one.run == run),
+        None,
+    )
+    return shown(entry) if isinstance(entry, CheckWait) else None
+
+
+def before_checks(entry: Entry) -> bool:
+    """Whether this entry leaves a wait for the active run in force."""
+    if isinstance(entry, SpanMark):
+        return entry.name != "checks"
+    return not isinstance(entry, CheckEnd)

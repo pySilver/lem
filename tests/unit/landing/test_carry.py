@@ -21,7 +21,7 @@ from lem.model.landing.rebased import Clash
 from lem.records.landing.merge import Refused
 from lem.records.landing.propose import OwnerMerge, Standing
 from lem.records.landing.record import Landing
-from lem.records.landing.review import Finding
+from lem.records.landing.review import Counts
 from lem.records.landing.start import Resolution
 from unit.landing.merges import opened
 from unit.landing.worlds import (
@@ -43,9 +43,6 @@ LATER = MOMENT + timedelta(hours=1)
 # A rebase of the reviewed and proposed tip `TIP` onto `MOVED` that git's merge showed: the
 # tip `NEW`, judged an hour after the review.
 CARRIED = replace(BASED, tip=NEW, base=MOVED, before=TIP, carried=True, at=LATER)
-MUST = Finding(
-    id="r1.2", level="must-fix", where="a.py", title="no", what="it", against="over"
-)
 UNSHOWN = replace(CARRIED, carried=False, unshown_paths=("a.txt",))
 NOW = world(tip=NEW, base=MOVED, base_tree=OTHER)
 MOVED_ON = Landing(reviews=(REVIEWED,), reads=(READ,), based=CARRIED, proposed=PROPOSED)
@@ -187,7 +184,14 @@ def test_an_older_verdict_never_stands_in_for_a_newer_unusable_answer() -> None:
 
 RESOLUTION = Resolution(files=("a.txt",), before=TIP, after=NEW, base=MOVED, read=2)
 RESOLUTION_READ = replace(
-    REVIEWED, attempt=2, tip=NEW, of="resolution", scope="resolution", findings=()
+    REVIEWED,
+    attempt=2,
+    tip=NEW,
+    of="resolution",
+    scope="resolution",
+    findings=(),
+    counts=Counts(),
+    to_file=(),
 )
 RESOLVED = Landing(
     reviews=(REVIEWED, RESOLUTION_READ),
@@ -203,13 +207,12 @@ def test_a_nit_on_the_resolution_ends_approval_even_after_red_checks(
 ) -> None:
     digest = merge_standing.digest_of(PROPOSED.reasons, PROPOSED.contract)
     approval = Standing(tip=TIP, reasons_digest=digest, by_act="board", at=MOMENT)
-    nit = replace(MUST, level="nit", against=None)
     refusal = Refused(
         tip=NEW, source="lem", kind="rule", by="owner", line="red", at=MOMENT
     )
     record = opened(
         resolution=RESOLUTION,
-        reviews=(REVIEWED, replace(RESOLUTION_READ, findings=(nit,))),
+        reviews=(REVIEWED, replace(RESOLUTION_READ, counts=Counts(nit=1))),
         standing=approval,
         refused=refusal if red else None,
     )
@@ -219,10 +222,20 @@ def test_a_nit_on_the_resolution_ends_approval_even_after_red_checks(
     assert proposed.owner_merge is not None and proposed.owner_merge.state == "ended"
 
 
-def test_a_clean_read_of_a_resolution_carries_the_merge_read_and_the_owners_merge() -> (
-    None
-):
-    found = resolution.carries(RESOLVED, NOW, careful=False)
+@pytest.mark.parametrize("outside", [False, True], ids=["clean", "outside-only"])
+def test_a_clean_read_of_a_resolution_carries_the_merge_read_and_the_owners_merge(
+    *, outside: bool
+) -> None:
+    landing = RESOLVED
+    if outside:
+        read = replace(
+            RESOLUTION_READ,
+            findings=REVIEWED.findings,
+            counts=REVIEWED.counts,
+            to_file=REVIEWED.to_file,
+        )
+        landing = replace(RESOLVED, reviews=(REVIEWED, read))
+    found = resolution.carries(landing, NOW, careful=False)
     assert found is not None
     assert (found.tip, found.base, found.verdict, found.carried_from) == (
         NEW,
@@ -231,10 +244,29 @@ def test_a_clean_read_of_a_resolution_carries_the_merge_read_and_the_owners_merg
         TIP,
     )
     owner = Standing(tip=TIP, reasons_digest="d", by_act="owner", at=MOMENT)
-    carried = resolution.tip_carries(RESOLVED, NOW, careful=False)
+    carried = resolution.tip_carries(landing, NOW, careful=False)
     assert standing.standing(
-        replace(RESOLVED, standing=owner), "d", carried=carried
+        replace(landing, standing=owner), "d", carried=carried
     ) == (OwnerMerge(state="stands", why="the change and its reasons stay"))
+    record = replace(opened(), landing=landing)
+    proposed, read = proposal_carry.judged(
+        record, NOW, replace(PROPOSED, tip=NEW, base=MOVED)
+    )
+    assert proposed.merge_review == "carried"
+    assert read == found
+
+
+def test_a_finding_in_the_resolution_stops_merge_review_carry() -> None:
+    for counts in (Counts(must_fix=1), Counts(should=1), Counts(nit=1)):
+        read = replace(RESOLUTION_READ, counts=counts)
+        found = replace(RESOLVED, reviews=(REVIEWED, read))
+        assert resolution.carries(found, NOW, careful=False) is None, counts
+        record = replace(opened(), landing=found)
+        proposed, carried = proposal_carry.judged(
+            record, NOW, replace(PROPOSED, tip=NEW, base=MOVED)
+        )
+        assert proposed.merge_review is None, counts
+        assert carried is None, counts
 
 
 def test_a_resolution_carries_nothing_when_careful_read_badly_or_moved_on() -> None:
@@ -246,17 +278,16 @@ def test_a_resolution_carries_nothing_when_careful_read_badly_or_moved_on() -> N
     assert (
         resolution.carries(RESOLVED, world(tip=NEW, base=BASE), careful=False) is None
     )
-    finding = replace(RESOLUTION_READ, findings=REVIEWED.findings)
     silent = replace(RESOLUTION_READ, answered=())
     called = replace(RESOLUTION_READ, careful=True)
-    for read in (finding, silent, called):
+    for read in (silent, called):
         found = replace(RESOLVED, reviews=(REVIEWED, read))
         assert resolution.carries(found, NOW, careful=False) is None
     unread = replace(RESOLVED, resolution=replace(RESOLUTION, read=None))
     assert resolution.carries(unread, NOW, careful=False) is None
     no_verdict = replace(RESOLVED, reads=(replace(READ, verdict=None, no_answer=True),))
     assert resolution.carries(no_verdict, NOW, careful=False) is None
-    must = replace(REVIEWED, findings=(MUST,))
+    must = replace(REVIEWED, findings=(), counts=Counts(must_fix=1), to_file=())
     left = replace(RESOLVED, reviews=(must, RESOLUTION_READ))
     assert resolution.carries(left, NOW, careful=False) is None
 

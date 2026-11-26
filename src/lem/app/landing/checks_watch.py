@@ -77,7 +77,7 @@ def watched(
 ) -> Status:
     """The status of a run that holds the lock."""
     slug = record.task.slug
-    run = checks_since.running(record, state, holder.since, clock.now())
+    run = checks_since.running(record, state, holder, clock.now())
     said = checks_said.overdue(run.seconds, run.last)
     return Status(
         task=slug,

@@ -24,7 +24,7 @@ from lem.model.landing import (
 )
 from lem.records.landing.checks import CriterionCheck
 from lem.records.landing.propose import Standing
-from lem.records.landing.review import Filed
+from lem.records.landing.review import Counts, Filed
 from lem.records.red import Inputs
 from lem.records.work import Plan
 from unit.landing.merges import BY_MERGER, BY_OWNER, code_of, facing, opened
@@ -74,7 +74,9 @@ def recorded(record: Record, command: str, *, small: bool) -> Record:
 
 
 def test_the_review_limit_sends_an_unread_tip_to_the_owner() -> None:
-    prior = replace(REVIEWED, attempt=2, kind="round", findings=())
+    prior = replace(
+        REVIEWED, attempt=2, kind="round", findings=(), counts=Counts(), to_file=()
+    )
     record = task(
         **{
             **PREPARED,

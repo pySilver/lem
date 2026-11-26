@@ -4,7 +4,14 @@ each change of it during the build."""
 
 from typing import TYPE_CHECKING
 
-from lem.app.landing import pr_checks, pr_closing, pr_decisions, pr_notes, pr_reviews
+from lem.app.landing import (
+    pr_bar,
+    pr_checks,
+    pr_closing,
+    pr_decisions,
+    pr_notes,
+    pr_reviews,
+)
 from lem.app.landing.pr_changes import change_line
 from lem.app.landing.pr_criteria import NO_REASON, criterion_lines
 from lem.app.landing.pr_inputs import Block, Lines, block
@@ -63,10 +70,14 @@ def checks(record: Record, proposal: Proposal, facts: Facts) -> Lines:
     landing = record.landing or Landing()
     reviews = pr_reviews.lines(landing, pr_notes.fixed(proposal.notes), full=False)
     closing = pr_closing.lines(record, facts, proposal.careful, full=False)
+    measured = (
+        *pr_checks.lowered_lines(landing.checked, full=False),
+        *pr_bar.lines(facts.bar_read, full=False),
+    )
     return (
         *pr_checks.commands(landing.checked),
         *pr_checks.cause(record, before=False),
-        *pr_checks.lowered_lines(landing.checked, full=False),
+        *measured,
         *reviews,
         *closing,
     )

@@ -55,11 +55,14 @@ class Removed(Frozen, frozen=True, kw_only=True):
     bytecode: tuple[str, ...] = ()
 
 
+type EditedKind = Literal["snapshot", "test configuration", "test"]
+
+
 class Edited(Frozen, frozen=True, kw_only=True):
     """An existing file of the tests that the change edits, and its kind."""
 
     path: str
-    kind: Literal["snapshot", "test configuration", "test"]
+    kind: EditedKind
 
 
 class Checked(Frozen, frozen=True, kw_only=True):
@@ -68,7 +71,7 @@ class Checked(Frozen, frozen=True, kw_only=True):
     `main`), the criteria's contract mark it ran under, each command's outcome, the criteria,
     the bar with the existing tests the change edits and the kinds of file it has no marks
     for, the size, whether the change brought its own checks, what was removed, and the backlog
-    items `file` committed after."""
+    items `file` committed after. `bar_base` is the start of the diff that the bar read."""
 
     tip: Sha
     tree: Sha
@@ -80,6 +83,7 @@ class Checked(Frozen, frozen=True, kw_only=True):
     outcomes: tuple[Outcome, ...] = ()
     criteria: tuple[CriterionCheck, ...] = ()
     lowered: tuple[Lowered, ...] = ()
+    bar_base: Sha | None = None
     edited: tuple[Edited, ...] = ()
     not_covered: tuple[str, ...] = ()
     size: ChangeSize | None = None

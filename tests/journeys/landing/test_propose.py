@@ -46,6 +46,7 @@ from lem.store import tasks
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.ports.judge import Defect, NotAsked, Score
     from lem.records.record import Record
 
 PROPOSE = ("land", "propose", "SLUG", "--title", SUBJECT, "--notes")
@@ -310,7 +311,10 @@ def test_a_finding_whose_item_left_the_tip_is_refused_before_any_push(
         against="over",
     )
     review = replace(
-        review, findings=(*review.findings, over), to_file=(*review.to_file, over.id)
+        review,
+        findings=(*review.findings, over),
+        counts=replace(review.counts, outside=review.counts.outside + 1),
+        to_file=(*review.to_file, over.id),
     )
     held = Filed(finding=over.id, disposition="same", path="docs/backlog/no-license.md")
     changed = replace(
@@ -342,11 +346,67 @@ def test_jev_stops_the_proposal_once_for_a_finding_it_reads_over_the_bar(
     refused = propose_with(capsys, world, f"{line}\n")
     assert refused["refusal"]["code"] == "jev-over"
     assert "Jev: 0.85" in refused["refusal"]["why"]
+    [verdict] = world.record()["landing"]["jev"]
+    assert verdict["score"] == 0.85
+    assert "path" not in verdict
     assert world.acts.counted()["push"] == 0
+    line = line.replace("one reader reads one line", "the reader has no width limit")
     envelope = propose_with(capsys, world, f"{line}\n")
     assert envelope["ok"] is True, envelope
     assert len(judge.asked) == 1
     assert f"{line}; Jev: 0.85" in world.forge.bodies[1].splitlines()
+
+
+def test_propose_sends_nothing_to_jev_when_the_team_disables_findings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "propose")
+    settings = world.checkout / ".lem" / "settings.toml"
+    settings.write_text(settings.read_text() + "\n[jev]\nfindings = false\n")
+    judge = wiring.bound(
+        Place(checkout=world.checkout, home=tmp_path, environ={})
+    ).judge
+    assert isinstance(judge, FakeJudge)
+    notes = "- The README has one long line; under: it fits on the page\n"
+    assert propose_with(capsys, world, notes)["ok"]
+    assert judge.asked == []
+    assert "Jev: not asked (off in the settings)" in world.forge.bodies[1]
+
+
+def test_propose_keeps_the_first_jev_answer_if_the_second_call_stops(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "propose")
+    judge = wiring.bound(
+        Place(checkout=world.checkout, home=tmp_path, environ={})
+    ).judge
+    assert isinstance(judge, FakeJudge)
+    first, second = "The README has one long line", "The README has no title"
+    notes = (
+        f"- {first}; under: it fits on the page\n- {second}; under: it is one line\n"
+    )
+    judge.over[first] = 0.85
+    ask = judge.over_bar
+
+    def interrupted(defect: Defect) -> Score | NotAsked:
+        if defect.title == second:
+            raise Killed("Jev's second call")
+        return ask(defect)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(judge, "over_bar", interrupted)
+        with pytest.raises(Killed):
+            propose_with(capsys, world, notes)
+    capsys.readouterr()
+    assert [read["score"] for read in world.record()["landing"].get("jev", [])] == [
+        0.85
+    ]
+    assert world.acts.counted()["push"] == 0
+    assert propose_with(capsys, world, notes)["refusal"]["code"] == "jev-over"
+    assert propose_with(capsys, world, notes)["ok"]
+    assert [defect.title for defect in judge.asked] == [first, second]
 
 
 def careful_built(capsys: pytest.CaptureFixture[str], world: World) -> dict:

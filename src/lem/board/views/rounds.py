@@ -20,8 +20,8 @@ MUST_FIX = "must-fix"
 
 def counts(review: Reviewed) -> tuple[int, int, int]:
     """The review's findings: must-fix, should, nit."""
-    levels = [finding.level for finding in review.findings]
-    return levels.count(MUST_FIX), levels.count("should"), levels.count("nit")
+    found = review.counts
+    return found.must_fix, found.should, found.nit
 
 
 def verdict(review: Reviewed) -> str:

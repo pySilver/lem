@@ -21,7 +21,7 @@ from lem.model.landing.world import Merger, PullSeen, Rules, World
 from lem.records.landing.merge import MergeAccepted, MergeIntent, Refused
 from lem.records.landing.propose import MergeRead, OwnerMerge, Standing
 from lem.records.landing.record import Landing
-from lem.records.landing.review import Finding, Reviewed
+from lem.records.landing.review import Counts, Reviewed
 from lem.records.landing.start import Based, Resolution
 from lem.records.task import Shape
 from unit.landing.merges import MOVED, MOVED_TREE, alone
@@ -74,14 +74,6 @@ TREES = (TREE, MOVED_TREE, NEW_TREE)
 EARLIER = MOMENT - timedelta(hours=1)
 LATER = MOMENT + timedelta(hours=1)
 MOMENTS = (MOMENT, EARLIER, LATER)
-MUST = Finding(
-    id="r1.2",
-    level="must-fix",
-    where="a.py",
-    title="a must-fix",
-    what="it",
-    against="over",
-)
 OVER = replace(NIT, id="r1.3", against="over", title="an item over the bar")
 # The statuses of the design's part 3, and the phases each may have a landing in.
 PHASES = {
@@ -183,7 +175,7 @@ def worlds(draw: st.DrawFn) -> World:
 @st.composite
 def reviews(draw: st.DrawFn) -> Reviewed:
     """One review attempt: of a tip, answered or silent, with its findings and its call."""
-    findings = draw(one_of((NIT,), (), (MUST,), (OVER,), (NIT, MUST)))
+    findings = draw(one_of((NIT,), (), (OVER,)))
     return replace(
         REVIEWED,
         attempt=draw(st.integers(1, 4)),
@@ -195,9 +187,8 @@ def reviews(draw: st.DrawFn) -> Reviewed:
         careful=draw(one_of(False, True, None)),
         answered=draw(one_of(("claude",), ())),
         findings=findings,
-        to_file=tuple(
-            finding.id for finding in findings if finding.level != "must-fix"
-        ),
+        counts=Counts(must_fix=draw(st.integers(0, 2)), outside=len(findings)),
+        to_file=tuple(finding.id for finding in findings),
         at=draw(moments()),
     )
 
@@ -425,7 +416,8 @@ def moved_landings(draw: st.DrawFn) -> Landing:
         tip=NEW,
         of="resolution",
         scope="resolution",
-        findings=draw(mostly((), (NIT,), (MUST,))),
+        findings=(),
+        counts=draw(mostly(Counts(), Counts(nit=1), Counts(must_fix=1))),
         to_file=(),
         careful=draw(mostly(False, True, None)),
         answered=draw(mostly(("claude",), ())),
@@ -437,7 +429,12 @@ def moved_landings(draw: st.DrawFn) -> Landing:
         base=draw(mostly(MOVED, BASE)),
         read=draw(mostly(2, None)),
     )
-    first = replace(REVIEWED, findings=draw(mostly((NIT,), (MUST,))))
+    first = draw(
+        mostly(
+            REVIEWED,
+            replace(REVIEWED, findings=(), counts=Counts(must_fix=1), to_file=()),
+        )
+    )
     return replace(
         Landing(),
         phase="open",
@@ -534,7 +531,7 @@ def must_fixed(draw: st.DrawFn) -> Record:
         REVIEWED,
         attempt=len(landing.reviews) + 1,
         tip=draw(shas()),
-        findings=draw(one_of((MUST,), (NIT, MUST), (MUST, MUST))),
+        counts=Counts(must_fix=draw(st.integers(1, 2)), outside=1),
         at=draw(moments()),
     )
     reviews = (*landing.reviews, left)

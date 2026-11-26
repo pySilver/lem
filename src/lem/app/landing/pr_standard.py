@@ -6,6 +6,7 @@ what was seen outside the change."""
 from typing import TYPE_CHECKING
 
 from lem.app.landing import (
+    pr_bar,
     pr_checks,
     pr_closing,
     pr_criteria,
@@ -28,6 +29,7 @@ def checks(record: Record, proposal: Proposal, facts: Facts) -> Lines:
     landing = record.landing or Landing()
     measured = (
         *pr_checks.lowered_lines(landing.checked, full=True),
+        *pr_bar.lines(facts.bar_read, full=True),
         pr_checks.size(landing.checked),
     )
     fixed = pr_notes.fixed(proposal.notes)

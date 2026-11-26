@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import frame, head, review_archive, say, step
+from lem.app.landing import frame, review_archive, say, step
 from lem.kernel import clock
 from lem.kernel.envelope import Envelope
 from lem.kernel.errors import Refusal
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 def act(context: frame.Context, *, conflicting: bool) -> Started:
     """Record the start of the round, or the block of a task with no command of the checks."""
     record, world = context.record, context.world
-    on = head.branch_of(context.worktree) if world.tip else None
+    on = context.ports.git.branch_of(context.worktree) if world.tip else None
     facts = start.Facts(on_branch=on == world.branch)
     started = start.decide(record, world, facts, conflicting=conflicting)
     if isinstance(started, Refusal):

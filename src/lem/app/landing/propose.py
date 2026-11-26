@@ -8,6 +8,7 @@ before the forge's call, and the forge's pull request is the task's own, edited,
 A run cut off anywhere finds what it did in git and on the forge.
 """
 
+from dataclasses import replace as with_record
 from functools import partial
 from typing import TYPE_CHECKING
 
@@ -32,15 +33,21 @@ if TYPE_CHECKING:
     from lem.kernel.envelope import Envelope
 
 
-def written(context: Context, title: str, notes: str) -> tuple[propose.Proposal, str]:
+def written(
+    context: Context, title: str, notes: str
+) -> tuple[propose.Proposal, str, Context]:
     """The proposal and the pull request's text, or the refusal of the first gate the
     request does not pass, before anything is written or pushed."""
     facts = propose_seen.gathered(context, notes)
     proposal = propose.decide(context.record, context.world, facts, title)
     if isinstance(proposal, Refusal):
         raise proposal
-    proposal, facts = propose_marks.marked(context, proposal, facts)
-    return proposal, pr_text.body(context.record, proposal, facts)
+    proposal, facts, record = propose_marks.marked(context, proposal, facts)
+    return (
+        proposal,
+        pr_text.body(record, proposal, facts),
+        with_record(context, record=record),
+    )
 
 
 def published(context: Context, text: str) -> str:
@@ -52,10 +59,17 @@ def published(context: Context, text: str) -> str:
 def act(context: Context, *, title: str, notes: str) -> propose_made.Made:
     """Gate, publish the text, push, open, adopt or edit the pull request, and record the
     proposal."""
-    proposal, text = written(context, title, notes)
-    made = replace(proposal.proposed, text=published(context, text))
+    proposal, text, context = written(context, title, notes)
+    return opened(context, proposal, (title, text))
+
+
+def opened(
+    context: Context, proposal: propose.Proposal, words: tuple[str, str]
+) -> propose_made.Made:
+    """Publish the proposal, then keep the pull request the forge confirms."""
+    made = replace(proposal.proposed, text=published(context, words[1]))
     record = propose_push.pushed(context, push=proposal.push)
-    pull = propose_push.pulled(context, proposal, (title, text))
+    pull = propose_push.pulled(context, proposal, words)
     record = context.write(
         record, partial(propose_made.opened, made=made, pull=pull, read=proposal.read)
     )

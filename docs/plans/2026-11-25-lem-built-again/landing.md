@@ -13,12 +13,12 @@ of part E is also a `path` row of `tests/ledger/extra.tsv`, proved by its journe
 
 | Struct | Fields | Written by |
 | --- | --- | --- |
-| `Landing` | `round`, `relands`, `phase` (`preparing`, `open`, `merged`, `ended`), `pull` (number, url, title), `pushed` (the head Lem pushed last, or None), `started`, `based`, `polished`, `checked`, `reviews`, `filed`, `resolution`, `proposed`, `reads`, `standing`, `refused`, `intent`, `accepted`, `merged`, `cleaned`, `archived` | the steps |
+| `Landing` | `round`, `relands`, `phase` (`preparing`, `open`, `merged`, `ended`), `pull` (number, url, title), `pushed` (the head Lem pushed last, or None), `started`, `based`, `polished`, `checked`, `reviews`, `filed`, `resolution`, `proposed`, `reads`, `standing`, `refused`, `intent`, `accepted`, `merged`, `cleaned`, `jev` (item comparisons and bar verdicts), `archived` | the steps |
 | `Started` | `round`, `branch`, `base_ref`, `conflicting`, `start_over` (why, or None) | `start` |
 | `Based` | `tip`, `base`, `before`, `carried`, `unshown` (paths, commits, or None) | `base` |
 | `Polished` | `before`, `after`, `run` (the five inputs and the outcome of the pass's test run) | `polish --done` |
-| `Checked` | `tip`, `tree`, `base`, `inputs` (one digest of commands, serial, setup, plan file), `outcomes` (command, last line, output path, passed), `criteria` (each: red on base, green on tip, or taken from polish at commit), `bar` (lowered files and reasons), `size`, `own_checks`, `removed` (untracked, bytecode), `items_after` (backlog item paths that `file` committed after it) | `checks`, `file` |
-| `Reviewed` | `attempt`, `tip`, `of` (`change`, `resolution`), `floor`, `kind`, `careful`, `answered`, `silent`, `findings` (id, level, where, title, cheap), `to_file`, `scope` (`resolution` or `whole`) | `read --record` |
+| `Checked` | `tip`, `tree`, `base`, `inputs` (one digest of commands, serial, setup, plan file), `outcomes` (command, last line, output path, passed), `criteria` (each: red on base, green on tip, or taken from polish at commit), `bar_base`, `lowered`, `edited` (the existing tests the change edits), `not_covered` (suffixes without marks), `size`, `own_checks`, `removed` (untracked, bytecode), `items_after` (backlog item paths that `file` committed after it) | `checks`, `file` |
+| `Reviewed` | `attempt`, `tip`, `of` (`change`, `resolution`), `floor`, `kind`, `careful`, `answered`, `silent`, `counts` (must-fix, should, nit and outside), `findings` (defects outside the change), `to_file`, `scope` (`resolution` or `whole`) | `read --record` |
 | `Filed` | `finding`, `disposition` (`item`, `same`, `cheap-fixed`, `seen`), `path`, `worth`, `cites` (an older `worth: no` item a new `worth: later` item names), `jev`, `commit` | `file`, `propose` |
 | `Proposed` | `tip`, `base`, `green`, `reasons`, `careful`, `notes_path`, `merge_review` (`carried` or None and why), `owner_merge` (`stands: why`, `ended: why`, or None), `who_acts` | `propose` |
 | `MergeRead` | `tip`, `base`, `base_tree`, `verdict` (`merge`, `call`, or None), `base_call` (`safe`, `another round`, or None), `why`, `carried_from`, `attempts`, `no_answer` | `merge-review`, `propose` (carried) |
@@ -87,7 +87,7 @@ due step or the wait and its why.
 | Merge read carry, clean rebase | a real verdict (`merge` or `call`, not an unusable answer), no conflict, no commit after; `who_acts` recomputed from the new proposal | `moved_carry`, `may_merge` |
 | Merge read carry, conflict | the read before had a real verdict, and the resolution's one read found nothing (no must-fix, should, nit), answered, nothing careful, no commit after, the review before left no must-fix | `conflict.md`; `land.md` 7 |
 | Safe read on a moved base | covers its `base` only while origin's base tree is its `base_tree` | `merge_locked`, `read_base` |
-| Revert of the base | origin's base tree is the checked base's tree: the checks cover again | `land.md` 7 |
+| Revert of the base | for the merge agent, the checks cover the current base when its tree matches the checked base's tree. An approved merge requires checks on the current base commit | `land.md` 7 |
 | Standing merge | stands while coverage holds and the not-green reasons are the same; else `ended: why` and "Your merge ended". After a red recheck, new edits need an answered review that covers the repaired tip | `land.md` 4 and 8 |
 | Checks taken from polish | the pass committed, its run had the same five inputs | `land.md` 4 |
 | Check definitions | a change of `checks.commands` or `checks.serial` makes `checked` not hold before propose and before merge | `same_checks` |
@@ -105,7 +105,7 @@ the result. Its `path` row's proof is that step's test.
 | Recovery | a cut-off, a red base, a stop | `start` keeps the record whole | nothing | `land-base` |
 | Push recorded first | a cut-off after the push, before the PR write | `pushed` is kept before the forge call; the next `propose` adopts only an open PR whose head is `pushed`; another PR on the branch is somebody's: refused with `git branch -m` | the line (`cmd_propose`) | `land-propose` |
 | Red base | a red command also red on the base | a repair task, hold `blocked: the base is red, after: SLUG`; landed: `ready`, start again; gone session: open once, then tell; dropped repair: wait for his word | one line | `land-checks` |
-| Repair limit | two builders on one failure | hold `blocked` | the row, its push | `land-checks` |
+| Repair limit | two builders on one failure | while an approval stands through the recheck, take the ladder. In other landings, wait for the owner's word | the ladder asks the owner only if a criterion must change or the breaker applies. In other landings, the session tells the owner in one line | `land-checks` |
 | Fast track turns careful | the review's careful call | full set, owner merges, not green | the reason | `land-review` |
 | Fast track lowers the bar | `checks` finds it | status `shaping`, hold `owner: interview` | one line | `land-checks` |
 | No checks | `checks.commands` empty on the main checkout | hold `blocked: no checks`; the task that adds them lands not green | the row | `land-base` |
@@ -165,7 +165,7 @@ rows are the complete list; these are their codes.
 | Lock | File | Held |
 | --- | --- | --- |
 | record | `tasks/SLUG/task.lock` | read, check `revision`, write; never across an effect |
-| step | `tasks/SLUG/step.lock` (step, pid, since) | a whole landing step and a drop's write, effects included (`step_lock`, `held_refusal`) |
+| step | `tasks/SLUG/step.lock` (step, pid, since, run ID for checks) | a whole landing step and a drop's write, effects included (`step_lock`, `held_refusal`) |
 | merge | `.lem/state/locks/merge.lock` | one merge call, with the recheck of status, head, base, target, authority, check definitions |
 | serial | `.lem/state/locks/serial.lock` | `checks.serial` and `lem serial` |
 | load line | `~/.config/lem/load.line/` | the wait for the load: after-dependency first, then oldest; a minute apart; a look every 15 s |
@@ -195,7 +195,7 @@ rows are the complete list; these are their codes.
 
 | Entry | Fields | Producer |
 | --- | --- | --- |
-| `CheckWait` | `reason` (`load` or `behind`), `load`, `start_below`, `behind` (slug), `position` | `checks_gate`, on each change of reason or position (not every look) |
+| `CheckWait` | `run` (the check run's ID), `reason` (`load`, `behind` or `after`), `load`, `start_below`, `behind`, `behind_repo`, `position`, `after`, `why`, `unread`, `say` | `checks_gate`, on each change of reason or position (not every look) |
 | `CheckEnd` | `outcome`, `say`, `commands` (name, passed, last line) | `checks_run` (`gate_end_said`) |
 | `MergeWait` | `behind` (slug) | `merge`, while the merge lock is held by another task |
 | `ReviewRound`, `MergeRead`, `Refused`, `Merged`, `LandAgain` | as the evidence | the step |

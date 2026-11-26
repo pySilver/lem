@@ -13,7 +13,7 @@ from lem.model.landing.merge_standing import digest_of
 from lem.model.landing.world import Due, Rules
 from lem.records.landing.merge import MergeAccepted, Refused
 from lem.records.landing.propose import MergeRead, Standing
-from lem.records.landing.review import Finding
+from lem.records.landing.review import Counts
 from lem.records.task import Shape
 from unit.landing.merges import (
     INTENT,
@@ -43,10 +43,6 @@ from unit.landing.worlds import (
 if TYPE_CHECKING:
     from lem.records.record import Record
 
-MUST = Finding(
-    id="r1.2", level="must-fix", where="a.py", title="no", what="it", against="over"
-)
-
 
 def step_of(due: Due) -> tuple[str, str | None]:
     return due.step, due.by
@@ -70,7 +66,16 @@ def step_of(due: Due) -> tuple[str, str | None]:
         (task(**PREPARED), {"rules": Rules(base="main", commands=("make",))}, "checks"),
         (task(**{**PREPARED, "reviews": ()}), {}, "read"),
         (
-            task(**{**PREPARED, "reviews": (replace(REVIEWED, findings=(MUST,)),)}),
+            task(
+                **{
+                    **PREPARED,
+                    "reviews": (
+                        replace(
+                            REVIEWED, findings=(), counts=Counts(must_fix=1), to_file=()
+                        ),
+                    ),
+                }
+            ),
             {},
             "read",
         ),

@@ -11,8 +11,8 @@ from lem.kernel.errors import Refusal
 from lem.model.landing import propose, propose_careful, propose_lines, propose_notes
 from lem.model.landing.propose_facts import Facts, Filing
 from lem.model.landing.world import Rules
-from lem.records.landing.checks import CriterionCheck
-from lem.records.landing.review import Filed, Finding
+from lem.records.landing.checks import CriterionCheck, Edited
+from lem.records.landing.review import Counts, Filed, Finding
 from lem.records.landing.start import Polished
 from lem.records.task import Shape
 from lem.records.tickets import Ticket
@@ -679,7 +679,10 @@ ADDED = (
 def outside(record: Record, notes: str, added: tuple[Filing, ...] = ADDED) -> list[str]:
     """The text of `record` whose review saw three defects outside the change."""
     review = replace(
-        REVIEWED, findings=(GUARD, SUPPRESSION, LOAD), to_file=("r1.1", "r1.2", "r1.3")
+        REVIEWED,
+        findings=(GUARD, SUPPRESSION, LOAD),
+        counts=Counts(outside=3),
+        to_file=("r1.1", "r1.2", "r1.3"),
     )
     filed = (
         Filed(finding="r1.1", disposition="item", path=GUARD_ITEM, worth="no"),
@@ -770,7 +773,7 @@ def test_a_fix_line_that_names_the_cheap_entry_takes_its_line_out() -> None:
 
 
 def test_a_review_that_saw_nothing_outside_keeps_the_notes_as_they_were() -> None:
-    clean = replace(REVIEWED, findings=(), to_file=())
+    clean = replace(REVIEWED, findings=(), counts=Counts(), to_file=())
     text = text_of(with_landing(full(), reviews=(clean,), filed=()))
     assert text.endswith("\n\n" + FULL_NOTES)
     assert "## Seen, not filed" not in text
@@ -778,7 +781,15 @@ def test_a_review_that_saw_nothing_outside_keeps_the_notes_as_they_were() -> Non
 
 def test_the_careful_line_and_the_review_lines_on_the_standard_track() -> None:
     called = replace(REVIEWED, careful=False, careful_why="it reaches no topic.")
-    out = text_of(with_landing(full(), reviews=(called,))).splitlines()
+    bar_read = replace(
+        CHECKED,
+        edited=(Edited(path="tests/test_login.py", kind="test"),),
+        not_covered=(".custom",),
+    )
+    facts = Facts(notes=FULL_NOTES, bar_read=bar_read)
+    out = text_of(with_landing(full(), reviews=(called,)), facts).splitlines()
+    assert "- the change edits 1 existing test (`tests/test_login.py`)" in out
+    assert "- the bar has no marks of its own for files of these kinds: .custom" in out
     assert "- careful: no; the review says no: it reaches no topic" in out
     assert (
         "- the review, round 1 (one read; answered: claude): clean, 0 must-fix, 0 should, "
@@ -868,7 +879,10 @@ def test_a_finding_whose_open_item_is_gone_or_now_says_no_is_refused() -> None:
         id="r1.2", level="nit", where="a", title="t", what="w", against="over"
     )
     review = replace(
-        REVIEWED, findings=(*REVIEWED.findings, over), to_file=("r1.1", "r1.2")
+        REVIEWED,
+        findings=(*REVIEWED.findings, over),
+        counts=Counts(outside=2),
+        to_file=("r1.1", "r1.2"),
     )
     held = Filed(finding="r1.2", disposition="same", path="docs/backlog/held.md")
     record = with_landing(full(), reviews=(review,), filed=(*PREPARED["filed"], held))

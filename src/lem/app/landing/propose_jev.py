@@ -1,65 +1,86 @@
-"""Jev's read at a proposal (`model/landing/propose_jev.py`): each finding called under the bar
-that Jev has not read is asked once through the `Judge` port, and its word kept at once in the
-task's `jev.json`, so that no finding is sent twice, by this run or the next; a finding Jev
-reads as over the bar stops the step once.
+"""Jev's read at a proposal (`model/landing/propose_jev.py`): ask once about a finding
+called under the bar and keep the answer before refusing one Jev reads as over the bar."""
 
-A machine where Jev has no adapter is a finding not asked, with that reason: Jev's read never
-stops the landing for good.
-"""
-
+from dataclasses import replace as with_record
 from typing import TYPE_CHECKING
 
-import msgspec
+from msgspec.structs import replace
 
-from lem.app import wiring
-from lem.kernel import files
+from lem.app.landing import jev_reads, judge_same
 from lem.model.landing import propose_jev
 from lem.ports import judge as jev
-from lem.store import guard
+from lem.records.landing.review import JevRead
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from lem.app.landing.frame import Context
+    from lem.records.base import Moment
+    from lem.records.record import Record
 
-KEPT = "jev.json"
-type Words = dict[str, propose_jev.Said]
-
-
-def kept(folder: Path) -> Words:
-    """Jev's words kept for the task, by finding."""
-    path = folder / KEPT
-    if not path.is_file():
-        return {}
-    return msgspec.json.decode(path.read_bytes(), type=Words)
+type Words = dict[str, JevRead]
+type Findings = tuple[propose_jev.Asked, ...]
 
 
-def ask(judge: jev.Judge, finding: propose_jev.Asked) -> propose_jev.Said:
+def ask(judge: jev.Judge | None, finding: propose_jev.Asked, at: Moment) -> JevRead:
     """Jev's word on one finding."""
-    if isinstance(judge, wiring.Unbound):
-        return propose_jev.Said(why="Jev has no adapter on this machine")
-    defect = jev.Defect(where=finding.where, title=finding.title, what=finding.what)
+    if judge is None:
+        return JevRead(key=finding.key, at=at, not_asked="off in the settings")
+    found = finding.defect
+    defect = jev.Defect(where=found.where, title=found.title, what=found.what)
     said = judge.over_bar(defect)
     if isinstance(said, jev.NotAsked):
-        return propose_jev.Said(why=said.why)
-    return propose_jev.Said(score=said.score)
+        return JevRead(key=finding.key, at=at, not_asked=said.why)
+    return JevRead(key=finding.key, at=at, score=said.score)
 
 
-def read(context: Context, findings: tuple[propose_jev.Asked, ...]) -> Words:
-    """Jev's word on each finding, asking only about those it has not read, kept before a
-    refusal of the ones it reads as over the bar."""
-    before = kept(context.folder)
-    judge = context.ports.judge
-    fresh = {
-        finding.key: ask(judge, finding)
-        for finding in findings
-        if finding.key not in before
+def gathered(
+    context: Context, findings: Findings, judge: jev.Judge | None
+) -> tuple[Context, Words]:
+    """Ask once about each finding and save each answer before the next call."""
+    reads: Words = {}
+    for known in jev_reads.of(context.record):
+        if known.path is None:
+            reads[known.key] = known
+    for finding in findings:
+        if finding.key in reads:
+            continue
+        said = ask(judge, finding, context.world.now)
+        context = with_record(
+            context,
+            record=jev_reads.kept_all(context, (*jev_reads.of(context.record), said)),
+        )
+        reads[said.key] = said
+    return context, reads
+
+
+def stop(context: Context, over: dict[propose_jev.Asked, float]) -> None:
+    """Keep which findings stopped the proposal before giving the refusal."""
+    keys = {one.key for one in over}
+    reads = []
+    for one in jev_reads.of(context.record):
+        if one.path is None and one.key in keys:
+            reads.append(replace(one, refused=True))
+        else:
+            reads.append(one)
+    jev_reads.kept_all(context, tuple(reads))
+    raise propose_jev.refused(
+        context.record.task.slug,
+        {finding.label: score for finding, score in over.items()},
+    )
+
+
+def read(context: Context, findings: Findings) -> tuple[Words, Record]:
+    """Check the saved verdicts against the findings as they stand on this proposal."""
+    judge = (
+        context.ports.judge
+        if findings and judge_same.sends(context.workspace.checkout)
+        else None
+    )
+    context, reads = gathered(context, findings, judge)
+    over = {
+        one: score
+        for one in findings
+        if (score := propose_jev.blocked(one, reads[one.key])) is not None
     }
-    if fresh:
-        guard.writable(context.workspace.state)
-        words = msgspec.json.encode(before | fresh)
-        files.write_whole(context.folder / KEPT, words)
-    refused = propose_jev.refused(context.record.task.slug, fresh)
-    if refused is not None:
-        raise refused
-    return before | fresh
+    if over:
+        stop(context, over)
+    return {one.label: reads[one.key] for one in findings}, context.record

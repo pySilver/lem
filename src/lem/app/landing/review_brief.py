@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import review_edited, review_facts
+from lem.app.landing import review_facts
 from lem.kernel import files
 from lem.model.landing import review_due
 from lem.records.base import Frozen
-from lem.records.landing.checks import Lowered
+from lem.records.landing.checks import Edited, Lowered
 from lem.records.landing.record import Landing
 from lem.records.landing.review import Reviewed
 from lem.records.landing.start import Resolution
@@ -52,7 +52,7 @@ class Inputs(Frozen, frozen=True, kw_only=True):
     topics: tuple[str, ...] = ()
     filed: tuple[review_facts.Seen, ...] = ()
     backlog: tuple[review_facts.Seen, ...] = ()
-    edited: tuple[review_edited.Edited, ...] = ()
+    edited: tuple[Edited, ...] = ()
     review: str = REVIEW_TOOL
 
 

@@ -29,11 +29,17 @@ def read_of(landing: Landing) -> Reviewed | None:
 
 
 def clean(review: Reviewed | None) -> bool:
-    """Whether a review was answered, found nothing and called nothing careful."""
+    """Whether the answered review found no defect in the resolution and called nothing careful."""
     return (
         review is not None
         and bool(review.answered)
-        and not review.findings
+        and not any(
+            (
+                review.counts.must_fix,
+                review.counts.should,
+                review.counts.nit,
+            )
+        )
         and review.careful is False
     )
 
@@ -41,9 +47,7 @@ def clean(review: Reviewed | None) -> bool:
 def left_must_fix(landing: Landing) -> bool:
     """Whether the newest review of the change left a must-fix."""
     review = carry.newest(landing)
-    return review is not None and any(
-        finding.level == "must-fix" for finding in review.findings
-    )
+    return review is not None and bool(review.counts.must_fix)
 
 
 def tip_carries(landing: Landing, world: World, *, careful: bool) -> bool:

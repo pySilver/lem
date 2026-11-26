@@ -29,6 +29,7 @@ class Context:
     workspace: places.Workspace
     record: Record
     world: World
+    run: str | None = None
 
     @property
     def folder(self) -> Path:

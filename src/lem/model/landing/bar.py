@@ -10,7 +10,7 @@ for each file under `## The bar`; the fast track has no plan, and gives none.
 import re
 from pathlib import PurePosixPath
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
@@ -24,9 +24,12 @@ from lem.model.landing.bar_marks import (
     patterns,
 )
 from lem.records.base import Frozen
+from lem.records.landing.checks import Edited
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
+
+    from lem.records.landing.checks import EditedKind
 
 # The characters kept from a line that shows a mark of the bar.
 BAR_LINE_LENGTH = 160
@@ -82,8 +85,6 @@ UNMISSED = frozenset(
 # measurement.
 NAMED = 5
 
-type Kind = Literal["snapshot", "test configuration", "test"]
-
 
 class Mark(Frozen, frozen=True, kw_only=True):
     """One place where the change lowers the bar: its file, what lowers it, the line that
@@ -93,14 +94,6 @@ class Mark(Frozen, frozen=True, kw_only=True):
     what: str
     line: str = ""
     reason: str | None = None
-
-
-class Edited(Frozen, frozen=True, kw_only=True):
-    """A test, a snapshot or a test configuration the change edits: one a reviewer reads
-    first."""
-
-    path: str
-    kind: Kind
 
 
 class BarRead(Frozen, frozen=True, kw_only=True):
@@ -155,7 +148,7 @@ class Lowered:
         out = status.startswith("R") and not TEST_FILE.search(now)
         if TEST_FILE.search(before) and (status == "D" or out):
             self.removed(status, before, now)
-        kind = self.kind(now)
+        kind = edited_kind(now)
         if kind and self.edits(status):
             self.edited.append(Edited(path=now, kind=kind))
 
@@ -169,20 +162,21 @@ class Lowered:
         self.marks = [mark for mark in self.marks if mark.path != before]
         self.marks.append(Mark(path=before, what=what))
 
-    def kind(self, now: str) -> Kind | None:
-        """Which file a reviewer reads first the file NOW is, or None."""
-        if SNAPSHOT.search(now):
-            return "snapshot"
-        if TEST_CONFIG.search(now) or WORKFLOW.search(now):
-            return "test configuration"
-        if TEST_FILE.search(now):
-            return "test"
-        return None
-
     def edits(self, status: str) -> bool:
         """Whether a row of STATUS edits a file that was there: a change, or a move with one."""
         renamed = status.startswith("R") and status != "R100"
         return status == "M" or renamed
+
+
+def edited_kind(now: str) -> EditedKind | None:
+    """Which file a reviewer reads first the file NOW is, or None."""
+    if SNAPSHOT.search(now):
+        return "snapshot"
+    if TEST_CONFIG.search(now) or WORKFLOW.search(now):
+        return "test configuration"
+    if TEST_FILE.search(now):
+        return "test"
+    return None
 
 
 def shebang_suffix(line: str) -> str:

@@ -16,7 +16,7 @@ from lem.records.landing.checks import Checked
 from lem.records.landing.merge import Merged
 from lem.records.landing.propose import MergeRead, Proposed
 from lem.records.landing.record import Landing, Pull
-from lem.records.landing.review import Filed, Finding, Reviewed
+from lem.records.landing.review import Counts, Filed, Finding, Reviewed
 from lem.records.landing.start import Based, Started
 from lem.records.task import Shape
 
@@ -100,6 +100,7 @@ REVIEWED = Reviewed(
     careful=False,
     answered=("claude",),
     findings=(NIT,),
+    counts=Counts(outside=1),
     to_file=("r1.1",),
     at=MOMENT,
 )

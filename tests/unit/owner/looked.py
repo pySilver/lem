@@ -11,7 +11,7 @@ from lem.model.owner.looks import Look, Session, Stop
 from lem.records.landing.merge import Merger, Refused
 from lem.records.landing.propose import MergeRead, Proposed
 from lem.records.landing.record import Landing, Pull
-from lem.records.landing.review import Finding
+from lem.records.landing.review import Counts
 from unit.landing.worlds import CHECKED, PROPOSED, REVIEWED, task
 
 if TYPE_CHECKING:
@@ -80,20 +80,13 @@ def opened(slug: str = "gift-note", **landing: object) -> Look:
     """An open task with a pull request and the landing's `landing` fields."""
     pull = Pull(number=44, url="https://github.com/o/r/pull/44", title="Gift note")
     proposal = landing.get("proposed")
-    must = Finding(
-        id="r1.1",
-        level="must-fix",
-        where="a.py",
-        title="a defect",
-        what="it",
-        against="over",
-    )
-    findings = (must,) if isinstance(proposal, Proposed) and not proposal.green else ()
+    not_green = isinstance(proposal, Proposed) and not proposal.green
+    counts = Counts(must_fix=int(not_green))
     made = Landing(
         phase="open",
         pull=pull,
         checked=replace(CHECKED, tip=TIP, base=BASE),
-        reviews=(replace(REVIEWED, tip=TIP, findings=findings),),
+        reviews=(replace(REVIEWED, tip=TIP, findings=(), counts=counts, to_file=()),),
     )
     found: Record = task("open")
     return Look(

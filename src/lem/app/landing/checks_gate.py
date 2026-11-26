@@ -65,6 +65,7 @@ class Gate:
 
     slug: str
     workspace: places.Workspace
+    run: str | None = None
     gauges: Gauges = dataclasses.field(default_factory=Gauges)
     own: checks_queue.Own | None = None
     said: tuple[object, float] | None = None
@@ -125,14 +126,15 @@ class Gate:
         return now - said[1] < SAY
 
     def tell(self, wait: checks_said.Wait, position: int) -> None:
-        """A new wait in the journal and `checks-wait.json` when its reason or the first in
-        the line changed, or after SAY seconds of the same."""
+        """A new wait in the journal when its reason or the first in the line changed, or
+        after SAY seconds of the same."""
         now = self.gauges.clock()
         key = (*told_as(wait), position)
         if self.fresh(key, now):
             return
         self.said = (key, now)
-        checks_waits.waited(self.workspace.state, self.slug, wait, position, now)
+        entry = checks_waits.wait_of(wait, self.slug, position, now, run=self.run)
+        checks_waits.noted(self.workspace.state, self.slug, entry)
 
 
 def told_as(wait: checks_said.Wait) -> tuple[object, ...]:

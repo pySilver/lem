@@ -52,7 +52,7 @@ def reasons_now(record: Record, world: World | None = None) -> tuple[str, ...]:
     proposed = record.landing.proposed if record.landing else None
     seen = proposed.reasons if proposed else ()
     head = green.FAST.split("(", 1)[0]
-    fast = green.fast(record, careful_words.owner_says(record, owner=False))
+    fast = green.fast(record, careful_words.owner_says(record))
     if not fast:
         fast = tuple(reason for reason in seen if reason.startswith(head))
     return fast + green.reasons(record, (), world)

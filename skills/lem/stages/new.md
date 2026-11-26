@@ -226,9 +226,8 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
 5. **The fast track's criterion and brief**: on the fast track, steps 1 and 2 of "The fast track"
    below, now, so that the line of step 8 quotes the criterion.
 6. **The brief** of a lead, on the standard track, also one with an interview: write it now, with
-   every line the ask already gives, so that a `/lem be-careful` during the interview writes its
-   line into it (`stages/correct.md`) and the lead finds the same answers. Write `brief.md` in the
-   task directory, with this and nothing more:
+   every line the ask already gives. Write `brief.md` in the task directory, with this and nothing
+   more:
 
    ```
    Read `skills/lem/prompts/lead.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.
@@ -247,8 +246,8 @@ the old task's commits: step 2 takes it as it is, whatever type step 1 takes. Wi
    `task.md`, in the owner's words. The brief is a file because a task may wait in the queue or
    get a second lead, and each start has to find the same answers: an ask of `/lem plan` writes
    `stop after the plan: yes` here, and that line is what keeps a plan from being built. When the
-   owner called the task careful in the ask, add the line `careful: the owner says so` and log his
-   words, as `stages/correct.md` says. The lead still writes the plan: it reads that line as a yes
+   owner called the task careful in the ask, log his words as `stages/correct.md` says. The lead
+   still writes the plan: it reads `owner_careful` on the task's record as a yes
    (`stages/plan.md`, step 2), and the plan talk needs a plan to talk about.
 7. **Does it wait for another task?** In two cases, and in no other:
    - *his order*, as step 1 read it, while the task he named has not landed or been answered;
