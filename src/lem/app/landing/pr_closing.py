@@ -2,10 +2,9 @@
 `stand_in_line`, `careful_line`): the plan talk, or why a careful request had none; each seat
 that stood in for another, a fact and no reason of not green; and the careful call."""
 
-from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from lem.app.landing import pr_talk
+from lem.app.landing import pr_seats, pr_talk
 from lem.model.landing import propose_careful, propose_gates
 from lem.model.landing.green_words import reason
 from lem.model.landing.review import newest
@@ -15,20 +14,6 @@ if TYPE_CHECKING:
     from lem.app.landing.pr_inputs import Lines
     from lem.model.landing.propose_facts import Facts
     from lem.records.record import Record
-    from lem.records.work import StandIn
-
-SEATS = MappingProxyType(
-    {"reviewer": "the reviewer", "planner": "the planner", "merger": "the merge agent"}
-)
-AGENTS = MappingProxyType({"claude": "Claude Code", "codex": "Codex"})
-ERRORS = MappingProxyType(
-    {
-        "missing": "is not on this Mac",
-        "login": "had no login",
-        "tokens": "had no tokens",
-        "model": "did not know the model",
-    }
-)
 
 
 def became(record: Record, facts: Facts) -> list[str]:
@@ -57,20 +42,6 @@ def talk(record: Record, facts: Facts) -> Lines:
     return (f"- no plan talk: the request became careful after its plan, {listed}",)
 
 
-def agent_of(line: str) -> str:
-    """The agent of a seat's line (`agent/model:effort`) by the name a person knows it by."""
-    agent = line.partition("/")[0].partition(":")[0]
-    return AGENTS.get(agent, agent)
-
-
-def stand_in(found: StandIn) -> str:
-    """A seat that stood in for another: which, for which, and why."""
-    seat, error = SEATS[found.seat], ERRORS[found.error]
-    agent = agent_of(found.failed)
-    took = found.took or "nothing"
-    return f"- {seat} was `{took}` in place of `{found.failed}`: {agent} {error}"
-
-
 def careful_line(record: Record, careful: tuple[str, ...]) -> str:
     """Whether the request is careful, each reason it is, and the newest review's call with
     its reason when the review said no."""
@@ -90,5 +61,5 @@ def lines(
 ) -> Lines:
     """The plan talk on the standard track, each stand-in, and the careful call."""
     talks = talk(record, facts) if full else ()
-    stood = tuple(map(stand_in, record.task.stand_ins))
+    stood = pr_seats.lines(record.task.stand_ins)
     return (*talks, *stood, careful_line(record, careful))

@@ -10,6 +10,7 @@ of the run itself ends it as refused. Each end is one `CheckEnd` in the journal,
 record and the checks' span ended.
 """
 
+import time
 from functools import partial
 from typing import TYPE_CHECKING
 
@@ -36,9 +37,9 @@ def act(context: frame.Context) -> Checked:
     stopper = checks_stop.Stopper()
     with stopper.held():
         checks_ready.gated(context)
-        began = clock.now()
+        began, ticked = clock.now(), time.monotonic()
         checks_ready.written(context, partial(checks_ready.began, at=began))
-        verdict = checks_verdict.judged(context, began)
+        verdict = checks_kept.timed(checks_verdict.judged(context, began), ticked)
         stopper.done = True
         keep = partial(checks_kept.kept, world=context.world, verdict=verdict)
         checks_ready.written(context, partial(keep, at=clock.now()))

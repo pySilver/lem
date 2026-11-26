@@ -3,20 +3,66 @@ call on a moved base from its reply, the read that covers its brief's base by it
 that cannot be recorded asked again once and settled the second time (`landing.md` E, "Two
 unusable answers", "No answer"), and a tip whose read says another round."""
 
+from datetime import timedelta
+from typing import TYPE_CHECKING
+
 import pytest
 from inline_snapshot import snapshot
 from msgspec.structs import replace
 
+from lem.app.landing import merge_compared, merge_time
 from lem.kernel.errors import Refusal
 from lem.model.landing import merge_said, mergeread
+from lem.records.journal.proposal import ProposalNoted
 from lem.records.landing.propose import MergeRead
 from lem.records.landing.record import Landing
 from unit.landing.merges import MOVED, MOVED_TREE, code_of, facing, moved, opened
 from unit.landing.worlds import BASE, MOMENT, OPENED, OTHER, TIP, TREE, task
 
+if TYPE_CHECKING:
+    from lem.records.approvals import Size
+    from lem.records.record import Record
+
 OPENED_LANDING = task("open", **OPENED).landing or Landing()
 UNMOVED = mergeread.Briefed(tip=TIP, base=BASE, base_tree=TREE, moved=False)
 ON_MOVED = mergeread.Briefed(tip=TIP, base=MOVED, base_tree=MOVED_TREE, moved=True)
+
+
+def timed(track: Size, opened: int, *proposals: int) -> Record:
+    """A task's opening and each proposal, in minutes from the test's moment."""
+    made = task()
+    criteria = replace(made.task.criteria, size=track)
+    task_at = replace(
+        made.task, opened=MOMENT + timedelta(minutes=opened), criteria=criteria
+    )
+    journal = tuple(
+        ProposalNoted(
+            at=MOMENT + timedelta(minutes=minute), tip=TIP, green=True, reasons=()
+        )
+        for minute in proposals
+    )
+    return replace(made, task=task_at, journal=journal)
+
+
+def test_the_first_proposal_time_against_the_median_of_the_same_track() -> None:
+    first = timed("small", 0, 10, 210)
+    second = timed("small", 0, 30)
+    full = timed("full", 0, 180)
+    current = timed("small", 60, 240, 300)
+    later = timed("small", 60, 241)
+    records = (first, second, full, current, later)
+    measured = merge_time.measured(current, records)
+    assert (measured.seconds, measured.expected) == (3 * 3600, 20 * 60)
+    assert "the median of 2 earlier tasks of the fast track" in measured.source
+    assert merge_time.measured(first, records).expected is None
+    assert merge_time.measured(timed("small", 0), records).seconds is None
+
+
+def test_records_that_do_not_read_are_named_after_the_source_of_the_time() -> None:
+    assert merge_compared.left_out(()) == ""
+    assert merge_compared.left_out(("broken", "torn")) == (
+        "; the records of broken, torn do not read, so the comparison leaves them out"
+    )
 
 
 def first_read(briefed: mergeread.Briefed, reply: str | None) -> MergeRead:

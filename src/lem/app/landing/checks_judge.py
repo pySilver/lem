@@ -4,10 +4,19 @@ the base (or the polish pass's run of them, when its five inputs are the same no
 and the size are `checks_bar.py`.
 """
 
+from functools import partial
 from typing import TYPE_CHECKING
 
-from lem.app.landing import checks_criteria, checks_git, checks_plan
+from lem.app.landing import (
+    changes,
+    checks_criteria,
+    checks_git,
+    checks_plan,
+    checks_ready,
+)
+from lem.kernel import clock
 from lem.model.landing import checks, checks_ended, checks_red
+from lem.records.journal.criteria import CriteriaRun
 from lem.records.landing.checks import CriterionCheck
 
 if TYPE_CHECKING:
@@ -50,10 +59,19 @@ def small(record: Record) -> bool:
     return shape is None or shape.track == "small"
 
 
+def begun(context: frame.Context, at: str | None) -> None:
+    """Write into the journal that the check of the criteria begins on the tip: its tests run,
+    or the polish pass's run at `at` is taken."""
+    tip = context.world.tip or ""
+    entry = CriteriaRun(at=clock.now(), tip=tip, taken=at)
+    checks_ready.written(context, partial(changes.noted, entry=entry))
+
+
 def criteria_run(context: frame.Context, now: Moment) -> tuple[Red | None, str | None]:
     """The run of the criteria's tests that the checks take: the polish pass's, with its
-    commit; else a run of their own."""
+    commit; else a run of their own. Its start is on record first."""
     at = taken(context)
+    begun(context, at)
     if at is not None:
         return context.record.task.criteria.red, at
     return checks_criteria.red(context.workspace, context.record, now), None

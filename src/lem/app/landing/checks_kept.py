@@ -1,6 +1,8 @@
 """The run of the checks as the record keeps it, and its end in the journal with the owner's
 line (`land.checks_say` and the `gate.end` of `land.checks_run` on `main`)."""
 
+import dataclasses
+import time
 from typing import TYPE_CHECKING
 
 from lem.app.landing import changes, checks_record
@@ -14,6 +16,12 @@ if TYPE_CHECKING:
     from lem.model.landing.world import World
     from lem.records.base import Moment
     from lem.records.record import Record
+
+
+def timed(verdict: Verdict, ticked: float) -> Verdict:
+    """The verdict with how long its run took since `ticked`, by the monotonic clock, which no
+    change of the wall clock moves (`land.checks_run` on `main`)."""
+    return dataclasses.replace(verdict, seconds=round(time.monotonic() - ticked))
 
 
 def end_of(record: Record, world: World, verdict: Verdict, at: Moment) -> CheckEnd:
@@ -33,7 +41,15 @@ def end_of(record: Record, world: World, verdict: Verdict, at: Moment) -> CheckE
         CommandEnd(name=outcome.command, passed=outcome.passed, last=outcome.last)
         for outcome in run.outcomes
     )
-    return CheckEnd(at=at, outcome=run.outcome, say=said, commands=commands)
+    return CheckEnd(
+        at=at,
+        outcome=run.outcome,
+        say=said,
+        commands=commands,
+        tip=run.tip,
+        seconds=verdict.seconds,
+        taken=next((one.taken_at for one in run.criteria if one.taken_at), None),
+    )
 
 
 def kept(record: Record, *, world: World, verdict: Verdict, at: Moment) -> Record:

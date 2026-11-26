@@ -5,8 +5,9 @@ queued after the entries were made counts at the next look; and the look itself 
 on `main`), whose start writes itself into `load.lock` as the last one.
 """
 
+from itertools import chain
 from pathlib import Path
-from typing import IO, TYPE_CHECKING
+from typing import IO
 
 import msgspec
 
@@ -15,51 +16,52 @@ from lem.kernel.errors import Refusal
 from lem.model.landing import checks_line
 from lem.model.task import red_base
 from lem.records.base import Frozen
-from lem.store import places, tasks
+from lem.store import places, survey
 
-if TYPE_CHECKING:
-    from lem.records.record import Record
+# The tasks waited for, and what did not read.
+type Read = tuple[frozenset[str], tuple[str, ...]]
 
 
-def waited_for(state: Path) -> frozenset[str]:
+def waited_for(state: Path) -> Read:
     """The tasks another open task of the repository whose state folder is `state` waits for:
-    the `after` of each queued task, and of each task blocked because the base is red."""
-    return frozenset(
-        named for record in tasks.every(state) for named in after_of(record)
-    )
-
-
-def after_of(record: Record) -> tuple[str, ...]:
-    """The tasks the record's task waits for, by the rule of `waited_for`."""
-    task = record.task
-    if task.status == "queued":
-        return task.after
-    repair = red_base.dependency(task)
-    return (repair,) if repair else ()
+    the `after` of each queued task, and of each task blocked because the base is red; and
+    the folder of each task whose record does not read, which waits for none."""
+    records, unread = survey.records(state)
+    waits = map(red_base.after_of, records)
+    folders = [places.task_folder(state, slug) for slug in unread]
+    return frozenset(chain.from_iterable(waits)), tuple(map(str, folders))
 
 
 def wanted(
     line: tuple[checks_line.Entry, ...], own: checks_line.Entry
 ) -> tuple[tuple[checks_line.Entry, ...], tuple[str, ...]]:
     """Each entry marked `wanted` when another open task of its repository waits for it, read
-    now, once for each repository, and the repositories whose state does not read (the
-    checkout moved or is gone): for this look their entries count as wanted by no task. The
-    run's own repository that does not read refuses the run, as every step does."""
-    named: dict[str, frozenset[str]] = {}
+    now, once for each repository, and what did not read: a repository whose state does not
+    (the checkout moved or is gone), whose entries count as wanted by no task for this look,
+    and the folder of a task whose record does not, which waits for no task. The run's own
+    repository that does not read refuses the run, as every step does."""
     unread: list[str] = []
-    for repo in sorted({entry.repo for entry in line}):
-        try:
-            named[repo] = waited_for(places.workspace(Path(repo)).state)
-        except Refusal:
-            if repo == own.repo:
-                raise
-            named[repo] = frozenset()
-            unread.append(repo)
+    repos = sorted({entry.repo for entry in line})
+    named = {repo: read_of(repo, own, unread) for repo in repos}
     marked = tuple(
         msgspec.structs.replace(entry, wanted=entry.task in named[entry.repo])
         for entry in line
     )
     return marked, tuple(unread)
+
+
+def read_of(repo: str, own: checks_line.Entry, unread: list[str]) -> frozenset[str]:
+    """What the tasks of `repo` wait for; what of it did not read goes into `unread`: the
+    repository, or the folder of each task whose record does not read."""
+    try:
+        found, left = waited_for(places.workspace(Path(repo)).state)
+    except Refusal:
+        if repo == own.repo:
+            raise
+        unread.append(repo)
+        return frozenset()
+    unread.extend(left)
+    return found
 
 
 class Seen(Frozen, frozen=True, kw_only=True):

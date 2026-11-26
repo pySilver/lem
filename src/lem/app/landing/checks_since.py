@@ -19,26 +19,28 @@ CHECKS = "checks"
 
 class Running(Frozen, frozen=True, kw_only=True):
     """A run that holds the lock: since when it runs (or waits), for how many seconds its
-    commands run, its wait at the gate, and the workspace's last passed run in seconds."""
+    commands run, its wait at the gate, the workspace's last passed run in seconds, and the
+    tasks whose record did not read for that measure."""
 
     since: Moment
     seconds: int | None = None
     waits: checks_waits.Waited | None = None
     last: int | None = None
+    unread: tuple[str, ...] = ()
 
 
 def running(record: Record, state: Path, holder: Holder, now: Moment) -> Running:
     """Where the run that holds the lock stands: its commands run since its
     span began, or it waits at the gate."""
-    last = checks_last.last_seconds(state)
+    last, unread = checks_last.last_seconds(state)
     waits = checks_waits.latest(record.journal, holder.run)
     if waits is not None:
-        return Running(since=holder.since, waits=waits, last=last)
+        return Running(since=holder.since, waits=waits, last=last, unread=unread)
     span = open_span(record, holder.since)
-    if span is not None:
-        seconds = int((now - span.start).total_seconds())
-        return Running(since=span.start, seconds=seconds, last=last)
-    return Running(since=holder.since, last=last)
+    if span is None:
+        return Running(since=holder.since, last=last, unread=unread)
+    seconds = int((now - span.start).total_seconds())
+    return Running(since=span.start, seconds=seconds, last=last, unread=unread)
 
 
 def open_span(record: Record, since: Moment) -> Span | None:

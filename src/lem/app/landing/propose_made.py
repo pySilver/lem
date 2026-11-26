@@ -10,6 +10,7 @@ from lem.app.landing import changes, pr_sync
 from lem.records.base import Frozen
 from lem.records.journal.landing import NotGreen
 from lem.records.journal.proposal import ProposalNoted
+from lem.records.landing.propose import OwnerMerge
 from lem.records.landing.record import Pull
 
 if TYPE_CHECKING:
@@ -32,6 +33,7 @@ class Made(Frozen, frozen=True, kw_only=True):
     branch: str
     text: str
     synced: str | None = None
+    owner_merge: OwnerMerge | None = None
 
 
 def opened(
@@ -49,7 +51,7 @@ def opened(
         owner_merge=made.owner_merge,
     )
     changed = changes.landing(
-        record, proposed=made, pull=pull, phase="open", refused=None
+        record, proposed=made, pull=pull, phase="open", refused=None, unconfirmed=()
     )
     changed = carried(changed, made, read)
     changed = changes.noted(changed, proposal)
@@ -89,6 +91,7 @@ def given(record: Record, made: Proposed, where: tuple[Pull, str]) -> Made:
         branch=branch,
         text=made.text or "",
         synced=pr_sync.summary(record, made),
+        owner_merge=made.owner_merge,
     )
 
 

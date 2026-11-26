@@ -3,11 +3,20 @@ branch is on origin's base, what it refuses before a rebase, what it records of 
 the words of a rebase that stopped (`landing.md` E, "Teammate commit", "Conflict with the base",
 "Rebase refused by git", "Merge-only change")."""
 
+import shlex
+
 from inline_snapshot import snapshot
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
-from lem.model.landing import base, base_empty, base_kept, base_stops
+from lem.model.landing import (
+    base,
+    base_empty,
+    base_kept,
+    base_said,
+    base_stops,
+    checks_ended,
+)
 from lem.model.landing.rebased import Clash
 from lem.model.landing.world import Due, Held
 from lem.records.landing.start import Based, Polished, Resolution
@@ -280,6 +289,32 @@ def test_what_an_abort_left_is_named_with_the_command_that_puts_it_back() -> Non
     assert missing == snapshot(
         "the branch docs/fix-the-login is at no commit, not at its tip before the rebase 1111111111111111111111111111111111111111 (`git -C /work/.lem/worktrees/fix-the-login branch -f docs/fix-the-login 1111111111111111111111111111111111111111` puts it back); HEAD is detached at no commit, not on the branch docs/fix-the-login (`git -C /work/.lem/worktrees/fix-the-login switch docs/fix-the-login` puts it back)"
     )
+
+
+SPACED = "/a workspace/.lem/worktrees/fix-the-login"
+
+
+def commands_of(said: str) -> list[list[str]]:
+    """Each `git ...` command between backticks in `said`, as a shell splits it."""
+    quoted = said.split("`")[1::2]
+    return [shlex.split(one) for one in quoted if one.startswith("git ")]
+
+
+def test_each_command_of_a_refusal_keeps_a_worktree_path_with_a_space_whole() -> None:
+    record = task(**PREPARED)
+    stopped = aborted(where=SPACED, rebasing=True, branch_tip=OTHER, on=None)
+    said = (
+        base_stops.conflict(record, world(), ("a.txt",), aborted(where=SPACED)).fix,
+        base_stops.left(world(), stopped),
+        base_said.in_progress(record, SPACED).fix,
+        base_said.teammate(record, world(), ("abc a teammate's fix",), SPACED).fix,
+        base_empty.merge_only(record, world(), "a.txt", TIP, SPACED).fix,
+        checks_ended.tree_moved("fix-the-login", SPACED, " M a.txt").fix,
+        checks_ended.committed("fix-the-login", SPACED, TIP, OTHER).fix,
+    )
+    found = [command for one in said for command in commands_of(one)]
+    assert len(found) == 10
+    assert all(command[:3] == ["git", "-C", SPACED] for command in found)
 
 
 def test_a_conflict_names_its_files_for_a_builder() -> None:

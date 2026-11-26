@@ -1,6 +1,7 @@
 """What `base` refuses before its rebase, each with its code, why and the fix that names the
 way on (`landing.md` F, `base`; `land.cmd_base` and `Task.own_remote` on `main`)."""
 
+import shlex
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
@@ -24,8 +25,8 @@ def in_progress(record: Record, where: str) -> Refusal:
         "rebase-in-progress",
         f"a rebase is in progress in the worktree of {slug}, a builder's own: base starts "
         "no rebase over it and aborts none",
-        f"the builder finishes it (`git -C {where} rebase --continue`) or ends it "
-        f"(`git -C {where} rebase --abort`), then lem land base {slug} runs again",
+        f"the builder finishes it (`git -C {shlex.quote(where)} rebase --continue`) or ends it "
+        f"(`git -C {shlex.quote(where)} rebase --abort`), then lem land base {slug} runs again",
     )
 
 
@@ -43,7 +44,7 @@ def teammate(
         "teammate",
         f"origin's {branch} holds {len(theirs)} commit(s) that Lem did not push and the "
         f"task's branch does not hold: {named}{rest}. A push would remove them",
-        f"`git -C {where} pull --rebase origin {branch}` brings them into the task's "
+        f"`git -C {shlex.quote(where)} pull --rebase origin {branch}` brings them into the task's "
         f"branch; then lem land base {slug} runs again: they are part of the change, with "
         "its checks and a read",
     )
@@ -79,8 +80,9 @@ def again(record: Record, world: World, where: str) -> Refusal | None:
         "rebase-again",
         f"the tip is the one Lem's rebase made of {before}, and origin's base moved again; "
         "a rebase of it would lose each commit git left out of the first",
-        f"`git -C {where} reset --hard {before}` puts the branch back on the tip before "
-        f"Lem's rebase, then lem land base {slug} rebases it once onto the base now",
+        f"`git -C {shlex.quote(where)} reset --hard {before}` puts the branch back on the "
+        f"tip before Lem's rebase, then lem land base {slug} rebases it once onto the base "
+        "now",
     )
 
 

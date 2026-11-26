@@ -323,7 +323,8 @@ def test_the_owners_merge_stands_while_the_change_and_its_reasons_stay() -> None
         state="ended", why="the reasons it is not green changed"
     )
     assert standing.standing(landing, "d", carried=False) == OwnerMerge(
-        state="ended", why="no review covers the change on the new base"
+        state="ended",
+        why="the previous approval does not cover the change on the new base",
     )
     unshown = standing.standing(replace(landing, based=UNSHOWN), "d", carried=False)
     assert unshown is not None

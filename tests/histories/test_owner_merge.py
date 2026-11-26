@@ -89,7 +89,8 @@ def test_a_new_round_whose_rebase_showed_no_carry_ends_his_merge() -> None:
     )
     ended = standing.standing(landing, digest, carried=False)
     assert ended == OwnerMerge(
-        state="ended", why="no review covers the change on the new base"
+        state="ended",
+        why="the previous approval does not cover the change on the new base",
     )
 
 

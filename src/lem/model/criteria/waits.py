@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.model.task import owner_question, question_keys
+from lem.records.criteria import Waited
 from lem.records.holds import Hold, OwnerHold
 from lem.records.questions import Answer, Question
 
@@ -79,12 +80,13 @@ def question(task: Task, now: datetime, shown: str | None) -> Question:
 
 def asked(task: Task, now: datetime, line: str, shown: str | None) -> Task:
     """The task whose criteria wait for his yes again, under the hold `line`, with a new
-    question that shows the file of mark `shown`."""
+    question that shows the file of mark `shown`: their newest wait, which begins now."""
     hold = OwnerHold(on="criteria", line=line, since=now)
     initial = question(replace(task, hold=hold), now, shown)
     fresh = replace(initial, id=question_keys.fresh(task, initial.id))
     questions = (*task.questions, fresh)
-    return replace(task, hold=hold, questions=questions)
+    criteria = replace(task.criteria, waited=Waited(since=now))
+    return replace(task, hold=hold, questions=questions, criteria=criteria)
 
 
 def answered(task: Task, question: Question, answer: Answer) -> Task:

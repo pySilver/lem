@@ -99,7 +99,7 @@ def inputs(
         request=there(folder / "task.md"),
         plan=task.plan.path if task.plan else there(folder / "criteria.md"),
         range=span,
-        rules=f"lem --repo {context.worktree} rules --range {span}",
+        rules=review_facts.rules_of(context.worktree, span),
         worktree=str(context.worktree),
         lowered=checked.lowered if checked else (),
         topics=topics,

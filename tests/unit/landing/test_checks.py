@@ -229,14 +229,29 @@ def test_the_newest_passed_end_of_any_task(tmp_path: Path) -> None:
         ran("four", "stopped", 5, later + timedelta(minutes=2)),
     ):
         tasks.create(tmp_path, made)
-    assert checks_last.last_seconds(tmp_path) == 266
+    assert checks_last.last_seconds(tmp_path) == (266, ())
+
+
+def damaged(state: Path, slug: str = "broken") -> None:
+    """A task folder in `state` whose record is no record."""
+    folder = state / "tasks" / slug
+    folder.mkdir(parents=True)
+    (folder / "task.json").write_text("{ this is no record")
+
+
+def test_a_damaged_record_of_another_task_leaves_the_last_run_and_names_itself(
+    tmp_path: Path,
+) -> None:
+    tasks.create(tmp_path, ran("two", "passed", 266))
+    damaged(tmp_path)
+    assert checks_last.last_seconds(tmp_path) == (266, ("broken",))
 
 
 def test_no_passed_run_is_none(tmp_path: Path) -> None:
-    assert checks_last.last_seconds(tmp_path) is None
+    assert checks_last.last_seconds(tmp_path) == (None, ())
     tasks.create(tmp_path, ran("one", "red", 20))
     tasks.create(tmp_path, ran("two", "refused", 400))
-    assert checks_last.last_seconds(tmp_path) is None
+    assert checks_last.last_seconds(tmp_path) == (None, ())
 
 
 # The step lock's refusals (`land.held_refusal` on `main`).
@@ -692,11 +707,10 @@ def test_the_tasks_waited_for_are_read_from_queued_and_red_base_blocks(
     tasks.create(
         state, record("started-since", status="building", after=("an-old-one",))
     )
-    assert checks_wanted.waited_for(state) == {
-        "fix-red-base",
-        "fix-flaky-test",
-        "fix-board",
-    }
+    assert checks_wanted.waited_for(state) == (
+        frozenset({"fix-red-base", "fix-flaky-test", "fix-board"}),
+        (),
+    )
 
 
 def test_the_repair_of_a_red_base_starts_before_the_longest_wait(line: Line) -> None:
@@ -719,6 +733,20 @@ def test_a_task_queued_after_the_entries_were_made_counts_at_the_next_look(
     queued(line.lem, "board-filters", "fix-red-base")
     assert line.look(keys, "12:12").look.behind == "fix-red-base"
     assert line.look(repair, "12:12").look.go
+
+
+def test_a_damaged_record_of_another_task_counts_as_wanted_by_no_task(
+    line: Line,
+) -> None:
+    keys = line.join("keys-help-in-a-sticky-footer", "12:00")
+    queued(line.lem, "board-filters", "fix-red-base")
+    state = places.state_of(line.lem)
+    damaged(state)
+    folder = str(state / "tasks" / "broken")
+    assert checks_wanted.waited_for(state) == (frozenset({"fix-red-base"}), (folder,))
+    found = line.look(keys, "12:11")
+    assert found.look.go
+    assert found.unread == (folder,)
 
 
 def test_another_repository_whose_state_does_not_read_counts_as_wanted_by_no_task(
@@ -1151,7 +1179,7 @@ def test_the_last_passed_run_is_found_behind_a_red_retry(tmp_path: Path) -> None
             journal=(*passed.journal, retry),
         ),
     )
-    assert checks_last.last_seconds(tmp_path) == 266
+    assert checks_last.last_seconds(tmp_path) == (266, ())
 
 
 def test_a_new_place_in_the_line_is_told_again(
@@ -1194,6 +1222,20 @@ def test_each_of_the_five_inputs_that_differs_runs_the_tests(field: str) -> None
     now = checks_criteria.digest(replace(found, **{field: other[field]}))
     assert checks.pass_kept(kept, checks_criteria.digest(found), small=False)
     assert not checks.pass_kept(kept, now, small=False)
+
+
+def test_the_length_of_a_run_is_the_monotonic_clocks_when_the_wall_clock_went_back() -> (
+    None
+):
+    before = task(**PREPARED)
+    verdict = checks_verdict.Verdict(
+        run=replace(CHECKED, at=MOMENT),
+        contract=contract.mark(before.task),
+        seconds=42,
+    )
+    earlier = MOMENT - timedelta(hours=1)
+    end = checks_kept.end_of(before, world(), verdict, earlier)
+    assert end.seconds == 42
 
 
 def test_a_pass_of_a_contract_that_moved_since_it_began_is_not_written() -> None:

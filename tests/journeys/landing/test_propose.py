@@ -16,6 +16,7 @@ from msgspec.structs import replace
 
 from fakes.outside import FakeJudge
 from fakes.repo import git_env, run_git
+from journeys.landing.test_review import OVER, UNDER, file_step, reviewed
 from journeys.test_skeleton import (
     BRANCH,
     JOURNEY,
@@ -357,6 +358,72 @@ def test_jev_stops_the_proposal_once_for_a_finding_it_reads_over_the_bar(
     assert envelope["ok"] is True, envelope
     assert len(judge.asked) == 1
     assert f"{line}; Jev: 0.85" in world.forge.bodies[1].splitlines()
+
+
+def test_jev_reads_an_under_bar_item_and_a_notes_line_once_across_start_over(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "read")
+    reviewed(capsys, world, outside=[UNDER])
+    assert file_step()(capsys, world)["ok"]
+    judge = wiring.bound(
+        Place(checkout=world.checkout, home=tmp_path, environ={})
+    ).judge
+    assert isinstance(judge, FakeJudge)
+    item = "docs/backlog/the-notes-have-no-date.md"
+    label = "The README has one long line"
+    judge.over.update({UNDER["title"]: 0.82, label: 0.85})
+    notes = f"- {label}; under: it fits on the page\n"
+    refused = propose_with(capsys, world, notes)["refusal"]
+    assert refused["code"] == "jev-over"
+    assert item in refused["why"] and "Jev: 0.82" in refused["why"]
+    assert label in refused["why"] and "Jev: 0.85" in refused["why"]
+    assert [(one.where, one.title) for one in judge.asked] == [
+        (UNDER["where"], UNDER["title"]),
+        ("", label),
+    ]
+    assert UNDER["why"] not in judge.asked[0].what
+    assert "it fits on the page" not in judge.asked[1].what
+    edited = notes.replace("it fits on the page", "the page has no width limit")
+    accepted = propose_with(capsys, world, edited)
+    assert accepted["ok"] and accepted["result"]["green"]
+    lines = text_of(world).splitlines()
+    assert any(item in line and line.endswith("Jev: 0.82") for line in lines)
+    assert f"{edited.strip()}; Jev: 0.85" in lines
+    assert len(judge.asked) == 2
+    before = world.record()["landing"]["jev"]
+    moved = command("task", "move", "SLUG", "ready", "--start-over", "read it again")
+    assert moved(capsys, world)["ok"]
+    assert command("land", "start", "SLUG")(capsys, world)["ok"]
+    assert world.record()["landing"]["jev"] == before
+
+
+def test_each_review_round_files_its_own_commit_and_the_proposal_names_both_items(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "read")
+    reviewed(capsys, world, outside=[OVER], must_fix=1)
+    assert proposal(capsys, world)["refusal"]["code"] == "not-due"
+    (world.worktree / "README.md").write_text("The README says receive.\n\nOne word.\n")
+    run_git(world.worktree, "commit", "--quiet", "-am", "fix: the first review")
+    assert command("land", "checks", "SLUG")(capsys, world)["ok"]
+    reviewed(capsys, world, kind="round", outside=[UNDER])
+    assert proposal(capsys, world)["refusal"]["code"] == "not-due"
+    filed = file_step()(capsys, world)
+    assert filed["ok"], filed
+    first, second = filed["result"]
+    piece, other = first["path"], second["path"]
+    assert (world.worktree / piece).read_text().startswith("---\nworth: later\n")
+    assert (world.worktree / other).read_text().startswith("---\nworth: no\n")
+    tip = run_git(world.worktree, "rev-parse", "HEAD")
+    assert run_git(world.worktree, "show", "--format=", "--name-only", "HEAD^") == piece
+    assert run_git(world.worktree, "show", "--format=", "--name-only", tip) == other
+    assert not file_step()(capsys, world)["ok"]
+    assert run_git(world.worktree, "rev-parse", "HEAD") == tip
+    assert proposal(capsys, world)["ok"]
+    assert piece in text_of(world) and other in text_of(world)
 
 
 def test_propose_sends_nothing_to_jev_when_the_team_disables_findings(

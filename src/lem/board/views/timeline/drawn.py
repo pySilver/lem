@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 def drawn(record: Record, frame: Frame) -> list[Drawn]:
     """The card's stretches and moments of the task, moments outside its time left out."""
     task = record.task
-    spans = list(worked.worked(task, frame))
+    spans = list(worked.worked(record, frame))
     covering = [*spans, *criteria.written(record, frame)]
     covering.extend(criteria.read(record, frame))
     covers = [

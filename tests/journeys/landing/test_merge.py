@@ -179,6 +179,11 @@ def test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read(
     shown = json.loads(facts.split("```json\n", 1)[1].split("\n```", 1)[0])
     assert shown["task_directory"] == str(world.task_folder)
     assert shown["pictures"] == ["media/after.png", "media/detail/phone.WEBP"]
+    assert shown["time"]["seconds"] >= 0
+    assert shown["time"]["expected"] is None
+    assert (
+        shown["time"]["from"] == "no earlier first proposal of the fast track on record"
+    )
     assert '"checkout": "gh pr checkout 1"' in facts
     assert facts.startswith("Read `skills/lem/prompts/merge.md`")
     assert "https://github.com/owner/project/pull/1" in facts
@@ -203,6 +208,26 @@ def test_a_moved_base_is_refused_read_with_what_moved_and_merged_on_a_safe_read(
     )
     assert landing(world)["merged"].get("text_updated", True) is True
     assert landing(world)["proposed"]["text"].startswith("pr-1-")
+
+
+def test_a_damaged_record_of_another_task_leaves_the_brief_and_names_itself(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge-review")
+    damaged = world.task_folder.parent / "other-task"
+    damaged.mkdir()
+    (damaged / "task.json").write_text("{ this is no record")
+    briefed = brief(capsys, world)
+    assert briefed["ok"] is True, briefed
+    facts = (tmp_path / briefed["result"]["brief"]).read_text()
+    shown = json.loads(facts.split("```json\n", 1)[1].split("\n```", 1)[0])
+    assert shown["time"]["seconds"] >= 0
+    assert shown["time"]["expected"] is None
+    assert shown["time"]["from"] == (
+        "no earlier first proposal of the fast track on record; the record of "
+        "other-task does not read, so the comparison leaves it out"
+    )
 
 
 def test_a_safe_read_covers_its_base_and_no_later_one(

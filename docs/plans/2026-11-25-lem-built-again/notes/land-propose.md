@@ -114,7 +114,21 @@ Today's checks say which existing tests, snapshots and test configurations the c
    (`changed_after_read`). `Criteria.change` keeps only the newest; a count, or the changes
    with their moments, on `Criteria`.
 
-The rows of these (`TheWait`, `ChangesFromHisNotes`) are in the report as not placed.
+Close group A reads `Criteria.waited` and `Criteria.changed` in the proposal, and their
+writers are built:
+
+- `model/task/holds.waiting` begins `Criteria.waited` when its topic is `criteria`. The
+  interview that a fast task takes after it grows is a separate hold, with no wait.
+- `model/criteria/waits.asked` begins a new wait after the owner's note.
+  `model/criteria/approve.recorded` writes the number of the first owner or alone approval
+  that ends the newest wait. A later approval leaves that number in place.
+- `model/criteria/change.changed` appends the moment of each accepted change;
+  `app/criteria/change.changing` writes no change twice on a retry.
+- `PersonaRead.changes` is the count of `Criteria.changed` when the read ended
+  (`model/criteria/reads.ended`), so the proposal counts the changes after a read by their
+  order, also in the same second.
+
+`tests/unit/criteria/test_history.py` drives each through the commands.
 
 ## For `sessions`: a stand-in that gave an error itself
 

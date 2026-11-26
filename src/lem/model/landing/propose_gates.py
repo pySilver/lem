@@ -3,6 +3,7 @@ backlog item still on its branch, a plan talk its plan called for and nobody hel
 that waits for the owner, a careful change that did not get the full set, and a title that is
 not one line."""
 
+import shlex
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
@@ -36,8 +37,8 @@ def own_item(record: Record, facts: Facts) -> Refusal | None:
         "own-item",
         f"{slug} was started from the backlog item {own} (its ask is that path), and the "
         "branch still holds it: the task does that item's work, so its branch removes it",
-        f"a builder removes it in the task's worktree in a commit of its own (git rm -q -- "
-        f"{own}, then a commit in the project's message form), then lem land checks "
+        "a builder removes it in the task's worktree in a commit of its own (git rm -q -- "
+        f"{shlex.quote(own)}, then a commit in the project's message form), then lem land checks "
         f"{slug} and this step run again; the review that read the change still covers it",
     )
 

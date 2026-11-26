@@ -40,12 +40,25 @@ def stopped(
     record, world = context.record, context.world
     undone(context)
     aborted = base_facts.aborted(context)
-    if not base_stops.left(world, aborted):
-        files = made.files if isinstance(made, Conflict) else None
-        context.write(record, partial(back, kept=kept, world=world, files=files))
+    restored = not base_stops.left(world, aborted)
+    if restored:
+        context.write(
+            record,
+            partial(
+                back,
+                kept=kept,
+                world=world,
+                files=made.files if isinstance(made, Conflict) else None,
+            ),
+        )
     if isinstance(made, GitRefused):
         return base_stops.refused(record, world, made.said, aborted)
-    return base_stops.conflict(record, world, made.files, aborted)
+    skipped = (
+        restored
+        and world.tip is not None
+        and bool(context.ports.git.left_out(context.worktree, world.base, world.tip))
+    )
+    return base_stops.conflict(record, world, made.files, aborted, reapply=skipped)
 
 
 def back(

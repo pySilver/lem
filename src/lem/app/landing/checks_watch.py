@@ -35,7 +35,8 @@ LOOK = 0.1
 class Status(Frozen, frozen=True, kw_only=True):
     """Whether the task's checks run, since when and for how long, why they wait at the gate,
     the step that holds the lock when it is not the checks, the last passed run of the
-    workspace, whether this one is overdue and its line, and how the task's last run ended."""
+    workspace and the tasks whose record did not read for it, whether this one is overdue and
+    its line, and how the task's last run ended."""
 
     task: str
     running: bool
@@ -45,6 +46,7 @@ class Status(Frozen, frozen=True, kw_only=True):
     waits: checks_waits.Waited | None = None
     step: str | None = None
     last_seconds: int | None = None
+    unread: tuple[str, ...] = ()
     overdue: bool = False
     say: str | None = None
     ended: checks_last.Ended | None = None
@@ -87,6 +89,7 @@ def watched(
         seconds=run.seconds,
         waits=run.waits,
         last_seconds=run.last,
+        unread=run.unread,
         overdue=said is not None,
         say=said and f"{slug}: {said}",
         ended=ended,

@@ -4,6 +4,7 @@ interpreter, as `board/start.py` runs the server, with the automatic start of th
 """
 
 import os
+import shlex
 import subprocess
 import sys
 from typing import TYPE_CHECKING
@@ -55,7 +56,7 @@ def finished(
             timeout=TIMEOUT,
         )
     except subprocess.TimeoutExpired:
-        shown = " ".join(words)
+        shown = shlex.join(words)
         why = f"lem {shown} did not end in {TIMEOUT} seconds"
         raise Refusal("child", why, "run it in a session") from None
 
@@ -66,7 +67,7 @@ def ran(checkout: Path, *words: str) -> Envelope:
     try:
         return msgspec.json.decode(done.stdout, type=Envelope)
     except msgspec.DecodeError:
-        shown = " ".join(words)
+        shown = shlex.join(words)
         said = done.stderr.decode(errors="replace").strip()[-TAIL:]
         why = f"lem {shown} printed no envelope: {said}"
         raise Refusal("child", why, "run it in a session") from None

@@ -1,24 +1,25 @@
 """The GitHub evidence that survives a merge call and its recovery."""
 
+import shlex
 from datetime import datetime
+from pathlib import Path
 from subprocess import CompletedProcess
-from typing import TYPE_CHECKING
 
 import msgspec
+import pytest
 
+from fakes.repo import RealRepo, git_env, run_git
 from lem.adapters.forge_gh import ForgeGh
 from lem.adapters.forge_gh_pulls import Pulls
 from lem.adapters.forge_gh_queue import Oid
-from lem.adapters.forge_gh_shell import GhPull
+from lem.adapters.forge_gh_shell import Gh, GhPull
 from lem.app.landing import merge_reply, pull_identity
+from lem.kernel.errors import Refusal
 from lem.model.landing import queue_evidence, reconcile_queue
 from lem.ports.forge_facts import MergeDone, MergeText
 from lem.records.landing.merge import MergeAccepted, Refused
 from unit.landing.merges import facing, opened
 from unit.landing.worlds import BASE, BRANCH, MERGE, PULL, SEEN, TIP
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 REPLAYED = "a" * 40
 FIRST = "f" * 40
@@ -178,3 +179,21 @@ def test_confirmed_queue_removal_reaches_reconciliation_even_with_auto_merge(
         "github",
         "a required check failed in the queue",
     )
+
+
+def test_the_command_that_points_origin_at_github_keeps_a_path_with_a_space(
+    tmp_path: Path,
+) -> None:
+    repo = RealRepo.init(tmp_path / "a workspace" / "repo", {"README.md": b"hello\n"})
+    run_git(repo.checkout, "remote", "set-url", "origin", "https://gitlab.com/o/r.git")
+    gh = Gh(checkout=repo.checkout, environ=git_env())
+    with pytest.raises(Refusal) as refused:
+        gh.named()
+    git, where, *words = shlex.split(refused.value.fix.split("(", 1)[1].split(")")[0])
+    assert (git, where, Path(words[0]).resolve()) == (
+        "git",
+        "-C",
+        repo.checkout.resolve(),
+    )
+    run_git(Path(words[0]), *words[1:4], "git@github.com:owner/repo.git")
+    assert gh.named() == "owner/repo"

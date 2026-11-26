@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from fakes.command import lem
-from lem.app.landing.checks_wanted import after_of
 from lem.model.landing import phases, start
+from lem.model.task.red_base import after_of
 from lem.records.holds import Blocked
 from lem.records.landing.record import Landing
 from lem.store import tasks

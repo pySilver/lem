@@ -8,6 +8,7 @@ after each new effect of `start` and `base`, after which the step is due again a
 twice.
 """
 
+import shlex
 import stat
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -16,10 +17,12 @@ import pytest
 from msgspec.structs import replace
 
 from fakes.repo import run_git
+from journeys.agent import small_built, small_landed
 from journeys.landing.test_merge import owner
 from journeys.landing.test_propose import propose_with
 from journeys.landing.test_review import UNDER, file_step, recorded, reviewed
 from journeys.landing.test_review import brief as review_brief
+from journeys.test_duties import served, ticked
 from journeys.test_skeleton import (
     BRANCH,
     JOURNEY,
@@ -40,6 +43,7 @@ from journeys.test_skeleton import (
     upto,
 )
 from lem.adapters import git_cli
+from lem.kernel import clock
 from lem.ports.faults import Unanswered
 from lem.records.landing.start import Polished
 from lem.store import tasks
@@ -198,6 +202,39 @@ def test_base_keeps_its_rebase_and_approval_after_a_cut_in_the_second_push(
     body = world.forge.bodies[again["pull"]["number"]]
     assert "The review carried over the rebase." in body
     assert "The merge review carries over the clean rebase." in body
+
+
+def test_the_end_of_an_approval_keeps_its_reason_through_two_cut_proposals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    first = landing(world)["proposed"]["tip"]
+    world.repo.outside_commit("main", {"base.txt": b"Another change landed.\n"})
+    refused(owner(capsys, world), "base")
+    commit_in(world, "extra.txt", "more\n", "fix: one more file")
+    for step in (START, BASE, CHECKS):
+        ok(step(capsys, world))
+    reviewed(capsys, world)
+    world.forge.fail_edits = True
+    assert proposal(capsys, world)["code"] == 3
+    pushed = landing(world)["pushed"]
+    assert pushed == head(world) != first
+    world.repo.outside_commit("main", {"later.txt": b"A later change landed.\n"})
+    for step in (BASE, CHECKS):
+        ok(step(capsys, world))
+    assert due(capsys, world) == "propose"
+    why = (
+        f"the rebase started from `{pushed[:9]}`, a tip pushed after the proposal of "
+        f"`{first[:9]}`"
+    )
+    assert proposal(capsys, world)["code"] == 3
+    assert why in "".join(one.read_text() for one in world.task_folder.glob("pr-*"))
+    assert landing(world)["pushed"] == head(world)
+    world.forge.fail_edits = False
+    again = ok(proposal(capsys, world))["result"]
+    assert again["owner_merge"] == {"state": "ended", "why": why}
+    assert why in world.forge.bodies[again["pull"]["number"]]
 
 
 def test_the_owners_careful_word_on_an_open_pull_request_starts_a_full_review(
@@ -608,6 +645,162 @@ def test_a_cut_after_the_block_of_no_checks_refuses_again_and_writes_nothing_twi
     assert world.record()["revision"] == revision + 1
     refused(START(capsys, world), "no-checks")
     assert world.record()["revision"] == revision + 1
+
+
+def test_a_new_round_with_no_checks_waits_and_a_start_over_keeps_the_ended_approval(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    world.repo.outside_commit("main", {"LATER.md": b"one line\n"})
+    refused(owner(capsys, world), "base")
+    settings = world.checkout / ".lem" / "settings.toml"
+    settings.write_bytes(SETTINGS.split(b"[checks]")[0])
+    refused(START(capsys, world), "no-checks")
+    refused(START(capsys, world), "no-checks")
+    assert not landing(world).get("relands")
+    settings.write_bytes(SETTINGS)
+    ok(START(capsys, world))
+    assert landing(world)["relands"] == 1
+    assert "standing" in landing(world)
+    assert sum(e["kind"] == "land-again" for e in world.record()["journal"]) == 1
+
+    why = "the gate was cut off"
+    ok(command("task", "move", "SLUG", "ready", "--start-over", why)(capsys, world))
+    settings.write_bytes(SETTINGS.split(b"[checks]")[0])
+    stopped = refused(START(capsys, world), "no-checks")
+    assert f"The owner's merge ended: the landing started over: {why}" in stopped["why"]
+    assert "standing" not in landing(world) and not landing(world).get("reads")
+    assert not landing(world).get("reviews")
+    assert landing(world)["proposed"]["owner_merge"]["state"] == "ended"
+    settings.write_bytes(SETTINGS)
+    ok(START(capsys, world))
+    assert landing(world)["relands"] == 1
+
+
+def test_a_start_over_with_no_approval_of_the_owner_names_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    upto(capsys, world, "merge")
+    assert "standing" not in landing(world)
+    why = "the gate was cut off"
+    ok(command("task", "move", "SLUG", "ready", "--start-over", why)(capsys, world))
+    settings = world.checkout / ".lem" / "settings.toml"
+    settings.write_bytes(SETTINGS.split(b"[checks]")[0])
+    stopped = refused(START(capsys, world), "no-checks")
+    assert "owner's merge" not in stopped["why"]
+    assert "merges it again" not in stopped["why"]
+    assert "owner_merge" not in landing(world)["proposed"]
+
+
+def test_a_builders_conflict_resolution_reapplies_a_commit_the_base_took_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = made(tmp_path / "a workspace", monkeypatch)
+    world.repo.outside_commit("main", {"list.txt": b"a\nb\n", "label.txt": b"old\n"})
+    upto(capsys, world, "start")
+    ok(START(capsys, world))
+    ok(BASE(capsys, world))
+    commit_in(world, "list.txt", "a\nb\nc\n", "feat: add the third line")
+    original = commit_in(world, "label.txt", "task\n", "feat: change the label")
+    world.repo.outside_commit("main", {"list.txt": b"a\nb\nc\n"})
+    world.repo.outside_commit("main", {"list.txt": b"a\nb\n", "label.txt": b"base\n"})
+    said = refused(BASE(capsys, world), "conflict")
+    assert "label.txt" in said["why"]
+    assert "rebase --reapply-cherry-picks --empty=drop" in said["fix"]
+    assert head(world) == original
+    git, where, *rebase = shlex.split(said["fix"].split("`")[1])
+    assert (git, where) == ("git", "-C")
+    with pytest.raises(AssertionError):
+        run_git(Path(rebase[0]), *rebase[1:])
+    assert "<<<<<<<" in (world.worktree / "label.txt").read_text()
+    (world.worktree / "label.txt").write_text("task\n")
+    run_git(world.worktree, "add", "label.txt")
+    run_git(world.worktree, "-c", "core.editor=true", "rebase", "--continue")
+    resolved = head(world)
+    assert (world.worktree / "list.txt").read_text() == "a\nb\nc\n"
+    assert ok(BASE(capsys, world))["result"]["tip"] == resolved
+    assert head(world) == resolved
+    assert landing(world)["resolution"]["files"] == ["label.txt"]
+
+
+@pytest.mark.parametrize("extra", ["none", "before", "after"])
+def test_a_red_base_keeps_the_approval_only_for_the_unchanged_change(
+    tmp_path: Path,
+    own_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    extra: str,
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    settings = world.checkout / ".lem" / "settings.toml"
+    settings.write_bytes(
+        SETTINGS.replace(b'"grep -q receive README.md"', b'"test -f HEALTHY"')
+    )
+    world.repo.outside_commit("main", {"HEALTHY": b"yes\n"})
+    upto(capsys, world, "merge")
+    first = landing(world)["proposed"]["tip"]
+    world.repo.outside_commit("main", {"HEALTHY": None})
+    refused(owner(capsys, world), "base")
+    if extra == "before":
+        commit_in(world, "extra.txt", "more\n", "fix: one more file")
+    ok(START(capsys, world))
+    ok(BASE(capsys, world))
+    refused(CHECKS(capsys, world), "red")
+
+    repair = "restore-health"
+    subject = "fix: restore health"
+    small_built(capsys, world, repair, {"HEALTHY": "restored\n"}, subject)
+    ok(command("task", "red-base", "SLUG", "--after", repair)(capsys, world))
+    small_landed(capsys, world, repair, subject)
+    ok(
+        command("task", "move", "SLUG", "ready", "--line", "the base is green again")(
+            capsys, world
+        )
+    )
+    ok(START(capsys, world))
+    ok(BASE(capsys, world))
+    if extra == "after":
+        commit_in(world, "extra.txt", "more\n", "fix: one more file")
+    ok(CHECKS(capsys, world))
+    if extra != "none":
+        reviewed(capsys, world)
+    proposed = ok(proposal(capsys, world))["result"]
+    assert proposed["tip"] != first
+    assert landing(world)["relands"] == 1
+    carried = proposed["owner_merge"]
+    if extra == "none":
+        assert carried["state"] == "stands"
+        assert len(landing(world)["reviews"]) == 1
+        assert len(landing(world)["reads"]) == 2
+        assert (
+            "The merge review carries over the clean rebase." in world.forge.bodies[1]
+        )
+        served(world, own_home, monkeypatch)
+        ticked(world, own_home, clock.now())
+        assert landing(world)["merged"]["via"] == "server"
+    else:
+        assert run_git(world.worktree, "show", "HEAD:extra.txt") == "more"
+        subjects = run_git(world.worktree, "log", "--format=%s", "origin/main..HEAD")
+        assert subjects.splitlines().count("fix: one more file") == 1
+        assert carried["state"] == "ended"
+        assert (
+            carried["why"]
+            == {
+                "after": "the tip changed after the rebase",
+                "before": "the previous approval does not cover the change on the new base",
+            }[extra]
+        )
+        assert "standing" not in landing(world)
+        assert "The owner's merge ended:" in world.forge.bodies[1]
+        changes = [
+            e["owner_merge"]
+            for e in world.record()["journal"]
+            if e["kind"] == "proposed"
+            and e.get("owner_merge", {}).get("state") == "ended"
+        ]
+        assert changes == [carried]
 
 
 def test_a_cut_after_a_stopped_rebase_is_a_rebase_in_progress_lem_never_aborts(

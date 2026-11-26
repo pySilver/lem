@@ -54,13 +54,15 @@ def restartable(landing: Landing, slug: str) -> None:
 
 
 def started_over(record: Record, why: str) -> Record:
-    """The landing started over: its reviews archived and a new round due."""
+    """The landing started over: its reviews archived, a new round due, and the owner's
+    standing merge ended, when one stood."""
     landing = record.landing
     if landing is None:
         return record
     restartable(landing, record.task.slug)
     proposed = landing.proposed
-    if proposed is not None:
+    # only a standing merge of the owner ends: a proposal he never approved has none
+    if proposed is not None and landing.standing is not None:
         ended = OwnerMerge(state="ended", why=f"the landing started over: {why}")
         proposed = replace(proposed, owner_merge=ended)
     archived = (*landing.archived, *landing.reviews)
