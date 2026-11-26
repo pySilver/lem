@@ -154,7 +154,22 @@ snapshots to show which process took each step.
   review, PR body and GitHub merge result. Read status with `lem task show "$SLUG"` and
   `lem criteria show "$SLUG"`. Use the slug the session returned.
 
-- [ ] R2 A breaker waits for help, park and drop. **Owner at the Mac.**
+- [x] R2 A breaker waits for help, park and drop. **Owner at the Mac.**
+
+  Passed on 2026-11-26 (round 3) on the installed tag `v0.99.0`, `RUN=s26`, with two findings;
+  the trial operator answered as the owner in the scratch repository (decision 27,
+  `r2-owner-words.md`). Its board ran on port 65361 with a Lem home of its own
+  (`T/r2/config/lem`); every task session ran through the trial's agterm stand-in. The board's
+  Help with `Keep the source rows as a separate list.` reached the session word for word (decision
+  2's `words`), but the session took the note as his decision and cleared the hold; on his word it
+  logged decision 3 and held the task again under breaker 4 with the same document. `/lem park`
+  left the wait list empty (hold `parked`), `/lem resume` brought back breaker 4 in the same
+  worktree at tip `54c5957` with `handoff.md`, and `/lem drop` ended it `dropped` with no wait
+  row. Findings: a session opened on the fixture before the breaker took it as a fast task and
+  moved it to the interview (the sheet should trip the breaker before `lem session open`); the
+  live wake did not reach the session, since the trial home had no mailbox waiter hook then.
+  Evidence in `/private/tmp/lem-trial-r1/evidence/`: `r2-*`, `r2-transcripts/`,
+  `r2-task-folder-final/`.
 
   Open a scratch task with `lem task open breaker-sample --ask 'Keep every original row after
   replacement.' --branch "$BRANCH"`. Use a `trial-*` branch and make its worktree with
