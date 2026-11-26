@@ -11,7 +11,7 @@ To refresh the owner's page after an edit: `/Users/Silver/Projects/GitHub/lem/.c
 
 ## Where we are
 
-- **2026-11-26 17:44 CET.** `rebuild` = `e948c6c6` holds all 35 steps but one row of `close`. The trials:
+- **2026-11-26 17:44 CET.** `rebuild` = `72c3a16b` holds all 35 steps but one row of `close`. The trials:
   P1 to P6, R2 to R9 and A1 to A5 passed (A3, A4, A5 on the fixed `rebuild` after failing on the trial
   tag `v0.99.0`); R1 passed every part but its review, which waits for the trial home's Codex login (the
   owner, at the Mac). Each defect the trials found is fixed on `rebuild` with its test (the Stop hook's
@@ -21,12 +21,13 @@ To refresh the owner's page after an edit: `/Users/Silver/Projects/GitHub/lem/.c
   suite ran once (5,280 collected, 5,275 passed, 5 skipped: the hook timings at load 5.2, measured quiet
   in P4) and `check.py` proves every row but R1's. Astra's reviews of the close found 19 blockers, among
   them an earlier round's reply that could authorize a merge; all fixed, Opus approved the whole.
-  Left: R1's review (his Codex login), a pass over the defects found on the way (Sol), then the cutover on
-  his word.
+  The pass over the defects found on the way joined too (decision 30, amended; browser 56 of 56).
+  Left: R1's review (his Codex login), then the cutover on his word. The trial tag `v0.99.0` and branch
+  `trial-p1` are deleted on GitHub; the keg, the local tap commit and the trial home's gh login stay for R1.
 - **Group 3** is on `rebuild`.
 - **Group 4** (the board) is on `rebuild`; it built from 15:33 on a base of `rebuild` with core round 2, `owner` and
   `board-inputs` merged in (Astra moved every reader of the task wait to the list: `f3b82ece`).
-- **Next:** the later pass (Sol), R1's review once he logs the trial home's Codex in, then the cutover on his word.
+- **Next:** R1's review once he logs the trial home's Codex in, then the cutover on his word.
 - **Measure of progress:** the ledger holds 3,327 rows of today's behavior, each owned by one
   step. The steps of groups 0 to 2 own 1,881 of them (57%); every one of those rows has a fate and
   a proof (`tests/ledger/check.py --step STEP`).
@@ -38,7 +39,7 @@ To refresh the owner's page after an edit: `/Users/Silver/Projects/GitHub/lem/.c
 
 | Who | What | Since | Waits for |
 | --- | --- | --- | --- |
-| Sol | the later pass: the readers of every task record (decision 30), the brief titles on the map, two duties that read the whole settings, a family's case, Escape in a browser question, the no-session row | 17:44 | review, join |
+| owner | R1's review (the trial home's Codex login at the Mac), then his word for the cutover | 18:41 | his return |
 | Sol | close: the 7 rows that are defects (the merge seat and its stand-in, a reply with no seat, a stale peer refusal) | 15:20 | review, join, then T full and check.py |
 | owner | the trial home's Codex login (Inbox), for R1's review | 14:12 | his return |
 | owner | a page asks how far the last trials may go without him (P1 needs a tag and a branch on his tap; P3 a Claude Code he starts from the Dock; R6 his phone) | 03:29 | his answer |
@@ -59,7 +60,7 @@ to him: tell the session to change one).
 | 27 | The trials run without him where nothing outside this Mac changes; P1's tag and tap branch, P3 (a Dock-started Claude Code), R6 (his phone) and R9 (his project) wait for him | O | 11-26 10:19 |
 | 28 | The rest of the trials: his gateway settings in the trial home, a trial tag `v0.99.0` removed after, P3 and P6 by the agent, R6 now with his phone, R7 on his MacBook Pro, R9 on mybaze | O | 11-26 11:44 |
 | 29 | R9: 34 mybaze files at 0455840a, the NFC size task, the operator answers the owner steps | O | 11-26 12:14 |
-| 30 | A damaged task record: a view or total over many tasks skips it and names it; a decision that needs every record refuses and names it | S | 11-26 16:13 |
+| 30 | A damaged task record: a view or total over many tasks skips it and names it; a decision refuses only when that record could change its outcome, and a decision about one task reads that task and those it names (amended after Astra's review) | S | 11-26 16:13 |
 | 26 | The docs generator is Zensical (Python, uv, the Material team's successor; pinned; its diagrams drawn by Pele, the board's renderer, so no Mermaid copy and no outside host); not Material for MkDocs (end of life 2027-05-05), not Starlight (Node) | O | 11-25 21:35 |
 | 25 | The whole documentation lives on the site, built from `docs/*.md` as the one source; the README points to it; no hand-kept copy | O | 11-25 21:25 |
 | 24 | The board's views are 15,091 lines (the plan budgeted 3,800 for all of `board/`); the whole new board so far is 18,268 lines against 17,148 for the old board's model, pages and task panel on `main` (+7%): kept; the review cuts duplication; a size pass again at `close` | S | 11-25 17:03 |
