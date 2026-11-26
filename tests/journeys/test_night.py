@@ -29,15 +29,12 @@ ITEM_BODY = (
     b"# The README says recieve\n\nThe README spells receive wrong.\n"
 )
 TITLE = "docs: the README says receive"
-NOT_GREEN = (
-    f"the owner did not approve the criteria: they were approved on {NIGHT} while the task "
-    "ran without the owner"
-)
 
 
-def opened(capsys: Capsys, world: World) -> None:
+def opened(capsys: Capsys, world: World) -> str:
     """The night's task of the item: its ask and its item are the item's path, nobody at the
-    terminal read it, and its criterion is approved without the owner."""
+    terminal read it, and its criterion is approved without the owner. Return the approval's
+    recorded moment."""
     ok(
         capsys,
         world,
@@ -59,6 +56,7 @@ def opened(capsys: Capsys, world: World) -> None:
         capsys, world, "criteria", "approve", SLUG, "--file", str(criteria), "--alone"
     )
     assert approved["result"]["by"] == "alone"
+    return approved["result"]["at"]
 
 
 def built(capsys: Capsys, world: World) -> None:
@@ -113,7 +111,7 @@ def test_a_night_task_of_an_item_runs_without_the_owner_to_a_request_he_merges(
         str(world.checkout / "docs/backlog"),
         True,
     )
-    opened(capsys, world)
+    approved_at = opened(capsys, world)
     shown = ok(capsys, world, "task", "show", SLUG)["result"]
     assert (shown["night"], shown["mode"]) == (NIGHT, "alone")
     built(capsys, world)
@@ -131,7 +129,12 @@ def test_a_night_task_of_an_item_runs_without_the_owner_to_a_request_he_merges(
     )
     assert "read" not in onward(capsys, world)
     proposed = ok(capsys, world, *proposal(world))["result"]
-    assert (proposed["green"], proposed["reasons"]) == (False, [NOT_GREEN])
+    approval_day = approved_at[:10]
+    reason = (
+        f"the owner did not approve the criteria: they were approved on {approval_day} "
+        "while the task ran without the owner"
+    )
+    assert (proposed["green"], proposed["reasons"]) == (False, [reason])
     told = ok(capsys, world, "land", "merge-review", SLUG)["result"]
     reply = world.written(
         "reply.md", "Verdict: call\n\nThe night's criteria wait for him.\n"

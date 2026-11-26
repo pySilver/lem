@@ -30,12 +30,14 @@ def test_a_fast_task_goes_from_its_request_to_its_merge_in_one_session(
     terminal = wiring.bound(place).terminal
     assert isinstance(terminal, FakeTerminal)
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
-    monkeypatch.setenv("AGTERM_SESSION_ID", "S-MINE")
-    terminal.panes["S-MINE"] = Pane(id="S-MINE", name="main", workspace="W-1")
+    caller = Pane(id="S-MINE", name="main", workspace="W-1")
+    terminal.panes[caller.id] = caller
+    terminal.caller = caller.id
     ok(capsys, world, "task", "open", SLUG, "--ask", "the README says recieve")
     opened = ok(capsys, world, "session", "open", SLUG, "--why", "new")["result"]
     assert (opened["phase"], opened["already"]) == ("shape", False)
-    monkeypatch.setenv("AGTERM_SESSION_ID", opened["session"])
+    assert opened["workspace"] == caller.workspace
+    terminal.caller = opened["session"]
     files = {"README.md": "The README says receive.\n"}
     small_built(capsys, world, SLUG, files, SUBJECT, opened=True)
     first = ok(capsys, world, "session", "wait", SLUG, "--first-line")["result"]
