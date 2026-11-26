@@ -74,7 +74,8 @@ file says how to change it.
   tells him.
 - **A new choice of the maintaining session is a bullet of the list's last part**, "Choices of the
   maintaining session", with `decided` before its day, **when no code, test or text can show it**;
-  otherwise it is in the message of the commit that made it.
+  otherwise it is in the message of the commit that made it. The `decided` lines of
+  `docs/rulings/history.md` are choices of the maintaining session that a test or one place holds.
 
 ## A release
 
@@ -142,6 +143,11 @@ claude --plugin-dir /path/to/lem   # for this session only
 
 The `lem` on that session's `PATH` is still the installed app: put the checkout's `.venv/bin`
 first on the `PATH` to try the app of the clone.
+
+When the project has no enabled install of `lem@lem`, `lem session open` adds `--plugin-dir`
+with the app's own data folder. For an editable install, that folder is the checkout.
+The lead reads the folder for the plan talk's pair from `lem session plugin-dir`.
+When the project loads the installed plugin, `lem session plugin-dir` returns `null` in `plugin_dir`.
 
 ## Layout
 

@@ -4,7 +4,7 @@ import re
 import subprocess
 
 from unit.guides import built
-from unit.guides.test_guides import text_of
+from unit.guides.test_guides import DOCS, GUIDES, WORDS, text_of
 
 
 def flat(text: str) -> str:
@@ -108,6 +108,35 @@ def test_the_checks_keep_the_baseline_journey_and_timing_rules() -> None:
         "Never make a timing assertion depend on a step that finishes in less than one second."
         in checks
     )
+
+
+def test_agents_md_explains_how_the_session_and_pair_load_the_plugin() -> None:
+    agents = flat((built.ROOT / "AGENTS.md").read_text(encoding="utf-8"))
+    assert (
+        "When the project has no enabled install of `lem@lem`, `lem session open` adds "
+        "`--plugin-dir` with the app's own data folder." in agents
+    )
+    assert (
+        "reads the folder for the plan talk's pair from `lem session plugin-dir`"
+        in agents
+    )
+
+
+def test_agents_md_explains_the_decided_lines_in_the_history() -> None:
+    agents = flat((built.ROOT / "AGENTS.md").read_text(encoding="utf-8"))
+    assert (
+        "The `decided` lines of `docs/rulings/history.md` are choices of the maintaining "
+        "session that a test or one place holds." in agents
+    )
+
+
+def test_the_backlog_lists_guides_over_the_aim_with_their_source_word_counts() -> None:
+    counts = {name: len(text_of(name).split()) for name in GUIDES}
+    long = {name: count for name, count in counts.items() if count >= WORDS}
+    path = DOCS / "backlog/five-guides-run-past-the-800-word-aim.md"
+    item = path.read_text(encoding="utf-8") if path.is_file() else ""
+    entries = re.findall(r"^- `([^`]+\.md)` has (\d+) words\.$", item, re.MULTILINE)
+    assert {name: int(count) for name, count in entries} == long
 
 
 def test_the_ledger_names_the_scope_of_the_skill_voice_proof() -> None:
