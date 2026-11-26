@@ -368,7 +368,19 @@ snapshots to show which process took each step.
   current tree and no push or merge from the interrupted run. Keep both runs and the process
   evidence. The 300 seconds bound the dummy child only. Use the readiness file for the stop.
 
-- [ ] R6 A phone passes through the door, answers a card and approves a merge. **Owner and phone.**
+- [x] R6 A phone passes through the door, answers a card and approves a merge. **Owner and phone.**
+
+  Passed on 2026-11-26 (round 3) on the tag `v0.99.0`, `RUN=r3net`, PR 28, door
+  `https://macbook-pro-slvr.tail6cced0.ts.net:65462/` (ports 65461 and 65462, home `T/r6/config/lem`).
+  Direct request 403, no Funnel. The task's session ran through the agtermctl stand-in in the trial
+  home. On the phone, in Safari's desktop mode (the record says device `computer`, User-Agent of a
+  Mac), the owner answered card `4173D006`: `Write a dash`, note `For the export`, from `board`, via
+  `door`; the waiting row closed. He approved the merge on the phone: GitHub `MERGED`, commit
+  `426cee77`, merged head `6b56723d` = the approved tip; `landed` on the board and in
+  `lem task show`. An earlier card he answered in the Mac overlay (from `session`) is kept for the
+  overlay path. Two defects he saw: the card re-rendered while he typed, and after the merge the
+  page went white and reloaded to `?note=`. Door off, server stopped, Tailscale back to the owner's
+  entries. Evidence: `T/evidence/r6-*`.
 
   On the dedicated tailnet Mac select a free `PORT` and `DOOR` outside 4536 and 4537. Check
   `tailscale serve status --json` before the run. Reject a port with an existing target.
