@@ -12,11 +12,11 @@ from typing import TYPE_CHECKING
 import msgspec
 
 from lem.app.landing import checks_git, checks_plan, checks_red_places, checks_red_run
-from lem.app.tasks import where
+from lem.app.tasks import bases, where
 from lem.kernel import errors, files
-from lem.model.landing import checks, checks_red, destination
+from lem.model.landing import checks, checks_red
 from lem.records.red import Inputs, Red
-from lem.settings.load import base_of, team_of
+from lem.settings.load import team_of
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
@@ -53,7 +53,7 @@ def inputs(workspace: places.Workspace, record: Record) -> Inputs:
     worktree = worktree_of(workspace, record)
     team = team_of(workspace.checkout)
     tip = checks_git.text(worktree, "rev-parse", "HEAD").strip()
-    base = destination.recorded(record.landing) or base_of(team)
+    base = bases.bound(workspace, record)
     plan = record.task.plan
     return Inputs(
         tip=tip,
@@ -77,8 +77,7 @@ def digest(found: Inputs) -> str:
 def checked(workspace: places.Workspace, record: Record, found: Inputs) -> None:
     """Refuse a run that may not start (`checks_red.precondition`)."""
     worktree = worktree_of(workspace, record)
-    team = team_of(workspace.checkout)
-    base = destination.recorded(record.landing) or base_of(team)
+    base = bases.bound(workspace, record)
     onto = checks_red_places.onto_of(workspace.checkout, base)
     refusal = checks_red.precondition(
         record.task.criteria.criteria,

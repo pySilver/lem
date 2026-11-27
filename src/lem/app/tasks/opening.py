@@ -1,5 +1,6 @@
 """The first record of a task, from the words of `lem task open`: its ask, its ticket, its
-backlog item, its night, its queue and the dropped task it goes on from."""
+backlog item, its night, its queue, the feature it is a part of and the dropped task it goes on
+from."""
 
 import datetime as dt
 from typing import TYPE_CHECKING
@@ -31,6 +32,7 @@ class Asked(Frozen, frozen=True, kw_only=True):
     plan_only: bool = False
     backlog_item: str | None = None
     origin: str | None = None
+    part_of: str | None = None
     owner_act: OwnerAct | None = None
 
 
@@ -97,6 +99,7 @@ def fresh(
         night=night,
         plan_only=asked.plan_only,
         after=asked.after,
+        part_of=asked.part_of,
         mode="with-owner" if night is None else "alone",
         mode_since=None if night is None else now,
     )

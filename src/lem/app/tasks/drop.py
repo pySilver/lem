@@ -45,10 +45,9 @@ def merged_refusal(
     landing, slug = record.landing, record.task.slug
     if landing is None or (landing.pull is None and landing.pushed is None):
         return
-    if landing.merged is None:
-        forge = (given or ports.bound(where)).forge
-        if not drop_pull.merged(forge, where, record, landing):
-            return
+    bound = given or ports.bound(where)
+    if landing.merged is None and not drop_pull.merged(bound, where, record, landing):
+        return
     raise Refusal(
         "merged",
         f"the forge merged the pull request of {slug} into its base while the drop waited: "

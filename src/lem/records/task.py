@@ -51,8 +51,9 @@ class Task(Frozen, frozen=True, kw_only=True):
     with a backlog item's path in it or not, or the item's path alone when the board's "Start a
     task" or the night opened it; `backlog_item` is the item whose work the task does, which its
     branch removes; `after` and `order` queue it behind other tasks, all of them, and by his
-    words; `mode` says whether it runs with the owner or alone (a night task); `owner_careful`
-    is when the owner said the task is careful until its merge (`/lem be-careful`)."""
+    words; `part_of` is the feature whose branch a part starts from and lands on; `mode` says
+    whether it runs with the owner or alone (a night task); `owner_careful` is when the owner
+    said the task is careful until its merge (`/lem be-careful`)."""
 
     slug: Slug
     ask: str
@@ -68,6 +69,7 @@ class Task(Frozen, frozen=True, kw_only=True):
     plan_only: bool = False
     after: tuple[Slug, ...] = ()
     order: str | None = None
+    part_of: Slug | None = None
     mode: Literal["with-owner", "alone"] = "with-owner"
     mode_since: Moment | None = None
     shape: Shape | None = None
