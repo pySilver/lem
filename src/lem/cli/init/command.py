@@ -2,8 +2,8 @@
 
     lem init [--base BRANCH] [--codex yes|no]
 
-With no `--base`, the base is origin's default branch (`origin/HEAD`), as on `main`. It
-refuses a settings file that is there; the onboarding (`stages/init.md`) writes the rest.
+An import takes the base from the old file when the owner gives none. A base already in the
+team's file stays. With no base in either file or the call, use `origin/HEAD`.
 """
 
 import os
@@ -36,7 +36,7 @@ COMMAND = click.Command(
     params=[
         click.Option(
             ["--base"],
-            help="the branch tasks land on (default: origin's default branch)",
+            help="the branch tasks land on (default: the saved base, then origin's default)",
         ),
         click.Option(
             ["--codex"],

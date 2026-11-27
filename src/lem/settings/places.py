@@ -30,6 +30,7 @@ type Valid = tuple[tuple[str, Scopes], ...]
 
 LEM = Path(".lem")
 TEAM = LEM / "settings.toml"
+LEGACY_TEAM = LEM / "project.toml"
 LOCAL = LEM / "settings.local.toml"
 # The two files of Lem's home folder.
 HOME = "settings.toml"

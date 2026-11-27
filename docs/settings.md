@@ -14,6 +14,10 @@ stops Lem, and the message names the fix.
 | `~/.config/lem/settings.toml` | yours, for every repository on this computer | no | your seats, and the look of the question page |
 | `~/.config/lem/machine.toml` | this computer's | no | what is true for the whole computer: the load limit, the board server, the other computers, the compaction and the correction queue |
 
+`lem doctor` shows a row when the repository has `.lem/project.toml` from Lem 0.3.
+Run `/lem init` to use its values as defaults in the team's file.
+The hand-over lists keys with no place in the team's file, such as `corrections.collect`.
+
 ## Which file wins
 
 A setting that more than one file can hold comes from the nearest file that holds it:

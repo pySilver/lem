@@ -109,15 +109,19 @@ def test_the_page_says_where_each_table_is_valid_as_the_places_do() -> None:
     }
 
 
-def test_no_text_of_lem_names_project_toml() -> None:
+def test_only_the_import_guides_name_project_toml() -> None:
     root = PAGE.parents[1]
     texts = [*root.glob("skills/**/*.md"), *root.glob("docs/*.md"), root / "README.md"]
+    import_guides = {PAGE, root / "skills/lem/stages/init.md"}
     named = [
-        str(path)
+        path
         for path in texts
-        if re.search(r"project(\.local)?\.toml", path.read_text(encoding="utf-8"))
+        if re.search(r"project\.toml", path.read_text(encoding="utf-8"))
     ]
-    assert named == []
+    assert set(named) == import_guides
+    assert all(
+        "project.local.toml" not in path.read_text(encoding="utf-8") for path in texts
+    )
 
 
 def test_the_page_names_the_four_files_and_whose_each_is() -> None:

@@ -9,6 +9,7 @@ from lem.cli.doctor import (
     door_rows,
     hook_bin,
     machine_rows,
+    old_settings,
     personas,
     project_rows,
 )
@@ -30,6 +31,7 @@ MACHINE_PARTS: tuple[Part, ...] = (
     ("installed Lem", OPTIONAL, installed_rows),
     ("board notifications", OPTIONAL, door_rows.notifications_row),
     ("board door", OPTIONAL, door_rows.door_row),
+    (old_settings.NAME, PROJECT, old_settings.settings_rows),
     ("project personas", PROJECT, personas.persona_rows),
     (CODEX_MAILBOX, REQUIRED, mailbox_rows),
     ("correction hook", PROJECT, correction_hook_rows),

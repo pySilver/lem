@@ -1,21 +1,21 @@
-"""`lem init`: the team's settings of a repository written once, and the ignore rules of what
-one machine keeps in `.lem/`.
+"""`lem init`: the team's settings of a repository, and the ignore rules of what one machine
+keeps in `.lem/`.
 
-It refuses a settings file that is there (an onboarding that finishes changes no setting), an
-origin that is not on GitHub, and a base it cannot tell. The text is read back as the team's
-file before it is written, so init never writes a file Lem would refuse. It links and moves
-nothing: another tool's cast or profile stays where it is.
+An import uses the old settings as defaults and keeps any values the team's file names. The
+draft is checked as the team's file before it is written. An existing team's file without an
+import, an origin outside GitHub and an unnamed base are refused.
 """
 
-import tomllib
 from typing import TYPE_CHECKING
 
-from lem.app.init import origin, template
-from lem.app.init.checkout import main_checkout
-from lem.kernel import files, folders, paths
+from lem.app.init import draft, origin
+from lem.app.init.checkout import locked, main_checkout
+from lem.app.init.legacy import Migration
+from lem.kernel import files, folders
 from lem.kernel.errors import Refusal
 from lem.records.base import Frozen
-from lem.settings import places, reading
+from lem.settings import places
+from lem.settings.load import base_of
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -38,18 +38,7 @@ class Initialized(Frozen, frozen=True, kw_only=True):
     reviewer: str
     ignore: str
     said: tuple[str, ...] = ()
-
-
-def base_of(checkout: Path, given: str | None) -> str:
-    """The base the call names, else origin's default branch; refused when neither names one."""
-    base = given or origin.default_branch(checkout)
-    if not base:
-        raise Refusal(
-            "no-base",
-            f"cannot tell the base branch of {checkout}: origin names no default branch",
-            "name it: lem init --base BRANCH",
-        )
-    return base
+    migration: Migration | None = None
 
 
 def ignored(lem: Path) -> Path:
@@ -77,34 +66,50 @@ def inside(checkout: Path, relative: Path) -> Path:
     return path
 
 
-def checked_text(checkout: Path, text: str, environ: Mapping[str, str]) -> None:
-    """Refuse a text Lem would refuse as the team's file of `checkout`."""
-    where = reading.Where(checkout=checkout, home=paths.home(environ), environ=environ)
-    tables = tomllib.loads(text)
-    reading.check(tables, places.Scope.team, places.TEAM.as_posix(), where)
-
-
 def initialized(
     folder: Path, base: str | None, codex: str, environ: Mapping[str, str]
 ) -> Initialized:
     """Write the team's settings of the repository `folder` is in."""
     checkout = main_checkout(folder)
+    with locked(checkout):
+        return initialized_in(checkout, base, codex, environ)
+
+
+def initialized_in(
+    checkout: Path, base: str | None, codex: str, environ: Mapping[str, str]
+) -> Initialized:
+    """Check and write the settings under the checkout's init lock."""
     path = inside(checkout, places.TEAM)
-    if path.exists():
+    old = checkout / places.LEGACY_TEAM
+    if not (old.exists() or old.is_symlink()):
+        old = None
+    blocked = path.exists() and (old is None or not path.is_file())
+    if path.is_symlink() or blocked:
         raise Refusal(
             "settings-exist", f"{path} already exists", f"edit {places.TEAM} by hand"
         )
     url = origin.origin_url(checkout, environ)
     origin.on_github(url)
-    chosen = base_of(checkout, base)
-    text = template.written(chosen, codex)
-    checked_text(checkout, text, environ)
+    made = draft.prepared(path, old, base, codex, environ)
+    return written(path, old, made, url)
+
+
+def written(
+    path: Path, old: Path | None, made: draft.Draft, url: str | None
+) -> Initialized:
+    """Publish the checked replacement before removing the old file."""
+    base = base_of(made.team)
     path.parent.mkdir(exist_ok=True)
-    files.write_whole(path, text.encode("utf-8"))
+    ignore = ignored(path.parent)
+    files.write_whole(path, made.text.encode("utf-8"))
+    if old is not None:
+        old.unlink(missing_ok=True)
+        files.sync_folder(path.parent)
     return Initialized(
         settings=str(path),
-        base=chosen,
-        reviewer=template.reviewer_of(codex),
-        ignore=str(ignored(path.parent)),
+        base=base,
+        reviewer=made.team.seats.reviewer,
+        ignore=str(ignore),
         said=() if url else (NO_ORIGIN,),
+        migration=made.migration,
     )

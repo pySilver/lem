@@ -29,7 +29,7 @@ rulings = "docs/rulings.md"
 
 [branch]
 # The branch a task starts from and lands on.
-base = $base
+$base
 # Who merges a task's pull request. A fresh merge agent reads each proposed task and writes its
 # review either way. "agent": it merges a green request that is not careful, and calls the owner
 # for every other one. "owner": it never merges, and the owner merges each one after its review.
@@ -129,12 +129,13 @@ def reviewer_of(codex: str) -> str:
     return next(seat for answer, seat in REVIEWERS if answer == codex)
 
 
-def written(base: str, codex: str) -> str:
+def written(base: str | None, codex: str) -> str:
     """The text for the base branch `base`, on a machine with Codex (`yes`) or without."""
     experts = (seat for seat in EXPERTS if codex == "yes" or seat.startswith("claude"))
     listed = ", ".join(map(quoted_of, experts))
     reviewer = reviewer_of(codex)
-    return TEMPLATE.substitute(base=quoted_of(base), reviewer=reviewer, experts=listed)
+    base_line = "" if base is None else f"base = {quoted_of(base)}"
+    return TEMPLATE.substitute(base=base_line, reviewer=reviewer, experts=listed)
 
 
 def quoted_of(word: str) -> str:

@@ -62,3 +62,15 @@ def default_branch(checkout: Path) -> str | None:
     """Origin's default branch, as git's `origin/HEAD` names it; None when it names none."""
     head = checkout / ".git" / "refs/remotes/origin/HEAD"
     return symbolic(head, ORIGIN)
+
+
+def base_of(checkout: Path, given: str | None) -> str:
+    """The base the call names, else origin's default branch; refused when neither names one."""
+    base = given or default_branch(checkout)
+    if not base:
+        raise Refusal(
+            "no-base",
+            f"cannot tell the base branch of {checkout}: origin names no default branch",
+            "name it: lem init --base BRANCH",
+        )
+    return base

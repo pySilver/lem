@@ -9,6 +9,7 @@ import pytest
 from lem.cli.doctor.personas import persona_rows
 from lem.cli.doctor.project_rows import mode_rows, scope_rows
 from lem.cli.doctor.row import reported
+from lem.cli.doctor.rows import gathered
 from unit.settings.doctor.stage import Stage
 
 if TYPE_CHECKING:
@@ -122,3 +123,24 @@ def test_a_persona_that_does_not_read_is_named_with_its_fix(stage: Stage) -> Non
     assert row.found is False
     assert "shopper.md is not UTF-8" in (row.detail or "")
     assert "save it as UTF-8" in (row.without_it or "")
+
+
+@pytest.mark.parametrize("current", [False, True])
+def test_doctor_names_old_settings_without_reading_them(
+    stage: Stage, *, current: bool
+) -> None:
+    repo = stage.repository(lem=current)
+    tree = stage.worktree(repo, "gift-note")
+    assert all(row.name != "settings of Lem 0.3" for row in gathered(stage.look(tree)))
+
+    old = stage.write("repo/.lem/project.toml", "[invalid TOML\n")
+    (row,) = [
+        row for row in gathered(stage.look(tree)) if row.name == "settings of Lem 0.3"
+    ]
+    assert (row.need, row.found) == ("project", False)
+    assert str(old.resolve()) in (row.detail or "")
+    assert "does not read" in (row.detail or "")
+    assert "`/lem init`" in (row.without_it or "")
+    if current:
+        assert ".lem/settings.toml" in (row.without_it or "")
+    assert old.read_text() == "[invalid TOML\n"

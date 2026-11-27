@@ -12,9 +12,9 @@ Keep the onboarding's notes in a private directory from `mktemp -d`, outside the
 Use its absolute path for the hand-over and the draft files. The onboarding branch has no Lem
 task: its pull request goes through the onboarding's harness, before the base has Lem's settings.
 
-On a repository that already has `.lem/settings.toml`, `/lem init` finishes an onboarding: it
-changes no setting that is there. Run step 1, skip the command of step 4 (it refuses a settings
-file that exists, and that is right), and do steps 2, 3 and 5 only for what is missing or
+Run step 1 in every repository. If `.lem/settings.toml` is there and the check has no
+`settings of Lem 0.3` row, `/lem init` finishes an onboarding. Skip the command of step 4.
+Do steps 2, 3 and 5 only for what is missing or
 unfinished: a place `lem settings show` marks as not existing, and a cast of fewer than two
 personas, which the `project personas` row of step 1 shows. That row never stops the
 onboarding: writing the personas is what this stage is for.
@@ -82,8 +82,22 @@ In a large repository, `fan-out` one reader per area and merge what they return.
 what it read and where; it proposes nothing.
 
 A repository with no code yet (`git ls-files` lists nothing beyond a README, a license or an
-ignore file) has nothing to examine. Write that one line in `examined.md` and go to step 3, whose
-first question is then about what the owner plans to build.
+ignore file) has nothing to examine. Write that one line in `examined.md`. Its first question in
+step 3 is about what the owner plans to build.
+
+When step 1 shows `settings of Lem 0.3`, use `branch.base` from `.lem/settings.toml` if it is
+set, then from `.lem/project.toml`, then the base in `examined.md`. In the main checkout, create
+`chore/lem-onboarding` from that base if the branch does not exist. Switch to the onboarding
+branch. Record the keys `.lem/settings.toml` already holds, if the file is there. Run
+`lem init --codex yes`, or `lem init --codex no` if step 1 found no Codex. The old base is a
+default. If the command refuses `no-base`, use the base from `examined.md` in the command of
+step 4. If the command still refuses, stop and give its fix.
+
+Keep `migration` from the result for the hand-over. `imported` names the settings that came
+from `.lem/project.toml`, `kept` names the keys with a current choice, and `dropped` names the
+keys with no place in the team's file. The command removes the old file after it writes the
+checked draft. Use the draft for the settings the owner will see, including the topics as the
+proposal in step 3. Ask only the questions that are still open.
 
 ## 3. Three questions
 
@@ -125,6 +139,10 @@ An answer of "whatever you think" is not an answer to the third: say what you wi
 for a yes. Stop after the third.
 
 ## 4. Write the settings
+
+If step 2 imported settings, skip this command. Keep the imported keys as defaults, and keep
+the keys the current file already held. Use the following proposals only for keys that neither
+file held. Take any change to those values from the owner's answers or his `change` at hand-over.
 
 ```bash
 lem init --base BRANCH --codex yes
@@ -236,8 +254,9 @@ persona file that is there is overwritten.
   all, and that an agent reads the ones that cover what it changes. With it an agent that runs
   without Lem finds the rules; with Lem, the picker hands them over. Show the paragraph on the hand-over page and put
   it into the agent document, on the onboarding's branch, only on the owner's yes.
-- **The checks of a new project** do not exist yet. Leave `checks.commands` empty and name "set up
-  the checks" (formatter, linter, type checker, a first test) as the task to run first: no task
+- **The checks of a new project** do not exist yet. When neither file named `checks.commands`,
+  leave it empty and name "set up the checks" (formatter, linter, type checker, a first test)
+  as the task to run first: no task
   lands through this skill before it. That task's branch writes the commands into
   `checks.commands` of its own `.lem/settings.toml`, and the landing checks it with them
   (`stages/land.md`, step 1); its pull request is not green, so that the owner reads the checks. The onboarding's own branch is not a task: it holds
@@ -252,6 +271,8 @@ persona file that is there is overwritten.
 
 Commit the settings and the generated files on a branch of their own, `chore/lem-onboarding`.
 It is not landed yet: the owner's read of the drafts is the review.
+For an import, include the removal of `.lem/project.toml` in the commit that adds or updates
+`.lem/settings.toml`. Show the keys from `imported`, `kept` and `dropped` on the hand-over page.
 
 `.claude/settings.json` goes into that commit when git does not track it yet and it holds only what
 `claude plugin marketplace add` and `claude plugin install lem@lem --scope project` wrote there:
