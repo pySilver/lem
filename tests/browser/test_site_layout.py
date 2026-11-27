@@ -1,7 +1,7 @@
 """Every page of the public site, the landing page and each page of the docs, at three phone
 widths, a tablet and a computer, in light and dark: nothing scrolls the page sideways, the page
 menu stands clear of every heading and paragraph, the landing page's lead fits a phone, and no
-text is cut.
+text is cut or covered by a code block's copy button.
 
 The site is built as `.github/workflows/pages.yml` builds it, once, and served over loopback, as
 GitHub Pages serves it. Run
@@ -40,7 +40,7 @@ LEAD_MOST_PX = 40
 SLACK = 0.5
 
 # What the page reports: its width, the page menu's control, the text boxes of the headings and
-# paragraphs, the lead's size, and every piece of text that is cut.
+# paragraphs, the code blocks and their copy buttons, the lead's size, and text that is cut.
 MEASURE = """() => {
   const width = window.innerWidth
   const rect = r => ({x: r.left, y: r.top, right: r.right, bottom: r.bottom})
@@ -73,6 +73,19 @@ MEASURE = """() => {
   const texts = [...body.querySelectorAll('h1, h2, h3, h4, h5, h6, p')]
     .filter(el => shown(el) && !el.closest('.lem-page-actions'))
     .map(el => ({name: name(el), text: el.textContent.trim().slice(0, 40), boxes: textBoxes(el)}))
+  const copies = [...body.querySelectorAll('pre button[data-md-type="copy"]')].filter(shown).map(button => {
+    const code = button.closest('pre').querySelector(':scope > code')
+    const edge = code.getBoundingClientRect()
+    // Code can scroll. Count only the text inside its scrollport.
+    const x = edge.left + code.clientLeft
+    const y = edge.top + code.clientTop
+    const boxes = textBoxes(code).map(box => ({
+      x: Math.max(x, box.x), y: Math.max(y, box.y),
+      right: Math.min(x + code.clientWidth, box.right),
+      bottom: Math.min(y + code.clientHeight, box.bottom),
+    })).filter(box => box.x < box.right && box.y < box.bottom)
+    return {button: rect(button.getBoundingClientRect()), text: code.textContent.trim().slice(0, 80), boxes}
+  })
   // Wider than the screen: what makes the page scroll sideways, outside a box that scrolls itself.
   const inScroller = el => {
     for (let up = el.parentElement; up && up !== document.body; up = up.parentElement) {
@@ -106,6 +119,7 @@ MEASURE = """() => {
     wide,
     controls,
     texts,
+    copies,
     cut: [...new Set(cut)].slice(0, 8),
     lead: lead ? parseFloat(getComputedStyle(lead).fontSize) : null,
   }
@@ -145,6 +159,11 @@ def faults(page: str, width: int, found: dict[str, Any]) -> list[str]:
     )
     if len(found["controls"]) > 1:
         lines.append(f"{page}: {len(found['controls'])} page controls, not one")
+    lines.extend(
+        f"{page}: copy button covers code in {block['text']!r}"
+        for block in found["copies"]
+        if any(meets(block["button"], box) for box in block["boxes"])
+    )
     if width <= PHONE_WIDTH and found["lead"] and found["lead"] > LEAD_MOST_PX:
         lines.append(f"{page}: the lead is {found['lead']} px on a {width} px phone")
     lines.extend(f"{page}: text cut, {cut}" for cut in found["cut"])
@@ -194,16 +213,20 @@ def test_every_page_fits_the_screen(
     shots.mkdir(parents=True, exist_ok=True)
     page = window(screen, phone=width < 1024, dark=dark).pages[0]
     found: list[str] = []
+    has_copy_buttons = False
     for path in paths:
         got = page.goto(address + path, wait_until="load")
         assert got is not None
         assert got.ok, path
         page.wait_for_load_state("networkidle")
-        found += faults(path or "index.html", width, page.evaluate(MEASURE))
+        measured = page.evaluate(MEASURE)
+        has_copy_buttons |= bool(measured["copies"])
+        found += faults(path or "index.html", width, measured)
         stem = path.strip("/").replace("/", "-").removesuffix(".html") or "landing"
         page.screenshot(
             path=shots / f"{stem}-{width}x{height}-{'dark' if dark else 'light'}.png",
             full_page=True,
             animations="disabled",
         )
+    assert has_copy_buttons, "the docs have no code copy buttons to check"
     assert not found, "\n".join(found)

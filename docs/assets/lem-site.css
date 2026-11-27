@@ -79,6 +79,10 @@
 .md-typeset code { border-radius: 6px; }
 .md-typeset table:not([class]) { border: 1px solid var(--lem-line); border-radius: 10px; }
 
+/* Keep the copy button above the code, clear of long lines as they scroll. */
+.md-typeset pre:has(> .md-code__nav) { background: var(--md-code-bg-color); border-radius: .4rem; }
+.md-typeset pre > .md-code__nav { position: static; justify-content: flex-end; background: none; }
+
 /* the page menu (overrides/partials/actions.html): one quiet button, "This page", whose list holds
    the copy, the Markdown file and the assistants. On a wide screen it floats on the title's line, at
    its right; on a narrow one it takes a line of its own above the title, so that the title keeps the

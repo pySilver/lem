@@ -30,6 +30,20 @@ repository: one board server serves them all. `lem doctor` shows each one you mi
   ([below](#a-task-of-an-older-release)).
 - **A bad release** is not taken back: a newer release repairs it.
 
+## Update over HTTPS
+
+If the plugin update shows `git@github.com: Permission denied (publickey)`, GitHub refused the SSH connection.
+If you have no GitHub SSH key, run this command for a user install of Lem.
+
+```bash
+env GIT_CONFIG_COUNT=1 \
+  GIT_CONFIG_KEY_0=url.https://github.com/.insteadOf \
+  GIT_CONFIG_VALUE_0=git@github.com: \
+  claude plugin update lem@lem --scope user
+```
+
+Git uses HTTPS for GitHub for this command only. For a project install, use `--scope project`.
+
 ## From Lem 0.3
 
 Repositories that use Lem 0.3 start over. Lem 1.0 cannot read their task records.

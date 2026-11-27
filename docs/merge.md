@@ -33,8 +33,9 @@ With `branch.land = "owner"`, the merge agent still writes its review. You merge
 ## Merge it
 
 Use **Merge** on GitHub, **Merge…** then **Approve** on the [board](board.md#act-from-the-board),
-or `/lem land <task>`. While you are [away](away.md#answer-from-the-inbox) and the optional Inbox
-runs, you can also answer in the Inbox. Lem records your approval for the commit you see.
+or `/lem land <task>`. While you are away, you can also answer in the optional
+[Plannotator Inbox](away.md#answer-from-the-inbox) if it runs. Lem records your approval for the
+commit you see.
 
 - GitHub applies the rules of your base branch. "Waits for you" shows a refusal from GitHub.
   If the pull request targets a different base branch, Lem refuses and gives the fix.

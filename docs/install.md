@@ -2,38 +2,57 @@
 
 ## What you need
 
-| Tool | Lem uses it for |
-| --- | --- |
-| [agterm](https://agterm.com) and its skill, from the agterm Help menu | a session for each task, panes and pages |
-| [Claude Code](https://code.claude.com/docs) | the agents |
-| git, and Python 3.14, which Lem's app brings with it | branches, worktrees, every command of Lem |
-| [revmux](https://github.com/umputun/revmux) and its skill | the review before each pull request |
-| [cronn](https://cronn.umputun.dev) | the scheduled retro and night run |
-| the mailbox chat, webrev and the backlog recipe, from the [agterm cookbook](https://github.com/umputun/agterm/tree/master/cookbook) | the wake-up of a task's session, agent messages, and pages to mark up |
-| a remote on GitHub, and the [GitHub CLI](https://cli.github.com) `gh`, signed in | the pull requests, the one way a task lands |
-| [Codex](https://github.com/openai/codex): highly recommended | a second model family for the review |
-| agdoc, from the agterm cookbook: recommended | a page that you ask for, about an issue, a plan or a change |
-| [Plannotator](https://github.com/backnotprop/plannotator): optional | the Inbox, where what waits for you goes while you are away, also on your phone |
-| `JEV_API_KEY`, a key for the Jev decision model: optional | [the correction queue](#the-correction-queue), and a second look at each defect that an agent calls under the bar before a pull request ([`[jev]`](settings.md#jev)) |
+`/lem init` gives the install steps. `lem doctor` checks the tools.
 
-`/lem init` checks each tool and gives its install steps. `lem doctor` checks them again.
+### Required
+
+- [agterm](https://agterm.com) for task sessions and pages.
+- [agterm skill](https://agterm.com) from the agterm Help menu.
+- [Claude Code](https://code.claude.com/docs) for the agents.
+- [lem-builder agent](#install) from the Lem plugin for Claude Code.
+- [git](https://git-scm.com) for branches and worktrees.
+- [Python 3.14](https://www.python.org/downloads/) comes with the Lem app.
+- [revmux](https://github.com/umputun/revmux) for review rounds.
+- [revmux skill](https://github.com/umputun/revmux) for agents that run reviews.
+- [mailbox-chat](https://github.com/umputun/agterm/tree/master/cookbook/two-agent-mailbox-chat#setup) for agent messages and session wake-ups.
+- [mailbox-chat skill](https://github.com/umputun/agterm/tree/master/cookbook/two-agent-mailbox-chat#setup) from the same recipe.
+- [webrev skill](https://github.com/umputun/agterm/tree/master/cookbook/annotate-document) to mark up documents.
+- [backlog skill](https://github.com/umputun/agterm/tree/master/cookbook/backlog-picker) to add and open backlog items.
+- [cronn](https://cronn.umputun.dev) for scheduled retro and night runs.
+
+### Recommended
+
+- [Codex](https://github.com/openai/codex) for a second model family in reviews.
+- [agdoc skill](https://github.com/umputun/agterm/tree/master/cookbook/html-doc-overlay) for pages about issues, plans or changes.
+- [plannotator-tui](https://github.com/umputun/agterm/tree/master/cookbook/annotate-in-plannotator-tui) to mark up pane text. [Plannotator](https://github.com/backnotprop/plannotator) shows plans and code reviews.
+
+### Optional
+
+- [GitHub CLI](https://cli.github.com) for pull requests. If your remote is on GitHub, install `gh` and sign in.
+- [Plannotator Inbox](https://plannotator.ai/inbox/) for [what waits for you while you are away](away.md#answer-from-the-inbox).
+- [`JEV_API_KEY`](settings.md#jev) for Jev. The [correction queue](#the-correction-queue) needs this key when it is on.
+- [codex persona agent](https://github.com/pySilver/lem/tree/main/skills/lem-panel) for the second half of a persona panel.
+- [task picker](board.md#open-it) to open a task board from a key in agterm. `lem doctor` gives the keymap line.
+
 [Update and remove](update.md#remove) gives the steps to remove Lem and its `.lem/` folder.
 
 ## Install
 
 Lem has two parts: the app, with the command `lem`, and the plugin for Claude Code.
-Install the app once on your computer.
+Install the app once.
 
 ```bash
 brew install pySilver/tap/lem
 ```
 
-Then install the Claude Code plugin from the root of your repository.
+Install the plugin from the root of your repository.
 
 ```bash
 claude plugin marketplace add pySilver/lem --scope project
 claude plugin install lem@lem --scope project
 ```
+
+For a GitHub SSH error, [update over HTTPS](update.md#update-over-https).
 
 `/lem init` commits `.claude/settings.json` only if git does not track it and it has only the two
 Lem entries. They are `extraKnownMarketplaces` for `lem` and `enabledPlugins` for `lem@lem`.

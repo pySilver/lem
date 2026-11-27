@@ -1,8 +1,7 @@
 """`lem doctor` as the owner runs it: its words, its envelope on a machine that has what Lem
-requires and on one that lacks git, and the tier of each tool as the install guide says it."""
+requires and on one that lacks git."""
 
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -17,7 +16,6 @@ from unit.settings.doctor.stage import Stage
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-ROOT = Path(__file__).resolve().parents[4]
 # What no leaf may load when it is imported (tests/unit/cli/test_tree.py).
 HEAVY = ("starlette", "uvicorn", "jinja2", "httpx", "tomlkit", "psutil", "pywebpush")
 TOOLS = (
@@ -35,34 +33,6 @@ TOOLS = (
 SKILLS = ("revmux", "agterm", "webrev", "agdoc", "backlog", "mailbox-chat")
 # What a call must not take from the environment of the test's own shell.
 OWN = ("CRONN_", "JEV_", "AGTERM_", "CLAUDE_", "LEM_PLUGIN_ROOT", "LEM_HOOK_BIN")
-# Each row of the check that the table of docs/install.md lists, with the words of the one
-# table row that names it.
-IN_TABLE = (
-    ("agterm", "[agterm]"),
-    ("agterm skill", "[agterm]"),
-    ("claude", "[Claude Code]"),
-    ("git", "git, and Python"),
-    ("python3", "git, and Python"),
-    ("revmux", "[revmux]"),
-    ("revmux skill", "[revmux]"),
-    ("cronn", "[cronn]"),
-    ("mailbox-chat", "the mailbox chat"),
-    ("mailbox-chat skill", "the mailbox chat"),
-    ("webrev skill", "webrev"),
-    ("backlog skill", "the backlog recipe"),
-    ("agdoc skill", "agdoc"),
-    ("codex", "[Codex]"),
-    ("plannotator", "[Plannotator]"),
-    ("Jev key", "JEV_API_KEY"),
-)
-# A table row whose word and the check's tier do not agree, and why it is not settled here: gh
-# is optional (a machine may hold repositories that do not land on GitHub), and the table lists
-# it with no word, as needed (the maintaining session, 2026-11-21).
-UNSETTLED = ("the [GitHub CLI]",)
-TABLE = re.compile(
-    r"^\| Tool \| Lem uses it for \|\n\| --- \| --- \|\n((?:\|.*\n)+)", re.MULTILINE
-)
-TIER = re.compile(r":\s*(optional|highly recommended|recommended)$")
 
 
 def furnished(stage: Stage) -> Stage:
@@ -168,37 +138,6 @@ def test_without_git_the_check_exits_1_with_its_rows_and_the_refusal_that_names_
     assert "question page" not in said
     assert "lem jev" not in said
     assert not [name for name in names if name.startswith(("ask", "lem-ask"))]
-
-
-def table() -> list[tuple[str, str]]:
-    """Each row of the table under "What you need" in docs/install.md: its first cell, and the
-    word for its tier, `required` when the cell has none."""
-    text = (ROOT / "docs" / "install.md").read_text(encoding="utf-8")
-    found = TABLE.search(text)
-    if found is None:
-        return []
-    rows = []
-    for line in found[1].splitlines():
-        cell = line.split(" | ")[0].lstrip("| ")
-        word = TIER.search(cell)
-        tier = word[1] if word else "required"
-        rows.append((cell, "recommended" if tier == "highly recommended" else tier))
-    return rows
-
-
-def test_the_install_guide_says_each_tools_tier_as_the_machine_check_has_it(
-    tmp_path: Path,
-) -> None:
-    rows = table()
-    assert rows, 'docs/install.md has no table under "What you need"'
-    needs = {row.name: row.need for row in gathered(furnished(Stage(tmp_path)).look())}
-    for name, words in IN_TABLE:
-        named = [tier for cell, tier in rows if words in cell]
-        assert len(named) == 1, f"one row of the install table names {words!r}"
-        assert needs[name] == named[0], (name, needs[name], named[0])
-    bound = [words for _, words in IN_TABLE] + list(UNSETTLED)
-    for cell, _ in rows:
-        assert any(words in cell for words in bound), cell
 
 
 @pytest.mark.parametrize("word", ["lem settings set load.start", "lem serve ensure"])

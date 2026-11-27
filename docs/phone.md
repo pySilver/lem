@@ -19,8 +19,8 @@ The phone then gets a notification when something starts to wait for you. When t
 sleeps, the phone cannot open the board.
 
 On a phone, **Merge…**, **Park**, **Drop** and a card open over the task. The page then shows the
-result, or why Lem refused. While you are [away](away.md#answer-from-the-inbox) and the optional Inbox
-runs, the page of a waiting task also links to its thread there.
+result, or why Lem refused. While you are away, a task that waits for you can link to its thread
+in the optional [Plannotator Inbox](away.md#answer-from-the-inbox).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/screens/phone-dark.png">
@@ -48,7 +48,7 @@ The server can merge a green change that is not careful when the verdict is merg
 See [the merge rules](merge.md#the-merge-review).
 
 Each hour the server removes the old files, as [`state.keep_days`](settings.md#state) tells. While
-you are away and the optional Inbox runs, it sends what waits for you there. It never types into a session.
+you are away, it sends what waits for you to the Plannotator Inbox if it runs. It never types into a session.
 
 The server also watches each task that builds or lands. When its session does no work for 45
 minutes, the server asks the session for its status. After 10 more minutes with no work, the server

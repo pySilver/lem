@@ -5,6 +5,8 @@ import re
 import tomllib
 from pathlib import Path
 
+from unit.guides.test_install import tool_groups
+
 ROOT = Path(__file__).resolve().parents[3]
 DOCS = ROOT / "docs"
 SKILLS = ROOT / "skills"
@@ -79,11 +81,8 @@ def test_one_lem_for_one_repository_the_plugin_installs_for_the_project() -> Non
 def test_claude_code_and_agterm_first_and_codex_for_reviews() -> None:
     harness = {path.name for path in (SKILLS / "lem/harness").iterdir()}
     assert harness == {"README.md", "claude-code.md", "claude-code"}
-    install = text("docs/install.md")
-    assert (
-        "| [Codex](https://github.com/openai/codex): highly recommended | a second model family for the review |"
-        in install
-    )
+    groups = tool_groups(text("docs/install.md"))
+    assert "[Codex](https://github.com/openai/codex)" in groups["Recommended"]
     assert "Lem needs [agterm](https://agterm.com)" in text("docs/index.md")
 
 
@@ -102,10 +101,9 @@ def test_release_last_tag_and_another_persons_review_left_the_core_for_the_add_o
 
 
 def test_three_commands_are_no_commands_of_his_and_two_recipes_are_required() -> None:
-    install = text("docs/install.md")
-    assert "the mailbox chat, webrev and the backlog recipe" in install
-    row = next(line for line in install.splitlines() if "the backlog recipe" in line)
-    assert not re.search(r":\s*(optional|recommended)\b", row.split(" | ")[0])
+    required = tool_groups(text("docs/install.md"))["Required"]
+    for recipe in ("mailbox-chat", "webrev skill", "backlog skill"):
+        assert f"- [{recipe}](" in required
     for path in guides():
         assert "/lem annotate" not in path.read_text(encoding="utf-8"), path
         assert "lem-backlog" not in path.read_text(encoding="utf-8"), path
@@ -146,9 +144,8 @@ def test_lem_is_for_experienced_developers_and_a_change_is_measured_on_a_small_t
 ):
     agents = flat("AGENTS.md")
     assert "A change is measured by what it costs a developer on a small task" in agents
-    assert "| [Claude Code](https://code.claude.com/docs) | the agents |" in text(
-        "docs/install.md"
-    )
+    required = tool_groups(text("docs/install.md"))["Required"]
+    assert "[Claude Code](https://code.claude.com/docs) for the agents." in required
 
 
 def test_the_rules_of_a_project_and_another_programs_settings_stay_where_they_are() -> (

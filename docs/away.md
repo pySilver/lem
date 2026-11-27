@@ -17,12 +17,12 @@ you are there. A task of `/lem night` always runs without you, to its pull reque
 
 ## Answer from the Inbox
 
-This part is optional. It works only when the
-[Plannotator](https://github.com/backnotprop/plannotator) Inbox runs on this computer, and Lem
-works the same without it. While you are away, each thing that waits for you then also goes to the
-Inbox. Each task has a
-thread there with its name. A question there has the same answers as the card in the session of the
-task. On your phone, the page of the task on the [board](phone.md) links to the thread.
+The [Plannotator Inbox](https://plannotator.ai/inbox/) is optional. If it runs on this computer,
+Lem sends what waits for you to it while you are away. Each task has a thread there with its name.
+A question there has the same answers as the card in the task's session. On your phone, the page
+of the task on the [board](phone.md) links to the thread.
+
+See the [Plannotator Inbox reference](https://plannotator.ai/docs/reference/inbox/) for setup.
 
 - The first answer counts: in the Inbox, in the session or on the board. Lem then closes the
   question in the other places.

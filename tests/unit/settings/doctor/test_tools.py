@@ -199,7 +199,8 @@ def test_plannotator_is_optional_with_its_guide_and_the_version_found(
         True,
         "plannotator 0.29.0",
     )
-    assert row.guide == "https://github.com/backnotprop/plannotator"
+    assert row.guide == "https://plannotator.ai/inbox/"
+    assert "Plannotator Inbox" in row.used_for
     assert "while he is away" in row.used_for
 
 
@@ -208,7 +209,7 @@ def test_without_plannotator_the_row_says_that_nothing_goes_to_the_inbox(
 ) -> None:
     row = tool_row(stage.look(), tool_words.PLANNOTATOR)
     assert (row.need, row.found, row.detail) == ("optional", False, None)
-    assert (row.without_it or "").startswith("nothing goes to the Inbox")
+    assert (row.without_it or "").startswith("nothing goes to the Plannotator Inbox")
 
 
 def test_plannotator_tui_is_recommended_with_its_guide(stage: Stage) -> None:

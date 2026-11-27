@@ -88,16 +88,16 @@ PLANNOTATOR = Tool(
     name="plannotator",
     need=OPTIONAL,
     used_for=(
-        "the Inbox carries what waits for the owner while he is away, to his phone too, "
-        "and brings his answer back into the task's session"
+        "the Plannotator Inbox carries what waits for the owner while he is away, to his "
+        "phone too, and brings his answer back into the task's session"
     ),
     without_it=(
-        "nothing goes to the Inbox: while the owner is away, what waits for him waits in "
-        "the task's session and on the board, and the phone's page of the task says why "
-        "there is no Inbox link"
+        "nothing goes to the Plannotator Inbox. While the owner is away, items wait in "
+        "the task's session and on the board. The task page on the phone says why it "
+        "has no Inbox link"
     ),
     program="plannotator",
-    guide="https://github.com/backnotprop/plannotator",
+    guide="https://plannotator.ai/inbox/",
 )
 CLAUDE = Tool(
     name="claude",
