@@ -199,10 +199,10 @@ Each module's docstring says what it does and why; this list says where each thi
   `plans/`, the plans that built Lem, each finished one with a status line that names its commits
   and where later decisions changed it.
 - `zensical.toml`, `overrides/` and `docs/assets/`: the docs. Zensical, a dev dependency pinned in
-  `uv.lock`, builds `docs/` into `_site/docs/`; `overrides/` holds the page menu, and `docs/assets/`
-  the docs' style in the board's six hues and the chart script that draws each `mermaid` block
-  with Pele. Its pictures and `pele.js` are links to the files of `assets/` and
-  `skills/lem/assets/vendor/`.
+  `uv.lock`, builds `docs/` into `_site/docs/`; `overrides/` holds the page menu and the header,
+  whose site name links the landing page as the logo does, and `docs/assets/` the docs' style in
+  the board's six hues and the chart script that draws each `mermaid` block with Pele. Its
+  pictures and `pele.js` are links to the files of `assets/` and `skills/lem/assets/vendor/`.
 - `landing/`: the site's landing page, by hand: the pitch, the scene, the board's pictures, the
   install lines of `docs/install.md` and links into the docs, with no guide text. Its one script is
   the copy buttons. `redirects.py` writes a page at each old address of a guide, `/lem/NAME/`, that

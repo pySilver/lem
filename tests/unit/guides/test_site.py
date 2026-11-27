@@ -1,12 +1,14 @@
 """The built site: Zensical builds it from docs/ with no warning, and each page loads nothing
 from another host, gives only `lem` lines the command tree takes, links only to what is there,
-has its Markdown copy and the page menu, and draws each chart with Pele."""
+leads back to the landing page from its logo and its site name, has its Markdown copy and the page
+menu, and draws each chart with Pele."""
 
 import json
 import re
 import shutil
 import subprocess
 import tomllib
+from importlib import resources
 from typing import TYPE_CHECKING
 from urllib.parse import unquote, urljoin, urlsplit
 
@@ -59,6 +61,16 @@ ASSISTANTS = (
     "https://www.perplexity.ai/search?q=",
 )
 NODE_SECONDS = 60
+# The site name in Zensical's header, and the link to the landing page that
+# overrides/partials/header.html makes of it.
+SITE_NAME_SPAN = (
+    '<span class="md-ellipsis">\n            {{ config.site_name }}\n          </span>'
+)
+SITE_NAME_LINK = (
+    '<a href="{{ config.extra.homepage | d(nav.homepage.url, true) | url }}" class="md-ellipsis">\n'
+    "            {{ config.site_name }}\n"
+    "          </a>"
+)
 
 
 def page_of(source: str) -> str:
@@ -278,6 +290,54 @@ def test_every_reference_of_the_whole_site_names_a_file_that_is_there(
                 if not target.is_file():
                     broken.append(f"{where} (no file {target.relative_to(landing)})")
     assert broken == [], "\n".join(sorted(broken))
+
+
+def test_the_logo_and_the_site_name_of_each_docs_page_lead_to_the_landing_page(
+    landing: Path,
+) -> None:
+    # The owner, 2026-11-27: "there is no way to return to the landing page from the docs. Logo
+    # on top links to `/docs` folder." The header's logo, the menu's logo, the header's site name
+    # and the footer's "Lem's home page" lead there; the menu's Overview still leads to the docs'
+    # first page.
+    landing_page = (built.ROOT / "landing/index.html").read_bytes()
+    assert (landing / "index.html").read_bytes() == landing_page
+    wrong = []
+    for page in built.pages(landing / "docs"):
+        if built.leads(page):
+            continue
+        name = built.name_of(landing, page)
+        base = urljoin(SITE_ROOT, name)
+        links = [
+            (tag.attributes.get("class", ""), urljoin(base, tag.attributes["href"]))
+            for tag in built.read(page).tags
+            if tag.name == "a" and "href" in tag.attributes
+        ]
+        home = [
+            target
+            for kind, target in links
+            if "md-logo" in kind.split() or kind in {"md-ellipsis", "lem-home"}
+        ]
+        overview = [
+            target
+            for kind, target in links
+            if "md-nav__link" in kind.split()
+            and target.removesuffix("index.html") == SITE_URL
+        ]
+        if home != [SITE_ROOT] * 4 or not overview:
+            wrong.append(f"{name}: {home}, {len(overview)} link(s) to {SITE_URL}")
+    assert wrong == [], "\n".join(wrong)
+
+
+def test_the_header_is_zensicals_own_with_the_site_name_as_a_link() -> None:
+    # overrides/partials/header.html replaces Zensical's header whole, so a Zensical that changes
+    # its header would be hidden by the copy: this case fails, and the copy is made again.
+    theirs = resources.files("zensical_ui").joinpath("templates/partials/header.html")
+    ours = built.ROOT / "overrides/partials/header.html"
+    head = re.compile(r"\A\{#-.*?-#\}\n", re.DOTALL)
+    expected = head.sub("", theirs.read_text(encoding="utf-8"))
+    assert expected.count(SITE_NAME_SPAN) == 1
+    expected = expected.replace(SITE_NAME_SPAN, SITE_NAME_LINK)
+    assert head.sub("", ours.read_text(encoding="utf-8")) == expected
 
 
 def test_each_old_address_of_a_guide_leads_to_its_page_under_docs(

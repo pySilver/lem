@@ -72,6 +72,12 @@ scheme = "slate"
 primary = "custom"
 accent = "custom"
 
+# The logo in the header and in the menu, and the site name in the header
+# (overrides/partials/header.html), link the landing page: one folder up from the docs. The theme's
+# `url` filter makes the path relative to each page, as the footer's link to the landing page is.
+[project.extra]
+homepage = "../"
+
 [project.plugins.search]
 
 # llms.txt, and a Markdown copy of each guide beside its page: "Copy as Markdown" copies it, and

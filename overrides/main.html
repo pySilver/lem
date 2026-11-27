@@ -1,6 +1,6 @@
 {#- Every page of Lem's docs: Zensical's own page. The page menu is partials/actions.html, which
-    Zensical puts over the text. The footer links Lem's landing page, one folder up from the docs,
-    and the repository. -#}
+    Zensical puts over the text. The footer links Lem's landing page, extra.homepage of
+    zensical.toml as the logo and the header's site name do, and the repository. -#}
 {% extends "base.html" %}
 
 {% block extrahead %}
@@ -11,6 +11,5 @@
 
 {% block footer %}
   {{ super() }}
-  {% set docs = '.' | url %}
-  <div class="md-grid md-typeset lem-footer-links"><a href="{{ docs[:-1] if docs[-1:] == '/' else docs }}/../">Lem's home page</a><a href="https://github.com/pySilver/lem">Lem on GitHub</a></div>
+  <div class="md-grid md-typeset lem-footer-links"><a href="{{ config.extra.homepage | url }}" class="lem-home">Lem's home page</a><a href="https://github.com/pySilver/lem">Lem on GitHub</a></div>
 {% endblock %}
