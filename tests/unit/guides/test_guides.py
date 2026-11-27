@@ -96,7 +96,8 @@ def test_the_site_is_built_into_site_with_no_web_font_and_no_switch_of_the_theme
     None
 ):
     project = CONFIG["project"]
-    assert project["site_dir"] == "_site"
+    assert project["site_dir"] == "_site/docs"
+    assert project["site_url"] == f"{SITE}docs/"
     assert project["docs_dir"] == "docs"
     assert project["theme"]["font"] is False
     assert all("toggle" not in palette for palette in project["theme"]["palette"])
@@ -164,7 +165,8 @@ def test_the_readme_points_to_the_site_and_installs_as_the_home_page_does() -> N
     )
     assert readme.rstrip().endswith("Lem has the [MIT License](LICENSE).")
     for link in re.findall(rf"\]\({re.escape(SITE)}([^)]*)\)", readme):
-        page = link.strip("/")
+        page = link.strip("/").removeprefix("docs").strip("/")
+        assert not link or link.startswith("docs/"), link
         assert not page or (DOCS / f"{page}.md").is_file(), link
 
 
@@ -229,16 +231,32 @@ def test_pages_yml_builds_with_zensical_and_publishes_only_on_a_start_by_hand() 
         "actions/deploy-pages@",
         "uv sync --locked",
         ".venv/bin/zensical build --clean --strict",
+        "cp landing/index.html landing/style.css _site/",
+        ".venv/bin/python -I landing/redirects.py _site",
         "path: _site",
     ):
         assert line in text, line
 
 
-def test_git_tracks_no_hand_kept_page() -> None:
+def test_git_tracks_the_landing_page_in_landing_and_no_other_hand_kept_page() -> None:
     ran = subprocess.run(
-        ["git", "-C", str(ROOT), "ls-files", "site"],
+        [
+            "git",
+            "-C",
+            str(ROOT),
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "site",
+            "landing",
+        ],
         capture_output=True,
         text=True,
         check=True,
     )
-    assert ran.stdout == ""
+    assert ran.stdout.split() == [
+        "landing/index.html",
+        "landing/redirects.py",
+        "landing/style.css",
+    ]

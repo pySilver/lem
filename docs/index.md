@@ -1,17 +1,16 @@
 ---
-template: home.html
 title: Lem
 description: Type a request in plain words, and get a pull request whose first line says green or not green.
-hide:
-  - navigation
-  - toc
 ---
 
 # Lem
 
-<p class="lem-lead">Type a request in plain words, and get a pull request whose first line says green or not green.</p>
-<p class="lem-for">For a developer who works alone, and for a team on Linear or GitHub Issues.</p>
-<p class="lem-sub">Agents plan, build, test and review the change in your repository. Lem is a plugin for Claude Code that works closely with agterm.</p>
+**Type a request in plain words, and get a pull request whose first line says green or not green.**
+
+For a developer who works alone, and for a team on Linear or GitHub Issues.
+
+Agents plan, build, test and review the change in your repository. Lem is a plugin for Claude Code
+that works closely with agterm.
 
 ```bash
 brew install pySilver/tap/lem

@@ -255,9 +255,11 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
   agents that change Lem: that reading is the session's, and open to him. (2026-11-17)
 - **Lem's docs do not speak for another tool.** Of `.revmux/` in the removal steps: "its not our
   tool". (2026-11-17)
-- **The documentation lives on the site, from one Markdown source.** The pages of `docs/` build the
-  whole site, its home page too, and `README.md` points to it: "To avoid drift we can keep only
-  single version: website". (2026-11-25)
+- **The landing page at `/` is a page of its own, the docs at `/docs/` come from the pages of
+  `docs/`, and the landing page holds no guide text of its own (its install lines are checked
+  against `docs/install.md`).** "FrontPage can be a separate landing page if that's hard to keep a
+  beautiful layout with our docs system. So docs goes to "/docs" and FrontPage stays awesome
+  landing page." (2026-11-27)
 
 ## The lessons, the correction queue, the naps, the night and the free hour
 

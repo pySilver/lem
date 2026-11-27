@@ -1,6 +1,6 @@
-{#- Every page of Lem's site: Zensical's own page, with the page menu over the text. "Copy as
-    Markdown" is Zensical's (content.action.copy); the links below are plain links, and none
-    loads a thing from another host. The home page (home.html) extends this file. -#}
+{#- Every page of Lem's docs: Zensical's own page. The page menu is partials/actions.html, which
+    Zensical puts over the text. The footer links Lem's landing page, one folder up from the docs,
+    and the repository. -#}
 {% extends "base.html" %}
 
 {% block extrahead %}
@@ -11,22 +11,6 @@
 
 {% block footer %}
   {{ super() }}
-  <div class="md-grid md-typeset"><a href="https://github.com/pySilver/lem">Lem on GitHub</a></div>
-{% endblock %}
-
-{% block content %}
-  {% if page.markdown_url %}
-    {% set markdown = config.site_url ~ page.markdown_url %}
-    {% set prompt = ("Read " ~ markdown ~ " and answer my questions about Lem from it.") | urlencode %}
-    <details class="lem-page-menu">
-      <summary>This page</summary>
-      <ul>
-        <li><a href="{{ page.markdown_url | url }}">View as Markdown</a></li>
-        <li><a href="https://chatgpt.com/?q={{ prompt }}" rel="noopener">Open in ChatGPT</a></li>
-        <li><a href="https://claude.ai/new?q={{ prompt }}" rel="noopener">Open in Claude</a></li>
-        <li><a href="https://www.perplexity.ai/search?q={{ prompt }}" rel="noopener">Open in Perplexity</a></li>
-      </ul>
-    </details>
-  {% endif %}
-  {{ super() }}
+  {% set docs = '.' | url %}
+  <div class="md-grid md-typeset lem-footer-links"><a href="{{ docs[:-1] if docs[-1:] == '/' else docs }}/../">Lem's home page</a><a href="https://github.com/pySilver/lem">Lem on GitHub</a></div>
 {% endblock %}

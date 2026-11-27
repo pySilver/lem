@@ -334,9 +334,10 @@ def test_agents_md_names_the_list_and_the_history_and_no_ruling_by_link() -> Non
 
 def test_agents_md_says_where_the_docs_live() -> None:
     text = flat(AGENTS.read_text(encoding="utf-8"))
-    assert "The pages of `docs/` are the one source of the site" in text
-    assert "`zensical.toml`, `overrides/` and `docs/assets/`: the site." in text
-    assert "site/index.html" not in text
+    assert "The pages of `docs/` are the one source of the docs" in text
+    assert "`zensical.toml`, `overrides/` and `docs/assets/`: the docs." in text
+    assert "`landing/`: the site's landing page, by hand" in text
+    assert "with no guide text" in text
 
 
 def test_the_names_docs_free_hour_cites_are_headings_of_agents_md_or_bullets_of_the_list() -> (

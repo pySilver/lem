@@ -22,3 +22,10 @@ def site(site_build: built.Build) -> Path:
     """The built site's folder; a build that failed fails the case that asks for it."""
     assert site_build.code == 0, site_build.said
     return site_build.site
+
+
+@pytest.fixture(scope="session")
+def landing(site_build: built.Build) -> Path:
+    """The whole built site: the landing page at its root, and the docs under docs/."""
+    assert site_build.code == 0, site_build.said
+    return site_build.root

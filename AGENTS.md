@@ -1,9 +1,9 @@
 # Lem
 
 Lem is the `lem` skill and the skills it ships, and the app `lem` they call: one flow for a unit of
-work in any repository, with each project's settings kept in that project's repository. The site,
-built from the pages of `docs/`, says what it does and how it works; `README.md` points to it; this
-file says how to change it.
+work in any repository, with each project's settings kept in that project's repository. The docs,
+built from the pages of `docs/`, say what it does and how it works; the site's landing page and
+`README.md` point to them; this file says how to change it.
 
 ## Rules for a change here
 
@@ -47,8 +47,8 @@ file says how to change it.
 - **Lem's own tasks take the same landing steps as any other project's tasks.** The landing
   runs the checks in the task's worktree.
 - **Documentation describes the current state.** No changelog paragraphs, no "previously". The
-  pages of `docs/` are the one source of the site, in ASD-STE100, each with one job and an aim of
-  under 800 words; `README.md` holds only what a visitor of the repository needs before the site.
+  pages of `docs/` are the one source of the docs, in ASD-STE100, each with one job and an aim of
+  under 800 words; the landing page and `README.md` hold only what a visitor needs before them.
   A chart writes each node's and each edge's text in double quotes, and is drawn once on the built
   site before it is committed.
 - **A maintainer's session with nobody at the terminal reads `docs/free-hour.md` first.** It changes
@@ -109,7 +109,7 @@ uv sync --locked                                     # .venv: Lem from this chec
 npm ci                                               # ESLint and neostandard, for the gate of the JavaScript
 .venv/bin/python -I -B tests --level gates           # ruff, pyrefly, wemake, import-linter, ESLint
 .venv/bin/python -I -B tests --level unit [PATHS]    # the unit level, or the files of it named
-.venv/bin/zensical build --clean                     # the site into _site/, which git ignores
+.venv/bin/zensical build --clean                     # the docs into _site/docs/, which git ignores
 ```
 
 `tests/__main__.py` is the one entry, and `tests/levels.py` says what each level runs: `gates`,
@@ -129,9 +129,10 @@ throwaway repository. A check that makes a dated name or reads the time keeps th
 checks that value. Never make a timing assertion depend on a step that finishes in less than
 one second.
 
-`tests/unit/guides/` builds the site in a copy of the checkout and reads the built pages: no
-request to another host, every `lem` line one the command tree takes, every link, `llms.txt` and
-the Markdown copies, every chart drawn by Pele.
+`tests/unit/guides/` builds the site as `pages.yml` does, in a copy of the checkout, and reads the
+built pages: no request to another host, every `lem` line one the command tree takes, every link,
+`llms.txt` and the Markdown copies, every chart drawn by Pele. `tests/browser/test_site_layout.py`
+opens every page at three phone widths, a tablet and a computer, in light and dark.
 
 A change to the app comes with its test. A change to a stage file has no test: its test is a real
 task, so say in the commit which task showed the need.
@@ -191,17 +192,21 @@ Each module's docstring says what it does and why; this list says where each thi
 - Lem's home folder, `$XDG_CONFIG_HOME/lem` or `~/.config/lem`: the owner's presence, the machine's
   settings, the developer's own settings for every repository, the repositories the board server
   shows, and the server's files.
-- `docs/`: the site's pages, each a guide in STE (`index.md` is the home page), and
+- `docs/`: the docs' pages, each a guide in STE (`index.md` is the first page), and
   `settings.md`, the reference, one to one with the settings' structs (`tests/unit/settings/`).
   Beside them, off the site: `free-hour.md`, `rulings/`, `backlog/` (Lem's own deferred work) and
   `plans/`, the plans that built Lem, each finished one with a status line that names its commits
   and where later decisions changed it.
-- `zensical.toml`, `overrides/` and `docs/assets/`: the site. Zensical, a dev dependency pinned in
-  `uv.lock`, builds `docs/` into `_site/`; `overrides/` holds the home page's template and the page
-  menu, and `docs/assets/` the site's style in the board's six hues and the chart script that draws
-  each `mermaid` block with Pele. Its pictures and `pele.js` are links to the files of `assets/` and
-  `skills/lem/assets/vendor/`. `.github/workflows/pages.yml`, started by hand only, builds and
-  publishes it.
+- `zensical.toml`, `overrides/` and `docs/assets/`: the docs. Zensical, a dev dependency pinned in
+  `uv.lock`, builds `docs/` into `_site/docs/`; `overrides/` holds the page menu, and `docs/assets/`
+  the docs' style in the board's six hues and the chart script that draws each `mermaid` block
+  with Pele. Its pictures and `pele.js` are links to the files of `assets/` and
+  `skills/lem/assets/vendor/`.
+- `landing/`: the site's landing page, by hand: the pitch, the scene, the board's pictures, the
+  install lines of `docs/install.md` and links into the docs, with no guide text. Its one script is
+  the copy buttons. `redirects.py` writes a page at each old address of a guide, `/lem/NAME/`, that
+  leads to `/lem/docs/NAME/`. `.github/workflows/pages.yml`, started by hand only, builds the docs,
+  puts the landing page and those pages in `_site/` and publishes them.
 - `tests/`: the levels of "Checks". `fakes/` holds a stand-in for each port, `fixtures/` the board's
   afternoon of example tasks, and `ledger/` the behavior ledger of the Lem before, with the fate of
   each of its rows.

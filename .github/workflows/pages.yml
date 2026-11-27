@@ -1,10 +1,13 @@
 name: Pages
 
 # Started by hand only (the Actions tab, or `gh workflow run Pages`), after the source of Pages is set
-# to "GitHub Actions". Zensical, at the version of uv.lock, builds the site from docs/ into _site/
-# (zensical.toml), and this publishes that folder. The pictures and Pele come into _site/ through the
-# links of docs/assets/, so the build alone makes the whole site. tests/unit/guides/ runs the
-# same build in a copy of the checkout and reads what it makes.
+# to "GitHub Actions". One run makes the whole site in _site/: Zensical, at the version of uv.lock,
+# builds the docs from docs/ into _site/docs/ (zensical.toml), and the landing page of landing/ goes to
+# _site/ itself, with the docs' 404 page for every address that is not there and a page at each old
+# address of a guide (/lem/NAME/, until 2026-11-27) that leads to /lem/docs/NAME/. The landing page takes its
+# pictures from _site/docs/assets/, which the links of docs/assets/ fill. tests/unit/guides/built.py runs
+# the lines of the step "Build the site" as written, in a copy of the checkout, and the cases read what
+# they make.
 on:
   workflow_dispatch:
 
@@ -34,6 +37,9 @@ jobs:
         run: |
           uv sync --locked --only-dev
           .venv/bin/zensical build --clean --strict
+          cp landing/index.html landing/style.css _site/
+          cp _site/docs/404.html _site/404.html
+          .venv/bin/python -I landing/redirects.py _site
       - uses: actions/upload-pages-artifact@v5
         with:
           path: _site

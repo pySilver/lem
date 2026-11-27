@@ -1,4 +1,4 @@
-"""The public site's first screen, in both palettes."""
+"""The landing page's first screen, in both palettes."""
 
 from typing import TYPE_CHECKING
 
@@ -18,7 +18,7 @@ SCREEN = (1280, 800)
 def homepage(tmp_path_factory: pytest.TempPathFactory) -> str:
     result = built.build(tmp_path_factory.mktemp("public-site"))
     assert result.code == 0, result.said
-    return (result.site / "index.html").as_uri()
+    return (result.root / "index.html").as_uri()
 
 
 @pytest.mark.parametrize("dark", [False, True], ids=["light", "dark"])
@@ -28,10 +28,10 @@ def test_install_and_agterm_fit_on_the_first_screen(
     page = window(SCREEN, dark=dark).pages[0]
     page.goto(homepage)
     for part in (
-        page.locator(".lem-lead"),
-        page.locator(".lem-for"),
-        page.locator(".lem-sub"),
-        page.locator(".lem-home pre").first,
-        page.locator(".lem-home p").filter(has_text="Lem needs agterm."),
+        page.locator(".lead"),
+        page.locator(".for"),
+        page.locator(".sub"),
+        page.locator(".install"),
+        page.locator(".needs"),
     ):
         in_screen(part, SCREEN)

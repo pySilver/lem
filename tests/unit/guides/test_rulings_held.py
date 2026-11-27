@@ -185,9 +185,9 @@ def test_the_logo_is_the_scene_with_its_night_file_in_the_readme_and_the_home_pa
         in readme
     )
     assert '<img src="assets/lem.svg"' in readme
-    home = text("overrides/home.html")
-    assert "assets/lem-night.svg" in home
-    assert "assets/lem.svg" in home
+    home = text("landing/index.html")
+    assert 'srcset="docs/assets/lem-night.svg"' in home
+    assert '<img src="docs/assets/lem.svg"' in home
     assert (ROOT / "docs/assets/lem.svg").resolve() == (
         ROOT / "assets/lem.svg"
     ).resolve()

@@ -1,0 +1,189 @@
+/* Lem's landing page, at / on GitHub Pages: the pitch, the scene, the install and the way into the
+   docs at /docs/. The look is the board's (skills/lem/assets/lem.css): its six hues and its light and
+   dark values, its round boxes and the system type, so no font comes from another host. The page
+   follows the visitor's theme, light or dark, and has no switch. Phone first: each rule is for a
+   phone, and the media queries at the end widen the page for a tablet and a computer. */
+:root {
+  color-scheme: light dark;
+  --lead: #33a6a0;
+  --lem: #9a5d9e;
+  --you: #b4902e;
+  --bad: #ae4022;
+  --gate: #3d73b6;
+  --ok: #629742;
+  --bg: #fbf9f5;
+  --card: #f1efeb;
+  --card-hi: #e9e8e3;
+  --line: #e2e1dc;
+  --line-strong: #cac8c4;
+  --fg: #191919;
+  --dim: #62615e;
+  --accent-ink: #735e25;
+  --link: color-mix(in srgb, var(--gate) 62%, var(--fg));
+  --ok-ink: color-mix(in srgb, var(--ok) 78%, var(--fg));
+  --bad-ink: var(--bad);
+  --shadow: color-mix(in srgb, var(--fg) 40%, transparent);
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  --gutter: 20px;
+  /* The scene's height: the whole 1600 x 640 frame from 650 px up, 260 px below that, and 60vw under
+     about 433 px. A phone of 375 px still shows the four small figures, the tall one and the word. */
+  --scene: max(40vw, min(260px, 60vw));
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1813;
+    --card: #23221d;
+    --card-hi: #2b2924;
+    --line: #312f2b;
+    --line-strong: #474642;
+    --fg: #e7e7e7;
+    --dim: #9d9d9b;
+    --accent-ink: #cab57c;
+    --ok-ink: color-mix(in srgb, var(--ok) 70%, var(--fg));
+    --bad-ink: color-mix(in srgb, var(--bad) 70%, var(--fg));
+    --shadow: rgba(0, 0, 0, .7);
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.6 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+a { color: var(--link); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+code { font-family: var(--mono); font-size: .9em; }
+p code { padding: 1px 6px; border-radius: 6px; background: var(--card-hi); border: 1px solid var(--line); white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--gate); outline-offset: 2px; border-radius: 4px; }
+
+/* ---- the bar over the sky: Lem's figure and name, and the way to the docs ---- */
+.top {
+  position: absolute; z-index: 2; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 12px var(--gutter);
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 72%, transparent), transparent);
+}
+.brand { display: flex; align-items: center; gap: 8px; color: var(--fg); text-decoration: none; font-weight: 700; font-size: 17px; letter-spacing: -.01em; }
+.brand picture, .brand img { display: block; width: 26px; height: 26px; }
+/* On a phone the scene shows the word Lem at its centre and the tall figure under the bar's left
+   end: the bar there holds only the links, at its right. */
+.brand { visibility: hidden; }
+.top nav { display: flex; gap: 18px; font-size: 15px; font-weight: 550; }
+.top nav a { color: var(--fg); text-decoration: none; }
+.top nav a:hover { text-decoration: underline; }
+
+/* ---- the opening: the scene from edge to edge, cut at its sides and never squeezed, then the words ---- */
+.opening { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.scene { position: relative; align-self: stretch; line-height: 0; overflow: hidden; }
+.scene img { display: block; width: 100%; height: var(--scene); object-fit: cover; object-position: 50% 0; }
+/* the field fades into the page under the figures' feet, so that the words start on the page's own ground */
+.scene::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(to bottom, transparent 66%, color-mix(in srgb, var(--bg) 70%, transparent) 86%, var(--bg));
+}
+.words {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+  width: 100%; max-width: 1080px; margin-top: calc(var(--scene) * -.1); padding: 0 var(--gutter);
+}
+.lead {
+  margin: 0; max-width: 22em;
+  font-size: clamp(26px, 15px + 3vw, 44px); line-height: 1.16; font-weight: 750; letter-spacing: -.022em;
+  text-wrap: balance;
+}
+.green { color: var(--ok-ink); }
+.not-green { color: var(--bad-ink); }
+.for { margin: 14px 0 0; max-width: 34em; font-size: 17px; line-height: 1.45; font-weight: 600; text-wrap: balance; }
+.sub { margin: 10px 0 0; max-width: 36em; font-size: 16px; line-height: 1.55; color: var(--dim); text-wrap: balance; }
+
+/* the three install lines, each with its copy button. A line too long for a phone wraps at a space,
+   and its second part stands under the first, after the prompt. */
+.install {
+  width: 100%; max-width: 640px; margin-top: 26px; text-align: left;
+  background: var(--card); border: 1px solid var(--line-strong); border-radius: 14px; padding: 6px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.cmd { display: flex; align-items: center; gap: 10px; padding: 7px 7px 7px 12px; border-radius: 9px; }
+.cmd:hover { background: var(--card-hi); }
+.cmd code { flex: 1; min-width: 0; font-size: 13px; line-height: 1.5; overflow-wrap: break-word; padding-left: 1.3em; text-indent: -1.3em; }
+.cmd code::before { content: "$ "; color: var(--accent-ink); user-select: none; }
+.copy {
+  flex: none; font: inherit; font-size: 12px; font-weight: 600; line-height: 1; color: var(--dim); cursor: pointer;
+  padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--bg);
+}
+.copy:hover { color: var(--fg); border-color: color-mix(in srgb, var(--you) 60%, transparent); }
+.needs { margin: 14px 0 0; max-width: 40em; font-size: 14px; line-height: 1.55; color: var(--dim); text-wrap: balance; }
+.needs code { font-size: 13px; color: var(--fg); }
+
+/* the way into the docs */
+.actions { margin: 24px 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.button {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px;
+  font-size: 15px; font-weight: 600; text-decoration: none; color: var(--fg);
+  background: var(--card); border: 1px solid var(--line-strong);
+}
+.button:hover { border-color: color-mix(in srgb, var(--you) 60%, transparent); }
+.button.primary { color: var(--bg); background: var(--fg); border-color: var(--fg); }
+.button.primary:hover { background: color-mix(in srgb, var(--fg) 86%, var(--you)); }
+
+/* ---- the board's pictures: on a phone, the phone's picture first at a size to read, then the computer's ---- */
+.showcase { margin: 56px auto 0; padding: 0 var(--gutter); max-width: 1240px; }
+.screens { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
+.frame {
+  overflow: hidden; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--card);
+  box-shadow: 0 26px 60px -34px var(--shadow), 0 2px 6px -2px color-mix(in srgb, var(--fg) 12%, transparent);
+}
+.frame img { display: block; width: 100%; height: auto; }
+.frame.hand { order: -1; justify-self: center; width: min(250px, 72%); border-radius: 28px; border: 6px solid #191919; box-shadow: 0 0 0 1px var(--line-strong), 0 26px 60px -34px var(--shadow); }
+.showcase figcaption { margin-top: 16px; text-align: center; font-size: 13px; font-style: italic; color: var(--dim); }
+
+/* ---- the docs, by group ---- */
+.guides { max-width: 1080px; margin: 64px auto 0; padding: 0 var(--gutter); }
+.guides h2 { margin: 0 0 18px; font-size: 26px; line-height: 1.2; font-weight: 720; letter-spacing: -.018em; }
+.groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.group { padding: 16px 18px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); }
+.eyebrow { margin: 0 0 8px; font: 650 12px/1.4 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent-ink); }
+.group ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.group a { display: block; padding: 6px 0; font-size: 16px; text-decoration: none; }
+.group a:hover { text-decoration: underline; }
+
+/* ---- the footer ---- */
+footer {
+  max-width: 1080px; margin: 56px auto 0; padding: 22px var(--gutter) 40px; border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; font-size: 14px; color: var(--dim);
+}
+footer p { margin: 0; }
+
+/* a wide phone and up: the bar shows Lem's figure and name, the docs groups stand two by two */
+@media (min-width: 560px) {
+  .brand { visibility: visible; }
+  .groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* a tablet and up: the computer and the phone side by side at one height. The phone's column is the
+   share of the computer's that gives both frames the same height (390/844 against 1440/900, with the
+   phone's 6 px bezel). */
+@media (min-width: 720px) {
+  :root { --gutter: 32px; }
+  .top { padding-top: 18px; padding-bottom: 18px; }
+  .top nav { gap: 26px; }
+  .for { font-size: 19px; }
+  .sub { font-size: 17px; }
+  .cmd code { font-size: 14px; }
+  .screens { grid-template-columns: minmax(0, 1fr) minmax(0, .2967fr); align-items: end; }
+  .frame.hand { order: 0; width: auto; }
+  .showcase { margin-top: 72px; }
+  .guides { margin-top: 84px; }
+  .guides h2 { font-size: 30px; }
+}
+/* a computer: the scene is cut at the bottom on a short window, so that the install stands on the
+   first screen; the docs groups stand in one row */
+@media (min-width: 1000px) {
+  .scene img { max-height: max(28vw, 44vh); }
+  .groups { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .words { margin-top: calc(min(var(--scene), max(28vw, 44vh)) * -.1); }
+}
+@media (prefers-reduced-motion: reduce) { .scene img { animation: none; } }

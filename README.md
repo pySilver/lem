@@ -29,15 +29,15 @@ claude plugin install lem@lem --scope project
 ```
 
 Then start Claude Code in agterm there, and type `/lem init`.
-[Install](https://pysilver.github.io/lem/install/) lists the tools that Lem needs.
+[Install](https://pysilver.github.io/lem/docs/install/) lists the tools that Lem needs.
 
 ## Guides
 
-- [How a task goes](https://pysilver.github.io/lem/flow/)
-- [When Lem needs you](https://pysilver.github.io/lem/when-lem-needs-you/)
-- [The pull request](https://pysilver.github.io/lem/pull-request/)
-- [The board](https://pysilver.github.io/lem/board/)
-- [Settings](https://pysilver.github.io/lem/settings/)
+- [How a task goes](https://pysilver.github.io/lem/docs/flow/)
+- [When Lem needs you](https://pysilver.github.io/lem/docs/when-lem-needs-you/)
+- [The pull request](https://pysilver.github.io/lem/docs/pull-request/)
+- [The board](https://pysilver.github.io/lem/docs/board/)
+- [Settings](https://pysilver.github.io/lem/docs/settings/)
 
 The source of each page is a file of [`docs/`](docs/).
 

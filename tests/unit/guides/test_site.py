@@ -244,6 +244,30 @@ def test_every_link_and_picture_of_the_site_names_a_file_and_a_heading_that_are_
     assert broken == []
 
 
+def test_each_old_address_of_a_guide_leads_to_its_page_under_docs(
+    landing: Path,
+) -> None:
+    # Until 2026-11-27 the guides were at /lem/NAME/; the landing page took /lem/ that day.
+    old_root = SITE_URL.removesuffix("docs/")
+    for source in NAV:
+        if source == "index.md":
+            continue
+        name = source.removesuffix(".md")
+        page = landing / name / "index.html"
+        assert page.is_file(), f"no redirect at {old_root}{name}/"
+        tags = built.read(page).tags
+        meta = [tag.attributes for tag in tags if tag.name == "meta"]
+        assert {"http-equiv": "refresh", "content": f"0; url=../docs/{name}/"} in meta
+        canonical = [
+            tag.attributes["href"]
+            for tag in tags
+            if tag.name == "link" and tag.attributes.get("rel") == "canonical"
+        ]
+        assert canonical == [f"{SITE_URL}{name}/"], page
+        assert (landing / "docs" / name / "index.html").is_file(), name
+        assert not any(tag.name == "script" for tag in tags), page
+
+
 def test_llms_txt_lists_each_guide_and_each_markdown_copy_is_beside_its_page(
     site: Path,
 ) -> None:

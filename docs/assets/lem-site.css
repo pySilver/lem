@@ -79,32 +79,62 @@
 .md-typeset code { border-radius: 6px; }
 .md-typeset table:not([class]) { border: 1px solid var(--lem-line); border-radius: 10px; }
 
-/* the page menu over the text: Markdown and the assistants, as plain links */
-.lem-page-menu { float: right; position: relative; margin: 0 0 0 .8rem; font-size: .7rem; }
-.lem-page-menu summary { cursor: pointer; list-style: none; padding: .2rem .6rem; border: 1px solid var(--lem-line-strong); border-radius: 8px; color: var(--lem-dim); }
-.lem-page-menu summary::-webkit-details-marker { display: none; }
-.lem-page-menu[open] summary { color: var(--lem-fg); }
-.lem-page-menu ul { position: absolute; right: 0; z-index: 2; margin: .3rem 0 0; padding: .3rem 0; min-width: 11rem; list-style: none; background: var(--lem-bg); border: 1px solid var(--lem-line-strong); border-radius: 10px; }
-.md-typeset .lem-page-menu li { margin: 0; padding: 0; }
-.lem-page-menu a { display: block; padding: .3rem .8rem; color: var(--lem-fg); }
-.lem-page-menu a:hover { background: var(--lem-card); }
+/* the page menu (overrides/partials/actions.html): one quiet button, "This page", whose list holds
+   the copy, the Markdown file and the assistants. On a wide screen it floats on the title's line, at
+   its right; on a narrow one it takes a line of its own above the title, so that the title keeps the
+   whole width. Zensical styles every details as a note: none of that reaches the menu. */
+.md-typeset .lem-page-actions { display: flex; justify-content: flex-end; margin: -.6rem 0 .2rem; }
+.md-typeset .lem-page-actions details { position: relative; display: block; margin: 0; padding: 0; overflow: visible; font-size: .7rem; color: var(--lem-fg); background: none; border: 0; border-radius: 0; box-shadow: none; }
+.md-typeset .lem-page-actions details > summary {
+  display: inline-flex; align-items: center; gap: .35rem; margin: 0; padding: .25rem .5rem .25rem .55rem;
+  font-weight: 500; line-height: 1.4; color: var(--lem-dim); cursor: pointer; list-style: none; user-select: none;
+  background: var(--lem-card); border: 1px solid var(--lem-line); border-radius: 8px;
+}
+.md-typeset .lem-page-actions details > summary::before, .md-typeset .lem-page-actions details > summary::after { display: none; }
+.md-typeset .lem-page-actions details > summary::-webkit-details-marker { display: none; }
+.md-typeset .lem-page-actions details > summary:hover, .md-typeset .lem-page-actions details[open] > summary { color: var(--lem-fg); border-color: var(--lem-line-strong); }
+.md-typeset .lem-page-actions details > summary:focus-visible { outline: 2px solid var(--gate); outline-offset: 2px; }
+.lem-page-icon, .lem-page-chevron { flex: none; width: .8rem; height: .8rem; }
+.lem-page-chevron { transition: transform .15s; }
+.lem-page-menu[open] .lem-page-chevron { transform: rotate(180deg); }
+.md-typeset .lem-page-actions ul {
+  position: absolute; top: calc(100% + .3rem); right: 0; z-index: 3; margin: 0; padding: .3rem; min-width: 11.5rem; list-style: none;
+  background: var(--lem-bg); border: 1px solid var(--lem-line-strong); border-radius: 10px;
+  box-shadow: 0 12px 32px -12px color-mix(in srgb, var(--lem-fg) 40%, transparent);
+}
+.md-typeset .lem-page-actions li { margin: 0; padding: 0; }
+.md-typeset .lem-page-actions li a, .md-typeset .lem-page-actions li button {
+  display: block; width: 100%; padding: .35rem .6rem; font: inherit; line-height: 1.4; text-align: left;
+  color: var(--lem-fg); text-decoration: none; background: none; border: 0; border-radius: 6px; cursor: pointer;
+}
+.md-typeset .lem-page-actions li a:hover, .md-typeset .lem-page-actions li button:hover, .md-typeset .lem-page-actions li :focus-visible { background: var(--lem-card); outline: none; }
+.md-typeset .lem-page-actions li + li:nth-child(3) { margin-top: .25rem; padding-top: .25rem; border-top: 1px solid var(--lem-line); }
+@media (min-width: 60em) {
+  .md-typeset .lem-page-actions { float: right; margin: .35rem 0 0 1rem; }
+}
+
+/* the footer's links: Lem's home page and the repository */
+.lem-footer-links { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; padding-top: .6rem; padding-bottom: .8rem; font-size: .7rem; }
 
 /* a chart: Pele's drawing at the width of the text, or its text with the line that says why not */
 .md-typeset .lem-chart-drawn { margin: 1em 0; padding: .8rem; text-align: center; background: var(--lem-card); border: 1px solid var(--lem-line); border-radius: 12px; overflow-x: auto; }
 .md-typeset .lem-chart-drawn svg { max-width: 100%; height: auto; }
+/* on a narrow screen a chart is drawn at three quarters of its own size, so that its 14 px words
+   stay readable at 10.5 px, and its box scrolls it sideways; squeezed to a phone's width, the flow's
+   chart had words of 6 px. Pele writes max-width: 100% on the drawing itself, which only !important
+   outranks. */
+@media (max-width: 44.9375em) {
+  .md-typeset .lem-chart-drawn svg { max-width: none !important; zoom: .75; }
+}
+
+/* a table on a narrow screen: a name in code keeps its line, each column keeps room for a few words,
+   and the table's box scrolls it sideways */
+@media (max-width: 44.9375em) {
+  .md-typeset table:not([class]) code { white-space: nowrap; word-break: normal; }
+  .md-typeset table:not([class]) :is(th, td) { min-width: 7.5rem; }
+}
 .md-typeset .lem-chart-error { color: var(--bad); font-weight: 600; }
 
-/* the home page: the scene from edge to edge, cut at its sides and never squeezed, then the words */
-.lem-scene { line-height: 0; overflow: hidden; }
-.lem-scene img { display: block; width: 100%; height: max(40vw, min(260px, 60vw)); object-fit: cover; object-position: 50% 0; }
-.lem-home h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-.lem-home .lem-lead { margin: 0; font-size: 1.5rem; line-height: 1.25; font-weight: 700; letter-spacing: -.018em; text-align: center; }
-.lem-home .lem-for { margin: .6rem 0 0; font-size: .95rem; font-weight: 600; text-align: center; }
-.lem-home .lem-sub { margin: .6rem auto 1.4rem; max-width: 38em; color: var(--lem-dim); text-align: center; }
-.lem-home .lem-you { color: var(--lem-accent-ink); }
-@media (min-width: 960px) {
-  .lem-scene img { max-height: max(28vw, 45vh); }
-  .lem-home .md-content__inner { padding-top: 0; }
-  .lem-home .lem-sub { margin-bottom: .6rem; }
-}
-@media (prefers-reduced-motion: reduce) { .lem-scene img { animation: none; } }
+/* a name in the menus that has no space to break at (a path such as ~/.config/lem/settings.toml)
+   breaks where it must, so that the whole name shows */
+.md-nav .md-ellipsis { overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Lem: a request in plain words, a pull request that says green or not green</title>
+<meta name="description" content="Lem is a plugin for Claude Code that works closely with agterm. Type a request in plain words, and get a pull request whose first line says green or not green.">
+<link rel="icon" href="docs/assets/lem-mark.svg" type="image/svg+xml">
+<link rel="icon" href="docs/assets/lem-mark-night.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="docs/assets/lem-mark.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="./" aria-label="Lem, the home page">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lem-mark-night.svg">
+      <img src="docs/assets/lem-mark.svg" alt="" width="28" height="28">
+    </picture>
+    <span>Lem</span>
+  </a>
+  <nav aria-label="Pages">
+    <a href="docs/">Docs</a>
+    <a href="docs/install/">Install</a>
+    <a href="https://github.com/pySilver/lem">GitHub</a>
+  </nav>
+</header>
+
+<main>
+
+<section class="opening">
+  <div class="scene">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lem-night.svg">
+      <img src="docs/assets/lem.svg" alt="Lem's logo: a tall hooded figure with a red eye holds a long line over a field. Four small figures and the word Lem hang from it. A small glow goes from the tall figure's hands down to the four small figures and lights their red eyes." width="1600" height="640">
+    </picture>
+  </div>
+  <div class="words">
+    <h1 class="lead">Type a request in plain words, and get a pull request whose first line says <span class="green">green</span> or <span class="not-green">not green</span>.</h1>
+    <p class="for">For a developer who works alone, and for a team on Linear or GitHub Issues.</p>
+    <p class="sub">Agents plan, build, test and review the change in your repository. Lem is a plugin for Claude Code that works closely with agterm.</p>
+    <div class="install" aria-label="Install">
+      <div class="cmd"><code>brew install pySilver/tap/lem</code><button class="copy" type="button">Copy</button></div>
+      <div class="cmd"><code>claude plugin marketplace add pySilver/lem --scope project</code><button class="copy" type="button">Copy</button></div>
+      <div class="cmd"><code>claude plugin install lem@lem --scope project</code><button class="copy" type="button">Copy</button></div>
+    </div>
+    <p class="needs">Lem needs <a href="https://agterm.com">agterm</a>. Run the first line one time on your computer, and the next two in your repository. Then type <code>/lem init</code>.</p>
+    <p class="actions">
+      <a class="button primary" href="docs/">Read the docs</a>
+      <a class="button" href="docs/install/">Install, step by step</a>
+    </p>
+  </div>
+</section>
+
+<figure class="showcase">
+  <div class="screens">
+    <div class="frame desk">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screens/board-dark.png">
+        <img src="docs/assets/screens/board-light.png" alt="The board of all tasks: a sidebar with the tasks that wait for you, and four columns of task cards" width="1440" height="900">
+      </picture>
+    </div>
+    <div class="frame hand">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screens/phone-dark.png">
+        <img src="docs/assets/screens/phone-light.png" alt="The same board on a phone: the column Waits for you, with three tasks" width="390" height="844">
+      </picture>
+    </div>
+  </div>
+  <figcaption>The board on a computer and on a phone. The pictures show demo data.</figcaption>
+</figure>
+
+<section class="guides" aria-labelledby="guides">
+  <h2 id="guides">The docs</h2>
+  <div class="groups">
+    <nav class="group" aria-label="Start">
+      <p class="eyebrow">Start</p>
+      <ul>
+        <li><a href="docs/">Overview</a></li>
+        <li><a href="docs/install/">Install</a></li>
+        <li><a href="docs/update/">Update and remove</a></li>
+      </ul>
+    </nav>
+    <nav class="group" aria-label="A task">
+      <p class="eyebrow">A task</p>
+      <ul>
+        <li><a href="docs/flow/">How a task goes</a></li>
+        <li><a href="docs/when-lem-needs-you/">When Lem needs you</a></li>
+        <li><a href="docs/away/">While you are away</a></li>
+        <li><a href="docs/pull-request/">The pull request</a></li>
+        <li><a href="docs/merge/">The merge</a></li>
+      </ul>
+    </nav>
+    <nav class="group" aria-label="The board">
+      <p class="eyebrow">The board</p>
+      <ul>
+        <li><a href="docs/board/">The board</a></li>
+        <li><a href="docs/phone/">The board on your phone</a></li>
+      </ul>
+    </nav>
+    <nav class="group" aria-label="Settings and trackers">
+      <p class="eyebrow">Settings and trackers</p>
+      <ul>
+        <li><a href="docs/settings/">Settings</a></li>
+        <li><a href="docs/linear/">Connect Linear</a></li>
+        <li><a href="docs/github-issues/">Connect GitHub Issues</a></li>
+      </ul>
+    </nav>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p>Lem has the <a href="https://github.com/pySilver/lem/blob/main/LICENSE">MIT License</a>.</p>
+  <p><a href="https://github.com/pySilver/lem">Lem on GitHub</a></p>
+</footer>
+
+<script>
+/* the copy buttons, and nothing else: each copies the line of its own row */
+for (const button of document.querySelectorAll("button.copy")) {
+  button.addEventListener("click", async () => {
+    const line = button.parentElement.querySelector("code");
+    try {
+      await navigator.clipboard.writeText(line.textContent);
+      button.textContent = "Copied";
+    } catch {
+      getSelection().selectAllChildren(line);
+      button.textContent = "Selected";
+    }
+    setTimeout(() => { button.textContent = "Copy"; }, 1600);
+  });
+}
+</script>
+</body>
+</html>
