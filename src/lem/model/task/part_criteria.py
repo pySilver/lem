@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from lem.kernel.errors import Refusal
 from lem.model.criteria import digest
 from lem.model.landing import propose_criteria
+from lem.model.task import carried, part_carry
 
 if TYPE_CHECKING:
     from lem.model.criteria.read import Sheet
@@ -88,3 +89,40 @@ def approval_of(record: Record, sheet: Sheet) -> Approval:
     if unread is not None:
         raise unread
     return newest
+
+
+def other_than(every: tuple[Record, ...], feature: Task, newest: Approval) -> list[str]:
+    """The parts of `feature` whose criteria, as they took them at the split, are not the
+    ones `newest` holds under their heading: other words, or no such part any more. An
+    approval of the same texts again is no change (`model/criteria/contract.py`)."""
+    marks = part_carry.marks(feature.slug, newest)
+    found: list[str] = []
+    for record in every:
+        kept = carried.approval(record)
+        if kept is None or record.task.part_of != feature.slug:
+            continue
+        if marks.get(record.task.slug) != kept.digest:
+            found.append(record.task.slug)
+    return found
+
+
+def stale(every: tuple[Record, ...], feature: Task) -> None:
+    """Refuse a split again over parts that took another approval than the feature's newest:
+    a change after the split goes into each part, never into a part made again."""
+    approvals = feature.criteria.approvals
+    if not approvals:
+        return
+    newest = approvals[-1]
+    names = ", ".join(sorted(other_than(every, feature, newest)))
+    if not names:
+        return
+    raise Refusal(
+        "split-moved",
+        f"{names} took the criteria of {feature.slug} at the split, and the owner's newest "
+        f"approval of them, {newest.number}, words them otherwise or has no such part: a "
+        "split runs once",
+        "a change of a part's criteria is the part's own: lem criteria change PART --file "
+        "FILE, then his yes, lem criteria approve PART --file FILE; a new part is lem task "
+        f"open SLUG --part-of {feature.slug}; a part he no longer wants, he drops with "
+        "/lem drop PART",
+    )

@@ -86,7 +86,7 @@ def same(task: Task, part: parts.Part, feature: str) -> bool:
     return task.part_of == feature and words == part.ask.split()
 
 
-def missing(every: tuple[Record, ...], wanted: Parts, feature: str) -> Parts:
+def missing(every: tuple[Record, ...], wanted: Parts, feature: Task) -> Parts:
     """The parts no record holds yet; refused when a part's slug is another task's."""
     found = {record.task.slug: record.task for record in every}
     left: list[parts.Part] = []
@@ -94,21 +94,23 @@ def missing(every: tuple[Record, ...], wanted: Parts, feature: str) -> Parts:
         task = found.get(part.slug)
         if task is None:
             left.append(part)
-        elif not same(task, part, feature):
+        elif not same(task, part, feature.slug):
             raise Refusal(
                 "task-exists",
                 f"the task {part.slug} is here already, and it is not the part "
-                f"{part.heading!r} of {feature}",
+                f"{part.heading!r} of {feature.slug}",
                 "give the part's heading another slug, and the owner's yes to the criteria "
                 "again",
             )
     return tuple(left)
 
 
-def planned(record: Record, sheet: Sheet) -> Parts:
+def planned(record: Record, sheet: Sheet, every: tuple[Record, ...]) -> Parts:
     """The parts of the feature's approved criteria, which the file `sheet` holds word for
-    word; refused when the split may not run on the record as it is."""
+    word; refused when the split may not run on the record as it is, and when parts made
+    before took another approval (`part_criteria.stale`)."""
     slug = record.task.slug
+    part_criteria.stale(every, record.task)
     found = parts.parts_of(slug, sheet.criteria)
     refused = splittable(record.task, tuple(part.slug for part in found))
     if refused is not None:

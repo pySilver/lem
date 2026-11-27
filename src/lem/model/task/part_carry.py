@@ -16,7 +16,8 @@ from msgspec.structs import replace
 
 from lem.model.criteria import digest
 from lem.model.landing import propose_criteria
-from lem.records.criteria import Criteria, Waited
+from lem.model.task import parts
+from lem.records.criteria import Criteria
 
 if TYPE_CHECKING:
     from lem.records.approvals import Approval, PersonaRead
@@ -36,19 +37,13 @@ def read_of(
     read: PersonaRead | None, approval: Approval, mark: str
 ) -> tuple[PersonaRead, ...]:
     """The feature's newest read as the part keeps it: with the part's mark when it read the
-    approved texts, else with its own."""
+    approved texts, else with its own. Its counts stay those of the feature's criteria, which
+    nobody split by part, and the part's pull request says whose they are
+    (`app/landing/pr_read.py`)."""
     if read is None:
         return ()
     digest_kept = mark if read.digest == approval.digest else read.digest
     return (replace(read, digest=digest_kept, changes=0),)
-
-
-def waited_of(kept: Criteria, approval: Approval) -> Waited | None:
-    """The feature's wait for the owner's yes, when the approval copied ended it."""
-    wait = kept.waited
-    if wait is None or wait.ended_by != approval.number:
-        return None
-    return Waited(since=wait.since, ended_by=1)
 
 
 def skipped(task: Task, criteria: Criteria) -> Criteria:
@@ -64,7 +59,9 @@ def carried(
     feature: Task, approval: Approval, criteria: tuple[Criterion, ...]
 ) -> Criteria:
     """What the part knows of its criteria: the heading's criteria, the feature's approval as
-    its first, the feature's read or the owner's skip of it, and the wait his yes ended."""
+    its first, and the feature's read or the owner's skip of it. The feature's wait for his
+    yes stays the feature's: the part's pull request names the approval as the feature's
+    (`app/landing/pr_approval.py`)."""
     own = numbered(criteria)
     mark = digest.of_texts(approval.size, own)
     copy = replace(
@@ -76,7 +73,15 @@ def carried(
         criteria=own,
         digest=digest.of_tests(approval.size, own),
         approvals=(copy,),
-        waited=waited_of(feature.criteria, approval),
         reads=read_of(propose_criteria.newest(feature), approval, mark),
     )
     return skipped(feature, made)
+
+
+def marks(feature: str, approval: Approval) -> dict[str, str]:
+    """The mark each part of the approved criteria takes at the split, by the part's slug."""
+    found = parts.parts_of(feature, approval.criteria)
+    return {
+        part.slug: digest.of_texts(approval.size, numbered(part.criteria))
+        for part in found
+    }

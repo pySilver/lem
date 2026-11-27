@@ -13,7 +13,7 @@ from fakes.records import record
 from fakes.repo import RealRepo, run_git
 from lem.app.criteria import approve, persona
 from lem.app.landing import pr_read, pr_unread
-from lem.app.tasks import split
+from lem.app.tasks import split, worktree
 from lem.kernel.errors import Refusal
 from lem.model.criteria import digest, reads
 from lem.model.criteria.read import sheet_of
@@ -60,7 +60,7 @@ Size: full, because the server and both apps change.
 SHAPE = Shape(type="feat", why="a new feature", track="full", then="interview")
 
 
-def approved(where: Workspace, text: str = CRITERIA) -> Path:
+def approved(where: Workspace, text: str = CRITERIA, flagged: int = 0) -> Path:
     """The feature's criteria file, read by the personas and approved by the owner."""
     path = where.checkout / "criteria.md"
     path.write_text(text, encoding="utf-8")
@@ -70,7 +70,7 @@ def approved(where: Workspace, text: str = CRITERIA) -> Path:
         answered=2,
         families=("opus", "sol"),
         criteria=len(sheet.criteria),
-        flagged=0,
+        flagged=flagged,
         digest=digest.of_texts(sheet.size, sheet.criteria),
     )
     persona.noted(where.checkout, FEATURE, ("done", "lem"), found)
@@ -78,12 +78,12 @@ def approved(where: Workspace, text: str = CRITERIA) -> Path:
     return path
 
 
-def feature(tmp_path: Path) -> tuple[Workspace, Path]:
+def feature(tmp_path: Path, flagged: int = 0) -> tuple[Workspace, Path]:
     """A real repository with origin, and the feature shaping, read and approved in it."""
     repo = RealRepo.init(tmp_path / "repo", {"README.md": b"one\n"})
     where = space(repo.checkout)
     made(where, FEATURE, ask="save items, in parts", status="shaping", shape=SHAPE)
-    return where, approved(where)
+    return where, approved(where, flagged=flagged)
 
 
 def refused(where: Workspace, path: Path) -> Refusal:
@@ -301,9 +301,33 @@ def test_green_and_propose_pass_for_a_part_with_no_second_read_or_yes(
         assert pr_unread.unread(record) == ()
         assert green.unread(record) == ()
         assert green_owner.approval(record.task) == ()
-        line = pr_read.read_line(record)
-        assert line.startswith("- the criteria were read by 2 of 2 personas asked")
-        assert "the owner approved them on" in line
+
+    day = read(where, FEATURE).task.criteria.approvals[-1].at.date().isoformat()
+    assert pr_read.read_line(read(where, "save-endpoint")) == (
+        f"- the criteria were read as part of {FEATURE}'s criteria by 2 of 2 personas "
+        "asked, two model families (opus, sol); nobody confused; the owner approved them "
+        f"as part of {FEATURE}'s criteria on {day}"
+    )
+
+
+def test_the_feature_reads_counts_are_said_to_be_the_feature_s(tmp_path: Path) -> None:
+    where, path = feature(tmp_path, flagged=1)
+    split.split(where.checkout, FEATURE, path)
+    line = pr_read.read_line(read(where, "save-endpoint"))
+    assert f"; 1 of 5 criteria of {FEATURE} flagged;" in line
+
+
+def test_a_part_with_an_approval_of_its_own_says_it_plainly(tmp_path: Path) -> None:
+    where, path = feature(tmp_path)
+    split.split(where.checkout, FEATURE, path)
+    record = read(where, "save-endpoint")
+    # a part `lem task open --part-of` opened has its own lines, none carried
+    own = replace(record, journal=())
+    day = record.task.criteria.approvals[0].at.date().isoformat()
+    assert pr_read.read_line(own) == (
+        "- the criteria were read by 2 of 2 personas asked, two model families (opus, "
+        f"sol); nobody confused; the owner approved them on {day}"
+    )
 
 
 def test_a_read_of_other_texts_than_the_approved_ones_keeps_its_own_mark(
@@ -368,6 +392,16 @@ def test_a_split_run_twice_makes_each_part_once(tmp_path: Path) -> None:
     assert (task.status, task.after) == ("queued", SLUGS)
 
 
+def test_an_approval_of_the_same_texts_again_lets_the_split_run_again(
+    tmp_path: Path,
+) -> None:
+    where, path = feature(tmp_path)
+    split.split(where.checkout, FEATURE, path)
+    approve.approved(where.checkout, FEATURE, approve.Asked(by="owner", path=path))
+    again = split.split(where.checkout, FEATURE, path)
+    assert [one.made for one in again.parts] == [False, False, False]
+
+
 def test_a_split_cut_off_after_one_part_makes_only_the_missing_ones(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -424,3 +458,50 @@ def test_only_a_feature_that_is_shaping_and_no_part_is_split(
     found = split_records.splittable(task, SLUGS)
     assert found is not None
     assert found.why.startswith(said)
+
+
+@pytest.mark.parametrize(
+    ("was", "now"),
+    [
+        ('"milk" is in /items after a tap', '"bread" is in /items after a tap'),
+        ("### ios-save-button: the iOS", "### ios-save: the iOS"),
+    ],
+)
+def test_a_split_again_after_another_approval_is_refused_and_changes_nothing(
+    tmp_path: Path, was: str, now: str
+) -> None:
+    where, path = feature(tmp_path)
+    split.split(where.checkout, FEATURE, path)
+    before = {slug: read(where, slug) for slug in (FEATURE, *SLUGS)}
+    path.write_text(CRITERIA.replace(was, now), encoding="utf-8")
+    approve.approved(where.checkout, FEATURE, approve.Asked(by="owner", path=path))
+    before[FEATURE] = read(where, FEATURE)
+    found = refused(where, path)
+    assert found.code == "split-moved"
+    assert found.why.startswith(
+        f"ios-save-button took the criteria of {FEATURE} at the split, and the owner's "
+        "newest approval of them, 2, words them otherwise or has no such part"
+    )
+    assert "lem criteria change PART --file FILE" in found.fix
+    assert {slug: read(where, slug) for slug in before} == before
+    assert not (where.state / "tasks" / "ios-save").exists()
+
+
+def test_a_feature_whose_worktree_is_on_another_branch_is_refused_with_the_way_on(
+    tmp_path: Path,
+) -> None:
+    where, path = feature(tmp_path)
+    worktree.worktree(
+        where.checkout, FEATURE, path_only=False, asked=(f"feat/{FEATURE}", None)
+    )
+    tree = where.lem / "worktrees" / FEATURE
+    found = refused(where, path)
+    assert found.code == "split-worktree"
+    assert found.why.startswith(f"the worktree of {FEATURE}, {tree}, is on feat/")
+    command = f"git -C {tree} switch --create {BRANCH} origin/main"
+    assert command in found.fix
+    assert read(where, FEATURE).task.status == "shaping"
+    run_git(tree, "switch", "--quiet", "--create", BRANCH, "origin/main")
+    done = split.split(where.checkout, FEATURE, path)
+    assert (done.branch, read(where, FEATURE).task.branch) == (BRANCH, BRANCH)
+    assert run_git(where.checkout, "ls-remote", "origin", BRANCH).endswith(BRANCH)

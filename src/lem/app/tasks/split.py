@@ -16,7 +16,7 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from lem.app.criteria import texts
-from lem.app.tasks import release, split_branch
+from lem.app.tasks import release, split_branch, split_shown
 from lem.kernel import clock, locks
 from lem.model.task import part_carry, part_criteria, part_record, parts, split_records
 from lem.records.base import Frozen
@@ -32,16 +32,6 @@ if TYPE_CHECKING:
 THE_CRITERIA = "the feature's criteria the owner approved"
 
 
-class Made(Frozen, frozen=True, kw_only=True):
-    """One part of the split: its slug, its status, the part it waits for, and whether this
-    call made its record."""
-
-    slug: str
-    status: str
-    after: tuple[str, ...] = ()
-    made: bool = False
-
-
 class Split(Frozen, frozen=True, kw_only=True):
     """The split: the feature, its branch and worktree, the parts in order, the parts that
     start now (each needs its session), and the line to say when origin did not answer."""
@@ -49,7 +39,7 @@ class Split(Frozen, frozen=True, kw_only=True):
     feature: str
     branch: str
     worktree: str
-    parts: tuple[Made, ...]
+    parts: tuple[split_shown.Made, ...]
     starts: tuple[str, ...]
     said: str | None = None
 
@@ -87,8 +77,8 @@ def written(
     call made."""
     with locks.held(places.locks_folder(where.state) / workspace.LOCK):
         record = tasks.read(where.state, slug)
-        found = split_records.planned(record, sheet)
-        left = split_records.missing(tasks.every(where.state), found, slug)
+        found = split_records.planned(record, sheet, tasks.every(where.state))
+        left = split_records.missing(tasks.every(where.state), found, record.task)
         slugs = tuple(part.slug for part in found)
         now = clock.now()
         record = feature_written(where, record, slugs, now)
@@ -96,27 +86,21 @@ def written(
     return found, frozenset(part.slug for part in left)
 
 
-def shown(
-    where: places.Workspace, found: tuple[parts.Part, ...], made: frozenset[str]
-) -> tuple[Made, ...]:
-    """Each part as its record is now, in the order of the headings."""
-    records = (tasks.read(where.state, part.slug).task for part in found)
-    return tuple(
-        Made(
-            slug=task.slug, status=task.status, after=task.after, made=task.slug in made
-        )
-        for task in records
-    )
+def checked(where: places.Workspace, slug: str, sheet: Sheet) -> None:
+    """Refuse the split before any branch or record, on the records as they are now."""
+    record = release.checked(where.state, slug)
+    every = tasks.every(where.state)
+    found = split_records.planned(record, sheet, every)
+    split_records.missing(every, found, record.task)
 
 
 def split(folder: Path, slug: str, path: Path) -> Split:
     """Split the feature `slug` into the parts of the criteria in `path`."""
     where = places.workspace(folder)
     sheet = texts.sheet_at(path, THE_CRITERIA)
-    found = split_records.planned(release.checked(where.state, slug), sheet)
-    split_records.missing(tasks.every(where.state), found, slug)
+    checked(where, slug, sheet)
     branch = split_branch.branched(where, slug)
-    made = shown(where, *written(where, slug, sheet))
+    made = split_shown.shown(where, *written(where, slug, sheet))
     return Split(
         feature=slug,
         branch=branch.branch,

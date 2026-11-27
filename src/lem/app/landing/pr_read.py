@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from lem.app.landing.pr_approval import approved
 from lem.model.landing import propose_criteria
+from lem.model.task import carried
 
 if TYPE_CHECKING:
     from lem.records.approvals import PersonaRead
@@ -31,11 +32,13 @@ def changes(task: Task, read: PersonaRead) -> str:
     return f"; the criteria changed {times} after the personas' read, from the owner's notes"
 
 
-def doubts(read: PersonaRead) -> str:
+def doubts(read: PersonaRead, feature: str | None = None) -> str:
     """What a read found: the criteria flagged or nobody confused, a split of the families,
-    and who did not answer."""
+    and who did not answer; the counts of a read a part took from its feature are of the
+    feature's criteria, and say so."""
     noun = "criterion" if read.criteria == 1 else "criteria"
-    said = f"{read.flagged} of {read.criteria} {noun} flagged"
+    whose = f" of {feature}" if feature else ""
+    said = f"{read.flagged} of {read.criteria} {noun}{whose} flagged"
     if not read.flagged:
         said = "nobody confused"
     if read.split:
@@ -44,13 +47,21 @@ def doubts(read: PersonaRead) -> str:
     return said + "".join(silent)
 
 
-def found(read: PersonaRead) -> str:
-    """Who read the criteria, in which families, and what they found."""
+def families_of(read: PersonaRead) -> str:
+    """The model families that answered, counted and named."""
     count = len(read.families)
     families = FAMILIES.get(count, "{0} model families").format(count)
     listed = ", ".join(read.families)
+    return f"{families} ({listed})"
+
+
+def found(read: PersonaRead, feature: str | None = None) -> str:
+    """Who read the criteria, in which families, and what they found; for a read a part took
+    from its feature at the split, with the feature named."""
     asked = f"{read.answered} of {read.asked} personas asked"
-    return f"read by {asked}, {families} ({listed}); {doubts(read)}"
+    whose = f" as part of {feature}'s criteria" if feature else ""
+    said = doubts(read, feature)
+    return f"read{whose} by {asked}, {families_of(read)}; {said}"
 
 
 def unanswered(task: Task, read: PersonaRead) -> str:
@@ -63,12 +74,13 @@ def read_line(record: Record) -> str:
     """The personas' read of the criteria and the owner's approval, as one line."""
     task = record.task
     read = propose_criteria.newest(task)
-    approval = approved(task)
+    approval = approved(task, carried.carried_from(record, carried.APPROVED))
     ending = approval or NO_WAIT
     if read is not None and not read.answered:
         return f"{unanswered(task, read)}{changes(task, read)}; {ending}"
     if read is not None:
-        said = found(read) + changes(task, read)
+        said = found(read, carried.carried_from(record, carried.READ))
+        said += changes(task, read)
         return f"- the criteria were {said}; {ending}"
     if task.criteria.skip == "yes":
         return (

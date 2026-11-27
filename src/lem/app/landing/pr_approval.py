@@ -53,11 +53,26 @@ def waited(since: Moment, end: Approval, newest: Approval) -> str:
     return f"{line}; the owner approved them {again}on {day}"
 
 
-def approved(task: Task) -> str:
-    """The wait and its answer when recorded, or the latest approval's date."""
+def of_feature(approval: Approval, feature: str) -> str:
+    """The approval a part took from its feature at the split, with the feature named."""
+    day = approval.at.date().isoformat()
+    whose = f"as part of {feature}'s criteria"
+    if approval.by == OWNER:
+        return f"the owner approved them {whose} on {day}"
+    if approval.by in HIS:
+        return f"approved {whose} on {day} while the task ran without the owner"
+    return ""
+
+
+def approved(task: Task, feature: str | None = None) -> str:
+    """The wait and its answer when recorded, or the latest approval's date; for a part
+    whose approval came from its feature at the split, that approval with the feature
+    named."""
     approvals = task.criteria.approvals
     if not approvals:
         return ""
+    if feature is not None:
+        return of_feature(approvals[-1], feature)
     wait = task.criteria.waited
     newest = approvals[-1]
     if wait is not None:
