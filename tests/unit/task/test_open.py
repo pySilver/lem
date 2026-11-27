@@ -519,3 +519,28 @@ def test_a_path_outside_the_checkout_or_a_gone_item_cannot_take_a_claim(
         assert tasks.every(where.state) == ()
     opening.opened(where.checkout, Asked(slug="gift-note", ask=absent))
     assert read(where, "gift-note").task.backlog_item is None
+
+
+@pytest.mark.parametrize(
+    ("ask", "held"),
+    [
+        ("docs/backlog/date.md", "docs/backlog/date.md"),
+        (
+            "Reject datetime start and end (docs/backlog/date.md)",
+            "docs/backlog/date.md",
+        ),
+        ("like docs/backlog/date.md and docs/backlog/time.md", None),
+        ("see docs/other/date.md", None),
+        ("fix docs/backlog/gone.md", None),
+    ],
+    ids=["path-alone", "in-words", "two-items", "not-backlog", "no-file"],
+)
+def test_the_one_tracked_backlog_item_his_words_name_is_the_tasks_item(
+    tmp_path: Path, ask: str, held: str | None
+) -> None:
+    where = workspace(tmp_path)
+    for name in ("docs/backlog/date.md", "docs/backlog/time.md", "docs/other/date.md"):
+        (where.checkout / name).parent.mkdir(parents=True, exist_ok=True)
+        (where.checkout / name).write_text("# An item\n")
+    opened(where, ask=ask)
+    assert read(where, "gift-note").task.backlog_item == held

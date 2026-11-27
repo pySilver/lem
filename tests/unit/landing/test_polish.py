@@ -3,6 +3,7 @@
 import pytest
 from msgspec.structs import replace
 
+from lem.app.landing import polish_brief
 from lem.model.landing import polish
 from lem.records.criterion import Criterion, CriterionTest
 from lem.records.landing.start import Polished
@@ -119,3 +120,11 @@ def test_polish_requires_each_commit_that_touched_the_contract_to_be_reverted() 
         refused.fix
         == "a builder reverts those commits (`git revert`), and this step runs again"
     )
+
+
+def test_the_polish_removes_a_tracked_item_and_never_a_reviewers_item_in_git() -> None:
+    assert (
+        polish_brief.tracked("docs/backlog/the-item.md") == "docs/backlog/the-item.md"
+    )
+    assert polish_brief.tracked(".lem/state/backlog/the-item.md") is None
+    assert polish_brief.tracked(None) is None

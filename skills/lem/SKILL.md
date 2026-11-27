@@ -230,6 +230,13 @@ so do the end of a command it runs in the background and a wake-up from the boar
   it, and a change that edits `.lem/settings.toml` at all, or puts the
   machine's own `.lem/settings.local.toml` into git, is careful by the landing's own rule: the file is Lem's, it says who merges and where a task lands as well
   as what is careful and what the checks run, and a task rarely edits it.
+- **A task's backlog item leaves only with the item's whole work.** A task that holds an item
+  (`backlog_item` in `lem task show SLUG`) removes it in its branch, so that the merge takes it off
+  the base and off the board, only when its approved criteria cover the item's whole run. When the
+  request names the item for other work, or the criteria leave a part of its run undone (the
+  owner narrowed it in the interview, or a criterion went), the session that approves the criteria
+  runs `lem task keep-item SLUG --why "WHAT STAYS UNDONE"` before any builder starts: the item
+  stays, the task holds it no more, and the pull request says why (`stages/land.md`, step 6).
 - **No count of tasks stops a start.** By day each start is the owner's own request: "Why block
   him?" (2026-11-18). `lem task may-start SLUG` refuses only a task that gets no lead (in
   `landing`, `open` or ended) and one queued after a task that has not landed or been answered:

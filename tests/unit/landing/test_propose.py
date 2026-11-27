@@ -194,8 +194,8 @@ def test_the_task_own_item_on_its_branch_is_refused() -> None:
     assert refusal_words(decided(record, held)) == snapshot(
         (
             "own-item",
-            "fix-the-login was started from the backlog item docs/backlog/the-item.md (its ask asked for that item's work), and the branch still holds it: the task does that item's work, so its branch removes it",
-            "a builder removes it in the task's worktree in a commit of its own (git rm -q -- docs/backlog/the-item.md, then a commit in the project's message form), then lem land checks fix-the-login and this step run again; the review that read the change still covers it",
+            "fix-the-login holds the backlog item docs/backlog/the-item.md, and the branch still holds it: the task does that item's whole work, so its branch removes it",
+            "a builder removes it in the task's worktree in a commit of its own (git rm -q -- docs/backlog/the-item.md, then a commit in the project's message form), then lem land checks fix-the-login and this step run again; the review that read the change still covers it. A task that leaves a part of the item undone: lem task keep-item fix-the-login --why WHY",
         )
     )
     assert not isinstance(decided(record, SMALL_NOTES), Refusal)

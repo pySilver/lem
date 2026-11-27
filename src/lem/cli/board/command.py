@@ -17,6 +17,7 @@ import msgspec
 
 from lem.board import boards, companion
 from lem.cli import place
+from lem.cli.board import page_copy
 from lem.kernel.errors import Refusal
 from lem.store import places
 
@@ -60,7 +61,7 @@ def run(call: Call) -> boards.Opened:
     checked(call)
     folder = place.folder()
     if call.page is not None:
-        return companion.page_opened(folder, call.page, call.name)
+        return companion.page_opened(folder, page_copy.openable(call.page), call.name)
     space = places.workspace(folder)
     if call.task is not None:
         boards.task_checked(space, call.task)

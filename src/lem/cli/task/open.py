@@ -11,7 +11,7 @@ import msgspec
 
 from lem.app.tasks import open as opening
 from lem.app.tasks.opening import Asked
-from lem.cli import listing, place
+from lem.cli import place
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -30,9 +30,10 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 
 def run(call: Call) -> opening.Opened:
-    """Open the task, and put its workspace on the machine's list."""
-    asked = msgspec.convert(call, Asked, from_attributes=True)
-    return listing.listed(opening.opened(place.folder(), asked))
+    """Open the task."""
+    return opening.opened(
+        place.folder(), msgspec.convert(call, Asked, from_attributes=True)
+    )
 
 
 COMMAND = click.Command(

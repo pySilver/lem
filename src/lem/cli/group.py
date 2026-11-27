@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import click
 
+from lem.cli import listing
 from lem.kernel.errors import Fault, Refusal
 
 if TYPE_CHECKING:
@@ -52,9 +53,16 @@ class LazyGroup(click.Group):
         return [name for name, _ in self.table]
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
-        """The command `cmd_name` names, its module imported now; None for no command."""
+        """The command `cmd_name` names, its module imported now; None for no command. A
+        command that is no group puts its repository on the machine's list first
+        (`listing.py`)."""
         path = dict(self.table).get(cmd_name)
-        return None if path is None else loaded(path)
+        if path is None:
+            return None
+        command = loaded(path)
+        if isinstance(command, click.Group):
+            return command
+        return listing.first(cmd_name, command)
 
     def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
         """Put the default verb before a first word that is no verb and no help option."""

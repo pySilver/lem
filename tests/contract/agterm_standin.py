@@ -10,7 +10,8 @@ it names as exclusive (`--workspace` with `--workspace-name`, `--after` or `--be
 anchor carries its own workspace; `--after` with `--before`; `--parent` with either; `--url`
 with `--html` or `--cwd`), with exit 64 as Swift's argument parser gives. `msg send` and `msg read`
 take no `--window`. A page to show is refused in agterm's words with exit 1 when its `--url` is
-not http or https, or its `--html` file is not inside its `--cwd`.
+not http or https, or its `--cwd` is the root or the home directory, or does not hold its
+`--html` file.
 
 A test puts its folder first on the PATH of the place it binds the adapter to, before
 `/usr/bin:/bin` alone, so that no call reaches the owner's real agterm.
@@ -174,8 +175,9 @@ def failed(error, result=None):
 
 
 # What agterm refuses of a page to show, in its words: an address that is not http or https
-# (lem.log, 2026-11-27, Lem 0.4.0), and a folder of an `--html` page that is the root or that
-# does not hold the file (agterm's reference). The exit, 1, is unmeasured: the log kept the words.
+# (lem.log, 2026-11-27, Lem 0.4.0), and a folder of an `--html` page that is the root, the home
+# directory (`cwd must not be / or the home directory`, agterm's reference) or one that does not
+# hold the file. The exit, 1, is unmeasured: the log kept the words.
 def shown(args):
     said = "agtermctl: error: session.overlay.open: "
     if "--url" in args and not value("--url").startswith(("http://", "https://")):
@@ -184,8 +186,12 @@ def shown(args):
     if "--cwd" in args and "--html" in args:
         folder = os.path.realpath(value("--cwd"))
         page = os.path.realpath(value("--html"))
-        if folder == "/" or not page.startswith(folder + "/"):
-            sys.stderr.write(said + "the file must be inside --cwd, which is not /\n")
+        home = os.path.realpath(os.environ.get("HOME") or "/")
+        if folder in ("/", home):
+            sys.stderr.write(said + "cwd must not be / or the home directory\n")
+            sys.exit(1)
+        if not page.startswith(folder + "/"):
+            sys.stderr.write(said + "the file must be inside --cwd\n")
             sys.exit(1)
 
 

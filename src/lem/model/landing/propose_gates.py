@@ -35,12 +35,12 @@ def own_item(record: Record, facts: Facts) -> Refusal | None:
         return None
     return Refusal(
         "own-item",
-        f"{slug} was started from the backlog item {own} (its ask asked for that item's "
-        "work), and the branch still holds it: the task does that item's work, so its branch "
-        "removes it",
+        f"{slug} holds the backlog item {own}, and the branch still holds it: the task does "
+        "that item's whole work, so its branch removes it",
         "a builder removes it in the task's worktree in a commit of its own (git rm -q -- "
         f"{shlex.quote(own)}, then a commit in the project's message form), then lem land checks "
-        f"{slug} and this step run again; the review that read the change still covers it",
+        f"{slug} and this step run again; the review that read the change still covers it. A "
+        f"task that leaves a part of the item undone: lem task keep-item {slug} --why WHY",
     )
 
 

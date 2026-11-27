@@ -253,6 +253,17 @@ def test_an_item_starts_as_its_stem_and_after_its_task_ended_with_2(
     assert (path, again.state) == (f"{board.base}/tasks/{stem}-2", "done")
 
 
+def test_his_words_that_name_a_tracked_item_start_a_task_that_holds_it(
+    board: Board,
+) -> None:
+    item(board, ITEM)
+    words = f"Reject datetime start and end ({ITEM})"
+    path, note = where_to(board.post("/start", {"words": words}))
+    assert note.state == "done"
+    task = read(board, path.rsplit("/", 1)[-1]).task
+    assert (task.ask, task.backlog_item) == (words, ITEM)
+
+
 def test_an_item_outside_the_backlog_or_gone_starts_nothing(board: Board) -> None:
     path, outside = where_to(board.post("/start", {"item": "README.md"}))
     assert (path, outside.state) == (f"{board.base}/backlog", "refused")

@@ -11,6 +11,10 @@ import os
 
 from lem.hooks import raw, where
 
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
 FORM = b'{"form": 1}\n'
 # What a state folder may hold and still count as empty: git's ignore file, which `lem init`
 # writes before any state.
@@ -18,6 +22,15 @@ STATE_EMPTY = frozenset((".gitignore",))
 # A marker is made only where none is, and never through a link.
 OWNER_FOLDER = 0o700
 CREATE = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+
+
+def home_of(environ: Mapping[str, str]) -> str | None:
+    """Lem's home folder, by the rule of `kernel.paths.home`; None for a relative
+    XDG_CONFIG_HOME, which each folder would read as another place."""
+    named = environ.get("XDG_CONFIG_HOME", "")
+    if not named:
+        return f"{environ.get('HOME', '')}/.config/lem"
+    return f"{named}/lem" if named.startswith("/") else None
 
 
 def own_folder(parent: str, name: str) -> str:

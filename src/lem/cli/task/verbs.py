@@ -22,6 +22,7 @@ VERBS = (
     ("may-start", "lem.cli.task.may_start"),
     ("start", "lem.cli.task.start"),
     ("build", "lem.cli.task.build"),
+    ("keep-item", "lem.cli.task.keep_item"),
 )
 
 COMMAND = LazyGroup(

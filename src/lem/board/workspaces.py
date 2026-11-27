@@ -1,13 +1,13 @@
 """The machine's list of workspaces, `workspaces.json` in Lem's home folder, and the names they
 have in the board's addresses.
 
-The list is the main checkouts the server shows, as absolute paths in the order they came. A
-board command run in a workspace puts it there, and so does each command that makes a task wait
-for this machine's server (`cli/listing.py`). A write that fails is a refusal: a workspace the
-list lacks gets no duty of the server, and nothing else would say so. A workspace's name is its
-folder's name in lower case, every character but a letter, a digit, `.`, `_` and `-` made `-`;
-two of one name are `NAME-2`, `NAME-3` in the order of the list, so that a name does not move
-while a checkout is away.
+The list is the main checkouts the server shows, as absolute paths in the order they came. Every
+command of `lem` run in a repository where Lem is set up puts its main checkout there first
+(`cli/listing.py`), and so do the board's commands. A write that fails is a refusal: a workspace
+the list lacks gets no duty of the server, and nothing else would say so. A workspace's name is
+its folder's name in lower case, every character but a letter, a digit, `.`, `_` and `-` made
+`-`; two of one name are `NAME-2`, `NAME-3` in the order of the list, so that a name does not
+move while a checkout is away.
 """
 
 import re
@@ -61,10 +61,9 @@ def noted(home: Path, folder: Path) -> places.Workspace | None:
 def changed(home: Path, path: str, *, add: bool) -> bool:
     """Put `path` on the list, or take it out; whether the list changed. Refused when the
     list cannot be written."""
-    folders.home_marked(home)
     target = home / WORKSPACES
     try:
-        with locks.held(home / LOCK):
+        with locks.held(folders.home_marked(home) / LOCK):
             before = listed(home)
             after = tuple(one for one in before if one != path)
             if add:

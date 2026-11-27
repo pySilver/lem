@@ -172,4 +172,5 @@ def test_the_leaf_loads_no_heavy_library_and_no_other_noun() -> None:
     loaded = ran.stdout.splitlines()[-1].split()
     assert [name for name in loaded if name.split(".")[0] in HEAVY] == []
     nouns = {name.split(".")[2] for name in loaded if name.startswith("lem.cli.")}
-    assert nouns <= {"doctor", "lazy", "nouns", "output", "place", "group"}, nouns
+    allowed = {"doctor", "lazy", "nouns", "output", "place", "group", "listing"}
+    assert nouns <= allowed, nouns

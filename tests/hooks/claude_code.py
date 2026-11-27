@@ -126,11 +126,11 @@ def claude_environ(environ: dict[str, str]) -> dict[str, str]:
     }
 
 
-def stand_in(folder: Path, delay: float = 0) -> tuple[Path, Path]:
+def stand_in(folder: Path, delay: float = 0, printed: str = "") -> tuple[Path, Path]:
     """A `lem-hook` in `folder` that runs this checkout's hooks as if its Python were
     `folder/bin/python`, and the `lem` beside that Python, a script that waits `delay` seconds,
     then writes its arguments and the bytes of the file its last argument names as one record in
-    the folder `calls`; the hook and `calls`.
+    the folder `calls`, and prints `printed` on its standard output; the hook and `calls`.
 
     Each call writes its record in a hidden file of its own and renames it when it is whole, so a
     reader sees whole records only. Workers the hook starts detached run at the same time, and
@@ -157,6 +157,7 @@ def stand_in(folder: Path, delay: float = 0) -> tuple[Path, Path]:
         "for last do :; done\n"
         '[ -f "$last" ] && cat "$last" >> "$part" && echo >> "$part"\n'
         f'mv "$part" \'{calls}\'/"${{part##*/.}}"\n'
+        + (f"printf '%s\\n' '{printed}'\n" if printed else "")
     )
     hook.chmod(0o755)
     lem.chmod(0o755)

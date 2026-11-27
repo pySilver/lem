@@ -173,6 +173,15 @@ def test_show_reads_one_task_and_writes_nothing(tmp_path: Path) -> None:
     assert lem("task", "show", "nothing", cwd=tmp_path).code == 1
 
 
+def test_show_names_the_backlog_item_the_task_holds(tmp_path: Path) -> None:
+    where = workspace(tmp_path)
+    made(where, SLUG, status="shaping", backlog_item="docs/backlog/gift-note.md")
+    made(where, "other", status="shaping")
+    shown = result(lem("task", "show", SLUG, cwd=tmp_path))
+    assert shown["backlog_item"] == "docs/backlog/gift-note.md"
+    assert "backlog_item" not in result(lem("task", "show", "other", cwd=tmp_path))
+
+
 def test_dir_gives_the_tasks_folder(tmp_path: Path) -> None:
     where = workspace(tmp_path)
     made(where, SLUG)

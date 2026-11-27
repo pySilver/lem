@@ -12,7 +12,7 @@ import click
 import msgspec
 
 from lem.app.landing import propose
-from lem.cli import listing, place
+from lem.cli import place
 
 if TYPE_CHECKING:
     from lem.kernel.envelope import Envelope
@@ -27,11 +27,9 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 
 def run(call: Call) -> Envelope:
-    """Push the tip and open or update the pull request, and put the workspace on the
-    machine's list, whose server merges it or looks at its merge on GitHub."""
+    """Push the tip and open or update the pull request."""
     title, notes = call.title, call.notes
-    made = propose.run(place.folder(), call.slug, title=title, notes=notes)
-    return listing.listed(made)
+    return propose.run(place.folder(), call.slug, title=title, notes=notes)
 
 
 COMMAND = click.Command(

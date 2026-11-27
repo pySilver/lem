@@ -707,6 +707,28 @@
               "count": "?"
             }
           ]
+        },
+        "keep-item": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--why": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
         }
       },
       "subcommand_required": true

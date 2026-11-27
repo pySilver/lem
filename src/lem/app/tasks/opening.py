@@ -4,6 +4,7 @@ backlog item, its night, its queue and the dropped task it goes on from."""
 import datetime as dt
 from typing import TYPE_CHECKING
 
+from lem.app.tasks import named_item
 from lem.kernel import release
 from lem.kernel.errors import Refusal
 from lem.model.task import tickets
@@ -12,7 +13,6 @@ from lem.records.base import Frozen, Moment
 from lem.records.journal.task import OwnerAct, StateNoted
 from lem.records.record import Record
 from lem.records.task import Task
-from lem.store import reviewer_items
 
 if TYPE_CHECKING:
     from lem.store.places import Workspace
@@ -67,28 +67,6 @@ def night_of(asked: Asked) -> dt.date | None:
         ) from None
 
 
-def item_of(workspace: Workspace, asked: Asked) -> str | None:
-    """The backlog item the task starts from, a path in the main checkout; refused when it
-    is gone (the owner dropped it in the meantime)."""
-    given = asked.backlog_item
-    if given:
-        named = reviewer_items.checkout_path(workspace.checkout, given)
-        if named is None:
-            raise Refusal(
-                "item-path",
-                f"the backlog item {given!r} must name a file inside {workspace.checkout}; "
-                "a tracked item cannot be a link",
-                "give --item the path to the item itself, or omit --item",
-            )
-        path = reviewer_items.relative(workspace.checkout, given) or named.as_posix()
-    else:
-        path = reviewer_items.relative(workspace.checkout, asked.ask)
-    if not path:
-        return None
-    reviewer_items.require(workspace.checkout, path)
-    return path
-
-
 def words_of(asked: Asked) -> str:
     """The owner's words, as given; refused when they are empty."""
     if not asked.ask.strip():
@@ -113,7 +91,7 @@ def fresh(
         status=status,
         since=now,
         branch=asked.branch,
-        backlog_item=item_of(workspace, asked),
+        backlog_item=named_item.item_of(workspace, asked),
         resumed_from=asked.origin,
         ticket=ticket_of(asked, kind),
         night=night,

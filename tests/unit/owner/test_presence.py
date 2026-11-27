@@ -207,7 +207,9 @@ def test_a_word_with_no_words_is_refused(tmp_path: Path) -> None:
     assert (
         refusal(lem("owner", "back", "--words", "  ", cwd=tmp_path))["code"] == "words"
     )
-    assert not home().exists()
+    # the command put the repository on the machine's list first (`cli/listing.py`); its
+    # refusal wrote no presence
+    assert not (home() / "owner.json").exists()
 
 
 def test_the_mark_is_one_json_record_of_each_change() -> None:

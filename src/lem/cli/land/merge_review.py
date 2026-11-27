@@ -11,7 +11,7 @@ import click
 import msgspec
 
 from lem.app.landing import mergeread
-from lem.cli import checks, listing, place
+from lem.cli import checks, place
 
 if TYPE_CHECKING:
     from lem.kernel.envelope import Envelope
@@ -33,10 +33,9 @@ def run(call: Call) -> Envelope:
     `--tip` and `--base` that dispatch `--dispatch` started."""
     tip, base = call.tip, call.base
     brief = (tip, base, call.dispatch) if tip and base else None
-    made = mergeread.run(
+    return mergeread.run(
         place.folder(), call.slug, call.reply, brief, no_answer=call.no_answer
     )
-    return listing.listed(made)
 
 
 def given(words: checks.Given) -> checks.Given:

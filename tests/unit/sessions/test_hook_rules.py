@@ -258,12 +258,17 @@ def test_the_server_starts_for_the_main_checkout_of_a_repository_of_lem_unless_i
     (repo / ".git").mkdir(parents=True)
     event: dict[str, object] = {"cwd": str(repo)}
     assert serve.wanted(event, {}) is None
-    (repo / ".lem" / "state").mkdir(parents=True)
+    (repo / ".lem").mkdir()
     (repo / ".lem" / "settings.toml").write_text("")
+    main = str(repo.resolve())
+    # a fresh clone: the settings git tracks, and no state folder yet
+    assert serve.wanted(event, {}) == main
+    (repo / ".lem" / "state").mkdir()
+    (repo / ".lem" / "state" / ".gitignore").write_text("*\n")
+    assert serve.wanted(event, {}) == main
     (repo / ".lem" / "state" / "events.jsonl").write_text("")
     assert serve.wanted(event, {}) is None
     (repo / ".lem" / "state" / folders.MARKER).write_bytes(folders.FORM)
-    main = str(repo.resolve())
     assert serve.wanted(event, {}) == main
     assert serve.wanted(event, {"LEM_SERVE": "off"}) is None
     assert serve.wanted({}, {"CLAUDE_PROJECT_DIR": str(repo)}) == main

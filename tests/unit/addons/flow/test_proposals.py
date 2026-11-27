@@ -12,8 +12,8 @@ import pytest
 
 from fakes.command import lem
 from lem.addons.proposals import days, dropping, heads, item_files, listing
+from lem.app.tasks import named_item, opening, taken
 from lem.app.tasks import open as task_open
-from lem.app.tasks import opening, taken
 from lem.kernel import locks
 from lem.kernel.errors import Refusal
 from lem.store import places, reviewer_items, tasks
@@ -651,7 +651,7 @@ def test_an_explicit_item_outside_the_workspace_is_refused(
         slug="do-the-lessons", ask="do the lessons", backlog_item=path
     )
     with pytest.raises(Refusal) as caught:
-        opening.item_of(where, asked)
+        named_item.item_of(where, asked)
     assert caught.value.code == "item-path"
     assert outside.is_file()
 
@@ -766,7 +766,7 @@ def test_task_open_refuses_the_path_of_an_item_the_owner_dropped(
     result(lem("proposals", "drop", path, cwd=tmp_path))
     asked = opening.Asked(slug="do-the-lessons", ask=path)
     with pytest.raises(Refusal) as caught:
-        opening.item_of(where, asked)
+        named_item.item_of(where, asked)
     assert caught.value.code == "item-gone"
 
 

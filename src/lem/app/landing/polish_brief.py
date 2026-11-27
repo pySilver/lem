@@ -2,12 +2,14 @@
 `polish.json` in the task's folder): the task's own commits, which the pass reads, and what comes
 after `before` is the pass's own."""
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import msgspec
 
 from lem.model.landing import polish
 from lem.records.base import Frozen
+from lem.store import reviewer_items
 
 if TYPE_CHECKING:
     from lem.app.landing import frame
@@ -54,6 +56,14 @@ def subject_of(sha: str, subject: str) -> str:
     return f"{short} {subject}"
 
 
+def tracked(named: str | None) -> str | None:
+    """The task's item when git tracks it: a reviewer's item under `.lem/state/backlog/` is no
+    file of the branch, and leaves after the merge (`merge_item.py`)."""
+    if named is None or reviewer_items.in_backlog(Path(named)):
+        return None
+    return named
+
+
 def brief_of(context: frame.Context, kept: Polished) -> Brief:
     """The brief of the pass that started at `kept.before`."""
     task, before = context.record.task, kept.before
@@ -70,6 +80,6 @@ def brief_of(context: frame.Context, kept: Polished) -> Brief:
         report=present(context, "report.md"),
         outside=present(context, "outside.md"),
         backlog=polish.BACKLOG,
-        started_from=task.backlog_item,
+        started_from=tracked(task.backlog_item),
         frozen=polish.frozen(context.record),
     )

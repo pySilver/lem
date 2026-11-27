@@ -56,6 +56,7 @@ class Row(Frozen, frozen=True, kw_only=True):
     night: Day | None = None
     mode: str
     ticket: TicketRow | None = None
+    backlog_item: str | None = None
     resumed_from: str | None = None
     first_line: str | None = None
     owner_careful: Moment | None = None
@@ -117,6 +118,7 @@ def row(record: Record, read: task_reads.Shown) -> Row:
         night=task.night,
         mode=task.mode,
         ticket=ticket_row(record, read),
+        backlog_item=task.backlog_item,
         resumed_from=task.resumed_from,
         owner_careful=task.owner_careful,
     )

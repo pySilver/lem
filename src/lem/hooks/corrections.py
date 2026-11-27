@@ -62,7 +62,7 @@ def machine_says_yes(environ: Mapping[str, str]) -> bool:
     folder this Lem made; anything that does not read, and the home of Lem 0.3, is a no."""
     import tomllib
 
-    home = home_of(environ)
+    home = marker.home_of(environ)
     if home is None or not marker.has(home):
         return False
     try:
@@ -70,15 +70,6 @@ def machine_says_yes(environ: Mapping[str, str]) -> bool:
     except OSError, ValueError:
         return False
     return machine_yes.said_yes(machine)
-
-
-def home_of(environ: Mapping[str, str]) -> str | None:
-    """Lem's home folder, by the rule of `kernel.paths.home`; None for a relative
-    XDG_CONFIG_HOME, which each folder would read as another place."""
-    named = environ.get("XDG_CONFIG_HOME", "")
-    if not named:
-        return f"{environ.get('HOME', '')}/.config/lem"
-    return f"{named}/lem" if named.startswith("/") else None
 
 
 def queue_of(found: raw.Event, environ: Mapping[str, str]) -> str | None:

@@ -7,8 +7,8 @@ reviews before this one (`reads`), your `inputs`, `record`, the path your record
 `attempt`, the number N that your record and your two files carry. `SKILL_DIR` is the directory
 above this file's.
 
-You get, in `inputs`, the owner's words as he gave them (`ask`), the request (`request`, a
-file), the acceptance criteria at the top of the plan (`plan`), the `range` of commits, `rules`, the command
+You get, in `inputs`, the owner's words as he gave them (`ask`; when a brief has none, they are
+the ask at the top of `request`), the request (`request`, a file), the acceptance criteria at the top of the plan (`plan`), the `range` of commits, `rules`, the command
 that prints the rule files that cover the changed files, the project's `topics`, the items the
 branch adds to the backlog (`filed`), the items of the base's backlog folder (`backlog`), the
 existing tests the change edits (`edited`), the files whose bar it lowers (`bar`), and `review`,

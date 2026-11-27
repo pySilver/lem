@@ -305,8 +305,8 @@ their own `say`, and take the landing up as after a cut-off.
    with its file and its bar call, or the one word `none`, `## Fixed on the way` and `## Seen, not filed` from the
    builder's reply when it gave those lists, and `## Migration` when it is careful. An ask that
    names a backlog item the record does not hold (`lem task show SLUG` gives no `backlog_item`)
-   asked for other work: one line of the notes, under `## Not done` on the standard track, says
-   that the item stays, and why. Every other request's have these headings, each holding what is
+   left it in the backlog: one line of the notes, under `## Not done` on the standard track, says
+   that the item stays, and why, as the journal's line of `lem task keep-item` gives it. Every other request's have these headings, each holding what is
    true of this task or the one word `none`:
    - `## Decisions`: what the record of the task's decisions does not hold, one line each: what
      came up, what was chosen, and why in a few words. The lead's call on whether the task is
@@ -376,10 +376,11 @@ their own `say`, and take the landing up as after a cut-off.
    5). After a second read with no answer the request is proposed, not green, with "the criteria
    were not read" first.
    It refuses a request whose branch still holds the task's own item (`own-item`): a task started
-   from a backlog item (its record holds the item, `backlog_item` in `lem task show SLUG`: the
-   board's "Start a task", the night, and his words that ask for the item's work, `stages/new.md`,
-   "Open the task", step 3) did that item's work, and its branch removes the item, so that the
-   merge takes it off the base and off the board. The polish pass and the fast track's builder
+   from a backlog item of `docs/backlog/` (its record holds the item, `backlog_item` in `lem task
+   show SLUG`) did that item's whole work, and its branch removes the item, so that the merge takes
+   it off the base and off the board. A task that does less of it ran `lem task keep-item` at the
+   approval of its criteria (`SKILL.md`, "A task's backlog item leaves only with the item's whole
+   work"), holds no item, and the step refuses nothing for it. The polish pass and the fast track's builder
    remove it first; when neither did, `spawn-builder` with the brief below, the job "the removal
    of the task's item", and as its path the item the refusal names. Then the checks and this step again, as
    `next` names them: the removal is a commit, which the checks run on, and the review still covers

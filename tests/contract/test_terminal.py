@@ -3,19 +3,18 @@ for `agtermctl` (`agterm_standin.py`) on a PATH of the stand-ins and the system'
 with no socket, window or session of the owner's agterm inherited."""
 
 import subprocess
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pytest
 
 from contract.agterm_standin import Standin, install
 from contract.suites.terminal import TerminalContract
 from lem.adapters import terminal_agterm
+from lem.cli.ask import temp_pages
+from lem.cli.board import page_copy
 from lem.ports.faults import Unanswered
 from lem.ports.place import Place
 from lem.ports.terminal import Opening, PickRow, Unreadable
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 HIS = {"id": "S-HIS", "name": "notes", "workspace": "W-OTHER", "active": True}
 MINE = {"id": "S-MINE", "name": "main", "workspace": "W-MINE"}
@@ -218,6 +217,37 @@ def test_a_local_page_shows_as_its_file_with_its_folder_and_never_as_a_file_addr
     assert ran.returncode == 1
     assert "--url must be an absolute http or https URL" in ran.stderr
     assert standin.sessions()[0]["pages"] == shown
+
+
+def test_a_page_in_the_home_opens_from_its_copy_in_lems_folder_of_pages(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = (tmp_path / "home").resolve()
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    standin = install(tmp_path / "agterm", [MINE])
+    place = Place(
+        checkout=standin.folder,
+        home=standin.folder / "home",
+        environ=standin.environ(HOME=str(home)),
+    )
+    terminal = terminal_agterm.bind(place)
+    page = home / "report.html"
+    page.write_text("<p>the report</p>")
+    # agterm refuses the home as the folder a page reads, as its reference says
+    with pytest.raises(Unanswered, match="cwd must not be / or the home directory"):
+        terminal.show("S-MINE", page.as_uri(), "companion")
+    copy = Path(page_copy.openable(str(page)))
+    assert copy.parent == temp_pages.folder()
+    assert copy.read_bytes() == page.read_bytes()
+    terminal.show("S-MINE", copy.as_uri(), "companion")
+    assert standin.sessions()[0]["pages"] == [
+        ["--html", str(copy), "--cwd", str(copy.parent), "--js", "--companion"]
+    ]
+    elsewhere = tmp_path / "task" / "page.html"
+    elsewhere.parent.mkdir()
+    elsewhere.write_text("<p>a page</p>")
+    assert page_copy.openable(str(elsewhere)) == str(elsewhere)
 
 
 def test_the_picker_gives_the_row_he_chose_or_none_when_he_closed_it(
