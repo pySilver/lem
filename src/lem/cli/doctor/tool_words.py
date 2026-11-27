@@ -2,9 +2,12 @@
 happens without it, the program the check looks for, the arguments that print its version, and
 the guide to install it by.
 
-The needs are the owner's: agterm, the mailbox chat and revmux stay required; cronn is required,
-and Codex is highly recommended (2026-11-18). A recommended tool is one Lem does not bring and a
-developer is better off with: its row has its guide, and Lem installs it only on his yes.
+The needs are the owner's: agterm, the mailbox chat and revmux stay required, Codex is highly
+recommended (2026-11-18), and cronn is optional, for the scheduled night and retro (2026-11-27). A
+recommended tool is one Lem does not bring and a developer is better off with: its row has its
+guide, and Lem installs it only on his yes. A program that Homebrew ships names its formula or its
+cask, which the check's one install line takes; a recipe of the cookbook names its link, which
+`/lem init` follows on the owner's `install`.
 """
 
 import msgspec
@@ -15,6 +18,11 @@ VERSION = ("--version",)
 # The guides of the recipes of the agterm cookbook that Lem needs or recommends, and never
 # copies in.
 COOKBOOK = "https://github.com/umputun/agterm/tree/master/cookbook/"
+# The recipe of the mailbox chat: its program, its skill and its hooks.
+MAILBOX_RECIPE = f"{COOKBOOK}two-agent-mailbox-chat#setup"
+# The tap of agterm, revmux and cronn. Each Homebrew name below was read with `brew info` on
+# 2026-11-27 (Homebrew 7.0.16); a full name in `brew install` needs no `brew trust` of its tap.
+APPS = "umputun/apps/"
 
 
 class Tool(msgspec.Struct, frozen=True, kw_only=True):
@@ -27,6 +35,9 @@ class Tool(msgspec.Struct, frozen=True, kw_only=True):
     program: str
     probe: tuple[str, ...] = VERSION
     guide: str | None = None
+    formula: str | None = None
+    cask: str | None = None
+    recipe: str | None = None
 
 
 GIT = Tool(
@@ -35,6 +46,7 @@ GIT = Tool(
     used_for="worktrees, branches and the task state directory",
     without_it="nothing runs",
     program="git",
+    formula="git",
 )
 REVMUX = Tool(
     name="revmux",
@@ -47,6 +59,7 @@ REVMUX = Tool(
         "must-fix, needs a round at the least, and it is not proposed"
     ),
     program="revmux",
+    cask=f"{APPS}revmux",
 )
 AGTERM = Tool(
     name="agterm",
@@ -57,6 +70,7 @@ AGTERM = Tool(
     ),
     without_it="`/lem` stops at once: Lem runs inside agterm only",
     program="agtermctl",
+    cask=f"{APPS}agterm",
 )
 # Required: a task lands only through a GitHub pull request, which `gh` opens and merges (the
 # owner's ruling "GitHub pull requests are the one way to land").
@@ -72,6 +86,7 @@ GH = Tool(
         "install the GitHub CLI and run `gh auth login`"
     ),
     program="gh",
+    formula="gh",
 )
 PLANNOTATOR_TUI = Tool(
     name="plannotator-tui",
@@ -109,6 +124,7 @@ CLAUDE = Tool(
         "nothing runs `/lem`: Claude Code is the one agent Lem has a harness file for"
     ),
     program="claude",
+    cask="claude-code",
 )
 CODEX = Tool(
     name="codex",
@@ -128,6 +144,7 @@ CODEX = Tool(
     ),
     program="codex",
     guide="https://github.com/openai/codex",
+    cask="codex",
 )
 MAILBOX = Tool(
     name="mailbox-chat",
@@ -146,17 +163,24 @@ MAILBOX = Tool(
     ),
     program="mailbox-chat.py",
     probe=(),
-    guide=f"{COOKBOOK}two-agent-mailbox-chat#setup",
+    guide=MAILBOX_RECIPE,
+    recipe=MAILBOX_RECIPE,
 )
 CRONN = Tool(
     name="cronn",
-    need=REQUIRED,
-    used_for="a scheduled retro and a night run",
+    need=OPTIONAL,
+    used_for=(
+        "the scheduled night and retro of a repository, which `/lem init` adds on the "
+        "owner's yes"
+    ),
     without_it=(
-        "no retro and no night run starts by itself, so the corrections wait unread; "
-        "install it from https://cronn.umputun.dev (a Homebrew formula and an agent that "
-        "starts at login)"
+        "nothing starts the night or the retro by itself: the owner types `/lem night` and "
+        "`/lem retro` when he wants them. `/lem init` asks whether he wants either, and only "
+        "then checks cronn: `brew install umputun/apps/cronn` installs it, and its guide "
+        "https://cronn.umputun.dev says how its agent starts at login"
     ),
     program="cronn",
     probe=(),
+    guide="https://cronn.umputun.dev",
+    formula=f"{APPS}cronn",
 )

@@ -81,10 +81,11 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
    page of step 6). No page opens before the read is in.
    Log its start, `lem criteria read SLUG start --by lem`; the
    record below is its end. The read is the persona panel's
-   "Reading acceptance criteria" mode (`load-skill`). It runs on one model family: a task's session
-   has no paired agent of the other family, and the panel never puts a one-shot agent of that
-   family in its place, so the record's `families` has one entry and the panel says that one family
-   answered. A persona agent that does not answer leaves a partial
+   "Reading acceptance criteria" mode (`load-skill`). It runs on one model family, the Claude
+   seats only: the criteria page waits for this read on every standard-track task, and a second
+   family would add a wait that nobody has measured against what it finds. So the record's
+   `families` has one entry and the panel says that one family answered. A persona agent that
+   does not answer leaves a partial
    read, which counts: the record says who did not answer and why. A read in which nobody
    answered is written down too, with `--answered 0`, no `--family` and each source in a
    `--silent`, and started once more. After a second such read in a row the criteria go on

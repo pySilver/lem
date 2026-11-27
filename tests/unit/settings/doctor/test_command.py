@@ -93,6 +93,7 @@ def test_a_machine_with_what_lem_requires_passes_with_every_row(tmp_path: Path) 
     assert not [
         row for row in rows.values() if row["need"] == "required" and not row["found"]
     ]
+    assert result["brew"] == []
     for name in (
         "mailbox-chat",
         "Lem's versions",
@@ -134,6 +135,9 @@ def test_without_git_the_check_exits_1_with_its_rows_and_the_refusal_that_names_
     assert result["ok"] is False
     names = [row["name"] for row in result["rows"]]
     assert {"git", "revmux", "claude", "cronn", "board server"} <= set(names)
+    assert list(result) == ["ok", "rows", "brew"]
+    assert result["brew"] == ["brew install git"]
+    assert "brew lines install the absent programs" in refusal["fix"]
     said = ran.stdout.lower()
     assert "question page" not in said
     assert "lem jev" not in said

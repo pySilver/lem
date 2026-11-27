@@ -2,7 +2,8 @@
 without it, its need and the guide to install it by.
 
 The recipes of the agterm cookbook that Lem needs (webrev, the backlog) are required, and each
-has the guide the developer installs it by. agdoc is recommended: no step of Lem makes its page
+has the guide the developer installs it by. A required skill with a recipe names it, and `/lem
+init` follows it on the owner's `install`. agdoc is recommended: no step of Lem makes its page
 since the merge agent's `merge-review.md` took the place of the owner's page of a task (the
 owner's ruling of 2026-11-20).
 """
@@ -10,7 +11,10 @@ owner's ruling of 2026-11-20).
 import msgspec
 
 from lem.cli.doctor.row import RECOMMENDED, REQUIRED, Need
-from lem.cli.doctor.tool_words import COOKBOOK
+from lem.cli.doctor.tool_words import COOKBOOK, MAILBOX_RECIPE
+
+# How revmux's README installs its skill for Claude Code (revmux 0.2.7, read on 2026-11-27).
+REVMUX_SKILLS = "https://github.com/umputun/revmux#agent-skills"
 
 
 class Skill(msgspec.Struct, frozen=True, kw_only=True):
@@ -21,6 +25,7 @@ class Skill(msgspec.Struct, frozen=True, kw_only=True):
     without_it: str
     need: Need = REQUIRED
     guide: str | None = None
+    recipe: str | None = None
 
 
 REVMUX = Skill(
@@ -30,9 +35,12 @@ REVMUX = Skill(
         "findings back"
     ),
     without_it=(
-        "an agent has the review tool and no instructions for it; install the skill that "
-        "comes with revmux (its README says how)"
+        "an agent has the review tool and no instructions for it; revmux's README installs "
+        "its skill as a plugin of Claude Code: `claude plugin marketplace add umputun/revmux`, "
+        "then `claude plugin install revmux@revmux`"
     ),
+    guide=REVMUX_SKILLS,
+    recipe=REVMUX_SKILLS,
 )
 WEBREV = Skill(
     name="webrev",
@@ -45,6 +53,7 @@ WEBREV = Skill(
         "from its guide"
     ),
     guide=f"{COOKBOOK}annotate-document",
+    recipe=f"{COOKBOOK}annotate-document",
 )
 AGDOC = Skill(
     name="agdoc",
@@ -68,6 +77,7 @@ BACKLOG = Skill(
         "(.claude/skills/backlog)"
     ),
     guide=f"{COOKBOOK}backlog-picker",
+    recipe=f"{COOKBOOK}backlog-picker",
 )
 MAILBOX = Skill(
     name="mailbox-chat",
@@ -76,4 +86,5 @@ MAILBOX = Skill(
         "an agent has the command and no instructions for it; the same recipe of agterm's "
         "cookbook installs the skill"
     ),
+    recipe=MAILBOX_RECIPE,
 )

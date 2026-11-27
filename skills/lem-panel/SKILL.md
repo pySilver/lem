@@ -98,9 +98,7 @@ they are, what they want, what they notice, what they never see.
 The panel's files live in one directory, `PANEL_DIR`: the folder
 `lem cast run-dir SLUG` makes and prints in `result.dir`,
 `panels/<YYYY-MM-DD>-<slug>/` in Lem's state folder (`.lem/state/` of the main checkout), which
-git never shows. A `codex exec` seat writes its answer there through `-o`. A paired Codex writes
-the Sol answers there itself, so its sandbox has to reach the main checkout: one started in another
-worktree may not, and then it replies with what stopped it, as the "Sol panel" message asks.
+git never shows. A `codex exec` seat writes its answer there through `-o`.
 
 ### 1. Evidence first
 
@@ -156,26 +154,14 @@ the answers wake you. A persona's agent reads its `person` path as `PERSONA_FILE
 words below for a panel without Codex. A persona with every seat left out gives no answer, and the
 card's persona line names it.
 
-A persona whose `seats_from` is `default` answers twice, on Opus and on Sol:
-
-- **Opus.** One subagent per persona, all in one message so they run in parallel:
-  `subagent_type: "general-purpose"`, `model: "opus"`, `run_in_background: true`, with the
-  "Opus persona" prompt from `references/messages.md`. Save each reply verbatim to
-  `PANEL_DIR/answers/<persona>.opus.md`.
-- **Sol.** One mailbox message to the paired Codex (the `mailbox-chat` skill), the "Sol panel"
-  message from `references/messages.md`. Codex spawns one `persona` subagent per persona (the
-  agent defined in `~/.codex/agents/persona.toml`: `gpt-6.1-sol` at high, read-only), saves each
-  reply verbatim to `PANEL_DIR/answers/<persona>.sol.md`, and replies with the paths. Codex caps
-  the agents open at once (four including itself on Codex 0.167, so three persona slots), so the
-  message asks for batches no larger than its free slots. The
-  subagents' replies pass through Codex's own context; in a careful task that is the
-  reviewer's, so a panel waits for the next clear boundary when it can, and otherwise the review
-  that follows is read knowing Codex saw the answers.
-
-A persona whose file names its seats answers once on each of them, with the "Opus persona" prompt,
-and each answer goes to `PANEL_DIR/answers/<persona>.<name>.md`, by the seat's `name`. Each seat
-starts the way the harness starts an expert (`ask-experts` in the `lem` skill's harness file), and
-never with a model or an effort the seat does not name:
+A persona whose `seats_from` is `default` answers on the panel's own two seats, `claude/opus` and
+`codex`, named `opus` and `sol`: the `codex` seat names no model and no effort, so Codex takes its
+own default. A persona whose file names its seats answers on each of them. Each answer, on every
+seat, takes the "Persona" prompt from `references/messages.md` and goes to
+`PANEL_DIR/answers/<persona>.<name>.md`, by the seat's `name` (`<persona>.opus.md` and
+`<persona>.sol.md` on the default seats). Each seat starts the way the harness starts an expert
+(`ask-experts` in the `lem` skill's harness file), and never with a model or an effort the seat
+does not name:
 
 - **A `claude` seat**: a subagent in the same message as the others, `subagent_type:
   "general-purpose"`, `model` the seat's model, `effort` the seat's effort, each only when the seat
@@ -188,7 +174,8 @@ never with a model or an effort the seat does not name:
   codex exec -m MODEL -c model_reasoning_effort=EFFORT -s read-only --skip-git-repo-check --ephemeral -C REPO -o PANEL_DIR/answers/PERSONA.NAME.md - < PANEL_DIR/prompts/PERSONA.NAME.md > PANEL_DIR/prompts/PERSONA.NAME.log 2>&1
   ```
 
-  It needs no paired Codex, so it runs in a lead's ladder too.
+  It needs no paired Codex, so it runs in a task's session and in a lead's ladder too. Each
+  persona is one process of its own, and its answer reaches no other agent's context.
 
 - **The practice scout**, only when `facts.md` names at least one fact. One more Opus subagent
   in the same message, `subagent_type: "general-purpose"`, `model: "opus"`,
@@ -209,10 +196,10 @@ The personas never read `facts.md` or `practice.md`, and the brief never quotes 
 that has read another team's choice can only repeat it, and its vote stops being a second view.
 Only the moderator and the challenger read them.
 
-If the paired Codex is unavailable, the default seats run on Opus alone and the card says so on its
-persona line: "one model family only; agreement between families unmeasured". It never runs Sol
-one-shot instead. The same words go on the card when every answer that came in is from one agent,
-`claude` or `codex`: a persona's own seats on one agent, or its `codex` seats left out.
+On a machine with no Codex, `lem cast` puts each `codex` seat in `left_out`: the default seats run
+on Opus alone, and the card says so on its persona line: "one model family only; agreement between
+families unmeasured". The same words go on the card when every answer that came in is from one
+agent, `claude` or `codex`: a persona's own seats on one agent, or its `codex` seats left out.
 
 ### 3. The moderator writes the card
 
@@ -263,9 +250,8 @@ Record the answer in `PANEL_DIR/answer.md`.
 
 A lead's level 2 of a decision in doubt (`stages/ladder.md` in the `lem` skill): steps 1 and 2 of
 a question, and nothing after them. The brief holds the options and their evidence and no pick
-of the lead's. Each persona answers once, so that each is one vote: a persona of the default seats
-on Opus, since a lead has no paired Codex, and a persona with its own seats on the first of its
-`seats`. No moderator, no card and no
+of the lead's. Each persona answers once, so that each is one vote: on the first of its `seats`,
+which is Opus for the default seats. No moderator, no card and no
 framing check: give the lead each answer's last lines as they are, the option the persona wants
 and how sure, and the lead counts them. An answer with no option it wants, or that says the
 question does not affect that person, is no vote, and it stops the count: it is never dropped.
@@ -279,10 +265,13 @@ whether it reads right to them before the user approves it.
 1. Write `PANEL_DIR/criteria.md`: each criterion, numbered as in the plan, without its `Test:`
    block, and for each the personas it concerns: the actor it names, plus anyone else an option
    of it changes something for. Two personas per criterion is the floor, as for a question.
-2. Run each persona on each of its seats, as in step 2 above, with the "Criteria read"
-   prompts from `references/messages.md`, saving the answers as
-   `PANEL_DIR/answers/<persona>.criteria.<name>.md` (`.criteria.opus.md` and `.criteria.sol.md`
-   on the default seats). Each one answers every
+2. Run each persona on its `claude` seats only, as in step 2 above, with the "Criteria read"
+   prompt from `references/messages.md`, saving the answers as
+   `PANEL_DIR/answers/<persona>.criteria.<name>.md` (`.criteria.opus.md` on the default seats).
+   A `codex` seat does not run in this read: its caller waits for it on every standard-track
+   task, and a second family would add a wait that nobody has measured against what it finds. A
+   persona with no `claude` seat gives no answer, and `criteria-read.md` names it. Each one
+   answers every
    criterion it concerns: is the outcome
    what they would expect, and is anything confusing, missing or wrong for them?
 3. A criterion is **flagged** when any answer says it is unexpected, confusing or wrong. Write
@@ -309,7 +298,7 @@ review informs whoever acts next, and a decision that follows from it still goes
    When the artifact is internal, the brief says what a person would meet because of it: what they
    would see, when, and how often.
 2. Run each persona on each of its seats, as in step 2 of a question, with the "Review"
-   prompts from `references/messages.md`, saving `PANEL_DIR/answers/<persona>.<name>.md`.
+   prompt from `references/messages.md`, saving `PANEL_DIR/answers/<persona>.<name>.md`.
 3. A fresh Opus subagent with the "Review moderator" prompt reads the brief and every answer and
    writes `PANEL_DIR/review.md`:
    - **What it is**, in user terms, one or two sentences.

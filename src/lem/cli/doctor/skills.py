@@ -82,4 +82,5 @@ def skill_row(look: Look, skill: Skill) -> Row:
         used_for=skill.used_for,
         without_it=skill.without_it,
         guide=skill.guide,
+        recipe=skill.recipe,
     )

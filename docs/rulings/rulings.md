@@ -60,8 +60,10 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 - **agterm, the mailbox chat and revmux stay required.** agterm is a hard dependency: Lem does not
   run outside it. agdoc and plannotator-tui are recommended, and Lem installs one only on a
   developer's yes. (2026-11-14, 2026-11-15, 2026-11-17 and 2026-11-18)
-- **cronn is required, and Codex is highly recommended.** The machine check fails without cronn and
-  `/lem init` stops for it; a scheduled job is still added only on his yes. (2026-11-18)
+- **cronn is optional, and Codex is highly recommended.** "optional, and /lem init asks only for the
+  night or the retro": the machine check does not fail without cronn, `/lem init` checks it only
+  after he wants one of them, and a scheduled job is still added only on his yes. (2026-11-18,
+  2026-11-27)
 - **Lem assumes auto mode**, in Claude Code and in Codex. (2026-11-18)
 - **Python 3.11 stays, in the modern form, until Lem brings its own Python; from that release
   Lem's code is written for 3.14.** No script has `from __future__ import annotations`, and until

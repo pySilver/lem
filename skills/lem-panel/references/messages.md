@@ -2,19 +2,15 @@
 
 Each message names files by absolute path. Fill `PANEL_DIR`, `PERSONA_FILE` (the persona's
 `person` path that `lem cast` printed: its file without the frontmatter), `PERSONA` (the
-file's stem, or the slug of a question-specific persona), `PERSONAS` (the personas whose
-`seats_from` is `default` and whose `sol` seat is not left out, each as its `person` path with its
-stem), `CAST_LAYER` (the `layer` and `source` `lem cast` printed, as
-"project (checkout)", "project (master at 1a2b3c4d5)", "user" or "built-in"), `PROFILE_PATH`
-(the `result.profile.path` that `lem cast` printed, or "none") and the two profile fields below before
-sending:
+file's stem, or the slug of a question-specific persona), `CAST_LAYER` (the `layer` and
+`source` `lem cast` printed, as "project (checkout)", "project (master at 1a2b3c4d5)", "user" or
+"built-in"), `PROFILE_PATH` (the `result.profile.path` that `lem cast` printed, or "none") and
+the profile field below before sending:
 
 - `PROFILE_READ`: with a profile, "First read PROFILE_PATH whole: it says what the project is, how
   big it is and the rules it works within. Take from it what your person would know or meet; the
   rest is background that keeps your answer true to this project." With none, "This project has no
   profile; judge from the persona and the brief alone."
-- `PROFILE_NOTE`: with a profile, "Project profile: PROFILE_PATH. " (with the trailing space).
-  With none, nothing.
 
 ## Brief check
 
@@ -31,10 +27,10 @@ You are read-only. Reply with the false sentences, each quoted, with the cite (p
 the concrete case that refutes it, or with "brief holds" when you find none.
 ```
 
-## Opus persona
+## Persona
 
-The prompt of one Opus persona subagent, and of every seat a persona's own file names. The
-"Criteria read" and "Review" prompts of Opus are used the same way.
+The prompt of one persona on one seat: a `claude` seat's subagent, or a `codex` seat's `codex
+exec`. The "Criteria read" and "Review" prompts are used the same way.
 
 ```
 You are one member of a persona panel. PROFILE_READ
@@ -54,28 +50,9 @@ sure you are: sure, leaning, or no preference. If the question turns out not to 
 in one line, so the panel learns it chose you wrongly. Reply with the whole answer and nothing else.
 ```
 
-## Sol panel
+## Criteria read
 
-The mailbox message to the paired Codex.
-
-```
-A persona panel needs the Sol half of its answers. Do not answer the question yourself.
-
-Spawn one subagent of the `persona` agent type for each persona below, in batches no larger than
-your free agent slots: spawn a batch, wait for it, write its files and close its agents, then the
-next. Give each one
-only this: "PROFILE_NOTEPersona file: <its path>. Panel brief: PANEL_DIR/brief.md." When each replies, write its
-reply verbatim to PANEL_DIR/answers/<stem>.sol.md, then close it.
-
-PERSONAS
-
-When every file is written, reply with the list of paths and nothing else. If you cannot spawn
-subagents or cannot write those files, reply with what stopped you instead.
-```
-
-## Criteria read: Opus persona
-
-The prompt of one Opus subagent reading acceptance criteria as a persona.
+The prompt of one persona on one seat, reading acceptance criteria.
 
 ```
 You are one member of a persona panel reading a plan's acceptance criteria. PROFILE_READ
@@ -90,28 +67,9 @@ are read-only: change no file. Reply with your answers, numbered as the criteria
 else.
 ```
 
-## Criteria read: Sol panel
+## Review
 
-The mailbox message to the paired Codex.
-
-```
-A persona panel needs the Sol half of a read of acceptance criteria. Do not read the criteria yourself.
-
-For each persona below, spawn one subagent of the `persona` agent type, in batches no larger than
-your free agent slots. Give each one only this: "PROFILE_NOTEPersona file: <its path>. Panel brief:
-PANEL_DIR/criteria.md. This brief holds acceptance criteria, not a question: answer every criterion that names you,
-saying whether the outcome is what you would expect and whether anything is confusing, missing or
-wrong for you, or 'reads right' with a short reason." Write each reply verbatim to
-PANEL_DIR/answers/<stem>.criteria.sol.md, then close it.
-
-PERSONAS
-
-Reply with the list of paths when every file is written, or with what stopped you.
-```
-
-## Review: Opus persona
-
-The prompt of one Opus subagent reviewing an artifact as a persona.
+The prompt of one persona on one seat, reviewing an artifact.
 
 ```
 You are one member of a persona panel reviewing something as the people it affects.
@@ -129,25 +87,6 @@ Say what you would notice because of it, and when; how much it matters to you: i
 costs you something, it annoys you, or you would not notice; and the outcome you would want, in one
 or two sentences. Say how sure you are: sure, leaning, or no view. If it does not affect you, say so
 in one line, so the panel learns it chose you wrongly. Reply with the whole answer and nothing else.
-```
-
-## Review: Sol panel
-
-The mailbox message to the paired Codex.
-
-```
-A persona panel needs the Sol half of a review. Do not review the artifact yourself.
-
-For each persona below, spawn one subagent of the `persona` agent type, in batches no larger than
-your free agent slots. Give each one only this: "PROFILE_NOTEPersona file: <its path>. Panel brief:
-PANEL_DIR/brief.md. This brief holds an artifact to review, not a question with options: say what
-you would notice because of it and when, how much it matters to you (it stops you, costs you
-something, annoys you, or you would not notice), the outcome you would want, and how sure you are."
-Write each reply verbatim to PANEL_DIR/answers/<stem>.sol.md, then close it.
-
-PERSONAS
-
-Reply with the list of paths when every file is written, or with what stopped you.
 ```
 
 ## Review moderator

@@ -89,11 +89,12 @@ with each of its lines and that one. Your report says the same. A task he named 
      the read always runs, as the only approval of this path: the owner's word to skip it belongs
      to an interview (`stages/interview.md`, step 5), and the
      landing refuses one that comes after a lead started. The read is the persona panel's "Reading
-     acceptance criteria" mode (`load-skill`), run by you while you write the rest of the plan. You
-     have no paired agent of the other family, so one family answers: the panel's own persona
-     agents, started the way the `lem-panel` skill starts a persona, never as a builder:
-     `lem-builder` has no persona among its jobs. Log its start as it starts, `lem
-     --repo WORKTREE criteria read SLUG start --by lead`. Write the
+     acceptance criteria" mode (`load-skill`), run by you while you write the rest of the plan. One
+     family answers, on the Claude seats only: the build waits for this read on every
+     standard-track task, and a second family would add a wait that nobody has measured against
+     what it finds. They are the panel's own persona agents, started the way the `lem-panel` skill
+     starts a persona, never as a builder: `lem-builder` has no persona among its jobs. Log its
+     start as it starts, `lem --repo WORKTREE criteria read SLUG start --by lead`. Write the
      read the landing reads, in the form `stages/interview.md` gives (step 5), with `--by lead`, your one family, and the `digest` field of what `lem
      --repo WORKTREE criteria digest SLUG` prints for the plan's criteria. A
      persona agent that did not answer is named in a `--silent` with why. A read in which nobody
