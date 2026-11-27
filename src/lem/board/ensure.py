@@ -23,10 +23,12 @@ from lem.board import (
 )
 from lem.board.facts import Facts, Shown
 from lem.board.halt import stopped
+from lem.board.update import swapped
 from lem.kernel import paths
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from http.client import HTTPConnection
     from pathlib import Path
 
 NO_START = "off"
@@ -93,7 +95,7 @@ def rebound(
         if stays is not None:
             return stays
         if isinstance(found, Facts) and connection is not None:
-            stopped(connection, port, found)
+            replaced(connection, port, found, home)
     return None
 
 
@@ -130,10 +132,16 @@ def managed(
                 workspaces.noted(home, folder)
             return stays
         if isinstance(found, Facts) and connection is not None:
-            stopped(connection, port, found)
+            replaced(connection, port, found, home)
     facts = start.started(port, home, environ)
     workspaces.noted(home, folder)
     return shown(facts, started=True)
+
+
+def replaced(connection: HTTPConnection, port: int, found: Facts, home: Path) -> None:
+    """Stop the replaced server and leave its release for the new server's notice."""
+    stopped(connection, port, found)
+    swapped(home, found.install.version)
 
 
 def ensure(environ: Mapping[str, str], folder: Path) -> Shown:

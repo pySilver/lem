@@ -20,6 +20,7 @@ import SheetController from './sheet.js'
 import SplitterController from './splitter.js'
 import StreamController from './stream.js'
 import TipController from './tip.js'
+import UpdateController from './update.js'
 
 export const CONTROLLERS = {
   agterm: AgtermController,
@@ -42,4 +43,5 @@ export const CONTROLLERS = {
   splitter: SplitterController,
   stream: StreamController,
   tip: TipController,
+  update: UpdateController,
 }

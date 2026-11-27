@@ -103,6 +103,10 @@ body { font-size: 14px; line-height: 1.5; }
 .bar h1 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
 .bar .sum { color: var(--dim); font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 200px; }
 .bar .meta { gap: 6px; }
+.board-update { position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 31;
+  display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px); padding: 4px 6px 4px 12px;
+  border: 1px solid var(--line-strong); border-radius: 8px; background: var(--side); color: var(--dim); }
+.board-update b { color: var(--fg); }
 .chip { font-size: 12px; padding: 1px 9px; }
 .chip .ic { font-size: 12px; }
 .btn { font-size: 13px; padding: 6px 11px; border-radius: 8px; background: var(--tile); }

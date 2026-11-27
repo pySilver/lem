@@ -3,6 +3,7 @@
 <!doctype html>
 <html lang="en"><head>{{ head('Workspaces · Lem', '/assets') }}</head>
 <body class="app"><main class="plain index"><header><b>Lem</b><span>{{ board.host }}</span><h1>Workspaces</h1><p>{{ board.ask }}</p></header>
+{% include 'update.html' %}
 <div class="workspace-list">{% for box in board.boxes %}
 <article class="workspace{% if box.waits %} you{% endif %}" id="{{ box.id }}"{% if box.title %} title="{{ box.title }}"{% endif %}>
 {% if box.href %}<a href="{{ box.href | address }}">{{ box.name }}</a>{% else %}<b>{{ box.name }}</b>{% endif %}

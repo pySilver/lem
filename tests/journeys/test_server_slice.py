@@ -284,6 +284,10 @@ def test_serve_ensure_keeps_one_server_and_another_install_replaces_it_only_when
     board = result(lem("board", "--no-open", cwd=repo, env=serving(env)))
     assert board["url"] == f"http://127.0.0.1:{port}/{first['host']}/repo/"
     assert httpx.get(board["url"]).status_code == 200
+    base = f"http://127.0.0.1:{port}"
+    notice = f"{base}/api/server/update"
+    page = {"Origin": base}
+    assert httpx.post(notice, headers=page).status_code == 204
     assert supervisor.running() == [one]
 
     same = ensured_by(make_install(tmp_path / "same", release.running()), repo, env)
@@ -295,6 +299,11 @@ def test_serve_ensure_keeps_one_server_and_another_install_replaces_it_only_when
     assert newer["install"]["package"] == str(package)
     [replacing] = supervisor.running()
     assert replacing.pid == newer["pid"] != one.pid
+    assert httpx.post(notice, headers=page).json() == {
+        "version": newer["install"]["version"],
+        "previous_version": first["install"]["version"],
+    }
+    assert httpx.post(notice, headers=page).status_code == 204
 
     left = result(lem("serve", "stop", cwd=repo, env=serving(env)))
     assert left["stopped"] is False

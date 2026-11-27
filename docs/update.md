@@ -10,8 +10,9 @@ claude plugin marketplace update lem
 claude plugin update lem@lem --scope project
 ```
 
-Then start a new session, which also replaces the board server. Update the plugin in each
-repository: one board server serves them all. `lem doctor` shows each one you missed.
+Then start a new session, which also replaces the board server. The first board page that you
+open then shows one note with the new release and the release that it replaced. Update the plugin
+in each repository: one board server serves them all. `lem doctor` shows each one you missed.
 
 - **The app and the plugin must have the same release.** When they differ, a command of Lem stops with
   one line that names the part that is behind. `lem doctor`, `lem help` and `lem version` still

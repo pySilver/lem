@@ -25,6 +25,7 @@
 {% if frame.keys %}<div class="keys" id="{{ frame.keys.id }}">{% for group in frame.keys.groups %}{% if not loop.first %} · {% endif %}<span>{% for key in group.keys %}<kbd>{{ key }}</kbd> {% endfor %}{{ group.word }}</span>{% endfor %}</div>{% endif %}
 {% include 'status.html' %}
 </div></div>
+{% include 'update.html' %}
 {% set search = frame.search %}{% include 'search.html' %}
 {{ p.sprite(symbols) }}
 </body></html>

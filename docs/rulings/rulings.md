@@ -216,6 +216,9 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 - **The board takes an answer with a note, never a conversation.** "A note with no option picked is
   refused on the board": the row stays in "Waits for you", and he asks in the session at the Mac.
   (2026-11-23)
+- **A newer install replaces the board server at once, and the board says once that Lem was
+  updated, and to which version.** The note names the release it replaced too, on the computer
+  and the phone, and he can close it (the form is the session's). (2026-11-27)
 
 ## The settings, the seats and the tracker
 
